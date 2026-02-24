@@ -1,0 +1,18 @@
+{
+  "name": "@awaitstep/web",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo 'TODO: TanStack Start build'",
+    "dev": "echo 'TODO: TanStack Start dev'",
+    "test": "vitest run --passWithNoTests",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src/"
+  },
+  "devDependencies": {
+    "@awaitstep/tsconfig": "workspace:*",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  }
+}

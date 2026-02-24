@@ -1,0 +1,27 @@
+{
+  "name": "@awaitstep/provider-cloudflare",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --passWithNoTests",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src/"
+  },
+  "devDependencies": {
+    "@awaitstep/tsconfig": "workspace:*",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  },
+  "dependencies": {
+    "@awaitstep/codegen": "workspace:*",
+    "@awaitstep/ir": "workspace:*"
+  }
+}

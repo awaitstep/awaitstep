@@ -1,0 +1,26 @@
+{
+  "name": "@awaitstep/api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "echo 'TODO: dev server'",
+    "test": "vitest run --passWithNoTests",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src/"
+  },
+  "devDependencies": {
+    "@awaitstep/tsconfig": "workspace:*",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  },
+  "dependencies": {
+    "@awaitstep/auth": "workspace:*",
+    "@awaitstep/codegen": "workspace:*",
+    "@awaitstep/db": "workspace:*",
+    "@awaitstep/ir": "workspace:*",
+    "@awaitstep/provider-cloudflare": "workspace:*",
+    "hono": "^4.12.8"
+  }
+}
