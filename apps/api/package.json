@@ -5,22 +5,32 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "dev": "echo 'TODO: dev server'",
+    "dev": "pnpm --filter @awaitstep/db db:push && tsx watch src/entry/node.ts",
+    "db:push": "pnpm --filter @awaitstep/db db:push",
     "test": "vitest run --passWithNoTests",
     "type-check": "tsc --noEmit",
     "lint": "eslint src/"
   },
   "devDependencies": {
     "@awaitstep/tsconfig": "workspace:*",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^25.5.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.0"
   },
   "dependencies": {
-    "@awaitstep/auth": "workspace:*",
     "@awaitstep/codegen": "workspace:*",
     "@awaitstep/db": "workspace:*",
     "@awaitstep/ir": "workspace:*",
     "@awaitstep/provider-cloudflare": "workspace:*",
-    "hono": "^4.12.8"
+    "@hono/node-server": "^1.19.11",
+    "@hono/zod-validator": "^0.7.6",
+    "better-auth": "^1.5.5",
+    "better-sqlite3": "^12.8.0",
+    "drizzle-orm": "^0.45.1",
+    "hono": "^4.12.8",
+    "nanoid": "^5.1.6",
+    "zod": "^4.3.6"
   }
 }

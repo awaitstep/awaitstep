@@ -13,11 +13,18 @@
     "build": "tsc",
     "test": "vitest run --passWithNoTests",
     "type-check": "tsc --noEmit",
-    "lint": "eslint src/"
+    "lint": "eslint src/",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push"
   },
   "devDependencies": {
     "@awaitstep/tsconfig": "workspace:*",
+    "drizzle-kit": "^0.31.9",
     "typescript": "^5.9.3",
     "vitest": "^4.1.0"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.1"
   }
 }

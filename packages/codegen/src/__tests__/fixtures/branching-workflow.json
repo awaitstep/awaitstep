@@ -1,0 +1,48 @@
+{
+  "metadata": {
+    "name": "branching-workflow",
+    "description": "Workflow with conditional branching",
+    "version": 1,
+    "createdAt": "2026-01-01T00:00:00Z",
+    "updatedAt": "2026-01-01T00:00:00Z"
+  },
+  "nodes": [
+    {
+      "id": "check",
+      "type": "step",
+      "name": "Check condition",
+      "position": { "x": 200, "y": 0 },
+      "code": "return { shouldNotify: Math.random() > 0.5 };"
+    },
+    {
+      "id": "branch",
+      "type": "branch",
+      "name": "Should notify?",
+      "position": { "x": 200, "y": 100 },
+      "condition": "state.shouldNotify === true"
+    },
+    {
+      "id": "notify",
+      "type": "http-request",
+      "name": "Send notification",
+      "position": { "x": 100, "y": 200 },
+      "url": "https://api.example.com/notify",
+      "method": "POST",
+      "headers": { "Content-Type": "application/json" },
+      "body": "{\"message\": \"Hello\"}"
+    },
+    {
+      "id": "skip",
+      "type": "step",
+      "name": "Skip notification",
+      "position": { "x": 300, "y": 200 },
+      "code": "return { skipped: true };"
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "check", "target": "branch" },
+    { "id": "e2", "source": "branch", "target": "notify", "label": "true" },
+    { "id": "e3", "source": "branch", "target": "skip", "label": "false" }
+  ],
+  "entryNodeId": "check"
+}

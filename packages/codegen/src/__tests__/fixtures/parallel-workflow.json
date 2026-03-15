@@ -1,0 +1,45 @@
+{
+  "metadata": {
+    "name": "parallel-workflow",
+    "description": "Workflow with parallel execution",
+    "version": 1,
+    "createdAt": "2026-01-01T00:00:00Z",
+    "updatedAt": "2026-01-01T00:00:00Z"
+  },
+  "nodes": [
+    {
+      "id": "setup",
+      "type": "step",
+      "name": "Setup",
+      "position": { "x": 200, "y": 0 },
+      "code": "return { ready: true };"
+    },
+    {
+      "id": "fork",
+      "type": "parallel",
+      "name": "Fork",
+      "position": { "x": 200, "y": 100 }
+    },
+    {
+      "id": "task_a",
+      "type": "step",
+      "name": "Task A",
+      "position": { "x": 100, "y": 200 },
+      "code": "return { a: true };"
+    },
+    {
+      "id": "task_b",
+      "type": "http-request",
+      "name": "Task B",
+      "position": { "x": 300, "y": 200 },
+      "url": "https://api.example.com/data",
+      "method": "GET"
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "setup", "target": "fork" },
+    { "id": "e2", "source": "fork", "target": "task_a" },
+    { "id": "e3", "source": "fork", "target": "task_b" }
+  ],
+  "entryNodeId": "setup"
+}

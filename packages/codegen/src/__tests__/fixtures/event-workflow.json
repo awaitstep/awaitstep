@@ -1,0 +1,38 @@
+{
+  "metadata": {
+    "name": "approval-workflow",
+    "description": "Workflow that waits for user approval",
+    "version": 1,
+    "createdAt": "2026-01-01T00:00:00Z",
+    "updatedAt": "2026-01-01T00:00:00Z"
+  },
+  "nodes": [
+    {
+      "id": "submit",
+      "type": "step",
+      "name": "Submit request",
+      "position": { "x": 0, "y": 0 },
+      "code": "return { requestId: crypto.randomUUID() };"
+    },
+    {
+      "id": "wait_approval",
+      "type": "wait-for-event",
+      "name": "Wait for approval",
+      "position": { "x": 0, "y": 100 },
+      "eventType": "user-approval",
+      "timeout": "48 hours"
+    },
+    {
+      "id": "process",
+      "type": "step",
+      "name": "Process approved request",
+      "position": { "x": 0, "y": 200 },
+      "code": "return { processed: true };"
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "submit", "target": "wait_approval" },
+    { "id": "e2", "source": "wait_approval", "target": "process" }
+  ],
+  "entryNodeId": "submit"
+}

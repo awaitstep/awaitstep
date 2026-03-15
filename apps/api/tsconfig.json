@@ -5,11 +5,11 @@
     "rootDir": "src"
   },
   "include": ["src"],
+  "exclude": ["src/__tests__", "src/entry"],
   "references": [
     { "path": "../../packages/ir" },
     { "path": "../../packages/codegen" },
     { "path": "../../packages/db" },
-    { "path": "../../packages/auth" },
     { "path": "../../packages/provider-cloudflare" }
   ]
 }

@@ -10,6 +10,9 @@
     "type-check": "tsc --noEmit",
     "lint": "eslint src/"
   },
+  "dependencies": {
+    "better-auth": "^1.5.5"
+  },
   "devDependencies": {
     "@awaitstep/tsconfig": "workspace:*",
     "typescript": "^5.9.3",

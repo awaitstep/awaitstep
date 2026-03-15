@@ -15,6 +15,7 @@
 - Use conventional commit prefixes: `feat:`, `fix:`, `refactor:`, `test:`, `chore:`, `docs:`, `ci:`.
 - Keep commits atomic — one logical change per commit. Don't mix unrelated changes.
 - When multiple files were changed, group them into logical commits with related messages rather than one big commit. For example, separate "add IR types" from "add IR validation" from "add IR tests".
+- Before committing, always present a detailed summary of what code changes were made — which files were added/modified/deleted, what each change does, and why. Wait for the user to review before running `git commit`.
 
 ## Code Quality
 
@@ -29,6 +30,7 @@
 - Packages must not have circular dependencies. Dependency flow: `ir` → `codegen` → `provider-*`. Both `db` and `auth` are standalone.
 - Every public function/type in a package must be re-exported from the package's `src/index.ts` barrel file.
 - New packages follow the existing pattern: `package.json` (with build/test/lint/type-check scripts), `tsconfig.json` (extending tooling/tsconfig), `src/index.ts`.
+- App code must be runtime-agnostic — no `process.env`, Node-specific APIs, or platform-specific code in app logic. All config is injected via dependency injection. Entry points (e.g. `serve.ts` for Node, Workers entry for CF) are the only files that read environment variables and initialize platform-specific resources (DB connections, etc.). The app factory (`createApp`) receives everything it needs as parameters.
 
 ## Testing
 
