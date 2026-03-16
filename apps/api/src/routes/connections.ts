@@ -6,8 +6,8 @@ import type { AppEnv } from '../types.js'
 import type { SelfHostedConnection } from '../app.js'
 
 const createConnectionSchema = z.object({
-  accountId: z.string().min(1).max(100),
-  apiToken: z.string().min(1),
+  provider: z.string().min(1).max(100),
+  credentials: z.record(z.string(), z.string()),
   name: z.string().min(1).max(255),
 })
 
@@ -18,7 +18,7 @@ export function createConnectionRoutes(selfHostedConnection?: SelfHostedConnecti
     const db = c.get('db')
     const userId = c.get('userId')
     const list = await db.listConnectionsByUser(userId)
-    return c.json(list.map(redactToken))
+    return c.json(list.map(redactCredentials))
   })
 
   connections.post('/', zValidator('json', createConnectionSchema), async (c) => {
@@ -28,11 +28,11 @@ export function createConnectionRoutes(selfHostedConnection?: SelfHostedConnecti
     const conn = await db.createConnection({
       id: nanoid(),
       userId,
-      accountId: body.accountId,
-      apiToken: body.apiToken,
+      provider: body.provider,
+      credentials: JSON.stringify(body.credentials),
       name: body.name,
     })
-    return c.json(redactToken(conn), 201)
+    return c.json(redactCredentials(conn), 201)
   })
 
   connections.post('/verify-token', zValidator('json', z.object({ apiToken: z.string().min(1) })), async (c) => {
@@ -69,7 +69,11 @@ export function createConnectionRoutes(selfHostedConnection?: SelfHostedConnecti
     const db = c.get('db')
     const userId = c.get('userId')
     const existing = await db.listConnectionsByUser(userId)
-    const alreadyRegistered = existing.some((conn) => conn.accountId === selfHostedConnection.accountId)
+    const alreadyRegistered = existing.some((conn) => {
+      if (conn.provider !== 'cloudflare') return false
+      const creds = JSON.parse(conn.credentials) as { accountId?: string }
+      return creds.accountId === selfHostedConnection.accountId
+    })
 
     return c.json({
       configured: true,
@@ -88,19 +92,26 @@ export function createConnectionRoutes(selfHostedConnection?: SelfHostedConnecti
     const userId = c.get('userId')
 
     const existing = await db.listConnectionsByUser(userId)
-    const alreadyRegistered = existing.find((conn) => conn.accountId === selfHostedConnection.accountId)
+    const alreadyRegistered = existing.find((conn) => {
+      if (conn.provider !== 'cloudflare') return false
+      const creds = JSON.parse(conn.credentials) as { accountId?: string }
+      return creds.accountId === selfHostedConnection.accountId
+    })
     if (alreadyRegistered) {
-      return c.json(redactToken(alreadyRegistered))
+      return c.json(redactCredentials(alreadyRegistered))
     }
 
     const conn = await db.createConnection({
       id: nanoid(),
       userId,
-      accountId: selfHostedConnection.accountId,
-      apiToken: selfHostedConnection.apiToken,
+      provider: 'cloudflare',
+      credentials: JSON.stringify({
+        accountId: selfHostedConnection.accountId,
+        apiToken: selfHostedConnection.apiToken,
+      }),
       name: selfHostedConnection.name ?? 'Self-Hosted',
     })
-    return c.json(redactToken(conn), 201)
+    return c.json(redactCredentials(conn), 201)
   })
 
   connections.delete('/:id', async (c) => {
@@ -112,6 +123,11 @@ export function createConnectionRoutes(selfHostedConnection?: SelfHostedConnecti
   return connections
 }
 
-function redactToken(conn: { apiToken: string; [key: string]: unknown }) {
-  return { ...conn, apiToken: '***' }
+function redactCredentials(conn: { credentials: string; [key: string]: unknown }) {
+  const creds = JSON.parse(conn.credentials) as Record<string, string>
+  const redacted: Record<string, string> = {}
+  for (const [key, value] of Object.entries(creds)) {
+    redacted[key] = /token|key|secret|password/i.test(key) ? '***' : value
+  }
+  return { ...conn, credentials: redacted }
 }

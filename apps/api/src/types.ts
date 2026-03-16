@@ -1,4 +1,4 @@
-import type { DatabaseAdapter, Workflow, CFConnection } from '@awaitstep/db'
+import type { DatabaseAdapter, Workflow, Connection } from '@awaitstep/db'
 
 export interface AppEnv {
   Variables: {
@@ -7,6 +7,6 @@ export interface AppEnv {
     user: { id: string; email: string; name?: string } | null
     session: { id: string; userId: string; expiresAt: Date } | null
     workflow: Workflow | undefined
-    connection: CFConnection | undefined
+    connection: Connection | undefined
   }
 }

@@ -1,10 +1,17 @@
 import type { WorkflowIR, ValidationError, Result } from '@awaitstep/ir'
 import type { GeneratedArtifact, DeployResult, ProviderConfig, WorkflowRunStatus } from './types.js'
 
+export interface CredentialsCheckResult {
+  valid: boolean
+  error?: string
+}
+
 export interface WorkflowProvider {
   readonly name: string
 
   validate(ir: WorkflowIR): Result<void, ValidationError[]>
+
+  verifyCredentials(config: ProviderConfig): Promise<CredentialsCheckResult>
 
   generate(ir: WorkflowIR): GeneratedArtifact
 

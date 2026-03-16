@@ -63,7 +63,7 @@ function DeploymentsPage() {
   const [selectedConnection, setSelectedConnection] = useState<ConnectionSummary | null>(null)
   const [progress, setProgress] = useState<DeployProgress | null>(null)
   const [deployError, setDeployError] = useState<string | null>(null)
-  const [deployResult, setDeployResult] = useState<{ deploymentId: string; url?: string } | null>(null)
+  const [deployResult, setDeployResult] = useState<{ deploymentId: string; url?: string; dashboardUrl?: string } | null>(null)
 
   const startDeploy = useCallback(async (conn: ConnectionSummary) => {
     setSelectedConnection(conn)
@@ -112,7 +112,7 @@ function DeploymentsPage() {
             }
             if (data.success !== undefined) {
               if (data.success) {
-                setDeployResult({ deploymentId: data.deploymentId, url: data.url })
+                setDeployResult({ deploymentId: data.deploymentId, url: data.url, dashboardUrl: data.dashboardUrl })
                 setPageState('success')
                 queryClient.invalidateQueries({ queryKey: ['workflow', workflowId] })
                 queryClient.invalidateQueries({ queryKey: ['deployments', workflowId] })
@@ -201,7 +201,7 @@ function DeploymentsPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <h3 className="text-sm font-semibold group-hover:text-primary">{conn.name}</h3>
-                        <p className="text-xs text-muted-foreground">{conn.accountId}</p>
+                        <p className="text-xs text-muted-foreground">{conn.credentials.accountId}</p>
                       </div>
                       <Rocket className="h-4 w-4 text-white/15 group-hover:text-primary transition-colors" />
                     </button>
@@ -275,14 +275,14 @@ function DeploymentsPage() {
                           {deployResult.url.replace('https://', '')} <ExternalLink className="h-3 w-3" />
                         </a>
                       )}
-                      {selectedConnection && (
+                      {deployResult.dashboardUrl && (
                         <a
-                          href={`https://dash.cloudflare.com/${selectedConnection.accountId}/workers/services/view/${deployResult.deploymentId}`}
+                          href={deployResult.dashboardUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-1 text-xs text-primary hover:underline"
                         >
-                          CF Dashboard <ExternalLink className="h-3 w-3" />
+                          Dashboard <ExternalLink className="h-3 w-3" />
                         </a>
                       )}
                     </div>
@@ -348,21 +348,21 @@ function DeploymentsPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span className="font-mono">{deployments[0].workerName}</span>
+                    <span className="font-mono">{deployments[0].serviceName}</span>
                     <span>{new Date(deployments[0].createdAt).toLocaleString()}</span>
                     {(() => {
                       const conn = connectionMap.get(deployments[0].connectionId)
                       return conn ? <span>{conn.name}</span> : null
                     })()}
                   </div>
-                  {deployments[0].status === 'success' && deployments[0].workerUrl && (
+                  {deployments[0].status === 'success' && deployments[0].serviceUrl && (
                     <a
-                      href={deployments[0].workerUrl}
+                      href={deployments[0].serviceUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
                     >
-                      {deployments[0].workerUrl.replace('https://', '')} <ExternalLink className="h-3 w-3" />
+                      {deployments[0].serviceUrl.replace('https://', '')} <ExternalLink className="h-3 w-3" />
                     </a>
                   )}
                 </div>
@@ -401,7 +401,7 @@ function DeploymentsPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-sm text-white/80">{d.workerName}</span>
+                            <span className="font-mono text-sm text-white/80">{d.serviceName}</span>
                             {conn && (
                               <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-white/30">
                                 {conn.name}

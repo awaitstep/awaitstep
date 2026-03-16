@@ -1,5 +1,6 @@
-export type { Workflow, WorkflowVersion, CFConnection, WorkflowRun, Deployment } from './types.js'
+export type { Workflow, WorkflowVersion, Connection, WorkflowRun, Deployment } from './types.js'
 export type { DatabaseAdapter } from './adapter.js'
+export type { TokenCrypto } from './crypto.js'
 export * as schema from './schema/index.js'
 export { DrizzleDatabaseAdapter } from './adapters/index.js'
-export type { SchemaRef } from './adapters/index.js'
+export type { SchemaRef, DrizzleAdapterOptions } from './adapters/index.js'

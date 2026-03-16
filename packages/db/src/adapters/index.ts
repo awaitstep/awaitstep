@@ -1,5 +1,6 @@
 import type { DatabaseAdapter } from '../adapter.js'
-import type { Workflow, WorkflowVersion, CFConnection, WorkflowRun, Deployment } from '../types.js'
+import type { Workflow, WorkflowVersion, Connection, WorkflowRun, Deployment } from '../types.js'
+import type { TokenCrypto } from '../crypto.js'
 import { WorkflowsAdapter } from './workflows.js'
 import { VersionsAdapter } from './versions.js'
 import { ConnectionsAdapter } from './connections.js'
@@ -9,9 +10,13 @@ import { DeploymentsAdapter } from './deployments.js'
 export interface SchemaRef {
   workflows: unknown
   workflowVersions: unknown
-  cfConnections: unknown
+  connections: unknown
   workflowRuns: unknown
   deployments: unknown
+}
+
+export interface DrizzleAdapterOptions {
+  tokenCrypto?: TokenCrypto
 }
 
 export class DrizzleDatabaseAdapter implements DatabaseAdapter {
@@ -22,10 +27,10 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _deployments: DeploymentsAdapter
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(db: any, schema: SchemaRef) {
+  constructor(db: any, schema: SchemaRef, options?: DrizzleAdapterOptions) {
     this._workflows = new WorkflowsAdapter(db, schema.workflows)
     this._versions = new VersionsAdapter(db, schema.workflowVersions)
-    this._connections = new ConnectionsAdapter(db, schema.cfConnections)
+    this._connections = new ConnectionsAdapter(db, schema.connections, options?.tokenCrypto)
     this._runs = new RunsAdapter(db, schema.workflowRuns)
     this._deployments = new DeploymentsAdapter(db, schema.deployments)
   }
@@ -56,13 +61,13 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     return this._versions.listByWorkflow(workflowId)
   }
 
-  createConnection(data: { id: string; userId: string; accountId: string; apiToken: string; name: string }): Promise<CFConnection> {
+  createConnection(data: { id: string; userId: string; provider: string; credentials: string; name: string }): Promise<Connection> {
     return this._connections.create(data)
   }
-  getConnectionById(id: string): Promise<CFConnection | null> {
+  getConnectionById(id: string): Promise<Connection | null> {
     return this._connections.getById(id)
   }
-  listConnectionsByUser(userId: string): Promise<CFConnection[]> {
+  listConnectionsByUser(userId: string): Promise<Connection[]> {
     return this._connections.listByUser(userId)
   }
   deleteConnection(id: string): Promise<void> {
@@ -82,7 +87,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     return this._runs.update(id, data)
   }
 
-  createDeployment(data: { id: string; workflowId: string; versionId: string; connectionId: string; workerName: string; workerUrl?: string; status: string; error?: string }): Promise<Deployment> {
+  createDeployment(data: { id: string; workflowId: string; versionId: string; connectionId: string; serviceName: string; serviceUrl?: string; status: string; error?: string }): Promise<Deployment> {
     return this._deployments.create(data)
   }
   listDeploymentsByWorkflow(workflowId: string): Promise<Deployment[]> {

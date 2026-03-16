@@ -14,6 +14,7 @@ export interface DeployResult {
   success: boolean
   deploymentId: string
   url?: string
+  dashboardUrl?: string
   error?: string
 }
 

@@ -156,7 +156,7 @@ CF_CONNECTION_NAME=Production  # optional`}
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
-              <p className="mt-2 truncate text-xs text-muted-foreground">{conn.accountId}</p>
+              <p className="mt-2 truncate text-xs text-muted-foreground">{conn.credentials.accountId}</p>
             </div>
           ))}
         </div>
@@ -227,7 +227,7 @@ function AddConnectionDialog({ onClose }: { onClose: () => void }) {
   })
 
   const createMutation = useMutation({
-    mutationFn: () => api.createConnection({ name, accountId, apiToken }),
+    mutationFn: () => api.createConnection({ name, provider: provider!, credentials: { accountId, apiToken } }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['connections'] })
       onClose()

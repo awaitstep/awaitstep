@@ -16,6 +16,8 @@ export interface DeployProgress {
 interface DeployResult {
   success: boolean
   deploymentId: string
+  url?: string
+  dashboardUrl?: string
   error?: string
 }
 
@@ -159,7 +161,7 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
                 <Select
                   value={connectionId}
                   onValueChange={setConnectionId}
-                  options={connections.map((c) => ({ value: c.id, label: `${c.name} (${c.accountId})` }))}
+                  options={connections.map((c) => ({ value: c.id, label: `${c.name} (${c.credentials.accountId ?? ''})` }))}
                   className="w-full"
                 />
               </div>
@@ -189,7 +191,7 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
                         ) : (
                           <XCircle className="h-3 w-3 text-red-400" />
                         )}
-                        <span className="font-mono text-[11px] text-white/50">{d.workerName}</span>
+                        <span className="font-mono text-[11px] text-white/50">{d.serviceName}</span>
                       </div>
                       <span className="text-[10px] text-white/30">
                         {new Date(d.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
@@ -263,15 +265,17 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
                     <span className="text-xs text-white/70">{selectedConnection.name}</span>
                   </div>
                 )}
-                <a
-                  href={`https://dash.cloudflare.com/${selectedConnection?.accountId ?? ''}/workers/services/view/${deployResult.deploymentId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-1 flex items-center gap-1 text-xs text-primary hover:underline"
-                >
-                  View in Cloudflare Dashboard
-                  <ExternalLink className="h-3 w-3" />
-                </a>
+                {deployResult.dashboardUrl && (
+                  <a
+                    href={deployResult.dashboardUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 flex items-center gap-1 text-xs text-primary hover:underline"
+                  >
+                    View in Dashboard
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
               </div>
             )}
 

@@ -33,10 +33,8 @@ export const resources = new Hono<AppEnv>()
 async function getResourcesAPI(db: AppEnv['Variables']['db'], userId: string, connectionId: string): Promise<CloudflareResourcesAPI | null> {
   const connection = await db.getConnectionById(connectionId)
   if (!connection || connection.userId !== userId) return null
-  return new CloudflareResourcesAPI({
-    accountId: connection.accountId,
-    apiToken: connection.apiToken,
-  })
+  const creds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
+  return new CloudflareResourcesAPI(creds)
 }
 
 // ── KV ──

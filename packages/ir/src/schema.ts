@@ -102,9 +102,39 @@ export const workflowMetadataSchema = z.object({
   updatedAt: z.string(),
 })
 
+const httpTriggerSchema = z.object({
+  type: z.literal('http'),
+  path: z.string().optional(),
+  method: z.enum(['GET', 'POST', 'PUT', 'DELETE']).optional(),
+})
+
+const cronTriggerSchema = z.object({
+  type: z.literal('cron'),
+  expression: z.string().min(1),
+})
+
+const eventTriggerSchema = z.object({
+  type: z.literal('event'),
+  eventType: z.string().min(1).max(100).regex(eventTypePattern, {
+    error: 'Event type must be alphanumeric with hyphens and underscores only',
+  }),
+})
+
+const manualTriggerSchema = z.object({
+  type: z.literal('manual'),
+})
+
+export const triggerConfigSchema = z.discriminatedUnion('type', [
+  httpTriggerSchema,
+  cronTriggerSchema,
+  eventTriggerSchema,
+  manualTriggerSchema,
+])
+
 export const workflowIRSchema = z.object({
   metadata: workflowMetadataSchema,
   nodes: z.array(workflowNodeSchema).min(1),
   edges: z.array(edgeSchema),
   entryNodeId: nodeIdSchema,
+  trigger: triggerConfigSchema.optional(),
 })

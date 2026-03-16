@@ -4,6 +4,7 @@ import { transpileToJS } from '@awaitstep/codegen/transpile'
 import { generateWorkflow } from './codegen/generate.js'
 import type {
   WorkflowProvider,
+  CredentialsCheckResult,
   GeneratedArtifact,
   DeployResult,
   ProviderConfig,
@@ -42,6 +43,18 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
     const result = validateIR(ir)
     if (!result.ok) return result
     return { ok: true, value: undefined }
+  }
+
+  async verifyCredentials(config: ProviderConfig): Promise<CredentialsCheckResult> {
+    const { accountId, apiToken } = extractCredentials(config)
+    const api = new CloudflareAPI({ accountId, apiToken })
+    try {
+      const verified = await api.verifyToken()
+      if (!verified) return { valid: false, error: 'API token is invalid or expired' }
+      return { valid: true }
+    } catch {
+      return { valid: false, error: 'Failed to verify API token with Cloudflare' }
+    }
   }
 
   generate(ir: WorkflowIR): GeneratedArtifact {
@@ -91,6 +104,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
       success: true,
       deploymentId: result.workerName,
       url: result.workerUrl,
+      dashboardUrl: `https://dash.cloudflare.com/${accountId}/workers/services/view/${result.workerName}`,
     }
   }
 
@@ -143,7 +157,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
     report('WORKER_DEPLOYED', 'Worker deployed', 80)
     report('UPDATING_WORKFLOW', 'Updating workflow configuration...', 90)
     report('COMPLETED', 'Deployment successful', 100)
-    return { success: true, deploymentId: result.workerName, url: result.workerUrl }
+    return { success: true, deploymentId: result.workerName, url: result.workerUrl, dashboardUrl: `https://dash.cloudflare.com/${accountId}/workers/services/view/${result.workerName}` }
   }
 
   async trigger(

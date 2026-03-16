@@ -96,16 +96,46 @@ export interface WorkflowMetadata {
   updatedAt: string
 }
 
+export type TriggerType = 'http' | 'cron' | 'event' | 'manual'
+
+export interface HttpTriggerConfig {
+  type: 'http'
+  path?: string
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
+}
+
+export interface CronTriggerConfig {
+  type: 'cron'
+  expression: string
+}
+
+export interface EventTriggerConfig {
+  type: 'event'
+  eventType: string
+}
+
+export interface ManualTriggerConfig {
+  type: 'manual'
+}
+
+export type TriggerConfig =
+  | HttpTriggerConfig
+  | CronTriggerConfig
+  | EventTriggerConfig
+  | ManualTriggerConfig
+
 export interface WorkflowIR {
   metadata: WorkflowMetadata
   nodes: WorkflowNode[]
   edges: Edge[]
   entryNodeId: NodeId
+  trigger?: TriggerConfig
 }
 
 export interface ValidationError {
   path: string
   message: string
+  nodeId?: NodeId
 }
 
 export type Result<T, E> = { ok: true; value: T } | { ok: false; errors: E }

@@ -5,10 +5,19 @@ export function validateIR(input: unknown): Result<WorkflowIR, ValidationError[]
   const result = workflowIRSchema.safeParse(input)
 
   if (!result.success) {
-    const errors: ValidationError[] = result.error.issues.map((issue) => ({
-      path: issue.path.join('.'),
-      message: issue.message,
-    }))
+    const rawInput = input as { nodes?: { id?: string }[] }
+    const errors: ValidationError[] = result.error.issues.map((issue) => {
+      const error: ValidationError = {
+        path: issue.path.join('.'),
+        message: issue.message,
+      }
+      // Map Zod node-level errors back to their nodeId for UI display
+      if (issue.path[0] === 'nodes' && typeof issue.path[1] === 'number') {
+        const nodeId = rawInput.nodes?.[issue.path[1]]?.id
+        if (nodeId) error.nodeId = nodeId
+      }
+      return error
+    })
     return { ok: false, errors }
   }
 
@@ -39,6 +48,7 @@ function validateStructure(ir: WorkflowIR): ValidationError[] {
       errors.push({
         path: `nodes`,
         message: `Duplicate node id "${node.id}"`,
+        nodeId: node.id,
       })
     }
     seenIds.add(node.id)
@@ -49,12 +59,14 @@ function validateStructure(ir: WorkflowIR): ValidationError[] {
       errors.push({
         path: `edges.${edge.id}.source`,
         message: `Edge source "${edge.source}" does not exist in nodes`,
+        nodeId: edge.source,
       })
     }
     if (!nodeIds.has(edge.target)) {
       errors.push({
         path: `edges.${edge.id}.target`,
         message: `Edge target "${edge.target}" does not exist in nodes`,
+        nodeId: edge.target,
       })
     }
   }
@@ -69,6 +81,7 @@ function validateStructure(ir: WorkflowIR): ValidationError[] {
     errors.push({
       path: `nodes`,
       message: `Node "${nodeId}" is not reachable from entry node`,
+      nodeId,
     })
   }
 

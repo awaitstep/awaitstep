@@ -6,7 +6,7 @@ export type {
   WorkflowRunStatus,
 } from './types.js'
 
-export type { WorkflowProvider } from './provider.js'
+export type { WorkflowProvider, CredentialsCheckResult } from './provider.js'
 export type { CodeGenerator } from './code-generator.js'
 
 export { topologicalSort, buildAdjacencyList, getEdgeLabels } from './dag.js'

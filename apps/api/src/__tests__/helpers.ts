@@ -1,11 +1,11 @@
-import type { DatabaseAdapter, Workflow, WorkflowVersion, CFConnection, WorkflowRun } from '@awaitstep/db'
+import type { DatabaseAdapter, Workflow, WorkflowVersion, Connection, WorkflowRun } from '@awaitstep/db'
 import { createApp } from '../app.js'
 import type { Auth } from '../auth/config.js'
 
 const store = {
   workflows: new Map<string, Workflow>(),
   versions: new Map<string, WorkflowVersion>(),
-  connections: new Map<string, CFConnection>(),
+  connections: new Map<string, Connection>(),
   runs: new Map<string, WorkflowRun>(),
 }
 
@@ -54,7 +54,7 @@ const mockDb: DatabaseAdapter = {
     return [...store.versions.values()].filter((v) => v.workflowId === workflowId)
   },
   async createConnection(data) {
-    const c: CFConnection = { ...data, createdAt: now(), updatedAt: now() }
+    const c: Connection = { ...data, createdAt: now(), updatedAt: now() }
     store.connections.set(c.id, c)
     return c
   },

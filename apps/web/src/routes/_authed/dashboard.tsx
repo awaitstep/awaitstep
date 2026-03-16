@@ -128,10 +128,10 @@ function DashboardPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       {wf && <span className="text-sm font-medium truncate">{wf.name}</span>}
-                      <span className="font-mono text-xs text-muted-foreground truncate">{d.workerName}</span>
+                      <span className="font-mono text-xs text-muted-foreground truncate">{d.serviceName}</span>
                     </div>
-                    {d.workerUrl && (
-                      <p className="text-xs text-muted-foreground truncate">{d.workerUrl.replace('https://', '')}</p>
+                    {d.serviceUrl && (
+                      <p className="text-xs text-muted-foreground truncate">{d.serviceUrl.replace('https://', '')}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
@@ -185,7 +185,7 @@ function DashboardPage() {
                     <p className="text-xs text-muted-foreground">Cloudflare</p>
                   </div>
                 </div>
-                <p className="mt-2 truncate text-xs text-muted-foreground">{conn.accountId}</p>
+                <p className="mt-2 truncate text-xs text-muted-foreground">{conn.credentials.accountId}</p>
               </div>
             ))}
           </div>

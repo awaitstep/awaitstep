@@ -33,6 +33,7 @@
 - Every public function/type in a package must be re-exported from the package's `src/index.ts` barrel file.
 - New packages follow the existing pattern: `package.json` (with build/test/lint/type-check scripts), `tsconfig.json` (extending tooling/tsconfig), `src/index.ts`.
 - App code must be runtime-agnostic — no `process.env`, Node-specific APIs, or platform-specific code in app logic. All config is injected via dependency injection. Entry points (e.g. `serve.ts` for Node, Workers entry for CF) are the only files that read environment variables and initialize platform-specific resources (DB connections, etc.). The app factory (`createApp`) receives everything it needs as parameters.
+- Provider-specific logic (API calls, credential checks, deploy validation) must live in `packages/provider-[name]`, never in API routes or app code. API routes call methods on the `WorkflowProvider` interface — adding a new provider should only require a new provider package.
 
 ## Testing
 

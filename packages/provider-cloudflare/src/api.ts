@@ -42,6 +42,26 @@ export class CloudflareAPI {
     this.config = config
   }
 
+  async verifyToken(): Promise<boolean> {
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+      try {
+        const res = await fetch(`${CF_API_BASE}/user/tokens/verify`, {
+          headers: { Authorization: `Bearer ${this.config.apiToken}` },
+          signal: controller.signal,
+        })
+        if (!res.ok) return false
+        const data = await res.json() as { result?: { status?: string } }
+        return data.result?.status === 'active'
+      } finally {
+        clearTimeout(timeout)
+      }
+    } catch {
+      return false
+    }
+  }
+
   async createInstance(
     workflowName: string,
     params?: unknown,

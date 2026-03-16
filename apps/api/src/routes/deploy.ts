@@ -35,20 +35,29 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
   if (!version || version.workflowId !== workflow.id) return c.json({ error: 'Version not found' }, 404)
 
   const adapter = new CloudflareWorkflowsAdapter()
-  const ir = JSON.parse(version.ir)
-  const artifact = adapter.generate(ir)
-
-  const result = await adapter.deploy(artifact, {
+  const creds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
+  const providerConfig = {
     provider: 'cloudflare-workflows',
-    credentials: {
-      accountId: connection.accountId,
-      apiToken: connection.apiToken,
-    },
+    credentials: creds,
     options: {
       workflowId: workflow.id,
       workflowName: workflow.name,
     },
-  })
+  }
+
+  const ir = JSON.parse(version.ir)
+  const validation = adapter.validate(ir)
+  if (!validation.ok) {
+    return c.json({ error: 'IR validation failed', details: validation.errors }, 400)
+  }
+
+  const credCheck = await adapter.verifyCredentials(providerConfig)
+  if (!credCheck.valid) {
+    return c.json({ error: credCheck.error }, 403)
+  }
+
+  const artifact = adapter.generate(ir)
+  const result = await adapter.deploy(artifact, providerConfig)
 
   return c.json(result, result.success ? 200 : 500)
 })
@@ -69,25 +78,35 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
   const version = await db.getVersionById(versionId)
   if (!version || version.workflowId !== workflow.id) return c.json({ error: 'Version not found' }, 404)
 
+  const adapter = new CloudflareWorkflowsAdapter()
+  const streamCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
+  const providerConfig = {
+    provider: 'cloudflare-workflows',
+    credentials: streamCreds,
+    options: {
+      workflowId: workflow.id,
+      workflowName: workflow.name,
+    },
+  }
+
+  const ir = JSON.parse(version.ir)
+  const validation = adapter.validate(ir)
+  if (!validation.ok) {
+    return c.json({ error: 'IR validation failed', details: validation.errors }, 400)
+  }
+
+  const credCheck = await adapter.verifyCredentials(providerConfig)
+  if (!credCheck.valid) {
+    return c.json({ error: credCheck.error }, 403)
+  }
+
   return streamSSE(c, async (stream) => {
-    const adapter = new CloudflareWorkflowsAdapter()
-    const ir = JSON.parse(version.ir)
     const artifact = adapter.generate(ir)
 
     let eventId = 0
     const result = await adapter.deployWithProgress(
       artifact,
-      {
-        provider: 'cloudflare-workflows',
-        credentials: {
-          accountId: connection.accountId,
-          apiToken: connection.apiToken,
-        },
-        options: {
-          workflowId: workflow.id,
-          workflowName: workflow.name,
-        },
-      },
+      providerConfig,
       async (progress) => {
         await stream.writeSSE({
           id: String(eventId++),
@@ -102,8 +121,8 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
       workflowId: workflow.id,
       versionId,
       connectionId: body.connectionId,
-      workerName: result.deploymentId || '',
-      workerUrl: result.url,
+      serviceName: result.deploymentId || '',
+      serviceUrl: result.url,
       status: result.success ? 'success' : 'failed',
       error: result.error,
     })
@@ -137,12 +156,10 @@ deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c)
   if (!connection || connection.userId !== userId) return c.json({ error: 'Connection not found' }, 404)
 
   const adapter = new CloudflareWorkflowsAdapter()
+  const triggerCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
   const config = {
     provider: 'cloudflare-workflows',
-    credentials: {
-      accountId: connection.accountId,
-      apiToken: connection.apiToken,
-    },
+    credentials: triggerCreds,
     options: {
       workflowName: workflow.name,
     },
@@ -173,10 +190,8 @@ deploy.post('/:workflowId/takedown', zValidator('json', z.object({ connectionId:
   if (!connection || connection.userId !== userId) return c.json({ error: 'Connection not found' }, 404)
 
   const name = workerName(workflow.id)
-  const result = await deleteWorker(name, {
-    accountId: connection.accountId,
-    apiToken: connection.apiToken,
-  })
+  const takedownCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
+  const result = await deleteWorker(name, takedownCreds)
 
   if (result.success) {
     await db.updateWorkflow(workflow.id, { currentVersionId: null })

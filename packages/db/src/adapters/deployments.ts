@@ -12,8 +12,8 @@ export class DeploymentsAdapter {
     workflowId: string
     versionId: string
     connectionId: string
-    workerName: string
-    workerUrl?: string
+    serviceName: string
+    serviceUrl?: string
     status: string
     error?: string
   }): Promise<Deployment> {
@@ -23,8 +23,8 @@ export class DeploymentsAdapter {
       workflowId: data.workflowId,
       versionId: data.versionId,
       connectionId: data.connectionId,
-      workerName: data.workerName,
-      workerUrl: data.workerUrl ?? null,
+      serviceName: data.serviceName,
+      serviceUrl: data.serviceUrl ?? null,
       status: data.status,
       error: data.error ?? null,
       createdAt: now,

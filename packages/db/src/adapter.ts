@@ -1,4 +1,4 @@
-import type { Workflow, WorkflowVersion, CFConnection, WorkflowRun, Deployment } from './types.js'
+import type { Workflow, WorkflowVersion, Connection, WorkflowRun, Deployment } from './types.js'
 
 export interface DatabaseAdapter {
   // Workflows
@@ -13,10 +13,10 @@ export interface DatabaseAdapter {
   getVersionById(id: string): Promise<WorkflowVersion | null>
   listVersionsByWorkflow(workflowId: string): Promise<WorkflowVersion[]>
 
-  // CF Connections
-  createConnection(data: { id: string; userId: string; accountId: string; apiToken: string; name: string }): Promise<CFConnection>
-  getConnectionById(id: string): Promise<CFConnection | null>
-  listConnectionsByUser(userId: string): Promise<CFConnection[]>
+  // Connections
+  createConnection(data: { id: string; userId: string; provider: string; credentials: string; name: string }): Promise<Connection>
+  getConnectionById(id: string): Promise<Connection | null>
+  listConnectionsByUser(userId: string): Promise<Connection[]>
   deleteConnection(id: string): Promise<void>
 
   // Workflow Runs
@@ -26,7 +26,7 @@ export interface DatabaseAdapter {
   updateRun(id: string, data: { status?: string; output?: string; error?: string }): Promise<WorkflowRun>
 
   // Deployments
-  createDeployment(data: { id: string; workflowId: string; versionId: string; connectionId: string; workerName: string; workerUrl?: string; status: string; error?: string }): Promise<Deployment>
+  createDeployment(data: { id: string; workflowId: string; versionId: string; connectionId: string; serviceName: string; serviceUrl?: string; status: string; error?: string }): Promise<Deployment>
   listDeploymentsByWorkflow(workflowId: string): Promise<Deployment[]>
   listRecentDeploymentsByUser(userId: string, limit?: number): Promise<Deployment[]>
 }

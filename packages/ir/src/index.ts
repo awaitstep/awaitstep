@@ -19,6 +19,12 @@ export type {
   Edge,
   WorkflowMetadata,
   WorkflowIR,
+  TriggerType,
+  HttpTriggerConfig,
+  CronTriggerConfig,
+  EventTriggerConfig,
+  ManualTriggerConfig,
+  TriggerConfig,
   ValidationError,
   Result,
 } from './types.js'
@@ -27,6 +33,7 @@ export {
   workflowNodeSchema,
   edgeSchema,
   workflowMetadataSchema,
+  triggerConfigSchema,
   workflowIRSchema,
 } from './schema.js'
 

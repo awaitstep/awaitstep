@@ -1,34 +1,60 @@
 import { eq, desc } from 'drizzle-orm'
-import type { CFConnection } from '../types.js'
+import type { Connection } from '../types.js'
+import type { TokenCrypto } from '../crypto.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
 
 export class ConnectionsAdapter {
-  constructor(private db: AnyTable, private table: AnyTable) {}
+  constructor(
+    private db: AnyTable,
+    private table: AnyTable,
+    private crypto?: TokenCrypto,
+  ) {}
 
-  async create(data: { id: string; userId: string; accountId: string; apiToken: string; name: string }): Promise<CFConnection> {
+  async create(data: { id: string; userId: string; provider: string; credentials: string; name: string }): Promise<Connection> {
     const now = new Date().toISOString()
+    const encryptedCredentials = this.crypto ? await this.crypto.encrypt(data.credentials) : data.credentials
     const row = {
       id: data.id,
       userId: data.userId,
-      accountId: data.accountId,
-      apiToken: data.apiToken,
+      provider: data.provider,
       name: data.name,
+      credentials: encryptedCredentials,
       createdAt: now,
       updatedAt: now,
     }
     await this.db.insert(this.table).values(row)
+    return { ...row, credentials: data.credentials }
+  }
+
+  async getById(id: string): Promise<Connection | null> {
+    const rows = await this.db.select().from(this.table).where(eq(this.table.id, id)).limit(1)
+    const row = rows[0] ?? null
+    if (row && this.crypto) {
+      row.credentials = await this.tryDecrypt(row.credentials)
+    }
     return row
   }
 
-  async getById(id: string): Promise<CFConnection | null> {
-    const rows = await this.db.select().from(this.table).where(eq(this.table.id, id)).limit(1)
-    return rows[0] ?? null
+  async listByUser(userId: string): Promise<Connection[]> {
+    const rows = await this.db.select().from(this.table).where(eq(this.table.userId, userId)).orderBy(desc(this.table.createdAt))
+    if (this.crypto) {
+      for (const row of rows) {
+        row.credentials = await this.tryDecrypt(row.credentials)
+      }
+    }
+    return rows
   }
 
-  async listByUser(userId: string): Promise<CFConnection[]> {
-    return this.db.select().from(this.table).where(eq(this.table.userId, userId)).orderBy(desc(this.table.createdAt))
+  private async tryDecrypt(value: string): Promise<string> {
+    if (!this.crypto) return value
+    try {
+      return await this.crypto.decrypt(value)
+    } catch {
+      // Credentials stored before encryption was enabled — return as-is
+      return value
+    }
   }
 
   async delete(id: string): Promise<void> {

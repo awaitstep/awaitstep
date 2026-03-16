@@ -39,8 +39,8 @@ export interface WorkflowVersion {
 export interface ConnectionSummary {
   id: string
   name: string
-  accountId: string
-  apiToken: string
+  provider: string
+  credentials: Record<string, string>
   createdAt: string
 }
 
@@ -84,7 +84,7 @@ export const api = {
     return request('/connections')
   },
 
-  createConnection(data: { name: string; accountId: string; apiToken: string }): Promise<ConnectionSummary> {
+  createConnection(data: { name: string; provider: string; credentials: Record<string, string> }): Promise<ConnectionSummary> {
     return request('/connections', { method: 'POST', body: JSON.stringify(data) })
   },
 
@@ -92,11 +92,11 @@ export const api = {
     return request(`/connections/${id}`, { method: 'DELETE' })
   },
 
-  listDeployments(workflowId: string): Promise<{ id: string; workflowId: string; versionId: string; connectionId: string; workerName: string; workerUrl: string | null; status: string; error: string | null; createdAt: string }[]> {
+  listDeployments(workflowId: string): Promise<{ id: string; workflowId: string; versionId: string; connectionId: string; serviceName: string; serviceUrl: string | null; status: string; error: string | null; createdAt: string }[]> {
     return request(`/workflows/${workflowId}/deployments`)
   },
 
-  listAllDeployments(): Promise<{ id: string; workflowId: string; versionId: string; connectionId: string; workerName: string; workerUrl: string | null; status: string; error: string | null; createdAt: string }[]> {
+  listAllDeployments(): Promise<{ id: string; workflowId: string; versionId: string; connectionId: string; serviceName: string; serviceUrl: string | null; status: string; error: string | null; createdAt: string }[]> {
     return request('/deployments')
   },
 

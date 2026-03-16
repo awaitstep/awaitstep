@@ -1,7 +1,7 @@
 import { sqliteTable, text, index } from 'drizzle-orm/sqlite-core'
 import { workflows } from './workflows.js'
 import { workflowVersions } from './versions.js'
-import { cfConnections } from './connections.js'
+import { connections } from './connections.js'
 
 export const workflowRuns = sqliteTable(
   'workflow_runs',
@@ -14,8 +14,7 @@ export const workflowRuns = sqliteTable(
       .notNull()
       .references(() => workflowVersions.id),
     connectionId: text('connection_id')
-      .notNull()
-      .references(() => cfConnections.id),
+      .references(() => connections.id, { onDelete: 'set null' }),
     instanceId: text('instance_id').notNull(),
     status: text('status').notNull().default('queued'),
     output: text('output'),
