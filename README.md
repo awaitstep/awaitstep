@@ -73,7 +73,3 @@ pnpm dev          # Start dev servers
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and guidelines.
-
-## License
-
-[MIT](LICENSE)
