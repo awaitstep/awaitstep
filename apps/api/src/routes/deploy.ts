@@ -3,7 +3,7 @@ import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
-import { CloudflareWorkflowsAdapter, deleteWorker, workerName } from '@awaitstep/provider-cloudflare'
+import { CloudflareWorkflowsAdapter, workerName } from '@awaitstep/provider-cloudflare'
 import type { AppEnv } from '../types.js'
 
 const deploySchema = z.object({
@@ -190,10 +190,15 @@ deploy.post('/:workflowId/takedown', zValidator('json', z.object({ connectionId:
   if (!connection || connection.userId !== userId) return c.json({ error: 'Connection not found' }, 404)
 
   const name = workerName(workflow.id)
-  const takedownCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
-  const result = await deleteWorker(name, takedownCreds)
+  const creds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
+  const adapter = new CloudflareWorkflowsAdapter()
+  const result = await adapter.destroy(name, {
+    provider: 'cloudflare-workflows',
+    credentials: creds,
+  })
 
   if (result.success) {
+    await db.deleteDeploymentsByWorkflow(workflow.id)
     await db.updateWorkflow(workflow.id, { currentVersionId: null })
   }
 

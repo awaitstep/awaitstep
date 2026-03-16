@@ -1,6 +1,7 @@
 import { Handle, Position, useNodeId, useEdges } from '@xyflow/react'
 import { useMemo, type ReactNode } from 'react'
 import { cn } from '../../lib/utils'
+import { useRunOverlayStore } from '../../stores/run-overlay-store'
 
 interface NodeBaseProps {
   label: string
@@ -10,9 +11,19 @@ interface NodeBaseProps {
   children?: ReactNode
 }
 
+const STATUS_STYLES: Record<string, string> = {
+  complete: 'border-emerald-500/60 shadow-[0_0_6px_rgba(16,185,129,0.2)]',
+  running: 'border-blue-500/60 shadow-[0_0_6px_rgba(59,130,246,0.2)] animate-pulse',
+  errored: 'border-red-500/60 shadow-[0_0_6px_rgba(239,68,68,0.2)]',
+  pending: 'border-white/[0.06] opacity-60',
+  skipped: 'border-white/[0.04] opacity-30',
+}
+
 export function NodeBase({ label, icon, accent, selected, children }: NodeBaseProps) {
   const nodeId = useNodeId()
   const edges = useEdges()
+  const { active: overlayActive, nodeStatuses } = useRunOverlayStore()
+  const stepStatus = nodeId ? nodeStatuses[nodeId] : undefined
 
   const hasIncoming = useMemo(() => edges.some((e) => e.target === nodeId), [edges, nodeId])
   const hasOutgoing = useMemo(() => edges.some((e) => e.source === nodeId), [edges, nodeId])
@@ -22,8 +33,18 @@ export function NodeBase({ label, icon, accent, selected, children }: NodeBasePr
       className={cn(
         'group relative w-[120px] rounded border border-white/[0.08] bg-[oklch(0.18_0_0)] shadow-[0_1px_3px_rgba(0,0,0,0.4)] transition-all duration-150',
         selected && 'border-primary/60 shadow-[0_0_0_1px_oklch(0.696_0.17_162.48/0.3),0_2px_8px_rgba(0,0,0,0.5)]',
+        overlayActive && stepStatus && !selected && STATUS_STYLES[stepStatus],
       )}
     >
+      {overlayActive && stepStatus && stepStatus !== 'pending' && stepStatus !== 'skipped' && (
+        <div className={cn(
+          'absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-[oklch(0.18_0_0)]',
+          stepStatus === 'complete' && 'bg-emerald-500',
+          stepStatus === 'running' && 'bg-blue-500 animate-pulse',
+          stepStatus === 'errored' && 'bg-red-500',
+        )} />
+      )}
+
       <Handle
         type="target"
         position={Position.Top}

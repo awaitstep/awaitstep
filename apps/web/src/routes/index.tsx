@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useSession } from '../lib/auth-client'
+import { useAuthStore } from '../stores/auth-store'
 
 export const Route = createFileRoute('/')({
   component: HomePage,
 })
 
 function HomePage() {
-  const { data: session } = useSession()
+  const user = useAuthStore((s) => s.user)
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4">
@@ -16,7 +16,7 @@ function HomePage() {
           Visual workflow builder for Cloudflare Workflows
         </p>
         <div className="mt-8">
-          {session ? (
+          {user ? (
             <Link
               to="/dashboard"
               className="rounded-lg bg-white px-6 py-3 text-sm font-medium text-zinc-900 hover:bg-zinc-200 transition-colors"

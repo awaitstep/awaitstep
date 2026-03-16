@@ -24,4 +24,6 @@ export interface WorkflowProvider {
     params: unknown,
     config: ProviderConfig,
   ): Promise<{ instanceId: string }>
+
+  destroy(deploymentId: string, config: ProviderConfig): Promise<{ success: boolean; error?: string }>
 }

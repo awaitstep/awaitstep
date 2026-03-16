@@ -41,4 +41,8 @@ export class DeploymentsAdapter {
     if (workflowIds.length === 0) return []
     return this.db.select().from(this.table).where(inArray(this.table.workflowId, workflowIds)).orderBy(desc(this.table.createdAt)).limit(limit)
   }
+
+  async deleteByWorkflow(workflowId: string): Promise<void> {
+    await this.db.delete(this.table).where(eq(this.table.workflowId, workflowId))
+  }
 }

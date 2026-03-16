@@ -115,4 +115,8 @@ export const api = {
   registerSelfHostedConnection(): Promise<ConnectionSummary> {
     return request('/connections/self-hosted', { method: 'POST' })
   },
+
+  triggerWorkflow(workflowId: string, data: { connectionId: string; params?: unknown }): Promise<{ id: string; instanceId: string; status: string }> {
+    return request(`/workflows/${workflowId}/trigger`, { method: 'POST', body: JSON.stringify(data) })
+  },
 }

@@ -29,4 +29,5 @@ export interface DatabaseAdapter {
   createDeployment(data: { id: string; workflowId: string; versionId: string; connectionId: string; serviceName: string; serviceUrl?: string; status: string; error?: string }): Promise<Deployment>
   listDeploymentsByWorkflow(workflowId: string): Promise<Deployment[]>
   listRecentDeploymentsByUser(userId: string, limit?: number): Promise<Deployment[]>
+  deleteDeploymentsByWorkflow(workflowId: string): Promise<void>
 }

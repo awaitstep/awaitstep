@@ -11,7 +11,7 @@ import type {
   WorkflowRunStatus,
   WorkflowStatus,
 } from '@awaitstep/codegen'
-import { deployWithWrangler } from './deploy.js'
+import { deployWithWrangler, deleteWorker } from './deploy.js'
 import { sanitizedWorkflowName } from './naming.js'
 import { CloudflareAPI } from './api.js'
 
@@ -186,6 +186,11 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
       output: status.output,
       error: status.error,
     }
+  }
+
+  async destroy(deploymentId: string, config: ProviderConfig): Promise<{ success: boolean; error?: string }> {
+    const { accountId, apiToken } = extractCredentials(config)
+    return deleteWorker(deploymentId, { accountId, apiToken })
   }
 }
 

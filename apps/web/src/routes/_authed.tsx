@@ -1,37 +1,61 @@
-import { createFileRoute, Outlet, Link, useMatches } from '@tanstack/react-router'
-import { useSession, signOut } from '../lib/auth-client'
+import { createFileRoute, Outlet, Link, redirect, useMatches } from '@tanstack/react-router'
+import { createServerFn } from '@tanstack/react-start'
+import { getRequestHeader, setCookie } from '@tanstack/react-start/server'
+import { useEffect } from 'react'
+import { useAuthStore, type SessionData } from '../stores/auth-store'
+import { handleSignOut } from '../lib/auth-client'
+
+const getSessionOnServer = createServerFn({ method: 'GET' }).handler(
+  async (): Promise<SessionData | null> => {
+    const cookie = getRequestHeader('cookie')
+    if (!cookie) return null
+
+    const apiBase = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
+    const res = await fetch(`${apiBase}/api/auth/get-session`, {
+      headers: { cookie },
+    })
+
+    if (!res.ok) return null
+
+    const data = await res.json()
+    return data?.session ? (data as SessionData) : null
+  },
+)
+
+const saveRedirectPath = createServerFn({ method: 'POST' })
+  .inputValidator((data: string) => data)
+  .handler(async ({ data: path }) => {
+    setCookie('auth_redirect', path, {
+      path: '/',
+      httpOnly: false,
+      maxAge: 60 * 5,
+      sameSite: 'lax',
+    })
+  })
 
 export const Route = createFileRoute('/_authed')({
+  beforeLoad: async ({ location }) => {
+    const sessionData = await getSessionOnServer()
+    if (!sessionData) {
+      await saveRedirectPath({ data: location.href })
+      throw redirect({ to: '/sign-in' })
+    }
+    return { sessionData }
+  },
   component: AuthedLayout,
 })
 
 function AuthedLayout() {
-  const { data: session, isPending } = useSession()
+  const { sessionData } = Route.useRouteContext()
+  const setSession = useAuthStore((s) => s.setSession)
   const matches = useMatches()
   const isFullScreen = matches.some(
     (m) => m.routeId === '/_authed/workflows/$workflowId/' || m.routeId === '/_authed/workflows/$workflowId/deployments',
   )
 
-  if (isPending) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-zinc-400">Loading...</div>
-      </div>
-    )
-  }
-
-  if (!session) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <p className="text-zinc-400">You need to sign in to access this page.</p>
-          <Link to="/sign-in" className="mt-4 inline-block text-sm text-white underline">
-            Sign in
-          </Link>
-        </div>
-      </div>
-    )
-  }
+  useEffect(() => {
+    setSession(sessionData)
+  }, [sessionData, setSession])
 
   if (isFullScreen) {
     return <Outlet />
@@ -45,9 +69,9 @@ function AuthedLayout() {
             AwaitStep
           </Link>
           <div className="flex items-center gap-4">
-            <span className="text-xs text-white/40">{session.user.email}</span>
+            <span className="text-xs text-white/40">{sessionData.user.email}</span>
             <button
-              onClick={() => signOut()}
+              onClick={() => handleSignOut()}
               className="text-xs text-white/30 transition-colors hover:text-white/60"
             >
               Sign out

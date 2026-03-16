@@ -1,18 +1,29 @@
-## What
+## Summary
 
-Brief description of the change.
+<!-- What does this PR do? 1-3 bullet points. -->
 
-## Why
+-
 
-Why is this change needed?
+## Changes
 
-## How
+<!-- Which packages/files were affected? What's the scope? -->
 
-How was this implemented? Any important design decisions?
+- [ ] `packages/ir`
+- [ ] `packages/codegen`
+- [ ] `packages/provider-cloudflare`
+- [ ] `packages/db`
+- [ ] `apps/api`
+- [ ] `apps/web`
 
-## Checklist
+## Test Plan
 
-- [ ] Tests added/updated
+<!-- How can this be verified? -->
+
 - [ ] `pnpm build` passes
 - [ ] `pnpm test` passes
 - [ ] `pnpm lint` passes
+- [ ] Manually tested (describe below)
+
+## Notes
+
+<!-- Anything reviewers should know? Breaking changes, follow-ups, etc. -->

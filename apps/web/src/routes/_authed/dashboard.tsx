@@ -30,6 +30,16 @@ function DashboardPage() {
   const deployedCount = workflows?.filter((w) => w.currentVersionId).length ?? 0
   const workflowMap = new Map(workflows?.map((w) => [w.id, w]) ?? [])
 
+  // Build a map of workflowId → latest deployment status
+  const latestDeployStatus = new Map<string, string>()
+  if (recentDeployments) {
+    for (const d of recentDeployments) {
+      if (!latestDeployStatus.has(d.workflowId)) {
+        latestDeployStatus.set(d.workflowId, d.status)
+      }
+    }
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-bold">Dashboard</h1>
@@ -87,16 +97,11 @@ function DashboardPage() {
                     )}
                     <div className="mt-2 flex items-center gap-2 text-[10px] text-muted-foreground">
                       <span>{new Date(wf.updatedAt).toLocaleDateString()}</span>
-                      {wf.currentVersionId && (
-                        <Link
-                          to="/workflows/$workflowId/deployments"
-                          params={{ workflowId: wf.id }}
-                          onClick={(e) => e.stopPropagation()}
-                          className="rounded bg-emerald-500/10 px-1 py-0.5 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
-                        >
-                          deployed
-                        </Link>
-                      )}
+                      <WorkflowStatusBadge
+                        workflowId={wf.id}
+                        hasVersion={!!wf.currentVersionId}
+                        deployStatus={latestDeployStatus.get(wf.id)}
+                      />
                     </div>
                   </div>
                 </div>
@@ -192,6 +197,48 @@ function DashboardPage() {
         )}
       </section>
     </div>
+  )
+}
+
+function WorkflowStatusBadge({
+  workflowId,
+  hasVersion,
+  deployStatus,
+}: {
+  workflowId: string
+  hasVersion: boolean
+  deployStatus?: string
+}) {
+  if (hasVersion && deployStatus === 'success') {
+    return (
+      <Link
+        to="/workflows/$workflowId/deployments"
+        params={{ workflowId }}
+        onClick={(e) => e.stopPropagation()}
+        className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+      >
+        deployed
+      </Link>
+    )
+  }
+
+  if (deployStatus === 'failed') {
+    return (
+      <Link
+        to="/workflows/$workflowId/deployments"
+        params={{ workflowId }}
+        onClick={(e) => e.stopPropagation()}
+        className="rounded bg-red-500/10 px-1.5 py-0.5 text-red-400 hover:bg-red-500/20 transition-colors"
+      >
+        error
+      </Link>
+    )
+  }
+
+  return (
+    <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-white/40">
+      draft
+    </span>
   )
 }
 

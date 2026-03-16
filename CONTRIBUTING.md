@@ -15,6 +15,8 @@ Thank you for your interest in contributing! This guide will help you get starte
 git clone https://github.com/awaitstep/awaitstep.dev.git
 cd awaitstep.dev
 pnpm install
+cp .env.example .env
+# Edit .env — generate TOKEN_ENCRYPTION_KEY with: openssl rand -hex 32
 pnpm build
 pnpm test
 ```
@@ -64,4 +66,4 @@ Use GitHub Issues. Include:
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the MIT License.
+By contributing, you agree that your contributions will be licensed under the Apache License 2.0.

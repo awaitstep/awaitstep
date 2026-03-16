@@ -99,4 +99,8 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     const ids = workflows.map((w) => w.id)
     return this._deployments.listByWorkflowIds(ids, limit)
   }
+
+  deleteDeploymentsByWorkflow(workflowId: string): Promise<void> {
+    return this._deployments.deleteByWorkflow(workflowId)
+  }
 }

@@ -38,3 +38,6 @@ coverage/
 
 #DB
 awaitstep.db*
+
+# Plan
+plan/

@@ -47,6 +47,11 @@
 - Use JSDoc only on public API surfaces (exported functions/types), not on internal helpers.
 - Prefer self-documenting code (clear names, small functions) over comments explaining what code does.
 
+## Planning
+
+- Always write plan output (implementation plans, audit reports, task breakdowns) to the `./plan/` directory as markdown files.
+- Name plan files descriptively (e.g., `phase-1-audit.md`, `refactor-connections.md`).
+
 ## File Organization
 
 - Don't create utility grab-bag files (`utils.ts`, `helpers.ts`). Place functions in domain-specific modules.

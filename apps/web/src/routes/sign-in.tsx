@@ -1,4 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createServerFn } from '@tanstack/react-start'
+import { getCookie, getRequestHeader, deleteCookie } from '@tanstack/react-start/server'
 import { useState } from 'react'
 import { Mail, Github } from 'lucide-react'
 import { authClient } from '../lib/auth-client'
@@ -7,18 +9,51 @@ import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Separator } from '../components/ui/separator'
 
+const getSignInContext = createServerFn({ method: 'GET' }).handler(
+  async (): Promise<{ authenticated: boolean; redirectPath: string | null }> => {
+    const redirectPath = getCookie('auth_redirect') ?? null
+
+    const cookie = getRequestHeader('cookie')
+    if (!cookie) return { authenticated: false, redirectPath }
+
+    const apiBase = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
+    const res = await fetch(`${apiBase}/api/auth/get-session`, {
+      headers: { cookie },
+    })
+
+    if (!res.ok) return { authenticated: false, redirectPath }
+
+    const data = await res.json()
+    if (!data?.session) return { authenticated: false, redirectPath }
+
+    // Authenticated — clean up the cookie before redirecting
+    if (redirectPath) {
+      deleteCookie('auth_redirect', { path: '/' })
+    }
+    return { authenticated: true, redirectPath }
+  },
+)
+
 export const Route = createFileRoute('/sign-in')({
+  beforeLoad: async () => {
+    const { authenticated, redirectPath } = await getSignInContext()
+    if (authenticated) {
+      throw redirect({ href: redirectPath || '/dashboard' })
+    }
+    return { redirectPath }
+  },
   component: SignInPage,
 })
 
 function SignInPage() {
+  const { redirectPath } = Route.useRouteContext()
   const [email, setEmail] = useState('')
   const [magicLinkSent, setMagicLinkSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const appURL = import.meta.env.VITE_APP_URL ?? 'http://localhost:3000'
-  const callbackURL = `${appURL}/dashboard`
+  const callbackURL = redirectPath ? `${appURL}${redirectPath}` : `${appURL}/dashboard`
   const errorCallbackURL = `${appURL}/sign-in?error=true`
 
   const handleMagicLink = async (e: React.FormEvent) => {

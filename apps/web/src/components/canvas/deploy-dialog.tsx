@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { Loader2, CheckCircle2, XCircle, Rocket, ExternalLink, Clock } from 'lucide-react'
+import { Loader2, CheckCircle2, XCircle, Rocket, ExternalLink, Clock, Copy, Check } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Select } from '../ui/select'
 import { cn } from '../../lib/utils'
@@ -49,6 +49,7 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
   const [error, setError] = useState<string | null>(null)
   const [connectionId, setConnectionId] = useState('')
   const [deployResult, setDeployResult] = useState<DeployResult | null>(null)
+  const [curlCopied, setCurlCopied] = useState(false)
 
   const { data: connections } = useQuery({
     queryKey: ['connections'],
@@ -276,6 +277,28 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
                     <ExternalLink className="h-3 w-3" />
                   </a>
                 )}
+              </div>
+            )}
+
+            {deployResult?.url && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-white/40">Trigger</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`curl -X POST ${deployResult.url}`)
+                      setCurlCopied(true)
+                      setTimeout(() => setCurlCopied(false), 2000)
+                    }}
+                    className="flex items-center gap-1 text-[10px] text-white/30 hover:text-white/50"
+                  >
+                    {curlCopied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                    {curlCopied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+                <pre className="overflow-x-auto rounded-lg border border-white/[0.06] bg-white/[0.02] p-2 text-[11px] text-white/50">
+                  {`curl -X POST ${deployResult.url}`}
+                </pre>
               </div>
             )}
 
