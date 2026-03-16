@@ -15,6 +15,19 @@ export interface CFInstanceStatus {
   error?: { name: string; message: string }
 }
 
+export interface CFInstanceListItem {
+  id: string
+  status: string
+  created_on: string
+  modified_on: string
+}
+
+export interface CFListInstancesOptions {
+  page?: number
+  per_page?: number
+  status?: string
+}
+
 function validatePathSegment(value: string, name: string): void {
   if (!SAFE_PATH_SEGMENT.test(value)) {
     throw new Error(`Invalid ${name}: must be alphanumeric with hyphens/underscores only`)
@@ -98,6 +111,23 @@ export class CloudflareAPI {
       `/accounts/${this.config.accountId}/workflows/${workflowName}/instances/${instanceId}/status`,
       { status: 'terminate' },
     )
+  }
+
+  async listInstances(
+    workflowName: string,
+    options?: CFListInstancesOptions,
+  ): Promise<CFInstanceListItem[]> {
+    validatePathSegment(workflowName, 'workflowName')
+
+    const params = new URLSearchParams()
+    if (options?.page) params.set('page', String(options.page))
+    if (options?.per_page) params.set('per_page', String(options.per_page))
+    if (options?.status) params.set('status', options.status)
+
+    const qs = params.toString()
+    const path = `/accounts/${this.config.accountId}/workflows/${workflowName}/instances${qs ? `?${qs}` : ''}`
+    const response = await this.request('GET', path)
+    return response.result as CFInstanceListItem[]
   }
 
   private async request(

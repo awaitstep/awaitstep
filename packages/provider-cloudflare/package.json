@@ -7,10 +7,15 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./codegen": {
+      "types": "./dist/codegen/generate.d.ts",
+      "import": "./dist/codegen/generate.js"
     }
   },
   "scripts": {
     "build": "tsc",
+    "dev": "tsc --watch --preserveWatchOutput",
     "test": "vitest run --passWithNoTests",
     "type-check": "tsc --noEmit",
     "lint": "eslint src/"
@@ -19,7 +24,8 @@
     "@awaitstep/tsconfig": "workspace:*",
     "@types/node": "^25.5.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.0"
+    "vitest": "^4.1.0",
+    "wrangler": "4.73.0"
   },
   "dependencies": {
     "@awaitstep/codegen": "workspace:*",

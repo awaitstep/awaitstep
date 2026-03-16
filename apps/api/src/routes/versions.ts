@@ -3,12 +3,11 @@ import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { validateIR, workflowIRSchema } from '@awaitstep/ir'
-import { generateWorkflow } from '@awaitstep/codegen'
+import { generateWorkflow } from '@awaitstep/provider-cloudflare'
 import type { WorkflowIR } from '@awaitstep/ir'
 import type { AppEnv } from '../types.js'
 
 const createVersionSchema = z.object({
-  version: z.number().int().min(1),
   ir: workflowIRSchema,
 })
 
@@ -44,10 +43,15 @@ versions.post(
 
     const generatedCode = generateWorkflow(body.ir as WorkflowIR)
 
+    const existing = await db.listVersionsByWorkflow(workflowId)
+    const nextVersion = existing.length > 0
+      ? Math.max(...existing.map((v) => v.version)) + 1
+      : 1
+
     const version = await db.createVersion({
       id: nanoid(),
       workflowId,
-      version: body.version,
+      version: nextVersion,
       ir: JSON.stringify(body.ir),
       generatedCode,
     })

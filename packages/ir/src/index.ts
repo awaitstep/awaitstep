@@ -9,6 +9,7 @@ export type {
   StepNode,
   SleepNode,
   SleepUntilNode,
+  BranchCondition,
   BranchNode,
   ParallelNode,
   HttpRequestNode,
@@ -31,3 +32,10 @@ export {
 
 export { validateIR } from './validate.js'
 export { serializeIR, deserializeIR } from './serialize.js'
+export {
+  parseExpressions,
+  resolveExpressions,
+  validateExpressionRefs,
+  type ParsedExpression,
+  type ExpressionValidationError,
+} from './expressions.js'

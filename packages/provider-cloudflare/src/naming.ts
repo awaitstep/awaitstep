@@ -12,6 +12,20 @@ export function workerName(workflowId: string): string {
   return `awaitstep-${sanitized}`
 }
 
+export function sanitizedWorkflowName(workflowName: string): string {
+  const sanitized = workflowName
+    .replace(/[^a-zA-Z0-9_-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 64)
+
+  if (!sanitized || /^[^a-zA-Z0-9_]/.test(sanitized)) {
+    return `wf-${sanitized}`.slice(0, 64)
+  }
+
+  return sanitized
+}
+
 export function workflowClassName(workflowName: string): string {
   const result = workflowName
     .replace(/[^a-zA-Z0-9_]/g, '_')

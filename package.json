@@ -7,19 +7,23 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "test": "turbo run test",
+    "build": "dotenv -- turbo run build",
+    "dev": "dotenv -- turbo run dev",
+    "test": "dotenv -- turbo run test",
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",
+    "db:generate": "dotenv -- pnpm --filter @awaitstep/db db:generate",
+    "db:migrate": "dotenv -- pnpm --filter @awaitstep/db db:migrate",
+    "db:push": "dotenv -- pnpm --filter @awaitstep/db db:push",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
   "devDependencies": {
-    "turbo": "^2.8.17",
-    "prettier": "^3.8.1",
     "@eslint/js": "^10.0.1",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^10.0.3",
+    "prettier": "^3.8.1",
+    "turbo": "^2.8.17",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.0"
   }

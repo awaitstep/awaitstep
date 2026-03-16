@@ -4,11 +4,18 @@ import type { AppEnv } from './types.js'
 import type { Auth } from './auth/config.js'
 import { createRouter } from './routes/index.js'
 
+export interface SelfHostedConnection {
+  accountId: string
+  apiToken: string
+  name?: string
+}
+
 export interface AppDeps {
   db: AppEnv['Variables']['db']
   auth: Auth
   corsOrigin?: string | string[]
   isDev?: boolean
+  selfHostedConnection?: SelfHostedConnection
 }
 
 export function createApp(deps: AppDeps) {
@@ -17,12 +24,7 @@ export function createApp(deps: AppDeps) {
   // Health check — no auth, no CORS
   app.get('/health', (c) => c.json({ status: 'ok' }))
 
-  // Better-auth handler — mounted before CORS/auth middleware
-  app.on(['POST', 'GET'], '/api/auth/*', (c) => {
-    return deps.auth.handler(c.req.raw)
-  })
-
-  // CORS
+  // CORS — must be before auth handler so preflight and response headers apply
   app.use(
     '/api/*',
     cors({
@@ -33,6 +35,11 @@ export function createApp(deps: AppDeps) {
     }),
   )
 
+  // Better-auth handler
+  app.on(['POST', 'GET'], '/api/auth/*', (c) => {
+    return deps.auth.handler(c.req.raw)
+  })
+
   // DB context
   app.use('/api/*', async (c, next) => {
     c.set('db', deps.db)
@@ -40,7 +47,7 @@ export function createApp(deps: AppDeps) {
   })
 
   // Routes (auth + ownership middleware registered inside)
-  app.route('/api', createRouter(deps.auth))
+  app.route('/api', createRouter(deps.auth, deps.selfHostedConnection))
 
   // Error handler
   app.onError((err, c) => {

@@ -51,7 +51,14 @@ const auth = createAuth({
 })
 
 const corsOrigin = process.env['CORS_ORIGIN'] ?? 'http://localhost:3000'
-const app = createApp({ db, auth, corsOrigin, isDev })
+const selfHostedConnection = process.env['CF_API_TOKEN'] && process.env['CF_ACCOUNT_ID']
+  ? {
+      accountId: process.env['CF_ACCOUNT_ID'],
+      apiToken: process.env['CF_API_TOKEN'],
+      name: process.env['CF_CONNECTION_NAME'] ?? 'Self-Hosted',
+    }
+  : undefined
+const app = createApp({ db, auth, corsOrigin, isDev, selfHostedConnection })
 
 const port = Number(process.env['PORT'] ?? 3001)
 console.log(`API server running on http://localhost:${port}`)

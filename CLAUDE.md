@@ -11,6 +11,8 @@
 
 ## Git
 
+- Before starting a new planned task, check for a clean worktree (`git status`). If there are uncommitted changes, commit or stash them before proceeding.
+- Always create a new branch for each planned task. Branch name should relate to the task (e.g., `feat/add-env-type-to-codegen`, `fix/duplicate-workflow-runs`). Never work directly on `main`.
 - Never include a "Co-Authored-By" line in commit messages.
 - Use conventional commit prefixes: `feat:`, `fix:`, `refactor:`, `test:`, `chore:`, `docs:`, `ci:`.
 - Keep commits atomic — one logical change per commit. Don't mix unrelated changes.

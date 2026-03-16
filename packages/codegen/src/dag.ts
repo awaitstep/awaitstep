@@ -12,22 +12,24 @@ export function buildAdjacencyList(ir: WorkflowIR): Map<string, string[]> {
 }
 
 export function topologicalSort(ir: WorkflowIR): WorkflowNode[] {
-  const adj = buildAdjacencyList(ir)
-  const inDegree = new Map<string, number>()
+  // Find all nodes reachable from entryNodeId
+  const reachable = findReachable(ir)
+  const reachableNodes = ir.nodes.filter((n) => reachable.has(n.id))
+  const reachableEdges = ir.edges.filter((e) => reachable.has(e.source) && reachable.has(e.target))
 
-  for (const node of ir.nodes) {
-    inDegree.set(node.id, 0)
-  }
-  for (const edge of ir.edges) {
+  const adj = new Map<string, string[]>()
+  for (const node of reachableNodes) adj.set(node.id, [])
+  for (const edge of reachableEdges) adj.get(edge.source)?.push(edge.target)
+
+  const inDegree = new Map<string, number>()
+  for (const node of reachableNodes) inDegree.set(node.id, 0)
+  for (const edge of reachableEdges) {
     inDegree.set(edge.target, (inDegree.get(edge.target) ?? 0) + 1)
   }
 
-  const queue: string[] = []
-  for (const [id, degree] of inDegree) {
-    if (degree === 0) queue.push(id)
-  }
-
+  const queue: string[] = [ir.entryNodeId]
   const sorted: string[] = []
+
   while (queue.length > 0) {
     const current = queue.shift()!
     sorted.push(current)
@@ -38,12 +40,34 @@ export function topologicalSort(ir: WorkflowIR): WorkflowNode[] {
     }
   }
 
-  if (sorted.length !== ir.nodes.length) {
+  if (sorted.length !== reachableNodes.length) {
     throw new Error('Workflow graph contains a cycle')
   }
 
-  const nodeMap = new Map(ir.nodes.map((n) => [n.id, n]))
-  return sorted.map((id) => nodeMap.get(id)!)
+  const nodeMap = new Map(reachableNodes.map((n) => [n.id, n]))
+  return sorted.map((id) => nodeMap.get(id)!).filter(Boolean)
+}
+
+function findReachable(ir: WorkflowIR): Set<string> {
+  const adj = new Map<string, string[]>()
+  for (const node of ir.nodes) adj.set(node.id, [])
+  for (const edge of ir.edges) adj.get(edge.source)?.push(edge.target)
+
+  const visited = new Set<string>()
+  const queue = [ir.entryNodeId]
+  visited.add(ir.entryNodeId)
+
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    for (const neighbor of adj.get(current) ?? []) {
+      if (!visited.has(neighbor)) {
+        visited.add(neighbor)
+        queue.push(neighbor)
+      }
+    }
+  }
+
+  return visited
 }
 
 export function getEdgeLabels(ir: WorkflowIR): Map<string, Map<string, string | undefined>> {

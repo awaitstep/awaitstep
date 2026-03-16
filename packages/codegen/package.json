@@ -7,10 +7,15 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./transpile": {
+      "types": "./dist/transpile.d.ts",
+      "import": "./dist/transpile.js"
     }
   },
   "scripts": {
     "build": "tsc",
+    "dev": "tsc --watch --preserveWatchOutput",
     "test": "vitest run --passWithNoTests",
     "type-check": "tsc --noEmit",
     "lint": "eslint src/"

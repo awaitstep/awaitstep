@@ -34,3 +34,7 @@ coverage/
 # Misc
 *.log
 *.tsbuildinfo
+
+
+#DB
+awaitstep.db*

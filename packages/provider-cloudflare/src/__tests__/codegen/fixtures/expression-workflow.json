@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "name": "Expression Workflow",
+    "version": 1,
+    "createdAt": "2025-01-01T00:00:00Z",
+    "updatedAt": "2025-01-01T00:00:00Z"
+  },
+  "nodes": [
+    {
+      "id": "fetch-data",
+      "type": "step",
+      "name": "Fetch Data",
+      "position": { "x": 0, "y": 0 },
+      "code": "return { userId: 42 };"
+    },
+    {
+      "id": "process",
+      "type": "step",
+      "name": "Process Data",
+      "position": { "x": 0, "y": 200 },
+      "code": "const data = {{fetch-data.userId}};\n  return { processed: data };"
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "fetch-data", "target": "process" }
+  ],
+  "entryNodeId": "fetch-data"
+}

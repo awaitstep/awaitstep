@@ -41,9 +41,14 @@ export interface SleepUntilNode extends BaseNode {
   timestamp: string
 }
 
+export interface BranchCondition {
+  label: string
+  condition: string
+}
+
 export interface BranchNode extends BaseNode {
   type: 'branch'
-  condition: string
+  branches: BranchCondition[]
 }
 
 export interface ParallelNode extends BaseNode {

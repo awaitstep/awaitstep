@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "dev": "pnpm --filter @awaitstep/db db:push && tsx watch src/entry/node.ts",
-    "db:push": "pnpm --filter @awaitstep/db db:push",
+    "dev": "tsx watch src/entry/node.ts",
     "test": "vitest run --passWithNoTests",
     "type-check": "tsc --noEmit",
     "lint": "eslint src/"

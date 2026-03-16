@@ -42,9 +42,14 @@ const sleepUntilNodeSchema = baseNodeSchema.extend({
   timestamp: z.string(),
 })
 
+const branchConditionSchema = z.object({
+  label: z.string().min(1),
+  condition: z.string(),
+})
+
 const branchNodeSchema = baseNodeSchema.extend({
   type: z.literal('branch'),
-  condition: z.string().min(1),
+  branches: z.array(branchConditionSchema).min(2),
 })
 
 const parallelNodeSchema = baseNodeSchema.extend({

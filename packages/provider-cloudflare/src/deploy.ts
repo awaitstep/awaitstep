@@ -6,7 +6,7 @@ import { promisify } from 'node:util'
 import { createRequire } from 'node:module'
 import type { GeneratedArtifact } from '@awaitstep/codegen'
 import { generateWranglerConfig } from './wrangler-config.js'
-import { workerName, workflowClassName } from './naming.js'
+import { workerName, workflowClassName, sanitizedWorkflowName } from './naming.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -23,6 +23,7 @@ export interface DeployOptions {
 export interface WranglerDeployResult {
   success: boolean
   workerName: string
+  workerUrl?: string
   error?: string
   stdout?: string
   stderr?: string
@@ -45,7 +46,7 @@ export async function deployWithWrangler(
     const wranglerConfig = generateWranglerConfig({
       workerName: name,
       className,
-      workflowName: options.workflowName,
+      workflowName: sanitizedWorkflowName(options.workflowName),
       compatibilityDate: options.compatibilityDate ?? PINNED_COMPATIBILITY_DATE,
       main: `./${artifact.filename}`,
     })
@@ -63,7 +64,8 @@ export async function deployWithWrangler(
       timeout: 120_000,
     })
 
-    return { success: true, workerName: name, stdout, stderr }
+    const urlMatch = stdout.match(/https:\/\/[^\s)]+\.workers\.dev/)
+    return { success: true, workerName: name, workerUrl: urlMatch?.[0], stdout, stderr }
   } catch (err) {
     const error = err as Error & { stdout?: string; stderr?: string }
     return {
@@ -75,6 +77,27 @@ export async function deployWithWrangler(
     }
   } finally {
     await rm(deployDir, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
+export async function deleteWorker(
+  workerName: string,
+  options: { accountId: string; apiToken: string },
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const wranglerBin = resolveWranglerBin()
+    await execFileAsync(wranglerBin, ['delete', '--name', workerName, '--force'], {
+      env: {
+        ...process.env,
+        CLOUDFLARE_ACCOUNT_ID: options.accountId,
+        CLOUDFLARE_API_TOKEN: options.apiToken,
+      },
+      timeout: 60_000,
+    })
+    return { success: true }
+  } catch (err) {
+    const error = err as Error
+    return { success: false, error: error.message }
   }
 }
 

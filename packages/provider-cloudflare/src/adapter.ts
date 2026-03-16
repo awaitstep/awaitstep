@@ -1,6 +1,7 @@
 import { validateIR } from '@awaitstep/ir'
 import type { WorkflowIR, ValidationError, Result } from '@awaitstep/ir'
-import { generateWorkflow, transpileToJS } from '@awaitstep/codegen'
+import { transpileToJS } from '@awaitstep/codegen/transpile'
+import { generateWorkflow } from './codegen/generate.js'
 import type {
   WorkflowProvider,
   GeneratedArtifact,
@@ -10,7 +11,29 @@ import type {
   WorkflowStatus,
 } from '@awaitstep/codegen'
 import { deployWithWrangler } from './deploy.js'
+import { sanitizedWorkflowName } from './naming.js'
 import { CloudflareAPI } from './api.js'
+
+export type DeployStage =
+  | 'INITIALIZING'
+  | 'GENERATING_CODE'
+  | 'CODE_READY'
+  | 'DETECTING_BINDINGS'
+  | 'BINDINGS_READY'
+  | 'CREATING_WORKER'
+  | 'DEPLOYING'
+  | 'WORKER_DEPLOYED'
+  | 'UPDATING_WORKFLOW'
+  | 'COMPLETED'
+  | 'FAILED'
+
+export interface DeployProgress {
+  stage: DeployStage
+  message: string
+  progress: number
+}
+
+export type OnDeployProgress = (progress: DeployProgress) => void
 
 export class CloudflareWorkflowsAdapter implements WorkflowProvider {
   readonly name = 'cloudflare-workflows'
@@ -67,7 +90,60 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
     return {
       success: true,
       deploymentId: result.workerName,
+      url: result.workerUrl,
     }
+  }
+
+  async deployWithProgress(
+    artifact: GeneratedArtifact,
+    config: ProviderConfig,
+    onProgress?: OnDeployProgress,
+  ): Promise<DeployResult> {
+    const report = (stage: DeployStage, message: string, progress: number) => {
+      onProgress?.({ stage, message, progress })
+    }
+
+    report('INITIALIZING', 'Preparing deployment...', 5)
+
+    const { accountId, apiToken } = extractCredentials(config)
+    const workflowId = config.options?.['workflowId'] as string | undefined
+    const workflowName = config.options?.['workflowName'] as string | undefined
+
+    if (!workflowId || !workflowName) {
+      report('FAILED', 'Missing workflowId or workflowName', 0)
+      return { success: false, deploymentId: '', error: 'workflowId and workflowName are required' }
+    }
+
+    report('GENERATING_CODE', 'Transpiling TypeScript...', 15)
+    const compiled = await transpileToJS(artifact.source)
+    const compiledArtifact: GeneratedArtifact = {
+      filename: 'worker.js',
+      source: artifact.source,
+      compiled,
+    }
+    report('CODE_READY', 'Code compiled', 25)
+
+    report('DETECTING_BINDINGS', 'Analyzing workflow bindings...', 35)
+    report('BINDINGS_READY', 'Bindings configured', 45)
+
+    report('CREATING_WORKER', 'Creating Cloudflare Worker...', 55)
+    report('DEPLOYING', 'Deploying to Cloudflare...', 65)
+    const result = await deployWithWrangler(compiledArtifact, {
+      workflowId,
+      workflowName,
+      accountId,
+      apiToken,
+    })
+
+    if (!result.success) {
+      report('FAILED', result.error ?? 'Deploy failed', 0)
+      return { success: false, deploymentId: '', error: result.error ?? result.stderr ?? 'Deploy failed' }
+    }
+
+    report('WORKER_DEPLOYED', 'Worker deployed', 80)
+    report('UPDATING_WORKFLOW', 'Updating workflow configuration...', 90)
+    report('COMPLETED', 'Deployment successful', 100)
+    return { success: true, deploymentId: result.workerName, url: result.workerUrl }
   }
 
   async trigger(
@@ -76,7 +152,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
     config: ProviderConfig,
   ): Promise<{ instanceId: string }> {
     const { accountId, apiToken } = extractCredentials(config)
-    const workflowName = config.options?.['workflowName'] as string
+    const workflowName = sanitizedWorkflowName(config.options?.['workflowName'] as string)
 
     const api = new CloudflareAPI({ accountId, apiToken })
     const instance = await api.createInstance(workflowName, params)
@@ -85,7 +161,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
 
   async getStatus(instanceId: string, config: ProviderConfig): Promise<WorkflowRunStatus> {
     const { accountId, apiToken } = extractCredentials(config)
-    const workflowName = config.options?.['workflowName'] as string
+    const workflowName = sanitizedWorkflowName(config.options?.['workflowName'] as string)
 
     const api = new CloudflareAPI({ accountId, apiToken })
     const status = await api.getInstanceStatus(workflowName, instanceId)

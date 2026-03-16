@@ -8,6 +8,20 @@
       "when": 1773549384215,
       "tag": "0000_motionless_warlock",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1773614139347,
+      "tag": "0001_orange_vertigo",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1773617411693,
+      "tag": "0002_steep_tempest",
+      "breakpoints": true
     }
   ]
 }

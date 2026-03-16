@@ -29,7 +29,7 @@ describe('version routes', () => {
       const res = await app.request('/api/workflows/wf-1/versions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ version: 1, ir: validIR }),
+        body: JSON.stringify({ ir: validIR }),
       })
       expect(res.status).toBe(201)
       const body = await res.json()
@@ -38,24 +38,32 @@ describe('version routes', () => {
       expect(body.generatedCode).toContain('WorkflowEntrypoint')
     })
 
+    it('auto-increments version number', async () => {
+      await app.request('/api/workflows/wf-1/versions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ir: validIR }),
+      })
+
+      const res = await app.request('/api/workflows/wf-1/versions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ir: validIR }),
+      })
+      expect(res.status).toBe(201)
+      const body = await res.json()
+      expect(body.version).toBe(2)
+    })
+
     it('updates workflow currentVersionId', async () => {
       await app.request('/api/workflows/wf-1/versions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ version: 1, ir: validIR }),
+        body: JSON.stringify({ ir: validIR }),
       })
 
       const wf = await mockDb.getWorkflowById('wf-1')
       expect(wf?.currentVersionId).toBeTruthy()
-    })
-
-    it('returns 422 for invalid version number', async () => {
-      const res = await app.request('/api/workflows/wf-1/versions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ version: 0, ir: validIR }),
-      })
-      expect(res.status).toBe(422)
     })
 
     it('returns 404 for another users workflow', async () => {
@@ -64,7 +72,7 @@ describe('version routes', () => {
       const res = await app.request('/api/workflows/wf-other/versions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ version: 1, ir: validIR }),
+        body: JSON.stringify({ ir: validIR }),
       })
       expect(res.status).toBe(404)
     })
