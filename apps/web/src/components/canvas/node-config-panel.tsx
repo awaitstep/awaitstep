@@ -88,10 +88,10 @@ export function NodeConfigPanel() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div>
-          <span className="text-[13px] font-semibold text-white/90">Edit Node</span>
-          <span className="ml-2 rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-white/30">
+          <span className="text-[13px] font-semibold text-foreground">Edit Node</span>
+          <span className="ml-2 rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/60">
             {NODE_TYPE_LABELS[irNode.type] ?? irNode.type}
           </span>
         </div>
@@ -99,7 +99,7 @@ export function NodeConfigPanel() {
           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => removeNode(selectedNode.id)}>
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-white/40 hover:text-white/80" onClick={tryClose}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={tryClose}>
             <X className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -111,7 +111,7 @@ export function NodeConfigPanel() {
             <Input value={irNode.name} onChange={(e) => update({ name: e.target.value.slice(0, 256) })} placeholder="My step" maxLength={256} />
           </Field>
 
-          <Separator className="!bg-white/[0.06]" />
+          <Separator className="!bg-muted/60" />
 
           {irNode.type === 'step' && <StepFields node={irNode} onUpdate={update} />}
           {irNode.type === 'sleep' && <SleepFields node={irNode} onUpdate={update} />}
@@ -123,8 +123,8 @@ export function NodeConfigPanel() {
         </div>
       </div>
 
-      <div className="border-t border-white/[0.06] px-4 py-2.5">
-        <span className="text-[10px] text-white/20">ID: {selectedNode.id}</span>
+      <div className="border-t border-border px-4 py-2.5">
+        <span className="text-[10px] text-muted-foreground/40">ID: {selectedNode.id}</span>
       </div>
     </div>
   )
@@ -134,8 +134,8 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <Label className="text-[11px] text-white/50">{label}</Label>
-        {hint && <span className="text-[10px] text-white/20">{hint}</span>}
+        <Label className="text-[11px] text-muted-foreground">{label}</Label>
+        {hint && <span className="text-[10px] text-muted-foreground/40">{hint}</span>}
       </div>
       {children}
     </div>
@@ -144,8 +144,8 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 
 function Hint({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-1.5 rounded-lg bg-white/[0.03] px-2.5 py-2 text-[11px] leading-relaxed text-white/30">
-      <Info className="mt-0.5 h-3 w-3 shrink-0 text-white/20" />
+    <div className="flex items-start gap-1.5 rounded-lg bg-muted/40 px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground/60">
+      <Info className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground/40" />
       <span>{children}</span>
     </div>
   )
@@ -217,11 +217,11 @@ function StepFields({ node, onUpdate }: { node: Extract<WorkflowNode, { type: 's
           </div>
         )}
         <Hint>
-          Edit the full step.do() call. <code className="text-white/50">ctx.attempt</code> is the current retry (1-indexed). Return value must be serializable. Use separate canvas nodes for sequential steps.
+          Edit the full step.do() call. <code className="text-muted-foreground">ctx.attempt</code> is the current retry (1-indexed). Return value must be serializable. Use separate canvas nodes for sequential steps.
         </Hint>
       </Field>
 
-      <Separator className="!bg-white/[0.06]" />
+      <Separator className="!bg-muted/60" />
 
       <Field label="Retry Limit" hint="Default: 5">
         <Input
@@ -370,7 +370,7 @@ function SleepUntilFields({ node, onUpdate }: { node: Extract<WorkflowNode, { ty
         )}
       </Field>
       {selectedDate && !isPast && (
-        <div className="rounded-lg bg-white/[0.03] px-2.5 py-2 text-[11px] text-white/30">
+        <div className="rounded-lg bg-muted/40 px-2.5 py-2 text-[11px] text-muted-foreground/60">
           Will resume at {selectedDate.toLocaleString()}
         </div>
       )}
@@ -469,11 +469,11 @@ function BranchFields({ node, onUpdate }: { node: Extract<WorkflowNode, { type: 
           const currentTarget = getTargetForLabel(branch.label)
 
           return (
-            <div key={index} className="overflow-hidden rounded-lg border border-white/[0.06]">
-              <div className="flex items-center justify-between bg-white/[0.03] px-3 py-1.5">
-                <span className="text-[11px] font-medium text-white/50">{heading}</span>
+            <div key={index} className="overflow-hidden rounded-lg border border-border">
+              <div className="flex items-center justify-between bg-muted/40 px-3 py-1.5">
+                <span className="text-[11px] font-medium text-muted-foreground">{heading}</span>
                 {node.branches.length > 1 && (
-                  <Button variant="ghost" size="icon" className="h-5 w-5 text-white/20 hover:text-destructive" onClick={() => removeBranch(index)}>
+                  <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground/40 hover:text-destructive" onClick={() => removeBranch(index)}>
                     <Trash2 className="h-2.5 w-2.5" />
                   </Button>
                 )}
@@ -490,7 +490,7 @@ function BranchFields({ node, onUpdate }: { node: Extract<WorkflowNode, { type: 
                 )}
 
                 <div className="space-y-1">
-                  <Label className="text-[10px] text-white/30">Go to</Label>
+                  <Label className="text-[10px] text-muted-foreground/60">Go to</Label>
                   <Select
                     value={currentTarget || '__none__'}
                     onValueChange={(v) => setTargetForBranch(branch.label, v === '__none__' ? '' : v)}
@@ -566,7 +566,7 @@ function HttpFields({ node, onUpdate }: { node: Extract<WorkflowNode, { type: 'h
         </Field>
       )}
 
-      <Separator className="!bg-white/[0.06]" />
+      <Separator className="!bg-muted/60" />
 
       <Field label="Retry Limit" hint="Default: 5">
         <Input

@@ -75,15 +75,15 @@ export function CodePreview() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-2.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-white/30">Output</span>
+      <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">Output</span>
         <div className="flex items-center gap-1.5">
-          <div className="flex rounded-md bg-white/[0.04]">
+          <div className="flex rounded-md bg-muted/50">
             <button
               onClick={() => setViewMode('typescript')}
               className={cn(
                 'rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors',
-                viewMode === 'typescript' ? 'bg-white/[0.08] text-white/60' : 'text-white/30 hover:text-white/50',
+                viewMode === 'typescript' ? 'bg-muted/70 text-foreground/60' : 'text-muted-foreground/60 hover:text-muted-foreground',
               )}
             >
               TypeScript
@@ -92,7 +92,7 @@ export function CodePreview() {
               onClick={() => setViewMode('ir-json')}
               className={cn(
                 'rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors',
-                viewMode === 'ir-json' ? 'bg-white/[0.08] text-white/60' : 'text-white/30 hover:text-white/50',
+                viewMode === 'ir-json' ? 'bg-muted/70 text-foreground/60' : 'text-muted-foreground/60 hover:text-muted-foreground',
               )}
             >
               IR JSON
@@ -100,10 +100,10 @@ export function CodePreview() {
           </div>
           <button
             onClick={handleCopy}
-            className="rounded-md p-1 text-white/30 transition-colors hover:bg-white/[0.06] hover:text-white/50"
+            className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted/60 hover:text-muted-foreground"
             title="Copy to clipboard"
           >
-            {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+            {copied ? <Check className="h-3.5 w-3.5 text-status-success" /> : <Copy className="h-3.5 w-3.5" />}
           </button>
         </div>
       </div>
@@ -111,7 +111,7 @@ export function CodePreview() {
         {mounted ? (
           <Suspense
             fallback={
-              <pre className="p-4 text-[12px] leading-[1.7] text-white/70">{displayCode}</pre>
+              <pre className="p-4 text-[12px] leading-[1.7] text-foreground/70">{displayCode}</pre>
             }
           >
             <MonacoEditor
@@ -148,7 +148,7 @@ export function CodePreview() {
             />
           </Suspense>
         ) : (
-          <pre className="p-4 text-[12px] leading-[1.7] text-white/70">{displayCode}</pre>
+          <pre className="p-4 text-[12px] leading-[1.7] text-foreground/70">{displayCode}</pre>
         )}
       </div>
     </div>

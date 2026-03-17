@@ -42,9 +42,9 @@ export function WorkflowSettings() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
-        <span className="text-[13px] font-semibold text-white/90">Workflow Settings</span>
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-white/40 hover:text-white/80" onClick={() => setShowSettings(false)}>
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <span className="text-[13px] font-semibold text-foreground">Workflow Settings</span>
+        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => setShowSettings(false)}>
           <X className="h-3.5 w-3.5" />
         </Button>
       </div>
@@ -59,21 +59,21 @@ export function WorkflowSettings() {
             <Input value={metadata.description ?? ''} onChange={(e) => setMetadata({ description: e.target.value || undefined })} placeholder="Optional description" />
           </Field>
 
-          <Separator className="!bg-white/[0.06]" />
+          <Separator />
 
           {/* Input Parameters */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <Label className="text-[11px] text-white/50">Input Parameters</Label>
-              <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-[10px] text-white/40" onClick={addParam}>
+              <Label className="text-[11px] text-muted-foreground">Input Parameters</Label>
+              <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-[10px] text-muted-foreground" onClick={addParam}>
                 <Plus className="h-3 w-3" /> Add
               </Button>
             </div>
-            <p className="text-[10px] text-white/20 mb-2">
+            <p className="text-[10px] text-muted-foreground/40 mb-2">
               Define the shape of event.payload passed when triggering the workflow.
             </p>
             {inputParams.length === 0 ? (
-              <p className="text-[11px] text-white/20 italic">No input parameters defined</p>
+              <p className="text-[11px] text-muted-foreground/40 italic">No input parameters defined</p>
             ) : (
               <div className="space-y-2">
                 {inputParams.map((param, i) => (
@@ -95,7 +95,7 @@ export function WorkflowSettings() {
                       ]}
                       className="w-24 h-8 text-xs"
                     />
-                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-white/30 hover:text-destructive" onClick={() => removeParam(i)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground/60 hover:text-destructive" onClick={() => removeParam(i)}>
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
@@ -104,21 +104,21 @@ export function WorkflowSettings() {
             )}
           </div>
 
-          <Separator className="!bg-white/[0.06]" />
+          <Separator />
 
           {/* Environment Bindings */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <Label className="text-[11px] text-white/50">Environment Bindings</Label>
-              <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-[10px] text-white/40" onClick={addBinding}>
+              <Label className="text-[11px] text-muted-foreground">Environment Bindings</Label>
+              <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-[10px] text-muted-foreground" onClick={addBinding}>
                 <Plus className="h-3 w-3" /> Add
               </Button>
             </div>
-            <p className="text-[10px] text-white/20 mb-2">
+            <p className="text-[10px] text-muted-foreground/40 mb-2">
               Define env bindings available in your Worker (KV, D1, R2, secrets, etc).
             </p>
             {envBindings.length === 0 ? (
-              <p className="text-[11px] text-white/20 italic">No bindings defined</p>
+              <p className="text-[11px] text-muted-foreground/40 italic">No bindings defined</p>
             ) : (
               <div className="space-y-2">
                 {envBindings.map((binding, i) => (
@@ -142,7 +142,7 @@ export function WorkflowSettings() {
                       ]}
                       className="w-24 h-8 text-xs"
                     />
-                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-white/30 hover:text-destructive" onClick={() => removeBinding(i)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground/60 hover:text-destructive" onClick={() => removeBinding(i)}>
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
@@ -159,7 +159,7 @@ export function WorkflowSettings() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-[11px] text-white/50">{label}</Label>
+      <Label className="text-[11px] text-muted-foreground">{label}</Label>
       {children}
     </div>
   )

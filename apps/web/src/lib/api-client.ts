@@ -88,6 +88,10 @@ export const api = {
     return request('/connections', { method: 'POST', body: JSON.stringify(data) })
   },
 
+  updateConnection(id: string, data: { name?: string; credentials?: Record<string, string> }): Promise<ConnectionSummary> {
+    return request(`/connections/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+  },
+
   deleteConnection(id: string): Promise<void> {
     return request(`/connections/${id}`, { method: 'DELETE' })
   },
@@ -100,12 +104,16 @@ export const api = {
     return request('/deployments')
   },
 
+  listAllRuns(): Promise<{ id: string; workflowId: string; versionId: string; connectionId: string | null; instanceId: string; status: string; output: string | null; error: string | null; createdAt: string; updatedAt: string }[]> {
+    return request('/runs')
+  },
+
   takedownDeployment(workflowId: string, connectionId: string): Promise<{ success: boolean; error?: string }> {
     return request(`/workflows/${workflowId}/takedown`, { method: 'POST', body: JSON.stringify({ connectionId }) })
   },
 
-  verifyToken(apiToken: string): Promise<{ valid: boolean; accounts: { id: string; name: string }[] }> {
-    return request('/connections/verify-token', { method: 'POST', body: JSON.stringify({ apiToken }) })
+  verifyCredentials(provider: string, credentials: Record<string, string>): Promise<{ valid: boolean; accounts: { id: string; name: string }[] }> {
+    return request('/connections/verify-token', { method: 'POST', body: JSON.stringify({ provider, credentials }) })
   },
 
   getSelfHostedConnection(): Promise<{ configured: boolean; registered?: boolean; accountId?: string; name?: string }> {

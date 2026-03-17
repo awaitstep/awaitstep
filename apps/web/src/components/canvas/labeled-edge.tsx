@@ -41,7 +41,7 @@ export function LabeledEdge({
       {label && (
         <EdgeLabelRenderer>
           <div
-            className="nodrag nopan pointer-events-auto absolute rounded bg-[oklch(0.18_0_0)] px-1 py-0.5 font-mono text-[8px] leading-none text-white/50 border border-white/[0.08]"
+            className="nodrag nopan pointer-events-auto absolute rounded bg-card px-1 py-0.5 font-mono text-[8px] leading-none text-muted-foreground border border-border"
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
               ...(highlighted ? { color: 'oklch(0.696 0.17 162.48)', borderColor: 'oklch(0.696 0.17 162.48 / 0.4)' } : {}),

@@ -29,6 +29,7 @@
     "better-sqlite3": "^12.8.0",
     "drizzle-orm": "^0.45.1",
     "hono": "^4.12.8",
+    "hono-rate-limiter": "^0.5.3",
     "nanoid": "^5.1.6",
     "zod": "^4.3.6"
   }

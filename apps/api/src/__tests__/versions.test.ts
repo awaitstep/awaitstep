@@ -15,6 +15,13 @@ const validIR = {
   entryNodeId: 'step-1',
 }
 
+const modifiedIR = {
+  ...validIR,
+  nodes: [
+    { id: 'step-1', type: 'step', name: 'Modified', position: { x: 0, y: 0 }, code: 'return 2;' },
+  ],
+}
+
 describe('version routes', () => {
   let app: ReturnType<typeof createTestApp>
 
@@ -38,7 +45,7 @@ describe('version routes', () => {
       expect(body.generatedCode).toContain('WorkflowEntrypoint')
     })
 
-    it('auto-increments version number', async () => {
+    it('returns existing version when IR has not changed', async () => {
       await app.request('/api/workflows/wf-1/versions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -50,9 +57,26 @@ describe('version routes', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ir: validIR }),
       })
-      expect(res.status).toBe(201)
+      expect(res.status).toBe(200)
       const body = await res.json()
-      expect(body.version).toBe(2)
+      expect(body.version).toBe(1)
+    })
+
+    it('overwrites undeployed version when IR changes', async () => {
+      await app.request('/api/workflows/wf-1/versions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ir: validIR }),
+      })
+
+      const res = await app.request('/api/workflows/wf-1/versions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ir: modifiedIR }),
+      })
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.version).toBe(1)
     })
 
     it('updates workflow currentVersionId', async () => {

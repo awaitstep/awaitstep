@@ -105,16 +105,11 @@ describe('generateWorkflow', () => {
     expect(code).toContain('instance.status()')
   })
 
-  it('generates state tracking when expressions are used', () => {
+  it('resolves expressions to step variable references', () => {
     const code = generateWorkflow(expressionWorkflow as unknown as WorkflowIR)
-    expect(code).toContain('_workflowState')
-    expect(code).toContain(`_workflowState['fetch-data']`)
-    expect(code).not.toContain('{{fetch-data.userId}}')
-  })
-
-  it('does not generate state tracking without expressions', () => {
-    const code = generateWorkflow(simpleWorkflow as unknown as WorkflowIR)
     expect(code).not.toContain('_workflowState')
+    expect(code).not.toContain('{{fetch-data.userId}}')
+    expect(code).toContain('Fetch_Data.userId')
   })
 })
 

@@ -1,14 +1,14 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { resolveExpressions } from '@awaitstep/ir'
 import type { CodeGenerator } from '@awaitstep/codegen'
-import { topologicalSort, sanitizeIdentifier, buildVarNameMap, setVarNameMap, clearVarNameMap } from '@awaitstep/codegen'
+import { topologicalSort, sanitizeIdentifier, buildVarNameMap, setVarNameMap, clearVarNameMap, varName } from '@awaitstep/codegen'
 import { generateStep } from './generators/step.js'
 import { generateSleep, generateSleepUntil } from './generators/sleep.js'
 import { generateBranch, collectBranchInlineTargets } from './generators/branch.js'
 import { generateParallel } from './generators/parallel.js'
 import { generateHttp } from './generators/http.js'
 import { generateWaitForEvent } from './generators/wait-for-event.js'
-import { generateStateInit, generateStateCapture, hasTemplateExpressions } from './generators/state-tracking.js'
+import { hasTemplateExpressions } from './generators/state-tracking.js'
 
 export function generateNodeCode(node: WorkflowNode, ir: WorkflowIR): string {
   switch (node.type) {
@@ -32,13 +32,13 @@ export function generateNodeCode(node: WorkflowNode, ir: WorkflowIR): string {
 function resolveNodeExpressions(node: WorkflowNode): WorkflowNode {
   switch (node.type) {
     case 'step':
-      return { ...node, code: resolveExpressions(node.code) }
+      return { ...node, code: resolveExpressions(node.code, varName) }
     case 'http-request': {
-      const resolved = { ...node, url: resolveExpressions(node.url, '_workflowState', 'interpolation') }
-      if (resolved.body) resolved.body = resolveExpressions(resolved.body, '_workflowState', 'interpolation')
+      const resolved = { ...node, url: resolveExpressions(node.url, varName, 'interpolation') }
+      if (resolved.body) resolved.body = resolveExpressions(resolved.body, varName, 'interpolation')
       if (resolved.headers) {
         resolved.headers = Object.fromEntries(
-          Object.entries(resolved.headers).map(([k, v]) => [k, resolveExpressions(v, '_workflowState', 'interpolation')]),
+          Object.entries(resolved.headers).map(([k, v]) => [k, resolveExpressions(v, varName, 'interpolation')]),
         )
       }
       return resolved
@@ -48,7 +48,7 @@ function resolveNodeExpressions(node: WorkflowNode): WorkflowNode {
         ...node,
         branches: node.branches.map((b) => ({
           ...b,
-          condition: b.condition ? resolveExpressions(b.condition) : b.condition,
+          condition: b.condition ? resolveExpressions(b.condition, varName) : b.condition,
         })),
       }
     default:
@@ -75,22 +75,12 @@ export function generateWorkflow(ir: WorkflowIR): string {
 
   const bodyParts: string[] = []
 
-  if (useStateTracking) {
-    bodyParts.push(generateStateInit())
-    bodyParts.push('')
-  }
-
   const resolvedNodeMap = new Map(resolvedIR.nodes.map((n) => [n.id, n]))
   const resolvedSorted = sorted.map((n) => resolvedNodeMap.get(n.id) ?? n)
 
   for (const node of resolvedSorted) {
     if (inlineTargets.has(node.id)) continue
     bodyParts.push(generateNodeCode(node, resolvedIR))
-
-    if (useStateTracking) {
-      const capture = generateStateCapture(node)
-      if (capture) bodyParts.push(capture)
-    }
   }
 
   const bodyLines = bodyParts.join('\n\n')

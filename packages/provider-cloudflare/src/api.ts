@@ -13,6 +13,8 @@ export interface CFInstanceStatus {
   status: string
   output?: unknown
   error?: { name: string; message: string }
+  created_on?: string
+  modified_on?: string
 }
 
 export interface CFInstanceListItem {
@@ -97,6 +99,8 @@ export class CloudflareAPI {
       status: result.status,
       output: result.output,
       error: result.error,
+      created_on: result.created_on,
+      modified_on: result.modified_on,
     }
   }
 
@@ -148,6 +152,26 @@ export class CloudflareAPI {
     const path = `/accounts/${this.config.accountId}/workflows/${workflowName}/instances${qs ? `?${qs}` : ''}`
     const response = await this.request('GET', path)
     return response.result as CFInstanceListItem[]
+  }
+
+  async getInstanceStatuses(
+    workflowName: string,
+    instanceIds: string[],
+  ): Promise<Map<string, CFInstanceStatus>> {
+    const results = new Map<string, CFInstanceStatus>()
+    if (instanceIds.length === 0) return results
+
+    const settled = await Promise.allSettled(
+      instanceIds.map((id) => this.getInstanceStatus(workflowName, id)),
+    )
+
+    for (const result of settled) {
+      if (result.status === 'fulfilled') {
+        results.set(result.value.id, result.value)
+      }
+    }
+
+    return results
   }
 
   private async request(

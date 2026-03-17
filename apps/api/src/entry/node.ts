@@ -7,6 +7,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { DrizzleDatabaseAdapter, schema } from '@awaitstep/db'
 import { createApp, createAuth } from '../index.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
+import { createLogger } from '../lib/logger.js'
 
 const sqlite = new Database('awaitstep.db')
 sqlite.pragma('journal_mode = WAL')
@@ -59,6 +60,13 @@ async function start() {
       : undefined,
   })
 
+  const betterStackToken = process.env['BETTERSTACK_SOURCE_TOKEN']
+  const betterStackEndpoint = process.env['BETTERSTACK_ENDPOINT']
+  const logger = createLogger('app', betterStackToken && betterStackEndpoint
+    ? { sourceToken: betterStackToken, endpoint: betterStackEndpoint }
+    : undefined,
+  )
+
   const corsOrigin = process.env['CORS_ORIGIN'] ?? 'http://localhost:3000'
   const selfHostedConnection = process.env['CF_API_TOKEN'] && process.env['CF_ACCOUNT_ID']
     ? {
@@ -67,10 +75,10 @@ async function start() {
         name: process.env['CF_CONNECTION_NAME'] ?? 'Self-Hosted',
       }
     : undefined
-  const app = createApp({ db, auth, corsOrigin, isDev, selfHostedConnection })
+  const app = createApp({ db, auth, logger, corsOrigin, isDev, selfHostedConnection })
 
   const port = Number(process.env['PORT'] ?? 3001)
-  console.log(`API server running on http://localhost:${port}`)
+  logger.info(`API server running on http://localhost:${port}`)
 
   serve({ fetch: app.fetch, port })
 }

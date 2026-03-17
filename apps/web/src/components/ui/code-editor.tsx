@@ -81,7 +81,7 @@ export function CodeEditor({ value, onChange, language = 'typescript', height = 
 
   if (!mounted) {
     return (
-      <div style={{ height }} className={cn('flex items-center justify-center overflow-hidden bg-[oklch(0.12_0_0)] text-xs text-white/30', bordered && 'rounded-lg border border-input')}>
+      <div style={{ height }} className={cn('flex items-center justify-center overflow-hidden bg-[oklch(0.12_0_0)] text-xs text-muted-foreground/60', bordered && 'rounded-lg border border-input')}>
         Loading editor...
       </div>
     )
@@ -90,13 +90,13 @@ export function CodeEditor({ value, onChange, language = 'typescript', height = 
   if (fullscreen) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col bg-[oklch(0.10_0_0)]" onKeyDown={(e) => e.stopPropagation()}>
-        <div className="flex h-10 shrink-0 items-center justify-between border-b border-white/[0.06] bg-[oklch(0.13_0_0)] px-4">
-          <span className="text-xs font-medium text-white/60">{title ?? 'Code Editor'}</span>
+        <div className="flex h-10 shrink-0 items-center justify-between border-b border-border bg-[oklch(0.13_0_0)] px-4">
+          <span className="text-xs font-medium text-foreground/60">{title ?? 'Code Editor'}</span>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-white/25">ESC to close</span>
+            <span className="text-[10px] text-muted-foreground/40">ESC to close</span>
             <button
               onClick={() => setFullscreen(false)}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-white/40 hover:bg-white/[0.06] hover:text-white/80"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/60 hover:text-foreground"
             >
               <Minimize2 className="h-3.5 w-3.5" />
             </button>
@@ -134,14 +134,14 @@ export function CodeEditor({ value, onChange, language = 'typescript', height = 
       {expandable && (
         <button
           onClick={() => setFullscreen(true)}
-          className="absolute right-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-md bg-[oklch(0.2_0_0)] text-white/40 opacity-0 transition-opacity hover:bg-[oklch(0.25_0_0)] hover:text-white/80 group-hover:opacity-100"
+          className="absolute right-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-md bg-[oklch(0.2_0_0)] text-muted-foreground opacity-0 transition-opacity hover:bg-[oklch(0.25_0_0)] hover:text-foreground group-hover:opacity-100"
         >
           <Maximize2 className="h-3 w-3" />
         </button>
       )}
       <Suspense
         fallback={
-          <div style={{ height }} className="flex items-center justify-center bg-[oklch(0.12_0_0)] text-xs text-white/30">
+          <div style={{ height }} className="flex items-center justify-center bg-[oklch(0.12_0_0)] text-xs text-muted-foreground/60">
             Loading editor...
           </div>
         }

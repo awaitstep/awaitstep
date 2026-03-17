@@ -104,25 +104,26 @@ export function WorkflowCanvas() {
       defaultEdgeOptions={{
         type: 'smoothstep',
         animated: true,
-        style: { stroke: 'oklch(0.5 0 0)', strokeWidth: 1.5 },
+        style: { stroke: 'var(--muted-foreground)', strokeWidth: 1.5 },
       }}
       proOptions={{ hideAttribution: true }}
-      className="!bg-[oklch(0.11_0_0)]"
+      className="!bg-background"
     >
       <Background
         variant={BackgroundVariant.Dots}
         gap={20}
         size={1}
-        color="oklch(0.25 0 0)"
+        color="var(--muted-foreground)"
+        style={{ opacity: 0.3 }}
       />
       <Controls
         showInteractive={false}
-        className="!rounded-lg !border !border-white/[0.08] !bg-[oklch(0.16_0_0)] !shadow-lg [&_button]:!border-white/[0.06] [&_button]:!bg-transparent [&_button]:!text-white/50 [&_button:hover]:!bg-white/[0.06] [&_button:hover]:!text-white/80"
+        className="!rounded-lg !border !border-border !bg-card !shadow-lg [&_button]:!border-border [&_button]:!bg-transparent [&_button]:!text-muted-foreground [&_button:hover]:!bg-muted/60 [&_button:hover]:!text-foreground/80"
       />
       <MiniMap
-        className="!rounded-lg !border !border-white/[0.08] !bg-[oklch(0.14_0_0)]"
-        nodeColor="oklch(0.4 0 0)"
-        maskColor="oklch(0.11 0 0 / 80%)"
+        className="!rounded-lg !border !border-border !bg-card"
+        nodeColor="var(--muted-foreground)"
+        maskColor="var(--background)"
         pannable
         zoomable
       />

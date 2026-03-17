@@ -57,6 +57,16 @@ export class ConnectionsAdapter {
     }
   }
 
+  async update(id: string, data: { name?: string; credentials?: string }): Promise<Connection | null> {
+    const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() }
+    if (data.name !== undefined) updates.name = data.name
+    if (data.credentials !== undefined) {
+      updates.credentials = this.crypto ? await this.crypto.encrypt(data.credentials) : data.credentials
+    }
+    await this.db.update(this.table).set(updates).where(eq(this.table.id, id))
+    return this.getById(id)
+  }
+
   async delete(id: string): Promise<void> {
     await this.db.delete(this.table).where(eq(this.table.id, id))
   }

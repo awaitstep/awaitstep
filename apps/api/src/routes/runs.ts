@@ -1,8 +1,13 @@
 import { Hono } from 'hono'
-import { CloudflareAPI } from '@awaitstep/provider-cloudflare'
+import { CloudflareAPI, mapCFStatus } from '@awaitstep/provider-cloudflare'
 import type { AppEnv } from '../types.js'
+import { createLogger } from '../lib/logger.js'
+
+const log = createLogger('runs')
 
 export const runs = new Hono<AppEnv>()
+
+const TERMINAL_STATUSES = new Set(['complete', 'errored', 'terminated'])
 
 runs.get('/:workflowId/runs', async (c) => {
   const db = c.get('db')
@@ -23,27 +28,33 @@ runs.get('/:workflowId/runs/:runId', async (c) => {
   const run = await db.getRunById(runId)
   if (!run || run.workflowId !== workflow.id) return c.json({ error: 'Run not found' }, 404)
 
-  // Fetch live status from CF if we have a connection
-  if (run.connectionId && run.instanceId) {
+  // Fetch live status from CF if run is non-terminal
+  if (run.connectionId && run.instanceId && !TERMINAL_STATUSES.has(run.status)) {
     try {
       const connection = await db.getConnectionById(run.connectionId)
       if (connection && connection.userId === userId) {
         const creds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
         const cfApi = new CloudflareAPI(creds)
         const status = await cfApi.getInstanceStatus(workflow.name, run.instanceId)
+        const mapped = mapCFStatus(status.status)
 
-        // Update DB with latest status
-        if (status.status !== run.status) {
-          await db.updateRun(run.id, {
-            status: status.status,
-            output: status.output ? JSON.stringify(status.output) : undefined,
-            error: status.error ? JSON.stringify(status.error) : undefined,
-          })
-          return c.json({ ...run, status: status.status, output: status.output, error: status.error })
+        const updates: { status?: string; output?: string; error?: string; updatedAt?: string } = {}
+        if (mapped !== run.status) updates.status = mapped
+        if (status.output) updates.output = JSON.stringify(status.output)
+        if (status.error) updates.error = JSON.stringify(status.error)
+        // Use provider timestamp for accurate duration
+        if (status.modified_on) updates.updatedAt = status.modified_on
+
+        if (Object.keys(updates).length > 0) {
+          const updated = await db.updateRun(run.id, updates)
+          return c.json(updated)
         }
       }
-    } catch {
-      // Fall through to return cached DB data
+    } catch (err) {
+      log.error('Failed to sync run status from Cloudflare', {
+        runId,
+        error: err instanceof Error ? err.message : String(err),
+      })
     }
   }
 

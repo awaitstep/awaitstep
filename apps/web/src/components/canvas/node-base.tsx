@@ -15,8 +15,8 @@ const STATUS_STYLES: Record<string, string> = {
   complete: 'border-emerald-500/60 shadow-[0_0_6px_rgba(16,185,129,0.2)]',
   running: 'border-blue-500/60 shadow-[0_0_6px_rgba(59,130,246,0.2)] animate-pulse',
   errored: 'border-red-500/60 shadow-[0_0_6px_rgba(239,68,68,0.2)]',
-  pending: 'border-white/[0.06] opacity-60',
-  skipped: 'border-white/[0.04] opacity-30',
+  pending: 'border-border opacity-60',
+  skipped: 'border-border/50 opacity-30',
 }
 
 export function NodeBase({ label, icon, accent, selected, children }: NodeBaseProps) {
@@ -31,14 +31,14 @@ export function NodeBase({ label, icon, accent, selected, children }: NodeBasePr
   return (
     <div
       className={cn(
-        'group relative w-[120px] rounded border border-white/[0.08] bg-[oklch(0.18_0_0)] shadow-[0_1px_3px_rgba(0,0,0,0.4)] transition-all duration-150',
+        'group relative w-[120px] rounded border border-border bg-card shadow-md transition-all duration-150',
         selected && 'border-primary/60 shadow-[0_0_0_1px_oklch(0.696_0.17_162.48/0.3),0_2px_8px_rgba(0,0,0,0.5)]',
         overlayActive && stepStatus && !selected && STATUS_STYLES[stepStatus],
       )}
     >
       {overlayActive && stepStatus && stepStatus !== 'pending' && stepStatus !== 'skipped' && (
         <div className={cn(
-          'absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-[oklch(0.18_0_0)]',
+          'absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-card',
           stepStatus === 'complete' && 'bg-emerald-500',
           stepStatus === 'running' && 'bg-blue-500 animate-pulse',
           stepStatus === 'errored' && 'bg-red-500',
@@ -49,8 +49,8 @@ export function NodeBase({ label, icon, accent, selected, children }: NodeBasePr
         type="target"
         position={Position.Top}
         className={cn(
-          '!-top-[3px] !h-[6px] !w-[6px] !rounded-full !border-[1px] !border-[oklch(0.18_0_0)] transition-colors group-hover:!bg-primary',
-          hasIncoming ? '!bg-[oklch(0.5_0_0)]' : '!bg-transparent !border-transparent group-hover:!bg-primary group-hover:!border-[oklch(0.18_0_0)]',
+          '!-top-[3px] !h-[6px] !w-[6px] !rounded-full !border-[1px] !border-card transition-colors group-hover:!bg-primary',
+          hasIncoming ? '!bg-[oklch(0.5_0_0)]' : '!bg-transparent !border-transparent group-hover:!bg-primary group-hover:!border-card',
         )}
       />
 
@@ -58,11 +58,11 @@ export function NodeBase({ label, icon, accent, selected, children }: NodeBasePr
         <div className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded-sm', accent)}>
           {icon}
         </div>
-        <span className="truncate text-[8px] font-medium leading-tight text-white/90">{label}</span>
+        <span className="truncate text-[8px] font-medium leading-tight text-foreground">{label}</span>
       </div>
 
       {children && (
-        <div className="border-t border-white/[0.06] px-1.5 py-0.5 text-[7px] leading-tight text-white/30 truncate">
+        <div className="border-t border-border px-1.5 py-0.5 text-[7px] leading-tight text-muted-foreground/60 truncate">
           {children}
         </div>
       )}
@@ -71,8 +71,8 @@ export function NodeBase({ label, icon, accent, selected, children }: NodeBasePr
         type="source"
         position={Position.Bottom}
         className={cn(
-          '!-bottom-[3px] !h-[6px] !w-[6px] !rounded-full !border-[1px] !border-[oklch(0.18_0_0)] transition-colors group-hover:!bg-primary',
-          hasOutgoing ? '!bg-[oklch(0.5_0_0)]' : '!bg-transparent !border-transparent group-hover:!bg-primary group-hover:!border-[oklch(0.18_0_0)]',
+          '!-bottom-[3px] !h-[6px] !w-[6px] !rounded-full !border-[1px] !border-card transition-colors group-hover:!bg-primary',
+          hasOutgoing ? '!bg-[oklch(0.5_0_0)]' : '!bg-transparent !border-transparent group-hover:!bg-primary group-hover:!border-card',
         )}
       />
     </div>

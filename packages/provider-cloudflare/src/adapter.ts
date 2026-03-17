@@ -182,7 +182,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
 
     return {
       instanceId: status.id,
-      status: mapStatus(status.status),
+      status: mapCFStatus(status.status),
       output: status.output,
       error: status.error,
     }
@@ -206,7 +206,7 @@ function extractCredentials(config: ProviderConfig): {
   return { accountId, apiToken }
 }
 
-function mapStatus(cfStatus: string): WorkflowStatus {
+export function mapCFStatus(cfStatus: string): WorkflowStatus {
   const statusMap: Record<string, WorkflowStatus> = {
     queued: 'queued',
     running: 'running',

@@ -1,6 +1,6 @@
 export { CloudflareCodeGenerator, generateWorkflow, generateNodeCode } from './codegen/generate.js'
 export { detectBindings, type BindingRequirement, type BindingType } from './codegen/bindings.js'
-export { CloudflareWorkflowsAdapter } from './adapter.js'
+export { CloudflareWorkflowsAdapter, mapCFStatus } from './adapter.js'
 export type { DeployStage, DeployProgress, OnDeployProgress } from './adapter.js'
 export { CloudflareAPI } from './api.js'
 export type { CFApiConfig, CFInstanceStatus, CFInstanceListItem, CFListInstancesOptions } from './api.js'

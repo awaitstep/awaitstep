@@ -52,11 +52,11 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
             <button
               onClick={() => setOpen(!open)}
               className={cn(
-                'flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-[oklch(0.16_0_0)] shadow-lg transition-all hover:bg-[oklch(0.20_0_0)] hover:border-white/[0.12]',
+                'flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card shadow-lg transition-all hover:bg-muted hover:border-border',
                 open && 'bg-primary border-primary/60 hover:bg-primary/90',
               )}
             >
-              {open ? <X className="h-4 w-4 text-primary-foreground" /> : <Plus className="h-5 w-5 text-white/70" />}
+              {open ? <X className="h-4 w-4 text-primary-foreground" /> : <Plus className="h-5 w-5 text-foreground/70" />}
             </button>
           </Tooltip.Trigger>
           {!open && (
@@ -75,8 +75,8 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
       </Tooltip.Provider>
 
       {open && (
-        <div className="w-56 rounded-xl border border-white/[0.08] bg-[oklch(0.15_0_0)] p-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.5)]">
-          <div className="mb-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/25">
+        <div className="w-56 rounded-xl border border-border bg-card p-1.5 shadow-lg">
+          <div className="mb-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/40">
             Drag to canvas
           </div>
           {paletteItems.map((item) => (
@@ -85,14 +85,14 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
               draggable
               onDragStart={(e) => onDragStart(e, item.type)}
               onClick={() => onAddNode(item.type)}
-              className="flex cursor-grab items-center gap-2.5 rounded-lg px-2 py-1.5 transition-all hover:bg-white/[0.06] active:cursor-grabbing"
+              className="flex cursor-grab items-center gap-2.5 rounded-lg px-2 py-1.5 transition-all hover:bg-muted/60 active:cursor-grabbing"
             >
               <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', item.accent)}>
                 {item.icon}
               </div>
               <div className="min-w-0">
-                <div className="text-[12px] font-medium text-white/85">{item.label}</div>
-                <div className="text-[10px] leading-tight text-white/30">{item.description}</div>
+                <div className="text-[12px] font-medium text-foreground">{item.label}</div>
+                <div className="text-[10px] leading-tight text-muted-foreground/60">{item.description}</div>
               </div>
             </div>
           ))}

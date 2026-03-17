@@ -2,10 +2,12 @@ import { useState, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { Loader2, CheckCircle2, XCircle, Rocket, ExternalLink, Clock, Copy, Check } from 'lucide-react'
+import * as Dialog from '@radix-ui/react-dialog'
 import { Button } from '../ui/button'
 import { Select } from '../ui/select'
 import { cn } from '../../lib/utils'
 import { api } from '../../lib/api-client'
+import { usePollingStore } from '../../stores/polling-store'
 
 export interface DeployProgress {
   stage: string
@@ -121,6 +123,9 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
                 setState('success')
                 queryClient.invalidateQueries({ queryKey: ['workflow', workflowId] })
                 queryClient.invalidateQueries({ queryKey: ['deployments', workflowId] })
+                queryClient.invalidateQueries({ queryKey: ['all-deployments'] })
+                usePollingStore.getState().start('all-deployments')
+                setTimeout(() => usePollingStore.getState().stop('all-deployments'), 30_000)
               } else {
                 setError(data.error ?? 'Deploy failed')
                 setState('error')
@@ -142,23 +147,23 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
     }
   }, [connectionId, workflowId, state, queryClient])
 
-  if (!open) return null
-
   const selectedConnection = connections?.find((c) => c.id === connectionId)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-[420px] rounded-xl border border-white/[0.08] bg-[oklch(0.14_0_0)] p-6 shadow-2xl">
-        <div className="flex items-center gap-2 text-white/90">
-          <Rocket className="h-5 w-5" />
-          <h2 className="text-base font-semibold">Deploy Workflow</h2>
-        </div>
+    <Dialog.Root open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg">
+          <Dialog.Title className="flex items-center gap-2 text-base font-semibold text-foreground">
+            <Rocket className="h-5 w-5" />
+            Deploy Workflow
+          </Dialog.Title>
 
         {state === 'idle' && (
           <div className="mt-4 space-y-4">
             {connections && connections.length > 0 ? (
               <div>
-                <label className="mb-1 block text-xs text-white/50">Connection</label>
+                <label className="mb-1 block text-xs text-muted-foreground">Connection</label>
                 <Select
                   value={connectionId}
                   onValueChange={setConnectionId}
@@ -167,8 +172,8 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
                 />
               </div>
             ) : (
-              <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 text-center">
-                <p className="text-xs text-white/50">
+              <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
+                <p className="text-xs text-muted-foreground">
                   No connections found.{' '}
                   <Link to="/connections" className="text-primary hover:underline" onClick={onClose}>
                     Add one
@@ -179,22 +184,22 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
             )}
             {deployments && deployments.length > 0 && (
               <div>
-                <div className="flex items-center gap-1.5 text-xs text-white/40">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
                   <span>Recent deployments</span>
                 </div>
                 <div className="mt-2 max-h-32 space-y-1 overflow-y-auto">
                   {deployments.slice(0, 5).map((d) => (
-                    <div key={d.id} className="flex items-center justify-between rounded-md bg-white/[0.03] px-2.5 py-1.5">
+                    <div key={d.id} className="flex items-center justify-between rounded-md bg-muted/40 px-2.5 py-1.5">
                       <div className="flex items-center gap-2">
                         {d.status === 'success' ? (
-                          <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                          <CheckCircle2 className="h-3 w-3 text-status-success" />
                         ) : (
-                          <XCircle className="h-3 w-3 text-red-400" />
+                          <XCircle className="h-3 w-3 text-status-error" />
                         )}
-                        <span className="font-mono text-[11px] text-white/50">{d.serviceName}</span>
+                        <span className="font-mono text-[11px] text-muted-foreground">{d.serviceName}</span>
                       </div>
-                      <span className="text-[10px] text-white/30">
+                      <span className="text-[10px] text-muted-foreground/60">
                         {new Date(d.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
@@ -222,22 +227,22 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
                   key={stage.key}
                   className={cn(
                     'flex items-center gap-2 text-sm',
-                    isActive ? 'text-white/90' : isPast ? 'text-white/40' : 'text-white/20',
+                    isActive ? 'text-foreground' : isPast ? 'text-muted-foreground' : 'text-muted-foreground/40',
                   )}
                 >
                   {isActive ? (
                     <Loader2 className="h-4 w-4 animate-spin text-primary" />
                   ) : isPast ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                    <CheckCircle2 className="h-4 w-4 text-status-success" />
                   ) : (
-                    <div className="h-4 w-4 rounded-full border border-white/10" />
+                    <div className="h-4 w-4 rounded-full border border-border" />
                   )}
                   {stage.label}
                 </div>
               )
             })}
             {progress && (
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted/60">
                 <div
                   className="h-full rounded-full bg-primary transition-all duration-300"
                   style={{ width: `${progress.progress}%` }}
@@ -249,21 +254,21 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
 
         {state === 'success' && (
           <div className="mt-4 space-y-4">
-            <div className="flex items-center gap-2 text-emerald-400">
+            <div className="flex items-center gap-2 text-status-success">
               <CheckCircle2 className="h-5 w-5" />
               <span className="text-sm font-medium">Deployed successfully</span>
             </div>
 
             {deployResult && (
-              <div className="space-y-2 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+              <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-white/40">Worker</span>
-                  <span className="font-mono text-xs text-white/70">{deployResult.deploymentId}</span>
+                  <span className="text-xs text-muted-foreground">Worker</span>
+                  <span className="font-mono text-xs text-foreground/70">{deployResult.deploymentId}</span>
                 </div>
                 {selectedConnection && (
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-white/40">Connection</span>
-                    <span className="text-xs text-white/70">{selectedConnection.name}</span>
+                    <span className="text-xs text-muted-foreground">Connection</span>
+                    <span className="text-xs text-foreground/70">{selectedConnection.name}</span>
                   </div>
                 )}
                 {deployResult.dashboardUrl && (
@@ -283,20 +288,20 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
             {deployResult?.url && (
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-white/40">Trigger</span>
+                  <span className="text-xs text-muted-foreground">Trigger</span>
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(`curl -X POST ${deployResult.url}`)
                       setCurlCopied(true)
                       setTimeout(() => setCurlCopied(false), 2000)
                     }}
-                    className="flex items-center gap-1 text-[10px] text-white/30 hover:text-white/50"
+                    className="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground"
                   >
-                    {curlCopied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                    {curlCopied ? <Check className="h-3 w-3 text-status-success" /> : <Copy className="h-3 w-3" />}
                     {curlCopied ? 'Copied' : 'Copy'}
                   </button>
                 </div>
-                <pre className="overflow-x-auto rounded-lg border border-white/[0.06] bg-white/[0.02] p-2 text-[11px] text-white/50">
+                <pre className="overflow-x-auto rounded-lg border border-border bg-muted/30 p-2 text-[11px] text-muted-foreground">
                   {`curl -X POST ${deployResult.url}`}
                 </pre>
               </div>
@@ -310,7 +315,7 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
 
         {state === 'error' && (
           <div className="mt-4 space-y-3">
-            <div className="flex items-center gap-2 text-red-400">
+            <div className="flex items-center gap-2 text-status-error">
               <XCircle className="h-5 w-5" />
               <span className="text-sm font-medium">Deployment failed</span>
             </div>
@@ -323,7 +328,8 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
             </div>
           </div>
         )}
-      </div>
-    </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }

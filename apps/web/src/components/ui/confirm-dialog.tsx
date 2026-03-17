@@ -26,11 +26,11 @@ export function ConfirmDialog({
     <AlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <AlertDialog.Portal>
         <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
-        <AlertDialog.Content className="fixed left-1/2 top-1/2 z-50 w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/[0.08] bg-[oklch(0.14_0_0)] p-6 shadow-2xl">
-          <AlertDialog.Title className="text-base font-semibold text-white/90">
+        <AlertDialog.Content className="fixed left-1/2 top-1/2 z-50 w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg">
+          <AlertDialog.Title className="text-base font-semibold text-foreground">
             {title}
           </AlertDialog.Title>
-          <AlertDialog.Description className="mt-2 text-sm leading-relaxed text-white/50">
+          <AlertDialog.Description className="mt-2 text-sm leading-relaxed text-muted-foreground">
             {description}
           </AlertDialog.Description>
           <div className="mt-5 flex justify-end gap-2">

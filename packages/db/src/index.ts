@@ -1,4 +1,4 @@
-export type { Workflow, WorkflowVersion, Connection, WorkflowRun, Deployment } from './types.js'
+export type { Workflow, WorkflowVersion, Connection, WorkflowRun, Deployment, ApiKey } from './types.js'
 export type { DatabaseAdapter } from './adapter.js'
 export type { TokenCrypto } from './crypto.js'
 export * as schema from './schema/index.js'

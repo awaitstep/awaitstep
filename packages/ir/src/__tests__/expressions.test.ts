@@ -56,29 +56,35 @@ describe('parseExpressions', () => {
 })
 
 describe('resolveExpressions', () => {
-  it('resolves a single expression', () => {
+  it('resolves a single expression using default identity resolver', () => {
     const result = resolveExpressions('{{step1.result}}')
-    expect(result).toBe("_workflowState['step1'].result")
+    expect(result).toBe('step1.result')
   })
 
   it('resolves multiple expressions in a string', () => {
     const result = resolveExpressions('{{a.x}} + {{b.y}}')
-    expect(result).toBe("_workflowState['a'].x + _workflowState['b'].y")
+    expect(result).toBe('a.x + b.y')
   })
 
   it('resolves expression with no path', () => {
     const result = resolveExpressions('{{step1}}')
-    expect(result).toBe("_workflowState['step1']")
+    expect(result).toBe('step1')
   })
 
   it('resolves nested paths', () => {
     const result = resolveExpressions('{{step1.data.name}}')
-    expect(result).toBe("_workflowState['step1'].data.name")
+    expect(result).toBe('step1.data.name')
   })
 
-  it('uses custom state variable name', () => {
-    const result = resolveExpressions('{{step1.x}}', 'state')
+  it('uses custom name resolver', () => {
+    const resolver = (id: string) => `state['${id}']`
+    const result = resolveExpressions('{{step1.x}}', resolver)
     expect(result).toBe("state['step1'].x")
+  })
+
+  it('resolves in interpolation context', () => {
+    const result = resolveExpressions('{{step1.url}}', (id) => id, 'interpolation')
+    expect(result).toBe('${step1.url}')
   })
 
   it('leaves text without expressions unchanged', () => {

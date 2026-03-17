@@ -134,7 +134,7 @@ function findUnreachableNodes(nodes: FlowNode[], edges: Edge[]): Set<string> {
 }
 
 export function validateWorkflowForPublish(
-  metadata: WorkflowMetadata,
+  metadata: Pick<WorkflowMetadata, 'name' | 'description'>,
   nodes: FlowNode[],
   edges: Edge[],
 ): PublishValidationResult {

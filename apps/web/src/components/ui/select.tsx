@@ -14,13 +14,13 @@ export function Select({ value, onValueChange, options, className }: SelectProps
     <SelectPrimitive.Root value={value} onValueChange={onValueChange}>
       <SelectPrimitive.Trigger
         className={cn(
-          'flex h-10 items-center justify-between gap-2 rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-white/80 focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+          'flex h-10 items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
           className,
         )}
       >
         <SelectPrimitive.Value />
         <SelectPrimitive.Icon>
-          <ChevronDown className="h-3.5 w-3.5 text-white/40" />
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
         </SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>
 
@@ -28,14 +28,14 @@ export function Select({ value, onValueChange, options, className }: SelectProps
         <SelectPrimitive.Content
           position="popper"
           sideOffset={4}
-          className="z-50 max-h-60 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border border-white/[0.08] bg-[oklch(0.15_0_0)] shadow-[0_8px_30px_rgba(0,0,0,0.5)]"
+          className="z-50 max-h-60 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-md border border-border bg-card shadow-lg"
         >
           <SelectPrimitive.Viewport className="p-1">
             {options.map((opt) => (
               <SelectPrimitive.Item
                 key={opt.value}
                 value={opt.value}
-                className="relative flex cursor-pointer items-center rounded-md px-2.5 py-1.5 text-sm text-white/80 outline-none data-[highlighted]:bg-white/[0.08] data-[highlighted]:text-white"
+                className="relative flex cursor-pointer items-center rounded-md px-2.5 py-1.5 text-sm text-foreground outline-none data-[highlighted]:bg-muted/70 data-[highlighted]:text-foreground"
               >
                 <SelectPrimitive.ItemText>{opt.label}</SelectPrimitive.ItemText>
               </SelectPrimitive.Item>
