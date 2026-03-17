@@ -48,12 +48,12 @@ export function DateTimePicker({ value, onChange, minDate, placeholder = 'Pick a
       <Popover.Trigger asChild>
         <button
           className={cn(
-            'flex h-10 w-full items-center gap-2 rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-white/80 transition-colors hover:bg-white/[0.02] focus:outline-none focus:ring-2 focus:ring-ring',
-            !displayValue && 'text-white/30',
+            'flex h-10 w-full items-center gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted/30 focus:outline-none focus:ring-2 focus:ring-ring',
+            !displayValue && 'text-muted-foreground/60',
             className,
           )}
         >
-          <Calendar className="h-4 w-4 shrink-0 text-white/40" />
+          <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
           <span className="flex-1 text-left truncate">{displayValue ?? placeholder}</span>
         </button>
       </Popover.Trigger>
@@ -63,7 +63,7 @@ export function DateTimePicker({ value, onChange, minDate, placeholder = 'Pick a
           side="bottom"
           align="start"
           sideOffset={4}
-          className="z-50 rounded-xl border border-white/[0.08] bg-[oklch(0.14_0_0)] p-3 shadow-[0_8px_30px_rgba(0,0,0,0.5)]"
+          className="z-50 rounded-md border border-border bg-card p-3 shadow-lg"
         >
           <DayPicker
             mode="single"
@@ -83,26 +83,26 @@ export function DateTimePicker({ value, onChange, minDate, placeholder = 'Pick a
               root: 'rdp-dark',
               months: 'flex flex-col',
               month_caption: 'flex items-center justify-center py-1',
-              caption_label: 'text-sm font-medium text-white/80',
+              caption_label: 'text-sm font-medium text-foreground',
               nav: 'flex items-center gap-1',
-              button_previous: 'h-7 w-7 rounded-md flex items-center justify-center text-white/40 hover:bg-white/[0.06] hover:text-white/80',
-              button_next: 'h-7 w-7 rounded-md flex items-center justify-center text-white/40 hover:bg-white/[0.06] hover:text-white/80',
+              button_previous: 'h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+              button_next: 'h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:bg-muted/60 hover:text-foreground',
               weekdays: 'flex',
-              weekday: 'w-9 text-center text-[11px] font-medium text-white/30',
+              weekday: 'w-9 text-center text-[11px] font-medium text-muted-foreground/60',
               weeks: 'mt-1',
               week: 'flex',
               day: 'h-9 w-9 text-center text-sm',
-              day_button: 'h-9 w-9 rounded-md text-white/60 hover:bg-white/[0.06] hover:text-white/90 transition-colors disabled:text-white/10 disabled:pointer-events-none disabled:line-through disabled:decoration-white/10 disabled:hover:bg-transparent',
+              day_button: 'h-9 w-9 rounded-md text-foreground/60 hover:bg-muted/60 hover:text-foreground transition-colors disabled:text-muted-foreground/30 disabled:pointer-events-none disabled:line-through disabled:decoration-muted-foreground/30 disabled:hover:bg-transparent',
               selected: '!bg-primary !text-primary-foreground rounded-md',
               disabled: '',
-              today: 'font-bold text-white/90',
-              outside: 'text-white/10',
+              today: 'font-bold text-foreground',
+              outside: 'text-muted-foreground/30',
             }}
           />
 
           {/* Time picker */}
-          <div className="mt-2 flex items-center gap-2 border-t border-white/[0.06] pt-3">
-            <span className="text-xs text-white/40">Time</span>
+          <div className="mt-2 flex items-center gap-2 border-t border-border pt-3">
+            <span className="text-xs text-muted-foreground">Time</span>
             <div className="flex items-center gap-1">
               <input
                 type="number"
@@ -111,9 +111,9 @@ export function DateTimePicker({ value, onChange, minDate, placeholder = 'Pick a
                 value={hours}
                 onChange={(e) => handleTimeChange(e.target.value.slice(0, 2), minutes)}
                 placeholder="HH"
-                className="w-12 rounded-md border border-white/[0.08] bg-white/[0.04] px-2 py-1.5 text-center text-sm text-white/80 outline-none focus:border-primary/50"
+                className="w-12 rounded-md border border-border bg-muted/50 px-2 py-1.5 text-center text-sm text-foreground outline-none focus:border-primary/50"
               />
-              <span className="text-white/30">:</span>
+              <span className="text-muted-foreground/60">:</span>
               <input
                 type="number"
                 min={0}
@@ -121,7 +121,7 @@ export function DateTimePicker({ value, onChange, minDate, placeholder = 'Pick a
                 value={minutes}
                 onChange={(e) => handleTimeChange(hours, e.target.value.slice(0, 2))}
                 placeholder="MM"
-                className="w-12 rounded-md border border-white/[0.08] bg-white/[0.04] px-2 py-1.5 text-center text-sm text-white/80 outline-none focus:border-primary/50"
+                className="w-12 rounded-md border border-border bg-muted/50 px-2 py-1.5 text-center text-sm text-foreground outline-none focus:border-primary/50"
               />
             </div>
           </div>

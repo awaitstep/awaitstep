@@ -1,4 +1,4 @@
-import type { DatabaseAdapter, Workflow, WorkflowVersion, Connection, WorkflowRun } from '@awaitstep/db'
+import type { DatabaseAdapter, Workflow, WorkflowVersion, Connection, WorkflowRun, Deployment } from '@awaitstep/db'
 import { createApp } from '../app.js'
 import type { Auth } from '../auth/config.js'
 
@@ -7,6 +7,7 @@ const store = {
   versions: new Map<string, WorkflowVersion>(),
   connections: new Map<string, Connection>(),
   runs: new Map<string, WorkflowRun>(),
+  deployments: new Map<string, Deployment>(),
 }
 
 export function resetStore() {
@@ -14,6 +15,7 @@ export function resetStore() {
   store.versions.clear()
   store.connections.clear()
   store.runs.clear()
+  store.deployments.clear()
 }
 
 function now() {
@@ -51,7 +53,12 @@ const mockDb: DatabaseAdapter = {
     return store.versions.get(id) ?? null
   },
   async listVersionsByWorkflow(workflowId) {
-    return [...store.versions.values()].filter((v) => v.workflowId === workflowId)
+    return [...store.versions.values()].filter((v) => v.workflowId === workflowId).sort((a, b) => b.version - a.version)
+  },
+  async updateVersion(id, data) {
+    const v = store.versions.get(id)
+    if (!v) throw new Error('Not found')
+    store.versions.set(id, { ...v, ...data })
   },
   async createConnection(data) {
     const c: Connection = { ...data, createdAt: now(), updatedAt: now() }
@@ -84,6 +91,27 @@ const mockDb: DatabaseAdapter = {
     const updated = { ...r, ...data, updatedAt: now() }
     store.runs.set(id, updated)
     return updated
+  },
+  async listRecentRunsByUser(userId) {
+    const wfIds = new Set([...store.workflows.values()].filter((w) => w.userId === userId).map((w) => w.id))
+    return [...store.runs.values()].filter((r) => wfIds.has(r.workflowId))
+  },
+  async createDeployment(data) {
+    const d: Deployment = { ...data, serviceUrl: data.serviceUrl ?? null, error: data.error ?? null, createdAt: now() }
+    store.deployments.set(d.id, d)
+    return d
+  },
+  async listDeploymentsByWorkflow(workflowId) {
+    return [...store.deployments.values()].filter((d) => d.workflowId === workflowId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  },
+  async listRecentDeploymentsByUser(userId) {
+    const wfIds = new Set([...store.workflows.values()].filter((w) => w.userId === userId).map((w) => w.id))
+    return [...store.deployments.values()].filter((d) => wfIds.has(d.workflowId))
+  },
+  async deleteDeploymentsByWorkflow(workflowId) {
+    for (const [id, d] of store.deployments) {
+      if (d.workflowId === workflowId) store.deployments.delete(id)
+    }
   },
 }
 

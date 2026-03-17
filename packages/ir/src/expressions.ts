@@ -35,15 +35,16 @@ export function parseExpressions(input: string): ParsedExpression[] {
 
 /**
  * Resolve template expressions in a string, replacing {{nodeId.path}}
- * with the JavaScript expression to access the workflow state.
+ * with the JavaScript expression to access a previous step's return value.
  *
- * In 'code' context (default): {{x.y}} → _workflowState['x'].y
- * In 'interpolation' context: {{x.y}} → ${_workflowState['x'].y}
- *   (for embedding inside template literal strings like HTTP urls/headers/body)
+ * @param nameResolver - Maps a node ID to its JavaScript variable reference.
+ *   Defaults to the node ID itself (safe when variable names match node IDs).
+ * @param context - 'code' (default) produces a bare reference; 'interpolation'
+ *   wraps the reference in `${}` for use inside template literal strings.
  */
 export function resolveExpressions(
   input: string,
-  stateVar = '_workflowState',
+  nameResolver: (nodeId: string) => string = (id) => id,
   context: 'code' | 'interpolation' = 'code',
 ): string {
   return input.replace(EXPRESSION_PATTERN, (_match, expr: string) => {
@@ -51,7 +52,7 @@ export function resolveExpressions(
     const nodeId = parts[0]!
     const path = parts.slice(1)
     const accessor = path.length > 0 ? `.${path.join('.')}` : ''
-    const ref = `${stateVar}['${nodeId}']${accessor}`
+    const ref = `${nameResolver(nodeId)}${accessor}`
     return context === 'interpolation' ? `\${${ref}}` : ref
   })
 }

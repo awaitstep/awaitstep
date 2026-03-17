@@ -11,48 +11,49 @@ const RESOURCE_TYPES = [
     description: 'Browse key-value storage namespaces and their contents',
     icon: HardDrive,
     href: '/resources/kv',
-    color: 'text-blue-400 bg-blue-500/10',
   },
   {
     name: 'D1 Databases',
     description: 'Browse SQL databases and run queries',
     icon: Database,
     href: '/resources/d1',
-    color: 'text-amber-400 bg-amber-500/10',
   },
   {
     name: 'R2 Buckets',
     description: 'Browse object storage buckets and files',
     icon: Archive,
     href: '/resources/r2',
-    color: 'text-emerald-400 bg-emerald-500/10',
   },
 ]
 
 function ResourcesPage() {
   return (
     <div>
-      <h1 className="text-2xl font-bold">Resources</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Browse and manage your Cloudflare resources
-      </p>
+      <div className="border-b border-border pb-4">
+        <h1 className="text-lg font-semibold">Resources</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Browse and manage your Cloudflare resources
+        </p>
+      </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {RESOURCE_TYPES.map((type) => (
+      <div className="mx-auto max-w-screen-md">
+      <div className="mt-6 rounded-md border border-border">
+        {RESOURCE_TYPES.map((type, i) => (
           <Link
             key={type.name}
             to={type.href}
-            className="group rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/40"
+            className={`flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30 ${
+              i < RESOURCE_TYPES.length - 1 ? 'border-b border-border' : ''
+            }`}
           >
-            <div className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${type.color}`}>
-              <type.icon className="h-5 w-5" />
+            <type.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0">
+              <h3 className="text-sm font-medium text-foreground">{type.name}</h3>
+              <p className="text-xs text-muted-foreground">{type.description}</p>
             </div>
-            <h3 className="mt-3 text-sm font-semibold text-foreground group-hover:text-primary">
-              {type.name}
-            </h3>
-            <p className="mt-1 text-xs text-muted-foreground">{type.description}</p>
           </Link>
         ))}
+      </div>
       </div>
     </div>
   )

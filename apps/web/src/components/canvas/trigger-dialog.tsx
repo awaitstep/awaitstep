@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Play, Loader2, AlertCircle, Copy, Check } from 'lucide-react'
+import * as Dialog from '@radix-ui/react-dialog'
 import { Button } from '../ui/button'
 import { Select } from '../ui/select'
 import { api } from '../../lib/api-client'
@@ -54,10 +55,12 @@ export function TriggerDialog({ open, onClose, workflowId, deploymentId }: Trigg
 
       const run = await api.triggerWorkflow(workflowId, { connectionId, params })
       queryClient.invalidateQueries({ queryKey: ['workflow-runs', workflowId] })
+      queryClient.invalidateQueries({ queryKey: ['all-runs'] })
       onClose()
       navigate({
-        to: '/workflows/$workflowId/runs/$runId',
-        params: { workflowId, runId: run.id },
+        to: '/runs/$runId',
+        params: { runId: run.id },
+        search: { workflowId },
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to trigger workflow')
@@ -78,20 +81,20 @@ export function TriggerDialog({ open, onClose, workflowId, deploymentId }: Trigg
     setTimeout(() => setCurlCopied(false), 2000)
   }, [deploymentId, paramsJson])
 
-  if (!open) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-[480px] rounded-xl border border-white/[0.08] bg-[oklch(0.14_0_0)] p-6 shadow-2xl">
-        <div className="flex items-center gap-2 text-white/90">
-          <Play className="h-5 w-5" />
-          <h2 className="text-base font-semibold">Trigger Workflow</h2>
-        </div>
+    <Dialog.Root open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[480px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg">
+          <Dialog.Title className="flex items-center gap-2 text-base font-semibold text-foreground">
+            <Play className="h-5 w-5" />
+            Trigger Workflow
+          </Dialog.Title>
 
         <div className="mt-4 space-y-4">
           {connections && connections.length > 0 ? (
             <div>
-              <label className="mb-1 block text-xs text-white/50">Connection</label>
+              <label className="mb-1 block text-xs text-muted-foreground">Connection</label>
               <Select
                 value={connectionId}
                 onValueChange={setConnectionId}
@@ -100,14 +103,14 @@ export function TriggerDialog({ open, onClose, workflowId, deploymentId }: Trigg
               />
             </div>
           ) : (
-            <p className="text-xs text-white/50">No connections available.</p>
+            <p className="text-xs text-muted-foreground">No connections available.</p>
           )}
 
           <div>
             <div className="mb-1 flex items-center justify-between">
-              <label className="text-xs text-white/50">Trigger Payload (JSON)</label>
+              <label className="text-xs text-muted-foreground">Trigger Payload (JSON)</label>
               {jsonError && (
-                <span className="flex items-center gap-1 text-[10px] text-red-400">
+                <span className="flex items-center gap-1 text-[10px] text-status-error">
                   <AlertCircle className="h-3 w-3" />
                   {jsonError}
                 </span>
@@ -117,7 +120,7 @@ export function TriggerDialog({ open, onClose, workflowId, deploymentId }: Trigg
               value={paramsJson}
               onChange={(e) => handleParamsChange(e.target.value)}
               spellCheck={false}
-              className="h-40 w-full rounded-lg border border-white/[0.08] bg-white/[0.03] p-3 font-mono text-xs text-white/80 placeholder:text-white/20 focus:border-primary/40 focus:outline-none"
+              className="h-40 w-full rounded-md border border-border bg-muted/40 p-3 font-mono text-xs text-foreground placeholder:text-muted-foreground/40 focus:border-primary/40 focus:outline-none"
               placeholder='{ "key": "value" }'
             />
           </div>
@@ -125,16 +128,16 @@ export function TriggerDialog({ open, onClose, workflowId, deploymentId }: Trigg
           {deploymentId && (
             <div>
               <div className="mb-1 flex items-center justify-between">
-                <label className="text-xs text-white/50">Curl Command</label>
+                <label className="text-xs text-muted-foreground">Curl Command</label>
                 <button
                   onClick={handleCopyCurl}
-                  className="flex items-center gap-1 text-[10px] text-white/30 hover:text-white/50"
+                  className="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground"
                 >
-                  {curlCopied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                  {curlCopied ? <Check className="h-3 w-3 text-status-success" /> : <Copy className="h-3 w-3" />}
                   {curlCopied ? 'Copied' : 'Copy'}
                 </button>
               </div>
-              <pre className="overflow-x-auto rounded-lg border border-white/[0.06] bg-white/[0.02] p-2.5 text-[11px] text-white/50">
+              <pre className="overflow-x-auto rounded-lg border border-border bg-muted/30 p-2.5 text-[11px] text-muted-foreground">
                 {`curl -X POST https://${deploymentId}.workers.dev`}
               </pre>
             </div>
@@ -155,7 +158,8 @@ export function TriggerDialog({ open, onClose, workflowId, deploymentId }: Trigg
             </Button>
           </div>
         </div>
-      </div>
-    </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }

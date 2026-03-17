@@ -41,9 +41,38 @@ versions.post(
       return c.json({ error: 'Invalid IR', details: validation.errors }, 400)
     }
 
+    const irString = JSON.stringify(body.ir)
     const generatedCode = generateWorkflow(body.ir as WorkflowIR)
 
     const existing = await db.listVersionsByWorkflow(workflowId)
+    const latest = existing[0] // ordered by descending version number
+
+    // Check if the latest version has been deployed
+    const workflow = await db.getWorkflowById(workflowId)
+    if (!workflow) return c.json({ error: 'Workflow not found' }, 404)
+
+    const deployments = await db.listDeploymentsByWorkflow(workflowId)
+    const latestDeployedVersionId = deployments.find((d) => d.status === 'success')?.versionId
+
+    if (latest) {
+      // If latest version has NOT been deployed, overwrite it in place
+      if (latest.id !== latestDeployedVersionId) {
+        // Check if IR actually changed
+        if (latest.ir === irString) {
+          return c.json(latest, 200)
+        }
+        await db.updateVersion(latest.id, { ir: irString, generatedCode })
+        const updated = await db.getVersionById(latest.id)
+        return c.json(updated, 200)
+      }
+
+      // If latest version HAS been deployed and IR hasn't changed, return it
+      if (latest.ir === irString) {
+        return c.json(latest, 200)
+      }
+    }
+
+    // Create new version: either first version, or IR changed from a deployed version
     const nextVersion = existing.length > 0
       ? Math.max(...existing.map((v) => v.version)) + 1
       : 1
@@ -52,7 +81,7 @@ versions.post(
       id: nanoid(),
       workflowId,
       version: nextVersion,
-      ir: JSON.stringify(body.ir),
+      ir: irString,
       generatedCode,
     })
 

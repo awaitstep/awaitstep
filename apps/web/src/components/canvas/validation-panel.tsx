@@ -39,13 +39,13 @@ export function ValidationPanel() {
   }
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-20 flex max-h-[240px] flex-col border-t border-white/[0.06] bg-[oklch(0.13_0_0)] shadow-[0_-4px_24px_rgba(0,0,0,0.4)]">
+    <div className="absolute bottom-0 left-0 right-0 z-20 flex max-h-[240px] flex-col border-t border-border bg-card shadow-lg">
       {/* Header */}
-      <div className="flex h-9 shrink-0 items-center justify-between border-b border-white/[0.06] px-3">
+      <div className="flex h-9 shrink-0 items-center justify-between border-b border-border px-3">
         <div className="flex items-center gap-2">
-          <span className="text-[12px] font-medium text-white/60">Publish Check</span>
+          <span className="text-[12px] font-medium text-foreground/60">Publish Check</span>
           {errors.length > 0 && (
-            <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-400">
+            <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-status-error">
               <AlertCircle className="h-3 w-3" />
               {errors.length}
             </span>
@@ -57,7 +57,7 @@ export function ValidationPanel() {
             </span>
           )}
           {validationResult.canPublish && errors.length === 0 && (
-            <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
+            <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-status-success">
               <CheckCircle2 className="h-3 w-3" />
               Ready to deploy
             </span>
@@ -65,7 +65,7 @@ export function ValidationPanel() {
         </div>
         <button
           onClick={clearValidation}
-          className="rounded p-0.5 text-white/30 transition-colors hover:bg-white/[0.06] hover:text-white/60"
+          className="rounded p-0.5 text-muted-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground/60"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -74,7 +74,7 @@ export function ValidationPanel() {
       {/* Issues list */}
       <div className="flex-1 overflow-y-auto">
         {sortedIssues.length === 0 ? (
-          <div className="flex items-center gap-2 px-3 py-3 text-[12px] text-emerald-400/80">
+          <div className="flex items-center gap-2 px-3 py-3 text-[12px] text-status-success/80">
             <CheckCircle2 className="h-3.5 w-3.5" />
             No issues found. Workflow is ready to deploy.
           </div>
@@ -89,20 +89,20 @@ export function ValidationPanel() {
                 className={cn(
                   'flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] transition-colors',
                   issue.nodeId
-                    ? 'cursor-pointer hover:bg-white/[0.04]'
+                    ? 'cursor-pointer hover:bg-muted/50'
                     : 'cursor-default',
                 )}
               >
                 {issue.severity === 'error' ? (
-                  <AlertCircle className="h-3.5 w-3.5 shrink-0 text-red-400" />
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0 text-status-error" />
                 ) : (
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-yellow-400" />
                 )}
                 {issue.nodeName && (
-                  <span className="shrink-0 text-white/50">{issue.nodeName}</span>
+                  <span className="shrink-0 text-muted-foreground">{issue.nodeName}</span>
                 )}
                 {nodeType && (
-                  <span className="shrink-0 rounded bg-white/[0.06] px-1 py-0.5 text-[10px] text-white/30">
+                  <span className="shrink-0 rounded bg-muted/60 px-1 py-0.5 text-[10px] text-muted-foreground/60">
                     {NODE_TYPE_LABELS[nodeType] ?? nodeType}
                   </span>
                 )}

@@ -1,461 +1,415 @@
-import { createFileRoute, Link, useParams } from '@tanstack/react-router'
-import { lazy, Suspense, useState, useEffect, useCallback } from 'react'
-import { toast } from 'sonner'
+import { createFileRoute, Link, useParams, redirect } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
+import { useState, useRef, useEffect } from 'react'
+import { toast } from 'sonner'
+import type { WorkflowNode, Edge as IREdge } from '@awaitstep/ir'
+import { validateWorkflowForPublish } from '../../../lib/validate-workflow'
 import {
-  ArrowLeft,
-  Code2,
-  PanelRightClose,
-  Settings2,
-  Play,
-  Rocket,
   Loader2,
-  Save,
-  Circle,
-  MoreVertical,
-  Trash2,
-  CloudOff,
+  Pencil,
+  Rocket,
+  Clock,
+  ExternalLink,
+  Hash,
 } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
-import { NodePalette } from '../../../components/canvas/node-palette'
-import { NodeConfigPanel } from '../../../components/canvas/node-config-panel'
-import { WorkflowSettings } from '../../../components/canvas/workflow-settings'
-import { TemplatePicker } from '../../../components/canvas/template-picker'
-import { ClientOnly } from '../../../components/canvas/client-only'
-import { useWorkflowStore } from '../../../stores/workflow-store'
-import { SimulationPanel } from '../../../components/canvas/simulation-panel'
-import { cn } from '../../../lib/utils'
-import { validateWorkflowForPublish } from '../../../lib/validate-workflow'
-import { api, type WorkflowSummary } from '../../../lib/api-client'
-import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
-
-const LazyReactFlowProvider = lazy(() =>
-  import('@xyflow/react').then((m) => ({ default: m.ReactFlowProvider })),
-)
-
-const LazyCanvas = lazy(() =>
-  import('../../../components/canvas/workflow-canvas').then((m) => ({ default: m.WorkflowCanvas })),
-)
-
-const LazyCodePreview = lazy(() =>
-  import('../../../components/canvas/code-preview').then((m) => ({ default: m.CodePreview })),
-)
+import { api } from '../../../lib/api-client'
+import { RunStatusBadge } from '../../../components/monitoring/run-status-badge'
+import { WorkflowActionsMenu } from '../../../components/dashboard/workflow-actions-menu'
+import { TriggerButton } from '../../../components/dashboard/trigger-button'
+import { DeployDialog } from '../../../components/canvas/deploy-dialog'
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId/')({
-  component: WorkflowEditorPage,
+  beforeLoad: ({ params }) => {
+    if (params.workflowId === 'new') {
+      throw redirect({ to: '/workflows/$workflowId/canvas', params })
+    }
+  },
+  component: WorkflowOverviewPage,
 })
 
-function WorkflowEditorPage() {
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  return `${days}d ago`
+}
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+function WorkflowOverviewPage() {
   const { workflowId } = useParams({ from: '/_authed/workflows/$workflowId/' })
-  const [showCode, setShowCode] = useState(false)
-  const [showTemplatePicker, setShowTemplatePicker] = useState(true)
+  const [deployOpen, setDeployOpen] = useState(false)
 
-  const metadata = useWorkflowStore((s) => s.metadata)
-  const nodeCount = useWorkflowStore((s) => s.nodes.length)
-  const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId)
-  const showSettings = useWorkflowStore((s) => s.showSettings)
-  const setShowSettings = useWorkflowStore((s) => s.setShowSettings)
-  const addNode = useWorkflowStore((s) => s.addNode)
-  const runValidation = useWorkflowStore((s) => s.runValidation)
-  const runSimulation = useWorkflowStore((s) => s.runSimulation)
-  const isDirty = useWorkflowStore((s) => s.isDirty)
-  const setWorkflowId = useWorkflowStore((s) => s.setWorkflowId)
-  const loadFromLocal = useWorkflowStore((s) => s.loadFromLocal)
-  const loadWorkflow = useWorkflowStore((s) => s.loadWorkflow)
-  const setMetadata = useWorkflowStore((s) => s.setMetadata)
-  const markClean = useWorkflowStore((s) => s.markClean)
-
-  const isNew = workflowId === 'new'
-
-  // Load workflow from server when editing an existing workflow
-  const { data: serverWorkflow } = useQuery({
+  const { data: workflow, isLoading: wfLoading } = useQuery({
     queryKey: ['workflow', workflowId],
     queryFn: () => api.getWorkflow(workflowId),
-    enabled: !isNew,
   })
 
-  // Initialize workflow data
-  useEffect(() => {
-    if (isNew) {
-      setWorkflowId('new')
-      return
-    }
-
-    setWorkflowId(workflowId)
-
-    // Try loading from localStorage first (may have unsaved changes)
-    if (loadFromLocal(workflowId)) return
-
-    // Fall back to server data
-    if (serverWorkflow) {
-      setMetadata({
-        name: serverWorkflow.name,
-        description: serverWorkflow.description,
-      })
-      markClean()
-    }
-  }, [workflowId, isNew, serverWorkflow, setWorkflowId, loadFromLocal, setMetadata, loadWorkflow, markClean])
-
-  // Save to server
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      const state = useWorkflowStore.getState()
-      const ir = buildIRFromState(state)
-
-      if (isNew) {
-        const created = await api.createWorkflow({ name: state.metadata.name, description: state.metadata.description })
-        await api.createVersion(created.id, { ir })
-        return created
-      }
-
-      await api.updateWorkflow(workflowId, { name: state.metadata.name, description: state.metadata.description })
-      await api.createVersion(workflowId, { ir })
-      return null
-    },
-    onSuccess: (created: WorkflowSummary | null) => {
-      markClean()
-      toast.success('Workflow saved')
-      if (created) {
-        // Navigate to the created workflow (for new workflows)
-        window.history.replaceState(null, '', `/workflows/${created.id}`)
-        setWorkflowId(created.id)
-      }
-    },
-    onError: (err) => {
-      toast.error(err instanceof Error ? err.message : 'Failed to save workflow')
-    },
+  const { data: versions } = useQuery({
+    queryKey: ['versions', workflowId],
+    queryFn: () => api.listVersions(workflowId),
   })
 
-  const handleSave = useCallback(() => {
-    const state = useWorkflowStore.getState()
-    const result = validateWorkflowForPublish(state.metadata, state.nodes, state.edges)
-    if (!result.canPublish) {
-      const errors = result.issues.filter((i) => i.severity === 'error')
-      for (const issue of errors) {
-        toast.error(issue.nodeName ? `${issue.nodeName}: ${issue.message}` : issue.message)
-      }
-      return
-    }
-    saveMutation.mutate()
-  }, [saveMutation])
-
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const [showMenu, setShowMenu] = useState(false)
-
-  const deleteMutation = useMutation({
-    mutationFn: () => api.deleteWorkflow(workflowId),
-    onSuccess: () => {
-      toast.success('Workflow deleted')
-      queryClient.invalidateQueries({ queryKey: ['workflows'] })
-      navigate({ to: '/dashboard' })
-    },
-    onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to delete'),
+  const { data: deployments } = useQuery({
+    queryKey: ['deployments', workflowId],
+    queryFn: () => api.listDeployments(workflowId),
   })
 
-  const takedownMutation = useMutation({
-    mutationFn: (connectionId: string) => api.takedownDeployment(workflowId, connectionId),
-    onSuccess: (result) => {
-      if (result.success) {
-        toast.success('Deployment taken down')
-        queryClient.invalidateQueries({ queryKey: ['workflow', workflowId] })
-        queryClient.invalidateQueries({ queryKey: ['deployments', workflowId] })
-      } else {
-        toast.error(result.error ?? 'Failed to take down deployment')
-      }
-    },
-    onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to take down'),
+  const { data: runs } = useQuery({
+    queryKey: ['runs', workflowId],
+    queryFn: () => api.listAllRuns(),
   })
 
-  const [confirmAction, setConfirmAction] = useState<'delete' | 'takedown' | null>(null)
+  const workflowRuns = runs?.filter((r) => r.workflowId === workflowId) ?? []
+  const currentVersion = versions?.[0]?.version ?? 0
+  const activeDeployment = deployments?.find((d) => d.status === 'success')
+  const hasActiveDeployment = !!activeDeployment
+  const latestDeployment = deployments?.[0]
+  const deployedVersion = versions?.find((v) => v.id === activeDeployment?.versionId)
+  const hasUndeployedChanges = hasActiveDeployment && activeDeployment.versionId !== workflow?.currentVersionId
 
-  const handleAddNode = (type: Parameters<typeof addNode>[0]) => {
-    addNode(type, { x: 250 + Math.random() * 200, y: 150 + Math.random() * 200 })
+  if (wfLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/60" />
+      </div>
+    )
+  }
+
+  if (!workflow) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <p className="text-sm text-muted-foreground">Workflow not found</p>
+      </div>
+    )
   }
 
   return (
-    <ClientOnly
-      fallback={
-        <div className="fixed inset-0 flex items-center justify-center bg-[oklch(0.11_0_0)]">
-          <Loader2 className="h-6 w-6 animate-spin text-white/30" />
+    <div>
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <EditableName workflowId={workflowId} initialValue={workflow.name} />
+          <EditableDescription workflowId={workflowId} initialValue={workflow.description ?? ''} />
         </div>
-      }
-    >
-      <Suspense
-        fallback={
-          <div className="fixed inset-0 flex items-center justify-center bg-[oklch(0.11_0_0)]">
-            <Loader2 className="h-6 w-6 animate-spin text-white/30" />
-          </div>
-        }
-      >
-        <LazyReactFlowProvider>
-          <div className="fixed inset-0 flex flex-col overflow-hidden bg-[oklch(0.11_0_0)]">
-            {/* Toolbar */}
-            <header className="relative z-20 flex h-14 shrink-0 items-center justify-between border-b border-white/[0.06] bg-[oklch(0.13_0_0)] px-4">
-              <div className="flex items-center gap-2">
-                <Link to="/dashboard">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-white/40 hover:text-white/80">
-                    <ArrowLeft className="h-4 w-4" />
-                  </Button>
-                </Link>
-                <div className="h-5 w-px bg-white/[0.08]" />
-                <div className="flex items-center gap-2 px-1">
-                  <span className="text-[13px] font-semibold text-white/90">{metadata.name}</span>
-                  <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-medium text-white/30">
-                    v{metadata.version}
-                  </span>
-                  {nodeCount > 0 && (
-                    <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                      {nodeCount} node{nodeCount !== 1 ? 's' : ''}
-                    </span>
-                  )}
-                  {serverWorkflow?.currentVersionId && (
-                    <Link
-                      to="/workflows/$workflowId/deployments"
-                      params={{ workflowId }}
-                      className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400 hover:bg-emerald-500/20 transition-colors"
-                    >
-                      deployed
-                    </Link>
-                  )}
-                  {isDirty && (
-                    <Circle className="h-2 w-2 fill-amber-400 text-amber-400" />
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleSave}
-                  disabled={saveMutation.isPending || !isDirty}
-                  className={cn(
-                    'h-8 gap-1.5 px-2.5',
-                    isDirty ? 'text-white/70 hover:text-white/90' : 'text-white/30',
-                  )}
-                >
-                  {saveMutation.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Save className="h-3.5 w-3.5" />
-                  )}
-                  <span className="text-xs">Save</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowSettings(!showSettings)}
-                  className={cn(
-                    'h-8 w-8',
-                    showSettings ? 'bg-white/[0.08] text-white/90' : 'text-white/40 hover:text-white/70',
-                  )}
-                >
-                  <Settings2 className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowCode(!showCode)}
-                  className={cn(
-                    'h-8 gap-1.5 px-2.5',
-                    showCode ? 'bg-white/[0.08] text-white/90' : 'text-white/40 hover:text-white/70',
-                  )}
-                >
-                  {showCode ? <PanelRightClose className="h-3.5 w-3.5" /> : <Code2 className="h-3.5 w-3.5" />}
-                  <span className="text-xs">Code</span>
-                </Button>
-                <div className="h-5 w-px bg-white/[0.08]" />
-                <Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2.5 text-white/50 hover:text-white/80" onClick={() => runSimulation()}>
-                  <Play className="h-3.5 w-3.5" />
-                  <span className="text-xs">Test</span>
-                </Button>
-                <Button size="sm" className="h-8 gap-1.5 px-3" onClick={async () => {
-                  const result = runValidation()
-                  if (!result.canPublish) {
-                    const errors = result.issues.filter((i) => i.severity === 'error')
-                    const warnings = result.issues.filter((i) => i.severity === 'warning')
-                    for (const issue of errors) {
-                      toast.error(issue.nodeName ? `${issue.nodeName}: ${issue.message}` : issue.message)
-                    }
-                    for (const issue of warnings) {
-                      toast.warning(issue.nodeName ? `${issue.nodeName}: ${issue.message}` : issue.message)
-                    }
-                    return
-                  }
-                  if (isDirty || isNew) {
-                    try {
-                      await saveMutation.mutateAsync()
-                    } catch {
-                      toast.error('Failed to save before deploy')
-                      return
-                    }
-                  }
-                  const currentId = useWorkflowStore.getState().workflowId
-                  navigate({ to: '/workflows/$workflowId/deployments', params: { workflowId: currentId ?? workflowId } })
-                }}>
-                  <Rocket className="h-3.5 w-3.5" />
-                  <span className="text-xs">Deploy</span>
-                </Button>
-                <div className="relative">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-white/40 hover:text-white/70"
-                    onClick={() => setShowMenu(!showMenu)}
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                  {showMenu && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-                      <div className="absolute right-0 top-full z-50 mt-1 w-52 rounded-lg border border-white/[0.08] bg-[oklch(0.15_0_0)] p-1 shadow-xl">
-                        {serverWorkflow?.currentVersionId && (
-                          <button
-                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-amber-400 hover:bg-white/[0.06]"
-                            onClick={() => { setShowMenu(false); setConfirmAction('takedown') }}
-                          >
-                            <CloudOff className="h-4 w-4" />
-                            Take down deployment
-                          </button>
-                        )}
-                        {!isNew && (
-                          <button
-                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-red-400 hover:bg-white/[0.06]"
-                            onClick={() => { setShowMenu(false); setConfirmAction('delete') }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Delete workflow
-                          </button>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </header>
-
-            {/* Canvas + Overlay Panels */}
-            <div className="relative flex-1 overflow-hidden">
-              {nodeCount === 0 && showTemplatePicker ? (
-                <TemplatePicker onDismiss={() => setShowTemplatePicker(false)} />
-              ) : (
-                <>
-                  <LazyCanvas />
-                  <div className="absolute left-4 top-4 z-10">
-                    <NodePalette onAddNode={handleAddNode} />
-                  </div>
-                </>
-              )}
-
-              <SimulationPanel />
-
-              {/* Side panels — overlay on canvas from the right */}
-              {(showSettings || (!showSettings && selectedNodeId) || showCode) && (
-                <div className="absolute right-0 top-0 z-10 flex h-full">
-                  {showSettings && (
-                    <aside className="h-full w-[380px] border-l border-white/[0.06] bg-[oklch(0.13_0_0)] shadow-[-4px_0_24px_rgba(0,0,0,0.4)]">
-                      <WorkflowSettings />
-                    </aside>
-                  )}
-                  {!showSettings && selectedNodeId && (
-                    <aside className="h-full w-[380px] border-l border-white/[0.06] bg-[oklch(0.13_0_0)] shadow-[-4px_0_24px_rgba(0,0,0,0.4)]">
-                      <NodeConfigPanel />
-                    </aside>
-                  )}
-                  {showCode && (
-                    <aside className="h-full w-[380px] border-l border-white/[0.06] bg-[oklch(0.13_0_0)] shadow-[-4px_0_24px_rgba(0,0,0,0.4)]">
-                      <Suspense fallback={<div className="flex h-full items-center justify-center"><Loader2 className="h-4 w-4 animate-spin text-white/20" /></div>}>
-                        <LazyCodePreview />
-                      </Suspense>
-                    </aside>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-          <ConfirmDialog
-            open={confirmAction === 'delete'}
-            onOpenChange={(open) => { if (!open) setConfirmAction(null) }}
-            title="Delete workflow"
-            description="This will permanently delete this workflow and all its versions. This cannot be undone."
-            confirmLabel="Delete"
-            variant="destructive"
-            loading={deleteMutation.isPending}
-            onConfirm={() => {
-              deleteMutation.mutate(undefined, { onSettled: () => setConfirmAction(null) })
-            }}
-          />
-          <ConfirmDialog
-            open={confirmAction === 'takedown'}
-            onOpenChange={(open) => { if (!open) setConfirmAction(null) }}
-            title="Take down deployment"
-            description="This will delete the worker from Cloudflare. The workflow will remain in your account but will no longer be running."
-            confirmLabel="Take down"
-            variant="warning"
-            loading={takedownMutation.isPending}
-            onConfirm={async () => {
-              const conns = await api.listConnections()
-              if (conns.length === 0) {
-                toast.error('No connection available to take down deployment')
-                setConfirmAction(null)
+        <div className="flex shrink-0 items-center gap-2">
+          <Link to="/workflows/$workflowId/canvas" params={{ workflowId }}>
+            <Button size="sm" variant="outline" className="gap-1.5">
+              <Pencil className="h-3.5 w-3.5" />
+              Open Editor
+            </Button>
+          </Link>
+          <Button size="sm" className="gap-1.5" onClick={async () => {
+            if (!workflow?.currentVersionId) {
+              toast.error('No version to deploy. Open the editor and save your workflow first.')
+              return
+            }
+            try {
+              const ver = await api.getVersion(workflowId, workflow.currentVersionId)
+              const ir = JSON.parse(ver.ir) as { metadata: { name: string; description?: string }; nodes: WorkflowNode[]; edges: IREdge[] }
+              const flowNodes = ir.nodes.map((n) => ({ id: n.id, type: n.type, position: n.position, data: { irNode: n } }))
+              const flowEdges = ir.edges.map((e) => ({ id: e.id, source: e.source, target: e.target, label: e.label }))
+              const result = validateWorkflowForPublish(ir.metadata, flowNodes, flowEdges)
+              if (!result.canPublish) {
+                const errors = result.issues.filter((i) => i.severity === 'error')
+                for (const issue of errors) {
+                  toast.error(issue.nodeName ? `${issue.nodeName}: ${issue.message}` : issue.message)
+                }
                 return
               }
-              takedownMutation.mutate(conns[0].id, { onSettled: () => setConfirmAction(null) })
-            }}
-          />
-        </LazyReactFlowProvider>
-      </Suspense>
-    </ClientOnly>
+            } catch {
+              toast.error('Failed to validate workflow')
+              return
+            }
+            setDeployOpen(true)
+          }}>
+            <Rocket className="h-3.5 w-3.5" />
+            Deploy
+          </Button>
+          {hasActiveDeployment && <TriggerButton workflowId={workflowId} />}
+          <WorkflowActionsMenu workflow={workflow} isDeployed={hasActiveDeployment} />
+        </div>
+      </div>
+
+      {/* Info row */}
+      <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <Clock className="h-3.5 w-3.5" />
+          Created {timeAgo(workflow.createdAt)}
+        </span>
+        <span>Updated {timeAgo(workflow.updatedAt)}</span>
+        {currentVersion > 0 && (
+          <span className="rounded bg-muted/60 px-1.5 py-0.5 font-medium text-muted-foreground">
+            v{currentVersion}
+          </span>
+        )}
+        <DeployStatusBadge
+          hasActiveDeployment={hasActiveDeployment}
+          hasUndeployedChanges={!!hasUndeployedChanges}
+          deployedVersion={deployedVersion?.version}
+        />
+      </div>
+
+      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+        {/* Versions */}
+        <section>
+          <h2 className="text-sm font-semibold text-foreground/70">Versions</h2>
+          {versions && versions.length > 0 ? (
+            <div className="mt-3 rounded-md border border-border">
+              {versions.slice(0, 10).map((v, i) => (
+                <div
+                  key={v.id}
+                  className={`flex items-center justify-between px-3 py-2.5 ${
+                    i < Math.min(versions.length, 10) - 1 ? 'border-b border-border' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 text-xs text-foreground/60">
+                    <Hash className="h-3 w-3 text-muted-foreground/40" />
+                    v{v.version}
+                    {v.id === activeDeployment?.versionId && (
+                      <span className="rounded bg-status-success/10 px-1.5 py-0.5 text-[10px] font-medium text-status-success">deployed</span>
+                    )}
+                  </div>
+                  <span className="text-xs text-muted-foreground/60">{timeAgo(v.createdAt)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-3 rounded-md border border-border px-4 py-6 text-center text-xs text-muted-foreground">
+              No versions yet. Open the editor to create one.
+            </div>
+          )}
+        </section>
+
+        {/* Recent Runs */}
+        <section>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-foreground/70">Recent Runs</h2>
+            {workflowRuns.length > 0 && (
+              <Link
+                to="/workflows/$workflowId/runs"
+                params={{ workflowId }}
+                className="text-[11px] text-muted-foreground/60 hover:text-muted-foreground"
+              >
+                View all
+              </Link>
+            )}
+          </div>
+          {workflowRuns.length > 0 ? (
+            <div className="mt-3 rounded-md border border-border">
+              {workflowRuns.slice(0, 8).map((run, i) => (
+                <Link
+                  key={run.id}
+                  to="/runs/$runId"
+                  params={{ runId: run.id }}
+                  search={{ workflowId }}
+                  className={`flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-muted/30 ${
+                    i < Math.min(workflowRuns.length, 8) - 1 ? 'border-b border-border' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <RunStatusBadge status={run.status} />
+                    <span className="font-mono text-xs text-muted-foreground">{run.instanceId.slice(0, 12)}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground/60">{timeAgo(run.createdAt)}</span>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-3 rounded-md border border-border px-4 py-6 text-center text-xs text-muted-foreground">
+              No runs yet. Deploy and trigger your workflow to see runs here.
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* Deployment card */}
+      {latestDeployment && (
+        <section className="mt-6">
+          <h2 className="text-sm font-semibold text-foreground/70">Latest Deployment</h2>
+          <div className="mt-3 rounded-md border border-border bg-muted/30 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <DeployStatusDot status={latestDeployment.status} />
+                <div>
+                  <p className="text-sm text-foreground/70">
+                    {latestDeployment.status === 'success' ? 'Deployed' : latestDeployment.status === 'failed' ? 'Failed' : 'Deploying'}
+                  </p>
+                  <p className="text-xs text-muted-foreground/60">{formatDate(latestDeployment.createdAt)}</p>
+                </div>
+              </div>
+              {latestDeployment.serviceUrl && (
+                <a
+                  href={latestDeployment.serviceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs text-status-info hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  {latestDeployment.serviceUrl.replace(/^https?:\/\//, '')}
+                </a>
+              )}
+            </div>
+            {latestDeployment.error && (
+              <p className="mt-2 rounded bg-status-error/10 px-3 py-2 text-xs text-status-error">{latestDeployment.error}</p>
+            )}
+          </div>
+        </section>
+      )}
+
+      <DeployDialog open={deployOpen} onClose={() => setDeployOpen(false)} workflowId={workflowId} />
+    </div>
   )
 }
 
-type StoreState = ReturnType<typeof useWorkflowStore.getState>
+function EditableName({ workflowId, initialValue }: { workflowId: string; initialValue: string }) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(initialValue)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const queryClient = useQueryClient()
 
-function findEntryNodeId(nodes: { id: string }[], edges: { source: string; target: string }[]): string {
-  const targets = new Set(edges.map((e) => e.target))
-  const roots = nodes.filter((n) => !targets.has(n.id))
-  if (roots.length <= 1) return roots[0]?.id ?? nodes[0]?.id ?? ''
+  useEffect(() => { setValue(initialValue) }, [initialValue])
+  useEffect(() => { if (editing) inputRef.current?.select() }, [editing])
 
-  // Multiple roots — pick the one with the most descendants
-  const adj = new Map<string, string[]>()
-  for (const n of nodes) adj.set(n.id, [])
-  for (const e of edges) adj.get(e.source)?.push(e.target)
+  const mutation = useMutation({
+    mutationFn: (name: string) => api.updateWorkflow(workflowId, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workflow', workflowId] })
+      queryClient.invalidateQueries({ queryKey: ['workflows'] })
+    },
+  })
 
-  let bestId = roots[0]!.id
-  let bestCount = 0
-  for (const root of roots) {
-    let count = 0
-    const visited = new Set<string>()
-    const queue = [root.id]
-    while (queue.length > 0) {
-      const id = queue.shift()!
-      if (visited.has(id)) continue
-      visited.add(id)
-      count++
-      for (const n of adj.get(id) ?? []) queue.push(n)
+  const save = () => {
+    setEditing(false)
+    const trimmed = value.trim()
+    if (!trimmed || trimmed === initialValue) {
+      setValue(initialValue)
+      return
     }
-    if (count > bestCount) {
-      bestCount = count
-      bestId = root.id
-    }
+    mutation.mutate(trimmed)
   }
-  return bestId
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setValue(initialValue); setEditing(false) } }}
+        className="w-full rounded-md border border-border bg-transparent px-2 py-1 text-lg font-semibold outline-none focus:border-primary/50"
+      />
+    )
+  }
+
+  return (
+    <h1
+      onClick={() => setEditing(true)}
+      className="cursor-text rounded-md px-2 py-1 text-lg font-semibold transition-colors hover:bg-muted/40"
+      title="Click to edit"
+    >
+      {initialValue}
+    </h1>
+  )
 }
 
-function buildIRFromState(state: Pick<StoreState, 'metadata' | 'nodes' | 'edges'>) {
-  const irNodes = state.nodes.map((n) => n.data.irNode)
-  const irEdges = state.edges.map((e) => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    ...(e.label ? { label: String(e.label) } : {}),
-  }))
-  return {
-    metadata: state.metadata,
-    nodes: irNodes,
-    edges: irEdges,
-    entryNodeId: findEntryNodeId(irNodes, irEdges),
+function EditableDescription({ workflowId, initialValue }: { workflowId: string; initialValue: string }) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(initialValue)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const queryClient = useQueryClient()
+
+  useEffect(() => { setValue(initialValue) }, [initialValue])
+  useEffect(() => { if (editing) inputRef.current?.focus() }, [editing])
+
+  const mutation = useMutation({
+    mutationFn: (description: string) => api.updateWorkflow(workflowId, { description: description || undefined }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workflow', workflowId] })
+      queryClient.invalidateQueries({ queryKey: ['workflows'] })
+    },
+  })
+
+  const save = () => {
+    setEditing(false)
+    if (value.trim() === initialValue) {
+      setValue(initialValue)
+      return
+    }
+    mutation.mutate(value.trim())
   }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setValue(initialValue); setEditing(false) } }}
+        placeholder="Add a description..."
+        className="mt-1 w-full rounded-md border border-border bg-transparent px-2 py-0.5 text-sm text-muted-foreground outline-none focus:border-primary/50"
+      />
+    )
+  }
+
+  return (
+    <p
+      onClick={() => setEditing(true)}
+      className="mt-1 cursor-text rounded-md px-2 py-0.5 text-sm text-muted-foreground transition-colors hover:bg-muted/40"
+      title="Click to edit"
+    >
+      {initialValue || <span className="italic text-muted-foreground/40">Add a description...</span>}
+    </p>
+  )
+}
+
+function DeployStatusBadge({
+  hasActiveDeployment,
+  hasUndeployedChanges,
+  deployedVersion,
+}: {
+  hasActiveDeployment: boolean
+  hasUndeployedChanges: boolean
+  deployedVersion?: number
+}) {
+  if (!hasActiveDeployment) return null
+
+  if (hasUndeployedChanges) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded bg-status-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-status-warning">
+        <span className="h-1.5 w-1.5 rounded-full bg-status-warning" />
+        Deployed v{deployedVersion ?? '?'} (outdated)
+      </span>
+    )
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded bg-status-success/10 px-1.5 py-0.5 text-[10px] font-medium text-status-success">
+      <span className="h-1.5 w-1.5 rounded-full bg-status-success" />
+      Deployed v{deployedVersion ?? '?'}
+    </span>
+  )
+}
+
+function DeployStatusDot({ status }: { status: string }) {
+  const color =
+    status === 'success' ? 'bg-status-success' :
+    status === 'failed' ? 'bg-status-error' :
+    'bg-status-info animate-pulse'
+
+  return <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
 }

@@ -1,4 +1,4 @@
-import { eq, desc } from 'drizzle-orm'
+import { eq, desc, inArray } from 'drizzle-orm'
 import type { WorkflowRun } from '../types.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -34,9 +34,14 @@ export class RunsAdapter {
     return this.db.select().from(this.table).where(eq(this.table.workflowId, workflowId)).orderBy(desc(this.table.createdAt))
   }
 
-  async update(id: string, data: { status?: string; output?: string; error?: string }): Promise<WorkflowRun> {
-    const now = new Date().toISOString()
-    await this.db.update(this.table).set({ ...data, updatedAt: now }).where(eq(this.table.id, id))
+  async listByWorkflowIds(workflowIds: string[], limit: number): Promise<WorkflowRun[]> {
+    if (workflowIds.length === 0) return []
+    return this.db.select().from(this.table).where(inArray(this.table.workflowId, workflowIds)).orderBy(desc(this.table.createdAt)).limit(limit)
+  }
+
+  async update(id: string, data: { status?: string; output?: string; error?: string; updatedAt?: string }): Promise<WorkflowRun> {
+    const updates = { ...data, updatedAt: data.updatedAt ?? new Date().toISOString() }
+    await this.db.update(this.table).set(updates).where(eq(this.table.id, id))
     const updated = await this.getById(id)
     if (!updated) throw new Error(`WorkflowRun ${id} not found`)
     return updated

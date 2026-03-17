@@ -51,5 +51,13 @@ export function createRouter(auth: Auth, selfHostedConnection?: SelfHostedConnec
     return c.json(list)
   })
 
+  // Global runs list (across all user's workflows) — returns cached DB data
+  router.get('/runs', async (c) => {
+    const db = c.get('db')
+    const userId = c.get('userId')
+    const list = await db.listRecentRunsByUser(userId)
+    return c.json(list)
+  })
+
   return router
 }

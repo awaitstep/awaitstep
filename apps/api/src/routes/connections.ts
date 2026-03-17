@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
@@ -35,31 +35,22 @@ export function createConnectionRoutes(selfHostedConnection?: SelfHostedConnecti
     return c.json(redactCredentials(conn), 201)
   })
 
-  connections.post('/verify-token', zValidator('json', z.object({ apiToken: z.string().min(1) })), async (c) => {
-    const { apiToken } = c.req.valid('json')
-    const CF_BASE = 'https://api.cloudflare.com/client/v4'
-    const headers = { Authorization: `Bearer ${apiToken}` }
+  connections.post(
+    '/verify-token',
+    zValidator('json', z.object({
+      provider: z.string().min(1),
+      credentials: z.record(z.string(), z.string()),
+    })),
+    async (c) => {
+      const { provider, credentials } = c.req.valid('json')
 
-    const verifyRes = await fetch(`${CF_BASE}/user/tokens/verify`, { headers })
-    if (!verifyRes.ok) {
-      return c.json({ valid: false, accounts: [] }, 200)
-    }
-    const verify = await verifyRes.json() as { result: { status: string } }
-    if (verify.result?.status !== 'active') {
-      return c.json({ valid: false, accounts: [] }, 200)
-    }
+      if (provider === 'cloudflare') {
+        return verifyCloudflareCredentials(c, credentials)
+      }
 
-    const accountsRes = await fetch(`${CF_BASE}/accounts?per_page=50`, { headers })
-    if (!accountsRes.ok) {
-      return c.json({ valid: true, accounts: [] }, 200)
-    }
-    const accountsData = await accountsRes.json() as { result: { id: string; name: string }[] }
-
-    return c.json({
-      valid: true,
-      accounts: (accountsData.result ?? []).map((a) => ({ id: a.id, name: a.name })),
-    })
-  })
+      return c.json({ error: `Unsupported provider: ${provider}` }, 400)
+    },
+  )
 
   connections.get('/self-hosted', async (c) => {
     if (!selfHostedConnection) {
@@ -114,6 +105,23 @@ export function createConnectionRoutes(selfHostedConnection?: SelfHostedConnecti
     return c.json(redactCredentials(conn), 201)
   })
 
+  connections.patch('/:id', zValidator('json', z.object({
+    name: z.string().min(1).max(255).optional(),
+    credentials: z.record(z.string(), z.string()).optional(),
+  })), async (c) => {
+    const db = c.get('db')
+    const id = c.req.param('id')
+    const body = c.req.valid('json')
+
+    const updates: { name?: string; credentials?: string } = {}
+    if (body.name) updates.name = body.name
+    if (body.credentials) updates.credentials = JSON.stringify(body.credentials)
+
+    const conn = await db.updateConnection(id, updates)
+    if (!conn) return c.json({ error: 'Not found' }, 404)
+    return c.json(redactCredentials(conn))
+  })
+
   connections.delete('/:id', async (c) => {
     const db = c.get('db')
     await db.deleteConnection(c.req.param('id'))
@@ -121,6 +129,39 @@ export function createConnectionRoutes(selfHostedConnection?: SelfHostedConnecti
   })
 
   return connections
+}
+
+async function verifyCloudflareCredentials(
+  c: Context,
+  credentials: Record<string, string>,
+) {
+  const apiToken = credentials.apiToken
+  if (!apiToken) {
+    return c.json({ valid: false, accounts: [] }, 200)
+  }
+
+  const CF_BASE = 'https://api.cloudflare.com/client/v4'
+  const headers = { Authorization: `Bearer ${apiToken}` }
+
+  const verifyRes = await fetch(`${CF_BASE}/user/tokens/verify`, { headers })
+  if (!verifyRes.ok) {
+    return c.json({ valid: false, accounts: [] }, 200)
+  }
+  const verify = (await verifyRes.json()) as { result: { status: string } }
+  if (verify.result?.status !== 'active') {
+    return c.json({ valid: false, accounts: [] }, 200)
+  }
+
+  const accountsRes = await fetch(`${CF_BASE}/accounts?per_page=50`, { headers })
+  if (!accountsRes.ok) {
+    return c.json({ valid: true, accounts: [] }, 200)
+  }
+  const accountsData = (await accountsRes.json()) as { result: { id: string; name: string }[] }
+
+  return c.json({
+    valid: true,
+    accounts: (accountsData.result ?? []).map((a) => ({ id: a.id, name: a.name })),
+  })
 }
 
 function redactCredentials(conn: { credentials: string; [key: string]: unknown }) {

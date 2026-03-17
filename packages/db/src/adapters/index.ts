@@ -60,6 +60,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   listVersionsByWorkflow(workflowId: string): Promise<WorkflowVersion[]> {
     return this._versions.listByWorkflow(workflowId)
   }
+  updateVersion(id: string, data: { ir?: string; generatedCode?: string }): Promise<void> {
+    return this._versions.update(id, data)
+  }
 
   createConnection(data: { id: string; userId: string; provider: string; credentials: string; name: string }): Promise<Connection> {
     return this._connections.create(data)
@@ -69,6 +72,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
   listConnectionsByUser(userId: string): Promise<Connection[]> {
     return this._connections.listByUser(userId)
+  }
+  updateConnection(id: string, data: { name?: string; credentials?: string }): Promise<Connection | null> {
+    return this._connections.update(id, data)
   }
   deleteConnection(id: string): Promise<void> {
     return this._connections.delete(id)
@@ -85,6 +91,12 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
   updateRun(id: string, data: { status?: string; output?: string; error?: string }): Promise<WorkflowRun> {
     return this._runs.update(id, data)
+  }
+
+  async listRecentRunsByUser(userId: string, limit = 20): Promise<WorkflowRun[]> {
+    const workflows = await this._workflows.listByUser(userId)
+    const ids = workflows.map((w) => w.id)
+    return this._runs.listByWorkflowIds(ids, limit)
   }
 
   createDeployment(data: { id: string; workflowId: string; versionId: string; connectionId: string; serviceName: string; serviceUrl?: string; status: string; error?: string }): Promise<Deployment> {

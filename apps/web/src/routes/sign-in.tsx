@@ -2,7 +2,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { getCookie, getRequestHeader, deleteCookie } from '@tanstack/react-start/server'
 import { useState } from 'react'
-import { Mail, Github } from 'lucide-react'
+import { Github } from 'lucide-react'
 import { authClient } from '../lib/auth-client'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -80,11 +80,8 @@ function SignInPage() {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
         <div className="w-full max-w-sm text-center">
-          <div className="rounded-xl border border-border bg-card p-8">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-              <Mail className="h-6 w-6 text-primary" />
-            </div>
-            <h2 className="text-xl font-semibold">Check your email</h2>
+          <div className="rounded-md border border-border bg-card p-8">
+            <h2 className="text-base font-semibold">Check your email</h2>
             <p className="mt-2 text-sm text-muted-foreground">
               We sent a sign-in link to{' '}
               <span className="font-medium text-foreground">{email}</span>
@@ -106,7 +103,7 @@ function SignInPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold tracking-tight">Sign in to AwaitStep</h1>
+          <h1 className="text-lg font-semibold tracking-tight">Sign in to AwaitStep</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Build and deploy Cloudflare Workflows visually
           </p>

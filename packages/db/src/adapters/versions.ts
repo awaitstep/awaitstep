@@ -29,4 +29,8 @@ export class VersionsAdapter {
   async listByWorkflow(workflowId: string): Promise<WorkflowVersion[]> {
     return this.db.select().from(this.table).where(eq(this.table.workflowId, workflowId)).orderBy(desc(this.table.version))
   }
+
+  async update(id: string, data: { ir?: string; generatedCode?: string }): Promise<void> {
+    await this.db.update(this.table).set(data).where(eq(this.table.id, id))
+  }
 }

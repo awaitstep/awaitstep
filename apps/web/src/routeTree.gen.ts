@@ -14,15 +14,20 @@ import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthedDashboardRouteImport } from './routes/_authed/dashboard'
 import { Route as AuthedConnectionsRouteImport } from './routes/_authed/connections'
+import { Route as AuthedAccountRouteImport } from './routes/_authed/account'
+import { Route as AuthedWorkflowsIndexRouteImport } from './routes/_authed/workflows.index'
+import { Route as AuthedRunsIndexRouteImport } from './routes/_authed/runs.index'
 import { Route as AuthedResourcesIndexRouteImport } from './routes/_authed/resources/index'
 import { Route as AuthedWorkflowsWorkflowIdRouteImport } from './routes/_authed/workflows/$workflowId'
+import { Route as AuthedRunsRunIdRouteImport } from './routes/_authed/runs.$runId'
 import { Route as AuthedResourcesR2RouteImport } from './routes/_authed/resources/r2'
 import { Route as AuthedResourcesKvRouteImport } from './routes/_authed/resources/kv'
 import { Route as AuthedResourcesD1RouteImport } from './routes/_authed/resources/d1'
 import { Route as AuthedWorkflowsWorkflowIdIndexRouteImport } from './routes/_authed/workflows/$workflowId.index'
 import { Route as AuthedWorkflowsWorkflowIdRunsRouteImport } from './routes/_authed/workflows/$workflowId.runs'
 import { Route as AuthedWorkflowsWorkflowIdDeploymentsRouteImport } from './routes/_authed/workflows/$workflowId.deployments'
-import { Route as AuthedWorkflowsWorkflowIdRunsRunIdRouteImport } from './routes/_authed/workflows/$workflowId.runs.$runId'
+import { Route as AuthedWorkflowsWorkflowIdCanvasRouteImport } from './routes/_authed/workflows/$workflowId.canvas'
+import { Route as AuthedWorkflowsWorkflowIdRunsIndexRouteImport } from './routes/_authed/workflows/$workflowId.runs.index'
 
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
@@ -48,6 +53,21 @@ const AuthedConnectionsRoute = AuthedConnectionsRouteImport.update({
   path: '/connections',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedAccountRoute = AuthedAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedWorkflowsIndexRoute = AuthedWorkflowsIndexRouteImport.update({
+  id: '/workflows/',
+  path: '/workflows/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedRunsIndexRoute = AuthedRunsIndexRouteImport.update({
+  id: '/runs/',
+  path: '/runs/',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedResourcesIndexRoute = AuthedResourcesIndexRouteImport.update({
   id: '/resources/',
   path: '/resources/',
@@ -59,6 +79,11 @@ const AuthedWorkflowsWorkflowIdRoute =
     path: '/workflows/$workflowId',
     getParentRoute: () => AuthedRoute,
   } as any)
+const AuthedRunsRunIdRoute = AuthedRunsRunIdRouteImport.update({
+  id: '/runs/$runId',
+  path: '/runs/$runId',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedResourcesR2Route = AuthedResourcesR2RouteImport.update({
   id: '/resources/r2',
   path: '/resources/r2',
@@ -92,105 +117,139 @@ const AuthedWorkflowsWorkflowIdDeploymentsRoute =
     path: '/deployments',
     getParentRoute: () => AuthedWorkflowsWorkflowIdRoute,
   } as any)
-const AuthedWorkflowsWorkflowIdRunsRunIdRoute =
-  AuthedWorkflowsWorkflowIdRunsRunIdRouteImport.update({
-    id: '/$runId',
-    path: '/$runId',
+const AuthedWorkflowsWorkflowIdCanvasRoute =
+  AuthedWorkflowsWorkflowIdCanvasRouteImport.update({
+    id: '/canvas',
+    path: '/canvas',
+    getParentRoute: () => AuthedWorkflowsWorkflowIdRoute,
+  } as any)
+const AuthedWorkflowsWorkflowIdRunsIndexRoute =
+  AuthedWorkflowsWorkflowIdRunsIndexRouteImport.update({
+    id: '/',
+    path: '/',
     getParentRoute: () => AuthedWorkflowsWorkflowIdRunsRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
+  '/account': typeof AuthedAccountRoute
   '/connections': typeof AuthedConnectionsRoute
   '/dashboard': typeof AuthedDashboardRoute
   '/resources/d1': typeof AuthedResourcesD1Route
   '/resources/kv': typeof AuthedResourcesKvRoute
   '/resources/r2': typeof AuthedResourcesR2Route
+  '/runs/$runId': typeof AuthedRunsRunIdRoute
   '/workflows/$workflowId': typeof AuthedWorkflowsWorkflowIdRouteWithChildren
   '/resources/': typeof AuthedResourcesIndexRoute
+  '/runs/': typeof AuthedRunsIndexRoute
+  '/workflows/': typeof AuthedWorkflowsIndexRoute
+  '/workflows/$workflowId/canvas': typeof AuthedWorkflowsWorkflowIdCanvasRoute
   '/workflows/$workflowId/deployments': typeof AuthedWorkflowsWorkflowIdDeploymentsRoute
   '/workflows/$workflowId/runs': typeof AuthedWorkflowsWorkflowIdRunsRouteWithChildren
   '/workflows/$workflowId/': typeof AuthedWorkflowsWorkflowIdIndexRoute
-  '/workflows/$workflowId/runs/$runId': typeof AuthedWorkflowsWorkflowIdRunsRunIdRoute
+  '/workflows/$workflowId/runs/': typeof AuthedWorkflowsWorkflowIdRunsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
+  '/account': typeof AuthedAccountRoute
   '/connections': typeof AuthedConnectionsRoute
   '/dashboard': typeof AuthedDashboardRoute
   '/resources/d1': typeof AuthedResourcesD1Route
   '/resources/kv': typeof AuthedResourcesKvRoute
   '/resources/r2': typeof AuthedResourcesR2Route
+  '/runs/$runId': typeof AuthedRunsRunIdRoute
   '/resources': typeof AuthedResourcesIndexRoute
+  '/runs': typeof AuthedRunsIndexRoute
+  '/workflows': typeof AuthedWorkflowsIndexRoute
+  '/workflows/$workflowId/canvas': typeof AuthedWorkflowsWorkflowIdCanvasRoute
   '/workflows/$workflowId/deployments': typeof AuthedWorkflowsWorkflowIdDeploymentsRoute
-  '/workflows/$workflowId/runs': typeof AuthedWorkflowsWorkflowIdRunsRouteWithChildren
   '/workflows/$workflowId': typeof AuthedWorkflowsWorkflowIdIndexRoute
-  '/workflows/$workflowId/runs/$runId': typeof AuthedWorkflowsWorkflowIdRunsRunIdRoute
+  '/workflows/$workflowId/runs': typeof AuthedWorkflowsWorkflowIdRunsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authed': typeof AuthedRouteWithChildren
   '/sign-in': typeof SignInRoute
+  '/_authed/account': typeof AuthedAccountRoute
   '/_authed/connections': typeof AuthedConnectionsRoute
   '/_authed/dashboard': typeof AuthedDashboardRoute
   '/_authed/resources/d1': typeof AuthedResourcesD1Route
   '/_authed/resources/kv': typeof AuthedResourcesKvRoute
   '/_authed/resources/r2': typeof AuthedResourcesR2Route
+  '/_authed/runs/$runId': typeof AuthedRunsRunIdRoute
   '/_authed/workflows/$workflowId': typeof AuthedWorkflowsWorkflowIdRouteWithChildren
   '/_authed/resources/': typeof AuthedResourcesIndexRoute
+  '/_authed/runs/': typeof AuthedRunsIndexRoute
+  '/_authed/workflows/': typeof AuthedWorkflowsIndexRoute
+  '/_authed/workflows/$workflowId/canvas': typeof AuthedWorkflowsWorkflowIdCanvasRoute
   '/_authed/workflows/$workflowId/deployments': typeof AuthedWorkflowsWorkflowIdDeploymentsRoute
   '/_authed/workflows/$workflowId/runs': typeof AuthedWorkflowsWorkflowIdRunsRouteWithChildren
   '/_authed/workflows/$workflowId/': typeof AuthedWorkflowsWorkflowIdIndexRoute
-  '/_authed/workflows/$workflowId/runs/$runId': typeof AuthedWorkflowsWorkflowIdRunsRunIdRoute
+  '/_authed/workflows/$workflowId/runs/': typeof AuthedWorkflowsWorkflowIdRunsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/sign-in'
+    | '/account'
     | '/connections'
     | '/dashboard'
     | '/resources/d1'
     | '/resources/kv'
     | '/resources/r2'
+    | '/runs/$runId'
     | '/workflows/$workflowId'
     | '/resources/'
+    | '/runs/'
+    | '/workflows/'
+    | '/workflows/$workflowId/canvas'
     | '/workflows/$workflowId/deployments'
     | '/workflows/$workflowId/runs'
     | '/workflows/$workflowId/'
-    | '/workflows/$workflowId/runs/$runId'
+    | '/workflows/$workflowId/runs/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/sign-in'
+    | '/account'
     | '/connections'
     | '/dashboard'
     | '/resources/d1'
     | '/resources/kv'
     | '/resources/r2'
+    | '/runs/$runId'
     | '/resources'
+    | '/runs'
+    | '/workflows'
+    | '/workflows/$workflowId/canvas'
     | '/workflows/$workflowId/deployments'
-    | '/workflows/$workflowId/runs'
     | '/workflows/$workflowId'
-    | '/workflows/$workflowId/runs/$runId'
+    | '/workflows/$workflowId/runs'
   id:
     | '__root__'
     | '/'
     | '/_authed'
     | '/sign-in'
+    | '/_authed/account'
     | '/_authed/connections'
     | '/_authed/dashboard'
     | '/_authed/resources/d1'
     | '/_authed/resources/kv'
     | '/_authed/resources/r2'
+    | '/_authed/runs/$runId'
     | '/_authed/workflows/$workflowId'
     | '/_authed/resources/'
+    | '/_authed/runs/'
+    | '/_authed/workflows/'
+    | '/_authed/workflows/$workflowId/canvas'
     | '/_authed/workflows/$workflowId/deployments'
     | '/_authed/workflows/$workflowId/runs'
     | '/_authed/workflows/$workflowId/'
-    | '/_authed/workflows/$workflowId/runs/$runId'
+    | '/_authed/workflows/$workflowId/runs/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -236,6 +295,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedConnectionsRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/account': {
+      id: '/_authed/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AuthedAccountRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/workflows/': {
+      id: '/_authed/workflows/'
+      path: '/workflows'
+      fullPath: '/workflows/'
+      preLoaderRoute: typeof AuthedWorkflowsIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/runs/': {
+      id: '/_authed/runs/'
+      path: '/runs'
+      fullPath: '/runs/'
+      preLoaderRoute: typeof AuthedRunsIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/resources/': {
       id: '/_authed/resources/'
       path: '/resources'
@@ -248,6 +328,13 @@ declare module '@tanstack/react-router' {
       path: '/workflows/$workflowId'
       fullPath: '/workflows/$workflowId'
       preLoaderRoute: typeof AuthedWorkflowsWorkflowIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/runs/$runId': {
+      id: '/_authed/runs/$runId'
+      path: '/runs/$runId'
+      fullPath: '/runs/$runId'
+      preLoaderRoute: typeof AuthedRunsRunIdRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/resources/r2': {
@@ -292,24 +379,31 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedWorkflowsWorkflowIdDeploymentsRouteImport
       parentRoute: typeof AuthedWorkflowsWorkflowIdRoute
     }
-    '/_authed/workflows/$workflowId/runs/$runId': {
-      id: '/_authed/workflows/$workflowId/runs/$runId'
-      path: '/$runId'
-      fullPath: '/workflows/$workflowId/runs/$runId'
-      preLoaderRoute: typeof AuthedWorkflowsWorkflowIdRunsRunIdRouteImport
+    '/_authed/workflows/$workflowId/canvas': {
+      id: '/_authed/workflows/$workflowId/canvas'
+      path: '/canvas'
+      fullPath: '/workflows/$workflowId/canvas'
+      preLoaderRoute: typeof AuthedWorkflowsWorkflowIdCanvasRouteImport
+      parentRoute: typeof AuthedWorkflowsWorkflowIdRoute
+    }
+    '/_authed/workflows/$workflowId/runs/': {
+      id: '/_authed/workflows/$workflowId/runs/'
+      path: '/'
+      fullPath: '/workflows/$workflowId/runs/'
+      preLoaderRoute: typeof AuthedWorkflowsWorkflowIdRunsIndexRouteImport
       parentRoute: typeof AuthedWorkflowsWorkflowIdRunsRoute
     }
   }
 }
 
 interface AuthedWorkflowsWorkflowIdRunsRouteChildren {
-  AuthedWorkflowsWorkflowIdRunsRunIdRoute: typeof AuthedWorkflowsWorkflowIdRunsRunIdRoute
+  AuthedWorkflowsWorkflowIdRunsIndexRoute: typeof AuthedWorkflowsWorkflowIdRunsIndexRoute
 }
 
 const AuthedWorkflowsWorkflowIdRunsRouteChildren: AuthedWorkflowsWorkflowIdRunsRouteChildren =
   {
-    AuthedWorkflowsWorkflowIdRunsRunIdRoute:
-      AuthedWorkflowsWorkflowIdRunsRunIdRoute,
+    AuthedWorkflowsWorkflowIdRunsIndexRoute:
+      AuthedWorkflowsWorkflowIdRunsIndexRoute,
   }
 
 const AuthedWorkflowsWorkflowIdRunsRouteWithChildren =
@@ -318,6 +412,7 @@ const AuthedWorkflowsWorkflowIdRunsRouteWithChildren =
   )
 
 interface AuthedWorkflowsWorkflowIdRouteChildren {
+  AuthedWorkflowsWorkflowIdCanvasRoute: typeof AuthedWorkflowsWorkflowIdCanvasRoute
   AuthedWorkflowsWorkflowIdDeploymentsRoute: typeof AuthedWorkflowsWorkflowIdDeploymentsRoute
   AuthedWorkflowsWorkflowIdRunsRoute: typeof AuthedWorkflowsWorkflowIdRunsRouteWithChildren
   AuthedWorkflowsWorkflowIdIndexRoute: typeof AuthedWorkflowsWorkflowIdIndexRoute
@@ -325,6 +420,7 @@ interface AuthedWorkflowsWorkflowIdRouteChildren {
 
 const AuthedWorkflowsWorkflowIdRouteChildren: AuthedWorkflowsWorkflowIdRouteChildren =
   {
+    AuthedWorkflowsWorkflowIdCanvasRoute: AuthedWorkflowsWorkflowIdCanvasRoute,
     AuthedWorkflowsWorkflowIdDeploymentsRoute:
       AuthedWorkflowsWorkflowIdDeploymentsRoute,
     AuthedWorkflowsWorkflowIdRunsRoute:
@@ -338,23 +434,31 @@ const AuthedWorkflowsWorkflowIdRouteWithChildren =
   )
 
 interface AuthedRouteChildren {
+  AuthedAccountRoute: typeof AuthedAccountRoute
   AuthedConnectionsRoute: typeof AuthedConnectionsRoute
   AuthedDashboardRoute: typeof AuthedDashboardRoute
   AuthedResourcesD1Route: typeof AuthedResourcesD1Route
   AuthedResourcesKvRoute: typeof AuthedResourcesKvRoute
   AuthedResourcesR2Route: typeof AuthedResourcesR2Route
+  AuthedRunsRunIdRoute: typeof AuthedRunsRunIdRoute
   AuthedWorkflowsWorkflowIdRoute: typeof AuthedWorkflowsWorkflowIdRouteWithChildren
   AuthedResourcesIndexRoute: typeof AuthedResourcesIndexRoute
+  AuthedRunsIndexRoute: typeof AuthedRunsIndexRoute
+  AuthedWorkflowsIndexRoute: typeof AuthedWorkflowsIndexRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
+  AuthedAccountRoute: AuthedAccountRoute,
   AuthedConnectionsRoute: AuthedConnectionsRoute,
   AuthedDashboardRoute: AuthedDashboardRoute,
   AuthedResourcesD1Route: AuthedResourcesD1Route,
   AuthedResourcesKvRoute: AuthedResourcesKvRoute,
   AuthedResourcesR2Route: AuthedResourcesR2Route,
+  AuthedRunsRunIdRoute: AuthedRunsRunIdRoute,
   AuthedWorkflowsWorkflowIdRoute: AuthedWorkflowsWorkflowIdRouteWithChildren,
   AuthedResourcesIndexRoute: AuthedResourcesIndexRoute,
+  AuthedRunsIndexRoute: AuthedRunsIndexRoute,
+  AuthedWorkflowsIndexRoute: AuthedWorkflowsIndexRoute,
 }
 
 const AuthedRouteWithChildren =

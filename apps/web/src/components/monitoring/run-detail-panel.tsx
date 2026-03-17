@@ -82,21 +82,21 @@ function ErrorDisplay({ error }: { error: unknown }) {
       <div className="flex items-center gap-2">
         <button
           onClick={() => setShowRaw(!showRaw)}
-          className="flex items-center gap-1 text-[10px] text-white/30 hover:text-white/50"
+          className="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground"
         >
           {showRaw ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
           Raw error
         </button>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1 text-[10px] text-white/30 hover:text-white/50"
+          className="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground"
         >
           {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
       {showRaw && (
-        <pre className="overflow-auto rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 text-[10px] text-white/50 font-mono">
+        <pre className="overflow-auto rounded-lg border border-border bg-muted/30 p-3 text-[10px] text-muted-foreground font-mono">
           {parsed.raw}
         </pre>
       )}
@@ -113,16 +113,16 @@ export function RunDetailPanel({ run, onPause, onResume, onTerminate }: RunDetai
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <RunStatusBadge status={run.status} />
-          <span className="text-xs text-white/30 font-mono">{run.instanceId}</span>
+          <span className="text-xs text-muted-foreground/60 font-mono">{run.instanceId}</span>
         </div>
         {!isTerminal && (
           <div className="flex items-center gap-1">
             {isPaused ? (
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-white/40" onClick={onResume}>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" onClick={onResume}>
                 <Play className="h-3.5 w-3.5" />
               </Button>
             ) : (
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-white/40" onClick={onPause}>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" onClick={onPause}>
                 <Pause className="h-3.5 w-3.5" />
               </Button>
             )}
@@ -133,7 +133,7 @@ export function RunDetailPanel({ run, onPause, onResume, onTerminate }: RunDetai
         )}
       </div>
 
-      <div className="flex items-center gap-2 text-xs text-white/40">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Clock className="h-3 w-3" />
         <span>Started {new Date(run.createdAt).toLocaleString()}</span>
       </div>
@@ -144,7 +144,7 @@ export function RunDetailPanel({ run, onPause, onResume, onTerminate }: RunDetai
             <CheckCircle2 className="h-3 w-3" />
             <span>Output</span>
           </div>
-          <pre className="overflow-auto rounded-lg bg-white/[0.03] p-3 text-xs text-white/70 font-mono border border-white/[0.06]">
+          <pre className="overflow-auto rounded-lg bg-muted/40 p-3 text-xs text-foreground/70 font-mono border border-border">
             {typeof run.output === 'string' ? run.output : JSON.stringify(run.output, null, 2)}
           </pre>
         </div>
