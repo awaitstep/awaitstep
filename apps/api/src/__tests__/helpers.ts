@@ -1,4 +1,4 @@
-import type { DatabaseAdapter, Workflow, WorkflowVersion, Connection, WorkflowRun, Deployment } from '@awaitstep/db'
+import type { DatabaseAdapter, Workflow, WorkflowVersion, Connection, WorkflowRun, ApiKey, Deployment } from '@awaitstep/db'
 import { createApp } from '../app.js'
 import type { Auth } from '../auth/config.js'
 
@@ -7,6 +7,7 @@ const store = {
   versions: new Map<string, WorkflowVersion>(),
   connections: new Map<string, Connection>(),
   runs: new Map<string, WorkflowRun>(),
+  apiKeys: new Map<string, ApiKey>(),
   deployments: new Map<string, Deployment>(),
 }
 
@@ -15,6 +16,7 @@ export function resetStore() {
   store.versions.clear()
   store.connections.clear()
   store.runs.clear()
+  store.apiKeys.clear()
   store.deployments.clear()
 }
 
@@ -112,6 +114,28 @@ const mockDb: DatabaseAdapter = {
     for (const [id, d] of store.deployments) {
       if (d.workflowId === workflowId) store.deployments.delete(id)
     }
+  },
+  async createApiKey(data) {
+    const key: ApiKey = { ...data, expiresAt: null, lastUsedAt: null, revokedAt: null, createdAt: now() }
+    store.apiKeys.set(key.id, key)
+    return key
+  },
+  async getApiKeyByHash(keyHash) {
+    return [...store.apiKeys.values()].find((k) => k.keyHash === keyHash && !k.revokedAt) ?? null
+  },
+  async listApiKeysByUser(userId) {
+    return [...store.apiKeys.values()].filter((k) => k.userId === userId)
+  },
+  async updateApiKeyLastUsed(id, lastUsedAt) {
+    const k = store.apiKeys.get(id)
+    if (k) store.apiKeys.set(id, { ...k, lastUsedAt })
+  },
+  async revokeApiKey(id, userId) {
+    const k = store.apiKeys.get(id)
+    if (!k || k.userId !== userId) return null
+    const revoked = { ...k, revokedAt: now() }
+    store.apiKeys.set(id, revoked)
+    return revoked
   },
 }
 

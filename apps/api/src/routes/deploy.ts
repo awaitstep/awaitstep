@@ -59,6 +59,17 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
   const artifact = adapter.generate(ir)
   const result = await adapter.deploy(artifact, providerConfig)
 
+  await db.createDeployment({
+    id: nanoid(),
+    workflowId: workflow.id,
+    versionId,
+    connectionId: body.connectionId,
+    serviceName: result.deploymentId || '',
+    serviceUrl: result.url,
+    status: result.success ? 'success' : 'failed',
+    error: result.error,
+  })
+
   return c.json(result, result.success ? 200 : 500)
 })
 

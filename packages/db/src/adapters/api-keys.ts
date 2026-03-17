@@ -1,0 +1,65 @@
+import { eq, desc, isNull, and } from 'drizzle-orm'
+import type { ApiKey } from '../types.js'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyTable = any
+
+export class ApiKeysAdapter {
+  constructor(
+    private db: AnyTable,
+    private table: AnyTable,
+  ) {}
+
+  async create(data: { id: string; userId: string; name: string; keyHash: string; keyPrefix: string; scopes: string }): Promise<ApiKey> {
+    const now = new Date().toISOString()
+    const row = {
+      id: data.id,
+      userId: data.userId,
+      name: data.name,
+      keyHash: data.keyHash,
+      keyPrefix: data.keyPrefix,
+      scopes: data.scopes,
+      expiresAt: null,
+      lastUsedAt: null,
+      revokedAt: null,
+      createdAt: now,
+    }
+    await this.db.insert(this.table).values(row)
+    return row
+  }
+
+  async getByHash(keyHash: string): Promise<ApiKey | null> {
+    const rows = await this.db
+      .select()
+      .from(this.table)
+      .where(and(eq(this.table.keyHash, keyHash), isNull(this.table.revokedAt)))
+      .limit(1)
+    return rows[0] ?? null
+  }
+
+  async listByUser(userId: string): Promise<ApiKey[]> {
+    return this.db
+      .select()
+      .from(this.table)
+      .where(eq(this.table.userId, userId))
+      .orderBy(desc(this.table.createdAt))
+  }
+
+  async updateLastUsed(id: string, lastUsedAt: string): Promise<void> {
+    await this.db.update(this.table).set({ lastUsedAt }).where(eq(this.table.id, id))
+  }
+
+  async revoke(id: string, userId: string): Promise<ApiKey | null> {
+    const now = new Date().toISOString()
+    await this.db
+      .update(this.table)
+      .set({ revokedAt: now })
+      .where(and(eq(this.table.id, id), eq(this.table.userId, userId)))
+    const rows = await this.db
+      .select()
+      .from(this.table)
+      .where(and(eq(this.table.id, id), eq(this.table.userId, userId)))
+      .limit(1)
+    return rows[0] ?? null
+  }
+}

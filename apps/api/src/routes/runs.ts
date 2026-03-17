@@ -1,6 +1,9 @@
 import { Hono } from 'hono'
 import { CloudflareAPI, mapCFStatus } from '@awaitstep/provider-cloudflare'
 import type { AppEnv } from '../types.js'
+import { createLogger } from '../lib/logger.js'
+
+const log = createLogger('runs')
 
 export const runs = new Hono<AppEnv>()
 
@@ -47,8 +50,11 @@ runs.get('/:workflowId/runs/:runId', async (c) => {
           return c.json(updated)
         }
       }
-    } catch {
-      // Fall through to return cached DB data
+    } catch (err) {
+      log.error('Failed to sync run status from Cloudflare', {
+        runId,
+        error: err instanceof Error ? err.message : String(err),
+      })
     }
   }
 

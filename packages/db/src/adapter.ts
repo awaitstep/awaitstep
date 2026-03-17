@@ -1,4 +1,4 @@
-import type { Workflow, WorkflowVersion, Connection, WorkflowRun, Deployment } from './types.js'
+import type { Workflow, WorkflowVersion, Connection, WorkflowRun, Deployment, ApiKey } from './types.js'
 
 export interface DatabaseAdapter {
   // Workflows
@@ -33,4 +33,11 @@ export interface DatabaseAdapter {
   listDeploymentsByWorkflow(workflowId: string): Promise<Deployment[]>
   listRecentDeploymentsByUser(userId: string, limit?: number): Promise<Deployment[]>
   deleteDeploymentsByWorkflow(workflowId: string): Promise<void>
+
+  // API Keys
+  createApiKey(data: { id: string; userId: string; name: string; keyHash: string; keyPrefix: string; scopes: string }): Promise<ApiKey>
+  getApiKeyByHash(keyHash: string): Promise<ApiKey | null>
+  listApiKeysByUser(userId: string): Promise<ApiKey[]>
+  updateApiKeyLastUsed(id: string, lastUsedAt: string): Promise<void>
+  revokeApiKey(id: string, userId: string): Promise<ApiKey | null>
 }

@@ -1,11 +1,12 @@
 import type { DatabaseAdapter } from '../adapter.js'
-import type { Workflow, WorkflowVersion, Connection, WorkflowRun, Deployment } from '../types.js'
+import type { Workflow, WorkflowVersion, Connection, WorkflowRun, Deployment, ApiKey } from '../types.js'
 import type { TokenCrypto } from '../crypto.js'
 import { WorkflowsAdapter } from './workflows.js'
 import { VersionsAdapter } from './versions.js'
 import { ConnectionsAdapter } from './connections.js'
 import { RunsAdapter } from './runs.js'
 import { DeploymentsAdapter } from './deployments.js'
+import { ApiKeysAdapter } from './api-keys.js'
 
 export interface SchemaRef {
   workflows: unknown
@@ -13,6 +14,7 @@ export interface SchemaRef {
   connections: unknown
   workflowRuns: unknown
   deployments: unknown
+  apiKeys: unknown
 }
 
 export interface DrizzleAdapterOptions {
@@ -25,6 +27,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _connections: ConnectionsAdapter
   private _runs: RunsAdapter
   private _deployments: DeploymentsAdapter
+  private _apiKeys: ApiKeysAdapter
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(db: any, schema: SchemaRef, options?: DrizzleAdapterOptions) {
@@ -33,6 +36,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     this._connections = new ConnectionsAdapter(db, schema.connections, options?.tokenCrypto)
     this._runs = new RunsAdapter(db, schema.workflowRuns)
     this._deployments = new DeploymentsAdapter(db, schema.deployments)
+    this._apiKeys = new ApiKeysAdapter(db, schema.apiKeys)
   }
 
   createWorkflow(data: { id: string; userId: string; name: string; description?: string }): Promise<Workflow> {
@@ -114,5 +118,21 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
 
   deleteDeploymentsByWorkflow(workflowId: string): Promise<void> {
     return this._deployments.deleteByWorkflow(workflowId)
+  }
+
+  createApiKey(data: { id: string; userId: string; name: string; keyHash: string; keyPrefix: string; scopes: string }): Promise<ApiKey> {
+    return this._apiKeys.create(data)
+  }
+  getApiKeyByHash(keyHash: string): Promise<ApiKey | null> {
+    return this._apiKeys.getByHash(keyHash)
+  }
+  listApiKeysByUser(userId: string): Promise<ApiKey[]> {
+    return this._apiKeys.listByUser(userId)
+  }
+  updateApiKeyLastUsed(id: string, lastUsedAt: string): Promise<void> {
+    return this._apiKeys.updateLastUsed(id, lastUsedAt)
+  }
+  revokeApiKey(id: string, userId: string): Promise<ApiKey | null> {
+    return this._apiKeys.revoke(id, userId)
   }
 }

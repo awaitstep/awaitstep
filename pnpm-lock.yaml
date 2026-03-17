@@ -62,6 +62,9 @@ importers:
       hono:
         specifier: ^4.12.8
         version: 4.12.8
+      hono-rate-limiter:
+        specifier: ^0.5.3
+        version: 0.5.3(hono@4.12.8)
       nanoid:
         specifier: ^5.1.6
         version: 5.1.6
@@ -3009,6 +3012,15 @@ packages:
       crossws: ^0.4.1
     peerDependenciesMeta:
       crossws:
+        optional: true
+
+  hono-rate-limiter@0.5.3:
+    resolution: {integrity: sha512-M0DxbVMpPELEzLi0AJg1XyBHLGJXz7GySjsPoK+gc5YeeBsdGDGe+2RvVuCAv8ydINiwlbxqYMNxUEyYfRji/A==}
+    peerDependencies:
+      hono: ^4.10.8
+      unstorage: ^1.17.3
+    peerDependenciesMeta:
+      unstorage:
         optional: true
 
   hono@4.12.8:
@@ -6494,6 +6506,10 @@ snapshots:
     dependencies:
       rou3: 0.8.1
       srvx: 0.11.9
+
+  hono-rate-limiter@0.5.3(hono@4.12.8):
+    dependencies:
+      hono: 4.12.8
 
   hono@4.12.8: {}
 

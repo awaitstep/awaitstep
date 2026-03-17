@@ -164,11 +164,13 @@ async function verifyCloudflareCredentials(
   })
 }
 
+const SAFE_CREDENTIAL_FIELDS = new Set(['accountId', 'accountName', 'name', 'provider', 'region', 'email'])
+
 function redactCredentials(conn: { credentials: string; [key: string]: unknown }) {
   const creds = JSON.parse(conn.credentials) as Record<string, string>
   const redacted: Record<string, string> = {}
   for (const [key, value] of Object.entries(creds)) {
-    redacted[key] = /token|key|secret|password/i.test(key) ? '***' : value
+    redacted[key] = SAFE_CREDENTIAL_FIELDS.has(key) ? value : '***'
   }
   return { ...conn, credentials: redacted }
 }
