@@ -60,3 +60,13 @@ export {
   type ExpressionValidationError,
 } from './expressions.js'
 export { NodeRegistry } from './node-registry.js'
+export {
+  stepDefinition,
+  sleepDefinition,
+  sleepUntilDefinition,
+  branchDefinition,
+  parallelDefinition,
+  httpRequestDefinition,
+  waitForEventDefinition,
+  bundledNodeDefinitions,
+} from './bundled-nodes/index.js'

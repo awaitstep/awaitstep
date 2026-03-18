@@ -26,6 +26,7 @@ import { TemplatePicker } from '../../../components/canvas/template-picker'
 import { ClientOnly } from '../../../components/canvas/client-only'
 import { useWorkflowStore } from '../../../stores/workflow-store'
 import { SimulationPanel } from '../../../components/canvas/simulation-panel'
+import { NodeRegistryProvider } from '../../../contexts/node-registry-context'
 import { cn } from '../../../lib/utils'
 import { validateWorkflowForPublish } from '../../../lib/validate-workflow'
 import { DeployDialog } from '../../../components/canvas/deploy-dialog'
@@ -236,6 +237,7 @@ function WorkflowEditorPage() {
           </div>
         }
       >
+        <NodeRegistryProvider>
         <LazyReactFlowProvider>
           <div className="fixed inset-0 flex flex-col overflow-hidden bg-background">
             {/* Toolbar */}
@@ -517,6 +519,7 @@ function WorkflowEditorPage() {
             workflowId={workflowId}
           />
         </LazyReactFlowProvider>
+        </NodeRegistryProvider>
       </Suspense>
     </ClientOnly>
   )

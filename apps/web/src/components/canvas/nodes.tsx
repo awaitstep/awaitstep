@@ -7,10 +7,10 @@ import {
   Layers,
   Globe,
   Bell,
-  Puzzle,
 } from 'lucide-react'
 import { NodeBase } from './node-base'
 import type { FlowNode } from '../../stores/workflow-store'
+import { getNodeVisuals } from '../../lib/node-icon-map'
 
 export function StepNode({ data, selected }: NodeProps<FlowNode>) {
   const node = data.irNode
@@ -81,8 +81,9 @@ export function WaitForEventNode({ data, selected }: NodeProps<FlowNode>) {
 export function CustomNodeComponent({ data, selected }: NodeProps<FlowNode>) {
   const node = data.irNode
   if (node.type !== 'custom') return null
+  const visuals = getNodeVisuals(node.nodeId)
   return (
-    <NodeBase label={node.name} icon={<Puzzle className="h-2.5 w-2.5" />} accent="bg-indigo-500/15 text-indigo-400" selected={selected}>
+    <NodeBase label={node.name} icon={visuals.icon} accent={visuals.accent} selected={selected}>
       {node.nodeId}
     </NodeBase>
   )

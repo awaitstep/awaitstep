@@ -54,6 +54,7 @@ export type Category =
   | 'Notifications'
   | 'Data'
   | 'Utilities'
+  | 'Control Flow'
   | 'Internal'
 
 export type Provider = 'cloudflare' | 'inngest' | 'temporal' | 'stepfunctions'
