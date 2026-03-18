@@ -89,6 +89,8 @@ function createDefaultNode(type: NodeType, position: { x: number; y: number }): 
       return { ...base, type: 'http-request', url: 'https://api.example.com', method: 'GET' }
     case 'wait-for-event':
       return { ...base, type: 'wait-for-event', eventType: 'my-event', timeout: '24 hours' }
+    case 'custom':
+      throw new Error('Custom nodes must be created via the node registry')
   }
 }
 

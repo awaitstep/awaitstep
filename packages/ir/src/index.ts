@@ -14,6 +14,7 @@ export type {
   ParallelNode,
   HttpRequestNode,
   WaitForEventNode,
+  CustomNode,
   WorkflowNode,
   NodeType,
   Edge,
@@ -28,6 +29,18 @@ export type {
   ValidationError,
   Result,
 } from './types.js'
+
+export type {
+  FieldType,
+  FieldValidation,
+  ConfigField,
+  OutputFieldType,
+  OutputField,
+  Category,
+  Provider,
+  RuntimeHints,
+  NodeDefinition,
+} from './node-definition.js'
 
 export {
   workflowNodeSchema,
@@ -46,3 +59,4 @@ export {
   type ParsedExpression,
   type ExpressionValidationError,
 } from './expressions.js'
+export { NodeRegistry } from './node-registry.js'

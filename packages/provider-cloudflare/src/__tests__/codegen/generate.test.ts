@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import type { WorkflowIR } from '@awaitstep/ir'
-import { generateWorkflow, CloudflareCodeGenerator } from '../../codegen/generate.js'
+import type { WorkflowIR, CustomNode } from '@awaitstep/ir'
+import { generateWorkflow, generateNodeCode, CloudflareCodeGenerator } from '../../codegen/generate.js'
 import simpleWorkflow from './fixtures/simple-workflow.json'
 import parallelWorkflow from './fixtures/parallel-workflow.json'
 import eventWorkflow from './fixtures/event-workflow.json'
@@ -110,6 +110,24 @@ describe('generateWorkflow', () => {
     expect(code).not.toContain('_workflowState')
     expect(code).not.toContain('{{fetch-data.userId}}')
     expect(code).toContain('Fetch_Data.userId')
+  })
+})
+
+describe('generateNodeCode', () => {
+  it('throws for custom nodes', () => {
+    const customNode: CustomNode = {
+      id: 'c1',
+      name: 'Stripe Charge',
+      position: { x: 0, y: 0 },
+      type: 'custom',
+      nodeId: 'stripe-charge',
+      version: '1.0.0',
+      provider: 'cloudflare',
+      data: { amount: 5000 },
+    }
+    const ir = simpleWorkflow as unknown as WorkflowIR
+    expect(() => generateNodeCode(customNode, ir)).toThrow('Custom node codegen not yet implemented')
+    expect(() => generateNodeCode(customNode, ir)).toThrow('stripe-charge')
   })
 })
 

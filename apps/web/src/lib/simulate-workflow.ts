@@ -53,6 +53,8 @@ function getStepDetail(node: FlowNode): { status: SimulationStepStatus; detail: 
       return { status: 'executed', detail: `HTTP ${ir.method} ${ir.url} (simulated)` }
     case 'wait-for-event':
       return { status: 'event-received', detail: `Wait for event '${ir.eventType}' (simulated as received)` }
+    case 'custom':
+      return { status: 'executed', detail: `Execute custom node: ${ir.name} (${ir.nodeId})` }
   }
 }
 

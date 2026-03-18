@@ -70,6 +70,15 @@ export interface WaitForEventNode extends BaseNode {
   timeout?: number | string
 }
 
+export interface CustomNode extends BaseNode {
+  type: 'custom'
+  nodeId: string
+  version: string
+  provider: string
+  data: Record<string, unknown>
+  config?: StepConfig
+}
+
 export type WorkflowNode =
   | StepNode
   | SleepNode
@@ -78,6 +87,7 @@ export type WorkflowNode =
   | ParallelNode
   | HttpRequestNode
   | WaitForEventNode
+  | CustomNode
 
 export type NodeType = WorkflowNode['type']
 

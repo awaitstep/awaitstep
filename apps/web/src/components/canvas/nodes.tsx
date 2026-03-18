@@ -7,6 +7,7 @@ import {
   Layers,
   Globe,
   Bell,
+  Puzzle,
 } from 'lucide-react'
 import { NodeBase } from './node-base'
 import type { FlowNode } from '../../stores/workflow-store'
@@ -77,6 +78,16 @@ export function WaitForEventNode({ data, selected }: NodeProps<FlowNode>) {
   )
 }
 
+export function CustomNodeComponent({ data, selected }: NodeProps<FlowNode>) {
+  const node = data.irNode
+  if (node.type !== 'custom') return null
+  return (
+    <NodeBase label={node.name} icon={<Puzzle className="h-2.5 w-2.5" />} accent="bg-indigo-500/15 text-indigo-400" selected={selected}>
+      {node.nodeId}
+    </NodeBase>
+  )
+}
+
 export const nodeTypes = {
   'step': StepNode,
   'sleep': SleepNode,
@@ -85,4 +96,5 @@ export const nodeTypes = {
   'parallel': ParallelNode,
   'http-request': HttpRequestNode,
   'wait-for-event': WaitForEventNode,
+  'custom': CustomNodeComponent,
 }

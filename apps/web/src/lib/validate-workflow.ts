@@ -198,7 +198,7 @@ export function validateWorkflowForPublish(
   }
 
   // ── Per-node ──
-  const LINEAR_TYPES = new Set(['step', 'sleep', 'sleep-until', 'http-request', 'wait-for-event'])
+  const LINEAR_TYPES = new Set(['step', 'sleep', 'sleep-until', 'http-request', 'wait-for-event', 'custom'])
 
   for (const node of nodes) {
     const ir = node.data.irNode
@@ -303,6 +303,11 @@ export function validateWorkflowForPublish(
       stringsToCheck.push(ir.url)
       if (ir.body) stringsToCheck.push(ir.body)
       if (ir.headers) stringsToCheck.push(...Object.values(ir.headers))
+    }
+    if (ir.type === 'custom') {
+      for (const v of Object.values(ir.data)) {
+        if (typeof v === 'string') stringsToCheck.push(v)
+      }
     }
     for (const s of stringsToCheck) {
       const exprErrors = validateExpressionRefs(s, id, upstream, allNodeIds)

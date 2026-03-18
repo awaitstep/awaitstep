@@ -26,6 +26,8 @@ export function generateNodeCode(node: WorkflowNode, ir: WorkflowIR): string {
       return generateHttp(node)
     case 'wait-for-event':
       return generateWaitForEvent(node)
+    case 'custom':
+      throw new Error(`Custom node codegen not yet implemented (node: ${node.nodeId})`)
   }
 }
 
@@ -51,6 +53,13 @@ function resolveNodeExpressions(node: WorkflowNode): WorkflowNode {
           condition: b.condition ? resolveExpressions(b.condition, varName) : b.condition,
         })),
       }
+    case 'custom': {
+      const resolvedData: Record<string, unknown> = {}
+      for (const [key, value] of Object.entries(node.data)) {
+        resolvedData[key] = typeof value === 'string' ? resolveExpressions(value, varName) : value
+      }
+      return { ...node, data: resolvedData }
+    }
     default:
       return node
   }

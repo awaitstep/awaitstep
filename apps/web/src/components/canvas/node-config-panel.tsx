@@ -20,6 +20,7 @@ const NODE_TYPE_LABELS: Record<string, string> = {
   'parallel': 'Promise.all()',
   'http-request': 'fetch() in step.do()',
   'wait-for-event': 'step.waitForEvent()',
+  'custom': 'Custom Node',
 }
 
 const EVENT_TYPE_PATTERN = /^[a-zA-Z0-9_-]+$/
@@ -120,6 +121,11 @@ export function NodeConfigPanel() {
           {irNode.type === 'parallel' && <ParallelFields />}
           {irNode.type === 'http-request' && <HttpFields node={irNode} onUpdate={update} />}
           {irNode.type === 'wait-for-event' && <EventFields node={irNode} onUpdate={update} />}
+          {irNode.type === 'custom' && (
+            <Hint>
+              Custom node: <strong>{irNode.nodeId}</strong> v{irNode.version}. Schema-driven configuration coming soon.
+            </Hint>
+          )}
         </div>
       </div>
 

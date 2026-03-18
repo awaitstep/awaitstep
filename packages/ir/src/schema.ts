@@ -77,6 +77,19 @@ const waitForEventNodeSchema = baseNodeSchema.extend({
   timeout: z.union([z.number().min(0), z.string()]).optional(),
 })
 
+const customNodeIdPattern = /^[a-z0-9-]+$/
+
+const customNodeSchema = baseNodeSchema.extend({
+  type: z.literal('custom'),
+  nodeId: z.string().min(1).regex(customNodeIdPattern, {
+    error: 'Node ID must be lowercase alphanumeric with hyphens only',
+  }),
+  version: z.string().min(1),
+  provider: z.string().min(1),
+  data: z.record(z.string(), z.unknown()),
+  config: stepConfigSchema.optional(),
+})
+
 export const workflowNodeSchema = z.discriminatedUnion('type', [
   stepNodeSchema,
   sleepNodeSchema,
@@ -85,6 +98,7 @@ export const workflowNodeSchema = z.discriminatedUnion('type', [
   parallelNodeSchema,
   httpRequestNodeSchema,
   waitForEventNodeSchema,
+  customNodeSchema,
 ])
 
 export const edgeSchema = z.object({

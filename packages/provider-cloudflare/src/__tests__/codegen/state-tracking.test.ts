@@ -60,6 +60,38 @@ describe('hasTemplateExpressions', () => {
     expect(hasTemplateExpressions(nodes)).toBe(true)
   })
 
+  it('detects expressions in custom node data', () => {
+    const nodes: WorkflowNode[] = [
+      {
+        id: 'c1',
+        name: 'Stripe Charge',
+        position: { x: 0, y: 0 },
+        type: 'custom',
+        nodeId: 'stripe-charge',
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { customerId: '{{create-customer.id}}', amount: 5000 },
+      },
+    ]
+    expect(hasTemplateExpressions(nodes)).toBe(true)
+  })
+
+  it('returns false for custom node without expressions', () => {
+    const nodes: WorkflowNode[] = [
+      {
+        id: 'c1',
+        name: 'Stripe Charge',
+        position: { x: 0, y: 0 },
+        type: 'custom',
+        nodeId: 'stripe-charge',
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { customerId: 'cust_123', amount: 5000 },
+      },
+    ]
+    expect(hasTemplateExpressions(nodes)).toBe(false)
+  })
+
   it('returns false when no expressions', () => {
     const nodes: WorkflowNode[] = [
       {

@@ -18,6 +18,11 @@ export function hasTemplateExpressions(nodes: WorkflowNode[]): boolean {
         if (b.condition && pattern.test(b.condition)) return true
       }
     }
+    if (node.type === 'custom') {
+      for (const v of Object.values(node.data)) {
+        if (typeof v === 'string' && pattern.test(v)) return true
+      }
+    }
   }
   return false
 }
