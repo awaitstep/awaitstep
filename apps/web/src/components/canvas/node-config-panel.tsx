@@ -114,7 +114,7 @@ export function NodeConfigPanel() {
       <div className="flex-1 overflow-y-auto p-4 scrollbar-none">
         <div className="space-y-4">
           <Field label="Node Name" hint="Max 256 characters">
-            <Input value={irNode.name} onChange={(e) => update({ name: e.target.value.slice(0, 256) })} placeholder="My node" maxLength={256} />
+            <Input value={irNode.name} onChange={(e) => update({ name: e.target.value.slice(0, 256) })} debounceMs={300} placeholder="My node" maxLength={256} />
           </Field>
 
           <Separator className="!bg-muted/60" />
@@ -245,55 +245,21 @@ function BranchFields({ node, onUpdate }: { node: WorkflowNode; onUpdate: (d: Pa
   return (
     <>
       <div className="space-y-2">
-        {branches.map((branch, index) => {
-          const isElse = branch.condition === '' && index === branches.length - 1
-          const heading = index === 0 ? 'When this is true' : isElse ? 'Otherwise (default)' : 'Otherwise, when this is true'
-          const currentTarget = getTargetForLabel(branch.label)
-
-          return (
-            <div key={index} className="overflow-hidden rounded-lg border border-border">
-              <div className="flex items-center justify-between bg-muted/40 px-3 py-1.5">
-                <span className="text-[11px] font-medium text-muted-foreground">{heading}</span>
-                {branches.length > 1 && (
-                  <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground/40 hover:text-destructive" onClick={() => removeBranch(index)}>
-                    <Trash2 className="h-2.5 w-2.5" />
-                  </Button>
-                )}
-              </div>
-
-              <div className="space-y-2 p-3">
-                <div className="space-y-1">
-                  <Label className="text-[10px] text-muted-foreground/60">Label</Label>
-                  <Input
-                    value={branch.label}
-                    onChange={(e) => updateBranch(index, 'label', e.target.value)}
-                    placeholder="e.g. approved, rejected"
-                    className="h-8 text-[11px]"
-                  />
-                </div>
-
-                {!isElse && (
-                  <CodeEditor
-                    value={branch.condition}
-                    onChange={(v) => updateBranch(index, 'condition', v)}
-                    language="javascript"
-                    height="40px"
-                  />
-                )}
-
-                <div className="space-y-1">
-                  <Label className="text-[10px] text-muted-foreground/60">Go to</Label>
-                  <Select
-                    value={currentTarget || '__none__'}
-                    onValueChange={(v) => setTargetForBranch(branch.label, v === '__none__' ? '' : v)}
-                    options={[{ value: '__none__', label: 'Not connected' }, ...targetOptions]}
-                    className="h-8 text-[11px]"
-                  />
-                </div>
-              </div>
-            </div>
-          )
-        })}
+        {branches.map((branch, index) => (
+          <BranchCard
+            key={index}
+            branch={branch}
+            index={index}
+            isLast={index === branches.length - 1}
+            branchCount={branches.length}
+            currentTarget={getTargetForLabel(branch.label)}
+            targetOptions={targetOptions}
+            onUpdateLabel={(v) => updateBranch(index, 'label', v)}
+            onUpdateCondition={(v) => updateBranch(index, 'condition', v)}
+            onSetTarget={(v) => setTargetForBranch(branch.label, v === '__none__' ? '' : v)}
+            onRemove={() => removeBranch(index)}
+          />
+        ))}
       </div>
 
       <Button variant="outline" size="sm" className="w-full gap-1.5" onClick={addBranch}>
@@ -305,5 +271,78 @@ function BranchFields({ node, onUpdate }: { node: WorkflowNode; onUpdate: (d: Pa
         Select which node each branch should go to. Edges are created automatically.
       </Hint>
     </>
+  )
+}
+
+function BranchCard({
+  branch,
+  index,
+  isLast,
+  branchCount,
+  currentTarget,
+  targetOptions,
+  onUpdateLabel,
+  onUpdateCondition,
+  onSetTarget,
+  onRemove,
+}: {
+  branch: BranchCondition
+  index: number
+  isLast: boolean
+  branchCount: number
+  currentTarget: string
+  targetOptions: { value: string; label: string }[]
+  onUpdateLabel: (value: string) => void
+  onUpdateCondition: (value: string) => void
+  onSetTarget: (value: string) => void
+  onRemove: () => void
+}) {
+  const isElse = branch.condition === '' && isLast
+  const heading = index === 0 ? 'When this is true' : isElse ? 'Otherwise (default)' : 'Otherwise, when this is true'
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-border">
+      <div className="flex items-center justify-between bg-muted/40 px-3 py-1.5">
+        <span className="text-[11px] font-medium text-muted-foreground">{heading}</span>
+        {branchCount > 1 && (
+          <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground/40 hover:text-destructive" onClick={onRemove}>
+            <Trash2 className="h-2.5 w-2.5" />
+          </Button>
+        )}
+      </div>
+
+      <div className="space-y-2 p-3">
+        <div className="space-y-1">
+          <Label className="text-[10px] text-muted-foreground/60">Label</Label>
+          <Input
+            value={branch.label}
+            onChange={(e) => onUpdateLabel(e.target.value)}
+            debounceMs={300}
+            placeholder="e.g. approved, rejected"
+            className="h-8 text-[11px]"
+          />
+        </div>
+
+        {!isElse && (
+          <CodeEditor
+            value={branch.condition}
+            onChange={onUpdateCondition}
+            debounceMs={300}
+            language="javascript"
+            height="40px"
+          />
+        )}
+
+        <div className="space-y-1">
+          <Label className="text-[10px] text-muted-foreground/60">Go to</Label>
+          <Select
+            value={currentTarget || '__none__'}
+            onValueChange={onSetTarget}
+            options={[{ value: '__none__', label: 'Not connected' }, ...targetOptions]}
+            className="h-8 text-[11px]"
+          />
+        </div>
+      </div>
+    </div>
   )
 }

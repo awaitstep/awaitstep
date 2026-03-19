@@ -52,18 +52,21 @@ function DynamicField({ field, value, onChange }: DynamicFieldProps) {
 }
 
 function FieldRenderer({ field, value, onChange }: DynamicFieldProps) {
+  const stringValue = String(value ?? '')
+
   switch (field.type) {
     case 'string': {
       if (field.validation?.format === 'duration') {
-        return <DurationInput value={String(value ?? '')} onChange={onChange} />
+        return <DurationInput value={stringValue} onChange={onChange} />
       }
       if (field.validation?.format === 'date-time') {
-        return <DateTimeField value={String(value ?? '')} onChange={onChange} />
+        return <DateTimeField value={stringValue} onChange={onChange} />
       }
       return (
         <Input
-          value={String(value ?? '')}
+          value={stringValue}
           onChange={(e) => onChange(e.target.value)}
+          debounceMs={300}
           placeholder={field.placeholder}
           maxLength={field.validation?.maxLength}
         />
@@ -76,6 +79,7 @@ function FieldRenderer({ field, value, onChange }: DynamicFieldProps) {
           type="number"
           value={value !== undefined && value !== null ? String(value) : ''}
           onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)}
+          debounceMs={300}
           placeholder={field.placeholder}
           min={field.validation?.min}
           max={field.validation?.max}
@@ -155,8 +159,9 @@ function FieldRenderer({ field, value, onChange }: DynamicFieldProps) {
     case 'code':
       return (
         <CodeEditor
-          value={String(value ?? field.default ?? '')}
-          onChange={onChange}
+          value={stringValue || String(field.default ?? '')}
+          onChange={(v) => onChange(v)}
+          debounceMs={300}
           language="typescript"
           height="160px"
         />
@@ -172,6 +177,7 @@ function FieldRenderer({ field, value, onChange }: DynamicFieldProps) {
           onChange={(v) => {
             try { onChange(v ? JSON.parse(v) : undefined) } catch { onChange(v) }
           }}
+          debounceMs={300}
           language="json"
           height="120px"
         />
@@ -181,8 +187,9 @@ function FieldRenderer({ field, value, onChange }: DynamicFieldProps) {
     case 'expression':
       return (
         <Input
-          value={String(value ?? '')}
+          value={stringValue}
           onChange={(e) => onChange(e.target.value)}
+          debounceMs={300}
           placeholder={field.placeholder ?? 'e.g. step_result.fieldName'}
           className="font-mono"
         />
@@ -191,7 +198,7 @@ function FieldRenderer({ field, value, onChange }: DynamicFieldProps) {
     case 'textarea':
       return (
         <textarea
-          value={String(value ?? '')}
+          value={stringValue}
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder}
           rows={4}
@@ -202,8 +209,9 @@ function FieldRenderer({ field, value, onChange }: DynamicFieldProps) {
     default:
       return (
         <Input
-          value={String(value ?? '')}
+          value={stringValue}
           onChange={(e) => onChange(e.target.value)}
+          debounceMs={300}
           placeholder={field.placeholder}
         />
       )

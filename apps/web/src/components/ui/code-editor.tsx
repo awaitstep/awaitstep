@@ -1,7 +1,8 @@
-import { lazy, Suspense, useState, useEffect, useRef } from 'react'
+import { lazy, Suspense, useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Maximize2, Minimize2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { CF_WORKFLOW_TYPE_DEFS } from '../../lib/cf-workflow-types'
+import { debounce } from '../../lib/debounce'
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
@@ -15,6 +16,7 @@ interface CodeEditorProps {
   bordered?: boolean
   expandable?: boolean
   title?: string
+  debounceMs?: number
 }
 
 function injectTypes(monaco: Parameters<Exclude<React.ComponentProps<typeof MonacoEditor>['beforeMount'], undefined>>[0]) {
@@ -60,11 +62,45 @@ const editorOptions = {
   suggestOnTriggerCharacters: true,
 }
 
-export function CodeEditor({ value, onChange, language = 'typescript', height = '200px', bordered = true, expandable = true, title }: CodeEditorProps) {
+export function CodeEditor({ value, onChange, language = 'typescript', height = '200px', bordered = true, expandable = true, title, debounceMs }: CodeEditorProps) {
   const [mounted, setMounted] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
+  const [localValue, setLocalValue] = useState(value)
+  const pendingRef = useRef(false)
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
+
+  const debouncedOnChange = useMemo(
+    () =>
+      debounceMs
+        ? debounce((v: string) => {
+            pendingRef.current = false
+            onChangeRef.current(v)
+          }, debounceMs)
+        : null,
+    [debounceMs],
+  )
+
+  useEffect(() => {
+    if (!pendingRef.current) setLocalValue(value)
+  }, [value])
+
+  useEffect(() => () => debouncedOnChange?.cancel(), [debouncedOnChange])
+
+  const handleChange = useCallback(
+    (v: string) => {
+      if (debouncedOnChange) {
+        setLocalValue(v)
+        pendingRef.current = true
+        debouncedOnChange(v)
+      } else {
+        onChangeRef.current(v)
+      }
+    },
+    [debouncedOnChange],
+  )
+
+  const displayValue = debouncedOnChange ? localValue : value
 
   useEffect(() => {
     setMounted(true)
@@ -107,8 +143,8 @@ export function CodeEditor({ value, onChange, language = 'typescript', height = 
             <MonacoEditor
               height="100%"
               language={language}
-              value={value}
-              onChange={(v) => onChangeRef.current(v ?? '')}
+              value={displayValue}
+              onChange={(v) => handleChange(v ?? '')}
               theme="vs-dark"
               beforeMount={injectTypes}
               options={{
