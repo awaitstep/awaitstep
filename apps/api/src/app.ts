@@ -7,6 +7,7 @@ import { requestId } from 'hono/request-id'
 import type { AppEnv } from './types.js'
 import type { Auth } from './auth/config.js'
 import type { Logger } from './lib/logger.js'
+import type { AppNodeRegistry } from './lib/node-registry.js'
 import { createLogger } from './lib/logger.js'
 import { createRouter } from './routes/index.js'
 import { createRateLimiter } from './middleware/rate-limit.js'
@@ -24,6 +25,7 @@ export interface AppDeps {
   corsOrigin?: string | string[]
   isDev?: boolean
   selfHostedConnection?: SelfHostedConnection
+  nodeRegistry?: AppNodeRegistry
 }
 
 export function createApp(deps: AppDeps) {
@@ -83,9 +85,10 @@ export function createApp(deps: AppDeps) {
     return deps.auth.handler(c.req.raw)
   })
 
-  // DB context
+  // DB + node registry context
   app.use('/api/*', async (c, next) => {
     c.set('db', deps.db)
+    if (deps.nodeRegistry) c.set('nodeRegistry', deps.nodeRegistry)
     await next()
   })
 

@@ -8,6 +8,7 @@ import { DrizzleDatabaseAdapter, schema } from '@awaitstep/db'
 import { createApp, createAuth } from '../index.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
 import { createLogger } from '../lib/logger.js'
+import { loadNodeRegistry } from '../lib/node-registry.js'
 
 const sqlite = new Database('awaitstep.db')
 sqlite.pragma('journal_mode = WAL')
@@ -75,7 +76,17 @@ async function start() {
         name: process.env['CF_CONNECTION_NAME'] ?? 'Self-Hosted',
       }
     : undefined
-  const app = createApp({ db, auth, logger, corsOrigin, isDev, selfHostedConnection })
+  // Load node registry (built by `pnpm nodes:build`)
+  const registryPath = resolve(__dirname, '../../../../nodes/registry.json')
+  let nodeRegistry
+  try {
+    nodeRegistry = await loadNodeRegistry(registryPath)
+    logger.info(`Node registry loaded: ${nodeRegistry.registry.size} nodes`)
+  } catch {
+    logger.warn('Node registry not found — run `pnpm nodes:build` to generate it')
+  }
+
+  const app = createApp({ db, auth, logger, corsOrigin, isDev, selfHostedConnection, nodeRegistry })
 
   const port = Number(process.env['PORT'] ?? 3001)
   logger.info(`API server running on http://localhost:${port}`)

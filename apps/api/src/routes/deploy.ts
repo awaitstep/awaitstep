@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { CloudflareWorkflowsAdapter, workerName } from '@awaitstep/provider-cloudflare'
+import type { TemplateResolver } from '@awaitstep/codegen'
 import type { AppEnv } from '../types.js'
 
 const deploySchema = z.object({
@@ -15,6 +16,12 @@ const triggerSchema = z.object({
   connectionId: z.string().min(1),
   params: z.unknown().optional(),
 })
+
+function createAdapter(templateResolver?: TemplateResolver) {
+  return new CloudflareWorkflowsAdapter(
+    templateResolver ? { templateResolver } : undefined,
+  )
+}
 
 export const deploy = new Hono<AppEnv>()
 
@@ -34,7 +41,7 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
   const version = await db.getVersionById(versionId)
   if (!version || version.workflowId !== workflow.id) return c.json({ error: 'Version not found' }, 404)
 
-  const adapter = new CloudflareWorkflowsAdapter()
+  const adapter = createAdapter(c.get('nodeRegistry')?.templateResolver)
   const creds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
   const providerConfig = {
     provider: 'cloudflare-workflows',
@@ -89,7 +96,7 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
   const version = await db.getVersionById(versionId)
   if (!version || version.workflowId !== workflow.id) return c.json({ error: 'Version not found' }, 404)
 
-  const adapter = new CloudflareWorkflowsAdapter()
+  const adapter = createAdapter(c.get('nodeRegistry')?.templateResolver)
   const streamCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
   const providerConfig = {
     provider: 'cloudflare-workflows',
@@ -166,7 +173,7 @@ deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c)
   const connection = await db.getConnectionById(body.connectionId)
   if (!connection || connection.userId !== userId) return c.json({ error: 'Connection not found' }, 404)
 
-  const adapter = new CloudflareWorkflowsAdapter()
+  const adapter = createAdapter(c.get('nodeRegistry')?.templateResolver)
   const triggerCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
   const config = {
     provider: 'cloudflare-workflows',
@@ -202,7 +209,7 @@ deploy.post('/:workflowId/takedown', zValidator('json', z.object({ connectionId:
 
   const name = workerName(workflow.id)
   const creds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
-  const adapter = new CloudflareWorkflowsAdapter()
+  const adapter = createAdapter(c.get('nodeRegistry')?.templateResolver)
   const result = await adapter.destroy(name, {
     provider: 'cloudflare-workflows',
     credentials: creds,

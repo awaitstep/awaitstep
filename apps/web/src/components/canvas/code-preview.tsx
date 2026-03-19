@@ -1,5 +1,6 @@
-import { useMemo, useCallback, lazy, Suspense, useState, useEffect } from 'react'
+import { useMemo, useCallback, lazy, Suspense, useState, useEffect, useRef } from 'react'
 import { generateWorkflow } from '@awaitstep/provider-cloudflare/codegen'
+import type { TemplateResolver } from '@awaitstep/codegen'
 import type { WorkflowIR, WorkflowNode, Edge } from '@awaitstep/ir'
 import { Copy, Check } from 'lucide-react'
 import { useWorkflowStore } from '../../stores/workflow-store'
@@ -44,12 +45,27 @@ export function CodePreview() {
   const [mounted, setMounted] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('typescript')
   const [copied, setCopied] = useState(false)
+  const templatesRef = useRef<Record<string, Record<string, string>>>({})
+  const [templatesLoaded, setTemplatesLoaded] = useState(false)
 
   useEffect(() => {
     setMounted(true)
+    fetch('/api/nodes/templates', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: Record<string, Record<string, string>> | null) => {
+        if (data) templatesRef.current = data
+        setTemplatesLoaded(true)
+      })
+      .catch(() => setTemplatesLoaded(true))
   }, [])
 
   const ir = useMemo(() => buildIR(metadata, nodes, edges), [metadata, nodes, edges])
+
+  const templateResolver = useMemo<TemplateResolver>(() => ({
+    getTemplate(nodeType: string, provider: string): string | undefined {
+      return templatesRef.current[nodeType]?.[provider]
+    },
+  }), [templatesLoaded])
 
   const displayCode = useMemo(() => {
     if (!ir) return '// Drag nodes onto the canvas to generate code'
@@ -59,11 +75,11 @@ export function CodePreview() {
     }
 
     try {
-      return generateWorkflow(ir)
+      return generateWorkflow(ir, templateResolver)
     } catch (err) {
       return `// Error generating code:\n// ${err instanceof Error ? err.message : 'Unknown error'}`
     }
-  }, [ir, viewMode])
+  }, [ir, viewMode, templateResolver])
 
   const handleCopy = useCallback(async () => {
     await navigator.clipboard.writeText(displayCode)

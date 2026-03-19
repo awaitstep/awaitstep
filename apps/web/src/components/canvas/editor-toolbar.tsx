@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from '@tanstack/react-router'
+import { Link, useRouter } from '@tanstack/react-router'
 import {
   ArrowLeft,
   Code2,
@@ -65,16 +65,15 @@ export function EditorToolbar({
   onTakedown,
   onOpenTemplatePicker,
 }: EditorToolbarProps) {
+  const router = useRouter()
   const [showMenu, setShowMenu] = useState(false)
 
   return (
     <header className="relative z-20 flex h-14 shrink-0 items-center justify-between border-b border-border bg-card px-4">
       <div className="flex items-center gap-2">
-        <Link to={isNew ? '/dashboard' : '/workflows/$workflowId'} params={isNew ? undefined : { workflowId }}>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground/80">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground/80" onClick={() => router.history.back()}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
         <div className="h-5 w-px bg-muted/70" />
         <div className="flex items-center gap-2 px-1">
           <span className="text-[13px] font-semibold text-foreground">{workflowName}</span>

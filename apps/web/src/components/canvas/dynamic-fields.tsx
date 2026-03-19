@@ -143,12 +143,13 @@ function FieldRenderer({ field, value, onChange }: DynamicFieldProps) {
 
     case 'secret':
       return (
-        <Input
-          value={String(value ?? field.envVarName ?? '')}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={field.envVarName ?? 'ENV_VAR_NAME'}
-          className="font-mono"
-        />
+        <div className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50">
+            <path fillRule="evenodd" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7A1.5 1.5 0 0 0 3 8.5v5A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 11.5 7V4.5A3.5 3.5 0 0 0 8 1Zm2 6V4.5a2 2 0 1 0-4 0V7h4Z" clipRule="evenodd" />
+          </svg>
+          <span className="font-mono text-sm text-muted-foreground">{field.envVarName}</span>
+          <span className="ml-auto text-[10px] text-muted-foreground/40">from env</span>
+        </div>
       )
 
     case 'code':

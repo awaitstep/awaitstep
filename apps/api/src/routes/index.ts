@@ -12,6 +12,7 @@ import { deploy } from './deploy.js'
 import { runs } from './runs.js'
 import { resources } from './resources.js'
 import { apiKeys } from './api-keys.js'
+import { nodes } from './nodes.js'
 
 export function createRouter(auth: Auth, selfHostedConnection?: SelfHostedConnection) {
   const router = new Hono<AppEnv>()
@@ -86,6 +87,7 @@ export function createRouter(auth: Auth, selfHostedConnection?: SelfHostedConnec
   router.route('/connections', createConnectionRoutes(selfHostedConnection))
   router.route('/resources', resources)
   router.route('/api-keys', apiKeys)
+  router.route('/nodes', nodes)
 
   // Global deployments list (across all user's workflows)
   router.get('/deployments', async (c) => {

@@ -42,7 +42,8 @@ versions.post(
     }
 
     const irString = JSON.stringify(body.ir)
-    const generatedCode = generateWorkflow(body.ir as WorkflowIR)
+    const templateResolver = c.get('nodeRegistry')?.templateResolver
+    const generatedCode = generateWorkflow(body.ir as WorkflowIR, templateResolver)
 
     const existing = await db.listVersionsByWorkflow(workflowId)
     const latest = existing[0] // ordered by descending version number

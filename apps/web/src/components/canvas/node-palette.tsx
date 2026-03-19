@@ -6,6 +6,10 @@ import { cn } from '../../lib/utils'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { getNodeVisuals } from '../../lib/node-icon-map'
 
+const BUILTIN_IDS = new Set([
+  'step', 'sleep', 'sleep_until', 'branch', 'parallel', 'http_request', 'wait_for_event',
+])
+
 interface NodePaletteProps {
   onAddNode: (type: NodeType) => void
 }
@@ -51,10 +55,11 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
       </Tooltip.Provider>
 
       {open && (
-        <div className="w-56 rounded-xl border border-border bg-card p-1.5 shadow-lg">
-          <div className="mb-1 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/40">
+        <div className="w-64 rounded-xl border border-border bg-card py-1.5 shadow-lg">
+          <div className="mb-1 px-3.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/40">
             Drag to canvas
           </div>
+          <div className="max-h-80 overflow-y-auto px-1.5">
           {definitions.map((def) => {
             const visuals = getNodeVisuals(def.id)
             return (
@@ -69,12 +74,18 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
                   {visuals.paletteIcon}
                 </div>
                 <div className="min-w-0">
-                  <div className="text-[12px] font-medium text-foreground">{def.name}</div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[12px] font-medium text-foreground">{def.name}</span>
+                    {!BUILTIN_IDS.has(def.id) && (
+                      <span className="rounded bg-violet-500/15 px-1 py-px text-[9px] font-medium text-violet-400">Custom</span>
+                    )}
+                  </div>
                   <div className="text-[10px] leading-tight text-muted-foreground/60">{def.description}</div>
                 </div>
               </div>
             )
           })}
+          </div>
         </div>
       )}
     </div>

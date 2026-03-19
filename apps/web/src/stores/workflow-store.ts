@@ -17,6 +17,14 @@ import { customAlphabet } from 'nanoid'
 
 const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789_', 12)
 
+const BUILTIN_FLOW_TYPES = new Set([
+  'step', 'sleep', 'sleep_until', 'branch', 'parallel', 'http_request', 'wait_for_event',
+])
+
+function toFlowType(irType: string): string {
+  return BUILTIN_FLOW_TYPES.has(irType) ? irType : 'custom'
+}
+
 export interface WorkflowNodeData extends Record<string, unknown> {
   irNode: WorkflowNode
 }
@@ -139,7 +147,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const irNode = createDefaultNode(type, position)
     const flowNode: FlowNode = {
       id: irNode.id,
-      type: irNode.type,
+      type: toFlowType(irNode.type),
       position,
       data: { irNode },
     }
@@ -154,7 +162,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const irNode = createDefaultNode(type, position)
     const flowNode: FlowNode = {
       id: irNode.id,
-      type: irNode.type,
+      type: toFlowType(irNode.type),
       position,
       data: { irNode },
     }
@@ -257,7 +265,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   loadWorkflow: (metadata, nodes, edges) => {
-    set({ metadata, nodes, edges, isDirty: false })
+    const fixedNodes = nodes.map((n) => ({ ...n, type: toFlowType(n.data.irNode.type) }))
+    set({ metadata, nodes: fixedNodes, edges, isDirty: false })
   },
 
   setWorkflowId: (id) => {
@@ -270,7 +279,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({
       workflowId: id,
       metadata: data.metadata,
-      nodes: data.nodes,
+      nodes: data.nodes.map((n) => ({ ...n, type: toFlowType(n.data.irNode.type) })),
       edges: data.edges,
       inputParams: data.inputParams,
       envBindings: data.envBindings,
