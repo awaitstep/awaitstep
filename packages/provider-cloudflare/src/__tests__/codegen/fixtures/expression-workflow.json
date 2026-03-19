@@ -7,22 +7,30 @@
   },
   "nodes": [
     {
-      "id": "fetch-data",
+      "id": "fetch_data",
       "type": "step",
       "name": "Fetch Data",
       "position": { "x": 0, "y": 0 },
-      "code": "return { userId: 42 };"
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "code": "return { userId: 42 };"
+      }
     },
     {
       "id": "process",
       "type": "step",
       "name": "Process Data",
       "position": { "x": 0, "y": 200 },
-      "code": "const data = {{fetch-data.userId}};\n  return { processed: data };"
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "code": "const data = {{fetch_data.userId}};\n  return { processed: data };"
+      }
     }
   ],
   "edges": [
-    { "id": "e1", "source": "fetch-data", "target": "process" }
+    { "id": "e1", "source": "fetch_data", "target": "process" }
   ],
-  "entryNodeId": "fetch-data"
+  "entryNodeId": "fetch_data"
 }

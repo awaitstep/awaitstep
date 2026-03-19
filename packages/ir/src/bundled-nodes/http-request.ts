@@ -1,7 +1,7 @@
 import type { NodeDefinition } from '../node-definition.js'
 
 export const httpRequestDefinition: NodeDefinition = {
-  id: 'http-request',
+  id: 'http_request',
   name: 'HTTP Request',
   version: '1.0.0',
   description: 'Make an HTTP API call.',
@@ -44,6 +44,7 @@ export const httpRequestDefinition: NodeDefinition = {
       type: 'string',
       label: 'Timeout',
       placeholder: '10 minutes',
+      validation: { format: 'duration' },
     },
   },
   outputSchema: {

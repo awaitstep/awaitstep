@@ -1,7 +1,7 @@
 import type { NodeDefinition } from '../node-definition.js'
 
 export const waitForEventDefinition: NodeDefinition = {
-  id: 'wait-for-event',
+  id: 'wait_for_event',
   name: 'Wait for Event',
   version: '1.0.0',
   description: 'Pause execution until an external event is received.',
@@ -22,6 +22,7 @@ export const waitForEventDefinition: NodeDefinition = {
       label: 'Timeout',
       placeholder: '24 hours',
       description: 'Max 365 days. Workflow throws on timeout expiry.',
+      validation: { format: 'duration' },
     },
   },
   outputSchema: {

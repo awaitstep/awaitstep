@@ -1,28 +1,27 @@
 import { describe, it, expect } from 'vitest'
 import { workflowNodeSchema, workflowIRSchema } from '../schema.js'
 import { serializeIR, deserializeIR } from '../serialize.js'
-import type { CustomNode, WorkflowIR } from '../types.js'
+import type { WorkflowNode, WorkflowIR } from '../types.js'
 
-const validCustomNode: CustomNode = {
+const validNode: WorkflowNode = {
   id: 'node-1',
-  type: 'custom',
+  type: 'stripe-charge',
   name: 'Stripe Charge',
   position: { x: 0, y: 0 },
-  nodeId: 'stripe-charge',
   version: '1.0.0',
   provider: 'cloudflare',
   data: { amount: 5000, currency: 'usd' },
 }
 
-describe('CustomNode schema', () => {
-  it('accepts a valid custom node', () => {
-    const result = workflowNodeSchema.safeParse(validCustomNode)
+describe('WorkflowNode schema', () => {
+  it('accepts a valid node', () => {
+    const result = workflowNodeSchema.safeParse(validNode)
     expect(result.success).toBe(true)
   })
 
-  it('accepts a custom node with step config', () => {
+  it('accepts a node with step config', () => {
     const node = {
-      ...validCustomNode,
+      ...validNode,
       config: {
         retries: { limit: 3, delay: '5 seconds', backoff: 'exponential' as const },
         timeout: '30 seconds',
@@ -32,91 +31,89 @@ describe('CustomNode schema', () => {
     expect(result.success).toBe(true)
   })
 
-  it('accepts a custom node with empty data', () => {
-    const node = { ...validCustomNode, data: {} }
+  it('accepts a node with empty data', () => {
+    const node = { ...validNode, data: {} }
     const result = workflowNodeSchema.safeParse(node)
     expect(result.success).toBe(true)
   })
 
-  it('rejects nodeId with uppercase letters', () => {
-    const node = { ...validCustomNode, nodeId: 'Stripe-Charge' }
-    const result = workflowNodeSchema.safeParse(node)
-    expect(result.success).toBe(false)
+  it('accepts any string as type', () => {
+    for (const type of ['step', 'sleep', 'stripe-charge', 'custom-node']) {
+      const node = { ...validNode, type }
+      const result = workflowNodeSchema.safeParse(node)
+      expect(result.success).toBe(true)
+    }
   })
 
-  it('rejects nodeId with underscores', () => {
-    const node = { ...validCustomNode, nodeId: 'stripe_charge' }
-    const result = workflowNodeSchema.safeParse(node)
-    expect(result.success).toBe(false)
-  })
-
-  it('rejects empty nodeId', () => {
-    const node = { ...validCustomNode, nodeId: '' }
+  it('rejects empty type', () => {
+    const node = { ...validNode, type: '' }
     const result = workflowNodeSchema.safeParse(node)
     expect(result.success).toBe(false)
   })
 
   it('rejects empty version', () => {
-    const node = { ...validCustomNode, version: '' }
+    const node = { ...validNode, version: '' }
     const result = workflowNodeSchema.safeParse(node)
     expect(result.success).toBe(false)
   })
 
   it('rejects empty provider', () => {
-    const node = { ...validCustomNode, provider: '' }
-    const result = workflowNodeSchema.safeParse(node)
-    expect(result.success).toBe(false)
-  })
-
-  it('rejects missing nodeId', () => {
-    const { nodeId: _, ...node } = validCustomNode
+    const node = { ...validNode, provider: '' }
     const result = workflowNodeSchema.safeParse(node)
     expect(result.success).toBe(false)
   })
 
   it('rejects missing data', () => {
-    const { data: _, ...node } = validCustomNode
+    const { data: _, ...node } = validNode
+    const result = workflowNodeSchema.safeParse(node)
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects missing version', () => {
+    const { version: _, ...node } = validNode
     const result = workflowNodeSchema.safeParse(node)
     expect(result.success).toBe(false)
   })
 })
 
-describe('CustomNode in WorkflowIR', () => {
-  const irWithCustomNode: WorkflowIR = {
+describe('WorkflowIR with unified nodes', () => {
+  const ir: WorkflowIR = {
     metadata: {
       name: 'test-workflow',
       version: 1,
       createdAt: '2026-01-01T00:00:00Z',
       updatedAt: '2026-01-01T00:00:00Z',
     },
-    nodes: [validCustomNode],
+    nodes: [validNode],
     edges: [],
     entryNodeId: 'node-1',
   }
 
-  it('validates a workflow containing a custom node', () => {
-    const result = workflowIRSchema.safeParse(irWithCustomNode)
+  it('validates a workflow', () => {
+    const result = workflowIRSchema.safeParse(ir)
     expect(result.success).toBe(true)
   })
 
-  it('round-trips a workflow with custom nodes through serialize/deserialize', () => {
-    const json = serializeIR(irWithCustomNode)
+  it('round-trips through serialize/deserialize', () => {
+    const json = serializeIR(ir)
     const restored = deserializeIR(json)
-    expect(restored).toEqual(irWithCustomNode)
+    expect(restored).toEqual(ir)
   })
 
-  it('validates a workflow mixing built-in and custom nodes', () => {
+  it('validates a workflow mixing built-in and registry nodes', () => {
     const mixedIR: WorkflowIR = {
-      ...irWithCustomNode,
+      ...ir,
       nodes: [
         {
           id: 'step-1',
           type: 'step',
           name: 'Fetch data',
           position: { x: 0, y: 0 },
-          code: 'return { ok: true };',
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { code: 'return { ok: true };' },
         },
-        { ...validCustomNode, id: 'custom-1' },
+        { ...validNode, id: 'custom-1' },
       ],
       edges: [{ id: 'e1', source: 'step-1', target: 'custom-1' }],
       entryNodeId: 'step-1',

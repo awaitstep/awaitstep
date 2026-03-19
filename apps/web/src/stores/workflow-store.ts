@@ -13,7 +13,9 @@ import type { WorkflowNode, NodeType, WorkflowMetadata } from '@awaitstep/ir'
 import { validateWorkflowForPublish, type PublishValidationResult } from '../lib/validate-workflow'
 import { simulateWorkflow, type SimulationResult } from '../lib/simulate-workflow'
 import { saveWorkflowLocally, loadWorkflowLocally, type PersistedWorkflow } from '../lib/local-persistence'
-import { nanoid } from 'nanoid'
+import { customAlphabet } from 'nanoid'
+
+const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789_', 12)
 
 export interface WorkflowNodeData extends Record<string, unknown> {
   irNode: WorkflowNode
@@ -72,25 +74,25 @@ interface WorkflowState {
 
 function createDefaultNode(type: NodeType, position: { x: number; y: number }): WorkflowNode {
   const id = nanoid()
-  const base = { id, position, name: `New ${type}` }
+  const base = { id, type, position, name: `New ${type}`, version: '1.0.0', provider: 'cloudflare' }
 
   switch (type) {
     case 'step':
-      return { ...base, type: 'step', code: '  // ctx.attempt = current retry (1-indexed)\n\n  return { result: "ok" };' }
+      return { ...base, data: { code: '// Write your business logic here\n\nreturn { result: "ok" };' } }
     case 'sleep':
-      return { ...base, type: 'sleep', duration: '10 seconds' }
-    case 'sleep-until':
-      return { ...base, type: 'sleep-until', timestamp: new Date().toISOString() }
+      return { ...base, data: { duration: '10 seconds' } }
+    case 'sleep_until':
+      return { ...base, data: { timestamp: new Date().toISOString() } }
     case 'branch':
-      return { ...base, type: 'branch', branches: [{ label: 'true', condition: 'true' }, { label: 'false', condition: '' }] }
+      return { ...base, data: { branches: [{ label: 'true', condition: 'true' }, { label: 'false', condition: '' }] } }
     case 'parallel':
-      return { ...base, type: 'parallel' }
-    case 'http-request':
-      return { ...base, type: 'http-request', url: 'https://api.example.com', method: 'GET' }
-    case 'wait-for-event':
-      return { ...base, type: 'wait-for-event', eventType: 'my-event', timeout: '24 hours' }
-    case 'custom':
-      throw new Error('Custom nodes must be created via the node registry')
+      return { ...base, data: {} }
+    case 'http_request':
+      return { ...base, data: { url: 'https://api.example.com', method: 'GET' } }
+    case 'wait_for_event':
+      return { ...base, data: { eventType: 'my-event', timeout: '24 hours' } }
+    default:
+      return { ...base, data: {} }
   }
 }
 
@@ -174,9 +176,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
     // Sync edge labels when branch labels change
     let edges = get().edges
-    if (updatedIrNode?.type === 'branch' && 'branches' in data) {
-      const oldBranches = (currentNode?.data.irNode as { branches?: { label: string }[] })?.branches ?? []
-      const newBranches = updatedIrNode.branches
+    if (updatedIrNode?.type === 'branch' && 'data' in data && data.data && 'branches' in (data.data as Record<string, unknown>)) {
+      const oldBranches = (currentNode?.data.irNode.data.branches ?? []) as { label: string }[]
+      const newBranches = (updatedIrNode.data.branches ?? []) as { label: string }[]
       edges = edges.map((edge) => {
         if (edge.source !== nodeId) return edge
         const oldIndex = oldBranches.findIndex((b) => b.label === edge.label)

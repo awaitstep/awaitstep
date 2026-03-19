@@ -1,27 +1,32 @@
-import type { HttpRequestNode } from '@awaitstep/ir'
+import type { WorkflowNode } from '@awaitstep/ir'
 import { varName, escName } from '@awaitstep/codegen'
 import { generateStepConfig } from './config.js'
 
-export function generateHttp(node: HttpRequestNode): string {
+export function generateHttp(node: WorkflowNode): string {
+  const method = String(node.data.method ?? 'GET')
+  const url = String(node.data.url ?? '')
+  const headers = node.data.headers as Record<string, string> | undefined
+  const body = node.data.body as string | undefined
+
   const config = generateStepConfig(node.config)
   const configArg = config ? `, ${config}` : ''
 
-  const fetchOptions: string[] = [`method: "${node.method}"`]
+  const fetchOptions: string[] = [`method: "${method}"`]
 
-  if (node.headers && Object.keys(node.headers).length > 0) {
-    const headers = Object.entries(node.headers)
+  if (headers && Object.keys(headers).length > 0) {
+    const headerEntries = Object.entries(headers)
       .map(([k, v]) => `"${k}": ${toStringLiteral(v)}`)
       .join(', ')
-    fetchOptions.push(`headers: { ${headers} }`)
+    fetchOptions.push(`headers: { ${headerEntries} }`)
   }
 
-  if (node.body) {
-    fetchOptions.push(`body: ${toStringLiteral(node.body)}`)
+  if (body) {
+    fetchOptions.push(`body: ${toStringLiteral(body)}`)
   }
 
-  const needsOptions = node.method !== 'GET' || fetchOptions.length > 1
+  const needsOptions = method !== 'GET' || fetchOptions.length > 1
   const fetchOpts = needsOptions ? `, { ${fetchOptions.join(', ')} }` : ''
-  const urlLiteral = toStringLiteral(node.url)
+  const urlLiteral = toStringLiteral(url)
 
   return `const ${varName(node.id)} = await step.do("${escName(node.name)}"${configArg}, async () => {
   const response = await fetch(${urlLiteral}${fetchOpts});

@@ -1,14 +1,16 @@
 import { describe, it, expect } from 'vitest'
-import type { WaitForEventNode } from '@awaitstep/ir'
+import type { WorkflowNode } from '@awaitstep/ir'
 import { generateWaitForEvent } from '../../../codegen/generators/wait-for-event.js'
 
-function makeNode(overrides: Partial<WaitForEventNode> = {}): WaitForEventNode {
+function makeNode(overrides: Partial<WorkflowNode> = {}): WorkflowNode {
   return {
     id: 'wait-1',
-    type: 'wait-for-event',
+    type: 'wait_for_event',
     name: 'Wait for approval',
     position: { x: 0, y: 0 },
-    eventType: 'user-approval',
+    version: '1.0.0',
+    provider: 'cloudflare',
+    data: { eventType: 'user-approval' },
     ...overrides,
   }
 }
@@ -22,12 +24,12 @@ describe('generateWaitForEvent', () => {
   })
 
   it('includes string timeout', () => {
-    const code = generateWaitForEvent(makeNode({ timeout: '48 hours' }))
+    const code = generateWaitForEvent(makeNode({ data: { eventType: 'user-approval', timeout: '48 hours' } }))
     expect(code).toContain('timeout: "48 hours"')
   })
 
   it('includes numeric timeout', () => {
-    const code = generateWaitForEvent(makeNode({ timeout: 3600000 }))
+    const code = generateWaitForEvent(makeNode({ data: { eventType: 'user-approval', timeout: 3600000 } }))
     expect(code).toContain('timeout: 3600000')
   })
 

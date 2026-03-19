@@ -1,11 +1,12 @@
-import type { BranchNode, WorkflowIR, WorkflowNode } from '@awaitstep/ir'
+import type { WorkflowIR, WorkflowNode, BranchCondition } from '@awaitstep/ir'
 import { buildAdjacencyList, getEdgeLabels } from '@awaitstep/codegen'
 
 export function generateBranch(
-  node: BranchNode,
+  node: WorkflowNode,
   ir: WorkflowIR,
   generateNode: (node: WorkflowNode, ir: WorkflowIR) => string,
 ): string {
+  const branches = (node.data.branches ?? []) as BranchCondition[]
   const adj = buildAdjacencyList(ir)
   const edgeLabels = getEdgeLabels(ir)
   const inDegree = computeInDegree(ir)
@@ -15,8 +16,8 @@ export function generateBranch(
 
   const lines: string[] = []
 
-  for (let i = 0; i < node.branches.length; i++) {
-    const branch = node.branches[i]!
+  for (let i = 0; i < branches.length; i++) {
+    const branch = branches[i]!
     const isFirst = i === 0
     const isElse = branch.condition === ''
 

@@ -12,22 +12,34 @@
       "type": "step",
       "name": "Submit request",
       "position": { "x": 0, "y": 0 },
-      "code": "return { requestId: crypto.randomUUID() };"
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "code": "return { requestId: crypto.randomUUID() };"
+      }
     },
     {
       "id": "wait_approval",
-      "type": "wait-for-event",
+      "type": "wait_for_event",
       "name": "Wait for approval",
       "position": { "x": 0, "y": 100 },
-      "eventType": "user-approval",
-      "timeout": "48 hours"
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "eventType": "user-approval",
+        "timeout": "48 hours"
+      }
     },
     {
       "id": "process",
       "type": "step",
       "name": "Process approved request",
       "position": { "x": 0, "y": 200 },
-      "code": "return { processed: true };"
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "code": "return { processed: true };"
+      }
     }
   ],
   "edges": [

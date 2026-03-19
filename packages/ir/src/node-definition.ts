@@ -16,7 +16,7 @@ export interface FieldValidation {
   minLength?: number
   maxLength?: number
   pattern?: string
-  format?: 'email' | 'url' | 'uuid' | 'date' | 'date-time'
+  format?: 'email' | 'url' | 'uuid' | 'date' | 'date-time' | 'duration'
 }
 
 export interface ConfigField {

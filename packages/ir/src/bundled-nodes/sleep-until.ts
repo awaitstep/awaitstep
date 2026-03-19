@@ -1,7 +1,7 @@
 import type { NodeDefinition } from '../node-definition.js'
 
 export const sleepUntilDefinition: NodeDefinition = {
-  id: 'sleep-until',
+  id: 'sleep_until',
   name: 'Sleep Until',
   version: '1.0.0',
   description: 'Pause execution until a specific timestamp.',

@@ -1,15 +1,16 @@
 import { describe, it, expect } from 'vitest'
-import type { HttpRequestNode } from '@awaitstep/ir'
+import type { WorkflowNode } from '@awaitstep/ir'
 import { generateHttp } from '../../../codegen/generators/http.js'
 
-function makeNode(overrides: Partial<HttpRequestNode> = {}): HttpRequestNode {
+function makeNode(overrides: Partial<WorkflowNode> = {}): WorkflowNode {
   return {
     id: 'http-1',
-    type: 'http-request',
+    type: 'http_request',
     name: 'Fetch data',
     position: { x: 0, y: 0 },
-    url: 'https://api.example.com/data',
-    method: 'GET',
+    version: '1.0.0',
+    provider: 'cloudflare',
+    data: { url: 'https://api.example.com/data', method: 'GET' },
     ...overrides,
   }
 }
@@ -24,21 +25,25 @@ describe('generateHttp', () => {
   })
 
   it('includes method for GET when headers are present', () => {
-    const code = generateHttp(makeNode({ headers: { 'Accept': 'application/json' } }))
+    const code = generateHttp(makeNode({ data: { url: 'https://api.example.com/data', method: 'GET', headers: { 'Accept': 'application/json' } } }))
     expect(code).toContain('method: "GET"')
     expect(code).toContain('"Accept": "application/json"')
   })
 
   it('generates a POST request with method', () => {
-    const code = generateHttp(makeNode({ method: 'POST' }))
+    const code = generateHttp(makeNode({ data: { url: 'https://api.example.com/data', method: 'POST' } }))
     expect(code).toContain('method: "POST"')
   })
 
   it('includes headers as object literal', () => {
     const code = generateHttp(makeNode({
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
+      data: {
+        url: 'https://api.example.com/data',
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
       },
     }))
     expect(code).toContain('"Content-Type": "application/json"')
@@ -47,15 +52,21 @@ describe('generateHttp', () => {
 
   it('includes body as string literal', () => {
     const code = generateHttp(makeNode({
-      method: 'POST',
-      body: '{"key":"value"}',
+      data: {
+        url: 'https://api.example.com/data',
+        method: 'POST',
+        body: '{"key":"value"}',
+      },
     }))
     expect(code).toContain('body: "{\\"key\\":\\"value\\"}"')
   })
 
   it('uses template literals for URLs with expressions', () => {
     const code = generateHttp(makeNode({
-      url: 'https://api.example.com/users/${state.userId}',
+      data: {
+        url: 'https://api.example.com/users/${state.userId}',
+        method: 'GET',
+      },
     }))
     expect(code).toContain('`https://api.example.com/users/${state.userId}`')
     expect(code).not.toContain('"https://api.example.com/users/${state.userId}"')
@@ -63,7 +74,11 @@ describe('generateHttp', () => {
 
   it('uses template literals for header values with expressions', () => {
     const code = generateHttp(makeNode({
-      headers: { 'Authorization': 'Bearer ${env.API_KEY}' },
+      data: {
+        url: 'https://api.example.com/data',
+        method: 'GET',
+        headers: { 'Authorization': 'Bearer ${env.API_KEY}' },
+      },
     }))
     expect(code).toContain('`Bearer ${env.API_KEY}`')
     expect(code).not.toContain('"Bearer ${env.API_KEY}"')
@@ -71,16 +86,22 @@ describe('generateHttp', () => {
 
   it('uses template literals for body with expressions', () => {
     const code = generateHttp(makeNode({
-      method: 'POST',
-      body: 'amount=${state.total * 100}&currency=usd',
+      data: {
+        url: 'https://api.example.com/data',
+        method: 'POST',
+        body: 'amount=${state.total * 100}&currency=usd',
+      },
     }))
     expect(code).toContain('`amount=${state.total * 100}&currency=usd`')
   })
 
   it('keeps regular strings when no expressions present', () => {
     const code = generateHttp(makeNode({
-      url: 'https://api.example.com/data',
-      headers: { 'Content-Type': 'application/json' },
+      data: {
+        url: 'https://api.example.com/data',
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      },
     }))
     expect(code).toContain('"https://api.example.com/data"')
     expect(code).toContain('"application/json"')
@@ -114,13 +135,17 @@ describe('generateHttp', () => {
   })
 
   it('omits headers when empty object', () => {
-    const code = generateHttp(makeNode({ headers: {} }))
+    const code = generateHttp(makeNode({ data: { url: 'https://api.example.com/data', method: 'GET', headers: {} } }))
     expect(code).not.toContain('headers')
   })
 
   it('handles multiple expressions in one value', () => {
     const code = generateHttp(makeNode({
-      headers: { 'X-Custom': '${env.PREFIX}-${env.SUFFIX}' },
+      data: {
+        url: 'https://api.example.com/data',
+        method: 'GET',
+        headers: { 'X-Custom': '${env.PREFIX}-${env.SUFFIX}' },
+      },
     }))
     expect(code).toContain('`${env.PREFIX}-${env.SUFFIX}`')
   })

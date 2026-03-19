@@ -9,7 +9,7 @@ const validIR = {
     updatedAt: '2026-01-01T00:00:00Z',
   },
   nodes: [
-    { id: 'step-1', type: 'step', name: 'Hello', position: { x: 0, y: 0 }, code: 'return 1;' },
+    { id: 'step-1', type: 'step', name: 'Hello', position: { x: 0, y: 0 }, version: '1.0.0', provider: 'cloudflare', data: { code: 'return 1;' } },
   ],
   edges: [],
   entryNodeId: 'step-1',
@@ -18,7 +18,7 @@ const validIR = {
 const modifiedIR = {
   ...validIR,
   nodes: [
-    { id: 'step-1', type: 'step', name: 'Modified', position: { x: 0, y: 0 }, code: 'return 2;' },
+    { id: 'step-1', type: 'step', name: 'Modified', position: { x: 0, y: 0 }, version: '1.0.0', provider: 'cloudflare', data: { code: 'return 2;' } },
   ],
 }
 

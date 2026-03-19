@@ -16,53 +16,42 @@ export function generateNodeCode(node: WorkflowNode, ir: WorkflowIR): string {
       return generateStep(node)
     case 'sleep':
       return generateSleep(node)
-    case 'sleep-until':
+    case 'sleep_until':
       return generateSleepUntil(node)
     case 'branch':
       return generateBranch(node, ir, generateNodeCode)
     case 'parallel':
       return generateParallel(node, ir, generateNodeCode)
-    case 'http-request':
+    case 'http_request':
       return generateHttp(node)
-    case 'wait-for-event':
+    case 'wait_for_event':
       return generateWaitForEvent(node)
-    case 'custom':
-      throw new Error(`Custom node codegen not yet implemented (node: ${node.nodeId})`)
+    default:
+      throw new Error(`Codegen not yet implemented for node type: ${node.type}`)
   }
 }
 
 function resolveNodeExpressions(node: WorkflowNode): WorkflowNode {
-  switch (node.type) {
-    case 'step':
-      return { ...node, code: resolveExpressions(node.code, varName) }
-    case 'http-request': {
-      const resolved = { ...node, url: resolveExpressions(node.url, varName, 'interpolation') }
-      if (resolved.body) resolved.body = resolveExpressions(resolved.body, varName, 'interpolation')
-      if (resolved.headers) {
-        resolved.headers = Object.fromEntries(
-          Object.entries(resolved.headers).map(([k, v]) => [k, resolveExpressions(v, varName, 'interpolation')]),
-        )
-      }
-      return resolved
+  const resolvedData: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(node.data)) {
+    if (typeof value === 'string') {
+      resolvedData[key] = resolveExpressions(value, varName)
+    } else if (Array.isArray(value)) {
+      resolvedData[key] = value.map((item) => {
+        if (typeof item === 'object' && item !== null) {
+          const resolved: Record<string, unknown> = {}
+          for (const [k, v] of Object.entries(item as Record<string, unknown>)) {
+            resolved[k] = typeof v === 'string' ? resolveExpressions(v, varName) : v
+          }
+          return resolved
+        }
+        return typeof item === 'string' ? resolveExpressions(item, varName) : item
+      })
+    } else {
+      resolvedData[key] = value
     }
-    case 'branch':
-      return {
-        ...node,
-        branches: node.branches.map((b) => ({
-          ...b,
-          condition: b.condition ? resolveExpressions(b.condition, varName) : b.condition,
-        })),
-      }
-    case 'custom': {
-      const resolvedData: Record<string, unknown> = {}
-      for (const [key, value] of Object.entries(node.data)) {
-        resolvedData[key] = typeof value === 'string' ? resolveExpressions(value, varName) : value
-      }
-      return { ...node, data: resolvedData }
-    }
-    default:
-      return node
   }
+  return { ...node, data: resolvedData }
 }
 
 export function generateWorkflow(ir: WorkflowIR): string {

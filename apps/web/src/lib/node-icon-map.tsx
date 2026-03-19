@@ -26,7 +26,7 @@ const iconMap: Record<string, NodeVisuals> = {
     paletteIcon: <Clock className="h-4 w-4" />,
     accent: 'bg-amber-500/15 text-amber-400',
   },
-  'sleep-until': {
+  'sleep_until': {
     icon: <CalendarClock className="h-2.5 w-2.5" />,
     paletteIcon: <CalendarClock className="h-4 w-4" />,
     accent: 'bg-amber-500/15 text-amber-400',
@@ -41,12 +41,12 @@ const iconMap: Record<string, NodeVisuals> = {
     paletteIcon: <Layers className="h-4 w-4" />,
     accent: 'bg-teal-500/15 text-teal-400',
   },
-  'http-request': {
+  'http_request': {
     icon: <Globe className="h-2.5 w-2.5" />,
     paletteIcon: <Globe className="h-4 w-4" />,
     accent: 'bg-green-500/15 text-green-400',
   },
-  'wait-for-event': {
+  'wait_for_event': {
     icon: <Bell className="h-2.5 w-2.5" />,
     paletteIcon: <Bell className="h-4 w-4" />,
     accent: 'bg-rose-500/15 text-rose-400',

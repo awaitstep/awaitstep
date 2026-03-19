@@ -12,7 +12,11 @@
       "type": "step",
       "name": "Fetch data",
       "position": { "x": 0, "y": 0 },
-      "code": "const res = await fetch('https://api.example.com/data'); return res.json();",
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "code": "const res = await fetch('https://api.example.com/data'); return res.json();"
+      },
       "config": {
         "retries": { "limit": 3, "delay": "5 seconds", "backoff": "exponential" },
         "timeout": "30 seconds"
@@ -23,14 +27,22 @@
       "type": "sleep",
       "name": "Wait 10s",
       "position": { "x": 0, "y": 100 },
-      "duration": "10 seconds"
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "duration": "10 seconds"
+      }
     },
     {
       "id": "step-2",
       "type": "step",
       "name": "Process data",
       "position": { "x": 0, "y": 200 },
-      "code": "return { processed: true };"
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "code": "return { processed: true };"
+      }
     }
   ],
   "edges": [

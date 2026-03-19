@@ -1,15 +1,20 @@
 import { describe, it, expect } from 'vitest'
-import type { WorkflowIR, BranchNode, StepNode, SleepNode } from '@awaitstep/ir'
+import type { WorkflowIR, WorkflowNode, BranchCondition } from '@awaitstep/ir'
 import { generateBranch, collectBranchInlineTargets } from '../../../codegen/generators/branch.js'
 import { generateNodeCode } from '../../../codegen/generate.js'
 
-function makeIR(branches: BranchNode['branches'], targets: { node: StepNode | SleepNode; label: string }[], extraEdges: WorkflowIR['edges'] = []): WorkflowIR {
-  const branchNode: BranchNode = {
+const V = '1.0.0'
+const P = 'cloudflare'
+
+function makeIR(branches: BranchCondition[], targets: { node: WorkflowNode; label: string }[], extraEdges: WorkflowIR['edges'] = []): WorkflowIR {
+  const branchNode: WorkflowNode = {
     id: 'branch-1',
     type: 'branch',
     name: 'Check condition',
     position: { x: 0, y: 0 },
-    branches,
+    version: V,
+    provider: P,
+    data: { branches },
   }
 
   return {
@@ -36,11 +41,11 @@ describe('generateBranch', () => {
         { label: 'no', condition: '' },
       ],
       [
-        { node: { id: 'a', type: 'step', name: 'Active path', position: { x: 0, y: 0 }, code: 'return "yes";' }, label: 'yes' },
-        { node: { id: 'b', type: 'step', name: 'Fallback', position: { x: 0, y: 0 }, code: 'return "no";' }, label: 'no' },
+        { node: { id: 'a', type: 'step', name: 'Active path', position: { x: 0, y: 0 }, version: V, provider: P, data: { code: 'return "yes";' } }, label: 'yes' },
+        { node: { id: 'b', type: 'step', name: 'Fallback', position: { x: 0, y: 0 }, version: V, provider: P, data: { code: 'return "no";' } }, label: 'no' },
       ],
     )
-    const node = ir.nodes[0] as BranchNode
+    const node = ir.nodes[0]!
     const code = generateBranch(node, ir, generateNodeCode)
     expect(code).toContain('if (state.active === true) {')
     expect(code).toContain('} else {')
@@ -56,12 +61,12 @@ describe('generateBranch', () => {
         { label: 'low', condition: '' },
       ],
       [
-        { node: { id: 'a', type: 'step', name: 'High', position: { x: 0, y: 0 }, code: 'return "high";' }, label: 'high' },
-        { node: { id: 'b', type: 'step', name: 'Mid', position: { x: 0, y: 0 }, code: 'return "mid";' }, label: 'mid' },
-        { node: { id: 'c', type: 'step', name: 'Low', position: { x: 0, y: 0 }, code: 'return "low";' }, label: 'low' },
+        { node: { id: 'a', type: 'step', name: 'High', position: { x: 0, y: 0 }, version: V, provider: P, data: { code: 'return "high";' } }, label: 'high' },
+        { node: { id: 'b', type: 'step', name: 'Mid', position: { x: 0, y: 0 }, version: V, provider: P, data: { code: 'return "mid";' } }, label: 'mid' },
+        { node: { id: 'c', type: 'step', name: 'Low', position: { x: 0, y: 0 }, version: V, provider: P, data: { code: 'return "low";' } }, label: 'low' },
       ],
     )
-    const node = ir.nodes[0] as BranchNode
+    const node = ir.nodes[0]!
     const code = generateBranch(node, ir, generateNodeCode)
     expect(code).toContain('if (state.score > 90) {')
     expect(code).toContain('} else if (state.score > 50) {')
@@ -72,10 +77,10 @@ describe('generateBranch', () => {
     const ir = makeIR(
       [{ label: 'yes', condition: 'state.enabled' }],
       [
-        { node: { id: 'a', type: 'step', name: 'Run', position: { x: 0, y: 0 }, code: 'return 1;' }, label: 'yes' },
+        { node: { id: 'a', type: 'step', name: 'Run', position: { x: 0, y: 0 }, version: V, provider: P, data: { code: 'return 1;' } }, label: 'yes' },
       ],
     )
-    const node = ir.nodes[0] as BranchNode
+    const node = ir.nodes[0]!
     const code = generateBranch(node, ir, generateNodeCode)
     expect(code).toContain('if (state.enabled) {')
     expect(code).toContain('}')
@@ -87,23 +92,23 @@ describe('generateBranch', () => {
       [{ label: 'yes', condition: 'true' }],
       [],
     )
-    const node = ir.nodes[0] as BranchNode
+    const node = ir.nodes[0]!
     const code = generateBranch(node, ir, generateNodeCode)
     expect(code).toContain('if (true) {')
     expect(code).toContain('}')
   })
 
   it('generates full chain within a branch arm', () => {
-    const sleepNode: SleepNode = {
-      id: 'wait', type: 'sleep', name: 'Wait', position: { x: 0, y: 0 }, duration: '30 second',
+    const sleepNode: WorkflowNode = {
+      id: 'wait', type: 'sleep', name: 'Wait', position: { x: 0, y: 0 }, version: V, provider: P, data: { duration: '30 second' },
     }
-    const logNode: StepNode = {
-      id: 'log', type: 'step', name: 'Log', position: { x: 0, y: 0 }, code: 'return "done";',
+    const logNode: WorkflowNode = {
+      id: 'log', type: 'step', name: 'Log', position: { x: 0, y: 0 }, version: V, provider: P, data: { code: 'return "done";' },
     }
     const ir: WorkflowIR = {
       metadata: { name: 'test', version: 1, createdAt: '', updatedAt: '' },
       nodes: [
-        { id: 'branch-1', type: 'branch', name: 'Check', position: { x: 0, y: 0 }, branches: [{ label: 'yes', condition: 'true' }] },
+        { id: 'branch-1', type: 'branch', name: 'Check', position: { x: 0, y: 0 }, version: V, provider: P, data: { branches: [{ label: 'yes', condition: 'true' }] } },
         sleepNode,
         logNode,
       ],
@@ -113,7 +118,7 @@ describe('generateBranch', () => {
       ],
       entryNodeId: 'branch-1',
     }
-    const node = ir.nodes[0] as BranchNode
+    const node = ir.nodes[0]!
     const code = generateBranch(node, ir, generateNodeCode)
     expect(code).toContain('step.sleep("Wait"')
     expect(code).toContain('step.do("Log"')
@@ -123,10 +128,10 @@ describe('generateBranch', () => {
     const ir: WorkflowIR = {
       metadata: { name: 'test', version: 1, createdAt: '', updatedAt: '' },
       nodes: [
-        { id: 'branch-1', type: 'branch', name: 'Check', position: { x: 0, y: 0 }, branches: [{ label: 'a', condition: 'true' }, { label: 'b', condition: '' }] },
-        { id: 'step-a', type: 'step', name: 'A', position: { x: 0, y: 0 }, code: 'return "a";' },
-        { id: 'step-b', type: 'step', name: 'B', position: { x: 0, y: 0 }, code: 'return "b";' },
-        { id: 'join', type: 'step', name: 'Join', position: { x: 0, y: 0 }, code: 'return "join";' },
+        { id: 'branch-1', type: 'branch', name: 'Check', position: { x: 0, y: 0 }, version: V, provider: P, data: { branches: [{ label: 'a', condition: 'true' }, { label: 'b', condition: '' }] } },
+        { id: 'step-a', type: 'step', name: 'A', position: { x: 0, y: 0 }, version: V, provider: P, data: { code: 'return "a";' } },
+        { id: 'step-b', type: 'step', name: 'B', position: { x: 0, y: 0 }, version: V, provider: P, data: { code: 'return "b";' } },
+        { id: 'join', type: 'step', name: 'Join', position: { x: 0, y: 0 }, version: V, provider: P, data: { code: 'return "join";' } },
       ],
       edges: [
         { id: 'e0', source: 'branch-1', target: 'step-a', label: 'a' },
@@ -136,7 +141,7 @@ describe('generateBranch', () => {
       ],
       entryNodeId: 'branch-1',
     }
-    const node = ir.nodes[0] as BranchNode
+    const node = ir.nodes[0]!
     const code = generateBranch(node, ir, generateNodeCode)
     expect(code).not.toContain('Join')
     expect(code).toContain('step.do("A"')
@@ -149,9 +154,9 @@ describe('collectBranchInlineTargets', () => {
     const ir: WorkflowIR = {
       metadata: { name: 'test', version: 1, createdAt: '', updatedAt: '' },
       nodes: [
-        { id: 'branch-1', type: 'branch', name: 'Check', position: { x: 0, y: 0 }, branches: [{ label: 'yes', condition: 'true' }] },
-        { id: 'step-a', type: 'step', name: 'A', position: { x: 0, y: 0 }, code: 'return 1;' },
-        { id: 'step-b', type: 'step', name: 'B', position: { x: 0, y: 0 }, code: 'return 2;' },
+        { id: 'branch-1', type: 'branch', name: 'Check', position: { x: 0, y: 0 }, version: V, provider: P, data: { branches: [{ label: 'yes', condition: 'true' }] } },
+        { id: 'step-a', type: 'step', name: 'A', position: { x: 0, y: 0 }, version: V, provider: P, data: { code: 'return 1;' } },
+        { id: 'step-b', type: 'step', name: 'B', position: { x: 0, y: 0 }, version: V, provider: P, data: { code: 'return 2;' } },
       ],
       edges: [
         { id: 'e0', source: 'branch-1', target: 'step-a', label: 'yes' },
@@ -169,10 +174,10 @@ describe('collectBranchInlineTargets', () => {
     const ir: WorkflowIR = {
       metadata: { name: 'test', version: 1, createdAt: '', updatedAt: '' },
       nodes: [
-        { id: 'branch-1', type: 'branch', name: 'Check', position: { x: 0, y: 0 }, branches: [{ label: 'a', condition: 'true' }, { label: 'b', condition: '' }] },
-        { id: 'a', type: 'step', name: 'A', position: { x: 0, y: 0 }, code: 'return 1;' },
-        { id: 'b', type: 'step', name: 'B', position: { x: 0, y: 0 }, code: 'return 2;' },
-        { id: 'join', type: 'step', name: 'Join', position: { x: 0, y: 0 }, code: 'return 3;' },
+        { id: 'branch-1', type: 'branch', name: 'Check', position: { x: 0, y: 0 }, version: V, provider: P, data: { branches: [{ label: 'a', condition: 'true' }, { label: 'b', condition: '' }] } },
+        { id: 'a', type: 'step', name: 'A', position: { x: 0, y: 0 }, version: V, provider: P, data: { code: 'return 1;' } },
+        { id: 'b', type: 'step', name: 'B', position: { x: 0, y: 0 }, version: V, provider: P, data: { code: 'return 2;' } },
+        { id: 'join', type: 'step', name: 'Join', position: { x: 0, y: 0 }, version: V, provider: P, data: { code: 'return 3;' } },
       ],
       edges: [
         { id: 'e0', source: 'branch-1', target: 'a', label: 'a' },

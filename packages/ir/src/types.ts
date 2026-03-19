@@ -19,77 +19,32 @@ export interface Position {
   y: number
 }
 
-export interface BaseNode {
-  id: NodeId
-  name: string
-  position: Position
-}
+export type BuiltinNodeType =
+  | 'step'
+  | 'sleep'
+  | 'sleep_until'
+  | 'branch'
+  | 'parallel'
+  | 'http_request'
+  | 'wait_for_event'
 
-export interface StepNode extends BaseNode {
-  type: 'step'
-  code: string
-  config?: StepConfig
-}
-
-export interface SleepNode extends BaseNode {
-  type: 'sleep'
-  duration: number | string
-}
-
-export interface SleepUntilNode extends BaseNode {
-  type: 'sleep-until'
-  timestamp: string
-}
+export type NodeType = BuiltinNodeType | (string & {})
 
 export interface BranchCondition {
   label: string
   condition: string
 }
 
-export interface BranchNode extends BaseNode {
-  type: 'branch'
-  branches: BranchCondition[]
-}
-
-export interface ParallelNode extends BaseNode {
-  type: 'parallel'
-}
-
-export interface HttpRequestNode extends BaseNode {
-  type: 'http-request'
-  url: string
-  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS'
-  headers?: Record<string, string>
-  body?: string
-  config?: StepConfig
-}
-
-export interface WaitForEventNode extends BaseNode {
-  type: 'wait-for-event'
-  eventType: string
-  timeout?: number | string
-}
-
-export interface CustomNode extends BaseNode {
-  type: 'custom'
-  nodeId: string
+export interface WorkflowNode {
+  id: NodeId
+  type: NodeType
+  name: string
+  position: Position
   version: string
   provider: string
   data: Record<string, unknown>
   config?: StepConfig
 }
-
-export type WorkflowNode =
-  | StepNode
-  | SleepNode
-  | SleepUntilNode
-  | BranchNode
-  | ParallelNode
-  | HttpRequestNode
-  | WaitForEventNode
-  | CustomNode
-
-export type NodeType = WorkflowNode['type']
 
 export interface Edge {
   id: EdgeId

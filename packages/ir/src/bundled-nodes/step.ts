@@ -27,6 +27,7 @@ export const stepDefinition: NodeDefinition = {
       label: 'Retry Delay',
       default: '10 seconds',
       placeholder: '10 seconds',
+      validation: { format: 'duration' },
     },
     backoff: {
       type: 'select',
@@ -39,6 +40,7 @@ export const stepDefinition: NodeDefinition = {
       label: 'Timeout',
       placeholder: '10 minutes',
       description: 'Per-attempt timeout.',
+      validation: { format: 'duration' },
     },
   },
   outputSchema: {},

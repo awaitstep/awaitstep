@@ -1,5 +1,5 @@
 import type { Edge } from '@xyflow/react'
-import type { WorkflowMetadata } from '@awaitstep/ir'
+import type { WorkflowMetadata, BranchCondition } from '@awaitstep/ir'
 import { validateExpressionRefs } from '@awaitstep/ir'
 import type { FlowNode } from '../stores/workflow-store'
 
@@ -41,13 +41,6 @@ function parseDurationToSeconds(value: string | number): number {
   const unit = match[2]!.trim().toLowerCase()
   const unitSeconds = UNIT_TO_SECONDS[unit] ?? 0
   return amount * unitSeconds
-}
-
-function parseStepBody(code: string): string | null {
-  const match = code.match(
-    /(?:await\s+)?step\.do\s*\(\s*["'`][^"'`]*["'`]\s*,\s*(?:\{[^}]*\}\s*,\s*)?async\s*\([^)]*\)\s*=>\s*\{([\s\S]*)\}\s*\)\s*;?\s*$/,
-  )
-  return match ? match[1]! : null
 }
 
 function hasCycle(nodes: FlowNode[], edges: Edge[]): boolean {
@@ -198,7 +191,7 @@ export function validateWorkflowForPublish(
   }
 
   // ── Per-node ──
-  const LINEAR_TYPES = new Set(['step', 'sleep', 'sleep-until', 'http-request', 'wait-for-event', 'custom'])
+  const LINEAR_TYPES = new Set(['step', 'sleep', 'sleep_until', 'http_request', 'wait_for_event', 'custom'])
 
   for (const node of nodes) {
     const ir = node.data.irNode
@@ -216,36 +209,38 @@ export function validateWorkflowForPublish(
     switch (ir.type) {
       case 'step': {
         if (!ir.name.trim()) add('error', id, name, 'Step name is empty')
-        if (!ir.code.trim()) add('error', id, name, 'Step code is empty')
-        const body = parseStepBody(ir.code)
-        if (body && NESTED_STEP_PATTERN.test(body)) {
+        const code = String(ir.data.code ?? '')
+        if (!code.trim()) add('error', id, name, 'Step code is empty')
+        if (NESTED_STEP_PATTERN.test(code)) {
           add('error', id, name, 'Nested step call detected in code body')
         }
         break
       }
 
       case 'sleep': {
-        const seconds = parseDurationToSeconds(ir.duration)
+        const seconds = parseDurationToSeconds(ir.data.duration as string | number)
         if (seconds <= 0) add('error', id, name, 'Duration is 0 or negative')
         if (seconds > MAX_SECONDS) add('error', id, name, 'Duration exceeds 365 days')
         break
       }
 
-      case 'sleep-until': {
-        if (!ir.timestamp.trim()) {
+      case 'sleep_until': {
+        const timestamp = String(ir.data.timestamp ?? '')
+        if (!timestamp.trim()) {
           add('error', id, name, 'Timestamp is empty')
-        } else if (isNaN(Date.parse(ir.timestamp))) {
+        } else if (isNaN(Date.parse(timestamp))) {
           add('error', id, name, 'Timestamp is not a valid date')
         }
         break
       }
 
       case 'branch': {
-        if (ir.branches.length < 2) {
+        const branches = (ir.data.branches ?? []) as BranchCondition[]
+        if (branches.length < 2) {
           add('error', id, name, 'Fewer than 2 branches')
         }
 
-        const labels = ir.branches.map((b) => b.label)
+        const labels = branches.map((b) => b.label)
         const seen = new Set<string>()
         for (const label of labels) {
           if (seen.has(label)) {
@@ -256,13 +251,13 @@ export function validateWorkflowForPublish(
         }
 
         const outEdges = edges.filter((e) => e.source === id)
-        for (const branch of ir.branches) {
+        for (const branch of branches) {
           if (branch.condition.trim() && !outEdges.some((e) => e.label === branch.label)) {
             add('error', id, name, `Branch "${branch.label}" has no connected target`)
           }
         }
 
-        const lastBranch = ir.branches[ir.branches.length - 1]
+        const lastBranch = branches[branches.length - 1]
         if (lastBranch && lastBranch.condition.trim() !== '') {
           add('warning', id, name, 'No default/else branch')
         }
@@ -279,16 +274,18 @@ export function validateWorkflowForPublish(
         break
       }
 
-      case 'http-request': {
-        if (!ir.url.trim()) add('error', id, name, 'URL is empty')
-        if (!ir.method) add('error', id, name, 'Method is missing')
+      case 'http_request': {
+        const url = String(ir.data.url ?? '')
+        if (!url.trim()) add('error', id, name, 'URL is empty')
+        if (!ir.data.method) add('error', id, name, 'Method is missing')
         break
       }
 
-      case 'wait-for-event': {
-        if (!ir.eventType.trim()) {
+      case 'wait_for_event': {
+        const eventType = String(ir.data.eventType ?? '')
+        if (!eventType.trim()) {
           add('error', id, name, 'Event type is empty')
-        } else if (!EVENT_TYPE_PATTERN.test(ir.eventType)) {
+        } else if (!EVENT_TYPE_PATTERN.test(eventType)) {
           add('error', id, name, 'Event type has invalid characters')
         }
         break
@@ -298,16 +295,8 @@ export function validateWorkflowForPublish(
     // ── Template expression validation ──
     const upstream = upstreamSets.get(id) ?? new Set()
     const stringsToCheck: string[] = []
-    if (ir.type === 'step') stringsToCheck.push(ir.code)
-    if (ir.type === 'http-request') {
-      stringsToCheck.push(ir.url)
-      if (ir.body) stringsToCheck.push(ir.body)
-      if (ir.headers) stringsToCheck.push(...Object.values(ir.headers))
-    }
-    if (ir.type === 'custom') {
-      for (const v of Object.values(ir.data)) {
-        if (typeof v === 'string') stringsToCheck.push(v)
-      }
+    for (const v of Object.values(ir.data)) {
+      if (typeof v === 'string') stringsToCheck.push(v)
     }
     for (const s of stringsToCheck) {
       const exprErrors = validateExpressionRefs(s, id, upstream, allNodeIds)

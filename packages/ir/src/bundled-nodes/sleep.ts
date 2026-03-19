@@ -15,6 +15,7 @@ export const sleepDefinition: NodeDefinition = {
       required: true,
       placeholder: '10 seconds',
       description: 'Max 365 days. Does not count toward the step limit.',
+      validation: { format: 'duration' },
     },
   },
   outputSchema: {},

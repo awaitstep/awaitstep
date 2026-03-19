@@ -37,10 +37,8 @@ export function detectBindings(
 
   for (const node of ir.nodes) {
     const codeStrings: string[] = []
-    if (node.type === 'step') codeStrings.push(node.code)
-    if (node.type === 'http-request') {
-      codeStrings.push(node.url)
-      if (node.body) codeStrings.push(node.body)
+    for (const v of Object.values(node.data)) {
+      if (typeof v === 'string') codeStrings.push(v)
     }
 
     for (const code of codeStrings) {

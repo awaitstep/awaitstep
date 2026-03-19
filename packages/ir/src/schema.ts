@@ -20,86 +20,16 @@ const positionSchema = z.object({
 
 const nodeIdSchema = z.string().min(1)
 
-const baseNodeSchema = z.object({
+export const workflowNodeSchema = z.object({
   id: nodeIdSchema,
+  type: z.string().min(1),
   name: z.string().min(1).max(256),
   position: positionSchema,
-})
-
-const stepNodeSchema = baseNodeSchema.extend({
-  type: z.literal('step'),
-  code: z.string().min(1),
-  config: stepConfigSchema.optional(),
-})
-
-const sleepNodeSchema = baseNodeSchema.extend({
-  type: z.literal('sleep'),
-  duration: z.union([z.number().min(0), z.string()]),
-})
-
-const sleepUntilNodeSchema = baseNodeSchema.extend({
-  type: z.literal('sleep-until'),
-  timestamp: z.string(),
-})
-
-const branchConditionSchema = z.object({
-  label: z.string().min(1),
-  condition: z.string(),
-})
-
-const branchNodeSchema = baseNodeSchema.extend({
-  type: z.literal('branch'),
-  branches: z.array(branchConditionSchema).min(2),
-})
-
-const parallelNodeSchema = baseNodeSchema.extend({
-  type: z.literal('parallel'),
-})
-
-const httpMethodSchema = z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'])
-
-const httpRequestNodeSchema = baseNodeSchema.extend({
-  type: z.literal('http-request'),
-  url: z.string().min(1),
-  method: httpMethodSchema,
-  headers: z.record(z.string(), z.string()).optional(),
-  body: z.string().optional(),
-  config: stepConfigSchema.optional(),
-})
-
-const eventTypePattern = /^[a-zA-Z0-9_-]+$/
-
-const waitForEventNodeSchema = baseNodeSchema.extend({
-  type: z.literal('wait-for-event'),
-  eventType: z.string().min(1).max(100).regex(eventTypePattern, {
-    error: 'Event type must be alphanumeric with hyphens and underscores only',
-  }),
-  timeout: z.union([z.number().min(0), z.string()]).optional(),
-})
-
-const customNodeIdPattern = /^[a-z0-9-]+$/
-
-const customNodeSchema = baseNodeSchema.extend({
-  type: z.literal('custom'),
-  nodeId: z.string().min(1).regex(customNodeIdPattern, {
-    error: 'Node ID must be lowercase alphanumeric with hyphens only',
-  }),
   version: z.string().min(1),
   provider: z.string().min(1),
   data: z.record(z.string(), z.unknown()),
   config: stepConfigSchema.optional(),
 })
-
-export const workflowNodeSchema = z.discriminatedUnion('type', [
-  stepNodeSchema,
-  sleepNodeSchema,
-  sleepUntilNodeSchema,
-  branchNodeSchema,
-  parallelNodeSchema,
-  httpRequestNodeSchema,
-  waitForEventNodeSchema,
-  customNodeSchema,
-])
 
 export const edgeSchema = z.object({
   id: z.string().min(1),
@@ -126,6 +56,8 @@ const cronTriggerSchema = z.object({
   type: z.literal('cron'),
   expression: z.string().min(1),
 })
+
+const eventTypePattern = /^[a-zA-Z0-9_-]+$/
 
 const eventTriggerSchema = z.object({
   type: z.literal('event'),
