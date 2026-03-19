@@ -29,7 +29,9 @@ Thumbs.db
 coverage/
 
 # Claude Code
-.claude/
+.claude/settings.json
+.claude/settings.local.json
+.claude/projects/
 
 # Misc
 *.log
