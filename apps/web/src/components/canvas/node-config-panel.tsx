@@ -201,6 +201,15 @@ function BranchFields({ node, onUpdate }: { node: WorkflowNode; onUpdate: (d: Pa
   }
 
   const updateBranch = (index: number, field: 'label' | 'condition', value: string) => {
+    if (field === 'label') {
+      const oldLabel = branches[index]!.label
+      const store = useWorkflowStore.getState()
+      useWorkflowStore.setState({
+        edges: store.edges.map((e) =>
+          e.source === selectedNodeId && e.label === oldLabel ? { ...e, label: value } : e,
+        ),
+      })
+    }
     const updated = branches.map((b, i) => i === index ? { ...b, [field]: value } : b)
     onUpdate({ data: { ...node.data, branches: updated } })
   }
@@ -253,6 +262,16 @@ function BranchFields({ node, onUpdate }: { node: WorkflowNode; onUpdate: (d: Pa
               </div>
 
               <div className="space-y-2 p-3">
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground/60">Label</Label>
+                  <Input
+                    value={branch.label}
+                    onChange={(e) => updateBranch(index, 'label', e.target.value)}
+                    placeholder="e.g. approved, rejected"
+                    className="h-8 text-[11px]"
+                  />
+                </div>
+
                 {!isElse && (
                   <CodeEditor
                     value={branch.condition}
