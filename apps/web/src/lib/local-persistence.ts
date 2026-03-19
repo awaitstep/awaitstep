@@ -1,6 +1,6 @@
 import type { Edge } from '@xyflow/react'
 import type { WorkflowMetadata } from '@awaitstep/ir'
-import type { FlowNode, InputParam, EnvBinding } from '../stores/workflow-store'
+import type { FlowNode, InputParam, EnvBinding, WorkflowEnvVar } from '../stores/workflow-store'
 
 const KEY_PREFIX = 'awaitstep-wf-'
 
@@ -10,6 +10,7 @@ export interface PersistedWorkflow {
   edges: Edge[]
   inputParams: InputParam[]
   envBindings: EnvBinding[]
+  workflowEnvVars: WorkflowEnvVar[]
   savedAt: string
 }
 

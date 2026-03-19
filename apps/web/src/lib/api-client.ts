@@ -44,6 +44,15 @@ export interface ConnectionSummary {
   createdAt: string
 }
 
+export interface EnvVarSummary {
+  id: string
+  name: string
+  value: string
+  isSecret: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export const api = {
   listWorkflows(): Promise<WorkflowSummary[]> {
     return request('/workflows')
@@ -126,5 +135,21 @@ export const api = {
 
   triggerWorkflow(workflowId: string, data: { connectionId: string; params?: unknown }): Promise<{ id: string; instanceId: string; status: string }> {
     return request(`/workflows/${workflowId}/trigger`, { method: 'POST', body: JSON.stringify(data) })
+  },
+
+  listEnvVars(): Promise<EnvVarSummary[]> {
+    return request('/env-vars')
+  },
+
+  createEnvVar(data: { name: string; value: string; isSecret: boolean }): Promise<EnvVarSummary> {
+    return request('/env-vars', { method: 'POST', body: JSON.stringify(data) })
+  },
+
+  updateEnvVar(id: string, data: { name?: string; value?: string; isSecret?: boolean }): Promise<EnvVarSummary> {
+    return request(`/env-vars/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+  },
+
+  deleteEnvVar(id: string): Promise<void> {
+    return request(`/env-vars/${id}`, { method: 'DELETE' })
   },
 }

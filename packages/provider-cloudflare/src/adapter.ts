@@ -63,8 +63,12 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
     }
   }
 
-  generate(ir: WorkflowIR): GeneratedArtifact {
-    const source = generateWorkflow(ir, this.templateResolver)
+  generate(ir: WorkflowIR, config?: ProviderConfig): GeneratedArtifact {
+    const envVarNames = config?.envVars ? Object.keys(config.envVars) : undefined
+    const source = generateWorkflow(ir, {
+      templateResolver: this.templateResolver,
+      envVarNames,
+    })
     return {
       filename: 'worker.ts',
       source,
@@ -91,11 +95,13 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
       compiled,
     }
 
+    const vars = extractVars(config)
     const result = await deployWithWrangler(compiledArtifact, {
       workflowId,
       workflowName,
       accountId,
       apiToken,
+      vars,
     })
 
     if (!result.success) {
@@ -148,11 +154,13 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
 
     report('CREATING_WORKER', 'Creating Cloudflare Worker...', 55)
     report('DEPLOYING', 'Deploying to Cloudflare...', 65)
+    const vars = extractVars(config)
     const result = await deployWithWrangler(compiledArtifact, {
       workflowId,
       workflowName,
       accountId,
       apiToken,
+      vars,
     })
 
     if (!result.success) {
@@ -198,6 +206,17 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
     const { accountId, apiToken } = extractCredentials(config)
     return deleteWorker(deploymentId, { accountId, apiToken })
   }
+}
+
+function extractVars(config: ProviderConfig): Record<string, string> | undefined {
+  if (!config.envVars) return undefined
+  const vars: Record<string, string> = {}
+  for (const [name, entry] of Object.entries(config.envVars)) {
+    if (entry.value !== undefined) {
+      vars[name] = entry.value
+    }
+  }
+  return Object.keys(vars).length > 0 ? vars : undefined
 }
 
 function extractCredentials(config: ProviderConfig): {

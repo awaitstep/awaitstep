@@ -1,19 +1,21 @@
-import { X, Plus, Trash2 } from 'lucide-react'
+import { X, Plus, Trash2, Link2 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Select } from '../ui/select'
 import { Separator } from '../ui/separator'
 import { useWorkflowStore } from '../../stores/workflow-store'
-import type { InputParam, EnvBinding } from '../../stores/workflow-store'
+import type { InputParam, EnvBinding, WorkflowEnvVar } from '../../stores/workflow-store'
 
 export function WorkflowSettings() {
   const metadata = useWorkflowStore((s) => s.metadata)
   const inputParams = useWorkflowStore((s) => s.inputParams)
   const envBindings = useWorkflowStore((s) => s.envBindings)
+  const workflowEnvVars = useWorkflowStore((s) => s.workflowEnvVars)
   const setMetadata = useWorkflowStore((s) => s.setMetadata)
   const setInputParams = useWorkflowStore((s) => s.setInputParams)
   const setEnvBindings = useWorkflowStore((s) => s.setEnvBindings)
+  const setWorkflowEnvVars = useWorkflowStore((s) => s.setWorkflowEnvVars)
   const setShowSettings = useWorkflowStore((s) => s.setShowSettings)
 
   const addParam = () => {
@@ -29,7 +31,7 @@ export function WorkflowSettings() {
   }
 
   const addBinding = () => {
-    setEnvBindings([...envBindings, { name: '', type: 'variable' }])
+    setEnvBindings([...envBindings, { name: '', type: 'kv' }])
   }
 
   const updateBinding = (index: number, data: Partial<EnvBinding>) => {
@@ -38,6 +40,25 @@ export function WorkflowSettings() {
 
   const removeBinding = (index: number) => {
     setEnvBindings(envBindings.filter((_, i) => i !== index))
+  }
+
+  const addEnvVar = () => {
+    setWorkflowEnvVars([...workflowEnvVars, { name: '', value: '' }])
+  }
+
+  const updateEnvVar = (index: number, data: Partial<WorkflowEnvVar>) => {
+    setWorkflowEnvVars(workflowEnvVars.map((v, i) => (i === index ? { ...v, ...data } : v)))
+  }
+
+  const removeEnvVar = (index: number) => {
+    setWorkflowEnvVars(workflowEnvVars.filter((_, i) => i !== index))
+  }
+
+  const linkToGlobal = (index: number) => {
+    const v = workflowEnvVars[index]
+    if (v.name) {
+      updateEnvVar(index, { value: `{{global.env.${v.name}}}` })
+    }
   }
 
   return (
@@ -106,19 +127,70 @@ export function WorkflowSettings() {
 
           <Separator />
 
-          {/* Environment Bindings */}
+          {/* Workflow Environment Variables */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <Label className="text-[11px] text-muted-foreground">Environment Bindings</Label>
+              <Label className="text-[11px] text-muted-foreground">Environment Variables</Label>
+              <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-[10px] text-muted-foreground" onClick={addEnvVar}>
+                <Plus className="h-3 w-3" /> Add
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground/40 mb-2">
+              Variables injected at deploy time. Use the link button to reference a global variable.
+            </p>
+            {workflowEnvVars.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground/40 italic">No environment variables defined</p>
+            ) : (
+              <div className="space-y-2">
+                {workflowEnvVars.map((envVar, i) => (
+                  <div key={i} className="space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        value={envVar.name}
+                        onChange={(e) => updateEnvVar(i, { name: e.target.value.toUpperCase() })}
+                        placeholder="MY_API_KEY"
+                        className="flex-1 h-8 text-xs font-mono"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 text-muted-foreground/60 hover:text-primary"
+                        onClick={() => linkToGlobal(i)}
+                        title="Link to global variable"
+                      >
+                        <Link2 className="h-3 w-3" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground/60 hover:text-destructive" onClick={() => removeEnvVar(i)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <Input
+                      value={envVar.value}
+                      onChange={(e) => updateEnvVar(i, { value: e.target.value })}
+                      placeholder="value or {{global.env.NAME}}"
+                      className="h-7 text-[11px] font-mono text-muted-foreground"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Resource Bindings (KV, D1, R2, Service) */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-[11px] text-muted-foreground">Resource Bindings</Label>
               <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-[10px] text-muted-foreground" onClick={addBinding}>
                 <Plus className="h-3 w-3" /> Add
               </Button>
             </div>
             <p className="text-[10px] text-muted-foreground/40 mb-2">
-              Define env bindings available in your Worker (KV, D1, R2, secrets, etc).
+              Cloudflare resource bindings (KV, D1, R2, Service).
             </p>
             {envBindings.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground/40 italic">No bindings defined</p>
+              <p className="text-[11px] text-muted-foreground/40 italic">No resource bindings defined</p>
             ) : (
               <div className="space-y-2">
                 {envBindings.map((binding, i) => (
@@ -133,8 +205,6 @@ export function WorkflowSettings() {
                       value={binding.type}
                       onValueChange={(v) => updateBinding(i, { type: v as EnvBinding['type'] })}
                       options={[
-                        { value: 'variable', label: 'Variable' },
-                        { value: 'secret', label: 'Secret' },
                         { value: 'kv', label: 'KV' },
                         { value: 'd1', label: 'D1' },
                         { value: 'r2', label: 'R2' },

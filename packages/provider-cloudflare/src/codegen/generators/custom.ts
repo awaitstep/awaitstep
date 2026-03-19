@@ -25,9 +25,14 @@ export function extractTemplateBody(source: string): string {
   return source.slice(startIndex, i - 1).trim()
 }
 
+const ENV_REF_BRACED = /^\{\{env\.([A-Z][A-Z0-9_]*)\}\}$/
+const ENV_REF_BARE = /^env\.([A-Z][A-Z0-9_]*)$/
+
 export function toJsLiteral(value: unknown): string {
   if (value === null || value === undefined) return 'null'
   if (typeof value === 'string') {
+    const envMatch = value.match(ENV_REF_BRACED) ?? value.match(ENV_REF_BARE)
+    if (envMatch) return `env.${envMatch[1]}`
     if (/\$\{.*?\}/.test(value)) {
       return '`' + value.replace(/`/g, '\\`') + '`'
     }

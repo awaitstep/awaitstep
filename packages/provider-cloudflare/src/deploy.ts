@@ -18,6 +18,7 @@ export interface DeployOptions {
   accountId: string
   apiToken: string
   compatibilityDate?: string
+  vars?: Record<string, string>
 }
 
 export interface WranglerDeployResult {
@@ -49,6 +50,7 @@ export async function deployWithWrangler(
       workflowName: sanitizedWorkflowName(options.workflowName),
       compatibilityDate: options.compatibilityDate ?? PINNED_COMPATIBILITY_DATE,
       main: `./${artifact.filename}`,
+      vars: options.vars,
     })
     await writeFile(join(deployDir, 'wrangler.json'), wranglerConfig, 'utf-8')
 

@@ -8,6 +8,7 @@ export const workflows = sqliteTable(
     name: text('name').notNull(),
     description: text('description'),
     currentVersionId: text('current_version_id'),
+    envVars: text('env_vars'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },

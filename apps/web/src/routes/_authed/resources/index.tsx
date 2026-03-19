@@ -1,11 +1,17 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { Database, HardDrive, Archive } from 'lucide-react'
+import { Database, HardDrive, Archive, KeyRound } from 'lucide-react'
 
 export const Route = createFileRoute('/_authed/resources/')({
   component: ResourcesPage,
 })
 
 const RESOURCE_TYPES = [
+  {
+    name: 'Environment Variables',
+    description: 'Manage global secrets and variables for your workflows',
+    icon: KeyRound,
+    href: '/resources/env-vars',
+  },
   {
     name: 'KV Namespaces',
     description: 'Browse key-value storage namespaces and their contents',

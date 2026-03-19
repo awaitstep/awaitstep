@@ -9,7 +9,7 @@ import { TemplatePicker } from '../../../components/canvas/template-picker'
 import { ClientOnly } from '../../../components/canvas/client-only'
 import { useWorkflowStore } from '../../../stores/workflow-store'
 import { SimulationPanel } from '../../../components/canvas/simulation-panel'
-import { NodeRegistryProvider } from '../../../contexts/node-registry-context'
+import { NodeRegistryProvider, useNodeRegistry } from '../../../contexts/node-registry-context'
 import { validateWorkflowForPublish } from '../../../lib/validate-workflow'
 import { api, type WorkflowSummary } from '../../../lib/api-client'
 import { buildIRFromState } from '../../../lib/build-ir'
@@ -30,11 +30,19 @@ const LazyCodePreview = lazy(() =>
 )
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId/canvas')({
-  component: WorkflowEditorPage,
+  component: WorkflowEditorPageWrapper,
   validateSearch: (search: Record<string, unknown>): { template?: boolean } => ({
     template: search.template === true || search.template === '1' || search.template === 'true',
   }),
 })
+
+function WorkflowEditorPageWrapper() {
+  return (
+    <NodeRegistryProvider>
+      <WorkflowEditorPage />
+    </NodeRegistryProvider>
+  )
+}
 
 function WorkflowEditorPage() {
   const { workflowId } = useParams({ from: '/_authed/workflows/$workflowId/canvas' })
@@ -45,6 +53,7 @@ function WorkflowEditorPage() {
   const [showTrigger, setShowTrigger] = useState(false)
   const [confirmAction, setConfirmAction] = useState<'delete' | 'takedown' | 'switch-template' | null>(null)
 
+  const nodeRegistry = useNodeRegistry()
   const metadata = useWorkflowStore((s) => s.metadata)
   const nodeCount = useWorkflowStore((s) => s.nodes.length)
   const showSettings = useWorkflowStore((s) => s.showSettings)
@@ -173,7 +182,7 @@ function WorkflowEditorPage() {
   }, [saveMutation])
 
   const handleDeploy = useCallback(async () => {
-    const result = runValidation()
+    const result = runValidation(nodeRegistry)
     if (!result.canPublish) {
       const errors = result.issues.filter((i) => i.severity === 'error')
       const warnings = result.issues.filter((i) => i.severity === 'warning')
@@ -194,7 +203,7 @@ function WorkflowEditorPage() {
       }
     }
     setDeployOpen(true)
-  }, [runValidation, isDirty, isNew, saveMutation])
+  }, [runValidation, isDirty, isNew, saveMutation, nodeRegistry])
 
   const deleteMutation = useMutation({
     mutationFn: () => api.deleteWorkflow(workflowId),
@@ -239,7 +248,6 @@ function WorkflowEditorPage() {
           </div>
         }
       >
-        <NodeRegistryProvider>
         <LazyReactFlowProvider>
           <div className="fixed inset-0 flex flex-col overflow-hidden bg-background">
             <EditorToolbar
@@ -306,7 +314,6 @@ function WorkflowEditorPage() {
             activeDeploymentServiceName={activeDeployment?.serviceName}
           />
         </LazyReactFlowProvider>
-        </NodeRegistryProvider>
       </Suspense>
     </ClientOnly>
   )

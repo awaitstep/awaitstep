@@ -130,7 +130,10 @@ export function NodeConfigPanel() {
               onChange={updateData}
             />
           ) : (
-            <Hint>Unknown node type: <strong>{irNode.type}</strong></Hint>
+            <div className="flex items-start gap-1.5 rounded-lg bg-destructive/10 px-2.5 py-2 text-[11px] leading-relaxed text-destructive">
+              <Info className="mt-0.5 h-3 w-3 shrink-0" />
+              <span>Unknown node type: <strong>{irNode.type}</strong>. This node&apos;s definition was not found in the registry — it may have been removed or not installed.</span>
+            </div>
           )}
         </div>
       </div>

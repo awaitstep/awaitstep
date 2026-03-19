@@ -36,6 +36,13 @@
       "when": 1773973200000,
       "tag": "0004_rename_cf_to_provider_agnostic",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1773959426166,
+      "tag": "0005_damp_whiplash",
+      "breakpoints": true
     }
   ]
 }

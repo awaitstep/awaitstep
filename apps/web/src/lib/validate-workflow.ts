@@ -1,6 +1,6 @@
 import type { Edge } from '@xyflow/react'
 import type { WorkflowMetadata, BranchCondition } from '@awaitstep/ir'
-import { validateExpressionRefs } from '@awaitstep/ir'
+import { validateExpressionRefs, type NodeRegistry } from '@awaitstep/ir'
 import type { FlowNode } from '../stores/workflow-store'
 
 export type IssueSeverity = 'error' | 'warning'
@@ -130,6 +130,7 @@ export function validateWorkflowForPublish(
   metadata: Pick<WorkflowMetadata, 'name' | 'description'>,
   nodes: FlowNode[],
   edges: Edge[],
+  nodeRegistry?: NodeRegistry,
 ): PublishValidationResult {
   const issues: PublishIssue[] = []
 
@@ -191,12 +192,18 @@ export function validateWorkflowForPublish(
   }
 
   // ── Per-node ──
+  const BUILTIN_TYPES = new Set(['step', 'sleep', 'sleep_until', 'branch', 'parallel', 'http_request', 'wait_for_event'])
   const LINEAR_TYPES = new Set(['step', 'sleep', 'sleep_until', 'http_request', 'wait_for_event', 'custom'])
 
   for (const node of nodes) {
     const ir = node.data.irNode
     const name = ir.name
     const id = node.id
+
+    // Missing node definition check
+    if (!BUILTIN_TYPES.has(ir.type) && nodeRegistry && !nodeRegistry.has(ir.type)) {
+      add('error', id, name, `Unknown node type "${ir.type}" — definition not found in registry`)
+    }
 
     // Linear nodes must have at most 1 outgoing edge
     if (LINEAR_TYPES.has(ir.type)) {

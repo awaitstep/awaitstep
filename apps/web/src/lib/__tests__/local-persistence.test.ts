@@ -36,6 +36,7 @@ const mockWorkflow: PersistedWorkflow = {
   edges: [],
   inputParams: [],
   envBindings: [],
+  workflowEnvVars: [],
   savedAt: '2025-01-01T00:00:00Z',
 }
 

@@ -12,6 +12,7 @@ import { deploy } from './deploy.js'
 import { runs } from './runs.js'
 import { resources } from './resources.js'
 import { apiKeys } from './api-keys.js'
+import { envVars } from './env-vars.js'
 import { nodes } from './nodes.js'
 
 export function createRouter(auth: Auth, selfHostedConnection?: SelfHostedConnection) {
@@ -75,6 +76,11 @@ export function createRouter(auth: Auth, selfHostedConnection?: SelfHostedConnec
   router.post('/workflows/:workflowId/trigger', requireScope('deploy'))
   router.post('/workflows/:workflowId/takedown', requireScope('deploy'))
 
+  // Env var write operations require 'write' scope
+  router.post('/env-vars', requireScope('write'))
+  router.patch('/env-vars/:id', requireScope('write'))
+  router.delete('/env-vars/:id', requireScope('write'))
+
   // API key management is session-only (no API key auth)
   router.use('/api-keys/*', requireSessionAuth)
   router.use('/api-keys', requireSessionAuth)
@@ -87,6 +93,7 @@ export function createRouter(auth: Auth, selfHostedConnection?: SelfHostedConnec
   router.route('/connections', createConnectionRoutes(selfHostedConnection))
   router.route('/resources', resources)
   router.route('/api-keys', apiKeys)
+  router.route('/env-vars', envVars)
   router.route('/nodes', nodes)
 
   // Global deployments list (across all user's workflows)

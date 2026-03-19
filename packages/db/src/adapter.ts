@@ -1,11 +1,22 @@
-import type { Workflow, WorkflowVersion, Connection, WorkflowRun, Deployment, ApiKey } from './types.js'
+import type { Workflow, WorkflowVersion, Connection, WorkflowRun, Deployment, ApiKey, EnvVar } from './types.js'
+
+export interface WorkflowEnvVar {
+  name: string
+  value: string
+  isSecret: boolean
+}
+
+export interface ResolvedEnvVar {
+  value: string | undefined
+  isSecret: boolean
+}
 
 export interface DatabaseAdapter {
   // Workflows
   createWorkflow(data: { id: string; userId: string; name: string; description?: string }): Promise<Workflow>
   getWorkflowById(id: string): Promise<Workflow | null>
   listWorkflowsByUser(userId: string): Promise<Workflow[]>
-  updateWorkflow(id: string, data: { name?: string; description?: string; currentVersionId?: string | null }): Promise<Workflow>
+  updateWorkflow(id: string, data: { name?: string; description?: string; currentVersionId?: string | null; envVars?: string | null }): Promise<Workflow>
   deleteWorkflow(id: string): Promise<void>
 
   // Workflow Versions
@@ -40,4 +51,14 @@ export interface DatabaseAdapter {
   listApiKeysByUser(userId: string): Promise<ApiKey[]>
   updateApiKeyLastUsed(id: string, lastUsedAt: string): Promise<void>
   revokeApiKey(id: string, userId: string): Promise<ApiKey | null>
+
+  // Environment Variables
+  createEnvVar(data: { id: string; userId: string; name: string; value: string; isSecret: boolean }): Promise<EnvVar>
+  getEnvVarById(id: string): Promise<EnvVar | null>
+  listGlobalEnvVars(userId: string): Promise<EnvVar[]>
+  updateEnvVar(id: string, data: { name?: string; value?: string; isSecret?: boolean }): Promise<EnvVar | null>
+  deleteEnvVar(id: string): Promise<void>
+  getWorkflowEnvVars(workflowId: string): Promise<WorkflowEnvVar[]>
+  setWorkflowEnvVars(workflowId: string, vars: WorkflowEnvVar[]): Promise<void>
+  resolveEnvVars(userId: string, workflowId: string): Promise<Record<string, ResolvedEnvVar>>
 }

@@ -62,7 +62,18 @@ function resolveNodeExpressions(node: WorkflowNode): WorkflowNode {
   return { ...node, data: resolvedData }
 }
 
-export function generateWorkflow(ir: WorkflowIR, templateResolver?: TemplateResolver): string {
+export interface GenerateOptions {
+  templateResolver?: TemplateResolver
+  envVarNames?: string[]
+}
+
+export function generateWorkflow(ir: WorkflowIR, templateResolverOrOptions?: TemplateResolver | GenerateOptions): string {
+  const opts: GenerateOptions = templateResolverOrOptions
+    ? 'getTemplate' in templateResolverOrOptions
+      ? { templateResolver: templateResolverOrOptions }
+      : templateResolverOrOptions
+    : {}
+  const { templateResolver, envVarNames } = opts
   const className = sanitizeIdentifier(ir.metadata.name)
     .split('_')
     .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
@@ -92,10 +103,27 @@ export function generateWorkflow(ir: WorkflowIR, templateResolver?: TemplateReso
   const bodyLines = bodyParts.join('\n\n')
   clearVarNameMap()
 
+  const allEnvNames = new Set(envVarNames ?? [])
+  const envRefPattern = /\{\{env\.([A-Z][A-Z0-9_]*)\}\}/g
+  for (const node of ir.nodes) {
+    for (const value of Object.values(node.data)) {
+      if (typeof value === 'string') {
+        for (const m of value.matchAll(envRefPattern)) {
+          allEnvNames.add(m[1])
+        }
+      }
+    }
+  }
+
+  const envFields = ['  WORKFLOW: Workflow;']
+  for (const name of allEnvNames) {
+    envFields.push(`  ${name}: string;`)
+  }
+
   return `import { WorkflowEntrypoint } from "cloudflare:workers";
 
 interface Env {
-  WORKFLOW: Workflow;
+${envFields.join('\n')}
 }
 
 export class ${className} extends WorkflowEntrypoint<Env> {

@@ -11,6 +11,7 @@ import {
 import { NodeBase } from './node-base'
 import type { FlowNode } from '../../stores/workflow-store'
 import { getNodeVisuals } from '../../lib/node-icon-map'
+import { useNodeRegistry } from '../../contexts/node-registry-context'
 import type { BranchCondition } from '@awaitstep/ir'
 
 export function StepNode({ data, selected }: NodeProps<FlowNode>) {
@@ -82,9 +83,11 @@ export function WaitForEventNode({ data, selected }: NodeProps<FlowNode>) {
 
 export function CustomNodeComponent({ data, selected }: NodeProps<FlowNode>) {
   const node = data.irNode
+  const registry = useNodeRegistry()
+  const isMissing = !registry.has(node.type)
   const visuals = getNodeVisuals(node.type)
   return (
-    <NodeBase label={node.name} icon={visuals.icon} accent={visuals.accent} selected={selected}>
+    <NodeBase label={node.name} icon={visuals.icon} accent={visuals.accent} selected={selected} warning={isMissing}>
       {node.type}
     </NodeBase>
   )

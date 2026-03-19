@@ -1,5 +1,5 @@
-import type { DatabaseAdapter } from '../adapter.js'
-import type { Workflow, WorkflowVersion, Connection, WorkflowRun, Deployment, ApiKey } from '../types.js'
+import type { DatabaseAdapter, WorkflowEnvVar, ResolvedEnvVar } from '../adapter.js'
+import type { Workflow, WorkflowVersion, Connection, WorkflowRun, Deployment, ApiKey, EnvVar } from '../types.js'
 import type { TokenCrypto } from '../crypto.js'
 import { WorkflowsAdapter } from './workflows.js'
 import { VersionsAdapter } from './versions.js'
@@ -7,6 +7,7 @@ import { ConnectionsAdapter } from './connections.js'
 import { RunsAdapter } from './runs.js'
 import { DeploymentsAdapter } from './deployments.js'
 import { ApiKeysAdapter } from './api-keys.js'
+import { EnvVarsAdapter } from './env-vars.js'
 
 export interface SchemaRef {
   workflows: unknown
@@ -15,6 +16,7 @@ export interface SchemaRef {
   workflowRuns: unknown
   deployments: unknown
   apiKeys: unknown
+  envVars: unknown
 }
 
 export interface DrizzleAdapterOptions {
@@ -28,6 +30,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _runs: RunsAdapter
   private _deployments: DeploymentsAdapter
   private _apiKeys: ApiKeysAdapter
+  private _envVars: EnvVarsAdapter
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(db: any, schema: SchemaRef, options?: DrizzleAdapterOptions) {
@@ -37,6 +40,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     this._runs = new RunsAdapter(db, schema.workflowRuns)
     this._deployments = new DeploymentsAdapter(db, schema.deployments)
     this._apiKeys = new ApiKeysAdapter(db, schema.apiKeys)
+    this._envVars = new EnvVarsAdapter(db, schema.envVars, options?.tokenCrypto)
   }
 
   createWorkflow(data: { id: string; userId: string; name: string; description?: string }): Promise<Workflow> {
@@ -48,7 +52,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   listWorkflowsByUser(userId: string): Promise<Workflow[]> {
     return this._workflows.listByUser(userId)
   }
-  updateWorkflow(id: string, data: { name?: string; description?: string; currentVersionId?: string | null }): Promise<Workflow> {
+  updateWorkflow(id: string, data: { name?: string; description?: string; currentVersionId?: string | null; envVars?: string | null }): Promise<Workflow> {
     return this._workflows.update(id, data)
   }
   deleteWorkflow(id: string): Promise<void> {
@@ -134,5 +138,56 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
   revokeApiKey(id: string, userId: string): Promise<ApiKey | null> {
     return this._apiKeys.revoke(id, userId)
+  }
+
+  createEnvVar(data: { id: string; userId: string; name: string; value: string; isSecret: boolean }): Promise<EnvVar> {
+    return this._envVars.create(data)
+  }
+  getEnvVarById(id: string): Promise<EnvVar | null> {
+    return this._envVars.getById(id)
+  }
+  listGlobalEnvVars(userId: string): Promise<EnvVar[]> {
+    return this._envVars.listByUser(userId)
+  }
+  updateEnvVar(id: string, data: { name?: string; value?: string; isSecret?: boolean }): Promise<EnvVar | null> {
+    return this._envVars.update(id, data)
+  }
+  deleteEnvVar(id: string): Promise<void> {
+    return this._envVars.delete(id)
+  }
+
+  async getWorkflowEnvVars(workflowId: string): Promise<WorkflowEnvVar[]> {
+    const workflow = await this._workflows.getById(workflowId)
+    if (!workflow?.envVars) return []
+    try {
+      return JSON.parse(workflow.envVars) as WorkflowEnvVar[]
+    } catch {
+      return []
+    }
+  }
+
+  async setWorkflowEnvVars(workflowId: string, vars: WorkflowEnvVar[]): Promise<void> {
+    await this._workflows.update(workflowId, { envVars: JSON.stringify(vars) })
+  }
+
+  async resolveEnvVars(userId: string, workflowId: string): Promise<Record<string, ResolvedEnvVar>> {
+    const workflowVars = await this.getWorkflowEnvVars(workflowId)
+    const globalRefPattern = /^\{\{global\.env\.([A-Z][A-Z0-9_]*)\}\}$/
+    const result: Record<string, ResolvedEnvVar> = {}
+
+    for (const wVar of workflowVars) {
+      const match = wVar.value.match(globalRefPattern)
+      if (match) {
+        const globalName = match[1]
+        const globalVar = await this._envVars.getByUserAndName(userId, globalName)
+        result[wVar.name] = globalVar
+          ? { value: globalVar.value, isSecret: globalVar.isSecret }
+          : { value: undefined, isSecret: wVar.isSecret }
+      } else {
+        result[wVar.name] = { value: wVar.value, isSecret: wVar.isSecret }
+      }
+    }
+
+    return result
   }
 }

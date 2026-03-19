@@ -11,6 +11,7 @@ import {
 } from '@xyflow/react'
 import type { WorkflowNode, NodeType, WorkflowMetadata } from '@awaitstep/ir'
 import { validateWorkflowForPublish, type PublishValidationResult } from '../lib/validate-workflow'
+import type { NodeRegistry } from '@awaitstep/ir'
 import { simulateWorkflow, type SimulationResult } from '../lib/simulate-workflow'
 import { saveWorkflowLocally, loadWorkflowLocally, type PersistedWorkflow } from '../lib/local-persistence'
 import { customAlphabet } from 'nanoid'
@@ -39,8 +40,13 @@ export interface InputParam {
 
 export interface EnvBinding {
   name: string
-  type: 'kv' | 'd1' | 'r2' | 'service' | 'secret' | 'variable'
+  type: 'kv' | 'd1' | 'r2' | 'service'
   description?: string
+}
+
+export interface WorkflowEnvVar {
+  name: string
+  value: string
 }
 
 interface WorkflowState {
@@ -51,6 +57,7 @@ interface WorkflowState {
   selectedNodeId: string | null
   inputParams: InputParam[]
   envBindings: EnvBinding[]
+  workflowEnvVars: WorkflowEnvVar[]
   showSettings: boolean
   validationResult: PublishValidationResult | null
   simulationResult: SimulationResult | null
@@ -69,8 +76,9 @@ interface WorkflowState {
   setMetadata: (metadata: Partial<WorkflowMetadata>) => void
   setInputParams: (params: InputParam[]) => void
   setEnvBindings: (bindings: EnvBinding[]) => void
+  setWorkflowEnvVars: (vars: WorkflowEnvVar[]) => void
   setShowSettings: (show: boolean) => void
-  runValidation: () => PublishValidationResult
+  runValidation: (nodeRegistry?: NodeRegistry) => PublishValidationResult
   clearValidation: () => void
   runSimulation: () => SimulationResult
   clearSimulation: () => void
@@ -117,6 +125,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   selectedNodeId: null,
   inputParams: [],
   envBindings: [],
+  workflowEnvVars: [],
   showSettings: false,
   validationResult: null,
   simulationResult: null,
@@ -238,13 +247,17 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({ envBindings: bindings, isDirty: true })
   },
 
+  setWorkflowEnvVars: (vars) => {
+    set({ workflowEnvVars: vars, isDirty: true })
+  },
+
   setShowSettings: (show) => {
     set({ showSettings: show, selectedNodeId: show ? null : get().selectedNodeId })
   },
 
-  runValidation: () => {
+  runValidation: (nodeRegistry?: NodeRegistry) => {
     const { metadata, nodes, edges } = get()
-    const result = validateWorkflowForPublish(metadata, nodes, edges)
+    const result = validateWorkflowForPublish(metadata, nodes, edges, nodeRegistry)
     set({ validationResult: result, simulationResult: null })
     return result
   },
@@ -283,6 +296,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       edges: data.edges,
       inputParams: data.inputParams,
       envBindings: data.envBindings,
+      workflowEnvVars: data.workflowEnvVars ?? [],
       isDirty: false,
     })
     return true
@@ -305,7 +319,8 @@ useWorkflowStore.subscribe((state, prev) => {
     state.edges === prev.edges &&
     state.metadata === prev.metadata &&
     state.inputParams === prev.inputParams &&
-    state.envBindings === prev.envBindings
+    state.envBindings === prev.envBindings &&
+    state.workflowEnvVars === prev.workflowEnvVars
   ) return
 
   if (autoSaveTimer) clearTimeout(autoSaveTimer)
@@ -318,6 +333,7 @@ useWorkflowStore.subscribe((state, prev) => {
       edges: s.edges,
       inputParams: s.inputParams,
       envBindings: s.envBindings,
+      workflowEnvVars: s.workflowEnvVars,
       savedAt: new Date().toISOString(),
     }
     saveWorkflowLocally(s.workflowId, data)
