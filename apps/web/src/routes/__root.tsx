@@ -1,4 +1,4 @@
-import { createRootRoute, Outlet, HeadContent, Scripts } from '@tanstack/react-router'
+import { createRootRoute, Outlet, HeadContent, Scripts, Link } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { useEffect, useState } from 'react'
@@ -28,6 +28,7 @@ const GOOGLE_FONTS_URL =
   '&display=swap'
 
 export const Route = createRootRoute({
+  notFoundComponent: NotFound,
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
@@ -54,6 +55,21 @@ function ClientToaster() {
   useEffect(() => setMounted(true), [])
   if (!mounted) return null
   return <Toaster theme={theme === 'light' ? 'light' : 'dark'} position="top-center" richColors />
+}
+
+function NotFound() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-4">
+      <h1 className="text-6xl font-bold tracking-tight">404</h1>
+      <p className="text-muted-foreground">This page could not be found.</p>
+      <Link
+        to="/"
+        className="mt-3 text-sm text-primary hover:underline hover:underline-offset-4"
+      >
+        Go home
+      </Link>
+    </div>
+  )
 }
 
 function RootComponent() {

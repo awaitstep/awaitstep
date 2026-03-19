@@ -46,7 +46,7 @@ const saveRedirectPath = createServerFn({ method: 'POST' })
   })
 
 export const Route = createFileRoute('/_authed')({
-  beforeLoad: async ({ location }) => {
+  loader: async ({ location }) => {
     const sessionData = await getSessionOnServer()
     if (!sessionData) {
       await saveRedirectPath({ data: location.href })
@@ -54,6 +54,7 @@ export const Route = createFileRoute('/_authed')({
     }
     return { sessionData }
   },
+  staleTime: 5 * 60 * 1000,
   component: AuthedLayout,
 })
 
@@ -66,7 +67,7 @@ const navItems = [
 ] as const
 
 function AuthedLayout() {
-  const { sessionData } = Route.useRouteContext()
+  const { sessionData } = Route.useLoaderData()
   const setSession = useAuthStore((s) => s.setSession)
   const matches = useMatches()
   const isFullScreen = matches.some(

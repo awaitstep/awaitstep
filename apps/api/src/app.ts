@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { csrf } from 'hono/csrf'
 import { bodyLimit } from 'hono/body-limit'
+import { logger as honoLogger } from 'hono/logger'
 import { requestId } from 'hono/request-id'
 import type { AppEnv } from './types.js'
 import type { Auth } from './auth/config.js'
@@ -31,6 +32,9 @@ export function createApp(deps: AppDeps) {
 
   // Request ID — unique ID for every request, returned in X-Request-Id header
   app.use('*', requestId())
+
+  // Request logger — logs method, path, and status for every request
+  app.use('*', honoLogger())
 
   // Health check — no auth, no CORS
   app.get('/health', (c) => c.json({ status: 'ok' }))
@@ -68,7 +72,11 @@ export function createApp(deps: AppDeps) {
   }
 
   // Auth rate limit — 5 requests per minute per IP (login, signup, magic link)
-  app.use('/api/auth/*', createRateLimiter({ windowMs: 60_000, max: 5 }))
+  // Excludes get-session since SSR hits it on every page load
+  app.use('/api/auth/*', async (c, next) => {
+    if (c.req.path.endsWith('/get-session')) return next()
+    return createRateLimiter({ windowMs: 60_000, max: 5 })(c, next)
+  })
 
   // Better-auth handler
   app.on(['POST', 'GET'], '/api/auth/*', (c) => {
