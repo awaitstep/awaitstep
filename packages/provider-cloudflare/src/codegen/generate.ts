@@ -1,6 +1,6 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { resolveExpressions } from '@awaitstep/ir'
-import type { CodeGenerator } from '@awaitstep/codegen'
+import type { CodeGenerator, TemplateResolver } from '@awaitstep/codegen'
 import { topologicalSort, sanitizeIdentifier, buildVarNameMap, setVarNameMap, clearVarNameMap, varName } from '@awaitstep/codegen'
 import { generateStep } from './generators/step.js'
 import { generateSleep, generateSleepUntil } from './generators/sleep.js'
@@ -8,9 +8,10 @@ import { generateBranch, collectBranchInlineTargets } from './generators/branch.
 import { generateParallel } from './generators/parallel.js'
 import { generateHttp } from './generators/http.js'
 import { generateWaitForEvent } from './generators/wait-for-event.js'
+import { generateCustomNode } from './generators/custom.js'
 import { hasTemplateExpressions } from './generators/state-tracking.js'
 
-export function generateNodeCode(node: WorkflowNode, ir: WorkflowIR): string {
+export function generateNodeCode(node: WorkflowNode, ir: WorkflowIR, templateResolver?: TemplateResolver): string {
   switch (node.type) {
     case 'step':
       return generateStep(node)
@@ -19,15 +20,22 @@ export function generateNodeCode(node: WorkflowNode, ir: WorkflowIR): string {
     case 'sleep_until':
       return generateSleepUntil(node)
     case 'branch':
-      return generateBranch(node, ir, generateNodeCode)
+      return generateBranch(node, ir, (n, ir2) => generateNodeCode(n, ir2, templateResolver))
     case 'parallel':
-      return generateParallel(node, ir, generateNodeCode)
+      return generateParallel(node, ir, (n, ir2) => generateNodeCode(n, ir2, templateResolver))
     case 'http_request':
       return generateHttp(node)
     case 'wait_for_event':
       return generateWaitForEvent(node)
-    default:
+    default: {
+      if (templateResolver) {
+        const template = templateResolver.getTemplate(node.type, node.provider)
+        if (template) {
+          return generateCustomNode(node, template)
+        }
+      }
       throw new Error(`Codegen not yet implemented for node type: ${node.type}`)
+    }
   }
 }
 
@@ -54,7 +62,7 @@ function resolveNodeExpressions(node: WorkflowNode): WorkflowNode {
   return { ...node, data: resolvedData }
 }
 
-export function generateWorkflow(ir: WorkflowIR): string {
+export function generateWorkflow(ir: WorkflowIR, templateResolver?: TemplateResolver): string {
   const className = sanitizeIdentifier(ir.metadata.name)
     .split('_')
     .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
@@ -78,7 +86,7 @@ export function generateWorkflow(ir: WorkflowIR): string {
 
   for (const node of resolvedSorted) {
     if (inlineTargets.has(node.id)) continue
-    bodyParts.push(generateNodeCode(node, resolvedIR))
+    bodyParts.push(generateNodeCode(node, resolvedIR, templateResolver))
   }
 
   const bodyLines = bodyParts.join('\n\n')
@@ -127,8 +135,13 @@ function indent(code: string, spaces: number): string {
 
 export class CloudflareCodeGenerator implements CodeGenerator {
   readonly name = 'cloudflare-workflows'
+  private templateResolver?: TemplateResolver
+
+  constructor(templateResolver?: TemplateResolver) {
+    this.templateResolver = templateResolver
+  }
 
   generateWorkflow(ir: WorkflowIR): string {
-    return generateWorkflow(ir)
+    return generateWorkflow(ir, this.templateResolver)
   }
 }

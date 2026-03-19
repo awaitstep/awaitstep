@@ -10,6 +10,7 @@ import type {
   ProviderConfig,
   WorkflowRunStatus,
   WorkflowStatus,
+  TemplateResolver,
 } from '@awaitstep/codegen'
 import { deployWithWrangler, deleteWorker } from './deploy.js'
 import { sanitizedWorkflowName } from './naming.js'
@@ -38,6 +39,11 @@ export type OnDeployProgress = (progress: DeployProgress) => void
 
 export class CloudflareWorkflowsAdapter implements WorkflowProvider {
   readonly name = 'cloudflare-workflows'
+  private templateResolver?: TemplateResolver
+
+  constructor(options?: { templateResolver?: TemplateResolver }) {
+    this.templateResolver = options?.templateResolver
+  }
 
   validate(ir: WorkflowIR): Result<void, ValidationError[]> {
     const result = validateIR(ir)
@@ -58,7 +64,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
   }
 
   generate(ir: WorkflowIR): GeneratedArtifact {
-    const source = generateWorkflow(ir)
+    const source = generateWorkflow(ir, this.templateResolver)
     return {
       filename: 'worker.ts',
       source,

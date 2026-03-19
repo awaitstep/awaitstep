@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
+import type { TemplateResolver } from '@awaitstep/codegen'
 import { generateWorkflow, generateNodeCode, CloudflareCodeGenerator } from '../../codegen/generate.js'
 import simpleWorkflow from './fixtures/simple-workflow.json'
 import parallelWorkflow from './fixtures/parallel-workflow.json'
@@ -127,6 +128,86 @@ describe('generateNodeCode', () => {
     const ir = simpleWorkflow as unknown as WorkflowIR
     expect(() => generateNodeCode(customNode, ir)).toThrow('Codegen not yet implemented for node type')
     expect(() => generateNodeCode(customNode, ir)).toThrow('stripe-charge')
+  })
+})
+
+describe('generateWorkflow with custom nodes', () => {
+  it('generates code for custom nodes when a template resolver is provided', () => {
+    const template = `export default async function(ctx) {
+  const response = await fetch(ctx.config.url, {
+    method: "POST",
+    headers: { "Authorization": \`Bearer \${ctx.env.API_KEY}\` },
+    body: JSON.stringify(ctx.inputs.payload)
+  });
+  return response.json();
+}`
+    const resolver: TemplateResolver = {
+      getTemplate(nodeType: string) {
+        if (nodeType === 'webhook-post') return template
+        return undefined
+      },
+    }
+
+    const ir: WorkflowIR = {
+      metadata: { id: 'wf-1', name: 'Custom Workflow', version: '1.0.0' },
+      nodes: [
+        {
+          id: 'step-1',
+          name: 'Fetch Data',
+          type: 'step',
+          version: '1.0.0',
+          provider: 'cloudflare',
+          position: { x: 0, y: 0 },
+          data: { code: "return { userId: '123' };" },
+        },
+        {
+          id: 'webhook-1',
+          name: 'Send Webhook',
+          type: 'webhook-post',
+          version: '1.0.0',
+          provider: 'cloudflare',
+          position: { x: 0, y: 200 },
+          data: {
+            url: 'https://hook.example.com/endpoint',
+            input_payload: 'Fetch_Data',
+          },
+          config: { retries: { limit: 3, delay: '5 seconds' } },
+        },
+      ],
+      edges: [{ id: 'e1', source: 'step-1', target: 'webhook-1' }],
+      entryNodeId: 'step-1',
+    }
+
+    const code = generateWorkflow(ir, resolver)
+
+    expect(code).toContain('class CustomWorkflow')
+    expect(code).toContain('const Fetch_Data = await step.do("Fetch Data"')
+    expect(code).toContain('const Send_Webhook = await step.do("Send Webhook"')
+    expect(code).toContain('"https://hook.example.com/endpoint"')
+    expect(code).toContain('env.API_KEY')
+    expect(code).toContain('JSON.stringify(Fetch_Data)')
+    expect(code).toContain('retries: { limit: 3, delay: "5 seconds" }')
+    expect(code).not.toContain('ctx.')
+  })
+
+  it('throws for custom nodes when no resolver is provided', () => {
+    const ir: WorkflowIR = {
+      metadata: { id: 'wf-1', name: 'Test', version: '1.0.0' },
+      nodes: [
+        {
+          id: 'c1',
+          name: 'Custom',
+          type: 'my-custom',
+          version: '1.0.0',
+          provider: 'cloudflare',
+          position: { x: 0, y: 0 },
+          data: {},
+        },
+      ],
+      edges: [],
+      entryNodeId: 'c1',
+    }
+    expect(() => generateWorkflow(ir)).toThrow('Codegen not yet implemented for node type: my-custom')
   })
 })
 

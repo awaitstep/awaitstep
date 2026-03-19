@@ -8,6 +8,7 @@ export type {
 
 export type { WorkflowProvider, CredentialsCheckResult } from './provider.js'
 export type { CodeGenerator } from './code-generator.js'
+export type { TemplateResolver } from './template-resolver.js'
 
 export { topologicalSort, buildAdjacencyList, getEdgeLabels } from './dag.js'
 export { sanitizeIdentifier, buildVarNameMap, deduplicateStepNames } from './sanitize.js'
