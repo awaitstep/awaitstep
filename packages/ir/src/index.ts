@@ -52,6 +52,8 @@ export {
   type ExpressionValidationError,
 } from './expressions.js'
 export { NodeRegistry } from './node-registry.js'
+export type { NodeBundle } from './node-bundle.js'
+export { nodeBundleSchema, nodeDefinitionSchema } from './node-bundle.js'
 export {
   stepDefinition,
   sleepDefinition,

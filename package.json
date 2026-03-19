@@ -16,6 +16,7 @@
     "db:generate": "dotenv -- pnpm --filter @awaitstep/db db:generate",
     "db:migrate": "dotenv -- pnpm --filter @awaitstep/db db:migrate",
     "db:push": "dotenv -- pnpm --filter @awaitstep/db db:push",
+    "nodes:generate": "pnpm --filter @awaitstep/node-cli build && node packages/node-cli/dist/cli.js generate",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
