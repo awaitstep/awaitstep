@@ -44,7 +44,7 @@ function WorkflowLayout() {
         <ChevronRight className="h-3 w-3" />
         <Link to="/dashboard" className="hover:text-muted-foreground">Workflows</Link>
         <ChevronRight className="h-3 w-3" />
-        <span className="text-muted-foreground font-mono">{workflowId.slice(0, 8)}</span>
+        <span className="max-w-[120px] truncate text-muted-foreground font-mono">{workflowId}</span>
       </div>
       <nav className="mt-3 flex gap-0 border-b border-border">
         {tabs.map((tab) => (
