@@ -118,6 +118,27 @@ function WorkflowEditorPage() {
 
   // Initialize workflow data
   useEffect(() => {
+    // Reset workflow-specific state when switching workflows
+    useWorkflowStore.setState({
+      nodes: [],
+      edges: [],
+      selectedNodeId: null,
+      inputParams: [],
+      envBindings: [],
+      workflowEnvVars: [],
+      triggerCode: '',
+      showSettings: false,
+      validationResult: null,
+      simulationResult: null,
+      metadata: {
+        name: 'Untitled Workflow',
+        version: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      isDirty: false,
+    })
+
     if (isNew) {
       setWorkflowId('new')
       return
