@@ -30,6 +30,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Web**: Workflow status badges on dashboard (draft/deployed/error)
 - **Web**: `triggerWorkflow()` in API client
 - Architecture diagram in `docs/architecture.md`
+- **IR**: `NodeRegistry` class for managing node definitions at runtime
+- **IR**: Bundled node definitions for all builtin types
+- **Node-CLI**: `@awaitstep/node-cli` package for authoring custom node definitions with validation, template compilation, and registry bundling
+- **DB**: `env_vars` table for global encrypted environment variables (unique per user+name)
+- **DB**: `workflows.envVars` JSON column for workflow-level env vars
+- **DB**: `resolveEnvVars()` resolves `{{global.env.NAME}}` references at query time
+- **DB**: `api_keys` table with scoped authentication (read/write/deploy)
+- **API**: `GET/POST/PATCH/DELETE /env-vars` routes for global env var management
+- **API**: Deploy-time env var resolution and validation — blocks deploy on missing/unresolved vars
+- **API**: `GET /nodes`, `GET /nodes/:id`, `GET /nodes/templates` — node registry endpoints
+- **API**: `GET/POST/DELETE /api-keys` — scoped API key management (session-only)
+- **Codegen**: `envVars` field on `ProviderConfig` for deploy-time injection
+- **Codegen**: `{{env.NAME}}` in node config fields emits bare `env.NAME` runtime references
+- **Codegen**: Generated `interface Env` auto-includes env var names from node data
+- **Provider-Cloudflare**: Wrangler config `vars` for injecting env vars into Workers
+- **Web**: Global env vars management page (Resources → Environment Variables) with textarea `.env` editor
+- **Web**: Workflow env vars section in settings panel with `{{global.env.NAME}}` link button
+- **Web**: Missing node detection — amber warning dot on canvas, destructive hint in config panel, validation error blocking deploy
+- **Web**: Editable trigger code in workflow settings
+- **Web**: Node registry context — loads bundled + custom node definitions from API
+- **Web**: Schema-driven config panel for custom nodes via `DynamicFields`
+- **Web**: Debounced input handlers on config panel fields
+- **Web**: API key management page
 
 ### Changed
 
@@ -38,6 +61,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - PR template simplified with package checkboxes
 - Takedown route now cleans up deployment records from database
 - Deploy routes use `adapter.validate()` and `adapter.verifyCredentials()` instead of inline checks
+- `WorkflowProvider.generate()` accepts optional `ProviderConfig` parameter for env var injection
+- `EnvBinding.type` reduced to `kv`/`d1`/`r2`/`service` — secrets/variables moved to workflow env vars
 
 ### Fixed
 

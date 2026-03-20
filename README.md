@@ -8,6 +8,9 @@ Visual workflow builder for Cloudflare Workflows. Design workflows with drag-and
 - **Live Code Preview** — See generated TypeScript as you build
 - **One-Click Deploy** — Deploy directly to Cloudflare Workers
 - **Run Monitoring** — Trigger workflows and watch execution in real-time
+- **Custom Nodes** — Extend with custom node types via `node-cli`
+- **Environment Variables** — Global secrets and per-workflow env vars with encrypted storage
+- **API Keys** — Scoped API key authentication (read/write/deploy)
 - **Self-Hostable** — Run anywhere: Cloudflare Workers, Docker, VPS, Vercel
 
 ## Quickstart
@@ -27,13 +30,16 @@ pnpm dev
 ```
 awaitstep.dev/
 ├── packages/
-│   ├── ir/                    # WorkflowIR types, Zod schemas, validation
+│   ├── ir/                    # WorkflowIR types, schemas, validation, node registry
 │   ├── codegen/               # IR → TypeScript code generator + provider interface
 │   ├── provider-cloudflare/   # Cloudflare Workflows deploy adapter
-│   └── db/                    # DatabaseAdapter interface + implementations
+│   ├── db/                    # DatabaseAdapter + Drizzle implementations
+│   └── node-cli/              # Custom node definition CLI + codegen
 ├── apps/
 │   ├── web/                   # TanStack Start frontend
 │   └── api/                   # Hono API server
+├── nodes/                     # Custom node definitions (e.g. resend_send_email)
+├── docs/                      # Architecture documentation
 └── tooling/
     └── tsconfig/              # Shared TypeScript configs
 ```
@@ -49,6 +55,7 @@ awaitstep.dev/
 | Parallel | Run steps concurrently | `Promise.all()` |
 | HTTP Request | Make an HTTP call | `fetch()` inside `step.do()` |
 | Wait for Event | Pause until external event | `step.waitForEvent()` |
+| Custom | User-defined node types | Template-based `step.do()` |
 
 ## Development
 
@@ -65,7 +72,7 @@ pnpm dev          # Start dev servers
 - **Frontend:** TanStack Start, ReactFlow, Monaco Editor, Zustand, Tailwind CSS
 - **Backend:** Hono
 - **Auth:** better-auth (GitHub, Google, Magic Links)
-- **Database:** D1 (Cloudflare) / PostgreSQL
+- **Database:** SQLite (dev) / PostgreSQL (prod) via Drizzle ORM
 - **Codegen:** esbuild
 - **Testing:** Vitest + Playwright
 - **Monorepo:** pnpm workspaces + Turborepo

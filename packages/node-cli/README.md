@@ -273,6 +273,10 @@ At deploy time, the codegen pipeline transforms your template into a `step.do()`
 - `ctx.env.STRIPE_API_KEY` → replaced with `env.STRIPE_API_KEY`
 - `ctx.inputs.payment_token` → replaced with the variable reference to the upstream step's output
 
+Users can also type `{{env.NAME}}` directly in any string config field on the canvas.
+This emits a bare `env.NAME` reference in generated code (not a string literal), and
+the env var name is automatically added to the generated `interface Env`.
+
 Your template function body is extracted and wrapped in:
 
 ```typescript
