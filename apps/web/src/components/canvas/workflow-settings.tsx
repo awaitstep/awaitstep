@@ -4,7 +4,6 @@ import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Select } from '../ui/select'
 import { Separator } from '../ui/separator'
-import { CodeEditor } from '../ui/code-editor'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import type { InputParam, EnvBinding, WorkflowEnvVar } from '../../stores/workflow-store'
 import { DEFAULT_TRIGGER_CODE } from '@awaitstep/provider-cloudflare/codegen'
@@ -104,12 +103,12 @@ export function WorkflowSettings() {
             <p className="text-[10px] text-muted-foreground/40 mb-2">
               Code inside the <code className="font-mono">fetch()</code> handler. Has access to <code className="font-mono">request</code>, <code className="font-mono">env</code>, and <code className="font-mono">ctx</code>.
             </p>
-            <CodeEditor
+            <textarea
               value={triggerCode || DEFAULT_TRIGGER_CODE}
-              onChange={setTriggerCode}
-              debounceMs={500}
-              language="typescript"
-              height="200px"
+              onChange={(e) => setTriggerCode(e.target.value)}
+              spellCheck={false}
+              rows={12}
+              className="w-full rounded-lg border border-input bg-[oklch(0.12_0_0)] p-3 font-mono text-[11px] leading-relaxed text-foreground placeholder:text-muted-foreground/40 focus:border-primary/40 focus:outline-none"
             />
           </div>
 
