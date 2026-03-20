@@ -27,7 +27,7 @@ function AccountPage() {
   return (
     <div>
       <h1 className="border-b border-border pb-4 text-lg font-semibold">Account</h1>
-      <div className="mx-auto mt-6 max-w-screen-md">
+      <div className="mt-6">
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-4">
             <ProfileSection user={user} />

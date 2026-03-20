@@ -1,5 +1,7 @@
 import { createFileRoute, Outlet, Link, useMatches, useParams } from '@tanstack/react-router'
-import { ChevronRight } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Breadcrumb } from '../../../components/ui/breadcrumb'
+import { api } from '../../../lib/api-client'
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId')({
   component: WorkflowLayout,
@@ -8,6 +10,10 @@ export const Route = createFileRoute('/_authed/workflows/$workflowId')({
 function WorkflowLayout() {
   const { workflowId } = useParams({ from: '/_authed/workflows/$workflowId' })
   const matches = useMatches()
+  const { data: workflow } = useQuery({
+    queryKey: ['workflow', workflowId],
+    queryFn: () => api.getWorkflow(workflowId),
+  })
 
   const isFullScreen = matches.some(
     (m) => m.routeId === '/_authed/workflows/$workflowId/canvas',
@@ -39,14 +45,11 @@ function WorkflowLayout() {
 
   return (
     <div>
-      <div className="flex items-center gap-1 px-4 pt-4 text-xs text-muted-foreground/60">
-        <Link to="/dashboard" className="hover:text-muted-foreground">Dashboard</Link>
-        <ChevronRight className="h-3 w-3" />
-        <Link to="/workflows" className="hover:text-muted-foreground">Workflows</Link>
-        <ChevronRight className="h-3 w-3" />
-        <span className="max-w-[120px] truncate text-muted-foreground font-mono">{workflowId}</span>
-      </div>
-      <nav className="mt-3 flex gap-0 border-b border-border">
+      <Breadcrumb items={[
+        { label: 'Workflows', href: '/workflows' },
+        { label: workflow?.name ?? workflowId },
+      ]} />
+      <nav className="flex gap-0 border-b border-border">
         {tabs.map((tab) => (
           <Link
             key={tab.to}
@@ -65,7 +68,7 @@ function WorkflowLayout() {
           </Link>
         ))}
       </nav>
-      <div className="mx-auto max-w-screen-md pt-6">
+      <div className="pt-6">
         <Outlet />
       </div>
     </div>

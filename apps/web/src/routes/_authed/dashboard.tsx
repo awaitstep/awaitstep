@@ -1,41 +1,22 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { Plus, Loader2, Workflow, AlertTriangle, Activity } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { api } from '../../lib/api-client'
 import { RunStatusBadge } from '../../components/monitoring/run-status-badge'
+import { RunDetailSheet } from '../../components/monitoring/run-detail-sheet'
 import { WorkflowActionsMenu } from '../../components/dashboard/workflow-actions-menu'
 import { OnboardingWizard } from '../../components/onboarding/onboarding-wizard'
 import { TriggerButton } from '../../components/dashboard/trigger-button'
 import { useRefetchInterval } from '../../stores/polling-store'
 import { useOnboardingStore } from '../../stores/onboarding-store'
 import { useActiveRunSync } from '../../hooks/use-active-run-sync'
+import { timeAgo, duration } from '../../lib/time'
 
 export const Route = createFileRoute('/_authed/dashboard')({
   component: DashboardPage,
 })
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  const days = Math.floor(hrs / 24)
-  return `${days}d ago`
-}
-
-function duration(start: string, end: string, status: string): string {
-  if (['running', 'queued'].includes(status)) return '--'
-  const ms = new Date(end).getTime() - new Date(start).getTime()
-  if (ms < 1000) return `${ms}ms`
-  const secs = Math.floor(ms / 1000)
-  if (secs < 60) return `${secs}s`
-  const mins = Math.floor(secs / 60)
-  const remSecs = secs % 60
-  return `${mins}m ${remSecs}s`
-}
 
 function DashboardPage() {
   const workflowsInterval = useRefetchInterval('workflows')
@@ -107,12 +88,13 @@ function DashboardPage() {
   }
 
   const workflowMap = new Map(workflows?.map((w) => [w.id, w]) ?? [])
+  const [selectedRun, setSelectedRun] = useState<{ id: string; workflowId: string } | null>(null)
 
   return (
     <div>
       <h1 className="border-b border-border pb-4 text-lg font-semibold">Dashboard</h1>
 
-      <div className="mx-auto max-w-screen-md">
+      <div>
       {/* Stats */}
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         <StatCard icon={Workflow} value={totalWorkflows} label="Workflows" loading={wfLoading} />
@@ -120,7 +102,7 @@ function DashboardPage() {
         <StatCard icon={AlertTriangle} value={errorsWeek} label="Errors (7d)" loading={!recentRuns} variant={errorsWeek > 0 ? 'warning' : undefined} />
       </div>
 
-      {/* Workflows Table */}
+      {/* Workflows */}
       <section className="mt-10">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Workflows</h2>
@@ -148,23 +130,18 @@ function DashboardPage() {
         )}
 
         {workflows && workflows.length > 0 && (
-          <div className="mt-4 overflow-hidden border border-border">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground/60">Name</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground/60">Status</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground/60">Last run</th>
-                  <th className="w-12 px-4 py-2.5"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {workflows.map((wf) => {
-                  const deploy = latestDeployStatus.get(wf.id)
-                  const lastRun = latestRunByWorkflow.get(wf.id)
-                  return (
-                    <tr key={wf.id} className="border-b border-border/50 last:border-0 transition-colors hover:bg-muted/30">
-                      <td className="px-4 py-3">
+          <div className="mt-4 space-y-2">
+            {workflows.map((wf) => {
+              const deploy = latestDeployStatus.get(wf.id)
+              const lastRun = latestRunByWorkflow.get(wf.id)
+              return (
+                <div
+                  key={wf.id}
+                  className="group rounded-lg border border-border bg-card transition-colors hover:border-border/80 hover:bg-muted/20"
+                >
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2.5">
                         <Link
                           to="/workflows/$workflowId"
                           params={{ workflowId: wf.id }}
@@ -172,34 +149,34 @@ function DashboardPage() {
                         >
                           {wf.name}
                         </Link>
-                        {wf.description && (
-                          <p className="mt-0.5 truncate text-xs text-muted-foreground/60 max-w-xs">{wf.description}</p>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
                         <WorkflowStatusBadge
                           hasVersion={!!wf.currentVersionId}
                           deployStatus={deploy?.status}
                           isOutdated={!!(deploy?.status === 'success' && wf.currentVersionId && deploy.versionId !== wf.currentVersionId)}
                         />
-                      </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
-                        {lastRun ? timeAgo(lastRun.createdAt) : '--'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1">
-                          {deploy?.status === 'success' && <TriggerButton workflowId={wf.id} />}
-                          <WorkflowActionsMenu
-                            workflow={wf}
-                            isDeployed={deploy?.status === 'success'}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                      </div>
+                      {wf.description && (
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground/60 max-w-sm">{wf.description}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {lastRun && (
+                        <span className="text-xs text-muted-foreground/60">
+                          {timeAgo(lastRun.createdAt)}
+                        </span>
+                      )}
+                      <div className="flex items-center gap-1">
+                        {deploy?.status === 'success' && <TriggerButton workflowId={wf.id} />}
+                        <WorkflowActionsMenu
+                          workflow={wf}
+                          isDeployed={deploy?.status === 'success'}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </section>
@@ -213,56 +190,42 @@ function DashboardPage() {
               <Button variant="ghost" size="sm" className="text-xs">View all</Button>
             </Link>
           </div>
-          <div className="mt-4 overflow-hidden border border-border">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground/60">Workflow</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground/60">Instance</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground/60">Status</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground/60">Duration</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground/60">Started</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentRuns.slice(0, 8).map((run) => {
-                  const wf = workflowMap.get(run.workflowId)
-                  return (
-                    <tr key={run.id} className="border-b border-border/50 last:border-0 transition-colors hover:bg-muted/30">
-                      <td className="px-4 py-3">
-                        {wf ? (
-                          <Link
-                            to="/workflows/$workflowId/runs"
-                            params={{ workflowId: run.workflowId }}
-                            className="text-sm text-foreground/70 hover:text-foreground"
-                          >
-                            {wf.name}
-                          </Link>
-                        ) : (
-                          <span className="text-sm text-muted-foreground font-mono">{run.workflowId.slice(0, 8)}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Link
-                          to="/runs/$runId"
-                          params={{ runId: run.id }}
-                          search={{ workflowId: run.workflowId }}
-                          className="font-mono text-xs text-foreground/60 hover:text-foreground"
-                        >
-                          {run.instanceId}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3"><RunStatusBadge status={run.status} /></td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{duration(run.createdAt, run.updatedAt, run.status)}</td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">{timeAgo(run.createdAt)}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <div className="mt-4 space-y-2">
+            {recentRuns.slice(0, 8).map((run) => {
+              const wf = workflowMap.get(run.workflowId)
+              return (
+                <button
+                  key={run.id}
+                  onClick={() => setSelectedRun({ id: run.id, workflowId: run.workflowId })}
+                  className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:border-border/80 hover:bg-muted/20"
+                >
+                  <div className="flex items-center gap-3">
+                    <RunStatusBadge status={run.status} />
+                    <div className="min-w-0">
+                      <span className="text-sm text-foreground/70">
+                        {wf?.name ?? run.workflowId.slice(0, 8)}
+                      </span>
+                      <span className="ml-2 font-mono text-xs text-muted-foreground/50">
+                        {run.instanceId.slice(0, 12)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span className="font-mono">{duration(run.createdAt, run.updatedAt, run.status)}</span>
+                    <span>{timeAgo(run.createdAt)}</span>
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </section>
       )}
+
+      <RunDetailSheet
+        run={selectedRun}
+        workflowName={selectedRun ? workflowMap.get(selectedRun.workflowId)?.name : undefined}
+        onClose={() => setSelectedRun(null)}
+      />
       </div>
     </div>
   )

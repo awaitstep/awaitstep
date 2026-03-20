@@ -1,9 +1,10 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Save } from 'lucide-react'
+import { Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../../../components/ui/button'
+import { Breadcrumb } from '../../../components/ui/breadcrumb'
 import { api } from '../../../lib/api-client'
 import type { EnvVarSummary } from '../../../lib/api-client'
 
@@ -125,12 +126,11 @@ function EnvVarsPage() {
 
   return (
     <div className="flex h-full flex-col">
+      <Breadcrumb items={[
+        { label: 'Resources', href: '/resources' },
+        { label: 'Environment Variables' },
+      ]} />
       <div className="flex items-center gap-3 mb-6">
-        <Link to="/resources">
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
         <div>
           <h1 className="text-lg font-semibold">Environment Variables</h1>
           <p className="text-xs text-muted-foreground">
@@ -148,7 +148,7 @@ function EnvVarsPage() {
         </Button>
       </div>
 
-      <div className="mx-auto w-full max-w-screen-md">
+      <div className="w-full">
         <div className="relative rounded-md border border-border bg-muted/10 font-mono text-sm">
           <div className="pointer-events-none absolute left-0 top-0 select-none px-3 py-3 text-right text-muted-foreground/40">
             {Array.from({ length: Math.max(lineCount, 1) }, (_, i) => (

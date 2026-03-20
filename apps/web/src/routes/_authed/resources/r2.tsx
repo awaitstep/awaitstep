@@ -1,7 +1,6 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
-import { ArrowLeft } from 'lucide-react'
-import { Button } from '../../../components/ui/button'
+import { Breadcrumb } from '../../../components/ui/breadcrumb'
 import { R2Browser } from '../../../components/resources/r2-browser'
 
 export const Route = createFileRoute('/_authed/resources/r2')({
@@ -13,12 +12,11 @@ function R2Page() {
 
   return (
     <div className="flex h-full flex-col">
+      <Breadcrumb items={[
+        { label: 'Resources', href: '/resources' },
+        { label: 'R2 Buckets' },
+      ]} />
       <div className="flex items-center gap-3 mb-4">
-        <Link to="/resources">
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
         <h1 className="text-xl font-bold">R2 Buckets</h1>
         <input
           type="text"

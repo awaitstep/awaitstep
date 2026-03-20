@@ -53,14 +53,12 @@ export function TriggerDialog({ open, onClose, workflowId, deploymentId }: Trigg
         params = JSON.parse(trimmed)
       }
 
-      const run = await api.triggerWorkflow(workflowId, { connectionId, params })
+      await api.triggerWorkflow(workflowId, { connectionId, params })
       queryClient.invalidateQueries({ queryKey: ['workflow-runs', workflowId] })
       queryClient.invalidateQueries({ queryKey: ['all-runs'] })
       onClose()
       navigate({
-        to: '/runs/$runId',
-        params: { runId: run.id },
-        search: { workflowId },
+        to: '/runs',
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to trigger workflow')

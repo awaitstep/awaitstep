@@ -8,28 +8,11 @@ import {
 import { Button } from '../../../components/ui/button'
 import { DeployDialog } from '../../../components/canvas/deploy-dialog'
 import { api } from '../../../lib/api-client'
+import { timeAgo, formatDate } from '../../../lib/time'
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId/deployments')({
   component: DeploymentsPage,
 })
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  const days = Math.floor(hrs / 24)
-  return `${days}d ago`
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleString(undefined, {
-    month: 'short', day: 'numeric', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
 
 type Deployment = {
   id: string
@@ -62,7 +45,7 @@ function DeploymentsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-end">
+      <div className="mb-4 flex justify-end">
         <Button size="sm" className="gap-1.5" onClick={() => setDeployOpen(true)}>
           <Rocket className="h-3.5 w-3.5" />
           New Deployment
@@ -86,58 +69,48 @@ function DeploymentsPage() {
       )}
 
       {deployments && deployments.length > 0 && (
-        <div className="overflow-hidden border border-border">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border bg-muted/30">
-                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground/60">Status</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground/60">Worker</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground/60">Connection</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground/60">URL</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground/60">Deployed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {deployments.map((d, i) => {
-                const conn = d.connectionId ? connectionMap.get(d.connectionId) : undefined
-                return (
-                  <tr
-                    key={d.id}
-                    onClick={() => setSelectedDeployment(d)}
-                    className="cursor-pointer border-b border-border/50 last:border-0 transition-colors hover:bg-muted/30"
-                  >
-                    <td className="px-4 py-3">
-                      {d.status === 'success' ? (
-                        <span className="flex items-center gap-1.5 text-xs text-status-success">
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          {i === 0 ? 'Latest' : 'Success'}
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1.5 text-xs text-status-error">
-                          <XCircle className="h-3.5 w-3.5" />
-                          Failed
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-foreground/70">{d.serviceName}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{conn?.name ?? '--'}</td>
-                    <td className="px-4 py-3">
-                      {d.serviceUrl ? (
-                        <span className="text-xs text-primary">
-                          {d.serviceUrl.replace(/^https?:\/\//, '')}
-                        </span>
-                      ) : d.error ? (
-                        <span className="text-xs text-status-error/60 truncate block max-w-xs">{d.error}</span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground/40">--</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{timeAgo(d.createdAt)}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+        <div className="space-y-2">
+          {deployments.map((d, i) => {
+            const conn = d.connectionId ? connectionMap.get(d.connectionId) : undefined
+            return (
+              <button
+                key={d.id}
+                onClick={() => setSelectedDeployment(d)}
+                className="w-full rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:border-border/80 hover:bg-muted/20"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {d.status === 'success' ? (
+                      <span className="flex items-center gap-1.5 text-xs text-status-success">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {i === 0 ? 'Latest' : 'Success'}
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-xs text-status-error">
+                        <XCircle className="h-3.5 w-3.5" />
+                        Failed
+                      </span>
+                    )}
+                    <span className="font-mono text-xs text-foreground/70">{d.serviceName}</span>
+                    {conn && (
+                      <span className="text-xs text-muted-foreground/50">{conn.name}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {d.serviceUrl && (
+                      <span className="text-xs text-primary">
+                        {d.serviceUrl.replace(/^https?:\/\//, '')}
+                      </span>
+                    )}
+                    {d.error && !d.serviceUrl && (
+                      <span className="text-xs text-status-error/60 truncate max-w-[200px]">{d.error}</span>
+                    )}
+                    <span className="text-xs text-muted-foreground">{timeAgo(d.createdAt)}</span>
+                  </div>
+                </div>
+              </button>
+            )
+          })}
         </div>
       )}
 

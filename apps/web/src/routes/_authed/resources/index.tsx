@@ -42,7 +42,7 @@ function ResourcesPage() {
         </p>
       </div>
 
-      <div className="mx-auto max-w-screen-md">
+      <div>
       <div className="mt-6 rounded-md border border-border">
         {RESOURCE_TYPES.map((type, i) => (
           <Link

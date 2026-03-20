@@ -1,72 +1,77 @@
-import { createFileRoute, useParams, useSearch, Link } from '@tanstack/react-router'
+import { useEffect, useRef, useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState, useRef, useEffect } from 'react'
+import * as Dialog from '@radix-ui/react-dialog'
 import {
   Loader2, AlertCircle, CheckCircle2, Pause, Play, Square,
-  ChevronDown, ChevronRight, Copy, Check,
+  ChevronDown, ChevronRight, Copy, Check, X,
 } from 'lucide-react'
-import { Button } from '../../components/ui/button'
-import { RunStatusBadge } from '../../components/monitoring/run-status-badge'
-import { api } from '../../lib/api-client'
-
-export const Route = createFileRoute('/_authed/runs/$runId')({
-  validateSearch: (search: Record<string, unknown>) => ({
-    workflowId: typeof search.workflowId === 'string' ? search.workflowId : '',
-  }),
-  component: RunDetailPage,
-})
+import { Button } from '../ui/button'
+import { RunStatusBadge } from './run-status-badge'
+import { formatDate } from '../../lib/time'
 
 const TERMINAL_STATUSES = new Set(['complete', 'errored', 'terminated'])
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleString(undefined, {
-    month: 'short', day: 'numeric', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-  })
+interface RunRef {
+  id: string
+  workflowId: string
 }
 
-function duration(start: string, end: string): string {
-  const ms = new Date(end).getTime() - new Date(start).getTime()
-  if (ms < 1000) return `${ms}ms`
-  const secs = Math.floor(ms / 1000)
-  if (secs < 60) return `${secs}s`
-  const mins = Math.floor(secs / 60)
-  const remSecs = secs % 60
-  if (mins < 60) return `${mins}m ${remSecs}s`
-  const hrs = Math.floor(mins / 60)
-  const remMins = mins % 60
-  return `${hrs}h ${remMins}m`
+export function RunDetailSheet({
+  run: runRef,
+  workflowName,
+  onClose,
+}: {
+  run: RunRef | null
+  workflowName?: string
+  onClose: () => void
+}) {
+  return (
+    <Dialog.Root open={!!runRef} onOpenChange={(open) => { if (!open) onClose() }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
+        <Dialog.Content className="fixed right-0 top-0 bottom-0 z-50 flex w-full max-w-md flex-col border-l border-border bg-background shadow-lg data-[state=open]:animate-in data-[state=open]:slide-in-from-right data-[state=open]:duration-200 data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=closed]:duration-150">
+          <div className="flex items-center justify-between border-b border-border px-6 py-[1.125rem]">
+            <Dialog.Title className="text-lg font-semibold">Run Details</Dialog.Title>
+            <Dialog.Close className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground/60">
+              <X className="h-4 w-4" />
+            </Dialog.Close>
+          </div>
+          {runRef && (
+            <RunDetailContent
+              runId={runRef.id}
+              workflowId={runRef.workflowId}
+              workflowName={workflowName}
+            />
+          )}
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  )
 }
 
-function RunDetailPage() {
-  const { runId } = useParams({ from: '/_authed/runs/$runId' })
-  const { workflowId: searchWorkflowId } = useSearch({ from: '/_authed/runs/$runId' })
+function RunDetailContent({
+  runId,
+  workflowId,
+  workflowName,
+}: {
+  runId: string
+  workflowId: string
+  workflowName?: string
+}) {
   const queryClient = useQueryClient()
-
-  // Look up workflowId from search param or from cached runs list
-  const { data: allRuns } = useQuery({
-    queryKey: ['all-runs'],
-    queryFn: () => api.listAllRuns(),
-    enabled: !searchWorkflowId,
-    retry: false,
-  })
-
-  const workflowId = searchWorkflowId || allRuns?.find((r) => r.id === runId)?.workflowId || ''
-
   const prevStatus = useRef<string | null>(null)
 
   const { data: run, isLoading } = useQuery({
     queryKey: ['workflow-run', workflowId, runId],
     queryFn: () =>
       fetch(`/api/workflows/${workflowId}/runs/${runId}`, { credentials: 'include' }).then((r) => r.json()),
-    enabled: !!workflowId,
     refetchInterval: (query) => {
       const data = query.state.data
       return data && !TERMINAL_STATUSES.has(data.status) ? 5_000 : false
     },
   })
 
-  // Invalidate run lists when this run reaches terminal state
   useEffect(() => {
     if (!run) return
     const wasActive = prevStatus.current && !TERMINAL_STATUSES.has(prevStatus.current)
@@ -77,18 +82,6 @@ function RunDetailPage() {
     }
     prevStatus.current = run.status
   }, [run?.status, queryClient, workflowId])
-
-  const { data: workflow } = useQuery({
-    queryKey: ['workflow', workflowId],
-    queryFn: () => api.getWorkflow(workflowId),
-    enabled: !!workflowId,
-  })
-
-  const { data: connections } = useQuery({
-    queryKey: ['connections'],
-    queryFn: () => api.listConnections(),
-    retry: false,
-  })
 
   const actionMutation = useMutation({
     mutationFn: (action: 'pause' | 'resume' | 'terminate') =>
@@ -103,42 +96,44 @@ function RunDetailPage() {
     },
   })
 
-  if (isLoading || !workflowId) {
+  if (isLoading) {
     return (
-      <div className="mt-12 flex justify-center">
+      <div className="flex flex-1 items-center justify-center">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/60" />
       </div>
     )
   }
 
   if (!run) {
-    return <div className="mt-12 text-center text-sm text-muted-foreground">Run not found</div>
+    return (
+      <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+        Run not found
+      </div>
+    )
   }
 
   const isTerminal = TERMINAL_STATUSES.has(run.status)
   const isPaused = run.status === 'paused'
   const isRunning = run.status === 'running' || run.status === 'queued'
-  const connection = connections?.find((c) => c.id === run.connectionId)
+
+  function runDuration(start: string, end: string): string {
+    const ms = new Date(end).getTime() - new Date(start).getTime()
+    if (ms < 1000) return `${ms}ms`
+    const secs = Math.floor(ms / 1000)
+    if (secs < 60) return `${secs}s`
+    const mins = Math.floor(secs / 60)
+    const remSecs = secs % 60
+    if (mins < 60) return `${mins}m ${remSecs}s`
+    const hrs = Math.floor(mins / 60)
+    const remMins = mins % 60
+    return `${hrs}h ${remMins}m`
+  }
 
   return (
-    <div>
-      {/* Breadcrumb */}
-      <div className="mb-4 flex items-center gap-1 text-xs text-muted-foreground/60">
-        <Link to="/dashboard" className="hover:text-muted-foreground">Dashboard</Link>
-        <ChevronRight className="h-3 w-3" />
-        <Link to="/runs" className="hover:text-muted-foreground">Runs</Link>
-        <ChevronRight className="h-3 w-3" />
-        <span className="max-w-[120px] truncate text-muted-foreground font-mono">{runId}</span>
-      </div>
-      <div className="flex items-center justify-between border-b border-border pb-4">
-        <div className="flex items-center gap-3">
-          <RunStatusBadge status={run.status} />
-          {workflow && (
-            <Link to="/workflows/$workflowId" params={{ workflowId }} className="text-sm text-muted-foreground hover:text-foreground/70">
-              {workflow.name}
-            </Link>
-          )}
-        </div>
+    <div className="flex-1 overflow-y-auto px-6 py-6">
+      {/* Status + Actions */}
+      <div className="flex items-center justify-between">
+        <RunStatusBadge status={run.status} />
         {!isTerminal && (
           <div className="flex items-center gap-1">
             {isPaused ? (
@@ -157,9 +152,20 @@ function RunDetailPage() {
         )}
       </div>
 
-      <div className="mx-auto max-w-screen-md">
-      {/* Details */}
-      <div className="mt-8 grid gap-x-12 gap-y-6 sm:grid-cols-2">
+      {/* Fields */}
+      <div className="mt-8 grid gap-y-6">
+        {workflowName && (
+          <Field label="Workflow">
+            <Link
+              to="/workflows/$workflowId"
+              params={{ workflowId }}
+              className="text-sm text-foreground/70 hover:text-foreground"
+            >
+              {workflowName}
+            </Link>
+          </Field>
+        )}
+
         <Field label="Instance ID">
           <span className="font-mono text-sm text-foreground">{run.instanceId}</span>
         </Field>
@@ -171,36 +177,29 @@ function RunDetailPage() {
               Running...
             </span>
           ) : (
-            <span className="font-mono text-sm text-foreground">{duration(run.createdAt, run.updatedAt)}</span>
+            <span className="font-mono text-sm text-foreground">{runDuration(run.createdAt, run.updatedAt)}</span>
           )}
         </Field>
 
-        <Field label="Started">
-          <span className="text-sm text-foreground/70">{formatDate(run.createdAt)}</span>
-        </Field>
-
-        {isTerminal && (
-          <Field label="Ended">
-            <span className="text-sm text-foreground/70">{formatDate(run.updatedAt)}</span>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Started">
+            <span className="text-sm text-foreground/70">{formatDate(run.createdAt)}</span>
           </Field>
-        )}
+          {isTerminal && (
+            <Field label="Ended">
+              <span className="text-sm text-foreground/70">{formatDate(run.updatedAt)}</span>
+            </Field>
+          )}
+        </div>
 
-        {connection && (
-          <Field label="Connection">
-            <Link to="/connections" className="text-sm text-foreground/70 hover:text-foreground">
-              {connection.name}
-            </Link>
-            <span className="ml-2 font-mono text-xs text-muted-foreground/60">{connection.credentials.accountId}</span>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Version">
+            <span className="font-mono text-xs text-muted-foreground">{run.versionId}</span>
           </Field>
-        )}
-
-        <Field label="Version">
-          <span className="font-mono text-sm text-muted-foreground">{run.versionId}</span>
-        </Field>
-      </div>
-
-      <div className="mt-4 text-xs text-muted-foreground/40">
-        <span className="font-mono">{run.id}</span>
+          <Field label="Run ID">
+            <span className="font-mono text-xs text-muted-foreground/60">{run.id}</span>
+          </Field>
+        </div>
       </div>
 
       {/* Output */}
@@ -226,7 +225,6 @@ function RunDetailPage() {
           <ErrorBlock error={run.error} />
         </div>
       )}
-      </div>
     </div>
   )
 }

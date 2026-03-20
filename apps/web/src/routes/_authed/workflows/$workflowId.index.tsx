@@ -14,7 +14,9 @@ import {
 } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { api } from '../../../lib/api-client'
+import { timeAgo, formatDate } from '../../../lib/time'
 import { RunStatusBadge } from '../../../components/monitoring/run-status-badge'
+import { RunDetailSheet } from '../../../components/monitoring/run-detail-sheet'
 import { WorkflowActionsMenu } from '../../../components/dashboard/workflow-actions-menu'
 import { TriggerButton } from '../../../components/dashboard/trigger-button'
 import { DeployDialog } from '../../../components/canvas/deploy-dialog'
@@ -28,30 +30,11 @@ export const Route = createFileRoute('/_authed/workflows/$workflowId/')({
   component: WorkflowOverviewPage,
 })
 
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  const days = Math.floor(hrs / 24)
-  return `${days}d ago`
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-}
 
 function WorkflowOverviewPage() {
   const { workflowId } = useParams({ from: '/_authed/workflows/$workflowId/' })
   const [deployOpen, setDeployOpen] = useState(false)
+  const [selectedRun, setSelectedRun] = useState<{ id: string; workflowId: string } | null>(null)
 
   const { data: workflow, isLoading: wfLoading } = useQuery({
     queryKey: ['workflow', workflowId],
@@ -211,12 +194,10 @@ function WorkflowOverviewPage() {
           {workflowRuns.length > 0 ? (
             <div className="mt-3 rounded-md border border-border">
               {workflowRuns.slice(0, 8).map((run, i) => (
-                <Link
+                <button
                   key={run.id}
-                  to="/runs/$runId"
-                  params={{ runId: run.id }}
-                  search={{ workflowId }}
-                  className={`flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-muted/30 ${
+                  onClick={() => setSelectedRun({ id: run.id, workflowId })}
+                  className={`flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-muted/30 ${
                     i < Math.min(workflowRuns.length, 8) - 1 ? 'border-b border-border' : ''
                   }`}
                 >
@@ -225,7 +206,7 @@ function WorkflowOverviewPage() {
                     <span className="font-mono text-xs text-muted-foreground">{run.instanceId.slice(0, 12)}</span>
                   </div>
                   <span className="text-xs text-muted-foreground/60">{timeAgo(run.createdAt)}</span>
-                </Link>
+                </button>
               ))}
             </div>
           ) : (
@@ -270,6 +251,10 @@ function WorkflowOverviewPage() {
         </section>
       )}
 
+      <RunDetailSheet
+        run={selectedRun}
+        onClose={() => setSelectedRun(null)}
+      />
       <DeployDialog open={deployOpen} onClose={() => setDeployOpen(false)} workflowId={workflowId} />
     </div>
   )
