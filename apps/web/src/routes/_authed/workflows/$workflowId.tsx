@@ -39,13 +39,7 @@ function WorkflowLayout() {
 
   return (
     <div>
-      <nav className="flex items-center gap-0 border-b border-border">
-        <Link
-          to="/dashboard"
-          className="flex h-10 w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground/80"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
+      <nav className="flex gap-0 border-b border-border">
         {tabs.map((tab) => (
           <Link
             key={tab.to}
@@ -65,6 +59,10 @@ function WorkflowLayout() {
         ))}
       </nav>
       <div className="mx-auto max-w-screen-md pt-6">
+        <Link to="/dashboard" className="mb-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground">
+          <ArrowLeft className="h-3 w-3" />
+          Back
+        </Link>
         <Outlet />
       </div>
     </div>
