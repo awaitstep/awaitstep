@@ -303,7 +303,6 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       edges: data.edges,
       inputParams: data.inputParams,
       envBindings: data.envBindings,
-      workflowEnvVars: data.workflowEnvVars ?? [],
       triggerCode: data.triggerCode ?? '',
       isDirty: false,
     })
@@ -328,7 +327,6 @@ useWorkflowStore.subscribe((state, prev) => {
     state.metadata === prev.metadata &&
     state.inputParams === prev.inputParams &&
     state.envBindings === prev.envBindings &&
-    state.workflowEnvVars === prev.workflowEnvVars &&
     state.triggerCode === prev.triggerCode
   ) return
 
@@ -342,7 +340,6 @@ useWorkflowStore.subscribe((state, prev) => {
       edges: s.edges,
       inputParams: s.inputParams,
       envBindings: s.envBindings,
-      workflowEnvVars: s.workflowEnvVars,
       triggerCode: s.triggerCode,
       savedAt: new Date().toISOString(),
     }

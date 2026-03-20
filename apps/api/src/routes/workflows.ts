@@ -9,9 +9,16 @@ const createSchema = z.object({
   description: z.string().max(1000).optional(),
 })
 
+const envVarSchema = z.object({
+  name: z.string().min(1),
+  value: z.string(),
+  isSecret: z.boolean().optional(),
+})
+
 const updateSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   description: z.string().max(1000).optional(),
+  envVars: z.array(envVarSchema).optional(),
 })
 
 export const workflows = new Hono<AppEnv>()
@@ -42,8 +49,12 @@ workflows.post('/', zValidator('json', createSchema), async (c) => {
 
 workflows.patch('/:id', zValidator('json', updateSchema), async (c) => {
   const db = c.get('db')
-  const body = c.req.valid('json')
-  const updated = await db.updateWorkflow(c.req.param('id'), body)
+  const { envVars, ...rest } = c.req.valid('json')
+  const dbData: { name?: string; description?: string; envVars?: string } = { ...rest }
+  if (envVars !== undefined) {
+    dbData.envVars = JSON.stringify(envVars)
+  }
+  const updated = await db.updateWorkflow(c.req.param('id'), dbData)
   return c.json(updated)
 })
 
