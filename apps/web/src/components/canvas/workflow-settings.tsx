@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { lazy, Suspense } from 'react'
 import { X, Plus, Trash2, Link2, RotateCcw } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -7,17 +7,10 @@ import { Select } from '../ui/select'
 import { Separator } from '../ui/separator'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import type { InputParam, EnvBinding, WorkflowEnvVar } from '../../stores/workflow-store'
-import { DEFAULT_TRIGGER_CODE } from '@awaitstep/provider-cloudflare/codegen'
 
-const CodeEditor = lazy(() => import('../ui/code-editor').then((m) => ({ default: m.CodeEditor })))
+const LazyTriggerCodeEditor = lazy(() => import('./trigger-code-editor').then((m) => ({ default: m.TriggerCodeEditor })))
 
 export function WorkflowSettings() {
-  const [editorReady, setEditorReady] = useState(false)
-  useEffect(() => {
-    const id = requestIdleCallback(() => setEditorReady(true))
-    return () => cancelIdleCallback(id)
-  }, [])
-
   const metadata = useWorkflowStore((s) => s.metadata)
   const inputParams = useWorkflowStore((s) => s.inputParams)
   const envBindings = useWorkflowStore((s) => s.envBindings)
@@ -73,6 +66,8 @@ export function WorkflowSettings() {
     }
   }
 
+  const isCustom = triggerCode && triggerCode !== ''
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
@@ -98,7 +93,7 @@ export function WorkflowSettings() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <Label className="text-[11px] text-muted-foreground">Trigger Code</Label>
-              {triggerCode && triggerCode !== DEFAULT_TRIGGER_CODE && (
+              {isCustom && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -112,19 +107,9 @@ export function WorkflowSettings() {
             <p className="text-[10px] text-muted-foreground/40 mb-2">
               Code inside the <code className="font-mono">fetch()</code> handler. Has access to <code className="font-mono">request</code>, <code className="font-mono">env</code>, and <code className="font-mono">ctx</code>.
             </p>
-            {editorReady ? (
-              <Suspense fallback={<div className="h-[200px] rounded-lg border border-input bg-[oklch(0.12_0_0)]" />}>
-                <CodeEditor
-                  value={triggerCode || DEFAULT_TRIGGER_CODE}
-                  onChange={setTriggerCode}
-                  debounceMs={500}
-                  language="typescript"
-                  height="200px"
-                />
-              </Suspense>
-            ) : (
-              <div className="h-[200px] rounded-lg border border-input bg-[oklch(0.12_0_0)]" />
-            )}
+            <Suspense fallback={<div className="h-[200px] rounded-lg border border-input bg-[oklch(0.12_0_0)]" />}>
+              <LazyTriggerCodeEditor />
+            </Suspense>
           </div>
 
           <Separator />
