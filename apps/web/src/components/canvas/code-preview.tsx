@@ -2,7 +2,7 @@ import { useMemo, useCallback, lazy, Suspense, useState, useEffect, useRef } fro
 import { generateWorkflow } from '@awaitstep/provider-cloudflare/codegen'
 import type { TemplateResolver } from '@awaitstep/codegen'
 import type { WorkflowIR, WorkflowNode, Edge } from '@awaitstep/ir'
-import { Copy, Check } from 'lucide-react'
+import { Copy, Check, Zap } from 'lucide-react'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import { cn } from '../../lib/utils'
 
@@ -40,7 +40,7 @@ function buildIR(metadata: WorkflowIR['metadata'], nodes: { data: { irNode: Work
   return { metadata, nodes: irNodes, edges: irEdges, entryNodeId }
 }
 
-export function CodePreview() {
+export function CodePreview({ onEditEntry }: { onEditEntry?: () => void }) {
   const { metadata, nodes, edges, triggerCode } = useWorkflowStore()
   const [mounted, setMounted] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('typescript')
@@ -114,6 +114,16 @@ export function CodePreview() {
               IR JSON
             </button>
           </div>
+          {onEditEntry && (
+            <button
+              onClick={onEditEntry}
+              className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground/60 transition-colors hover:bg-muted/60 hover:text-muted-foreground"
+              title="Edit entry point code"
+            >
+              <Zap className="h-3 w-3" />
+              Entry
+            </button>
+          )}
           <button
             onClick={handleCopy}
             className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted/60 hover:text-muted-foreground"

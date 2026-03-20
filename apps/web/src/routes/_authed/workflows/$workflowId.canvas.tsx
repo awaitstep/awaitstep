@@ -269,7 +269,6 @@ function WorkflowEditorPage() {
               isSaving={saveMutation.isPending}
               onDeploy={handleDeploy}
               onTest={() => runSimulation()}
-              onEditEntry={() => setShowEntryEditor(true)}
               onTrigger={() => setShowTrigger(true)}
               onDelete={() => setConfirmAction('delete')}
               onTakedown={() => setConfirmAction('takedown')}
@@ -294,7 +293,7 @@ function WorkflowEditorPage() {
 
               <SimulationPanel />
 
-              <CanvasSidePanels showCode={showCode} LazyCodePreview={LazyCodePreview} />
+              <CanvasSidePanels showCode={showCode} LazyCodePreview={LazyCodePreview} onEditEntry={() => setShowEntryEditor(true)} />
             </div>
           </div>
           <EditorDialogs

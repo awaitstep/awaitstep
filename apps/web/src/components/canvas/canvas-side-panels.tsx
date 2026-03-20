@@ -6,10 +6,11 @@ import { NodeConfigPanel } from './node-config-panel'
 
 interface CanvasSidePanelsProps {
   showCode: boolean
-  LazyCodePreview: React.LazyExoticComponent<React.ComponentType>
+  LazyCodePreview: React.LazyExoticComponent<React.ComponentType<{ onEditEntry?: () => void }>>
+  onEditEntry?: () => void
 }
 
-export function CanvasSidePanels({ showCode, LazyCodePreview }: CanvasSidePanelsProps) {
+export function CanvasSidePanels({ showCode, LazyCodePreview, onEditEntry }: CanvasSidePanelsProps) {
   const showSettings = useWorkflowStore((s) => s.showSettings)
   const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId)
 
@@ -30,7 +31,7 @@ export function CanvasSidePanels({ showCode, LazyCodePreview }: CanvasSidePanels
       {showCode && (
         <aside className="h-full w-[380px] border-l border-border bg-card shadow-lg">
           <Suspense fallback={<div className="flex h-full items-center justify-center"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground/40" /></div>}>
-            <LazyCodePreview />
+            <LazyCodePreview onEditEntry={onEditEntry} />
           </Suspense>
         </aside>
       )}
