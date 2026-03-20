@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { CloudflareAPI, mapCFStatus } from '@awaitstep/provider-cloudflare'
+import { CloudflareAPI, mapCFStatus, sanitizedWorkflowName } from '@awaitstep/provider-cloudflare'
 import type { AppEnv } from '../types.js'
 import { createLogger } from '../lib/logger.js'
 
@@ -35,7 +35,7 @@ runs.get('/:workflowId/runs/:runId', async (c) => {
       if (connection && connection.userId === userId) {
         const creds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
         const cfApi = new CloudflareAPI(creds)
-        const status = await cfApi.getInstanceStatus(workflow.name, run.instanceId)
+        const status = await cfApi.getInstanceStatus(sanitizedWorkflowName(workflow.name), run.instanceId)
         const mapped = mapCFStatus(status.status)
 
         const updates: { status?: string; output?: string; error?: string; updatedAt?: string } = {}
@@ -76,7 +76,7 @@ runs.post('/:workflowId/runs/:runId/pause', async (c) => {
 
   const pauseCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
   const cfApi = new CloudflareAPI(pauseCreds)
-  await cfApi.pauseInstance(workflow.name, run.instanceId)
+  await cfApi.pauseInstance(sanitizedWorkflowName(workflow.name), run.instanceId)
   await db.updateRun(run.id, { status: 'paused' })
   return c.json({ ok: true })
 })
@@ -96,7 +96,7 @@ runs.post('/:workflowId/runs/:runId/resume', async (c) => {
 
   const resumeCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
   const cfApi = new CloudflareAPI(resumeCreds)
-  await cfApi.resumeInstance(workflow.name, run.instanceId)
+  await cfApi.resumeInstance(sanitizedWorkflowName(workflow.name), run.instanceId)
   await db.updateRun(run.id, { status: 'running' })
   return c.json({ ok: true })
 })
@@ -116,7 +116,7 @@ runs.post('/:workflowId/runs/:runId/terminate', async (c) => {
 
   const terminateCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
   const cfApi = new CloudflareAPI(terminateCreds)
-  await cfApi.terminateInstance(workflow.name, run.instanceId)
+  await cfApi.terminateInstance(sanitizedWorkflowName(workflow.name), run.instanceId)
   await db.updateRun(run.id, { status: 'terminated' })
   return c.json({ ok: true })
 })
