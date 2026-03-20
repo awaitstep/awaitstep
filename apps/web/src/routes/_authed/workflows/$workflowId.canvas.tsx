@@ -51,6 +51,7 @@ function WorkflowEditorPage() {
   const [showTemplatePicker, setShowTemplatePicker] = useState(template)
   const [deployOpen, setDeployOpen] = useState(false)
   const [showTrigger, setShowTrigger] = useState(false)
+  const [showEntryEditor, setShowEntryEditor] = useState(false)
   const [confirmAction, setConfirmAction] = useState<'delete' | 'takedown' | 'switch-template' | null>(null)
 
   const nodeRegistry = useNodeRegistry()
@@ -268,6 +269,7 @@ function WorkflowEditorPage() {
               isSaving={saveMutation.isPending}
               onDeploy={handleDeploy}
               onTest={() => runSimulation()}
+              onEditEntry={() => setShowEntryEditor(true)}
               onTrigger={() => setShowTrigger(true)}
               onDelete={() => setConfirmAction('delete')}
               onTakedown={() => setConfirmAction('takedown')}
@@ -308,6 +310,8 @@ function WorkflowEditorPage() {
             onBlockerReset={reset}
             showTrigger={showTrigger}
             onCloseTrigger={() => setShowTrigger(false)}
+            showEntryEditor={showEntryEditor}
+            onCloseEntryEditor={() => setShowEntryEditor(false)}
             deployOpen={deployOpen}
             onCloseDeploy={() => setDeployOpen(false)}
             workflowId={workflowId}

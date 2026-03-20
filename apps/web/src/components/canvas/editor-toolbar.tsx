@@ -14,6 +14,7 @@ import {
   Trash2,
   CloudOff,
   LayoutTemplate,
+  Zap,
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { cn } from '../../lib/utils'
@@ -36,6 +37,7 @@ export interface EditorToolbarProps {
   isSaving: boolean
   onDeploy: () => void
   onTest: () => void
+  onEditEntry: () => void
   onTrigger: () => void
   onDelete: () => void
   onTakedown: () => void
@@ -60,6 +62,7 @@ export function EditorToolbar({
   isSaving,
   onDeploy,
   onTest,
+  onEditEntry,
   onTrigger,
   onDelete,
   onTakedown,
@@ -148,6 +151,15 @@ export function EditorToolbar({
         >
           {showCode ? <PanelRightClose className="h-3.5 w-3.5" /> : <Code2 className="h-3.5 w-3.5" />}
           <span className="text-xs">Code</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 gap-1.5 px-2.5 text-muted-foreground hover:text-foreground/70"
+          onClick={onEditEntry}
+        >
+          <Zap className="h-3.5 w-3.5" />
+          <span className="text-xs">Entry</span>
         </Button>
         {isNew && (
           <Button

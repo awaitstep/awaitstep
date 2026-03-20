@@ -1,5 +1,4 @@
-import { lazy, Suspense } from 'react'
-import { X, Plus, Trash2, Link2, RotateCcw } from 'lucide-react'
+import { X, Plus, Trash2, Link2 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
@@ -7,8 +6,6 @@ import { Select } from '../ui/select'
 import { Separator } from '../ui/separator'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import type { InputParam, EnvBinding, WorkflowEnvVar } from '../../stores/workflow-store'
-
-const LazyTriggerCodeEditor = lazy(() => import('./trigger-code-editor').then((m) => ({ default: m.TriggerCodeEditor })))
 
 export function WorkflowSettings() {
   const metadata = useWorkflowStore((s) => s.metadata)
@@ -19,8 +16,6 @@ export function WorkflowSettings() {
   const setInputParams = useWorkflowStore((s) => s.setInputParams)
   const setEnvBindings = useWorkflowStore((s) => s.setEnvBindings)
   const setWorkflowEnvVars = useWorkflowStore((s) => s.setWorkflowEnvVars)
-  const triggerCode = useWorkflowStore((s) => s.triggerCode)
-  const setTriggerCode = useWorkflowStore((s) => s.setTriggerCode)
   const setShowSettings = useWorkflowStore((s) => s.setShowSettings)
 
   const addParam = () => {
@@ -66,8 +61,6 @@ export function WorkflowSettings() {
     }
   }
 
-  const isCustom = triggerCode && triggerCode !== ''
-
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
@@ -86,31 +79,6 @@ export function WorkflowSettings() {
           <Field label="Description">
             <Input value={metadata.description ?? ''} onChange={(e) => setMetadata({ description: e.target.value || undefined })} placeholder="Optional description" />
           </Field>
-
-          <Separator />
-
-          {/* Trigger Code */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label className="text-[11px] text-muted-foreground">Trigger Code</Label>
-              {isCustom && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 gap-1 px-2 text-[10px] text-muted-foreground"
-                  onClick={() => setTriggerCode('')}
-                >
-                  <RotateCcw className="h-3 w-3" /> Reset
-                </Button>
-              )}
-            </div>
-            <p className="text-[10px] text-muted-foreground/40 mb-2">
-              Code inside the <code className="font-mono">fetch()</code> handler. Has access to <code className="font-mono">request</code>, <code className="font-mono">env</code>, and <code className="font-mono">ctx</code>.
-            </p>
-            <Suspense fallback={<div className="h-[200px] rounded-lg border border-input bg-[oklch(0.12_0_0)]" />}>
-              <LazyTriggerCodeEditor />
-            </Suspense>
-          </div>
 
           <Separator />
 

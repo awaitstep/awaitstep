@@ -2,7 +2,7 @@ import { CodeEditor } from '../ui/code-editor'
 import { DEFAULT_TRIGGER_CODE } from '@awaitstep/provider-cloudflare/codegen'
 import { useWorkflowStore } from '../../stores/workflow-store'
 
-export function TriggerCodeEditor() {
+export function TriggerCodeEditor({ height = '200px' }: { height?: string }) {
   const triggerCode = useWorkflowStore((s) => s.triggerCode)
   const setTriggerCode = useWorkflowStore((s) => s.setTriggerCode)
 
@@ -12,7 +12,7 @@ export function TriggerCodeEditor() {
       onChange={setTriggerCode}
       debounceMs={500}
       language="typescript"
-      height="200px"
+      height={height}
     />
   )
 }

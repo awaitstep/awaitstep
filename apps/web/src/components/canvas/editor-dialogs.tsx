@@ -1,6 +1,7 @@
 import { toast } from 'sonner'
 import { ConfirmDialog } from '../ui/confirm-dialog'
 import { TriggerDialog } from './trigger-dialog'
+import { TriggerCodeDialog } from './trigger-code-dialog'
 import { DeployDialog } from './deploy-dialog'
 import { api } from '../../lib/api-client'
 
@@ -17,6 +18,8 @@ export interface EditorDialogsProps {
   onBlockerReset: (() => void) | undefined
   showTrigger: boolean
   onCloseTrigger: () => void
+  showEntryEditor: boolean
+  onCloseEntryEditor: () => void
   deployOpen: boolean
   onCloseDeploy: () => void
   workflowId: string
@@ -36,6 +39,8 @@ export function EditorDialogs({
   onBlockerReset,
   showTrigger,
   onCloseTrigger,
+  showEntryEditor,
+  onCloseEntryEditor,
   deployOpen,
   onCloseDeploy,
   workflowId,
@@ -99,6 +104,10 @@ export function EditorDialogs({
         onClose={onCloseTrigger}
         workflowId={workflowId}
         deploymentId={activeDeploymentServiceName}
+      />
+      <TriggerCodeDialog
+        open={showEntryEditor}
+        onClose={onCloseEntryEditor}
       />
       <DeployDialog
         open={deployOpen}
