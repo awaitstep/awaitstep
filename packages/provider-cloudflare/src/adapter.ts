@@ -95,13 +95,14 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
       compiled,
     }
 
-    const vars = extractVars(config)
+    const { vars, secrets } = extractVarsAndSecrets(config)
     const result = await deployWithWrangler(compiledArtifact, {
       workflowId,
       workflowName,
       accountId,
       apiToken,
       vars,
+      secrets,
     })
 
     if (!result.success) {
@@ -154,13 +155,14 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
 
     report('CREATING_WORKER', 'Creating Cloudflare Worker...', 55)
     report('DEPLOYING', 'Deploying to Cloudflare...', 65)
-    const vars = extractVars(config)
+    const { vars, secrets } = extractVarsAndSecrets(config)
     const result = await deployWithWrangler(compiledArtifact, {
       workflowId,
       workflowName,
       accountId,
       apiToken,
       vars,
+      secrets,
     })
 
     if (!result.success) {
@@ -208,15 +210,23 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
   }
 }
 
-function extractVars(config: ProviderConfig): Record<string, string> | undefined {
-  if (!config.envVars) return undefined
+function extractVarsAndSecrets(config: ProviderConfig): { vars?: Record<string, string>; secrets?: Record<string, string> } {
+  if (!config.envVars) return {}
   const vars: Record<string, string> = {}
+  const secrets: Record<string, string> = {}
   for (const [name, entry] of Object.entries(config.envVars)) {
     if (entry.value !== undefined) {
-      vars[name] = entry.value
+      if (entry.isSecret) {
+        secrets[name] = entry.value
+      } else {
+        vars[name] = entry.value
+      }
     }
   }
-  return Object.keys(vars).length > 0 ? vars : undefined
+  return {
+    vars: Object.keys(vars).length > 0 ? vars : undefined,
+    secrets: Object.keys(secrets).length > 0 ? secrets : undefined,
+  }
 }
 
 function extractCredentials(config: ProviderConfig): {

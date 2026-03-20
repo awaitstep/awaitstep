@@ -19,6 +19,7 @@ export interface DeployOptions {
   apiToken: string
   compatibilityDate?: string
   vars?: Record<string, string>
+  secrets?: Record<string, string>
 }
 
 export interface WranglerDeployResult {
@@ -53,6 +54,13 @@ export async function deployWithWrangler(
       vars: options.vars,
     })
     await writeFile(join(deployDir, 'wrangler.json'), wranglerConfig, 'utf-8')
+
+    // Write .env file for wrangler to pick up — includes both plain vars and secrets
+    const allEnv: Record<string, string> = { ...options.vars, ...options.secrets }
+    if (Object.keys(allEnv).length > 0) {
+      const envLines = Object.entries(allEnv).map(([k, v]) => `${k}=${v}`)
+      await writeFile(join(deployDir, '.env'), envLines.join('\n') + '\n', 'utf-8')
+    }
 
     const wranglerBin = resolveWranglerBin()
 
