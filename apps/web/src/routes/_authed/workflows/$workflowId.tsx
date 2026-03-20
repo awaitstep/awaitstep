@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, Link, useMatches, useParams } from '@tanstack/react-router'
+import { createFileRoute, Outlet, Link, useMatches, useParams, useRouter } from '@tanstack/react-router'
 import { ArrowLeft } from 'lucide-react'
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId')({
@@ -8,6 +8,7 @@ export const Route = createFileRoute('/_authed/workflows/$workflowId')({
 function WorkflowLayout() {
   const { workflowId } = useParams({ from: '/_authed/workflows/$workflowId' })
   const matches = useMatches()
+  const router = useRouter()
 
   const isFullScreen = matches.some(
     (m) => m.routeId === '/_authed/workflows/$workflowId/canvas',
@@ -39,6 +40,12 @@ function WorkflowLayout() {
 
   return (
     <div>
+      <div className="mx-auto max-w-screen-md">
+        <button onClick={() => router.history.back()} className="mb-4 mt-6 inline-flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground">
+          <ArrowLeft className="h-3 w-3" />
+          Back
+        </button>
+      </div>
       <nav className="flex gap-0 border-b border-border">
         {tabs.map((tab) => (
           <Link
@@ -59,10 +66,6 @@ function WorkflowLayout() {
         ))}
       </nav>
       <div className="mx-auto max-w-screen-md pt-6">
-        <Link to="/dashboard" className="mb-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground">
-          <ArrowLeft className="h-3 w-3" />
-          Back
-        </Link>
         <Outlet />
       </div>
     </div>
