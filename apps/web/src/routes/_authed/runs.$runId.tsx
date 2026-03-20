@@ -1,9 +1,9 @@
-import { createFileRoute, useParams, useSearch, Link, useRouter } from '@tanstack/react-router'
+import { createFileRoute, useParams, useSearch, Link } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useRef, useEffect } from 'react'
 import {
   Loader2, AlertCircle, CheckCircle2, Pause, Play, Square,
-  ChevronDown, ChevronRight, Copy, Check, ArrowLeft,
+  ChevronDown, ChevronRight, Copy, Check,
 } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { RunStatusBadge } from '../../components/monitoring/run-status-badge'
@@ -41,7 +41,6 @@ function duration(start: string, end: string): string {
 function RunDetailPage() {
   const { runId } = useParams({ from: '/_authed/runs/$runId' })
   const { workflowId: searchWorkflowId } = useSearch({ from: '/_authed/runs/$runId' })
-  const router = useRouter()
   const queryClient = useQueryClient()
 
   // Look up workflowId from search param or from cached runs list
@@ -123,11 +122,14 @@ function RunDetailPage() {
 
   return (
     <div>
-      {/* Back + Header */}
-      <button onClick={() => router.history.back()} className="mb-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground">
-        <ArrowLeft className="h-3 w-3" />
-        Back
-      </button>
+      {/* Breadcrumb */}
+      <div className="mb-4 flex items-center gap-1 text-xs text-muted-foreground/60">
+        <Link to="/dashboard" className="hover:text-muted-foreground">Dashboard</Link>
+        <ChevronRight className="h-3 w-3" />
+        <Link to="/runs" className="hover:text-muted-foreground">Runs</Link>
+        <ChevronRight className="h-3 w-3" />
+        <span className="max-w-[120px] truncate text-muted-foreground font-mono">{runId}</span>
+      </div>
       <div className="flex items-center justify-between border-b border-border pb-4">
         <div className="flex items-center gap-3">
           <RunStatusBadge status={run.status} />
