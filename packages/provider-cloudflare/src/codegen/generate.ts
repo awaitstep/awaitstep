@@ -116,7 +116,7 @@ export function generateWorkflow(ir: WorkflowIR, templateResolverOrOptions?: Tem
     bodyParts.push(generateNodeCode(node, resolvedIR, templateResolver))
   }
 
-  const bodyLines = bodyParts.join('\n\n')
+  const bodyLines = bodyParts.join('\n\n').replace(/\benv\./g, 'this.env.')
   clearVarNameMap()
 
   const allEnvNames = new Set(envVarNames ?? [])
