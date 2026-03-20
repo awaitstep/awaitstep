@@ -41,7 +41,7 @@ async function start() {
   const baseURL = process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3001'
   const auth = createAuth({
     baseURL,
-    secret: authSecret ?? 'dev-secret-do-not-use-in-production',
+    secret: authSecret ?? crypto.randomUUID(),
     database: sqlite,
     trustedOrigins: [
       baseURL,

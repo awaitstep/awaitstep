@@ -27,9 +27,14 @@ const deploySchema = z.object({
   versionId: z.string().min(1).optional(),
 })
 
+const MAX_TRIGGER_PARAMS_BYTES = 102_400 // 100 KB
+
 const triggerSchema = z.object({
   connectionId: z.string().min(1),
-  params: z.unknown().optional(),
+  params: z.unknown().optional().refine(
+    (val) => val === undefined || JSON.stringify(val).length <= MAX_TRIGGER_PARAMS_BYTES,
+    { message: `Trigger params must be under ${MAX_TRIGGER_PARAMS_BYTES / 1024} KB` },
+  ),
 })
 
 function createAdapter(templateResolver?: TemplateResolver) {

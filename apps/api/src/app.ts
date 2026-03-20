@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { csrf } from 'hono/csrf'
 import { bodyLimit } from 'hono/body-limit'
+import { secureHeaders } from 'hono/secure-headers'
 import { logger as honoLogger } from 'hono/logger'
 import { requestId } from 'hono/request-id'
 import type { AppEnv } from './types.js'
@@ -38,6 +39,9 @@ export function createApp(deps: AppDeps) {
   // Request logger — logs method, path, and status for every request
   app.use('*', honoLogger())
 
+  // Security headers — X-Content-Type-Options, X-Frame-Options, HSTS, etc.
+  app.use('*', secureHeaders())
+
   // Health check — no auth, no CORS
   app.get('/health', (c) => c.json({ status: 'ok' }))
 
@@ -59,6 +63,9 @@ export function createApp(deps: AppDeps) {
   // Skips when: (a) using bearer token auth, or (b) no cookie header (no session to abuse)
   const csrfOrigin = deps.corsOrigin ?? 'http://localhost:3000'
   if (csrfOrigin === '*') {
+    if (!deps.isDev) {
+      throw new Error('Wildcard CORS origin is not allowed in production (credentials: true). Set CORS_ORIGIN to a specific origin.')
+    }
     log.warn('CSRF protection disabled — corsOrigin is set to wildcard')
   } else {
     const csrfMiddleware = csrf({ origin: csrfOrigin })

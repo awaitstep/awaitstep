@@ -64,6 +64,7 @@ export function createRouter(auth: Auth, selfHostedConnection?: SelfHostedConnec
   router.use('*', requireScope('read'))
 
   // Write operations require 'write' scope
+  router.post('/workflows/:workflowId/versions', requireScope('write'))
   router.post('/workflows', requireScope('write'))
   router.patch('/workflows/:id', requireScope('write'))
   router.delete('/workflows/:id', requireScope('write'))
