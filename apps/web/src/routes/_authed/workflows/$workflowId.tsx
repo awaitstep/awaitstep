@@ -42,7 +42,9 @@ function WorkflowLayout() {
       <div className="flex items-center gap-1 px-4 pt-4 text-xs text-muted-foreground/60">
         <Link to="/dashboard" className="hover:text-muted-foreground">Dashboard</Link>
         <ChevronRight className="h-3 w-3" />
-        <span className="text-muted-foreground">Workflows</span>
+        <Link to="/dashboard" className="hover:text-muted-foreground">Workflows</Link>
+        <ChevronRight className="h-3 w-3" />
+        <span className="text-muted-foreground font-mono">{workflowId.slice(0, 8)}</span>
       </div>
       <nav className="mt-3 flex gap-0 border-b border-border">
         {tabs.map((tab) => (
