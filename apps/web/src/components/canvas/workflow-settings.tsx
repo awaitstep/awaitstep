@@ -1,13 +1,15 @@
+import { lazy, Suspense } from 'react'
 import { X, Plus, Trash2, Link2, RotateCcw } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Select } from '../ui/select'
 import { Separator } from '../ui/separator'
-import { CodeEditor } from '../ui/code-editor'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import type { InputParam, EnvBinding, WorkflowEnvVar } from '../../stores/workflow-store'
 import { DEFAULT_TRIGGER_CODE } from '@awaitstep/provider-cloudflare/codegen'
+
+const CodeEditor = lazy(() => import('../ui/code-editor').then((m) => ({ default: m.CodeEditor })))
 
 export function WorkflowSettings() {
   const metadata = useWorkflowStore((s) => s.metadata)
@@ -104,13 +106,15 @@ export function WorkflowSettings() {
             <p className="text-[10px] text-muted-foreground/40 mb-2">
               Code inside the <code className="font-mono">fetch()</code> handler. Has access to <code className="font-mono">request</code>, <code className="font-mono">env</code>, and <code className="font-mono">ctx</code>.
             </p>
-            <CodeEditor
-              value={triggerCode || DEFAULT_TRIGGER_CODE}
-              onChange={setTriggerCode}
-              debounceMs={500}
-              language="typescript"
-              height="200px"
-            />
+            <Suspense fallback={<div className="h-[200px] rounded-lg border border-input bg-[oklch(0.12_0_0)]" />}>
+              <CodeEditor
+                value={triggerCode || DEFAULT_TRIGGER_CODE}
+                onChange={setTriggerCode}
+                debounceMs={500}
+                language="typescript"
+                height="200px"
+              />
+            </Suspense>
           </div>
 
           <Separator />
