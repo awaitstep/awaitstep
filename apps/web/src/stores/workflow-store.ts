@@ -13,7 +13,6 @@ import type { WorkflowNode, NodeType, WorkflowMetadata } from '@awaitstep/ir'
 import { validateWorkflowForPublish, type PublishValidationResult } from '../lib/validate-workflow'
 import type { NodeRegistry } from '@awaitstep/ir'
 import { simulateWorkflow, type SimulationResult } from '../lib/simulate-workflow'
-import { saveWorkflowLocally, loadWorkflowLocally, type PersistedWorkflow } from '../lib/local-persistence'
 import { customAlphabet } from 'nanoid'
 
 const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789_', 12)
@@ -22,7 +21,7 @@ const BUILTIN_FLOW_TYPES = new Set([
   'step', 'sleep', 'sleep_until', 'branch', 'parallel', 'http_request', 'wait_for_event',
 ])
 
-function toFlowType(irType: string): string {
+export function toFlowType(irType: string): string {
   return BUILTIN_FLOW_TYPES.has(irType) ? irType : 'custom'
 }
 
@@ -58,6 +57,7 @@ interface WorkflowState {
   inputParams: InputParam[]
   envBindings: EnvBinding[]
   workflowEnvVars: WorkflowEnvVar[]
+  dependencies: Record<string, string>
   triggerCode: string
   showSettings: boolean
   validationResult: PublishValidationResult | null
@@ -78,6 +78,7 @@ interface WorkflowState {
   setInputParams: (params: InputParam[]) => void
   setEnvBindings: (bindings: EnvBinding[]) => void
   setWorkflowEnvVars: (vars: WorkflowEnvVar[]) => void
+  setDependencies: (deps: Record<string, string>) => void
   setTriggerCode: (code: string) => void
   setShowSettings: (show: boolean) => void
   runValidation: (nodeRegistry?: NodeRegistry) => PublishValidationResult
@@ -86,7 +87,6 @@ interface WorkflowState {
   clearSimulation: () => void
   loadWorkflow: (metadata: WorkflowMetadata, nodes: FlowNode[], edges: Edge[]) => void
   setWorkflowId: (id: string | null) => void
-  loadFromLocal: (id: string) => boolean
   markClean: () => void
 }
 
@@ -128,6 +128,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   inputParams: [],
   envBindings: [],
   workflowEnvVars: [],
+  dependencies: {},
   triggerCode: '',
   showSettings: false,
   validationResult: null,
@@ -135,11 +136,23 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   isDirty: false,
 
   onNodesChange: (changes) => {
-    set({ nodes: applyNodeChanges(changes, get().nodes), isDirty: true })
+    const hasDirtyChange = changes.some((c) =>
+      c.type === 'add' || c.type === 'remove' || c.type === 'replace' ||
+      (c.type === 'position' && c.dragging),
+    )
+    const removedIds = new Set(changes.filter((c) => c.type === 'remove').map((c) => c.id))
+    const selectedNodeId = removedIds.has(get().selectedNodeId ?? '') ? null : undefined
+    set({
+      nodes: applyNodeChanges(changes, get().nodes),
+      ...(hasDirtyChange && { isDirty: true }),
+      ...(selectedNodeId === null && { selectedNodeId: null }),
+    })
   },
 
   onEdgesChange: (changes) => {
-    set({ edges: applyEdgeChanges(changes, get().edges), isDirty: true })
+    const dirtyTypes = new Set(['add', 'remove', 'replace'])
+    const hasDirtyChange = changes.some((c) => dirtyTypes.has(c.type))
+    set({ edges: applyEdgeChanges(changes, get().edges), ...(hasDirtyChange && { isDirty: true }) })
   },
 
   onConnect: (connection) => {
@@ -254,6 +267,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({ workflowEnvVars: vars, isDirty: true })
   },
 
+  setDependencies: (deps) => {
+    set({ dependencies: deps, isDirty: true })
+  },
+
   setTriggerCode: (code) => {
     set({ triggerCode: code, isDirty: true })
   },
@@ -293,54 +310,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({ workflowId: id })
   },
 
-  loadFromLocal: (id) => {
-    const data = loadWorkflowLocally(id)
-    if (!data) return false
-    set({
-      workflowId: id,
-      metadata: data.metadata,
-      nodes: data.nodes.map((n) => ({ ...n, type: toFlowType(n.data.irNode.type) })),
-      edges: data.edges,
-      inputParams: data.inputParams,
-      envBindings: data.envBindings,
-      isDirty: false,
-    })
-    return true
-  },
-
   markClean: () => {
     set({ isDirty: false })
   },
 }))
-
-// Auto-save to localStorage on state changes (debounced)
-let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
-
-useWorkflowStore.subscribe((state, prev) => {
-  if (!state.workflowId || state.workflowId === 'new') return
-
-  // Only save when data changes, not UI state
-  if (
-    state.nodes === prev.nodes &&
-    state.edges === prev.edges &&
-    state.metadata === prev.metadata &&
-    state.inputParams === prev.inputParams &&
-    state.envBindings === prev.envBindings
-  ) return
-
-  if (autoSaveTimer) clearTimeout(autoSaveTimer)
-  autoSaveTimer = setTimeout(() => {
-    const s = useWorkflowStore.getState()
-    if (!s.workflowId || s.workflowId === 'new') return
-    const data: PersistedWorkflow = {
-      metadata: s.metadata,
-      nodes: s.nodes,
-      edges: s.edges,
-      inputParams: s.inputParams,
-      envBindings: s.envBindings,
-      savedAt: new Date().toISOString(),
-    }
-    saveWorkflowLocally(s.workflowId, data)
-    autoSaveTimer = null
-  }, 1000)
-})

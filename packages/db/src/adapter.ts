@@ -16,7 +16,7 @@ export interface DatabaseAdapter {
   createWorkflow(data: { id: string; userId: string; name: string; description?: string }): Promise<Workflow>
   getWorkflowById(id: string): Promise<Workflow | null>
   listWorkflowsByUser(userId: string): Promise<Workflow[]>
-  updateWorkflow(id: string, data: { name?: string; description?: string; currentVersionId?: string | null; envVars?: string | null; triggerCode?: string | null }): Promise<Workflow>
+  updateWorkflow(id: string, data: { name?: string; description?: string; currentVersionId?: string | null; envVars?: string | null; triggerCode?: string | null; dependencies?: string | null }): Promise<Workflow>
   deleteWorkflow(id: string): Promise<void>
 
   // Workflow Versions
@@ -41,6 +41,7 @@ export interface DatabaseAdapter {
 
   // Deployments
   createDeployment(data: { id: string; workflowId: string; versionId: string; connectionId: string; serviceName: string; serviceUrl?: string; status: string; error?: string }): Promise<Deployment>
+  getActiveDeployment(workflowId: string): Promise<Deployment | null>
   listDeploymentsByWorkflow(workflowId: string): Promise<Deployment[]>
   listRecentDeploymentsByUser(userId: string, limit?: number): Promise<Deployment[]>
   deleteDeploymentsByWorkflow(workflowId: string): Promise<void>

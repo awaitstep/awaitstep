@@ -35,7 +35,7 @@ type Deployment = {
   id: string
   workflowId: string
   versionId: string
-  connectionId: string
+  connectionId: string | null
   serviceName: string
   serviceUrl: string | null
   status: string
@@ -99,7 +99,7 @@ function DeploymentsPage() {
             </thead>
             <tbody>
               {deployments.map((d, i) => {
-                const conn = connectionMap.get(d.connectionId)
+                const conn = d.connectionId ? connectionMap.get(d.connectionId) : undefined
                 return (
                   <tr
                     key={d.id}
@@ -145,7 +145,7 @@ function DeploymentsPage() {
 
       <DeploymentSheet
         deployment={selectedDeployment}
-        connectionName={selectedDeployment ? connectionMap.get(selectedDeployment.connectionId)?.name : undefined}
+        connectionName={selectedDeployment?.connectionId ? connectionMap.get(selectedDeployment.connectionId)?.name : undefined}
         onClose={() => setSelectedDeployment(null)}
       />
     </div>

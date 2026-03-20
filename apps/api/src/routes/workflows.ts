@@ -17,11 +17,20 @@ const envVarSchema = z.object({
   isSecret: z.boolean().optional(),
 })
 
+const npmPackageName = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/
+const semverRange = /^(\*|latest|next|canary|[\^~]?\d+(\.\d+){0,2}(-[a-zA-Z0-9.]+)?(\s*\|\|\s*[\^~]?\d+(\.\d+){0,2}(-[a-zA-Z0-9.]+)?)*)$/
+
+const dependenciesSchema = z.record(
+  z.string().min(1).max(214).regex(npmPackageName, 'Invalid npm package name'),
+  z.string().min(1).max(100).regex(semverRange, 'Invalid version range (e.g. ^1.0.0, ~2.3, latest)'),
+).refine((deps) => Object.keys(deps).length <= 15, 'Maximum 15 dependencies')
+
 const updateSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   description: z.string().max(1000).optional(),
   envVars: z.array(envVarSchema).optional(),
   triggerCode: z.string().max(50_000).optional(),
+  dependencies: dependenciesSchema.optional(),
 })
 
 export const workflows = new Hono<AppEnv>()
@@ -35,6 +44,32 @@ workflows.get('/', async (c) => {
 
 workflows.get('/:id', async (c) => {
   return c.json(c.get('workflow'))
+})
+
+workflows.get('/:id/full', async (c) => {
+  const db = c.get('db')
+  const workflow = c.get('workflow')
+  if (!workflow) return c.json({ error: 'Not found' }, 404)
+
+  const versionId = c.req.query('version')
+
+  const [activeDeployment, versions] = await Promise.all([
+    db.getActiveDeployment(workflow.id),
+    db.listVersionsByWorkflow(workflow.id),
+  ])
+
+  let version: typeof versions[number] | null = versions[0] ?? null
+  if (versionId) {
+    const requested = await db.getVersionById(versionId)
+    version = requested?.workflowId === workflow.id ? requested : null
+  }
+
+  return c.json({
+    workflow,
+    version,
+    versions: versions.map(({ id, version, createdAt }) => ({ id, version, createdAt })),
+    activeDeployment,
+  })
 })
 
 workflows.post('/', zValidator('json', createSchema), async (c) => {
@@ -52,13 +87,16 @@ workflows.post('/', zValidator('json', createSchema), async (c) => {
 
 workflows.patch('/:id', zValidator('json', updateSchema), async (c) => {
   const db = c.get('db')
-  const { envVars, triggerCode, ...rest } = c.req.valid('json')
-  const dbData: { name?: string; description?: string; envVars?: string; triggerCode?: string } = { ...rest }
+  const { envVars, triggerCode, dependencies, ...rest } = c.req.valid('json')
+  const dbData: { name?: string; description?: string; envVars?: string; triggerCode?: string; dependencies?: string } = { ...rest }
   if (envVars !== undefined) {
     dbData.envVars = JSON.stringify(envVars)
   }
   if (triggerCode !== undefined) {
     dbData.triggerCode = triggerCode
+  }
+  if (dependencies !== undefined) {
+    dbData.dependencies = JSON.stringify(dependencies)
   }
   const updated = await db.updateWorkflow(c.req.param('id'), dbData)
   return c.json(updated)

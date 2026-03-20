@@ -24,6 +24,7 @@ export interface WorkflowSummary {
   description?: string
   envVars?: string | null
   triggerCode?: string | null
+  dependencies?: string | null
   currentVersionId?: string | null
   createdAt: string
   updatedAt: string
@@ -36,6 +37,44 @@ export interface WorkflowVersion {
   ir: string
   generatedCode: string
   createdAt: string
+}
+
+export interface VersionSummary {
+  id: string
+  version: number
+  createdAt: string
+}
+
+export interface DeploymentSummary {
+  id: string
+  workflowId: string
+  versionId: string
+  connectionId: string | null
+  serviceName: string
+  serviceUrl: string | null
+  status: string
+  error: string | null
+  createdAt: string
+}
+
+export interface WorkflowFull {
+  workflow: WorkflowSummary
+  version: WorkflowVersion | null
+  versions: VersionSummary[]
+  activeDeployment: DeploymentSummary | null
+}
+
+export interface RunSummary {
+  id: string
+  workflowId: string
+  versionId: string
+  connectionId: string | null
+  instanceId: string
+  status: string
+  output: string | null
+  error: string | null
+  createdAt: string
+  updatedAt: string
 }
 
 export interface ConnectionSummary {
@@ -64,11 +103,16 @@ export const api = {
     return request(`/workflows/${id}`)
   },
 
+  getWorkflowFull(id: string, versionId?: string): Promise<WorkflowFull> {
+    const params = versionId ? `?version=${versionId}` : ''
+    return request(`/workflows/${id}/full${params}`)
+  },
+
   createWorkflow(data: { name: string; description?: string }): Promise<WorkflowSummary> {
     return request('/workflows', { method: 'POST', body: JSON.stringify(data) })
   },
 
-  updateWorkflow(id: string, data: { name?: string; description?: string; envVars?: { name: string; value: string; isSecret?: boolean }[]; triggerCode?: string }): Promise<WorkflowSummary> {
+  updateWorkflow(id: string, data: { name?: string; description?: string; envVars?: { name: string; value: string; isSecret?: boolean }[]; triggerCode?: string; dependencies?: Record<string, string> }): Promise<WorkflowSummary> {
     return request(`/workflows/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
   },
 
@@ -107,15 +151,15 @@ export const api = {
     return request(`/connections/${id}`, { method: 'DELETE' })
   },
 
-  listDeployments(workflowId: string): Promise<{ id: string; workflowId: string; versionId: string; connectionId: string; serviceName: string; serviceUrl: string | null; status: string; error: string | null; createdAt: string }[]> {
+  listDeployments(workflowId: string): Promise<DeploymentSummary[]> {
     return request(`/workflows/${workflowId}/deployments`)
   },
 
-  listAllDeployments(): Promise<{ id: string; workflowId: string; versionId: string; connectionId: string; serviceName: string; serviceUrl: string | null; status: string; error: string | null; createdAt: string }[]> {
+  listAllDeployments(): Promise<DeploymentSummary[]> {
     return request('/deployments')
   },
 
-  listAllRuns(): Promise<{ id: string; workflowId: string; versionId: string; connectionId: string | null; instanceId: string; status: string; output: string | null; error: string | null; createdAt: string; updatedAt: string }[]> {
+  listAllRuns(): Promise<RunSummary[]> {
     return request('/runs')
   },
 

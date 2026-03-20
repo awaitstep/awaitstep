@@ -20,6 +20,7 @@ export interface DeployOptions {
   compatibilityDate?: string
   vars?: Record<string, string>
   secrets?: Record<string, string>
+  dependencies?: Record<string, string>
 }
 
 export interface WranglerDeployResult {
@@ -43,6 +44,7 @@ export async function deployWithWrangler(
     const scriptPath = join(deployDir, artifact.filename)
     await writeFile(scriptPath, artifact.compiled ?? artifact.source, 'utf-8')
 
+    const hasDeps = options.dependencies && Object.keys(options.dependencies).length > 0
     const wranglerConfig = generateWranglerConfig({
       workerName: name,
       className,
@@ -50,8 +52,19 @@ export async function deployWithWrangler(
       compatibilityDate: options.compatibilityDate ?? PINNED_COMPATIBILITY_DATE,
       main: `./${artifact.filename}`,
       vars: options.vars,
+      nodeCompat: !!hasDeps,
     })
     await writeFile(join(deployDir, 'wrangler.json'), wranglerConfig, 'utf-8')
+
+    // Install npm dependencies if any
+    if (options.dependencies && Object.keys(options.dependencies).length > 0) {
+      const pkg = { name: 'awaitstep-worker', private: true, dependencies: options.dependencies }
+      await writeFile(join(deployDir, 'package.json'), JSON.stringify(pkg, null, 2), 'utf-8')
+      await execFileAsync('npm', ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], {
+        cwd: deployDir,
+        timeout: 60_000,
+      })
+    }
 
     const wranglerBin = resolveWranglerBin()
     const wranglerEnv = {

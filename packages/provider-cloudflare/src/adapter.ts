@@ -16,6 +16,20 @@ import { deployWithWrangler, deleteWorker } from './deploy.js'
 import { sanitizedWorkflowName } from './naming.js'
 import { CloudflareAPI } from './api.js'
 
+interface CloudflareOptions {
+  workflowId: string
+  workflowName: string
+  dependencies?: Record<string, string>
+}
+
+function extractOptions(config: ProviderConfig): CloudflareOptions | null {
+  const workflowId = config.options?.['workflowId'] as string | undefined
+  const workflowName = config.options?.['workflowName'] as string | undefined
+  if (!workflowId || !workflowName) return null
+  const dependencies = config.options?.['dependencies'] as Record<string, string> | undefined
+  return { workflowId, workflowName, dependencies }
+}
+
 export type DeployStage =
   | 'INITIALIZING'
   | 'GENERATING_CODE'
@@ -76,52 +90,18 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
   }
 
   async deploy(artifact: GeneratedArtifact, config: ProviderConfig): Promise<DeployResult> {
-    const { accountId, apiToken } = extractCredentials(config)
-    const workflowId = config.options?.['workflowId'] as string | undefined
-    const workflowName = config.options?.['workflowName'] as string | undefined
-
-    if (!workflowId || !workflowName) {
-      return {
-        success: false,
-        deploymentId: '',
-        error: 'workflowId and workflowName are required in config.options',
-      }
-    }
-
-    const compiled = await transpileToJS(artifact.source)
-    const compiledArtifact: GeneratedArtifact = {
-      filename: 'worker.js',
-      source: artifact.source,
-      compiled,
-    }
-
-    const { vars, secrets } = extractVarsAndSecrets(config)
-    const result = await deployWithWrangler(compiledArtifact, {
-      workflowId,
-      workflowName,
-      accountId,
-      apiToken,
-      vars,
-      secrets,
-    })
-
-    if (!result.success) {
-      return {
-        success: false,
-        deploymentId: '',
-        error: result.error ?? 'Deploy failed',
-      }
-    }
-
-    return {
-      success: true,
-      deploymentId: result.workerName,
-      url: result.workerUrl,
-      dashboardUrl: `https://dash.cloudflare.com/${accountId}/workers/services/view/${result.workerName}`,
-    }
+    return this._doDeploy(artifact, config)
   }
 
   async deployWithProgress(
+    artifact: GeneratedArtifact,
+    config: ProviderConfig,
+    onProgress?: OnDeployProgress,
+  ): Promise<DeployResult> {
+    return this._doDeploy(artifact, config, onProgress)
+  }
+
+  private async _doDeploy(
     artifact: GeneratedArtifact,
     config: ProviderConfig,
     onProgress?: OnDeployProgress,
@@ -133,12 +113,11 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
     report('INITIALIZING', 'Preparing deployment...', 5)
 
     const { accountId, apiToken } = extractCredentials(config)
-    const workflowId = config.options?.['workflowId'] as string | undefined
-    const workflowName = config.options?.['workflowName'] as string | undefined
+    const opts = extractOptions(config)
 
-    if (!workflowId || !workflowName) {
+    if (!opts) {
       report('FAILED', 'Missing workflowId or workflowName', 0)
-      return { success: false, deploymentId: '', error: 'workflowId and workflowName are required' }
+      return { success: false, deploymentId: '', error: 'workflowId and workflowName are required in config.options' }
     }
 
     report('GENERATING_CODE', 'Transpiling TypeScript...', 15)
@@ -157,12 +136,13 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
     report('DEPLOYING', 'Deploying to Cloudflare...', 65)
     const { vars, secrets } = extractVarsAndSecrets(config)
     const result = await deployWithWrangler(compiledArtifact, {
-      workflowId,
-      workflowName,
+      workflowId: opts.workflowId,
+      workflowName: opts.workflowName,
       accountId,
       apiToken,
       vars,
       secrets,
+      dependencies: opts.dependencies,
     })
 
     if (!result.success) {
@@ -173,7 +153,12 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
     report('WORKER_DEPLOYED', 'Worker deployed', 80)
     report('UPDATING_WORKFLOW', 'Updating workflow configuration...', 90)
     report('COMPLETED', 'Deployment successful', 100)
-    return { success: true, deploymentId: result.workerName, url: result.workerUrl, dashboardUrl: `https://dash.cloudflare.com/${accountId}/workers/services/view/${result.workerName}` }
+    return {
+      success: true,
+      deploymentId: result.workerName,
+      url: result.workerUrl,
+      dashboardUrl: `https://dash.cloudflare.com/${accountId}/workers/services/view/${result.workerName}`,
+    }
   }
 
   async trigger(

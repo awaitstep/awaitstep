@@ -26,6 +26,22 @@ if (instanceId) {
 
 return new Response(null, { status: 200 });`
 
+export function extractImports(code: string): { imports: string[]; body: string } {
+  const lines = code.split('\n')
+  const imports: string[] = []
+  const bodyLines: string[] = []
+
+  for (const line of lines) {
+    if (/^\s*import\s+/.test(line) && /from\s+['"]/.test(line)) {
+      imports.push(line.trim())
+    } else {
+      bodyLines.push(line)
+    }
+  }
+
+  return { imports, body: bodyLines.join('\n') }
+}
+
 export function generateNodeCode(node: WorkflowNode, ir: WorkflowIR, templateResolver?: TemplateResolver): string {
   switch (node.type) {
     case 'step':
@@ -116,7 +132,15 @@ export function generateWorkflow(ir: WorkflowIR, templateResolverOrOptions?: Tem
     bodyParts.push(generateNodeCode(node, resolvedIR, templateResolver))
   }
 
-  const bodyLines = bodyParts.join('\n\n').replace(/\benv\./g, 'this.env.')
+  // Extract and hoist imports from generated node code
+  const collectedImports: string[] = []
+  const strippedParts = bodyParts.map((part) => {
+    const { imports, body } = extractImports(part)
+    collectedImports.push(...imports)
+    return body
+  })
+
+  const bodyLines = strippedParts.join('\n\n').replace(/\benv\./g, 'this.env.')
   clearVarNameMap()
 
   const allEnvNames = new Set(envVarNames ?? [])
@@ -136,9 +160,14 @@ export function generateWorkflow(ir: WorkflowIR, templateResolverOrOptions?: Tem
     envFields.push(`  ${name}: string;`)
   }
 
-  const fetchBody = triggerCode ?? DEFAULT_TRIGGER_CODE
+  const rawTriggerCode = triggerCode ?? DEFAULT_TRIGGER_CODE
+  const { imports: triggerImports, body: fetchBody } = extractImports(rawTriggerCode)
+  collectedImports.push(...triggerImports)
 
-  return `import { WorkflowEntrypoint } from "cloudflare:workers";
+  const uniqueImports = [...new Set(collectedImports)]
+  const importBlock = uniqueImports.length > 0 ? '\n' + uniqueImports.join('\n') : ''
+
+  return `import { WorkflowEntrypoint } from "cloudflare:workers";${importBlock}
 
 interface Env {
 ${envFields.join('\n')}

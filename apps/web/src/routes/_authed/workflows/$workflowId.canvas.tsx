@@ -7,7 +7,8 @@ import { Loader2 } from 'lucide-react'
 import { NodePalette } from '../../../components/canvas/node-palette'
 import { TemplatePicker } from '../../../components/canvas/template-picker'
 import { ClientOnly } from '../../../components/canvas/client-only'
-import { useWorkflowStore } from '../../../stores/workflow-store'
+import { useWorkflowStore, toFlowType } from '../../../stores/workflow-store'
+import type { WorkflowNode } from '@awaitstep/ir'
 import { SimulationPanel } from '../../../components/canvas/simulation-panel'
 import { NodeRegistryProvider, useNodeRegistry } from '../../../contexts/node-registry-context'
 import { validateWorkflowForPublish } from '../../../lib/validate-workflow'
@@ -25,8 +26,8 @@ const LazyCanvas = lazy(() =>
   import('../../../components/canvas/workflow-canvas').then((m) => ({ default: m.WorkflowCanvas })),
 )
 
-const LazyCodePreview = lazy(() =>
-  import('../../../components/canvas/code-preview').then((m) => ({ default: m.CodePreview })),
+const LazyEditorPanel = lazy(() =>
+  import('../../../components/canvas/editor-panel').then((m) => ({ default: m.EditorPanel })),
 )
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId/canvas')({
@@ -47,11 +48,10 @@ function WorkflowEditorPageWrapper() {
 function WorkflowEditorPage() {
   const { workflowId } = useParams({ from: '/_authed/workflows/$workflowId/canvas' })
   const { template } = useSearch({ from: '/_authed/workflows/$workflowId/canvas' })
-  const [showCode, setShowCode] = useState(false)
+  const [showEditor, setShowEditor] = useState(false)
   const [showTemplatePicker, setShowTemplatePicker] = useState(template)
   const [deployOpen, setDeployOpen] = useState(false)
   const [showTrigger, setShowTrigger] = useState(false)
-  const [showEntryEditor, setShowEntryEditor] = useState(false)
   const [confirmAction, setConfirmAction] = useState<'delete' | 'takedown' | 'switch-template' | null>(null)
 
   const nodeRegistry = useNodeRegistry()
@@ -64,9 +64,6 @@ function WorkflowEditorPage() {
   const runSimulation = useWorkflowStore((s) => s.runSimulation)
   const isDirty = useWorkflowStore((s) => s.isDirty)
   const setWorkflowId = useWorkflowStore((s) => s.setWorkflowId)
-  const loadFromLocal = useWorkflowStore((s) => s.loadFromLocal)
-  const loadWorkflow = useWorkflowStore((s) => s.loadWorkflow)
-  const setMetadata = useWorkflowStore((s) => s.setMetadata)
   const markClean = useWorkflowStore((s) => s.markClean)
 
   const isNew = workflowId === 'new'
@@ -89,28 +86,25 @@ function WorkflowEditorPage() {
     return () => window.removeEventListener('beforeunload', handler)
   }, [shouldBlock])
 
-  // Load workflow from server when editing an existing workflow
-  const { data: serverWorkflow } = useQuery({
-    queryKey: ['workflow', workflowId],
-    queryFn: () => api.getWorkflow(workflowId),
+  // Load workflow + version + deployments in a single request
+  const { data: fullData, error: workflowError } = useQuery({
+    queryKey: ['workflow-full', workflowId],
+    queryFn: () => api.getWorkflowFull(workflowId),
     enabled: !isNew,
+    retry: false,
   })
 
-  const { data: deployments } = useQuery({
-    queryKey: ['deployments', workflowId],
-    queryFn: () => api.listDeployments(workflowId),
-    enabled: !isNew,
-  })
+  useEffect(() => {
+    if (workflowError) {
+      toast.error('Failed to load workflow')
+    }
+  }, [workflowError])
 
-  const hasActiveDeployment = deployments?.some((d) => d.status === 'success') ?? false
-  const activeDeployment = deployments?.find((d) => d.status === 'success')
+  const serverWorkflow = fullData?.workflow
+  const activeDeployment = fullData?.activeDeployment ?? null
+  const versions = fullData?.versions
 
-  const { data: versions } = useQuery({
-    queryKey: ['versions', workflowId],
-    queryFn: () => api.listVersions(workflowId),
-    enabled: !isNew,
-  })
-
+  const hasActiveDeployment = !!activeDeployment
   const currentVersion = versions?.[0]?.version ?? 0
   const deployedVersionId = activeDeployment?.versionId
   const deployedVersion = versions?.find((v) => v.id === deployedVersionId)
@@ -118,14 +112,16 @@ function WorkflowEditorPage() {
 
   // Initialize workflow data
   useEffect(() => {
-    // Reset non-canvas state that doesn't get overwritten by loadWorkflow/loadFromLocal
+    // Reset workflow-specific state
     useWorkflowStore.setState({
       inputParams: [],
       envBindings: [],
       workflowEnvVars: [],
+      dependencies: {},
       triggerCode: '',
       validationResult: null,
       simulationResult: null,
+      isDirty: false,
     })
 
     if (isNew) {
@@ -135,33 +131,56 @@ function WorkflowEditorPage() {
 
     setWorkflowId(workflowId)
 
-    // Always load env vars and trigger code from server (not persisted locally)
     if (serverWorkflow) {
+      // Hydrate all server data without triggering isDirty
+      const serverState: Record<string, unknown> = {
+        metadata: {
+          name: serverWorkflow.name,
+          description: serverWorkflow.description,
+          version: currentVersion,
+          createdAt: serverWorkflow.createdAt,
+          updatedAt: serverWorkflow.updatedAt,
+        },
+      }
+
       if (serverWorkflow.envVars) {
         try {
           const parsed = JSON.parse(serverWorkflow.envVars)
-          if (Array.isArray(parsed)) {
-            useWorkflowStore.setState({ workflowEnvVars: parsed })
-          }
+          if (Array.isArray(parsed)) serverState.workflowEnvVars = parsed
         } catch { /* ignore malformed */ }
       }
       if (serverWorkflow.triggerCode) {
-        useWorkflowStore.setState({ triggerCode: serverWorkflow.triggerCode })
+        serverState.triggerCode = serverWorkflow.triggerCode
       }
-    }
+      if (serverWorkflow.dependencies) {
+        try {
+          const parsed = JSON.parse(serverWorkflow.dependencies)
+          if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+            serverState.dependencies = parsed
+          }
+        } catch { /* ignore malformed */ }
+      }
 
-    // Try loading from localStorage first (may have unsaved changes)
-    if (loadFromLocal(workflowId)) return
+      // Load canvas nodes/edges from the version IR
+      const versionData = fullData?.version
+      if (versionData?.ir) {
+        try {
+          const ir = JSON.parse(versionData.ir) as { nodes?: WorkflowNode[]; edges?: { id: string; source: string; target: string; label?: string }[] }
+          if (ir.nodes && ir.edges) {
+            serverState.nodes = ir.nodes.map((irNode: WorkflowNode) => ({
+              id: irNode.id,
+              type: toFlowType(irNode.type),
+              position: irNode.position,
+              data: { irNode },
+            }))
+            serverState.edges = ir.edges
+          }
+        } catch { /* ignore malformed IR */ }
+      }
 
-    // Fall back to server data
-    if (serverWorkflow) {
-      setMetadata({
-        name: serverWorkflow.name,
-        description: serverWorkflow.description,
-      })
-      markClean()
+      useWorkflowStore.setState({ ...serverState, isDirty: false })
     }
-  }, [workflowId, isNew, serverWorkflow, setWorkflowId, loadFromLocal, setMetadata, loadWorkflow, markClean])
+  }, [workflowId, isNew, fullData, setWorkflowId])
 
   // Save to server
   const saveMutation = useMutation({
@@ -171,23 +190,23 @@ function WorkflowEditorPage() {
 
       const envVars = state.workflowEnvVars.length > 0 ? state.workflowEnvVars : undefined
       const triggerCode = state.triggerCode || undefined
+      const dependencies = Object.keys(state.dependencies).length > 0 ? state.dependencies : undefined
 
       if (isNew) {
         const created = await api.createWorkflow({ name: state.metadata.name, description: state.metadata.description })
-        if (envVars || triggerCode) await api.updateWorkflow(created.id, { envVars, triggerCode })
+        if (envVars || triggerCode || dependencies) await api.updateWorkflow(created.id, { envVars, triggerCode, dependencies })
         await api.createVersion(created.id, { ir })
         return created
       }
 
-      await api.updateWorkflow(workflowId, { name: state.metadata.name, description: state.metadata.description, envVars, triggerCode })
+      await api.updateWorkflow(workflowId, { name: state.metadata.name, description: state.metadata.description, envVars, triggerCode, dependencies })
       await api.createVersion(workflowId, { ir })
       return null
     },
     onSuccess: (created: WorkflowSummary | null) => {
       markClean()
       toast.success('Workflow saved')
-      queryClient.invalidateQueries({ queryKey: ['versions', workflowId] })
-      queryClient.invalidateQueries({ queryKey: ['workflow', workflowId] })
+      queryClient.invalidateQueries({ queryKey: ['workflow-full', workflowId] })
       if (created) {
         window.history.replaceState(null, '', `/workflows/${created.id}/canvas`)
         setWorkflowId(created.id)
@@ -250,8 +269,7 @@ function WorkflowEditorPage() {
     onSuccess: (result) => {
       if (result.success) {
         toast.success('Deployment taken down')
-        queryClient.invalidateQueries({ queryKey: ['workflow', workflowId] })
-        queryClient.invalidateQueries({ queryKey: ['deployments', workflowId] })
+        queryClient.invalidateQueries({ queryKey: ['workflow-full', workflowId] })
       } else {
         toast.error(result.error ?? 'Failed to take down deployment')
       }
@@ -292,8 +310,8 @@ function WorkflowEditorPage() {
               deployedVersion={deployedVersion?.version}
               showSettings={showSettings}
               onToggleSettings={() => setShowSettings(!showSettings)}
-              showCode={showCode}
-              onToggleCode={() => setShowCode(!showCode)}
+              showEditor={showEditor}
+              onToggleEditor={() => setShowEditor(!showEditor)}
               onSave={handleSave}
               isSaving={saveMutation.isPending}
               onDeploy={handleDeploy}
@@ -322,7 +340,7 @@ function WorkflowEditorPage() {
 
               <SimulationPanel />
 
-              <CanvasSidePanels showCode={showCode} LazyCodePreview={LazyCodePreview} onEditEntry={() => setShowEntryEditor(true)} />
+              <CanvasSidePanels showEditor={showEditor} LazyEditorPanel={LazyEditorPanel} />
             </div>
           </div>
           <EditorDialogs
@@ -338,8 +356,6 @@ function WorkflowEditorPage() {
             onBlockerReset={reset}
             showTrigger={showTrigger}
             onCloseTrigger={() => setShowTrigger(false)}
-            showEntryEditor={showEntryEditor}
-            onCloseEntryEditor={() => setShowEntryEditor(false)}
             deployOpen={deployOpen}
             onCloseDeploy={() => setDeployOpen(false)}
             workflowId={workflowId}

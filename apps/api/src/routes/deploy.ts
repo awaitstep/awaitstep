@@ -10,6 +10,18 @@ import type { DatabaseAdapter } from '@awaitstep/db'
 import type { AppEnv } from '../types.js'
 import type { AppNodeRegistry } from '../lib/node-registry.js'
 
+function parseDependencies(raw: string | null | undefined): Record<string, string> | undefined {
+  if (!raw) return undefined
+  try {
+    const parsed = JSON.parse(raw)
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined
+    if (Object.keys(parsed).length === 0) return undefined
+    return parsed as Record<string, string>
+  } catch {
+    return undefined
+  }
+}
+
 const deploySchema = z.object({
   connectionId: z.string().min(1),
   versionId: z.string().min(1).optional(),
@@ -112,12 +124,14 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
     return c.json({ error: envResult.error }, 400)
   }
 
+  const deps = parseDependencies(workflow.dependencies)
   const providerConfig: ProviderConfig = {
     provider: 'cloudflare-workflows',
     credentials: creds,
     options: {
       workflowId: workflow.id,
       workflowName: workflow.name,
+      ...(deps && { dependencies: deps }),
     },
     envVars: envResult.envVars,
   }
@@ -175,12 +189,14 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
     return c.json({ error: envResult.error }, 400)
   }
 
+  const streamDeps = parseDependencies(workflow.dependencies)
   const providerConfig: ProviderConfig = {
     provider: 'cloudflare-workflows',
     credentials: streamCreds,
     options: {
       workflowId: workflow.id,
       workflowName: workflow.name,
+      ...(streamDeps && { dependencies: streamDeps }),
     },
     envVars: envResult.envVars,
   }

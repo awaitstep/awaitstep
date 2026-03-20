@@ -17,6 +17,7 @@ export class WorkflowsAdapter {
       currentVersionId: null,
       envVars: null,
       triggerCode: null,
+      dependencies: null,
       createdAt: now,
       updatedAt: now,
     }

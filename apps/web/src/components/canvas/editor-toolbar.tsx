@@ -30,8 +30,8 @@ export interface EditorToolbarProps {
   deployedVersion: number | undefined
   showSettings: boolean
   onToggleSettings: () => void
-  showCode: boolean
-  onToggleCode: () => void
+  showEditor: boolean
+  onToggleEditor: () => void
   onSave: () => void
   isSaving: boolean
   onDeploy: () => void
@@ -54,8 +54,8 @@ export function EditorToolbar({
   deployedVersion,
   showSettings,
   onToggleSettings,
-  showCode,
-  onToggleCode,
+  showEditor,
+  onToggleEditor,
   onSave,
   isSaving,
   onDeploy,
@@ -140,14 +140,14 @@ export function EditorToolbar({
         <Button
           variant="ghost"
           size="sm"
-          onClick={onToggleCode}
+          onClick={onToggleEditor}
           className={cn(
             'h-8 gap-1.5 px-2.5',
-            showCode ? 'bg-muted/70 text-foreground' : 'text-muted-foreground hover:text-foreground/70',
+            showEditor ? 'bg-muted/70 text-foreground' : 'text-muted-foreground hover:text-foreground/70',
           )}
         >
-          {showCode ? <PanelRightClose className="h-3.5 w-3.5" /> : <Code2 className="h-3.5 w-3.5" />}
-          <span className="text-xs">Code</span>
+          {showEditor ? <PanelRightClose className="h-3.5 w-3.5" /> : <Code2 className="h-3.5 w-3.5" />}
+          <span className="text-xs">Editor</span>
         </Button>
         {isNew && (
           <Button

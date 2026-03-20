@@ -34,7 +34,10 @@ export function findEntryNodeId(nodes: { id: string }[], edges: { source: string
 }
 
 export function buildIRFromState(state: Pick<StoreState, 'metadata' | 'nodes' | 'edges'>) {
-  const irNodes = state.nodes.map((n) => n.data.irNode)
+  const irNodes = state.nodes.map((n) => ({
+    ...n.data.irNode,
+    position: n.position ?? n.data.irNode.position,
+  }))
   const irEdges = state.edges.map((e) => ({
     id: e.id,
     source: e.source,

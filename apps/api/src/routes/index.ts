@@ -26,6 +26,7 @@ export function createRouter(auth: Auth, selfHostedConnection?: SelfHostedConnec
 
   // Ownership — workflow routes
   router.use('/workflows/:id', requireWorkflowOwner)
+  router.use('/workflows/:id/full', requireWorkflowOwner)
   router.use('/workflows/:workflowId/versions', requireWorkflowOwner)
   router.use('/workflows/:workflowId/versions/*', requireWorkflowOwner)
   router.use('/workflows/:workflowId/deploy', requireWorkflowOwner)

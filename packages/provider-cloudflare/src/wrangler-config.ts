@@ -5,6 +5,7 @@ export interface WranglerWorkflowConfig {
   compatibilityDate: string
   main: string
   vars?: Record<string, string>
+  nodeCompat?: boolean
 }
 
 export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
@@ -19,6 +20,9 @@ export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
         class_name: config.className,
       },
     ],
+  }
+  if (config.nodeCompat) {
+    wranglerConfig.compatibility_flags = ['nodejs_compat']
   }
   if (config.vars && Object.keys(config.vars).length > 0) {
     wranglerConfig.vars = config.vars

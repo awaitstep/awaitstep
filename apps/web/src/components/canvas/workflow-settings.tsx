@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { X, Plus, Trash2, Link2 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -18,48 +19,50 @@ export function WorkflowSettings() {
   const setWorkflowEnvVars = useWorkflowStore((s) => s.setWorkflowEnvVars)
   const setShowSettings = useWorkflowStore((s) => s.setShowSettings)
 
-  const addParam = () => {
-    setInputParams([...inputParams, { name: '', type: 'string' }])
-  }
+  const addParam = useCallback(() => {
+    setInputParams([...useWorkflowStore.getState().inputParams, { name: '', type: 'string' }])
+  }, [setInputParams])
 
-  const updateParam = (index: number, data: Partial<InputParam>) => {
-    setInputParams(inputParams.map((p, i) => (i === index ? { ...p, ...data } : p)))
-  }
+  const updateParam = useCallback((index: number, data: Partial<InputParam>) => {
+    setInputParams(useWorkflowStore.getState().inputParams.map((p, i) => (i === index ? { ...p, ...data } : p)))
+  }, [setInputParams])
 
-  const removeParam = (index: number) => {
-    setInputParams(inputParams.filter((_, i) => i !== index))
-  }
+  const removeParam = useCallback((index: number) => {
+    setInputParams(useWorkflowStore.getState().inputParams.filter((_, i) => i !== index))
+  }, [setInputParams])
 
-  const addBinding = () => {
-    setEnvBindings([...envBindings, { name: '', type: 'kv' }])
-  }
+  const addBinding = useCallback(() => {
+    setEnvBindings([...useWorkflowStore.getState().envBindings, { name: '', type: 'kv' }])
+  }, [setEnvBindings])
 
-  const updateBinding = (index: number, data: Partial<EnvBinding>) => {
-    setEnvBindings(envBindings.map((b, i) => (i === index ? { ...b, ...data } : b)))
-  }
+  const updateBinding = useCallback((index: number, data: Partial<EnvBinding>) => {
+    setEnvBindings(useWorkflowStore.getState().envBindings.map((b, i) => (i === index ? { ...b, ...data } : b)))
+  }, [setEnvBindings])
 
-  const removeBinding = (index: number) => {
-    setEnvBindings(envBindings.filter((_, i) => i !== index))
-  }
+  const removeBinding = useCallback((index: number) => {
+    setEnvBindings(useWorkflowStore.getState().envBindings.filter((_, i) => i !== index))
+  }, [setEnvBindings])
 
-  const addEnvVar = () => {
-    setWorkflowEnvVars([...workflowEnvVars, { name: '', value: '' }])
-  }
+  const addEnvVar = useCallback(() => {
+    setWorkflowEnvVars([...useWorkflowStore.getState().workflowEnvVars, { name: '', value: '' }])
+  }, [setWorkflowEnvVars])
 
-  const updateEnvVar = (index: number, data: Partial<WorkflowEnvVar>) => {
-    setWorkflowEnvVars(workflowEnvVars.map((v, i) => (i === index ? { ...v, ...data } : v)))
-  }
+  const updateEnvVar = useCallback((index: number, data: Partial<WorkflowEnvVar>) => {
+    setWorkflowEnvVars(useWorkflowStore.getState().workflowEnvVars.map((v, i) => (i === index ? { ...v, ...data } : v)))
+  }, [setWorkflowEnvVars])
 
-  const removeEnvVar = (index: number) => {
-    setWorkflowEnvVars(workflowEnvVars.filter((_, i) => i !== index))
-  }
+  const removeEnvVar = useCallback((index: number) => {
+    setWorkflowEnvVars(useWorkflowStore.getState().workflowEnvVars.filter((_, i) => i !== index))
+  }, [setWorkflowEnvVars])
 
-  const linkToGlobal = (index: number) => {
-    const v = workflowEnvVars[index]
-    if (v.name) {
-      updateEnvVar(index, { value: `{{global.env.${v.name}}}` })
+  const linkToGlobal = useCallback((index: number) => {
+    const v = useWorkflowStore.getState().workflowEnvVars[index]
+    if (v?.name) {
+      setWorkflowEnvVars(useWorkflowStore.getState().workflowEnvVars.map((ev, i) =>
+        i === index ? { ...ev, value: `{{global.env.${v.name}}}` } : ev,
+      ))
     }
-  }
+  }, [setWorkflowEnvVars])
 
   return (
     <div className="flex h-full flex-col">

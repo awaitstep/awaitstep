@@ -52,7 +52,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   listWorkflowsByUser(userId: string): Promise<Workflow[]> {
     return this._workflows.listByUser(userId)
   }
-  updateWorkflow(id: string, data: { name?: string; description?: string; currentVersionId?: string | null; envVars?: string | null }): Promise<Workflow> {
+  updateWorkflow(id: string, data: { name?: string; description?: string; currentVersionId?: string | null; envVars?: string | null; triggerCode?: string | null; dependencies?: string | null }): Promise<Workflow> {
     return this._workflows.update(id, data)
   }
   deleteWorkflow(id: string): Promise<void> {
@@ -109,6 +109,10 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
 
   createDeployment(data: { id: string; workflowId: string; versionId: string; connectionId: string; serviceName: string; serviceUrl?: string; status: string; error?: string }): Promise<Deployment> {
     return this._deployments.create(data)
+  }
+  async getActiveDeployment(workflowId: string): Promise<Deployment | null> {
+    const all = await this._deployments.listByWorkflow(workflowId)
+    return all.find((d) => d.status === 'success') ?? null
   }
   listDeploymentsByWorkflow(workflowId: string): Promise<Deployment[]> {
     return this._deployments.listByWorkflow(workflowId)
