@@ -41,7 +41,7 @@ function buildIR(metadata: WorkflowIR['metadata'], nodes: { data: { irNode: Work
 }
 
 export function CodePreview() {
-  const { metadata, nodes, edges } = useWorkflowStore()
+  const { metadata, nodes, edges, triggerCode } = useWorkflowStore()
   const [mounted, setMounted] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('typescript')
   const [copied, setCopied] = useState(false)
@@ -75,11 +75,11 @@ export function CodePreview() {
     }
 
     try {
-      return generateWorkflow(ir, templateResolver)
+      return generateWorkflow(ir, { templateResolver, triggerCode: triggerCode || undefined })
     } catch (err) {
       return `// Error generating code:\n// ${err instanceof Error ? err.message : 'Unknown error'}`
     }
-  }, [ir, viewMode, templateResolver])
+  }, [ir, viewMode, templateResolver, triggerCode])
 
   const handleCopy = useCallback(async () => {
     await navigator.clipboard.writeText(displayCode)

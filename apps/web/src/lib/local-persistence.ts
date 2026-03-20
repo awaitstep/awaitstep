@@ -11,6 +11,7 @@ export interface PersistedWorkflow {
   inputParams: InputParam[]
   envBindings: EnvBinding[]
   workflowEnvVars: WorkflowEnvVar[]
+  triggerCode?: string
   savedAt: string
 }
 

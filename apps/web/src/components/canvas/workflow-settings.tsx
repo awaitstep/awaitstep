@@ -1,11 +1,13 @@
-import { X, Plus, Trash2, Link2 } from 'lucide-react'
+import { X, Plus, Trash2, Link2, RotateCcw } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Select } from '../ui/select'
 import { Separator } from '../ui/separator'
+import { CodeEditor } from '../ui/code-editor'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import type { InputParam, EnvBinding, WorkflowEnvVar } from '../../stores/workflow-store'
+import { DEFAULT_TRIGGER_CODE } from '@awaitstep/provider-cloudflare/codegen'
 
 export function WorkflowSettings() {
   const metadata = useWorkflowStore((s) => s.metadata)
@@ -16,6 +18,8 @@ export function WorkflowSettings() {
   const setInputParams = useWorkflowStore((s) => s.setInputParams)
   const setEnvBindings = useWorkflowStore((s) => s.setEnvBindings)
   const setWorkflowEnvVars = useWorkflowStore((s) => s.setWorkflowEnvVars)
+  const triggerCode = useWorkflowStore((s) => s.triggerCode)
+  const setTriggerCode = useWorkflowStore((s) => s.setTriggerCode)
   const setShowSettings = useWorkflowStore((s) => s.setShowSettings)
 
   const addParam = () => {
@@ -79,6 +83,35 @@ export function WorkflowSettings() {
           <Field label="Description">
             <Input value={metadata.description ?? ''} onChange={(e) => setMetadata({ description: e.target.value || undefined })} placeholder="Optional description" />
           </Field>
+
+          <Separator />
+
+          {/* Trigger Code */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-[11px] text-muted-foreground">Trigger Code</Label>
+              {triggerCode && triggerCode !== DEFAULT_TRIGGER_CODE && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 px-2 text-[10px] text-muted-foreground"
+                  onClick={() => setTriggerCode('')}
+                >
+                  <RotateCcw className="h-3 w-3" /> Reset
+                </Button>
+              )}
+            </div>
+            <p className="text-[10px] text-muted-foreground/40 mb-2">
+              Code inside the <code className="font-mono">fetch()</code> handler. Has access to <code className="font-mono">request</code>, <code className="font-mono">env</code>, and <code className="font-mono">ctx</code>.
+            </p>
+            <CodeEditor
+              value={triggerCode || DEFAULT_TRIGGER_CODE}
+              onChange={setTriggerCode}
+              debounceMs={500}
+              language="typescript"
+              height="200px"
+            />
+          </div>
 
           <Separator />
 

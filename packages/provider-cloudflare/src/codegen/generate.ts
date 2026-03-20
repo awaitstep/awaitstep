@@ -11,6 +11,21 @@ import { generateWaitForEvent } from './generators/wait-for-event.js'
 import { generateCustomNode } from './generators/custom.js'
 import { hasTemplateExpressions } from './generators/state-tracking.js'
 
+export const DEFAULT_TRIGGER_CODE = `const url = new URL(request.url);
+
+if (request.method === "POST") {
+  const instance = await env.WORKFLOW.create();
+  return Response.json({ instanceId: instance.id });
+}
+
+const instanceId = url.searchParams.get("instanceId");
+if (instanceId) {
+  const instance = await env.WORKFLOW.get(instanceId);
+  return Response.json(await instance.status());
+}
+
+return new Response(null, { status: 200 });`
+
 export function generateNodeCode(node: WorkflowNode, ir: WorkflowIR, templateResolver?: TemplateResolver): string {
   switch (node.type) {
     case 'step':
@@ -65,6 +80,7 @@ function resolveNodeExpressions(node: WorkflowNode): WorkflowNode {
 export interface GenerateOptions {
   templateResolver?: TemplateResolver
   envVarNames?: string[]
+  triggerCode?: string
 }
 
 export function generateWorkflow(ir: WorkflowIR, templateResolverOrOptions?: TemplateResolver | GenerateOptions): string {
@@ -73,7 +89,7 @@ export function generateWorkflow(ir: WorkflowIR, templateResolverOrOptions?: Tem
       ? { templateResolver: templateResolverOrOptions }
       : templateResolverOrOptions
     : {}
-  const { templateResolver, envVarNames } = opts
+  const { templateResolver, envVarNames, triggerCode } = opts
   const className = sanitizeIdentifier(ir.metadata.name)
     .split('_')
     .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
@@ -120,6 +136,8 @@ export function generateWorkflow(ir: WorkflowIR, templateResolverOrOptions?: Tem
     envFields.push(`  ${name}: string;`)
   }
 
+  const fetchBody = triggerCode ?? DEFAULT_TRIGGER_CODE
+
   return `import { WorkflowEntrypoint } from "cloudflare:workers";
 
 interface Env {
@@ -134,20 +152,7 @@ ${indent(bodyLines, 4)}
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
-
-    if (request.method === "POST") {
-      const instance = await env.WORKFLOW.create();
-      return Response.json({ instanceId: instance.id });
-    }
-
-    const instanceId = url.searchParams.get("instanceId");
-    if (instanceId) {
-      const instance = await env.WORKFLOW.get(instanceId);
-      return Response.json(await instance.status());
-    }
-
-    return new Response(null, { status: 200 });
+${indent(fetchBody, 4)}
   },
 };
 `

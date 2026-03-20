@@ -58,6 +58,7 @@ interface WorkflowState {
   inputParams: InputParam[]
   envBindings: EnvBinding[]
   workflowEnvVars: WorkflowEnvVar[]
+  triggerCode: string
   showSettings: boolean
   validationResult: PublishValidationResult | null
   simulationResult: SimulationResult | null
@@ -77,6 +78,7 @@ interface WorkflowState {
   setInputParams: (params: InputParam[]) => void
   setEnvBindings: (bindings: EnvBinding[]) => void
   setWorkflowEnvVars: (vars: WorkflowEnvVar[]) => void
+  setTriggerCode: (code: string) => void
   setShowSettings: (show: boolean) => void
   runValidation: (nodeRegistry?: NodeRegistry) => PublishValidationResult
   clearValidation: () => void
@@ -126,6 +128,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   inputParams: [],
   envBindings: [],
   workflowEnvVars: [],
+  triggerCode: '',
   showSettings: false,
   validationResult: null,
   simulationResult: null,
@@ -251,6 +254,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({ workflowEnvVars: vars, isDirty: true })
   },
 
+  setTriggerCode: (code) => {
+    set({ triggerCode: code, isDirty: true })
+  },
+
   setShowSettings: (show) => {
     set({ showSettings: show, selectedNodeId: show ? null : get().selectedNodeId })
   },
@@ -297,6 +304,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       inputParams: data.inputParams,
       envBindings: data.envBindings,
       workflowEnvVars: data.workflowEnvVars ?? [],
+      triggerCode: data.triggerCode ?? '',
       isDirty: false,
     })
     return true
@@ -320,7 +328,8 @@ useWorkflowStore.subscribe((state, prev) => {
     state.metadata === prev.metadata &&
     state.inputParams === prev.inputParams &&
     state.envBindings === prev.envBindings &&
-    state.workflowEnvVars === prev.workflowEnvVars
+    state.workflowEnvVars === prev.workflowEnvVars &&
+    state.triggerCode === prev.triggerCode
   ) return
 
   if (autoSaveTimer) clearTimeout(autoSaveTimer)
@@ -334,6 +343,7 @@ useWorkflowStore.subscribe((state, prev) => {
       inputParams: s.inputParams,
       envBindings: s.envBindings,
       workflowEnvVars: s.workflowEnvVars,
+      triggerCode: s.triggerCode,
       savedAt: new Date().toISOString(),
     }
     saveWorkflowLocally(s.workflowId, data)
