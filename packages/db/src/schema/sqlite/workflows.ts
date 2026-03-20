@@ -9,6 +9,7 @@ export const workflows = sqliteTable(
     description: text('description'),
     currentVersionId: text('current_version_id'),
     envVars: text('env_vars'),
+    triggerCode: text('trigger_code'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },

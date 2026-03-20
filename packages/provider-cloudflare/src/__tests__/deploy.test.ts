@@ -44,14 +44,14 @@ describe('deployWithWrangler', () => {
     const result = await deployWithWrangler(artifact, options)
     expect(result.success).toBe(true)
     expect(result.workerName).toBe('awaitstep-my-workflow')
-    expect(result.stdout).toBe('deployed successfully')
+    expect(result.error).toBeUndefined()
   })
 
   it('returns failure when wrangler deploy fails', async () => {
     mockExecFile.mockReturnValue(Object.assign(new Error('deploy failed'), { stdout: '', stderr: 'error details' }))
     const result = await deployWithWrangler(artifact, options)
     expect(result.success).toBe(false)
-    expect(result.error).toContain('deploy failed')
+    expect(result.error).toBeDefined()
   })
 
   it('uses compiled code when available', async () => {

@@ -9,9 +9,11 @@ const createSchema = z.object({
   description: z.string().max(1000).optional(),
 })
 
+const envVarNamePattern = /^[A-Z][A-Z0-9_]*$/
+
 const envVarSchema = z.object({
-  name: z.string().min(1),
-  value: z.string(),
+  name: z.string().min(1).max(255).regex(envVarNamePattern, 'Env var name must be uppercase with underscores (e.g. MY_API_KEY)'),
+  value: z.string().max(10_000),
   isSecret: z.boolean().optional(),
 })
 
@@ -19,6 +21,7 @@ const updateSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   description: z.string().max(1000).optional(),
   envVars: z.array(envVarSchema).optional(),
+  triggerCode: z.string().max(50_000).optional(),
 })
 
 export const workflows = new Hono<AppEnv>()
@@ -49,10 +52,13 @@ workflows.post('/', zValidator('json', createSchema), async (c) => {
 
 workflows.patch('/:id', zValidator('json', updateSchema), async (c) => {
   const db = c.get('db')
-  const { envVars, ...rest } = c.req.valid('json')
-  const dbData: { name?: string; description?: string; envVars?: string } = { ...rest }
+  const { envVars, triggerCode, ...rest } = c.req.valid('json')
+  const dbData: { name?: string; description?: string; envVars?: string; triggerCode?: string } = { ...rest }
   if (envVars !== undefined) {
     dbData.envVars = JSON.stringify(envVars)
+  }
+  if (triggerCode !== undefined) {
+    dbData.triggerCode = triggerCode
   }
   const updated = await db.updateWorkflow(c.req.param('id'), dbData)
   return c.json(updated)

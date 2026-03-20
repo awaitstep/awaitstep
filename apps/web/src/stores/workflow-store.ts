@@ -303,7 +303,6 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       edges: data.edges,
       inputParams: data.inputParams,
       envBindings: data.envBindings,
-      triggerCode: data.triggerCode ?? '',
       isDirty: false,
     })
     return true
@@ -326,8 +325,7 @@ useWorkflowStore.subscribe((state, prev) => {
     state.edges === prev.edges &&
     state.metadata === prev.metadata &&
     state.inputParams === prev.inputParams &&
-    state.envBindings === prev.envBindings &&
-    state.triggerCode === prev.triggerCode
+    state.envBindings === prev.envBindings
   ) return
 
   if (autoSaveTimer) clearTimeout(autoSaveTimer)
@@ -340,7 +338,6 @@ useWorkflowStore.subscribe((state, prev) => {
       edges: s.edges,
       inputParams: s.inputParams,
       envBindings: s.envBindings,
-      triggerCode: s.triggerCode,
       savedAt: new Date().toISOString(),
     }
     saveWorkflowLocally(s.workflowId, data)

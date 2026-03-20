@@ -10,7 +10,6 @@ export interface PersistedWorkflow {
   edges: Edge[]
   inputParams: InputParam[]
   envBindings: EnvBinding[]
-  triggerCode?: string
   savedAt: string
 }
 

@@ -135,14 +135,19 @@ function WorkflowEditorPage() {
 
     setWorkflowId(workflowId)
 
-    // Always load env vars from server (not persisted locally)
-    if (serverWorkflow?.envVars) {
-      try {
-        const parsed = JSON.parse(serverWorkflow.envVars)
-        if (Array.isArray(parsed)) {
-          useWorkflowStore.setState({ workflowEnvVars: parsed })
-        }
-      } catch { /* ignore malformed */ }
+    // Always load env vars and trigger code from server (not persisted locally)
+    if (serverWorkflow) {
+      if (serverWorkflow.envVars) {
+        try {
+          const parsed = JSON.parse(serverWorkflow.envVars)
+          if (Array.isArray(parsed)) {
+            useWorkflowStore.setState({ workflowEnvVars: parsed })
+          }
+        } catch { /* ignore malformed */ }
+      }
+      if (serverWorkflow.triggerCode) {
+        useWorkflowStore.setState({ triggerCode: serverWorkflow.triggerCode })
+      }
     }
 
     // Try loading from localStorage first (may have unsaved changes)
@@ -165,15 +170,16 @@ function WorkflowEditorPage() {
       const ir = buildIRFromState(state)
 
       const envVars = state.workflowEnvVars.length > 0 ? state.workflowEnvVars : undefined
+      const triggerCode = state.triggerCode || undefined
 
       if (isNew) {
         const created = await api.createWorkflow({ name: state.metadata.name, description: state.metadata.description })
-        if (envVars) await api.updateWorkflow(created.id, { envVars })
+        if (envVars || triggerCode) await api.updateWorkflow(created.id, { envVars, triggerCode })
         await api.createVersion(created.id, { ir })
         return created
       }
 
-      await api.updateWorkflow(workflowId, { name: state.metadata.name, description: state.metadata.description, envVars })
+      await api.updateWorkflow(workflowId, { name: state.metadata.name, description: state.metadata.description, envVars, triggerCode })
       await api.createVersion(workflowId, { ir })
       return null
     },

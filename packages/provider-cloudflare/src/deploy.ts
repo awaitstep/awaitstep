@@ -27,8 +27,6 @@ export interface WranglerDeployResult {
   workerName: string
   workerUrl?: string
   error?: string
-  stdout?: string
-  stderr?: string
 }
 
 export async function deployWithWrangler(
@@ -62,7 +60,7 @@ export async function deployWithWrangler(
       CLOUDFLARE_API_TOKEN: options.apiToken,
     }
 
-    const { stdout, stderr } = await execFileAsync(wranglerBin, ['deploy'], {
+    const { stdout } = await execFileAsync(wranglerBin, ['deploy'], {
       cwd: deployDir,
       env: wranglerEnv,
       timeout: 120_000,
@@ -76,15 +74,16 @@ export async function deployWithWrangler(
     }
 
     const urlMatch = stdout.match(/https:\/\/[^\s)]+\.workers\.dev/)
-    return { success: true, workerName: name, workerUrl: urlMatch?.[0], stdout, stderr }
+    return { success: true, workerName: name, workerUrl: urlMatch?.[0] }
   } catch (err) {
-    const error = err as Error & { stdout?: string; stderr?: string }
+    const error = err as Error & { stderr?: string }
+    const safeError = error.stderr
+      ? error.stderr.replace(/[A-Za-z0-9_-]{30,}/g, '[REDACTED]')
+      : error.message
     return {
       success: false,
       workerName: name,
-      error: error.message,
-      stdout: error.stdout,
-      stderr: error.stderr,
+      error: safeError,
     }
   } finally {
     await rm(deployDir, { recursive: true, force: true }).catch(() => {})

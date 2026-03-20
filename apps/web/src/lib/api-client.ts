@@ -23,6 +23,7 @@ export interface WorkflowSummary {
   name: string
   description?: string
   envVars?: string | null
+  triggerCode?: string | null
   currentVersionId?: string | null
   createdAt: string
   updatedAt: string
@@ -67,7 +68,7 @@ export const api = {
     return request('/workflows', { method: 'POST', body: JSON.stringify(data) })
   },
 
-  updateWorkflow(id: string, data: { name?: string; description?: string; envVars?: { name: string; value: string; isSecret?: boolean }[] }): Promise<WorkflowSummary> {
+  updateWorkflow(id: string, data: { name?: string; description?: string; envVars?: { name: string; value: string; isSecret?: boolean }[]; triggerCode?: string }): Promise<WorkflowSummary> {
     return request(`/workflows/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
   },
 

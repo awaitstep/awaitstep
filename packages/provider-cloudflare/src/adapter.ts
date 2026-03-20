@@ -109,7 +109,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
       return {
         success: false,
         deploymentId: '',
-        error: result.error ?? result.stderr ?? 'Deploy failed',
+        error: result.error ?? 'Deploy failed',
       }
     }
 
@@ -167,7 +167,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
 
     if (!result.success) {
       report('FAILED', result.error ?? 'Deploy failed', 0)
-      return { success: false, deploymentId: '', error: result.error ?? result.stderr ?? 'Deploy failed' }
+      return { success: false, deploymentId: '', error: result.error ?? 'Deploy failed' }
     }
 
     report('WORKER_DEPLOYED', 'Worker deployed', 80)

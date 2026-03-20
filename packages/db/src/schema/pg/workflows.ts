@@ -9,6 +9,7 @@ export const workflows = pgTable(
     description: text('description'),
     currentVersionId: text('current_version_id'),
     envVars: text('env_vars'),
+    triggerCode: text('trigger_code'),
     createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { mode: 'string' }).notNull().defaultNow(),
   },
