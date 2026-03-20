@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet, Link, useMatches, useParams } from '@tanstack/react-router'
+import { ArrowLeft } from 'lucide-react'
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId')({
   component: WorkflowLayout,
@@ -38,7 +39,13 @@ function WorkflowLayout() {
 
   return (
     <div>
-      <nav className="flex gap-0 border-b border-border">
+      <nav className="flex items-center gap-0 border-b border-border">
+        <Link
+          to="/dashboard"
+          className="flex h-10 w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground/80"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Link>
         {tabs.map((tab) => (
           <Link
             key={tab.to}
