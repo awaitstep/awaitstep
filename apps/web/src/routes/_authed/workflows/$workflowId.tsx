@@ -42,7 +42,7 @@ function WorkflowLayout() {
       <div className="flex items-center gap-1 px-4 pt-4 text-xs text-muted-foreground/60">
         <Link to="/dashboard" className="hover:text-muted-foreground">Dashboard</Link>
         <ChevronRight className="h-3 w-3" />
-        <Link to="/dashboard" className="hover:text-muted-foreground">Workflows</Link>
+        <Link to="/workflows" className="hover:text-muted-foreground">Workflows</Link>
         <ChevronRight className="h-3 w-3" />
         <span className="max-w-[120px] truncate text-muted-foreground font-mono">{workflowId}</span>
       </div>
