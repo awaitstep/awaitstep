@@ -118,6 +118,16 @@ function WorkflowEditorPage() {
 
   // Initialize workflow data
   useEffect(() => {
+    // Reset non-canvas state that doesn't get overwritten by loadWorkflow/loadFromLocal
+    useWorkflowStore.setState({
+      inputParams: [],
+      envBindings: [],
+      workflowEnvVars: [],
+      triggerCode: '',
+      validationResult: null,
+      simulationResult: null,
+    })
+
     if (isNew) {
       setWorkflowId('new')
       return
