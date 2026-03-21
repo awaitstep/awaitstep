@@ -7,6 +7,7 @@ import { api } from '../../lib/api-client'
 import { RunStatusBadge } from '../../components/monitoring/run-status-badge'
 import { RunDetailSheet } from '../../components/monitoring/run-detail-sheet'
 import { TriggerDialog } from '../../components/canvas/trigger-dialog'
+import { useSheetStore } from '../../stores/sheet-store'
 import { useActiveRunSync } from '../../hooks/use-active-run-sync'
 import { timeAgo, duration } from '../../lib/time'
 
@@ -16,7 +17,7 @@ export const Route = createFileRoute('/_authed/runs/')({
 
 function RunsIndexPage() {
   const [triggerWorkflowId, setTriggerWorkflowId] = useState<string | null>(null)
-  const [selectedRun, setSelectedRun] = useState<{ id: string; workflowId: string } | null>(null)
+  const openRunSheet = useSheetStore((s) => s.openRunSheet)
 
   const { data: runs, isLoading } = useQuery({
     queryKey: ['all-runs'],
@@ -85,7 +86,7 @@ function RunsIndexPage() {
             return (
               <button
                 key={run.id}
-                onClick={() => setSelectedRun({ id: run.id, workflowId: run.workflowId })}
+                onClick={() => openRunSheet({ runId: run.id, workflowId: run.workflowId, workflowName: wf?.name })}
                 className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:border-border/80 hover:bg-muted/20"
               >
                 <div className="flex items-center gap-3">
@@ -111,11 +112,7 @@ function RunsIndexPage() {
 
       </div>
 
-      <RunDetailSheet
-        run={selectedRun}
-        workflowName={selectedRun ? workflowMap.get(selectedRun.workflowId)?.name : undefined}
-        onClose={() => setSelectedRun(null)}
-      />
+      <RunDetailSheet />
 
       <TriggerDialog
         open={!!triggerWorkflowId}

@@ -5,8 +5,9 @@ import { Loader2, Play } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { RunStatusBadge } from '../../../components/monitoring/run-status-badge'
 import { RunDetailSheet } from '../../../components/monitoring/run-detail-sheet'
-import { api } from '../../../lib/api-client'
+import { api, projectUrl } from '../../../lib/api-client'
 import { TriggerDialog } from '../../../components/canvas/trigger-dialog'
+import { useSheetStore } from '../../../stores/sheet-store'
 import { useActiveRunSync } from '../../../hooks/use-active-run-sync'
 import { timeAgo, duration } from '../../../lib/time'
 
@@ -17,11 +18,11 @@ export const Route = createFileRoute('/_authed/workflows/$workflowId/runs/')({
 function RunsListPage() {
   const { workflowId } = useParams({ from: '/_authed/workflows/$workflowId/runs/' })
   const [triggerOpen, setTriggerOpen] = useState(false)
-  const [selectedRun, setSelectedRun] = useState<{ id: string; workflowId: string } | null>(null)
+  const openRunSheet = useSheetStore((s) => s.openRunSheet)
 
   const { data: runs, isLoading } = useQuery({
     queryKey: ['workflow-runs', workflowId],
-    queryFn: () => fetch(`/api/workflows/${workflowId}/runs`, { credentials: 'include' }).then((r) => r.json()),
+    queryFn: () => fetch(projectUrl(`/workflows/${workflowId}/runs`), { credentials: 'include' }).then((r) => r.json()),
   })
 
   useActiveRunSync(
@@ -65,7 +66,7 @@ function RunsListPage() {
           {runs.map((run: { id: string; instanceId: string; status: string; createdAt: string; updatedAt: string }) => (
             <button
               key={run.id}
-              onClick={() => setSelectedRun({ id: run.id, workflowId })}
+              onClick={() => openRunSheet({ runId: run.id, workflowId })}
               className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:border-border/80 hover:bg-muted/20"
             >
               <div className="flex items-center gap-3">
@@ -83,10 +84,7 @@ function RunsListPage() {
         </div>
       )}
 
-      <RunDetailSheet
-        run={selectedRun}
-        onClose={() => setSelectedRun(null)}
-      />
+      <RunDetailSheet />
 
       <TriggerDialog
         open={triggerOpen}

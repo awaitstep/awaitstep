@@ -7,27 +7,19 @@ import {
   ChevronDown, ChevronRight, Copy, Check, X,
 } from 'lucide-react'
 import { Button } from '../ui/button'
+import { projectUrl } from '../../lib/api-client'
+import { useSheetStore } from '../../stores/sheet-store'
 import { RunStatusBadge } from './run-status-badge'
 import { formatDate } from '../../lib/time'
 
 const TERMINAL_STATUSES = new Set(['complete', 'errored', 'terminated'])
 
-interface RunRef {
-  id: string
-  workflowId: string
-}
+export function RunDetailSheet() {
+  const runSheet = useSheetStore((s) => s.runSheet)
+  const closeRunSheet = useSheetStore((s) => s.closeRunSheet)
 
-export function RunDetailSheet({
-  run: runRef,
-  workflowName,
-  onClose,
-}: {
-  run: RunRef | null
-  workflowName?: string
-  onClose: () => void
-}) {
   return (
-    <Dialog.Root open={!!runRef} onOpenChange={(open) => { if (!open) onClose() }}>
+    <Dialog.Root open={!!runSheet} onOpenChange={(open) => { if (!open) closeRunSheet() }}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
         <Dialog.Content className="fixed right-0 top-0 bottom-0 z-50 flex w-full max-w-md flex-col border-l border-border bg-background shadow-lg data-[state=open]:animate-in data-[state=open]:slide-in-from-right data-[state=open]:duration-200 data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=closed]:duration-150">
@@ -37,11 +29,11 @@ export function RunDetailSheet({
               <X className="h-4 w-4" />
             </Dialog.Close>
           </div>
-          {runRef && (
+          {runSheet && (
             <RunDetailContent
-              runId={runRef.id}
-              workflowId={runRef.workflowId}
-              workflowName={workflowName}
+              runId={runSheet.runId}
+              workflowId={runSheet.workflowId}
+              workflowName={runSheet.workflowName}
             />
           )}
         </Dialog.Content>
@@ -65,7 +57,7 @@ function RunDetailContent({
   const { data: run, isLoading } = useQuery({
     queryKey: ['workflow-run', workflowId, runId],
     queryFn: () =>
-      fetch(`/api/workflows/${workflowId}/runs/${runId}`, { credentials: 'include' }).then((r) => r.json()),
+      fetch(projectUrl(`/workflows/${workflowId}/runs/${runId}`), { credentials: 'include' }).then((r) => r.json()),
     refetchInterval: (query) => {
       const data = query.state.data
       return data && !TERMINAL_STATUSES.has(data.status) ? 5_000 : false
@@ -85,7 +77,7 @@ function RunDetailContent({
 
   const actionMutation = useMutation({
     mutationFn: (action: 'pause' | 'resume' | 'terminate') =>
-      fetch(`/api/workflows/${workflowId}/runs/${runId}/${action}`, {
+      fetch(projectUrl(`/workflows/${workflowId}/runs/${runId}/${action}`), {
         method: 'POST',
         credentials: 'include',
       }).then((r) => r.json()),

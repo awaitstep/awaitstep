@@ -19,7 +19,7 @@ const drizzleDb = drizzle(sqlite, { schema: sqliteSchema })
 
 // Run migrations
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const migrationsFolder = resolve(__dirname, '../../../../packages/db/drizzle')
+const migrationsFolder = resolve(__dirname, '../../../../packages/db/drizzle/sqlite')
 migrate(drizzleDb, { migrationsFolder })
 
 

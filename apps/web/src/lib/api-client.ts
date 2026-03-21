@@ -1,3 +1,5 @@
+import { useOrgStore } from '../stores/org-store'
+
 const API_BASE = '/api'
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -16,6 +18,17 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   return res.json()
+}
+
+function withProject(path: string): string {
+  const projectId = useOrgStore.getState().activeProjectId
+  if (!projectId) throw new Error('No active project selected')
+  const sep = path.includes('?') ? '&' : '?'
+  return `${path}${sep}projectId=${projectId}`
+}
+
+export function projectUrl(path: string): string {
+  return `${API_BASE}${withProject(path)}`
 }
 
 export interface WorkflowSummary {
@@ -112,61 +125,63 @@ export interface ApiKeyCreated extends ApiKeySummary {
 }
 
 export const api = {
+  // Project-scoped endpoints (require active project)
+
   listWorkflows(): Promise<WorkflowSummary[]> {
-    return request('/workflows')
+    return request(withProject('/workflows'))
   },
 
   getWorkflow(id: string): Promise<WorkflowSummary> {
-    return request(`/workflows/${id}`)
+    return request(withProject(`/workflows/${id}`))
   },
 
   getWorkflowFull(id: string, versionId?: string): Promise<WorkflowFull> {
     const params = versionId ? `?version=${versionId}` : ''
-    return request(`/workflows/${id}/full${params}`)
+    return request(withProject(`/workflows/${id}/full${params}`))
   },
 
   createWorkflow(data: { name: string; description?: string }): Promise<WorkflowSummary> {
-    return request('/workflows', { method: 'POST', body: JSON.stringify(data) })
+    return request(withProject('/workflows'), { method: 'POST', body: JSON.stringify(data) })
   },
 
   updateWorkflow(id: string, data: { name?: string; description?: string; envVars?: { name: string; value: string; isSecret?: boolean }[]; triggerCode?: string; dependencies?: Record<string, string> }): Promise<WorkflowSummary> {
-    return request(`/workflows/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+    return request(withProject(`/workflows/${id}`), { method: 'PATCH', body: JSON.stringify(data) })
   },
 
   deleteWorkflow(id: string): Promise<void> {
-    return request(`/workflows/${id}`, { method: 'DELETE' })
+    return request(withProject(`/workflows/${id}`), { method: 'DELETE' })
   },
 
   listVersions(workflowId: string): Promise<WorkflowVersion[]> {
-    return request(`/workflows/${workflowId}/versions`)
+    return request(withProject(`/workflows/${workflowId}/versions`))
   },
 
   getVersion(workflowId: string, versionId: string): Promise<WorkflowVersion> {
-    return request(`/workflows/${workflowId}/versions/${versionId}`)
+    return request(withProject(`/workflows/${workflowId}/versions/${versionId}`))
   },
 
   createVersion(workflowId: string, data: { ir: unknown }): Promise<WorkflowVersion> {
-    return request(`/workflows/${workflowId}/versions`, {
+    return request(withProject(`/workflows/${workflowId}/versions`), {
       method: 'POST',
       body: JSON.stringify(data),
     })
   },
 
   lockVersion(workflowId: string, versionId: string, locked: boolean): Promise<WorkflowVersion> {
-    return request(`/workflows/${workflowId}/versions/${versionId}`, {
+    return request(withProject(`/workflows/${workflowId}/versions/${versionId}`), {
       method: 'PATCH',
       body: JSON.stringify({ locked }),
     })
   },
 
   revertToVersion(workflowId: string, versionId: string): Promise<WorkflowVersion> {
-    return request(`/workflows/${workflowId}/versions/${versionId}/revert`, {
+    return request(withProject(`/workflows/${workflowId}/versions/${versionId}/revert`), {
       method: 'POST',
     })
   },
 
   deleteVersion(workflowId: string, versionId: string): Promise<void> {
-    return request(`/workflows/${workflowId}/versions/${versionId}`, {
+    return request(withProject(`/workflows/${workflowId}/versions/${versionId}`), {
       method: 'DELETE',
     })
   },
@@ -188,19 +203,19 @@ export const api = {
   },
 
   listDeployments(workflowId: string): Promise<DeploymentSummary[]> {
-    return request(`/workflows/${workflowId}/deployments`)
+    return request(withProject(`/workflows/${workflowId}/deployments`))
   },
 
   listAllDeployments(): Promise<DeploymentSummary[]> {
-    return request('/deployments')
+    return request(withProject('/deployments'))
   },
 
   listAllRuns(): Promise<RunSummary[]> {
-    return request('/runs')
+    return request(withProject('/runs'))
   },
 
   takedownDeployment(workflowId: string, connectionId: string): Promise<{ success: boolean; error?: string }> {
-    return request(`/workflows/${workflowId}/takedown`, { method: 'POST', body: JSON.stringify({ connectionId }) })
+    return request(withProject(`/workflows/${workflowId}/takedown`), { method: 'POST', body: JSON.stringify({ connectionId }) })
   },
 
   verifyCredentials(provider: string, credentials: Record<string, string>): Promise<{ valid: boolean; accounts: { id: string; name: string }[] }> {
@@ -216,7 +231,7 @@ export const api = {
   },
 
   triggerWorkflow(workflowId: string, data: { connectionId: string; params?: unknown }): Promise<{ id: string; instanceId: string; status: string }> {
-    return request(`/workflows/${workflowId}/trigger`, { method: 'POST', body: JSON.stringify(data) })
+    return request(withProject(`/workflows/${workflowId}/trigger`), { method: 'POST', body: JSON.stringify(data) })
   },
 
   listEnvVars(): Promise<EnvVarSummary[]> {
@@ -236,14 +251,42 @@ export const api = {
   },
 
   listApiKeys(): Promise<ApiKeySummary[]> {
-    return request('/api-keys')
+    return request(withProject('/api-keys'))
   },
 
   createApiKey(data: { name: string; scopes: string[]; expiresAt?: string | null }): Promise<ApiKeyCreated> {
-    return request('/api-keys', { method: 'POST', body: JSON.stringify(data) })
+    return request(withProject('/api-keys'), { method: 'POST', body: JSON.stringify(data) })
   },
 
   revokeApiKey(id: string): Promise<ApiKeySummary> {
-    return request(`/api-keys/${id}`, { method: 'DELETE' })
+    return request(withProject(`/api-keys/${id}`), { method: 'DELETE' })
   },
+
+  // Projects (org-scoped)
+
+  listProjects(): Promise<ProjectSummary[]> {
+    return request('/projects')
+  },
+
+  createProject(data: { name: string; slug: string; description?: string }): Promise<ProjectSummary> {
+    return request('/projects', { method: 'POST', body: JSON.stringify(data) })
+  },
+
+  updateProject(id: string, data: { name?: string; description?: string }): Promise<ProjectSummary> {
+    return request(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+  },
+
+  deleteProject(id: string): Promise<void> {
+    return request(`/projects/${id}`, { method: 'DELETE' })
+  },
+}
+
+export interface ProjectSummary {
+  id: string
+  organizationId: string
+  name: string
+  slug: string
+  description?: string | null
+  createdAt: string
+  updatedAt: string
 }

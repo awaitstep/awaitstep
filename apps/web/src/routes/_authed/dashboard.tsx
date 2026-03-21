@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
 import { Plus, Loader2, Workflow, AlertTriangle, Activity } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { api } from '../../lib/api-client'
@@ -11,6 +10,7 @@ import { OnboardingWizard } from '../../components/onboarding/onboarding-wizard'
 import { TriggerButton } from '../../components/dashboard/trigger-button'
 import { useRefetchInterval } from '../../stores/polling-store'
 import { useOnboardingStore } from '../../stores/onboarding-store'
+import { useSheetStore } from '../../stores/sheet-store'
 import { useActiveRunSync } from '../../hooks/use-active-run-sync'
 import { timeAgo, duration } from '../../lib/time'
 
@@ -78,6 +78,8 @@ function DashboardPage() {
     (r) => r.status === 'errored' && new Date(r.createdAt).getTime() > sevenDaysAgo,
   ).length ?? 0
 
+  const openRunSheet = useSheetStore((s) => s.openRunSheet)
+
   // Onboarding gate
   const onboardingSkipped = useOnboardingStore((s) => s.skipped)
   const isNewUser = !onboardingSkipped && (connections?.length ?? 0) === 0 && (workflows?.length ?? 0) === 0
@@ -88,7 +90,6 @@ function DashboardPage() {
   }
 
   const workflowMap = new Map(workflows?.map((w) => [w.id, w]) ?? [])
-  const [selectedRun, setSelectedRun] = useState<{ id: string; workflowId: string } | null>(null)
 
   return (
     <div>
@@ -196,7 +197,7 @@ function DashboardPage() {
               return (
                 <button
                   key={run.id}
-                  onClick={() => setSelectedRun({ id: run.id, workflowId: run.workflowId })}
+                  onClick={() => openRunSheet({ runId: run.id, workflowId: run.workflowId, workflowName: wf?.name })}
                   className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:border-border/80 hover:bg-muted/20"
                 >
                   <div className="flex items-center gap-3">
@@ -221,11 +222,7 @@ function DashboardPage() {
         </section>
       )}
 
-      <RunDetailSheet
-        run={selectedRun}
-        workflowName={selectedRun ? workflowMap.get(selectedRun.workflowId)?.name : undefined}
-        onClose={() => setSelectedRun(null)}
-      />
+      <RunDetailSheet />
       </div>
     </div>
   )

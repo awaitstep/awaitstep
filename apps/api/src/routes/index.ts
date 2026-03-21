@@ -14,6 +14,7 @@ import { runs } from './runs.js'
 import { resources } from './resources.js'
 import { apiKeys } from './api-keys.js'
 import { envVars } from './env-vars.js'
+import { projects } from './projects.js'
 import { nodes } from './nodes.js'
 
 export function createRouter(auth: Auth, selfHostedConnection?: SelfHostedConnection) {
@@ -108,6 +109,7 @@ export function createRouter(auth: Auth, selfHostedConnection?: SelfHostedConnec
   router.route('/resources', resources)
   router.route('/api-keys', apiKeys)
   router.route('/env-vars', envVars)
+  router.route('/projects', projects)
   router.route('/nodes', nodes)
 
   // Global deployments list (across all project's workflows)

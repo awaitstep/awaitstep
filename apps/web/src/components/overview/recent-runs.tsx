@@ -1,8 +1,8 @@
-import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { RunStatusBadge } from '../monitoring/run-status-badge'
 import { RunDetailSheet } from '../monitoring/run-detail-sheet'
 import type { RunSummary } from '../../lib/api-client'
+import { useSheetStore } from '../../stores/sheet-store'
 import { timeAgo } from '../../lib/time'
 
 interface RecentRunsProps {
@@ -11,7 +11,7 @@ interface RecentRunsProps {
 }
 
 export function RecentRuns({ workflowId, runs }: RecentRunsProps) {
-  const [selectedRun, setSelectedRun] = useState<{ id: string; workflowId: string } | null>(null)
+  const openRunSheet = useSheetStore((s) => s.openRunSheet)
 
   return (
     <section>
@@ -32,7 +32,7 @@ export function RecentRuns({ workflowId, runs }: RecentRunsProps) {
           {runs.slice(0, 8).map((run, i) => (
             <button
               key={run.id}
-              onClick={() => setSelectedRun({ id: run.id, workflowId })}
+              onClick={() => openRunSheet({ runId: run.id, workflowId })}
               className={`flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-muted/30 ${
                 i < Math.min(runs.length, 8) - 1 ? 'border-b border-border' : ''
               }`}
@@ -50,7 +50,7 @@ export function RecentRuns({ workflowId, runs }: RecentRunsProps) {
           No runs yet. Deploy and trigger your workflow to see runs here.
         </div>
       )}
-      <RunDetailSheet run={selectedRun} onClose={() => setSelectedRun(null)} />
+      <RunDetailSheet />
     </section>
   )
 }

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthedSetupRouteImport } from './routes/_authed/setup'
 import { Route as AuthedDashboardRouteImport } from './routes/_authed/dashboard'
 import { Route as AuthedConnectionsRouteImport } from './routes/_authed/connections'
 import { Route as AuthedApiPlaygroundRouteImport } from './routes/_authed/api-playground'
@@ -43,6 +44,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedSetupRoute = AuthedSetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedDashboardRoute = AuthedDashboardRouteImport.update({
   id: '/dashboard',
@@ -143,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/api-playground': typeof AuthedApiPlaygroundRoute
   '/connections': typeof AuthedConnectionsRoute
   '/dashboard': typeof AuthedDashboardRoute
+  '/setup': typeof AuthedSetupRoute
   '/resources/d1': typeof AuthedResourcesD1Route
   '/resources/env-vars': typeof AuthedResourcesEnvVarsRoute
   '/resources/kv': typeof AuthedResourcesKvRoute
@@ -164,6 +171,7 @@ export interface FileRoutesByTo {
   '/api-playground': typeof AuthedApiPlaygroundRoute
   '/connections': typeof AuthedConnectionsRoute
   '/dashboard': typeof AuthedDashboardRoute
+  '/setup': typeof AuthedSetupRoute
   '/resources/d1': typeof AuthedResourcesD1Route
   '/resources/env-vars': typeof AuthedResourcesEnvVarsRoute
   '/resources/kv': typeof AuthedResourcesKvRoute
@@ -185,6 +193,7 @@ export interface FileRoutesById {
   '/_authed/api-playground': typeof AuthedApiPlaygroundRoute
   '/_authed/connections': typeof AuthedConnectionsRoute
   '/_authed/dashboard': typeof AuthedDashboardRoute
+  '/_authed/setup': typeof AuthedSetupRoute
   '/_authed/resources/d1': typeof AuthedResourcesD1Route
   '/_authed/resources/env-vars': typeof AuthedResourcesEnvVarsRoute
   '/_authed/resources/kv': typeof AuthedResourcesKvRoute
@@ -208,6 +217,7 @@ export interface FileRouteTypes {
     | '/api-playground'
     | '/connections'
     | '/dashboard'
+    | '/setup'
     | '/resources/d1'
     | '/resources/env-vars'
     | '/resources/kv'
@@ -229,6 +239,7 @@ export interface FileRouteTypes {
     | '/api-playground'
     | '/connections'
     | '/dashboard'
+    | '/setup'
     | '/resources/d1'
     | '/resources/env-vars'
     | '/resources/kv'
@@ -249,6 +260,7 @@ export interface FileRouteTypes {
     | '/_authed/api-playground'
     | '/_authed/connections'
     | '/_authed/dashboard'
+    | '/_authed/setup'
     | '/_authed/resources/d1'
     | '/_authed/resources/env-vars'
     | '/_authed/resources/kv'
@@ -292,6 +304,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authed/setup': {
+      id: '/_authed/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof AuthedSetupRouteImport
+      parentRoute: typeof AuthedRoute
     }
     '/_authed/dashboard': {
       id: '/_authed/dashboard'
@@ -457,6 +476,7 @@ interface AuthedRouteChildren {
   AuthedApiPlaygroundRoute: typeof AuthedApiPlaygroundRoute
   AuthedConnectionsRoute: typeof AuthedConnectionsRoute
   AuthedDashboardRoute: typeof AuthedDashboardRoute
+  AuthedSetupRoute: typeof AuthedSetupRoute
   AuthedResourcesD1Route: typeof AuthedResourcesD1Route
   AuthedResourcesEnvVarsRoute: typeof AuthedResourcesEnvVarsRoute
   AuthedResourcesKvRoute: typeof AuthedResourcesKvRoute
@@ -472,6 +492,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedApiPlaygroundRoute: AuthedApiPlaygroundRoute,
   AuthedConnectionsRoute: AuthedConnectionsRoute,
   AuthedDashboardRoute: AuthedDashboardRoute,
+  AuthedSetupRoute: AuthedSetupRoute,
   AuthedResourcesD1Route: AuthedResourcesD1Route,
   AuthedResourcesEnvVarsRoute: AuthedResourcesEnvVarsRoute,
   AuthedResourcesKvRoute: AuthedResourcesKvRoute,

@@ -6,7 +6,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { Button } from '../ui/button'
 import { Select } from '../ui/select'
 import { cn } from '../../lib/utils'
-import { api } from '../../lib/api-client'
+import { api, projectUrl } from '../../lib/api-client'
 import { formatShortDate } from '../../lib/time'
 import { usePollingStore } from '../../stores/polling-store'
 
@@ -74,7 +74,7 @@ export function DeployDialog({ onClose, workflowId, versionId }: DeployDialogPro
     setDeployResult(null)
 
     try {
-      const response = await fetch(`/api/workflows/${workflowId}/deploy-stream`, {
+      const response = await fetch(projectUrl(`/workflows/${workflowId}/deploy-stream`), {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

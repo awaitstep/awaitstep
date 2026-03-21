@@ -8,7 +8,7 @@ const schema =
 
 export default defineConfig({
   schema,
-  out: './drizzle',
+  out: dialect === 'postgresql' ? './drizzle/pg' : './drizzle/sqlite',
   dialect,
   dbCredentials:
     dialect === 'postgresql'
