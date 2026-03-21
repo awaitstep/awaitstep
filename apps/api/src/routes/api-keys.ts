@@ -10,6 +10,7 @@ const VALID_SCOPES = ['read', 'write', 'deploy'] as const
 const createApiKeySchema = z.object({
   name: z.string().min(1).max(255),
   scopes: z.array(z.enum(VALID_SCOPES)).min(1),
+  expiresAt: z.string().datetime().nullable().optional(),
 })
 
 export const apiKeys = new Hono<AppEnv>()
@@ -39,6 +40,7 @@ apiKeys.post('/', zValidator('json', createApiKeySchema), async (c) => {
     keyHash,
     keyPrefix,
     scopes: JSON.stringify(body.scopes),
+    expiresAt: body.expiresAt ?? null,
   })
 
   const { keyHash: _, ...safeKey } = apiKey

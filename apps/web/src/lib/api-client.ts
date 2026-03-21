@@ -94,6 +94,21 @@ export interface EnvVarSummary {
   updatedAt: string
 }
 
+export interface ApiKeySummary {
+  id: string
+  name: string
+  keyPrefix: string
+  scopes: string
+  expiresAt: string | null
+  lastUsedAt: string | null
+  revokedAt: string | null
+  createdAt: string
+}
+
+export interface ApiKeyCreated extends ApiKeySummary {
+  key: string
+}
+
 export const api = {
   listWorkflows(): Promise<WorkflowSummary[]> {
     return request('/workflows')
@@ -197,5 +212,17 @@ export const api = {
 
   deleteEnvVar(id: string): Promise<void> {
     return request(`/env-vars/${id}`, { method: 'DELETE' })
+  },
+
+  listApiKeys(): Promise<ApiKeySummary[]> {
+    return request('/api-keys')
+  },
+
+  createApiKey(data: { name: string; scopes: string[]; expiresAt?: string | null }): Promise<ApiKeyCreated> {
+    return request('/api-keys', { method: 'POST', body: JSON.stringify(data) })
+  },
+
+  revokeApiKey(id: string): Promise<ApiKeySummary> {
+    return request(`/api-keys/${id}`, { method: 'DELETE' })
   },
 }

@@ -128,7 +128,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     return this._deployments.deleteByWorkflow(workflowId)
   }
 
-  createApiKey(data: { id: string; userId: string; name: string; keyHash: string; keyPrefix: string; scopes: string }): Promise<ApiKey> {
+  createApiKey(data: { id: string; userId: string; name: string; keyHash: string; keyPrefix: string; scopes: string; expiresAt?: string | null }): Promise<ApiKey> {
     return this._apiKeys.create(data)
   }
   getApiKeyByHash(keyHash: string): Promise<ApiKey | null> {

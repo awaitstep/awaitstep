@@ -3,6 +3,7 @@ import type { ConfigField } from '@awaitstep/ir'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Select } from '../ui/select'
+import { formatDate } from '../../lib/time'
 import { CodeEditor } from '../ui/code-editor'
 import { DateTimePicker } from '../ui/datetime-picker'
 import { cn } from '../../lib/utils'
@@ -303,7 +304,7 @@ function DateTimeField({ value, onChange }: { value: string; onChange: (value: u
       )}
       {selectedDate && !isPast && (
         <div className="rounded-lg bg-muted/40 px-2.5 py-2 text-[11px] text-muted-foreground/60">
-          Will resume at {selectedDate.toLocaleString()}
+          Will resume at {formatDate(selectedDate)}
         </div>
       )}
     </div>

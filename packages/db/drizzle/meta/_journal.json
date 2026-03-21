@@ -43,6 +43,13 @@
       "when": 1773959426166,
       "tag": "0005_damp_whiplash",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1774094346381,
+      "tag": "0006_worried_joystick",
+      "breakpoints": true
     }
   ]
 }

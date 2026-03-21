@@ -1,34 +1,33 @@
-export function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  const days = Math.floor(hrs / 24)
-  return `${days}d ago`
+import { formatDistanceToNowStrict, formatDistanceStrict, format, isPast } from 'date-fns'
+
+export function timeAgo(dateStr: string | Date): string {
+  const date = new Date(dateStr)
+  const diffMs = Date.now() - date.getTime()
+  if (diffMs < 60_000) return 'just now'
+  return formatDistanceToNowStrict(date, { addSuffix: true })
+}
+
+export function timeUntil(dateStr: string | Date): string {
+  const date = new Date(dateStr)
+  if (isPast(date)) return 'expired'
+  return formatDistanceToNowStrict(date)
 }
 
 export function duration(start: string, end: string, status?: string): string {
   if (status && ['running', 'queued'].includes(status)) return '--'
   const ms = new Date(end).getTime() - new Date(start).getTime()
   if (ms < 1000) return `${ms}ms`
-  const secs = Math.floor(ms / 1000)
-  if (secs < 60) return `${secs}s`
-  const mins = Math.floor(secs / 60)
-  const remSecs = secs % 60
-  if (mins < 60) return `${mins}m ${remSecs}s`
-  const hrs = Math.floor(mins / 60)
-  const remMins = mins % 60
-  return `${hrs}h ${remMins}m`
+  return formatDistanceStrict(new Date(start), new Date(end))
 }
 
-export function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+export function formatDate(dateStr: string | Date): string {
+  return format(new Date(dateStr), 'MMM d, yyyy h:mm a')
+}
+
+export function formatShortDate(dateStr: string | Date): string {
+  return format(new Date(dateStr), 'MMM d, h:mm a')
+}
+
+export function formatMonthYear(dateStr: string | Date): string {
+  return format(new Date(dateStr), 'MMMM yyyy')
 }

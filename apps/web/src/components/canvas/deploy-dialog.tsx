@@ -7,6 +7,7 @@ import { Button } from '../ui/button'
 import { Select } from '../ui/select'
 import { cn } from '../../lib/utils'
 import { api } from '../../lib/api-client'
+import { formatShortDate } from '../../lib/time'
 import { usePollingStore } from '../../stores/polling-store'
 
 export interface DeployProgress {
@@ -200,7 +201,7 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
                         <span className="font-mono text-[11px] text-muted-foreground">{d.serviceName}</span>
                       </div>
                       <span className="text-[10px] text-muted-foreground/60">
-                        {new Date(d.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        {formatShortDate(d.createdAt)}
                       </span>
                     </div>
                   ))}

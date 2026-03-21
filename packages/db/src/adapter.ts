@@ -47,7 +47,7 @@ export interface DatabaseAdapter {
   deleteDeploymentsByWorkflow(workflowId: string): Promise<void>
 
   // API Keys
-  createApiKey(data: { id: string; userId: string; name: string; keyHash: string; keyPrefix: string; scopes: string }): Promise<ApiKey>
+  createApiKey(data: { id: string; userId: string; name: string; keyHash: string; keyPrefix: string; scopes: string; expiresAt?: string | null }): Promise<ApiKey>
   getApiKeyByHash(keyHash: string): Promise<ApiKey | null>
   listApiKeysByUser(userId: string): Promise<ApiKey[]>
   updateApiKeyLastUsed(id: string, lastUsedAt: string): Promise<void>

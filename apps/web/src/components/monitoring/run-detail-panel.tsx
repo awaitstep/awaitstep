@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Clock, AlertCircle, CheckCircle2, Pause, Play, Square, ChevronDown, ChevronRight, Copy, Check } from 'lucide-react'
 import { Button } from '../ui/button'
+import { formatDate } from '../../lib/time'
 import { RunStatusBadge } from './run-status-badge'
 
 interface RunDetailPanelProps {
@@ -135,7 +136,7 @@ export function RunDetailPanel({ run, onPause, onResume, onTerminate }: RunDetai
 
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Clock className="h-3 w-3" />
-        <span>Started {new Date(run.createdAt).toLocaleString()}</span>
+        <span>Started {formatDate(run.createdAt)}</span>
       </div>
 
       {run.output && (

@@ -10,7 +10,7 @@ export class ApiKeysAdapter {
     private table: AnyTable,
   ) {}
 
-  async create(data: { id: string; userId: string; name: string; keyHash: string; keyPrefix: string; scopes: string }): Promise<ApiKey> {
+  async create(data: { id: string; userId: string; name: string; keyHash: string; keyPrefix: string; scopes: string; expiresAt?: string | null }): Promise<ApiKey> {
     const now = new Date().toISOString()
     const row = {
       id: data.id,
@@ -19,7 +19,7 @@ export class ApiKeysAdapter {
       keyHash: data.keyHash,
       keyPrefix: data.keyPrefix,
       scopes: data.scopes,
-      expiresAt: null,
+      expiresAt: data.expiresAt ?? null,
       lastUsedAt: null,
       revokedAt: null,
       createdAt: now,
