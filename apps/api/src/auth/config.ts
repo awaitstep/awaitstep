@@ -1,5 +1,5 @@
 import { betterAuth } from 'better-auth'
-import { magicLink } from 'better-auth/plugins'
+import { magicLink, organization } from 'better-auth/plugins'
 
 export interface AuthOptions {
   baseURL: string
@@ -23,6 +23,9 @@ export function createAuth(options: AuthOptions) {
         sendMagicLink: options.sendMagicLink ?? (async (data) => {
           console.log(`[Magic Link] ${data.email}: ${data.url}`)
         }),
+      }),
+      organization({
+        allowUserToCreateOrganization: true,
       }),
     ],
     socialProviders: {

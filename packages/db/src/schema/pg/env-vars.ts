@@ -4,7 +4,9 @@ export const envVars = pgTable(
   'env_vars',
   {
     id: text('id').primaryKey(),
-    userId: text('user_id').notNull(),
+    organizationId: text('organization_id').notNull(),
+    projectId: text('project_id'),
+    createdBy: text('created_by').notNull(),
     name: text('name').notNull(),
     value: text('value').notNull(),
     isSecret: boolean('is_secret').notNull().default(false),
@@ -12,7 +14,8 @@ export const envVars = pgTable(
     updatedAt: timestamp('updated_at', { mode: 'string' }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex('idx_env_vars_user_name').on(table.userId, table.name),
-    index('idx_env_vars_user_id').on(table.userId),
+    uniqueIndex('idx_env_vars_org_name').on(table.organizationId, table.projectId, table.name),
+    index('idx_env_vars_org_id').on(table.organizationId),
+    index('idx_env_vars_project_id').on(table.projectId),
   ],
 )

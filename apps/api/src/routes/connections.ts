@@ -16,18 +16,20 @@ export function createConnectionRoutes(selfHostedConnection?: SelfHostedConnecti
 
   connections.get('/', async (c) => {
     const db = c.get('db')
-    const userId = c.get('userId')
-    const list = await db.listConnectionsByUser(userId)
+    const organizationId = c.get('organizationId')
+    const list = await db.listConnectionsByOrganization(organizationId)
     return c.json(list.map(redactCredentials))
   })
 
   connections.post('/', zValidator('json', createConnectionSchema), async (c) => {
     const db = c.get('db')
+    const organizationId = c.get('organizationId')
     const userId = c.get('userId')
     const body = c.req.valid('json')
     const conn = await db.createConnection({
       id: nanoid(),
-      userId,
+      organizationId,
+      createdBy: userId,
       provider: body.provider,
       credentials: JSON.stringify(body.credentials),
       name: body.name,
@@ -58,8 +60,8 @@ export function createConnectionRoutes(selfHostedConnection?: SelfHostedConnecti
     }
 
     const db = c.get('db')
-    const userId = c.get('userId')
-    const existing = await db.listConnectionsByUser(userId)
+    const organizationId = c.get('organizationId')
+    const existing = await db.listConnectionsByOrganization(organizationId)
     const alreadyRegistered = existing.some((conn) => {
       if (conn.provider !== 'cloudflare') return false
       const creds = JSON.parse(conn.credentials) as { accountId?: string }
@@ -80,9 +82,10 @@ export function createConnectionRoutes(selfHostedConnection?: SelfHostedConnecti
     }
 
     const db = c.get('db')
+    const organizationId = c.get('organizationId')
     const userId = c.get('userId')
 
-    const existing = await db.listConnectionsByUser(userId)
+    const existing = await db.listConnectionsByOrganization(organizationId)
     const alreadyRegistered = existing.find((conn) => {
       if (conn.provider !== 'cloudflare') return false
       const creds = JSON.parse(conn.credentials) as { accountId?: string }
@@ -94,7 +97,8 @@ export function createConnectionRoutes(selfHostedConnection?: SelfHostedConnecti
 
     const conn = await db.createConnection({
       id: nanoid(),
-      userId,
+      organizationId,
+      createdBy: userId,
       provider: 'cloudflare',
       credentials: JSON.stringify({
         accountId: selfHostedConnection.accountId,

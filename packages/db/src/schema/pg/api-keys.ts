@@ -1,13 +1,11 @@
 import { pgTable, text, timestamp, index } from 'drizzle-orm/pg-core'
-import { user } from './auth.js'
 
 export const apiKeys = pgTable(
   'api_keys',
   {
     id: text('id').primaryKey(),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+    projectId: text('project_id').notNull(),
+    createdBy: text('created_by').notNull(),
     name: text('name').notNull(),
     keyHash: text('key_hash').notNull().unique(),
     keyPrefix: text('key_prefix').notNull(),
@@ -18,7 +16,7 @@ export const apiKeys = pgTable(
     createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
   },
   (table) => [
-    index('idx_api_keys_user_id').on(table.userId),
+    index('idx_api_keys_project_id').on(table.projectId),
     index('idx_api_keys_key_hash').on(table.keyHash),
   ],
 )

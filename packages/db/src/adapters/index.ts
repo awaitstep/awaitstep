@@ -1,6 +1,6 @@
 import { eq, and, desc } from 'drizzle-orm'
 import type { DatabaseAdapter, WorkflowEnvVar, ResolvedEnvVar } from '../adapter.js'
-import type { Workflow, WorkflowVersion, Connection, WorkflowRun, Deployment, ApiKey, EnvVar } from '../types.js'
+import type { Workflow, WorkflowVersion, Connection, WorkflowRun, Deployment, ApiKey, EnvVar, Project } from '../types.js'
 import type { TokenCrypto } from '../crypto.js'
 import { WorkflowsAdapter } from './workflows.js'
 import { VersionsAdapter } from './versions.js'
@@ -9,6 +9,7 @@ import { RunsAdapter } from './runs.js'
 import { DeploymentsAdapter } from './deployments.js'
 import { ApiKeysAdapter } from './api-keys.js'
 import { EnvVarsAdapter } from './env-vars.js'
+import { ProjectsAdapter } from './projects.js'
 
 export interface SchemaRef {
   workflows: unknown
@@ -18,6 +19,7 @@ export interface SchemaRef {
   deployments: unknown
   apiKeys: unknown
   envVars: unknown
+  projects: unknown
 }
 
 export interface DrizzleAdapterOptions {
@@ -35,6 +37,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _deployments: DeploymentsAdapter
   private _apiKeys: ApiKeysAdapter
   private _envVars: EnvVarsAdapter
+  private _projects: ProjectsAdapter
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(db: any, schema: SchemaRef, options?: DrizzleAdapterOptions) {
@@ -46,25 +49,45 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     this._runs = new RunsAdapter(db, schema.workflowRuns)
     this._deployments = new DeploymentsAdapter(db, schema.deployments)
     this._apiKeys = new ApiKeysAdapter(db, schema.apiKeys)
-    this._envVars = new EnvVarsAdapter(db, schema.envVars, options?.tokenCrypto)
+    this._envVars = new EnvVarsAdapter(db, schema.envVars, options?.tokenCrypto, schema.projects)
+    this._projects = new ProjectsAdapter(db, schema.projects)
   }
 
-  createWorkflow(data: { id: string; userId: string; name: string; description?: string }): Promise<Workflow> {
+  // Projects
+  createProject(data: { id: string; organizationId: string; name: string; slug: string; description?: string }): Promise<Project> {
+    return this._projects.create(data)
+  }
+  getProjectById(id: string): Promise<Project | null> {
+    return this._projects.getById(id)
+  }
+  listProjectsByOrganization(organizationId: string): Promise<Project[]> {
+    return this._projects.listByOrganization(organizationId)
+  }
+  updateProject(id: string, data: { name?: string; slug?: string; description?: string }): Promise<Project> {
+    return this._projects.update(id, data)
+  }
+  deleteProject(id: string): Promise<void> {
+    return this._projects.delete(id)
+  }
+
+  // Workflows
+  createWorkflow(data: { id: string; projectId: string; createdBy: string; name: string; description?: string }): Promise<Workflow> {
     return this._workflows.create(data)
   }
   getWorkflowById(id: string): Promise<Workflow | null> {
     return this._workflows.getById(id)
   }
-  listWorkflowsByUser(userId: string): Promise<Workflow[]> {
-    return this._workflows.listByUser(userId)
+  listWorkflowsByProject(projectId: string): Promise<Workflow[]> {
+    return this._workflows.listByProject(projectId)
   }
-  updateWorkflow(id: string, data: { name?: string; description?: string; currentVersionId?: string | null; envVars?: string | null; triggerCode?: string | null; dependencies?: string | null }): Promise<Workflow> {
+  updateWorkflow(id: string, data: { name?: string; description?: string; currentVersionId?: string | null; envVars?: string | null; triggerCode?: string | null; dependencies?: string | null; projectId?: string }): Promise<Workflow> {
     return this._workflows.update(id, data)
   }
   deleteWorkflow(id: string): Promise<void> {
     return this._workflows.delete(id)
   }
 
+  // Versions
   createVersion(data: { id: string; workflowId: string; version: number; ir: string; generatedCode?: string }): Promise<WorkflowVersion> {
     return this._versions.create(data)
   }
@@ -85,14 +108,15 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     return this._versions.delete(id)
   }
 
-  createConnection(data: { id: string; userId: string; provider: string; credentials: string; name: string }): Promise<Connection> {
+  // Connections
+  createConnection(data: { id: string; organizationId: string; createdBy: string; provider: string; credentials: string; name: string }): Promise<Connection> {
     return this._connections.create(data)
   }
   getProviderConnectionById(id: string): Promise<Connection | null> {
     return this._connections.getById(id)
   }
-  listConnectionsByUser(userId: string): Promise<Connection[]> {
-    return this._connections.listByUser(userId)
+  listConnectionsByOrganization(organizationId: string): Promise<Connection[]> {
+    return this._connections.listByOrganization(organizationId)
   }
   updateConnection(id: string, data: { name?: string; credentials?: string }): Promise<Connection | null> {
     return this._connections.update(id, data)
@@ -101,6 +125,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     return this._connections.delete(id)
   }
 
+  // Runs
   createRun(data: { id: string; workflowId: string; versionId: string; connectionId: string; instanceId: string; status: string }): Promise<WorkflowRun> {
     return this._runs.create(data)
   }
@@ -114,7 +139,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     return this._runs.update(id, data)
   }
 
-  async listRecentRunsByUser(userId: string, limit = 20): Promise<WorkflowRun[]> {
+  async listRecentRunsByProject(projectId: string, limit = 20): Promise<WorkflowRun[]> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const w = this._schema.workflows as any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -134,11 +159,12 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       })
       .from(r)
       .innerJoin(w, eq(r.workflowId, w.id))
-      .where(eq(w.userId, userId))
+      .where(eq(w.projectId, projectId))
       .orderBy(desc(r.createdAt))
       .limit(limit)
   }
 
+  // Deployments
   createDeployment(data: { id: string; workflowId: string; versionId: string; connectionId: string; serviceName: string; serviceUrl?: string; status: string; error?: string }): Promise<Deployment> {
     return this._deployments.create(data)
   }
@@ -163,7 +189,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     return this._deployments.listByWorkflow(workflowId)
   }
 
-  async listRecentDeploymentsByUser(userId: string, limit = 20): Promise<Deployment[]> {
+  async listRecentDeploymentsByProject(projectId: string, limit = 20): Promise<Deployment[]> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const w = this._schema.workflows as any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -182,7 +208,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       })
       .from(d)
       .innerJoin(w, eq(d.workflowId, w.id))
-      .where(eq(w.userId, userId))
+      .where(eq(w.projectId, projectId))
       .orderBy(desc(d.createdAt))
       .limit(limit)
   }
@@ -191,30 +217,35 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     return this._deployments.deleteByWorkflow(workflowId)
   }
 
-  createApiKey(data: { id: string; userId: string; name: string; keyHash: string; keyPrefix: string; scopes: string; expiresAt?: string | null }): Promise<ApiKey> {
+  // API Keys
+  createApiKey(data: { id: string; projectId: string; createdBy: string; name: string; keyHash: string; keyPrefix: string; scopes: string; expiresAt?: string | null }): Promise<ApiKey> {
     return this._apiKeys.create(data)
   }
   getApiKeyByHash(keyHash: string): Promise<ApiKey | null> {
     return this._apiKeys.getByHash(keyHash)
   }
-  listApiKeysByUser(userId: string): Promise<ApiKey[]> {
-    return this._apiKeys.listByUser(userId)
+  listApiKeysByProject(projectId: string): Promise<ApiKey[]> {
+    return this._apiKeys.listByProject(projectId)
   }
   updateApiKeyLastUsed(id: string, lastUsedAt: string): Promise<void> {
     return this._apiKeys.updateLastUsed(id, lastUsedAt)
   }
-  revokeApiKey(id: string, userId: string): Promise<ApiKey | null> {
-    return this._apiKeys.revoke(id, userId)
+  revokeApiKey(id: string, projectId: string): Promise<ApiKey | null> {
+    return this._apiKeys.revoke(id, projectId)
   }
 
-  createEnvVar(data: { id: string; userId: string; name: string; value: string; isSecret: boolean }): Promise<EnvVar> {
+  // Env Vars
+  createEnvVar(data: { id: string; organizationId: string; projectId?: string | null; createdBy: string; name: string; value: string; isSecret: boolean }): Promise<EnvVar | null> {
     return this._envVars.create(data)
   }
   getEnvVarById(id: string): Promise<EnvVar | null> {
     return this._envVars.getById(id)
   }
-  listGlobalEnvVars(userId: string): Promise<EnvVar[]> {
-    return this._envVars.listByUser(userId)
+  listEnvVarsByOrganization(organizationId: string): Promise<EnvVar[]> {
+    return this._envVars.listByOrganization(organizationId)
+  }
+  listEnvVarsByProject(organizationId: string, projectId: string): Promise<EnvVar[]> {
+    return this._envVars.listByProject(organizationId, projectId)
   }
   updateEnvVar(id: string, data: { name?: string; value?: string; isSecret?: boolean }): Promise<EnvVar | null> {
     return this._envVars.update(id, data)
@@ -237,7 +268,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     await this._workflows.update(workflowId, { envVars: JSON.stringify(vars) })
   }
 
-  async resolveEnvVars(userId: string, workflowId: string): Promise<Record<string, ResolvedEnvVar>> {
+  async resolveEnvVars(organizationId: string, projectId: string, workflowId: string): Promise<Record<string, ResolvedEnvVar>> {
     const workflowVars = await this.getWorkflowEnvVars(workflowId)
     const globalRefPattern = /^\{\{global\.env\.([A-Z][A-Z0-9_]*)\}\}$/
     const result: Record<string, ResolvedEnvVar> = {}
@@ -246,9 +277,11 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       const match = wVar.value.match(globalRefPattern)
       if (match) {
         const globalName = match[1]
-        const globalVar = await this._envVars.getByUserAndName(userId, globalName)
-        result[wVar.name] = globalVar
-          ? { value: globalVar.value, isSecret: globalVar.isSecret }
+        // Try project-level first, then org-level (project overrides org)
+        const projectVar = await this._envVars.getByOrgAndName(organizationId, globalName, projectId)
+        const envVar = projectVar ?? await this._envVars.getByOrgAndName(organizationId, globalName)
+        result[wVar.name] = envVar
+          ? { value: envVar.value, isSecret: envVar.isSecret }
           : { value: undefined, isSecret: wVar.isSecret }
       } else {
         result[wVar.name] = { value: wVar.value, isSecret: wVar.isSecret }

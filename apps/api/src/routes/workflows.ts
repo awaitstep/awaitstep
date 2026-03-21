@@ -37,8 +37,8 @@ export const workflows = new Hono<AppEnv>()
 
 workflows.get('/', async (c) => {
   const db = c.get('db')
-  const userId = c.get('userId')
-  const list = await db.listWorkflowsByUser(userId)
+  const projectId = c.get('projectId')
+  const list = await db.listWorkflowsByProject(projectId)
   return c.json(list)
 })
 
@@ -74,11 +74,13 @@ workflows.get('/:id/full', async (c) => {
 
 workflows.post('/', zValidator('json', createSchema), async (c) => {
   const db = c.get('db')
+  const projectId = c.get('projectId')
   const userId = c.get('userId')
   const body = c.req.valid('json')
   const workflow = await db.createWorkflow({
     id: nanoid(),
-    userId,
+    projectId,
+    createdBy: userId,
     name: body.name,
     description: body.description,
   })

@@ -30,9 +30,9 @@ const r2ObjectsQuery = z.object({
 
 export const resources = new Hono<AppEnv>()
 
-async function getResourcesAPI(db: AppEnv['Variables']['db'], userId: string, connectionId: string): Promise<CloudflareResourcesAPI | null> {
+async function getResourcesAPI(db: AppEnv['Variables']['db'], organizationId: string, connectionId: string): Promise<CloudflareResourcesAPI | null> {
   const connection = await db.getProviderConnectionById(connectionId)
-  if (!connection || connection.userId !== userId) return null
+  if (!connection || connection.organizationId !== organizationId) return null
   const creds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
   return new CloudflareResourcesAPI(creds)
 }
@@ -41,7 +41,7 @@ async function getResourcesAPI(db: AppEnv['Variables']['db'], userId: string, co
 
 resources.get('/kv/namespaces', zValidator('query', connectionQuery), async (c) => {
   const { connectionId } = c.req.valid('query')
-  const api = await getResourcesAPI(c.get('db'), c.get('userId'), connectionId)
+  const api = await getResourcesAPI(c.get('db'), c.get('organizationId'), connectionId)
   if (!api) return c.json({ error: 'Connection not found' }, 404)
 
   const namespaces = await api.listKVNamespaces()
@@ -50,7 +50,7 @@ resources.get('/kv/namespaces', zValidator('query', connectionQuery), async (c) 
 
 resources.get('/kv/namespaces/:namespaceId/keys', zValidator('query', kvKeysQuery), async (c) => {
   const { connectionId, prefix, cursor, limit } = c.req.valid('query')
-  const api = await getResourcesAPI(c.get('db'), c.get('userId'), connectionId)
+  const api = await getResourcesAPI(c.get('db'), c.get('organizationId'), connectionId)
   if (!api) return c.json({ error: 'Connection not found' }, 404)
 
   const result = await api.listKVKeys(c.req.param('namespaceId'), { prefix, cursor, limit })
@@ -59,7 +59,7 @@ resources.get('/kv/namespaces/:namespaceId/keys', zValidator('query', kvKeysQuer
 
 resources.get('/kv/namespaces/:namespaceId/values/:key', zValidator('query', connectionQuery), async (c) => {
   const { connectionId } = c.req.valid('query')
-  const api = await getResourcesAPI(c.get('db'), c.get('userId'), connectionId)
+  const api = await getResourcesAPI(c.get('db'), c.get('organizationId'), connectionId)
   if (!api) return c.json({ error: 'Connection not found' }, 404)
 
   const value = await api.getKVValue(c.req.param('namespaceId'), c.req.param('key'))
@@ -70,7 +70,7 @@ resources.get('/kv/namespaces/:namespaceId/values/:key', zValidator('query', con
 
 resources.get('/d1/databases', zValidator('query', connectionQuery), async (c) => {
   const { connectionId } = c.req.valid('query')
-  const api = await getResourcesAPI(c.get('db'), c.get('userId'), connectionId)
+  const api = await getResourcesAPI(c.get('db'), c.get('organizationId'), connectionId)
   if (!api) return c.json({ error: 'Connection not found' }, 404)
 
   const databases = await api.listD1Databases()
@@ -79,7 +79,7 @@ resources.get('/d1/databases', zValidator('query', connectionQuery), async (c) =
 
 resources.post('/d1/databases/:databaseId/query', zValidator('json', d1QueryBody), async (c) => {
   const { connectionId, sql, params } = c.req.valid('json')
-  const api = await getResourcesAPI(c.get('db'), c.get('userId'), connectionId)
+  const api = await getResourcesAPI(c.get('db'), c.get('organizationId'), connectionId)
   if (!api) return c.json({ error: 'Connection not found' }, 404)
 
   const result = await api.queryD1(c.req.param('databaseId'), sql, params)
@@ -90,7 +90,7 @@ resources.post('/d1/databases/:databaseId/query', zValidator('json', d1QueryBody
 
 resources.get('/r2/buckets', zValidator('query', connectionQuery), async (c) => {
   const { connectionId } = c.req.valid('query')
-  const api = await getResourcesAPI(c.get('db'), c.get('userId'), connectionId)
+  const api = await getResourcesAPI(c.get('db'), c.get('organizationId'), connectionId)
   if (!api) return c.json({ error: 'Connection not found' }, 404)
 
   const buckets = await api.listR2Buckets()
@@ -99,7 +99,7 @@ resources.get('/r2/buckets', zValidator('query', connectionQuery), async (c) => 
 
 resources.get('/r2/buckets/:bucketName/objects', zValidator('query', r2ObjectsQuery), async (c) => {
   const { connectionId, prefix, cursor, limit } = c.req.valid('query')
-  const api = await getResourcesAPI(c.get('db'), c.get('userId'), connectionId)
+  const api = await getResourcesAPI(c.get('db'), c.get('organizationId'), connectionId)
   if (!api) return c.json({ error: 'Connection not found' }, 404)
 
   const result = await api.listR2Objects(c.req.param('bucketName'), { prefix, cursor, limit })

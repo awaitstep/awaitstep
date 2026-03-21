@@ -80,12 +80,13 @@ function collectRequiredEnvVars(ir: WorkflowIR, nodeRegistry?: AppNodeRegistry):
 
 async function resolveAndValidateEnvVars(
   db: DatabaseAdapter,
-  userId: string,
+  organizationId: string,
+  projectId: string,
   workflowId: string,
   ir: WorkflowIR,
   nodeRegistry?: AppNodeRegistry,
 ): Promise<{ envVars?: ProviderConfig['envVars']; error?: string }> {
-  const resolved = await db.resolveEnvVars(userId, workflowId)
+  const resolved = await db.resolveEnvVars(organizationId, projectId, workflowId)
   const requiredNames = collectRequiredEnvVars(ir, nodeRegistry)
 
   const missing: string[] = []
@@ -120,7 +121,8 @@ export const deploy = new Hono<AppEnv>()
 
 deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) => {
   const db = c.get('db')
-  const userId = c.get('userId')
+  const organizationId = c.get('organizationId')
+  const projectId = c.get('projectId')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
   const body = c.req.valid('json')
@@ -130,7 +132,7 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
   }
 
   const connection = await db.getProviderConnectionById(body.connectionId)
-  if (!connection || connection.userId !== userId) return c.json({ error: 'Connection not found' }, 404)
+  if (!connection || connection.organizationId !== organizationId) return c.json({ error: 'Connection not found' }, 404)
 
   const versionId = body.versionId ?? workflow.currentVersionId
   if (!versionId) return c.json({ error: 'No version to deploy' }, 400)
@@ -152,7 +154,7 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
     return c.json({ error: 'IR validation failed', details: validation.errors }, 400)
   }
 
-  const envResult = await resolveAndValidateEnvVars(db, userId, workflow.id, ir, nodeRegistry)
+  const envResult = await resolveAndValidateEnvVars(db, organizationId, projectId, workflow.id, ir, nodeRegistry)
   if (envResult.error) {
     return c.json({ error: envResult.error }, 400)
   }
@@ -195,7 +197,8 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
 
 deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), async (c) => {
   const db = c.get('db')
-  const userId = c.get('userId')
+  const organizationId = c.get('organizationId')
+  const projectId = c.get('projectId')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
   const body = c.req.valid('json')
@@ -205,7 +208,7 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
   }
 
   const connection = await db.getProviderConnectionById(body.connectionId)
-  if (!connection || connection.userId !== userId) return c.json({ error: 'Connection not found' }, 404)
+  if (!connection || connection.organizationId !== organizationId) return c.json({ error: 'Connection not found' }, 404)
 
   const versionId = body.versionId ?? workflow.currentVersionId
   if (!versionId) return c.json({ error: 'No version to deploy' }, 400)
@@ -227,7 +230,7 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
     return c.json({ error: 'IR validation failed', details: validation.errors }, 400)
   }
 
-  const envResult = await resolveAndValidateEnvVars(db, userId, workflow.id, ir, nodeRegistry)
+  const envResult = await resolveAndValidateEnvVars(db, organizationId, projectId, workflow.id, ir, nodeRegistry)
   if (envResult.error) {
     return c.json({ error: envResult.error }, 400)
   }
@@ -296,7 +299,7 @@ deploy.get('/:workflowId/deployments', async (c) => {
 
 deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c) => {
   const db = c.get('db')
-  const userId = c.get('userId')
+  const organizationId = c.get('organizationId')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
   const body = c.req.valid('json')
@@ -304,7 +307,7 @@ deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c)
   if (!workflow.currentVersionId) return c.json({ error: 'No version deployed' }, 400)
 
   const connection = await db.getProviderConnectionById(body.connectionId)
-  if (!connection || connection.userId !== userId) return c.json({ error: 'Connection not found' }, 404)
+  if (!connection || connection.organizationId !== organizationId) return c.json({ error: 'Connection not found' }, 404)
 
   const adapter = createAdapter(c.get('nodeRegistry')?.templateResolver)
   const triggerCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
@@ -332,14 +335,14 @@ deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c)
 
 deploy.post('/:workflowId/takedown', zValidator('json', z.object({ connectionId: z.string().min(1) })), async (c) => {
   const db = c.get('db')
-  const userId = c.get('userId')
+  const organizationId = c.get('organizationId')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
   const { connectionId } = c.req.valid('json')
 
   const connection = await db.getProviderConnectionById(connectionId)
-  if (!connection || connection.userId !== userId) return c.json({ error: 'Connection not found' }, 404)
+  if (!connection || connection.organizationId !== organizationId) return c.json({ error: 'Connection not found' }, 404)
 
   const name = workerName(workflow.id)
   const creds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }

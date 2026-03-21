@@ -10,6 +10,7 @@ const createEnvVarSchema = z.object({
   name: z.string().min(1).max(255).regex(envVarNamePattern, 'Must be uppercase letters, digits, and underscores (e.g. MY_API_KEY)'),
   value: z.string().min(1).max(10_000),
   isSecret: z.boolean().default(false),
+  projectId: z.string().optional(),
 })
 
 const updateEnvVarSchema = z.object({
@@ -22,8 +23,13 @@ export const envVars = new Hono<AppEnv>()
 
 envVars.get('/', async (c) => {
   const db = c.get('db')
-  const userId = c.get('userId')
-  const vars = await db.listGlobalEnvVars(userId)
+  const organizationId = c.get('organizationId')
+  const projectId = c.req.query('projectId')
+
+  const vars = projectId
+    ? await db.listEnvVarsByProject(organizationId, projectId)
+    : await db.listEnvVarsByOrganization(organizationId)
+
   return c.json(
     vars.map((v) => ({
       ...v,
@@ -34,16 +40,23 @@ envVars.get('/', async (c) => {
 
 envVars.post('/', zValidator('json', createEnvVarSchema), async (c) => {
   const db = c.get('db')
+  const organizationId = c.get('organizationId')
   const userId = c.get('userId')
   const body = c.req.valid('json')
 
   const envVar = await db.createEnvVar({
     id: nanoid(),
-    userId,
+    organizationId,
+    projectId: body.projectId ?? null,
+    createdBy: userId,
     name: body.name,
     value: body.value,
     isSecret: body.isSecret,
   })
+
+  if (!envVar) {
+    return c.json({ error: 'Project not found' }, 404)
+  }
 
   return c.json(
     {
@@ -56,11 +69,11 @@ envVars.post('/', zValidator('json', createEnvVarSchema), async (c) => {
 
 envVars.patch('/:id', zValidator('json', updateEnvVarSchema), async (c) => {
   const db = c.get('db')
-  const userId = c.get('userId')
+  const organizationId = c.get('organizationId')
   const id = c.req.param('id')
 
   const existing = await db.getEnvVarById(id)
-  if (!existing || existing.userId !== userId) {
+  if (!existing || existing.organizationId !== organizationId) {
     return c.json({ error: 'Not found' }, 404)
   }
 
@@ -76,11 +89,11 @@ envVars.patch('/:id', zValidator('json', updateEnvVarSchema), async (c) => {
 
 envVars.delete('/:id', async (c) => {
   const db = c.get('db')
-  const userId = c.get('userId')
+  const organizationId = c.get('organizationId')
   const id = c.req.param('id')
 
   const existing = await db.getEnvVarById(id)
-  if (!existing || existing.userId !== userId) {
+  if (!existing || existing.organizationId !== organizationId) {
     return c.json({ error: 'Not found' }, 404)
   }
 

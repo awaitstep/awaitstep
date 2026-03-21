@@ -1,15 +1,15 @@
 import { createMiddleware } from 'hono/factory'
 import type { AppEnv } from '../types.js'
 
-export const requireWorkflowOwner = createMiddleware<AppEnv>(async (c, next) => {
+export const requireWorkflowAccess = createMiddleware<AppEnv>(async (c, next) => {
   const db = c.get('db')
-  const userId = c.get('userId')
+  const projectId = c.get('projectId')
   const workflowId = c.req.param('workflowId') ?? c.req.param('id')
 
   if (!workflowId) return c.json({ error: 'Not found' }, 404)
 
   const workflow = await db.getWorkflowById(workflowId)
-  if (!workflow || workflow.userId !== userId) {
+  if (!workflow || workflow.projectId !== projectId) {
     return c.json({ error: 'Not found' }, 404)
   }
 
@@ -17,15 +17,15 @@ export const requireWorkflowOwner = createMiddleware<AppEnv>(async (c, next) => 
   await next()
 })
 
-export const requireConnectionOwner = createMiddleware<AppEnv>(async (c, next) => {
+export const requireConnectionAccess = createMiddleware<AppEnv>(async (c, next) => {
   const db = c.get('db')
-  const userId = c.get('userId')
+  const organizationId = c.get('organizationId')
   const connectionId = c.req.param('connectionId') ?? c.req.param('id')
 
   if (!connectionId) return c.json({ error: 'Not found' }, 404)
 
   const connection = await db.getProviderConnectionById(connectionId)
-  if (!connection || connection.userId !== userId) {
+  if (!connection || connection.organizationId !== organizationId) {
     return c.json({ error: 'Not found' }, 404)
   }
 

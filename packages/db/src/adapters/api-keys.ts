@@ -10,11 +10,12 @@ export class ApiKeysAdapter {
     private table: AnyTable,
   ) {}
 
-  async create(data: { id: string; userId: string; name: string; keyHash: string; keyPrefix: string; scopes: string; expiresAt?: string | null }): Promise<ApiKey> {
+  async create(data: { id: string; projectId: string; createdBy: string; name: string; keyHash: string; keyPrefix: string; scopes: string; expiresAt?: string | null }): Promise<ApiKey> {
     const now = new Date().toISOString()
     const row = {
       id: data.id,
-      userId: data.userId,
+      projectId: data.projectId,
+      createdBy: data.createdBy,
       name: data.name,
       keyHash: data.keyHash,
       keyPrefix: data.keyPrefix,
@@ -37,11 +38,11 @@ export class ApiKeysAdapter {
     return rows[0] ?? null
   }
 
-  async listByUser(userId: string): Promise<ApiKey[]> {
+  async listByProject(projectId: string): Promise<ApiKey[]> {
     return this.db
       .select()
       .from(this.table)
-      .where(eq(this.table.userId, userId))
+      .where(eq(this.table.projectId, projectId))
       .orderBy(desc(this.table.createdAt))
   }
 
@@ -49,16 +50,16 @@ export class ApiKeysAdapter {
     await this.db.update(this.table).set({ lastUsedAt }).where(eq(this.table.id, id))
   }
 
-  async revoke(id: string, userId: string): Promise<ApiKey | null> {
+  async revoke(id: string, projectId: string): Promise<ApiKey | null> {
     const now = new Date().toISOString()
     await this.db
       .update(this.table)
       .set({ revokedAt: now })
-      .where(and(eq(this.table.id, id), eq(this.table.userId, userId)))
+      .where(and(eq(this.table.id, id), eq(this.table.projectId, projectId)))
     const rows = await this.db
       .select()
       .from(this.table)
-      .where(and(eq(this.table.id, id), eq(this.table.userId, userId)))
+      .where(and(eq(this.table.id, id), eq(this.table.projectId, projectId)))
       .limit(1)
     return rows[0] ?? null
   }

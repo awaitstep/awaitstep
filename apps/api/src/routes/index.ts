@@ -3,8 +3,9 @@ import type { AppEnv } from '../types.js'
 import type { Auth } from '../auth/config.js'
 import type { SelfHostedConnection } from '../app.js'
 import { createAuthMiddleware, requireScope, requireSessionAuth } from '../middleware/auth.js'
+import { requireProject } from '../middleware/project.js'
 import { createRateLimiter } from '../middleware/rate-limit.js'
-import { requireWorkflowOwner, requireConnectionOwner } from '../middleware/ownership.js'
+import { requireWorkflowAccess, requireConnectionAccess } from '../middleware/ownership.js'
 import { workflows } from './workflows.js'
 import { versions } from './versions.js'
 import { createConnectionRoutes } from './connections.js'
@@ -24,23 +25,31 @@ export function createRouter(auth: Auth, selfHostedConnection?: SelfHostedConnec
   // Auth — all API routes require authentication
   router.use('*', createAuthMiddleware(auth))
 
+  // Project context — required for project-scoped routes
+  router.use('/workflows/*', requireProject)
+  router.use('/workflows', requireProject)
+  router.use('/api-keys/*', requireProject)
+  router.use('/api-keys', requireProject)
+  router.use('/deployments', requireProject)
+  router.use('/runs', requireProject)
+
   // Ownership — workflow routes
-  router.use('/workflows/:id', requireWorkflowOwner)
-  router.use('/workflows/:id/full', requireWorkflowOwner)
-  router.use('/workflows/:workflowId/versions', requireWorkflowOwner)
-  router.use('/workflows/:workflowId/versions/*', requireWorkflowOwner)
-  router.use('/workflows/:workflowId/deploy', requireWorkflowOwner)
-  router.use('/workflows/:workflowId/deploy-stream', requireWorkflowOwner)
-  router.use('/workflows/:workflowId/trigger', requireWorkflowOwner)
-  router.use('/workflows/:workflowId/takedown', requireWorkflowOwner)
-  router.use('/workflows/:workflowId/runs', requireWorkflowOwner)
-  router.use('/workflows/:workflowId/runs/*', requireWorkflowOwner)
-  router.use('/workflows/:workflowId/deployments', requireWorkflowOwner)
+  router.use('/workflows/:id', requireWorkflowAccess)
+  router.use('/workflows/:id/full', requireWorkflowAccess)
+  router.use('/workflows/:workflowId/versions', requireWorkflowAccess)
+  router.use('/workflows/:workflowId/versions/*', requireWorkflowAccess)
+  router.use('/workflows/:workflowId/deploy', requireWorkflowAccess)
+  router.use('/workflows/:workflowId/deploy-stream', requireWorkflowAccess)
+  router.use('/workflows/:workflowId/trigger', requireWorkflowAccess)
+  router.use('/workflows/:workflowId/takedown', requireWorkflowAccess)
+  router.use('/workflows/:workflowId/runs', requireWorkflowAccess)
+  router.use('/workflows/:workflowId/runs/*', requireWorkflowAccess)
+  router.use('/workflows/:workflowId/deployments', requireWorkflowAccess)
 
   // Ownership — connection routes (skip non-ID sub-routes)
   router.use('/connections/:id', async (c, next) => {
     if (c.req.param('id') === 'verify-token' || c.req.param('id') === 'self-hosted') return next()
-    return requireConnectionOwner(c, next)
+    return requireConnectionAccess(c, next)
   })
 
   // Stricter rate limits for sensitive endpoints (per user)
@@ -101,19 +110,19 @@ export function createRouter(auth: Auth, selfHostedConnection?: SelfHostedConnec
   router.route('/env-vars', envVars)
   router.route('/nodes', nodes)
 
-  // Global deployments list (across all user's workflows)
+  // Global deployments list (across all project's workflows)
   router.get('/deployments', async (c) => {
     const db = c.get('db')
-    const userId = c.get('userId')
-    const list = await db.listRecentDeploymentsByUser(userId)
+    const projectId = c.get('projectId')
+    const list = await db.listRecentDeploymentsByProject(projectId)
     return c.json(list)
   })
 
-  // Global runs list (across all user's workflows) — returns cached DB data
+  // Global runs list (across all project's workflows)
   router.get('/runs', async (c) => {
     const db = c.get('db')
-    const userId = c.get('userId')
-    const list = await db.listRecentRunsByUser(userId)
+    const projectId = c.get('projectId')
+    const list = await db.listRecentRunsByProject(projectId)
     return c.json(list)
   })
 

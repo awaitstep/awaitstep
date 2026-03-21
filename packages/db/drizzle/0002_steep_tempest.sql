@@ -1,1 +1,0 @@
-ALTER TABLE `deployments` ADD `worker_url` text;

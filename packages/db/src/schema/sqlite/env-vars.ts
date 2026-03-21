@@ -4,7 +4,9 @@ export const envVars = sqliteTable(
   'env_vars',
   {
     id: text('id').primaryKey(),
-    userId: text('user_id').notNull(),
+    organizationId: text('organization_id').notNull(),
+    projectId: text('project_id'),
+    createdBy: text('created_by').notNull(),
     name: text('name').notNull(),
     value: text('value').notNull(),
     isSecret: integer('is_secret', { mode: 'boolean' }).notNull().default(false),
@@ -12,7 +14,8 @@ export const envVars = sqliteTable(
     updatedAt: text('updated_at').notNull(),
   },
   (table) => [
-    uniqueIndex('idx_env_vars_user_name').on(table.userId, table.name),
-    index('idx_env_vars_user_id').on(table.userId),
+    uniqueIndex('idx_env_vars_org_name').on(table.organizationId, table.projectId, table.name),
+    index('idx_env_vars_org_id').on(table.organizationId),
+    index('idx_env_vars_project_id').on(table.projectId),
   ],
 )

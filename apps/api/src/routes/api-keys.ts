@@ -17,8 +17,8 @@ export const apiKeys = new Hono<AppEnv>()
 
 apiKeys.get('/', async (c) => {
   const db = c.get('db')
-  const userId = c.get('userId')
-  const keys = await db.listApiKeysByUser(userId)
+  const projectId = c.get('projectId')
+  const keys = await db.listApiKeysByProject(projectId)
   return c.json(
     keys.map(({ keyHash: _, ...key }) => key),
   )
@@ -26,6 +26,7 @@ apiKeys.get('/', async (c) => {
 
 apiKeys.post('/', zValidator('json', createApiKeySchema), async (c) => {
   const db = c.get('db')
+  const projectId = c.get('projectId')
   const userId = c.get('userId')
   const body = c.req.valid('json')
 
@@ -35,7 +36,8 @@ apiKeys.post('/', zValidator('json', createApiKeySchema), async (c) => {
 
   const apiKey = await db.createApiKey({
     id: nanoid(),
-    userId,
+    projectId,
+    createdBy: userId,
     name: body.name,
     keyHash,
     keyPrefix,
@@ -49,10 +51,10 @@ apiKeys.post('/', zValidator('json', createApiKeySchema), async (c) => {
 
 apiKeys.delete('/:id', async (c) => {
   const db = c.get('db')
-  const userId = c.get('userId')
+  const projectId = c.get('projectId')
   const id = c.req.param('id')
 
-  const revoked = await db.revokeApiKey(id, userId)
+  const revoked = await db.revokeApiKey(id, projectId)
   if (!revoked) return c.json({ error: 'Not found' }, 404)
 
   const { keyHash: _, ...safeKey } = revoked

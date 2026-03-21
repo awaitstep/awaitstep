@@ -1,4 +1,4 @@
-import type { DatabaseAdapter, Workflow, WorkflowVersion, Connection, WorkflowRun, ApiKey, Deployment } from '@awaitstep/db'
+import type { DatabaseAdapter, Workflow, WorkflowVersion, Connection, WorkflowRun, ApiKey, Deployment, Project } from '@awaitstep/db'
 import { createApp } from '../app.js'
 import type { Auth } from '../auth/config.js'
 
@@ -9,6 +9,7 @@ const store = {
   runs: new Map<string, WorkflowRun>(),
   apiKeys: new Map<string, ApiKey>(),
   deployments: new Map<string, Deployment>(),
+  projects: new Map<string, Project>(),
 }
 
 export function resetStore() {
@@ -18,23 +19,52 @@ export function resetStore() {
   store.runs.clear()
   store.apiKeys.clear()
   store.deployments.clear()
+  store.projects.clear()
 }
 
 function now() {
   return new Date().toISOString()
 }
 
+export const TEST_USER_ID = 'test-user-1'
+export const TEST_ORG_ID = 'test-org-1'
+export const TEST_PROJECT_ID = 'test-project-1'
+
 const mockDb: DatabaseAdapter = {
+  // Projects
+  async createProject(data) {
+    const p: Project = { ...data, description: data.description ?? null, createdAt: now(), updatedAt: now() }
+    store.projects.set(p.id, p)
+    return p
+  },
+  async getProjectById(id) {
+    return store.projects.get(id) ?? null
+  },
+  async listProjectsByOrganization(organizationId) {
+    return [...store.projects.values()].filter((p) => p.organizationId === organizationId)
+  },
+  async updateProject(id, data) {
+    const p = store.projects.get(id)
+    if (!p) throw new Error('Not found')
+    const updated = { ...p, ...data, updatedAt: now() }
+    store.projects.set(id, updated)
+    return updated
+  },
+  async deleteProject(id) {
+    store.projects.delete(id)
+  },
+
+  // Workflows
   async createWorkflow(data) {
-    const wf: Workflow = { ...data, description: data.description ?? null, currentVersionId: null, createdAt: now(), updatedAt: now() }
+    const wf: Workflow = { ...data, description: data.description ?? null, currentVersionId: null, envVars: null, triggerCode: null, dependencies: null, createdAt: now(), updatedAt: now() }
     store.workflows.set(wf.id, wf)
     return wf
   },
   async getWorkflowById(id) {
     return store.workflows.get(id) ?? null
   },
-  async listWorkflowsByUser(userId) {
-    return [...store.workflows.values()].filter((w) => w.userId === userId)
+  async listWorkflowsByProject(projectId) {
+    return [...store.workflows.values()].filter((w) => w.projectId === projectId)
   },
   async updateWorkflow(id, data) {
     const wf = store.workflows.get(id)
@@ -46,6 +76,8 @@ const mockDb: DatabaseAdapter = {
   async deleteWorkflow(id) {
     store.workflows.delete(id)
   },
+
+  // Versions
   async createVersion(data) {
     const v: WorkflowVersion = { ...data, generatedCode: data.generatedCode ?? null, locked: 0, createdAt: now() }
     store.versions.set(v.id, v)
@@ -69,6 +101,8 @@ const mockDb: DatabaseAdapter = {
   async deleteVersion(id) {
     store.versions.delete(id)
   },
+
+  // Connections
   async createConnection(data) {
     const c: Connection = { ...data, createdAt: now(), updatedAt: now() }
     store.connections.set(c.id, c)
@@ -77,12 +111,21 @@ const mockDb: DatabaseAdapter = {
   async getProviderConnectionById(id) {
     return store.connections.get(id) ?? null
   },
-  async listConnectionsByUser(userId) {
-    return [...store.connections.values()].filter((c) => c.userId === userId)
+  async listConnectionsByOrganization(organizationId) {
+    return [...store.connections.values()].filter((c) => c.organizationId === organizationId)
+  },
+  async updateConnection(id, data) {
+    const c = store.connections.get(id)
+    if (!c) return null
+    const updated = { ...c, ...data, updatedAt: now() }
+    store.connections.set(id, updated)
+    return updated
   },
   async deleteConnection(id) {
     store.connections.delete(id)
   },
+
+  // Runs
   async createRun(data) {
     const r: WorkflowRun = { ...data, output: null, error: null, createdAt: now(), updatedAt: now() }
     store.runs.set(r.id, r)
@@ -101,10 +144,12 @@ const mockDb: DatabaseAdapter = {
     store.runs.set(id, updated)
     return updated
   },
-  async listRecentRunsByUser(userId) {
-    const wfIds = new Set([...store.workflows.values()].filter((w) => w.userId === userId).map((w) => w.id))
+  async listRecentRunsByProject(projectId) {
+    const wfIds = new Set([...store.workflows.values()].filter((w) => w.projectId === projectId).map((w) => w.id))
     return [...store.runs.values()].filter((r) => wfIds.has(r.workflowId))
   },
+
+  // Deployments
   async createDeployment(data) {
     const d: Deployment = { ...data, serviceUrl: data.serviceUrl ?? null, error: data.error ?? null, createdAt: now() }
     store.deployments.set(d.id, d)
@@ -122,8 +167,8 @@ const mockDb: DatabaseAdapter = {
   async listDeploymentsByWorkflow(workflowId) {
     return [...store.deployments.values()].filter((d) => d.workflowId === workflowId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   },
-  async listRecentDeploymentsByUser(userId) {
-    const wfIds = new Set([...store.workflows.values()].filter((w) => w.userId === userId).map((w) => w.id))
+  async listRecentDeploymentsByProject(projectId) {
+    const wfIds = new Set([...store.workflows.values()].filter((w) => w.projectId === projectId).map((w) => w.id))
     return [...store.deployments.values()].filter((d) => wfIds.has(d.workflowId))
   },
   async deleteDeploymentsByWorkflow(workflowId) {
@@ -131,6 +176,8 @@ const mockDb: DatabaseAdapter = {
       if (d.workflowId === workflowId) store.deployments.delete(id)
     }
   },
+
+  // API Keys
   async createApiKey(data) {
     const key: ApiKey = { ...data, expiresAt: null, lastUsedAt: null, revokedAt: null, createdAt: now() }
     store.apiKeys.set(key.id, key)
@@ -139,37 +186,59 @@ const mockDb: DatabaseAdapter = {
   async getApiKeyByHash(keyHash) {
     return [...store.apiKeys.values()].find((k) => k.keyHash === keyHash && !k.revokedAt) ?? null
   },
-  async listApiKeysByUser(userId) {
-    return [...store.apiKeys.values()].filter((k) => k.userId === userId)
+  async listApiKeysByProject(projectId) {
+    return [...store.apiKeys.values()].filter((k) => k.projectId === projectId)
   },
   async updateApiKeyLastUsed(id, lastUsedAt) {
     const k = store.apiKeys.get(id)
     if (k) store.apiKeys.set(id, { ...k, lastUsedAt })
   },
-  async revokeApiKey(id, userId) {
+  async revokeApiKey(id, projectId) {
     const k = store.apiKeys.get(id)
-    if (!k || k.userId !== userId) return null
+    if (!k || k.projectId !== projectId) return null
     const revoked = { ...k, revokedAt: now() }
     store.apiKeys.set(id, revoked)
     return revoked
   },
-}
 
-const TEST_USER_ID = 'test-user-1'
+  // Env Vars
+  async createEnvVar(data) {
+    return { ...data, projectId: data.projectId ?? null, isSecret: data.isSecret, createdAt: now(), updatedAt: now() }
+  },
+  async getEnvVarById() { return null },
+  async listEnvVarsByOrganization() { return [] },
+  async listEnvVarsByProject() { return [] },
+  async updateEnvVar() { return null },
+  async deleteEnvVar() {},
+  async getWorkflowEnvVars() { return [] },
+  async setWorkflowEnvVars() {},
+  async resolveEnvVars() { return {} },
+}
 
 const mockAuth = {
   handler: async () => new Response(JSON.stringify({ ok: true })),
   api: {
     getSession: async () => ({
       user: { id: TEST_USER_ID, email: 'test@example.com', name: 'Test' },
-      session: { id: 'session-1', userId: TEST_USER_ID, expiresAt: new Date(Date.now() + 86400000) },
+      session: { id: 'session-1', userId: TEST_USER_ID, expiresAt: new Date(Date.now() + 86400000), activeOrganizationId: TEST_ORG_ID },
     }),
   },
 } as unknown as Auth
 
-export { mockDb, mockAuth, TEST_USER_ID }
+export { mockDb, mockAuth }
 
 export function createTestApp() {
+  // Seed the test project so auth middleware can find it
+  store.projects.set(TEST_PROJECT_ID, {
+    id: TEST_PROJECT_ID,
+    organizationId: TEST_ORG_ID,
+    name: 'Test Project',
+    slug: 'test-project',
+    description: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  })
+
   return createApp({
     db: mockDb,
     auth: mockAuth,

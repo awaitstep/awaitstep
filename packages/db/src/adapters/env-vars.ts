@@ -1,4 +1,4 @@
-import { eq, desc, and } from 'drizzle-orm'
+import { eq, desc, and, isNull } from 'drizzle-orm'
 import type { EnvVar } from '../types.js'
 import type { TokenCrypto } from '../crypto.js'
 
@@ -10,14 +10,29 @@ export class EnvVarsAdapter {
     private db: AnyTable,
     private table: AnyTable,
     private crypto?: TokenCrypto,
+    private projectsTable?: AnyTable,
   ) {}
 
-  async create(data: { id: string; userId: string; name: string; value: string; isSecret: boolean }): Promise<EnvVar> {
+  async create(data: { id: string; organizationId: string; projectId?: string | null; createdBy: string; name: string; value: string; isSecret: boolean }): Promise<EnvVar | null> {
     const now = new Date().toISOString()
     const encryptedValue = this.crypto ? await this.crypto.encrypt(data.value) : data.value
+
+    // If projectId is provided, validate it belongs to the org in a single statement
+    if (data.projectId && this.projectsTable) {
+      const p = this.projectsTable
+      const valid = await this.db
+        .select({ id: p.id })
+        .from(p)
+        .where(and(eq(p.id, data.projectId), eq(p.organizationId, data.organizationId)))
+        .limit(1)
+      if (valid.length === 0) return null
+    }
+
     const row = {
       id: data.id,
-      userId: data.userId,
+      organizationId: data.organizationId,
+      projectId: data.projectId ?? null,
+      createdBy: data.createdBy,
       name: data.name,
       value: encryptedValue,
       isSecret: data.isSecret,
@@ -37,11 +52,11 @@ export class EnvVarsAdapter {
     return row
   }
 
-  async listByUser(userId: string): Promise<EnvVar[]> {
+  async listByOrganization(organizationId: string): Promise<EnvVar[]> {
     const rows = await this.db
       .select()
       .from(this.table)
-      .where(eq(this.table.userId, userId))
+      .where(and(eq(this.table.organizationId, organizationId), isNull(this.table.projectId)))
       .orderBy(desc(this.table.createdAt))
     if (this.crypto) {
       for (const row of rows) {
@@ -51,11 +66,28 @@ export class EnvVarsAdapter {
     return rows
   }
 
-  async getByUserAndName(userId: string, name: string): Promise<EnvVar | null> {
+  async listByProject(organizationId: string, projectId: string): Promise<EnvVar[]> {
     const rows = await this.db
       .select()
       .from(this.table)
-      .where(and(eq(this.table.userId, userId), eq(this.table.name, name)))
+      .where(and(eq(this.table.organizationId, organizationId), eq(this.table.projectId, projectId)))
+      .orderBy(desc(this.table.createdAt))
+    if (this.crypto) {
+      for (const row of rows) {
+        row.value = await this.tryDecrypt(row.value)
+      }
+    }
+    return rows
+  }
+
+  async getByOrgAndName(organizationId: string, name: string, projectId?: string | null): Promise<EnvVar | null> {
+    const conditions = projectId
+      ? and(eq(this.table.organizationId, organizationId), eq(this.table.projectId, projectId), eq(this.table.name, name))
+      : and(eq(this.table.organizationId, organizationId), isNull(this.table.projectId), eq(this.table.name, name))
+    const rows = await this.db
+      .select()
+      .from(this.table)
+      .where(conditions)
       .limit(1)
     const row = rows[0] ?? null
     if (row && this.crypto) {

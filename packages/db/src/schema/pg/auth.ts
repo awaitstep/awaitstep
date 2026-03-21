@@ -27,6 +27,7 @@ export const session = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
+    activeOrganizationId: text('active_organization_id'),
   },
   (table) => [
     index('idx_session_user_id').on(table.userId),

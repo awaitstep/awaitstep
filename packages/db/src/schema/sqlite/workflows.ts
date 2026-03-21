@@ -4,7 +4,8 @@ export const workflows = sqliteTable(
   'workflows',
   {
     id: text('id').primaryKey(),
-    userId: text('user_id').notNull(),
+    projectId: text('project_id').notNull(),
+    createdBy: text('created_by').notNull(),
     name: text('name').notNull(),
     description: text('description'),
     currentVersionId: text('current_version_id'),
@@ -14,5 +15,8 @@ export const workflows = sqliteTable(
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },
-  (table) => [index('idx_workflows_user_id').on(table.userId)],
+  (table) => [
+    index('idx_workflows_project_id').on(table.projectId),
+    index('idx_workflows_created_by').on(table.createdBy),
+  ],
 )
