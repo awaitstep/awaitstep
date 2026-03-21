@@ -11,7 +11,10 @@ import {
   Activity,
   Cable,
   HardDrive,
+  Code,
+  SquareTerminal,
   ExternalLink,
+  BookOpen,
   LogOut,
   User,
   Settings,
@@ -93,7 +96,9 @@ function AuthedLayout() {
 }
 
 function Dock({ email, matches }: { email: string; matches: ReturnType<typeof useMatches> }) {
+  const [devOpen, setDevOpen] = useState(false)
   const [userOpen, setUserOpen] = useState(false)
+  const isPlaygroundActive = matches.some((m) => m.routeId === '/_authed/api-playground')
 
   return (
     <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2">
@@ -128,17 +133,47 @@ function Dock({ email, matches }: { email: string; matches: ReturnType<typeof us
           )
         })}
 
-        <a
-          href="https://docs.awaitstep.dev"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group relative flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground/80"
-        >
-          <ExternalLink size={20} />
-          <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-card px-2 py-1 text-[11px] font-medium text-foreground opacity-0 shadow-lg group-hover:opacity-100">
-            Docs
-          </span>
-        </a>
+        <Popover.Root open={devOpen} onOpenChange={setDevOpen}>
+          <Popover.Trigger asChild>
+            <button
+              className={`group relative flex h-11 w-11 items-center justify-center rounded-md transition-colors ${
+                devOpen || isPlaygroundActive
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground/80'
+              }`}
+            >
+              <Code size={20} />
+              <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-card px-2 py-1 text-[11px] font-medium text-foreground opacity-0 shadow-lg group-hover:opacity-100">
+                Developer
+              </span>
+              {isPlaygroundActive && (
+                <span className="absolute -bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-foreground" />
+              )}
+            </button>
+          </Popover.Trigger>
+          <Popover.Portal>
+            <Popover.Content side="top" align="center" sideOffset={8} className="z-50 w-48 rounded-md border border-border bg-card p-2 shadow-lg">
+              <Link
+                to="/api-playground"
+                onClick={() => setDevOpen(false)}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground"
+              >
+                <SquareTerminal size={14} />
+                API Playground
+              </Link>
+              <a
+                href="https://docs.awaitstep.dev"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground"
+              >
+                <BookOpen size={14} />
+                Docs
+                <ExternalLink size={10} className="ml-auto opacity-40" />
+              </a>
+            </Popover.Content>
+          </Popover.Portal>
+        </Popover.Root>
 
         <div className="mx-1 h-6 w-px bg-border" />
 

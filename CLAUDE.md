@@ -26,6 +26,10 @@
 - Never leave `console.log` debugging statements in committed code. Use proper logging if needed.
 - Prefer explicit types over `any`. If `any` is truly unavoidable, use `// eslint-disable-next-line` with a comment explaining why.
 
+## API Endpoints
+
+- When adding a new publicly exposed API endpoint, always add a corresponding entry to the playground endpoint catalog (`apps/web/src/lib/playground-endpoints.ts`) and update the API reference docs (`docs/api-reference.md`).
+
 ## Architecture
 
 - All shared types and interfaces belong in their respective package (`@awaitstep/ir`, `@awaitstep/codegen`, etc.) — never duplicate type definitions across packages.

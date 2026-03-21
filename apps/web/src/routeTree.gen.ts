@@ -14,6 +14,7 @@ import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthedDashboardRouteImport } from './routes/_authed/dashboard'
 import { Route as AuthedConnectionsRouteImport } from './routes/_authed/connections'
+import { Route as AuthedApiPlaygroundRouteImport } from './routes/_authed/api-playground'
 import { Route as AuthedAccountRouteImport } from './routes/_authed/account'
 import { Route as AuthedWorkflowsIndexRouteImport } from './routes/_authed/workflows.index'
 import { Route as AuthedRunsIndexRouteImport } from './routes/_authed/runs.index'
@@ -51,6 +52,11 @@ const AuthedDashboardRoute = AuthedDashboardRouteImport.update({
 const AuthedConnectionsRoute = AuthedConnectionsRouteImport.update({
   id: '/connections',
   path: '/connections',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedApiPlaygroundRoute = AuthedApiPlaygroundRouteImport.update({
+  id: '/api-playground',
+  path: '/api-playground',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedAccountRoute = AuthedAccountRouteImport.update({
@@ -134,6 +140,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
   '/account': typeof AuthedAccountRoute
+  '/api-playground': typeof AuthedApiPlaygroundRoute
   '/connections': typeof AuthedConnectionsRoute
   '/dashboard': typeof AuthedDashboardRoute
   '/resources/d1': typeof AuthedResourcesD1Route
@@ -154,6 +161,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
   '/account': typeof AuthedAccountRoute
+  '/api-playground': typeof AuthedApiPlaygroundRoute
   '/connections': typeof AuthedConnectionsRoute
   '/dashboard': typeof AuthedDashboardRoute
   '/resources/d1': typeof AuthedResourcesD1Route
@@ -174,6 +182,7 @@ export interface FileRoutesById {
   '/_authed': typeof AuthedRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/_authed/account': typeof AuthedAccountRoute
+  '/_authed/api-playground': typeof AuthedApiPlaygroundRoute
   '/_authed/connections': typeof AuthedConnectionsRoute
   '/_authed/dashboard': typeof AuthedDashboardRoute
   '/_authed/resources/d1': typeof AuthedResourcesD1Route
@@ -196,6 +205,7 @@ export interface FileRouteTypes {
     | '/'
     | '/sign-in'
     | '/account'
+    | '/api-playground'
     | '/connections'
     | '/dashboard'
     | '/resources/d1'
@@ -216,6 +226,7 @@ export interface FileRouteTypes {
     | '/'
     | '/sign-in'
     | '/account'
+    | '/api-playground'
     | '/connections'
     | '/dashboard'
     | '/resources/d1'
@@ -235,6 +246,7 @@ export interface FileRouteTypes {
     | '/_authed'
     | '/sign-in'
     | '/_authed/account'
+    | '/_authed/api-playground'
     | '/_authed/connections'
     | '/_authed/dashboard'
     | '/_authed/resources/d1'
@@ -293,6 +305,13 @@ declare module '@tanstack/react-router' {
       path: '/connections'
       fullPath: '/connections'
       preLoaderRoute: typeof AuthedConnectionsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/api-playground': {
+      id: '/_authed/api-playground'
+      path: '/api-playground'
+      fullPath: '/api-playground'
+      preLoaderRoute: typeof AuthedApiPlaygroundRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/account': {
@@ -435,6 +454,7 @@ const AuthedWorkflowsWorkflowIdRouteWithChildren =
 
 interface AuthedRouteChildren {
   AuthedAccountRoute: typeof AuthedAccountRoute
+  AuthedApiPlaygroundRoute: typeof AuthedApiPlaygroundRoute
   AuthedConnectionsRoute: typeof AuthedConnectionsRoute
   AuthedDashboardRoute: typeof AuthedDashboardRoute
   AuthedResourcesD1Route: typeof AuthedResourcesD1Route
@@ -449,6 +469,7 @@ interface AuthedRouteChildren {
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAccountRoute: AuthedAccountRoute,
+  AuthedApiPlaygroundRoute: AuthedApiPlaygroundRoute,
   AuthedConnectionsRoute: AuthedConnectionsRoute,
   AuthedDashboardRoute: AuthedDashboardRoute,
   AuthedResourcesD1Route: AuthedResourcesD1Route,
