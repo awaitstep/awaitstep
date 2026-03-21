@@ -60,14 +60,14 @@ workflows.get('/:id/full', async (c) => {
 
   let version: typeof versions[number] | null = versions[0] ?? null
   if (versionId) {
-    const requested = await db.getVersionById(versionId)
+    const requested = await db.getWorkflowVersionById(versionId)
     version = requested?.workflowId === workflow.id ? requested : null
   }
 
   return c.json({
     workflow,
     version,
-    versions: versions.map(({ id, version, createdAt }) => ({ id, version, createdAt })),
+    versions: versions.map(({ id, version, locked, createdAt }) => ({ id, version, locked, createdAt })),
     activeDeployment,
   })
 })

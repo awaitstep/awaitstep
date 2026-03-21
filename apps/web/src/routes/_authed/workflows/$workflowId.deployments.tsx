@@ -41,7 +41,13 @@ function DeploymentsPage() {
     queryFn: () => api.listConnections(),
   })
 
+  const { data: versions } = useQuery({
+    queryKey: ['versions', workflowId],
+    queryFn: () => api.listVersions(workflowId),
+  })
+
   const connectionMap = new Map(connections?.map((c) => [c.id, c]) ?? [])
+  const versionMap = new Map(versions?.map((v) => [v.id, v]) ?? [])
 
   return (
     <div>
@@ -114,11 +120,12 @@ function DeploymentsPage() {
         </div>
       )}
 
-      <DeployDialog open={deployOpen} onClose={() => setDeployOpen(false)} workflowId={workflowId} />
+      {deployOpen && <DeployDialog onClose={() => setDeployOpen(false)} workflowId={workflowId} />}
 
       <DeploymentSheet
         deployment={selectedDeployment}
         connectionName={selectedDeployment?.connectionId ? connectionMap.get(selectedDeployment.connectionId)?.name : undefined}
+        versionNumber={selectedDeployment ? versionMap.get(selectedDeployment.versionId)?.version : undefined}
         onClose={() => setSelectedDeployment(null)}
       />
     </div>
@@ -128,10 +135,12 @@ function DeploymentsPage() {
 function DeploymentSheet({
   deployment,
   connectionName,
+  versionNumber,
   onClose,
 }: {
   deployment: Deployment | null
   connectionName?: string
+  versionNumber?: number
   onClose: () => void
 }) {
   return (
@@ -173,6 +182,10 @@ function DeploymentSheet({
                   <span className="text-sm text-foreground/70">{connectionName ?? deployment.connectionId}</span>
                 </Field>
 
+                <Field label="Version">
+                  <span className="text-sm text-foreground/70">{versionNumber ? `v${versionNumber}` : deployment.versionId}</span>
+                </Field>
+
                 <Field label="Deployed">
                   <span className="text-sm text-foreground/70">{formatDate(deployment.createdAt)}</span>
                 </Field>
@@ -210,6 +223,8 @@ function DeploymentSheet({
                   </div>
                 </div>
               )}
+
+
             </div>
           )}
         </Dialog.Content>

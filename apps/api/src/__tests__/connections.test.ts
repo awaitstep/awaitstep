@@ -77,7 +77,7 @@ describe('connection routes', () => {
       const res = await app.request('/api/connections/conn-1', { method: 'DELETE' })
       expect(res.status).toBe(200)
 
-      const check = await mockDb.getConnectionById('conn-1')
+      const check = await mockDb.getProviderConnectionById('conn-1')
       expect(check).toBeNull()
     })
 

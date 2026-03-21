@@ -34,7 +34,7 @@ export class WorkflowsAdapter {
     return this.db.select().from(this.table).where(eq(this.table.userId, userId)).orderBy(desc(this.table.updatedAt))
   }
 
-  async update(id: string, data: { name?: string; description?: string; currentVersionId?: string | null; envVars?: string | null }): Promise<Workflow> {
+  async update(id: string, data: { name?: string; description?: string; currentVersionId?: string | null; envVars?: string | null; triggerCode?: string | null; dependencies?: string | null }): Promise<Workflow> {
     const now = new Date().toISOString()
     await this.db.update(this.table).set({ ...data, updatedAt: now }).where(eq(this.table.id, id))
     const updated = await this.getById(id)

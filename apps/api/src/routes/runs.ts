@@ -25,13 +25,13 @@ runs.get('/:workflowId/runs/:runId', async (c) => {
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
   const runId = c.req.param('runId')
-  const run = await db.getRunById(runId)
+  const run = await db.getWorkflowRunById(runId)
   if (!run || run.workflowId !== workflow.id) return c.json({ error: 'Run not found' }, 404)
 
   // Fetch live status from CF if run is non-terminal
   if (run.connectionId && run.instanceId && !TERMINAL_STATUSES.has(run.status)) {
     try {
-      const connection = await db.getConnectionById(run.connectionId)
+      const connection = await db.getProviderConnectionById(run.connectionId)
       if (connection && connection.userId === userId) {
         const creds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
         const cfApi = new CloudflareAPI(creds)
@@ -67,11 +67,11 @@ runs.post('/:workflowId/runs/:runId/pause', async (c) => {
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const run = await db.getRunById(c.req.param('runId'))
+  const run = await db.getWorkflowRunById(c.req.param('runId'))
   if (!run || run.workflowId !== workflow.id) return c.json({ error: 'Run not found' }, 404)
   if (!run.connectionId || !run.instanceId) return c.json({ error: 'No connection' }, 400)
 
-  const connection = await db.getConnectionById(run.connectionId)
+  const connection = await db.getProviderConnectionById(run.connectionId)
   if (!connection || connection.userId !== userId) return c.json({ error: 'Connection not found' }, 404)
 
   const pauseCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
@@ -87,11 +87,11 @@ runs.post('/:workflowId/runs/:runId/resume', async (c) => {
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const run = await db.getRunById(c.req.param('runId'))
+  const run = await db.getWorkflowRunById(c.req.param('runId'))
   if (!run || run.workflowId !== workflow.id) return c.json({ error: 'Run not found' }, 404)
   if (!run.connectionId || !run.instanceId) return c.json({ error: 'No connection' }, 400)
 
-  const connection = await db.getConnectionById(run.connectionId)
+  const connection = await db.getProviderConnectionById(run.connectionId)
   if (!connection || connection.userId !== userId) return c.json({ error: 'Connection not found' }, 404)
 
   const resumeCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
@@ -107,11 +107,11 @@ runs.post('/:workflowId/runs/:runId/terminate', async (c) => {
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const run = await db.getRunById(c.req.param('runId'))
+  const run = await db.getWorkflowRunById(c.req.param('runId'))
   if (!run || run.workflowId !== workflow.id) return c.json({ error: 'Run not found' }, 404)
   if (!run.connectionId || !run.instanceId) return c.json({ error: 'No connection' }, 400)
 
-  const connection = await db.getConnectionById(run.connectionId)
+  const connection = await db.getProviderConnectionById(run.connectionId)
   if (!connection || connection.userId !== userId) return c.json({ error: 'Connection not found' }, 404)
 
   const terminateCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }

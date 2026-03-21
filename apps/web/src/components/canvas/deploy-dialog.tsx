@@ -25,9 +25,9 @@ interface DeployResult {
 }
 
 interface DeployDialogProps {
-  open: boolean
   onClose: () => void
   workflowId: string
+  versionId?: string
 }
 
 type DeployState = 'idle' | 'deploying' | 'success' | 'error'
@@ -45,7 +45,7 @@ const STAGES = [
   { key: 'COMPLETED', label: 'Completed' },
 ]
 
-export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
+export function DeployDialog({ onClose, workflowId, versionId }: DeployDialogProps) {
   const queryClient = useQueryClient()
   const [state, setState] = useState<DeployState>('idle')
   const [progress, setProgress] = useState<DeployProgress | null>(null)
@@ -57,14 +57,12 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
   const { data: connections } = useQuery({
     queryKey: ['connections'],
     queryFn: () => api.listConnections(),
-    enabled: open,
     retry: false,
   })
 
   const { data: deployments } = useQuery({
     queryKey: ['deployments', workflowId],
     queryFn: () => api.listDeployments(workflowId),
-    enabled: open,
     retry: false,
   })
 
@@ -80,7 +78,7 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ connectionId }),
+        body: JSON.stringify({ connectionId, ...(versionId && { versionId }) }),
       })
 
       if (!response.ok) {
@@ -146,15 +144,19 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
       setError(err instanceof Error ? err.message : 'Unknown error')
       setState('error')
     }
-  }, [connectionId, workflowId, state, queryClient])
+  }, [connectionId, workflowId, versionId, state, queryClient])
 
   const selectedConnection = connections?.find((c) => c.id === connectionId)
 
   return (
-    <Dialog.Root open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+    <Dialog.Root open onOpenChange={() => {}}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg">
+        <Dialog.Content
+          className="fixed left-1/2 top-1/2 z-50 w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <Dialog.Title className="flex items-center gap-2 text-base font-semibold text-foreground">
             <Rocket className="h-5 w-5" />
             Deploy Workflow

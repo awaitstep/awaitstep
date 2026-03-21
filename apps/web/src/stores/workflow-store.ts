@@ -64,6 +64,7 @@ interface WorkflowState {
   validationResult: PublishValidationResult | null
   simulationResult: SimulationResult | null
   isDirty: boolean
+  readOnly: boolean
 
   onNodesChange: OnNodesChange<FlowNode>
   onEdgesChange: OnEdgesChange
@@ -150,8 +151,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   validationResult: null,
   simulationResult: null,
   isDirty: false,
+  readOnly: false,
 
   onNodesChange: (changes) => {
+    if (get().readOnly) {
+      // In read-only mode, only allow selection changes
+      const allowed = changes.filter((c) => c.type === 'select' || c.type === 'dimensions' || c.type === 'position' && !('dragging' in c && c.dragging))
+      if (allowed.length > 0) set({ nodes: applyNodeChanges(allowed, get().nodes) })
+      return
+    }
     const hasDirtyChange = changes.some((c) =>
       c.type === 'add' || c.type === 'remove' || c.type === 'replace' ||
       (c.type === 'position' && c.dragging),
@@ -166,6 +174,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   onEdgesChange: (changes) => {
+    if (get().readOnly) return
     const meaningful = changes.filter((c) => c.type !== 'select')
     if (meaningful.length === 0) return
     const dirtyTypes = new Set(['add', 'remove', 'replace'])
@@ -174,6 +183,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   onConnect: (connection) => {
+    if (get().readOnly) return
     const { nodes, edges } = get()
     const sourceNode = nodes.find((n) => n.id === connection.source)
     if (sourceNode) {
@@ -187,6 +197,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   addNode: (type, position, registry) => {
+    if (get().readOnly) return
     const irNode = createDefaultNode(type, position, registry)
     const flowNode: FlowNode = {
       id: irNode.id,
@@ -198,6 +209,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   insertNodeOnEdge: (type, position, edgeId, registry) => {
+    if (get().readOnly) return
     const { edges, nodes } = get()
     const edge = edges.find((e) => e.id === edgeId)
     if (!edge) return
@@ -220,6 +232,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   updateNodeData: (nodeId, data) => {
+    if (get().readOnly) return
     const currentNode = get().nodes.find((n) => n.id === nodeId)
     const updatedIrNode = currentNode
       ? { ...currentNode.data.irNode, ...data } as WorkflowNode
@@ -257,6 +270,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   removeNode: (nodeId) => {
+    if (get().readOnly) return
     set({
       nodes: get().nodes.filter((n) => n.id !== nodeId),
       edges: get().edges.filter((e) => e.source !== nodeId && e.target !== nodeId),

@@ -24,7 +24,7 @@ export const requireConnectionOwner = createMiddleware<AppEnv>(async (c, next) =
 
   if (!connectionId) return c.json({ error: 'Not found' }, 404)
 
-  const connection = await db.getConnectionById(connectionId)
+  const connection = await db.getProviderConnectionById(connectionId)
   if (!connection || connection.userId !== userId) {
     return c.json({ error: 'Not found' }, 404)
   }

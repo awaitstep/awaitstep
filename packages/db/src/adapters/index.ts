@@ -1,3 +1,4 @@
+import { eq, and, desc } from 'drizzle-orm'
 import type { DatabaseAdapter, WorkflowEnvVar, ResolvedEnvVar } from '../adapter.js'
 import type { Workflow, WorkflowVersion, Connection, WorkflowRun, Deployment, ApiKey, EnvVar } from '../types.js'
 import type { TokenCrypto } from '../crypto.js'
@@ -24,6 +25,9 @@ export interface DrizzleAdapterOptions {
 }
 
 export class DrizzleDatabaseAdapter implements DatabaseAdapter {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _db: any
+  private _schema: SchemaRef
   private _workflows: WorkflowsAdapter
   private _versions: VersionsAdapter
   private _connections: ConnectionsAdapter
@@ -34,6 +38,8 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(db: any, schema: SchemaRef, options?: DrizzleAdapterOptions) {
+    this._db = db
+    this._schema = schema
     this._workflows = new WorkflowsAdapter(db, schema.workflows)
     this._versions = new VersionsAdapter(db, schema.workflowVersions)
     this._connections = new ConnectionsAdapter(db, schema.connections, options?.tokenCrypto)
@@ -62,20 +68,27 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   createVersion(data: { id: string; workflowId: string; version: number; ir: string; generatedCode?: string }): Promise<WorkflowVersion> {
     return this._versions.create(data)
   }
-  getVersionById(id: string): Promise<WorkflowVersion | null> {
+  getWorkflowVersionById(id: string): Promise<WorkflowVersion | null> {
     return this._versions.getById(id)
+  }
+  async getNextVersionNumber(workflowId: string): Promise<number> {
+    const max = await this._versions.getMaxVersionNumber(workflowId)
+    return max + 1
   }
   listVersionsByWorkflow(workflowId: string): Promise<WorkflowVersion[]> {
     return this._versions.listByWorkflow(workflowId)
   }
-  updateVersion(id: string, data: { ir?: string; generatedCode?: string }): Promise<void> {
+  updateVersion(id: string, data: { ir?: string; generatedCode?: string; locked?: number }): Promise<void> {
     return this._versions.update(id, data)
+  }
+  deleteVersion(id: string): Promise<void> {
+    return this._versions.delete(id)
   }
 
   createConnection(data: { id: string; userId: string; provider: string; credentials: string; name: string }): Promise<Connection> {
     return this._connections.create(data)
   }
-  getConnectionById(id: string): Promise<Connection | null> {
+  getProviderConnectionById(id: string): Promise<Connection | null> {
     return this._connections.getById(id)
   }
   listConnectionsByUser(userId: string): Promise<Connection[]> {
@@ -91,7 +104,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   createRun(data: { id: string; workflowId: string; versionId: string; connectionId: string; instanceId: string; status: string }): Promise<WorkflowRun> {
     return this._runs.create(data)
   }
-  getRunById(id: string): Promise<WorkflowRun | null> {
+  getWorkflowRunById(id: string): Promise<WorkflowRun | null> {
     return this._runs.getById(id)
   }
   listRunsByWorkflow(workflowId: string): Promise<WorkflowRun[]> {
@@ -102,26 +115,76 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
 
   async listRecentRunsByUser(userId: string, limit = 20): Promise<WorkflowRun[]> {
-    const workflows = await this._workflows.listByUser(userId)
-    const ids = workflows.map((w) => w.id)
-    return this._runs.listByWorkflowIds(ids, limit)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = this._schema.workflows as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = this._schema.workflowRuns as any
+    return this._db
+      .select({
+        id: r.id,
+        workflowId: r.workflowId,
+        versionId: r.versionId,
+        connectionId: r.connectionId,
+        instanceId: r.instanceId,
+        status: r.status,
+        output: r.output,
+        error: r.error,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      })
+      .from(r)
+      .innerJoin(w, eq(r.workflowId, w.id))
+      .where(eq(w.userId, userId))
+      .orderBy(desc(r.createdAt))
+      .limit(limit)
   }
 
   createDeployment(data: { id: string; workflowId: string; versionId: string; connectionId: string; serviceName: string; serviceUrl?: string; status: string; error?: string }): Promise<Deployment> {
     return this._deployments.create(data)
   }
-  async getActiveDeployment(workflowId: string): Promise<Deployment | null> {
-    const all = await this._deployments.listByWorkflow(workflowId)
-    return all.find((d) => d.status === 'success') ?? null
+  getActiveDeployment(workflowId: string): Promise<Deployment | null> {
+    return this._deployments.getActiveByWorkflow(workflowId)
+  }
+  async isActiveDeploymentLocked(workflowId: string): Promise<boolean> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const d = this._schema.deployments as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const v = this._schema.workflowVersions as any
+    const rows = await this._db
+      .select({ locked: v.locked })
+      .from(d)
+      .innerJoin(v, eq(d.versionId, v.id))
+      .where(and(eq(d.workflowId, workflowId), eq(d.status, 'success')))
+      .orderBy(desc(d.createdAt))
+      .limit(1)
+    return rows[0]?.locked === 1
   }
   listDeploymentsByWorkflow(workflowId: string): Promise<Deployment[]> {
     return this._deployments.listByWorkflow(workflowId)
   }
 
   async listRecentDeploymentsByUser(userId: string, limit = 20): Promise<Deployment[]> {
-    const workflows = await this._workflows.listByUser(userId)
-    const ids = workflows.map((w) => w.id)
-    return this._deployments.listByWorkflowIds(ids, limit)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = this._schema.workflows as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const d = this._schema.deployments as any
+    return this._db
+      .select({
+        id: d.id,
+        workflowId: d.workflowId,
+        versionId: d.versionId,
+        connectionId: d.connectionId,
+        serviceName: d.serviceName,
+        serviceUrl: d.serviceUrl,
+        status: d.status,
+        error: d.error,
+        createdAt: d.createdAt,
+      })
+      .from(d)
+      .innerJoin(w, eq(d.workflowId, w.id))
+      .where(eq(w.userId, userId))
+      .orderBy(desc(d.createdAt))
+      .limit(limit)
   }
 
   deleteDeploymentsByWorkflow(workflowId: string): Promise<void> {

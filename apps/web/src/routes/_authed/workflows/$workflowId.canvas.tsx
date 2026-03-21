@@ -2,7 +2,6 @@ import { createFileRoute, useParams, useSearch, useBlocker } from '@tanstack/rea
 import { lazy, Suspense, useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
 import { NodePalette } from '../../../components/canvas/node-palette'
 import { TemplatePicker } from '../../../components/canvas/template-picker'
@@ -32,8 +31,9 @@ const LazyEditorPanel = lazy(() =>
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId/canvas')({
   component: WorkflowEditorPageWrapper,
-  validateSearch: (search: Record<string, unknown>): { template?: boolean } => ({
+  validateSearch: (search: Record<string, unknown>): { template?: boolean; version?: string } => ({
     template: search.template === true || search.template === '1' || search.template === 'true',
+    version: typeof search.version === 'string' ? search.version : undefined,
   }),
 })
 
@@ -47,12 +47,11 @@ function WorkflowEditorPageWrapper() {
 
 function WorkflowEditorPage() {
   const { workflowId } = useParams({ from: '/_authed/workflows/$workflowId/canvas' })
-  const { template } = useSearch({ from: '/_authed/workflows/$workflowId/canvas' })
+  const { template, version: versionParam } = useSearch({ from: '/_authed/workflows/$workflowId/canvas' })
   const [showEditor, setShowEditor] = useState(false)
   const [showTemplatePicker, setShowTemplatePicker] = useState(template)
   const [deployOpen, setDeployOpen] = useState(false)
-  const [showTrigger, setShowTrigger] = useState(false)
-  const [confirmAction, setConfirmAction] = useState<'delete' | 'takedown' | 'switch-template' | null>(null)
+  const [confirmAction, setConfirmAction] = useState<'switch-template' | null>(null)
 
   const nodeRegistry = useNodeRegistry()
   const metadata = useWorkflowStore((s) => s.metadata)
@@ -67,7 +66,6 @@ function WorkflowEditorPage() {
   const markClean = useWorkflowStore((s) => s.markClean)
 
   const isNew = workflowId === 'new'
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   // Block in-app navigation when there are unsaved changes
@@ -88,11 +86,15 @@ function WorkflowEditorPage() {
 
   // Load workflow + version + deployments in a single request
   const { data: fullData, error: workflowError } = useQuery({
-    queryKey: ['workflow-full', workflowId],
-    queryFn: () => api.getWorkflowFull(workflowId),
+    queryKey: ['workflow-full', workflowId, versionParam],
+    queryFn: () => api.getWorkflowFull(workflowId, versionParam),
     enabled: !isNew,
     retry: false,
   })
+
+  // Determine read-only mode: viewing a historical version
+  const isReadOnly = !!(versionParam && fullData?.workflow?.currentVersionId && versionParam !== fullData.workflow.currentVersionId)
+  const readOnlyVersion = isReadOnly ? fullData?.versions?.find((v) => v.id === versionParam)?.version : undefined
 
   useEffect(() => {
     if (workflowError) {
@@ -122,6 +124,7 @@ function WorkflowEditorPage() {
       validationResult: null,
       simulationResult: null,
       isDirty: false,
+      readOnly: isReadOnly,
     })
 
     if (isNew) {
@@ -180,7 +183,7 @@ function WorkflowEditorPage() {
 
       useWorkflowStore.setState({ ...serverState, isDirty: false })
     }
-  }, [workflowId, isNew, fullData, setWorkflowId])
+  }, [workflowId, isNew, fullData, setWorkflowId, isReadOnly])
 
   // Save to server
   const saveMutation = useMutation({
@@ -254,28 +257,6 @@ function WorkflowEditorPage() {
     setDeployOpen(true)
   }, [runValidation, isDirty, isNew, saveMutation, nodeRegistry])
 
-  const deleteMutation = useMutation({
-    mutationFn: () => api.deleteWorkflow(workflowId),
-    onSuccess: () => {
-      toast.success('Workflow deleted')
-      queryClient.invalidateQueries({ queryKey: ['workflows'] })
-      navigate({ to: '/dashboard' })
-    },
-    onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to delete'),
-  })
-
-  const takedownMutation = useMutation({
-    mutationFn: (connectionId: string) => api.takedownDeployment(workflowId, connectionId),
-    onSuccess: (result) => {
-      if (result.success) {
-        toast.success('Deployment taken down')
-        queryClient.invalidateQueries({ queryKey: ['workflow-full', workflowId] })
-      } else {
-        toast.error(result.error ?? 'Failed to take down deployment')
-      }
-    },
-    onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to take down'),
-  })
 
   const handleAddNode = (type: Parameters<typeof addNode>[0]) => {
     addNode(type, { x: 250 + Math.random() * 200, y: 150 + Math.random() * 200 }, nodeRegistry)
@@ -316,9 +297,6 @@ function WorkflowEditorPage() {
               isSaving={saveMutation.isPending}
               onDeploy={handleDeploy}
               onTest={() => runSimulation()}
-              onTrigger={() => setShowTrigger(true)}
-              onDelete={() => setConfirmAction('delete')}
-              onTakedown={() => setConfirmAction('takedown')}
               onOpenTemplatePicker={() => {
                 if (nodeCount > 0) {
                   setConfirmAction('switch-template')
@@ -326,14 +304,18 @@ function WorkflowEditorPage() {
                   setShowTemplatePicker(true)
                 }
               }}
+              readOnly={isReadOnly}
+              readOnlyVersion={readOnlyVersion}
             />
 
             {/* Canvas + Overlay Panels */}
             <div className="relative flex-1 overflow-hidden">
               <LazyCanvas />
-              <div className="absolute left-4 top-4 z-10">
-                <NodePalette onAddNode={handleAddNode} />
-              </div>
+              {!isReadOnly && (
+                <div className="absolute left-4 top-4 z-10">
+                  <NodePalette onAddNode={handleAddNode} />
+                </div>
+              )}
               {isNew && showTemplatePicker && (
                 <TemplatePicker onDismiss={() => setShowTemplatePicker(false)} />
               )}
@@ -346,20 +328,13 @@ function WorkflowEditorPage() {
           <EditorDialogs
             confirmAction={confirmAction}
             setConfirmAction={setConfirmAction}
-            onConfirmDelete={(opts) => deleteMutation.mutate(undefined, opts)}
-            isDeleting={deleteMutation.isPending}
-            onConfirmTakedown={(connectionId, opts) => takedownMutation.mutate(connectionId, opts)}
-            isTakingDown={takedownMutation.isPending}
             onConfirmSwitchTemplate={() => setShowTemplatePicker(true)}
             blockerStatus={status}
             onBlockerProceed={proceed}
             onBlockerReset={reset}
-            showTrigger={showTrigger}
-            onCloseTrigger={() => setShowTrigger(false)}
             deployOpen={deployOpen}
             onCloseDeploy={() => setDeployOpen(false)}
             workflowId={workflowId}
-            activeDeploymentServiceName={activeDeployment?.serviceName}
           />
         </LazyReactFlowProvider>
       </Suspense>

@@ -39,6 +39,12 @@
 - App code must be runtime-agnostic — no `process.env`, Node-specific APIs, or platform-specific code in app logic. All config is injected via dependency injection. Entry points (e.g. `serve.ts` for Node, Workers entry for CF) are the only files that read environment variables and initialize platform-specific resources (DB connections, etc.). The app factory (`createApp`) receives everything it needs as parameters.
 - Provider-specific logic (API calls, credential checks, deploy validation) must live in `packages/provider-[name]`, never in API routes or app code. API routes call methods on the `WorkflowProvider` interface — adding a new provider should only require a new provider package.
 
+## Database Queries
+
+- When a query depends on the result of another query and both can be resolved in SQL, use a Drizzle query builder join or a single SQL statement — never chain multiple `await` calls in JS to do what a join can do in one roundtrip.
+- Prefer Drizzle's `.select().from().innerJoin().where()` chain over raw SQL. Use raw `sql` template literals only when the query builder can't express the query.
+- Filter at the SQL layer (`WHERE`, `LIMIT`, `MAX`) — never fetch all rows and filter/reduce in JS.
+
 ## Testing
 
 - Every new module with logic must have a corresponding `.test.ts` file alongside it or in a `__tests__/` directory.

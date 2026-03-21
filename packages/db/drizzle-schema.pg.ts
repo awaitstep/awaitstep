@@ -117,6 +117,7 @@ export const workflowVersions = pgTable(
     version: integer('version').notNull(),
     ir: text('ir').notNull(),
     generatedCode: text('generated_code'),
+    locked: integer('locked').notNull().default(0),
     createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
   },
   (table) => [

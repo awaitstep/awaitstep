@@ -122,6 +122,46 @@ export const endpoints: EndpointDef[] = [
     hasBody: true,
     bodyExample: JSON.stringify({ ir: {} }, null, 2),
   },
+  {
+    id: 'lock-version',
+    group: 'Versions',
+    method: 'PATCH',
+    path: '/api/workflows/:workflowId/versions/:versionId',
+    label: 'Lock/unlock version',
+    scope: 'write',
+    params: [
+      { name: 'workflowId', in: 'path', required: true },
+      { name: 'versionId', in: 'path', required: true },
+    ],
+    hasBody: true,
+    bodyExample: JSON.stringify({ locked: true }, null, 2),
+  },
+  {
+    id: 'revert-version',
+    group: 'Versions',
+    method: 'POST',
+    path: '/api/workflows/:workflowId/versions/:versionId/revert',
+    label: 'Revert to version',
+    scope: 'write',
+    params: [
+      { name: 'workflowId', in: 'path', required: true },
+      { name: 'versionId', in: 'path', required: true },
+    ],
+    hasBody: false,
+  },
+  {
+    id: 'delete-version',
+    group: 'Versions',
+    method: 'DELETE',
+    path: '/api/workflows/:workflowId/versions/:versionId',
+    label: 'Delete version',
+    scope: 'write',
+    params: [
+      { name: 'workflowId', in: 'path', required: true },
+      { name: 'versionId', in: 'path', required: true },
+    ],
+    hasBody: false,
+  },
 
   // Deployments
   {
@@ -177,7 +217,6 @@ export const endpoints: EndpointDef[] = [
     hasBody: true,
     bodyExample: JSON.stringify({ connectionId: '' }, null, 2),
   },
-
   // Runs
   {
     id: 'list-all-runs',

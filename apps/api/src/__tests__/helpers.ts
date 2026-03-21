@@ -47,12 +47,16 @@ const mockDb: DatabaseAdapter = {
     store.workflows.delete(id)
   },
   async createVersion(data) {
-    const v: WorkflowVersion = { ...data, generatedCode: data.generatedCode ?? null, createdAt: now() }
+    const v: WorkflowVersion = { ...data, generatedCode: data.generatedCode ?? null, locked: 0, createdAt: now() }
     store.versions.set(v.id, v)
     return v
   },
-  async getVersionById(id) {
+  async getWorkflowVersionById(id) {
     return store.versions.get(id) ?? null
+  },
+  async getNextVersionNumber(workflowId) {
+    const versions = [...store.versions.values()].filter((v) => v.workflowId === workflowId)
+    return versions.length > 0 ? Math.max(...versions.map((v) => v.version)) + 1 : 1
   },
   async listVersionsByWorkflow(workflowId) {
     return [...store.versions.values()].filter((v) => v.workflowId === workflowId).sort((a, b) => b.version - a.version)
@@ -62,12 +66,15 @@ const mockDb: DatabaseAdapter = {
     if (!v) throw new Error('Not found')
     store.versions.set(id, { ...v, ...data })
   },
+  async deleteVersion(id) {
+    store.versions.delete(id)
+  },
   async createConnection(data) {
     const c: Connection = { ...data, createdAt: now(), updatedAt: now() }
     store.connections.set(c.id, c)
     return c
   },
-  async getConnectionById(id) {
+  async getProviderConnectionById(id) {
     return store.connections.get(id) ?? null
   },
   async listConnectionsByUser(userId) {
@@ -81,7 +88,7 @@ const mockDb: DatabaseAdapter = {
     store.runs.set(r.id, r)
     return r
   },
-  async getRunById(id) {
+  async getWorkflowRunById(id) {
     return store.runs.get(id) ?? null
   },
   async listRunsByWorkflow(workflowId) {
@@ -102,6 +109,15 @@ const mockDb: DatabaseAdapter = {
     const d: Deployment = { ...data, serviceUrl: data.serviceUrl ?? null, error: data.error ?? null, createdAt: now() }
     store.deployments.set(d.id, d)
     return d
+  },
+  async getActiveDeployment(workflowId) {
+    return [...store.deployments.values()].filter((d) => d.workflowId === workflowId && d.status === 'success').sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
+  },
+  async isActiveDeploymentLocked(workflowId) {
+    const deployment = [...store.deployments.values()].find((d) => d.workflowId === workflowId && d.status === 'success')
+    if (!deployment) return false
+    const version = store.versions.get(deployment.versionId)
+    return version?.locked === 1
   },
   async listDeploymentsByWorkflow(workflowId) {
     return [...store.deployments.values()].filter((d) => d.workflowId === workflowId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))

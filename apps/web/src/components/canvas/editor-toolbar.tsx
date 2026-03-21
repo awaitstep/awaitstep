@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link, useRouter } from '@tanstack/react-router'
 import {
   ArrowLeft,
@@ -10,9 +9,6 @@ import {
   Loader2,
   Save,
   Circle,
-  MoreVertical,
-  Trash2,
-  CloudOff,
   LayoutTemplate,
 } from 'lucide-react'
 import { Button } from '../ui/button'
@@ -36,10 +32,9 @@ export interface EditorToolbarProps {
   isSaving: boolean
   onDeploy: () => void
   onTest: () => void
-  onTrigger: () => void
-  onDelete: () => void
-  onTakedown: () => void
   onOpenTemplatePicker: () => void
+  readOnly?: boolean
+  readOnlyVersion?: number
 }
 
 export function EditorToolbar({
@@ -60,13 +55,11 @@ export function EditorToolbar({
   isSaving,
   onDeploy,
   onTest,
-  onTrigger,
-  onDelete,
-  onTakedown,
   onOpenTemplatePicker,
+  readOnly,
+  readOnlyVersion,
 }: EditorToolbarProps) {
   const router = useRouter()
-  const [showMenu, setShowMenu] = useState(false)
 
   return (
     <header className="relative z-20 flex h-14 shrink-0 items-center justify-between border-b border-border bg-card px-4">
@@ -109,6 +102,19 @@ export function EditorToolbar({
       </div>
 
       <div className="flex items-center gap-1.5">
+        {readOnly ? (
+          <>
+            <span className="rounded bg-muted/70 px-2 py-1 text-xs font-medium text-muted-foreground">
+              Read-only{readOnlyVersion ? ` · v${readOnlyVersion}` : ''}
+            </span>
+            <Link to="/workflows/$workflowId/canvas" params={{ workflowId }}>
+              <Button size="sm" variant="outline" className="h-8 gap-1.5 px-3 text-xs">
+                Back to latest
+              </Button>
+            </Link>
+          </>
+        ) : (
+        <>
         <Button
           variant="ghost"
           size="sm"
@@ -169,52 +175,8 @@ export function EditorToolbar({
           <Rocket className="h-3.5 w-3.5" />
           <span className="text-xs">Deploy</span>
         </Button>
-        {hasActiveDeployment && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-1.5 px-2.5 text-status-success/70 hover:text-status-success"
-            onClick={onTrigger}
-          >
-            <Play className="h-3.5 w-3.5" />
-            <span className="text-xs">Trigger</span>
-          </Button>
+        </>
         )}
-        {(!isNew || hasActiveDeployment) && <div className="relative">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-foreground/70"
-            onClick={() => setShowMenu(!showMenu)}
-          >
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-          {showMenu && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-              <div className="absolute right-0 top-full z-50 mt-1 w-52 rounded-lg border border-border bg-card p-1 shadow-xl">
-                {hasActiveDeployment && (
-                  <button
-                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-status-warning hover:bg-muted/60"
-                    onClick={() => { setShowMenu(false); onTakedown() }}
-                  >
-                    <CloudOff className="h-4 w-4" />
-                    Take down deployment
-                  </button>
-                )}
-                {!isNew && (
-                  <button
-                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-status-error hover:bg-muted/60"
-                    onClick={() => { setShowMenu(false); onDelete() }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete workflow
-                  </button>
-                )}
-              </div>
-            </>
-          )}
-        </div>}
       </div>
     </header>
   )

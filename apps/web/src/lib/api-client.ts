@@ -36,12 +36,14 @@ export interface WorkflowVersion {
   version: number
   ir: string
   generatedCode: string
+  locked: number
   createdAt: string
 }
 
 export interface VersionSummary {
   id: string
   version: number
+  locked: number
   createdAt: string
 }
 
@@ -147,6 +149,25 @@ export const api = {
     return request(`/workflows/${workflowId}/versions`, {
       method: 'POST',
       body: JSON.stringify(data),
+    })
+  },
+
+  lockVersion(workflowId: string, versionId: string, locked: boolean): Promise<WorkflowVersion> {
+    return request(`/workflows/${workflowId}/versions/${versionId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ locked }),
+    })
+  },
+
+  revertToVersion(workflowId: string, versionId: string): Promise<WorkflowVersion> {
+    return request(`/workflows/${workflowId}/versions/${versionId}/revert`, {
+      method: 'POST',
+    })
+  },
+
+  deleteVersion(workflowId: string, versionId: string): Promise<void> {
+    return request(`/workflows/${workflowId}/versions/${versionId}`, {
+      method: 'DELETE',
     })
   },
 

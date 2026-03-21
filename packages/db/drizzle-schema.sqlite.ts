@@ -95,6 +95,8 @@ export const workflows = sqliteTable(
     description: text('description'),
     currentVersionId: text('current_version_id'),
     envVars: text('env_vars'),
+    triggerCode: text('trigger_code'),
+    dependencies: text('dependencies'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },
@@ -109,6 +111,7 @@ export const workflowVersions = sqliteTable(
     version: integer('version').notNull(),
     ir: text('ir').notNull(),
     generatedCode: text('generated_code'),
+    locked: integer('locked').notNull().default(0),
     createdAt: text('created_at').notNull(),
   },
   (table) => [

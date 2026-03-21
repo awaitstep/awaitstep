@@ -125,14 +125,22 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
   if (!workflow) return c.json({ error: 'Not found' }, 404)
   const body = c.req.valid('json')
 
-  const connection = await db.getConnectionById(body.connectionId)
+  if (await db.isActiveDeploymentLocked(workflow.id)) {
+    return c.json({ error: 'Currently deployed version is locked — unlock it before deploying' }, 400)
+  }
+
+  const connection = await db.getProviderConnectionById(body.connectionId)
   if (!connection || connection.userId !== userId) return c.json({ error: 'Connection not found' }, 404)
 
   const versionId = body.versionId ?? workflow.currentVersionId
   if (!versionId) return c.json({ error: 'No version to deploy' }, 400)
 
-  const version = await db.getVersionById(versionId)
+  const version = await db.getWorkflowVersionById(versionId)
   if (!version || version.workflowId !== workflow.id) return c.json({ error: 'Version not found' }, 404)
+
+  if (version.locked === 1) {
+    return c.json({ error: 'Version is locked' }, 400)
+  }
 
   const nodeRegistry = c.get('nodeRegistry')
   const adapter = createAdapter(nodeRegistry?.templateResolver)
@@ -192,14 +200,22 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
   if (!workflow) return c.json({ error: 'Not found' }, 404)
   const body = c.req.valid('json')
 
-  const connection = await db.getConnectionById(body.connectionId)
+  if (await db.isActiveDeploymentLocked(workflow.id)) {
+    return c.json({ error: 'Currently deployed version is locked — unlock it before deploying' }, 400)
+  }
+
+  const connection = await db.getProviderConnectionById(body.connectionId)
   if (!connection || connection.userId !== userId) return c.json({ error: 'Connection not found' }, 404)
 
   const versionId = body.versionId ?? workflow.currentVersionId
   if (!versionId) return c.json({ error: 'No version to deploy' }, 400)
 
-  const version = await db.getVersionById(versionId)
+  const version = await db.getWorkflowVersionById(versionId)
   if (!version || version.workflowId !== workflow.id) return c.json({ error: 'Version not found' }, 404)
+
+  if (version.locked === 1) {
+    return c.json({ error: 'Version is locked' }, 400)
+  }
 
   const nodeRegistry = c.get('nodeRegistry')
   const adapter = createAdapter(nodeRegistry?.templateResolver)
@@ -287,7 +303,7 @@ deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c)
 
   if (!workflow.currentVersionId) return c.json({ error: 'No version deployed' }, 400)
 
-  const connection = await db.getConnectionById(body.connectionId)
+  const connection = await db.getProviderConnectionById(body.connectionId)
   if (!connection || connection.userId !== userId) return c.json({ error: 'Connection not found' }, 404)
 
   const adapter = createAdapter(c.get('nodeRegistry')?.templateResolver)
@@ -319,9 +335,10 @@ deploy.post('/:workflowId/takedown', zValidator('json', z.object({ connectionId:
   const userId = c.get('userId')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
+
   const { connectionId } = c.req.valid('json')
 
-  const connection = await db.getConnectionById(connectionId)
+  const connection = await db.getProviderConnectionById(connectionId)
   if (!connection || connection.userId !== userId) return c.json({ error: 'Connection not found' }, 404)
 
   const name = workerName(workflow.id)

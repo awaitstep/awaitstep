@@ -22,7 +22,7 @@ const edgeTypes = { smoothstep: LabeledEdge }
 
 export function WorkflowCanvas() {
   const reactFlowInstance = useRef<ReactFlowInstance<FlowNode> | null>(null)
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, insertNodeOnEdge, selectNode, selectEdge, selectedNodeId, selectedEdgeId } = useWorkflowStore()
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, insertNodeOnEdge, selectNode, selectEdge, selectedNodeId, selectedEdgeId, readOnly } = useWorkflowStore()
   const registry = useNodeRegistry()
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null)
 
@@ -93,6 +93,8 @@ export function WorkflowCanvas() {
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onConnect={onConnect}
+      nodesDraggable={!readOnly}
+      nodesConnectable={!readOnly}
       onInit={(instance) => {
         reactFlowInstance.current = instance
       }}

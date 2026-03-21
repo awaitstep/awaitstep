@@ -114,6 +114,39 @@ Create a new version by submitting a workflow IR. The IR is validated and compil
 }
 ```
 
+### `PATCH /workflows/:workflowId/versions/:versionId`
+Lock or unlock a version. Locked versions cannot be deployed.
+
+**Scope:** `write`
+| Param | In | Required | Description |
+|-------|----|----------|-------------|
+| `workflowId` | path | yes | Workflow ID |
+| `versionId` | path | yes | Version ID |
+
+```json
+{
+  "locked": true
+}
+```
+
+### `POST /workflows/:workflowId/versions/:versionId/revert`
+Revert to a previous version. Creates a new version with the target version's IR and sets it as the current version.
+
+**Scope:** `write`
+| Param | In | Required | Description |
+|-------|----|----------|-------------|
+| `workflowId` | path | yes | Workflow ID |
+| `versionId` | path | yes | Version ID to revert to |
+
+### `DELETE /workflows/:workflowId/versions/:versionId`
+Delete a version. Cannot delete the active version, a deployed version, or a locked version.
+
+**Scope:** `write`
+| Param | In | Required | Description |
+|-------|----|----------|-------------|
+| `workflowId` | path | yes | Workflow ID |
+| `versionId` | path | yes | Version ID |
+
 ---
 
 ## Deployments

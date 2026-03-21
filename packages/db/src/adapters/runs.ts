@@ -1,4 +1,4 @@
-import { eq, desc, inArray } from 'drizzle-orm'
+import { eq, desc } from 'drizzle-orm'
 import type { WorkflowRun } from '../types.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -32,11 +32,6 @@ export class RunsAdapter {
 
   async listByWorkflow(workflowId: string): Promise<WorkflowRun[]> {
     return this.db.select().from(this.table).where(eq(this.table.workflowId, workflowId)).orderBy(desc(this.table.createdAt))
-  }
-
-  async listByWorkflowIds(workflowIds: string[], limit: number): Promise<WorkflowRun[]> {
-    if (workflowIds.length === 0) return []
-    return this.db.select().from(this.table).where(inArray(this.table.workflowId, workflowIds)).orderBy(desc(this.table.createdAt)).limit(limit)
   }
 
   async update(id: string, data: { status?: string; output?: string; error?: string; updatedAt?: string }): Promise<WorkflowRun> {

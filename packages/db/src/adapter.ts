@@ -21,20 +21,22 @@ export interface DatabaseAdapter {
 
   // Workflow Versions
   createVersion(data: { id: string; workflowId: string; version: number; ir: string; generatedCode?: string }): Promise<WorkflowVersion>
-  getVersionById(id: string): Promise<WorkflowVersion | null>
+  getWorkflowVersionById(id: string): Promise<WorkflowVersion | null>
+  getNextVersionNumber(workflowId: string): Promise<number>
   listVersionsByWorkflow(workflowId: string): Promise<WorkflowVersion[]>
-  updateVersion(id: string, data: { ir?: string; generatedCode?: string }): Promise<void>
+  updateVersion(id: string, data: { ir?: string; generatedCode?: string; locked?: number }): Promise<void>
+  deleteVersion(id: string): Promise<void>
 
   // Connections
   createConnection(data: { id: string; userId: string; provider: string; credentials: string; name: string }): Promise<Connection>
-  getConnectionById(id: string): Promise<Connection | null>
+  getProviderConnectionById(id: string): Promise<Connection | null>
   listConnectionsByUser(userId: string): Promise<Connection[]>
   updateConnection(id: string, data: { name?: string; credentials?: string }): Promise<Connection | null>
   deleteConnection(id: string): Promise<void>
 
   // Workflow Runs
   createRun(data: { id: string; workflowId: string; versionId: string; connectionId: string; instanceId: string; status: string }): Promise<WorkflowRun>
-  getRunById(id: string): Promise<WorkflowRun | null>
+  getWorkflowRunById(id: string): Promise<WorkflowRun | null>
   listRunsByWorkflow(workflowId: string): Promise<WorkflowRun[]>
   updateRun(id: string, data: { status?: string; output?: string; error?: string; updatedAt?: string }): Promise<WorkflowRun>
   listRecentRunsByUser(userId: string, limit?: number): Promise<WorkflowRun[]>
@@ -42,6 +44,7 @@ export interface DatabaseAdapter {
   // Deployments
   createDeployment(data: { id: string; workflowId: string; versionId: string; connectionId: string; serviceName: string; serviceUrl?: string; status: string; error?: string }): Promise<Deployment>
   getActiveDeployment(workflowId: string): Promise<Deployment | null>
+  isActiveDeploymentLocked(workflowId: string): Promise<boolean>
   listDeploymentsByWorkflow(workflowId: string): Promise<Deployment[]>
   listRecentDeploymentsByUser(userId: string, limit?: number): Promise<Deployment[]>
   deleteDeploymentsByWorkflow(workflowId: string): Promise<void>

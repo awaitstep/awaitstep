@@ -31,7 +31,7 @@ const r2ObjectsQuery = z.object({
 export const resources = new Hono<AppEnv>()
 
 async function getResourcesAPI(db: AppEnv['Variables']['db'], userId: string, connectionId: string): Promise<CloudflareResourcesAPI | null> {
-  const connection = await db.getConnectionById(connectionId)
+  const connection = await db.getProviderConnectionById(connectionId)
   if (!connection || connection.userId !== userId) return null
   const creds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
   return new CloudflareResourcesAPI(creds)
