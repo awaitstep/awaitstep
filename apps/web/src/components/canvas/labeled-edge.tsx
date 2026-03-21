@@ -14,7 +14,6 @@ export function LabeledEdge({
   sourcePosition,
   targetPosition,
   label,
-  selected,
   data,
   style,
   markerEnd,
@@ -29,7 +28,7 @@ export function LabeledEdge({
   })
 
   const hovered = data?.hovered === true
-  const highlighted = selected || hovered
+  const highlighted = data?.selected === true || hovered
 
   const edgeStyle = highlighted
     ? { ...style, stroke: 'oklch(0.696 0.17 162.48)', strokeWidth: 2.5 }

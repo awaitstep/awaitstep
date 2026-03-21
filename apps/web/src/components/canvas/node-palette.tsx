@@ -61,7 +61,7 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
           </div>
           <div className="max-h-80 overflow-y-auto px-1.5">
           {definitions.map((def) => {
-            const visuals = getNodeVisuals(def.id)
+            const visuals = getNodeVisuals(def.id, def.icon)
             return (
               <div
                 key={def.id}

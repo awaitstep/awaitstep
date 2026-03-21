@@ -84,8 +84,9 @@ export function WaitForEventNode({ data, selected }: NodeProps<FlowNode>) {
 export function CustomNodeComponent({ data, selected }: NodeProps<FlowNode>) {
   const node = data.irNode
   const registry = useNodeRegistry()
-  const isMissing = !registry.has(node.type)
-  const visuals = getNodeVisuals(node.type)
+  const def = registry.get(node.type)
+  const isMissing = !def
+  const visuals = getNodeVisuals(node.type, def?.icon)
   return (
     <NodeBase label={node.name} icon={visuals.icon} accent={visuals.accent} selected={selected} warning={isMissing}>
       {node.type}

@@ -82,7 +82,7 @@
     "templates": {
       "cloudflare": "export default async function (ctx) {\n  const body: Record<string, unknown> = {\n    from: ctx.config.from,\n    to: ctx.config.to,\n    subject: ctx.config.subject,\n    html: ctx.config.html,\n  }\n\n  if (ctx.config.replyTo) body.reply_to = ctx.config.replyTo\n  if (ctx.config.cc) body.cc = ctx.config.cc\n  if (ctx.config.bcc) body.bcc = ctx.config.bcc\n\n  const response = await fetch('https://api.resend.com/emails', {\n    method: 'POST',\n    headers: {\n      Authorization: `Bearer ${ctx.env.RESEND_API_KEY}`,\n      'Content-Type': 'application/json',\n    },\n    body: JSON.stringify(body),\n  })\n\n  if (!response.ok) {\n    const errorText = await response.text()\n    throw new Error(`Resend API error (${response.status}): ${errorText}`)\n  }\n\n  const data = (await response.json()) as { id: string }\n\n  return {\n    id: data.id,\n  }\n}\n"
     },
-    "bundledAt": "2026-03-19T19:30:41.945Z",
+    "bundledAt": "2026-03-20T23:36:33.890Z",
     "checksum": "sha256:88c29a443d5615feea3c44e4dd50cc064c53420f7a7d290dad21edef206d9d5d"
   }
 ]

@@ -22,6 +22,26 @@ function parseDependencies(raw: string | null | undefined): Record<string, strin
   }
 }
 
+function collectNodeDependencies(ir: WorkflowIR, nodeRegistry?: AppNodeRegistry): Record<string, string> {
+  if (!nodeRegistry) return {}
+  const deps: Record<string, string> = {}
+  for (const node of ir.nodes) {
+    const def = nodeRegistry.registry.get(node.type)
+    if (def?.dependencies) {
+      Object.assign(deps, def.dependencies)
+    }
+  }
+  return deps
+}
+
+function mergeDependencies(
+  workflowDeps: Record<string, string> | undefined,
+  nodeDeps: Record<string, string>,
+): Record<string, string> | undefined {
+  const merged = { ...nodeDeps, ...workflowDeps }
+  return Object.keys(merged).length > 0 ? merged : undefined
+}
+
 const deploySchema = z.object({
   connectionId: z.string().min(1),
   versionId: z.string().min(1).optional(),
@@ -129,7 +149,9 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
     return c.json({ error: envResult.error }, 400)
   }
 
-  const deps = parseDependencies(workflow.dependencies)
+  const workflowDeps = parseDependencies(workflow.dependencies)
+  const nodeDeps = collectNodeDependencies(ir, nodeRegistry)
+  const deps = mergeDependencies(workflowDeps, nodeDeps)
   const providerConfig: ProviderConfig = {
     provider: 'cloudflare-workflows',
     credentials: creds,
@@ -194,7 +216,9 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
     return c.json({ error: envResult.error }, 400)
   }
 
-  const streamDeps = parseDependencies(workflow.dependencies)
+  const streamWorkflowDeps = parseDependencies(workflow.dependencies)
+  const streamNodeDeps = collectNodeDependencies(ir, nodeRegistry)
+  const streamDeps = mergeDependencies(streamWorkflowDeps, streamNodeDeps)
   const providerConfig: ProviderConfig = {
     provider: 'cloudflare-workflows',
     credentials: streamCreds,

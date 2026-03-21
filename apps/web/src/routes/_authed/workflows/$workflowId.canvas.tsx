@@ -278,7 +278,7 @@ function WorkflowEditorPage() {
   })
 
   const handleAddNode = (type: Parameters<typeof addNode>[0]) => {
-    addNode(type, { x: 250 + Math.random() * 200, y: 150 + Math.random() * 200 })
+    addNode(type, { x: 250 + Math.random() * 200, y: 150 + Math.random() * 200 }, nodeRegistry)
   }
 
   return (

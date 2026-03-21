@@ -190,6 +190,54 @@ describe('generateWorkflow with custom nodes', () => {
     expect(code).not.toContain('ctx.')
   })
 
+  it('hoists import statements from custom node templates to the top level', () => {
+    const template = `import { uniqueNamesGenerator, adjectives, colors, animals } from 'unique-names-generator'
+
+export default async function(ctx) {
+  const name = uniqueNamesGenerator({
+    dictionaries: [adjectives, colors, animals],
+    separator: ctx.config.separator,
+  });
+  return { name };
+}`
+    const resolver: TemplateResolver = {
+      getTemplate(nodeType: string) {
+        if (nodeType === 'generate_name') return template
+        return undefined
+      },
+    }
+
+    const ir: WorkflowIR = {
+      metadata: { id: 'wf-1', name: 'Name Gen', version: '1.0.0' },
+      nodes: [
+        {
+          id: 'gen-1',
+          name: 'Generate Name',
+          type: 'generate_name',
+          version: '1.0.0',
+          provider: 'cloudflare',
+          position: { x: 0, y: 0 },
+          data: { separator: '_' },
+        },
+      ],
+      edges: [],
+      entryNodeId: 'gen-1',
+    }
+
+    const code = generateWorkflow(ir, resolver)
+
+    // Import should appear at the top, before the class
+    const importLine = "import { uniqueNamesGenerator, adjectives, colors, animals } from 'unique-names-generator'"
+    expect(code).toContain(importLine)
+    const importIndex = code.indexOf(importLine)
+    const classIndex = code.indexOf('class NameGen')
+    expect(importIndex).toBeLessThan(classIndex)
+
+    // Import should NOT appear inside the step.do body
+    const stepBody = code.slice(code.indexOf('step.do('))
+    expect(stepBody).not.toContain('import ')
+  })
+
   it('throws for custom nodes when no resolver is provided', () => {
     const ir: WorkflowIR = {
       metadata: { id: 'wf-1', name: 'Test', version: '1.0.0' },

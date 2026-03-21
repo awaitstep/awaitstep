@@ -172,6 +172,32 @@ describe('generateCustomNode', () => {
     expect(code).not.toContain('const ')
   })
 
+  it('includes import statements from the template', () => {
+    const templateWithImport = `import { uniqueNamesGenerator, adjectives, colors, animals } from 'unique-names-generator'
+
+export default async function(ctx) {
+  const name = uniqueNamesGenerator({
+    dictionaries: [adjectives, colors, animals],
+    separator: ctx.config.separator,
+  });
+  return { name };
+}`
+    const node: WorkflowNode = {
+      id: 'my-node',
+      name: 'Generate Name',
+      type: 'generate_name',
+      version: '1.0.0',
+      provider: 'cloudflare',
+      position: { x: 0, y: 0 },
+      data: { separator: '_' },
+    }
+
+    const code = generateCustomNode(node, templateWithImport)
+    expect(code).toContain("import { uniqueNamesGenerator, adjectives, colors, animals } from 'unique-names-generator'")
+    expect(code).toContain('await step.do("Generate Name"')
+    expect(code).toContain('return { name };')
+  })
+
   it('omits config arg when node has no config', () => {
     const simpleTemplate = `export default async function(ctx) {
   return ctx.config.value;

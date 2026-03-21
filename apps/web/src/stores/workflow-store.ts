@@ -9,7 +9,7 @@ import {
   type OnEdgesChange,
   type Connection,
 } from '@xyflow/react'
-import type { WorkflowNode, NodeType, WorkflowMetadata } from '@awaitstep/ir'
+import type { WorkflowNode, NodeType, WorkflowMetadata, ConfigField } from '@awaitstep/ir'
 import { validateWorkflowForPublish, type PublishValidationResult } from '../lib/validate-workflow'
 import type { NodeRegistry } from '@awaitstep/ir'
 import { simulateWorkflow, type SimulationResult } from '../lib/simulate-workflow'
@@ -54,6 +54,7 @@ interface WorkflowState {
   nodes: FlowNode[]
   edges: Edge[]
   selectedNodeId: string | null
+  selectedEdgeId: string | null
   inputParams: InputParam[]
   envBindings: EnvBinding[]
   workflowEnvVars: WorkflowEnvVar[]
@@ -68,11 +69,12 @@ interface WorkflowState {
   onEdgesChange: OnEdgesChange
   onConnect: (connection: Connection) => void
 
-  addNode: (type: NodeType, position: { x: number; y: number }) => void
-  insertNodeOnEdge: (type: NodeType, position: { x: number; y: number }, edgeId: string) => void
+  addNode: (type: NodeType, position: { x: number; y: number }, registry?: NodeRegistry) => void
+  insertNodeOnEdge: (type: NodeType, position: { x: number; y: number }, edgeId: string, registry?: NodeRegistry) => void
   updateNodeData: (nodeId: string, data: Partial<WorkflowNode>) => void
   removeNode: (nodeId: string) => void
   selectNode: (nodeId: string | null) => void
+  selectEdge: (edgeId: string | null) => void
 
   setMetadata: (metadata: Partial<WorkflowMetadata>) => void
   setInputParams: (params: InputParam[]) => void
@@ -90,7 +92,18 @@ interface WorkflowState {
   markClean: () => void
 }
 
-function createDefaultNode(type: NodeType, position: { x: number; y: number }): WorkflowNode {
+function configDefaults(schema?: Record<string, ConfigField>): Record<string, unknown> {
+  if (!schema) return {}
+  const data: Record<string, unknown> = {}
+  for (const [key, field] of Object.entries(schema)) {
+    if (field.default !== undefined) {
+      data[key] = field.default
+    }
+  }
+  return data
+}
+
+function createDefaultNode(type: NodeType, position: { x: number; y: number }, registry?: NodeRegistry): WorkflowNode {
   const id = nanoid()
   const base = { id, type, position, name: `New ${type}`, version: '1.0.0', provider: 'cloudflare' }
 
@@ -109,8 +122,10 @@ function createDefaultNode(type: NodeType, position: { x: number; y: number }): 
       return { ...base, data: { url: 'https://api.example.com', method: 'GET' } }
     case 'wait_for_event':
       return { ...base, data: { eventType: 'my-event', timeout: '24 hours' } }
-    default:
-      return { ...base, data: {} }
+    default: {
+      const def = registry?.get(type)
+      return { ...base, name: def?.name ?? `New ${type}`, data: configDefaults(def?.configSchema) }
+    }
   }
 }
 
@@ -125,6 +140,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   nodes: [],
   edges: [],
   selectedNodeId: null,
+  selectedEdgeId: null,
   inputParams: [],
   envBindings: [],
   workflowEnvVars: [],
@@ -150,9 +166,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   onEdgesChange: (changes) => {
+    const meaningful = changes.filter((c) => c.type !== 'select')
+    if (meaningful.length === 0) return
     const dirtyTypes = new Set(['add', 'remove', 'replace'])
-    const hasDirtyChange = changes.some((c) => dirtyTypes.has(c.type))
-    set({ edges: applyEdgeChanges(changes, get().edges), ...(hasDirtyChange && { isDirty: true }) })
+    const hasDirtyChange = meaningful.some((c) => dirtyTypes.has(c.type))
+    set({ edges: applyEdgeChanges(meaningful, get().edges), ...(hasDirtyChange && { isDirty: true }) })
   },
 
   onConnect: (connection) => {
@@ -168,8 +186,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({ edges: addEdge({ ...connection, id: nanoid() }, edges), isDirty: true })
   },
 
-  addNode: (type, position) => {
-    const irNode = createDefaultNode(type, position)
+  addNode: (type, position, registry) => {
+    const irNode = createDefaultNode(type, position, registry)
     const flowNode: FlowNode = {
       id: irNode.id,
       type: toFlowType(irNode.type),
@@ -179,12 +197,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({ nodes: [...get().nodes, flowNode], isDirty: true })
   },
 
-  insertNodeOnEdge: (type, position, edgeId) => {
+  insertNodeOnEdge: (type, position, edgeId, registry) => {
     const { edges, nodes } = get()
     const edge = edges.find((e) => e.id === edgeId)
     if (!edge) return
 
-    const irNode = createDefaultNode(type, position)
+    const irNode = createDefaultNode(type, position, registry)
     const flowNode: FlowNode = {
       id: irNode.id,
       type: toFlowType(irNode.type),
@@ -248,7 +266,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   selectNode: (nodeId) => {
-    set({ selectedNodeId: nodeId })
+    set({ selectedNodeId: nodeId, selectedEdgeId: null })
+  },
+
+  selectEdge: (edgeId) => {
+    set({ selectedEdgeId: edgeId, selectedNodeId: null })
   },
 
   setMetadata: (metadata) => {

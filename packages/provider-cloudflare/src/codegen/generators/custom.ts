@@ -71,7 +71,14 @@ export function resolveCtxInputs(body: string, data: Record<string, unknown>): s
   })
 }
 
+function extractImportLines(source: string): string[] {
+  return source.split('\n')
+    .filter((line) => /^\s*import\s+/.test(line) && /from\s+['"]/.test(line))
+    .map((line) => line.trim())
+}
+
 export function generateCustomNode(node: WorkflowNode, templateSource: string): string {
+  const imports = extractImportLines(templateSource)
   let body = extractTemplateBody(templateSource)
 
   const configData: Record<string, unknown> = {}
@@ -94,7 +101,9 @@ export function generateCustomNode(node: WorkflowNode, templateSource: string): 
   const hasReturn = /\breturn\b/.test(body)
   const prefix = hasReturn ? `const ${varName(node.id)} = ` : ''
 
-  return `${prefix}await step.do("${escName(node.name)}"${configArg}, async () => {
+  const stepCode = `${prefix}await step.do("${escName(node.name)}"${configArg}, async () => {
   ${body}
 });`
+
+  return imports.length > 0 ? imports.join('\n') + '\n' + stepCode : stepCode
 }

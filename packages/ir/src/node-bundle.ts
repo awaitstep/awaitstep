@@ -103,6 +103,16 @@ export const nodeDefinitionSchema = z
     configSchema: z.record(z.string(), configFieldSchema),
     outputSchema: z.record(z.string(), outputFieldSchema),
     providers: z.array(providerSchema).min(1),
+    dependencies: z.record(
+      z.string().min(1).max(214).regex(
+        /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/,
+        'Invalid npm package name',
+      ),
+      z.string().min(1).max(100).regex(
+        /^(\*|latest|next|canary|[\^~]?\d+(\.\d+){0,2}(-[a-zA-Z0-9.]+)?(\s*\|\|\s*[\^~]?\d+(\.\d+){0,2}(-[a-zA-Z0-9.]+)?)*)$/,
+        'Invalid version range (e.g. ^1.0.0, ~2.3, latest)',
+      ),
+    ).optional(),
     runtime: runtimeHintsSchema.optional(),
     deprecated: z.boolean().optional(),
     deprecationMessage: z.string().optional(),

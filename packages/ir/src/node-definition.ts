@@ -82,6 +82,7 @@ export interface NodeDefinition {
   outputSchema: Record<string, OutputField>
   providers: Provider[]
 
+  dependencies?: Record<string, string>
   runtime?: RuntimeHints
 
   deprecated?: boolean

@@ -14,6 +14,7 @@ import type { NodeType } from '@awaitstep/ir'
 import { useWorkflowStore, type FlowNode } from '../../stores/workflow-store'
 import { validateNode } from './node-config-panel'
 import { findNearestEdge } from '../../lib/edge-proximity'
+import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { nodeTypes } from './nodes'
 import { LabeledEdge } from './labeled-edge'
 
@@ -21,7 +22,8 @@ const edgeTypes = { smoothstep: LabeledEdge }
 
 export function WorkflowCanvas() {
   const reactFlowInstance = useRef<ReactFlowInstance<FlowNode> | null>(null)
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, insertNodeOnEdge, selectNode, selectedNodeId } = useWorkflowStore()
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, insertNodeOnEdge, selectNode, selectEdge, selectedNodeId, selectedEdgeId } = useWorkflowStore()
+  const registry = useNodeRegistry()
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null)
 
   const validatedSelectNode = useCallback((nodeId: string | null) => {
@@ -64,20 +66,24 @@ export function WorkflowCanvas() {
 
       const nearest = findNearestEdge(position, edges, nodes)
       if (nearest) {
-        insertNodeOnEdge(type, position, nearest.edge.id)
+        insertNodeOnEdge(type, position, nearest.edge.id, registry)
       } else {
-        addNode(type, position)
+        addNode(type, position, registry)
       }
     },
-    [addNode, insertNodeOnEdge, edges, nodes],
+    [addNode, insertNodeOnEdge, edges, nodes, registry],
   )
 
   const onDragLeave = useCallback(() => {
     setHoveredEdgeId(null)
   }, [])
 
-  const styledEdges = hoveredEdgeId
-    ? edges.map((e) => (e.id === hoveredEdgeId ? { ...e, data: { ...e.data, hovered: true } } : e))
+  const styledEdges = (hoveredEdgeId || selectedEdgeId)
+    ? edges.map((e) => {
+        const hovered = e.id === hoveredEdgeId
+        const selected = e.id === selectedEdgeId
+        return (hovered || selected) ? { ...e, data: { ...e.data, hovered, selected } } : e
+      })
     : edges
 
   return (
@@ -94,7 +100,7 @@ export function WorkflowCanvas() {
       onDrop={onDrop}
       onDragLeave={onDragLeave}
       onNodeClick={(_event, node) => validatedSelectNode(node.id)}
-      onEdgeClick={() => validatedSelectNode(null)}
+      onEdgeClick={(_event, edge) => selectEdge(edge.id)}
       onPaneClick={() => validatedSelectNode(null)}
       nodeTypes={nodeTypes as NodeTypes}
       edgeTypes={edgeTypes}
