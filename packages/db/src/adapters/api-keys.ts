@@ -29,6 +29,15 @@ export class ApiKeysAdapter {
     return row
   }
 
+  async getById(id: string): Promise<ApiKey | null> {
+    const rows = await this.db
+      .select()
+      .from(this.table)
+      .where(eq(this.table.id, id))
+      .limit(1)
+    return rows[0] ?? null
+  }
+
   async getByHash(keyHash: string): Promise<ApiKey | null> {
     const rows = await this.db
       .select()

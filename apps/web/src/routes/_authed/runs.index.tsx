@@ -7,6 +7,7 @@ import { api } from '../../lib/api-client'
 import { RunStatusBadge } from '../../components/monitoring/run-status-badge'
 import { RunDetailSheet } from '../../components/monitoring/run-detail-sheet'
 import { TriggerDialog } from '../../components/canvas/trigger-dialog'
+import { useOrgReady } from '../../stores/org-store'
 import { useSheetStore } from '../../stores/sheet-store'
 import { useActiveRunSync } from '../../hooks/use-active-run-sync'
 import { timeAgo, duration } from '../../lib/time'
@@ -16,12 +17,14 @@ export const Route = createFileRoute('/_authed/runs/')({
 })
 
 function RunsIndexPage() {
+  const ready = useOrgReady()
   const [triggerWorkflowId, setTriggerWorkflowId] = useState<string | null>(null)
   const openRunSheet = useSheetStore((s) => s.openRunSheet)
 
   const { data: runs, isLoading } = useQuery({
     queryKey: ['all-runs'],
     queryFn: () => api.listAllRuns(),
+    enabled: ready,
     retry: false,
   })
 
@@ -30,12 +33,14 @@ function RunsIndexPage() {
   const { data: workflows } = useQuery({
     queryKey: ['workflows'],
     queryFn: () => api.listWorkflows(),
+    enabled: ready,
     retry: false,
   })
 
   const { data: allDeployments } = useQuery({
     queryKey: ['all-deployments'],
     queryFn: () => api.listAllDeployments(),
+    enabled: ready,
     retry: false,
   })
 

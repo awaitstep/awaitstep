@@ -12,6 +12,10 @@ export interface ResolvedEnvVar {
 }
 
 export interface DatabaseAdapter {
+  // Membership
+  isOrgMember(userId: string, organizationId: string): Promise<boolean>
+  getProjectIfMember(userId: string, projectId: string): Promise<Project | null>
+
   // Projects
   createProject(data: { id: string; organizationId: string; name: string; slug: string; description?: string }): Promise<Project>
   getProjectById(id: string): Promise<Project | null>
@@ -58,8 +62,10 @@ export interface DatabaseAdapter {
 
   // API Keys
   createApiKey(data: { id: string; projectId: string; createdBy: string; name: string; keyHash: string; keyPrefix: string; scopes: string; expiresAt?: string | null }): Promise<ApiKey>
+  getApiKeyById(id: string): Promise<ApiKey | null>
   getApiKeyByHash(keyHash: string): Promise<ApiKey | null>
   listApiKeysByProject(projectId: string): Promise<ApiKey[]>
+  listApiKeysByOrganization(organizationId: string): Promise<ApiKey[]>
   updateApiKeyLastUsed(id: string, lastUsedAt: string): Promise<void>
   revokeApiKey(id: string, projectId: string): Promise<ApiKey | null>
 

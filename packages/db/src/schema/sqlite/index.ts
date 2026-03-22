@@ -1,4 +1,4 @@
-export { user, session, account, verification } from './auth.js'
+export { user, session, account, verification, member } from './auth.js'
 export { workflows } from './workflows.js'
 export { workflowVersions } from './versions.js'
 export { connections } from './connections.js'

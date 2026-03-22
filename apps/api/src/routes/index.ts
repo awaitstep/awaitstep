@@ -3,7 +3,7 @@ import type { AppEnv } from '../types.js'
 import type { Auth } from '../auth/config.js'
 import type { SelfHostedConnection } from '../app.js'
 import { createAuthMiddleware, requireScope, requireSessionAuth } from '../middleware/auth.js'
-import { requireProject } from '../middleware/project.js'
+import { requireProject, requireOrganization } from '../middleware/project.js'
 import { createRateLimiter } from '../middleware/rate-limit.js'
 import { requireWorkflowAccess, requireConnectionAccess } from '../middleware/ownership.js'
 import { workflows } from './workflows.js'
@@ -26,17 +26,27 @@ export function createRouter(auth: Auth, selfHostedConnection?: SelfHostedConnec
   // Auth — all API routes require authentication
   router.use('*', createAuthMiddleware(auth))
 
-  // Project context — required for project-scoped routes
+  // Organization context — required for org-scoped routes
+  router.use('/connections/*', requireOrganization)
+  router.use('/connections', requireOrganization)
+  router.use('/env-vars/*', requireOrganization)
+  router.use('/env-vars', requireOrganization)
+  router.use('/resources/*', requireOrganization)
+  router.use('/projects/*', requireOrganization)
+  router.use('/projects', requireOrganization)
+  router.use('/api-keys/*', requireOrganization)
+  router.use('/api-keys', requireOrganization)
+
+  // Project context — required for project-scoped routes (also sets organizationId)
   router.use('/workflows/*', requireProject)
   router.use('/workflows', requireProject)
-  router.use('/api-keys/*', requireProject)
-  router.use('/api-keys', requireProject)
   router.use('/deployments', requireProject)
   router.use('/runs', requireProject)
 
   // Ownership — workflow routes
   router.use('/workflows/:id', requireWorkflowAccess)
   router.use('/workflows/:id/full', requireWorkflowAccess)
+  router.use('/workflows/:id/move', requireWorkflowAccess)
   router.use('/workflows/:workflowId/versions', requireWorkflowAccess)
   router.use('/workflows/:workflowId/versions/*', requireWorkflowAccess)
   router.use('/workflows/:workflowId/deploy', requireWorkflowAccess)
@@ -80,6 +90,7 @@ export function createRouter(auth: Auth, selfHostedConnection?: SelfHostedConnec
   router.delete('/workflows/:workflowId/versions/:versionId', requireScope('write'))
   router.post('/workflows', requireScope('write'))
   router.patch('/workflows/:id', requireScope('write'))
+  router.patch('/workflows/:id/move', requireScope('write'))
   router.delete('/workflows/:id', requireScope('write'))
   router.post('/connections', requireScope('write'))
   router.patch('/connections/:id', requireScope('write'))

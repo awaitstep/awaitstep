@@ -6,6 +6,7 @@ import { Button } from '../../../components/ui/button'
 import { RunStatusBadge } from '../../../components/monitoring/run-status-badge'
 import { RunDetailSheet } from '../../../components/monitoring/run-detail-sheet'
 import { api, projectUrl } from '../../../lib/api-client'
+import { useOrgReady } from '../../../stores/org-store'
 import { TriggerDialog } from '../../../components/canvas/trigger-dialog'
 import { useSheetStore } from '../../../stores/sheet-store'
 import { useActiveRunSync } from '../../../hooks/use-active-run-sync'
@@ -17,12 +18,14 @@ export const Route = createFileRoute('/_authed/workflows/$workflowId/runs/')({
 
 function RunsListPage() {
   const { workflowId } = useParams({ from: '/_authed/workflows/$workflowId/runs/' })
+  const ready = useOrgReady()
   const [triggerOpen, setTriggerOpen] = useState(false)
   const openRunSheet = useSheetStore((s) => s.openRunSheet)
 
   const { data: runs, isLoading } = useQuery({
     queryKey: ['workflow-runs', workflowId],
     queryFn: () => fetch(projectUrl(`/workflows/${workflowId}/runs`), { credentials: 'include' }).then((r) => r.json()),
+    enabled: ready,
   })
 
   useActiveRunSync(
@@ -33,6 +36,7 @@ function RunsListPage() {
   const { data: deployments } = useQuery({
     queryKey: ['deployments', workflowId],
     queryFn: () => api.listDeployments(workflowId),
+    enabled: ready,
     retry: false,
   })
 

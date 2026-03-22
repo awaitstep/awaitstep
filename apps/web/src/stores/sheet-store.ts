@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { Project } from './org-store'
 
 interface RunSheetState {
   runId: string
@@ -11,6 +12,14 @@ interface SheetState {
   runSheet: RunSheetState | null
   openRunSheet: (run: RunSheetState) => void
   closeRunSheet: () => void
+
+  projectDialog: Project | 'new' | null
+  openProjectDialog: (project?: Project) => void
+  closeProjectDialog: () => void
+
+  orgDialogOpen: boolean
+  openOrgDialog: () => void
+  closeOrgDialog: () => void
 }
 
 export const useSheetStore = create<SheetState>()(
@@ -19,6 +28,14 @@ export const useSheetStore = create<SheetState>()(
       runSheet: null,
       openRunSheet: (run) => set({ runSheet: run }),
       closeRunSheet: () => set({ runSheet: null }),
+
+      projectDialog: null,
+      openProjectDialog: (project) => set({ projectDialog: project ?? 'new' }),
+      closeProjectDialog: () => set({ projectDialog: null }),
+
+      orgDialogOpen: false,
+      openOrgDialog: () => set({ orgDialogOpen: true }),
+      closeOrgDialog: () => set({ orgDialogOpen: false }),
     }),
     { name: 'awaitstep-sheets' },
   ),

@@ -31,6 +31,17 @@ export const TEST_ORG_ID = 'test-org-1'
 export const TEST_PROJECT_ID = 'test-project-1'
 
 const mockDb: DatabaseAdapter = {
+  // Membership
+  async isOrgMember(userId, organizationId) {
+    return userId === TEST_USER_ID && organizationId === TEST_ORG_ID
+  },
+  async getProjectIfMember(userId, projectId) {
+    const project = store.projects.get(projectId)
+    if (!project) return null
+    if (userId !== TEST_USER_ID || project.organizationId !== TEST_ORG_ID) return null
+    return project
+  },
+
   // Projects
   async createProject(data) {
     const p: Project = { ...data, description: data.description ?? null, createdAt: now(), updatedAt: now() }
@@ -183,8 +194,14 @@ const mockDb: DatabaseAdapter = {
     store.apiKeys.set(key.id, key)
     return key
   },
+  async getApiKeyById(id) {
+    return store.apiKeys.get(id) ?? null
+  },
   async getApiKeyByHash(keyHash) {
     return [...store.apiKeys.values()].find((k) => k.keyHash === keyHash && !k.revokedAt) ?? null
+  },
+  async listApiKeysByOrganization() {
+    return [...store.apiKeys.values()]
   },
   async listApiKeysByProject(projectId) {
     return [...store.apiKeys.values()].filter((k) => k.projectId === projectId)

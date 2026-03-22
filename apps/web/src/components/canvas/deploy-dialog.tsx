@@ -7,6 +7,7 @@ import { Button } from '../ui/button'
 import { Select } from '../ui/select'
 import { cn } from '../../lib/utils'
 import { api, projectUrl } from '../../lib/api-client'
+import { useOrgReady } from '../../stores/org-store'
 import { formatShortDate } from '../../lib/time'
 import { usePollingStore } from '../../stores/polling-store'
 
@@ -46,6 +47,7 @@ const STAGES = [
 ]
 
 export function DeployDialog({ onClose, workflowId, versionId }: DeployDialogProps) {
+  const ready = useOrgReady()
   const queryClient = useQueryClient()
   const [state, setState] = useState<DeployState>('idle')
   const [progress, setProgress] = useState<DeployProgress | null>(null)
@@ -54,15 +56,29 @@ export function DeployDialog({ onClose, workflowId, versionId }: DeployDialogPro
   const [deployResult, setDeployResult] = useState<DeployResult | null>(null)
   const [curlCopied, setCurlCopied] = useState(false)
 
+  function handleRetry() {
+    setState('idle')
+    setError(null)
+  }
+
+  function handleCopyCurl() {
+    if (!deployResult?.url) return
+    navigator.clipboard.writeText(`curl -X POST ${deployResult.url}`)
+    setCurlCopied(true)
+    setTimeout(() => setCurlCopied(false), 2000)
+  }
+
   const { data: connections } = useQuery({
     queryKey: ['connections'],
     queryFn: () => api.listConnections(),
+    enabled: ready,
     retry: false,
   })
 
   const { data: deployments } = useQuery({
     queryKey: ['deployments', workflowId],
     queryFn: () => api.listDeployments(workflowId),
+    enabled: ready,
     retry: false,
   })
 
@@ -293,11 +309,7 @@ export function DeployDialog({ onClose, workflowId, versionId }: DeployDialogPro
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Trigger</span>
                   <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(`curl -X POST ${deployResult.url}`)
-                      setCurlCopied(true)
-                      setTimeout(() => setCurlCopied(false), 2000)
-                    }}
+                    onClick={handleCopyCurl}
                     className="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground"
                   >
                     {curlCopied ? <Check className="h-3 w-3 text-status-success" /> : <Copy className="h-3 w-3" />}
@@ -327,7 +339,7 @@ export function DeployDialog({ onClose, workflowId, versionId }: DeployDialogPro
             )}
             <div className="flex justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={onClose}>Close</Button>
-              <Button size="sm" onClick={() => { setState('idle'); setError(null) }}>Retry</Button>
+              <Button size="sm" onClick={handleRetry}>Retry</Button>
             </div>
           </div>
         )}

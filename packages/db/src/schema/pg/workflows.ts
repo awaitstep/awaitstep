@@ -1,10 +1,13 @@
 import { pgTable, text, index, timestamp } from 'drizzle-orm/pg-core'
+import { projects } from './projects.js'
 
 export const workflows = pgTable(
   'workflows',
   {
     id: text('id').primaryKey(),
-    projectId: text('project_id').notNull(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
     createdBy: text('created_by').notNull(),
     name: text('name').notNull(),
     description: text('description'),

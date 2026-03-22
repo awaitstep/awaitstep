@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Button } from '../../../components/ui/button'
 import { Breadcrumb } from '../../../components/ui/breadcrumb'
 import { api } from '../../../lib/api-client'
+import { useOrgReady } from '../../../stores/org-store'
 import type { EnvVarSummary } from '../../../lib/api-client'
 
 export const Route = createFileRoute('/_authed/resources/env-vars')({
@@ -56,11 +57,13 @@ function parseEnvString(text: string): ParsedLine[] {
 }
 
 function EnvVarsPage() {
+  const ready = useOrgReady()
   const queryClient = useQueryClient()
 
   const { data: envVars = [], isLoading } = useQuery({
     queryKey: ['env-vars'],
     queryFn: () => api.listEnvVars(),
+    enabled: ready,
   })
 
   const serverText = useMemo(() => envVarsToString(envVars), [envVars])

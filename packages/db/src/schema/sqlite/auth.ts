@@ -69,3 +69,20 @@ export const verification = sqliteTable(
   },
   (table) => [index('idx_verification_identifier').on(table.identifier)],
 )
+
+export const member = sqliteTable(
+  'member',
+  {
+    id: text('id').primaryKey(),
+    userId: text('userId')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    organizationId: text('organizationId').notNull(),
+    role: text('role').notNull(),
+    createdAt: text('createdAt').notNull(),
+  },
+  (table) => [
+    index('idx_member_user_id').on(table.userId),
+    index('idx_member_org_id').on(table.organizationId),
+  ],
+)

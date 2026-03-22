@@ -2,17 +2,20 @@ import { createFileRoute, Outlet, Link, useMatches, useParams } from '@tanstack/
 import { useQuery } from '@tanstack/react-query'
 import { Breadcrumb } from '../../../components/ui/breadcrumb'
 import { api } from '../../../lib/api-client'
+import { useOrgReady } from '../../../stores/org-store'
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId')({
   component: WorkflowLayout,
 })
 
 function WorkflowLayout() {
+  const ready = useOrgReady()
   const { workflowId } = useParams({ from: '/_authed/workflows/$workflowId' })
   const matches = useMatches()
   const { data: workflow } = useQuery({
     queryKey: ['workflow', workflowId],
     queryFn: () => api.getWorkflow(workflowId),
+    enabled: ready,
   })
 
   const isFullScreen = matches.some(

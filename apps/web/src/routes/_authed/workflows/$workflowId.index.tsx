@@ -7,6 +7,7 @@ import { validateWorkflowForPublish } from '../../../lib/validate-workflow'
 import { Loader2, Pencil, Rocket, Clock } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { api } from '../../../lib/api-client'
+import { useOrgReady } from '../../../stores/org-store'
 import { timeAgo } from '../../../lib/time'
 import { WorkflowActionsMenu } from '../../../components/dashboard/workflow-actions-menu'
 import { TriggerButton } from '../../../components/dashboard/trigger-button'
@@ -26,27 +27,32 @@ export const Route = createFileRoute('/_authed/workflows/$workflowId/')({
 })
 
 function WorkflowOverviewPage() {
+  const ready = useOrgReady()
   const { workflowId } = useParams({ from: '/_authed/workflows/$workflowId/' })
   const [deployOpen, setDeployOpen] = useState(false)
 
   const { data: workflow, isLoading: wfLoading } = useQuery({
     queryKey: ['workflow', workflowId],
     queryFn: () => api.getWorkflow(workflowId),
+    enabled: ready,
   })
 
   const { data: versions } = useQuery({
     queryKey: ['versions', workflowId],
     queryFn: () => api.listVersions(workflowId),
+    enabled: ready,
   })
 
   const { data: deployments } = useQuery({
     queryKey: ['deployments', workflowId],
     queryFn: () => api.listDeployments(workflowId),
+    enabled: ready,
   })
 
   const { data: runs } = useQuery({
     queryKey: ['runs', workflowId],
     queryFn: () => api.listAllRuns(),
+    enabled: ready,
   })
 
   const workflowRuns = useMemo(() => runs?.filter((r) => r.workflowId === workflowId) ?? [], [runs, workflowId])

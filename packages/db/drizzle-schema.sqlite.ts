@@ -5,7 +5,7 @@ export const envVars = sqliteTable(
   {
     id: text('id').primaryKey(),
     organizationId: text('organization_id').notNull(),
-    projectId: text('project_id'),
+    projectId: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
     createdBy: text('created_by').notNull(),
     name: text('name').notNull(),
     value: text('value').notNull(),
@@ -157,7 +157,7 @@ export const workflows = sqliteTable(
   'workflows',
   {
     id: text('id').primaryKey(),
-    projectId: text('project_id').notNull(),
+    projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
     createdBy: text('created_by').notNull(),
     name: text('name').notNull(),
     description: text('description'),
@@ -230,7 +230,7 @@ export const apiKeys = sqliteTable(
   'api_keys',
   {
     id: text('id').primaryKey(),
-    projectId: text('project_id').notNull(),
+    projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
     createdBy: text('created_by').notNull(),
     name: text('name').notNull(),
     keyHash: text('key_hash').notNull().unique(),

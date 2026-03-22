@@ -4,6 +4,7 @@ import { Plus, Loader2, Search } from 'lucide-react'
 import { useState, useMemo } from 'react'
 import { Button } from '../../components/ui/button'
 import { api } from '../../lib/api-client'
+import { useOrgReady } from '../../stores/org-store'
 import { WorkflowActionsMenu } from '../../components/dashboard/workflow-actions-menu'
 import { TriggerButton } from '../../components/dashboard/trigger-button'
 import { timeAgo } from '../../lib/time'
@@ -13,17 +14,20 @@ export const Route = createFileRoute('/_authed/workflows/')({
 })
 
 function WorkflowsIndexPage() {
+  const ready = useOrgReady()
   const [search, setSearch] = useState('')
 
   const { data: workflows, isLoading } = useQuery({
     queryKey: ['workflows'],
     queryFn: () => api.listWorkflows(),
+    enabled: ready,
     retry: false,
   })
 
   const { data: recentDeployments } = useQuery({
     queryKey: ['all-deployments'],
     queryFn: () => api.listAllDeployments(),
+    enabled: ready,
     retry: false,
   })
 

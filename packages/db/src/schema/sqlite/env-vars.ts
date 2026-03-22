@@ -1,11 +1,13 @@
 import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { projects } from './projects.js'
 
 export const envVars = sqliteTable(
   'env_vars',
   {
     id: text('id').primaryKey(),
     organizationId: text('organization_id').notNull(),
-    projectId: text('project_id'),
+    projectId: text('project_id')
+      .references(() => projects.id, { onDelete: 'cascade' }),
     createdBy: text('created_by').notNull(),
     name: text('name').notNull(),
     value: text('value').notNull(),

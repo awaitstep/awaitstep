@@ -18,8 +18,12 @@ export function RunDetailSheet() {
   const runSheet = useSheetStore((s) => s.runSheet)
   const closeRunSheet = useSheetStore((s) => s.closeRunSheet)
 
+  function handleOpenChange(open: boolean) {
+    if (!open) closeRunSheet()
+  }
+
   return (
-    <Dialog.Root open={!!runSheet} onOpenChange={(open) => { if (!open) closeRunSheet() }}>
+    <Dialog.Root open={!!runSheet} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
         <Dialog.Content className="fixed right-0 top-0 bottom-0 z-50 flex w-full max-w-md flex-col border-l border-border bg-background shadow-lg data-[state=open]:animate-in data-[state=open]:slide-in-from-right data-[state=open]:duration-200 data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=closed]:duration-150">

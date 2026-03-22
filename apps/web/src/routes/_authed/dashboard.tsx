@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import * as Dialog from '@radix-ui/react-dialog'
 import { Plus, Loader2, Workflow, AlertTriangle, Activity } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { api } from '../../lib/api-client'
+import { useOrgReady } from '../../stores/org-store'
 import { RunStatusBadge } from '../../components/monitoring/run-status-badge'
 import { RunDetailSheet } from '../../components/monitoring/run-detail-sheet'
 import { WorkflowActionsMenu } from '../../components/dashboard/workflow-actions-menu'
@@ -19,6 +21,7 @@ export const Route = createFileRoute('/_authed/dashboard')({
 })
 
 function DashboardPage() {
+  const ready = useOrgReady()
   const workflowsInterval = useRefetchInterval('workflows')
   const deploymentsInterval = useRefetchInterval('all-deployments')
 
@@ -26,12 +29,14 @@ function DashboardPage() {
     queryKey: ['workflows'],
     queryFn: () => api.listWorkflows(),
     refetchInterval: workflowsInterval,
+    enabled: ready,
     retry: false,
   })
 
   const { data: connections } = useQuery({
     queryKey: ['connections'],
     queryFn: () => api.listConnections(),
+    enabled: ready,
     retry: false,
   })
 
@@ -39,12 +44,14 @@ function DashboardPage() {
     queryKey: ['all-deployments'],
     queryFn: () => api.listAllDeployments(),
     refetchInterval: deploymentsInterval,
+    enabled: ready,
     retry: false,
   })
 
   const { data: recentRuns } = useQuery({
     queryKey: ['all-runs'],
     queryFn: () => api.listAllRuns(),
+    enabled: ready,
     retry: false,
   })
 
@@ -84,10 +91,6 @@ function DashboardPage() {
   const onboardingSkipped = useOnboardingStore((s) => s.skipped)
   const isNewUser = !onboardingSkipped && (connections?.length ?? 0) === 0 && (workflows?.length ?? 0) === 0
     && connections !== undefined && workflows !== undefined
-
-  if (isNewUser) {
-    return <OnboardingWizard />
-  }
 
   const workflowMap = new Map(workflows?.map((w) => [w.id, w]) ?? [])
 
@@ -223,6 +226,17 @@ function DashboardPage() {
       )}
 
       <RunDetailSheet />
+
+      {isNewUser && (
+        <Dialog.Root open>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 z-50 bg-background/90" />
+            <Dialog.Content className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2">
+              <OnboardingWizard />
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+      )}
       </div>
     </div>
   )

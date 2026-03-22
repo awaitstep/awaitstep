@@ -21,7 +21,7 @@ Base URL: `https://app.awaitstep.dev/api`
 ## Workflows
 
 ### `GET /workflows`
-List all workflows for the authenticated user.
+List all workflows in the active project.
 
 **Scope:** `read`
 
@@ -71,6 +71,20 @@ Update a workflow's name, description, environment variables, trigger code, or d
 }
 ```
 
+### `PATCH /workflows/:id/move`
+Move a workflow to another project within the same organization. Returns warnings if the workflow references env vars missing in the target project.
+
+**Scope:** `write`
+| Param | In | Required | Description |
+|-------|----|----------|-------------|
+| `id` | path | yes | Workflow ID |
+
+```json
+{
+  "targetProjectId": "project-id"
+}
+```
+
 ### `DELETE /workflows/:id`
 Delete a workflow.
 
@@ -78,6 +92,50 @@ Delete a workflow.
 | Param | In | Required | Description |
 |-------|----|----------|-------------|
 | `id` | path | yes | Workflow ID |
+
+---
+
+## Projects
+
+### `GET /projects`
+List all projects in the active organization.
+
+**Scope:** `read`
+
+### `POST /projects`
+Create a new project.
+
+**Scope:** `write`
+```json
+{
+  "name": "My Project",
+  "slug": "my-project",
+  "description": ""
+}
+```
+
+### `PATCH /projects/:id`
+Update a project.
+
+**Scope:** `write`
+| Param | In | Required | Description |
+|-------|----|----------|-------------|
+| `id` | path | yes | Project ID |
+
+```json
+{
+  "name": "Updated Name",
+  "description": "optional"
+}
+```
+
+### `DELETE /projects/:id`
+Delete a project.
+
+**Scope:** `write`
+| Param | In | Required | Description |
+|-------|----|----------|-------------|
+| `id` | path | yes | Project ID |
 
 ---
 

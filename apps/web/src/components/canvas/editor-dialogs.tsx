@@ -24,34 +24,45 @@ export function EditorDialogs({
   onCloseDeploy,
   workflowId,
 }: EditorDialogsProps) {
+  function handleSwitchTemplateOpenChange(open: boolean) {
+    if (!open) setConfirmAction(null)
+  }
+
+  function handleSwitchTemplateConfirm() {
+    setConfirmAction(null)
+    onConfirmSwitchTemplate()
+  }
+
+  function handleBlockerOpenChange(open: boolean) {
+    if (!open) onBlockerReset?.()
+  }
+
+  function handleBlockerConfirm() {
+    onBlockerProceed?.()
+  }
+
   return (
     <>
       <ConfirmDialog
         open={confirmAction === 'switch-template'}
-        onOpenChange={(open) => { if (!open) setConfirmAction(null) }}
+        onOpenChange={handleSwitchTemplateOpenChange}
         title="Switch template?"
         description="Your current canvas will be replaced. Any unsaved work will be lost."
         confirmLabel="Browse templates"
         variant="warning"
-        onConfirm={() => {
-          setConfirmAction(null)
-          onConfirmSwitchTemplate()
-        }}
+        onConfirm={handleSwitchTemplateConfirm}
       />
       <ConfirmDialog
         open={blockerStatus === 'blocked'}
-        onOpenChange={(open) => { if (!open) onBlockerReset?.() }}
+        onOpenChange={handleBlockerOpenChange}
         title="Unsaved changes"
         description="You have unsaved changes that will be lost if you leave this page."
         confirmLabel="Leave"
         variant="warning"
-        onConfirm={() => onBlockerProceed?.()}
+        onConfirm={handleBlockerConfirm}
       />
       {deployOpen && (
-        <DeployDialog
-          onClose={onCloseDeploy}
-          workflowId={workflowId}
-        />
+        <DeployDialog onClose={onCloseDeploy} workflowId={workflowId} />
       )}
     </>
   )

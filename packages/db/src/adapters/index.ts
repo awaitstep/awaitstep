@@ -20,6 +20,7 @@ export interface SchemaRef {
   apiKeys: unknown
   envVars: unknown
   projects: unknown
+  member?: unknown
 }
 
 export interface DrizzleAdapterOptions {
@@ -51,6 +52,42 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     this._apiKeys = new ApiKeysAdapter(db, schema.apiKeys)
     this._envVars = new EnvVarsAdapter(db, schema.envVars, options?.tokenCrypto, schema.projects)
     this._projects = new ProjectsAdapter(db, schema.projects)
+  }
+
+  // Membership
+  async isOrgMember(userId: string, organizationId: string): Promise<boolean> {
+    if (!this._schema.member) return true
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = this._schema.member as any
+    const rows = await this._db
+      .select({ id: m.id })
+      .from(m)
+      .where(and(eq(m.userId, userId), eq(m.organizationId, organizationId)))
+      .limit(1)
+    return rows.length > 0
+  }
+
+  async getProjectIfMember(userId: string, projectId: string): Promise<Project | null> {
+    if (!this._schema.member) return this._projects.getById(projectId)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const p = this._schema.projects as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = this._schema.member as any
+    const rows = await this._db
+      .select({
+        id: p.id,
+        organizationId: p.organizationId,
+        name: p.name,
+        slug: p.slug,
+        description: p.description,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+      })
+      .from(p)
+      .innerJoin(m, and(eq(m.organizationId, p.organizationId), eq(m.userId, userId)))
+      .where(eq(p.id, projectId))
+      .limit(1)
+    return rows[0] ?? null
   }
 
   // Projects
@@ -221,11 +258,38 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   createApiKey(data: { id: string; projectId: string; createdBy: string; name: string; keyHash: string; keyPrefix: string; scopes: string; expiresAt?: string | null }): Promise<ApiKey> {
     return this._apiKeys.create(data)
   }
+  getApiKeyById(id: string): Promise<ApiKey | null> {
+    return this._apiKeys.getById(id)
+  }
   getApiKeyByHash(keyHash: string): Promise<ApiKey | null> {
     return this._apiKeys.getByHash(keyHash)
   }
   listApiKeysByProject(projectId: string): Promise<ApiKey[]> {
     return this._apiKeys.listByProject(projectId)
+  }
+  async listApiKeysByOrganization(organizationId: string): Promise<ApiKey[]> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const k = this._schema.apiKeys as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const p = this._schema.projects as any
+    return this._db
+      .select({
+        id: k.id,
+        projectId: k.projectId,
+        createdBy: k.createdBy,
+        name: k.name,
+        keyHash: k.keyHash,
+        keyPrefix: k.keyPrefix,
+        scopes: k.scopes,
+        expiresAt: k.expiresAt,
+        lastUsedAt: k.lastUsedAt,
+        revokedAt: k.revokedAt,
+        createdAt: k.createdAt,
+      })
+      .from(k)
+      .innerJoin(p, eq(k.projectId, p.id))
+      .where(eq(p.organizationId, organizationId))
+      .orderBy(desc(k.createdAt))
   }
   updateApiKeyLastUsed(id: string, lastUsedAt: string): Promise<void> {
     return this._apiKeys.updateLastUsed(id, lastUsedAt)

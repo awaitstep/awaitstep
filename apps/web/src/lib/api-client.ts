@@ -20,8 +20,15 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json()
 }
 
-function withProject(path: string): string {
-  const projectId = useOrgStore.getState().activeProjectId
+function withOrg(path: string): string {
+  const organizationId = useOrgStore.getState().activeOrganizationId
+  if (!organizationId) throw new Error('No active organization selected')
+  const sep = path.includes('?') ? '&' : '?'
+  return `${path}${sep}organizationId=${organizationId}`
+}
+
+function withProject(path: string, overrideProjectId?: string): string {
+  const projectId = overrideProjectId ?? useOrgStore.getState().activeProjectId
   if (!projectId) throw new Error('No active project selected')
   const sep = path.includes('?') ? '&' : '?'
   return `${path}${sep}projectId=${projectId}`
@@ -186,20 +193,22 @@ export const api = {
     })
   },
 
+  // Org-scoped endpoints (require active organization)
+
   listConnections(): Promise<ConnectionSummary[]> {
-    return request('/connections')
+    return request(withOrg('/connections'))
   },
 
   createConnection(data: { name: string; provider: string; credentials: Record<string, string> }): Promise<ConnectionSummary> {
-    return request('/connections', { method: 'POST', body: JSON.stringify(data) })
+    return request(withOrg('/connections'), { method: 'POST', body: JSON.stringify(data) })
   },
 
   updateConnection(id: string, data: { name?: string; credentials?: Record<string, string> }): Promise<ConnectionSummary> {
-    return request(`/connections/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+    return request(withOrg(`/connections/${id}`), { method: 'PATCH', body: JSON.stringify(data) })
   },
 
   deleteConnection(id: string): Promise<void> {
-    return request(`/connections/${id}`, { method: 'DELETE' })
+    return request(withOrg(`/connections/${id}`), { method: 'DELETE' })
   },
 
   listDeployments(workflowId: string): Promise<DeploymentSummary[]> {
@@ -219,15 +228,15 @@ export const api = {
   },
 
   verifyCredentials(provider: string, credentials: Record<string, string>): Promise<{ valid: boolean; accounts: { id: string; name: string }[] }> {
-    return request('/connections/verify-token', { method: 'POST', body: JSON.stringify({ provider, credentials }) })
+    return request(withOrg('/connections/verify-token'), { method: 'POST', body: JSON.stringify({ provider, credentials }) })
   },
 
   getSelfHostedConnection(): Promise<{ configured: boolean; registered?: boolean; accountId?: string; name?: string }> {
-    return request('/connections/self-hosted')
+    return request(withOrg('/connections/self-hosted'))
   },
 
   registerSelfHostedConnection(): Promise<ConnectionSummary> {
-    return request('/connections/self-hosted', { method: 'POST' })
+    return request(withOrg('/connections/self-hosted'), { method: 'POST' })
   },
 
   triggerWorkflow(workflowId: string, data: { connectionId: string; params?: unknown }): Promise<{ id: string; instanceId: string; status: string }> {
@@ -235,49 +244,49 @@ export const api = {
   },
 
   listEnvVars(): Promise<EnvVarSummary[]> {
-    return request('/env-vars')
+    return request(withOrg('/env-vars'))
   },
 
   createEnvVar(data: { name: string; value: string; isSecret: boolean }): Promise<EnvVarSummary> {
-    return request('/env-vars', { method: 'POST', body: JSON.stringify(data) })
+    return request(withOrg('/env-vars'), { method: 'POST', body: JSON.stringify(data) })
   },
 
   updateEnvVar(id: string, data: { name?: string; value?: string; isSecret?: boolean }): Promise<EnvVarSummary> {
-    return request(`/env-vars/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+    return request(withOrg(`/env-vars/${id}`), { method: 'PATCH', body: JSON.stringify(data) })
   },
 
   deleteEnvVar(id: string): Promise<void> {
-    return request(`/env-vars/${id}`, { method: 'DELETE' })
+    return request(withOrg(`/env-vars/${id}`), { method: 'DELETE' })
   },
 
   listApiKeys(): Promise<ApiKeySummary[]> {
-    return request(withProject('/api-keys'))
+    return request(withOrg('/api-keys'))
   },
 
-  createApiKey(data: { name: string; scopes: string[]; expiresAt?: string | null }): Promise<ApiKeyCreated> {
-    return request(withProject('/api-keys'), { method: 'POST', body: JSON.stringify(data) })
+  createApiKey(data: { name: string; projectId: string; scopes: string[]; expiresAt?: string | null }): Promise<ApiKeyCreated> {
+    return request(withOrg('/api-keys'), { method: 'POST', body: JSON.stringify(data) })
   },
 
   revokeApiKey(id: string): Promise<ApiKeySummary> {
-    return request(withProject(`/api-keys/${id}`), { method: 'DELETE' })
+    return request(withOrg(`/api-keys/${id}`), { method: 'DELETE' })
   },
 
   // Projects (org-scoped)
 
   listProjects(): Promise<ProjectSummary[]> {
-    return request('/projects')
+    return request(withOrg('/projects'))
   },
 
   createProject(data: { name: string; slug: string; description?: string }): Promise<ProjectSummary> {
-    return request('/projects', { method: 'POST', body: JSON.stringify(data) })
+    return request(withOrg('/projects'), { method: 'POST', body: JSON.stringify(data) })
   },
 
   updateProject(id: string, data: { name?: string; description?: string }): Promise<ProjectSummary> {
-    return request(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+    return request(withOrg(`/projects/${id}`), { method: 'PATCH', body: JSON.stringify(data) })
   },
 
   deleteProject(id: string): Promise<void> {
-    return request(`/projects/${id}`, { method: 'DELETE' })
+    return request(withOrg(`/projects/${id}`), { method: 'DELETE' })
   },
 }
 

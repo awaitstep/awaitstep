@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/button'
 import { Select } from '../../components/ui/select'
 import { ConfirmDialog } from '../../components/ui/confirm-dialog'
 import { api } from '../../lib/api-client'
+import { useOrgReady } from '../../stores/org-store'
 import { getEnabledProviders, getProvider, type ProviderDefinition } from '../../lib/provider-registry'
 
 export const Route = createFileRoute('/_authed/connections')({
@@ -14,6 +15,7 @@ export const Route = createFileRoute('/_authed/connections')({
 })
 
 function ConnectionsPage() {
+  const ready = useOrgReady()
   const queryClient = useQueryClient()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<{ id: string; name: string; accountId: string } | null>(null)
@@ -22,12 +24,14 @@ function ConnectionsPage() {
   const { data: connections, isLoading } = useQuery({
     queryKey: ['connections'],
     queryFn: () => api.listConnections(),
+    enabled: ready,
     retry: false,
   })
 
   const { data: selfHosted } = useQuery({
     queryKey: ['self-hosted-connection'],
     queryFn: () => api.getSelfHostedConnection(),
+    enabled: ready,
     retry: false,
   })
 
@@ -38,6 +42,10 @@ function ConnectionsPage() {
       queryClient.invalidateQueries({ queryKey: ['self-hosted-connection'] })
     },
   })
+
+  function handleDeleteOpenChange(open: boolean) {
+    if (!open) setDeleteTarget(null)
+  }
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.deleteConnection(id),
@@ -175,7 +183,7 @@ CF_CONNECTION_NAME=Production  # optional`}
 
       <ConfirmDialog
         open={!!deleteTarget}
-        onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+        onOpenChange={handleDeleteOpenChange}
         title="Delete connection"
         description={`This will permanently delete the connection "${deleteTarget?.name}". Workflows deployed with this connection will continue running.`}
         confirmLabel="Delete"
@@ -197,6 +205,15 @@ function AddConnectionDialog({ open, onClose }: { open: boolean; onClose: () => 
   const queryClient = useQueryClient()
   const [step, setStep] = useState<DialogStep>('provider')
   const [provider, setProvider] = useState<ProviderDefinition | null>(null)
+
+  function handleDialogOpenChange(v: boolean) {
+    if (!v) onClose()
+  }
+
+  function handleBackToProvider() {
+    setStep('provider')
+    setProvider(null)
+  }
   const [credentials, setCredentials] = useState<Record<string, string>>({})
   const [accounts, setAccounts] = useState<{ id: string; name: string }[]>([])
   const [accountId, setAccountId] = useState('')
@@ -249,7 +266,7 @@ function AddConnectionDialog({ open, onClose }: { open: boolean; onClose: () => 
   const enabledProviders = getEnabledProviders()
 
   return (
-    <Dialog.Root open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+    <Dialog.Root open={open} onOpenChange={handleDialogOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[480px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg">
@@ -323,7 +340,7 @@ function AddConnectionDialog({ open, onClose }: { open: boolean; onClose: () => 
             )}
 
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => { setStep('provider'); setProvider(null) }}>Back</Button>
+              <Button variant="ghost" size="sm" onClick={handleBackToProvider}>Back</Button>
               <Button
                 size="sm"
                 disabled={provider.credentialFields.some((f) => !(credentials[f.key] ?? '').trim()) || verifyMutation.isPending}
@@ -404,6 +421,14 @@ function EditConnectionDialog({
   const [apiToken, setApiToken] = useState('')
   const [error, setError] = useState<string | null>(null)
 
+  function handleEditOpenChange(open: boolean) {
+    if (!open) onClose()
+  }
+
+  function handleTokenChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setApiToken(e.target.value)
+    setError(null)
+  }
 
   const updateMutation = useMutation({
     mutationFn: async () => {
@@ -427,7 +452,7 @@ function EditConnectionDialog({
   }
 
   return (
-    <Dialog.Root open={!!connection} onOpenChange={(open) => { if (!open) onClose() }}>
+    <Dialog.Root open={!!connection} onOpenChange={handleEditOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[480px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg">
@@ -459,7 +484,7 @@ function EditConnectionDialog({
               <input
                 type="password"
                 value={apiToken}
-                onChange={(e) => { setApiToken(e.target.value); setError(null) }}
+                onChange={handleTokenChange}
                 placeholder="Leave blank to keep current token"
                 className="w-full rounded-md border border-border bg-muted/50 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-primary/50"
               />

@@ -6,6 +6,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { Button } from '../ui/button'
 import { Select } from '../ui/select'
 import { api } from '../../lib/api-client'
+import { useOrgReady } from '../../stores/org-store'
 
 interface TriggerDialogProps {
   open: boolean
@@ -15,6 +16,7 @@ interface TriggerDialogProps {
 }
 
 export function TriggerDialog({ open, onClose, workflowId, deploymentId }: TriggerDialogProps) {
+  const ready = useOrgReady()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [connectionId, setConnectionId] = useState('')
@@ -27,7 +29,7 @@ export function TriggerDialog({ open, onClose, workflowId, deploymentId }: Trigg
   const { data: connections } = useQuery({
     queryKey: ['connections'],
     queryFn: () => api.listConnections(),
-    enabled: open,
+    enabled: ready && open,
     retry: false,
   })
 
@@ -79,8 +81,12 @@ export function TriggerDialog({ open, onClose, workflowId, deploymentId }: Trigg
     setTimeout(() => setCurlCopied(false), 2000)
   }, [deploymentId, paramsJson])
 
+  function handleOpenChange(v: boolean) {
+    if (!v) onClose()
+  }
+
   return (
-    <Dialog.Root open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+    <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[480px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg">

@@ -104,6 +104,49 @@ workflows.patch('/:id', zValidator('json', updateSchema), async (c) => {
   return c.json(updated)
 })
 
+workflows.patch('/:id/move', zValidator('json', z.object({ targetProjectId: z.string().min(1) })), async (c) => {
+  const db = c.get('db')
+  const organizationId = c.get('organizationId')
+  const workflow = c.get('workflow')
+  if (!workflow) return c.json({ error: 'Not found' }, 404)
+
+  const { targetProjectId } = c.req.valid('json')
+
+  const targetProject = await db.getProjectById(targetProjectId)
+  if (!targetProject || targetProject.organizationId !== organizationId) {
+    return c.json({ error: 'Target project not found' }, 404)
+  }
+
+  if (targetProjectId === workflow.projectId) {
+    return c.json({ error: 'Workflow is already in this project' }, 400)
+  }
+
+  // Check for env var warnings
+  const workflowEnvVars = await db.getWorkflowEnvVars(workflow.id)
+  const warnings: string[] = []
+  const globalRefPattern = /^\{\{global\.env\.([A-Z][A-Z0-9_]*)\}\}$/
+
+  for (const wVar of workflowEnvVars) {
+    const match = wVar.value.match(globalRefPattern)
+    if (match) {
+      const targetVars = await db.listEnvVarsByProject(organizationId, targetProjectId)
+      const hasVar = targetVars.some((v) => v.name === match[1])
+      if (!hasVar) {
+        warnings.push(match[1])
+      }
+    }
+  }
+
+  const updated = await db.updateWorkflow(workflow.id, { projectId: targetProjectId })
+
+  return c.json({
+    workflow: updated,
+    warnings: warnings.length > 0
+      ? `Missing env vars in target project: ${warnings.join(', ')}`
+      : null,
+  })
+})
+
 workflows.delete('/:id', async (c) => {
   const db = c.get('db')
   await db.deleteWorkflow(c.req.param('id'))

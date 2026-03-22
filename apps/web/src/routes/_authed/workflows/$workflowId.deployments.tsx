@@ -8,6 +8,7 @@ import {
 import { Button } from '../../../components/ui/button'
 import { DeployDialog } from '../../../components/canvas/deploy-dialog'
 import { api } from '../../../lib/api-client'
+import { useOrgReady } from '../../../stores/org-store'
 import { timeAgo, formatDate } from '../../../lib/time'
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId/deployments')({
@@ -28,22 +29,26 @@ type Deployment = {
 
 function DeploymentsPage() {
   const { workflowId } = useParams({ from: '/_authed/workflows/$workflowId/deployments' })
+  const ready = useOrgReady()
   const [deployOpen, setDeployOpen] = useState(false)
   const [selectedDeployment, setSelectedDeployment] = useState<Deployment | null>(null)
 
   const { data: deployments, isLoading } = useQuery({
     queryKey: ['deployments', workflowId],
     queryFn: () => api.listDeployments(workflowId),
+    enabled: ready,
   })
 
   const { data: connections } = useQuery({
     queryKey: ['connections'],
     queryFn: () => api.listConnections(),
+    enabled: ready,
   })
 
   const { data: versions } = useQuery({
     queryKey: ['versions', workflowId],
     queryFn: () => api.listVersions(workflowId),
+    enabled: ready,
   })
 
   const connectionMap = new Map(connections?.map((c) => [c.id, c]) ?? [])
@@ -143,8 +148,12 @@ function DeploymentSheet({
   versionNumber?: number
   onClose: () => void
 }) {
+  function handleOpenChange(open: boolean) {
+    if (!open) onClose()
+  }
+
   return (
-    <Dialog.Root open={!!deployment} onOpenChange={(open) => { if (!open) onClose() }}>
+    <Dialog.Root open={!!deployment} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
         <Dialog.Content className="fixed right-0 top-0 bottom-0 z-50 flex w-full max-w-md flex-col border-l border-border bg-background shadow-lg data-[state=open]:animate-in data-[state=open]:slide-in-from-right data-[state=open]:duration-200 data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=closed]:duration-150">

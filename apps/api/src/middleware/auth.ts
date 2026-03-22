@@ -78,10 +78,6 @@ export function createAuthMiddleware(auth: Auth) {
     c.set('userId', session.user.id)
     c.set('apiKeyScopes', null)
 
-    // Extract org context from session
-    const orgId = (session.session as { activeOrganizationId?: string }).activeOrganizationId ?? ''
-    c.set('organizationId', orgId)
-
     await next()
   })
 }

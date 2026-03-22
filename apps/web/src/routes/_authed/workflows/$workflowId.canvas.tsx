@@ -12,6 +12,7 @@ import { SimulationPanel } from '../../../components/canvas/simulation-panel'
 import { NodeRegistryProvider, useNodeRegistry } from '../../../contexts/node-registry-context'
 import { validateWorkflowForPublish } from '../../../lib/validate-workflow'
 import { api, type WorkflowSummary } from '../../../lib/api-client'
+import { useOrgReady } from '../../../stores/org-store'
 import { buildIRFromState } from '../../../lib/build-ir'
 import { EditorToolbar } from '../../../components/canvas/editor-toolbar'
 import { EditorDialogs } from '../../../components/canvas/editor-dialogs'
@@ -53,6 +54,7 @@ function WorkflowEditorPage() {
   const [deployOpen, setDeployOpen] = useState(false)
   const [confirmAction, setConfirmAction] = useState<'switch-template' | null>(null)
 
+  const ready = useOrgReady()
   const nodeRegistry = useNodeRegistry()
   const metadata = useWorkflowStore((s) => s.metadata)
   const nodeCount = useWorkflowStore((s) => s.nodes.length)
@@ -88,7 +90,7 @@ function WorkflowEditorPage() {
   const { data: fullData, error: workflowError } = useQuery({
     queryKey: ['workflow-full', workflowId, versionParam],
     queryFn: () => api.getWorkflowFull(workflowId, versionParam),
-    enabled: !isNew,
+    enabled: ready && !isNew,
     retry: false,
   })
 

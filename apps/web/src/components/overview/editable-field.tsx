@@ -29,6 +29,11 @@ export function EditableName({ workflowId, initialValue }: { workflowId: string;
     mutation.mutate(trimmed)
   }
 
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') save()
+    if (e.key === 'Escape') { setValue(initialValue); setEditing(false) }
+  }
+
   if (editing) {
     return (
       <input
@@ -36,7 +41,7 @@ export function EditableName({ workflowId, initialValue }: { workflowId: string;
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onBlur={save}
-        onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setValue(initialValue); setEditing(false) } }}
+        onKeyDown={handleKeyDown}
         className="w-full rounded-md border border-border bg-transparent px-2 py-1 text-lg font-semibold outline-none focus:border-primary/50"
       />
     )
@@ -79,6 +84,11 @@ export function EditableDescription({ workflowId, initialValue }: { workflowId: 
     mutation.mutate(value.trim())
   }
 
+  function handleDescKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') save()
+    if (e.key === 'Escape') { setValue(initialValue); setEditing(false) }
+  }
+
   if (editing) {
     return (
       <input
@@ -86,7 +96,7 @@ export function EditableDescription({ workflowId, initialValue }: { workflowId: 
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onBlur={save}
-        onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setValue(initialValue); setEditing(false) } }}
+        onKeyDown={handleDescKeyDown}
         placeholder="Add a description..."
         className="mt-1 w-full rounded-md border border-border bg-transparent px-2 py-0.5 text-sm text-muted-foreground outline-none focus:border-primary/50"
       />

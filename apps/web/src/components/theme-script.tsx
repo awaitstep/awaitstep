@@ -32,6 +32,11 @@ function Controls() {
   const { font, setFont } = useFontStore()
   const [fontOpen, setFontOpen] = useState(false)
 
+  function handleFontSelect(fontId: typeof font) {
+    setFont(fontId)
+    setFontOpen(false)
+  }
+
   const currentFont = FONTS.find((f) => f.id === font)
 
   return (
@@ -44,7 +49,7 @@ function Controls() {
               {FONTS.map((f) => (
                 <button
                   key={f.id}
-                  onClick={() => { setFont(f.id); setFontOpen(false) }}
+                  onClick={() => handleFontSelect(f.id)}
                   className={`flex w-full items-center justify-between rounded-md px-3 py-1.5 text-xs transition-colors ${
                     font === f.id ? 'bg-muted/70 text-foreground' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
                   }`}

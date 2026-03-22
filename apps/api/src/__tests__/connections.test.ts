@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { createTestApp, resetStore, TEST_USER_ID, TEST_PROJECT_ID, TEST_ORG_ID, mockDb } from './helpers.js'
+import { createTestApp, resetStore, TEST_USER_ID, TEST_ORG_ID, mockDb } from './helpers.js'
 
 function url(path: string) {
-  return `${path}${path.includes('?') ? '&' : '?'}projectId=${TEST_PROJECT_ID}`
+  return `${path}${path.includes('?') ? '&' : '?'}organizationId=${TEST_ORG_ID}`
 }
 
 describe('connection routes', () => {
