@@ -1,10 +1,9 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
 import { Plus, Loader2, Search } from 'lucide-react'
 import { useState, useMemo } from 'react'
 import { Button } from '../../components/ui/button'
-import { api } from '../../lib/api-client'
-import { useOrgReady } from '../../stores/org-store'
+import type { WorkflowSummary } from '../../lib/api-client'
+import { useWorkflowsStore } from '../../stores/workflows-store'
 import { WorkflowActionsMenu } from '../../components/dashboard/workflow-actions-menu'
 import { TriggerButton } from '../../components/dashboard/trigger-button'
 import { timeAgo } from '../../lib/time'
@@ -14,34 +13,11 @@ export const Route = createFileRoute('/_authed/workflows/')({
 })
 
 function WorkflowsIndexPage() {
-  const ready = useOrgReady()
+  const workflows = useWorkflowsStore((s) => s.workflows)
+  const isLoading = useWorkflowsStore((s) => s.fetchState === 'idle' || s.fetchState === 'loading')
   const [search, setSearch] = useState('')
 
-  const { data: workflows, isLoading } = useQuery({
-    queryKey: ['workflows'],
-    queryFn: () => api.listWorkflows(),
-    enabled: ready,
-    retry: false,
-  })
-
-  const { data: recentDeployments } = useQuery({
-    queryKey: ['all-deployments'],
-    queryFn: () => api.listAllDeployments(),
-    enabled: ready,
-    retry: false,
-  })
-
-  const latestDeployStatus = new Map<string, string>()
-  if (recentDeployments) {
-    for (const d of recentDeployments) {
-      if (!latestDeployStatus.has(d.workflowId)) {
-        latestDeployStatus.set(d.workflowId, d.status)
-      }
-    }
-  }
-
   const filtered = useMemo(() => {
-    if (!workflows) return []
     if (!search.trim()) return workflows
     const q = search.toLowerCase()
     return workflows.filter(
@@ -62,7 +38,7 @@ function WorkflowsIndexPage() {
       </div>
 
       <div>
-      {workflows && workflows.length > 0 && (
+      {workflows.length > 0 && (
         <div className="relative mt-6 max-w-xs">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
           <input
@@ -81,7 +57,7 @@ function WorkflowsIndexPage() {
         </div>
       )}
 
-      {workflows && workflows.length === 0 && (
+      {!isLoading && workflows.length === 0 && (
         <div className="mt-6 rounded-md border border-border px-4 py-8 text-center text-sm text-muted-foreground">
           No workflows yet.{' '}
           <Link to="/workflows/$workflowId/canvas" params={{ workflowId: 'new' }} search={{ template: true }} className="text-primary hover:underline">
@@ -92,46 +68,46 @@ function WorkflowsIndexPage() {
 
       {filtered.length > 0 && (
         <div className="mt-4 space-y-2">
-          {filtered.map((wf) => {
-            const deployStatus = latestDeployStatus.get(wf.id)
-            return (
-              <div
-                key={wf.id}
-                className="group rounded-lg border border-border bg-card transition-colors hover:border-border/80 hover:bg-muted/20"
-              >
-                <div className="flex items-center justify-between px-4 py-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2.5">
-                      <Link
-                        to="/workflows/$workflowId"
-                        params={{ workflowId: wf.id }}
-                        className="text-sm font-medium text-foreground hover:text-foreground"
-                      >
-                        {wf.name}
-                      </Link>
-                      <StatusLabel hasVersion={!!wf.currentVersionId} deployStatus={deployStatus} />
-                    </div>
-                    {wf.description && (
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground/60 max-w-sm">{wf.description}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-muted-foreground">{timeAgo(wf.updatedAt)}</span>
-                    <div className="flex items-center gap-1">
-                      {deployStatus === 'success' && <TriggerButton workflowId={wf.id} />}
-                      <WorkflowActionsMenu workflow={wf} isDeployed={deployStatus === 'success'} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
+          {filtered.map((wf) => (
+            <WorkflowRow key={wf.id} workflow={wf} />
+          ))}
         </div>
       )}
 
-      {search && filtered.length === 0 && workflows && workflows.length > 0 && (
-        <p className="mt-8 text-center text-sm text-muted-foreground">No workflows match "{search}"</p>
+      {search && filtered.length === 0 && workflows.length > 0 && (
+        <p className="mt-8 text-center text-sm text-muted-foreground">No workflows match &ldquo;{search}&rdquo;</p>
       )}
+      </div>
+    </div>
+  )
+}
+
+function WorkflowRow({ workflow: wf }: { workflow: WorkflowSummary }) {
+  return (
+    <div className="group rounded-lg border border-border bg-card transition-colors hover:border-border/80 hover:bg-muted/20">
+      <div className="flex items-center justify-between px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2.5">
+            <Link
+              to="/workflows/$workflowId"
+              params={{ workflowId: wf.id }}
+              className="text-sm font-medium text-foreground hover:text-foreground"
+            >
+              {wf.name}
+            </Link>
+            <StatusLabel hasVersion={!!wf.currentVersionId} deployStatus={wf.deployStatus ?? undefined} />
+          </div>
+          {wf.description && (
+            <p className="mt-0.5 max-w-sm truncate text-xs text-muted-foreground/60">{wf.description}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">{timeAgo(wf.updatedAt)}</span>
+          <div className="flex items-center gap-1">
+            {wf.deployStatus === 'success' && <TriggerButton workflowId={wf.id} />}
+            <WorkflowActionsMenu workflow={wf} isDeployed={wf.deployStatus === 'success'} />
+          </div>
+        </div>
       </div>
     </div>
   )

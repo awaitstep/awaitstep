@@ -46,6 +46,10 @@ export interface WorkflowSummary {
   triggerCode?: string | null
   dependencies?: string | null
   currentVersionId?: string | null
+  deployStatus?: string | null
+  deployVersionId?: string | null
+  lastRunStatus?: string | null
+  lastRunAt?: string | null
   createdAt: string
   updatedAt: string
 }

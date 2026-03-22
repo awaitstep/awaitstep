@@ -38,7 +38,7 @@ export const workflows = new Hono<AppEnv>()
 workflows.get('/', async (c) => {
   const db = c.get('db')
   const projectId = c.get('projectId')
-  const list = await db.listWorkflowsByProject(projectId)
+  const list = await db.listWorkflowsWithStatus(projectId)
   return c.json(list)
 })
 

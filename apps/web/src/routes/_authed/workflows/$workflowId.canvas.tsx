@@ -69,6 +69,12 @@ function WorkflowEditorPage() {
 
   const isNew = workflowId === 'new'
   const queryClient = useQueryClient()
+  const resetWorkflowStore = useWorkflowStore((s) => s.reset)
+
+  // Clear canvas state when leaving the page
+  useEffect(() => {
+    return () => resetWorkflowStore()
+  }, [resetWorkflowStore])
 
   // Block in-app navigation when there are unsaved changes
   const shouldBlock = isDirty || (isNew && nodeCount > 0)

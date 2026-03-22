@@ -1,6 +1,9 @@
-import { useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Loader2, Plus } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useMutation } from '@tanstack/react-query'
+import { z } from 'zod'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
@@ -10,64 +13,86 @@ import { useSheetStore } from '../../stores/sheet-store'
 import { useOrgStore } from '../../stores/org-store'
 import { toast } from 'sonner'
 
-export function OrgDialog() {
-  const open = useSheetStore((s) => s.orgDialogOpen)
-  const closeOrgDialog = useSheetStore((s) => s.closeOrgDialog)
-  const orgs = useOrgStore((s) => s.organizations)
-  const setOrgs = useOrgStore((s) => s.setOrganizations)
-  const setActiveOrg = useOrgStore((s) => s.setActiveOrganization)
+const orgSchema = z.object({
+  name: z.string().min(1, 'Organization name is required').max(255),
+})
+type OrgFormValues = z.infer<typeof orgSchema>
 
-  const [name, setName] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+const { addOrganization } = useOrgStore.getState()
+const { closeOrgDialog } = useSheetStore.getState()
 
-  function handleOpenChange(openState: boolean) {
-    if (!openState) closeOrgDialog()
-  }
+interface OrgDialogProps {
+  preventClose?: boolean
+}
+export function OrgDialog({ preventClose }: OrgDialogProps) {
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!name.trim()) return
-    setLoading(true)
-    setError(null)
-    try {
-      const slug = slugify(name)
-      const res = await authClient.organization.create({ name: name.trim(), slug })
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors },
+  } = useForm<OrgFormValues>({
+    resolver: zodResolver(orgSchema),
+    defaultValues: { name: '' },
+  })
+
+
+
+  const mutation = useMutation({
+    mutationFn: async (values: OrgFormValues) => {
+      const res = await authClient.organization.create({
+        name: values.name.trim(),
+        slug: slugify(values.name),
+      })
       if (res.error) throw new Error(res.error.message)
-      const newOrg = res.data
-      setOrgs([...orgs, newOrg])
-      setActiveOrg(newOrg.id)
-      setName('')
+      return res.data
+    },
+    onSuccess: (newOrg) => {
+      addOrganization(newOrg)
       closeOrgDialog()
       toast.success('Organization created')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create organization')
-    } finally {
-      setLoading(false)
+    },
+    onError: (err) => {
+      setError('root', {
+        message: err instanceof Error ? err.message : 'Failed to create organization',
+      })
+    },
+  })
+
+  function handleOpenChange(openState: boolean) {
+    if (!openState && !preventClose) closeOrgDialog()
+  }
+
+  function handleInteractOutside(e: Event) {
+    if (preventClose) {
+      e.preventDefault()
     }
   }
 
   return (
-    <Dialog.Root open={open} onOpenChange={handleOpenChange}>
+    <Dialog.Root defaultOpen onOpenChange={handleOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg">
+        <Dialog.Content onInteractOutside={handleInteractOutside} className="fixed left-1/2 top-1/2 z-50 w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg">
           <Dialog.Title className="text-base font-semibold">New Organization</Dialog.Title>
           <Dialog.Description className="mt-1 text-sm text-muted-foreground">
             Create a new organization for your team.
           </Dialog.Description>
-          <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+          <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="mt-4 space-y-4">
             <div>
               <Label className="text-xs">Organization name</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme Inc." className="mt-1" autoFocus />
+              <Input {...register('name')} placeholder="Acme Inc." className="mt-1" autoFocus />
+              {errors.name && <p className="mt-1 text-xs text-destructive">{errors.name.message}</p>}
             </div>
-            {error && <p className="text-xs text-destructive">{error}</p>}
+            {errors.root && <p className="text-xs text-destructive">{errors.root.message}</p>}
             <div className="flex justify-end gap-2">
-              <Dialog.Close asChild>
-                <Button variant="ghost" size="sm">Cancel</Button>
-              </Dialog.Close>
-              <Button size="sm" disabled={!name.trim() || loading}>
-                {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+              {!preventClose && (
+                <Dialog.Close asChild>
+                  <Button variant="ghost" size="sm">Cancel</Button>
+                </Dialog.Close>
+              )}
+              <Button size="sm" disabled={mutation.isPending}>
+                {mutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
                 Create
               </Button>
             </div>

@@ -16,17 +16,6 @@ const queryClient = new QueryClient({
   },
 })
 
-const GOOGLE_FONTS_URL =
-  'https://fonts.googleapis.com/css2?' +
-  [
-    'family=Outfit:wght@400;500;600;700',
-    'family=Inter:wght@400;500;600',
-    'family=IBM+Plex+Sans:wght@400;500;600',
-    'family=DM+Sans:opsz@9..40&family=DM+Sans:wght@400;500;600',
-    'family=Plus+Jakarta+Sans:wght@400;500;600;700',
-  ].join('&') +
-  '&display=swap'
-
 export const Route = createRootRoute({
   notFoundComponent: NotFound,
   head: () => ({
@@ -36,13 +25,6 @@ export const Route = createRootRoute({
     ],
     title: 'AwaitStep',
     links: [
-      { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-      {
-        rel: 'preconnect',
-        href: 'https://fonts.gstatic.com',
-        crossOrigin: 'anonymous',
-      },
-      { rel: 'stylesheet', href: GOOGLE_FONTS_URL },
       { rel: 'stylesheet', href: 'https://cdn.jsdelivr.net/npm/geist@1/dist/fonts/geist-sans/style.css' },
     ],
   }),

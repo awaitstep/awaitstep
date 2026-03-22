@@ -8,6 +8,7 @@ import { Select } from '../ui/select'
 import { cn } from '../../lib/utils'
 import { api, projectUrl } from '../../lib/api-client'
 import { useOrgReady } from '../../stores/org-store'
+import { useConnectionsStore } from '../../stores/connections-store'
 import { formatShortDate } from '../../lib/time'
 import { usePollingStore } from '../../stores/polling-store'
 
@@ -68,12 +69,7 @@ export function DeployDialog({ onClose, workflowId, versionId }: DeployDialogPro
     setTimeout(() => setCurlCopied(false), 2000)
   }
 
-  const { data: connections } = useQuery({
-    queryKey: ['connections'],
-    queryFn: () => api.listConnections(),
-    enabled: ready,
-    retry: false,
-  })
+  const connections = useConnectionsStore((s) => s.connections)
 
   const { data: deployments } = useQuery({
     queryKey: ['deployments', workflowId],

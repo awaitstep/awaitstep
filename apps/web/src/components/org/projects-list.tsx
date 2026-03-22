@@ -8,10 +8,23 @@ import { useOrgStore, type Project } from '../../stores/org-store'
 import { useSheetStore } from '../../stores/sheet-store'
 import { toast } from 'sonner'
 
-export function ProjectsList({ projects }: { projects: Project[] }) {
+function ProjectSkeleton() {
+  return (
+    <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+      <div className="space-y-1.5">
+        <div className="h-3 w-24 animate-pulse rounded bg-muted/60" />
+        <div className="h-2 w-16 animate-pulse rounded bg-muted/40" />
+      </div>
+      <div className="flex gap-1">
+        <div className="h-7 w-7 animate-pulse rounded bg-muted/40" />
+        <div className="h-7 w-7 animate-pulse rounded bg-muted/40" />
+      </div>
+    </div>
+  )
+}
+
+export function ProjectsList({ projects, loading }: { projects: Project[]; loading: boolean }) {
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null)
-  const setProjects = useOrgStore((s) => s.setProjects)
-  const setActiveProject = useOrgStore((s) => s.setActiveProject)
   const activeProjectId = useOrgStore((s) => s.activeProjectId)
   const openProjectDialog = useSheetStore((s) => s.openProjectDialog)
   const queryClient = useQueryClient()
@@ -19,12 +32,8 @@ export function ProjectsList({ projects }: { projects: Project[] }) {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.deleteProject(id),
     onSuccess: () => {
-      const updated = projects.filter((p) => p.id !== deleteTarget?.id)
-      setProjects(updated)
-      if (updated.length > 0 && deleteTarget?.id === activeProjectId) {
-        setActiveProject(updated[0].id)
-      }
-      queryClient.invalidateQueries()
+      queryClient.invalidateQueries({ queryKey: ['projects', useOrgStore.getState().activeOrganizationId] })
+      queryClient.invalidateQueries({ queryKey: ['workflows'] })
       toast.success('Project deleted')
       setDeleteTarget(null)
     },
@@ -53,42 +62,53 @@ export function ProjectsList({ projects }: { projects: Project[] }) {
       </div>
 
       <div className="mt-3 space-y-1.5">
-        {projects.map((project) => (
-          <div
-            key={project.id}
-            className="flex items-center justify-between rounded-md border border-border px-3 py-2"
-          >
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium">{project.name}</span>
-                {project.id === activeProjectId && (
-                  <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">Active</span>
+        {loading ? (
+          <>
+            <ProjectSkeleton />
+            <ProjectSkeleton />
+          </>
+        ) : projects.length === 0 ? (
+          <div className="rounded-md border border-dashed border-border py-6 text-center text-xs text-muted-foreground">
+            This org has no projects.
+          </div>
+        ) : (
+          projects.map((project) => (
+            <div
+              key={project.id}
+              className="flex items-center justify-between rounded-md border border-border px-3 py-2"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium">{project.name}</span>
+                  {project.id === activeProjectId && (
+                    <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">Active</span>
+                  )}
+                </div>
+                {project.description && (
+                  <p className="mt-0.5 text-[10px] text-muted-foreground/60">{project.description}</p>
                 )}
               </div>
-              {project.description && (
-                <p className="mt-0.5 text-[10px] text-muted-foreground/60">{project.description}</p>
-              )}
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  onClick={() => openProjectDialog(project)}
+                >
+                  <Pencil size={12} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                  onClick={() => setDeleteTarget(project)}
+                >
+                  <Trash2 size={12} />
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 w-7 p-0"
-                onClick={() => openProjectDialog(project)}
-              >
-                <Pencil size={12} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                onClick={() => setDeleteTarget(project)}
-              >
-                <Trash2 size={12} />
-              </Button>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       <ConfirmDialog

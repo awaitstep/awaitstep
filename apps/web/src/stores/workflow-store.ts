@@ -48,6 +48,30 @@ export interface WorkflowEnvVar {
   value: string
 }
 
+const getInitialWorkflowState = () => ({
+  workflowId: null,
+  metadata: {
+    name: 'Untitled Workflow',
+    version: 1,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  nodes: [],
+  edges: [],
+  selectedNodeId: null,
+  selectedEdgeId: null,
+  inputParams: [],
+  envBindings: [],
+  workflowEnvVars: [],
+  dependencies: {},
+  triggerCode: '',
+  showSettings: false,
+  validationResult: null,
+  simulationResult: null,
+  isDirty: false,
+  readOnly: false,
+})
+
 interface WorkflowState {
   workflowId: string | null
   metadata: WorkflowMetadata
@@ -91,6 +115,7 @@ interface WorkflowState {
   loadWorkflow: (metadata: WorkflowMetadata, nodes: FlowNode[], edges: Edge[]) => void
   setWorkflowId: (id: string | null) => void
   markClean: () => void
+  reset: () => void
 }
 
 function configDefaults(schema?: Record<string, ConfigField>): Record<string, unknown> {
@@ -131,28 +156,7 @@ function createDefaultNode(type: NodeType, position: { x: number; y: number }, r
 }
 
 export const useWorkflowStore = create<WorkflowState>((set, get) => ({
-  workflowId: null,
-  metadata: {
-    name: 'Untitled Workflow',
-    version: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  nodes: [],
-  edges: [],
-  selectedNodeId: null,
-  selectedEdgeId: null,
-  inputParams: [],
-  envBindings: [],
-  workflowEnvVars: [],
-  dependencies: {},
-  triggerCode: '',
-  showSettings: false,
-  validationResult: null,
-  simulationResult: null,
-  isDirty: false,
-  readOnly: false,
-
+  ...getInitialWorkflowState(),
   onNodesChange: (changes) => {
     if (get().readOnly) {
       // In read-only mode, only allow selection changes
@@ -348,5 +352,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   markClean: () => {
     set({ isDirty: false })
+  },
+
+  reset: () => {
+    set(getInitialWorkflowState())
   },
 }))

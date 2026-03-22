@@ -1,5 +1,5 @@
-import { eq, and, desc } from 'drizzle-orm'
-import type { DatabaseAdapter, WorkflowEnvVar, ResolvedEnvVar } from '../adapter.js'
+import { eq, and, desc, sql } from 'drizzle-orm'
+import type { DatabaseAdapter, WorkflowEnvVar, ResolvedEnvVar, WorkflowWithStatus } from '../adapter.js'
 import type { Workflow, WorkflowVersion, Connection, WorkflowRun, Deployment, ApiKey, EnvVar, Project } from '../types.js'
 import type { TokenCrypto } from '../crypto.js'
 import { WorkflowsAdapter } from './workflows.js'
@@ -116,6 +116,37 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
   listWorkflowsByProject(projectId: string): Promise<Workflow[]> {
     return this._workflows.listByProject(projectId)
+  }
+
+  async listWorkflowsWithStatus(projectId: string): Promise<WorkflowWithStatus[]> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = this._schema.workflows as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const d = this._schema.deployments as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = this._schema.workflowRuns as any
+
+    return this._db
+      .select({
+        id: w.id,
+        projectId: w.projectId,
+        createdBy: w.createdBy,
+        name: w.name,
+        description: w.description,
+        currentVersionId: w.currentVersionId,
+        envVars: w.envVars,
+        triggerCode: w.triggerCode,
+        dependencies: w.dependencies,
+        createdAt: w.createdAt,
+        updatedAt: w.updatedAt,
+        deployStatus: sql<string | null>`(SELECT ${d.status} FROM ${d} WHERE ${d.workflowId} = ${w.id} ORDER BY ${d.createdAt} DESC LIMIT 1)`.as('deploy_status'),
+        deployVersionId: sql<string | null>`(SELECT ${d.versionId} FROM ${d} WHERE ${d.workflowId} = ${w.id} ORDER BY ${d.createdAt} DESC LIMIT 1)`.as('deploy_version_id'),
+        lastRunStatus: sql<string | null>`(SELECT ${r.status} FROM ${r} WHERE ${r.workflowId} = ${w.id} ORDER BY ${r.createdAt} DESC LIMIT 1)`.as('last_run_status'),
+        lastRunAt: sql<string | null>`(SELECT ${r.createdAt} FROM ${r} WHERE ${r.workflowId} = ${w.id} ORDER BY ${r.createdAt} DESC LIMIT 1)`.as('last_run_at'),
+      })
+      .from(w)
+      .where(eq(w.projectId, projectId))
+      .orderBy(desc(w.updatedAt))
   }
   updateWorkflow(id: string, data: { name?: string; description?: string; currentVersionId?: string | null; envVars?: string | null; triggerCode?: string | null; dependencies?: string | null; projectId?: string }): Promise<Workflow> {
     return this._workflows.update(id, data)

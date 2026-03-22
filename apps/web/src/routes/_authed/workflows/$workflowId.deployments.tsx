@@ -9,6 +9,7 @@ import { Button } from '../../../components/ui/button'
 import { DeployDialog } from '../../../components/canvas/deploy-dialog'
 import { api } from '../../../lib/api-client'
 import { useOrgReady } from '../../../stores/org-store'
+import { useConnectionsStore } from '../../../stores/connections-store'
 import { timeAgo, formatDate } from '../../../lib/time'
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId/deployments')({
@@ -39,11 +40,7 @@ function DeploymentsPage() {
     enabled: ready,
   })
 
-  const { data: connections } = useQuery({
-    queryKey: ['connections'],
-    queryFn: () => api.listConnections(),
-    enabled: ready,
-  })
+  const connections = useConnectionsStore((s) => s.connections)
 
   const { data: versions } = useQuery({
     queryKey: ['versions', workflowId],
@@ -51,7 +48,7 @@ function DeploymentsPage() {
     enabled: ready,
   })
 
-  const connectionMap = new Map(connections?.map((c) => [c.id, c]) ?? [])
+  const connectionMap = new Map(connections.map((c) => [c.id, c]))
   const versionMap = new Map(versions?.map((v) => [v.id, v]) ?? [])
 
   return (

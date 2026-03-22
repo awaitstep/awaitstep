@@ -77,6 +77,11 @@ const mockDb: DatabaseAdapter = {
   async listWorkflowsByProject(projectId) {
     return [...store.workflows.values()].filter((w) => w.projectId === projectId)
   },
+  async listWorkflowsWithStatus(projectId) {
+    return [...store.workflows.values()]
+      .filter((w) => w.projectId === projectId)
+      .map((w) => ({ ...w, deployStatus: null, deployVersionId: null, lastRunStatus: null, lastRunAt: null }))
+  },
   async updateWorkflow(id, data) {
     const wf = store.workflows.get(id)
     if (!wf) throw new Error('Not found')

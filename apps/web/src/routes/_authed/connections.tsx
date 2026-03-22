@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
+import { useConnectionsStore } from '../../stores/connections-store'
 import { useState } from 'react'
 import { Plus, Trash2, Loader2, ExternalLink, Server, CheckCircle2, Pencil } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
@@ -21,13 +22,8 @@ function ConnectionsPage() {
   const [editTarget, setEditTarget] = useState<{ id: string; name: string; accountId: string } | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
 
-  const { data: connections, isLoading } = useQuery({
-    queryKey: ['connections'],
-    queryFn: () => api.listConnections(),
-    enabled: ready,
-    retry: false,
-  })
-
+  const connections = useConnectionsStore((s) => s.connections)
+  const isLoading = useConnectionsStore((s) => s.fetchState === 'idle' || s.fetchState === 'loading')
   const { data: selfHosted } = useQuery({
     queryKey: ['self-hosted-connection'],
     queryFn: () => api.getSelfHostedConnection(),

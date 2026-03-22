@@ -18,6 +18,24 @@ const SCOPES = [
   { value: 'deploy', label: 'Deploy', description: 'Deploy and take down workflows' },
 ] as const
 
+function ApiKeySkeleton() {
+  return (
+    <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-20 animate-pulse rounded bg-muted/60" />
+          <div className="h-3 w-14 animate-pulse rounded bg-muted/40" />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-2.5 w-10 animate-pulse rounded bg-muted/40" />
+          <div className="h-2.5 w-16 animate-pulse rounded bg-muted/40" />
+        </div>
+      </div>
+      <div className="h-7 w-16 animate-pulse rounded bg-muted/40" />
+    </div>
+  )
+}
+
 export function ApiKeysSection() {
   const ready = useOrgReady()
   const [createOpen, setCreateOpen] = useState(false)
@@ -72,8 +90,9 @@ export function ApiKeysSection() {
       </p>
 
       {isLoading ? (
-        <div className="mt-3 flex justify-center py-3">
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/60" />
+        <div className="mt-3 space-y-1.5">
+          <ApiKeySkeleton />
+          <ApiKeySkeleton />
         </div>
       ) : activeKeys.length === 0 ? (
         <div className="mt-3 rounded-md border border-dashed border-border py-6 text-center">

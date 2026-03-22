@@ -1,12 +1,12 @@
 import { useState, useCallback } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Play, Loader2, AlertCircle, Copy, Check } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Button } from '../ui/button'
 import { Select } from '../ui/select'
 import { api } from '../../lib/api-client'
-import { useOrgReady } from '../../stores/org-store'
+import { useConnectionsStore } from '../../stores/connections-store'
 
 interface TriggerDialogProps {
   open: boolean
@@ -16,7 +16,6 @@ interface TriggerDialogProps {
 }
 
 export function TriggerDialog({ open, onClose, workflowId, deploymentId }: TriggerDialogProps) {
-  const ready = useOrgReady()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [connectionId, setConnectionId] = useState('')
@@ -26,12 +25,7 @@ export function TriggerDialog({ open, onClose, workflowId, deploymentId }: Trigg
   const [error, setError] = useState<string | null>(null)
   const [curlCopied, setCurlCopied] = useState(false)
 
-  const { data: connections } = useQuery({
-    queryKey: ['connections'],
-    queryFn: () => api.listConnections(),
-    enabled: ready && open,
-    retry: false,
-  })
+  const connections = useConnectionsStore((s) => s.connections)
 
   const handleParamsChange = useCallback((value: string) => {
     setParamsJson(value)

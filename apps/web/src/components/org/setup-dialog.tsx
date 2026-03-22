@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Building2, FolderKanban, Loader2, ArrowRight } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
@@ -10,15 +11,14 @@ import { slugify } from '../../lib/slug'
 import { useOrgStore } from '../../stores/org-store'
 
 export function SetupDialog({ open }: { open: boolean }) {
+  const queryClient = useQueryClient()
   const [orgName, setOrgName] = useState('')
   const [projectName, setProjectName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const setOrgs = useOrgStore((s) => s.setOrganizations)
-  const setProjects = useOrgStore((s) => s.setProjects)
   const setActiveOrg = useOrgStore((s) => s.setActiveOrganization)
-  const setActiveProject = useOrgStore((s) => s.setActiveProject)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -41,13 +41,13 @@ export function SetupDialog({ open }: { open: boolean }) {
       setOrgs([org])
       setActiveOrg(org.id)
 
-      const project = await api.createProject({
+      await api.createProject({
         name: projectName.trim(),
         slug: slugify(projectName),
       })
-      setProjects([project])
-      setActiveProject(project.id)
-      useOrgStore.getState().setAppReady(true)
+
+      // ProjectsProvider will pick up the new project via this invalidation
+      queryClient.invalidateQueries({ queryKey: ['projects', org.id] })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
       setLoading(false)

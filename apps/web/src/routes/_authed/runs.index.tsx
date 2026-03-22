@@ -1,15 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Loader2, Play } from 'lucide-react'
 import { Button } from '../../components/ui/button'
-import { api } from '../../lib/api-client'
 import { RunStatusBadge } from '../../components/monitoring/run-status-badge'
 import { RunDetailSheet } from '../../components/monitoring/run-detail-sheet'
 import { TriggerDialog } from '../../components/canvas/trigger-dialog'
-import { useOrgReady } from '../../stores/org-store'
+import { useWorkflowsStore } from '../../stores/workflows-store'
+import { useRunsStore } from '../../stores/runs-store'
 import { useSheetStore } from '../../stores/sheet-store'
-import { useActiveRunSync } from '../../hooks/use-active-run-sync'
 import { timeAgo, duration } from '../../lib/time'
 
 export const Route = createFileRoute('/_authed/runs/')({
@@ -17,43 +15,15 @@ export const Route = createFileRoute('/_authed/runs/')({
 })
 
 function RunsIndexPage() {
-  const ready = useOrgReady()
   const [triggerWorkflowId, setTriggerWorkflowId] = useState<string | null>(null)
   const openRunSheet = useSheetStore((s) => s.openRunSheet)
 
-  const { data: runs, isLoading } = useQuery({
-    queryKey: ['all-runs'],
-    queryFn: () => api.listAllRuns(),
-    enabled: ready,
-    retry: false,
-  })
+  const runs = useRunsStore((s) => s.runs)
+  const runsLoading = useRunsStore((s) => s.fetchState === 'idle' || s.fetchState === 'loading')
+  const workflows = useWorkflowsStore((s) => s.workflows)
 
-  useActiveRunSync(runs, ['all-runs'])
-
-  const { data: workflows } = useQuery({
-    queryKey: ['workflows'],
-    queryFn: () => api.listWorkflows(),
-    enabled: ready,
-    retry: false,
-  })
-
-  const { data: allDeployments } = useQuery({
-    queryKey: ['all-deployments'],
-    queryFn: () => api.listAllDeployments(),
-    enabled: ready,
-    retry: false,
-  })
-
-  const workflowMap = new Map(workflows?.map((w) => [w.id, w]) ?? [])
-
-  // Workflows that have a successful deployment
-  const deployedWorkflowIds = new Set<string>()
-  if (allDeployments) {
-    for (const d of allDeployments) {
-      if (d.status === 'success') deployedWorkflowIds.add(d.workflowId)
-    }
-  }
-  const deployedWorkflows = workflows?.filter((w) => deployedWorkflowIds.has(w.id)) ?? []
+  const workflowMap = new Map(workflows.map((w) => [w.id, w]))
+  const deployedWorkflows = workflows.filter((w) => w.deployStatus === 'success')
 
   return (
     <div>
@@ -72,19 +42,19 @@ function RunsIndexPage() {
       </div>
 
       <div>
-      {isLoading && (
+      {runsLoading && (
         <div className="mt-12 flex justify-center">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/60" />
         </div>
       )}
 
-      {runs && runs.length === 0 && (
+      {!runsLoading && runs.length === 0 && (
         <div className="mt-6 rounded-md border border-border px-4 py-8 text-center text-sm text-muted-foreground">
           No runs yet. Trigger a workflow to see execution history here.
         </div>
       )}
 
-      {runs && runs.length > 0 && (
+      {runs.length > 0 && (
         <div className="mt-6 space-y-2">
           {runs.map((run) => {
             const wf = workflowMap.get(run.workflowId)

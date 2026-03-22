@@ -1,5 +1,12 @@
 import type { Workflow, WorkflowVersion, Connection, WorkflowRun, Deployment, ApiKey, EnvVar, Project } from './types.js'
 
+export interface WorkflowWithStatus extends Workflow {
+  deployStatus: string | null
+  deployVersionId: string | null
+  lastRunStatus: string | null
+  lastRunAt: string | null
+}
+
 export interface WorkflowEnvVar {
   name: string
   value: string
@@ -27,6 +34,7 @@ export interface DatabaseAdapter {
   createWorkflow(data: { id: string; projectId: string; createdBy: string; name: string; description?: string }): Promise<Workflow>
   getWorkflowById(id: string): Promise<Workflow | null>
   listWorkflowsByProject(projectId: string): Promise<Workflow[]>
+  listWorkflowsWithStatus(projectId: string): Promise<WorkflowWithStatus[]>
   updateWorkflow(id: string, data: { name?: string; description?: string; currentVersionId?: string | null; envVars?: string | null; triggerCode?: string | null; dependencies?: string | null; projectId?: string }): Promise<Workflow>
   deleteWorkflow(id: string): Promise<void>
 
