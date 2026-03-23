@@ -3,7 +3,6 @@ import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import type { AppEnv } from '../types.js'
-import type { SelfHostedConnection } from '../app.js'
 
 const createConnectionSchema = z.object({
   provider: z.string().min(1).max(100),
@@ -11,7 +10,7 @@ const createConnectionSchema = z.object({
   name: z.string().min(1).max(255),
 })
 
-export function createConnectionRoutes(selfHostedConnection?: SelfHostedConnection) {
+export function createConnectionRoutes() {
   const connections = new Hono<AppEnv>()
 
   connections.get('/', async (c) => {
@@ -53,61 +52,6 @@ export function createConnectionRoutes(selfHostedConnection?: SelfHostedConnecti
       return c.json({ error: `Unsupported provider: ${provider}` }, 400)
     },
   )
-
-  connections.get('/self-hosted', async (c) => {
-    if (!selfHostedConnection) {
-      return c.json({ configured: false })
-    }
-
-    const db = c.get('db')
-    const organizationId = c.get('organizationId')
-    const existing = await db.listConnectionsByOrganization(organizationId)
-    const alreadyRegistered = existing.some((conn) => {
-      if (conn.provider !== 'cloudflare') return false
-      const creds = JSON.parse(conn.credentials) as { accountId?: string }
-      return creds.accountId === selfHostedConnection.accountId
-    })
-
-    return c.json({
-      configured: true,
-      registered: alreadyRegistered,
-      accountId: selfHostedConnection.accountId,
-      name: selfHostedConnection.name ?? 'Self-Hosted',
-    })
-  })
-
-  connections.post('/self-hosted', async (c) => {
-    if (!selfHostedConnection) {
-      return c.json({ error: 'No self-hosted connection configured' }, 400)
-    }
-
-    const db = c.get('db')
-    const organizationId = c.get('organizationId')
-    const userId = c.get('userId')
-
-    const existing = await db.listConnectionsByOrganization(organizationId)
-    const alreadyRegistered = existing.find((conn) => {
-      if (conn.provider !== 'cloudflare') return false
-      const creds = JSON.parse(conn.credentials) as { accountId?: string }
-      return creds.accountId === selfHostedConnection.accountId
-    })
-    if (alreadyRegistered) {
-      return c.json(redactCredentials(alreadyRegistered))
-    }
-
-    const conn = await db.createConnection({
-      id: nanoid(),
-      organizationId,
-      createdBy: userId,
-      provider: 'cloudflare',
-      credentials: JSON.stringify({
-        accountId: selfHostedConnection.accountId,
-        apiToken: selfHostedConnection.apiToken,
-      }),
-      name: selfHostedConnection.name ?? 'Self-Hosted',
-    })
-    return c.json(redactCredentials(conn), 201)
-  })
 
   connections.patch('/:id', zValidator('json', z.object({
     name: z.string().min(1).max(255).optional(),

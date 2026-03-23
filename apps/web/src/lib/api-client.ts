@@ -235,14 +235,6 @@ export const api = {
     return request(withOrg('/connections/verify-token'), { method: 'POST', body: JSON.stringify({ provider, credentials }) })
   },
 
-  getSelfHostedConnection(): Promise<{ configured: boolean; registered?: boolean; accountId?: string; name?: string }> {
-    return request(withOrg('/connections/self-hosted'))
-  },
-
-  registerSelfHostedConnection(): Promise<ConnectionSummary> {
-    return request(withOrg('/connections/self-hosted'), { method: 'POST' })
-  },
-
   triggerWorkflow(workflowId: string, data: { connectionId: string; params?: unknown }): Promise<{ id: string; instanceId: string; status: string }> {
     return request(withProject(`/workflows/${workflowId}/trigger`), { method: 'POST', body: JSON.stringify(data) })
   },

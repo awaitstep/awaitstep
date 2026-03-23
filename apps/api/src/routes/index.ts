@@ -1,7 +1,6 @@
 import { Hono } from 'hono'
 import type { AppEnv } from '../types.js'
 import type { Auth } from '../auth/config.js'
-import type { SelfHostedConnection } from '../app.js'
 import { createAuthMiddleware, requireScope, requireSessionAuth } from '../middleware/auth.js'
 import { requireProject, requireOrganization } from '../middleware/project.js'
 import { createRateLimiter } from '../middleware/rate-limit.js'
@@ -17,7 +16,7 @@ import { envVars } from './env-vars.js'
 import { projects } from './projects.js'
 import { nodes } from './nodes.js'
 
-export function createRouter(auth: Auth, selfHostedConnection?: SelfHostedConnection) {
+export function createRouter(auth: Auth) {
   const router = new Hono<AppEnv>()
 
   // Global rate limit — 200 requests per minute per IP
@@ -59,7 +58,7 @@ export function createRouter(auth: Auth, selfHostedConnection?: SelfHostedConnec
 
   // Ownership — connection routes (skip non-ID sub-routes)
   router.use('/connections/:id', async (c, next) => {
-    if (c.req.param('id') === 'verify-token' || c.req.param('id') === 'self-hosted') return next()
+    if (c.req.param('id') === 'verify-token') return next()
     return requireConnectionAccess(c, next)
   })
 
@@ -116,7 +115,7 @@ export function createRouter(auth: Auth, selfHostedConnection?: SelfHostedConnec
   router.route('/workflows', versions)
   router.route('/workflows', deploy)
   router.route('/workflows', runs)
-  router.route('/connections', createConnectionRoutes(selfHostedConnection))
+  router.route('/connections', createConnectionRoutes())
   router.route('/resources', resources)
   router.route('/api-keys', apiKeys)
   router.route('/env-vars', envVars)

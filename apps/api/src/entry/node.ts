@@ -69,13 +69,7 @@ async function start() {
   )
 
   const corsOrigin = process.env['CORS_ORIGIN'] ?? 'http://localhost:3000'
-  const selfHostedConnection = process.env['CF_API_TOKEN'] && process.env['CF_ACCOUNT_ID']
-    ? {
-        accountId: process.env['CF_ACCOUNT_ID'],
-        apiToken: process.env['CF_API_TOKEN'],
-        name: process.env['CF_CONNECTION_NAME'] ?? 'Self-Hosted',
-      }
-    : undefined
+
   // Load node registry (built by `pnpm nodes:build`)
   const registryPath = resolve(__dirname, '../../../../nodes/registry.json')
   let nodeRegistry
@@ -86,7 +80,7 @@ async function start() {
     logger.warn('Node registry not found — run `pnpm nodes:build` to generate it')
   }
 
-  const app = createApp({ db, auth, logger, corsOrigin, isDev, selfHostedConnection, nodeRegistry })
+  const app = createApp({ db, auth, logger, corsOrigin, isDev, nodeRegistry })
 
   const port = Number(process.env['PORT'] ?? 3001)
   logger.info(`API server running on http://localhost:${port}`)

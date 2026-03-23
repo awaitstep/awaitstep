@@ -13,19 +13,12 @@ import { createLogger } from './lib/logger.js'
 import { createRouter } from './routes/index.js'
 import { createRateLimiter } from './middleware/rate-limit.js'
 
-export interface SelfHostedConnection {
-  accountId: string
-  apiToken: string
-  name?: string
-}
-
 export interface AppDeps {
   db: AppEnv['Variables']['db']
   auth: Auth
   logger?: Logger
   corsOrigin?: string | string[]
   isDev?: boolean
-  selfHostedConnection?: SelfHostedConnection
   nodeRegistry?: AppNodeRegistry
 }
 
@@ -100,7 +93,7 @@ export function createApp(deps: AppDeps) {
   })
 
   // Routes (auth + ownership middleware registered inside)
-  app.route('/api', createRouter(deps.auth, deps.selfHostedConnection))
+  app.route('/api', createRouter(deps.auth))
 
   // Error handler
   app.onError((err, c) => {

@@ -2,7 +2,6 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '../../components/ui/button'
-import { SelfHostedBanner } from '../../components/connections/self-hosted-banner'
 import { ConnectionsList } from '../../components/connections/connections-list'
 import { AddConnectionDialog } from '../../components/connections/add-connection-dialog'
 import { EditConnectionDialog } from '../../components/connections/edit-connection-dialog'
@@ -26,7 +25,6 @@ function ConnectionsPage() {
       </div>
 
       <div>
-        <SelfHostedBanner />
         <ConnectionsList onEdit={setEditTarget} />
       </div>
 
