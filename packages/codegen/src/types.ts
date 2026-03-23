@@ -8,6 +8,7 @@ export interface ProviderConfig {
   provider: string
   credentials: Record<string, string>
   options?: Record<string, unknown>
+  envVars?: Record<string, { value: string; isSecret: boolean }>
 }
 
 export interface DeployResult {

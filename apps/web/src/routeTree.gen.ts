@@ -12,8 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthedSettingsRouteImport } from './routes/_authed/settings'
 import { Route as AuthedDashboardRouteImport } from './routes/_authed/dashboard'
 import { Route as AuthedConnectionsRouteImport } from './routes/_authed/connections'
+import { Route as AuthedApiPlaygroundRouteImport } from './routes/_authed/api-playground'
 import { Route as AuthedAccountRouteImport } from './routes/_authed/account'
 import { Route as AuthedWorkflowsIndexRouteImport } from './routes/_authed/workflows.index'
 import { Route as AuthedRunsIndexRouteImport } from './routes/_authed/runs.index'
@@ -22,6 +24,7 @@ import { Route as AuthedWorkflowsWorkflowIdRouteImport } from './routes/_authed/
 import { Route as AuthedRunsRunIdRouteImport } from './routes/_authed/runs.$runId'
 import { Route as AuthedResourcesR2RouteImport } from './routes/_authed/resources/r2'
 import { Route as AuthedResourcesKvRouteImport } from './routes/_authed/resources/kv'
+import { Route as AuthedResourcesEnvVarsRouteImport } from './routes/_authed/resources/env-vars'
 import { Route as AuthedResourcesD1RouteImport } from './routes/_authed/resources/d1'
 import { Route as AuthedWorkflowsWorkflowIdIndexRouteImport } from './routes/_authed/workflows/$workflowId.index'
 import { Route as AuthedWorkflowsWorkflowIdRunsRouteImport } from './routes/_authed/workflows/$workflowId.runs'
@@ -43,6 +46,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthedSettingsRoute = AuthedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedDashboardRoute = AuthedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -51,6 +59,11 @@ const AuthedDashboardRoute = AuthedDashboardRouteImport.update({
 const AuthedConnectionsRoute = AuthedConnectionsRouteImport.update({
   id: '/connections',
   path: '/connections',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedApiPlaygroundRoute = AuthedApiPlaygroundRouteImport.update({
+  id: '/api-playground',
+  path: '/api-playground',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedAccountRoute = AuthedAccountRouteImport.update({
@@ -94,6 +107,11 @@ const AuthedResourcesKvRoute = AuthedResourcesKvRouteImport.update({
   path: '/resources/kv',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedResourcesEnvVarsRoute = AuthedResourcesEnvVarsRouteImport.update({
+  id: '/resources/env-vars',
+  path: '/resources/env-vars',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedResourcesD1Route = AuthedResourcesD1RouteImport.update({
   id: '/resources/d1',
   path: '/resources/d1',
@@ -134,9 +152,12 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
   '/account': typeof AuthedAccountRoute
+  '/api-playground': typeof AuthedApiPlaygroundRoute
   '/connections': typeof AuthedConnectionsRoute
   '/dashboard': typeof AuthedDashboardRoute
+  '/settings': typeof AuthedSettingsRoute
   '/resources/d1': typeof AuthedResourcesD1Route
+  '/resources/env-vars': typeof AuthedResourcesEnvVarsRoute
   '/resources/kv': typeof AuthedResourcesKvRoute
   '/resources/r2': typeof AuthedResourcesR2Route
   '/runs/$runId': typeof AuthedRunsRunIdRoute
@@ -154,9 +175,12 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
   '/account': typeof AuthedAccountRoute
+  '/api-playground': typeof AuthedApiPlaygroundRoute
   '/connections': typeof AuthedConnectionsRoute
   '/dashboard': typeof AuthedDashboardRoute
+  '/settings': typeof AuthedSettingsRoute
   '/resources/d1': typeof AuthedResourcesD1Route
+  '/resources/env-vars': typeof AuthedResourcesEnvVarsRoute
   '/resources/kv': typeof AuthedResourcesKvRoute
   '/resources/r2': typeof AuthedResourcesR2Route
   '/runs/$runId': typeof AuthedRunsRunIdRoute
@@ -174,9 +198,12 @@ export interface FileRoutesById {
   '/_authed': typeof AuthedRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/_authed/account': typeof AuthedAccountRoute
+  '/_authed/api-playground': typeof AuthedApiPlaygroundRoute
   '/_authed/connections': typeof AuthedConnectionsRoute
   '/_authed/dashboard': typeof AuthedDashboardRoute
+  '/_authed/settings': typeof AuthedSettingsRoute
   '/_authed/resources/d1': typeof AuthedResourcesD1Route
+  '/_authed/resources/env-vars': typeof AuthedResourcesEnvVarsRoute
   '/_authed/resources/kv': typeof AuthedResourcesKvRoute
   '/_authed/resources/r2': typeof AuthedResourcesR2Route
   '/_authed/runs/$runId': typeof AuthedRunsRunIdRoute
@@ -196,9 +223,12 @@ export interface FileRouteTypes {
     | '/'
     | '/sign-in'
     | '/account'
+    | '/api-playground'
     | '/connections'
     | '/dashboard'
+    | '/settings'
     | '/resources/d1'
+    | '/resources/env-vars'
     | '/resources/kv'
     | '/resources/r2'
     | '/runs/$runId'
@@ -216,9 +246,12 @@ export interface FileRouteTypes {
     | '/'
     | '/sign-in'
     | '/account'
+    | '/api-playground'
     | '/connections'
     | '/dashboard'
+    | '/settings'
     | '/resources/d1'
+    | '/resources/env-vars'
     | '/resources/kv'
     | '/resources/r2'
     | '/runs/$runId'
@@ -235,9 +268,12 @@ export interface FileRouteTypes {
     | '/_authed'
     | '/sign-in'
     | '/_authed/account'
+    | '/_authed/api-playground'
     | '/_authed/connections'
     | '/_authed/dashboard'
+    | '/_authed/settings'
     | '/_authed/resources/d1'
+    | '/_authed/resources/env-vars'
     | '/_authed/resources/kv'
     | '/_authed/resources/r2'
     | '/_authed/runs/$runId'
@@ -281,6 +317,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authed/settings': {
+      id: '/_authed/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthedSettingsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/dashboard': {
       id: '/_authed/dashboard'
       path: '/dashboard'
@@ -293,6 +336,13 @@ declare module '@tanstack/react-router' {
       path: '/connections'
       fullPath: '/connections'
       preLoaderRoute: typeof AuthedConnectionsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/api-playground': {
+      id: '/_authed/api-playground'
+      path: '/api-playground'
+      fullPath: '/api-playground'
+      preLoaderRoute: typeof AuthedApiPlaygroundRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/account': {
@@ -349,6 +399,13 @@ declare module '@tanstack/react-router' {
       path: '/resources/kv'
       fullPath: '/resources/kv'
       preLoaderRoute: typeof AuthedResourcesKvRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/resources/env-vars': {
+      id: '/_authed/resources/env-vars'
+      path: '/resources/env-vars'
+      fullPath: '/resources/env-vars'
+      preLoaderRoute: typeof AuthedResourcesEnvVarsRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/resources/d1': {
@@ -435,9 +492,12 @@ const AuthedWorkflowsWorkflowIdRouteWithChildren =
 
 interface AuthedRouteChildren {
   AuthedAccountRoute: typeof AuthedAccountRoute
+  AuthedApiPlaygroundRoute: typeof AuthedApiPlaygroundRoute
   AuthedConnectionsRoute: typeof AuthedConnectionsRoute
   AuthedDashboardRoute: typeof AuthedDashboardRoute
+  AuthedSettingsRoute: typeof AuthedSettingsRoute
   AuthedResourcesD1Route: typeof AuthedResourcesD1Route
+  AuthedResourcesEnvVarsRoute: typeof AuthedResourcesEnvVarsRoute
   AuthedResourcesKvRoute: typeof AuthedResourcesKvRoute
   AuthedResourcesR2Route: typeof AuthedResourcesR2Route
   AuthedRunsRunIdRoute: typeof AuthedRunsRunIdRoute
@@ -449,9 +509,12 @@ interface AuthedRouteChildren {
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAccountRoute: AuthedAccountRoute,
+  AuthedApiPlaygroundRoute: AuthedApiPlaygroundRoute,
   AuthedConnectionsRoute: AuthedConnectionsRoute,
   AuthedDashboardRoute: AuthedDashboardRoute,
+  AuthedSettingsRoute: AuthedSettingsRoute,
   AuthedResourcesD1Route: AuthedResourcesD1Route,
+  AuthedResourcesEnvVarsRoute: AuthedResourcesEnvVarsRoute,
   AuthedResourcesKvRoute: AuthedResourcesKvRoute,
   AuthedResourcesR2Route: AuthedResourcesR2Route,
   AuthedRunsRunIdRoute: AuthedRunsRunIdRoute,
@@ -472,12 +535,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

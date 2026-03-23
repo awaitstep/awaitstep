@@ -1,13 +1,14 @@
 import { sqliteTable, text, index } from 'drizzle-orm/sqlite-core'
-import { user } from './auth.js'
+import { projects } from './projects.js'
 
 export const apiKeys = sqliteTable(
   'api_keys',
   {
     id: text('id').primaryKey(),
-    userId: text('user_id')
+    projectId: text('project_id')
       .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    createdBy: text('created_by').notNull(),
     name: text('name').notNull(),
     keyHash: text('key_hash').notNull().unique(),
     keyPrefix: text('key_prefix').notNull(),
@@ -18,7 +19,7 @@ export const apiKeys = sqliteTable(
     createdAt: text('created_at').notNull(),
   },
   (table) => [
-    index('idx_api_keys_user_id').on(table.userId),
+    index('idx_api_keys_project_id').on(table.projectId),
     index('idx_api_keys_key_hash').on(table.keyHash),
   ],
 )

@@ -11,6 +11,7 @@ export const workflowVersions = sqliteTable(
     version: integer('version').notNull(),
     ir: text('ir').notNull(),
     generatedCode: text('generated_code'),
+    locked: integer('locked').notNull().default(0),
     createdAt: text('created_at').notNull(),
   },
   (table) => [

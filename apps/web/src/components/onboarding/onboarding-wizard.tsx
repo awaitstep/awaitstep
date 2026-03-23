@@ -7,7 +7,6 @@ import {
   ExternalLink,
   ArrowRight,
   XCircle,
-  Shield,
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { api } from '../../lib/api-client'
@@ -99,13 +98,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
         Build and deploy durable workflows in minutes.
         Let's connect your deployment provider to get started.
       </p>
-      <div className="mt-4 flex items-start gap-2 rounded-lg bg-muted/40 p-3 text-left">
-        <Shield className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          Your credentials are encrypted at rest and only used to deploy
-          workflows to your account. We never store or access your data.
-        </p>
-      </div>
+     
       <Button className="mt-6 w-full gap-2" onClick={onNext}>
         Let's go
         <ArrowRight size={16} />

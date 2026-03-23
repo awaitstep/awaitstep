@@ -103,7 +103,7 @@ export function DateTimePicker({ value, onChange, minDate, placeholder = 'Pick a
           {/* Time picker */}
           <div className="mt-2 flex items-center gap-2 border-t border-border pt-3">
             <span className="text-xs text-muted-foreground">Time</span>
-            <div className="flex items-center gap-1">
+            <div className="flex flex-1 items-center gap-1">
               <input
                 type="number"
                 min={0}
@@ -111,7 +111,7 @@ export function DateTimePicker({ value, onChange, minDate, placeholder = 'Pick a
                 value={hours}
                 onChange={(e) => handleTimeChange(e.target.value.slice(0, 2), minutes)}
                 placeholder="HH"
-                className="w-12 rounded-md border border-border bg-muted/50 px-2 py-1.5 text-center text-sm text-foreground outline-none focus:border-primary/50"
+                className="flex-1 rounded-md border border-border bg-muted/50 px-2 py-1.5 text-center text-sm text-foreground outline-none focus:border-primary/50"
               />
               <span className="text-muted-foreground/60">:</span>
               <input
@@ -121,7 +121,7 @@ export function DateTimePicker({ value, onChange, minDate, placeholder = 'Pick a
                 value={minutes}
                 onChange={(e) => handleTimeChange(hours, e.target.value.slice(0, 2))}
                 placeholder="MM"
-                className="w-12 rounded-md border border-border bg-muted/50 px-2 py-1.5 text-center text-sm text-foreground outline-none focus:border-primary/50"
+                className="flex-1 rounded-md border border-border bg-muted/50 px-2 py-1.5 text-center text-sm text-foreground outline-none focus:border-primary/50"
               />
             </div>
           </div>

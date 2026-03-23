@@ -27,6 +27,7 @@ export const session = sqliteTable(
     userId: text('userId')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
+    activeOrganizationId: text('activeOrganizationId'),
   },
   (table) => [
     index('idx_session_user_id').on(table.userId),
@@ -67,4 +68,21 @@ export const verification = sqliteTable(
     updatedAt: text('updatedAt'),
   },
   (table) => [index('idx_verification_identifier').on(table.identifier)],
+)
+
+export const member = sqliteTable(
+  'member',
+  {
+    id: text('id').primaryKey(),
+    userId: text('userId')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    organizationId: text('organizationId').notNull(),
+    role: text('role').notNull(),
+    createdAt: text('createdAt').notNull(),
+  },
+  (table) => [
+    index('idx_member_user_id').on(table.userId),
+    index('idx_member_org_id').on(table.organizationId),
+  ],
 )

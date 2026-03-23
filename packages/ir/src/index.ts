@@ -5,17 +5,10 @@ export type {
   RetryConfig,
   StepConfig,
   Position,
-  BaseNode,
-  StepNode,
-  SleepNode,
-  SleepUntilNode,
-  BranchCondition,
-  BranchNode,
-  ParallelNode,
-  HttpRequestNode,
-  WaitForEventNode,
-  WorkflowNode,
+  BuiltinNodeType,
   NodeType,
+  BranchCondition,
+  WorkflowNode,
   Edge,
   WorkflowMetadata,
   WorkflowIR,
@@ -28,6 +21,18 @@ export type {
   ValidationError,
   Result,
 } from './types.js'
+
+export type {
+  FieldType,
+  FieldValidation,
+  ConfigField,
+  OutputFieldType,
+  OutputField,
+  Category,
+  Provider,
+  RuntimeHints,
+  NodeDefinition,
+} from './node-definition.js'
 
 export {
   workflowNodeSchema,
@@ -46,3 +51,16 @@ export {
   type ParsedExpression,
   type ExpressionValidationError,
 } from './expressions.js'
+export { NodeRegistry } from './node-registry.js'
+export type { NodeBundle } from './node-bundle.js'
+export { nodeBundleSchema, nodeDefinitionSchema } from './node-bundle.js'
+export {
+  stepDefinition,
+  sleepDefinition,
+  sleepUntilDefinition,
+  branchDefinition,
+  parallelDefinition,
+  httpRequestDefinition,
+  waitForEventDefinition,
+  bundledNodeDefinitions,
+} from './bundled-nodes/index.js'

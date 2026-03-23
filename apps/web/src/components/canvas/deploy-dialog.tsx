@@ -6,7 +6,10 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { Button } from '../ui/button'
 import { Select } from '../ui/select'
 import { cn } from '../../lib/utils'
-import { api } from '../../lib/api-client'
+import { api, projectUrl } from '../../lib/api-client'
+import { useOrgReady } from '../../stores/org-store'
+import { useConnectionsStore } from '../../stores/connections-store'
+import { formatShortDate } from '../../lib/time'
 import { usePollingStore } from '../../stores/polling-store'
 
 export interface DeployProgress {
@@ -24,9 +27,9 @@ interface DeployResult {
 }
 
 interface DeployDialogProps {
-  open: boolean
   onClose: () => void
   workflowId: string
+  versionId?: string
 }
 
 type DeployState = 'idle' | 'deploying' | 'success' | 'error'
@@ -44,7 +47,8 @@ const STAGES = [
   { key: 'COMPLETED', label: 'Completed' },
 ]
 
-export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
+export function DeployDialog({ onClose, workflowId, versionId }: DeployDialogProps) {
+  const ready = useOrgReady()
   const queryClient = useQueryClient()
   const [state, setState] = useState<DeployState>('idle')
   const [progress, setProgress] = useState<DeployProgress | null>(null)
@@ -53,17 +57,24 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
   const [deployResult, setDeployResult] = useState<DeployResult | null>(null)
   const [curlCopied, setCurlCopied] = useState(false)
 
-  const { data: connections } = useQuery({
-    queryKey: ['connections'],
-    queryFn: () => api.listConnections(),
-    enabled: open,
-    retry: false,
-  })
+  function handleRetry() {
+    setState('idle')
+    setError(null)
+  }
+
+  function handleCopyCurl() {
+    if (!deployResult?.url) return
+    navigator.clipboard.writeText(`curl -X POST ${deployResult.url}`)
+    setCurlCopied(true)
+    setTimeout(() => setCurlCopied(false), 2000)
+  }
+
+  const connections = useConnectionsStore((s) => s.connections)
 
   const { data: deployments } = useQuery({
     queryKey: ['deployments', workflowId],
     queryFn: () => api.listDeployments(workflowId),
-    enabled: open,
+    enabled: ready,
     retry: false,
   })
 
@@ -75,11 +86,11 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
     setDeployResult(null)
 
     try {
-      const response = await fetch(`/api/workflows/${workflowId}/deploy-stream`, {
+      const response = await fetch(projectUrl(`/workflows/${workflowId}/deploy-stream`), {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ connectionId }),
+        body: JSON.stringify({ connectionId, ...(versionId && { versionId }) }),
       })
 
       if (!response.ok) {
@@ -145,15 +156,19 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
       setError(err instanceof Error ? err.message : 'Unknown error')
       setState('error')
     }
-  }, [connectionId, workflowId, state, queryClient])
+  }, [connectionId, workflowId, versionId, state, queryClient])
 
   const selectedConnection = connections?.find((c) => c.id === connectionId)
 
   return (
-    <Dialog.Root open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+    <Dialog.Root open onOpenChange={() => {}}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg">
+        <Dialog.Content
+          className="fixed left-1/2 top-1/2 z-50 w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <Dialog.Title className="flex items-center gap-2 text-base font-semibold text-foreground">
             <Rocket className="h-5 w-5" />
             Deploy Workflow
@@ -200,7 +215,7 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
                         <span className="font-mono text-[11px] text-muted-foreground">{d.serviceName}</span>
                       </div>
                       <span className="text-[10px] text-muted-foreground/60">
-                        {new Date(d.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        {formatShortDate(d.createdAt)}
                       </span>
                     </div>
                   ))}
@@ -290,11 +305,7 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Trigger</span>
                   <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(`curl -X POST ${deployResult.url}`)
-                      setCurlCopied(true)
-                      setTimeout(() => setCurlCopied(false), 2000)
-                    }}
+                    onClick={handleCopyCurl}
                     className="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground"
                   >
                     {curlCopied ? <Check className="h-3 w-3 text-status-success" /> : <Copy className="h-3 w-3" />}
@@ -324,7 +335,7 @@ export function DeployDialog({ open, onClose, workflowId }: DeployDialogProps) {
             )}
             <div className="flex justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={onClose}>Close</Button>
-              <Button size="sm" onClick={() => { setState('idle'); setError(null) }}>Retry</Button>
+              <Button size="sm" onClick={handleRetry}>Retry</Button>
             </div>
           </div>
         )}

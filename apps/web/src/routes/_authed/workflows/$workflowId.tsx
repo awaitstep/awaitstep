@@ -1,12 +1,22 @@
 import { createFileRoute, Outlet, Link, useMatches, useParams } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
+import { Breadcrumb } from '../../../components/ui/breadcrumb'
+import { api } from '../../../lib/api-client'
+import { useOrgReady } from '../../../stores/org-store'
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId')({
   component: WorkflowLayout,
 })
 
 function WorkflowLayout() {
+  const ready = useOrgReady()
   const { workflowId } = useParams({ from: '/_authed/workflows/$workflowId' })
   const matches = useMatches()
+  const { data: workflow } = useQuery({
+    queryKey: ['workflow', workflowId],
+    queryFn: () => api.getWorkflow(workflowId),
+    enabled: ready,
+  })
 
   const isFullScreen = matches.some(
     (m) => m.routeId === '/_authed/workflows/$workflowId/canvas',
@@ -38,6 +48,10 @@ function WorkflowLayout() {
 
   return (
     <div>
+      <Breadcrumb items={[
+        { label: 'Workflows', href: '/workflows' },
+        { label: workflow?.name ?? workflowId },
+      ]} />
       <nav className="flex gap-0 border-b border-border">
         {tabs.map((tab) => (
           <Link
@@ -57,7 +71,7 @@ function WorkflowLayout() {
           </Link>
         ))}
       </nav>
-      <div className="mx-auto max-w-screen-md pt-6">
+      <div className="pt-6">
         <Outlet />
       </div>
     </div>

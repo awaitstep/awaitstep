@@ -40,7 +40,16 @@ export function createAuthMiddleware(auth: Auth) {
         return c.json({ error: 'Invalid API key scopes' }, 401)
       }
       const scopes = parsed.data
-      c.set('userId', apiKey.userId)
+
+      // API keys are project-scoped — derive organizationId from the project
+      const project = await db.getProjectById(apiKey.projectId)
+      if (!project) {
+        return c.json({ error: 'API key project not found' }, 401)
+      }
+
+      c.set('userId', apiKey.createdBy)
+      c.set('organizationId', project.organizationId)
+      c.set('projectId', apiKey.projectId)
       c.set('user', null)
       c.set('session', null)
       c.set('apiKeyScopes', scopes)
@@ -68,6 +77,7 @@ export function createAuthMiddleware(auth: Auth) {
     c.set('session', session.session)
     c.set('userId', session.user.id)
     c.set('apiKeyScopes', null)
+
     await next()
   })
 }

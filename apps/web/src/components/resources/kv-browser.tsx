@@ -11,6 +11,11 @@ export function KVBrowser({ connectionId }: KVBrowserProps) {
   const [prefix, setPrefix] = useState('')
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
 
+  function handleNamespaceSelect(namespaceId: string) {
+    setSelectedNamespace(namespaceId)
+    setSelectedKey(null)
+  }
+
   const { data: namespaces, isLoading: nsLoading } = useQuery({
     queryKey: ['kv-namespaces', connectionId],
     queryFn: () =>
@@ -47,7 +52,7 @@ export function KVBrowser({ connectionId }: KVBrowserProps) {
         {namespaces?.map((ns: { id: string; title: string }) => (
           <button
             key={ns.id}
-            onClick={() => { setSelectedNamespace(ns.id); setSelectedKey(null) }}
+            onClick={() => handleNamespaceSelect(ns.id)}
             className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
               selectedNamespace === ns.id ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
             }`}

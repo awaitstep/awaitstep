@@ -12,28 +12,43 @@
       "type": "step",
       "name": "Setup",
       "position": { "x": 200, "y": 0 },
-      "code": "return { ready: true };"
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "code": "return { ready: true };"
+      }
     },
     {
       "id": "fork",
       "type": "parallel",
       "name": "Fork",
-      "position": { "x": 200, "y": 100 }
+      "position": { "x": 200, "y": 100 },
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {}
     },
     {
       "id": "task_a",
       "type": "step",
       "name": "Task A",
       "position": { "x": 100, "y": 200 },
-      "code": "return { a: true };"
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "code": "return { a: true };"
+      }
     },
     {
       "id": "task_b",
-      "type": "http-request",
+      "type": "http_request",
       "name": "Task B",
       "position": { "x": 300, "y": 200 },
-      "url": "https://api.example.com/data",
-      "method": "GET"
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "url": "https://api.example.com/data",
+        "method": "GET"
+      }
     }
   ],
   "edges": [

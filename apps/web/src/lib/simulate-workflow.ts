@@ -42,17 +42,19 @@ function getStepDetail(node: FlowNode): { status: SimulationStepStatus; detail: 
     case 'step':
       return { status: 'executed', detail: `Execute step: ${ir.name}` }
     case 'sleep':
-      return { status: 'skipped-instant', detail: `Sleep ${ir.duration} (simulated instant)` }
-    case 'sleep-until':
-      return { status: 'skipped-instant', detail: `Sleep until ${ir.timestamp} (simulated instant)` }
+      return { status: 'skipped-instant', detail: `Sleep ${ir.data.duration} (simulated instant)` }
+    case 'sleep_until':
+      return { status: 'skipped-instant', detail: `Sleep until ${ir.data.timestamp} (simulated instant)` }
     case 'branch':
       return { status: 'executed', detail: `Evaluate branch: ${ir.name}` }
     case 'parallel':
       return { status: 'executed', detail: `Fan out: ${ir.name}` }
-    case 'http-request':
-      return { status: 'executed', detail: `HTTP ${ir.method} ${ir.url} (simulated)` }
-    case 'wait-for-event':
-      return { status: 'event-received', detail: `Wait for event '${ir.eventType}' (simulated as received)` }
+    case 'http_request':
+      return { status: 'executed', detail: `HTTP ${ir.data.method} ${ir.data.url} (simulated)` }
+    case 'wait_for_event':
+      return { status: 'event-received', detail: `Wait for event '${ir.data.eventType}' (simulated as received)` }
+    default:
+      return { status: 'executed', detail: `Execute: ${ir.name} (${ir.type})` }
   }
 }
 
@@ -149,7 +151,7 @@ export function simulateWorkflow(nodes: FlowNode[], edges: Edge[]): SimulationRe
     const nodeOutEdges = outEdges.get(nodeId) ?? []
 
     if (ir.type === 'branch') {
-      const branches = ir.branches
+      const branches = (ir.data.branches ?? []) as { label: string; condition: string }[]
       const connectedBranches = branches.filter((b) =>
         nodeOutEdges.some((e) => e.label === b.label),
       )

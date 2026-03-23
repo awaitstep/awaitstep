@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { projectUrl } from '../lib/api-client'
 
 const TERMINAL_STATUSES = new Set(['complete', 'errored', 'terminated'])
 const POLL_INTERVAL = 5_000
@@ -37,7 +38,7 @@ export function useActiveRunSync(runs: Run[] | undefined, listQueryKey: string[]
       await Promise.allSettled(
         activeRuns.map(async (run) => {
           try {
-            const res = await fetch(`/api/workflows/${run.workflowId}/runs/${run.id}`, {
+            const res = await fetch(projectUrl(`/workflows/${run.workflowId}/runs/${run.id}`), {
               credentials: 'include',
             })
             if (!res.ok) return

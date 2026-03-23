@@ -1,11 +1,12 @@
 import { useState, useCallback } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Play, Loader2, AlertCircle, Copy, Check } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Button } from '../ui/button'
 import { Select } from '../ui/select'
 import { api } from '../../lib/api-client'
+import { useConnectionsStore } from '../../stores/connections-store'
 
 interface TriggerDialogProps {
   open: boolean
@@ -24,12 +25,7 @@ export function TriggerDialog({ open, onClose, workflowId, deploymentId }: Trigg
   const [error, setError] = useState<string | null>(null)
   const [curlCopied, setCurlCopied] = useState(false)
 
-  const { data: connections } = useQuery({
-    queryKey: ['connections'],
-    queryFn: () => api.listConnections(),
-    enabled: open,
-    retry: false,
-  })
+  const connections = useConnectionsStore((s) => s.connections)
 
   const handleParamsChange = useCallback((value: string) => {
     setParamsJson(value)
@@ -53,14 +49,12 @@ export function TriggerDialog({ open, onClose, workflowId, deploymentId }: Trigg
         params = JSON.parse(trimmed)
       }
 
-      const run = await api.triggerWorkflow(workflowId, { connectionId, params })
+      await api.triggerWorkflow(workflowId, { connectionId, params })
       queryClient.invalidateQueries({ queryKey: ['workflow-runs', workflowId] })
       queryClient.invalidateQueries({ queryKey: ['all-runs'] })
       onClose()
       navigate({
-        to: '/runs/$runId',
-        params: { runId: run.id },
-        search: { workflowId },
+        to: '/runs',
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to trigger workflow')
@@ -81,8 +75,12 @@ export function TriggerDialog({ open, onClose, workflowId, deploymentId }: Trigg
     setTimeout(() => setCurlCopied(false), 2000)
   }, [deploymentId, paramsJson])
 
+  function handleOpenChange(v: boolean) {
+    if (!v) onClose()
+  }
+
   return (
-    <Dialog.Root open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+    <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[480px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg">

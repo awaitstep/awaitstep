@@ -1,4 +1,4 @@
-import { eq, desc } from 'drizzle-orm'
+import { eq, desc, max } from 'drizzle-orm'
 import type { WorkflowVersion } from '../types.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -15,6 +15,7 @@ export class VersionsAdapter {
       version: data.version,
       ir: data.ir,
       generatedCode: data.generatedCode ?? null,
+      locked: 0,
       createdAt: now,
     }
     await this.db.insert(this.table).values(row)
@@ -26,11 +27,20 @@ export class VersionsAdapter {
     return rows[0] ?? null
   }
 
+  async getMaxVersionNumber(workflowId: string): Promise<number> {
+    const rows = await this.db.select({ max: max(this.table.version) }).from(this.table).where(eq(this.table.workflowId, workflowId))
+    return rows[0]?.max ?? 0
+  }
+
   async listByWorkflow(workflowId: string): Promise<WorkflowVersion[]> {
     return this.db.select().from(this.table).where(eq(this.table.workflowId, workflowId)).orderBy(desc(this.table.version))
   }
 
-  async update(id: string, data: { ir?: string; generatedCode?: string }): Promise<void> {
+  async update(id: string, data: { ir?: string; generatedCode?: string; locked?: number }): Promise<void> {
     await this.db.update(this.table).set(data).where(eq(this.table.id, id))
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.db.delete(this.table).where(eq(this.table.id, id))
   }
 }

@@ -8,6 +8,7 @@ interface NodeBaseProps {
   icon: ReactNode
   accent: string
   selected?: boolean
+  warning?: boolean
   children?: ReactNode
 }
 
@@ -19,7 +20,7 @@ const STATUS_STYLES: Record<string, string> = {
   skipped: 'border-border/50 opacity-30',
 }
 
-export function NodeBase({ label, icon, accent, selected, children }: NodeBaseProps) {
+export function NodeBase({ label, icon, accent, selected, warning, children }: NodeBaseProps) {
   const nodeId = useNodeId()
   const edges = useEdges()
   const { active: overlayActive, nodeStatuses } = useRunOverlayStore()
@@ -36,6 +37,10 @@ export function NodeBase({ label, icon, accent, selected, children }: NodeBasePr
         overlayActive && stepStatus && !selected && STATUS_STYLES[stepStatus],
       )}
     >
+      {warning && !overlayActive && (
+        <div className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-card bg-amber-500" title="Unknown node type" />
+      )}
+
       {overlayActive && stepStatus && stepStatus !== 'pending' && stepStatus !== 'skipped' && (
         <div className={cn(
           'absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-card',

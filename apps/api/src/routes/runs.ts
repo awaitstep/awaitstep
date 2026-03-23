@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { CloudflareAPI, mapCFStatus } from '@awaitstep/provider-cloudflare'
+import { CloudflareAPI, mapCFStatus, sanitizedWorkflowName } from '@awaitstep/provider-cloudflare'
 import type { AppEnv } from '../types.js'
 import { createLogger } from '../lib/logger.js'
 
@@ -20,22 +20,22 @@ runs.get('/:workflowId/runs', async (c) => {
 
 runs.get('/:workflowId/runs/:runId', async (c) => {
   const db = c.get('db')
-  const userId = c.get('userId')
+  const organizationId = c.get('organizationId')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
   const runId = c.req.param('runId')
-  const run = await db.getRunById(runId)
+  const run = await db.getWorkflowRunById(runId)
   if (!run || run.workflowId !== workflow.id) return c.json({ error: 'Run not found' }, 404)
 
   // Fetch live status from CF if run is non-terminal
   if (run.connectionId && run.instanceId && !TERMINAL_STATUSES.has(run.status)) {
     try {
-      const connection = await db.getConnectionById(run.connectionId)
-      if (connection && connection.userId === userId) {
+      const connection = await db.getProviderConnectionById(run.connectionId)
+      if (connection && connection.organizationId === organizationId) {
         const creds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
         const cfApi = new CloudflareAPI(creds)
-        const status = await cfApi.getInstanceStatus(workflow.name, run.instanceId)
+        const status = await cfApi.getInstanceStatus(sanitizedWorkflowName(workflow.name), run.instanceId)
         const mapped = mapCFStatus(status.status)
 
         const updates: { status?: string; output?: string; error?: string; updatedAt?: string } = {}
@@ -63,60 +63,60 @@ runs.get('/:workflowId/runs/:runId', async (c) => {
 
 runs.post('/:workflowId/runs/:runId/pause', async (c) => {
   const db = c.get('db')
-  const userId = c.get('userId')
+  const organizationId = c.get('organizationId')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const run = await db.getRunById(c.req.param('runId'))
+  const run = await db.getWorkflowRunById(c.req.param('runId'))
   if (!run || run.workflowId !== workflow.id) return c.json({ error: 'Run not found' }, 404)
   if (!run.connectionId || !run.instanceId) return c.json({ error: 'No connection' }, 400)
 
-  const connection = await db.getConnectionById(run.connectionId)
-  if (!connection || connection.userId !== userId) return c.json({ error: 'Connection not found' }, 404)
+  const connection = await db.getProviderConnectionById(run.connectionId)
+  if (!connection || connection.organizationId !== organizationId) return c.json({ error: 'Connection not found' }, 404)
 
   const pauseCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
   const cfApi = new CloudflareAPI(pauseCreds)
-  await cfApi.pauseInstance(workflow.name, run.instanceId)
+  await cfApi.pauseInstance(sanitizedWorkflowName(workflow.name), run.instanceId)
   await db.updateRun(run.id, { status: 'paused' })
   return c.json({ ok: true })
 })
 
 runs.post('/:workflowId/runs/:runId/resume', async (c) => {
   const db = c.get('db')
-  const userId = c.get('userId')
+  const organizationId = c.get('organizationId')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const run = await db.getRunById(c.req.param('runId'))
+  const run = await db.getWorkflowRunById(c.req.param('runId'))
   if (!run || run.workflowId !== workflow.id) return c.json({ error: 'Run not found' }, 404)
   if (!run.connectionId || !run.instanceId) return c.json({ error: 'No connection' }, 400)
 
-  const connection = await db.getConnectionById(run.connectionId)
-  if (!connection || connection.userId !== userId) return c.json({ error: 'Connection not found' }, 404)
+  const connection = await db.getProviderConnectionById(run.connectionId)
+  if (!connection || connection.organizationId !== organizationId) return c.json({ error: 'Connection not found' }, 404)
 
   const resumeCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
   const cfApi = new CloudflareAPI(resumeCreds)
-  await cfApi.resumeInstance(workflow.name, run.instanceId)
+  await cfApi.resumeInstance(sanitizedWorkflowName(workflow.name), run.instanceId)
   await db.updateRun(run.id, { status: 'running' })
   return c.json({ ok: true })
 })
 
 runs.post('/:workflowId/runs/:runId/terminate', async (c) => {
   const db = c.get('db')
-  const userId = c.get('userId')
+  const organizationId = c.get('organizationId')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const run = await db.getRunById(c.req.param('runId'))
+  const run = await db.getWorkflowRunById(c.req.param('runId'))
   if (!run || run.workflowId !== workflow.id) return c.json({ error: 'Run not found' }, 404)
   if (!run.connectionId || !run.instanceId) return c.json({ error: 'No connection' }, 400)
 
-  const connection = await db.getConnectionById(run.connectionId)
-  if (!connection || connection.userId !== userId) return c.json({ error: 'Connection not found' }, 404)
+  const connection = await db.getProviderConnectionById(run.connectionId)
+  if (!connection || connection.organizationId !== organizationId) return c.json({ error: 'Connection not found' }, 404)
 
   const terminateCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
   const cfApi = new CloudflareAPI(terminateCreds)
-  await cfApi.terminateInstance(workflow.name, run.instanceId)
+  await cfApi.terminateInstance(sanitizedWorkflowName(workflow.name), run.instanceId)
   await db.updateRun(run.id, { status: 'terminated' })
   return c.json({ ok: true })
 })

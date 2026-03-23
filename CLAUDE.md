@@ -25,6 +25,12 @@
 - Run `pnpm lint` after writing new code. Fix lint errors immediately, don't leave them for later.
 - Never leave `console.log` debugging statements in committed code. Use proper logging if needed.
 - Prefer explicit types over `any`. If `any` is truly unavoidable, use `// eslint-disable-next-line` with a comment explaining why.
+- Never inline multi-statement functions or conditional logic in JSX props. Extract them to named handler functions (e.g. `handleClose`, `handleSave`) defined above the return statement.
+- **`useEffect` is the last resort — not the default.** If you can compute something from props/state/loader data, do it in the component body or `useMemo`. If you're syncing stores from loader data, do it synchronously before render. Only use `useEffect` for genuine side effects that must happen after paint (DOM measurements, subscriptions, timers). Read: https://react.dev/learn/you-might-not-need-an-effect
+
+## API Endpoints
+
+- When adding a new publicly exposed API endpoint, always add a corresponding entry to the playground endpoint catalog (`apps/web/src/lib/playground-endpoints.ts`) and update the API reference docs (`docs/api-reference.md`).
 
 ## Architecture
 
@@ -34,6 +40,13 @@
 - New packages follow the existing pattern: `package.json` (with build/test/lint/type-check scripts), `tsconfig.json` (extending tooling/tsconfig), `src/index.ts`.
 - App code must be runtime-agnostic — no `process.env`, Node-specific APIs, or platform-specific code in app logic. All config is injected via dependency injection. Entry points (e.g. `serve.ts` for Node, Workers entry for CF) are the only files that read environment variables and initialize platform-specific resources (DB connections, etc.). The app factory (`createApp`) receives everything it needs as parameters.
 - Provider-specific logic (API calls, credential checks, deploy validation) must live in `packages/provider-[name]`, never in API routes or app code. API routes call methods on the `WorkflowProvider` interface — adding a new provider should only require a new provider package.
+- Route files (`routes/**/*.tsx`) are thin orchestrators — they define the `Route`, render a layout skeleton, and compose sub-components. Business logic, mutations, queries, and non-trivial UI belong in `/components/<domain>/` sub-components. A route file should rarely exceed ~80 lines. Sub-components access Zustand stores directly rather than receiving data through prop drilling from the page.
+
+## Database Queries (HIGHEST PRIORITY)
+
+- **NEVER chain sequential `await` calls when a single SQL query can do the same work.** If you need data from table A to query table B, use a JOIN — not two round trips. This applies to validation checks (e.g. "fetch project then check membership") — combine them into one query with `INNER JOIN`. Violations of this rule are treated as bugs.
+- Prefer Drizzle's `.select().from().innerJoin().where()` chain over raw SQL. Use raw `sql` template literals only when the query builder can't express the query.
+- Filter at the SQL layer (`WHERE`, `LIMIT`, `MAX`) — never fetch all rows and filter/reduce in JS.
 
 ## Testing
 

@@ -13,7 +13,7 @@ export interface WorkflowProvider {
 
   verifyCredentials(config: ProviderConfig): Promise<CredentialsCheckResult>
 
-  generate(ir: WorkflowIR): GeneratedArtifact
+  generate(ir: WorkflowIR, config?: ProviderConfig): GeneratedArtifact
 
   deploy(artifact: GeneratedArtifact, config: ProviderConfig): Promise<DeployResult>
 

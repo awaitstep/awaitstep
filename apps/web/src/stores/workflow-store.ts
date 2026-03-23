@@ -9,11 +9,21 @@ import {
   type OnEdgesChange,
   type Connection,
 } from '@xyflow/react'
-import type { WorkflowNode, NodeType, WorkflowMetadata } from '@awaitstep/ir'
+import type { WorkflowNode, NodeType, WorkflowMetadata, ConfigField } from '@awaitstep/ir'
 import { validateWorkflowForPublish, type PublishValidationResult } from '../lib/validate-workflow'
+import type { NodeRegistry } from '@awaitstep/ir'
 import { simulateWorkflow, type SimulationResult } from '../lib/simulate-workflow'
-import { saveWorkflowLocally, loadWorkflowLocally, type PersistedWorkflow } from '../lib/local-persistence'
-import { nanoid } from 'nanoid'
+import { customAlphabet } from 'nanoid'
+
+const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789_', 12)
+
+const BUILTIN_FLOW_TYPES = new Set([
+  'step', 'sleep', 'sleep_until', 'branch', 'parallel', 'http_request', 'wait_for_event',
+])
+
+export function toFlowType(irType: string): string {
+  return BUILTIN_FLOW_TYPES.has(irType) ? irType : 'custom'
+}
 
 export interface WorkflowNodeData extends Record<string, unknown> {
   irNode: WorkflowNode
@@ -29,70 +39,16 @@ export interface InputParam {
 
 export interface EnvBinding {
   name: string
-  type: 'kv' | 'd1' | 'r2' | 'service' | 'secret' | 'variable'
+  type: 'kv' | 'd1' | 'r2' | 'service'
   description?: string
 }
 
-interface WorkflowState {
-  workflowId: string | null
-  metadata: WorkflowMetadata
-  nodes: FlowNode[]
-  edges: Edge[]
-  selectedNodeId: string | null
-  inputParams: InputParam[]
-  envBindings: EnvBinding[]
-  showSettings: boolean
-  validationResult: PublishValidationResult | null
-  simulationResult: SimulationResult | null
-  isDirty: boolean
-
-  onNodesChange: OnNodesChange<FlowNode>
-  onEdgesChange: OnEdgesChange
-  onConnect: (connection: Connection) => void
-
-  addNode: (type: NodeType, position: { x: number; y: number }) => void
-  insertNodeOnEdge: (type: NodeType, position: { x: number; y: number }, edgeId: string) => void
-  updateNodeData: (nodeId: string, data: Partial<WorkflowNode>) => void
-  removeNode: (nodeId: string) => void
-  selectNode: (nodeId: string | null) => void
-
-  setMetadata: (metadata: Partial<WorkflowMetadata>) => void
-  setInputParams: (params: InputParam[]) => void
-  setEnvBindings: (bindings: EnvBinding[]) => void
-  setShowSettings: (show: boolean) => void
-  runValidation: () => PublishValidationResult
-  clearValidation: () => void
-  runSimulation: () => SimulationResult
-  clearSimulation: () => void
-  loadWorkflow: (metadata: WorkflowMetadata, nodes: FlowNode[], edges: Edge[]) => void
-  setWorkflowId: (id: string | null) => void
-  loadFromLocal: (id: string) => boolean
-  markClean: () => void
+export interface WorkflowEnvVar {
+  name: string
+  value: string
 }
 
-function createDefaultNode(type: NodeType, position: { x: number; y: number }): WorkflowNode {
-  const id = nanoid()
-  const base = { id, position, name: `New ${type}` }
-
-  switch (type) {
-    case 'step':
-      return { ...base, type: 'step', code: '  // ctx.attempt = current retry (1-indexed)\n\n  return { result: "ok" };' }
-    case 'sleep':
-      return { ...base, type: 'sleep', duration: '10 seconds' }
-    case 'sleep-until':
-      return { ...base, type: 'sleep-until', timestamp: new Date().toISOString() }
-    case 'branch':
-      return { ...base, type: 'branch', branches: [{ label: 'true', condition: 'true' }, { label: 'false', condition: '' }] }
-    case 'parallel':
-      return { ...base, type: 'parallel' }
-    case 'http-request':
-      return { ...base, type: 'http-request', url: 'https://api.example.com', method: 'GET' }
-    case 'wait-for-event':
-      return { ...base, type: 'wait-for-event', eventType: 'my-event', timeout: '24 hours' }
-  }
-}
-
-export const useWorkflowStore = create<WorkflowState>((set, get) => ({
+const getInitialWorkflowState = () => ({
   workflowId: null,
   metadata: {
     name: 'Untitled Workflow',
@@ -103,22 +59,135 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   nodes: [],
   edges: [],
   selectedNodeId: null,
+  selectedEdgeId: null,
   inputParams: [],
   envBindings: [],
+  workflowEnvVars: [],
+  dependencies: {},
+  triggerCode: '',
   showSettings: false,
   validationResult: null,
   simulationResult: null,
   isDirty: false,
+  readOnly: false,
+})
 
+interface WorkflowState {
+  workflowId: string | null
+  metadata: WorkflowMetadata
+  nodes: FlowNode[]
+  edges: Edge[]
+  selectedNodeId: string | null
+  selectedEdgeId: string | null
+  inputParams: InputParam[]
+  envBindings: EnvBinding[]
+  workflowEnvVars: WorkflowEnvVar[]
+  dependencies: Record<string, string>
+  triggerCode: string
+  showSettings: boolean
+  validationResult: PublishValidationResult | null
+  simulationResult: SimulationResult | null
+  isDirty: boolean
+  readOnly: boolean
+
+  onNodesChange: OnNodesChange<FlowNode>
+  onEdgesChange: OnEdgesChange
+  onConnect: (connection: Connection) => void
+
+  addNode: (type: NodeType, position: { x: number; y: number }, registry?: NodeRegistry) => void
+  insertNodeOnEdge: (type: NodeType, position: { x: number; y: number }, edgeId: string, registry?: NodeRegistry) => void
+  updateNodeData: (nodeId: string, data: Partial<WorkflowNode>) => void
+  removeNode: (nodeId: string) => void
+  selectNode: (nodeId: string | null) => void
+  selectEdge: (edgeId: string | null) => void
+
+  setMetadata: (metadata: Partial<WorkflowMetadata>) => void
+  setInputParams: (params: InputParam[]) => void
+  setEnvBindings: (bindings: EnvBinding[]) => void
+  setWorkflowEnvVars: (vars: WorkflowEnvVar[]) => void
+  setDependencies: (deps: Record<string, string>) => void
+  setTriggerCode: (code: string) => void
+  setShowSettings: (show: boolean) => void
+  runValidation: (nodeRegistry?: NodeRegistry) => PublishValidationResult
+  clearValidation: () => void
+  runSimulation: () => SimulationResult
+  clearSimulation: () => void
+  loadWorkflow: (metadata: WorkflowMetadata, nodes: FlowNode[], edges: Edge[]) => void
+  setWorkflowId: (id: string | null) => void
+  markClean: () => void
+  reset: () => void
+}
+
+function configDefaults(schema?: Record<string, ConfigField>): Record<string, unknown> {
+  if (!schema) return {}
+  const data: Record<string, unknown> = {}
+  for (const [key, field] of Object.entries(schema)) {
+    if (field.default !== undefined) {
+      data[key] = field.default
+    }
+  }
+  return data
+}
+
+function createDefaultNode(type: NodeType, position: { x: number; y: number }, registry?: NodeRegistry): WorkflowNode {
+  const id = nanoid()
+  const base = { id, type, position, name: `New ${type}`, version: '1.0.0', provider: 'cloudflare' }
+
+  switch (type) {
+    case 'step':
+      return { ...base, data: { code: '// Write your business logic here\n\nreturn { result: "ok" };' } }
+    case 'sleep':
+      return { ...base, data: { duration: '10 seconds' } }
+    case 'sleep_until':
+      return { ...base, data: { timestamp: new Date().toISOString() } }
+    case 'branch':
+      return { ...base, data: { branches: [{ label: 'true', condition: 'true' }, { label: 'false', condition: '' }] } }
+    case 'parallel':
+      return { ...base, data: {} }
+    case 'http_request':
+      return { ...base, data: { url: 'https://api.example.com', method: 'GET' } }
+    case 'wait_for_event':
+      return { ...base, data: { eventType: 'my-event', timeout: '24 hours' } }
+    default: {
+      const def = registry?.get(type)
+      return { ...base, name: def?.name ?? `New ${type}`, data: configDefaults(def?.configSchema) }
+    }
+  }
+}
+
+export const useWorkflowStore = create<WorkflowState>((set, get) => ({
+  ...getInitialWorkflowState(),
   onNodesChange: (changes) => {
-    set({ nodes: applyNodeChanges(changes, get().nodes), isDirty: true })
+    if (get().readOnly) {
+      // In read-only mode, only allow selection changes
+      const allowed = changes.filter((c) => c.type === 'select' || c.type === 'dimensions' || c.type === 'position' && !('dragging' in c && c.dragging))
+      if (allowed.length > 0) set({ nodes: applyNodeChanges(allowed, get().nodes) })
+      return
+    }
+    const hasDirtyChange = changes.some((c) =>
+      c.type === 'add' || c.type === 'remove' || c.type === 'replace' ||
+      (c.type === 'position' && c.dragging),
+    )
+    const removedIds = new Set(changes.filter((c) => c.type === 'remove').map((c) => c.id))
+    const selectedNodeId = removedIds.has(get().selectedNodeId ?? '') ? null : undefined
+    set({
+      nodes: applyNodeChanges(changes, get().nodes),
+      ...(hasDirtyChange && { isDirty: true }),
+      ...(selectedNodeId === null && { selectedNodeId: null }),
+    })
   },
 
   onEdgesChange: (changes) => {
-    set({ edges: applyEdgeChanges(changes, get().edges), isDirty: true })
+    if (get().readOnly) return
+    const meaningful = changes.filter((c) => c.type !== 'select')
+    if (meaningful.length === 0) return
+    const dirtyTypes = new Set(['add', 'remove', 'replace'])
+    const hasDirtyChange = meaningful.some((c) => dirtyTypes.has(c.type))
+    set({ edges: applyEdgeChanges(meaningful, get().edges), ...(hasDirtyChange && { isDirty: true }) })
   },
 
   onConnect: (connection) => {
+    if (get().readOnly) return
     const { nodes, edges } = get()
     const sourceNode = nodes.find((n) => n.id === connection.source)
     if (sourceNode) {
@@ -131,26 +200,28 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({ edges: addEdge({ ...connection, id: nanoid() }, edges), isDirty: true })
   },
 
-  addNode: (type, position) => {
-    const irNode = createDefaultNode(type, position)
+  addNode: (type, position, registry) => {
+    if (get().readOnly) return
+    const irNode = createDefaultNode(type, position, registry)
     const flowNode: FlowNode = {
       id: irNode.id,
-      type: irNode.type,
+      type: toFlowType(irNode.type),
       position,
       data: { irNode },
     }
     set({ nodes: [...get().nodes, flowNode], isDirty: true })
   },
 
-  insertNodeOnEdge: (type, position, edgeId) => {
+  insertNodeOnEdge: (type, position, edgeId, registry) => {
+    if (get().readOnly) return
     const { edges, nodes } = get()
     const edge = edges.find((e) => e.id === edgeId)
     if (!edge) return
 
-    const irNode = createDefaultNode(type, position)
+    const irNode = createDefaultNode(type, position, registry)
     const flowNode: FlowNode = {
       id: irNode.id,
-      type: irNode.type,
+      type: toFlowType(irNode.type),
       position,
       data: { irNode },
     }
@@ -165,6 +236,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   updateNodeData: (nodeId, data) => {
+    if (get().readOnly) return
     const currentNode = get().nodes.find((n) => n.id === nodeId)
     const updatedIrNode = currentNode
       ? { ...currentNode.data.irNode, ...data } as WorkflowNode
@@ -172,9 +244,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
     // Sync edge labels when branch labels change
     let edges = get().edges
-    if (updatedIrNode?.type === 'branch' && 'branches' in data) {
-      const oldBranches = (currentNode?.data.irNode as { branches?: { label: string }[] })?.branches ?? []
-      const newBranches = updatedIrNode.branches
+    if (updatedIrNode?.type === 'branch' && 'data' in data && data.data && 'branches' in (data.data as Record<string, unknown>)) {
+      const oldBranches = (currentNode?.data.irNode.data.branches ?? []) as { label: string }[]
+      const newBranches = (updatedIrNode.data.branches ?? []) as { label: string }[]
       edges = edges.map((edge) => {
         if (edge.source !== nodeId) return edge
         const oldIndex = oldBranches.findIndex((b) => b.label === edge.label)
@@ -202,6 +274,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   removeNode: (nodeId) => {
+    if (get().readOnly) return
     set({
       nodes: get().nodes.filter((n) => n.id !== nodeId),
       edges: get().edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
@@ -211,7 +284,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   selectNode: (nodeId) => {
-    set({ selectedNodeId: nodeId })
+    set({ selectedNodeId: nodeId, selectedEdgeId: null })
+  },
+
+  selectEdge: (edgeId) => {
+    set({ selectedEdgeId: edgeId, selectedNodeId: null })
   },
 
   setMetadata: (metadata) => {
@@ -226,13 +303,25 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({ envBindings: bindings, isDirty: true })
   },
 
+  setWorkflowEnvVars: (vars) => {
+    set({ workflowEnvVars: vars, isDirty: true })
+  },
+
+  setDependencies: (deps) => {
+    set({ dependencies: deps, isDirty: true })
+  },
+
+  setTriggerCode: (code) => {
+    set({ triggerCode: code, isDirty: true })
+  },
+
   setShowSettings: (show) => {
     set({ showSettings: show, selectedNodeId: show ? null : get().selectedNodeId })
   },
 
-  runValidation: () => {
+  runValidation: (nodeRegistry?: NodeRegistry) => {
     const { metadata, nodes, edges } = get()
-    const result = validateWorkflowForPublish(metadata, nodes, edges)
+    const result = validateWorkflowForPublish(metadata, nodes, edges, nodeRegistry)
     set({ validationResult: result, simulationResult: null })
     return result
   },
@@ -253,61 +342,19 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   loadWorkflow: (metadata, nodes, edges) => {
-    set({ metadata, nodes, edges, isDirty: false })
+    const fixedNodes = nodes.map((n) => ({ ...n, type: toFlowType(n.data.irNode.type) }))
+    set({ metadata, nodes: fixedNodes, edges, isDirty: false })
   },
 
   setWorkflowId: (id) => {
     set({ workflowId: id })
   },
 
-  loadFromLocal: (id) => {
-    const data = loadWorkflowLocally(id)
-    if (!data) return false
-    set({
-      workflowId: id,
-      metadata: data.metadata,
-      nodes: data.nodes,
-      edges: data.edges,
-      inputParams: data.inputParams,
-      envBindings: data.envBindings,
-      isDirty: false,
-    })
-    return true
-  },
-
   markClean: () => {
     set({ isDirty: false })
   },
+
+  reset: () => {
+    set(getInitialWorkflowState())
+  },
 }))
-
-// Auto-save to localStorage on state changes (debounced)
-let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
-
-useWorkflowStore.subscribe((state, prev) => {
-  if (!state.workflowId || state.workflowId === 'new') return
-
-  // Only save when data changes, not UI state
-  if (
-    state.nodes === prev.nodes &&
-    state.edges === prev.edges &&
-    state.metadata === prev.metadata &&
-    state.inputParams === prev.inputParams &&
-    state.envBindings === prev.envBindings
-  ) return
-
-  if (autoSaveTimer) clearTimeout(autoSaveTimer)
-  autoSaveTimer = setTimeout(() => {
-    const s = useWorkflowStore.getState()
-    if (!s.workflowId || s.workflowId === 'new') return
-    const data: PersistedWorkflow = {
-      metadata: s.metadata,
-      nodes: s.nodes,
-      edges: s.edges,
-      inputParams: s.inputParams,
-      envBindings: s.envBindings,
-      savedAt: new Date().toISOString(),
-    }
-    saveWorkflowLocally(s.workflowId, data)
-    autoSaveTimer = null
-  }, 1000)
-})

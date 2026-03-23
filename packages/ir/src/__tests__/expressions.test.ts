@@ -42,10 +42,15 @@ describe('parseExpressions', () => {
     expect(parseExpressions('plain text')).toEqual([])
   })
 
-  it('handles hyphens in node IDs', () => {
-    const result = parseExpressions('{{my-step.output}}')
+  it('handles underscores in node IDs', () => {
+    const result = parseExpressions('{{my_step.output}}')
     expect(result).toHaveLength(1)
-    expect(result[0]!.nodeId).toBe('my-step')
+    expect(result[0]!.nodeId).toBe('my_step')
+  })
+
+  it('rejects hyphens in node IDs', () => {
+    const result = parseExpressions('{{my-step.output}}')
+    expect(result).toEqual([])
   })
 
   it('ignores malformed expressions', () => {

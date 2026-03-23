@@ -27,6 +27,7 @@ export const session = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
+    activeOrganizationId: text('active_organization_id'),
   },
   (table) => [
     index('idx_session_user_id').on(table.userId),
@@ -67,4 +68,21 @@ export const verification = pgTable(
     updatedAt: timestamp('updated_at', { mode: 'string' }).defaultNow(),
   },
   (table) => [index('idx_verification_identifier').on(table.identifier)],
+)
+
+export const member = pgTable(
+  'member',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    organizationId: text('organization_id').notNull(),
+    role: text('role').notNull(),
+    createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_member_user_id').on(table.userId),
+    index('idx_member_org_id').on(table.organizationId),
+  ],
 )

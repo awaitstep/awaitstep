@@ -1,4 +1,4 @@
-import { createRootRoute, Outlet, HeadContent, Scripts } from '@tanstack/react-router'
+import { createRootRoute, Outlet, HeadContent, Scripts, Link } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { useEffect, useState } from 'react'
@@ -16,18 +16,8 @@ const queryClient = new QueryClient({
   },
 })
 
-const GOOGLE_FONTS_URL =
-  'https://fonts.googleapis.com/css2?' +
-  [
-    'family=Outfit:wght@400;500;600;700',
-    'family=Inter:wght@400;500;600',
-    'family=IBM+Plex+Sans:wght@400;500;600',
-    'family=DM+Sans:opsz@9..40&family=DM+Sans:wght@400;500;600',
-    'family=Plus+Jakarta+Sans:wght@400;500;600;700',
-  ].join('&') +
-  '&display=swap'
-
 export const Route = createRootRoute({
+  notFoundComponent: NotFound,
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
@@ -35,13 +25,6 @@ export const Route = createRootRoute({
     ],
     title: 'AwaitStep',
     links: [
-      { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-      {
-        rel: 'preconnect',
-        href: 'https://fonts.gstatic.com',
-        crossOrigin: 'anonymous',
-      },
-      { rel: 'stylesheet', href: GOOGLE_FONTS_URL },
       { rel: 'stylesheet', href: 'https://cdn.jsdelivr.net/npm/geist@1/dist/fonts/geist-sans/style.css' },
     ],
   }),
@@ -54,6 +37,21 @@ function ClientToaster() {
   useEffect(() => setMounted(true), [])
   if (!mounted) return null
   return <Toaster theme={theme === 'light' ? 'light' : 'dark'} position="top-center" richColors />
+}
+
+function NotFound() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-4">
+      <h1 className="text-6xl font-bold tracking-tight">404</h1>
+      <p className="text-muted-foreground">This page could not be found.</p>
+      <Link
+        to="/"
+        className="mt-3 text-sm text-primary hover:underline hover:underline-offset-4"
+      >
+        Go home
+      </Link>
+    </div>
+  )
 }
 
 function RootComponent() {

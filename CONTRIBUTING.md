@@ -31,6 +31,16 @@ pnpm lint       # Lint all packages
 pnpm type-check # Type-check all packages
 ```
 
+### Custom Nodes
+
+```bash
+pnpm nodes:generate my_node    # Scaffold a new custom node
+# Edit nodes/my_node/node.json and nodes/my_node/templates/cloudflare.ts
+pnpm nodes:build               # Validate and bundle into nodes/registry.json
+```
+
+See [`packages/node-cli/README.md`](packages/node-cli/README.md) for the full authoring guide.
+
 ## Pull Request Guidelines
 
 1. Fork the repo and create your branch from `main`.

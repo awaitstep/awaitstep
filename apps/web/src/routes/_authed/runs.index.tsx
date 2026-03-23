@@ -1,72 +1,29 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { Loader2, Play } from 'lucide-react'
 import { Button } from '../../components/ui/button'
-import { api } from '../../lib/api-client'
 import { RunStatusBadge } from '../../components/monitoring/run-status-badge'
+import { RunDetailSheet } from '../../components/monitoring/run-detail-sheet'
 import { TriggerDialog } from '../../components/canvas/trigger-dialog'
-import { useActiveRunSync } from '../../hooks/use-active-run-sync'
+import { useWorkflowsStore } from '../../stores/workflows-store'
+import { useRunsStore } from '../../stores/runs-store'
+import { useSheetStore } from '../../stores/sheet-store'
+import { timeAgo, duration } from '../../lib/time'
 
 export const Route = createFileRoute('/_authed/runs/')({
   component: RunsIndexPage,
 })
 
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  const days = Math.floor(hrs / 24)
-  return `${days}d ago`
-}
-
-function duration(start: string, end: string, status: string): string {
-  if (['running', 'queued'].includes(status)) return '--'
-  const ms = new Date(end).getTime() - new Date(start).getTime()
-  if (ms < 1000) return `${ms}ms`
-  const secs = Math.floor(ms / 1000)
-  if (secs < 60) return `${secs}s`
-  const mins = Math.floor(secs / 60)
-  const remSecs = secs % 60
-  return `${mins}m ${remSecs}s`
-}
-
 function RunsIndexPage() {
   const [triggerWorkflowId, setTriggerWorkflowId] = useState<string | null>(null)
+  const openRunSheet = useSheetStore((s) => s.openRunSheet)
 
-  const { data: runs, isLoading } = useQuery({
-    queryKey: ['all-runs'],
-    queryFn: () => api.listAllRuns(),
-    retry: false,
-  })
+  const runs = useRunsStore((s) => s.runs)
+  const runsLoading = useRunsStore((s) => s.fetchState === 'idle' || s.fetchState === 'loading')
+  const workflows = useWorkflowsStore((s) => s.workflows)
 
-  useActiveRunSync(runs, ['all-runs'])
-
-  const { data: workflows } = useQuery({
-    queryKey: ['workflows'],
-    queryFn: () => api.listWorkflows(),
-    retry: false,
-  })
-
-  const { data: allDeployments } = useQuery({
-    queryKey: ['all-deployments'],
-    queryFn: () => api.listAllDeployments(),
-    retry: false,
-  })
-
-  const workflowMap = new Map(workflows?.map((w) => [w.id, w]) ?? [])
-
-  // Workflows that have a successful deployment
-  const deployedWorkflowIds = new Set<string>()
-  if (allDeployments) {
-    for (const d of allDeployments) {
-      if (d.status === 'success') deployedWorkflowIds.add(d.workflowId)
-    }
-  }
-  const deployedWorkflows = workflows?.filter((w) => deployedWorkflowIds.has(w.id)) ?? []
+  const workflowMap = new Map(workflows.map((w) => [w.id, w]))
+  const deployedWorkflows = workflows.filter((w) => w.deployStatus === 'success')
 
   return (
     <div>
@@ -84,73 +41,53 @@ function RunsIndexPage() {
         )}
       </div>
 
-      <div className="mx-auto max-w-screen-md">
-      {isLoading && (
+      <div>
+      {runsLoading && (
         <div className="mt-12 flex justify-center">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/60" />
         </div>
       )}
 
-      {runs && runs.length === 0 && (
+      {!runsLoading && runs.length === 0 && (
         <div className="mt-6 rounded-md border border-border px-4 py-8 text-center text-sm text-muted-foreground">
           No runs yet. Trigger a workflow to see execution history here.
         </div>
       )}
 
-      {runs && runs.length > 0 && (
-        <div className="mt-6 overflow-hidden border border-border">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border bg-muted/30">
-                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground/60">Workflow</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground/60">Instance</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground/60">Status</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground/60">Duration</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground/60">Started</th>
-              </tr>
-            </thead>
-            <tbody>
-              {runs.map((run) => {
-                const wf = workflowMap.get(run.workflowId)
-                return (
-                  <tr key={run.id} className="border-b border-border/50 last:border-0 transition-colors hover:bg-muted/30">
-                    <td className="px-4 py-3">
-                      {wf ? (
-                        <Link
-                          to="/workflows/$workflowId/runs"
-                          params={{ workflowId: run.workflowId }}
-                          className="text-sm text-foreground/70 hover:text-foreground"
-                        >
-                          {wf.name}
-                        </Link>
-                      ) : (
-                        <span className="text-sm font-mono text-muted-foreground">{run.workflowId.slice(0, 8)}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link
-                        to="/runs/$runId"
-                        params={{ runId: run.id }}
-                        search={{ workflowId: run.workflowId }}
-                        className="font-mono text-xs text-foreground/60 hover:text-foreground"
-                      >
-                        {run.instanceId}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      <RunStatusBadge status={run.status} />
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{duration(run.createdAt, run.updatedAt, run.status)}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{timeAgo(run.createdAt)}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+      {runs.length > 0 && (
+        <div className="mt-6 space-y-2">
+          {runs.map((run) => {
+            const wf = workflowMap.get(run.workflowId)
+            return (
+              <button
+                key={run.id}
+                onClick={() => openRunSheet({ runId: run.id, workflowId: run.workflowId, workflowName: wf?.name })}
+                className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:border-border/80 hover:bg-muted/20"
+              >
+                <div className="flex items-center gap-3">
+                  <RunStatusBadge status={run.status} />
+                  <div className="min-w-0">
+                    <span className="text-sm text-foreground/70">
+                      {wf?.name ?? <span className="font-mono">{run.workflowId.slice(0, 8)}</span>}
+                    </span>
+                    <span className="ml-2 font-mono text-xs text-muted-foreground/50">
+                      {run.instanceId}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <span className="font-mono">{duration(run.createdAt, run.updatedAt, run.status)}</span>
+                  <span>{timeAgo(run.createdAt)}</span>
+                </div>
+              </button>
+            )
+          })}
         </div>
       )}
 
       </div>
+
+      <RunDetailSheet />
 
       <TriggerDialog
         open={!!triggerWorkflowId}

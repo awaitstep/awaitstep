@@ -19,7 +19,9 @@ function makeStepNode(id: string, name?: string): FlowNode {
     type: 'step',
     name: name ?? `Step ${id}`,
     position: { x: 0, y: 0 },
-    code: 'return { ok: true };',
+    version: '1.0.0',
+    provider: 'cloudflare',
+    data: { code: 'return { ok: true };' },
   })
 }
 
@@ -77,10 +79,14 @@ describe('simulateWorkflow', () => {
         type: 'branch',
         name: 'Check',
         position: { x: 0, y: 0 },
-        branches: [
-          { label: 'yes', condition: 'true' },
-          { label: 'no', condition: '' },
-        ],
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {
+          branches: [
+            { label: 'yes', condition: 'true' },
+            { label: 'no', condition: '' },
+          ],
+        },
       })
       const nodes = [branchNode, makeStepNode('t1', 'Yes Target'), makeStepNode('t2', 'No Target')]
       const edges = [makeEdge('b1', 't1', 'yes'), makeEdge('b1', 't2', 'no')]
@@ -95,10 +101,14 @@ describe('simulateWorkflow', () => {
         type: 'branch',
         name: 'Check',
         position: { x: 0, y: 0 },
-        branches: [
-          { label: 'yes', condition: 'true' },
-          { label: 'no', condition: '' },
-        ],
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {
+          branches: [
+            { label: 'yes', condition: 'true' },
+            { label: 'no', condition: '' },
+          ],
+        },
       })
       // Only connect "yes" branch
       const nodes = [branchNode, makeStepNode('t1')]
@@ -114,10 +124,14 @@ describe('simulateWorkflow', () => {
         type: 'branch',
         name: 'Check',
         position: { x: 0, y: 0 },
-        branches: [
-          { label: 'yes', condition: 'true' },
-          { label: 'no', condition: '' },
-        ],
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {
+          branches: [
+            { label: 'yes', condition: 'true' },
+            { label: 'no', condition: '' },
+          ],
+        },
       })
       const result = simulateWorkflow([branchNode], [])
       expect(result.issues).toContainEqual(
@@ -136,6 +150,9 @@ describe('simulateWorkflow', () => {
         type: 'parallel',
         name: 'Fan Out',
         position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {},
       })
       const nodes = [parallelNode, makeStepNode('t1'), makeStepNode('t2')]
       const edges = [makeEdge('p1', 't1'), makeEdge('p1', 't2')]
@@ -150,6 +167,9 @@ describe('simulateWorkflow', () => {
         type: 'parallel',
         name: 'Fan Out',
         position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {},
       })
       const result = simulateWorkflow([parallelNode], [])
       expect(result.issues).toContainEqual(
@@ -167,16 +187,23 @@ describe('simulateWorkflow', () => {
         type: 'branch',
         name: 'Check',
         position: { x: 0, y: 0 },
-        branches: [
-          { label: 'yes', condition: 'true' },
-          { label: 'no', condition: '' },
-        ],
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {
+          branches: [
+            { label: 'yes', condition: 'true' },
+            { label: 'no', condition: '' },
+          ],
+        },
       })
       const parallelNode = makeFlowNode({
         id: 'p1',
         type: 'parallel',
         name: 'Fan Out',
         position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {},
       })
       const nodes = [
         branchNode,
@@ -240,7 +267,9 @@ describe('simulateWorkflow', () => {
         type: 'branch',
         name: 'Check',
         position: { x: 0, y: 0 },
-        branches: [{ label: 'yes', condition: 'true' }, { label: 'no', condition: '' }],
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { branches: [{ label: 'yes', condition: 'true' }, { label: 'no', condition: '' }] },
       })
       const nodes = [branchNode, makeStepNode('t1', 'Target')]
       const edges = [makeEdge('b1', 't1', 'yes')]
@@ -254,6 +283,9 @@ describe('simulateWorkflow', () => {
         type: 'parallel',
         name: 'Fan Out',
         position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {},
       })
       const nodes = [parallelNode, makeStepNode('t1', 'Worker')]
       const edges = [makeEdge('p1', 't1')]
@@ -276,7 +308,9 @@ describe('simulateWorkflow', () => {
         type: 'sleep',
         name: 'Wait',
         position: { x: 0, y: 0 },
-        duration: '10 seconds',
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { duration: '10 seconds' },
       })
       const result = simulateWorkflow([node], [])
       expect(result.paths[0]!.steps[0]!.status).toBe('skipped-instant')
@@ -285,10 +319,12 @@ describe('simulateWorkflow', () => {
     it('sleep-until produces skipped-instant status', () => {
       const node = makeFlowNode({
         id: 's1',
-        type: 'sleep-until',
+        type: 'sleep_until',
         name: 'Wait',
         position: { x: 0, y: 0 },
-        timestamp: '2026-06-01T00:00:00Z',
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { timestamp: '2026-06-01T00:00:00Z' },
       })
       const result = simulateWorkflow([node], [])
       expect(result.paths[0]!.steps[0]!.status).toBe('skipped-instant')
@@ -297,11 +333,12 @@ describe('simulateWorkflow', () => {
     it('http-request produces executed status', () => {
       const node = makeFlowNode({
         id: 'h1',
-        type: 'http-request',
+        type: 'http_request',
         name: 'Fetch',
         position: { x: 0, y: 0 },
-        url: 'https://api.example.com',
-        method: 'POST',
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { url: 'https://api.example.com', method: 'POST' },
       })
       const result = simulateWorkflow([node], [])
       expect(result.paths[0]!.steps[0]!.status).toBe('executed')
@@ -311,10 +348,12 @@ describe('simulateWorkflow', () => {
     it('wait-for-event produces event-received status', () => {
       const node = makeFlowNode({
         id: 'w1',
-        type: 'wait-for-event',
+        type: 'wait_for_event',
         name: 'Wait',
         position: { x: 0, y: 0 },
-        eventType: 'my-event',
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { eventType: 'my-event' },
       })
       const result = simulateWorkflow([node], [])
       expect(result.paths[0]!.steps[0]!.status).toBe('event-received')
@@ -326,7 +365,9 @@ describe('simulateWorkflow', () => {
         type: 'branch',
         name: 'Check',
         position: { x: 0, y: 0 },
-        branches: [{ label: 'yes', condition: 'true' }, { label: 'no', condition: '' }],
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { branches: [{ label: 'yes', condition: 'true' }, { label: 'no', condition: '' }] },
       })
       const nodes = [node, makeStepNode('t1')]
       const edges = [makeEdge('b1', 't1', 'yes')]
@@ -340,6 +381,9 @@ describe('simulateWorkflow', () => {
         type: 'parallel',
         name: 'Fan Out',
         position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {},
       })
       const nodes = [node, makeStepNode('t1')]
       const edges = [makeEdge('p1', 't1')]

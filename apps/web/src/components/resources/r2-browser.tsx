@@ -10,6 +10,11 @@ export function R2Browser({ connectionId }: R2BrowserProps) {
   const [selectedBucket, setSelectedBucket] = useState<string | null>(null)
   const [prefix, setPrefix] = useState('')
 
+  function handleBucketSelect(bucketName: string) {
+    setSelectedBucket(bucketName)
+    setPrefix('')
+  }
+
   const { data: buckets, isLoading: bucketsLoading } = useQuery({
     queryKey: ['r2-buckets', connectionId],
     queryFn: () =>
@@ -58,7 +63,7 @@ export function R2Browser({ connectionId }: R2BrowserProps) {
         {buckets?.map((bucket: { name: string; creation_date: string }) => (
           <button
             key={bucket.name}
-            onClick={() => { setSelectedBucket(bucket.name); setPrefix('') }}
+            onClick={() => handleBucketSelect(bucket.name)}
             className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
               selectedBucket === bucket.name ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
             }`}

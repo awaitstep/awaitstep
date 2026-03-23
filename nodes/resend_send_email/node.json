@@ -1,0 +1,73 @@
+{
+  "id": "resend_send_email",
+  "name": "Resend Send Email",
+  "version": "1.0.0",
+  "description": "Sends an email via the Resend API",
+  "category": "Email",
+  "tags": ["email", "resend", "transactional"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "from": {
+      "type": "string",
+      "label": "From",
+      "required": true,
+      "default": "onboarding@resend.dev",
+      "placeholder": "you@example.com",
+      "description": "Sender email address. Must be a verified domain in Resend."
+    },
+    "to": {
+      "type": "string",
+      "label": "To",
+      "required": true,
+      "placeholder": "recipient@example.com",
+      "description": "Recipient email address."
+    },
+    "subject": {
+      "type": "string",
+      "label": "Subject",
+      "required": true,
+      "placeholder": "Welcome to AwaitStep"
+    },
+    "html": {
+      "type": "textarea",
+      "label": "HTML Body",
+      "required": true,
+      "description": "Email body as HTML."
+    },
+    "replyTo": {
+      "type": "string",
+      "label": "Reply To",
+      "placeholder": "reply@example.com"
+    },
+    "cc": {
+      "type": "string",
+      "label": "CC",
+      "placeholder": "cc@example.com"
+    },
+    "bcc": {
+      "type": "string",
+      "label": "BCC",
+      "placeholder": "bcc@example.com"
+    },
+    "apiKey": {
+      "type": "secret",
+      "label": "Resend API Key",
+      "required": true,
+      "envVarName": "RESEND_API_KEY",
+      "description": "Found in your Resend dashboard under API Keys."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Resend email ID"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds",
+    "idempotent": false
+  }
+}

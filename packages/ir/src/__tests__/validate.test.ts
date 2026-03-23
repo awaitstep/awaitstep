@@ -3,6 +3,19 @@ import { validateIR } from '../validate.js'
 import simpleWorkflow from './fixtures/simple-workflow.json'
 import branchingWorkflow from './fixtures/branching-workflow.json'
 
+function node(id: string, overrides: Record<string, unknown> = {}) {
+  return {
+    id,
+    type: 'step',
+    name: id,
+    position: { x: 0, y: 0 },
+    version: '1.0.0',
+    provider: 'cloudflare',
+    data: { code: 'return 1;' },
+    ...overrides,
+  }
+}
+
 describe('validateIR', () => {
   it('accepts a valid simple workflow', () => {
     const result = validateIR(simpleWorkflow)
@@ -75,10 +88,7 @@ describe('validateIR', () => {
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
       },
-      nodes: [
-        { id: 'a', type: 'step', name: 'A', position: { x: 0, y: 0 }, code: 'return 1;' },
-        { id: 'b', type: 'step', name: 'B', position: { x: 0, y: 100 }, code: 'return 2;' },
-      ],
+      nodes: [node('a'), node('b')],
       edges: [
         { id: 'e1', source: 'a', target: 'b' },
         { id: 'e2', source: 'b', target: 'a' },
@@ -99,10 +109,7 @@ describe('validateIR', () => {
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
       },
-      nodes: [
-        { id: 'a', type: 'step', name: 'A', position: { x: 0, y: 0 }, code: 'return 1;' },
-        { id: 'b', type: 'step', name: 'B', position: { x: 100, y: 0 }, code: 'return 2;' },
-      ],
+      nodes: [node('a'), node('b', { position: { x: 100, y: 0 } })],
       edges: [],
       entryNodeId: 'a',
     })
@@ -112,49 +119,32 @@ describe('validateIR', () => {
     }
   })
 
-  it('rejects invalid event type characters in wait-for-event', () => {
+  it('rejects missing required fields', () => {
     const result = validateIR({
       metadata: {
-        name: 'bad-event',
+        name: 'bad',
         version: 1,
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
       },
-      nodes: [
-        {
-          id: 'wait',
-          type: 'wait-for-event',
-          name: 'Wait',
-          position: { x: 0, y: 0 },
-          eventType: 'invalid.type.with.dots',
-        },
-      ],
+      nodes: [{ id: 'a', type: 'step', name: 'A', position: { x: 0, y: 0 } }],
       edges: [],
-      entryNodeId: 'wait',
+      entryNodeId: 'a',
     })
     expect(result.ok).toBe(false)
   })
 
-  it('accepts valid wait-for-event node', () => {
+  it('accepts any node type string', () => {
     const result = validateIR({
       metadata: {
-        name: 'event-workflow',
+        name: 'custom-workflow',
         version: 1,
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
       },
-      nodes: [
-        {
-          id: 'wait',
-          type: 'wait-for-event',
-          name: 'Wait for approval',
-          position: { x: 0, y: 0 },
-          eventType: 'user-approval',
-          timeout: '24 hours',
-        },
-      ],
+      nodes: [node('a', { type: 'stripe-charge' })],
       edges: [],
-      entryNodeId: 'wait',
+      entryNodeId: 'a',
     })
     expect(result.ok).toBe(true)
   })

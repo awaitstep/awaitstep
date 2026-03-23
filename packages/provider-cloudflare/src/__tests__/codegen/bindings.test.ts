@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { detectBindings } from '../../codegen/bindings.js'
-import type { WorkflowIR } from '@awaitstep/ir'
+import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 
-function makeIR(nodes: WorkflowIR['nodes']): WorkflowIR {
+const V = '1.0.0'
+const P = 'cloudflare'
+
+function makeIR(nodes: WorkflowNode[]): WorkflowIR {
   return {
     metadata: { name: 'test', version: 1, createdAt: '', updatedAt: '' },
     nodes,
@@ -14,7 +17,7 @@ function makeIR(nodes: WorkflowIR['nodes']): WorkflowIR {
 describe('detectBindings', () => {
   it('detects KV binding from step code', () => {
     const ir = makeIR([
-      { id: 's1', name: 'S', position: { x: 0, y: 0 }, type: 'step', code: 'const val = await env.KV_CACHE.get("key")' },
+      { id: 's1', name: 'S', position: { x: 0, y: 0 }, type: 'step', version: V, provider: P, data: { code: 'const val = await env.KV_CACHE.get("key")' } },
     ])
     const bindings = detectBindings(ir)
     expect(bindings).toHaveLength(1)
@@ -28,7 +31,7 @@ describe('detectBindings', () => {
 
   it('detects D1 binding from step code', () => {
     const ir = makeIR([
-      { id: 's1', name: 'S', position: { x: 0, y: 0 }, type: 'step', code: 'await env.DB_MAIN.prepare(sql)' },
+      { id: 's1', name: 'S', position: { x: 0, y: 0 }, type: 'step', version: V, provider: P, data: { code: 'await env.DB_MAIN.prepare(sql)' } },
     ])
     const bindings = detectBindings(ir)
     expect(bindings).toHaveLength(1)
@@ -38,7 +41,7 @@ describe('detectBindings', () => {
 
   it('detects R2 binding from step code', () => {
     const ir = makeIR([
-      { id: 's1', name: 'S', position: { x: 0, y: 0 }, type: 'step', code: 'await env.BUCKET_ASSETS.put(key, data)' },
+      { id: 's1', name: 'S', position: { x: 0, y: 0 }, type: 'step', version: V, provider: P, data: { code: 'await env.BUCKET_ASSETS.put(key, data)' } },
     ])
     const bindings = detectBindings(ir)
     expect(bindings).toHaveLength(1)
@@ -54,8 +57,8 @@ describe('detectBindings', () => {
 
   it('deduplicates bindings', () => {
     const ir = makeIR([
-      { id: 's1', name: 'S1', position: { x: 0, y: 0 }, type: 'step', code: 'env.KV_CACHE.get("a")' },
-      { id: 's2', name: 'S2', position: { x: 0, y: 100 }, type: 'step', code: 'env.KV_CACHE.put("b", "c")' },
+      { id: 's1', name: 'S1', position: { x: 0, y: 0 }, type: 'step', version: V, provider: P, data: { code: 'env.KV_CACHE.get("a")' } },
+      { id: 's2', name: 'S2', position: { x: 0, y: 100 }, type: 'step', version: V, provider: P, data: { code: 'env.KV_CACHE.put("b", "c")' } },
     ])
     const bindings = detectBindings(ir)
     expect(bindings).toHaveLength(1)
@@ -63,7 +66,7 @@ describe('detectBindings', () => {
 
   it('returns empty for no bindings', () => {
     const ir = makeIR([
-      { id: 's1', name: 'S', position: { x: 0, y: 0 }, type: 'step', code: 'return 1' },
+      { id: 's1', name: 'S', position: { x: 0, y: 0 }, type: 'step', version: V, provider: P, data: { code: 'return 1' } },
     ])
     expect(detectBindings(ir)).toEqual([])
   })

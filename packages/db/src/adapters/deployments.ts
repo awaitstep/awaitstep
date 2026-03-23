@@ -1,4 +1,4 @@
-import { eq, desc, inArray } from 'drizzle-orm'
+import { eq, desc, and } from 'drizzle-orm'
 import type { Deployment } from '../types.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -33,13 +33,16 @@ export class DeploymentsAdapter {
     return row
   }
 
-  async listByWorkflow(workflowId: string): Promise<Deployment[]> {
-    return this.db.select().from(this.table).where(eq(this.table.workflowId, workflowId)).orderBy(desc(this.table.createdAt))
+  async getActiveByWorkflow(workflowId: string): Promise<Deployment | null> {
+    const rows = await this.db.select().from(this.table)
+      .where(and(eq(this.table.workflowId, workflowId), eq(this.table.status, 'success')))
+      .orderBy(desc(this.table.createdAt))
+      .limit(1)
+    return rows[0] ?? null
   }
 
-  async listByWorkflowIds(workflowIds: string[], limit: number): Promise<Deployment[]> {
-    if (workflowIds.length === 0) return []
-    return this.db.select().from(this.table).where(inArray(this.table.workflowId, workflowIds)).orderBy(desc(this.table.createdAt)).limit(limit)
+  async listByWorkflow(workflowId: string): Promise<Deployment[]> {
+    return this.db.select().from(this.table).where(eq(this.table.workflowId, workflowId)).orderBy(desc(this.table.createdAt))
   }
 
   async deleteByWorkflow(workflowId: string): Promise<void> {

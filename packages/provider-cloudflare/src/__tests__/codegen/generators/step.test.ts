@@ -1,14 +1,16 @@
 import { describe, it, expect } from 'vitest'
-import type { StepNode } from '@awaitstep/ir'
+import type { WorkflowNode } from '@awaitstep/ir'
 import { generateStep } from '../../../codegen/generators/step.js'
 
-function makeNode(overrides: Partial<StepNode> = {}): StepNode {
+function makeNode(overrides: Partial<WorkflowNode> = {}): WorkflowNode {
   return {
     id: 'step-1',
     type: 'step',
     name: 'Do work',
     position: { x: 0, y: 0 },
-    code: 'return { done: true };',
+    version: '1.0.0',
+    provider: 'cloudflare',
+    data: { code: 'return { done: true };' },
     ...overrides,
   }
 }
@@ -22,7 +24,7 @@ describe('generateStep', () => {
   })
 
   it('omits variable assignment when no return', () => {
-    const code = generateStep(makeNode({ code: 'console.log("hello");' }))
+    const code = generateStep(makeNode({ data: { code: 'console.log("hello");' } }))
     expect(code).not.toContain('const step_1 =')
     expect(code).toMatch(/^await step\.do/)
   })
@@ -79,7 +81,7 @@ describe('generateStep', () => {
 
   it('preserves multiline code', () => {
     const code = generateStep(makeNode({
-      code: 'const x = 1;\nreturn x + 1;',
+      data: { code: 'const x = 1;\nreturn x + 1;' },
     }))
     expect(code).toContain('const x = 1;\nreturn x + 1;')
   })

@@ -8,11 +8,11 @@ import { cn } from '../../lib/utils'
 const NODE_TYPE_LABELS: Record<string, string> = {
   step: 'Step',
   sleep: 'Sleep',
-  'sleep-until': 'Sleep Until',
+  'sleep_until': 'Sleep Until',
   branch: 'Branch',
   parallel: 'Parallel',
-  'http-request': 'HTTP',
-  'wait-for-event': 'Event',
+  'http_request': 'HTTP',
+  'wait_for_event': 'Event',
 }
 
 const STATUS_COLORS: Record<string, string> = {

@@ -29,7 +29,9 @@ function makeStepNode(id: string, overrides: Partial<{ name: string; code: strin
     type: 'step',
     name: overrides.name ?? 'My Step',
     position: { x: 0, y: 0 },
-    code: overrides.code ?? 'return { ok: true };',
+    version: '1.0.0',
+    provider: 'cloudflare',
+    data: { code: overrides.code ?? 'return { ok: true };' },
   })
 }
 
@@ -118,7 +120,7 @@ describe('validateWorkflowForPublish', () => {
 
   describe('sleep', () => {
     it('errors when duration is 0', () => {
-      const node = makeFlowNode({ id: 's1', type: 'sleep', name: 'Wait', position: { x: 0, y: 0 }, duration: 0 })
+      const node = makeFlowNode({ id: 's1', type: 'sleep', name: 'Wait', position: { x: 0, y: 0 }, version: '1.0.0', provider: 'cloudflare', data: { duration: 0 } })
       const result = validateWorkflowForPublish(makeMetadata(), [node], [])
       expect(result.issues).toContainEqual(
         expect.objectContaining({ severity: 'error', message: 'Duration is 0 or negative' }),
@@ -126,7 +128,7 @@ describe('validateWorkflowForPublish', () => {
     })
 
     it('errors when duration exceeds 365 days', () => {
-      const node = makeFlowNode({ id: 's1', type: 'sleep', name: 'Wait', position: { x: 0, y: 0 }, duration: '366 days' })
+      const node = makeFlowNode({ id: 's1', type: 'sleep', name: 'Wait', position: { x: 0, y: 0 }, version: '1.0.0', provider: 'cloudflare', data: { duration: '366 days' } })
       const result = validateWorkflowForPublish(makeMetadata(), [node], [])
       expect(result.issues).toContainEqual(
         expect.objectContaining({ severity: 'error', message: 'Duration exceeds 365 days' }),
@@ -134,7 +136,7 @@ describe('validateWorkflowForPublish', () => {
     })
 
     it('passes for valid duration', () => {
-      const node = makeFlowNode({ id: 's1', type: 'sleep', name: 'Wait', position: { x: 0, y: 0 }, duration: '10 seconds' })
+      const node = makeFlowNode({ id: 's1', type: 'sleep', name: 'Wait', position: { x: 0, y: 0 }, version: '1.0.0', provider: 'cloudflare', data: { duration: '10 seconds' } })
       const result = validateWorkflowForPublish(makeMetadata(), [node], [])
       expect(result.issues.filter((i) => i.nodeId === 's1' && i.severity === 'error')).toHaveLength(0)
     })
@@ -142,9 +144,9 @@ describe('validateWorkflowForPublish', () => {
 
   // ── sleep-until ──
 
-  describe('sleep-until', () => {
+  describe('sleep_until', () => {
     it('errors when timestamp is empty', () => {
-      const node = makeFlowNode({ id: 's1', type: 'sleep-until', name: 'Wait', position: { x: 0, y: 0 }, timestamp: '' })
+      const node = makeFlowNode({ id: 's1', type: 'sleep_until', name: 'Wait', position: { x: 0, y: 0 }, version: '1.0.0', provider: 'cloudflare', data: { timestamp: '' } })
       const result = validateWorkflowForPublish(makeMetadata(), [node], [])
       expect(result.issues).toContainEqual(
         expect.objectContaining({ severity: 'error', message: 'Timestamp is empty' }),
@@ -152,7 +154,7 @@ describe('validateWorkflowForPublish', () => {
     })
 
     it('errors when timestamp is invalid', () => {
-      const node = makeFlowNode({ id: 's1', type: 'sleep-until', name: 'Wait', position: { x: 0, y: 0 }, timestamp: 'not-a-date' })
+      const node = makeFlowNode({ id: 's1', type: 'sleep_until', name: 'Wait', position: { x: 0, y: 0 }, version: '1.0.0', provider: 'cloudflare', data: { timestamp: 'not-a-date' } })
       const result = validateWorkflowForPublish(makeMetadata(), [node], [])
       expect(result.issues).toContainEqual(
         expect.objectContaining({ severity: 'error', message: 'Timestamp is not a valid date' }),
@@ -160,7 +162,7 @@ describe('validateWorkflowForPublish', () => {
     })
 
     it('passes for valid timestamp', () => {
-      const node = makeFlowNode({ id: 's1', type: 'sleep-until', name: 'Wait', position: { x: 0, y: 0 }, timestamp: '2026-06-01T00:00:00Z' })
+      const node = makeFlowNode({ id: 's1', type: 'sleep_until', name: 'Wait', position: { x: 0, y: 0 }, version: '1.0.0', provider: 'cloudflare', data: { timestamp: '2026-06-01T00:00:00Z' } })
       const result = validateWorkflowForPublish(makeMetadata(), [node], [])
       expect(result.issues.filter((i) => i.nodeId === 's1' && i.severity === 'error')).toHaveLength(0)
     })
@@ -172,7 +174,8 @@ describe('validateWorkflowForPublish', () => {
     it('errors with fewer than 2 branches', () => {
       const node = makeFlowNode({
         id: 'b1', type: 'branch', name: 'Check', position: { x: 0, y: 0 },
-        branches: [{ label: 'yes', condition: 'true' }],
+        version: '1.0.0', provider: 'cloudflare',
+        data: { branches: [{ label: 'yes', condition: 'true' }] },
       })
       const result = validateWorkflowForPublish(makeMetadata(), [node], [])
       expect(result.issues).toContainEqual(
@@ -183,7 +186,8 @@ describe('validateWorkflowForPublish', () => {
     it('errors on duplicate branch labels', () => {
       const node = makeFlowNode({
         id: 'b1', type: 'branch', name: 'Check', position: { x: 0, y: 0 },
-        branches: [{ label: 'yes', condition: 'true' }, { label: 'yes', condition: '' }],
+        version: '1.0.0', provider: 'cloudflare',
+        data: { branches: [{ label: 'yes', condition: 'true' }, { label: 'yes', condition: '' }] },
       })
       const result = validateWorkflowForPublish(makeMetadata(), [node], [])
       expect(result.issues).toContainEqual(
@@ -194,7 +198,8 @@ describe('validateWorkflowForPublish', () => {
     it('errors when branch with condition has no connected target', () => {
       const node = makeFlowNode({
         id: 'b1', type: 'branch', name: 'Check', position: { x: 0, y: 0 },
-        branches: [{ label: 'yes', condition: 'x > 0' }, { label: 'no', condition: '' }],
+        version: '1.0.0', provider: 'cloudflare',
+        data: { branches: [{ label: 'yes', condition: 'x > 0' }, { label: 'no', condition: '' }] },
       })
       const result = validateWorkflowForPublish(makeMetadata(), [node], [])
       expect(result.issues).toContainEqual(
@@ -205,7 +210,8 @@ describe('validateWorkflowForPublish', () => {
     it('warns when no default/else branch', () => {
       const node = makeFlowNode({
         id: 'b1', type: 'branch', name: 'Check', position: { x: 0, y: 0 },
-        branches: [{ label: 'yes', condition: 'x > 0' }, { label: 'no', condition: 'x <= 0' }],
+        version: '1.0.0', provider: 'cloudflare',
+        data: { branches: [{ label: 'yes', condition: 'x > 0' }, { label: 'no', condition: 'x <= 0' }] },
       })
       const edges = [makeEdge('b1', 't1', 'yes'), makeEdge('b1', 't2', 'no')]
       const targets = [makeStepNode('t1'), makeStepNode('t2')]
@@ -218,7 +224,8 @@ describe('validateWorkflowForPublish', () => {
     it('passes for valid branch with default', () => {
       const node = makeFlowNode({
         id: 'b1', type: 'branch', name: 'Check', position: { x: 0, y: 0 },
-        branches: [{ label: 'yes', condition: 'x > 0' }, { label: 'else', condition: '' }],
+        version: '1.0.0', provider: 'cloudflare',
+        data: { branches: [{ label: 'yes', condition: 'x > 0' }, { label: 'else', condition: '' }] },
       })
       const edges = [makeEdge('b1', 't1', 'yes'), makeEdge('b1', 't2', 'else')]
       const targets = [makeStepNode('t1'), makeStepNode('t2')]
@@ -232,7 +239,7 @@ describe('validateWorkflowForPublish', () => {
 
   describe('parallel', () => {
     it('errors with 0 outgoing edges', () => {
-      const node = makeFlowNode({ id: 'p1', type: 'parallel', name: 'Fan Out', position: { x: 0, y: 0 } })
+      const node = makeFlowNode({ id: 'p1', type: 'parallel', name: 'Fan Out', position: { x: 0, y: 0 }, version: '1.0.0', provider: 'cloudflare', data: {} })
       const result = validateWorkflowForPublish(makeMetadata(), [node], [])
       expect(result.issues).toContainEqual(
         expect.objectContaining({ severity: 'error', message: '0 outgoing edges' }),
@@ -240,7 +247,7 @@ describe('validateWorkflowForPublish', () => {
     })
 
     it('warns with only 1 outgoing edge', () => {
-      const node = makeFlowNode({ id: 'p1', type: 'parallel', name: 'Fan Out', position: { x: 0, y: 0 } })
+      const node = makeFlowNode({ id: 'p1', type: 'parallel', name: 'Fan Out', position: { x: 0, y: 0 }, version: '1.0.0', provider: 'cloudflare', data: {} })
       const result = validateWorkflowForPublish(makeMetadata(), [node, makeStepNode('t1')], [makeEdge('p1', 't1')])
       expect(result.issues).toContainEqual(
         expect.objectContaining({ severity: 'warning', message: 'Only 1 outgoing edge' }),
@@ -248,7 +255,7 @@ describe('validateWorkflowForPublish', () => {
     })
 
     it('passes with 2+ outgoing edges', () => {
-      const node = makeFlowNode({ id: 'p1', type: 'parallel', name: 'Fan Out', position: { x: 0, y: 0 } })
+      const node = makeFlowNode({ id: 'p1', type: 'parallel', name: 'Fan Out', position: { x: 0, y: 0 }, version: '1.0.0', provider: 'cloudflare', data: {} })
       const edges = [makeEdge('p1', 't1'), makeEdge('p1', 't2')]
       const result = validateWorkflowForPublish(makeMetadata(), [node, makeStepNode('t1'), makeStepNode('t2')], edges)
       const parallelIssues = result.issues.filter((i) => i.nodeId === 'p1')
@@ -258,11 +265,12 @@ describe('validateWorkflowForPublish', () => {
 
   // ── http-request ──
 
-  describe('http-request', () => {
+  describe('http_request', () => {
     it('errors when url is empty', () => {
       const node = makeFlowNode({
-        id: 'h1', type: 'http-request', name: 'Fetch', position: { x: 0, y: 0 },
-        url: '', method: 'GET',
+        id: 'h1', type: 'http_request', name: 'Fetch', position: { x: 0, y: 0 },
+        version: '1.0.0', provider: 'cloudflare',
+        data: { url: '', method: 'GET' },
       })
       const result = validateWorkflowForPublish(makeMetadata(), [node], [])
       expect(result.issues).toContainEqual(
@@ -272,8 +280,9 @@ describe('validateWorkflowForPublish', () => {
 
     it('errors when method is missing', () => {
       const node = makeFlowNode({
-        id: 'h1', type: 'http-request', name: 'Fetch', position: { x: 0, y: 0 },
-        url: 'https://example.com', method: '' as 'GET',
+        id: 'h1', type: 'http_request', name: 'Fetch', position: { x: 0, y: 0 },
+        version: '1.0.0', provider: 'cloudflare',
+        data: { url: 'https://example.com', method: '' },
       })
       const result = validateWorkflowForPublish(makeMetadata(), [node], [])
       expect(result.issues).toContainEqual(
@@ -284,11 +293,12 @@ describe('validateWorkflowForPublish', () => {
 
   // ── wait-for-event ──
 
-  describe('wait-for-event', () => {
+  describe('wait_for_event', () => {
     it('errors when eventType is empty', () => {
       const node = makeFlowNode({
-        id: 'w1', type: 'wait-for-event', name: 'Wait', position: { x: 0, y: 0 },
-        eventType: '',
+        id: 'w1', type: 'wait_for_event', name: 'Wait', position: { x: 0, y: 0 },
+        version: '1.0.0', provider: 'cloudflare',
+        data: { eventType: '' },
       })
       const result = validateWorkflowForPublish(makeMetadata(), [node], [])
       expect(result.issues).toContainEqual(
@@ -298,8 +308,9 @@ describe('validateWorkflowForPublish', () => {
 
     it('errors when eventType has invalid characters', () => {
       const node = makeFlowNode({
-        id: 'w1', type: 'wait-for-event', name: 'Wait', position: { x: 0, y: 0 },
-        eventType: 'my.event',
+        id: 'w1', type: 'wait_for_event', name: 'Wait', position: { x: 0, y: 0 },
+        version: '1.0.0', provider: 'cloudflare',
+        data: { eventType: 'my.event' },
       })
       const result = validateWorkflowForPublish(makeMetadata(), [node], [])
       expect(result.issues).toContainEqual(
@@ -309,8 +320,9 @@ describe('validateWorkflowForPublish', () => {
 
     it('passes for valid eventType', () => {
       const node = makeFlowNode({
-        id: 'w1', type: 'wait-for-event', name: 'Wait', position: { x: 0, y: 0 },
-        eventType: 'my-event_123',
+        id: 'w1', type: 'wait_for_event', name: 'Wait', position: { x: 0, y: 0 },
+        version: '1.0.0', provider: 'cloudflare',
+        data: { eventType: 'my-event_123' },
       })
       const result = validateWorkflowForPublish(makeMetadata(), [node], [])
       expect(result.issues.filter((i) => i.nodeId === 'w1' && i.severity === 'error')).toHaveLength(0)
@@ -331,7 +343,7 @@ describe('validateWorkflowForPublish', () => {
     it('is true with only warnings', () => {
       // Parallel with 1 edge produces a warning
       const nodes = [
-        makeFlowNode({ id: 'p', type: 'parallel', name: 'Fan', position: { x: 0, y: 0 } }),
+        makeFlowNode({ id: 'p', type: 'parallel', name: 'Fan', position: { x: 0, y: 0 }, version: '1.0.0', provider: 'cloudflare', data: {} }),
         makeStepNode('a'),
       ]
       const edges = [makeEdge('p', 'a')]

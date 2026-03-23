@@ -1,8 +1,8 @@
-import type { ParallelNode, WorkflowIR, WorkflowNode } from '@awaitstep/ir'
+import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { buildAdjacencyList } from '@awaitstep/codegen'
 
 export function generateParallel(
-  node: ParallelNode,
+  node: WorkflowNode,
   ir: WorkflowIR,
   generateNode: (node: WorkflowNode, ir: WorkflowIR) => string,
 ): string {

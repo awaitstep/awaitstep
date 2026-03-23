@@ -12,12 +12,13 @@ export class ConnectionsAdapter {
     private crypto?: TokenCrypto,
   ) {}
 
-  async create(data: { id: string; userId: string; provider: string; credentials: string; name: string }): Promise<Connection> {
+  async create(data: { id: string; organizationId: string; createdBy: string; provider: string; credentials: string; name: string }): Promise<Connection> {
     const now = new Date().toISOString()
     const encryptedCredentials = this.crypto ? await this.crypto.encrypt(data.credentials) : data.credentials
     const row = {
       id: data.id,
-      userId: data.userId,
+      organizationId: data.organizationId,
+      createdBy: data.createdBy,
       provider: data.provider,
       name: data.name,
       credentials: encryptedCredentials,
@@ -37,8 +38,8 @@ export class ConnectionsAdapter {
     return row
   }
 
-  async listByUser(userId: string): Promise<Connection[]> {
-    const rows = await this.db.select().from(this.table).where(eq(this.table.userId, userId)).orderBy(desc(this.table.createdAt))
+  async listByOrganization(organizationId: string): Promise<Connection[]> {
+    const rows = await this.db.select().from(this.table).where(eq(this.table.organizationId, organizationId)).orderBy(desc(this.table.createdAt))
     if (this.crypto) {
       for (const row of rows) {
         row.credentials = await this.tryDecrypt(row.credentials)
@@ -52,7 +53,6 @@ export class ConnectionsAdapter {
     try {
       return await this.crypto.decrypt(value)
     } catch {
-      // Credentials stored before encryption was enabled — return as-is
       return value
     }
   }

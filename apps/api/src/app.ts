@@ -2,10 +2,13 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { csrf } from 'hono/csrf'
 import { bodyLimit } from 'hono/body-limit'
+import { secureHeaders } from 'hono/secure-headers'
+import { logger as honoLogger } from 'hono/logger'
 import { requestId } from 'hono/request-id'
 import type { AppEnv } from './types.js'
 import type { Auth } from './auth/config.js'
 import type { Logger } from './lib/logger.js'
+import type { AppNodeRegistry } from './lib/node-registry.js'
 import { createLogger } from './lib/logger.js'
 import { createRouter } from './routes/index.js'
 import { createRateLimiter } from './middleware/rate-limit.js'
@@ -23,6 +26,7 @@ export interface AppDeps {
   corsOrigin?: string | string[]
   isDev?: boolean
   selfHostedConnection?: SelfHostedConnection
+  nodeRegistry?: AppNodeRegistry
 }
 
 export function createApp(deps: AppDeps) {
@@ -31,6 +35,12 @@ export function createApp(deps: AppDeps) {
 
   // Request ID — unique ID for every request, returned in X-Request-Id header
   app.use('*', requestId())
+
+  // Request logger — logs method, path, and status for every request
+  app.use('*', honoLogger())
+
+  // Security headers — X-Content-Type-Options, X-Frame-Options, HSTS, etc.
+  app.use('*', secureHeaders())
 
   // Health check — no auth, no CORS
   app.get('/health', (c) => c.json({ status: 'ok' }))
@@ -53,6 +63,9 @@ export function createApp(deps: AppDeps) {
   // Skips when: (a) using bearer token auth, or (b) no cookie header (no session to abuse)
   const csrfOrigin = deps.corsOrigin ?? 'http://localhost:3000'
   if (csrfOrigin === '*') {
+    if (!deps.isDev) {
+      throw new Error('Wildcard CORS origin is not allowed in production (credentials: true). Set CORS_ORIGIN to a specific origin.')
+    }
     log.warn('CSRF protection disabled — corsOrigin is set to wildcard')
   } else {
     const csrfMiddleware = csrf({ origin: csrfOrigin })
@@ -68,16 +81,21 @@ export function createApp(deps: AppDeps) {
   }
 
   // Auth rate limit — 5 requests per minute per IP (login, signup, magic link)
-  app.use('/api/auth/*', createRateLimiter({ windowMs: 60_000, max: 5 }))
+  // Excludes get-session since SSR hits it on every page load
+  app.use('/api/auth/*', async (c, next) => {
+    if (c.req.path.endsWith('/get-session')) return next()
+    return createRateLimiter({ windowMs: 60_000, max: 5 })(c, next)
+  })
 
   // Better-auth handler
   app.on(['POST', 'GET'], '/api/auth/*', (c) => {
     return deps.auth.handler(c.req.raw)
   })
 
-  // DB context
+  // DB + node registry context
   app.use('/api/*', async (c, next) => {
     c.set('db', deps.db)
+    if (deps.nodeRegistry) c.set('nodeRegistry', deps.nodeRegistry)
     await next()
   })
 

@@ -15,7 +15,7 @@
     "test": "vitest run --passWithNoTests",
     "type-check": "tsc --noEmit",
     "lint": "eslint src/",
-    "db:generate": "drizzle-kit generate",
+    "db:generate": "drizzle-kit generate && DB_DIALECT=pg drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push"
   },

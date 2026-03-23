@@ -1,11 +1,17 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { Database, HardDrive, Archive } from 'lucide-react'
+import { Database, HardDrive, Archive, KeyRound } from 'lucide-react'
 
 export const Route = createFileRoute('/_authed/resources/')({
   component: ResourcesPage,
 })
 
 const RESOURCE_TYPES = [
+  {
+    name: 'Environment Variables',
+    description: 'Manage global secrets and variables for your workflows',
+    icon: KeyRound,
+    href: '/resources/env-vars',
+  },
   {
     name: 'KV Namespaces',
     description: 'Browse key-value storage namespaces and their contents',
@@ -36,7 +42,7 @@ function ResourcesPage() {
         </p>
       </div>
 
-      <div className="mx-auto max-w-screen-md">
+      <div>
       <div className="mt-6 rounded-md border border-border">
         {RESOURCE_TYPES.map((type, i) => (
           <Link

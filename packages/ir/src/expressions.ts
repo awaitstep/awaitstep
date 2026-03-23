@@ -5,7 +5,7 @@
  * References the output of an upstream node.
  */
 
-const EXPRESSION_PATTERN = /\{\{(\w[\w-]*(?:\.\w[\w-]*)*)\}\}/g
+const EXPRESSION_PATTERN = /\{\{(\w+(?:\.\w+)*)\}\}/g
 
 export interface ParsedExpression {
   raw: string

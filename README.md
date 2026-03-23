@@ -1,14 +1,101 @@
 # AwaitStep
 
-Visual workflow builder for Cloudflare Workflows. Design workflows with drag-and-drop, generate TypeScript `WorkflowEntrypoint` code, and deploy to your Cloudflare account.
+Visual workflow builder. Design workflows with drag-and-drop, generate TypeScript code, and deploy to your workflow provider.
+
+**Currently supported:** [Cloudflare Workflows](https://developers.cloudflare.com/workflows/). More providers (e.g. Trigger.dev) planned.
 
 ## Features
 
 - **Visual Canvas** — Drag-and-drop workflow designer powered by ReactFlow
 - **Live Code Preview** — See generated TypeScript as you build
-- **One-Click Deploy** — Deploy directly to Cloudflare Workers
+- **One-Click Deploy** — Deploy directly to your workflow provider
 - **Run Monitoring** — Trigger workflows and watch execution in real-time
+- **Custom Nodes** — Extend with custom node types via `node-cli`
+- **Environment Variables** — Global secrets and per-workflow env vars with encrypted storage
+- **API Keys** — Scoped API key authentication (read/write/deploy)
+- **Multi-Provider** — Pluggable provider architecture (add new runtimes without changing core)
 - **Self-Hostable** — Run anywhere: Cloudflare Workers, Docker, VPS, Vercel
+
+## Architecture
+
+```mermaid
+graph TB
+    subgraph Frontend["apps/web — TanStack Start"]
+        Canvas["Canvas Editor"]
+        CodePreview["Code Preview"]
+        DeployUI["Deploy + Monitor"]
+    end
+
+    subgraph API["apps/api — Hono"]
+        Routes["REST API"]
+        Auth["better-auth"]
+    end
+
+    subgraph Packages["Core Packages"]
+        IR["@awaitstep/ir\nTypes · Schemas · Validation\nNode Registry"]
+        Codegen["@awaitstep/codegen\nProvider Interface\nDAG · Transpilation"]
+        Providers["@awaitstep/provider-*\nCode Generation\nDeploy Adapters"]
+        DB["@awaitstep/db\nDrizzle ORM\nToken Encryption"]
+        NodeCLI["@awaitstep/node-cli\nNode Validation\nBundling"]
+    end
+
+    subgraph Runtime["Workflow Runtime"]
+        ProviderA["Cloudflare Workflows"]
+        ProviderB["Future Providers"]
+    end
+
+    Frontend -->|HTTP| API
+    API --> Packages
+    IR --> Codegen --> Providers --> Runtime
+    NodeCLI --> IR
+```
+
+See [docs/architecture.md](docs/architecture.md) for detailed architecture documentation.
+
+### Package Dependency Flow
+
+```mermaid
+graph LR
+    IR["@awaitstep/ir"] --> Codegen["@awaitstep/codegen"]
+    Codegen --> Providers["@awaitstep/provider-*"]
+    Providers --> Runtime["Workflow Runtime"]
+    NodeCLI["@awaitstep/node-cli"] --> IR
+    DB["@awaitstep/db (standalone)"]
+    style DB stroke-dasharray: 5 5
+```
+
+## Project Structure
+
+```
+awaitstep.dev/
+├── packages/
+│   ├── ir/                    # WorkflowIR types, schemas, validation, node registry
+│   ├── codegen/               # IR → TypeScript code generator + provider interface
+│   ├── provider-cloudflare/   # Cloudflare Workflows adapter (first provider)
+│   ├── db/                    # DatabaseAdapter + Drizzle implementations
+│   └── node-cli/              # Custom node definition CLI + bundling
+├── apps/
+│   ├── web/                   # TanStack Start frontend
+│   └── api/                   # Hono API server
+├── nodes/                     # Custom node definitions (e.g. resend_send_email)
+├── docs/                      # Architecture + system documentation
+├── plan/                      # Design docs and implementation plans
+└── tooling/
+    └── tsconfig/              # Shared TypeScript configs
+```
+
+## Supported Node Types
+
+| Node | Description |
+|---|---|
+| Step | Execute custom code |
+| Sleep | Pause for a duration |
+| Sleep Until | Pause until a timestamp |
+| Branch | Conditional branching |
+| Parallel | Run steps concurrently |
+| HTTP Request | Make an HTTP call |
+| Wait for Event | Pause until external event |
+| Custom | User-defined node types |
 
 ## Quickstart
 
@@ -21,34 +108,6 @@ pnpm dev
 ```
 
 **Prerequisites:** Node.js >= 20, pnpm >= 9
-
-## Project Structure
-
-```
-awaitstep.dev/
-├── packages/
-│   ├── ir/                    # WorkflowIR types, Zod schemas, validation
-│   ├── codegen/               # IR → TypeScript code generator + provider interface
-│   ├── provider-cloudflare/   # Cloudflare Workflows deploy adapter
-│   └── db/                    # DatabaseAdapter interface + implementations
-├── apps/
-│   ├── web/                   # TanStack Start frontend
-│   └── api/                   # Hono API server
-└── tooling/
-    └── tsconfig/              # Shared TypeScript configs
-```
-
-## Supported Node Types
-
-| Node | Description | CF Workflows API |
-|---|---|---|
-| Step | Execute custom code | `step.do()` |
-| Sleep | Pause for a duration | `step.sleep()` |
-| Sleep Until | Pause until a timestamp | `step.sleepUntil()` |
-| Branch | Conditional branching | `if/else` |
-| Parallel | Run steps concurrently | `Promise.all()` |
-| HTTP Request | Make an HTTP call | `fetch()` inside `step.do()` |
-| Wait for Event | Pause until external event | `step.waitForEvent()` |
 
 ## Development
 
@@ -65,9 +124,9 @@ pnpm dev          # Start dev servers
 - **Frontend:** TanStack Start, ReactFlow, Monaco Editor, Zustand, Tailwind CSS
 - **Backend:** Hono
 - **Auth:** better-auth (GitHub, Google, Magic Links)
-- **Database:** D1 (Cloudflare) / PostgreSQL
+- **Database:** SQLite (dev) / PostgreSQL (prod) via Drizzle ORM
 - **Codegen:** esbuild
-- **Testing:** Vitest + Playwright
+- **Testing:** Vitest
 - **Monorepo:** pnpm workspaces + Turborepo
 
 ## Contributing

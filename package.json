@@ -16,13 +16,25 @@
     "db:generate": "dotenv -- pnpm --filter @awaitstep/db db:generate",
     "db:migrate": "dotenv -- pnpm --filter @awaitstep/db db:migrate",
     "db:push": "dotenv -- pnpm --filter @awaitstep/db db:push",
+    "nodes:generate": "pnpm --filter @awaitstep/node-cli build && node packages/node-cli/dist/cli.js generate",
+    "nodes:build": "pnpm --filter @awaitstep/node-cli build && node packages/node-cli/dist/cli.js build",
+    "prebuild": "pnpm nodes:build",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "prepare": "husky"
+  },
+  "pnpm": {
+    "overrides": {
+      "h3": ">=2.0.1-rc.17",
+      "h3-v2": "npm:h3@>=2.0.1-rc.17"
+    }
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "dotenv-cli": "^11.0.0",
     "eslint": "^10.0.3",
+    "eslint-plugin-unused-imports": "4.4.1",
+    "husky": "9.1.7",
     "prettier": "^3.8.1",
     "turbo": "^2.8.17",
     "typescript": "^5.9.3",

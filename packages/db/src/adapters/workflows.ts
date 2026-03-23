@@ -7,14 +7,18 @@ type AnyTable = any
 export class WorkflowsAdapter {
   constructor(private db: AnyTable, private table: AnyTable) {}
 
-  async create(data: { id: string; userId: string; name: string; description?: string }): Promise<Workflow> {
+  async create(data: { id: string; projectId: string; createdBy: string; name: string; description?: string }): Promise<Workflow> {
     const now = new Date().toISOString()
     const row = {
       id: data.id,
-      userId: data.userId,
+      projectId: data.projectId,
+      createdBy: data.createdBy,
       name: data.name,
       description: data.description ?? null,
       currentVersionId: null,
+      envVars: null,
+      triggerCode: null,
+      dependencies: null,
       createdAt: now,
       updatedAt: now,
     }
@@ -27,11 +31,11 @@ export class WorkflowsAdapter {
     return rows[0] ?? null
   }
 
-  async listByUser(userId: string): Promise<Workflow[]> {
-    return this.db.select().from(this.table).where(eq(this.table.userId, userId)).orderBy(desc(this.table.updatedAt))
+  async listByProject(projectId: string): Promise<Workflow[]> {
+    return this.db.select().from(this.table).where(eq(this.table.projectId, projectId)).orderBy(desc(this.table.updatedAt))
   }
 
-  async update(id: string, data: { name?: string; description?: string; currentVersionId?: string | null }): Promise<Workflow> {
+  async update(id: string, data: { name?: string; description?: string; currentVersionId?: string | null; envVars?: string | null; triggerCode?: string | null; dependencies?: string | null; projectId?: string }): Promise<Workflow> {
     const now = new Date().toISOString()
     await this.db.update(this.table).set({ ...data, updatedAt: now }).where(eq(this.table.id, id))
     const updated = await this.getById(id)
