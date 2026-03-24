@@ -18,7 +18,13 @@ import { customAlphabet } from 'nanoid'
 const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789_', 12)
 
 const BUILTIN_FLOW_TYPES = new Set([
-  'step', 'sleep', 'sleep_until', 'branch', 'parallel', 'http_request', 'wait_for_event',
+  'step',
+  'sleep',
+  'sleep_until',
+  'branch',
+  'parallel',
+  'http_request',
+  'wait_for_event',
 ])
 
 export function toFlowType(irType: string): string {
@@ -95,7 +101,12 @@ interface WorkflowState {
   onConnect: (connection: Connection) => void
 
   addNode: (type: NodeType, position: { x: number; y: number }, registry?: NodeRegistry) => void
-  insertNodeOnEdge: (type: NodeType, position: { x: number; y: number }, edgeId: string, registry?: NodeRegistry) => void
+  insertNodeOnEdge: (
+    type: NodeType,
+    position: { x: number; y: number },
+    edgeId: string,
+    registry?: NodeRegistry,
+  ) => void
   updateNodeData: (nodeId: string, data: Partial<WorkflowNode>) => void
   removeNode: (nodeId: string) => void
   selectNode: (nodeId: string | null) => void
@@ -129,19 +140,34 @@ function configDefaults(schema?: Record<string, ConfigField>): Record<string, un
   return data
 }
 
-function createDefaultNode(type: NodeType, position: { x: number; y: number }, registry?: NodeRegistry): WorkflowNode {
+function createDefaultNode(
+  type: NodeType,
+  position: { x: number; y: number },
+  registry?: NodeRegistry,
+): WorkflowNode {
   const id = nanoid()
   const base = { id, type, position, name: `New ${type}`, version: '1.0.0', provider: 'cloudflare' }
 
   switch (type) {
     case 'step':
-      return { ...base, data: { code: '// Write your business logic here\n\nreturn { result: "ok" };' } }
+      return {
+        ...base,
+        data: { code: '// Write your business logic here\n\nreturn { result: "ok" };' },
+      }
     case 'sleep':
       return { ...base, data: { duration: '10 seconds' } }
     case 'sleep_until':
       return { ...base, data: { timestamp: new Date().toISOString() } }
     case 'branch':
-      return { ...base, data: { branches: [{ label: 'true', condition: 'true' }, { label: 'false', condition: '' }] } }
+      return {
+        ...base,
+        data: {
+          branches: [
+            { label: 'true', condition: 'true' },
+            { label: 'false', condition: '' },
+          ],
+        },
+      }
     case 'parallel':
       return { ...base, data: {} }
     case 'http_request':
@@ -160,13 +186,21 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   onNodesChange: (changes) => {
     if (get().readOnly) {
       // In read-only mode, only allow selection changes
-      const allowed = changes.filter((c) => c.type === 'select' || c.type === 'dimensions' || c.type === 'position' && !('dragging' in c && c.dragging))
+      const allowed = changes.filter(
+        (c) =>
+          c.type === 'select' ||
+          c.type === 'dimensions' ||
+          (c.type === 'position' && !('dragging' in c && c.dragging)),
+      )
       if (allowed.length > 0) set({ nodes: applyNodeChanges(allowed, get().nodes) })
       return
     }
-    const hasDirtyChange = changes.some((c) =>
-      c.type === 'add' || c.type === 'remove' || c.type === 'replace' ||
-      (c.type === 'position' && c.dragging),
+    const hasDirtyChange = changes.some(
+      (c) =>
+        c.type === 'add' ||
+        c.type === 'remove' ||
+        c.type === 'replace' ||
+        (c.type === 'position' && c.dragging),
     )
     const removedIds = new Set(changes.filter((c) => c.type === 'remove').map((c) => c.id))
     const selectedNodeId = removedIds.has(get().selectedNodeId ?? '') ? null : undefined
@@ -183,7 +217,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     if (meaningful.length === 0) return
     const dirtyTypes = new Set(['add', 'remove', 'replace'])
     const hasDirtyChange = meaningful.some((c) => dirtyTypes.has(c.type))
-    set({ edges: applyEdgeChanges(meaningful, get().edges), ...(hasDirtyChange && { isDirty: true }) })
+    set({
+      edges: applyEdgeChanges(meaningful, get().edges),
+      ...(hasDirtyChange && { isDirty: true }),
+    })
   },
 
   onConnect: (connection) => {
@@ -239,12 +276,17 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     if (get().readOnly) return
     const currentNode = get().nodes.find((n) => n.id === nodeId)
     const updatedIrNode = currentNode
-      ? { ...currentNode.data.irNode, ...data } as WorkflowNode
+      ? ({ ...currentNode.data.irNode, ...data } as WorkflowNode)
       : null
 
     // Sync edge labels when branch labels change
     let edges = get().edges
-    if (updatedIrNode?.type === 'branch' && 'data' in data && data.data && 'branches' in (data.data as Record<string, unknown>)) {
+    if (
+      updatedIrNode?.type === 'branch' &&
+      'data' in data &&
+      data.data &&
+      'branches' in (data.data as Record<string, unknown>)
+    ) {
       const oldBranches = (currentNode?.data.irNode.data.branches ?? []) as { label: string }[]
       const newBranches = (updatedIrNode.data.branches ?? []) as { label: string }[]
       edges = edges.map((edge) => {
@@ -292,7 +334,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   setMetadata: (metadata) => {
-    set({ metadata: { ...get().metadata, ...metadata, updatedAt: new Date().toISOString() }, isDirty: true })
+    set({
+      metadata: { ...get().metadata, ...metadata, updatedAt: new Date().toISOString() },
+      isDirty: true,
+    })
   },
 
   setInputParams: (params) => {

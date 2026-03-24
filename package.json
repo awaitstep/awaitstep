@@ -25,8 +25,8 @@
   },
   "pnpm": {
     "overrides": {
-      "h3": ">=2.0.1-rc.17",
-      "h3-v2": "npm:h3@>=2.0.1-rc.17"
+      "h3": ">=2.0.1-rc.19",
+      "h3-v2": "npm:h3@>=2.0.1-rc.19"
     }
   },
   "devDependencies": {

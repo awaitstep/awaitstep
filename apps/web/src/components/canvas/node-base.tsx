@@ -33,21 +33,27 @@ export function NodeBase({ label, icon, accent, selected, warning, children }: N
     <div
       className={cn(
         'group relative w-[120px] rounded border border-border bg-card shadow-md transition-all duration-150',
-        selected && 'border-primary/60 shadow-[0_0_0_1px_oklch(0.696_0.17_162.48/0.3),0_2px_8px_rgba(0,0,0,0.5)]',
+        selected &&
+          'border-primary/60 shadow-[0_0_0_1px_oklch(0.696_0.17_162.48/0.3),0_2px_8px_rgba(0,0,0,0.5)]',
         overlayActive && stepStatus && !selected && STATUS_STYLES[stepStatus],
       )}
     >
       {warning && !overlayActive && (
-        <div className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-card bg-amber-500" title="Unknown node type" />
+        <div
+          className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-card bg-amber-500"
+          title="Unknown node type"
+        />
       )}
 
       {overlayActive && stepStatus && stepStatus !== 'pending' && stepStatus !== 'skipped' && (
-        <div className={cn(
-          'absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-card',
-          stepStatus === 'complete' && 'bg-emerald-500',
-          stepStatus === 'running' && 'bg-blue-500 animate-pulse',
-          stepStatus === 'errored' && 'bg-red-500',
-        )} />
+        <div
+          className={cn(
+            'absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-card',
+            stepStatus === 'complete' && 'bg-emerald-500',
+            stepStatus === 'running' && 'bg-blue-500 animate-pulse',
+            stepStatus === 'errored' && 'bg-red-500',
+          )}
+        />
       )}
 
       <Handle
@@ -55,7 +61,9 @@ export function NodeBase({ label, icon, accent, selected, warning, children }: N
         position={Position.Top}
         className={cn(
           '!-top-[3px] !h-[6px] !w-[6px] !rounded-full !border-[1px] !border-card transition-colors group-hover:!bg-primary',
-          hasIncoming ? '!bg-[oklch(0.5_0_0)]' : '!bg-transparent !border-transparent group-hover:!bg-primary group-hover:!border-card',
+          hasIncoming
+            ? '!bg-[oklch(0.5_0_0)]'
+            : '!bg-transparent !border-transparent group-hover:!bg-primary group-hover:!border-card',
         )}
       />
 
@@ -63,7 +71,9 @@ export function NodeBase({ label, icon, accent, selected, warning, children }: N
         <div className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded-sm', accent)}>
           {icon}
         </div>
-        <span className="truncate text-[8px] font-medium leading-tight text-foreground">{label}</span>
+        <span className="truncate text-[8px] font-medium leading-tight text-foreground">
+          {label}
+        </span>
       </div>
 
       {children && (
@@ -77,7 +87,9 @@ export function NodeBase({ label, icon, accent, selected, warning, children }: N
         position={Position.Bottom}
         className={cn(
           '!-bottom-[3px] !h-[6px] !w-[6px] !rounded-full !border-[1px] !border-card transition-colors group-hover:!bg-primary',
-          hasOutgoing ? '!bg-[oklch(0.5_0_0)]' : '!bg-transparent !border-transparent group-hover:!bg-primary group-hover:!border-card',
+          hasOutgoing
+            ? '!bg-[oklch(0.5_0_0)]'
+            : '!bg-transparent !border-transparent group-hover:!bg-primary group-hover:!border-card',
         )}
       />
     </div>

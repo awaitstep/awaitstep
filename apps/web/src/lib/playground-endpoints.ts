@@ -118,7 +118,11 @@ export const endpoints: EndpointDef[] = [
     scope: 'write',
     params: [],
     hasBody: true,
-    bodyExample: JSON.stringify({ name: 'My Project', slug: 'my-project', description: '' }, null, 2),
+    bodyExample: JSON.stringify(
+      { name: 'My Project', slug: 'my-project', description: '' },
+      null,
+      2,
+    ),
   },
   {
     id: 'update-project',
@@ -367,7 +371,11 @@ export const endpoints: EndpointDef[] = [
     params: [],
     hasBody: true,
     bodyExample: JSON.stringify(
-      { provider: 'cloudflare', credentials: { apiToken: '', accountId: '' }, name: 'My Connection' },
+      {
+        provider: 'cloudflare',
+        credentials: { apiToken: '', accountId: '' },
+        name: 'My Connection',
+      },
       null,
       2,
     ),

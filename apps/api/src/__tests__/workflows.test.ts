@@ -50,9 +50,24 @@ describe('workflow routes', () => {
 
   describe('GET /api/workflows', () => {
     it('lists workflows for the current project', async () => {
-      await mockDb.createWorkflow({ id: 'wf-1', projectId: TEST_PROJECT_ID, createdBy: TEST_USER_ID, name: 'A' })
-      await mockDb.createWorkflow({ id: 'wf-2', projectId: TEST_PROJECT_ID, createdBy: TEST_USER_ID, name: 'B' })
-      await mockDb.createWorkflow({ id: 'wf-3', projectId: 'other-project', createdBy: 'other-user', name: 'C' })
+      await mockDb.createWorkflow({
+        id: 'wf-1',
+        projectId: TEST_PROJECT_ID,
+        createdBy: TEST_USER_ID,
+        name: 'A',
+      })
+      await mockDb.createWorkflow({
+        id: 'wf-2',
+        projectId: TEST_PROJECT_ID,
+        createdBy: TEST_USER_ID,
+        name: 'B',
+      })
+      await mockDb.createWorkflow({
+        id: 'wf-3',
+        projectId: 'other-project',
+        createdBy: 'other-user',
+        name: 'C',
+      })
 
       const res = await app.request(url('/api/workflows'))
       expect(res.status).toBe(200)
@@ -63,7 +78,12 @@ describe('workflow routes', () => {
 
   describe('GET /api/workflows/:id', () => {
     it('returns the workflow', async () => {
-      await mockDb.createWorkflow({ id: 'wf-1', projectId: TEST_PROJECT_ID, createdBy: TEST_USER_ID, name: 'Test' })
+      await mockDb.createWorkflow({
+        id: 'wf-1',
+        projectId: TEST_PROJECT_ID,
+        createdBy: TEST_USER_ID,
+        name: 'Test',
+      })
 
       const res = await app.request(url('/api/workflows/wf-1'))
       expect(res.status).toBe(200)
@@ -77,7 +97,12 @@ describe('workflow routes', () => {
     })
 
     it('returns 404 for workflow in another project', async () => {
-      await mockDb.createWorkflow({ id: 'wf-1', projectId: 'other-project', createdBy: 'other-user', name: 'Secret' })
+      await mockDb.createWorkflow({
+        id: 'wf-1',
+        projectId: 'other-project',
+        createdBy: 'other-user',
+        name: 'Secret',
+      })
 
       const res = await app.request(url('/api/workflows/wf-1'))
       expect(res.status).toBe(404)
@@ -86,7 +111,12 @@ describe('workflow routes', () => {
 
   describe('PATCH /api/workflows/:id', () => {
     it('updates the workflow', async () => {
-      await mockDb.createWorkflow({ id: 'wf-1', projectId: TEST_PROJECT_ID, createdBy: TEST_USER_ID, name: 'Old' })
+      await mockDb.createWorkflow({
+        id: 'wf-1',
+        projectId: TEST_PROJECT_ID,
+        createdBy: TEST_USER_ID,
+        name: 'Old',
+      })
 
       const res = await app.request(url('/api/workflows/wf-1'), {
         method: 'PATCH',
@@ -99,7 +129,12 @@ describe('workflow routes', () => {
     })
 
     it('returns 404 for another projects workflow', async () => {
-      await mockDb.createWorkflow({ id: 'wf-1', projectId: 'other-project', createdBy: 'other-user', name: 'Secret' })
+      await mockDb.createWorkflow({
+        id: 'wf-1',
+        projectId: 'other-project',
+        createdBy: 'other-user',
+        name: 'Secret',
+      })
 
       const res = await app.request(url('/api/workflows/wf-1'), {
         method: 'PATCH',
@@ -112,7 +147,12 @@ describe('workflow routes', () => {
 
   describe('DELETE /api/workflows/:id', () => {
     it('deletes the workflow', async () => {
-      await mockDb.createWorkflow({ id: 'wf-1', projectId: TEST_PROJECT_ID, createdBy: TEST_USER_ID, name: 'Delete me' })
+      await mockDb.createWorkflow({
+        id: 'wf-1',
+        projectId: TEST_PROJECT_ID,
+        createdBy: TEST_USER_ID,
+        name: 'Delete me',
+      })
 
       const res = await app.request(url('/api/workflows/wf-1'), { method: 'DELETE' })
       expect(res.status).toBe(200)
@@ -122,7 +162,12 @@ describe('workflow routes', () => {
     })
 
     it('returns 404 for another projects workflow', async () => {
-      await mockDb.createWorkflow({ id: 'wf-1', projectId: 'other-project', createdBy: 'other-user', name: 'Not yours' })
+      await mockDb.createWorkflow({
+        id: 'wf-1',
+        projectId: 'other-project',
+        createdBy: 'other-user',
+        name: 'Not yours',
+      })
 
       const res = await app.request(url('/api/workflows/wf-1'), { method: 'DELETE' })
       expect(res.status).toBe(404)

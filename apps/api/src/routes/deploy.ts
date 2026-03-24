@@ -22,7 +22,10 @@ function parseDependencies(raw: string | null | undefined): Record<string, strin
   }
 }
 
-function collectNodeDependencies(ir: WorkflowIR, nodeRegistry?: AppNodeRegistry): Record<string, string> {
+function collectNodeDependencies(
+  ir: WorkflowIR,
+  nodeRegistry?: AppNodeRegistry,
+): Record<string, string> {
   if (!nodeRegistry) return {}
   const deps: Record<string, string> = {}
   for (const node of ir.nodes) {
@@ -51,16 +54,16 @@ const MAX_TRIGGER_PARAMS_BYTES = 102_400 // 100 KB
 
 const triggerSchema = z.object({
   connectionId: z.string().min(1),
-  params: z.unknown().optional().refine(
-    (val) => val === undefined || JSON.stringify(val).length <= MAX_TRIGGER_PARAMS_BYTES,
-    { message: `Trigger params must be under ${MAX_TRIGGER_PARAMS_BYTES / 1024} KB` },
-  ),
+  params: z
+    .unknown()
+    .optional()
+    .refine((val) => val === undefined || JSON.stringify(val).length <= MAX_TRIGGER_PARAMS_BYTES, {
+      message: `Trigger params must be under ${MAX_TRIGGER_PARAMS_BYTES / 1024} KB`,
+    }),
 })
 
 function createAdapter(templateResolver?: TemplateResolver) {
-  return new CloudflareWorkflowsAdapter(
-    templateResolver ? { templateResolver } : undefined,
-  )
+  return new CloudflareWorkflowsAdapter(templateResolver ? { templateResolver } : undefined)
 }
 
 function collectRequiredEnvVars(ir: WorkflowIR, nodeRegistry?: AppNodeRegistry): string[] {
@@ -128,17 +131,22 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
   const body = c.req.valid('json')
 
   if (await db.isActiveDeploymentLocked(workflow.id)) {
-    return c.json({ error: 'Currently deployed version is locked — unlock it before deploying' }, 400)
+    return c.json(
+      { error: 'Currently deployed version is locked — unlock it before deploying' },
+      400,
+    )
   }
 
   const connection = await db.getProviderConnectionById(body.connectionId)
-  if (!connection || connection.organizationId !== organizationId) return c.json({ error: 'Connection not found' }, 404)
+  if (!connection || connection.organizationId !== organizationId)
+    return c.json({ error: 'Connection not found' }, 404)
 
   const versionId = body.versionId ?? workflow.currentVersionId
   if (!versionId) return c.json({ error: 'No version to deploy' }, 400)
 
   const version = await db.getWorkflowVersionById(versionId)
-  if (!version || version.workflowId !== workflow.id) return c.json({ error: 'Version not found' }, 404)
+  if (!version || version.workflowId !== workflow.id)
+    return c.json({ error: 'Version not found' }, 404)
 
   if (version.locked === 1) {
     return c.json({ error: 'Version is locked' }, 400)
@@ -154,7 +162,14 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
     return c.json({ error: 'IR validation failed', details: validation.errors }, 400)
   }
 
-  const envResult = await resolveAndValidateEnvVars(db, organizationId, projectId, workflow.id, ir, nodeRegistry)
+  const envResult = await resolveAndValidateEnvVars(
+    db,
+    organizationId,
+    projectId,
+    workflow.id,
+    ir,
+    nodeRegistry,
+  )
   if (envResult.error) {
     return c.json({ error: envResult.error }, 400)
   }
@@ -162,6 +177,7 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
   const workflowDeps = parseDependencies(workflow.dependencies)
   const nodeDeps = collectNodeDependencies(ir, nodeRegistry)
   const deps = mergeDependencies(workflowDeps, nodeDeps)
+  const appName = c.get('appName')
   const providerConfig: ProviderConfig = {
     provider: 'cloudflare-workflows',
     credentials: creds,
@@ -169,6 +185,7 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
       workflowId: workflow.id,
       workflowName: workflow.name,
       ...(deps && { dependencies: deps }),
+      ...(appName && { packageName: appName }),
     },
     envVars: envResult.envVars,
   }
@@ -204,17 +221,22 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
   const body = c.req.valid('json')
 
   if (await db.isActiveDeploymentLocked(workflow.id)) {
-    return c.json({ error: 'Currently deployed version is locked — unlock it before deploying' }, 400)
+    return c.json(
+      { error: 'Currently deployed version is locked — unlock it before deploying' },
+      400,
+    )
   }
 
   const connection = await db.getProviderConnectionById(body.connectionId)
-  if (!connection || connection.organizationId !== organizationId) return c.json({ error: 'Connection not found' }, 404)
+  if (!connection || connection.organizationId !== organizationId)
+    return c.json({ error: 'Connection not found' }, 404)
 
   const versionId = body.versionId ?? workflow.currentVersionId
   if (!versionId) return c.json({ error: 'No version to deploy' }, 400)
 
   const version = await db.getWorkflowVersionById(versionId)
-  if (!version || version.workflowId !== workflow.id) return c.json({ error: 'Version not found' }, 404)
+  if (!version || version.workflowId !== workflow.id)
+    return c.json({ error: 'Version not found' }, 404)
 
   if (version.locked === 1) {
     return c.json({ error: 'Version is locked' }, 400)
@@ -230,7 +252,14 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
     return c.json({ error: 'IR validation failed', details: validation.errors }, 400)
   }
 
-  const envResult = await resolveAndValidateEnvVars(db, organizationId, projectId, workflow.id, ir, nodeRegistry)
+  const envResult = await resolveAndValidateEnvVars(
+    db,
+    organizationId,
+    projectId,
+    workflow.id,
+    ir,
+    nodeRegistry,
+  )
   if (envResult.error) {
     return c.json({ error: envResult.error }, 400)
   }
@@ -238,6 +267,7 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
   const streamWorkflowDeps = parseDependencies(workflow.dependencies)
   const streamNodeDeps = collectNodeDependencies(ir, nodeRegistry)
   const streamDeps = mergeDependencies(streamWorkflowDeps, streamNodeDeps)
+  const streamAppName = c.get('appName')
   const providerConfig: ProviderConfig = {
     provider: 'cloudflare-workflows',
     credentials: streamCreds,
@@ -245,6 +275,7 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
       workflowId: workflow.id,
       workflowName: workflow.name,
       ...(streamDeps && { dependencies: streamDeps }),
+      ...(streamAppName && { packageName: streamAppName }),
     },
     envVars: envResult.envVars,
   }
@@ -258,17 +289,13 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
     const artifact = adapter.generate(ir, providerConfig)
 
     let eventId = 0
-    const result = await adapter.deployWithProgress(
-      artifact,
-      providerConfig,
-      async (progress) => {
-        await stream.writeSSE({
-          id: String(eventId++),
-          event: 'progress',
-          data: JSON.stringify(progress),
-        })
-      },
-    )
+    const result = await adapter.deployWithProgress(artifact, providerConfig, async (progress) => {
+      await stream.writeSSE({
+        id: String(eventId++),
+        event: 'progress',
+        data: JSON.stringify(progress),
+      })
+    })
 
     await db.createDeployment({
       id: nanoid(),
@@ -307,7 +334,8 @@ deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c)
   if (!workflow.currentVersionId) return c.json({ error: 'No version deployed' }, 400)
 
   const connection = await db.getProviderConnectionById(body.connectionId)
-  if (!connection || connection.organizationId !== organizationId) return c.json({ error: 'Connection not found' }, 404)
+  if (!connection || connection.organizationId !== organizationId)
+    return c.json({ error: 'Connection not found' }, 404)
 
   const adapter = createAdapter(c.get('nodeRegistry')?.templateResolver)
   const triggerCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
@@ -333,29 +361,34 @@ deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c)
   return c.json(run, 201)
 })
 
-deploy.post('/:workflowId/takedown', zValidator('json', z.object({ connectionId: z.string().min(1) })), async (c) => {
-  const db = c.get('db')
-  const organizationId = c.get('organizationId')
-  const workflow = c.get('workflow')
-  if (!workflow) return c.json({ error: 'Not found' }, 404)
+deploy.post(
+  '/:workflowId/takedown',
+  zValidator('json', z.object({ connectionId: z.string().min(1) })),
+  async (c) => {
+    const db = c.get('db')
+    const organizationId = c.get('organizationId')
+    const workflow = c.get('workflow')
+    if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const { connectionId } = c.req.valid('json')
+    const { connectionId } = c.req.valid('json')
 
-  const connection = await db.getProviderConnectionById(connectionId)
-  if (!connection || connection.organizationId !== organizationId) return c.json({ error: 'Connection not found' }, 404)
+    const connection = await db.getProviderConnectionById(connectionId)
+    if (!connection || connection.organizationId !== organizationId)
+      return c.json({ error: 'Connection not found' }, 404)
 
-  const name = workerName(workflow.id)
-  const creds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
-  const adapter = createAdapter(c.get('nodeRegistry')?.templateResolver)
-  const result = await adapter.destroy(name, {
-    provider: 'cloudflare-workflows',
-    credentials: creds,
-  })
+    const name = workerName(workflow.id)
+    const creds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
+    const adapter = createAdapter(c.get('nodeRegistry')?.templateResolver)
+    const result = await adapter.destroy(name, {
+      provider: 'cloudflare-workflows',
+      credentials: creds,
+    })
 
-  if (result.success) {
-    await db.deleteDeploymentsByWorkflow(workflow.id)
-    await db.updateWorkflow(workflow.id, { currentVersionId: null })
-  }
+    if (result.success) {
+      await db.deleteDeploymentsByWorkflow(workflow.id)
+      await db.updateWorkflow(workflow.id, { currentVersionId: null })
+    }
 
-  return c.json(result, result.success ? 200 : 500)
-})
+    return c.json(result, result.success ? 200 : 500)
+  },
+)

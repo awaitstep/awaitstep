@@ -67,7 +67,9 @@ describe('toJsLiteral', () => {
 
 describe('resolveCtxConfig', () => {
   it('replaces ctx.config.field with literal value', () => {
-    const result = resolveCtxConfig('fetch(ctx.config.webhookUrl)', { webhookUrl: 'https://example.com' })
+    const result = resolveCtxConfig('fetch(ctx.config.webhookUrl)', {
+      webhookUrl: 'https://example.com',
+    })
     expect(result).toBe('fetch("https://example.com")')
   })
 
@@ -99,7 +101,9 @@ describe('resolveCtxInputs', () => {
   })
 
   it('handles resolved expression values as-is', () => {
-    const result = resolveCtxInputs('JSON.stringify(ctx.inputs.data)', { data: 'Fetch_Data.output' })
+    const result = resolveCtxInputs('JSON.stringify(ctx.inputs.data)', {
+      data: 'Fetch_Data.output',
+    })
     expect(result).toBe('JSON.stringify(Fetch_Data.output)')
   })
 
@@ -193,7 +197,9 @@ export default async function(ctx) {
     }
 
     const code = generateCustomNode(node, templateWithImport)
-    expect(code).toContain("import { uniqueNamesGenerator, adjectives, colors, animals } from 'unique-names-generator'")
+    expect(code).toContain(
+      "import { uniqueNamesGenerator, adjectives, colors, animals } from 'unique-names-generator'",
+    )
     expect(code).toContain('await step.do("Generate Name"')
     expect(code).toContain('return { name };')
   })

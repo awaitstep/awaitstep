@@ -119,7 +119,7 @@ function FieldRenderer({ field, value, onChange }: DynamicFieldProps) {
       )
 
     case 'multiselect': {
-      const selected = Array.isArray(value) ? value as string[] : []
+      const selected = Array.isArray(value) ? (value as string[]) : []
       return (
         <div className="flex flex-wrap gap-1.5">
           {(field.options ?? []).map((opt) => {
@@ -149,8 +149,17 @@ function FieldRenderer({ field, value, onChange }: DynamicFieldProps) {
     case 'secret':
       return (
         <div className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50">
-            <path fillRule="evenodd" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7A1.5 1.5 0 0 0 3 8.5v5A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 11.5 7V4.5A3.5 3.5 0 0 0 8 1Zm2 6V4.5a2 2 0 1 0-4 0V7h4Z" clipRule="evenodd" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 16 16"
+            fill="currentColor"
+            className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50"
+          >
+            <path
+              fillRule="evenodd"
+              d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7A1.5 1.5 0 0 0 3 8.5v5A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 11.5 7V4.5A3.5 3.5 0 0 0 8 1Zm2 6V4.5a2 2 0 1 0-4 0V7h4Z"
+              clipRule="evenodd"
+            />
           </svg>
           <span className="font-mono text-sm text-muted-foreground">{field.envVarName}</span>
           <span className="ml-auto text-[10px] text-muted-foreground/40">from env</span>
@@ -169,14 +178,19 @@ function FieldRenderer({ field, value, onChange }: DynamicFieldProps) {
       )
 
     case 'json': {
-      const jsonValue = value != null && typeof value === 'object'
-        ? JSON.stringify(value, null, 2)
-        : String(value ?? field.default ?? '')
+      const jsonValue =
+        value != null && typeof value === 'object'
+          ? JSON.stringify(value, null, 2)
+          : String(value ?? field.default ?? '')
       return (
         <CodeEditor
           value={jsonValue}
           onChange={(v) => {
-            try { onChange(v ? JSON.parse(v) : undefined) } catch { onChange(v) }
+            try {
+              onChange(v ? JSON.parse(v) : undefined)
+            } catch {
+              onChange(v)
+            }
           }}
           debounceMs={300}
           language="json"
@@ -230,7 +244,10 @@ function parseDurationValue(value: string): { amount: number; unit: string } {
   const match = value.match(/^(\d+)\s*(.+?)s?$/)
   if (!match) return { amount: 0, unit: 'second' }
   const unit = match[2]!
-  return { amount: Number(match[1]), unit: DURATION_UNITS.includes(unit as typeof DURATION_UNITS[number]) ? unit : 'second' }
+  return {
+    amount: Number(match[1]),
+    unit: DURATION_UNITS.includes(unit as (typeof DURATION_UNITS)[number]) ? unit : 'second',
+  }
 }
 
 function clampDuration(amount: number, unit: string): number {
@@ -300,7 +317,9 @@ function DateTimeField({ value, onChange }: { value: string; onChange: (value: u
         placeholder="Pick a date & time"
       />
       {isPast && (
-        <p className="text-[11px] text-destructive">Selected time is in the past. Must be at least 1 hour from now.</p>
+        <p className="text-[11px] text-destructive">
+          Selected time is in the past. Must be at least 1 hour from now.
+        </p>
       )}
       {selectedDate && !isPast && (
         <div className="rounded-lg bg-muted/40 px-2.5 py-2 text-[11px] text-muted-foreground/60">

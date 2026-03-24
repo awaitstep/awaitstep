@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 export interface Organization {
   id: string
@@ -37,8 +37,12 @@ interface OrgState {
 }
 
 export function useOrgReady() {
-  return useOrgStore((s) =>
-    s.appReady && !!s.activeOrganizationId && !!s.activeProjectId && s.projects.some((p) => p.id === s.activeProjectId),
+  return useOrgStore(
+    (s) =>
+      s.appReady &&
+      !!s.activeOrganizationId &&
+      !!s.activeProjectId &&
+      s.projects.some((p) => p.id === s.activeProjectId),
   )
 }
 
@@ -53,15 +57,25 @@ export const useOrgStore = create<OrgState>()(
       activeProjectId: null,
       setAppReady: (appReady) => set({ appReady }),
       setOrganizations: (organizations) => set({ organizations }),
-      addOrganization: (org: Organization) => set((s) => ({ organizations: [...s.organizations, org] })),
+      addOrganization: (org: Organization) =>
+        set((s) => ({ organizations: [...s.organizations, org] })),
       setProjects: (projects: Project[]) => set({ projects }),
-      setProjectsFetchState: (projectsFetchState: OrgState['projectsFetchState']) => set({ projectsFetchState }),
+      setProjectsFetchState: (projectsFetchState: OrgState['projectsFetchState']) =>
+        set({ projectsFetchState }),
       setActiveOrganization: (id) => set({ activeOrganizationId: id, activeProjectId: null }),
       setActiveProject: (id) => set({ activeProjectId: id }),
-      clear: () => set({ appReady: false, organizations: [], projects: [], activeOrganizationId: null, activeProjectId: null }),
+      clear: () =>
+        set({
+          appReady: false,
+          organizations: [],
+          projects: [],
+          activeOrganizationId: null,
+          activeProjectId: null,
+        }),
     }),
     {
       name: 'awaitstep-org',
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         activeOrganizationId: state.activeOrganizationId,
         activeProjectId: state.activeProjectId,

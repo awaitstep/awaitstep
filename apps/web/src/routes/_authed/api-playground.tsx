@@ -27,7 +27,10 @@ function ApiPlaygroundPage() {
       <div className="flex shrink-0 items-center justify-between border-b border-border pb-4">
         <h1 className="text-lg font-semibold">API Playground</h1>
         <div className="relative">
-          <KeyRound size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <KeyRound
+            size={12}
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+          />
           <input
             type="password"
             placeholder="Paste API key (ask_...)"

@@ -4,7 +4,7 @@ import { useWorkflowStore } from '../../stores/workflow-store'
 
 export function TriggerCodeEditor({ height = '200px' }: { height?: string }) {
   const triggerCode = useWorkflowStore((s) => s.triggerCode)
-  const setTriggerCode = useWorkflowStore((s) => s.setTriggerCode)
+  const { setTriggerCode } = useWorkflowStore()
 
   return (
     <CodeEditor

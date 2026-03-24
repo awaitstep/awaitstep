@@ -54,7 +54,7 @@ export class CloudflareAPI {
           signal: controller.signal,
         })
         if (!res.ok) return false
-        const data = await res.json() as { result?: { status?: string } }
+        const data = (await res.json()) as { result?: { status?: string } }
         return data.result?.status === 'active'
       } finally {
         clearTimeout(timeout)

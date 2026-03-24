@@ -58,7 +58,9 @@ describe('generateSleepUntil', () => {
       data: { timestamp: '2026-01-01T00:00:00Z' },
     }
     const code = generateSleepUntil(node)
-    expect(code).toBe('await step.sleepUntil("Wait until midnight", new Date("2026-01-01T00:00:00Z"));')
+    expect(code).toBe(
+      'await step.sleepUntil("Wait until midnight", new Date("2026-01-01T00:00:00Z"));',
+    )
   })
 
   it('escapes quotes in step name', () => {

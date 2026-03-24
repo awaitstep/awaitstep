@@ -1,4 +1,13 @@
-import type { DatabaseAdapter, Workflow, WorkflowVersion, Connection, WorkflowRun, ApiKey, Deployment, Project } from '@awaitstep/db'
+import type {
+  DatabaseAdapter,
+  Workflow,
+  WorkflowVersion,
+  Connection,
+  WorkflowRun,
+  ApiKey,
+  Deployment,
+  Project,
+} from '@awaitstep/db'
 import { createApp } from '../app.js'
 import type { Auth } from '../auth/config.js'
 
@@ -44,7 +53,12 @@ const mockDb: DatabaseAdapter = {
 
   // Projects
   async createProject(data) {
-    const p: Project = { ...data, description: data.description ?? null, createdAt: now(), updatedAt: now() }
+    const p: Project = {
+      ...data,
+      description: data.description ?? null,
+      createdAt: now(),
+      updatedAt: now(),
+    }
     store.projects.set(p.id, p)
     return p
   },
@@ -67,7 +81,16 @@ const mockDb: DatabaseAdapter = {
 
   // Workflows
   async createWorkflow(data) {
-    const wf: Workflow = { ...data, description: data.description ?? null, currentVersionId: null, envVars: null, triggerCode: null, dependencies: null, createdAt: now(), updatedAt: now() }
+    const wf: Workflow = {
+      ...data,
+      description: data.description ?? null,
+      currentVersionId: null,
+      envVars: null,
+      triggerCode: null,
+      dependencies: null,
+      createdAt: now(),
+      updatedAt: now(),
+    }
     store.workflows.set(wf.id, wf)
     return wf
   },
@@ -80,7 +103,13 @@ const mockDb: DatabaseAdapter = {
   async listWorkflowsWithStatus(projectId) {
     return [...store.workflows.values()]
       .filter((w) => w.projectId === projectId)
-      .map((w) => ({ ...w, deployStatus: null, deployVersionId: null, lastRunStatus: null, lastRunAt: null }))
+      .map((w) => ({
+        ...w,
+        deployStatus: null,
+        deployVersionId: null,
+        lastRunStatus: null,
+        lastRunAt: null,
+      }))
   },
   async updateWorkflow(id, data) {
     const wf = store.workflows.get(id)
@@ -95,7 +124,12 @@ const mockDb: DatabaseAdapter = {
 
   // Versions
   async createVersion(data) {
-    const v: WorkflowVersion = { ...data, generatedCode: data.generatedCode ?? null, locked: 0, createdAt: now() }
+    const v: WorkflowVersion = {
+      ...data,
+      generatedCode: data.generatedCode ?? null,
+      locked: 0,
+      createdAt: now(),
+    }
     store.versions.set(v.id, v)
     return v
   },
@@ -107,7 +141,9 @@ const mockDb: DatabaseAdapter = {
     return versions.length > 0 ? Math.max(...versions.map((v) => v.version)) + 1 : 1
   },
   async listVersionsByWorkflow(workflowId) {
-    return [...store.versions.values()].filter((v) => v.workflowId === workflowId).sort((a, b) => b.version - a.version)
+    return [...store.versions.values()]
+      .filter((v) => v.workflowId === workflowId)
+      .sort((a, b) => b.version - a.version)
   },
   async updateVersion(id, data) {
     const v = store.versions.get(id)
@@ -143,7 +179,13 @@ const mockDb: DatabaseAdapter = {
 
   // Runs
   async createRun(data) {
-    const r: WorkflowRun = { ...data, output: null, error: null, createdAt: now(), updatedAt: now() }
+    const r: WorkflowRun = {
+      ...data,
+      output: null,
+      error: null,
+      createdAt: now(),
+      updatedAt: now(),
+    }
     store.runs.set(r.id, r)
     return r
   },
@@ -161,30 +203,47 @@ const mockDb: DatabaseAdapter = {
     return updated
   },
   async listRecentRunsByProject(projectId) {
-    const wfIds = new Set([...store.workflows.values()].filter((w) => w.projectId === projectId).map((w) => w.id))
+    const wfIds = new Set(
+      [...store.workflows.values()].filter((w) => w.projectId === projectId).map((w) => w.id),
+    )
     return [...store.runs.values()].filter((r) => wfIds.has(r.workflowId))
   },
 
   // Deployments
   async createDeployment(data) {
-    const d: Deployment = { ...data, serviceUrl: data.serviceUrl ?? null, error: data.error ?? null, createdAt: now() }
+    const d: Deployment = {
+      ...data,
+      serviceUrl: data.serviceUrl ?? null,
+      error: data.error ?? null,
+      createdAt: now(),
+    }
     store.deployments.set(d.id, d)
     return d
   },
   async getActiveDeployment(workflowId) {
-    return [...store.deployments.values()].filter((d) => d.workflowId === workflowId && d.status === 'success').sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
+    return (
+      [...store.deployments.values()]
+        .filter((d) => d.workflowId === workflowId && d.status === 'success')
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
+    )
   },
   async isActiveDeploymentLocked(workflowId) {
-    const deployment = [...store.deployments.values()].find((d) => d.workflowId === workflowId && d.status === 'success')
+    const deployment = [...store.deployments.values()].find(
+      (d) => d.workflowId === workflowId && d.status === 'success',
+    )
     if (!deployment) return false
     const version = store.versions.get(deployment.versionId)
     return version?.locked === 1
   },
   async listDeploymentsByWorkflow(workflowId) {
-    return [...store.deployments.values()].filter((d) => d.workflowId === workflowId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    return [...store.deployments.values()]
+      .filter((d) => d.workflowId === workflowId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   },
   async listRecentDeploymentsByProject(projectId) {
-    const wfIds = new Set([...store.workflows.values()].filter((w) => w.projectId === projectId).map((w) => w.id))
+    const wfIds = new Set(
+      [...store.workflows.values()].filter((w) => w.projectId === projectId).map((w) => w.id),
+    )
     return [...store.deployments.values()].filter((d) => wfIds.has(d.workflowId))
   },
   async deleteDeploymentsByWorkflow(workflowId) {
@@ -195,7 +254,13 @@ const mockDb: DatabaseAdapter = {
 
   // API Keys
   async createApiKey(data) {
-    const key: ApiKey = { ...data, expiresAt: null, lastUsedAt: null, revokedAt: null, createdAt: now() }
+    const key: ApiKey = {
+      ...data,
+      expiresAt: null,
+      lastUsedAt: null,
+      revokedAt: null,
+      createdAt: now(),
+    }
     store.apiKeys.set(key.id, key)
     return key
   },
@@ -225,16 +290,34 @@ const mockDb: DatabaseAdapter = {
 
   // Env Vars
   async createEnvVar(data) {
-    return { ...data, projectId: data.projectId ?? null, isSecret: data.isSecret, createdAt: now(), updatedAt: now() }
+    return {
+      ...data,
+      projectId: data.projectId ?? null,
+      isSecret: data.isSecret,
+      createdAt: now(),
+      updatedAt: now(),
+    }
   },
-  async getEnvVarById() { return null },
-  async listEnvVarsByOrganization() { return [] },
-  async listEnvVarsByProject() { return [] },
-  async updateEnvVar() { return null },
+  async getEnvVarById() {
+    return null
+  },
+  async listEnvVarsByOrganization() {
+    return []
+  },
+  async listEnvVarsByProject() {
+    return []
+  },
+  async updateEnvVar() {
+    return null
+  },
   async deleteEnvVar() {},
-  async getWorkflowEnvVars() { return [] },
+  async getWorkflowEnvVars() {
+    return []
+  },
   async setWorkflowEnvVars() {},
-  async resolveEnvVars() { return {} },
+  async resolveEnvVars() {
+    return {}
+  },
 }
 
 const mockAuth = {
@@ -242,7 +325,12 @@ const mockAuth = {
   api: {
     getSession: async () => ({
       user: { id: TEST_USER_ID, email: 'test@example.com', name: 'Test' },
-      session: { id: 'session-1', userId: TEST_USER_ID, expiresAt: new Date(Date.now() + 86400000), activeOrganizationId: TEST_ORG_ID },
+      session: {
+        id: 'session-1',
+        userId: TEST_USER_ID,
+        expiresAt: new Date(Date.now() + 86400000),
+        activeOrganizationId: TEST_ORG_ID,
+      },
     }),
   },
 } as unknown as Auth

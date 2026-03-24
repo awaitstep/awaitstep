@@ -5,9 +5,18 @@ import type { Workflow } from '../types.js'
 type AnyTable = any
 
 export class WorkflowsAdapter {
-  constructor(private db: AnyTable, private table: AnyTable) {}
+  constructor(
+    private db: AnyTable,
+    private table: AnyTable,
+  ) {}
 
-  async create(data: { id: string; projectId: string; createdBy: string; name: string; description?: string }): Promise<Workflow> {
+  async create(data: {
+    id: string
+    projectId: string
+    createdBy: string
+    name: string
+    description?: string
+  }): Promise<Workflow> {
     const now = new Date().toISOString()
     const row = {
       id: data.id,
@@ -32,12 +41,30 @@ export class WorkflowsAdapter {
   }
 
   async listByProject(projectId: string): Promise<Workflow[]> {
-    return this.db.select().from(this.table).where(eq(this.table.projectId, projectId)).orderBy(desc(this.table.updatedAt))
+    return this.db
+      .select()
+      .from(this.table)
+      .where(eq(this.table.projectId, projectId))
+      .orderBy(desc(this.table.updatedAt))
   }
 
-  async update(id: string, data: { name?: string; description?: string; currentVersionId?: string | null; envVars?: string | null; triggerCode?: string | null; dependencies?: string | null; projectId?: string }): Promise<Workflow> {
+  async update(
+    id: string,
+    data: {
+      name?: string
+      description?: string
+      currentVersionId?: string | null
+      envVars?: string | null
+      triggerCode?: string | null
+      dependencies?: string | null
+      projectId?: string
+    },
+  ): Promise<Workflow> {
     const now = new Date().toISOString()
-    await this.db.update(this.table).set({ ...data, updatedAt: now }).where(eq(this.table.id, id))
+    await this.db
+      .update(this.table)
+      .set({ ...data, updatedAt: now })
+      .where(eq(this.table.id, id))
     const updated = await this.getById(id)
     if (!updated) throw new Error(`Workflow ${id} not found`)
     return updated

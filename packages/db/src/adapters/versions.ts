@@ -5,9 +5,18 @@ import type { WorkflowVersion } from '../types.js'
 type AnyTable = any
 
 export class VersionsAdapter {
-  constructor(private db: AnyTable, private table: AnyTable) {}
+  constructor(
+    private db: AnyTable,
+    private table: AnyTable,
+  ) {}
 
-  async create(data: { id: string; workflowId: string; version: number; ir: string; generatedCode?: string }): Promise<WorkflowVersion> {
+  async create(data: {
+    id: string
+    workflowId: string
+    version: number
+    ir: string
+    generatedCode?: string
+  }): Promise<WorkflowVersion> {
     const now = new Date().toISOString()
     const row = {
       id: data.id,
@@ -28,15 +37,25 @@ export class VersionsAdapter {
   }
 
   async getMaxVersionNumber(workflowId: string): Promise<number> {
-    const rows = await this.db.select({ max: max(this.table.version) }).from(this.table).where(eq(this.table.workflowId, workflowId))
+    const rows = await this.db
+      .select({ max: max(this.table.version) })
+      .from(this.table)
+      .where(eq(this.table.workflowId, workflowId))
     return rows[0]?.max ?? 0
   }
 
   async listByWorkflow(workflowId: string): Promise<WorkflowVersion[]> {
-    return this.db.select().from(this.table).where(eq(this.table.workflowId, workflowId)).orderBy(desc(this.table.version))
+    return this.db
+      .select()
+      .from(this.table)
+      .where(eq(this.table.workflowId, workflowId))
+      .orderBy(desc(this.table.version))
   }
 
-  async update(id: string, data: { ir?: string; generatedCode?: string; locked?: number }): Promise<void> {
+  async update(
+    id: string,
+    data: { ir?: string; generatedCode?: string; locked?: number },
+  ): Promise<void> {
     await this.db.update(this.table).set(data).where(eq(this.table.id, id))
   }
 

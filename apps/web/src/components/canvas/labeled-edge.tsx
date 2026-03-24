@@ -1,9 +1,4 @@
-import {
-  BaseEdge,
-  EdgeLabelRenderer,
-  getSmoothStepPath,
-  type EdgeProps,
-} from '@xyflow/react'
+import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps } from '@xyflow/react'
 
 export function LabeledEdge({
   id,
@@ -43,7 +38,12 @@ export function LabeledEdge({
             className="nodrag nopan pointer-events-auto absolute rounded bg-card px-1 py-0.5 font-mono text-[8px] leading-none text-muted-foreground border border-border"
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-              ...(highlighted ? { color: 'oklch(0.696 0.17 162.48)', borderColor: 'oklch(0.696 0.17 162.48 / 0.4)' } : {}),
+              ...(highlighted
+                ? {
+                    color: 'oklch(0.696 0.17 162.48)',
+                    borderColor: 'oklch(0.696 0.17 162.48 / 0.4)',
+                  }
+                : {}),
             }}
           >
             {label}

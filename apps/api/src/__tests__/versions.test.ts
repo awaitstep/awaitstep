@@ -9,7 +9,15 @@ const validIR = {
     updatedAt: '2026-01-01T00:00:00Z',
   },
   nodes: [
-    { id: 'step-1', type: 'step', name: 'Hello', position: { x: 0, y: 0 }, version: '1.0.0', provider: 'cloudflare', data: { code: 'return 1;' } },
+    {
+      id: 'step-1',
+      type: 'step',
+      name: 'Hello',
+      position: { x: 0, y: 0 },
+      version: '1.0.0',
+      provider: 'cloudflare',
+      data: { code: 'return 1;' },
+    },
   ],
   edges: [],
   entryNodeId: 'step-1',
@@ -18,7 +26,15 @@ const validIR = {
 const modifiedIR = {
   ...validIR,
   nodes: [
-    { id: 'step-1', type: 'step', name: 'Modified', position: { x: 0, y: 0 }, version: '1.0.0', provider: 'cloudflare', data: { code: 'return 2;' } },
+    {
+      id: 'step-1',
+      type: 'step',
+      name: 'Modified',
+      position: { x: 0, y: 0 },
+      version: '1.0.0',
+      provider: 'cloudflare',
+      data: { code: 'return 2;' },
+    },
   ],
 }
 
@@ -32,7 +48,12 @@ describe('version routes', () => {
   beforeEach(async () => {
     resetStore()
     app = createTestApp()
-    await mockDb.createWorkflow({ id: 'wf-1', projectId: TEST_PROJECT_ID, createdBy: TEST_USER_ID, name: 'Test' })
+    await mockDb.createWorkflow({
+      id: 'wf-1',
+      projectId: TEST_PROJECT_ID,
+      createdBy: TEST_USER_ID,
+      name: 'Test',
+    })
   })
 
   describe('POST /api/workflows/:workflowId/versions', () => {
@@ -95,7 +116,12 @@ describe('version routes', () => {
     })
 
     it('returns 404 for another projects workflow', async () => {
-      await mockDb.createWorkflow({ id: 'wf-other', projectId: 'other-project', createdBy: 'other-user', name: 'Secret' })
+      await mockDb.createWorkflow({
+        id: 'wf-other',
+        projectId: 'other-project',
+        createdBy: 'other-user',
+        name: 'Secret',
+      })
 
       const res = await app.request(url('/api/workflows/wf-other/versions'), {
         method: 'POST',
@@ -129,7 +155,12 @@ describe('version routes', () => {
     })
 
     it('returns 404 for version from different workflow', async () => {
-      await mockDb.createWorkflow({ id: 'wf-2', projectId: TEST_PROJECT_ID, createdBy: TEST_USER_ID, name: 'Other' })
+      await mockDb.createWorkflow({
+        id: 'wf-2',
+        projectId: TEST_PROJECT_ID,
+        createdBy: TEST_USER_ID,
+        name: 'Other',
+      })
       await mockDb.createVersion({ id: 'v-1', workflowId: 'wf-2', version: 1, ir: '{}' })
 
       const res = await app.request(url('/api/workflows/wf-1/versions/v-1'))

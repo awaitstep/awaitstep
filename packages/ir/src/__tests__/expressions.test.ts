@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  parseExpressions,
-  resolveExpressions,
-  validateExpressionRefs,
-} from '../expressions'
+import { parseExpressions, resolveExpressions, validateExpressionRefs } from '../expressions'
 
 describe('parseExpressions', () => {
   it('parses a single expression', () => {

@@ -8,11 +8,11 @@ import { cn } from '../../lib/utils'
 const NODE_TYPE_LABELS: Record<string, string> = {
   step: 'Step',
   sleep: 'Sleep',
-  'sleep_until': 'Sleep Until',
+  sleep_until: 'Sleep Until',
   branch: 'Branch',
   parallel: 'Parallel',
-  'http_request': 'HTTP',
-  'wait_for_event': 'Event',
+  http_request: 'HTTP',
+  wait_for_event: 'Event',
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -66,7 +66,12 @@ function PathSection({ path }: { path: SimulationPath }) {
               <span className="shrink-0 rounded bg-muted/60 px-1 py-0.5 text-[10px] text-muted-foreground/60">
                 {NODE_TYPE_LABELS[step.nodeType] ?? step.nodeType}
               </span>
-              <span className={cn('min-w-0 truncate', STATUS_COLORS[step.status] ?? 'text-muted-foreground')}>
+              <span
+                className={cn(
+                  'min-w-0 truncate',
+                  STATUS_COLORS[step.status] ?? 'text-muted-foreground',
+                )}
+              >
                 {step.detail}
               </span>
             </button>
@@ -79,8 +84,7 @@ function PathSection({ path }: { path: SimulationPath }) {
 
 export function SimulationPanel() {
   const simulationResult = useWorkflowStore((s) => s.simulationResult)
-  const clearSimulation = useWorkflowStore((s) => s.clearSimulation)
-  const selectNode = useWorkflowStore((s) => s.selectNode)
+  const { clearSimulation, selectNode } = useWorkflowStore()
   const { fitView } = useReactFlow()
 
   if (!simulationResult) return null

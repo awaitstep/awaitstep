@@ -68,7 +68,13 @@ describe('CloudflareResourcesAPI', () => {
     })
 
     it('queries D1', async () => {
-      const queryResult = [{ columns: ['id', 'name'], rows: [[1, 'Alice']], meta: { changes: 0, rows_read: 1, rows_written: 0 } }]
+      const queryResult = [
+        {
+          columns: ['id', 'name'],
+          rows: [[1, 'Alice']],
+          meta: { changes: 0, rows_read: 1, rows_written: 0 },
+        },
+      ]
       mockFetch.mockResolvedValueOnce(mockResponse(queryResult))
       const result = await api.queryD1('db1', 'SELECT * FROM users')
       expect(result[0]!.columns).toEqual(['id', 'name'])
@@ -77,7 +83,9 @@ describe('CloudflareResourcesAPI', () => {
 
   describe('R2', () => {
     it('lists R2 buckets', async () => {
-      mockFetch.mockResolvedValueOnce(mockResponse({ buckets: [{ name: 'assets', creation_date: '2025-01-01' }] }))
+      mockFetch.mockResolvedValueOnce(
+        mockResponse({ buckets: [{ name: 'assets', creation_date: '2025-01-01' }] }),
+      )
       const result = await api.listR2Buckets()
       expect(result).toEqual([{ name: 'assets', creation_date: '2025-01-01' }])
     })

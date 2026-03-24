@@ -13,20 +13,14 @@ import { createLogger } from './lib/logger.js'
 import { createRouter } from './routes/index.js'
 import { createRateLimiter } from './middleware/rate-limit.js'
 
-export interface SelfHostedConnection {
-  accountId: string
-  apiToken: string
-  name?: string
-}
-
 export interface AppDeps {
   db: AppEnv['Variables']['db']
   auth: Auth
   logger?: Logger
   corsOrigin?: string | string[]
   isDev?: boolean
-  selfHostedConnection?: SelfHostedConnection
   nodeRegistry?: AppNodeRegistry
+  appName?: string
 }
 
 export function createApp(deps: AppDeps) {
@@ -64,7 +58,9 @@ export function createApp(deps: AppDeps) {
   const csrfOrigin = deps.corsOrigin ?? 'http://localhost:3000'
   if (csrfOrigin === '*') {
     if (!deps.isDev) {
-      throw new Error('Wildcard CORS origin is not allowed in production (credentials: true). Set CORS_ORIGIN to a specific origin.')
+      throw new Error(
+        'Wildcard CORS origin is not allowed in production (credentials: true). Set CORS_ORIGIN to a specific origin.',
+      )
     }
     log.warn('CSRF protection disabled — corsOrigin is set to wildcard')
   } else {
@@ -92,15 +88,16 @@ export function createApp(deps: AppDeps) {
     return deps.auth.handler(c.req.raw)
   })
 
-  // DB + node registry context
+  // DB + node registry + app config context
   app.use('/api/*', async (c, next) => {
     c.set('db', deps.db)
     if (deps.nodeRegistry) c.set('nodeRegistry', deps.nodeRegistry)
+    if (deps.appName) c.set('appName', deps.appName)
     await next()
   })
 
   // Routes (auth + ownership middleware registered inside)
-  app.route('/api', createRouter(deps.auth, deps.selfHostedConnection))
+  app.route('/api', createRouter(deps.auth))
 
   // Error handler
   app.onError((err, c) => {

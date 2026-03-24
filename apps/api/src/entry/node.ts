@@ -22,8 +22,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const migrationsFolder = resolve(__dirname, '../../../../packages/db/drizzle/sqlite')
 migrate(drizzleDb, { migrationsFolder })
 
-
-
 async function start() {
   const tokenEncryptionKey = process.env['TOKEN_ENCRYPTION_KEY']
   if (!tokenEncryptionKey) {
@@ -43,10 +41,7 @@ async function start() {
     baseURL,
     secret: authSecret ?? crypto.randomUUID(),
     database: sqlite,
-    trustedOrigins: [
-      baseURL,
-      process.env['CORS_ORIGIN'] ?? 'http://localhost:3000',
-    ],
+    trustedOrigins: [baseURL, process.env['CORS_ORIGIN'] ?? 'http://localhost:3000'],
     github: process.env['GITHUB_CLIENT_ID']
       ? {
           clientId: process.env['GITHUB_CLIENT_ID'],
@@ -63,19 +58,15 @@ async function start() {
 
   const betterStackToken = process.env['BETTERSTACK_SOURCE_TOKEN']
   const betterStackEndpoint = process.env['BETTERSTACK_ENDPOINT']
-  const logger = createLogger('app', betterStackToken && betterStackEndpoint
-    ? { sourceToken: betterStackToken, endpoint: betterStackEndpoint }
-    : undefined,
+  const logger = createLogger(
+    'app',
+    betterStackToken && betterStackEndpoint
+      ? { sourceToken: betterStackToken, endpoint: betterStackEndpoint }
+      : undefined,
   )
 
   const corsOrigin = process.env['CORS_ORIGIN'] ?? 'http://localhost:3000'
-  const selfHostedConnection = process.env['CF_API_TOKEN'] && process.env['CF_ACCOUNT_ID']
-    ? {
-        accountId: process.env['CF_ACCOUNT_ID'],
-        apiToken: process.env['CF_API_TOKEN'],
-        name: process.env['CF_CONNECTION_NAME'] ?? 'Self-Hosted',
-      }
-    : undefined
+
   // Load node registry (built by `pnpm nodes:build`)
   const registryPath = resolve(__dirname, '../../../../nodes/registry.json')
   let nodeRegistry
@@ -86,7 +77,8 @@ async function start() {
     logger.warn('Node registry not found — run `pnpm nodes:build` to generate it')
   }
 
-  const app = createApp({ db, auth, logger, corsOrigin, isDev, selfHostedConnection, nodeRegistry })
+  const appName = process.env['APP_NAME']
+  const app = createApp({ db, auth, logger, corsOrigin, isDev, nodeRegistry, appName })
 
   const port = Number(process.env['PORT'] ?? 3001)
   logger.info(`API server running on http://localhost:${port}`)

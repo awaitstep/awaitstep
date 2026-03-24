@@ -124,32 +124,32 @@ Most nodes only need a shared `template.ts` since the code is the same across pr
 
 ### Required Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | `string` | Unique identifier. Must match `^[a-z][a-z0-9_-]*$`. Must match directory name. |
-| `name` | `string` | Human-readable name shown in the UI. |
-| `version` | `string` | Semver version string. |
-| `description` | `string` | One sentence, max 120 characters. |
-| `category` | `Category` | One of: `Payments`, `Email`, `Messaging`, `Database`, `Storage`, `AI`, `Authentication`, `HTTP`, `Scheduling`, `Notifications`, `Data`, `Utilities`, `Control Flow`, `Internal` |
-| `author` | `string` | Author name or GitHub username. |
-| `license` | `string` | SPDX license identifier (e.g. `MIT`, `Apache-2.0`). |
-| `configSchema` | `Record<string, ConfigField>` | Defines the node's configuration UI. |
-| `outputSchema` | `Record<string, OutputField>` | Defines what the node returns. |
-| `providers` | `Provider[]` | Which providers have templates. At least one required. |
+| Field          | Type                          | Description                                                                                                                                                                     |
+| -------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`           | `string`                      | Unique identifier. Must match `^[a-z][a-z0-9_-]*$`. Must match directory name.                                                                                                  |
+| `name`         | `string`                      | Human-readable name shown in the UI.                                                                                                                                            |
+| `version`      | `string`                      | Semver version string.                                                                                                                                                          |
+| `description`  | `string`                      | One sentence, max 120 characters.                                                                                                                                               |
+| `category`     | `Category`                    | One of: `Payments`, `Email`, `Messaging`, `Database`, `Storage`, `AI`, `Authentication`, `HTTP`, `Scheduling`, `Notifications`, `Data`, `Utilities`, `Control Flow`, `Internal` |
+| `author`       | `string`                      | Author name or GitHub username.                                                                                                                                                 |
+| `license`      | `string`                      | SPDX license identifier (e.g. `MIT`, `Apache-2.0`).                                                                                                                             |
+| `configSchema` | `Record<string, ConfigField>` | Defines the node's configuration UI.                                                                                                                                            |
+| `outputSchema` | `Record<string, OutputField>` | Defines what the node returns.                                                                                                                                                  |
+| `providers`    | `Provider[]`                  | Which providers have templates. At least one required.                                                                                                                          |
 
 ### Optional Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `tags` | `string[]` | Search keywords. |
-| `icon` | `string` | Icon identifier. |
-| `docsUrl` | `string` | URL to external documentation. |
-| `runtime.defaultTimeout` | `string` | Default timeout (e.g. `"30 seconds"`). |
-| `runtime.defaultRetries` | `number` | Default retry count. |
-| `runtime.idempotent` | `boolean` | Whether the node is safe to retry. |
-| `deprecated` | `boolean` | Mark as deprecated. |
-| `deprecationMessage` | `string` | Message shown when deprecated. |
-| `replacedBy` | `string` | ID of the replacement node. |
+| Field                    | Type       | Description                            |
+| ------------------------ | ---------- | -------------------------------------- |
+| `tags`                   | `string[]` | Search keywords.                       |
+| `icon`                   | `string`   | Icon identifier.                       |
+| `docsUrl`                | `string`   | URL to external documentation.         |
+| `runtime.defaultTimeout` | `string`   | Default timeout (e.g. `"30 seconds"`). |
+| `runtime.defaultRetries` | `number`   | Default retry count.                   |
+| `runtime.idempotent`     | `boolean`  | Whether the node is safe to retry.     |
+| `deprecated`             | `boolean`  | Mark as deprecated.                    |
+| `deprecationMessage`     | `string`   | Message shown when deprecated.         |
+| `replacedBy`             | `string`   | ID of the replacement node.            |
 
 ### Reserved IDs
 
@@ -163,18 +163,18 @@ The `configSchema` defines what the user configures in the UI. Each field has a 
 
 ### Field Types
 
-| Type | UI Control | Extra Requirements |
-|------|-----------|-------------------|
-| `string` | Text input | — |
-| `number` | Number input | — |
-| `boolean` | Toggle | — |
-| `select` | Dropdown | **`options` required** |
-| `multiselect` | Multi-select | **`options` required** |
-| `secret` | Masked input | **`envVarName` required** |
-| `code` | Code editor | — |
-| `json` | JSON editor | — |
-| `expression` | Expression input | — |
-| `textarea` | Multi-line text | — |
+| Type          | UI Control       | Extra Requirements        |
+| ------------- | ---------------- | ------------------------- |
+| `string`      | Text input       | —                         |
+| `number`      | Number input     | —                         |
+| `boolean`     | Toggle           | —                         |
+| `select`      | Dropdown         | **`options` required**    |
+| `multiselect` | Multi-select     | **`options` required**    |
+| `secret`      | Masked input     | **`envVarName` required** |
+| `code`        | Code editor      | —                         |
+| `json`        | JSON editor      | —                         |
+| `expression`  | Expression input | —                         |
+| `textarea`    | Multi-line text  | —                         |
 
 ### Example
 
@@ -238,30 +238,30 @@ Templates live in `templates/<provider>.ts`. Each template exports a default asy
 ### Example
 
 ```typescript
-export default async function(ctx) {
-  const response = await fetch("https://api.stripe.com/v1/charges", {
-    method: "POST",
+export default async function (ctx) {
+  const response = await fetch('https://api.stripe.com/v1/charges', {
+    method: 'POST',
     headers: {
-      "Authorization": `Bearer ${ctx.env.STRIPE_API_KEY}`,
-      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: `Bearer ${ctx.env.STRIPE_API_KEY}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: new URLSearchParams({
       amount: String(ctx.config.amount),
       currency: ctx.config.currency,
       source: ctx.inputs.payment_token,
     }),
-  });
+  })
 
   if (!response.ok) {
-    throw new Error(`Stripe API error: ${response.status}`);
+    throw new Error(`Stripe API error: ${response.status}`)
   }
 
-  const charge = await response.json();
+  const charge = await response.json()
   return {
     chargeId: charge.id,
     amount: charge.amount,
     metadata: { receiptUrl: charge.receipt_url },
-  };
+  }
 }
 ```
 
@@ -292,7 +292,9 @@ const Stripe_Charge = await step.do("Stripe Charge", { retries: ... }, async () 
 ```json
 [
   {
-    "definition": { /* full NodeDefinition */ },
+    "definition": {
+      /* full NodeDefinition */
+    },
     "templates": {
       "cloudflare": "export default async function(ctx) { ... }"
     },
@@ -308,16 +310,16 @@ This file should be committed to your repository. It only needs to be regenerate
 
 The CLI provides clear error messages for common issues:
 
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `Missing node.json` | No `node.json` in node directory | Create the file |
-| `node.json is not valid JSON` | Syntax error in JSON | Fix the JSON syntax |
-| `Validation failed: ...` | Schema validation error | Check field types, required fields |
-| `id "X" does not match directory name "Y"` | Mismatch between `id` and directory | Rename directory or fix `id` |
-| `"X" conflicts with a builtin node type` | Using a reserved ID | Choose a different ID |
-| `secret field must have envVarName` | Secret field without `envVarName` | Add `envVarName` to the field |
-| `select field must have non-empty options` | Select/multiselect without options | Add `options` array |
-| `Missing template: templates/X.ts` | Provider declared but no template file | Create the template file |
+| Error                                      | Cause                                  | Fix                                |
+| ------------------------------------------ | -------------------------------------- | ---------------------------------- |
+| `Missing node.json`                        | No `node.json` in node directory       | Create the file                    |
+| `node.json is not valid JSON`              | Syntax error in JSON                   | Fix the JSON syntax                |
+| `Validation failed: ...`                   | Schema validation error                | Check field types, required fields |
+| `id "X" does not match directory name "Y"` | Mismatch between `id` and directory    | Rename directory or fix `id`       |
+| `"X" conflicts with a builtin node type`   | Using a reserved ID                    | Choose a different ID              |
+| `secret field must have envVarName`        | Secret field without `envVarName`      | Add `envVarName` to the field      |
+| `select field must have non-empty options` | Select/multiselect without options     | Add `options` array                |
+| `Missing template: templates/X.ts`         | Provider declared but no template file | Create the template file           |
 
 ## Development Workflow
 

@@ -17,10 +17,26 @@ export interface WorkflowTemplate {
 }
 
 export const templateCategories: TemplateCategory[] = [
-  { id: 'ecommerce', name: 'E-Commerce', description: 'Order processing, payments, and fulfillment' },
-  { id: 'engagement', name: 'Customer Engagement', description: 'Onboarding, communications, and retention' },
-  { id: 'data', name: 'Data & Integration', description: 'ETL pipelines, webhooks, and API orchestration' },
-  { id: 'operations', name: 'Operations', description: 'Approvals, alerting, and internal tooling' },
+  {
+    id: 'ecommerce',
+    name: 'E-Commerce',
+    description: 'Order processing, payments, and fulfillment',
+  },
+  {
+    id: 'engagement',
+    name: 'Customer Engagement',
+    description: 'Onboarding, communications, and retention',
+  },
+  {
+    id: 'data',
+    name: 'Data & Integration',
+    description: 'ETL pipelines, webhooks, and API orchestration',
+  },
+  {
+    id: 'operations',
+    name: 'Operations',
+    description: 'Approvals, alerting, and internal tooling',
+  },
 ]
 
 const now = '2026-01-01T00:00:00Z'
@@ -136,7 +152,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
             method: 'POST',
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',
-              'Authorization': 'Bearer ${env.STRIPE_SECRET_KEY}',
+              Authorization: 'Bearer ${env.STRIPE_SECRET_KEY}',
             },
             body: 'amount={{validate_order.total}}&currency=usd&customer={{validate_order.customer.stripeId}}',
           },
@@ -181,7 +197,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': 'Bearer ${env.SENDGRID_API_KEY}',
+              Authorization: 'Bearer ${env.SENDGRID_API_KEY}',
             },
             body: '{\n  "to": "{{validate_order.customer.email}}",\n  "subject": "Order Confirmed",\n  "body": "Your order {{validate_order.orderId}} has shipped. Tracking: {{create_shipment.trackingId}}"\n}',
           },
@@ -288,7 +304,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': 'Bearer ${env.SENDGRID_API_KEY}',
+              Authorization: 'Bearer ${env.SENDGRID_API_KEY}',
             },
             body: '{\n  "to": "{{capture_cart.email}}",\n  "subject": "You left items in your cart!",\n  "body": "Complete your order of ${{capture_cart.cartTotal}} — use code SAVE10 for 10% off."\n}',
           },
@@ -336,7 +352,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
             method: 'POST',
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',
-              'Authorization': 'Bearer ${env.STRIPE_SECRET_KEY}',
+              Authorization: 'Bearer ${env.STRIPE_SECRET_KEY}',
             },
             body: 'amount=${event.payload.amount}&currency=usd&payment_method=${event.payload.paymentMethod}&confirm=true',
           },
@@ -381,7 +397,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': 'Bearer ${env.SENDGRID_API_KEY}',
+              Authorization: 'Bearer ${env.SENDGRID_API_KEY}',
             },
             body: '{\n  "to": "${event.payload.email}",\n  "subject": "Payment failed — update your card",\n  "body": "We couldn\'t charge your card for the ${event.payload.plan} plan. Please update your payment method."\n}',
           },
@@ -431,7 +447,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': 'Bearer ${env.SENDGRID_API_KEY}',
+              Authorization: 'Bearer ${env.SENDGRID_API_KEY}',
             },
             body: '{\n  "to": "${event.payload.email}",\n  "subject": "Welcome to our platform, ${event.payload.name}!",\n  "body": "We\'re excited to have you. Here\'s how to get started..."\n}',
           },
@@ -462,7 +478,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': 'Bearer ${env.SENDGRID_API_KEY}',
+              Authorization: 'Bearer ${env.SENDGRID_API_KEY}',
             },
             body: '{\n  "to": "${event.payload.email}",\n  "subject": "3 tips to get the most out of your account",\n  "body": "Tip 1: Set up your profile. Tip 2: Connect integrations. Tip 3: Invite your team."\n}',
           },
@@ -493,7 +509,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': 'Bearer ${env.SENDGRID_API_KEY}',
+              Authorization: 'Bearer ${env.SENDGRID_API_KEY}',
             },
             body: '{\n  "to": "${event.payload.email}",\n  "subject": "How\'s it going, ${event.payload.name}?",\n  "body": "We noticed you signed up recently. Need any help getting started?"\n}',
           },
@@ -551,7 +567,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': 'Bearer ${env.SENDGRID_API_KEY}',
+              Authorization: 'Bearer ${env.SENDGRID_API_KEY}',
             },
             body: '{\n  "to": "${event.payload.email}",\n  "subject": "How was your ${event.payload.productName}?",\n  "body": "We\'d love your feedback! Rate your experience: https://example.com/survey/${event.payload.orderId}"\n}',
           },
@@ -624,8 +640,8 @@ export const workflowTemplates: WorkflowTemplate[] = [
             url: 'https://api.example.com/v1/records?since=${event.payload.lastRunAt}',
             method: 'GET',
             headers: {
-              'Authorization': 'Bearer ${env.API_TOKEN}',
-              'Accept': 'application/json',
+              Authorization: 'Bearer ${env.API_TOKEN}',
+              Accept: 'application/json',
             },
           },
         },
@@ -742,7 +758,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': 'Bearer ${env.US_API_KEY}',
+              Authorization: 'Bearer ${env.US_API_KEY}',
             },
             body: '{ "items": {{prepare_batch.usBatch}} }',
           },
@@ -763,7 +779,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': 'Bearer ${env.EU_API_KEY}',
+              Authorization: 'Bearer ${env.EU_API_KEY}',
             },
             body: '{ "items": {{prepare_batch.euBatch}} }',
           },
@@ -848,7 +864,10 @@ export const workflowTemplates: WorkflowTemplate[] = [
           provider: 'cloudflare',
           data: {
             branches: [
-              { label: 'success', condition: '{{deliver_webhook}}.status >= 200 && {{deliver_webhook}}.status < 300' },
+              {
+                label: 'success',
+                condition: '{{deliver_webhook}}.status >= 200 && {{deliver_webhook}}.status < 300',
+              },
               { label: 'rate-limited', condition: '{{deliver_webhook}}.status === 429' },
               { label: 'failed', condition: '' },
             ],

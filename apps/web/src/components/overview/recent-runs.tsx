@@ -11,7 +11,7 @@ interface RecentRunsProps {
 }
 
 export function RecentRuns({ workflowId, runs }: RecentRunsProps) {
-  const openRunSheet = useSheetStore((s) => s.openRunSheet)
+  const { openRunSheet } = useSheetStore()
 
   return (
     <section>
@@ -39,7 +39,9 @@ export function RecentRuns({ workflowId, runs }: RecentRunsProps) {
             >
               <div className="flex items-center gap-3">
                 <RunStatusBadge status={run.status} />
-                <span className="font-mono text-xs text-muted-foreground">{run.instanceId.slice(0, 12)}</span>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {run.instanceId.slice(0, 12)}
+                </span>
               </div>
               <span className="text-xs text-muted-foreground/60">{timeAgo(run.createdAt)}</span>
             </button>

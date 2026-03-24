@@ -17,7 +17,12 @@ const readOnlyEditorOptions = {
   overviewRulerLanes: 0,
   hideCursorInOverviewRuler: true,
   renderLineHighlight: 'none' as const,
-  scrollbar: { vertical: 'hidden' as const, horizontal: 'hidden' as const, verticalScrollbarSize: 0, horizontalScrollbarSize: 0 },
+  scrollbar: {
+    vertical: 'hidden' as const,
+    horizontal: 'hidden' as const,
+    verticalScrollbarSize: 0,
+    horizontalScrollbarSize: 0,
+  },
   lineNumbersMinChars: 3,
   folding: true,
   glyphMargin: false,
@@ -57,7 +62,9 @@ export function ResponsePanel({ response }: { response: ResponseData }) {
           Response Headers ({response.headers.length})
         </button>
         {headersExpanded && (
-          <Suspense fallback={<div className="p-3 text-xs text-muted-foreground/60">Loading...</div>}>
+          <Suspense
+            fallback={<div className="p-3 text-xs text-muted-foreground/60">Loading...</div>}
+          >
             <MonacoEditor
               height={`${Math.min(response.headers.length * 18 + 16, 150)}px`}
               language="plaintext"
@@ -75,7 +82,13 @@ export function ResponsePanel({ response }: { response: ResponseData }) {
           <span className="text-[11px] font-medium text-muted-foreground">Response Body</span>
         </div>
         <div className="min-h-0 flex-1">
-          <Suspense fallback={<div className="flex h-full items-center justify-center text-xs text-muted-foreground/60">Loading editor...</div>}>
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center text-xs text-muted-foreground/60">
+                Loading editor...
+              </div>
+            }
+          >
             <MonacoEditor
               height="100%"
               language="json"

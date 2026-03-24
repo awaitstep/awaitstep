@@ -7,10 +7,13 @@ import { useRunsStore } from '../stores/runs-store'
 import { useActiveRunSync } from '../hooks/use-active-run-sync'
 
 export default function RunsWrapper() {
-  const { canFetch, activeProjectId } = useOrgStore(useShallow((s) => ({
-    canFetch: s.appReady && !!s.activeProjectId && s.projects.some((p) => p.id === s.activeProjectId),
-    activeProjectId: s.activeProjectId,
-  })))
+  const { canFetch, activeProjectId } = useOrgStore(
+    useShallow((s) => ({
+      canFetch:
+        s.appReady && !!s.activeProjectId && s.projects.some((p) => p.id === s.activeProjectId),
+      activeProjectId: s.activeProjectId,
+    })),
+  )
 
   const { setRuns, setFetchState } = useRunsStore()
 

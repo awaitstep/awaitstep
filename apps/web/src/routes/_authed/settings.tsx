@@ -4,18 +4,28 @@ import { OrgNameEditor } from '../../components/org/org-name-editor'
 import { ProjectsList } from '../../components/org/projects-list'
 import { ApiKeysSection } from '../../components/org/api-keys-section'
 import { useShallow } from 'zustand/react/shallow'
+import { RequireOrg } from '../../wrappers/require-org'
 
 export const Route = createFileRoute('/_authed/settings')({
   component: SettingsPage,
 })
 
 function SettingsPage() {
+  return (
+    <RequireOrg>
+      <SettingsContent />
+    </RequireOrg>
+  )
+}
 
-  const { activeOrg , projects, projectsLoading  } = useOrgStore(useShallow((s) => ({
-    activeOrg: s.organizations.find((o) => o.id === s.activeOrganizationId),
-    projects: s.projects,
-    projectsLoading: s.projectsFetchState !== 'success',
-  })))
+function SettingsContent() {
+  const { activeOrg, projects, projectsLoading } = useOrgStore(
+    useShallow((s) => ({
+      activeOrg: s.organizations.find((o) => o.id === s.activeOrganizationId),
+      projects: s.projects,
+      projectsLoading: s.projectsFetchState !== 'success',
+    })),
+  )
 
   return (
     <div>

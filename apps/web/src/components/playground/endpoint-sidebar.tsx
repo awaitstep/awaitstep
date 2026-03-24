@@ -17,7 +17,9 @@ export function EndpointSidebar({
   const filteredEndpoints = useMemo(() => {
     if (!searchQuery) return endpoints
     const q = searchQuery.toLowerCase()
-    return endpoints.filter((e) => e.path.toLowerCase().includes(q) || e.label.toLowerCase().includes(q))
+    return endpoints.filter(
+      (e) => e.path.toLowerCase().includes(q) || e.label.toLowerCase().includes(q),
+    )
   }, [searchQuery])
 
   const filteredGroups = useMemo(() => {
@@ -36,7 +38,10 @@ export function EndpointSidebar({
   return (
     <div className="flex w-72 shrink-0 flex-col gap-2">
       <div className="relative">
-        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <Search
+          size={14}
+          className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+        />
         <Input
           placeholder="Search endpoints..."
           value={searchQuery}
@@ -66,7 +71,9 @@ export function EndpointSidebar({
                     }`}
                   >
                     <MethodBadge method={endpoint.method} />
-                    <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">{endpoint.path.replace('/api', '')}</span>
+                    <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
+                      {endpoint.path.replace('/api', '')}
+                    </span>
                   </button>
                 ))}
           </div>

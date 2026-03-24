@@ -47,7 +47,9 @@ if (command === 'build') {
   }
 
   console.log(`Built node registry → ${result.outputPath}`)
-  console.log(`  ${result.builtinCount} builtin + ${result.customCount} custom = ${result.totalNodes} total`)
+  console.log(
+    `  ${result.builtinCount} builtin + ${result.customCount} custom = ${result.totalNodes} total`,
+  )
   process.exit(0)
 }
 

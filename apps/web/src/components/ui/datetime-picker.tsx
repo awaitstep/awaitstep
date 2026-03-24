@@ -13,7 +13,13 @@ interface DateTimePickerProps {
   className?: string
 }
 
-export function DateTimePicker({ value, onChange, minDate, placeholder = 'Pick a date & time', className }: DateTimePickerProps) {
+export function DateTimePicker({
+  value,
+  onChange,
+  minDate,
+  placeholder = 'Pick a date & time',
+  className,
+}: DateTimePickerProps) {
   const [open, setOpen] = useState(false)
   const [hours, setHours] = useState(value ? String(value.getHours()).padStart(2, '0') : '')
   const [minutes, setMinutes] = useState(value ? String(value.getMinutes()).padStart(2, '0') : '')
@@ -85,14 +91,17 @@ export function DateTimePicker({ value, onChange, minDate, placeholder = 'Pick a
               month_caption: 'flex items-center justify-center py-1',
               caption_label: 'text-sm font-medium text-foreground',
               nav: 'flex items-center gap-1',
-              button_previous: 'h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:bg-muted/60 hover:text-foreground',
-              button_next: 'h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+              button_previous:
+                'h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+              button_next:
+                'h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:bg-muted/60 hover:text-foreground',
               weekdays: 'flex',
               weekday: 'w-9 text-center text-[11px] font-medium text-muted-foreground/60',
               weeks: 'mt-1',
               week: 'flex',
               day: 'h-9 w-9 text-center text-sm',
-              day_button: 'h-9 w-9 rounded-md text-foreground/60 hover:bg-muted/60 hover:text-foreground transition-colors disabled:text-muted-foreground/30 disabled:pointer-events-none disabled:line-through disabled:decoration-muted-foreground/30 disabled:hover:bg-transparent',
+              day_button:
+                'h-9 w-9 rounded-md text-foreground/60 hover:bg-muted/60 hover:text-foreground transition-colors disabled:text-muted-foreground/30 disabled:pointer-events-none disabled:line-through disabled:decoration-muted-foreground/30 disabled:hover:bg-transparent',
               selected: '!bg-primary !text-primary-foreground rounded-md',
               disabled: '',
               today: 'font-bold text-foreground',

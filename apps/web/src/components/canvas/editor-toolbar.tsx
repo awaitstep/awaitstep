@@ -64,7 +64,12 @@ export function EditorToolbar({
   return (
     <header className="relative z-20 flex h-14 shrink-0 items-center justify-between border-b border-border bg-card px-4">
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground/80" onClick={() => router.history.back()}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-muted-foreground hover:text-foreground/80"
+          onClick={() => router.history.back()}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="h-5 w-px bg-muted/70" />
@@ -95,9 +100,7 @@ export function EditorToolbar({
                 : `deployed v${currentVersion}`}
             </Link>
           )}
-          {isDirty && (
-            <Circle className="h-2 w-2 fill-status-warning text-status-warning" />
-          )}
+          {isDirty && <Circle className="h-2 w-2 fill-status-warning text-status-warning" />}
         </div>
       </div>
 
@@ -114,68 +117,81 @@ export function EditorToolbar({
             </Link>
           </>
         ) : (
-        <>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onSave}
-          disabled={isSaving || !isDirty}
-          className={cn(
-            'h-8 gap-1.5 px-2.5',
-            isDirty ? 'text-foreground/70 hover:text-foreground' : 'text-muted-foreground/60',
-          )}
-        >
-          {isSaving ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Save className="h-3.5 w-3.5" />
-          )}
-          <span className="text-xs">Save</span>
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onToggleSettings}
-          className={cn(
-            'h-8 w-8',
-            showSettings ? 'bg-muted/70 text-foreground' : 'text-muted-foreground hover:text-foreground/70',
-          )}
-        >
-          <Settings2 className="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onToggleEditor}
-          className={cn(
-            'h-8 gap-1.5 px-2.5',
-            showEditor ? 'bg-muted/70 text-foreground' : 'text-muted-foreground hover:text-foreground/70',
-          )}
-        >
-          {showEditor ? <PanelRightClose className="h-3.5 w-3.5" /> : <Code2 className="h-3.5 w-3.5" />}
-          <span className="text-xs">Editor</span>
-        </Button>
-        {isNew && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-1.5 px-2.5 text-muted-foreground hover:text-foreground/70"
-            onClick={onOpenTemplatePicker}
-          >
-            <LayoutTemplate className="h-3.5 w-3.5" />
-            <span className="text-xs">Templates</span>
-          </Button>
-        )}
-        <div className="h-5 w-px bg-muted/70" />
-        <Button variant="ghost" size="sm" className="h-8 gap-1.5 px-2.5 text-muted-foreground hover:text-foreground/80" onClick={onTest}>
-          <Play className="h-3.5 w-3.5" />
-          <span className="text-xs">Test</span>
-        </Button>
-        <Button size="sm" className="h-8 gap-1.5 px-3" onClick={onDeploy}>
-          <Rocket className="h-3.5 w-3.5" />
-          <span className="text-xs">Deploy</span>
-        </Button>
-        </>
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onSave}
+              disabled={isSaving || !isDirty}
+              className={cn(
+                'h-8 gap-1.5 px-2.5',
+                isDirty ? 'text-foreground/70 hover:text-foreground' : 'text-muted-foreground/60',
+              )}
+            >
+              {isSaving ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Save className="h-3.5 w-3.5" />
+              )}
+              <span className="text-xs">Save</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleSettings}
+              className={cn(
+                'h-8 w-8',
+                showSettings
+                  ? 'bg-muted/70 text-foreground'
+                  : 'text-muted-foreground hover:text-foreground/70',
+              )}
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onToggleEditor}
+              className={cn(
+                'h-8 gap-1.5 px-2.5',
+                showEditor
+                  ? 'bg-muted/70 text-foreground'
+                  : 'text-muted-foreground hover:text-foreground/70',
+              )}
+            >
+              {showEditor ? (
+                <PanelRightClose className="h-3.5 w-3.5" />
+              ) : (
+                <Code2 className="h-3.5 w-3.5" />
+              )}
+              <span className="text-xs">Editor</span>
+            </Button>
+            {isNew && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 px-2.5 text-muted-foreground hover:text-foreground/70"
+                onClick={onOpenTemplatePicker}
+              >
+                <LayoutTemplate className="h-3.5 w-3.5" />
+                <span className="text-xs">Templates</span>
+              </Button>
+            )}
+            <div className="h-5 w-px bg-muted/70" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5 px-2.5 text-muted-foreground hover:text-foreground/80"
+              onClick={onTest}
+            >
+              <Play className="h-3.5 w-3.5" />
+              <span className="text-xs">Test</span>
+            </Button>
+            <Button size="sm" className="h-8 gap-1.5 px-3" onClick={onDeploy}>
+              <Rocket className="h-3.5 w-3.5" />
+              <span className="text-xs">Deploy</span>
+            </Button>
+          </>
         )}
       </div>
     </header>

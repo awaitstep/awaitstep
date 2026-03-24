@@ -9,6 +9,7 @@ import { CodeEditor } from '../ui/code-editor'
 import { Select } from '../ui/select'
 import { DynamicFields } from './dynamic-fields'
 import { useWorkflowStore } from '../../stores/workflow-store'
+import { useShallow } from 'zustand/react/shallow'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { customAlphabet } from 'nanoid'
 
@@ -58,11 +59,10 @@ export function validateNode(node: WorkflowNode): string[] {
 }
 
 export function NodeConfigPanel() {
-  const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId)
-  const nodes = useWorkflowStore((s) => s.nodes)
-  const updateNodeData = useWorkflowStore((s) => s.updateNodeData)
-  const removeNode = useWorkflowStore((s) => s.removeNode)
-  const selectNode = useWorkflowStore((s) => s.selectNode)
+  const { selectedNodeId, nodes } = useWorkflowStore(
+    useShallow((s) => ({ selectedNodeId: s.selectedNodeId, nodes: s.nodes })),
+  )
+  const { updateNodeData, removeNode, selectNode } = useWorkflowStore()
   const registry = useNodeRegistry()
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId)
@@ -102,10 +102,20 @@ export function NodeConfigPanel() {
           </span>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => removeNode(selectedNode.id)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-destructive hover:text-destructive"
+            onClick={() => removeNode(selectedNode.id)}
+          >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={tryClose}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            onClick={tryClose}
+          >
             <X className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -114,7 +124,13 @@ export function NodeConfigPanel() {
       <div className="flex-1 overflow-y-auto p-4 scrollbar-none">
         <div className="space-y-4">
           <Field label="Node Name" hint="Max 256 characters">
-            <Input value={irNode.name} onChange={(e) => update({ name: e.target.value.slice(0, 256) })} debounceMs={300} placeholder="My node" maxLength={256} />
+            <Input
+              value={irNode.name}
+              onChange={(e) => update({ name: e.target.value.slice(0, 256) })}
+              debounceMs={300}
+              placeholder="My node"
+              maxLength={256}
+            />
           </Field>
 
           <Separator className="!bg-muted/60" />
@@ -122,7 +138,10 @@ export function NodeConfigPanel() {
           {irNode.type === 'branch' ? (
             <BranchFields node={irNode} onUpdate={update} />
           ) : irNode.type === 'parallel' ? (
-            <Hint>Connect multiple nodes from this output to run them concurrently via Promise.all(). Not natively durable — use separate Workflow instances for durable parallelism.</Hint>
+            <Hint>
+              Connect multiple nodes from this output to run them concurrently via Promise.all().
+              Not natively durable — use separate Workflow instances for durable parallelism.
+            </Hint>
           ) : definition ? (
             <DynamicFields
               configSchema={definition.configSchema}
@@ -132,7 +151,10 @@ export function NodeConfigPanel() {
           ) : (
             <div className="flex items-start gap-1.5 rounded-lg bg-destructive/10 px-2.5 py-2 text-[11px] leading-relaxed text-destructive">
               <Info className="mt-0.5 h-3 w-3 shrink-0" />
-              <span>Unknown node type: <strong>{irNode.type}</strong>. This node&apos;s definition was not found in the registry — it may have been removed or not installed.</span>
+              <span>
+                Unknown node type: <strong>{irNode.type}</strong>. This node&apos;s definition was
+                not found in the registry — it may have been removed or not installed.
+              </span>
             </div>
           )}
         </div>
@@ -145,7 +167,15 @@ export function NodeConfigPanel() {
   )
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string
+  hint?: string
+  children: React.ReactNode
+}) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
@@ -168,10 +198,20 @@ function Hint({ children }: { children: React.ReactNode }) {
 
 // ── Branch (if/else if/else) — kept as custom component for edge management ──
 
-function BranchFields({ node, onUpdate }: { node: WorkflowNode; onUpdate: (d: Partial<WorkflowNode>) => void }) {
-  const allNodes = useWorkflowStore((s) => s.nodes)
-  const edges = useWorkflowStore((s) => s.edges)
-  const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId)
+function BranchFields({
+  node,
+  onUpdate,
+}: {
+  node: WorkflowNode
+  onUpdate: (d: Partial<WorkflowNode>) => void
+}) {
+  const {
+    nodes: allNodes,
+    edges,
+    selectedNodeId,
+  } = useWorkflowStore(
+    useShallow((s) => ({ nodes: s.nodes, edges: s.edges, selectedNodeId: s.selectedNodeId })),
+  )
 
   const branches = (node.data.branches ?? []) as BranchCondition[]
   const outgoingEdges = edges.filter((e) => e.source === selectedNodeId)
@@ -197,9 +237,13 @@ function BranchFields({ node, onUpdate }: { node: WorkflowNode; onUpdate: (d: Pa
     }
 
     if (existingEdge) {
-      useWorkflowStore.setState({ edges: store.edges.map((e) => e.id === existingEdge.id ? { ...e, target: targetId } : e) })
+      useWorkflowStore.setState({
+        edges: store.edges.map((e) => (e.id === existingEdge.id ? { ...e, target: targetId } : e)),
+      })
     } else {
-      useWorkflowStore.setState({ edges: [...store.edges, { id: nanoid(), source: selectedNodeId!, target: targetId, label }] })
+      useWorkflowStore.setState({
+        edges: [...store.edges, { id: nanoid(), source: selectedNodeId!, target: targetId, label }],
+      })
     }
   }
 
@@ -213,7 +257,7 @@ function BranchFields({ node, onUpdate }: { node: WorkflowNode; onUpdate: (d: Pa
         ),
       })
     }
-    const updated = branches.map((b, i) => i === index ? { ...b, [field]: value } : b)
+    const updated = branches.map((b, i) => (i === index ? { ...b, [field]: value } : b))
     onUpdate({ data: { ...node.data, branches: updated } })
   }
 
@@ -270,9 +314,7 @@ function BranchFields({ node, onUpdate }: { node: WorkflowNode; onUpdate: (d: Pa
         <span>Add condition</span>
       </Button>
 
-      <Hint>
-        Select which node each branch should go to. Edges are created automatically.
-      </Hint>
+      <Hint>Select which node each branch should go to. Edges are created automatically.</Hint>
     </>
   )
 }
@@ -301,14 +343,24 @@ function BranchCard({
   onRemove: () => void
 }) {
   const isElse = branch.condition === '' && isLast
-  const heading = index === 0 ? 'When this is true' : isElse ? 'Otherwise (default)' : 'Otherwise, when this is true'
+  const heading =
+    index === 0
+      ? 'When this is true'
+      : isElse
+        ? 'Otherwise (default)'
+        : 'Otherwise, when this is true'
 
   return (
     <div className="overflow-hidden rounded-lg border border-border">
       <div className="flex items-center justify-between bg-muted/40 px-3 py-1.5">
         <span className="text-[11px] font-medium text-muted-foreground">{heading}</span>
         {branchCount > 1 && (
-          <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground/40 hover:text-destructive" onClick={onRemove}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 text-muted-foreground/40 hover:text-destructive"
+            onClick={onRemove}
+          >
             <Trash2 className="h-2.5 w-2.5" />
           </Button>
         )}

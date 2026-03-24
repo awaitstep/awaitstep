@@ -88,9 +88,15 @@ function findEntryNode(nodes: FlowNode[], edges: Edge[]): string {
     const queue = [root.id]
     while (queue.length > 0) {
       const id = queue.shift()!
-      if (!visited.has(id)) { visited.add(id); for (const n of adj.get(id) ?? []) queue.push(n) }
+      if (!visited.has(id)) {
+        visited.add(id)
+        for (const n of adj.get(id) ?? []) queue.push(n)
+      }
     }
-    if (visited.size > bestCount) { bestCount = visited.size; bestId = root.id }
+    if (visited.size > bestCount) {
+      bestCount = visited.size
+      bestId = root.id
+    }
   }
   return bestId
 }
@@ -134,7 +140,12 @@ export function validateWorkflowForPublish(
 ): PublishValidationResult {
   const issues: PublishIssue[] = []
 
-  function add(severity: IssueSeverity, nodeId: string | null, nodeName: string | null, message: string) {
+  function add(
+    severity: IssueSeverity,
+    nodeId: string | null,
+    nodeName: string | null,
+    message: string,
+  ) {
     issues.push({ severity, nodeId, nodeName, message })
   }
 
@@ -155,7 +166,12 @@ export function validateWorkflowForPublish(
   const unreachable = findUnreachableNodes(nodes, edges)
   for (const nodeId of unreachable) {
     const node = nodes.find((n) => n.id === nodeId)
-    add('error', nodeId, node?.data.irNode.name ?? null, 'Node is not reachable from entry — connect it or remove it')
+    add(
+      'error',
+      nodeId,
+      node?.data.irNode.name ?? null,
+      'Node is not reachable from entry — connect it or remove it',
+    )
   }
 
   // ── Expression validation setup (topo-sort for upstream tracking) ──
@@ -192,8 +208,23 @@ export function validateWorkflowForPublish(
   }
 
   // ── Per-node ──
-  const BUILTIN_TYPES = new Set(['step', 'sleep', 'sleep_until', 'branch', 'parallel', 'http_request', 'wait_for_event'])
-  const LINEAR_TYPES = new Set(['step', 'sleep', 'sleep_until', 'http_request', 'wait_for_event', 'custom'])
+  const BUILTIN_TYPES = new Set([
+    'step',
+    'sleep',
+    'sleep_until',
+    'branch',
+    'parallel',
+    'http_request',
+    'wait_for_event',
+  ])
+  const LINEAR_TYPES = new Set([
+    'step',
+    'sleep',
+    'sleep_until',
+    'http_request',
+    'wait_for_event',
+    'custom',
+  ])
 
   for (const node of nodes) {
     const ir = node.data.irNode
@@ -209,7 +240,12 @@ export function validateWorkflowForPublish(
     if (LINEAR_TYPES.has(ir.type)) {
       const outCount = edges.filter((e) => e.source === id).length
       if (outCount > 1) {
-        add('error', id, name, `Node has ${outCount} outgoing edges but only 1 is allowed — use a Branch node to split`)
+        add(
+          'error',
+          id,
+          name,
+          `Node has ${outCount} outgoing edges but only 1 is allowed — use a Branch node to split`,
+        )
       }
     }
 

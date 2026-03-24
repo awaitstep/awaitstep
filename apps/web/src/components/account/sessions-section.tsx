@@ -8,8 +8,26 @@ import { timeAgo } from '../../lib/time'
 
 function parseUserAgent(ua: string): string {
   if (!ua) return 'Unknown browser'
-  const browser = /Chrome/.test(ua) ? 'Chrome' : /Firefox/.test(ua) ? 'Firefox' : /Safari/.test(ua) ? 'Safari' : /Edge/.test(ua) ? 'Edge' : 'Browser'
-  const os = /Mac/.test(ua) ? 'macOS' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : 'Unknown'
+  const browser = /Chrome/.test(ua)
+    ? 'Chrome'
+    : /Firefox/.test(ua)
+      ? 'Firefox'
+      : /Safari/.test(ua)
+        ? 'Safari'
+        : /Edge/.test(ua)
+          ? 'Edge'
+          : 'Browser'
+  const os = /Mac/.test(ua)
+    ? 'macOS'
+    : /Windows/.test(ua)
+      ? 'Windows'
+      : /Linux/.test(ua)
+        ? 'Linux'
+        : /Android/.test(ua)
+          ? 'Android'
+          : /iPhone|iPad/.test(ua)
+            ? 'iOS'
+            : 'Unknown'
   return `${browser} on ${os}`
 }
 
@@ -48,7 +66,9 @@ export function SessionsSection({ currentSessionToken }: { currentSessionToken: 
 
   return (
     <section className="rounded-md border border-border p-4">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">Sessions</h2>
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
+        Sessions
+      </h2>
 
       {isLoading ? (
         <div className="mt-3 flex justify-center py-3">
@@ -68,16 +88,27 @@ export function SessionsSection({ currentSessionToken }: { currentSessionToken: 
                   <Monitor className="h-3.5 w-3.5 text-muted-foreground/60" />
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-medium">{parseUserAgent(s.userAgent ?? '')}</span>
+                      <span className="text-xs font-medium">
+                        {parseUserAgent(s.userAgent ?? '')}
+                      </span>
                       {isCurrent && (
-                        <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">Current</span>
+                        <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          Current
+                        </span>
                       )}
                     </div>
-                    <p className="text-[10px] text-muted-foreground">{s.ipAddress ?? 'Unknown IP'} · {sessionAge}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {s.ipAddress ?? 'Unknown IP'} · {sessionAge}
+                    </p>
                   </div>
                 </div>
                 {!isCurrent && (
-                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setRevokeTarget(s.token)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setRevokeTarget(s.token)}
+                  >
                     Revoke
                   </Button>
                 )}

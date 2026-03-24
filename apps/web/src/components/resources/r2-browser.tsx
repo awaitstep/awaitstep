@@ -18,8 +18,9 @@ export function R2Browser({ connectionId }: R2BrowserProps) {
   const { data: buckets, isLoading: bucketsLoading } = useQuery({
     queryKey: ['r2-buckets', connectionId],
     queryFn: () =>
-      fetch(`/api/resources/r2/buckets?connectionId=${connectionId}`, { credentials: 'include' })
-        .then((r) => r.json()),
+      fetch(`/api/resources/r2/buckets?connectionId=${connectionId}`, {
+        credentials: 'include',
+      }).then((r) => r.json()),
     enabled: !!connectionId,
   })
 
@@ -28,8 +29,9 @@ export function R2Browser({ connectionId }: R2BrowserProps) {
     queryFn: () => {
       const params = new URLSearchParams({ connectionId })
       if (prefix) params.set('prefix', prefix)
-      return fetch(`/api/resources/r2/buckets/${selectedBucket}/objects?${params}`, { credentials: 'include' })
-        .then((r) => r.json())
+      return fetch(`/api/resources/r2/buckets/${selectedBucket}/objects?${params}`, {
+        credentials: 'include',
+      }).then((r) => r.json())
     },
     enabled: !!selectedBucket,
   })
@@ -65,7 +67,9 @@ export function R2Browser({ connectionId }: R2BrowserProps) {
             key={bucket.name}
             onClick={() => handleBucketSelect(bucket.name)}
             className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-              selectedBucket === bucket.name ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
+              selectedBucket === bucket.name
+                ? 'bg-primary/10 text-primary'
+                : 'text-foreground hover:bg-muted'
             }`}
           >
             {bucket.name}
@@ -79,23 +83,24 @@ export function R2Browser({ connectionId }: R2BrowserProps) {
           <>
             {/* Breadcrumb */}
             <div className="flex items-center gap-1 text-sm">
-              <button
-                onClick={() => setPrefix('')}
-                className="text-primary hover:underline"
-              >
+              <button onClick={() => setPrefix('')} className="text-primary hover:underline">
                 {selectedBucket}
               </button>
-              {prefix && prefix.split('/').filter(Boolean).map((part, i, arr) => (
-                <span key={i} className="flex items-center gap-1">
-                  <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                  <button
-                    onClick={() => navigateToFolder(arr.slice(0, i + 1).join('/') + '/')}
-                    className="text-primary hover:underline"
-                  >
-                    {part}
-                  </button>
-                </span>
-              ))}
+              {prefix &&
+                prefix
+                  .split('/')
+                  .filter(Boolean)
+                  .map((part, i, arr) => (
+                    <span key={i} className="flex items-center gap-1">
+                      <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                      <button
+                        onClick={() => navigateToFolder(arr.slice(0, i + 1).join('/') + '/')}
+                        className="text-primary hover:underline"
+                      >
+                        {part}
+                      </button>
+                    </span>
+                  ))}
             </div>
 
             {objectsLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
@@ -119,7 +124,9 @@ export function R2Browser({ connectionId }: R2BrowserProps) {
                 >
                   <div className="flex items-center gap-2">
                     <File className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-mono text-xs">{prefix ? file.key.slice(prefix.length) : file.key}</span>
+                    <span className="font-mono text-xs">
+                      {prefix ? file.key.slice(prefix.length) : file.key}
+                    </span>
                   </div>
                   <span className="text-xs text-muted-foreground">{formatSize(file.size)}</span>
                 </div>

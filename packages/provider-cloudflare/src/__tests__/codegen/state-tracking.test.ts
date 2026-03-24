@@ -60,7 +60,11 @@ describe('hasTemplateExpressions', () => {
         type: 'http_request',
         version: V,
         provider: P,
-        data: { url: 'https://api.com', method: 'GET', headers: { Authorization: 'Bearer {{auth.token}}' } },
+        data: {
+          url: 'https://api.com',
+          method: 'GET',
+          headers: { Authorization: 'Bearer {{auth.token}}' },
+        },
       },
     ]
     // headers is a nested object, hasTemplateExpressions only scans top-level string values in data

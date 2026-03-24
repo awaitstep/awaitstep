@@ -57,13 +57,10 @@ export const Route = createFileRoute('/_authed')({
   component: AuthedLayout,
 })
 
-
 function AuthedLayout() {
   const loaderData = Route.useLoaderData()
   const matches = useMatches()
-  const isCanvasPage = matches.some(
-    (m) => m.routeId === '/_authed/workflows/$workflowId/canvas',
-  )
+  const isCanvasPage = matches.some((m) => m.routeId === '/_authed/workflows/$workflowId/canvas')
 
   useAuthStore.getState().setSession(loaderData.sessionData)
 
@@ -78,16 +75,16 @@ function AuthedLayout() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <>
       <OrgWrapper organizations={loaderData.organizations} />
-      <main className="mx-auto w-full max-w-screen-lg flex-1 px-8 py-6 pb-24">
-        <Outlet />
-      </main>
-      {loaderData.organizations.length !== 0 && (
-        <Dock
-          email={loaderData.sessionData.user.email}
-        />
-      )}
-    </div>
+      <div className="flex min-h-screen flex-col">
+        <main className="mx-auto w-full max-w-screen-lg flex-1 px-8 py-6 pb-24">
+          <Outlet />
+        </main>
+        {loaderData.organizations.length !== 0 && (
+          <Dock email={loaderData.sessionData.user.email} />
+        )}
+      </div>
+    </>
   )
 }

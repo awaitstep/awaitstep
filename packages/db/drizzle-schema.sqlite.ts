@@ -46,7 +46,9 @@ export const session = sqliteTable(
     updatedAt: text('updatedAt').notNull(),
     ipAddress: text('ipAddress'),
     userAgent: text('userAgent'),
-    userId: text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    userId: text('userId')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
     activeOrganizationId: text('activeOrganizationId'),
   },
   (table) => [
@@ -61,7 +63,9 @@ export const account = sqliteTable(
     id: text('id').primaryKey(),
     accountId: text('accountId').notNull(),
     providerId: text('providerId').notNull(),
-    userId: text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    userId: text('userId')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
     accessToken: text('accessToken'),
     refreshToken: text('refreshToken'),
     idToken: text('idToken'),
@@ -90,24 +94,25 @@ export const verification = sqliteTable(
 
 // Organization tables (better-auth organization plugin)
 
-export const organization = sqliteTable(
-  'organization',
-  {
-    id: text('id').primaryKey(),
-    name: text('name').notNull(),
-    slug: text('slug').notNull().unique(),
-    logo: text('logo'),
-    metadata: text('metadata'),
-    createdAt: text('createdAt').notNull(),
-  },
-)
+export const organization = sqliteTable('organization', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  slug: text('slug').notNull().unique(),
+  logo: text('logo'),
+  metadata: text('metadata'),
+  createdAt: text('createdAt').notNull(),
+})
 
 export const member = sqliteTable(
   'member',
   {
     id: text('id').primaryKey(),
-    userId: text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
-    organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    userId: text('userId')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    organizationId: text('organizationId')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
     role: text('role').notNull(),
     createdAt: text('createdAt').notNull(),
   },
@@ -122,16 +127,18 @@ export const invitation = sqliteTable(
   {
     id: text('id').primaryKey(),
     email: text('email').notNull(),
-    inviterId: text('inviterId').notNull().references(() => user.id, { onDelete: 'cascade' }),
-    organizationId: text('organizationId').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    inviterId: text('inviterId')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    organizationId: text('organizationId')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
     role: text('role'),
     status: text('status').notNull(),
     expiresAt: text('expiresAt').notNull(),
     createdAt: text('createdAt').notNull(),
   },
-  (table) => [
-    index('idx_invitation_org_id').on(table.organizationId),
-  ],
+  (table) => [index('idx_invitation_org_id').on(table.organizationId)],
 )
 
 // App tables (snake_case columns)
@@ -157,7 +164,9 @@ export const workflows = sqliteTable(
   'workflows',
   {
     id: text('id').primaryKey(),
-    projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
     createdBy: text('created_by').notNull(),
     name: text('name').notNull(),
     description: text('description'),
@@ -178,7 +187,9 @@ export const workflowVersions = sqliteTable(
   'workflow_versions',
   {
     id: text('id').primaryKey(),
-    workflowId: text('workflow_id').notNull().references(() => workflows.id, { onDelete: 'cascade' }),
+    workflowId: text('workflow_id')
+      .notNull()
+      .references(() => workflows.id, { onDelete: 'cascade' }),
     version: integer('version').notNull(),
     ir: text('ir').notNull(),
     generatedCode: text('generated_code'),
@@ -213,9 +224,15 @@ export const workflowRuns = sqliteTable(
   'workflow_runs',
   {
     id: text('id').primaryKey(),
-    workflowId: text('workflow_id').notNull().references(() => workflows.id, { onDelete: 'cascade' }),
-    versionId: text('version_id').notNull().references(() => workflowVersions.id),
-    connectionId: text('connection_id').notNull().references(() => connections.id),
+    workflowId: text('workflow_id')
+      .notNull()
+      .references(() => workflows.id, { onDelete: 'cascade' }),
+    versionId: text('version_id')
+      .notNull()
+      .references(() => workflowVersions.id),
+    connectionId: text('connection_id')
+      .notNull()
+      .references(() => connections.id),
     instanceId: text('instance_id').notNull(),
     status: text('status').notNull().default('queued'),
     output: text('output'),
@@ -230,7 +247,9 @@ export const apiKeys = sqliteTable(
   'api_keys',
   {
     id: text('id').primaryKey(),
-    projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
     createdBy: text('created_by').notNull(),
     name: text('name').notNull(),
     keyHash: text('key_hash').notNull().unique(),
@@ -251,9 +270,15 @@ export const deployments = sqliteTable(
   'deployments',
   {
     id: text('id').primaryKey(),
-    workflowId: text('workflow_id').notNull().references(() => workflows.id, { onDelete: 'cascade' }),
-    versionId: text('version_id').notNull().references(() => workflowVersions.id),
-    connectionId: text('connection_id').notNull().references(() => connections.id),
+    workflowId: text('workflow_id')
+      .notNull()
+      .references(() => workflows.id, { onDelete: 'cascade' }),
+    versionId: text('version_id')
+      .notNull()
+      .references(() => workflowVersions.id),
+    connectionId: text('connection_id')
+      .notNull()
+      .references(() => connections.id),
     serviceName: text('service_name').notNull(),
     serviceUrl: text('service_url'),
     status: text('status').notNull().default('success'),

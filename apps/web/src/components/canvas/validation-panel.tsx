@@ -1,24 +1,25 @@
 import { AlertCircle, AlertTriangle, CheckCircle2, X } from 'lucide-react'
 import { useReactFlow } from '@xyflow/react'
 import { useWorkflowStore } from '../../stores/workflow-store'
+import { useShallow } from 'zustand/react/shallow'
 import type { PublishIssue } from '../../lib/validate-workflow'
 import { cn } from '../../lib/utils'
 
 const NODE_TYPE_LABELS: Record<string, string> = {
   step: 'Step',
   sleep: 'Sleep',
-  'sleep_until': 'Sleep Until',
+  sleep_until: 'Sleep Until',
   branch: 'Branch',
   parallel: 'Parallel',
-  'http_request': 'HTTP',
-  'wait_for_event': 'Event',
+  http_request: 'HTTP',
+  wait_for_event: 'Event',
 }
 
 export function ValidationPanel() {
-  const validationResult = useWorkflowStore((s) => s.validationResult)
-  const clearValidation = useWorkflowStore((s) => s.clearValidation)
-  const selectNode = useWorkflowStore((s) => s.selectNode)
-  const nodes = useWorkflowStore((s) => s.nodes)
+  const { validationResult, nodes } = useWorkflowStore(
+    useShallow((s) => ({ validationResult: s.validationResult, nodes: s.nodes })),
+  )
+  const { clearValidation, selectNode } = useWorkflowStore()
   const { fitView } = useReactFlow()
 
   if (!validationResult) return null
@@ -88,9 +89,7 @@ export function ValidationPanel() {
                 disabled={!issue.nodeId}
                 className={cn(
                   'flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] transition-colors',
-                  issue.nodeId
-                    ? 'cursor-pointer hover:bg-muted/50'
-                    : 'cursor-default',
+                  issue.nodeId ? 'cursor-pointer hover:bg-muted/50' : 'cursor-default',
                 )}
               >
                 {issue.severity === 'error' ? (
@@ -106,7 +105,9 @@ export function ValidationPanel() {
                     {NODE_TYPE_LABELS[nodeType] ?? nodeType}
                   </span>
                 )}
-                <span className={issue.severity === 'error' ? 'text-red-300/80' : 'text-yellow-300/80'}>
+                <span
+                  className={issue.severity === 'error' ? 'text-red-300/80' : 'text-yellow-300/80'}
+                >
                   {issue.message}
                 </span>
               </button>

@@ -1,4 +1,6 @@
-export function getClientIp(req: { header: (name: string) => string | undefined }): string | undefined {
+export function getClientIp(req: {
+  header: (name: string) => string | undefined
+}): string | undefined {
   return (
     req.header('cf-connecting-ip') ??
     req.header('x-real-ip') ??

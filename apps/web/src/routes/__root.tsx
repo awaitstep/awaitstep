@@ -25,7 +25,10 @@ export const Route = createRootRoute({
     ],
     title: 'AwaitStep',
     links: [
-      { rel: 'stylesheet', href: 'https://cdn.jsdelivr.net/npm/geist@1/dist/fonts/geist-sans/style.css' },
+      {
+        rel: 'stylesheet',
+        href: 'https://cdn.jsdelivr.net/npm/geist@1/dist/fonts/geist-sans/style.css',
+      },
     ],
   }),
   component: RootComponent,
@@ -44,10 +47,7 @@ function NotFound() {
     <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-4">
       <h1 className="text-6xl font-bold tracking-tight">404</h1>
       <p className="text-muted-foreground">This page could not be found.</p>
-      <Link
-        to="/"
-        className="mt-3 text-sm text-primary hover:underline hover:underline-offset-4"
-      >
+      <Link to="/" className="mt-3 text-sm text-primary hover:underline hover:underline-offset-4">
         Go home
       </Link>
     </div>

@@ -22,36 +22,55 @@ const edgeTypes = { smoothstep: LabeledEdge }
 
 export function WorkflowCanvas() {
   const reactFlowInstance = useRef<ReactFlowInstance<FlowNode> | null>(null)
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addNode, insertNodeOnEdge, selectNode, selectEdge, selectedNodeId, selectedEdgeId, readOnly } = useWorkflowStore()
+  const {
+    nodes,
+    edges,
+    onNodesChange,
+    onEdgesChange,
+    onConnect,
+    addNode,
+    insertNodeOnEdge,
+    selectNode,
+    selectEdge,
+    selectedNodeId,
+    selectedEdgeId,
+    readOnly,
+  } = useWorkflowStore()
   const registry = useNodeRegistry()
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null)
 
-  const validatedSelectNode = useCallback((nodeId: string | null) => {
-    if (selectedNodeId && nodeId !== selectedNodeId) {
-      const currentNode = nodes.find((n) => n.id === selectedNodeId)
-      if (currentNode) {
-        const errors = validateNode(currentNode.data.irNode)
-        if (errors.length > 0) {
-          toast.error(errors[0])
-          return
+  const validatedSelectNode = useCallback(
+    (nodeId: string | null) => {
+      if (selectedNodeId && nodeId !== selectedNodeId) {
+        const currentNode = nodes.find((n) => n.id === selectedNodeId)
+        if (currentNode) {
+          const errors = validateNode(currentNode.data.irNode)
+          if (errors.length > 0) {
+            toast.error(errors[0])
+            return
+          }
         }
       }
-    }
-    selectNode(nodeId)
-  }, [selectedNodeId, nodes, selectNode])
+      selectNode(nodeId)
+    },
+    [selectedNodeId, nodes, selectNode],
+  )
 
-  const onDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault()
-    event.dataTransfer.dropEffect = 'move'
+  const onDragOver = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault()
+      event.dataTransfer.dropEffect = 'move'
 
-    if (!reactFlowInstance.current) return
-    const position = reactFlowInstance.current.screenToFlowPosition({
-      x: event.clientX,
-      y: event.clientY,
-    })
-    const result = findNearestEdge(position, edges, nodes)
-    setHoveredEdgeId(result?.edge.id ?? null)
-  }, [edges, nodes])
+      if (!reactFlowInstance.current) return
+      const position = reactFlowInstance.current.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      })
+      const result = findNearestEdge(position, edges, nodes)
+      setHoveredEdgeId(result?.edge.id ?? null)
+    },
+    [edges, nodes],
+  )
 
   const onDrop = useCallback(
     (event: React.DragEvent) => {
@@ -78,13 +97,14 @@ export function WorkflowCanvas() {
     setHoveredEdgeId(null)
   }, [])
 
-  const styledEdges = (hoveredEdgeId || selectedEdgeId)
-    ? edges.map((e) => {
-        const hovered = e.id === hoveredEdgeId
-        const selected = e.id === selectedEdgeId
-        return (hovered || selected) ? { ...e, data: { ...e.data, hovered, selected } } : e
-      })
-    : edges
+  const styledEdges =
+    hoveredEdgeId || selectedEdgeId
+      ? edges.map((e) => {
+          const hovered = e.id === hoveredEdgeId
+          const selected = e.id === selectedEdgeId
+          return hovered || selected ? { ...e, data: { ...e.data, hovered, selected } } : e
+        })
+      : edges
 
   return (
     <ReactFlow

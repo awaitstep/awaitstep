@@ -2,14 +2,24 @@ import { useState, useRef, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api-client'
 
-export function EditableName({ workflowId, initialValue }: { workflowId: string; initialValue: string }) {
+export function EditableName({
+  workflowId,
+  initialValue,
+}: {
+  workflowId: string
+  initialValue: string
+}) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(initialValue)
   const inputRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
 
-  useEffect(() => { setValue(initialValue) }, [initialValue])
-  useEffect(() => { if (editing) inputRef.current?.select() }, [editing])
+  useEffect(() => {
+    setValue(initialValue)
+  }, [initialValue])
+  useEffect(() => {
+    if (editing) inputRef.current?.select()
+  }, [editing])
 
   const mutation = useMutation({
     mutationFn: (name: string) => api.updateWorkflow(workflowId, { name }),
@@ -31,7 +41,10 @@ export function EditableName({ workflowId, initialValue }: { workflowId: string;
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter') save()
-    if (e.key === 'Escape') { setValue(initialValue); setEditing(false) }
+    if (e.key === 'Escape') {
+      setValue(initialValue)
+      setEditing(false)
+    }
   }
 
   if (editing) {
@@ -58,17 +71,28 @@ export function EditableName({ workflowId, initialValue }: { workflowId: string;
   )
 }
 
-export function EditableDescription({ workflowId, initialValue }: { workflowId: string; initialValue: string }) {
+export function EditableDescription({
+  workflowId,
+  initialValue,
+}: {
+  workflowId: string
+  initialValue: string
+}) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(initialValue)
   const inputRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient()
 
-  useEffect(() => { setValue(initialValue) }, [initialValue])
-  useEffect(() => { if (editing) inputRef.current?.focus() }, [editing])
+  useEffect(() => {
+    setValue(initialValue)
+  }, [initialValue])
+  useEffect(() => {
+    if (editing) inputRef.current?.focus()
+  }, [editing])
 
   const mutation = useMutation({
-    mutationFn: (description: string) => api.updateWorkflow(workflowId, { description: description || undefined }),
+    mutationFn: (description: string) =>
+      api.updateWorkflow(workflowId, { description: description || undefined }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflow', workflowId] })
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
@@ -86,7 +110,10 @@ export function EditableDescription({ workflowId, initialValue }: { workflowId: 
 
   function handleDescKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter') save()
-    if (e.key === 'Escape') { setValue(initialValue); setEditing(false) }
+    if (e.key === 'Escape') {
+      setValue(initialValue)
+      setEditing(false)
+    }
   }
 
   if (editing) {
@@ -109,7 +136,9 @@ export function EditableDescription({ workflowId, initialValue }: { workflowId: 
       className="mt-1 cursor-text rounded-md px-2 py-0.5 text-sm text-muted-foreground transition-colors hover:bg-muted/40"
       title="Click to edit"
     >
-      {initialValue || <span className="italic text-muted-foreground/40">Add a description...</span>}
+      {initialValue || (
+        <span className="italic text-muted-foreground/40">Add a description...</span>
+      )}
     </p>
   )
 }

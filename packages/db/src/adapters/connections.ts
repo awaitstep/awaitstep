@@ -12,9 +12,18 @@ export class ConnectionsAdapter {
     private crypto?: TokenCrypto,
   ) {}
 
-  async create(data: { id: string; organizationId: string; createdBy: string; provider: string; credentials: string; name: string }): Promise<Connection> {
+  async create(data: {
+    id: string
+    organizationId: string
+    createdBy: string
+    provider: string
+    credentials: string
+    name: string
+  }): Promise<Connection> {
     const now = new Date().toISOString()
-    const encryptedCredentials = this.crypto ? await this.crypto.encrypt(data.credentials) : data.credentials
+    const encryptedCredentials = this.crypto
+      ? await this.crypto.encrypt(data.credentials)
+      : data.credentials
     const row = {
       id: data.id,
       organizationId: data.organizationId,
@@ -39,7 +48,11 @@ export class ConnectionsAdapter {
   }
 
   async listByOrganization(organizationId: string): Promise<Connection[]> {
-    const rows = await this.db.select().from(this.table).where(eq(this.table.organizationId, organizationId)).orderBy(desc(this.table.createdAt))
+    const rows = await this.db
+      .select()
+      .from(this.table)
+      .where(eq(this.table.organizationId, organizationId))
+      .orderBy(desc(this.table.createdAt))
     if (this.crypto) {
       for (const row of rows) {
         row.credentials = await this.tryDecrypt(row.credentials)
@@ -57,11 +70,16 @@ export class ConnectionsAdapter {
     }
   }
 
-  async update(id: string, data: { name?: string; credentials?: string }): Promise<Connection | null> {
+  async update(
+    id: string,
+    data: { name?: string; credentials?: string },
+  ): Promise<Connection | null> {
     const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() }
     if (data.name !== undefined) updates.name = data.name
     if (data.credentials !== undefined) {
-      updates.credentials = this.crypto ? await this.crypto.encrypt(data.credentials) : data.credentials
+      updates.credentials = this.crypto
+        ? await this.crypto.encrypt(data.credentials)
+        : data.credentials
     }
     await this.db.update(this.table).set(updates).where(eq(this.table.id, id))
     return this.getById(id)

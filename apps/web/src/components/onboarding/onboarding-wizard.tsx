@@ -1,13 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  CheckCircle2,
-  Loader2,
-  ExternalLink,
-  ArrowRight,
-  XCircle,
-} from 'lucide-react'
+import { CheckCircle2, Loader2, ExternalLink, ArrowRight, XCircle } from 'lucide-react'
 import { Button } from '../ui/button'
 import { api } from '../../lib/api-client'
 import { getEnabledProviders, type ProviderDefinition } from '../../lib/provider-registry'
@@ -35,8 +29,13 @@ export function OnboardingWizard() {
           {[1, 2, 3, 4].map((s) => (
             <div
               key={s}
-              className={`h-1.5 w-1.5 rounded-full transition-colors ${s === step ? 'bg-foreground' : s < step ? 'bg-muted-foreground' : 'bg-muted-foreground/30'
-                }`}
+              className={`h-1.5 w-1.5 rounded-full transition-colors ${
+                s === step
+                  ? 'bg-foreground'
+                  : s < step
+                    ? 'bg-muted-foreground'
+                    : 'bg-muted-foreground/30'
+              }`}
             />
           ))}
         </div>
@@ -68,8 +67,16 @@ export function OnboardingWizard() {
                 queryClient.invalidateQueries({ queryKey: ['connections'] })
                 queryClient.invalidateQueries({ queryKey: ['workflows'] })
               }}
-              onStartFromScratch={() => navigate({ to: '/workflows/$workflowId/canvas', params: { workflowId: 'new' } })}
-              onUseTemplate={() => navigate({ to: '/workflows/$workflowId/canvas', params: { workflowId: 'new' }, search: { template: true } })}
+              onStartFromScratch={() =>
+                navigate({ to: '/workflows/$workflowId/canvas', params: { workflowId: 'new' } })
+              }
+              onUseTemplate={() =>
+                navigate({
+                  to: '/workflows/$workflowId/canvas',
+                  params: { workflowId: 'new' },
+                  search: { template: true },
+                })
+              }
             />
           )}
         </div>
@@ -95,10 +102,10 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
       </div>
       <h2 className="mt-4 text-base font-semibold text-foreground">Welcome to AwaitStep</h2>
       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-        Build and deploy durable workflows in minutes.
-        Let's connect your deployment provider to get started.
+        Build and deploy durable workflows in minutes. Let's connect your deployment provider to get
+        started.
       </p>
-     
+
       <Button className="mt-6 w-full gap-2" onClick={onNext}>
         Let's go
         <ArrowRight size={16} />
@@ -107,11 +114,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
   )
 }
 
-function SelectProviderStep({
-  onSelect,
-}: {
-  onSelect: (provider: ProviderDefinition) => void
-}) {
+function SelectProviderStep({ onSelect }: { onSelect: (provider: ProviderDefinition) => void }) {
   const providers = getEnabledProviders()
 
   return (
@@ -226,7 +229,9 @@ function ConfigureCredentialsStep({
           {provider.permissions.map((perm) => (
             <li key={perm.resource} className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">{perm.resource}</span>
-              <span className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">{perm.level}</span>
+              <span className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                {perm.level}
+              </span>
             </li>
           ))}
         </ul>
@@ -258,8 +263,12 @@ function ConfigureCredentialsStep({
               />
               {field.minLength && (
                 <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
-                  {verifyState === 'verifying' && <Loader2 size={14} className="animate-spin text-muted-foreground/60" />}
-                  {verifyState === 'success' && <CheckCircle2 size={14} className="text-emerald-400" />}
+                  {verifyState === 'verifying' && (
+                    <Loader2 size={14} className="animate-spin text-muted-foreground/60" />
+                  )}
+                  {verifyState === 'success' && (
+                    <CheckCircle2 size={14} className="text-emerald-400" />
+                  )}
                   {verifyState === 'error' && <XCircle size={14} className="text-red-400" />}
                 </div>
               )}
@@ -268,9 +277,7 @@ function ConfigureCredentialsStep({
         ))}
       </div>
 
-      {verifyState === 'error' && (
-        <p className="mt-1.5 text-xs text-red-400">{verifyError}</p>
-      )}
+      {verifyState === 'error' && <p className="mt-1.5 text-xs text-red-400">{verifyError}</p>}
       {verifyState === 'success' && accounts[0] && (
         <p className="mt-1.5 text-xs text-emerald-400/80">
           Connected to {accounts[0].name} ({accounts[0].id})
@@ -278,17 +285,15 @@ function ConfigureCredentialsStep({
       )}
 
       <div className="mt-6 flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={onBack}>Back</Button>
+        <Button variant="ghost" size="sm" onClick={onBack}>
+          Back
+        </Button>
         <Button
           size="sm"
           disabled={verifyState !== 'success' || createMutation.isPending}
           onClick={() => createMutation.mutate()}
         >
-          {createMutation.isPending ? (
-            <Loader2 size={14} className="animate-spin" />
-          ) : (
-            'Connect'
-          )}
+          {createMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : 'Connect'}
         </Button>
       </div>
     </div>
@@ -312,7 +317,9 @@ function ReadyStep({
         <CheckCircle2 className="h-6 w-6 text-emerald-400" />
       </div>
       <h2 className="mt-4 text-base font-semibold text-foreground">You're all set!</h2>
-      <p className="mt-2 text-sm text-muted-foreground">Your account is connected and ready to go.</p>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Your account is connected and ready to go.
+      </p>
 
       <div className="mt-6 space-y-2">
         <div className="flex items-center gap-3 rounded-lg bg-muted/40 p-3">
@@ -326,8 +333,12 @@ function ReadyStep({
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-3">
-        <Button className="w-full" onClick={onStartFromScratch}>Start from scratch</Button>
-        <Button className="w-full" variant="outline" onClick={onUseTemplate}>Use a template</Button>
+        <Button className="w-full" onClick={onStartFromScratch}>
+          Start from scratch
+        </Button>
+        <Button className="w-full" variant="outline" onClick={onUseTemplate}>
+          Use a template
+        </Button>
       </div>
 
       <button

@@ -13,7 +13,15 @@ export class EnvVarsAdapter {
     private projectsTable?: AnyTable,
   ) {}
 
-  async create(data: { id: string; organizationId: string; projectId?: string | null; createdBy: string; name: string; value: string; isSecret: boolean }): Promise<EnvVar | null> {
+  async create(data: {
+    id: string
+    organizationId: string
+    projectId?: string | null
+    createdBy: string
+    name: string
+    value: string
+    isSecret: boolean
+  }): Promise<EnvVar | null> {
     const now = new Date().toISOString()
     const encryptedValue = this.crypto ? await this.crypto.encrypt(data.value) : data.value
 
@@ -70,7 +78,9 @@ export class EnvVarsAdapter {
     const rows = await this.db
       .select()
       .from(this.table)
-      .where(and(eq(this.table.organizationId, organizationId), eq(this.table.projectId, projectId)))
+      .where(
+        and(eq(this.table.organizationId, organizationId), eq(this.table.projectId, projectId)),
+      )
       .orderBy(desc(this.table.createdAt))
     if (this.crypto) {
       for (const row of rows) {
@@ -80,15 +90,23 @@ export class EnvVarsAdapter {
     return rows
   }
 
-  async getByOrgAndName(organizationId: string, name: string, projectId?: string | null): Promise<EnvVar | null> {
+  async getByOrgAndName(
+    organizationId: string,
+    name: string,
+    projectId?: string | null,
+  ): Promise<EnvVar | null> {
     const conditions = projectId
-      ? and(eq(this.table.organizationId, organizationId), eq(this.table.projectId, projectId), eq(this.table.name, name))
-      : and(eq(this.table.organizationId, organizationId), isNull(this.table.projectId), eq(this.table.name, name))
-    const rows = await this.db
-      .select()
-      .from(this.table)
-      .where(conditions)
-      .limit(1)
+      ? and(
+          eq(this.table.organizationId, organizationId),
+          eq(this.table.projectId, projectId),
+          eq(this.table.name, name),
+        )
+      : and(
+          eq(this.table.organizationId, organizationId),
+          isNull(this.table.projectId),
+          eq(this.table.name, name),
+        )
+    const rows = await this.db.select().from(this.table).where(conditions).limit(1)
     const row = rows[0] ?? null
     if (row && this.crypto) {
       row.value = await this.tryDecrypt(row.value)
@@ -96,7 +114,10 @@ export class EnvVarsAdapter {
     return row
   }
 
-  async update(id: string, data: { name?: string; value?: string; isSecret?: boolean }): Promise<EnvVar | null> {
+  async update(
+    id: string,
+    data: { name?: string; value?: string; isSecret?: boolean },
+  ): Promise<EnvVar | null> {
     const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() }
     if (data.name !== undefined) updates.name = data.name
     if (data.value !== undefined) {

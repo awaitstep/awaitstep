@@ -6,10 +6,13 @@ import { useOrgStore } from '../stores/org-store'
 import { useWorkflowsStore } from '../stores/workflows-store'
 
 export default function WorkflowsWrapper() {
-  const { canFetch, activeProjectId } = useOrgStore(useShallow((s) => ({
-    canFetch: s.appReady && !!s.activeProjectId && s.projects.some((p) => p.id === s.activeProjectId),
-    activeProjectId: s.activeProjectId,
-  })))
+  const { canFetch, activeProjectId } = useOrgStore(
+    useShallow((s) => ({
+      canFetch:
+        s.appReady && !!s.activeProjectId && s.projects.some((p) => p.id === s.activeProjectId),
+      activeProjectId: s.activeProjectId,
+    })),
+  )
 
   const { setWorkflows, setFetchState } = useWorkflowsStore()
 

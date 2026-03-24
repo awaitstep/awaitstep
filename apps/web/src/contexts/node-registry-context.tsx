@@ -32,11 +32,7 @@ export function NodeRegistryProvider({ children }: { children: ReactNode }) {
       })
   }, [])
 
-  return (
-    <NodeRegistryContext.Provider value={registry}>
-      {children}
-    </NodeRegistryContext.Provider>
-  )
+  return <NodeRegistryContext.Provider value={registry}>{children}</NodeRegistryContext.Provider>
 }
 
 export function useNodeRegistry(): NodeRegistry {

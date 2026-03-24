@@ -1,5 +1,16 @@
 import { useState } from 'react'
-import { Clock, AlertCircle, CheckCircle2, Pause, Play, Square, ChevronDown, ChevronRight, Copy, Check } from 'lucide-react'
+import {
+  Clock,
+  AlertCircle,
+  CheckCircle2,
+  Pause,
+  Play,
+  Square,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Check,
+} from 'lucide-react'
 import { Button } from '../ui/button'
 import { formatDate } from '../../lib/time'
 import { RunStatusBadge } from './run-status-badge'
@@ -119,15 +130,30 @@ export function RunDetailPanel({ run, onPause, onResume, onTerminate }: RunDetai
         {!isTerminal && (
           <div className="flex items-center gap-1">
             {isPaused ? (
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" onClick={onResume}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground"
+                onClick={onResume}
+              >
                 <Play className="h-3.5 w-3.5" />
               </Button>
             ) : (
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" onClick={onPause}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground"
+                onClick={onPause}
+              >
                 <Pause className="h-3.5 w-3.5" />
               </Button>
             )}
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400/60 hover:text-red-400" onClick={onTerminate}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-red-400/60 hover:text-red-400"
+              onClick={onTerminate}
+            >
               <Square className="h-3.5 w-3.5" />
             </Button>
           </div>

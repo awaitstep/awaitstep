@@ -18,14 +18,11 @@ const orgSchema = z.object({
 })
 type OrgFormValues = z.infer<typeof orgSchema>
 
-const { addOrganization } = useOrgStore.getState()
-const { closeOrgDialog } = useSheetStore.getState()
-
 interface OrgDialogProps {
-  preventClose?: boolean
+  hasOrgs?: boolean
 }
-export function OrgDialog({ preventClose }: OrgDialogProps) {
 
+export function OrgDialog({ hasOrgs }: OrgDialogProps) {
   const {
     register,
     handleSubmit,
@@ -36,7 +33,8 @@ export function OrgDialog({ preventClose }: OrgDialogProps) {
     defaultValues: { name: '' },
   })
 
-
+  const { addOrganization } = useOrgStore()
+  const { closeOrgDialog, openProjectDialog } = useSheetStore()
 
   const mutation = useMutation({
     mutationFn: async (values: OrgFormValues) => {
@@ -51,6 +49,9 @@ export function OrgDialog({ preventClose }: OrgDialogProps) {
       addOrganization(newOrg)
       closeOrgDialog()
       toast.success('Organization created')
+      if (!hasOrgs) {
+        openProjectDialog()
+      }
     },
     onError: (err) => {
       setError('root', {
@@ -60,11 +61,11 @@ export function OrgDialog({ preventClose }: OrgDialogProps) {
   })
 
   function handleOpenChange(openState: boolean) {
-    if (!openState && !preventClose) closeOrgDialog()
+    if (!openState && !hasOrgs) closeOrgDialog()
   }
 
   function handleInteractOutside(e: Event) {
-    if (preventClose) {
+    if (!hasOrgs) {
       e.preventDefault()
     }
   }
@@ -73,7 +74,10 @@ export function OrgDialog({ preventClose }: OrgDialogProps) {
     <Dialog.Root defaultOpen onOpenChange={handleOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
-        <Dialog.Content onInteractOutside={handleInteractOutside} className="fixed left-1/2 top-1/2 z-50 w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg">
+        <Dialog.Content
+          onInteractOutside={handleInteractOutside}
+          className="fixed left-1/2 top-1/2 z-50 w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg"
+        >
           <Dialog.Title className="text-base font-semibold">New Organization</Dialog.Title>
           <Dialog.Description className="mt-1 text-sm text-muted-foreground">
             Create a new organization for your team.
@@ -82,17 +86,25 @@ export function OrgDialog({ preventClose }: OrgDialogProps) {
             <div>
               <Label className="text-xs">Organization name</Label>
               <Input {...register('name')} placeholder="Acme Inc." className="mt-1" autoFocus />
-              {errors.name && <p className="mt-1 text-xs text-destructive">{errors.name.message}</p>}
+              {errors.name && (
+                <p className="mt-1 text-xs text-destructive">{errors.name.message}</p>
+              )}
             </div>
             {errors.root && <p className="text-xs text-destructive">{errors.root.message}</p>}
             <div className="flex justify-end gap-2">
-              {!preventClose && (
+              {!hasOrgs && (
                 <Dialog.Close asChild>
-                  <Button variant="ghost" size="sm">Cancel</Button>
+                  <Button variant="ghost" size="sm">
+                    Cancel
+                  </Button>
                 </Dialog.Close>
               )}
               <Button size="sm" disabled={mutation.isPending}>
-                {mutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                {mutation.isPending ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Plus size={14} />
+                )}
                 Create
               </Button>
             </div>

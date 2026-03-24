@@ -7,68 +7,112 @@ import { Select } from '../ui/select'
 import { Separator } from '../ui/separator'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import type { InputParam, EnvBinding, WorkflowEnvVar } from '../../stores/workflow-store'
+import { useShallow } from 'zustand/react/shallow'
 
 export function WorkflowSettings() {
-  const metadata = useWorkflowStore((s) => s.metadata)
-  const inputParams = useWorkflowStore((s) => s.inputParams)
-  const envBindings = useWorkflowStore((s) => s.envBindings)
-  const workflowEnvVars = useWorkflowStore((s) => s.workflowEnvVars)
-  const setMetadata = useWorkflowStore((s) => s.setMetadata)
-  const setInputParams = useWorkflowStore((s) => s.setInputParams)
-  const setEnvBindings = useWorkflowStore((s) => s.setEnvBindings)
-  const setWorkflowEnvVars = useWorkflowStore((s) => s.setWorkflowEnvVars)
-  const setShowSettings = useWorkflowStore((s) => s.setShowSettings)
+  const { metadata, inputParams, envBindings, workflowEnvVars } = useWorkflowStore(
+    useShallow((s) => ({
+      metadata: s.metadata,
+      inputParams: s.inputParams,
+      envBindings: s.envBindings,
+      workflowEnvVars: s.workflowEnvVars,
+    })),
+  )
+  const { setMetadata, setInputParams, setEnvBindings, setWorkflowEnvVars, setShowSettings } =
+    useWorkflowStore()
 
   const addParam = useCallback(() => {
     setInputParams([...useWorkflowStore.getState().inputParams, { name: '', type: 'string' }])
   }, [setInputParams])
 
-  const updateParam = useCallback((index: number, data: Partial<InputParam>) => {
-    setInputParams(useWorkflowStore.getState().inputParams.map((p, i) => (i === index ? { ...p, ...data } : p)))
-  }, [setInputParams])
+  const updateParam = useCallback(
+    (index: number, data: Partial<InputParam>) => {
+      setInputParams(
+        useWorkflowStore
+          .getState()
+          .inputParams.map((p, i) => (i === index ? { ...p, ...data } : p)),
+      )
+    },
+    [setInputParams],
+  )
 
-  const removeParam = useCallback((index: number) => {
-    setInputParams(useWorkflowStore.getState().inputParams.filter((_, i) => i !== index))
-  }, [setInputParams])
+  const removeParam = useCallback(
+    (index: number) => {
+      setInputParams(useWorkflowStore.getState().inputParams.filter((_, i) => i !== index))
+    },
+    [setInputParams],
+  )
 
   const addBinding = useCallback(() => {
     setEnvBindings([...useWorkflowStore.getState().envBindings, { name: '', type: 'kv' }])
   }, [setEnvBindings])
 
-  const updateBinding = useCallback((index: number, data: Partial<EnvBinding>) => {
-    setEnvBindings(useWorkflowStore.getState().envBindings.map((b, i) => (i === index ? { ...b, ...data } : b)))
-  }, [setEnvBindings])
+  const updateBinding = useCallback(
+    (index: number, data: Partial<EnvBinding>) => {
+      setEnvBindings(
+        useWorkflowStore
+          .getState()
+          .envBindings.map((b, i) => (i === index ? { ...b, ...data } : b)),
+      )
+    },
+    [setEnvBindings],
+  )
 
-  const removeBinding = useCallback((index: number) => {
-    setEnvBindings(useWorkflowStore.getState().envBindings.filter((_, i) => i !== index))
-  }, [setEnvBindings])
+  const removeBinding = useCallback(
+    (index: number) => {
+      setEnvBindings(useWorkflowStore.getState().envBindings.filter((_, i) => i !== index))
+    },
+    [setEnvBindings],
+  )
 
   const addEnvVar = useCallback(() => {
     setWorkflowEnvVars([...useWorkflowStore.getState().workflowEnvVars, { name: '', value: '' }])
   }, [setWorkflowEnvVars])
 
-  const updateEnvVar = useCallback((index: number, data: Partial<WorkflowEnvVar>) => {
-    setWorkflowEnvVars(useWorkflowStore.getState().workflowEnvVars.map((v, i) => (i === index ? { ...v, ...data } : v)))
-  }, [setWorkflowEnvVars])
+  const updateEnvVar = useCallback(
+    (index: number, data: Partial<WorkflowEnvVar>) => {
+      setWorkflowEnvVars(
+        useWorkflowStore
+          .getState()
+          .workflowEnvVars.map((v, i) => (i === index ? { ...v, ...data } : v)),
+      )
+    },
+    [setWorkflowEnvVars],
+  )
 
-  const removeEnvVar = useCallback((index: number) => {
-    setWorkflowEnvVars(useWorkflowStore.getState().workflowEnvVars.filter((_, i) => i !== index))
-  }, [setWorkflowEnvVars])
+  const removeEnvVar = useCallback(
+    (index: number) => {
+      setWorkflowEnvVars(useWorkflowStore.getState().workflowEnvVars.filter((_, i) => i !== index))
+    },
+    [setWorkflowEnvVars],
+  )
 
-  const linkToGlobal = useCallback((index: number) => {
-    const v = useWorkflowStore.getState().workflowEnvVars[index]
-    if (v?.name) {
-      setWorkflowEnvVars(useWorkflowStore.getState().workflowEnvVars.map((ev, i) =>
-        i === index ? { ...ev, value: `{{global.env.${v.name}}}` } : ev,
-      ))
-    }
-  }, [setWorkflowEnvVars])
+  const linkToGlobal = useCallback(
+    (index: number) => {
+      const v = useWorkflowStore.getState().workflowEnvVars[index]
+      if (v?.name) {
+        setWorkflowEnvVars(
+          useWorkflowStore
+            .getState()
+            .workflowEnvVars.map((ev, i) =>
+              i === index ? { ...ev, value: `{{global.env.${v.name}}}` } : ev,
+            ),
+        )
+      }
+    },
+    [setWorkflowEnvVars],
+  )
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <span className="text-[13px] font-semibold text-foreground">Workflow Settings</span>
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => setShowSettings(false)}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+          onClick={() => setShowSettings(false)}
+        >
           <X className="h-3.5 w-3.5" />
         </Button>
       </div>
@@ -80,7 +124,11 @@ export function WorkflowSettings() {
             <Input value={metadata.name} onChange={(e) => setMetadata({ name: e.target.value })} />
           </Field>
           <Field label="Description">
-            <Input value={metadata.description ?? ''} onChange={(e) => setMetadata({ description: e.target.value || undefined })} placeholder="Optional description" />
+            <Input
+              value={metadata.description ?? ''}
+              onChange={(e) => setMetadata({ description: e.target.value || undefined })}
+              placeholder="Optional description"
+            />
           </Field>
 
           <Separator />
@@ -89,7 +137,12 @@ export function WorkflowSettings() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <Label className="text-[11px] text-muted-foreground">Input Parameters</Label>
-              <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-[10px] text-muted-foreground" onClick={addParam}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 gap-1 px-2 text-[10px] text-muted-foreground"
+                onClick={addParam}
+              >
                 <Plus className="h-3 w-3" /> Add
               </Button>
             </div>
@@ -97,7 +150,9 @@ export function WorkflowSettings() {
               Define the shape of event.payload passed when triggering the workflow.
             </p>
             {inputParams.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground/40 italic">No input parameters defined</p>
+              <p className="text-[11px] text-muted-foreground/40 italic">
+                No input parameters defined
+              </p>
             ) : (
               <div className="space-y-2">
                 {inputParams.map((param, i) => (
@@ -119,7 +174,12 @@ export function WorkflowSettings() {
                       ]}
                       className="w-24 h-8 text-xs"
                     />
-                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground/60 hover:text-destructive" onClick={() => removeParam(i)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 text-muted-foreground/60 hover:text-destructive"
+                      onClick={() => removeParam(i)}
+                    >
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
@@ -134,7 +194,12 @@ export function WorkflowSettings() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <Label className="text-[11px] text-muted-foreground">Environment Variables</Label>
-              <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-[10px] text-muted-foreground" onClick={addEnvVar}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 gap-1 px-2 text-[10px] text-muted-foreground"
+                onClick={addEnvVar}
+              >
                 <Plus className="h-3 w-3" /> Add
               </Button>
             </div>
@@ -142,7 +207,9 @@ export function WorkflowSettings() {
               Variables injected at deploy time. Use the link button to reference a global variable.
             </p>
             {workflowEnvVars.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground/40 italic">No environment variables defined</p>
+              <p className="text-[11px] text-muted-foreground/40 italic">
+                No environment variables defined
+              </p>
             ) : (
               <div className="space-y-2">
                 {workflowEnvVars.map((envVar, i) => (
@@ -163,7 +230,12 @@ export function WorkflowSettings() {
                       >
                         <Link2 className="h-3 w-3" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground/60 hover:text-destructive" onClick={() => removeEnvVar(i)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 text-muted-foreground/60 hover:text-destructive"
+                        onClick={() => removeEnvVar(i)}
+                      >
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
@@ -185,7 +257,12 @@ export function WorkflowSettings() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <Label className="text-[11px] text-muted-foreground">Resource Bindings</Label>
-              <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-[10px] text-muted-foreground" onClick={addBinding}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 gap-1 px-2 text-[10px] text-muted-foreground"
+                onClick={addBinding}
+              >
                 <Plus className="h-3 w-3" /> Add
               </Button>
             </div>
@@ -193,7 +270,9 @@ export function WorkflowSettings() {
               Cloudflare resource bindings (KV, D1, R2, Service).
             </p>
             {envBindings.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground/40 italic">No resource bindings defined</p>
+              <p className="text-[11px] text-muted-foreground/40 italic">
+                No resource bindings defined
+              </p>
             ) : (
               <div className="space-y-2">
                 {envBindings.map((binding, i) => (
@@ -215,7 +294,12 @@ export function WorkflowSettings() {
                       ]}
                       className="w-24 h-8 text-xs"
                     />
-                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground/60 hover:text-destructive" onClick={() => removeBinding(i)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 text-muted-foreground/60 hover:text-destructive"
+                      onClick={() => removeBinding(i)}
+                    >
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>

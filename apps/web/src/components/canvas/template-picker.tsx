@@ -13,7 +13,11 @@ import {
   X,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { workflowTemplates, templateCategories, type WorkflowTemplate } from '../../lib/workflow-templates'
+import {
+  workflowTemplates,
+  templateCategories,
+  type WorkflowTemplate,
+} from '../../lib/workflow-templates'
 import { useWorkflowStore, type FlowNode } from '../../stores/workflow-store'
 
 const ICON_MAP: Record<string, ReactNode> = {
@@ -48,7 +52,11 @@ export function TemplatePicker({ onDismiss }: { onDismiss: () => void }) {
     }))
 
     loadWorkflow(
-      { ...template.ir.metadata, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      {
+        ...template.ir.metadata,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
       flowNodes,
       flowEdges,
     )
@@ -61,7 +69,9 @@ export function TemplatePicker({ onDismiss }: { onDismiss: () => void }) {
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card px-6 py-4">
           <div>
             <h2 className="text-base font-semibold text-foreground">New Workflow</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">Choose a template or start with a blank canvas.</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Choose a template or start with a blank canvas.
+            </p>
           </div>
           <button
             onClick={onDismiss}
@@ -71,7 +81,10 @@ export function TemplatePicker({ onDismiss }: { onDismiss: () => void }) {
           </button>
         </div>
 
-        <div className="overflow-y-auto p-6 scrollbar-none" style={{ maxHeight: 'calc(80vh - 72px)' }}>
+        <div
+          className="overflow-y-auto p-6 scrollbar-none"
+          style={{ maxHeight: 'calc(80vh - 72px)' }}
+        >
           {/* Start from scratch */}
           <button
             onClick={onDismiss}
@@ -82,7 +95,9 @@ export function TemplatePicker({ onDismiss }: { onDismiss: () => void }) {
             </div>
             <div>
               <div className="text-[13px] font-medium text-foreground">Start from scratch</div>
-              <div className="text-[12px] text-muted-foreground">Empty canvas — drag nodes from the palette.</div>
+              <div className="text-[12px] text-muted-foreground">
+                Empty canvas — drag nodes from the palette.
+              </div>
             </div>
           </button>
 

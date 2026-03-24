@@ -13,8 +13,7 @@ export const workflowRuns = sqliteTable(
     versionId: text('version_id')
       .notNull()
       .references(() => workflowVersions.id),
-    connectionId: text('connection_id')
-      .references(() => connections.id, { onDelete: 'set null' }),
+    connectionId: text('connection_id').references(() => connections.id, { onDelete: 'set null' }),
     instanceId: text('instance_id').notNull(),
     status: text('status').notNull().default('queued'),
     output: text('output'),

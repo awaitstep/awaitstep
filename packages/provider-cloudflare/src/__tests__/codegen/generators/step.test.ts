@@ -30,37 +30,47 @@ describe('generateStep', () => {
   })
 
   it('includes retries config', () => {
-    const code = generateStep(makeNode({
-      config: { retries: { limit: 5, delay: '10 seconds' } },
-    }))
+    const code = generateStep(
+      makeNode({
+        config: { retries: { limit: 5, delay: '10 seconds' } },
+      }),
+    )
     expect(code).toContain('retries: { limit: 5, delay: "10 seconds" }')
   })
 
   it('includes timeout config', () => {
-    const code = generateStep(makeNode({
-      config: { timeout: '1 minute' },
-    }))
+    const code = generateStep(
+      makeNode({
+        config: { timeout: '1 minute' },
+      }),
+    )
     expect(code).toContain('timeout: "1 minute"')
   })
 
   it('includes retries with backoff', () => {
-    const code = generateStep(makeNode({
-      config: { retries: { limit: 3, delay: '5 seconds', backoff: 'exponential' } },
-    }))
+    const code = generateStep(
+      makeNode({
+        config: { retries: { limit: 3, delay: '5 seconds', backoff: 'exponential' } },
+      }),
+    )
     expect(code).toContain('backoff: "exponential"')
   })
 
   it('includes numeric delay', () => {
-    const code = generateStep(makeNode({
-      config: { retries: { limit: 2, delay: 5000 } },
-    }))
+    const code = generateStep(
+      makeNode({
+        config: { retries: { limit: 2, delay: 5000 } },
+      }),
+    )
     expect(code).toContain('delay: 5000')
   })
 
   it('includes numeric timeout', () => {
-    const code = generateStep(makeNode({
-      config: { timeout: 30000 },
-    }))
+    const code = generateStep(
+      makeNode({
+        config: { timeout: 30000 },
+      }),
+    )
     expect(code).toContain('timeout: 30000')
   })
 
@@ -80,9 +90,11 @@ describe('generateStep', () => {
   })
 
   it('preserves multiline code', () => {
-    const code = generateStep(makeNode({
-      data: { code: 'const x = 1;\nreturn x + 1;' },
-    }))
+    const code = generateStep(
+      makeNode({
+        data: { code: 'const x = 1;\nreturn x + 1;' },
+      }),
+    )
     expect(code).toContain('const x = 1;\nreturn x + 1;')
   })
 })

@@ -87,14 +87,28 @@ export function WorkflowActionsMenu({ workflow, irJson, isDeployed }: WorkflowAc
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-          <DropdownMenuItem onSelect={() => navigate({ to: '/workflows/$workflowId/deployments', params: { workflowId: workflow.id } })}>
+          <DropdownMenuItem
+            onSelect={() =>
+              navigate({
+                to: '/workflows/$workflowId/deployments',
+                params: { workflowId: workflow.id },
+              })
+            }
+          >
             <Rocket size={14} /> Deployments
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => navigate({ to: '/workflows/$workflowId/runs', params: { workflowId: workflow.id } })}>
+          <DropdownMenuItem
+            onSelect={() =>
+              navigate({ to: '/workflows/$workflowId/runs', params: { workflowId: workflow.id } })
+            }
+          >
             <Activity size={14} /> Runs
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => duplicateMutation.mutate()} disabled={duplicateMutation.isPending}>
+          <DropdownMenuItem
+            onSelect={() => duplicateMutation.mutate()}
+            disabled={duplicateMutation.isPending}
+          >
             <Copy size={14} /> Duplicate
           </DropdownMenuItem>
           {irJson && (
@@ -144,7 +158,6 @@ export function WorkflowActionsMenu({ workflow, irJson, isDeployed }: WorkflowAc
         onConfirm={() => takedownMutation.mutate()}
         loading={takedownMutation.isPending}
       />
-
     </>
   )
 }

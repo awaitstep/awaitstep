@@ -29,8 +29,6 @@
       }
     }
   ],
-  "edges": [
-    { "id": "e1", "source": "fetch_data", "target": "process" }
-  ],
+  "edges": [{ "id": "e1", "source": "fetch_data", "target": "process" }],
   "entryNodeId": "fetch_data"
 }

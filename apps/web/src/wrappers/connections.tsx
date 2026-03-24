@@ -6,10 +6,12 @@ import { useOrgStore } from '../stores/org-store'
 import { useConnectionsStore } from '../stores/connections-store'
 
 export default function ConnectionsWrapper() {
-  const { canFetch, activeOrgId } = useOrgStore(useShallow((s) => ({
-    canFetch: s.appReady && !!s.activeOrganizationId,
-    activeOrgId: s.activeOrganizationId,
-  })))
+  const { canFetch, activeOrgId } = useOrgStore(
+    useShallow((s) => ({
+      canFetch: s.appReady && !!s.activeOrganizationId,
+      activeOrgId: s.activeOrganizationId,
+    })),
+  )
 
   const { setConnections, setFetchState } = useConnectionsStore()
 

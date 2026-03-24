@@ -55,12 +55,7 @@ export function RunCanvasPreview({ ir }: RunCanvasPreviewProps) {
       proOptions={{ hideAttribution: true }}
       className="!bg-[oklch(0.11_0_0)]"
     >
-      <Background
-        variant={BackgroundVariant.Dots}
-        gap={20}
-        size={1}
-        color="oklch(0.25 0 0)"
-      />
+      <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="oklch(0.25 0 0)" />
     </ReactFlow>
   )
 }

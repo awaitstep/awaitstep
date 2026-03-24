@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { Database, HardDrive, Archive, KeyRound } from 'lucide-react'
+import { RequireOrg } from '../../../wrappers/require-org'
 
 export const Route = createFileRoute('/_authed/resources/')({
   component: ResourcesPage,
@@ -34,6 +35,14 @@ const RESOURCE_TYPES = [
 
 function ResourcesPage() {
   return (
+    <RequireOrg>
+      <ResourcesContent />
+    </RequireOrg>
+  )
+}
+
+function ResourcesContent() {
+  return (
     <div>
       <div className="border-b border-border pb-4">
         <h1 className="text-lg font-semibold">Resources</h1>
@@ -43,23 +52,23 @@ function ResourcesPage() {
       </div>
 
       <div>
-      <div className="mt-6 rounded-md border border-border">
-        {RESOURCE_TYPES.map((type, i) => (
-          <Link
-            key={type.name}
-            to={type.href}
-            className={`flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30 ${
-              i < RESOURCE_TYPES.length - 1 ? 'border-b border-border' : ''
-            }`}
-          >
-            <type.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <div className="min-w-0">
-              <h3 className="text-sm font-medium text-foreground">{type.name}</h3>
-              <p className="text-xs text-muted-foreground">{type.description}</p>
-            </div>
-          </Link>
-        ))}
-      </div>
+        <div className="mt-6 rounded-md border border-border">
+          {RESOURCE_TYPES.map((type, i) => (
+            <Link
+              key={type.name}
+              to={type.href}
+              className={`flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30 ${
+                i < RESOURCE_TYPES.length - 1 ? 'border-b border-border' : ''
+              }`}
+            >
+              <type.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0">
+                <h3 className="text-sm font-medium text-foreground">{type.name}</h3>
+                <p className="text-xs text-muted-foreground">{type.description}</p>
+              </div>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   )

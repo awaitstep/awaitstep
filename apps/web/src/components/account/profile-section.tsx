@@ -6,7 +6,11 @@ import { useAuthStore } from '../../stores/auth-store'
 import { authClient } from '../../lib/auth-client'
 import { formatMonthYear } from '../../lib/time'
 
-export function ProfileSection({ user }: { user: { name: string; email: string; createdAt: Date } }) {
+export function ProfileSection({
+  user,
+}: {
+  user: { name: string; email: string; createdAt: Date }
+}) {
   const [name, setName] = useState(user.name)
   const setSession = useAuthStore((s) => s.setSession)
 
@@ -26,7 +30,9 @@ export function ProfileSection({ user }: { user: { name: string; email: string; 
 
   return (
     <section className="rounded-md border border-border p-4">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">Profile</h2>
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
+        Profile
+      </h2>
 
       <div className="mt-3 space-y-3">
         <div>

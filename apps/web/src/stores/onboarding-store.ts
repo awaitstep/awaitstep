@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 interface OnboardingState {
   skipped: boolean
@@ -12,6 +12,6 @@ export const useOnboardingStore = create<OnboardingState>()(
       skipped: false,
       skip: () => set({ skipped: true }),
     }),
-    { name: 'awaitstep-onboarding' },
+    { name: 'awaitstep-onboarding', storage: createJSONStorage(() => localStorage) },
   ),
 )

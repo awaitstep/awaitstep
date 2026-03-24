@@ -86,16 +86,16 @@ awaitstep.dev/
 
 ## Supported Node Types
 
-| Node | Description |
-|---|---|
-| Step | Execute custom code |
-| Sleep | Pause for a duration |
-| Sleep Until | Pause until a timestamp |
-| Branch | Conditional branching |
-| Parallel | Run steps concurrently |
-| HTTP Request | Make an HTTP call |
+| Node           | Description                |
+| -------------- | -------------------------- |
+| Step           | Execute custom code        |
+| Sleep          | Pause for a duration       |
+| Sleep Until    | Pause until a timestamp    |
+| Branch         | Conditional branching      |
+| Parallel       | Run steps concurrently     |
+| HTTP Request   | Make an HTTP call          |
 | Wait for Event | Pause until external event |
-| Custom | User-defined node types |
+| Custom         | User-defined node types    |
 
 ## Quickstart
 

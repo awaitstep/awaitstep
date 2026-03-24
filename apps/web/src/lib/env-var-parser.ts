@@ -14,9 +14,8 @@ export function envVarsToString(vars: EnvVarSummary[]): string {
   if (vars.length === 0) return ''
   return vars
     .map((v) => {
-      const displayName = v.isSecret && !v.name.startsWith(SECRET_PREFIX)
-        ? `${SECRET_PREFIX}${v.name}`
-        : v.name
+      const displayName =
+        v.isSecret && !v.name.startsWith(SECRET_PREFIX) ? `${SECRET_PREFIX}${v.name}` : v.name
       return `${displayName}=${v.isSecret ? '••••••••' : v.value}`
     })
     .join('\n')
@@ -37,7 +36,12 @@ export function parseEnvString(text: string): ParsedLine[] {
       const name = isSecret ? rawName.slice(SECRET_PREFIX.length) : rawName
 
       if (!NAME_PATTERN.test(rawName)) {
-        return { name: rawName, value, isSecret, error: 'Name must be uppercase letters, digits, and underscores' }
+        return {
+          name: rawName,
+          value,
+          isSecret,
+          error: 'Name must be uppercase letters, digits, and underscores',
+        }
       }
       return { name, value, isSecret, error: undefined }
     })

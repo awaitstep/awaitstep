@@ -8,11 +8,15 @@ export function OrgNameEditor({ org }: { org: Organization }) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(org.name)
   const inputRef = useRef<HTMLInputElement>(null)
-  const setOrgs = useOrgStore((s) => s.setOrganizations)
   const orgs = useOrgStore((s) => s.organizations)
+  const { setOrganizations: setOrgs } = useOrgStore()
 
-  useEffect(() => { setValue(org.name) }, [org.name])
-  useEffect(() => { if (editing) inputRef.current?.select() }, [editing])
+  useEffect(() => {
+    setValue(org.name)
+  }, [org.name])
+  useEffect(() => {
+    if (editing) inputRef.current?.select()
+  }, [editing])
 
   const mutation = useMutation({
     mutationFn: async (name: string) => {
@@ -20,7 +24,7 @@ export function OrgNameEditor({ org }: { org: Organization }) {
       if (res.error) throw new Error(res.error.message)
     },
     onSuccess: (_data, name) => {
-      setOrgs(orgs.map((o) => o.id === org.id ? { ...o, name } : o))
+      setOrgs(orgs.map((o) => (o.id === org.id ? { ...o, name } : o)))
       toast.success('Organization updated')
     },
     onError: (err) => toast.error(err.message),
@@ -38,7 +42,10 @@ export function OrgNameEditor({ org }: { org: Organization }) {
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter') save()
-    if (e.key === 'Escape') { setValue(org.name); setEditing(false) }
+    if (e.key === 'Escape') {
+      setValue(org.name)
+      setEditing(false)
+    }
   }
 
   if (editing) {

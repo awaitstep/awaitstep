@@ -44,7 +44,10 @@ function getStepDetail(node: FlowNode): { status: SimulationStepStatus; detail: 
     case 'sleep':
       return { status: 'skipped-instant', detail: `Sleep ${ir.data.duration} (simulated instant)` }
     case 'sleep_until':
-      return { status: 'skipped-instant', detail: `Sleep until ${ir.data.timestamp} (simulated instant)` }
+      return {
+        status: 'skipped-instant',
+        detail: `Sleep until ${ir.data.timestamp} (simulated instant)`,
+      }
     case 'branch':
       return { status: 'executed', detail: `Evaluate branch: ${ir.name}` }
     case 'parallel':
@@ -52,7 +55,10 @@ function getStepDetail(node: FlowNode): { status: SimulationStepStatus; detail: 
     case 'http_request':
       return { status: 'executed', detail: `HTTP ${ir.data.method} ${ir.data.url} (simulated)` }
     case 'wait_for_event':
-      return { status: 'event-received', detail: `Wait for event '${ir.data.eventType}' (simulated as received)` }
+      return {
+        status: 'event-received',
+        detail: `Wait for event '${ir.data.eventType}' (simulated as received)`,
+      }
     default:
       return { status: 'executed', detail: `Execute: ${ir.name} (${ir.type})` }
   }
@@ -74,9 +80,15 @@ function findSimulationEntry(nodes: FlowNode[], edges: Edge[]): string {
     const queue = [root.id]
     while (queue.length > 0) {
       const id = queue.shift()!
-      if (!visited.has(id)) { visited.add(id); for (const n of adj.get(id) ?? []) queue.push(n) }
+      if (!visited.has(id)) {
+        visited.add(id)
+        for (const n of adj.get(id) ?? []) queue.push(n)
+      }
     }
-    if (visited.size > bestCount) { bestCount = visited.size; bestId = root.id }
+    if (visited.size > bestCount) {
+      bestCount = visited.size
+      bestId = root.id
+    }
   }
   return bestId
 }
@@ -178,12 +190,7 @@ export function simulateWorkflow(nodes: FlowNode[], edges: Edge[]): SimulationRe
           if (pathCount >= MAX_PATHS) break
           const edge = nodeOutEdges.find((e) => e.label === branch.label)
           if (edge) {
-            dfs(
-              edge.target,
-              newSteps,
-              [...newLabel, `[${branch.label}]`],
-              new Set(visited),
-            )
+            dfs(edge.target, newSteps, [...newLabel, `[${branch.label}]`], new Set(visited))
           }
         }
       }
@@ -208,12 +215,7 @@ export function simulateWorkflow(nodes: FlowNode[], edges: Edge[]): SimulationRe
           if (pathCount >= MAX_PATHS) break
           const targetNode = nodeMap.get(edge.target)
           const targetName = targetNode?.data.irNode.name ?? edge.target
-          dfs(
-            edge.target,
-            newSteps,
-            [...newLabel, `[parallel: ${targetName}]`],
-            new Set(visited),
-          )
+          dfs(edge.target, newSteps, [...newLabel, `[parallel: ${targetName}]`], new Set(visited))
         }
       }
     } else {
@@ -246,9 +248,7 @@ export function simulateWorkflow(nodes: FlowNode[], edges: Edge[]): SimulationRe
     })
   }
 
-  const unreachedNodeIds = nodes
-    .filter((n) => !allVisitedNodeIds.has(n.id))
-    .map((n) => n.id)
+  const unreachedNodeIds = nodes.filter((n) => !allVisitedNodeIds.has(n.id)).map((n) => n.id)
 
   for (const nodeId of unreachedNodeIds) {
     const node = nodeMap.get(nodeId)

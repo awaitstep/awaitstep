@@ -21,6 +21,7 @@ import { Route as AuthedWorkflowsIndexRouteImport } from './routes/_authed/workf
 import { Route as AuthedRunsIndexRouteImport } from './routes/_authed/runs.index'
 import { Route as AuthedResourcesIndexRouteImport } from './routes/_authed/resources/index'
 import { Route as AuthedWorkflowsWorkflowIdRouteImport } from './routes/_authed/workflows/$workflowId'
+import { Route as AuthedRunsRunIdRouteImport } from './routes/_authed/runs.$runId'
 import { Route as AuthedResourcesR2RouteImport } from './routes/_authed/resources/r2'
 import { Route as AuthedResourcesKvRouteImport } from './routes/_authed/resources/kv'
 import { Route as AuthedResourcesEnvVarsRouteImport } from './routes/_authed/resources/env-vars'
@@ -91,6 +92,11 @@ const AuthedWorkflowsWorkflowIdRoute =
     path: '/workflows/$workflowId',
     getParentRoute: () => AuthedRoute,
   } as any)
+const AuthedRunsRunIdRoute = AuthedRunsRunIdRouteImport.update({
+  id: '/runs/$runId',
+  path: '/runs/$runId',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedResourcesR2Route = AuthedResourcesR2RouteImport.update({
   id: '/resources/r2',
   path: '/resources/r2',
@@ -154,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/resources/env-vars': typeof AuthedResourcesEnvVarsRoute
   '/resources/kv': typeof AuthedResourcesKvRoute
   '/resources/r2': typeof AuthedResourcesR2Route
+  '/runs/$runId': typeof AuthedRunsRunIdRoute
   '/workflows/$workflowId': typeof AuthedWorkflowsWorkflowIdRouteWithChildren
   '/resources/': typeof AuthedResourcesIndexRoute
   '/runs/': typeof AuthedRunsIndexRoute
@@ -176,6 +183,7 @@ export interface FileRoutesByTo {
   '/resources/env-vars': typeof AuthedResourcesEnvVarsRoute
   '/resources/kv': typeof AuthedResourcesKvRoute
   '/resources/r2': typeof AuthedResourcesR2Route
+  '/runs/$runId': typeof AuthedRunsRunIdRoute
   '/resources': typeof AuthedResourcesIndexRoute
   '/runs': typeof AuthedRunsIndexRoute
   '/workflows': typeof AuthedWorkflowsIndexRoute
@@ -198,6 +206,7 @@ export interface FileRoutesById {
   '/_authed/resources/env-vars': typeof AuthedResourcesEnvVarsRoute
   '/_authed/resources/kv': typeof AuthedResourcesKvRoute
   '/_authed/resources/r2': typeof AuthedResourcesR2Route
+  '/_authed/runs/$runId': typeof AuthedRunsRunIdRoute
   '/_authed/workflows/$workflowId': typeof AuthedWorkflowsWorkflowIdRouteWithChildren
   '/_authed/resources/': typeof AuthedResourcesIndexRoute
   '/_authed/runs/': typeof AuthedRunsIndexRoute
@@ -222,6 +231,7 @@ export interface FileRouteTypes {
     | '/resources/env-vars'
     | '/resources/kv'
     | '/resources/r2'
+    | '/runs/$runId'
     | '/workflows/$workflowId'
     | '/resources/'
     | '/runs/'
@@ -244,6 +254,7 @@ export interface FileRouteTypes {
     | '/resources/env-vars'
     | '/resources/kv'
     | '/resources/r2'
+    | '/runs/$runId'
     | '/resources'
     | '/runs'
     | '/workflows'
@@ -265,6 +276,7 @@ export interface FileRouteTypes {
     | '/_authed/resources/env-vars'
     | '/_authed/resources/kv'
     | '/_authed/resources/r2'
+    | '/_authed/runs/$runId'
     | '/_authed/workflows/$workflowId'
     | '/_authed/resources/'
     | '/_authed/runs/'
@@ -366,6 +378,13 @@ declare module '@tanstack/react-router' {
       path: '/workflows/$workflowId'
       fullPath: '/workflows/$workflowId'
       preLoaderRoute: typeof AuthedWorkflowsWorkflowIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/runs/$runId': {
+      id: '/_authed/runs/$runId'
+      path: '/runs/$runId'
+      fullPath: '/runs/$runId'
+      preLoaderRoute: typeof AuthedRunsRunIdRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/resources/r2': {
@@ -481,6 +500,7 @@ interface AuthedRouteChildren {
   AuthedResourcesEnvVarsRoute: typeof AuthedResourcesEnvVarsRoute
   AuthedResourcesKvRoute: typeof AuthedResourcesKvRoute
   AuthedResourcesR2Route: typeof AuthedResourcesR2Route
+  AuthedRunsRunIdRoute: typeof AuthedRunsRunIdRoute
   AuthedWorkflowsWorkflowIdRoute: typeof AuthedWorkflowsWorkflowIdRouteWithChildren
   AuthedResourcesIndexRoute: typeof AuthedResourcesIndexRoute
   AuthedRunsIndexRoute: typeof AuthedRunsIndexRoute
@@ -497,6 +517,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedResourcesEnvVarsRoute: AuthedResourcesEnvVarsRoute,
   AuthedResourcesKvRoute: AuthedResourcesKvRoute,
   AuthedResourcesR2Route: AuthedResourcesR2Route,
+  AuthedRunsRunIdRoute: AuthedRunsRunIdRoute,
   AuthedWorkflowsWorkflowIdRoute: AuthedWorkflowsWorkflowIdRouteWithChildren,
   AuthedResourcesIndexRoute: AuthedResourcesIndexRoute,
   AuthedRunsIndexRoute: AuthedRunsIndexRoute,
