@@ -84,8 +84,7 @@ function PathSection({ path }: { path: SimulationPath }) {
 
 export function SimulationPanel() {
   const simulationResult = useWorkflowStore((s) => s.simulationResult)
-  const clearSimulation = useWorkflowStore((s) => s.clearSimulation)
-  const selectNode = useWorkflowStore((s) => s.selectNode)
+  const { clearSimulation, selectNode } = useWorkflowStore()
   const { fitView } = useReactFlow()
 
   if (!simulationResult) return null

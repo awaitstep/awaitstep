@@ -8,6 +8,7 @@ import { ConfirmDialog } from '../ui/confirm-dialog'
 import { DateTimePicker } from '../ui/datetime-picker'
 import { api } from '../../lib/api-client'
 import { useOrgStore, useOrgReady } from '../../stores/org-store'
+import { useShallow } from 'zustand/react/shallow'
 import { timeAgo, timeUntil } from '../../lib/time'
 import type { ApiKeyCreated } from '../../lib/api-client'
 import { toast } from 'sonner'
@@ -189,8 +190,9 @@ function CreateKeyDialog({
   onOpenChange: (open: boolean) => void
   onCreated: (key: ApiKeyCreated) => void
 }) {
-  const projects = useOrgStore((s) => s.projects)
-  const activeProjectId = useOrgStore((s) => s.activeProjectId)
+  const { projects, activeProjectId } = useOrgStore(
+    useShallow((s) => ({ projects: s.projects, activeProjectId: s.activeProjectId })),
+  )
   const [name, setName] = useState('')
   const [selectedProjectId, setSelectedProjectId] = useState(activeProjectId ?? '')
   const [scopes, setScopes] = useState<Set<string>>(new Set(['read']))

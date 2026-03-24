@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
 import { useAuthStore } from '../../stores/auth-store'
+import { useShallow } from 'zustand/react/shallow'
 import { ProfileSection } from '../../components/account/profile-section'
 import { ConnectedAccountsSection } from '../../components/account/connected-accounts-section'
 import { SessionsSection } from '../../components/account/sessions-section'
@@ -11,8 +12,7 @@ export const Route = createFileRoute('/_authed/account')({
 })
 
 function AccountPage() {
-  const user = useAuthStore((s) => s.user)
-  const session = useAuthStore((s) => s.session)
+  const { user, session } = useAuthStore(useShallow((s) => ({ user: s.user, session: s.session })))
 
   if (!user || !session) {
     return (

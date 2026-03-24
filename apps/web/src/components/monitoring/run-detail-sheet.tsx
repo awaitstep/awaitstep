@@ -25,7 +25,7 @@ const TERMINAL_STATUSES = new Set(['complete', 'errored', 'terminated'])
 
 export function RunDetailSheet() {
   const runSheet = useSheetStore((s) => s.runSheet)
-  const closeRunSheet = useSheetStore((s) => s.closeRunSheet)
+  const { closeRunSheet } = useSheetStore()
 
   function handleOpenChange(open: boolean) {
     if (!open) closeRunSheet()

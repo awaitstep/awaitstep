@@ -16,9 +16,7 @@ export function useWorkflowPersistence(opts: {
   const { workflowId, isNew, isDirty, nodeRegistry } = opts
   const queryClient = useQueryClient()
   const [deployOpen, setDeployOpen] = useState(false)
-  const markClean = useWorkflowStore((s) => s.markClean)
-  const setWorkflowId = useWorkflowStore((s) => s.setWorkflowId)
-  const runValidation = useWorkflowStore((s) => s.runValidation)
+  const { markClean, setWorkflowId, runValidation } = useWorkflowStore()
 
   const saveMutation = useMutation({
     mutationFn: async () => {

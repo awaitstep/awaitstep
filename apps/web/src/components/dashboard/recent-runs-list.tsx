@@ -10,7 +10,7 @@ import { timeAgo, duration } from '../../lib/time'
 export function RecentRunsList() {
   const runs = useRunsStore((s) => s.runs)
   const workflows = useWorkflowsStore((s) => s.workflows)
-  const openRunSheet = useSheetStore((s) => s.openRunSheet)
+  const { openRunSheet } = useSheetStore()
 
   const workflowMap = new Map(workflows.map((w) => [w.id, w]))
 

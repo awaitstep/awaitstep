@@ -26,7 +26,7 @@ function ProjectSkeleton() {
 export function ProjectsList({ projects, loading }: { projects: Project[]; loading: boolean }) {
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null)
   const activeProjectId = useOrgStore((s) => s.activeProjectId)
-  const openProjectDialog = useSheetStore((s) => s.openProjectDialog)
+  const { openProjectDialog } = useSheetStore()
   const queryClient = useQueryClient()
 
   const deleteMutation = useMutation({

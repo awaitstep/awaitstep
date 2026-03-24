@@ -8,6 +8,7 @@ import { TriggerDialog } from '../../components/canvas/trigger-dialog'
 import { useWorkflowsStore } from '../../stores/workflows-store'
 import { useRunsStore } from '../../stores/runs-store'
 import { useSheetStore } from '../../stores/sheet-store'
+import { useShallow } from 'zustand/react/shallow'
 import { timeAgo, duration } from '../../lib/time'
 import { RequireProject } from '../../wrappers/require-project'
 import { LoadingView } from '../../components/ui/loading-view'
@@ -27,10 +28,14 @@ function RunsIndexPage() {
 
 function RunsIndexContent() {
   const [triggerWorkflowId, setTriggerWorkflowId] = useState<string | null>(null)
-  const openRunSheet = useSheetStore((s) => s.openRunSheet)
+  const { openRunSheet } = useSheetStore()
 
-  const runs = useRunsStore((s) => s.runs)
-  const runsLoading = useRunsStore((s) => s.fetchState === 'idle' || s.fetchState === 'loading')
+  const { runs, runsLoading } = useRunsStore(
+    useShallow((s) => ({
+      runs: s.runs,
+      runsLoading: s.fetchState === 'idle' || s.fetchState === 'loading',
+    })),
+  )
   const workflows = useWorkflowsStore((s) => s.workflows)
 
   const workflowMap = new Map(workflows.map((w) => [w.id, w]))

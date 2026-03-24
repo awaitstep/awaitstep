@@ -12,7 +12,7 @@ interface GuardedLinkProps {
 
 export function GuardedLink({ requirement, nav, children, className, ...rest }: GuardedLinkProps) {
   const navigate = useNavigate()
-  const guardAction = useSheetStore((s) => s.guardAction)
+  const { guardAction } = useSheetStore()
 
   const handleClick = () => guardAction(requirement, () => navigate(nav))
 

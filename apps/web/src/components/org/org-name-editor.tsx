@@ -8,8 +8,8 @@ export function OrgNameEditor({ org }: { org: Organization }) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(org.name)
   const inputRef = useRef<HTMLInputElement>(null)
-  const setOrgs = useOrgStore((s) => s.setOrganizations)
   const orgs = useOrgStore((s) => s.organizations)
+  const { setOrganizations: setOrgs } = useOrgStore()
 
   useEffect(() => {
     setValue(org.name)

@@ -3,14 +3,17 @@ import { Workflow, Activity, AlertTriangle } from 'lucide-react'
 import { useWorkflowsStore } from '../../stores/workflows-store'
 import { useRunsStore } from '../../stores/runs-store'
 import { StatCard } from './stat-card'
+import { useShallow } from 'zustand/react/shallow'
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
 
 export function DashboardStats() {
-  const workflows = useWorkflowsStore((s) => s.workflows)
-  const wfLoading = useWorkflowsStore((s) => s.fetchState !== 'success')
-  const runs = useRunsStore((s) => s.runs)
-  const runLoading = useRunsStore((s) => s.fetchState !== 'success')
+  const { workflows, wfLoading } = useWorkflowsStore(
+    useShallow((s) => ({ workflows: s.workflows, wfLoading: s.fetchState !== 'success' })),
+  )
+  const { runs, runLoading } = useRunsStore(
+    useShallow((s) => ({ runs: s.runs, runLoading: s.fetchState !== 'success' })),
+  )
 
   const totalWorkflows = workflows.length
   const runningNow = useMemo(

@@ -11,7 +11,7 @@ interface RecentRunsProps {
 }
 
 export function RecentRuns({ workflowId, runs }: RecentRunsProps) {
-  const openRunSheet = useSheetStore((s) => s.openRunSheet)
+  const { openRunSheet } = useSheetStore()
 
   return (
     <section>

@@ -9,6 +9,7 @@ import { CodeEditor } from '../ui/code-editor'
 import { Select } from '../ui/select'
 import { DynamicFields } from './dynamic-fields'
 import { useWorkflowStore } from '../../stores/workflow-store'
+import { useShallow } from 'zustand/react/shallow'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { customAlphabet } from 'nanoid'
 
@@ -58,11 +59,10 @@ export function validateNode(node: WorkflowNode): string[] {
 }
 
 export function NodeConfigPanel() {
-  const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId)
-  const nodes = useWorkflowStore((s) => s.nodes)
-  const updateNodeData = useWorkflowStore((s) => s.updateNodeData)
-  const removeNode = useWorkflowStore((s) => s.removeNode)
-  const selectNode = useWorkflowStore((s) => s.selectNode)
+  const { selectedNodeId, nodes } = useWorkflowStore(
+    useShallow((s) => ({ selectedNodeId: s.selectedNodeId, nodes: s.nodes })),
+  )
+  const { updateNodeData, removeNode, selectNode } = useWorkflowStore()
   const registry = useNodeRegistry()
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId)
@@ -205,9 +205,13 @@ function BranchFields({
   node: WorkflowNode
   onUpdate: (d: Partial<WorkflowNode>) => void
 }) {
-  const allNodes = useWorkflowStore((s) => s.nodes)
-  const edges = useWorkflowStore((s) => s.edges)
-  const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId)
+  const {
+    nodes: allNodes,
+    edges,
+    selectedNodeId,
+  } = useWorkflowStore(
+    useShallow((s) => ({ nodes: s.nodes, edges: s.edges, selectedNodeId: s.selectedNodeId })),
+  )
 
   const branches = (node.data.branches ?? []) as BranchCondition[]
   const outgoingEdges = edges.filter((e) => e.source === selectedNodeId)
