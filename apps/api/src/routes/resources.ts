@@ -30,7 +30,11 @@ const r2ObjectsQuery = z.object({
 
 export const resources = new Hono<AppEnv>()
 
-async function getResourcesAPI(db: AppEnv['Variables']['db'], organizationId: string, connectionId: string): Promise<CloudflareResourcesAPI | null> {
+async function getResourcesAPI(
+  db: AppEnv['Variables']['db'],
+  organizationId: string,
+  connectionId: string,
+): Promise<CloudflareResourcesAPI | null> {
   const connection = await db.getProviderConnectionById(connectionId)
   if (!connection || connection.organizationId !== organizationId) return null
   const creds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
@@ -57,14 +61,18 @@ resources.get('/kv/namespaces/:namespaceId/keys', zValidator('query', kvKeysQuer
   return c.json(result)
 })
 
-resources.get('/kv/namespaces/:namespaceId/values/:key', zValidator('query', connectionQuery), async (c) => {
-  const { connectionId } = c.req.valid('query')
-  const api = await getResourcesAPI(c.get('db'), c.get('organizationId'), connectionId)
-  if (!api) return c.json({ error: 'Connection not found' }, 404)
+resources.get(
+  '/kv/namespaces/:namespaceId/values/:key',
+  zValidator('query', connectionQuery),
+  async (c) => {
+    const { connectionId } = c.req.valid('query')
+    const api = await getResourcesAPI(c.get('db'), c.get('organizationId'), connectionId)
+    if (!api) return c.json({ error: 'Connection not found' }, 404)
 
-  const value = await api.getKVValue(c.req.param('namespaceId'), c.req.param('key'))
-  return c.json({ value })
-})
+    const value = await api.getKVValue(c.req.param('namespaceId'), c.req.param('key'))
+    return c.json({ value })
+  },
+)
 
 // ── D1 ──
 

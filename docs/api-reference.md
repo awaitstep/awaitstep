@@ -8,24 +8,26 @@ Base URL: `https://app.awaitstep.dev/api`
 
 ## Rate Limits
 
-| Scope | Limit |
-|-------|-------|
-| Global | 200 req/min per IP |
-| Write operations | 30 req/min per user |
-| Deploy operations | 10 req/min per user |
+| Scope                   | Limit               |
+| ----------------------- | ------------------- |
+| Global                  | 200 req/min per IP  |
+| Write operations        | 30 req/min per user |
+| Deploy operations       | 10 req/min per user |
 | Credential verification | 10 req/min per user |
-| Resource queries (D1) | 20 req/min per user |
+| Resource queries (D1)   | 20 req/min per user |
 
 ---
 
 ## Workflows
 
 ### `GET /workflows`
+
 List all workflows in the active project.
 
 **Scope:** `read`
 
 ### `GET /workflows/:id`
+
 Get a single workflow by ID.
 
 **Scope:** `read`
@@ -34,6 +36,7 @@ Get a single workflow by ID.
 | `id` | path | yes | Workflow ID |
 
 ### `GET /workflows/:id/full`
+
 Get a workflow with its current version, all version summaries, and active deployment.
 
 **Scope:** `read`
@@ -43,9 +46,11 @@ Get a workflow with its current version, all version summaries, and active deplo
 | `version` | query | no | Specific version ID to load |
 
 ### `POST /workflows`
+
 Create a new workflow.
 
 **Scope:** `write`
+
 ```json
 {
   "name": "My Workflow",
@@ -54,6 +59,7 @@ Create a new workflow.
 ```
 
 ### `PATCH /workflows/:id`
+
 Update a workflow's name, description, environment variables, trigger code, or dependencies.
 
 **Scope:** `write`
@@ -72,6 +78,7 @@ Update a workflow's name, description, environment variables, trigger code, or d
 ```
 
 ### `PATCH /workflows/:id/move`
+
 Move a workflow to another project within the same organization. Returns warnings if the workflow references env vars missing in the target project.
 
 **Scope:** `write`
@@ -86,6 +93,7 @@ Move a workflow to another project within the same organization. Returns warning
 ```
 
 ### `DELETE /workflows/:id`
+
 Delete a workflow.
 
 **Scope:** `write`
@@ -98,14 +106,17 @@ Delete a workflow.
 ## Projects
 
 ### `GET /projects`
+
 List all projects in the active organization.
 
 **Scope:** `read`
 
 ### `POST /projects`
+
 Create a new project.
 
 **Scope:** `write`
+
 ```json
 {
   "name": "My Project",
@@ -115,6 +126,7 @@ Create a new project.
 ```
 
 ### `PATCH /projects/:id`
+
 Update a project.
 
 **Scope:** `write`
@@ -130,6 +142,7 @@ Update a project.
 ```
 
 ### `DELETE /projects/:id`
+
 Delete a project.
 
 **Scope:** `write`
@@ -142,6 +155,7 @@ Delete a project.
 ## Versions
 
 ### `GET /workflows/:workflowId/versions`
+
 List all versions for a workflow.
 
 **Scope:** `read`
@@ -150,6 +164,7 @@ List all versions for a workflow.
 | `workflowId` | path | yes | Workflow ID |
 
 ### `GET /workflows/:workflowId/versions/:versionId`
+
 Get a specific version including its IR and generated code.
 
 **Scope:** `read`
@@ -159,6 +174,7 @@ Get a specific version including its IR and generated code.
 | `versionId` | path | yes | Version ID |
 
 ### `POST /workflows/:workflowId/versions`
+
 Create a new version by submitting a workflow IR. The IR is validated and compiled to code.
 
 **Scope:** `write`
@@ -168,11 +184,12 @@ Create a new version by submitting a workflow IR. The IR is validated and compil
 
 ```json
 {
-  "ir": { }
+  "ir": {}
 }
 ```
 
 ### `PATCH /workflows/:workflowId/versions/:versionId`
+
 Lock or unlock a version. Locked versions cannot be deployed.
 
 **Scope:** `write`
@@ -188,6 +205,7 @@ Lock or unlock a version. Locked versions cannot be deployed.
 ```
 
 ### `POST /workflows/:workflowId/versions/:versionId/revert`
+
 Revert to a previous version. Creates a new version with the target version's IR and sets it as the current version.
 
 **Scope:** `write`
@@ -197,6 +215,7 @@ Revert to a previous version. Creates a new version with the target version's IR
 | `versionId` | path | yes | Version ID to revert to |
 
 ### `DELETE /workflows/:workflowId/versions/:versionId`
+
 Delete a version. Cannot delete the active version, a deployed version, or a locked version.
 
 **Scope:** `write`
@@ -210,11 +229,13 @@ Delete a version. Cannot delete the active version, a deployed version, or a loc
 ## Deployments
 
 ### `GET /deployments`
+
 List all deployments across all workflows for the authenticated user.
 
 **Scope:** `read`
 
 ### `GET /workflows/:workflowId/deployments`
+
 List deployments for a specific workflow.
 
 **Scope:** `read`
@@ -223,6 +244,7 @@ List deployments for a specific workflow.
 | `workflowId` | path | yes | Workflow ID |
 
 ### `POST /workflows/:workflowId/deploy`
+
 Deploy a workflow version to a connection. Validates environment variables and credentials before deploying.
 
 **Scope:** `deploy`
@@ -238,6 +260,7 @@ Deploy a workflow version to a connection. Validates environment variables and c
 ```
 
 ### `POST /workflows/:workflowId/trigger`
+
 Trigger an execution of a deployed workflow. Params payload is capped at 100KB.
 
 **Scope:** `deploy`
@@ -253,6 +276,7 @@ Trigger an execution of a deployed workflow. Params payload is capped at 100KB.
 ```
 
 ### `POST /workflows/:workflowId/takedown`
+
 Remove a deployment and clear the workflow's active version.
 
 **Scope:** `deploy`
@@ -271,11 +295,13 @@ Remove a deployment and clear the workflow's active version.
 ## Runs
 
 ### `GET /runs`
+
 List all runs across all workflows for the authenticated user.
 
 **Scope:** `read`
 
 ### `GET /workflows/:workflowId/runs`
+
 List runs for a specific workflow.
 
 **Scope:** `read`
@@ -284,6 +310,7 @@ List runs for a specific workflow.
 | `workflowId` | path | yes | Workflow ID |
 
 ### `GET /workflows/:workflowId/runs/:runId`
+
 Get a specific run. If the run is in a non-terminal state, live status is fetched from Cloudflare.
 
 **Scope:** `read`
@@ -293,6 +320,7 @@ Get a specific run. If the run is in a non-terminal state, live status is fetche
 | `runId` | path | yes | Run ID |
 
 ### `POST /workflows/:workflowId/runs/:runId/pause`
+
 Pause a running workflow instance.
 
 **Scope:** `deploy`
@@ -302,6 +330,7 @@ Pause a running workflow instance.
 | `runId` | path | yes | Run ID |
 
 ### `POST /workflows/:workflowId/runs/:runId/resume`
+
 Resume a paused workflow instance.
 
 **Scope:** `deploy`
@@ -311,6 +340,7 @@ Resume a paused workflow instance.
 | `runId` | path | yes | Run ID |
 
 ### `POST /workflows/:workflowId/runs/:runId/terminate`
+
 Terminate a running or paused workflow instance.
 
 **Scope:** `deploy`
@@ -324,14 +354,17 @@ Terminate a running or paused workflow instance.
 ## Connections
 
 ### `GET /connections`
+
 List all connections. Credential values are redacted in the response.
 
 **Scope:** `read`
 
 ### `POST /connections`
+
 Create a new provider connection.
 
 **Scope:** `write`
+
 ```json
 {
   "provider": "cloudflare",
@@ -341,6 +374,7 @@ Create a new provider connection.
 ```
 
 ### `PATCH /connections/:id`
+
 Update a connection's name or credentials.
 
 **Scope:** `write`
@@ -356,6 +390,7 @@ Update a connection's name or credentials.
 ```
 
 ### `DELETE /connections/:id`
+
 Delete a connection.
 
 **Scope:** `write`
@@ -368,14 +403,17 @@ Delete a connection.
 ## Environment Variables
 
 ### `GET /env-vars`
+
 List all global environment variables. Secret values are masked as `••••••••`.
 
 **Scope:** `read`
 
 ### `POST /env-vars`
+
 Create a global environment variable. Name must match `^[A-Z][A-Z0-9_]*$`.
 
 **Scope:** `write`
+
 ```json
 {
   "name": "MY_VAR",
@@ -385,6 +423,7 @@ Create a global environment variable. Name must match `^[A-Z][A-Z0-9_]*$`.
 ```
 
 ### `PATCH /env-vars/:id`
+
 Update an environment variable's name, value, or secret flag.
 
 **Scope:** `write`
@@ -399,6 +438,7 @@ Update an environment variable's name, value, or secret flag.
 ```
 
 ### `DELETE /env-vars/:id`
+
 Delete an environment variable.
 
 **Scope:** `write`
@@ -413,6 +453,7 @@ Delete an environment variable.
 All resource endpoints require a `connectionId` query parameter pointing to a valid Cloudflare connection.
 
 ### `GET /resources/kv/namespaces`
+
 List KV namespaces.
 
 **Scope:** `read`
@@ -421,6 +462,7 @@ List KV namespaces.
 | `connectionId` | query | yes | Connection ID |
 
 ### `GET /resources/kv/namespaces/:namespaceId/keys`
+
 List keys in a KV namespace.
 
 **Scope:** `read`
@@ -433,6 +475,7 @@ List keys in a KV namespace.
 | `limit` | query | no | Max keys to return |
 
 ### `GET /resources/kv/namespaces/:namespaceId/values/:key`
+
 Get the value of a KV key.
 
 **Scope:** `read`
@@ -443,6 +486,7 @@ Get the value of a KV key.
 | `connectionId` | query | yes | Connection ID |
 
 ### `GET /resources/d1/databases`
+
 List D1 databases.
 
 **Scope:** `read`
@@ -451,6 +495,7 @@ List D1 databases.
 | `connectionId` | query | yes | Connection ID |
 
 ### `POST /resources/d1/databases/:databaseId/query`
+
 Execute a SQL query against a D1 database.
 
 **Scope:** `read`
@@ -467,6 +512,7 @@ Execute a SQL query against a D1 database.
 ```
 
 ### `GET /resources/r2/buckets`
+
 List R2 buckets.
 
 **Scope:** `read`
@@ -475,6 +521,7 @@ List R2 buckets.
 | `connectionId` | query | yes | Connection ID |
 
 ### `GET /resources/r2/buckets/:bucketName/objects`
+
 List objects in an R2 bucket.
 
 **Scope:** `read`
@@ -491,16 +538,19 @@ List objects in an R2 bucket.
 ## Nodes
 
 ### `GET /nodes`
+
 List all available node definitions from the registry.
 
 **Scope:** `read`
 
 ### `GET /nodes/templates`
+
 Get node template resolver data.
 
 **Scope:** `read`
 
 ### `GET /nodes/:nodeId`
+
 Get a single node definition.
 
 **Scope:** `read`
@@ -515,10 +565,13 @@ Get a single node definition.
 These endpoints require session authentication and are **not accessible via API key**.
 
 ### `GET /api-keys`
+
 List all API keys for the authenticated user.
 
 ### `POST /api-keys`
+
 Create a new API key. The full key is returned only once in the response.
+
 ```json
 {
   "name": "My Key",
@@ -528,4 +581,5 @@ Create a new API key. The full key is returned only once in the response.
 ```
 
 ### `DELETE /api-keys/:id`
+
 Revoke an API key.

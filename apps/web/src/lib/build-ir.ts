@@ -2,7 +2,10 @@ import type { useWorkflowStore } from '../stores/workflow-store'
 
 type StoreState = ReturnType<typeof useWorkflowStore.getState>
 
-export function findEntryNodeId(nodes: { id: string }[], edges: { source: string; target: string }[]): string {
+export function findEntryNodeId(
+  nodes: { id: string }[],
+  edges: { source: string; target: string }[],
+): string {
   const targets = new Set(edges.map((e) => e.target))
   const roots = nodes.filter((n) => !targets.has(n.id))
   if (roots.length <= 1) return roots[0]?.id ?? nodes[0]?.id ?? ''

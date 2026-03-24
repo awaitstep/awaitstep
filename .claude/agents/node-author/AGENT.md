@@ -45,14 +45,14 @@ nodes/<node_id>/
 interface NodeDefinition {
   id: string
   name: string
-  version: string              // semver
-  description: string          // max 120 chars
+  version: string // semver
+  description: string // max 120 chars
   category: Category
   tags?: string[]
   icon?: string
   docsUrl?: string
   author: string
-  license: string              // SPDX identifier
+  license: string // SPDX identifier
 
   configSchema: Record<string, ConfigField>
   outputSchema: Record<string, OutputField>
@@ -78,16 +78,16 @@ interface NodeDefinition {
 
 ```typescript
 type FieldType =
-  | 'string'       // Single-line text input
-  | 'number'       // Numeric input
-  | 'boolean'      // Toggle switch
-  | 'select'       // Dropdown — REQUIRES options[]
-  | 'multiselect'  // Multi-select — REQUIRES options[]
-  | 'secret'       // Masked input — REQUIRES envVarName, value accessed via ctx.env
-  | 'code'         // Monaco editor (TypeScript)
-  | 'json'         // Monaco editor (JSON)
-  | 'expression'   // JS expression with autocomplete on upstream outputs
-  | 'textarea'     // Multi-line text
+  | 'string' // Single-line text input
+  | 'number' // Numeric input
+  | 'boolean' // Toggle switch
+  | 'select' // Dropdown — REQUIRES options[]
+  | 'multiselect' // Multi-select — REQUIRES options[]
+  | 'secret' // Masked input — REQUIRES envVarName, value accessed via ctx.env
+  | 'code' // Monaco editor (TypeScript)
+  | 'json' // Monaco editor (JSON)
+  | 'expression' // JS expression with autocomplete on upstream outputs
+  | 'textarea' // Multi-line text
 
 interface ConfigField {
   type: FieldType
@@ -96,8 +96,8 @@ interface ConfigField {
   required?: boolean
   default?: unknown
   placeholder?: string
-  options?: string[]         // Required for select/multiselect
-  envVarName?: string        // Required for secret
+  options?: string[] // Required for select/multiselect
+  envVarName?: string // Required for secret
   validation?: FieldValidation
 }
 
@@ -133,14 +133,15 @@ interface OutputField {
   type: OutputFieldType
   description?: string
   nullable?: boolean
-  items?: OutputField           // For array — describes item shape
-  properties?: Record<string, OutputField>  // For object — describes shape
+  items?: OutputField // For array — describes item shape
+  properties?: Record<string, OutputField> // For object — describes shape
 }
 ```
 
 ### Nesting examples
 
 **Object with properties:**
+
 ```json
 {
   "user": {
@@ -154,6 +155,7 @@ interface OutputField {
 ```
 
 **Array of objects:**
+
 ```json
 {
   "results": {
@@ -202,6 +204,7 @@ export default async function (ctx: NodeContext<Config>): Promise<Output> {
 Tests use vitest with `createMockContext` from `@awaitstep/node-sdk/testing`.
 
 ### Required tests per template:
+
 1. **Happy path** — mock successful API response, verify output matches schema
 2. **Error path** — mock failed response, verify template throws
 3. **Auth verification** — if secrets are used, verify correct header is sent
@@ -221,16 +224,24 @@ describe('<node_id> / cloudflare', () => {
   it('returns correct output on success', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ /* mock response */ }),
+      json: async () => ({
+        /* mock response */
+      }),
     })
 
     const ctx = createMockContext({
-      config: { /* test config */ },
-      env: { /* fake secrets */ },
+      config: {
+        /* test config */
+      },
+      env: {
+        /* fake secrets */
+      },
     })
 
     const result = await handler(ctx)
-    expect(result).toEqual({ /* expected output */ })
+    expect(result).toEqual({
+      /* expected output */
+    })
   })
 
   it('throws on API error', async () => {
@@ -241,8 +252,12 @@ describe('<node_id> / cloudflare', () => {
     })
 
     const ctx = createMockContext({
-      config: { /* test config */ },
-      env: { /* fake secrets */ },
+      config: {
+        /* test config */
+      },
+      env: {
+        /* fake secrets */
+      },
     })
 
     await expect(handler(ctx)).rejects.toThrow()
@@ -255,6 +270,7 @@ describe('<node_id> / cloudflare', () => {
 When reviewing or validating a node, check every item:
 
 ### node.json
+
 - [ ] `id` matches directory name
 - [ ] `id` matches `^[a-z][a-z0-9_]*$`
 - [ ] `id` is not a builtin
@@ -264,16 +280,19 @@ When reviewing or validating a node, check every item:
 - [ ] `author` and `license` present
 
 ### configSchema
+
 - [ ] All `type` values are valid FieldType
 - [ ] All `secret` fields have `envVarName`
 - [ ] All `select`/`multiselect` have non-empty `options`
 
 ### outputSchema
+
 - [ ] All `type` values are valid OutputFieldType
 - [ ] `object` fields have `properties`
 - [ ] `array` fields have `items`
 
 ### Templates
+
 - [ ] At least one template exists
 - [ ] Each provider in `providers` has a template file
 - [ ] Default async function export
@@ -283,12 +302,14 @@ When reviewing or validating a node, check every item:
 - [ ] No secret logging
 
 ### Tests
+
 - [ ] One test file per template
 - [ ] Happy + error path tests
 - [ ] `fetch` mocked
 - [ ] Uses `createMockContext`
 
 ### README
+
 - [ ] Exists and non-empty
 - [ ] Config table
 - [ ] Output table

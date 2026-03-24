@@ -5,14 +5,27 @@ import { Button } from '../../components/ui/button'
 import { ConnectionsList } from '../../components/connections/connections-list'
 import { AddConnectionDialog } from '../../components/connections/add-connection-dialog'
 import { EditConnectionDialog } from '../../components/connections/edit-connection-dialog'
+import { RequireOrg } from '../../wrappers/require-org'
 
 export const Route = createFileRoute('/_authed/connections')({
   component: ConnectionsPage,
 })
 
 function ConnectionsPage() {
+  return (
+    <RequireOrg>
+      <ConnectionsContent />
+    </RequireOrg>
+  )
+}
+
+function ConnectionsContent() {
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editTarget, setEditTarget] = useState<{ id: string; name: string; accountId: string } | null>(null)
+  const [editTarget, setEditTarget] = useState<{
+    id: string
+    name: string
+    accountId: string
+  } | null>(null)
 
   return (
     <div>
@@ -28,8 +41,10 @@ function ConnectionsPage() {
         <ConnectionsList onEdit={setEditTarget} />
       </div>
 
-      <AddConnectionDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
-      <EditConnectionDialog connection={editTarget} onClose={() => setEditTarget(null)} />
+      {dialogOpen && <AddConnectionDialog onClose={() => setDialogOpen(false)} />}
+      {editTarget && (
+        <EditConnectionDialog connection={editTarget} onClose={() => setEditTarget(null)} />
+      )}
     </div>
   )
 }

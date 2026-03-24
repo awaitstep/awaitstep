@@ -20,9 +20,11 @@ export function createAuth(options: AuthOptions) {
     trustedOrigins: options.trustedOrigins ?? [options.baseURL],
     plugins: [
       magicLink({
-        sendMagicLink: options.sendMagicLink ?? (async (data) => {
-          console.log(`[Magic Link] ${data.email}: ${data.url}`)
-        }),
+        sendMagicLink:
+          options.sendMagicLink ??
+          (async (data) => {
+            console.log(`[Magic Link] ${data.email}: ${data.url}`)
+          }),
       }),
       organization({
         allowUserToCreateOrganization: true,

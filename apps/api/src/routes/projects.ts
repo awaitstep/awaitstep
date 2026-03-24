@@ -8,7 +8,11 @@ const slugPattern = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/
 
 const createProjectSchema = z.object({
   name: z.string().min(1).max(255),
-  slug: z.string().min(1).max(100).regex(slugPattern, 'Slug must be lowercase letters, digits, and hyphens'),
+  slug: z
+    .string()
+    .min(1)
+    .max(100)
+    .regex(slugPattern, 'Slug must be lowercase letters, digits, and hyphens'),
   description: z.string().max(1000).optional(),
 })
 

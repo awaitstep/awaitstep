@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import type { TemplateResolver } from '@awaitstep/codegen'
-import { generateWorkflow, generateNodeCode, CloudflareCodeGenerator } from '../../codegen/generate.js'
+import {
+  generateWorkflow,
+  generateNodeCode,
+  CloudflareCodeGenerator,
+} from '../../codegen/generate.js'
 import simpleWorkflow from './fixtures/simple-workflow.json'
 import parallelWorkflow from './fixtures/parallel-workflow.json'
 import eventWorkflow from './fixtures/event-workflow.json'
@@ -126,7 +130,9 @@ describe('generateNodeCode', () => {
       data: { amount: 5000 },
     }
     const ir = simpleWorkflow as unknown as WorkflowIR
-    expect(() => generateNodeCode(customNode, ir)).toThrow('Codegen not yet implemented for node type')
+    expect(() => generateNodeCode(customNode, ir)).toThrow(
+      'Codegen not yet implemented for node type',
+    )
     expect(() => generateNodeCode(customNode, ir)).toThrow('stripe-charge')
   })
 })
@@ -227,7 +233,8 @@ export default async function(ctx) {
     const code = generateWorkflow(ir, resolver)
 
     // Import should appear at the top, before the class
-    const importLine = "import { uniqueNamesGenerator, adjectives, colors, animals } from 'unique-names-generator'"
+    const importLine =
+      "import { uniqueNamesGenerator, adjectives, colors, animals } from 'unique-names-generator'"
     expect(code).toContain(importLine)
     const importIndex = code.indexOf(importLine)
     const classIndex = code.indexOf('class NameGen')
@@ -255,7 +262,9 @@ export default async function(ctx) {
       edges: [],
       entryNodeId: 'c1',
     }
-    expect(() => generateWorkflow(ir)).toThrow('Codegen not yet implemented for node type: my-custom')
+    expect(() => generateWorkflow(ir)).toThrow(
+      'Codegen not yet implemented for node type: my-custom',
+    )
   })
 })
 

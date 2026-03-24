@@ -2,12 +2,22 @@ import { createFileRoute, useParams, useSearch, Link, useRouter } from '@tanstac
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useRef, useEffect } from 'react'
 import {
-  Loader2, AlertCircle, CheckCircle2, Pause, Play, Square,
-  ChevronDown, ChevronRight, Copy, Check, ArrowLeft,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  Pause,
+  Play,
+  Square,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Check,
+  ArrowLeft,
 } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { RunStatusBadge } from '../../components/monitoring/run-status-badge'
 import { api } from '../../lib/api-client'
+import { RequireProject } from '../../wrappers/require-project'
 
 export const Route = createFileRoute('/_authed/runs/$runId')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -20,8 +30,12 @@ const TERMINAL_STATUSES = new Set(['complete', 'errored', 'terminated'])
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleString(undefined, {
-    month: 'short', day: 'numeric', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
   })
 }
 
@@ -39,6 +53,14 @@ function duration(start: string, end: string): string {
 }
 
 function RunDetailPage() {
+  return (
+    <RequireProject>
+      <RunDetailContent />
+    </RequireProject>
+  )
+}
+
+function RunDetailContent() {
   const { runId } = useParams({ from: '/_authed/runs/$runId' })
   const { workflowId: searchWorkflowId } = useSearch({ from: '/_authed/runs/$runId' })
   const router = useRouter()
@@ -58,8 +80,7 @@ function RunDetailPage() {
 
   const { data: run, isLoading } = useQuery({
     queryKey: ['workflow-run', workflowId, runId],
-    queryFn: () =>
-      fetch(`/api/workflows/${workflowId}/runs/${runId}`, { credentials: 'include' }).then((r) => r.json()),
+    queryFn: () => api.getWorkflowRun(workflowId, runId),
     enabled: !!workflowId,
     refetchInterval: (query) => {
       const data = query.state.data
@@ -93,10 +114,7 @@ function RunDetailPage() {
 
   const actionMutation = useMutation({
     mutationFn: (action: 'pause' | 'resume' | 'terminate') =>
-      fetch(`/api/workflows/${workflowId}/runs/${runId}/${action}`, {
-        method: 'POST',
-        credentials: 'include',
-      }).then((r) => r.json()),
+      api.controlWorkflowRun(workflowId, runId, action),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflow-run', workflowId, runId] })
       queryClient.invalidateQueries({ queryKey: ['workflow-runs', workflowId] })
@@ -124,7 +142,10 @@ function RunDetailPage() {
   return (
     <div>
       {/* Back + Header */}
-      <button onClick={() => router.history.back()} className="mb-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground">
+      <button
+        onClick={() => router.history.back()}
+        className="mb-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground"
+      >
         <ArrowLeft className="h-3 w-3" />
         Back
       </button>
@@ -132,7 +153,11 @@ function RunDetailPage() {
         <div className="flex items-center gap-3">
           <RunStatusBadge status={run.status} />
           {workflow && (
-            <Link to="/workflows/$workflowId" params={{ workflowId }} className="text-sm text-muted-foreground hover:text-foreground/70">
+            <Link
+              to="/workflows/$workflowId"
+              params={{ workflowId }}
+              className="text-sm text-muted-foreground hover:text-foreground/70"
+            >
               {workflow.name}
             </Link>
           )}
@@ -140,15 +165,30 @@ function RunDetailPage() {
         {!isTerminal && (
           <div className="flex items-center gap-1">
             {isPaused ? (
-              <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={() => actionMutation.mutate('resume')}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-muted-foreground"
+                onClick={() => actionMutation.mutate('resume')}
+              >
                 <Play className="h-3.5 w-3.5" /> Resume
               </Button>
             ) : (
-              <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={() => actionMutation.mutate('pause')}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-muted-foreground"
+                onClick={() => actionMutation.mutate('pause')}
+              >
                 <Pause className="h-3.5 w-3.5" /> Pause
               </Button>
             )}
-            <Button variant="ghost" size="sm" className="gap-1.5 text-status-error/60 hover:text-status-error" onClick={() => actionMutation.mutate('terminate')}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-status-error/60 hover:text-status-error"
+              onClick={() => actionMutation.mutate('terminate')}
+            >
               <Square className="h-3.5 w-3.5" /> Terminate
             </Button>
           </div>
@@ -156,74 +196,78 @@ function RunDetailPage() {
       </div>
 
       <div className="mx-auto max-w-screen-md">
-      {/* Details */}
-      <div className="mt-8 grid gap-x-12 gap-y-6 sm:grid-cols-2">
-        <Field label="Instance ID">
-          <span className="font-mono text-sm text-foreground">{run.instanceId}</span>
-        </Field>
+        {/* Details */}
+        <div className="mt-8 grid gap-x-12 gap-y-6 sm:grid-cols-2">
+          <Field label="Instance ID">
+            <span className="font-mono text-sm text-foreground">{run.instanceId}</span>
+          </Field>
 
-        <Field label="Duration">
-          {isRunning ? (
-            <span className="flex items-center gap-1.5 text-sm text-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground/60" />
-              Running...
-            </span>
-          ) : (
-            <span className="font-mono text-sm text-foreground">{duration(run.createdAt, run.updatedAt)}</span>
+          <Field label="Duration">
+            {isRunning ? (
+              <span className="flex items-center gap-1.5 text-sm text-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground/60" />
+                Running...
+              </span>
+            ) : (
+              <span className="font-mono text-sm text-foreground">
+                {duration(run.createdAt, run.updatedAt)}
+              </span>
+            )}
+          </Field>
+
+          <Field label="Started">
+            <span className="text-sm text-foreground/70">{formatDate(run.createdAt)}</span>
+          </Field>
+
+          {isTerminal && (
+            <Field label="Ended">
+              <span className="text-sm text-foreground/70">{formatDate(run.updatedAt)}</span>
+            </Field>
           )}
-        </Field>
 
-        <Field label="Started">
-          <span className="text-sm text-foreground/70">{formatDate(run.createdAt)}</span>
-        </Field>
+          {connection && (
+            <Field label="Connection">
+              <Link to="/connections" className="text-sm text-foreground/70 hover:text-foreground">
+                {connection.name}
+              </Link>
+              <span className="ml-2 font-mono text-xs text-muted-foreground/60">
+                {connection.credentials.accountId}
+              </span>
+            </Field>
+          )}
 
-        {isTerminal && (
-          <Field label="Ended">
-            <span className="text-sm text-foreground/70">{formatDate(run.updatedAt)}</span>
+          <Field label="Version">
+            <span className="font-mono text-sm text-muted-foreground">{run.versionId}</span>
           </Field>
+        </div>
+
+        <div className="mt-4 text-xs text-muted-foreground/40">
+          <span className="font-mono">{run.id}</span>
+        </div>
+
+        {/* Output */}
+        {run.output && (
+          <div className="mt-8">
+            <h3 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-status-success">
+              <CheckCircle2 className="h-4 w-4" />
+              Output
+            </h3>
+            <pre className="overflow-auto rounded-md border border-border bg-card p-4 font-mono text-sm leading-relaxed text-foreground/70">
+              {typeof run.output === 'string' ? run.output : JSON.stringify(run.output, null, 2)}
+            </pre>
+          </div>
         )}
 
-        {connection && (
-          <Field label="Connection">
-            <Link to="/connections" className="text-sm text-foreground/70 hover:text-foreground">
-              {connection.name}
-            </Link>
-            <span className="ml-2 font-mono text-xs text-muted-foreground/60">{connection.credentials.accountId}</span>
-          </Field>
+        {/* Error */}
+        {run.error && (
+          <div className="mt-8">
+            <h3 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-status-error">
+              <AlertCircle className="h-4 w-4" />
+              Error
+            </h3>
+            <ErrorBlock error={run.error} />
+          </div>
         )}
-
-        <Field label="Version">
-          <span className="font-mono text-sm text-muted-foreground">{run.versionId}</span>
-        </Field>
-      </div>
-
-      <div className="mt-4 text-xs text-muted-foreground/40">
-        <span className="font-mono">{run.id}</span>
-      </div>
-
-      {/* Output */}
-      {run.output && (
-        <div className="mt-8">
-          <h3 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-status-success">
-            <CheckCircle2 className="h-4 w-4" />
-            Output
-          </h3>
-          <pre className="overflow-auto rounded-md border border-border bg-card p-4 font-mono text-sm leading-relaxed text-foreground/70">
-            {typeof run.output === 'string' ? run.output : JSON.stringify(run.output, null, 2)}
-          </pre>
-        </div>
-      )}
-
-      {/* Error */}
-      {run.error && (
-        <div className="mt-8">
-          <h3 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-status-error">
-            <AlertCircle className="h-4 w-4" />
-            Error
-          </h3>
-          <ErrorBlock error={run.error} />
-        </div>
-      )}
       </div>
     </div>
   )
@@ -253,20 +297,34 @@ function ErrorBlock({ error }: { error: unknown }) {
     <div>
       <div className="rounded-md border border-red-500/10 bg-red-500/5 p-4">
         {parsed.name && (
-          <div className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-status-error/60">{parsed.name}</div>
+          <div className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-status-error/60">
+            {parsed.name}
+          </div>
         )}
         <p className="text-sm leading-relaxed text-red-300">{parsed.message}</p>
         {parsed.stack && (
-          <pre className="mt-3 overflow-auto text-xs leading-relaxed text-red-300/50">{parsed.stack}</pre>
+          <pre className="mt-3 overflow-auto text-xs leading-relaxed text-red-300/50">
+            {parsed.stack}
+          </pre>
         )}
       </div>
       <div className="mt-2 flex items-center gap-3">
-        <button onClick={() => setShowRaw(!showRaw)} className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground">
+        <button
+          onClick={() => setShowRaw(!showRaw)}
+          className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground"
+        >
           {showRaw ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
           Raw
         </button>
-        <button onClick={handleCopy} className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground">
-          {copied ? <Check className="h-3 w-3 text-status-success" /> : <Copy className="h-3 w-3" />}
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground"
+        >
+          {copied ? (
+            <Check className="h-3 w-3 text-status-success" />
+          ) : (
+            <Copy className="h-3 w-3" />
+          )}
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
@@ -279,12 +337,19 @@ function ErrorBlock({ error }: { error: unknown }) {
   )
 }
 
-function parseError(error: unknown): { name?: string; message: string; stack?: string; raw: string } {
+function parseError(error: unknown): {
+  name?: string
+  message: string
+  stack?: string
+  raw: string
+} {
   if (typeof error === 'string') {
     try {
       const parsed = JSON.parse(error)
       if (typeof parsed === 'object' && parsed !== null) return parseError(parsed)
-    } catch { /* plain string */ }
+    } catch {
+      /* plain string */
+    }
     return { message: error, raw: error }
   }
   if (typeof error === 'object' && error !== null) {

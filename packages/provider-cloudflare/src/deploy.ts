@@ -60,10 +60,14 @@ export async function deployWithWrangler(
     if (options.dependencies && Object.keys(options.dependencies).length > 0) {
       const pkg = { name: 'awaitstep-worker', private: true, dependencies: options.dependencies }
       await writeFile(join(deployDir, 'package.json'), JSON.stringify(pkg, null, 2), 'utf-8')
-      await execFileAsync('npm', ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], {
-        cwd: deployDir,
-        timeout: 60_000,
-      })
+      await execFileAsync(
+        'npm',
+        ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'],
+        {
+          cwd: deployDir,
+          timeout: 60_000,
+        },
+      )
     }
 
     const wranglerBin = resolveWranglerBin()

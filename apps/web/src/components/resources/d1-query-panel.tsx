@@ -14,8 +14,9 @@ export function D1QueryPanel({ connectionId }: D1QueryPanelProps) {
   const { data: databases, isLoading } = useQuery({
     queryKey: ['d1-databases', connectionId],
     queryFn: () =>
-      fetch(`/api/resources/d1/databases?connectionId=${connectionId}`, { credentials: 'include' })
-        .then((r) => r.json()),
+      fetch(`/api/resources/d1/databases?connectionId=${connectionId}`, {
+        credentials: 'include',
+      }).then((r) => r.json()),
     enabled: !!connectionId,
   })
 
@@ -40,14 +41,18 @@ export function D1QueryPanel({ connectionId }: D1QueryPanelProps) {
             key={db.uuid}
             onClick={() => setSelectedDb(db.uuid)}
             className={`w-full rounded-lg px-3 py-2 text-left transition-colors ${
-              selectedDb === db.uuid ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
+              selectedDb === db.uuid
+                ? 'bg-primary/10 text-primary'
+                : 'text-foreground hover:bg-muted'
             }`}
           >
             <div className="flex items-center gap-2">
               <Database className="h-3.5 w-3.5" />
               <span className="text-sm">{db.name}</span>
             </div>
-            <span className="mt-0.5 block text-[10px] text-muted-foreground">{db.num_tables} tables</span>
+            <span className="mt-0.5 block text-[10px] text-muted-foreground">
+              {db.num_tables} tables
+            </span>
           </button>
         ))}
       </div>
@@ -81,33 +86,42 @@ export function D1QueryPanel({ connectionId }: D1QueryPanelProps) {
 
             {queryMutation.data && (
               <div className="flex-1 overflow-auto">
-                {queryMutation.data.map((result: { columns: string[]; rows: unknown[][] }, i: number) => (
-                  <table key={i} className="w-full border-collapse text-sm">
-                    <thead>
-                      <tr>
-                        {result.columns.map((col: string) => (
-                          <th
-                            key={col}
-                            className="border border-border bg-muted px-3 py-1.5 text-left text-xs font-medium text-muted-foreground"
-                          >
-                            {col}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {result.rows.map((row: unknown[], j: number) => (
-                        <tr key={j}>
-                          {row.map((cell: unknown, k: number) => (
-                            <td key={k} className="border border-border px-3 py-1.5 font-mono text-xs">
-                              {cell === null ? <span className="text-muted-foreground">NULL</span> : String(cell)}
-                            </td>
+                {queryMutation.data.map(
+                  (result: { columns: string[]; rows: unknown[][] }, i: number) => (
+                    <table key={i} className="w-full border-collapse text-sm">
+                      <thead>
+                        <tr>
+                          {result.columns.map((col: string) => (
+                            <th
+                              key={col}
+                              className="border border-border bg-muted px-3 py-1.5 text-left text-xs font-medium text-muted-foreground"
+                            >
+                              {col}
+                            </th>
                           ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ))}
+                      </thead>
+                      <tbody>
+                        {result.rows.map((row: unknown[], j: number) => (
+                          <tr key={j}>
+                            {row.map((cell: unknown, k: number) => (
+                              <td
+                                key={k}
+                                className="border border-border px-3 py-1.5 font-mono text-xs"
+                              >
+                                {cell === null ? (
+                                  <span className="text-muted-foreground">NULL</span>
+                                ) : (
+                                  String(cell)
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ),
+                )}
               </div>
             )}
           </>

@@ -32,7 +32,9 @@ export function ProjectsList({ projects, loading }: { projects: Project[]; loadi
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.deleteProject(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects', useOrgStore.getState().activeOrganizationId] })
+      queryClient.invalidateQueries({
+        queryKey: ['projects', useOrgStore.getState().activeOrganizationId],
+      })
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
       toast.success('Project deleted')
       setDeleteTarget(null)
@@ -53,7 +55,9 @@ export function ProjectsList({ projects, loading }: { projects: Project[]; loadi
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <FolderKanban size={14} className="text-muted-foreground/60" />
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">Projects</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
+            Projects
+          </h2>
         </div>
         <Button size="sm" className="h-7 gap-1.5 text-xs" onClick={() => openProjectDialog()}>
           <Plus className="h-3 w-3" />
@@ -81,11 +85,15 @@ export function ProjectsList({ projects, loading }: { projects: Project[]; loadi
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium">{project.name}</span>
                   {project.id === activeProjectId && (
-                    <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">Active</span>
+                    <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                      Active
+                    </span>
                   )}
                 </div>
                 {project.description && (
-                  <p className="mt-0.5 text-[10px] text-muted-foreground/60">{project.description}</p>
+                  <p className="mt-0.5 text-[10px] text-muted-foreground/60">
+                    {project.description}
+                  </p>
                 )}
               </div>
               <div className="flex items-center gap-1">

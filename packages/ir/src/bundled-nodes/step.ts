@@ -13,7 +13,8 @@ export const stepDefinition: NodeDefinition = {
       type: 'code',
       label: 'Step Code',
       required: true,
-      description: 'TypeScript code to execute. ctx.attempt is the current retry (1-indexed). Return value must be serializable.',
+      description:
+        'TypeScript code to execute. ctx.attempt is the current retry (1-indexed). Return value must be serializable.',
     },
     retryLimit: {
       type: 'number',

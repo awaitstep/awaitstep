@@ -24,12 +24,16 @@ describe('generateWaitForEvent', () => {
   })
 
   it('includes string timeout', () => {
-    const code = generateWaitForEvent(makeNode({ data: { eventType: 'user-approval', timeout: '48 hours' } }))
+    const code = generateWaitForEvent(
+      makeNode({ data: { eventType: 'user-approval', timeout: '48 hours' } }),
+    )
     expect(code).toContain('timeout: "48 hours"')
   })
 
   it('includes numeric timeout', () => {
-    const code = generateWaitForEvent(makeNode({ data: { eventType: 'user-approval', timeout: 3600000 } }))
+    const code = generateWaitForEvent(
+      makeNode({ data: { eventType: 'user-approval', timeout: 3600000 } }),
+    )
     expect(code).toContain('timeout: 3600000')
   })
 

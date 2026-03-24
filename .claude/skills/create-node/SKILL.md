@@ -2,15 +2,17 @@
 name: create-node
 description: Scaffold a complete AwaitStep custom node
 disable-model-invocation: true
-argument-hint: "[node_id]"
+argument-hint: '[node_id]'
 ---
 
 You are scaffolding a new AwaitStep custom node. Follow these steps exactly.
 
 Read the full node authoring guide before proceeding:
+
 - `.claude/skills/create-node/guide.md`
 
 Also read the canonical NodeDefinition type and reference example:
+
 - `packages/ir/src/node-definition.ts`
 - `packages/ir/src/bundled-nodes/http-request.ts`
 
@@ -23,6 +25,7 @@ The node ID is: `$ARGUMENTS`
 If no node ID was provided, ask the user for one before continuing.
 
 Validate the node ID:
+
 1. Must match `^[a-z][a-z0-9_]*$` (lowercase, underscores, starts with letter)
 2. Must NOT conflict with builtin node IDs: `step`, `sleep`, `sleep_until`, `branch`, `parallel`, `http_request`, `wait_for_event`
 3. Must NOT already exist in `nodes/`
@@ -50,6 +53,7 @@ Create the following files in `nodes/<node_id>/`:
 ### 3a. `node.json`
 
 Generate a complete NodeDefinition JSON file using the user's answers. Follow the exact schema from `packages/ir/src/node-definition.ts`. Set:
+
 - `id`: the validated node ID
 - `version`: `"1.0.0"`
 - `author`: `"awaitstep"`
@@ -61,6 +65,7 @@ Generate a complete NodeDefinition JSON file using the user's answers. Follow th
 ### 3b. `templates/cloudflare.ts`
 
 Generate a Cloudflare Workers template that:
+
 - Imports `NodeContext` from `@awaitstep/node-sdk`
 - Defines `Config` and `Output` interfaces matching the schemas
 - Marks secret fields as `never` in the Config interface
@@ -73,6 +78,7 @@ Generate a Cloudflare Workers template that:
 ### 3c. `tests/cloudflare.test.ts`
 
 Generate a test file that:
+
 - Uses vitest (`describe`, `it`, `expect`, `vi`, `beforeEach`)
 - Uses `createMockContext` from `@awaitstep/node-sdk/testing`
 - Includes a happy-path test verifying correct output
@@ -83,6 +89,7 @@ Generate a test file that:
 ### 3d. `README.md`
 
 Generate a README with:
+
 - Node name as heading
 - One-line description
 - Supported providers list (✅/❌)
@@ -97,6 +104,7 @@ Generate a README with:
 Run through the validation checklist from the guide against the generated files. Check every item. If any check fails, fix the issue immediately.
 
 Checklist summary:
+
 - `id` matches directory name and pattern
 - `id` not a builtin
 - Valid semver version

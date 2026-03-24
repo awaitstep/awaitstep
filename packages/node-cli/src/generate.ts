@@ -28,7 +28,11 @@ export async function generate(nodesDir: string): Promise<GenerateResult> {
   try {
     entries = await readdir(nodesDir)
   } catch {
-    return { bundles, outputPath: '', errors: [{ nodeId: '', error: `Cannot read directory: ${nodesDir}` }] }
+    return {
+      bundles,
+      outputPath: '',
+      errors: [{ nodeId: '', error: `Cannot read directory: ${nodesDir}` }],
+    }
   }
 
   // Find subdirectories (each is a node)
@@ -108,7 +112,10 @@ async function processNode(
     if (field.type === 'secret' && !field.envVarName) {
       return { error: `configSchema.${fieldName}: secret field must have envVarName` }
     }
-    if ((field.type === 'select' || field.type === 'multiselect') && (!field.options || field.options.length === 0)) {
+    if (
+      (field.type === 'select' || field.type === 'multiselect') &&
+      (!field.options || field.options.length === 0)
+    ) {
       return { error: `configSchema.${fieldName}: ${field.type} field must have non-empty options` }
     }
   }
@@ -130,7 +137,9 @@ async function processNode(
       if (defaultTemplate) {
         templates[provider] = defaultTemplate
       } else {
-        return { error: `Missing template: provide templates/${provider}.ts or a shared template.ts` }
+        return {
+          error: `Missing template: provide templates/${provider}.ts or a shared template.ts`,
+        }
       }
     }
   }

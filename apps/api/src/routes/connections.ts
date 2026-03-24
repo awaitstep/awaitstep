@@ -38,10 +38,13 @@ export function createConnectionRoutes() {
 
   connections.post(
     '/verify-token',
-    zValidator('json', z.object({
-      provider: z.string().min(1),
-      credentials: z.record(z.string(), z.string()),
-    })),
+    zValidator(
+      'json',
+      z.object({
+        provider: z.string().min(1),
+        credentials: z.record(z.string(), z.string()),
+      }),
+    ),
     async (c) => {
       const { provider, credentials } = c.req.valid('json')
 
@@ -53,22 +56,29 @@ export function createConnectionRoutes() {
     },
   )
 
-  connections.patch('/:id', zValidator('json', z.object({
-    name: z.string().min(1).max(255).optional(),
-    credentials: z.record(z.string(), z.string()).optional(),
-  })), async (c) => {
-    const db = c.get('db')
-    const id = c.req.param('id')
-    const body = c.req.valid('json')
+  connections.patch(
+    '/:id',
+    zValidator(
+      'json',
+      z.object({
+        name: z.string().min(1).max(255).optional(),
+        credentials: z.record(z.string(), z.string()).optional(),
+      }),
+    ),
+    async (c) => {
+      const db = c.get('db')
+      const id = c.req.param('id')
+      const body = c.req.valid('json')
 
-    const updates: { name?: string; credentials?: string } = {}
-    if (body.name) updates.name = body.name
-    if (body.credentials) updates.credentials = JSON.stringify(body.credentials)
+      const updates: { name?: string; credentials?: string } = {}
+      if (body.name) updates.name = body.name
+      if (body.credentials) updates.credentials = JSON.stringify(body.credentials)
 
-    const conn = await db.updateConnection(id, updates)
-    if (!conn) return c.json({ error: 'Not found' }, 404)
-    return c.json(redactCredentials(conn))
-  })
+      const conn = await db.updateConnection(id, updates)
+      if (!conn) return c.json({ error: 'Not found' }, 404)
+      return c.json(redactCredentials(conn))
+    },
+  )
 
   connections.delete('/:id', async (c) => {
     const db = c.get('db')
@@ -79,10 +89,7 @@ export function createConnectionRoutes() {
   return connections
 }
 
-async function verifyCloudflareCredentials(
-  c: Context,
-  credentials: Record<string, string>,
-) {
+async function verifyCloudflareCredentials(c: Context, credentials: Record<string, string>) {
   const apiToken = credentials.apiToken
   if (!apiToken) {
     return c.json({ valid: false, accounts: [] }, 200)
@@ -112,7 +119,14 @@ async function verifyCloudflareCredentials(
   })
 }
 
-const SAFE_CREDENTIAL_FIELDS = new Set(['accountId', 'accountName', 'name', 'provider', 'region', 'email'])
+const SAFE_CREDENTIAL_FIELDS = new Set([
+  'accountId',
+  'accountName',
+  'name',
+  'provider',
+  'region',
+  'email',
+])
 
 function redactCredentials(conn: { credentials: string; [key: string]: unknown }) {
   const creds = JSON.parse(conn.credentials) as Record<string, string>

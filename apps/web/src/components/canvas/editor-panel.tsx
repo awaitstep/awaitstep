@@ -40,11 +40,14 @@ export function EditorPanel() {
     return buildIRFromState({ metadata, nodes, edges })
   }, [metadata, nodes, edges])
 
-  const templateResolver = useMemo<TemplateResolver>(() => ({
-    getTemplate(nodeType: string, provider: string): string | undefined {
-      return templatesRef.current[nodeType]?.[provider]
-    },
-  }), [templatesLoaded])
+  const templateResolver = useMemo<TemplateResolver>(
+    () => ({
+      getTemplate(nodeType: string, provider: string): string | undefined {
+        return templatesRef.current[nodeType]?.[provider]
+      },
+    }),
+    [templatesLoaded],
+  )
 
   const generatedCode = useMemo(() => {
     if (!ir) return '// Drag nodes onto the canvas to generate code'
@@ -61,11 +64,14 @@ export function EditorPanel() {
   }, [ir])
 
   const handleCopy = useCallback(async () => {
-    const text = tab === 'output'
-      ? (outputMode === 'typescript' ? generatedCode : irJson)
-      : tab === 'entry'
-        ? (triggerCode || DEFAULT_TRIGGER_CODE)
-        : JSON.stringify(dependencies, null, 2)
+    const text =
+      tab === 'output'
+        ? outputMode === 'typescript'
+          ? generatedCode
+          : irJson
+        : tab === 'entry'
+          ? triggerCode || DEFAULT_TRIGGER_CODE
+          : JSON.stringify(dependencies, null, 2)
     await navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
@@ -76,16 +82,19 @@ export function EditorPanel() {
     return JSON.stringify(dependencies, null, 2)
   }, [dependencies])
 
-  const handleDepsChange = useCallback((value: string) => {
-    try {
-      const parsed = JSON.parse(value)
-      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-        setDependencies(parsed as Record<string, string>)
+  const handleDepsChange = useCallback(
+    (value: string) => {
+      try {
+        const parsed = JSON.parse(value)
+        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+          setDependencies(parsed as Record<string, string>)
+        }
+      } catch {
+        // Ignore invalid JSON while typing
       }
-    } catch {
-      // Ignore invalid JSON while typing
-    }
-  }, [setDependencies])
+    },
+    [setDependencies],
+  )
 
   const isCustomEntry = triggerCode && triggerCode !== ''
 
@@ -107,7 +116,9 @@ export function EditorPanel() {
                 onClick={() => setTab(t.id)}
                 className={cn(
                   'rounded-md px-2.5 py-1 text-[10px] font-medium transition-colors',
-                  tab === t.id ? 'bg-muted/70 text-foreground/60' : 'text-muted-foreground/60 hover:text-muted-foreground',
+                  tab === t.id
+                    ? 'bg-muted/70 text-foreground/60'
+                    : 'text-muted-foreground/60 hover:text-muted-foreground',
                 )}
               >
                 {t.label}
@@ -124,7 +135,9 @@ export function EditorPanel() {
                 onClick={() => setOutputMode('typescript')}
                 className={cn(
                   'rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors',
-                  outputMode === 'typescript' ? 'bg-muted/70 text-foreground/60' : 'text-muted-foreground/60 hover:text-muted-foreground',
+                  outputMode === 'typescript'
+                    ? 'bg-muted/70 text-foreground/60'
+                    : 'text-muted-foreground/60 hover:text-muted-foreground',
                 )}
               >
                 TypeScript
@@ -133,7 +146,9 @@ export function EditorPanel() {
                 onClick={() => setOutputMode('ir-json')}
                 className={cn(
                   'rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors',
-                  outputMode === 'ir-json' ? 'bg-muted/70 text-foreground/60' : 'text-muted-foreground/60 hover:text-muted-foreground',
+                  outputMode === 'ir-json'
+                    ? 'bg-muted/70 text-foreground/60'
+                    : 'text-muted-foreground/60 hover:text-muted-foreground',
                 )}
               >
                 IR JSON
@@ -159,7 +174,11 @@ export function EditorPanel() {
             className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted/60 hover:text-muted-foreground"
             title="Copy to clipboard"
           >
-            {copied ? <Check className="h-3.5 w-3.5 text-status-success" /> : <Copy className="h-3.5 w-3.5" />}
+            {copied ? (
+              <Check className="h-3.5 w-3.5 text-status-success" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
           </button>
         </div>
       </div>
@@ -168,15 +187,21 @@ export function EditorPanel() {
       {tab === 'entry' && (
         <div className="border-b border-border px-4 py-2">
           <p className="text-[10px] leading-relaxed text-muted-foreground/40">
-            Code inside the <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">fetch()</code> handler.
-            Has access to <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">request</code>, <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">env</code>, and <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">ctx</code>.
+            Code inside the{' '}
+            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">fetch()</code>{' '}
+            handler. Has access to{' '}
+            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">request</code>,{' '}
+            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">env</code>, and{' '}
+            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">ctx</code>.
           </p>
         </div>
       )}
       {tab === 'dependencies' && (
         <div className="border-b border-border px-4 py-2">
           <p className="text-[10px] leading-relaxed text-muted-foreground/40">
-            NPM packages installed at deploy time. Edit the JSON array below — each entry needs <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">name</code> and <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">version</code>.
+            NPM packages installed at deploy time. Edit the JSON array below — each entry needs{' '}
+            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">name</code> and{' '}
+            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">version</code>.
           </p>
         </div>
       )}
@@ -211,13 +236,23 @@ export function EditorPanel() {
   )
 }
 
-function OutputEditor({ mounted, code, language }: { mounted: boolean; code: string; language: string }) {
+function OutputEditor({
+  mounted,
+  code,
+  language,
+}: {
+  mounted: boolean
+  code: string
+  language: string
+}) {
   if (!mounted) {
     return <pre className="p-4 text-[12px] leading-[1.7] text-foreground/70">{code}</pre>
   }
 
   return (
-    <Suspense fallback={<pre className="p-4 text-[12px] leading-[1.7] text-foreground/70">{code}</pre>}>
+    <Suspense
+      fallback={<pre className="p-4 text-[12px] leading-[1.7] text-foreground/70">{code}</pre>}
+    >
       <MonacoEditor
         height="100%"
         language={language}
@@ -254,7 +289,17 @@ function OutputEditor({ mounted, code, language }: { mounted: boolean; code: str
   )
 }
 
-function EditableEditor({ mounted, value, onChange, language }: { mounted: boolean; value: string; onChange: (v: string) => void; language: string }) {
+function EditableEditor({
+  mounted,
+  value,
+  onChange,
+  language,
+}: {
+  mounted: boolean
+  value: string
+  onChange: (v: string) => void
+  language: string
+}) {
   if (!mounted) {
     return <div className="flex-1 bg-[oklch(0.12_0_0)]" />
   }

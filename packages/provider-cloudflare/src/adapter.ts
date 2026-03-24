@@ -117,7 +117,11 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
 
     if (!opts) {
       report('FAILED', 'Missing workflowId or workflowName', 0)
-      return { success: false, deploymentId: '', error: 'workflowId and workflowName are required in config.options' }
+      return {
+        success: false,
+        deploymentId: '',
+        error: 'workflowId and workflowName are required in config.options',
+      }
     }
 
     report('GENERATING_CODE', 'Transpiling TypeScript...', 15)
@@ -189,13 +193,19 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
     }
   }
 
-  async destroy(deploymentId: string, config: ProviderConfig): Promise<{ success: boolean; error?: string }> {
+  async destroy(
+    deploymentId: string,
+    config: ProviderConfig,
+  ): Promise<{ success: boolean; error?: string }> {
     const { accountId, apiToken } = extractCredentials(config)
     return deleteWorker(deploymentId, { accountId, apiToken })
   }
 }
 
-function extractVarsAndSecrets(config: ProviderConfig): { vars?: Record<string, string>; secrets?: Record<string, string> } {
+function extractVarsAndSecrets(config: ProviderConfig): {
+  vars?: Record<string, string>
+  secrets?: Record<string, string>
+} {
   if (!config.envVars) return {}
   const vars: Record<string, string> = {}
   const secrets: Record<string, string> = {}

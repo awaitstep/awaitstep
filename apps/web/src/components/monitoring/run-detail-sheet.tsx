@@ -3,11 +3,20 @@ import { Link } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import * as Dialog from '@radix-ui/react-dialog'
 import {
-  Loader2, AlertCircle, CheckCircle2, Pause, Play, Square,
-  ChevronDown, ChevronRight, Copy, Check, X,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  Pause,
+  Play,
+  Square,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Check,
+  X,
 } from 'lucide-react'
 import { Button } from '../ui/button'
-import { projectUrl } from '../../lib/api-client'
+import { api } from '../../lib/api-client'
 import { useSheetStore } from '../../stores/sheet-store'
 import { RunStatusBadge } from './run-status-badge'
 import { formatDate } from '../../lib/time'
@@ -60,8 +69,7 @@ function RunDetailContent({
 
   const { data: run, isLoading } = useQuery({
     queryKey: ['workflow-run', workflowId, runId],
-    queryFn: () =>
-      fetch(projectUrl(`/workflows/${workflowId}/runs/${runId}`), { credentials: 'include' }).then((r) => r.json()),
+    queryFn: () => api.getWorkflowRun(workflowId, runId),
     refetchInterval: (query) => {
       const data = query.state.data
       return data && !TERMINAL_STATUSES.has(data.status) ? 5_000 : false
@@ -81,10 +89,7 @@ function RunDetailContent({
 
   const actionMutation = useMutation({
     mutationFn: (action: 'pause' | 'resume' | 'terminate') =>
-      fetch(projectUrl(`/workflows/${workflowId}/runs/${runId}/${action}`), {
-        method: 'POST',
-        credentials: 'include',
-      }).then((r) => r.json()),
+      api.controlWorkflowRun(workflowId, runId, action),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflow-run', workflowId, runId] })
       queryClient.invalidateQueries({ queryKey: ['workflow-runs', workflowId] })
@@ -133,15 +138,30 @@ function RunDetailContent({
         {!isTerminal && (
           <div className="flex items-center gap-1">
             {isPaused ? (
-              <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={() => actionMutation.mutate('resume')}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-muted-foreground"
+                onClick={() => actionMutation.mutate('resume')}
+              >
                 <Play className="h-3.5 w-3.5" /> Resume
               </Button>
             ) : (
-              <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={() => actionMutation.mutate('pause')}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-muted-foreground"
+                onClick={() => actionMutation.mutate('pause')}
+              >
                 <Pause className="h-3.5 w-3.5" /> Pause
               </Button>
             )}
-            <Button variant="ghost" size="sm" className="gap-1.5 text-status-error/60 hover:text-status-error" onClick={() => actionMutation.mutate('terminate')}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-status-error/60 hover:text-status-error"
+              onClick={() => actionMutation.mutate('terminate')}
+            >
               <Square className="h-3.5 w-3.5" /> Terminate
             </Button>
           </div>
@@ -173,7 +193,9 @@ function RunDetailContent({
               Running...
             </span>
           ) : (
-            <span className="font-mono text-sm text-foreground">{runDuration(run.createdAt, run.updatedAt)}</span>
+            <span className="font-mono text-sm text-foreground">
+              {runDuration(run.createdAt, run.updatedAt)}
+            </span>
           )}
         </Field>
 
@@ -249,20 +271,34 @@ function ErrorBlock({ error }: { error: unknown }) {
     <div>
       <div className="rounded-md border border-red-500/10 bg-red-500/5 p-4">
         {parsed.name && (
-          <div className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-status-error/60">{parsed.name}</div>
+          <div className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-status-error/60">
+            {parsed.name}
+          </div>
         )}
         <p className="text-sm leading-relaxed text-red-300">{parsed.message}</p>
         {parsed.stack && (
-          <pre className="mt-3 overflow-auto text-xs leading-relaxed text-red-300/50">{parsed.stack}</pre>
+          <pre className="mt-3 overflow-auto text-xs leading-relaxed text-red-300/50">
+            {parsed.stack}
+          </pre>
         )}
       </div>
       <div className="mt-2 flex items-center gap-3">
-        <button onClick={() => setShowRaw(!showRaw)} className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground">
+        <button
+          onClick={() => setShowRaw(!showRaw)}
+          className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground"
+        >
           {showRaw ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
           Raw
         </button>
-        <button onClick={handleCopy} className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground">
-          {copied ? <Check className="h-3 w-3 text-status-success" /> : <Copy className="h-3 w-3" />}
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground"
+        >
+          {copied ? (
+            <Check className="h-3 w-3 text-status-success" />
+          ) : (
+            <Copy className="h-3 w-3" />
+          )}
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
@@ -275,12 +311,19 @@ function ErrorBlock({ error }: { error: unknown }) {
   )
 }
 
-function parseError(error: unknown): { name?: string; message: string; stack?: string; raw: string } {
+function parseError(error: unknown): {
+  name?: string
+  message: string
+  stack?: string
+  raw: string
+} {
   if (typeof error === 'string') {
     try {
       const parsed = JSON.parse(error)
       if (typeof parsed === 'object' && parsed !== null) return parseError(parsed)
-    } catch { /* plain string */ }
+    } catch {
+      /* plain string */
+    }
     return { message: error, raw: error }
   }
   if (typeof error === 'object' && error !== null) {

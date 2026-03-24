@@ -6620,10 +6620,6 @@ snapshots:
     dependencies:
       hono: 4.12.8
 
-  hono-rate-limiter@0.5.3(hono@4.12.8):
-    dependencies:
-      hono: 4.12.8
-
   hono@4.12.8: {}
 
   html-encoding-sniffer@6.0.0(@noble/hashes@2.0.1):

@@ -1,7 +1,14 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { resolveExpressions } from '@awaitstep/ir'
 import type { CodeGenerator, TemplateResolver } from '@awaitstep/codegen'
-import { topologicalSort, sanitizeIdentifier, buildVarNameMap, setVarNameMap, clearVarNameMap, varName } from '@awaitstep/codegen'
+import {
+  topologicalSort,
+  sanitizeIdentifier,
+  buildVarNameMap,
+  setVarNameMap,
+  clearVarNameMap,
+  varName,
+} from '@awaitstep/codegen'
 import { generateStep } from './generators/step.js'
 import { generateSleep, generateSleepUntil } from './generators/sleep.js'
 import { generateBranch, collectBranchInlineTargets } from './generators/branch.js'
@@ -42,7 +49,11 @@ export function extractImports(code: string): { imports: string[]; body: string 
   return { imports, body: bodyLines.join('\n') }
 }
 
-export function generateNodeCode(node: WorkflowNode, ir: WorkflowIR, templateResolver?: TemplateResolver): string {
+export function generateNodeCode(
+  node: WorkflowNode,
+  ir: WorkflowIR,
+  templateResolver?: TemplateResolver,
+): string {
   switch (node.type) {
     case 'step':
       return generateStep(node)
@@ -99,7 +110,10 @@ export interface GenerateOptions {
   triggerCode?: string
 }
 
-export function generateWorkflow(ir: WorkflowIR, templateResolverOrOptions?: TemplateResolver | GenerateOptions): string {
+export function generateWorkflow(
+  ir: WorkflowIR,
+  templateResolverOrOptions?: TemplateResolver | GenerateOptions,
+): string {
   const opts: GenerateOptions = templateResolverOrOptions
     ? 'getTemplate' in templateResolverOrOptions
       ? { templateResolver: templateResolverOrOptions }

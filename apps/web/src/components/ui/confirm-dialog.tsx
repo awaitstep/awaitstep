@@ -35,13 +35,17 @@ export function ConfirmDialog({
           </AlertDialog.Description>
           <div className="mt-5 flex justify-end gap-2">
             <AlertDialog.Cancel asChild>
-              <Button variant="ghost" size="sm">Cancel</Button>
+              <Button variant="ghost" size="sm">
+                Cancel
+              </Button>
             </AlertDialog.Cancel>
             <AlertDialog.Action asChild>
               <Button
                 size="sm"
                 variant={variant === 'destructive' ? 'destructive' : 'default'}
-                className={variant === 'warning' ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''}
+                className={
+                  variant === 'warning' ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''
+                }
                 disabled={loading}
                 onClick={(e) => {
                   e.preventDefault()

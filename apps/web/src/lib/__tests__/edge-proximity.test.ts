@@ -4,11 +4,7 @@ import type { Edge, Node } from '@xyflow/react'
 
 describe('projectPointOnSegment', () => {
   it('projects a point directly on the line', () => {
-    const result = projectPointOnSegment(
-      { x: 5, y: 0 },
-      { x: 0, y: 0 },
-      { x: 10, y: 0 },
-    )
+    const result = projectPointOnSegment({ x: 5, y: 0 }, { x: 0, y: 0 }, { x: 10, y: 0 })
     expect(result.distance).toBeCloseTo(0)
     expect(result.point.x).toBeCloseTo(5)
     expect(result.point.y).toBeCloseTo(0)
@@ -16,22 +12,14 @@ describe('projectPointOnSegment', () => {
   })
 
   it('projects a point near the line', () => {
-    const result = projectPointOnSegment(
-      { x: 5, y: 3 },
-      { x: 0, y: 0 },
-      { x: 10, y: 0 },
-    )
+    const result = projectPointOnSegment({ x: 5, y: 3 }, { x: 0, y: 0 }, { x: 10, y: 0 })
     expect(result.distance).toBeCloseTo(3)
     expect(result.point.x).toBeCloseTo(5)
     expect(result.point.y).toBeCloseTo(0)
   })
 
   it('clamps to segment start when before segment', () => {
-    const result = projectPointOnSegment(
-      { x: -5, y: 0 },
-      { x: 0, y: 0 },
-      { x: 10, y: 0 },
-    )
+    const result = projectPointOnSegment({ x: -5, y: 0 }, { x: 0, y: 0 }, { x: 10, y: 0 })
     expect(result.t).toBe(0)
     expect(result.point.x).toBeCloseTo(0)
     expect(result.point.y).toBeCloseTo(0)
@@ -39,11 +27,7 @@ describe('projectPointOnSegment', () => {
   })
 
   it('clamps to segment end when past segment', () => {
-    const result = projectPointOnSegment(
-      { x: 15, y: 0 },
-      { x: 0, y: 0 },
-      { x: 10, y: 0 },
-    )
+    const result = projectPointOnSegment({ x: 15, y: 0 }, { x: 0, y: 0 }, { x: 10, y: 0 })
     expect(result.t).toBe(1)
     expect(result.point.x).toBeCloseTo(10)
     expect(result.point.y).toBeCloseTo(0)
@@ -51,21 +35,13 @@ describe('projectPointOnSegment', () => {
   })
 
   it('handles degenerate segment (zero length)', () => {
-    const result = projectPointOnSegment(
-      { x: 3, y: 4 },
-      { x: 0, y: 0 },
-      { x: 0, y: 0 },
-    )
+    const result = projectPointOnSegment({ x: 3, y: 4 }, { x: 0, y: 0 }, { x: 0, y: 0 })
     expect(result.distance).toBeCloseTo(5)
     expect(result.t).toBe(0)
   })
 
   it('projects onto diagonal line', () => {
-    const result = projectPointOnSegment(
-      { x: 0, y: 10 },
-      { x: 0, y: 0 },
-      { x: 10, y: 10 },
-    )
+    const result = projectPointOnSegment({ x: 0, y: 10 }, { x: 0, y: 0 }, { x: 10, y: 10 })
     expect(result.point.x).toBeCloseTo(5)
     expect(result.point.y).toBeCloseTo(5)
     expect(result.distance).toBeCloseTo(Math.sqrt(50))
@@ -89,11 +65,7 @@ describe('findNearestEdge', () => {
   })
 
   it('returns null when no edges', () => {
-    const result = findNearestEdge(
-      { x: 100, y: 100 },
-      [],
-      [makeNode('a', 0, 0)],
-    )
+    const result = findNearestEdge({ x: 100, y: 100 }, [], [makeNode('a', 0, 0)])
     expect(result).toBeNull()
   })
 
@@ -124,10 +96,7 @@ describe('findNearestEdge', () => {
       makeNode('c', 200, 0),
       makeNode('d', 200, 400),
     ]
-    const edges = [
-      makeEdge('e1', 'a', 'b'),
-      makeEdge('e2', 'c', 'd'),
-    ]
+    const edges = [makeEdge('e1', 'a', 'b'), makeEdge('e2', 'c', 'd')]
     // e1 center line at x=100, e2 center line at x=300
     // Point at x=280, y=200 is closer to e2
     const result = findNearestEdge({ x: 280, y: 200 }, edges, nodes, 40)

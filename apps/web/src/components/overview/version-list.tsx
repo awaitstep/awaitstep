@@ -2,9 +2,7 @@ import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import {
-  Hash, MoreVertical, Lock, Unlock, Rocket, RotateCcw, Eye, Trash2,
-} from 'lucide-react'
+import { Hash, MoreVertical, Lock, Unlock, Rocket, RotateCcw, Eye, Trash2 } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -13,7 +11,12 @@ import {
   DropdownMenuSeparator,
 } from '../ui/dropdown-menu'
 import { DeployDialog } from '../canvas/deploy-dialog'
-import { api, type VersionSummary, type DeploymentSummary, type WorkflowSummary } from '../../lib/api-client'
+import {
+  api,
+  type VersionSummary,
+  type DeploymentSummary,
+  type WorkflowSummary,
+} from '../../lib/api-client'
 import { timeAgo } from '../../lib/time'
 
 interface VersionListProps {
@@ -24,7 +27,13 @@ interface VersionListProps {
   deployBlocked: boolean
 }
 
-export function VersionList({ workflowId, workflow, versions, activeDeployment, deployBlocked }: VersionListProps) {
+export function VersionList({
+  workflowId,
+  workflow,
+  versions,
+  activeDeployment,
+  deployBlocked,
+}: VersionListProps) {
   const queryClient = useQueryClient()
   const [deployOpen, setDeployOpen] = useState(false)
   const [deployVersionId, setDeployVersionId] = useState<string | undefined>(undefined)
@@ -35,7 +44,8 @@ export function VersionList({ workflowId, workflow, versions, activeDeployment, 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['versions', workflowId] })
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to update version lock'),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Failed to update version lock'),
   })
 
   const revertMutation = useMutation({
@@ -73,11 +83,12 @@ export function VersionList({ workflowId, workflow, versions, activeDeployment, 
                 }`}
               >
                 <div className="flex items-center gap-1.5 text-xs text-foreground/60">
-                  <Hash className="h-3 w-3 text-muted-foreground/40" />
-                  v{v.version}
+                  <Hash className="h-3 w-3 text-muted-foreground/40" />v{v.version}
                   {isLocked && <Lock className="h-3 w-3 text-muted-foreground/60" />}
                   {isActive && (
-                    <span className="rounded bg-status-success/10 px-1.5 py-0.5 text-[10px] font-medium text-status-success">deployed</span>
+                    <span className="rounded bg-status-success/10 px-1.5 py-0.5 text-[10px] font-medium text-status-success">
+                      deployed
+                    </span>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
@@ -107,14 +118,24 @@ export function VersionList({ workflowId, workflow, versions, activeDeployment, 
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuItem
-                        onSelect={() => lockVersionMutation.mutate({ versionId: v.id, locked: !isLocked })}
+                        onSelect={() =>
+                          lockVersionMutation.mutate({ versionId: v.id, locked: !isLocked })
+                        }
                       >
-                        {isLocked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+                        {isLocked ? (
+                          <Unlock className="h-3.5 w-3.5" />
+                        ) : (
+                          <Lock className="h-3.5 w-3.5" />
+                        )}
                         {isLocked ? 'Unlock' : 'Lock'}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem asChild>
-                        <Link to="/workflows/$workflowId/canvas" params={{ workflowId }} search={{ version: v.id }}>
+                        <Link
+                          to="/workflows/$workflowId/canvas"
+                          params={{ workflowId }}
+                          search={{ version: v.id }}
+                        >
                           <Eye className="h-3.5 w-3.5" />
                           View in canvas
                         </Link>
@@ -143,7 +164,13 @@ export function VersionList({ workflowId, workflow, versions, activeDeployment, 
           No versions yet. Open the editor to create one.
         </div>
       )}
-      {deployOpen && <DeployDialog onClose={() => setDeployOpen(false)} workflowId={workflowId} versionId={deployVersionId} />}
+      {deployOpen && (
+        <DeployDialog
+          onClose={() => setDeployOpen(false)}
+          workflowId={workflowId}
+          versionId={deployVersionId}
+        />
+      )}
     </section>
   )
 }

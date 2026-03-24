@@ -16,7 +16,11 @@ export function DeploymentCard({ deployment }: DeploymentCardProps) {
             <DeployStatusDot status={deployment.status} />
             <div>
               <p className="text-sm text-foreground/70">
-                {deployment.status === 'success' ? 'Deployed' : deployment.status === 'failed' ? 'Failed' : 'Deploying'}
+                {deployment.status === 'success'
+                  ? 'Deployed'
+                  : deployment.status === 'failed'
+                    ? 'Failed'
+                    : 'Deploying'}
               </p>
               <p className="text-xs text-muted-foreground/60">{formatDate(deployment.createdAt)}</p>
             </div>
@@ -36,7 +40,9 @@ export function DeploymentCard({ deployment }: DeploymentCardProps) {
           </div>
         )}
         {deployment.error && (
-          <p className="mt-2 rounded bg-status-error/10 px-3 py-2 text-xs text-status-error">{deployment.error}</p>
+          <p className="mt-2 rounded bg-status-error/10 px-3 py-2 text-xs text-status-error">
+            {deployment.error}
+          </p>
         )}
       </div>
     </section>
@@ -73,9 +79,11 @@ export function DeployStatusBadge({
 
 function DeployStatusDot({ status }: { status: string }) {
   const color =
-    status === 'success' ? 'bg-status-success' :
-    status === 'failed' ? 'bg-status-error' :
-    'bg-status-info animate-pulse'
+    status === 'success'
+      ? 'bg-status-success'
+      : status === 'failed'
+        ? 'bg-status-error'
+        : 'bg-status-info animate-pulse'
 
   return <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
 }

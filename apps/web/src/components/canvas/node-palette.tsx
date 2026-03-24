@@ -7,7 +7,13 @@ import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { getNodeVisuals } from '../../lib/node-icon-map'
 
 const BUILTIN_IDS = new Set([
-  'step', 'sleep', 'sleep_until', 'branch', 'parallel', 'http_request', 'wait_for_event',
+  'step',
+  'sleep',
+  'sleep_until',
+  'branch',
+  'parallel',
+  'http_request',
+  'wait_for_event',
 ])
 
 interface NodePaletteProps {
@@ -36,7 +42,11 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
                 open && 'bg-primary border-primary/60 hover:bg-primary/90',
               )}
             >
-              {open ? <X className="h-4 w-4 text-primary-foreground" /> : <Plus className="h-5 w-5 text-foreground/70" />}
+              {open ? (
+                <X className="h-4 w-4 text-primary-foreground" />
+              ) : (
+                <Plus className="h-5 w-5 text-foreground/70" />
+              )}
             </button>
           </Tooltip.Trigger>
           {!open && (
@@ -60,31 +70,40 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
             Drag to canvas
           </div>
           <div className="max-h-80 overflow-y-auto px-1.5">
-          {definitions.map((def) => {
-            const visuals = getNodeVisuals(def.id, def.icon)
-            return (
-              <div
-                key={def.id}
-                draggable
-                onDragStart={(e) => onDragStart(e, def.id as NodeType)}
-                onClick={() => onAddNode(def.id as NodeType)}
-                className="flex cursor-grab items-center gap-2.5 rounded-lg px-2 py-1.5 transition-all hover:bg-muted/60 active:cursor-grabbing"
-              >
-                <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', visuals.accent)}>
-                  {visuals.paletteIcon}
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[12px] font-medium text-foreground">{def.name}</span>
-                    {!BUILTIN_IDS.has(def.id) && (
-                      <span className="rounded bg-violet-500/15 px-1 py-px text-[9px] font-medium text-violet-400">Custom</span>
+            {definitions.map((def) => {
+              const visuals = getNodeVisuals(def.id, def.icon)
+              return (
+                <div
+                  key={def.id}
+                  draggable
+                  onDragStart={(e) => onDragStart(e, def.id as NodeType)}
+                  onClick={() => onAddNode(def.id as NodeType)}
+                  className="flex cursor-grab items-center gap-2.5 rounded-lg px-2 py-1.5 transition-all hover:bg-muted/60 active:cursor-grabbing"
+                >
+                  <div
+                    className={cn(
+                      'flex h-7 w-7 shrink-0 items-center justify-center rounded-md',
+                      visuals.accent,
                     )}
+                  >
+                    {visuals.paletteIcon}
                   </div>
-                  <div className="text-[10px] leading-tight text-muted-foreground/60">{def.description}</div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[12px] font-medium text-foreground">{def.name}</span>
+                      {!BUILTIN_IDS.has(def.id) && (
+                        <span className="rounded bg-violet-500/15 px-1 py-px text-[9px] font-medium text-violet-400">
+                          Custom
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[10px] leading-tight text-muted-foreground/60">
+                      {def.description}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
           </div>
         </div>
       )}

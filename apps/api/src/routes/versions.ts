@@ -32,66 +32,62 @@ versions.get('/:workflowId/versions/:versionId', async (c) => {
   return c.json(version)
 })
 
-versions.post(
-  '/:workflowId/versions',
-  zValidator('json', createVersionSchema),
-  async (c) => {
-    const db = c.get('db')
-    const workflowId = c.req.param('workflowId')
-    const body = c.req.valid('json')
+versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), async (c) => {
+  const db = c.get('db')
+  const workflowId = c.req.param('workflowId')
+  const body = c.req.valid('json')
 
-    const validation = validateIR(body.ir)
-    if (!validation.ok) {
-      return c.json({ error: 'Invalid IR', details: validation.errors }, 400)
-    }
+  const validation = validateIR(body.ir)
+  if (!validation.ok) {
+    return c.json({ error: 'Invalid IR', details: validation.errors }, 400)
+  }
 
-    const irString = JSON.stringify(body.ir)
-    const templateResolver = c.get('nodeRegistry')?.templateResolver
-    const generatedCode = generateWorkflow(body.ir as WorkflowIR, templateResolver)
+  const irString = JSON.stringify(body.ir)
+  const templateResolver = c.get('nodeRegistry')?.templateResolver
+  const generatedCode = generateWorkflow(body.ir as WorkflowIR, templateResolver)
 
-    const existing = await db.listVersionsByWorkflow(workflowId)
-    const latest = existing[0] // ordered by descending version number
+  const existing = await db.listVersionsByWorkflow(workflowId)
+  const latest = existing[0] // ordered by descending version number
 
-    // Check if the latest version has been deployed
-    const workflow = await db.getWorkflowById(workflowId)
-    if (!workflow) return c.json({ error: 'Workflow not found' }, 404)
+  // Check if the latest version has been deployed
+  const workflow = await db.getWorkflowById(workflowId)
+  if (!workflow) return c.json({ error: 'Workflow not found' }, 404)
 
-    const activeDeployment = await db.getActiveDeployment(workflowId)
+  const activeDeployment = await db.getActiveDeployment(workflowId)
 
-    if (latest) {
-      // If latest version has NOT been deployed, overwrite it in place
-      if (latest.id !== activeDeployment?.versionId) {
-        // Check if IR actually changed
-        if (latest.ir === irString) {
-          return c.json(latest, 200)
-        }
-        await db.updateVersion(latest.id, { ir: irString, generatedCode })
-        const updated = await db.getWorkflowVersionById(latest.id)
-        return c.json(updated, 200)
-      }
-
-      // If latest version HAS been deployed and IR hasn't changed, return it
+  if (latest) {
+    // If latest version has NOT been deployed, overwrite it in place
+    if (latest.id !== activeDeployment?.versionId) {
+      // Check if IR actually changed
       if (latest.ir === irString) {
         return c.json(latest, 200)
       }
+      await db.updateVersion(latest.id, { ir: irString, generatedCode })
+      const updated = await db.getWorkflowVersionById(latest.id)
+      return c.json(updated, 200)
     }
 
-    // Create new version: either first version, or IR changed from a deployed version
-    const nextVersion = await db.getNextVersionNumber(workflowId)
+    // If latest version HAS been deployed and IR hasn't changed, return it
+    if (latest.ir === irString) {
+      return c.json(latest, 200)
+    }
+  }
 
-    const version = await db.createVersion({
-      id: nanoid(),
-      workflowId,
-      version: nextVersion,
-      ir: irString,
-      generatedCode,
-    })
+  // Create new version: either first version, or IR changed from a deployed version
+  const nextVersion = await db.getNextVersionNumber(workflowId)
 
-    await db.updateWorkflow(workflowId, { currentVersionId: version.id })
+  const version = await db.createVersion({
+    id: nanoid(),
+    workflowId,
+    version: nextVersion,
+    ir: irString,
+    generatedCode,
+  })
 
-    return c.json(version, 201)
-  },
-)
+  await db.updateWorkflow(workflowId, { currentVersionId: version.id })
+
+  return c.json(version, 201)
+})
 
 versions.patch(
   '/:workflowId/versions/:versionId',

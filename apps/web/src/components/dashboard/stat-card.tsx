@@ -22,7 +22,9 @@ export function StatCard({
       {loading ? (
         <Loader2 className="mt-2 h-5 w-5 animate-spin text-muted-foreground/60" />
       ) : (
-        <span className={`mt-1 block text-xl font-semibold ${variant === 'warning' && value > 0 ? 'text-amber-400' : ''}`}>
+        <span
+          className={`mt-1 block text-xl font-semibold ${variant === 'warning' && value > 0 ? 'text-amber-400' : ''}`}
+        >
           {value}
         </span>
       )}

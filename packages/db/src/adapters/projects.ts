@@ -5,9 +5,18 @@ import type { Project } from '../types.js'
 type AnyTable = any
 
 export class ProjectsAdapter {
-  constructor(private db: AnyTable, private table: AnyTable) {}
+  constructor(
+    private db: AnyTable,
+    private table: AnyTable,
+  ) {}
 
-  async create(data: { id: string; organizationId: string; name: string; slug: string; description?: string }): Promise<Project> {
+  async create(data: {
+    id: string
+    organizationId: string
+    name: string
+    slug: string
+    description?: string
+  }): Promise<Project> {
     const now = new Date().toISOString()
     const row = {
       id: data.id,
@@ -28,12 +37,22 @@ export class ProjectsAdapter {
   }
 
   async listByOrganization(organizationId: string): Promise<Project[]> {
-    return this.db.select().from(this.table).where(eq(this.table.organizationId, organizationId)).orderBy(desc(this.table.createdAt))
+    return this.db
+      .select()
+      .from(this.table)
+      .where(eq(this.table.organizationId, organizationId))
+      .orderBy(desc(this.table.createdAt))
   }
 
-  async update(id: string, data: { name?: string; slug?: string; description?: string }): Promise<Project> {
+  async update(
+    id: string,
+    data: { name?: string; slug?: string; description?: string },
+  ): Promise<Project> {
     const now = new Date().toISOString()
-    await this.db.update(this.table).set({ ...data, updatedAt: now }).where(eq(this.table.id, id))
+    await this.db
+      .update(this.table)
+      .set({ ...data, updatedAt: now })
+      .where(eq(this.table.id, id))
     const updated = await this.getById(id)
     if (!updated) throw new Error(`Project ${id} not found`)
     return updated

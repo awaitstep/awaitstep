@@ -13,8 +13,7 @@ export const deployments = pgTable(
     versionId: text('version_id')
       .notNull()
       .references(() => workflowVersions.id),
-    connectionId: text('connection_id')
-      .references(() => connections.id, { onDelete: 'set null' }),
+    connectionId: text('connection_id').references(() => connections.id, { onDelete: 'set null' }),
     serviceName: text('service_name').notNull(),
     serviceUrl: text('service_url'),
     status: text('status').notNull().default('success'),

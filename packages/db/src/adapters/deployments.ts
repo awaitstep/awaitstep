@@ -5,7 +5,10 @@ import type { Deployment } from '../types.js'
 type AnyTable = any
 
 export class DeploymentsAdapter {
-  constructor(private db: AnyTable, private table: AnyTable) {}
+  constructor(
+    private db: AnyTable,
+    private table: AnyTable,
+  ) {}
 
   async create(data: {
     id: string
@@ -34,7 +37,9 @@ export class DeploymentsAdapter {
   }
 
   async getActiveByWorkflow(workflowId: string): Promise<Deployment | null> {
-    const rows = await this.db.select().from(this.table)
+    const rows = await this.db
+      .select()
+      .from(this.table)
       .where(and(eq(this.table.workflowId, workflowId), eq(this.table.status, 'success')))
       .orderBy(desc(this.table.createdAt))
       .limit(1)
@@ -42,7 +47,11 @@ export class DeploymentsAdapter {
   }
 
   async listByWorkflow(workflowId: string): Promise<Deployment[]> {
-    return this.db.select().from(this.table).where(eq(this.table.workflowId, workflowId)).orderBy(desc(this.table.createdAt))
+    return this.db
+      .select()
+      .from(this.table)
+      .where(eq(this.table.workflowId, workflowId))
+      .orderBy(desc(this.table.createdAt))
   }
 
   async deleteByWorkflow(workflowId: string): Promise<void> {

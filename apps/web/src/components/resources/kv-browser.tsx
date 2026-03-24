@@ -19,8 +19,9 @@ export function KVBrowser({ connectionId }: KVBrowserProps) {
   const { data: namespaces, isLoading: nsLoading } = useQuery({
     queryKey: ['kv-namespaces', connectionId],
     queryFn: () =>
-      fetch(`/api/resources/kv/namespaces?connectionId=${connectionId}`, { credentials: 'include' })
-        .then((r) => r.json()),
+      fetch(`/api/resources/kv/namespaces?connectionId=${connectionId}`, {
+        credentials: 'include',
+      }).then((r) => r.json()),
     enabled: !!connectionId,
   })
 
@@ -29,8 +30,9 @@ export function KVBrowser({ connectionId }: KVBrowserProps) {
     queryFn: () => {
       const params = new URLSearchParams({ connectionId })
       if (prefix) params.set('prefix', prefix)
-      return fetch(`/api/resources/kv/namespaces/${selectedNamespace}/keys?${params}`, { credentials: 'include' })
-        .then((r) => r.json())
+      return fetch(`/api/resources/kv/namespaces/${selectedNamespace}/keys?${params}`, {
+        credentials: 'include',
+      }).then((r) => r.json())
     },
     enabled: !!selectedNamespace,
   })
@@ -38,8 +40,10 @@ export function KVBrowser({ connectionId }: KVBrowserProps) {
   const { data: valueResult } = useQuery({
     queryKey: ['kv-value', connectionId, selectedNamespace, selectedKey],
     queryFn: () =>
-      fetch(`/api/resources/kv/namespaces/${selectedNamespace}/values/${encodeURIComponent(selectedKey!)}?connectionId=${connectionId}`, { credentials: 'include' })
-        .then((r) => r.json()),
+      fetch(
+        `/api/resources/kv/namespaces/${selectedNamespace}/values/${encodeURIComponent(selectedKey!)}?connectionId=${connectionId}`,
+        { credentials: 'include' },
+      ).then((r) => r.json()),
     enabled: !!selectedNamespace && !!selectedKey,
   })
 
@@ -54,7 +58,9 @@ export function KVBrowser({ connectionId }: KVBrowserProps) {
             key={ns.id}
             onClick={() => handleNamespaceSelect(ns.id)}
             className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-              selectedNamespace === ns.id ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
+              selectedNamespace === ns.id
+                ? 'bg-primary/10 text-primary'
+                : 'text-foreground hover:bg-muted'
             }`}
           >
             {ns.title}
@@ -87,7 +93,9 @@ export function KVBrowser({ connectionId }: KVBrowserProps) {
                   key={key.name}
                   onClick={() => setSelectedKey(key.name)}
                   className={`flex w-full items-center gap-2 rounded px-3 py-1.5 text-left text-sm font-mono transition-colors ${
-                    selectedKey === key.name ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
+                    selectedKey === key.name
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-foreground hover:bg-muted'
                   }`}
                 >
                   <Key className="h-3 w-3 shrink-0 text-muted-foreground" />

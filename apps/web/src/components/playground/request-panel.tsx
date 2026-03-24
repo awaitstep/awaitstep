@@ -31,7 +31,10 @@ export function RequestPanel({
     }
     const queryParams = endpoint.params
       .filter((param) => param.in === 'query' && paramValues[param.name])
-      .map((param) => `${encodeURIComponent(param.name)}=${encodeURIComponent(paramValues[param.name])}`)
+      .map(
+        (param) =>
+          `${encodeURIComponent(param.name)}=${encodeURIComponent(paramValues[param.name])}`,
+      )
     if (queryParams.length > 0) {
       p += `?${queryParams.join('&')}`
     }
@@ -102,7 +105,12 @@ export function RequestPanel({
         <code className="min-w-0 truncate text-xs text-foreground">{resolvedPath()}</code>
         <div className="ml-auto flex items-center gap-2">
           <ScopeBadge scope={endpoint.scope} />
-          <Button size="sm" onClick={sendRequest} disabled={!canSend()} className="h-7 gap-1.5 px-3 text-xs">
+          <Button
+            size="sm"
+            onClick={sendRequest}
+            disabled={!canSend()}
+            className="h-7 gap-1.5 px-3 text-xs"
+          >
             {loading ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
             Send
           </Button>
@@ -117,7 +125,9 @@ export function RequestPanel({
               className={`flex items-center gap-3 px-3 py-1.5 ${i < endpoint.params.length - 1 ? 'border-b border-border' : ''}`}
             >
               <div className="flex w-32 shrink-0 items-center gap-1.5">
-                <span className={`rounded px-1 py-0.5 text-[10px] font-medium ${param.in === 'path' ? 'bg-amber-500/10 text-amber-400' : 'bg-blue-500/10 text-blue-400'}`}>
+                <span
+                  className={`rounded px-1 py-0.5 text-[10px] font-medium ${param.in === 'path' ? 'bg-amber-500/10 text-amber-400' : 'bg-blue-500/10 text-blue-400'}`}
+                >
                   {param.in}
                 </span>
                 <span className="font-mono text-[11px] text-foreground">
@@ -128,7 +138,9 @@ export function RequestPanel({
               <input
                 placeholder={`Enter ${param.name}`}
                 value={paramValues[param.name] ?? ''}
-                onChange={(e) => setParamValues((prev) => ({ ...prev, [param.name]: e.target.value }))}
+                onChange={(e) =>
+                  setParamValues((prev) => ({ ...prev, [param.name]: e.target.value }))
+                }
                 className="h-7 min-w-0 flex-1 rounded border border-border bg-card px-2 font-mono text-[11px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
@@ -137,7 +149,13 @@ export function RequestPanel({
       )}
 
       {endpoint.hasBody && (
-        <CodeEditor value={body} onChange={setBody} language="json" height="120px" expandable={false} />
+        <CodeEditor
+          value={body}
+          onChange={setBody}
+          language="json"
+          height="120px"
+          expandable={false}
+        />
       )}
     </div>
   )

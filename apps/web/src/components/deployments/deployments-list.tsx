@@ -51,9 +51,7 @@ export function DeploymentsList({
                   </span>
                 )}
                 <span className="font-mono text-xs text-foreground/70">{d.serviceName}</span>
-                {conn && (
-                  <span className="text-xs text-muted-foreground/50">{conn.name}</span>
-                )}
+                {conn && <span className="text-xs text-muted-foreground/50">{conn.name}</span>}
               </div>
               <div className="flex items-center gap-3">
                 {d.serviceUrl && (
@@ -62,7 +60,9 @@ export function DeploymentsList({
                   </span>
                 )}
                 {d.error && !d.serviceUrl && (
-                  <span className="text-xs text-status-error/60 truncate max-w-[200px]">{d.error}</span>
+                  <span className="text-xs text-status-error/60 truncate max-w-[200px]">
+                    {d.error}
+                  </span>
                 )}
                 <span className="text-xs text-muted-foreground">{timeAgo(d.createdAt)}</span>
               </div>

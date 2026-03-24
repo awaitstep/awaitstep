@@ -53,31 +53,31 @@ Every node is described by a `NodeDefinition`:
 
 ### Required Fields
 
-| Field | Type | Rules |
-|-------|------|-------|
-| `id` | string | Must match directory name. Pattern: `^[a-z][a-z0-9_-]*$` |
-| `name` | string | Human-readable display name |
-| `version` | string | Semver (e.g. `1.0.0`) |
-| `description` | string | Max 120 characters |
-| `category` | Category | One of the predefined categories (see below) |
-| `author` | string | Author name |
-| `license` | string | SPDX license identifier |
-| `providers` | Provider[] | At least one supported provider |
-| `configSchema` | Record\<string, ConfigField\> | Input fields rendered in the UI |
-| `outputSchema` | Record\<string, OutputField\> | Shape of step results |
+| Field          | Type                          | Rules                                                    |
+| -------------- | ----------------------------- | -------------------------------------------------------- |
+| `id`           | string                        | Must match directory name. Pattern: `^[a-z][a-z0-9_-]*$` |
+| `name`         | string                        | Human-readable display name                              |
+| `version`      | string                        | Semver (e.g. `1.0.0`)                                    |
+| `description`  | string                        | Max 120 characters                                       |
+| `category`     | Category                      | One of the predefined categories (see below)             |
+| `author`       | string                        | Author name                                              |
+| `license`      | string                        | SPDX license identifier                                  |
+| `providers`    | Provider[]                    | At least one supported provider                          |
+| `configSchema` | Record\<string, ConfigField\> | Input fields rendered in the UI                          |
+| `outputSchema` | Record\<string, OutputField\> | Shape of step results                                    |
 
 ### Optional Fields
 
-| Field | Type | Purpose |
-|-------|------|---------|
-| `tags` | string[] | Searchable tags |
-| `icon` | string | URL to node icon |
-| `docsUrl` | string | Link to external docs |
-| `dependencies` | Record\<string, string\> | npm packages installed at deploy time |
-| `runtime` | RuntimeHints | Default timeout, retries, idempotency hints |
-| `deprecated` | boolean | Mark as deprecated |
-| `deprecationMessage` | string | Shown when deprecated |
-| `replacedBy` | string | ID of replacement node |
+| Field                | Type                     | Purpose                                     |
+| -------------------- | ------------------------ | ------------------------------------------- |
+| `tags`               | string[]                 | Searchable tags                             |
+| `icon`               | string                   | URL to node icon                            |
+| `docsUrl`            | string                   | Link to external docs                       |
+| `dependencies`       | Record\<string, string\> | npm packages installed at deploy time       |
+| `runtime`            | RuntimeHints             | Default timeout, retries, idempotency hints |
+| `deprecated`         | boolean                  | Mark as deprecated                          |
+| `deprecationMessage` | string                   | Shown when deprecated                       |
+| `replacedBy`         | string                   | ID of replacement node                      |
 
 ### Categories
 
@@ -95,18 +95,18 @@ The `configSchema` defines the input fields shown in the node's configuration pa
 
 ### Field Types
 
-| Type | UI Control | Example |
-|------|-----------|---------|
-| `string` | Text input | URL, name, identifier |
-| `number` | Number input | Retry count, timeout |
-| `boolean` | Toggle switch | Enable/disable flag |
-| `select` | Dropdown | HTTP method, format |
-| `multiselect` | Multi-select | Tags, categories |
-| `secret` | Secret input | API keys (requires `envVarName`) |
-| `code` | Monaco code editor | Custom logic, function body |
-| `json` | JSON editor | Headers, request body |
-| `expression` | Expression input | `{{step1.output}}` references |
-| `textarea` | Multi-line text | HTML body, templates |
+| Type          | UI Control         | Example                          |
+| ------------- | ------------------ | -------------------------------- |
+| `string`      | Text input         | URL, name, identifier            |
+| `number`      | Number input       | Retry count, timeout             |
+| `boolean`     | Toggle switch      | Enable/disable flag              |
+| `select`      | Dropdown           | HTTP method, format              |
+| `multiselect` | Multi-select       | Tags, categories                 |
+| `secret`      | Secret input       | API keys (requires `envVarName`) |
+| `code`        | Monaco code editor | Custom logic, function body      |
+| `json`        | JSON editor        | Headers, request body            |
+| `expression`  | Expression input   | `{{step1.output}}` references    |
+| `textarea`    | Multi-line text    | HTML body, templates             |
 
 ### ConfigField Properties
 
@@ -199,14 +199,16 @@ Templates contain the runtime code that executes when the node runs. Each templa
 ### Template Context
 
 ```typescript
-export default async function(ctx: {
-  config: Record<string, unknown>   // Values from configSchema fields
-  env: Record<string, string>       // Environment variables (from secret fields)
-  inputs: Record<string, unknown>   // Outputs from upstream nodes
-  attempt: number                   // Current retry attempt (1-indexed)
+export default async function (ctx: {
+  config: Record<string, unknown> // Values from configSchema fields
+  env: Record<string, string> // Environment variables (from secret fields)
+  inputs: Record<string, unknown> // Outputs from upstream nodes
+  attempt: number // Current retry attempt (1-indexed)
 }) {
   // Node implementation
-  return { /* matches outputSchema */ }
+  return {
+    /* matches outputSchema */
+  }
 }
 ```
 
@@ -287,10 +289,13 @@ This runs automatically before `pnpm build` via the `prebuild` hook.
 ### Output Files
 
 **`nodes/nodes.local.json`** — Custom node bundles:
+
 ```json
 [
   {
-    "definition": { /* full NodeDefinition */ },
+    "definition": {
+      /* full NodeDefinition */
+    },
     "templates": {
       "cloudflare": "export default async function(ctx) { ... }"
     },
@@ -301,9 +306,12 @@ This runs automatically before `pnpm build` via the `prebuild` hook.
 ```
 
 **`nodes/registry.json`** — Combined registry:
+
 ```json
 {
-  "definitions": [ /* all built-in + custom definitions */ ],
+  "definitions": [
+    /* all built-in + custom definitions */
+  ],
   "templates": {
     "resend_send_email": {
       "cloudflare": "export default async function(ctx) { ... }"
@@ -327,6 +335,7 @@ registry.json → loadNodeRegistry() → {
 ```
 
 Exposed via:
+
 - `GET /api/nodes` — all node definitions
 - `GET /api/nodes/templates` — all custom node templates
 - `GET /api/nodes/:nodeId` — single node definition

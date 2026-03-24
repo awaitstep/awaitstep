@@ -94,24 +94,25 @@ export const verification = pgTable(
 
 // Organization tables (better-auth organization plugin)
 
-export const organization = pgTable(
-  'organization',
-  {
-    id: text('id').primaryKey(),
-    name: text('name').notNull(),
-    slug: text('slug').notNull().unique(),
-    logo: text('logo'),
-    metadata: text('metadata'),
-    createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
-  },
-)
+export const organization = pgTable('organization', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  slug: text('slug').notNull().unique(),
+  logo: text('logo'),
+  metadata: text('metadata'),
+  createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
+})
 
 export const member = pgTable(
   'member',
   {
     id: text('id').primaryKey(),
-    userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
-    organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
     role: text('role').notNull(),
     createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
   },
@@ -126,16 +127,18 @@ export const invitation = pgTable(
   {
     id: text('id').primaryKey(),
     email: text('email').notNull(),
-    inviterId: text('inviter_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
-    organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+    inviterId: text('inviter_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
     role: text('role'),
     status: text('status').notNull(),
     expiresAt: timestamp('expires_at', { mode: 'string' }).notNull(),
     createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
   },
-  (table) => [
-    index('idx_invitation_org_id').on(table.organizationId),
-  ],
+  (table) => [index('idx_invitation_org_id').on(table.organizationId)],
 )
 
 // App tables
@@ -161,7 +164,9 @@ export const workflows = pgTable(
   'workflows',
   {
     id: text('id').primaryKey(),
-    projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
     createdBy: text('created_by').notNull(),
     name: text('name').notNull(),
     description: text('description'),
@@ -225,8 +230,7 @@ export const workflowRuns = pgTable(
     versionId: text('version_id')
       .notNull()
       .references(() => workflowVersions.id),
-    connectionId: text('connection_id')
-      .references(() => connections.id, { onDelete: 'set null' }),
+    connectionId: text('connection_id').references(() => connections.id, { onDelete: 'set null' }),
     instanceId: text('instance_id').notNull(),
     status: text('status').notNull().default('queued'),
     output: text('output'),
@@ -247,8 +251,7 @@ export const deployments = pgTable(
     versionId: text('version_id')
       .notNull()
       .references(() => workflowVersions.id),
-    connectionId: text('connection_id')
-      .references(() => connections.id, { onDelete: 'set null' }),
+    connectionId: text('connection_id').references(() => connections.id, { onDelete: 'set null' }),
     serviceName: text('service_name').notNull(),
     serviceUrl: text('service_url'),
     status: text('status').notNull().default('success'),
@@ -262,7 +265,9 @@ export const apiKeys = pgTable(
   'api_keys',
   {
     id: text('id').primaryKey(),
-    projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
     createdBy: text('created_by').notNull(),
     name: text('name').notNull(),
     keyHash: text('key_hash').notNull().unique(),

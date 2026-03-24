@@ -2,20 +2,26 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { Breadcrumb } from '../../../components/ui/breadcrumb'
 import { R2Browser } from '../../../components/resources/r2-browser'
+import { RequireOrg } from '../../../wrappers/require-org'
 
 export const Route = createFileRoute('/_authed/resources/r2')({
   component: R2Page,
 })
 
 function R2Page() {
+  return (
+    <RequireOrg>
+      <R2Content />
+    </RequireOrg>
+  )
+}
+
+function R2Content() {
   const [connectionId, setConnectionId] = useState('')
 
   return (
     <div className="flex h-full flex-col">
-      <Breadcrumb items={[
-        { label: 'Resources', href: '/resources' },
-        { label: 'R2 Buckets' },
-      ]} />
+      <Breadcrumb items={[{ label: 'Resources', href: '/resources' }, { label: 'R2 Buckets' }]} />
       <div className="flex items-center gap-3 mb-4">
         <h1 className="text-xl font-bold">R2 Buckets</h1>
         <input

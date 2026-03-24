@@ -51,32 +51,32 @@ The `node.json` file is the complete `NodeDefinition` for your node. All fields 
 ```typescript
 interface NodeDefinition {
   // ── Identity ──────────────────────────────────────────────
-  id: string              // REQUIRED. Matches directory name. e.g. "stripe_charge"
-  name: string            // REQUIRED. Human-readable. e.g. "Stripe Charge"
-  version: string         // REQUIRED. Semver. e.g. "1.0.0"
-  description: string     // REQUIRED. One sentence. Max 120 chars.
-  category: Category      // REQUIRED. See Category list below.
-  tags?: string[]         // OPTIONAL. For search. e.g. ["payments", "stripe"]
-  icon?: string           // OPTIONAL. URL to SVG icon. Must be HTTPS.
-  docsUrl?: string        // OPTIONAL. Link to external docs.
-  author: string          // REQUIRED. GitHub username or org. e.g. "awaitstep"
-  license: string         // REQUIRED. SPDX identifier. e.g. "Apache-2.0"
+  id: string // REQUIRED. Matches directory name. e.g. "stripe_charge"
+  name: string // REQUIRED. Human-readable. e.g. "Stripe Charge"
+  version: string // REQUIRED. Semver. e.g. "1.0.0"
+  description: string // REQUIRED. One sentence. Max 120 chars.
+  category: Category // REQUIRED. See Category list below.
+  tags?: string[] // OPTIONAL. For search. e.g. ["payments", "stripe"]
+  icon?: string // OPTIONAL. URL to SVG icon. Must be HTTPS.
+  docsUrl?: string // OPTIONAL. Link to external docs.
+  author: string // REQUIRED. GitHub username or org. e.g. "awaitstep"
+  license: string // REQUIRED. SPDX identifier. e.g. "Apache-2.0"
 
   // ── Config ────────────────────────────────────────────────
-  configSchema: Record<string, ConfigField>   // REQUIRED. Drives the config drawer UI.
+  configSchema: Record<string, ConfigField> // REQUIRED. Drives the config drawer UI.
 
   // ── Output ────────────────────────────────────────────────
-  outputSchema: Record<string, OutputField>   // REQUIRED. What this node returns.
+  outputSchema: Record<string, OutputField> // REQUIRED. What this node returns.
 
   // ── Providers ─────────────────────────────────────────────
-  providers: Provider[]   // REQUIRED. Which providers have templates.
+  providers: Provider[] // REQUIRED. Which providers have templates.
 
   // ── Runtime hints ─────────────────────────────────────────
   runtime?: {
-    defaultTimeout?: string   // e.g. "30 seconds"
-    defaultRetries?: number   // e.g. 3
-    idempotent?: boolean      // true = safe to retry without side effects
-    streaming?: boolean       // true = streams output (future feature)
+    defaultTimeout?: string // e.g. "30 seconds"
+    defaultRetries?: number // e.g. 3
+    idempotent?: boolean // true = safe to retry without side effects
+    streaming?: boolean // true = streams output (future feature)
   }
 
   // ── Deprecation ───────────────────────────────────────────
@@ -100,40 +100,40 @@ interface NodeDefinition {
 
 The `configSchema` drives the config drawer in the AwaitStep UI. Each field type maps to a UI control that renders automatically.
 
-| Type | UI Control | When to Use | Extra Fields |
-|------|-----------|-------------|--------------|
-| `string` | Single-line text input | Short text values (names, IDs, URLs) | `validation.format`, `validation.pattern` |
-| `number` | Numeric input | Amounts, counts, limits | `validation.min`, `validation.max` |
-| `boolean` | Toggle switch | On/off flags | — |
-| `select` | Dropdown | One choice from a fixed list | **`options[]` required** |
-| `multiselect` | Multi-select dropdown | Multiple choices from a fixed list | **`options[]` required** |
-| `secret` | Masked input / env var picker | API keys, tokens, credentials | **`envVarName` required** |
-| `code` | Monaco editor (TypeScript) | Custom logic, transform functions | — |
-| `json` | Monaco editor (JSON) | Structured data (headers, payloads) | — |
-| `expression` | JS expression with autocomplete | References to upstream step outputs | — |
-| `textarea` | Multi-line text | Long text (email bodies, templates) | — |
+| Type          | UI Control                      | When to Use                          | Extra Fields                              |
+| ------------- | ------------------------------- | ------------------------------------ | ----------------------------------------- |
+| `string`      | Single-line text input          | Short text values (names, IDs, URLs) | `validation.format`, `validation.pattern` |
+| `number`      | Numeric input                   | Amounts, counts, limits              | `validation.min`, `validation.max`        |
+| `boolean`     | Toggle switch                   | On/off flags                         | —                                         |
+| `select`      | Dropdown                        | One choice from a fixed list         | **`options[]` required**                  |
+| `multiselect` | Multi-select dropdown           | Multiple choices from a fixed list   | **`options[]` required**                  |
+| `secret`      | Masked input / env var picker   | API keys, tokens, credentials        | **`envVarName` required**                 |
+| `code`        | Monaco editor (TypeScript)      | Custom logic, transform functions    | —                                         |
+| `json`        | Monaco editor (JSON)            | Structured data (headers, payloads)  | —                                         |
+| `expression`  | JS expression with autocomplete | References to upstream step outputs  | —                                         |
+| `textarea`    | Multi-line text                 | Long text (email bodies, templates)  | —                                         |
 
 ### ConfigField Interface
 
 ```typescript
 interface ConfigField {
   type: FieldType
-  label: string              // Shown as the field label in the drawer
-  description?: string       // Helper text shown below the field
-  required?: boolean         // Default: false
-  default?: unknown          // Default value pre-filled in the UI
-  placeholder?: string       // Shown when field is empty
-  options?: string[]         // REQUIRED for select and multiselect
-  envVarName?: string        // REQUIRED for secret fields. SCREAMING_SNAKE_CASE.
+  label: string // Shown as the field label in the drawer
+  description?: string // Helper text shown below the field
+  required?: boolean // Default: false
+  default?: unknown // Default value pre-filled in the UI
+  placeholder?: string // Shown when field is empty
+  options?: string[] // REQUIRED for select and multiselect
+  envVarName?: string // REQUIRED for secret fields. SCREAMING_SNAKE_CASE.
   validation?: FieldValidation
 }
 
 interface FieldValidation {
-  min?: number               // number fields
-  max?: number               // number fields
-  minLength?: number         // string fields
-  maxLength?: number         // string fields
-  pattern?: string           // regex pattern for string fields
+  min?: number // number fields
+  max?: number // number fields
+  minLength?: number // string fields
+  maxLength?: number // string fields
+  pattern?: string // regex pattern for string fields
   format?: 'email' | 'url' | 'uuid' | 'date' | 'date-time' | 'duration'
 }
 ```
@@ -141,6 +141,7 @@ interface FieldValidation {
 ### Examples
 
 **String with URL validation:**
+
 ```json
 {
   "type": "string",
@@ -152,6 +153,7 @@ interface FieldValidation {
 ```
 
 **Number with min/max:**
+
 ```json
 {
   "type": "number",
@@ -163,6 +165,7 @@ interface FieldValidation {
 ```
 
 **Select with options:**
+
 ```json
 {
   "type": "select",
@@ -174,6 +177,7 @@ interface FieldValidation {
 ```
 
 **Secret:**
+
 ```json
 {
   "type": "secret",
@@ -214,7 +218,7 @@ Secrets are never stored in the IR or in AwaitStep's database. They live in the 
 // In template:
 const response = await fetch(url, {
   headers: { Authorization: `Bearer ${ctx.env.MY_SERVICE_API_KEY}` },
-});
+})
 ```
 
 ---
@@ -231,11 +235,11 @@ The `outputSchema` defines what your node returns. It is used by:
 
 ```typescript
 interface OutputField {
-  type: OutputFieldType     // 'string' | 'number' | 'boolean' | 'object' | 'array' | 'null'
-  description?: string      // Shown in autocomplete tooltip
-  nullable?: boolean        // Default: false
-  items?: OutputField       // For array types — describes item shape
-  properties?: Record<string, OutputField>  // For object types — describes shape
+  type: OutputFieldType // 'string' | 'number' | 'boolean' | 'object' | 'array' | 'null'
+  description?: string // Shown in autocomplete tooltip
+  nullable?: boolean // Default: false
+  items?: OutputField // For array types — describes item shape
+  properties?: Record<string, OutputField> // For object types — describes shape
 }
 ```
 
@@ -302,13 +306,13 @@ Templates live in `templates/` and are named by provider: `cloudflare.ts`, `inng
 
 ```typescript
 interface NodeContext<TConfig = Record<string, unknown>> {
-  config: TConfig                    // User-provided config values
-  env: Record<string, string>        // Environment variables / secrets
-  inputs: Record<string, unknown>    // Outputs from upstream steps
+  config: TConfig // User-provided config values
+  env: Record<string, string> // Environment variables / secrets
+  inputs: Record<string, unknown> // Outputs from upstream steps
   workflow: {
-    id: string                       // Workflow definition ID
-    instanceId: string               // This run's instance ID
-    triggeredAt: string              // ISO timestamp
+    id: string // Workflow definition ID
+    instanceId: string // This run's instance ID
+    triggeredAt: string // ISO timestamp
   }
 }
 ```
@@ -322,7 +326,7 @@ interface Config {
   amount: number
   currency: string
   customerId: string
-  apiKey: never  // secret — accessed via ctx.env, not ctx.config
+  apiKey: never // secret — accessed via ctx.env, not ctx.config
 }
 
 interface Output {
@@ -350,7 +354,7 @@ export default async function (ctx: NodeContext<Config>): Promise<Output> {
     throw new Error(`API error (${response.status}): ${errorText}`)
   }
 
-  const data = await response.json() as { id: string; captured: boolean; amount: number }
+  const data = (await response.json()) as { id: string; captured: boolean; amount: number }
 
   return {
     chargeId: data.id,
@@ -366,7 +370,7 @@ export default async function (ctx: NodeContext<Config>): Promise<Output> {
 import type { NodeContext } from '@awaitstep/node-sdk'
 
 interface Config {
-  fieldMapping: string  // JSON mapping config
+  fieldMapping: string // JSON mapping config
 }
 
 interface Output {
@@ -392,12 +396,12 @@ export default async function (ctx: NodeContext<Config>): Promise<Output> {
 
 ### Provider-Specific Notes
 
-| Provider | Environment | Notes |
-|----------|-------------|-------|
-| `cloudflare` | CF Worker (V8 isolate) | Web APIs only. No `fs`, `path`, `process`, `Buffer`. Use `ctx.env` for secrets. |
-| `inngest` | Node.js or Edge | Same function signature. Node.js APIs available. |
-| `temporal` | Temporal Activity | Same function signature. No native `fetch` — use `node-fetch`. |
-| `stepfunctions` | JSON ASL state | Not TypeScript. JSON defining an ASL state for Lambda invocation. |
+| Provider        | Environment            | Notes                                                                           |
+| --------------- | ---------------------- | ------------------------------------------------------------------------------- |
+| `cloudflare`    | CF Worker (V8 isolate) | Web APIs only. No `fs`, `path`, `process`, `Buffer`. Use `ctx.env` for secrets. |
+| `inngest`       | Node.js or Edge        | Same function signature. Node.js APIs available.                                |
+| `temporal`      | Temporal Activity      | Same function signature. No native `fetch` — use `node-fetch`.                  |
+| `stepfunctions` | JSON ASL state         | Not TypeScript. JSON defining an ASL state for Lambda invocation.               |
 
 ---
 
@@ -418,7 +422,7 @@ try {
   const result = await callApi()
   return { success: true, data: result }
 } catch (err) {
-  return { success: false, error: err.message }  // Platform can't retry!
+  return { success: false, error: err.message } // Platform can't retry!
 }
 ```
 
@@ -487,7 +491,9 @@ describe('<node_id> / cloudflare', () => {
   it('sends correct authorization header', async () => {
     const fetchSpy = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ /* mock response */ }),
+      json: async () => ({
+        /* mock response */
+      }),
     })
     global.fetch = fetchSpy
 
@@ -507,6 +513,7 @@ describe('<node_id> / cloudflare', () => {
 Before submitting a node, verify:
 
 ### node.json
+
 - [ ] `id` matches directory name
 - [ ] `id` matches `^[a-z][a-z0-9_]*$`
 - [ ] `id` does not conflict with builtins: `step`, `sleep`, `sleep_until`, `branch`, `parallel`, `http_request`, `wait_for_event`
@@ -517,17 +524,20 @@ Before submitting a node, verify:
 - [ ] `license` is a valid SPDX identifier
 
 ### configSchema
+
 - [ ] All field `type` values are valid FieldType values
 - [ ] All `secret` fields declare `envVarName`
 - [ ] All `select`/`multiselect` fields declare non-empty `options[]`
 - [ ] Required fields are marked `required: true`
 
 ### outputSchema
+
 - [ ] All field `type` values are valid OutputFieldType values
 - [ ] `object` fields declare `properties`
 - [ ] `array` fields declare `items`
 
 ### Templates
+
 - [ ] At least one template file exists
 - [ ] Each provider in `providers` has a corresponding template file
 - [ ] Templates export a default async function accepting `ctx`
@@ -537,12 +547,14 @@ Before submitting a node, verify:
 - [ ] No `console.log` of secret values
 
 ### Tests
+
 - [ ] At least one test file per template
 - [ ] Happy-path and error-path tests exist
 - [ ] All tests pass with `vitest run`
 - [ ] No real network calls (fetch is mocked)
 
 ### README
+
 - [ ] File exists and is non-empty
 - [ ] Contains configuration table
 - [ ] Contains output table

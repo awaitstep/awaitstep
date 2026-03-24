@@ -21,7 +21,6 @@ import {
   ChevronDown,
   Check,
   Plus,
-  Loader2,
 } from 'lucide-react'
 import OrgMenu from './org-menu'
 import { cn } from '../../lib/utils'
@@ -35,11 +34,7 @@ const navItems = [
   { to: '/resources', label: 'Resources', icon: HardDrive },
 ] as const
 
-export function Dock({
-  email,
-}: {
-  email: string
-}) {
+export function Dock({ email }: { email: string }) {
   const matches = useMatches()
   const [devOpen, setDevOpen] = useState(false)
   const [userOpen, setUserOpen] = useState(false)
@@ -48,17 +43,17 @@ export function Dock({
   const isPlaygroundActive = matches.some((m) => m.routeId === '/_authed/api-playground')
   const isSettingsActive = matches.some((m) => m.routeId === '/_authed/settings')
 
-  const { projects, activeProject, fetchingProjects } = useOrgStore(useShallow(s => ({
-    fetchingProjects: s.projectsFetchState !== 'success',
-    projects: s.projects,
-    activeProject: s.projects.find((p) => p.id === s.activeProjectId),
-  })))
+  const { projects, activeProject, fetchingProjects } = useOrgStore(
+    useShallow((s) => ({
+      fetchingProjects: s.projectsFetchState !== 'success',
+      projects: s.projects,
+      activeProject: s.projects.find((p) => p.id === s.activeProjectId),
+    })),
+  )
 
   const setActiveProject = useOrgStore((s) => s.setActiveProject)
 
   const openProjectDialog = useSheetStore((s) => s.openProjectDialog)
-
-
 
   function handleNewProject() {
     setProjectOpen(false)
@@ -70,7 +65,6 @@ export function Dock({
     if (projectId === activeProject?.id) return
     setActiveProject(projectId)
   }
-
 
   return (
     <>
@@ -89,30 +83,30 @@ export function Dock({
                   'group relative flex h-11 items-center gap-1.5 rounded-md px-2.5 text-sm transition-colors',
                   projectOpen || isSettingsActive
                     ? 'bg-muted text-foreground'
-                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground/80'
+                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground/80',
                 )}
               >
                 <FolderKanban size={16} />
-                {fetchingProjects ? (
-                  <>
-                    <span className="w-[50px] truncate text-xs font-medium">
-                      Loading...
-                    </span>
-                    <Loader2 className="animate-spin" size={12} />
-                  </>
-                ) : (
-                  <>
-                    <span className="w-[50px] truncate text-xs font-medium">
-                      {activeProject?.name ?? 'New Project'}
-                    </span>
-                    <ChevronDown size={12} />
-                  </>
-                )}
+                <span className="w-[50px] truncate text-left text-xs font-medium">
+                  {fetchingProjects ? (
+                    <span className="inline-block h-3 w-10 animate-pulse rounded bg-muted/60" />
+                  ) : (
+                    (activeProject?.name ?? 'New Project')
+                  )}
+                </span>
+                <ChevronDown size={12} />
               </button>
             </Popover.Trigger>
             <Popover.Portal>
-              <Popover.Content side="top" align="start" sideOffset={8} className="z-50 w-56 rounded-md border border-border bg-card p-2 shadow-lg">
-                <p className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">Projects</p>
+              <Popover.Content
+                side="top"
+                align="start"
+                sideOffset={8}
+                className="z-50 w-56 rounded-md border border-border bg-card p-2 shadow-lg"
+              >
+                <p className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                  Projects
+                </p>
                 {projects.map((proj) => (
                   <button
                     key={proj.id}
@@ -121,7 +115,9 @@ export function Dock({
                   >
                     <FolderKanban size={14} />
                     <span className="flex-1 truncate text-left">{proj.name}</span>
-                    {proj.id === activeProject?.id && <Check size={14} className="text-foreground" />}
+                    {proj.id === activeProject?.id && (
+                      <Check size={14} className="text-foreground" />
+                    )}
                   </button>
                 ))}
                 <div className="my-1.5 h-px bg-border" />
@@ -155,7 +151,7 @@ export function Dock({
                   'group relative flex h-11 w-11 items-center justify-center rounded-md transition-colors',
                   isActive
                     ? 'bg-muted text-foreground'
-                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground/80'
+                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground/80',
                 )}
               >
                 <Icon size={20} />
@@ -176,7 +172,7 @@ export function Dock({
                   'group relative flex h-11 w-11 items-center justify-center rounded-md transition-colors',
                   devOpen || isPlaygroundActive
                     ? 'bg-muted text-foreground'
-                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground/80'
+                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground/80',
                 )}
               >
                 <Code size={20} />
@@ -189,7 +185,12 @@ export function Dock({
               </button>
             </Popover.Trigger>
             <Popover.Portal>
-              <Popover.Content side="top" align="center" sideOffset={8} className="z-50 w-48 rounded-md border border-border bg-card p-2 shadow-lg">
+              <Popover.Content
+                side="top"
+                align="center"
+                sideOffset={8}
+                className="z-50 w-48 rounded-md border border-border bg-card p-2 shadow-lg"
+              >
                 <Link
                   to="/api-playground"
                   onClick={() => setDevOpen(false)}
@@ -221,7 +222,7 @@ export function Dock({
                   'group relative flex h-11 w-11 items-center justify-center rounded-md transition-colors',
                   userOpen || matches.some((m) => m.routeId === '/_authed/account')
                     ? 'bg-muted text-foreground'
-                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground/80'
+                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground/80',
                 )}
               >
                 <User size={20} />
@@ -231,7 +232,12 @@ export function Dock({
               </button>
             </Popover.Trigger>
             <Popover.Portal>
-              <Popover.Content side="top" align="end" sideOffset={8} className="z-50 w-56 rounded-md border border-border bg-card p-2 shadow-lg">
+              <Popover.Content
+                side="top"
+                align="end"
+                sideOffset={8}
+                className="z-50 w-56 rounded-md border border-border bg-card p-2 shadow-lg"
+              >
                 <p className="truncate px-2 py-1.5 text-xs text-muted-foreground">{email}</p>
                 <div className="my-1 h-px bg-border" />
                 <Link
@@ -253,9 +259,7 @@ export function Dock({
             </Popover.Portal>
           </Popover.Root>
         </nav>
-
       </div>
     </>
   )
 }
-

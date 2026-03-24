@@ -60,9 +60,7 @@ export function projectPointOnSegment(
 
   // Degenerate case: segment is a point
   if (lengthSq === 0) {
-    const dist = Math.sqrt(
-      (point.x - segStart.x) ** 2 + (point.y - segStart.y) ** 2,
-    )
+    const dist = Math.sqrt((point.x - segStart.x) ** 2 + (point.y - segStart.y) ** 2)
     return { point: { x: segStart.x, y: segStart.y }, distance: dist, t: 0 }
   }
 

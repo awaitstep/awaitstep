@@ -63,12 +63,13 @@ Packages must not have circular dependencies. Dependency flow: `ir` → `codegen
 
 The system is designed around a pluggable provider model. Each provider lives in its own package (`packages/provider-[name]`) and implements the `WorkflowProvider` interface. Adding a new runtime only requires a new provider package — no changes to core packages or API routes.
 
-| Provider | Package | Status |
-|----------|---------|--------|
+| Provider             | Package                          | Status  |
+| -------------------- | -------------------------------- | ------- |
 | Cloudflare Workflows | `@awaitstep/provider-cloudflare` | Shipped |
-| Trigger.dev | — | Planned |
+| Trigger.dev          | —                                | Planned |
 
 Each provider is responsible for:
+
 - **Code generation** — transforming WorkflowIR into runtime-specific TypeScript
 - **Deployment** — packaging and deploying the generated code
 - **Runtime API** — triggering runs, polling status, fetching logs
@@ -95,6 +96,7 @@ Each provider is responsible for:
 ## Key Design Decisions
 
 ### Runtime-Agnostic Core
+
 All app code (API routes, business logic) is runtime-agnostic. No `process.env` or
 Node-specific APIs outside of entry points. The Web Crypto API is used for token
 encryption so it works on Node.js, Cloudflare Workers, Deno, and Bun.
@@ -104,6 +106,7 @@ only files that read environment variables and initialize platform-specific reso
 The app factory (`createApp`) receives everything it needs as parameters.
 
 ### Provider Interface
+
 The `WorkflowProvider` interface in `@awaitstep/codegen` defines the contract for
 any workflow runtime. Provider-specific logic (API calls, credential verification,
 deploy mechanics, resource browsing) lives entirely in `packages/provider-[name]`.
@@ -120,11 +123,13 @@ interface WorkflowProvider {
 ```
 
 ### IR-First Architecture
+
 The WorkflowIR is the single source of truth. The canvas serializes to IR,
 codegen reads IR, validation operates on IR, and versioning stores IR as JSON.
 The IR is provider-agnostic — provider packages transform it into runtime-specific code.
 
 ### Token Encryption
+
 API tokens and secrets are encrypted at rest using AES-256-GCM via the Web Crypto API.
 The `TokenCrypto` interface is injected into the database adapter, keeping the
 encryption implementation decoupled from storage.
@@ -139,6 +144,7 @@ Two-tier model for managing secrets and configuration:
   Each has a name and value. Values can be direct or reference globals via `{{global.env.NAME}}`.
 
 Resolution happens at deploy time:
+
 1. Collect workflow env vars
 2. Resolve `{{global.env.NAME}}` references by looking up the global table
 3. Validate all required vars exist (from node `secret` config fields)
@@ -159,42 +165,42 @@ The compilation pipeline transforms canvas state through IR, code generation, tr
 
 ## API Routes
 
-| Endpoint | Purpose |
-|----------|---------|
-| `POST /api/workflows` | Create workflow |
-| `GET /api/workflows` | List user workflows |
-| `GET /api/workflows/:id` | Fetch workflow |
-| `PUT /api/workflows/:id` | Update workflow |
-| `DELETE /api/workflows/:id` | Delete workflow |
-| `POST /api/workflows/:id/deploy` | Deploy to provider |
-| `GET /api/workflows/:id/deployments` | Deployment history |
-| `POST /api/workflows/:id/trigger` | Trigger workflow run |
-| `GET /api/workflows/:id/runs` | List runs |
-| `GET /api/runs/:id` | Run status |
-| `POST /api/env-vars` | Create env var |
-| `GET /api/env-vars` | List env vars |
-| `PUT /api/env-vars/:id` | Update env var |
-| `DELETE /api/env-vars/:id` | Delete env var |
-| `POST /api/connections` | Create provider connection |
-| `GET /api/connections` | List connections |
-| `POST /api/api-keys` | Generate API key |
-| `GET /api/api-keys` | List API keys |
-| `POST /api/api-keys/:id/revoke` | Revoke API key |
-| `GET /api/nodes` | Custom node definitions |
-| `GET /api/nodes/templates` | Node templates |
-| `GET /api/resources/:type` | List provider resources |
+| Endpoint                             | Purpose                    |
+| ------------------------------------ | -------------------------- |
+| `POST /api/workflows`                | Create workflow            |
+| `GET /api/workflows`                 | List user workflows        |
+| `GET /api/workflows/:id`             | Fetch workflow             |
+| `PUT /api/workflows/:id`             | Update workflow            |
+| `DELETE /api/workflows/:id`          | Delete workflow            |
+| `POST /api/workflows/:id/deploy`     | Deploy to provider         |
+| `GET /api/workflows/:id/deployments` | Deployment history         |
+| `POST /api/workflows/:id/trigger`    | Trigger workflow run       |
+| `GET /api/workflows/:id/runs`        | List runs                  |
+| `GET /api/runs/:id`                  | Run status                 |
+| `POST /api/env-vars`                 | Create env var             |
+| `GET /api/env-vars`                  | List env vars              |
+| `PUT /api/env-vars/:id`              | Update env var             |
+| `DELETE /api/env-vars/:id`           | Delete env var             |
+| `POST /api/connections`              | Create provider connection |
+| `GET /api/connections`               | List connections           |
+| `POST /api/api-keys`                 | Generate API key           |
+| `GET /api/api-keys`                  | List API keys              |
+| `POST /api/api-keys/:id/revoke`      | Revoke API key             |
+| `GET /api/nodes`                     | Custom node definitions    |
+| `GET /api/nodes/templates`           | Node templates             |
+| `GET /api/resources/:type`           | List provider resources    |
 
 ## Database Schema
 
 Drizzle ORM with dual support for SQLite (development) and PostgreSQL (production).
 
-| Table | Purpose |
-|-------|---------|
-| `workflows` | Workflow metadata + env vars JSON |
-| `versions` | IR + generated code history |
-| `deployments` | Deployment records |
-| `runs` | Workflow execution instances |
-| `env_vars` | Global environment variables (encrypted) |
-| `connections` | Provider credentials (encrypted) |
-| `api_keys` | Scoped API keys |
-| `auth_*` | better-auth session/user tables |
+| Table         | Purpose                                  |
+| ------------- | ---------------------------------------- |
+| `workflows`   | Workflow metadata + env vars JSON        |
+| `versions`    | IR + generated code history              |
+| `deployments` | Deployment records                       |
+| `runs`        | Workflow execution instances             |
+| `env_vars`    | Global environment variables (encrypted) |
+| `connections` | Provider credentials (encrypted)         |
+| `api_keys`    | Scoped API keys                          |
+| `auth_*`      | better-auth session/user tables          |

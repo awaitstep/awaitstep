@@ -9,11 +9,11 @@ export function EditConnectionDialog({
   connection,
   onClose,
 }: {
-  connection: { id: string; name: string; accountId: string } | null
+  connection: { id: string; name: string; accountId: string }
   onClose: () => void
 }) {
   const queryClient = useQueryClient()
-  const [name, setName] = useState('')
+  const [name, setName] = useState(connection.name)
   const [apiToken, setApiToken] = useState('')
   const [error, setError] = useState<string | null>(null)
 
@@ -29,9 +29,9 @@ export function EditConnectionDialog({
   const updateMutation = useMutation({
     mutationFn: async () => {
       const data: { name?: string; credentials?: Record<string, string> } = {}
-      if (name !== connection?.name) data.name = name
-      if (apiToken.trim()) data.credentials = { accountId: connection?.accountId ?? '', apiToken }
-      return api.updateConnection(connection!.id, data)
+      if (name !== connection.name) data.name = name
+      if (apiToken.trim()) data.credentials = { accountId: connection.accountId, apiToken }
+      return api.updateConnection(connection.id, data)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['connections'] })
@@ -42,17 +42,14 @@ export function EditConnectionDialog({
     },
   })
 
-  // Keep name in sync when opening with a new connection
-  if (connection && name === '' && connection.name) {
-    setName(connection.name)
-  }
-
   return (
-    <Dialog.Root open={!!connection} onOpenChange={handleEditOpenChange}>
+    <Dialog.Root defaultOpen onOpenChange={handleEditOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[480px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg">
-          <Dialog.Title className="text-base font-semibold text-foreground">Edit Connection</Dialog.Title>
+          <Dialog.Title className="text-base font-semibold text-foreground">
+            Edit Connection
+          </Dialog.Title>
 
           <div className="mt-4 space-y-4">
             <div>
@@ -69,7 +66,7 @@ export function EditConnectionDialog({
               <label className="mb-1 block text-xs text-muted-foreground">Account ID</label>
               <input
                 type="text"
-                value={connection?.accountId ?? ''}
+                value={connection.accountId}
                 disabled
                 className="w-full rounded-md border border-border bg-muted/30 px-3 py-2 font-mono text-sm text-muted-foreground/60"
               />
@@ -89,13 +86,21 @@ export function EditConnectionDialog({
             {error && <p className="text-xs text-red-400">{error}</p>}
 
             <div className="flex justify-end gap-2 pt-1">
-              <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+              <Button variant="ghost" size="sm" onClick={onClose}>
+                Cancel
+              </Button>
               <Button
                 size="sm"
-                disabled={!name.trim() || (name === connection?.name && !apiToken.trim()) || updateMutation.isPending}
+                disabled={
+                  !name.trim() ||
+                  (name === connection.name && !apiToken.trim()) ||
+                  updateMutation.isPending
+                }
                 onClick={() => updateMutation.mutate()}
               >
-                {updateMutation.isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                {updateMutation.isPending && (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                )}
                 Save
               </Button>
             </div>

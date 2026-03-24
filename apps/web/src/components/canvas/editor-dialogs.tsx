@@ -61,9 +61,7 @@ export function EditorDialogs({
         variant="warning"
         onConfirm={handleBlockerConfirm}
       />
-      {deployOpen && (
-        <DeployDialog onClose={onCloseDeploy} workflowId={workflowId} />
-      )}
+      {deployOpen && <DeployDialog onClose={onCloseDeploy} workflowId={workflowId} />}
     </>
   )
 }

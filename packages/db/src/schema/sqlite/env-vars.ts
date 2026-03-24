@@ -6,8 +6,7 @@ export const envVars = sqliteTable(
   {
     id: text('id').primaryKey(),
     organizationId: text('organization_id').notNull(),
-    projectId: text('project_id')
-      .references(() => projects.id, { onDelete: 'cascade' }),
+    projectId: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
     createdBy: text('created_by').notNull(),
     name: text('name').notNull(),
     value: text('value').notNull(),

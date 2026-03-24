@@ -21,7 +21,9 @@ export function RecentRunsList() {
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Recent Runs</h2>
         <Link to="/runs">
-          <Button variant="ghost" size="sm" className="text-xs">View all</Button>
+          <Button variant="ghost" size="sm" className="text-xs">
+            View all
+          </Button>
         </Link>
       </div>
       <div className="mt-4 space-y-2">
@@ -30,7 +32,9 @@ export function RecentRunsList() {
           return (
             <button
               key={run.id}
-              onClick={() => openRunSheet({ runId: run.id, workflowId: run.workflowId, workflowName: wf?.name })}
+              onClick={() =>
+                openRunSheet({ runId: run.id, workflowId: run.workflowId, workflowName: wf?.name })
+              }
               className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:border-border/80 hover:bg-muted/20"
             >
               <div className="flex items-center gap-3">
@@ -45,7 +49,9 @@ export function RecentRunsList() {
                 </div>
               </div>
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <span className="font-mono">{duration(run.createdAt, run.updatedAt, run.status)}</span>
+                <span className="font-mono">
+                  {duration(run.createdAt, run.updatedAt, run.status)}
+                </span>
                 <span>{timeAgo(run.createdAt)}</span>
               </div>
             </button>

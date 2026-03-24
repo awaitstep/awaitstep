@@ -72,7 +72,8 @@ export function resolveCtxInputs(body: string, data: Record<string, unknown>): s
 }
 
 function extractImportLines(source: string): string[] {
-  return source.split('\n')
+  return source
+    .split('\n')
     .filter((line) => /^\s*import\s+/.test(line) && /from\s+['"]/.test(line))
     .map((line) => line.trim())
 }

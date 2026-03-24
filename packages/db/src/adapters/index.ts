@@ -1,6 +1,20 @@
 import { eq, and, desc, sql } from 'drizzle-orm'
-import type { DatabaseAdapter, WorkflowEnvVar, ResolvedEnvVar, WorkflowWithStatus } from '../adapter.js'
-import type { Workflow, WorkflowVersion, Connection, WorkflowRun, Deployment, ApiKey, EnvVar, Project } from '../types.js'
+import type {
+  DatabaseAdapter,
+  WorkflowEnvVar,
+  ResolvedEnvVar,
+  WorkflowWithStatus,
+} from '../adapter.js'
+import type {
+  Workflow,
+  WorkflowVersion,
+  Connection,
+  WorkflowRun,
+  Deployment,
+  ApiKey,
+  EnvVar,
+  Project,
+} from '../types.js'
 import type { TokenCrypto } from '../crypto.js'
 import { WorkflowsAdapter } from './workflows.js'
 import { VersionsAdapter } from './versions.js'
@@ -91,7 +105,13 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
 
   // Projects
-  createProject(data: { id: string; organizationId: string; name: string; slug: string; description?: string }): Promise<Project> {
+  createProject(data: {
+    id: string
+    organizationId: string
+    name: string
+    slug: string
+    description?: string
+  }): Promise<Project> {
     return this._projects.create(data)
   }
   getProjectById(id: string): Promise<Project | null> {
@@ -100,7 +120,10 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   listProjectsByOrganization(organizationId: string): Promise<Project[]> {
     return this._projects.listByOrganization(organizationId)
   }
-  updateProject(id: string, data: { name?: string; slug?: string; description?: string }): Promise<Project> {
+  updateProject(
+    id: string,
+    data: { name?: string; slug?: string; description?: string },
+  ): Promise<Project> {
     return this._projects.update(id, data)
   }
   deleteProject(id: string): Promise<void> {
@@ -108,7 +131,13 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
 
   // Workflows
-  createWorkflow(data: { id: string; projectId: string; createdBy: string; name: string; description?: string }): Promise<Workflow> {
+  createWorkflow(data: {
+    id: string
+    projectId: string
+    createdBy: string
+    name: string
+    description?: string
+  }): Promise<Workflow> {
     return this._workflows.create(data)
   }
   getWorkflowById(id: string): Promise<Workflow | null> {
@@ -139,16 +168,43 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         dependencies: w.dependencies,
         createdAt: w.createdAt,
         updatedAt: w.updatedAt,
-        deployStatus: sql<string | null>`(SELECT ${d.status} FROM ${d} WHERE ${d.workflowId} = ${w.id} ORDER BY ${d.createdAt} DESC LIMIT 1)`.as('deploy_status'),
-        deployVersionId: sql<string | null>`(SELECT ${d.versionId} FROM ${d} WHERE ${d.workflowId} = ${w.id} ORDER BY ${d.createdAt} DESC LIMIT 1)`.as('deploy_version_id'),
-        lastRunStatus: sql<string | null>`(SELECT ${r.status} FROM ${r} WHERE ${r.workflowId} = ${w.id} ORDER BY ${r.createdAt} DESC LIMIT 1)`.as('last_run_status'),
-        lastRunAt: sql<string | null>`(SELECT ${r.createdAt} FROM ${r} WHERE ${r.workflowId} = ${w.id} ORDER BY ${r.createdAt} DESC LIMIT 1)`.as('last_run_at'),
+        deployStatus: sql<
+          string | null
+        >`(SELECT ${d.status} FROM ${d} WHERE ${d.workflowId} = ${w.id} ORDER BY ${d.createdAt} DESC LIMIT 1)`.as(
+          'deploy_status',
+        ),
+        deployVersionId: sql<
+          string | null
+        >`(SELECT ${d.versionId} FROM ${d} WHERE ${d.workflowId} = ${w.id} ORDER BY ${d.createdAt} DESC LIMIT 1)`.as(
+          'deploy_version_id',
+        ),
+        lastRunStatus: sql<
+          string | null
+        >`(SELECT ${r.status} FROM ${r} WHERE ${r.workflowId} = ${w.id} ORDER BY ${r.createdAt} DESC LIMIT 1)`.as(
+          'last_run_status',
+        ),
+        lastRunAt: sql<
+          string | null
+        >`(SELECT ${r.createdAt} FROM ${r} WHERE ${r.workflowId} = ${w.id} ORDER BY ${r.createdAt} DESC LIMIT 1)`.as(
+          'last_run_at',
+        ),
       })
       .from(w)
       .where(eq(w.projectId, projectId))
       .orderBy(desc(w.updatedAt))
   }
-  updateWorkflow(id: string, data: { name?: string; description?: string; currentVersionId?: string | null; envVars?: string | null; triggerCode?: string | null; dependencies?: string | null; projectId?: string }): Promise<Workflow> {
+  updateWorkflow(
+    id: string,
+    data: {
+      name?: string
+      description?: string
+      currentVersionId?: string | null
+      envVars?: string | null
+      triggerCode?: string | null
+      dependencies?: string | null
+      projectId?: string
+    },
+  ): Promise<Workflow> {
     return this._workflows.update(id, data)
   }
   deleteWorkflow(id: string): Promise<void> {
@@ -156,7 +212,13 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
 
   // Versions
-  createVersion(data: { id: string; workflowId: string; version: number; ir: string; generatedCode?: string }): Promise<WorkflowVersion> {
+  createVersion(data: {
+    id: string
+    workflowId: string
+    version: number
+    ir: string
+    generatedCode?: string
+  }): Promise<WorkflowVersion> {
     return this._versions.create(data)
   }
   getWorkflowVersionById(id: string): Promise<WorkflowVersion | null> {
@@ -169,7 +231,10 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   listVersionsByWorkflow(workflowId: string): Promise<WorkflowVersion[]> {
     return this._versions.listByWorkflow(workflowId)
   }
-  updateVersion(id: string, data: { ir?: string; generatedCode?: string; locked?: number }): Promise<void> {
+  updateVersion(
+    id: string,
+    data: { ir?: string; generatedCode?: string; locked?: number },
+  ): Promise<void> {
     return this._versions.update(id, data)
   }
   deleteVersion(id: string): Promise<void> {
@@ -177,7 +242,14 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
 
   // Connections
-  createConnection(data: { id: string; organizationId: string; createdBy: string; provider: string; credentials: string; name: string }): Promise<Connection> {
+  createConnection(data: {
+    id: string
+    organizationId: string
+    createdBy: string
+    provider: string
+    credentials: string
+    name: string
+  }): Promise<Connection> {
     return this._connections.create(data)
   }
   getProviderConnectionById(id: string): Promise<Connection | null> {
@@ -186,7 +258,10 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   listConnectionsByOrganization(organizationId: string): Promise<Connection[]> {
     return this._connections.listByOrganization(organizationId)
   }
-  updateConnection(id: string, data: { name?: string; credentials?: string }): Promise<Connection | null> {
+  updateConnection(
+    id: string,
+    data: { name?: string; credentials?: string },
+  ): Promise<Connection | null> {
     return this._connections.update(id, data)
   }
   deleteConnection(id: string): Promise<void> {
@@ -194,7 +269,14 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
 
   // Runs
-  createRun(data: { id: string; workflowId: string; versionId: string; connectionId: string; instanceId: string; status: string }): Promise<WorkflowRun> {
+  createRun(data: {
+    id: string
+    workflowId: string
+    versionId: string
+    connectionId: string
+    instanceId: string
+    status: string
+  }): Promise<WorkflowRun> {
     return this._runs.create(data)
   }
   getWorkflowRunById(id: string): Promise<WorkflowRun | null> {
@@ -203,7 +285,10 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   listRunsByWorkflow(workflowId: string): Promise<WorkflowRun[]> {
     return this._runs.listByWorkflow(workflowId)
   }
-  updateRun(id: string, data: { status?: string; output?: string; error?: string }): Promise<WorkflowRun> {
+  updateRun(
+    id: string,
+    data: { status?: string; output?: string; error?: string },
+  ): Promise<WorkflowRun> {
     return this._runs.update(id, data)
   }
 
@@ -233,7 +318,16 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
 
   // Deployments
-  createDeployment(data: { id: string; workflowId: string; versionId: string; connectionId: string; serviceName: string; serviceUrl?: string; status: string; error?: string }): Promise<Deployment> {
+  createDeployment(data: {
+    id: string
+    workflowId: string
+    versionId: string
+    connectionId: string
+    serviceName: string
+    serviceUrl?: string
+    status: string
+    error?: string
+  }): Promise<Deployment> {
     return this._deployments.create(data)
   }
   getActiveDeployment(workflowId: string): Promise<Deployment | null> {
@@ -286,7 +380,16 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
 
   // API Keys
-  createApiKey(data: { id: string; projectId: string; createdBy: string; name: string; keyHash: string; keyPrefix: string; scopes: string; expiresAt?: string | null }): Promise<ApiKey> {
+  createApiKey(data: {
+    id: string
+    projectId: string
+    createdBy: string
+    name: string
+    keyHash: string
+    keyPrefix: string
+    scopes: string
+    expiresAt?: string | null
+  }): Promise<ApiKey> {
     return this._apiKeys.create(data)
   }
   getApiKeyById(id: string): Promise<ApiKey | null> {
@@ -330,7 +433,15 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
 
   // Env Vars
-  createEnvVar(data: { id: string; organizationId: string; projectId?: string | null; createdBy: string; name: string; value: string; isSecret: boolean }): Promise<EnvVar | null> {
+  createEnvVar(data: {
+    id: string
+    organizationId: string
+    projectId?: string | null
+    createdBy: string
+    name: string
+    value: string
+    isSecret: boolean
+  }): Promise<EnvVar | null> {
     return this._envVars.create(data)
   }
   getEnvVarById(id: string): Promise<EnvVar | null> {
@@ -342,7 +453,10 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   listEnvVarsByProject(organizationId: string, projectId: string): Promise<EnvVar[]> {
     return this._envVars.listByProject(organizationId, projectId)
   }
-  updateEnvVar(id: string, data: { name?: string; value?: string; isSecret?: boolean }): Promise<EnvVar | null> {
+  updateEnvVar(
+    id: string,
+    data: { name?: string; value?: string; isSecret?: boolean },
+  ): Promise<EnvVar | null> {
     return this._envVars.update(id, data)
   }
   deleteEnvVar(id: string): Promise<void> {
@@ -363,7 +477,11 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     await this._workflows.update(workflowId, { envVars: JSON.stringify(vars) })
   }
 
-  async resolveEnvVars(organizationId: string, projectId: string, workflowId: string): Promise<Record<string, ResolvedEnvVar>> {
+  async resolveEnvVars(
+    organizationId: string,
+    projectId: string,
+    workflowId: string,
+  ): Promise<Record<string, ResolvedEnvVar>> {
     const workflowVars = await this.getWorkflowEnvVars(workflowId)
     const globalRefPattern = /^\{\{global\.env\.([A-Z][A-Z0-9_]*)\}\}$/
     const result: Record<string, ResolvedEnvVar> = {}
@@ -373,8 +491,13 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       if (match) {
         const globalName = match[1]
         // Try project-level first, then org-level (project overrides org)
-        const projectVar = await this._envVars.getByOrgAndName(organizationId, globalName, projectId)
-        const envVar = projectVar ?? await this._envVars.getByOrgAndName(organizationId, globalName)
+        const projectVar = await this._envVars.getByOrgAndName(
+          organizationId,
+          globalName,
+          projectId,
+        )
+        const envVar =
+          projectVar ?? (await this._envVars.getByOrgAndName(organizationId, globalName))
         result[wVar.name] = envVar
           ? { value: envVar.value, isSecret: envVar.isSecret }
           : { value: undefined, isSecret: wVar.isSecret }

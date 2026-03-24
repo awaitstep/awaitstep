@@ -269,7 +269,12 @@ describe('simulateWorkflow', () => {
         position: { x: 0, y: 0 },
         version: '1.0.0',
         provider: 'cloudflare',
-        data: { branches: [{ label: 'yes', condition: 'true' }, { label: 'no', condition: '' }] },
+        data: {
+          branches: [
+            { label: 'yes', condition: 'true' },
+            { label: 'no', condition: '' },
+          ],
+        },
       })
       const nodes = [branchNode, makeStepNode('t1', 'Target')]
       const edges = [makeEdge('b1', 't1', 'yes')]
@@ -342,7 +347,9 @@ describe('simulateWorkflow', () => {
       })
       const result = simulateWorkflow([node], [])
       expect(result.paths[0]!.steps[0]!.status).toBe('executed')
-      expect(result.paths[0]!.steps[0]!.detail).toBe('HTTP POST https://api.example.com (simulated)')
+      expect(result.paths[0]!.steps[0]!.detail).toBe(
+        'HTTP POST https://api.example.com (simulated)',
+      )
     })
 
     it('wait-for-event produces event-received status', () => {
@@ -367,7 +374,12 @@ describe('simulateWorkflow', () => {
         position: { x: 0, y: 0 },
         version: '1.0.0',
         provider: 'cloudflare',
-        data: { branches: [{ label: 'yes', condition: 'true' }, { label: 'no', condition: '' }] },
+        data: {
+          branches: [
+            { label: 'yes', condition: 'true' },
+            { label: 'no', condition: '' },
+          ],
+        },
       })
       const nodes = [node, makeStepNode('t1')]
       const edges = [makeEdge('b1', 't1', 'yes')]

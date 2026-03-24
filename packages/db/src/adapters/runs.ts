@@ -5,9 +5,19 @@ import type { WorkflowRun } from '../types.js'
 type AnyTable = any
 
 export class RunsAdapter {
-  constructor(private db: AnyTable, private table: AnyTable) {}
+  constructor(
+    private db: AnyTable,
+    private table: AnyTable,
+  ) {}
 
-  async create(data: { id: string; workflowId: string; versionId: string; connectionId: string; instanceId: string; status: string }): Promise<WorkflowRun> {
+  async create(data: {
+    id: string
+    workflowId: string
+    versionId: string
+    connectionId: string
+    instanceId: string
+    status: string
+  }): Promise<WorkflowRun> {
     const now = new Date().toISOString()
     const row = {
       id: data.id,
@@ -31,10 +41,17 @@ export class RunsAdapter {
   }
 
   async listByWorkflow(workflowId: string): Promise<WorkflowRun[]> {
-    return this.db.select().from(this.table).where(eq(this.table.workflowId, workflowId)).orderBy(desc(this.table.createdAt))
+    return this.db
+      .select()
+      .from(this.table)
+      .where(eq(this.table.workflowId, workflowId))
+      .orderBy(desc(this.table.createdAt))
   }
 
-  async update(id: string, data: { status?: string; output?: string; error?: string; updatedAt?: string }): Promise<WorkflowRun> {
+  async update(
+    id: string,
+    data: { status?: string; output?: string; error?: string; updatedAt?: string },
+  ): Promise<WorkflowRun> {
     const updates = { ...data, updatedAt: data.updatedAt ?? new Date().toISOString() }
     await this.db.update(this.table).set(updates).where(eq(this.table.id, id))
     const updated = await this.getById(id)

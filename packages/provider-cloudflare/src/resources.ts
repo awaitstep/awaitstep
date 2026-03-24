@@ -50,22 +50,35 @@ export class CloudflareResourcesAPI {
   // ── KV ──
 
   async listKVNamespaces(): Promise<KVNamespace[]> {
-    const data = await this.request('GET', `/accounts/${this.config.accountId}/storage/kv/namespaces`)
+    const data = await this.request(
+      'GET',
+      `/accounts/${this.config.accountId}/storage/kv/namespaces`,
+    )
     return data.result as KVNamespace[]
   }
 
   async createKVNamespace(title: string): Promise<KVNamespace> {
-    const data = await this.request('POST', `/accounts/${this.config.accountId}/storage/kv/namespaces`, { title })
+    const data = await this.request(
+      'POST',
+      `/accounts/${this.config.accountId}/storage/kv/namespaces`,
+      { title },
+    )
     return data.result as KVNamespace
   }
 
-  async listKVKeys(namespaceId: string, options?: { prefix?: string; cursor?: string; limit?: number }): Promise<{ keys: KVKeyInfo[]; cursor?: string }> {
+  async listKVKeys(
+    namespaceId: string,
+    options?: { prefix?: string; cursor?: string; limit?: number },
+  ): Promise<{ keys: KVKeyInfo[]; cursor?: string }> {
     const params = new URLSearchParams()
     if (options?.prefix) params.set('prefix', options.prefix)
     if (options?.cursor) params.set('cursor', options.cursor)
     if (options?.limit) params.set('limit', String(options.limit))
     const qs = params.toString()
-    const data = await this.request('GET', `/accounts/${this.config.accountId}/storage/kv/namespaces/${namespaceId}/keys${qs ? `?${qs}` : ''}`)
+    const data = await this.request(
+      'GET',
+      `/accounts/${this.config.accountId}/storage/kv/namespaces/${namespaceId}/keys${qs ? `?${qs}` : ''}`,
+    )
     const resultInfo = (data as { result_info?: { cursor?: string } }).result_info
     return {
       keys: data.result as KVKeyInfo[],
@@ -93,14 +106,20 @@ export class CloudflareResourcesAPI {
   }
 
   async createD1Database(name: string): Promise<D1Database> {
-    const data = await this.request('POST', `/accounts/${this.config.accountId}/d1/database`, { name })
+    const data = await this.request('POST', `/accounts/${this.config.accountId}/d1/database`, {
+      name,
+    })
     return data.result as D1Database
   }
 
   async queryD1(databaseId: string, sql: string, params?: unknown[]): Promise<D1QueryResult[]> {
     const body: Record<string, unknown> = { sql }
     if (params?.length) body.params = params
-    const data = await this.request('POST', `/accounts/${this.config.accountId}/d1/database/${databaseId}/query`, body)
+    const data = await this.request(
+      'POST',
+      `/accounts/${this.config.accountId}/d1/database/${databaseId}/query`,
+      body,
+    )
     return data.result as D1QueryResult[]
   }
 
@@ -111,13 +130,19 @@ export class CloudflareResourcesAPI {
     return (data.result as { buckets: R2Bucket[] }).buckets
   }
 
-  async listR2Objects(bucketName: string, options?: { prefix?: string; cursor?: string; limit?: number }): Promise<{ objects: R2Object[]; cursor?: string }> {
+  async listR2Objects(
+    bucketName: string,
+    options?: { prefix?: string; cursor?: string; limit?: number },
+  ): Promise<{ objects: R2Object[]; cursor?: string }> {
     const params = new URLSearchParams()
     if (options?.prefix) params.set('prefix', options.prefix)
     if (options?.cursor) params.set('cursor', options.cursor)
     if (options?.limit) params.set('per_page', String(options.limit))
     const qs = params.toString()
-    const data = await this.request('GET', `/accounts/${this.config.accountId}/r2/buckets/${bucketName}/objects${qs ? `?${qs}` : ''}`)
+    const data = await this.request(
+      'GET',
+      `/accounts/${this.config.accountId}/r2/buckets/${bucketName}/objects${qs ? `?${qs}` : ''}`,
+    )
     const r2ResultInfo = (data as { result_info?: { cursor?: string } }).result_info
     return {
       objects: (data.result as R2Object[]) ?? [],

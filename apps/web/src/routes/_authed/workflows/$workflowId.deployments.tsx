@@ -1,7 +1,7 @@
 import { createFileRoute, useParams } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Loader2, Rocket } from 'lucide-react'
+import { Rocket } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { DeployDialog } from '../../../components/canvas/deploy-dialog'
 import { DeploymentsList } from '../../../components/deployments/deployments-list'
@@ -9,6 +9,8 @@ import { DeploymentSheet } from '../../../components/deployments/deployment-shee
 import { api } from '../../../lib/api-client'
 import { useOrgReady } from '../../../stores/org-store'
 import { useConnectionsStore } from '../../../stores/connections-store'
+import { LoadingView } from '../../../components/ui/loading-view'
+import { ListSkeleton } from '../../../components/ui/skeletons'
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId/deployments')({
   component: DeploymentsPage,
@@ -58,36 +60,36 @@ function DeploymentsPage() {
         </Button>
       </div>
 
-      {isLoading && (
-        <div className="mt-8 flex justify-center">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/60" />
-        </div>
-      )}
-
-      {deployments && deployments.length === 0 && (
-        <div className="rounded-md border border-border px-4 py-8 text-center text-sm text-muted-foreground">
-          No deployments yet.{' '}
-          <button onClick={() => setDeployOpen(true)} className="text-primary hover:underline">
-            Deploy your workflow
-          </button>{' '}
-          to see history here.
-        </div>
-      )}
-
-      {deployments && deployments.length > 0 && (
-        <DeploymentsList
-          deployments={deployments}
-          connectionMap={connectionMap}
-          onSelect={setSelectedDeployment}
-        />
-      )}
+      <LoadingView isLoading={isLoading} LoadingPlaceholder={ListSkeleton}>
+        {deployments && deployments.length === 0 ? (
+          <div className="rounded-md border border-border px-4 py-8 text-center text-sm text-muted-foreground">
+            No deployments yet.{' '}
+            <button onClick={() => setDeployOpen(true)} className="text-primary hover:underline">
+              Deploy your workflow
+            </button>{' '}
+            to see history here.
+          </div>
+        ) : (
+          <DeploymentsList
+            deployments={deployments ?? []}
+            connectionMap={connectionMap}
+            onSelect={setSelectedDeployment}
+          />
+        )}
+      </LoadingView>
 
       {deployOpen && <DeployDialog onClose={() => setDeployOpen(false)} workflowId={workflowId} />}
 
       <DeploymentSheet
         deployment={selectedDeployment}
-        connectionName={selectedDeployment?.connectionId ? connectionMap.get(selectedDeployment.connectionId)?.name : undefined}
-        versionNumber={selectedDeployment ? versionMap.get(selectedDeployment.versionId)?.version : undefined}
+        connectionName={
+          selectedDeployment?.connectionId
+            ? connectionMap.get(selectedDeployment.connectionId)?.name
+            : undefined
+        }
+        versionNumber={
+          selectedDeployment ? versionMap.get(selectedDeployment.versionId)?.version : undefined
+        }
         onClose={() => setSelectedDeployment(null)}
       />
     </div>

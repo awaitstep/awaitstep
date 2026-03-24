@@ -48,7 +48,9 @@ function WorkflowEditorPageWrapper() {
 
 function WorkflowEditorPage() {
   const { workflowId } = useParams({ from: '/_authed/workflows/$workflowId/canvas' })
-  const { template, version: versionParam } = useSearch({ from: '/_authed/workflows/$workflowId/canvas' })
+  const { template, version: versionParam } = useSearch({
+    from: '/_authed/workflows/$workflowId/canvas',
+  })
   const [showEditor, setShowEditor] = useState(false)
   const [showTemplatePicker, setShowTemplatePicker] = useState(template)
   const [deployOpen, setDeployOpen] = useState(false)
@@ -101,8 +103,14 @@ function WorkflowEditorPage() {
   })
 
   // Determine read-only mode: viewing a historical version
-  const isReadOnly = !!(versionParam && fullData?.workflow?.currentVersionId && versionParam !== fullData.workflow.currentVersionId)
-  const readOnlyVersion = isReadOnly ? fullData?.versions?.find((v) => v.id === versionParam)?.version : undefined
+  const isReadOnly = !!(
+    versionParam &&
+    fullData?.workflow?.currentVersionId &&
+    versionParam !== fullData.workflow.currentVersionId
+  )
+  const readOnlyVersion = isReadOnly
+    ? fullData?.versions?.find((v) => v.id === versionParam)?.version
+    : undefined
 
   useEffect(() => {
     if (workflowError) {
@@ -118,7 +126,10 @@ function WorkflowEditorPage() {
   const currentVersion = versions?.[0]?.version ?? 0
   const deployedVersionId = activeDeployment?.versionId
   const deployedVersion = versions?.find((v) => v.id === deployedVersionId)
-  const hasUndeployedChanges = hasActiveDeployment && deployedVersionId && deployedVersionId !== serverWorkflow?.currentVersionId
+  const hasUndeployedChanges =
+    hasActiveDeployment &&
+    deployedVersionId &&
+    deployedVersionId !== serverWorkflow?.currentVersionId
 
   // Initialize workflow data
   useEffect(() => {
@@ -158,7 +169,9 @@ function WorkflowEditorPage() {
         try {
           const parsed = JSON.parse(serverWorkflow.envVars)
           if (Array.isArray(parsed)) serverState.workflowEnvVars = parsed
-        } catch { /* ignore malformed */ }
+        } catch {
+          /* ignore malformed */
+        }
       }
       if (serverWorkflow.triggerCode) {
         serverState.triggerCode = serverWorkflow.triggerCode
@@ -169,14 +182,19 @@ function WorkflowEditorPage() {
           if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
             serverState.dependencies = parsed
           }
-        } catch { /* ignore malformed */ }
+        } catch {
+          /* ignore malformed */
+        }
       }
 
       // Load canvas nodes/edges from the version IR
       const versionData = fullData?.version
       if (versionData?.ir) {
         try {
-          const ir = JSON.parse(versionData.ir) as { nodes?: WorkflowNode[]; edges?: { id: string; source: string; target: string; label?: string }[] }
+          const ir = JSON.parse(versionData.ir) as {
+            nodes?: WorkflowNode[]
+            edges?: { id: string; source: string; target: string; label?: string }[]
+          }
           if (ir.nodes && ir.edges) {
             serverState.nodes = ir.nodes.map((irNode: WorkflowNode) => ({
               id: irNode.id,
@@ -186,7 +204,9 @@ function WorkflowEditorPage() {
             }))
             serverState.edges = ir.edges
           }
-        } catch { /* ignore malformed IR */ }
+        } catch {
+          /* ignore malformed IR */
+        }
       }
 
       useWorkflowStore.setState({ ...serverState, isDirty: false })
@@ -201,16 +221,27 @@ function WorkflowEditorPage() {
 
       const envVars = state.workflowEnvVars.length > 0 ? state.workflowEnvVars : undefined
       const triggerCode = state.triggerCode || undefined
-      const dependencies = Object.keys(state.dependencies).length > 0 ? state.dependencies : undefined
+      const dependencies =
+        Object.keys(state.dependencies).length > 0 ? state.dependencies : undefined
 
       if (isNew) {
-        const created = await api.createWorkflow({ name: state.metadata.name, description: state.metadata.description })
-        if (envVars || triggerCode || dependencies) await api.updateWorkflow(created.id, { envVars, triggerCode, dependencies })
+        const created = await api.createWorkflow({
+          name: state.metadata.name,
+          description: state.metadata.description,
+        })
+        if (envVars || triggerCode || dependencies)
+          await api.updateWorkflow(created.id, { envVars, triggerCode, dependencies })
         await api.createVersion(created.id, { ir })
         return created
       }
 
-      await api.updateWorkflow(workflowId, { name: state.metadata.name, description: state.metadata.description, envVars, triggerCode, dependencies })
+      await api.updateWorkflow(workflowId, {
+        name: state.metadata.name,
+        description: state.metadata.description,
+        envVars,
+        triggerCode,
+        dependencies,
+      })
       await api.createVersion(workflowId, { ir })
       return null
     },
@@ -264,7 +295,6 @@ function WorkflowEditorPage() {
     }
     setDeployOpen(true)
   }, [runValidation, isDirty, isNew, saveMutation, nodeRegistry])
-
 
   const handleAddNode = (type: Parameters<typeof addNode>[0]) => {
     addNode(type, { x: 250 + Math.random() * 200, y: 150 + Math.random() * 200 }, nodeRegistry)

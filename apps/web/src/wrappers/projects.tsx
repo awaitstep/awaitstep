@@ -6,15 +6,14 @@ import { useShallow } from 'zustand/react/shallow'
 import RunsWrapper from './runs'
 import WorkflowsWrapper from './workflows'
 
-
-
 export default function ProjectsWrapper() {
-
-  const { activeOrganizationId, canFetch, activeProjectId } = useOrgStore(useShallow((s) => ({
-    activeOrganizationId: s.activeOrganizationId,
-    canFetch: s.appReady && !!s.activeOrganizationId,
-    activeProjectId: s.activeProjectId,
-  })))
+  const { activeOrganizationId, canFetch, activeProjectId } = useOrgStore(
+    useShallow((s) => ({
+      activeOrganizationId: s.activeOrganizationId,
+      canFetch: s.appReady && !!s.activeOrganizationId,
+      activeProjectId: s.activeProjectId,
+    })),
+  )
 
   const { setProjects, setProjectsFetchState, setActiveProject } = useOrgStore()
 
@@ -24,7 +23,6 @@ export default function ProjectsWrapper() {
     enabled: canFetch,
     retry: false,
   })
-
 
   useEffect(() => {
     if (isSuccess) {
@@ -44,8 +42,10 @@ export default function ProjectsWrapper() {
     }
   }, [isError])
 
-  return <>
-    <RunsWrapper />
-    <WorkflowsWrapper />
-  </>
+  return (
+    <>
+      <RunsWrapper />
+      <WorkflowsWrapper />
+    </>
+  )
 }

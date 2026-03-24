@@ -22,8 +22,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const migrationsFolder = resolve(__dirname, '../../../../packages/db/drizzle/sqlite')
 migrate(drizzleDb, { migrationsFolder })
 
-
-
 async function start() {
   const tokenEncryptionKey = process.env['TOKEN_ENCRYPTION_KEY']
   if (!tokenEncryptionKey) {
@@ -43,10 +41,7 @@ async function start() {
     baseURL,
     secret: authSecret ?? crypto.randomUUID(),
     database: sqlite,
-    trustedOrigins: [
-      baseURL,
-      process.env['CORS_ORIGIN'] ?? 'http://localhost:3000',
-    ],
+    trustedOrigins: [baseURL, process.env['CORS_ORIGIN'] ?? 'http://localhost:3000'],
     github: process.env['GITHUB_CLIENT_ID']
       ? {
           clientId: process.env['GITHUB_CLIENT_ID'],
@@ -63,9 +58,11 @@ async function start() {
 
   const betterStackToken = process.env['BETTERSTACK_SOURCE_TOKEN']
   const betterStackEndpoint = process.env['BETTERSTACK_ENDPOINT']
-  const logger = createLogger('app', betterStackToken && betterStackEndpoint
-    ? { sourceToken: betterStackToken, endpoint: betterStackEndpoint }
-    : undefined,
+  const logger = createLogger(
+    'app',
+    betterStackToken && betterStackEndpoint
+      ? { sourceToken: betterStackToken, endpoint: betterStackEndpoint }
+      : undefined,
   )
 
   const corsOrigin = process.env['CORS_ORIGIN'] ?? 'http://localhost:3000'

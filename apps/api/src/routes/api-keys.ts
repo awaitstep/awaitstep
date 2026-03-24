@@ -20,9 +20,7 @@ apiKeys.get('/', async (c) => {
   const db = c.get('db')
   const organizationId = c.get('organizationId')
   const keys = await db.listApiKeysByOrganization(organizationId)
-  return c.json(
-    keys.map(({ keyHash: _, ...key }) => key),
-  )
+  return c.json(keys.map(({ keyHash: _, ...key }) => key))
 })
 
 apiKeys.post('/', zValidator('json', createApiKeySchema), async (c) => {

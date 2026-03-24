@@ -10,7 +10,16 @@ export class ApiKeysAdapter {
     private table: AnyTable,
   ) {}
 
-  async create(data: { id: string; projectId: string; createdBy: string; name: string; keyHash: string; keyPrefix: string; scopes: string; expiresAt?: string | null }): Promise<ApiKey> {
+  async create(data: {
+    id: string
+    projectId: string
+    createdBy: string
+    name: string
+    keyHash: string
+    keyPrefix: string
+    scopes: string
+    expiresAt?: string | null
+  }): Promise<ApiKey> {
     const now = new Date().toISOString()
     const row = {
       id: data.id,
@@ -30,11 +39,7 @@ export class ApiKeysAdapter {
   }
 
   async getById(id: string): Promise<ApiKey | null> {
-    const rows = await this.db
-      .select()
-      .from(this.table)
-      .where(eq(this.table.id, id))
-      .limit(1)
+    const rows = await this.db.select().from(this.table).where(eq(this.table.id, id)).limit(1)
     return rows[0] ?? null
   }
 

@@ -7,14 +7,29 @@ import type { AppEnv } from '../types.js'
 const envVarNamePattern = /^[A-Z][A-Z0-9_]*$/
 
 const createEnvVarSchema = z.object({
-  name: z.string().min(1).max(255).regex(envVarNamePattern, 'Must be uppercase letters, digits, and underscores (e.g. MY_API_KEY)'),
+  name: z
+    .string()
+    .min(1)
+    .max(255)
+    .regex(
+      envVarNamePattern,
+      'Must be uppercase letters, digits, and underscores (e.g. MY_API_KEY)',
+    ),
   value: z.string().min(1).max(10_000),
   isSecret: z.boolean().default(false),
   projectId: z.string().optional(),
 })
 
 const updateEnvVarSchema = z.object({
-  name: z.string().min(1).max(255).regex(envVarNamePattern, 'Must be uppercase letters, digits, and underscores (e.g. MY_API_KEY)').optional(),
+  name: z
+    .string()
+    .min(1)
+    .max(255)
+    .regex(
+      envVarNamePattern,
+      'Must be uppercase letters, digits, and underscores (e.g. MY_API_KEY)',
+    )
+    .optional(),
   value: z.string().min(1).max(10_000).optional(),
   isSecret: z.boolean().optional(),
 })

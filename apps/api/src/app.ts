@@ -57,7 +57,9 @@ export function createApp(deps: AppDeps) {
   const csrfOrigin = deps.corsOrigin ?? 'http://localhost:3000'
   if (csrfOrigin === '*') {
     if (!deps.isDev) {
-      throw new Error('Wildcard CORS origin is not allowed in production (credentials: true). Set CORS_ORIGIN to a specific origin.')
+      throw new Error(
+        'Wildcard CORS origin is not allowed in production (credentials: true). Set CORS_ORIGIN to a specific origin.',
+      )
     }
     log.warn('CSRF protection disabled — corsOrigin is set to wildcard')
   } else {

@@ -19,7 +19,11 @@ interface CodeEditorProps {
   debounceMs?: number
 }
 
-function injectTypes(monaco: Parameters<Exclude<React.ComponentProps<typeof MonacoEditor>['beforeMount'], undefined>>[0]) {
+function injectTypes(
+  monaco: Parameters<
+    Exclude<React.ComponentProps<typeof MonacoEditor>['beforeMount'], undefined>
+  >[0],
+) {
   if (!typesInjected) {
     monaco.languages.typescript.typescriptDefaults.addExtraLib(
       CF_WORKFLOW_TYPE_DEFS,
@@ -62,7 +66,16 @@ const editorOptions = {
   suggestOnTriggerCharacters: true,
 }
 
-export function CodeEditor({ value, onChange, language = 'typescript', height = '200px', bordered = true, expandable = true, title, debounceMs }: CodeEditorProps) {
+export function CodeEditor({
+  value,
+  onChange,
+  language = 'typescript',
+  height = '200px',
+  bordered = true,
+  expandable = true,
+  title,
+  debounceMs,
+}: CodeEditorProps) {
   const [mounted, setMounted] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
   const [localValue, setLocalValue] = useState(value)
@@ -117,7 +130,13 @@ export function CodeEditor({ value, onChange, language = 'typescript', height = 
 
   if (!mounted) {
     return (
-      <div style={{ height }} className={cn('flex items-center justify-center overflow-hidden bg-[oklch(0.12_0_0)] text-xs text-muted-foreground/60', bordered && 'rounded-lg border border-input')}>
+      <div
+        style={{ height }}
+        className={cn(
+          'flex items-center justify-center overflow-hidden bg-[oklch(0.12_0_0)] text-xs text-muted-foreground/60',
+          bordered && 'rounded-lg border border-input',
+        )}
+      >
         Loading editor...
       </div>
     )
@@ -125,7 +144,10 @@ export function CodeEditor({ value, onChange, language = 'typescript', height = 
 
   if (fullscreen) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-[oklch(0.10_0_0)]" onKeyDown={(e) => e.stopPropagation()}>
+      <div
+        className="fixed inset-0 z-50 flex flex-col bg-[oklch(0.10_0_0)]"
+        onKeyDown={(e) => e.stopPropagation()}
+      >
         <div className="flex h-10 shrink-0 items-center justify-between border-b border-border bg-[oklch(0.13_0_0)] px-4">
           <span className="text-xs font-medium text-foreground/60">{title ?? 'Code Editor'}</span>
           <div className="flex items-center gap-2">
@@ -177,7 +199,10 @@ export function CodeEditor({ value, onChange, language = 'typescript', height = 
       )}
       <Suspense
         fallback={
-          <div style={{ height }} className="flex items-center justify-center bg-[oklch(0.12_0_0)] text-xs text-muted-foreground/60">
+          <div
+            style={{ height }}
+            className="flex items-center justify-center bg-[oklch(0.12_0_0)] text-xs text-muted-foreground/60"
+          >
             Loading editor...
           </div>
         }

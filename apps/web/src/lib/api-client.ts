@@ -155,7 +155,16 @@ export const api = {
     return request(withProject('/workflows'), { method: 'POST', body: JSON.stringify(data) })
   },
 
-  updateWorkflow(id: string, data: { name?: string; description?: string; envVars?: { name: string; value: string; isSecret?: boolean }[]; triggerCode?: string; dependencies?: Record<string, string> }): Promise<WorkflowSummary> {
+  updateWorkflow(
+    id: string,
+    data: {
+      name?: string
+      description?: string
+      envVars?: { name: string; value: string; isSecret?: boolean }[]
+      triggerCode?: string
+      dependencies?: Record<string, string>
+    },
+  ): Promise<WorkflowSummary> {
     return request(withProject(`/workflows/${id}`), { method: 'PATCH', body: JSON.stringify(data) })
   },
 
@@ -203,11 +212,18 @@ export const api = {
     return request(withOrg('/connections'))
   },
 
-  createConnection(data: { name: string; provider: string; credentials: Record<string, string> }): Promise<ConnectionSummary> {
+  createConnection(data: {
+    name: string
+    provider: string
+    credentials: Record<string, string>
+  }): Promise<ConnectionSummary> {
     return request(withOrg('/connections'), { method: 'POST', body: JSON.stringify(data) })
   },
 
-  updateConnection(id: string, data: { name?: string; credentials?: Record<string, string> }): Promise<ConnectionSummary> {
+  updateConnection(
+    id: string,
+    data: { name?: string; credentials?: Record<string, string> },
+  ): Promise<ConnectionSummary> {
     return request(withOrg(`/connections/${id}`), { method: 'PATCH', body: JSON.stringify(data) })
   },
 
@@ -227,16 +243,52 @@ export const api = {
     return request(withProject('/runs'))
   },
 
-  takedownDeployment(workflowId: string, connectionId: string): Promise<{ success: boolean; error?: string }> {
-    return request(withProject(`/workflows/${workflowId}/takedown`), { method: 'POST', body: JSON.stringify({ connectionId }) })
+  listWorkflowRuns(workflowId: string): Promise<RunSummary[]> {
+    return request(withProject(`/workflows/${workflowId}/runs`))
   },
 
-  verifyCredentials(provider: string, credentials: Record<string, string>): Promise<{ valid: boolean; accounts: { id: string; name: string }[] }> {
-    return request(withOrg('/connections/verify-token'), { method: 'POST', body: JSON.stringify({ provider, credentials }) })
+  getWorkflowRun(workflowId: string, runId: string): Promise<RunSummary> {
+    return request(withProject(`/workflows/${workflowId}/runs/${runId}`))
   },
 
-  triggerWorkflow(workflowId: string, data: { connectionId: string; params?: unknown }): Promise<{ id: string; instanceId: string; status: string }> {
-    return request(withProject(`/workflows/${workflowId}/trigger`), { method: 'POST', body: JSON.stringify(data) })
+  controlWorkflowRun(
+    workflowId: string,
+    runId: string,
+    action: 'pause' | 'resume' | 'terminate',
+  ): Promise<RunSummary> {
+    return request(withProject(`/workflows/${workflowId}/runs/${runId}/${action}`), {
+      method: 'POST',
+    })
+  },
+
+  takedownDeployment(
+    workflowId: string,
+    connectionId: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    return request(withProject(`/workflows/${workflowId}/takedown`), {
+      method: 'POST',
+      body: JSON.stringify({ connectionId }),
+    })
+  },
+
+  verifyCredentials(
+    provider: string,
+    credentials: Record<string, string>,
+  ): Promise<{ valid: boolean; accounts: { id: string; name: string }[] }> {
+    return request(withOrg('/connections/verify-token'), {
+      method: 'POST',
+      body: JSON.stringify({ provider, credentials }),
+    })
+  },
+
+  triggerWorkflow(
+    workflowId: string,
+    data: { connectionId: string; params?: unknown },
+  ): Promise<{ id: string; instanceId: string; status: string }> {
+    return request(withProject(`/workflows/${workflowId}/trigger`), {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
   },
 
   listEnvVars(): Promise<EnvVarSummary[]> {
@@ -247,7 +299,10 @@ export const api = {
     return request(withOrg('/env-vars'), { method: 'POST', body: JSON.stringify(data) })
   },
 
-  updateEnvVar(id: string, data: { name?: string; value?: string; isSecret?: boolean }): Promise<EnvVarSummary> {
+  updateEnvVar(
+    id: string,
+    data: { name?: string; value?: string; isSecret?: boolean },
+  ): Promise<EnvVarSummary> {
     return request(withOrg(`/env-vars/${id}`), { method: 'PATCH', body: JSON.stringify(data) })
   },
 
@@ -259,7 +314,12 @@ export const api = {
     return request(withOrg('/api-keys'))
   },
 
-  createApiKey(data: { name: string; projectId: string; scopes: string[]; expiresAt?: string | null }): Promise<ApiKeyCreated> {
+  createApiKey(data: {
+    name: string
+    projectId: string
+    scopes: string[]
+    expiresAt?: string | null
+  }): Promise<ApiKeyCreated> {
     return request(withOrg('/api-keys'), { method: 'POST', body: JSON.stringify(data) })
   },
 
@@ -273,11 +333,18 @@ export const api = {
     return request(withOrg('/projects'))
   },
 
-  createProject(data: { name: string; slug: string; description?: string }): Promise<ProjectSummary> {
+  createProject(data: {
+    name: string
+    slug: string
+    description?: string
+  }): Promise<ProjectSummary> {
     return request(withOrg('/projects'), { method: 'POST', body: JSON.stringify(data) })
   },
 
-  updateProject(id: string, data: { name?: string; description?: string }): Promise<ProjectSummary> {
+  updateProject(
+    id: string,
+    data: { name?: string; description?: string },
+  ): Promise<ProjectSummary> {
     return request(withOrg(`/projects/${id}`), { method: 'PATCH', body: JSON.stringify(data) })
   },
 

@@ -43,15 +43,27 @@ export function DataPrivacySection() {
 
   return (
     <section className="rounded-md border border-border p-4">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">Data & Privacy</h2>
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
+        Data & Privacy
+      </h2>
 
       <div className="mt-3 flex items-center justify-between">
         <div>
           <p className="text-xs font-medium">Export your data</p>
           <p className="text-[10px] text-muted-foreground">Download account data as JSON</p>
         </div>
-        <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs" disabled={exporting} onClick={handleExport}>
-          {exporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 gap-1.5 text-xs"
+          disabled={exporting}
+          onClick={handleExport}
+        >
+          {exporting ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <Download className="h-3 w-3" />
+          )}
           Export
         </Button>
       </div>

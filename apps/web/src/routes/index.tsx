@@ -2,21 +2,19 @@ import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequestHeader } from '@tanstack/react-start/server'
 
-const checkAuth = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<boolean> => {
-    const cookie = getRequestHeader('cookie')
-    if (!cookie) return false
+const checkAuth = createServerFn({ method: 'GET' }).handler(async (): Promise<boolean> => {
+  const cookie = getRequestHeader('cookie')
+  if (!cookie) return false
 
-    const apiBase = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
-    const res = await fetch(`${apiBase}/api/auth/get-session`, {
-      headers: { cookie },
-    })
+  const apiBase = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
+  const res = await fetch(`${apiBase}/api/auth/get-session`, {
+    headers: { cookie },
+  })
 
-    if (!res.ok) return false
-    const data = await res.json()
-    return !!data?.session
-  },
-)
+  if (!res.ok) return false
+  const data = await res.json()
+  return !!data?.session
+})
 
 export const Route = createFileRoute('/')({
   beforeLoad: async () => {

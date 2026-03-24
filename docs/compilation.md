@@ -15,13 +15,13 @@ graph LR
 
 Each stage is a pure transformation with well-defined inputs and outputs:
 
-| Stage | Input | Output | Package |
-|-------|-------|--------|---------|
-| Build IR | Canvas state (nodes, edges, positions) | `WorkflowIR` | `apps/web` |
-| Validate | `WorkflowIR` | Validated IR or errors | `@awaitstep/ir` |
-| Generate Code | `WorkflowIR` + templates | `GeneratedArtifact` (TypeScript) | `@awaitstep/provider-*` |
-| Transpile | TypeScript source | JavaScript source | `@awaitstep/codegen` |
-| Deploy | JavaScript + config + secrets | Deployed worker | `@awaitstep/provider-*` |
+| Stage         | Input                                  | Output                           | Package                 |
+| ------------- | -------------------------------------- | -------------------------------- | ----------------------- |
+| Build IR      | Canvas state (nodes, edges, positions) | `WorkflowIR`                     | `apps/web`              |
+| Validate      | `WorkflowIR`                           | Validated IR or errors           | `@awaitstep/ir`         |
+| Generate Code | `WorkflowIR` + templates               | `GeneratedArtifact` (TypeScript) | `@awaitstep/provider-*` |
+| Transpile     | TypeScript source                      | JavaScript source                | `@awaitstep/codegen`    |
+| Deploy        | JavaScript + config + secrets          | Deployed worker                  | `@awaitstep/provider-*` |
 
 ## Stage 1: Canvas → IR
 
@@ -52,20 +52,20 @@ interface WorkflowIR {
 
 interface WorkflowNode {
   id: string
-  type: string          // 'step', 'branch', 'resend_send_email', etc.
+  type: string // 'step', 'branch', 'resend_send_email', etc.
   name: string
-  position: { x: number, y: number }
+  position: { x: number; y: number }
   version: string
   provider: string
-  data: Record<string, unknown>  // Config values from the UI
-  config?: StepConfig            // Retry/timeout overrides
+  data: Record<string, unknown> // Config values from the UI
+  config?: StepConfig // Retry/timeout overrides
 }
 
 interface Edge {
   id: string
-  source: string        // Source node ID
-  target: string        // Target node ID
-  label?: string        // Branch condition label
+  source: string // Source node ID
+  target: string // Target node ID
+  label?: string // Branch condition label
 }
 ```
 
@@ -148,19 +148,22 @@ Each node type has a dedicated generator. The provider package implements these 
 #### Built-in Node Generators
 
 **Step** — Wraps user code in a step execution call:
+
 ```typescript
-const fetch_user = await step.do("Fetch User", async () => {
+const fetch_user = await step.do('Fetch User', async () => {
   // user's code from data.code
-});
+})
 ```
 
 **Sleep / Sleep Until** — Duration or timestamp-based pauses:
+
 ```typescript
-await step.sleep("Wait 5s", "5 seconds");
-await step.sleepUntil("Wait until midnight", new Date("2025-01-01T00:00:00Z"));
+await step.sleep('Wait 5s', '5 seconds')
+await step.sleepUntil('Wait until midnight', new Date('2025-01-01T00:00:00Z'))
 ```
 
 **Branch** — Conditional logic with inlined child nodes:
+
 ```typescript
 if (condition_a) {
   const step_a = await step.do("Step A", async () => { ... });
@@ -174,34 +177,44 @@ if (condition_a) {
 Branch nodes use `collectChain()` to inline downstream nodes within each branch body, avoiding separate top-level statements.
 
 **Parallel** — Concurrent execution via `Promise.all`:
+
 ```typescript
-await Promise.all([
-  async () => { /* branch 1 */ },
-  async () => { /* branch 2 */ },
-].map(fn => fn()));
+await Promise.all(
+  [
+    async () => {
+      /* branch 1 */
+    },
+    async () => {
+      /* branch 2 */
+    },
+  ].map((fn) => fn()),
+)
 ```
 
 **HTTP Request** — Fetch call wrapped in a step:
+
 ```typescript
-const api_call = await step.do("API Call", async () => {
-  const response = await fetch("https://api.example.com/data", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ key: "value" }),
-  });
-  return response.json();
-});
+const api_call = await step.do('API Call', async () => {
+  const response = await fetch('https://api.example.com/data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key: 'value' }),
+  })
+  return response.json()
+})
 ```
 
 **Wait for Event** — Pauses until an external event arrives:
+
 ```typescript
-const payment = await step.waitForEvent("Wait for Payment", {
-  type: "payment.completed",
-  timeout: "24 hours",
-});
+const payment = await step.waitForEvent('Wait for Payment', {
+  type: 'payment.completed',
+  timeout: '24 hours',
+})
 ```
 
 **Custom Nodes** — Template-based generation:
+
 1. Fetch the node's template from the template resolver
 2. Extract the function body from the `export default async function` wrapper
 3. Replace `ctx.config.*` with actual config values
@@ -237,9 +250,9 @@ The provider assembles the generated node code into a complete source file. The 
 
 ```typescript
 interface GeneratedArtifact {
-  filename: string      // e.g. "worker.ts"
-  source: string        // TypeScript source
-  compiled?: string     // JavaScript (populated after transpilation)
+  filename: string // e.g. "worker.ts"
+  source: string // TypeScript source
+  compiled?: string // JavaScript (populated after transpilation)
 }
 ```
 
@@ -294,6 +307,7 @@ interface ProviderConfig {
 ```
 
 The provider is responsible for:
+
 - Transpiling TypeScript to JavaScript
 - Writing deployment artifacts to a temp directory
 - Installing npm dependencies (if any)
@@ -325,6 +339,7 @@ The web app provides real-time code preview as the user builds workflows:
 This uses the same `generateWorkflow()` function as deployment but skips transpilation and deployment. The preview updates on every canvas change.
 
 The editor panel also provides tabs for:
+
 - **Trigger code** — custom entry point handler
 - **Dependencies** — npm packages as JSON
 - **IR JSON** — raw WorkflowIR for debugging

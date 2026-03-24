@@ -7,11 +7,11 @@ import { cn } from '../../lib/utils'
 const NODE_TYPE_LABELS: Record<string, string> = {
   step: 'Step',
   sleep: 'Sleep',
-  'sleep_until': 'Sleep Until',
+  sleep_until: 'Sleep Until',
   branch: 'Branch',
   parallel: 'Parallel',
-  'http_request': 'HTTP',
-  'wait_for_event': 'Event',
+  http_request: 'HTTP',
+  wait_for_event: 'Event',
 }
 
 export function ValidationPanel() {
@@ -88,9 +88,7 @@ export function ValidationPanel() {
                 disabled={!issue.nodeId}
                 className={cn(
                   'flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] transition-colors',
-                  issue.nodeId
-                    ? 'cursor-pointer hover:bg-muted/50'
-                    : 'cursor-default',
+                  issue.nodeId ? 'cursor-pointer hover:bg-muted/50' : 'cursor-default',
                 )}
               >
                 {issue.severity === 'error' ? (
@@ -106,7 +104,9 @@ export function ValidationPanel() {
                     {NODE_TYPE_LABELS[nodeType] ?? nodeType}
                   </span>
                 )}
-                <span className={issue.severity === 'error' ? 'text-red-300/80' : 'text-yellow-300/80'}>
+                <span
+                  className={issue.severity === 'error' ? 'text-red-300/80' : 'text-yellow-300/80'}
+                >
                   {issue.message}
                 </span>
               </button>

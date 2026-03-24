@@ -70,23 +70,33 @@ export function DeploymentSheet({
               {/* Fields */}
               <div className="mt-8 grid gap-y-6">
                 <Field label="Worker">
-                  <span className="font-mono text-sm text-foreground">{deployment.serviceName}</span>
+                  <span className="font-mono text-sm text-foreground">
+                    {deployment.serviceName}
+                  </span>
                 </Field>
 
                 <Field label="Connection">
-                  <span className="text-sm text-foreground/70">{connectionName ?? deployment.connectionId}</span>
+                  <span className="text-sm text-foreground/70">
+                    {connectionName ?? deployment.connectionId}
+                  </span>
                 </Field>
 
                 <Field label="Version">
-                  <span className="text-sm text-foreground/70">{versionNumber ? `v${versionNumber}` : deployment.versionId}</span>
+                  <span className="text-sm text-foreground/70">
+                    {versionNumber ? `v${versionNumber}` : deployment.versionId}
+                  </span>
                 </Field>
 
                 <Field label="Deployed">
-                  <span className="text-sm text-foreground/70">{formatDate(deployment.createdAt)}</span>
+                  <span className="text-sm text-foreground/70">
+                    {formatDate(deployment.createdAt)}
+                  </span>
                 </Field>
 
                 <Field label="Version ID">
-                  <span className="font-mono text-sm text-muted-foreground">{deployment.versionId}</span>
+                  <span className="font-mono text-sm text-muted-foreground">
+                    {deployment.versionId}
+                  </span>
                 </Field>
 
                 {deployment.serviceUrl && (
@@ -105,7 +115,9 @@ export function DeploymentSheet({
                 )}
 
                 <Field label="Deployment ID">
-                  <span className="font-mono text-xs text-muted-foreground/60">{deployment.id}</span>
+                  <span className="font-mono text-xs text-muted-foreground/60">
+                    {deployment.id}
+                  </span>
                 </Field>
               </div>
 
@@ -118,8 +130,6 @@ export function DeploymentSheet({
                   </div>
                 </div>
               )}
-
-
             </div>
           )}
         </Dialog.Content>

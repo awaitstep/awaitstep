@@ -29,14 +29,24 @@ const sampleTemplate = `export default async function(ctx) {
   return response.json();
 }`
 
-async function setupNode(nodesDir: string, id: string, definition?: Record<string, unknown>, template?: string) {
+async function setupNode(
+  nodesDir: string,
+  id: string,
+  definition?: Record<string, unknown>,
+  template?: string,
+) {
   const nodeDir = join(nodesDir, id)
   await mkdir(join(nodeDir, 'templates'), { recursive: true })
   await writeFile(join(nodeDir, 'node.json'), JSON.stringify(definition ?? makeDefinition(id)))
   await writeFile(join(nodeDir, 'templates', 'cloudflare.ts'), template ?? sampleTemplate)
 }
 
-async function setupNodeWithSharedTemplate(nodesDir: string, id: string, definition?: Record<string, unknown>, template?: string) {
+async function setupNodeWithSharedTemplate(
+  nodesDir: string,
+  id: string,
+  definition?: Record<string, unknown>,
+  template?: string,
+) {
   const nodeDir = join(nodesDir, id)
   await mkdir(nodeDir, { recursive: true })
   await writeFile(join(nodeDir, 'node.json'), JSON.stringify(definition ?? makeDefinition(id)))
@@ -114,11 +124,15 @@ describe('generate', () => {
   })
 
   it('fails if secret field lacks envVarName', async () => {
-    await setupNode(tmpDir, 'bad_secret', makeDefinition('bad_secret', {
-      configSchema: {
-        apiKey: { type: 'secret', label: 'API Key', required: true },
-      },
-    }))
+    await setupNode(
+      tmpDir,
+      'bad_secret',
+      makeDefinition('bad_secret', {
+        configSchema: {
+          apiKey: { type: 'secret', label: 'API Key', required: true },
+        },
+      }),
+    )
 
     const result = await generate(tmpDir)
 
@@ -127,11 +141,15 @@ describe('generate', () => {
   })
 
   it('fails if select field lacks options', async () => {
-    await setupNode(tmpDir, 'bad_select', makeDefinition('bad_select', {
-      configSchema: {
-        mode: { type: 'select', label: 'Mode' },
-      },
-    }))
+    await setupNode(
+      tmpDir,
+      'bad_select',
+      makeDefinition('bad_select', {
+        configSchema: {
+          mode: { type: 'select', label: 'Mode' },
+        },
+      }),
+    )
 
     const result = await generate(tmpDir)
 
@@ -198,9 +216,13 @@ describe('generate', () => {
   })
 
   it('uses shared template.ts for multiple providers', async () => {
-    await setupNodeWithSharedTemplate(tmpDir, 'multi_provider', makeDefinition('multi_provider', {
-      providers: ['cloudflare', 'inngest'],
-    }))
+    await setupNodeWithSharedTemplate(
+      tmpDir,
+      'multi_provider',
+      makeDefinition('multi_provider', {
+        providers: ['cloudflare', 'inngest'],
+      }),
+    )
 
     const result = await generate(tmpDir)
 
@@ -213,8 +235,14 @@ describe('generate', () => {
     const nodeDir = join(tmpDir, 'override_node')
     await mkdir(join(nodeDir, 'templates'), { recursive: true })
     await writeFile(join(nodeDir, 'node.json'), JSON.stringify(makeDefinition('override_node')))
-    await writeFile(join(nodeDir, 'template.ts'), 'export default async function(ctx) { return "shared"; }')
-    await writeFile(join(nodeDir, 'templates', 'cloudflare.ts'), 'export default async function(ctx) { return "specific"; }')
+    await writeFile(
+      join(nodeDir, 'template.ts'),
+      'export default async function(ctx) { return "shared"; }',
+    )
+    await writeFile(
+      join(nodeDir, 'templates', 'cloudflare.ts'),
+      'export default async function(ctx) { return "specific"; }',
+    )
 
     const result = await generate(tmpDir)
 
@@ -225,7 +253,10 @@ describe('generate', () => {
   it('fails if neither provider template nor shared template exists', async () => {
     const nodeDir = join(tmpDir, 'no_template_at_all')
     await mkdir(nodeDir)
-    await writeFile(join(nodeDir, 'node.json'), JSON.stringify(makeDefinition('no_template_at_all')))
+    await writeFile(
+      join(nodeDir, 'node.json'),
+      JSON.stringify(makeDefinition('no_template_at_all')),
+    )
 
     const result = await generate(tmpDir)
 

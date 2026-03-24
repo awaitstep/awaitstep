@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { Button } from '../../../components/ui/button'
 import { Breadcrumb } from '../../../components/ui/breadcrumb'
 import { api } from '../../../lib/api-client'
-import { useOrgReady } from '../../../stores/org-store'
+import { RequireOrg } from '../../../wrappers/require-org'
 import { envVarsToString, parseEnvString } from '../../../lib/env-var-parser'
 import type { EnvVarSummary } from '../../../lib/api-client'
 
@@ -15,13 +15,19 @@ export const Route = createFileRoute('/_authed/resources/env-vars')({
 })
 
 function EnvVarsPage() {
-  const ready = useOrgReady()
+  return (
+    <RequireOrg>
+      <EnvVarsContent />
+    </RequireOrg>
+  )
+}
+
+function EnvVarsContent() {
   const queryClient = useQueryClient()
 
   const { data: envVars = [], isLoading } = useQuery({
     queryKey: ['env-vars'],
     queryFn: () => api.listEnvVars(),
-    enabled: ready,
   })
 
   const serverText = useMemo(() => envVarsToString(envVars), [envVars])
@@ -87,10 +93,9 @@ function EnvVarsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <Breadcrumb items={[
-        { label: 'Resources', href: '/resources' },
-        { label: 'Environment Variables' },
-      ]} />
+      <Breadcrumb
+        items={[{ label: 'Resources', href: '/resources' }, { label: 'Environment Variables' }]}
+      />
       <div className="flex items-center gap-3 mb-6">
         <div>
           <h1 className="text-lg font-semibold">Environment Variables</h1>
@@ -113,13 +118,17 @@ function EnvVarsPage() {
         <div className="relative rounded-md border border-border bg-muted/10 font-mono text-sm">
           <div className="pointer-events-none absolute left-0 top-0 select-none px-3 py-3 text-right text-muted-foreground/40">
             {Array.from({ length: Math.max(lineCount, 1) }, (_, i) => (
-              <div key={i} className="leading-6">{i + 1}</div>
+              <div key={i} className="leading-6">
+                {i + 1}
+              </div>
             ))}
           </div>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={'# One variable per line\n# Prefix with SECRET_ to mark as secret\nSECRET_MY_API_KEY=sk_live_abc123\nDATABASE_URL=postgres://...'}
+            placeholder={
+              '# One variable per line\n# Prefix with SECRET_ to mark as secret\nSECRET_MY_API_KEY=sk_live_abc123\nDATABASE_URL=postgres://...'
+            }
             className="w-full resize-none bg-transparent py-3 pl-10 pr-3 leading-6 outline-none placeholder:text-muted-foreground/30"
             rows={Math.max(lineCount + 2, 6)}
             spellCheck={false}
@@ -137,9 +146,13 @@ function EnvVarsPage() {
         )}
 
         <p className="mt-2 text-xs text-muted-foreground">
-          {isLoading ? 'Loading...' : `${envVars.length} variable${envVars.length === 1 ? '' : 's'}`}
+          {isLoading
+            ? 'Loading...'
+            : `${envVars.length} variable${envVars.length === 1 ? '' : 's'}`}
           {isDirty && ' (unsaved changes)'}
-          {' · Prefix names with SECRET_ to encrypt · Secret values shown as •••••••• — replace to update'}
+          {
+            ' · Prefix names with SECRET_ to encrypt · Secret values shown as •••••••• — replace to update'
+          }
         </p>
       </div>
     </div>

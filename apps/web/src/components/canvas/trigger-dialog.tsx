@@ -9,13 +9,12 @@ import { api } from '../../lib/api-client'
 import { useConnectionsStore } from '../../stores/connections-store'
 
 interface TriggerDialogProps {
-  open: boolean
   onClose: () => void
   workflowId: string
   deploymentId?: string
 }
 
-export function TriggerDialog({ open, onClose, workflowId, deploymentId }: TriggerDialogProps) {
+export function TriggerDialog({ onClose, workflowId, deploymentId }: TriggerDialogProps) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [connectionId, setConnectionId] = useState('')
@@ -80,7 +79,7 @@ export function TriggerDialog({ open, onClose, workflowId, deploymentId }: Trigg
   }
 
   return (
-    <Dialog.Root open={open} onOpenChange={handleOpenChange}>
+    <Dialog.Root defaultOpen onOpenChange={handleOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[480px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg">
@@ -89,73 +88,77 @@ export function TriggerDialog({ open, onClose, workflowId, deploymentId }: Trigg
             Trigger Workflow
           </Dialog.Title>
 
-        <div className="mt-4 space-y-4">
-          {connections && connections.length > 0 ? (
-            <div>
-              <label className="mb-1 block text-xs text-muted-foreground">Connection</label>
-              <Select
-                value={connectionId}
-                onValueChange={setConnectionId}
-                options={connections.map((c) => ({ value: c.id, label: c.name }))}
-                className="w-full"
-              />
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">No connections available.</p>
-          )}
+          <div className="mt-4 space-y-4">
+            {connections && connections.length > 0 ? (
+              <div>
+                <label className="mb-1 block text-xs text-muted-foreground">Connection</label>
+                <Select
+                  value={connectionId}
+                  onValueChange={setConnectionId}
+                  options={connections.map((c) => ({ value: c.id, label: c.name }))}
+                  className="w-full"
+                />
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">No connections available.</p>
+            )}
 
-          <div>
-            <div className="mb-1 flex items-center justify-between">
-              <label className="text-xs text-muted-foreground">Trigger Payload (JSON)</label>
-              {jsonError && (
-                <span className="flex items-center gap-1 text-[10px] text-status-error">
-                  <AlertCircle className="h-3 w-3" />
-                  {jsonError}
-                </span>
-              )}
-            </div>
-            <textarea
-              value={paramsJson}
-              onChange={(e) => handleParamsChange(e.target.value)}
-              spellCheck={false}
-              className="h-40 w-full rounded-md border border-border bg-muted/40 p-3 font-mono text-xs text-foreground placeholder:text-muted-foreground/40 focus:border-primary/40 focus:outline-none"
-              placeholder='{ "key": "value" }'
-            />
-          </div>
-
-          {deploymentId && (
             <div>
               <div className="mb-1 flex items-center justify-between">
-                <label className="text-xs text-muted-foreground">Curl Command</label>
-                <button
-                  onClick={handleCopyCurl}
-                  className="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground"
-                >
-                  {curlCopied ? <Check className="h-3 w-3 text-status-success" /> : <Copy className="h-3 w-3" />}
-                  {curlCopied ? 'Copied' : 'Copy'}
-                </button>
+                <label className="text-xs text-muted-foreground">Trigger Payload (JSON)</label>
+                {jsonError && (
+                  <span className="flex items-center gap-1 text-[10px] text-status-error">
+                    <AlertCircle className="h-3 w-3" />
+                    {jsonError}
+                  </span>
+                )}
               </div>
-              <pre className="overflow-x-auto rounded-lg border border-border bg-muted/30 p-2.5 text-[11px] text-muted-foreground">
-                {`curl -X POST https://${deploymentId}.workers.dev`}
-              </pre>
+              <textarea
+                value={paramsJson}
+                onChange={(e) => handleParamsChange(e.target.value)}
+                spellCheck={false}
+                className="h-40 w-full rounded-md border border-border bg-muted/40 p-3 font-mono text-xs text-foreground placeholder:text-muted-foreground/40 focus:border-primary/40 focus:outline-none"
+                placeholder='{ "key": "value" }'
+              />
             </div>
-          )}
 
-          {error && (
-            <p className="rounded bg-red-500/10 p-2 text-xs text-red-300">{error}</p>
-          )}
+            {deploymentId && (
+              <div>
+                <div className="mb-1 flex items-center justify-between">
+                  <label className="text-xs text-muted-foreground">Curl Command</label>
+                  <button
+                    onClick={handleCopyCurl}
+                    className="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground"
+                  >
+                    {curlCopied ? (
+                      <Check className="h-3 w-3 text-status-success" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                    {curlCopied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+                <pre className="overflow-x-auto rounded-lg border border-border bg-muted/30 p-2.5 text-[11px] text-muted-foreground">
+                  {`curl -X POST https://${deploymentId}.workers.dev`}
+                </pre>
+              </div>
+            )}
 
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-            <Button
-              size="sm"
-              disabled={!connectionId || !!jsonError || triggering}
-              onClick={handleTrigger}
-            >
-              {triggering ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Trigger'}
-            </Button>
+            {error && <p className="rounded bg-red-500/10 p-2 text-xs text-red-300">{error}</p>}
+
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={!connectionId || !!jsonError || triggering}
+                onClick={handleTrigger}
+              >
+                {triggering ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Trigger'}
+              </Button>
+            </div>
           </div>
-        </div>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
