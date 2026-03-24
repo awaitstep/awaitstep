@@ -11,8 +11,8 @@ import { cn } from '../../lib/utils'
 export default function OrgMenu() {
   const [orgOpen, setOrgOpen] = useState(false)
 
-  const openOrgDialog = useSheetStore((s) => s.openOrgDialog)
-  const setActiveOrg = useOrgStore((s) => s.setActiveOrganization)
+  const { openOrgDialog } = useSheetStore()
+  const { setActiveOrganization: setActiveOrg } = useOrgStore()
 
   function handleNewOrg() {
     setOrgOpen(false)

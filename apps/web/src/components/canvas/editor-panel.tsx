@@ -4,6 +4,7 @@ import type { TemplateResolver } from '@awaitstep/codegen'
 import { Copy, Check, RotateCcw } from 'lucide-react'
 import { Button } from '../ui/button'
 import { useWorkflowStore } from '../../stores/workflow-store'
+import { useShallow } from 'zustand/react/shallow'
 import { buildIRFromState } from '../../lib/build-ir'
 import { cn } from '../../lib/utils'
 
@@ -13,9 +14,16 @@ type Tab = 'entry' | 'dependencies' | 'output'
 type OutputMode = 'typescript' | 'ir-json'
 
 export function EditorPanel() {
-  const { metadata, nodes, edges, triggerCode, dependencies } = useWorkflowStore()
-  const setTriggerCode = useWorkflowStore((s) => s.setTriggerCode)
-  const setDependencies = useWorkflowStore((s) => s.setDependencies)
+  const { metadata, nodes, edges, triggerCode, dependencies } = useWorkflowStore(
+    useShallow((s) => ({
+      metadata: s.metadata,
+      nodes: s.nodes,
+      edges: s.edges,
+      triggerCode: s.triggerCode,
+      dependencies: s.dependencies,
+    })),
+  )
+  const { setTriggerCode, setDependencies } = useWorkflowStore()
 
   const [tab, setTab] = useState<Tab>('output')
   const [outputMode, setOutputMode] = useState<OutputMode>('typescript')

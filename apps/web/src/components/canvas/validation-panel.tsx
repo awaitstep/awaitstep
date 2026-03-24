@@ -1,6 +1,7 @@
 import { AlertCircle, AlertTriangle, CheckCircle2, X } from 'lucide-react'
 import { useReactFlow } from '@xyflow/react'
 import { useWorkflowStore } from '../../stores/workflow-store'
+import { useShallow } from 'zustand/react/shallow'
 import type { PublishIssue } from '../../lib/validate-workflow'
 import { cn } from '../../lib/utils'
 
@@ -15,10 +16,10 @@ const NODE_TYPE_LABELS: Record<string, string> = {
 }
 
 export function ValidationPanel() {
-  const validationResult = useWorkflowStore((s) => s.validationResult)
-  const clearValidation = useWorkflowStore((s) => s.clearValidation)
-  const selectNode = useWorkflowStore((s) => s.selectNode)
-  const nodes = useWorkflowStore((s) => s.nodes)
+  const { validationResult, nodes } = useWorkflowStore(
+    useShallow((s) => ({ validationResult: s.validationResult, nodes: s.nodes })),
+  )
+  const { clearValidation, selectNode } = useWorkflowStore()
   const { fitView } = useReactFlow()
 
   if (!validationResult) return null

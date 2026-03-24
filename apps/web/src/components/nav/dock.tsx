@@ -51,9 +51,8 @@ export function Dock({ email }: { email: string }) {
     })),
   )
 
-  const setActiveProject = useOrgStore((s) => s.setActiveProject)
-
-  const openProjectDialog = useSheetStore((s) => s.openProjectDialog)
+  const { setActiveProject } = useOrgStore()
+  const { openProjectDialog } = useSheetStore()
 
   function handleNewProject() {
     setProjectOpen(false)

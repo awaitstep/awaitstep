@@ -7,17 +7,19 @@ import { Select } from '../ui/select'
 import { Separator } from '../ui/separator'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import type { InputParam, EnvBinding, WorkflowEnvVar } from '../../stores/workflow-store'
+import { useShallow } from 'zustand/react/shallow'
 
 export function WorkflowSettings() {
-  const metadata = useWorkflowStore((s) => s.metadata)
-  const inputParams = useWorkflowStore((s) => s.inputParams)
-  const envBindings = useWorkflowStore((s) => s.envBindings)
-  const workflowEnvVars = useWorkflowStore((s) => s.workflowEnvVars)
-  const setMetadata = useWorkflowStore((s) => s.setMetadata)
-  const setInputParams = useWorkflowStore((s) => s.setInputParams)
-  const setEnvBindings = useWorkflowStore((s) => s.setEnvBindings)
-  const setWorkflowEnvVars = useWorkflowStore((s) => s.setWorkflowEnvVars)
-  const setShowSettings = useWorkflowStore((s) => s.setShowSettings)
+  const { metadata, inputParams, envBindings, workflowEnvVars } = useWorkflowStore(
+    useShallow((s) => ({
+      metadata: s.metadata,
+      inputParams: s.inputParams,
+      envBindings: s.envBindings,
+      workflowEnvVars: s.workflowEnvVars,
+    })),
+  )
+  const { setMetadata, setInputParams, setEnvBindings, setWorkflowEnvVars, setShowSettings } =
+    useWorkflowStore()
 
   const addParam = useCallback(() => {
     setInputParams([...useWorkflowStore.getState().inputParams, { name: '', type: 'string' }])
