@@ -5,7 +5,7 @@ export interface EditorDialogsProps {
   confirmAction: 'switch-template' | null
   setConfirmAction: (action: 'switch-template' | null) => void
   onConfirmSwitchTemplate: () => void
-  blockerStatus: 'blocked' | 'idle' | 'proceeding'
+  blockerStatus: 'blocked' | 'idle'
   onBlockerProceed: (() => void) | undefined
   onBlockerReset: (() => void) | undefined
   deployOpen: boolean

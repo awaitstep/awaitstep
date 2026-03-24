@@ -17,6 +17,7 @@ import { buildIRFromState } from '../../../lib/build-ir'
 import { EditorToolbar } from '../../../components/canvas/editor-toolbar'
 import { EditorDialogs } from '../../../components/canvas/editor-dialogs'
 import { CanvasSidePanels } from '../../../components/canvas/canvas-side-panels'
+import { useShallow } from 'zustand/react/shallow'
 
 const LazyReactFlowProvider = lazy(() =>
   import('@xyflow/react').then((m) => ({ default: m.ReactFlowProvider })),
@@ -58,41 +59,42 @@ function WorkflowEditorPage() {
 
   const ready = useOrgReady()
   const nodeRegistry = useNodeRegistry()
-  const metadata = useWorkflowStore((s) => s.metadata)
-  const nodeCount = useWorkflowStore((s) => s.nodes.length)
-  const showSettings = useWorkflowStore((s) => s.showSettings)
-  const setShowSettings = useWorkflowStore((s) => s.setShowSettings)
-  const addNode = useWorkflowStore((s) => s.addNode)
-  const runValidation = useWorkflowStore((s) => s.runValidation)
-  const runSimulation = useWorkflowStore((s) => s.runSimulation)
-  const isDirty = useWorkflowStore((s) => s.isDirty)
-  const setWorkflowId = useWorkflowStore((s) => s.setWorkflowId)
-  const markClean = useWorkflowStore((s) => s.markClean)
+
+  const { metadata, nodeCount, showSettings, isDirty } = useWorkflowStore(
+    useShallow((s) => ({
+      metadata: s.metadata,
+      nodeCount: s.nodes.length,
+      showSettings: s.showSettings,
+      isDirty: s.isDirty,
+    })),
+  )
+
+  const {
+    setShowSettings,
+    addNode,
+    reset: resetWorkflowStore,
+    runValidation,
+    runSimulation,
+    setWorkflowId,
+    markClean,
+  } = useWorkflowStore()
 
   const isNew = workflowId === 'new'
   const queryClient = useQueryClient()
-  const resetWorkflowStore = useWorkflowStore((s) => s.reset)
 
   // Clear canvas state when leaving the page
   useEffect(() => {
     return () => resetWorkflowStore()
   }, [resetWorkflowStore])
 
-  // Block in-app navigation when there are unsaved changes
-  const shouldBlock = isDirty || (isNew && nodeCount > 0)
-  const { proceed, reset, status } = useBlocker({
-    condition: shouldBlock,
-  })
+  // Block in-app navigation and browser refresh/close when there are unsaved changes
+  const hasUnsavedChanges = isDirty || (isNew && nodeCount > 0)
 
-  // Block browser refresh/close
-  useEffect(() => {
-    if (!shouldBlock) return
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault()
-    }
-    window.addEventListener('beforeunload', handler)
-    return () => window.removeEventListener('beforeunload', handler)
-  }, [shouldBlock])
+  const { proceed, reset, status } = useBlocker({
+    shouldBlockFn: () => hasUnsavedChanges,
+    enableBeforeUnload: () => hasUnsavedChanges,
+    withResolver: true,
+  })
 
   // Load workflow + version + deployments in a single request
   const { data: fullData, error: workflowError } = useQuery({
