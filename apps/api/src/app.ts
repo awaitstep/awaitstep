@@ -20,6 +20,7 @@ export interface AppDeps {
   corsOrigin?: string | string[]
   isDev?: boolean
   nodeRegistry?: AppNodeRegistry
+  appName?: string
 }
 
 export function createApp(deps: AppDeps) {
@@ -87,10 +88,11 @@ export function createApp(deps: AppDeps) {
     return deps.auth.handler(c.req.raw)
   })
 
-  // DB + node registry context
+  // DB + node registry + app config context
   app.use('/api/*', async (c, next) => {
     c.set('db', deps.db)
     if (deps.nodeRegistry) c.set('nodeRegistry', deps.nodeRegistry)
+    if (deps.appName) c.set('appName', deps.appName)
     await next()
   })
 

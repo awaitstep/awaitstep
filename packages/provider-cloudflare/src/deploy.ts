@@ -14,6 +14,8 @@ export interface DeployOptions {
   workflowName: string
   accountId: string
   apiToken: string
+  compatibilityDate?: string
+  packageName?: string
   vars?: Record<string, string>
   secrets?: Record<string, string>
   dependencies?: Record<string, string>
@@ -51,7 +53,11 @@ export async function deployWithWrangler(
 
     // Install npm dependencies if any
     if (options.dependencies && Object.keys(options.dependencies).length > 0) {
-      const pkg = { name: 'awaitstep-worker', private: true, dependencies: options.dependencies }
+      const pkg = {
+        name: options.packageName ?? 'awaitstep-worker',
+        private: true,
+        dependencies: options.dependencies,
+      }
       await writeFile(join(deployDir, 'package.json'), JSON.stringify(pkg, null, 2), 'utf-8')
       await execFileAsync(
         'npm',

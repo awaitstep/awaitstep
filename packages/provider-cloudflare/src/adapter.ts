@@ -144,6 +144,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
       workflowName: opts.workflowName,
       accountId,
       apiToken,
+      packageName: config.options?.['packageName'] as string | undefined,
       vars,
       secrets,
       dependencies: opts.dependencies,

@@ -77,7 +77,8 @@ async function start() {
     logger.warn('Node registry not found — run `pnpm nodes:build` to generate it')
   }
 
-  const app = createApp({ db, auth, logger, corsOrigin, isDev, nodeRegistry })
+  const appName = process.env['APP_NAME']
+  const app = createApp({ db, auth, logger, corsOrigin, isDev, nodeRegistry, appName })
 
   const port = Number(process.env['PORT'] ?? 3001)
   logger.info(`API server running on http://localhost:${port}`)

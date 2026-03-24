@@ -17,6 +17,7 @@ cd awaitstep.dev
 pnpm install
 cp .env.example .env
 # Edit .env — generate TOKEN_ENCRYPTION_KEY with: openssl rand -hex 32
+# Optionally set APP_NAME to customize the deployed worker package name (default: awaitstep-worker)
 pnpm build
 pnpm test
 ```

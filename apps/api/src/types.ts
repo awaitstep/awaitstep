@@ -15,5 +15,6 @@ export interface AppEnv {
     requestId: string
     apiKeyScopes: ApiKeyScope[] | null
     nodeRegistry: AppNodeRegistry
+    appName: string | undefined
   }
 }

@@ -177,6 +177,7 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
   const workflowDeps = parseDependencies(workflow.dependencies)
   const nodeDeps = collectNodeDependencies(ir, nodeRegistry)
   const deps = mergeDependencies(workflowDeps, nodeDeps)
+  const appName = c.get('appName')
   const providerConfig: ProviderConfig = {
     provider: 'cloudflare-workflows',
     credentials: creds,
@@ -184,6 +185,7 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
       workflowId: workflow.id,
       workflowName: workflow.name,
       ...(deps && { dependencies: deps }),
+      ...(appName && { packageName: appName }),
     },
     envVars: envResult.envVars,
   }
@@ -265,6 +267,7 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
   const streamWorkflowDeps = parseDependencies(workflow.dependencies)
   const streamNodeDeps = collectNodeDependencies(ir, nodeRegistry)
   const streamDeps = mergeDependencies(streamWorkflowDeps, streamNodeDeps)
+  const streamAppName = c.get('appName')
   const providerConfig: ProviderConfig = {
     provider: 'cloudflare-workflows',
     credentials: streamCreds,
@@ -272,6 +275,7 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
       workflowId: workflow.id,
       workflowName: workflow.name,
       ...(streamDeps && { dependencies: streamDeps }),
+      ...(streamAppName && { packageName: streamAppName }),
     },
     envVars: envResult.envVars,
   }
