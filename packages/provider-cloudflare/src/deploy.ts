@@ -1,9 +1,8 @@
 import { writeFile, mkdir, rm } from 'node:fs/promises'
-import { join, dirname } from 'node:path'
+import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
-import { createRequire } from 'node:module'
 import type { GeneratedArtifact } from '@awaitstep/codegen'
 import { generateWranglerConfig } from './wrangler-config.js'
 import { workerName, workflowClassName, sanitizedWorkflowName } from './naming.js'
@@ -64,14 +63,13 @@ export async function deployWithWrangler(
       )
     }
 
-    const wranglerBin = resolveWranglerBin()
     const wranglerEnv = {
       ...process.env,
       CLOUDFLARE_ACCOUNT_ID: options.accountId,
       CLOUDFLARE_API_TOKEN: options.apiToken,
     }
 
-    const { stdout } = await execFileAsync(wranglerBin, ['deploy'], {
+    const { stdout } = await execFileAsync('npx', ['wrangler', 'deploy'], {
       cwd: deployDir,
       env: wranglerEnv,
       timeout: 120_000,
@@ -80,7 +78,7 @@ export async function deployWithWrangler(
     // Upload secrets via wrangler secret put (after deploy so the worker exists)
     if (options.secrets) {
       for (const [key, value] of Object.entries(options.secrets)) {
-        await putSecret(wranglerBin, key, value, name, wranglerEnv)
+        await putSecret(key, value, name, wranglerEnv)
       }
     }
 
@@ -106,8 +104,7 @@ export async function deleteWorker(
   options: { accountId: string; apiToken: string },
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const wranglerBin = resolveWranglerBin()
-    await execFileAsync(wranglerBin, ['delete', '--name', workerName, '--force'], {
+    await execFileAsync('npx', ['wrangler', 'delete', '--name', workerName, '--force'], {
       env: {
         ...process.env,
         CLOUDFLARE_ACCOUNT_ID: options.accountId,
@@ -123,14 +120,13 @@ export async function deleteWorker(
 }
 
 function putSecret(
-  wranglerBin: string,
   key: string,
   value: string,
   workerName: string,
   env: Record<string, string | undefined>,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn(wranglerBin, ['secret', 'put', key, '--name', workerName], {
+    const child = spawn('npx', ['wrangler', 'secret', 'put', key, '--name', workerName], {
       env,
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout: 30_000,
@@ -143,14 +139,4 @@ function putSecret(
     })
     child.on('error', reject)
   })
-}
-
-function resolveWranglerBin(): string {
-  try {
-    const require = createRequire(import.meta.url)
-    const wranglerPkg = require.resolve('wrangler/package.json')
-    return join(dirname(wranglerPkg), 'bin', 'wrangler.js')
-  } catch {
-    return 'wrangler'
-  }
 }
