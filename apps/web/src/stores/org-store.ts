@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 export interface Organization {
   id: string
@@ -75,6 +75,7 @@ export const useOrgStore = create<OrgState>()(
     }),
     {
       name: 'awaitstep-org',
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         activeOrganizationId: state.activeOrganizationId,
         activeProjectId: state.activeProjectId,
