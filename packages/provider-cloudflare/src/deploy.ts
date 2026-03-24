@@ -10,14 +10,11 @@ import { workerName, workflowClassName, sanitizedWorkflowName } from './naming.j
 
 const execFileAsync = promisify(execFile)
 
-const PINNED_COMPATIBILITY_DATE = '2025-04-01'
-
 export interface DeployOptions {
   workflowId: string
   workflowName: string
   accountId: string
   apiToken: string
-  compatibilityDate?: string
   vars?: Record<string, string>
   secrets?: Record<string, string>
   dependencies?: Record<string, string>
@@ -44,15 +41,12 @@ export async function deployWithWrangler(
     const scriptPath = join(deployDir, artifact.filename)
     await writeFile(scriptPath, artifact.compiled ?? artifact.source, 'utf-8')
 
-    const hasDeps = options.dependencies && Object.keys(options.dependencies).length > 0
     const wranglerConfig = generateWranglerConfig({
       workerName: name,
       className,
       workflowName: sanitizedWorkflowName(options.workflowName),
-      compatibilityDate: options.compatibilityDate ?? PINNED_COMPATIBILITY_DATE,
       main: `./${artifact.filename}`,
       vars: options.vars,
-      nodeCompat: !!hasDeps,
     })
     await writeFile(join(deployDir, 'wrangler.json'), wranglerConfig, 'utf-8')
 

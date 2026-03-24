@@ -18,7 +18,7 @@ export type {
 export { deployWithWrangler, deleteWorker } from './deploy.js'
 export type { DeployOptions, WranglerDeployResult } from './deploy.js'
 export { workerName, workflowClassName, sanitizedWorkflowName } from './naming.js'
-export { generateWranglerConfig } from './wrangler-config.js'
+export { generateWranglerConfig, WRANGLER_BASE_CONFIG } from './wrangler-config.js'
 export type { WranglerWorkflowConfig } from './wrangler-config.js'
 export { CloudflareResourcesAPI } from './resources.js'
 export type {

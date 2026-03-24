@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { deployWithWrangler } from '../deploy.js'
+import { WRANGLER_BASE_CONFIG } from '../wrangler-config.js'
 import type { GeneratedArtifact } from '@awaitstep/codegen'
 
 vi.mock('node:fs/promises', () => ({
@@ -83,7 +84,7 @@ describe('deployWithWrangler', () => {
     )
   })
 
-  it('uses pinned compatibility date by default', async () => {
+  it('uses base config compatibility date', async () => {
     const { writeFile } = await import('node:fs/promises')
     await deployWithWrangler(artifact, options)
     const writeFileMock = vi.mocked(writeFile)
@@ -91,6 +92,6 @@ describe('deployWithWrangler', () => {
       (call[0] as string).endsWith('wrangler.json'),
     )
     const content = configWrite?.[1] as string
-    expect(content).toContain('2025-04-01')
+    expect(content).toContain(WRANGLER_BASE_CONFIG.compatibility_date)
   })
 })
