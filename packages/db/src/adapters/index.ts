@@ -155,6 +155,11 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = this._schema.workflowRuns as any
 
+    // Drizzle's sql template does not qualify column references with table names,
+    // so correlated subqueries must use sql.raw() for the outer table's columns
+    // to avoid ambiguous "id" resolving to the inner table instead of "workflows".
+    const wId = sql.raw('"workflows"."id"')
+
     return this._db
       .select({
         id: w.id,
@@ -170,22 +175,22 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         updatedAt: w.updatedAt,
         deployStatus: sql<
           string | null
-        >`(SELECT ${d.status} FROM ${d} WHERE ${d.workflowId} = ${w.id} ORDER BY ${d.createdAt} DESC LIMIT 1)`.as(
+        >`(SELECT ${d.status} FROM ${d} WHERE ${d.workflowId} = ${wId} ORDER BY ${d.createdAt} DESC LIMIT 1)`.as(
           'deploy_status',
         ),
         deployVersionId: sql<
           string | null
-        >`(SELECT ${d.versionId} FROM ${d} WHERE ${d.workflowId} = ${w.id} ORDER BY ${d.createdAt} DESC LIMIT 1)`.as(
+        >`(SELECT ${d.versionId} FROM ${d} WHERE ${d.workflowId} = ${wId} ORDER BY ${d.createdAt} DESC LIMIT 1)`.as(
           'deploy_version_id',
         ),
         lastRunStatus: sql<
           string | null
-        >`(SELECT ${r.status} FROM ${r} WHERE ${r.workflowId} = ${w.id} ORDER BY ${r.createdAt} DESC LIMIT 1)`.as(
+        >`(SELECT ${r.status} FROM ${r} WHERE ${r.workflowId} = ${wId} ORDER BY ${r.createdAt} DESC LIMIT 1)`.as(
           'last_run_status',
         ),
         lastRunAt: sql<
           string | null
-        >`(SELECT ${r.createdAt} FROM ${r} WHERE ${r.workflowId} = ${w.id} ORDER BY ${r.createdAt} DESC LIMIT 1)`.as(
+        >`(SELECT ${r.createdAt} FROM ${r} WHERE ${r.workflowId} = ${wId} ORDER BY ${r.createdAt} DESC LIMIT 1)`.as(
           'last_run_at',
         ),
       })
