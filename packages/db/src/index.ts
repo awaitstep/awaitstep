@@ -7,6 +7,7 @@ export type {
   ApiKey,
   EnvVar,
   Project,
+  InstalledNode,
 } from './types.js'
 export type {
   DatabaseAdapter,

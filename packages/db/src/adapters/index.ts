@@ -14,6 +14,7 @@ import type {
   ApiKey,
   EnvVar,
   Project,
+  InstalledNode,
 } from '../types.js'
 import type { TokenCrypto } from '../crypto.js'
 import { WorkflowsAdapter } from './workflows.js'
@@ -24,6 +25,7 @@ import { DeploymentsAdapter } from './deployments.js'
 import { ApiKeysAdapter } from './api-keys.js'
 import { EnvVarsAdapter } from './env-vars.js'
 import { ProjectsAdapter } from './projects.js'
+import { InstalledNodesAdapter } from './installed-nodes.js'
 
 export interface SchemaRef {
   workflows: unknown
@@ -34,6 +36,7 @@ export interface SchemaRef {
   apiKeys: unknown
   envVars: unknown
   projects: unknown
+  installedNodes: unknown
   member?: unknown
 }
 
@@ -53,6 +56,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _apiKeys: ApiKeysAdapter
   private _envVars: EnvVarsAdapter
   private _projects: ProjectsAdapter
+  private _installedNodes: InstalledNodesAdapter
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(db: any, schema: SchemaRef, options?: DrizzleAdapterOptions) {
@@ -66,6 +70,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     this._apiKeys = new ApiKeysAdapter(db, schema.apiKeys)
     this._envVars = new EnvVarsAdapter(db, schema.envVars, options?.tokenCrypto, schema.projects)
     this._projects = new ProjectsAdapter(db, schema.projects)
+    this._installedNodes = new InstalledNodesAdapter(db, schema.installedNodes)
   }
 
   // Membership
@@ -508,5 +513,33 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     }
 
     return result
+  }
+
+  // Installed Nodes (Marketplace)
+  installNode(data: {
+    id: string
+    organizationId: string
+    nodeId: string
+    version: string
+    bundle: string
+    installedBy: string
+  }): Promise<InstalledNode> {
+    return this._installedNodes.install(data)
+  }
+  uninstallNode(organizationId: string, nodeId: string): Promise<void> {
+    return this._installedNodes.uninstall(organizationId, nodeId)
+  }
+  listInstalledNodes(organizationId: string): Promise<InstalledNode[]> {
+    return this._installedNodes.listByOrganization(organizationId)
+  }
+  getInstalledNode(organizationId: string, nodeId: string): Promise<InstalledNode | null> {
+    return this._installedNodes.getByOrgAndNodeId(organizationId, nodeId)
+  }
+  updateInstalledNodeBundle(
+    organizationId: string,
+    nodeId: string,
+    data: { version: string; bundle: string },
+  ): Promise<InstalledNode> {
+    return this._installedNodes.updateBundle(organizationId, nodeId, data)
   }
 }

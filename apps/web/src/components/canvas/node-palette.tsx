@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, Store } from 'lucide-react'
 import type { NodeType } from '@awaitstep/ir'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { cn } from '../../lib/utils'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { getNodeVisuals } from '../../lib/node-icon-map'
+import { MarketplaceDialog } from '../marketplace/marketplace-dialog'
 
 const BUILTIN_IDS = new Set([
   'step',
@@ -22,7 +23,8 @@ interface NodePaletteProps {
 
 export function NodePalette({ onAddNode }: NodePaletteProps) {
   const [open, setOpen] = useState(false)
-  const registry = useNodeRegistry()
+  const [marketplaceOpen, setMarketplaceOpen] = useState(false)
+  const { registry } = useNodeRegistry()
   const definitions = registry.getAll()
 
   const onDragStart = (event: React.DragEvent, nodeType: NodeType) => {
@@ -105,8 +107,19 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
               )
             })}
           </div>
+          <div className="mt-1 border-t border-border px-1.5 pt-1.5">
+            <button
+              onClick={() => setMarketplaceOpen(true)}
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+            >
+              <Store className="h-3.5 w-3.5" />
+              Browse Marketplace
+            </button>
+          </div>
         </div>
       )}
+
+      <MarketplaceDialog open={marketplaceOpen} onOpenChange={setMarketplaceOpen} />
     </div>
   )
 }

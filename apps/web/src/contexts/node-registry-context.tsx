@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { NodeRegistry, bundledNodeDefinitions } from '@awaitstep/ir'
 import type { NodeDefinition } from '@awaitstep/ir'
+import { useOrgStore } from '../stores/org-store'
 
 function createDefaultRegistry(): NodeRegistry {
   const registry = new NodeRegistry()
@@ -10,13 +11,23 @@ function createDefaultRegistry(): NodeRegistry {
   return registry
 }
 
-const NodeRegistryContext = createContext<NodeRegistry>(createDefaultRegistry())
+interface NodeRegistryContextValue {
+  registry: NodeRegistry
+  refresh: () => void
+}
+
+const NodeRegistryContext = createContext<NodeRegistryContextValue>({
+  registry: createDefaultRegistry(),
+  refresh: () => {},
+})
 
 export function NodeRegistryProvider({ children }: { children: ReactNode }) {
   const [registry, setRegistry] = useState(createDefaultRegistry)
+  const organizationId = useOrgStore((s) => s.activeOrganizationId)
 
-  useEffect(() => {
-    fetch('/api/nodes', { credentials: 'include' })
+  const fetchNodes = useCallback(() => {
+    const params = organizationId ? `?organizationId=${organizationId}` : ''
+    fetch(`/api/nodes${params}`, { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((definitions: NodeDefinition[] | null) => {
         if (!definitions || definitions.length === 0) return
@@ -30,11 +41,19 @@ export function NodeRegistryProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         // API unavailable — keep using bundled definitions
       })
-  }, [])
+  }, [organizationId])
 
-  return <NodeRegistryContext.Provider value={registry}>{children}</NodeRegistryContext.Provider>
+  useEffect(() => {
+    fetchNodes()
+  }, [fetchNodes])
+
+  return (
+    <NodeRegistryContext.Provider value={{ registry, refresh: fetchNodes }}>
+      {children}
+    </NodeRegistryContext.Provider>
+  )
 }
 
-export function useNodeRegistry(): NodeRegistry {
+export function useNodeRegistry(): NodeRegistryContextValue {
   return useContext(NodeRegistryContext)
 }

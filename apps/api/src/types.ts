@@ -1,6 +1,7 @@
 import type { DatabaseAdapter, Workflow, Connection } from '@awaitstep/db'
 import type { ApiKeyScope } from './middleware/auth.js'
 import type { AppNodeRegistry } from './lib/node-registry.js'
+import type { RemoteNodeRegistry } from './lib/remote-node-registry.js'
 
 export interface AppEnv {
   Variables: {
@@ -15,6 +16,7 @@ export interface AppEnv {
     requestId: string
     apiKeyScopes: ApiKeyScope[] | null
     nodeRegistry: AppNodeRegistry
+    remoteNodeRegistry: RemoteNodeRegistry | undefined
     appName: string | undefined
   }
 }

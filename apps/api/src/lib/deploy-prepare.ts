@@ -2,6 +2,7 @@ import type { WorkflowProvider, ProviderConfig, GeneratedArtifact } from '@await
 import type { WorkflowIR } from '@awaitstep/ir'
 import type { DatabaseAdapter, Workflow } from '@awaitstep/db'
 import type { AppNodeRegistry } from './node-registry.js'
+import { createMergedNodeRegistry } from './node-registry.js'
 import { resolveProvider, validateNodesForProvider } from './provider-resolver.js'
 import { parseDependencies, collectNodeDependencies, mergeDependencies } from './dependencies.js'
 
@@ -34,7 +35,7 @@ interface DeployPrepareInput {
 export async function prepareDeploy(
   input: DeployPrepareInput,
 ): Promise<DeployContext | DeployPrepareError> {
-  const { db, workflow, organizationId, projectId, connectionId, nodeRegistry, appName } = input
+  const { db, workflow, organizationId, projectId, connectionId, appName } = input
 
   // Lock check
   if (await db.isActiveDeploymentLocked(workflow.id)) {
@@ -63,11 +64,23 @@ export async function prepareDeploy(
     return { error: 'Version is locked', status: 400 }
   }
 
+  // Parse IR, then fetch only the installed nodes this workflow actually uses
+  const ir = JSON.parse(version.ir) as WorkflowIR
+  const nodeTypesInIR = new Set(ir.nodes.map((n) => n.type))
+  const missingFromBuiltin = [...nodeTypesInIR].filter((t) => !input.nodeRegistry?.registry.get(t))
+
+  const installedNodes =
+    missingFromBuiltin.length > 0
+      ? (await db.listInstalledNodes(organizationId)).filter((n) =>
+          missingFromBuiltin.includes(n.nodeId),
+        )
+      : []
+  const nodeRegistry = createMergedNodeRegistry(input.nodeRegistry, installedNodes)
+
   // Provider + IR validation
   const adapter = resolveProvider(undefined, {
-    templateResolver: nodeRegistry?.templateResolver,
+    templateResolver: nodeRegistry.templateResolver,
   })
-  const ir = JSON.parse(version.ir) as WorkflowIR
 
   const validation = adapter.validate(ir)
   if (!validation.ok) {

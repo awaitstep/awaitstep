@@ -368,6 +368,41 @@ export const api = {
     return request(withOrg(`/api-keys/${id}`), { method: 'DELETE' })
   },
 
+  // Marketplace (org-scoped)
+
+  browseMarketplace(): Promise<MarketplaceBrowseResponse> {
+    return request(withOrg('/marketplace'))
+  },
+
+  getMarketplaceNode(nodeId: string): Promise<MarketplaceNodeDetail> {
+    return request(withOrg(`/marketplace/${nodeId}`))
+  },
+
+  installNode(nodeId: string, version?: string): Promise<InstalledNodeSummary> {
+    return request(withOrg('/marketplace/install'), {
+      method: 'POST',
+      body: JSON.stringify({ nodeId, version }),
+    })
+  },
+
+  uninstallNode(nodeId: string): Promise<void> {
+    return request(withOrg('/marketplace/uninstall'), {
+      method: 'POST',
+      body: JSON.stringify({ nodeId }),
+    })
+  },
+
+  updateNode(nodeId: string, version?: string): Promise<InstalledNodeSummary> {
+    return request(withOrg('/marketplace/update'), {
+      method: 'POST',
+      body: JSON.stringify({ nodeId, version }),
+    })
+  },
+
+  listInstalledNodes(): Promise<InstalledNodeSummary[]> {
+    return request(withOrg('/marketplace/installed'))
+  },
+
   // Projects (org-scoped)
 
   listProjects(): Promise<ProjectSummary[]> {
@@ -401,5 +436,38 @@ export interface ProjectSummary {
   slug: string
   description?: string | null
   createdAt: string
+  updatedAt: string
+}
+
+export interface MarketplaceNodeEntry {
+  id: string
+  name: string
+  description: string
+  category: string
+  tags: string[]
+  icon?: string
+  author: string
+  license: string
+  providers: string[]
+  latest: string
+  versions: { version: string; publishedAt: string; deprecated?: boolean }[]
+  installed: boolean
+  installedVersion: string | null
+}
+
+export interface MarketplaceBrowseResponse {
+  nodes: MarketplaceNodeEntry[]
+}
+
+export type MarketplaceNodeDetail = MarketplaceNodeEntry
+
+export interface InstalledNodeSummary {
+  id: string
+  organizationId: string
+  nodeId: string
+  version: string
+  bundle: string
+  installedBy: string
+  installedAt: string
   updatedAt: string
 }

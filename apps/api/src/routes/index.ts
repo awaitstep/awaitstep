@@ -15,6 +15,7 @@ import { apiKeys } from './api-keys.js'
 import { envVars } from './env-vars.js'
 import { projects } from './projects.js'
 import { nodes } from './nodes.js'
+import { marketplace } from './marketplace.js'
 import { localDev } from './local-dev.js'
 
 export function createRouter(auth: Auth, options?: { isDev?: boolean }) {
@@ -36,6 +37,8 @@ export function createRouter(auth: Auth, options?: { isDev?: boolean }) {
   router.use('/projects', requireOrganization)
   router.use('/api-keys/*', requireOrganization)
   router.use('/api-keys', requireOrganization)
+  router.use('/marketplace/*', requireOrganization)
+  router.use('/marketplace', requireOrganization)
 
   // Project context — required for project-scoped routes (also sets organizationId)
   router.use('/workflows/*', requireProject)
@@ -102,6 +105,11 @@ export function createRouter(auth: Auth, options?: { isDev?: boolean }) {
   router.post('/workflows/:workflowId/trigger', requireScope('deploy'))
   router.post('/workflows/:workflowId/takedown', requireScope('deploy'))
 
+  // Marketplace write operations require 'write' scope
+  router.post('/marketplace/install', requireScope('write'))
+  router.post('/marketplace/uninstall', requireScope('write'))
+  router.post('/marketplace/update', requireScope('write'))
+
   // Env var write operations require 'write' scope
   router.post('/env-vars', requireScope('write'))
   router.patch('/env-vars/:id', requireScope('write'))
@@ -128,6 +136,7 @@ export function createRouter(auth: Auth, options?: { isDev?: boolean }) {
   router.route('/env-vars', envVars)
   router.route('/projects', projects)
   router.route('/nodes', nodes)
+  router.route('/marketplace', marketplace)
 
   // Global deployments list (across all project's workflows)
   router.get('/deployments', async (c) => {

@@ -36,7 +36,7 @@ export function WorkflowCanvas() {
     selectedEdgeId,
     readOnly,
   } = useWorkflowStore()
-  const registry = useNodeRegistry()
+  const { registry } = useNodeRegistry()
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null)
 
   const validatedSelectNode = useCallback(

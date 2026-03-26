@@ -7,6 +7,7 @@ import type {
   ApiKey,
   EnvVar,
   Project,
+  InstalledNode,
 } from './types.js'
 
 export interface WorkflowWithStatus extends Workflow {
@@ -180,4 +181,22 @@ export interface DatabaseAdapter {
     projectId: string,
     workflowId: string,
   ): Promise<Record<string, ResolvedEnvVar>>
+
+  // Installed Nodes (Marketplace)
+  installNode(data: {
+    id: string
+    organizationId: string
+    nodeId: string
+    version: string
+    bundle: string
+    installedBy: string
+  }): Promise<InstalledNode>
+  uninstallNode(organizationId: string, nodeId: string): Promise<void>
+  listInstalledNodes(organizationId: string): Promise<InstalledNode[]>
+  getInstalledNode(organizationId: string, nodeId: string): Promise<InstalledNode | null>
+  updateInstalledNodeBundle(
+    organizationId: string,
+    nodeId: string,
+    data: { version: string; bundle: string },
+  ): Promise<InstalledNode>
 }

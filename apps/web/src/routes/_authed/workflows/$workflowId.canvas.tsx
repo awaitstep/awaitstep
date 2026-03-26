@@ -59,7 +59,7 @@ function WorkflowEditorPage() {
   const [confirmAction, setConfirmAction] = useState<'switch-template' | null>(null)
 
   const ready = useOrgReady()
-  const nodeRegistry = useNodeRegistry()
+  const { registry: nodeRegistry } = useNodeRegistry()
   const isNew = workflowId === 'new'
 
   const { metadata, nodeCount, showSettings, isDirty } = useWorkflowStore(

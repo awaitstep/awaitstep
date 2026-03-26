@@ -1,0 +1,62 @@
+{
+  "id": "twilio_send_sms",
+  "name": "Twilio Send SMS",
+  "version": "1.0.0",
+  "description": "Sends an SMS message via the Twilio API",
+  "category": "Messaging",
+  "tags": ["sms", "twilio", "messaging"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "to": {
+      "type": "string",
+      "label": "To",
+      "required": true,
+      "placeholder": "+1234567890",
+      "description": "Recipient phone number in E.164 format."
+    },
+    "from": {
+      "type": "string",
+      "label": "From",
+      "required": true,
+      "placeholder": "+1234567890",
+      "description": "Your Twilio phone number in E.164 format."
+    },
+    "body": {
+      "type": "textarea",
+      "label": "Message Body",
+      "required": true,
+      "description": "The text content of the SMS message."
+    },
+    "accountSid": {
+      "type": "secret",
+      "label": "Account SID",
+      "required": true,
+      "envVarName": "TWILIO_ACCOUNT_SID",
+      "description": "Found in your Twilio console dashboard."
+    },
+    "authToken": {
+      "type": "secret",
+      "label": "Auth Token",
+      "required": true,
+      "envVarName": "TWILIO_AUTH_TOKEN",
+      "description": "Found in your Twilio console dashboard."
+    }
+  },
+  "outputSchema": {
+    "sid": {
+      "type": "string",
+      "description": "Twilio message SID"
+    },
+    "status": {
+      "type": "string",
+      "description": "Message status (e.g. queued, sent)"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds",
+    "idempotent": false
+  }
+}

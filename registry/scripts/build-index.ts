@@ -1,0 +1,152 @@
+#!/usr/bin/env npx tsx
+/**
+ * Builds registry/index.json from the registry/nodes/ directory.
+ * Run: npx tsx registry/scripts/build-index.ts
+ */
+
+import { readdir, readFile, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { createHash } from 'node:crypto'
+import { nodeDefinitionSchema } from '@awaitstep/ir'
+import type { NodeDefinition, Provider } from '@awaitstep/ir'
+
+interface RegistryVersionEntry {
+  version: string
+  checksum: string
+  publishedAt: string
+  deprecated?: boolean
+}
+
+interface RegistryNodeEntry {
+  id: string
+  name: string
+  description: string
+  category: string
+  tags: string[]
+  icon?: string
+  author: string
+  license: string
+  providers: Provider[]
+  latest: string
+  versions: RegistryVersionEntry[]
+}
+
+interface RegistryIndex {
+  version: number
+  generatedAt: string
+  nodes: RegistryNodeEntry[]
+}
+
+const NODES_DIR = join(import.meta.dirname, '..', 'nodes')
+
+async function getDirectories(path: string): Promise<string[]> {
+  const entries = await readdir(path, { withFileTypes: true })
+  return entries.filter((e) => e.isDirectory()).map((e) => e.name)
+}
+
+async function buildNodeEntry(nodeId: string): Promise<RegistryNodeEntry> {
+  const nodeDir = join(NODES_DIR, nodeId)
+  const versionDirs = (await getDirectories(nodeDir)).sort()
+
+  if (versionDirs.length === 0) {
+    throw new Error(`Node ${nodeId} has no version directories`)
+  }
+
+  const versions: RegistryVersionEntry[] = []
+  let latestDef: NodeDefinition | null = null
+
+  for (const version of versionDirs) {
+    const versionDir = join(nodeDir, version)
+    const defRaw = await readFile(join(versionDir, 'node.json'), 'utf-8')
+    const parsed = JSON.parse(defRaw)
+
+    // Validate against the shared schema
+    const result = nodeDefinitionSchema.safeParse(parsed)
+    if (!result.success) {
+      const issues = result.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`)
+      throw new Error(`Validation failed for ${nodeId}@${version}:\n${issues.join('\n')}`)
+    }
+    const definition = result.data as NodeDefinition
+
+    if (definition.id !== nodeId) {
+      throw new Error(`Node ID mismatch: directory ${nodeId}, definition ${definition.id}`)
+    }
+    if (definition.version !== version) {
+      throw new Error(
+        `Version mismatch for ${nodeId}: directory ${version}, definition ${definition.version}`,
+      )
+    }
+
+    // Read templates
+    const templates: Partial<Record<Provider, string>> = {}
+    for (const provider of definition.providers) {
+      try {
+        templates[provider] = await readFile(
+          join(versionDir, 'templates', `${provider}.ts`),
+          'utf-8',
+        )
+      } catch {
+        try {
+          templates[provider] = await readFile(join(versionDir, 'template.ts'), 'utf-8')
+        } catch {
+          throw new Error(`No template found for ${nodeId}@${version} provider ${provider}`)
+        }
+      }
+    }
+
+    // Compute checksum (same algorithm as node-cli and remote-node-registry client)
+    const checksumInput = JSON.stringify({ definition, templates })
+    const hash = createHash('sha256').update(checksumInput).digest('hex')
+
+    versions.push({
+      version,
+      checksum: `sha256:${hash}`,
+      publishedAt: new Date().toISOString(),
+      deprecated: definition.deprecated,
+    })
+
+    latestDef = definition
+  }
+
+  const latest = versionDirs[versionDirs.length - 1]
+
+  return {
+    id: nodeId,
+    name: latestDef!.name,
+    description: latestDef!.description,
+    category: latestDef!.category,
+    tags: latestDef!.tags ?? [],
+    icon: latestDef!.icon,
+    author: latestDef!.author,
+    license: latestDef!.license,
+    providers: latestDef!.providers,
+    latest,
+    versions,
+  }
+}
+
+async function main() {
+  const nodeIds = await getDirectories(NODES_DIR)
+  console.log(`Found ${nodeIds.length} nodes: ${nodeIds.join(', ')}`)
+
+  const nodes: RegistryNodeEntry[] = []
+  for (const nodeId of nodeIds.sort()) {
+    console.log(`  Processing ${nodeId}...`)
+    nodes.push(await buildNodeEntry(nodeId))
+  }
+
+  const index: RegistryIndex = {
+    version: 1,
+    generatedAt: new Date().toISOString(),
+    nodes,
+  }
+
+  const outputPath = join(import.meta.dirname, '..', 'index.json')
+  await writeFile(outputPath, JSON.stringify(index, null, 2) + '\n')
+  console.log(`\nWrote index.json with ${nodes.length} nodes`)
+}
+
+main().catch((err) => {
+  console.error(err)
+  process.exit(1)
+})

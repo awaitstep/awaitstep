@@ -9,6 +9,7 @@ import type { AppEnv } from './types.js'
 import type { Auth } from './auth/config.js'
 import type { Logger } from './lib/logger.js'
 import type { AppNodeRegistry } from './lib/node-registry.js'
+import type { RemoteNodeRegistry } from './lib/remote-node-registry.js'
 import { createLogger } from './lib/logger.js'
 import { createRouter } from './routes/index.js'
 import { createRateLimiter } from './middleware/rate-limit.js'
@@ -20,6 +21,7 @@ export interface AppDeps {
   corsOrigin?: string | string[]
   isDev?: boolean
   nodeRegistry?: AppNodeRegistry
+  remoteNodeRegistry?: RemoteNodeRegistry
   appName?: string
 }
 
@@ -92,6 +94,7 @@ export function createApp(deps: AppDeps) {
   app.use('/api/*', async (c, next) => {
     c.set('db', deps.db)
     if (deps.nodeRegistry) c.set('nodeRegistry', deps.nodeRegistry)
+    if (deps.remoteNodeRegistry) c.set('remoteNodeRegistry', deps.remoteNodeRegistry)
     if (deps.appName) c.set('appName', deps.appName)
     await next()
   })

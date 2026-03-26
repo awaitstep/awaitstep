@@ -10,6 +10,7 @@ import { cleanupLocalDevSessions } from '../routes/local-dev.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
 import { createLogger } from '../lib/logger.js'
 import { loadNodeRegistry } from '../lib/node-registry.js'
+import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
 
 const sqlite = new Database('awaitstep.db')
 sqlite.pragma('journal_mode = WAL')
@@ -78,8 +79,25 @@ async function start() {
     logger.warn('Node registry not found — run `pnpm nodes:build` to generate it')
   }
 
+  const registryUrl = process.env['REGISTRY_URL']
+  const remoteNodeRegistry = registryUrl
+    ? createRemoteNodeRegistry({ baseUrl: registryUrl })
+    : undefined
+  if (remoteNodeRegistry) {
+    logger.info(`Remote node registry configured: ${registryUrl}`)
+  }
+
   const appName = process.env['APP_NAME']
-  const app = createApp({ db, auth, logger, corsOrigin, isDev, nodeRegistry, appName })
+  const app = createApp({
+    db,
+    auth,
+    logger,
+    corsOrigin,
+    isDev,
+    nodeRegistry,
+    remoteNodeRegistry,
+    appName,
+  })
 
   const port = Number(process.env['PORT'] ?? 3001)
   logger.info(`API server running on http://localhost:${port}`)

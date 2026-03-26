@@ -1,18 +1,37 @@
 import { Hono } from 'hono'
 import type { AppEnv } from '../types.js'
+import { createMergedNodeRegistry } from '../lib/node-registry.js'
 
 export const nodes = new Hono<AppEnv>()
 
-nodes.get('/', (c) => {
+nodes.get('/', async (c) => {
   const nodeRegistry = c.get('nodeRegistry')
-  if (!nodeRegistry) return c.json([])
-  return c.json(nodeRegistry.registry.getAll())
+  const db = c.get('db')
+  const organizationId = c.req.query('organizationId')
+
+  if (!organizationId) {
+    if (!nodeRegistry) return c.json([])
+    return c.json(nodeRegistry.registry.getAll())
+  }
+
+  const installed = await db.listInstalledNodes(organizationId)
+  const merged = createMergedNodeRegistry(nodeRegistry, installed)
+  return c.json(merged.registry.getAll())
 })
 
-nodes.get('/templates', (c) => {
+nodes.get('/templates', async (c) => {
   const nodeRegistry = c.get('nodeRegistry')
-  if (!nodeRegistry) return c.json({})
-  return c.json(nodeRegistry.templates)
+  const db = c.get('db')
+  const organizationId = c.req.query('organizationId')
+
+  if (!organizationId) {
+    if (!nodeRegistry) return c.json({})
+    return c.json(nodeRegistry.templates)
+  }
+
+  const installed = await db.listInstalledNodes(organizationId)
+  const merged = createMergedNodeRegistry(nodeRegistry, installed)
+  return c.json(merged.templates)
 })
 
 nodes.get('/:nodeId', (c) => {

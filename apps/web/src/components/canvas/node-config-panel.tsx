@@ -63,7 +63,7 @@ export function NodeConfigPanel() {
     useShallow((s) => ({ selectedNodeId: s.selectedNodeId, nodes: s.nodes })),
   )
   const { updateNodeData, removeNode, selectNode } = useWorkflowStore()
-  const registry = useNodeRegistry()
+  const { registry } = useNodeRegistry()
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId)
   const irNode = selectedNode?.data.irNode ?? null

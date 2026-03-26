@@ -1,0 +1,57 @@
+name: Build Registry Index
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'registry/nodes/**'
+
+jobs:
+  build-index:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build registry index
+        run: pnpm registry:build
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet registry/index.json 2>/dev/null; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create PR with updated index
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="chore/registry-index-$(date +%s)"
+          git checkout -b "$BRANCH"
+          git add registry/index.json
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: rebuild registry index"
+          git push origin "$BRANCH"
+          gh pr create \
+            --title "chore: rebuild registry index" \
+            --body "Auto-generated from registry/nodes changes." \
+            --base main \
+            --head "$BRANCH"
+          gh pr merge "$BRANCH" --auto --squash
