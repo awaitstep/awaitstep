@@ -15,7 +15,6 @@ export class VersionsAdapter {
     workflowId: string
     version: number
     ir: string
-    generatedCode?: string
   }): Promise<WorkflowVersion> {
     const now = new Date().toISOString()
     const row = {
@@ -23,7 +22,6 @@ export class VersionsAdapter {
       workflowId: data.workflowId,
       version: data.version,
       ir: data.ir,
-      generatedCode: data.generatedCode ?? null,
       locked: 0,
       createdAt: now,
     }
@@ -52,10 +50,7 @@ export class VersionsAdapter {
       .orderBy(desc(this.table.version))
   }
 
-  async update(
-    id: string,
-    data: { ir?: string; generatedCode?: string; locked?: number },
-  ): Promise<void> {
+  async update(id: string, data: { ir?: string; locked?: number }): Promise<void> {
     await this.db.update(this.table).set(data).where(eq(this.table.id, id))
   }
 

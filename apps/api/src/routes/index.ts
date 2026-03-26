@@ -15,8 +15,9 @@ import { apiKeys } from './api-keys.js'
 import { envVars } from './env-vars.js'
 import { projects } from './projects.js'
 import { nodes } from './nodes.js'
+import { localDev } from './local-dev.js'
 
-export function createRouter(auth: Auth) {
+export function createRouter(auth: Auth, options?: { isDev?: boolean }) {
   const router = new Hono<AppEnv>()
 
   // Global rate limit — 200 requests per minute per IP
@@ -109,6 +110,12 @@ export function createRouter(auth: Auth) {
   // API key management is session-only (no API key auth)
   router.use('/api-keys/*', requireSessionAuth)
   router.use('/api-keys', requireSessionAuth)
+
+  // Local dev routes (dev-only)
+  if (options?.isDev) {
+    router.use('/workflows/:workflowId/local-dev/*', requireWorkflowAccess)
+    router.route('/workflows', localDev)
+  }
 
   // Routes
   router.route('/workflows', workflows)

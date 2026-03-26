@@ -4,15 +4,19 @@ import { transpileToJS } from '@awaitstep/codegen/transpile'
 import { generateWorkflow } from './codegen/generate.js'
 import type {
   WorkflowProvider,
+  LocalDevProvider,
   CredentialsCheckResult,
   GeneratedArtifact,
   DeployResult,
   ProviderConfig,
   WorkflowRunStatus,
   WorkflowStatus,
+  LocalDevSession,
+  LocalDevOptions,
   TemplateResolver,
 } from '@awaitstep/codegen'
 import { deployWithWrangler, deleteWorker } from './deploy.js'
+import { startLocalDev } from './local-dev.js'
 import { sanitizedWorkflowName } from './naming.js'
 import { CloudflareAPI } from './api.js'
 
@@ -51,7 +55,7 @@ export interface DeployProgress {
 
 export type OnDeployProgress = (progress: DeployProgress) => void
 
-export class CloudflareWorkflowsAdapter implements WorkflowProvider {
+export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevProvider {
   readonly name = 'cloudflare-workflows'
   private templateResolver?: TemplateResolver
 
@@ -200,6 +204,14 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider {
   ): Promise<{ success: boolean; error?: string }> {
     const { accountId, apiToken } = extractCredentials(config)
     return deleteWorker(deploymentId, { accountId, apiToken })
+  }
+
+  async startLocalDev(
+    artifact: GeneratedArtifact,
+    options: LocalDevOptions,
+  ): Promise<LocalDevSession> {
+    const compiled = await transpileToJS(artifact.source)
+    return startLocalDev({ filename: 'worker.js', source: artifact.source, compiled }, options)
   }
 }
 

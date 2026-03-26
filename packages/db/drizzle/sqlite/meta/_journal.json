@@ -15,6 +15,13 @@
       "when": 1774138534502,
       "tag": "0001_goofy_dorian_gray",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1774479187349,
+      "tag": "0002_curious_mercury",
+      "breakpoints": true
     }
   ]
 }

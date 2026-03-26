@@ -1,5 +1,12 @@
 import type { WorkflowIR, ValidationError, Result } from '@awaitstep/ir'
-import type { GeneratedArtifact, DeployResult, ProviderConfig, WorkflowRunStatus } from './types.js'
+import type {
+  GeneratedArtifact,
+  DeployResult,
+  ProviderConfig,
+  WorkflowRunStatus,
+  LocalDevSession,
+  LocalDevOptions,
+} from './types.js'
 
 export interface CredentialsCheckResult {
   valid: boolean
@@ -29,4 +36,17 @@ export interface WorkflowProvider {
     deploymentId: string,
     config: ProviderConfig,
   ): Promise<{ success: boolean; error?: string }>
+}
+
+export interface LocalDevProvider {
+  startLocalDev(artifact: GeneratedArtifact, options: LocalDevOptions): Promise<LocalDevSession>
+}
+
+export function supportsLocalDev(
+  provider: WorkflowProvider,
+): provider is WorkflowProvider & LocalDevProvider {
+  return (
+    'startLocalDev' in provider &&
+    typeof (provider as LocalDevProvider).startLocalDev === 'function'
+  )
 }

@@ -59,7 +59,6 @@ export interface WorkflowVersion {
   workflowId: string
   version: number
   ir: string
-  generatedCode: string
   locked: number
   createdAt: string
 }
@@ -289,6 +288,48 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     })
+  },
+
+  // Local dev
+  startLocalDev(
+    workflowId: string,
+    options?: { port?: number },
+  ): Promise<{ status: string; port: number; url: string; pid: number }> {
+    return request(withProject(`/workflows/${workflowId}/local-dev/start`), {
+      method: 'POST',
+      body: JSON.stringify(options ?? {}),
+    })
+  },
+
+  stopLocalDev(workflowId: string): Promise<{ status: string }> {
+    return request(withProject(`/workflows/${workflowId}/local-dev/stop`), { method: 'POST' })
+  },
+
+  triggerLocalDev(workflowId: string, params?: unknown): Promise<unknown> {
+    return request(withProject(`/workflows/${workflowId}/local-dev/trigger`), {
+      method: 'POST',
+      body: JSON.stringify(params ?? {}),
+    })
+  },
+
+  getLocalDevStatus(
+    workflowId: string,
+  ): Promise<{ active: boolean; port?: number; url?: string; pid?: number }> {
+    return request(withProject(`/workflows/${workflowId}/local-dev/status`))
+  },
+
+  getLocalDevInstance(workflowId: string, instanceId: string): Promise<unknown> {
+    return request(
+      withProject(`/workflows/${workflowId}/local-dev/instance/${encodeURIComponent(instanceId)}`),
+    )
+  },
+
+  getLocalDevLogs(
+    workflowId: string,
+    since?: number,
+  ): Promise<{ timestamp: number; stream: 'stdout' | 'stderr'; text: string }[]> {
+    const params = since ? `?since=${since}` : ''
+    return request(withProject(`/workflows/${workflowId}/local-dev/logs${params}`))
   },
 
   listEnvVars(): Promise<EnvVarSummary[]> {

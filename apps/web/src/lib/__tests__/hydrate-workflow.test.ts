@@ -33,7 +33,6 @@ const baseVersion: WorkflowVersion = {
     ],
     edges: [{ id: 'e1', source: 'n1', target: 'n2' }],
   }),
-  generatedCode: '',
   locked: 0,
   createdAt: '2025-01-01',
 }
