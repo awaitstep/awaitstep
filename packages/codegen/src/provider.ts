@@ -37,3 +37,16 @@ export interface WorkflowProvider {
     config: ProviderConfig,
   ): Promise<{ success: boolean; error?: string }>
 }
+
+export interface LocalDevProvider {
+  startLocalDev(artifact: GeneratedArtifact, options: LocalDevOptions): Promise<LocalDevSession>
+}
+
+export function supportsLocalDev(
+  provider: WorkflowProvider,
+): provider is WorkflowProvider & LocalDevProvider {
+  return (
+    'startLocalDev' in provider &&
+    typeof (provider as LocalDevProvider).startLocalDev === 'function'
+  )
+}

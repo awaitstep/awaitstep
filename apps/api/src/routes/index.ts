@@ -17,7 +17,7 @@ import { projects } from './projects.js'
 import { nodes } from './nodes.js'
 import { localDev } from './local-dev.js'
 
-export function createRouter(auth: Auth) {
+export function createRouter(auth: Auth, options?: { isDev?: boolean }) {
   const router = new Hono<AppEnv>()
 
   // Global rate limit — 200 requests per minute per IP

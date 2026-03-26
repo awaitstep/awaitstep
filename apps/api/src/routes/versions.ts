@@ -41,8 +41,6 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
   }
 
   const irString = JSON.stringify(body.ir)
-  const templateResolver = c.get('nodeRegistry')?.templateResolver
-  const generatedCode = generateWorkflow(body.ir as WorkflowIR, templateResolver)
 
   const existing = await db.listVersionsByWorkflow(workflowId)
   const latest = existing[0] // ordered by descending version number
@@ -60,7 +58,7 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
       if (latest.ir === irString) {
         return c.json(latest, 200)
       }
-      await db.updateVersion(latest.id, { ir: irString, generatedCode })
+      await db.updateVersion(latest.id, { ir: irString })
       const updated = await db.getWorkflowVersionById(latest.id)
       return c.json(updated, 200)
     }
@@ -79,7 +77,6 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
     workflowId,
     version: nextVersion,
     ir: irString,
-    generatedCode,
   })
 
   await db.updateWorkflow(workflowId, { currentVersionId: version.id })
