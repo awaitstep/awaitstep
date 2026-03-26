@@ -126,7 +126,6 @@ const mockDb: DatabaseAdapter = {
   async createVersion(data) {
     const v: WorkflowVersion = {
       ...data,
-      generatedCode: data.generatedCode ?? null,
       locked: 0,
       createdAt: now(),
     }

@@ -59,7 +59,6 @@ export interface WorkflowVersion {
   workflowId: string
   version: number
   ir: string
-  generatedCode: string
   locked: number
   createdAt: string
 }

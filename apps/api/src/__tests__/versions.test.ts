@@ -57,7 +57,7 @@ describe('version routes', () => {
   })
 
   describe('POST /api/workflows/:workflowId/versions', () => {
-    it('creates a version with generated code', async () => {
+    it('creates a version with IR only', async () => {
       const res = await app.request(url('/api/workflows/wf-1/versions'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -67,7 +67,7 @@ describe('version routes', () => {
       const body = await res.json()
       expect(body.version).toBe(1)
       expect(body.workflowId).toBe('wf-1')
-      expect(body.generatedCode).toContain('WorkflowEntrypoint')
+      expect(body.ir).toBeDefined()
     })
 
     it('returns existing version when IR has not changed', async () => {

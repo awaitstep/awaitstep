@@ -10,7 +10,6 @@ export const workflowVersions = sqliteTable(
       .references(() => workflows.id, { onDelete: 'cascade' }),
     version: integer('version').notNull(),
     ir: text('ir').notNull(),
-    generatedCode: text('generated_code'),
     locked: integer('locked').notNull().default(0),
     createdAt: text('created_at').notNull(),
   },
