@@ -54,6 +54,7 @@ function WorkflowEditorPage() {
     from: '/_authed/workflows/$workflowId/canvas',
   })
   const [showEditor, setShowEditor] = useState(false)
+  const [showLocalTest, setShowLocalTest] = useState(false)
   const [showTemplatePicker, setShowTemplatePicker] = useState(template)
   const [confirmAction, setConfirmAction] = useState<'switch-template' | null>(null)
 
@@ -183,6 +184,7 @@ function WorkflowEditorPage() {
               isSaving={isSaving}
               onDeploy={handleDeploy}
               onTest={() => runSimulation()}
+              onTestLocally={() => setShowLocalTest((v) => !v)}
               onOpenTemplatePicker={() => {
                 if (nodeCount > 0) {
                   setConfirmAction('switch-template')
@@ -204,7 +206,13 @@ function WorkflowEditorPage() {
                 <TemplatePicker onDismiss={() => setShowTemplatePicker(false)} />
               )}
               <SimulationPanel />
-              <CanvasSidePanels showEditor={showEditor} LazyEditorPanel={LazyEditorPanel} />
+              <CanvasSidePanels
+                showEditor={showEditor}
+                showLocalTest={showLocalTest && !isNew}
+                onCloseLocalTest={() => setShowLocalTest(false)}
+                workflowId={workflowId}
+                LazyEditorPanel={LazyEditorPanel}
+              />
             </div>
           </div>
           <EditorDialogs

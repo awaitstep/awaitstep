@@ -6,6 +6,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { DrizzleDatabaseAdapter, schema } from '@awaitstep/db'
 import { createApp, createAuth } from '../index.js'
+import { cleanupLocalDevSessions } from '../routes/local-dev.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
 import { createLogger } from '../lib/logger.js'
 import { loadNodeRegistry } from '../lib/node-registry.js'
@@ -84,6 +85,16 @@ async function start() {
   logger.info(`API server running on http://localhost:${port}`)
 
   serve({ fetch: app.fetch, port })
+
+  // Clean up local dev sessions on shutdown
+  process.on('SIGTERM', async () => {
+    await cleanupLocalDevSessions()
+    process.exit(0)
+  })
+  process.on('SIGINT', async () => {
+    await cleanupLocalDevSessions()
+    process.exit(0)
+  })
 }
 
 start()

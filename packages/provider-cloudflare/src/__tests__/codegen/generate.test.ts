@@ -42,7 +42,8 @@ describe('generateWorkflow', () => {
           const url = new URL(request.url);
 
           if (request.method === "POST") {
-            const instance = await env.WORKFLOW.create();
+            const params = await request.json().catch(() => undefined);
+            const instance = await env.WORKFLOW.create({ params });
             return Response.json({ instanceId: instance.id });
           }
 
@@ -105,7 +106,7 @@ describe('generateWorkflow', () => {
     const code = generateWorkflow(simpleWorkflow as unknown as WorkflowIR)
     expect(code).toContain('async fetch(request: Request, env: Env): Promise<Response>')
     expect(code).toContain('request.method === "POST"')
-    expect(code).toContain('env.WORKFLOW.create()')
+    expect(code).toContain('env.WORKFLOW.create({ params })')
     expect(code).toContain('env.WORKFLOW.get(instanceId)')
     expect(code).toContain('instance.status()')
   })

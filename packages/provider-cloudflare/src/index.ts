@@ -20,6 +20,7 @@ export type { DeployOptions, WranglerDeployResult } from './deploy.js'
 export { workerName, workflowClassName, sanitizedWorkflowName } from './naming.js'
 export { generateWranglerConfig, WRANGLER_BASE_CONFIG } from './wrangler-config.js'
 export type { WranglerWorkflowConfig } from './wrangler-config.js'
+export { startLocalDev } from './local-dev.js'
 export { CloudflareResourcesAPI } from './resources.js'
 export type {
   KVNamespace,

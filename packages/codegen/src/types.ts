@@ -19,6 +19,29 @@ export interface DeployResult {
   error?: string
 }
 
+export interface LocalDevSession {
+  port: number
+  url: string
+  pid: number
+  stop: () => Promise<void>
+  getLogs: (since?: number) => LocalDevLogEntry[]
+}
+
+export interface LocalDevLogEntry {
+  timestamp: number
+  stream: 'stdout' | 'stderr'
+  text: string
+}
+
+export interface LocalDevOptions {
+  workflowId: string
+  workflowName: string
+  port?: number
+  vars?: Record<string, string>
+  secrets?: Record<string, string>
+  dependencies?: Record<string, string>
+}
+
 export type WorkflowStatus =
   | 'queued'
   | 'running'

@@ -21,7 +21,8 @@ import { hasTemplateExpressions } from './generators/state-tracking.js'
 export const DEFAULT_TRIGGER_CODE = `const url = new URL(request.url);
 
 if (request.method === "POST") {
-  const instance = await env.WORKFLOW.create();
+  const params = await request.json().catch(() => undefined);
+  const instance = await env.WORKFLOW.create({ params });
   return Response.json({ instanceId: instance.id });
 }
 

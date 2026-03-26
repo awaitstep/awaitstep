@@ -97,7 +97,7 @@ export function createApp(deps: AppDeps) {
   })
 
   // Routes (auth + ownership middleware registered inside)
-  app.route('/api', createRouter(deps.auth))
+  app.route('/api', createRouter(deps.auth, { isDev: deps.isDev }))
 
   // Error handler
   app.onError((err, c) => {

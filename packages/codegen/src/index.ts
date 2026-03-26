@@ -4,9 +4,13 @@ export type {
   DeployResult,
   WorkflowStatus,
   WorkflowRunStatus,
+  LocalDevSession,
+  LocalDevLogEntry,
+  LocalDevOptions,
 } from './types.js'
 
-export type { WorkflowProvider, CredentialsCheckResult } from './provider.js'
+export type { WorkflowProvider, CredentialsCheckResult, LocalDevProvider } from './provider.js'
+export { supportsLocalDev } from './provider.js'
 export type { CodeGenerator } from './code-generator.js'
 export type { TemplateResolver } from './template-resolver.js'
 

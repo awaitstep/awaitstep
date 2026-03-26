@@ -10,6 +10,7 @@ import {
   Save,
   Circle,
   LayoutTemplate,
+  Terminal,
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { cn } from '../../lib/utils'
@@ -32,6 +33,7 @@ export interface EditorToolbarProps {
   isSaving: boolean
   onDeploy: () => void
   onTest: () => void
+  onTestLocally?: () => void
   onOpenTemplatePicker: () => void
   readOnly?: boolean
   readOnlyVersion?: number
@@ -55,6 +57,7 @@ export function EditorToolbar({
   isSaving,
   onDeploy,
   onTest,
+  onTestLocally,
   onOpenTemplatePicker,
   readOnly,
   readOnlyVersion,
@@ -187,6 +190,17 @@ export function EditorToolbar({
               <Play className="h-3.5 w-3.5" />
               <span className="text-xs">Test</span>
             </Button>
+            {onTestLocally && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 px-2.5 text-muted-foreground hover:text-foreground/80"
+                onClick={onTestLocally}
+              >
+                <Terminal className="h-3.5 w-3.5" />
+                <span className="text-xs">Local</span>
+              </Button>
+            )}
             <Button size="sm" className="h-8 gap-1.5 px-3" onClick={onDeploy}>
               <Rocket className="h-3.5 w-3.5" />
               <span className="text-xs">Deploy</span>
