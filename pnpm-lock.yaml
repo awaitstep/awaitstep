@@ -7,9 +7,6 @@ settings:
 overrides:
   h3: '>=2.0.1-rc.19'
   h3-v2: npm:h3@>=2.0.1-rc.19
-  picomatch: '>=4.0.4'
-  srvx: '>=0.11.13'
-  brace-expansion: '>=5.0.5'
 
 importers:
 
@@ -3728,6 +3725,11 @@ packages:
     engines: {node: '>=20.16.0'}
     hasBin: true
 
+  srvx@0.11.9:
+    resolution: {integrity: sha512-97wWJS6F0KTKAhDlHVmBzMvlBOp5FiNp3XrLoodIgYJpXxgG5tE9rX4Pg7s46n2shI4wtEsMATTS1+rI3/ubzA==}
+    engines: {node: '>=20.16.0'}
+    hasBin: true
+
   stackback@0.0.2:
     resolution: {integrity: sha512-1XMJE5fQo1jGH6Y/7ebnwPOBEkIEnT4QF32d5R1+VXdXveM0IBMJt8zfaxX1P3QhVwrYe+576+jkANtSS2mBbw==}
 
@@ -7182,6 +7184,8 @@ snapshots:
       memory-pager: 1.5.0
 
   srvx@0.11.13: {}
+
+  srvx@0.11.9: {}
 
   stackback@0.0.2: {}
 

@@ -14,13 +14,7 @@ interface CanvasSidePanelsProps {
   LazyEditorPanel: React.LazyExoticComponent<React.ComponentType>
 }
 
-export function CanvasSidePanels({
-  showEditor,
-  showLocalTest,
-  onCloseLocalTest,
-  workflowId,
-  LazyEditorPanel,
-}: CanvasSidePanelsProps) {
+export function CanvasSidePanels({ showEditor, LazyEditorPanel }: CanvasSidePanelsProps) {
   const { showSettings, selectedNodeId } = useWorkflowStore(
     useShallow((s) => ({ showSettings: s.showSettings, selectedNodeId: s.selectedNodeId })),
   )

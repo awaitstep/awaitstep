@@ -206,13 +206,7 @@ function WorkflowEditorPage() {
                 <TemplatePicker onDismiss={() => setShowTemplatePicker(false)} />
               )}
               <SimulationPanel />
-              <CanvasSidePanels
-                showEditor={showEditor}
-                showLocalTest={showLocalTest && !isNew}
-                onCloseLocalTest={() => setShowLocalTest(false)}
-                workflowId={workflowId}
-                LazyEditorPanel={LazyEditorPanel}
-              />
+              <CanvasSidePanels showEditor={showEditor} LazyEditorPanel={LazyEditorPanel} />
             </div>
           </div>
           <EditorDialogs

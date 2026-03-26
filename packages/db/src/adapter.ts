@@ -79,11 +79,15 @@ export interface DatabaseAdapter {
     workflowId: string
     version: number
     ir: string
+    generatedCode?: string
   }): Promise<WorkflowVersion>
   getWorkflowVersionById(id: string): Promise<WorkflowVersion | null>
   getNextVersionNumber(workflowId: string): Promise<number>
   listVersionsByWorkflow(workflowId: string): Promise<WorkflowVersion[]>
-  updateVersion(id: string, data: { ir?: string; locked?: number }): Promise<void>
+  updateVersion(
+    id: string,
+    data: { ir?: string; generatedCode?: string; locked?: number },
+  ): Promise<void>
   deleteVersion(id: string): Promise<void>
 
   // Connections

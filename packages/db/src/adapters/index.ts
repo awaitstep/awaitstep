@@ -222,6 +222,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     workflowId: string
     version: number
     ir: string
+    generatedCode?: string
   }): Promise<WorkflowVersion> {
     return this._versions.create(data)
   }
@@ -235,7 +236,10 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   listVersionsByWorkflow(workflowId: string): Promise<WorkflowVersion[]> {
     return this._versions.listByWorkflow(workflowId)
   }
-  updateVersion(id: string, data: { ir?: string; locked?: number }): Promise<void> {
+  updateVersion(
+    id: string,
+    data: { ir?: string; generatedCode?: string; locked?: number },
+  ): Promise<void> {
     return this._versions.update(id, data)
   }
   deleteVersion(id: string): Promise<void> {
