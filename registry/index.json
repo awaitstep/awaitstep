@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-03-27T07:17:58.291Z",
+  "generatedAt": "2026-03-27T23:20:39.668Z",
   "nodes": [
     {
       "id": "airtable",
@@ -8,7 +8,7 @@
       "description": "Create, read, update, and list records in Airtable bases",
       "category": "Database",
       "tags": ["airtable", "database", "records", "spreadsheet"],
-      "icon": "https://cdn.simpleicons.org/airtable",
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/airtable/icon.svg",
       "author": "awaitstep",
       "license": "Apache-2.0",
       "providers": ["cloudflare"],
@@ -16,8 +16,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:38f5e060e0cf6f750964c2035074c49ec2cbae0c7afdbb0d236a34e8439f988a",
-          "publishedAt": "2026-03-27T07:17:58.269Z"
+          "checksum": "sha256:ada7dbdde706fbc0da34b3583ab332a06942b721da6620fa9a4d750531be38a0",
+          "publishedAt": "2026-03-27T23:20:39.654Z"
         }
       ]
     },
@@ -27,7 +27,7 @@
       "description": "Generate text with Anthropic Claude models via the Messages API",
       "category": "AI",
       "tags": ["anthropic", "ai", "claude", "llm"],
-      "icon": "https://cdn.simpleicons.org/anthropic",
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/anthropic/icon.svg",
       "author": "awaitstep",
       "license": "Apache-2.0",
       "providers": ["cloudflare"],
@@ -35,8 +35,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:b3e3eff6ad29f6f750926a25147425aaaeb440ae570eb6f6a223c36a0623f364",
-          "publishedAt": "2026-03-27T07:17:58.270Z"
+          "checksum": "sha256:5828db2bfebae9bd3e0a8b62c2c5a54ac3c1f1dd7273e0df2428a7ac2a67a913",
+          "publishedAt": "2026-03-27T23:20:39.655Z"
         }
       ]
     },
@@ -46,7 +46,7 @@
       "description": "Send, edit, and delete messages via Discord webhooks and bot API",
       "category": "Messaging",
       "tags": ["discord", "messaging", "webhooks", "bot"],
-      "icon": "https://cdn.simpleicons.org/discord",
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/discord/icon.svg",
       "author": "awaitstep",
       "license": "Apache-2.0",
       "providers": ["cloudflare"],
@@ -54,8 +54,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:4257bd267fc5d049f2aedadbda7a223a6fe6946368e7a0def545e3ef7b1dde28",
-          "publishedAt": "2026-03-27T07:17:58.271Z"
+          "checksum": "sha256:970b8bf8d7cb8514ccf0d05075659ebda6631de9f40001c3c6cdfe20aa25728a",
+          "publishedAt": "2026-03-27T23:20:39.656Z"
         }
       ]
     },
@@ -65,7 +65,7 @@
       "description": "Interact with GitHub issues and comments via the REST API",
       "category": "Utilities",
       "tags": ["github", "issues", "comments", "repositories"],
-      "icon": "https://cdn.simpleicons.org/github",
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/github/icon.svg",
       "author": "awaitstep",
       "license": "Apache-2.0",
       "providers": ["cloudflare"],
@@ -73,8 +73,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:051371d9bc39d8b238522552bb76690a7b5f37199ad296ae50a3e967f4d67dc9",
-          "publishedAt": "2026-03-27T07:17:58.272Z"
+          "checksum": "sha256:ffd47c65737214be560ac589e0f7d468bdf8a3cc321419a4fe07025e92633eed",
+          "publishedAt": "2026-03-27T23:20:39.657Z"
         }
       ]
     },
@@ -84,7 +84,7 @@
       "description": "Manage contacts in HubSpot CRM via the v3 API",
       "category": "Data",
       "tags": ["hubspot", "crm", "contacts", "sales"],
-      "icon": "https://cdn.simpleicons.org/hubspot",
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/hubspot/icon.svg",
       "author": "awaitstep",
       "license": "Apache-2.0",
       "providers": ["cloudflare"],
@@ -92,8 +92,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:6a1bccaae98952e8bc97de8e0c9cb67ea392cc2b42334583cb3ef3ad2e507ee1",
-          "publishedAt": "2026-03-27T07:17:58.273Z"
+          "checksum": "sha256:a4a922bb113594f12d86f5cefc6360d289d0220a1b0f0bb50ce52d16883fd939",
+          "publishedAt": "2026-03-27T23:20:39.658Z"
         }
       ]
     },
@@ -103,7 +103,7 @@
       "description": "Create and manage issues, comments, and transitions in Jira",
       "category": "Utilities",
       "tags": ["jira", "issues", "project-management", "atlassian"],
-      "icon": "https://cdn.simpleicons.org/jira",
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/jira/icon.svg",
       "author": "awaitstep",
       "license": "Apache-2.0",
       "providers": ["cloudflare"],
@@ -111,8 +111,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:b4931c5b45087dd78395461e6286466fef6c9ba4efc4b7742c14d8ca0c1689f1",
-          "publishedAt": "2026-03-27T07:17:58.274Z"
+          "checksum": "sha256:f87262864bcbcbf22ccd8177853601ac54ccb6121384658dc28ba99fb3df31fb",
+          "publishedAt": "2026-03-27T23:20:39.659Z"
         }
       ]
     },
@@ -122,7 +122,7 @@
       "description": "Create, read, update, and list issues in Linear via GraphQL",
       "category": "Utilities",
       "tags": ["linear", "issues", "project-management", "graphql"],
-      "icon": "https://cdn.simpleicons.org/linear",
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/linear/icon.svg",
       "author": "awaitstep",
       "license": "Apache-2.0",
       "providers": ["cloudflare"],
@@ -130,8 +130,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:829aec5ad55b3fecf8152aa17fe112b60a04ea6f3bf10965ad3f84ab20e64990",
-          "publishedAt": "2026-03-27T07:17:58.275Z"
+          "checksum": "sha256:0e5c7a80ed14501a21b888ff6ad948ad15ec19b519476fbd0b69d4267986bac2",
+          "publishedAt": "2026-03-27T23:20:39.660Z"
         }
       ]
     },
@@ -141,7 +141,7 @@
       "description": "Create, read, update pages and query databases in Notion",
       "category": "Data",
       "tags": ["notion", "database", "pages", "productivity"],
-      "icon": "https://cdn.simpleicons.org/notion",
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/notion/icon.svg",
       "author": "awaitstep",
       "license": "Apache-2.0",
       "providers": ["cloudflare"],
@@ -149,8 +149,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:ba36f55193e25a5db20b40da346f466458b26a68cb007879e161c509b9f97b70",
-          "publishedAt": "2026-03-27T07:17:58.276Z"
+          "checksum": "sha256:91b2cca9d5ef364c01e346c58a0724418d9ae1688a9f1ba36d2518eea6b81ab0",
+          "publishedAt": "2026-03-27T23:20:39.661Z"
         }
       ]
     },
@@ -160,7 +160,7 @@
       "description": "Generate text, embeddings, images, and moderate content with OpenAI APIs",
       "category": "AI",
       "tags": ["openai", "ai", "gpt", "embeddings", "images", "moderation"],
-      "icon": "https://cdn.simpleicons.org/openai",
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/openai/icon.svg",
       "author": "awaitstep",
       "license": "Apache-2.0",
       "providers": ["cloudflare"],
@@ -168,8 +168,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:8cbaf1530e1d21266847f8850d37ed447178e8876cf8c9251b72108757b17a42",
-          "publishedAt": "2026-03-27T07:17:58.277Z"
+          "checksum": "sha256:d4a901f3c71af4dfea21368f7ecef502bfdac79093abe2962d187f4a3fbf9164",
+          "publishedAt": "2026-03-27T23:20:39.662Z"
         }
       ]
     },
@@ -179,7 +179,7 @@
       "description": "Send, retrieve, and cancel emails via the Resend API",
       "category": "Email",
       "tags": ["resend", "email", "transactional"],
-      "icon": "https://cdn.simpleicons.org/resend",
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/resend/icon.svg",
       "author": "awaitstep",
       "license": "Apache-2.0",
       "providers": ["cloudflare"],
@@ -187,8 +187,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:6fdfbdbcb43adda67943f125e8ae2069e74aa4a55b8ed6e9492d2080a930b295",
-          "publishedAt": "2026-03-27T07:17:58.286Z"
+          "checksum": "sha256:370912e259d81d421718ca955f72cab38c855de3bdbfa9c568899b60e5ace918",
+          "publishedAt": "2026-03-27T23:20:39.663Z"
         }
       ]
     },
@@ -198,7 +198,7 @@
       "description": "Send transactional and template emails via the SendGrid API",
       "category": "Email",
       "tags": ["sendgrid", "email", "transactional", "templates"],
-      "icon": "https://cdn.simpleicons.org/sendgrid",
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/sendgrid/icon.svg",
       "author": "awaitstep",
       "license": "Apache-2.0",
       "providers": ["cloudflare"],
@@ -206,8 +206,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:d16a60bfd92edc5bb0ef23c8ae27ed54762a8d51facb603533582d90352ff369",
-          "publishedAt": "2026-03-27T07:17:58.286Z"
+          "checksum": "sha256:8b70e131fd4ffcf6eb77c85d4e37a395e0de0e14226cef4c5ac916c1c5671113",
+          "publishedAt": "2026-03-27T23:20:39.664Z"
         }
       ]
     },
@@ -217,7 +217,7 @@
       "description": "Interact with the Slack API for messaging and channels",
       "category": "Messaging",
       "tags": ["slack", "messaging", "chat", "notifications"],
-      "icon": "https://cdn.simpleicons.org/slack",
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/slack/icon.svg",
       "author": "awaitstep",
       "license": "Apache-2.0",
       "providers": ["cloudflare"],
@@ -225,8 +225,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:a89daa93eaa3e64228632ff82ac922d5a93887bc587e429728224b3ece989cf7",
-          "publishedAt": "2026-03-27T07:17:58.287Z"
+          "checksum": "sha256:8b1012ea04aa239d8885ce82537567c748e32c1344fa47a45a3878c0081b2ea1",
+          "publishedAt": "2026-03-27T23:20:39.665Z"
         }
       ]
     },
@@ -236,7 +236,7 @@
       "description": "Interact with the Stripe API for payments and customers",
       "category": "Payments",
       "tags": ["stripe", "payments", "billing", "subscriptions"],
-      "icon": "https://cdn.simpleicons.org/stripe",
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/stripe/icon.svg",
       "author": "awaitstep",
       "license": "Apache-2.0",
       "providers": ["cloudflare"],
@@ -244,8 +244,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:4da811650eb84ed6a96b9f9ac9814b8259680c33ddb40ae276547e79ad55aea7",
-          "publishedAt": "2026-03-27T07:17:58.288Z"
+          "checksum": "sha256:ef97fd029dafdd5b5662d53e590446dfbeac7acf68f0ffe3e28e298a350245bc",
+          "publishedAt": "2026-03-27T23:20:39.666Z"
         }
       ]
     },
@@ -255,7 +255,7 @@
       "description": "Insert, select, update, and delete rows in Supabase tables",
       "category": "Database",
       "tags": ["supabase", "database", "postgres", "rows"],
-      "icon": "https://cdn.simpleicons.org/supabase",
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/supabase/icon.svg",
       "author": "awaitstep",
       "license": "Apache-2.0",
       "providers": ["cloudflare"],
@@ -263,8 +263,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:7e95351668eb7aa3cf21ed62e7641f1f38a2df9d5618b5e1cacec3d74f123583",
-          "publishedAt": "2026-03-27T07:17:58.289Z"
+          "checksum": "sha256:658252b0781c82047d01730807a3da17ca2b084bd9f2db91024fc3bab56df051",
+          "publishedAt": "2026-03-27T23:20:39.667Z"
         }
       ]
     },
@@ -274,7 +274,7 @@
       "description": "Send, edit, and delete messages via the Telegram Bot API",
       "category": "Messaging",
       "tags": ["telegram", "messaging", "bot", "chat"],
-      "icon": "https://cdn.simpleicons.org/telegram",
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/telegram/icon.svg",
       "author": "awaitstep",
       "license": "Apache-2.0",
       "providers": ["cloudflare"],
@@ -282,8 +282,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:980e56110ecc31708e5cad76431307444045ef6d92e3d91a4a1b43e1ce9b2532",
-          "publishedAt": "2026-03-27T07:17:58.290Z"
+          "checksum": "sha256:3704613b928a3a10480c1e3ec0d1cc9062c2620d855eb1c752292b785fff23ce",
+          "publishedAt": "2026-03-27T23:20:39.667Z"
         }
       ]
     },
@@ -293,7 +293,7 @@
       "description": "Send SMS, WhatsApp messages, and make calls via the Twilio API",
       "category": "Messaging",
       "tags": ["twilio", "sms", "whatsapp", "voice", "messaging"],
-      "icon": "https://cdn.simpleicons.org/twilio",
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/twilio/icon.svg",
       "author": "awaitstep",
       "license": "Apache-2.0",
       "providers": ["cloudflare"],
@@ -301,8 +301,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:b6c3f47604026081f6b0918e7d7ceeeda7c4a677b046fb11356e8b95e01dc353",
-          "publishedAt": "2026-03-27T07:17:58.291Z"
+          "checksum": "sha256:9702ade13fb6de9396e0800831c120d4028596e120f21a6fa20dcce49cbe0b53",
+          "publishedAt": "2026-03-27T23:20:39.668Z"
         }
       ]
     }
