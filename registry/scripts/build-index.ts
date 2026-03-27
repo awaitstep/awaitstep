@@ -66,7 +66,9 @@ async function buildNodeEntry(nodeId: string): Promise<RegistryNodeEntry> {
       const issues = result.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`)
       throw new Error(`Validation failed for ${nodeId}@${version}:\n${issues.join('\n')}`)
     }
-    const definition = result.data as NodeDefinition
+    // Use raw parsed object for checksum (preserves original key order)
+    // Zod validation above ensures correctness, but reorders keys
+    const definition = parsed as NodeDefinition
 
     if (definition.id !== nodeId) {
       throw new Error(`Node ID mismatch: directory ${nodeId}, definition ${definition.id}`)
