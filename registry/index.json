@@ -1,7 +1,26 @@
 {
   "version": 1,
-  "generatedAt": "2026-03-27T00:37:23.036Z",
+  "generatedAt": "2026-03-27T01:08:34.802Z",
   "nodes": [
+    {
+      "id": "mailgun_send_email",
+      "name": "Mailgun Send Email",
+      "description": "Sends an email via the Mailgun API",
+      "category": "Email",
+      "tags": ["email", "mailgun", "transactional"],
+      "icon": "https://cdn.simpleicons.org/mailgun",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:0ab944c6668244ae883e2ed76bdb0052bb72795ec30755f62a9a3c080f390750",
+          "publishedAt": "2026-03-27T01:08:34.800Z"
+        }
+      ]
+    },
     {
       "id": "resend_send_email",
       "name": "Resend Send Email",
@@ -17,7 +36,7 @@
         {
           "version": "1.0.0",
           "checksum": "sha256:66cdde9b3294cb1d6cf7ac899c6cb2639c677e36997a66bd74ec477514750aab",
-          "publishedAt": "2026-03-27T00:37:23.034Z"
+          "publishedAt": "2026-03-27T01:08:34.801Z"
         }
       ]
     },
@@ -36,7 +55,7 @@
         {
           "version": "1.0.0",
           "checksum": "sha256:5a164830c89967263b892f4972aa26426344b4942b72ad8b6b71205a7234e636",
-          "publishedAt": "2026-03-27T00:37:23.036Z"
+          "publishedAt": "2026-03-27T01:08:34.802Z"
         }
       ]
     }
