@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "Sends an SMS message via the Twilio API",
   "category": "Messaging",
+  "icon": "https://cdn.simpleicons.org/twilio",
   "tags": ["sms", "twilio", "messaging"],
   "author": "awaitstep",
   "license": "Apache-2.0",

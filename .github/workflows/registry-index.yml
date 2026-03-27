@@ -28,7 +28,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Build registry index
-        run: pnpm registry:build
+        run: pnpm --filter @awaitstep/ir build && npx tsx registry/scripts/build-index.ts
 
       - name: Check for changes
         id: diff

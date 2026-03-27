@@ -18,7 +18,6 @@
     "db:push": "dotenv -- pnpm --filter @awaitstep/db db:push",
     "nodes:generate": "pnpm --filter @awaitstep/node-cli build && node packages/node-cli/dist/cli.js generate",
     "nodes:build": "pnpm --filter @awaitstep/node-cli build && node packages/node-cli/dist/cli.js build",
-    "registry:build": "pnpm --filter @awaitstep/ir build && npx tsx registry/scripts/build-index.ts",
     "prebuild": "pnpm nodes:build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

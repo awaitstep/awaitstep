@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-03-27T00:16:47.286Z",
+  "generatedAt": "2026-03-27T00:37:23.036Z",
   "nodes": [
     {
       "id": "resend_send_email",
@@ -8,6 +8,7 @@
       "description": "Sends an email via the Resend API",
       "category": "Email",
       "tags": ["email", "resend", "transactional"],
+      "icon": "https://simpleicons.org/icons/resend.svg",
       "author": "awaitstep",
       "license": "Apache-2.0",
       "providers": ["cloudflare"],
@@ -15,8 +16,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:16524e9c13484e9df612e068692b4e5cfa5ac2331c66ec752b5ca692bacdbf7e",
-          "publishedAt": "2026-03-27T00:16:47.284Z"
+          "checksum": "sha256:66cdde9b3294cb1d6cf7ac899c6cb2639c677e36997a66bd74ec477514750aab",
+          "publishedAt": "2026-03-27T00:37:23.034Z"
         }
       ]
     },
@@ -26,6 +27,7 @@
       "description": "Sends an SMS message via the Twilio API",
       "category": "Messaging",
       "tags": ["sms", "twilio", "messaging"],
+      "icon": "https://cdn.simpleicons.org/twilio",
       "author": "awaitstep",
       "license": "Apache-2.0",
       "providers": ["cloudflare"],
@@ -33,8 +35,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:4042ffd607f320944ec14eb50c770f7823a73280974e6087dfdc83f9c929da34",
-          "publishedAt": "2026-03-27T00:16:47.286Z"
+          "checksum": "sha256:5a164830c89967263b892f4972aa26426344b4942b72ad8b6b71205a7234e636",
+          "publishedAt": "2026-03-27T00:37:23.036Z"
         }
       ]
     }

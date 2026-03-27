@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "Sends an email via the Resend API",
   "category": "Email",
+  "icon": "https://simpleicons.org/icons/resend.svg",
   "tags": ["email", "resend", "transactional"],
   "author": "awaitstep",
   "license": "Apache-2.0",

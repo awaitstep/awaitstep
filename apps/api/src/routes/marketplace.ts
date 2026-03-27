@@ -106,7 +106,7 @@ marketplace.post('/uninstall', zValidator('json', uninstallSchema), async (c) =>
   if (!existing) return c.json({ error: 'Node not installed' }, 404)
 
   await db.uninstallNode(organizationId, nodeId)
-  return c.body(null, 204)
+  return c.json({ ok: true })
 })
 
 marketplace.post('/update', zValidator('json', updateSchema), async (c) => {
