@@ -1,0 +1,95 @@
+{
+  "id": "github",
+  "name": "GitHub",
+  "version": "1.0.0",
+  "description": "Interact with GitHub issues and comments via the REST API",
+  "category": "Developer Tools",
+  "icon": "https://cdn.simpleicons.org/github",
+  "tags": ["github", "issues", "comments", "repositories"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Create Issue", "Get Issue", "Create Comment", "List Repo Issues"],
+      "description": "The GitHub API action to perform."
+    },
+    "owner": {
+      "type": "string",
+      "label": "Owner",
+      "placeholder": "octocat",
+      "description": "Repository owner (user or org). Used by: all actions."
+    },
+    "repo": {
+      "type": "string",
+      "label": "Repository",
+      "placeholder": "my-repo",
+      "description": "Repository name. Used by: all actions."
+    },
+    "issueNumber": {
+      "type": "number",
+      "label": "Issue Number",
+      "description": "Issue number. Used by: Get Issue, Create Comment."
+    },
+    "title": {
+      "type": "string",
+      "label": "Title",
+      "placeholder": "Bug: something is broken",
+      "description": "Issue title. Used by: Create Issue."
+    },
+    "body": {
+      "type": "string",
+      "label": "Body",
+      "description": "Issue body (Markdown). Used by: Create Issue."
+    },
+    "labels": {
+      "type": "json",
+      "label": "Labels",
+      "description": "Array of label names. Used by: Create Issue."
+    },
+    "assignees": {
+      "type": "json",
+      "label": "Assignees",
+      "description": "Array of GitHub usernames. Used by: Create Issue."
+    },
+    "commentBody": {
+      "type": "string",
+      "label": "Comment Body",
+      "description": "Comment text (Markdown). Used by: Create Comment."
+    },
+    "state": {
+      "type": "select",
+      "label": "State",
+      "options": ["open", "closed"],
+      "description": "Filter issues by state. Used by: List Repo Issues."
+    },
+    "token": {
+      "type": "secret",
+      "label": "GitHub Token",
+      "required": true,
+      "envVarName": "GITHUB_TOKEN",
+      "description": "GitHub personal access token."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "number",
+      "description": "Issue or comment ID"
+    },
+    "url": {
+      "type": "string",
+      "description": "HTML URL of the resource"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "id": "anthropic",
+  "name": "Anthropic",
+  "version": "1.0.0",
+  "description": "Generate text with Anthropic Claude models via the Messages API",
+  "category": "AI",
+  "icon": "https://cdn.simpleicons.org/anthropic",
+  "tags": ["anthropic", "ai", "claude", "llm"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Chat Completion"],
+      "description": "The Anthropic API action to perform."
+    },
+    "model": {
+      "type": "select",
+      "label": "Model",
+      "options": ["claude-sonnet-4-20250514", "claude-haiku-4-20250414"],
+      "description": "Anthropic model to use. Used by: Chat Completion."
+    },
+    "systemPrompt": {
+      "type": "string",
+      "label": "System Prompt",
+      "description": "System message for the conversation. Used by: Chat Completion."
+    },
+    "userMessage": {
+      "type": "string",
+      "label": "User Message",
+      "description": "User message content. Used by: Chat Completion."
+    },
+    "temperature": {
+      "type": "number",
+      "label": "Temperature",
+      "default": 1,
+      "description": "Sampling temperature (0-1). Used by: Chat Completion."
+    },
+    "maxTokens": {
+      "type": "number",
+      "label": "Max Tokens",
+      "default": 1024,
+      "description": "Maximum tokens in the response. Used by: Chat Completion."
+    },
+    "apiKey": {
+      "type": "secret",
+      "label": "API Key",
+      "required": true,
+      "envVarName": "ANTHROPIC_API_KEY",
+      "description": "Anthropic API key."
+    }
+  },
+  "outputSchema": {
+    "result": {
+      "type": "string",
+      "description": "Generated text content"
+    },
+    "usage": {
+      "type": "object",
+      "description": "Token usage information"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "60 seconds"
+  }
+}

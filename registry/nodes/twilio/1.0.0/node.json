@@ -1,0 +1,88 @@
+{
+  "id": "twilio",
+  "name": "Twilio",
+  "version": "1.0.0",
+  "description": "Send SMS, WhatsApp messages, and make calls via the Twilio API",
+  "category": "Communications",
+  "icon": "https://cdn.simpleicons.org/twilio",
+  "tags": ["twilio", "sms", "whatsapp", "voice", "messaging"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Send SMS", "Send WhatsApp", "Make Call", "Get Message Status"],
+      "description": "The Twilio API action to perform."
+    },
+    "to": {
+      "type": "string",
+      "label": "To",
+      "placeholder": "+15551234567",
+      "description": "Recipient phone number in E.164 format. Used by: Send SMS, Send WhatsApp, Make Call."
+    },
+    "from": {
+      "type": "string",
+      "label": "From",
+      "placeholder": "+15559876543",
+      "description": "Twilio phone number in E.164 format. Used by: Send SMS, Send WhatsApp, Make Call."
+    },
+    "body": {
+      "type": "string",
+      "label": "Body",
+      "description": "Message body. Used by: Send SMS, Send WhatsApp."
+    },
+    "statusCallbackUrl": {
+      "type": "string",
+      "label": "Status Callback URL",
+      "placeholder": "https://example.com/callback",
+      "description": "URL for delivery status webhooks. Used by: Send SMS, Send WhatsApp."
+    },
+    "messageSid": {
+      "type": "string",
+      "label": "Message SID",
+      "placeholder": "SM...",
+      "description": "Twilio message SID. Used by: Get Message Status."
+    },
+    "twiml": {
+      "type": "string",
+      "label": "TwiML",
+      "placeholder": "<Response><Say>Hello!</Say></Response>",
+      "description": "TwiML instructions for the call. Used by: Make Call."
+    },
+    "accountSid": {
+      "type": "secret",
+      "label": "Account SID",
+      "required": true,
+      "envVarName": "TWILIO_ACCOUNT_SID",
+      "description": "Twilio account SID."
+    },
+    "authToken": {
+      "type": "secret",
+      "label": "Auth Token",
+      "required": true,
+      "envVarName": "TWILIO_AUTH_TOKEN",
+      "description": "Twilio auth token."
+    }
+  },
+  "outputSchema": {
+    "sid": {
+      "type": "string",
+      "description": "Twilio resource SID"
+    },
+    "status": {
+      "type": "string",
+      "description": "Message or call status"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

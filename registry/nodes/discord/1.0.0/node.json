@@ -1,0 +1,82 @@
+{
+  "id": "discord",
+  "name": "Discord",
+  "version": "1.0.0",
+  "description": "Send, edit, and delete messages via Discord webhooks and bot API",
+  "category": "Messaging",
+  "icon": "https://cdn.simpleicons.org/discord",
+  "tags": ["discord", "messaging", "webhooks", "bot"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Send Webhook Message", "Send Channel Message", "Edit Message", "Delete Message"],
+      "description": "The Discord API action to perform."
+    },
+    "content": {
+      "type": "string",
+      "label": "Content",
+      "description": "Message content. Used by: Send Webhook Message, Send Channel Message, Edit Message."
+    },
+    "username": {
+      "type": "string",
+      "label": "Username",
+      "placeholder": "My Bot",
+      "description": "Override webhook username. Used by: Send Webhook Message."
+    },
+    "avatarUrl": {
+      "type": "string",
+      "label": "Avatar URL",
+      "placeholder": "https://example.com/avatar.png",
+      "description": "Override webhook avatar URL. Used by: Send Webhook Message."
+    },
+    "webhookUrl": {
+      "type": "secret",
+      "label": "Webhook URL",
+      "required": true,
+      "envVarName": "DISCORD_WEBHOOK_URL",
+      "description": "Discord webhook URL. Used by: Send Webhook Message."
+    },
+    "channelId": {
+      "type": "string",
+      "label": "Channel ID",
+      "placeholder": "123456789012345678",
+      "description": "Discord channel ID. Used by: Send Channel Message, Edit Message, Delete Message."
+    },
+    "messageId": {
+      "type": "string",
+      "label": "Message ID",
+      "placeholder": "123456789012345678",
+      "description": "Discord message ID. Used by: Edit Message, Delete Message."
+    },
+    "botToken": {
+      "type": "secret",
+      "label": "Bot Token",
+      "required": true,
+      "envVarName": "DISCORD_BOT_TOKEN",
+      "description": "Discord bot token. Used by: Send Channel Message, Edit Message, Delete Message."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Message ID"
+    },
+    "channelId": {
+      "type": "string",
+      "description": "Channel ID"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

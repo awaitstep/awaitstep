@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { X, Search, Loader2 } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
+import { toast } from 'sonner'
 import { api } from '../../lib/api-client'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { NodeCard } from './node-card'
@@ -17,6 +18,17 @@ export function MarketplaceDialog({ open, onOpenChange }: MarketplaceDialogProps
   const [search, setSearch] = useState('')
   const [loadingNodeId, setLoadingNodeId] = useState<string | null>(null)
 
+  function onMutationSuccess() {
+    queryClient.invalidateQueries({ queryKey: ['marketplace'] })
+    refresh()
+  }
+
+  function onMutationError(err: unknown, action: string) {
+    toast.error(`Failed to ${action} node`, {
+      description: err instanceof Error ? err.message : undefined,
+    })
+  }
+
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace'],
     queryFn: () => api.browseMarketplace(),
@@ -28,9 +40,10 @@ export function MarketplaceDialog({ open, onOpenChange }: MarketplaceDialogProps
     onMutate: (nodeId) => setLoadingNodeId(nodeId),
     onSettled: () => setLoadingNodeId(null),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['marketplace'] })
-      refresh()
+      toast.success('Node installed')
+      onMutationSuccess()
     },
+    onError: (err) => onMutationError(err, 'install'),
   })
 
   const uninstallMutation = useMutation({
@@ -38,9 +51,10 @@ export function MarketplaceDialog({ open, onOpenChange }: MarketplaceDialogProps
     onMutate: (nodeId) => setLoadingNodeId(nodeId),
     onSettled: () => setLoadingNodeId(null),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['marketplace'] })
-      refresh()
+      toast.success('Node uninstalled')
+      onMutationSuccess()
     },
+    onError: (err) => onMutationError(err, 'uninstall'),
   })
 
   const updateMutation = useMutation({
@@ -48,9 +62,10 @@ export function MarketplaceDialog({ open, onOpenChange }: MarketplaceDialogProps
     onMutate: (nodeId) => setLoadingNodeId(nodeId),
     onSettled: () => setLoadingNodeId(null),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['marketplace'] })
-      refresh()
+      toast.success('Node updated')
+      onMutationSuccess()
     },
+    onError: (err) => onMutationError(err, 'update'),
   })
 
   const nodes = data?.nodes ?? []

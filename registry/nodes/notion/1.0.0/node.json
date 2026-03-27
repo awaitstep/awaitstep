@@ -1,0 +1,78 @@
+{
+  "id": "notion",
+  "name": "Notion",
+  "version": "1.0.0",
+  "description": "Create, read, update pages and query databases in Notion",
+  "category": "Productivity",
+  "icon": "https://cdn.simpleicons.org/notion",
+  "tags": ["notion", "database", "pages", "productivity"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Create Page", "Get Page", "Update Page", "Query Database"],
+      "description": "The Notion API action to perform."
+    },
+    "databaseId": {
+      "type": "string",
+      "label": "Database ID",
+      "placeholder": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+      "description": "Notion database ID. Used by: Create Page (as parent), Query Database."
+    },
+    "pageId": {
+      "type": "string",
+      "label": "Page ID",
+      "placeholder": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+      "description": "Notion page ID. Used by: Get Page, Update Page."
+    },
+    "properties": {
+      "type": "json",
+      "label": "Properties",
+      "description": "Page properties object. Used by: Create Page, Update Page."
+    },
+    "content": {
+      "type": "string",
+      "label": "Content",
+      "description": "Plain text paragraph to add as page content. Used by: Create Page."
+    },
+    "filter": {
+      "type": "json",
+      "label": "Filter",
+      "description": "Notion filter object. Used by: Query Database."
+    },
+    "sorts": {
+      "type": "json",
+      "label": "Sorts",
+      "description": "Notion sorts array. Used by: Query Database."
+    },
+    "apiKey": {
+      "type": "secret",
+      "label": "API Key",
+      "required": true,
+      "envVarName": "NOTION_API_KEY",
+      "description": "Notion integration token."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Page or database ID"
+    },
+    "url": {
+      "type": "string",
+      "description": "Notion URL"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

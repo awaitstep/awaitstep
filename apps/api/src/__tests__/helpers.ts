@@ -7,8 +7,9 @@ import type {
   ApiKey,
   Deployment,
   Project,
+  InstalledNode,
 } from '@awaitstep/db'
-import { createApp } from '../app.js'
+import { createApp, type AppDeps } from '../app.js'
 import type { Auth } from '../auth/config.js'
 
 const store = {
@@ -19,6 +20,7 @@ const store = {
   apiKeys: new Map<string, ApiKey>(),
   deployments: new Map<string, Deployment>(),
   projects: new Map<string, Project>(),
+  installedNodes: new Map<string, InstalledNode>(),
 }
 
 export function resetStore() {
@@ -29,6 +31,7 @@ export function resetStore() {
   store.apiKeys.clear()
   store.deployments.clear()
   store.projects.clear()
+  store.installedNodes.clear()
 }
 
 function now() {
@@ -317,6 +320,34 @@ const mockDb: DatabaseAdapter = {
   async resolveEnvVars() {
     return {}
   },
+
+  // Installed Nodes
+  async installNode(data) {
+    const node: InstalledNode = {
+      ...data,
+      installedAt: now(),
+      updatedAt: now(),
+    }
+    store.installedNodes.set(`${data.organizationId}:${data.nodeId}`, node)
+    return node
+  },
+  async uninstallNode(organizationId, nodeId) {
+    store.installedNodes.delete(`${organizationId}:${nodeId}`)
+  },
+  async listInstalledNodes(organizationId) {
+    return [...store.installedNodes.values()].filter((n) => n.organizationId === organizationId)
+  },
+  async getInstalledNode(organizationId, nodeId) {
+    return store.installedNodes.get(`${organizationId}:${nodeId}`) ?? null
+  },
+  async updateInstalledNodeBundle(organizationId, nodeId, data) {
+    const key = `${organizationId}:${nodeId}`
+    const n = store.installedNodes.get(key)
+    if (!n) throw new Error('Not found')
+    const updated = { ...n, ...data, updatedAt: now() }
+    store.installedNodes.set(key, updated)
+    return updated
+  },
 }
 
 const mockAuth = {
@@ -336,7 +367,7 @@ const mockAuth = {
 
 export { mockDb, mockAuth }
 
-export function createTestApp() {
+export function createTestApp(options?: { remoteNodeRegistry?: AppDeps['remoteNodeRegistry'] }) {
   // Seed the test project so auth middleware can find it
   store.projects.set(TEST_PROJECT_ID, {
     id: TEST_PROJECT_ID,
@@ -353,5 +384,6 @@ export function createTestApp() {
     auth: mockAuth,
     corsOrigin: '*',
     isDev: true,
+    remoteNodeRegistry: options?.remoteNodeRegistry,
   })
 }

@@ -1,0 +1,105 @@
+{
+  "id": "stripe",
+  "name": "Stripe",
+  "version": "1.0.0",
+  "description": "Interact with the Stripe API for payments and customers",
+  "category": "Payments",
+  "icon": "https://cdn.simpleicons.org/stripe",
+  "tags": ["stripe", "payments", "billing", "subscriptions"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": [
+        "Create Payment Intent",
+        "Retrieve Payment Intent",
+        "Create Customer",
+        "Retrieve Customer",
+        "Create Charge",
+        "Create Refund"
+      ],
+      "description": "The Stripe API action to perform."
+    },
+    "amount": {
+      "type": "number",
+      "label": "Amount",
+      "description": "Amount in smallest currency unit (cents). Used by: Create Payment Intent, Create Charge."
+    },
+    "currency": {
+      "type": "string",
+      "label": "Currency",
+      "default": "usd",
+      "placeholder": "usd",
+      "description": "Three-letter ISO currency code. Used by: Create Payment Intent, Create Charge."
+    },
+    "customerId": {
+      "type": "string",
+      "label": "Customer ID",
+      "placeholder": "cus_...",
+      "description": "Stripe customer ID. Used by: Retrieve Customer, Create Charge."
+    },
+    "paymentIntentId": {
+      "type": "string",
+      "label": "Payment Intent ID",
+      "placeholder": "pi_...",
+      "description": "Payment intent ID. Used by: Retrieve Payment Intent."
+    },
+    "chargeId": {
+      "type": "string",
+      "label": "Charge ID",
+      "placeholder": "ch_...",
+      "description": "Charge ID. Used by: Create Refund."
+    },
+    "email": {
+      "type": "string",
+      "label": "Email",
+      "placeholder": "customer@example.com",
+      "description": "Customer email. Used by: Create Customer."
+    },
+    "name": {
+      "type": "string",
+      "label": "Name",
+      "placeholder": "Jane Doe",
+      "description": "Customer name. Used by: Create Customer."
+    },
+    "description": {
+      "type": "string",
+      "label": "Description",
+      "description": "Description for the resource being created."
+    },
+    "metadata": {
+      "type": "json",
+      "label": "Metadata",
+      "description": "Key-value pairs to attach to the Stripe object."
+    },
+    "secretKey": {
+      "type": "secret",
+      "label": "Secret Key",
+      "required": true,
+      "envVarName": "STRIPE_SECRET_KEY",
+      "description": "Stripe secret key (sk_...)."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Stripe object ID"
+    },
+    "status": {
+      "type": "string",
+      "description": "Object status"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

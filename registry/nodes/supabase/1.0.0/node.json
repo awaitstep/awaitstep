@@ -1,0 +1,84 @@
+{
+  "id": "supabase",
+  "name": "Supabase",
+  "version": "1.0.0",
+  "description": "Insert, select, update, and delete rows in Supabase tables",
+  "category": "Database",
+  "icon": "https://cdn.simpleicons.org/supabase",
+  "tags": ["supabase", "database", "postgres", "rows"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@supabase/supabase-js": "^2"
+  },
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Insert Row", "Select Rows", "Update Rows", "Delete Rows"],
+      "description": "The Supabase action to perform."
+    },
+    "table": {
+      "type": "string",
+      "label": "Table",
+      "placeholder": "my_table",
+      "description": "Table name. Used by: all actions."
+    },
+    "data": {
+      "type": "json",
+      "label": "Data",
+      "description": "Row data as key-value pairs. Used by: Insert Row, Update Rows."
+    },
+    "filter": {
+      "type": "json",
+      "label": "Filter",
+      "description": "Filter object, e.g. {\"column\": \"id\", \"op\": \"eq\", \"value\": 1}. Used by: Select Rows, Update Rows, Delete Rows."
+    },
+    "columns": {
+      "type": "string",
+      "label": "Columns",
+      "placeholder": "id, name, email",
+      "description": "Comma-separated columns to select. Used by: Select Rows."
+    },
+    "limit": {
+      "type": "number",
+      "label": "Limit",
+      "default": 100,
+      "description": "Maximum number of rows to return. Used by: Select Rows."
+    },
+    "supabaseUrl": {
+      "type": "secret",
+      "label": "Supabase URL",
+      "required": true,
+      "envVarName": "SUPABASE_URL",
+      "description": "Supabase project URL."
+    },
+    "supabaseAnonKey": {
+      "type": "secret",
+      "label": "Supabase Anon Key",
+      "required": true,
+      "envVarName": "SUPABASE_ANON_KEY",
+      "description": "Supabase anonymous/public key."
+    }
+  },
+  "outputSchema": {
+    "rows": {
+      "type": "array",
+      "description": "Returned rows"
+    },
+    "count": {
+      "type": "number",
+      "description": "Number of affected rows"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

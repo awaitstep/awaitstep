@@ -1,0 +1,93 @@
+{
+  "id": "slack",
+  "name": "Slack",
+  "version": "1.0.0",
+  "description": "Interact with the Slack API for messaging and channels",
+  "category": "Messaging",
+  "icon": "https://cdn.simpleicons.org/slack",
+  "tags": ["slack", "messaging", "chat", "notifications"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": [
+        "Send Message",
+        "Update Message",
+        "Delete Message",
+        "Set Channel Topic",
+        "Invite to Channel"
+      ],
+      "description": "The Slack action to perform."
+    },
+    "channel": {
+      "type": "string",
+      "label": "Channel",
+      "required": true,
+      "placeholder": "#general or C01234ABCDE",
+      "description": "Channel name or ID."
+    },
+    "text": {
+      "type": "textarea",
+      "label": "Message Text",
+      "description": "Message text (supports Slack markdown). Used by: Send Message, Update Message."
+    },
+    "messageTs": {
+      "type": "string",
+      "label": "Message Timestamp",
+      "placeholder": "1234567890.123456",
+      "description": "Timestamp of the message. Used by: Update Message, Delete Message."
+    },
+    "topic": {
+      "type": "string",
+      "label": "Topic",
+      "description": "Channel topic text. Used by: Set Channel Topic."
+    },
+    "userId": {
+      "type": "string",
+      "label": "User ID",
+      "placeholder": "U01234ABCDE",
+      "description": "Slack user ID. Used by: Invite to Channel."
+    },
+    "username": {
+      "type": "string",
+      "label": "Bot Username",
+      "placeholder": "AwaitStep Bot",
+      "description": "Override the bot's username. Used by: Send Message."
+    },
+    "iconEmoji": {
+      "type": "string",
+      "label": "Icon Emoji",
+      "placeholder": ":robot_face:",
+      "description": "Override the bot's icon. Used by: Send Message."
+    },
+    "token": {
+      "type": "secret",
+      "label": "Bot Token",
+      "required": true,
+      "envVarName": "SLACK_BOT_TOKEN",
+      "description": "Slack Bot OAuth token (xoxb-...)."
+    }
+  },
+  "outputSchema": {
+    "ok": {
+      "type": "boolean",
+      "description": "Whether the action succeeded"
+    },
+    "ts": {
+      "type": "string",
+      "description": "Message timestamp (for send/update)"
+    },
+    "channel": {
+      "type": "string",
+      "description": "Channel ID"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

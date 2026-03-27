@@ -1,0 +1,85 @@
+{
+  "id": "telegram",
+  "name": "Telegram",
+  "version": "1.0.0",
+  "description": "Send, edit, and delete messages via the Telegram Bot API",
+  "category": "Messaging",
+  "icon": "https://cdn.simpleicons.org/telegram",
+  "tags": ["telegram", "messaging", "bot", "chat"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Send Message", "Edit Message", "Delete Message", "Send Photo"],
+      "description": "The Telegram Bot API action to perform."
+    },
+    "chatId": {
+      "type": "string",
+      "label": "Chat ID",
+      "placeholder": "123456789",
+      "description": "Telegram chat ID. Used by: all actions."
+    },
+    "text": {
+      "type": "string",
+      "label": "Text",
+      "description": "Message text. Used by: Send Message, Edit Message."
+    },
+    "messageId": {
+      "type": "number",
+      "label": "Message ID",
+      "description": "ID of the message to edit or delete. Used by: Edit Message, Delete Message."
+    },
+    "parseMode": {
+      "type": "select",
+      "label": "Parse Mode",
+      "options": ["Markdown", "MarkdownV2", "HTML"],
+      "description": "Text formatting mode. Used by: Send Message, Edit Message, Send Photo."
+    },
+    "photoUrl": {
+      "type": "string",
+      "label": "Photo URL",
+      "placeholder": "https://example.com/photo.jpg",
+      "description": "URL of the photo to send. Used by: Send Photo."
+    },
+    "caption": {
+      "type": "string",
+      "label": "Caption",
+      "description": "Photo caption. Used by: Send Photo."
+    },
+    "disableNotification": {
+      "type": "boolean",
+      "label": "Disable Notification",
+      "default": false,
+      "description": "Send silently. Used by: Send Message, Send Photo."
+    },
+    "botToken": {
+      "type": "secret",
+      "label": "Bot Token",
+      "required": true,
+      "envVarName": "TELEGRAM_BOT_TOKEN",
+      "description": "Telegram bot token from @BotFather."
+    }
+  },
+  "outputSchema": {
+    "messageId": {
+      "type": "number",
+      "description": "Sent or edited message ID"
+    },
+    "ok": {
+      "type": "boolean",
+      "description": "Whether the request succeeded"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

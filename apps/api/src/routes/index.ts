@@ -74,6 +74,8 @@ export function createRouter(auth: Auth, options?: { isDev?: boolean }) {
   const queryLimit = createRateLimiter({ windowMs: 60_000, max: 20, keyGenerator: userKey })
   const apiKeyCreateLimit = createRateLimiter({ windowMs: 60_000, max: 5, keyGenerator: userKey })
 
+  const marketplaceLimit = createRateLimiter({ windowMs: 60_000, max: 10, keyGenerator: userKey })
+
   router.use('/connections/verify-token', verifyLimit)
   router.use('/workflows/:workflowId/deploy', deployLimit)
   router.use('/workflows/:workflowId/deploy-stream', deployLimit)
@@ -81,6 +83,9 @@ export function createRouter(auth: Auth, options?: { isDev?: boolean }) {
   router.use('/workflows/:workflowId/takedown', writeLimit)
   router.use('/resources/d1/databases/:databaseId/query', queryLimit)
   router.post('/api-keys', apiKeyCreateLimit)
+  router.post('/marketplace/install', marketplaceLimit)
+  router.post('/marketplace/uninstall', marketplaceLimit)
+  router.post('/marketplace/update', marketplaceLimit)
 
   // Scope enforcement for API key auth
   // All authenticated routes require at least 'read' scope

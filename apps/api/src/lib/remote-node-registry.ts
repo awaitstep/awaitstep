@@ -101,7 +101,7 @@ export function createRemoteNodeRegistry(config: RemoteNodeRegistryConfig): Remo
       const index = await this.getIndex()
       const nodeEntry = index.nodes.find((n) => n.id === nodeId)
       const versionEntry = nodeEntry?.versions.find((v) => v.version === version)
-      if (versionEntry && versionEntry.checksum !== `sha256:${hash}`) {
+      if (versionEntry?.checksum && versionEntry.checksum !== `sha256:${hash}`) {
         throw new Error(
           `Checksum mismatch for ${nodeId}@${version}: expected ${versionEntry.checksum}, got sha256:${hash}`,
         )

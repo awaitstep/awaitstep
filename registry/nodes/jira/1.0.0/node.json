@@ -1,0 +1,97 @@
+{
+  "id": "jira",
+  "name": "Jira",
+  "version": "1.0.0",
+  "description": "Create and manage issues, comments, and transitions in Jira",
+  "category": "Project Management",
+  "icon": "https://cdn.simpleicons.org/jira",
+  "tags": ["jira", "issues", "project-management", "atlassian"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Create Issue", "Get Issue", "Add Comment", "Transition Issue"],
+      "description": "The Jira API action to perform."
+    },
+    "domain": {
+      "type": "string",
+      "label": "Domain",
+      "placeholder": "your-company.atlassian.net",
+      "description": "Jira Cloud domain. Used by: all actions."
+    },
+    "projectKey": {
+      "type": "string",
+      "label": "Project Key",
+      "placeholder": "PROJ",
+      "description": "Jira project key. Used by: Create Issue."
+    },
+    "issueType": {
+      "type": "select",
+      "label": "Issue Type",
+      "options": ["Task", "Bug", "Story", "Epic"],
+      "description": "Type of issue to create. Used by: Create Issue."
+    },
+    "summary": {
+      "type": "string",
+      "label": "Summary",
+      "description": "Issue summary/title. Used by: Create Issue."
+    },
+    "description": {
+      "type": "string",
+      "label": "Description",
+      "description": "Issue description. Used by: Create Issue."
+    },
+    "issueKey": {
+      "type": "string",
+      "label": "Issue Key",
+      "placeholder": "PROJ-123",
+      "description": "Jira issue key. Used by: Get Issue, Add Comment, Transition Issue."
+    },
+    "commentBody": {
+      "type": "string",
+      "label": "Comment Body",
+      "description": "Comment text. Used by: Add Comment."
+    },
+    "transitionId": {
+      "type": "string",
+      "label": "Transition ID",
+      "description": "Target transition ID. Used by: Transition Issue."
+    },
+    "jiraEmail": {
+      "type": "secret",
+      "label": "Jira Email",
+      "required": true,
+      "envVarName": "JIRA_EMAIL",
+      "description": "Atlassian account email for authentication."
+    },
+    "apiToken": {
+      "type": "secret",
+      "label": "API Token",
+      "required": true,
+      "envVarName": "JIRA_API_TOKEN",
+      "description": "Jira API token."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Issue or comment ID"
+    },
+    "key": {
+      "type": "string",
+      "description": "Issue key"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

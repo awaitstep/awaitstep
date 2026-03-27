@@ -1,0 +1,94 @@
+{
+  "id": "openai",
+  "name": "OpenAI",
+  "version": "1.0.0",
+  "description": "Generate text, embeddings, images, and moderate content with OpenAI APIs",
+  "category": "AI",
+  "icon": "https://cdn.simpleicons.org/openai",
+  "tags": ["openai", "ai", "gpt", "embeddings", "images", "moderation"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Chat Completion", "Create Embedding", "Create Image", "Moderate Content"],
+      "description": "The OpenAI API action to perform."
+    },
+    "model": {
+      "type": "select",
+      "label": "Model",
+      "options": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
+      "description": "OpenAI model to use. Used by: Chat Completion."
+    },
+    "systemPrompt": {
+      "type": "string",
+      "label": "System Prompt",
+      "description": "System message for the conversation. Used by: Chat Completion."
+    },
+    "userMessage": {
+      "type": "string",
+      "label": "User Message",
+      "description": "User message content. Used by: Chat Completion."
+    },
+    "temperature": {
+      "type": "number",
+      "label": "Temperature",
+      "default": 1,
+      "description": "Sampling temperature (0-2). Used by: Chat Completion."
+    },
+    "maxTokens": {
+      "type": "number",
+      "label": "Max Tokens",
+      "description": "Maximum tokens in the response. Used by: Chat Completion."
+    },
+    "input": {
+      "type": "string",
+      "label": "Input",
+      "description": "Text to embed. Used by: Create Embedding."
+    },
+    "imagePrompt": {
+      "type": "string",
+      "label": "Image Prompt",
+      "description": "Description of the image to generate. Used by: Create Image."
+    },
+    "size": {
+      "type": "select",
+      "label": "Image Size",
+      "options": ["1024x1024", "1792x1024", "1024x1792"],
+      "description": "Image dimensions. Used by: Create Image."
+    },
+    "moderationInput": {
+      "type": "string",
+      "label": "Moderation Input",
+      "description": "Text to check for policy violations. Used by: Moderate Content."
+    },
+    "apiKey": {
+      "type": "secret",
+      "label": "API Key",
+      "required": true,
+      "envVarName": "OPENAI_API_KEY",
+      "description": "OpenAI API key."
+    }
+  },
+  "outputSchema": {
+    "result": {
+      "type": "string",
+      "description": "Generated text, image URL, or moderation result"
+    },
+    "usage": {
+      "type": "object",
+      "description": "Token usage information"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "60 seconds"
+  }
+}

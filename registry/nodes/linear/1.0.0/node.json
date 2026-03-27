@@ -1,0 +1,81 @@
+{
+  "id": "linear",
+  "name": "Linear",
+  "version": "1.0.0",
+  "description": "Create, read, update, and list issues in Linear via GraphQL",
+  "category": "Project Management",
+  "icon": "https://cdn.simpleicons.org/linear",
+  "tags": ["linear", "issues", "project-management", "graphql"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Create Issue", "Get Issue", "Update Issue", "List Issues"],
+      "description": "The Linear API action to perform."
+    },
+    "teamId": {
+      "type": "string",
+      "label": "Team ID",
+      "description": "Linear team ID. Used by: Create Issue, List Issues."
+    },
+    "title": {
+      "type": "string",
+      "label": "Title",
+      "description": "Issue title. Used by: Create Issue, Update Issue."
+    },
+    "description": {
+      "type": "string",
+      "label": "Description",
+      "description": "Issue description (Markdown). Used by: Create Issue, Update Issue."
+    },
+    "issueId": {
+      "type": "string",
+      "label": "Issue ID",
+      "description": "Linear issue ID. Used by: Get Issue, Update Issue."
+    },
+    "stateId": {
+      "type": "string",
+      "label": "State ID",
+      "description": "Workflow state ID. Used by: Update Issue."
+    },
+    "priority": {
+      "type": "number",
+      "label": "Priority",
+      "description": "Priority level (0=none, 1=urgent, 2=high, 3=medium, 4=low). Used by: Create Issue, Update Issue."
+    },
+    "assigneeId": {
+      "type": "string",
+      "label": "Assignee ID",
+      "description": "User ID to assign. Used by: Create Issue, Update Issue."
+    },
+    "apiKey": {
+      "type": "secret",
+      "label": "API Key",
+      "required": true,
+      "envVarName": "LINEAR_API_KEY",
+      "description": "Linear API key."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Issue ID"
+    },
+    "identifier": {
+      "type": "string",
+      "description": "Issue identifier (e.g. TEAM-123)"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "id": "sendgrid",
+  "name": "SendGrid",
+  "version": "1.0.0",
+  "description": "Send transactional and template emails via the SendGrid API",
+  "category": "Email",
+  "icon": "https://cdn.simpleicons.org/sendgrid",
+  "tags": ["sendgrid", "email", "transactional", "templates"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Send Email", "Send Template Email"],
+      "description": "The SendGrid API action to perform."
+    },
+    "from": {
+      "type": "string",
+      "label": "From",
+      "placeholder": "sender@example.com",
+      "description": "Sender email address. Used by: Send Email, Send Template Email."
+    },
+    "to": {
+      "type": "string",
+      "label": "To",
+      "placeholder": "recipient@example.com",
+      "description": "Recipient email address. Used by: Send Email, Send Template Email."
+    },
+    "subject": {
+      "type": "string",
+      "label": "Subject",
+      "description": "Email subject line. Used by: Send Email, Send Template Email."
+    },
+    "html": {
+      "type": "string",
+      "label": "HTML Body",
+      "description": "HTML email body. Used by: Send Email."
+    },
+    "templateId": {
+      "type": "string",
+      "label": "Template ID",
+      "placeholder": "d-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "description": "SendGrid dynamic template ID. Used by: Send Template Email."
+    },
+    "dynamicTemplateData": {
+      "type": "json",
+      "label": "Dynamic Template Data",
+      "description": "Key-value pairs for template variables. Used by: Send Template Email."
+    },
+    "apiKey": {
+      "type": "secret",
+      "label": "API Key",
+      "required": true,
+      "envVarName": "SENDGRID_API_KEY",
+      "description": "SendGrid API key."
+    }
+  },
+  "outputSchema": {
+    "statusCode": {
+      "type": "number",
+      "description": "HTTP status code from SendGrid"
+    },
+    "success": {
+      "type": "boolean",
+      "description": "Whether the email was accepted"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full response information"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

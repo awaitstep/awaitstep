@@ -4,21 +4,39 @@ import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import type { AppEnv } from '../types.js'
 
+const nodeIdSchema = z
+  .string()
+  .min(1)
+  .max(100)
+  .regex(/^[a-z][a-z0-9_-]*$/, 'Invalid node ID')
+
+const versionSchema = z
+  .string()
+  .max(50)
+  .regex(/^\d+\.\d+\.\d+$/, 'Invalid version (expected semver)')
+
 const installSchema = z.object({
-  nodeId: z.string().min(1).max(100),
-  version: z.string().max(50).optional(),
+  nodeId: nodeIdSchema,
+  version: versionSchema.optional(),
 })
 
 const uninstallSchema = z.object({
-  nodeId: z.string().min(1).max(100),
+  nodeId: nodeIdSchema,
 })
 
 const updateSchema = z.object({
-  nodeId: z.string().min(1).max(100),
-  version: z.string().max(50).optional(),
+  nodeId: nodeIdSchema,
+  version: versionSchema.optional(),
 })
 
 export const marketplace = new Hono<AppEnv>()
+
+marketplace.get('/installed', async (c) => {
+  const organizationId = c.get('organizationId')
+  const db = c.get('db')
+  const installed = await db.listInstalledNodes(organizationId)
+  return c.json(installed)
+})
 
 marketplace.get('/', async (c) => {
   const remoteRegistry = c.get('remoteNodeRegistry')
@@ -141,11 +159,4 @@ marketplace.post('/update', zValidator('json', updateSchema), async (c) => {
   })
 
   return c.json(updated)
-})
-
-marketplace.get('/installed', async (c) => {
-  const organizationId = c.get('organizationId')
-  const db = c.get('db')
-  const installed = await db.listInstalledNodes(organizationId)
-  return c.json(installed)
 })

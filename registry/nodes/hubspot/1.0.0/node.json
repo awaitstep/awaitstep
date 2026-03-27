@@ -1,0 +1,82 @@
+{
+  "id": "hubspot",
+  "name": "HubSpot",
+  "version": "1.0.0",
+  "description": "Manage contacts in HubSpot CRM via the v3 API",
+  "category": "CRM",
+  "icon": "https://cdn.simpleicons.org/hubspot",
+  "tags": ["hubspot", "crm", "contacts", "sales"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Create Contact", "Get Contact", "Update Contact", "Search Contacts"],
+      "description": "The HubSpot CRM action to perform."
+    },
+    "email": {
+      "type": "string",
+      "label": "Email",
+      "placeholder": "contact@example.com",
+      "description": "Contact email address. Used by: Create Contact."
+    },
+    "firstName": {
+      "type": "string",
+      "label": "First Name",
+      "description": "Contact first name. Used by: Create Contact."
+    },
+    "lastName": {
+      "type": "string",
+      "label": "Last Name",
+      "description": "Contact last name. Used by: Create Contact."
+    },
+    "contactId": {
+      "type": "string",
+      "label": "Contact ID",
+      "description": "HubSpot contact ID. Used by: Get Contact, Update Contact."
+    },
+    "properties": {
+      "type": "json",
+      "label": "Properties",
+      "description": "Contact properties object. Used by: Update Contact."
+    },
+    "query": {
+      "type": "string",
+      "label": "Query",
+      "description": "Search query string. Used by: Search Contacts."
+    },
+    "searchFilters": {
+      "type": "json",
+      "label": "Search Filters",
+      "description": "Filter groups for advanced search. Used by: Search Contacts."
+    },
+    "accessToken": {
+      "type": "secret",
+      "label": "Access Token",
+      "required": true,
+      "envVarName": "HUBSPOT_ACCESS_TOKEN",
+      "description": "HubSpot private app access token."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Contact ID"
+    },
+    "properties": {
+      "type": "object",
+      "description": "Contact properties"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}
