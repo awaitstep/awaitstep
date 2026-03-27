@@ -14,13 +14,15 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          run_install: false
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -31,7 +33,8 @@ jobs:
       - name: Check for changes
         id: diff
         run: |
-          if git diff --quiet registry/index.json 2>/dev/null; then
+          git add registry/index.json
+          if git diff --cached --quiet registry/index.json; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"

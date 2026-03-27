@@ -44,6 +44,5 @@ awaitstep.db*
 # Plan
 plan/
 
-# Node registry (build artifacts)
+# Node registry (local dev build artifact)
 nodes/registry.json
-registry/index.json

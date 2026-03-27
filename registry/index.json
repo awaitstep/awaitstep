@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "generatedAt": "2026-03-27T00:05:17.850Z",
+  "nodes": [
+    {
+      "id": "resend_send_email",
+      "name": "Resend Send Email",
+      "description": "Sends an email via the Resend API",
+      "category": "Email",
+      "tags": ["email", "resend", "transactional"],
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:88c29a443d5615feea3c44e4dd50cc064c53420f7a7d290dad21edef206d9d5d",
+          "publishedAt": "2026-03-27T00:05:17.848Z"
+        }
+      ]
+    },
+    {
+      "id": "twilio_send_sms",
+      "name": "Twilio Send SMS",
+      "description": "Sends an SMS message via the Twilio API",
+      "category": "Messaging",
+      "tags": ["sms", "twilio", "messaging"],
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:1f07e3faa7b54603f2d7bcdc09af4b3dfd08830e611386c6ef18e9c9447a6a9d",
+          "publishedAt": "2026-03-27T00:05:17.850Z"
+        }
+      ]
+    }
+  ]
+}
