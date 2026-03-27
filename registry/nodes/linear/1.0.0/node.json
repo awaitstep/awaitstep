@@ -3,7 +3,7 @@
   "name": "Linear",
   "version": "1.0.0",
   "description": "Create, read, update, and list issues in Linear via GraphQL",
-  "category": "Project Management",
+  "category": "Utilities",
   "icon": "https://cdn.simpleicons.org/linear",
   "tags": ["linear", "issues", "project-management", "graphql"],
   "author": "awaitstep",

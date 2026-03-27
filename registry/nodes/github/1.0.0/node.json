@@ -3,7 +3,7 @@
   "name": "GitHub",
   "version": "1.0.0",
   "description": "Interact with GitHub issues and comments via the REST API",
-  "category": "Developer Tools",
+  "category": "Utilities",
   "icon": "https://cdn.simpleicons.org/github",
   "tags": ["github", "issues", "comments", "repositories"],
   "author": "awaitstep",

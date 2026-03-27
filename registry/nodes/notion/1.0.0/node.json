@@ -3,7 +3,7 @@
   "name": "Notion",
   "version": "1.0.0",
   "description": "Create, read, update pages and query databases in Notion",
-  "category": "Productivity",
+  "category": "Data",
   "icon": "https://cdn.simpleicons.org/notion",
   "tags": ["notion", "database", "pages", "productivity"],
   "author": "awaitstep",

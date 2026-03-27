@@ -3,7 +3,7 @@
   "name": "Jira",
   "version": "1.0.0",
   "description": "Create and manage issues, comments, and transitions in Jira",
-  "category": "Project Management",
+  "category": "Utilities",
   "icon": "https://cdn.simpleicons.org/jira",
   "tags": ["jira", "issues", "project-management", "atlassian"],
   "author": "awaitstep",

@@ -3,7 +3,7 @@
   "name": "Twilio",
   "version": "1.0.0",
   "description": "Send SMS, WhatsApp messages, and make calls via the Twilio API",
-  "category": "Communications",
+  "category": "Messaging",
   "icon": "https://cdn.simpleicons.org/twilio",
   "tags": ["twilio", "sms", "whatsapp", "voice", "messaging"],
   "author": "awaitstep",

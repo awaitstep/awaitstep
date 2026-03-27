@@ -3,7 +3,7 @@
   "name": "HubSpot",
   "version": "1.0.0",
   "description": "Manage contacts in HubSpot CRM via the v3 API",
-  "category": "CRM",
+  "category": "Data",
   "icon": "https://cdn.simpleicons.org/hubspot",
   "tags": ["hubspot", "crm", "contacts", "sales"],
   "author": "awaitstep",
