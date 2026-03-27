@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'registry/nodes/**'
+  workflow_dispatch:
 
 jobs:
   build-index:
