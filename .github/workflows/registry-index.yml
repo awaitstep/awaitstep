@@ -28,7 +28,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Build registry index
-        run: pnpm --filter @awaitstep/ir build && npx tsx registry/scripts/build-index.ts
+        run: pnpm --filter @awaitstep/ir build && npx tsx registry/scripts/build-index.ts && npx prettier --write registry/index.json
 
       - name: Check for changes
         id: diff
@@ -50,7 +50,7 @@ jobs:
           git add registry/index.json
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore: rebuild registry index"
+          HUSKY=0 git commit -m "chore: rebuild registry index"
           git push origin "$BRANCH"
           gh pr create \
             --title "chore: rebuild registry index" \
