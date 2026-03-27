@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "generatedAt": "2026-03-27T01:08:34.802Z",
+  "generatedAt": "2026-03-27T07:17:58.291Z",
   "nodes": [
     {
-      "id": "mailgun_send_email",
-      "name": "Mailgun Send Email",
-      "description": "Sends an email via the Mailgun API",
-      "category": "Email",
-      "tags": ["email", "mailgun", "transactional"],
-      "icon": "https://cdn.simpleicons.org/mailgun",
+      "id": "airtable",
+      "name": "Airtable",
+      "description": "Create, read, update, and list records in Airtable bases",
+      "category": "Database",
+      "tags": ["airtable", "database", "records", "spreadsheet"],
+      "icon": "https://cdn.simpleicons.org/airtable",
       "author": "awaitstep",
       "license": "Apache-2.0",
       "providers": ["cloudflare"],
@@ -16,18 +16,18 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:0ab944c6668244ae883e2ed76bdb0052bb72795ec30755f62a9a3c080f390750",
-          "publishedAt": "2026-03-27T01:08:34.800Z"
+          "checksum": "sha256:38f5e060e0cf6f750964c2035074c49ec2cbae0c7afdbb0d236a34e8439f988a",
+          "publishedAt": "2026-03-27T07:17:58.269Z"
         }
       ]
     },
     {
-      "id": "resend_send_email",
-      "name": "Resend Send Email",
-      "description": "Sends an email via the Resend API",
-      "category": "Email",
-      "tags": ["email", "resend", "transactional"],
-      "icon": "https://simpleicons.org/icons/resend.svg",
+      "id": "anthropic",
+      "name": "Anthropic",
+      "description": "Generate text with Anthropic Claude models via the Messages API",
+      "category": "AI",
+      "tags": ["anthropic", "ai", "claude", "llm"],
+      "icon": "https://cdn.simpleicons.org/anthropic",
       "author": "awaitstep",
       "license": "Apache-2.0",
       "providers": ["cloudflare"],
@@ -35,17 +35,264 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:66cdde9b3294cb1d6cf7ac899c6cb2639c677e36997a66bd74ec477514750aab",
-          "publishedAt": "2026-03-27T01:08:34.801Z"
+          "checksum": "sha256:b3e3eff6ad29f6f750926a25147425aaaeb440ae570eb6f6a223c36a0623f364",
+          "publishedAt": "2026-03-27T07:17:58.270Z"
         }
       ]
     },
     {
-      "id": "twilio_send_sms",
-      "name": "Twilio Send SMS",
-      "description": "Sends an SMS message via the Twilio API",
+      "id": "discord",
+      "name": "Discord",
+      "description": "Send, edit, and delete messages via Discord webhooks and bot API",
       "category": "Messaging",
-      "tags": ["sms", "twilio", "messaging"],
+      "tags": ["discord", "messaging", "webhooks", "bot"],
+      "icon": "https://cdn.simpleicons.org/discord",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:4257bd267fc5d049f2aedadbda7a223a6fe6946368e7a0def545e3ef7b1dde28",
+          "publishedAt": "2026-03-27T07:17:58.271Z"
+        }
+      ]
+    },
+    {
+      "id": "github",
+      "name": "GitHub",
+      "description": "Interact with GitHub issues and comments via the REST API",
+      "category": "Utilities",
+      "tags": ["github", "issues", "comments", "repositories"],
+      "icon": "https://cdn.simpleicons.org/github",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:051371d9bc39d8b238522552bb76690a7b5f37199ad296ae50a3e967f4d67dc9",
+          "publishedAt": "2026-03-27T07:17:58.272Z"
+        }
+      ]
+    },
+    {
+      "id": "hubspot",
+      "name": "HubSpot",
+      "description": "Manage contacts in HubSpot CRM via the v3 API",
+      "category": "Data",
+      "tags": ["hubspot", "crm", "contacts", "sales"],
+      "icon": "https://cdn.simpleicons.org/hubspot",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:6a1bccaae98952e8bc97de8e0c9cb67ea392cc2b42334583cb3ef3ad2e507ee1",
+          "publishedAt": "2026-03-27T07:17:58.273Z"
+        }
+      ]
+    },
+    {
+      "id": "jira",
+      "name": "Jira",
+      "description": "Create and manage issues, comments, and transitions in Jira",
+      "category": "Utilities",
+      "tags": ["jira", "issues", "project-management", "atlassian"],
+      "icon": "https://cdn.simpleicons.org/jira",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:b4931c5b45087dd78395461e6286466fef6c9ba4efc4b7742c14d8ca0c1689f1",
+          "publishedAt": "2026-03-27T07:17:58.274Z"
+        }
+      ]
+    },
+    {
+      "id": "linear",
+      "name": "Linear",
+      "description": "Create, read, update, and list issues in Linear via GraphQL",
+      "category": "Utilities",
+      "tags": ["linear", "issues", "project-management", "graphql"],
+      "icon": "https://cdn.simpleicons.org/linear",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:829aec5ad55b3fecf8152aa17fe112b60a04ea6f3bf10965ad3f84ab20e64990",
+          "publishedAt": "2026-03-27T07:17:58.275Z"
+        }
+      ]
+    },
+    {
+      "id": "notion",
+      "name": "Notion",
+      "description": "Create, read, update pages and query databases in Notion",
+      "category": "Data",
+      "tags": ["notion", "database", "pages", "productivity"],
+      "icon": "https://cdn.simpleicons.org/notion",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:ba36f55193e25a5db20b40da346f466458b26a68cb007879e161c509b9f97b70",
+          "publishedAt": "2026-03-27T07:17:58.276Z"
+        }
+      ]
+    },
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "description": "Generate text, embeddings, images, and moderate content with OpenAI APIs",
+      "category": "AI",
+      "tags": ["openai", "ai", "gpt", "embeddings", "images", "moderation"],
+      "icon": "https://cdn.simpleicons.org/openai",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:8cbaf1530e1d21266847f8850d37ed447178e8876cf8c9251b72108757b17a42",
+          "publishedAt": "2026-03-27T07:17:58.277Z"
+        }
+      ]
+    },
+    {
+      "id": "resend",
+      "name": "Resend",
+      "description": "Send, retrieve, and cancel emails via the Resend API",
+      "category": "Email",
+      "tags": ["resend", "email", "transactional"],
+      "icon": "https://cdn.simpleicons.org/resend",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:6fdfbdbcb43adda67943f125e8ae2069e74aa4a55b8ed6e9492d2080a930b295",
+          "publishedAt": "2026-03-27T07:17:58.286Z"
+        }
+      ]
+    },
+    {
+      "id": "sendgrid",
+      "name": "SendGrid",
+      "description": "Send transactional and template emails via the SendGrid API",
+      "category": "Email",
+      "tags": ["sendgrid", "email", "transactional", "templates"],
+      "icon": "https://cdn.simpleicons.org/sendgrid",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:d16a60bfd92edc5bb0ef23c8ae27ed54762a8d51facb603533582d90352ff369",
+          "publishedAt": "2026-03-27T07:17:58.286Z"
+        }
+      ]
+    },
+    {
+      "id": "slack",
+      "name": "Slack",
+      "description": "Interact with the Slack API for messaging and channels",
+      "category": "Messaging",
+      "tags": ["slack", "messaging", "chat", "notifications"],
+      "icon": "https://cdn.simpleicons.org/slack",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:a89daa93eaa3e64228632ff82ac922d5a93887bc587e429728224b3ece989cf7",
+          "publishedAt": "2026-03-27T07:17:58.287Z"
+        }
+      ]
+    },
+    {
+      "id": "stripe",
+      "name": "Stripe",
+      "description": "Interact with the Stripe API for payments and customers",
+      "category": "Payments",
+      "tags": ["stripe", "payments", "billing", "subscriptions"],
+      "icon": "https://cdn.simpleicons.org/stripe",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:4da811650eb84ed6a96b9f9ac9814b8259680c33ddb40ae276547e79ad55aea7",
+          "publishedAt": "2026-03-27T07:17:58.288Z"
+        }
+      ]
+    },
+    {
+      "id": "supabase",
+      "name": "Supabase",
+      "description": "Insert, select, update, and delete rows in Supabase tables",
+      "category": "Database",
+      "tags": ["supabase", "database", "postgres", "rows"],
+      "icon": "https://cdn.simpleicons.org/supabase",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:7e95351668eb7aa3cf21ed62e7641f1f38a2df9d5618b5e1cacec3d74f123583",
+          "publishedAt": "2026-03-27T07:17:58.289Z"
+        }
+      ]
+    },
+    {
+      "id": "telegram",
+      "name": "Telegram",
+      "description": "Send, edit, and delete messages via the Telegram Bot API",
+      "category": "Messaging",
+      "tags": ["telegram", "messaging", "bot", "chat"],
+      "icon": "https://cdn.simpleicons.org/telegram",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:980e56110ecc31708e5cad76431307444045ef6d92e3d91a4a1b43e1ce9b2532",
+          "publishedAt": "2026-03-27T07:17:58.290Z"
+        }
+      ]
+    },
+    {
+      "id": "twilio",
+      "name": "Twilio",
+      "description": "Send SMS, WhatsApp messages, and make calls via the Twilio API",
+      "category": "Messaging",
+      "tags": ["twilio", "sms", "whatsapp", "voice", "messaging"],
       "icon": "https://cdn.simpleicons.org/twilio",
       "author": "awaitstep",
       "license": "Apache-2.0",
@@ -54,8 +301,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:5a164830c89967263b892f4972aa26426344b4942b72ad8b6b71205a7234e636",
-          "publishedAt": "2026-03-27T01:08:34.802Z"
+          "checksum": "sha256:b6c3f47604026081f6b0918e7d7ceeeda7c4a677b046fb11356e8b95e01dc353",
+          "publishedAt": "2026-03-27T07:17:58.291Z"
         }
       ]
     }
