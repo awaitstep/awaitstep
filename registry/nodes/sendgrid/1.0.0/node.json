@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Send transactional and template emails via the SendGrid API",
   "category": "Email",
-  "icon": "https://cdn.simpleicons.org/sendgrid",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/sendgrid/icon.svg",
   "tags": ["sendgrid", "email", "transactional", "templates"],
   "author": "awaitstep",
   "license": "Apache-2.0",

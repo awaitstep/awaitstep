@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Generate text, embeddings, images, and moderate content with OpenAI APIs",
   "category": "AI",
-  "icon": "https://cdn.simpleicons.org/openai",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/openai/icon.svg",
   "tags": ["openai", "ai", "gpt", "embeddings", "images", "moderation"],
   "author": "awaitstep",
   "license": "Apache-2.0",

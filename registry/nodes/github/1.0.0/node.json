@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Interact with GitHub issues and comments via the REST API",
   "category": "Utilities",
-  "icon": "https://cdn.simpleicons.org/github",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/github/icon.svg",
   "tags": ["github", "issues", "comments", "repositories"],
   "author": "awaitstep",
   "license": "Apache-2.0",

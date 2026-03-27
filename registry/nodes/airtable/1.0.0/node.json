@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Create, read, update, and list records in Airtable bases",
   "category": "Database",
-  "icon": "https://cdn.simpleicons.org/airtable",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/airtable/icon.svg",
   "tags": ["airtable", "database", "records", "spreadsheet"],
   "author": "awaitstep",
   "license": "Apache-2.0",

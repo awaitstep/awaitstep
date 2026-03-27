@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Send SMS, WhatsApp messages, and make calls via the Twilio API",
   "category": "Messaging",
-  "icon": "https://cdn.simpleicons.org/twilio",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/twilio/icon.svg",
   "tags": ["twilio", "sms", "whatsapp", "voice", "messaging"],
   "author": "awaitstep",
   "license": "Apache-2.0",

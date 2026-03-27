@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Create and manage issues, comments, and transitions in Jira",
   "category": "Utilities",
-  "icon": "https://cdn.simpleicons.org/jira",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/jira/icon.svg",
   "tags": ["jira", "issues", "project-management", "atlassian"],
   "author": "awaitstep",
   "license": "Apache-2.0",

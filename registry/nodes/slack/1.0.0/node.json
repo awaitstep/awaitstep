@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Interact with the Slack API for messaging and channels",
   "category": "Messaging",
-  "icon": "https://cdn.simpleicons.org/slack",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/slack/icon.svg",
   "tags": ["slack", "messaging", "chat", "notifications"],
   "author": "awaitstep",
   "license": "Apache-2.0",

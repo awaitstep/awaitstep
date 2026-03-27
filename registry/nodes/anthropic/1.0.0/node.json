@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Generate text with Anthropic Claude models via the Messages API",
   "category": "AI",
-  "icon": "https://cdn.simpleicons.org/anthropic",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/anthropic/icon.svg",
   "tags": ["anthropic", "ai", "claude", "llm"],
   "author": "awaitstep",
   "license": "Apache-2.0",

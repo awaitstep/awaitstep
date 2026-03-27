@@ -3,6 +3,7 @@ import { generateWorkflow, DEFAULT_TRIGGER_CODE } from '@awaitstep/provider-clou
 import type { TemplateResolver } from '@awaitstep/codegen'
 import { Copy, Check, RotateCcw } from 'lucide-react'
 import { Button } from '../ui/button'
+import { useOrgStore } from '../../stores/org-store'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import { useShallow } from 'zustand/react/shallow'
 import { buildIRFromState } from '../../lib/build-ir'
@@ -31,17 +32,19 @@ export function EditorPanel() {
   const [copied, setCopied] = useState(false)
   const templatesRef = useRef<Record<string, Record<string, string>>>({})
   const [templatesLoaded, setTemplatesLoaded] = useState(false)
+  const organizationId = useOrgStore((s) => s.activeOrganizationId)
 
   useEffect(() => {
     setMounted(true)
-    fetch('/api/nodes/templates', { credentials: 'include' })
+    const params = organizationId ? `?organizationId=${organizationId}` : ''
+    fetch(`/api/nodes/templates${params}`, { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((data: Record<string, Record<string, string>> | null) => {
         if (data) templatesRef.current = data
         setTemplatesLoaded(true)
       })
       .catch(() => setTemplatesLoaded(true))
-  }, [])
+  }, [organizationId])
 
   const ir = useMemo(() => {
     if (nodes.length === 0) return null
