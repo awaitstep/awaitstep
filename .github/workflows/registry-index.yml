@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v5
@@ -39,10 +40,20 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Commit and push updated index
+      - name: Create PR and auto-merge
         if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          BRANCH="chore/registry-index-$(date +%s)"
+          git checkout -b "$BRANCH"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           HUSKY=0 git commit -m "chore: rebuild registry index"
-          git push
+          git push origin "$BRANCH"
+          PR_URL=$(gh pr create \
+            --title "chore: rebuild registry index" \
+            --body "Auto-generated from registry/nodes changes." \
+            --base main \
+            --head "$BRANCH")
+          gh pr merge "$PR_URL" --squash --admin
