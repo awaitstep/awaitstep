@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-03-28T00:26:40.193Z",
+  "generatedAt": "2026-03-28T00:52:38.465Z",
   "nodes": [
     {
       "id": "airtable",
@@ -17,7 +17,7 @@
         {
           "version": "1.0.0",
           "checksum": "sha256:ada7dbdde706fbc0da34b3583ab332a06942b721da6620fa9a4d750531be38a0",
-          "publishedAt": "2026-03-28T00:26:40.172Z"
+          "publishedAt": "2026-03-28T00:52:38.451Z"
         }
       ]
     },
@@ -36,7 +36,7 @@
         {
           "version": "1.0.0",
           "checksum": "sha256:5828db2bfebae9bd3e0a8b62c2c5a54ac3c1f1dd7273e0df2428a7ac2a67a913",
-          "publishedAt": "2026-03-28T00:26:40.173Z"
+          "publishedAt": "2026-03-28T00:52:38.453Z"
         }
       ]
     },
@@ -55,7 +55,7 @@
         {
           "version": "1.0.0",
           "checksum": "sha256:970b8bf8d7cb8514ccf0d05075659ebda6631de9f40001c3c6cdfe20aa25728a",
-          "publishedAt": "2026-03-28T00:26:40.174Z"
+          "publishedAt": "2026-03-28T00:52:38.454Z"
         }
       ]
     },
@@ -74,7 +74,7 @@
         {
           "version": "1.0.0",
           "checksum": "sha256:ffd47c65737214be560ac589e0f7d468bdf8a3cc321419a4fe07025e92633eed",
-          "publishedAt": "2026-03-28T00:26:40.175Z"
+          "publishedAt": "2026-03-28T00:52:38.454Z"
         }
       ]
     },
@@ -93,7 +93,7 @@
         {
           "version": "1.0.0",
           "checksum": "sha256:a4a922bb113594f12d86f5cefc6360d289d0220a1b0f0bb50ce52d16883fd939",
-          "publishedAt": "2026-03-28T00:26:40.176Z"
+          "publishedAt": "2026-03-28T00:52:38.455Z"
         }
       ]
     },
@@ -112,7 +112,7 @@
         {
           "version": "1.0.0",
           "checksum": "sha256:f87262864bcbcbf22ccd8177853601ac54ccb6121384658dc28ba99fb3df31fb",
-          "publishedAt": "2026-03-28T00:26:40.177Z"
+          "publishedAt": "2026-03-28T00:52:38.457Z"
         }
       ]
     },
@@ -131,7 +131,7 @@
         {
           "version": "1.0.0",
           "checksum": "sha256:0e5c7a80ed14501a21b888ff6ad948ad15ec19b519476fbd0b69d4267986bac2",
-          "publishedAt": "2026-03-28T00:26:40.177Z"
+          "publishedAt": "2026-03-28T00:52:38.458Z"
         }
       ]
     },
@@ -150,7 +150,7 @@
         {
           "version": "1.0.0",
           "checksum": "sha256:91b2cca9d5ef364c01e346c58a0724418d9ae1688a9f1ba36d2518eea6b81ab0",
-          "publishedAt": "2026-03-28T00:26:40.185Z"
+          "publishedAt": "2026-03-28T00:52:38.459Z"
         }
       ]
     },
@@ -169,7 +169,7 @@
         {
           "version": "1.0.0",
           "checksum": "sha256:d4a901f3c71af4dfea21368f7ecef502bfdac79093abe2962d187f4a3fbf9164",
-          "publishedAt": "2026-03-28T00:26:40.187Z"
+          "publishedAt": "2026-03-28T00:52:38.460Z"
         }
       ]
     },
@@ -188,7 +188,7 @@
         {
           "version": "1.0.0",
           "checksum": "sha256:370912e259d81d421718ca955f72cab38c855de3bdbfa9c568899b60e5ace918",
-          "publishedAt": "2026-03-28T00:26:40.188Z"
+          "publishedAt": "2026-03-28T00:52:38.460Z"
         }
       ]
     },
@@ -207,7 +207,7 @@
         {
           "version": "1.0.0",
           "checksum": "sha256:8b70e131fd4ffcf6eb77c85d4e37a395e0de0e14226cef4c5ac916c1c5671113",
-          "publishedAt": "2026-03-28T00:26:40.189Z"
+          "publishedAt": "2026-03-28T00:52:38.461Z"
         }
       ]
     },
@@ -226,7 +226,7 @@
         {
           "version": "1.0.0",
           "checksum": "sha256:8b1012ea04aa239d8885ce82537567c748e32c1344fa47a45a3878c0081b2ea1",
-          "publishedAt": "2026-03-28T00:26:40.190Z"
+          "publishedAt": "2026-03-28T00:52:38.462Z"
         }
       ]
     },
@@ -245,7 +245,7 @@
         {
           "version": "1.0.0",
           "checksum": "sha256:ef97fd029dafdd5b5662d53e590446dfbeac7acf68f0ffe3e28e298a350245bc",
-          "publishedAt": "2026-03-28T00:26:40.191Z"
+          "publishedAt": "2026-03-28T00:52:38.463Z"
         }
       ]
     },
@@ -264,7 +264,7 @@
         {
           "version": "1.0.0",
           "checksum": "sha256:658252b0781c82047d01730807a3da17ca2b084bd9f2db91024fc3bab56df051",
-          "publishedAt": "2026-03-28T00:26:40.191Z"
+          "publishedAt": "2026-03-28T00:52:38.464Z"
         }
       ]
     },
@@ -283,7 +283,7 @@
         {
           "version": "1.0.0",
           "checksum": "sha256:3704613b928a3a10480c1e3ec0d1cc9062c2620d855eb1c752292b785fff23ce",
-          "publishedAt": "2026-03-28T00:26:40.192Z"
+          "publishedAt": "2026-03-28T00:52:38.464Z"
         }
       ]
     },
@@ -302,7 +302,7 @@
         {
           "version": "1.0.0",
           "checksum": "sha256:9702ade13fb6de9396e0800831c120d4028596e120f21a6fa20dcce49cbe0b53",
-          "publishedAt": "2026-03-28T00:26:40.193Z"
+          "publishedAt": "2026-03-28T00:52:38.465Z"
         }
       ]
     }
