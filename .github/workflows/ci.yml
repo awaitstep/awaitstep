@@ -10,6 +10,7 @@ concurrency:
 
 jobs:
   test:
+    if: ${{ !startsWith(github.head_ref, 'chore/registry-index-') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -27,3 +28,10 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+  # Auto-pass for registry index PRs (only changes index.json)
+  test-skip:
+    if: ${{ startsWith(github.head_ref, 'chore/registry-index-') }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Skipping tests for auto-generated registry index PR"
