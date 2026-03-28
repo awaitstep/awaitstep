@@ -110,6 +110,7 @@ export interface GenerateOptions {
   templateResolver?: TemplateResolver
   envVarNames?: string[]
   triggerCode?: string
+  preview?: boolean
 }
 
 export function generateWorkflow(
@@ -121,7 +122,7 @@ export function generateWorkflow(
       ? { templateResolver: templateResolverOrOptions }
       : templateResolverOrOptions
     : {}
-  const { templateResolver, envVarNames, triggerCode } = opts
+  const { templateResolver, envVarNames, triggerCode, preview } = opts
   const className = sanitizeIdentifier(ir.metadata.name)
     .split('_')
     .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
@@ -215,7 +216,9 @@ export function generateWorkflow(
   const uniqueImports = [...new Set(collectedImports)]
   const importBlock = uniqueImports.length > 0 ? '\n' + uniqueImports.join('\n') : ''
   const classBlock =
-    classDefinitions.size > 0 ? '\n' + [...classDefinitions.values()].join('\n\n') + '\n' : ''
+    !preview && classDefinitions.size > 0
+      ? '\n' + [...classDefinitions.values()].join('\n\n') + '\n'
+      : ''
 
   return `import { WorkflowEntrypoint } from "cloudflare:workers";${importBlock}
 

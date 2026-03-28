@@ -63,7 +63,11 @@ export function EditorPanel() {
   const generatedCode = useMemo(() => {
     if (!ir) return '// Drag nodes onto the canvas to generate code'
     try {
-      return generateWorkflow(ir, { templateResolver, triggerCode: triggerCode || undefined })
+      return generateWorkflow(ir, {
+        templateResolver,
+        triggerCode: triggerCode || undefined,
+        preview: true,
+      })
     } catch (err) {
       return `// Error generating code:\n// ${err instanceof Error ? err.message : 'Unknown error'}`
     }
