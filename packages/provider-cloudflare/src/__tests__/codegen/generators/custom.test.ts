@@ -149,7 +149,7 @@ describe('generateCustomNode', () => {
     const code = generateCustomNode(node, template)
 
     // Class definition
-    expect(code).toContain('class WebhookPost {')
+    expect(code).toContain('class WebhookPostNode {')
     expect(code).toContain('static async execute(env: Env, params: Record<string, unknown>)')
     expect(code).toContain('params.webhookUrl')
     expect(code).toContain('env.API_KEY')
@@ -158,7 +158,7 @@ describe('generateCustomNode', () => {
 
     // Step call
     expect(code).toContain('const My_Node = await step.do("My Node"')
-    expect(code).toContain('WebhookPost.execute(this.env, {')
+    expect(code).toContain('WebhookPostNode.execute(this.env, {')
     expect(code).toContain('webhookUrl: "https://hook.example.com"')
     expect(code).toContain('previous_step: "step_1"')
   })
@@ -178,9 +178,9 @@ describe('generateCustomNode', () => {
     }
 
     const code = generateCustomNode(node, noReturnTemplate)
-    expect(code).toContain('class Logger {')
+    expect(code).toContain('class LoggerNode {')
     expect(code).toContain('await step.do("Log"')
-    expect(code).toContain('Logger.execute(this.env, {')
+    expect(code).toContain('LoggerNode.execute(this.env, {')
   })
 
   it('includes import statements from the template', () => {

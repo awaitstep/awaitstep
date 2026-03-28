@@ -195,6 +195,14 @@ export function generateWorkflow(
     }
   }
 
+  // Scan class definitions for env.VARIABLE references (custom node templates)
+  const envVarPattern = /\benv\.([A-Z][A-Z0-9_]*)/g
+  for (const classDef of classDefinitions.values()) {
+    for (const m of classDef.matchAll(envVarPattern)) {
+      allEnvNames.add(m[1])
+    }
+  }
+
   const envFields = ['  WORKFLOW: Workflow;']
   for (const name of allEnvNames) {
     envFields.push(`  ${name}: string;`)

@@ -189,15 +189,17 @@ describe('generateWorkflow with custom nodes', () => {
 
     expect(code).toContain('class CustomWorkflow')
     // Class definition hoisted before workflow class
-    expect(code).toContain('class WebhookPost {')
+    expect(code).toContain('class WebhookPostNode {')
     expect(code).toContain('static async execute(env: Env, params: Record<string, unknown>)')
     // Step calls use the class
     expect(code).toContain('const Fetch_Data = await step.do("Fetch Data"')
     expect(code).toContain('const Send_Webhook = await step.do("Send Webhook"')
-    expect(code).toContain('WebhookPost.execute(this.env, {')
+    expect(code).toContain('WebhookPostNode.execute(this.env, {')
     expect(code).toContain('url: "https://hook.example.com/endpoint"')
     expect(code).toContain('retries: { limit: 3, delay: "5 seconds" }')
     expect(code).not.toContain('ctx.')
+    // Env vars from template are in the Env interface
+    expect(code).toContain('API_KEY: string;')
   })
 
   it('hoists import statements from custom node templates to the top level', () => {

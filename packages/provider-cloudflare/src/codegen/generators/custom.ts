@@ -79,10 +79,11 @@ function extractImportLines(source: string): string[] {
 }
 
 function toClassName(nodeType: string): string {
-  return sanitizeIdentifier(nodeType)
+  const base = sanitizeIdentifier(nodeType)
     .split('_')
     .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
     .join('')
+  return `${base}Node`
 }
 
 export interface CustomNodeOutput {
