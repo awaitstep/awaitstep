@@ -1,5 +1,5 @@
 import type { WorkflowNode } from '@awaitstep/ir'
-import { varName, escName } from '@awaitstep/codegen'
+import { varName, escName, sanitizeIdentifier, indent } from '@awaitstep/codegen'
 import { generateStepConfig } from './config.js'
 
 export function extractTemplateBody(source: string): string {
@@ -78,24 +78,62 @@ function extractImportLines(source: string): string[] {
     .map((line) => line.trim())
 }
 
+function toClassName(nodeType: string): string {
+  return sanitizeIdentifier(nodeType)
+    .split('_')
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+    .join('')
+}
+
+export interface CustomNodeOutput {
+  classDefinition: string
+  stepCode: string
+  imports: string[]
+  className: string
+}
+
 export function generateCustomNode(node: WorkflowNode, templateSource: string): string {
+  const result = generateCustomNodeParts(node, templateSource)
+  const parts: string[] = []
+  if (result.imports.length > 0) parts.push(result.imports.join('\n'))
+  parts.push(result.classDefinition)
+  parts.push(result.stepCode)
+  return parts.join('\n')
+}
+
+export function generateCustomNodeParts(
+  node: WorkflowNode,
+  templateSource: string,
+): CustomNodeOutput {
   const imports = extractImportLines(templateSource)
   let body = extractTemplateBody(templateSource)
+  const className = toClassName(node.type)
 
+  // Replace ctx.env.* with env.* (env is passed as a parameter)
+  body = resolveCtxEnv(body)
+
+  // Replace ctx.config.* with params.* (params is passed as a parameter)
+  body = body.replace(/ctx\.config\./g, 'params.')
+
+  // Replace ctx.inputs.* with params.* (inputs are merged into params)
+  body = body.replace(/ctx\.inputs\./g, 'params.')
+
+  // Build the params object from node data
   const configData: Record<string, unknown> = {}
-  const inputData: Record<string, unknown> = {}
-
   for (const [key, value] of Object.entries(node.data)) {
-    if (key.startsWith('input_')) {
-      inputData[key.slice(6)] = value
-    } else {
-      configData[key] = value
-    }
+    const paramKey = key.startsWith('input_') ? key.slice(6) : key
+    configData[paramKey] = value
   }
 
-  body = resolveCtxConfig(body, configData)
-  body = resolveCtxEnv(body)
-  body = resolveCtxInputs(body, inputData)
+  const paramsEntries = Object.entries(configData)
+    .map(([key, value]) => `    ${key}: ${toJsLiteral(value)},`)
+    .join('\n')
+
+  const classDefinition = `class ${className} {
+  static async execute(env: Env, params: Record<string, unknown>) {
+${indent(body, 4)}
+  }
+}`
 
   const config = generateStepConfig(node.config)
   const configArg = config ? `, ${config}` : ''
@@ -103,8 +141,10 @@ export function generateCustomNode(node: WorkflowNode, templateSource: string): 
   const prefix = hasReturn ? `const ${varName(node.id)} = ` : ''
 
   const stepCode = `${prefix}await step.do("${escName(node.name)}"${configArg}, async () => {
-  ${body}
+  return ${className}.execute(this.env, {
+${paramsEntries}
+  });
 });`
 
-  return imports.length > 0 ? imports.join('\n') + '\n' + stepCode : stepCode
+  return { classDefinition, stepCode, imports, className }
 }

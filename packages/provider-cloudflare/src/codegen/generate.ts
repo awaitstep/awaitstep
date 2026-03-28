@@ -8,6 +8,7 @@ import {
   setVarNameMap,
   clearVarNameMap,
   varName,
+  indent,
 } from '@awaitstep/codegen'
 import { generateStep } from './generators/step.js'
 import { generateSleep, generateSleepUntil } from './generators/sleep.js'
@@ -15,7 +16,7 @@ import { generateBranch, collectBranchInlineTargets } from './generators/branch.
 import { generateParallel } from './generators/parallel.js'
 import { generateHttp } from './generators/http.js'
 import { generateWaitForEvent } from './generators/wait-for-event.js'
-import { generateCustomNode } from './generators/custom.js'
+import { generateCustomNode, generateCustomNodeParts } from './generators/custom.js'
 import { hasTemplateExpressions } from './generators/state-tracking.js'
 
 export const DEFAULT_TRIGGER_CODE = `const url = new URL(request.url);
@@ -138,12 +139,36 @@ export function generateWorkflow(
     : ir
 
   const bodyParts: string[] = []
+  const classDefinitions = new Map<string, string>()
 
   const resolvedNodeMap = new Map(resolvedIR.nodes.map((n) => [n.id, n]))
   const resolvedSorted = sorted.map((n) => resolvedNodeMap.get(n.id) ?? n)
 
+  const builtinTypes = new Set([
+    'step',
+    'sleep',
+    'sleep_until',
+    'branch',
+    'parallel',
+    'http_request',
+    'wait_for_event',
+  ])
+
   for (const node of resolvedSorted) {
     if (inlineTargets.has(node.id)) continue
+
+    if (!builtinTypes.has(node.type) && templateResolver) {
+      const template = templateResolver.getTemplate(node.type, node.provider)
+      if (template) {
+        const parts = generateCustomNodeParts(node, template)
+        if (!classDefinitions.has(parts.className)) {
+          classDefinitions.set(parts.className, parts.classDefinition)
+        }
+        bodyParts.push(parts.imports.join('\n') + '\n' + parts.stepCode)
+        continue
+      }
+    }
+
     bodyParts.push(generateNodeCode(node, resolvedIR, templateResolver))
   }
 
@@ -181,13 +206,15 @@ export function generateWorkflow(
 
   const uniqueImports = [...new Set(collectedImports)]
   const importBlock = uniqueImports.length > 0 ? '\n' + uniqueImports.join('\n') : ''
+  const classBlock =
+    classDefinitions.size > 0 ? '\n' + [...classDefinitions.values()].join('\n\n') + '\n' : ''
 
   return `import { WorkflowEntrypoint } from "cloudflare:workers";${importBlock}
 
 interface Env {
 ${envFields.join('\n')}
 }
-
+${classBlock}
 export class ${className} extends WorkflowEntrypoint<Env> {
   async run(event, step) {
 ${indent(bodyLines, 4)}
@@ -200,14 +227,6 @@ ${indent(fetchBody, 4)}
   },
 };
 `
-}
-
-function indent(code: string, spaces: number): string {
-  const pad = ' '.repeat(spaces)
-  return code
-    .split('\n')
-    .map((line) => (line.trim() ? pad + line : line))
-    .join('\n')
 }
 
 export class CloudflareCodeGenerator implements CodeGenerator {

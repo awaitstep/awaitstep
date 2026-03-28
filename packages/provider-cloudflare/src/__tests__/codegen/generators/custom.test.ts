@@ -131,7 +131,7 @@ describe('generateCustomNode', () => {
   return response.json();
 }`
 
-  it('generates a complete step.do call from a template', () => {
+  it('generates a class definition and step.do call from a template', () => {
     const node: WorkflowNode = {
       id: 'my-node',
       name: 'My Node',
@@ -148,16 +148,22 @@ describe('generateCustomNode', () => {
 
     const code = generateCustomNode(node, template)
 
-    expect(code).toContain('const My_Node = await step.do("My Node"')
-    expect(code).toContain('{ retries: { limit: 3, delay: "5 seconds" } }')
-    expect(code).toContain('"https://hook.example.com"')
+    // Class definition
+    expect(code).toContain('class WebhookPost {')
+    expect(code).toContain('static async execute(env: Env, params: Record<string, unknown>)')
+    expect(code).toContain('params.webhookUrl')
     expect(code).toContain('env.API_KEY')
-    expect(code).toContain('JSON.stringify(step_1)')
-    expect(code).toContain('return response.json();')
+    expect(code).toContain('params.previous_step')
     expect(code).not.toContain('ctx.')
+
+    // Step call
+    expect(code).toContain('const My_Node = await step.do("My Node"')
+    expect(code).toContain('WebhookPost.execute(this.env, {')
+    expect(code).toContain('webhookUrl: "https://hook.example.com"')
+    expect(code).toContain('previous_step: "step_1"')
   })
 
-  it('omits variable assignment when template has no return', () => {
+  it('handles templates with no return in the step call', () => {
     const noReturnTemplate = `export default async function(ctx) {
   console.log(ctx.config.message);
 }`
@@ -172,8 +178,9 @@ describe('generateCustomNode', () => {
     }
 
     const code = generateCustomNode(node, noReturnTemplate)
-    expect(code).toMatch(/^await step\.do/)
-    expect(code).not.toContain('const ')
+    expect(code).toContain('class Logger {')
+    expect(code).toContain('await step.do("Log"')
+    expect(code).toContain('Logger.execute(this.env, {')
   })
 
   it('includes import statements from the template', () => {

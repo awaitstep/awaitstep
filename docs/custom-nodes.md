@@ -1,33 +1,63 @@
 # Custom Nodes
 
-AwaitStep ships with a set of built-in nodes (step, sleep, branch, parallel, etc.) but supports extending the workflow canvas with custom nodes. Custom nodes use the same `NodeDefinition` model as built-in ones and plug into the same code generation, validation, and deployment pipeline.
+AwaitStep ships with a set of built-in nodes (step, sleep, branch, parallel, etc.) but supports extending the workflow canvas with custom nodes. Custom nodes can be **local** (bundled at build time from the `nodes/` directory) or **remote** (installed from the marketplace registry).
 
 ## Overview
 
 ```mermaid
 graph LR
+    subgraph Local Nodes
     Author["Author\nnode.json + template.ts"] --> Generate["pnpm nodes:generate\nValidate + Bundle"]
     Generate --> Build["pnpm nodes:build\nMerge → registry.json"]
+    end
+    subgraph Remote Nodes
+    Contributor["Contributor\nAdd to registry/nodes/"] --> PR["Pull Request\nReview + Merge"]
+    PR --> CI["CI\nBuild index.json"]
+    CI --> Marketplace["Marketplace\nBrowse + Install"]
+    end
     Build --> API["API serves\n/api/nodes"]
+    Marketplace --> API
     API --> Web["Web app\nNode Palette + Config"]
-    Web --> Codegen["Code Generation\nTemplate Resolution"]
+    Web --> Codegen["Code Generation\nClass-based templates"]
 ```
 
-## Directory Structure
+## Node Types
 
-Each custom node lives in its own directory under `nodes/`:
+### Local Nodes
+
+Local nodes live in the `nodes/` directory and are bundled at build time. Use these for project-specific nodes or development/testing.
 
 ```
 nodes/
 ├── registry.json              # Generated: all definitions + custom templates
 ├── nodes.local.json           # Generated: custom node bundles only
-└── resend_send_email/         # Example custom node
-    ├── node.json              # Node definition (metadata, schemas)
-    ├── template.ts            # Default template (all providers)
+└── my_custom_node/
+    ├── node.json              # Node definition
+    ├── template.ts            # Default template
     └── templates/             # Optional provider-specific overrides
-        ├── cloudflare.ts
-        └── trigger-dev.ts
+        └── cloudflare.ts
 ```
+
+### Remote Nodes (Marketplace)
+
+Remote nodes live in `registry/nodes/` and are installed per-organization via the marketplace UI. Each node is versioned:
+
+```
+registry/nodes/
+├── stripe/
+│   ├── icon.svg               # Brand icon (served via raw GitHub URL)
+│   └── 1.0.0/
+│       ├── node.json
+│       └── template.ts
+├── slack/
+│   ├── icon.svg
+│   └── 1.0.0/
+│       ├── node.json
+│       └── template.ts
+└── ...
+```
+
+To add a new remote node, submit a PR adding a directory under `registry/nodes/`. CI validates the definition and rebuilds `index.json` after merge.
 
 ## Node Definition (`node.json`)
 
@@ -35,12 +65,13 @@ Every node is described by a `NodeDefinition`:
 
 ```json
 {
-  "id": "resend_send_email",
-  "name": "Resend Send Email",
+  "id": "stripe",
+  "name": "Stripe",
   "version": "1.0.0",
-  "description": "Sends an email via the Resend API",
-  "category": "Email",
-  "tags": ["email", "resend", "transactional"],
+  "description": "Interact with the Stripe API for payments and customers",
+  "category": "Payments",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/stripe/icon.svg",
+  "tags": ["stripe", "payments", "billing"],
   "author": "awaitstep",
   "license": "Apache-2.0",
   "providers": ["cloudflare"],
@@ -71,7 +102,7 @@ Every node is described by a `NodeDefinition`:
 | Field                | Type                     | Purpose                                     |
 | -------------------- | ------------------------ | ------------------------------------------- |
 | `tags`               | string[]                 | Searchable tags                             |
-| `icon`               | string                   | URL to node icon                            |
+| `icon`               | string                   | URL to node icon (use local SVG in repo)    |
 | `docsUrl`            | string                   | Link to external docs                       |
 | `dependencies`       | Record\<string, string\> | npm packages installed at deploy time       |
 | `runtime`            | RuntimeHints             | Default timeout, retries, idempotency hints |
@@ -87,11 +118,106 @@ Every node is described by a `NodeDefinition`:
 
 `cloudflare` · `inngest` · `temporal` · `stepfunctions`
 
-Each node declares which providers it supports. Templates are resolved per-provider at code generation time.
+### Icons
+
+Store an `icon.svg` file in the node's directory (not the version directory). Reference it via raw GitHub URL in `node.json`:
+
+```json
+{
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/stripe/icon.svg"
+}
+```
+
+Source SVGs from [Simple Icons](https://simpleicons.org/) or [gilbarbara/logos](https://github.com/gilbarbara/logos).
+
+## Multi-Action Service Nodes
+
+The recommended pattern is **one node per service** with an `action` select field, not one node per API call. This keeps the node palette clean and lets users access all of a service's operations from a single node.
+
+### Action Select Field
+
+```json
+{
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": [
+        "Create Payment Intent",
+        "Retrieve Payment Intent",
+        "Create Customer",
+        "Retrieve Customer",
+        "Create Charge",
+        "Create Refund"
+      ],
+      "description": "The Stripe API action to perform."
+    },
+    "amount": {
+      "type": "number",
+      "label": "Amount",
+      "description": "Amount in smallest currency unit. Used by: Create Payment Intent, Create Charge."
+    }
+  }
+}
+```
+
+Annotate each field's description with `Used by:` to indicate which actions use it.
+
+### Switch-Based Template
+
+```typescript
+export default async function (ctx) {
+  const action = ctx.config.action
+
+  async function apiRequest(method: string, path: string, body?: URLSearchParams) {
+    const response = await fetch(`https://api.stripe.com/v1${path}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${ctx.env.STRIPE_SECRET_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: body?.toString(),
+    })
+    const data = (await response.json()) as Record<string, unknown>
+    if (!response.ok) {
+      const err = data.error as { message?: string } | undefined
+      throw new Error(`Stripe API error: ${err?.message ?? response.statusText}`)
+    }
+    return data
+  }
+
+  switch (action) {
+    case 'Create Payment Intent': {
+      const params = new URLSearchParams({
+        amount: String(ctx.config.amount),
+        currency: ctx.config.currency ?? 'usd',
+      })
+      const data = await apiRequest('POST', '/payment_intents', params)
+      return { id: data.id, status: data.status, data }
+    }
+
+    case 'Retrieve Payment Intent': {
+      const data = await apiRequest('GET', `/payment_intents/${ctx.config.paymentIntentId}`)
+      return { id: data.id, status: data.status, data }
+    }
+
+    // ... more cases
+
+    default:
+      throw new Error(`Unknown action: ${action}`)
+  }
+}
+```
+
+### Template Rules
+
+- Call `response.json()` **once** — parse the body, then check `response.ok`
+- Use a helper function for shared API request logic
+- Include a `default` case that throws for unknown actions
+- All credential fields must be `type: "secret"` with `required: true` and `envVarName`
 
 ## Config Schema
-
-The `configSchema` defines the input fields shown in the node's configuration panel. Each field maps to a UI control and a code generation placeholder.
 
 ### Field Types
 
@@ -100,7 +226,7 @@ The `configSchema` defines the input fields shown in the node's configuration pa
 | `string`      | Text input         | URL, name, identifier            |
 | `number`      | Number input       | Retry count, timeout             |
 | `boolean`     | Toggle switch      | Enable/disable flag              |
-| `select`      | Dropdown           | HTTP method, format              |
+| `select`      | Dropdown           | Action, HTTP method, format      |
 | `multiselect` | Multi-select       | Tags, categories                 |
 | `secret`      | Secret input       | API keys (requires `envVarName`) |
 | `code`        | Monaco code editor | Custom logic, function body      |
@@ -121,11 +247,11 @@ The `configSchema` defines the input fields shown in the node's configuration pa
   options?: string[]        // Required for select/multiselect
   envVarName?: string       // Required for secret type — maps to env var name
   validation?: {
-    min?: number            // Minimum value (number) or length (string)
-    max?: number            // Maximum value (number) or length (string)
+    min?: number
+    max?: number
     minLength?: number
     maxLength?: number
-    pattern?: string        // Regex pattern
+    pattern?: string
     format?: 'email' | 'url' | 'uuid' | 'date' | 'date-time' | 'duration'
   }
 }
@@ -133,44 +259,31 @@ The `configSchema` defines the input fields shown in the node's configuration pa
 
 ### Secret Fields
 
-Fields with `type: "secret"` must include `envVarName`. At runtime, the secret value is injected as an environment variable rather than embedded in code:
+Fields with `type: "secret"` must include `envVarName` and `required: true`. At runtime, the secret value is injected as an environment variable:
 
 ```json
 {
   "apiKey": {
     "type": "secret",
-    "label": "Resend API Key",
+    "label": "API Key",
     "required": true,
-    "envVarName": "RESEND_API_KEY"
+    "envVarName": "STRIPE_SECRET_KEY"
   }
 }
 ```
 
-In the template, access it via `ctx.env.RESEND_API_KEY`. The deploy pipeline handles injecting the actual value as a runtime secret.
+In the template, access it via `ctx.env.STRIPE_SECRET_KEY`.
 
 ## Output Schema
 
-The `outputSchema` declares the shape of data returned by the node. Downstream nodes can reference these outputs via expressions.
-
-### OutputField Properties
-
-```typescript
-{
-  type: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'null'
-  description?: string
-  nullable?: boolean
-  items?: OutputField              // For array types
-  properties?: Record<string, OutputField>  // For object types
-}
-```
-
-### Example
+Declares the shape of data returned by the node. Downstream nodes can reference these outputs via expressions.
 
 ```json
 {
   "outputSchema": {
-    "id": { "type": "string", "description": "Resend email ID" },
-    "status": { "type": "number", "description": "HTTP status code" }
+    "id": { "type": "string", "description": "Stripe object ID" },
+    "status": { "type": "string", "description": "Object status" },
+    "data": { "type": "object", "description": "Full API response" }
   }
 }
 ```
@@ -182,19 +295,14 @@ Nodes can declare npm packages they need at runtime:
 ```json
 {
   "dependencies": {
-    "resend": "^4.0.0",
-    "@sendgrid/mail": "^8.1.0"
+    "@supabase/supabase-js": "^2"
   }
 }
 ```
 
-Package names must be valid npm identifiers. Version ranges follow npm semver syntax (`^`, `~`, `*`, `latest`, etc.). Dependencies are installed during the deploy phase — they don't affect the development environment.
-
-When a workflow uses multiple custom nodes, their dependencies are merged before deployment. Conflicting versions are resolved by the package manager.
+Dependencies are installed during the deploy phase. When a workflow uses multiple custom nodes, their dependencies are merged before deployment.
 
 ## Templates
-
-Templates contain the runtime code that executes when the node runs. Each template is a default-exported async function that receives a context object.
 
 ### Template Context
 
@@ -203,7 +311,6 @@ export default async function (ctx: {
   config: Record<string, unknown> // Values from configSchema fields
   env: Record<string, string> // Environment variables (from secret fields)
   inputs: Record<string, unknown> // Outputs from upstream nodes
-  attempt: number // Current retry attempt (1-indexed)
 }) {
   // Node implementation
   return {
@@ -212,186 +319,107 @@ export default async function (ctx: {
 }
 ```
 
-### Example Template
+### Code Generation
+
+Custom node templates are compiled into static class methods in the generated workflow code:
 
 ```typescript
-export default async function (ctx) {
-  const body: Record<string, unknown> = {
-    from: ctx.config.from,
-    to: ctx.config.to,
-    subject: ctx.config.subject,
-    html: ctx.config.html,
+// Generated class (hoisted above the workflow)
+class Stripe {
+  static async execute(env: Env, params: Record<string, unknown>) {
+    // Template body with ctx.config.* → params.*, ctx.env.* → env.*
   }
-
-  if (ctx.config.replyTo) body.reply_to = ctx.config.replyTo
-
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${ctx.env.RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Resend API error (${response.status}): ${errorText}`)
-  }
-
-  const data = (await response.json()) as { id: string }
-  return { id: data.id }
 }
+
+// In the workflow's run() method
+const result = await step.do('Create Payment', { retries: { limit: 3 } }, async () => {
+  return Stripe.execute(this.env, {
+    action: 'Create Payment Intent',
+    amount: 5000,
+    currency: 'usd',
+  })
+})
 ```
+
+The class is generated once per node type (not per instance). Multiple instances of the same node type share the class but pass different params.
 
 ### Provider-Specific Templates
 
-By default, `template.ts` is used for all providers. To provide provider-specific implementations, add files under `templates/`:
+By default, `template.ts` is used for all providers. To provide provider-specific implementations:
 
 ```
 my_node/
 ├── node.json
 ├── template.ts            # Fallback for any provider
 └── templates/
-    ├── cloudflare.ts      # Cloudflare-specific
-    └── trigger-dev.ts     # Trigger.dev-specific
+    └── cloudflare.ts      # Cloudflare-specific
 ```
 
-Provider-specific templates override the default for that provider. The code generator selects the correct template based on the active provider at generation time.
-
-## Build Pipeline
+## Local Node Build Pipeline
 
 ### 1. Generate (`pnpm nodes:generate`)
 
-Scans the `nodes/` directory and validates each custom node:
-
-1. Read `node.json` and validate against `nodeDefinitionSchema`
-2. Verify `id` matches directory name
-3. Verify `id` doesn't conflict with built-in nodes
-4. Validate secret fields have `envVarName`
-5. Validate select/multiselect fields have non-empty `options`
-6. Load templates (provider-specific first, then shared fallback)
-7. Compute SHA-256 checksum of definition + templates
-8. Write `nodes/nodes.local.json` — array of `NodeBundle` objects
+Scans `nodes/`, validates each node, computes checksums, writes `nodes/nodes.local.json`.
 
 ### 2. Build (`pnpm nodes:build`)
 
-Merges built-in and custom nodes into a single registry:
+Merges built-in + custom nodes into `nodes/registry.json`. Runs automatically before `pnpm build` via the `prebuild` hook.
 
-1. Load built-in definitions from `@awaitstep/ir`
-2. Load custom bundles from `nodes/nodes.local.json`
-3. Merge all definitions
-4. Extract custom node templates into lookup structure
-5. Write `nodes/registry.json`
+## Remote Node Marketplace
 
-This runs automatically before `pnpm build` via the `prebuild` hook.
+### How It Works
 
-### Output Files
+1. Nodes are added to `registry/nodes/{nodeId}/{version}/` via PR
+2. After merge to main, CI rebuilds `registry/index.json`
+3. The API fetches `index.json` from the configured `REGISTRY_URL`
+4. Users browse the marketplace in the web UI and install nodes per-organization
+5. Installed node bundles (definition + templates) are stored in the database
+6. At deploy time, installed node templates are merged with local ones
 
-**`nodes/nodes.local.json`** — Custom node bundles:
-
-```json
-[
-  {
-    "definition": {
-      /* full NodeDefinition */
-    },
-    "templates": {
-      "cloudflare": "export default async function(ctx) { ... }"
-    },
-    "bundledAt": "2026-03-19T12:00:00.000Z",
-    "checksum": "sha256:abc123..."
-  }
-]
-```
-
-**`nodes/registry.json`** — Combined registry:
-
-```json
-{
-  "definitions": [
-    /* all built-in + custom definitions */
-  ],
-  "templates": {
-    "resend_send_email": {
-      "cloudflare": "export default async function(ctx) { ... }"
-    }
-  }
-}
-```
-
-## Runtime Loading
-
-### API Server
-
-At startup, the API loads `registry.json` and creates an `AppNodeRegistry`:
-
-```
-registry.json → loadNodeRegistry() → {
-  registry: NodeRegistry       // In-memory definition lookup
-  templateResolver: Map        // nodeType + provider → template source
-  templates: Record            // Raw templates object
-}
-```
-
-Exposed via:
-
-- `GET /api/nodes` — all node definitions
-- `GET /api/nodes/templates` — all custom node templates
-- `GET /api/nodes/:nodeId` — single node definition
-
-### Web App
-
-The frontend loads nodes in two phases:
-
-1. **Initial**: Create registry from built-in definitions bundled in `@awaitstep/ir`
-2. **Fetch**: Call `GET /api/nodes` to get the full list (including custom nodes)
-
-The `NodeRegistryProvider` context makes the registry available to all components. If the API is unavailable, the app falls back to built-in definitions only.
-
-Custom nodes appear in the node palette with a "Custom" badge and use the `icon` URL from the definition (or a generic fallback icon).
-
-## NodeRegistry API
-
-The `NodeRegistry` class (`@awaitstep/ir`) provides in-memory lookup:
-
-```typescript
-class NodeRegistry {
-  register(definition: NodeDefinition): void
-  get(nodeId: string): NodeDefinition | undefined
-  has(nodeId: string): boolean
-  getAll(): NodeDefinition[]
-  getByCategory(category: Category): NodeDefinition[]
-  getByProvider(provider: Provider): NodeDefinition[]
-  remove(nodeId: string): boolean
-  clear(): void
-  size: number
-}
-```
-
-## Authoring a Custom Node
-
-### Quick Start
+### Adding a Remote Node
 
 ```bash
-# 1. Scaffold
-pnpm nodes:generate my_node
+# 1. Create the node directory
+mkdir -p registry/nodes/my_service/1.0.0
 
-# 2. Edit nodes/my_node/node.json and nodes/my_node/template.ts
+# 2. Add node.json and template.ts
+# 3. Add icon.svg to registry/nodes/my_service/
 
-# 3. Validate and build
-pnpm nodes:build
-
-# 4. Start dev server — node appears in palette
-pnpm dev
+# 4. Submit a PR — CI validates the definition
+# 5. After merge, CI rebuilds index.json
+# 6. Node appears in the marketplace
 ```
 
-### Checklist
+### Versioning
 
-- [ ] `id` in `node.json` matches directory name
-- [ ] At least one provider listed in `providers`
-- [ ] All `secret` fields have `envVarName`
+Each version is a directory (`1.0.0/`, `1.1.0/`, etc.). When a user installs a node, the full bundle is pinned in the database. Updates are explicit — the marketplace shows "Update available" when a newer version exists.
+
+### Install Flow
+
+1. User clicks "Install" in the marketplace dialog
+2. API fetches the node bundle from the registry (via `REGISTRY_URL`)
+3. Checksums are verified
+4. Bundle is stored in `installed_nodes` table (org-scoped)
+5. Node appears in the palette and is available for use in workflows
+6. At deploy time, templates resolve from the stored bundle (no GitHub dependency)
+
+### Configuration
+
+Set `REGISTRY_URL` in your `.env`:
+
+```
+REGISTRY_URL=https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry
+```
+
+## Authoring Checklist
+
+- [ ] `id` in `node.json` matches directory name (lowercase snake_case)
+- [ ] `description` is under 120 characters
+- [ ] At least one provider in `providers`
+- [ ] All credential fields: `type: "secret"`, `required: true`, `envVarName: "..."`
 - [ ] All `select`/`multiselect` fields have non-empty `options`
+- [ ] Service nodes use an `action` select field with a `switch` in the template
+- [ ] Template calls `response.json()` only once, then checks `response.ok`
 - [ ] Template returns an object matching `outputSchema`
-- [ ] Template uses `ctx.env.*` for secrets, not hardcoded values
-- [ ] `pnpm nodes:build` passes without errors
+- [ ] `icon.svg` added for remote nodes
+- [ ] `pnpm nodes:build` passes for local nodes
