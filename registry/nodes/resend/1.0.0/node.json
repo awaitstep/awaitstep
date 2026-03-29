@@ -34,7 +34,7 @@
       "description": "Email subject line. Used by: Send Email."
     },
     "html": {
-      "type": "string",
+      "type": "code",
       "label": "HTML Body",
       "description": "HTML email body. Used by: Send Email."
     },

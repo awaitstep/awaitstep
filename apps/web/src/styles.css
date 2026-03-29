@@ -97,6 +97,7 @@ html.light {
 @layer base {
   * {
     @apply border-border;
+    scrollbar-color: oklch(0.5 0 0 / 40%) transparent;
   }
   body {
     @apply bg-background text-foreground antialiased;

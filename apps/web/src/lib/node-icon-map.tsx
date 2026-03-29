@@ -93,9 +93,9 @@ export function getNodeVisuals(nodeId: string, iconUrl?: string): NodeVisuals {
   if (iconMap[nodeId]) return iconMap[nodeId]
   if (iconUrl) {
     return {
-      icon: <img src={iconUrl} alt="" className="h-2.5 w-2.5" />,
-      paletteIcon: <img src={iconUrl} alt="" className="h-4 w-4" />,
-      accent: 'bg-indigo-500/15 text-indigo-400',
+      icon: <img src={iconUrl} alt="" className="h-2.5 w-2.5 dark:invert" />,
+      paletteIcon: <img src={iconUrl} alt="" className="h-4 w-4 dark:invert" />,
+      accent: 'bg-gray-500/10 text-gray-400',
     }
   }
   return defaultVisuals
