@@ -1,0 +1,69 @@
+{
+  "id": "google-gemini",
+  "name": "Google Gemini",
+  "version": "1.0.0",
+  "description": "Generate content, create embeddings, and count tokens with Google Gemini",
+  "category": "AI",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/google-gemini/icon.svg",
+  "tags": ["google", "gemini", "ai", "llm"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Generate Content", "Create Embedding", "Count Tokens"],
+      "description": "The Google Gemini API action to perform."
+    },
+    "model": {
+      "type": "string",
+      "label": "Model",
+      "default": "gemini-2.0-flash",
+      "description": "Model name. Used by: Generate Content, Create Embedding, Count Tokens."
+    },
+    "prompt": {
+      "type": "textarea",
+      "label": "Prompt",
+      "required": true,
+      "description": "Text prompt for generation, embedding, or token counting."
+    },
+    "systemInstruction": {
+      "type": "textarea",
+      "label": "System Instruction",
+      "description": "System instruction for the model. Used by: Generate Content."
+    },
+    "temperature": {
+      "type": "number",
+      "label": "Temperature",
+      "description": "Sampling temperature (0-2). Used by: Generate Content."
+    },
+    "maxOutputTokens": {
+      "type": "number",
+      "label": "Max Output Tokens",
+      "description": "Maximum tokens in the response. Used by: Generate Content."
+    },
+    "apiKey": {
+      "type": "secret",
+      "label": "API Key",
+      "required": true,
+      "envVarName": "GOOGLE_GEMINI_API_KEY",
+      "description": "Google Gemini API key."
+    }
+  },
+  "outputSchema": {
+    "text": {
+      "type": "string",
+      "description": "Generated text or token count result"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "60 seconds"
+  }
+}

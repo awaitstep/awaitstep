@@ -12,6 +12,9 @@ export default async function (ctx) {
     if (!response.ok) {
       throw new Error(`Telegram API error: ${(data.description as string) ?? response.statusText}`)
     }
+    if (data.ok === false) {
+      throw new Error(`Telegram API error: ${(data.description as string) ?? 'Unknown error'}`)
+    }
     return data
   }
 

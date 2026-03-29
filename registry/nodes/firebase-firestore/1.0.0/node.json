@@ -1,0 +1,88 @@
+{
+  "id": "firebase-firestore",
+  "name": "Firebase Firestore",
+  "version": "1.0.0",
+  "description": "Create, read, update, delete, and query documents in Firebase Firestore",
+  "category": "Database",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/firebase-firestore/icon.svg",
+  "tags": ["firebase", "firestore", "database", "google"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": [
+        "Create Document",
+        "Get Document",
+        "Update Document",
+        "Delete Document",
+        "Query Collection"
+      ],
+      "description": "The Firestore action to perform."
+    },
+    "projectId": {
+      "type": "string",
+      "label": "Project ID",
+      "required": true,
+      "placeholder": "my-firebase-project",
+      "description": "Firebase project ID. Used by: all actions."
+    },
+    "collection": {
+      "type": "string",
+      "label": "Collection",
+      "required": true,
+      "placeholder": "users",
+      "description": "Collection path. Used by: all actions."
+    },
+    "documentId": {
+      "type": "string",
+      "label": "Document ID",
+      "description": "Document ID. Used by: Get Document, Update Document, Delete Document."
+    },
+    "data": {
+      "type": "json",
+      "label": "Data",
+      "description": "Document data as key-value pairs. Used by: Create Document, Update Document."
+    },
+    "queryField": {
+      "type": "string",
+      "label": "Query Field",
+      "description": "Field to query on. Used by: Query Collection."
+    },
+    "queryOp": {
+      "type": "select",
+      "label": "Query Operator",
+      "options": ["EQUAL", "NOT_EQUAL", "LESS_THAN", "GREATER_THAN", "ARRAY_CONTAINS"],
+      "description": "Query operator. Used by: Query Collection."
+    },
+    "queryValue": {
+      "type": "string",
+      "label": "Query Value",
+      "description": "Value to compare. Used by: Query Collection."
+    },
+    "accessToken": {
+      "type": "secret",
+      "label": "Access Token",
+      "required": true,
+      "envVarName": "FIREBASE_ACCESS_TOKEN",
+      "description": "Firebase/Google access token."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Document ID"
+    },
+    "data": {
+      "type": "object",
+      "description": "Document data or query results"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

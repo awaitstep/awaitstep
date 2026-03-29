@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useRef, useState, useMemo } from 'react'
 import {
   ReactFlow,
   Background,
@@ -17,6 +17,7 @@ import { findNearestEdge } from '../../lib/edge-proximity'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { nodeTypes } from './nodes'
 import { LabeledEdge } from './labeled-edge'
+import { buildContainerEdgeColors } from '../../lib/container-edge-colors'
 
 const edgeTypes = { smoothstep: LabeledEdge }
 
@@ -42,7 +43,7 @@ export function WorkflowCanvas() {
   const validatedSelectNode = useCallback(
     (nodeId: string | null) => {
       if (selectedNodeId && nodeId !== selectedNodeId) {
-        const currentNode = nodes.find((n) => n.id === selectedNodeId)
+        const currentNode = useWorkflowStore.getState().nodes.find((n) => n.id === selectedNodeId)
         if (currentNode) {
           const errors = validateNode(currentNode.data.irNode)
           if (errors.length > 0) {
@@ -53,7 +54,7 @@ export function WorkflowCanvas() {
       }
       selectNode(nodeId)
     },
-    [selectedNodeId, nodes, selectNode],
+    [selectedNodeId, selectNode],
   )
 
   const onDragOver = useCallback(
@@ -97,14 +98,43 @@ export function WorkflowCanvas() {
     setHoveredEdgeId(null)
   }, [])
 
-  const styledEdges =
-    hoveredEdgeId || selectedEdgeId
-      ? edges.map((e) => {
-          const hovered = e.id === hoveredEdgeId
-          const selected = e.id === selectedEdgeId
-          return hovered || selected ? { ...e, data: { ...e.data, hovered, selected } } : e
-        })
-      : edges
+  // Container edge colors only depend on graph topology (node types + edge connections).
+  // Position drags change node references but not edge references — use edges array
+  // identity as the primary cache key to avoid any work on drag frames.
+  const prevEdgesRef = useRef<typeof edges | null>(null)
+  const prevColorsRef = useRef<Map<string, string>>(new Map())
+
+  const containerEdgeColors = useMemo(() => {
+    // Edges array reference only changes on add/remove/label change — not position drags.
+    // If edges haven't changed, skip entirely (zero work on drag frames).
+    if (prevEdgesRef.current === edges) return prevColorsRef.current
+
+    const colors = buildContainerEdgeColors(nodes, edges)
+    prevEdgesRef.current = edges
+    prevColorsRef.current = colors
+    return colors
+  }, [nodes, edges])
+
+  const styledEdges = useMemo(() => {
+    const hasContainerColors = containerEdgeColors.size > 0
+    if (!hoveredEdgeId && !selectedEdgeId && !hasContainerColors) return edges
+
+    return edges.map((e) => {
+      const hovered = e.id === hoveredEdgeId
+      const selected = e.id === selectedEdgeId
+      const containerColor = hasContainerColors ? containerEdgeColors.get(e.id) : undefined
+      if (!hovered && !selected && !containerColor) return e
+      return {
+        ...e,
+        data: {
+          ...e.data,
+          ...(hovered && { hovered: true }),
+          ...(selected && { selected: true }),
+          ...(containerColor && { containerColor }),
+        },
+      }
+    })
+  }, [edges, hoveredEdgeId, selectedEdgeId, containerEdgeColors])
 
   return (
     <ReactFlow
@@ -131,8 +161,7 @@ export function WorkflowCanvas() {
       snapGrid={[20, 20]}
       defaultEdgeOptions={{
         type: 'smoothstep',
-        animated: true,
-        style: { stroke: 'var(--muted-foreground)', strokeWidth: 1.5 },
+        style: { stroke: 'var(--muted-foreground)', strokeWidth: 0.5 },
       }}
       proOptions={{ hideAttribution: true }}
       className="!bg-background"

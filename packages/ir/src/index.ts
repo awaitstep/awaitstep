@@ -42,7 +42,7 @@ export {
   workflowIRSchema,
 } from './schema.js'
 
-export { validateIR } from './validate.js'
+export { validateIR, buildContainmentMap } from './validate.js'
 export { serializeIR, deserializeIR } from './serialize.js'
 export {
   parseExpressions,
@@ -62,5 +62,10 @@ export {
   parallelDefinition,
   httpRequestDefinition,
   waitForEventDefinition,
+  tryCatchDefinition,
+  loopDefinition,
+  breakDefinition,
+  subWorkflowDefinition,
+  raceDefinition,
   bundledNodeDefinitions,
 } from './bundled-nodes/index.js'

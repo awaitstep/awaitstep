@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, X } from 'lucide-react'
 import { useReactFlow } from '@xyflow/react'
 import { useWorkflowStore } from '../../stores/workflow-store'
-import type { SimulationPath, SimulationStep } from '../../lib/simulate-workflow'
+import type { SimulationPath } from '../../lib/simulate-workflow'
 import { cn } from '../../lib/utils'
 
 const NODE_TYPE_LABELS: Record<string, string> = {
@@ -11,8 +11,38 @@ const NODE_TYPE_LABELS: Record<string, string> = {
   sleep_until: 'Sleep Until',
   branch: 'Branch',
   parallel: 'Parallel',
+  race: 'Race',
+  loop: 'Loop',
+  try_catch: 'Try/Catch',
+  break: 'Exit',
+  sub_workflow: 'Sub-Workflow',
   http_request: 'HTTP',
   wait_for_event: 'Event',
+}
+
+/**
+ * Highlights a single node on the canvas without opening the config panel.
+ * Only touches the previously-selected and newly-selected nodes (O(1) mutations
+ * instead of O(n) map) by tracking the last-highlighted ID.
+ */
+function useHighlightNode() {
+  const { fitView } = useReactFlow()
+
+  return useCallback(
+    (nodeId: string) => {
+      // Update node selection directly in the store without triggering isDirty.
+      // We bypass React Flow's setNodes to avoid 'replace' change events.
+      const store = useWorkflowStore.getState()
+      const updated = store.nodes.map((n) => {
+        const shouldSelect = n.id === nodeId
+        return n.selected === shouldSelect ? n : { ...n, selected: shouldSelect }
+      })
+      useWorkflowStore.setState({ nodes: updated })
+
+      fitView({ nodes: [{ id: nodeId }], duration: 0, padding: 0.5 })
+    },
+    [fitView],
+  )
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -21,15 +51,14 @@ const STATUS_COLORS: Record<string, string> = {
   'event-received': 'text-status-info',
 }
 
-function PathSection({ path }: { path: SimulationPath }) {
+function PathSection({
+  path,
+  onHighlight,
+}: {
+  path: SimulationPath
+  onHighlight: (id: string) => void
+}) {
   const [expanded, setExpanded] = useState(false)
-  const selectNode = useWorkflowStore((s) => s.selectNode)
-  const { fitView } = useReactFlow()
-
-  function handleClickStep(step: SimulationStep) {
-    selectNode(step.nodeId)
-    fitView({ nodes: [{ id: step.nodeId }], duration: 300, padding: 0.5 })
-  }
 
   return (
     <div className="border-b border-border/50 last:border-b-0">
@@ -58,7 +87,7 @@ function PathSection({ path }: { path: SimulationPath }) {
           {path.steps.map((step) => (
             <button
               key={`${path.id}-${step.index}`}
-              onClick={() => handleClickStep(step)}
+              onClick={() => onHighlight(step.nodeId)}
               className="flex w-full items-center gap-2 px-6 py-1 text-left text-[11px] transition-colors hover:bg-muted/50"
             >
               <span className="w-4 shrink-0 text-right text-muted-foreground/40">{step.index}</span>
@@ -84,19 +113,13 @@ function PathSection({ path }: { path: SimulationPath }) {
 
 export function SimulationPanel() {
   const simulationResult = useWorkflowStore((s) => s.simulationResult)
-  const { clearSimulation, selectNode } = useWorkflowStore()
-  const { fitView } = useReactFlow()
+  const clearSimulation = useWorkflowStore((s) => s.clearSimulation)
+  const highlightNode = useHighlightNode()
 
   if (!simulationResult) return null
 
   const { paths, issues } = simulationResult
   const allComplete = paths.length > 0 && paths.every((p) => p.completed) && issues.length === 0
-
-  function handleClickIssue(nodeId: string) {
-    if (!nodeId) return
-    selectNode(nodeId)
-    fitView({ nodes: [{ id: nodeId }], duration: 300, padding: 0.5 })
-  }
 
   return (
     <div className="absolute bottom-0 left-0 right-0 z-20 flex max-h-[280px] flex-col border-t border-border bg-card shadow-lg">
@@ -131,7 +154,7 @@ export function SimulationPanel() {
       {/* Body */}
       <div className="flex-1 overflow-y-auto">
         {paths.map((path) => (
-          <PathSection key={path.id} path={path} />
+          <PathSection key={path.id} path={path} onHighlight={highlightNode} />
         ))}
 
         {issues.length > 0 && (
@@ -139,7 +162,7 @@ export function SimulationPanel() {
             {issues.map((issue, idx) => (
               <button
                 key={idx}
-                onClick={() => handleClickIssue(issue.nodeId)}
+                onClick={() => issue.nodeId && highlightNode(issue.nodeId)}
                 disabled={!issue.nodeId}
                 className={cn(
                   'flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] transition-colors',

@@ -4,15 +4,19 @@ export default async function (ctx) {
   const action = ctx.config.action
 
   async function twilioRequest(method: string, path: string, params?: URLSearchParams) {
+    const headers: Record<string, string> = {
+      Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
+    }
+    const hasBody = params && method !== 'GET' && method !== 'DELETE'
+    if (hasBody) {
+      headers['Content-Type'] = 'application/x-www-form-urlencoded'
+    }
     const response = await fetch(
       `https://api.twilio.com/2010-04-01/Accounts/${accountSid}${path}.json`,
       {
         method,
-        headers: {
-          Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params?.toString(),
+        headers,
+        body: hasBody ? params.toString() : undefined,
       },
     )
     const data = (await response.json()) as Record<string, unknown>
@@ -35,9 +39,15 @@ export default async function (ctx) {
     }
 
     case 'Send WhatsApp': {
+      const toNum = ctx.config.to.startsWith('whatsapp:')
+        ? ctx.config.to
+        : `whatsapp:${ctx.config.to}`
+      const fromNum = ctx.config.from.startsWith('whatsapp:')
+        ? ctx.config.from
+        : `whatsapp:${ctx.config.from}`
       const params = new URLSearchParams({
-        To: `whatsapp:${ctx.config.to}`,
-        From: `whatsapp:${ctx.config.from}`,
+        To: toNum,
+        From: fromNum,
         Body: ctx.config.body,
       })
       if (ctx.config.statusCallbackUrl) params.set('StatusCallback', ctx.config.statusCallbackUrl)

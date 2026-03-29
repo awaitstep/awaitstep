@@ -36,7 +36,7 @@
     "webhookUrl": {
       "type": "secret",
       "label": "Webhook URL",
-      "required": true,
+      "required": false,
       "envVarName": "DISCORD_WEBHOOK_URL",
       "description": "Discord webhook URL. Used by: Send Webhook Message."
     },
@@ -55,7 +55,7 @@
     "botToken": {
       "type": "secret",
       "label": "Bot Token",
-      "required": true,
+      "required": false,
       "envVarName": "DISCORD_BOT_TOKEN",
       "description": "Discord bot token. Used by: Send Channel Message, Edit Message, Delete Message."
     }

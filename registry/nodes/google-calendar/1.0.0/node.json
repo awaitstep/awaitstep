@@ -1,0 +1,105 @@
+{
+  "id": "google-calendar",
+  "name": "Google Calendar",
+  "version": "1.0.0",
+  "description": "Create, read, update, and delete Google Calendar events",
+  "category": "Scheduling",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/google-calendar/icon.svg",
+  "tags": ["google", "calendar", "events", "scheduling"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Create Event", "Get Event", "Update Event", "Delete Event", "List Events"],
+      "description": "The Google Calendar action to perform."
+    },
+    "calendarId": {
+      "type": "string",
+      "label": "Calendar ID",
+      "required": true,
+      "default": "primary",
+      "placeholder": "primary",
+      "description": "Calendar ID. Defaults to primary calendar."
+    },
+    "eventId": {
+      "type": "string",
+      "label": "Event ID",
+      "description": "Event ID. Used by: Get Event, Update Event, Delete Event."
+    },
+    "summary": {
+      "type": "string",
+      "label": "Summary",
+      "placeholder": "Team Meeting",
+      "description": "Event title. Used by: Create Event, Update Event."
+    },
+    "description": {
+      "type": "textarea",
+      "label": "Description",
+      "description": "Event description. Used by: Create Event, Update Event."
+    },
+    "startTime": {
+      "type": "string",
+      "label": "Start Time",
+      "placeholder": "2024-01-01T09:00:00Z",
+      "description": "ISO 8601 start time. Used by: Create Event, Update Event."
+    },
+    "endTime": {
+      "type": "string",
+      "label": "End Time",
+      "placeholder": "2024-01-01T10:00:00Z",
+      "description": "ISO 8601 end time. Used by: Create Event, Update Event."
+    },
+    "location": {
+      "type": "string",
+      "label": "Location",
+      "description": "Event location. Used by: Create Event, Update Event."
+    },
+    "timeMin": {
+      "type": "string",
+      "label": "Time Min",
+      "placeholder": "2024-01-01T00:00:00Z",
+      "description": "List events after this time. Used by: List Events."
+    },
+    "timeMax": {
+      "type": "string",
+      "label": "Time Max",
+      "placeholder": "2024-12-31T23:59:59Z",
+      "description": "List events before this time. Used by: List Events."
+    },
+    "maxResults": {
+      "type": "number",
+      "label": "Max Results",
+      "default": 50,
+      "description": "Maximum number of events to return. Used by: List Events."
+    },
+    "accessToken": {
+      "type": "secret",
+      "label": "Access Token",
+      "required": true,
+      "envVarName": "GOOGLE_CALENDAR_ACCESS_TOKEN",
+      "description": "Google OAuth2 access token."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Event ID"
+    },
+    "status": {
+      "type": "string",
+      "description": "Event status"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

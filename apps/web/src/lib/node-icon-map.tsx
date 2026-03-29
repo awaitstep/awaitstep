@@ -1,4 +1,18 @@
-import { Code, Clock, CalendarClock, GitBranch, Layers, Globe, Bell, Puzzle } from 'lucide-react'
+import {
+  Code,
+  Clock,
+  CalendarClock,
+  GitBranch,
+  Layers,
+  Globe,
+  Bell,
+  Puzzle,
+  ShieldAlert,
+  Repeat,
+  CircleStop,
+  Workflow,
+  Zap,
+} from 'lucide-react'
 
 export interface NodeVisuals {
   icon: React.ReactNode
@@ -41,6 +55,31 @@ const iconMap: Record<string, NodeVisuals> = {
     icon: <Bell className="h-2.5 w-2.5" />,
     paletteIcon: <Bell className="h-4 w-4" />,
     accent: 'bg-rose-500/15 text-rose-400',
+  },
+  try_catch: {
+    icon: <ShieldAlert className="h-2.5 w-2.5" />,
+    paletteIcon: <ShieldAlert className="h-4 w-4" />,
+    accent: 'bg-orange-500/15 text-orange-400',
+  },
+  loop: {
+    icon: <Repeat className="h-2.5 w-2.5" />,
+    paletteIcon: <Repeat className="h-4 w-4" />,
+    accent: 'bg-cyan-500/15 text-cyan-400',
+  },
+  break: {
+    icon: <CircleStop className="h-2.5 w-2.5" />,
+    paletteIcon: <CircleStop className="h-4 w-4" />,
+    accent: 'bg-red-500/15 text-red-400',
+  },
+  sub_workflow: {
+    icon: <Workflow className="h-2.5 w-2.5" />,
+    paletteIcon: <Workflow className="h-4 w-4" />,
+    accent: 'bg-violet-500/15 text-violet-400',
+  },
+  race: {
+    icon: <Zap className="h-2.5 w-2.5" />,
+    paletteIcon: <Zap className="h-4 w-4" />,
+    accent: 'bg-yellow-500/15 text-yellow-400',
   },
 }
 

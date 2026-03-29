@@ -1,0 +1,64 @@
+{
+  "id": "google-sheets",
+  "name": "Google Sheets",
+  "version": "1.0.0",
+  "description": "Read, append, update, and clear data in Google Sheets",
+  "category": "Data",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/google-sheets/icon.svg",
+  "tags": ["google", "sheets", "spreadsheet", "data"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Read Rows", "Append Row", "Update Row", "Clear Range", "Get Spreadsheet"],
+      "description": "The Google Sheets action to perform."
+    },
+    "spreadsheetId": {
+      "type": "string",
+      "label": "Spreadsheet ID",
+      "required": true,
+      "placeholder": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms",
+      "description": "Spreadsheet ID from the URL."
+    },
+    "range": {
+      "type": "string",
+      "label": "Range",
+      "placeholder": "Sheet1!A1:D10",
+      "description": "Sheet range in A1 notation. Used by: Read Rows, Append Row, Update Row, Clear Range."
+    },
+    "values": {
+      "type": "json",
+      "label": "Values",
+      "description": "Row values as a 2D array, e.g. [[\"a\",\"b\"],[\"c\",\"d\"]]. Used by: Append Row, Update Row."
+    },
+    "accessToken": {
+      "type": "secret",
+      "label": "Access Token",
+      "required": true,
+      "envVarName": "GOOGLE_SHEETS_ACCESS_TOKEN",
+      "description": "Google OAuth2 access token."
+    }
+  },
+  "outputSchema": {
+    "values": {
+      "type": "array",
+      "description": "Row values from the sheet"
+    },
+    "updatedCells": {
+      "type": "number",
+      "description": "Number of cells updated"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

@@ -75,6 +75,13 @@ const categorySchema = z.enum([
   'Utilities',
   'Control Flow',
   'Internal',
+  'CRM',
+  'Analytics',
+  'Developer Tools',
+  'Project Management',
+  'E-commerce',
+  'Customer Support',
+  'Forms',
 ])
 
 const providerSchema = z.enum(['cloudflare', 'inngest', 'temporal', 'stepfunctions'])

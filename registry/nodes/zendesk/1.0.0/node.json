@@ -1,0 +1,97 @@
+{
+  "id": "zendesk",
+  "name": "Zendesk",
+  "version": "1.0.0",
+  "description": "Create, read, update, and search tickets in Zendesk",
+  "category": "Customer Support",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/zendesk/icon.svg",
+  "tags": ["zendesk", "support", "tickets", "helpdesk"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Create Ticket", "Get Ticket", "Update Ticket", "List Tickets", "Search Tickets"],
+      "description": "The Zendesk action to perform."
+    },
+    "ticketId": {
+      "type": "string",
+      "label": "Ticket ID",
+      "description": "Ticket ID. Used by: Get Ticket, Update Ticket."
+    },
+    "subject": {
+      "type": "string",
+      "label": "Subject",
+      "description": "Ticket subject. Used by: Create Ticket, Update Ticket."
+    },
+    "description": {
+      "type": "textarea",
+      "label": "Description",
+      "description": "Ticket description. Used by: Create Ticket."
+    },
+    "priority": {
+      "type": "select",
+      "label": "Priority",
+      "options": ["urgent", "high", "normal", "low"],
+      "description": "Ticket priority. Used by: Create Ticket, Update Ticket."
+    },
+    "status": {
+      "type": "select",
+      "label": "Status",
+      "options": ["new", "open", "pending", "hold", "solved", "closed"],
+      "description": "Ticket status. Used by: Create Ticket, Update Ticket."
+    },
+    "assigneeId": {
+      "type": "string",
+      "label": "Assignee ID",
+      "description": "Assignee user ID. Used by: Create Ticket, Update Ticket."
+    },
+    "query": {
+      "type": "string",
+      "label": "Query",
+      "description": "Search query. Used by: Search Tickets."
+    },
+    "subdomain": {
+      "type": "string",
+      "label": "Subdomain",
+      "required": true,
+      "placeholder": "mycompany",
+      "description": "Zendesk subdomain (without .zendesk.com)."
+    },
+    "email": {
+      "type": "secret",
+      "label": "Email",
+      "required": true,
+      "envVarName": "ZENDESK_EMAIL",
+      "description": "Zendesk agent email address."
+    },
+    "apiToken": {
+      "type": "secret",
+      "label": "API Token",
+      "required": true,
+      "envVarName": "ZENDESK_API_TOKEN",
+      "description": "Zendesk API token."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Ticket ID"
+    },
+    "status": {
+      "type": "string",
+      "description": "Ticket status"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

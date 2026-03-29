@@ -1,0 +1,61 @@
+{
+  "id": "replicate",
+  "name": "Replicate",
+  "version": "1.0.0",
+  "description": "Run and manage AI model predictions on Replicate",
+  "category": "AI",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/replicate/icon.svg",
+  "tags": ["replicate", "ai", "ml", "models"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Create Prediction", "Get Prediction", "Cancel Prediction", "List Predictions"],
+      "description": "The Replicate API action to perform."
+    },
+    "model": {
+      "type": "string",
+      "label": "Model",
+      "description": "Model version string (e.g. \"stability-ai/sdxl:abc123\"). Used by: Create Prediction."
+    },
+    "input": {
+      "type": "json",
+      "label": "Input",
+      "description": "Model input parameters as JSON. Used by: Create Prediction."
+    },
+    "predictionId": {
+      "type": "string",
+      "label": "Prediction ID",
+      "description": "Prediction ID. Used by: Get Prediction, Cancel Prediction."
+    },
+    "apiToken": {
+      "type": "secret",
+      "label": "API Token",
+      "required": true,
+      "envVarName": "REPLICATE_API_TOKEN",
+      "description": "Replicate API token."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Prediction ID"
+    },
+    "status": {
+      "type": "string",
+      "description": "Prediction status"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "60 seconds"
+  }
+}

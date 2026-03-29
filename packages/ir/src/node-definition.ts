@@ -56,6 +56,13 @@ export type Category =
   | 'Utilities'
   | 'Control Flow'
   | 'Internal'
+  | 'CRM'
+  | 'Analytics'
+  | 'Developer Tools'
+  | 'Project Management'
+  | 'E-commerce'
+  | 'Customer Support'
+  | 'Forms'
 
 export type Provider = 'cloudflare' | 'inngest' | 'temporal' | 'stepfunctions'
 

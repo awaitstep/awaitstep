@@ -26,8 +26,8 @@
       "type": "string",
       "label": "Channel",
       "required": true,
-      "placeholder": "#general or C01234ABCDE",
-      "description": "Channel name or ID."
+      "placeholder": "C01234ABCDE",
+      "description": "Channel ID (e.g. C01234ABCDE). Use a channel ID, not a channel name."
     },
     "text": {
       "type": "textarea",

@@ -17,6 +17,11 @@ import { generateParallel } from './generators/parallel.js'
 import { generateHttp } from './generators/http.js'
 import { generateWaitForEvent } from './generators/wait-for-event.js'
 import { generateCustomNode, generateCustomNodeParts } from './generators/custom.js'
+import { generateTryCatch } from './generators/try-catch.js'
+import { generateLoop } from './generators/loop.js'
+import { generateBreak } from './generators/break.js'
+import { generateSubWorkflow, getSubWorkflowBindings } from './generators/sub-workflow.js'
+import { generateRace } from './generators/race.js'
 import { hasTemplateExpressions } from './generators/state-tracking.js'
 
 export const DEFAULT_TRIGGER_CODE = `const url = new URL(request.url);
@@ -55,7 +60,11 @@ export function generateNodeCode(
   node: WorkflowNode,
   ir: WorkflowIR,
   templateResolver?: TemplateResolver,
+  classDefinitions?: Map<string, string>,
 ): string {
+  const recurse = (n: WorkflowNode, ir2: WorkflowIR) =>
+    generateNodeCode(n, ir2, templateResolver, classDefinitions)
+
   switch (node.type) {
     case 'step':
       return generateStep(node)
@@ -64,17 +73,35 @@ export function generateNodeCode(
     case 'sleep_until':
       return generateSleepUntil(node)
     case 'branch':
-      return generateBranch(node, ir, (n, ir2) => generateNodeCode(n, ir2, templateResolver))
+      return generateBranch(node, ir, recurse)
     case 'parallel':
-      return generateParallel(node, ir, (n, ir2) => generateNodeCode(n, ir2, templateResolver))
+      return generateParallel(node, ir, recurse)
     case 'http_request':
       return generateHttp(node)
     case 'wait_for_event':
       return generateWaitForEvent(node)
+    case 'try_catch':
+      return generateTryCatch(node, ir, recurse)
+    case 'loop':
+      return generateLoop(node, ir, recurse)
+    case 'break':
+      return generateBreak(node)
+    case 'sub_workflow':
+      return generateSubWorkflow(node)
+    case 'race':
+      return generateRace(node, ir, recurse)
     default: {
       if (templateResolver) {
         const template = templateResolver.getTemplate(node.type, node.provider)
         if (template) {
+          // Hoist class definition to top level when classDefinitions map is provided
+          if (classDefinitions) {
+            const parts = generateCustomNodeParts(node, template)
+            if (!classDefinitions.has(parts.className)) {
+              classDefinitions.set(parts.className, parts.classDefinition)
+            }
+            return parts.imports.join('\n') + '\n' + parts.stepCode
+          }
           return generateCustomNode(node, template)
         }
       }
@@ -153,6 +180,11 @@ export function generateWorkflow(
     'parallel',
     'http_request',
     'wait_for_event',
+    'try_catch',
+    'loop',
+    'break',
+    'sub_workflow',
+    'race',
   ])
 
   for (const node of resolvedSorted) {
@@ -170,7 +202,7 @@ export function generateWorkflow(
       }
     }
 
-    bodyParts.push(generateNodeCode(node, resolvedIR, templateResolver))
+    bodyParts.push(generateNodeCode(node, resolvedIR, templateResolver, classDefinitions))
   }
 
   // Extract and hoist imports from generated node code
@@ -205,6 +237,13 @@ export function generateWorkflow(
   }
 
   const envFields = ['  WORKFLOW: Workflow;']
+
+  // Add sub-workflow bindings
+  const subWorkflowBindings = getSubWorkflowBindings(ir.nodes)
+  for (const binding of subWorkflowBindings) {
+    envFields.push(`  ${binding}: Workflow;`)
+  }
+
   for (const name of allEnvNames) {
     envFields.push(`  ${name}: string;`)
   }

@@ -1,0 +1,69 @@
+{
+  "id": "convertkit",
+  "name": "Kit (ConvertKit)",
+  "version": "1.0.0",
+  "description": "Manage subscribers and tags in Kit (formerly ConvertKit)",
+  "category": "Email",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/convertkit/icon.svg",
+  "tags": ["convertkit", "kit", "email", "marketing", "creators"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": [
+        "Add Subscriber",
+        "Tag Subscriber",
+        "List Subscribers",
+        "Remove Tag",
+        "Add to Sequence"
+      ],
+      "description": "The ConvertKit action to perform."
+    },
+    "email": {
+      "type": "string",
+      "label": "Email",
+      "placeholder": "subscriber@example.com",
+      "description": "Subscriber email. Used by: Add Subscriber, Tag Subscriber, Add to Sequence."
+    },
+    "firstName": {
+      "type": "string",
+      "label": "First Name",
+      "description": "First name. Used by: Add Subscriber."
+    },
+    "tagId": {
+      "type": "string",
+      "label": "Tag ID",
+      "description": "Tag ID. Used by: Tag Subscriber, Remove Tag."
+    },
+    "sequenceId": {
+      "type": "string",
+      "label": "Sequence ID",
+      "description": "Sequence ID. Used by: Add to Sequence."
+    },
+    "apiSecret": {
+      "type": "secret",
+      "label": "API Secret",
+      "required": true,
+      "envVarName": "CONVERTKIT_API_SECRET",
+      "description": "ConvertKit API secret."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Resource ID"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

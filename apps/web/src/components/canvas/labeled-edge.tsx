@@ -1,6 +1,7 @@
+import { memo } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps } from '@xyflow/react'
 
-export function LabeledEdge({
+export const LabeledEdge = memo(function LabeledEdge({
   id,
   sourceX,
   sourceY,
@@ -24,10 +25,15 @@ export function LabeledEdge({
 
   const hovered = data?.hovered === true
   const highlighted = data?.selected === true || hovered
+  const containerColor = (data?.containerColor as string) ?? undefined
 
   const edgeStyle = highlighted
     ? { ...style, stroke: 'oklch(0.696 0.17 162.48)', strokeWidth: 2.5 }
-    : style
+    : containerColor
+      ? { ...style, stroke: containerColor, strokeWidth: 1.5 }
+      : style
+
+  const labelColor = highlighted ? 'oklch(0.696 0.17 162.48)' : (containerColor ?? undefined)
 
   return (
     <>
@@ -38,10 +44,10 @@ export function LabeledEdge({
             className="nodrag nopan pointer-events-auto absolute rounded bg-card px-1 py-0.5 font-mono text-[8px] leading-none text-muted-foreground border border-border"
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-              ...(highlighted
+              ...(labelColor
                 ? {
-                    color: 'oklch(0.696 0.17 162.48)',
-                    borderColor: 'oklch(0.696 0.17 162.48 / 0.4)',
+                    color: labelColor,
+                    borderColor: labelColor.replace(')', ' / 0.4)'),
                   }
                 : {}),
             }}
@@ -52,4 +58,4 @@ export function LabeledEdge({
       )}
     </>
   )
-}
+})

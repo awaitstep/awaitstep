@@ -3,13 +3,17 @@ export default async function (ctx) {
   const action = ctx.config.action
 
   async function stripeRequest(method: string, path: string, params?: URLSearchParams) {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${apiKey}`,
+    }
+    const hasBody = params && method !== 'GET' && method !== 'DELETE'
+    if (hasBody) {
+      headers['Content-Type'] = 'application/x-www-form-urlencoded'
+    }
     const response = await fetch(`https://api.stripe.com/v1${path}`, {
       method,
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: params?.toString(),
+      headers,
+      body: hasBody ? params.toString() : undefined,
     })
     const data = (await response.json()) as Record<string, unknown>
     if (!response.ok) {
@@ -21,10 +25,16 @@ export default async function (ctx) {
 
   function withMetadata(params: URLSearchParams) {
     if (ctx.config.metadata) {
-      const metadata =
-        typeof ctx.config.metadata === 'string'
-          ? JSON.parse(ctx.config.metadata)
-          : ctx.config.metadata
+      let metadata: Record<string, unknown>
+      if (typeof ctx.config.metadata === 'string') {
+        try {
+          metadata = JSON.parse(ctx.config.metadata)
+        } catch {
+          throw new Error('Invalid JSON in metadata field')
+        }
+      } else {
+        metadata = ctx.config.metadata
+      }
       for (const [key, value] of Object.entries(metadata)) {
         params.set(`metadata[${key}]`, String(value))
       }
@@ -38,6 +48,7 @@ export default async function (ctx) {
         new URLSearchParams({
           amount: String(ctx.config.amount),
           currency: ctx.config.currency ?? 'usd',
+          'automatic_payment_methods[enabled]': 'true',
         }),
       )
       if (ctx.config.customerId) params.set('customer', ctx.config.customerId)
@@ -74,6 +85,7 @@ export default async function (ctx) {
       )
       if (ctx.config.customerId) params.set('customer', ctx.config.customerId)
       if (ctx.config.description) params.set('description', ctx.config.description)
+      if (ctx.config.source) params.set('source', ctx.config.source)
       const data = await stripeRequest('POST', '/charges', params)
       return { id: data.id, status: data.status, data }
     }

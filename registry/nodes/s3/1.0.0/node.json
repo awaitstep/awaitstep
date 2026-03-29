@@ -1,0 +1,106 @@
+{
+  "id": "s3",
+  "name": "Amazon S3",
+  "version": "1.0.0",
+  "description": "Upload, download, list, and delete objects in S3-compatible storage",
+  "category": "Storage",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/s3/icon.svg",
+  "tags": ["s3", "storage", "aws", "object-storage"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3"
+  },
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Put Object", "Get Object", "List Objects", "Delete Object"],
+      "description": "The S3 action to perform."
+    },
+    "bucket": {
+      "type": "string",
+      "label": "Bucket",
+      "required": true,
+      "placeholder": "my-bucket",
+      "description": "S3 bucket name."
+    },
+    "key": {
+      "type": "string",
+      "label": "Key",
+      "placeholder": "path/to/object.txt",
+      "description": "Object key/path. Used by: Put Object, Get Object, Delete Object."
+    },
+    "body": {
+      "type": "textarea",
+      "label": "Body",
+      "description": "Object body content. Used by: Put Object."
+    },
+    "contentType": {
+      "type": "string",
+      "label": "Content Type",
+      "default": "application/octet-stream",
+      "placeholder": "application/octet-stream",
+      "description": "MIME type for the object. Used by: Put Object."
+    },
+    "prefix": {
+      "type": "string",
+      "label": "Prefix",
+      "placeholder": "path/to/",
+      "description": "Key prefix to filter results. Used by: List Objects."
+    },
+    "maxKeys": {
+      "type": "number",
+      "label": "Max Keys",
+      "default": 1000,
+      "description": "Maximum number of keys to return. Used by: List Objects."
+    },
+    "endpoint": {
+      "type": "secret",
+      "label": "Endpoint",
+      "envVarName": "S3_ENDPOINT",
+      "description": "Custom S3-compatible endpoint (R2, B2, etc)."
+    },
+    "region": {
+      "type": "string",
+      "label": "Region",
+      "default": "us-east-1",
+      "placeholder": "us-east-1",
+      "description": "AWS region."
+    },
+    "accessKeyId": {
+      "type": "secret",
+      "label": "Access Key ID",
+      "required": true,
+      "envVarName": "S3_ACCESS_KEY_ID",
+      "description": "AWS access key ID."
+    },
+    "secretAccessKey": {
+      "type": "secret",
+      "label": "Secret Access Key",
+      "required": true,
+      "envVarName": "S3_SECRET_ACCESS_KEY",
+      "description": "AWS secret access key."
+    }
+  },
+  "outputSchema": {
+    "key": {
+      "type": "string",
+      "description": "Object key"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    },
+    "count": {
+      "type": "number",
+      "description": "Number of objects returned (for list)"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "60 seconds"
+  }
+}

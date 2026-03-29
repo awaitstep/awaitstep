@@ -22,6 +22,7 @@
     "table": {
       "type": "string",
       "label": "Table",
+      "required": true,
       "placeholder": "my_table",
       "description": "Table name. Used by: all actions."
     },
@@ -48,10 +49,10 @@
       "description": "Maximum number of rows to return. Used by: Select Rows."
     },
     "supabaseUrl": {
-      "type": "secret",
+      "type": "string",
       "label": "Supabase URL",
       "required": true,
-      "envVarName": "SUPABASE_URL",
+      "placeholder": "https://xyz.supabase.co",
       "description": "Supabase project URL."
     },
     "supabaseAnonKey": {

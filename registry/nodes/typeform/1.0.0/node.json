@@ -1,0 +1,63 @@
+{
+  "id": "typeform",
+  "name": "Typeform",
+  "version": "1.0.0",
+  "description": "List forms and responses in Typeform",
+  "category": "Forms",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/typeform/icon.svg",
+  "tags": ["typeform", "forms", "surveys", "responses"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["List Forms", "Get Form", "List Responses", "Create Form"],
+      "description": "The Typeform action to perform."
+    },
+    "formId": {
+      "type": "string",
+      "label": "Form ID",
+      "description": "Form ID. Used by: Get Form, List Responses."
+    },
+    "title": {
+      "type": "string",
+      "label": "Title",
+      "description": "Form title. Used by: Create Form."
+    },
+    "fields": {
+      "type": "json",
+      "label": "Fields",
+      "description": "Form fields array. Used by: Create Form."
+    },
+    "pageSize": {
+      "type": "number",
+      "label": "Page Size",
+      "default": 25,
+      "description": "Number of responses per page. Used by: List Responses."
+    },
+    "accessToken": {
+      "type": "secret",
+      "label": "Access Token",
+      "required": true,
+      "envVarName": "TYPEFORM_ACCESS_TOKEN",
+      "description": "Typeform personal access token."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Resource ID"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

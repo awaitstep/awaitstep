@@ -1,0 +1,64 @@
+{
+  "id": "paddle",
+  "name": "Paddle",
+  "version": "1.0.0",
+  "description": "List transactions, subscriptions, and customers in Paddle",
+  "category": "Payments",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/paddle/icon.svg",
+  "tags": ["paddle", "payments", "subscriptions", "billing"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": [
+        "List Transactions",
+        "Get Transaction",
+        "List Subscriptions",
+        "Get Customer",
+        "List Products"
+      ],
+      "description": "The Paddle action to perform."
+    },
+    "transactionId": {
+      "type": "string",
+      "label": "Transaction ID",
+      "description": "Transaction ID. Used by: Get Transaction."
+    },
+    "customerId": {
+      "type": "string",
+      "label": "Customer ID",
+      "description": "Customer ID. Used by: Get Customer."
+    },
+    "apiKey": {
+      "type": "secret",
+      "label": "API Key",
+      "required": true,
+      "envVarName": "PADDLE_API_KEY",
+      "description": "Paddle API key."
+    },
+    "sandbox": {
+      "type": "boolean",
+      "label": "Sandbox",
+      "default": false,
+      "description": "Use sandbox environment."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Resource ID"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

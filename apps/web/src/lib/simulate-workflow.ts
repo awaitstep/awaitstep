@@ -51,7 +51,17 @@ function getStepDetail(node: FlowNode): { status: SimulationStepStatus; detail: 
     case 'branch':
       return { status: 'executed', detail: `Evaluate branch: ${ir.name}` }
     case 'parallel':
-      return { status: 'executed', detail: `Fan out: ${ir.name}` }
+      return { status: 'executed', detail: `Fan out (all): ${ir.name}` }
+    case 'race':
+      return { status: 'executed', detail: `Fan out (race): ${ir.name}` }
+    case 'loop':
+      return { status: 'executed', detail: `Loop (${ir.data.loopType}): ${ir.name}` }
+    case 'try_catch':
+      return { status: 'executed', detail: `Try/Catch: ${ir.name}` }
+    case 'break':
+      return { status: 'executed', detail: `Exit: ${ir.name}` }
+    case 'sub_workflow':
+      return { status: 'executed', detail: `Sub-workflow: ${ir.data.workflowName}` }
     case 'http_request':
       return { status: 'executed', detail: `HTTP ${ir.data.method} ${ir.data.url} (simulated)` }
     case 'wait_for_event':
@@ -93,6 +103,28 @@ function findSimulationEntry(nodes: FlowNode[], edges: Edge[]): string {
   return bestId
 }
 
+/**
+ * BFS walk from a start node to mark all reachable nodes as visited.
+ * Used for container internals (parallel forks, loop body, try/catch paths)
+ * that should be marked reachable without creating separate simulation paths.
+ */
+function walkForReachability(
+  startId: string,
+  nodeMap: Map<string, FlowNode>,
+  outEdges: Map<string, Edge[]>,
+  visited: Set<string>,
+): void {
+  const queue = [startId]
+  while (queue.length > 0) {
+    const id = queue.shift()!
+    if (visited.has(id)) continue
+    visited.add(id)
+    for (const edge of outEdges.get(id) ?? []) {
+      if (!visited.has(edge.target)) queue.push(edge.target)
+    }
+  }
+}
+
 export function simulateWorkflow(nodes: FlowNode[], edges: Edge[]): SimulationResult {
   const issues: SimulationIssue[] = []
   const paths: SimulationPath[] = []
@@ -119,6 +151,7 @@ export function simulateWorkflow(nodes: FlowNode[], edges: Edge[]): SimulationRe
     steps: SimulationStep[],
     labelParts: string[],
     visited: Set<string>,
+    continuationId?: string,
   ) {
     if (pathCount >= MAX_PATHS) return
 
@@ -190,37 +223,40 @@ export function simulateWorkflow(nodes: FlowNode[], edges: Edge[]): SimulationRe
           if (pathCount >= MAX_PATHS) break
           const edge = nodeOutEdges.find((e) => e.label === branch.label)
           if (edge) {
-            dfs(edge.target, newSteps, [...newLabel, `[${branch.label}]`], new Set(visited))
+            dfs(
+              edge.target,
+              newSteps,
+              [...newLabel, `[${branch.label}]`],
+              new Set(visited),
+              continuationId,
+            )
           }
         }
       }
-    } else if (ir.type === 'parallel') {
-      if (nodeOutEdges.length === 0) {
+    } else if (ir.type === 'parallel' || ir.type === 'race') {
+      // Fork edges run concurrently within the SAME path — not separate paths.
+      // Walk each fork to mark nodes reachable, then continue from "then".
+      const forkEdges = nodeOutEdges.filter((e) => e.label !== 'then')
+      const thenEdge = nodeOutEdges.find((e) => e.label === 'then')
+
+      if (forkEdges.length === 0) {
         issues.push({
           nodeId,
           nodeName: ir.name,
-          message: `Parallel "${ir.name}" has no outgoing edges`,
+          message: `${ir.type === 'race' ? 'Race' : 'Parallel'} "${ir.name}" has no outgoing edges`,
         })
-        pathCount++
-        if (pathCount <= MAX_PATHS) {
-          paths.push({
-            id: `path-${pathCount}`,
-            label: newLabel.join(' → '),
-            steps: newSteps,
-            completed: false,
-          })
-        }
-      } else {
-        for (const edge of nodeOutEdges) {
-          if (pathCount >= MAX_PATHS) break
-          const targetNode = nodeMap.get(edge.target)
-          const targetName = targetNode?.data.irNode.name ?? edge.target
-          dfs(edge.target, newSteps, [...newLabel, `[parallel: ${targetName}]`], new Set(visited))
-        }
       }
-    } else {
-      // Linear node — follow single outgoing edge or finalize
-      if (nodeOutEdges.length === 0) {
+
+      // Walk each fork branch to collect visited nodes (reachability)
+      // but don't create separate paths — they're concurrent, not divergent.
+      for (const edge of forkEdges) {
+        walkForReachability(edge.target, nodeMap, outEdges, allVisitedNodeIds)
+      }
+
+      // Continue the current path from "then" (or finalize if no continuation)
+      if (thenEdge) {
+        dfs(thenEdge.target, newSteps, newLabel, new Set(visited))
+      } else {
         pathCount++
         if (pathCount <= MAX_PATHS) {
           paths.push({
@@ -230,9 +266,84 @@ export function simulateWorkflow(nodes: FlowNode[], edges: Edge[]): SimulationRe
             completed: true,
           })
         }
+      }
+    } else if (ir.type === 'loop') {
+      // Walk body with dfs (handles branches inside), then continue from "then".
+      // Body paths that hit dead ends jump to the "then" continuation.
+      const bodyEdge = nodeOutEdges.find((e) => e.label === 'body')
+      const thenEdge = nodeOutEdges.find((e) => e.label === 'then')
+      const thenTarget = thenEdge?.target
+
+      if (bodyEdge) {
+        dfs(bodyEdge.target, newSteps, newLabel, new Set(visited), thenTarget)
+      } else if (thenTarget) {
+        dfs(thenTarget, newSteps, newLabel, new Set(visited), continuationId)
       } else {
-        // Follow first outgoing edge (linear nodes should have at most one)
-        dfs(nodeOutEdges[0]!.target, newSteps, newLabel, new Set(visited))
+        pathCount++
+        if (pathCount <= MAX_PATHS) {
+          paths.push({
+            id: `path-${pathCount}`,
+            label: newLabel.join(' → '),
+            steps: newSteps,
+            completed: true,
+          })
+        }
+      }
+    } else if (ir.type === 'try_catch') {
+      // Walk try/catch/finally for reachability, then continue from "then"
+      for (const label of ['try', 'catch', 'finally']) {
+        const edge = nodeOutEdges.find((e) => e.label === label)
+        if (edge) {
+          walkForReachability(edge.target, nodeMap, outEdges, allVisitedNodeIds)
+        }
+      }
+      const thenEdge = nodeOutEdges.find((e) => e.label === 'then')
+      if (thenEdge) {
+        dfs(thenEdge.target, newSteps, newLabel, new Set(visited))
+      } else {
+        pathCount++
+        if (pathCount <= MAX_PATHS) {
+          paths.push({
+            id: `path-${pathCount}`,
+            label: newLabel.join(' → '),
+            steps: newSteps,
+            completed: true,
+          })
+        }
+      }
+    } else if (ir.type === 'break') {
+      // Break/exit node — follow outgoing edge (the "else" continuation)
+      if (nodeOutEdges.length > 0) {
+        dfs(nodeOutEdges[0]!.target, newSteps, newLabel, new Set(visited), continuationId)
+      } else if (continuationId) {
+        dfs(continuationId, newSteps, newLabel, new Set(visited))
+      } else {
+        pathCount++
+        if (pathCount <= MAX_PATHS) {
+          paths.push({
+            id: `path-${pathCount}`,
+            label: newLabel.join(' → '),
+            steps: newSteps,
+            completed: true,
+          })
+        }
+      }
+    } else {
+      // Linear node — follow single outgoing edge, or jump to continuation, or finalize
+      if (nodeOutEdges.length > 0) {
+        dfs(nodeOutEdges[0]!.target, newSteps, newLabel, new Set(visited), continuationId)
+      } else if (continuationId) {
+        dfs(continuationId, newSteps, newLabel, new Set(visited))
+      } else {
+        pathCount++
+        if (pathCount <= MAX_PATHS) {
+          paths.push({
+            id: `path-${pathCount}`,
+            label: newLabel.join(' → '),
+            steps: newSteps,
+            completed: true,
+          })
+        }
       }
     }
   }

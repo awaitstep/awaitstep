@@ -3,12 +3,11 @@ export default async function (ctx) {
   const action = ctx.config.action
 
   async function airtableRequest(method: string, path: string, body?: Record<string, unknown>) {
+    const headers: Record<string, string> = { Authorization: `Bearer ${apiKey}` }
+    if (body) headers['Content-Type'] = 'application/json'
     const response = await fetch(`https://api.airtable.com/v0${path}`, {
       method,
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: body ? JSON.stringify(body) : undefined,
     })
     const data = (await response.json()) as Record<string, unknown>
@@ -20,7 +19,14 @@ export default async function (ctx) {
   }
 
   function parseJson(value: unknown): unknown {
-    return typeof value === 'string' ? JSON.parse(value) : value
+    if (typeof value !== 'string') return value
+    try {
+      return JSON.parse(value)
+    } catch {
+      throw new Error(
+        'Invalid JSON input: ' + (value.length > 100 ? value.slice(0, 100) + '...' : value),
+      )
+    }
   }
 
   const basePath = `/${ctx.config.baseId}/${ctx.config.tableId}`

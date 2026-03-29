@@ -1,0 +1,83 @@
+{
+  "id": "asana",
+  "name": "Asana",
+  "version": "1.0.0",
+  "description": "Create, read, update, and manage tasks in Asana",
+  "category": "Project Management",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/asana/icon.svg",
+  "tags": ["asana", "project-management", "tasks"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Create Task", "Get Task", "Update Task", "List Tasks", "Add Comment"],
+      "description": "The Asana action to perform."
+    },
+    "projectId": {
+      "type": "string",
+      "label": "Project ID",
+      "description": "Asana project GID. Used by: Create Task, List Tasks."
+    },
+    "taskId": {
+      "type": "string",
+      "label": "Task ID",
+      "description": "Asana task GID. Used by: Get Task, Update Task, Add Comment."
+    },
+    "name": {
+      "type": "string",
+      "label": "Name",
+      "description": "Task name. Used by: Create Task, Update Task."
+    },
+    "notes": {
+      "type": "textarea",
+      "label": "Notes",
+      "description": "Task notes/description. Used by: Create Task, Update Task."
+    },
+    "assignee": {
+      "type": "string",
+      "label": "Assignee",
+      "placeholder": "user GID or email",
+      "description": "Assignee user GID or email. Used by: Create Task, Update Task."
+    },
+    "dueOn": {
+      "type": "string",
+      "label": "Due Date",
+      "placeholder": "2024-01-15",
+      "description": "Due date in YYYY-MM-DD format. Used by: Create Task, Update Task."
+    },
+    "commentText": {
+      "type": "textarea",
+      "label": "Comment Text",
+      "description": "Comment body text. Used by: Add Comment."
+    },
+    "accessToken": {
+      "type": "secret",
+      "label": "Access Token",
+      "required": true,
+      "envVarName": "ASANA_ACCESS_TOKEN",
+      "description": "Asana personal access token."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Task or story ID"
+    },
+    "status": {
+      "type": "string",
+      "description": "Action status"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

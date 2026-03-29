@@ -1,0 +1,58 @@
+{
+  "id": "lemon-squeezy",
+  "name": "Lemon Squeezy",
+  "version": "1.0.0",
+  "description": "List orders, customers, and subscriptions in Lemon Squeezy",
+  "category": "Payments",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/lemon-squeezy/icon.svg",
+  "tags": ["lemonsqueezy", "payments", "subscriptions", "digital"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": [
+        "List Orders",
+        "Get Order",
+        "List Customers",
+        "Get Customer",
+        "List Subscriptions"
+      ],
+      "description": "The Lemon Squeezy action to perform."
+    },
+    "orderId": {
+      "type": "string",
+      "label": "Order ID",
+      "description": "Order ID. Used by: Get Order."
+    },
+    "customerId": {
+      "type": "string",
+      "label": "Customer ID",
+      "description": "Customer ID. Used by: Get Customer."
+    },
+    "apiKey": {
+      "type": "secret",
+      "label": "API Key",
+      "required": true,
+      "envVarName": "LEMONSQUEEZY_API_KEY",
+      "description": "Lemon Squeezy API key."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Resource ID"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

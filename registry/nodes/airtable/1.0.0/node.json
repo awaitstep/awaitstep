@@ -19,12 +19,14 @@
     "baseId": {
       "type": "string",
       "label": "Base ID",
+      "required": true,
       "placeholder": "appXXXXXXXXXXXXXX",
       "description": "Airtable base ID. Used by: all actions."
     },
     "tableId": {
       "type": "string",
       "label": "Table ID",
+      "required": true,
       "placeholder": "tblXXXXXXXXXXXXXX",
       "description": "Airtable table ID or name. Used by: all actions."
     },

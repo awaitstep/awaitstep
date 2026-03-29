@@ -1,0 +1,72 @@
+{
+  "id": "elevenlabs",
+  "name": "ElevenLabs",
+  "version": "1.0.0",
+  "description": "Convert text to speech and manage voices with ElevenLabs",
+  "category": "AI",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/elevenlabs/icon.svg",
+  "tags": ["elevenlabs", "ai", "tts", "speech", "audio"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Text to Speech", "List Voices", "Get Voice"],
+      "description": "The ElevenLabs API action to perform."
+    },
+    "voiceId": {
+      "type": "string",
+      "label": "Voice ID",
+      "description": "Voice ID. Used by: Text to Speech, Get Voice."
+    },
+    "text": {
+      "type": "textarea",
+      "label": "Text",
+      "description": "Text to convert to speech. Used by: Text to Speech."
+    },
+    "modelId": {
+      "type": "string",
+      "label": "Model ID",
+      "default": "eleven_multilingual_v2",
+      "description": "TTS model to use. Used by: Text to Speech."
+    },
+    "stability": {
+      "type": "number",
+      "label": "Stability",
+      "description": "Voice stability (0-1). Used by: Text to Speech."
+    },
+    "similarityBoost": {
+      "type": "number",
+      "label": "Similarity Boost",
+      "description": "Similarity boost (0-1). Used by: Text to Speech."
+    },
+    "apiKey": {
+      "type": "secret",
+      "label": "API Key",
+      "required": true,
+      "envVarName": "ELEVENLABS_API_KEY",
+      "description": "ElevenLabs API key."
+    }
+  },
+  "outputSchema": {
+    "audio": {
+      "type": "string",
+      "description": "Base64-encoded audio data"
+    },
+    "contentType": {
+      "type": "string",
+      "description": "Audio content type"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "60 seconds"
+  }
+}

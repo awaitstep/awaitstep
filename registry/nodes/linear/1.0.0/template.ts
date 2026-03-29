@@ -6,7 +6,7 @@ export default async function (ctx) {
     const response = await fetch('https://api.linear.app/graphql', {
       method: 'POST',
       headers: {
-        Authorization: apiKey,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ query, variables }),

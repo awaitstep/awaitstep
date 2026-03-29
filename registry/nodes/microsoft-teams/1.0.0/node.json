@@ -1,0 +1,76 @@
+{
+  "id": "microsoft-teams",
+  "name": "Microsoft Teams",
+  "version": "1.0.0",
+  "description": "Send messages and manage channels in Microsoft Teams",
+  "category": "Messaging",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/microsoft-teams/icon.svg",
+  "tags": ["microsoft", "teams", "messaging", "chat"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": [
+        "Send Webhook Message",
+        "Send Channel Message",
+        "Reply to Message",
+        "List Channels"
+      ],
+      "description": "The Microsoft Teams action to perform."
+    },
+    "webhookUrl": {
+      "type": "secret",
+      "label": "Webhook URL",
+      "envVarName": "TEAMS_WEBHOOK_URL",
+      "description": "Incoming webhook URL. Used by: Send Webhook Message."
+    },
+    "teamId": {
+      "type": "string",
+      "label": "Team ID",
+      "description": "Team ID for Graph API actions. Used by: Send Channel Message, Reply to Message, List Channels."
+    },
+    "channelId": {
+      "type": "string",
+      "label": "Channel ID",
+      "description": "Channel ID. Used by: Send Channel Message, Reply to Message."
+    },
+    "messageId": {
+      "type": "string",
+      "label": "Message ID",
+      "description": "Message ID. Used by: Reply to Message."
+    },
+    "text": {
+      "type": "textarea",
+      "label": "Message Text",
+      "description": "Message text/body. Used by: Send Webhook Message, Send Channel Message, Reply to Message."
+    },
+    "accessToken": {
+      "type": "secret",
+      "label": "Access Token",
+      "envVarName": "TEAMS_ACCESS_TOKEN",
+      "description": "Microsoft Graph API access token. Used by: Send Channel Message, Reply to Message, List Channels."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Message or resource ID"
+    },
+    "status": {
+      "type": "string",
+      "description": "Action status"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

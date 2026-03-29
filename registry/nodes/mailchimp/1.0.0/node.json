@@ -1,0 +1,97 @@
+{
+  "id": "mailchimp",
+  "name": "Mailchimp",
+  "version": "1.0.0",
+  "description": "Manage subscribers and campaigns in Mailchimp",
+  "category": "Email",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/mailchimp/icon.svg",
+  "tags": ["mailchimp", "email", "marketing", "newsletter"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": [
+        "Add Subscriber",
+        "Update Subscriber",
+        "Get Subscriber",
+        "List Members",
+        "Create Campaign"
+      ],
+      "description": "The Mailchimp action to perform."
+    },
+    "listId": {
+      "type": "string",
+      "label": "List ID",
+      "required": true,
+      "description": "Audience/list ID."
+    },
+    "email": {
+      "type": "string",
+      "label": "Email",
+      "placeholder": "subscriber@example.com",
+      "description": "Subscriber email address. Used by: Add Subscriber, Update Subscriber, Get Subscriber."
+    },
+    "mergeFields": {
+      "type": "json",
+      "label": "Merge Fields",
+      "description": "Merge fields e.g. {\"FNAME\": \"John\"}. Used by: Add Subscriber, Update Subscriber."
+    },
+    "status": {
+      "type": "select",
+      "label": "Status",
+      "options": ["subscribed", "unsubscribed", "pending", "cleaned"],
+      "description": "Subscriber status. Used by: Add Subscriber, Update Subscriber."
+    },
+    "campaignType": {
+      "type": "select",
+      "label": "Campaign Type",
+      "options": ["regular", "plaintext"],
+      "description": "Campaign type. Used by: Create Campaign."
+    },
+    "subject": {
+      "type": "string",
+      "label": "Subject",
+      "description": "Campaign subject line. Used by: Create Campaign."
+    },
+    "fromName": {
+      "type": "string",
+      "label": "From Name",
+      "description": "Sender name. Used by: Create Campaign."
+    },
+    "replyTo": {
+      "type": "string",
+      "label": "Reply-To",
+      "placeholder": "reply@example.com",
+      "description": "Reply-to email. Used by: Create Campaign."
+    },
+    "apiKey": {
+      "type": "secret",
+      "label": "API Key",
+      "required": true,
+      "envVarName": "MAILCHIMP_API_KEY",
+      "description": "Mailchimp API key."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Resource ID"
+    },
+    "status": {
+      "type": "string",
+      "description": "Resource status"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "id": "trello",
+  "name": "Trello",
+  "version": "1.0.0",
+  "description": "Create, read, update, and manage cards in Trello",
+  "category": "Project Management",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/trello/icon.svg",
+  "tags": ["trello", "project-management", "boards", "cards"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Create Card", "Get Card", "Update Card", "List Cards", "Move Card"],
+      "description": "The Trello action to perform."
+    },
+    "listId": {
+      "type": "string",
+      "label": "List ID",
+      "description": "Trello list ID. Used by: Create Card, List Cards."
+    },
+    "cardId": {
+      "type": "string",
+      "label": "Card ID",
+      "description": "Trello card ID. Used by: Get Card, Update Card, Move Card."
+    },
+    "name": {
+      "type": "string",
+      "label": "Name",
+      "description": "Card name. Used by: Create Card, Update Card."
+    },
+    "description": {
+      "type": "textarea",
+      "label": "Description",
+      "description": "Card description. Used by: Create Card, Update Card."
+    },
+    "targetListId": {
+      "type": "string",
+      "label": "Target List ID",
+      "description": "Target list ID to move the card to. Used by: Move Card."
+    },
+    "apiKey": {
+      "type": "secret",
+      "label": "API Key",
+      "required": true,
+      "envVarName": "TRELLO_API_KEY",
+      "description": "Trello API key."
+    },
+    "apiToken": {
+      "type": "secret",
+      "label": "API Token",
+      "required": true,
+      "envVarName": "TRELLO_API_TOKEN",
+      "description": "Trello API token."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Card ID"
+    },
+    "status": {
+      "type": "string",
+      "description": "Action status"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

@@ -70,6 +70,12 @@
       "label": "Description",
       "description": "Description for the resource being created."
     },
+    "source": {
+      "type": "string",
+      "label": "Source",
+      "placeholder": "tok_visa",
+      "description": "Card token or source ID. Used by: Create Charge."
+    },
     "metadata": {
       "type": "json",
       "label": "Metadata",

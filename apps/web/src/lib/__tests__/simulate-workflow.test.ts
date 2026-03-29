@@ -144,7 +144,7 @@ describe('simulateWorkflow', () => {
   // ── parallel ──
 
   describe('parallel', () => {
-    it('produces 2 paths for parallel with 2 outgoing edges', () => {
+    it('produces 1 path for parallel (forks are concurrent, not divergent)', () => {
       const parallelNode = makeFlowNode({
         id: 'p1',
         type: 'parallel',
@@ -157,8 +157,8 @@ describe('simulateWorkflow', () => {
       const nodes = [parallelNode, makeStepNode('t1'), makeStepNode('t2')]
       const edges = [makeEdge('p1', 't1'), makeEdge('p1', 't2')]
       const result = simulateWorkflow(nodes, edges)
-      expect(result.paths).toHaveLength(2)
-      expect(result.paths.every((p) => p.completed)).toBe(true)
+      expect(result.paths).toHaveLength(1)
+      expect(result.unreachedNodeIds).toHaveLength(0)
     })
 
     it('reports issue when parallel has 0 outgoing edges', () => {
@@ -181,7 +181,7 @@ describe('simulateWorkflow', () => {
   // ── combined ──
 
   describe('combined', () => {
-    it('multiplies path count for branch then parallel', () => {
+    it('branch creates 2 paths, parallel forks are concurrent within each', () => {
       const branchNode = makeFlowNode({
         id: 'b1',
         type: 'branch',
@@ -221,8 +221,8 @@ describe('simulateWorkflow', () => {
         makeEdge('p1', 't2'),
       ]
       const result = simulateWorkflow(nodes, edges)
-      // yes → parallel → t1, yes → parallel → t2, no → t3 = 3 paths
-      expect(result.paths).toHaveLength(3)
+      // yes → parallel (concurrent t1+t2) = 1 path, no → t3 = 1 path → 2 total
+      expect(result.paths).toHaveLength(2)
     })
   })
 
@@ -282,7 +282,7 @@ describe('simulateWorkflow', () => {
       expect(result.paths[0]!.label).toContain('[yes]')
     })
 
-    it('includes parallel label in path label', () => {
+    it('parallel forks are reachable but not separate paths', () => {
       const parallelNode = makeFlowNode({
         id: 'p1',
         type: 'parallel',
@@ -292,10 +292,11 @@ describe('simulateWorkflow', () => {
         provider: 'cloudflare',
         data: {},
       })
-      const nodes = [parallelNode, makeStepNode('t1', 'Worker')]
-      const edges = [makeEdge('p1', 't1')]
+      const nodes = [parallelNode, makeStepNode('t1', 'Worker A'), makeStepNode('t2', 'Worker B')]
+      const edges = [makeEdge('p1', 't1'), makeEdge('p1', 't2')]
       const result = simulateWorkflow(nodes, edges)
-      expect(result.paths[0]!.label).toContain('[parallel: Worker]')
+      expect(result.paths).toHaveLength(1)
+      expect(result.unreachedNodeIds).toHaveLength(0)
     })
   })
 

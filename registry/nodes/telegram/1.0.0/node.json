@@ -19,6 +19,7 @@
     "chatId": {
       "type": "string",
       "label": "Chat ID",
+      "required": true,
       "placeholder": "123456789",
       "description": "Telegram chat ID. Used by: all actions."
     },

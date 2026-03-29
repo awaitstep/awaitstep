@@ -1,7 +1,8 @@
-import { Handle, Position, useNodeId, useEdges } from '@xyflow/react'
-import { useMemo, type ReactNode } from 'react'
+import { Handle, Position, useNodeId } from '@xyflow/react'
+import { useCallback, type ReactNode } from 'react'
 import { cn } from '../../lib/utils'
 import { useRunOverlayStore } from '../../stores/run-overlay-store'
+import { useWorkflowStore } from '../../stores/workflow-store'
 
 interface NodeBaseProps {
   label: string
@@ -22,12 +23,14 @@ const STATUS_STYLES: Record<string, string> = {
 
 export function NodeBase({ label, icon, accent, selected, warning, children }: NodeBaseProps) {
   const nodeId = useNodeId()
-  const edges = useEdges()
+  const hasIncoming = useWorkflowStore(
+    useCallback((s) => s.edges.some((e) => e.target === nodeId), [nodeId]),
+  )
+  const hasOutgoing = useWorkflowStore(
+    useCallback((s) => s.edges.some((e) => e.source === nodeId), [nodeId]),
+  )
   const { active: overlayActive, nodeStatuses } = useRunOverlayStore()
   const stepStatus = nodeId ? nodeStatuses[nodeId] : undefined
-
-  const hasIncoming = useMemo(() => edges.some((e) => e.target === nodeId), [edges, nodeId])
-  const hasOutgoing = useMemo(() => edges.some((e) => e.source === nodeId), [edges, nodeId])
 
   return (
     <div

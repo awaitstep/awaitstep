@@ -1,0 +1,99 @@
+{
+  "id": "intercom",
+  "name": "Intercom",
+  "version": "1.0.0",
+  "description": "Manage contacts, messages, and conversations in Intercom",
+  "category": "Customer Support",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/intercom/icon.svg",
+  "tags": ["intercom", "support", "messaging", "crm"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": [
+        "Create Contact",
+        "Get Contact",
+        "Send Message",
+        "List Conversations",
+        "Reply to Conversation"
+      ],
+      "description": "The Intercom action to perform."
+    },
+    "contactId": {
+      "type": "string",
+      "label": "Contact ID",
+      "description": "Contact ID. Used by: Get Contact."
+    },
+    "conversationId": {
+      "type": "string",
+      "label": "Conversation ID",
+      "description": "Conversation ID. Used by: List Conversations, Reply to Conversation."
+    },
+    "email": {
+      "type": "string",
+      "label": "Email",
+      "description": "Contact email. Used by: Create Contact."
+    },
+    "name": {
+      "type": "string",
+      "label": "Name",
+      "description": "Contact name. Used by: Create Contact."
+    },
+    "role": {
+      "type": "select",
+      "label": "Role",
+      "options": ["user", "lead"],
+      "description": "Contact role. Used by: Create Contact."
+    },
+    "messageType": {
+      "type": "select",
+      "label": "Message Type",
+      "options": ["inapp", "email"],
+      "description": "Message type. Used by: Send Message."
+    },
+    "subject": {
+      "type": "string",
+      "label": "Subject",
+      "description": "Message subject. Used by: Send Message."
+    },
+    "body": {
+      "type": "textarea",
+      "label": "Body",
+      "description": "Message or reply body. Used by: Send Message, Reply to Conversation."
+    },
+    "adminId": {
+      "type": "string",
+      "label": "Admin ID",
+      "description": "Admin ID. Required for: Send Message, Reply to Conversation."
+    },
+    "accessToken": {
+      "type": "secret",
+      "label": "Access Token",
+      "required": true,
+      "envVarName": "INTERCOM_ACCESS_TOKEN",
+      "description": "Intercom access token."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Resource ID"
+    },
+    "type": {
+      "type": "string",
+      "description": "Resource type"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

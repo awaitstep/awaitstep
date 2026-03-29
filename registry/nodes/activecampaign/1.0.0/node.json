@@ -1,0 +1,101 @@
+{
+  "id": "activecampaign",
+  "name": "ActiveCampaign",
+  "version": "1.0.0",
+  "description": "Manage contacts and deals in ActiveCampaign",
+  "category": "CRM",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/activecampaign/icon.svg",
+  "tags": ["activecampaign", "crm", "email", "marketing"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": [
+        "Create Contact",
+        "Get Contact",
+        "Update Contact",
+        "List Contacts",
+        "Create Deal"
+      ],
+      "description": "The ActiveCampaign action to perform."
+    },
+    "contactId": {
+      "type": "string",
+      "label": "Contact ID",
+      "description": "Contact ID. Used by: Get Contact, Update Contact."
+    },
+    "email": {
+      "type": "string",
+      "label": "Email",
+      "placeholder": "contact@example.com",
+      "description": "Contact email. Used by: Create Contact, Update Contact."
+    },
+    "firstName": {
+      "type": "string",
+      "label": "First Name",
+      "description": "First name. Used by: Create Contact, Update Contact."
+    },
+    "lastName": {
+      "type": "string",
+      "label": "Last Name",
+      "description": "Last name. Used by: Create Contact, Update Contact."
+    },
+    "phone": {
+      "type": "string",
+      "label": "Phone",
+      "description": "Phone number. Used by: Create Contact, Update Contact."
+    },
+    "dealTitle": {
+      "type": "string",
+      "label": "Deal Title",
+      "description": "Deal title. Used by: Create Deal."
+    },
+    "dealValue": {
+      "type": "number",
+      "label": "Deal Value",
+      "description": "Deal value in cents. Used by: Create Deal."
+    },
+    "dealPipeline": {
+      "type": "string",
+      "label": "Pipeline ID",
+      "description": "Pipeline ID. Used by: Create Deal."
+    },
+    "dealStage": {
+      "type": "string",
+      "label": "Stage ID",
+      "description": "Stage ID. Used by: Create Deal."
+    },
+    "apiUrl": {
+      "type": "secret",
+      "label": "API URL",
+      "required": true,
+      "envVarName": "ACTIVECAMPAIGN_API_URL",
+      "description": "ActiveCampaign API URL e.g. \"https://yourorg.api-us1.com\"."
+    },
+    "apiKey": {
+      "type": "secret",
+      "label": "API Key",
+      "required": true,
+      "envVarName": "ACTIVECAMPAIGN_API_KEY",
+      "description": "ActiveCampaign API key."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Resource ID"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

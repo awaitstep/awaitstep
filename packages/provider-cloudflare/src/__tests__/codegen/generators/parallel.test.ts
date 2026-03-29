@@ -99,7 +99,7 @@ describe('generateParallel', () => {
     expect(code).toBe('// parallel: no branches')
   })
 
-  it('maps and calls each branch function', () => {
+  it('wraps Promise.all in step.do for durable caching', () => {
     const ir = makeIR([
       {
         id: 'a',
@@ -110,18 +110,10 @@ describe('generateParallel', () => {
         provider: P,
         data: { code: 'return 1;' },
       },
-      {
-        id: 'b',
-        type: 'step',
-        name: 'B',
-        position: { x: 0, y: 0 },
-        version: V,
-        provider: P,
-        data: { code: 'return 2;' },
-      },
     ])
     const node = ir.nodes[0]!
     const code = generateParallel(node, ir, generateNodeCode)
-    expect(code).toContain('.map(fn => fn())')
+    expect(code).toContain('await step.do("Run in parallel"')
+    expect(code).toContain('return await Promise.all')
   })
 })

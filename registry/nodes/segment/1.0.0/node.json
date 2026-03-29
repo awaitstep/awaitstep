@@ -1,0 +1,79 @@
+{
+  "id": "segment",
+  "name": "Segment",
+  "version": "1.0.0",
+  "description": "Track events, identify users, and send data to Segment",
+  "category": "Analytics",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/segment/icon.svg",
+  "tags": ["segment", "analytics", "tracking", "events"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Track Event", "Identify User", "Group", "Page", "Screen"],
+      "description": "The Segment action to perform."
+    },
+    "userId": {
+      "type": "string",
+      "label": "User ID",
+      "description": "User ID. Used by: all actions."
+    },
+    "anonymousId": {
+      "type": "string",
+      "label": "Anonymous ID",
+      "description": "Anonymous ID (if no userId). Used by: all actions."
+    },
+    "event": {
+      "type": "string",
+      "label": "Event Name",
+      "placeholder": "Order Completed",
+      "description": "Event name. Used by: Track Event."
+    },
+    "properties": {
+      "type": "json",
+      "label": "Properties",
+      "description": "Event properties or page/screen properties. Used by: Track Event, Page, Screen."
+    },
+    "traits": {
+      "type": "json",
+      "label": "Traits",
+      "description": "User traits for Identify, group traits for Group. Used by: Identify User, Group."
+    },
+    "groupId": {
+      "type": "string",
+      "label": "Group ID",
+      "description": "Group ID. Used by: Group."
+    },
+    "name": {
+      "type": "string",
+      "label": "Name",
+      "placeholder": "Home",
+      "description": "Page or screen name. Used by: Page, Screen."
+    },
+    "writeKey": {
+      "type": "secret",
+      "label": "Write Key",
+      "required": true,
+      "envVarName": "SEGMENT_WRITE_KEY",
+      "description": "Segment source write key."
+    }
+  },
+  "outputSchema": {
+    "success": {
+      "type": "boolean",
+      "description": "Whether the action succeeded"
+    },
+    "data": {
+      "type": "object",
+      "description": "Response data"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

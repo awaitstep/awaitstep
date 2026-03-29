@@ -1,0 +1,73 @@
+{
+  "id": "perplexity",
+  "name": "Perplexity",
+  "version": "1.0.0",
+  "description": "Run AI-powered search queries with Perplexity",
+  "category": "AI",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/perplexity/icon.svg",
+  "tags": ["perplexity", "ai", "search", "research"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Chat Completion"],
+      "description": "The Perplexity API action to perform."
+    },
+    "model": {
+      "type": "string",
+      "label": "Model",
+      "default": "sonar",
+      "description": "Model name. Used by: Chat Completion."
+    },
+    "prompt": {
+      "type": "textarea",
+      "label": "Prompt",
+      "required": true,
+      "description": "User message. Used by: Chat Completion."
+    },
+    "systemPrompt": {
+      "type": "textarea",
+      "label": "System Prompt",
+      "description": "System prompt. Used by: Chat Completion."
+    },
+    "temperature": {
+      "type": "number",
+      "label": "Temperature",
+      "description": "Sampling temperature. Used by: Chat Completion."
+    },
+    "maxTokens": {
+      "type": "number",
+      "label": "Max Tokens",
+      "description": "Maximum tokens in the response. Used by: Chat Completion."
+    },
+    "apiKey": {
+      "type": "secret",
+      "label": "API Key",
+      "required": true,
+      "envVarName": "PERPLEXITY_API_KEY",
+      "description": "Perplexity API key."
+    }
+  },
+  "outputSchema": {
+    "text": {
+      "type": "string",
+      "description": "Generated text response"
+    },
+    "citations": {
+      "type": "array",
+      "description": "Citations from the search results"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "60 seconds"
+  }
+}

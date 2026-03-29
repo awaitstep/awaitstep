@@ -1,0 +1,110 @@
+{
+  "id": "datadog",
+  "name": "Datadog",
+  "version": "1.0.0",
+  "description": "Submit metrics, create events, and send logs to Datadog",
+  "category": "Analytics",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/datadog/icon.svg",
+  "tags": ["datadog", "monitoring", "metrics", "logs"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Submit Metrics", "Create Event", "Send Logs", "List Monitors"],
+      "description": "The Datadog action to perform."
+    },
+    "metricName": {
+      "type": "string",
+      "label": "Metric Name",
+      "placeholder": "my.metric",
+      "description": "Metric name. Used by: Submit Metrics."
+    },
+    "metricValue": {
+      "type": "number",
+      "label": "Metric Value",
+      "description": "Metric value. Used by: Submit Metrics."
+    },
+    "metricType": {
+      "type": "select",
+      "label": "Metric Type",
+      "options": ["gauge", "count", "rate"],
+      "description": "Metric type. Used by: Submit Metrics."
+    },
+    "tags": {
+      "type": "string",
+      "label": "Tags",
+      "placeholder": "env:prod,service:web",
+      "description": "Comma-separated tags. Used by: Submit Metrics, Create Event, Send Logs."
+    },
+    "title": {
+      "type": "string",
+      "label": "Title",
+      "description": "Event title. Used by: Create Event."
+    },
+    "text": {
+      "type": "textarea",
+      "label": "Text",
+      "description": "Event text or log message. Used by: Create Event, Send Logs."
+    },
+    "alertType": {
+      "type": "select",
+      "label": "Alert Type",
+      "options": ["info", "warning", "error", "success"],
+      "description": "Event alert type. Used by: Create Event."
+    },
+    "source": {
+      "type": "string",
+      "label": "Source",
+      "placeholder": "my-app",
+      "description": "Log source. Used by: Send Logs."
+    },
+    "hostname": {
+      "type": "string",
+      "label": "Hostname",
+      "description": "Hostname. Used by: Submit Metrics, Send Logs."
+    },
+    "site": {
+      "type": "select",
+      "label": "Datadog Site",
+      "options": [
+        "datadoghq.com",
+        "datadoghq.eu",
+        "us3.datadoghq.com",
+        "us5.datadoghq.com",
+        "ap1.datadoghq.com"
+      ],
+      "description": "Datadog site/region. Defaults to datadoghq.com (US1)."
+    },
+    "apiKey": {
+      "type": "secret",
+      "label": "API Key",
+      "required": true,
+      "envVarName": "DATADOG_API_KEY",
+      "description": "Datadog API key."
+    },
+    "appKey": {
+      "type": "secret",
+      "label": "Application Key",
+      "envVarName": "DATADOG_APP_KEY",
+      "description": "Datadog application key. Required for: List Monitors."
+    }
+  },
+  "outputSchema": {
+    "status": {
+      "type": "string",
+      "description": "Response status"
+    },
+    "data": {
+      "type": "object",
+      "description": "Response data"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

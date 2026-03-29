@@ -1,0 +1,70 @@
+{
+  "id": "sentry",
+  "name": "Sentry",
+  "version": "1.0.0",
+  "description": "List, inspect, and resolve issues and events in Sentry",
+  "category": "Analytics",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/sentry/icon.svg",
+  "tags": ["sentry", "monitoring", "errors", "debugging"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["List Issues", "Get Issue", "Resolve Issue", "List Events", "Create Release"],
+      "description": "The Sentry action to perform."
+    },
+    "organization": {
+      "type": "string",
+      "label": "Organization",
+      "required": true,
+      "placeholder": "my-org",
+      "description": "Sentry organization slug. Used by: all actions."
+    },
+    "project": {
+      "type": "string",
+      "label": "Project",
+      "placeholder": "my-project",
+      "description": "Project slug. Used by: List Issues, List Events, Create Release."
+    },
+    "issueId": {
+      "type": "string",
+      "label": "Issue ID",
+      "description": "Issue ID. Used by: Get Issue, Resolve Issue."
+    },
+    "releaseVersion": {
+      "type": "string",
+      "label": "Release Version",
+      "placeholder": "1.0.0",
+      "description": "Release version. Used by: Create Release."
+    },
+    "authToken": {
+      "type": "secret",
+      "label": "Auth Token",
+      "required": true,
+      "envVarName": "SENTRY_AUTH_TOKEN",
+      "description": "Sentry authentication token."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Resource ID"
+    },
+    "status": {
+      "type": "string",
+      "description": "Resource status"
+    },
+    "data": {
+      "type": "object",
+      "description": "Response data"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

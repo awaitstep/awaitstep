@@ -1,0 +1,93 @@
+{
+  "id": "paypal",
+  "name": "PayPal",
+  "version": "1.0.0",
+  "description": "Create and manage orders and payments with PayPal",
+  "category": "Payments",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/paypal/icon.svg",
+  "tags": ["paypal", "payments", "orders", "checkout"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Create Order", "Capture Order", "Get Order", "Refund Capture"],
+      "description": "The PayPal action to perform."
+    },
+    "orderId": {
+      "type": "string",
+      "label": "Order ID",
+      "description": "Order ID. Used by: Capture Order, Get Order."
+    },
+    "captureId": {
+      "type": "string",
+      "label": "Capture ID",
+      "description": "Capture ID. Used by: Refund Capture."
+    },
+    "amount": {
+      "type": "number",
+      "label": "Amount",
+      "description": "Amount for the order. Used by: Create Order."
+    },
+    "currency": {
+      "type": "string",
+      "label": "Currency",
+      "default": "USD",
+      "placeholder": "USD",
+      "description": "Currency code. Used by: Create Order."
+    },
+    "description": {
+      "type": "string",
+      "label": "Description",
+      "description": "Item description. Used by: Create Order."
+    },
+    "intent": {
+      "type": "select",
+      "label": "Intent",
+      "options": ["CAPTURE", "AUTHORIZE"],
+      "default": "CAPTURE",
+      "description": "Order intent. Used by: Create Order."
+    },
+    "sandbox": {
+      "type": "boolean",
+      "label": "Sandbox",
+      "default": false,
+      "description": "Use sandbox environment."
+    },
+    "clientId": {
+      "type": "secret",
+      "label": "Client ID",
+      "required": true,
+      "envVarName": "PAYPAL_CLIENT_ID",
+      "description": "PayPal client ID."
+    },
+    "clientSecret": {
+      "type": "secret",
+      "label": "Client Secret",
+      "required": true,
+      "envVarName": "PAYPAL_CLIENT_SECRET",
+      "description": "PayPal client secret."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Order or capture ID"
+    },
+    "status": {
+      "type": "string",
+      "description": "Order status"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

@@ -19,6 +19,7 @@
     "domain": {
       "type": "string",
       "label": "Domain",
+      "required": true,
       "placeholder": "your-company.atlassian.net",
       "description": "Jira Cloud domain. Used by: all actions."
     },

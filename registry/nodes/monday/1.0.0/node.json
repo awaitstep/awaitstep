@@ -1,0 +1,68 @@
+{
+  "id": "monday",
+  "name": "Monday.com",
+  "version": "1.0.0",
+  "description": "Create, read, update, and manage items in Monday.com boards",
+  "category": "Project Management",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/monday/icon.svg",
+  "tags": ["monday", "project-management", "boards"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Create Item", "Get Item", "Update Item", "List Items"],
+      "description": "The Monday.com action to perform."
+    },
+    "boardId": {
+      "type": "string",
+      "label": "Board ID",
+      "required": true,
+      "description": "Monday.com board ID."
+    },
+    "groupId": {
+      "type": "string",
+      "label": "Group ID",
+      "description": "Group ID within the board. Used by: Create Item."
+    },
+    "itemId": {
+      "type": "string",
+      "label": "Item ID",
+      "description": "Item ID. Used by: Get Item, Update Item."
+    },
+    "itemName": {
+      "type": "string",
+      "label": "Item Name",
+      "description": "Item name. Used by: Create Item."
+    },
+    "columnValues": {
+      "type": "json",
+      "label": "Column Values",
+      "description": "Column values as JSON object. Used by: Create Item, Update Item."
+    },
+    "apiToken": {
+      "type": "secret",
+      "label": "API Token",
+      "required": true,
+      "envVarName": "MONDAY_API_TOKEN",
+      "description": "Monday.com API token."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Item ID"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

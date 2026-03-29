@@ -20,7 +20,14 @@ export default async function (ctx) {
   }
 
   function parseJson(value: unknown): unknown {
-    return typeof value === 'string' ? JSON.parse(value) : value
+    if (typeof value !== 'string') return value
+    try {
+      return JSON.parse(value)
+    } catch {
+      throw new Error(
+        'Invalid JSON input: ' + (value.length > 100 ? value.slice(0, 100) + '...' : value),
+      )
+    }
   }
 
   switch (action) {

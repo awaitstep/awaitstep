@@ -3,12 +3,11 @@ export default async function (ctx) {
   const action = ctx.config.action
 
   async function resendRequest(method: string, path: string, body?: Record<string, unknown>) {
+    const headers: Record<string, string> = { Authorization: `Bearer ${apiKey}` }
+    if (body) headers['Content-Type'] = 'application/json'
     const response = await fetch(`https://api.resend.com${path}`, {
       method,
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: body ? JSON.stringify(body) : undefined,
     })
     const data = (await response.json()) as Record<string, unknown>

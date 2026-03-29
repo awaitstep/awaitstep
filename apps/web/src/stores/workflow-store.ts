@@ -17,6 +17,8 @@ import { customAlphabet } from 'nanoid'
 
 const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789_', 12)
 
+const MULTI_EDGE_TYPES = new Set(['branch', 'parallel', 'try_catch', 'loop', 'race'])
+
 const BUILTIN_FLOW_TYPES = new Set([
   'step',
   'sleep',
@@ -25,6 +27,11 @@ const BUILTIN_FLOW_TYPES = new Set([
   'parallel',
   'http_request',
   'wait_for_event',
+  'try_catch',
+  'loop',
+  'break',
+  'sub_workflow',
+  'race',
 ])
 
 export function toFlowType(irType: string): string {
@@ -174,6 +181,33 @@ function createDefaultNode(
       return { ...base, data: { url: 'https://api.example.com', method: 'GET' } }
     case 'wait_for_event':
       return { ...base, data: { eventType: 'my-event', timeout: '24 hours' } }
+    case 'try_catch':
+      return { ...base, data: {} }
+    case 'loop':
+      return {
+        ...base,
+        data: {
+          loopType: 'forEach',
+          collection: '',
+          itemVar: 'item',
+          indexVar: 'i',
+        },
+      }
+    case 'break':
+      return { ...base, name: 'New exit', data: { condition: '' } }
+    case 'race':
+      return { ...base, data: {} }
+    case 'sub_workflow':
+      return {
+        ...base,
+        data: {
+          workflowId: '',
+          workflowName: '',
+          input: '',
+          waitForCompletion: true,
+          timeout: '5 minutes',
+        },
+      }
     default: {
       const def = registry?.get(type)
       return { ...base, name: def?.name ?? `New ${type}`, data: configDefaults(def?.configSchema) }
@@ -213,12 +247,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   onEdgesChange: (changes) => {
     if (get().readOnly) return
-    const meaningful = changes.filter((c) => c.type !== 'select')
-    if (meaningful.length === 0) return
+    if (changes.length === 0) return
     const dirtyTypes = new Set(['add', 'remove', 'replace'])
-    const hasDirtyChange = meaningful.some((c) => dirtyTypes.has(c.type))
+    const hasDirtyChange = changes.some((c) => dirtyTypes.has(c.type))
     set({
-      edges: applyEdgeChanges(meaningful, get().edges),
+      edges: applyEdgeChanges(changes, get().edges),
       ...(hasDirtyChange && { isDirty: true }),
     })
   },
@@ -227,14 +260,43 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     if (get().readOnly) return
     const { nodes, edges } = get()
     const sourceNode = nodes.find((n) => n.id === connection.source)
-    if (sourceNode) {
-      const type = sourceNode.data.irNode.type
-      const isLinear = type !== 'branch' && type !== 'parallel'
-      if (isLinear && edges.some((e) => e.source === connection.source)) {
-        return // Linear node already has an outgoing edge
-      }
+    if (!sourceNode) {
+      set({ edges: addEdge({ ...connection, id: nanoid() }, edges), isDirty: true })
+      return
     }
-    set({ edges: addEdge({ ...connection, id: nanoid() }, edges), isDirty: true })
+
+    const type = sourceNode.data.irNode.type
+
+    // Collect outgoing edges once — used by both linear check and label logic
+    let outgoing: typeof edges | undefined
+    if (MULTI_EDGE_TYPES.has(type)) {
+      outgoing = edges.filter((e) => e.source === connection.source)
+    } else {
+      if (edges.some((e) => e.source === connection.source)) return
+    }
+
+    // Auto-label edges from container nodes
+    let label: string | undefined
+    if (type === 'loop') {
+      const labels = new Set(outgoing!.map((e) => e.label))
+      if (!labels.has('body')) label = 'body'
+      else if (!labels.has('then')) label = 'then'
+      else return
+    } else if (type === 'break') {
+      if (outgoing!.length > 0) return
+      if (String(sourceNode.data.irNode.data.condition ?? '').trim()) label = 'else'
+    } else if (type === 'try_catch') {
+      const labels = new Set(outgoing!.map((e) => e.label))
+      if (!labels.has('try')) label = 'try'
+      else if (!labels.has('catch')) label = 'catch'
+      else if (!labels.has('finally')) label = 'finally'
+      else if (!labels.has('then')) label = 'then'
+      else return
+    }
+
+    const newEdge = { ...connection, id: nanoid(), ...(label ? { label } : {}) }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- addEdge's internal type is stricter than Edge[]
+    set({ edges: addEdge(newEdge, edges as any) as Edge[], isDirty: true })
   },
 
   addNode: (type, position, registry) => {

@@ -19,12 +19,14 @@
     "owner": {
       "type": "string",
       "label": "Owner",
+      "required": true,
       "placeholder": "octocat",
       "description": "Repository owner (user or org). Used by: all actions."
     },
     "repo": {
       "type": "string",
       "label": "Repository",
+      "required": true,
       "placeholder": "my-repo",
       "description": "Repository name. Used by: all actions."
     },

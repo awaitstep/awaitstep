@@ -30,6 +30,7 @@
     "userMessage": {
       "type": "string",
       "label": "User Message",
+      "required": true,
       "description": "User message content. Used by: Chat Completion."
     },
     "temperature": {

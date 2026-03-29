@@ -1,0 +1,85 @@
+{
+  "id": "shopify",
+  "name": "Shopify",
+  "version": "1.0.0",
+  "description": "Manage products and orders in Shopify",
+  "category": "E-commerce",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/shopify/icon.svg",
+  "tags": ["shopify", "ecommerce", "products", "orders"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Get Product", "List Products", "Create Product", "Get Order", "List Orders"],
+      "description": "The Shopify action to perform."
+    },
+    "store": {
+      "type": "string",
+      "label": "Store",
+      "required": true,
+      "placeholder": "mystore",
+      "description": "Shopify store name (without .myshopify.com)."
+    },
+    "productId": {
+      "type": "string",
+      "label": "Product ID",
+      "description": "Product ID. Used by: Get Product."
+    },
+    "orderId": {
+      "type": "string",
+      "label": "Order ID",
+      "description": "Order ID. Used by: Get Order."
+    },
+    "title": {
+      "type": "string",
+      "label": "Title",
+      "description": "Product title. Used by: Create Product."
+    },
+    "bodyHtml": {
+      "type": "textarea",
+      "label": "Body HTML",
+      "description": "Product description HTML. Used by: Create Product."
+    },
+    "vendor": {
+      "type": "string",
+      "label": "Vendor",
+      "description": "Product vendor. Used by: Create Product."
+    },
+    "productType": {
+      "type": "string",
+      "label": "Product Type",
+      "description": "Product type. Used by: Create Product."
+    },
+    "limit": {
+      "type": "number",
+      "label": "Limit",
+      "default": 50,
+      "description": "Number of results to return. Used by: List Products, List Orders."
+    },
+    "accessToken": {
+      "type": "secret",
+      "label": "Access Token",
+      "required": true,
+      "envVarName": "SHOPIFY_ACCESS_TOKEN",
+      "description": "Shopify Admin API access token."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Resource ID"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

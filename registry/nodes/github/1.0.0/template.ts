@@ -27,14 +27,26 @@ export default async function (ctx) {
       }
       if (ctx.config.body) body.body = ctx.config.body
       if (ctx.config.labels) {
-        body.labels =
-          typeof ctx.config.labels === 'string' ? JSON.parse(ctx.config.labels) : ctx.config.labels
+        if (typeof ctx.config.labels === 'string') {
+          try {
+            body.labels = JSON.parse(ctx.config.labels)
+          } catch {
+            throw new Error('Invalid JSON in labels field')
+          }
+        } else {
+          body.labels = ctx.config.labels
+        }
       }
       if (ctx.config.assignees) {
-        body.assignees =
-          typeof ctx.config.assignees === 'string'
-            ? JSON.parse(ctx.config.assignees)
-            : ctx.config.assignees
+        if (typeof ctx.config.assignees === 'string') {
+          try {
+            body.assignees = JSON.parse(ctx.config.assignees)
+          } catch {
+            throw new Error('Invalid JSON in assignees field')
+          }
+        } else {
+          body.assignees = ctx.config.assignees
+        }
       }
       const data = await githubRequest(
         'POST',

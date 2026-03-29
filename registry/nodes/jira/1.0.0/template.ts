@@ -2,6 +2,9 @@ export default async function (ctx) {
   const email = ctx.env.JIRA_EMAIL
   const apiToken = ctx.env.JIRA_API_TOKEN
   const domain = ctx.config.domain
+  if (typeof domain !== 'string' || !domain.endsWith('.atlassian.net')) {
+    throw new Error(`Invalid Jira domain: "${domain}" — domain must end with .atlassian.net`)
+  }
   const action = ctx.config.action
 
   async function jiraRequest(method: string, path: string, body?: Record<string, unknown>) {

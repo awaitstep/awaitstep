@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
 import { X, Trash2, Info, Plus } from 'lucide-react'
 import { Button } from '../ui/button'
@@ -54,6 +54,20 @@ export function validateNode(node: WorkflowNode): string[] {
       if (branches.length < 2) errors.push('At least 2 branches are required')
       break
     }
+    case 'loop': {
+      const loopType = String(node.data.loopType ?? '')
+      if (!['forEach', 'while', 'times'].includes(loopType)) errors.push('Loop type is required')
+      if (loopType === 'forEach' && !String(node.data.collection ?? '').trim())
+        errors.push('Collection expression is required for forEach loops')
+      if (loopType === 'times') {
+        const count = Number(node.data.count ?? 0)
+        if (count < 1) errors.push('Count must be at least 1')
+      }
+      break
+    }
+    case 'sub_workflow':
+      if (!String(node.data.workflowName ?? '').trim()) errors.push('Workflow name is required')
+      break
   }
   return errors
 }
@@ -138,10 +152,35 @@ export function NodeConfigPanel() {
           {irNode.type === 'branch' ? (
             <BranchFields node={irNode} onUpdate={update} />
           ) : irNode.type === 'parallel' ? (
-            <Hint>
-              Connect multiple nodes from this output to run them concurrently via Promise.all().
-              Not natively durable — use separate Workflow instances for durable parallelism.
-            </Hint>
+            <ForkFields
+              hint="Connect multiple nodes from this output to run them concurrently via Promise.all().
+                Not natively durable — use separate Workflow instances for durable parallelism."
+            />
+          ) : irNode.type === 'race' ? (
+            <ForkFields
+              hint="Connect multiple nodes — they run concurrently via Promise.race(). The first to
+                complete wins; remaining branches are abandoned."
+            />
+          ) : irNode.type === 'try_catch' ? (
+            <TryCatchFields />
+          ) : irNode.type === 'loop' ? (
+            <LoopFields node={irNode} onUpdate={update} />
+          ) : irNode.type === 'break' ? (
+            <>
+              <Field label="Condition" hint="Leave empty for unconditional">
+                <Input
+                  value={String(irNode.data.condition ?? '')}
+                  onChange={(e) => updateData('condition', e.target.value)}
+                  debounceMs={300}
+                  placeholder='poll_result.status === "complete"'
+                  className="font-mono text-[11px]"
+                />
+              </Field>
+              <Hint>
+                Inside a loop: exits the loop (break). Outside a loop: stops workflow execution
+                (return). Leave the condition empty for unconditional exit.
+              </Hint>
+            </>
           ) : definition ? (
             <DynamicFields
               configSchema={definition.configSchema}
@@ -194,6 +233,71 @@ function Hint({ children }: { children: React.ReactNode }) {
       <span>{children}</span>
     </div>
   )
+}
+
+// ── Shared hook for edge-management sub-components ──
+// Subscribes to edges + a stable node-names map instead of the full nodes array,
+// so position drags don't trigger re-renders in config panel sub-components.
+
+function useEdgeManagement() {
+  const { selectedNodeId, edges, nodes } = useWorkflowStore(
+    useShallow((s) => ({ selectedNodeId: s.selectedNodeId, edges: s.edges, nodes: s.nodes })),
+  )
+
+  const outgoingEdges = useMemo(
+    () => edges.filter((e) => e.source === selectedNodeId),
+    [edges, selectedNodeId],
+  )
+
+  const targetOptions = useMemo(() => {
+    const opts: { value: string; label: string }[] = []
+    for (const n of nodes) {
+      if (n.id !== selectedNodeId) opts.push({ value: n.id, label: n.data.irNode.name })
+    }
+    return opts
+  }, [nodes, selectedNodeId])
+
+  const getTargetForLabel = useCallback(
+    (label: string) => outgoingEdges.find((e) => e.label === label)?.target ?? '',
+    [outgoingEdges],
+  )
+
+  const setTargetForLabel = useCallback(
+    (label: string, targetId: string) => {
+      const store = useWorkflowStore.getState()
+      const existingEdge = store.edges.find((e) => e.source === selectedNodeId && e.label === label)
+
+      if (targetId === '') {
+        if (existingEdge) {
+          useWorkflowStore.setState({
+            edges: store.edges.filter((e) => e.id !== existingEdge.id),
+            isDirty: true,
+          })
+        }
+        return
+      }
+
+      if (existingEdge) {
+        useWorkflowStore.setState({
+          edges: store.edges.map((e) =>
+            e.id === existingEdge.id ? { ...e, target: targetId } : e,
+          ),
+          isDirty: true,
+        })
+      } else {
+        useWorkflowStore.setState({
+          edges: [
+            ...store.edges,
+            { id: nanoid(), source: selectedNodeId!, target: targetId, label },
+          ],
+          isDirty: true,
+        })
+      }
+    },
+    [selectedNodeId],
+  )
+
+  return { selectedNodeId, outgoingEdges, targetOptions, getTargetForLabel, setTargetForLabel }
 }
 
 // ── Branch (if/else if/else) — kept as custom component for edge management ──
@@ -315,6 +419,188 @@ function BranchFields({
       </Button>
 
       <Hint>Select which node each branch should go to. Edges are created automatically.</Hint>
+    </>
+  )
+}
+
+// ── Parallel / Race — continuation edge management ──
+
+function ForkFields({ hint }: { hint: string }) {
+  const { targetOptions, getTargetForLabel, setTargetForLabel } = useEdgeManagement()
+
+  return (
+    <>
+      <Hint>{hint}</Hint>
+
+      <div className="overflow-hidden rounded-lg border border-border">
+        <div className="bg-muted/40 px-3 py-1.5">
+          <span className="text-[11px] font-medium text-muted-foreground">After completion</span>
+        </div>
+        <div className="p-3">
+          <div className="space-y-1">
+            <Label className="text-[10px] text-muted-foreground/60">Continue to</Label>
+            <Select
+              value={getTargetForLabel('then') || '__none__'}
+              onValueChange={(v) => setTargetForLabel('then', v === '__none__' ? '' : v)}
+              options={[{ value: '__none__', label: 'Not connected' }, ...targetOptions]}
+              className="h-8 text-[11px]"
+            />
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ── Try/Catch — edge management for try, catch, finally paths ──
+
+function TryCatchFields() {
+  const { targetOptions, getTargetForLabel, setTargetForLabel } = useEdgeManagement()
+
+  const slots = [
+    { label: 'try', heading: 'Try path' },
+    { label: 'catch', heading: 'Catch path' },
+    { label: 'finally', heading: 'Finally path (optional)' },
+    { label: 'then', heading: 'After try/catch' },
+  ]
+
+  return (
+    <>
+      <div className="space-y-2">
+        {slots.map((slot) => (
+          <div key={slot.label} className="overflow-hidden rounded-lg border border-border">
+            <div className="bg-muted/40 px-3 py-1.5">
+              <span className="text-[11px] font-medium text-muted-foreground">{slot.heading}</span>
+            </div>
+            <div className="p-3">
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground/60">Go to</Label>
+                <Select
+                  value={getTargetForLabel(slot.label) || '__none__'}
+                  onValueChange={(v) => setTargetForLabel(slot.label, v === '__none__' ? '' : v)}
+                  options={[{ value: '__none__', label: 'Not connected' }, ...targetOptions]}
+                  className="h-8 text-[11px]"
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <Hint>
+        The catch path receives the error as <code>err</code>. Finally runs regardless of success or
+        failure.
+      </Hint>
+    </>
+  )
+}
+
+// ── Loop — loop type config + body edge management ──
+
+function LoopFields({
+  node,
+  onUpdate,
+}: {
+  node: WorkflowNode
+  onUpdate: (d: Partial<WorkflowNode>) => void
+}) {
+  const { targetOptions, getTargetForLabel, setTargetForLabel } = useEdgeManagement()
+
+  const loopType = String(node.data.loopType ?? 'forEach')
+
+  const updateField = (field: string, value: unknown) => {
+    onUpdate({ data: { ...node.data, [field]: value } })
+  }
+
+  return (
+    <>
+      <Field label="Loop Type">
+        <Select
+          value={loopType}
+          onValueChange={(v) => updateField('loopType', v)}
+          options={[
+            { value: 'forEach', label: 'For Each' },
+            { value: 'while', label: 'While' },
+            { value: 'times', label: 'Times' },
+          ]}
+          className="h-8 text-[11px]"
+        />
+      </Field>
+
+      {loopType === 'forEach' && (
+        <>
+          <Field label="Collection" hint="Expression resolving to an array">
+            <Input
+              value={String(node.data.collection ?? '')}
+              onChange={(e) => updateField('collection', e.target.value)}
+              debounceMs={300}
+              placeholder="{{get_customers.customers}}"
+              className="font-mono text-[11px]"
+            />
+          </Field>
+          <Field label="Item Variable">
+            <Input
+              value={String(node.data.itemVar ?? 'item')}
+              onChange={(e) => updateField('itemVar', e.target.value)}
+              debounceMs={300}
+              placeholder="item"
+              className="font-mono text-[11px]"
+            />
+          </Field>
+        </>
+      )}
+
+      {loopType === 'while' && (
+        <Field label="Condition" hint="Loop while truthy (optional)">
+          <Input
+            value={String(node.data.condition ?? '')}
+            onChange={(e) => updateField('condition', e.target.value)}
+            debounceMs={300}
+            placeholder="status !== 'done'"
+            className="font-mono text-[11px]"
+          />
+        </Field>
+      )}
+
+      {loopType === 'times' && (
+        <Field label="Count" hint="Number of iterations">
+          <Input
+            type="number"
+            value={String(node.data.count ?? 5)}
+            onChange={(e) => updateField('count', parseInt(e.target.value) || 1)}
+            debounceMs={300}
+            className="text-[11px]"
+          />
+        </Field>
+      )}
+
+      <Separator className="!bg-muted/60" />
+
+      {[
+        { lbl: 'body', heading: 'Loop body', hint: 'First node in body' },
+        { lbl: 'then', heading: 'After loop', hint: 'Runs after loop completes' },
+      ].map((slot) => (
+        <div key={slot.lbl} className="overflow-hidden rounded-lg border border-border">
+          <div className="bg-muted/40 px-3 py-1.5">
+            <span className="text-[11px] font-medium text-muted-foreground">{slot.heading}</span>
+          </div>
+          <div className="p-3">
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground/60">{slot.hint}</Label>
+              <Select
+                value={getTargetForLabel(slot.lbl) || '__none__'}
+                onValueChange={(v) => setTargetForLabel(slot.lbl, v === '__none__' ? '' : v)}
+                options={[{ value: '__none__', label: 'Not connected' }, ...targetOptions]}
+                className="h-8 text-[11px]"
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+
+      <Hint>
+        Connect the first node of the loop body. Chain additional nodes from it.
+        {loopType === 'while' && ' Use a Break node inside the body to exit the loop.'}
+      </Hint>
     </>
   )
 }

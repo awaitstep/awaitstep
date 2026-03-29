@@ -31,7 +31,7 @@ export default async function (ctx) {
         messages,
       }
       if (ctx.config.temperature != null) body.temperature = ctx.config.temperature
-      if (ctx.config.maxTokens) body.max_tokens = ctx.config.maxTokens
+      if (ctx.config.maxTokens) body.max_completion_tokens = ctx.config.maxTokens
       const data = await openaiRequest('/chat/completions', body)
       const choices = data.choices as Array<{ message: { content: string } }>
       return { result: choices[0].message.content, usage: data.usage, data }

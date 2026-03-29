@@ -15,6 +15,11 @@ const BUILTIN_IDS = new Set([
   'parallel',
   'http_request',
   'wait_for_event',
+  'try_catch',
+  'loop',
+  'break',
+  'sub_workflow',
+  'race',
 ])
 
 interface NodePaletteProps {

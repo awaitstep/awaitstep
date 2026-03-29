@@ -32,7 +32,7 @@ export function NodeRegistryProvider({ children }: { children: ReactNode }) {
       .then((definitions: NodeDefinition[] | null) => {
         if (!definitions || definitions.length === 0) return
 
-        const updated = new NodeRegistry()
+        const updated = createDefaultRegistry()
         for (const def of definitions) {
           updated.register(def)
         }

@@ -1,0 +1,85 @@
+{
+  "id": "pagerduty",
+  "name": "PagerDuty",
+  "version": "1.0.0",
+  "description": "Trigger, acknowledge, and resolve incidents in PagerDuty",
+  "category": "Notifications",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/pagerduty/icon.svg",
+  "tags": ["pagerduty", "incidents", "alerting", "oncall"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Trigger Incident", "Acknowledge Incident", "Resolve Incident", "List Incidents"],
+      "description": "The PagerDuty action to perform."
+    },
+    "incidentId": {
+      "type": "string",
+      "label": "Incident ID",
+      "description": "Incident ID. Used by: Acknowledge Incident, Resolve Incident."
+    },
+    "title": {
+      "type": "string",
+      "label": "Title",
+      "placeholder": "Server is down",
+      "description": "Incident title. Used by: Trigger Incident."
+    },
+    "description": {
+      "type": "textarea",
+      "label": "Description",
+      "description": "Incident description. Used by: Trigger Incident."
+    },
+    "severity": {
+      "type": "select",
+      "label": "Severity",
+      "options": ["critical", "error", "warning", "info"],
+      "description": "Severity level. Used by: Trigger Incident."
+    },
+    "serviceId": {
+      "type": "string",
+      "label": "Service ID",
+      "description": "Service ID. Used by: Trigger Incident."
+    },
+    "routingKey": {
+      "type": "secret",
+      "label": "Routing Key",
+      "envVarName": "PAGERDUTY_ROUTING_KEY",
+      "description": "Events API routing key. Used by: Trigger Incident."
+    },
+    "apiKey": {
+      "type": "secret",
+      "label": "API Key",
+      "required": true,
+      "envVarName": "PAGERDUTY_API_KEY",
+      "description": "PagerDuty REST API key."
+    },
+    "userEmail": {
+      "type": "string",
+      "label": "User Email",
+      "placeholder": "user@example.com",
+      "description": "Email of user performing action. Used by: Acknowledge Incident, Resolve Incident."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Incident ID"
+    },
+    "status": {
+      "type": "string",
+      "description": "Incident status"
+    },
+    "data": {
+      "type": "object",
+      "description": "Response data"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

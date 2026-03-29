@@ -27,6 +27,11 @@ export type BuiltinNodeType =
   | 'parallel'
   | 'http_request'
   | 'wait_for_event'
+  | 'try_catch'
+  | 'loop'
+  | 'break'
+  | 'sub_workflow'
+  | 'race'
 
 export type NodeType = BuiltinNodeType | (string & {})
 

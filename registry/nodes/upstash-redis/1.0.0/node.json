@@ -1,0 +1,81 @@
+{
+  "id": "upstash-redis",
+  "name": "Upstash Redis",
+  "version": "1.0.0",
+  "description": "Execute Redis commands on Upstash via REST API",
+  "category": "Database",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/upstash-redis/icon.svg",
+  "tags": ["upstash", "redis", "cache", "database"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["GET", "SET", "DEL", "HSET", "HGET", "LPUSH", "LRANGE", "INCR"],
+      "description": "The Redis command to execute."
+    },
+    "key": {
+      "type": "string",
+      "label": "Key",
+      "required": true,
+      "placeholder": "mykey",
+      "description": "Redis key. Used by: all actions."
+    },
+    "value": {
+      "type": "string",
+      "label": "Value",
+      "description": "Value. Used by: SET, LPUSH."
+    },
+    "field": {
+      "type": "string",
+      "label": "Field",
+      "description": "Hash field. Used by: HSET, HGET."
+    },
+    "start": {
+      "type": "number",
+      "label": "Range Start",
+      "description": "Range start index. Used by: LRANGE."
+    },
+    "stop": {
+      "type": "number",
+      "label": "Range Stop",
+      "description": "Range stop index. Used by: LRANGE."
+    },
+    "ex": {
+      "type": "number",
+      "label": "TTL (seconds)",
+      "description": "TTL in seconds. Used by: SET."
+    },
+    "restUrl": {
+      "type": "secret",
+      "label": "REST URL",
+      "required": true,
+      "envVarName": "UPSTASH_REDIS_REST_URL",
+      "description": "Upstash Redis REST URL."
+    },
+    "restToken": {
+      "type": "secret",
+      "label": "REST Token",
+      "required": true,
+      "envVarName": "UPSTASH_REDIS_REST_TOKEN",
+      "description": "Upstash Redis REST token."
+    }
+  },
+  "outputSchema": {
+    "result": {
+      "type": "string",
+      "description": "Command result"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full response data"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}

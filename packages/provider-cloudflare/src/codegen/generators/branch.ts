@@ -1,5 +1,5 @@
 import type { WorkflowIR, WorkflowNode, BranchCondition } from '@awaitstep/ir'
-import { buildAdjacencyList, getEdgeLabels } from '@awaitstep/codegen'
+import { prepareContainerContext, inlineChain } from './container-utils.js'
 
 export function generateBranch(
   node: WorkflowNode,
@@ -7,12 +7,9 @@ export function generateBranch(
   generateNode: (node: WorkflowNode, ir: WorkflowIR) => string,
 ): string {
   const branches = (node.data.branches ?? []) as BranchCondition[]
-  const adj = buildAdjacencyList(ir)
-  const edgeLabels = getEdgeLabels(ir)
-  const inDegree = computeInDegree(ir)
-  const targets = adj.get(node.id) ?? []
-  const nodeLabels = edgeLabels.get(node.id) ?? new Map()
-  const nodeMap = new Map(ir.nodes.map((n) => [n.id, n]))
+  const ctx = prepareContainerContext(ir)
+  const targets = ctx.adj.get(node.id) ?? []
+  const nodeLabels = ctx.edgeLabels.get(node.id) ?? new Map()
 
   const lines: string[] = []
 
@@ -31,10 +28,7 @@ export function generateBranch(
 
     const target = targets.find((t) => nodeLabels.get(t) === branch.label)
     if (target) {
-      const chain = collectChain(target, adj, inDegree, nodeMap)
-      for (const chainNode of chain) {
-        lines.push(`  ${generateNode(chainNode, ir).replace(/\n/g, '\n  ')}`)
-      }
+      lines.push(inlineChain(target, ctx, generateNode, ir, 2))
     }
   }
 
@@ -43,18 +37,26 @@ export function generateBranch(
 }
 
 export function collectBranchInlineTargets(ir: WorkflowIR): Set<string> {
-  const adj = buildAdjacencyList(ir)
-  const inDegree = computeInDegree(ir)
-  const nodeMap = new Map(ir.nodes.map((n) => [n.id, n]))
+  const ctx = prepareContainerContext(ir)
   const inlineTargets = new Set<string>()
 
+  const inlineLabels = new Set(['body', 'try', 'catch', 'finally'])
+  const containerTypes = new Set(['branch', 'parallel', 'try_catch', 'loop', 'race'])
+
   for (const node of ir.nodes) {
-    if (node.type === 'branch' || node.type === 'parallel') {
-      for (const target of adj.get(node.id) ?? []) {
-        const chain = collectChain(target, adj, inDegree, nodeMap)
-        for (const chainNode of chain) {
-          inlineTargets.add(chainNode.id)
-        }
+    if (!containerTypes.has(node.type)) continue
+
+    const targets =
+      node.type === 'loop' || node.type === 'try_catch'
+        ? ir.edges
+            .filter((e) => e.source === node.id && inlineLabels.has(e.label ?? ''))
+            .map((e) => e.target)
+        : ir.edges.filter((e) => e.source === node.id && e.label !== 'then').map((e) => e.target)
+
+    for (const target of targets) {
+      const chain = collectChain(target, ctx.adj, ctx.inDegree, ctx.nodeMap)
+      for (const chainNode of chain) {
+        inlineTargets.add(chainNode.id)
       }
     }
   }
@@ -62,18 +64,15 @@ export function collectBranchInlineTargets(ir: WorkflowIR): Set<string> {
   return inlineTargets
 }
 
-function computeInDegree(ir: WorkflowIR): Map<string, number> {
+export function computeInDegree(ir: WorkflowIR): Map<string, number> {
   const inDegree = new Map<string, number>()
-  for (const node of ir.nodes) {
-    inDegree.set(node.id, 0)
-  }
   for (const edge of ir.edges) {
     inDegree.set(edge.target, (inDegree.get(edge.target) ?? 0) + 1)
   }
   return inDegree
 }
 
-function collectChain(
+export function collectChain(
   startId: string,
   adj: Map<string, string[]>,
   inDegree: Map<string, number>,
@@ -88,7 +87,14 @@ function collectChain(
 
     chain.push(node)
 
-    if (node.type === 'branch' || node.type === 'parallel') break
+    if (
+      node.type === 'branch' ||
+      node.type === 'parallel' ||
+      node.type === 'try_catch' ||
+      node.type === 'loop' ||
+      node.type === 'race'
+    )
+      break
 
     const successors: string[] = adj.get(currentId) ?? []
     if (successors.length === 1 && (inDegree.get(successors[0]) ?? 0) === 1) {

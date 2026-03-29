@@ -1,0 +1,76 @@
+{
+  "id": "salesforce",
+  "name": "Salesforce",
+  "version": "1.0.0",
+  "description": "Create, read, update, query, and delete records in Salesforce",
+  "category": "CRM",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/salesforce/icon.svg",
+  "tags": ["salesforce", "crm", "sales", "leads"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Create Record", "Get Record", "Update Record", "SOQL Query", "Delete Record"],
+      "description": "The Salesforce action to perform."
+    },
+    "objectType": {
+      "type": "string",
+      "label": "Object Type",
+      "required": true,
+      "placeholder": "Account",
+      "description": "Salesforce object type e.g. \"Account\", \"Contact\", \"Lead\". Used by: Create Record, Get Record, Update Record, Delete Record."
+    },
+    "recordId": {
+      "type": "string",
+      "label": "Record ID",
+      "description": "Record ID. Used by: Get Record, Update Record, Delete Record."
+    },
+    "data": {
+      "type": "json",
+      "label": "Record Data",
+      "description": "Record data for create/update as JSON. Used by: Create Record, Update Record."
+    },
+    "query": {
+      "type": "textarea",
+      "label": "SOQL Query",
+      "placeholder": "SELECT Id, Name FROM Account LIMIT 10",
+      "description": "SOQL query string. Used by: SOQL Query."
+    },
+    "instanceUrl": {
+      "type": "secret",
+      "label": "Instance URL",
+      "required": true,
+      "envVarName": "SALESFORCE_INSTANCE_URL",
+      "description": "Salesforce instance URL e.g. \"https://yourorg.salesforce.com\"."
+    },
+    "accessToken": {
+      "type": "secret",
+      "label": "Access Token",
+      "required": true,
+      "envVarName": "SALESFORCE_ACCESS_TOKEN",
+      "description": "Salesforce access token."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Record ID"
+    },
+    "success": {
+      "type": "boolean",
+      "description": "Whether the action succeeded"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}
