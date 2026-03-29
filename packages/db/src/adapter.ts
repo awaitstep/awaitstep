@@ -9,6 +9,7 @@ import type {
   Project,
   InstalledNode,
 } from './types.js'
+import type { PaginationParams, PaginatedResult } from './pagination.js'
 
 export interface WorkflowWithStatus extends Workflow {
   deployStatus: string | null
@@ -42,7 +43,10 @@ export interface DatabaseAdapter {
     description?: string
   }): Promise<Project>
   getProjectById(id: string): Promise<Project | null>
-  listProjectsByOrganization(organizationId: string): Promise<Project[]>
+  listProjectsByOrganization(
+    organizationId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<Project>>
   updateProject(
     id: string,
     data: { name?: string; slug?: string; description?: string },
@@ -58,8 +62,14 @@ export interface DatabaseAdapter {
     description?: string
   }): Promise<Workflow>
   getWorkflowById(id: string): Promise<Workflow | null>
-  listWorkflowsByProject(projectId: string): Promise<Workflow[]>
-  listWorkflowsWithStatus(projectId: string): Promise<WorkflowWithStatus[]>
+  listWorkflowsByProject(
+    projectId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<Workflow>>
+  listWorkflowsWithStatus(
+    projectId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<WorkflowWithStatus>>
   updateWorkflow(
     id: string,
     data: {
@@ -83,7 +93,10 @@ export interface DatabaseAdapter {
   }): Promise<WorkflowVersion>
   getWorkflowVersionById(id: string): Promise<WorkflowVersion | null>
   getNextVersionNumber(workflowId: string): Promise<number>
-  listVersionsByWorkflow(workflowId: string): Promise<WorkflowVersion[]>
+  listVersionsByWorkflow(
+    workflowId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<WorkflowVersion>>
   updateVersion(id: string, data: { ir?: string; locked?: number }): Promise<void>
   deleteVersion(id: string): Promise<void>
 
@@ -97,7 +110,10 @@ export interface DatabaseAdapter {
     name: string
   }): Promise<Connection>
   getProviderConnectionById(id: string): Promise<Connection | null>
-  listConnectionsByOrganization(organizationId: string): Promise<Connection[]>
+  listConnectionsByOrganization(
+    organizationId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<Connection>>
   updateConnection(
     id: string,
     data: { name?: string; credentials?: string },
@@ -114,12 +130,18 @@ export interface DatabaseAdapter {
     status: string
   }): Promise<WorkflowRun>
   getWorkflowRunById(id: string): Promise<WorkflowRun | null>
-  listRunsByWorkflow(workflowId: string): Promise<WorkflowRun[]>
+  listRunsByWorkflow(
+    workflowId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<WorkflowRun>>
   updateRun(
     id: string,
     data: { status?: string; output?: string; error?: string; updatedAt?: string },
   ): Promise<WorkflowRun>
-  listRecentRunsByProject(projectId: string, limit?: number): Promise<WorkflowRun[]>
+  listRecentRunsByProject(
+    projectId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<WorkflowRun>>
 
   // Deployments
   createDeployment(data: {
@@ -134,8 +156,14 @@ export interface DatabaseAdapter {
   }): Promise<Deployment>
   getActiveDeployment(workflowId: string): Promise<Deployment | null>
   isActiveDeploymentLocked(workflowId: string): Promise<boolean>
-  listDeploymentsByWorkflow(workflowId: string): Promise<Deployment[]>
-  listRecentDeploymentsByProject(projectId: string, limit?: number): Promise<Deployment[]>
+  listDeploymentsByWorkflow(
+    workflowId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<Deployment>>
+  listRecentDeploymentsByProject(
+    projectId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<Deployment>>
   deleteDeploymentsByWorkflow(workflowId: string): Promise<void>
 
   // API Keys
@@ -151,8 +179,14 @@ export interface DatabaseAdapter {
   }): Promise<ApiKey>
   getApiKeyById(id: string): Promise<ApiKey | null>
   getApiKeyByHash(keyHash: string): Promise<ApiKey | null>
-  listApiKeysByProject(projectId: string): Promise<ApiKey[]>
-  listApiKeysByOrganization(organizationId: string): Promise<ApiKey[]>
+  listApiKeysByProject(
+    projectId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<ApiKey>>
+  listApiKeysByOrganization(
+    organizationId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<ApiKey>>
   updateApiKeyLastUsed(id: string, lastUsedAt: string): Promise<void>
   revokeApiKey(id: string, projectId: string): Promise<ApiKey | null>
 
@@ -167,8 +201,15 @@ export interface DatabaseAdapter {
     isSecret: boolean
   }): Promise<EnvVar | null>
   getEnvVarById(id: string): Promise<EnvVar | null>
-  listEnvVarsByOrganization(organizationId: string): Promise<EnvVar[]>
-  listEnvVarsByProject(organizationId: string, projectId: string): Promise<EnvVar[]>
+  listEnvVarsByOrganization(
+    organizationId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<EnvVar>>
+  listEnvVarsByProject(
+    organizationId: string,
+    projectId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<EnvVar>>
   updateEnvVar(
     id: string,
     data: { name?: string; value?: string; isSecret?: boolean },
@@ -192,7 +233,10 @@ export interface DatabaseAdapter {
     installedBy: string
   }): Promise<InstalledNode>
   uninstallNode(organizationId: string, nodeId: string): Promise<void>
-  listInstalledNodes(organizationId: string): Promise<InstalledNode[]>
+  listInstalledNodes(
+    organizationId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<InstalledNode>>
   getInstalledNode(organizationId: string, nodeId: string): Promise<InstalledNode | null>
   updateInstalledNodeBundle(
     organizationId: string,

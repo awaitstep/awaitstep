@@ -6,6 +6,7 @@ import { ConfirmDialog } from '../ui/confirm-dialog'
 import { api } from '../../lib/api-client'
 import { useOrgStore, type Project } from '../../stores/org-store'
 import { useSheetStore } from '../../stores/sheet-store'
+import { LoadMoreButton } from '../ui/load-more-button'
 import { toast } from 'sonner'
 
 function ProjectSkeleton() {
@@ -26,6 +27,9 @@ function ProjectSkeleton() {
 export function ProjectsList({ projects, loading }: { projects: Project[]; loading: boolean }) {
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null)
   const activeProjectId = useOrgStore((s) => s.activeProjectId)
+  const projectsHasMore = useOrgStore((s) => s.projectsHasMore)
+  const projectsLoadMore = useOrgStore((s) => s.projectsLoadMore)
+  const projectsIsFetchingMore = useOrgStore((s) => s.projectsIsFetchingMore)
   const { openProjectDialog } = useSheetStore()
   const queryClient = useQueryClient()
 
@@ -76,46 +80,53 @@ export function ProjectsList({ projects, loading }: { projects: Project[]; loadi
             This org has no projects.
           </div>
         ) : (
-          projects.map((project) => (
-            <div
-              key={project.id}
-              className="flex items-center justify-between rounded-md border border-border px-3 py-2"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium">{project.name}</span>
-                  {project.id === activeProjectId && (
-                    <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                      Active
-                    </span>
+          <>
+            {projects.map((project) => (
+              <div
+                key={project.id}
+                className="flex items-center justify-between rounded-md border border-border px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium">{project.name}</span>
+                    {project.id === activeProjectId && (
+                      <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                        Active
+                      </span>
+                    )}
+                  </div>
+                  {project.description && (
+                    <p className="mt-0.5 text-[10px] text-muted-foreground/60">
+                      {project.description}
+                    </p>
                   )}
                 </div>
-                {project.description && (
-                  <p className="mt-0.5 text-[10px] text-muted-foreground/60">
-                    {project.description}
-                  </p>
-                )}
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={() => openProjectDialog(project)}
+                  >
+                    <Pencil size={12} />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                    onClick={() => setDeleteTarget(project)}
+                  >
+                    <Trash2 size={12} />
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  onClick={() => openProjectDialog(project)}
-                >
-                  <Pencil size={12} />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                  onClick={() => setDeleteTarget(project)}
-                >
-                  <Trash2 size={12} />
-                </Button>
-              </div>
-            </div>
-          ))
+            ))}
+            <LoadMoreButton
+              hasMore={projectsHasMore}
+              loading={projectsIsFetchingMore}
+              onClick={() => projectsLoadMore?.()}
+            />
+          </>
         )}
       </div>
 

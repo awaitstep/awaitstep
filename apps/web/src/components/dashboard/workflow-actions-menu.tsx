@@ -35,9 +35,9 @@ export function WorkflowActionsMenu({ workflow, irJson, isDeployed }: WorkflowAc
 
   const takedownMutation = useMutation({
     mutationFn: async () => {
-      const conns = await api.listConnections()
-      if (conns.length === 0) throw new Error('No connection available')
-      return api.takedownDeployment(workflow.id, conns[0].id)
+      const connsResult = await api.listConnections()
+      if (connsResult.data.length === 0) throw new Error('No connection available')
+      return api.takedownDeployment(workflow.id, connsResult.data[0].id)
     },
     onSuccess: (result) => {
       if (!result.success) throw new Error(result.error ?? 'Failed to take down')

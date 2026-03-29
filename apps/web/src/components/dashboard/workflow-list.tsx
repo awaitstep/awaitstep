@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { Plus } from 'lucide-react'
-import { buttonVariants } from '../ui/button'
+import { Button, buttonVariants } from '../ui/button'
 import { GuardedLink } from '../ui/guarded-link'
 import type { WorkflowSummary } from '../../lib/api-client'
 import { useWorkflowsStore } from '../../stores/workflows-store'
@@ -13,31 +13,43 @@ import { useShallow } from 'zustand/react/shallow'
 import { LoadingView } from '../ui/loading-view'
 
 export function WorkflowList() {
-  const { workflows, isLoading } = useWorkflowsStore(
+  const { workflows, isLoading, hasMore } = useWorkflowsStore(
     useShallow((s) => ({
       workflows: s.workflows,
       isLoading: s.fetchState === 'loading' || s.fetchState === 'idle',
+      hasMore: s.workflows.length > 5,
     })),
   )
+
+  const latestWorkflows = workflows.slice(0, 5)
 
   return (
     <section className="mt-10">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Workflows</h2>
-        <GuardedLink
-          className={buttonVariants({ size: 'sm' })}
-          requirement="project"
-          nav={NEW_WORKFLOW_NAV}
-        >
-          <Plus className="h-4 w-4" />
-          New Workflow
-        </GuardedLink>
+        <div className="flex items-center gap-2">
+          {hasMore && (
+            <Link to="/workflows">
+              <Button variant="ghost" size="sm" className="text-xs">
+                View all
+              </Button>
+            </Link>
+          )}
+          <GuardedLink
+            className={buttonVariants({ size: 'sm' })}
+            requirement="project"
+            nav={NEW_WORKFLOW_NAV}
+          >
+            <Plus className="h-4 w-4" />
+            New Workflow
+          </GuardedLink>
+        </div>
       </div>
 
       <LoadingView isLoading={isLoading} LoadingPlaceholder={LoadingPlaceholder}>
-        {workflows.length > 0 ? (
+        {latestWorkflows.length > 0 ? (
           <div className="mt-4 space-y-2">
-            {workflows.map((wf) => (
+            {latestWorkflows.map((wf) => (
               <WorkflowRow key={wf.id} workflow={wf} />
             ))}
           </div>

@@ -1,5 +1,5 @@
 import { createFileRoute, useParams, useSearch, Link, useRouter } from '@tanstack/react-router'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useRef, useEffect } from 'react'
 import {
   Loader2,
@@ -17,6 +17,7 @@ import {
 import { Button } from '../../components/ui/button'
 import { RunStatusBadge } from '../../components/monitoring/run-status-badge'
 import { api } from '../../lib/api-client'
+import { queries, flatPages } from '../../lib/queries'
 import { RequireProject } from '../../wrappers/require-project'
 
 export const Route = createFileRoute('/_authed/runs/$runId')({
@@ -67,11 +68,11 @@ function RunDetailContent() {
   const queryClient = useQueryClient()
 
   // Look up workflowId from search param or from cached runs list
-  const { data: allRuns } = useQuery({
-    queryKey: ['all-runs'],
-    queryFn: () => api.listAllRuns(),
+  const { data: allRuns } = useInfiniteQuery({
+    ...queries.runs.all(''),
     enabled: !searchWorkflowId,
     retry: false,
+    select: (data) => flatPages(data),
   })
 
   const workflowId = searchWorkflowId || allRuns?.find((r) => r.id === runId)?.workflowId || ''
@@ -106,10 +107,10 @@ function RunDetailContent() {
     enabled: !!workflowId,
   })
 
-  const { data: connections } = useQuery({
-    queryKey: ['connections'],
-    queryFn: () => api.listConnections(),
+  const { data: connections } = useInfiniteQuery({
+    ...queries.connections.list(''),
     retry: false,
+    select: (data) => flatPages(data),
   })
 
   const actionMutation = useMutation({

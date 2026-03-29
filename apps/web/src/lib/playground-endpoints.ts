@@ -19,6 +19,11 @@ export interface EndpointDef {
   bodyExample?: string
 }
 
+const paginationParams: EndpointParam[] = [
+  { name: 'cursor', in: 'query', required: false },
+  { name: 'limit', in: 'query', required: false },
+]
+
 export const endpoints: EndpointDef[] = [
   // Workflows
   {
@@ -28,7 +33,7 @@ export const endpoints: EndpointDef[] = [
     path: '/api/workflows',
     label: 'List workflows',
     scope: 'read',
-    params: [],
+    params: [...paginationParams],
     hasBody: false,
   },
   {
@@ -106,7 +111,7 @@ export const endpoints: EndpointDef[] = [
     path: '/api/projects',
     label: 'List projects',
     scope: 'read',
-    params: [],
+    params: [...paginationParams],
     hasBody: false,
   },
   {
@@ -154,7 +159,7 @@ export const endpoints: EndpointDef[] = [
     path: '/api/workflows/:workflowId/versions',
     label: 'List versions',
     scope: 'read',
-    params: [{ name: 'workflowId', in: 'path', required: true }],
+    params: [{ name: 'workflowId', in: 'path', required: true }, ...paginationParams],
     hasBody: false,
   },
   {
@@ -230,7 +235,7 @@ export const endpoints: EndpointDef[] = [
     path: '/api/deployments',
     label: 'List all deployments',
     scope: 'read',
-    params: [],
+    params: [...paginationParams],
     hasBody: false,
   },
   {
@@ -240,7 +245,7 @@ export const endpoints: EndpointDef[] = [
     path: '/api/workflows/:workflowId/deployments',
     label: 'List workflow deployments',
     scope: 'read',
-    params: [{ name: 'workflowId', in: 'path', required: true }],
+    params: [{ name: 'workflowId', in: 'path', required: true }, ...paginationParams],
     hasBody: false,
   },
   {
@@ -284,7 +289,7 @@ export const endpoints: EndpointDef[] = [
     path: '/api/runs',
     label: 'List all runs',
     scope: 'read',
-    params: [],
+    params: [...paginationParams],
     hasBody: false,
   },
   {
@@ -294,7 +299,7 @@ export const endpoints: EndpointDef[] = [
     path: '/api/workflows/:workflowId/runs',
     label: 'List workflow runs',
     scope: 'read',
-    params: [{ name: 'workflowId', in: 'path', required: true }],
+    params: [{ name: 'workflowId', in: 'path', required: true }, ...paginationParams],
     hasBody: false,
   },
   {
@@ -358,7 +363,7 @@ export const endpoints: EndpointDef[] = [
     path: '/api/connections',
     label: 'List connections',
     scope: 'read',
-    params: [],
+    params: [...paginationParams],
     hasBody: false,
   },
   {
@@ -410,7 +415,7 @@ export const endpoints: EndpointDef[] = [
     path: '/api/env-vars',
     label: 'List environment variables',
     scope: 'read',
-    params: [],
+    params: [{ name: 'projectId', in: 'query', required: false }, ...paginationParams],
     hasBody: false,
   },
   {
@@ -628,7 +633,7 @@ export const endpoints: EndpointDef[] = [
     path: '/api/marketplace/installed',
     label: 'List installed nodes',
     scope: 'read',
-    params: [],
+    params: [...paginationParams],
     hasBody: false,
   },
 ]

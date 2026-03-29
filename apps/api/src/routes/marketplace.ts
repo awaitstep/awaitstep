@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
+import { paginationQuerySchema } from '../lib/pagination.js'
 import type { AppEnv } from '../types.js'
 
 const nodeIdSchema = z
@@ -31,11 +32,12 @@ const updateSchema = z.object({
 
 export const marketplace = new Hono<AppEnv>()
 
-marketplace.get('/installed', async (c) => {
+marketplace.get('/installed', zValidator('query', paginationQuerySchema), async (c) => {
   const organizationId = c.get('organizationId')
   const db = c.get('db')
-  const installed = await db.listInstalledNodes(organizationId)
-  return c.json(installed)
+  const { cursor, limit } = c.req.valid('query')
+  const result = await db.listInstalledNodes(organizationId, { cursor, limit })
+  return c.json(result)
 })
 
 marketplace.get('/', async (c) => {
@@ -45,12 +47,12 @@ marketplace.get('/', async (c) => {
   const organizationId = c.get('organizationId')
   const db = c.get('db')
 
-  const [index, installed] = await Promise.all([
+  const [index, installedResult] = await Promise.all([
     remoteRegistry.getIndex(),
-    db.listInstalledNodes(organizationId),
+    db.listInstalledNodes(organizationId, { limit: 100 }),
   ])
 
-  const installedMap = new Map(installed.map((n) => [n.nodeId, n.version]))
+  const installedMap = new Map(installedResult.data.map((n) => [n.nodeId, n.version]))
 
   const nodes = index.nodes.map((node) => ({
     ...node,

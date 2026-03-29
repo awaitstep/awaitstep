@@ -8,15 +8,28 @@ import { Select } from '../ui/select'
 import { api } from '../../lib/api-client'
 import { useConnectionsStore } from '../../stores/connections-store'
 
+interface WorkflowOption {
+  id: string
+  name: string
+}
+
 interface TriggerDialogProps {
   onClose: () => void
   workflowId: string
   deploymentId?: string
+  /** When provided, shows a workflow selector (e.g. from the /runs page). */
+  workflows?: WorkflowOption[]
 }
 
-export function TriggerDialog({ onClose, workflowId, deploymentId }: TriggerDialogProps) {
+export function TriggerDialog({
+  onClose,
+  workflowId: initialWorkflowId,
+  deploymentId,
+  workflows,
+}: TriggerDialogProps) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState(initialWorkflowId)
   const [connectionId, setConnectionId] = useState('')
   const [paramsJson, setParamsJson] = useState('{}')
   const [jsonError, setJsonError] = useState<string | null>(null)
@@ -48,8 +61,8 @@ export function TriggerDialog({ onClose, workflowId, deploymentId }: TriggerDial
         params = JSON.parse(trimmed)
       }
 
-      await api.triggerWorkflow(workflowId, { connectionId, params })
-      queryClient.invalidateQueries({ queryKey: ['workflow-runs', workflowId] })
+      await api.triggerWorkflow(selectedWorkflowId, { connectionId, params })
+      queryClient.invalidateQueries({ queryKey: ['workflow-runs', selectedWorkflowId] })
       queryClient.invalidateQueries({ queryKey: ['all-runs'] })
       onClose()
       navigate({
@@ -60,7 +73,7 @@ export function TriggerDialog({ onClose, workflowId, deploymentId }: TriggerDial
     } finally {
       setTriggering(false)
     }
-  }, [connectionId, paramsJson, workflowId, queryClient, onClose, navigate])
+  }, [connectionId, paramsJson, selectedWorkflowId, queryClient, onClose, navigate])
 
   const handleCopyCurl = useCallback(() => {
     if (!deploymentId) return
@@ -89,6 +102,18 @@ export function TriggerDialog({ onClose, workflowId, deploymentId }: TriggerDial
           </Dialog.Title>
 
           <div className="mt-4 space-y-4">
+            {workflows && workflows.length > 0 && (
+              <div>
+                <label className="mb-1 block text-xs text-muted-foreground">Workflow</label>
+                <Select
+                  value={selectedWorkflowId}
+                  onValueChange={setSelectedWorkflowId}
+                  options={workflows.map((w) => ({ value: w.id, label: w.name }))}
+                  className="w-full"
+                />
+              </div>
+            )}
+
             {connections && connections.length > 0 ? (
               <div>
                 <label className="mb-1 block text-xs text-muted-foreground">Connection</label>

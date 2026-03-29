@@ -17,12 +17,12 @@ import {
   LogOut,
   User,
   Settings,
+  Building2,
   FolderKanban,
   ChevronDown,
   Check,
   Plus,
 } from 'lucide-react'
-import OrgMenu from './org-menu'
 import { cn } from '../../lib/utils'
 import { useShallow } from 'zustand/react/shallow'
 
@@ -36,23 +36,39 @@ const navItems = [
 
 export function Dock({ email }: { email: string }) {
   const matches = useMatches()
+  const [orgOpen, setOrgOpen] = useState(false)
+  const [projectOpen, setProjectOpen] = useState(false)
   const [devOpen, setDevOpen] = useState(false)
   const [userOpen, setUserOpen] = useState(false)
 
-  const [projectOpen, setProjectOpen] = useState(false)
   const isPlaygroundActive = matches.some((m) => m.routeId === '/_authed/api-playground')
   const isSettingsActive = matches.some((m) => m.routeId === '/_authed/settings')
 
-  const { projects, activeProject, fetchingProjects } = useOrgStore(
-    useShallow((s) => ({
-      fetchingProjects: s.projectsFetchState !== 'success',
-      projects: s.projects,
-      activeProject: s.projects.find((p) => p.id === s.activeProjectId),
-    })),
-  )
+  const { activeOrganizationId, activeOrg, orgs, projects, activeProject, fetchingProjects } =
+    useOrgStore(
+      useShallow((s) => ({
+        activeOrganizationId: s.activeOrganizationId,
+        activeOrg: s.organizations.find((org) => org.id === s.activeOrganizationId),
+        orgs: s.organizations,
+        fetchingProjects: s.projectsFetchState !== 'success',
+        projects: s.projects,
+        activeProject: s.projects.find((p) => p.id === s.activeProjectId),
+      })),
+    )
 
-  const { setActiveProject } = useOrgStore()
-  const { openProjectDialog } = useSheetStore()
+  const { setActiveOrganization: setActiveOrg, setActiveProject } = useOrgStore()
+  const { openOrgDialog, openProjectDialog } = useSheetStore()
+
+  function handleNewOrg() {
+    setOrgOpen(false)
+    openOrgDialog()
+  }
+
+  function handleSelectOrg(orgId: string) {
+    setOrgOpen(false)
+    if (orgId === activeOrganizationId) return
+    setActiveOrg(orgId)
+  }
 
   function handleNewProject() {
     setProjectOpen(false)
@@ -67,72 +83,132 @@ export function Dock({ email }: { email: string }) {
 
   return (
     <>
-      {/* Org menu — left of dock */}
-
-      {/* Main dock — center */}
-      <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 flex gap-2 items-center">
-        <OrgMenu />
-
-        <nav className="flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1.5 shadow-lg">
-          {/* Project Selector */}
-          <Popover.Root open={projectOpen} onOpenChange={setProjectOpen}>
-            <Popover.Trigger asChild>
-              <button
-                className={cn(
-                  'group relative flex h-11 items-center gap-1.5 rounded-md px-2.5 text-sm transition-colors',
-                  projectOpen || isSettingsActive
-                    ? 'bg-muted text-foreground'
-                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground/80',
+      {/* Org + Project — far left */}
+      <div className="fixed bottom-4 left-4 z-40 flex items-center rounded-lg border border-border bg-card shadow-lg">
+        {/* Org selector */}
+        <Popover.Root open={orgOpen} onOpenChange={setOrgOpen}>
+          <Popover.Trigger asChild>
+            <button
+              className={cn(
+                'flex h-11 items-center gap-1.5 rounded-l-md px-3 text-sm transition-colors',
+                orgOpen
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground/80',
+              )}
+            >
+              <Building2 size={16} />
+              <span className="w-[80px] truncate text-left text-xs font-medium">
+                {activeOrg ? (
+                  activeOrg.name
+                ) : (
+                  <span className="inline-block h-3 w-16 animate-pulse rounded bg-muted/60" />
                 )}
-              >
-                <FolderKanban size={16} />
-                <span className="w-[50px] truncate text-left text-xs font-medium">
-                  {fetchingProjects ? (
-                    <span className="inline-block h-3 w-10 animate-pulse rounded bg-muted/60" />
-                  ) : (
-                    (activeProject?.name ?? 'New Project')
-                  )}
-                </span>
-                <ChevronDown size={12} />
-              </button>
-            </Popover.Trigger>
-            <Popover.Portal>
-              <Popover.Content
-                side="top"
-                align="start"
-                sideOffset={8}
-                className="z-50 w-56 rounded-md border border-border bg-card p-2 shadow-lg"
-              >
-                <p className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
-                  Projects
-                </p>
-                {projects.map((proj) => (
-                  <button
-                    key={proj.id}
-                    onClick={() => handleSelectProject(proj.id)}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground"
-                  >
-                    <FolderKanban size={14} />
-                    <span className="flex-1 truncate text-left">{proj.name}</span>
-                    {proj.id === activeProject?.id && (
-                      <Check size={14} className="text-foreground" />
-                    )}
-                  </button>
-                ))}
-                <div className="my-1.5 h-px bg-border" />
+              </span>
+              <ChevronDown size={12} />
+            </button>
+          </Popover.Trigger>
+          <Popover.Portal>
+            <Popover.Content
+              side="top"
+              align="start"
+              sideOffset={8}
+              className="z-50 w-56 rounded-md border border-border bg-card p-2 shadow-lg"
+            >
+              <p className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                Organizations
+              </p>
+              {orgs.map((org) => (
                 <button
-                  onClick={handleNewProject}
+                  key={org.id}
+                  onClick={() => handleSelectOrg(org.id)}
                   className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground"
                 >
-                  <Plus size={14} />
-                  <span>New project</span>
+                  <Building2 size={14} />
+                  <span className="flex-1 truncate text-left">{org.name}</span>
+                  {org.id === activeOrg?.id && <Check size={14} className="text-foreground" />}
                 </button>
-              </Popover.Content>
-            </Popover.Portal>
-          </Popover.Root>
+              ))}
+              <div className="my-1.5 h-px bg-border" />
+              <button
+                onClick={handleNewOrg}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground"
+              >
+                <Plus size={14} />
+                <span>New organization</span>
+              </button>
+              <Link
+                to="/settings"
+                onClick={() => setOrgOpen(false)}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground"
+              >
+                <Settings size={14} />
+                <span>Settings</span>
+              </Link>
+            </Popover.Content>
+          </Popover.Portal>
+        </Popover.Root>
 
-          <div className="mx-1 h-6 w-px bg-border" />
+        <div className="h-6 w-px bg-border" />
 
+        {/* Project selector */}
+        <Popover.Root open={projectOpen} onOpenChange={setProjectOpen}>
+          <Popover.Trigger asChild>
+            <button
+              className={cn(
+                'flex h-11 items-center gap-1.5 rounded-r-md px-3 text-sm transition-colors',
+                projectOpen || isSettingsActive
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground/80',
+              )}
+            >
+              <FolderKanban size={16} />
+              <span className="w-[80px] truncate text-left text-xs font-medium">
+                {fetchingProjects ? (
+                  <span className="inline-block h-3 w-10 animate-pulse rounded bg-muted/60" />
+                ) : (
+                  (activeProject?.name ?? 'New Project')
+                )}
+              </span>
+              <ChevronDown size={12} />
+            </button>
+          </Popover.Trigger>
+          <Popover.Portal>
+            <Popover.Content
+              side="top"
+              align="start"
+              sideOffset={8}
+              className="z-50 w-56 rounded-md border border-border bg-card p-2 shadow-lg"
+            >
+              <p className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                Projects
+              </p>
+              {projects.map((proj) => (
+                <button
+                  key={proj.id}
+                  onClick={() => handleSelectProject(proj.id)}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground"
+                >
+                  <FolderKanban size={14} />
+                  <span className="flex-1 truncate text-left">{proj.name}</span>
+                  {proj.id === activeProject?.id && <Check size={14} className="text-foreground" />}
+                </button>
+              ))}
+              <div className="my-1.5 h-px bg-border" />
+              <button
+                onClick={handleNewProject}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground"
+              >
+                <Plus size={14} />
+                <span>New project</span>
+              </button>
+            </Popover.Content>
+          </Popover.Portal>
+        </Popover.Root>
+      </div>
+
+      {/* Main dock — center */}
+      <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2">
+        <nav className="flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1.5 shadow-lg">
           {navItems.map(({ to, label, icon: Icon }) => {
             const isActive = matches.some((m) => {
               if (to === '/dashboard') return m.routeId === '/_authed/dashboard'

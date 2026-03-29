@@ -24,6 +24,9 @@ interface OrgState {
   organizations: Organization[]
   projects: Project[]
   projectsFetchState: 'loading' | 'success' | 'error'
+  projectsHasMore: boolean
+  projectsLoadMore: (() => void) | null
+  projectsIsFetchingMore: boolean
   activeOrganizationId: string | null
   activeProjectId: string | null
   setAppReady: (ready: boolean) => void
@@ -31,6 +34,8 @@ interface OrgState {
   addOrganization: (org: Organization) => void
   setProjects: (projects: Project[]) => void
   setProjectsFetchState: (projectsFetchState: OrgState['projectsFetchState']) => void
+  setProjectsPagination: (hasMore: boolean, loadMore: (() => void) | null) => void
+  setProjectsIsFetchingMore: (isFetchingMore: boolean) => void
   setActiveOrganization: (id: string) => void
   setActiveProject: (id: string) => void
   clear: () => void
@@ -51,6 +56,9 @@ export const useOrgStore = create<OrgState>()(
     (set) => ({
       appReady: false,
       projectsFetchState: 'loading',
+      projectsHasMore: false,
+      projectsLoadMore: null,
+      projectsIsFetchingMore: false,
       organizations: [],
       projects: [],
       activeOrganizationId: null,
@@ -62,6 +70,9 @@ export const useOrgStore = create<OrgState>()(
       setProjects: (projects: Project[]) => set({ projects }),
       setProjectsFetchState: (projectsFetchState: OrgState['projectsFetchState']) =>
         set({ projectsFetchState }),
+      setProjectsPagination: (projectsHasMore, projectsLoadMore) =>
+        set({ projectsHasMore, projectsLoadMore }),
+      setProjectsIsFetchingMore: (projectsIsFetchingMore) => set({ projectsIsFetchingMore }),
       setActiveOrganization: (id) => set({ activeOrganizationId: id, activeProjectId: null }),
       setActiveProject: (id) => set({ activeProjectId: id }),
       clear: () =>

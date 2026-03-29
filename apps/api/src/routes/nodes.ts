@@ -14,7 +14,7 @@ nodes.get('/', async (c) => {
     return c.json(nodeRegistry.registry.getAll())
   }
 
-  const installed = await db.listInstalledNodes(organizationId)
+  const installed = (await db.listInstalledNodes(organizationId, { limit: 100 })).data
   const merged = createMergedNodeRegistry(nodeRegistry, installed)
   return c.json(merged.registry.getAll())
 })
@@ -29,7 +29,7 @@ nodes.get('/templates', async (c) => {
     return c.json(nodeRegistry.templates)
   }
 
-  const installed = await db.listInstalledNodes(organizationId)
+  const installed = (await db.listInstalledNodes(organizationId, { limit: 100 })).data
   const merged = createMergedNodeRegistry(nodeRegistry, installed)
   return c.json(merged.templates)
 })

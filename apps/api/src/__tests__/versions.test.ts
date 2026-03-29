@@ -140,7 +140,7 @@ describe('version routes', () => {
       const res = await app.request(url('/api/workflows/wf-1/versions'))
       expect(res.status).toBe(200)
       const body = await res.json()
-      expect(body).toHaveLength(2)
+      expect(body.data).toHaveLength(2)
     })
   })
 

@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
+import { paginationQuerySchema } from '../lib/pagination.js'
 import { hashApiKey } from '../lib/api-key-hash.js'
 import type { AppEnv } from '../types.js'
 
@@ -16,11 +17,15 @@ const createApiKeySchema = z.object({
 
 export const apiKeys = new Hono<AppEnv>()
 
-apiKeys.get('/', async (c) => {
+apiKeys.get('/', zValidator('query', paginationQuerySchema), async (c) => {
   const db = c.get('db')
   const organizationId = c.get('organizationId')
-  const keys = await db.listApiKeysByOrganization(organizationId)
-  return c.json(keys.map(({ keyHash: _, ...key }) => key))
+  const { cursor, limit } = c.req.valid('query')
+  const result = await db.listApiKeysByOrganization(organizationId, { cursor, limit })
+  return c.json({
+    data: result.data.map(({ keyHash: _, ...key }) => key),
+    nextCursor: result.nextCursor,
+  })
 })
 
 apiKeys.post('/', zValidator('json', createApiKeySchema), async (c) => {

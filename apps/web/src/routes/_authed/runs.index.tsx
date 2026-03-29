@@ -12,6 +12,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { timeAgo, duration } from '../../lib/time'
 import { RequireProject } from '../../wrappers/require-project'
 import { LoadingView } from '../../components/ui/loading-view'
+import { LoadMoreButton } from '../../components/ui/load-more-button'
 import { ListSkeleton } from '../../components/ui/skeletons'
 
 export const Route = createFileRoute('/_authed/runs/')({
@@ -30,10 +31,13 @@ function RunsIndexContent() {
   const [triggerWorkflowId, setTriggerWorkflowId] = useState<string | null>(null)
   const { openRunSheet } = useSheetStore()
 
-  const { runs, runsLoading } = useRunsStore(
+  const { runs, runsLoading, hasMore, loadMore, isFetchingMore } = useRunsStore(
     useShallow((s) => ({
       runs: s.runs,
       runsLoading: s.fetchState === 'idle' || s.fetchState === 'loading',
+      hasMore: s.hasMore,
+      loadMore: s.loadMore,
+      isFetchingMore: s.isFetchingMore,
     })),
   )
   const workflows = useWorkflowsStore((s) => s.workflows)
@@ -81,26 +85,27 @@ function RunsIndexContent() {
                   >
                     <div className="flex items-center gap-3">
                       <RunStatusBadge status={run.status} />
-                      <div className="min-w-0">
-                        <span className="text-sm text-foreground/70">
-                          {wf?.name ?? (
-                            <span className="font-mono">{run.workflowId.slice(0, 8)}</span>
-                          )}
-                        </span>
-                        <span className="ml-2 font-mono text-xs text-muted-foreground/50">
+                      <div className="min-w-0 flex flex-col">
+                        <p className="text-sm text-foreground/70">{wf?.name ?? run.workflowId}</p>
+                        <span className="font-mono text-xs text-muted-foreground/50">
                           {run.instanceId}
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span className="font-mono">
+                    <div className="flex flex-col flex-end items-end text-sm text-muted-foreground">
+                      <span>{timeAgo(run.createdAt)}</span>
+                      <span className="text-xs text-muted-foreground/50">
                         {duration(run.createdAt, run.updatedAt, run.status)}
                       </span>
-                      <span>{timeAgo(run.createdAt)}</span>
                     </div>
                   </button>
                 )
               })}
+              <LoadMoreButton
+                hasMore={hasMore}
+                loading={isFetchingMore}
+                onClick={() => loadMore?.()}
+              />
             </div>
           )}
         </LoadingView>
@@ -109,7 +114,11 @@ function RunsIndexContent() {
       <RunDetailSheet />
 
       {triggerWorkflowId && (
-        <TriggerDialog onClose={() => setTriggerWorkflowId(null)} workflowId={triggerWorkflowId} />
+        <TriggerDialog
+          onClose={() => setTriggerWorkflowId(null)}
+          workflowId={triggerWorkflowId}
+          workflows={deployedWorkflows.map((w) => ({ id: w.id, name: w.name }))}
+        />
       )}
     </div>
   )

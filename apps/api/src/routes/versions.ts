@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
+import { paginationQuerySchema } from '../lib/pagination.js'
 import { validateIR, workflowIRSchema } from '@awaitstep/ir'
 import type { AppEnv } from '../types.js'
 
@@ -15,10 +16,11 @@ const lockVersionSchema = z.object({
 
 export const versions = new Hono<AppEnv>()
 
-versions.get('/:workflowId/versions', async (c) => {
+versions.get('/:workflowId/versions', zValidator('query', paginationQuerySchema), async (c) => {
   const db = c.get('db')
-  const list = await db.listVersionsByWorkflow(c.req.param('workflowId'))
-  return c.json(list)
+  const { cursor, limit } = c.req.valid('query')
+  const result = await db.listVersionsByWorkflow(c.req.param('workflowId'), { cursor, limit })
+  return c.json(result)
 })
 
 versions.get('/:workflowId/versions/:versionId', async (c) => {
@@ -42,8 +44,8 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
 
   const irString = JSON.stringify(body.ir)
 
-  const existing = await db.listVersionsByWorkflow(workflowId)
-  const latest = existing[0] // ordered by descending version number
+  const existingResult = await db.listVersionsByWorkflow(workflowId, { limit: 1 })
+  const latest = existingResult.data[0] // most recent version
 
   // Check if the latest version has been deployed
   const workflow = await db.getWorkflowById(workflowId)

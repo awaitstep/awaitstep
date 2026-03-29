@@ -65,7 +65,18 @@ export function useWorkflowPersistence(opts: {
 
   const handleSave = useCallback(() => {
     const state = useWorkflowStore.getState()
-    const result = validateWorkflowForPublish(state.metadata, state.nodes, state.edges)
+    const settings = {
+      inputParams: state.inputParams,
+      envBindings: state.envBindings,
+      workflowEnvVars: state.workflowEnvVars,
+    }
+    const result = validateWorkflowForPublish(
+      state.metadata,
+      state.nodes,
+      state.edges,
+      undefined,
+      settings,
+    )
     if (!result.canPublish) {
       const errors = result.issues.filter((i) => i.severity === 'error')
       for (const issue of errors) {

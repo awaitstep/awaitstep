@@ -5,6 +5,8 @@ import { supportsLocalDev, type LocalDevSession } from '@awaitstep/codegen'
 import type { WorkflowIR } from '@awaitstep/ir'
 import type { AppEnv } from '../types.js'
 import { resolveProvider, validateNodesForProvider } from '../lib/provider-resolver.js'
+import { createMergedNodeRegistry } from '../lib/node-registry.js'
+import { resolveAndValidateEnvVars } from '../lib/env-resolve.js'
 import {
   parseDependencies,
   collectNodeDependencies,
@@ -36,15 +38,7 @@ localDev.post('/:workflowId/local-dev/start', zValidator('json', startSchema), a
   if (!workflow) return c.json({ error: 'Not found' }, 404)
   if (!workflow.currentVersionId) return c.json({ error: 'No version to test' }, 400)
 
-  const nodeRegistry = c.get('nodeRegistry')
   const body = c.req.valid('json')
-  const adapter = resolveProvider(body.provider, {
-    templateResolver: nodeRegistry?.templateResolver,
-  })
-
-  if (!supportsLocalDev(adapter)) {
-    return c.json({ error: 'Provider does not support local development' }, 501)
-  }
 
   // Stop existing session for this workflow
   const existing = sessions.get(workflow.id)
@@ -69,6 +63,27 @@ localDev.post('/:workflowId/local-dev/start', zValidator('json', startSchema), a
   if (!version) return c.json({ error: 'Version not found' }, 404)
 
   const ir = JSON.parse(version.ir) as WorkflowIR
+
+  // Merge installed nodes so codegen can resolve custom node templates (e.g. resend)
+  const baseRegistry = c.get('nodeRegistry')
+  const nodeTypesInIR = new Set(ir.nodes.map((n) => n.type))
+  const missingFromBuiltin = [...nodeTypesInIR].filter((t) => !baseRegistry?.registry.get(t))
+  const installedNodes =
+    missingFromBuiltin.length > 0
+      ? (await db.listInstalledNodes(c.get('organizationId'))).filter((n) =>
+          missingFromBuiltin.includes(n.nodeId),
+        )
+      : []
+  const nodeRegistry = createMergedNodeRegistry(baseRegistry, installedNodes)
+
+  const adapter = resolveProvider(body.provider, {
+    templateResolver: nodeRegistry.templateResolver,
+  })
+
+  if (!supportsLocalDev(adapter)) {
+    return c.json({ error: 'Provider does not support local development' }, 501)
+  }
+
   const validation = adapter.validate(ir)
   if (!validation.ok) {
     return c.json({ error: 'IR validation failed', details: validation.errors }, 400)
@@ -82,7 +97,41 @@ localDev.post('/:workflowId/local-dev/start', zValidator('json', startSchema), a
     )
   }
 
-  const artifact = adapter.generate(ir)
+  // Resolve env vars so the local worker gets secrets (e.g. RESEND_API_KEY)
+  const organizationId = c.get('organizationId')
+  const projectId = c.get('projectId')
+  const envResult = await resolveAndValidateEnvVars(
+    db,
+    organizationId,
+    projectId,
+    workflow.id,
+    ir,
+    nodeRegistry,
+  )
+  if (envResult.error) {
+    return c.json({ error: envResult.error }, 400)
+  }
+
+  const artifact = envResult.envVars
+    ? adapter.generate(ir, {
+        provider: 'cloudflare-workflows',
+        credentials: {},
+        envVars: envResult.envVars,
+      })
+    : adapter.generate(ir)
+
+  // Split resolved env vars into plain vars vs secrets for wrangler
+  const vars: Record<string, string> = {}
+  const secrets: Record<string, string> = {}
+  if (envResult.envVars) {
+    for (const [name, entry] of Object.entries(envResult.envVars)) {
+      if (entry.isSecret) {
+        secrets[name] = entry.value
+      } else {
+        vars[name] = entry.value
+      }
+    }
+  }
 
   const workflowDeps = parseDependencies(workflow.dependencies)
   const nodeDeps = collectNodeDependencies(ir, nodeRegistry)
@@ -94,6 +143,8 @@ localDev.post('/:workflowId/local-dev/start', zValidator('json', startSchema), a
       workflowName: workflow.name,
       port: body.port,
       dependencies: deps,
+      ...(Object.keys(vars).length > 0 && { vars }),
+      ...(Object.keys(secrets).length > 0 && { secrets }),
     })
 
     sessions.set(workflow.id, session)

@@ -1,4 +1,4 @@
-import { eq, and, desc, sql } from 'drizzle-orm'
+import { eq, and, desc, or, lt, sql } from 'drizzle-orm'
 import type {
   DatabaseAdapter,
   WorkflowEnvVar,
@@ -16,6 +16,8 @@ import type {
   Project,
   InstalledNode,
 } from '../types.js'
+import type { PaginationParams, PaginatedResult } from '../pagination.js'
+import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 import type { TokenCrypto } from '../crypto.js'
 import { WorkflowsAdapter } from './workflows.js'
 import { VersionsAdapter } from './versions.js'
@@ -122,8 +124,11 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   getProjectById(id: string): Promise<Project | null> {
     return this._projects.getById(id)
   }
-  listProjectsByOrganization(organizationId: string): Promise<Project[]> {
-    return this._projects.listByOrganization(organizationId)
+  listProjectsByOrganization(
+    organizationId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<Project>> {
+    return this._projects.listByOrganization(organizationId, pagination)
   }
   updateProject(
     id: string,
@@ -148,11 +153,18 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   getWorkflowById(id: string): Promise<Workflow | null> {
     return this._workflows.getById(id)
   }
-  listWorkflowsByProject(projectId: string): Promise<Workflow[]> {
-    return this._workflows.listByProject(projectId)
+  listWorkflowsByProject(
+    projectId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<Workflow>> {
+    return this._workflows.listByProject(projectId, pagination)
   }
 
-  async listWorkflowsWithStatus(projectId: string): Promise<WorkflowWithStatus[]> {
+  async listWorkflowsWithStatus(
+    projectId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<WorkflowWithStatus>> {
+    const limit = clampLimit(pagination?.limit)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const w = this._schema.workflows as any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -165,7 +177,15 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     // to avoid ambiguous "id" resolving to the inner table instead of "workflows".
     const wId = sql.raw('"workflows"."id"')
 
-    return this._db
+    const conditions = [eq(w.projectId, projectId)]
+    if (pagination?.cursor) {
+      const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
+      conditions.push(
+        or(lt(w.createdAt, timestamp), and(eq(w.createdAt, timestamp), lt(w.id, cursorId)))!,
+      )
+    }
+
+    const rows = await this._db
       .select({
         id: w.id,
         projectId: w.projectId,
@@ -200,8 +220,11 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         ),
       })
       .from(w)
-      .where(eq(w.projectId, projectId))
-      .orderBy(desc(w.updatedAt))
+      .where(and(...conditions))
+      .orderBy(desc(w.createdAt), desc(w.id))
+      .limit(limit + 1)
+
+    return paginateResults(rows, limit, (row) => row.createdAt)
   }
   updateWorkflow(
     id: string,
@@ -237,8 +260,11 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     const max = await this._versions.getMaxVersionNumber(workflowId)
     return max + 1
   }
-  listVersionsByWorkflow(workflowId: string): Promise<WorkflowVersion[]> {
-    return this._versions.listByWorkflow(workflowId)
+  listVersionsByWorkflow(
+    workflowId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<WorkflowVersion>> {
+    return this._versions.listByWorkflow(workflowId, pagination)
   }
   updateVersion(id: string, data: { ir?: string; locked?: number }): Promise<void> {
     return this._versions.update(id, data)
@@ -261,8 +287,11 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   getProviderConnectionById(id: string): Promise<Connection | null> {
     return this._connections.getById(id)
   }
-  listConnectionsByOrganization(organizationId: string): Promise<Connection[]> {
-    return this._connections.listByOrganization(organizationId)
+  listConnectionsByOrganization(
+    organizationId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<Connection>> {
+    return this._connections.listByOrganization(organizationId, pagination)
   }
   updateConnection(
     id: string,
@@ -288,8 +317,11 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   getWorkflowRunById(id: string): Promise<WorkflowRun | null> {
     return this._runs.getById(id)
   }
-  listRunsByWorkflow(workflowId: string): Promise<WorkflowRun[]> {
-    return this._runs.listByWorkflow(workflowId)
+  listRunsByWorkflow(
+    workflowId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<WorkflowRun>> {
+    return this._runs.listByWorkflow(workflowId, pagination)
   }
   updateRun(
     id: string,
@@ -298,12 +330,25 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     return this._runs.update(id, data)
   }
 
-  async listRecentRunsByProject(projectId: string, limit = 20): Promise<WorkflowRun[]> {
+  async listRecentRunsByProject(
+    projectId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<WorkflowRun>> {
+    const limit = clampLimit(pagination?.limit)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const w = this._schema.workflows as any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = this._schema.workflowRuns as any
-    return this._db
+
+    const conditions = [eq(w.projectId, projectId)]
+    if (pagination?.cursor) {
+      const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
+      conditions.push(
+        or(lt(r.createdAt, timestamp), and(eq(r.createdAt, timestamp), lt(r.id, cursorId)))!,
+      )
+    }
+
+    const rows = await this._db
       .select({
         id: r.id,
         workflowId: r.workflowId,
@@ -318,9 +363,11 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       })
       .from(r)
       .innerJoin(w, eq(r.workflowId, w.id))
-      .where(eq(w.projectId, projectId))
-      .orderBy(desc(r.createdAt))
-      .limit(limit)
+      .where(and(...conditions))
+      .orderBy(desc(r.createdAt), desc(r.id))
+      .limit(limit + 1)
+
+    return paginateResults(rows, limit, (row) => row.createdAt)
   }
 
   // Deployments
@@ -353,16 +400,32 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       .limit(1)
     return rows[0]?.locked === 1
   }
-  listDeploymentsByWorkflow(workflowId: string): Promise<Deployment[]> {
-    return this._deployments.listByWorkflow(workflowId)
+  listDeploymentsByWorkflow(
+    workflowId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<Deployment>> {
+    return this._deployments.listByWorkflow(workflowId, pagination)
   }
 
-  async listRecentDeploymentsByProject(projectId: string, limit = 20): Promise<Deployment[]> {
+  async listRecentDeploymentsByProject(
+    projectId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<Deployment>> {
+    const limit = clampLimit(pagination?.limit)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const w = this._schema.workflows as any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const d = this._schema.deployments as any
-    return this._db
+
+    const conditions = [eq(w.projectId, projectId)]
+    if (pagination?.cursor) {
+      const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
+      conditions.push(
+        or(lt(d.createdAt, timestamp), and(eq(d.createdAt, timestamp), lt(d.id, cursorId)))!,
+      )
+    }
+
+    const rows = await this._db
       .select({
         id: d.id,
         workflowId: d.workflowId,
@@ -376,9 +439,11 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       })
       .from(d)
       .innerJoin(w, eq(d.workflowId, w.id))
-      .where(eq(w.projectId, projectId))
-      .orderBy(desc(d.createdAt))
-      .limit(limit)
+      .where(and(...conditions))
+      .orderBy(desc(d.createdAt), desc(d.id))
+      .limit(limit + 1)
+
+    return paginateResults(rows, limit, (row) => row.createdAt)
   }
 
   deleteDeploymentsByWorkflow(workflowId: string): Promise<void> {
@@ -404,15 +469,31 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   getApiKeyByHash(keyHash: string): Promise<ApiKey | null> {
     return this._apiKeys.getByHash(keyHash)
   }
-  listApiKeysByProject(projectId: string): Promise<ApiKey[]> {
-    return this._apiKeys.listByProject(projectId)
+  listApiKeysByProject(
+    projectId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<ApiKey>> {
+    return this._apiKeys.listByProject(projectId, pagination)
   }
-  async listApiKeysByOrganization(organizationId: string): Promise<ApiKey[]> {
+  async listApiKeysByOrganization(
+    organizationId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<ApiKey>> {
+    const limit = clampLimit(pagination?.limit)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const k = this._schema.apiKeys as any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const p = this._schema.projects as any
-    return this._db
+
+    const conditions = [eq(p.organizationId, organizationId)]
+    if (pagination?.cursor) {
+      const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
+      conditions.push(
+        or(lt(k.createdAt, timestamp), and(eq(k.createdAt, timestamp), lt(k.id, cursorId)))!,
+      )
+    }
+
+    const rows = await this._db
       .select({
         id: k.id,
         projectId: k.projectId,
@@ -428,8 +509,11 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       })
       .from(k)
       .innerJoin(p, eq(k.projectId, p.id))
-      .where(eq(p.organizationId, organizationId))
-      .orderBy(desc(k.createdAt))
+      .where(and(...conditions))
+      .orderBy(desc(k.createdAt), desc(k.id))
+      .limit(limit + 1)
+
+    return paginateResults(rows, limit, (row) => row.createdAt)
   }
   updateApiKeyLastUsed(id: string, lastUsedAt: string): Promise<void> {
     return this._apiKeys.updateLastUsed(id, lastUsedAt)
@@ -453,11 +537,18 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   getEnvVarById(id: string): Promise<EnvVar | null> {
     return this._envVars.getById(id)
   }
-  listEnvVarsByOrganization(organizationId: string): Promise<EnvVar[]> {
-    return this._envVars.listByOrganization(organizationId)
+  listEnvVarsByOrganization(
+    organizationId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<EnvVar>> {
+    return this._envVars.listByOrganization(organizationId, pagination)
   }
-  listEnvVarsByProject(organizationId: string, projectId: string): Promise<EnvVar[]> {
-    return this._envVars.listByProject(organizationId, projectId)
+  listEnvVarsByProject(
+    organizationId: string,
+    projectId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<EnvVar>> {
+    return this._envVars.listByProject(organizationId, projectId, pagination)
   }
   updateEnvVar(
     id: string,
@@ -529,8 +620,11 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   uninstallNode(organizationId: string, nodeId: string): Promise<void> {
     return this._installedNodes.uninstall(organizationId, nodeId)
   }
-  listInstalledNodes(organizationId: string): Promise<InstalledNode[]> {
-    return this._installedNodes.listByOrganization(organizationId)
+  listInstalledNodes(
+    organizationId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<InstalledNode>> {
+    return this._installedNodes.listByOrganization(organizationId, pagination)
   }
   getInstalledNode(organizationId: string, nodeId: string): Promise<InstalledNode | null> {
     return this._installedNodes.getByOrgAndNodeId(organizationId, nodeId)

@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
+import { paginationQuerySchema } from '../lib/pagination.js'
 import type { AppEnv } from '../types.js'
 
 const slugPattern = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/
@@ -23,11 +24,12 @@ const updateProjectSchema = z.object({
 
 export const projects = new Hono<AppEnv>()
 
-projects.get('/', async (c) => {
+projects.get('/', zValidator('query', paginationQuerySchema), async (c) => {
   const db = c.get('db')
   const organizationId = c.get('organizationId')
-  const list = await db.listProjectsByOrganization(organizationId)
-  return c.json(list)
+  const { cursor, limit } = c.req.valid('query')
+  const result = await db.listProjectsByOrganization(organizationId, { cursor, limit })
+  return c.json(result)
 })
 
 projects.post('/', zValidator('json', createProjectSchema), async (c) => {

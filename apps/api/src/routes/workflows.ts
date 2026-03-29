@@ -2,11 +2,12 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
+import { paginationQuerySchema } from '../lib/pagination.js'
 import type { AppEnv } from '../types.js'
 
 const createSchema = z.object({
   name: z.string().min(1).max(255),
-  description: z.preprocess((v) => (v === null ? undefined : v), z.string().max(1000).optional()),
+  description: z.string().max(1000).optional(),
 })
 
 const envVarNamePattern = /^[A-Z][A-Z0-9_]*$/
@@ -46,11 +47,12 @@ const updateSchema = z.object({
 
 export const workflows = new Hono<AppEnv>()
 
-workflows.get('/', async (c) => {
+workflows.get('/', zValidator('query', paginationQuerySchema), async (c) => {
   const db = c.get('db')
   const projectId = c.get('projectId')
-  const list = await db.listWorkflowsWithStatus(projectId)
-  return c.json(list)
+  const { cursor, limit } = c.req.valid('query')
+  const result = await db.listWorkflowsWithStatus(projectId, { cursor, limit })
+  return c.json(result)
 })
 
 workflows.get('/:id', async (c) => {
@@ -64,10 +66,11 @@ workflows.get('/:id/full', async (c) => {
 
   const versionId = c.req.query('version')
 
-  const [activeDeployment, versions] = await Promise.all([
+  const [activeDeployment, versionsResult] = await Promise.all([
     db.getActiveDeployment(workflow.id),
-    db.listVersionsByWorkflow(workflow.id),
+    db.listVersionsByWorkflow(workflow.id, { limit: 100 }),
   ])
+  const versions = versionsResult.data
 
   let version: (typeof versions)[number] | null = versions[0] ?? null
   if (versionId) {
@@ -154,8 +157,10 @@ workflows.patch(
     for (const wVar of workflowEnvVars) {
       const match = wVar.value.match(globalRefPattern)
       if (match) {
-        const targetVars = await db.listEnvVarsByProject(organizationId, targetProjectId)
-        const hasVar = targetVars.some((v) => v.name === match[1])
+        const targetVarsResult = await db.listEnvVarsByProject(organizationId, targetProjectId, {
+          limit: 100,
+        })
+        const hasVar = targetVarsResult.data.some((v) => v.name === match[1])
         if (!hasVar) {
           warnings.push(match[1])
         }

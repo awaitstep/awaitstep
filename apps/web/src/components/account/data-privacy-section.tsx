@@ -13,12 +13,17 @@ export function DataPrivacySection() {
   const handleExport = async () => {
     setExporting(true)
     try {
-      const [workflows, connections, runs] = await Promise.all([
+      const [workflowsResult, connectionsResult, runsResult] = await Promise.all([
         api.listWorkflows(),
         api.listConnections(),
         api.listAllRuns(),
       ])
-      const data = { workflows, connections, runs, exportedAt: new Date().toISOString() }
+      const data = {
+        workflows: workflowsResult.data,
+        connections: connectionsResult.data,
+        runs: runsResult.data,
+        exportedAt: new Date().toISOString(),
+      }
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')

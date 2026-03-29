@@ -16,6 +16,15 @@ export type {
   WorkflowWithStatus,
 } from './adapter.js'
 export type { TokenCrypto } from './crypto.js'
+export type { PaginationParams, PaginatedResult } from './pagination.js'
+export {
+  encodeCursor,
+  decodeCursor,
+  clampLimit,
+  paginateResults,
+  DEFAULT_LIMIT,
+  MAX_LIMIT,
+} from './pagination.js'
 export * as schema from './schema/index.js'
 export { DrizzleDatabaseAdapter } from './adapters/index.js'
 export type { SchemaRef, DrizzleAdapterOptions } from './adapters/index.js'

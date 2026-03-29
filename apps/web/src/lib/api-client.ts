@@ -2,6 +2,27 @@ import { useOrgStore } from '../stores/org-store'
 
 const API_BASE = '/api'
 
+export interface PaginatedResponse<T> {
+  data: T[]
+  nextCursor: string | null
+}
+
+export interface PaginationOptions {
+  cursor?: string
+  limit?: number
+}
+
+function withPagination(path: string, opts?: PaginationOptions): string {
+  if (!opts) return path
+  const params = new URLSearchParams()
+  if (opts.cursor) params.set('cursor', opts.cursor)
+  if (opts.limit) params.set('limit', String(opts.limit))
+  const qs = params.toString()
+  if (!qs) return path
+  const sep = path.includes('?') ? '&' : '?'
+  return `${path}${sep}${qs}`
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'include',
@@ -137,8 +158,8 @@ export interface ApiKeyCreated extends ApiKeySummary {
 export const api = {
   // Project-scoped endpoints (require active project)
 
-  listWorkflows(): Promise<WorkflowSummary[]> {
-    return request(withProject('/workflows'))
+  listWorkflows(opts?: PaginationOptions): Promise<PaginatedResponse<WorkflowSummary>> {
+    return request(withPagination(withProject('/workflows'), opts))
   },
 
   getWorkflow(id: string): Promise<WorkflowSummary> {
@@ -171,8 +192,11 @@ export const api = {
     return request(withProject(`/workflows/${id}`), { method: 'DELETE' })
   },
 
-  listVersions(workflowId: string): Promise<WorkflowVersion[]> {
-    return request(withProject(`/workflows/${workflowId}/versions`))
+  listVersions(
+    workflowId: string,
+    opts?: PaginationOptions,
+  ): Promise<PaginatedResponse<WorkflowVersion>> {
+    return request(withPagination(withProject(`/workflows/${workflowId}/versions`), opts))
   },
 
   getVersion(workflowId: string, versionId: string): Promise<WorkflowVersion> {
@@ -207,8 +231,8 @@ export const api = {
 
   // Org-scoped endpoints (require active organization)
 
-  listConnections(): Promise<ConnectionSummary[]> {
-    return request(withOrg('/connections'))
+  listConnections(opts?: PaginationOptions): Promise<PaginatedResponse<ConnectionSummary>> {
+    return request(withPagination(withOrg('/connections'), opts))
   },
 
   createConnection(data: {
@@ -230,20 +254,26 @@ export const api = {
     return request(withOrg(`/connections/${id}`), { method: 'DELETE' })
   },
 
-  listDeployments(workflowId: string): Promise<DeploymentSummary[]> {
-    return request(withProject(`/workflows/${workflowId}/deployments`))
+  listDeployments(
+    workflowId: string,
+    opts?: PaginationOptions,
+  ): Promise<PaginatedResponse<DeploymentSummary>> {
+    return request(withPagination(withProject(`/workflows/${workflowId}/deployments`), opts))
   },
 
-  listAllDeployments(): Promise<DeploymentSummary[]> {
-    return request(withProject('/deployments'))
+  listAllDeployments(opts?: PaginationOptions): Promise<PaginatedResponse<DeploymentSummary>> {
+    return request(withPagination(withProject('/deployments'), opts))
   },
 
-  listAllRuns(): Promise<RunSummary[]> {
-    return request(withProject('/runs'))
+  listAllRuns(opts?: PaginationOptions): Promise<PaginatedResponse<RunSummary>> {
+    return request(withPagination(withProject('/runs'), opts))
   },
 
-  listWorkflowRuns(workflowId: string): Promise<RunSummary[]> {
-    return request(withProject(`/workflows/${workflowId}/runs`))
+  listWorkflowRuns(
+    workflowId: string,
+    opts?: PaginationOptions,
+  ): Promise<PaginatedResponse<RunSummary>> {
+    return request(withPagination(withProject(`/workflows/${workflowId}/runs`), opts))
   },
 
   getWorkflowRun(workflowId: string, runId: string): Promise<RunSummary> {
@@ -332,8 +362,8 @@ export const api = {
     return request(withProject(`/workflows/${workflowId}/local-dev/logs${params}`))
   },
 
-  listEnvVars(): Promise<EnvVarSummary[]> {
-    return request(withOrg('/env-vars'))
+  listEnvVars(opts?: PaginationOptions): Promise<PaginatedResponse<EnvVarSummary>> {
+    return request(withPagination(withOrg('/env-vars'), opts))
   },
 
   createEnvVar(data: { name: string; value: string; isSecret: boolean }): Promise<EnvVarSummary> {
@@ -351,8 +381,8 @@ export const api = {
     return request(withOrg(`/env-vars/${id}`), { method: 'DELETE' })
   },
 
-  listApiKeys(): Promise<ApiKeySummary[]> {
-    return request(withOrg('/api-keys'))
+  listApiKeys(opts?: PaginationOptions): Promise<PaginatedResponse<ApiKeySummary>> {
+    return request(withPagination(withOrg('/api-keys'), opts))
   },
 
   createApiKey(data: {
@@ -399,14 +429,14 @@ export const api = {
     })
   },
 
-  listInstalledNodes(): Promise<InstalledNodeSummary[]> {
-    return request(withOrg('/marketplace/installed'))
+  listInstalledNodes(opts?: PaginationOptions): Promise<PaginatedResponse<InstalledNodeSummary>> {
+    return request(withPagination(withOrg('/marketplace/installed'), opts))
   },
 
   // Projects (org-scoped)
 
-  listProjects(): Promise<ProjectSummary[]> {
-    return request(withOrg('/projects'))
+  listProjects(opts?: PaginationOptions): Promise<PaginatedResponse<ProjectSummary>> {
+    return request(withPagination(withOrg('/projects'), opts))
   },
 
   createProject(data: {

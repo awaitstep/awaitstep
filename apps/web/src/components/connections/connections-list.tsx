@@ -8,6 +8,7 @@ import { useConnectionsStore } from '../../stores/connections-store'
 import { getProvider } from '../../lib/provider-registry'
 import { useShallow } from 'zustand/react/shallow'
 import { LoadingView } from '../ui/loading-view'
+import { LoadMoreButton } from '../ui/load-more-button'
 import { ListSkeleton } from '../ui/skeletons'
 
 export function ConnectionsList({
@@ -18,10 +19,13 @@ export function ConnectionsList({
   const queryClient = useQueryClient()
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
 
-  const { isLoading, connections } = useConnectionsStore(
+  const { isLoading, connections, hasMore, loadMore, isFetchingMore } = useConnectionsStore(
     useShallow((s) => ({
       isLoading: s.fetchState === 'idle' || s.fetchState === 'loading',
       connections: s.connections,
+      hasMore: s.hasMore,
+      loadMore: s.loadMore,
+      isFetchingMore: s.isFetchingMore,
     })),
   )
 
@@ -89,6 +93,11 @@ export function ConnectionsList({
                 </div>
               </div>
             ))}
+            <LoadMoreButton
+              hasMore={hasMore}
+              loading={isFetchingMore}
+              onClick={() => loadMore?.()}
+            />
           </div>
         )}
       </LoadingView>

@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { Rocket } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { api } from '../../lib/api-client'
+import { queries, flatPages } from '../../lib/queries'
 import { useOrgReady } from '../../stores/org-store'
 import { useConnectionsStore } from '../../stores/connections-store'
 import { useDeployStream } from '../../hooks/use-deploy-stream'
@@ -26,11 +26,11 @@ export function DeployDialog({ onClose, workflowId, versionId }: DeployDialogPro
     versionId,
   })
 
-  const { data: deployments } = useQuery({
-    queryKey: ['deployments', workflowId],
-    queryFn: () => api.listDeployments(workflowId),
+  const { data: deployments } = useInfiniteQuery({
+    ...queries.deployments.byWorkflow(workflowId),
     enabled: ready,
     retry: false,
+    select: (data) => flatPages(data),
   })
 
   function handleDeploy() {

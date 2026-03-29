@@ -1,9 +1,9 @@
-import { useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useCallback } from 'react'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { useShallow } from 'zustand/react/shallow'
-import { api } from '../lib/api-client'
 import { useOrgStore } from '../stores/org-store'
 import { useConnectionsStore } from '../stores/connections-store'
+import { queries, flatPages } from '../lib/queries'
 
 export default function ConnectionsWrapper() {
   const { canFetch, activeOrgId } = useOrgStore(
@@ -13,21 +13,33 @@ export default function ConnectionsWrapper() {
     })),
   )
 
-  const { setConnections, setFetchState } = useConnectionsStore()
+  const { setConnections, setFetchState, setPagination, setIsFetchingMore } = useConnectionsStore()
 
-  const { data, isError, isSuccess } = useQuery({
-    queryKey: ['connections', activeOrgId],
-    queryFn: () => api.listConnections(),
-    enabled: canFetch,
-    retry: false,
-  })
+  const { data, isError, isSuccess, hasNextPage, fetchNextPage, isFetchingNextPage } =
+    useInfiniteQuery({
+      ...queries.connections.list(activeOrgId ?? ''),
+      enabled: canFetch,
+      retry: false,
+    })
+
+  const handleLoadMore = useCallback(() => {
+    fetchNextPage()
+  }, [fetchNextPage])
 
   useEffect(() => {
     if (isSuccess) {
-      setConnections(data)
+      setConnections(flatPages(data))
       setFetchState('success')
     }
   }, [isSuccess, data, setConnections, setFetchState])
+
+  useEffect(() => {
+    setPagination(!!hasNextPage, hasNextPage ? handleLoadMore : null)
+  }, [hasNextPage, handleLoadMore, setPagination])
+
+  useEffect(() => {
+    setIsFetchingMore(isFetchingNextPage)
+  }, [isFetchingNextPage, setIsFetchingMore])
 
   useEffect(() => {
     if (isError) {

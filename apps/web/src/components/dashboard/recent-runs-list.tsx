@@ -27,7 +27,7 @@ export function RecentRunsList() {
         </Link>
       </div>
       <div className="mt-4 space-y-2">
-        {runs.slice(0, 8).map((run) => {
+        {runs.slice(0, 5).map((run) => {
           const wf = workflowMap.get(run.workflowId)
           return (
             <button

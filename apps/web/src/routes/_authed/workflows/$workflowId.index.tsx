@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useParams, redirect } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import type { WorkflowNode, Edge as IREdge } from '@awaitstep/ir'
@@ -7,6 +7,7 @@ import { validateWorkflowForPublish } from '../../../lib/validate-workflow'
 import { Pencil, Rocket, Clock } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { api } from '../../../lib/api-client'
+import { queries, flatPages } from '../../../lib/queries'
 import { useOrgReady } from '../../../stores/org-store'
 import { timeAgo } from '../../../lib/time'
 import { WorkflowActionsMenu } from '../../../components/dashboard/workflow-actions-menu'
@@ -39,22 +40,24 @@ function WorkflowOverviewPage() {
     enabled: ready,
   })
 
-  const { data: versions } = useQuery({
-    queryKey: ['versions', workflowId],
-    queryFn: () => api.listVersions(workflowId),
+  const {
+    data: versionsData,
+    hasNextPage: versionsHasMore,
+    fetchNextPage: versionsFetchNext,
+    isFetchingNextPage: versionsLoadingMore,
+  } = useInfiniteQuery({ ...queries.versions.byWorkflow(workflowId), enabled: ready })
+  const versions = flatPages(versionsData)
+
+  const { data: deployments } = useInfiniteQuery({
+    ...queries.deployments.byWorkflow(workflowId),
     enabled: ready,
+    select: (data) => flatPages(data),
   })
 
-  const { data: deployments } = useQuery({
-    queryKey: ['deployments', workflowId],
-    queryFn: () => api.listDeployments(workflowId),
+  const { data: runs } = useInfiniteQuery({
+    ...queries.runs.all(workflowId),
     enabled: ready,
-  })
-
-  const { data: runs } = useQuery({
-    queryKey: ['runs', workflowId],
-    queryFn: () => api.listAllRuns(),
-    enabled: ready,
+    select: (data) => flatPages(data),
   })
 
   const workflowRuns = useMemo(
@@ -177,6 +180,9 @@ function WorkflowOverviewPage() {
               versions={versions ?? []}
               activeDeployment={activeDeployment}
               deployBlocked={deployBlocked}
+              hasMore={!!versionsHasMore}
+              loadingMore={versionsLoadingMore}
+              onLoadMore={() => versionsFetchNext()}
             />
             <RecentRuns workflowId={workflowId} runs={workflowRuns} />
           </div>

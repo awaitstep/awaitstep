@@ -1,5 +1,7 @@
-import { eq, desc, and } from 'drizzle-orm'
+import { eq, desc, and, or, lt } from 'drizzle-orm'
 import type { Deployment } from '../types.js'
+import type { PaginationParams, PaginatedResult } from '../pagination.js'
+import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -46,12 +48,28 @@ export class DeploymentsAdapter {
     return rows[0] ?? null
   }
 
-  async listByWorkflow(workflowId: string): Promise<Deployment[]> {
-    return this.db
+  async listByWorkflow(
+    workflowId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<Deployment>> {
+    const limit = clampLimit(pagination?.limit)
+    const conditions = [eq(this.table.workflowId, workflowId)]
+    if (pagination?.cursor) {
+      const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
+      conditions.push(
+        or(
+          lt(this.table.createdAt, timestamp),
+          and(eq(this.table.createdAt, timestamp), lt(this.table.id, cursorId)),
+        )!,
+      )
+    }
+    const rows = await this.db
       .select()
       .from(this.table)
-      .where(eq(this.table.workflowId, workflowId))
-      .orderBy(desc(this.table.createdAt))
+      .where(and(...conditions))
+      .orderBy(desc(this.table.createdAt), desc(this.table.id))
+      .limit(limit + 1)
+    return paginateResults(rows, limit, (r) => r.createdAt)
   }
 
   async deleteByWorkflow(workflowId: string): Promise<void> {

@@ -1,11 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useMemo, useEffect } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../../../components/ui/button'
 import { Breadcrumb } from '../../../components/ui/breadcrumb'
 import { api } from '../../../lib/api-client'
+import { queries, flatPages } from '../../../lib/queries'
 import { RequireOrg } from '../../../wrappers/require-org'
 import { envVarsToString, parseEnvString } from '../../../lib/env-var-parser'
 import type { EnvVarSummary } from '../../../lib/api-client'
@@ -25,9 +26,9 @@ function EnvVarsPage() {
 function EnvVarsContent() {
   const queryClient = useQueryClient()
 
-  const { data: envVars = [], isLoading } = useQuery({
-    queryKey: ['env-vars'],
-    queryFn: () => api.listEnvVars(),
+  const { data: envVars = [], isLoading } = useInfiniteQuery({
+    ...queries.envVars.list(),
+    select: (data) => flatPages(data),
   })
 
   const serverText = useMemo(() => envVarsToString(envVars), [envVars])

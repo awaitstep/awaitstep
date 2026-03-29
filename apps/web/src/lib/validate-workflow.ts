@@ -1,7 +1,8 @@
 import type { Edge } from '@xyflow/react'
 import type { WorkflowMetadata, BranchCondition } from '@awaitstep/ir'
 import { validateExpressionRefs, type NodeRegistry } from '@awaitstep/ir'
-import type { FlowNode } from '../stores/workflow-store'
+import type { FlowNode, InputParam, EnvBinding, WorkflowEnvVar } from '../stores/workflow-store'
+import { z } from 'zod'
 
 export type IssueSeverity = 'error' | 'warning'
 
@@ -16,6 +17,33 @@ export interface PublishValidationResult {
   issues: PublishIssue[]
   canPublish: boolean
 }
+
+export interface WorkflowSettings {
+  inputParams: InputParam[]
+  envBindings: EnvBinding[]
+  workflowEnvVars: WorkflowEnvVar[]
+}
+
+const inputParamSchema = z.object({
+  name: z.string().min(1, 'Input parameter name is empty'),
+  type: z.enum(['string', 'number', 'boolean', 'object']),
+})
+
+const envBindingSchema = z.object({
+  name: z.string().min(1, 'Resource binding name is empty'),
+  type: z.enum(['kv', 'd1', 'r2', 'service']),
+})
+
+const workflowEnvVarSchema = z.object({
+  name: z.string().min(1, 'Environment variable name is empty'),
+  value: z.string(),
+})
+
+export const workflowSettingsSchema = z.object({
+  inputParams: z.array(inputParamSchema),
+  envBindings: z.array(envBindingSchema),
+  workflowEnvVars: z.array(workflowEnvVarSchema),
+})
 
 const NESTED_STEP_PATTERN = /step\.(do|sleep|sleepUntil|waitForEvent)\s*\(/
 const EVENT_TYPE_PATTERN = /^[a-zA-Z0-9_-]+$/
@@ -137,6 +165,7 @@ export function validateWorkflowForPublish(
   nodes: FlowNode[],
   edges: Edge[],
   nodeRegistry?: NodeRegistry,
+  settings?: WorkflowSettings,
 ): PublishValidationResult {
   const issues: PublishIssue[] = []
 
@@ -152,6 +181,40 @@ export function validateWorkflowForPublish(
   // ── Workflow-level ──
   if (!metadata.name.trim()) {
     add('error', null, null, 'Workflow name is empty')
+  }
+
+  // ── Settings validation ──
+  if (settings) {
+    const result = workflowSettingsSchema.safeParse(settings)
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        add('error', null, null, issue.message)
+      }
+    }
+
+    const paramNames = new Set<string>()
+    for (const param of settings.inputParams) {
+      if (param.name && paramNames.has(param.name)) {
+        add('error', null, null, `Duplicate input parameter name: "${param.name}"`)
+      }
+      paramNames.add(param.name)
+    }
+
+    const envVarNames = new Set<string>()
+    for (const envVar of settings.workflowEnvVars) {
+      if (envVar.name && envVarNames.has(envVar.name)) {
+        add('error', null, null, `Duplicate environment variable name: "${envVar.name}"`)
+      }
+      envVarNames.add(envVar.name)
+    }
+
+    const bindingNames = new Set<string>()
+    for (const binding of settings.envBindings) {
+      if (binding.name && bindingNames.has(binding.name)) {
+        add('error', null, null, `Duplicate resource binding name: "${binding.name}"`)
+      }
+      bindingNames.add(binding.name)
+    }
   }
 
   if (nodes.length === 0) {

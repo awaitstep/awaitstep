@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Loader2, Plus, Copy, Check } from 'lucide-react'
 import { Button } from '../ui/button'
@@ -7,9 +7,11 @@ import { Select } from '../ui/select'
 import { ConfirmDialog } from '../ui/confirm-dialog'
 import { DateTimePicker } from '../ui/datetime-picker'
 import { api } from '../../lib/api-client'
+import { queries, flatPages } from '../../lib/queries'
 import { useOrgStore, useOrgReady } from '../../stores/org-store'
 import { useShallow } from 'zustand/react/shallow'
 import { timeAgo, timeUntil } from '../../lib/time'
+import { LoadMoreButton } from '../ui/load-more-button'
 import type { ApiKeyCreated } from '../../lib/api-client'
 import { toast } from 'sonner'
 
@@ -44,11 +46,14 @@ export function ApiKeysSection() {
   const [createdKey, setCreatedKey] = useState<ApiKeyCreated | null>(null)
   const queryClient = useQueryClient()
 
-  const { data: keys, isLoading } = useQuery({
-    queryKey: ['api-keys'],
-    queryFn: () => api.listApiKeys(),
-    enabled: ready,
-  })
+  const {
+    data: keysData,
+    isLoading,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({ ...queries.apiKeys.list(), enabled: ready })
+  const keys = flatPages(keysData)
 
   const revokeMutation = useMutation({
     mutationFn: (id: string) => api.revokeApiKey(id),
@@ -156,6 +161,11 @@ export function ApiKeysSection() {
               </div>
             )
           })}
+          <LoadMoreButton
+            hasMore={!!hasNextPage}
+            loading={isFetchingNextPage}
+            onClick={() => fetchNextPage()}
+          />
         </div>
       )}
 

@@ -1,5 +1,7 @@
-import { eq, desc } from 'drizzle-orm'
+import { eq, desc, and, or, lt } from 'drizzle-orm'
 import type { Project } from '../types.js'
+import type { PaginationParams, PaginatedResult } from '../pagination.js'
+import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -36,12 +38,28 @@ export class ProjectsAdapter {
     return rows[0] ?? null
   }
 
-  async listByOrganization(organizationId: string): Promise<Project[]> {
-    return this.db
+  async listByOrganization(
+    organizationId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<Project>> {
+    const limit = clampLimit(pagination?.limit)
+    const conditions = [eq(this.table.organizationId, organizationId)]
+    if (pagination?.cursor) {
+      const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
+      conditions.push(
+        or(
+          lt(this.table.createdAt, timestamp),
+          and(eq(this.table.createdAt, timestamp), lt(this.table.id, cursorId)),
+        )!,
+      )
+    }
+    const rows = await this.db
       .select()
       .from(this.table)
-      .where(eq(this.table.organizationId, organizationId))
-      .orderBy(desc(this.table.createdAt))
+      .where(and(...conditions))
+      .orderBy(desc(this.table.createdAt), desc(this.table.id))
+      .limit(limit + 1)
+    return paginateResults(rows, limit, (r) => r.createdAt)
   }
 
   async update(

@@ -64,9 +64,9 @@ describe('connection routes', () => {
       const res = await app.request(url('/api/connections'))
       expect(res.status).toBe(200)
       const body = await res.json()
-      expect(body).toHaveLength(1)
-      expect(body[0].credentials.apiToken).toBe('***')
-      expect(body[0].credentials.accountId).toBe('cf-1')
+      expect(body.data).toHaveLength(1)
+      expect(body.data[0].credentials.apiToken).toBe('***')
+      expect(body.data[0].credentials.accountId).toBe('cf-1')
     })
   })
 

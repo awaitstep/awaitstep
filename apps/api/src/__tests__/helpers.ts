@@ -69,7 +69,10 @@ const mockDb: DatabaseAdapter = {
     return store.projects.get(id) ?? null
   },
   async listProjectsByOrganization(organizationId) {
-    return [...store.projects.values()].filter((p) => p.organizationId === organizationId)
+    return {
+      data: [...store.projects.values()].filter((p) => p.organizationId === organizationId),
+      nextCursor: null,
+    }
   },
   async updateProject(id, data) {
     const p = store.projects.get(id)
@@ -101,18 +104,24 @@ const mockDb: DatabaseAdapter = {
     return store.workflows.get(id) ?? null
   },
   async listWorkflowsByProject(projectId) {
-    return [...store.workflows.values()].filter((w) => w.projectId === projectId)
+    return {
+      data: [...store.workflows.values()].filter((w) => w.projectId === projectId),
+      nextCursor: null,
+    }
   },
   async listWorkflowsWithStatus(projectId) {
-    return [...store.workflows.values()]
-      .filter((w) => w.projectId === projectId)
-      .map((w) => ({
-        ...w,
-        deployStatus: null,
-        deployVersionId: null,
-        lastRunStatus: null,
-        lastRunAt: null,
-      }))
+    return {
+      data: [...store.workflows.values()]
+        .filter((w) => w.projectId === projectId)
+        .map((w) => ({
+          ...w,
+          deployStatus: null,
+          deployVersionId: null,
+          lastRunStatus: null,
+          lastRunAt: null,
+        })),
+      nextCursor: null,
+    }
   },
   async updateWorkflow(id, data) {
     const wf = store.workflows.get(id)
@@ -143,9 +152,12 @@ const mockDb: DatabaseAdapter = {
     return versions.length > 0 ? Math.max(...versions.map((v) => v.version)) + 1 : 1
   },
   async listVersionsByWorkflow(workflowId) {
-    return [...store.versions.values()]
-      .filter((v) => v.workflowId === workflowId)
-      .sort((a, b) => b.version - a.version)
+    return {
+      data: [...store.versions.values()]
+        .filter((v) => v.workflowId === workflowId)
+        .sort((a, b) => b.version - a.version),
+      nextCursor: null,
+    }
   },
   async updateVersion(id, data) {
     const v = store.versions.get(id)
@@ -166,7 +178,10 @@ const mockDb: DatabaseAdapter = {
     return store.connections.get(id) ?? null
   },
   async listConnectionsByOrganization(organizationId) {
-    return [...store.connections.values()].filter((c) => c.organizationId === organizationId)
+    return {
+      data: [...store.connections.values()].filter((c) => c.organizationId === organizationId),
+      nextCursor: null,
+    }
   },
   async updateConnection(id, data) {
     const c = store.connections.get(id)
@@ -195,7 +210,10 @@ const mockDb: DatabaseAdapter = {
     return store.runs.get(id) ?? null
   },
   async listRunsByWorkflow(workflowId) {
-    return [...store.runs.values()].filter((r) => r.workflowId === workflowId)
+    return {
+      data: [...store.runs.values()].filter((r) => r.workflowId === workflowId),
+      nextCursor: null,
+    }
   },
   async updateRun(id, data) {
     const r = store.runs.get(id)
@@ -208,7 +226,10 @@ const mockDb: DatabaseAdapter = {
     const wfIds = new Set(
       [...store.workflows.values()].filter((w) => w.projectId === projectId).map((w) => w.id),
     )
-    return [...store.runs.values()].filter((r) => wfIds.has(r.workflowId))
+    return {
+      data: [...store.runs.values()].filter((r) => wfIds.has(r.workflowId)),
+      nextCursor: null,
+    }
   },
 
   // Deployments
@@ -238,15 +259,21 @@ const mockDb: DatabaseAdapter = {
     return version?.locked === 1
   },
   async listDeploymentsByWorkflow(workflowId) {
-    return [...store.deployments.values()]
-      .filter((d) => d.workflowId === workflowId)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    return {
+      data: [...store.deployments.values()]
+        .filter((d) => d.workflowId === workflowId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      nextCursor: null,
+    }
   },
   async listRecentDeploymentsByProject(projectId) {
     const wfIds = new Set(
       [...store.workflows.values()].filter((w) => w.projectId === projectId).map((w) => w.id),
     )
-    return [...store.deployments.values()].filter((d) => wfIds.has(d.workflowId))
+    return {
+      data: [...store.deployments.values()].filter((d) => wfIds.has(d.workflowId)),
+      nextCursor: null,
+    }
   },
   async deleteDeploymentsByWorkflow(workflowId) {
     for (const [id, d] of store.deployments) {
@@ -273,10 +300,13 @@ const mockDb: DatabaseAdapter = {
     return [...store.apiKeys.values()].find((k) => k.keyHash === keyHash && !k.revokedAt) ?? null
   },
   async listApiKeysByOrganization() {
-    return [...store.apiKeys.values()]
+    return { data: [...store.apiKeys.values()], nextCursor: null }
   },
   async listApiKeysByProject(projectId) {
-    return [...store.apiKeys.values()].filter((k) => k.projectId === projectId)
+    return {
+      data: [...store.apiKeys.values()].filter((k) => k.projectId === projectId),
+      nextCursor: null,
+    }
   },
   async updateApiKeyLastUsed(id, lastUsedAt) {
     const k = store.apiKeys.get(id)
@@ -304,10 +334,10 @@ const mockDb: DatabaseAdapter = {
     return null
   },
   async listEnvVarsByOrganization() {
-    return []
+    return { data: [], nextCursor: null }
   },
   async listEnvVarsByProject() {
-    return []
+    return { data: [], nextCursor: null }
   },
   async updateEnvVar() {
     return null
@@ -335,7 +365,10 @@ const mockDb: DatabaseAdapter = {
     store.installedNodes.delete(`${organizationId}:${nodeId}`)
   },
   async listInstalledNodes(organizationId) {
-    return [...store.installedNodes.values()].filter((n) => n.organizationId === organizationId)
+    return {
+      data: [...store.installedNodes.values()].filter((n) => n.organizationId === organizationId),
+      nextCursor: null,
+    }
   },
   async getInstalledNode(organizationId, nodeId) {
     return store.installedNodes.get(`${organizationId}:${nodeId}`) ?? null

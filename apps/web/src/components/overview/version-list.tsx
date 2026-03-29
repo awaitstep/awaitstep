@@ -18,6 +18,7 @@ import {
   type WorkflowSummary,
 } from '../../lib/api-client'
 import { timeAgo } from '../../lib/time'
+import { LoadMoreButton } from '../ui/load-more-button'
 
 interface VersionListProps {
   workflowId: string
@@ -25,6 +26,9 @@ interface VersionListProps {
   versions: VersionSummary[]
   activeDeployment: DeploymentSummary | undefined
   deployBlocked: boolean
+  hasMore?: boolean
+  loadingMore?: boolean
+  onLoadMore?: () => void
 }
 
 export function VersionList({
@@ -33,6 +37,9 @@ export function VersionList({
   versions,
   activeDeployment,
   deployBlocked,
+  hasMore,
+  loadingMore,
+  onLoadMore,
 }: VersionListProps) {
   const queryClient = useQueryClient()
   const [deployOpen, setDeployOpen] = useState(false)
@@ -72,14 +79,14 @@ export function VersionList({
       <h2 className="text-sm font-semibold text-foreground/70">Versions</h2>
       {versions.length > 0 ? (
         <div className="mt-3 rounded-md border border-border">
-          {versions.slice(0, 10).map((v, i) => {
+          {versions.map((v, i) => {
             const isActive = v.id === activeDeployment?.versionId
             const isLocked = v.locked === 1
             return (
               <div
                 key={v.id}
                 className={`flex items-center justify-between px-3 py-2.5 ${
-                  i < Math.min(versions.length, 10) - 1 ? 'border-b border-border' : ''
+                  i < versions.length - 1 ? 'border-b border-border' : ''
                 }`}
               >
                 <div className="flex items-center gap-1.5 text-xs text-foreground/60">
@@ -158,6 +165,9 @@ export function VersionList({
               </div>
             )
           })}
+          {hasMore && onLoadMore && (
+            <LoadMoreButton hasMore={hasMore} loading={!!loadingMore} onClick={onLoadMore} />
+          )}
         </div>
       ) : (
         <div className="mt-3 rounded-md border border-border px-4 py-6 text-center text-xs text-muted-foreground">

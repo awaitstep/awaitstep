@@ -18,6 +18,28 @@ Base URL: `https://app.awaitstep.dev/api`
 
 ---
 
+## Pagination
+
+All list endpoints support cursor-based pagination via query parameters:
+
+| Param    | Type    | Default | Description                                          |
+| -------- | ------- | ------- | ---------------------------------------------------- |
+| `cursor` | string  | —       | Cursor from a previous response's `nextCursor` field |
+| `limit`  | integer | 50      | Number of items per page (1–100)                     |
+
+Paginated responses return:
+
+```json
+{
+  "data": [...],
+  "nextCursor": "abc123_2026-03-29T10:00:00.000Z"
+}
+```
+
+When `nextCursor` is `null`, there are no more pages. Pass the `nextCursor` value as the `cursor` query parameter to fetch the next page.
+
+---
+
 ## Workflows
 
 ### `GET /workflows`
@@ -25,6 +47,11 @@ Base URL: `https://app.awaitstep.dev/api`
 List all workflows in the active project.
 
 **Scope:** `read`
+
+| Param    | In    | Required | Description                        |
+| -------- | ----- | -------- | ---------------------------------- |
+| `cursor` | query | no       | Pagination cursor                  |
+| `limit`  | query | no       | Items per page (1–100, default 50) |
 
 ### `GET /workflows/:id`
 

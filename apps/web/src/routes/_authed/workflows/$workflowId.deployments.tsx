@@ -1,15 +1,16 @@
 import { createFileRoute, useParams } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Rocket } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { DeployDialog } from '../../../components/canvas/deploy-dialog'
 import { DeploymentsList } from '../../../components/deployments/deployments-list'
 import { DeploymentSheet } from '../../../components/deployments/deployment-sheet'
-import { api } from '../../../lib/api-client'
+import { queries, flatPages } from '../../../lib/queries'
 import { useOrgReady } from '../../../stores/org-store'
 import { useConnectionsStore } from '../../../stores/connections-store'
 import { LoadingView } from '../../../components/ui/loading-view'
+import { LoadMoreButton } from '../../../components/ui/load-more-button'
 import { ListSkeleton } from '../../../components/ui/skeletons'
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId/deployments')({
@@ -34,18 +35,21 @@ function DeploymentsPage() {
   const [deployOpen, setDeployOpen] = useState(false)
   const [selectedDeployment, setSelectedDeployment] = useState<Deployment | null>(null)
 
-  const { data: deployments, isLoading } = useQuery({
-    queryKey: ['deployments', workflowId],
-    queryFn: () => api.listDeployments(workflowId),
-    enabled: ready,
-  })
+  const {
+    data: deploymentsData,
+    isLoading,
+    hasNextPage: deploymentsHasMore,
+    fetchNextPage: deploymentsFetchNext,
+    isFetchingNextPage: deploymentsLoading,
+  } = useInfiniteQuery({ ...queries.deployments.byWorkflow(workflowId), enabled: ready })
+  const deployments = flatPages(deploymentsData)
 
   const connections = useConnectionsStore((s) => s.connections)
 
-  const { data: versions } = useQuery({
-    queryKey: ['versions', workflowId],
-    queryFn: () => api.listVersions(workflowId),
+  const { data: versions } = useInfiniteQuery({
+    ...queries.versions.byWorkflow(workflowId),
     enabled: ready,
+    select: (data) => flatPages(data),
   })
 
   const connectionMap = new Map(connections.map((c) => [c.id, c]))
@@ -70,11 +74,18 @@ function DeploymentsPage() {
             to see history here.
           </div>
         ) : (
-          <DeploymentsList
-            deployments={deployments ?? []}
-            connectionMap={connectionMap}
-            onSelect={setSelectedDeployment}
-          />
+          <>
+            <DeploymentsList
+              deployments={deployments ?? []}
+              connectionMap={connectionMap}
+              onSelect={setSelectedDeployment}
+            />
+            <LoadMoreButton
+              hasMore={!!deploymentsHasMore}
+              loading={deploymentsLoading}
+              onClick={() => deploymentsFetchNext()}
+            />
+          </>
         )}
       </LoadingView>
 

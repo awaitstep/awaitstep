@@ -126,7 +126,7 @@ export function WorkflowSettings() {
           <Field label="Description">
             <Input
               value={metadata.description ?? ''}
-              onChange={(e) => setMetadata({ description: e.target.value || undefined })}
+              onChange={(e) => setMetadata({ description: e.target.value || '' })}
               placeholder="Optional description"
             />
           </Field>

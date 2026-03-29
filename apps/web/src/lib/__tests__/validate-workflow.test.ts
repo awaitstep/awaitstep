@@ -510,6 +510,143 @@ describe('validateWorkflowForPublish', () => {
     })
   })
 
+  // ── settings validation ──
+
+  describe('settings validation', () => {
+    const validSettings = {
+      inputParams: [{ name: 'userId', type: 'string' as const }],
+      envBindings: [{ name: 'MY_KV', type: 'kv' as const }],
+      workflowEnvVars: [{ name: 'API_KEY', value: 'secret' }],
+    }
+
+    it('passes with valid settings', () => {
+      const result = validateWorkflowForPublish(
+        makeMetadata(),
+        [makeStepNode('s1')],
+        [],
+        undefined,
+        validSettings,
+      )
+      expect(result.issues.filter((i) => i.severity === 'error')).toHaveLength(0)
+    })
+
+    it('errors when input parameter name is empty', () => {
+      const result = validateWorkflowForPublish(
+        makeMetadata(),
+        [makeStepNode('s1')],
+        [],
+        undefined,
+        { ...validSettings, inputParams: [{ name: '', type: 'string' }] },
+      )
+      expect(result.issues).toContainEqual(
+        expect.objectContaining({ severity: 'error', message: 'Input parameter name is empty' }),
+      )
+    })
+
+    it('errors on duplicate input parameter names', () => {
+      const result = validateWorkflowForPublish(
+        makeMetadata(),
+        [makeStepNode('s1')],
+        [],
+        undefined,
+        {
+          ...validSettings,
+          inputParams: [
+            { name: 'userId', type: 'string' },
+            { name: 'userId', type: 'number' },
+          ],
+        },
+      )
+      expect(result.issues).toContainEqual(
+        expect.objectContaining({
+          severity: 'error',
+          message: 'Duplicate input parameter name: "userId"',
+        }),
+      )
+    })
+
+    it('errors when env var name is empty', () => {
+      const result = validateWorkflowForPublish(
+        makeMetadata(),
+        [makeStepNode('s1')],
+        [],
+        undefined,
+        { ...validSettings, workflowEnvVars: [{ name: '', value: 'x' }] },
+      )
+      expect(result.issues).toContainEqual(
+        expect.objectContaining({
+          severity: 'error',
+          message: 'Environment variable name is empty',
+        }),
+      )
+    })
+
+    it('errors on duplicate env var names', () => {
+      const result = validateWorkflowForPublish(
+        makeMetadata(),
+        [makeStepNode('s1')],
+        [],
+        undefined,
+        {
+          ...validSettings,
+          workflowEnvVars: [
+            { name: 'API_KEY', value: 'a' },
+            { name: 'API_KEY', value: 'b' },
+          ],
+        },
+      )
+      expect(result.issues).toContainEqual(
+        expect.objectContaining({
+          severity: 'error',
+          message: 'Duplicate environment variable name: "API_KEY"',
+        }),
+      )
+    })
+
+    it('errors when binding name is empty', () => {
+      const result = validateWorkflowForPublish(
+        makeMetadata(),
+        [makeStepNode('s1')],
+        [],
+        undefined,
+        { ...validSettings, envBindings: [{ name: '', type: 'kv' }] },
+      )
+      expect(result.issues).toContainEqual(
+        expect.objectContaining({
+          severity: 'error',
+          message: 'Resource binding name is empty',
+        }),
+      )
+    })
+
+    it('errors on duplicate binding names', () => {
+      const result = validateWorkflowForPublish(
+        makeMetadata(),
+        [makeStepNode('s1')],
+        [],
+        undefined,
+        {
+          ...validSettings,
+          envBindings: [
+            { name: 'MY_KV', type: 'kv' },
+            { name: 'MY_KV', type: 'd1' },
+          ],
+        },
+      )
+      expect(result.issues).toContainEqual(
+        expect.objectContaining({
+          severity: 'error',
+          message: 'Duplicate resource binding name: "MY_KV"',
+        }),
+      )
+    })
+
+    it('skips settings validation when settings not provided', () => {
+      const result = validateWorkflowForPublish(makeMetadata(), [makeStepNode('s1')], [])
+      expect(result.canPublish).toBe(true)
+    })
+  })
+
   // ── canPublish ──
 
   describe('canPublish', () => {

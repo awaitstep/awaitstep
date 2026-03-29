@@ -1,6 +1,8 @@
 import { Hono } from 'hono'
 import { CloudflareAPI, mapCFStatus, sanitizedWorkflowName } from '@awaitstep/provider-cloudflare'
 import type { AppEnv } from '../types.js'
+import { paginationQuerySchema } from '../lib/pagination.js'
+import { zValidator } from '../lib/validation.js'
 import { createLogger } from '../lib/logger.js'
 
 const log = createLogger('runs')
@@ -9,13 +11,14 @@ export const runs = new Hono<AppEnv>()
 
 const TERMINAL_STATUSES = new Set(['complete', 'errored', 'terminated'])
 
-runs.get('/:workflowId/runs', async (c) => {
+runs.get('/:workflowId/runs', zValidator('query', paginationQuerySchema), async (c) => {
   const db = c.get('db')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const runsList = await db.listRunsByWorkflow(workflow.id)
-  return c.json(runsList)
+  const { cursor, limit } = c.req.valid('query')
+  const result = await db.listRunsByWorkflow(workflow.id, { cursor, limit })
+  return c.json(result)
 })
 
 runs.get('/:workflowId/runs/:runId', async (c) => {

@@ -1,6 +1,8 @@
 import { Hono } from 'hono'
 import type { AppEnv } from '../types.js'
 import type { Auth } from '../auth/config.js'
+import { zValidator } from '../lib/validation.js'
+import { paginationQuerySchema } from '../lib/pagination.js'
 import { createAuthMiddleware, requireScope, requireSessionAuth } from '../middleware/auth.js'
 import { requireProject, requireOrganization } from '../middleware/project.js'
 import { createRateLimiter } from '../middleware/rate-limit.js'
@@ -144,19 +146,21 @@ export function createRouter(auth: Auth, options?: { isDev?: boolean }) {
   router.route('/marketplace', marketplace)
 
   // Global deployments list (across all project's workflows)
-  router.get('/deployments', async (c) => {
+  router.get('/deployments', zValidator('query', paginationQuerySchema), async (c) => {
     const db = c.get('db')
     const projectId = c.get('projectId')
-    const list = await db.listRecentDeploymentsByProject(projectId)
-    return c.json(list)
+    const { cursor, limit } = c.req.valid('query')
+    const result = await db.listRecentDeploymentsByProject(projectId, { cursor, limit })
+    return c.json(result)
   })
 
   // Global runs list (across all project's workflows)
-  router.get('/runs', async (c) => {
+  router.get('/runs', zValidator('query', paginationQuerySchema), async (c) => {
     const db = c.get('db')
     const projectId = c.get('projectId')
-    const list = await db.listRecentRunsByProject(projectId)
-    return c.json(list)
+    const { cursor, limit } = c.req.valid('query')
+    const result = await db.listRecentRunsByProject(projectId, { cursor, limit })
+    return c.json(result)
   })
 
   return router

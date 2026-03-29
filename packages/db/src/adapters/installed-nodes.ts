@@ -1,5 +1,7 @@
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, or, lt } from 'drizzle-orm'
 import type { InstalledNode } from '../types.js'
+import type { PaginationParams, PaginatedResult } from '../pagination.js'
+import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -39,12 +41,28 @@ export class InstalledNodesAdapter {
       .where(and(eq(this.table.organizationId, organizationId), eq(this.table.nodeId, nodeId)))
   }
 
-  async listByOrganization(organizationId: string): Promise<InstalledNode[]> {
-    return this.db
+  async listByOrganization(
+    organizationId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<InstalledNode>> {
+    const limit = clampLimit(pagination?.limit)
+    const conditions = [eq(this.table.organizationId, organizationId)]
+    if (pagination?.cursor) {
+      const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
+      conditions.push(
+        or(
+          lt(this.table.installedAt, timestamp),
+          and(eq(this.table.installedAt, timestamp), lt(this.table.id, cursorId)),
+        )!,
+      )
+    }
+    const rows = await this.db
       .select()
       .from(this.table)
-      .where(eq(this.table.organizationId, organizationId))
-      .orderBy(desc(this.table.installedAt))
+      .where(and(...conditions))
+      .orderBy(desc(this.table.installedAt), desc(this.table.id))
+      .limit(limit + 1)
+    return paginateResults(rows, limit, (r) => r.installedAt)
   }
 
   async getByOrgAndNodeId(organizationId: string, nodeId: string): Promise<InstalledNode | null> {

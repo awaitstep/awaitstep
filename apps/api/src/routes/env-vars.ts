@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
+import { paginationQuerySchema } from '../lib/pagination.js'
 import type { AppEnv } from '../types.js'
 
 const envVarNamePattern = /^[A-Z][A-Z0-9_]*$/
@@ -36,21 +37,26 @@ const updateEnvVarSchema = z.object({
 
 export const envVars = new Hono<AppEnv>()
 
-envVars.get('/', async (c) => {
+const listEnvVarsQuerySchema = z
+  .object({ projectId: z.string().optional() })
+  .merge(paginationQuerySchema)
+
+envVars.get('/', zValidator('query', listEnvVarsQuerySchema), async (c) => {
   const db = c.get('db')
   const organizationId = c.get('organizationId')
-  const projectId = c.req.query('projectId')
+  const { projectId, cursor, limit } = c.req.valid('query')
 
-  const vars = projectId
-    ? await db.listEnvVarsByProject(organizationId, projectId)
-    : await db.listEnvVarsByOrganization(organizationId)
+  const result = projectId
+    ? await db.listEnvVarsByProject(organizationId, projectId, { cursor, limit })
+    : await db.listEnvVarsByOrganization(organizationId, { cursor, limit })
 
-  return c.json(
-    vars.map((v) => ({
+  return c.json({
+    data: result.data.map((v) => ({
       ...v,
       value: v.isSecret ? '••••••••' : v.value,
     })),
-  )
+    nextCursor: result.nextCursor,
+  })
 })
 
 envVars.post('/', zValidator('json', createEnvVarSchema), async (c) => {

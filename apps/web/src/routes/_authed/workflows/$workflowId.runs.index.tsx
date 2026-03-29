@@ -1,17 +1,18 @@
 import { createFileRoute, useParams } from '@tanstack/react-router'
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { Play } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { RunStatusBadge } from '../../../components/monitoring/run-status-badge'
 import { RunDetailSheet } from '../../../components/monitoring/run-detail-sheet'
-import { api } from '../../../lib/api-client'
+import { queries, flatPages } from '../../../lib/queries'
 import { useOrgReady } from '../../../stores/org-store'
 import { TriggerDialog } from '../../../components/canvas/trigger-dialog'
 import { useSheetStore } from '../../../stores/sheet-store'
 import { useActiveRunSync } from '../../../hooks/use-active-run-sync'
 import { timeAgo, duration } from '../../../lib/time'
 import { LoadingView } from '../../../components/ui/loading-view'
+import { LoadMoreButton } from '../../../components/ui/load-more-button'
 import { ListSkeleton } from '../../../components/ui/skeletons'
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId/runs/')({
@@ -24,14 +25,17 @@ function RunsListPage() {
   const [triggerOpen, setTriggerOpen] = useState(false)
   const openRunSheet = useSheetStore((s) => s.openRunSheet)
 
-  const { data: runs = [], isLoading } = useQuery({
-    queryKey: ['workflow-runs', workflowId],
-    queryFn: () => api.listWorkflowRuns(workflowId),
-    enabled: ready,
-  })
+  const {
+    data: runsData,
+    isLoading,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({ ...queries.runs.byWorkflow(workflowId), enabled: ready })
+  const runs = flatPages(runsData)
 
   useActiveRunSync(
-    runs?.map((r: { id: string; workflowId: string; status: string }) => ({
+    runs.map((r: { id: string; workflowId: string; status: string }) => ({
       id: r.id,
       workflowId: r.workflowId ?? workflowId,
       status: r.status,
@@ -39,11 +43,11 @@ function RunsListPage() {
     ['workflow-runs', workflowId],
   )
 
-  const { data: deployments } = useQuery({
-    queryKey: ['deployments', workflowId],
-    queryFn: () => api.listDeployments(workflowId),
+  const { data: deployments } = useInfiniteQuery({
+    ...queries.deployments.byWorkflow(workflowId),
     enabled: ready,
     retry: false,
+    select: (data) => flatPages(data),
   })
 
   const hasActiveDeployment =
@@ -93,6 +97,11 @@ function RunsListPage() {
                 </button>
               ),
             )}
+            <LoadMoreButton
+              hasMore={!!hasNextPage}
+              loading={isFetchingNextPage}
+              onClick={() => fetchNextPage()}
+            />
           </div>
         )}
       </LoadingView>

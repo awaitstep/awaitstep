@@ -1,6 +1,8 @@
-import { eq, desc } from 'drizzle-orm'
+import { eq, desc, and, or, lt } from 'drizzle-orm'
 import type { Connection } from '../types.js'
 import type { TokenCrypto } from '../crypto.js'
+import type { PaginationParams, PaginatedResult } from '../pagination.js'
+import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -47,18 +49,33 @@ export class ConnectionsAdapter {
     return row
   }
 
-  async listByOrganization(organizationId: string): Promise<Connection[]> {
+  async listByOrganization(
+    organizationId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<Connection>> {
+    const limit = clampLimit(pagination?.limit)
+    const conditions = [eq(this.table.organizationId, organizationId)]
+    if (pagination?.cursor) {
+      const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
+      conditions.push(
+        or(
+          lt(this.table.createdAt, timestamp),
+          and(eq(this.table.createdAt, timestamp), lt(this.table.id, cursorId)),
+        )!,
+      )
+    }
     const rows = await this.db
       .select()
       .from(this.table)
-      .where(eq(this.table.organizationId, organizationId))
-      .orderBy(desc(this.table.createdAt))
+      .where(and(...conditions))
+      .orderBy(desc(this.table.createdAt), desc(this.table.id))
+      .limit(limit + 1)
     if (this.crypto) {
       for (const row of rows) {
         row.credentials = await this.tryDecrypt(row.credentials)
       }
     }
-    return rows
+    return paginateResults(rows, limit, (r) => r.createdAt)
   }
 
   private async tryDecrypt(value: string): Promise<string> {

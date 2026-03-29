@@ -11,6 +11,7 @@ import { timeAgo } from '../../lib/time'
 import { RequireProject } from '../../wrappers/require-project'
 import { NEW_WORKFLOW_NAV } from '../../lib/nav'
 import { LoadingView } from '../../components/ui/loading-view'
+import { LoadMoreButton } from '../../components/ui/load-more-button'
 import { ListSkeleton } from '../../components/ui/skeletons'
 
 export const Route = createFileRoute('/_authed/workflows/')({
@@ -28,6 +29,9 @@ function WorkflowsIndexPage() {
 function WorkflowsIndexContent() {
   const workflows = useWorkflowsStore((s) => s.workflows)
   const isLoading = useWorkflowsStore((s) => s.fetchState === 'idle' || s.fetchState === 'loading')
+  const hasMore = useWorkflowsStore((s) => s.hasMore)
+  const loadMore = useWorkflowsStore((s) => s.loadMore)
+  const isFetchingMore = useWorkflowsStore((s) => s.isFetchingMore)
   const [search, setSearch] = useState('')
 
   const filtered = useMemo(() => {
@@ -81,6 +85,13 @@ function WorkflowsIndexContent() {
               {filtered.map((wf) => (
                 <WorkflowRow key={wf.id} workflow={wf} />
               ))}
+              {!search && (
+                <LoadMoreButton
+                  hasMore={hasMore}
+                  loading={isFetchingMore}
+                  onClick={() => loadMore?.()}
+                />
+              )}
             </div>
           )}
         </LoadingView>

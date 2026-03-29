@@ -3,6 +3,7 @@ import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
+import { paginationQuerySchema } from '../lib/pagination.js'
 import { workerName } from '@awaitstep/provider-cloudflare'
 import type { ProviderConfig, GeneratedArtifact, DeployResult } from '@awaitstep/codegen'
 import type { AppEnv } from '../types.js'
@@ -132,12 +133,13 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
   })
 })
 
-deploy.get('/:workflowId/deployments', async (c) => {
+deploy.get('/:workflowId/deployments', zValidator('query', paginationQuerySchema), async (c) => {
   const db = c.get('db')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
-  const list = await db.listDeploymentsByWorkflow(workflow.id)
-  return c.json(list)
+  const { cursor, limit } = c.req.valid('query')
+  const result = await db.listDeploymentsByWorkflow(workflow.id, { cursor, limit })
+  return c.json(result)
 })
 
 deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c) => {

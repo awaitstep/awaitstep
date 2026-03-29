@@ -1,6 +1,8 @@
-import { eq, desc, and, isNull } from 'drizzle-orm'
+import { eq, desc, and, isNull, or, lt } from 'drizzle-orm'
 import type { EnvVar } from '../types.js'
 import type { TokenCrypto } from '../crypto.js'
+import type { PaginationParams, PaginatedResult } from '../pagination.js'
+import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -60,34 +62,66 @@ export class EnvVarsAdapter {
     return row
   }
 
-  async listByOrganization(organizationId: string): Promise<EnvVar[]> {
+  async listByOrganization(
+    organizationId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<EnvVar>> {
+    const limit = clampLimit(pagination?.limit)
+    const conditions = [eq(this.table.organizationId, organizationId), isNull(this.table.projectId)]
+    if (pagination?.cursor) {
+      const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
+      conditions.push(
+        or(
+          lt(this.table.createdAt, timestamp),
+          and(eq(this.table.createdAt, timestamp), lt(this.table.id, cursorId)),
+        )!,
+      )
+    }
     const rows = await this.db
       .select()
       .from(this.table)
-      .where(and(eq(this.table.organizationId, organizationId), isNull(this.table.projectId)))
-      .orderBy(desc(this.table.createdAt))
+      .where(and(...conditions))
+      .orderBy(desc(this.table.createdAt), desc(this.table.id))
+      .limit(limit + 1)
     if (this.crypto) {
       for (const row of rows) {
         row.value = await this.tryDecrypt(row.value)
       }
     }
-    return rows
+    return paginateResults(rows, limit, (r) => r.createdAt)
   }
 
-  async listByProject(organizationId: string, projectId: string): Promise<EnvVar[]> {
+  async listByProject(
+    organizationId: string,
+    projectId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<EnvVar>> {
+    const limit = clampLimit(pagination?.limit)
+    const conditions = [
+      eq(this.table.organizationId, organizationId),
+      eq(this.table.projectId, projectId),
+    ]
+    if (pagination?.cursor) {
+      const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
+      conditions.push(
+        or(
+          lt(this.table.createdAt, timestamp),
+          and(eq(this.table.createdAt, timestamp), lt(this.table.id, cursorId)),
+        )!,
+      )
+    }
     const rows = await this.db
       .select()
       .from(this.table)
-      .where(
-        and(eq(this.table.organizationId, organizationId), eq(this.table.projectId, projectId)),
-      )
-      .orderBy(desc(this.table.createdAt))
+      .where(and(...conditions))
+      .orderBy(desc(this.table.createdAt), desc(this.table.id))
+      .limit(limit + 1)
     if (this.crypto) {
       for (const row of rows) {
         row.value = await this.tryDecrypt(row.value)
       }
     }
-    return rows
+    return paginateResults(rows, limit, (r) => r.createdAt)
   }
 
   async getByOrgAndName(

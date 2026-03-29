@@ -2,6 +2,7 @@ import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
+import { paginationQuerySchema } from '../lib/pagination.js'
 import type { AppEnv } from '../types.js'
 
 const createConnectionSchema = z.object({
@@ -13,11 +14,12 @@ const createConnectionSchema = z.object({
 export function createConnectionRoutes() {
   const connections = new Hono<AppEnv>()
 
-  connections.get('/', async (c) => {
+  connections.get('/', zValidator('query', paginationQuerySchema), async (c) => {
     const db = c.get('db')
     const organizationId = c.get('organizationId')
-    const list = await db.listConnectionsByOrganization(organizationId)
-    return c.json(list.map(redactCredentials))
+    const { cursor, limit } = c.req.valid('query')
+    const result = await db.listConnectionsByOrganization(organizationId, { cursor, limit })
+    return c.json({ data: result.data.map(redactCredentials), nextCursor: result.nextCursor })
   })
 
   connections.post('/', zValidator('json', createConnectionSchema), async (c) => {

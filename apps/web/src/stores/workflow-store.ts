@@ -427,8 +427,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   runValidation: (nodeRegistry?: NodeRegistry) => {
-    const { metadata, nodes, edges } = get()
-    const result = validateWorkflowForPublish(metadata, nodes, edges, nodeRegistry)
+    const { metadata, nodes, edges, inputParams, envBindings, workflowEnvVars } = get()
+    const settings = { inputParams, envBindings, workflowEnvVars }
+    const result = validateWorkflowForPublish(metadata, nodes, edges, nodeRegistry, settings)
     set({ validationResult: result, simulationResult: null })
     return result
   },

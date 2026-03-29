@@ -72,7 +72,7 @@ describe('workflow routes', () => {
       const res = await app.request(url('/api/workflows'))
       expect(res.status).toBe(200)
       const body = await res.json()
-      expect(body).toHaveLength(2)
+      expect(body.data).toHaveLength(2)
     })
   })
 

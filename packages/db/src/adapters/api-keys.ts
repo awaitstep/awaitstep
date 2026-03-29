@@ -1,5 +1,7 @@
-import { eq, desc, isNull, and } from 'drizzle-orm'
+import { eq, desc, isNull, and, or, lt } from 'drizzle-orm'
 import type { ApiKey } from '../types.js'
+import type { PaginationParams, PaginatedResult } from '../pagination.js'
+import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -52,12 +54,28 @@ export class ApiKeysAdapter {
     return rows[0] ?? null
   }
 
-  async listByProject(projectId: string): Promise<ApiKey[]> {
-    return this.db
+  async listByProject(
+    projectId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<ApiKey>> {
+    const limit = clampLimit(pagination?.limit)
+    const conditions = [eq(this.table.projectId, projectId)]
+    if (pagination?.cursor) {
+      const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
+      conditions.push(
+        or(
+          lt(this.table.createdAt, timestamp),
+          and(eq(this.table.createdAt, timestamp), lt(this.table.id, cursorId)),
+        )!,
+      )
+    }
+    const rows = await this.db
       .select()
       .from(this.table)
-      .where(eq(this.table.projectId, projectId))
-      .orderBy(desc(this.table.createdAt))
+      .where(and(...conditions))
+      .orderBy(desc(this.table.createdAt), desc(this.table.id))
+      .limit(limit + 1)
+    return paginateResults(rows, limit, (r) => r.createdAt)
   }
 
   async updateLastUsed(id: string, lastUsedAt: string): Promise<void> {

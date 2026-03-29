@@ -187,15 +187,15 @@ describe('marketplace', () => {
       const res = await app.request(url('/installed'))
       expect(res.status).toBe(200)
       const body = await res.json()
-      expect(body).toHaveLength(1)
-      expect(body[0].nodeId).toBe('test_node')
+      expect(body.data).toHaveLength(1)
+      expect(body.data[0].nodeId).toBe('test_node')
     })
 
     it('returns empty array when nothing installed', async () => {
       const res = await app.request(url('/installed'))
       expect(res.status).toBe(200)
       const body = await res.json()
-      expect(body).toHaveLength(0)
+      expect(body.data).toHaveLength(0)
     })
   })
 
