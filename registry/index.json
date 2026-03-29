@@ -1,7 +1,26 @@
 {
   "version": 1,
-  "generatedAt": "2026-03-28T01:10:38.353Z",
+  "generatedAt": "2026-03-29T11:02:27.379Z",
   "nodes": [
+    {
+      "id": "activecampaign",
+      "name": "ActiveCampaign",
+      "description": "Manage contacts and deals in ActiveCampaign",
+      "category": "CRM",
+      "tags": ["activecampaign", "crm", "email", "marketing"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/activecampaign/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:9b5a7527264a3da6c5cbe22b77ff2584cc07bae576002d0e35f3f45d770c8660",
+          "publishedAt": "2026-03-29T11:02:27.341Z"
+        }
+      ]
+    },
     {
       "id": "airtable",
       "name": "Airtable",
@@ -16,8 +35,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:ada7dbdde706fbc0da34b3583ab332a06942b721da6620fa9a4d750531be38a0",
-          "publishedAt": "2026-03-28T01:10:38.333Z"
+          "checksum": "sha256:b656682cd18496b9ec8f10b43855fbbff62f2a9eb3da230f6bbe703735d29521",
+          "publishedAt": "2026-03-29T11:02:27.343Z"
         }
       ]
     },
@@ -35,8 +54,65 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:5828db2bfebae9bd3e0a8b62c2c5a54ac3c1f1dd7273e0df2428a7ac2a67a913",
-          "publishedAt": "2026-03-28T01:10:38.334Z"
+          "checksum": "sha256:6efb40319d195a8de8eb485a7fee666b1fedc756f34b7f1993887a6c235379da",
+          "publishedAt": "2026-03-29T11:02:27.344Z"
+        }
+      ]
+    },
+    {
+      "id": "asana",
+      "name": "Asana",
+      "description": "Create, read, update, and manage tasks in Asana",
+      "category": "Project Management",
+      "tags": ["asana", "project-management", "tasks"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/asana/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:36ef29cc298fa965f4cf9ac3194c9bb1a1a7dac44c1dc3c33eb06a2eb01fb5c6",
+          "publishedAt": "2026-03-29T11:02:27.345Z"
+        }
+      ]
+    },
+    {
+      "id": "convertkit",
+      "name": "Kit (ConvertKit)",
+      "description": "Manage subscribers and tags in Kit (formerly ConvertKit)",
+      "category": "Email",
+      "tags": ["convertkit", "kit", "email", "marketing", "creators"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/convertkit/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:13b8b50abcc34a29a0df59273ec79bfec8cd4cda71c700244f81cedc865f7f7f",
+          "publishedAt": "2026-03-29T11:02:27.346Z"
+        }
+      ]
+    },
+    {
+      "id": "datadog",
+      "name": "Datadog",
+      "description": "Submit metrics, create events, and send logs to Datadog",
+      "category": "Analytics",
+      "tags": ["datadog", "monitoring", "metrics", "logs"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/datadog/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:e22a5ddccac55536682abda2809f1fda7c8093f07fdcce358f46a87550d07a0b",
+          "publishedAt": "2026-03-29T11:02:27.347Z"
         }
       ]
     },
@@ -54,8 +130,46 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:970b8bf8d7cb8514ccf0d05075659ebda6631de9f40001c3c6cdfe20aa25728a",
-          "publishedAt": "2026-03-28T01:10:38.335Z"
+          "checksum": "sha256:f16e4b4fe9993c168a396b244487542954fd30b5dd8926b7e8a910721fb35885",
+          "publishedAt": "2026-03-29T11:02:27.348Z"
+        }
+      ]
+    },
+    {
+      "id": "elevenlabs",
+      "name": "ElevenLabs",
+      "description": "Convert text to speech and manage voices with ElevenLabs",
+      "category": "AI",
+      "tags": ["elevenlabs", "ai", "tts", "speech", "audio"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/elevenlabs/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:0772e7f237a9a23497bc3fa0b0e08a52fb5c013027c8791553670cb77896d949",
+          "publishedAt": "2026-03-29T11:02:27.349Z"
+        }
+      ]
+    },
+    {
+      "id": "firebase-firestore",
+      "name": "Firebase Firestore",
+      "description": "Create, read, update, delete, and query documents in Firebase Firestore",
+      "category": "Database",
+      "tags": ["firebase", "firestore", "database", "google"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/firebase-firestore/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:31054bed9315d63a21cec97b775f16bca2978bc5bfd5b9b4a7cd17866afe41e6",
+          "publishedAt": "2026-03-29T11:02:27.350Z"
         }
       ]
     },
@@ -73,8 +187,65 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:ffd47c65737214be560ac589e0f7d468bdf8a3cc321419a4fe07025e92633eed",
-          "publishedAt": "2026-03-28T01:10:38.336Z"
+          "checksum": "sha256:12293b4354fd0a8b4b78bee5f4ff5adff897860ad1beb59becadf4caa0ed58bd",
+          "publishedAt": "2026-03-29T11:02:27.351Z"
+        }
+      ]
+    },
+    {
+      "id": "google-calendar",
+      "name": "Google Calendar",
+      "description": "Create, read, update, and delete Google Calendar events",
+      "category": "Scheduling",
+      "tags": ["google", "calendar", "events", "scheduling"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/google-calendar/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:b0ba56a974509ef7478fb7767e65d262c75c0abb662fbe8e3891af95b618c58b",
+          "publishedAt": "2026-03-29T11:02:27.352Z"
+        }
+      ]
+    },
+    {
+      "id": "google-gemini",
+      "name": "Google Gemini",
+      "description": "Generate content, create embeddings, and count tokens with Google Gemini",
+      "category": "AI",
+      "tags": ["google", "gemini", "ai", "llm"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/google-gemini/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:809f18ecd952bdf6793cd13c8d0356a786c23df317d3abcf33736362ffc5b227",
+          "publishedAt": "2026-03-29T11:02:27.353Z"
+        }
+      ]
+    },
+    {
+      "id": "google-sheets",
+      "name": "Google Sheets",
+      "description": "Read, append, update, and clear data in Google Sheets",
+      "category": "Data",
+      "tags": ["google", "sheets", "spreadsheet", "data"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/google-sheets/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:04fbfe407ed173b6bdd983516ed16bdc2d7832c8f8c09049322dea309e3e05ae",
+          "publishedAt": "2026-03-29T11:02:27.354Z"
         }
       ]
     },
@@ -92,8 +263,27 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:a4a922bb113594f12d86f5cefc6360d289d0220a1b0f0bb50ce52d16883fd939",
-          "publishedAt": "2026-03-28T01:10:38.343Z"
+          "checksum": "sha256:419365b446002b976b2b82aca20dfb8462d24ce8408f89b7804a031ae3b55432",
+          "publishedAt": "2026-03-29T11:02:27.355Z"
+        }
+      ]
+    },
+    {
+      "id": "intercom",
+      "name": "Intercom",
+      "description": "Manage contacts, messages, and conversations in Intercom",
+      "category": "Customer Support",
+      "tags": ["intercom", "support", "messaging", "crm"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/intercom/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:d347e0c764b91611f8ef440422a622f830f7f515315d8b80c1e887fe08b52b7c",
+          "publishedAt": "2026-03-29T11:02:27.355Z"
         }
       ]
     },
@@ -111,8 +301,27 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:f87262864bcbcbf22ccd8177853601ac54ccb6121384658dc28ba99fb3df31fb",
-          "publishedAt": "2026-03-28T01:10:38.345Z"
+          "checksum": "sha256:d1d9ca85508448620076ed4566eced21cebf6571e2e7ecfb0962d977c2b53b51",
+          "publishedAt": "2026-03-29T11:02:27.356Z"
+        }
+      ]
+    },
+    {
+      "id": "lemon-squeezy",
+      "name": "Lemon Squeezy",
+      "description": "List orders, customers, and subscriptions in Lemon Squeezy",
+      "category": "Payments",
+      "tags": ["lemonsqueezy", "payments", "subscriptions", "digital"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/lemon-squeezy/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:fefaad3df8ec9fcd94c4ec1743866166e60e3e943e66a1923e26b0b5b78e92dc",
+          "publishedAt": "2026-03-29T11:02:27.357Z"
         }
       ]
     },
@@ -130,8 +339,65 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:0e5c7a80ed14501a21b888ff6ad948ad15ec19b519476fbd0b69d4267986bac2",
-          "publishedAt": "2026-03-28T01:10:38.346Z"
+          "checksum": "sha256:6ada80b4c23bc104ba7e64ffac6fef1d9a6b020bd56e1a5161e629e00aa915b6",
+          "publishedAt": "2026-03-29T11:02:27.358Z"
+        }
+      ]
+    },
+    {
+      "id": "mailchimp",
+      "name": "Mailchimp",
+      "description": "Manage subscribers and campaigns in Mailchimp",
+      "category": "Email",
+      "tags": ["mailchimp", "email", "marketing", "newsletter"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/mailchimp/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:3bcaed3f211b993a527722a043462f8e6042af07dd81c5bce6c269a22dc21b42",
+          "publishedAt": "2026-03-29T11:02:27.359Z"
+        }
+      ]
+    },
+    {
+      "id": "microsoft-teams",
+      "name": "Microsoft Teams",
+      "description": "Send messages and manage channels in Microsoft Teams",
+      "category": "Messaging",
+      "tags": ["microsoft", "teams", "messaging", "chat"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/microsoft-teams/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:f7c4df03f583580efa3603f00cc8ed05c78d59f030f77a1f7cd3bbec088bd850",
+          "publishedAt": "2026-03-29T11:02:27.359Z"
+        }
+      ]
+    },
+    {
+      "id": "monday",
+      "name": "Monday.com",
+      "description": "Create, read, update, and manage items in Monday.com boards",
+      "category": "Project Management",
+      "tags": ["monday", "project-management", "boards"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/monday/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:7c84ac526b70df85b10f5eb0e20df3e9356afc41fa8997ccb66ceb8c9bd45136",
+          "publishedAt": "2026-03-29T11:02:27.360Z"
         }
       ]
     },
@@ -149,8 +415,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:91b2cca9d5ef364c01e346c58a0724418d9ae1688a9f1ba36d2518eea6b81ab0",
-          "publishedAt": "2026-03-28T01:10:38.347Z"
+          "checksum": "sha256:200113909f6d33519ab24e9d64b63262ceff5b90be837a3eeea9e03ff1bdbae9",
+          "publishedAt": "2026-03-29T11:02:27.361Z"
         }
       ]
     },
@@ -168,8 +434,103 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:d4a901f3c71af4dfea21368f7ecef502bfdac79093abe2962d187f4a3fbf9164",
-          "publishedAt": "2026-03-28T01:10:38.348Z"
+          "checksum": "sha256:f8332179debcc8f0aed571518755bf6584edaf665c18e5a6f952e6a68256583e",
+          "publishedAt": "2026-03-29T11:02:27.362Z"
+        }
+      ]
+    },
+    {
+      "id": "paddle",
+      "name": "Paddle",
+      "description": "List transactions, subscriptions, and customers in Paddle",
+      "category": "Payments",
+      "tags": ["paddle", "payments", "subscriptions", "billing"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/paddle/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:30b4dae4b64d68375d44342786c0879f5341b62eb40851261f04851f80b64710",
+          "publishedAt": "2026-03-29T11:02:27.363Z"
+        }
+      ]
+    },
+    {
+      "id": "pagerduty",
+      "name": "PagerDuty",
+      "description": "Trigger, acknowledge, and resolve incidents in PagerDuty",
+      "category": "Notifications",
+      "tags": ["pagerduty", "incidents", "alerting", "oncall"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/pagerduty/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:071c12a344a7c186944752ae54ecf3c96cccd7381d3fe39f19747480b6163bfb",
+          "publishedAt": "2026-03-29T11:02:27.364Z"
+        }
+      ]
+    },
+    {
+      "id": "paypal",
+      "name": "PayPal",
+      "description": "Create and manage orders and payments with PayPal",
+      "category": "Payments",
+      "tags": ["paypal", "payments", "orders", "checkout"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/paypal/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:241350bb11eb2ea7d24919566949cbb726da7eb892b133c05fa25b54a9686f1f",
+          "publishedAt": "2026-03-29T11:02:27.365Z"
+        }
+      ]
+    },
+    {
+      "id": "perplexity",
+      "name": "Perplexity",
+      "description": "Run AI-powered search queries with Perplexity",
+      "category": "AI",
+      "tags": ["perplexity", "ai", "search", "research"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/perplexity/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:eedabae5e42bf8d43cdd5782346257262c9ae47b40a042c2efe422a51ffb9aa2",
+          "publishedAt": "2026-03-29T11:02:27.365Z"
+        }
+      ]
+    },
+    {
+      "id": "replicate",
+      "name": "Replicate",
+      "description": "Run and manage AI model predictions on Replicate",
+      "category": "AI",
+      "tags": ["replicate", "ai", "ml", "models"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/replicate/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:7cc69cee23ffd8fb66df116766e273dcf5e49ae6642f26ae994243d45f14b88f",
+          "publishedAt": "2026-03-29T11:02:27.366Z"
         }
       ]
     },
@@ -187,8 +548,65 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:370912e259d81d421718ca955f72cab38c855de3bdbfa9c568899b60e5ace918",
-          "publishedAt": "2026-03-28T01:10:38.348Z"
+          "checksum": "sha256:b672f70f6553522a4015bb527dc28abc448ac4a66d3106834240cc8411854f5d",
+          "publishedAt": "2026-03-29T11:02:27.367Z"
+        }
+      ]
+    },
+    {
+      "id": "s3",
+      "name": "Amazon S3",
+      "description": "Upload, download, list, and delete objects in S3-compatible storage",
+      "category": "Storage",
+      "tags": ["s3", "storage", "aws", "object-storage"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/s3/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:f048a7e54aef619330af26471d13d3ab188d1554a6ad77767c34430a273a7365",
+          "publishedAt": "2026-03-29T11:02:27.368Z"
+        }
+      ]
+    },
+    {
+      "id": "salesforce",
+      "name": "Salesforce",
+      "description": "Create, read, update, query, and delete records in Salesforce",
+      "category": "CRM",
+      "tags": ["salesforce", "crm", "sales", "leads"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/salesforce/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:b769e1c81a1e566fa62870b8a70b3f5315bec6f77e646d6f729b5cc60ef0e86f",
+          "publishedAt": "2026-03-29T11:02:27.369Z"
+        }
+      ]
+    },
+    {
+      "id": "segment",
+      "name": "Segment",
+      "description": "Track events, identify users, and send data to Segment",
+      "category": "Analytics",
+      "tags": ["segment", "analytics", "tracking", "events"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/segment/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:f7f4bf9d6728a6fe94c17880947c973a0230c8a073bfb698e35e157f198434ad",
+          "publishedAt": "2026-03-29T11:02:27.369Z"
         }
       ]
     },
@@ -206,8 +624,46 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:8b70e131fd4ffcf6eb77c85d4e37a395e0de0e14226cef4c5ac916c1c5671113",
-          "publishedAt": "2026-03-28T01:10:38.349Z"
+          "checksum": "sha256:e7c778c02191d02cd052cbfa14c2c0942813a67a58036228c8b5b41d21c147d4",
+          "publishedAt": "2026-03-29T11:02:27.370Z"
+        }
+      ]
+    },
+    {
+      "id": "sentry",
+      "name": "Sentry",
+      "description": "List, inspect, and resolve issues and events in Sentry",
+      "category": "Analytics",
+      "tags": ["sentry", "monitoring", "errors", "debugging"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/sentry/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:4c70f7f7722c4cb80ca31c715e20e9798601bf62b7760972b7bcdba6258c05c8",
+          "publishedAt": "2026-03-29T11:02:27.371Z"
+        }
+      ]
+    },
+    {
+      "id": "shopify",
+      "name": "Shopify",
+      "description": "Manage products and orders in Shopify",
+      "category": "E-commerce",
+      "tags": ["shopify", "ecommerce", "products", "orders"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/shopify/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:580941828ab8652c91369b218077a9268755733849a7257a856795d59c02365f",
+          "publishedAt": "2026-03-29T11:02:27.372Z"
         }
       ]
     },
@@ -225,8 +681,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:8b1012ea04aa239d8885ce82537567c748e32c1344fa47a45a3878c0081b2ea1",
-          "publishedAt": "2026-03-28T01:10:38.350Z"
+          "checksum": "sha256:eccce7d301dc2eff44e02a706866a863afc4f9b195e168a0f459395e58f457f2",
+          "publishedAt": "2026-03-29T11:02:27.372Z"
         }
       ]
     },
@@ -244,8 +700,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:ef97fd029dafdd5b5662d53e590446dfbeac7acf68f0ffe3e28e298a350245bc",
-          "publishedAt": "2026-03-28T01:10:38.350Z"
+          "checksum": "sha256:c600c49e09d26b9d471bb3e009bfdd24033ce719848b39dc6e8a7ba64c7e76c7",
+          "publishedAt": "2026-03-29T11:02:27.373Z"
         }
       ]
     },
@@ -263,8 +719,8 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:658252b0781c82047d01730807a3da17ca2b084bd9f2db91024fc3bab56df051",
-          "publishedAt": "2026-03-28T01:10:38.351Z"
+          "checksum": "sha256:d7bfa50b989dfa2d496b8d483ef02536f4718e522b7b764795efd67f85f0fd22",
+          "publishedAt": "2026-03-29T11:02:27.374Z"
         }
       ]
     },
@@ -282,8 +738,27 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:3704613b928a3a10480c1e3ec0d1cc9062c2620d855eb1c752292b785fff23ce",
-          "publishedAt": "2026-03-28T01:10:38.352Z"
+          "checksum": "sha256:da227fc828db6182dffbf88747f887f37d6d3da9c543ee428a1f412ab6eaf031",
+          "publishedAt": "2026-03-29T11:02:27.375Z"
+        }
+      ]
+    },
+    {
+      "id": "trello",
+      "name": "Trello",
+      "description": "Create, read, update, and manage cards in Trello",
+      "category": "Project Management",
+      "tags": ["trello", "project-management", "boards", "cards"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/trello/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:dff36b54039823b4af13379f9b955a7323ae088d49ff92237e735be9030b2229",
+          "publishedAt": "2026-03-29T11:02:27.375Z"
         }
       ]
     },
@@ -301,8 +776,65 @@
       "versions": [
         {
           "version": "1.0.0",
-          "checksum": "sha256:9702ade13fb6de9396e0800831c120d4028596e120f21a6fa20dcce49cbe0b53",
-          "publishedAt": "2026-03-28T01:10:38.353Z"
+          "checksum": "sha256:081474bab9f786af876c6ed2ae34d41f62967af859d3844e02eba1b1b649e959",
+          "publishedAt": "2026-03-29T11:02:27.376Z"
+        }
+      ]
+    },
+    {
+      "id": "typeform",
+      "name": "Typeform",
+      "description": "List forms and responses in Typeform",
+      "category": "Forms",
+      "tags": ["typeform", "forms", "surveys", "responses"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/typeform/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:63774e640183d10a623b841ad0c83d74f42fcd1e88e702d6f0a431887269cb05",
+          "publishedAt": "2026-03-29T11:02:27.377Z"
+        }
+      ]
+    },
+    {
+      "id": "upstash-redis",
+      "name": "Upstash Redis",
+      "description": "Execute Redis commands on Upstash via REST API",
+      "category": "Database",
+      "tags": ["upstash", "redis", "cache", "database"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/upstash-redis/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:b45868cebcf9712c8bc7f8dcd532e89b84d7686e9f7cc7c81ce222e08c1895b4",
+          "publishedAt": "2026-03-29T11:02:27.378Z"
+        }
+      ]
+    },
+    {
+      "id": "zendesk",
+      "name": "Zendesk",
+      "description": "Create, read, update, and search tickets in Zendesk",
+      "category": "Customer Support",
+      "tags": ["zendesk", "support", "tickets", "helpdesk"],
+      "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/zendesk/icon.svg",
+      "author": "awaitstep",
+      "license": "Apache-2.0",
+      "providers": ["cloudflare"],
+      "latest": "1.0.0",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "checksum": "sha256:eec31147b0889cb63751ae83ac20eab94bc3b12e619ef9a08bfd9c80aace103e",
+          "publishedAt": "2026-03-29T11:02:27.379Z"
         }
       ]
     }
