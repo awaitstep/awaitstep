@@ -9,6 +9,7 @@ import { createTokenCrypto } from '../lib/token-crypto.js'
 import { createLogger } from '../lib/logger.js'
 import { loadNodeRegistry } from '../lib/node-registry.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
+import { createEmailService } from '../lib/email.js'
 
 const DEFAULT_REGISTRY_URL =
   'https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry'
@@ -66,6 +67,23 @@ async function start() {
     throw new Error('BETTER_AUTH_SECRET is required. Generate with: openssl rand -hex 32')
   }
 
+  const resendApiKey = process.env['RESEND_API_KEY']
+  const appName = process.env['APP_NAME']
+  let sendMagicLink:
+    | ((data: { email: string; url: string; token: string }) => Promise<void>)
+    | undefined
+  if (resendApiKey) {
+    const emailService = createEmailService({
+      apiKey: resendApiKey,
+      fromAddress: process.env['RESEND_FROM_EMAIL'],
+      appName,
+    })
+    sendMagicLink = (data) => emailService.sendMagicLink(data)
+    logger.info('Email: Resend configured')
+  } else {
+    logger.warn('RESEND_API_KEY not set — magic link emails will be logged to console')
+  }
+
   const port = Number(process.env['PORT'] ?? 8080)
   const baseURL = process.env['BETTER_AUTH_URL'] ?? `http://localhost:${port}`
   const auth = createAuth({
@@ -73,6 +91,7 @@ async function start() {
     secret: authSecret,
     database: rawDb,
     trustedOrigins: [baseURL],
+    sendMagicLink,
     github: process.env['GITHUB_CLIENT_ID']
       ? {
           clientId: process.env['GITHUB_CLIENT_ID'],
@@ -100,7 +119,6 @@ async function start() {
   const remoteNodeRegistry = createRemoteNodeRegistry({ baseUrl: registryUrl })
   logger.info(`Remote node registry: ${registryUrl}`)
 
-  const appName = process.env['APP_NAME']
   const apiApp = createApp({
     db,
     auth,

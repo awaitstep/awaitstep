@@ -25,6 +25,7 @@ FROM deps AS build
 COPY --from=pruner /app/out/full/ .
 ENV VITE_API_URL="http://localhost:8080"
 ENV VITE_APP_URL=""
+ENV NO_DTS=1
 RUN touch .env
 RUN mkdir -p nodes
 RUN pnpm build
