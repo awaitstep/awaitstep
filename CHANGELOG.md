@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.2-beta.1](https://github.com/awaitstep/awaitstep.dev/compare/v1.0.1-beta.1...v1.0.2-beta.1) (2026-03-31)
+
+
+### Bug Fixes
+
+* SSR server config falls back to PORT env for Docker ([95ac6bb](https://github.com/awaitstep/awaitstep.dev/commit/95ac6bb9b4c23cb500847a48fafd36b8918c634a))
+
 ## [1.0.1-beta.1](https://github.com/awaitstep/awaitstep.dev/compare/v1.0.0-beta.1...v1.0.1-beta.1) (2026-03-31)
 
 
