@@ -51,27 +51,27 @@ echo ""
 echo "Generated .env with secrets."
 
 # Write docker-compose.yml
-cat > docker-compose.yml <<'COMPOSE'
+cat > docker-compose.yml <<COMPOSE
 services:
   awaitstep:
     image: ghcr.io/awaitstep/awaitstep:latest
     container_name: awaitstep
     restart: unless-stopped
     ports:
-      - ${PORT:-8080}:8080
+      - "${PORT}:8080"
     volumes:
       - awaitstep-data:/app/data
     environment:
       PORT: 8080
-      TOKEN_ENCRYPTION_KEY: "${TOKEN_ENCRYPTION_KEY}"
-      BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET}"
-      BETTER_AUTH_URL: "${BETTER_AUTH_URL:-http://localhost:8080}"
-      DATABASE_URL: "${DATABASE_URL:-}"
-      GITHUB_CLIENT_ID: "${GITHUB_CLIENT_ID:-}"
-      GITHUB_CLIENT_SECRET: "${GITHUB_CLIENT_SECRET:-}"
-      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
-      GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET:-}"
-      RESEND_API_KEY: "${RESEND_API_KEY:-}"
+      TOKEN_ENCRYPTION_KEY: "\${TOKEN_ENCRYPTION_KEY}"
+      BETTER_AUTH_SECRET: "\${BETTER_AUTH_SECRET}"
+      BETTER_AUTH_URL: "\${BETTER_AUTH_URL:-http://localhost:8080}"
+      DATABASE_URL: "\${DATABASE_URL:-}"
+      GITHUB_CLIENT_ID: "\${GITHUB_CLIENT_ID:-}"
+      GITHUB_CLIENT_SECRET: "\${GITHUB_CLIENT_SECRET:-}"
+      GOOGLE_CLIENT_ID: "\${GOOGLE_CLIENT_ID:-}"
+      GOOGLE_CLIENT_SECRET: "\${GOOGLE_CLIENT_SECRET:-}"
+      RESEND_API_KEY: "\${RESEND_API_KEY:-}"
 
 volumes:
   awaitstep-data:
