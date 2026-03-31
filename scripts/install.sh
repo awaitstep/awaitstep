@@ -16,12 +16,38 @@ if ! docker compose version &>/dev/null; then
   exit 1
 fi
 
-# Prompt for port
+# Detect public IP for default URL
+DEFAULT_IP=$(curl -s -4 --max-time 3 ifconfig.me 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
+
+echo "Configure your AwaitStep instance:"
+echo ""
+
+# Public URL (most important — affects CORS and auth redirects)
+read -rp "Public URL [http://${DEFAULT_IP}:8080]: " APP_URL
+APP_URL="${APP_URL:-http://${DEFAULT_IP}:8080}"
+# Strip trailing slash
+APP_URL="${APP_URL%/}"
+
+# Port
 read -rp "Port [8080]: " PORT
 PORT="${PORT:-8080}"
 
-# Optional: Resend API key for magic link emails
-read -rp "Resend API key (optional, for magic link emails): " RESEND_API_KEY
+# Database
+echo ""
+echo "Database: SQLite (default, stored in Docker volume) or Postgres"
+read -rp "Postgres URL (leave empty for SQLite): " DATABASE_URL
+
+# Email (Resend)
+echo ""
+read -rp "Resend API key (for magic link emails, optional): " RESEND_API_KEY
+
+# OAuth providers
+echo ""
+echo "OAuth providers (optional, press Enter to skip):"
+read -rp "  GitHub Client ID: " GITHUB_CLIENT_ID
+read -rp "  GitHub Client Secret: " GITHUB_CLIENT_SECRET
+read -rp "  Google Client ID: " GOOGLE_CLIENT_ID
+read -rp "  Google Client Secret: " GOOGLE_CLIENT_SECRET
 
 # Generate secrets
 TOKEN_ENCRYPTION_KEY=$(openssl rand -hex 32)
@@ -32,23 +58,17 @@ cat > .env <<EOF
 PORT=${PORT}
 TOKEN_ENCRYPTION_KEY=${TOKEN_ENCRYPTION_KEY}
 BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-BETTER_AUTH_URL=http://localhost:${PORT}
-
-# To use Postgres instead of SQLite, set DATABASE_URL:
-# DATABASE_URL=postgres://user:pass@host:5432/awaitstep
-
-# Resend API key for magic link emails:
+BETTER_AUTH_URL=${APP_URL}
+DATABASE_URL=${DATABASE_URL}
 RESEND_API_KEY=${RESEND_API_KEY}
-
-# Uncomment to enable OAuth providers:
-# GITHUB_CLIENT_ID=
-# GITHUB_CLIENT_SECRET=
-# GOOGLE_CLIENT_ID=
-# GOOGLE_CLIENT_SECRET=
+GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
 EOF
 
 echo ""
-echo "Generated .env with secrets."
+echo "Generated .env"
 
 # Write docker-compose.yml
 cat > docker-compose.yml <<COMPOSE
@@ -61,24 +81,16 @@ services:
       - "${PORT}:8080"
     volumes:
       - awaitstep-data:/app/data
+    env_file: .env
     environment:
       PORT: 8080
-      TOKEN_ENCRYPTION_KEY: "\${TOKEN_ENCRYPTION_KEY}"
-      BETTER_AUTH_SECRET: "\${BETTER_AUTH_SECRET}"
-      BETTER_AUTH_URL: "\${BETTER_AUTH_URL:-http://localhost:8080}"
-      DATABASE_URL: "\${DATABASE_URL:-}"
-      GITHUB_CLIENT_ID: "\${GITHUB_CLIENT_ID:-}"
-      GITHUB_CLIENT_SECRET: "\${GITHUB_CLIENT_SECRET:-}"
-      GOOGLE_CLIENT_ID: "\${GOOGLE_CLIENT_ID:-}"
-      GOOGLE_CLIENT_SECRET: "\${GOOGLE_CLIENT_SECRET:-}"
-      RESEND_API_KEY: "\${RESEND_API_KEY:-}"
 
 volumes:
   awaitstep-data:
     driver: local
 COMPOSE
 
-echo "Generated docker-compose.yml."
+echo "Generated docker-compose.yml"
 echo ""
 
 # Pull and start
@@ -87,12 +99,10 @@ docker compose pull
 docker compose up -d
 
 echo ""
-echo "AwaitStep is running at http://localhost:${PORT}"
+echo "AwaitStep is running at ${APP_URL}"
 echo ""
-echo "Next steps:"
-echo "  - Open http://localhost:${PORT} in your browser"
-echo "  - Sign in with a magic link (email)"
-echo "  - To use Postgres: set DATABASE_URL in .env and restart"
-echo "  - To enable GitHub/Google OAuth: edit .env and restart"
-echo "  - To stop: docker compose down"
-echo "  - Data is persisted in the awaitstep-data Docker volume"
+echo "Commands:"
+echo "  docker compose logs -f    View logs"
+echo "  docker compose down       Stop"
+echo "  docker compose up -d      Start"
+echo "  Edit .env and restart to change configuration"
