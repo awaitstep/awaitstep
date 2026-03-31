@@ -1,0 +1,69 @@
+name: Pre-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      pre_release_type:
+        description: 'Pre-release channel'
+        required: true
+        type: choice
+        options:
+          - beta
+          - alpha
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  pre-release:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev'
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Compute pre-release version
+        id: version
+        run: |
+          CURRENT=$(node -p "require('./package.json').version")
+          BASE=$(echo "$CURRENT" | sed 's/-.*//')
+          TYPE="${{ inputs.pre_release_type }}"
+
+          LATEST=$(git tag -l "v${BASE}-${TYPE}.*" | sort -V | tail -1)
+          if [ -z "$LATEST" ]; then
+            NUM=0
+          else
+            NUM=$(echo "$LATEST" | grep -oE '[0-9]+$')
+            NUM=$((NUM + 1))
+          fi
+
+          VERSION="${BASE}-${TYPE}.${NUM}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Create git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ steps.version.outputs.version }}" \
+            -m "Pre-release ${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
+
+      - name: Create GitHub pre-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${{ steps.version.outputs.version }}" \
+            --title "${{ steps.version.outputs.version }}" \
+            --prerelease \
+            --generate-notes \
+            --target dev
+
+  docker-publish:
+    needs: pre-release
+    uses: ./.github/workflows/docker-publish.yml
+    with:
+      version: ${{ needs.pre-release.outputs.version }}
