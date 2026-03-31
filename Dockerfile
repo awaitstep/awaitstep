@@ -23,7 +23,6 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --no-frozen-lockf
 # ---- Build ----
 FROM deps AS build
 COPY --from=pruner /app/out/full/ .
-ENV VITE_API_URL=""
 ENV VITE_APP_URL=""
 ENV NO_DTS=1
 RUN touch .env
