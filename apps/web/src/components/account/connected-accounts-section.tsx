@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Github } from 'lucide-react'
 import { Button } from '../ui/button'
 import { authClient } from '../../lib/auth-client'
+import { getOrigin } from '../../lib/utils'
 
 const PROVIDERS = [
   {
@@ -36,7 +37,7 @@ const PROVIDERS = [
 ]
 
 export function ConnectedAccountsSection() {
-  const appURL = import.meta.env.VITE_APP_URL ?? 'http://localhost:3000'
+  const appURL = getOrigin()
 
   const { data: accounts, isLoading } = useQuery({
     queryKey: ['linked-accounts'],

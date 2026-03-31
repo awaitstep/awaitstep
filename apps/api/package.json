@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "tsup",
     "dev": "tsx watch src/entry/node.ts",
     "test": "vitest run --passWithNoTests",
     "type-check": "tsc --noEmit",
@@ -14,6 +14,7 @@
     "@awaitstep/tsconfig": "workspace:*",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.5.0",
+    "tsup": "8.5.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.0"
@@ -31,6 +32,7 @@
     "hono": "^4.12.8",
     "hono-rate-limiter": "^0.5.3",
     "nanoid": "^5.1.6",
+    "pg": "8.20.0",
     "zod": "^4.3.6"
   }
 }

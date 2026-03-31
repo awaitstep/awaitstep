@@ -1,15 +1,5 @@
 {
   "extends": "../../tooling/tsconfig/base.json",
-  "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": "src"
-  },
   "include": ["src"],
-  "exclude": ["src/__tests__", "src/entry"],
-  "references": [
-    { "path": "../../packages/ir" },
-    { "path": "../../packages/codegen" },
-    { "path": "../../packages/db" },
-    { "path": "../../packages/provider-cloudflare" }
-  ]
+  "exclude": ["node_modules", "dist", "src/__tests__", "src/entry"]
 }

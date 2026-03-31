@@ -70,7 +70,7 @@ localDev.post('/:workflowId/local-dev/start', zValidator('json', startSchema), a
   const missingFromBuiltin = [...nodeTypesInIR].filter((t) => !baseRegistry?.registry.get(t))
   const installedNodes =
     missingFromBuiltin.length > 0
-      ? (await db.listInstalledNodes(c.get('organizationId'))).filter((n) =>
+      ? (await db.listInstalledNodes(c.get('organizationId'), { limit: 100 })).data.filter((n) =>
           missingFromBuiltin.includes(n.nodeId),
         )
       : []

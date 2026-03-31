@@ -12,6 +12,7 @@ import { slugify } from '../../lib/slug'
 import { useSheetStore } from '../../stores/sheet-store'
 import { useOrgStore } from '../../stores/org-store'
 import { toast } from 'sonner'
+import { cn } from '../../lib/utils'
 
 const orgSchema = z.object({
   name: z.string().min(1, 'Organization name is required').max(255),
@@ -92,14 +93,16 @@ export function OrgDialog({ hasOrgs }: OrgDialogProps) {
             </div>
             {errors.root && <p className="text-xs text-destructive">{errors.root.message}</p>}
             <div className="flex justify-end gap-2">
-              {!hasOrgs && (
+              {hasOrgs && (
                 <Dialog.Close asChild>
-                  <Button variant="ghost" size="sm">
-                    Cancel
-                  </Button>
+                  <Button variant="ghost">Cancel</Button>
                 </Dialog.Close>
               )}
-              <Button size="sm" disabled={mutation.isPending}>
+              <Button
+                className={cn(!hasOrgs && 'w-full')}
+                type="submit"
+                disabled={mutation.isPending}
+              >
                 {mutation.isPending ? (
                   <Loader2 size={14} className="animate-spin" />
                 ) : (

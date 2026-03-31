@@ -1,0 +1,60 @@
+import { defineConfig } from 'tsup'
+
+export default defineConfig({
+  entry: ['src/index.ts', 'src/entry/docker.ts', 'src/entry/node.ts'],
+  format: ['esm'],
+  target: 'node22',
+  splitting: false,
+  clean: true,
+  sourcemap: false,
+  dts: false,
+  treeshake: true,
+  platform: 'node',
+  minify: true,
+  minifyWhitespace: true,
+  minifySyntax: true,
+  minifyIdentifiers: true,
+  esbuildOptions(options) {
+    options.keepNames = true
+    options.target = 'node22'
+    options.ignoreAnnotations = true
+  },
+  noExternal: [/^(?!better-sqlite3).*/],
+  banner: {
+    js: `import { createRequire } from 'module';const require = createRequire(import.meta.url);import { fileURLToPath } from 'url';import { dirname } from 'path';const __filename = fileURLToPath(import.meta.url);const __dirname = dirname(__filename);`,
+  },
+  external: [
+    'better-sqlite3',
+    'events',
+    'fs',
+    'path',
+    'http',
+    'https',
+    'util',
+    'url',
+    'stream',
+    'zlib',
+    'crypto',
+    'buffer',
+    'process',
+    'net',
+    'tls',
+    'assert',
+    'os',
+    'child_process',
+    'querystring',
+    'dns',
+    'dgram',
+    'tty',
+    'v8',
+    'vm',
+    'worker_threads',
+    'async_hooks',
+    'string_decoder',
+    'perf_hooks',
+    'constants',
+  ],
+  env: {
+    NODE_ENV: process.env.NODE_ENV || 'development',
+  },
+})

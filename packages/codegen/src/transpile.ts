@@ -1,11 +1,9 @@
-import { transform } from 'esbuild'
+import { transform } from 'sucrase'
 
 export async function transpileToJS(tsSource: string): Promise<string> {
-  const result = await transform(tsSource, {
-    loader: 'ts',
-    format: 'esm',
-    target: 'es2022',
-    minify: false,
+  const result = transform(tsSource, {
+    transforms: ['typescript'],
+    disableESTransforms: true,
   })
   return result.code
 }

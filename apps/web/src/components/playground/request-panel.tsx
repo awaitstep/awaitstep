@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Loader2, Send } from 'lucide-react'
 import { toast } from 'sonner'
+import { getOrigin } from '../../lib/utils'
 import { Button } from '../ui/button'
 import { CodeEditor } from '../ui/code-editor'
 import { MethodBadge, ScopeBadge } from './playground-badges'
@@ -52,7 +53,7 @@ export function RequestPanel({
     onLoadingChange(true)
 
     const url = resolvedPath()
-    const apiBase = window.location.origin
+    const apiBase = getOrigin()
     const headers: Record<string, string> = {
       Authorization: `Bearer ${apiKey}`,
     }

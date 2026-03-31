@@ -2,12 +2,14 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { getCookie, getRequestHeader, deleteCookie } from '@tanstack/react-start/server'
 import { useState } from 'react'
+import { getApiBase } from '../lib/server-config'
 import { Github } from 'lucide-react'
 import { authClient } from '../lib/auth-client'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Separator } from '../components/ui/separator'
+import { getOrigin } from '../lib/utils'
 
 const getSignInContext = createServerFn({ method: 'GET' }).handler(
   async (): Promise<{ authenticated: boolean; redirectPath: string | null }> => {
@@ -16,7 +18,7 @@ const getSignInContext = createServerFn({ method: 'GET' }).handler(
     const cookie = getRequestHeader('cookie')
     if (!cookie) return { authenticated: false, redirectPath }
 
-    const apiBase = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
+    const apiBase = getApiBase()
     const res = await fetch(`${apiBase}/api/auth/get-session`, {
       headers: { cookie },
     })
@@ -52,7 +54,7 @@ function SignInPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const appURL = import.meta.env.VITE_APP_URL ?? 'http://localhost:3000'
+  const appURL = getOrigin()
   const callbackURL = redirectPath ? `${appURL}${redirectPath}` : `${appURL}/dashboard`
   const errorCallbackURL = `${appURL}/sign-in?error=true`
 

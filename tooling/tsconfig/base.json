@@ -3,17 +3,15 @@
   "compilerOptions": {
     "strict": true,
     "target": "ES2022",
-    "module": "ES2022",
-    "moduleResolution": "bundler",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "composite": true
+    "noEmit": true,
+    "allowImportingTsExtensions": true
   },
   "exclude": ["node_modules", "dist"]
 }

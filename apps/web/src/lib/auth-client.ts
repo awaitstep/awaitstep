@@ -3,7 +3,7 @@ import { magicLinkClient, organizationClient } from 'better-auth/client/plugins'
 import { useAuthStore } from '../stores/auth-store'
 
 export const authClient = createAuthClient({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:3001',
+  baseURL: import.meta.env.VITE_API_URL ?? '',
   plugins: [magicLinkClient(), organizationClient()],
 })
 

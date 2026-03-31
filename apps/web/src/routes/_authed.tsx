@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect, useMatches } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequestHeader, setCookie } from '@tanstack/react-start/server'
+import { getApiBase } from '../lib/server-config'
 import { useAuthStore, type SessionData } from '../stores/auth-store'
 import { type Organization } from '../stores/org-store'
 import OrgWrapper from '../wrappers/org'
@@ -16,7 +17,7 @@ const getAuthData = createServerFn({ method: 'GET' }).handler(
     const cookie = getRequestHeader('cookie')
     if (!cookie) return null
 
-    const apiBase = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
+    const apiBase = getApiBase()
     const headers = { cookie }
 
     const sessionRes = await fetch(`${apiBase}/api/auth/get-session`, { headers })
