@@ -79,35 +79,50 @@ awaitstep.dev/
 │   └── api/                   # Hono API server
 ├── nodes/                     # Custom node definitions (e.g. resend_send_email)
 ├── docs/                      # Architecture + system documentation
-├── plan/                      # Design docs and implementation plans
 └── tooling/
     └── tsconfig/              # Shared TypeScript configs
 ```
 
 ## Supported Node Types
 
-| Node           | Description                |
-| -------------- | -------------------------- |
-| Step           | Execute custom code        |
-| Sleep          | Pause for a duration       |
-| Sleep Until    | Pause until a timestamp    |
-| Branch         | Conditional branching      |
-| Parallel       | Run steps concurrently     |
-| HTTP Request   | Make an HTTP call          |
-| Wait for Event | Pause until external event |
-| Custom         | User-defined node types    |
+| Node           | Description                               |
+| -------------- | ----------------------------------------- |
+| Step           | Execute custom code                       |
+| Sleep          | Pause for a duration                      |
+| Sleep Until    | Pause until a timestamp                   |
+| Branch         | Conditional branching                     |
+| Parallel       | Run steps concurrently                    |
+| Loop           | Repeat steps (forEach, while, or count)   |
+| Try / Catch    | Wrap steps in try/catch/finally           |
+| Exit           | Break from a loop or return from workflow |
+| HTTP Request   | Make an HTTP call                         |
+| Wait for Event | Pause until external event                |
+| Custom         | User-defined node types                   |
 
 ## Quickstart
+
+**Prerequisites:** Node.js >= 20, pnpm >= 9
 
 ```bash
 git clone https://github.com/awaitstep/awaitstep.dev.git
 cd awaitstep.dev
+cp .env.example .env
+```
+
+Generate the required secrets and update `.env`:
+
+```bash
+# Generate TOKEN_ENCRYPTION_KEY and BETTER_AUTH_SECRET
+openssl rand -hex 32  # run twice, one for each key
+```
+
+Then build and start:
+
+```bash
 pnpm install
 pnpm build
 pnpm dev
 ```
-
-**Prerequisites:** Node.js >= 20, pnpm >= 9
 
 ## Development
 
@@ -124,8 +139,8 @@ pnpm dev          # Start dev servers
 - **Frontend:** TanStack Start, ReactFlow, Monaco Editor, Zustand, Tailwind CSS
 - **Backend:** Hono
 - **Auth:** better-auth (GitHub, Google, Magic Links)
-- **Database:** SQLite (dev) / PostgreSQL (prod) via Drizzle ORM
-- **Codegen:** esbuild
+- **Database:** SQLite (default) / PostgreSQL (optional) via Drizzle ORM
+- **Codegen:** sucrase
 - **Testing:** Vitest
 - **Monorepo:** pnpm workspaces + Turborepo
 

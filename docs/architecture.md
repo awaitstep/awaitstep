@@ -79,7 +79,7 @@ Each provider is responsible for:
 
 ```
 1. BUILD
-   Canvas State → WorkflowIR → Provider.generateCode() → TypeScript → esbuild → JavaScript
+   Canvas State → WorkflowIR → Provider.generateCode() → TypeScript → sucrase → JavaScript
 
 2. DEPLOY
    Resolve workflow env vars (including {{global.env.NAME}} refs)
@@ -101,9 +101,10 @@ All app code (API routes, business logic) is runtime-agnostic. No `process.env` 
 Node-specific APIs outside of entry points. The Web Crypto API is used for token
 encryption so it works on Node.js, Cloudflare Workers, Deno, and Bun.
 
-Entry points (`apps/api/src/entry/node.ts`, `apps/api/src/entry/worker.ts`) are the
-only files that read environment variables and initialize platform-specific resources.
-The app factory (`createApp`) receives everything it needs as parameters.
+Entry points (`apps/api/src/entry/node.ts` for local dev, `apps/api/src/entry/docker.ts`
+for Docker deployments) are the only files that read environment variables and initialize
+platform-specific resources. The app factory (`createApp`) receives everything it needs
+as parameters.
 
 ### Provider Interface
 
@@ -192,15 +193,17 @@ The compilation pipeline transforms canvas state through IR, code generation, tr
 
 ## Database Schema
 
-Drizzle ORM with dual support for SQLite (development) and PostgreSQL (production).
+Drizzle ORM with runtime-selected database: PostgreSQL when `DATABASE_URL` is set, SQLite otherwise. Both are fully supported in any deployment mode.
 
-| Table         | Purpose                                  |
-| ------------- | ---------------------------------------- |
-| `workflows`   | Workflow metadata + env vars JSON        |
-| `versions`    | IR + generated code history              |
-| `deployments` | Deployment records                       |
-| `runs`        | Workflow execution instances             |
-| `env_vars`    | Global environment variables (encrypted) |
-| `connections` | Provider credentials (encrypted)         |
-| `api_keys`    | Scoped API keys                          |
-| `auth_*`      | better-auth session/user tables          |
+| Table             | Purpose                                      |
+| ----------------- | -------------------------------------------- |
+| `projects`        | Project metadata (org-scoped)                |
+| `workflows`       | Workflow metadata + env vars JSON            |
+| `versions`        | IR + generated code history                  |
+| `deployments`     | Deployment records                           |
+| `runs`            | Workflow execution instances                 |
+| `env_vars`        | Global environment variables (encrypted)     |
+| `connections`     | Provider credentials (encrypted)             |
+| `api_keys`        | Scoped API keys (project-scoped)             |
+| `installed_nodes` | Marketplace node bundles (org-scoped)        |
+| `auth_*`          | better-auth session/user/organization tables |

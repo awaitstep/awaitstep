@@ -8,6 +8,10 @@ import { createApp, createAuth } from '../index.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
 import { createLogger } from '../lib/logger.js'
 import { loadNodeRegistry } from '../lib/node-registry.js'
+import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
+
+const DEFAULT_REGISTRY_URL =
+  'https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry'
 
 const __appRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 
@@ -92,6 +96,10 @@ async function start() {
     logger.warn('Node registry not found — run `pnpm nodes:build` to generate it')
   }
 
+  const registryUrl = process.env['REGISTRY_URL'] ?? DEFAULT_REGISTRY_URL
+  const remoteNodeRegistry = createRemoteNodeRegistry({ baseUrl: registryUrl })
+  logger.info(`Remote node registry: ${registryUrl}`)
+
   const appName = process.env['APP_NAME']
   const apiApp = createApp({
     db,
@@ -100,6 +108,7 @@ async function start() {
     corsOrigin: baseURL,
     isDev: false,
     nodeRegistry,
+    remoteNodeRegistry,
     appName,
   })
 

@@ -4,7 +4,7 @@ All endpoints require authentication via API key (`Authorization: Bearer ask_...
 
 API keys are scoped: `read` (queries), `write` (create/update/delete), `deploy` (deploy/trigger/takedown/run control). All keys require at least `read` scope.
 
-Base URL: `https://app.awaitstep.dev/api`
+Base URL: `https://app.awaitstep.dev/api` (cloud) or `http://localhost:8080/api` (self-hosted, adjust to match your instance URL)
 
 ## Rate Limits
 
@@ -286,6 +286,30 @@ Deploy a workflow version to a connection. Validates environment variables and c
 }
 ```
 
+### `POST /workflows/:workflowId/deploy-stream`
+
+Deploy a workflow with real-time progress updates via Server-Sent Events. Same request body as `/deploy`.
+
+**Scope:** `deploy`
+| Param | In | Required | Description |
+|-------|----|----------|-------------|
+| `workflowId` | path | yes | Workflow ID |
+
+```json
+{
+  "connectionId": "connection-id",
+  "versionId": "optional-version-id"
+}
+```
+
+Progress events follow this sequence:
+
+```
+INITIALIZING → GENERATING_CODE → CODE_READY → DETECTING_BINDINGS →
+BINDINGS_READY → CREATING_WORKER → DEPLOYING → WORKER_DEPLOYED →
+UPDATING_WORKFLOW → COMPLETED
+```
+
 ### `POST /workflows/:workflowId/trigger`
 
 Trigger an execution of a deployed workflow. Params payload is capped at 100KB.
@@ -386,6 +410,11 @@ List all connections. Credential values are redacted in the response.
 
 **Scope:** `read`
 
+| Param    | In    | Required | Description                        |
+| -------- | ----- | -------- | ---------------------------------- |
+| `cursor` | query | no       | Pagination cursor                  |
+| `limit`  | query | no       | Items per page (1–100, default 50) |
+
 ### `POST /connections`
 
 Create a new provider connection.
@@ -397,6 +426,28 @@ Create a new provider connection.
   "provider": "cloudflare",
   "credentials": { "apiToken": "...", "accountId": "..." },
   "name": "My Connection"
+}
+```
+
+### `POST /connections/verify-token`
+
+Verify provider credentials before saving. Currently supports the `cloudflare` provider.
+
+**Scope:** `write`
+
+```json
+{
+  "provider": "cloudflare",
+  "credentials": { "apiToken": "..." }
+}
+```
+
+Returns:
+
+```json
+{
+  "valid": true,
+  "accounts": [{ "id": "abc123", "name": "My Account" }]
 }
 ```
 
@@ -587,25 +638,105 @@ Get a single node definition.
 
 ---
 
+## Marketplace
+
+### `GET /marketplace`
+
+Get the full marketplace catalog with installation status for the current organization.
+
+**Scope:** `read`
+
+### `GET /marketplace/:nodeId`
+
+Get details for a specific marketplace node, including available versions and installation status.
+
+**Scope:** `read`
+| Param | In | Required | Description |
+|-------|----|----------|-------------|
+| `nodeId` | path | yes | Node ID (alphanumeric, hyphens, underscores) |
+
+### `GET /marketplace/installed`
+
+List installed marketplace nodes for the current organization.
+
+**Scope:** `read`
+
+| Param    | In    | Required | Description                        |
+| -------- | ----- | -------- | ---------------------------------- |
+| `cursor` | query | no       | Pagination cursor                  |
+| `limit`  | query | no       | Items per page (1–100, default 50) |
+
+### `POST /marketplace/install`
+
+Install a node from the marketplace.
+
+**Scope:** `write`
+
+```json
+{
+  "nodeId": "stripe",
+  "version": "1.0.0"
+}
+```
+
+`version` is optional — defaults to the latest available version.
+
+### `POST /marketplace/uninstall`
+
+Uninstall a previously installed node.
+
+**Scope:** `write`
+
+```json
+{
+  "nodeId": "stripe"
+}
+```
+
+### `POST /marketplace/update`
+
+Update an installed node to a newer version.
+
+**Scope:** `write`
+
+```json
+{
+  "nodeId": "stripe",
+  "version": "1.1.0"
+}
+```
+
+`version` is optional — defaults to the latest available version.
+
+---
+
 ## Session-Only Endpoints
 
 These endpoints require session authentication and are **not accessible via API key**.
 
 ### `GET /api-keys`
 
-List all API keys for the authenticated user.
+List all API keys for the current organization.
+
+| Param    | In    | Required | Description                        |
+| -------- | ----- | -------- | ---------------------------------- |
+| `cursor` | query | no       | Pagination cursor                  |
+| `limit`  | query | no       | Items per page (1–100, default 50) |
 
 ### `POST /api-keys`
 
-Create a new API key. The full key is returned only once in the response.
+Create a new API key scoped to a project. The full key is returned only once in the response.
 
 ```json
 {
   "name": "My Key",
+  "projectId": "project-id",
   "scopes": ["read", "write"],
   "expiresAt": "2025-12-31T00:00:00Z"
 }
 ```
+
+`expiresAt` is optional.
 
 ### `DELETE /api-keys/:id`
 

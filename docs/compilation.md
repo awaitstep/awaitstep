@@ -9,7 +9,7 @@ graph LR
     Canvas["Canvas State\n(ReactFlow)"] --> BuildIR["Build IR\n(buildIRFromState)"]
     BuildIR --> Validate["Validate IR\n(schemas + refs)"]
     Validate --> Generate["Generate Code\n(provider-specific)"]
-    Generate --> Transpile["Transpile\n(esbuild TS→JS)"]
+    Generate --> Transpile["Transpile\n(sucrase TS→JS)"]
     Transpile --> Deploy["Deploy\n(provider adapter)"]
 ```
 
@@ -191,6 +191,67 @@ await Promise.all(
 )
 ```
 
+**Loop** — Repeats child steps using `forEach`, `while`, or a fixed count. Step names are automatically suffixed with the iteration index to keep them unique:
+
+```typescript
+// forEach — iterates over a collection
+await step.do("Process Customers", async () => {
+  let _output;
+  let _loop_i = 0;
+  for (const item of get_customers.customers) {
+    const send_email = await step.do(`Send Email [${_loop_i}]`, async () => { ... });
+    _loop_i++;
+  }
+  return _output;
+});
+
+// while — repeats until condition is false
+await step.do("Poll Status", async () => {
+  let _output;
+  let _loop_i = 0;
+  while (status !== "done") {
+    const check = await step.do(`Check [${_loop_i}]`, async () => { ... });
+    _loop_i++;
+  }
+  return _output;
+});
+
+// times — fixed iteration count
+await step.do("Retry 3 Times", async () => {
+  let _output;
+  for (let _loop_i = 0; _loop_i < 3; _loop_i++) {
+    const attempt = await step.do(`Attempt [${_loop_i}]`, async () => { ... });
+  }
+  return _output;
+});
+```
+
+Loop nodes use `collectChain()` (same as Branch) to inline child nodes within the loop body.
+
+**Try / Catch** — Wraps child steps in error handling with optional `finally`:
+
+```typescript
+try {
+  const risky_call = await step.do("Risky Call", async () => { ... });
+} catch (err) {
+  const handle_error = await step.do("Handle Error", async () => { ... });
+} finally {
+  const cleanup = await step.do("Cleanup", async () => { ... });
+}
+```
+
+Child nodes are connected via labeled edges (`try`, `catch`, `finally`). The `finally` branch is optional.
+
+**Exit** — Breaks from a loop or returns from the workflow. Context-aware: emits `break` inside a loop, `return` at the top level:
+
+```typescript
+// Conditional break inside a loop
+if (poll_result.status === 'complete') break
+
+// Unconditional return at top level
+return
+```
+
 **HTTP Request** — Fetch call wrapped in a step:
 
 ```typescript
@@ -260,12 +321,10 @@ interface GeneratedArtifact {
 
 **Location:** `packages/codegen/src/transpile.ts`
 
-The TypeScript source is transpiled to JavaScript using esbuild:
+The TypeScript source is transpiled to JavaScript using sucrase:
 
-- **Loader:** `ts`
-- **Format:** `esm` (ES modules)
-- **Target:** `es2022`
-- **Minify:** `false` (keeps output readable for debugging)
+- **Transforms:** `['typescript']` (strip type annotations only)
+- **ES transforms disabled** — no downleveling, output preserves modern syntax
 
 ```typescript
 transpileToJS(tsSource: string): Promise<string>
@@ -308,7 +367,6 @@ interface ProviderConfig {
 
 The provider is responsible for:
 
-- Transpiling TypeScript to JavaScript
 - Writing deployment artifacts to a temp directory
 - Installing npm dependencies (if any)
 - Deploying to the runtime platform

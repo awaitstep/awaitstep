@@ -411,6 +411,8 @@ Set `REGISTRY_URL` in your `.env`:
 REGISTRY_URL=https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry
 ```
 
+`REGISTRY_URL` defaults to the official AwaitStep registry (`https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry`), so the marketplace works out of the box. Override this to point at a private registry if needed.
+
 ## Authoring Checklist
 
 - [ ] `id` in `node.json` matches directory name (lowercase snake_case)
