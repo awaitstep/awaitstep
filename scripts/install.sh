@@ -20,6 +20,9 @@ fi
 read -rp "Port [8080]: " PORT
 PORT="${PORT:-8080}"
 
+# Optional: Resend API key for magic link emails
+read -rp "Resend API key (optional, for magic link emails): " RESEND_API_KEY
+
 # Generate secrets
 TOKEN_ENCRYPTION_KEY=$(openssl rand -hex 32)
 BETTER_AUTH_SECRET=$(openssl rand -hex 32)
@@ -33,6 +36,9 @@ BETTER_AUTH_URL=http://localhost:${PORT}
 
 # To use Postgres instead of SQLite, set DATABASE_URL:
 # DATABASE_URL=postgres://user:pass@host:5432/awaitstep
+
+# Resend API key for magic link emails:
+RESEND_API_KEY=${RESEND_API_KEY}
 
 # Uncomment to enable OAuth providers:
 # GITHUB_CLIENT_ID=
@@ -52,11 +58,11 @@ services:
     container_name: awaitstep
     restart: unless-stopped
     ports:
-      - "${PORT:-8080}:8080"
+      - ${PORT:-8080}:8080
     volumes:
       - awaitstep-data:/app/data
     environment:
-      PORT: "8080"
+      PORT: 8080
       TOKEN_ENCRYPTION_KEY: "${TOKEN_ENCRYPTION_KEY}"
       BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET}"
       BETTER_AUTH_URL: "${BETTER_AUTH_URL:-http://localhost:8080}"
@@ -65,6 +71,7 @@ services:
       GITHUB_CLIENT_SECRET: "${GITHUB_CLIENT_SECRET:-}"
       GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
       GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET:-}"
+      RESEND_API_KEY: "${RESEND_API_KEY:-}"
 
 volumes:
   awaitstep-data:
