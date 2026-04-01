@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.3-beta.1](https://github.com/awaitstep/awaitstep.dev/compare/v1.0.2-beta.1...v1.0.3-beta.1) (2026-04-01)
+
+
+### Bug Fixes
+
+* enable local dev routes in all environments ([bd3ff52](https://github.com/awaitstep/awaitstep.dev/commit/bd3ff5269aab814f99f01c2cee4468638bb22823))
+
 ## [1.0.2-beta.1](https://github.com/awaitstep/awaitstep.dev/compare/v1.0.1-beta.1...v1.0.2-beta.1) (2026-03-31)
 
 
