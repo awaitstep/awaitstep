@@ -64,7 +64,7 @@ export async function startLocalDev(
     )
   }
 
-  const child = spawn('npx', ['wrangler', 'dev', '--port', String(port)], {
+  const child = spawn('npx', ['wrangler', 'dev', '--port', String(port), '--ip', '0.0.0.0'], {
     cwd: deployDir,
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: false,
