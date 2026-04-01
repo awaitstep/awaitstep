@@ -39,7 +39,7 @@ const getCanvasContext = createServerFn({ method: 'GET' }).handler(async () => (
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId/canvas')({
   component: WorkflowEditorPageWrapper,
-  beforeLoad: () => getCanvasContext(),
+  loader: () => getCanvasContext(),
   validateSearch: (search: Record<string, unknown>): { template?: boolean; version?: string } => ({
     template: search.template === true || search.template === '1' || search.template === 'true',
     version: typeof search.version === 'string' ? search.version : undefined,
@@ -67,7 +67,7 @@ function WorkflowEditorPage() {
   const ready = useOrgReady()
   const { registry: nodeRegistry } = useNodeRegistry()
   const isNew = workflowId === 'new'
-  const { localDev: localDevEnabled } = Route.useRouteContext()
+  const { localDev: localDevEnabled } = Route.useLoaderData()
 
   const { metadata, nodeCount, showSettings, isDirty } = useWorkflowStore(
     useShallow((s) => ({
