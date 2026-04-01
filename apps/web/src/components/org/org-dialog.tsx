@@ -34,7 +34,7 @@ export function OrgDialog({ hasOrgs }: OrgDialogProps) {
     defaultValues: { name: '' },
   })
 
-  const { addOrganization } = useOrgStore()
+  const { addOrganization, setActiveOrganization } = useOrgStore()
   const { closeOrgDialog, openProjectDialog } = useSheetStore()
 
   const mutation = useMutation({
@@ -51,6 +51,7 @@ export function OrgDialog({ hasOrgs }: OrgDialogProps) {
       closeOrgDialog()
       toast.success('Organization created')
       if (!hasOrgs) {
+        setActiveOrganization(newOrg.id)
         openProjectDialog()
       }
     },
