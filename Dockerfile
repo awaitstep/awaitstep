@@ -1,10 +1,10 @@
-FROM node:22-alpine AS base
+FROM node:22-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
 
 # ---- Prune ----
-FROM node:22-alpine AS pruner
+FROM node:22-slim AS pruner
 WORKDIR /app
 RUN npm install -g turbo
 COPY . .
@@ -12,7 +12,6 @@ RUN turbo prune @awaitstep/api @awaitstep/web @awaitstep/node-cli --docker
 
 # ---- Dependencies ----
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY --from=pruner /app/out/json/ .
 COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
@@ -33,7 +32,7 @@ FROM base AS production
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Wrangler CLI (needed for deploy, local dev, and secret management)
+# Wrangler CLI (needed for local dev testing)
 RUN npm install -g wrangler
 
 # Native module: better-sqlite3 (only runtime dep not bundled by tsup)
