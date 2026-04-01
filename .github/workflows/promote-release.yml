@@ -1,0 +1,70 @@
+name: Promote to Latest Release
+
+on:
+  schedule:
+    - cron: '0 12 * * 1' # Every Monday at noon UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.stable }}
+      skipped: ${{ steps.version.outputs.skipped }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Compute stable version
+        id: version
+        run: |
+          CURRENT=$(node -p "require('./package.json').version")
+
+          if [[ "$CURRENT" != *-beta* ]]; then
+            echo "Current version $CURRENT is not a beta — nothing to promote"
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          STABLE=$(echo "$CURRENT" | sed 's/-beta\..*//')
+
+          if git rev-parse "v${STABLE}" >/dev/null 2>&1; then
+            echo "Stable tag v${STABLE} already exists — nothing to promote"
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "stable=$STABLE" >> "$GITHUB_OUTPUT"
+          echo "skipped=false" >> "$GITHUB_OUTPUT"
+          echo "Promoting $CURRENT → $STABLE"
+
+      - name: Create stable git tag
+        if: steps.version.outputs.skipped == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ steps.version.outputs.stable }}" \
+            -m "Release ${{ steps.version.outputs.stable }}"
+          git push origin "v${{ steps.version.outputs.stable }}"
+
+      - name: Create GitHub Release
+        if: steps.version.outputs.skipped == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${{ steps.version.outputs.stable }}" \
+            --title "${{ steps.version.outputs.stable }}" \
+            --generate-notes \
+            --latest
+
+  docker-publish:
+    needs: promote
+    if: ${{ needs.promote.outputs.skipped == 'false' }}
+    uses: ./.github/workflows/docker-publish.yml
+    with:
+      version: ${{ needs.promote.outputs.version }}
