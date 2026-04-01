@@ -23,8 +23,6 @@ export interface LocalDevSession {
   port: number
   url: string
   pid: number
-  stop: () => Promise<void>
-  getLogs: (since?: number) => LocalDevLogEntry[]
 }
 
 export interface LocalDevLogEntry {
@@ -36,7 +34,6 @@ export interface LocalDevLogEntry {
 export interface LocalDevOptions {
   workflowId: string
   workflowName: string
-  port?: number
   vars?: Record<string, string>
   secrets?: Record<string, string>
   dependencies?: Record<string, string>

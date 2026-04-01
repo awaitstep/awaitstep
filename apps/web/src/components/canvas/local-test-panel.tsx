@@ -42,6 +42,12 @@ export function LocalTestPanel({ workflowId, onClose }: LocalTestPanelProps) {
     }
   }
 
+  useEffect(() => {
+    return () => {
+      stop()
+    }
+  }, [])
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}

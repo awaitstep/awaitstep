@@ -1,78 +1,83 @@
-import { writeFile, mkdir, rm } from 'node:fs/promises'
+import { writeFile, mkdir, rm, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { execFile, spawn, type ChildProcess } from 'node:child_process'
+import { execFile, exec, spawn, type ChildProcess } from 'node:child_process'
 import { promisify } from 'node:util'
-import type {
-  GeneratedArtifact,
-  LocalDevOptions,
-  LocalDevSession,
-  LocalDevLogEntry,
-} from '@awaitstep/codegen'
+import { createConnection } from 'node:net'
+import type { GeneratedArtifact, LocalDevOptions, LocalDevLogEntry } from '@awaitstep/codegen'
 import { generateWranglerConfig } from './wrangler-config.js'
 import { workerName, workflowClassName, sanitizedWorkflowName } from './naming.js'
 
 const execFileAsync = promisify(execFile)
+const execAsync = promisify(exec)
 
-const DEFAULT_PORT = 8787
+export const LOCAL_DEV_PORT = 8787
+const LOCAL_DEV_DIR = join(tmpdir(), 'awaitstep-local-dev')
+const LOG_FILE = join(LOCAL_DEV_DIR, 'output.log')
 const MAX_LOG_LINES = 500
 
-/** Cloudflare-specific local dev session with deployDir for cleanup. */
-interface InternalLocalDevSession extends LocalDevSession {
-  deployDir: string
+/** Kill whatever process is listening on the given port. */
+export async function killPort(port: number = LOCAL_DEV_PORT): Promise<void> {
+  try {
+    const { stdout } = await execAsync(`lsof -ti :${port}`)
+    const pids = stdout.trim().split('\n').filter(Boolean)
+    for (const pid of pids) {
+      try {
+        process.kill(Number(pid), 'SIGKILL')
+      } catch {
+        // already dead
+      }
+    }
+    await new Promise((r) => setTimeout(r, 500))
+  } catch {
+    // No process on port — nothing to kill
+  }
+}
+
+/** Check if a port is currently listening. */
+export function isPortListening(port: number = LOCAL_DEV_PORT): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = createConnection({ port, host: 'localhost' })
+    socket.once('connect', () => {
+      socket.destroy()
+      resolve(true)
+    })
+    socket.once('error', () => {
+      resolve(false)
+    })
+  })
+}
+
+/** Read logs from the local dev log file. */
+export async function readLogs(since?: number): Promise<LocalDevLogEntry[]> {
+  try {
+    const content = await readFile(LOG_FILE, 'utf-8')
+    const logs: LocalDevLogEntry[] = JSON.parse(content)
+    if (!since) return logs.slice(-MAX_LOG_LINES)
+    return logs.filter((l) => l.timestamp > since)
+  } catch {
+    return []
+  }
 }
 
 export async function startLocalDev(
   artifact: GeneratedArtifact,
   options: LocalDevOptions,
-): Promise<InternalLocalDevSession> {
-  const name = workerName(options.workflowId)
-  const className = workflowClassName(options.workflowName)
-  const port = options.port ?? DEFAULT_PORT
-  const deployDir = join(tmpdir(), `awaitstep-local-${options.workflowId}-${Date.now()}`)
+): Promise<{ port: number; url: string; pid: number }> {
+  await killPort(LOCAL_DEV_PORT)
 
-  await mkdir(deployDir, { recursive: true })
+  // Wipe and recreate fixed deploy dir
+  await rm(LOCAL_DEV_DIR, { recursive: true, force: true }).catch(() => {})
+  await scaffoldDeployDir(artifact, options)
+  await installDependencies(LOCAL_DEV_DIR, options.dependencies)
 
-  const scriptPath = join(deployDir, artifact.filename)
-  await writeFile(scriptPath, artifact.compiled ?? artifact.source, 'utf-8')
+  const child = spawn(
+    'npx',
+    ['wrangler', 'dev', '--port', String(LOCAL_DEV_PORT), '--ip', '0.0.0.0'],
+    { cwd: LOCAL_DEV_DIR, stdio: ['ignore', 'pipe', 'pipe'], detached: false },
+  )
 
-  const wranglerConfig = generateWranglerConfig({
-    workerName: name,
-    className,
-    workflowName: sanitizedWorkflowName(options.workflowName),
-    main: `./${artifact.filename}`,
-    vars: options.vars,
-  })
-  await writeFile(join(deployDir, 'wrangler.json'), wranglerConfig, 'utf-8')
-
-  // Write .dev.vars for secrets (wrangler's local secrets mechanism)
-  if (options.secrets && Object.keys(options.secrets).length > 0) {
-    const devVars = Object.entries(options.secrets)
-      .map(([key, value]) => `${key}=${value}`)
-      .join('\n')
-    await writeFile(join(deployDir, '.dev.vars'), devVars, 'utf-8')
-  }
-
-  // Install npm dependencies if any
-  if (options.dependencies && Object.keys(options.dependencies).length > 0) {
-    const pkg = { name: 'awaitstep-local-dev', private: true, dependencies: options.dependencies }
-    await writeFile(join(deployDir, 'package.json'), JSON.stringify(pkg, null, 2), 'utf-8')
-    await execFileAsync(
-      'npm',
-      ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'],
-      { cwd: deployDir, timeout: 60_000 },
-    )
-  }
-
-  const child = spawn('npx', ['wrangler', 'dev', '--port', String(port), '--ip', '0.0.0.0'], {
-    cwd: deployDir,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: false,
-  })
-
-  const url = `http://localhost:${port}`
-
-  // Log buffer — ring buffer capped at MAX_LOG_LINES
+  const url = `http://localhost:${LOCAL_DEV_PORT}`
   const logs: LocalDevLogEntry[] = []
 
   function appendLog(stream: 'stdout' | 'stderr', data: Buffer) {
@@ -83,11 +88,10 @@ export async function startLocalDev(
     const now = Date.now()
     for (const text of lines) {
       logs.push({ timestamp: now, stream, text })
+      if (logs.length > MAX_LOG_LINES) logs.splice(0, logs.length - MAX_LOG_LINES)
     }
-    // Trim to max size
-    if (logs.length > MAX_LOG_LINES) {
-      logs.splice(0, logs.length - MAX_LOG_LINES)
-    }
+    // Persist to file so logs survive without session state
+    writeFile(LOG_FILE, JSON.stringify(logs), 'utf-8').catch(() => {})
   }
 
   child.stdout?.on('data', (data: Buffer) => appendLog('stdout', data))
@@ -95,31 +99,50 @@ export async function startLocalDev(
 
   await waitForReady(child, url, logs)
 
-  let stopped = false
-  async function stop() {
-    if (stopped) return
-    stopped = true
-    child.kill('SIGTERM')
-    await new Promise<void>((resolve) => {
-      child.on('close', () => resolve())
-      setTimeout(resolve, 5_000)
-    })
-    await rm(deployDir, { recursive: true, force: true }).catch(() => {})
-  }
+  return { port: LOCAL_DEV_PORT, url, pid: child.pid! }
+}
 
-  function getLogs(since?: number): LocalDevLogEntry[] {
-    if (!since) return [...logs]
-    return logs.filter((l) => l.timestamp > since)
-  }
+async function scaffoldDeployDir(
+  artifact: GeneratedArtifact,
+  options: LocalDevOptions,
+): Promise<void> {
+  await mkdir(LOCAL_DEV_DIR, { recursive: true })
 
-  return {
-    port,
-    url,
-    pid: child.pid!,
-    deployDir,
-    stop,
-    getLogs,
+  await writeFile(
+    join(LOCAL_DEV_DIR, artifact.filename),
+    artifact.compiled ?? artifact.source,
+    'utf-8',
+  )
+
+  const wranglerConfig = generateWranglerConfig({
+    workerName: workerName(options.workflowId),
+    className: workflowClassName(options.workflowName),
+    workflowName: sanitizedWorkflowName(options.workflowName),
+    main: `./${artifact.filename}`,
+    vars: options.vars,
+  })
+  await writeFile(join(LOCAL_DEV_DIR, 'wrangler.json'), wranglerConfig, 'utf-8')
+
+  if (options.secrets && Object.keys(options.secrets).length > 0) {
+    const devVars = Object.entries(options.secrets)
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n')
+    await writeFile(join(LOCAL_DEV_DIR, '.dev.vars'), devVars, 'utf-8')
   }
+}
+
+async function installDependencies(
+  deployDir: string,
+  dependencies?: Record<string, string>,
+): Promise<void> {
+  if (!dependencies || Object.keys(dependencies).length === 0) return
+  const pkg = { name: 'awaitstep-local-dev', private: true, dependencies }
+  await writeFile(join(deployDir, 'package.json'), JSON.stringify(pkg, null, 2), 'utf-8')
+  await execFileAsync(
+    'npm',
+    ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'],
+    { cwd: deployDir, timeout: 60_000 },
+  )
 }
 
 function waitForReady(child: ChildProcess, url: string, logs: LocalDevLogEntry[]): Promise<void> {
