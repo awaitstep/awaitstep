@@ -19,17 +19,20 @@ export function createAuth(options: AuthOptions) {
     database: options.database as Parameters<typeof betterAuth>[0]['database'],
     trustedOrigins: options.trustedOrigins ?? [options.baseURL],
     plugins: [
-      magicLink({
-        sendMagicLink:
-          options.sendMagicLink ??
-          (async (data) => {
-            console.log(`[Magic Link] ${data.email}: ${data.url}`)
-          }),
-      }),
+      ...(options.sendMagicLink
+        ? [
+            magicLink({
+              sendMagicLink: options.sendMagicLink,
+            }),
+          ]
+        : []),
       organization({
         allowUserToCreateOrganization: true,
       }),
     ],
+    user: {
+      deleteUser: { enabled: true },
+    },
     socialProviders: {
       ...(options.github && {
         github: {
