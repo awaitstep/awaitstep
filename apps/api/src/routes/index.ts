@@ -20,7 +20,7 @@ import { nodes } from './nodes.js'
 import { marketplace } from './marketplace.js'
 import { localDev } from './local-dev.js'
 
-export function createRouter(auth: Auth, options?: { isDev?: boolean }) {
+export function createRouter(auth: Auth) {
   const router = new Hono<AppEnv>()
 
   // Global rate limit — 200 requests per minute per IP
@@ -126,11 +126,9 @@ export function createRouter(auth: Auth, options?: { isDev?: boolean }) {
   router.use('/api-keys/*', requireSessionAuth)
   router.use('/api-keys', requireSessionAuth)
 
-  // Local dev routes (dev-only)
-  if (options?.isDev) {
-    router.use('/workflows/:workflowId/local-dev/*', requireWorkflowAccess)
-    router.route('/workflows', localDev)
-  }
+  // Local dev routes
+  router.use('/workflows/:workflowId/local-dev/*', requireWorkflowAccess)
+  router.route('/workflows', localDev)
 
   // Routes
   router.route('/workflows', workflows)
