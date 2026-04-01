@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from '../lib/api-client'
 
@@ -12,7 +12,6 @@ export interface LogEntry {
 }
 
 export function useLocalDev(workflowId: string) {
-  const queryClient = useQueryClient()
   const [state, setState] = useState<LocalDevState>('idle')
   const [info, setInfo] = useState<{ port: number; url: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -25,7 +24,7 @@ export function useLocalDev(workflowId: string) {
   const { data: logs = [] } = useQuery({
     queryKey: ['local-dev-logs', workflowId],
     queryFn: () => api.getLocalDevLogs(workflowId),
-    refetchInterval: isRunning ? 1_000 : false,
+    refetchInterval: isRunning ? 5_000 : false,
     gcTime: 1_000,
     enabled: isRunning,
   })
@@ -35,7 +34,11 @@ export function useLocalDev(workflowId: string) {
     queryKey: ['local-dev-instance', workflowId, instanceId],
     queryFn: () => api.getLocalDevInstance(workflowId, instanceId!),
     gcTime: 1_000,
-    enabled: false,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
+    //@ts-expect-error: query.state.data is of type LocalDevInstance | null
+    refetchInterval: (query) => (query.state.data?.status === 'running' ? 2_000 : false),
+    enabled: !!instanceId,
   })
 
   // ── Start ──────────────────────────────────────────
@@ -101,7 +104,5 @@ export function useLocalDev(workflowId: string) {
     start,
     stop,
     trigger: triggerMutation.mutateAsync,
-    checkInstance: () =>
-      queryClient.refetchQueries({ queryKey: ['local-dev-instance', workflowId, instanceId] }),
   }
 }

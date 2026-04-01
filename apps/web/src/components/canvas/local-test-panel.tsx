@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Play, Square, Loader2, ExternalLink, Send, Terminal, X, RefreshCw } from 'lucide-react'
+import { Play, Square, Loader2, ExternalLink, Send, Terminal, X } from 'lucide-react'
 import { Button } from '../ui/button'
 import { cn } from '../../lib/utils'
 import { useLocalDev, type LogEntry } from '../../hooks/use-local-dev'
@@ -22,7 +22,6 @@ export function LocalTestPanel({ workflowId, onClose }: LocalTestPanelProps) {
     start,
     stop,
     trigger,
-    checkInstance,
   } = useLocalDev(workflowId)
   const [triggerInput, setTriggerInput] = useState('{}')
   const [inputError, setInputError] = useState<string | null>(null)
@@ -41,12 +40,6 @@ export function LocalTestPanel({ workflowId, onClose }: LocalTestPanelProps) {
       setInputError('Invalid JSON')
     }
   }
-
-  useEffect(() => {
-    return () => {
-      stop()
-    }
-  }, [])
 
   return (
     <div className="flex h-full flex-col">
@@ -153,23 +146,13 @@ export function LocalTestPanel({ workflowId, onClose }: LocalTestPanelProps) {
 
               {instanceId && (
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-muted-foreground">
-                      Instance{' '}
-                      <span className="font-mono text-foreground/70">
-                        {instanceId.slice(0, 12)}...
-                      </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Instance{' '}
+                    <span className="font-mono max-w-[12ch] truncate text-foreground/70">
+                      {instanceId.slice(0, 12)}...
                     </span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 gap-1 px-1.5 text-[10px]"
-                      onClick={checkInstance}
-                    >
-                      <RefreshCw className="h-2.5 w-2.5" />
-                      Check Status
-                    </Button>
-                  </div>
+                  </span>
+
                   {instanceStatus !== null && instanceStatus !== undefined && (
                     <pre className="max-h-60 overflow-auto rounded-md border border-border bg-muted/30 p-2 font-mono text-[11px] text-foreground/70">
                       {JSON.stringify(instanceStatus, null, 2)}
