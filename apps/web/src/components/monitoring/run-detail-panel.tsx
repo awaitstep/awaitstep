@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { formatDate } from '../../lib/time'
+import { copyToClipboard } from '../../lib/utils'
 import { RunStatusBadge } from './run-status-badge'
 
 interface RunDetailPanelProps {
@@ -71,7 +72,7 @@ function ErrorDisplay({ error }: { error: unknown }) {
   const parsed = parseError(error)
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(parsed.raw)
+    copyToClipboard(parsed.raw)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }

@@ -6,10 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [1.0.4-beta.1](https://github.com/awaitstep/awaitstep.dev/compare/v1.0.3-beta.1...v1.0.4-beta.1) (2026-04-01)
 
-
 ### Bug Fixes
 
-* install wrangler in Docker image for local dev support ([6b0b43f](https://github.com/awaitstep/awaitstep.dev/commit/6b0b43f02ce5618bd61417e472adc226c15d4444))
+- install wrangler in Docker image for local dev support ([6b0b43f](https://github.com/awaitstep/awaitstep.dev/commit/6b0b43f02ce5618bd61417e472adc226c15d4444))
 
 ## [1.0.3-beta.1](https://github.com/awaitstep/awaitstep.dev/compare/v1.0.2-beta.1...v1.0.3-beta.1) (2026-04-01)
 

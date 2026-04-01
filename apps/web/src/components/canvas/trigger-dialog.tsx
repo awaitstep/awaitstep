@@ -7,6 +7,7 @@ import { Button } from '../ui/button'
 import { Select } from '../ui/select'
 import { api } from '../../lib/api-client'
 import { useConnectionsStore } from '../../stores/connections-store'
+import { copyToClipboard } from '../../lib/utils'
 
 interface WorkflowOption {
   id: string
@@ -82,7 +83,7 @@ export function TriggerDialog({
     const curl = hasParams
       ? `curl -X POST https://${deploymentId}.workers.dev \\\n  -H "Content-Type: application/json" \\\n  -d '${trimmed}'`
       : `curl -X POST https://${deploymentId}.workers.dev`
-    navigator.clipboard.writeText(curl)
+    copyToClipboard(curl)
     setCurlCopied(true)
     setTimeout(() => setCurlCopied(false), 2000)
   }, [deploymentId, paramsJson])

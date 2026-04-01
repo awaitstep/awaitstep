@@ -323,11 +323,10 @@ export const api = {
   // Local dev
   startLocalDev(
     workflowId: string,
-    options?: { port?: number },
   ): Promise<{ status: string; port: number; url: string; pid: number }> {
     return request(withProject(`/workflows/${workflowId}/local-dev/start`), {
       method: 'POST',
-      body: JSON.stringify(options ?? {}),
+      body: '{}',
     })
   },
 
@@ -340,12 +339,6 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(params ?? {}),
     })
-  },
-
-  getLocalDevStatus(
-    workflowId: string,
-  ): Promise<{ active: boolean; port?: number; url?: string; pid?: number }> {
-    return request(withProject(`/workflows/${workflowId}/local-dev/status`))
   },
 
   getLocalDevInstance(workflowId: string, instanceId: string): Promise<unknown> {

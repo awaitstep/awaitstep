@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CheckCircle2, ExternalLink, Copy, Check } from 'lucide-react'
 import { Button } from '../../ui/button'
+import { copyToClipboard } from '../../../lib/utils'
 import type { DeployResult } from '../../../hooks/use-deploy-stream'
 
 interface SuccessViewProps {
@@ -14,7 +15,7 @@ export function SuccessView({ result, connectionName, onClose }: SuccessViewProp
 
   function handleCopyCurl() {
     if (!result?.url) return
-    navigator.clipboard.writeText(`curl -X POST ${result.url}`)
+    copyToClipboard(`curl -X POST ${result.url}`)
     setCurlCopied(true)
     setTimeout(() => setCurlCopied(false), 2000)
   }

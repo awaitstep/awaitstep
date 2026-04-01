@@ -108,6 +108,7 @@ async function start() {
     logger,
     corsOrigin,
     isDev,
+    enableLocalDev: true,
     nodeRegistry,
     remoteNodeRegistry,
     appName,

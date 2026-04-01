@@ -11,6 +11,7 @@ import { queries, flatPages } from '../../lib/queries'
 import { useOrgStore, useOrgReady } from '../../stores/org-store'
 import { useShallow } from 'zustand/react/shallow'
 import { timeAgo, timeUntil } from '../../lib/time'
+import { copyToClipboard } from '../../lib/utils'
 import { LoadMoreButton } from '../ui/load-more-button'
 import type { ApiKeyCreated } from '../../lib/api-client'
 import { toast } from 'sonner'
@@ -342,7 +343,7 @@ function KeyCreatedDialog({
 
   async function handleCopy() {
     if (!apiKey) return
-    await navigator.clipboard.writeText(apiKey.key)
+    await copyToClipboard(apiKey.key)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -383,7 +384,7 @@ function KeyCreatedDialog({
                   )}
                 </Button>
               </div>
-              <p className="mt-2 text-[10px] text-amber-500">
+              <p className="mt-2 text-[10px] text-amber-700">
                 Store this key securely. You will not be able to see it again.
               </p>
             </div>

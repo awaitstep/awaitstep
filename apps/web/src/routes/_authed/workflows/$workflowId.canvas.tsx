@@ -1,7 +1,8 @@
 import { createFileRoute, useParams, useSearch, useBlocker } from '@tanstack/react-router'
+import { createServerFn } from '@tanstack/react-start'
 import { lazy, Suspense, useState, useEffect } from 'react'
-import { toast } from 'sonner'
 import { useQuery } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { NodePalette } from '../../../components/canvas/node-palette'
 import { TemplatePicker } from '../../../components/canvas/template-picker'
@@ -32,8 +33,13 @@ const LazyEditorPanel = lazy(() =>
   import('../../../components/canvas/editor-panel').then((m) => ({ default: m.EditorPanel })),
 )
 
+const getCanvasContext = createServerFn({ method: 'GET' }).handler(async () => ({
+  localDev: process.env['ENABLE_LOCAL_DEV'] === 'true',
+}))
+
 export const Route = createFileRoute('/_authed/workflows/$workflowId/canvas')({
   component: WorkflowEditorPageWrapper,
+  loader: () => getCanvasContext(),
   validateSearch: (search: Record<string, unknown>): { template?: boolean; version?: string } => ({
     template: search.template === true || search.template === '1' || search.template === 'true',
     version: typeof search.version === 'string' ? search.version : undefined,
@@ -61,6 +67,7 @@ function WorkflowEditorPage() {
   const ready = useOrgReady()
   const { registry: nodeRegistry } = useNodeRegistry()
   const isNew = workflowId === 'new'
+  const { localDev: localDevEnabled } = Route.useLoaderData()
 
   const { metadata, nodeCount, showSettings, isDirty } = useWorkflowStore(
     useShallow((s) => ({
@@ -184,7 +191,7 @@ function WorkflowEditorPage() {
               isSaving={isSaving}
               onDeploy={handleDeploy}
               onTest={() => runSimulation()}
-              onTestLocally={() => setShowLocalTest((v) => !v)}
+              onTestLocally={localDevEnabled ? () => setShowLocalTest((v) => !v) : undefined}
               onOpenTemplatePicker={() => {
                 if (nodeCount > 0) {
                   setConfirmAction('switch-template')
