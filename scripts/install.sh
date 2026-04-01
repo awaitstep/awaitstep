@@ -37,6 +37,11 @@ echo ""
 echo "Database: SQLite (default, stored in Docker volume) or Postgres"
 read -rp "Postgres URL (leave empty for SQLite): " DATABASE_URL
 
+# Local dev (wrangler test server)
+echo ""
+read -rp "Enable local dev testing? [Y/n]: " ENABLE_LOCAL_DEV_INPUT
+ENABLE_LOCAL_DEV=$([ "${ENABLE_LOCAL_DEV_INPUT:-Y}" = "n" ] || [ "${ENABLE_LOCAL_DEV_INPUT}" = "N" ] && echo "false" || echo "true")
+
 # Email (Resend)
 echo ""
 read -rp "Resend API key (for magic link emails, optional): " RESEND_API_KEY
@@ -60,6 +65,7 @@ TOKEN_ENCRYPTION_KEY=${TOKEN_ENCRYPTION_KEY}
 BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
 BETTER_AUTH_URL=${APP_URL}
 DATABASE_URL=${DATABASE_URL}
+ENABLE_LOCAL_DEV=${ENABLE_LOCAL_DEV}
 RESEND_API_KEY=${RESEND_API_KEY}
 GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
 GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}

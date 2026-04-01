@@ -7,7 +7,7 @@ import { useOrgStore } from '../../stores/org-store'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import { useShallow } from 'zustand/react/shallow'
 import { buildIRFromState } from '../../lib/build-ir'
-import { cn } from '../../lib/utils'
+import { cn, copyToClipboard } from '../../lib/utils'
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
@@ -87,7 +87,7 @@ export function EditorPanel() {
         : tab === 'entry'
           ? triggerCode || DEFAULT_TRIGGER_CODE
           : JSON.stringify(dependencies, null, 2)
-    await navigator.clipboard.writeText(text)
+    await copyToClipboard(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }, [tab, outputMode, generatedCode, irJson, triggerCode, dependencies])

@@ -14,33 +14,28 @@ export interface LogEntry {
 export function useLocalDev(workflowId: string) {
   const queryClient = useQueryClient()
   const [state, setState] = useState<LocalDevState>('idle')
+  const [info, setInfo] = useState<{ port: number; url: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [triggerResult, setTriggerResult] = useState<unknown>(null)
   const [instanceId, setInstanceId] = useState<string | null>(null)
 
   const isRunning = state === 'running'
 
-  // ── Status polling ─────────────────────────────────
-  const { data: status } = useQuery({
-    queryKey: ['local-dev-status', workflowId],
-    queryFn: () => api.getLocalDevStatus(workflowId),
-    refetchInterval: 5_000,
-  })
-
   // ── Log polling (only when running) ────────────────
   const { data: logs = [] } = useQuery({
     queryKey: ['local-dev-logs', workflowId],
     queryFn: () => api.getLocalDevLogs(workflowId),
     refetchInterval: isRunning ? 1_000 : false,
+    gcTime: 1_000,
     enabled: isRunning,
   })
 
-  // ── Instance status polling ────────────────────────
+  // ── Instance status (on-demand) ────────────────────
   const { data: instanceStatus } = useQuery({
     queryKey: ['local-dev-instance', workflowId, instanceId],
     queryFn: () => api.getLocalDevInstance(workflowId, instanceId!),
-    enabled: isRunning && !!instanceId,
-    refetchInterval: isRunning && !!instanceId ? 2_000 : false,
+    gcTime: 1_000,
+    enabled: false,
   })
 
   // ── Start ──────────────────────────────────────────
@@ -51,8 +46,8 @@ export function useLocalDev(workflowId: string) {
     setInstanceId(null)
     try {
       const result = await api.startLocalDev(workflowId)
+      setInfo({ port: result.port, url: result.url })
       setState('running')
-      queryClient.invalidateQueries({ queryKey: ['local-dev-status', workflowId] })
       toast.success('Local dev server started', { description: result.url })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to start'
@@ -60,25 +55,24 @@ export function useLocalDev(workflowId: string) {
       setState('error')
       toast.error('Failed to start local dev', { description: msg })
     }
-  }, [workflowId, queryClient])
+  }, [workflowId])
 
   // ── Stop ───────────────────────────────────────────
   const stop = useCallback(async () => {
     setState('stopping')
     try {
       await api.stopLocalDev(workflowId)
+      setInfo(null)
       setState('idle')
       setTriggerResult(null)
       setInstanceId(null)
-      queryClient.invalidateQueries({ queryKey: ['local-dev-status', workflowId] })
-      queryClient.invalidateQueries({ queryKey: ['local-dev-logs', workflowId] })
       toast.success('Local dev server stopped')
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to stop'
       setError(msg)
       setState('error')
     }
-  }, [workflowId, queryClient])
+  }, [workflowId])
 
   // ── Trigger ────────────────────────────────────────
   const triggerMutation = useMutation({
@@ -97,7 +91,7 @@ export function useLocalDev(workflowId: string) {
 
   return {
     state,
-    info: status?.active ? { port: status.port, url: status.url } : null,
+    info,
     error,
     triggerResult,
     instanceId,
@@ -108,6 +102,6 @@ export function useLocalDev(workflowId: string) {
     stop,
     trigger: triggerMutation.mutateAsync,
     checkInstance: () =>
-      queryClient.invalidateQueries({ queryKey: ['local-dev-instance', workflowId, instanceId] }),
+      queryClient.refetchQueries({ queryKey: ['local-dev-instance', workflowId, instanceId] }),
   }
 }

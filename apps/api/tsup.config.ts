@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsup'
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/entry/docker.ts', 'src/entry/node.ts'],
+  entry: ['src/index.ts', 'src/entry/serve.ts', 'src/entry/dev.ts'],
   format: ['esm'],
   target: 'node22',
   splitting: false,

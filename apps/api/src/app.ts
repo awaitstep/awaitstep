@@ -20,6 +20,7 @@ export interface AppDeps {
   logger?: Logger
   corsOrigin?: string | string[]
   isDev?: boolean
+  enableLocalDev?: boolean
   nodeRegistry?: AppNodeRegistry
   remoteNodeRegistry?: RemoteNodeRegistry
   appName?: string
@@ -100,7 +101,7 @@ export function createApp(deps: AppDeps) {
   })
 
   // Routes (auth + ownership middleware registered inside)
-  app.route('/api', createRouter(deps.auth))
+  app.route('/api', createRouter(deps.auth, { enableLocalDev: deps.enableLocalDev }))
 
   // Error handler
   app.onError((err, c) => {

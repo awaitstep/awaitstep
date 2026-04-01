@@ -125,6 +125,7 @@ async function start() {
     logger,
     corsOrigin: baseURL,
     isDev: false,
+    enableLocalDev: process.env['ENABLE_LOCAL_DEV'] === 'true',
     nodeRegistry,
     remoteNodeRegistry,
     appName,

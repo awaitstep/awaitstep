@@ -19,6 +19,7 @@ import { RunStatusBadge } from '../../components/monitoring/run-status-badge'
 import { api } from '../../lib/api-client'
 import { queries, flatPages } from '../../lib/queries'
 import { RequireProject } from '../../wrappers/require-project'
+import { copyToClipboard } from '../../lib/utils'
 
 export const Route = createFileRoute('/_authed/runs/$runId')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -289,7 +290,7 @@ function ErrorBlock({ error }: { error: unknown }) {
   const parsed = parseError(error)
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(parsed.raw)
+    copyToClipboard(parsed.raw)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }

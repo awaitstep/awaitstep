@@ -101,8 +101,8 @@ All app code (API routes, business logic) is runtime-agnostic. No `process.env` 
 Node-specific APIs outside of entry points. The Web Crypto API is used for token
 encryption so it works on Node.js, Cloudflare Workers, Deno, and Bun.
 
-Entry points (`apps/api/src/entry/node.ts` for local dev, `apps/api/src/entry/docker.ts`
-for Docker deployments) are the only files that read environment variables and initialize
+Entry points (`apps/api/src/entry/dev.ts` for local development, `apps/api/src/entry/serve.ts`
+for production) are the only files that read environment variables and initialize
 platform-specific resources. The app factory (`createApp`) receives everything it needs
 as parameters.
 

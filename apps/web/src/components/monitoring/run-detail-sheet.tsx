@@ -20,6 +20,7 @@ import { api } from '../../lib/api-client'
 import { useSheetStore } from '../../stores/sheet-store'
 import { RunStatusBadge } from './run-status-badge'
 import { formatDate } from '../../lib/time'
+import { copyToClipboard } from '../../lib/utils'
 
 const TERMINAL_STATUSES = new Set(['complete', 'errored', 'terminated'])
 
@@ -262,7 +263,7 @@ function ErrorBlock({ error }: { error: unknown }) {
   const parsed = parseError(error)
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(parsed.raw)
+    copyToClipboard(parsed.raw)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }

@@ -18,19 +18,21 @@ const MAX_LOG_LINES = 500
 
 /** Kill whatever process is listening on the given port. */
 export async function killPort(port: number = LOCAL_DEV_PORT): Promise<void> {
-  try {
-    const { stdout } = await execAsync(`lsof -ti :${port}`)
-    const pids = stdout.trim().split('\n').filter(Boolean)
-    for (const pid of pids) {
-      try {
-        process.kill(Number(pid), 'SIGKILL')
-      } catch {
-        // already dead
-      }
+  // Try fuser (Debian/slim), then lsof (macOS), then ss+kill (fallback)
+  const commands = [
+    `fuser -k ${port}/tcp`,
+    `lsof -ti :${port} | xargs kill -9`,
+    `ss -tlnp sport = :${port} | grep -oP 'pid=\\K[0-9]+' | xargs -r kill -9`,
+  ]
+
+  for (const cmd of commands) {
+    try {
+      await execAsync(cmd)
+      await new Promise((r) => setTimeout(r, 500))
+      return
+    } catch {
+      // Command not available or no process — try next
     }
-    await new Promise((r) => setTimeout(r, 500))
-  } catch {
-    // No process on port — nothing to kill
   }
 }
 

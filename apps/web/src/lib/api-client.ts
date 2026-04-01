@@ -341,12 +341,6 @@ export const api = {
     })
   },
 
-  getLocalDevStatus(
-    workflowId: string,
-  ): Promise<{ active: boolean; port?: number; url?: string; pid?: number }> {
-    return request(withProject(`/workflows/${workflowId}/local-dev/status`))
-  },
-
   getLocalDevInstance(workflowId: string, instanceId: string): Promise<unknown> {
     return request(
       withProject(`/workflows/${workflowId}/local-dev/instance/${encodeURIComponent(instanceId)}`),

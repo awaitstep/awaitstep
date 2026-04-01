@@ -118,18 +118,6 @@ localDev.get('/:workflowId/local-dev/instance/:instanceId', async (c) => {
   }
 })
 
-// ── Status ─────────────────────────────────────────────
-
-localDev.get('/:workflowId/local-dev/status', async (c) => {
-  const workflow = c.get('workflow')
-  if (!workflow) return c.json({ error: 'Not found' }, 404)
-
-  const active = await isPortListening(LOCAL_DEV_PORT)
-  if (!active) return c.json({ active: false })
-
-  return c.json({ active: true, port: LOCAL_DEV_PORT, url: LOCAL_DEV_URL })
-})
-
 // ── Logs ───────────────────────────────────────────────
 
 localDev.get('/:workflowId/local-dev/logs', async (c) => {
