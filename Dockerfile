@@ -33,6 +33,9 @@ FROM base AS production
 WORKDIR /app
 ENV NODE_ENV=production
 
+# Wrangler CLI (needed for deploy, local dev, and secret management)
+RUN npm install -g wrangler
+
 # Native module: better-sqlite3 (only runtime dep not bundled by tsup)
 RUN --mount=from=deps,source=/app/node_modules,target=/deps \
     mkdir -p node_modules/better-sqlite3 node_modules/bindings node_modules/file-uri-to-path && \
