@@ -1,30 +1,8 @@
-import { createFileRoute, Link, redirect } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
-import { getRequestHeader } from '@tanstack/react-start/server'
-import { getApiBase } from '../lib/server-config'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { GitHubIcon } from '../components/icons/provider-icons'
-
-const checkAuth = createServerFn({ method: 'GET' }).handler(async (): Promise<boolean> => {
-  const cookie = getRequestHeader('cookie')
-  if (!cookie) return false
-
-  const apiBase = getApiBase()
-  const res = await fetch(`${apiBase}/api/auth/get-session`, {
-    headers: { cookie },
-  })
-
-  if (!res.ok) return false
-  const data = await res.json()
-  return !!data?.session
-})
+import Logo from '../components/icons/logo'
 
 export const Route = createFileRoute('/')({
-  beforeLoad: async () => {
-    const authenticated = await checkAuth()
-    if (authenticated) {
-      throw redirect({ to: '/dashboard' })
-    }
-  },
   component: HomePage,
 })
 
@@ -59,9 +37,11 @@ function HomePage() {
 
       {/* Nav */}
       <nav className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10">
-        <div className="flex items-center gap-2.5">
-          <AwaitStepMark className="h-6 w-6 text-primary" />
-          <span className="text-sm font-semibold tracking-tight">awaitstep</span>
+        <div className="flex items-center gap-1">
+          <Logo className="w-10" />
+          <span className="uppercase text-xs text-foreground font-bold tracking-tight">
+            AwaitStep
+          </span>
         </div>
         <div className="flex items-center gap-4">
           <a
@@ -182,26 +162,5 @@ function HomePage() {
         Open source under Apache 2.0
       </footer>
     </div>
-  )
-}
-
-function AwaitStepMark({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="5" r="2.5" />
-      <circle cx="5" cy="19" r="2.5" />
-      <circle cx="19" cy="19" r="2.5" />
-      <path d="M12 7.5v4" />
-      <path d="M12 11.5l-5.5 5" />
-      <path d="M12 11.5l5.5 5" />
-    </svg>
   )
 }
