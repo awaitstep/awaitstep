@@ -7,9 +7,13 @@ import {
   Section,
   Text,
   Link,
+  Img,
   Tailwind,
   pixelBasedPreset,
 } from '@react-email/components'
+
+const LOGO_URL =
+  'https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/apps/web/public/logo.png'
 
 interface LayoutProps {
   preview?: string
@@ -27,7 +31,7 @@ export default function Layout({ children, preview }: LayoutProps) {
           theme: {
             extend: {
               colors: {
-                brand: '#111',
+                brand: '#34d399',
               },
             },
           },
@@ -38,8 +42,11 @@ export default function Layout({ children, preview }: LayoutProps) {
             className="max-w-[480px] mx-auto bg-white rounded-lg"
             style={{ border: '1px solid #e5e7eb' }}
           >
-            <Section className="h-1" style={{ backgroundColor: '#111' }} />
-            <Section className="px-10 pt-8 pb-10">{children}</Section>
+            <Section className="h-1" style={{ backgroundColor: '#34d399' }} />
+            <Section className="px-10 pt-8 pb-10">
+              <Img src={LOGO_URL} width="60" height="28" alt="AwaitStep" className="mb-6" />
+              {children}
+            </Section>
           </Container>
           <Text className="text-center text-xs text-gray-400 mt-6">
             &copy; {new Date().getFullYear()}{' '}

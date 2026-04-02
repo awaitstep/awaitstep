@@ -17,7 +17,7 @@ export function MagicLinkEmail({ url, appName = 'AwaitStep' }: MagicLinkEmailPro
       </Text>
       <Section className="text-center mb-6">
         <Link
-          className="bg-gray-900 text-white text-sm font-medium px-8 py-3 rounded-lg no-underline inline-block"
+          className="bg-brand text-white text-sm font-medium px-8 py-3 rounded-lg no-underline inline-block"
           href={url}
         >
           Sign in to your account
