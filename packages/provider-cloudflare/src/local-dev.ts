@@ -5,6 +5,7 @@ import { execFile, exec, spawn, type ChildProcess } from 'node:child_process'
 import { promisify } from 'node:util'
 import { createConnection } from 'node:net'
 import type { GeneratedArtifact, LocalDevOptions, LocalDevLogEntry } from '@awaitstep/codegen'
+import { detectBindingsFromSource } from './codegen/bindings.js'
 import { generateWranglerConfig } from './wrangler-config.js'
 import { workerName, workflowClassName, sanitizedWorkflowName } from './naming.js'
 
@@ -116,12 +117,14 @@ async function scaffoldDeployDir(
     'utf-8',
   )
 
+  const bindings = detectBindingsFromSource(artifact.source)
   const wranglerConfig = generateWranglerConfig({
     workerName: workerName(options.workflowId),
     className: workflowClassName(options.workflowName),
     workflowName: sanitizedWorkflowName(options.workflowName),
     main: `./${artifact.filename}`,
     vars: options.vars,
+    bindings: bindings.length > 0 ? bindings : undefined,
   })
   await writeFile(join(LOCAL_DEV_DIR, 'wrangler.json'), wranglerConfig, 'utf-8')
 

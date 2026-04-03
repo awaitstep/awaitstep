@@ -104,6 +104,44 @@ describe('detectBindings', () => {
     expect(bindings).toHaveLength(1)
   })
 
+  it('detects Queue binding from step code', () => {
+    const ir = makeIR([
+      {
+        id: 's1',
+        name: 'S',
+        position: { x: 0, y: 0 },
+        type: 'step',
+        version: V,
+        provider: P,
+        data: { code: 'await env.QUEUE_NOTIFICATIONS.send({ type: "email" })' },
+      },
+    ])
+    const bindings = detectBindings(ir)
+    expect(bindings).toHaveLength(1)
+    expect(bindings[0]!.type).toBe('queue')
+    expect(bindings[0]!.name).toBe('QUEUE_NOTIFICATIONS')
+  })
+
+  it('detects multiple binding types from a single node', () => {
+    const ir = makeIR([
+      {
+        id: 's1',
+        name: 'S',
+        position: { x: 0, y: 0 },
+        type: 'step',
+        version: V,
+        provider: P,
+        data: {
+          code: 'const v = await env.KV_CACHE.get("k"); await env.DB_MAIN.prepare(sql); await env.QUEUE_JOBS.send(v)',
+        },
+      },
+    ])
+    const bindings = detectBindings(ir)
+    expect(bindings).toHaveLength(3)
+    const types = bindings.map((b) => b.type).sort()
+    expect(types).toEqual(['d1', 'kv', 'queue'])
+  })
+
   it('returns empty for no bindings', () => {
     const ir = makeIR([
       {

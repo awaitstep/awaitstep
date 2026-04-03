@@ -77,6 +77,7 @@ export async function prepareDeploy(
     options: {
       workflowId: workflow.id,
       workflowName: workflow.name,
+      ir: prepared.ir,
       ...(prepared.dependencies && { dependencies: prepared.dependencies }),
       ...(appName && { packageName: appName }),
     },

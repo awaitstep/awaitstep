@@ -23,6 +23,7 @@ import { generateBreak } from './generators/break.js'
 import { generateSubWorkflow, getSubWorkflowBindings } from './generators/sub-workflow.js'
 import { generateRace } from './generators/race.js'
 import { hasTemplateExpressions } from './generators/state-tracking.js'
+import { detectBindings, type BindingType } from './bindings.js'
 
 export const DEFAULT_TRIGGER_CODE = `const url = new URL(request.url);
 
@@ -244,8 +245,30 @@ export function generateWorkflow(
     envFields.push(`  ${binding}: Workflow;`)
   }
 
+  // Add typed fields for auto-detected resource bindings
+  const CF_ENV_TYPE: Record<BindingType, string | null> = {
+    kv: 'KVNamespace',
+    d1: 'D1Database',
+    r2: 'R2Bucket',
+    queue: 'Queue<unknown>',
+    service: 'Fetcher',
+    secret: null,
+    variable: null,
+  }
+  const detectedBindings = detectBindings(ir)
+  const bindingNames = new Set<string>()
+  for (const b of detectedBindings) {
+    const cfType = CF_ENV_TYPE[b.type]
+    if (cfType) {
+      envFields.push(`  ${b.name}: ${cfType};`)
+      bindingNames.add(b.name)
+    }
+  }
+
   for (const name of allEnvNames) {
-    envFields.push(`  ${name}: string;`)
+    if (!bindingNames.has(name)) {
+      envFields.push(`  ${name}: string;`)
+    }
   }
 
   const rawTriggerCode = triggerCode ?? DEFAULT_TRIGGER_CODE
