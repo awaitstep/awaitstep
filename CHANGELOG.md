@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.0](https://github.com/awaitstep/awaitstep/compare/v1.1.2...v1.2.0) (2026-04-03)
+
+
+### Features
+
+* add base.json + overrides.json support for node versioning ([d33e6f8](https://github.com/awaitstep/awaitstep/commit/d33e6f85f503c9102e328a9499ee94ce95871b08))
+* auto-detect bindings, remove resource pages, streamline deploy ([7862a4a](https://github.com/awaitstep/awaitstep/commit/7862a4a863c90b8d818b75c2c646b9e2d5cb1097))
+* auto-detect resource bindings and remove CF resource pages ([ce34197](https://github.com/awaitstep/awaitstep/commit/ce34197a1d1d53a1f49ef312cd1908ef7bc0f89c))
+* auto-detect resource bindings and wire into codegen/deploy ([c60a5fb](https://github.com/awaitstep/awaitstep/commit/c60a5fba71e135956d8a866314a3818af3ec5b1e))
+
+
+### Bug Fixes
+
+* add ca-certificates to Docker image for TLS support ([ea17e50](https://github.com/awaitstep/awaitstep/commit/ea17e5049ee65c16782049140b110d2861f64450))
+* generate node.json from base + overrides during registry build ([13a2f5f](https://github.com/awaitstep/awaitstep/commit/13a2f5f92317aaa62ea5e327a239bde093a1b34e))
+* generate node.json from base + overrides, update registry CI ([ef80e2b](https://github.com/awaitstep/awaitstep/commit/ef80e2bdc418fcf40b5b88c480a352026fdd9da5))
+* **marketplace:** conditionally render dialog to fix query execution ([0a48cf0](https://github.com/awaitstep/awaitstep/commit/0a48cf02f05df42c1d9a7e49445e118ac9956034))
+* resolve binding IDs from env vars, add nullable connection_id migration ([1b494c4](https://github.com/awaitstep/awaitstep/commit/1b494c4d14b035b8bfbc12fab57594b13e77e6ed))
+
+
+### Refactoring
+
+* add floating bindings panel, remove manual binding UI and input params ([a88c243](https://github.com/awaitstep/awaitstep/commit/a88c2439d0a374e50fb0d29cd939c1ec78ae908f))
+* **router:** restructure routes by moving env-vars out of resources ([96161b6](https://github.com/awaitstep/awaitstep/commit/96161b638d47e9f34124984fa008798c05d2e973))
+* **ui:** adjust error display and placeholder contrast ([b8e5022](https://github.com/awaitstep/awaitstep/commit/b8e5022d7be0dd9722cfd8f44a1ea88bc590c534))
+
 ## [1.1.2](https://github.com/awaitstep/awaitstep/compare/v1.1.1...v1.1.2) (2026-04-03)
 
 
