@@ -1,103 +1,71 @@
 # AwaitStep
 
-Visual workflow builder. Design workflows with drag-and-drop, generate TypeScript code, and deploy to your workflow provider.
+![AwaitStep — Build and deploy workflows visually](docs/images/banner.png)
 
-**Currently supported:** [Cloudflare Workflows](https://developers.cloudflare.com/workflows/). More providers (e.g. Trigger.dev) planned.
+A self-hosted visual builder that generates and deploys code directly to [Cloudflare Workflows](https://developers.cloudflare.com/workflows/). No proprietary engines, just your code.
 
 ## Features
 
-- **Visual Canvas** — Drag-and-drop workflow designer powered by ReactFlow
-- **Live Code Preview** — See generated TypeScript as you build
-- **One-Click Deploy** — Deploy directly to your workflow provider
-- **Run Monitoring** — Trigger workflows and watch execution in real-time
-- **Custom Nodes** — Extend with custom node types via `node-cli`
-- **Environment Variables** — Global secrets and per-workflow env vars with encrypted storage
-- **API Keys** — Scoped API key authentication (read/write/deploy)
-- **Multi-Provider** — Pluggable provider architecture (add new runtimes without changing core)
-- **Self-Hostable** — Run anywhere: Cloudflare Workers, Docker, VPS, Vercel
+### Visual Canvas
 
-## Architecture
+Drag-and-drop workflow designer. Add steps, branches, loops, parallel paths, error handling, and more — all from a visual canvas. See your workflow structure at a glance.
 
-```mermaid
-graph TB
-    subgraph Frontend["apps/web — TanStack Start"]
-        Canvas["Canvas Editor"]
-        CodePreview["Code Preview"]
-        DeployUI["Deploy + Monitor"]
-    end
+![Visual Canvas](docs/images/canvas.png)
 
-    subgraph API["apps/api — Hono"]
-        Routes["REST API"]
-        Auth["better-auth"]
-    end
+### Live Code Preview
 
-    subgraph Packages["Core Packages"]
-        IR["@awaitstep/ir\nTypes · Schemas · Validation\nNode Registry"]
-        Codegen["@awaitstep/codegen\nProvider Interface\nDAG · Transpilation"]
-        Providers["@awaitstep/provider-*\nCode Generation\nDeploy Adapters"]
-        DB["@awaitstep/db\nDrizzle ORM\nToken Encryption"]
-        NodeCLI["@awaitstep/node-cli\nNode Validation\nBundling"]
-    end
+Watch TypeScript code generate in real-time as you build. Every change on the canvas immediately reflects in the code preview. Toggle between generated TypeScript, IR JSON, and package output.
 
-    subgraph Runtime["Workflow Runtime"]
-        ProviderA["Cloudflare Workflows"]
-        ProviderB["Future Providers"]
-    end
+![Live Code Preview](docs/images/code-preview.png)
 
-    Frontend -->|HTTP| API
-    API --> Packages
-    IR --> Codegen --> Providers --> Runtime
-    NodeCLI --> IR
-```
+### Deploy, Version, and Monitor
 
-See [docs/architecture.md](docs/architecture.md) for detailed architecture documentation.
+Deploy directly to your provider from the UI. AwaitStep handles code generation, bundling, dependency installation, and deployment. Track version history, lock versions, and roll back. Trigger workflows and monitor runs in real-time — view status, output, errors, and duration. Pause, resume, or terminate running instances.
 
-### Package Dependency Flow
+![Deploy and Monitor](docs/images/deploy-and-monitor.png)
 
-```mermaid
-graph LR
-    IR["@awaitstep/ir"] --> Codegen["@awaitstep/codegen"]
-    Codegen --> Providers["@awaitstep/provider-*"]
-    Providers --> Runtime["Workflow Runtime"]
-    NodeCLI["@awaitstep/node-cli"] --> IR
-    DB["@awaitstep/db (standalone)"]
-    style DB stroke-dasharray: 5 5
-```
+### Workflow Nodes
 
-## Project Structure
+Build complex workflows from composable building blocks:
 
-```
-awaitstep.dev/
-├── packages/
-│   ├── ir/                    # WorkflowIR types, schemas, validation, node registry
-│   ├── codegen/               # IR → TypeScript code generator + provider interface
-│   ├── provider-cloudflare/   # Cloudflare Workflows adapter (first provider)
-│   ├── db/                    # DatabaseAdapter + Drizzle implementations
-│   └── node-cli/              # Custom node definition CLI + bundling
-├── apps/
-│   ├── web/                   # TanStack Start frontend
-│   └── api/                   # Hono API server
-├── nodes/                     # Custom node definitions (e.g. resend_send_email)
-├── docs/                      # Architecture + system documentation
-└── tooling/
-    └── tsconfig/              # Shared TypeScript configs
-```
+| Node           | Description                                  |
+| -------------- | -------------------------------------------- |
+| Step           | Execute custom code with retries and backoff |
+| Sleep          | Pause for a duration (up to 365 days)        |
+| Sleep Until    | Pause until a specific timestamp             |
+| Branch         | Conditional execution paths                  |
+| Parallel       | Run steps concurrently                       |
+| Loop           | Repeat steps (forEach, while, or count)      |
+| Try / Catch    | Error handling with try/catch/finally        |
+| Exit           | Break from a loop or return from workflow    |
+| HTTP Request   | Make HTTP calls with configurable retries    |
+| Wait for Event | Pause until an external event arrives        |
+| Sub-Workflow   | Trigger another workflow                     |
+| Custom         | User-defined node types                      |
 
-## Supported Node Types
+### Custom Nodes and Marketplace
 
-| Node           | Description                               |
-| -------------- | ----------------------------------------- |
-| Step           | Execute custom code                       |
-| Sleep          | Pause for a duration                      |
-| Sleep Until    | Pause until a timestamp                   |
-| Branch         | Conditional branching                     |
-| Parallel       | Run steps concurrently                    |
-| Loop           | Repeat steps (forEach, while, or count)   |
-| Try / Catch    | Wrap steps in try/catch/finally           |
-| Exit           | Break from a loop or return from workflow |
-| HTTP Request   | Make an HTTP call                         |
-| Wait for Event | Pause until external event                |
-| Custom         | User-defined node types                   |
+Build your own node types with the CLI. Define a config schema, UI, and provider-specific code generation template — then publish to the marketplace for others to install. See the [custom nodes guide](docs/custom-nodes.md).
+
+### Environment Variables and Secrets
+
+Manage global and per-workflow environment variables from the dashboard. Variables prefixed with `SECRET_` are encrypted at rest with AES-256-GCM.
+
+### REST API and API Keys
+
+Full REST API for programmatic access. Generate scoped API keys (read / write / deploy) with optional expiration. Interactive API playground built into the dashboard. See the [API reference](docs/api-reference.md).
+
+### Resource Browser
+
+Browse your Cloudflare resources directly from the dashboard — KV namespaces with key inspection, D1 databases with SQL queries, and R2 buckets with object browsing.
+
+### Local Development
+
+Test workflows locally before deploying. Real-time log streaming, local triggers, and instant feedback — no deploy round-trips needed.
+
+### Self-Hostable
+
+Run anywhere: Docker, VPS, or your own infrastructure. SQLite by default, PostgreSQL for production. Single Docker image with built-in migrations.
 
 ## Quickstart
 
@@ -124,25 +92,14 @@ pnpm build
 pnpm dev
 ```
 
-## Development
+## Documentation
 
-```bash
-pnpm build        # Build all packages
-pnpm test         # Run all tests
-pnpm lint         # Lint all packages
-pnpm type-check   # Type-check all packages
-pnpm dev          # Start dev servers
-```
+- [Architecture](docs/architecture.md) — System design, data flow, and package structure
+- [API Reference](docs/api-reference.md) — All endpoints and database schema
+- [Compilation Pipeline](docs/compilation.md) — How canvas IR becomes deployed code
+- [Custom Nodes](docs/custom-nodes.md) — Build and publish your own node types
 
-## Tech Stack
-
-- **Frontend:** TanStack Start, ReactFlow, Monaco Editor, Zustand, Tailwind CSS
-- **Backend:** Hono
-- **Auth:** better-auth (GitHub, Google, Magic Links)
-- **Database:** SQLite (default) / PostgreSQL (optional) via Drizzle ORM
-- **Codegen:** sucrase
-- **Testing:** Vitest
-- **Monorepo:** pnpm workspaces + Turborepo
+**Built with** TypeScript · React · Hono · Cloudflare Workers
 
 ## Security
 
