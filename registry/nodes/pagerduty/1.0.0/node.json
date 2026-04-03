@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Trigger, acknowledge, and resolve incidents in PagerDuty",
   "category": "Notifications",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/pagerduty/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/pagerduty/icon.svg",
   "tags": ["pagerduty", "incidents", "alerting", "oncall"],
   "author": "awaitstep",
   "license": "Apache-2.0",

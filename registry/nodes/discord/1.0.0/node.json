@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Send, edit, and delete messages via Discord webhooks and bot API",
   "category": "Messaging",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/discord/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/discord/icon.svg",
   "tags": ["discord", "messaging", "webhooks", "bot"],
   "author": "awaitstep",
   "license": "Apache-2.0",

@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Create, read, update pages and query databases in Notion",
   "category": "Data",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/notion/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/notion/icon.svg",
   "tags": ["notion", "database", "pages", "productivity"],
   "author": "awaitstep",
   "license": "Apache-2.0",

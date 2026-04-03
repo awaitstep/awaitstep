@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Run and manage AI model predictions on Replicate",
   "category": "AI",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/replicate/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/replicate/icon.svg",
   "tags": ["replicate", "ai", "ml", "models"],
   "author": "awaitstep",
   "license": "Apache-2.0",

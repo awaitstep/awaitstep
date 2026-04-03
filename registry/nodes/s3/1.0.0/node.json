@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Upload, download, list, and delete objects in S3-compatible storage",
   "category": "Storage",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/s3/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/s3/icon.svg",
   "tags": ["s3", "storage", "aws", "object-storage"],
   "author": "awaitstep",
   "license": "Apache-2.0",

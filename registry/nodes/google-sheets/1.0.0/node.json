@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Read, append, update, and clear data in Google Sheets",
   "category": "Data",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/google-sheets/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/google-sheets/icon.svg",
   "tags": ["google", "sheets", "spreadsheet", "data"],
   "author": "awaitstep",
   "license": "Apache-2.0",

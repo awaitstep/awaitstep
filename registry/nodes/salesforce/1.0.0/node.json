@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Create, read, update, query, and delete records in Salesforce",
   "category": "CRM",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/salesforce/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/salesforce/icon.svg",
   "tags": ["salesforce", "crm", "sales", "leads"],
   "author": "awaitstep",
   "license": "Apache-2.0",

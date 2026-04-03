@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Manage products and orders in Shopify",
   "category": "E-commerce",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/shopify/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/shopify/icon.svg",
   "tags": ["shopify", "ecommerce", "products", "orders"],
   "author": "awaitstep",
   "license": "Apache-2.0",

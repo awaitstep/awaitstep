@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Insert, select, update, and delete rows in Supabase tables",
   "category": "Database",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/supabase/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/supabase/icon.svg",
   "tags": ["supabase", "database", "postgres", "rows"],
   "author": "awaitstep",
   "license": "Apache-2.0",

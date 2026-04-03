@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "List orders, customers, and subscriptions in Lemon Squeezy",
   "category": "Payments",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/lemon-squeezy/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/lemon-squeezy/icon.svg",
   "tags": ["lemonsqueezy", "payments", "subscriptions", "digital"],
   "author": "awaitstep",
   "license": "Apache-2.0",

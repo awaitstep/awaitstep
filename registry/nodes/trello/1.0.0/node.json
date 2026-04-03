@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Create, read, update, and manage cards in Trello",
   "category": "Project Management",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/trello/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/trello/icon.svg",
   "tags": ["trello", "project-management", "boards", "cards"],
   "author": "awaitstep",
   "license": "Apache-2.0",

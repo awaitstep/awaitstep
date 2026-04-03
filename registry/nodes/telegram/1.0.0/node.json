@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Send, edit, and delete messages via the Telegram Bot API",
   "category": "Messaging",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/telegram/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/telegram/icon.svg",
   "tags": ["telegram", "messaging", "bot", "chat"],
   "author": "awaitstep",
   "license": "Apache-2.0",

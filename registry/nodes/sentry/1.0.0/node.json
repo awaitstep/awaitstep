@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "List, inspect, and resolve issues and events in Sentry",
   "category": "Analytics",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/sentry/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/sentry/icon.svg",
   "tags": ["sentry", "monitoring", "errors", "debugging"],
   "author": "awaitstep",
   "license": "Apache-2.0",

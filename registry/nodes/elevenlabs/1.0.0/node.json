@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Convert text to speech and manage voices with ElevenLabs",
   "category": "AI",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/elevenlabs/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/elevenlabs/icon.svg",
   "tags": ["elevenlabs", "ai", "tts", "speech", "audio"],
   "author": "awaitstep",
   "license": "Apache-2.0",

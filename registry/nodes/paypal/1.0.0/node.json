@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Create and manage orders and payments with PayPal",
   "category": "Payments",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/paypal/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/paypal/icon.svg",
   "tags": ["paypal", "payments", "orders", "checkout"],
   "author": "awaitstep",
   "license": "Apache-2.0",

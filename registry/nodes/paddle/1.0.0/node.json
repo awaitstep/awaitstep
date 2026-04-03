@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "List transactions, subscriptions, and customers in Paddle",
   "category": "Payments",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/paddle/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/paddle/icon.svg",
   "tags": ["paddle", "payments", "subscriptions", "billing"],
   "author": "awaitstep",
   "license": "Apache-2.0",

@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Interact with the Stripe API for payments and customers",
   "category": "Payments",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/stripe/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/stripe/icon.svg",
   "tags": ["stripe", "payments", "billing", "subscriptions"],
   "author": "awaitstep",
   "license": "Apache-2.0",

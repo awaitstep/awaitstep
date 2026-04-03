@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Submit metrics, create events, and send logs to Datadog",
   "category": "Analytics",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/datadog/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/datadog/icon.svg",
   "tags": ["datadog", "monitoring", "metrics", "logs"],
   "author": "awaitstep",
   "license": "Apache-2.0",
