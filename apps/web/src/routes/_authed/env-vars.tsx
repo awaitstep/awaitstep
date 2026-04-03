@@ -3,15 +3,14 @@ import { useState, useMemo, useEffect } from 'react'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { Save } from 'lucide-react'
 import { toast } from 'sonner'
-import { Button } from '../../../components/ui/button'
-import { Breadcrumb } from '../../../components/ui/breadcrumb'
-import { api } from '../../../lib/api-client'
-import { queries, flatPages } from '../../../lib/queries'
-import { RequireOrg } from '../../../wrappers/require-org'
-import { envVarsToString, parseEnvString } from '../../../lib/env-var-parser'
-import type { EnvVarSummary } from '../../../lib/api-client'
+import { Button } from '../../components/ui/button'
+import { api } from '../../lib/api-client'
+import { queries, flatPages } from '../../lib/queries'
+import { RequireOrg } from '../../wrappers/require-org'
+import { envVarsToString, parseEnvString } from '../../lib/env-var-parser'
+import type { EnvVarSummary } from '../../lib/api-client'
 
-export const Route = createFileRoute('/_authed/resources/env-vars')({
+export const Route = createFileRoute('/_authed/env-vars')({
   head: () => ({ meta: [{ title: 'Environment Variables | AwaitStep' }] }),
   component: EnvVarsPage,
 })
@@ -95,9 +94,6 @@ function EnvVarsContent() {
 
   return (
     <div className="flex h-full flex-col">
-      <Breadcrumb
-        items={[{ label: 'Resources', href: '/resources' }, { label: 'Environment Variables' }]}
-      />
       <div className="flex items-center gap-3 mb-6">
         <div>
           <h1 className="text-lg font-semibold">Environment Variables</h1>

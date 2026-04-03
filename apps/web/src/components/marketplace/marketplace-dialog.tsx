@@ -17,11 +17,10 @@ import {
 import { cn } from '../../lib/utils'
 
 interface MarketplaceDialogProps {
-  open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-export function MarketplaceDialog({ open, onOpenChange }: MarketplaceDialogProps) {
+export function MarketplaceDialog({ onOpenChange }: MarketplaceDialogProps) {
   const queryClient = useQueryClient()
   const { refresh } = useNodeRegistry()
   const [search, setSearch] = useState('')
@@ -43,7 +42,6 @@ export function MarketplaceDialog({ open, onOpenChange }: MarketplaceDialogProps
   const { data, isLoading } = useQuery({
     queryKey: ['marketplace'],
     queryFn: () => api.browseMarketplace(),
-    enabled: open,
   })
 
   const installMutation = useMutation({
@@ -104,7 +102,7 @@ export function MarketplaceDialog({ open, onOpenChange }: MarketplaceDialogProps
   }, [grouped, activeCategory])
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root defaultOpen onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card shadow-2xl">

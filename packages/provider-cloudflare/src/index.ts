@@ -5,7 +5,12 @@ export {
   DEFAULT_TRIGGER_CODE,
 } from './codegen/generate.js'
 export type { GenerateOptions } from './codegen/generate.js'
-export { detectBindings, type BindingRequirement, type BindingType } from './codegen/bindings.js'
+export {
+  detectBindings,
+  detectBindingsFromSource,
+  type BindingRequirement,
+  type BindingType,
+} from './codegen/bindings.js'
 export { CloudflareWorkflowsAdapter, mapCFStatus } from './adapter.js'
 export type { DeployStage, DeployProgress, OnDeployProgress } from './adapter.js'
 export { CloudflareAPI } from './api.js'

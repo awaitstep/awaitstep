@@ -1,7 +1,7 @@
 import type { Edge } from '@xyflow/react'
 import type { WorkflowMetadata, BranchCondition } from '@awaitstep/ir'
 import { validateExpressionRefs, type NodeRegistry } from '@awaitstep/ir'
-import type { FlowNode, InputParam, EnvBinding, WorkflowEnvVar } from '../stores/workflow-store'
+import type { FlowNode, WorkflowEnvVar } from '../stores/workflow-store'
 import { z } from 'zod'
 
 export type IssueSeverity = 'error' | 'warning'
@@ -19,20 +19,8 @@ export interface PublishValidationResult {
 }
 
 export interface WorkflowSettings {
-  inputParams: InputParam[]
-  envBindings: EnvBinding[]
   workflowEnvVars: WorkflowEnvVar[]
 }
-
-const inputParamSchema = z.object({
-  name: z.string().min(1, 'Input parameter name is empty'),
-  type: z.enum(['string', 'number', 'boolean', 'object']),
-})
-
-const envBindingSchema = z.object({
-  name: z.string().min(1, 'Resource binding name is empty'),
-  type: z.enum(['kv', 'd1', 'r2', 'service']),
-})
 
 const workflowEnvVarSchema = z.object({
   name: z.string().min(1, 'Environment variable name is empty'),
@@ -40,8 +28,6 @@ const workflowEnvVarSchema = z.object({
 })
 
 export const workflowSettingsSchema = z.object({
-  inputParams: z.array(inputParamSchema),
-  envBindings: z.array(envBindingSchema),
   workflowEnvVars: z.array(workflowEnvVarSchema),
 })
 
@@ -192,28 +178,12 @@ export function validateWorkflowForPublish(
       }
     }
 
-    const paramNames = new Set<string>()
-    for (const param of settings.inputParams) {
-      if (param.name && paramNames.has(param.name)) {
-        add('error', null, null, `Duplicate input parameter name: "${param.name}"`)
-      }
-      paramNames.add(param.name)
-    }
-
     const envVarNames = new Set<string>()
     for (const envVar of settings.workflowEnvVars) {
       if (envVar.name && envVarNames.has(envVar.name)) {
         add('error', null, null, `Duplicate environment variable name: "${envVar.name}"`)
       }
       envVarNames.add(envVar.name)
-    }
-
-    const bindingNames = new Set<string>()
-    for (const binding of settings.envBindings) {
-      if (binding.name && bindingNames.has(binding.name)) {
-        add('error', null, null, `Duplicate resource binding name: "${binding.name}"`)
-      }
-      bindingNames.add(binding.name)
     }
   }
 

@@ -125,8 +125,10 @@ export function DeploymentSheet({
               {deployment.error && (
                 <div className="mt-8">
                   <div className="mb-2 text-xs text-muted-foreground">Error</div>
-                  <div className="rounded-md border border-red-500/10 bg-red-500/5 p-4">
-                    <p className="text-sm leading-relaxed text-red-300">{deployment.error}</p>
+                  <div className="rounded-md border border-red-500 bg-red-500/5 p-4">
+                    <p className="whitespace-pre-wrap truncate text-sm leading-relaxed text-red-500">
+                      {deployment.error}
+                    </p>
                   </div>
                 </div>
               )}

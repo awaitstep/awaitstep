@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 import type { GeneratedArtifact } from '@awaitstep/codegen'
+import type { BindingRequirement } from './codegen/bindings.js'
 import { generateWranglerConfig } from './wrangler-config.js'
 import { workerName, workflowClassName, sanitizedWorkflowName } from './naming.js'
 
@@ -19,6 +20,7 @@ export interface DeployOptions {
   vars?: Record<string, string>
   secrets?: Record<string, string>
   dependencies?: Record<string, string>
+  bindings?: BindingRequirement[]
 }
 
 export interface WranglerDeployResult {
@@ -48,6 +50,7 @@ export async function deployWithWrangler(
       workflowName: sanitizedWorkflowName(options.workflowName),
       main: `./${artifact.filename}`,
       vars: options.vars,
+      bindings: options.bindings,
     })
     await writeFile(join(deployDir, 'wrangler.json'), wranglerConfig, 'utf-8')
 

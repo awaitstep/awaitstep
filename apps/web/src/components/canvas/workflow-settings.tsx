@@ -3,67 +3,19 @@ import { X, Plus, Trash2, Link2 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
-import { Select } from '../ui/select'
 import { Separator } from '../ui/separator'
 import { useWorkflowStore } from '../../stores/workflow-store'
-import type { InputParam, EnvBinding, WorkflowEnvVar } from '../../stores/workflow-store'
+import type { WorkflowEnvVar } from '../../stores/workflow-store'
 import { useShallow } from 'zustand/react/shallow'
 
 export function WorkflowSettings() {
-  const { metadata, inputParams, envBindings, workflowEnvVars } = useWorkflowStore(
+  const { metadata, workflowEnvVars } = useWorkflowStore(
     useShallow((s) => ({
       metadata: s.metadata,
-      inputParams: s.inputParams,
-      envBindings: s.envBindings,
       workflowEnvVars: s.workflowEnvVars,
     })),
   )
-  const { setMetadata, setInputParams, setEnvBindings, setWorkflowEnvVars, setShowSettings } =
-    useWorkflowStore()
-
-  const addParam = useCallback(() => {
-    setInputParams([...useWorkflowStore.getState().inputParams, { name: '', type: 'string' }])
-  }, [setInputParams])
-
-  const updateParam = useCallback(
-    (index: number, data: Partial<InputParam>) => {
-      setInputParams(
-        useWorkflowStore
-          .getState()
-          .inputParams.map((p, i) => (i === index ? { ...p, ...data } : p)),
-      )
-    },
-    [setInputParams],
-  )
-
-  const removeParam = useCallback(
-    (index: number) => {
-      setInputParams(useWorkflowStore.getState().inputParams.filter((_, i) => i !== index))
-    },
-    [setInputParams],
-  )
-
-  const addBinding = useCallback(() => {
-    setEnvBindings([...useWorkflowStore.getState().envBindings, { name: '', type: 'kv' }])
-  }, [setEnvBindings])
-
-  const updateBinding = useCallback(
-    (index: number, data: Partial<EnvBinding>) => {
-      setEnvBindings(
-        useWorkflowStore
-          .getState()
-          .envBindings.map((b, i) => (i === index ? { ...b, ...data } : b)),
-      )
-    },
-    [setEnvBindings],
-  )
-
-  const removeBinding = useCallback(
-    (index: number) => {
-      setEnvBindings(useWorkflowStore.getState().envBindings.filter((_, i) => i !== index))
-    },
-    [setEnvBindings],
-  )
+  const { setMetadata, setWorkflowEnvVars, setShowSettings } = useWorkflowStore()
 
   const addEnvVar = useCallback(() => {
     setWorkflowEnvVars([...useWorkflowStore.getState().workflowEnvVars, { name: '', value: '' }])
@@ -133,63 +85,6 @@ export function WorkflowSettings() {
 
           <Separator />
 
-          {/* Input Parameters */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label className="text-[11px] text-muted-foreground">Input Parameters</Label>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 gap-1 px-2 text-[10px] text-muted-foreground"
-                onClick={addParam}
-              >
-                <Plus className="h-3 w-3" /> Add
-              </Button>
-            </div>
-            <p className="text-[10px] text-muted-foreground/40 mb-2">
-              Define the shape of event.payload passed when triggering the workflow.
-            </p>
-            {inputParams.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground/40 italic">
-                No input parameters defined
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {inputParams.map((param, i) => (
-                  <div key={i} className="flex items-center gap-1.5">
-                    <Input
-                      value={param.name}
-                      onChange={(e) => updateParam(i, { name: e.target.value })}
-                      placeholder="name"
-                      className="flex-1 h-8 text-xs"
-                    />
-                    <Select
-                      value={param.type}
-                      onValueChange={(v) => updateParam(i, { type: v as InputParam['type'] })}
-                      options={[
-                        { value: 'string', label: 'string' },
-                        { value: 'number', label: 'number' },
-                        { value: 'boolean', label: 'boolean' },
-                        { value: 'object', label: 'object' },
-                      ]}
-                      className="w-24 h-8 text-xs"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 shrink-0 text-muted-foreground/60 hover:text-destructive"
-                      onClick={() => removeParam(i)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <Separator />
-
           {/* Workflow Environment Variables */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -245,63 +140,6 @@ export function WorkflowSettings() {
                       placeholder="value or {{global.env.NAME}}"
                       className="h-7 text-[11px] font-mono text-muted-foreground"
                     />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <Separator />
-
-          {/* Resource Bindings (KV, D1, R2, Service) */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label className="text-[11px] text-muted-foreground">Resource Bindings</Label>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 gap-1 px-2 text-[10px] text-muted-foreground"
-                onClick={addBinding}
-              >
-                <Plus className="h-3 w-3" /> Add
-              </Button>
-            </div>
-            <p className="text-[10px] text-muted-foreground/40 mb-2">
-              Cloudflare resource bindings (KV, D1, R2, Service).
-            </p>
-            {envBindings.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground/40 italic">
-                No resource bindings defined
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {envBindings.map((binding, i) => (
-                  <div key={i} className="flex items-center gap-1.5">
-                    <Input
-                      value={binding.name}
-                      onChange={(e) => updateBinding(i, { name: e.target.value })}
-                      placeholder="MY_KV"
-                      className="flex-1 h-8 text-xs font-mono"
-                    />
-                    <Select
-                      value={binding.type}
-                      onValueChange={(v) => updateBinding(i, { type: v as EnvBinding['type'] })}
-                      options={[
-                        { value: 'kv', label: 'KV' },
-                        { value: 'd1', label: 'D1' },
-                        { value: 'r2', label: 'R2' },
-                        { value: 'service', label: 'Service' },
-                      ]}
-                      className="w-24 h-8 text-xs"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 shrink-0 text-muted-foreground/60 hover:text-destructive"
-                      onClick={() => removeBinding(i)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
                   </div>
                 ))}
               </div>

@@ -44,18 +44,6 @@ export interface WorkflowNodeData extends Record<string, unknown> {
 
 export type FlowNode = Node<WorkflowNodeData>
 
-export interface InputParam {
-  name: string
-  type: 'string' | 'number' | 'boolean' | 'object'
-  description?: string
-}
-
-export interface EnvBinding {
-  name: string
-  type: 'kv' | 'd1' | 'r2' | 'service'
-  description?: string
-}
-
 export interface WorkflowEnvVar {
   name: string
   value: string
@@ -73,8 +61,6 @@ const getInitialWorkflowState = () => ({
   edges: [],
   selectedNodeId: null,
   selectedEdgeId: null,
-  inputParams: [],
-  envBindings: [],
   workflowEnvVars: [],
   dependencies: {},
   triggerCode: '',
@@ -92,8 +78,6 @@ interface WorkflowState {
   edges: Edge[]
   selectedNodeId: string | null
   selectedEdgeId: string | null
-  inputParams: InputParam[]
-  envBindings: EnvBinding[]
   workflowEnvVars: WorkflowEnvVar[]
   dependencies: Record<string, string>
   triggerCode: string
@@ -120,8 +104,6 @@ interface WorkflowState {
   selectEdge: (edgeId: string | null) => void
 
   setMetadata: (metadata: Partial<WorkflowMetadata>) => void
-  setInputParams: (params: InputParam[]) => void
-  setEnvBindings: (bindings: EnvBinding[]) => void
   setWorkflowEnvVars: (vars: WorkflowEnvVar[]) => void
   setDependencies: (deps: Record<string, string>) => void
   setTriggerCode: (code: string) => void
@@ -402,14 +384,6 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     })
   },
 
-  setInputParams: (params) => {
-    set({ inputParams: params, isDirty: true })
-  },
-
-  setEnvBindings: (bindings) => {
-    set({ envBindings: bindings, isDirty: true })
-  },
-
   setWorkflowEnvVars: (vars) => {
     set({ workflowEnvVars: vars, isDirty: true })
   },
@@ -427,8 +401,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   runValidation: (nodeRegistry?: NodeRegistry) => {
-    const { metadata, nodes, edges, inputParams, envBindings, workflowEnvVars } = get()
-    const settings = { inputParams, envBindings, workflowEnvVars }
+    const { metadata, nodes, edges, workflowEnvVars } = get()
+    const settings = { workflowEnvVars }
     const result = validateWorkflowForPublish(metadata, nodes, edges, nodeRegistry, settings)
     set({ validationResult: result, simulationResult: null })
     return result

@@ -124,7 +124,7 @@ export function AddConnectionDialog({ onClose }: { onClose: () => void }) {
                       <span className="flex-1 text-muted-foreground">{perm.resource}</span>
                       <span
                         className={
-                          perm.level === 'Edit' ? 'text-amber-400/70' : 'text-muted-foreground/60'
+                          perm.level === 'Edit' ? 'text-amber-600' : 'text-muted-foreground/60'
                         }
                       >
                         {perm.level}
@@ -132,6 +132,11 @@ export function AddConnectionDialog({ onClose }: { onClose: () => void }) {
                     </div>
                   ))}
                 </div>
+                {provider.permissionsNote && (
+                  <p className="mt-2 text-[10px] text-muted-foreground/60">
+                    {provider.permissionsNote}
+                  </p>
+                )}
                 {provider.tokenCreateUrl && (
                   <a
                     href={provider.tokenCreateUrl}
