@@ -31,7 +31,7 @@ RUN pnpm build
 FROM base AS production
 WORKDIR /app
 ENV NODE_ENV=production
-RUN apt-get update && apt-get install -y --no-install-recommends psmisc && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends psmisc curl && rm -rf /var/lib/apt/lists/*
 
 # Native module: better-sqlite3 (only runtime dep not bundled by tsup)
 RUN --mount=from=deps,source=/app/node_modules,target=/deps \
