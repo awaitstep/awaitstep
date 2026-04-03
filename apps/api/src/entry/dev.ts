@@ -42,6 +42,7 @@ async function start() {
     throw new Error('BETTER_AUTH_SECRET is required in production')
   }
 
+  const baseURL = process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3001'
   const resendApiKey = process.env['RESEND_API_KEY']
   const appName = process.env['APP_NAME']
   let sendMagicLink:
@@ -56,8 +57,6 @@ async function start() {
     })
     sendMagicLink = (data) => emailService.sendMagicLink(data)
   }
-
-  const baseURL = process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3001'
   const auth = createAuth({
     baseURL,
     secret: authSecret ?? crypto.randomUUID(),

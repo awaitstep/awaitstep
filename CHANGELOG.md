@@ -6,21 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [1.1.0](https://github.com/awaitstep/awaitstep/compare/v1.0.0...v1.1.0) (2026-04-03)
 
-
 ### Features
 
-* **web:** add favicon to web application ([7f6f662](https://github.com/awaitstep/awaitstep/commit/7f6f662a5c4004f6a6404b84ee7f8c23552e2089))
-
+- **web:** add favicon to web application ([7f6f662](https://github.com/awaitstep/awaitstep/commit/7f6f662a5c4004f6a6404b84ee7f8c23552e2089))
 
 ### Documentation
 
-* add AI usage policy ([ee9adb0](https://github.com/awaitstep/awaitstep/commit/ee9adb095c67a82df560c4769eb9647a1bc04244))
-* add security policy ([6abb65e](https://github.com/awaitstep/awaitstep/commit/6abb65ea266c862c7096a5706e061d52ea09ac15))
-* add security policy and AI usage policy ([cad6907](https://github.com/awaitstep/awaitstep/commit/cad69076ca9635685377ef2204ece642a0836008))
-* add security policy, AI usage policy, and PR AI disclosure ([fd7cc68](https://github.com/awaitstep/awaitstep/commit/fd7cc68d8c50a55d5ea39e985e8cdfdce90a2507))
-* link policies from README, CONTRIBUTING, and PR template ([ef967c9](https://github.com/awaitstep/awaitstep/commit/ef967c974e1ad7b4939c0e428d4f7d655a883f6d))
-* rewrite README as feature-focused landing page ([6d85242](https://github.com/awaitstep/awaitstep/commit/6d85242aae9bab633952e14b60669097255f56cf))
-* rewrite README as feature-focused landing page ([49923ee](https://github.com/awaitstep/awaitstep/commit/49923ee7b77898df947e6c4a5cc6e08fe27c92c1))
+- add AI usage policy ([ee9adb0](https://github.com/awaitstep/awaitstep/commit/ee9adb095c67a82df560c4769eb9647a1bc04244))
+- add security policy ([6abb65e](https://github.com/awaitstep/awaitstep/commit/6abb65ea266c862c7096a5706e061d52ea09ac15))
+- add security policy and AI usage policy ([cad6907](https://github.com/awaitstep/awaitstep/commit/cad69076ca9635685377ef2204ece642a0836008))
+- add security policy, AI usage policy, and PR AI disclosure ([fd7cc68](https://github.com/awaitstep/awaitstep/commit/fd7cc68d8c50a55d5ea39e985e8cdfdce90a2507))
+- link policies from README, CONTRIBUTING, and PR template ([ef967c9](https://github.com/awaitstep/awaitstep/commit/ef967c974e1ad7b4939c0e428d4f7d655a883f6d))
+- rewrite README as feature-focused landing page ([6d85242](https://github.com/awaitstep/awaitstep/commit/6d85242aae9bab633952e14b60669097255f56cf))
+- rewrite README as feature-focused landing page ([49923ee](https://github.com/awaitstep/awaitstep/commit/49923ee7b77898df947e6c4a5cc6e08fe27c92c1))
 
 ## 1.0.0 (2026-04-03)
 
