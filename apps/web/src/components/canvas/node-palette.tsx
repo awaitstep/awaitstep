@@ -169,7 +169,7 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
         </div>
       )}
 
-      <MarketplaceDialog open={marketplaceOpen} onOpenChange={setMarketplaceOpen} />
+      {marketplaceOpen && <MarketplaceDialog onOpenChange={setMarketplaceOpen} />}
     </div>
   )
 }
