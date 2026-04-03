@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Manage subscribers and tags in Kit (formerly ConvertKit)",
   "category": "Email",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/convertkit/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/convertkit/icon.svg",
   "tags": ["convertkit", "kit", "email", "marketing", "creators"],
   "author": "awaitstep",
   "license": "Apache-2.0",

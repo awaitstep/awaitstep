@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Create, read, update, and search tickets in Zendesk",
   "category": "Customer Support",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/zendesk/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/zendesk/icon.svg",
   "tags": ["zendesk", "support", "tickets", "helpdesk"],
   "author": "awaitstep",
   "license": "Apache-2.0",

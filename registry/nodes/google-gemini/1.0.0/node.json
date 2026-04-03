@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Generate content, create embeddings, and count tokens with Google Gemini",
   "category": "AI",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/google-gemini/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/google-gemini/icon.svg",
   "tags": ["google", "gemini", "ai", "llm"],
   "author": "awaitstep",
   "license": "Apache-2.0",

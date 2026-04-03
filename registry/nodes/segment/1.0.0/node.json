@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Track events, identify users, and send data to Segment",
   "category": "Analytics",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/segment/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/segment/icon.svg",
   "tags": ["segment", "analytics", "tracking", "events"],
   "author": "awaitstep",
   "license": "Apache-2.0",

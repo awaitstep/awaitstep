@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Manage contacts in HubSpot CRM via the v3 API",
   "category": "Data",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/hubspot/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/hubspot/icon.svg",
   "tags": ["hubspot", "crm", "contacts", "sales"],
   "author": "awaitstep",
   "license": "Apache-2.0",

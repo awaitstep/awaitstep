@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Run AI-powered search queries with Perplexity",
   "category": "AI",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/perplexity/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/perplexity/icon.svg",
   "tags": ["perplexity", "ai", "search", "research"],
   "author": "awaitstep",
   "license": "Apache-2.0",

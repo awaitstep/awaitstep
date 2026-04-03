@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Send messages and manage channels in Microsoft Teams",
   "category": "Messaging",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/microsoft-teams/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/microsoft-teams/icon.svg",
   "tags": ["microsoft", "teams", "messaging", "chat"],
   "author": "awaitstep",
   "license": "Apache-2.0",

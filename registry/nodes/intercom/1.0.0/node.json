@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Manage contacts, messages, and conversations in Intercom",
   "category": "Customer Support",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/intercom/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/intercom/icon.svg",
   "tags": ["intercom", "support", "messaging", "crm"],
   "author": "awaitstep",
   "license": "Apache-2.0",

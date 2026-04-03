@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Create, read, update, and list issues in Linear via GraphQL",
   "category": "Utilities",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/linear/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/linear/icon.svg",
   "tags": ["linear", "issues", "project-management", "graphql"],
   "author": "awaitstep",
   "license": "Apache-2.0",

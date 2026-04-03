@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Create, read, update, and manage items in Monday.com boards",
   "category": "Project Management",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/monday/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/monday/icon.svg",
   "tags": ["monday", "project-management", "boards"],
   "author": "awaitstep",
   "license": "Apache-2.0",

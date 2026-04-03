@@ -70,7 +70,7 @@ Every node is described by a `NodeDefinition`:
   "version": "1.0.0",
   "description": "Interact with the Stripe API for payments and customers",
   "category": "Payments",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/stripe/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/stripe/icon.svg",
   "tags": ["stripe", "payments", "billing"],
   "author": "awaitstep",
   "license": "Apache-2.0",
@@ -124,7 +124,7 @@ Store an `icon.svg` file in the node's directory (not the version directory). Re
 
 ```json
 {
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/stripe/icon.svg"
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/stripe/icon.svg"
 }
 ```
 
@@ -408,10 +408,10 @@ Each version is a directory (`1.0.0/`, `1.1.0/`, etc.). When a user installs a n
 Set `REGISTRY_URL` in your `.env`:
 
 ```
-REGISTRY_URL=https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry
+REGISTRY_URL=https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry
 ```
 
-`REGISTRY_URL` defaults to the official AwaitStep registry (`https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry`), so the marketplace works out of the box. Override this to point at a private registry if needed.
+`REGISTRY_URL` defaults to the official AwaitStep registry (`https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry`), so the marketplace works out of the box. Override this to point at a private registry if needed.
 
 ## Authoring Checklist
 

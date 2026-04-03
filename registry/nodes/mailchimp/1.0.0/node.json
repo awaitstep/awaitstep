@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Manage subscribers and campaigns in Mailchimp",
   "category": "Email",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/mailchimp/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/mailchimp/icon.svg",
   "tags": ["mailchimp", "email", "marketing", "newsletter"],
   "author": "awaitstep",
   "license": "Apache-2.0",

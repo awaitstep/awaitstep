@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Send, retrieve, and cancel emails via the Resend API",
   "category": "Email",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/resend/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/resend/icon.svg",
   "tags": ["resend", "email", "transactional"],
   "author": "awaitstep",
   "license": "Apache-2.0",

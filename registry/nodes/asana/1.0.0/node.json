@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Create, read, update, and manage tasks in Asana",
   "category": "Project Management",
-  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry/nodes/asana/icon.svg",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/asana/icon.svg",
   "tags": ["asana", "project-management", "tasks"],
   "author": "awaitstep",
   "license": "Apache-2.0",

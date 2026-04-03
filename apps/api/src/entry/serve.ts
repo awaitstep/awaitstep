@@ -10,8 +10,7 @@ import { loadNodeRegistry } from '../lib/node-registry.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
 import { createEmailService } from '../lib/email.js'
 
-const DEFAULT_REGISTRY_URL =
-  'https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/registry'
+const DEFAULT_REGISTRY_URL = 'https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry'
 
 const __appRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 
