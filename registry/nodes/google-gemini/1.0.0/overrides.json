@@ -1,0 +1,12 @@
+{
+  "version": "1.0.0",
+  "description": "Generate content, create embeddings, and count tokens with Google Gemini",
+  "configSchema": {
+    "action": {
+      "options": ["Generate Content", "Create Embedding", "Count Tokens"]
+    },
+    "model": {
+      "default": "gemini-2.0-flash"
+    }
+  }
+}

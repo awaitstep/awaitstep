@@ -9,6 +9,7 @@ import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { nodeDefinitionSchema } from '@awaitstep/ir'
 import type { NodeDefinition, Provider } from '@awaitstep/ir'
+import { deepMerge } from './merge.js'
 
 interface RegistryVersionEntry {
   version: string
@@ -44,6 +45,37 @@ async function getDirectories(path: string): Promise<string[]> {
   return entries.filter((e) => e.isDirectory()).map((e) => e.name)
 }
 
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await readFile(path)
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function loadDefinition(
+  nodeDir: string,
+  versionDir: string,
+): Promise<Record<string, unknown>> {
+  const basePath = join(nodeDir, 'base.json')
+  const overridesPath = join(versionDir, 'overrides.json')
+  const nodePath = join(versionDir, 'node.json')
+
+  if (await fileExists(basePath)) {
+    const base = JSON.parse(await readFile(basePath, 'utf-8'))
+    if (await fileExists(overridesPath)) {
+      return deepMerge(base, JSON.parse(await readFile(overridesPath, 'utf-8')))
+    }
+    if (await fileExists(nodePath)) {
+      return JSON.parse(await readFile(nodePath, 'utf-8'))
+    }
+    throw new Error(`No overrides.json or node.json found in ${versionDir}`)
+  }
+
+  return JSON.parse(await readFile(nodePath, 'utf-8'))
+}
+
 async function buildNodeEntry(nodeId: string): Promise<RegistryNodeEntry> {
   const nodeDir = join(NODES_DIR, nodeId)
   const versionDirs = (await getDirectories(nodeDir)).sort()
@@ -57,8 +89,7 @@ async function buildNodeEntry(nodeId: string): Promise<RegistryNodeEntry> {
 
   for (const version of versionDirs) {
     const versionDir = join(nodeDir, version)
-    const defRaw = await readFile(join(versionDir, 'node.json'), 'utf-8')
-    const parsed = JSON.parse(defRaw)
+    const parsed = await loadDefinition(nodeDir, versionDir)
 
     // Validate against the shared schema
     const result = nodeDefinitionSchema.safeParse(parsed)
