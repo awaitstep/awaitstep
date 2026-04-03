@@ -1,5 +1,4 @@
 import { serve } from '@hono/node-server'
-import { serveStatic } from '@hono/node-server/serve-static'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkdirSync } from 'node:fs'
@@ -67,6 +66,10 @@ async function start() {
     throw new Error('BETTER_AUTH_SECRET is required. Generate with: openssl rand -hex 32')
   }
 
+  const apiPort = Number(process.env['PORT'] ?? 8080)
+  const webPort = Number(process.env['WEB_PORT'] ?? 3000)
+  const baseURL = process.env['BETTER_AUTH_URL'] ?? `http://localhost:${apiPort}`
+
   const resendApiKey = process.env['RESEND_API_KEY']
   const appName = process.env['APP_NAME']
   let sendMagicLink:
@@ -85,8 +88,6 @@ async function start() {
     logger.warn('RESEND_API_KEY not set — magic link emails will be logged to console')
   }
 
-  const port = Number(process.env['PORT'] ?? 8080)
-  const baseURL = process.env['BETTER_AUTH_URL'] ?? `http://localhost:${port}`
   const auth = createAuth({
     baseURL,
     secret: authSecret,
@@ -120,6 +121,7 @@ async function start() {
   const remoteNodeRegistry = createRemoteNodeRegistry({ baseUrl: registryUrl })
   logger.info(`Remote node registry: ${registryUrl}`)
 
+  // ── API server ──────────────────────────────────────
   const apiApp = createApp({
     db,
     auth,
@@ -132,26 +134,31 @@ async function start() {
     appName,
   })
 
-  const webClientDir = resolve(__appRoot, 'apps/web/dist/client')
-  apiApp.use(
-    '/assets/*',
-    serveStatic({
-      root: webClientDir,
-      rewriteRequestPath: (path) => path,
-    }),
-  )
+  serve({ fetch: apiApp.fetch, port: apiPort })
+  logger.info(`API running on http://localhost:${apiPort}`)
 
+  // ── Web server (static + SSR) ───────────────────────
+  const { Hono } = await import('hono')
+  const { serveStatic } = await import('@hono/node-server/serve-static')
+
+  const webApp = new Hono()
+  const webClientDir = resolve(__appRoot, 'apps/web/dist/client')
+
+  // Static assets (JS/CSS bundles, favicon, logo, etc.)
+  webApp.use('/*', serveStatic({ root: webClientDir }))
+
+  // SSR fallback for page routes
   const ssrPath = resolve(__appRoot, 'apps/web/dist/server/server.js')
   const ssrModule = await import(ssrPath)
   const ssrServer = ssrModule.default
 
-  apiApp.all('*', async (c) => {
+  webApp.all('/*', async (c) => {
     const response = await ssrServer.fetch(c.req.raw)
     return response
   })
 
-  logger.info(`AwaitStep running on http://localhost:${port}`)
-  serve({ fetch: apiApp.fetch, port })
+  serve({ fetch: webApp.fetch, port: webPort })
+  logger.info(`Web running on http://localhost:${webPort}`)
 
   process.on('SIGTERM', () => process.exit(0))
   process.on('SIGINT', () => process.exit(0))

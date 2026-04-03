@@ -59,7 +59,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 
-EXPOSE 8080
+EXPOSE 8080 3000
 VOLUME /app/data
 
 CMD ["node", "apps/api/dist/entry/serve.js"]
