@@ -3,6 +3,7 @@ import { Database, HardDrive, Archive, KeyRound } from 'lucide-react'
 import { RequireOrg } from '../../../wrappers/require-org'
 
 export const Route = createFileRoute('/_authed/resources/')({
+  head: () => ({ meta: [{ title: 'Resources | AwaitStep' }] }),
   component: ResourcesPage,
 })
 

@@ -8,6 +8,7 @@ import { EditConnectionDialog } from '../../components/connections/edit-connecti
 import { RequireOrg } from '../../wrappers/require-org'
 
 export const Route = createFileRoute('/_authed/connections')({
+  head: () => ({ meta: [{ title: 'Connections | AwaitStep' }] }),
   component: ConnectionsPage,
 })
 

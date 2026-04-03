@@ -5,6 +5,7 @@ import { R2Browser } from '../../../components/resources/r2-browser'
 import { RequireOrg } from '../../../wrappers/require-org'
 
 export const Route = createFileRoute('/_authed/resources/r2')({
+  head: () => ({ meta: [{ title: 'R2 Browser | AwaitStep' }] }),
   component: R2Page,
 })
 

@@ -5,6 +5,7 @@ import { KVBrowser } from '../../../components/resources/kv-browser'
 import { RequireOrg } from '../../../wrappers/require-org'
 
 export const Route = createFileRoute('/_authed/resources/kv')({
+  head: () => ({ meta: [{ title: 'KV Browser | AwaitStep' }] }),
   component: KVPage,
 })
 

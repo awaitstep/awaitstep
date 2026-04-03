@@ -21,6 +21,7 @@ import { LoadingView } from '../../../components/ui/loading-view'
 import { DetailSkeleton } from '../../../components/ui/skeletons'
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId/')({
+  head: () => ({ meta: [{ title: 'Workflow | AwaitStep' }] }),
   beforeLoad: ({ params }) => {
     if (params.workflowId === 'new') {
       throw redirect({ to: '/workflows/$workflowId/canvas', params })

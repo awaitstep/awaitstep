@@ -12,6 +12,7 @@ import { envVarsToString, parseEnvString } from '../../../lib/env-var-parser'
 import type { EnvVarSummary } from '../../../lib/api-client'
 
 export const Route = createFileRoute('/_authed/resources/env-vars')({
+  head: () => ({ meta: [{ title: 'Environment Variables | AwaitStep' }] }),
   component: EnvVarsPage,
 })
 

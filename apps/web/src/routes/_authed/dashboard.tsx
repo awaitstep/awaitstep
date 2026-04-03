@@ -6,6 +6,7 @@ import { OnboardingOverlay } from '../../components/dashboard/onboarding-overlay
 import { RequireProject } from '../../wrappers/require-project'
 
 export const Route = createFileRoute('/_authed/dashboard')({
+  head: () => ({ meta: [{ title: 'Dashboard | AwaitStep' }] }),
   component: DashboardPage,
 })
 

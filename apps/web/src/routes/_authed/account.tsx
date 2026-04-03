@@ -14,6 +14,7 @@ const getAccountContext = createServerFn({ method: 'GET' }).handler(async () => 
 }))
 
 export const Route = createFileRoute('/_authed/account')({
+  head: () => ({ meta: [{ title: 'Account | AwaitStep' }] }),
   component: AccountPage,
   loader: () => getAccountContext(),
 })

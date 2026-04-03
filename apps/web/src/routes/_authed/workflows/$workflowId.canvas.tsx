@@ -38,6 +38,7 @@ const getCanvasContext = createServerFn({ method: 'GET' }).handler(async () => (
 }))
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId/canvas')({
+  head: () => ({ meta: [{ title: 'Canvas | AwaitStep' }] }),
   component: WorkflowEditorPageWrapper,
   loader: () => getCanvasContext(),
   validateSearch: (search: Record<string, unknown>): { template?: boolean; version?: string } => ({

@@ -22,6 +22,7 @@ import { RequireProject } from '../../wrappers/require-project'
 import { copyToClipboard } from '../../lib/utils'
 
 export const Route = createFileRoute('/_authed/runs/$runId')({
+  head: () => ({ meta: [{ title: 'Run Details | AwaitStep' }] }),
   validateSearch: (search: Record<string, unknown>) => ({
     workflowId: typeof search.workflowId === 'string' ? search.workflowId : '',
   }),

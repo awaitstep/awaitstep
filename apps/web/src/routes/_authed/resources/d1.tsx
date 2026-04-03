@@ -5,6 +5,7 @@ import { D1QueryPanel } from '../../../components/resources/d1-query-panel'
 import { RequireOrg } from '../../../wrappers/require-org'
 
 export const Route = createFileRoute('/_authed/resources/d1')({
+  head: () => ({ meta: [{ title: 'D1 Browser | AwaitStep' }] }),
   component: D1Page,
 })
 
