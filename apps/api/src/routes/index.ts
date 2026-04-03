@@ -12,7 +12,6 @@ import { versions } from './versions.js'
 import { createConnectionRoutes } from './connections.js'
 import { deploy } from './deploy.js'
 import { runs } from './runs.js'
-import { resources } from './resources.js'
 import { apiKeys } from './api-keys.js'
 import { envVars } from './env-vars.js'
 import { projects } from './projects.js'
@@ -34,7 +33,6 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.use('/connections', requireOrganization)
   router.use('/env-vars/*', requireOrganization)
   router.use('/env-vars', requireOrganization)
-  router.use('/resources/*', requireOrganization)
   router.use('/projects/*', requireOrganization)
   router.use('/projects', requireOrganization)
   router.use('/api-keys/*', requireOrganization)
@@ -73,7 +71,6 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   const writeLimit = createRateLimiter({ windowMs: 60_000, max: 30, keyGenerator: userKey })
   const verifyLimit = createRateLimiter({ windowMs: 60_000, max: 10, keyGenerator: userKey })
   const deployLimit = createRateLimiter({ windowMs: 60_000, max: 10, keyGenerator: userKey })
-  const queryLimit = createRateLimiter({ windowMs: 60_000, max: 20, keyGenerator: userKey })
   const apiKeyCreateLimit = createRateLimiter({ windowMs: 60_000, max: 5, keyGenerator: userKey })
 
   const marketplaceLimit = createRateLimiter({ windowMs: 60_000, max: 10, keyGenerator: userKey })
@@ -83,7 +80,6 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.use('/workflows/:workflowId/deploy-stream', deployLimit)
   router.use('/workflows/:workflowId/trigger', writeLimit)
   router.use('/workflows/:workflowId/takedown', writeLimit)
-  router.use('/resources/d1/databases/:databaseId/query', queryLimit)
   router.post('/api-keys', apiKeyCreateLimit)
   router.post('/marketplace/install', marketplaceLimit)
   router.post('/marketplace/uninstall', marketplaceLimit)
@@ -138,7 +134,6 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.route('/workflows', deploy)
   router.route('/workflows', runs)
   router.route('/connections', createConnectionRoutes())
-  router.route('/resources', resources)
   router.route('/api-keys', apiKeys)
   router.route('/env-vars', envVars)
   router.route('/projects', projects)
