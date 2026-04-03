@@ -26,6 +26,10 @@ export const Route = createRootRoute({
     title: 'AwaitStep',
     links: [
       {
+        rel: 'icon',
+        href: '/favicon.ico',
+      },
+      {
         rel: 'stylesheet',
         href: 'https://cdn.jsdelivr.net/npm/geist@1/dist/fonts/geist-sans/style.css',
       },
