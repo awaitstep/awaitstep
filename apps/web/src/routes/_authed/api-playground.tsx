@@ -7,6 +7,7 @@ import { RequestPanel } from '../../components/playground/request-panel'
 import { ResponsePanel, type ResponseData } from '../../components/playground/response-panel'
 
 export const Route = createFileRoute('/_authed/api-playground')({
+  head: () => ({ meta: [{ title: 'API Playground | AwaitStep' }] }),
   component: ApiPlaygroundPage,
 })
 

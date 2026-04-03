@@ -60,4 +60,108 @@ describe('generateWranglerConfig', () => {
     const parsed = JSON.parse(config)
     expect(parsed.vars).toBeUndefined()
   })
+
+  it('includes KV namespace bindings', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+      bindings: [{ name: 'KV_CACHE', type: 'kv', source: 'code-scan', resourceId: 'abc123' }],
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.kv_namespaces).toEqual([{ binding: 'KV_CACHE', id: 'abc123' }])
+  })
+
+  it('includes D1 database bindings', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+      bindings: [{ name: 'DB_MAIN', type: 'd1', source: 'code-scan', resourceId: 'uuid-123' }],
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.d1_databases).toEqual([
+      { binding: 'DB_MAIN', database_id: 'uuid-123', database_name: 'DB_MAIN' },
+    ])
+  })
+
+  it('includes R2 bucket bindings', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+      bindings: [{ name: 'BUCKET_ASSETS', type: 'r2', source: 'code-scan' }],
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.r2_buckets).toEqual([{ binding: 'BUCKET_ASSETS', bucket_name: 'bucket_assets' }])
+  })
+
+  it('includes queue producer bindings', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+      bindings: [{ name: 'QUEUE_JOBS', type: 'queue', source: 'code-scan' }],
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.queues).toEqual({ producers: [{ binding: 'QUEUE_JOBS', queue: 'queue_jobs' }] })
+  })
+
+  it('includes service bindings', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+      bindings: [{ name: 'AUTH_SERVICE', type: 'service', source: 'env-binding' }],
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.services).toEqual([{ binding: 'AUTH_SERVICE', service: 'auth_service' }])
+  })
+
+  it('includes multiple binding types together', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+      bindings: [
+        { name: 'KV_CACHE', type: 'kv', source: 'code-scan', resourceId: 'kv-id' },
+        { name: 'DB_MAIN', type: 'd1', source: 'code-scan', resourceId: 'db-uuid' },
+        { name: 'QUEUE_JOBS', type: 'queue', source: 'code-scan' },
+      ],
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.kv_namespaces).toHaveLength(1)
+    expect(parsed.d1_databases).toHaveLength(1)
+    expect(parsed.queues.producers).toHaveLength(1)
+    expect(parsed.r2_buckets).toBeUndefined()
+    expect(parsed.services).toBeUndefined()
+  })
+
+  it('omits binding sections when no bindings provided', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.kv_namespaces).toBeUndefined()
+    expect(parsed.d1_databases).toBeUndefined()
+    expect(parsed.r2_buckets).toBeUndefined()
+    expect(parsed.queues).toBeUndefined()
+    expect(parsed.services).toBeUndefined()
+  })
 })

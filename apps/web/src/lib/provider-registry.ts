@@ -22,6 +22,7 @@ export interface ProviderDefinition {
   enabled: boolean
   credentialFields: CredentialField[]
   permissions: ProviderPermission[]
+  permissionsNote?: string
   tokenCreateUrl?: string
   tokenCreateLabel?: string
   verifyReturnsAccounts: boolean
@@ -45,11 +46,13 @@ const providers: ProviderDefinition[] = [
     ],
     permissions: [
       { scope: 'Account', resource: 'Workers Scripts', level: 'Edit' },
-      { scope: 'Account', resource: 'Workers Workflows', level: 'Edit' },
-      { scope: 'Account', resource: 'Workers KV Storage', level: 'Edit' },
-      { scope: 'Account', resource: 'Workers R2 Storage', level: 'Read' },
-      { scope: 'Account', resource: 'D1', level: 'Edit' },
+      { scope: 'Zone', resource: 'Workers Routes', level: 'Edit' },
+      { scope: 'Account', resource: 'Workers Tail', level: 'Read' },
+      { scope: 'Account', resource: 'Workers Builds Configuration', level: 'Edit' },
+      { scope: 'Account', resource: 'Workers Observability', level: 'Edit' },
     ],
+    permissionsNote:
+      'If your workflow uses KV, D1, R2, Agents, or Queues bindings, add Edit permissions for those resources too.',
     tokenCreateUrl: 'https://dash.cloudflare.com/profile/api-tokens',
     tokenCreateLabel: 'Create token on Cloudflare',
     verifyReturnsAccounts: true,

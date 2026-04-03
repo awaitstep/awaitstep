@@ -15,8 +15,6 @@ export function buildWorkflowStoreState(
   isReadOnly: boolean,
 ) {
   const state: Record<string, unknown> = {
-    inputParams: [],
-    envBindings: [],
     workflowEnvVars: [],
     dependencies: {},
     triggerCode: '',

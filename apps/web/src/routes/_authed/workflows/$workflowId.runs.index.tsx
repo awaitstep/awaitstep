@@ -16,6 +16,7 @@ import { LoadMoreButton } from '../../../components/ui/load-more-button'
 import { ListSkeleton } from '../../../components/ui/skeletons'
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId/runs/')({
+  head: () => ({ meta: [{ title: 'Runs | AwaitStep' }] }),
   component: RunsListPage,
 })
 

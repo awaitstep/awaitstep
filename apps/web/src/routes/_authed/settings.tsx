@@ -7,6 +7,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { RequireOrg } from '../../wrappers/require-org'
 
 export const Route = createFileRoute('/_authed/settings')({
+  head: () => ({ meta: [{ title: 'Settings | AwaitStep' }] }),
   component: SettingsPage,
 })
 

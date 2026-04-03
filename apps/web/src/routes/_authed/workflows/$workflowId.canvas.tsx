@@ -9,6 +9,7 @@ import { TemplatePicker } from '../../../components/canvas/template-picker'
 import { ClientOnly } from '../../../components/canvas/client-only'
 import { useWorkflowStore } from '../../../stores/workflow-store'
 import { SimulationPanel } from '../../../components/canvas/simulation-panel'
+import { BindingsPanel } from '../../../components/canvas/bindings-panel'
 import { NodeRegistryProvider, useNodeRegistry } from '../../../contexts/node-registry-context'
 import { api } from '../../../lib/api-client'
 import { useOrgReady } from '../../../stores/org-store'
@@ -38,6 +39,7 @@ const getCanvasContext = createServerFn({ method: 'GET' }).handler(async () => (
 }))
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId/canvas')({
+  head: () => ({ meta: [{ title: 'Canvas | AwaitStep' }] }),
   component: WorkflowEditorPageWrapper,
   loader: () => getCanvasContext(),
   validateSearch: (search: Record<string, unknown>): { template?: boolean; version?: string } => ({
@@ -123,8 +125,6 @@ function WorkflowEditorPage() {
   useEffect(() => {
     if (isNew) {
       useWorkflowStore.setState({
-        inputParams: [],
-        envBindings: [],
         workflowEnvVars: [],
         dependencies: {},
         triggerCode: '',
@@ -212,6 +212,7 @@ function WorkflowEditorPage() {
               {isNew && showTemplatePicker && (
                 <TemplatePicker onDismiss={() => setShowTemplatePicker(false)} />
               )}
+              <BindingsPanel />
               <SimulationPanel />
               <CanvasSidePanels
                 showEditor={showEditor}

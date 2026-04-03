@@ -57,4 +57,4 @@ jobs:
             --body "Auto-generated from registry/nodes changes." \
             --base main \
             --head "$BRANCH")
-          gh pr merge "$PR_URL" --squash --auto
+          gh pr merge "$PR_URL" --merge --auto

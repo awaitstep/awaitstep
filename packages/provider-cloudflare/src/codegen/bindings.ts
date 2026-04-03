@@ -1,18 +1,20 @@
 import type { WorkflowIR } from '@awaitstep/ir'
 
-export type BindingType = 'kv' | 'd1' | 'r2' | 'secret' | 'variable' | 'service'
+export type BindingType = 'kv' | 'd1' | 'r2' | 'queue' | 'secret' | 'variable' | 'service'
 
 export interface BindingRequirement {
   name: string
   type: BindingType
   source: 'env-binding' | 'code-scan'
   nodeId?: string
+  resourceId?: string
 }
 
 const BINDING_PATTERNS: Array<{ pattern: RegExp; type: BindingType }> = [
-  { pattern: /env\.KV_(\w+)/g, type: 'kv' },
-  { pattern: /env\.DB_(\w+)/g, type: 'd1' },
-  { pattern: /env\.BUCKET_(\w+)/g, type: 'r2' },
+  { pattern: /env\.(KV\w*)/g, type: 'kv' },
+  { pattern: /env\.(DB\w*)/g, type: 'd1' },
+  { pattern: /env\.(BUCKET\w*)/g, type: 'r2' },
+  { pattern: /env\.(QUEUE\w*)/g, type: 'queue' },
 ]
 
 export function detectBindings(
@@ -46,10 +48,27 @@ export function detectBindings(
         const regex = new RegExp(pattern.source, 'g')
         let match: RegExpExecArray | null
         while ((match = regex.exec(code)) !== null) {
-          const fullName = match[0].split('.')[1]!
-          add({ name: fullName, type, source: 'code-scan', nodeId: node.id })
+          add({ name: match[1]!, type, source: 'code-scan', nodeId: node.id })
         }
       }
+    }
+  }
+
+  return bindings
+}
+
+export function detectBindingsFromSource(source: string): BindingRequirement[] {
+  const seen = new Set<string>()
+  const bindings: BindingRequirement[] = []
+
+  for (const { pattern, type } of BINDING_PATTERNS) {
+    const regex = new RegExp(pattern.source, 'g')
+    let match: RegExpExecArray | null
+    while ((match = regex.exec(source)) !== null) {
+      const key = `${type}:${match[1]!}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      bindings.push({ name: match[1]!, type, source: 'code-scan' })
     }
   }
 

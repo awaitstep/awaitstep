@@ -9,7 +9,7 @@ import {
   Workflow,
   Activity,
   Cable,
-  HardDrive,
+  KeyRound,
   Code,
   SquareTerminal,
   ExternalLink,
@@ -31,7 +31,7 @@ const navItems = [
   { to: '/workflows', label: 'Workflows', icon: Workflow },
   { to: '/runs', label: 'Runs', icon: Activity },
   { to: '/connections', label: 'Connections', icon: Cable },
-  { to: '/resources', label: 'Resources', icon: HardDrive },
+  { to: '/env-vars', label: 'Env Vars', icon: KeyRound },
 ] as const
 
 export function Dock({ email }: { email: string }) {
@@ -215,7 +215,7 @@ export function Dock({ email }: { email: string }) {
               if (to === '/workflows') return m.routeId.startsWith('/_authed/workflows')
               if (to === '/runs') return m.routeId.startsWith('/_authed/runs')
               if (to === '/connections') return m.routeId === '/_authed/connections'
-              if (to === '/resources') return m.routeId.startsWith('/_authed/resources')
+              if (to === '/env-vars') return m.routeId === '/_authed/env-vars'
               return false
             })
             return (

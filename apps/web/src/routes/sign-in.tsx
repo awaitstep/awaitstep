@@ -50,6 +50,7 @@ const getSignInContext = createServerFn({ method: 'GET' }).handler(
 )
 
 export const Route = createFileRoute('/sign-in')({
+  head: () => ({ meta: [{ title: 'Sign In | AwaitStep' }] }),
   beforeLoad: async () => {
     const { authenticated, redirectPath, authMethods } = await getSignInContext()
     if (authenticated) {
