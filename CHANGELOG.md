@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.2](https://github.com/awaitstep/awaitstep/compare/v1.1.1...v1.1.2) (2026-04-03)
+
+
+### Bug Fixes
+
+* baseURL init order and registry URL update ([3a71a62](https://github.com/awaitstep/awaitstep/commit/3a71a620c1a326f78c1cb6e344c078648b324a20))
+* move baseURL declaration before email service init ([67431e4](https://github.com/awaitstep/awaitstep/commit/67431e4d74933acbf10512a6d0ecaee68cebf641))
+
 ## [1.1.1](https://github.com/awaitstep/awaitstep/compare/v1.1.0...v1.1.1) (2026-04-03)
 
 
