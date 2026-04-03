@@ -77,6 +77,7 @@ async function start() {
       apiKey: resendApiKey,
       fromAddress: process.env['RESEND_FROM_EMAIL'],
       appName,
+      appUrl: baseURL,
     })
     sendMagicLink = (data) => emailService.sendMagicLink(data)
     logger.info('Email: Resend configured')

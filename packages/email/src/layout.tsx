@@ -12,15 +12,14 @@ import {
   pixelBasedPreset,
 } from '@react-email/components'
 
-const LOGO_URL =
-  'https://raw.githubusercontent.com/awaitstep/awaitstep.dev/main/apps/web/public/logo.png'
-
 interface LayoutProps {
   preview?: string
+  appUrl?: string
   children: React.ReactNode
 }
 
-export default function Layout({ children, preview }: LayoutProps) {
+export default function Layout({ children, preview, appUrl }: LayoutProps) {
+  const logoUrl = appUrl ? `${appUrl}/logo.png` : 'https://awaitstep.dev/logo.png'
   return (
     <Html lang="en" dir="ltr">
       <Head />
@@ -44,7 +43,7 @@ export default function Layout({ children, preview }: LayoutProps) {
           >
             <Section className="h-1" style={{ backgroundColor: '#34d399' }} />
             <Section className="px-10 pt-8 pb-10">
-              <Img src={LOGO_URL} width="60" height="28" alt="AwaitStep" className="mb-6" />
+              <Img src={logoUrl} width="60" height="28" alt="AwaitStep" className="mb-6" />
               {children}
             </Section>
           </Container>
