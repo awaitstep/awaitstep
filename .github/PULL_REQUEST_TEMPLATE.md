@@ -24,6 +24,14 @@
 - [ ] `pnpm lint` passes
 - [ ] Manually tested (describe below)
 
+## AI Disclosure
+
+<!-- Select one. See AI_USE.md for our AI usage policy. -->
+
+- [ ] No AI used
+- [ ] AI-assisted (human-directed, AI helped with implementation)
+- [ ] AI-generated (fully AI-written, human-reviewed)
+
 ## Notes
 
 <!-- Anything reviewers should know? Breaking changes, follow-ups, etc. -->

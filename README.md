@@ -144,6 +144,14 @@ pnpm dev          # Start dev servers
 - **Testing:** Vitest
 - **Monorepo:** pnpm workspaces + Turborepo
 
+## Security
+
+To report a security vulnerability, see [SECURITY.md](SECURITY.md).
+
+## AI Usage
+
+This project uses AI tools during development. See [AI_USE.md](AI_USE.md) for details.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and guidelines.

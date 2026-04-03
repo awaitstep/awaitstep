@@ -75,6 +75,14 @@ Use GitHub Issues. Include:
 - Expected vs actual behavior
 - Environment details (OS, Node version, etc.)
 
+## Security Issues
+
+If you discover a security vulnerability, do NOT open a public issue. Follow the process in [SECURITY.md](SECURITY.md).
+
+## AI Tools
+
+This project uses AI-assisted development. See [AI_USE.md](AI_USE.md) for our AI usage policy and safeguards.
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under the Apache License 2.0.
