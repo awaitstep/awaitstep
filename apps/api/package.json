@@ -29,7 +29,7 @@
     "@hono/zod-validator": "^0.7.6",
     "better-auth": "^1.5.5",
     "better-sqlite3": "^12.8.0",
-    "drizzle-orm": "^0.45.1",
+    "drizzle-orm": "^0.45.2",
     "hono": "^4.12.8",
     "hono-rate-limiter": "^0.5.3",
     "nanoid": "^5.1.6",
