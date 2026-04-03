@@ -15,7 +15,8 @@
 - Always create a new branch for each planned task. Branch name should relate to the task (e.g., `feat/add-env-type-to-codegen`, `fix/duplicate-workflow-runs`). Never work directly on `main` or `dev`.
 - All pull requests target `dev`, not `main`.
 - Never include a "Co-Authored-By" line in commit messages.
-- Use conventional commit prefixes: `feat:`, `fix:`, `refactor:`, `test:`, `chore:`, `docs:`, `ci:`.
+- Use conventional commit prefixes: `feat:`, `fix:`, `refactor:`, `test:`, `chore:`, `docs:`, `ci:`, `perf:`.
+- **Commit prefixes control versioning (release-please).** `feat:` bumps minor (1.0.0 → 1.1.0), `fix:` bumps patch (1.0.0 → 1.0.1). All other prefixes (`chore:`, `refactor:`, `docs:`, `ci:`, `perf:`, `test:`) do not trigger a version bump. Use `feat:` only for genuinely new user-facing features. Bug fixes, improvements to existing features, refactors, and internal changes should use `fix:`, `refactor:`, `chore:`, or `perf:`. Adding a `!` suffix (e.g. `feat!:`) or `BREAKING CHANGE:` in the body triggers a major bump.
 - Keep commits atomic — one logical change per commit. Don't mix unrelated changes.
 - When multiple files were changed, group them into logical commits with related messages rather than one big commit. For example, separate "add IR types" from "add IR validation" from "add IR tests".
 - Before committing, always present a detailed summary of what code changes were made — which files were added/modified/deleted, what each change does, and why. Wait for the user to review before running `git commit`.
