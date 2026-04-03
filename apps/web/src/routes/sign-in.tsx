@@ -10,6 +10,7 @@ import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Separator } from '../components/ui/separator'
 import { getOrigin } from '../lib/utils'
+import { toast } from 'sonner'
 
 interface SignInContext {
   authenticated: boolean
@@ -65,24 +66,26 @@ function SignInPage() {
   const [email, setEmail] = useState('')
   const [magicLinkSent, setMagicLinkSent] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
 
   const appURL = getOrigin()
   const callbackURL = redirectPath ? `${appURL}${redirectPath}` : `${appURL}/dashboard`
   const errorCallbackURL = `${appURL}/sign-in?error=true`
 
-  const handleMagicLink = async (e: React.FormEvent) => {
+  const handleMagicLink = async (e: React.SubmitEvent) => {
     e.preventDefault()
     setLoading(true)
-    setError('')
-    try {
-      await authClient.signIn.magicLink({ email, callbackURL })
-      setMagicLinkSent(true)
-    } catch {
-      setError('Failed to send magic link. Please try again.')
-    } finally {
-      setLoading(false)
-    }
+
+    authClient.signIn
+      .magicLink({ email, callbackURL })
+      .then(() => {
+        setMagicLinkSent(true)
+      })
+      .catch((err) => {
+        toast.error(err.message || 'Failed to send magic link. Please try again.')
+      })
+      .finally(() => {
+        setLoading(false)
+      })
   }
 
   const handleGitHub = () =>
@@ -158,8 +161,6 @@ function SignInPage() {
                 required
               />
             </div>
-
-            {error && <p className="text-sm text-center text-destructive">{error}</p>}
 
             <Button type="submit" disabled={loading || !email} className="w-full">
               {loading ? 'Sending...' : 'Send magic link'}

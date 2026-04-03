@@ -4,11 +4,12 @@ import Layout from '../layout.js'
 interface MagicLinkEmailProps {
   url: string
   appName?: string
+  appUrl?: string
 }
 
-export function MagicLinkEmail({ url, appName = 'AwaitStep' }: MagicLinkEmailProps) {
+export function MagicLinkEmail({ url, appName = 'AwaitStep', appUrl }: MagicLinkEmailProps) {
   return (
-    <Layout preview={`Sign in to ${appName}`}>
+    <Layout preview={`Sign in to ${appName}`} appUrl={appUrl}>
       <Heading as="h2" className="text-gray-900 text-xl font-semibold mt-0 mb-2">
         Sign in to {appName}
       </Heading>

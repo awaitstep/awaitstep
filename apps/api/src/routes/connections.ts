@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import type { AppEnv } from '../types.js'
+import { createLogger } from '../lib/logger.js'
 
 const createConnectionSchema = z.object({
   provider: z.string().min(1).max(100),
@@ -131,10 +132,15 @@ const SAFE_CREDENTIAL_FIELDS = new Set([
 ])
 
 function redactCredentials(conn: { credentials: string; [key: string]: unknown }) {
-  const creds = JSON.parse(conn.credentials) as Record<string, string>
-  const redacted: Record<string, string> = {}
-  for (const [key, value] of Object.entries(creds)) {
-    redacted[key] = SAFE_CREDENTIAL_FIELDS.has(key) ? value : '***'
+  try {
+    const creds = JSON.parse(conn.credentials) as Record<string, string>
+    const redacted: Record<string, string> = {}
+    for (const [key, value] of Object.entries(creds)) {
+      redacted[key] = SAFE_CREDENTIAL_FIELDS.has(key) ? value : '***'
+    }
+    return { ...conn, credentials: redacted }
+  } catch (error) {
+    createLogger('redactCredentials').error('failed', error)
+    return { ...conn, credentials: '****' }
   }
-  return { ...conn, credentials: redacted }
 }
