@@ -64,13 +64,16 @@ async function loadDefinition(
 
   if (await fileExists(basePath)) {
     const base = JSON.parse(await readFile(basePath, 'utf-8'))
+    let merged: Record<string, unknown>
     if (await fileExists(overridesPath)) {
-      return deepMerge(base, JSON.parse(await readFile(overridesPath, 'utf-8')))
-    }
-    if (await fileExists(nodePath)) {
+      merged = deepMerge(base, JSON.parse(await readFile(overridesPath, 'utf-8')))
+    } else if (await fileExists(nodePath)) {
       return JSON.parse(await readFile(nodePath, 'utf-8'))
+    } else {
+      throw new Error(`No overrides.json or node.json found in ${versionDir}`)
     }
-    throw new Error(`No overrides.json or node.json found in ${versionDir}`)
+    await writeFile(nodePath, JSON.stringify(merged, null, 2) + '\n')
+    return merged
   }
 
   return JSON.parse(await readFile(nodePath, 'utf-8'))

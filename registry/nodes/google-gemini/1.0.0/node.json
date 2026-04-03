@@ -1,0 +1,69 @@
+{
+  "id": "google-gemini",
+  "name": "Google Gemini",
+  "category": "AI",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/google-gemini/icon.svg",
+  "tags": ["google", "gemini", "ai", "llm"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "description": "The Google Gemini API action to perform.",
+      "options": ["Generate Content", "Create Embedding", "Count Tokens"]
+    },
+    "model": {
+      "type": "string",
+      "label": "Model",
+      "description": "Model name.",
+      "default": "gemini-2.0-flash"
+    },
+    "prompt": {
+      "type": "textarea",
+      "label": "Prompt",
+      "required": true,
+      "description": "Text prompt for the selected action."
+    },
+    "systemInstruction": {
+      "type": "textarea",
+      "label": "System Instruction",
+      "description": "System instruction for the model."
+    },
+    "temperature": {
+      "type": "number",
+      "label": "Temperature",
+      "description": "Sampling temperature (0-2)."
+    },
+    "maxOutputTokens": {
+      "type": "number",
+      "label": "Max Output Tokens",
+      "description": "Maximum tokens in the response."
+    },
+    "apiKey": {
+      "type": "secret",
+      "label": "API Key",
+      "required": true,
+      "envVarName": "GOOGLE_GEMINI_API_KEY",
+      "description": "Google Gemini API key."
+    }
+  },
+  "outputSchema": {
+    "text": {
+      "type": "string",
+      "description": "Generated text, JSON string, embedding values, or token count"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "60 seconds"
+  },
+  "version": "1.0.0",
+  "description": "Generate content, create embeddings, and count tokens with Google Gemini"
+}

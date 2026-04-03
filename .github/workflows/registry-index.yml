@@ -34,8 +34,8 @@ jobs:
       - name: Check for changes
         id: diff
         run: |
-          git add registry/index.json
-          if git diff --cached --quiet registry/index.json; then
+          git add registry/index.json registry/nodes/*/*/node.json
+          if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
