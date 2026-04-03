@@ -9,6 +9,7 @@ import { TemplatePicker } from '../../../components/canvas/template-picker'
 import { ClientOnly } from '../../../components/canvas/client-only'
 import { useWorkflowStore } from '../../../stores/workflow-store'
 import { SimulationPanel } from '../../../components/canvas/simulation-panel'
+import { BindingsPanel } from '../../../components/canvas/bindings-panel'
 import { NodeRegistryProvider, useNodeRegistry } from '../../../contexts/node-registry-context'
 import { api } from '../../../lib/api-client'
 import { useOrgReady } from '../../../stores/org-store'
@@ -124,8 +125,6 @@ function WorkflowEditorPage() {
   useEffect(() => {
     if (isNew) {
       useWorkflowStore.setState({
-        inputParams: [],
-        envBindings: [],
         workflowEnvVars: [],
         dependencies: {},
         triggerCode: '',
@@ -213,6 +212,7 @@ function WorkflowEditorPage() {
               {isNew && showTemplatePicker && (
                 <TemplatePicker onDismiss={() => setShowTemplatePicker(false)} />
               )}
+              <BindingsPanel />
               <SimulationPanel />
               <CanvasSidePanels
                 showEditor={showEditor}

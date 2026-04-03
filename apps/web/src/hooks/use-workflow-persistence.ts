@@ -23,7 +23,7 @@ export function useWorkflowPersistence(opts: {
       const state = useWorkflowStore.getState()
       const ir = buildIRFromState(state)
 
-      const envVars = state.workflowEnvVars.length > 0 ? state.workflowEnvVars : undefined
+      const envVars = state.workflowEnvVars
       const triggerCode = state.triggerCode || undefined
       const dependencies =
         Object.keys(state.dependencies).length > 0 ? state.dependencies : undefined
@@ -66,8 +66,6 @@ export function useWorkflowPersistence(opts: {
   const handleSave = useCallback(() => {
     const state = useWorkflowStore.getState()
     const settings = {
-      inputParams: state.inputParams,
-      envBindings: state.envBindings,
       workflowEnvVars: state.workflowEnvVars,
     }
     const result = validateWorkflowForPublish(

@@ -11,10 +11,10 @@ export interface BindingRequirement {
 }
 
 const BINDING_PATTERNS: Array<{ pattern: RegExp; type: BindingType }> = [
-  { pattern: /env\.KV_(\w+)/g, type: 'kv' },
-  { pattern: /env\.DB_(\w+)/g, type: 'd1' },
-  { pattern: /env\.BUCKET_(\w+)/g, type: 'r2' },
-  { pattern: /env\.QUEUE_(\w+)/g, type: 'queue' },
+  { pattern: /env\.(KV\w*)/g, type: 'kv' },
+  { pattern: /env\.(DB\w*)/g, type: 'd1' },
+  { pattern: /env\.(BUCKET\w*)/g, type: 'r2' },
+  { pattern: /env\.(QUEUE\w*)/g, type: 'queue' },
 ]
 
 export function detectBindings(
@@ -48,8 +48,7 @@ export function detectBindings(
         const regex = new RegExp(pattern.source, 'g')
         let match: RegExpExecArray | null
         while ((match = regex.exec(code)) !== null) {
-          const fullName = match[0].split('.')[1]!
-          add({ name: fullName, type, source: 'code-scan', nodeId: node.id })
+          add({ name: match[1]!, type, source: 'code-scan', nodeId: node.id })
         }
       }
     }
@@ -66,11 +65,10 @@ export function detectBindingsFromSource(source: string): BindingRequirement[] {
     const regex = new RegExp(pattern.source, 'g')
     let match: RegExpExecArray | null
     while ((match = regex.exec(source)) !== null) {
-      const fullName = match[0].split('.')[1]!
-      const key = `${type}:${fullName}`
+      const key = `${type}:${match[1]!}`
       if (seen.has(key)) continue
       seen.add(key)
-      bindings.push({ name: fullName, type, source: 'code-scan' })
+      bindings.push({ name: match[1]!, type, source: 'code-scan' })
     }
   }
 

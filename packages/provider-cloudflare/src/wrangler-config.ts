@@ -12,6 +12,7 @@ export interface WranglerWorkflowConfig {
   main: string
   vars?: Record<string, string>
   bindings?: BindingRequirement[]
+  localDev?: boolean
 }
 
 export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
@@ -41,14 +42,26 @@ export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
     for (const b of config.bindings) {
       switch (b.type) {
         case 'kv':
-          kvBindings.push({ binding: b.name, id: b.resourceId ?? '' })
+          if (config.localDev) {
+            kvBindings.push({ binding: b.name, id: `local-${b.name.toLowerCase()}` })
+          } else {
+            kvBindings.push({ binding: b.name, id: b.resourceId! })
+          }
           break
         case 'd1':
-          d1Bindings.push({
-            binding: b.name,
-            database_id: b.resourceId ?? '',
-            database_name: b.name,
-          })
+          if (config.localDev) {
+            d1Bindings.push({
+              binding: b.name,
+              database_id: `local-${b.name.toLowerCase()}`,
+              database_name: b.name,
+            })
+          } else {
+            d1Bindings.push({
+              binding: b.name,
+              database_id: b.resourceId!,
+              database_name: b.name,
+            })
+          }
           break
         case 'r2':
           r2Bindings.push({ binding: b.name, bucket_name: b.resourceId ?? b.name.toLowerCase() })

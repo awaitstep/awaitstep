@@ -142,6 +142,25 @@ describe('detectBindings', () => {
     expect(types).toEqual(['d1', 'kv', 'queue'])
   })
 
+  it('detects bindings without underscore suffix', () => {
+    const ir = makeIR([
+      {
+        id: 's1',
+        name: 'S',
+        position: { x: 0, y: 0 },
+        type: 'step',
+        version: V,
+        provider: P,
+        data: {
+          code: 'env.KV.get("key"); env.DB.prepare(sql); env.BUCKET.put(k, v); env.QUEUE.send(m)',
+        },
+      },
+    ])
+    const bindings = detectBindings(ir)
+    expect(bindings).toHaveLength(4)
+    expect(bindings.map((b) => b.name).sort()).toEqual(['BUCKET', 'DB', 'KV', 'QUEUE'])
+  })
+
   it('returns empty for no bindings', () => {
     const ir = makeIR([
       {

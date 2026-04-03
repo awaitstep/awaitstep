@@ -125,6 +125,7 @@ async function scaffoldDeployDir(
     main: `./${artifact.filename}`,
     vars: options.vars,
     bindings: bindings.length > 0 ? bindings : undefined,
+    localDev: true,
   })
   await writeFile(join(LOCAL_DEV_DIR, 'wrangler.json'), wranglerConfig, 'utf-8')
 
