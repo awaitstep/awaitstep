@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.2](https://github.com/awaitstep/awaitstep/compare/v1.1.1...v1.1.2) (2026-04-03)
+
+
+### Bug Fixes
+
+* baseURL init order and registry URL update ([3a71a62](https://github.com/awaitstep/awaitstep/commit/3a71a620c1a326f78c1cb6e344c078648b324a20))
+* move baseURL declaration before email service init ([67431e4](https://github.com/awaitstep/awaitstep/commit/67431e4d74933acbf10512a6d0ecaee68cebf641))
+
+## [1.1.1](https://github.com/awaitstep/awaitstep/compare/v1.1.0...v1.1.1) (2026-04-03)
+
+
+### Bug Fixes
+
+* **connections:** handle JSON parsing errors in credential redaction ([77e96f7](https://github.com/awaitstep/awaitstep/commit/77e96f7a24f2b8e629aad18f042d09c190f4365e))
+* **email:** pass appUrl to magic link email template ([a5e483c](https://github.com/awaitstep/awaitstep/commit/a5e483c7fa0beb0ba3ca7db2b8b4df0fb7b30f37))
+* **sign-in:** replace error state with toast notifications ([6ff1eae](https://github.com/awaitstep/awaitstep/commit/6ff1eae1d9d8d1275461d054e398a2c5ee7a3b9e))
+* **sign-in:** replace error state with toast notifications ([ee8ff7e](https://github.com/awaitstep/awaitstep/commit/ee8ff7ec080fdc03333b9bc883f4ff42bb30cb24))
+* split API and web into separate servers, decouple SSL from URL ([1c1e72f](https://github.com/awaitstep/awaitstep/commit/1c1e72f4f7a84efa0b2f8a28a660b12177740fbb))
+
 ## [1.1.0](https://github.com/awaitstep/awaitstep/compare/v1.0.0...v1.1.0) (2026-04-03)
 
 ### Features

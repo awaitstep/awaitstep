@@ -1,6 +1,6 @@
 {
   "name": "@awaitstep/web",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -27,7 +27,7 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@radix-ui/react-visually-hidden": "1.2.4",
-    "@tanstack/react-query": "^5.90.21",
+    "@tanstack/react-query": "^5.96.2",
     "@tanstack/react-router": "^1.167.0",
     "@tanstack/react-start": "^1.166.11",
     "@xyflow/react": "^12.10.1",
@@ -45,7 +45,7 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "zod": "^4.3.6",
-    "zustand": "^5.0.11"
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@awaitstep/tsconfig": "workspace:*",

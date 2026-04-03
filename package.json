@@ -1,6 +1,6 @@
 {
   "name": "awaitstep",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
@@ -39,6 +39,6 @@
     "prettier": "^3.8.1",
     "turbo": "^2.8.17",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.57.0"
+    "typescript-eslint": "^8.58.0"
   }
 }
