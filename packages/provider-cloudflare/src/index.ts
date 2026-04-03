@@ -34,7 +34,4 @@ export type {
   D1QueryResult,
   R2Bucket,
   R2Object,
-  ResolvedBinding,
-  BindingResolutionError,
-  BindingResolutionResult,
 } from './resources.js'

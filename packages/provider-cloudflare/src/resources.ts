@@ -1,20 +1,4 @@
 import type { CFApiConfig } from './api.js'
-import type { BindingRequirement } from './codegen/bindings.js'
-
-export interface ResolvedBinding extends BindingRequirement {
-  resourceId: string
-}
-
-export interface BindingResolutionError {
-  name: string
-  type: string
-  error: string
-}
-
-export interface BindingResolutionResult {
-  resolved: ResolvedBinding[]
-  errors: BindingResolutionError[]
-}
 
 const CF_API_BASE = 'https://api.cloudflare.com/client/v4'
 const REQUEST_TIMEOUT_MS = 30_000
@@ -164,71 +148,6 @@ export class CloudflareResourcesAPI {
       objects: (data.result as R2Object[]) ?? [],
       cursor: r2ResultInfo?.cursor,
     }
-  }
-
-  // ── Binding Resolution ──
-
-  async resolveBindings(bindings: BindingRequirement[]): Promise<BindingResolutionResult> {
-    const resolved: ResolvedBinding[] = []
-    const errors: BindingResolutionError[] = []
-
-    // Group by type to batch API calls
-    const kvBindings = bindings.filter((b) => b.type === 'kv')
-    const d1Bindings = bindings.filter((b) => b.type === 'd1')
-    const r2Bindings = bindings.filter((b) => b.type === 'r2')
-    const queueBindings = bindings.filter((b) => b.type === 'queue')
-    const serviceBindings = bindings.filter((b) => b.type === 'service')
-
-    // Resolve KV namespaces (requires ID lookup)
-    if (kvBindings.length > 0) {
-      const namespaces = await this.listKVNamespaces()
-      for (const b of kvBindings) {
-        const ns = namespaces.find((n) => n.title === b.name)
-        if (ns) {
-          resolved.push({ ...b, resourceId: ns.id })
-        } else {
-          errors.push({
-            name: b.name,
-            type: 'kv',
-            error: `KV namespace '${b.name}' not found in your Cloudflare account`,
-          })
-        }
-      }
-    }
-
-    // Resolve D1 databases (requires UUID lookup)
-    if (d1Bindings.length > 0) {
-      const databases = await this.listD1Databases()
-      for (const b of d1Bindings) {
-        const db = databases.find((d) => d.name === b.name)
-        if (db) {
-          resolved.push({ ...b, resourceId: db.uuid })
-        } else {
-          errors.push({
-            name: b.name,
-            type: 'd1',
-            error: `D1 database '${b.name}' not found in your Cloudflare account`,
-          })
-        }
-      }
-    }
-
-    // R2 buckets — use binding name as bucket_name (no ID needed)
-    for (const b of r2Bindings) {
-      resolved.push({ ...b, resourceId: b.name.toLowerCase() })
-    }
-
-    // Queues — use binding name as queue name (no ID needed)
-    for (const b of queueBindings) {
-      resolved.push({ ...b, resourceId: b.name.toLowerCase() })
-    }
-
-    // Services — use binding name as service name (no ID needed)
-    for (const b of serviceBindings) {
-      resolved.push({ ...b, resourceId: b.name.toLowerCase() })
-    }
-
-    return { resolved, errors }
   }
 
   private async request(

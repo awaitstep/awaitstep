@@ -20,7 +20,6 @@ import { startLocalDev } from './local-dev.js'
 import { sanitizedWorkflowName } from './naming.js'
 import { CloudflareAPI } from './api.js'
 import { detectBindings, type BindingRequirement } from './codegen/bindings.js'
-import { CloudflareResourcesAPI } from './resources.js'
 
 interface CloudflareOptions {
   workflowId: string
@@ -141,20 +140,31 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
 
     report('DETECTING_BINDINGS', 'Analyzing workflow bindings...', 35)
 
-    // Auto-detect resource bindings from IR
+    // Auto-detect resource bindings from IR and resolve IDs from env vars
     const ir = config.options?.['ir'] as WorkflowIR | undefined
     let resolvedBindings: BindingRequirement[] | undefined
     if (ir) {
       const detected = detectBindings(ir)
       if (detected.length > 0) {
-        const resourcesApi = new CloudflareResourcesAPI({ accountId, apiToken })
-        const resolution = await resourcesApi.resolveBindings(detected)
-        if (resolution.errors.length > 0) {
-          const errorMsg = resolution.errors.map((e) => e.error).join('; ')
+        const needsId = detected.filter((b) => b.type === 'kv' || b.type === 'd1')
+        const missing: string[] = []
+        for (const b of needsId) {
+          const envKey = `${b.name}_BINDING_ID`
+          const id = config.envVars?.[envKey]?.value
+          if (id) {
+            b.resourceId = id
+          } else {
+            missing.push(
+              `Binding '${b.name}' requires env var '${envKey}' with the ${b.type === 'kv' ? 'KV namespace' : 'D1 database'} ID`,
+            )
+          }
+        }
+        if (missing.length > 0) {
+          const errorMsg = missing.join('; ')
           report('FAILED', errorMsg, 0)
           return { success: false, deploymentId: '', error: errorMsg }
         }
-        resolvedBindings = resolution.resolved
+        resolvedBindings = detected
       }
     }
 
