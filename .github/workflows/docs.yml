@@ -9,7 +9,7 @@ on:
 concurrency:
   group: docs-deploy
   cancel-in-progress: true
-
+workflow_dispatch:
 jobs:
   deploy:
     runs-on: ubuntu-latest
