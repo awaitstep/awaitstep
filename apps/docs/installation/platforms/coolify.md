@@ -67,5 +67,5 @@ Click **Deploy**.
 ## Notes
 
 - Coolify handles TLS automatically if you configure a domain — no separate reverse proxy is needed.
-- The health check endpoint is `GET /health`. Configure this in Coolify's **Health Check** settings.
+- The health check endpoint is `GET /api/health`. Configure this in Coolify's **Health Check** settings.
 - If you use Coolify's built-in PostgreSQL service, set `DATABASE_URL` to the internal connection string Coolify provides.

@@ -23,7 +23,13 @@ export function useWorkflowPersistence(opts: {
       const state = useWorkflowStore.getState()
       const ir = buildIRFromState(state)
 
-      const envVars = state.workflowEnvVars
+      const SECRET_PREFIX = 'SECRET_'
+      const envVars = state.workflowEnvVars.map((v) => {
+        if (v.name.startsWith(SECRET_PREFIX)) {
+          return { name: v.name.slice(SECRET_PREFIX.length), value: v.value, isSecret: true }
+        }
+        return { name: v.name, value: v.value, isSecret: false }
+      })
       const triggerCode = state.triggerCode || undefined
       const dependencies =
         Object.keys(state.dependencies).length > 0 ? state.dependencies : undefined

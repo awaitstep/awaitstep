@@ -62,17 +62,17 @@ describe('generateHttp', () => {
     expect(code).toContain('"Accept": "application/json"')
   })
 
-  it('includes body as string literal', () => {
+  it('emits body as raw JS expression', () => {
     const code = generateHttp(
       makeNode({
         data: {
           url: 'https://api.example.com/data',
           method: 'POST',
-          body: '{"key":"value"}',
+          body: 'JSON.stringify({ key: "value" })',
         },
       }),
     )
-    expect(code).toContain('body: "{\\"key\\":\\"value\\"}"')
+    expect(code).toContain('body: JSON.stringify({ key: "value" })')
   })
 
   it('uses template literals for URLs with expressions', () => {
@@ -102,17 +102,17 @@ describe('generateHttp', () => {
     expect(code).not.toContain('"Bearer ${env.API_KEY}"')
   })
 
-  it('uses template literals for body with expressions', () => {
+  it('emits template literal body as-is', () => {
     const code = generateHttp(
       makeNode({
         data: {
           url: 'https://api.example.com/data',
           method: 'POST',
-          body: 'amount=${state.total * 100}&currency=usd',
+          body: '`amount=${state.total * 100}&currency=usd`',
         },
       }),
     )
-    expect(code).toContain('`amount=${state.total * 100}&currency=usd`')
+    expect(code).toContain('body: `amount=${state.total * 100}&currency=usd`')
   })
 
   it('keeps regular strings when no expressions present', () => {
@@ -163,6 +163,24 @@ describe('generateHttp', () => {
       makeNode({ data: { url: 'https://api.example.com/data', method: 'GET', headers: {} } }),
     )
     expect(code).not.toContain('headers')
+  })
+
+  it('emits multi-line body expression as-is', () => {
+    const body = `JSON.stringify({
+  to: "user@example.com",
+  subject: "Hello"
+})`
+    const code = generateHttp(
+      makeNode({
+        data: {
+          url: 'https://api.sendgrid.com/v3/mail/send',
+          method: 'POST',
+          body,
+        },
+      }),
+    )
+    expect(code).toContain('body: JSON.stringify({')
+    expect(code).toContain('to: "user@example.com"')
   })
 
   it('handles multiple expressions in one value', () => {

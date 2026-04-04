@@ -34,7 +34,14 @@ export function buildWorkflowStoreState(
   if (serverWorkflow.envVars) {
     try {
       const parsed = JSON.parse(serverWorkflow.envVars)
-      if (Array.isArray(parsed)) state.workflowEnvVars = parsed
+      if (Array.isArray(parsed)) {
+        state.workflowEnvVars = parsed.map(
+          (v: { name: string; value: string; isSecret?: boolean }) => ({
+            name: v.isSecret ? `SECRET_${v.name}` : v.name,
+            value: v.value,
+          }),
+        )
+      }
     } catch {
       /* ignore malformed */
     }

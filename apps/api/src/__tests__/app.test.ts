@@ -10,7 +10,7 @@ describe('app', () => {
   })
 
   it('responds to health check without auth', async () => {
-    const res = await app.request('/health')
+    const res = await app.request('/api/health')
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.status).toBe('ok')

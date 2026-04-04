@@ -45,6 +45,23 @@ const updateSchema = z.object({
   dependencies: dependenciesSchema.optional(),
 })
 
+const SECRET_MASK = '••••••••'
+
+function maskWorkflowSecrets<T extends { envVars?: string | null }>(workflow: T): T {
+  if (!workflow.envVars) return workflow
+  try {
+    const vars = JSON.parse(workflow.envVars) as {
+      name: string
+      value: string
+      isSecret?: boolean
+    }[]
+    const masked = vars.map((v) => (v.isSecret ? { ...v, value: SECRET_MASK } : v))
+    return { ...workflow, envVars: JSON.stringify(masked) }
+  } catch {
+    return workflow
+  }
+}
+
 export const workflows = new Hono<AppEnv>()
 
 workflows.get('/', zValidator('query', paginationQuerySchema), async (c) => {
@@ -56,7 +73,9 @@ workflows.get('/', zValidator('query', paginationQuerySchema), async (c) => {
 })
 
 workflows.get('/:id', async (c) => {
-  return c.json(c.get('workflow'))
+  const workflow = c.get('workflow')
+  if (!workflow) return c.json({ error: 'Not found' }, 404)
+  return c.json(maskWorkflowSecrets(workflow))
 })
 
 workflows.get('/:id/full', async (c) => {
@@ -79,7 +98,7 @@ workflows.get('/:id/full', async (c) => {
   }
 
   return c.json({
-    workflow,
+    workflow: maskWorkflowSecrets(workflow),
     version,
     versions: versions.map(({ id, version, locked, createdAt }) => ({
       id,
@@ -108,16 +127,26 @@ workflows.post('/', zValidator('json', createSchema), async (c) => {
 
 workflows.patch('/:id', zValidator('json', updateSchema), async (c) => {
   const db = c.get('db')
+  const workflowId = c.req.param('id')
   const { envVars, triggerCode, dependencies, ...rest } = c.req.valid('json')
   const dbData: {
     name?: string
     description?: string
-    envVars?: string
     triggerCode?: string
     dependencies?: string
   } = { ...rest }
   if (envVars !== undefined) {
-    dbData.envVars = JSON.stringify(envVars)
+    // Merge masked secrets with existing decrypted values
+    const existing = await db.getWorkflowEnvVars(workflowId)
+    const existingByName = new Map(existing.map((v) => [v.name, v]))
+    const merged = envVars.map((v) => {
+      if (v.isSecret && v.value === SECRET_MASK) {
+        const prev = existingByName.get(v.name)
+        if (prev) return { name: v.name, value: prev.value, isSecret: true }
+      }
+      return { name: v.name, value: v.value, isSecret: v.isSecret ?? false }
+    })
+    await db.setWorkflowEnvVars(workflowId, merged)
   }
   if (triggerCode !== undefined) {
     dbData.triggerCode = triggerCode
@@ -125,8 +154,8 @@ workflows.patch('/:id', zValidator('json', updateSchema), async (c) => {
   if (dependencies !== undefined) {
     dbData.dependencies = JSON.stringify(dependencies)
   }
-  const updated = await db.updateWorkflow(c.req.param('id'), dbData)
-  return c.json(updated)
+  const updated = await db.updateWorkflow(workflowId, dbData)
+  return c.json(maskWorkflowSecrets(updated))
 })
 
 workflows.patch(

@@ -52,7 +52,7 @@ function HomePage() {
             Docs
           </a>
           <a
-            href="https://github.com/awaitstep/awaitstep.dev"
+            href="https://github.com/awaitstep/awaitstep"
             className="text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
             GitHub
@@ -123,7 +123,7 @@ function HomePage() {
             Get Started
           </Link>
           <a
-            href="https://github.com/awaitstep/awaitstep.dev"
+            href="https://github.com/awaitstep/awaitstep"
             className="flex items-center gap-2 rounded-md border border-border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-card"
           >
             <GitHubIcon className="h-4 w-4" />

@@ -21,7 +21,7 @@ export function generateHttp(node: WorkflowNode): string {
   }
 
   if (body) {
-    fetchOptions.push(`body: ${toStringLiteral(body)}`)
+    fetchOptions.push(`body: ${body}`)
   }
 
   const needsOptions = method !== 'GET' || fetchOptions.length > 1
@@ -35,8 +35,13 @@ export function generateHttp(node: WorkflowNode): string {
 }
 
 function toStringLiteral(value: string): string {
-  if (/\$\{.*?\}/.test(value)) {
-    return '`' + value.replace(/`/g, '\\`') + '`'
+  const hasExpression = /\$\{.*?\}/.test(value)
+  const hasNewline = /\r?\n/.test(value)
+
+  if (hasExpression || hasNewline) {
+    // Template literal: escape backticks and literal backslashes
+    const escaped = value.replace(/\\/g, '\\\\').replace(/`/g, '\\`')
+    return '`' + escaped + '`'
   }
-  return `"${value.replace(/"/g, '\\"')}"`
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
 }

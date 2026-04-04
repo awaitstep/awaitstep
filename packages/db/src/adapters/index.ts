@@ -59,11 +59,13 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _envVars: EnvVarsAdapter
   private _projects: ProjectsAdapter
   private _installedNodes: InstalledNodesAdapter
+  private _crypto?: TokenCrypto
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(db: any, schema: SchemaRef, options?: DrizzleAdapterOptions) {
     this._db = db
     this._schema = schema
+    this._crypto = options?.tokenCrypto
     this._workflows = new WorkflowsAdapter(db, schema.workflows)
     this._versions = new VersionsAdapter(db, schema.workflowVersions)
     this._connections = new ConnectionsAdapter(db, schema.connections, options?.tokenCrypto)
@@ -564,14 +566,34 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     const workflow = await this._workflows.getById(workflowId)
     if (!workflow?.envVars) return []
     try {
-      return JSON.parse(workflow.envVars) as WorkflowEnvVar[]
+      const vars = JSON.parse(workflow.envVars) as WorkflowEnvVar[]
+      if (!this._crypto) return vars
+      return Promise.all(
+        vars.map(async (v) => {
+          if (!v.isSecret) return v
+          try {
+            return { ...v, value: await this._crypto!.decrypt(v.value) }
+          } catch {
+            return v
+          }
+        }),
+      )
     } catch {
       return []
     }
   }
 
   async setWorkflowEnvVars(workflowId: string, vars: WorkflowEnvVar[]): Promise<void> {
-    await this._workflows.update(workflowId, { envVars: JSON.stringify(vars) })
+    let toStore = vars
+    if (this._crypto) {
+      toStore = await Promise.all(
+        vars.map(async (v) => {
+          if (!v.isSecret) return v
+          return { ...v, value: await this._crypto!.encrypt(v.value) }
+        }),
+      )
+    }
+    await this._workflows.update(workflowId, { envVars: JSON.stringify(toStore) })
   }
 
   async resolveEnvVars(

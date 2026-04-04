@@ -54,7 +54,7 @@ Do not use your Global API Key. It grants unrestricted access to your entire Clo
 When you need to rotate the token (e.g. for security hygiene or after a suspected leak):
 
 1. Create a new token in the Cloudflare dashboard with the same permissions.
-2. In AwaitStep, go to **Settings → Cloudflare** and paste the new token.
+2. In AwaitStep, go to **Connections → Your Cloudflare Connection → Edit** and paste the new token.
 3. Click **Verify & Save**.
 4. Delete the old token from the Cloudflare dashboard.
 

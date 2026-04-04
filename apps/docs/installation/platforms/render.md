@@ -63,4 +63,4 @@ Click **Create Web Service**.
 
 - Render's free tier spins down after inactivity. Use a paid plan for always-on availability.
 - Render provides a managed PostgreSQL service. Set `DATABASE_URL` to the internal connection string from the database dashboard.
-- Set the **Health Check Path** to `/health` in the service settings.
+- Set the **Health Check Path** to `/api/health` in the service settings.

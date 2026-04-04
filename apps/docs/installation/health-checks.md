@@ -9,7 +9,7 @@ title: Health Checks
 AwaitStep exposes a health check endpoint:
 
 ```
-GET /health
+GET /api/health
 ```
 
 Returns `200 OK` with a JSON body when the application is running and the database is reachable:
@@ -36,7 +36,7 @@ services:
     volumes:
       - awaitstep_data:/app/data
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:8080/health']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:8080/api/health']
       interval: 30s
       timeout: 5s
       retries: 3
@@ -50,4 +50,4 @@ volumes:
 
 ## Monitoring integrations
 
-The `/health` endpoint is compatible with any uptime monitoring service that supports HTTP checks (UptimeRobot, Betterstack, Checkly, etc.). Point the monitor at `https://workflows.example.com/health` and alert on any non-2xx response.
+The `/api/health` endpoint is compatible with any uptime monitoring service that supports HTTP checks (UptimeRobot, Betterstack, Checkly, etc.). Point the monitor at `https://workflows.example.com/api/health` and alert on any non-2xx response.
