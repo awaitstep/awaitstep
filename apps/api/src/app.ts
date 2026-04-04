@@ -40,7 +40,7 @@ export function createApp(deps: AppDeps) {
   app.use('*', secureHeaders())
 
   // Health check — no auth, no CORS
-  app.get('/health', (c) => c.json({ status: 'ok' }))
+  app.get('/api/health', (c) => c.json({ status: 'ok' }))
 
   // CORS — must be before auth handler so preflight and response headers apply
   app.use(

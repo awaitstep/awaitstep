@@ -72,8 +72,8 @@ Run anywhere: Docker, VPS, or your own infrastructure. SQLite by default, Postgr
 **Prerequisites:** Node.js >= 20, pnpm >= 9
 
 ```bash
-git clone https://github.com/awaitstep/awaitstep.dev.git
-cd awaitstep.dev
+git clone https://github.com/awaitstep/awaitstep.git
+cd awaitstep
 cp .env.example .env
 ```
 

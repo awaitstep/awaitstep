@@ -8,6 +8,8 @@ import { useWorkflowStore } from '../../stores/workflow-store'
 import type { WorkflowEnvVar } from '../../stores/workflow-store'
 import { useShallow } from 'zustand/react/shallow'
 
+const SECRET_PREFIX = 'SECRET_'
+
 export function WorkflowSettings() {
   const { metadata, workflowEnvVars } = useWorkflowStore(
     useShallow((s) => ({
@@ -43,11 +45,14 @@ export function WorkflowSettings() {
     (index: number) => {
       const v = useWorkflowStore.getState().workflowEnvVars[index]
       if (v?.name) {
+        const rawName = v.name.startsWith(SECRET_PREFIX)
+          ? v.name.slice(SECRET_PREFIX.length)
+          : v.name
         setWorkflowEnvVars(
           useWorkflowStore
             .getState()
             .workflowEnvVars.map((ev, i) =>
-              i === index ? { ...ev, value: `{{global.env.${v.name}}}` } : ev,
+              i === index ? { ...ev, value: `{{global.env.${rawName}}}` } : ev,
             ),
         )
       }
@@ -99,7 +104,7 @@ export function WorkflowSettings() {
               </Button>
             </div>
             <p className="text-[10px] text-muted-foreground/40 mb-2">
-              Variables injected at deploy time. Use the link button to reference a global variable.
+              Prefix with SECRET_ to encrypt. Use the link button to reference a global variable.
             </p>
             {workflowEnvVars.length === 0 ? (
               <p className="text-[11px] text-muted-foreground/40 italic">
@@ -107,41 +112,49 @@ export function WorkflowSettings() {
               </p>
             ) : (
               <div className="space-y-2">
-                {workflowEnvVars.map((envVar, i) => (
-                  <div key={i} className="space-y-1">
-                    <div className="flex items-center gap-1.5">
+                {workflowEnvVars.map((envVar, i) => {
+                  const isSecret = envVar.name.startsWith(SECRET_PREFIX)
+                  return (
+                    <div key={i} className="space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          value={envVar.name}
+                          onChange={(e) => updateEnvVar(i, { name: e.target.value.toUpperCase() })}
+                          placeholder="MY_API_KEY"
+                          className="flex-1 h-8 text-xs font-mono"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0 text-muted-foreground/60 hover:text-primary"
+                          onClick={() => linkToGlobal(i)}
+                          title="Link to global variable"
+                        >
+                          <Link2 className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0 text-muted-foreground/60 hover:text-destructive"
+                          onClick={() => removeEnvVar(i)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                       <Input
-                        value={envVar.name}
-                        onChange={(e) => updateEnvVar(i, { name: e.target.value.toUpperCase() })}
-                        placeholder="MY_API_KEY"
-                        className="flex-1 h-8 text-xs font-mono"
+                        type={isSecret ? 'password' : 'text'}
+                        value={envVar.value}
+                        onChange={(e) => updateEnvVar(i, { value: e.target.value })}
+                        placeholder={
+                          isSecret
+                            ? 'secret value (replace to update)'
+                            : 'value or {{global.env.NAME}}'
+                        }
+                        className="h-7 text-[11px] font-mono text-muted-foreground"
                       />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 shrink-0 text-muted-foreground/60 hover:text-primary"
-                        onClick={() => linkToGlobal(i)}
-                        title="Link to global variable"
-                      >
-                        <Link2 className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 shrink-0 text-muted-foreground/60 hover:text-destructive"
-                        onClick={() => removeEnvVar(i)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
                     </div>
-                    <Input
-                      value={envVar.value}
-                      onChange={(e) => updateEnvVar(i, { value: e.target.value })}
-                      placeholder="value or {{global.env.NAME}}"
-                      className="h-7 text-[11px] font-mono text-muted-foreground"
-                    />
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>

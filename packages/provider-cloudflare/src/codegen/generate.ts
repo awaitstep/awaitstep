@@ -170,8 +170,8 @@ export function generateWorkflow(
   const bodyParts: string[] = []
   const classDefinitions = new Map<string, string>()
 
-  const resolvedNodeMap = new Map(resolvedIR.nodes.map((n) => [n.id, n]))
-  const resolvedSorted = sorted.map((n) => resolvedNodeMap.get(n.id) ?? n)
+  const resolvedNodeMap = new Map(resolvedIR.nodes.map((n: WorkflowNode) => [n.id, n]))
+  const resolvedSorted = sorted.map((n: WorkflowNode) => resolvedNodeMap.get(n.id) ?? n)
 
   const builtinTypes = new Set([
     'step',
