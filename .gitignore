@@ -4,6 +4,8 @@ node_modules/
 # Build outputs
 dist/
 .turbo/
+**/.astro/
+**/.vitepress/cache/
 
 # Environment
 .env
