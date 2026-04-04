@@ -1,0 +1,14 @@
+:root {
+  --vp-c-brand-1: #1a8a55;
+  --vp-c-brand-2: #1f9d60;
+  --vp-c-brand-3: #2eb87a;
+  --vp-c-brand-soft: rgba(46, 184, 122, 0.14);
+  --vp-font-family-base: 'Geist', sans-serif;
+}
+
+.dark {
+  --vp-c-brand-1: #2eb87a;
+  --vp-c-brand-2: #3cc98a;
+  --vp-c-brand-3: #4fd99a;
+  --vp-c-brand-soft: rgba(46, 184, 122, 0.16);
+}
