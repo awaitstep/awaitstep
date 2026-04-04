@@ -4,3 +4,5 @@ dist
 *.gen.ts
 pnpm-lock.yaml
 packages/db/drizzle
+CHANGELOG.md
+.github/dependabot.yml
