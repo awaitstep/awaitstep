@@ -1,0 +1,15 @@
+{
+  "name": "@awaitstep/docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev --port 4000",
+    "build": "vitepress build",
+    "preview": "vitepress preview --port 4000"
+  },
+  "dependencies": {
+    "vitepress": "1.6.4",
+    "vitepress-plugin-mermaid": "2.0.17",
+    "mermaid": "11.4.1"
+  }
+}
