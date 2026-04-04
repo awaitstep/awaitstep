@@ -12,7 +12,7 @@ Thank you for your interest in contributing! This guide will help you get starte
 ### Getting Started
 
 ```bash
-git clone https://github.com/awaitstep/awaitstep.dev.git
+git clone https://github.com/awaitstep/awaitstep.git
 cd awaitstep.dev
 pnpm install
 cp .env.example .env
