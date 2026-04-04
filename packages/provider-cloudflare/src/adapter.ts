@@ -202,7 +202,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
   }
 
   async trigger(
-    deploymentId: string,
+    _: string,
     params: unknown,
     config: ProviderConfig,
   ): Promise<{ instanceId: string }> {
@@ -254,6 +254,7 @@ function extractVarsAndSecrets(config: ProviderConfig): {
   const vars: Record<string, string> = {}
   const secrets: Record<string, string> = {}
   for (const [name, entry] of Object.entries(config.envVars)) {
+    if (name.endsWith('_BINDING_ID')) continue
     if (entry.value !== undefined) {
       if (entry.isSecret) {
         secrets[name] = entry.value
