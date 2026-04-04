@@ -147,7 +147,7 @@ The IR validator checks that:
     "updatedAt": "2025-01-01T00:00:00Z"
   },
   "entryNodeId": "fetch_user",
-  "trigger": { "type": "event", "eventType": "user-signup" },
+  "trigger": { "type": "manual" },
   "nodes": [
     {
       "id": "fetch_user",

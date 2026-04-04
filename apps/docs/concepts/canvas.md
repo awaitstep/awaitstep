@@ -102,10 +102,7 @@ Validation runs locally in the browser using the same `validateIR` function from
 | Shortcut               | Action                         |
 | ---------------------- | ------------------------------ |
 | `Backspace` / `Delete` | Delete selected nodes or edges |
-| `Ctrl/Cmd + Z`         | Undo                           |
-| `Ctrl/Cmd + Shift + Z` | Redo                           |
-| `Ctrl/Cmd + A`         | Select all                     |
-| `Ctrl/Cmd + D`         | Duplicate selected nodes       |
-| `Space + drag`         | Pan the canvas                 |
-| `Ctrl/Cmd + scroll`    | Zoom in/out                    |
-| `Ctrl/Cmd + Shift + F` | Fit view                       |
+| `Escape`               | Deselect all                   |
+| `Shift` + drag         | Select multiple nodes (lasso)  |
+| Click + drag (canvas)  | Pan the canvas                 |
+| Scroll wheel           | Zoom in/out                    |
