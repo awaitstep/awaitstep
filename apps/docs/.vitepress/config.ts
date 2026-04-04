@@ -8,6 +8,19 @@ export default withMermaid(
     cleanUrls: true,
     head: [
       ['link', { rel: 'icon', href: '/favicon.ico' }],
+      [
+        'script',
+        {},
+        'window.tryhet=window.tryhet||{event:function(){(window.__tryhet_q=window.__tryhet_q||[]).push([].slice.call(arguments))}};',
+      ],
+      [
+        'script',
+        {
+          'data-project-id': '17',
+          async: 'true',
+          src: 'https://cdn.tryhet.io/sdk/init.js',
+        },
+      ],
       ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
       ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
       [
