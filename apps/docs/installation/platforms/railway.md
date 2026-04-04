@@ -61,4 +61,4 @@ Click **Deploy**.
 
 - Railway provides a PostgreSQL plugin. If you use it, set `DATABASE_URL` to the `DATABASE_URL` variable Railway injects from the plugin.
 - Railway's free tier has compute hour limits. For persistent production use, upgrade to a paid plan.
-- Set the health check path to `/health` under **Settings → Health Checks** for zero-downtime deploys.
+- Set the health check path to `/api/health` under **Settings → Health Checks** for zero-downtime deploys.
