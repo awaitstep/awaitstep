@@ -1,0 +1,87 @@
+---
+interface Props {
+  title?: string
+  description?: string
+}
+
+const {
+  title = 'AwaitStep — Open Source Visual Workflow Builder',
+  description = 'A self-hosted visual builder that generates and deploys code directly to Cloudflare Workflows. No proprietary engine, just your code.',
+} = Astro.props
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:site_name" content="AwaitStep" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Geist+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/geist@1/dist/fonts/geist-sans/style.css"
+      rel="stylesheet"
+    />
+
+    <style is:global>
+      @import '../styles/global.css';
+    </style>
+  </head>
+  <body>
+    <slot />
+
+    <script>
+      // Scroll animations
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              const delay = entry.target.getAttribute('data-delay')
+              if (delay) {
+                setTimeout(() => entry.target.classList.add('visible'), parseInt(delay))
+              } else {
+                entry.target.classList.add('visible')
+              }
+              observer.unobserve(entry.target)
+            }
+          })
+        },
+        { threshold: 0.1 },
+      )
+
+      document.querySelectorAll('[data-animate]').forEach((el) => observer.observe(el))
+
+      // Nav border on scroll
+      const nav = document.querySelector('[data-nav]')
+      if (nav) {
+        window.addEventListener(
+          'scroll',
+          () => {
+            nav.classList.toggle('border-b', window.scrollY > 10)
+            nav.classList.toggle('border-border', window.scrollY > 10)
+          },
+          { passive: true },
+        )
+      }
+    </script>
+  </body>
+</html>

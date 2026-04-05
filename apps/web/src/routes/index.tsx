@@ -64,7 +64,7 @@ function HomePage() {
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 pb-24 text-center">
         <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/50 px-3.5 py-1.5 text-[11px] uppercase tracking-widest text-muted-foreground backdrop-blur-sm">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-          Open Source Workflow Builder
+          Open Source Visual Workflow Builder
         </div>
 
         <h1 className="mt-8 max-w-2xl text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
@@ -127,14 +127,14 @@ function HomePage() {
             className="flex items-center gap-2 rounded-md border border-border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-card"
           >
             <GitHubIcon className="h-4 w-4" />
-            View Source
+            View on GitHub
           </a>
         </div>
 
         {/* Feature grid */}
         <div className="mt-16 flex w-full max-w-2xl flex-col items-center gap-2">
           <div className="grid w-full grid-cols-4 gap-2">
-            {['Drag & Drop Canvas', 'One-Click Deploy', '30+ Node Types', 'Custom Marketplace'].map(
+            {['Drag & Drop Canvas', 'One-Click Deploy', '30+ Node Types', 'Node Marketplace'].map(
               (label) => (
                 <div
                   key={label}
