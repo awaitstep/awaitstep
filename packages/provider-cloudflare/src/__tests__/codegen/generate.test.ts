@@ -39,6 +39,8 @@ describe('generateWorkflow', () => {
 
       export default {
         async fetch(request: Request, env: Env): Promise<Response> {
+          try {
+
           const url = new URL(request.url);
 
           if (request.method === "POST") {
@@ -50,10 +52,18 @@ describe('generateWorkflow', () => {
           const instanceId = url.searchParams.get("instanceId");
           if (instanceId) {
             const instance = await env.WORKFLOW.get(instanceId);
+            if (!instance) {
+              return Response.json({message: 'Instance not found'}, { status: 404 })
+            }
             return Response.json(await instance.status());
           }
 
           return new Response(null, { status: 200 });
+
+          } catch (error) {
+            return Response.json({ message: error.message }, { status: 500 });
+          }
+
         },
       };
       "
