@@ -10,6 +10,6 @@
   "dependencies": {
     "vitepress": "1.6.4",
     "vitepress-plugin-mermaid": "2.0.17",
-    "mermaid": "11.4.1"
+    "mermaid": "11.10.0"
   }
 }
