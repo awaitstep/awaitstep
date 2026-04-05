@@ -1,0 +1,116 @@
+---
+import Base from '../layouts/Base.astro'
+---
+
+<Base>
+  <div class="relative flex min-h-screen flex-col bg-background text-foreground">
+    <link
+      href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&display=swap"
+      rel="stylesheet"
+    />
+
+    <div
+      class="pointer-events-none absolute inset-0 opacity-[0.03]"
+      style="background-image: linear-gradient(rgba(0,0,0,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.06) 1px, transparent 1px); background-size: 64px 64px;"
+    ></div>
+
+    <div
+      class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+      style="width: 800px; height: 600px; background: radial-gradient(ellipse, oklch(0.5 0.14 160 / 8%) 0%, transparent 70%);"
+    ></div>
+
+    <nav class="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10">
+      <div class="flex items-center gap-1">
+        <svg width="40" height="20" viewBox="0 0 80 38" fill="none">
+          <rect width="52" height="10" rx="2" fill="oklch(0.5 0.14 160)" />
+          <rect x="14" y="14" width="52" height="10" rx="2" fill="oklch(0.5 0.14 160)" fill-opacity="0.62" />
+          <rect x="28" y="28" width="52" height="10" rx="2" fill="oklch(0.5 0.14 160)" fill-opacity="0.32" />
+        </svg>
+        <span class="text-xs font-bold uppercase tracking-tight text-foreground">AwaitStep</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <a
+          href="https://docs.awaitstep.dev"
+          class="text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >Docs</a>
+        <a
+          href="https://github.com/awaitstep/awaitstep"
+          class="text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >GitHub</a>
+      </div>
+    </nav>
+
+    <main class="relative z-10 flex flex-1 flex-col items-center justify-center px-6 pb-16 text-center">
+      <div class="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/50 px-3.5 py-1.5 text-[11px] uppercase tracking-widest text-muted-foreground backdrop-blur-sm">
+        <span class="h-1.5 w-1.5 rounded-full bg-primary" style="animation: pulse-dot 2s ease-in-out infinite;"></span>
+        Open Source Visual Workflow Builder
+      </div>
+
+      <h1 class="mt-8 max-w-2xl text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
+        Build and deploy<br />
+        workflows{' '}
+        <span class="relative inline-block">
+          <span
+            class="text-primary"
+            style="font-family: 'Caveat', cursive; font-size: 1.3em; line-height: 1;"
+          >visually</span>
+          <svg
+            class="absolute -bottom-1 left-0 w-full text-primary/50"
+            viewBox="0 0 200 12"
+            fill="none"
+            preserveAspectRatio="none"
+            style="height: 10px;"
+          >
+            <path
+              d="M2 8c30-6 60-2 90-4s70 2 106 0"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              style="stroke-dasharray: 200; stroke-dashoffset: 200; animation: draw 0.8s ease-out 0.5s forwards;"
+            />
+          </svg>
+        </span><span class="text-primary" style="font-family: 'Caveat', cursive;">.</span>
+      </h1>
+
+      <p class="mt-6 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
+        A self-hosted visual builder that generates and deploys code directly to Cloudflare
+        Workflows. No proprietary engines, just your code.
+      </p>
+
+      <div class="mt-10 flex items-center gap-3">
+        <a
+          href="https://docs.awaitstep.dev/installation/docker-compose"
+          class="rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >Self-host in 5 minutes</a>
+        <a
+          href="https://github.com/awaitstep/awaitstep"
+          class="flex items-center gap-2 rounded-md border border-border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-card"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          View on GitHub
+        </a>
+      </div>
+
+      <div class="mt-16 flex w-full max-w-2xl flex-col items-center gap-2">
+        <div class="grid w-full grid-cols-4 gap-2">
+          {['Drag & Drop Canvas', 'One-Click Deploy', '30+ Node Types', 'Node Marketplace'].map((label) => (
+            <div class="flex items-center justify-center rounded-lg border border-border/40 bg-card/30 px-4 py-4 text-xs text-muted-foreground/70">
+              {label}
+            </div>
+          ))}
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          {['API Playground', 'Self-Hosted'].map((label) => (
+            <div class="flex items-center justify-center rounded-lg border border-border/40 bg-card/30 px-8 py-4 text-xs text-muted-foreground/70">
+              {label}
+            </div>
+          ))}
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <footer class="relative z-10 border-t border-border/40 px-6 py-5 text-center text-[11px] text-muted-foreground/50 sm:px-10">
+    Open source under Apache 2.0
+  </footer>
+</Base>
