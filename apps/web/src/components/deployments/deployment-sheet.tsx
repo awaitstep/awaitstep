@@ -83,7 +83,7 @@ export function DeploymentSheet({
 
                 <Field label="Version">
                   <span className="text-sm text-foreground/70">
-                    {versionNumber ? `v${versionNumber}` : deployment.versionId}
+                    {versionNumber ? `v${versionNumber}` : '-'}
                   </span>
                 </Field>
 
