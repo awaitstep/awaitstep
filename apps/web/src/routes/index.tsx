@@ -3,7 +3,16 @@ import { GitHubIcon } from '../components/icons/provider-icons'
 import Logo from '../components/icons/logo'
 
 export const Route = createFileRoute('/')({
-  head: () => ({ meta: [{ title: 'AwaitStep — Open Source Visual Workflow Builder' }] }),
+  head: () => ({
+    meta: [
+      { title: 'AwaitStep — Open Source Visual Workflow Builder' },
+      {
+        name: 'description',
+        content:
+          'A self-hosted visual builder that generates and deploys code directly to Cloudflare Workflows.',
+      },
+    ],
+  }),
   component: HomePage,
 })
 
