@@ -80,6 +80,7 @@ export async function prepareDeploy(
       ir: prepared.ir,
       ...(prepared.dependencies && { dependencies: prepared.dependencies }),
       ...(appName && { packageName: appName }),
+      ...(workflow.deployConfig && { deployConfig: JSON.parse(workflow.deployConfig) }),
     },
     envVars: prepared.envVars,
   }

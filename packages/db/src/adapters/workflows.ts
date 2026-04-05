@@ -30,6 +30,7 @@ export class WorkflowsAdapter {
       envVars: null,
       triggerCode: null,
       dependencies: null,
+      deployConfig: null,
       createdAt: now,
       updatedAt: now,
     }
@@ -75,6 +76,7 @@ export class WorkflowsAdapter {
       envVars?: string | null
       triggerCode?: string | null
       dependencies?: string | null
+      deployConfig?: string | null
       projectId?: string
     },
   ): Promise<Workflow> {

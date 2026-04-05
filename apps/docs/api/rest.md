@@ -125,7 +125,7 @@ Create a new workflow.
 
 ### <span class="api-method patch">PATCH</span> <span class="api-endpoint">/workflows/:id</span> <span class="api-scope">write</span>
 
-Update a workflow's name, description, environment variables, trigger code, or dependencies.
+Update a workflow's name, description, environment variables, trigger code, dependencies, or deploy config.
 
 **Request body:**
 
@@ -135,7 +135,13 @@ Update a workflow's name, description, environment variables, trigger code, or d
   "description": "optional",
   "envVars": [{ "name": "KEY", "value": "val", "isSecret": false }],
   "triggerCode": "optional trigger code string",
-  "dependencies": { "lodash": "^4.0.0" }
+  "dependencies": { "lodash": "^4.0.0" },
+  "deployConfig": {
+    "route": {
+      "pattern": "api.example.com/my-workflow/*",
+      "zoneName": "example.com"
+    }
+  }
 }
 ```
 

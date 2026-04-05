@@ -15,6 +15,7 @@ export const workflows = pgTable(
     envVars: text('env_vars'),
     triggerCode: text('trigger_code'),
     dependencies: text('dependencies'),
+    deployConfig: text('deploy_config'),
     createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { mode: 'string' }).notNull().defaultNow(),
   },

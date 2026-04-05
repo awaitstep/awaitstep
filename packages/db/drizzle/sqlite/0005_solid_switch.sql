@@ -1,0 +1,1 @@
+ALTER TABLE `workflows` ADD `deploy_config` text;

@@ -37,12 +37,24 @@ const dependenciesSchema = z
   )
   .refine((deps) => Object.keys(deps).length <= 15, 'Maximum 15 dependencies')
 
+const deployConfigSchema = z
+  .object({
+    route: z
+      .object({
+        pattern: z.string().min(1).max(255),
+        zoneName: z.string().min(1).max(255),
+      })
+      .optional(),
+  })
+  .optional()
+
 const updateSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   description: z.string().max(1000).optional(),
   envVars: z.array(envVarSchema).optional(),
   triggerCode: z.string().max(50_000).optional(),
   dependencies: dependenciesSchema.optional(),
+  deployConfig: deployConfigSchema,
 })
 
 const SECRET_MASK = '••••••••'
@@ -128,12 +140,13 @@ workflows.post('/', zValidator('json', createSchema), async (c) => {
 workflows.patch('/:id', zValidator('json', updateSchema), async (c) => {
   const db = c.get('db')
   const workflowId = c.req.param('id')
-  const { envVars, triggerCode, dependencies, ...rest } = c.req.valid('json')
+  const { envVars, triggerCode, dependencies, deployConfig, ...rest } = c.req.valid('json')
   const dbData: {
     name?: string
     description?: string
     triggerCode?: string
     dependencies?: string
+    deployConfig?: string
   } = { ...rest }
   if (envVars !== undefined) {
     // Merge masked secrets with existing decrypted values
@@ -153,6 +166,9 @@ workflows.patch('/:id', zValidator('json', updateSchema), async (c) => {
   }
   if (dependencies !== undefined) {
     dbData.dependencies = JSON.stringify(dependencies)
+  }
+  if (deployConfig !== undefined) {
+    dbData.deployConfig = JSON.stringify(deployConfig)
   }
   const updated = await db.updateWorkflow(workflowId, dbData)
   return c.json(maskWorkflowSecrets(updated))

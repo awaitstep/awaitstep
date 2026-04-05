@@ -174,6 +174,7 @@ export const workflows = sqliteTable(
     envVars: text('env_vars'),
     triggerCode: text('trigger_code'),
     dependencies: text('dependencies'),
+    deployConfig: text('deploy_config'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },
@@ -226,9 +227,9 @@ export const workflowRuns = sqliteTable(
     workflowId: text('workflow_id')
       .notNull()
       .references(() => workflows.id, { onDelete: 'cascade' }),
-    versionId: text('version_id')
-      .notNull()
-      .references(() => workflowVersions.id),
+    versionId: text('version_id').references(() => workflowVersions.id, {
+      onDelete: 'set null',
+    }),
     connectionId: text('connection_id').references(() => connections.id, { onDelete: 'set null' }),
     instanceId: text('instance_id').notNull(),
     status: text('status').notNull().default('queued'),
@@ -288,9 +289,9 @@ export const deployments = sqliteTable(
     workflowId: text('workflow_id')
       .notNull()
       .references(() => workflows.id, { onDelete: 'cascade' }),
-    versionId: text('version_id')
-      .notNull()
-      .references(() => workflowVersions.id),
+    versionId: text('version_id').references(() => workflowVersions.id, {
+      onDelete: 'set null',
+    }),
     connectionId: text('connection_id').references(() => connections.id, { onDelete: 'set null' }),
     serviceName: text('service_name').notNull(),
     serviceUrl: text('service_url'),

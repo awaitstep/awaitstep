@@ -87,7 +87,7 @@ Create a new workflow.
 
 ### `PATCH /workflows/:id`
 
-Update a workflow's name, description, environment variables, trigger code, or dependencies.
+Update a workflow's name, description, environment variables, trigger code, dependencies, or deploy config.
 
 **Scope:** `write`
 | Param | In | Required | Description |
@@ -100,7 +100,13 @@ Update a workflow's name, description, environment variables, trigger code, or d
   "description": "optional",
   "envVars": [{ "name": "KEY", "value": "val", "isSecret": false }],
   "triggerCode": "optional trigger code string",
-  "dependencies": { "lodash": "^4.0.0" }
+  "dependencies": { "lodash": "^4.0.0" },
+  "deployConfig": {
+    "route": {
+      "pattern": "api.example.com/my-workflow/*",
+      "zoneName": "example.com"
+    }
+  }
 }
 ```
 

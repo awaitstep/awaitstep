@@ -174,6 +174,7 @@ export const workflows = pgTable(
     envVars: text('env_vars'),
     triggerCode: text('trigger_code'),
     dependencies: text('dependencies'),
+    deployConfig: text('deploy_config'),
     createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { mode: 'string' }).notNull().defaultNow(),
   },
@@ -226,9 +227,9 @@ export const workflowRuns = pgTable(
     workflowId: text('workflow_id')
       .notNull()
       .references(() => workflows.id, { onDelete: 'cascade' }),
-    versionId: text('version_id')
-      .notNull()
-      .references(() => workflowVersions.id),
+    versionId: text('version_id').references(() => workflowVersions.id, {
+      onDelete: 'set null',
+    }),
     connectionId: text('connection_id').references(() => connections.id, { onDelete: 'set null' }),
     instanceId: text('instance_id').notNull(),
     status: text('status').notNull().default('queued'),
@@ -265,9 +266,9 @@ export const deployments = pgTable(
     workflowId: text('workflow_id')
       .notNull()
       .references(() => workflows.id, { onDelete: 'cascade' }),
-    versionId: text('version_id')
-      .notNull()
-      .references(() => workflowVersions.id),
+    versionId: text('version_id').references(() => workflowVersions.id, {
+      onDelete: 'set null',
+    }),
     connectionId: text('connection_id').references(() => connections.id, { onDelete: 'set null' }),
     serviceName: text('service_name').notNull(),
     serviceUrl: text('service_url'),

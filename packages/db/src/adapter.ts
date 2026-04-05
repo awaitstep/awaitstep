@@ -79,6 +79,7 @@ export interface DatabaseAdapter {
       envVars?: string | null
       triggerCode?: string | null
       dependencies?: string | null
+      deployConfig?: string | null
       projectId?: string
     },
   ): Promise<Workflow>

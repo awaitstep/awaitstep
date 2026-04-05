@@ -113,6 +113,34 @@ describe('CloudflareWorkflowsAdapter', () => {
       )
     })
 
+    it('passes routes from deployConfig to deployWithWrangler', async () => {
+      const artifact = adapter.generate(simpleIR)
+      const configWithRoute: ProviderConfig = {
+        ...providerConfig,
+        options: {
+          ...providerConfig.options,
+          deployConfig: {
+            route: { pattern: 'example.com/my-workflow/*', zoneName: 'example.com' },
+          },
+        },
+      }
+      await adapter.deploy(artifact, configWithRoute)
+      const call = vi.mocked(deployWithWrangler).mock.lastCall!
+      const deployOpts = call[1]
+      expect(deployOpts.routes).toEqual([
+        { pattern: 'example.com/my-workflow/*', zone_name: 'example.com' },
+        { pattern: 'example.com/my-workflow?*', zone_name: 'example.com' },
+      ])
+    })
+
+    it('omits routes when deployConfig has no route', async () => {
+      const artifact = adapter.generate(simpleIR)
+      await adapter.deploy(artifact, providerConfig)
+      const call = vi.mocked(deployWithWrangler).mock.lastCall!
+      const deployOpts = call[1]
+      expect(deployOpts.routes).toBeUndefined()
+    })
+
     it('excludes _BINDING_ID env vars from wrangler vars', async () => {
       const artifact = adapter.generate(simpleIR)
       const configWithBindingIds: ProviderConfig = {
