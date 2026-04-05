@@ -8,6 +8,7 @@
       "include-component-in-tag": false,
       "prerelease": true,
       "prerelease-type": "beta",
+      "exclude-paths": ["apps/www", "apps/docs"],
       "extra-files": [
         "apps/api/package.json",
         "apps/web/package.json",
