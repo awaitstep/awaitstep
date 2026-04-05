@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.3.0](https://github.com/awaitstep/awaitstep/compare/v1.2.0...v1.3.0) (2026-04-04)
+
+
+### Features
+
+* add documentation site ([46986a4](https://github.com/awaitstep/awaitstep/commit/46986a4fb61399946e5715d06c4a4ad8889aa53d))
+* add VitePress documentation site ([8b4447c](https://github.com/awaitstep/awaitstep/commit/8b4447c7ebc979456783ec39456a6a64fefe846f))
+* support SECRET_ prefix for encrypted workflow env vars ([3a9e6cc](https://github.com/awaitstep/awaitstep/commit/3a9e6ccc3903a1586a4c4144f83f4736a0344e8c))
+* workflow secret envs + http body codegen fix ([00daec8](https://github.com/awaitstep/awaitstep/commit/00daec817663ec50c14823909b44bfac84d72e4c))
+
+
+### Bug Fixes
+
+* **api:** change health check endpoint from /health to /api/health ([01aac6a](https://github.com/awaitstep/awaitstep/commit/01aac6ac64abc347acee11f84a124b8a0c830527))
+* docs accuracy audit — remove fake shortcuts, fix IR example, clean unused images ([e09246c](https://github.com/awaitstep/awaitstep/commit/e09246cdf001e0f4ef87982cf7da8cb07e530e19))
+* emit http body as raw JS expression and fix template bodies ([4e809d0](https://github.com/awaitstep/awaitstep/commit/4e809d0a5c3db54316042d625a5fdfe8c471bb3d))
+* workflow secret envs + http body codegen fix ([c05734d](https://github.com/awaitstep/awaitstep/commit/c05734d21f67f54673585d9d5a7b44c0eb9c8d95))
+
+
+### Documentation
+
+* update repository URLs from awaitstep.dev to awaitstep ([84080a4](https://github.com/awaitstep/awaitstep/commit/84080a48ca824d5a74a8fe2cfb44deaa7d315be5))
+
 ## [1.2.0](https://github.com/awaitstep/awaitstep/compare/v1.1.2...v1.2.0) (2026-04-03)
 
 
