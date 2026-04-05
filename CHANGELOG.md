@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.0](https://github.com/awaitstep/awaitstep/compare/v1.3.0...v1.4.0) (2026-04-05)
+
+
+### Features
+
+* landing page, custom routes, and workflow fixes ([e0ead5c](https://github.com/awaitstep/awaitstep/commit/e0ead5c13d5e4a8d837deff07411014b11e525bb))
+* scaffold landing page site (apps/www) ([cf27143](https://github.com/awaitstep/awaitstep/commit/cf271432712fffb4e5a400bf7f53bfa098db2b0e))
+* scaffold landing page site (apps/www) ([724d0b9](https://github.com/awaitstep/awaitstep/commit/724d0b984d6b756e73013da0995de63d5985ac29))
+
+
+### Bug Fixes
+
+* allow deleting workflow versions with existing runs/deployments ([36292b2](https://github.com/awaitstep/awaitstep/commit/36292b2b9f8049ad87001f719b2f70cb9b2b3767))
+* exclude _BINDING_ID env vars from wrangler and local dev ([ce22452](https://github.com/awaitstep/awaitstep/commit/ce22452840870ed03241878d3cc6a2b7f56f7dce))
+* navigate to workflows list after delete and codegen improvements ([7108f8b](https://github.com/awaitstep/awaitstep/commit/7108f8bd0ff4512db7234273bd9ba4a1839c1ad8))
+* **provider-cloudflare:** exclude binding IDs from environment variables ([188fefb](https://github.com/awaitstep/awaitstep/commit/188fefb27195b308b588afcf9323fd4b583883ef))
+* stop React Flow from intercepting keyboard events in side panels ([4525fad](https://github.com/awaitstep/awaitstep/commit/4525fadb4b853a221f84ec0c251945b6bfb786d9))
+
 ## [1.3.0](https://github.com/awaitstep/awaitstep/compare/v1.2.0...v1.3.0) (2026-04-04)
 
 
