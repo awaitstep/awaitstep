@@ -29,6 +29,7 @@ export function WorkflowActionsMenu({ workflow, irJson, isDeployed }: WorkflowAc
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
       queryClient.invalidateQueries({ queryKey: ['all-deployments'] })
+      navigate({ to: '/workflows', replace: true })
       setDeleteOpen(false)
     },
   })

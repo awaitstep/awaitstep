@@ -36,6 +36,20 @@
       "when": 1775248922644,
       "tag": "0004_brainy_nova",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1775343067412,
+      "tag": "0005_solid_switch",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1775399864625,
+      "tag": "0006_nappy_retro_girl",
+      "breakpoints": true
     }
   ]
 }

@@ -21,6 +21,7 @@ export interface DeployOptions {
   secrets?: Record<string, string>
   dependencies?: Record<string, string>
   bindings?: BindingRequirement[]
+  routes?: Array<{ pattern: string; zone_name: string }>
 }
 
 export interface WranglerDeployResult {
@@ -51,6 +52,7 @@ export async function deployWithWrangler(
       main: `./${artifact.filename}`,
       vars: options.vars,
       bindings: options.bindings,
+      routes: options.routes,
     })
     await writeFile(join(deployDir, 'wrangler.json'), wranglerConfig, 'utf-8')
 
@@ -92,7 +94,10 @@ export async function deployWithWrangler(
     }
 
     const urlMatch = stdout.match(/https:\/\/[^\s)]+\.workers\.dev/)
-    return { success: true, workerName: name, workerUrl: urlMatch?.[0] }
+    const routeUrl = options.routes?.[0]
+      ? `https://${options.routes[0].pattern.replace(/\/\*$/, '')}`
+      : undefined
+    return { success: true, workerName: name, workerUrl: routeUrl ?? urlMatch?.[0] }
   } catch (err) {
     const error = err as Error & { stderr?: string }
     const safeError = error.stderr

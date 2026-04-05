@@ -97,9 +97,35 @@ The deploy produces a single Cloudflare Worker:
 
 - **Worker name** — derived from the workflow ID: `awaitstep-<workflowId>`
 - **Worker URL** — `https://awaitstep-<workflowId>.<accountSubdomain>.workers.dev`
+- **Custom route** — if configured, the worker is also reachable at your own domain (e.g. `api.example.com/my-workflow/*`). See [Custom Routes](../building-workflows/custom-routes.md).
 - **Dashboard URL** — link to the Cloudflare dashboard for the deployed worker
 
 The worker exports a `WorkflowEntrypoint` class and, if an HTTP trigger is configured, a `fetch` handler.
+
+## Custom Routes
+
+By default, workflows are only reachable at their `*.workers.dev` URL. You can attach a custom route so the workflow is served from your own domain (e.g. `api.example.com/process-order/*`).
+
+When a route is configured, AwaitStep adds a `routes` entry to the generated `wrangler.json`:
+
+```json
+{
+  "routes": [
+    {
+      "pattern": "api.example.com/process-order/*",
+      "zone_name": "example.com"
+    }
+  ]
+}
+```
+
+Routes require a proxied DNS record on the hostname. If one doesn't exist, create a proxied AAAA record pointing to `100::` (the IPv6 discard prefix). Without this record, requests will fail with `DNS_PROBE_FINISHED_NXDOMAIN`.
+
+| Type | Name  | Content | Proxy status |
+| ---- | ----- | ------- | ------------ |
+| AAAA | `api` | `100::` | Proxied      |
+
+See [Custom Routes](../building-workflows/custom-routes.md) for full setup instructions.
 
 ## Re-deploying
 

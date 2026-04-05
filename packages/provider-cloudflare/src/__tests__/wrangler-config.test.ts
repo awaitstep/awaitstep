@@ -164,4 +164,44 @@ describe('generateWranglerConfig', () => {
     expect(parsed.queues).toBeUndefined()
     expect(parsed.services).toBeUndefined()
   })
+
+  it('includes routes when provided', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+      routes: [{ pattern: 'example.com/my-workflow/*', zone_name: 'example.com' }],
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.routes).toEqual([
+      { pattern: 'example.com/my-workflow/*', zone_name: 'example.com' },
+    ])
+  })
+
+  it('omits routes when not provided', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.routes).toBeUndefined()
+  })
+
+  it('omits routes when empty array', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+      routes: [],
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.routes).toBeUndefined()
+  })
 })

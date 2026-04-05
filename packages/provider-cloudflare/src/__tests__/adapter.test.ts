@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import type { WorkflowIR } from '@awaitstep/ir'
 import type { ProviderConfig } from '@awaitstep/codegen'
 import { CloudflareWorkflowsAdapter } from '../adapter.js'
+import { deployWithWrangler } from '../deploy.js'
 
 vi.mock('../deploy.js', () => ({
   deployWithWrangler: vi.fn().mockResolvedValue({
@@ -110,6 +111,52 @@ describe('CloudflareWorkflowsAdapter', () => {
       await expect(adapter.deploy(artifact, badConfig)).rejects.toThrow(
         'accountId and apiToken are required',
       )
+    })
+
+    it('passes routes from deployConfig to deployWithWrangler', async () => {
+      const artifact = adapter.generate(simpleIR)
+      const configWithRoute: ProviderConfig = {
+        ...providerConfig,
+        options: {
+          ...providerConfig.options,
+          deployConfig: {
+            route: { pattern: 'example.com/my-workflow/*', zoneName: 'example.com' },
+          },
+        },
+      }
+      await adapter.deploy(artifact, configWithRoute)
+      const call = vi.mocked(deployWithWrangler).mock.lastCall!
+      const deployOpts = call[1]
+      expect(deployOpts.routes).toEqual([
+        { pattern: 'example.com/my-workflow/*', zone_name: 'example.com' },
+        { pattern: 'example.com/my-workflow?*', zone_name: 'example.com' },
+      ])
+    })
+
+    it('omits routes when deployConfig has no route', async () => {
+      const artifact = adapter.generate(simpleIR)
+      await adapter.deploy(artifact, providerConfig)
+      const call = vi.mocked(deployWithWrangler).mock.lastCall!
+      const deployOpts = call[1]
+      expect(deployOpts.routes).toBeUndefined()
+    })
+
+    it('excludes _BINDING_ID env vars from wrangler vars', async () => {
+      const artifact = adapter.generate(simpleIR)
+      const configWithBindingIds: ProviderConfig = {
+        ...providerConfig,
+        envVars: {
+          API_URL: { value: 'https://example.com', isSecret: false },
+          KV_CACHE_BINDING_ID: { value: 'abc123', isSecret: false },
+          DB_MAIN_BINDING_ID: { value: 'def456', isSecret: false },
+          SECRET_KEY: { value: 's3cret', isSecret: true },
+        },
+      }
+      await adapter.deploy(artifact, configWithBindingIds)
+      const call = vi.mocked(deployWithWrangler).mock.lastCall!
+      const deployOpts = call[1]
+      expect(deployOpts.vars).toEqual({ API_URL: 'https://example.com' })
+      expect(deployOpts.secrets).toEqual({ SECRET_KEY: 's3cret' })
     })
   })
 

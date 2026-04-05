@@ -59,6 +59,13 @@ export function projectUrl(path: string): string {
   return `${API_BASE}${withProject(path)}`
 }
 
+export interface DeployConfig {
+  route?: {
+    pattern: string
+    zoneName: string
+  }
+}
+
 export interface WorkflowSummary {
   id: string
   name: string
@@ -66,6 +73,7 @@ export interface WorkflowSummary {
   envVars?: string | null
   triggerCode?: string | null
   dependencies?: string | null
+  deployConfig?: string | null
   currentVersionId?: string | null
   deployStatus?: string | null
   deployVersionId?: string | null
@@ -183,6 +191,7 @@ export const api = {
       envVars?: { name: string; value: string; isSecret?: boolean }[]
       triggerCode?: string
       dependencies?: Record<string, string>
+      deployConfig?: DeployConfig
     },
   ): Promise<WorkflowSummary> {
     return request(withProject(`/workflows/${id}`), { method: 'PATCH', body: JSON.stringify(data) })

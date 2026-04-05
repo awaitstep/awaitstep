@@ -25,6 +25,7 @@ export type { DeployOptions, WranglerDeployResult } from './deploy.js'
 export { workerName, workflowClassName, sanitizedWorkflowName } from './naming.js'
 export { generateWranglerConfig, WRANGLER_BASE_CONFIG } from './wrangler-config.js'
 export type { WranglerWorkflowConfig } from './wrangler-config.js'
+export { splitEnvVars } from './env.js'
 export { startLocalDev, killPort, isPortListening, readLogs, LOCAL_DEV_PORT } from './local-dev.js'
 export { CloudflareResourcesAPI } from './resources.js'
 export type {

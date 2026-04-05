@@ -15,6 +15,7 @@ import type {
   LocalDevOptions,
   TemplateResolver,
 } from '@awaitstep/codegen'
+import { splitEnvVars } from './env.js'
 import { deployWithWrangler, deleteWorker } from './deploy.js'
 import { startLocalDev } from './local-dev.js'
 import { sanitizedWorkflowName } from './naming.js'
@@ -172,7 +173,37 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
 
     report('CREATING_WORKER', 'Creating Cloudflare Worker...', 55)
     report('DEPLOYING', 'Deploying to Cloudflare...', 65)
-    const { vars, secrets } = extractVarsAndSecrets(config)
+    const { vars: varsMap, secrets: secretsMap } = config.envVars
+      ? splitEnvVars(config.envVars)
+      : { vars: {}, secrets: {} }
+    const vars = Object.keys(varsMap).length > 0 ? varsMap : undefined
+    const secrets = Object.keys(secretsMap).length > 0 ? secretsMap : undefined
+
+    const deployConfig = config.options?.['deployConfig'] as
+      | { route?: { pattern: string; zoneName: string } }
+      | undefined
+    const routes = deployConfig?.route
+      ? [
+          { pattern: deployConfig.route.pattern, zone_name: deployConfig.route.zoneName },
+          ...(deployConfig.route.pattern.endsWith('/*')
+            ? [
+                {
+                  pattern: deployConfig.route.pattern.replace('/*', '?*'),
+                  zone_name: deployConfig.route.zoneName,
+                },
+              ]
+            : []),
+          ...(!deployConfig.route.pattern.endsWith('*')
+            ? [
+                {
+                  pattern: deployConfig.route.pattern.concat('*'),
+                  zone_name: deployConfig.route.zoneName,
+                },
+              ]
+            : []),
+        ]
+      : undefined
+
     const result = await deployWithWrangler(compiledArtifact, {
       workflowId: opts.workflowId,
       workflowName: opts.workflowName,
@@ -183,6 +214,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
       secrets,
       dependencies: opts.dependencies,
       bindings: resolvedBindings,
+      routes,
     })
 
     if (!result.success) {
@@ -202,7 +234,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
   }
 
   async trigger(
-    deploymentId: string,
+    _: string,
     params: unknown,
     config: ProviderConfig,
   ): Promise<{ instanceId: string }> {
@@ -243,28 +275,6 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
   ): Promise<LocalDevSession> {
     const compiled = await transpileToJS(artifact.source)
     return startLocalDev({ filename: 'worker.js', source: artifact.source, compiled }, options)
-  }
-}
-
-function extractVarsAndSecrets(config: ProviderConfig): {
-  vars?: Record<string, string>
-  secrets?: Record<string, string>
-} {
-  if (!config.envVars) return {}
-  const vars: Record<string, string> = {}
-  const secrets: Record<string, string> = {}
-  for (const [name, entry] of Object.entries(config.envVars)) {
-    if (entry.value !== undefined) {
-      if (entry.isSecret) {
-        secrets[name] = entry.value
-      } else {
-        vars[name] = entry.value
-      }
-    }
-  }
-  return {
-    vars: Object.keys(vars).length > 0 ? vars : undefined,
-    secrets: Object.keys(secrets).length > 0 ? secrets : undefined,
   }
 }
 

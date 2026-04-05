@@ -28,7 +28,7 @@ export function CanvasSidePanels({
   if (!showSettings && !selectedNodeId && !showEditor && !showLocalTest) return null
 
   return (
-    <div className="absolute right-0 top-0 z-10 flex h-full">
+    <div className="absolute right-0 top-0 z-10 flex h-full" onKeyDown={(e) => e.stopPropagation()}>
       {showSettings && (
         <aside className="h-full w-[380px] border-l border-border bg-card shadow-lg">
           <WorkflowSettings />
