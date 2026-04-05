@@ -120,6 +120,7 @@ export default withMermaid(
             { text: 'Expressions', link: '/building-workflows/expressions' },
             { text: 'Secrets & Env Vars', link: '/building-workflows/secrets' },
             { text: 'Triggering', link: '/building-workflows/triggering' },
+            { text: 'Custom Routes', link: '/building-workflows/custom-routes' },
             {
               text: 'Sub-Workflows',
               link: '/building-workflows/sub-workflows',

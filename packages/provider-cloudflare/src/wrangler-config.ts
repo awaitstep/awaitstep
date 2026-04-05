@@ -3,6 +3,7 @@ import type { BindingRequirement } from './codegen/bindings.js'
 export const WRANGLER_BASE_CONFIG = {
   compatibility_date: '2025-04-01',
   compatibility_flags: ['nodejs_compat'],
+  observability: { enabled: true },
 } as const
 
 export interface WranglerWorkflowConfig {
@@ -12,6 +13,7 @@ export interface WranglerWorkflowConfig {
   main: string
   vars?: Record<string, string>
   bindings?: BindingRequirement[]
+  routes?: Array<{ pattern: string; zone_name: string }>
   localDev?: boolean
 }
 
@@ -30,6 +32,9 @@ export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
   }
   if (config.vars && Object.keys(config.vars).length > 0) {
     wranglerConfig.vars = config.vars
+  }
+  if (config.routes && config.routes.length > 0) {
+    wranglerConfig.routes = config.routes
   }
 
   if (config.bindings && config.bindings.length > 0) {

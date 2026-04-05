@@ -25,7 +25,9 @@ import { generateRace } from './generators/race.js'
 import { hasTemplateExpressions } from './generators/state-tracking.js'
 import { detectBindings, type BindingType } from './bindings.js'
 
-export const DEFAULT_TRIGGER_CODE = `const url = new URL(request.url);
+export const DEFAULT_TRIGGER_CODE = `try {
+
+const url = new URL(request.url);
 
 if (request.method === "POST") {
   const params = await request.json().catch(() => undefined);
@@ -36,10 +38,18 @@ if (request.method === "POST") {
 const instanceId = url.searchParams.get("instanceId");
 if (instanceId) {
   const instance = await env.WORKFLOW.get(instanceId);
+  if (!instance) {
+    return Response.json({message: 'Instance not found'}, { status: 404 })
+  }
   return Response.json(await instance.status());
 }
 
-return new Response(null, { status: 200 });`
+return new Response(null, { status: 200 });
+
+} catch (error) {
+  return Response.json({ message: error.message }, { status: 500 });
+}
+`
 
 export function extractImports(code: string): { imports: string[]; body: string } {
   const lines = code.split('\n')

@@ -58,6 +58,8 @@ See [Triggers API](../api/triggers.md) for full details.
 
 Every deployed workflow automatically gets a public Cloudflare Worker URL. The generated Worker includes a `fetch` handler that accepts HTTP requests and creates workflow instances — no extra configuration needed.
 
+You can also serve workflows from your own domain using [Custom Routes](./custom-routes.md).
+
 ### Default trigger code
 
 The generated Worker's `fetch` handler:

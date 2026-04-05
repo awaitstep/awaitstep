@@ -15,6 +15,7 @@ export const workflows = sqliteTable(
     envVars: text('env_vars'),
     triggerCode: text('trigger_code'),
     dependencies: text('dependencies'),
+    deployConfig: text('deploy_config'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },

@@ -18,6 +18,7 @@ export function buildWorkflowStoreState(
     workflowEnvVars: [],
     dependencies: {},
     triggerCode: '',
+    deployConfig: {},
     validationResult: null,
     simulationResult: null,
     isDirty: false,
@@ -56,6 +57,17 @@ export function buildWorkflowStoreState(
       const parsed = JSON.parse(serverWorkflow.dependencies)
       if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
         state.dependencies = parsed
+      }
+    } catch {
+      /* ignore malformed */
+    }
+  }
+
+  if (serverWorkflow.deployConfig) {
+    try {
+      const parsed = JSON.parse(serverWorkflow.deployConfig)
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        state.deployConfig = parsed
       }
     } catch {
       /* ignore malformed */

@@ -1,6 +1,12 @@
 import { Hono } from 'hono'
 import { supportsLocalDev, type LocalDevProvider } from '@awaitstep/codegen'
-import { killPort, isPortListening, readLogs, LOCAL_DEV_PORT } from '@awaitstep/provider-cloudflare'
+import {
+  killPort,
+  isPortListening,
+  readLogs,
+  LOCAL_DEV_PORT,
+  splitEnvVars,
+} from '@awaitstep/provider-cloudflare'
 import type { AppEnv } from '../types.js'
 import { prepareWorkflow, isPrepareError } from '../lib/workflow-prepare.js'
 
@@ -31,17 +37,9 @@ localDev.post('/:workflowId/local-dev/start', async (c) => {
     return c.json({ error: 'Provider does not support local development' }, 501)
   }
 
-  const vars: Record<string, string> = {}
-  const secrets: Record<string, string> = {}
-  if (prepared.envVars) {
-    for (const [name, entry] of Object.entries(prepared.envVars)) {
-      if (entry.isSecret) {
-        secrets[name] = entry.value
-      } else {
-        vars[name] = entry.value
-      }
-    }
-  }
+  const { vars, secrets } = prepared.envVars
+    ? splitEnvVars(prepared.envVars)
+    : { vars: {}, secrets: {} }
 
   try {
     const result = await (prepared.adapter as LocalDevProvider).startLocalDev(prepared.artifact, {

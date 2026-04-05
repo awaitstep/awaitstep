@@ -49,6 +49,13 @@ export interface WorkflowEnvVar {
   value: string
 }
 
+export interface DeployConfig {
+  route?: {
+    pattern: string
+    zoneName: string
+  }
+}
+
 const getInitialWorkflowState = () => ({
   workflowId: null,
   metadata: {
@@ -64,6 +71,7 @@ const getInitialWorkflowState = () => ({
   workflowEnvVars: [],
   dependencies: {},
   triggerCode: '',
+  deployConfig: {},
   showSettings: false,
   validationResult: null,
   simulationResult: null,
@@ -81,6 +89,7 @@ interface WorkflowState {
   workflowEnvVars: WorkflowEnvVar[]
   dependencies: Record<string, string>
   triggerCode: string
+  deployConfig: DeployConfig
   showSettings: boolean
   validationResult: PublishValidationResult | null
   simulationResult: SimulationResult | null
@@ -107,6 +116,7 @@ interface WorkflowState {
   setWorkflowEnvVars: (vars: WorkflowEnvVar[]) => void
   setDependencies: (deps: Record<string, string>) => void
   setTriggerCode: (code: string) => void
+  setDeployConfig: (config: DeployConfig) => void
   setShowSettings: (show: boolean) => void
   runValidation: (nodeRegistry?: NodeRegistry) => PublishValidationResult
   clearValidation: () => void
@@ -394,6 +404,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   setTriggerCode: (code) => {
     set({ triggerCode: code, isDirty: true })
+  },
+
+  setDeployConfig: (config) => {
+    set({ deployConfig: config, isDirty: true })
   },
 
   setShowSettings: (show) => {

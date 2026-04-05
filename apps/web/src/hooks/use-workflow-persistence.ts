@@ -33,14 +33,15 @@ export function useWorkflowPersistence(opts: {
       const triggerCode = state.triggerCode || undefined
       const dependencies =
         Object.keys(state.dependencies).length > 0 ? state.dependencies : undefined
+      const deployConfig = state.deployConfig.route ? state.deployConfig : undefined
 
       if (isNew) {
         const created = await api.createWorkflow({
           name: state.metadata.name,
           description: state.metadata.description,
         })
-        if (envVars || triggerCode || dependencies)
-          await api.updateWorkflow(created.id, { envVars, triggerCode, dependencies })
+        if (envVars || triggerCode || dependencies || deployConfig)
+          await api.updateWorkflow(created.id, { envVars, triggerCode, dependencies, deployConfig })
         await api.createVersion(created.id, { ir })
         return created
       }
@@ -51,6 +52,7 @@ export function useWorkflowPersistence(opts: {
         envVars,
         triggerCode,
         dependencies,
+        deployConfig,
       })
       await api.createVersion(workflowId, { ir })
       return null
