@@ -3,7 +3,12 @@
   "name": "Google Gemini",
   "category": "AI",
   "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/google-gemini/icon.svg",
-  "tags": ["google", "gemini", "ai", "llm"],
+  "tags": [
+    "google",
+    "gemini",
+    "ai",
+    "llm"
+  ],
   "author": "awaitstep",
   "license": "Apache-2.0",
   "configSchema": {
@@ -12,7 +17,11 @@
       "label": "Action",
       "required": true,
       "description": "The Google Gemini API action to perform.",
-      "options": ["Generate Content", "Create Embedding", "Count Tokens"]
+      "options": [
+        "Generate Content",
+        "Create Embedding",
+        "Count Tokens"
+      ]
     },
     "model": {
       "type": "string",
@@ -59,7 +68,9 @@
       "description": "Full API response object"
     }
   },
-  "providers": ["cloudflare"],
+  "providers": [
+    "cloudflare"
+  ],
   "runtime": {
     "defaultRetries": 3,
     "defaultTimeout": "60 seconds"
