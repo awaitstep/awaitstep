@@ -112,6 +112,11 @@ ${DOMAIN} {
 }
 CADDYFILE
 
+  LOCAL_DEV_BLOCK=""
+  if [ "${ENABLE_LOCAL_DEV}" = "true" ]; then
+    LOCAL_DEV_BLOCK=$'    ports:\n      - "8787:8787"\n'
+  fi
+
   cat > docker-compose.yml <<COMPOSE
 services:
   awaitstep:
@@ -121,7 +126,7 @@ services:
     expose:
       - "8080"
       - "3000"
-    volumes:
+${LOCAL_DEV_BLOCK}    volumes:
       - awaitstep-data:/app/data
     env_file: .env
 
@@ -161,6 +166,11 @@ elif [ "${IS_DOMAIN}" = "true" ]; then
 }
 CADDYFILE
 
+  LOCAL_DEV_BLOCK=""
+  if [ "${ENABLE_LOCAL_DEV}" = "true" ]; then
+    LOCAL_DEV_BLOCK=$'    ports:\n      - "8787:8787"\n'
+  fi
+
   cat > docker-compose.yml <<COMPOSE
 services:
   awaitstep:
@@ -170,7 +180,7 @@ services:
     expose:
       - "8080"
       - "3000"
-    volumes:
+${LOCAL_DEV_BLOCK}    volumes:
       - awaitstep-data:/app/data
     env_file: .env
 
@@ -203,6 +213,11 @@ else
 }
 CADDYFILE
 
+  LOCAL_DEV_BLOCK=""
+  if [ "${ENABLE_LOCAL_DEV}" = "true" ]; then
+    LOCAL_DEV_BLOCK=$'    ports:\n      - "8787:8787"\n'
+  fi
+
   cat > docker-compose.yml <<COMPOSE
 services:
   awaitstep:
@@ -212,7 +227,7 @@ services:
     expose:
       - "8080"
       - "3000"
-    volumes:
+${LOCAL_DEV_BLOCK}    volumes:
       - awaitstep-data:/app/data
     env_file: .env
 

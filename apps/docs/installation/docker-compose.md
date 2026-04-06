@@ -33,6 +33,7 @@ services:
     restart: unless-stopped
     ports:
       - '8080:8080'
+      - '8787:8787' # Local dev server (wrangler)
     env_file:
       - .env
     volumes:
@@ -41,6 +42,10 @@ services:
 volumes:
   awaitstep_data:
 ```
+
+:::tip
+Port `8787` is used by the **Local Test** feature, which runs a local Cloudflare Workflows dev server inside the container. If you don't need local testing you can omit this port mapping.
+:::
 
 ### 3. Write .env
 
