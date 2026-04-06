@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.3-beta.0](https://github.com/awaitstep/awaitstep/compare/v1.4.2-beta.0...v1.4.3-beta.0) (2026-04-06)
+
+
+### Bug Fixes
+
+* expose local dev port in Docker and update docs ([113dd64](https://github.com/awaitstep/awaitstep/commit/113dd64b6a0e1446ec5b08b8fd2fb3349cc4a69c))
+* local dev server accessible in Docker and docs updates ([0bd1f5b](https://github.com/awaitstep/awaitstep/commit/0bd1f5b1e160bf828d9bd3127fee3776c90f5ce6))
+* make landing pages responsive on mobile ([11da2d1](https://github.com/awaitstep/awaitstep/commit/11da2d12a7c43133b2bc279c731852d269c6eccf))
+* responsive landing pages and sub-workflow capitalization ([97bce25](https://github.com/awaitstep/awaitstep/commit/97bce25fbe4a81c262ef71d7485781db17e9d76c))
+* use container IP for local dev URL in self-hosted environments ([a4dd2d5](https://github.com/awaitstep/awaitstep/commit/a4dd2d5dfe14a24cd64071e36b51f905c8777241))
+* wait for wrangler IP lines before returning local dev URL ([0790b46](https://github.com/awaitstep/awaitstep/commit/0790b4647dbd1c4ee61d8a597f4de1bd4d4fd9e3))
+
 ## [1.4.2-beta.0](https://github.com/awaitstep/awaitstep/compare/v1.4.1-beta.0...v1.4.2-beta.0) (2026-04-06)
 
 
