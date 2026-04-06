@@ -49,7 +49,11 @@ export function useLocalDev(workflowId: string) {
     setInstanceId(null)
     try {
       const result = await api.startLocalDev(workflowId)
-      const url = `http://${window.location.hostname}:${result.port}`
+      const isLocal =
+        window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      const url = isLocal
+        ? `http://localhost:${result.port}`
+        : `${window.location.origin}/local-dev/`
       setInfo({ port: result.port, url })
       setState('running')
       toast.success('Local dev server started', { description: url })

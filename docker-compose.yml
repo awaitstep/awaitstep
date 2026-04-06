@@ -5,7 +5,6 @@ services:
     restart: unless-stopped
     ports:
       - '${PORT:-8080}:8080'
-      - '${LOCAL_DEV_PORT:-8787}:8787'
     volumes:
       - awaitstep-data:/app/data
     environment:

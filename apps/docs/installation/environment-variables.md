@@ -52,12 +52,6 @@ To create a Google OAuth client: **Google Cloud Console → APIs & Services → 
 | `APP_NAME`     | `AwaitStep`       | Display name shown in the UI and email templates.                       |
 | `REGISTRY_URL` | Built-in registry | URL of a custom node registry. Omit to use the default public registry. |
 
-## Local Development
-
-| Variable         | Default | Description                                                                                                |
-| ---------------- | ------- | ---------------------------------------------------------------------------------------------------------- |
-| `LOCAL_DEV_PORT` | `8787`  | Port for the local wrangler dev server used by the Local Test feature. Must match the Docker port mapping. |
-
 ## Complete .env example
 
 ```bash

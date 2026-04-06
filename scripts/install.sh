@@ -97,6 +97,15 @@ EOF
 echo ""
 echo "Generated .env"
 
+# ── Local dev Caddy route ──
+LOCAL_DEV_ROUTE=""
+if [ "${ENABLE_LOCAL_DEV}" = "true" ]; then
+  LOCAL_DEV_ROUTE='  handle /local-dev/* {
+    uri strip_prefix /local-dev
+    reverse_proxy awaitstep:8787
+  }'
+fi
+
 # ── Caddyfile + docker-compose.yml ──
 
 if [ "${MANAGE_SSL}" = "true" ]; then
@@ -106,16 +115,12 @@ ${DOMAIN} {
   handle /api/* {
     reverse_proxy awaitstep:8080
   }
+${LOCAL_DEV_ROUTE}
   handle {
     reverse_proxy awaitstep:3000
   }
 }
 CADDYFILE
-
-  LOCAL_DEV_BLOCK=""
-  if [ "${ENABLE_LOCAL_DEV}" = "true" ]; then
-    LOCAL_DEV_BLOCK=$'    ports:\n      - "8787:8787"\n'
-  fi
 
   cat > docker-compose.yml <<COMPOSE
 services:
@@ -126,7 +131,7 @@ services:
     expose:
       - "8080"
       - "3000"
-${LOCAL_DEV_BLOCK}    volumes:
+    volumes:
       - awaitstep-data:/app/data
     env_file: .env
 
@@ -160,16 +165,12 @@ elif [ "${IS_DOMAIN}" = "true" ]; then
   handle /api/* {
     reverse_proxy awaitstep:8080
   }
+${LOCAL_DEV_ROUTE}
   handle {
     reverse_proxy awaitstep:3000
   }
 }
 CADDYFILE
-
-  LOCAL_DEV_BLOCK=""
-  if [ "${ENABLE_LOCAL_DEV}" = "true" ]; then
-    LOCAL_DEV_BLOCK=$'    ports:\n      - "8787:8787"\n'
-  fi
 
   cat > docker-compose.yml <<COMPOSE
 services:
@@ -180,7 +181,7 @@ services:
     expose:
       - "8080"
       - "3000"
-${LOCAL_DEV_BLOCK}    volumes:
+    volumes:
       - awaitstep-data:/app/data
     env_file: .env
 
@@ -207,16 +208,12 @@ else
   handle /api/* {
     reverse_proxy awaitstep:8080
   }
+${LOCAL_DEV_ROUTE}
   handle {
     reverse_proxy awaitstep:3000
   }
 }
 CADDYFILE
-
-  LOCAL_DEV_BLOCK=""
-  if [ "${ENABLE_LOCAL_DEV}" = "true" ]; then
-    LOCAL_DEV_BLOCK=$'    ports:\n      - "8787:8787"\n'
-  fi
 
   cat > docker-compose.yml <<COMPOSE
 services:
@@ -227,7 +224,7 @@ services:
     expose:
       - "8080"
       - "3000"
-${LOCAL_DEV_BLOCK}    volumes:
+    volumes:
       - awaitstep-data:/app/data
     env_file: .env
 
