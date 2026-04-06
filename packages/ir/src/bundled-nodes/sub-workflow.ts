@@ -23,7 +23,7 @@ export const subWorkflowDefinition: NodeDefinition = {
       placeholder: 'order-fulfillment',
     },
     input: {
-      type: 'expression',
+      type: 'json',
       label: 'Input',
       description: 'Expression for params passed to the child workflow.',
       placeholder: '{{ charge_result }}',

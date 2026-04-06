@@ -81,6 +81,26 @@ describe('CloudflareWorkflowsAdapter', () => {
       expect(artifact.source).toContain('class TestWorkflow')
       expect(artifact.source).toContain('step.do("Hello"')
     })
+
+    it('uses default trigger code when no triggerCode provided', () => {
+      const artifact = adapter.generate(simpleIR)
+      expect(artifact.source).toContain('const params = await request.json()')
+      expect(artifact.source).toContain('env.WORKFLOW.create({ params })')
+    })
+
+    it('uses custom triggerCode from config options', () => {
+      const customTrigger =
+        'const { name } = await request.json();\nconst instance = await env.WORKFLOW.create({ name });\nreturn Response.json({ instanceId: instance.id });'
+      const config: ProviderConfig = {
+        provider: 'cloudflare-workflows',
+        credentials: {},
+        options: { triggerCode: customTrigger },
+      }
+      const artifact = adapter.generate(simpleIR, config)
+      expect(artifact.source).toContain('const { name } = await request.json()')
+      expect(artifact.source).toContain('env.WORKFLOW.create({ name })')
+      expect(artifact.source).not.toContain('env.WORKFLOW.create({ params })')
+    })
   })
 
   describe('deploy', () => {
@@ -129,7 +149,7 @@ describe('CloudflareWorkflowsAdapter', () => {
       const deployOpts = call[1]
       expect(deployOpts.routes).toEqual([
         { pattern: 'example.com/my-workflow/*', zone_name: 'example.com' },
-        { pattern: 'example.com/my-workflow?*', zone_name: 'example.com' },
+        { pattern: 'example.com/my-workflow*', zone_name: 'example.com' },
       ])
     })
 
