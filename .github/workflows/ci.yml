@@ -39,3 +39,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: echo "Skipping tests for auto-generated PR"
+
+  # Single required status check — always reports regardless of which job ran
+  ci:
+    if: always()
+    needs: [test, test-skip]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          if [[ "${{ needs.test.result }}" == "failure" ]]; then
+            exit 1
+          fi
