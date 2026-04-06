@@ -31,19 +31,43 @@ services:
   awaitstep:
     image: ghcr.io/awaitstep/awaitstep:latest
     restart: unless-stopped
-    ports:
-      - '8080:8080'
+    expose:
+      - '8080'
+      - '3000'
     env_file:
       - .env
     volumes:
-      - awaitstep_data:/app/data
+      - awaitstep-data:/app/data
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '8080:8080'
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+
+configs:
+  caddyfile:
+    content: |
+      :8080 {
+        handle /api/* {
+          reverse_proxy awaitstep:8080
+        }
+        handle {
+          reverse_proxy awaitstep:3000
+        }
+      }
 
 volumes:
-  awaitstep_data:
+  awaitstep-data:
 ```
 
+Caddy routes `/api/*` to the API server and everything else to the web UI.
+
 :::tip
-If you use a reverse proxy (Caddy, Nginx, etc.), add a `/local-dev/*` route that proxies to the awaitstep container on port `8787`. This is required for the **Local Test** feature. See [Reverse Proxy](./reverse-proxy) for details.
+If you need the **Local Test** feature, add a `/local-dev/*` route to the Caddyfile that proxies to port `8787`. See [Reverse Proxy](./reverse-proxy) for details.
 :::
 
 ### 3. Write .env
@@ -87,7 +111,7 @@ Check logs:
 docker compose logs -f awaitstep
 ```
 
-Open `http://localhost:8080` once the container is healthy.
+Open `http://localhost` once the container is healthy.
 
 ## Data persistence
 

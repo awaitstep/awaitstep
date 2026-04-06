@@ -32,15 +32,43 @@ services:
   awaitstep:
     image: ghcr.io/awaitstep/awaitstep:latest
     restart: unless-stopped
-    ports:
-      - '8080:8080'
+    expose:
+      - '8080'
+      - '3000'
     env_file:
       - .env
     volumes:
-      - awaitstep_data:/app/data
+      - awaitstep-data:/app/data
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+
+configs:
+  caddyfile:
+    content: |
+      your-droplet-domain.com {
+        handle /api/* {
+          reverse_proxy awaitstep:8080
+        }
+        handle {
+          reverse_proxy awaitstep:3000
+        }
+      }
 
 volumes:
-  awaitstep_data:
+  awaitstep-data:
+  caddy-data:
+  caddy-config:
 ```
 
 **.env:**
@@ -64,9 +92,9 @@ Then start:
 docker compose up -d
 ```
 
-### 4. Set up a domain and reverse proxy
+### 4. Set up a domain
 
-Point your domain to the Droplet IP and set up a reverse proxy for HTTPS. Caddy is the easiest option — see the [Reverse Proxy](../reverse-proxy) guide.
+Point your domain to the Droplet IP. Replace `your-droplet-domain.com` in the Caddyfile with your actual domain. Caddy will automatically provision a Let's Encrypt TLS certificate.
 
 ## Notes
 
