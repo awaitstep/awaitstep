@@ -19,16 +19,40 @@ services:
   awaitstep:
     image: ghcr.io/awaitstep/awaitstep:latest
     restart: unless-stopped
-    ports:
-      - '8080:8080'
+    expose:
+      - '8080'
+      - '3000'
     env_file:
       - .env
     volumes:
-      - awaitstep_data:/app/data
+      - awaitstep-data:/app/data
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+
+configs:
+  caddyfile:
+    content: |
+      :80 {
+        handle /api/* {
+          reverse_proxy awaitstep:8080
+        }
+        handle {
+          reverse_proxy awaitstep:3000
+        }
+      }
 
 volumes:
-  awaitstep_data:
+  awaitstep-data:
 ```
+
+Caddy routes `/api/*` to the API server and everything else to the web UI. Coolify's Traefik handles TLS on top of this.
 
 ### 2. Set environment variables
 
@@ -66,6 +90,6 @@ Click **Deploy**.
 
 ## Notes
 
-- Coolify handles TLS automatically if you configure a domain — no separate reverse proxy is needed.
+- Coolify handles TLS automatically if you configure a domain. Caddy runs on port 80 internally and Coolify's Traefik terminates TLS in front of it.
 - The health check endpoint is `GET /api/health`. Configure this in Coolify's **Health Check** settings.
 - If you use Coolify's built-in PostgreSQL service, set `DATABASE_URL` to the internal connection string Coolify provides.
