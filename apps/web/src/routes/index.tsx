@@ -18,7 +18,7 @@ export const Route = createFileRoute('/')({
 
 function HomePage() {
   return (
-    <div className="relative flex min-h-screen flex-col bg-background text-foreground">
+    <div className="relative flex min-h-screen flex-col overflow-x-hidden bg-background text-foreground">
       {/* Google Font for handwriting */}
       <link
         href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&display=swap"
@@ -124,7 +124,7 @@ function HomePage() {
           Workflows. No proprietary engines, just your code.
         </p>
 
-        <div className="mt-10 flex items-center gap-3">
+        <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row">
           <Link
             to="/sign-in"
             className="rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
@@ -142,7 +142,7 @@ function HomePage() {
 
         {/* Feature grid */}
         <div className="mt-16 flex w-full max-w-2xl flex-col items-center gap-2">
-          <div className="grid w-full grid-cols-4 gap-2">
+          <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4">
             {['Drag & Drop Canvas', 'One-Click Deploy', '30+ Node Types', 'Node Marketplace'].map(
               (label) => (
                 <div
@@ -154,7 +154,7 @@ function HomePage() {
               ),
             )}
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {['API Playground', 'Self-Hosted'].map((label) => (
               <div
                 key={label}
