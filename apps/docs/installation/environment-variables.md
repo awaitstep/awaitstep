@@ -61,9 +61,7 @@ BETTER_AUTH_SECRET=another_64_char_hex_string_here
 BETTER_AUTH_URL=https://workflows.example.com
 
 # ── Database ──────────────────────────────────────────────────────────────────
-# SQLite (default — comment out to use)
-# DATABASE_URL=file:/app/data/db.sqlite
-
+# SQLite (default)
 # PostgreSQL (uncomment and fill in to use)
 # DATABASE_URL=postgresql://user:password@host:5432/awaitstep
 

@@ -50,8 +50,9 @@ TOKEN_ENCRYPTION_KEY=your-first-generated-key
 BETTER_AUTH_SECRET=your-second-generated-key
 BETTER_AUTH_URL=http://localhost:8080
 
-# Database (SQLite default — no change needed)
-# DATABASE_URL=file:/app/data/db.sqlite
+# Database (SQLite default)
+# PostgreSQL (uncomment and fill in to use)
+# DATABASE_URL=postgresql://user:password@host:5432/awaitstep
 
 # Auth — configure at least one
 # GITHUB_CLIENT_ID=
