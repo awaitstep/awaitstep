@@ -11,22 +11,22 @@ export const subWorkflowDefinition: NodeDefinition = {
   configSchema: {
     workflowId: {
       type: 'string',
-      label: 'Workflow ID',
+      label: 'Script Name',
       required: true,
-      placeholder: 'wf_abc123',
+      description: 'The deployed worker name (e.g. awaitstep-abc123 or my-worker).',
+      placeholder: 'awaitstep-abc123',
     },
     workflowName: {
       type: 'string',
       label: 'Workflow Name',
       required: true,
-      description: 'Human-readable name used for the CF binding.',
+      description: 'Human-readable name used for the binding and display.',
       placeholder: 'order-fulfillment',
     },
     input: {
-      type: 'json',
+      type: 'code',
       label: 'Input',
       description: 'Expression for params passed to the child workflow.',
-      placeholder: '{{ charge_result }}',
     },
     waitForCompletion: {
       type: 'boolean',

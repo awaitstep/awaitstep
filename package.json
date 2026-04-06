@@ -11,6 +11,7 @@
   "scripts": {
     "build": "dotenv -- turbo run build",
     "dev": "dotenv -- turbo run dev",
+    "web:dev": "dotenv -- turbo run dev --filter=@awaitstep/web...",
     "test": "dotenv -- turbo run test",
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",

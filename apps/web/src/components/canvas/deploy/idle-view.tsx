@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { CheckCircle2, XCircle, Clock } from 'lucide-react'
+import { cn } from '../../../lib/utils'
 import { Button } from '../../ui/button'
 import { Select } from '../../ui/select'
 import { formatShortDate } from '../../../lib/time'
@@ -22,6 +23,10 @@ interface IdleViewProps {
   connectionId: string
   onConnectionChange: (id: string) => void
   deployments: DeploymentSummary[] | undefined
+  previewUrls: boolean
+  onPreviewUrlsChange: (v: boolean) => void
+  workersDev: boolean
+  onWorkersDevChange: (v: boolean) => void
   onDeploy: () => void
   onClose: () => void
 }
@@ -31,6 +36,10 @@ export function IdleView({
   connectionId,
   onConnectionChange,
   deployments,
+  previewUrls,
+  onPreviewUrlsChange,
+  workersDev,
+  onWorkersDevChange,
   onDeploy,
   onClose,
 }: IdleViewProps) {
@@ -58,6 +67,22 @@ export function IdleView({
             </Link>{' '}
             to deploy.
           </p>
+        </div>
+      )}
+      {connectionId && (
+        <div className="space-y-2">
+          <ToggleRow
+            label="Preview URLs"
+            description="Enable preview URLs for this deployment."
+            checked={previewUrls}
+            onChange={onPreviewUrlsChange}
+          />
+          <ToggleRow
+            label="workers.dev Route"
+            description="Expose the worker on a workers.dev subdomain."
+            checked={workersDev}
+            onChange={onWorkersDevChange}
+          />
         </div>
       )}
       {deployments && deployments.length > 0 && (
@@ -99,6 +124,44 @@ export function IdleView({
           Deploy
         </Button>
       </div>
+    </div>
+  )
+}
+
+function ToggleRow({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string
+  description: string
+  checked: boolean
+  onChange: (value: boolean) => void
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <span className="text-[12px] text-foreground">{label}</span>
+        <p className="text-[10px] text-muted-foreground/60">{description}</p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={cn(
+          'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors',
+          checked ? 'bg-primary' : 'bg-muted',
+        )}
+      >
+        <span
+          className={cn(
+            'pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm transition-transform',
+            checked ? 'translate-x-4' : 'translate-x-0',
+          )}
+        />
+      </button>
     </div>
   )
 }

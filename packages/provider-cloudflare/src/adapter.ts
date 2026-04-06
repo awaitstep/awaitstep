@@ -21,6 +21,7 @@ import { startLocalDev } from './local-dev.js'
 import { sanitizedWorkflowName } from './naming.js'
 import { CloudflareAPI } from './api.js'
 import { detectBindings, type BindingRequirement } from './codegen/bindings.js'
+import { getSubWorkflowBindings } from './codegen/generators/sub-workflow.js'
 
 interface CloudflareOptions {
   workflowId: string
@@ -171,6 +172,9 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
       }
     }
 
+    // Collect sub-workflow bindings from IR
+    const subWorkflowBindings = ir ? getSubWorkflowBindings(ir.nodes) : []
+
     report('BINDINGS_READY', 'Bindings configured', 45)
 
     report('CREATING_WORKER', 'Creating Cloudflare Worker...', 55)
@@ -216,6 +220,9 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
       secrets,
       dependencies: opts.dependencies,
       bindings: resolvedBindings,
+      subWorkflowBindings: subWorkflowBindings.length > 0 ? subWorkflowBindings : undefined,
+      previewUrls: config.options?.['previewUrls'] as boolean | undefined,
+      workersDev: config.options?.['workersDev'] as boolean | undefined,
       routes,
     })
 
