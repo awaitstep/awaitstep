@@ -10,7 +10,6 @@ graph TB
         Deploy["Deploy Dialog"]
         Trigger["Trigger Dialog"]
         Monitor["Run Monitor"]
-        Resources["Resource Browsers"]
     end
 
     subgraph API["API Server (apps/api)"]
