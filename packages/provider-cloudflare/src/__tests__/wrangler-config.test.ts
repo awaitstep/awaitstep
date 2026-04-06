@@ -205,7 +205,7 @@ describe('generateWranglerConfig', () => {
     expect(parsed.routes).toBeUndefined()
   })
 
-  it('includes sub-workflow bindings with script_name', () => {
+  it('includes sub-workflow bindings with class_name and script_name', () => {
     const config = generateWranglerConfig({
       workerName: 'test',
       className: 'Test',
@@ -213,8 +213,9 @@ describe('generateWranglerConfig', () => {
       main: './worker.js',
       subWorkflowBindings: [
         {
-          binding: 'ORDER_FULFILLMENT_WORKFLOW',
+          binding: 'ORDER_FULFILLMENT',
           name: 'order-fulfillment',
+          className: 'OrderFulfillment',
           scriptName: 'awaitstep-abc123',
         },
       ],
@@ -228,8 +229,9 @@ describe('generateWranglerConfig', () => {
       class_name: 'Test',
     })
     expect(parsed.workflows[1]).toEqual({
-      binding: 'ORDER_FULFILLMENT_WORKFLOW',
+      binding: 'ORDER_FULFILLMENT',
       name: 'order-fulfillment',
+      class_name: 'OrderFulfillment',
       script_name: 'awaitstep-abc123',
     })
   })

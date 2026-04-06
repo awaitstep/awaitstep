@@ -18,10 +18,11 @@ export const subWorkflowDefinition: NodeDefinition = {
     },
     workflowName: {
       type: 'string',
-      label: 'Workflow Name',
+      label: 'Class Name',
       required: true,
-      description: 'Human-readable name used for the binding and display.',
-      placeholder: 'order-fulfillment',
+      description:
+        'The exported workflow class name in the child worker (e.g. OnboardingWorkflow).',
+      placeholder: 'OnboardingWorkflow',
     },
     input: {
       type: 'code',

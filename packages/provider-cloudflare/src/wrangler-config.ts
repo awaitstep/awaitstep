@@ -35,6 +35,7 @@ export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
       ...(config.subWorkflowBindings ?? []).map((b) => ({
         binding: b.binding,
         name: b.name,
+        class_name: b.className,
         script_name: b.scriptName,
       })),
     ],
