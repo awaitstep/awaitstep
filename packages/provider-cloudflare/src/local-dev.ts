@@ -110,6 +110,8 @@ export async function startLocalDev(
 
   const fallbackUrl = `http://localhost:${LOCAL_DEV_PORT}`
   await waitForReady(child, fallbackUrl, logs)
+  // Wait briefly for wrangler to print the additional IP lines after "Ready on"
+  await new Promise((r) => setTimeout(r, 1000))
 
   return { port: LOCAL_DEV_PORT, url: externalUrl || fallbackUrl, pid: child.pid! }
 }
