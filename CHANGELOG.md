@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.2-beta.0](https://github.com/awaitstep/awaitstep/compare/v1.4.1-beta.0...v1.4.2-beta.0) (2026-04-06)
+
+
+### Bug Fixes
+
+* preserve capitalization in sub-workflow binding name ([0be9c46](https://github.com/awaitstep/awaitstep/commit/0be9c46ec69ed93f1d0df8e0db83f45569c8d29b))
+* register sub-workflow bindings in wrangler config with script_name ([d45479e](https://github.com/awaitstep/awaitstep/commit/d45479e1f6ceb4a8884bfa5c1731ef7cc6deccec))
+* register sub-workflow wrangler bindings and add deploy toggles ([8e5b6d2](https://github.com/awaitstep/awaitstep/commit/8e5b6d2170b6ce68d4b5921374353f20e3af067c))
+* sub-workflow wrangler bindings and deploy dialog toggles ([ba70b4c](https://github.com/awaitstep/awaitstep/commit/ba70b4c7d537062123837ab6f1240d315b2ebe7e))
+* use class_name in sub-workflow wrangler bindings ([2c9a7dd](https://github.com/awaitstep/awaitstep/commit/2c9a7dd520c4c4e1c653352cfa02c7b5b72d36ca))
+* **web:** correct fillOpacity JSX attribute in logo component ([8f15dc5](https://github.com/awaitstep/awaitstep/commit/8f15dc5afd7ba74c88e94cafd4086583720275d9))
+
 ## [1.4.1-beta.0](https://github.com/awaitstep/awaitstep/compare/v1.4.0-beta.0...v1.4.1-beta.0) (2026-04-06)
 
 
