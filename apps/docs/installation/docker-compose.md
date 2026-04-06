@@ -43,7 +43,7 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     ports:
-      - '8080:8080'
+      - '8080:80'
     configs:
       - source: caddyfile
         target: /etc/caddy/Caddyfile
@@ -51,7 +51,7 @@ services:
 configs:
   caddyfile:
     content: |
-      :8080 {
+      :80 {
         handle /api/* {
           reverse_proxy awaitstep:8080
         }
