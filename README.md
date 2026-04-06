@@ -55,10 +55,6 @@ Manage global and per-workflow environment variables from the dashboard. Variabl
 
 Full REST API for programmatic access. Generate scoped API keys (read / write / deploy) with optional expiration. Interactive API playground built into the dashboard. See the [API reference](docs/api-reference.md).
 
-### Resource Browser
-
-Browse your Cloudflare resources directly from the dashboard — KV namespaces with key inspection, D1 databases with SQL queries, and R2 buckets with object browsing.
-
 ### Local Development
 
 Test workflows locally before deploying. Real-time log streaming, local triggers, and instant feedback — no deploy round-trips needed.
