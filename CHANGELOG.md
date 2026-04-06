@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.4-beta.0](https://github.com/awaitstep/awaitstep/compare/v1.4.3-beta.0...v1.4.4-beta.0) (2026-04-06)
+
+
+### Bug Fixes
+
+* Caddy proxy, port standardization, and env cleanup ([340065d](https://github.com/awaitstep/awaitstep/commit/340065d344a2fb57080298ace8c007c1108f0359))
+* enforce write/deploy scopes on project CRUD and run lifecycle endpoints ([fb4d80e](https://github.com/awaitstep/awaitstep/commit/fb4d80e1892350e346c9c615feeca3f6bf59dff8))
+* enforce write/deploy scopes on project CRUD and run lifecycle endpoints ([440fc99](https://github.com/awaitstep/awaitstep/commit/440fc99cd3bb0cfa0043c52c1321b1b8b0339203))
+* proxy local dev server through Caddy reverse proxy ([26ce597](https://github.com/awaitstep/awaitstep/commit/26ce5974554541d5b2baf80ed58692b359318480))
+* proxy local dev through Caddy and remove Resource Browser references ([b67ce97](https://github.com/awaitstep/awaitstep/commit/b67ce97fcfd17e08570b1f740b818655762364aa))
+* **sign-in:** handle auth errors consistently across methods ([f8c665f](https://github.com/awaitstep/awaitstep/commit/f8c665f3d94d5d68824ae80512035f816a62d9fa))
+* standardize API port to 8080 across dev and production ([2193ec4](https://github.com/awaitstep/awaitstep/commit/2193ec4b3d1abb274638e81ba74838f665467d4f))
+
 ## [1.4.3-beta.0](https://github.com/awaitstep/awaitstep/compare/v1.4.2-beta.0...v1.4.3-beta.0) (2026-04-06)
 
 
