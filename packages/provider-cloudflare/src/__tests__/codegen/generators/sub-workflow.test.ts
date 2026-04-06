@@ -17,8 +17,8 @@ function subNode(overrides: Partial<WorkflowNode['data']> = {}): WorkflowNode {
     version: V,
     provider: P,
     data: {
-      workflowId: 'wf_abc',
-      workflowName: 'order-fulfillment',
+      workflowId: 'awaitstep-abc123',
+      workflowName: 'OrderFulfillment',
       input: 'charge_result',
       waitForCompletion: true,
       timeout: '5 minutes',
@@ -30,9 +30,9 @@ function subNode(overrides: Partial<WorkflowNode['data']> = {}): WorkflowNode {
 describe('generateSubWorkflow', () => {
   it('generates wait-for-completion two-step pattern', () => {
     const code = generateSubWorkflow(subNode())
-    expect(code).toContain('Create order-fulfillment')
-    expect(code).toContain('ORDER_FULFILLMENT_WORKFLOW')
-    expect(code).toContain('Await order-fulfillment')
+    expect(code).toContain('Create OrderFulfillment')
+    expect(code).toContain('ORDER_FULFILLMENT')
+    expect(code).toContain('Await OrderFulfillment')
     expect(code).toContain('retries:')
     expect(code).toContain('NonRetryableError')
     expect(code).toContain('params: charge_result')
@@ -40,9 +40,9 @@ describe('generateSubWorkflow', () => {
 
   it('generates fire-and-forget pattern', () => {
     const code = generateSubWorkflow(subNode({ waitForCompletion: false }))
-    expect(code).toContain('Create order-fulfillment')
-    expect(code).toContain('ORDER_FULFILLMENT_WORKFLOW')
-    expect(code).not.toContain('Await order-fulfillment')
+    expect(code).toContain('Create OrderFulfillment')
+    expect(code).toContain('ORDER_FULFILLMENT')
+    expect(code).not.toContain('Await OrderFulfillment')
     expect(code).not.toContain('retries:')
   })
 
@@ -53,15 +53,29 @@ describe('generateSubWorkflow', () => {
 })
 
 describe('getSubWorkflowBindings', () => {
-  it('collects unique workflow bindings', () => {
+  it('collects unique workflow bindings with class names', () => {
     const nodes = [
       subNode(),
-      { ...subNode(), id: 'sub-2', data: { ...subNode().data, workflowName: 'send-email' } },
+      {
+        ...subNode(),
+        id: 'sub-2',
+        data: { ...subNode().data, workflowName: 'SendEmail', workflowId: 'awaitstep-xyz' },
+      },
     ]
     const bindings = getSubWorkflowBindings(nodes)
-    expect(bindings).toContain('ORDER_FULFILLMENT_WORKFLOW')
-    expect(bindings).toContain('SEND_EMAIL_WORKFLOW')
     expect(bindings).toHaveLength(2)
+    expect(bindings[0]).toEqual({
+      binding: 'ORDER_FULFILLMENT',
+      name: 'Order-Fulfillment',
+      className: 'OrderFulfillment',
+      scriptName: 'awaitstep-abc123',
+    })
+    expect(bindings[1]).toEqual({
+      binding: 'SEND_EMAIL',
+      name: 'Send-Email',
+      className: 'SendEmail',
+      scriptName: 'awaitstep-xyz',
+    })
   })
 
   it('ignores non sub_workflow nodes', () => {

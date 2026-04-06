@@ -20,6 +20,8 @@ interface DeployDialogProps {
 export function DeployDialog({ onClose, workflowId, versionId }: DeployDialogProps) {
   const ready = useOrgReady()
   const [connectionId, setConnectionId] = useState('')
+  const [previewUrls, setPreviewUrls] = useState(false)
+  const [workersDev, setWorkersDev] = useState(false)
   const connections = useConnectionsStore((s) => s.connections)
   const { state, progress, error, result, startDeploy, retry } = useDeployStream({
     workflowId,
@@ -34,7 +36,12 @@ export function DeployDialog({ onClose, workflowId, versionId }: DeployDialogPro
   })
 
   function handleDeploy() {
-    if (connectionId) startDeploy(connectionId)
+    if (connectionId) {
+      startDeploy(connectionId, {
+        ...(previewUrls && { previewUrls: true }),
+        ...(workersDev && { workersDev: true }),
+      })
+    }
   }
 
   const connectionName = connections?.find((c) => c.id === connectionId)?.name
@@ -59,6 +66,10 @@ export function DeployDialog({ onClose, workflowId, versionId }: DeployDialogPro
               connectionId={connectionId}
               onConnectionChange={setConnectionId}
               deployments={deployments}
+              previewUrls={previewUrls}
+              onPreviewUrlsChange={setPreviewUrls}
+              workersDev={workersDev}
+              onWorkersDevChange={setWorkersDev}
               onDeploy={handleDeploy}
               onClose={onClose}
             />

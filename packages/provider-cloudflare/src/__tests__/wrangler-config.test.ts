@@ -204,4 +204,86 @@ describe('generateWranglerConfig', () => {
     const parsed = JSON.parse(config)
     expect(parsed.routes).toBeUndefined()
   })
+
+  it('includes sub-workflow bindings with class_name and script_name', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+      subWorkflowBindings: [
+        {
+          binding: 'ORDER_FULFILLMENT',
+          name: 'Order-Fulfillment',
+          className: 'OrderFulfillment',
+          scriptName: 'awaitstep-abc123',
+        },
+      ],
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.workflows).toHaveLength(2)
+    expect(parsed.workflows[0]).toEqual({
+      binding: 'WORKFLOW',
+      name: 'test',
+      class_name: 'Test',
+    })
+    expect(parsed.workflows[1]).toEqual({
+      binding: 'ORDER_FULFILLMENT',
+      name: 'Order-Fulfillment',
+      class_name: 'OrderFulfillment',
+      script_name: 'awaitstep-abc123',
+    })
+  })
+
+  it('includes preview_urls when set', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+      previewUrls: true,
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.preview_urls).toBe(true)
+  })
+
+  it('includes workers_dev when set', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+      workersDev: false,
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.workers_dev).toBe(false)
+  })
+
+  it('omits preview_urls and workers_dev when not provided', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.preview_urls).toBeUndefined()
+    expect(parsed.workers_dev).toBeUndefined()
+  })
+
+  it('omits sub-workflow bindings when not provided', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.workflows).toHaveLength(1)
+  })
 })

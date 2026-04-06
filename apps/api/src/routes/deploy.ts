@@ -13,6 +13,8 @@ import { prepareDeploy, isDeployError } from '../lib/deploy-prepare.js'
 const deploySchema = z.object({
   connectionId: z.string().min(1),
   versionId: z.string().min(1).optional(),
+  previewUrls: z.boolean().optional(),
+  workersDev: z.boolean().optional(),
 })
 
 const MAX_TRIGGER_PARAMS_BYTES = 102_400 // 100 KB
@@ -44,6 +46,8 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
     versionId: body.versionId,
     nodeRegistry: c.get('nodeRegistry'),
     appName: c.get('appName'),
+    previewUrls: body.previewUrls,
+    workersDev: body.workersDev,
   })
 
   if (isDeployError(prepared)) {
@@ -82,6 +86,8 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
     versionId: body.versionId,
     nodeRegistry: c.get('nodeRegistry'),
     appName: c.get('appName'),
+    previewUrls: body.previewUrls,
+    workersDev: body.workersDev,
   })
 
   if (isDeployError(prepared)) {

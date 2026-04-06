@@ -251,8 +251,8 @@ export function generateWorkflow(
 
   // Add sub-workflow bindings
   const subWorkflowBindings = getSubWorkflowBindings(ir.nodes)
-  for (const binding of subWorkflowBindings) {
-    envFields.push(`  ${binding}: Workflow;`)
+  for (const b of subWorkflowBindings) {
+    envFields.push(`  ${b.binding}: Workflow;`)
   }
 
   // Add typed fields for auto-detected resource bindings

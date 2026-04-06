@@ -66,7 +66,6 @@ export function SuccessView({ result, connectionName, onClose }: SuccessViewProp
               ) : (
                 <Copy className="h-3 w-3" />
               )}
-              {curlCopied ? 'Copied' : 'Copy'}
             </button>
           </div>
           <pre className="overflow-x-auto rounded-lg border border-border bg-muted/30 p-2 text-[11px] text-muted-foreground">
