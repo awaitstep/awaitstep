@@ -1,4 +1,4 @@
-import type { WorkflowProvider, GeneratedArtifact } from '@awaitstep/codegen'
+import type { WorkflowProvider, GeneratedArtifact, ProviderConfig } from '@awaitstep/codegen'
 import type { WorkflowIR } from '@awaitstep/ir'
 import type { DatabaseAdapter, Workflow } from '@awaitstep/db'
 import type { AppNodeRegistry } from './node-registry.js'
@@ -96,13 +96,13 @@ export async function prepareWorkflow(
   const dependencies = mergeDependencies(workflowDeps, nodeDeps)
 
   // Generate artifact
-  const artifact = envResult.envVars
-    ? adapter.generate(ir, {
-        provider: 'cloudflare-workflows',
-        credentials: {},
-        envVars: envResult.envVars,
-      })
-    : adapter.generate(ir)
+  const generateConfig: ProviderConfig = {
+    provider: 'cloudflare-workflows',
+    credentials: {},
+    ...(envResult.envVars && { envVars: envResult.envVars }),
+    ...(workflow.triggerCode && { options: { triggerCode: workflow.triggerCode } }),
+  }
+  const artifact = adapter.generate(ir, generateConfig)
 
   return {
     adapter,
