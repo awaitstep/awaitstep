@@ -34,9 +34,6 @@ NODE_ENV=production
 # DATABASE_URL=postgres://user:password@localhost:5432/awaitstep
 
 # ─── Frontend (dev only) ──────────────────────────────────────────────────────
-VITE_API_URL=http://localhost:8080
-VITE_APP_URL=http://localhost:3000
-CORS_ORIGIN=http://localhost:3000
 ```
 
 ---
@@ -114,20 +111,6 @@ DATABASE_URL=postgres://user:password@db-host:5432/awaitstep
 ```
 
 Migrations run automatically on startup.
-
----
-
-## Frontend (development only)
-
-These variables are only needed when running the frontend dev server separately from the API (e.g. during local development with `pnpm dev`).
-
-| Variable       | Description                                            |
-| -------------- | ------------------------------------------------------ |
-| `VITE_API_URL` | URL of the API server as seen from the browser.        |
-| `VITE_APP_URL` | URL of the frontend app.                               |
-| `CORS_ORIGIN`  | Allowed CORS origin for API requests from the browser. |
-
-In the Docker deployment, the frontend is served by the same process as the API on port 8080. These variables are not needed in production.
 
 ---
 

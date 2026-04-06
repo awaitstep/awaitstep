@@ -12,7 +12,7 @@ export function getServerConfig(): ServerConfig {
   if (config) return config
 
   config = serverConfigSchema.parse({
-    apiBase: import.meta.env.VITE_API_URL || `http://localhost:${process.env.PORT || 8080}`,
+    apiBase: `http://localhost:${process.env.PORT || 8080}`,
   })
 
   return config

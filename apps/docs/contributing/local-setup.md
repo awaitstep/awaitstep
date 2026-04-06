@@ -50,12 +50,9 @@ RESEND_API_KEY=re_...          # magic link email
 
 # Server
 PORT=8080
-CORS_ORIGIN=http://localhost:3000
 NODE_ENV=development
 
 # Frontend
-VITE_API_URL=http://localhost:8080
-VITE_APP_URL=http://localhost:3000
 ```
 
 :::info
