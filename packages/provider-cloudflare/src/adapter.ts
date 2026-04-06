@@ -221,6 +221,8 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
       dependencies: opts.dependencies,
       bindings: resolvedBindings,
       subWorkflowBindings: subWorkflowBindings.length > 0 ? subWorkflowBindings : undefined,
+      previewUrls: config.options?.['previewUrls'] as boolean | undefined,
+      workersDev: config.options?.['workersDev'] as boolean | undefined,
       routes,
     })
 

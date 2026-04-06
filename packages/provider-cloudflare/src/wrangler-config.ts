@@ -15,6 +15,8 @@ export interface WranglerWorkflowConfig {
   vars?: Record<string, string>
   bindings?: BindingRequirement[]
   subWorkflowBindings?: SubWorkflowBinding[]
+  previewUrls?: boolean
+  workersDev?: boolean
   routes?: Array<{ pattern: string; zone_name: string }>
   localDev?: boolean
 }
@@ -36,6 +38,12 @@ export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
         script_name: b.scriptName,
       })),
     ],
+  }
+  if (config.previewUrls !== undefined) {
+    wranglerConfig.preview_urls = config.previewUrls
+  }
+  if (config.workersDev !== undefined) {
+    wranglerConfig.workers_dev = config.workersDev
   }
   if (config.vars && Object.keys(config.vars).length > 0) {
     wranglerConfig.vars = config.vars

@@ -234,6 +234,45 @@ describe('generateWranglerConfig', () => {
     })
   })
 
+  it('includes preview_urls when set', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+      previewUrls: true,
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.preview_urls).toBe(true)
+  })
+
+  it('includes workers_dev when set', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+      workersDev: false,
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.workers_dev).toBe(false)
+  })
+
+  it('omits preview_urls and workers_dev when not provided', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.preview_urls).toBeUndefined()
+    expect(parsed.workers_dev).toBeUndefined()
+  })
+
   it('omits sub-workflow bindings when not provided', () => {
     const config = generateWranglerConfig({
       workerName: 'test',

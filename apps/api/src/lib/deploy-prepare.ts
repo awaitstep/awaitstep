@@ -28,6 +28,8 @@ interface DeployPrepareInput {
   versionId?: string
   nodeRegistry?: AppNodeRegistry
   appName?: string
+  previewUrls?: boolean
+  workersDev?: boolean
 }
 
 export async function prepareDeploy(
@@ -82,6 +84,8 @@ export async function prepareDeploy(
       ...(appName && { packageName: appName }),
       ...(workflow.deployConfig && { deployConfig: JSON.parse(workflow.deployConfig) }),
       ...(workflow.triggerCode && { triggerCode: workflow.triggerCode }),
+      ...(input.previewUrls !== undefined && { previewUrls: input.previewUrls }),
+      ...(input.workersDev !== undefined && { workersDev: input.workersDev }),
     },
     envVars: prepared.envVars,
   }

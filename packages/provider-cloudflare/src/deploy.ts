@@ -23,6 +23,8 @@ export interface DeployOptions {
   dependencies?: Record<string, string>
   bindings?: BindingRequirement[]
   subWorkflowBindings?: SubWorkflowBinding[]
+  previewUrls?: boolean
+  workersDev?: boolean
   routes?: Array<{ pattern: string; zone_name: string }>
 }
 
@@ -55,6 +57,8 @@ export async function deployWithWrangler(
       vars: options.vars,
       bindings: options.bindings,
       subWorkflowBindings: options.subWorkflowBindings,
+      previewUrls: options.previewUrls,
+      workersDev: options.workersDev,
       routes: options.routes,
     })
     await writeFile(join(deployDir, 'wrangler.json'), wranglerConfig, 'utf-8')
