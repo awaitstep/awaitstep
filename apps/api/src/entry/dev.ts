@@ -113,7 +113,7 @@ async function start() {
     appName,
   })
 
-  const port = Number(process.env['PORT'] ?? 3001)
+  const port = Number(process.env['PORT'] ?? 8080)
   logger.info(`API server running on http://localhost:${port}`)
 
   serve({ fetch: app.fetch, port })

@@ -72,28 +72,33 @@ function SignInPage() {
   const callbackURL = redirectPath ? `${appURL}${redirectPath}` : `${appURL}/dashboard`
   const errorCallbackURL = `${appURL}/sign-in?error=true`
 
+  const checkError = (res: { error?: { message?: string } | null }) => {
+    if (res.error) {
+      toast.error(res.error.message || 'Sign-in failed. Please try again.')
+    }
+  }
+
   const handleMagicLink = async (e: React.SubmitEvent) => {
     e.preventDefault()
     setLoading(true)
 
     authClient.signIn
-      .magicLink({ email, callbackURL })
-      .then(() => {
-        setMagicLinkSent(true)
+      .magicLink({ email, callbackURL, errorCallbackURL })
+      .then((res) => {
+        if (!res.error) {
+          setMagicLinkSent(true)
+        }
+        return res
       })
-      .catch((err) => {
-        toast.error(err.message || 'Failed to send magic link. Please try again.')
-      })
-      .finally(() => {
-        setLoading(false)
-      })
+      .then(checkError)
+      .finally(() => setLoading(false))
   }
 
   const handleGitHub = () =>
-    authClient.signIn.social({ provider: 'github', callbackURL, errorCallbackURL })
+    authClient.signIn.social({ provider: 'github', callbackURL, errorCallbackURL }).then(checkError)
 
   const handleGoogle = () =>
-    authClient.signIn.social({ provider: 'google', callbackURL, errorCallbackURL })
+    authClient.signIn.social({ provider: 'google', callbackURL, errorCallbackURL }).then(checkError)
 
   if (magicLinkSent) {
     return (

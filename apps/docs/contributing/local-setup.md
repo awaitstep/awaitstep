@@ -41,7 +41,7 @@ Then edit `.env`:
 # Generate both secrets
 TOKEN_ENCRYPTION_KEY=$(openssl rand -hex 32)
 BETTER_AUTH_SECRET=$(openssl rand -hex 32)
-BETTER_AUTH_URL=http://localhost:3001
+BETTER_AUTH_URL=http://localhost:8080
 
 # Auth — configure at least one method
 RESEND_API_KEY=re_...          # magic link email
@@ -49,13 +49,10 @@ RESEND_API_KEY=re_...          # magic link email
 # GITHUB_CLIENT_SECRET=
 
 # Server
-PORT=3001
-CORS_ORIGIN=http://localhost:3000
+PORT=8080
 NODE_ENV=development
 
 # Frontend
-VITE_API_URL=http://localhost:3001
-VITE_APP_URL=http://localhost:3000
 ```
 
 :::info
@@ -78,7 +75,7 @@ pnpm dev
 
 This starts all apps in watch mode:
 
-- **API** at `http://localhost:3001`
+- **API** at `http://localhost:8080`
 - **Web app** at `http://localhost:3000`
 - **Docs** at `http://localhost:5173` (if the docs app is configured)
 

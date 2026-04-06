@@ -26,7 +26,7 @@ GOOGLE_CLIENT_SECRET=
 
 # ─── App ──────────────────────────────────────────────────────────────────────
 APP_NAME=awaitstep-worker
-PORT=3001
+PORT=8080
 NODE_ENV=production
 
 # ─── Database ─────────────────────────────────────────────────────────────────
@@ -34,9 +34,6 @@ NODE_ENV=production
 # DATABASE_URL=postgres://user:password@localhost:5432/awaitstep
 
 # ─── Frontend (dev only) ──────────────────────────────────────────────────────
-VITE_API_URL=http://localhost:3001
-VITE_APP_URL=http://localhost:3000
-CORS_ORIGIN=http://localhost:3000
 ```
 
 ---
@@ -90,7 +87,7 @@ Set the redirect URI in your Google Cloud project to: `https://your-instance/api
 | Variable   | Default            | Description                                                                                                |
 | ---------- | ------------------ | ---------------------------------------------------------------------------------------------------------- |
 | `APP_NAME` | `awaitstep-worker` | Internal name used when generating Cloudflare Worker names. Should be lowercase alphanumeric with hyphens. |
-| `PORT`     | `3001`             | Port the server listens on inside the container. The Docker Compose file maps this to `8080` externally.   |
+| `PORT`     | `8080`             | Port the API server listens on.                                                                            |
 | `NODE_ENV` | `development`      | Set to `production` in deployed instances. Affects logging verbosity and error detail.                     |
 
 ---
@@ -114,20 +111,6 @@ DATABASE_URL=postgres://user:password@db-host:5432/awaitstep
 ```
 
 Migrations run automatically on startup.
-
----
-
-## Frontend (development only)
-
-These variables are only needed when running the frontend dev server separately from the API (e.g. during local development with `pnpm dev`).
-
-| Variable       | Description                                            |
-| -------------- | ------------------------------------------------------ |
-| `VITE_API_URL` | URL of the API server as seen from the browser.        |
-| `VITE_APP_URL` | URL of the frontend app.                               |
-| `CORS_ORIGIN`  | Allowed CORS origin for API requests from the browser. |
-
-In the Docker deployment, the frontend is served by the same process as the API on port 8080. These variables are not needed in production.
 
 ---
 
