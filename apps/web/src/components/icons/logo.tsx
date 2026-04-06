@@ -9,7 +9,7 @@ export default function Logo({ className }: { className?: string }) {
         height="10"
         rx="2"
         className="fill-opacity-62 fill-primary"
-        fill-opacity="0.62"
+        fillOpacity="0.62"
       />
       <rect
         x="28"
@@ -18,7 +18,7 @@ export default function Logo({ className }: { className?: string }) {
         height="10"
         rx="2"
         className="fill-opacity-32 fill-primary"
-        fill-opacity="0.32"
+        fillOpacity="0.32"
       />
     </svg>
   )
