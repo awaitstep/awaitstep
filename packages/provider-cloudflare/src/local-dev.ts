@@ -80,8 +80,8 @@ export async function startLocalDev(
     { cwd: LOCAL_DEV_DIR, stdio: ['ignore', 'pipe', 'pipe'], detached: false },
   )
 
-  const url = `http://localhost:${LOCAL_DEV_PORT}`
   const logs: LocalDevLogEntry[] = []
+  let externalUrl = ''
 
   function appendLog(stream: 'stdout' | 'stderr', data: Buffer) {
     const lines = data
@@ -92,6 +92,14 @@ export async function startLocalDev(
     for (const text of lines) {
       logs.push({ timestamp: now, stream, text })
       if (logs.length > MAX_LOG_LINES) logs.splice(0, logs.length - MAX_LOG_LINES)
+      // Capture the last non-loopback URL from wrangler output
+      const urlMatch = text.match(/https?:\/\/([\d.]+):(\d+)/)
+      if (urlMatch) {
+        const ip = urlMatch[1]
+        if (ip !== '0.0.0.0' && ip !== '127.0.0.1') {
+          externalUrl = `http://${ip}:${urlMatch[2]}`
+        }
+      }
     }
     // Persist to file so logs survive without session state
     writeFile(LOG_FILE, JSON.stringify(logs), 'utf-8').catch(() => {})
@@ -100,9 +108,12 @@ export async function startLocalDev(
   child.stdout?.on('data', (data: Buffer) => appendLog('stdout', data))
   child.stderr?.on('data', (data: Buffer) => appendLog('stderr', data))
 
-  await waitForReady(child, url, logs)
+  const fallbackUrl = `http://localhost:${LOCAL_DEV_PORT}`
+  await waitForReady(child, fallbackUrl, logs)
+  // Wait briefly for wrangler to print the additional IP lines after "Ready on"
+  await new Promise((r) => setTimeout(r, 1000))
 
-  return { port: LOCAL_DEV_PORT, url, pid: child.pid! }
+  return { port: LOCAL_DEV_PORT, url: externalUrl || fallbackUrl, pid: child.pid! }
 }
 
 async function scaffoldDeployDir(

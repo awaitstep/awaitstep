@@ -15,11 +15,29 @@ The **Sub-Workflow** node spawns a separate deployed workflow as a child of the 
 
 ## Configuration
 
-| Field               | Required | Description                                               |
-| ------------------- | -------- | --------------------------------------------------------- |
-| Workflow Name       | Yes      | The name of the deployed workflow to invoke               |
-| Input               | No       | JSON or expression to pass as the child's trigger payload |
-| Wait for Completion | Yes      | Whether to pause the parent until the child finishes      |
+| Field               | Required | Description                                                                                   |
+| ------------------- | -------- | --------------------------------------------------------------------------------------------- |
+| Script Name         | Yes      | The deployed worker name of the child workflow (e.g. `awaitstep-abc123` or `my-order-worker`) |
+| Class Name          | Yes      | The exported workflow class name in the child worker (e.g. `OrderFulfillment`)                |
+| Input               | No       | Expression to pass as the child's trigger payload                                             |
+| Wait for Completion | Yes      | Whether to pause the parent until the child finishes                                          |
+
+### Script Name
+
+This is the **Worker script name** where the child workflow is deployed. For workflows managed by AwaitStep, copy the worker name from the Cloudflare dashboard or from the deployment details (e.g. `awaitstep-jaegvout2dqdgioi4tuvg`). For external workflows not managed by AwaitStep, use whatever name you deployed the worker as (e.g. `my-order-worker`).
+
+### Class Name
+
+This is the **exported class name** of the workflow in the child worker's source code. For example, if the child workflow exports `class OrderFulfillment extends WorkflowEntrypoint`, enter `OrderFulfillment`.
+
+The class name is used to derive the Cloudflare binding fields:
+
+| Derived field | Example                  |
+| ------------- | ------------------------ |
+| `binding`     | `ORDER_FULFILLMENT`      |
+| `name`        | `Order-Fulfillment`      |
+| `class_name`  | `OrderFulfillment`       |
+| `script_name` | (your Script Name value) |
 
 ## Generated code
 
@@ -27,8 +45,8 @@ The **Sub-Workflow** node spawns a separate deployed workflow as a child of the 
 
 ```typescript
 // Step 1: Create the child workflow instance
-const process_order_instance = await step.do('Create process-order', async () => {
-  const instance = await env.PROCESS_ORDER_WORKFLOW.create({
+const process_order_instance = await step.do('Create OrderFulfillment', async () => {
+  const instance = await env.ORDER_FULFILLMENT.create({
     id: crypto.randomUUID(),
     params: { orderId: fetch_order.id, userId: fetch_order.userId },
   })
@@ -37,12 +55,12 @@ const process_order_instance = await step.do('Create process-order', async () =>
 
 // Step 2: Poll until the child completes
 const process_order = await step.do(
-  'Await process-order',
+  'Await OrderFulfillment',
   {
     retries: { limit: 60, delay: '5 seconds', backoff: 'linear' },
   },
   async () => {
-    const instance = await env.PROCESS_ORDER_WORKFLOW.get(process_order_instance.instanceId)
+    const instance = await env.ORDER_FULFILLMENT.get(process_order_instance.instanceId)
     const status = await instance.status()
     if (status.status === 'complete') return status.output
     if (status.status === 'errored')
@@ -57,8 +75,8 @@ The polling step retries up to 60 times with a 5-second linear backoff — givin
 ### With `waitForCompletion: false`
 
 ```typescript
-const process_order_instance = await step.do('Create process-order', async () => {
-  const instance = await env.PROCESS_ORDER_WORKFLOW.create({
+const process_order_instance = await step.do('Create OrderFulfillment', async () => {
+  const instance = await env.ORDER_FULFILLMENT.create({
     id: crypto.randomUUID(),
     params: { orderId: fetch_order.id },
   })
@@ -68,25 +86,36 @@ const process_order_instance = await step.do('Create process-order', async () =>
 
 The parent continues immediately after creating the child instance. Use this for fire-and-forget scenarios.
 
-## Bindings
+## Wrangler bindings
 
-The sub-workflow's name is converted to a Cloudflare Workflow binding automatically. For a workflow named `process-order`, the binding is `PROCESS_ORDER_WORKFLOW`. AwaitStep detects this binding at deploy time and adds it to the Worker's `wrangler.json`.
+AwaitStep automatically generates the full Cloudflare Workflow binding in `wrangler.json` at deploy time. For a sub-workflow with class name `OrderFulfillment` and script name `awaitstep-abc123`, the generated binding is:
+
+```json
+{
+  "workflows": [
+    { "binding": "WORKFLOW", "name": "parent-workflow", "class_name": "ParentWorkflow" },
+    {
+      "binding": "ORDER_FULFILLMENT",
+      "name": "Order-Fulfillment",
+      "class_name": "OrderFulfillment",
+      "script_name": "awaitstep-abc123"
+    }
+  ]
+}
+```
 
 :::info
-The child workflow must be deployed before the parent is deployed. If the binding is missing (because the child workflow does not exist), the deploy will fail with a binding resolution error.
+The child workflow must be deployed before the parent is deployed. If the binding cannot be resolved (because the child worker does not exist), the deploy will fail.
 :::
 
 ## Passing data in and out
 
 ### Input to the child
 
-Set the **Input** field to a JSON object or an expression:
+Set the **Input** field to an expression:
 
-```json
-{
-  "orderId": "&#123;&#123;fetch_order.id&#125;&#125;",
-  "amount": "&#123;&#123;fetch_order.total&#125;&#125;"
-}
+```javascript
+{ orderId: fetch_order.id, amount: fetch_order.total }
 ```
 
 This is passed as `event.payload` inside the child workflow's `run()` method.
@@ -96,7 +125,7 @@ This is passed as `event.payload` inside the child workflow's `run()` method.
 When `waitForCompletion` is true, the child's final `step.do()` return value becomes the sub-workflow node's output, accessible via expressions in the parent:
 
 ```
-&#123;&#123;process_order.invoiceId&#125;&#125;
+{{process_order.invoiceId}}
 ```
 
 ## Error handling

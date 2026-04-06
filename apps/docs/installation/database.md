@@ -13,8 +13,7 @@ SQLite requires zero configuration. When `DATABASE_URL` is unset, AwaitStep crea
 This is the recommended option for single-node deployments and self-hosted setups where simplicity is more important than horizontal scaling.
 
 ```bash
-# .env — omit DATABASE_URL entirely, or set explicitly:
-DATABASE_URL=file:/app/data/db.sqlite
+# .env — omit DATABASE_URL entirely
 ```
 
 Make sure `/app/data` is a persistent Docker volume:

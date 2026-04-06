@@ -49,9 +49,10 @@ export function useLocalDev(workflowId: string) {
     setInstanceId(null)
     try {
       const result = await api.startLocalDev(workflowId)
-      setInfo({ port: result.port, url: result.url })
+      const url = `http://${window.location.hostname}:${result.port}`
+      setInfo({ port: result.port, url })
       setState('running')
-      toast.success('Local dev server started', { description: result.url })
+      toast.success('Local dev server started', { description: url })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to start'
       setError(msg)
