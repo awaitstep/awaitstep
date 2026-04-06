@@ -75,6 +75,9 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
 
   const marketplaceLimit = createRateLimiter({ windowMs: 60_000, max: 10, keyGenerator: userKey })
 
+  router.post('/projects', writeLimit)
+  router.patch('/projects/:id', writeLimit)
+  router.delete('/projects/:id', writeLimit)
   router.use('/connections/verify-token', verifyLimit)
   router.use('/workflows/:workflowId/deploy', deployLimit)
   router.use('/workflows/:workflowId/deploy-stream', deployLimit)
@@ -102,11 +105,21 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.patch('/connections/:id', requireScope('write'))
   router.delete('/connections/:id', requireScope('write'))
 
+  // Project mutations require 'write' scope
+  router.post('/projects', requireScope('write'))
+  router.patch('/projects/:id', requireScope('write'))
+  router.delete('/projects/:id', requireScope('write'))
+
   // Deploy operations require 'deploy' scope
   router.post('/workflows/:workflowId/deploy', requireScope('deploy'))
   router.post('/workflows/:workflowId/deploy-stream', requireScope('deploy'))
   router.post('/workflows/:workflowId/trigger', requireScope('deploy'))
   router.post('/workflows/:workflowId/takedown', requireScope('deploy'))
+
+  // Run lifecycle control requires 'deploy' scope
+  router.post('/workflows/:workflowId/runs/:runId/pause', requireScope('deploy'))
+  router.post('/workflows/:workflowId/runs/:runId/resume', requireScope('deploy'))
+  router.post('/workflows/:workflowId/runs/:runId/terminate', requireScope('deploy'))
 
   // Marketplace write operations require 'write' scope
   router.post('/marketplace/install', requireScope('write'))
