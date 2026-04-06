@@ -85,9 +85,11 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
 
   generate(ir: WorkflowIR, config?: ProviderConfig): GeneratedArtifact {
     const envVarNames = config?.envVars ? Object.keys(config.envVars) : undefined
+    const triggerCode = config?.options?.['triggerCode'] as string | undefined
     const source = generateWorkflow(ir, {
       templateResolver: this.templateResolver,
       envVarNames,
+      triggerCode,
     })
     return {
       filename: 'worker.ts',
@@ -188,7 +190,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
           ...(deployConfig.route.pattern.endsWith('/*')
             ? [
                 {
-                  pattern: deployConfig.route.pattern.replace('/*', '?*'),
+                  pattern: deployConfig.route.pattern.replace('/*', '*'),
                   zone_name: deployConfig.route.zoneName,
                 },
               ]
