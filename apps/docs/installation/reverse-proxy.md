@@ -13,6 +13,10 @@ AwaitStep listens on port `8080`. In production you should put a reverse proxy i
 ```
 # Caddyfile
 workflows.example.com {
+    handle /local-dev/* {
+        uri strip_prefix /local-dev
+        reverse_proxy localhost:8787
+    }
     reverse_proxy localhost:8080
 }
 ```
@@ -24,6 +28,8 @@ caddy run --config Caddyfile
 ```
 
 That is all that is required. Caddy handles HTTPS, HTTP→HTTPS redirects, and certificate renewal automatically.
+
+The `/local-dev/*` route proxies the **Local Test** wrangler dev server. If you don't use local testing, you can omit it.
 
 ## nginx
 
@@ -40,6 +46,12 @@ server {
 
     ssl_certificate     /etc/letsencrypt/live/workflows.example.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/workflows.example.com/privkey.pem;
+
+    # Local Test dev server (optional)
+    location /local-dev/ {
+        rewrite ^/local-dev/(.*) /$1 break;
+        proxy_pass http://localhost:8787;
+    }
 
     location / {
         proxy_pass         http://localhost:8080;
