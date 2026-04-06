@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.1-beta.0](https://github.com/awaitstep/awaitstep/compare/v1.4.0-beta.0...v1.4.1-beta.0) (2026-04-06)
+
+
+### Bug Fixes
+
+* change sub-workflow node input type from expression to json ([d15a55f](https://github.com/awaitstep/awaitstep/commit/d15a55f12d78531b558b31eab2b7fb4fcf4b84d8))
+* pass workflow triggerCode to codegen and fix route pattern ([1bcf37f](https://github.com/awaitstep/awaitstep/commit/1bcf37fd010b409868059d0d9acf6ba233497d52))
+* pass workflow triggerCode to codegen and fix route pattern ([fe161ac](https://github.com/awaitstep/awaitstep/commit/fe161ac68ecb5bfc540c1bbd9db0074ca93fed1b))
+* patch transitive security vulnerabilities ([f102907](https://github.com/awaitstep/awaitstep/commit/f1029070c00514df1c7613e8df3c2098858d08ef))
+* patch transitive security vulnerabilities via pnpm overrides ([8425f49](https://github.com/awaitstep/awaitstep/commit/8425f49f670eb1c55978b16e58444b61432ba94b))
+* triggerCode codegen, security patches, and workflow fixes ([8b1084d](https://github.com/awaitstep/awaitstep/commit/8b1084dcaaa2a07ea182efa3a75918d2288523d9))
+* **workflow-store:** add default description field to workflow state ([ac8675d](https://github.com/awaitstep/awaitstep/commit/ac8675d22df5393f052f3eeb3e050b62d193873a))
+
 ## [1.4.0-beta.0](https://github.com/awaitstep/awaitstep/compare/v1.3.0-beta.0...v1.4.0-beta.0) (2026-04-05)
 
 
