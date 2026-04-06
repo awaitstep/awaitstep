@@ -5,6 +5,7 @@ import { execFile, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 import type { GeneratedArtifact } from '@awaitstep/codegen'
 import type { BindingRequirement } from './codegen/bindings.js'
+import type { SubWorkflowBinding } from './codegen/generators/sub-workflow.js'
 import { generateWranglerConfig } from './wrangler-config.js'
 import { workerName, workflowClassName, sanitizedWorkflowName } from './naming.js'
 
@@ -21,6 +22,7 @@ export interface DeployOptions {
   secrets?: Record<string, string>
   dependencies?: Record<string, string>
   bindings?: BindingRequirement[]
+  subWorkflowBindings?: SubWorkflowBinding[]
   routes?: Array<{ pattern: string; zone_name: string }>
 }
 
@@ -52,6 +54,7 @@ export async function deployWithWrangler(
       main: `./${artifact.filename}`,
       vars: options.vars,
       bindings: options.bindings,
+      subWorkflowBindings: options.subWorkflowBindings,
       routes: options.routes,
     })
     await writeFile(join(deployDir, 'wrangler.json'), wranglerConfig, 'utf-8')

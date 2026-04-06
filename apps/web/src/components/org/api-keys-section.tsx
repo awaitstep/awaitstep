@@ -371,17 +371,7 @@ function KeyCreatedDialog({
                   className="h-7 shrink-0 gap-1.5 text-xs"
                   onClick={handleCopy}
                 >
-                  {copied ? (
-                    <>
-                      <Check className="h-3 w-3" />
-                      Copied
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-3 w-3" />
-                      Copy
-                    </>
-                  )}
+                  {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                 </Button>
               </div>
               <p className="mt-2 text-[10px] text-amber-700">

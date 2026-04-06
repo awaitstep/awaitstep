@@ -53,15 +53,27 @@ describe('generateSubWorkflow', () => {
 })
 
 describe('getSubWorkflowBindings', () => {
-  it('collects unique workflow bindings', () => {
+  it('collects unique workflow bindings with script names', () => {
     const nodes = [
       subNode(),
-      { ...subNode(), id: 'sub-2', data: { ...subNode().data, workflowName: 'send-email' } },
+      {
+        ...subNode(),
+        id: 'sub-2',
+        data: { ...subNode().data, workflowName: 'send-email', workflowId: 'awaitstep-xyz' },
+      },
     ]
     const bindings = getSubWorkflowBindings(nodes)
-    expect(bindings).toContain('ORDER_FULFILLMENT_WORKFLOW')
-    expect(bindings).toContain('SEND_EMAIL_WORKFLOW')
     expect(bindings).toHaveLength(2)
+    expect(bindings[0]).toEqual({
+      binding: 'ORDER_FULFILLMENT_WORKFLOW',
+      name: 'order-fulfillment',
+      scriptName: 'wf_abc',
+    })
+    expect(bindings[1]).toEqual({
+      binding: 'SEND_EMAIL_WORKFLOW',
+      name: 'send-email',
+      scriptName: 'awaitstep-xyz',
+    })
   })
 
   it('ignores non sub_workflow nodes', () => {

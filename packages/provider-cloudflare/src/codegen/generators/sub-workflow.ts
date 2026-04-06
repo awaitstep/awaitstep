@@ -41,16 +41,33 @@ export function generateSubWorkflow(node: WorkflowNode): string {
   return lines.join('\n')
 }
 
+export interface SubWorkflowBinding {
+  /** Env binding name, e.g. ORDER_FULFILLMENT_WORKFLOW */
+  binding: string
+  /** Sanitized CF workflow name derived from workflowName */
+  name: string
+  /** The user-provided script name (deployed worker name) */
+  scriptName: string
+}
+
 export function getSubWorkflowBindings(
   nodes: readonly { type: string; data: Record<string, unknown> }[],
-): string[] {
-  const bindings: string[] = []
+): SubWorkflowBinding[] {
+  const seen = new Set<string>()
+  const bindings: SubWorkflowBinding[] = []
   for (const node of nodes) {
     if (node.type !== 'sub_workflow') continue
-    const name = String(node.data.workflowName ?? '')
-    if (name) {
-      bindings.push(sanitizeIdentifier(name).toUpperCase() + '_WORKFLOW')
-    }
+    const workflowName = String(node.data.workflowName ?? '')
+    const scriptName = String(node.data.workflowId ?? '')
+    if (!workflowName || !scriptName) continue
+    const binding = sanitizeIdentifier(workflowName).toUpperCase() + '_WORKFLOW'
+    if (seen.has(binding)) continue
+    seen.add(binding)
+    bindings.push({
+      binding,
+      name: sanitizeIdentifier(workflowName).toLowerCase().replace(/_/g, '-'),
+      scriptName,
+    })
   }
-  return [...new Set(bindings)]
+  return bindings
 }

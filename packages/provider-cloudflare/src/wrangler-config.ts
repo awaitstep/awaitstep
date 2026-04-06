@@ -1,4 +1,5 @@
 import type { BindingRequirement } from './codegen/bindings.js'
+import type { SubWorkflowBinding } from './codegen/generators/sub-workflow.js'
 
 export const WRANGLER_BASE_CONFIG = {
   compatibility_date: '2025-04-01',
@@ -13,6 +14,7 @@ export interface WranglerWorkflowConfig {
   main: string
   vars?: Record<string, string>
   bindings?: BindingRequirement[]
+  subWorkflowBindings?: SubWorkflowBinding[]
   routes?: Array<{ pattern: string; zone_name: string }>
   localDev?: boolean
 }
@@ -28,6 +30,11 @@ export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
         name: config.workflowName,
         class_name: config.className,
       },
+      ...(config.subWorkflowBindings ?? []).map((b) => ({
+        binding: b.binding,
+        name: b.name,
+        script_name: b.scriptName,
+      })),
     ],
   }
   if (config.vars && Object.keys(config.vars).length > 0) {
