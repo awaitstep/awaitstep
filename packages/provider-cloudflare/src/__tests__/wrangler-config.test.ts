@@ -214,7 +214,7 @@ describe('generateWranglerConfig', () => {
       subWorkflowBindings: [
         {
           binding: 'ORDER_FULFILLMENT',
-          name: 'order-fulfillment',
+          name: 'Order-Fulfillment',
           className: 'OrderFulfillment',
           scriptName: 'awaitstep-abc123',
         },
@@ -230,7 +230,7 @@ describe('generateWranglerConfig', () => {
     })
     expect(parsed.workflows[1]).toEqual({
       binding: 'ORDER_FULFILLMENT',
-      name: 'order-fulfillment',
+      name: 'Order-Fulfillment',
       class_name: 'OrderFulfillment',
       script_name: 'awaitstep-abc123',
     })

@@ -66,13 +66,13 @@ describe('getSubWorkflowBindings', () => {
     expect(bindings).toHaveLength(2)
     expect(bindings[0]).toEqual({
       binding: 'ORDER_FULFILLMENT',
-      name: 'order-fulfillment',
+      name: 'Order-Fulfillment',
       className: 'OrderFulfillment',
       scriptName: 'awaitstep-abc123',
     })
     expect(bindings[1]).toEqual({
       binding: 'SEND_EMAIL',
-      name: 'send-email',
+      name: 'Send-Email',
       className: 'SendEmail',
       scriptName: 'awaitstep-xyz',
     })
