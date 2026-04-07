@@ -14,7 +14,6 @@ Base URL: `https://app.awaitstep.dev/api` (cloud) or `http://localhost:8080/api`
 | Write operations        | 30 req/min per user |
 | Deploy operations       | 10 req/min per user |
 | Credential verification | 10 req/min per user |
-| Resource queries (D1)   | 20 req/min per user |
 
 ---
 
@@ -223,7 +222,7 @@ Create a new version by submitting a workflow IR. The IR is validated and compil
 
 ### `PATCH /workflows/:workflowId/versions/:versionId`
 
-Lock or unlock a version. Locked versions cannot be deployed.
+Lock or unlock a version. Locked versions cannot be deployed or deleted.
 
 **Scope:** `write`
 | Param | In | Required | Description |
