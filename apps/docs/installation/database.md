@@ -8,7 +8,7 @@ AwaitStep stores all application data — users, projects, workflows, and connec
 
 ## SQLite (default)
 
-SQLite requires zero configuration. When `DATABASE_URL` is unset, AwaitStep creates a SQLite file at `/app/data/db.sqlite` inside the container.
+SQLite requires zero configuration. When `DATABASE_URL` is unset, AwaitStep creates a SQLite file at `/app/data/awaitstep.db` inside the container.
 
 This is the recommended option for single-node deployments and self-hosted setups where simplicity is more important than horizontal scaling.
 
@@ -45,20 +45,20 @@ Database migrations run automatically on startup. You do not need to run any mig
 
 ### SQLite
 
-The database file is a single file at `/app/data/db.sqlite`. Back it up by copying the file while the application is idle, or use the SQLite backup API:
+The database file is a single file at `/app/data/awaitstep.db`. Back it up by copying the file while the application is idle, or use the SQLite backup API:
 
 ```bash
 # Copy the file out of the Docker volume
 docker run --rm \
   -v awaitstep_data:/data \
   -v $(pwd):/backup \
-  alpine cp /data/db.sqlite /backup/db.sqlite.bak
+  alpine cp /data/awaitstep.db /backup/awaitstep.db.bak
 ```
 
 For a consistent snapshot while the app is running, use the SQLite online backup:
 
 ```bash
-docker exec <container_name> sqlite3 /app/data/db.sqlite ".backup /app/data/db.backup.sqlite"
+docker exec <container_name> sqlite3 /app/data/awaitstep.db ".backup /app/data/db.backup.sqlite"
 ```
 
 ### PostgreSQL

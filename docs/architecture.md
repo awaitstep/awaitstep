@@ -89,7 +89,7 @@ Each provider is responsible for:
    POST /api/workflows/:id/trigger → Provider runtime API → Workflow Run
 
 4. MONITOR
-   Poll provider status API → Update DB → SSE to frontend → Canvas overlay
+   Frontend polls run status API → Fetch live status from provider → Update DB → JSON response → Canvas overlay
 ```
 
 ## Key Design Decisions
@@ -114,11 +114,21 @@ API routes call methods on `WorkflowProvider` — they never contain provider-sp
 
 ```typescript
 interface WorkflowProvider {
-  name: string
-  validate(config): Promise<Result<WorkflowStatus, ValidationError>>
-  generateCode(ir, options): Promise<Result<GeneratedArtifact, ValidationError>>
-  deploy(artifact, config): Promise<Result<DeployResult, ValidationError>>
-  checkCredentials(config): Promise<CredentialsCheckResult>
+  readonly name: string
+  validate(ir: WorkflowIR): Result<void, ValidationError[]>
+  verifyCredentials(config: ProviderConfig): Promise<CredentialsCheckResult>
+  generate(ir: WorkflowIR, config?: ProviderConfig): GeneratedArtifact
+  deploy(artifact: GeneratedArtifact, config: ProviderConfig): Promise<DeployResult>
+  getStatus(instanceId: string, config: ProviderConfig): Promise<WorkflowRunStatus>
+  trigger(
+    deploymentId: string,
+    params: unknown,
+    config: ProviderConfig,
+  ): Promise<{ instanceId: string }>
+  destroy(
+    deploymentId: string,
+    config: ProviderConfig,
+  ): Promise<{ success: boolean; error?: string }>
 }
 ```
 
@@ -138,8 +148,8 @@ encryption implementation decoupled from storage.
 
 Two-tier model for managing secrets and configuration:
 
-- **Global vars** — stored in `env_vars` table, encrypted at rest, scoped per user.
-  Managed via Resources → Environment Variables (textarea `.env` editor).
+- **Global vars** — stored in `env_vars` table, encrypted at rest, scoped per organization (optionally per project).
+  Managed via the Environment Variables page.
 - **Workflow vars** — stored as JSON in `workflows.envVars` column.
   Each has a name and value. Values can be direct or reference globals via `{{global.env.NAME}}`.
 
@@ -165,44 +175,55 @@ The compilation pipeline transforms canvas state through IR, code generation, tr
 
 ## API Routes
 
-| Endpoint                             | Purpose                    |
-| ------------------------------------ | -------------------------- |
-| `POST /api/workflows`                | Create workflow            |
-| `GET /api/workflows`                 | List user workflows        |
-| `GET /api/workflows/:id`             | Fetch workflow             |
-| `PUT /api/workflows/:id`             | Update workflow            |
-| `DELETE /api/workflows/:id`          | Delete workflow            |
-| `POST /api/workflows/:id/deploy`     | Deploy to provider         |
-| `GET /api/workflows/:id/deployments` | Deployment history         |
-| `POST /api/workflows/:id/trigger`    | Trigger workflow run       |
-| `GET /api/workflows/:id/runs`        | List runs                  |
-| `GET /api/runs/:id`                  | Run status                 |
-| `POST /api/env-vars`                 | Create env var             |
-| `GET /api/env-vars`                  | List env vars              |
-| `PUT /api/env-vars/:id`              | Update env var             |
-| `DELETE /api/env-vars/:id`           | Delete env var             |
-| `POST /api/connections`              | Create provider connection |
-| `GET /api/connections`               | List connections           |
-| `POST /api/api-keys`                 | Generate API key           |
-| `GET /api/api-keys`                  | List API keys              |
-| `POST /api/api-keys/:id/revoke`      | Revoke API key             |
-| `GET /api/nodes`                     | Custom node definitions    |
-| `GET /api/nodes/templates`           | Node templates             |
-| `GET /api/resources/:type`           | List provider resources    |
+Key routes are listed below. See [api-reference.md](api-reference.md) for the complete API reference including request/response schemas.
+
+| Endpoint                                            | Purpose                     |
+| --------------------------------------------------- | --------------------------- |
+| `POST /api/workflows`                               | Create workflow             |
+| `GET /api/workflows`                                | List user workflows         |
+| `GET /api/workflows/:id`                            | Fetch workflow              |
+| `GET /api/workflows/:id/full`                       | Workflow + version + deploy |
+| `PATCH /api/workflows/:id`                          | Update workflow             |
+| `PATCH /api/workflows/:id/move`                     | Move to another project     |
+| `DELETE /api/workflows/:id`                         | Delete workflow             |
+| `GET/POST/PATCH/DELETE /api/workflows/:id/versions` | Version CRUD + lock         |
+| `POST /api/workflows/:id/versions/:vid/revert`      | Revert to version           |
+| `POST /api/workflows/:id/deploy`                    | Deploy to provider          |
+| `POST /api/workflows/:id/deploy-stream`             | Deploy with SSE progress    |
+| `POST /api/workflows/:id/takedown`                  | Remove deployment           |
+| `GET /api/workflows/:id/deployments`                | Deployment history          |
+| `GET /api/deployments`                              | List all deployments        |
+| `POST /api/workflows/:id/trigger`                   | Trigger workflow run        |
+| `GET /api/workflows/:id/runs`                       | List runs                   |
+| `GET /api/workflows/:wid/runs/:rid`                 | Run status                  |
+| `POST /api/workflows/:wid/runs/:rid/pause`          | Pause run                   |
+| `POST /api/workflows/:wid/runs/:rid/resume`         | Resume run                  |
+| `POST /api/workflows/:wid/runs/:rid/terminate`      | Terminate run               |
+| `GET /api/runs`                                     | List all runs               |
+| `GET/POST/PATCH/DELETE /api/projects`               | Project CRUD                |
+| `GET/POST/PATCH/DELETE /api/connections`            | Connection CRUD             |
+| `POST /api/connections/verify-token`                | Verify credentials          |
+| `GET/POST/PATCH/DELETE /api/env-vars`               | Env var CRUD                |
+| `GET/POST /api/api-keys`                            | Generate / list API keys    |
+| `DELETE /api/api-keys/:id`                          | Revoke API key              |
+| `GET /api/nodes`                                    | Custom node definitions     |
+| `GET /api/nodes/templates`                          | Node templates              |
+| `GET /api/resources/...`                            | KV, D1, R2 resources        |
+| `GET/POST /api/marketplace/...`                     | Marketplace browse/install  |
 
 ## Database Schema
 
 Drizzle ORM with runtime-selected database: PostgreSQL when `DATABASE_URL` is set, SQLite otherwise. Both are fully supported in any deployment mode.
 
-| Table             | Purpose                                      |
-| ----------------- | -------------------------------------------- |
-| `projects`        | Project metadata (org-scoped)                |
-| `workflows`       | Workflow metadata + env vars JSON            |
-| `versions`        | IR + generated code history                  |
-| `deployments`     | Deployment records                           |
-| `runs`            | Workflow execution instances                 |
-| `env_vars`        | Global environment variables (encrypted)     |
-| `connections`     | Provider credentials (encrypted)             |
-| `api_keys`        | Scoped API keys (project-scoped)             |
-| `installed_nodes` | Marketplace node bundles (org-scoped)        |
-| `auth_*`          | better-auth session/user/organization tables |
+| Table               | Purpose                                      |
+| ------------------- | -------------------------------------------- |
+| `projects`          | Project metadata (org-scoped)                |
+| `workflows`         | Workflow metadata + env vars JSON            |
+| `workflow_versions` | IR + generated code history                  |
+| `deployments`       | Deployment records                           |
+| `workflow_runs`     | Workflow execution instances                 |
+| `env_vars`          | Global environment variables (encrypted)     |
+| `connections`       | Provider credentials (encrypted)             |
+| `api_keys`          | Scoped API keys (project-scoped)             |
+| `installed_nodes`   | Marketplace node bundles (org-scoped)        |
+| `auth_*`            | better-auth session/user/organization tables |

@@ -112,7 +112,7 @@ Every node is described by a `NodeDefinition`:
 
 ### Categories
 
-`Payments` · `Email` · `Messaging` · `Database` · `Storage` · `AI` · `Authentication` · `HTTP` · `Scheduling` · `Notifications` · `Data` · `Utilities` · `Control Flow` · `Internal`
+`Payments` · `Email` · `Messaging` · `Database` · `Storage` · `AI` · `Authentication` · `HTTP` · `Scheduling` · `Notifications` · `Data` · `Utilities` · `Control Flow` · `Internal` · `CRM` · `Analytics` · `Developer Tools` · `Project Management` · `E-commerce` · `Customer Support` · `Forms`
 
 ### Providers
 
