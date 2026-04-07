@@ -77,7 +77,7 @@ This starts all apps in watch mode:
 
 - **API** at `http://localhost:8080`
 - **Web app** at `http://localhost:3000`
-- **Docs** at `http://localhost:5173` (if the docs app is configured)
+- **Docs** at `http://localhost:4000` (if the docs app is configured)
 
 ## 6. Run tests
 
@@ -110,7 +110,7 @@ Always run this before opening a pull request.
 
 ## Database
 
-By default AwaitStep uses SQLite. The database file is created automatically at the location specified by `DATABASE_URL` (defaults to `./data/db.sqlite` in the API app directory).
+By default AwaitStep uses SQLite. The database file is created automatically (defaults to `./awaitstep.db` in the API app directory during local development, or `/app/data/awaitstep.db` in Docker).
 
 To use PostgreSQL locally:
 

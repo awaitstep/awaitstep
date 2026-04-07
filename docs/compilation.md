@@ -40,7 +40,8 @@ The canvas stores nodes and edges as ReactFlow objects. `buildIRFromState()` con
 interface WorkflowIR {
   metadata: {
     name: string
-    version: string
+    description?: string
+    version: number
     createdAt: string
     updatedAt: string
   }
@@ -108,9 +109,9 @@ graph TB
 Nodes are sorted in execution order based on edge dependencies. This ensures that upstream outputs are available before downstream nodes reference them.
 
 ```typescript
-topologicalSort(ir: WorkflowIR): string[]  // Returns ordered node IDs
+topologicalSort(ir: WorkflowIR): WorkflowNode[]  // Returns ordered nodes
 buildAdjacencyList(ir: WorkflowIR): Map<string, string[]>
-getEdgeLabels(ir: WorkflowIR): Map<string, string>  // edge ID → label
+getEdgeLabels(ir: WorkflowIR): Map<string, Map<string, string | undefined>>  // source → (target → label)
 ```
 
 **2. Variable Name Mapping** (`packages/codegen/src/var-names.ts`)
@@ -398,9 +399,9 @@ This uses the same `generateWorkflow()` function as deployment but skips transpi
 
 The editor panel also provides tabs for:
 
-- **Trigger code** — custom entry point handler
-- **Dependencies** — npm packages as JSON
-- **IR JSON** — raw WorkflowIR for debugging
+- **Entry** — custom entry point handler
+- **Packages** — npm packages as JSON
+- **Output** — generated TypeScript and raw WorkflowIR for debugging
 
 ## Dependency Flow
 

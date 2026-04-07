@@ -30,8 +30,8 @@ There is no email/password authentication. At least one auth method must be conf
 
 ## 3. Connect your Cloudflare account
 
-1. Go to **Settings → Cloudflare**.
-2. Paste your Cloudflare API token. See [Cloudflare Connection](../installation/cloudflare-connection) for how to create one with the correct permissions.
+1. Go to **Connections** in the sidebar.
+2. Click **Add Connection** and paste your Cloudflare API token. See [Cloudflare Connection](../installation/cloudflare-connection) for how to create one with the correct permissions.
 3. Select the account you want to deploy workflows to.
 4. Click **Save**.
 
@@ -60,8 +60,8 @@ When the deploy finishes, the toolbar shows a green **Deployed** badge.
 1. Go to the **Runs** tab.
 2. Click **Trigger**.
 3. Leave the payload empty and click **Run**.
-4. A new row appears in the runs table. Click it to see the step-by-step execution trace.
+4. A new run appears in the list. Click it to see the run details — status, output, and errors.
 
 :::tip
-You can also trigger a workflow via HTTP from outside AwaitStep. Each deployed workflow exposes a trigger URL shown in the **Runs** tab.
+You can also trigger a workflow via the API. See the [REST API](../api/rest) for the trigger endpoint.
 :::
