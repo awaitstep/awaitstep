@@ -13,7 +13,7 @@ Thank you for your interest in contributing! This guide will help you get starte
 
 ```bash
 git clone https://github.com/awaitstep/awaitstep.git
-cd awaitstep.dev
+cd awaitstep
 pnpm install
 cp .env.example .env
 # Edit .env — generate TOKEN_ENCRYPTION_KEY with: openssl rand -hex 32

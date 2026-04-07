@@ -30,15 +30,15 @@ awaitstep/
 
 The API server is built with [Hono](https://hono.dev) and runs on both Cloudflare Workers and Node.js. Entry points:
 
-| File              | Purpose                                                                  |
-| ----------------- | ------------------------------------------------------------------------ |
-| `src/index.ts`    | App factory — creates the Hono app, registers all routes                 |
-| `src/serve.ts`    | Node.js entry — reads env vars, creates DB connection, starts the server |
-| `src/worker.ts`   | Cloudflare Worker entry                                                  |
-| `src/routes/`     | Route handlers (one file per resource group)                             |
-| `src/middleware/` | Auth, rate limiting, error handling                                      |
+| File                 | Purpose                                                                  |
+| -------------------- | ------------------------------------------------------------------------ |
+| `src/index.ts`       | App factory — creates the Hono app, registers all routes                 |
+| `src/entry/serve.ts` | Node.js entry — reads env vars, creates DB connection, starts the server |
+| `src/entry/dev.ts`   | Development entry point with hot reload                                  |
+| `src/routes/`        | Route handlers (one file per resource group)                             |
+| `src/middleware/`    | Auth, rate limiting, error handling                                      |
 
-Route files are thin — they call methods on service objects and return responses. Business logic lives in `src/services/`.
+Route files are thin — they call methods on the provider interface and return responses.
 
 ## apps/web
 
@@ -46,7 +46,7 @@ The React SPA. Key directories:
 
 | Path              | Purpose                                                         |
 | ----------------- | --------------------------------------------------------------- |
-| `src/routes/`     | React Router v7 file-based routes                               |
+| `src/routes/`     | TanStack Router file-based routes                               |
 | `src/components/` | Domain-specific components (canvas, config drawers, run detail) |
 | `src/stores/`     | Zustand stores                                                  |
 | `src/lib/`        | Utilities, API clients, type helpers                            |
@@ -66,7 +66,7 @@ The IR package defines the Workflow IR types and all logic that operates on them
 
 ## packages/codegen
 
-Defines the `CodeGenerator` interface and shared utilities (variable naming, indentation, sanitisation). Provider packages implement this interface.
+Defines the `WorkflowProvider` interface and shared utilities (variable naming, indentation, sanitisation). Provider packages implement this interface.
 
 ## packages/provider-cloudflare
 
