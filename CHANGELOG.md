@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.5-beta.0](https://github.com/awaitstep/awaitstep/compare/v1.4.4-beta.0...v1.4.5-beta.0) (2026-04-07)
+
+
+### Documentation
+
+* fix 17 factual inconsistencies across all documentation ([60e4493](https://github.com/awaitstep/awaitstep/commit/60e44933a4ae6881497259e049847fd926af9e00))
+* fix 27 factual inconsistencies across all documentation ([93ff89d](https://github.com/awaitstep/awaitstep/commit/93ff89d201b1664fadabea29663b5343c767fc63))
+* fix factual errors in setup, contributing, and getting started guides ([12d2fe3](https://github.com/awaitstep/awaitstep/commit/12d2fe3382d442b779621f456b1287d4cd387ab6))
+* update documentation ([5e8d086](https://github.com/awaitstep/awaitstep/commit/5e8d0862fd29b862c235817cf321bdf75410c858))
+
 ## [1.4.4-beta.0](https://github.com/awaitstep/awaitstep/compare/v1.4.3-beta.0...v1.4.4-beta.0) (2026-04-06)
 
 
