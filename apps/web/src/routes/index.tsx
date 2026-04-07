@@ -71,7 +71,7 @@ function HomePage() {
 
       {/* Hero */}
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 pb-24 text-center">
-        <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/50 px-3.5 py-1.5 text-[11px] uppercase tracking-widest text-muted-foreground backdrop-blur-sm">
+        <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/50 px-3.5 py-1.5 text-xs uppercase tracking-widest text-muted-foreground backdrop-blur-sm">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
           Open Source Visual Workflow Builder
         </div>
@@ -168,7 +168,7 @@ function HomePage() {
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-border/40 px-6 py-5 text-center text-[11px] text-muted-foreground/50 sm:px-10">
+      <footer className="relative z-10 border-t border-border/40 px-6 py-5 text-center text-xs text-muted-foreground/50 sm:px-10">
         Open source under Apache 2.0
       </footer>
     </div>

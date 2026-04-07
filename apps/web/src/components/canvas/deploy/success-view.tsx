@@ -59,7 +59,7 @@ export function SuccessView({ result, connectionName, onClose }: SuccessViewProp
             <span className="text-xs text-muted-foreground">Trigger</span>
             <button
               onClick={handleCopyCurl}
-              className="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground"
+              className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground"
             >
               {curlCopied ? (
                 <Check className="h-3 w-3 text-status-success" />
@@ -68,7 +68,7 @@ export function SuccessView({ result, connectionName, onClose }: SuccessViewProp
               )}
             </button>
           </div>
-          <pre className="overflow-x-auto rounded-lg border border-border bg-muted/30 p-2 text-[11px] text-muted-foreground">
+          <pre className="overflow-x-auto rounded-lg border border-border bg-muted/30 p-2 text-xs text-muted-foreground">
             {`curl -X POST ${result.url}`}
           </pre>
         </div>

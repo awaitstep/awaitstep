@@ -5,6 +5,7 @@ import { ProjectsList } from '../../components/org/projects-list'
 import { ApiKeysSection } from '../../components/org/api-keys-section'
 import { useShallow } from 'zustand/react/shallow'
 import { RequireOrg } from '../../wrappers/require-org'
+import { PageHeader } from '../../components/ui/page-header'
 
 export const Route = createFileRoute('/_authed/settings')({
   head: () => ({ meta: [{ title: 'Settings | AwaitStep' }] }),
@@ -30,7 +31,10 @@ function SettingsContent() {
 
   return (
     <div>
-      <h1 className="border-b border-border pb-4 text-lg font-semibold">Settings</h1>
+      <PageHeader
+        title="Settings"
+        breadcrumbs={[{ label: 'Home', href: '/dashboard' }, { label: 'Settings' }]}
+      />
       {activeOrg ? (
         <OrgNameEditor org={activeOrg} />
       ) : (

@@ -11,6 +11,8 @@ import { timeAgo } from '../../lib/time'
 import { NEW_WORKFLOW_NAV } from '../../lib/nav'
 import { useShallow } from 'zustand/react/shallow'
 import { LoadingView } from '../ui/loading-view'
+import { EmptyState } from '../ui/empty-state'
+import { Workflow } from 'lucide-react'
 
 export function WorkflowList() {
   const { workflows, isLoading, hasMore } = useWorkflowsStore(
@@ -54,15 +56,22 @@ export function WorkflowList() {
             ))}
           </div>
         ) : (
-          <div className="mt-4 rounded-md border border-border px-4 py-8 text-center text-sm text-muted-foreground">
-            No workflows yet.
-            <GuardedLink
-              requirement="project"
-              nav={NEW_WORKFLOW_NAV}
-              className={buttonVariants({ size: 'sm', variant: 'link' })}
-            >
-              Create one
-            </GuardedLink>
+          <div className="mt-4">
+            <EmptyState
+              icon={Workflow}
+              title="No workflows yet"
+              description="Create your first visual workflow and deploy it to Cloudflare Workers."
+              action={
+                <GuardedLink
+                  requirement="project"
+                  nav={NEW_WORKFLOW_NAV}
+                  className={buttonVariants({ size: 'sm' })}
+                >
+                  <Plus className="h-4 w-4" />
+                  New Workflow
+                </GuardedLink>
+              }
+            />
           </div>
         )}
       </LoadingView>
@@ -78,17 +87,15 @@ function WorkflowRow({ workflow: wf }: { workflow: WorkflowSummary }) {
   )
 
   return (
-    <div className="group rounded-lg border border-border bg-card transition-colors hover:border-border/80 hover:bg-muted/20">
+    <Link
+      to="/workflows/$workflowId"
+      params={{ workflowId: wf.id }}
+      className="group block rounded-lg border border-border bg-card transition-all duration-150 hover:border-border/80 hover:bg-muted/20"
+    >
       <div className="flex items-center justify-between px-4 py-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2.5">
-            <Link
-              to="/workflows/$workflowId"
-              params={{ workflowId: wf.id }}
-              className="text-sm font-medium text-foreground hover:text-foreground"
-            >
-              {wf.name}
-            </Link>
+            <span className="text-sm font-medium text-foreground">{wf.name}</span>
             <WorkflowStatusBadge
               hasVersion={!!wf.currentVersionId}
               deployStatus={wf.deployStatus ?? undefined}
@@ -101,7 +108,7 @@ function WorkflowRow({ workflow: wf }: { workflow: WorkflowSummary }) {
             </p>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3" onClick={(e) => e.preventDefault()}>
           {wf.lastRunAt && (
             <span className="text-xs text-muted-foreground/60">{timeAgo(wf.lastRunAt)}</span>
           )}
@@ -111,7 +118,7 @@ function WorkflowRow({ workflow: wf }: { workflow: WorkflowSummary }) {
           </div>
         </div>
       </div>
-    </div>
+    </Link>
   )
 }
 

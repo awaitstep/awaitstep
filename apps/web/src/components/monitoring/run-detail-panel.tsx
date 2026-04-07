@@ -79,15 +79,15 @@ function ErrorDisplay({ error }: { error: unknown }) {
 
   return (
     <div className="space-y-2">
-      <div className="rounded-lg border border-red-500/10 bg-red-500/5 p-3">
+      <div className="rounded-lg border border-status-error/10 bg-status-error/5 p-3">
         {parsed.name && (
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-red-400/60">
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-status-error/60">
             {parsed.name}
           </div>
         )}
-        <p className="text-xs text-red-300">{parsed.message}</p>
+        <p className="text-xs text-status-error">{parsed.message}</p>
         {parsed.stack && (
-          <pre className="mt-2 overflow-auto text-[10px] leading-relaxed text-red-300/60">
+          <pre className="mt-2 overflow-auto text-xs leading-relaxed text-status-error/60">
             {parsed.stack}
           </pre>
         )}
@@ -95,21 +95,25 @@ function ErrorDisplay({ error }: { error: unknown }) {
       <div className="flex items-center gap-2">
         <button
           onClick={() => setShowRaw(!showRaw)}
-          className="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground"
+          className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground"
         >
           {showRaw ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
           Raw error
         </button>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground"
+          className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground"
         >
-          {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+          {copied ? (
+            <Check className="h-3 w-3 text-status-success" />
+          ) : (
+            <Copy className="h-3 w-3" />
+          )}
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
       {showRaw && (
-        <pre className="overflow-auto rounded-lg border border-border bg-muted/30 p-3 text-[10px] text-muted-foreground font-mono">
+        <pre className="overflow-auto rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground font-mono">
           {parsed.raw}
         </pre>
       )}
@@ -152,7 +156,7 @@ export function RunDetailPanel({ run, onPause, onResume, onTerminate }: RunDetai
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-red-400/60 hover:text-red-400"
+              className="h-7 w-7 text-destructive hover:text-destructive/80"
               onClick={onTerminate}
             >
               <Square className="h-3.5 w-3.5" />
@@ -168,7 +172,7 @@ export function RunDetailPanel({ run, onPause, onResume, onTerminate }: RunDetai
 
       {run.output && (
         <div className="space-y-1">
-          <div className="flex items-center gap-1 text-xs text-emerald-400/80">
+          <div className="flex items-center gap-1 text-xs text-status-success/80">
             <CheckCircle2 className="h-3 w-3" />
             <span>Output</span>
           </div>
@@ -180,7 +184,7 @@ export function RunDetailPanel({ run, onPause, onResume, onTerminate }: RunDetai
 
       {run.error && (
         <div className="space-y-1">
-          <div className="flex items-center gap-1 text-xs text-red-400/80">
+          <div className="flex items-center gap-1 text-xs text-status-error/80">
             <AlertCircle className="h-3 w-3" />
             <span>Error</span>
           </div>

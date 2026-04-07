@@ -169,7 +169,7 @@ export function MarketplaceDialog({ onOpenChange }: MarketplaceDialogProps) {
                       <div key={superCat}>
                         {!activeCategory && (
                           <div className="mb-2 px-1">
-                            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/50">
+                            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/50">
                               {meta.label}
                             </span>
                           </div>

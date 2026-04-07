@@ -22,7 +22,7 @@ export function CategoryFilterSidebar({ categories, active, onChange }: Category
         )}
       >
         <span>All</span>
-        <span className="text-[10px] tabular-nums text-muted-foreground/60">{total}</span>
+        <span className="text-xs tabular-nums text-muted-foreground/60">{total}</span>
       </button>
       {categories.map((cat) => {
         const Icon = cat.icon
@@ -42,7 +42,7 @@ export function CategoryFilterSidebar({ categories, active, onChange }: Category
               <Icon className="h-3.5 w-3.5" />
               {cat.label}
             </span>
-            <span className="text-[10px] tabular-nums text-muted-foreground/60">{cat.count}</span>
+            <span className="text-xs tabular-nums text-muted-foreground/60">{cat.count}</span>
           </button>
         )
       })}

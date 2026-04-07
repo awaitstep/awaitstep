@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Plus, X, Store, Search } from 'lucide-react'
 import type { NodeType } from '@awaitstep/ir'
 import * as Tooltip from '@radix-ui/react-tooltip'
@@ -51,6 +51,21 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
     setOpen(!open)
   }
 
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'a' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const tag = (e.target as HTMLElement)?.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) {
+          return
+        }
+        e.preventDefault()
+        handleToggle()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [open])
+
   return (
     <div className="flex flex-col items-start gap-2">
       <Tooltip.Provider delayDuration={300}>
@@ -58,15 +73,22 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
           <Tooltip.Trigger asChild>
             <button
               onClick={handleToggle}
+              aria-label="Add node"
               className={cn(
-                'flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card shadow-lg transition-all hover:bg-muted hover:border-border',
+                'flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 shadow-lg transition-all hover:bg-muted hover:border-border',
                 open && 'bg-primary border-primary/60 hover:bg-primary/90',
               )}
             >
               {open ? (
-                <X className="h-4 w-4 text-primary-foreground" />
+                <>
+                  <X className="h-4 w-4 text-primary-foreground" />
+                  <span className="text-xs font-medium text-primary-foreground">Close</span>
+                </>
               ) : (
-                <Plus className="h-5 w-5 text-foreground/70" />
+                <>
+                  <Plus className="h-4 w-4 text-foreground/70" />
+                  <span className="text-xs font-medium text-foreground/70">Add Node</span>
+                </>
               )}
             </button>
           </Tooltip.Trigger>
@@ -75,10 +97,11 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
               <Tooltip.Content
                 side="right"
                 sideOffset={8}
-                className="rounded-lg bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-900 shadow-lg"
+                className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground shadow-lg"
               >
                 Add Node
-                <Tooltip.Arrow className="fill-white" />
+                <span className="ml-1.5 text-muted-foreground/60">A</span>
+                <Tooltip.Arrow className="fill-card" />
               </Tooltip.Content>
             </Tooltip.Portal>
           )}
@@ -106,9 +129,12 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
               const meta = getSuperCategoryMeta(superCat)
               return (
                 <div key={superCat}>
-                  <div className="sticky -top-px z-10 bg-card px-2 pb-1 pt-2">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/40">
+                  <div className="sticky -top-px z-10 flex items-center justify-between bg-card px-2 pb-1 pt-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/40">
                       {meta.label}
+                    </span>
+                    <span className="text-xs tabular-nums text-muted-foreground/30">
+                      {nodes.length}
                     </span>
                   </div>
                   {nodes.map((def) => {
@@ -131,16 +157,14 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[12px] font-medium text-foreground">
-                              {def.name}
-                            </span>
+                            <span className="text-xs font-medium text-foreground">{def.name}</span>
                             {!BUILTIN_IDS.has(def.id) && (
-                              <span className="rounded bg-violet-500/15 px-1 py-px text-[9px] font-medium text-violet-400">
+                              <span className="rounded bg-node-sub/15 px-1 py-px text-[10px] font-medium text-node-sub">
                                 Custom
                               </span>
                             )}
                           </div>
-                          <div className="text-[10px] leading-tight text-muted-foreground/60">
+                          <div className="text-xs leading-tight text-muted-foreground/60">
                             {def.description}
                           </div>
                         </div>
@@ -155,6 +179,11 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
                 No nodes match your search
               </div>
             )}
+          </div>
+
+          {/* Educational hint */}
+          <div className="border-t border-border px-3 py-2 text-xs leading-relaxed text-muted-foreground/50">
+            Drag a node onto the canvas or click to add it.
           </div>
 
           <div className="border-t border-border px-1.5 py-1.5">

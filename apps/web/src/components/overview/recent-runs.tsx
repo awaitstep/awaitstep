@@ -21,7 +21,7 @@ export function RecentRuns({ workflowId, runs }: RecentRunsProps) {
           <Link
             to="/workflows/$workflowId/runs"
             params={{ workflowId }}
-            className="text-[11px] text-muted-foreground/60 hover:text-muted-foreground"
+            className="text-xs text-muted-foreground/60 hover:text-muted-foreground"
           >
             View all
           </Link>

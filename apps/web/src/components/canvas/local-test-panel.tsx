@@ -49,7 +49,7 @@ export function LocalTestPanel({ workflowId, onClose }: LocalTestPanelProps) {
           <Terminal className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-xs font-medium">Local Test</span>
           {state === 'running' && (
-            <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-status-success">
+            <span className="flex items-center gap-1 rounded-full bg-status-success/10 px-1.5 py-0.5 text-xs text-status-success">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-status-success" />
               Running
             </span>
@@ -68,7 +68,9 @@ export function LocalTestPanel({ workflowId, onClose }: LocalTestPanelProps) {
               Start a local dev server to test your workflow without deploying. No Cloudflare
               credentials required.
             </p>
-            {error && <p className="rounded bg-red-500/10 p-2 text-xs text-red-300">{error}</p>}
+            {error && (
+              <p className="rounded bg-status-error/10 p-2 text-xs text-status-error">{error}</p>
+            )}
             <Button size="sm" className="w-full gap-1.5" onClick={() => start()}>
               <Play className="h-3.5 w-3.5" />
               Start Local Server
@@ -89,12 +91,12 @@ export function LocalTestPanel({ workflowId, onClose }: LocalTestPanelProps) {
             {/* Server info + trigger */}
             <div className="shrink-0 space-y-3 border-b border-border p-4">
               <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-1.5">
-                <span className="text-[11px] text-muted-foreground">Server</span>
+                <span className="text-xs text-muted-foreground">Server</span>
                 <a
                   href={info.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 font-mono text-[11px] text-primary hover:underline"
+                  className="flex items-center gap-1 font-mono text-xs text-primary hover:underline"
                 >
                   {info.url}
                   <ExternalLink className="h-2.5 w-2.5" />
@@ -102,17 +104,17 @@ export function LocalTestPanel({ workflowId, onClose }: LocalTestPanelProps) {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[11px] text-muted-foreground">Trigger payload</label>
+                <label className="text-xs text-muted-foreground">Trigger payload</label>
                 <textarea
                   value={triggerInput}
                   onChange={(e) => setTriggerInput(e.target.value)}
                   className={cn(
-                    'h-16 w-full resize-none rounded-md border bg-muted/30 p-2 font-mono text-[11px] text-foreground outline-none',
+                    'h-16 w-full resize-none rounded-md border bg-muted/30 p-2 font-mono text-xs text-foreground outline-none',
                     inputError ? 'border-red-500/50' : 'border-border focus:border-primary/50',
                   )}
                   placeholder="{}"
                 />
-                {inputError && <p className="text-[10px] text-red-400">{inputError}</p>}
+                {inputError && <p className="text-xs text-status-error">{inputError}</p>}
                 <div className="flex gap-2">
                   <Button
                     size="sm"
@@ -137,8 +139,8 @@ export function LocalTestPanel({ workflowId, onClose }: LocalTestPanelProps) {
 
               {triggerResult !== null && (
                 <div className="space-y-1">
-                  <span className="text-[11px] text-muted-foreground">Response</span>
-                  <pre className="max-h-20 overflow-auto rounded-md border border-border bg-muted/30 p-2 font-mono text-[11px] text-foreground/70">
+                  <span className="text-xs text-muted-foreground">Response</span>
+                  <pre className="max-h-20 overflow-auto rounded-md border border-border bg-muted/30 p-2 font-mono text-xs text-foreground/70">
                     {JSON.stringify(triggerResult, null, 2)}
                   </pre>
                 </div>
@@ -146,7 +148,7 @@ export function LocalTestPanel({ workflowId, onClose }: LocalTestPanelProps) {
 
               {instanceId && (
                 <div className="space-y-1.5">
-                  <span className="text-[11px] text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     Instance{' '}
                     <span className="font-mono max-w-[12ch] truncate text-foreground/70">
                       {instanceId.slice(0, 12)}...
@@ -154,7 +156,7 @@ export function LocalTestPanel({ workflowId, onClose }: LocalTestPanelProps) {
                   </span>
 
                   {instanceStatus !== null && instanceStatus !== undefined && (
-                    <pre className="max-h-60 overflow-auto rounded-md border border-border bg-muted/30 p-2 font-mono text-[11px] text-foreground/70">
+                    <pre className="max-h-60 overflow-auto rounded-md border border-border bg-muted/30 p-2 font-mono text-xs text-foreground/70">
                       {JSON.stringify(instanceStatus, null, 2)}
                     </pre>
                   )}
@@ -192,13 +194,13 @@ function LogViewer({ logs }: { logs: LogEntry[] }) {
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex items-center gap-2 border-b border-border px-4 py-1.5">
         <Terminal className="h-3 w-3 text-muted-foreground" />
-        <span className="text-[11px] font-medium text-muted-foreground">Logs</span>
-        <span className="text-[10px] text-muted-foreground/50">{logs.length} lines</span>
+        <span className="text-xs font-medium text-muted-foreground">Logs</span>
+        <span className="text-xs text-muted-foreground/50">{logs.length} lines</span>
       </div>
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-auto bg-background p-3 font-mono text-[11px] leading-5"
+        className="flex-1 overflow-auto bg-background p-3 font-mono text-xs leading-5"
       >
         {logs.length === 0 ? (
           <span className="text-muted-foreground/50">Waiting for output...</span>
@@ -208,7 +210,7 @@ function LogViewer({ logs }: { logs: LogEntry[] }) {
               <span className="shrink-0 select-none text-muted-foreground/50">
                 {new Date(entry.timestamp).toLocaleTimeString()}
               </span>
-              <span className={entry.stream === 'stderr' ? 'text-red-400' : 'text-foreground'}>
+              <span className={entry.stream === 'stderr' ? 'text-status-error' : 'text-foreground'}>
                 {entry.text}
               </span>
             </div>

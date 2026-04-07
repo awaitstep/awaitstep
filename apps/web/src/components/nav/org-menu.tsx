@@ -61,7 +61,7 @@ export default function OrgMenu() {
           sideOffset={8}
           className="z-50 w-56 rounded-md border border-border bg-card p-2 shadow-lg"
         >
-          <p className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+          <p className="px-2 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground/60">
             Organizations
           </p>
           {orgs.map((org) => (

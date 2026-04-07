@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { Loader2 } from 'lucide-react'
 import { useAuthStore } from '../../stores/auth-store'
+import { PageHeader } from '../../components/ui/page-header'
 import { useShallow } from 'zustand/react/shallow'
 import { ProfileSection } from '../../components/account/profile-section'
 import { ConnectedAccountsSection } from '../../components/account/connected-accounts-section'
@@ -34,7 +35,10 @@ function AccountPage() {
 
   return (
     <div>
-      <h1 className="border-b border-border pb-4 text-lg font-semibold">Account</h1>
+      <PageHeader
+        title="Account"
+        breadcrumbs={[{ label: 'Home', href: '/dashboard' }, { label: 'Account' }]}
+      />
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <div className="space-y-4">
           <ProfileSection user={user} />

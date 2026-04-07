@@ -151,7 +151,7 @@ export function CodeEditor({
         <div className="flex h-10 shrink-0 items-center justify-between border-b border-border bg-[oklch(0.13_0_0)] px-4">
           <span className="text-xs font-medium text-foreground/60">{title ?? 'Code Editor'}</span>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-muted-foreground/40">ESC to close</span>
+            <span className="text-xs text-muted-foreground/40">ESC to close</span>
             <button
               onClick={() => setFullscreen(false)}
               className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/60 hover:text-foreground"

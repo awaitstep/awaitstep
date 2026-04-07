@@ -8,6 +8,8 @@ import { Separator } from '../ui/separator'
 import { CodeEditor } from '../ui/code-editor'
 import { Select } from '../ui/select'
 import { DynamicFields } from './dynamic-fields'
+import { getNodeVisuals } from '../../lib/node-icon-map'
+import { cn } from '../../lib/utils'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import { useShallow } from 'zustand/react/shallow'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
@@ -96,6 +98,7 @@ export function NodeConfigPanel() {
   if (!selectedNode || !irNode) return null
 
   const definition = registry.get(irNode.type)
+  const visuals = getNodeVisuals(irNode.type, definition?.icon)
 
   const updateData = (fieldId: string, value: unknown) => {
     updateNodeData(selectedNode.id, {
@@ -110,11 +113,21 @@ export function NodeConfigPanel() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <div>
-          <span className="text-[13px] font-semibold text-foreground">Edit Node</span>
-          <span className="ml-2 rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/60">
-            {definition?.name ?? irNode.type}
-          </span>
+        <div className="flex items-center gap-2.5">
+          <div
+            className={cn(
+              'flex h-7 w-7 shrink-0 items-center justify-center rounded-md',
+              visuals.accent,
+            )}
+          >
+            {visuals.paletteIcon}
+          </div>
+          <div>
+            <span className="text-sm font-semibold text-foreground">Edit Node</span>
+            <span className="ml-2 rounded bg-muted/60 px-1.5 py-0.5 font-mono text-xs text-muted-foreground/60">
+              {definition?.name ?? irNode.type}
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-1">
           <Button
@@ -174,7 +187,7 @@ export function NodeConfigPanel() {
                   onChange={(e) => updateData('condition', e.target.value)}
                   debounceMs={300}
                   placeholder='poll_result.status === "complete"'
-                  className="font-mono text-[11px]"
+                  className="font-mono text-xs"
                 />
               </Field>
               <Hint>
@@ -189,7 +202,7 @@ export function NodeConfigPanel() {
               onChange={updateData}
             />
           ) : (
-            <div className="flex items-start gap-1.5 rounded-lg bg-destructive/10 px-2.5 py-2 text-[11px] leading-relaxed text-destructive">
+            <div className="flex items-start gap-1.5 rounded-lg bg-destructive/10 px-2.5 py-2 text-xs leading-relaxed text-destructive">
               <Info className="mt-0.5 h-3 w-3 shrink-0" />
               <span>
                 Unknown node type: <strong>{irNode.type}</strong>. This node&apos;s definition was
@@ -201,7 +214,7 @@ export function NodeConfigPanel() {
       </div>
 
       <div className="border-t border-border px-4 py-2.5">
-        <span className="text-[10px] text-muted-foreground/40">ID: {selectedNode.id}</span>
+        <span className="text-xs text-muted-foreground/40">ID: {selectedNode.id}</span>
       </div>
     </div>
   )
@@ -219,8 +232,8 @@ function Field({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <Label className="text-[11px] text-muted-foreground">{label}</Label>
-        {hint && <span className="text-[10px] text-muted-foreground/40">{hint}</span>}
+        <Label className="text-xs text-muted-foreground">{label}</Label>
+        {hint && <span className="text-xs text-muted-foreground/40">{hint}</span>}
       </div>
       {children}
     </div>
@@ -229,7 +242,7 @@ function Field({
 
 function Hint({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-1.5 rounded-lg bg-muted/40 px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground/60">
+    <div className="flex items-start gap-1.5 rounded-lg bg-muted/40 px-2.5 py-2 text-xs leading-relaxed text-muted-foreground/60">
       <Info className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground/40" />
       <span>{children}</span>
     </div>
@@ -435,16 +448,16 @@ function ForkFields({ hint }: { hint: string }) {
 
       <div className="overflow-hidden rounded-lg border border-border">
         <div className="bg-muted/40 px-3 py-1.5">
-          <span className="text-[11px] font-medium text-muted-foreground">After completion</span>
+          <span className="text-xs font-medium text-muted-foreground">After completion</span>
         </div>
         <div className="p-3">
           <div className="space-y-1">
-            <Label className="text-[10px] text-muted-foreground/60">Continue to</Label>
+            <Label className="text-xs text-muted-foreground/60">Continue to</Label>
             <Select
               value={getTargetForLabel('then') || '__none__'}
               onValueChange={(v) => setTargetForLabel('then', v === '__none__' ? '' : v)}
               options={[{ value: '__none__', label: 'Not connected' }, ...targetOptions]}
-              className="h-8 text-[11px]"
+              className="h-8 text-xs"
             />
           </div>
         </div>
@@ -471,16 +484,16 @@ function TryCatchFields() {
         {slots.map((slot) => (
           <div key={slot.label} className="overflow-hidden rounded-lg border border-border">
             <div className="bg-muted/40 px-3 py-1.5">
-              <span className="text-[11px] font-medium text-muted-foreground">{slot.heading}</span>
+              <span className="text-xs font-medium text-muted-foreground">{slot.heading}</span>
             </div>
             <div className="p-3">
               <div className="space-y-1">
-                <Label className="text-[10px] text-muted-foreground/60">Go to</Label>
+                <Label className="text-xs text-muted-foreground/60">Go to</Label>
                 <Select
                   value={getTargetForLabel(slot.label) || '__none__'}
                   onValueChange={(v) => setTargetForLabel(slot.label, v === '__none__' ? '' : v)}
                   options={[{ value: '__none__', label: 'Not connected' }, ...targetOptions]}
-                  className="h-8 text-[11px]"
+                  className="h-8 text-xs"
                 />
               </div>
             </div>
@@ -523,7 +536,7 @@ function LoopFields({
             { value: 'while', label: 'While' },
             { value: 'times', label: 'Times' },
           ]}
-          className="h-8 text-[11px]"
+          className="h-8 text-xs"
         />
       </Field>
 
@@ -535,7 +548,7 @@ function LoopFields({
               onChange={(e) => updateField('collection', e.target.value)}
               debounceMs={300}
               placeholder="{{get_customers.customers}}"
-              className="font-mono text-[11px]"
+              className="font-mono text-xs"
             />
           </Field>
           <Field label="Item Variable">
@@ -544,7 +557,7 @@ function LoopFields({
               onChange={(e) => updateField('itemVar', e.target.value)}
               debounceMs={300}
               placeholder="item"
-              className="font-mono text-[11px]"
+              className="font-mono text-xs"
             />
           </Field>
         </>
@@ -557,7 +570,7 @@ function LoopFields({
             onChange={(e) => updateField('condition', e.target.value)}
             debounceMs={300}
             placeholder="status !== 'done'"
-            className="font-mono text-[11px]"
+            className="font-mono text-xs"
           />
         </Field>
       )}
@@ -569,7 +582,7 @@ function LoopFields({
             value={String(node.data.count ?? 5)}
             onChange={(e) => updateField('count', parseInt(e.target.value) || 1)}
             debounceMs={300}
-            className="text-[11px]"
+            className="text-xs"
           />
         </Field>
       )}
@@ -582,16 +595,16 @@ function LoopFields({
       ].map((slot) => (
         <div key={slot.lbl} className="overflow-hidden rounded-lg border border-border">
           <div className="bg-muted/40 px-3 py-1.5">
-            <span className="text-[11px] font-medium text-muted-foreground">{slot.heading}</span>
+            <span className="text-xs font-medium text-muted-foreground">{slot.heading}</span>
           </div>
           <div className="p-3">
             <div className="space-y-1">
-              <Label className="text-[10px] text-muted-foreground/60">{slot.hint}</Label>
+              <Label className="text-xs text-muted-foreground/60">{slot.hint}</Label>
               <Select
                 value={getTargetForLabel(slot.lbl) || '__none__'}
                 onValueChange={(v) => setTargetForLabel(slot.lbl, v === '__none__' ? '' : v)}
                 options={[{ value: '__none__', label: 'Not connected' }, ...targetOptions]}
-                className="h-8 text-[11px]"
+                className="h-8 text-xs"
               />
             </div>
           </div>
@@ -640,7 +653,7 @@ function BranchCard({
   return (
     <div className="overflow-hidden rounded-lg border border-border">
       <div className="flex items-center justify-between bg-muted/40 px-3 py-1.5">
-        <span className="text-[11px] font-medium text-muted-foreground">{heading}</span>
+        <span className="text-xs font-medium text-muted-foreground">{heading}</span>
         {branchCount > 1 && (
           <Button
             variant="ghost"
@@ -655,13 +668,13 @@ function BranchCard({
 
       <div className="space-y-2 p-3">
         <div className="space-y-1">
-          <Label className="text-[10px] text-muted-foreground/60">Label</Label>
+          <Label className="text-xs text-muted-foreground/60">Label</Label>
           <Input
             value={branch.label}
             onChange={(e) => onUpdateLabel(e.target.value)}
             debounceMs={300}
             placeholder="e.g. approved, rejected"
-            className="h-8 text-[11px]"
+            className="h-8 text-xs"
           />
         </div>
 
@@ -676,12 +689,12 @@ function BranchCard({
         )}
 
         <div className="space-y-1">
-          <Label className="text-[10px] text-muted-foreground/60">Go to</Label>
+          <Label className="text-xs text-muted-foreground/60">Go to</Label>
           <Select
             value={currentTarget || '__none__'}
             onValueChange={onSetTarget}
             options={[{ value: '__none__', label: 'Not connected' }, ...targetOptions]}
-            className="h-8 text-[11px]"
+            className="h-8 text-xs"
           />
         </div>
       </div>

@@ -121,7 +121,7 @@ export function WorkflowActionsMenu({ workflow, irJson, isDeployed }: WorkflowAc
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                className="text-amber-400 hover:text-amber-300 focus:text-amber-300"
+                className="text-status-warning hover:text-status-warning/80 focus:text-status-warning/80"
                 onSelect={() => setTakedownOpen(true)}
               >
                 <CloudOff size={14} /> Take down
@@ -130,7 +130,7 @@ export function WorkflowActionsMenu({ workflow, irJson, isDeployed }: WorkflowAc
           )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            className="text-red-400 hover:text-red-300 focus:text-red-300"
+            className="text-destructive hover:text-destructive/80 focus:text-destructive/80"
             onSelect={() => setDeleteOpen(true)}
           >
             <Trash2 size={14} /> Delete

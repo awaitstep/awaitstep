@@ -4,6 +4,7 @@ import { WorkflowList } from '../../components/dashboard/workflow-list'
 import { RecentRunsList } from '../../components/dashboard/recent-runs-list'
 import { OnboardingOverlay } from '../../components/dashboard/onboarding-overlay'
 import { RequireProject } from '../../wrappers/require-project'
+import { PageHeader } from '../../components/ui/page-header'
 
 export const Route = createFileRoute('/_authed/dashboard')({
   head: () => ({ meta: [{ title: 'Dashboard | AwaitStep' }] }),
@@ -13,7 +14,7 @@ export const Route = createFileRoute('/_authed/dashboard')({
 function DashboardPage() {
   return (
     <RequireProject>
-      <h1 className="border-b border-border pb-4 text-lg font-semibold">Dashboard</h1>
+      <PageHeader title="Dashboard" breadcrumbs={[{ label: 'Home' }]} />
       <DashboardStats />
       <WorkflowList />
       <RecentRunsList />

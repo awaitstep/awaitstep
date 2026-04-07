@@ -130,7 +130,7 @@ export function EditorPanel() {
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 className={cn(
-                  'rounded-md px-2.5 py-1 text-[10px] font-medium transition-colors',
+                  'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
                   tab === t.id
                     ? 'bg-muted/70 text-foreground/60'
                     : 'text-muted-foreground/60 hover:text-muted-foreground',
@@ -149,7 +149,7 @@ export function EditorPanel() {
               <button
                 onClick={() => setOutputMode('typescript')}
                 className={cn(
-                  'rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors',
+                  'rounded-md px-2 py-0.5 text-xs font-medium transition-colors',
                   outputMode === 'typescript'
                     ? 'bg-muted/70 text-foreground/60'
                     : 'text-muted-foreground/60 hover:text-muted-foreground',
@@ -160,7 +160,7 @@ export function EditorPanel() {
               <button
                 onClick={() => setOutputMode('ir-json')}
                 className={cn(
-                  'rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors',
+                  'rounded-md px-2 py-0.5 text-xs font-medium transition-colors',
                   outputMode === 'ir-json'
                     ? 'bg-muted/70 text-foreground/60'
                     : 'text-muted-foreground/60 hover:text-muted-foreground',
@@ -176,7 +176,7 @@ export function EditorPanel() {
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 gap-1 px-2 text-[10px] text-muted-foreground"
+              className="h-6 gap-1 px-2 text-xs text-muted-foreground"
               onClick={() => setTriggerCode('')}
             >
               <RotateCcw className="h-3 w-3" /> Reset
@@ -201,22 +201,22 @@ export function EditorPanel() {
       {/* Tab hint */}
       {tab === 'entry' && (
         <div className="border-b border-border px-4 py-2">
-          <p className="text-[10px] leading-relaxed text-muted-foreground/40">
+          <p className="text-xs leading-relaxed text-muted-foreground/40">
             Code inside the{' '}
-            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">fetch()</code>{' '}
+            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">fetch()</code>{' '}
             handler. Has access to{' '}
-            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">request</code>,{' '}
-            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">env</code>, and{' '}
-            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">ctx</code>.
+            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">request</code>,{' '}
+            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">env</code>, and{' '}
+            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">ctx</code>.
           </p>
         </div>
       )}
       {tab === 'dependencies' && (
         <div className="border-b border-border px-4 py-2">
-          <p className="text-[10px] leading-relaxed text-muted-foreground/40">
+          <p className="text-xs leading-relaxed text-muted-foreground/40">
             NPM packages installed at deploy time. Edit the JSON array below — each entry needs{' '}
-            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">name</code> and{' '}
-            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">version</code>.
+            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">name</code> and{' '}
+            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">version</code>.
           </p>
         </div>
       )}
@@ -261,13 +261,11 @@ function OutputEditor({
   language: string
 }) {
   if (!mounted) {
-    return <pre className="p-4 text-[12px] leading-[1.7] text-foreground/70">{code}</pre>
+    return <pre className="p-4 text-xs leading-[1.7] text-foreground/70">{code}</pre>
   }
 
   return (
-    <Suspense
-      fallback={<pre className="p-4 text-[12px] leading-[1.7] text-foreground/70">{code}</pre>}
-    >
+    <Suspense fallback={<pre className="p-4 text-xs leading-[1.7] text-foreground/70">{code}</pre>}>
       <MonacoEditor
         height="100%"
         language={language}

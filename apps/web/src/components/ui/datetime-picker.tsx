@@ -96,7 +96,7 @@ export function DateTimePicker({
               button_next:
                 'h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:bg-muted/60 hover:text-foreground',
               weekdays: 'flex',
-              weekday: 'w-9 text-center text-[11px] font-medium text-muted-foreground/60',
+              weekday: 'w-9 text-center text-xs font-medium text-muted-foreground/60',
               weeks: 'mt-1',
               week: 'flex',
               day: 'h-9 w-9 text-center text-sm',

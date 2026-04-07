@@ -94,8 +94,8 @@ export function TemplatePicker({ onDismiss }: { onDismiss: () => void }) {
               <Plus className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-[13px] font-medium text-foreground">Start from scratch</div>
-              <div className="text-[12px] text-muted-foreground">
+              <div className="text-sm font-medium text-foreground">Start from scratch</div>
+              <div className="text-xs text-muted-foreground">
                 Empty canvas — drag nodes from the palette.
               </div>
             </div>
@@ -109,8 +109,8 @@ export function TemplatePicker({ onDismiss }: { onDismiss: () => void }) {
             return (
               <div key={category.id} className="mt-6 space-y-3">
                 <div>
-                  <h3 className="text-[13px] font-semibold text-foreground/70">{category.name}</h3>
-                  <p className="text-[11px] text-muted-foreground/60">{category.description}</p>
+                  <h3 className="text-sm font-semibold text-foreground/70">{category.name}</h3>
+                  <p className="text-xs text-muted-foreground/60">{category.description}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   {templates.map((template) => (
@@ -124,15 +124,15 @@ export function TemplatePicker({ onDismiss }: { onDismiss: () => void }) {
                           {ICON_MAP[template.icon]}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-[13px] font-medium text-foreground">
+                          <div className="truncate text-sm font-medium text-foreground">
                             {template.name}
                           </div>
-                          <div className="text-[11px] text-muted-foreground/60">
+                          <div className="text-xs text-muted-foreground/60">
                             {template.nodeCount} nodes
                           </div>
                         </div>
                       </div>
-                      <p className="text-[12px] leading-relaxed text-muted-foreground">
+                      <p className="text-xs leading-relaxed text-muted-foreground">
                         {template.description}
                       </p>
                     </button>

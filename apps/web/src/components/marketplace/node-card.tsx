@@ -30,12 +30,12 @@ export function NodeCard({ node, onInstall, onUninstall, onUpdate, loading }: No
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-foreground">{node.name}</span>
-          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+          <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
             {node.category}
           </span>
         </div>
         <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{node.description}</p>
-        <div className="mt-1.5 flex items-center gap-2 text-[10px] text-muted-foreground/60">
+        <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground/60">
           <span>{node.author}</span>
           <span>v{node.latest}</span>
         </div>

@@ -57,7 +57,7 @@ export function ProfileSection({
       </div>
 
       <div className="mt-3 flex items-center justify-between">
-        <p className="text-[10px] text-muted-foreground/60">Member since {memberSince}</p>
+        <p className="text-xs text-muted-foreground/60">Member since {memberSince}</p>
         <Button
           size="sm"
           disabled={name === user.name || !name.trim() || updateMutation.isPending}

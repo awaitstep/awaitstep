@@ -3,6 +3,7 @@ import { Plus, Search } from 'lucide-react'
 import { useState, useMemo } from 'react'
 import { Button } from '../../components/ui/button'
 import { GuardedLink } from '../../components/ui/guarded-link'
+import { PageHeader } from '../../components/ui/page-header'
 import type { WorkflowSummary } from '../../lib/api-client'
 import { useWorkflowsStore } from '../../stores/workflows-store'
 import { WorkflowActionsMenu } from '../../components/dashboard/workflow-actions-menu'
@@ -13,6 +14,8 @@ import { NEW_WORKFLOW_NAV } from '../../lib/nav'
 import { LoadingView } from '../../components/ui/loading-view'
 import { LoadMoreButton } from '../../components/ui/load-more-button'
 import { ListSkeleton } from '../../components/ui/skeletons'
+import { EmptyState } from '../../components/ui/empty-state'
+import { Workflow } from 'lucide-react'
 
 export const Route = createFileRoute('/_authed/workflows/')({
   head: () => ({ meta: [{ title: 'Workflows | AwaitStep' }] }),
@@ -45,15 +48,18 @@ function WorkflowsIndexContent() {
 
   return (
     <div>
-      <div className="flex items-center justify-between border-b border-border pb-4">
-        <h1 className="text-lg font-semibold">Workflows</h1>
-        <Button size="sm" className="gap-1.5" asChild>
-          <GuardedLink requirement="project" nav={NEW_WORKFLOW_NAV}>
-            <Plus className="h-4 w-4" />
-            New Workflow
-          </GuardedLink>
-        </Button>
-      </div>
+      <PageHeader
+        title="Workflows"
+        breadcrumbs={[{ label: 'Home', href: '/dashboard' }, { label: 'Workflows' }]}
+        actions={
+          <Button size="sm" className="gap-1.5" asChild>
+            <GuardedLink requirement="project" nav={NEW_WORKFLOW_NAV}>
+              <Plus className="h-4 w-4" />
+              New Workflow
+            </GuardedLink>
+          </Button>
+        }
+      />
 
       <div>
         {workflows.length > 0 && (
@@ -71,15 +77,20 @@ function WorkflowsIndexContent() {
 
         <LoadingView isLoading={isLoading} LoadingPlaceholder={ListSkeleton}>
           {workflows.length === 0 ? (
-            <div className="mt-6 rounded-md border border-border px-4 py-8 text-center text-sm text-muted-foreground">
-              No workflows yet.{' '}
-              <GuardedLink
-                requirement="project"
-                nav={NEW_WORKFLOW_NAV}
-                className="text-primary hover:underline"
-              >
-                Create one
-              </GuardedLink>
+            <div className="mt-6">
+              <EmptyState
+                icon={Workflow}
+                title="No workflows yet"
+                description="Create your first visual workflow and deploy it to Cloudflare Workers."
+                action={
+                  <Button size="sm" className="gap-1.5" asChild>
+                    <GuardedLink requirement="project" nav={NEW_WORKFLOW_NAV}>
+                      <Plus className="h-4 w-4" />
+                      New Workflow
+                    </GuardedLink>
+                  </Button>
+                }
+              />
             </div>
           ) : (
             <div className="mt-4 space-y-2">
@@ -109,17 +120,15 @@ function WorkflowsIndexContent() {
 
 function WorkflowRow({ workflow: wf }: { workflow: WorkflowSummary }) {
   return (
-    <div className="group rounded-lg border border-border bg-card transition-colors hover:border-border/80 hover:bg-muted/20">
+    <Link
+      to="/workflows/$workflowId"
+      params={{ workflowId: wf.id }}
+      className="group block rounded-lg border border-border bg-card transition-all duration-150 hover:border-border/80 hover:bg-muted/20"
+    >
       <div className="flex items-center justify-between px-4 py-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2.5">
-            <Link
-              to="/workflows/$workflowId"
-              params={{ workflowId: wf.id }}
-              className="text-sm font-medium text-foreground hover:text-foreground"
-            >
-              {wf.name}
-            </Link>
+            <span className="text-sm font-medium text-foreground">{wf.name}</span>
             <StatusLabel
               hasVersion={!!wf.currentVersionId}
               deployStatus={wf.deployStatus ?? undefined}
@@ -131,7 +140,7 @@ function WorkflowRow({ workflow: wf }: { workflow: WorkflowSummary }) {
             </p>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3" onClick={(e) => e.preventDefault()}>
           <span className="text-xs text-muted-foreground">{timeAgo(wf.updatedAt)}</span>
           <div className="flex items-center gap-1">
             {wf.deployStatus === 'success' && <TriggerButton workflowId={wf.id} />}
@@ -139,7 +148,7 @@ function WorkflowRow({ workflow: wf }: { workflow: WorkflowSummary }) {
           </div>
         </div>
       </div>
-    </div>
+    </Link>
   )
 }
 

@@ -80,7 +80,7 @@ export function WorkflowSettings() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <span className="text-[13px] font-semibold text-foreground">Workflow Settings</span>
+        <span className="text-sm font-semibold text-foreground">Workflow Settings</span>
         <Button
           variant="ghost"
           size="icon"
@@ -110,21 +110,21 @@ export function WorkflowSettings() {
           {/* Workflow Environment Variables */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <Label className="text-[11px] text-muted-foreground">Environment Variables</Label>
+              <Label className="text-xs text-muted-foreground">Environment Variables</Label>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 gap-1 px-2 text-[10px] text-muted-foreground"
+                className="h-6 gap-1 px-2 text-xs text-muted-foreground"
                 onClick={addEnvVar}
               >
                 <Plus className="h-3 w-3" /> Add
               </Button>
             </div>
-            <p className="text-[10px] text-muted-foreground/40 mb-2">
+            <p className="text-xs text-muted-foreground/40 mb-2">
               Prefix with SECRET_ to encrypt. Use the link button to reference a global variable.
             </p>
             {workflowEnvVars.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground/40 italic">
+              <p className="text-xs text-muted-foreground/40 italic">
                 No environment variables defined
               </p>
             ) : (
@@ -167,7 +167,7 @@ export function WorkflowSettings() {
                             ? 'secret value (replace to update)'
                             : 'value or {{global.env.NAME}}'
                         }
-                        className="h-7 text-[11px] font-mono text-muted-foreground"
+                        className="h-7 text-xs font-mono text-muted-foreground"
                       />
                     </div>
                   )
@@ -180,8 +180,8 @@ export function WorkflowSettings() {
 
           {/* Custom Route */}
           <div>
-            <Label className="text-[11px] text-muted-foreground mb-2 block">Custom Route</Label>
-            <p className="text-[10px] text-muted-foreground/40 mb-2">
+            <Label className="text-xs text-muted-foreground mb-2 block">Custom Route</Label>
+            <p className="text-xs text-muted-foreground/40 mb-2">
               Route traffic from your domain to this workflow. Requires a Cloudflare zone.
             </p>
             <div className="space-y-2">
@@ -208,7 +208,7 @@ export function WorkflowSettings() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-[11px] text-muted-foreground">{label}</Label>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
       {children}
     </div>
   )

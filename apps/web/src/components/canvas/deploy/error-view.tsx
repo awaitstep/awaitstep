@@ -14,7 +14,7 @@ export function ErrorView({ error, onRetry, onClose }: ErrorViewProps) {
         <XCircle className="h-5 w-5" />
         <span className="text-sm font-medium">Deployment failed</span>
       </div>
-      {error && <p className="rounded bg-red-500/10 p-2 text-xs text-red-300">{error}</p>}
+      {error && <p className="rounded bg-status-error/10 p-2 text-xs text-status-error">{error}</p>}
       <div className="flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={onClose}>
           Close
