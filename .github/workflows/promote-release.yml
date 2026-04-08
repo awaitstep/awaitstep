@@ -52,15 +52,52 @@ jobs:
             -m "Release ${{ steps.version.outputs.stable }}"
           git push origin "v${{ steps.version.outputs.stable }}"
 
+      - name: Extract changelog notes
+        if: steps.version.outputs.skipped == 'false'
+        id: notes
+        run: |
+          STABLE="${{ steps.version.outputs.stable }}"
+
+          # Extract all beta sections for this stable version from CHANGELOG.md
+          # e.g. for STABLE=1.4.4, matches ## [1.4.4-beta.0], ## [1.4.4-beta.1], etc.
+          NOTES=$(awk -v ver="$STABLE" '
+            /^## \[/ {
+              if ($0 ~ "## \\[" ver "-") {
+                capture = 1
+                next
+              } else if (capture) {
+                # Hit a different version section — stop
+                exit
+              }
+            }
+            capture { print }
+          ' CHANGELOG.md)
+
+          if [ -z "$NOTES" ]; then
+            echo "No changelog entries found — falling back to generated notes"
+            echo "fallback=true" >> "$GITHUB_OUTPUT"
+          else
+            # Write notes to a temp file to avoid shell escaping issues
+            echo "$NOTES" > /tmp/release-notes.md
+            echo "fallback=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create GitHub Release
         if: steps.version.outputs.skipped == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "v${{ steps.version.outputs.stable }}" \
-            --title "${{ steps.version.outputs.stable }}" \
-            --generate-notes \
-            --latest
+          if [ "${{ steps.notes.outputs.fallback }}" = "true" ]; then
+            gh release create "v${{ steps.version.outputs.stable }}" \
+              --title "${{ steps.version.outputs.stable }}" \
+              --generate-notes \
+              --latest
+          else
+            gh release create "v${{ steps.version.outputs.stable }}" \
+              --title "${{ steps.version.outputs.stable }}" \
+              --notes-file /tmp/release-notes.md \
+              --latest
+          fi
 
   docker-publish:
     needs: promote
