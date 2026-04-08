@@ -1,7 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Loader2, ExternalLink, ArrowRight, XCircle } from 'lucide-react'
+import {
+  CheckCircle2,
+  Loader2,
+  ExternalLink,
+  ArrowRight,
+  XCircle,
+  Workflow,
+  Rocket,
+  Zap,
+} from 'lucide-react'
 import { Button } from '../ui/button'
 import { api } from '../../lib/api-client'
 import { getEnabledProviders, type ProviderDefinition } from '../../lib/provider-registry'
@@ -24,20 +33,40 @@ export function OnboardingWizard() {
   return (
     <div className="flex min-h-[60vh] items-center justify-center">
       <div className="w-full max-w-md">
-        {/* Progress dots */}
-        <div className="mb-6 flex items-center justify-center gap-1.5">
-          {[1, 2, 3, 4].map((s) => (
-            <div
-              key={s}
-              className={`h-1.5 w-1.5 rounded-full transition-colors ${
-                s === step
-                  ? 'bg-foreground'
-                  : s < step
-                    ? 'bg-muted-foreground'
-                    : 'bg-muted-foreground/30'
-              }`}
-            />
-          ))}
+        {/* Labeled stepper */}
+        <div className="mb-6 flex items-center justify-center gap-3">
+          {(['Welcome', 'Provider', 'Credentials', 'Ready'] as const).map((label, i) => {
+            const stepNum = (i + 1) as Step
+            const isActive = stepNum === step
+            const isComplete = stepNum < step
+            return (
+              <div key={label} className="flex items-center gap-3">
+                {i > 0 && (
+                  <div
+                    className={`h-px w-4 ${isComplete || isActive ? 'bg-foreground/40' : 'bg-muted-foreground/20'}`}
+                  />
+                )}
+                <div className="flex items-center gap-1.5">
+                  <div
+                    className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-medium ${
+                      isComplete
+                        ? 'bg-primary text-primary-foreground'
+                        : isActive
+                          ? 'bg-foreground text-background'
+                          : 'bg-muted-foreground/20 text-muted-foreground/60'
+                    }`}
+                  >
+                    {isComplete ? <CheckCircle2 size={12} /> : stepNum}
+                  </div>
+                  <span
+                    className={`text-xs font-medium ${isActive ? 'text-foreground' : 'text-muted-foreground/60'}`}
+                  >
+                    {label}
+                  </span>
+                </div>
+              </div>
+            )
+          })}
         </div>
 
         <div className="rounded-md border border-border bg-card p-8">
@@ -97,17 +126,31 @@ export function OnboardingWizard() {
 function WelcomeStep({ onNext }: { onNext: () => void }) {
   return (
     <div className="text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-card">
-        <span className="text-xl font-bold text-foreground">A</span>
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+        <Workflow className="h-6 w-6 text-primary" />
       </div>
-      <h2 className="mt-4 text-base font-semibold text-foreground">Welcome to AwaitStep</h2>
+      <h2 className="mt-4 text-lg font-semibold text-foreground">Welcome to AwaitStep</h2>
       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-        Build and deploy durable workflows in minutes. Let's connect your deployment provider to get
-        started.
+        Build and deploy durable workflows in minutes.
       </p>
 
+      <div className="mt-5 space-y-2.5 text-left">
+        <div className="flex items-center gap-3 rounded-lg bg-muted/40 px-3 py-2.5">
+          <Workflow size={16} className="shrink-0 text-primary" />
+          <span className="text-sm text-foreground/80">Visual drag-and-drop workflow builder</span>
+        </div>
+        <div className="flex items-center gap-3 rounded-lg bg-muted/40 px-3 py-2.5">
+          <Rocket size={16} className="shrink-0 text-primary" />
+          <span className="text-sm text-foreground/80">One-click deploy to Cloudflare Workers</span>
+        </div>
+        <div className="flex items-center gap-3 rounded-lg bg-muted/40 px-3 py-2.5">
+          <Zap size={16} className="shrink-0 text-primary" />
+          <span className="text-sm text-foreground/80">Built-in durable execution and retries</span>
+        </div>
+      </div>
+
       <Button className="mt-6 w-full gap-2" onClick={onNext}>
-        Let's go
+        Get started
         <ArrowRight size={16} />
       </Button>
     </div>
@@ -229,7 +272,7 @@ function ConfigureCredentialsStep({
           {provider.permissions.map((perm) => (
             <li key={perm.resource} className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">{perm.resource}</span>
-              <span className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              <span className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
                 {perm.level}
               </span>
             </li>
@@ -242,7 +285,7 @@ function ConfigureCredentialsStep({
           href={provider.tokenCreateUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-3 inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300"
+          className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80"
         >
           {provider.tokenCreateLabel ?? `Create token on ${provider.name}`}
           <ExternalLink size={12} />
@@ -267,9 +310,9 @@ function ConfigureCredentialsStep({
                     <Loader2 size={14} className="animate-spin text-muted-foreground/60" />
                   )}
                   {verifyState === 'success' && (
-                    <CheckCircle2 size={14} className="text-emerald-400" />
+                    <CheckCircle2 size={14} className="text-status-success" />
                   )}
-                  {verifyState === 'error' && <XCircle size={14} className="text-red-400" />}
+                  {verifyState === 'error' && <XCircle size={14} className="text-status-error" />}
                 </div>
               )}
             </div>
@@ -277,9 +320,9 @@ function ConfigureCredentialsStep({
         ))}
       </div>
 
-      {verifyState === 'error' && <p className="mt-1.5 text-xs text-red-400">{verifyError}</p>}
+      {verifyState === 'error' && <p className="mt-1.5 text-xs text-status-error">{verifyError}</p>}
       {verifyState === 'success' && accounts[0] && (
-        <p className="mt-1.5 text-xs text-emerald-400/80">
+        <p className="mt-1.5 text-xs text-status-success/80">
           Connected to {accounts[0].name} ({accounts[0].id})
         </p>
       )}
@@ -313,8 +356,8 @@ function ReadyStep({
 }) {
   return (
     <div className="text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-emerald-500/10">
-        <CheckCircle2 className="h-6 w-6 text-emerald-400" />
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-status-success/10">
+        <CheckCircle2 className="h-6 w-6 text-status-success" />
       </div>
       <h2 className="mt-4 text-base font-semibold text-foreground">You're all set!</h2>
       <p className="mt-2 text-sm text-muted-foreground">
@@ -323,11 +366,11 @@ function ReadyStep({
 
       <div className="mt-6 space-y-2">
         <div className="flex items-center gap-3 rounded-lg bg-muted/40 p-3">
-          <CheckCircle2 size={16} className="shrink-0 text-emerald-400" />
+          <CheckCircle2 size={16} className="shrink-0 text-status-success" />
           <span className="text-sm text-foreground/70">Signed in</span>
         </div>
         <div className="flex items-center gap-3 rounded-lg bg-muted/40 p-3">
-          <CheckCircle2 size={16} className="shrink-0 text-emerald-400" />
+          <CheckCircle2 size={16} className="shrink-0 text-status-success" />
           <span className="text-sm text-foreground/70">{provider.name} connected</span>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useMatches } from '@tanstack/react-router'
 import * as Popover from '@radix-ui/react-popover'
+import * as Tooltip from '@radix-ui/react-tooltip'
 import { useOrgStore } from '../../stores/org-store'
 import { useSheetStore } from '../../stores/sheet-store'
 import { handleSignOut } from '../../lib/auth-client'
@@ -82,29 +83,28 @@ export function Dock({ email }: { email: string }) {
   }
 
   return (
-    <>
-      {/* Org + Project — far left */}
-      <div className="fixed bottom-4 left-4 z-40 flex items-center rounded-lg border border-border bg-card shadow-lg">
+    <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2">
+      <nav className="flex items-center gap-0.5 rounded-xl border border-border bg-card px-2 py-1.5 shadow-lg">
         {/* Org selector */}
         <Popover.Root open={orgOpen} onOpenChange={setOrgOpen}>
           <Popover.Trigger asChild>
             <button
               className={cn(
-                'flex h-11 items-center gap-1.5 rounded-l-md px-3 text-sm transition-colors',
+                'flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs transition-colors',
                 orgOpen
                   ? 'bg-muted text-foreground'
                   : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground/80',
               )}
             >
-              <Building2 size={16} />
-              <span className="w-[80px] truncate text-left text-xs font-medium">
+              <Building2 size={14} />
+              <span className="max-w-[72px] truncate font-medium">
                 {activeOrg ? (
                   activeOrg.name
                 ) : (
-                  <span className="inline-block h-3 w-16 animate-pulse rounded bg-muted/60" />
+                  <span className="inline-block h-3 w-12 animate-pulse rounded bg-muted/60" />
                 )}
               </span>
-              <ChevronDown size={12} />
+              <ChevronDown size={10} />
             </button>
           </Popover.Trigger>
           <Popover.Portal>
@@ -114,7 +114,7 @@ export function Dock({ email }: { email: string }) {
               sideOffset={8}
               className="z-50 w-56 rounded-md border border-border bg-card p-2 shadow-lg"
             >
-              <p className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+              <p className="px-2 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground/60">
                 Organizations
               </p>
               {orgs.map((org) => (
@@ -148,28 +148,26 @@ export function Dock({ email }: { email: string }) {
           </Popover.Portal>
         </Popover.Root>
 
-        <div className="h-6 w-px bg-border" />
-
         {/* Project selector */}
         <Popover.Root open={projectOpen} onOpenChange={setProjectOpen}>
           <Popover.Trigger asChild>
             <button
               className={cn(
-                'flex h-11 items-center gap-1.5 rounded-r-md px-3 text-sm transition-colors',
+                'flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs transition-colors',
                 projectOpen || isSettingsActive
                   ? 'bg-muted text-foreground'
                   : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground/80',
               )}
             >
-              <FolderKanban size={16} />
-              <span className="w-[80px] truncate text-left text-xs font-medium">
+              <FolderKanban size={14} />
+              <span className="max-w-[72px] truncate font-medium">
                 {fetchingProjects ? (
                   <span className="inline-block h-3 w-10 animate-pulse rounded bg-muted/60" />
                 ) : (
                   (activeProject?.name ?? 'New Project')
                 )}
               </span>
-              <ChevronDown size={12} />
+              <ChevronDown size={10} />
             </button>
           </Popover.Trigger>
           <Popover.Portal>
@@ -179,7 +177,7 @@ export function Dock({ email }: { email: string }) {
               sideOffset={8}
               className="z-50 w-56 rounded-md border border-border bg-card p-2 shadow-lg"
             >
-              <p className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+              <p className="px-2 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground/60">
                 Projects
               </p>
               {projects.map((proj) => (
@@ -204,137 +202,161 @@ export function Dock({ email }: { email: string }) {
             </Popover.Content>
           </Popover.Portal>
         </Popover.Root>
-      </div>
 
-      {/* Main dock — center */}
-      <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2">
-        <nav className="flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1.5 shadow-lg">
-          {navItems.map(({ to, label, icon: Icon }) => {
-            const isActive = matches.some((m) => {
-              if (to === '/dashboard') return m.routeId === '/_authed/dashboard'
-              if (to === '/workflows') return m.routeId.startsWith('/_authed/workflows')
-              if (to === '/runs') return m.routeId.startsWith('/_authed/runs')
-              if (to === '/connections') return m.routeId === '/_authed/connections'
-              if (to === '/env-vars') return m.routeId === '/_authed/env-vars'
-              return false
-            })
-            return (
+        <div className="mx-1 h-5 w-px bg-border" />
+
+        {/* Main nav items */}
+        {navItems.map(({ to, label, icon: Icon }) => {
+          const isActive = matches.some((m) => {
+            if (to === '/dashboard') return m.routeId === '/_authed/dashboard'
+            if (to === '/workflows') return m.routeId.startsWith('/_authed/workflows')
+            if (to === '/runs') return m.routeId.startsWith('/_authed/runs')
+            if (to === '/connections') return m.routeId === '/_authed/connections'
+            if (to === '/env-vars') return m.routeId === '/_authed/env-vars'
+            return false
+          })
+          return (
+            <Tooltip.Provider key={to} delayDuration={300}>
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <Link
+                    to={to}
+                    className={cn(
+                      'relative flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-xs font-medium transition-[background-color,color] duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]',
+                      isActive
+                        ? 'bg-muted text-foreground'
+                        : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground/80',
+                    )}
+                  >
+                    <Icon size={16} className="shrink-0" />
+                    <span
+                      className={cn(
+                        'inline-grid transition-[grid-template-columns] duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]',
+                        isActive ? 'grid-cols-[1fr]' : 'grid-cols-[0fr]',
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'overflow-hidden transition-opacity',
+                          isActive
+                            ? 'opacity-100 duration-300 delay-100'
+                            : 'opacity-0 duration-150',
+                        )}
+                      >
+                        {label}
+                      </span>
+                    </span>
+                    <span
+                      className={cn(
+                        'absolute -bottom-1 left-1/2 h-0.5 -translate-x-1/2 rounded-full bg-primary transition-all duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]',
+                        isActive ? 'w-4 opacity-100' : 'w-0 opacity-0',
+                      )}
+                    />
+                  </Link>
+                </Tooltip.Trigger>
+                {!isActive && (
+                  <Tooltip.Portal>
+                    <Tooltip.Content
+                      side="top"
+                      sideOffset={8}
+                      className="rounded-md border border-border bg-card px-2 py-1 text-xs font-medium text-foreground shadow-lg"
+                    >
+                      {label}
+                    </Tooltip.Content>
+                  </Tooltip.Portal>
+                )}
+              </Tooltip.Root>
+            </Tooltip.Provider>
+          )
+        })}
+
+        <div className="mx-1 h-5 w-px bg-border" />
+
+        {/* Developer menu */}
+        <Popover.Root open={devOpen} onOpenChange={setDevOpen}>
+          <Popover.Trigger asChild>
+            <button
+              className={cn(
+                'flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors',
+                devOpen || isPlaygroundActive
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground/80',
+              )}
+            >
+              <Code size={16} />
+            </button>
+          </Popover.Trigger>
+          <Popover.Portal>
+            <Popover.Content
+              side="top"
+              align="center"
+              sideOffset={8}
+              className="z-50 w-48 rounded-md border border-border bg-card p-2 shadow-lg"
+            >
               <Link
-                key={to}
-                to={to}
-                className={cn(
-                  'group relative flex h-11 w-11 items-center justify-center rounded-md transition-colors',
-                  isActive
-                    ? 'bg-muted text-foreground'
-                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground/80',
-                )}
+                to="/api-playground"
+                onClick={() => setDevOpen(false)}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground"
               >
-                <Icon size={20} />
-                <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-card px-2 py-1 text-[11px] font-medium text-foreground opacity-0 shadow-lg group-hover:opacity-100">
-                  {label}
-                </span>
-                {isActive && (
-                  <span className="absolute -bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-foreground" />
-                )}
+                <SquareTerminal size={14} />
+                API Playground
               </Link>
-            )
-          })}
+              <a
+                href="https://docs.awaitstep.dev"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground"
+              >
+                <BookOpen size={14} />
+                Docs
+                <ExternalLink size={10} className="ml-auto opacity-40" />
+              </a>
+            </Popover.Content>
+          </Popover.Portal>
+        </Popover.Root>
 
-          <Popover.Root open={devOpen} onOpenChange={setDevOpen}>
-            <Popover.Trigger asChild>
+        {/* User menu */}
+        <Popover.Root open={userOpen} onOpenChange={setUserOpen}>
+          <Popover.Trigger asChild>
+            <button
+              className={cn(
+                'flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors',
+                userOpen || matches.some((m) => m.routeId === '/_authed/account')
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground/80',
+              )}
+            >
+              <User size={16} />
+            </button>
+          </Popover.Trigger>
+          <Popover.Portal>
+            <Popover.Content
+              side="top"
+              align="end"
+              sideOffset={8}
+              className="z-50 w-56 rounded-md border border-border bg-card p-2 shadow-lg"
+            >
+              <p className="truncate px-2 py-1.5 text-xs text-muted-foreground">{email}</p>
+              <div className="my-1 h-px bg-border" />
+              <Link
+                to="/account"
+                onClick={() => setUserOpen(false)}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground"
+              >
+                <Settings size={14} />
+                Account
+              </Link>
               <button
-                className={cn(
-                  'group relative flex h-11 w-11 items-center justify-center rounded-md transition-colors',
-                  devOpen || isPlaygroundActive
-                    ? 'bg-muted text-foreground'
-                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground/80',
-                )}
+                onClick={() => handleSignOut()}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground"
               >
-                <Code size={20} />
-                <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-card px-2 py-1 text-[11px] font-medium text-foreground opacity-0 shadow-lg group-hover:opacity-100">
-                  Developer
-                </span>
-                {isPlaygroundActive && (
-                  <span className="absolute -bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-foreground" />
-                )}
+                <LogOut size={14} />
+                Sign out
               </button>
-            </Popover.Trigger>
-            <Popover.Portal>
-              <Popover.Content
-                side="top"
-                align="center"
-                sideOffset={8}
-                className="z-50 w-48 rounded-md border border-border bg-card p-2 shadow-lg"
-              >
-                <Link
-                  to="/api-playground"
-                  onClick={() => setDevOpen(false)}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground"
-                >
-                  <SquareTerminal size={14} />
-                  API Playground
-                </Link>
-                <a
-                  href="https://docs.awaitstep.dev"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground"
-                >
-                  <BookOpen size={14} />
-                  Docs
-                  <ExternalLink size={10} className="ml-auto opacity-40" />
-                </a>
-              </Popover.Content>
-            </Popover.Portal>
-          </Popover.Root>
-
-          <div className="mx-1 h-6 w-px bg-border" />
-
-          <Popover.Root open={userOpen} onOpenChange={setUserOpen}>
-            <Popover.Trigger asChild>
-              <button
-                className={cn(
-                  'group relative flex h-11 w-11 items-center justify-center rounded-md transition-colors',
-                  userOpen || matches.some((m) => m.routeId === '/_authed/account')
-                    ? 'bg-muted text-foreground'
-                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground/80',
-                )}
-              >
-                <User size={20} />
-                <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-card px-2 py-1 text-[11px] font-medium text-foreground opacity-0 shadow-lg group-hover:opacity-100">
-                  Account
-                </span>
-              </button>
-            </Popover.Trigger>
-            <Popover.Portal>
-              <Popover.Content
-                side="top"
-                align="end"
-                sideOffset={8}
-                className="z-50 w-56 rounded-md border border-border bg-card p-2 shadow-lg"
-              >
-                <p className="truncate px-2 py-1.5 text-xs text-muted-foreground">{email}</p>
-                <div className="my-1 h-px bg-border" />
-                <Link
-                  to="/account"
-                  onClick={() => setUserOpen(false)}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground"
-                >
-                  <Settings size={14} />
-                  Account
-                </Link>
-                <button
-                  onClick={() => handleSignOut()}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground"
-                >
-                  <LogOut size={14} />
-                  Sign out
-                </button>
-              </Popover.Content>
-            </Popover.Portal>
-          </Popover.Root>
-        </nav>
-      </div>
-    </>
+            </Popover.Content>
+          </Popover.Portal>
+        </Popover.Root>
+      </nav>
+    </div>
   )
 }

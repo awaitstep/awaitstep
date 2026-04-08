@@ -124,7 +124,7 @@ export function AddConnectionDialog({ onClose }: { onClose: () => void }) {
                       <span className="flex-1 text-muted-foreground">{perm.resource}</span>
                       <span
                         className={
-                          perm.level === 'Edit' ? 'text-amber-600' : 'text-muted-foreground/60'
+                          perm.level === 'Edit' ? 'text-status-warning' : 'text-muted-foreground/60'
                         }
                       >
                         {perm.level}
@@ -133,7 +133,7 @@ export function AddConnectionDialog({ onClose }: { onClose: () => void }) {
                   ))}
                 </div>
                 {provider.permissionsNote && (
-                  <p className="mt-2 text-[10px] text-muted-foreground/60">
+                  <p className="mt-2 text-xs text-muted-foreground/60">
                     {provider.permissionsNote}
                   </p>
                 )}
@@ -163,7 +163,7 @@ export function AddConnectionDialog({ onClose }: { onClose: () => void }) {
                 </div>
               ))}
 
-              {verifyError && <p className="text-xs text-red-400">{verifyError}</p>}
+              {verifyError && <p className="text-xs text-status-error">{verifyError}</p>}
 
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" size="sm" onClick={handleBackToProvider}>
@@ -218,7 +218,7 @@ export function AddConnectionDialog({ onClose }: { onClose: () => void }) {
               ) : null}
 
               {createMutation.isError && (
-                <p className="text-xs text-red-400">
+                <p className="text-xs text-status-error">
                   {createMutation.error instanceof Error
                     ? createMutation.error.message
                     : 'Failed to create connection'}

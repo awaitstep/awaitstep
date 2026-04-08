@@ -298,15 +298,15 @@ function ErrorBlock({ error }: { error: unknown }) {
 
   return (
     <div>
-      <div className="rounded-md border border-red-500/10 bg-red-500/5 p-4">
+      <div className="rounded-md border border-status-error/10 bg-status-error/5 p-4">
         {parsed.name && (
           <div className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-status-error/60">
             {parsed.name}
           </div>
         )}
-        <p className="text-sm leading-relaxed text-red-300">{parsed.message}</p>
+        <p className="text-sm leading-relaxed text-status-error">{parsed.message}</p>
         {parsed.stack && (
-          <pre className="mt-3 overflow-auto text-xs leading-relaxed text-red-300/50">
+          <pre className="mt-3 overflow-auto text-xs leading-relaxed text-status-error/50">
             {parsed.stack}
           </pre>
         )}

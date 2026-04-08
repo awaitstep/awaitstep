@@ -34,6 +34,20 @@
   --color-status-warning: var(--status-warning);
   --color-status-info: var(--status-info);
 
+  --color-node-code: var(--node-code);
+  --color-node-timing: var(--node-timing);
+  --color-node-flow: var(--node-flow);
+  --color-node-parallel: var(--node-parallel);
+  --color-node-network: var(--node-network);
+  --color-node-event: var(--node-event);
+  --color-node-error-handling: var(--node-error-handling);
+  --color-node-loop: var(--node-loop);
+  --color-node-break: var(--node-break);
+  --color-node-sub: var(--node-sub);
+  --color-node-race: var(--node-race);
+  --color-node-default: var(--node-default);
+  --color-node-custom: var(--node-custom);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -67,6 +81,19 @@ html.dark {
   --status-error: oklch(0.68 0.17 22);
   --status-warning: oklch(0.78 0.12 75);
   --status-info: oklch(0.7 0.1 230);
+  --node-code: oklch(0.7 0.12 250);
+  --node-timing: oklch(0.78 0.14 75);
+  --node-flow: oklch(0.7 0.15 300);
+  --node-parallel: oklch(0.72 0.12 185);
+  --node-network: oklch(0.72 0.14 155);
+  --node-event: oklch(0.7 0.15 15);
+  --node-error-handling: oklch(0.75 0.14 55);
+  --node-loop: oklch(0.75 0.12 200);
+  --node-break: oklch(0.68 0.17 22);
+  --node-sub: oklch(0.7 0.15 290);
+  --node-race: oklch(0.8 0.14 90);
+  --node-default: oklch(0.65 0.12 275);
+  --node-custom: oklch(0.6 0.1 0);
 }
 
 /* Light */
@@ -92,6 +119,19 @@ html.light {
   --status-error: oklch(0.5 0.2 25);
   --status-warning: oklch(0.52 0.12 60);
   --status-info: oklch(0.5 0.1 230);
+  --node-code: oklch(0.5 0.12 250);
+  --node-timing: oklch(0.55 0.14 75);
+  --node-flow: oklch(0.5 0.15 300);
+  --node-parallel: oklch(0.5 0.12 185);
+  --node-network: oklch(0.48 0.14 155);
+  --node-event: oklch(0.5 0.15 15);
+  --node-error-handling: oklch(0.55 0.14 55);
+  --node-loop: oklch(0.5 0.12 200);
+  --node-break: oklch(0.5 0.17 22);
+  --node-sub: oklch(0.5 0.15 290);
+  --node-race: oklch(0.55 0.14 90);
+  --node-default: oklch(0.45 0.12 275);
+  --node-custom: oklch(0.4 0.1 0);
 }
 
 @layer base {

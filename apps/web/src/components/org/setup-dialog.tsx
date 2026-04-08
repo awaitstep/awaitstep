@@ -79,7 +79,7 @@ export function SetupDialog({ open }: { open: boolean }) {
                 placeholder="Acme Inc."
                 autoFocus
               />
-              <p className="text-[10px] text-muted-foreground/60">
+              <p className="text-xs text-muted-foreground/60">
                 Your team or company name. You can invite members later.
               </p>
             </div>
@@ -95,7 +95,7 @@ export function SetupDialog({ open }: { open: boolean }) {
                 onChange={(e) => setProjectName(e.target.value)}
                 placeholder="My Project"
               />
-              <p className="text-[10px] text-muted-foreground/60">
+              <p className="text-xs text-muted-foreground/60">
                 A project groups your workflows together. You can create more later.
               </p>
             </div>

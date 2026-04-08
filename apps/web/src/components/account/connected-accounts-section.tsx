@@ -74,7 +74,7 @@ export function ConnectedAccountsSection({ enabledProviders }: Props) {
                   <Icon />
                   <span className="text-sm">{provider.name}</span>
                   {isLinked && (
-                    <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    <span className="rounded bg-muted/60 px-1.5 py-0.5 text-xs text-muted-foreground">
                       Connected
                     </span>
                   )}

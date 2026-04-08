@@ -90,15 +90,13 @@ export function ProjectsList({ projects, loading }: { projects: Project[]; loadi
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium">{project.name}</span>
                     {project.id === activeProjectId && (
-                      <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                      <span className="rounded bg-muted/60 px-1.5 py-0.5 text-xs text-muted-foreground">
                         Active
                       </span>
                     )}
                   </div>
                   {project.description && (
-                    <p className="mt-0.5 text-[10px] text-muted-foreground/60">
-                      {project.description}
-                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground/60">{project.description}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-1">

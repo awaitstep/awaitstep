@@ -39,15 +39,13 @@ function DynamicField({ field, value, onChange }: DynamicFieldProps) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <Label className="text-[11px] text-muted-foreground">
+        <Label className="text-xs text-muted-foreground">
           {field.label}
           {field.required && <span className="ml-0.5 text-destructive">*</span>}
         </Label>
       </div>
       <FieldRenderer field={field} value={value} onChange={onChange} />
-      {field.description && (
-        <p className="text-[10px] text-muted-foreground/60">{field.description}</p>
-      )}
+      {field.description && <p className="text-xs text-muted-foreground/60">{field.description}</p>}
     </div>
   )
 }
@@ -132,7 +130,7 @@ function FieldRenderer({ field, value, onChange }: DynamicFieldProps) {
                   onChange(isSelected ? selected.filter((v) => v !== opt) : [...selected, opt])
                 }}
                 className={cn(
-                  'rounded-md border px-2 py-1 text-[11px] transition-colors',
+                  'rounded-md border px-2 py-1 text-xs transition-colors',
                   isSelected
                     ? 'border-primary/40 bg-primary/10 text-primary'
                     : 'border-border bg-transparent text-muted-foreground hover:bg-muted/60',
@@ -162,7 +160,7 @@ function FieldRenderer({ field, value, onChange }: DynamicFieldProps) {
             />
           </svg>
           <span className="font-mono text-sm text-muted-foreground">{field.envVarName}</span>
-          <span className="ml-auto text-[10px] text-muted-foreground/40">from env</span>
+          <span className="ml-auto text-xs text-muted-foreground/40">from env</span>
         </div>
       )
 
@@ -317,12 +315,12 @@ function DateTimeField({ value, onChange }: { value: string; onChange: (value: u
         placeholder="Pick a date & time"
       />
       {isPast && (
-        <p className="text-[11px] text-destructive">
+        <p className="text-xs text-destructive">
           Selected time is in the past. Must be at least 1 hour from now.
         </p>
       )}
       {selectedDate && !isPast && (
-        <div className="rounded-lg bg-muted/40 px-2.5 py-2 text-[11px] text-muted-foreground/60">
+        <div className="rounded-lg bg-muted/40 px-2.5 py-2 text-xs text-muted-foreground/60">
           Will resume at {formatDate(selectedDate)}
         </div>
       )}

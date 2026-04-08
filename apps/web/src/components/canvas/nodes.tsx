@@ -27,7 +27,7 @@ export const StepNode = memo(function StepNode({ data, selected }: NodeProps<Flo
     <NodeBase
       label={node.name}
       icon={<Code className="h-2.5 w-2.5" />}
-      accent="bg-blue-500/15 text-blue-400"
+      accent="bg-node-code/15 text-node-code"
       selected={selected}
     />
   )
@@ -40,7 +40,7 @@ export const SleepNode = memo(function SleepNode({ data, selected }: NodeProps<F
     <NodeBase
       label={node.name}
       icon={<Clock className="h-2.5 w-2.5" />}
-      accent="bg-amber-500/15 text-amber-400"
+      accent="bg-node-timing/15 text-node-timing"
       selected={selected}
     >
       {String(node.data.duration ?? '')}
@@ -58,7 +58,7 @@ export const SleepUntilNode = memo(function SleepUntilNode({
     <NodeBase
       label={node.name}
       icon={<CalendarClock className="h-2.5 w-2.5" />}
-      accent="bg-amber-500/15 text-amber-400"
+      accent="bg-node-timing/15 text-node-timing"
       selected={selected}
     >
       {String(node.data.timestamp ?? '')}
@@ -74,7 +74,7 @@ export const BranchNode = memo(function BranchNode({ data, selected }: NodeProps
     <NodeBase
       label={node.name}
       icon={<GitBranch className="h-2.5 w-2.5" />}
-      accent="bg-purple-500/15 text-purple-400"
+      accent="bg-node-flow/15 text-node-flow"
       selected={selected}
     >
       <span className="font-mono">
@@ -91,7 +91,7 @@ export const ParallelNode = memo(function ParallelNode({ data, selected }: NodeP
     <NodeBase
       label={node.name}
       icon={<Layers className="h-2.5 w-2.5" />}
-      accent="bg-teal-500/15 text-teal-400"
+      accent="bg-node-parallel/15 text-node-parallel"
       selected={selected}
     />
   )
@@ -107,7 +107,7 @@ export const HttpRequestNode = memo(function HttpRequestNode({
     <NodeBase
       label={node.name}
       icon={<Globe className="h-2.5 w-2.5" />}
-      accent="bg-green-500/15 text-green-400"
+      accent="bg-node-network/15 text-node-network"
       selected={selected}
     >
       <span className="font-mono">
@@ -127,7 +127,7 @@ export const WaitForEventNode = memo(function WaitForEventNode({
     <NodeBase
       label={node.name}
       icon={<Bell className="h-2.5 w-2.5" />}
-      accent="bg-rose-500/15 text-rose-400"
+      accent="bg-node-event/15 text-node-event"
       selected={selected}
     >
       {String(node.data.eventType ?? '')}
@@ -143,7 +143,7 @@ export const TryCatchNode = memo(function TryCatchNode({ data, selected }: NodeP
     <NodeBase
       label={node.name}
       icon={<ShieldAlert className="h-2.5 w-2.5" />}
-      accent="bg-orange-500/15 text-orange-400"
+      accent="bg-node-error-handling/15 text-node-error-handling"
       selected={selected}
     >
       <span className="font-mono">try / catch</span>
@@ -159,7 +159,7 @@ export const LoopNode = memo(function LoopNode({ data, selected }: NodeProps<Flo
     <NodeBase
       label={node.name}
       icon={<Repeat className="h-2.5 w-2.5" />}
-      accent="bg-cyan-500/15 text-cyan-400"
+      accent="bg-node-loop/15 text-node-loop"
       selected={selected}
     >
       <span className="font-mono">{loopType}</span>
@@ -175,7 +175,7 @@ export const BreakNode = memo(function BreakNode({ data, selected }: NodeProps<F
     <NodeBase
       label={node.name}
       icon={<CircleStop className="h-2.5 w-2.5" />}
-      accent="bg-red-500/15 text-red-400"
+      accent="bg-node-break/15 text-node-break"
       selected={selected}
     >
       {condition ? <span className="font-mono">{condition}</span> : null}
@@ -195,7 +195,7 @@ export const SubWorkflowNode = memo(function SubWorkflowNode({
     <NodeBase
       label={node.name}
       icon={<Workflow className="h-2.5 w-2.5" />}
-      accent="bg-violet-500/15 text-violet-400"
+      accent="bg-node-sub/15 text-node-sub"
       selected={selected}
     >
       {workflowName && (
@@ -215,7 +215,7 @@ export const RaceNode = memo(function RaceNode({ data, selected }: NodeProps<Flo
     <NodeBase
       label={node.name}
       icon={<Zap className="h-2.5 w-2.5" />}
-      accent="bg-yellow-500/15 text-yellow-400"
+      accent="bg-node-race/15 text-node-race"
       selected={selected}
     />
   )

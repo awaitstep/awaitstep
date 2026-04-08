@@ -1,20 +1,20 @@
 const METHOD_COLORS: Record<string, string> = {
-  GET: 'bg-emerald-500/15 text-emerald-400',
-  POST: 'bg-blue-500/15 text-blue-400',
-  PATCH: 'bg-amber-500/15 text-amber-400',
-  DELETE: 'bg-red-500/15 text-red-400',
+  GET: 'bg-status-success/15 text-status-success',
+  POST: 'bg-status-info/15 text-status-info',
+  PATCH: 'bg-status-warning/15 text-status-warning',
+  DELETE: 'bg-status-error/15 text-status-error',
 }
 
 const SCOPE_COLORS: Record<string, string> = {
-  read: 'bg-emerald-500/15 text-emerald-400',
-  write: 'bg-blue-500/15 text-blue-400',
-  deploy: 'bg-purple-500/15 text-purple-400',
+  read: 'bg-status-success/15 text-status-success',
+  write: 'bg-status-info/15 text-status-info',
+  deploy: 'bg-node-flow/15 text-node-flow',
 }
 
 export function MethodBadge({ method }: { method: string }) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[11px] font-bold ${METHOD_COLORS[method] ?? ''}`}
+      className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-xs font-bold ${METHOD_COLORS[method] ?? ''}`}
     >
       {method}
     </span>
@@ -24,7 +24,7 @@ export function MethodBadge({ method }: { method: string }) {
 export function ScopeBadge({ scope }: { scope: string }) {
   return (
     <span
-      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium ${SCOPE_COLORS[scope] ?? ''}`}
+      className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${SCOPE_COLORS[scope] ?? ''}`}
     >
       {scope}
     </span>
@@ -34,10 +34,10 @@ export function ScopeBadge({ scope }: { scope: string }) {
 export function StatusBadge({ status }: { status: number }) {
   const color =
     status < 300
-      ? 'bg-emerald-500/15 text-emerald-400'
+      ? 'bg-status-success/15 text-status-success'
       : status < 500
-        ? 'bg-amber-500/15 text-amber-400'
-        : 'bg-red-500/15 text-red-400'
+        ? 'bg-status-warning/15 text-status-warning'
+        : 'bg-status-error/15 text-status-error'
   return (
     <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-bold ${color}`}>
       {status}

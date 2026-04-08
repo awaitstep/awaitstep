@@ -127,13 +127,13 @@ export function RequestPanel({
             >
               <div className="flex w-32 shrink-0 items-center gap-1.5">
                 <span
-                  className={`rounded px-1 py-0.5 text-[10px] font-medium ${param.in === 'path' ? 'bg-amber-500/10 text-amber-400' : 'bg-blue-500/10 text-blue-400'}`}
+                  className={`rounded px-1 py-0.5 text-xs font-medium ${param.in === 'path' ? 'bg-status-warning/10 text-status-warning' : 'bg-status-info/10 text-status-info'}`}
                 >
                   {param.in}
                 </span>
-                <span className="font-mono text-[11px] text-foreground">
+                <span className="font-mono text-xs text-foreground">
                   {param.name}
-                  {param.required && <span className="text-red-400">*</span>}
+                  {param.required && <span className="text-status-error">*</span>}
                 </span>
               </div>
               <input
@@ -142,7 +142,7 @@ export function RequestPanel({
                 onChange={(e) =>
                   setParamValues((prev) => ({ ...prev, [param.name]: e.target.value }))
                 }
-                className="h-7 min-w-0 flex-1 rounded border border-border bg-card px-2 font-mono text-[11px] text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring"
+                className="h-7 min-w-0 flex-1 rounded border border-border bg-card px-2 font-mono text-xs text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
           ))}

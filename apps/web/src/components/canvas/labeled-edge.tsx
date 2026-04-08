@@ -41,7 +41,7 @@ export const LabeledEdge = memo(function LabeledEdge({
       {label && (
         <EdgeLabelRenderer>
           <div
-            className="nodrag nopan pointer-events-auto absolute rounded bg-card px-1 py-0.5 font-mono text-[8px] leading-none text-muted-foreground border border-border"
+            className="nodrag nopan pointer-events-auto absolute rounded bg-card px-1 py-0.5 font-mono text-[10px] leading-none text-muted-foreground border border-border"
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
               ...(labelColor

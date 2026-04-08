@@ -4,6 +4,8 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../../components/ui/button'
+import { PageHeader } from '../../components/ui/page-header'
+import { HelpTooltip } from '../../components/ui/help-tooltip'
 import { api } from '../../lib/api-client'
 import { queries, flatPages } from '../../lib/queries'
 import { RequireOrg } from '../../wrappers/require-org'
@@ -94,23 +96,25 @@ function EnvVarsContent() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-3 mb-6">
-        <div>
-          <h1 className="text-lg font-semibold">Environment Variables</h1>
-          <p className="text-xs text-muted-foreground">
+      <PageHeader
+        title="Environment Variables"
+        description={
+          <span className="inline-flex items-center gap-1">
             Global secrets and variables available to all workflows
-          </p>
-        </div>
-        <Button
-          size="sm"
-          className="ml-auto"
-          onClick={handleSave}
-          disabled={!isDirty || saving || errors.length > 0}
-        >
-          <Save className="h-3.5 w-3.5" />
-          {saving ? 'Saving...' : 'Save'}
-        </Button>
-      </div>
+            <HelpTooltip
+              title="Environment Variables"
+              description="Prefix variable names with SECRET_ to encrypt their values. Secret values are masked and cannot be read back — replace the value to update. Variables are injected into all workflow deployments."
+            />
+          </span>
+        }
+        breadcrumbs={[{ label: 'Home', href: '/dashboard' }, { label: 'Environment Variables' }]}
+        actions={
+          <Button size="sm" onClick={handleSave} disabled={!isDirty || saving || errors.length > 0}>
+            <Save className="h-3.5 w-3.5" />
+            {saving ? 'Saving...' : 'Save'}
+          </Button>
+        }
+      />
 
       <div className="w-full">
         <div className="relative rounded-md border border-border bg-muted/10 font-mono text-sm">

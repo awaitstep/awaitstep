@@ -105,7 +105,7 @@ export function MarketplaceDialog({ onOpenChange }: MarketplaceDialogProps) {
     <Dialog.Root defaultOpen onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card shadow-2xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 mx-4 w-[calc(100%-2rem)] max-w-4xl -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card shadow-2xl">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <Dialog.Title className="text-sm font-semibold text-foreground">
               Node Marketplace
@@ -142,7 +142,7 @@ export function MarketplaceDialog({ onOpenChange }: MarketplaceDialogProps) {
           </div>
 
           <div className="flex">
-            <div className="w-40 shrink-0 border-r border-border p-2">
+            <div className="hidden w-44 shrink-0 border-r border-border p-2 sm:block">
               <CategoryFilterSidebar
                 categories={populatedCategories}
                 active={activeCategory}
@@ -150,7 +150,7 @@ export function MarketplaceDialog({ onOpenChange }: MarketplaceDialogProps) {
               />
             </div>
 
-            <div className="h-[32rem] flex-1 overflow-y-auto p-3">
+            <div className="h-[32rem] min-w-0 flex-1 overflow-y-auto p-3">
               {isLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -169,12 +169,12 @@ export function MarketplaceDialog({ onOpenChange }: MarketplaceDialogProps) {
                       <div key={superCat}>
                         {!activeCategory && (
                           <div className="mb-2 px-1">
-                            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/50">
+                            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/50">
                               {meta.label}
                             </span>
                           </div>
                         )}
-                        <div className="flex flex-col gap-2">
+                        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                           {groupNodes.map((node) => (
                             <NodeCard
                               key={node.id}

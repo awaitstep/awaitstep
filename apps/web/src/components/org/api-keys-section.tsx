@@ -94,7 +94,7 @@ export function ApiKeysSection() {
         </Button>
       </div>
 
-      <p className="mt-1 text-[10px] text-muted-foreground/60">Keys are scoped to a project.</p>
+      <p className="mt-1 text-xs text-muted-foreground/60">Keys are scoped to a project.</p>
 
       {isLoading ? (
         <div className="mt-3 space-y-1.5">
@@ -104,7 +104,7 @@ export function ApiKeysSection() {
       ) : activeKeys.length === 0 ? (
         <div className="mt-3 rounded-md border border-dashed border-border py-6 text-center">
           <p className="text-xs text-muted-foreground">No API keys yet</p>
-          <p className="mt-0.5 text-[10px] text-muted-foreground/60">
+          <p className="mt-0.5 text-xs text-muted-foreground/60">
             Create a key for programmatic access
           </p>
         </div>
@@ -120,7 +120,7 @@ export function ApiKeysSection() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium">{key.name}</span>
-                    <code className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    <code className="rounded bg-muted/60 px-1.5 py-0.5 text-xs text-muted-foreground">
                       {key.keyPrefix}...
                     </code>
                   </div>
@@ -128,20 +128,20 @@ export function ApiKeysSection() {
                     {scopes.map((s) => (
                       <span
                         key={s}
-                        className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                        className="rounded bg-muted/60 px-1.5 py-0.5 text-xs text-muted-foreground"
                       >
                         {s}
                       </span>
                     ))}
-                    <span className="text-[10px] text-muted-foreground/60">·</span>
-                    <span className="text-[10px] text-muted-foreground/60">
+                    <span className="text-xs text-muted-foreground/60">·</span>
+                    <span className="text-xs text-muted-foreground/60">
                       {key.lastUsedAt ? `Used ${timeAgo(key.lastUsedAt)}` : 'Never used'}
                     </span>
                     {key.expiresAt && (
                       <>
-                        <span className="text-[10px] text-muted-foreground/60">·</span>
+                        <span className="text-xs text-muted-foreground/60">·</span>
                         <span
-                          className={`text-[10px] ${new Date(key.expiresAt) < new Date() ? 'text-status-error' : 'text-muted-foreground/60'}`}
+                          className={`text-xs ${new Date(key.expiresAt) < new Date() ? 'text-status-error' : 'text-muted-foreground/60'}`}
                         >
                           {new Date(key.expiresAt) < new Date()
                             ? 'Expired'
@@ -294,7 +294,7 @@ function CreateKeyDialog({
                     />
                     <div>
                       <span className="text-sm font-medium">{scope.label}</span>
-                      <p className="text-[10px] text-muted-foreground">{scope.description}</p>
+                      <p className="text-xs text-muted-foreground">{scope.description}</p>
                     </div>
                   </label>
                 ))}
@@ -374,7 +374,7 @@ function KeyCreatedDialog({
                   {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                 </Button>
               </div>
-              <p className="mt-2 text-[10px] text-amber-700">
+              <p className="mt-2 text-xs text-status-warning">
                 Store this key securely. You will not be able to see it again.
               </p>
             </div>

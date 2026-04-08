@@ -54,7 +54,7 @@ export function EndpointSidebar({
           <div key={group}>
             <button
               onClick={() => toggleGroup(group)}
-              className="sticky top-0 z-10 flex w-full items-center gap-1.5 border-b border-border bg-card px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:bg-muted/40"
+              className="sticky top-0 z-10 flex w-full items-center gap-1.5 border-b border-border bg-card px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:bg-muted/40"
             >
               {expandedGroups.has(group) ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
               {group}
@@ -71,7 +71,7 @@ export function EndpointSidebar({
                     }`}
                   >
                     <MethodBadge method={endpoint.method} />
-                    <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
+                    <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
                       {endpoint.path.replace('/api', '')}
                     </span>
                   </button>

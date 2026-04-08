@@ -1,7 +1,7 @@
 import { useMemo, useCallback, lazy, Suspense, useState, useEffect, useRef } from 'react'
 import { generateWorkflow, DEFAULT_TRIGGER_CODE } from '@awaitstep/provider-cloudflare/codegen'
 import type { TemplateResolver } from '@awaitstep/codegen'
-import { Copy, Check, RotateCcw } from 'lucide-react'
+import { Copy, Check, RotateCcw, ChevronDown, ChevronRight } from 'lucide-react'
 import { Button } from '../ui/button'
 import { useOrgStore } from '../../stores/org-store'
 import { useWorkflowStore } from '../../stores/workflow-store'
@@ -11,7 +11,7 @@ import { cn, copyToClipboard } from '../../lib/utils'
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
-type Tab = 'entry' | 'dependencies' | 'output'
+type Tab = 'code' | 'preview'
 type OutputMode = 'typescript' | 'ir-json'
 
 export function EditorPanel() {
@@ -26,10 +26,11 @@ export function EditorPanel() {
   )
   const { setTriggerCode, setDependencies } = useWorkflowStore()
 
-  const [tab, setTab] = useState<Tab>('output')
+  const [tab, setTab] = useState<Tab>('preview')
   const [outputMode, setOutputMode] = useState<OutputMode>('typescript')
   const [mounted, setMounted] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [packagesOpen, setPackagesOpen] = useState(false)
   const templatesRef = useRef<Record<string, Record<string, string>>>({})
   const [templatesLoaded, setTemplatesLoaded] = useState(false)
   const organizationId = useOrgStore((s) => s.activeOrganizationId)
@@ -80,22 +81,22 @@ export function EditorPanel() {
 
   const handleCopy = useCallback(async () => {
     const text =
-      tab === 'output'
+      tab === 'preview'
         ? outputMode === 'typescript'
           ? generatedCode
           : irJson
-        : tab === 'entry'
-          ? triggerCode || DEFAULT_TRIGGER_CODE
-          : JSON.stringify(dependencies, null, 2)
+        : triggerCode || DEFAULT_TRIGGER_CODE
     await copyToClipboard(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }, [tab, outputMode, generatedCode, irJson, triggerCode, dependencies])
+  }, [tab, outputMode, generatedCode, irJson, triggerCode])
 
   const depsJson = useMemo(() => {
     if (Object.keys(dependencies).length === 0) return '{\n  \n}'
     return JSON.stringify(dependencies, null, 2)
   }, [dependencies])
+
+  const depsCount = Object.keys(dependencies).length
 
   const handleDepsChange = useCallback(
     (value: string) => {
@@ -114,9 +115,8 @@ export function EditorPanel() {
   const isCustomEntry = triggerCode && triggerCode !== ''
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'entry', label: 'Entry' },
-    { id: 'dependencies', label: 'Packages' },
-    { id: 'output', label: 'Output' },
+    { id: 'code', label: 'Code' },
+    { id: 'preview', label: 'Preview' },
   ]
 
   return (
@@ -130,7 +130,7 @@ export function EditorPanel() {
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 className={cn(
-                  'rounded-md px-2.5 py-1 text-[10px] font-medium transition-colors',
+                  'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
                   tab === t.id
                     ? 'bg-muted/70 text-foreground/60'
                     : 'text-muted-foreground/60 hover:text-muted-foreground',
@@ -143,13 +143,13 @@ export function EditorPanel() {
         </div>
 
         <div className="flex items-center gap-1.5">
-          {/* Output sub-tabs */}
-          {tab === 'output' && (
+          {/* Preview sub-tabs */}
+          {tab === 'preview' && (
             <div className="flex rounded-md bg-muted/50">
               <button
                 onClick={() => setOutputMode('typescript')}
                 className={cn(
-                  'rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors',
+                  'rounded-md px-2 py-0.5 text-xs font-medium transition-colors',
                   outputMode === 'typescript'
                     ? 'bg-muted/70 text-foreground/60'
                     : 'text-muted-foreground/60 hover:text-muted-foreground',
@@ -160,7 +160,7 @@ export function EditorPanel() {
               <button
                 onClick={() => setOutputMode('ir-json')}
                 className={cn(
-                  'rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors',
+                  'rounded-md px-2 py-0.5 text-xs font-medium transition-colors',
                   outputMode === 'ir-json'
                     ? 'bg-muted/70 text-foreground/60'
                     : 'text-muted-foreground/60 hover:text-muted-foreground',
@@ -172,11 +172,11 @@ export function EditorPanel() {
           )}
 
           {/* Entry reset button */}
-          {tab === 'entry' && isCustomEntry && (
+          {tab === 'code' && isCustomEntry && (
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 gap-1 px-2 text-[10px] text-muted-foreground"
+              className="h-6 gap-1 px-2 text-xs text-muted-foreground"
               onClick={() => setTriggerCode('')}
             >
               <RotateCcw className="h-3 w-3" /> Reset
@@ -198,55 +198,82 @@ export function EditorPanel() {
         </div>
       </div>
 
-      {/* Tab hint */}
-      {tab === 'entry' && (
-        <div className="border-b border-border px-4 py-2">
-          <p className="text-[10px] leading-relaxed text-muted-foreground/40">
-            Code inside the{' '}
-            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">fetch()</code>{' '}
-            handler. Has access to{' '}
-            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">request</code>,{' '}
-            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">env</code>, and{' '}
-            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">ctx</code>.
-          </p>
-        </div>
-      )}
-      {tab === 'dependencies' && (
-        <div className="border-b border-border px-4 py-2">
-          <p className="text-[10px] leading-relaxed text-muted-foreground/40">
-            NPM packages installed at deploy time. Edit the JSON array below — each entry needs{' '}
-            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">name</code> and{' '}
-            <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px]">version</code>.
-          </p>
+      {/* Code tab: packages + entry editor */}
+      {tab === 'code' && (
+        <div className="flex flex-1 flex-col overflow-hidden">
+          {/* Collapsible packages section */}
+          <div className="border-b border-border">
+            <button
+              onClick={() => setPackagesOpen(!packagesOpen)}
+              className="flex w-full items-center gap-2 px-4 py-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {packagesOpen ? (
+                <ChevronDown className="h-3 w-3" />
+              ) : (
+                <ChevronRight className="h-3 w-3" />
+              )}
+              Packages
+              {depsCount > 0 && (
+                <span className="rounded bg-muted/60 px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground/60">
+                  {depsCount}
+                </span>
+              )}
+            </button>
+            {packagesOpen && (
+              <div className="border-t border-border">
+                <div className="h-[120px]">
+                  <EditableEditor
+                    mounted={mounted}
+                    value={depsJson}
+                    onChange={handleDepsChange}
+                    language="json"
+                  />
+                </div>
+                <div className="px-4 py-1.5">
+                  <p className="text-xs text-muted-foreground/40">
+                    NPM packages installed at deploy time. Format:{' '}
+                    <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">
+                      {'"package": "version"'}
+                    </code>
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Entry code hint */}
+          <div className="border-b border-border px-4 py-2">
+            <p className="text-xs leading-relaxed text-muted-foreground/40">
+              Code for the{' '}
+              <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">fetch()</code>{' '}
+              handler. Write{' '}
+              <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">import</code>{' '}
+              statements at the top — they are hoisted automatically.
+            </p>
+          </div>
+
+          {/* Entry code editor */}
+          <div className="flex-1">
+            <EditableEditor
+              mounted={mounted}
+              value={triggerCode || DEFAULT_TRIGGER_CODE}
+              onChange={setTriggerCode}
+              language="typescript"
+            />
+          </div>
         </div>
       )}
 
-      {/* Editor */}
-      <div className="flex-1">
-        {tab === 'output' && (
+      {/* Preview tab */}
+      {tab === 'preview' && (
+        <div className="flex-1">
           <OutputEditor
             mounted={mounted}
             code={outputMode === 'typescript' ? generatedCode : irJson}
             language={outputMode === 'ir-json' ? 'json' : 'typescript'}
           />
-        )}
-        {tab === 'entry' && (
-          <EditableEditor
-            mounted={mounted}
-            value={triggerCode || DEFAULT_TRIGGER_CODE}
-            onChange={setTriggerCode}
-            language="typescript"
-          />
-        )}
-        {tab === 'dependencies' && (
-          <EditableEditor
-            mounted={mounted}
-            value={depsJson}
-            onChange={handleDepsChange}
-            language="json"
-          />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -261,13 +288,11 @@ function OutputEditor({
   language: string
 }) {
   if (!mounted) {
-    return <pre className="p-4 text-[12px] leading-[1.7] text-foreground/70">{code}</pre>
+    return <pre className="p-4 text-xs leading-[1.7] text-foreground/70">{code}</pre>
   }
 
   return (
-    <Suspense
-      fallback={<pre className="p-4 text-[12px] leading-[1.7] text-foreground/70">{code}</pre>}
-    >
+    <Suspense fallback={<pre className="p-4 text-xs leading-[1.7] text-foreground/70">{code}</pre>}>
       <MonacoEditor
         height="100%"
         language={language}

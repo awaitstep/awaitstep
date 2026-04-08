@@ -14,9 +14,9 @@ interface NodeBaseProps {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  complete: 'border-emerald-500/60 shadow-[0_0_6px_rgba(16,185,129,0.2)]',
-  running: 'border-blue-500/60 shadow-[0_0_6px_rgba(59,130,246,0.2)] animate-pulse',
-  errored: 'border-red-500/60 shadow-[0_0_6px_rgba(239,68,68,0.2)]',
+  complete: 'border-status-success/60 shadow-[0_0_6px_oklch(0.72_0.14_155/0.2)]',
+  running: 'border-status-info/60 shadow-[0_0_6px_oklch(0.7_0.1_230/0.2)] animate-pulse',
+  errored: 'border-status-error/60 shadow-[0_0_6px_oklch(0.68_0.17_22/0.2)]',
   pending: 'border-border opacity-60',
   skipped: 'border-border/50 opacity-30',
 }
@@ -52,9 +52,9 @@ export function NodeBase({ label, icon, accent, selected, warning, children }: N
         <div
           className={cn(
             'absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-card',
-            stepStatus === 'complete' && 'bg-emerald-500',
-            stepStatus === 'running' && 'bg-blue-500 animate-pulse',
-            stepStatus === 'errored' && 'bg-red-500',
+            stepStatus === 'complete' && 'bg-status-success',
+            stepStatus === 'running' && 'bg-status-info animate-pulse',
+            stepStatus === 'errored' && 'bg-status-error',
           )}
         />
       )}

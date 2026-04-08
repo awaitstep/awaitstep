@@ -133,7 +133,7 @@ export function TriggerDialog({
               <div className="mb-1 flex items-center justify-between">
                 <label className="text-xs text-muted-foreground">Trigger Payload (JSON)</label>
                 {jsonError && (
-                  <span className="flex items-center gap-1 text-[10px] text-status-error">
+                  <span className="flex items-center gap-1 text-xs text-status-error">
                     <AlertCircle className="h-3 w-3" />
                     {jsonError}
                   </span>
@@ -154,7 +154,7 @@ export function TriggerDialog({
                   <label className="text-xs text-muted-foreground">Curl Command</label>
                   <button
                     onClick={handleCopyCurl}
-                    className="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground"
+                    className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground"
                   >
                     {curlCopied ? (
                       <Check className="h-3 w-3 text-status-success" />
@@ -164,7 +164,7 @@ export function TriggerDialog({
                     {curlCopied ? 'Copied' : 'Copy'}
                   </button>
                 </div>
-                <pre className="overflow-x-auto rounded-lg border border-border bg-muted/30 p-2.5 text-[11px] text-muted-foreground">
+                <pre className="overflow-x-auto rounded-lg border border-border bg-muted/30 p-2.5 text-xs text-muted-foreground">
                   {`curl -X POST https://${deploymentId}.workers.dev`}
                 </pre>
               </div>

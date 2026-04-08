@@ -2,6 +2,8 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '../../components/ui/button'
+import { PageHeader } from '../../components/ui/page-header'
+import { HelpTooltip } from '../../components/ui/help-tooltip'
 import { ConnectionsList } from '../../components/connections/connections-list'
 import { AddConnectionDialog } from '../../components/connections/add-connection-dialog'
 import { EditConnectionDialog } from '../../components/connections/edit-connection-dialog'
@@ -30,13 +32,25 @@ function ConnectionsContent() {
 
   return (
     <div>
-      <div className="flex items-center justify-between border-b border-border pb-4">
-        <h1 className="text-lg font-semibold">Connections</h1>
-        <Button size="sm" className="gap-1.5" onClick={() => setDialogOpen(true)}>
-          <Plus className="h-4 w-4" />
-          Add Connection
-        </Button>
-      </div>
+      <PageHeader
+        title="Connections"
+        description={
+          <span className="inline-flex items-center gap-1">
+            Deployment provider accounts
+            <HelpTooltip
+              title="Connections"
+              description="Connections link your AwaitStep workspace to a deployment provider (e.g. Cloudflare). Each connection stores API credentials used to deploy and manage workflows on that provider."
+            />
+          </span>
+        }
+        breadcrumbs={[{ label: 'Home', href: '/dashboard' }, { label: 'Connections' }]}
+        actions={
+          <Button size="sm" className="gap-1.5" onClick={() => setDialogOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Add Connection
+          </Button>
+        }
+      />
 
       <div>
         <ConnectionsList onEdit={setEditTarget} />

@@ -93,7 +93,7 @@ export function VersionList({
                   <Hash className="h-3 w-3 text-muted-foreground/40" />v{v.version}
                   {isLocked && <Lock className="h-3 w-3 text-muted-foreground/60" />}
                   {isActive && (
-                    <span className="rounded bg-status-success/10 px-1.5 py-0.5 text-[10px] font-medium text-status-success">
+                    <span className="rounded bg-status-success/10 px-1.5 py-0.5 text-xs font-medium text-status-success">
                       deployed
                     </span>
                   )}
@@ -151,7 +151,7 @@ export function VersionList({
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
-                            className="text-red-400 hover:text-red-300 focus:text-red-300"
+                            className="text-destructive hover:text-destructive/80 focus:text-destructive/80"
                             onSelect={() => deleteVersionMutation.mutate(v.id)}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
