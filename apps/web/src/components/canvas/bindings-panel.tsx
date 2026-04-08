@@ -1,5 +1,18 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, ChevronRight, Database, HardDrive, Archive, Radio } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronRight,
+  Database,
+  HardDrive,
+  Archive,
+  Radio,
+  Brain,
+  Search,
+  BarChart3,
+  Zap,
+  Globe,
+  Link,
+} from 'lucide-react'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import {
   detectBindingsFromNodes,
@@ -13,6 +26,12 @@ const BINDING_META: Record<ClientBindingType, { label: string; icon: typeof Data
   d1: { label: 'D1', icon: Database },
   r2: { label: 'R2', icon: Archive },
   queue: { label: 'Queue', icon: Radio },
+  ai: { label: 'AI', icon: Brain },
+  vectorize: { label: 'Vectorize', icon: Search },
+  analytics_engine: { label: 'Analytics', icon: BarChart3 },
+  hyperdrive: { label: 'Hyperdrive', icon: Zap },
+  browser: { label: 'Browser', icon: Globe },
+  service: { label: 'Service', icon: Link },
 }
 
 export function BindingsPanel() {
