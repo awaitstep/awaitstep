@@ -49,14 +49,14 @@ export function ResponsePanel({ response }: { response: ResponseData }) {
       <div className="flex shrink-0 items-center gap-3">
         <StatusBadge status={response.status} />
         <span className="text-xs text-muted-foreground">{response.statusText}</span>
-        <span className="text-[11px] text-muted-foreground/60">{response.time}ms</span>
+        <span className="text-xs text-muted-foreground/60">{response.time}ms</span>
       </div>
 
       {/* Headers */}
       <div className="shrink-0 overflow-hidden rounded-md border border-border">
         <button
           onClick={() => setHeadersExpanded((v) => !v)}
-          className="flex w-full items-center gap-1 border-b border-border bg-muted/30 px-3 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+          className="flex w-full items-center gap-1 border-b border-border bg-muted/30 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
         >
           {headersExpanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
           Response Headers ({response.headers.length})
@@ -79,7 +79,7 @@ export function ResponsePanel({ response }: { response: ResponseData }) {
       {/* Body */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border">
         <div className="flex shrink-0 items-center border-b border-border bg-muted/30 px-3 py-1.5">
-          <span className="text-[11px] font-medium text-muted-foreground">Response Body</span>
+          <span className="text-xs font-medium text-muted-foreground">Response Body</span>
         </div>
         <div className="min-h-0 flex-1">
           <Suspense

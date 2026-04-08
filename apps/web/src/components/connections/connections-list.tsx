@@ -10,6 +10,8 @@ import { useShallow } from 'zustand/react/shallow'
 import { LoadingView } from '../ui/loading-view'
 import { LoadMoreButton } from '../ui/load-more-button'
 import { ListSkeleton } from '../ui/skeletons'
+import { EmptyState } from '../ui/empty-state'
+import { Cable } from 'lucide-react'
 
 export function ConnectionsList({
   onEdit,
@@ -44,8 +46,12 @@ export function ConnectionsList({
     <>
       <LoadingView isLoading={isLoading} LoadingPlaceholder={ListSkeleton}>
         {connections.length === 0 ? (
-          <div className="mt-6 rounded-md border border-border px-4 py-8 text-center text-sm text-muted-foreground">
-            No connections yet.
+          <div className="mt-6">
+            <EmptyState
+              icon={Cable}
+              title="No connections"
+              description="Connect a deployment provider to start deploying your workflows."
+            />
           </div>
         ) : (
           <div className="mt-6 space-y-2">

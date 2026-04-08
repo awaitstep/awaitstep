@@ -44,7 +44,9 @@ export function ConfirmDialog({
                 size="sm"
                 variant={variant === 'destructive' ? 'destructive' : 'default'}
                 className={
-                  variant === 'warning' ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''
+                  variant === 'warning'
+                    ? 'bg-status-warning hover:bg-status-warning/80 text-white'
+                    : ''
                 }
                 disabled={loading}
                 onClick={(e) => {

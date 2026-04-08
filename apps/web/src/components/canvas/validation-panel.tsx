@@ -44,21 +44,21 @@ export function ValidationPanel() {
       {/* Header */}
       <div className="flex h-9 shrink-0 items-center justify-between border-b border-border px-3">
         <div className="flex items-center gap-2">
-          <span className="text-[12px] font-medium text-foreground/60">Publish Check</span>
+          <span className="text-xs font-medium text-foreground/60">Publish Check</span>
           {errors.length > 0 && (
-            <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-status-error">
+            <span className="flex items-center gap-1 rounded-full bg-status-error/10 px-1.5 py-0.5 text-xs font-medium text-status-error">
               <AlertCircle className="h-3 w-3" />
               {errors.length}
             </span>
           )}
           {warnings.length > 0 && (
-            <span className="flex items-center gap-1 rounded-full bg-yellow-500/10 px-1.5 py-0.5 text-[10px] font-medium text-yellow-400">
+            <span className="flex items-center gap-1 rounded-full bg-status-warning/10 px-1.5 py-0.5 text-xs font-medium text-status-warning">
               <AlertTriangle className="h-3 w-3" />
               {warnings.length}
             </span>
           )}
           {validationResult.canPublish && errors.length === 0 && (
-            <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-status-success">
+            <span className="flex items-center gap-1 rounded-full bg-status-success/10 px-1.5 py-0.5 text-xs font-medium text-status-success">
               <CheckCircle2 className="h-3 w-3" />
               Ready to deploy
             </span>
@@ -75,7 +75,7 @@ export function ValidationPanel() {
       {/* Issues list */}
       <div className="flex-1 overflow-y-auto">
         {sortedIssues.length === 0 ? (
-          <div className="flex items-center gap-2 px-3 py-3 text-[12px] text-status-success/80">
+          <div className="flex items-center gap-2 px-3 py-3 text-xs text-status-success/80">
             <CheckCircle2 className="h-3.5 w-3.5" />
             No issues found. Workflow is ready to deploy.
           </div>
@@ -88,25 +88,27 @@ export function ValidationPanel() {
                 onClick={() => handleClickIssue(issue)}
                 disabled={!issue.nodeId}
                 className={cn(
-                  'flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] transition-colors',
+                  'flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors',
                   issue.nodeId ? 'cursor-pointer hover:bg-muted/50' : 'cursor-default',
                 )}
               >
                 {issue.severity === 'error' ? (
                   <AlertCircle className="h-3.5 w-3.5 shrink-0 text-status-error" />
                 ) : (
-                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-yellow-400" />
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-status-warning" />
                 )}
                 {issue.nodeName && (
                   <span className="shrink-0 text-muted-foreground">{issue.nodeName}</span>
                 )}
                 {nodeType && (
-                  <span className="shrink-0 rounded bg-muted/60 px-1 py-0.5 text-[10px] text-muted-foreground/60">
+                  <span className="shrink-0 rounded bg-muted/60 px-1 py-0.5 text-xs text-muted-foreground/60">
                     {NODE_TYPE_LABELS[nodeType] ?? nodeType}
                   </span>
                 )}
                 <span
-                  className={issue.severity === 'error' ? 'text-red-300/80' : 'text-yellow-300/80'}
+                  className={
+                    issue.severity === 'error' ? 'text-status-error/80' : 'text-status-warning/80'
+                  }
                 >
                   {issue.message}
                 </span>

@@ -55,7 +55,7 @@ export function DataPrivacySection() {
       <div className="mt-3 flex items-center justify-between">
         <div>
           <p className="text-xs font-medium">Export your data</p>
-          <p className="text-[10px] text-muted-foreground">Download account data as JSON</p>
+          <p className="text-xs text-muted-foreground">Download account data as JSON</p>
         </div>
         <Button
           variant="outline"
@@ -75,11 +75,11 @@ export function DataPrivacySection() {
 
       <div className="my-3 h-px bg-border" />
 
-      <div className="rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2.5">
+      <div className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2.5">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-status-error">Danger Zone</p>
-            <p className="text-[10px] text-muted-foreground">Permanently delete your account</p>
+            <p className="text-xs text-muted-foreground">Permanently delete your account</p>
           </div>
           <Button
             variant="destructive"

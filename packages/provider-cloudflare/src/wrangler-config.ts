@@ -59,6 +59,11 @@ export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
     const r2Bindings: unknown[] = []
     const queueProducers: unknown[] = []
     const serviceBindings: unknown[] = []
+    const vectorizeBindings: unknown[] = []
+    const analyticsEngineBindings: unknown[] = []
+    const hyperdriveBindings: unknown[] = []
+    let aiBinding: unknown | null = null
+    let browserBinding: unknown | null = null
 
     for (const b of config.bindings) {
       switch (b.type) {
@@ -93,6 +98,34 @@ export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
         case 'service':
           serviceBindings.push({ binding: b.name, service: b.resourceId ?? b.name.toLowerCase() })
           break
+        case 'ai':
+          aiBinding = { binding: b.name }
+          break
+        case 'vectorize':
+          vectorizeBindings.push({
+            binding: b.name,
+            index_name: b.resourceId ?? b.name.toLowerCase(),
+          })
+          break
+        case 'analytics_engine':
+          analyticsEngineBindings.push({ binding: b.name })
+          break
+        case 'hyperdrive':
+          if (config.localDev) {
+            hyperdriveBindings.push({
+              binding: b.name,
+              id: `local-${b.name.toLowerCase()}`,
+            })
+          } else {
+            hyperdriveBindings.push({
+              binding: b.name,
+              id: b.resourceId!,
+            })
+          }
+          break
+        case 'browser':
+          browserBinding = { binding: b.name }
+          break
       }
     }
 
@@ -101,6 +134,12 @@ export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
     if (r2Bindings.length > 0) wranglerConfig.r2_buckets = r2Bindings
     if (queueProducers.length > 0) wranglerConfig.queues = { producers: queueProducers }
     if (serviceBindings.length > 0) wranglerConfig.services = serviceBindings
+    if (aiBinding) wranglerConfig.ai = aiBinding
+    if (vectorizeBindings.length > 0) wranglerConfig.vectorize = vectorizeBindings
+    if (analyticsEngineBindings.length > 0)
+      wranglerConfig.analytics_engine_datasets = analyticsEngineBindings
+    if (hyperdriveBindings.length > 0) wranglerConfig.hyperdrive = hyperdriveBindings
+    if (browserBinding) wranglerConfig.browser = browserBinding
   }
 
   return JSON.stringify(wranglerConfig, null, 2)

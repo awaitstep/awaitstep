@@ -30,7 +30,7 @@ function makeIR(parallelTargets: WorkflowNode[]): WorkflowIR {
 }
 
 describe('generateParallel', () => {
-  it('generates Promise.all with branches', () => {
+  it('generates Promise.allSettled with branches', () => {
     const ir = makeIR([
       {
         id: 'a',
@@ -53,7 +53,7 @@ describe('generateParallel', () => {
     ])
     const node = ir.nodes[0]!
     const code = generateParallel(node, ir, generateNodeCode)
-    expect(code).toContain('Promise.all')
+    expect(code).toContain('Promise.allSettled')
     expect(code).toContain('Task A')
     expect(code).toContain('Task B')
     expect(code).toContain('async () => {')
@@ -73,7 +73,7 @@ describe('generateParallel', () => {
     ])
     const node = ir.nodes[0]!
     const code = generateParallel(node, ir, generateNodeCode)
-    expect(code).toContain('Promise.all')
+    expect(code).toContain('Promise.allSettled')
     expect(code).toContain('Only task')
   })
 
@@ -99,7 +99,7 @@ describe('generateParallel', () => {
     expect(code).toBe('// parallel: no branches')
   })
 
-  it('wraps Promise.all in step.do for durable caching', () => {
+  it('wraps Promise.allSettled in step.do for durable caching', () => {
     const ir = makeIR([
       {
         id: 'a',
@@ -114,6 +114,6 @@ describe('generateParallel', () => {
     const node = ir.nodes[0]!
     const code = generateParallel(node, ir, generateNodeCode)
     expect(code).toContain('await step.do("Run in parallel"')
-    expect(code).toContain('return await Promise.all')
+    expect(code).toContain('return await Promise.allSettled')
   })
 })

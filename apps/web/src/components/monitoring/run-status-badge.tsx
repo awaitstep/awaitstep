@@ -7,7 +7,7 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   complete: { label: 'Complete', className: 'bg-status-success/10 text-status-success' },
   errored: { label: 'Errored', className: 'bg-status-error/10 text-status-error' },
   terminated: { label: 'Terminated', className: 'bg-status-error/10 text-status-error/80' },
-  waiting: { label: 'Waiting', className: 'bg-purple-500/10 text-purple-500 dark:text-purple-400' },
+  waiting: { label: 'Waiting', className: 'bg-status-info/10 text-status-info' },
   unknown: { label: 'Unknown', className: 'bg-muted/50 text-muted-foreground' },
 }
 
@@ -21,7 +21,7 @@ export function RunStatusBadge({ status, className }: RunStatusBadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded px-2 py-0.5 text-[10px] font-medium',
+        'inline-flex items-center rounded px-2 py-0.5 text-xs font-medium',
         config.className,
         className,
       )}

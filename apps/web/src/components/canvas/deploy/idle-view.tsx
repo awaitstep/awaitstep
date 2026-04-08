@@ -103,11 +103,9 @@ export function IdleView({
                   ) : (
                     <XCircle className="h-3 w-3 text-status-error" />
                   )}
-                  <span className="font-mono text-[11px] text-muted-foreground">
-                    {d.serviceName}
-                  </span>
+                  <span className="font-mono text-xs text-muted-foreground">{d.serviceName}</span>
                 </div>
-                <span className="text-[10px] text-muted-foreground/60">
+                <span className="text-xs text-muted-foreground/60">
                   {formatShortDate(d.createdAt)}
                 </span>
               </div>
@@ -142,8 +140,8 @@ function ToggleRow({
   return (
     <div className="flex items-center justify-between gap-3">
       <div>
-        <span className="text-[12px] text-foreground">{label}</span>
-        <p className="text-[10px] text-muted-foreground/60">{description}</p>
+        <span className="text-xs text-foreground">{label}</span>
+        <p className="text-xs text-muted-foreground/60">{description}</p>
       </div>
       <button
         type="button"

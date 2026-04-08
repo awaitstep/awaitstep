@@ -64,7 +64,7 @@ function PathSection({
     <div className="border-b border-border/50 last:border-b-0">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] transition-colors hover:bg-muted/50"
+        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-muted/50"
       >
         {expanded ? (
           <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground/60" />
@@ -73,11 +73,11 @@ function PathSection({
         )}
         <span className="min-w-0 flex-1 truncate text-foreground/70">{path.label}</span>
         {path.completed ? (
-          <span className="shrink-0 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-status-success">
+          <span className="shrink-0 rounded bg-status-success/10 px-1.5 py-0.5 text-xs font-medium text-status-success">
             complete
           </span>
         ) : (
-          <span className="shrink-0 rounded bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-status-error">
+          <span className="shrink-0 rounded bg-status-error/10 px-1.5 py-0.5 text-xs font-medium text-status-error">
             incomplete
           </span>
         )}
@@ -88,11 +88,11 @@ function PathSection({
             <button
               key={`${path.id}-${step.index}`}
               onClick={() => onHighlight(step.nodeId)}
-              className="flex w-full items-center gap-2 px-6 py-1 text-left text-[11px] transition-colors hover:bg-muted/50"
+              className="flex w-full items-center gap-2 px-6 py-1 text-left text-xs transition-colors hover:bg-muted/50"
             >
               <span className="w-4 shrink-0 text-right text-muted-foreground/40">{step.index}</span>
               <span className="shrink-0 text-foreground/60">{step.nodeName}</span>
-              <span className="shrink-0 rounded bg-muted/60 px-1 py-0.5 text-[10px] text-muted-foreground/60">
+              <span className="shrink-0 rounded bg-muted/60 px-1 py-0.5 text-xs text-muted-foreground/60">
                 {NODE_TYPE_LABELS[step.nodeType] ?? step.nodeType}
               </span>
               <span
@@ -126,18 +126,18 @@ export function SimulationPanel() {
       {/* Header */}
       <div className="flex h-9 shrink-0 items-center justify-between border-b border-border px-3">
         <div className="flex items-center gap-2">
-          <span className="text-[12px] font-medium text-foreground/60">Simulation</span>
-          <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-status-success">
+          <span className="text-xs font-medium text-foreground/60">Simulation</span>
+          <span className="flex items-center gap-1 rounded-full bg-status-success/10 px-1.5 py-0.5 text-xs font-medium text-status-success">
             {paths.length} path{paths.length !== 1 ? 's' : ''}
           </span>
           {issues.length > 0 && (
-            <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-status-error">
+            <span className="flex items-center gap-1 rounded-full bg-status-error/10 px-1.5 py-0.5 text-xs font-medium text-status-error">
               <AlertCircle className="h-3 w-3" />
               {issues.length}
             </span>
           )}
           {allComplete && (
-            <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-status-success">
+            <span className="flex items-center gap-1 rounded-full bg-status-success/10 px-1.5 py-0.5 text-xs font-medium text-status-success">
               <CheckCircle2 className="h-3 w-3" />
               All {paths.length} paths complete
             </span>
@@ -165,7 +165,7 @@ export function SimulationPanel() {
                 onClick={() => issue.nodeId && highlightNode(issue.nodeId)}
                 disabled={!issue.nodeId}
                 className={cn(
-                  'flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] transition-colors',
+                  'flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors',
                   issue.nodeId ? 'cursor-pointer hover:bg-muted/50' : 'cursor-default',
                 )}
               >
@@ -173,7 +173,7 @@ export function SimulationPanel() {
                 {issue.nodeName && (
                   <span className="shrink-0 text-muted-foreground">{issue.nodeName}</span>
                 )}
-                <span className="text-red-300/80">{issue.message}</span>
+                <span className="text-status-error/80">{issue.message}</span>
               </button>
             ))}
           </div>

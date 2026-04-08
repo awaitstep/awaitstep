@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import type { WorkflowNode, Edge as IREdge } from '@awaitstep/ir'
 import { validateWorkflowForPublish } from '../../../lib/validate-workflow'
-import { Pencil, Rocket, Clock } from 'lucide-react'
+import { Pencil, Rocket, GitBranch, Activity, Globe } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { api } from '../../../lib/api-client'
 import { queries, flatPages } from '../../../lib/queries'
@@ -16,7 +16,7 @@ import { DeployDialog } from '../../../components/canvas/deploy-dialog'
 import { EditableName, EditableDescription } from '../../../components/overview/editable-field'
 import { VersionList } from '../../../components/overview/version-list'
 import { RecentRuns } from '../../../components/overview/recent-runs'
-import { DeploymentCard, DeployStatusBadge } from '../../../components/overview/deployment-card'
+import { DeployStatusBadge } from '../../../components/overview/deployment-card'
 import { LoadingView } from '../../../components/ui/loading-view'
 import { DetailSkeleton } from '../../../components/ui/skeletons'
 
@@ -155,40 +155,81 @@ function WorkflowOverviewPage() {
             </div>
           </div>
 
-          {/* Info row */}
-          <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <Clock className="h-3.5 w-3.5" />
-              Created {timeAgo(workflow.createdAt)}
-            </span>
-            <span>Updated {timeAgo(workflow.updatedAt)}</span>
-            {currentVersion > 0 && (
-              <span className="rounded bg-muted/60 px-1.5 py-0.5 font-medium text-muted-foreground">
-                v{currentVersion}
-              </span>
-            )}
-            <DeployStatusBadge
-              hasActiveDeployment={hasActiveDeployment}
-              hasUndeployedChanges={!!hasUndeployedChanges}
-              deployedVersion={deployedVersion?.version}
-            />
+          {/* Status strip */}
+          <div className="mt-6 grid grid-cols-3 gap-3">
+            <div className="rounded-lg border border-border bg-card px-4 py-3">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <GitBranch className="h-3.5 w-3.5" />
+                Version
+              </div>
+              <p className="mt-1 text-lg font-semibold text-foreground">
+                {currentVersion > 0 ? `v${currentVersion}` : '—'}
+              </p>
+              <p className="text-xs text-muted-foreground/60">
+                Updated {timeAgo(workflow.updatedAt)}
+              </p>
+            </div>
+            <div className="rounded-lg border border-border bg-card px-4 py-3">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Globe className="h-3.5 w-3.5" />
+                Deployment
+              </div>
+              <div className="mt-1">
+                {hasActiveDeployment ? (
+                  <>
+                    <DeployStatusBadge
+                      hasActiveDeployment={hasActiveDeployment}
+                      hasUndeployedChanges={!!hasUndeployedChanges}
+                      deployedVersion={deployedVersion?.version}
+                    />
+                    {latestDeployment?.serviceUrl && (
+                      <a
+                        href={latestDeployment.serviceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1.5 flex items-center gap-1 text-xs text-primary hover:underline"
+                      >
+                        {latestDeployment.serviceUrl.replace(/^https?:\/\//, '')}
+                      </a>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground/60">Not deployed</p>
+                )}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border bg-card px-4 py-3">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Activity className="h-3.5 w-3.5" />
+                Runs
+              </div>
+              <p className="mt-1 text-lg font-semibold text-foreground">
+                {workflowRuns.length > 0 ? workflowRuns.length : '—'}
+              </p>
+              <p className="text-xs text-muted-foreground/60">
+                Created {timeAgo(workflow.createdAt)}
+              </p>
+            </div>
           </div>
 
-          <div className="mt-8 grid gap-6 lg:grid-cols-2">
-            <VersionList
-              workflowId={workflowId}
-              workflow={workflow}
-              versions={versions ?? []}
-              activeDeployment={activeDeployment}
-              deployBlocked={deployBlocked}
-              hasMore={!!versionsHasMore}
-              loadingMore={versionsLoadingMore}
-              onLoadMore={() => versionsFetchNext()}
-            />
-            <RecentRuns workflowId={workflowId} runs={workflowRuns} />
+          {/* Recent Runs + Versions side by side */}
+          <div className="mt-6 grid gap-6 lg:grid-cols-5">
+            <div className="lg:col-span-3">
+              <VersionList
+                workflowId={workflowId}
+                workflow={workflow}
+                versions={versions ?? []}
+                activeDeployment={activeDeployment}
+                deployBlocked={deployBlocked}
+                hasMore={!!versionsHasMore}
+                loadingMore={versionsLoadingMore}
+                onLoadMore={() => versionsFetchNext()}
+              />
+            </div>
+            <div className="lg:col-span-2">
+              <RecentRuns workflowId={workflowId} runs={workflowRuns} />
+            </div>
           </div>
-
-          {latestDeployment && <DeploymentCard deployment={latestDeployment} />}
 
           {deployOpen && (
             <DeployDialog onClose={() => setDeployOpen(false)} workflowId={workflowId} />

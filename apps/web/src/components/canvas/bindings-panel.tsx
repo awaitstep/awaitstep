@@ -1,5 +1,18 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, ChevronRight, Database, HardDrive, Archive, Radio } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronRight,
+  Database,
+  HardDrive,
+  Archive,
+  Radio,
+  Brain,
+  Search,
+  BarChart3,
+  Zap,
+  Globe,
+  Link,
+} from 'lucide-react'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import {
   detectBindingsFromNodes,
@@ -13,6 +26,12 @@ const BINDING_META: Record<ClientBindingType, { label: string; icon: typeof Data
   d1: { label: 'D1', icon: Database },
   r2: { label: 'R2', icon: Archive },
   queue: { label: 'Queue', icon: Radio },
+  ai: { label: 'AI', icon: Brain },
+  vectorize: { label: 'Vectorize', icon: Search },
+  analytics_engine: { label: 'Analytics', icon: BarChart3 },
+  hyperdrive: { label: 'Hyperdrive', icon: Zap },
+  browser: { label: 'Browser', icon: Globe },
+  service: { label: 'Service', icon: Link },
 }
 
 export function BindingsPanel() {
@@ -31,7 +50,7 @@ export function BindingsPanel() {
       <div className="rounded-lg border border-border bg-card/95 shadow-md backdrop-blur-sm">
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-2 px-3 py-1.5 text-[11px] transition-colors hover:bg-muted/50"
+          className="flex items-center gap-2 px-3 py-1.5 text-xs transition-colors hover:bg-muted/50"
         >
           {expanded ? (
             <ChevronDown className="h-3 w-3 text-muted-foreground/60" />
@@ -39,7 +58,7 @@ export function BindingsPanel() {
             <ChevronRight className="h-3 w-3 text-muted-foreground/60" />
           )}
           <span className="font-medium text-muted-foreground">Bindings</span>
-          <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+          <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
             {bindings.length}
           </span>
         </button>
@@ -52,7 +71,7 @@ export function BindingsPanel() {
               return (
                 <div
                   key={`${binding.type}:${binding.name}`}
-                  className="flex items-center gap-2 text-[11px]"
+                  className="flex items-center gap-2 text-xs"
                 >
                   <span
                     className={cn(

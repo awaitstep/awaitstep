@@ -77,14 +77,14 @@ export function EditorToolbar({
         </Button>
         <div className="h-5 w-px bg-muted/70" />
         <div className="flex items-center gap-2 px-1">
-          <span className="text-[13px] font-semibold text-foreground">{workflowName}</span>
+          <span className="text-sm font-semibold text-foreground">{workflowName}</span>
           {!isNew && currentVersion > 0 && (
-            <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground/60">
+            <span className="rounded bg-muted/60 px-1.5 py-0.5 text-xs font-medium text-muted-foreground/60">
               v{currentVersion}
             </span>
           )}
           {nodeCount > 0 && (
-            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
               {nodeCount} node{nodeCount !== 1 ? 's' : ''}
             </span>
           )}
@@ -92,10 +92,10 @@ export function EditorToolbar({
             <Link
               to="/workflows/$workflowId/deployments"
               params={{ workflowId }}
-              className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+              className={`rounded px-1.5 py-0.5 text-xs font-medium transition-colors ${
                 hasUndeployedChanges
-                  ? 'bg-amber-500/10 text-status-warning hover:bg-amber-500/20'
-                  : 'bg-emerald-500/10 text-status-success hover:bg-emerald-500/20'
+                  ? 'bg-status-warning/10 text-status-warning hover:bg-status-warning/20'
+                  : 'bg-status-success/10 text-status-success hover:bg-status-success/20'
               }`}
             >
               {hasUndeployedChanges
@@ -140,16 +140,16 @@ export function EditorToolbar({
             </Button>
             <Button
               variant="ghost"
-              size="icon"
+              size="sm"
               onClick={onToggleSettings}
               className={cn(
-                'h-8 w-8',
                 showSettings
                   ? 'bg-muted/70 text-foreground'
                   : 'text-muted-foreground hover:text-foreground/70',
               )}
             >
               <Settings2 className="h-3.5 w-3.5" />
+              <span className="text-xs">Settings</span>
             </Button>
             <Button
               variant="ghost"

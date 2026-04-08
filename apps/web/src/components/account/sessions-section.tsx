@@ -92,12 +92,12 @@ export function SessionsSection({ currentSessionToken }: { currentSessionToken: 
                         {parseUserAgent(s.userAgent ?? '')}
                       </span>
                       {isCurrent && (
-                        <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                        <span className="rounded bg-muted/60 px-1.5 py-0.5 text-xs text-muted-foreground">
                           Current
                         </span>
                       )}
                     </div>
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {s.ipAddress ?? 'Unknown IP'} · {sessionAge}
                     </p>
                   </div>

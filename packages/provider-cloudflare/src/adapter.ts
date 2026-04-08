@@ -150,8 +150,15 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     if (ir) {
       const detected = detectBindings(ir)
       if (detected.length > 0) {
-        const needsId = detected.filter((b) => b.type === 'kv' || b.type === 'd1')
+        const needsId = detected.filter(
+          (b) => b.type === 'kv' || b.type === 'd1' || b.type === 'hyperdrive',
+        )
         const missing: string[] = []
+        const typeLabels: Record<string, string> = {
+          kv: 'KV namespace',
+          d1: 'D1 database',
+          hyperdrive: 'Hyperdrive config',
+        }
         for (const b of needsId) {
           const envKey = `${b.name}_BINDING_ID`
           const id = config.envVars?.[envKey]?.value
@@ -159,9 +166,16 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
             b.resourceId = id
           } else {
             missing.push(
-              `Binding '${b.name}' requires env var '${envKey}' with the ${b.type === 'kv' ? 'KV namespace' : 'D1 database'} ID`,
+              `Binding '${b.name}' requires env var '${envKey}' with the ${typeLabels[b.type] ?? b.type} ID`,
             )
           }
+        }
+
+        // Optionally resolve vectorize index names from env vars
+        for (const b of detected.filter((b) => b.type === 'vectorize')) {
+          const envKey = `${b.name}_BINDING_ID`
+          const id = config.envVars?.[envKey]?.value
+          if (id) b.resourceId = id
         }
         if (missing.length > 0) {
           const errorMsg = missing.join('; ')
