@@ -140,16 +140,16 @@ export function EditorToolbar({
             </Button>
             <Button
               variant="ghost"
-              size="icon"
+              size="sm"
               onClick={onToggleSettings}
               className={cn(
-                'h-8 w-8',
                 showSettings
                   ? 'bg-muted/70 text-foreground'
                   : 'text-muted-foreground hover:text-foreground/70',
               )}
             >
               <Settings2 className="h-3.5 w-3.5" />
+              <span className="text-xs">Settings</span>
             </Button>
             <Button
               variant="ghost"

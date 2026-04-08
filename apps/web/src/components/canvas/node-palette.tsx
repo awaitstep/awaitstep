@@ -80,15 +80,9 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
               )}
             >
               {open ? (
-                <>
-                  <X className="h-4 w-4 text-primary-foreground" />
-                  <span className="text-xs font-medium text-primary-foreground">Close</span>
-                </>
+                <X className="h-4 w-4 text-primary-foreground" />
               ) : (
-                <>
-                  <Plus className="h-4 w-4 text-foreground/70" />
-                  <span className="text-xs font-medium text-foreground/70">Add Node</span>
-                </>
+                <Plus className="h-4 w-4 text-foreground/70" />
               )}
             </button>
           </Tooltip.Trigger>
