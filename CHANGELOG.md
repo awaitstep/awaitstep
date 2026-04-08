@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.5-beta.0](https://github.com/awaitstep/awaitstep/compare/v1.4.4-beta.0...v1.4.5-beta.0) (2026-04-08)
+
+
+### Bug Fixes
+
+* add binding detection for AI, Vectorize, Analytics Engine, Hyperdrive, Browser, and Service ([e29ede1](https://github.com/awaitstep/awaitstep/commit/e29ede13d921db7c78faa11d587a5dc0af9a06a1))
+* editor panel tabs, marketplace layout, and canvas polish ([28ba73b](https://github.com/awaitstep/awaitstep/commit/28ba73b394b66d0d2cf7e09d17ce13d7f0c21f09))
+* switch parallel node codegen from Promise.all to Promise.allSettled ([c896916](https://github.com/awaitstep/awaitstep/commit/c8969166c98d8c0d3a3edd18dec53eb81dc4ccea))
+* update canvas bindings panel with new binding type icons and detection ([348ba93](https://github.com/awaitstep/awaitstep/commit/348ba930055332468b886d97d59c584a4e297f63))
+
+
+### Refactoring
+
+* frontend design polish and self-explanatory UX ([f2dcbc5](https://github.com/awaitstep/awaitstep/commit/f2dcbc5d76b4a1a1ab41eb3d246fa6e4daa7a3a5))
+* improve frontend design, readability, and self-explanatory UX ([d3e403d](https://github.com/awaitstep/awaitstep/commit/d3e403d6a7aa8eac8799a35d6ae5ee40086544d7))
+
+
+### Documentation
+
+* fix 17 factual inconsistencies across all documentation ([60e4493](https://github.com/awaitstep/awaitstep/commit/60e44933a4ae6881497259e049847fd926af9e00))
+* fix 27 factual inconsistencies across all documentation ([93ff89d](https://github.com/awaitstep/awaitstep/commit/93ff89d201b1664fadabea29663b5343c767fc63))
+* fix factual errors in setup, contributing, and getting started guides ([12d2fe3](https://github.com/awaitstep/awaitstep/commit/12d2fe3382d442b779621f456b1287d4cd387ab6))
+* update documentation ([5e8d086](https://github.com/awaitstep/awaitstep/commit/5e8d0862fd29b862c235817cf321bdf75410c858))
+
 ## [1.4.4-beta.0](https://github.com/awaitstep/awaitstep/compare/v1.4.3-beta.0...v1.4.4-beta.0) (2026-04-06)
 
 
