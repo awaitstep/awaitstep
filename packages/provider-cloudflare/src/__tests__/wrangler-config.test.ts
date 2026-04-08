@@ -149,6 +149,111 @@ describe('generateWranglerConfig', () => {
     expect(parsed.services).toBeUndefined()
   })
 
+  it('includes AI binding as singular config', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+      bindings: [{ name: 'AI', type: 'ai', source: 'code-scan' }],
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.ai).toEqual({ binding: 'AI' })
+  })
+
+  it('includes Vectorize binding', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+      bindings: [{ name: 'VECTORIZE_INDEX', type: 'vectorize', source: 'code-scan' }],
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.vectorize).toEqual([
+      { binding: 'VECTORIZE_INDEX', index_name: 'vectorize_index' },
+    ])
+  })
+
+  it('includes Vectorize binding with explicit resourceId as index_name', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+      bindings: [
+        {
+          name: 'VECTORIZE_INDEX',
+          type: 'vectorize',
+          source: 'code-scan',
+          resourceId: 'my-custom-index',
+        },
+      ],
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.vectorize).toEqual([
+      { binding: 'VECTORIZE_INDEX', index_name: 'my-custom-index' },
+    ])
+  })
+
+  it('includes Analytics Engine binding', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+      bindings: [{ name: 'ANALYTICS_EVENTS', type: 'analytics_engine', source: 'code-scan' }],
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.analytics_engine_datasets).toEqual([{ binding: 'ANALYTICS_EVENTS' }])
+  })
+
+  it('includes Hyperdrive binding', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+      bindings: [
+        { name: 'HYPERDRIVE_PG', type: 'hyperdrive', source: 'code-scan', resourceId: 'hd-cfg-id' },
+      ],
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.hyperdrive).toEqual([{ binding: 'HYPERDRIVE_PG', id: 'hd-cfg-id' }])
+  })
+
+  it('uses local IDs for Hyperdrive in local dev', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+      localDev: true,
+      bindings: [{ name: 'HYPERDRIVE_PG', type: 'hyperdrive', source: 'code-scan' }],
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.hyperdrive).toEqual([{ binding: 'HYPERDRIVE_PG', id: 'local-hyperdrive_pg' }])
+  })
+
+  it('includes Browser binding as singular config', () => {
+    const config = generateWranglerConfig({
+      workerName: 'test',
+      className: 'Test',
+      workflowName: 'test',
+      main: './worker.js',
+      bindings: [{ name: 'BROWSER', type: 'browser', source: 'code-scan' }],
+    })
+
+    const parsed = JSON.parse(config)
+    expect(parsed.browser).toEqual({ binding: 'BROWSER' })
+  })
+
   it('omits binding sections when no bindings provided', () => {
     const config = generateWranglerConfig({
       workerName: 'test',

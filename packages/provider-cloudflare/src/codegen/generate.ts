@@ -262,6 +262,11 @@ export function generateWorkflow(
     r2: 'R2Bucket',
     queue: 'Queue<unknown>',
     service: 'Fetcher',
+    ai: 'Ai',
+    vectorize: 'VectorizeIndex',
+    analytics_engine: 'AnalyticsEngineDataset',
+    hyperdrive: 'Hyperdrive',
+    browser: 'Fetcher',
     secret: null,
     variable: null,
   }
