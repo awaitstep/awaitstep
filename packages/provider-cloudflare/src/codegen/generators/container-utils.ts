@@ -64,13 +64,13 @@ export function getForkTargets(nodeId: string, ir: WorkflowIR): string[] {
 export function generatePromiseContainer(
   node: WorkflowNode,
   ir: WorkflowIR,
-  method: 'all' | 'race',
+  method: 'allSettled' | 'race',
   generateNode: (node: WorkflowNode, ir: WorkflowIR) => string,
 ): string {
   const ctx = prepareContainerContext(ir)
   const targets = getForkTargets(node.id, ir)
 
-  if (targets.length === 0) return `// ${method === 'all' ? 'parallel' : 'race'}: no branches`
+  if (targets.length === 0) return `// ${method === 'race' ? 'race' : 'parallel'}: no branches`
 
   const branches = targets
     .map((targetId) => {

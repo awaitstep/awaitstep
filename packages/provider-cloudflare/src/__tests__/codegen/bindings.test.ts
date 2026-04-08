@@ -161,6 +161,152 @@ describe('detectBindings', () => {
     expect(bindings.map((b) => b.name).sort()).toEqual(['BUCKET', 'DB', 'KV', 'QUEUE'])
   })
 
+  it('detects AI binding from step code', () => {
+    const ir = makeIR([
+      {
+        id: 's1',
+        name: 'S',
+        position: { x: 0, y: 0 },
+        type: 'step',
+        version: V,
+        provider: P,
+        data: {
+          code: 'const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", { prompt })',
+        },
+      },
+    ])
+    const bindings = detectBindings(ir)
+    expect(bindings).toHaveLength(1)
+    expect(bindings[0]!.type).toBe('ai')
+    expect(bindings[0]!.name).toBe('AI')
+  })
+
+  it('detects AI binding with suffix', () => {
+    const ir = makeIR([
+      {
+        id: 's1',
+        name: 'S',
+        position: { x: 0, y: 0 },
+        type: 'step',
+        version: V,
+        provider: P,
+        data: { code: 'await env.AI_CHAT.run(model, input)' },
+      },
+    ])
+    const bindings = detectBindings(ir)
+    expect(bindings).toHaveLength(1)
+    expect(bindings[0]!.name).toBe('AI_CHAT')
+  })
+
+  it('does not false-positive on AI-prefixed non-binding names', () => {
+    const ir = makeIR([
+      {
+        id: 's1',
+        name: 'S',
+        position: { x: 0, y: 0 },
+        type: 'step',
+        version: V,
+        provider: P,
+        data: { code: 'const x = env.AIRFLOW_URL' },
+      },
+    ])
+    const bindings = detectBindings(ir)
+    const aiBindings = bindings.filter((b) => b.type === 'ai')
+    expect(aiBindings).toHaveLength(0)
+  })
+
+  it('detects Vectorize binding from step code', () => {
+    const ir = makeIR([
+      {
+        id: 's1',
+        name: 'S',
+        position: { x: 0, y: 0 },
+        type: 'step',
+        version: V,
+        provider: P,
+        data: { code: 'await env.VECTORIZE_INDEX.query(vector, { topK: 5 })' },
+      },
+    ])
+    const bindings = detectBindings(ir)
+    expect(bindings).toHaveLength(1)
+    expect(bindings[0]!.type).toBe('vectorize')
+    expect(bindings[0]!.name).toBe('VECTORIZE_INDEX')
+  })
+
+  it('detects Analytics Engine binding from step code', () => {
+    const ir = makeIR([
+      {
+        id: 's1',
+        name: 'S',
+        position: { x: 0, y: 0 },
+        type: 'step',
+        version: V,
+        provider: P,
+        data: { code: 'env.ANALYTICS_EVENTS.writeDataPoint({ blobs: ["signup"] })' },
+      },
+    ])
+    const bindings = detectBindings(ir)
+    expect(bindings).toHaveLength(1)
+    expect(bindings[0]!.type).toBe('analytics_engine')
+    expect(bindings[0]!.name).toBe('ANALYTICS_EVENTS')
+  })
+
+  it('detects Hyperdrive binding from step code', () => {
+    const ir = makeIR([
+      {
+        id: 's1',
+        name: 'S',
+        position: { x: 0, y: 0 },
+        type: 'step',
+        version: V,
+        provider: P,
+        data: { code: 'const connStr = env.HYPERDRIVE_PG.connectionString' },
+      },
+    ])
+    const bindings = detectBindings(ir)
+    expect(bindings).toHaveLength(1)
+    expect(bindings[0]!.type).toBe('hyperdrive')
+    expect(bindings[0]!.name).toBe('HYPERDRIVE_PG')
+  })
+
+  it('detects Browser binding from step code', () => {
+    const ir = makeIR([
+      {
+        id: 's1',
+        name: 'S',
+        position: { x: 0, y: 0 },
+        type: 'step',
+        version: V,
+        provider: P,
+        data: { code: 'const browser = await env.BROWSER.fetch(url)' },
+      },
+    ])
+    const bindings = detectBindings(ir)
+    expect(bindings).toHaveLength(1)
+    expect(bindings[0]!.type).toBe('browser')
+    expect(bindings[0]!.name).toBe('BROWSER')
+  })
+
+  it('detects Service binding from step code', () => {
+    const ir = makeIR([
+      {
+        id: 's1',
+        name: 'S',
+        position: { x: 0, y: 0 },
+        type: 'step',
+        version: V,
+        provider: P,
+        data: {
+          code: 'const resp = await env.SERVICE_AUTH.fetch(new Request("https://fake/login"))',
+        },
+      },
+    ])
+    const bindings = detectBindings(ir)
+    expect(bindings).toHaveLength(1)
+    expect(bindings[0]!.type).toBe('service')
+    expect(bindings[0]!.name).toBe('SERVICE_AUTH')
+  })
+
   it('returns empty for no bindings', () => {
     const ir = makeIR([
       {

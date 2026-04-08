@@ -6,5 +6,5 @@ export function generateParallel(
   ir: WorkflowIR,
   generateNode: (node: WorkflowNode, ir: WorkflowIR) => string,
 ): string {
-  return generatePromiseContainer(node, ir, 'all', generateNode)
+  return generatePromiseContainer(node, ir, 'allSettled', generateNode)
 }

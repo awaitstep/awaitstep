@@ -1,4 +1,14 @@
-export type ClientBindingType = 'kv' | 'd1' | 'r2' | 'queue'
+export type ClientBindingType =
+  | 'kv'
+  | 'd1'
+  | 'r2'
+  | 'queue'
+  | 'ai'
+  | 'vectorize'
+  | 'analytics_engine'
+  | 'hyperdrive'
+  | 'browser'
+  | 'service'
 
 export interface ClientBinding {
   name: string
@@ -10,6 +20,12 @@ const BINDING_PATTERNS: Array<{ pattern: RegExp; type: ClientBindingType }> = [
   { pattern: /env\.(DB\w*)/g, type: 'd1' },
   { pattern: /env\.(BUCKET\w*)/g, type: 'r2' },
   { pattern: /env\.(QUEUE\w*)/g, type: 'queue' },
+  { pattern: /env\.(AI(?:_\w+)?)(?=[.\s,;)\]}]|$)/g, type: 'ai' },
+  { pattern: /env\.(VECTORIZE\w*)/g, type: 'vectorize' },
+  { pattern: /env\.(ANALYTICS\w*)/g, type: 'analytics_engine' },
+  { pattern: /env\.(HYPERDRIVE\w*)/g, type: 'hyperdrive' },
+  { pattern: /env\.(BROWSER)/g, type: 'browser' },
+  { pattern: /env\.(SERVICE\w*)/g, type: 'service' },
 ]
 
 export function detectBindingsFromNodes(
