@@ -79,7 +79,7 @@ describe('generateWorkflow', () => {
 
   it('generates a parallel workflow', () => {
     const code = generateWorkflow(parallelWorkflow as unknown as WorkflowIR)
-    expect(code).toContain('Promise.all')
+    expect(code).toContain('Promise.allSettled')
     expect(code).toContain('Task A')
     expect(code).toContain('Task B')
   })
