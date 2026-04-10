@@ -23,7 +23,7 @@
     "typescript": "^5.9.3",
     "@react-email/preview-server": "^5.2.10",
     "react-email": "^5.2.10",
-    "vitest": "^4.1.0"
+    "vitest": "^4.1.4"
   },
   "dependencies": {
     "@react-email/components": "^1.0.10",

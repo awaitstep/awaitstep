@@ -24,7 +24,7 @@
     "drizzle-kit": "^0.31.9",
     "tsup": "8.5.1",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.0"
+    "vitest": "^4.1.4"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2"
