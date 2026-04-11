@@ -28,6 +28,11 @@ export const httpRequestDefinition: NodeDefinition = {
       label: 'Headers',
       description: 'JSON object of request headers.',
     },
+    queryParams: {
+      type: 'json',
+      label: 'Query Parameters',
+      description: 'JSON object of URL query parameters.',
+    },
     body: {
       type: 'code',
       label: 'Body',
