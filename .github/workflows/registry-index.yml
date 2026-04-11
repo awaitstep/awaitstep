@@ -29,7 +29,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Build registry index
-        run: pnpm --filter @awaitstep/ir build && npx tsx registry/scripts/build-index.ts && npx prettier --write registry/index.json
+        run: pnpm --filter @awaitstep/ir build && npx tsx registry/scripts/build-index.ts && npx prettier --write registry/index.json registry/nodes/*/*/node.json
 
       - name: Check for changes
         id: diff
