@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.5.0-beta.0](https://github.com/awaitstep/awaitstep/compare/v1.4.5-beta.0...v1.5.0-beta.0) (2026-04-11)
+
+
+### Features
+
+* add queryParams support to HTTP Request node ([ff40eba](https://github.com/awaitstep/awaitstep/commit/ff40eba8170c305e27ecb03da384553f3c5dcdf9))
+* HTTP query params and JSON field validation ([d01b458](https://github.com/awaitstep/awaitstep/commit/d01b458e8a28db64162d239fb0a2562f96853798))
+
+
+### Bug Fixes
+
+* direct-mail template codegen collision ([6843c40](https://github.com/awaitstep/awaitstep/commit/6843c405ce9b166a1f016c7f148a077e537e0e0c))
+* inline code editor bypassing debounce ([#113](https://github.com/awaitstep/awaitstep/issues/113)) ([c0de9ab](https://github.com/awaitstep/awaitstep/commit/c0de9ab2e0fc28defff9193f79032d1787975ac9))
+* **node:** updated direct-mail endpoint ([f809ac1](https://github.com/awaitstep/awaitstep/commit/f809ac1b7442236149b9fc797d396c007e7a04e9))
+* **org-dialog:** correct condition to close dialog when orgs exist ([ad3811e](https://github.com/awaitstep/awaitstep/commit/ad3811e280c97bd5280d88e596e83efda678788b))
+* prevent invalid JSON from propagating to store in dynamic fields ([b39b102](https://github.com/awaitstep/awaitstep/commit/b39b10272e5ce34841c26cd455c780a74500cb19))
+* rename params to reqParams in direct-mail template to avoid codegen collision ([9ba9b48](https://github.com/awaitstep/awaitstep/commit/9ba9b4890dd86784cfd75e15131fb34d49686fd9))
+* use debounced value and handler in inline code editor ([cd972c8](https://github.com/awaitstep/awaitstep/commit/cd972c85ef1616114f105aba9fa1266973ee9d99))
+* use region-specific endpoint for DirectMail API ([0138f46](https://github.com/awaitstep/awaitstep/commit/0138f4655eff1559ff6e2fcd01e92d5ea0fc3f09))
+* use region-specific endpoint for DirectMail API ([82f8392](https://github.com/awaitstep/awaitstep/commit/82f8392bd994ecbf11bdcb96b7dbc7ab1d378843))
+
+
+### Refactoring
+
+* **direct-mail:** replace SDK with direct HTTP API calls ([76fbabb](https://github.com/awaitstep/awaitstep/commit/76fbabbf7cf13cbcb4efe1849936b361ff203e24))
+
 ## [1.4.5-beta.0](https://github.com/awaitstep/awaitstep/compare/v1.4.4-beta.0...v1.4.5-beta.0) (2026-04-08)
 
 
