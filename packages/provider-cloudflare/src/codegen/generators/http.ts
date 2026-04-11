@@ -24,7 +24,7 @@ export function generateHttp(node: WorkflowNode): string {
 
   if (headers && Object.keys(headers).length > 0) {
     const headerEntries = Object.entries(headers)
-      .map(([k, v]) => `"${k}": ${toStringLiteral(v)}`)
+      .map(([k, v]) => `"${k}": ${toJsLiteral(v)}`)
       .join(', ')
     fetchOptions.push(`headers: { ${headerEntries} }`)
   }
@@ -40,14 +40,14 @@ export function generateHttp(node: WorkflowNode): string {
   const lines: string[] = []
 
   if (hasQueryParams) {
-    const urlLiteral = toStringLiteral(url)
+    const urlLiteral = toJsLiteral(url)
     lines.push(`const url = new URL(${urlLiteral});`)
     for (const [k, v] of Object.entries(queryParams)) {
-      lines.push(`url.searchParams.set("${k}", ${toStringLiteral(v)});`)
+      lines.push(`url.searchParams.set("${k}", ${toJsLiteral(v)});`)
     }
     lines.push(`const response = await fetch(url${fetchOpts});`)
   } else {
-    const urlLiteral = toStringLiteral(url)
+    const urlLiteral = toJsLiteral(url)
     lines.push(`const response = await fetch(${urlLiteral}${fetchOpts});`)
   }
 
@@ -60,15 +60,26 @@ ${bodyCode}
 });`
 }
 
-function toStringLiteral(value: unknown): string {
-  if (typeof value !== 'string') return JSON.stringify(value)
-  const hasExpression = /\$\{.*?\}/.test(value)
-  const hasNewline = /\r?\n/.test(value)
-
-  if (hasExpression || hasNewline) {
-    // Template literal: escape backticks and literal backslashes
-    const escaped = value.replace(/\\/g, '\\\\').replace(/`/g, '\\`')
-    return '`' + escaped + '`'
+function toJsLiteral(value: unknown): string {
+  if (value === null || value === undefined) return 'null'
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (typeof value === 'string') {
+    const hasExpression = /\$\{.*?\}/.test(value)
+    const hasNewline = /\r?\n/.test(value)
+    if (hasExpression || hasNewline) {
+      const escaped = value.replace(/\\/g, '\\\\').replace(/`/g, '\\`')
+      return '`' + escaped + '`'
+    }
+    return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
   }
-  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+  if (Array.isArray(value)) {
+    return `[${value.map((v) => toJsLiteral(v)).join(', ')}]`
+  }
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .map(([k, v]) => `"${k}": ${toJsLiteral(v)}`)
+      .join(', ')
+    return `{ ${entries} }`
+  }
+  return JSON.stringify(value)
 }
