@@ -6,6 +6,8 @@
       "component": "awaitstep",
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": false,
+      "versioning": "always-bump-patch",
+      "release-as": "1.4.6",
       "prerelease": true,
       "prerelease-type": "beta",
       "exclude-paths": ["apps/www", "apps/docs"],
