@@ -184,10 +184,15 @@ function FieldRenderer({ field, value, onChange }: DynamicFieldProps) {
         <CodeEditor
           value={jsonValue}
           onChange={(v) => {
+            if (!v) {
+              onChange(undefined)
+              return
+            }
             try {
-              onChange(v ? JSON.parse(v) : undefined)
+              onChange(JSON.parse(v))
             } catch {
-              onChange(v)
+              // Don't propagate invalid JSON to the store —
+              // the editor holds local state via debounce
             }
           }}
           debounceMs={300}
