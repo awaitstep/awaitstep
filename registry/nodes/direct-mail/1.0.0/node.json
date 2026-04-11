@@ -8,10 +8,6 @@
   "tags": ["alicloud", "directmail", "email", "transactional"],
   "author": "awaitstep",
   "license": "Apache-2.0",
-  "dependencies": {
-    "@alicloud/dm20151123": "^1",
-    "@alicloud/openapi-client": "^0.4"
-  },
   "configSchema": {
     "regionId": {
       "type": "string",
