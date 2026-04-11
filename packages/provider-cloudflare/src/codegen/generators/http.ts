@@ -60,7 +60,8 @@ ${bodyCode}
 });`
 }
 
-function toStringLiteral(value: string): string {
+function toStringLiteral(value: unknown): string {
+  if (typeof value !== 'string') return JSON.stringify(value)
   const hasExpression = /\$\{.*?\}/.test(value)
   const hasNewline = /\r?\n/.test(value)
 
