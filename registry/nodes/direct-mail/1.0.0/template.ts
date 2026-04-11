@@ -52,7 +52,12 @@ export default async function (ctx) {
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
     .join('&')
 
-  const response = await fetch('https://dm.aliyuncs.com/', {
+  const endpoint =
+    ctx.config.regionId === 'cn-hangzhou'
+      ? 'dm.aliyuncs.com'
+      : `dm.${ctx.config.regionId}.aliyuncs.com`
+
+  const response = await fetch(`https://${endpoint}/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
