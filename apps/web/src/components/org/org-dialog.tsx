@@ -63,7 +63,7 @@ export function OrgDialog({ hasOrgs }: OrgDialogProps) {
   })
 
   function handleOpenChange(openState: boolean) {
-    if (!openState && !hasOrgs) closeOrgDialog()
+    if (!openState && hasOrgs) closeOrgDialog()
   }
 
   function handleInteractOutside(e: Event) {
@@ -77,6 +77,7 @@ export function OrgDialog({ hasOrgs }: OrgDialogProps) {
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
         <Dialog.Content
+          onEscapeKeyDown={handleInteractOutside}
           onInteractOutside={handleInteractOutside}
           className="fixed left-1/2 top-1/2 z-50 w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg"
         >

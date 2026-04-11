@@ -1,0 +1,99 @@
+{
+  "id": "direct-mail",
+  "name": "DirectMail",
+  "version": "1.0.0",
+  "description": "Send emails via Alibaba Cloud DirectMail API",
+  "category": "Email",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/direct-mail/icon.svg",
+  "tags": ["alicloud", "directmail", "email", "transactional"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@alicloud/dm20151123": "^1",
+    "@alicloud/openapi-client": "^0.4"
+  },
+  "configSchema": {
+    "regionId": {
+      "type": "string",
+      "label": "Region ID",
+      "required": true,
+      "placeholder": "cn-hangzhou",
+      "description": "Alibaba Cloud region ID for the DirectMail endpoint."
+    },
+    "accountName": {
+      "type": "string",
+      "label": "Account Name",
+      "required": true,
+      "placeholder": "sender@example.com",
+      "description": "Sender address configured in DirectMail console."
+    },
+    "addressType": {
+      "type": "select",
+      "label": "Address Type",
+      "required": true,
+      "options": ["0", "1"],
+      "description": "0 = random account, 1 = sender address."
+    },
+    "toAddress": {
+      "type": "string",
+      "label": "To Address",
+      "placeholder": "recipient@example.com",
+      "description": "Recipient email address."
+    },
+    "subject": {
+      "type": "string",
+      "label": "Subject",
+      "required": true,
+      "description": "Email subject line."
+    },
+    "htmlBody": {
+      "type": "code",
+      "label": "HTML Body",
+      "description": "HTML email body."
+    },
+    "textBody": {
+      "type": "code",
+      "label": "Text Body",
+      "description": "Plain text email body."
+    },
+    "replyToAddress": {
+      "type": "select",
+      "label": "Reply-To Address",
+      "options": ["true", "false"],
+      "description": "Whether to use the reply-to address. Defaults to true."
+    },
+    "accessKeyId": {
+      "type": "secret",
+      "label": "Access Key ID",
+      "required": true,
+      "envVarName": "ALICLOUD_ACCESS_KEY_ID",
+      "description": "Alibaba Cloud AccessKey ID."
+    },
+    "accessKeySecret": {
+      "type": "secret",
+      "label": "Access Key Secret",
+      "required": true,
+      "envVarName": "ALICLOUD_ACCESS_KEY_SECRET",
+      "description": "Alibaba Cloud AccessKey Secret."
+    }
+  },
+  "outputSchema": {
+    "requestId": {
+      "type": "string",
+      "description": "Alibaba Cloud request ID"
+    },
+    "envId": {
+      "type": "string",
+      "description": "Envelope ID returned by DirectMail"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 3,
+    "defaultTimeout": "30 seconds"
+  }
+}
