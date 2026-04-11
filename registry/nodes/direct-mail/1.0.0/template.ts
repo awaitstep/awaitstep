@@ -19,7 +19,7 @@ export default async function (ctx) {
     return btoa(String.fromCharCode(...new Uint8Array(signature)))
   }
 
-  const params: Record<string, string> = {
+  const reqParams: Record<string, string> = {
     Action: 'SingleSendMail',
     Format: 'JSON',
     Version: '2015-11-23',
@@ -36,19 +36,19 @@ export default async function (ctx) {
     RegionId: ctx.config.regionId,
   }
 
-  if (ctx.config.htmlBody) params.HtmlBody = ctx.config.htmlBody
-  if (ctx.config.textBody) params.TextBody = ctx.config.textBody
+  if (ctx.config.htmlBody) reqParams.HtmlBody = ctx.config.htmlBody
+  if (ctx.config.textBody) reqParams.TextBody = ctx.config.textBody
 
-  const sortedKeys = Object.keys(params).sort()
+  const sortedKeys = Object.keys(reqParams).sort()
   const canonicalQuery = sortedKeys
-    .map((k) => `${percentEncode(k)}=${percentEncode(params[k])}`)
+    .map((k) => `${percentEncode(k)}=${percentEncode(reqParams[k])}`)
     .join('&')
 
   const stringToSign = `POST&${percentEncode('/')}&${percentEncode(canonicalQuery)}`
   const signature = await hmacSha1(accessKeySecret + '&', stringToSign)
-  params.Signature = signature
+  reqParams.Signature = signature
 
-  const body = Object.entries(params)
+  const body = Object.entries(reqParams)
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
     .join('&')
 
