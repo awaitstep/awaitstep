@@ -210,8 +210,8 @@ export function CodeEditor({
         <MonacoEditor
           height={height}
           language={language}
-          value={value}
-          onChange={(v) => onChangeRef.current(v ?? '')}
+          value={displayValue}
+          onChange={(v) => handleChange(v ?? '')}
           theme="vs-dark"
           beforeMount={injectTypes}
           options={editorOptions}
