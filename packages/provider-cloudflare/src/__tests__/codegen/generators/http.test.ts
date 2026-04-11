@@ -195,4 +195,63 @@ describe('generateHttp', () => {
     )
     expect(code).toContain('`${env.PREFIX}-${env.SUFFIX}`')
   })
+
+  it('appends query params using URL and searchParams', () => {
+    const code = generateHttp(
+      makeNode({
+        data: {
+          url: 'https://api.example.com/data',
+          method: 'GET',
+          queryParams: { page: '1', limit: '10' },
+        },
+      }),
+    )
+    expect(code).toContain('new URL("https://api.example.com/data")')
+    expect(code).toContain('url.searchParams.set("page", "1")')
+    expect(code).toContain('url.searchParams.set("limit", "10")')
+    expect(code).toContain('await fetch(url)')
+  })
+
+  it('supports expressions in query param values', () => {
+    const code = generateHttp(
+      makeNode({
+        data: {
+          url: 'https://api.example.com/data',
+          method: 'GET',
+          queryParams: { cursor: '${state.nextCursor}' },
+        },
+      }),
+    )
+    expect(code).toContain('url.searchParams.set("cursor", `${state.nextCursor}`)')
+  })
+
+  it('omits query params when empty object', () => {
+    const code = generateHttp(
+      makeNode({
+        data: { url: 'https://api.example.com/data', method: 'GET', queryParams: {} },
+      }),
+    )
+    expect(code).not.toContain('searchParams')
+    expect(code).not.toContain('new URL')
+  })
+
+  it('combines query params with headers and body', () => {
+    const code = generateHttp(
+      makeNode({
+        data: {
+          url: 'https://api.example.com/data',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          queryParams: { token: 'abc' },
+          body: 'JSON.stringify({ key: "value" })',
+        },
+      }),
+    )
+    expect(code).toContain('new URL("https://api.example.com/data")')
+    expect(code).toContain('url.searchParams.set("token", "abc")')
+    expect(code).toContain('await fetch(url, {')
+    expect(code).toContain('method: "POST"')
+    expect(code).toContain('"Content-Type": "application/json"')
+    expect(code).toContain('body: JSON.stringify({ key: "value" })')
+  })
 })
