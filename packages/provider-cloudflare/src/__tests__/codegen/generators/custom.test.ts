@@ -59,9 +59,16 @@ describe('toJsLiteral', () => {
     expect(toJsLiteral(undefined)).toBe('null')
   })
 
-  it('converts objects/arrays to JSON', () => {
-    expect(toJsLiteral({ a: 1 })).toBe('{"a":1}')
-    expect(toJsLiteral([1, 2])).toBe('[1,2]')
+  it('converts objects/arrays to JS literals', () => {
+    expect(toJsLiteral({ a: 1 })).toBe('{ "a": 1 }')
+    expect(toJsLiteral([1, 2])).toBe('[1, 2]')
+  })
+
+  it('resolves env expressions in nested objects', () => {
+    expect(toJsLiteral({ token: '${env.TOKEN}' })).toBe('{ "token": `${env.TOKEN}` }')
+    expect(toJsLiteral({ nested: { key: '${env.KEY}' } })).toBe(
+      '{ "nested": { "key": `${env.KEY}` } }',
+    )
   })
 })
 
