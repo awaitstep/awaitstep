@@ -1,6 +1,6 @@
 {
   "name": "@awaitstep/node-cli",
-  "version": "1.4.5-beta.0",
+  "version": "1.4.6",
   "private": true,
   "type": "module",
   "bin": {
