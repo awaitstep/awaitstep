@@ -39,6 +39,15 @@ export function toJsLiteral(value: unknown): string {
     return JSON.stringify(value)
   }
   if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (Array.isArray(value)) {
+    return `[${value.map((v) => toJsLiteral(v)).join(', ')}]`
+  }
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .map(([k, v]) => `${JSON.stringify(k)}: ${toJsLiteral(v)}`)
+      .join(', ')
+    return `{ ${entries} }`
+  }
   return JSON.stringify(value)
 }
 
