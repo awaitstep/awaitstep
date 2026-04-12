@@ -3,7 +3,12 @@ export default async function (ctx) {
   const accessKeySecret = ctx.env.ALICLOUD_ACCESS_KEY_SECRET
 
   function percentEncode(str: string): string {
-    return encodeURIComponent(str).replace(/\+/g, '%20').replace(/\*/g, '%2A').replace(/~/g, '%7E')
+    return encodeURIComponent(str)
+      .replace(/!/g, '%21')
+      .replace(/'/g, '%27')
+      .replace(/\(/g, '%28')
+      .replace(/\)/g, '%29')
+      .replace(/\*/g, '%2A')
   }
 
   async function hmacSha1(key: string, data: string): Promise<string> {
