@@ -62,7 +62,7 @@ describe('generateHttp', () => {
     expect(code).toContain('"Accept": "application/json"')
   })
 
-  it('emits body as raw JS expression', () => {
+  it('passes through body with JSON.stringify already applied', () => {
     const code = generateHttp(
       makeNode({
         data: {
@@ -73,6 +73,34 @@ describe('generateHttp', () => {
       }),
     )
     expect(code).toContain('body: JSON.stringify({ key: "value" })')
+    expect(code).not.toContain('body: JSON.stringify(JSON.stringify')
+  })
+
+  it('auto-wraps object body with JSON.stringify', () => {
+    const code = generateHttp(
+      makeNode({
+        data: {
+          url: 'https://api.example.com/data',
+          method: 'POST',
+          body: '{ key: "value" }',
+        },
+      }),
+    )
+    expect(code).toContain('body: JSON.stringify({ key: "value" })')
+  })
+
+  it('passes through string literal body without wrapping', () => {
+    const code = generateHttp(
+      makeNode({
+        data: {
+          url: 'https://api.example.com/data',
+          method: 'POST',
+          body: '"plain text body"',
+        },
+      }),
+    )
+    expect(code).toContain('body: "plain text body"')
+    expect(code).not.toContain('JSON.stringify')
   })
 
   it('uses template literals for URLs with expressions', () => {

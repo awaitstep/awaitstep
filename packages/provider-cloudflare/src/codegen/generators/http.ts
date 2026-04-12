@@ -30,7 +30,14 @@ export function generateHttp(node: WorkflowNode): string {
   }
 
   if (body) {
-    fetchOptions.push(`body: ${body}`)
+    const trimmed = body.trim()
+    const isAlreadyStringified = trimmed.startsWith('JSON.stringify')
+    const isStringLiteral = /^["'`]/.test(trimmed)
+    if (isAlreadyStringified || isStringLiteral) {
+      fetchOptions.push(`body: ${body}`)
+    } else {
+      fetchOptions.push(`body: JSON.stringify(${body})`)
+    }
   }
 
   const hasQueryParams = queryParams && Object.keys(queryParams).length > 0
