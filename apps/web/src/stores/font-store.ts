@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import { browserStorage } from './ssr-safe-storage'
 
 export const FONTS = [
   { id: 'outfit', label: 'Outfit', family: "'Outfit'" },
@@ -23,6 +24,9 @@ export const useFontStore = create<FontState>()(
       font: 'outfit',
       setFont: (font) => set({ font }),
     }),
-    { name: 'awaitstep-font', storage: createJSONStorage(() => localStorage) },
+    {
+      name: 'awaitstep-font',
+      storage: createJSONStorage(() => browserStorage()),
+    },
   ),
 )
