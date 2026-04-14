@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import { browserStorage } from './ssr-safe-storage'
 
 export interface Organization {
   id: string
@@ -86,7 +87,7 @@ export const useOrgStore = create<OrgState>()(
     }),
     {
       name: 'awaitstep-org',
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => browserStorage()),
       partialize: (state) => ({
         activeOrganizationId: state.activeOrganizationId,
         activeProjectId: state.activeProjectId,

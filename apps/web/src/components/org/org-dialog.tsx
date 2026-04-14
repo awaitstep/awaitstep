@@ -34,8 +34,13 @@ export function OrgDialog({ hasOrgs }: OrgDialogProps) {
     defaultValues: { name: '' },
   })
 
-  const { addOrganization, setActiveOrganization } = useOrgStore()
-  const { closeOrgDialog, openProjectDialog } = useSheetStore()
+  const { addOrganization } = useOrgStore()
+  const { closeOrgDialog } = useSheetStore()
+  const onCreateSuccess = () => {
+    if (!hasOrgs) {
+      window.location.reload()
+    }
+  }
 
   const mutation = useMutation({
     mutationFn: async (values: OrgFormValues) => {
@@ -49,11 +54,11 @@ export function OrgDialog({ hasOrgs }: OrgDialogProps) {
     onSuccess: (newOrg) => {
       addOrganization(newOrg)
       closeOrgDialog()
-      toast.success('Organization created')
-      if (!hasOrgs) {
-        setActiveOrganization(newOrg.id)
-        openProjectDialog()
-      }
+      toast.success('Organization created', {
+        onDismiss: onCreateSuccess,
+        onAutoClose: onCreateSuccess,
+        duration: 1000,
+      })
     },
     onError: (err) => {
       setError('root', {
