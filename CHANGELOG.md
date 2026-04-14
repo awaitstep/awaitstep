@@ -4,6 +4,43 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.6](https://github.com/awaitstep/awaitstep/compare/v1.4.5-beta.0...v1.4.6) (2026-04-12)
+
+
+### Features
+
+* add queryParams support to HTTP Request node ([ff40eba](https://github.com/awaitstep/awaitstep/commit/ff40eba8170c305e27ecb03da384553f3c5dcdf9))
+* HTTP query params and JSON field validation ([d01b458](https://github.com/awaitstep/awaitstep/commit/d01b458e8a28db64162d239fb0a2562f96853798))
+
+
+### Bug Fixes
+
+* correct DirectMail percentEncode to match Alibaba Cloud RFC 3986 spec ([2b16a87](https://github.com/awaitstep/awaitstep/commit/2b16a8701be6c86f2995c2fa6d03fb2d02e816a6))
+* correct DirectMail percentEncode to match Alibaba Cloud RFC 3986 spec ([6e585cd](https://github.com/awaitstep/awaitstep/commit/6e585cdda23293000c15cf054b9c574dd92cb322))
+* correct DirectMail percentEncode to match Alibaba Cloud RFC 3986 spec ([d5d635b](https://github.com/awaitstep/awaitstep/commit/d5d635b7722f66fcfc8806405ea23beaa9f66be3))
+* direct-mail template codegen collision ([6843c40](https://github.com/awaitstep/awaitstep/commit/6843c405ce9b166a1f016c7f148a077e537e0e0c))
+* handle non-string values in HTTP codegen JSON fields ([08dde86](https://github.com/awaitstep/awaitstep/commit/08dde86cb05efacbcfe6956ebb93c4ccacccd384))
+* handle non-string values in HTTP header and query param codegen ([6907123](https://github.com/awaitstep/awaitstep/commit/6907123bb4fd924f33143234c3e543570f04b764))
+* inline code editor bypassing debounce ([#113](https://github.com/awaitstep/awaitstep/issues/113)) ([c0de9ab](https://github.com/awaitstep/awaitstep/commit/c0de9ab2e0fc28defff9193f79032d1787975ac9))
+* **node:** updated direct-mail endpoint ([f809ac1](https://github.com/awaitstep/awaitstep/commit/f809ac1b7442236149b9fc797d396c007e7a04e9))
+* **org-dialog:** correct condition to close dialog when orgs exist ([ad3811e](https://github.com/awaitstep/awaitstep/commit/ad3811e280c97bd5280d88e596e83efda678788b))
+* prevent invalid JSON from propagating to store in dynamic fields ([b39b102](https://github.com/awaitstep/awaitstep/commit/b39b10272e5ce34841c26cd455c780a74500cb19))
+* recursive JSON codegen, DirectMail signing, and always-bump-patch versioning ([61adba8](https://github.com/awaitstep/awaitstep/commit/61adba8fdc0615aa34c75df0aa9663668d9f88ee))
+* recursively resolve env expressions in nested JSON fields ([177c0b6](https://github.com/awaitstep/awaitstep/commit/177c0b6141a553ad9c6ee999cc094b027efbeeb7))
+* recursively resolve env expressions in nested JSON fields for all codegen ([4660fb2](https://github.com/awaitstep/awaitstep/commit/4660fb21f72b08a7140426dbe956797f2376d0e9))
+* rename params to reqParams in direct-mail template to avoid codegen collision ([9ba9b48](https://github.com/awaitstep/awaitstep/commit/9ba9b4890dd86784cfd75e15131fb34d49686fd9))
+* use always-bump-patch versioning and override next release to 1.4.6 ([0dbe751](https://github.com/awaitstep/awaitstep/commit/0dbe751d7ae3d371322880a3cc67989dccf62c6d))
+* use always-bump-patch versioning and override next release to 1.4.6 ([8396d89](https://github.com/awaitstep/awaitstep/commit/8396d8959e6327d1a729746379d75facc7074470))
+* use always-bump-patch versioning and override next release to 1.4.6 ([beaa46d](https://github.com/awaitstep/awaitstep/commit/beaa46de19d9214dd379832ea1fed2413ca2a506))
+* use debounced value and handler in inline code editor ([cd972c8](https://github.com/awaitstep/awaitstep/commit/cd972c85ef1616114f105aba9fa1266973ee9d99))
+* use region-specific endpoint for DirectMail API ([0138f46](https://github.com/awaitstep/awaitstep/commit/0138f4655eff1559ff6e2fcd01e92d5ea0fc3f09))
+* use region-specific endpoint for DirectMail API ([82f8392](https://github.com/awaitstep/awaitstep/commit/82f8392bd994ecbf11bdcb96b7dbc7ab1d378843))
+
+
+### Refactoring
+
+* **direct-mail:** replace SDK with direct HTTP API calls ([76fbabb](https://github.com/awaitstep/awaitstep/commit/76fbabbf7cf13cbcb4efe1849936b361ff203e24))
+
 ## [1.4.5-beta.0](https://github.com/awaitstep/awaitstep/compare/v1.4.4-beta.0...v1.4.5-beta.0) (2026-04-08)
 
 
