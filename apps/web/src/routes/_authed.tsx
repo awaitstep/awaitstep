@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect, useMatches } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequestHeader, setCookie } from '@tanstack/react-start/server'
-import { getApiBase } from '../lib/server-config'
+import { apiFetch } from '../lib/cf-context'
 import { useAuthStore, type SessionData } from '../stores/auth-store'
 import { type Organization } from '../stores/org-store'
 import OrgWrapper from '../wrappers/org'
@@ -17,16 +17,15 @@ const getAuthData = createServerFn({ method: 'GET' }).handler(
     const cookie = getRequestHeader('cookie')
     if (!cookie) return null
 
-    const apiBase = getApiBase()
     const headers = { cookie }
 
-    const sessionRes = await fetch(`${apiBase}/api/auth/get-session`, { headers })
+    const sessionRes = await apiFetch('/api/auth/get-session', { headers })
     if (!sessionRes.ok) return null
 
-    const sessionData = await sessionRes.json()
+    const sessionData = (await sessionRes.json()) as { session?: unknown }
     if (!sessionData?.session) return null
 
-    const orgsRes = await fetch(`${apiBase}/api/auth/organization/list`, { headers })
+    const orgsRes = await apiFetch('/api/auth/organization/list', { headers })
     const orgsBody = orgsRes.ok ? await orgsRes.json() : []
     const organizations: Organization[] = Array.isArray(orgsBody) ? orgsBody : []
 

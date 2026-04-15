@@ -10,8 +10,8 @@ import { SessionsSection } from '../../components/account/sessions-section'
 import { DataPrivacySection } from '../../components/account/data-privacy-section'
 
 const getAccountContext = createServerFn({ method: 'GET' }).handler(async () => ({
-  github: !!process.env['GITHUB_CLIENT_ID'],
-  google: !!process.env['GOOGLE_CLIENT_ID'],
+  github: process.env['GITHUB_ENABLED'] === 'true' || !!process.env['GITHUB_CLIENT_ID'],
+  google: process.env['GOOGLE_ENABLED'] === 'true' || !!process.env['GOOGLE_CLIENT_ID'],
 }))
 
 export const Route = createFileRoute('/_authed/account')({

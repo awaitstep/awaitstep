@@ -28,10 +28,36 @@ export function createAuth(options: AuthOptions) {
         : []),
       organization({
         allowUserToCreateOrganization: true,
+        // Org name is user-facing and may collide across tenants (two users
+        // can both have an "ABC" org). The `slug` column is globally unique
+        // for URL routing, so we append a short random suffix to keep slugs
+        // unique while letting users pick whatever name they want.
+        organizationCreation: {
+          beforeCreate: async ({
+            organization,
+          }: {
+            organization: { name?: string; slug?: string; [k: string]: unknown }
+          }) => {
+            const rand = crypto.randomUUID().slice(0, 6)
+            const base =
+              (organization.slug || organization.name || 'org')
+                .toString()
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '')
+                .slice(0, 32) || 'org'
+            return { data: { ...organization, slug: `${base}-${rand}` } }
+          },
+        },
       }),
     ],
     user: {
       deleteUser: { enabled: true },
+    },
+    advanced: {
+      ipAddress: {
+        ipAddressHeaders: ['cf-connecting-ip', 'x-forwarded-for', 'x-real-ip'],
+      },
     },
     socialProviders: {
       ...(options.github && {

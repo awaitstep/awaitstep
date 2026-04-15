@@ -21,6 +21,9 @@
     "nodes:generate": "turbo run build --filter=@awaitstep/node-cli... && node packages/node-cli/dist/cli.js generate",
     "nodes:build": "turbo run build --filter=@awaitstep/node-cli... && node packages/node-cli/dist/cli.js build",
     "prebuild": "pnpm nodes:build",
+    "deploy:cf": "pnpm build && pnpm --filter @awaitstep/api deploy:cf && pnpm --filter @awaitstep/web deploy:cf",
+    "deploy:cf:api": "pnpm --filter @awaitstep/api deploy:cf",
+    "deploy:cf:web": "pnpm --filter @awaitstep/web deploy:cf",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky"

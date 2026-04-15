@@ -1,10 +1,9 @@
-import { readFile } from 'node:fs/promises'
 import { NodeRegistry } from '@awaitstep/ir'
 import type { NodeDefinition, NodeBundle } from '@awaitstep/ir'
 import type { TemplateResolver } from '@awaitstep/codegen'
 import type { InstalledNode } from '@awaitstep/db'
 
-interface RegistryFile {
+export interface RegistryFile {
   definitions: NodeDefinition[]
   templates: Record<string, Record<string, string>>
 }
@@ -15,10 +14,7 @@ export interface AppNodeRegistry {
   templates: Record<string, Record<string, string>>
 }
 
-export async function loadNodeRegistry(registryPath: string): Promise<AppNodeRegistry> {
-  const raw = await readFile(registryPath, 'utf-8')
-  const data = JSON.parse(raw) as RegistryFile
-
+export function buildNodeRegistry(data: RegistryFile): AppNodeRegistry {
   const registry = new NodeRegistry()
   for (const def of data.definitions) {
     registry.register(def)

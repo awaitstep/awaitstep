@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
+    "build:cf": "BUILD_TARGET=cf vite build",
+    "dev:cf": "BUILD_TARGET=cf vite dev",
+    "deploy:cf": "BUILD_TARGET=cf vite build && wrangler deploy",
     "preview": "vite preview",
     "test": "vitest run --passWithNoTests",
     "type-check": "tsc --noEmit",
@@ -49,6 +52,8 @@
   },
   "devDependencies": {
     "@awaitstep/tsconfig": "workspace:*",
+    "@cloudflare/vite-plugin": "^1.32.2",
+    "@cloudflare/workers-types": "^4.20260414.1",
     "@tailwindcss/vite": "^4.2.2",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
@@ -59,6 +64,7 @@
     "typescript": "^5.9.3",
     "vite": "^8.0.5",
     "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "^4.1.4"
+    "vitest": "^4.1.4",
+    "wrangler": "^4.82.2"
   }
 }
