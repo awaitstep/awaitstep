@@ -53,6 +53,10 @@ export default withMermaid(
           items: [
             { text: 'Docker Compose', link: '/installation/docker-compose' },
             {
+              text: 'Cloudflare Workers',
+              link: '/installation/cloudflare-workers',
+            },
+            {
               text: 'Environment Variables',
               link: '/installation/environment-variables',
             },
