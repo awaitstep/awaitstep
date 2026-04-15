@@ -1,0 +1,15 @@
+# Copy to .dev.vars for local development with wrangler dev
+# These values are for local development only — never use in production.
+
+# Required
+TOKEN_ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000000
+BETTER_AUTH_SECRET=0000000000000000000000000000000000000000000000000000000000000000
+
+# Optional — magic link email
+# RESEND_API_KEY=
+
+# Optional — OAuth
+# GITHUB_CLIENT_ID=
+# GITHUB_CLIENT_SECRET=
+# GOOGLE_CLIENT_ID=
+# GOOGLE_CLIENT_SECRET=

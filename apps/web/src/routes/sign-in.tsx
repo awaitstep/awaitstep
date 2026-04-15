@@ -23,8 +23,8 @@ const getSignInContext = createServerFn({ method: 'GET' }).handler(
     const redirectPath = getCookie('auth_redirect') ?? null
 
     const authMethods = {
-      github: !!process.env['GITHUB_CLIENT_ID'],
-      google: !!process.env['GOOGLE_CLIENT_ID'],
+      github: process.env['GITHUB_ENABLED'] === 'true' || !!process.env['GITHUB_CLIENT_ID'],
+      google: process.env['GOOGLE_ENABLED'] === 'true' || !!process.env['GOOGLE_CLIENT_ID'],
       magicLink: process.env['MAGIC_LINK_ENABLED'] === 'true' || !!process.env['RESEND_API_KEY'],
     }
 

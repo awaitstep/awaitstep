@@ -24,7 +24,15 @@ function wrapD1(binding: AnyD1Database): AnyD1Database {
       if (prop === 'prepare') {
         return (sql: string) => wrapStmt(target.prepare(sql))
       }
-      return Reflect.get(target, prop, receiver)
+      // batch() receives an array of prepared statements — each one is
+      // already wrapped via prepare() above, so Date coercion is covered.
+      // We don't need to intercept batch() itself; just return it bound
+      // to the original target so `this` stays correct.
+      const value = Reflect.get(target, prop, receiver)
+      if (typeof value === 'function') {
+        return value.bind(target)
+      }
+      return value
     },
   }) as unknown as AnyD1Database
 }
@@ -39,7 +47,13 @@ function wrapStmt(stmt: unknown): unknown {
           return wrapStmt(bound)
         }
       }
-      return Reflect.get(target, prop, receiver)
+      // Bind methods (run, all, first, raw) to the original target so
+      // workerd's internal `this` references stay valid through the proxy.
+      const value = Reflect.get(target, prop, receiver)
+      if (typeof value === 'function') {
+        return value.bind(target)
+      }
+      return value
     },
   })
 }
