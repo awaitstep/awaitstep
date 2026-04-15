@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "awaitstep-web",
+  "compatibility_date": "2026-04-14",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "src/worker.ts",
+  "observability": { "enabled": true },
+  "services": [{ "binding": "API", "service": "awaitstep-api" }],
+  "vars": {
+    "API_URL": "https://awaitstep-api.arbta-app.workers.dev",
+    "MAGIC_LINK_ENABLED": "true",
+  },
+  // Public API routes still go through the browser directly to awaitstep-api.
+  // The API service binding is available for SSR loaders that want to call
+  // the API with zero public-HTTP hop via env.API.fetch().
+}

@@ -2,7 +2,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { getCookie, getRequestHeader, deleteCookie } from '@tanstack/react-start/server'
 import { useState } from 'react'
-import { getApiBase } from '../lib/server-config'
+import { apiFetch } from '../lib/cf-context'
 import { authClient } from '../lib/auth-client'
 import { GitHubIcon, GoogleIcon } from '../components/icons/provider-icons'
 import { Button } from '../components/ui/button'
@@ -25,14 +25,13 @@ const getSignInContext = createServerFn({ method: 'GET' }).handler(
     const authMethods = {
       github: !!process.env['GITHUB_CLIENT_ID'],
       google: !!process.env['GOOGLE_CLIENT_ID'],
-      magicLink: !!process.env['RESEND_API_KEY'],
+      magicLink: process.env['MAGIC_LINK_ENABLED'] === 'true' || !!process.env['RESEND_API_KEY'],
     }
 
     const cookie = getRequestHeader('cookie')
     if (!cookie) return { authenticated: false, redirectPath, authMethods }
 
-    const apiBase = getApiBase()
-    const res = await fetch(`${apiBase}/api/auth/get-session`, {
+    const res = await apiFetch('/api/auth/get-session', {
       headers: { cookie },
     })
 
