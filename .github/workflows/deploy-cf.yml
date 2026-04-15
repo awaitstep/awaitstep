@@ -1,0 +1,88 @@
+name: Deploy to Cloudflare Workers
+
+on:
+  workflow_call: {}
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Deploy target'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - api
+          - web
+
+env:
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+# Required secrets:
+#   CLOUDFLARE_API_TOKEN   — CF API token with Workers + D1 permissions
+#   CLOUDFLARE_ACCOUNT_ID  — CF account ID
+#
+# Required variables (Settings → Variables → Actions):
+#   CF_DEPLOY_ENABLED      — "true" to enable (skipped otherwise)
+#   CF_D1_DATABASE_ID      — D1 database UUID (from cf-install.sh or wrangler d1 list)
+#   CF_API_WORKER_URL      — API Worker public URL (e.g. https://awaitstep-api.xxx.workers.dev)
+#
+# Worker secrets (set once via wrangler, persist across deploys — NOT needed in GitHub):
+#   TOKEN_ENCRYPTION_KEY, BETTER_AUTH_SECRET, CORS_ORIGIN (= web worker URL),
+#   RESEND_API_KEY, GITHUB_CLIENT_ID/SECRET, GOOGLE_CLIENT_ID/SECRET
+#   These are set during initial cf-install.sh and never change on redeploy.
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: ${{ vars.CF_DEPLOY_ENABLED == 'true' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Validate CF configuration
+        run: |
+          if [ -z "${{ vars.CF_D1_DATABASE_ID }}" ]; then
+            echo "::error::CF_D1_DATABASE_ID variable is not set. Run cf-install.sh first, then add the D1 ID as a repo variable."
+            exit 1
+          fi
+          if [ -z "${{ vars.CF_API_WORKER_URL }}" ]; then
+            echo "::error::CF_API_WORKER_URL variable is not set. Deploy the API Worker first, then add its URL as a repo variable."
+            exit 1
+          fi
+
+      - name: Patch wrangler configs
+        run: |
+          sed -i 's|__D1_DATABASE_ID__|${{ vars.CF_D1_DATABASE_ID }}|g' apps/api/wrangler.jsonc
+          sed -i 's|__API_WORKER_URL__|${{ vars.CF_API_WORKER_URL }}|g' apps/web/wrangler.jsonc
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages (excluding apps)
+        run: pnpm build --filter='./packages/*'
+
+      - name: Build and deploy API Worker
+        if: inputs.target == 'all' || inputs.target == 'api' || inputs.target == ''
+        working-directory: apps/api
+        run: |
+          pnpm build
+          pnpm d1:migrate
+          pnpm exec wrangler deploy
+
+      - name: Build and deploy Web Worker
+        if: inputs.target == 'all' || inputs.target == 'web' || inputs.target == ''
+        working-directory: apps/web
+        run: |
+          BUILD_TARGET=cf pnpm build
+          pnpm exec wrangler deploy

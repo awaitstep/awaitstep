@@ -12,7 +12,7 @@
     {
       "binding": "DB",
       "database_name": "awaitstep",
-      "database_id": "cb9ac408-ef94-4159-bcf4-b4383e7a2127",
+      "database_id": "__D1_DATABASE_ID__",
       "migrations_dir": "../../packages/db/drizzle/sqlite",
     },
   ],

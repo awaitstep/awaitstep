@@ -7,7 +7,7 @@
     "build": "tsup",
     "dev": "tsx watch src/entry/dev.ts",
     "dev:cf": "wrangler dev",
-    "deploy:cf": "wrangler deploy",
+    "deploy:cf": "pnpm d1:migrate && wrangler deploy",
     "d1:create": "wrangler d1 create awaitstep",
     "d1:migrate": "wrangler d1 migrations apply awaitstep --remote",
     "d1:migrate:local": "wrangler d1 migrations apply awaitstep --local",

@@ -21,6 +21,7 @@ export interface AppDeps {
   corsOrigin?: string | string[]
   isDev?: boolean
   enableLocalDev?: boolean
+  runtime?: 'node' | 'workers'
   nodeRegistry?: AppNodeRegistry
   remoteNodeRegistry?: RemoteNodeRegistry
   appName?: string
@@ -40,7 +41,7 @@ export function createApp(deps: AppDeps) {
   app.use('*', secureHeaders())
 
   // Health check — no auth, no CORS
-  app.get('/api/health', (c) => c.json({ status: 'ok' }))
+  app.get('/api/health', (c) => c.json({ status: 'ok', runtime: deps.runtime ?? 'node' }))
 
   // CORS — must be before auth handler so preflight and response headers apply
   app.use(

@@ -105,3 +105,9 @@ jobs:
     uses: ./.github/workflows/docker-publish.yml
     with:
       version: ${{ needs.promote.outputs.version }}
+
+  cf-deploy:
+    needs: promote
+    if: ${{ needs.promote.outputs.skipped == 'false' }}
+    uses: ./.github/workflows/deploy-cf.yml
+    secrets: inherit
