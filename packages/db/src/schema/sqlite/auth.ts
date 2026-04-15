@@ -70,6 +70,15 @@ export const verification = sqliteTable(
   (table) => [index('idx_verification_identifier').on(table.identifier)],
 )
 
+export const organization = sqliteTable('organization', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  slug: text('slug').notNull().unique(),
+  logo: text('logo'),
+  metadata: text('metadata'),
+  createdAt: text('createdAt').notNull(),
+})
+
 export const member = sqliteTable(
   'member',
   {
@@ -77,7 +86,9 @@ export const member = sqliteTable(
     userId: text('userId')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
-    organizationId: text('organizationId').notNull(),
+    organizationId: text('organizationId')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
     role: text('role').notNull(),
     createdAt: text('createdAt').notNull(),
   },
@@ -85,4 +96,23 @@ export const member = sqliteTable(
     index('idx_member_user_id').on(table.userId),
     index('idx_member_org_id').on(table.organizationId),
   ],
+)
+
+export const invitation = sqliteTable(
+  'invitation',
+  {
+    id: text('id').primaryKey(),
+    email: text('email').notNull(),
+    inviterId: text('inviterId')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    organizationId: text('organizationId')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    role: text('role'),
+    status: text('status').notNull(),
+    expiresAt: text('expiresAt').notNull(),
+    createdAt: text('createdAt').notNull(),
+  },
+  (table) => [index('idx_invitation_org_id').on(table.organizationId)],
 )
