@@ -7,3 +7,4 @@ packages/db/drizzle
 packages/email/src/templates/__generated__
 CHANGELOG.md
 .github/dependabot.yml
+.claude/worktrees
