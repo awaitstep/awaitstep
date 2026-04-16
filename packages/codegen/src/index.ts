@@ -13,6 +13,7 @@ export type {
   DeploymentConfigUiFieldOption,
   DeploymentConfigUiWidget,
   DeploymentConfigValidator,
+  DeploymentConfigPreview,
 } from './types.js'
 
 export type { WorkflowProvider, CredentialsCheckResult, LocalDevProvider } from './provider.js'

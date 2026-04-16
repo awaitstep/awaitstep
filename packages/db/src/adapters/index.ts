@@ -292,8 +292,8 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }): Promise<Connection> {
     return this._connections.create(data)
   }
-  getProviderConnectionById(id: string): Promise<Connection | null> {
-    return this._connections.getById(id)
+  getProviderConnectionById(id: string, organizationId?: string): Promise<Connection | null> {
+    return this._connections.getById(id, organizationId)
   }
   listConnectionsByOrganization(
     organizationId: string,

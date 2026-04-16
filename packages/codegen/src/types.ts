@@ -93,3 +93,8 @@ export interface DeploymentConfigValidator {
   safeParse(data: unknown): { success: true; data: unknown } | { success: false; error: unknown }
   parse(data: unknown): unknown
 }
+
+export interface DeploymentConfigPreview {
+  filename: string
+  content: Record<string, unknown>
+}

@@ -97,7 +97,7 @@ export async function prepareWorkflow(
 
   // Generate artifact
   const generateConfig: ProviderConfig = {
-    provider: 'cloudflare-workflows',
+    provider: 'cloudflare',
     credentials: {},
     ...(envResult.envVars && { envVars: envResult.envVars }),
     ...(workflow.triggerCode && { options: { triggerCode: workflow.triggerCode } }),

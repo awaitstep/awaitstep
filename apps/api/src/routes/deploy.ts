@@ -164,6 +164,52 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
   })
 })
 
+deploy.get('/:workflowId/deploy-config/:connectionId', async (c) => {
+  const db = c.get('db')
+  const workflow = c.get('workflow')
+  if (!workflow) return c.json({ error: 'Not found' }, 404)
+  const connectionId = c.req.param('connectionId')
+  const organizationId = c.get('organizationId')
+
+  const connection = await db.getProviderConnectionById(connectionId, organizationId)
+  if (!connection) {
+    return c.json({ error: 'Connection not found' }, 404)
+  }
+
+  const adapter = resolveProvider(connection.provider)
+  const stored = await db.getDeploymentConfig(workflow.id, connectionId)
+  const config = stored ? JSON.parse(stored.config) : adapter.getDefaultDeploymentConfig()
+  const preview = adapter.buildDeploymentConfigPreview(config)
+  const uiSchema = adapter.deploymentConfigUiSchema
+
+  return c.json({ config, provider: connection.provider, preview, uiSchema })
+})
+
+deploy.post(
+  '/:workflowId/deploy-config-preview',
+  zValidator(
+    'json',
+    z.object({
+      connectionId: z.string().min(1),
+      config: z.record(z.string(), z.unknown()),
+    }),
+  ),
+  async (c) => {
+    const organizationId = c.get('organizationId')
+    const body = c.req.valid('json')
+    const db = c.get('db')
+
+    const connection = await db.getProviderConnectionById(body.connectionId, organizationId)
+    if (!connection) {
+      return c.json({ error: 'Connection not found' }, 404)
+    }
+
+    const adapter = resolveProvider(connection.provider)
+    const preview = adapter.buildDeploymentConfigPreview(body.config)
+    return c.json(preview)
+  },
+)
+
 deploy.get('/:workflowId/deployments', zValidator('query', paginationQuerySchema), async (c) => {
   const db = c.get('db')
   const workflow = c.get('workflow')
@@ -182,16 +228,15 @@ deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c)
 
   if (!workflow.currentVersionId) return c.json({ error: 'No version deployed' }, 400)
 
-  const connection = await db.getProviderConnectionById(body.connectionId)
-  if (!connection || connection.organizationId !== organizationId)
-    return c.json({ error: 'Connection not found' }, 404)
+  const connection = await db.getProviderConnectionById(body.connectionId, organizationId)
+  if (!connection) return c.json({ error: 'Connection not found' }, 404)
 
   const adapter = resolveProvider(undefined, {
     templateResolver: c.get('nodeRegistry')?.templateResolver,
   })
   const triggerCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
   const config = {
-    provider: 'cloudflare-workflows',
+    provider: 'cloudflare',
     credentials: triggerCreds,
     options: {
       workflowName: workflow.name,
@@ -223,9 +268,8 @@ deploy.post(
 
     const { connectionId } = c.req.valid('json')
 
-    const connection = await db.getProviderConnectionById(connectionId)
-    if (!connection || connection.organizationId !== organizationId)
-      return c.json({ error: 'Connection not found' }, 404)
+    const connection = await db.getProviderConnectionById(connectionId, organizationId)
+    if (!connection) return c.json({ error: 'Connection not found' }, 404)
 
     const name = workerName(workflow.id)
     const creds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
@@ -233,7 +277,7 @@ deploy.post(
       templateResolver: c.get('nodeRegistry')?.templateResolver,
     })
     const result = await adapter.destroy(name, {
-      provider: 'cloudflare-workflows',
+      provider: 'cloudflare',
       credentials: creds,
     })
 

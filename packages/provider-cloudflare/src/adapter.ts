@@ -20,6 +20,7 @@ import { deployWithWrangler, deleteWorker } from './deploy.js'
 import { startLocalDev } from './local-dev.js'
 import { sanitizedWorkflowName } from './naming.js'
 import { CloudflareAPI } from './api.js'
+import { WRANGLER_BASE_CONFIG } from './wrangler-config.js'
 import { detectBindings, type BindingRequirement } from './codegen/bindings.js'
 import { getSubWorkflowBindings } from './codegen/generators/sub-workflow.js'
 import {
@@ -65,7 +66,7 @@ export interface DeployProgress {
 export type OnDeployProgress = (progress: DeployProgress) => void
 
 export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevProvider {
-  readonly name = 'cloudflare-workflows'
+  readonly name = 'cloudflare'
   readonly deploymentConfigSchema = cloudflareDeploymentConfigSchema
   readonly deploymentConfigUiSchema = cloudflareDeploymentConfigUiSchema
   private templateResolver?: TemplateResolver
@@ -76,6 +77,46 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
 
   getDefaultDeploymentConfig(): CloudflareDeploymentConfig {
     return { ...cloudflareDefaultDeploymentConfig }
+  }
+
+  buildDeploymentConfigPreview(config: unknown) {
+    // Parse through schema so preprocess normalizes booleans → objects
+    const parsed = cloudflareDeploymentConfigSchema.safeParse(config)
+    const c = (parsed.success ? parsed.data : config) as CloudflareDeploymentConfig
+    const preview: Record<string, unknown> = {
+      compatibility_date: c.compatibilityDate ?? WRANGLER_BASE_CONFIG.compatibility_date,
+      compatibility_flags: c.compatibilityFlags ?? WRANGLER_BASE_CONFIG.compatibility_flags,
+    }
+
+    if (c.workersDev !== undefined) preview.workers_dev = c.workersDev
+    if (c.previewUrls !== undefined) preview.preview_urls = c.previewUrls
+
+    const routes: Array<Record<string, unknown>> = []
+    if (c.routes) {
+      for (const r of c.routes) routes.push({ pattern: r.pattern, zone_name: r.zoneName })
+    }
+    if (c.customDomains) {
+      for (const d of c.customDomains) routes.push({ pattern: d, custom_domain: true })
+    }
+    if (routes.length > 0) preview.routes = routes
+
+    if (c.cronTriggers && c.cronTriggers.length > 0) {
+      preview.triggers = { crons: c.cronTriggers }
+    }
+    if (c.placement && c.placement.mode !== 'off') {
+      preview.placement = { mode: c.placement.mode }
+    }
+    if (c.limits?.cpuMs) {
+      preview.limits = { cpu_ms: c.limits.cpuMs }
+    }
+    if (c.observability) {
+      preview.observability = c.observability
+    }
+    if (c.logpush) {
+      preview.logpush = true
+    }
+
+    return { filename: 'wrangler.json', content: preview }
   }
 
   validate(ir: WorkflowIR): Result<void, ValidationError[]> {
@@ -261,6 +302,14 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
       previewUrls,
       workersDev,
       routes,
+      customDomains: deploymentConfig?.customDomains,
+      compatibilityDate: deploymentConfig?.compatibilityDate,
+      compatibilityFlags: deploymentConfig?.compatibilityFlags,
+      cronTriggers: deploymentConfig?.cronTriggers,
+      placement: deploymentConfig?.placement,
+      limits: deploymentConfig?.limits,
+      observability: deploymentConfig?.observability,
+      logpush: deploymentConfig?.logpush,
     })
 
     if (!result.success) {

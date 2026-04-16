@@ -47,9 +47,9 @@ export async function prepareDeploy(
     }
   }
 
-  // Connection
-  const connection = await db.getProviderConnectionById(connectionId)
-  if (!connection || connection.organizationId !== organizationId) {
+  // Connection (org filter in SQL)
+  const connection = await db.getProviderConnectionById(connectionId, organizationId)
+  if (!connection) {
     return { error: 'Connection not found', status: 404 }
   }
 

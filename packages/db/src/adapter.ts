@@ -111,7 +111,7 @@ export interface DatabaseAdapter {
     credentials: string
     name: string
   }): Promise<Connection>
-  getProviderConnectionById(id: string): Promise<Connection | null>
+  getProviderConnectionById(id: string, organizationId?: string): Promise<Connection | null>
   listConnectionsByOrganization(
     organizationId: string,
     pagination?: PaginationParams,

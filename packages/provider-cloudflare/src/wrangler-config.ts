@@ -18,12 +18,22 @@ export interface WranglerWorkflowConfig {
   previewUrls?: boolean
   workersDev?: boolean
   routes?: Array<{ pattern: string; zone_name: string }>
+  customDomains?: string[]
+  compatibilityDate?: string
+  compatibilityFlags?: string[]
+  cronTriggers?: string[]
+  placement?: { mode: string }
+  limits?: { cpuMs?: number }
+  observability?: { enabled: boolean; headSamplingRate?: number }
+  logpush?: boolean
   localDev?: boolean
 }
 
 export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
   const wranglerConfig: Record<string, unknown> = {
-    ...WRANGLER_BASE_CONFIG,
+    compatibility_date: config.compatibilityDate ?? WRANGLER_BASE_CONFIG.compatibility_date,
+    compatibility_flags: config.compatibilityFlags ?? WRANGLER_BASE_CONFIG.compatibility_flags,
+    observability: config.observability ?? WRANGLER_BASE_CONFIG.observability,
     name: config.workerName,
     main: config.main,
     workflows: [
@@ -50,7 +60,33 @@ export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
     wranglerConfig.vars = config.vars
   }
   if (config.routes && config.routes.length > 0) {
-    wranglerConfig.routes = config.routes
+    const allRoutes: Array<Record<string, unknown>> = config.routes.map((r) => ({
+      pattern: r.pattern,
+      zone_name: r.zone_name,
+    }))
+    if (config.customDomains && config.customDomains.length > 0) {
+      for (const domain of config.customDomains) {
+        allRoutes.push({ pattern: domain, custom_domain: true })
+      }
+    }
+    wranglerConfig.routes = allRoutes
+  } else if (config.customDomains && config.customDomains.length > 0) {
+    wranglerConfig.routes = config.customDomains.map((domain) => ({
+      pattern: domain,
+      custom_domain: true,
+    }))
+  }
+  if (config.cronTriggers && config.cronTriggers.length > 0) {
+    wranglerConfig.triggers = { crons: config.cronTriggers }
+  }
+  if (config.placement && config.placement.mode !== 'off') {
+    wranglerConfig.placement = { mode: config.placement.mode }
+  }
+  if (config.limits?.cpuMs && config.limits.cpuMs > 10) {
+    wranglerConfig.limits = { cpu_ms: config.limits.cpuMs }
+  }
+  if (config.logpush) {
+    wranglerConfig.logpush = true
   }
 
   if (config.bindings && config.bindings.length > 0) {

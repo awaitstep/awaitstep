@@ -16,7 +16,6 @@ export interface DeployOptions {
   workflowName: string
   accountId: string
   apiToken: string
-  compatibilityDate?: string
   packageName?: string
   vars?: Record<string, string>
   secrets?: Record<string, string>
@@ -26,6 +25,14 @@ export interface DeployOptions {
   previewUrls?: boolean
   workersDev?: boolean
   routes?: Array<{ pattern: string; zone_name: string }>
+  customDomains?: string[]
+  compatibilityDate?: string
+  compatibilityFlags?: string[]
+  cronTriggers?: string[]
+  placement?: { mode: string }
+  limits?: { cpuMs?: number }
+  observability?: { enabled: boolean; headSamplingRate?: number }
+  logpush?: boolean
 }
 
 export interface WranglerDeployResult {
@@ -60,6 +67,14 @@ export async function deployWithWrangler(
       previewUrls: options.previewUrls,
       workersDev: options.workersDev,
       routes: options.routes,
+      customDomains: options.customDomains,
+      compatibilityDate: options.compatibilityDate,
+      compatibilityFlags: options.compatibilityFlags,
+      cronTriggers: options.cronTriggers,
+      placement: options.placement,
+      limits: options.limits,
+      observability: options.observability,
+      logpush: options.logpush,
     })
     await writeFile(join(deployDir, 'wrangler.json'), wranglerConfig, 'utf-8')
 
