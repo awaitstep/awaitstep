@@ -263,6 +263,41 @@ export const api = {
     return request(withOrg(`/connections/${id}`), { method: 'DELETE' })
   },
 
+  getDeployConfig(
+    workflowId: string,
+    connectionId: string,
+  ): Promise<{
+    config: Record<string, unknown>
+    provider: string
+    preview: { filename: string; content: Record<string, unknown> }
+    uiSchema?: {
+      groups: Array<{
+        title: string
+        description?: string
+        fields: Array<{
+          path: string
+          label?: string
+          help?: string
+          placeholder?: string
+          widget?: string
+        }>
+      }>
+    }
+  }> {
+    return request(withProject(`/workflows/${workflowId}/deploy-config/${connectionId}`))
+  },
+
+  getDeployConfigPreview(
+    workflowId: string,
+    connectionId: string,
+    config: Record<string, unknown>,
+  ): Promise<{ filename: string; content: Record<string, unknown> }> {
+    return request(withProject(`/workflows/${workflowId}/deploy-config-preview`), {
+      method: 'POST',
+      body: JSON.stringify({ connectionId, config }),
+    })
+  },
+
   listDeployments(
     workflowId: string,
     opts?: PaginationOptions,

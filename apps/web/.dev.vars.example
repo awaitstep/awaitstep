@@ -1,0 +1,7 @@
+# Copy to .dev.vars for local development with wrangler dev
+
+# API Worker URL — points to the API wrangler dev server
+API_URL=http://localhost:8787
+
+# Show magic-link form on sign-in page
+MAGIC_LINK_ENABLED=true

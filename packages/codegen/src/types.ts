@@ -55,3 +55,46 @@ export interface WorkflowRunStatus {
   output?: unknown
   error?: { name: string; message: string }
 }
+
+export type DeploymentConfigUiWidget =
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'boolean'
+  | 'select'
+  | 'array'
+  | 'array-of-objects'
+
+export interface DeploymentConfigUiFieldOption {
+  value: string
+  label: string
+}
+
+export interface DeploymentConfigUiField {
+  path: string
+  label?: string
+  help?: string
+  placeholder?: string
+  widget?: DeploymentConfigUiWidget
+  options?: DeploymentConfigUiFieldOption[]
+}
+
+export interface DeploymentConfigUiGroup {
+  title: string
+  description?: string
+  fields: DeploymentConfigUiField[]
+}
+
+export interface DeploymentConfigUiSchema {
+  groups: DeploymentConfigUiGroup[]
+}
+
+export interface DeploymentConfigValidator {
+  safeParse(data: unknown): { success: true; data: unknown } | { success: false; error: unknown }
+  parse(data: unknown): unknown
+}
+
+export interface DeploymentConfigPreview {
+  filename: string
+  content: Record<string, unknown>
+}

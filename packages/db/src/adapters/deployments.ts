@@ -21,6 +21,7 @@ export class DeploymentsAdapter {
     serviceUrl?: string
     status: string
     error?: string
+    configSnapshot?: string
   }): Promise<Deployment> {
     const now = new Date().toISOString()
     const row = {
@@ -32,6 +33,7 @@ export class DeploymentsAdapter {
       serviceUrl: data.serviceUrl ?? null,
       status: data.status,
       error: data.error ?? null,
+      configSnapshot: data.configSnapshot ?? null,
       createdAt: now,
     }
     await this.db.insert(this.table).values(row)

@@ -46,7 +46,7 @@ const simpleIR: WorkflowIR = {
 }
 
 const providerConfig: ProviderConfig = {
-  provider: 'cloudflare-workflows',
+  provider: 'cloudflare',
   credentials: { accountId: 'acc123', apiToken: 'tok123' },
   options: { workflowId: 'test-workflow', workflowName: 'test-workflow' },
 }
@@ -55,7 +55,7 @@ describe('CloudflareWorkflowsAdapter', () => {
   const adapter = new CloudflareWorkflowsAdapter()
 
   it('has the correct name', () => {
-    expect(adapter.name).toBe('cloudflare-workflows')
+    expect(adapter.name).toBe('cloudflare')
   })
 
   describe('validate', () => {
@@ -92,7 +92,7 @@ describe('CloudflareWorkflowsAdapter', () => {
       const customTrigger =
         'const { name } = await request.json();\nconst instance = await env.WORKFLOW.create({ name });\nreturn Response.json({ instanceId: instance.id });'
       const config: ProviderConfig = {
-        provider: 'cloudflare-workflows',
+        provider: 'cloudflare',
         credentials: {},
         options: { triggerCode: customTrigger },
       }

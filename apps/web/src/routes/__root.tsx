@@ -1,20 +1,10 @@
 import { createRootRoute, Outlet, HeadContent, Scripts, Link } from '@tanstack/react-router'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { useEffect, useState } from 'react'
 import { useThemeStore } from '../stores/theme-store'
 import { ThemeScript } from '../components/theme-script'
+import { QueryProvider } from '../lib/query-provider'
 import '../styles.css'
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 30_000,
-      retry: 1,
-      refetchIntervalInBackground: false,
-    },
-  },
-})
 
 export const Route = createRootRoute({
   notFoundComponent: NotFound,
@@ -66,10 +56,10 @@ function RootComponent() {
       </head>
       <body className="min-h-screen" suppressHydrationWarning>
         <ThemeScript />
-        <QueryClientProvider client={queryClient}>
+        <QueryProvider>
           <Outlet />
           <ClientToaster />
-        </QueryClientProvider>
+        </QueryProvider>
         <Scripts />
       </body>
     </html>

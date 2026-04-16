@@ -4,6 +4,7 @@ export type {
   Connection,
   WorkflowRun,
   Deployment,
+  DeploymentConfig,
   ApiKey,
   EnvVar,
   Project,

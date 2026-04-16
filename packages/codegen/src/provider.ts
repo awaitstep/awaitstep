@@ -6,6 +6,9 @@ import type {
   WorkflowRunStatus,
   LocalDevSession,
   LocalDevOptions,
+  DeploymentConfigUiSchema,
+  DeploymentConfigValidator,
+  DeploymentConfigPreview,
 } from './types.js'
 
 export interface CredentialsCheckResult {
@@ -15,6 +18,14 @@ export interface CredentialsCheckResult {
 
 export interface WorkflowProvider {
   readonly name: string
+
+  readonly deploymentConfigSchema: DeploymentConfigValidator
+
+  readonly deploymentConfigUiSchema?: DeploymentConfigUiSchema
+
+  getDefaultDeploymentConfig(): unknown
+
+  buildDeploymentConfigPreview(config: unknown): DeploymentConfigPreview
 
   validate(ir: WorkflowIR): Result<void, ValidationError[]>
 

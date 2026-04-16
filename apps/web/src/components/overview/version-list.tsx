@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -10,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '../ui/dropdown-menu'
-import { DeployDialog } from '../canvas/deploy-dialog'
+import { useNavigate } from '@tanstack/react-router'
 import {
   api,
   type VersionSummary,
@@ -42,8 +41,7 @@ export function VersionList({
   onLoadMore,
 }: VersionListProps) {
   const queryClient = useQueryClient()
-  const [deployOpen, setDeployOpen] = useState(false)
-  const [deployVersionId, setDeployVersionId] = useState<string | undefined>(undefined)
+  const navigate = useNavigate()
 
   const lockVersionMutation = useMutation({
     mutationFn: ({ versionId, locked }: { versionId: string; locked: boolean }) =>
@@ -110,8 +108,10 @@ export function VersionList({
                       {!isActive && !isLocked && !deployBlocked && (
                         <DropdownMenuItem
                           onSelect={() => {
-                            setDeployVersionId(v.id)
-                            setDeployOpen(true)
+                            navigate({
+                              to: '/workflows/$workflowId/deploy',
+                              params: { workflowId },
+                            })
                           }}
                         >
                           <Rocket className="h-3.5 w-3.5" />
@@ -173,13 +173,6 @@ export function VersionList({
         <div className="mt-3 rounded-md border border-border px-4 py-6 text-center text-xs text-muted-foreground">
           No versions yet. Open the editor to create one.
         </div>
-      )}
-      {deployOpen && (
-        <DeployDialog
-          onClose={() => setDeployOpen(false)}
-          workflowId={workflowId}
-          versionId={deployVersionId}
-        />
       )}
     </section>
   )

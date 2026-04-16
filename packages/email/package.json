@@ -10,7 +10,8 @@
     }
   },
   "scripts": {
-    "build": "tsup",
+    "prerender": "tsx scripts/prerender.ts",
+    "build": "pnpm prerender && tsup",
     "dev": "email dev -p 3004 -d ./src/templates",
     "test": "vitest run --passWithNoTests",
     "type-check": "tsc --noEmit",
@@ -18,15 +19,16 @@
   },
   "devDependencies": {
     "@awaitstep/tsconfig": "workspace:*",
-    "@types/react": "^19.1.8",
-    "tsup": "8.5.1",
-    "typescript": "^5.9.3",
     "@react-email/preview-server": "^5.2.10",
+    "@types/react": "^19.1.8",
     "react-email": "^5.2.10",
+    "tsup": "8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
     "vitest": "^4.1.4"
   },
   "dependencies": {
     "@react-email/components": "^1.0.10",
-    "react": "^19.2.4"
+    "react": "^19.2.5"
   }
 }

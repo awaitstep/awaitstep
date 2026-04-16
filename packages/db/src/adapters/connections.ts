@@ -40,8 +40,14 @@ export class ConnectionsAdapter {
     return { ...row, credentials: data.credentials }
   }
 
-  async getById(id: string): Promise<Connection | null> {
-    const rows = await this.db.select().from(this.table).where(eq(this.table.id, id)).limit(1)
+  async getById(id: string, organizationId?: string): Promise<Connection | null> {
+    const conditions = [eq(this.table.id, id)]
+    if (organizationId) conditions.push(eq(this.table.organizationId, organizationId))
+    const rows = await this.db
+      .select()
+      .from(this.table)
+      .where(and(...conditions))
+      .limit(1)
     const row = rows[0] ?? null
     if (row && this.crypto) {
       row.credentials = await this.tryDecrypt(row.credentials)

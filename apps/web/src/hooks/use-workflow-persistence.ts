@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { useWorkflowStore } from '../stores/workflow-store'
 import { validateWorkflowForPublish } from '../lib/validate-workflow'
@@ -15,7 +16,7 @@ export function useWorkflowPersistence(opts: {
 }) {
   const { workflowId, isNew, isDirty, nodeRegistry } = opts
   const queryClient = useQueryClient()
-  const [deployOpen, setDeployOpen] = useState(false)
+  const navigate = useNavigate()
   const { markClean, setWorkflowId, runValidation } = useWorkflowStore()
 
   const saveMutation = useMutation({
@@ -114,14 +115,13 @@ export function useWorkflowPersistence(opts: {
         return
       }
     }
-    setDeployOpen(true)
-  }, [runValidation, isDirty, isNew, saveMutation, nodeRegistry])
+    const targetId = isNew ? (useWorkflowStore.getState().workflowId ?? workflowId) : workflowId
+    navigate({ to: '/workflows/$workflowId/deploy', params: { workflowId: targetId } })
+  }, [runValidation, isDirty, isNew, saveMutation, nodeRegistry, navigate, workflowId])
 
   return {
     handleSave,
     handleDeploy,
     isSaving: saveMutation.isPending,
-    deployOpen,
-    setDeployOpen,
   }
 }
