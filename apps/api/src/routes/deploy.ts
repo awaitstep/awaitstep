@@ -13,8 +13,7 @@ import { prepareDeploy, isDeployError } from '../lib/deploy-prepare.js'
 const deploySchema = z.object({
   connectionId: z.string().min(1),
   versionId: z.string().min(1).optional(),
-  previewUrls: z.boolean().optional(),
-  workersDev: z.boolean().optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
 })
 
 const MAX_TRIGGER_PARAMS_BYTES = 102_400 // 100 KB
@@ -46,8 +45,7 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
     versionId: body.versionId,
     nodeRegistry: c.get('nodeRegistry'),
     appName: c.get('appName'),
-    previewUrls: body.previewUrls,
-    workersDev: body.workersDev,
+    deploymentConfig: body.config,
   })
 
   if (isDeployError(prepared)) {
@@ -55,6 +53,7 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
   }
 
   const { adapter, artifact, providerConfig, versionId, connectionId } = prepared
+  const configSnapshot = JSON.stringify(prepared.resolvedDeploymentConfig)
   const result = await adapter.deploy(artifact, providerConfig)
 
   await db.createDeployment({
@@ -66,7 +65,20 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
     serviceUrl: result.url,
     status: result.success ? 'success' : 'failed',
     error: result.error,
+    configSnapshot,
   })
+
+  // Post-deploy: persist config only on success
+  if (result.success) {
+    await db.upsertDeploymentConfig({
+      id: nanoid(),
+      workflowId: workflow.id,
+      connectionId,
+      provider: prepared.connectionProvider,
+      config: configSnapshot,
+      updatedBy: c.get('userId'),
+    })
+  }
 
   return c.json(result, result.success ? 200 : 500)
 })
@@ -86,8 +98,7 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
     versionId: body.versionId,
     nodeRegistry: c.get('nodeRegistry'),
     appName: c.get('appName'),
-    previewUrls: body.previewUrls,
-    workersDev: body.workersDev,
+    deploymentConfig: body.config,
   })
 
   if (isDeployError(prepared)) {
@@ -95,6 +106,7 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
   }
 
   const { adapter, artifact, providerConfig, versionId, connectionId } = prepared
+  const configSnapshot = JSON.stringify(prepared.resolvedDeploymentConfig)
 
   return streamSSE(c, async (stream) => {
     let eventId = 0
@@ -129,7 +141,20 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
       serviceUrl: result.url,
       status: result.success ? 'success' : 'failed',
       error: result.error,
+      configSnapshot,
     })
+
+    // Post-deploy: persist config only on success
+    if (result.success) {
+      await db.upsertDeploymentConfig({
+        id: nanoid(),
+        workflowId: workflow.id,
+        connectionId,
+        provider: prepared.connectionProvider,
+        config: configSnapshot,
+        updatedBy: c.get('userId'),
+      })
+    }
 
     await stream.writeSSE({
       id: String(eventId++),

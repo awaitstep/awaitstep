@@ -98,7 +98,8 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
 
   generate(ir: WorkflowIR, config?: ProviderConfig): GeneratedArtifact {
     const envVarNames = config?.envVars ? Object.keys(config.envVars) : undefined
-    const triggerCode = config?.options?.['triggerCode'] as string | undefined
+    const dc = config?.options?.['deploymentConfig'] as CloudflareDeploymentConfig | undefined
+    const triggerCode = dc?.triggerCode ?? (config?.options?.['triggerCode'] as string | undefined)
     const source = generateWorkflow(ir, {
       templateResolver: this.templateResolver,
       envVarNames,
@@ -211,30 +212,40 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     const vars = Object.keys(varsMap).length > 0 ? varsMap : undefined
     const secrets = Object.keys(secretsMap).length > 0 ? secretsMap : undefined
 
-    const deployConfig = config.options?.['deployConfig'] as
+    // Read typed deployment config (new path) with legacy fallback
+    const deploymentConfig = config.options?.['deploymentConfig'] as
+      | CloudflareDeploymentConfig
+      | undefined
+    const legacyDeployConfig = config.options?.['deployConfig'] as
       | { route?: { pattern: string; zoneName: string } }
       | undefined
-    const routes = deployConfig?.route
-      ? [
-          { pattern: deployConfig.route.pattern, zone_name: deployConfig.route.zoneName },
-          ...(deployConfig.route.pattern.endsWith('/*')
-            ? [
-                {
-                  pattern: deployConfig.route.pattern.replace('/*', '*'),
-                  zone_name: deployConfig.route.zoneName,
-                },
-              ]
-            : []),
-          ...(!deployConfig.route.pattern.endsWith('*')
-            ? [
-                {
-                  pattern: deployConfig.route.pattern.concat('*'),
-                  zone_name: deployConfig.route.zoneName,
-                },
-              ]
-            : []),
-        ]
+
+    // Build wrangler routes from deployment config or legacy format
+    const configRoutes = deploymentConfig?.routes
+    const legacyRoute = legacyDeployConfig?.route
+    const routeEntries = configRoutes
+      ? configRoutes.map((r) => ({ pattern: r.pattern, zoneName: r.zoneName }))
+      : legacyRoute
+        ? [{ pattern: legacyRoute.pattern, zoneName: legacyRoute.zoneName }]
+        : undefined
+
+    const routes = routeEntries
+      ? routeEntries.flatMap((r) => {
+          const base = { pattern: r.pattern, zone_name: r.zoneName }
+          const variants = [base]
+          if (r.pattern.endsWith('/*')) {
+            variants.push({ pattern: r.pattern.replace('/*', '*'), zone_name: r.zoneName })
+          } else if (!r.pattern.endsWith('*')) {
+            variants.push({ pattern: r.pattern.concat('*'), zone_name: r.zoneName })
+          }
+          return variants
+        })
       : undefined
+
+    const previewUrls =
+      deploymentConfig?.previewUrls ?? (config.options?.['previewUrls'] as boolean | undefined)
+    const workersDev =
+      deploymentConfig?.workersDev ?? (config.options?.['workersDev'] as boolean | undefined)
 
     const result = await deployWithWrangler(compiledArtifact, {
       workflowId: opts.workflowId,
@@ -247,8 +258,8 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
       dependencies: opts.dependencies,
       bindings: resolvedBindings,
       subWorkflowBindings: subWorkflowBindings.length > 0 ? subWorkflowBindings : undefined,
-      previewUrls: config.options?.['previewUrls'] as boolean | undefined,
-      workersDev: config.options?.['workersDev'] as boolean | undefined,
+      previewUrls,
+      workersDev,
       routes,
     })
 
