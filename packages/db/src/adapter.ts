@@ -4,6 +4,7 @@ import type {
   Connection,
   WorkflowRun,
   Deployment,
+  DeploymentConfig,
   ApiKey,
   EnvVar,
   Project,
@@ -154,6 +155,7 @@ export interface DatabaseAdapter {
     serviceUrl?: string
     status: string
     error?: string
+    configSnapshot?: string
   }): Promise<Deployment>
   getActiveDeployment(workflowId: string): Promise<Deployment | null>
   isActiveDeploymentLocked(workflowId: string): Promise<boolean>
@@ -166,6 +168,19 @@ export interface DatabaseAdapter {
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<Deployment>>
   deleteDeploymentsByWorkflow(workflowId: string): Promise<void>
+
+  // Deployment Configs
+  getDeploymentConfig(workflowId: string, connectionId: string): Promise<DeploymentConfig | null>
+  upsertDeploymentConfig(data: {
+    id: string
+    workflowId: string
+    connectionId: string
+    provider: string
+    config: string
+    updatedBy?: string
+  }): Promise<DeploymentConfig>
+  listDeploymentConfigsByWorkflow(workflowId: string): Promise<DeploymentConfig[]>
+  deleteDeploymentConfig(workflowId: string, connectionId: string): Promise<void>
 
   // API Keys
   createApiKey(data: {

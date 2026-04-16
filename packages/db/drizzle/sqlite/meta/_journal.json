@@ -50,6 +50,13 @@
       "when": 1775399864625,
       "tag": "0006_nappy_retro_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1776336829353,
+      "tag": "0007_skinny_fat_cobra",
+      "breakpoints": true
     }
   ]
 }

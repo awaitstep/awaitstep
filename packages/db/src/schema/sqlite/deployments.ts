@@ -18,6 +18,7 @@ export const deployments = sqliteTable(
     serviceUrl: text('service_url'),
     status: text('status').notNull().default('success'),
     error: text('error'),
+    configSnapshot: text('config_snapshot'),
     createdAt: text('created_at').notNull(),
   },
   (table) => [index('idx_deployments_workflow_id').on(table.workflowId)],
