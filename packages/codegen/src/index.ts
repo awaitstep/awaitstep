@@ -7,6 +7,12 @@ export type {
   LocalDevSession,
   LocalDevLogEntry,
   LocalDevOptions,
+  DeploymentConfigUiSchema,
+  DeploymentConfigUiGroup,
+  DeploymentConfigUiField,
+  DeploymentConfigUiFieldOption,
+  DeploymentConfigUiWidget,
+  DeploymentConfigValidator,
 } from './types.js'
 
 export type { WorkflowProvider, CredentialsCheckResult, LocalDevProvider } from './provider.js'

@@ -22,6 +22,12 @@ import { sanitizedWorkflowName } from './naming.js'
 import { CloudflareAPI } from './api.js'
 import { detectBindings, type BindingRequirement } from './codegen/bindings.js'
 import { getSubWorkflowBindings } from './codegen/generators/sub-workflow.js'
+import {
+  cloudflareDefaultDeploymentConfig,
+  cloudflareDeploymentConfigSchema,
+  cloudflareDeploymentConfigUiSchema,
+  type CloudflareDeploymentConfig,
+} from './config-schema.js'
 
 interface CloudflareOptions {
   workflowId: string
@@ -60,10 +66,16 @@ export type OnDeployProgress = (progress: DeployProgress) => void
 
 export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevProvider {
   readonly name = 'cloudflare-workflows'
+  readonly deploymentConfigSchema = cloudflareDeploymentConfigSchema
+  readonly deploymentConfigUiSchema = cloudflareDeploymentConfigUiSchema
   private templateResolver?: TemplateResolver
 
   constructor(options?: { templateResolver?: TemplateResolver }) {
     this.templateResolver = options?.templateResolver
+  }
+
+  getDefaultDeploymentConfig(): CloudflareDeploymentConfig {
+    return { ...cloudflareDefaultDeploymentConfig }
   }
 
   validate(ir: WorkflowIR): Result<void, ValidationError[]> {
