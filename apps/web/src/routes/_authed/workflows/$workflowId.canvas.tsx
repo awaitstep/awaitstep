@@ -145,7 +145,7 @@ function WorkflowEditorPage() {
   }, [workflowId, isNew, fullData, setWorkflowId, isReadOnly, currentVersion])
 
   // Persistence (save + deploy)
-  const { handleSave, handleDeploy, isSaving, deployOpen, setDeployOpen } = useWorkflowPersistence({
+  const { handleSave, handleDeploy, isSaving } = useWorkflowPersistence({
     workflowId,
     isNew,
     isDirty,
@@ -230,9 +230,6 @@ function WorkflowEditorPage() {
             blockerStatus={status}
             onBlockerProceed={proceed}
             onBlockerReset={reset}
-            deployOpen={deployOpen}
-            onCloseDeploy={() => setDeployOpen(false)}
-            workflowId={workflowId}
           />
         </LazyReactFlowProvider>
       </Suspense>

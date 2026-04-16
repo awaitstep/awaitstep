@@ -11,14 +11,13 @@ import { useShallow } from 'zustand/react/shallow'
 const SECRET_PREFIX = 'SECRET_'
 
 export function WorkflowSettings() {
-  const { metadata, workflowEnvVars, deployConfig } = useWorkflowStore(
+  const { metadata, workflowEnvVars } = useWorkflowStore(
     useShallow((s) => ({
       metadata: s.metadata,
       workflowEnvVars: s.workflowEnvVars,
-      deployConfig: s.deployConfig,
     })),
   )
-  const { setMetadata, setWorkflowEnvVars, setDeployConfig, setShowSettings } = useWorkflowStore()
+  const { setMetadata, setWorkflowEnvVars, setShowSettings } = useWorkflowStore()
 
   const addEnvVar = useCallback(() => {
     setWorkflowEnvVars([...useWorkflowStore.getState().workflowEnvVars, { name: '', value: '' }])
@@ -59,22 +58,6 @@ export function WorkflowSettings() {
       }
     },
     [setWorkflowEnvVars],
-  )
-
-  const updateRoute = useCallback(
-    (field: 'pattern' | 'zoneName', value: string) => {
-      const current = useWorkflowStore.getState().deployConfig
-      if (value || (field === 'pattern' ? current.route?.zoneName : current.route?.pattern)) {
-        setDeployConfig({
-          ...current,
-          route: { pattern: '', zoneName: '', ...current.route, [field]: value },
-        })
-      } else {
-        const { route: _, ...rest } = current
-        setDeployConfig(rest)
-      }
-    },
-    [setDeployConfig],
   )
 
   return (
@@ -176,29 +159,7 @@ export function WorkflowSettings() {
             )}
           </div>
 
-          <Separator />
-
-          {/* Custom Route */}
-          <div>
-            <Label className="text-xs text-muted-foreground mb-2 block">Custom Route</Label>
-            <p className="text-xs text-muted-foreground/40 mb-2">
-              Route traffic from your domain to this workflow. Requires a Cloudflare zone.
-            </p>
-            <div className="space-y-2">
-              <Input
-                value={deployConfig.route?.pattern ?? ''}
-                onChange={(e) => updateRoute('pattern', e.target.value)}
-                placeholder="example.com/my-workflow/*"
-                className="h-8 text-xs font-mono"
-              />
-              <Input
-                value={deployConfig.route?.zoneName ?? ''}
-                onChange={(e) => updateRoute('zoneName', e.target.value)}
-                placeholder="example.com"
-                className="h-8 text-xs font-mono"
-              />
-            </div>
-          </div>
+          {/* Route config moved to the Deploy page (per-connection deployment configs) */}
         </div>
       </div>
     </div>

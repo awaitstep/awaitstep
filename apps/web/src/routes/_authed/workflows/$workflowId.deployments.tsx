@@ -1,9 +1,8 @@
-import { createFileRoute, useParams } from '@tanstack/react-router'
+import { createFileRoute, useParams, Link } from '@tanstack/react-router'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Rocket } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
-import { DeployDialog } from '../../../components/canvas/deploy-dialog'
 import { DeploymentsList } from '../../../components/deployments/deployments-list'
 import { DeploymentSheet } from '../../../components/deployments/deployment-sheet'
 import { queries, flatPages } from '../../../lib/queries'
@@ -33,7 +32,6 @@ type Deployment = {
 function DeploymentsPage() {
   const { workflowId } = useParams({ from: '/_authed/workflows/$workflowId/deployments' })
   const ready = useOrgReady()
-  const [deployOpen, setDeployOpen] = useState(false)
   const [selectedDeployment, setSelectedDeployment] = useState<Deployment | null>(null)
 
   const {
@@ -59,19 +57,25 @@ function DeploymentsPage() {
   return (
     <div>
       <div className="mb-4 flex justify-end">
-        <Button size="sm" className="gap-1.5" onClick={() => setDeployOpen(true)}>
-          <Rocket className="h-3.5 w-3.5" />
-          New Deployment
-        </Button>
+        <Link to="/workflows/$workflowId/deploy" params={{ workflowId }}>
+          <Button size="sm" className="gap-1.5">
+            <Rocket className="h-3.5 w-3.5" />
+            New Deployment
+          </Button>
+        </Link>
       </div>
 
       <LoadingView isLoading={isLoading} LoadingPlaceholder={ListSkeleton}>
         {deployments && deployments.length === 0 ? (
           <div className="rounded-md border border-border px-4 py-8 text-center text-sm text-muted-foreground">
             No deployments yet.{' '}
-            <button onClick={() => setDeployOpen(true)} className="text-primary hover:underline">
+            <Link
+              to="/workflows/$workflowId/deploy"
+              params={{ workflowId }}
+              className="text-primary hover:underline"
+            >
               Deploy your workflow
-            </button>{' '}
+            </Link>{' '}
             to see history here.
           </div>
         ) : (
@@ -89,8 +93,6 @@ function DeploymentsPage() {
           </>
         )}
       </LoadingView>
-
-      {deployOpen && <DeployDialog onClose={() => setDeployOpen(false)} workflowId={workflowId} />}
 
       <DeploymentSheet
         deployment={selectedDeployment}

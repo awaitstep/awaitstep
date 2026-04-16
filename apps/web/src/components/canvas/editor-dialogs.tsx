@@ -1,5 +1,4 @@
 import { ConfirmDialog } from '../ui/confirm-dialog'
-import { DeployDialog } from './deploy-dialog'
 
 export interface EditorDialogsProps {
   confirmAction: 'switch-template' | null
@@ -8,9 +7,6 @@ export interface EditorDialogsProps {
   blockerStatus: 'blocked' | 'idle'
   onBlockerProceed: (() => void) | undefined
   onBlockerReset: (() => void) | undefined
-  deployOpen: boolean
-  onCloseDeploy: () => void
-  workflowId: string
 }
 
 export function EditorDialogs({
@@ -20,9 +16,6 @@ export function EditorDialogs({
   blockerStatus,
   onBlockerProceed,
   onBlockerReset,
-  deployOpen,
-  onCloseDeploy,
-  workflowId,
 }: EditorDialogsProps) {
   function handleSwitchTemplateOpenChange(open: boolean) {
     if (!open) setConfirmAction(null)
@@ -61,7 +54,6 @@ export function EditorDialogs({
         variant="warning"
         onConfirm={handleBlockerConfirm}
       />
-      {deployOpen && <DeployDialog onClose={onCloseDeploy} workflowId={workflowId} />}
     </>
   )
 }
