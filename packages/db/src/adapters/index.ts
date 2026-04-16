@@ -11,6 +11,7 @@ import type {
   Connection,
   WorkflowRun,
   Deployment,
+  DeploymentConfig,
   ApiKey,
   EnvVar,
   Project,
@@ -28,6 +29,7 @@ import { ApiKeysAdapter } from './api-keys.js'
 import { EnvVarsAdapter } from './env-vars.js'
 import { ProjectsAdapter } from './projects.js'
 import { InstalledNodesAdapter } from './installed-nodes.js'
+import { DeploymentConfigsAdapter } from './deployment-configs.js'
 
 export interface SchemaRef {
   workflows: unknown
@@ -35,6 +37,7 @@ export interface SchemaRef {
   connections: unknown
   workflowRuns: unknown
   deployments: unknown
+  deploymentConfigs: unknown
   apiKeys: unknown
   envVars: unknown
   projects: unknown
@@ -59,6 +62,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _envVars: EnvVarsAdapter
   private _projects: ProjectsAdapter
   private _installedNodes: InstalledNodesAdapter
+  private _deploymentConfigs: DeploymentConfigsAdapter
   private _crypto?: TokenCrypto
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -75,6 +79,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     this._envVars = new EnvVarsAdapter(db, schema.envVars, options?.tokenCrypto, schema.projects)
     this._projects = new ProjectsAdapter(db, schema.projects)
     this._installedNodes = new InstalledNodesAdapter(db, schema.installedNodes)
+    this._deploymentConfigs = new DeploymentConfigsAdapter(db, schema.deploymentConfigs)
   }
 
   // Membership
@@ -287,8 +292,8 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }): Promise<Connection> {
     return this._connections.create(data)
   }
-  getProviderConnectionById(id: string): Promise<Connection | null> {
-    return this._connections.getById(id)
+  getProviderConnectionById(id: string, organizationId?: string): Promise<Connection | null> {
+    return this._connections.getById(id, organizationId)
   }
   listConnectionsByOrganization(
     organizationId: string,
@@ -383,6 +388,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     serviceUrl?: string
     status: string
     error?: string
+    configSnapshot?: string
   }): Promise<Deployment> {
     return this._deployments.create(data)
   }
@@ -438,6 +444,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         serviceUrl: d.serviceUrl,
         status: d.status,
         error: d.error,
+        configSnapshot: d.configSnapshot,
         createdAt: d.createdAt,
       })
       .from(d)
@@ -451,6 +458,27 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
 
   deleteDeploymentsByWorkflow(workflowId: string): Promise<void> {
     return this._deployments.deleteByWorkflow(workflowId)
+  }
+
+  // Deployment Configs
+  getDeploymentConfig(workflowId: string, connectionId: string): Promise<DeploymentConfig | null> {
+    return this._deploymentConfigs.get(workflowId, connectionId)
+  }
+  upsertDeploymentConfig(data: {
+    id: string
+    workflowId: string
+    connectionId: string
+    provider: string
+    config: string
+    updatedBy?: string
+  }): Promise<DeploymentConfig> {
+    return this._deploymentConfigs.upsert(data)
+  }
+  listDeploymentConfigsByWorkflow(workflowId: string): Promise<DeploymentConfig[]> {
+    return this._deploymentConfigs.listByWorkflow(workflowId)
+  }
+  deleteDeploymentConfig(workflowId: string, connectionId: string): Promise<void> {
+    return this._deploymentConfigs.delete(workflowId, connectionId)
   }
 
   // API Keys

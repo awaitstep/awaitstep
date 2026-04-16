@@ -41,7 +41,7 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
   }
 
   const startDeploy = useCallback(
-    async (connectionId: string, options?: { previewUrls?: boolean; workersDev?: boolean }) => {
+    async (connectionId: string, config?: Record<string, unknown>) => {
       setState('deploying')
       setError(null)
       setProgress(null)
@@ -55,8 +55,7 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
           body: JSON.stringify({
             connectionId,
             ...(versionId && { versionId }),
-            ...(options?.previewUrls && { previewUrls: true }),
-            ...(options?.workersDev && { workersDev: true }),
+            ...(config && { config }),
           }),
         })
 

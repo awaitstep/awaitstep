@@ -18,6 +18,7 @@ export const deployments = pgTable(
     serviceUrl: text('service_url'),
     status: text('status').notNull().default('success'),
     error: text('error'),
+    configSnapshot: text('config_snapshot'),
     createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
   },
   (table) => [index('idx_deployments_workflow_id').on(table.workflowId)],

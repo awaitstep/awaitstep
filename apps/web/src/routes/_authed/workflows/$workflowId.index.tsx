@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useParams, redirect } from '@tanstack/react-router'
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import { toast } from 'sonner'
 import type { WorkflowNode, Edge as IREdge } from '@awaitstep/ir'
 import { validateWorkflowForPublish } from '../../../lib/validate-workflow'
@@ -12,7 +12,7 @@ import { useOrgReady } from '../../../stores/org-store'
 import { timeAgo } from '../../../lib/time'
 import { WorkflowActionsMenu } from '../../../components/dashboard/workflow-actions-menu'
 import { TriggerButton } from '../../../components/dashboard/trigger-button'
-import { DeployDialog } from '../../../components/canvas/deploy-dialog'
+import { useNavigate } from '@tanstack/react-router'
 import { EditableName, EditableDescription } from '../../../components/overview/editable-field'
 import { VersionList } from '../../../components/overview/version-list'
 import { RecentRuns } from '../../../components/overview/recent-runs'
@@ -33,7 +33,7 @@ export const Route = createFileRoute('/_authed/workflows/$workflowId/')({
 function WorkflowOverviewPage() {
   const ready = useOrgReady()
   const { workflowId } = useParams({ from: '/_authed/workflows/$workflowId/' })
-  const [deployOpen, setDeployOpen] = useState(false)
+  const navigate = useNavigate()
 
   const { data: workflow, isLoading: wfLoading } = useQuery({
     queryKey: ['workflow', workflowId],
@@ -144,7 +144,7 @@ function WorkflowOverviewPage() {
                     toast.error('Failed to validate workflow')
                     return
                   }
-                  setDeployOpen(true)
+                  navigate({ to: '/workflows/$workflowId/deploy', params: { workflowId } })
                 }}
               >
                 <Rocket className="h-3.5 w-3.5" />
@@ -230,10 +230,6 @@ function WorkflowOverviewPage() {
               <RecentRuns workflowId={workflowId} runs={workflowRuns} />
             </div>
           </div>
-
-          {deployOpen && (
-            <DeployDialog onClose={() => setDeployOpen(false)} workflowId={workflowId} />
-          )}
         </>
       ) : (
         <div className="flex min-h-[60vh] items-center justify-center">

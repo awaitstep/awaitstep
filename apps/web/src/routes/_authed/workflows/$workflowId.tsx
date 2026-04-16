@@ -43,7 +43,11 @@ function WorkflowLayoutContent() {
     queryFn: () => api.getWorkflow(workflowId),
   })
 
-  const isFullScreen = matches.some((m) => m.routeId === '/_authed/workflows/$workflowId/canvas')
+  const isFullScreen = matches.some(
+    (m) =>
+      m.routeId === '/_authed/workflows/$workflowId/canvas' ||
+      m.routeId === '/_authed/workflows/$workflowId/deploy',
+  )
 
   if (isFullScreen) {
     return <Outlet />

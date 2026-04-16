@@ -1,5 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useSearch } from '@tanstack/react-router'
 import { useState } from 'react'
+import { z } from 'zod'
 import { Plus } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { PageHeader } from '../../components/ui/page-header'
@@ -11,6 +12,7 @@ import { RequireOrg } from '../../wrappers/require-org'
 
 export const Route = createFileRoute('/_authed/connections')({
   head: () => ({ meta: [{ title: 'Connections | AwaitStep' }] }),
+  validateSearch: z.object({ new: z.boolean().optional() }).parse,
   component: ConnectionsPage,
 })
 
@@ -23,7 +25,8 @@ function ConnectionsPage() {
 }
 
 function ConnectionsContent() {
-  const [dialogOpen, setDialogOpen] = useState(false)
+  const search = useSearch({ from: '/_authed/connections' })
+  const [dialogOpen, setDialogOpen] = useState(search.new === true)
   const [editTarget, setEditTarget] = useState<{
     id: string
     name: string

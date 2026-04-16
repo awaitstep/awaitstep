@@ -2,11 +2,11 @@ import type { WorkflowProvider, TemplateResolver } from '@awaitstep/codegen'
 import type { WorkflowIR } from '@awaitstep/ir'
 import { CloudflareWorkflowsAdapter } from '@awaitstep/provider-cloudflare'
 
-const DEFAULT_PROVIDER = 'cloudflare-workflows'
+const DEFAULT_PROVIDER = 'cloudflare'
 
 /** Maps provider config name to the node-level provider value used in IR nodes. */
 const NODE_PROVIDER_MAP: Record<string, string> = {
-  'cloudflare-workflows': 'cloudflare',
+  cloudflare: 'cloudflare',
 }
 
 export function resolveProvider(
@@ -16,7 +16,7 @@ export function resolveProvider(
   const name = provider ?? DEFAULT_PROVIDER
 
   switch (name) {
-    case 'cloudflare-workflows':
+    case 'cloudflare':
       return new CloudflareWorkflowsAdapter(
         options?.templateResolver ? { templateResolver: options.templateResolver } : undefined,
       )
