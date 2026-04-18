@@ -41,8 +41,9 @@ export function useWorkflowPersistence(opts: {
           name: state.metadata.name,
           description: state.metadata.description,
         })
-        if (envVars || triggerCode || dependencies || deployConfig)
+        if (envVars || triggerCode || dependencies || deployConfig) {
           await api.updateWorkflow(created.id, { envVars, triggerCode, dependencies, deployConfig })
+        }
         await api.createVersion(created.id, { ir })
         return created
       }
@@ -65,6 +66,9 @@ export function useWorkflowPersistence(opts: {
       if (created) {
         window.history.replaceState(null, '', `/workflows/${created.id}/canvas`)
         setWorkflowId(created.id)
+        if (isNew) {
+          queryClient.invalidateQueries({ queryKey: ['workflows'] })
+        }
       }
     },
     onError: (err) => {
