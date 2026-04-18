@@ -1,6 +1,6 @@
 {
   "name": "awaitstep",
-  "version": "1.4.7-beta.0",
+  "version": "1.4.7",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
