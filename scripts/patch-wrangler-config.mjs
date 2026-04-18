@@ -113,6 +113,13 @@ function patchApiConfig() {
     config.vars.REGISTRY_URL = registryUrl
   }
 
+  // BETTER_AUTH_URL — always the API worker URL (not sensitive, set as var)
+  const apiUrl = env('CF_API_WORKER_URL')
+  if (apiUrl) {
+    config.vars = config.vars || {}
+    config.vars.BETTER_AUTH_URL = apiUrl
+  }
+
   const outPath = resolve(ROOT, 'apps/api/wrangler.json')
   writeJson(outPath, config)
   console.log(`[patch] API config written to ${outPath}`)
@@ -183,7 +190,9 @@ function patchWebConfig(apiWorkerName) {
     config.compatibility_date = compatDate
   }
 
-  const outPath = resolve(ROOT, 'apps/web/wrangler.json')
+  // Write patched config back to jsonc (Vite reads this during BUILD_TARGET=cf build,
+  // then generates dist/server/wrangler.json with resolved virtual modules)
+  const outPath = resolve(ROOT, 'apps/web/wrangler.jsonc')
   writeJson(outPath, config)
   console.log(`[patch] Web config written to ${outPath}`)
 }

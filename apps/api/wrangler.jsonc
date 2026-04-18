@@ -39,6 +39,7 @@
   //   CF_API_WORKER_NAME           → name
   //   CF_APP_NAME                  → vars.APP_NAME
   //   CF_REGISTRY_URL              → vars.REGISTRY_URL
+  //   CF_API_WORKER_URL            → vars.BETTER_AUTH_URL  (auto-set)
   //   CF_COMPATIBILITY_DATE        → compatibility_date
   //   CF_CONTAINER_INSTANCE_TYPE   → containers[0].instance_type
   //   CF_CONTAINER_MAX_INSTANCES   → containers[0].max_instances
