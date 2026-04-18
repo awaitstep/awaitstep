@@ -12,7 +12,20 @@
     "GITHUB_ENABLED": "false",
     "GOOGLE_ENABLED": "false",
   },
-  // Public API routes still go through the browser directly to awaitstep-api.
-  // The API service binding is available for SSR loaders that want to call
-  // the API with zero public-HTTP hop via env.API.fetch().
+
+  // ── GitHub Variables → wrangler config (patched by scripts/patch-wrangler-config.mjs) ──
+  //
+  //   CF_API_WORKER_URL        → vars.API_URL  (required)
+  //   CF_API_WORKER_NAME       → services[0].service  (keeps service binding in sync)
+  //   CF_WEB_WORKER_NAME       → name
+  //   CF_COMPATIBILITY_DATE    → compatibility_date
+  //   CF_WEB_CUSTOM_DOMAIN     → routes[0]  (custom_domain: true)
+  //   CF_WEB_ROUTE             → routes[0]  (pattern + zone_name)
+  //   CF_WEB_ROUTE_ZONE        → routes[0].zone_name  (used with CF_WEB_ROUTE)
+
+  // ── Auto-derived from API Worker secrets ──
+  //
+  //   CF_RESEND_API_KEY exists?       → vars.MAGIC_LINK_ENABLED = "true"
+  //   CF_GITHUB_CLIENT_ID exists?     → vars.GITHUB_ENABLED = "true"
+  //   CF_GOOGLE_CLIENT_ID exists?     → vars.GOOGLE_ENABLED = "true"
 }

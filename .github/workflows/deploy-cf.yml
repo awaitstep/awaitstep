@@ -18,19 +18,56 @@ env:
   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
   CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-# Required secrets:
-#   CLOUDFLARE_API_TOKEN   — CF API token with Workers + D1 permissions
-#   CLOUDFLARE_ACCOUNT_ID  — CF account ID
+# ──────────────────────────────────────────────────────────────────
+# Configuration — set these in GitHub repo Settings
+# ──────────────────────────────────────────────────────────────────
 #
-# Required variables (Settings → Variables → Actions):
-#   CF_DEPLOY_ENABLED      — "true" to enable (skipped otherwise)
-#   CF_D1_DATABASE_ID      — D1 database UUID (from cf-install.sh or wrangler d1 list)
-#   CF_API_WORKER_URL      — API Worker public URL (e.g. https://awaitstep-api.xxx.workers.dev)
+# GITHUB SECRETS (Settings → Secrets → Actions):
 #
-# Worker secrets (set once via wrangler, persist across deploys — NOT needed in GitHub):
-#   TOKEN_ENCRYPTION_KEY, BETTER_AUTH_SECRET, CORS_ORIGIN (= web worker URL),
-#   RESEND_API_KEY, GITHUB_CLIENT_ID/SECRET, GOOGLE_CLIENT_ID/SECRET
-#   These are set during initial cf-install.sh and never change on redeploy.
+#   Required:
+#     CLOUDFLARE_API_TOKEN          CF API token (Workers + D1 + Containers)
+#     CLOUDFLARE_ACCOUNT_ID         CF account ID
+#     CF_TOKEN_ENCRYPTION_KEY       openssl rand -hex 32
+#     CF_BETTER_AUTH_SECRET         openssl rand -hex 32
+#
+#   Optional — email:
+#     CF_RESEND_API_KEY             Resend API key (enables magic link emails)
+#     CF_RESEND_FROM_EMAIL          Sender address (e.g. noreply@example.com)
+#
+#   Optional — OAuth:
+#     CF_GITHUB_CLIENT_ID           GitHub OAuth app client ID
+#     CF_GITHUB_CLIENT_SECRET       GitHub OAuth app client secret
+#     CF_GOOGLE_CLIENT_ID           Google OAuth client ID
+#     CF_GOOGLE_CLIENT_SECRET       Google OAuth client secret
+#
+# GITHUB VARIABLES (Settings → Variables → Actions):
+#
+#   Required:
+#     CF_D1_DATABASE_ID             D1 database UUID
+#     CF_API_WORKER_URL             API Worker public URL
+#
+#   Optional — deploy control:
+#     CF_DEPLOY_ENABLED             "true" to enable auto-deploy on push
+#
+#   Optional — naming:
+#     CF_API_WORKER_NAME            API worker name (default: awaitstep-api)
+#     CF_WEB_WORKER_NAME            Web worker name (default: awaitstep-web)
+#     CF_APP_NAME                   App display name (default: AwaitStep)
+#
+#   Optional — web routing:
+#     CF_WEB_CUSTOM_DOMAIN          Custom domain (e.g. app.example.com)
+#     CF_WEB_ROUTE                  Custom route pattern (e.g. app.example.com/*)
+#     CF_WEB_ROUTE_ZONE             Zone name for route (required with CF_WEB_ROUTE)
+#
+#   Optional — containers:
+#     CF_CONTAINER_INSTANCE_TYPE    lite | basic | standard (default: basic)
+#     CF_CONTAINER_MAX_INSTANCES    Max sandbox containers (default: 20)
+#
+#   Optional — advanced:
+#     CF_COMPATIBILITY_DATE         Wrangler compat date
+#     CF_REGISTRY_URL               Custom node registry URL
+#     CF_CORS_ORIGIN                CORS origin override (default: derived from web worker URL)
+# ──────────────────────────────────────────────────────────────────
 
 jobs:
   deploy:
@@ -50,21 +87,37 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - name: Validate CF configuration
+      - name: Validate required configuration
         run: |
-          if [ -z "${{ vars.CF_D1_DATABASE_ID }}" ]; then
-            echo "::error::CF_D1_DATABASE_ID variable is not set. Run cf-install.sh first, then add the D1 ID as a repo variable."
-            exit 1
-          fi
-          if [ -z "${{ vars.CF_API_WORKER_URL }}" ]; then
-            echo "::error::CF_API_WORKER_URL variable is not set. Deploy the API Worker first, then add its URL as a repo variable."
+          missing=()
+          [ -z "${{ vars.CF_D1_DATABASE_ID }}" ] && missing+=("CF_D1_DATABASE_ID (variable)")
+          [ -z "${{ vars.CF_API_WORKER_URL }}" ] && missing+=("CF_API_WORKER_URL (variable)")
+          [ -z "${{ secrets.CF_TOKEN_ENCRYPTION_KEY }}" ] && missing+=("CF_TOKEN_ENCRYPTION_KEY (secret)")
+          [ -z "${{ secrets.CF_BETTER_AUTH_SECRET }}" ] && missing+=("CF_BETTER_AUTH_SECRET (secret)")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing required configuration:"
+            for m in "${missing[@]}"; do echo "  - $m"; done
             exit 1
           fi
 
       - name: Patch wrangler configs
-        run: |
-          sed -i 's|__D1_DATABASE_ID__|${{ vars.CF_D1_DATABASE_ID }}|g' apps/api/wrangler.jsonc
-          sed -i 's|__API_WORKER_URL__|${{ vars.CF_API_WORKER_URL }}|g' apps/web/wrangler.jsonc
+        env:
+          CF_D1_DATABASE_ID: ${{ vars.CF_D1_DATABASE_ID }}
+          CF_API_WORKER_URL: ${{ vars.CF_API_WORKER_URL }}
+          CF_API_WORKER_NAME: ${{ vars.CF_API_WORKER_NAME }}
+          CF_WEB_WORKER_NAME: ${{ vars.CF_WEB_WORKER_NAME }}
+          CF_APP_NAME: ${{ vars.CF_APP_NAME }}
+          CF_WEB_CUSTOM_DOMAIN: ${{ vars.CF_WEB_CUSTOM_DOMAIN }}
+          CF_WEB_ROUTE: ${{ vars.CF_WEB_ROUTE }}
+          CF_WEB_ROUTE_ZONE: ${{ vars.CF_WEB_ROUTE_ZONE }}
+          CF_MAGIC_LINK_ENABLED: ${{ secrets.CF_RESEND_API_KEY && 'true' || 'false' }}
+          CF_GITHUB_ENABLED: ${{ secrets.CF_GITHUB_CLIENT_ID && 'true' || 'false' }}
+          CF_GOOGLE_ENABLED: ${{ secrets.CF_GOOGLE_CLIENT_ID && 'true' || 'false' }}
+          CF_CONTAINER_INSTANCE_TYPE: ${{ vars.CF_CONTAINER_INSTANCE_TYPE }}
+          CF_CONTAINER_MAX_INSTANCES: ${{ vars.CF_CONTAINER_MAX_INSTANCES }}
+          CF_COMPATIBILITY_DATE: ${{ vars.CF_COMPATIBILITY_DATE }}
+          CF_REGISTRY_URL: ${{ vars.CF_REGISTRY_URL }}
+        run: node scripts/patch-wrangler-config.mjs
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -78,11 +131,60 @@ jobs:
         run: |
           pnpm build
           pnpm d1:migrate
-          pnpm exec wrangler deploy
+          pnpm exec wrangler deploy --config wrangler.json
+
+      - name: Set API Worker secrets
+        if: inputs.target == 'all' || inputs.target == 'api' || inputs.target == ''
+        working-directory: apps/api
+        shell: bash
+        env:
+          API_WORKER_NAME: ${{ vars.CF_API_WORKER_NAME || 'awaitstep-api' }}
+        run: |
+          # Fetch existing secrets once
+          EXISTING=$(pnpm exec wrangler secret list --name "$API_WORKER_NAME" 2>/dev/null | grep -oP '"name":\s*"\K[^"]+' || true)
+
+          set_secret() {
+            local name="$1" value="$2"
+            if [ -z "$value" ]; then return; fi
+            if echo "$EXISTING" | grep -qx "$name"; then
+              echo "  · $name (already set, skipping)"
+            else
+              echo "$value" | pnpm exec wrangler secret put "$name" --name "$API_WORKER_NAME" 2>/dev/null
+              echo "  ✓ $name"
+            fi
+          }
+
+          echo "Syncing API Worker secrets..."
+          set_secret "TOKEN_ENCRYPTION_KEY" "${{ secrets.CF_TOKEN_ENCRYPTION_KEY }}"
+          set_secret "BETTER_AUTH_SECRET" "${{ secrets.CF_BETTER_AUTH_SECRET }}"
+
+          # BETTER_AUTH_URL defaults to CF_API_WORKER_URL
+          AUTH_URL="${{ secrets.CF_BETTER_AUTH_URL || vars.CF_API_WORKER_URL }}"
+          set_secret "BETTER_AUTH_URL" "$AUTH_URL"
+
+          # CORS_ORIGIN defaults to web worker URL (derived from web worker name)
+          CORS="${{ vars.CF_CORS_ORIGIN }}"
+          if [ -z "$CORS" ]; then
+            WEB_NAME="${{ vars.CF_WEB_WORKER_NAME || 'awaitstep-web' }}"
+            if [ -n "${{ vars.CF_WEB_CUSTOM_DOMAIN }}" ]; then
+              CORS="https://${{ vars.CF_WEB_CUSTOM_DOMAIN }}"
+            else
+              CORS="https://${WEB_NAME}.${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.workers.dev"
+            fi
+          fi
+          set_secret "CORS_ORIGIN" "$CORS"
+
+          # Optional secrets
+          set_secret "RESEND_API_KEY" "${{ secrets.CF_RESEND_API_KEY }}"
+          set_secret "RESEND_FROM_EMAIL" "${{ secrets.CF_RESEND_FROM_EMAIL }}"
+          set_secret "GITHUB_CLIENT_ID" "${{ secrets.CF_GITHUB_CLIENT_ID }}"
+          set_secret "GITHUB_CLIENT_SECRET" "${{ secrets.CF_GITHUB_CLIENT_SECRET }}"
+          set_secret "GOOGLE_CLIENT_ID" "${{ secrets.CF_GOOGLE_CLIENT_ID }}"
+          set_secret "GOOGLE_CLIENT_SECRET" "${{ secrets.CF_GOOGLE_CLIENT_SECRET }}"
 
       - name: Build and deploy Web Worker
         if: inputs.target == 'all' || inputs.target == 'web' || inputs.target == ''
         working-directory: apps/web
         run: |
           BUILD_TARGET=cf pnpm build
-          pnpm exec wrangler deploy
+          pnpm exec wrangler deploy --config wrangler.json

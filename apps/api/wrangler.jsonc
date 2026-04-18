@@ -20,15 +20,39 @@
     "REGISTRY_URL": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry",
     "APP_NAME": "AwaitStep",
   },
-  // Secrets (set via `wrangler secret put`):
-  //   TOKEN_ENCRYPTION_KEY    openssl rand -hex 32
-  //   BETTER_AUTH_SECRET      openssl rand -hex 32
-  //   BETTER_AUTH_URL         https://<your-deployment-url>
-  //   CORS_ORIGIN             https://<web-worker-url>
-  //   RESEND_API_KEY          optional — enables magic link emails
-  //   RESEND_FROM_EMAIL       optional
-  //   GITHUB_CLIENT_ID        optional
-  //   GITHUB_CLIENT_SECRET    optional
-  //   GOOGLE_CLIENT_ID        optional
-  //   GOOGLE_CLIENT_SECRET    optional
+  "durable_objects": {
+    "bindings": [{ "class_name": "Sandbox", "name": "SANDBOX" }],
+  },
+  "containers": [
+    {
+      "class_name": "Sandbox",
+      "image": "./Dockerfile.sandbox",
+      "instance_type": "basic",
+      "max_instances": 20,
+    },
+  ],
+  "migrations": [{ "new_sqlite_classes": ["Sandbox"], "tag": "v1" }],
+
+  // ── GitHub Variables → wrangler config (patched by scripts/patch-wrangler-config.mjs) ──
+  //
+  //   CF_D1_DATABASE_ID            → d1_databases[0].database_id  (required)
+  //   CF_API_WORKER_NAME           → name
+  //   CF_APP_NAME                  → vars.APP_NAME
+  //   CF_REGISTRY_URL              → vars.REGISTRY_URL
+  //   CF_COMPATIBILITY_DATE        → compatibility_date
+  //   CF_CONTAINER_INSTANCE_TYPE   → containers[0].instance_type
+  //   CF_CONTAINER_MAX_INSTANCES   → containers[0].max_instances
+
+  // ── GitHub Secrets → Worker secrets (set via `wrangler secret put` in CI) ──
+  //
+  //   CF_TOKEN_ENCRYPTION_KEY      → TOKEN_ENCRYPTION_KEY   (required, openssl rand -hex 32)
+  //   CF_BETTER_AUTH_SECRET        → BETTER_AUTH_SECRET      (required, openssl rand -hex 32)
+  //   CF_BETTER_AUTH_URL           → BETTER_AUTH_URL         (default: CF_API_WORKER_URL)
+  //   CF_CORS_ORIGIN               → CORS_ORIGIN            (default: derived from web worker URL)
+  //   CF_RESEND_API_KEY            → RESEND_API_KEY          (optional, enables magic link emails)
+  //   CF_RESEND_FROM_EMAIL         → RESEND_FROM_EMAIL       (optional)
+  //   CF_GITHUB_CLIENT_ID          → GITHUB_CLIENT_ID        (optional, GitHub OAuth)
+  //   CF_GITHUB_CLIENT_SECRET      → GITHUB_CLIENT_SECRET    (optional, GitHub OAuth)
+  //   CF_GOOGLE_CLIENT_ID          → GOOGLE_CLIENT_ID        (optional, Google OAuth)
+  //   CF_GOOGLE_CLIENT_SECRET      → GOOGLE_CLIENT_SECRET    (optional, Google OAuth)
 }
