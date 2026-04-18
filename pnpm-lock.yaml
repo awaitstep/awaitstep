@@ -147,7 +147,7 @@ importers:
         version: link:../../packages/provider-cloudflare
       '@hookform/resolvers':
         specifier: 5.2.2
-        version: 5.2.2(react-hook-form@7.72.0(react@19.2.5))
+        version: 5.2.2(react-hook-form@7.72.1(react@19.2.5))
       '@monaco-editor/react':
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.55.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -224,8 +224,8 @@ importers:
         specifier: ^19.2.5
         version: 19.2.5(react@19.2.5)
       react-hook-form:
-        specifier: 7.72.0
-        version: 7.72.0(react@19.2.5)
+        specifier: 7.72.1
+        version: 7.72.1(react@19.2.5)
       sonner:
         specifier: ^2.0.7
         version: 2.0.7(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -5630,8 +5630,8 @@ packages:
     engines: {node: '>=20.0.0'}
     hasBin: true
 
-  react-hook-form@7.72.0:
-    resolution: {integrity: sha512-V4v6jubaf6JAurEaVnT9aUPKFbNtDgohj5CIgVGyPHvT9wRx5OZHVjz31GsxnPNI278XMu+ruFz+wGOscHaLKw==}
+  react-hook-form@7.72.1:
+    resolution: {integrity: sha512-RhwBoy2ygeVZje+C+bwJ8g0NjTdBmDlJvAUHTxRjTmSUKPYsKfMphkS2sgEMotsY03bP358yEYlnUeZy//D9Ig==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
       react: ^16.8.0 || ^17 || ^18 || ^19
@@ -7834,10 +7834,10 @@ snapshots:
       hono: 4.12.14
       zod: 4.3.6
 
-  '@hookform/resolvers@5.2.2(react-hook-form@7.72.0(react@19.2.5))':
+  '@hookform/resolvers@5.2.2(react-hook-form@7.72.1(react@19.2.5))':
     dependencies:
       '@standard-schema/utils': 0.3.0
-      react-hook-form: 7.72.0(react@19.2.5)
+      react-hook-form: 7.72.1(react@19.2.5)
 
   '@humanfs/core@0.19.1': {}
 
@@ -12018,7 +12018,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  react-hook-form@7.72.0(react@19.2.5):
+  react-hook-form@7.72.1(react@19.2.5):
     dependencies:
       react: 19.2.5
 
