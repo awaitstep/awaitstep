@@ -24,6 +24,9 @@ import {
   deriveDeploymentState,
 } from '../../../lib/hydrate-workflow'
 import { useWorkflowPersistence } from '../../../hooks/use-workflow-persistence'
+import { buildIRFromState } from '../../../lib/build-ir'
+import { serializeIR } from '@awaitstep/ir'
+import { downloadJsonFile } from '../../../lib/download-file'
 
 const LazyReactFlowProvider = lazy(() =>
   import('@xyflow/react').then((m) => ({ default: m.ReactFlowProvider })),
@@ -161,6 +164,14 @@ function WorkflowEditorPage() {
     addNode(type, { x: 250 + Math.random() * 200, y: 150 + Math.random() * 200 }, nodeRegistry)
   }
 
+  function handleExport() {
+    const state = useWorkflowStore.getState()
+    const ir = buildIRFromState(state)
+    const json = serializeIR(ir)
+    const filename = `${metadata.name.replace(/\s+/g, '-').toLowerCase()}.ir.json`
+    downloadJsonFile(filename, json)
+  }
+
   // Show skeleton while waiting for workflow data (skip for new workflows)
   const showSkeleton = !isNew && !workflowError && (isLoadingWorkflow || !fullData)
 
@@ -189,6 +200,7 @@ function WorkflowEditorPage() {
                 onDeploy={handleDeploy}
                 onTest={() => runSimulation()}
                 onTestLocally={localDevEnabled ? () => setShowLocalTest((v) => !v) : undefined}
+                onExport={nodeCount > 0 ? handleExport : undefined}
                 onOpenTemplatePicker={() => {
                   if (nodeCount > 0) {
                     setConfirmAction('switch-template')

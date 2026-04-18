@@ -138,6 +138,22 @@ The WorkflowIR is the single source of truth. The canvas serializes to IR,
 codegen reads IR, validation operates on IR, and versioning stores IR as JSON.
 The IR is provider-agnostic — provider packages transform it into runtime-specific code.
 
+### Workflow Import / Export
+
+Workflows can be exported and imported as `.ir.json` files containing the full `WorkflowIR` document (metadata, nodes, edges, entryNodeId).
+
+**Export** is available from:
+
+- **Canvas toolbar** — "Export" button builds IR from the current editor state and downloads it. Available when the canvas has at least one node.
+- **Workflow actions menu** — "Export IR" option on the workflow overview and list pages. Fetches the current version's IR from the API on demand.
+
+**Import** is available from the Workflows list page via the "Import" button. The import dialog supports two input modes:
+
+- **Paste JSON** — Monaco editor with JSON syntax highlighting for pasting IR directly.
+- **Upload file** — File picker or drag-and-drop for `.json` files.
+
+On input, the IR is validated client-side using `validateIR()` from `@awaitstep/ir` (schema + structural checks). If valid, the user can edit the workflow name before importing. Import creates a new workflow via `POST /workflows` and saves the IR as version 1 via `POST /workflows/:id/versions`, then navigates to the canvas editor.
+
 ### Token Encryption
 
 API tokens and secrets are encrypted at rest using AES-256-GCM via the Web Crypto API.
