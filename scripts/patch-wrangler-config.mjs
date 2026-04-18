@@ -120,6 +120,19 @@ function patchApiConfig() {
     config.vars.BETTER_AUTH_URL = apiUrl
   }
 
+  // Sandbox timeout configuration
+  const sandboxDeployTimeout = env('CF_SANDBOX_DEPLOY_TIMEOUT')
+  if (sandboxDeployTimeout) {
+    config.vars = config.vars || {}
+    config.vars.SANDBOX_DEPLOY_TIMEOUT = sandboxDeployTimeout
+  }
+
+  const sandboxSleepAfter = env('CF_SANDBOX_SLEEP_AFTER')
+  if (sandboxSleepAfter) {
+    config.vars = config.vars || {}
+    config.vars.SANDBOX_SLEEP_AFTER = sandboxSleepAfter
+  }
+
   const outPath = resolve(ROOT, 'apps/api/wrangler.json')
   writeJson(outPath, config)
   console.log(`[patch] API config written to ${outPath}`)

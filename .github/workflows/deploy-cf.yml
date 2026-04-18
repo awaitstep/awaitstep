@@ -63,6 +63,10 @@ env:
 #     CF_CONTAINER_INSTANCE_TYPE    lite | basic | standard (default: basic)
 #     CF_CONTAINER_MAX_INSTANCES    Max sandbox containers (default: 20)
 #
+#   Optional — sandbox timeouts:
+#     CF_SANDBOX_DEPLOY_TIMEOUT     Max deploy time in seconds (default: 300)
+#     CF_SANDBOX_SLEEP_AFTER        Sandbox idle sleep duration (default: 5m)
+#
 #   Optional — advanced:
 #     CF_COMPATIBILITY_DATE         Wrangler compat date
 #     CF_REGISTRY_URL               Custom node registry URL
@@ -115,6 +119,8 @@ jobs:
           CF_CONTAINER_MAX_INSTANCES: ${{ vars.CF_CONTAINER_MAX_INSTANCES }}
           CF_COMPATIBILITY_DATE: ${{ vars.CF_COMPATIBILITY_DATE }}
           CF_REGISTRY_URL: ${{ vars.CF_REGISTRY_URL }}
+          CF_SANDBOX_DEPLOY_TIMEOUT: ${{ vars.CF_SANDBOX_DEPLOY_TIMEOUT }}
+          CF_SANDBOX_SLEEP_AFTER: ${{ vars.CF_SANDBOX_SLEEP_AFTER }}
         run: node scripts/patch-wrangler-config.mjs
 
       - name: Install dependencies

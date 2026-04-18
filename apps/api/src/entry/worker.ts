@@ -31,6 +31,8 @@ export interface Env {
   GOOGLE_CLIENT_ID?: string
   GOOGLE_CLIENT_SECRET?: string
   REGISTRY_URL?: string
+  SANDBOX_DEPLOY_TIMEOUT?: string
+  SANDBOX_SLEEP_AFTER?: string
 }
 
 let cached: { env: Env; baseURL: string; app: ReturnType<typeof createApp> } | null = null
@@ -80,8 +82,14 @@ async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof cr
   const registryUrl = env.REGISTRY_URL ?? DEFAULT_REGISTRY_URL
   const remoteNodeRegistry = createRemoteNodeRegistry({ baseUrl: registryUrl })
 
-  const deployer = new SandboxWranglerDeployer((id: string) =>
-    getSandbox(env.SANDBOX, id, { sleepAfter: '5m' }),
+  const sleepAfter = env.SANDBOX_SLEEP_AFTER ?? '5m'
+  const maxDeployMs = env.SANDBOX_DEPLOY_TIMEOUT
+    ? parseInt(env.SANDBOX_DEPLOY_TIMEOUT, 10) * 1000
+    : undefined
+
+  const deployer = new SandboxWranglerDeployer(
+    (id: string) => getSandbox(env.SANDBOX, id, { sleepAfter }),
+    maxDeployMs ? { maxDeployMs } : undefined,
   )
 
   return createApp({
