@@ -11,14 +11,19 @@ import {
 } from '../ui/dropdown-menu'
 import { ConfirmDialog } from '../ui/confirm-dialog'
 import { api, type WorkflowSummary } from '../../lib/api-client'
+import { downloadJsonFile } from '../../lib/download-file'
+import { toast } from 'sonner'
 
 interface WorkflowActionsMenuProps {
   workflow: WorkflowSummary
-  irJson?: string
   isDeployed?: boolean
 }
 
-export function WorkflowActionsMenu({ workflow, irJson, isDeployed }: WorkflowActionsMenuProps) {
+function irFileName(name: string) {
+  return `${name.replace(/\s+/g, '-').toLowerCase()}.ir.json`
+}
+
+export function WorkflowActionsMenu({ workflow, isDeployed }: WorkflowActionsMenuProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -29,8 +34,11 @@ export function WorkflowActionsMenu({ workflow, irJson, isDeployed }: WorkflowAc
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
       queryClient.invalidateQueries({ queryKey: ['all-deployments'] })
-      navigate({ to: '/workflows', replace: true })
-      setDeleteOpen(false)
+
+      navigate({ to: '/workflows', replace: true }).finally(() => {
+        toast.success('Workflow deleted')
+        setDeleteOpen(false)
+      })
     },
   })
 
@@ -54,8 +62,9 @@ export function WorkflowActionsMenu({ workflow, irJson, isDeployed }: WorkflowAc
         name: `${workflow.name} (copy)`,
         description: workflow.description,
       })
-      if (irJson) {
-        await api.createVersion(newWf.id, { ir: JSON.parse(irJson) })
+      if (workflow.currentVersionId) {
+        const ver = await api.getVersion(workflow.id, workflow.currentVersionId)
+        await api.createVersion(newWf.id, { ir: JSON.parse(ver.ir) })
       }
       return newWf
     },
@@ -65,16 +74,21 @@ export function WorkflowActionsMenu({ workflow, irJson, isDeployed }: WorkflowAc
     },
   })
 
-  function handleExportIR() {
-    if (!irJson) return
-    const blob = new Blob([irJson], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${workflow.name.replace(/\s+/g, '-').toLowerCase()}.ir.json`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
+  const exportMutation = useMutation({
+    mutationFn: async () => {
+      if (!workflow.currentVersionId) throw new Error('No version to export')
+      const ver = await api.getVersion(workflow.id, workflow.currentVersionId)
+      return ver.ir
+    },
+    onSuccess: (irJson) => {
+      downloadJsonFile(irFileName(workflow.name), irJson)
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : 'Failed to export workflow')
+    },
+  })
+
+  const hasVersion = !!workflow.currentVersionId
 
   return (
     <>
@@ -108,15 +122,16 @@ export function WorkflowActionsMenu({ workflow, irJson, isDeployed }: WorkflowAc
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onSelect={() => duplicateMutation.mutate()}
-            disabled={duplicateMutation.isPending}
+            disabled={duplicateMutation.isPending || !hasVersion}
           >
             <Copy size={14} /> Duplicate
           </DropdownMenuItem>
-          {irJson && (
-            <DropdownMenuItem onSelect={handleExportIR}>
-              <Download size={14} /> Export IR
-            </DropdownMenuItem>
-          )}
+          <DropdownMenuItem
+            onSelect={() => exportMutation.mutate()}
+            disabled={exportMutation.isPending || !hasVersion}
+          >
+            <Download size={14} /> Export IR
+          </DropdownMenuItem>
           {isDeployed && (
             <>
               <DropdownMenuSeparator />
@@ -138,27 +153,31 @@ export function WorkflowActionsMenu({ workflow, irJson, isDeployed }: WorkflowAc
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <ConfirmDialog
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-        title="Delete workflow"
-        description={`Are you sure you want to delete "${workflow.name}"? This action cannot be undone.`}
-        confirmLabel="Delete"
-        variant="destructive"
-        onConfirm={() => deleteMutation.mutate()}
-        loading={deleteMutation.isPending}
-      />
+      {deleteOpen && (
+        <ConfirmDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          title="Delete workflow"
+          description={`Are you sure you want to delete "${workflow.name}"? This action cannot be undone.`}
+          confirmLabel="Delete"
+          variant="destructive"
+          onConfirm={() => deleteMutation.mutate()}
+          loading={deleteMutation.isPending}
+        />
+      )}
 
-      <ConfirmDialog
-        open={takedownOpen}
-        onOpenChange={setTakedownOpen}
-        title="Take down deployment"
-        description={`This will delete the worker for "${workflow.name}" from Cloudflare. The workflow will remain in your account but will no longer be running.`}
-        confirmLabel="Take down"
-        variant="warning"
-        onConfirm={() => takedownMutation.mutate()}
-        loading={takedownMutation.isPending}
-      />
+      {takedownOpen && (
+        <ConfirmDialog
+          open={takedownOpen}
+          onOpenChange={setTakedownOpen}
+          title="Take down deployment"
+          description={`This will delete the worker for "${workflow.name}" from Cloudflare. The workflow will remain in your account but will no longer be running.`}
+          confirmLabel="Take down"
+          variant="warning"
+          onConfirm={() => takedownMutation.mutate()}
+          loading={takedownMutation.isPending}
+        />
+      )}
     </>
   )
 }

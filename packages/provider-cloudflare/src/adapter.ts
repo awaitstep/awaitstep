@@ -16,7 +16,7 @@ import type {
   TemplateResolver,
 } from '@awaitstep/codegen'
 import { splitEnvVars } from './env.js'
-import { deployWithWrangler, deleteWorker } from './deploy.js'
+import type { WranglerDeployer } from './deploy/deployer.js'
 import { startLocalDev } from './local-dev.js'
 import { sanitizedWorkflowName } from './naming.js'
 import { CloudflareAPI } from './api.js'
@@ -70,9 +70,11 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
   readonly deploymentConfigSchema = cloudflareDeploymentConfigSchema
   readonly deploymentConfigUiSchema = cloudflareDeploymentConfigUiSchema
   private templateResolver?: TemplateResolver
+  private deployer?: WranglerDeployer
 
-  constructor(options?: { templateResolver?: TemplateResolver }) {
+  constructor(options?: { templateResolver?: TemplateResolver; deployer?: WranglerDeployer }) {
     this.templateResolver = options?.templateResolver
+    this.deployer = options?.deployer
   }
 
   getDefaultDeploymentConfig(): CloudflareDeploymentConfig {
@@ -173,7 +175,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
       onProgress?.({ stage, message, progress })
     }
 
-    report('INITIALIZING', 'Preparing deployment...', 5)
+    report('INITIALIZING', 'Preparing deployment', 5)
 
     const { accountId, apiToken } = extractCredentials(config)
     const opts = extractOptions(config)
@@ -187,16 +189,24 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
       }
     }
 
-    report('GENERATING_CODE', 'Transpiling TypeScript...', 15)
+    report('GENERATING_CODE', 'Compiling TypeScript to JavaScript', 15)
     const compiled = await transpileToJS(artifact.source)
     const compiledArtifact: GeneratedArtifact = {
       filename: 'worker.js',
       source: artifact.source,
       compiled,
     }
-    report('CODE_READY', 'Code compiled', 25)
 
-    report('DETECTING_BINDINGS', 'Analyzing workflow bindings...', 35)
+    // Extract the actual class name from the generated source so the wrangler
+    // config matches exactly, even if ir.metadata.name differs from workflow.name.
+    const classNameMatch = artifact.source.match(
+      /export\s+class\s+(\w+)\s+extends\s+WorkflowEntrypoint/,
+    )
+    const generatedClassName = classNameMatch?.[1]
+
+    report('CODE_READY', 'Code compiled successfully', 25)
+
+    report('DETECTING_BINDINGS', 'Analyzing resource bindings', 35)
 
     // Auto-detect resource bindings from IR and resolve IDs from env vars
     const ir = config.options?.['ir'] as WorkflowIR | undefined
@@ -243,10 +253,10 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     // Collect sub-workflow bindings from IR
     const subWorkflowBindings = ir ? getSubWorkflowBindings(ir.nodes) : []
 
-    report('BINDINGS_READY', 'Bindings configured', 45)
+    report('BINDINGS_READY', 'Resource bindings configured', 45)
 
-    report('CREATING_WORKER', 'Creating Cloudflare Worker...', 55)
-    report('DEPLOYING', 'Deploying to Cloudflare...', 65)
+    report('CREATING_WORKER', 'Preparing Cloudflare Worker', 55)
+    report('DEPLOYING', 'Deploying to Cloudflare', 65)
     const { vars: varsMap, secrets: secretsMap } = config.envVars
       ? splitEnvVars(config.envVars)
       : { vars: {}, secrets: {} }
@@ -288,38 +298,54 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     const workersDev =
       deploymentConfig?.workersDev ?? (config.options?.['workersDev'] as boolean | undefined)
 
-    const result = await deployWithWrangler(compiledArtifact, {
-      workflowId: opts.workflowId,
-      workflowName: opts.workflowName,
-      accountId,
-      apiToken,
-      packageName: config.options?.['packageName'] as string | undefined,
-      vars,
-      secrets,
-      dependencies: opts.dependencies,
-      bindings: resolvedBindings,
-      subWorkflowBindings: subWorkflowBindings.length > 0 ? subWorkflowBindings : undefined,
-      previewUrls,
-      workersDev,
-      routes,
-      customDomains: deploymentConfig?.customDomains,
-      compatibilityDate: deploymentConfig?.compatibilityDate,
-      compatibilityFlags: deploymentConfig?.compatibilityFlags,
-      cronTriggers: deploymentConfig?.cronTriggers,
-      placement: deploymentConfig?.placement,
-      limits: deploymentConfig?.limits,
-      observability: deploymentConfig?.observability,
-      logpush: deploymentConfig?.logpush,
-    })
+    if (!this.deployer) {
+      report('FAILED', 'No deployer configured — deploy is not available on this runtime', 0)
+      return { success: false, deploymentId: '', error: 'No deployer configured' }
+    }
+
+    const deployerProgress = onProgress
+      ? (_stage: string, message: string) => {
+          report('DEPLOYING', message, 65)
+        }
+      : undefined
+
+    const result = await this.deployer.deploy(
+      compiledArtifact,
+      {
+        workflowId: opts.workflowId,
+        workflowName: opts.workflowName,
+        className: generatedClassName,
+        accountId,
+        apiToken,
+        packageName: config.options?.['packageName'] as string | undefined,
+        vars,
+        secrets,
+        dependencies: opts.dependencies,
+        bindings: resolvedBindings,
+        subWorkflowBindings: subWorkflowBindings.length > 0 ? subWorkflowBindings : undefined,
+        previewUrls,
+        workersDev,
+        routes,
+        customDomains: deploymentConfig?.customDomains,
+        compatibilityDate: deploymentConfig?.compatibilityDate,
+        compatibilityFlags: deploymentConfig?.compatibilityFlags,
+        cronTriggers: deploymentConfig?.cronTriggers,
+        placement: deploymentConfig?.placement,
+        limits: deploymentConfig?.limits,
+        observability: deploymentConfig?.observability,
+        logpush: deploymentConfig?.logpush,
+      },
+      deployerProgress,
+    )
 
     if (!result.success) {
       report('FAILED', result.error ?? 'Deploy failed', 0)
       return { success: false, deploymentId: '', error: result.error ?? 'Deploy failed' }
     }
 
-    report('WORKER_DEPLOYED', 'Worker deployed', 80)
-    report('UPDATING_WORKFLOW', 'Updating workflow configuration...', 90)
-    report('COMPLETED', 'Deployment successful', 100)
+    report('WORKER_DEPLOYED', 'Worker deployed successfully', 80)
+    report('UPDATING_WORKFLOW', 'Finalizing workflow configuration', 90)
+    report('COMPLETED', 'Deployment complete', 100)
     return {
       success: true,
       deploymentId: result.workerName,
@@ -360,8 +386,9 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     deploymentId: string,
     config: ProviderConfig,
   ): Promise<{ success: boolean; error?: string }> {
+    if (!this.deployer) return { success: false, error: 'No deployer configured' }
     const { accountId, apiToken } = extractCredentials(config)
-    return deleteWorker(deploymentId, { accountId, apiToken })
+    return this.deployer.deleteWorker(deploymentId, { accountId, apiToken })
   }
 
   async startLocalDev(

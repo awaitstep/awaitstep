@@ -81,10 +81,27 @@ export function resolveCtxInputs(body: string, data: Record<string, unknown>): s
 }
 
 function extractImportLines(source: string): string[] {
-  return source
-    .split('\n')
-    .filter((line) => /^\s*import\s+/.test(line) && /from\s+['"]/.test(line))
-    .map((line) => line.trim())
+  const lines = source.split('\n')
+  const imports: string[] = []
+  let pending: string[] | null = null
+
+  for (const line of lines) {
+    if (pending) {
+      pending.push(line)
+      if (/from\s+['"]/.test(line)) {
+        imports.push(pending.join('\n').trim())
+        pending = null
+      }
+    } else if (/^\s*import\s+/.test(line)) {
+      if (/from\s+['"]/.test(line)) {
+        imports.push(line.trim())
+      } else {
+        pending = [line]
+      }
+    }
+  }
+
+  return imports
 }
 
 function toClassName(nodeType: string): string {

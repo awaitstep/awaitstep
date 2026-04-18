@@ -3,10 +3,11 @@ import { createServerFn } from '@tanstack/react-start'
 import { lazy, Suspense, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
 import { NodePalette } from '../../../components/canvas/node-palette'
 import { TemplatePicker } from '../../../components/canvas/template-picker'
 import { ClientOnly } from '../../../components/canvas/client-only'
+import { CanvasSkeleton } from '../../../components/canvas/canvas-skeleton'
+import { LoadingView } from '../../../components/ui/loading-view'
 import { useWorkflowStore } from '../../../stores/workflow-store'
 import { SimulationPanel } from '../../../components/canvas/simulation-panel'
 import { BindingsPanel } from '../../../components/canvas/bindings-panel'
@@ -23,6 +24,9 @@ import {
   deriveDeploymentState,
 } from '../../../lib/hydrate-workflow'
 import { useWorkflowPersistence } from '../../../hooks/use-workflow-persistence'
+import { buildIRFromState } from '../../../lib/build-ir'
+import { serializeIR } from '@awaitstep/ir'
+import { downloadJsonFile } from '../../../lib/download-file'
 
 const LazyReactFlowProvider = lazy(() =>
   import('@xyflow/react').then((m) => ({ default: m.ReactFlowProvider })),
@@ -101,7 +105,11 @@ function WorkflowEditorPage() {
   })
 
   // Fetch workflow data
-  const { data: fullData, error: workflowError } = useQuery({
+  const {
+    data: fullData,
+    isLoading: isLoadingWorkflow,
+    error: workflowError,
+  } = useQuery({
     queryKey: ['workflow-full', workflowId, versionParam],
     queryFn: () => api.getWorkflowFull(workflowId, versionParam),
     enabled: ready && !isNew,
@@ -156,82 +164,84 @@ function WorkflowEditorPage() {
     addNode(type, { x: 250 + Math.random() * 200, y: 150 + Math.random() * 200 }, nodeRegistry)
   }
 
+  function handleExport() {
+    const state = useWorkflowStore.getState()
+    const ir = buildIRFromState(state)
+    const json = serializeIR(ir)
+    const filename = `${metadata.name.replace(/\s+/g, '-').toLowerCase()}.ir.json`
+    downloadJsonFile(filename, json)
+  }
+
+  // Show skeleton while waiting for workflow data (skip for new workflows)
+  const showSkeleton = !isNew && !workflowError && (isLoadingWorkflow || !fullData)
+
   return (
-    <ClientOnly
-      fallback={
-        <div className="fixed inset-0 flex items-center justify-center bg-background">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/60" />
-        </div>
-      }
-    >
-      <Suspense
-        fallback={
-          <div className="fixed inset-0 flex items-center justify-center bg-background">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/60" />
-          </div>
-        }
-      >
-        <LazyReactFlowProvider>
-          <div className="fixed inset-0 flex flex-col overflow-hidden bg-background">
-            <EditorToolbar
-              workflowId={workflowId}
-              isNew={isNew}
-              workflowName={metadata.name}
-              currentVersion={currentVersion}
-              nodeCount={nodeCount}
-              isDirty={isDirty}
-              hasActiveDeployment={hasActiveDeployment}
-              hasUndeployedChanges={hasUndeployedChanges}
-              deployedVersion={deployedVersion?.version}
-              showSettings={showSettings}
-              onToggleSettings={() => setShowSettings(!showSettings)}
-              showEditor={showEditor}
-              onToggleEditor={() => setShowEditor(!showEditor)}
-              onSave={handleSave}
-              isSaving={isSaving}
-              onDeploy={handleDeploy}
-              onTest={() => runSimulation()}
-              onTestLocally={localDevEnabled ? () => setShowLocalTest((v) => !v) : undefined}
-              onOpenTemplatePicker={() => {
-                if (nodeCount > 0) {
-                  setConfirmAction('switch-template')
-                } else {
-                  setShowTemplatePicker(true)
-                }
-              }}
-              readOnly={isReadOnly}
-              readOnlyVersion={readOnlyVersion}
-            />
-            <div className="relative flex-1 overflow-hidden">
-              <LazyCanvas />
-              {!isReadOnly && (
-                <div className="absolute left-4 top-4 z-10">
-                  <NodePalette onAddNode={handleAddNode} />
-                </div>
-              )}
-              {isNew && showTemplatePicker && (
-                <TemplatePicker onDismiss={() => setShowTemplatePicker(false)} />
-              )}
-              <BindingsPanel />
-              <SimulationPanel />
-              <CanvasSidePanels
-                showEditor={showEditor}
-                showLocalTest={showLocalTest && !isNew}
-                onCloseLocalTest={() => setShowLocalTest(false)}
+    <ClientOnly fallback={<CanvasSkeleton />}>
+      <Suspense fallback={<CanvasSkeleton />}>
+        <LoadingView isLoading={showSkeleton} LoadingPlaceholder={CanvasSkeleton}>
+          <LazyReactFlowProvider>
+            <div className="fixed inset-0 flex flex-col overflow-hidden bg-background">
+              <EditorToolbar
                 workflowId={workflowId}
-                LazyEditorPanel={LazyEditorPanel}
+                isNew={isNew}
+                workflowName={metadata.name}
+                currentVersion={currentVersion}
+                nodeCount={nodeCount}
+                isDirty={isDirty}
+                hasActiveDeployment={hasActiveDeployment}
+                hasUndeployedChanges={hasUndeployedChanges}
+                deployedVersion={deployedVersion?.version}
+                showSettings={showSettings}
+                onToggleSettings={() => setShowSettings(!showSettings)}
+                showEditor={showEditor}
+                onToggleEditor={() => setShowEditor(!showEditor)}
+                onSave={handleSave}
+                isSaving={isSaving}
+                onDeploy={handleDeploy}
+                onTest={() => runSimulation()}
+                onTestLocally={localDevEnabled ? () => setShowLocalTest((v) => !v) : undefined}
+                onExport={nodeCount > 0 ? handleExport : undefined}
+                onOpenTemplatePicker={() => {
+                  if (nodeCount > 0) {
+                    setConfirmAction('switch-template')
+                  } else {
+                    setShowTemplatePicker(true)
+                  }
+                }}
+                readOnly={isReadOnly}
+                readOnlyVersion={readOnlyVersion}
               />
+              <div className="relative flex-1 overflow-hidden">
+                <LazyCanvas />
+                {!isReadOnly && (
+                  <div className="absolute left-4 top-4 z-10">
+                    <NodePalette onAddNode={handleAddNode} />
+                  </div>
+                )}
+                {isNew && showTemplatePicker && (
+                  <TemplatePicker onDismiss={() => setShowTemplatePicker(false)} />
+                )}
+                <BindingsPanel />
+                <SimulationPanel />
+                <CanvasSidePanels
+                  showEditor={showEditor}
+                  showLocalTest={showLocalTest && !isNew}
+                  onCloseLocalTest={() => setShowLocalTest(false)}
+                  workflowId={workflowId}
+                  LazyEditorPanel={LazyEditorPanel}
+                />
+              </div>
             </div>
-          </div>
-          <EditorDialogs
-            confirmAction={confirmAction}
-            setConfirmAction={setConfirmAction}
-            onConfirmSwitchTemplate={() => setShowTemplatePicker(true)}
-            blockerStatus={status}
-            onBlockerProceed={proceed}
-            onBlockerReset={reset}
-          />
-        </LazyReactFlowProvider>
+            <EditorDialogs
+              confirmAction={confirmAction}
+              setConfirmAction={setConfirmAction}
+              onConfirmSwitchTemplate={() => setShowTemplatePicker(true)}
+              blockerStatus={status}
+              onBlockerProceed={proceed}
+              onBlockerReset={reset}
+            />
+          </LazyReactFlowProvider>
+        </LoadingView>
       </Suspense>
     </ClientOnly>
   )

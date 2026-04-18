@@ -55,13 +55,32 @@ export function extractImports(code: string): { imports: string[]; body: string 
   const lines = code.split('\n')
   const imports: string[] = []
   const bodyLines: string[] = []
+  let pendingImport: string[] | null = null
 
   for (const line of lines) {
-    if (/^\s*import\s+/.test(line) && /from\s+['"]/.test(line)) {
-      imports.push(line.trim())
+    if (pendingImport) {
+      // Continue collecting a multi-line import
+      pendingImport.push(line)
+      if (/from\s+['"]/.test(line)) {
+        imports.push(pendingImport.join('\n').trim())
+        pendingImport = null
+      }
+    } else if (/^\s*import\s+/.test(line)) {
+      if (/from\s+['"]/.test(line)) {
+        // Single-line import
+        imports.push(line.trim())
+      } else {
+        // Start of a multi-line import
+        pendingImport = [line]
+      }
     } else {
       bodyLines.push(line)
     }
+  }
+
+  // If we have an unterminated import, treat it as body
+  if (pendingImport) {
+    bodyLines.push(...pendingImport)
   }
 
   return { imports, body: bodyLines.join('\n') }

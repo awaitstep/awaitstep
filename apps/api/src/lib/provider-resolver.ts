@@ -1,6 +1,6 @@
 import type { WorkflowProvider, TemplateResolver } from '@awaitstep/codegen'
 import type { WorkflowIR } from '@awaitstep/ir'
-import { CloudflareWorkflowsAdapter } from '@awaitstep/provider-cloudflare'
+import { CloudflareWorkflowsAdapter, type WranglerDeployer } from '@awaitstep/provider-cloudflare'
 
 const DEFAULT_PROVIDER = 'cloudflare'
 
@@ -11,15 +11,16 @@ const NODE_PROVIDER_MAP: Record<string, string> = {
 
 export function resolveProvider(
   provider?: string,
-  options?: { templateResolver?: TemplateResolver },
+  options?: { templateResolver?: TemplateResolver; deployer?: WranglerDeployer },
 ): WorkflowProvider {
   const name = provider ?? DEFAULT_PROVIDER
 
   switch (name) {
     case 'cloudflare':
-      return new CloudflareWorkflowsAdapter(
-        options?.templateResolver ? { templateResolver: options.templateResolver } : undefined,
-      )
+      return new CloudflareWorkflowsAdapter({
+        templateResolver: options?.templateResolver,
+        deployer: options?.deployer,
+      })
     default:
       throw new Error(`Unsupported provider: ${name}`)
   }
