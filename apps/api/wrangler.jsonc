@@ -47,7 +47,7 @@
   //
   //   CF_TOKEN_ENCRYPTION_KEY      → TOKEN_ENCRYPTION_KEY   (required, openssl rand -hex 32)
   //   CF_BETTER_AUTH_SECRET        → BETTER_AUTH_SECRET      (required, openssl rand -hex 32)
-  //   CF_BETTER_AUTH_URL           → BETTER_AUTH_URL         (default: CF_API_WORKER_URL)
+  //   (BETTER_AUTH_URL is auto-set to CF_API_WORKER_URL)
   //   CF_CORS_ORIGIN               → CORS_ORIGIN            (default: derived from web worker URL)
   //   CF_RESEND_API_KEY            → RESEND_API_KEY          (optional, enables magic link emails)
   //   CF_RESEND_FROM_EMAIL         → RESEND_FROM_EMAIL       (optional)

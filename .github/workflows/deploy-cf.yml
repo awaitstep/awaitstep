@@ -156,9 +156,8 @@ jobs:
           set_secret "TOKEN_ENCRYPTION_KEY" "${{ secrets.CF_TOKEN_ENCRYPTION_KEY }}"
           set_secret "BETTER_AUTH_SECRET" "${{ secrets.CF_BETTER_AUTH_SECRET }}"
 
-          # BETTER_AUTH_URL defaults to CF_API_WORKER_URL
-          AUTH_URL="${{ secrets.CF_BETTER_AUTH_URL || vars.CF_API_WORKER_URL }}"
-          set_secret "BETTER_AUTH_URL" "$AUTH_URL"
+          # BETTER_AUTH_URL is always the API worker URL
+          set_secret "BETTER_AUTH_URL" "${{ vars.CF_API_WORKER_URL }}"
 
           # CORS_ORIGIN defaults to web worker URL (derived from web worker name)
           CORS="${{ vars.CF_CORS_ORIGIN }}"
