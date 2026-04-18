@@ -1,6 +1,7 @@
 import type { WorkflowProvider, ProviderConfig, GeneratedArtifact } from '@awaitstep/codegen'
 import type { WorkflowIR } from '@awaitstep/ir'
 import type { DatabaseAdapter, Workflow } from '@awaitstep/db'
+import type { WranglerDeployer } from '@awaitstep/provider-cloudflare'
 import type { AppNodeRegistry } from './node-registry.js'
 import { prepareWorkflow, isPrepareError } from './workflow-prepare.js'
 import { resolveProvider } from './provider-resolver.js'
@@ -32,6 +33,7 @@ interface DeployPrepareInput {
   nodeRegistry?: AppNodeRegistry
   appName?: string
   deploymentConfig?: unknown
+  deployer?: WranglerDeployer
 }
 
 export async function prepareDeploy(
@@ -61,9 +63,9 @@ export async function prepareDeploy(
     }
   }
 
-  // Resolve provider adapter
-  const adapter = resolveProvider(connection.provider, {
-    templateResolver: input.nodeRegistry?.templateResolver,
+  // Initial adapter for config schema validation (no installed-node templates yet)
+  const initialAdapter = resolveProvider(connection.provider, {
+    deployer: input.deployer,
   })
 
   // Resolve deployment config: request body → stored → legacy → defaults
@@ -73,13 +75,14 @@ export async function prepareDeploy(
     workflowId: workflow.id,
     connectionId,
     workflow,
-    adapter,
+    adapter: initialAdapter,
   })
   if ('error' in resolvedConfig) {
     return resolvedConfig
   }
 
   // Shared workflow preparation (IR, validation, env vars, codegen)
+  // This merges installed-node templates into the registry.
   const prepared = await prepareWorkflow({
     db,
     workflow,
@@ -90,6 +93,13 @@ export async function prepareDeploy(
   })
 
   if (isPrepareError(prepared)) return prepared
+
+  // Rebuild adapter with merged template resolver (includes installed nodes)
+  // so codegen can resolve custom node templates like S3, Supabase, etc.
+  const adapter = resolveProvider(connection.provider, {
+    templateResolver: prepared.nodeRegistry.templateResolver,
+    deployer: input.deployer,
+  })
 
   // Provider config with credentials
   const creds = JSON.parse(connection.credentials) as Record<string, string>
@@ -108,16 +118,16 @@ export async function prepareDeploy(
   }
 
   // Credential verification
-  const credCheck = await prepared.adapter.verifyCredentials(providerConfig)
+  const credCheck = await adapter.verifyCredentials(providerConfig)
   if (!credCheck.valid) {
     return { error: credCheck.error ?? 'Invalid credentials', status: 403 }
   }
 
-  // Re-generate artifact with full provider config (includes credentials)
-  const artifact = prepared.adapter.generate(prepared.ir, providerConfig)
+  // Generate artifact with full provider config (includes credentials + installed node templates)
+  const artifact = adapter.generate(prepared.ir, providerConfig)
 
   return {
-    adapter: prepared.adapter,
+    adapter,
     artifact,
     providerConfig,
     ir: prepared.ir,

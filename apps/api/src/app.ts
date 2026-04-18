@@ -10,6 +10,7 @@ import type { Auth } from './auth/config.js'
 import type { Logger } from './lib/logger.js'
 import type { AppNodeRegistry } from './lib/node-registry.js'
 import type { RemoteNodeRegistry } from './lib/remote-node-registry.js'
+import type { WranglerDeployer } from '@awaitstep/provider-cloudflare'
 import { createLogger } from './lib/logger.js'
 import { createRouter } from './routes/index.js'
 import { createRateLimiter } from './middleware/rate-limit.js'
@@ -25,6 +26,7 @@ export interface AppDeps {
   nodeRegistry?: AppNodeRegistry
   remoteNodeRegistry?: RemoteNodeRegistry
   appName?: string
+  deployer?: WranglerDeployer
 }
 
 export function createApp(deps: AppDeps) {
@@ -98,6 +100,7 @@ export function createApp(deps: AppDeps) {
     if (deps.nodeRegistry) c.set('nodeRegistry', deps.nodeRegistry)
     if (deps.remoteNodeRegistry) c.set('remoteNodeRegistry', deps.remoteNodeRegistry)
     if (deps.appName) c.set('appName', deps.appName)
+    if (deps.deployer) c.set('deployer', deps.deployer)
     await next()
   })
 

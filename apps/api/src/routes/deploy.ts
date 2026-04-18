@@ -46,6 +46,7 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
     nodeRegistry: c.get('nodeRegistry'),
     appName: c.get('appName'),
     deploymentConfig: body.config,
+    deployer: c.get('deployer'),
   })
 
   if (isDeployError(prepared)) {
@@ -99,6 +100,7 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
     nodeRegistry: c.get('nodeRegistry'),
     appName: c.get('appName'),
     deploymentConfig: body.config,
+    deployer: c.get('deployer'),
   })
 
   if (isDeployError(prepared)) {
