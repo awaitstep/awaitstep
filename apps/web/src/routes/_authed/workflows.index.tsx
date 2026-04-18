@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search, Upload } from 'lucide-react'
 import { useState, useMemo } from 'react'
 import { Button } from '../../components/ui/button'
 import { GuardedLink } from '../../components/ui/guarded-link'
@@ -8,6 +8,7 @@ import type { WorkflowSummary } from '../../lib/api-client'
 import { useWorkflowsStore } from '../../stores/workflows-store'
 import { WorkflowActionsMenu } from '../../components/dashboard/workflow-actions-menu'
 import { TriggerButton } from '../../components/dashboard/trigger-button'
+import { ImportWorkflowDialog } from '../../components/dashboard/import-workflow-dialog'
 import { timeAgo } from '../../lib/time'
 import { RequireProject } from '../../wrappers/require-project'
 import { NEW_WORKFLOW_NAV } from '../../lib/nav'
@@ -37,6 +38,7 @@ function WorkflowsIndexContent() {
   const loadMore = useWorkflowsStore((s) => s.loadMore)
   const isFetchingMore = useWorkflowsStore((s) => s.isFetchingMore)
   const [search, setSearch] = useState('')
+  const [importOpen, setImportOpen] = useState(false)
 
   const filtered = useMemo(() => {
     if (!search.trim()) return workflows
@@ -52,12 +54,23 @@ function WorkflowsIndexContent() {
         title="Workflows"
         breadcrumbs={[{ label: 'Home', href: '/dashboard' }, { label: 'Workflows' }]}
         actions={
-          <Button size="sm" className="gap-1.5" asChild>
-            <GuardedLink requirement="project" nav={NEW_WORKFLOW_NAV}>
-              <Plus className="h-4 w-4" />
-              New Workflow
-            </GuardedLink>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setImportOpen(true)}
+            >
+              <Upload className="h-4 w-4" />
+              Import
+            </Button>
+            <Button size="sm" className="gap-1.5" asChild>
+              <GuardedLink requirement="project" nav={NEW_WORKFLOW_NAV}>
+                <Plus className="h-4 w-4" />
+                New Workflow
+              </GuardedLink>
+            </Button>
+          </div>
         }
       />
 
@@ -114,6 +127,8 @@ function WorkflowsIndexContent() {
           </p>
         )}
       </div>
+
+      {importOpen && <ImportWorkflowDialog onClose={() => setImportOpen(false)} />}
     </div>
   )
 }

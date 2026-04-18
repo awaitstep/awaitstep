@@ -11,6 +11,7 @@ import {
   Circle,
   LayoutTemplate,
   Terminal,
+  Download,
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { cn } from '../../lib/utils'
@@ -35,6 +36,7 @@ export interface EditorToolbarProps {
   onTest: () => void
   onTestLocally?: () => void
   onOpenTemplatePicker: () => void
+  onExport?: () => void
   readOnly?: boolean
   readOnlyVersion?: number
 }
@@ -59,6 +61,7 @@ export function EditorToolbar({
   onTest,
   onTestLocally,
   onOpenTemplatePicker,
+  onExport,
   readOnly,
   readOnlyVersion,
 }: EditorToolbarProps) {
@@ -178,6 +181,17 @@ export function EditorToolbar({
               >
                 <LayoutTemplate className="h-3.5 w-3.5" />
                 <span className="text-xs">Templates</span>
+              </Button>
+            )}
+            {onExport && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 px-2.5 text-muted-foreground hover:text-foreground/70"
+                onClick={onExport}
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span className="text-xs">Export</span>
               </Button>
             )}
             <div className="h-5 w-px bg-muted/70" />

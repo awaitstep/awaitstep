@@ -11,14 +11,19 @@ import {
 } from '../ui/dropdown-menu'
 import { ConfirmDialog } from '../ui/confirm-dialog'
 import { api, type WorkflowSummary } from '../../lib/api-client'
+import { downloadJsonFile } from '../../lib/download-file'
+import { toast } from 'sonner'
 
 interface WorkflowActionsMenuProps {
   workflow: WorkflowSummary
-  irJson?: string
   isDeployed?: boolean
 }
 
-export function WorkflowActionsMenu({ workflow, irJson, isDeployed }: WorkflowActionsMenuProps) {
+function irFileName(name: string) {
+  return `${name.replace(/\s+/g, '-').toLowerCase()}.ir.json`
+}
+
+export function WorkflowActionsMenu({ workflow, isDeployed }: WorkflowActionsMenuProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -54,8 +59,9 @@ export function WorkflowActionsMenu({ workflow, irJson, isDeployed }: WorkflowAc
         name: `${workflow.name} (copy)`,
         description: workflow.description,
       })
-      if (irJson) {
-        await api.createVersion(newWf.id, { ir: JSON.parse(irJson) })
+      if (workflow.currentVersionId) {
+        const ver = await api.getVersion(workflow.id, workflow.currentVersionId)
+        await api.createVersion(newWf.id, { ir: JSON.parse(ver.ir) })
       }
       return newWf
     },
@@ -65,16 +71,21 @@ export function WorkflowActionsMenu({ workflow, irJson, isDeployed }: WorkflowAc
     },
   })
 
-  function handleExportIR() {
-    if (!irJson) return
-    const blob = new Blob([irJson], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${workflow.name.replace(/\s+/g, '-').toLowerCase()}.ir.json`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
+  const exportMutation = useMutation({
+    mutationFn: async () => {
+      if (!workflow.currentVersionId) throw new Error('No version to export')
+      const ver = await api.getVersion(workflow.id, workflow.currentVersionId)
+      return ver.ir
+    },
+    onSuccess: (irJson) => {
+      downloadJsonFile(irFileName(workflow.name), irJson)
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : 'Failed to export workflow')
+    },
+  })
+
+  const hasVersion = !!workflow.currentVersionId
 
   return (
     <>
@@ -108,15 +119,16 @@ export function WorkflowActionsMenu({ workflow, irJson, isDeployed }: WorkflowAc
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onSelect={() => duplicateMutation.mutate()}
-            disabled={duplicateMutation.isPending}
+            disabled={duplicateMutation.isPending || !hasVersion}
           >
             <Copy size={14} /> Duplicate
           </DropdownMenuItem>
-          {irJson && (
-            <DropdownMenuItem onSelect={handleExportIR}>
-              <Download size={14} /> Export IR
-            </DropdownMenuItem>
-          )}
+          <DropdownMenuItem
+            onSelect={() => exportMutation.mutate()}
+            disabled={exportMutation.isPending || !hasVersion}
+          >
+            <Download size={14} /> Export IR
+          </DropdownMenuItem>
           {isDeployed && (
             <>
               <DropdownMenuSeparator />
