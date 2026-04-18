@@ -9,6 +9,7 @@ import { createLogger } from '../lib/logger.js'
 import { loadNodeRegistry } from '../lib/node-registry-fs.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
 import { createEmailService } from '../lib/email.js'
+import { NodeWranglerDeployer } from '@awaitstep/provider-cloudflare'
 
 const DEFAULT_REGISTRY_URL = 'https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry'
 
@@ -131,6 +132,7 @@ async function start() {
     nodeRegistry,
     remoteNodeRegistry,
     appName,
+    deployer: new NodeWranglerDeployer(),
   })
 
   serve({ fetch: apiApp.fetch, port: apiPort })

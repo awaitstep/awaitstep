@@ -34,8 +34,11 @@ export function WorkflowActionsMenu({ workflow, isDeployed }: WorkflowActionsMen
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
       queryClient.invalidateQueries({ queryKey: ['all-deployments'] })
-      navigate({ to: '/workflows', replace: true })
-      setDeleteOpen(false)
+
+      navigate({ to: '/workflows', replace: true }).finally(() => {
+        toast.success('Workflow deleted')
+        setDeleteOpen(false)
+      })
     },
   })
 
@@ -150,27 +153,31 @@ export function WorkflowActionsMenu({ workflow, isDeployed }: WorkflowActionsMen
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <ConfirmDialog
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-        title="Delete workflow"
-        description={`Are you sure you want to delete "${workflow.name}"? This action cannot be undone.`}
-        confirmLabel="Delete"
-        variant="destructive"
-        onConfirm={() => deleteMutation.mutate()}
-        loading={deleteMutation.isPending}
-      />
+      {deleteOpen && (
+        <ConfirmDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          title="Delete workflow"
+          description={`Are you sure you want to delete "${workflow.name}"? This action cannot be undone.`}
+          confirmLabel="Delete"
+          variant="destructive"
+          onConfirm={() => deleteMutation.mutate()}
+          loading={deleteMutation.isPending}
+        />
+      )}
 
-      <ConfirmDialog
-        open={takedownOpen}
-        onOpenChange={setTakedownOpen}
-        title="Take down deployment"
-        description={`This will delete the worker for "${workflow.name}" from Cloudflare. The workflow will remain in your account but will no longer be running.`}
-        confirmLabel="Take down"
-        variant="warning"
-        onConfirm={() => takedownMutation.mutate()}
-        loading={takedownMutation.isPending}
-      />
+      {takedownOpen && (
+        <ConfirmDialog
+          open={takedownOpen}
+          onOpenChange={setTakedownOpen}
+          title="Take down deployment"
+          description={`This will delete the worker for "${workflow.name}" from Cloudflare. The workflow will remain in your account but will no longer be running.`}
+          confirmLabel="Take down"
+          variant="warning"
+          onConfirm={() => takedownMutation.mutate()}
+          loading={takedownMutation.isPending}
+        />
+      )}
     </>
   )
 }

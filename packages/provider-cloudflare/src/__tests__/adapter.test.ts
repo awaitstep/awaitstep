@@ -2,15 +2,16 @@ import { describe, it, expect, vi } from 'vitest'
 import type { WorkflowIR } from '@awaitstep/ir'
 import type { ProviderConfig } from '@awaitstep/codegen'
 import { CloudflareWorkflowsAdapter } from '../adapter.js'
-import { deployWithWrangler } from '../deploy.js'
+import type { WranglerDeployer } from '../deploy/deployer.js'
 
-vi.mock('../deploy.js', () => ({
-  deployWithWrangler: vi.fn().mockResolvedValue({
+const mockDeployer: WranglerDeployer = {
+  deploy: vi.fn().mockResolvedValue({
     success: true,
     workerName: 'awaitstep-test-workflow',
-    stdout: 'deployed',
+    workerUrl: 'https://awaitstep-test-workflow.workers.dev',
   }),
-}))
+  deleteWorker: vi.fn().mockResolvedValue({ success: true }),
+}
 
 vi.mock('../api.js', () => ({
   CloudflareAPI: class {
@@ -52,7 +53,7 @@ const providerConfig: ProviderConfig = {
 }
 
 describe('CloudflareWorkflowsAdapter', () => {
-  const adapter = new CloudflareWorkflowsAdapter()
+  const adapter = new CloudflareWorkflowsAdapter({ deployer: mockDeployer })
 
   it('has the correct name', () => {
     expect(adapter.name).toBe('cloudflare')
@@ -133,7 +134,7 @@ describe('CloudflareWorkflowsAdapter', () => {
       )
     })
 
-    it('passes routes from deployConfig to deployWithWrangler', async () => {
+    it('passes routes from deployConfig to deployer', async () => {
       const artifact = adapter.generate(simpleIR)
       const configWithRoute: ProviderConfig = {
         ...providerConfig,
@@ -145,7 +146,7 @@ describe('CloudflareWorkflowsAdapter', () => {
         },
       }
       await adapter.deploy(artifact, configWithRoute)
-      const call = vi.mocked(deployWithWrangler).mock.lastCall!
+      const call = vi.mocked(mockDeployer.deploy).mock.lastCall!
       const deployOpts = call[1]
       expect(deployOpts.routes).toEqual([
         { pattern: 'example.com/my-workflow/*', zone_name: 'example.com' },
@@ -156,7 +157,7 @@ describe('CloudflareWorkflowsAdapter', () => {
     it('omits routes when deployConfig has no route', async () => {
       const artifact = adapter.generate(simpleIR)
       await adapter.deploy(artifact, providerConfig)
-      const call = vi.mocked(deployWithWrangler).mock.lastCall!
+      const call = vi.mocked(mockDeployer.deploy).mock.lastCall!
       const deployOpts = call[1]
       expect(deployOpts.routes).toBeUndefined()
     })
@@ -173,7 +174,7 @@ describe('CloudflareWorkflowsAdapter', () => {
         },
       }
       await adapter.deploy(artifact, configWithBindingIds)
-      const call = vi.mocked(deployWithWrangler).mock.lastCall!
+      const call = vi.mocked(mockDeployer.deploy).mock.lastCall!
       const deployOpts = call[1]
       expect(deployOpts.vars).toEqual({ API_URL: 'https://example.com' })
       expect(deployOpts.secrets).toEqual({ SECRET_KEY: 's3cret' })
