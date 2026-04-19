@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.9](https://github.com/awaitstep/awaitstep/compare/v1.4.8...v1.4.9) (2026-04-19)
+
+
+### Bug Fixes
+
+* use CF REST API for worker takedown ([81e49e6](https://github.com/awaitstep/awaitstep/commit/81e49e6e0ac687391696e809260a64e3dc36d9ce))
+* use CF REST API for worker takedown instead of sandbox container ([5170e83](https://github.com/awaitstep/awaitstep/commit/5170e837673ba7cc836dd388b6d5c9f7a4562cf9))
+
+
+### Documentation
+
+* move CF deployment guide to apps/docs and enhance existing page ([931ee30](https://github.com/awaitstep/awaitstep/commit/931ee30a2b9f4df7c1ae7e6d8fa4001ea7b5c7c9))
+* updated cf docs ([7fc0ef5](https://github.com/awaitstep/awaitstep/commit/7fc0ef5f7c65a3a9dc3cf63b86bc77dc9465593c))
+
 ## [1.4.8](https://github.com/awaitstep/awaitstep/compare/v1.4.7...v1.4.8) (2026-04-18)
 
 
