@@ -386,9 +386,19 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     deploymentId: string,
     config: ProviderConfig,
   ): Promise<{ success: boolean; error?: string }> {
-    if (!this.deployer) return { success: false, error: 'No deployer configured' }
     const { accountId, apiToken } = extractCredentials(config)
-    return this.deployer.deleteWorker(deploymentId, { accountId, apiToken })
+    try {
+      const api = new CloudflareAPI({ accountId, apiToken })
+      await api.deleteWorker(deploymentId)
+      return { success: true }
+    } catch (err) {
+      const message = (err as Error).message
+      // Worker already gone — treat as successful takedown
+      if (message.includes('does not exist')) {
+        return { success: true }
+      }
+      return { success: false, error: message }
+    }
   }
 
   async startLocalDev(
