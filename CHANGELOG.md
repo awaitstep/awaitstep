@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.10](https://github.com/awaitstep/awaitstep/compare/v1.4.9...v1.4.10) (2026-04-19)
+
+
+### Documentation
+
+* add and update website images ([9fb19f5](https://github.com/awaitstep/awaitstep/commit/9fb19f5e71349b3a7f620405f255fc4e27112a16))
+* update Cloudflare Workers installation links ([27a6f3d](https://github.com/awaitstep/awaitstep/commit/27a6f3d45a38b30706f759fa974ed257546942ab))
+* update documentation screenshots ([05834a3](https://github.com/awaitstep/awaitstep/commit/05834a3125e97f476e7fda53d14d02d4e71e6486))
+* update README with marketing layout and new screenshots ([51c1398](https://github.com/awaitstep/awaitstep/commit/51c1398fcb2a590b97e5274d3e1ec4f05d5a7c2a))
+
 ## [1.4.9](https://github.com/awaitstep/awaitstep/compare/v1.4.8...v1.4.9) (2026-04-19)
 
 
