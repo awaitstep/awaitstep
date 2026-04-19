@@ -8,7 +8,7 @@ A self-hosted visual builder that generates and deploys code directly to [Cloudf
 No proprietary engines — just your code.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Deploy on Cloudflare](https://img.shields.io/badge/Deploy%20on-Cloudflare-f6821f?logo=cloudflare&logoColor=white)](https://docs.awaitstep.dev/installation/cloudflare)
+[![Deploy on Cloudflare](https://img.shields.io/badge/Deploy%20on-Cloudflare-f6821f?logo=cloudflare&logoColor=white)](https://docs.awaitstep.dev/installation/cloudflare-workers)
 
 [Get Started](https://docs.awaitstep.dev/installation/docker-compose) &bull; [Documentation](https://docs.awaitstep.dev) &bull; [API Reference](https://docs.awaitstep.dev/api-reference)
 
@@ -129,7 +129,7 @@ Run the entire stack on Cloudflare. API on Workers, builds in sandboxed containe
 | :-----------------: | :-----------------: | :------------------: |
 | Built-in node types | Open source license | Self-host setup time |
 
-[![Deploy on Cloudflare](https://img.shields.io/badge/Deploy%20on-Cloudflare-f6821f?style=for-the-badge&logo=cloudflare&logoColor=white)](https://docs.awaitstep.dev/installation/cloudflare)
+[![Deploy on Cloudflare](https://img.shields.io/badge/Deploy%20on-Cloudflare-f6821f?style=for-the-badge&logo=cloudflare&logoColor=white)](https://docs.awaitstep.dev/installation/cloudflare-workers)
 
 ---
 
