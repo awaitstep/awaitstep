@@ -26,6 +26,7 @@ const {
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
+    <meta name="theme-color" content="#fafafa" />
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -34,7 +35,7 @@ const {
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Geist+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&display=swap"
       rel="stylesheet"
     />
     <link
@@ -50,26 +51,6 @@ const {
     <slot />
 
     <script>
-      // Scroll animations
-      const observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              const delay = entry.target.getAttribute('data-delay')
-              if (delay) {
-                setTimeout(() => entry.target.classList.add('visible'), parseInt(delay))
-              } else {
-                entry.target.classList.add('visible')
-              }
-              observer.unobserve(entry.target)
-            }
-          })
-        },
-        { threshold: 0.1 },
-      )
-
-      document.querySelectorAll('[data-animate]').forEach((el) => observer.observe(el))
-
       // Nav border on scroll
       const nav = document.querySelector('[data-nav]')
       if (nav) {

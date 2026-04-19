@@ -1,116 +1,403 @@
 ---
 import Base from '../layouts/Base.astro'
+
+const nodes = [
+  { name: 'Step', desc: 'Execute custom code with automatic retries and exponential backoff' },
+  { name: 'Sleep', desc: 'Pause execution for a duration — up to 365 days' },
+  { name: 'Branch', desc: 'Conditional execution paths based on runtime data' },
+  { name: 'Parallel', desc: 'Run multiple steps concurrently' },
+  { name: 'Loop', desc: 'Repeat steps with forEach, while, or count modes' },
+  { name: 'Try / Catch', desc: 'Error handling with try, catch, and finally blocks' },
+  { name: 'HTTP Request', desc: 'Make HTTP calls with configurable retries and timeouts' },
+  { name: 'Wait for Event', desc: 'Pause until an external event arrives' },
+  { name: 'Sub-Workflow', desc: 'Trigger and compose other workflows' },
+  { name: 'Custom', desc: 'User-defined node types from the marketplace' },
+]
+
+const features = [
+  { label: 'Drag & Drop Canvas', desc: 'Visual workflow designer with intuitive controls' },
+  { label: 'One-Click Deploy', desc: 'Deploy directly to Cloudflare from the UI' },
+  { label: '30+ Node Types', desc: 'Composable building blocks for any workflow' },
+  { label: 'Node Marketplace', desc: 'Build, publish, and install custom nodes' },
+  { label: 'REST API', desc: 'Full API with scoped keys and interactive playground' },
+  { label: 'Self-Hosted', desc: 'Run on your infra — Docker, VPS, or Cloudflare' },
+]
 ---
 
 <Base>
-  <div class="relative flex min-h-screen flex-col overflow-x-hidden bg-background text-foreground">
-    <link
-      href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&display=swap"
-      rel="stylesheet"
-    />
-
-    <div
-      class="pointer-events-none absolute inset-0 opacity-[0.03]"
-      style="background-image: linear-gradient(rgba(0,0,0,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.06) 1px, transparent 1px); background-size: 64px 64px;"
-    ></div>
-
-    <div
-      class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-      style="width: 800px; height: 600px; background: radial-gradient(ellipse, oklch(0.5 0.14 160 / 8%) 0%, transparent 70%);"
-    ></div>
-
-    <nav class="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10">
-      <div class="flex items-center gap-1">
-        <svg width="40" height="20" viewBox="0 0 80 38" fill="none">
+  <div class="relative min-h-screen bg-background text-foreground">
+    <!-- Nav -->
+    <nav data-nav class="sticky top-0 z-50 flex items-center justify-between bg-background/80 px-6 py-4 backdrop-blur-md sm:px-10 lg:px-16">
+      <a href="/" class="flex items-center gap-2">
+        <svg width="32" height="16" viewBox="0 0 80 38" fill="none">
           <rect width="52" height="10" rx="2" fill="oklch(0.5 0.14 160)" />
           <rect x="14" y="14" width="52" height="10" rx="2" fill="oklch(0.5 0.14 160)" fill-opacity="0.62" />
           <rect x="28" y="28" width="52" height="10" rx="2" fill="oklch(0.5 0.14 160)" fill-opacity="0.32" />
         </svg>
-        <span class="text-xs font-bold uppercase tracking-tight text-foreground">AwaitStep</span>
-      </div>
-      <div class="flex items-center gap-4">
+        <span class="text-sm font-semibold tracking-tight">AwaitStep</span>
+      </a>
+      <div class="flex items-center gap-6">
+        <a href="https://docs.awaitstep.dev" class="text-sm text-muted-foreground transition-colors hover:text-foreground">Docs</a>
+        <a href="https://github.com/awaitstep/awaitstep" class="text-sm text-muted-foreground transition-colors hover:text-foreground">GitHub</a>
         <a
-          href="https://docs.awaitstep.dev"
-          class="text-xs text-muted-foreground transition-colors hover:text-foreground"
-        >Docs</a>
-        <a
-          href="https://github.com/awaitstep/awaitstep"
-          class="text-xs text-muted-foreground transition-colors hover:text-foreground"
-        >GitHub</a>
+          href="https://docs.awaitstep.dev/installation/docker-compose"
+          class="hidden rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 sm:inline-flex"
+        >Get Started</a>
       </div>
     </nav>
 
-    <main class="relative z-10 flex flex-1 flex-col items-center justify-center px-6 pb-16 text-center">
-      <div class="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/50 px-3.5 py-1.5 text-[11px] uppercase tracking-widest text-muted-foreground backdrop-blur-sm">
-        <span class="h-1.5 w-1.5 rounded-full bg-primary" style="animation: pulse-dot 2s ease-in-out infinite;"></span>
-        Open Source Visual Workflow Builder
-      </div>
+    <!-- Hero -->
+    <section class="relative flex min-h-[calc(100vh-57px)] items-center px-6 pb-0 sm:px-10 lg:px-16">
+      <div class="pointer-events-none absolute inset-0" style="background-image: radial-gradient(circle, #b0b0b0 1.2px, transparent 1.2px); background-size: 40px 40px; -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%); mask-image: linear-gradient(to bottom, black 50%, transparent 100%);"></div>
+      <div class="relative z-10 mx-auto max-w-5xl text-center">
+        <div class="inline-flex items-center gap-2 rounded-full border border-border bg-card/50 px-4 py-1.5 text-xs uppercase tracking-widest text-muted-foreground backdrop-blur-sm">
+          <span class="h-1.5 w-1.5 rounded-full bg-primary" style="animation: pulse-dot 2s ease-in-out infinite;"></span>
+          Open Source Workflow Builder
+        </div>
 
-      <h1 class="mt-8 max-w-2xl text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
-        Build and deploy<br />
-        workflows{' '}
-        <span class="relative inline-block">
-          <span
-            class="text-primary"
-            style="font-family: 'Caveat', cursive; font-size: 1.3em; line-height: 1;"
-          >visually</span>
-          <svg
-            class="absolute -bottom-1 left-0 w-full text-primary/50"
-            viewBox="0 0 200 12"
-            fill="none"
-            preserveAspectRatio="none"
-            style="height: 10px;"
+        <h1 class="mt-8 text-4xl font-bold leading-tight tracking-tight sm:text-5xl md:text-6xl">
+          Build and deploy<br class="hidden sm:block" />
+          workflows{' '}
+          <span class="relative inline-block">
+            <span
+              class="text-primary"
+              style="font-family: 'Caveat', cursive; font-size: 1.3em; line-height: 1;"
+            >visually</span>
+            <svg
+              class="absolute -bottom-1 left-0 w-full text-primary/50"
+              viewBox="0 0 200 12"
+              fill="none"
+              preserveAspectRatio="none"
+              style="height: 10px;"
+            >
+              <path
+                d="M2 8c30-6 60-2 90-4s70 2 106 0"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                style="stroke-dasharray: 200; stroke-dashoffset: 200; animation: draw 0.8s ease-out 0.5s forwards;"
+              />
+            </svg>
+          </span><span class="text-primary" style="font-family: 'Caveat', cursive;">.</span>
+        </h1>
+
+        <p class="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+          A self-hosted visual builder that generates and deploys code directly to
+          <a href="https://developers.cloudflare.com/workflows/" class="text-foreground underline decoration-border underline-offset-4 transition-colors hover:decoration-primary">Cloudflare Workflows</a>.
+          No proprietary engines, just your code.
+        </p>
+
+        <div class="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <a
+            href="https://docs.awaitstep.dev/installation/docker-compose"
+            class="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            <path
-              d="M2 8c30-6 60-2 90-4s70 2 106 0"
-              stroke="currentColor"
-              stroke-width="2.5"
-              stroke-linecap="round"
-              style="stroke-dasharray: 200; stroke-dashoffset: 200; animation: draw 0.8s ease-out 0.5s forwards;"
-            />
+            Self-host in 5 minutes
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+          </a>
+          <a
+            href="https://github.com/awaitstep/awaitstep"
+            class="inline-flex items-center gap-2 rounded-lg border border-border px-6 py-3 text-sm font-medium transition-colors hover:bg-card"
+          >
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            View on GitHub
+          </a>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Feature: Visual Canvas -->
+    <section class="relative px-6 py-12 sm:px-10 sm:py-16 lg:px-16">
+      <div class="relative z-10 mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-5 lg:gap-12">
+        <div class="lg:col-span-2">
+          <p class="text-xs font-medium uppercase tracking-widest text-primary">Visual Canvas</p>
+          <h2 class="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">Build workflows on a canvas</h2>
+          <p class="mt-4 text-base leading-relaxed text-muted-foreground">
+            Drag and drop steps, branches, loops, parallel paths, error handling, and more.
+            See your entire workflow structure at a glance — no YAML, no config files.
+            Every node maps directly to a Cloudflare Workflow primitive.
+          </p>
+          <ul class="mt-6 space-y-2 text-sm text-muted-foreground">
+            <li class="flex items-center gap-2">
+              <svg class="h-4 w-4 shrink-0 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+              Drag-and-drop node placement
+            </li>
+            <li class="flex items-center gap-2">
+              <svg class="h-4 w-4 shrink-0 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+              30+ built-in node types
+            </li>
+            <li class="flex items-center gap-2">
+              <svg class="h-4 w-4 shrink-0 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+              Instant undo/redo and keyboard shortcuts
+            </li>
+          </ul>
+        </div>
+        <div class="lg:col-span-3">
+          <div
+            role="img"
+            aria-label="Workflow canvas showing a complex loop with branches and parallel steps"
+            class="w-full"
+            style="aspect-ratio: 2056/2240; max-height: 500px; background: url('/images/canvas.png') top/cover no-repeat;"
+          ></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="section-divider mx-auto max-w-5xl"></div>
+
+    <!-- Feature: Code Preview -->
+    <section class="relative px-6 py-12 sm:px-10 sm:py-16 lg:px-16">
+      <div class="relative z-10 mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-5 lg:gap-12">
+        <div class="order-2 lg:order-1 lg:col-span-3">
+          <div
+            role="img"
+            aria-label="Side-by-side view of visual canvas and generated TypeScript code"
+            class="w-full"
+            style="aspect-ratio: 2070/2148; max-height: 500px; background: url('/images/code-preview.png') top/cover no-repeat;"
+          ></div>
+        </div>
+        <div class="order-1 lg:order-2 lg:col-span-2">
+          <p class="text-xs font-medium uppercase tracking-widest text-primary">Live Code Preview</p>
+          <h2 class="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">Watch real code generate in real&#8209;time</h2>
+          <p class="mt-4 text-base leading-relaxed text-muted-foreground">
+            Every change on the canvas instantly reflects in the code preview. Toggle between
+            generated TypeScript, the intermediate representation (IR), and the final deployable package.
+            What you see is what gets deployed — no hidden transformations.
+          </p>
+          <ul class="mt-6 space-y-2 text-sm text-muted-foreground">
+            <li class="flex items-center gap-2">
+              <svg class="h-4 w-4 shrink-0 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+              Real-time TypeScript generation
+            </li>
+            <li class="flex items-center gap-2">
+              <svg class="h-4 w-4 shrink-0 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+              IR, TypeScript, and package output views
+            </li>
+            <li class="flex items-center gap-2">
+              <svg class="h-4 w-4 shrink-0 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+              No lock-in — eject and own the code anytime
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <div class="section-divider mx-auto max-w-5xl"></div>
+
+    <!-- Feature: Deploy & Monitor -->
+    <section class="relative px-6 py-12 sm:px-10 sm:py-16 lg:px-16">
+      <div class="relative z-10 mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-5 lg:gap-12">
+        <div class="lg:col-span-2">
+          <p class="text-xs font-medium uppercase tracking-widest text-primary">Deploy & Monitor</p>
+          <h2 class="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">Deploy, version, and monitor from one place</h2>
+          <p class="mt-4 text-base leading-relaxed text-muted-foreground">
+            Deploy directly to Cloudflare from the UI. AwaitStep handles code generation, bundling,
+            dependency installation, and deployment. Track version history, lock versions, roll back.
+            Trigger workflows and monitor runs in real-time.
+          </p>
+          <ul class="mt-6 space-y-2 text-sm text-muted-foreground">
+            <li class="flex items-center gap-2">
+              <svg class="h-4 w-4 shrink-0 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+              One-click deploy with version tracking
+            </li>
+            <li class="flex items-center gap-2">
+              <svg class="h-4 w-4 shrink-0 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+              Real-time run monitoring with status, output, and errors
+            </li>
+            <li class="flex items-center gap-2">
+              <svg class="h-4 w-4 shrink-0 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+              Pause, resume, terminate, and roll back
+            </li>
+          </ul>
+        </div>
+        <div class="lg:col-span-3">
+          <div
+            role="img"
+            aria-label="Workflow overview showing versions, runs, and deployment status"
+            class="w-full"
+            style="aspect-ratio: 2120/1526; max-height: 500px; background: url('/images/deploy-and-monitor.png') top/cover no-repeat;"
+          ></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="section-divider mx-auto max-w-5xl"></div>
+
+    <!-- Building Blocks & Features -->
+    <section class="relative overflow-hidden px-6 py-20 sm:px-10 sm:py-28 lg:px-16">
+      <div class="mx-auto max-w-5xl">
+        <div class="text-center">
+          <p class="text-xs font-medium uppercase tracking-widest text-primary">Building Blocks</p>
+          <h2 class="mt-3 mx-auto max-w-md text-2xl font-bold tracking-tight sm:text-3xl">Everything you need to build complex workflows</h2>
+          <p class="mt-4 mx-auto max-w-md text-sm leading-relaxed text-muted-foreground">
+            Composable nodes that map directly to Cloudflare Workflow primitives. Combine them to build anything from simple sequences to complex pipelines.
+          </p>
+        </div>
+
+        <div class="mt-12 grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-5">
+          {nodes.map((node) => (
+            <div class="flex flex-col gap-1 bg-card p-5">
+              <span class="text-sm font-medium text-foreground">{node.name}</span>
+              <span class="text-xs leading-relaxed text-muted-foreground">{node.desc}</span>
+            </div>
+          ))}
+        </div>
+
+        <p class="mt-6 text-center text-sm text-muted-foreground">
+          Plus <strong class="text-foreground">Sleep Until</strong>, <strong class="text-foreground">Exit</strong>, and custom nodes from the marketplace.
+          <a href="https://docs.awaitstep.dev/nodes" class="ml-1 text-primary underline-offset-4 hover:underline">View all nodes</a>
+        </p>
+
+        <div class="mt-16 grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
+          {features.map((f) => (
+            <div class="flex flex-col gap-2 bg-card p-6">
+              <span class="text-sm font-semibold text-foreground">{f.label}</span>
+              <span class="text-sm leading-relaxed text-muted-foreground">{f.desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <div class="section-divider mx-auto max-w-5xl"></div>
+
+    <!-- Open Source & Runs on Cloudflare -->
+    <section class="relative px-6 py-20 sm:px-10 sm:py-28 lg:px-16">
+      <div class="mx-auto max-w-3xl text-center">
+        <div class="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-xl border border-border bg-card">
+          <svg class="h-7 w-7 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
           </svg>
-        </span><span class="text-primary" style="font-family: 'Caveat', cursive;">.</span>
-      </h1>
+        </div>
+        <p class="text-xs font-medium uppercase tracking-widest text-primary">Open Source & Self-Hosted</p>
+        <h2 class="mt-3 mx-auto max-w-md text-2xl font-bold tracking-tight sm:text-3xl">Your workflows, your infrastructure</h2>
+        <p class="mt-4 mx-auto max-w-md text-sm leading-relaxed text-muted-foreground">
+          Fully open source under Apache 2.0. Self-host on Docker, a VPS,
+          or Cloudflare — your data never leaves your infrastructure.
+        </p>
 
-      <p class="mt-6 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
-        A self-hosted visual builder that generates and deploys code directly to Cloudflare
-        Workflows. No proprietary engines, just your code.
-      </p>
+        <p class="mt-8 mx-auto max-w-md text-sm leading-relaxed text-muted-foreground">
+          Run the entire stack on Cloudflare. API on Workers, builds in sandboxed containers, data in D1.
+        </p>
+        <div class="mt-6 grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-3">
+          <div class="flex flex-col items-center gap-1 bg-card py-6">
+            <span class="text-lg font-bold text-foreground">Edge API</span>
+            <span class="text-xs text-muted-foreground">Cloudflare Workers</span>
+          </div>
+          <div class="flex flex-col items-center gap-1 bg-card py-6">
+            <span class="text-lg font-bold text-foreground">Sandbox Builds</span>
+            <span class="text-xs text-muted-foreground">Isolated containers</span>
+          </div>
+          <div class="flex flex-col items-center gap-1 bg-card py-6">
+            <span class="text-lg font-bold text-foreground">D1 Database</span>
+            <span class="text-xs text-muted-foreground">SQLite at the edge</span>
+          </div>
+        </div>
 
-      <div class="mt-10 flex flex-col items-center gap-3 sm:flex-row">
         <a
-          href="https://docs.awaitstep.dev/installation/docker-compose"
-          class="rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >Self-host in 5 minutes</a>
-        <a
-          href="https://github.com/awaitstep/awaitstep"
-          class="flex items-center gap-2 rounded-md border border-border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-card"
+          href="https://docs.awaitstep.dev/installation/cloudflare"
+          class="mt-8 inline-flex items-center gap-2 rounded-lg border border-border px-6 py-3 text-sm font-medium transition-colors hover:bg-card"
         >
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-          View on GitHub
+          <svg class="h-4 w-4 text-[#f6821f]" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M16.5088 16.8447C16.6018 16.5347 16.5658 16.2527 16.4018 16.0437C16.2548 15.8517 16.0188 15.7437 15.7488 15.7307H8.4148C8.3468 15.7307 8.2918 15.7037 8.2538 15.6577C8.2158 15.6117 8.2028 15.5537 8.2208 15.4887C8.2428 15.4057 8.3208 15.3467 8.4058 15.3467H15.8208C16.3628 15.3467 16.8478 14.9877 17.0248 14.4477L17.4788 13.0607C17.4918 13.0197 17.4918 12.9747 17.4788 12.9337C16.9978 11.4597 15.6128 10.4177 14.0388 10.4177C12.7708 10.4177 11.6158 11.0547 10.9278 12.0837C10.5638 11.8107 10.1148 11.6487 9.6258 11.6487C8.4578 11.6487 7.5118 12.5947 7.5118 13.7627C7.5118 13.9417 7.5328 14.1167 7.5728 14.2837C6.4548 14.3837 5.5898 15.3207 5.5898 16.4647C5.5898 16.5747 5.5978 16.6837 5.6138 16.7917C5.6278 16.8747 5.7008 16.9357 5.7848 16.9357H16.2868C16.3738 16.9357 16.4488 16.8787 16.4728 16.7947L16.5088 16.8447Z" />
+            <path d="M18.1878 14.4017C18.1748 14.4017 18.1618 14.4027 18.1488 14.4037L18.0958 14.4067C18.0198 14.4117 17.9578 14.4637 17.9388 14.5367L17.8218 14.9507C17.7288 15.2617 17.7648 15.5437 17.9288 15.7527C18.0758 15.9447 18.3118 16.0527 18.5818 16.0657H19.5588C19.6268 16.0657 19.6818 16.0927 19.7198 16.1387C19.7578 16.1847 19.7708 16.2427 19.7528 16.3077C19.7308 16.3907 19.6528 16.4497 19.5678 16.4497H18.5028C17.9608 16.4497 17.4758 16.8087 17.2988 17.3487L17.2188 17.5937C17.1968 17.6597 17.2478 17.7277 17.3178 17.7277H20.2458C20.3198 17.7277 20.3848 17.6797 20.4028 17.6077C20.4878 17.2997 20.5348 16.9757 20.5348 16.6427C20.5348 15.4067 19.4938 14.4017 18.1878 14.4017Z" />
+          </svg>
+          Deploy on Cloudflare
         </a>
-      </div>
 
-      <div class="mt-16 flex w-full max-w-2xl flex-col items-center gap-2">
-        <div class="grid w-full grid-cols-2 gap-2 sm:grid-cols-4">
-          {['Drag & Drop Canvas', 'One-Click Deploy', '30+ Node Types', 'Node Marketplace'].map((label) => (
-            <div class="flex items-center justify-center rounded-lg border border-border/40 bg-card/30 px-4 py-4 text-xs text-muted-foreground/70">
-              {label}
-            </div>
-          ))}
-        </div>
-        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {['API Playground', 'Self-Hosted'].map((label) => (
-            <div class="flex items-center justify-center rounded-lg border border-border/40 bg-card/30 px-8 py-4 text-xs text-muted-foreground/70">
-              {label}
-            </div>
-          ))}
+        <div class="mt-12 grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-3">
+          <div class="flex flex-col items-center gap-1 bg-card py-8">
+            <span class="text-3xl font-bold text-foreground">30+</span>
+            <span class="text-xs text-muted-foreground">Built-in node types</span>
+          </div>
+          <div class="flex flex-col items-center gap-1 bg-card py-8">
+            <span class="text-3xl font-bold text-foreground">Apache 2.0</span>
+            <span class="text-xs text-muted-foreground">Open source license</span>
+          </div>
+          <div class="flex flex-col items-center gap-1 bg-card py-8">
+            <span class="text-3xl font-bold text-foreground">5 min</span>
+            <span class="text-xs text-muted-foreground">Self-host setup time</span>
+          </div>
         </div>
       </div>
-    </main>
+    </section>
+
+    <div class="section-divider mx-auto max-w-5xl"></div>
+
+    <!-- Bottom CTA -->
+    <section class="relative px-6 py-20 sm:px-10 sm:py-28 lg:px-16">
+      <div class="mx-auto max-w-3xl text-center">
+        <h2 class="mx-auto max-w-md text-2xl font-bold tracking-tight sm:text-3xl">Start building workflows today</h2>
+        <p class="mt-4 mx-auto max-w-md text-sm leading-relaxed text-muted-foreground">
+          Self-host in under five minutes with Docker. Deploy your first workflow to Cloudflare in seconds.
+        </p>
+        <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <a
+            href="https://docs.awaitstep.dev/installation/docker-compose"
+            class="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            Get Started
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+          </a>
+          <a
+            href="https://github.com/awaitstep/awaitstep"
+            class="inline-flex items-center gap-2 rounded-lg border border-border px-6 py-3 text-sm font-medium transition-colors hover:bg-card"
+          >
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            Star on GitHub
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-border bg-white px-6 py-12 sm:px-10 lg:px-16">
+      <div class="mx-auto max-w-5xl">
+        <div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <svg width="24" height="12" viewBox="0 0 80 38" fill="none">
+                <rect width="52" height="10" rx="2" fill="oklch(0.5 0.14 160)" />
+                <rect x="14" y="14" width="52" height="10" rx="2" fill="oklch(0.5 0.14 160)" fill-opacity="0.62" />
+                <rect x="28" y="28" width="52" height="10" rx="2" fill="oklch(0.5 0.14 160)" fill-opacity="0.32" />
+              </svg>
+              <span class="text-sm font-semibold">AwaitStep</span>
+            </div>
+            <p class="mt-3 text-xs leading-relaxed text-muted-foreground">
+              Open source visual workflow builder for Cloudflare.
+            </p>
+          </div>
+          <div>
+            <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Product</h4>
+            <ul class="mt-3 space-y-2">
+              <li><a href="https://docs.awaitstep.dev/installation/docker-compose" class="text-sm text-muted-foreground transition-colors hover:text-foreground">Installation</a></li>
+              <li><a href="https://docs.awaitstep.dev" class="text-sm text-muted-foreground transition-colors hover:text-foreground">Documentation</a></li>
+              <li><a href="https://docs.awaitstep.dev/nodes" class="text-sm text-muted-foreground transition-colors hover:text-foreground">Node Types</a></li>
+              <li><a href="https://docs.awaitstep.dev/api-reference" class="text-sm text-muted-foreground transition-colors hover:text-foreground">API Reference</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Community</h4>
+            <ul class="mt-3 space-y-2">
+              <li><a href="https://github.com/awaitstep/awaitstep" class="text-sm text-muted-foreground transition-colors hover:text-foreground">GitHub</a></li>
+              <li><a href="https://github.com/awaitstep/awaitstep/issues" class="text-sm text-muted-foreground transition-colors hover:text-foreground">Issues</a></li>
+              <li><a href="https://github.com/awaitstep/awaitstep/blob/main/CONTRIBUTING.md" class="text-sm text-muted-foreground transition-colors hover:text-foreground">Contributing</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resources</h4>
+            <ul class="mt-3 space-y-2">
+              <li><a href="https://docs.awaitstep.dev/architecture" class="text-sm text-muted-foreground transition-colors hover:text-foreground">Architecture</a></li>
+              <li><a href="https://docs.awaitstep.dev/compilation" class="text-sm text-muted-foreground transition-colors hover:text-foreground">Compilation Pipeline</a></li>
+              <li><a href="https://docs.awaitstep.dev/custom-nodes" class="text-sm text-muted-foreground transition-colors hover:text-foreground">Custom Nodes</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="mt-10 border-t border-border pt-6 text-center text-xs text-muted-foreground/60">
+          Open source under Apache 2.0
+        </div>
+      </div>
+    </footer>
   </div>
-
-  <footer class="relative z-10 border-t border-border/40 px-6 py-5 text-center text-[11px] text-muted-foreground/50 sm:px-10">
-    Open source under Apache 2.0
-  </footer>
 </Base>
