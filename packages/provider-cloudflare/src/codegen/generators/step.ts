@@ -1,5 +1,5 @@
 import type { WorkflowNode, StepConfig, RetryBackoff } from '@awaitstep/ir'
-import { varName, escName } from '@awaitstep/codegen'
+import { varName, escName, type GenerateMode } from '@awaitstep/codegen'
 import { generateStepConfig } from './config.js'
 
 /**
@@ -35,12 +35,17 @@ function resolveStepConfig(node: WorkflowNode): StepConfig | undefined {
   return config
 }
 
-export function generateStep(node: WorkflowNode): string {
+export function generateStep(node: WorkflowNode, mode: GenerateMode = 'workflow'): string {
   const code = String(node.data.code ?? '')
   const config = generateStepConfig(resolveStepConfig(node))
   const configArg = config ? `, ${config}` : ''
   const hasReturn = /\breturn\b/.test(code)
   const prefix = hasReturn ? `const ${varName(node.id)} = ` : ''
+  if (mode === 'script') {
+    return `${prefix}await (async () => {
+  ${code}
+})();`
+  }
   return `${prefix}await step.do("${escName(node.name)}"${configArg}, async () => {
   ${code}
 });`

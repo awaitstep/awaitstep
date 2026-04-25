@@ -1,6 +1,6 @@
 import type { ScriptIR, WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { resolveExpressions } from '@awaitstep/ir'
-import type { CodeGenerator, TemplateResolver } from '@awaitstep/codegen'
+import type { CodeGenerator, GenerateMode, TemplateResolver } from '@awaitstep/codegen'
 import {
   topologicalSort,
   sanitizeIdentifier,
@@ -91,13 +91,14 @@ export function generateNodeCode(
   ir: WorkflowIR,
   templateResolver?: TemplateResolver,
   classDefinitions?: Map<string, string>,
+  mode: GenerateMode = 'workflow',
 ): string {
   const recurse = (n: WorkflowNode, ir2: WorkflowIR) =>
-    generateNodeCode(n, ir2, templateResolver, classDefinitions)
+    generateNodeCode(n, ir2, templateResolver, classDefinitions, mode)
 
   switch (node.type) {
     case 'step':
-      return generateStep(node)
+      return generateStep(node, mode)
     case 'sleep':
       return generateSleep(node)
     case 'sleep_until':
@@ -105,34 +106,34 @@ export function generateNodeCode(
     case 'branch':
       return generateBranch(node, ir, recurse)
     case 'parallel':
-      return generateParallel(node, ir, recurse)
+      return generateParallel(node, ir, recurse, mode)
     case 'http_request':
-      return generateHttp(node)
+      return generateHttp(node, mode)
     case 'wait_for_event':
       return generateWaitForEvent(node)
     case 'try_catch':
       return generateTryCatch(node, ir, recurse)
     case 'loop':
-      return generateLoop(node, ir, recurse)
+      return generateLoop(node, ir, recurse, mode)
     case 'break':
       return generateBreak(node)
     case 'sub_workflow':
-      return generateSubWorkflow(node)
+      return generateSubWorkflow(node, mode)
     case 'race':
-      return generateRace(node, ir, recurse)
+      return generateRace(node, ir, recurse, mode)
     default: {
       if (templateResolver) {
         const template = templateResolver.getTemplate(node.type, node.provider)
         if (template) {
           // Hoist class definition to top level when classDefinitions map is provided
           if (classDefinitions) {
-            const parts = generateCustomNodeParts(node, template)
+            const parts = generateCustomNodeParts(node, template, mode)
             if (!classDefinitions.has(parts.className)) {
               classDefinitions.set(parts.className, parts.classDefinition)
             }
             return parts.imports.join('\n') + '\n' + parts.stepCode
           }
-          return generateCustomNode(node, template)
+          return generateCustomNode(node, template, mode)
         }
       }
       throw new Error(`Codegen not yet implemented for node type: ${node.type}`)

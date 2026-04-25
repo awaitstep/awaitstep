@@ -97,4 +97,25 @@ describe('generateStep', () => {
     )
     expect(code).toContain('const x = 1;\nreturn x + 1;')
   })
+
+  describe('script mode', () => {
+    it('emits an IIFE wrapper instead of step.do', () => {
+      const code = generateStep(makeNode(), 'script')
+      expect(code).not.toContain('step.do')
+      expect(code).toContain('await (async () => {')
+      expect(code).toContain('return { done: true };')
+      expect(code).toContain('const step_1 =')
+    })
+
+    it('omits variable assignment when no return', () => {
+      const code = generateStep(makeNode({ data: { code: 'console.log("hello");' } }), 'script')
+      expect(code).not.toContain('const step_1 =')
+      expect(code).toMatch(/^await \(async \(\) => \{/)
+    })
+
+    it('drops the workflow step name (no step runner in a fetch handler)', () => {
+      const code = generateStep(makeNode({ name: 'Run "fast" task' }), 'script')
+      expect(code).not.toContain('Run')
+    })
+  })
 })

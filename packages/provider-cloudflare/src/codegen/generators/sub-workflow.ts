@@ -1,13 +1,21 @@
 import type { WorkflowNode } from '@awaitstep/ir'
-import { varName, escName } from '@awaitstep/codegen'
+import { varName, escName, type GenerateMode } from '@awaitstep/codegen'
 
-export function generateSubWorkflow(node: WorkflowNode): string {
+export function generateSubWorkflow(node: WorkflowNode, mode: GenerateMode = 'workflow'): string {
   const className = String(node.data.workflowName ?? '')
   const bindingName = classNameToUpperSnake(className)
   const input = node.data.input as string | undefined
   const waitForCompletion = node.data.waitForCompletion !== false
   const instanceVar = `${varName(node.id)}_instance`
   const paramsArg = input ? `, params: ${input}` : ''
+
+  if (mode === 'script') {
+    // Scripts can't poll for completion (no durable runtime). Always
+    // fire-and-forget — return the instance handle so the caller can decide
+    // what to do with it.
+    return `const ${instanceVar} = await env.${bindingName}.create({ id: crypto.randomUUID()${paramsArg} });
+const ${varName(node.id)} = { instanceId: ${instanceVar}.id };`
+  }
 
   const lines: string[] = []
 
