@@ -69,6 +69,12 @@
       "required": true,
       "envVarName": "ALICLOUD_ACCESS_KEY_SECRET",
       "description": "Alibaba Cloud AccessKey Secret."
+    },
+    "fromAlias": {
+      "type": "string",
+      "label": "From Alias",
+      "placeholder": "Acme Inc.",
+      "description": "Optional sender display name shown to the recipient. Max 15 characters per Alibaba's DirectMail spec."
     }
   },
   "outputSchema": {
@@ -90,6 +96,6 @@
     "defaultRetries": 3,
     "defaultTimeout": "30 seconds"
   },
-  "version": "1.0.0",
-  "description": "Send emails via Alibaba Cloud DirectMail API"
+  "version": "1.0.1",
+  "description": "Send emails via Alibaba Cloud DirectMail API with optional sender display name"
 }
