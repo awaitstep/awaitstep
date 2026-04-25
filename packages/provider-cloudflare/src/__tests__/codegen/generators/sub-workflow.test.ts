@@ -86,14 +86,17 @@ describe('getSubWorkflowBindings', () => {
 })
 
 describe('generateSubWorkflow in script mode', () => {
-  it('emits a fire-and-forget create call (no step.do, no polling)', () => {
+  it('emits a single fire-and-forget create call (no step.do, no polling)', () => {
     const code = generateSubWorkflow(subNode(), 'script')
     expect(code).not.toContain('step.do')
     expect(code).not.toContain('Await OrderFulfillment')
     expect(code).not.toContain('NonRetryableError')
-    expect(code).toContain('await env.ORDER_FULFILLMENT.create({')
+    // The node's varName is the WorkflowInstance handle directly — callers
+    // can read `.id`, `.status()`, etc. No second `{ instanceId: ... }` line.
+    expect(code).toMatch(/const sub_1 = await env\.ORDER_FULFILLMENT\.create\(\{/)
     expect(code).toContain('params: charge_result')
-    expect(code).toMatch(/const sub_1 = \{ instanceId: sub_1_instance\.id \};/)
+    expect(code).not.toContain('sub_1_instance')
+    expect(code).not.toContain('instanceId:')
   })
 
   it('ignores waitForCompletion in script mode (always fire-and-forget)', () => {

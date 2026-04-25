@@ -99,18 +99,18 @@ describe('generateStep', () => {
   })
 
   describe('script mode', () => {
-    it('emits an IIFE wrapper instead of step.do', () => {
+    it('emits the user code raw (no IIFE, no step.do, no const wrap)', () => {
       const code = generateStep(makeNode(), 'script')
       expect(code).not.toContain('step.do')
-      expect(code).toContain('await (async () => {')
-      expect(code).toContain('return { done: true };')
-      expect(code).toContain('const step_1 =')
+      expect(code).not.toContain('await (async () => {')
+      expect(code).not.toContain('const step_1')
+      // The user's code is the entire output.
+      expect(code).toBe('return { done: true };')
     })
 
-    it('omits variable assignment when no return', () => {
+    it('inlines side-effect-only code unchanged', () => {
       const code = generateStep(makeNode({ data: { code: 'console.log("hello");' } }), 'script')
-      expect(code).not.toContain('const step_1 =')
-      expect(code).toMatch(/^await \(async \(\) => \{/)
+      expect(code).toBe('console.log("hello");')
     })
 
     it('drops the workflow step name (no step runner in a fetch handler)', () => {

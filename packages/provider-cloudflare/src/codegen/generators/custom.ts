@@ -179,11 +179,9 @@ ${indent(body, 4)}
 
   const stepCode =
     mode === 'script'
-      ? `${prefix}await (async () => {
-  return ${className}.execute(${envRef}, {
+      ? `${prefix}await ${className}.execute(${envRef}, {
 ${paramsEntries}
-  });
-})();`
+});`
       : `${prefix}await step.do("${escName(node.name)}"${configArg}, async () => {
   return ${className}.execute(${envRef}, {
 ${paramsEntries}

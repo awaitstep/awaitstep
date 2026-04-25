@@ -10,11 +10,10 @@ export function generateSubWorkflow(node: WorkflowNode, mode: GenerateMode = 'wo
   const paramsArg = input ? `, params: ${input}` : ''
 
   if (mode === 'script') {
-    // Scripts can't poll for completion (no durable runtime). Always
-    // fire-and-forget — return the instance handle so the caller can decide
-    // what to do with it.
-    return `const ${instanceVar} = await env.${bindingName}.create({ id: crypto.randomUUID()${paramsArg} });
-const ${varName(node.id)} = { instanceId: ${instanceVar}.id };`
+    // Scripts can't poll for completion (no durable runtime). Fire-and-forget:
+    // a single `const X = await env.X.create(...)` whose value is the
+    // WorkflowInstance handle (callers can read `.id`, `.status()`, etc).
+    return `const ${varName(node.id)} = await env.${bindingName}.create({ id: crypto.randomUUID()${paramsArg} });`
   }
 
   const lines: string[] = []

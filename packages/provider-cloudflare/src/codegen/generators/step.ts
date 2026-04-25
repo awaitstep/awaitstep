@@ -37,15 +37,16 @@ function resolveStepConfig(node: WorkflowNode): StepConfig | undefined {
 
 export function generateStep(node: WorkflowNode, mode: GenerateMode = 'workflow'): string {
   const code = String(node.data.code ?? '')
+  if (mode === 'script') {
+    // Step code is inlined raw into `runGraph`. `return X` exits runGraph
+    // with X. To share values across steps, declare `const myVar = ...`.
+    // To expose on graph, name the node `EXPORT_X` and declare `const X = ...`.
+    return code
+  }
   const config = generateStepConfig(resolveStepConfig(node))
   const configArg = config ? `, ${config}` : ''
   const hasReturn = /\breturn\b/.test(code)
   const prefix = hasReturn ? `const ${varName(node.id)} = ` : ''
-  if (mode === 'script') {
-    return `${prefix}await (async () => {
-  ${code}
-})();`
-  }
   return `${prefix}await step.do("${escName(node.name)}"${configArg}, async () => {
   ${code}
 });`

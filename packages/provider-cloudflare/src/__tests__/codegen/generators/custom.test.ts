@@ -238,7 +238,7 @@ export default async function(ctx) {
   })
 
   describe('script mode', () => {
-    it('emits an IIFE call site with env (not this.env)', () => {
+    it('emits a direct call site with env (not this.env, no IIFE)', () => {
       const node: WorkflowNode = {
         id: 'my-node',
         name: 'My Node',
@@ -255,11 +255,13 @@ export default async function(ctx) {
       expect(code).toContain('class WebhookPostNode {')
       expect(code).toContain('static async execute(env: Env, params: Record<string, unknown>)')
 
-      // Call site differs: IIFE wrap, env (not this.env).
+      // Call site differs: no step.do, no IIFE (the class.execute call already
+      // isolates the template body), env (not this.env).
       expect(code).not.toContain('step.do')
-      expect(code).toContain('await (async () => {')
+      expect(code).not.toContain('await (async () => {')
       expect(code).toContain('WebhookPostNode.execute(env, {')
       expect(code).not.toContain('WebhookPostNode.execute(this.env')
+      expect(code).toMatch(/=\s*await WebhookPostNode\.execute\(env, \{/)
     })
   })
 })
