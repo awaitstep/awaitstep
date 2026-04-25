@@ -337,8 +337,196 @@ ${indent(fetchBody, 4)}
 `
 }
 
-export function generateScript(_ir: ScriptIR, _templateResolver?: TemplateResolver): string {
-  throw new Error('generateScript not implemented yet')
+export const DEFAULT_SCRIPT_TRIGGER_CODE = `try {
+
+if (request.method !== "POST") {
+  return new Response(null, { status: 200 });
+}
+
+const params = await request.json().catch(() => undefined);
+const event = { payload: params };
+
+__SCRIPT_BODY__
+
+return Response.json(__SCRIPT_RESULT__);
+
+} catch (error) {
+  return Response.json({ message: error.message }, { status: 500 });
+}
+`
+
+export interface GenerateScriptOptions {
+  templateResolver?: TemplateResolver
+  envVarNames?: string[]
+  preview?: boolean
+}
+
+export function generateScript(
+  ir: ScriptIR,
+  templateResolverOrOptions?: TemplateResolver | GenerateScriptOptions,
+): string {
+  const opts: GenerateScriptOptions = templateResolverOrOptions
+    ? 'getTemplate' in templateResolverOrOptions
+      ? { templateResolver: templateResolverOrOptions }
+      : templateResolverOrOptions
+    : {}
+  const { templateResolver, envVarNames, preview } = opts
+
+  // Reuse the workflow-shaped helpers — the IR fields they read (nodes, edges,
+  // entryNodeId, metadata) are identical between WorkflowIR and ScriptIR. The
+  // only structural difference is the literal `kind`.
+  const irAsWorkflow = ir as unknown as WorkflowIR
+  const sorted = topologicalSort(irAsWorkflow)
+  const nameMap = buildVarNameMap(ir.nodes)
+  setVarNameMap(nameMap)
+  const useStateTracking = hasTemplateExpressions(ir.nodes)
+
+  const inlineTargets = collectBranchInlineTargets(irAsWorkflow)
+
+  const resolvedIR: ScriptIR = useStateTracking
+    ? { ...ir, nodes: ir.nodes.map(resolveNodeExpressions) }
+    : ir
+
+  const bodyParts: string[] = []
+  const classDefinitions = new Map<string, string>()
+
+  const resolvedNodeMap = new Map(resolvedIR.nodes.map((n: WorkflowNode) => [n.id, n]))
+  const resolvedSorted = sorted.map((n: WorkflowNode) => resolvedNodeMap.get(n.id) ?? n)
+
+  const builtinTypes = new Set([
+    'step',
+    'branch',
+    'parallel',
+    'http_request',
+    'try_catch',
+    'loop',
+    'break',
+    'sub_workflow',
+    'race',
+  ])
+
+  let lastReturningVar: string | undefined
+  for (const node of resolvedSorted) {
+    if (inlineTargets.has(node.id)) continue
+
+    if (!builtinTypes.has(node.type) && templateResolver) {
+      const template = templateResolver.getTemplate(node.type, node.provider)
+      if (template) {
+        const parts = generateCustomNodeParts(node, template, 'script')
+        if (!classDefinitions.has(parts.className)) {
+          classDefinitions.set(parts.className, parts.classDefinition)
+        }
+        bodyParts.push(parts.imports.join('\n') + '\n' + parts.stepCode)
+        if (parts.stepCode.includes(`const ${varName(node.id)} =`)) {
+          lastReturningVar = varName(node.id)
+        }
+        continue
+      }
+    }
+
+    const code = generateNodeCode(
+      node,
+      resolvedIR as unknown as WorkflowIR,
+      templateResolver,
+      classDefinitions,
+      'script',
+    )
+    bodyParts.push(code)
+    if (code.includes(`const ${varName(node.id)} =`)) {
+      lastReturningVar = varName(node.id)
+    }
+  }
+
+  const collectedImports: string[] = []
+  const strippedParts = bodyParts.map((part) => {
+    const { imports, body } = extractImports(part)
+    collectedImports.push(...imports)
+    return body
+  })
+
+  // No `env. → this.env.` rewrite — scripts run in a fetch handler where
+  // `env` is a parameter, not a class field.
+  const bodyLines = strippedParts.join('\n\n')
+  clearVarNameMap()
+
+  // Build the Env interface.
+  const allEnvNames = new Set(envVarNames ?? [])
+  const envRefPattern = /\{\{env\.([A-Z][A-Z0-9_]*)\}\}/g
+  for (const node of ir.nodes) {
+    for (const value of Object.values(node.data)) {
+      if (typeof value === 'string') {
+        for (const m of value.matchAll(envRefPattern)) {
+          allEnvNames.add(m[1])
+        }
+      }
+    }
+  }
+  const envVarPattern = /\benv\.([A-Z][A-Z0-9_]*)/g
+  for (const classDef of classDefinitions.values()) {
+    for (const m of classDef.matchAll(envVarPattern)) {
+      allEnvNames.add(m[1])
+    }
+  }
+
+  // Scripts have no `WORKFLOW` self-binding (they aren't a Workflow). Only
+  // sub-workflow bindings (calls into other deployed workflows) and resource
+  // bindings (KV/D1/etc).
+  const envFields: string[] = []
+  const subWorkflowBindings = getSubWorkflowBindings(ir.nodes)
+  for (const b of subWorkflowBindings) {
+    envFields.push(`  ${b.binding}: Workflow;`)
+  }
+
+  const CF_ENV_TYPE: Record<BindingType, string | null> = {
+    kv: 'KVNamespace',
+    d1: 'D1Database',
+    r2: 'R2Bucket',
+    queue: 'Queue<unknown>',
+    service: 'Fetcher',
+    ai: 'Ai',
+    vectorize: 'VectorizeIndex',
+    analytics_engine: 'AnalyticsEngineDataset',
+    hyperdrive: 'Hyperdrive',
+    browser: 'Fetcher',
+    secret: null,
+    variable: null,
+  }
+  const detectedBindings = detectBindings(ir as unknown as WorkflowIR)
+  const bindingNames = new Set<string>()
+  for (const b of detectedBindings) {
+    const cfType = CF_ENV_TYPE[b.type]
+    if (cfType) {
+      envFields.push(`  ${b.name}: ${cfType};`)
+      bindingNames.add(b.name)
+    }
+  }
+  for (const name of allEnvNames) {
+    if (!bindingNames.has(name)) {
+      envFields.push(`  ${name}: string;`)
+    }
+  }
+
+  const fetchBody = DEFAULT_SCRIPT_TRIGGER_CODE.replace('__SCRIPT_BODY__', bodyLines).replace(
+    '__SCRIPT_RESULT__',
+    lastReturningVar ?? 'null',
+  )
+
+  const uniqueImports = [...new Set(collectedImports)]
+  const importBlock = uniqueImports.length > 0 ? '\n' + uniqueImports.join('\n') : ''
+  const classBlock =
+    !preview && classDefinitions.size > 0
+      ? '\n' + [...classDefinitions.values()].join('\n\n') + '\n'
+      : ''
+  const envBlock = envFields.length > 0 ? `\n${envFields.join('\n')}\n` : ''
+
+  return `${importBlock ? importBlock.trimStart() + '\n\n' : ''}interface Env {${envBlock}}
+${classBlock}
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+${indent(fetchBody, 4)}
+  },
+};
+`
 }
 
 export class CloudflareCodeGenerator implements CodeGenerator {

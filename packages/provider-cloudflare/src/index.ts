@@ -4,8 +4,9 @@ export {
   generateScript,
   generateNodeCode,
   DEFAULT_TRIGGER_CODE,
+  DEFAULT_SCRIPT_TRIGGER_CODE,
 } from './codegen/generate.js'
-export type { GenerateOptions } from './codegen/generate.js'
+export type { GenerateOptions, GenerateScriptOptions } from './codegen/generate.js'
 export {
   detectBindings,
   detectBindingsFromSource,
