@@ -1,11 +1,12 @@
 import { writeFile, mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { execFile, spawn } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import type { GeneratedArtifact } from '@awaitstep/codegen'
 import type { BindingRequirement } from './codegen/bindings.js'
 import type { SubWorkflowBinding } from './codegen/generators/sub-workflow.js'
+import { buildSecretsBulkJson, SECRETS_BULK_FILENAME } from './deploy/deployer.js'
 import { generateWranglerConfig } from './wrangler-config.js'
 import { workerName, workflowClassName, sanitizedWorkflowName } from './naming.js'
 
@@ -108,10 +109,19 @@ export async function deployWithWrangler(
       timeout: 120_000,
     })
 
-    // Upload secrets via wrangler secret put (after deploy so the worker exists)
-    if (options.secrets) {
-      for (const [key, value] of Object.entries(options.secrets)) {
-        await putSecret(key, value, name, wranglerEnv)
+    // Upload secrets via `wrangler secret bulk` (after deploy so the worker exists)
+    const bulk = buildSecretsBulkJson(options.secrets)
+    if (bulk.json) {
+      const secretsPath = join(deployDir, SECRETS_BULK_FILENAME)
+      await writeFile(secretsPath, bulk.json, 'utf-8')
+      try {
+        await execFileAsync(
+          'npx',
+          ['wrangler', 'secret', 'bulk', SECRETS_BULK_FILENAME, '--name', name],
+          { cwd: deployDir, env: wranglerEnv, timeout: 60_000 },
+        )
+      } finally {
+        await rm(secretsPath, { force: true }).catch(() => {})
       }
     }
 
@@ -153,26 +163,4 @@ export async function deleteWorker(
     const error = err as Error
     return { success: false, error: error.message }
   }
-}
-
-function putSecret(
-  key: string,
-  value: string,
-  workerName: string,
-  env: Record<string, string | undefined>,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn('npx', ['wrangler', 'secret', 'put', key, '--name', workerName], {
-      env,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: 30_000,
-    })
-    child.stdin.write(value)
-    child.stdin.end()
-    child.on('close', (code) => {
-      if (code === 0) resolve()
-      else reject(new Error(`wrangler secret put ${key} exited with code ${code}`))
-    })
-    child.on('error', reject)
-  })
 }
