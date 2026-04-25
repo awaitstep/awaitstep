@@ -66,7 +66,7 @@ function zodIssuesToErrors(
   })
 }
 
-const SCRIPT_INCOMPATIBLE_NODE_TYPES = new Set(['wait_for_event', 'sleep', 'sleep_until'])
+export const SCRIPT_INCOMPATIBLE_NODE_TYPES = new Set(['wait_for_event', 'sleep', 'sleep_until'])
 
 function validateScriptCompatibility(ir: ScriptIR): ValidationError[] {
   const errors: ValidationError[] = []

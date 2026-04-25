@@ -46,7 +46,13 @@ export {
   artifactIRSchema,
 } from './schema.js'
 
-export { validateIR, validateScript, validateArtifact, buildContainmentMap } from './validate.js'
+export {
+  validateIR,
+  validateScript,
+  validateArtifact,
+  buildContainmentMap,
+  SCRIPT_INCOMPATIBLE_NODE_TYPES,
+} from './validate.js'
 export {
   serializeIR,
   deserializeIR,

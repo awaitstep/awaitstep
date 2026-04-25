@@ -91,9 +91,8 @@ export const scriptIRSchema = workflowIRSchema.extend({
   trigger: httpTriggerSchema,
 })
 
-export const artifactIRSchema = z.discriminatedUnion('kind', [
-  scriptIRSchema,
-  // workflowIRSchema's kind is optional, so we wrap with a strict-kind variant
-  // so the discriminated union has a fully literal discriminator on each arm.
-  workflowIRSchema.extend({ kind: z.literal('workflow') }),
-])
+// Plain union (not discriminated) so legacy workflow IRs persisted without a
+// `kind` field still validate. zod tries each arm in order — script IRs match
+// scriptIRSchema (literal `kind: 'script'` is required), everything else falls
+// through to workflowIRSchema where `kind` is optional.
+export const artifactIRSchema = z.union([scriptIRSchema, workflowIRSchema])
