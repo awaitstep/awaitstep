@@ -8,9 +8,18 @@ export const WRANGLER_BASE_CONFIG = {
 } as const
 
 export interface WranglerWorkflowConfig {
+  /**
+   * Discriminator for the deploy artifact. `'workflow'` (default) emits a
+   * primary `workflows[0]` entry binding the deployed `WorkflowEntrypoint`
+   * class to `env.WORKFLOW`. `'script'` omits that primary entry — scripts
+   * are fetch-only Workers and have no Workflow class to bind.
+   */
+  kind?: 'workflow' | 'script'
   workerName: string
-  className: string
-  workflowName: string
+  /** Required when `kind === 'workflow'`; unused for scripts. */
+  className?: string
+  /** Required when `kind === 'workflow'`; unused for scripts. */
+  workflowName?: string
   main: string
   vars?: Record<string, string>
   bindings?: BindingRequirement[]
@@ -30,25 +39,39 @@ export interface WranglerWorkflowConfig {
 }
 
 export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
+  const isScript = config.kind === 'script'
+
+  if (!isScript && (!config.className || !config.workflowName)) {
+    throw new Error('generateWranglerConfig: workflow deploys require className and workflowName')
+  }
+
+  const subWorkflowEntries = (config.subWorkflowBindings ?? []).map((b) => ({
+    binding: b.binding,
+    name: b.name,
+    class_name: b.className,
+    script_name: b.scriptName,
+  }))
+
+  const workflowsEntries = isScript
+    ? subWorkflowEntries
+    : [
+        {
+          binding: 'WORKFLOW',
+          name: config.workflowName!,
+          class_name: config.className!,
+        },
+        ...subWorkflowEntries,
+      ]
+
   const wranglerConfig: Record<string, unknown> = {
     compatibility_date: config.compatibilityDate ?? WRANGLER_BASE_CONFIG.compatibility_date,
     compatibility_flags: config.compatibilityFlags ?? WRANGLER_BASE_CONFIG.compatibility_flags,
     observability: config.observability ?? WRANGLER_BASE_CONFIG.observability,
     name: config.workerName,
     main: config.main,
-    workflows: [
-      {
-        binding: 'WORKFLOW',
-        name: config.workflowName,
-        class_name: config.className,
-      },
-      ...(config.subWorkflowBindings ?? []).map((b) => ({
-        binding: b.binding,
-        name: b.name,
-        class_name: b.className,
-        script_name: b.scriptName,
-      })),
-    ],
+  }
+  if (workflowsEntries.length > 0) {
+    wranglerConfig.workflows = workflowsEntries
   }
   if (config.previewUrls !== undefined) {
     wranglerConfig.preview_urls = config.previewUrls
