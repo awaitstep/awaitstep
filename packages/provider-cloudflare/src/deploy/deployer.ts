@@ -24,6 +24,34 @@ export function safeFilename(filename: string): string {
   return base
 }
 
+/** Filename used for `wrangler secret bulk` payload inside the deploy workspace. */
+export const SECRETS_BULK_FILENAME = '.secrets.bulk.json'
+
+/**
+ * Filter and serialize secrets for `wrangler secret bulk`. Skips keys that
+ * fail `validateSecretKey` so the bulk command never receives invalid names.
+ */
+export function buildSecretsBulkJson(secrets: Record<string, string> | undefined): {
+  json: string | null
+  valid: string[]
+  skipped: string[]
+} {
+  if (!secrets) return { json: null, valid: [], skipped: [] }
+  const valid: string[] = []
+  const skipped: string[] = []
+  const filtered: Record<string, string> = {}
+  for (const [key, value] of Object.entries(secrets)) {
+    if (validateSecretKey(key)) {
+      filtered[key] = value
+      valid.push(key)
+    } else {
+      skipped.push(key)
+    }
+  }
+  if (valid.length === 0) return { json: null, valid, skipped }
+  return { json: JSON.stringify(filtered), valid, skipped }
+}
+
 export interface DeployOptions {
   workflowId: string
   workflowName: string

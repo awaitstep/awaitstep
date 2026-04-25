@@ -1,11 +1,16 @@
 import { writeFile, mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { execFile, spawn } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import type { GeneratedArtifact } from '@awaitstep/codegen'
 import type { WranglerDeployer, DeployOptions, WranglerDeployResult } from './deployer.js'
-import { validateSecretKey, redactSensitive, safeFilename } from './deployer.js'
+import {
+  buildSecretsBulkJson,
+  redactSensitive,
+  safeFilename,
+  SECRETS_BULK_FILENAME,
+} from './deployer.js'
 import { generateWranglerConfig } from '../wrangler-config.js'
 import { workerName, workflowClassName, sanitizedWorkflowName } from '../naming.js'
 
@@ -89,17 +94,26 @@ export class NodeWranglerDeployer implements WranglerDeployer {
         timeout: 120_000,
       })
 
-      // 5. Upload secrets
-      if (options.secrets && Object.keys(options.secrets).length > 0) {
-        const secretKeys = Object.keys(options.secrets)
-        for (let i = 0; i < secretKeys.length; i++) {
-          const key = secretKeys[i]
-          if (!validateSecretKey(key)) {
-            onProgress?.('UPLOADING_SECRETS', `Skipping invalid secret key "${key}"`)
-            continue
-          }
-          onProgress?.('UPLOADING_SECRETS', `Setting secret ${i + 1} of ${secretKeys.length}...`)
-          await putSecret(key, options.secrets[key], name, wranglerEnv)
+      // 5. Upload secrets via bulk
+      const bulk = buildSecretsBulkJson(options.secrets)
+      for (const skippedKey of bulk.skipped) {
+        onProgress?.('UPLOADING_SECRETS', `Skipping invalid secret key "${skippedKey}"`)
+      }
+      if (bulk.json) {
+        onProgress?.(
+          'UPLOADING_SECRETS',
+          `Uploading ${bulk.valid.length} ${bulk.valid.length === 1 ? 'secret' : 'secrets'}...`,
+        )
+        const secretsPath = join(deployDir, SECRETS_BULK_FILENAME)
+        await writeFile(secretsPath, bulk.json, 'utf-8')
+        try {
+          await execFileAsync(
+            'npx',
+            ['wrangler', 'secret', 'bulk', SECRETS_BULK_FILENAME, '--name', name],
+            { cwd: deployDir, env: wranglerEnv, timeout: 60_000 },
+          )
+        } finally {
+          await rm(secretsPath, { force: true }).catch(() => {})
         }
       }
 
@@ -138,26 +152,4 @@ export class NodeWranglerDeployer implements WranglerDeployer {
       return { success: false, error: redactSensitive((err as Error).message) }
     }
   }
-}
-
-function putSecret(
-  key: string,
-  value: string,
-  name: string,
-  env: Record<string, string | undefined>,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn('npx', ['wrangler', 'secret', 'put', key, '--name', name], {
-      env,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: 30_000,
-    })
-    child.stdin.write(value)
-    child.stdin.end()
-    child.on('close', (code) => {
-      if (code === 0) resolve()
-      else reject(new Error(`wrangler secret put ${key} exited with code ${code}`))
-    })
-    child.on('error', reject)
-  })
 }

@@ -1,6 +1,11 @@
 import type { GeneratedArtifact } from '@awaitstep/codegen'
 import type { WranglerDeployer, DeployOptions, WranglerDeployResult } from './deployer.js'
-import { validateSecretKey, redactSensitive, safeFilename } from './deployer.js'
+import {
+  buildSecretsBulkJson,
+  redactSensitive,
+  safeFilename,
+  SECRETS_BULK_FILENAME,
+} from './deployer.js'
 import { generateWranglerConfig } from '../wrangler-config.js'
 import { workerName, sanitizedWorkflowName, workflowClassName } from '../naming.js'
 
@@ -118,28 +123,45 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
         return { success: false, workerName: name, error: redactSensitive(deployResult.stderr) }
       }
 
-      // 5. Upload secrets
-      if (options.secrets && Object.keys(options.secrets).length > 0) {
-        const secretKeys = Object.keys(options.secrets)
-        for (let i = 0; i < secretKeys.length; i++) {
-          const key = secretKeys[i]
-          if (!validateSecretKey(key)) {
-            onProgress?.('UPLOADING_SECRETS', `Skipping invalid secret key "${key}"`)
-            continue
-          }
-          onProgress?.('UPLOADING_SECRETS', `Setting secret ${i + 1} of ${secretKeys.length}...`)
-          const secretResult = await sandbox.exec(`npx wrangler secret put ${key} --name ${name}`, {
-            cwd: '/workspace',
-            stdin: options.secrets[key],
-            env: {
-              CLOUDFLARE_ACCOUNT_ID: options.accountId,
-              CLOUDFLARE_API_TOKEN: options.apiToken,
+      // 5. Upload secrets via bulk
+      // The Sandbox SDK's exec() does not support stdin, so we write a JSON
+      // file and let `wrangler secret bulk <file>` read it. The file is
+      // deleted as soon as the upload finishes; the container is destroyed
+      // in the `finally` block regardless.
+      const bulk = buildSecretsBulkJson(options.secrets)
+      for (const skippedKey of bulk.skipped) {
+        onProgress?.('UPLOADING_SECRETS', `Skipping invalid secret key "${skippedKey}"`)
+      }
+      if (bulk.json) {
+        onProgress?.(
+          'UPLOADING_SECRETS',
+          `Uploading ${bulk.valid.length} ${bulk.valid.length === 1 ? 'secret' : 'secrets'}...`,
+        )
+        const secretsPath = `/workspace/${SECRETS_BULK_FILENAME}`
+        await sandbox.writeFile(secretsPath, bulk.json)
+        try {
+          const bulkResult = await sandbox.exec(
+            `npx wrangler secret bulk ${SECRETS_BULK_FILENAME} --name ${name}`,
+            {
+              cwd: '/workspace',
+              env: {
+                CLOUDFLARE_ACCOUNT_ID: options.accountId,
+                CLOUDFLARE_API_TOKEN: options.apiToken,
+              },
+              timeout: 60_000,
             },
-            timeout: 30_000,
-          })
-          if (!secretResult.success) {
-            onProgress?.('UPLOADING_SECRETS', `Warning: failed to set secret "${key}"`)
+          )
+          if (!bulkResult.success) {
+            return {
+              success: false,
+              workerName: name,
+              error: redactSensitive(bulkResult.stderr),
+            }
           }
+        } finally {
+          await sandbox
+            .exec(`rm -f ${SECRETS_BULK_FILENAME}`, { cwd: '/workspace' })
+            .catch(() => {})
         }
       }
 
