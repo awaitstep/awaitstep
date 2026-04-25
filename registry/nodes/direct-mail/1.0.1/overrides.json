@@ -1,0 +1,12 @@
+{
+  "version": "1.0.1",
+  "description": "Send emails via Alibaba Cloud DirectMail API with optional sender display name",
+  "configSchema": {
+    "fromAlias": {
+      "type": "string",
+      "label": "From Alias",
+      "placeholder": "Acme Inc.",
+      "description": "Optional sender display name shown to the recipient. Max 15 characters per Alibaba's DirectMail spec."
+    }
+  }
+}
