@@ -94,4 +94,59 @@ describe('deployWithWrangler', () => {
     const content = configWrite?.[1] as string
     expect(content).toContain(WRANGLER_BASE_CONFIG.compatibility_date)
   })
+
+  it('uploads secrets via `wrangler secret bulk` with a JSON file', async () => {
+    const { writeFile, rm } = await import('node:fs/promises')
+    const writeFileMock = vi.mocked(writeFile)
+    const rmMock = vi.mocked(rm)
+    writeFileMock.mockClear()
+    rmMock.mockClear()
+
+    await deployWithWrangler(artifact, {
+      ...options,
+      secrets: { AWS_ACCESS_KEY_ID: 'AKIA', AWS_SECRET_ACCESS_KEY: 's3cr3t' },
+    })
+
+    const bulkCall = mockExecFile.mock.calls.find(
+      (call) =>
+        Array.isArray(call[1]) &&
+        (call[1] as string[]).includes('secret') &&
+        (call[1] as string[]).includes('bulk'),
+    )
+    expect(bulkCall).toBeDefined()
+    const args = bulkCall![1] as string[]
+    expect(args).toEqual([
+      'wrangler',
+      'secret',
+      'bulk',
+      '.secrets.bulk.json',
+      '--name',
+      'awaitstep-my-workflow',
+    ])
+
+    const bulkWrite = writeFileMock.mock.calls.find((call) =>
+      (call[0] as string).endsWith('.secrets.bulk.json'),
+    )
+    expect(bulkWrite).toBeDefined()
+    expect(JSON.parse(bulkWrite![1] as string)).toEqual({
+      AWS_ACCESS_KEY_ID: 'AKIA',
+      AWS_SECRET_ACCESS_KEY: 's3cr3t',
+    })
+
+    const secretsRm = rmMock.mock.calls.find((call) =>
+      (call[0] as string).endsWith('.secrets.bulk.json'),
+    )
+    expect(secretsRm).toBeDefined()
+  })
+
+  it('skips the bulk call when no secrets are provided', async () => {
+    await deployWithWrangler(artifact, options)
+    const bulkCall = mockExecFile.mock.calls.find(
+      (call) =>
+        Array.isArray(call[1]) &&
+        (call[1] as string[]).includes('secret') &&
+        (call[1] as string[]).includes('bulk'),
+    )
+    expect(bulkCall).toBeUndefined()
+  })
 })
