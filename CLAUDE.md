@@ -44,6 +44,13 @@
 - Provider-specific logic (API calls, credential checks, deploy validation) must live in `packages/provider-[name]`, never in API routes or app code. API routes call methods on the `WorkflowProvider` interface — adding a new provider should only require a new provider package.
 - Route files (`routes/**/*.tsx`) are thin orchestrators — they define the `Route`, render a layout skeleton, and compose sub-components. Business logic, mutations, queries, and non-trivial UI belong in `/components/<domain>/` sub-components. A route file should rarely exceed ~80 lines. Sub-components access Zustand stores directly rather than receiving data through prop drilling from the page.
 
+## Registry Nodes
+
+- **Multi-version nodes use the overrides method — never duplicate `node.json` across versions.** Shared config lives in `registry/nodes/<id>/base.json`; each version contributes a small `registry/nodes/<id>/<version>/overrides.json` with only `version`, `description`, and any fields that change. The canonical example is `registry/nodes/google-gemini/`. Match its file structure 1:1 when bumping or adding a version.
+- Templates are per-version (`<version>/template.ts` or `<version>/templates/<provider>.ts`) — there is no template inheritance. Copy from the previous version and apply the change.
+- **Never run `registry/scripts/build-index.ts` locally.** CI (`.github/workflows/registry-index.yml`) regenerates `<version>/node.json` and `registry/index.json` on push to `main` and opens an auto-merge PR. Do NOT stage `node.json` or `index.json` — only `base.json`, `overrides.json`, and templates.
+- For step-by-step guidance when versioning a node, use the `/version-node` skill.
+
 ## Database Queries (HIGHEST PRIORITY)
 
 - **NEVER chain sequential `await` calls when a single SQL query can do the same work.** If you need data from table A to query table B, use a JOIN — not two round trips. This applies to validation checks (e.g. "fetch project then check membership") — combine them into one query with `INNER JOIN`. Violations of this rule are treated as bugs.
