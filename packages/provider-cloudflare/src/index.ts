@@ -1,6 +1,7 @@
 export {
   CloudflareCodeGenerator,
   generateWorkflow,
+  generateScript,
   generateNodeCode,
   DEFAULT_TRIGGER_CODE,
 } from './codegen/generate.js'

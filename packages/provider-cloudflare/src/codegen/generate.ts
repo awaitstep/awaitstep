@@ -1,4 +1,4 @@
-import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
+import type { ScriptIR, WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { resolveExpressions } from '@awaitstep/ir'
 import type { CodeGenerator, TemplateResolver } from '@awaitstep/codegen'
 import {
@@ -336,6 +336,10 @@ ${indent(fetchBody, 4)}
 `
 }
 
+export function generateScript(_ir: ScriptIR, _templateResolver?: TemplateResolver): string {
+  throw new Error('generateScript not implemented yet')
+}
+
 export class CloudflareCodeGenerator implements CodeGenerator {
   readonly name = 'cloudflare-workflows'
   private templateResolver?: TemplateResolver
@@ -346,5 +350,9 @@ export class CloudflareCodeGenerator implements CodeGenerator {
 
   generateWorkflow(ir: WorkflowIR): string {
     return generateWorkflow(ir, this.templateResolver)
+  }
+
+  generateScript(ir: ScriptIR): string {
+    return generateScript(ir, this.templateResolver)
   }
 }
