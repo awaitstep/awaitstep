@@ -1,0 +1,1 @@
+ALTER TABLE `workflows` ADD `kind` text DEFAULT 'workflow' NOT NULL;

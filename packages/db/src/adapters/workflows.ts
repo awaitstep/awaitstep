@@ -18,6 +18,7 @@ export class WorkflowsAdapter {
     createdBy: string
     name: string
     description?: string
+    kind?: 'workflow' | 'script'
   }): Promise<Workflow> {
     const now = new Date().toISOString()
     const row = {
@@ -26,6 +27,7 @@ export class WorkflowsAdapter {
       createdBy: data.createdBy,
       name: data.name,
       description: data.description ?? null,
+      kind: data.kind ?? 'workflow',
       currentVersionId: null,
       envVars: null,
       triggerCode: null,

@@ -57,6 +57,13 @@
       "when": 1776336829353,
       "tag": "0007_skinny_fat_cobra",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1777116077537,
+      "tag": "0008_good_charles_xavier",
+      "breakpoints": true
     }
   ]
 }
