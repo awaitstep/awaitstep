@@ -95,12 +95,29 @@ export type TriggerConfig =
   | ManualTriggerConfig
 
 export interface WorkflowIR {
+  /**
+   * Discriminator for {@link ArtifactIR}. Optional for backward compatibility
+   * with stored IRs that predate the script primitive — readers should treat
+   * the absence of `kind` as `'workflow'`.
+   */
+  kind?: 'workflow'
   metadata: WorkflowMetadata
   nodes: WorkflowNode[]
   edges: Edge[]
   entryNodeId: NodeId
   trigger?: TriggerConfig
 }
+
+export interface ScriptIR {
+  kind: 'script'
+  metadata: WorkflowMetadata
+  nodes: WorkflowNode[]
+  edges: Edge[]
+  entryNodeId: NodeId
+  trigger: HttpTriggerConfig
+}
+
+export type ArtifactIR = WorkflowIR | ScriptIR
 
 export interface ValidationError {
   path: string

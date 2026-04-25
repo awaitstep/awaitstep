@@ -78,9 +78,22 @@ export const triggerConfigSchema = z.discriminatedUnion('type', [
 ])
 
 export const workflowIRSchema = z.object({
+  kind: z.literal('workflow').optional(),
   metadata: workflowMetadataSchema,
   nodes: z.array(workflowNodeSchema).min(1),
   edges: z.array(edgeSchema),
   entryNodeId: nodeIdSchema,
   trigger: triggerConfigSchema.optional(),
 })
+
+export const scriptIRSchema = workflowIRSchema.extend({
+  kind: z.literal('script'),
+  trigger: httpTriggerSchema,
+})
+
+export const artifactIRSchema = z.discriminatedUnion('kind', [
+  scriptIRSchema,
+  // workflowIRSchema's kind is optional, so we wrap with a strict-kind variant
+  // so the discriminated union has a fully literal discriminator on each arm.
+  workflowIRSchema.extend({ kind: z.literal('workflow') }),
+])
