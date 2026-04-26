@@ -25,7 +25,7 @@ import {
 } from '../../../lib/hydrate-workflow'
 import { useWorkflowPersistence } from '../../../hooks/use-workflow-persistence'
 import { buildIRFromState } from '../../../lib/build-ir'
-import { serializeIR } from '@awaitstep/ir'
+import { serializeArtifact } from '@awaitstep/ir'
 import { downloadJsonFile } from '../../../lib/download-file'
 
 const LazyReactFlowProvider = lazy(() =>
@@ -46,9 +46,15 @@ export const Route = createFileRoute('/_authed/workflows/$workflowId/canvas')({
   head: () => ({ meta: [{ title: 'Canvas | AwaitStep' }] }),
   component: WorkflowEditorPageWrapper,
   loader: () => getCanvasContext(),
-  validateSearch: (search: Record<string, unknown>): { template?: boolean; version?: string } => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { template?: boolean; version?: string; kind?: 'workflow' | 'script' } => ({
     template: search.template === true || search.template === '1' || search.template === 'true',
     version: typeof search.version === 'string' ? search.version : undefined,
+    kind:
+      search.kind === 'script' || search.kind === 'workflow'
+        ? (search.kind as 'workflow' | 'script')
+        : undefined,
   }),
 })
 
@@ -62,12 +68,17 @@ function WorkflowEditorPageWrapper() {
 
 function WorkflowEditorPage() {
   const { workflowId } = useParams({ from: '/_authed/workflows/$workflowId/canvas' })
-  const { template, version: versionParam } = useSearch({
+  const {
+    template,
+    version: versionParam,
+    kind: kindParam,
+  } = useSearch({
     from: '/_authed/workflows/$workflowId/canvas',
   })
   const [showEditor, setShowEditor] = useState(false)
   const [showLocalTest, setShowLocalTest] = useState(false)
-  const [showTemplatePicker, setShowTemplatePicker] = useState(template)
+  // Functions never show the template picker — templates are workflow-shaped.
+  const [showTemplatePicker, setShowTemplatePicker] = useState(template && kindParam !== 'script')
   const [confirmAction, setConfirmAction] = useState<'switch-template' | null>(null)
 
   const ready = useOrgReady()
@@ -133,6 +144,7 @@ function WorkflowEditorPage() {
   useEffect(() => {
     if (isNew) {
       useWorkflowStore.setState({
+        kind: kindParam ?? 'workflow',
         workflowEnvVars: [],
         dependencies: {},
         triggerCode: '',
@@ -150,7 +162,7 @@ function WorkflowEditorPage() {
         buildWorkflowStoreState(fullData.workflow, fullData.version, currentVersion, isReadOnly),
       )
     }
-  }, [workflowId, isNew, fullData, setWorkflowId, isReadOnly, currentVersion])
+  }, [workflowId, isNew, kindParam, fullData, setWorkflowId, isReadOnly, currentVersion])
 
   // Persistence (save + deploy)
   const { handleSave, handleDeploy, isSaving } = useWorkflowPersistence({
@@ -158,6 +170,7 @@ function WorkflowEditorPage() {
     isNew,
     isDirty,
     nodeRegistry,
+    kind: kindParam,
   })
 
   const handleAddNode = (type: Parameters<typeof addNode>[0]) => {
@@ -167,7 +180,7 @@ function WorkflowEditorPage() {
   function handleExport() {
     const state = useWorkflowStore.getState()
     const ir = buildIRFromState(state)
-    const json = serializeIR(ir)
+    const json = serializeArtifact(ir)
     const filename = `${metadata.name.replace(/\s+/g, '-').toLowerCase()}.ir.json`
     downloadJsonFile(filename, json)
   }
@@ -185,6 +198,7 @@ function WorkflowEditorPage() {
                 workflowId={workflowId}
                 isNew={isNew}
                 workflowName={metadata.name}
+                kind={isNew ? kindParam : fullData?.workflow?.kind}
                 currentVersion={currentVersion}
                 nodeCount={nodeCount}
                 isDirty={isDirty}

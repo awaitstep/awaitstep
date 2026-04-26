@@ -13,8 +13,10 @@ export function useWorkflowPersistence(opts: {
   isNew: boolean
   isDirty: boolean
   nodeRegistry: NodeRegistry | null | undefined
+  /** Only honored on first save (when `isNew`). Defaults to 'workflow'. */
+  kind?: 'workflow' | 'script'
 }) {
-  const { workflowId, isNew, isDirty, nodeRegistry } = opts
+  const { workflowId, isNew, isDirty, nodeRegistry, kind } = opts
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const { markClean, setWorkflowId, runValidation } = useWorkflowStore()
@@ -40,6 +42,7 @@ export function useWorkflowPersistence(opts: {
         const created = await api.createWorkflow({
           name: state.metadata.name,
           description: state.metadata.description,
+          kind,
         })
         if (envVars || triggerCode || dependencies || deployConfig) {
           await api.updateWorkflow(created.id, { envVars, triggerCode, dependencies, deployConfig })
@@ -87,6 +90,7 @@ export function useWorkflowPersistence(opts: {
       state.edges,
       undefined,
       settings,
+      state.kind,
     )
     if (!result.canPublish) {
       const errors = result.issues.filter((i) => i.severity === 'error')

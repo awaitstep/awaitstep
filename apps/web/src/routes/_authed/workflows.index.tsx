@@ -1,22 +1,28 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { Plus, Search, Upload } from 'lucide-react'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { ChevronDown, Plus, Search, Upload, Workflow, Zap } from 'lucide-react'
 import { useState, useMemo } from 'react'
 import { Button } from '../../components/ui/button'
 import { GuardedLink } from '../../components/ui/guarded-link'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu'
 import { PageHeader } from '../../components/ui/page-header'
 import type { WorkflowSummary } from '../../lib/api-client'
 import { useWorkflowsStore } from '../../stores/workflows-store'
+import { useSheetStore } from '../../stores/sheet-store'
 import { WorkflowActionsMenu } from '../../components/dashboard/workflow-actions-menu'
 import { TriggerButton } from '../../components/dashboard/trigger-button'
 import { ImportWorkflowDialog } from '../../components/dashboard/import-workflow-dialog'
 import { timeAgo } from '../../lib/time'
 import { RequireProject } from '../../wrappers/require-project'
-import { NEW_WORKFLOW_NAV } from '../../lib/nav'
+import { NEW_FUNCTION_NAV, NEW_WORKFLOW_NAV } from '../../lib/nav'
 import { LoadingView } from '../../components/ui/loading-view'
 import { LoadMoreButton } from '../../components/ui/load-more-button'
 import { ListSkeleton } from '../../components/ui/skeletons'
 import { EmptyState } from '../../components/ui/empty-state'
-import { Workflow } from 'lucide-react'
 
 export const Route = createFileRoute('/_authed/workflows/')({
   head: () => ({ meta: [{ title: 'Workflows | AwaitStep' }] }),
@@ -32,6 +38,8 @@ function WorkflowsIndexPage() {
 }
 
 function WorkflowsIndexContent() {
+  const navigate = useNavigate()
+  const { guardAction } = useSheetStore()
   const workflows = useWorkflowsStore((s) => s.workflows)
   const isLoading = useWorkflowsStore((s) => s.fetchState === 'idle' || s.fetchState === 'loading')
   const hasMore = useWorkflowsStore((s) => s.hasMore)
@@ -39,6 +47,12 @@ function WorkflowsIndexContent() {
   const isFetchingMore = useWorkflowsStore((s) => s.isFetchingMore)
   const [search, setSearch] = useState('')
   const [importOpen, setImportOpen] = useState(false)
+
+  const goNew = (target: 'workflow' | 'function') => {
+    guardAction('project', () =>
+      navigate(target === 'function' ? NEW_FUNCTION_NAV : NEW_WORKFLOW_NAV),
+    )
+  }
 
   const filtered = useMemo(() => {
     if (!search.trim()) return workflows
@@ -64,12 +78,40 @@ function WorkflowsIndexContent() {
               <Upload className="h-4 w-4" />
               Import
             </Button>
-            <Button size="sm" className="gap-1.5" asChild>
-              <GuardedLink requirement="project" nav={NEW_WORKFLOW_NAV}>
-                <Plus className="h-4 w-4" />
-                New Workflow
-              </GuardedLink>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" className="gap-1.5">
+                  <Plus className="h-4 w-4" />
+                  New
+                  <ChevronDown className="h-4 w-4 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72">
+                <DropdownMenuItem onSelect={() => goNew('workflow')}>
+                  <Workflow className="h-4 w-4" />
+                  <div className="flex flex-col">
+                    <span>Workflow</span>
+                    <span className="text-xs text-muted-foreground">
+                      Durable, multi-step, with sleeps and waits
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => goNew('function')}>
+                  <Zap className="h-4 w-4" />
+                  <div className="flex flex-col">
+                    <span className="flex items-center gap-1.5">
+                      Function
+                      <span className="rounded bg-primary/10 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary">
+                        Beta
+                      </span>
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      Stateless, runs synchronously, returns immediately
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         }
       />
@@ -144,6 +186,14 @@ function WorkflowRow({ workflow: wf }: { workflow: WorkflowSummary }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2.5">
             <span className="text-sm font-medium text-foreground">{wf.name}</span>
+            {wf.kind === 'script' && (
+              <span
+                className="inline-flex items-center rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+                title="Stateless fetch-only Worker — runs synchronously, no sleeps or waits"
+              >
+                Function
+              </span>
+            )}
             <StatusLabel
               hasVersion={!!wf.currentVersionId}
               deployStatus={wf.deployStatus ?? undefined}

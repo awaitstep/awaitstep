@@ -70,6 +70,11 @@ export interface WorkflowSummary {
   id: string
   name: string
   description?: string
+  /**
+   * `'workflow'` (default) or `'script'`. Scripts are fetch-only Workers —
+   * no durable runtime, no instance lifecycle, no Runs tab.
+   */
+  kind?: 'workflow' | 'script'
   envVars?: string | null
   triggerCode?: string | null
   dependencies?: string | null
@@ -179,7 +184,11 @@ export const api = {
     return request(withProject(`/workflows/${id}/full${params}`))
   },
 
-  createWorkflow(data: { name: string; description?: string }): Promise<WorkflowSummary> {
+  createWorkflow(data: {
+    name: string
+    description?: string
+    kind?: 'workflow' | 'script'
+  }): Promise<WorkflowSummary> {
     return request(withProject('/workflows'), { method: 'POST', body: JSON.stringify(data) })
   },
 
