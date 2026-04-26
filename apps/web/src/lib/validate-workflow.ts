@@ -1,6 +1,10 @@
 import type { Edge } from '@xyflow/react'
 import type { WorkflowMetadata, BranchCondition } from '@awaitstep/ir'
-import { validateExpressionRefs, type NodeRegistry } from '@awaitstep/ir'
+import {
+  validateExpressionRefs,
+  SCRIPT_INCOMPATIBLE_NODE_TYPES,
+  type NodeRegistry,
+} from '@awaitstep/ir'
 import type { FlowNode, WorkflowEnvVar } from '../stores/workflow-store'
 import { z } from 'zod'
 
@@ -152,6 +156,7 @@ export function validateWorkflowForPublish(
   edges: Edge[],
   nodeRegistry?: NodeRegistry,
   settings?: WorkflowSettings,
+  kind: 'workflow' | 'script' = 'workflow',
 ): PublishValidationResult {
   const issues: PublishIssue[] = []
 
@@ -267,6 +272,19 @@ export function validateWorkflowForPublish(
     // Missing node definition check
     if (!BUILTIN_TYPES.has(ir.type) && nodeRegistry && !nodeRegistry.has(ir.type)) {
       add('error', id, name, `Unknown node type "${ir.type}" — definition not found in registry`)
+    }
+
+    // Script-incompatibility check — scripts run in a fetch handler with no
+    // durable runtime, so any node that requires one (sleep, sleep_until,
+    // wait_for_event) is rejected up-front. Backend enforces the same rule
+    // in @awaitstep/ir's validateScript.
+    if (kind === 'script' && SCRIPT_INCOMPATIBLE_NODE_TYPES.has(ir.type)) {
+      add(
+        'error',
+        id,
+        name,
+        `Node type "${ir.type}" requires a durable runtime — scripts only support stateless steps. Use a workflow instead.`,
+      )
     }
 
     // Linear nodes must have at most 1 outgoing edge

@@ -613,4 +613,110 @@ describe('validateWorkflowForPublish', () => {
       expect(result.canPublish).toBe(false)
     })
   })
+
+  // ── script kind ──
+
+  describe('script kind', () => {
+    it('rejects sleep nodes in scripts', () => {
+      const node = makeFlowNode({
+        id: 'z1',
+        type: 'sleep',
+        name: 'Wait',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { duration: '10 seconds' },
+      })
+      const result = validateWorkflowForPublish(
+        makeMetadata(),
+        [node],
+        [],
+        undefined,
+        undefined,
+        'script',
+      )
+      expect(result.canPublish).toBe(false)
+      expect(result.issues).toContainEqual(
+        expect.objectContaining({
+          severity: 'error',
+          nodeId: 'z1',
+          message: expect.stringContaining('requires a durable runtime'),
+        }),
+      )
+    })
+
+    it('rejects sleep_until nodes in scripts', () => {
+      const node = makeFlowNode({
+        id: 'z2',
+        type: 'sleep_until',
+        name: 'Until',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { timestamp: '2030-01-01T00:00:00Z' },
+      })
+      const result = validateWorkflowForPublish(
+        makeMetadata(),
+        [node],
+        [],
+        undefined,
+        undefined,
+        'script',
+      )
+      expect(result.canPublish).toBe(false)
+      expect(result.issues).toContainEqual(
+        expect.objectContaining({ severity: 'error', nodeId: 'z2' }),
+      )
+    })
+
+    it('rejects wait_for_event nodes in scripts', () => {
+      const node = makeFlowNode({
+        id: 'z3',
+        type: 'wait_for_event',
+        name: 'Wait',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { eventType: 'order_paid' },
+      })
+      const result = validateWorkflowForPublish(
+        makeMetadata(),
+        [node],
+        [],
+        undefined,
+        undefined,
+        'script',
+      )
+      expect(result.canPublish).toBe(false)
+      expect(result.issues).toContainEqual(
+        expect.objectContaining({ severity: 'error', nodeId: 'z3' }),
+      )
+    })
+
+    it('allows sleep nodes when kind is workflow (default)', () => {
+      const node = makeFlowNode({
+        id: 'z4',
+        type: 'sleep',
+        name: 'Wait',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { duration: '10 seconds' },
+      })
+      const result = validateWorkflowForPublish(makeMetadata(), [node], [])
+      expect(result.issues.filter((i) => i.message.includes('durable runtime'))).toHaveLength(0)
+    })
+
+    it('passes for a stateless step in a script', () => {
+      const result = validateWorkflowForPublish(
+        makeMetadata(),
+        [makeStepNode('s1')],
+        [],
+        undefined,
+        undefined,
+        'script',
+      )
+      expect(result.canPublish).toBe(true)
+    })
+  })
 })
