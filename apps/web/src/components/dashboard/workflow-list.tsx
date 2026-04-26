@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { Plus } from 'lucide-react'
+import { Plus, Workflow } from 'lucide-react'
 import { Button, buttonVariants } from '../ui/button'
 import { GuardedLink } from '../ui/guarded-link'
 import type { WorkflowSummary } from '../../lib/api-client'
@@ -7,12 +7,12 @@ import { useWorkflowsStore } from '../../stores/workflows-store'
 import { WorkflowStatusBadge } from './workflow-status-badge'
 import { WorkflowActionsMenu } from './workflow-actions-menu'
 import { TriggerButton } from './trigger-button'
+import { NewArtifactDropdown } from './new-artifact-dropdown'
 import { timeAgo } from '../../lib/time'
 import { NEW_WORKFLOW_NAV } from '../../lib/nav'
 import { useShallow } from 'zustand/react/shallow'
 import { LoadingView } from '../ui/loading-view'
 import { EmptyState } from '../ui/empty-state'
-import { Workflow } from 'lucide-react'
 
 export function WorkflowList() {
   const { workflows, isLoading, hasMore } = useWorkflowsStore(
@@ -37,14 +37,7 @@ export function WorkflowList() {
               </Button>
             </Link>
           )}
-          <GuardedLink
-            className={buttonVariants({ size: 'sm' })}
-            requirement="project"
-            nav={NEW_WORKFLOW_NAV}
-          >
-            <Plus className="h-4 w-4" />
-            New Workflow
-          </GuardedLink>
+          <NewArtifactDropdown />
         </div>
       </div>
 
