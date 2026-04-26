@@ -4,6 +4,48 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.10](https://github.com/awaitstep/awaitstep/compare/v1.4.9...v1.4.10) (2026-04-26)
+
+
+### Features
+
+* add fromAlias to direct-mail node (v1.0.1) ([df98745](https://github.com/awaitstep/awaitstep/commit/df9874520a37c41b026534bddea2698f7d6ea100))
+* add fromAlias to direct-mail node (v1.0.1) + version-node skill ([0c03111](https://github.com/awaitstep/awaitstep/commit/0c03111b6669c2a4218249e31e418249fc616ad6))
+* **api:** expose kind on workflow create; reject script trigger; thread kind through deploy ([7baa438](https://github.com/awaitstep/awaitstep/commit/7baa438796c23146ca016e9248d3cdaf4e78a2c8))
+* **provider-cloudflare:** dispatch deploy on kind across adapter, wrangler, deploy, local dev ([58cfa86](https://github.com/awaitstep/awaitstep/commit/58cfa861028f44797ae45d3cf41c992744290afd))
+* **provider-cloudflare:** implement generateScript for fetch-only workers ([4f21f5a](https://github.com/awaitstep/awaitstep/commit/4f21f5a6efbdabbfeb31c531a735fc0eb68263b0))
+* scripts primitive — fetch-only Worker artifact kind ([42a91d9](https://github.com/awaitstep/awaitstep/commit/42a91d9c7dc1144f24685313976b190ece80e40c))
+* scripts primitive — fetch-only Worker artifact kind ([#160](https://github.com/awaitstep/awaitstep/issues/160)) ([e0efe06](https://github.com/awaitstep/awaitstep/commit/e0efe064deadfcf8c4e2cba0a9bedf80a7b64065))
+* **web:** expose script creation, canvas filtering, and kind-aware editor ([c64793c](https://github.com/awaitstep/awaitstep/commit/c64793c8628fecb29cf9ea176454e7e8b32163c7))
+
+
+### Bug Fixes
+
+* imports and docs expression rendering ([b2ba782](https://github.com/awaitstep/awaitstep/commit/b2ba7821c7db84ba0536abb1f3d13995fbe0c74e))
+* **ir:** export script-incompatible node set; allow legacy IRs without kind ([7b56ed2](https://github.com/awaitstep/awaitstep/commit/7b56ed27300c74def8cdca8fb042e0975ad8abee))
+* **provider-cloudflare:** polish per-node generators for script mode ([600acf9](https://github.com/awaitstep/awaitstep/commit/600acf903412afe5dbd4075e777710ca349fd060))
+* **provider-cloudflare:** upload secrets via wrangler secret bulk ([608e13a](https://github.com/awaitstep/awaitstep/commit/608e13ac834749fd00f41c126d4e613225544b6b))
+* **provider-cloudflare:** upload secrets via wrangler secret bulk ([0c1633e](https://github.com/awaitstep/awaitstep/commit/0c1633e81ac79e5900374854c7a1d35b83bf27d5))
+* **provider-cloudflare:** upload secrets via wrangler secret bulk ([fedd3e8](https://github.com/awaitstep/awaitstep/commit/fedd3e8f5c1bd7004073c4b82d97336da707e73e))
+* **web:** block script-incompatible nodes at publish-time validation ([7a3dc97](https://github.com/awaitstep/awaitstep/commit/7a3dc978429bc4cc13bd53bcf2ae8812b76d0297))
+* **web:** expose Function creation from the dashboard New button ([f25ae7e](https://github.com/awaitstep/awaitstep/commit/f25ae7e767f0558491dfc91c0446d9a7ed295584))
+* **web:** script-kind support in import + dashboard New dropdown ([cf2928a](https://github.com/awaitstep/awaitstep/commit/cf2928a368958f86835349b457b003e443351aa0))
+* **web:** support script kind in import and duplicate flows ([3a123b0](https://github.com/awaitstep/awaitstep/commit/3a123b097b7ef3ad25a58e306ae69d59dfa9a4d6))
+
+
+### Refactoring
+
+* **provider-cloudflare:** split generate.ts into helpers/workflow/script modules ([6d2b1e5](https://github.com/awaitstep/awaitstep/commit/6d2b1e520f0db7e773471287d067c123c286cec8))
+
+
+### Documentation
+
+* add and update website images ([9fb19f5](https://github.com/awaitstep/awaitstep/commit/9fb19f5e71349b3a7f620405f255fc4e27112a16))
+* **api-reference:** document scripts kind, constraints, fetch handler, EXPORT_ behavior ([9147251](https://github.com/awaitstep/awaitstep/commit/914725166d452447db7ca4bedd74cf1f6e7b0959))
+* update Cloudflare Workers installation links ([27a6f3d](https://github.com/awaitstep/awaitstep/commit/27a6f3d45a38b30706f759fa974ed257546942ab))
+* update documentation screenshots ([05834a3](https://github.com/awaitstep/awaitstep/commit/05834a3125e97f476e7fda53d14d02d4e71e6486))
+* update README with marketing layout and new screenshots ([51c1398](https://github.com/awaitstep/awaitstep/commit/51c1398fcb2a590b97e5274d3e1ec4f05d5a7c2a))
+
 ## [1.4.9](https://github.com/awaitstep/awaitstep/compare/v1.4.8...v1.4.9) (2026-04-19)
 
 
