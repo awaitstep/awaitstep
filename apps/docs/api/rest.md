@@ -110,16 +110,23 @@ Get a workflow with its current version, all version summaries, and active deplo
 
 ### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows</span> <span class="api-scope">write</span>
 
-Create a new workflow.
+Create a new workflow or function.
 
 **Request body:**
 
 ```json
 {
   "name": "My Workflow",
-  "description": ""
+  "description": "",
+  "kind": "workflow"
 }
 ```
+
+| Field         | Required | Description                                                                                                                                                                                                                                  |
+| ------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`        | yes      | Display name                                                                                                                                                                                                                                 |
+| `description` | no       | Optional description                                                                                                                                                                                                                         |
+| `kind`        | no       | `"workflow"` (default) or `"script"`. Functions (`kind: "script"`) are fetch-only Workers — no durable runtime, no Runs. Set at create time only; cannot be changed via `PATCH`. See [Functions](#functions) for constraints and invocation. |
 
 ---
 
@@ -162,6 +169,32 @@ Move a workflow to another project within the same organization.
 ### <span class="api-method delete">DELETE</span> <span class="api-endpoint">/workflows/:id</span> <span class="api-scope">write</span>
 
 Delete a workflow and all its versions, deployments, and runs.
+
+---
+
+## Functions
+
+Functions are workflows with `kind: "script"`. They share the same routes (POST `/workflows` to create, PATCH to update, DELETE to remove, POST `/versions` to compile a new version, POST `/deploy` to deploy) but compile to a fetch-only Cloudflare Worker instead of a `WorkflowEntrypoint` class.
+
+### Constraints
+
+- **HTTP-only trigger.** Script IR requires `trigger: { type: "http" }`. Cron, event, and manual triggers are rejected at validation.
+- **No durable-runtime nodes.** `sleep`, `sleep_until`, and `wait_for_event` are rejected — they require a durable instance the script doesn't have.
+- **No `WORKFLOW` self-binding.** The generated Worker has no Workflow binding to itself. Sub-workflow bindings (calls into other deployed workflows) and resource bindings (KV/D1/R2/etc.) are still detected.
+- **No instance lifecycle.** No Runs, no pause/resume/terminate. `POST /workflows/:id/trigger` returns 400. Invoke the deployed Worker URL directly via HTTP POST.
+- **`kind` is immutable.** Set at create time only; not accepted on PATCH.
+
+### Invocation
+
+```bash
+curl -X POST https://<your-worker-url> \
+  -H "Content-Type: application/json" \
+  -d '{ "anything": "here" }'
+```
+
+The body is parsed and exposed to nodes as `event.payload`. The default response is `Response.json(graph)` where `graph` contains only nodes whose display name was prefixed with `EXPORT_`. Override the fetch handler body via the workflow's `triggerCode` field (PATCH `/workflows/:id`); the auto-generated `runGraph(env, event)` function and `graph.*` outputs stay stable across edits.
+
+See [Compilation → Full Generated Worker Shape](/concepts/compilation#script-shape-kind-script) for the emitted code, and [Workflow IR → Scripts vs Workflows](/concepts/workflow-ir#scripts-vs-workflows) for the type-level split.
 
 ---
 
@@ -303,6 +336,10 @@ UPDATING_WORKFLOW → COMPLETED
 ### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/trigger</span> <span class="api-scope">deploy</span>
 
 Trigger an execution of a deployed workflow. Params payload is capped at 100 KB.
+
+::: warning Functions only
+This endpoint is for `kind: "workflow"` only. Calling it on a function (`kind: "script"`) returns 400 — functions have no instance lifecycle. Invoke the deployed Worker URL directly via HTTP POST instead. See [Functions → Invocation](#invocation).
+:::
 
 **Request body:**
 
