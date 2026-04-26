@@ -19,10 +19,10 @@ The workflow below has two steps:
 
 ### Canvas nodes
 
-| Order | Node name      | Node type          | Key config                                                            |
-| ----- | -------------- | ------------------ | --------------------------------------------------------------------- |
-| 1     | Validate Input | Step               | Custom TypeScript                                                     |
-| 2     | Send Email     | Resend: Send Email | to: `<span v-pre>&#123;&#123;validate_input.email&#125;&#125;</span>` |
+| Order | Node name      | Node type          | Key config                                      |
+| ----- | -------------- | ------------------ | ----------------------------------------------- |
+| 1     | Validate Input | Step               | Custom TypeScript                               |
+| 2     | Send Email     | Resend: Send Email | to: <code v-pre>{{validate_input.email}}</code> |
 
 ### Generated TypeScript
 

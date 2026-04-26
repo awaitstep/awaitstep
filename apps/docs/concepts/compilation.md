@@ -25,7 +25,7 @@ Before any code is generated, the IR is passed through `validateIR` from `@await
 
 - **Schema validation** — all required fields present, all types correct (via Zod schemas)
 - **Graph validation** — entry node exists, all edges reference valid node IDs, no orphaned nodes
-- **Expression validation** — all `<span v-pre>&#123;&#123;nodeId.property&#125;&#125;</span>` expressions reference existing upstream nodes
+- **Expression validation** — all <code v-pre>{{nodeId.property}}</code> expressions reference existing upstream nodes
 - **Config validation** — required config fields are present for each node
 
 ```typescript
@@ -138,10 +138,10 @@ if (fetch_user_result.status === 200) {
 
 ### Expression Resolution
 
-During code generation, `<span v-pre>&#123;&#123;nodeId.property&#125;&#125;</span>` expressions in config values are resolved to direct JavaScript property accesses:
+During code generation, <code v-pre>{{nodeId.property}}</code> expressions in config values are resolved to direct JavaScript property accesses:
 
 ```typescript
-// Config value: "&#123;&#123;fetch_user_result.body&#125;&#125;"
+// Config value: "{{fetch_user_result.body}}"
 // Resolved to:  fetch_user_result.body
 ```
 

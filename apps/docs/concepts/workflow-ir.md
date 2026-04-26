@@ -145,12 +145,12 @@ In script mode, `sub_workflow` is always fire-and-forget — there is no durable
 
 ## Expression System
 
-Nodes can reference the output of upstream nodes using the `<span v-pre>&#123;&#123;nodeId.property&#125;&#125;</span>` expression syntax. Expressions are valid in any `expression`-typed config field and are resolved by the codegen pipeline at build time.
+Nodes can reference the output of upstream nodes using the <code v-pre>{{nodeId.property}}</code> expression syntax. Expressions are valid in any `expression`-typed config field and are resolved by the codegen pipeline at build time.
 
 ### Syntax
 
 ```
-&#123;&#123;nodeId.property.nestedProperty&#125;&#125;
+{{nodeId.property.nestedProperty}}
 ```
 
 - `nodeId` — the `id` of an upstream `WorkflowNode`
@@ -160,18 +160,18 @@ Nodes can reference the output of upstream nodes using the `<span v-pre>&#123;&#
 ### Examples
 
 ```
-&#123;&#123;fetch_user.email&#125;&#125;
-&#123;&#123;charge_result.amount&#125;&#125;
-&#123;&#123;get_orders.results.0.id&#125;&#125;
+{{fetch_user.email}}
+{{charge_result.amount}}
+{{get_orders.results.0.id}}
 ```
 
 ### How Expressions Are Resolved
 
-The codegen pipeline performs a topological sort of the DAG and assigns each node a JavaScript variable name. At code generation time, `<span v-pre>&#123;&#123;nodeId.property&#125;&#125;</span>` becomes a direct JavaScript property access:
+The codegen pipeline performs a topological sort of the DAG and assigns each node a JavaScript variable name. At code generation time, <code v-pre>{{nodeId.property}}</code> becomes a direct JavaScript property access:
 
 ```typescript
 // Before resolution (in IR data field):
-"to": "&#123;&#123;fetch_user.email&#125;&#125;"
+"to": "{{fetch_user.email}}"
 
 // After resolution (in generated worker code):
 const sendEmail_result = await step.do('sendEmail', async () => {
@@ -209,7 +209,7 @@ The IR validator checks that:
       "provider": "cloudflare",
       "data": {
         "method": "GET",
-        "url": "https://api.example.com/users/&#123;&#123;trigger.userId&#125;&#125;"
+        "url": "https://api.example.com/users/{{trigger.userId}}"
       }
     },
     {
@@ -220,7 +220,7 @@ The IR validator checks that:
       "version": "1.0.0",
       "provider": "cloudflare",
       "data": {
-        "to": "&#123;&#123;fetch_user.body&#125;&#125;",
+        "to": "{{fetch_user.body}}",
         "subject": "Welcome!"
       }
     }

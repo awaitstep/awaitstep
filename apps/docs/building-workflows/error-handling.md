@@ -74,7 +74,7 @@ try {
 ```
 
 :::tip
-The `err` variable inside the catch branch is available as `err.message` in expressions. Reference it with `<span v-pre>&#123;&#123;try_catch_node.error&#125;&#125;</span>` — the exact path depends on what the catch step returns.
+The `err` variable inside the catch branch is available as `err.message` in expressions. Reference it with <code v-pre>{{try_catch_node.error}}</code> — the exact path depends on what the catch step returns.
 :::
 
 ## NonRetryableError

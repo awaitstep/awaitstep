@@ -26,26 +26,26 @@ Selecting a node opens the config panel in the right sidebar. The config panel r
 
 Each field type renders a different control:
 
-| Type          | Control                                                                                   |
-| ------------- | ----------------------------------------------------------------------------------------- |
-| `string`      | Single-line text input                                                                    |
-| `number`      | Numeric input with min/max validation                                                     |
-| `boolean`     | Toggle switch                                                                             |
-| `select`      | Dropdown with predefined options                                                          |
-| `multiselect` | Multi-select dropdown                                                                     |
-| `secret`      | Masked input that binds to an environment variable                                        |
-| `code`        | Monaco editor in TypeScript mode                                                          |
-| `json`        | Monaco editor in JSON mode                                                                |
-| `expression`  | Text input with `<span v-pre>&#123;&#123;nodeId.property&#125;&#125;</span>` autocomplete |
-| `textarea`    | Multi-line text area                                                                      |
+| Type          | Control                                                             |
+| ------------- | ------------------------------------------------------------------- |
+| `string`      | Single-line text input                                              |
+| `number`      | Numeric input with min/max validation                               |
+| `boolean`     | Toggle switch                                                       |
+| `select`      | Dropdown with predefined options                                    |
+| `multiselect` | Multi-select dropdown                                               |
+| `secret`      | Masked input that binds to an environment variable                  |
+| `code`        | Monaco editor in TypeScript mode                                    |
+| `json`        | Monaco editor in JSON mode                                          |
+| `expression`  | Text input with <code v-pre>{{nodeId.property}}</code> autocomplete |
+| `textarea`    | Multi-line text area                                                |
 
 ### Expression Autocomplete
 
-Fields of type `expression` provide autocomplete for the outputs of upstream nodes. Type `&#123;&#123;` to trigger the suggestion popup. Suggestions are drawn from the `outputSchema` of each upstream node.
+Fields of type `expression` provide autocomplete for the outputs of upstream nodes. Type <code v-pre>{{</code> to trigger the suggestion popup. Suggestions are drawn from the `outputSchema` of each upstream node.
 
 ```
-&#123;&#123;fetch_user.email&#125;&#125;
-&#123;&#123;charge_result.amount&#125;&#125;
+{{fetch_user.email}}
+{{charge_result.amount}}
 ```
 
 Only nodes that are topologically upstream of the current node appear in autocomplete. The editor shows an error indicator if an expression references a downstream node or a node that does not exist.

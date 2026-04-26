@@ -37,7 +37,7 @@ The **Sleep Until** node pauses until a specific timestamp.
 The timestamp can be a static value or an expression referencing an upstream step output:
 
 ```
-&#123;&#123;parse_schedule.scheduledAt&#125;&#125;
+{{parse_schedule.scheduledAt}}
 ```
 
 ### Generated code

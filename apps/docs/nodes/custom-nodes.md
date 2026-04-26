@@ -68,7 +68,7 @@ nodes/
       "type": "expression",
       "label": "Customer ID",
       "required": true,
-      "placeholder": "&#123;&#123;fetch_customer.id&#125;&#125;"
+      "placeholder": "{{fetch_customer.id}}"
     },
     "apiKey": {
       "type": "secret",
@@ -183,7 +183,7 @@ export default async function (ctx: NodeContext<Config>): Promise<Output> {
 
 ## Output Schema
 
-The `outputSchema` types the node's return value. Downstream nodes can reference fields via `<span v-pre>&#123;&#123;nodeId.fieldName&#125;&#125;</span>`.
+The `outputSchema` types the node's return value. Downstream nodes can reference fields via <code v-pre>{{nodeId.fieldName}}</code>.
 
 ```json
 {

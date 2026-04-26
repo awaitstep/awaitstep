@@ -66,6 +66,7 @@ export function WorkflowActionsMenu({ workflow, isDeployed }: WorkflowActionsMen
       const newWf = await api.createWorkflow({
         name: `${workflow.name} (copy)`,
         description: workflow.description,
+        kind: workflow.kind,
       })
       if (workflow.currentVersionId) {
         const ver = await api.getVersion(workflow.id, workflow.currentVersionId)
