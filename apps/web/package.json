@@ -52,7 +52,7 @@
   },
   "devDependencies": {
     "@awaitstep/tsconfig": "workspace:*",
-    "@cloudflare/vite-plugin": "^1.32.2",
+    "@cloudflare/vite-plugin": "^1.33.2",
     "@cloudflare/workers-types": "^4.20260414.1",
     "@tailwindcss/vite": "^4.2.2",
     "@types/react": "^19.1.8",
