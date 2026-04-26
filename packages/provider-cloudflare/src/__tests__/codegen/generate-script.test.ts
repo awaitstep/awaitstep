@@ -240,6 +240,152 @@ describe('generateScript', () => {
     expect(code).toContain('if (request.method !== "POST")')
   })
 
+  it('emits a forEach loop without IIFE or _loop_i when body has no step.METHOD', () => {
+    const ir = makeScript([
+      {
+        id: 'send',
+        type: 'loop',
+        name: 'Send mail to recipients',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {
+          loopType: 'forEach',
+          collection: 'event.payload.recipients',
+          itemVar: 'email',
+        },
+      },
+      stepNode('inner', 'await env.SEND_MAIL.create({ id: crypto.randomUUID(), email });'),
+    ])
+    ir.edges = [{ id: 'e1', source: 'send', target: 'inner', label: 'body' }]
+    const code = generateScript(ir)
+
+    // No IIFE wrap — the body doesn't capture _output, so no need.
+    expect(code).not.toContain('await (async () => {')
+    // No dead step-name counter in script mode — script bodies have no step.do.
+    expect(code).not.toContain('let _loop_i = 0')
+    expect(code).not.toContain('_loop_i++')
+    // Bare for-of with the user's iteration variable.
+    expect(code).toContain('for (const email of event.payload.recipients) {')
+  })
+
+  it('keeps the IIFE for a script-mode loop that captures _output', () => {
+    const ir = makeScript([
+      {
+        id: 'find',
+        type: 'loop',
+        name: 'EXPORT_FirstMatch',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { loopType: 'forEach', collection: 'event.payload.items', itemVar: 'item' },
+      },
+      stepNode('check', 'if (item.match) _output = item;'),
+    ])
+    ir.edges = [{ id: 'e1', source: 'find', target: 'check', label: 'body' }]
+    const code = generateScript(ir)
+
+    // Body assigns to _output, so we keep the IIFE to capture it as a const.
+    // Uses EXPORT_ prefix so post-processing retains the const declaration.
+    expect(code).toMatch(
+      /const FirstMatch = await \(async \(\) => \{[\s\S]*let _output;[\s\S]*return _output;\s*\}\)\(\);/,
+    )
+  })
+
+  it('script-mode times loop keeps the _loop_i iterator (it IS the loop counter)', () => {
+    const ir = makeScript([
+      {
+        id: 'tries',
+        type: 'loop',
+        name: 'Tries',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { loopType: 'times', count: 3 },
+      },
+      stepNode('work', 'console.log(_loop_i);'),
+    ])
+    ir.edges = [{ id: 'e1', source: 'tries', target: 'work', label: 'body' }]
+    const code = generateScript(ir)
+
+    expect(code).toContain('for (let _loop_i = 0; _loop_i < 3; _loop_i++)')
+    // No outer IIFE since body doesn't capture _output.
+    expect(code).not.toContain('await (async () => {')
+  })
+
+  it('flattens http_request in script mode (no IIFE) — simple GET case', () => {
+    // EXPORT_-prefix the node so EXPORT_ post-processing keeps the `const X = ...`
+    // assignment instead of stripping it as unused.
+    const ir = makeScript([
+      {
+        id: 'fetch_user',
+        type: 'http_request',
+        name: 'EXPORT_FetchUser',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { method: 'GET', url: 'https://api.example.com/users/1' },
+      },
+    ])
+    const code = generateScript(ir)
+    expect(code).not.toContain('await (async () => {')
+    expect(code).toMatch(
+      /const FetchUser = await fetch\("https:\/\/api\.example\.com\/users\/1"\)\.then\(r => r\.json\(\)\);/,
+    )
+  })
+
+  it('flattens http_request with queryParams using namespaced url builder', () => {
+    const ir = makeScript([
+      {
+        id: 'search',
+        type: 'http_request',
+        name: 'EXPORT_Search',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {
+          method: 'GET',
+          url: 'https://api.example.com/search',
+          queryParams: { q: 'hello', limit: '10' },
+        },
+      },
+    ])
+    const code = generateScript(ir)
+    expect(code).not.toContain('await (async () => {')
+    // Intermediate var is namespaced by node varName so siblings don't collide.
+    expect(code).toContain('const _Search_url = new URL("https://api.example.com/search")')
+    expect(code).toContain('_Search_url.searchParams.set("q", "hello")')
+    // Final assignment keeps `const ${varName}` so EXPORT_ post-processing finds it.
+    expect(code).toMatch(/const Search = await fetch\(_Search_url\)\.then\(r => r\.json\(\)\);/)
+  })
+
+  it('emits parallel/race in script mode without an outer IIFE wrap', () => {
+    const ir = makeScript([
+      {
+        id: 'fan',
+        type: 'parallel',
+        name: 'EXPORT_Fan',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {},
+      },
+      stepNode('a', 'return 1;'),
+      stepNode('b', 'return 2;'),
+    ])
+    ir.edges = [
+      { id: 'e1', source: 'fan', target: 'a' },
+      { id: 'e2', source: 'fan', target: 'b' },
+    ]
+    const code = generateScript(ir)
+
+    // No `step.do`, no outer IIFE — Promise.allSettled is awaited directly.
+    expect(code).not.toContain('step.do')
+    expect(code).not.toMatch(/await \(async \(\) => \{\s*return await Promise\./)
+    // The Promise.allSettled call is the bare expression assigned to the var.
+    expect(code).toMatch(/const Fan = await Promise\.allSettled\(\[/)
+  })
+
   it('integrates a custom node template (hoists class, IIFE call, env param)', () => {
     const template = `export default async function(ctx) {
   return { url: ctx.config.url, key: ctx.env.API_KEY };

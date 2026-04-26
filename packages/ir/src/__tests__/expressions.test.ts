@@ -138,4 +138,38 @@ describe('validateExpressionRefs', () => {
     const errors = validateExpressionRefs('plain text', 'step1', new Set(), allNodes)
     expect(errors).toEqual([])
   })
+
+  describe('reserved refs', () => {
+    it('passes {{event.payload.X}} without an "event" node', () => {
+      const upstream = new Set<string>()
+      const errors = validateExpressionRefs(
+        '{{event.payload.recipients}}',
+        'step1',
+        upstream,
+        allNodes,
+      )
+      expect(errors).toEqual([])
+    })
+
+    it('passes {{env.MY_VAR}} without an "env" node', () => {
+      const errors = validateExpressionRefs('{{env.RESEND_API_KEY}}', 'step1', new Set(), allNodes)
+      expect(errors).toEqual([])
+    })
+
+    it('passes {{trigger.userId}} without a "trigger" node', () => {
+      const errors = validateExpressionRefs('{{trigger.userId}}', 'step1', new Set(), allNodes)
+      expect(errors).toEqual([])
+    })
+
+    it('still flags genuine bad refs alongside reserved ones', () => {
+      const errors = validateExpressionRefs(
+        '{{event.payload.x}} + {{missing.y}}',
+        'step1',
+        new Set(),
+        allNodes,
+      )
+      expect(errors).toHaveLength(1)
+      expect(errors[0]!.nodeId).toBe('missing')
+    })
+  })
 })
