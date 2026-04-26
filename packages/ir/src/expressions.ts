@@ -7,6 +7,18 @@
 
 const EXPRESSION_PATTERN = /\{\{(\w+(?:\.\w+)*)\}\}/g
 
+/**
+ * Identifiers that are runtime-provided (not node IDs) and should bypass
+ * the upstream/exists checks in {@link validateExpressionRefs}:
+ *
+ * - `event` — the parameter to `WorkflowEntrypoint.run(event, step)` (workflow)
+ *   and `runGraph(env, event)` (script). Used as `{{event.payload.X}}`.
+ * - `env`   — the environment binding object. Used as `{{env.MY_VAR}}`; the
+ *   codegen has dedicated env-var scanning for this prefix.
+ * - `trigger` — alias used in some docs/examples for the trigger payload.
+ */
+export const RESERVED_EXPRESSION_REFS = new Set(['event', 'env', 'trigger'])
+
 export interface ParsedExpression {
   raw: string
   nodeId: string
@@ -77,6 +89,7 @@ export function validateExpressionRefs(
   const expressions = parseExpressions(input)
 
   for (const expr of expressions) {
+    if (RESERVED_EXPRESSION_REFS.has(expr.nodeId)) continue
     if (expr.nodeId === currentNodeId) {
       errors.push({
         expression: expr.raw,

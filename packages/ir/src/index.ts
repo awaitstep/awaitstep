@@ -65,6 +65,7 @@ export {
   parseExpressions,
   resolveExpressions,
   validateExpressionRefs,
+  RESERVED_EXPRESSION_REFS,
   type ParsedExpression,
   type ExpressionValidationError,
 } from './expressions.js'
