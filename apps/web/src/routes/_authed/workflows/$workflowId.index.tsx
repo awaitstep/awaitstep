@@ -130,7 +130,14 @@ function WorkflowOverviewPage() {
                       target: e.target,
                       label: e.label,
                     }))
-                    const result = validateWorkflowForPublish(ir.metadata, flowNodes, flowEdges)
+                    const result = validateWorkflowForPublish(
+                      ir.metadata,
+                      flowNodes,
+                      flowEdges,
+                      undefined,
+                      undefined,
+                      workflow.kind,
+                    )
                     if (!result.canPublish) {
                       const errors = result.issues.filter((i) => i.severity === 'error')
                       for (const issue of errors) {

@@ -53,6 +53,12 @@ export function buildSecretsBulkJson(secrets: Record<string, string> | undefined
 }
 
 export interface DeployOptions {
+  /**
+   * Discriminator for the deploy artifact. `'workflow'` (default) installs a
+   * `WorkflowEntrypoint` class as the primary `WORKFLOW` binding. `'script'`
+   * deploys a fetch-only Worker — no class, no `WORKFLOW` self-binding.
+   */
+  kind?: 'workflow' | 'script'
   workflowId: string
   workflowName: string
   className?: string

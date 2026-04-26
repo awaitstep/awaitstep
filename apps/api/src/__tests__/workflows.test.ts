@@ -46,6 +46,57 @@ describe('workflow routes', () => {
       })
       expect(res.status).toBe(422)
     })
+
+    it('defaults kind to "workflow"', async () => {
+      const res = await app.request(url('/api/workflows'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Default kind' }),
+      })
+      expect(res.status).toBe(201)
+      const body = await res.json()
+      expect(body.kind).toBe('workflow')
+    })
+
+    it('creates a script when kind is "script"', async () => {
+      const res = await app.request(url('/api/workflows'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Transform forwarder', kind: 'script' }),
+      })
+      expect(res.status).toBe(201)
+      const body = await res.json()
+      expect(body.kind).toBe('script')
+    })
+
+    it('rejects an invalid kind', async () => {
+      const res = await app.request(url('/api/workflows'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Bogus', kind: 'spaceship' }),
+      })
+      expect(res.status).toBe(422)
+    })
+  })
+
+  describe('POST /api/workflows/:id/trigger (kind=script)', () => {
+    it('returns 400 — scripts have no instance lifecycle', async () => {
+      await mockDb.createWorkflow({
+        id: 'script-1',
+        projectId: TEST_PROJECT_ID,
+        createdBy: TEST_USER_ID,
+        name: 'My Script',
+        kind: 'script',
+      })
+      const res = await app.request(url('/api/workflows/script-1/trigger'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connectionId: 'conn-x' }),
+      })
+      expect(res.status).toBe(400)
+      const body = await res.json()
+      expect(body.error).toMatch(/no instance lifecycle/i)
+    })
   })
 
   describe('GET /api/workflows', () => {

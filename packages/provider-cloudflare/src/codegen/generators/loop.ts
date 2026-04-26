@@ -1,5 +1,5 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { varName, escName } from '@awaitstep/codegen'
+import { varName, escName, type GenerateMode } from '@awaitstep/codegen'
 import { collectChain } from './branch.js'
 import { enterLoop, exitLoop } from './break.js'
 import { prepareContainerContext, indentCode } from './container-utils.js'
@@ -21,6 +21,7 @@ export function generateLoop(
   node: WorkflowNode,
   ir: WorkflowIR,
   generateNode: (node: WorkflowNode, ir: WorkflowIR) => string,
+  mode: GenerateMode = 'workflow',
 ): string {
   const ctx = prepareContainerContext(ir)
 
@@ -79,6 +80,11 @@ export function generateLoop(
   inner.push('  return _output;')
 
   const prefix = usesOutput ? `const ${varName(node.id)} = ` : ''
+  if (mode === 'script') {
+    return `${prefix}await (async () => {
+${inner.join('\n')}
+})();`
+  }
   return `${prefix}await step.do("${escName(node.name)}", async () => {
 ${inner.join('\n')}
 });`

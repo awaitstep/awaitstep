@@ -73,16 +73,23 @@ Get a workflow with its current version, all version summaries, and active deplo
 
 ### `POST /workflows`
 
-Create a new workflow.
+Create a new workflow or script.
 
 **Scope:** `write`
 
 ```json
 {
   "name": "My Workflow",
-  "description": ""
+  "description": "",
+  "kind": "workflow"
 }
 ```
+
+| Field         | Required | Description                                                                                                                                                                                                                                                                   |
+| ------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`        | yes      | Display name                                                                                                                                                                                                                                                                  |
+| `description` | no       | Optional description                                                                                                                                                                                                                                                          |
+| `kind`        | no       | `"workflow"` (default) or `"script"`. Scripts are fetch-only Cloudflare Workers — they have no durable runtime, no instance lifecycle, and no Runs. Set at create time only; cannot be changed via `PATCH`. See [Scripts](#scripts) for constraints and invocation semantics. |
 
 ### `PATCH /workflows/:id`
 
@@ -132,6 +139,84 @@ Delete a workflow.
 | Param | In | Required | Description |
 |-------|----|----------|-------------|
 | `id` | path | yes | Workflow ID |
+
+---
+
+## Scripts
+
+Scripts share the workflow record (same routes, same versioning) but compile to a **fetch-only** Cloudflare Worker instead of a `WorkflowEntrypoint`. They are designed for stateless transform-and-forward use cases — webhooks, HTTP proxies, simple request handlers.
+
+A script is just a workflow with `kind: "script"`. Set at create time:
+
+```json
+POST /workflows
+{ "name": "Webhook Forwarder", "kind": "script" }
+```
+
+The `kind` field is immutable after creation.
+
+### Constraints
+
+Scripts run inside an `async fetch(request, env)` handler with no durable runtime, so the IR has tighter rules than a workflow:
+
+| Constraint                 | Detail                                                                                                                                                                                                          |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Trigger must be HTTP       | Script IR requires `trigger: { type: "http" }`. Cron, event, and manual triggers are not allowed — invocation is always an HTTP request to the deployed Worker URL.                                             |
+| No durable-runtime nodes   | `sleep`, `sleep_until`, and `wait_for_event` are rejected at validation time. They require a durable instance the script doesn't have. Use a workflow if you need any of these.                                 |
+| No `WORKFLOW` self-binding | The generated Worker has no Workflow binding to itself (it isn't a Workflow). Sub-workflow bindings (calls into other deployed workflows) and resource bindings (KV/D1/R2/etc.) are still detected and emitted. |
+| No instance lifecycle      | No Runs, no pause/resume/terminate. `POST /workflows/:id/trigger` returns 400 for scripts. Each HTTP request is a fresh invocation.                                                                             |
+
+### Fetch handler shell
+
+The compiled Worker has two parts: an auto-generated `runGraph(env, event)` function that runs the node graph, and a user-editable fetch handler body that decides what to do with its outputs. The default body is:
+
+```js
+try {
+  if (request.method !== 'POST') {
+    return new Response(null, { status: 200 })
+  }
+  const params = await request.json().catch(() => undefined)
+  const event = { payload: params }
+
+  const graph = await runGraph(env, event)
+
+  // ▼ everything below is yours — change the response, add error
+  // handling, branch on request shape, etc. Available outputs are on
+  // `graph.*` (one entry per step that returns a value).
+  return Response.json(graph)
+} catch (error) {
+  return Response.json({ message: error.message }, { status: 500 })
+}
+```
+
+Override it by setting `triggerCode` on the workflow (`PATCH /workflows/:id`). Your code is emitted verbatim inside the fetch handler; the `runGraph` function and `graph.*` outputs stay stable across edits.
+
+`event.payload` mirrors the workflow runtime convention so node code referencing `event.payload.X` works unchanged whether deployed as a workflow or a script.
+
+### `EXPORT_` prefix — opt-in graph outputs
+
+By default, **no** node outputs surface on `graph.*` — `runGraph` returns an empty object. To expose a value, prefix the node's display name with `EXPORT_`:
+
+| Node display name   | Surfaces on graph as | Notes                                                                                                                |
+| ------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `Fetch User`        | (not exported)       | Result still flows to downstream nodes via `{{ Fetch_User.result }}` references; just absent from `graph`.           |
+| `EXPORT_FetchUser`  | `graph.FetchUser`    | Prefix is stripped — the variable name is the clean identifier.                                                      |
+| `EXPORT_DirectMail` | `graph.DirectMail`   | Works for nodes nested inside containers (`branch`, `parallel`, `try_catch`); the value is hoisted out of the block. |
+
+A node with no `EXPORT_` prefix that isn't referenced anywhere else is dropped entirely (`await ...;` instead of `const X = await ...;`) — keeps the generated code lean.
+
+### Invocation
+
+Once deployed, invoke the Worker directly via HTTP:
+
+```
+POST https://<your-worker-url>
+Content-Type: application/json
+
+{ "anything": "here" }
+```
+
+The body is parsed and exposed to nodes as `event.payload`. The response is `Response.json(graph)` by default (or whatever your `triggerCode` returns). `POST /workflows/:id/trigger` is **not** valid for scripts.
 
 ---
 
@@ -330,6 +415,8 @@ Trigger an execution of a deployed workflow. Params payload is capped at 100KB.
   "params": {}
 }
 ```
+
+> **Scripts (kind: "script")** have no instance lifecycle — they are stateless fetch-only Workers. Calling this endpoint on a script returns 400. Invoke the deployed Worker URL directly via HTTP POST instead. See [Scripts → Invocation](#invocation) for the request/response shape.
 
 ### `POST /workflows/:workflowId/takedown`
 

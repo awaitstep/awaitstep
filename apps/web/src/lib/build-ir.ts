@@ -36,7 +36,7 @@ export function findEntryNodeId(
   return bestId
 }
 
-export function buildIRFromState(state: Pick<StoreState, 'metadata' | 'nodes' | 'edges'>) {
+export function buildIRFromState(state: Pick<StoreState, 'metadata' | 'nodes' | 'edges' | 'kind'>) {
   const irNodes = state.nodes.map((n) => ({
     ...n.data.irNode,
     position: n.position ?? n.data.irNode.position,
@@ -47,10 +47,16 @@ export function buildIRFromState(state: Pick<StoreState, 'metadata' | 'nodes' | 
     target: e.target,
     ...(e.label ? { label: String(e.label) } : {}),
   }))
-  return {
+  const base = {
     metadata: state.metadata,
     nodes: irNodes,
     edges: irEdges,
     entryNodeId: findEntryNodeId(irNodes, irEdges),
   }
+  // Scripts require both `kind: 'script'` and a `trigger` per ScriptIRSchema;
+  // default to HTTP since v1 only supports HTTP-triggered scripts.
+  if (state.kind === 'script') {
+    return { ...base, kind: 'script' as const, trigger: { type: 'http' as const } }
+  }
+  return base
 }

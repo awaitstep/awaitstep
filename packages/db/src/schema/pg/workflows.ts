@@ -11,6 +11,9 @@ export const workflows = pgTable(
     createdBy: text('created_by').notNull(),
     name: text('name').notNull(),
     description: text('description'),
+    kind: text('kind', { enum: ['workflow', 'script'] })
+      .notNull()
+      .default('workflow'),
     currentVersionId: text('current_version_id'),
     envVars: text('env_vars'),
     triggerCode: text('trigger_code'),

@@ -87,7 +87,8 @@ export default withMermaid(
           text: 'Core Concepts',
           items: [
             { text: 'Architecture', link: '/concepts/architecture' },
-            { text: 'Workflow IR', link: '/concepts/workflow-ir' },
+            { text: 'Workflows vs Functions', link: '/concepts/workflow-ir#scripts-vs-workflows' },
+            { text: 'Workflow & Script IR', link: '/concepts/workflow-ir' },
             { text: 'Node Types', link: '/concepts/node-types' },
             { text: 'Canvas', link: '/concepts/canvas' },
             { text: 'Compilation', link: '/concepts/compilation' },
@@ -146,6 +147,7 @@ export default withMermaid(
           text: 'API Reference',
           items: [
             { text: 'REST API', link: '/api/rest' },
+            { text: 'Functions', link: '/api/rest#functions' },
             { text: 'Triggers', link: '/api/triggers' },
             { text: 'Webhooks', link: '/api/webhooks' },
             { text: 'IR Schema', link: '/api/ir-schema' },

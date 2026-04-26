@@ -1,6 +1,10 @@
 # Run Lifecycle
 
-A run is a single execution instance of a deployed workflow. Each run has its own instance ID, status, and output.
+A run is a single execution instance of a deployed **workflow**. Each run has its own instance ID, status, and output.
+
+::: info Scripts have no run lifecycle
+This page only applies to artifacts with `kind: 'workflow'`. Functions (`kind: 'script'`) are stateless fetch-only Workers — every HTTP request is a fresh invocation, there's no instance ID, no Runs tab, and `pause`/`resume`/`terminate` are not applicable. Calling `POST /workflows/:id/trigger` on a script returns 400; invoke the deployed Worker URL directly via HTTP instead. See [Workflow IR → Scripts vs Workflows](./workflow-ir#scripts-vs-workflows) for the discriminator.
+:::
 
 ## Run Statuses
 

@@ -34,6 +34,12 @@ export interface LocalDevLogEntry {
 export interface LocalDevOptions {
   workflowId: string
   workflowName: string
+  /**
+   * Discriminator for the deploy artifact. Defaults to `'workflow'`. Scripts
+   * are fetch-only Workers (no `WorkflowEntrypoint` class) and need a
+   * different wrangler config (no primary `workflows[0]` entry).
+   */
+  kind?: 'workflow' | 'script'
   vars?: Record<string, string>
   secrets?: Record<string, string>
   dependencies?: Record<string, string>

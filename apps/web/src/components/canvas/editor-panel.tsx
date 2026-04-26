@@ -1,5 +1,11 @@
 import { useMemo, useCallback, lazy, Suspense, useState, useEffect, useRef } from 'react'
-import { generateWorkflow, DEFAULT_TRIGGER_CODE } from '@awaitstep/provider-cloudflare/codegen'
+import {
+  generateScript,
+  generateWorkflow,
+  DEFAULT_TRIGGER_CODE,
+  DEFAULT_SCRIPT_TRIGGER_CODE,
+} from '@awaitstep/provider-cloudflare/codegen'
+import type { ScriptIR, WorkflowIR } from '@awaitstep/ir'
 import type { TemplateResolver } from '@awaitstep/codegen'
 import { Copy, Check, RotateCcw, ChevronDown, ChevronRight } from 'lucide-react'
 import { Button } from '../ui/button'
@@ -15,8 +21,9 @@ type Tab = 'code' | 'preview'
 type OutputMode = 'typescript' | 'ir-json'
 
 export function EditorPanel() {
-  const { metadata, nodes, edges, triggerCode, dependencies } = useWorkflowStore(
+  const { kind, metadata, nodes, edges, triggerCode, dependencies } = useWorkflowStore(
     useShallow((s) => ({
+      kind: s.kind,
       metadata: s.metadata,
       nodes: s.nodes,
       edges: s.edges,
@@ -49,8 +56,8 @@ export function EditorPanel() {
 
   const ir = useMemo(() => {
     if (nodes.length === 0) return null
-    return buildIRFromState({ metadata, nodes, edges })
-  }, [metadata, nodes, edges])
+    return buildIRFromState({ metadata, nodes, edges, kind })
+  }, [metadata, nodes, edges, kind])
 
   const templateResolver = useMemo<TemplateResolver>(
     () => ({
@@ -64,6 +71,18 @@ export function EditorPanel() {
   const generatedCode = useMemo(() => {
     if (!ir) return '// Drag nodes onto the canvas to generate code'
     try {
+      if (kind === 'script') {
+        const scriptIr: ScriptIR = {
+          ...(ir as WorkflowIR),
+          kind: 'script',
+          trigger: { type: 'http' },
+        }
+        return generateScript(scriptIr, {
+          templateResolver,
+          triggerCode: triggerCode || undefined,
+          preview: true,
+        })
+      }
       return generateWorkflow(ir, {
         templateResolver,
         triggerCode: triggerCode || undefined,
@@ -72,7 +91,7 @@ export function EditorPanel() {
     } catch (err) {
       return `// Error generating code:\n// ${err instanceof Error ? err.message : 'Unknown error'}`
     }
-  }, [ir, templateResolver, triggerCode])
+  }, [ir, kind, templateResolver, triggerCode])
 
   const irJson = useMemo(() => {
     if (!ir) return '// No workflow data'
@@ -85,11 +104,11 @@ export function EditorPanel() {
         ? outputMode === 'typescript'
           ? generatedCode
           : irJson
-        : triggerCode || DEFAULT_TRIGGER_CODE
+        : triggerCode || (kind === 'script' ? DEFAULT_SCRIPT_TRIGGER_CODE : DEFAULT_TRIGGER_CODE)
     await copyToClipboard(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }, [tab, outputMode, generatedCode, irJson, triggerCode])
+  }, [tab, outputMode, generatedCode, irJson, triggerCode, kind])
 
   const depsJson = useMemo(() => {
     if (Object.keys(dependencies).length === 0) return '{\n  \n}'
@@ -113,11 +132,27 @@ export function EditorPanel() {
   )
 
   const isCustomEntry = triggerCode && triggerCode !== ''
+  const isScript = kind === 'script'
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'code', label: 'Code' },
     { id: 'preview', label: 'Preview' },
   ]
+
+  // The graph outputs available to user-edited code via `graph.X`. Mirrors the
+  // names emitted by `generateScript`'s runGraph return statement: nodes whose
+  // bodies contain a `return` produce a varName.
+  const graphOutputs = useMemo(() => {
+    if (!isScript || !ir) return []
+    const names: string[] = []
+    for (const node of ir.nodes) {
+      const data = (node as { data?: { code?: unknown } }).data
+      const hasReturn =
+        typeof data?.code === 'string' ? /\breturn\b/.test(data.code) : node.type !== 'step'
+      if (hasReturn) names.push(node.name)
+    }
+    return names
+  }, [isScript, ir])
 
   return (
     <div className="flex h-full flex-col">
@@ -243,20 +278,48 @@ export function EditorPanel() {
 
           {/* Entry code hint */}
           <div className="border-b border-border px-4 py-2">
-            <p className="text-xs leading-relaxed text-muted-foreground/40">
-              Code for the{' '}
-              <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">fetch()</code>{' '}
-              handler. Write{' '}
-              <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">import</code>{' '}
-              statements at the top — they are hoisted automatically.
-            </p>
+            {isScript ? (
+              <p className="text-xs leading-relaxed text-muted-foreground/40">
+                Body of{' '}
+                <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">fetch()</code>.
+                Graph nodes run inside{' '}
+                <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">
+                  runGraph()
+                </code>{' '}
+                — call it and reference outputs via{' '}
+                <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">graph.*</code>.
+                {graphOutputs.length > 0 && (
+                  <>
+                    {' '}
+                    Available:{' '}
+                    {graphOutputs.map((name, i) => (
+                      <span key={name}>
+                        {i > 0 && ', '}
+                        <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">
+                          graph.{name}
+                        </code>
+                      </span>
+                    ))}
+                    .
+                  </>
+                )}
+              </p>
+            ) : (
+              <p className="text-xs leading-relaxed text-muted-foreground/40">
+                Code for the{' '}
+                <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">fetch()</code>{' '}
+                handler. Write{' '}
+                <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">import</code>{' '}
+                statements at the top — they are hoisted automatically.
+              </p>
+            )}
           </div>
 
           {/* Entry code editor */}
           <div className="flex-1">
             <EditableEditor
               mounted={mounted}
-              value={triggerCode || DEFAULT_TRIGGER_CODE}
+              value={triggerCode || (isScript ? DEFAULT_SCRIPT_TRIGGER_CODE : DEFAULT_TRIGGER_CODE)}
               onChange={setTriggerCode}
               language="typescript"
             />

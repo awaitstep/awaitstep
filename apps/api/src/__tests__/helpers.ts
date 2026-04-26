@@ -90,10 +90,12 @@ const mockDb: DatabaseAdapter = {
     const wf: Workflow = {
       ...data,
       description: data.description ?? null,
+      kind: data.kind ?? 'workflow',
       currentVersionId: null,
       envVars: null,
       triggerCode: null,
       dependencies: null,
+      deployConfig: null,
       createdAt: now(),
       updatedAt: now(),
     }

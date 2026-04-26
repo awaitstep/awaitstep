@@ -1,5 +1,5 @@
 import type { WorkflowProvider, TemplateResolver } from '@awaitstep/codegen'
-import type { WorkflowIR } from '@awaitstep/ir'
+import type { ArtifactIR } from '@awaitstep/ir'
 import { CloudflareWorkflowsAdapter, type WranglerDeployer } from '@awaitstep/provider-cloudflare'
 
 const DEFAULT_PROVIDER = 'cloudflare'
@@ -31,7 +31,7 @@ export function resolveProvider(
  * Returns a list of node names that don't support the provider.
  */
 export function validateNodesForProvider(
-  ir: WorkflowIR,
+  ir: ArtifactIR,
   provider?: string,
 ): { valid: boolean; unsupportedNodes: string[] } {
   const name = provider ?? DEFAULT_PROVIDER

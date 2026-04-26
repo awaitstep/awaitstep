@@ -1,24 +1,11 @@
-import type { Result, ValidationError, WorkflowIR } from './types.js'
-import { workflowIRSchema } from './schema.js'
+import type { ArtifactIR, Result, ScriptIR, ValidationError, WorkflowIR } from './types.js'
+import { scriptIRSchema, workflowIRSchema } from './schema.js'
 
 export function validateIR(input: unknown): Result<WorkflowIR, ValidationError[]> {
   const result = workflowIRSchema.safeParse(input)
 
   if (!result.success) {
-    const rawInput = input as { nodes?: { id?: string }[] }
-    const errors: ValidationError[] = result.error.issues.map((issue) => {
-      const error: ValidationError = {
-        path: issue.path.join('.'),
-        message: issue.message,
-      }
-      // Map Zod node-level errors back to their nodeId for UI display
-      if (issue.path[0] === 'nodes' && typeof issue.path[1] === 'number') {
-        const nodeId = rawInput.nodes?.[issue.path[1]]?.id
-        if (nodeId) error.nodeId = nodeId
-      }
-      return error
-    })
-    return { ok: false, errors }
+    return { ok: false, errors: zodIssuesToErrors(input, result.error.issues) }
   }
 
   const ir = result.data as WorkflowIR
@@ -31,7 +18,71 @@ export function validateIR(input: unknown): Result<WorkflowIR, ValidationError[]
   return { ok: true, value: ir }
 }
 
-function validateStructure(ir: WorkflowIR): ValidationError[] {
+export function validateScript(input: unknown): Result<ScriptIR, ValidationError[]> {
+  const result = scriptIRSchema.safeParse(input)
+
+  if (!result.success) {
+    return { ok: false, errors: zodIssuesToErrors(input, result.error.issues) }
+  }
+
+  const ir = result.data as ScriptIR
+  const structuralErrors = [...validateStructure(ir), ...validateScriptCompatibility(ir)]
+
+  if (structuralErrors.length > 0) {
+    return { ok: false, errors: structuralErrors }
+  }
+
+  return { ok: true, value: ir }
+}
+
+/**
+ * Dispatches to {@link validateIR} or {@link validateScript} based on the
+ * `kind` discriminator. Treat absence of `kind` as `'workflow'` so legacy
+ * stored IRs continue to validate.
+ */
+export function validateArtifact(input: unknown): Result<ArtifactIR, ValidationError[]> {
+  const kind = (input as { kind?: string } | null)?.kind
+  if (kind === 'script') {
+    return validateScript(input)
+  }
+  return validateIR(input)
+}
+
+function zodIssuesToErrors(
+  input: unknown,
+  issues: { path: PropertyKey[]; message: string }[],
+): ValidationError[] {
+  const rawInput = input as { nodes?: { id?: string }[] }
+  return issues.map((issue) => {
+    const error: ValidationError = {
+      path: issue.path.join('.'),
+      message: issue.message,
+    }
+    if (issue.path[0] === 'nodes' && typeof issue.path[1] === 'number') {
+      const nodeId = rawInput.nodes?.[issue.path[1]]?.id
+      if (nodeId) error.nodeId = nodeId
+    }
+    return error
+  })
+}
+
+export const SCRIPT_INCOMPATIBLE_NODE_TYPES = new Set(['wait_for_event', 'sleep', 'sleep_until'])
+
+function validateScriptCompatibility(ir: ScriptIR): ValidationError[] {
+  const errors: ValidationError[] = []
+  for (const node of ir.nodes) {
+    if (SCRIPT_INCOMPATIBLE_NODE_TYPES.has(node.type)) {
+      errors.push({
+        path: `nodes.${node.id}`,
+        message: `Node type "${node.type}" requires a durable runtime and cannot be used in a script — use a workflow instead`,
+        nodeId: node.id,
+      })
+    }
+  }
+  return errors
+}
+
+function validateStructure(ir: ArtifactIR): ValidationError[] {
   const errors: ValidationError[] = []
   const nodeIds = new Set(ir.nodes.map((n) => n.id))
 
@@ -95,7 +146,7 @@ function validateStructure(ir: WorkflowIR): ValidationError[] {
 
 // ── Try/Catch validation ──
 
-function validateTryCatchNodes(ir: WorkflowIR): ValidationError[] {
+function validateTryCatchNodes(ir: ArtifactIR): ValidationError[] {
   const errors: ValidationError[] = []
   const edgesBySource = groupEdgesBySource(ir)
 
@@ -135,7 +186,7 @@ function validateTryCatchNodes(ir: WorkflowIR): ValidationError[] {
 
 // ── Loop + Break validation ──
 
-function validateLoopAndBreakNodes(ir: WorkflowIR): ValidationError[] {
+function validateLoopAndBreakNodes(ir: ArtifactIR): ValidationError[] {
   const errors: ValidationError[] = []
   const nodeMap = new Map(ir.nodes.map((n) => [n.id, n]))
   const edgesBySource = groupEdgesBySource(ir)
@@ -205,7 +256,7 @@ function validateLoopAndBreakNodes(ir: WorkflowIR): ValidationError[] {
 
 // ── Sub-workflow validation ──
 
-function validateSubWorkflowNodes(ir: WorkflowIR): ValidationError[] {
+function validateSubWorkflowNodes(ir: ArtifactIR): ValidationError[] {
   const errors: ValidationError[] = []
 
   for (const node of ir.nodes) {
@@ -240,7 +291,7 @@ interface ContainerInfo {
   type: string
 }
 
-export function buildContainmentMap(ir: WorkflowIR): Map<string, ContainerInfo> {
+export function buildContainmentMap(ir: ArtifactIR): Map<string, ContainerInfo> {
   const containment = new Map<string, ContainerInfo>()
   const nodeMap = new Map(ir.nodes.map((n) => [n.id, n]))
   const containerTypes = new Set(['branch', 'parallel', 'try_catch', 'loop'])
@@ -274,7 +325,7 @@ export function buildContainmentMap(ir: WorkflowIR): Map<string, ContainerInfo> 
 function collectContainedNodes(
   containerId: string,
   label: string | undefined,
-  ir: WorkflowIR,
+  ir: ArtifactIR,
 ): Set<string> {
   const adj = new Map<string, string[]>()
   for (const node of ir.nodes) adj.set(node.id, [])
@@ -310,7 +361,7 @@ function collectContainedNodes(
 
 // ── Helpers ──
 
-function groupEdgesBySource(ir: WorkflowIR): Map<string, typeof ir.edges> {
+function groupEdgesBySource(ir: ArtifactIR): Map<string, typeof ir.edges> {
   const map = new Map<string, typeof ir.edges>()
   for (const edge of ir.edges) {
     const list = map.get(edge.source) ?? []
@@ -320,7 +371,7 @@ function groupEdgesBySource(ir: WorkflowIR): Map<string, typeof ir.edges> {
   return map
 }
 
-function topoSort(ir: WorkflowIR): string[] {
+function topoSort(ir: ArtifactIR): string[] {
   const adj = new Map<string, string[]>()
   for (const node of ir.nodes) adj.set(node.id, [])
   for (const edge of ir.edges) adj.get(edge.source)?.push(edge.target)
@@ -348,7 +399,7 @@ function topoSort(ir: WorkflowIR): string[] {
   return sorted
 }
 
-function detectCycle(ir: WorkflowIR): ValidationError | null {
+function detectCycle(ir: ArtifactIR): ValidationError | null {
   const adjacency = new Map<string, string[]>()
   for (const node of ir.nodes) {
     adjacency.set(node.id, [])
@@ -390,7 +441,7 @@ function detectCycle(ir: WorkflowIR): ValidationError | null {
   return null
 }
 
-function findUnreachableNodes(ir: WorkflowIR): string[] {
+function findUnreachableNodes(ir: ArtifactIR): string[] {
   const adjacency = new Map<string, string[]>()
   for (const node of ir.nodes) {
     adjacency.set(node.id, [])

@@ -4,7 +4,7 @@ title: Introduction
 
 # Introduction
 
-AwaitStep is a self-hosted visual workflow builder for [Cloudflare Workflows](https://developers.cloudflare.com/workflows/). You design durable, multi-step workflows on a canvas, and AwaitStep compiles them to production-ready TypeScript that runs natively on your Cloudflare account — no vendor lock-in, no proprietary runtime.
+AwaitStep is a self-hosted visual builder for two kinds of Cloudflare artifacts: **Workflows** (durable, multi-step, instance-based — compiled to [Cloudflare Workflows](https://developers.cloudflare.com/workflows/)) and **Functions** (stateless, fetch-only Workers for transform-and-forward use cases). You design both on the same canvas with the same node graph; AwaitStep compiles each to production-ready TypeScript that runs natively on your Cloudflare account — no vendor lock-in, no proprietary runtime.
 
 ## What problem does it solve?
 
@@ -31,10 +31,19 @@ Cloudflare Workflows is a powerful primitive for durable execution, but writing 
 
 Your workflow then runs entirely within Cloudflare — AwaitStep is not in the execution path.
 
+## Workflows vs Functions
+
+AwaitStep produces two artifact kinds from the same canvas:
+
+- **Workflows** — durable, multi-step, instance-based. Compile to a `WorkflowEntrypoint` class. Support `sleep`, `sleep_until`, `wait_for_event`, runs/pause/resume/terminate, and the full [run lifecycle](/concepts/run-lifecycle).
+- **Functions** (`kind: "script"`) — stateless, fetch-only Workers. Compile to a plain `export default { fetch }` handler. Each HTTP request is a fresh invocation, no instance lifecycle, no Runs tab. Designed for webhooks, HTTP proxies, and transform-and-forward request handlers.
+
+The discriminator is the `kind` field on the IR. See [Workflow IR](/concepts/workflow-ir#scripts-vs-workflows) for the type-level split and constraints.
+
 ## Key features
 
 - Visual canvas with a library of built-in and community nodes
-- Automatic TypeScript codegen targeting Cloudflare Workflows
+- Automatic TypeScript codegen targeting Cloudflare Workflows or fetch-only Workers
 - One-click deploy via `wrangler`
 - Secret management with binding injection
 - Support for KV, D1, R2, Queues, and AI bindings

@@ -12,6 +12,8 @@ export type {
   Edge,
   WorkflowMetadata,
   WorkflowIR,
+  ScriptIR,
+  ArtifactIR,
   TriggerType,
   HttpTriggerConfig,
   CronTriggerConfig,
@@ -40,10 +42,25 @@ export {
   workflowMetadataSchema,
   triggerConfigSchema,
   workflowIRSchema,
+  scriptIRSchema,
+  artifactIRSchema,
 } from './schema.js'
 
-export { validateIR, buildContainmentMap } from './validate.js'
-export { serializeIR, deserializeIR } from './serialize.js'
+export {
+  validateIR,
+  validateScript,
+  validateArtifact,
+  buildContainmentMap,
+  SCRIPT_INCOMPATIBLE_NODE_TYPES,
+} from './validate.js'
+export {
+  serializeIR,
+  deserializeIR,
+  serializeScript,
+  deserializeScript,
+  serializeArtifact,
+  deserializeArtifact,
+} from './serialize.js'
 export {
   parseExpressions,
   resolveExpressions,

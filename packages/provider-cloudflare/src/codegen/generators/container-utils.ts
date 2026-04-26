@@ -1,5 +1,11 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { buildAdjacencyList, getEdgeLabels, varName, escName } from '@awaitstep/codegen'
+import {
+  buildAdjacencyList,
+  getEdgeLabels,
+  varName,
+  escName,
+  type GenerateMode,
+} from '@awaitstep/codegen'
 import { collectChain, computeInDegree } from './branch.js'
 
 export interface ContainerContext {
@@ -66,6 +72,7 @@ export function generatePromiseContainer(
   ir: WorkflowIR,
   method: 'allSettled' | 'race',
   generateNode: (node: WorkflowNode, ir: WorkflowIR) => string,
+  mode: GenerateMode = 'workflow',
 ): string {
   const ctx = prepareContainerContext(ir)
   const targets = getForkTargets(node.id, ir)
@@ -81,6 +88,13 @@ export function generatePromiseContainer(
     })
     .filter(Boolean)
 
+  if (mode === 'script') {
+    return `const ${varName(node.id)} = await (async () => {
+  return await Promise.${method}([
+${branches.join(',\n')}
+  ].map(fn => fn()));
+})();`
+  }
   return `const ${varName(node.id)} = await step.do("${escName(node.name)}", async () => {
   return await Promise.${method}([
 ${branches.join(',\n')}

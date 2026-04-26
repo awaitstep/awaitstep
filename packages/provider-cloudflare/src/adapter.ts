@@ -1,7 +1,7 @@
-import { validateIR } from '@awaitstep/ir'
-import type { WorkflowIR, ValidationError, Result } from '@awaitstep/ir'
+import { validateArtifact } from '@awaitstep/ir'
+import type { ArtifactIR, ScriptIR, WorkflowIR, ValidationError, Result } from '@awaitstep/ir'
 import { transpileToJS } from '@awaitstep/codegen/transpile'
-import { generateWorkflow } from './codegen/generate.js'
+import { generateScript, generateWorkflow } from './codegen/generate.js'
 import type {
   WorkflowProvider,
   LocalDevProvider,
@@ -121,8 +121,8 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     return { filename: 'wrangler.json', content: preview }
   }
 
-  validate(ir: WorkflowIR): Result<void, ValidationError[]> {
-    const result = validateIR(ir)
+  validate(ir: ArtifactIR): Result<void, ValidationError[]> {
+    const result = validateArtifact(ir)
     if (!result.ok) return result
     return { ok: true, value: undefined }
   }
@@ -139,11 +139,19 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     }
   }
 
-  generate(ir: WorkflowIR, config?: ProviderConfig): GeneratedArtifact {
+  generate(ir: ArtifactIR, config?: ProviderConfig): GeneratedArtifact {
     const envVarNames = config?.envVars ? Object.keys(config.envVars) : undefined
     const dc = config?.options?.['deploymentConfig'] as CloudflareDeploymentConfig | undefined
     const triggerCode = dc?.triggerCode ?? (config?.options?.['triggerCode'] as string | undefined)
-    const source = generateWorkflow(ir, {
+    if (ir.kind === 'script') {
+      const source = generateScript(ir as ScriptIR, {
+        templateResolver: this.templateResolver,
+        envVarNames,
+        triggerCode,
+      })
+      return { filename: 'worker.ts', source }
+    }
+    const source = generateWorkflow(ir as WorkflowIR, {
       templateResolver: this.templateResolver,
       envVarNames,
       triggerCode,
@@ -199,6 +207,9 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
 
     // Extract the actual class name from the generated source so the wrangler
     // config matches exactly, even if ir.metadata.name differs from workflow.name.
+    // Scripts have no `WorkflowEntrypoint` class — generatedClassName stays
+    // undefined and the wrangler-config code path skips the primary workflow
+    // entry when kind === 'script'.
     const classNameMatch = artifact.source.match(
       /export\s+class\s+(\w+)\s+extends\s+WorkflowEntrypoint/,
     )
@@ -209,10 +220,11 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     report('DETECTING_BINDINGS', 'Analyzing resource bindings', 35)
 
     // Auto-detect resource bindings from IR and resolve IDs from env vars
-    const ir = config.options?.['ir'] as WorkflowIR | undefined
+    const ir = config.options?.['ir'] as ArtifactIR | undefined
+    const kind: 'workflow' | 'script' = ir?.kind === 'script' ? 'script' : 'workflow'
     let resolvedBindings: BindingRequirement[] | undefined
     if (ir) {
-      const detected = detectBindings(ir)
+      const detected = detectBindings(ir as unknown as WorkflowIR)
       if (detected.length > 0) {
         const needsId = detected.filter(
           (b) => b.type === 'kv' || b.type === 'd1' || b.type === 'hyperdrive',
@@ -312,6 +324,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     const result = await this.deployer.deploy(
       compiledArtifact,
       {
+        kind,
         workflowId: opts.workflowId,
         workflowName: opts.workflowName,
         className: generatedClassName,
@@ -359,6 +372,11 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     params: unknown,
     config: ProviderConfig,
   ): Promise<{ instanceId: string }> {
+    if (config.options?.['kind'] === 'script') {
+      throw new Error(
+        'Scripts have no instance lifecycle — invoke the deployed worker URL directly via HTTP',
+      )
+    }
     const { accountId, apiToken } = extractCredentials(config)
     const workflowName = sanitizedWorkflowName(config.options?.['workflowName'] as string)
 
@@ -368,6 +386,9 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
   }
 
   async getStatus(instanceId: string, config: ProviderConfig): Promise<WorkflowRunStatus> {
+    if (config.options?.['kind'] === 'script') {
+      throw new Error('Scripts have no instance lifecycle — getStatus is not supported')
+    }
     const { accountId, apiToken } = extractCredentials(config)
     const workflowName = sanitizedWorkflowName(config.options?.['workflowName'] as string)
 

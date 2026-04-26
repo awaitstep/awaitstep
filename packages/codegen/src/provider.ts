@@ -1,4 +1,4 @@
-import type { WorkflowIR, ValidationError, Result } from '@awaitstep/ir'
+import type { ArtifactIR, ValidationError, Result } from '@awaitstep/ir'
 import type {
   GeneratedArtifact,
   DeployResult,
@@ -27,11 +27,19 @@ export interface WorkflowProvider {
 
   buildDeploymentConfigPreview(config: unknown): DeploymentConfigPreview
 
-  validate(ir: WorkflowIR): Result<void, ValidationError[]>
+  /**
+   * Validate either a workflow or a script IR. Implementers should dispatch
+   * on `ir.kind` (treating absent `kind` as `'workflow'`).
+   */
+  validate(ir: ArtifactIR): Result<void, ValidationError[]>
 
   verifyCredentials(config: ProviderConfig): Promise<CredentialsCheckResult>
 
-  generate(ir: WorkflowIR, config?: ProviderConfig): GeneratedArtifact
+  /**
+   * Generate the deploy artifact for either a workflow or a script. Implementers
+   * should dispatch on `ir.kind`.
+   */
+  generate(ir: ArtifactIR, config?: ProviderConfig): GeneratedArtifact
 
   deploy(artifact: GeneratedArtifact, config: ProviderConfig): Promise<DeployResult>
 

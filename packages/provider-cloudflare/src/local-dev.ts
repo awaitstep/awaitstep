@@ -129,10 +129,17 @@ async function scaffoldDeployDir(
   )
 
   const bindings = detectBindingsFromSource(artifact.source)
+  const isScript = options.kind === 'script'
   const wranglerConfig = generateWranglerConfig({
+    kind: options.kind,
     workerName: workerName(options.workflowId),
-    className: workflowClassName(options.workflowName),
-    workflowName: sanitizedWorkflowName(options.workflowName),
+    // Scripts have no `WorkflowEntrypoint` class — omit className/workflowName.
+    ...(isScript
+      ? {}
+      : {
+          className: workflowClassName(options.workflowName),
+          workflowName: sanitizedWorkflowName(options.workflowName),
+        }),
     main: `./${artifact.filename}`,
     vars: options.vars,
     bindings: bindings.length > 0 ? bindings : undefined,

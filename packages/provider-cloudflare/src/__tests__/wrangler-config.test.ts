@@ -391,4 +391,64 @@ describe('generateWranglerConfig', () => {
     const parsed = JSON.parse(config)
     expect(parsed.workflows).toHaveLength(1)
   })
+
+  describe("kind: 'script'", () => {
+    it('omits the primary WORKFLOW binding entry', () => {
+      const config = generateWranglerConfig({
+        kind: 'script',
+        workerName: 'awaitstep-my-script',
+        main: './worker.js',
+      })
+
+      const parsed = JSON.parse(config)
+      expect(parsed.name).toBe('awaitstep-my-script')
+      expect(parsed.workflows).toBeUndefined()
+    })
+
+    it('still emits sub-workflow bindings (forwards to deployed workflows)', () => {
+      const config = generateWranglerConfig({
+        kind: 'script',
+        workerName: 'awaitstep-my-script',
+        main: './worker.js',
+        subWorkflowBindings: [
+          {
+            binding: 'ONBOARDING_WORKFLOW',
+            name: 'Onboarding-Workflow',
+            className: 'OnboardingWorkflow',
+            scriptName: 'awaitstep-onboarding',
+          },
+        ],
+      })
+
+      const parsed = JSON.parse(config)
+      expect(parsed.workflows).toEqual([
+        {
+          binding: 'ONBOARDING_WORKFLOW',
+          name: 'Onboarding-Workflow',
+          class_name: 'OnboardingWorkflow',
+          script_name: 'awaitstep-onboarding',
+        },
+      ])
+    })
+
+    it('does not require className or workflowName', () => {
+      // Should not throw — those fields are workflow-class concepts.
+      expect(() =>
+        generateWranglerConfig({
+          kind: 'script',
+          workerName: 'awaitstep-my-script',
+          main: './worker.js',
+        }),
+      ).not.toThrow()
+    })
+  })
+
+  it('throws when className/workflowName are missing for a workflow deploy', () => {
+    expect(() =>
+      generateWranglerConfig({
+        workerName: 'awaitstep-broken',
+        main: './worker.js',
+      } as Parameters<typeof generateWranglerConfig>[0]),
+    ).toThrow(/workflow deploys require/)
+  })
 })

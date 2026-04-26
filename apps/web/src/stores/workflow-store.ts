@@ -58,6 +58,7 @@ export interface DeployConfig {
 
 const getInitialWorkflowState = () => ({
   workflowId: null,
+  kind: 'workflow' as 'workflow' | 'script',
   metadata: {
     name: 'Untitled Workflow',
     version: 1,
@@ -82,6 +83,8 @@ const getInitialWorkflowState = () => ({
 
 interface WorkflowState {
   workflowId: string | null
+  /** `'workflow'` (default) or `'script'`. Drives codegen shape and UI affordances. */
+  kind: 'workflow' | 'script'
   metadata: WorkflowMetadata
   nodes: FlowNode[]
   edges: Edge[]
@@ -113,6 +116,7 @@ interface WorkflowState {
   selectNode: (nodeId: string | null) => void
   selectEdge: (edgeId: string | null) => void
 
+  setKind: (kind: 'workflow' | 'script') => void
   setMetadata: (metadata: Partial<WorkflowMetadata>) => void
   setWorkflowEnvVars: (vars: WorkflowEnvVar[]) => void
   setDependencies: (deps: Record<string, string>) => void
@@ -388,6 +392,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({ selectedEdgeId: edgeId, selectedNodeId: null })
   },
 
+  setKind: (kind) => {
+    set({ kind })
+  },
+
   setMetadata: (metadata) => {
     set({
       metadata: { ...get().metadata, ...metadata, updatedAt: new Date().toISOString() },
@@ -416,9 +424,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   runValidation: (nodeRegistry?: NodeRegistry) => {
-    const { metadata, nodes, edges, workflowEnvVars } = get()
+    const { metadata, nodes, edges, workflowEnvVars, kind } = get()
     const settings = { workflowEnvVars }
-    const result = validateWorkflowForPublish(metadata, nodes, edges, nodeRegistry, settings)
+    const result = validateWorkflowForPublish(metadata, nodes, edges, nodeRegistry, settings, kind)
     set({ validationResult: result, simulationResult: null })
     return result
   },

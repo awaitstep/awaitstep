@@ -97,4 +97,25 @@ describe('generateStep', () => {
     )
     expect(code).toContain('const x = 1;\nreturn x + 1;')
   })
+
+  describe('script mode', () => {
+    it('emits the user code raw (no IIFE, no step.do, no const wrap)', () => {
+      const code = generateStep(makeNode(), 'script')
+      expect(code).not.toContain('step.do')
+      expect(code).not.toContain('await (async () => {')
+      expect(code).not.toContain('const step_1')
+      // The user's code is the entire output.
+      expect(code).toBe('return { done: true };')
+    })
+
+    it('inlines side-effect-only code unchanged', () => {
+      const code = generateStep(makeNode({ data: { code: 'console.log("hello");' } }), 'script')
+      expect(code).toBe('console.log("hello");')
+    })
+
+    it('drops the workflow step name (no step runner in a fetch handler)', () => {
+      const code = generateStep(makeNode({ name: 'Run "fast" task' }), 'script')
+      expect(code).not.toContain('Run')
+    })
+  })
 })

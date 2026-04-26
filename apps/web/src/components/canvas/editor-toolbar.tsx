@@ -20,6 +20,8 @@ export interface EditorToolbarProps {
   workflowId: string
   isNew: boolean
   workflowName: string
+  /** `'workflow'` (default) or `'script'`. Surfaces a "Function" pill in the header. */
+  kind?: 'workflow' | 'script'
   currentVersion: number
   nodeCount: number
   isDirty: boolean
@@ -45,6 +47,7 @@ export function EditorToolbar({
   workflowId,
   isNew,
   workflowName,
+  kind,
   currentVersion,
   nodeCount,
   isDirty,
@@ -81,6 +84,14 @@ export function EditorToolbar({
         <div className="h-5 w-px bg-muted/70" />
         <div className="flex items-center gap-2 px-1">
           <span className="text-sm font-semibold text-foreground">{workflowName}</span>
+          {kind === 'script' && (
+            <span
+              className="inline-flex items-center rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+              title="Stateless fetch-only Worker — runs synchronously, no sleeps or waits"
+            >
+              Function
+            </span>
+          )}
           {!isNew && currentVersion > 0 && (
             <span className="rounded bg-muted/60 px-1.5 py-0.5 text-xs font-medium text-muted-foreground/60">
               v{currentVersion}
@@ -172,7 +183,7 @@ export function EditorToolbar({
               )}
               <span className="text-xs">Editor</span>
             </Button>
-            {isNew && (
+            {isNew && kind !== 'script' && (
               <Button
                 variant="ghost"
                 size="sm"

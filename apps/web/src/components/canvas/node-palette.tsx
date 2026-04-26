@@ -7,6 +7,12 @@ import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { getNodeVisuals } from '../../lib/node-icon-map'
 import { MarketplaceDialog } from '../marketplace/marketplace-dialog'
 import { groupByCategory, filterNodes, getSuperCategoryMeta } from '../../lib/node-categories'
+import { useWorkflowStore } from '../../stores/workflow-store'
+
+// Nodes that require a durable runtime (sleeps, waiting on external events).
+// Functions run in a fetch handler with no step runner, so these are filtered
+// out — kept in sync with `validateScript` in @awaitstep/ir.
+const SCRIPT_INCOMPATIBLE_NODE_TYPES = new Set<string>(['sleep', 'sleep_until', 'wait_for_event'])
 
 const BUILTIN_IDS = new Set([
   'step',
@@ -33,11 +39,16 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const { registry } = useNodeRegistry()
   const definitions = registry.getAll()
+  const kind = useWorkflowStore((s) => s.kind)
 
   const filteredGrouped = useMemo(() => {
-    const items = searchTerm ? filterNodes(definitions, searchTerm) : definitions
+    const compatibleDefs =
+      kind === 'script'
+        ? definitions.filter((d) => !SCRIPT_INCOMPATIBLE_NODE_TYPES.has(d.id))
+        : definitions
+    const items = searchTerm ? filterNodes(compatibleDefs, searchTerm) : compatibleDefs
     return groupByCategory(items)
-  }, [definitions, searchTerm])
+  }, [definitions, searchTerm, kind])
 
   const onDragStart = (event: React.DragEvent, nodeType: NodeType) => {
     event.dataTransfer.setData('application/awaitstep-node-type', nodeType)

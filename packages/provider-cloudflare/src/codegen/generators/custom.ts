@@ -1,5 +1,5 @@
 import type { WorkflowNode } from '@awaitstep/ir'
-import { varName, escName, sanitizeIdentifier, indent } from '@awaitstep/codegen'
+import { varName, escName, sanitizeIdentifier, indent, type GenerateMode } from '@awaitstep/codegen'
 import { generateStepConfig } from './config.js'
 
 export function extractTemplateBody(source: string): string {
@@ -119,8 +119,12 @@ export interface CustomNodeOutput {
   className: string
 }
 
-export function generateCustomNode(node: WorkflowNode, templateSource: string): string {
-  const result = generateCustomNodeParts(node, templateSource)
+export function generateCustomNode(
+  node: WorkflowNode,
+  templateSource: string,
+  mode: GenerateMode = 'workflow',
+): string {
+  const result = generateCustomNodeParts(node, templateSource, mode)
   const parts: string[] = []
   if (result.imports.length > 0) parts.push(result.imports.join('\n'))
   parts.push(result.classDefinition)
@@ -131,6 +135,7 @@ export function generateCustomNode(node: WorkflowNode, templateSource: string): 
 export function generateCustomNodeParts(
   node: WorkflowNode,
   templateSource: string,
+  mode: GenerateMode = 'workflow',
 ): CustomNodeOutput {
   const imports = extractImportLines(templateSource)
   let body = extractTemplateBody(templateSource)
@@ -167,8 +172,18 @@ ${indent(body, 4)}
   const hasReturn = /\breturn\b/.test(body)
   const prefix = hasReturn ? `const ${varName(node.id)} = ` : ''
 
-  const stepCode = `${prefix}await step.do("${escName(node.name)}"${configArg}, async () => {
-  return ${className}.execute(this.env, {
+  // Scripts run in a fetch handler and have no `this` — call the class on the
+  // env directly instead of `this.env`. Workflows still use `this.env` because
+  // they're emitted inside a WorkflowEntrypoint method.
+  const envRef = mode === 'script' ? 'env' : 'this.env'
+
+  const stepCode =
+    mode === 'script'
+      ? `${prefix}await ${className}.execute(${envRef}, {
+${paramsEntries}
+});`
+      : `${prefix}await step.do("${escName(node.name)}"${configArg}, async () => {
+  return ${className}.execute(${envRef}, {
 ${paramsEntries}
   });
 });`

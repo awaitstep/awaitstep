@@ -1,9 +1,9 @@
 import type { ProviderConfig } from '@awaitstep/codegen'
-import type { WorkflowIR } from '@awaitstep/ir'
+import type { ArtifactIR } from '@awaitstep/ir'
 import type { DatabaseAdapter } from '@awaitstep/db'
 import type { AppNodeRegistry } from './node-registry.js'
 
-export function collectRequiredEnvVars(ir: WorkflowIR, nodeRegistry?: AppNodeRegistry): string[] {
+export function collectRequiredEnvVars(ir: ArtifactIR, nodeRegistry?: AppNodeRegistry): string[] {
   if (!nodeRegistry) return []
   const required: string[] = []
   for (const node of ir.nodes) {
@@ -23,7 +23,7 @@ export async function resolveAndValidateEnvVars(
   organizationId: string,
   projectId: string,
   workflowId: string,
-  ir: WorkflowIR,
+  ir: ArtifactIR,
   nodeRegistry?: AppNodeRegistry,
 ): Promise<{ envVars?: ProviderConfig['envVars']; error?: string }> {
   const resolved = await db.resolveEnvVars(organizationId, projectId, workflowId)

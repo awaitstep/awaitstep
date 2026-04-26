@@ -57,6 +57,7 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
 
       // 2. Write wrangler config
       const wranglerConfig = generateWranglerConfig({
+        kind: options.kind,
         workerName: name,
         className,
         workflowName: sanitizedWorkflowName(options.workflowName),

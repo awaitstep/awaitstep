@@ -236,4 +236,32 @@ export default async function(ctx) {
     expect(code).toContain('await step.do("Simple", async () => {')
     expect(code).toContain('42')
   })
+
+  describe('script mode', () => {
+    it('emits a direct call site with env (not this.env, no IIFE)', () => {
+      const node: WorkflowNode = {
+        id: 'my-node',
+        name: 'My Node',
+        type: 'webhook-post',
+        version: '1.0.0',
+        provider: 'cloudflare',
+        position: { x: 0, y: 0 },
+        data: { webhookUrl: 'https://hook.example.com' },
+      }
+
+      const code = generateCustomNode(node, template, 'script')
+
+      // Class definition is unchanged — it always takes env: Env as a param.
+      expect(code).toContain('class WebhookPostNode {')
+      expect(code).toContain('static async execute(env: Env, params: Record<string, unknown>)')
+
+      // Call site differs: no step.do, no IIFE (the class.execute call already
+      // isolates the template body), env (not this.env).
+      expect(code).not.toContain('step.do')
+      expect(code).not.toContain('await (async () => {')
+      expect(code).toContain('WebhookPostNode.execute(env, {')
+      expect(code).not.toContain('WebhookPostNode.execute(this.env')
+      expect(code).toMatch(/=\s*await WebhookPostNode\.execute\(env, \{/)
+    })
+  })
 })
