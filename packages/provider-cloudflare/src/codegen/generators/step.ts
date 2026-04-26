@@ -1,5 +1,5 @@
 import type { WorkflowNode, StepConfig, RetryBackoff } from '@awaitstep/ir'
-import { varName, escName } from '@awaitstep/codegen'
+import { varName, escName, type GenerateMode } from '@awaitstep/codegen'
 import { generateStepConfig } from './config.js'
 
 /**
@@ -35,8 +35,14 @@ function resolveStepConfig(node: WorkflowNode): StepConfig | undefined {
   return config
 }
 
-export function generateStep(node: WorkflowNode): string {
+export function generateStep(node: WorkflowNode, mode: GenerateMode = 'workflow'): string {
   const code = String(node.data.code ?? '')
+  if (mode === 'script') {
+    // Step code is inlined raw into `runGraph`. `return X` exits runGraph
+    // with X. To share values across steps, declare `const myVar = ...`.
+    // To expose on graph, name the node `EXPORT_X` and declare `const X = ...`.
+    return code
+  }
   const config = generateStepConfig(resolveStepConfig(node))
   const configArg = config ? `, ${config}` : ''
   const hasReturn = /\breturn\b/.test(code)

@@ -9,14 +9,24 @@ The Intermediate Representation (IR) is the JSON format that describes a workflo
 ## Top-level shape
 
 ```typescript
+type ArtifactIR = WorkflowIR | ScriptIR
+
 interface WorkflowIR {
+  kind?: 'workflow' // Optional — absent = workflow (back-compat with legacy IRs)
   metadata: WorkflowMetadata
   nodes: WorkflowNode[]
   edges: Edge[]
   entryNodeId: string
   trigger?: TriggerConfig
 }
+
+interface ScriptIR extends Omit<WorkflowIR, 'kind' | 'trigger'> {
+  kind: 'script' // Required
+  trigger: HttpTriggerConfig // Required — scripts are HTTP-only
+}
 ```
+
+The `kind` discriminator decides which artifact compiles. Workflows produce a `WorkflowEntrypoint` class; scripts produce a fetch-only Worker. Validation dispatches via `validateArtifact(ir)` (or call `validateIR` / `validateScript` directly).
 
 ## WorkflowMetadata
 
@@ -88,20 +98,22 @@ type TriggerConfig =
 
 ## Builtin node types
 
-| Type             | Description                           |
-| ---------------- | ------------------------------------- |
-| `step`           | Custom TypeScript code block          |
-| `sleep`          | Pause for a duration                  |
-| `sleep_until`    | Pause until a timestamp               |
-| `branch`         | Conditional routing (if/else if/else) |
-| `parallel`       | Concurrent branches (`Promise.all`)   |
-| `race`           | First-wins branches (`Promise.race`)  |
-| `http_request`   | HTTP API call                         |
-| `wait_for_event` | Pause until an external event arrives |
-| `try_catch`      | Error handling block                  |
-| `loop`           | forEach / while / times iteration     |
-| `break`          | Exit the current loop                 |
-| `sub_workflow`   | Invoke another deployed workflow      |
+| Type             | Description                           | Workflow | Script               |
+| ---------------- | ------------------------------------- | -------- | -------------------- |
+| `step`           | Custom TypeScript code block          | ✅       | ✅                   |
+| `sleep`          | Pause for a duration                  | ✅       | ❌                   |
+| `sleep_until`    | Pause until a timestamp               | ✅       | ❌                   |
+| `branch`         | Conditional routing (if/else if/else) | ✅       | ✅                   |
+| `parallel`       | Concurrent branches (`Promise.all`)   | ✅       | ✅                   |
+| `race`           | First-wins branches (`Promise.race`)  | ✅       | ✅                   |
+| `http_request`   | HTTP API call                         | ✅       | ✅                   |
+| `wait_for_event` | Pause until an external event arrives | ✅       | ❌                   |
+| `try_catch`      | Error handling block                  | ✅       | ✅                   |
+| `loop`           | forEach / while / times iteration     | ✅       | ✅                   |
+| `break`          | Exit the current loop                 | ✅       | ✅                   |
+| `sub_workflow`   | Invoke another deployed workflow      | ✅       | ✅ (fire-and-forget) |
+
+Nodes marked ❌ for script require a durable runtime and are rejected by `validateScript` with a clear error. The web canvas surfaces the same constraint at publish time.
 
 ## Complete example
 
@@ -181,3 +193,10 @@ The platform validates the IR (schema + expression references + cycle detection)
 - Expression references (`<span v-pre>&#123;&#123;nodeId.path&#125;&#125;</span>`) must point to upstream nodes only.
 - `select`/`multiselect` field values must be one of the declared `options`.
 - Duration strings must be parseable (e.g. `"30 seconds"`, `"2 hours"`).
+
+### Script-only rules
+
+When `kind === "script"`, additional constraints apply:
+
+- `trigger.type` must be `"http"`. Cron, event, and manual triggers are rejected.
+- `nodes` must not include `sleep`, `sleep_until`, or `wait_for_event`.

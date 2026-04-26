@@ -1,8 +1,8 @@
 import type { WorkflowNode } from '@awaitstep/ir'
-import { varName, escName } from '@awaitstep/codegen'
+import { varName, escName, type GenerateMode } from '@awaitstep/codegen'
 import { generateStepConfig } from './config.js'
 
-export function generateHttp(node: WorkflowNode): string {
+export function generateHttp(node: WorkflowNode, mode: GenerateMode = 'workflow'): string {
   const method = String(node.data.method ?? 'GET')
   const url = String(node.data.url ?? '')
   const rawHeaders = node.data.headers
@@ -55,6 +55,11 @@ export function generateHttp(node: WorkflowNode): string {
 
   const bodyCode = lines.map((l) => `  ${l}`).join('\n')
 
+  if (mode === 'script') {
+    return `const ${varName(node.id)} = await (async () => {
+${bodyCode}
+})();`
+  }
   return `const ${varName(node.id)} = await step.do("${escName(node.name)}"${configArg}, async () => {
 ${bodyCode}
 });`

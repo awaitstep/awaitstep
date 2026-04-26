@@ -4,7 +4,11 @@ title: Triggering Runs via API
 
 # Triggering Runs via API
 
-The trigger endpoint starts a new execution of a deployed workflow. The workflow must be deployed before it can be triggered.
+The trigger endpoint starts a new execution of a deployed **workflow**. The workflow must be deployed before it can be triggered.
+
+::: warning Workflows only
+This endpoint is for `kind: "workflow"` only. Functions (`kind: "script"`) have no instance lifecycle — calling this endpoint on a function returns 400. See [Triggering functions](#triggering-functions) below for the direct-HTTP invocation pattern.
+:::
 
 ## Endpoint
 
@@ -138,3 +142,23 @@ The `instanceId`, `eventType`, and `payload` fields are routed by the Worker's t
 | Pause     | `POST /workflows/:id/runs/:runId/pause`     | `deploy` |
 | Resume    | `POST /workflows/:id/runs/:runId/resume`    | `deploy` |
 | Terminate | `POST /workflows/:id/runs/:runId/terminate` | `deploy` |
+
+## Triggering functions
+
+Functions (`kind: "script"`) bypass the trigger endpoint entirely. Each deployed function is a fetch-only Cloudflare Worker — invoke it directly via HTTP POST to the deployed Worker URL.
+
+```bash
+curl -X POST https://<your-worker-url> \
+  -H "Content-Type: application/json" \
+  -d '{ "orderId": "ord_001" }'
+```
+
+| Aspect         | Detail                                                                                                                                                                                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Method         | POST (the default fetch handler returns 200 for non-POST without invoking the graph)                                                                                                                                            |
+| Request body   | Parsed as JSON and exposed to nodes as `event.payload`                                                                                                                                                                          |
+| Response       | `Response.json(graph)` by default — `graph` contains only `EXPORT_`-prefixed node values. Override the body via the workflow's `triggerCode` field.                                                                             |
+| Errors         | Unhandled errors become 500 responses with `{ message }`. There are no retries — each request is a fresh invocation.                                                                                                            |
+| No instance ID | Each request is independent. There is no run record, no instance ID, no Runs tab, no `pause`/`resume`/`terminate`. Use Cloudflare's [Worker Logs](https://developers.cloudflare.com/workers/observability/logs/) for debugging. |
+
+See [REST API → Functions](./rest#functions) for the constraints, and [Compilation → Script shape](/concepts/compilation#script-shape-kind-script) for the emitted Worker code.

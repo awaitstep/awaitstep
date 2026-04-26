@@ -45,6 +45,7 @@ localDev.post('/:workflowId/local-dev/start', async (c) => {
     const result = await (prepared.adapter as LocalDevProvider).startLocalDev(prepared.artifact, {
       workflowId: workflow.id,
       workflowName: workflow.name,
+      kind: prepared.ir.kind === 'script' ? 'script' : 'workflow',
       dependencies: prepared.dependencies,
       ...(Object.keys(vars).length > 0 && { vars }),
       ...(Object.keys(secrets).length > 0 && { secrets }),

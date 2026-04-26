@@ -3,11 +3,11 @@ import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
-import { validateIR, workflowIRSchema } from '@awaitstep/ir'
+import { validateArtifact, artifactIRSchema } from '@awaitstep/ir'
 import type { AppEnv } from '../types.js'
 
 const createVersionSchema = z.object({
-  ir: workflowIRSchema,
+  ir: artifactIRSchema,
 })
 
 const lockVersionSchema = z.object({
@@ -37,7 +37,7 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
   const workflowId = c.req.param('workflowId')
   const body = c.req.valid('json')
 
-  const validation = validateIR(body.ir)
+  const validation = validateArtifact(body.ir)
   if (!validation.ok) {
     return c.json({ error: 'Invalid IR', details: validation.errors }, 400)
   }

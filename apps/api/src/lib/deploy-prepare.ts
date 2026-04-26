@@ -1,5 +1,5 @@
 import type { WorkflowProvider, ProviderConfig, GeneratedArtifact } from '@awaitstep/codegen'
-import type { WorkflowIR } from '@awaitstep/ir'
+import type { ArtifactIR } from '@awaitstep/ir'
 import type { DatabaseAdapter, Workflow } from '@awaitstep/db'
 import type { WranglerDeployer } from '@awaitstep/provider-cloudflare'
 import type { AppNodeRegistry } from './node-registry.js'
@@ -10,7 +10,7 @@ export interface DeployContext {
   adapter: WorkflowProvider
   artifact: GeneratedArtifact
   providerConfig: ProviderConfig
-  ir: WorkflowIR
+  ir: ArtifactIR
   versionId: string
   connectionId: string
   resolvedDeploymentConfig: unknown

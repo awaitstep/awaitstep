@@ -228,6 +228,16 @@ deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c)
   if (!workflow) return c.json({ error: 'Not found' }, 404)
   const body = c.req.valid('json')
 
+  if (workflow.kind === 'script') {
+    return c.json(
+      {
+        error:
+          'Scripts have no instance lifecycle — invoke the deployed worker URL directly via HTTP POST',
+      },
+      400,
+    )
+  }
+
   if (!workflow.currentVersionId) return c.json({ error: 'No version deployed' }, 400)
 
   const connection = await db.getProviderConnectionById(body.connectionId, organizationId)

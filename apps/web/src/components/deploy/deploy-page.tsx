@@ -36,9 +36,10 @@ type StepKey = (typeof STEPS)[number]['key']
 interface DeployPageProps {
   workflowId: string
   versionId?: string
+  kind?: 'workflow' | 'script'
 }
 
-export function DeployPage({ workflowId, versionId }: DeployPageProps) {
+export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
   const ready = useOrgReady()
   const connections = useConnectionsStore((s) => s.connections)
   const [step, setStep] = useState<StepKey>('connection')
@@ -89,7 +90,15 @@ export function DeployPage({ workflowId, versionId }: DeployPageProps) {
 
   if (state === 'deploying') return <StatusView type="deploying" progress={progress} />
   if (state === 'success') {
-    return <StatusView type="success" result={result} onRetry={retry} workflowId={workflowId} />
+    return (
+      <StatusView
+        type="success"
+        result={result}
+        onRetry={retry}
+        workflowId={workflowId}
+        kind={kind}
+      />
+    )
   }
   if (state === 'error') {
     return <StatusView type="error" error={error} onRetry={retry} workflowId={workflowId} />
@@ -436,6 +445,7 @@ type StatusViewProps =
       result: { url?: string; dashboardUrl?: string; deploymentId?: string } | null
       onRetry: () => void
       workflowId: string
+      kind?: 'workflow' | 'script'
     }
   | { type: 'error'; error: string | null; onRetry: () => void; workflowId: string }
 
@@ -454,6 +464,12 @@ function StatusView(props: StatusViewProps) {
             <CheckCircle2 className="h-6 w-6 text-status-success" />
           </div>
           <p className="mt-4 text-sm font-medium">Deployed successfully</p>
+          {props.kind === 'script' && props.result?.url && (
+            <p className="mt-2 max-w-md text-xs text-muted-foreground">
+              Invoke this function via HTTP <code className="rounded bg-muted px-1">POST</code> to
+              the URL below. The response body is the function&rsquo;s return value.
+            </p>
+          )}
           {props.result?.url && (
             <a
               href={props.result.url}

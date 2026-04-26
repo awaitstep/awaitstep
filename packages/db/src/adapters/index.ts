@@ -199,6 +199,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         createdBy: w.createdBy,
         name: w.name,
         description: w.description,
+        kind: w.kind,
         currentVersionId: w.currentVersionId,
         envVars: w.envVars,
         triggerCode: w.triggerCode,

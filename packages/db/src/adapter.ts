@@ -61,6 +61,7 @@ export interface DatabaseAdapter {
     createdBy: string
     name: string
     description?: string
+    kind?: 'workflow' | 'script'
   }): Promise<Workflow>
   getWorkflowById(id: string): Promise<Workflow | null>
   listWorkflowsByProject(

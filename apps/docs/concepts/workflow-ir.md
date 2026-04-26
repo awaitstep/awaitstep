@@ -14,6 +14,7 @@ The canvas (XYFlow) stores spatial data: positions, selection state, UI metadata
 
 ```typescript
 interface WorkflowIR {
+  kind?: 'workflow' // Optional — defaults to 'workflow' if absent
   metadata: WorkflowMetadata
   nodes: WorkflowNode[]
   edges: Edge[]
@@ -91,6 +92,56 @@ type TriggerConfig =
   }
 }
 ```
+
+## Scripts vs Workflows
+
+The `kind` discriminator on the IR distinguishes two artifact kinds. Both share the node graph and per-node generators; the difference is the wrapper and which nodes are valid.
+
+```typescript
+type ArtifactIR = WorkflowIR | ScriptIR
+
+interface ScriptIR extends Omit<WorkflowIR, 'kind' | 'trigger'> {
+  kind: 'script' // Required
+  trigger: HttpTriggerConfig // Required — scripts are HTTP-only
+}
+```
+
+The `kind` field on `WorkflowIR` is **optional** for back-compat: legacy IRs persisted before the discriminator existed continue to validate as workflows. `ScriptIR` requires `kind: 'script'` literally.
+
+### Script constraints
+
+`ScriptIR` rejects nodes that need a durable runtime — scripts run inside `async fetch(request, env)` and have no instance lifecycle:
+
+| Node             | Workflow | Script               |
+| ---------------- | -------- | -------------------- |
+| `step`           | ✅       | ✅                   |
+| `branch`         | ✅       | ✅                   |
+| `parallel`       | ✅       | ✅                   |
+| `race`           | ✅       | ✅                   |
+| `http_request`   | ✅       | ✅                   |
+| `try_catch`      | ✅       | ✅                   |
+| `loop`           | ✅       | ✅                   |
+| `break`          | ✅       | ✅                   |
+| `sub_workflow`   | ✅       | ✅ (fire-and-forget) |
+| `sleep`          | ✅       | ❌                   |
+| `sleep_until`    | ✅       | ❌                   |
+| `wait_for_event` | ✅       | ❌                   |
+
+`validateScript` rejects sleep/sleep_until/wait_for_event with a clear error. The web canvas surfaces the same errors at publish time when `kind === 'script'`.
+
+### Validation dispatch
+
+```typescript
+import { validateArtifact } from '@awaitstep/ir'
+
+const result = validateArtifact(ir) // dispatches on ir.kind
+```
+
+`validateArtifact` reads the `kind` field and dispatches to either `validateIR` (workflow) or `validateScript`. Absence of `kind` is treated as `'workflow'`.
+
+### Sub-workflow nodes in scripts
+
+In script mode, `sub_workflow` is always fire-and-forget — there is no durable runtime to poll the child instance to completion. The generator emits a single `const X = await env.X.create({ id, params })` returning the WorkflowInstance handle; callers can read `.id` or `.status()` from the response directly.
 
 ## Expression System
 

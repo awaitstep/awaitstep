@@ -1,6 +1,6 @@
 # Compilation
 
-The compilation pipeline transforms a `WorkflowIR` into a deployable Cloudflare Worker. Each stage is discrete and can fail independently.
+The compilation pipeline transforms an `ArtifactIR` (`WorkflowIR | ScriptIR`) into a deployable Cloudflare Worker. The pipeline dispatches on `ir.kind`: workflows compile to a `WorkflowEntrypoint` class with `step.do()` wrappers; scripts compile to a fetch handler that calls a generated `runGraph(env, event)` function. Stages 1–5 below are the same for both; only the final wrapper differs.
 
 ## Pipeline Overview
 
@@ -42,13 +42,15 @@ If validation fails, the pipeline stops and returns the errors to the UI. Deploy
 
 ## Stage 3 — Generate Code
 
-The validated IR is passed to `generateWorkflow` (in `@awaitstep/provider-cloudflare`). This performs a topological sort of the node DAG, then emits TypeScript for each node in execution order.
+The validated IR is passed to either `generateWorkflow` or `generateScript` (in `@awaitstep/provider-cloudflare`) based on `ir.kind`. Both perform a topological sort of the node DAG, then emit TypeScript for each node in execution order using the same per-node generators in mode-aware form.
 
-Each node is wrapped in a `step.do()` call, which gives it:
+In **workflow mode**, each node is wrapped in a `step.do()` call, which gives it:
 
 - Durable execution (automatic replay on worker restart)
 - Configurable retry logic
 - Persistent output storage
+
+In **script mode**, the same per-node code is emitted without the `step.do()` wrapper — there is no step runner in a fetch handler. Step bodies are inlined raw into the generated `runGraph(env, event)` function. There are no retries, no durable replay; an unhandled error becomes a 500 response unless caught by user `triggerCode`.
 
 ### Variable Naming
 
@@ -165,12 +167,19 @@ See [Deploy Pipeline](./deploy-pipeline.md) for the full stage breakdown.
 
 ## Full Generated Worker Shape
 
-The output of the pipeline is a complete Cloudflare Worker module:
+The output of the pipeline is a complete Cloudflare Worker module. The shape depends on `ir.kind`.
+
+### Workflow shape
 
 ```typescript
 import { WorkflowEntrypoint, WorkflowEvent, WorkflowStep } from 'cloudflare:workers'
 
-export class MyWorkflow extends WorkflowEntrypoint {
+interface Env {
+  WORKFLOW: Workflow
+  // ...other detected bindings
+}
+
+export class MyWorkflow extends WorkflowEntrypoint<Env> {
   async run(event: WorkflowEvent<unknown>, step: WorkflowStep) {
     // Step 1
     const fetch_user_result = await step.do('fetch_user', async () => {
@@ -188,9 +197,60 @@ export class MyWorkflow extends WorkflowEntrypoint {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    // HTTP trigger handler (if configured)
-    const instance = await env.MY_WORKFLOW.create()
+    // HTTP trigger handler (if configured) creates a new instance.
+    const instance = await env.WORKFLOW.create()
     return new Response(JSON.stringify({ instanceId: instance.id }))
   },
 }
 ```
+
+### Script shape (kind: 'script')
+
+```typescript
+interface Env {
+  // No WORKFLOW self-binding — scripts are not a Workflow.
+  // Sub-workflow bindings + detected resource bindings only.
+}
+
+async function runGraph(env: Env, event: { payload: unknown }) {
+  // Per-node generated code — no step.do() wraps, raw inline.
+  const fetch_user = await fetch('https://api.example.com/users/123')
+
+  // Only EXPORT_-prefixed nodes surface on the returned graph object.
+  return { fetch_user }
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    try {
+      if (request.method !== 'POST') {
+        return new Response(null, { status: 200 })
+      }
+      const params = await request.json().catch(() => undefined)
+      const event = { payload: params }
+
+      const graph = await runGraph(env, event)
+
+      return Response.json(graph)
+    } catch (error) {
+      return Response.json({ message: error.message }, { status: 500 })
+    }
+  },
+}
+```
+
+### `EXPORT_` prefix — opt-in graph outputs
+
+By default, `runGraph` returns an empty object — node outputs are internal to the graph. To expose a node's value on `graph.X`, prefix the node's display name with `EXPORT_`:
+
+| Node display name   | Surfaces on graph as                                                             |
+| ------------------- | -------------------------------------------------------------------------------- |
+| `Fetch User`        | (not exported — present in graph internals only)                                 |
+| `EXPORT_FetchUser`  | `graph.FetchUser` (prefix stripped from the variable name)                       |
+| `EXPORT_DirectMail` | `graph.DirectMail` (works inside containers — value is hoisted out of the block) |
+
+A node without `EXPORT_` that isn't referenced by any downstream node is dropped entirely (its `await` becomes a bare statement) — keeps the generated code lean.
+
+### Trigger code customization
+
+Both shapes use a default fetch handler body that the user can override via the workflow's `triggerCode` field. For workflows, the default creates a new instance per POST. For scripts, the default JSONs the `graph` object. Custom `triggerCode` is emitted verbatim inside `async fetch(request, env)`; the generated class (workflows) or `runGraph` function (scripts) stay stable across edits.
