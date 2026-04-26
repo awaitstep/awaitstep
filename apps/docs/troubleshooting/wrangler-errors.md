@@ -107,7 +107,7 @@ Worker names are derived from the workflow name and the `APP_NAME` env var.
 
 1. Click **View Generated Code** in the workflow toolbar (or fetch the version via API).
 2. Review the generated TypeScript for obvious errors.
-3. Check that all `<span v-pre>&#123;&#123;expression&#125;&#125;</span>` references resolve to the correct values.
+3. Check that all <code v-pre>{{expression}}</code> references resolve to the correct values.
 4. Add console.log statements to Step nodes to debug (visible in Cloudflare Worker logs). Remove them before the final deploy.
 
 ---

@@ -148,8 +148,8 @@ Nodes marked ❌ for script require a durable runtime and are rejected by `valid
       "data": {
         "method": "POST",
         "url": "https://api.resend.com/emails",
-        "headers": "{\"Authorization\": \"Bearer &#123;&#123;env.RESEND_API_KEY&#125;&#125;\"}",
-        "body": "{\"to\": \"&#123;&#123;parse_order.email&#125;&#125;\", \"subject\": \"Order confirmed\"}"
+        "headers": "{\"Authorization\": \"Bearer {{env.RESEND_API_KEY}}\"}",
+        "body": "{\"to\": \"{{parse_order.email}}\", \"subject\": \"Order confirmed\"}"
       },
       "config": {
         "retries": { "limit": 3, "delay": "10 seconds", "backoff": "exponential" }
@@ -190,7 +190,7 @@ The platform validates the IR (schema + expression references + cycle detection)
 - `entryNodeId` must reference a node that exists in `nodes`.
 - All `edges` must reference node IDs that exist in `nodes`.
 - No cycles in the edge graph (DAG constraint).
-- Expression references (`<span v-pre>&#123;&#123;nodeId.path&#125;&#125;</span>`) must point to upstream nodes only.
+- Expression references (<code v-pre>{{nodeId.path}}</code>) must point to upstream nodes only.
 - `select`/`multiselect` field values must be one of the declared `options`.
 - Duration strings must be parseable (e.g. `"30 seconds"`, `"2 hours"`).
 

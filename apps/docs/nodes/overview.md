@@ -4,7 +4,7 @@ A node is a reusable, self-describing workflow building block. Every node on the
 
 - **What it does** — a name, description, and category
 - **What it needs** — a config schema that drives the UI form automatically
-- **What it produces** — a typed output schema that downstream nodes can reference via `<span v-pre>&#123;&#123;nodeId.property&#125;&#125;</span>`
+- **What it produces** — a typed output schema that downstream nodes can reference via <code v-pre>{{nodeId.property}}</code>
 - **How it runs** — one or more code templates, one per execution provider
 
 Every node is automatically wrapped in `step.do()` by the compile pipeline. You never write retry or durability logic — the platform handles it.
