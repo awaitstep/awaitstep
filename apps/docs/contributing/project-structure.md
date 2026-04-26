@@ -55,14 +55,14 @@ The React SPA. Key directories:
 
 The IR package defines the Workflow IR types and all logic that operates on them:
 
-| File                     | Purpose                                                                                   |
-| ------------------------ | ----------------------------------------------------------------------------------------- |
-| `src/types.ts`           | `WorkflowIR`, `WorkflowNode`, `Edge`, `TriggerConfig` types                               |
-| `src/schema.ts`          | Zod validation schema                                                                     |
-| `src/validate.ts`        | Semantic validation (cycle detection, expression checks)                                  |
-| `src/expressions.ts`     | Expression parser and resolver (`<span v-pre>&#123;&#123;nodeId.path&#125;&#125;</span>`) |
-| `src/node-definition.ts` | `NodeDefinition`, `ConfigField`, `OutputField` types                                      |
-| `src/bundled-nodes/`     | Built-in node definitions (http_request, etc.)                                            |
+| File                     | Purpose                                                             |
+| ------------------------ | ------------------------------------------------------------------- |
+| `src/types.ts`           | `WorkflowIR`, `WorkflowNode`, `Edge`, `TriggerConfig` types         |
+| `src/schema.ts`          | Zod validation schema                                               |
+| `src/validate.ts`        | Semantic validation (cycle detection, expression checks)            |
+| `src/expressions.ts`     | Expression parser and resolver (<code v-pre>{{nodeId.path}}</code>) |
+| `src/node-definition.ts` | `NodeDefinition`, `ConfigField`, `OutputField` types                |
+| `src/bundled-nodes/`     | Built-in node definitions (http_request, etc.)                      |
 
 ## packages/codegen
 

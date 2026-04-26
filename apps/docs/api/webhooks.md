@@ -17,12 +17,12 @@ If you need to be notified when a run finishes, you have two options:
 
 Add an **HTTP Request** node as the last step in your workflow:
 
-| Field   | Value                                                                                       |
-| ------- | ------------------------------------------------------------------------------------------- |
-| Method  | `POST`                                                                                      |
-| URL     | `https://your-server.example.com/webhooks/workflow-complete`                                |
-| Headers | `{"Authorization": "Bearer <span v-pre>&#123;&#123;env.WEBHOOK_SECRET&#125;&#125;</span>"}` |
-| Body    | `{"workflowId": "...", "status": "complete"}`                                               |
+| Field   | Value                                                                 |
+| ------- | --------------------------------------------------------------------- |
+| Method  | `POST`                                                                |
+| URL     | `https://your-server.example.com/webhooks/workflow-complete`          |
+| Headers | <code v-pre>{"Authorization": "Bearer {{env.WEBHOOK_SECRET}}"}</code> |
+| Body    | `{"workflowId": "...", "status": "complete"}`                         |
 
 This gives you full control over the payload and authentication.
 

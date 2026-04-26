@@ -60,7 +60,7 @@ See [Wrangler Errors](./wrangler-errors.md) for more wrangler-specific issues.
 
 **Fix:** The deploy response includes a list of validation errors with node IDs and paths. Open the canvas and address each error:
 
-- Fix broken expression references (`<span v-pre>&#123;&#123;unknownNode.field&#125;&#125;</span>` pointing to a removed node).
+- Fix broken expression references (<code v-pre>{{unknownNode.field}}</code> pointing to a removed node).
 - Connect all nodes — every node must be reachable from the entry node.
 - Check that `select` fields have a valid option selected.
 
