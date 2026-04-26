@@ -8,6 +8,7 @@ import type { AppEnv } from '../types.js'
 const createSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().max(1000).optional(),
+  kind: z.enum(['workflow', 'script']).optional(),
 })
 
 const envVarNamePattern = /^[A-Z][A-Z0-9_]*$/
@@ -133,6 +134,7 @@ workflows.post('/', zValidator('json', createSchema), async (c) => {
     createdBy: userId,
     name: body.name,
     description: body.description,
+    kind: body.kind,
   })
   return c.json(workflow, 201)
 })

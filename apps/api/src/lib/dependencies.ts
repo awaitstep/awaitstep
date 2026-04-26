@@ -1,4 +1,4 @@
-import type { WorkflowIR } from '@awaitstep/ir'
+import type { ArtifactIR } from '@awaitstep/ir'
 import type { AppNodeRegistry } from './node-registry.js'
 
 export function parseDependencies(
@@ -16,7 +16,7 @@ export function parseDependencies(
 }
 
 export function collectNodeDependencies(
-  ir: WorkflowIR,
+  ir: ArtifactIR,
   nodeRegistry?: AppNodeRegistry,
 ): Record<string, string> {
   if (!nodeRegistry) return {}

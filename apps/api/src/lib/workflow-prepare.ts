@@ -1,5 +1,5 @@
 import type { WorkflowProvider, GeneratedArtifact, ProviderConfig } from '@awaitstep/codegen'
-import type { WorkflowIR } from '@awaitstep/ir'
+import type { ArtifactIR } from '@awaitstep/ir'
 import type { DatabaseAdapter, Workflow } from '@awaitstep/db'
 import type { AppNodeRegistry } from './node-registry.js'
 import { createMergedNodeRegistry } from './node-registry.js'
@@ -10,7 +10,7 @@ import { resolveAndValidateEnvVars } from './env-resolve.js'
 export interface WorkflowContext {
   adapter: WorkflowProvider
   artifact: GeneratedArtifact
-  ir: WorkflowIR
+  ir: ArtifactIR
   versionId: string
   nodeRegistry: AppNodeRegistry
   envVars?: Record<string, { value: string; isSecret: boolean }>
@@ -46,7 +46,18 @@ export async function prepareWorkflow(
     return { error: 'Version not found', status: 404 }
   }
 
-  const ir = JSON.parse(version.ir) as WorkflowIR
+  const parsedIr = JSON.parse(version.ir) as ArtifactIR
+  // Stamp kind from the workflow row when the stored IR predates the
+  // discriminator. Existing workflows have no `kind` in their stored IR.
+  // Scripts also require a `trigger` field — default to HTTP if the stored
+  // IR was persisted before that schema requirement.
+  let ir: ArtifactIR = parsedIr
+  if (ir.kind === undefined && workflow.kind === 'script') {
+    ir = { ...ir, kind: 'script' } as ArtifactIR
+  }
+  if (ir.kind === 'script' && !ir.trigger) {
+    ir = { ...ir, trigger: { type: 'http' } } as ArtifactIR
+  }
 
   // Merge installed nodes for custom node template resolution
   const nodeTypesInIR = new Set(ir.nodes.map((n) => n.type))
