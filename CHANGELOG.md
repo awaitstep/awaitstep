@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.11](https://github.com/awaitstep/awaitstep/compare/v1.4.10...v1.4.11) (2026-04-26)
+
+
+### Bug Fixes
+
+* **ir:** allow event/env/trigger as reserved expression refs ([a6b0a34](https://github.com/awaitstep/awaitstep/commit/a6b0a34ec57f3cf475b001775b8e4adddcc0a203))
+* **provider-cloudflare:** clean up loop codegen — drop dead counter and IIFE ([73dcff4](https://github.com/awaitstep/awaitstep/commit/73dcff4e21add1cee34e5708adcdeb706cf630b2))
+* **provider-cloudflare:** drop redundant IIFE in parallel/race script mode ([4a8251d](https://github.com/awaitstep/awaitstep/commit/4a8251d0004062f4b24012c0223acde0551a4fae))
+* **provider-cloudflare:** flatten http_request script-mode codegen ([486b8cb](https://github.com/awaitstep/awaitstep/commit/486b8cb052c692cfbcac50144e5b1064ab9ffdbd))
+* script-mode codegen cleanup (validator + IIFE removal + loop counter) ([8749a32](https://github.com/awaitstep/awaitstep/commit/8749a325994ea38fa7a2c9c6dfce30bcf05df111))
+
 ## [1.4.10](https://github.com/awaitstep/awaitstep/compare/v1.4.9...v1.4.10) (2026-04-26)
 
 
