@@ -89,11 +89,9 @@ export function generatePromiseContainer(
     .filter(Boolean)
 
   if (mode === 'script') {
-    return `const ${varName(node.id)} = await (async () => {
-  return await Promise.${method}([
+    return `const ${varName(node.id)} = await Promise.${method}([
 ${branches.join(',\n')}
-  ].map(fn => fn()));
-})();`
+].map(fn => fn()));`
   }
   return `const ${varName(node.id)} = await step.do("${escName(node.name)}", async () => {
   return await Promise.${method}([
