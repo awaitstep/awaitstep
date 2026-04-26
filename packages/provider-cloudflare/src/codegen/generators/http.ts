@@ -56,9 +56,24 @@ export function generateHttp(node: WorkflowNode, mode: GenerateMode = 'workflow'
   const bodyCode = lines.map((l) => `  ${l}`).join('\n')
 
   if (mode === 'script') {
-    return `const ${varName(node.id)} = await (async () => {
-${bodyCode}
-})();`
+    // No `step.do` boundary in script mode, so emit the body inline. The
+    // simple no-queryparams case collapses to a single expression. With
+    // queryparams the URL builder needs intermediate vars — namespace them
+    // by node id so siblings don't collide, and keep the final assignment
+    // as `const ${varName(node.id)} = ...` so the EXPORT_ post-processing
+    // (which scans for `const X =`) still finds it.
+    if (!hasQueryParams) {
+      const urlLiteral = toJsLiteral(url)
+      return `const ${varName(node.id)} = await fetch(${urlLiteral}${fetchOpts}).then(r => r.json());`
+    }
+    const v = varName(node.id)
+    const urlLiteral = toJsLiteral(url)
+    const scriptLines: string[] = [`const _${v}_url = new URL(${urlLiteral});`]
+    for (const [k, qv] of Object.entries(queryParams)) {
+      scriptLines.push(`_${v}_url.searchParams.set("${k}", ${toJsLiteral(qv)});`)
+    }
+    scriptLines.push(`const ${v} = await fetch(_${v}_url${fetchOpts}).then(r => r.json());`)
+    return scriptLines.join('\n')
   }
   return `const ${varName(node.id)} = await step.do("${escName(node.name)}"${configArg}, async () => {
 ${bodyCode}

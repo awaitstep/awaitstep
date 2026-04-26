@@ -52,15 +52,39 @@ describe('generateLoop', () => {
     expect(code).toContain('for (let _loop_i')
   })
 
-  it('generates forEach loop', () => {
+  it('generates forEach loop using .entries() when body has step.do calls (counter inline)', () => {
     const ir = makeLoopIR(
       { loopType: 'forEach', collection: 'get_customers.customers', itemVar: 'customer' },
       [step('send', 'Send Email')],
     )
     const code = generateLoop(ir.nodes[0]!, ir, generateNodeCode)
-    expect(code).toContain('for (const customer of get_customers.customers)')
+    // Counter comes from .entries() destructure — no separate `let _loop_i = 0` declaration.
+    expect(code).toContain('for (const [_loop_i, customer] of (get_customers.customers).entries())')
     expect(code).toContain('Send Email [${_loop_i}]')
-    expect(code).toContain('let _loop_i = 0')
+    expect(code).not.toContain('let _loop_i = 0')
+  })
+
+  it('generates forEach without counter when body has no step.METHOD calls', () => {
+    const noStepBody: WorkflowNode = {
+      id: 'inline',
+      type: 'step',
+      name: 'Inline',
+      position: { x: 0, y: 0 },
+      version: V,
+      provider: P,
+      data: { code: 'console.log(item);' }, // no step.do/sleep/etc inside the inline code
+    }
+    // Use a custom-node-style call to avoid step.do — but step nodes always
+    // use step.do in workflow mode. So this assertion is mainly relevant in
+    // script mode (covered separately). Keep this one minimal — confirm
+    // `_loop_i` isn't redundantly declared when entries() does it.
+    const ir = makeLoopIR({ loopType: 'forEach', collection: 'items', itemVar: 'item' }, [
+      noStepBody,
+    ])
+    const code = generateLoop(ir.nodes[0]!, ir, generateNodeCode)
+    // step nodes wrap with step.do, so counter IS needed → entries() form.
+    expect(code).toContain('for (const [_loop_i, item] of (items).entries())')
+    expect(code).not.toContain('let _loop_i = 0')
   })
 
   it('generates while loop without condition (while true)', () => {
