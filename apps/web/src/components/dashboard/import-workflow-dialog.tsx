@@ -3,8 +3,8 @@ import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Upload, FileText, AlertCircle, Loader2 } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { validateIR } from '@awaitstep/ir'
-import type { WorkflowIR } from '@awaitstep/ir'
+import { validateArtifact } from '@awaitstep/ir'
+import type { ArtifactIR } from '@awaitstep/ir'
 import { Button } from '../ui/button'
 import { CodeEditor } from '../ui/code-editor'
 import { api } from '../../lib/api-client'
@@ -14,7 +14,7 @@ type InputMode = 'paste' | 'file'
 
 function parseAndValidate(
   raw: string,
-): { ir: WorkflowIR; errors: null } | { ir: null; errors: string[] } {
+): { ir: ArtifactIR; errors: null } | { ir: null; errors: string[] } {
   let parsed: unknown
   try {
     parsed = JSON.parse(raw)
@@ -22,7 +22,7 @@ function parseAndValidate(
     return { ir: null, errors: ['Invalid JSON — check for syntax errors.'] }
   }
 
-  const result = validateIR(parsed)
+  const result = validateArtifact(parsed)
   if (!result.ok) {
     return {
       ir: null,
@@ -41,7 +41,7 @@ export function ImportWorkflowDialog({ onClose }: { onClose: () => void }) {
   const [jsonText, setJsonText] = useState('')
   const [fileName, setFileName] = useState<string | null>(null)
   const [name, setName] = useState('')
-  const [validIR, setValidIR] = useState<WorkflowIR | null>(null)
+  const [validIR, setValidIR] = useState<ArtifactIR | null>(null)
   const [errors, setErrors] = useState<string[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -121,22 +121,24 @@ export function ImportWorkflowDialog({ onClose }: { onClose: () => void }) {
       const workflow = await api.createWorkflow({
         name: name.trim() || validIR.metadata.name,
         description: validIR.metadata.description,
+        kind: validIR.kind,
       })
       await api.createVersion(workflow.id, { ir: validIR })
       return workflow
     },
     onSuccess: (workflow) => {
+      const isScript = validIR?.kind === 'script'
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
       navigate({
         to: '/workflows/$workflowId/canvas',
         params: { workflowId: workflow.id },
       }).finally(() => {
-        toast.success('Workflow imported')
+        toast.success(isScript ? 'Function imported' : 'Workflow imported')
         onClose()
       })
     },
     onError: (err) => {
-      toast.error(err instanceof Error ? err.message : 'Failed to import workflow')
+      toast.error(err instanceof Error ? err.message : 'Failed to import')
     },
   })
 
@@ -154,10 +156,12 @@ export function ImportWorkflowDialog({ onClose }: { onClose: () => void }) {
           onDragLeave={() => setIsDragOver(false)}
         >
           <Dialog.Title className="text-base font-semibold text-foreground">
-            Import Workflow
+            Import Workflow or Function
           </Dialog.Title>
           <p className="mt-1 text-xs text-muted-foreground">
-            Paste an IR JSON document or upload an exported <code>.ir.json</code> file.
+            Paste an IR JSON document or upload an exported <code>.ir.json</code> file. The kind (
+            <code>workflow</code> or <code>script</code>) is read from the IR's <code>kind</code>{' '}
+            field; absent <code>kind</code> imports as a workflow.
           </p>
 
           {/* Mode tabs */}
@@ -259,17 +263,28 @@ export function ImportWorkflowDialog({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          {/* Workflow name (shown when IR is valid) */}
+          {/* Name + detected kind (shown when IR is valid) */}
           {validIR && (
             <div className="mt-3">
-              <label className="text-xs font-medium text-foreground/60">Workflow name</label>
+              <label className="text-xs font-medium text-foreground/60">
+                {validIR.kind === 'script' ? 'Function name' : 'Workflow name'}
+              </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="mt-1 w-full rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/40"
               />
-              <p className="mt-1.5 text-xs text-muted-foreground">
+              <p className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
+                <span
+                  className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                    validIR.kind === 'script'
+                      ? 'bg-violet-500/15 text-violet-600 dark:text-violet-300'
+                      : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300'
+                  }`}
+                >
+                  {validIR.kind === 'script' ? 'Function' : 'Workflow'}
+                </span>
                 {validIR.nodes.length} nodes, {validIR.edges.length} edges
               </p>
             </div>
