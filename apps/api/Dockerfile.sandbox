@@ -1,12 +1,14 @@
 FROM docker.io/cloudflare/sandbox:0.9.2
 
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
+
 # Pre-install wrangler globally so deploys don't pay ~30s npm install cost.
 # The sandbox is ephemeral (created + destroyed per deploy), but the Docker
 # image is cached across runs.
 #
 # Instance type should be at least "basic" (1/4 vCPU, 1 GiB memory, 4 GB disk).
 # "lite" (256 MiB) is not enough for wrangler + npm install + esbuild.
-RUN npm install -g wrangler@4.82.2
+RUN npm install -g wrangler@latest
 
 # Working directory for deploy artifacts (worker.ts, wrangler.json, package.json)
 RUN mkdir -p /workspace
