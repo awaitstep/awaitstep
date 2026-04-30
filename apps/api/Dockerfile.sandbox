@@ -6,7 +6,7 @@ FROM docker.io/cloudflare/sandbox:0.9.2
 #
 # Instance type should be at least "basic" (1/4 vCPU, 1 GiB memory, 4 GB disk).
 # "lite" (256 MiB) is not enough for wrangler + npm install + esbuild.
-RUN npm install -g wrangler@latest
+RUN npm install -g wrangler@4.82.2
 
 # Working directory for deploy artifacts (worker.ts, wrangler.json, package.json)
 RUN mkdir -p /workspace
