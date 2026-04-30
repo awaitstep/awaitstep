@@ -141,8 +141,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
 
   generate(ir: ArtifactIR, config?: ProviderConfig): GeneratedArtifact {
     const envVarNames = config?.envVars ? Object.keys(config.envVars) : undefined
-    const dc = config?.options?.['deploymentConfig'] as CloudflareDeploymentConfig | undefined
-    const triggerCode = dc?.triggerCode ?? (config?.options?.['triggerCode'] as string | undefined)
+    const triggerCode = config?.options?.['triggerCode'] as string | undefined
     if (ir.kind === 'script') {
       const source = generateScript(ir as ScriptIR, {
         templateResolver: this.templateResolver,

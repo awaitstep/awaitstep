@@ -11,14 +11,20 @@ describe('cloudflareDeploymentConfigSchema', () => {
     expect(cloudflareDeploymentConfigSchema.safeParse({}).success).toBe(true)
   })
 
-  it('accepts routes, toggles, and triggerCode', () => {
+  it('accepts routes and toggles', () => {
     const parsed = cloudflareDeploymentConfigSchema.safeParse({
       routes: [{ pattern: 'example.com/*', zoneName: 'example.com' }],
       workersDev: true,
       previewUrls: false,
-      triggerCode: 'export default {}',
     })
     expect(parsed.success).toBe(true)
+  })
+
+  it('rejects triggerCode (workflow-level field, not a deployment setting)', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({
+      triggerCode: 'export default {}',
+    })
+    expect(parsed.success).toBe(false)
   })
 
   it('rejects routes missing zoneName', () => {
