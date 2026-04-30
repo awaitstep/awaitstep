@@ -103,7 +103,7 @@ export async function deployWithWrangler(
       CLOUDFLARE_API_TOKEN: options.apiToken,
     }
 
-    const { stdout } = await execFileAsync('npx', ['wrangler@4.82.2', 'deploy'], {
+    const { stdout } = await execFileAsync('npx', ['wrangler', 'deploy'], {
       cwd: deployDir,
       env: wranglerEnv,
       timeout: 120_000,
@@ -117,7 +117,7 @@ export async function deployWithWrangler(
       try {
         await execFileAsync(
           'npx',
-          ['wrangler@4.82.2', 'secret', 'bulk', SECRETS_BULK_FILENAME, '--name', name],
+          ['wrangler', 'secret', 'bulk', SECRETS_BULK_FILENAME, '--name', name],
           { cwd: deployDir, env: wranglerEnv, timeout: 60_000 },
         )
       } finally {
