@@ -99,7 +99,7 @@ describe('SandboxWranglerDeployer', () => {
     const bulkCall = lastSandbox!.execCalls.find((c) => c.command.includes('secret bulk'))
     expect(bulkCall).toBeDefined()
     expect(bulkCall!.command).toBe(
-      'npx wrangler secret bulk .secrets.bulk.json --name awaitstep-my-workflow',
+      'wrangler secret bulk .secrets.bulk.json --name awaitstep-my-workflow',
     )
     expect(bulkCall!.cwd).toBe('/workspace')
     expect(bulkCall!.env?.CLOUDFLARE_API_TOKEN).toBe('token123')
