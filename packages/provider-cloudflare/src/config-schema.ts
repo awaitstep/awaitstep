@@ -50,9 +50,6 @@ export const cloudflareDeploymentConfigSchema = z
       )
       .optional(),
     logpush: z.boolean().optional(),
-
-    // Advanced (hidden from UI)
-    triggerCode: z.string().optional(),
   })
   .strict()
 
