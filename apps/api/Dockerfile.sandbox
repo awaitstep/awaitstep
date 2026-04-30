@@ -1,4 +1,4 @@
-FROM docker.io/cloudflare/sandbox:0.8.11
+FROM docker.io/cloudflare/sandbox:0.9.2
 
 # Pre-install wrangler globally so deploys don't pay ~30s npm install cost.
 # The sandbox is ephemeral (created + destroyed per deploy), but the Docker
