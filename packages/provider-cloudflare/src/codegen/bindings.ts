@@ -22,6 +22,23 @@ export interface BindingRequirement {
   resourceId?: string
 }
 
+/**
+ * Derives the canonical queue name from a `QUEUE_*` binding identifier.
+ *
+ * - `QUEUE_EMAILS` → `emails`
+ * - `QUEUE_JOBS` → `jobs`
+ * - bare `QUEUE` → `queue`
+ *
+ * Used in two places that MUST agree, otherwise producer and consumer end
+ * up wired to different CF queues:
+ * - `generateWranglerConfig` producer derivation (`queues.producers[].queue`)
+ * - `@queue function NAME(...)` annotation suggestion in the bindings panel
+ */
+export function deriveQueueName(bindingName: string): string {
+  const stripped = bindingName.replace(/^QUEUE_?/i, '')
+  return (stripped || bindingName).toLowerCase()
+}
+
 const BINDING_PATTERNS: Array<{ pattern: RegExp; type: BindingType }> = [
   { pattern: /env\.(KV\w*)/g, type: 'kv' },
   { pattern: /env\.(DB\w*)/g, type: 'd1' },

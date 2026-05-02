@@ -75,6 +75,7 @@ const getInitialWorkflowState = () => ({
   triggerCode: '',
   deployConfig: {},
   showSettings: false,
+  showEditor: false,
   validationResult: null,
   simulationResult: null,
   isDirty: false,
@@ -95,6 +96,7 @@ interface WorkflowState {
   triggerCode: string
   deployConfig: DeployConfig
   showSettings: boolean
+  showEditor: boolean
   validationResult: PublishValidationResult | null
   simulationResult: SimulationResult | null
   isDirty: boolean
@@ -123,6 +125,7 @@ interface WorkflowState {
   setTriggerCode: (code: string) => void
   setDeployConfig: (config: DeployConfig) => void
   setShowSettings: (show: boolean) => void
+  setShowEditor: (show: boolean) => void
   runValidation: (nodeRegistry?: NodeRegistry) => PublishValidationResult
   clearValidation: () => void
   runSimulation: () => SimulationResult
@@ -421,6 +424,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   setShowSettings: (show) => {
     set({ showSettings: show, selectedNodeId: show ? null : get().selectedNodeId })
+  },
+
+  setShowEditor: (show) => {
+    set({ showEditor: show })
   },
 
   runValidation: (nodeRegistry?: NodeRegistry) => {

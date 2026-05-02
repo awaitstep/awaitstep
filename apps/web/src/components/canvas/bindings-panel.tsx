@@ -12,7 +12,9 @@ import {
   Zap,
   Globe,
   Link,
+  Plus,
 } from 'lucide-react'
+import { deriveQueueName } from '@awaitstep/provider-cloudflare/codegen'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import {
   detectBindingsFromNodes,
@@ -34,9 +36,33 @@ const BINDING_META: Record<ClientBindingType, { label: string; icon: typeof Data
   service: { label: 'Service', icon: Link },
 }
 
+/**
+ * Returns true if the trigger code already declares a `@queue function NAME(...)`
+ * for the given queue name. Plain regex — assumes annotations live at top
+ * level (matches our parser's contract).
+ */
+function hasQueueHandler(triggerCode: string, queueName: string): boolean {
+  const re = new RegExp(`@queue\\s+function\\s+${queueName}\\s*\\(`)
+  return re.test(triggerCode)
+}
+
+function buildConsumeSnippet(queueName: string): string {
+  return `
+
+@queue function ${queueName}(batch, env, ctx) {
+  for (const msg of batch.messages) {
+    // process msg.body
+    msg.ack()
+  }
+}`
+}
+
 export function BindingsPanel() {
   const [expanded, setExpanded] = useState(false)
   const nodes = useWorkflowStore((s) => s.nodes)
+  const triggerCode = useWorkflowStore((s) => s.triggerCode)
+  const setTriggerCode = useWorkflowStore((s) => s.setTriggerCode)
+  const setShowEditor = useWorkflowStore((s) => s.setShowEditor)
 
   const bindings: ClientBinding[] = useMemo(() => {
     if (nodes.length === 0) return []
@@ -44,6 +70,15 @@ export function BindingsPanel() {
   }, [nodes])
 
   if (bindings.length === 0) return null
+
+  const handleConsumeClick = (bindingName: string) => {
+    const queueName = deriveQueueName(bindingName)
+    if (!hasQueueHandler(triggerCode, queueName)) {
+      setTriggerCode(triggerCode + buildConsumeSnippet(queueName))
+    }
+    // Open the code editor so the user sees the inserted handler in context.
+    setShowEditor(true)
+  }
 
   return (
     <div className="absolute top-4 right-4 z-10">
@@ -68,6 +103,10 @@ export function BindingsPanel() {
             {bindings.map((binding) => {
               const meta = BINDING_META[binding.type]
               const Icon = meta.icon
+              const isQueue = binding.type === 'queue'
+              const queueName = isQueue ? deriveQueueName(binding.name) : null
+              const alreadyConsumed =
+                isQueue && queueName !== null && hasQueueHandler(triggerCode, queueName)
               return (
                 <div
                   key={`${binding.type}:${binding.name}`}
@@ -83,6 +122,19 @@ export function BindingsPanel() {
                     {meta.label}
                   </span>
                   <span className="font-mono text-foreground/70">{binding.name}</span>
+                  {isQueue &&
+                    (alreadyConsumed ? (
+                      <span className="text-muted-foreground/60 text-xs italic">consumed</span>
+                    ) : (
+                      <button
+                        onClick={() => handleConsumeClick(binding.name)}
+                        className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-primary hover:bg-primary/10"
+                        title={`Add @queue function ${queueName}(...) to trigger code`}
+                      >
+                        <Plus className="h-3 w-3" />
+                        Consume
+                      </button>
+                    ))}
                 </div>
               )
             })}

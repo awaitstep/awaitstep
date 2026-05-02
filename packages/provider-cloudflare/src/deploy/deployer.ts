@@ -81,6 +81,15 @@ export interface DeployOptions {
   limits?: { cpuMs?: number }
   observability?: { enabled: boolean; headSamplingRate?: number }
   logpush?: boolean
+  /** Per-queue consumer settings; emitted as `queues.consumers[]` in wrangler.json. */
+  queueConsumers?: Array<{
+    queue: string
+    maxBatchSize?: number
+    maxBatchTimeout?: number
+    maxRetries?: number
+    deadLetterQueue?: string
+    maxConcurrency?: number
+  }>
 }
 
 export interface WranglerDeployResult {

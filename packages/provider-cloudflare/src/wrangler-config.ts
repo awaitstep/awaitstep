@@ -1,4 +1,4 @@
-import type { BindingRequirement } from './codegen/bindings.js'
+import { deriveQueueName, type BindingRequirement } from './codegen/bindings.js'
 import type { SubWorkflowBinding } from './codegen/generators/sub-workflow.js'
 
 export const WRANGLER_BASE_CONFIG = {
@@ -35,6 +35,20 @@ export interface WranglerWorkflowConfig {
   limits?: { cpuMs?: number }
   observability?: { enabled: boolean; headSamplingRate?: number }
   logpush?: boolean
+  /**
+   * Per-queue consumer settings — populated by the adapter from `@queue function NAME`
+   * annotations cross-referenced with the deployment config's `queueConsumers`.
+   * Each entry produces one `queues.consumers[]` row in the emitted wrangler config.
+   * Cloudflare defaults apply to fields left undefined.
+   */
+  queueConsumers?: Array<{
+    queue: string
+    maxBatchSize?: number
+    maxBatchTimeout?: number
+    maxRetries?: number
+    deadLetterQueue?: string
+    maxConcurrency?: number
+  }>
   localDev?: boolean
 }
 
@@ -152,7 +166,10 @@ export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
           r2Bindings.push({ binding: b.name, bucket_name: b.resourceId ?? b.name.toLowerCase() })
           break
         case 'queue':
-          queueProducers.push({ binding: b.name, queue: b.resourceId ?? b.name.toLowerCase() })
+          // Default queue name strips the `QUEUE_` prefix so producer and
+          // consumer (`@queue function NAME`) agree on the same CF queue.
+          // Users can override via the `<NAME>_BINDING_ID` env var convention.
+          queueProducers.push({ binding: b.name, queue: b.resourceId ?? deriveQueueName(b.name) })
           break
         case 'service':
           serviceBindings.push({ binding: b.name, service: b.resourceId ?? b.name.toLowerCase() })
@@ -191,7 +208,10 @@ export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
     if (kvBindings.length > 0) wranglerConfig.kv_namespaces = kvBindings
     if (d1Bindings.length > 0) wranglerConfig.d1_databases = d1Bindings
     if (r2Bindings.length > 0) wranglerConfig.r2_buckets = r2Bindings
-    if (queueProducers.length > 0) wranglerConfig.queues = { producers: queueProducers }
+    if (queueProducers.length > 0) {
+      const existing = (wranglerConfig.queues ?? {}) as Record<string, unknown>
+      wranglerConfig.queues = { ...existing, producers: queueProducers }
+    }
     if (serviceBindings.length > 0) wranglerConfig.services = serviceBindings
     if (aiBinding) wranglerConfig.ai = aiBinding
     if (vectorizeBindings.length > 0) wranglerConfig.vectorize = vectorizeBindings
@@ -199,6 +219,20 @@ export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
       wranglerConfig.analytics_engine_datasets = analyticsEngineBindings
     if (hyperdriveBindings.length > 0) wranglerConfig.hyperdrive = hyperdriveBindings
     if (browserBinding) wranglerConfig.browser = browserBinding
+  }
+
+  if (config.queueConsumers && config.queueConsumers.length > 0) {
+    const consumers = config.queueConsumers.map((c) => {
+      const out: Record<string, unknown> = { queue: c.queue }
+      if (c.maxBatchSize !== undefined) out.max_batch_size = c.maxBatchSize
+      if (c.maxBatchTimeout !== undefined) out.max_batch_timeout = c.maxBatchTimeout
+      if (c.maxRetries !== undefined) out.max_retries = c.maxRetries
+      if (c.deadLetterQueue !== undefined) out.dead_letter_queue = c.deadLetterQueue
+      if (c.maxConcurrency !== undefined) out.max_concurrency = c.maxConcurrency
+      return out
+    })
+    const existing = (wranglerConfig.queues ?? {}) as Record<string, unknown>
+    wranglerConfig.queues = { ...existing, consumers }
   }
 
   return JSON.stringify(wranglerConfig, null, 2)

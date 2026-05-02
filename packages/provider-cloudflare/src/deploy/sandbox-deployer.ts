@@ -76,6 +76,7 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
         limits: options.limits,
         observability: options.observability,
         logpush: options.logpush,
+        queueConsumers: options.queueConsumers,
       })
       await sandbox.writeFile('/workspace/wrangler.json', wranglerConfig)
 

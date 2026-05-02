@@ -6,6 +6,31 @@ export const cloudflareRouteSchema = z.object({
   zoneName: z.string().min(1),
 })
 
+/**
+ * Schema for one queue-consumer entry. Reused by both:
+ * - `cloudflareDeploymentConfigSchema.queueConsumers` (per-deploy overrides)
+ * - the inline `@config { ... }` block parser inside a `@queue function`
+ *   handler body (which omits `queue` since it's derived from the function name)
+ */
+export const cloudflareQueueConsumerSchema = z
+  .object({
+    queue: z.string().min(1),
+    maxBatchSize: z.number().int().min(1).max(100).optional(),
+    maxBatchTimeout: z.number().int().min(0).max(60).optional(),
+    maxRetries: z.number().int().min(0).max(100).optional(),
+    deadLetterQueue: z.string().min(1).optional(),
+    maxConcurrency: z.number().int().min(1).max(20).optional(),
+  })
+  .strict()
+
+/** Same as above but without the `queue` field — used for inline `@config` blocks. */
+export const cloudflareInlineQueueConfigSchema = cloudflareQueueConsumerSchema
+  .omit({ queue: true })
+  .strict()
+
+export type CloudflareQueueConsumer = z.infer<typeof cloudflareQueueConsumerSchema>
+export type CloudflareInlineQueueConfig = z.infer<typeof cloudflareInlineQueueConfigSchema>
+
 export const cloudflareDeploymentConfigSchema = z
   .object({
     // Routing
@@ -50,6 +75,11 @@ export const cloudflareDeploymentConfigSchema = z
       )
       .optional(),
     logpush: z.boolean().optional(),
+
+    // Per-queue consumer settings — populated automatically from `@queue function NAME(...)`
+    // declarations in trigger code. Each entry tunes the consumer for one queue
+    // name. Cloudflare defaults apply to fields left undefined.
+    queueConsumers: z.array(cloudflareQueueConsumerSchema).optional(),
   })
   .strict()
 
