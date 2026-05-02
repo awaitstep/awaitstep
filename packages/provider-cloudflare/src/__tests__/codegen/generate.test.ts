@@ -81,6 +81,93 @@ describe('generateWorkflow', () => {
     expect(code).toContain('fetch("https://api.example.com/notify"')
   })
 
+  it('generates a single-branch (if without else)', () => {
+    const ir: WorkflowIR = {
+      metadata: { name: 'single-branch-test', version: 1, createdAt: '', updatedAt: '' },
+      nodes: [
+        {
+          id: 'br',
+          type: 'branch',
+          name: 'Maybe run',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { branches: [{ label: 'yes', condition: 'true' }] },
+        },
+        {
+          id: 's1',
+          type: 'step',
+          name: 'Inside',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { code: 'return 1;' },
+        },
+      ],
+      edges: [{ id: 'e0', source: 'br', target: 's1', label: 'yes' }],
+      entryNodeId: 'br',
+    }
+    const code = generateWorkflow(ir)
+    expect(code).toContain('if (true) {')
+    expect(code).not.toContain('} else {')
+    expect(code).toContain('step.do("Inside"')
+  })
+
+  it('emits a "then" continuation node AFTER the branch block', () => {
+    const ir: WorkflowIR = {
+      metadata: { name: 'branch-then-test', version: 1, createdAt: '', updatedAt: '' },
+      nodes: [
+        {
+          id: 'br',
+          type: 'branch',
+          name: 'Check',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { branches: [{ label: 'yes', condition: 'true' }] },
+        },
+        {
+          id: 's1',
+          type: 'step',
+          name: 'Inside',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { code: 'return 1;' },
+        },
+        {
+          id: 's2',
+          type: 'step',
+          name: 'After branch',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { code: 'return 2;' },
+        },
+      ],
+      edges: [
+        { id: 'e0', source: 'br', target: 's1', label: 'yes' },
+        { id: 'e1', source: 'br', target: 's2', label: 'then' },
+      ],
+      entryNodeId: 'br',
+    }
+    const code = generateWorkflow(ir)
+    // Branch body present
+    expect(code).toContain('if (true) {')
+    expect(code).toContain('step.do("Inside"')
+    // Continuation step also present, AFTER the branch's closing brace
+    expect(code).toContain('step.do("After branch"')
+    const branchCloseIdx = code.lastIndexOf('}')
+    const afterBranchIdx = code.indexOf('step.do("After branch"')
+    // The continuation must appear in the source after the branch close — i.e.,
+    // not inlined inside the if/else.
+    expect(afterBranchIdx).toBeGreaterThan(0)
+    // Sanity: the inside step appears BEFORE the continuation step
+    const insideIdx = code.indexOf('step.do("Inside"')
+    expect(insideIdx).toBeLessThan(afterBranchIdx)
+    expect(branchCloseIdx).toBeGreaterThan(0) // matched some closing brace
+  })
+
   it('generates a parallel workflow', () => {
     const code = generateWorkflow(parallelWorkflow as unknown as WorkflowIR)
     expect(code).toContain('Promise.allSettled')

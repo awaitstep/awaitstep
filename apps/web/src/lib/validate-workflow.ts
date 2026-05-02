@@ -330,8 +330,10 @@ export function validateWorkflowForPublish(
 
       case 'branch': {
         const branches = (ir.data.branches ?? []) as BranchCondition[]
-        if (branches.length < 2) {
-          add('error', id, name, 'Fewer than 2 branches')
+        // A branch with no branches at all isn't useful — it'd emit nothing.
+        // A single-branch case (`if (cond) { ... }` with no else) IS valid.
+        if (branches.length < 1) {
+          add('error', id, name, 'Branch has no conditions')
         }
 
         const labels = branches.map((b) => b.label)

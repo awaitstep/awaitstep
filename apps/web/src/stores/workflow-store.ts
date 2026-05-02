@@ -292,6 +292,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       else if (!labels.has('finally')) label = 'finally'
       else if (!labels.has('then')) label = 'then'
       else return
+    } else if (type === 'branch') {
+      // Per-branch wiring (yes/no/etc.) is done via the config panel, which
+      // sets explicit branch labels. A direct drag from the branch's source
+      // handle is for the continuation path that runs after the if/else
+      // block returns — auto-label as 'then'. Block if one already exists.
+      const labels = new Set(outgoing!.map((e) => e.label))
+      if (!labels.has('then')) label = 'then'
+      else return
     }
 
     const newEdge = { ...connection, id: nanoid(), ...(label ? { label } : {}) }
