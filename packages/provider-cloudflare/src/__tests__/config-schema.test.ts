@@ -45,6 +45,63 @@ describe('cloudflareDeploymentConfigSchema', () => {
   })
 })
 
+describe('cloudflareDeploymentConfigSchema — queueConsumers', () => {
+  it('accepts a valid queueConsumers array', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({
+      queueConsumers: [
+        {
+          queue: 'emails',
+          maxBatchSize: 25,
+          maxBatchTimeout: 30,
+          maxRetries: 3,
+          deadLetterQueue: 'emails-dlq',
+          maxConcurrency: 5,
+        },
+      ],
+    })
+    expect(parsed.success).toBe(true)
+  })
+
+  it('accepts an entry with only the queue name (defaults applied at wrangler emission)', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({
+      queueConsumers: [{ queue: 'jobs' }],
+    })
+    expect(parsed.success).toBe(true)
+  })
+
+  it('rejects empty queue name', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({
+      queueConsumers: [{ queue: '' }],
+    })
+    expect(parsed.success).toBe(false)
+  })
+
+  it('rejects out-of-range maxBatchSize', () => {
+    const tooBig = cloudflareDeploymentConfigSchema.safeParse({
+      queueConsumers: [{ queue: 'jobs', maxBatchSize: 101 }],
+    })
+    const tooSmall = cloudflareDeploymentConfigSchema.safeParse({
+      queueConsumers: [{ queue: 'jobs', maxBatchSize: 0 }],
+    })
+    expect(tooBig.success).toBe(false)
+    expect(tooSmall.success).toBe(false)
+  })
+
+  it('rejects out-of-range maxConcurrency (CF caps at 20)', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({
+      queueConsumers: [{ queue: 'jobs', maxConcurrency: 21 }],
+    })
+    expect(parsed.success).toBe(false)
+  })
+
+  it('rejects unknown keys inside a queue consumer entry', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({
+      queueConsumers: [{ queue: 'jobs', unknownField: true }],
+    })
+    expect(parsed.success).toBe(false)
+  })
+})
+
 describe('cloudflareDefaultDeploymentConfig', () => {
   it('validates against its own schema', () => {
     expect(

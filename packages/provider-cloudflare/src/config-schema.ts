@@ -50,6 +50,24 @@ export const cloudflareDeploymentConfigSchema = z
       )
       .optional(),
     logpush: z.boolean().optional(),
+
+    // Per-queue consumer settings — populated automatically from `@queue function NAME(...)`
+    // declarations in trigger code. Each entry tunes the consumer for one queue
+    // name. Cloudflare defaults apply to fields left undefined.
+    queueConsumers: z
+      .array(
+        z
+          .object({
+            queue: z.string().min(1),
+            maxBatchSize: z.number().int().min(1).max(100).optional(),
+            maxBatchTimeout: z.number().int().min(0).max(60).optional(),
+            maxRetries: z.number().int().min(0).max(100).optional(),
+            deadLetterQueue: z.string().min(1).optional(),
+            maxConcurrency: z.number().int().min(1).max(20).optional(),
+          })
+          .strict(),
+      )
+      .optional(),
   })
   .strict()
 
