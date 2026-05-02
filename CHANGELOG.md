@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.11](https://github.com/awaitstep/awaitstep/compare/v1.4.10...v1.4.11) (2026-05-02)
+
+
+### Bug Fixes
+
+* **api:** source triggerCode from workflow row, drop duplicate from deployment config ([d22b4e3](https://github.com/awaitstep/awaitstep/commit/d22b4e3d8319adaa407dbbe92b7593263bc14b2b))
+* **api:** source triggerCode from workflow row, drop duplicate from deployment config ([f56377c](https://github.com/awaitstep/awaitstep/commit/f56377c6464ebbec34bad7850f1b323a5dcfe085))
+* **deploy:** surface user-code syntax errors instead of silent success ([d9475b4](https://github.com/awaitstep/awaitstep/commit/d9475b4e55e526285d5a4a0f92856dcc572ccde4))
+* **deploy:** surface user-code syntax errors instead of silent success ([0b31922](https://github.com/awaitstep/awaitstep/commit/0b319221bcb771511ad45f5c23d26e925f9b2dfa))
+* **ir:** allow event/env/trigger as reserved expression refs ([a6b0a34](https://github.com/awaitstep/awaitstep/commit/a6b0a34ec57f3cf475b001775b8e4adddcc0a203))
+* **provider-cloudflare:** clean up loop codegen — drop dead counter and IIFE ([73dcff4](https://github.com/awaitstep/awaitstep/commit/73dcff4e21add1cee34e5708adcdeb706cf630b2))
+* **provider-cloudflare:** drop redundant IIFE in parallel/race script mode ([4a8251d](https://github.com/awaitstep/awaitstep/commit/4a8251d0004062f4b24012c0223acde0551a4fae))
+* **provider-cloudflare:** flatten http_request script-mode codegen ([486b8cb](https://github.com/awaitstep/awaitstep/commit/486b8cb052c692cfbcac50144e5b1064ab9ffdbd))
+* **sandbox:** pin wrangler to v4.82.2 and call binary directly ([5383285](https://github.com/awaitstep/awaitstep/commit/53832855f702815068ece852fada8b65b95bfd1e))
+* **sandbox:** pin wrangler to v4.82.2 and call binary directly ([223ea64](https://github.com/awaitstep/awaitstep/commit/223ea646c8d1e8a8e0fce797f33a66fe751ee447))
+* script-mode codegen cleanup (validator + IIFE removal + loop counter) ([8749a32](https://github.com/awaitstep/awaitstep/commit/8749a325994ea38fa7a2c9c6dfce30bcf05df111))
+
 ## [1.4.10](https://github.com/awaitstep/awaitstep/compare/v1.4.9...v1.4.10) (2026-04-26)
 
 
