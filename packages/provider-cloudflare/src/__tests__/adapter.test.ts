@@ -162,6 +162,23 @@ describe('CloudflareWorkflowsAdapter', () => {
       expect(deployOpts.routes).toBeUndefined()
     })
 
+    it('returns a structured Compile error when transpile fails (does not throw)', async () => {
+      const brokenIR: WorkflowIR = {
+        ...simpleIR,
+        nodes: [
+          {
+            ...simpleIR.nodes[0]!,
+            // Missing comma between properties — sucrase will reject this.
+            data: { code: 'const obj = { a: 1\n  b: 2 }; return obj;' },
+          },
+        ],
+      }
+      const artifact = adapter.generate(brokenIR)
+      const result = await adapter.deploy(artifact, providerConfig)
+      expect(result.success).toBe(false)
+      expect(result.error).toMatch(/^Compile error:/)
+    })
+
     it('excludes _BINDING_ID env vars from wrangler vars', async () => {
       const artifact = adapter.generate(simpleIR)
       const configWithBindingIds: ProviderConfig = {
