@@ -424,3 +424,133 @@ describe('generateScript', () => {
     expect(code).toMatch(/interface Env \{[\s\S]*API_KEY: string;[\s\S]*\}/)
   })
 })
+
+describe('generateScript — annotation mode (@fetch / @queue)', () => {
+  const trivialIR = makeScript([stepNode('s', 'return { ok: true }')])
+
+  it('emits both fetch and queue handlers when @fetch and @queue are declared', () => {
+    const triggerCode = `
+@fetch function handler(request, env, ctx) {
+  return Response.json(await runGraph(env, { payload: {} }))
+}
+
+@queue function emails(batch, env, ctx) {
+  for (const msg of batch.messages) msg.ack()
+}
+`
+    const code = generateScript(trivialIR, { triggerCode })
+    expect(code).toContain('async fetch(request, env, ctx): Promise<Response>')
+    expect(code).toMatch(
+      /async queue\(batch: MessageBatch<unknown>, env: Env, ctx: ExecutionContext\): Promise<void>/,
+    )
+    expect(code).toContain('switch (batch.queue) {')
+    expect(code).toContain('case "emails":')
+    expect(code).toContain('msg.ack()')
+  })
+
+  it('emits multiple @queue handlers as switch cases', () => {
+    const triggerCode = `
+@fetch function handler(request, env, ctx) { return new Response("ok") }
+
+@queue function emails(batch, env, ctx) { /* email processing */ }
+@queue function jobs(batch, env, ctx) { /* job processing */ }
+`
+    const code = generateScript(trivialIR, { triggerCode })
+    expect(code).toContain('case "emails":')
+    expect(code).toContain('case "jobs":')
+    expect(code).toContain('email processing')
+    expect(code).toContain('job processing')
+  })
+
+  it('omits fetch handler entirely for queue-only workers', () => {
+    const triggerCode = `
+@queue function emails(batch, env, ctx) {
+  for (const msg of batch.messages) msg.ack()
+}
+`
+    const code = generateScript(trivialIR, { triggerCode })
+    expect(code).not.toContain('async fetch(')
+    expect(code).toContain('async queue(batch: MessageBatch<unknown>')
+    expect(code).toContain('case "emails":')
+  })
+
+  it('omits queue handler when no @queue annotations are present', () => {
+    const triggerCode = `
+@fetch function handler(request, env, ctx) {
+  return Response.json({ ok: true })
+}
+`
+    const code = generateScript(trivialIR, { triggerCode })
+    expect(code).toContain('async fetch(request, env, ctx)')
+    expect(code).not.toContain('async queue(')
+    expect(code).not.toContain('switch (batch.queue)')
+  })
+
+  it('emits module-level code outside annotated functions', () => {
+    const triggerCode = `
+const SHARED_CONFIG = { region: "eu" }
+function shared(x) { return x * 2 }
+
+@fetch function handler(request, env, ctx) {
+  return Response.json({ doubled: shared(21), config: SHARED_CONFIG })
+}
+`
+    const code = generateScript(trivialIR, { triggerCode })
+    expect(code).toContain('const SHARED_CONFIG = { region: "eu" }')
+    expect(code).toContain('function shared(x) { return x * 2 }')
+    // Module code emitted before runGraph so handlers can reference it.
+    const moduleIdx = code.indexOf('const SHARED_CONFIG')
+    const runGraphIdx = code.indexOf('async function runGraph')
+    expect(moduleIdx).toBeGreaterThan(0)
+    expect(moduleIdx).toBeLessThan(runGraphIdx)
+  })
+
+  it('hoists imports from inside any annotated handler body to module top', () => {
+    const triggerCode = `
+@fetch function handler(request, env, ctx) {
+  import puppeteer from "@cloudflare/puppeteer"
+  return Response.json({})
+}
+
+@queue function emails(batch, env, ctx) {
+  import { sendEmail } from "./email"
+  for (const msg of batch.messages) await sendEmail(msg.body)
+}
+`
+    const code = generateScript(trivialIR, { triggerCode })
+    // Imports should appear at the very top, NOT inside handler bodies.
+    const puppeteerImportIdx = code.indexOf('import puppeteer')
+    const fetchHandlerIdx = code.indexOf('async fetch(')
+    expect(puppeteerImportIdx).toBeGreaterThanOrEqual(0)
+    expect(puppeteerImportIdx).toBeLessThan(fetchHandlerIdx)
+
+    const sendEmailImportIdx = code.indexOf('import { sendEmail }')
+    expect(sendEmailImportIdx).toBeGreaterThanOrEqual(0)
+    expect(sendEmailImportIdx).toBeLessThan(fetchHandlerIdx)
+  })
+
+  it('preserves user param names from @fetch annotation', () => {
+    const triggerCode = `
+@fetch function handler(req, env, ctx) {
+  return new Response("hi from " + req.url)
+}
+`
+    const code = generateScript(trivialIR, { triggerCode })
+    // Use of 'req' (user's chosen name) is preserved, not rewritten to 'request'.
+    expect(code).toContain('async fetch(req, env, ctx)')
+    expect(code).toContain('req.url')
+  })
+
+  it('legacy mode emission unchanged when no annotations present', () => {
+    const code = generateScript(trivialIR)
+    expect(code).toContain('async fetch(request: Request, env: Env): Promise<Response>')
+    expect(code).not.toContain('async queue(')
+  })
+
+  it('throws AnnotationParseError on invalid @fetch name (propagates from parser)', () => {
+    const triggerCode = `@fetch function notHandler() { return new Response() }`
+    expect(() => generateScript(trivialIR, { triggerCode })).toThrow(
+      /requires function named 'handler'/,
+    )
+  })
+})

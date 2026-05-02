@@ -20,6 +20,7 @@ import {
   generateNodeCode,
   resolveNodeExpressions,
 } from './generate-helpers.js'
+import { parseAnnotations } from './parse-annotations.js'
 
 /**
  * Default body of the fetch handler for scripts. The graph nodes run inside
@@ -228,8 +229,38 @@ export function generateScript(
 
   const rawTriggerCode =
     triggerCode && triggerCode.length > 0 ? triggerCode : DEFAULT_SCRIPT_TRIGGER_CODE
-  const { imports: triggerImports, body: fetchBody } = extractImports(rawTriggerCode)
-  collectedImports.push(...triggerImports)
+
+  const parsed = parseAnnotations(rawTriggerCode)
+
+  // Per-block import extraction. In legacy mode there's only one block (the
+  // fetch body). In strict mode we extract imports from module-level code,
+  // the @fetch handler body, and every @queue handler body — all imports get
+  // hoisted to the top of the generated worker.
+  let moduleCode = ''
+  let fetchHandlerEmission: { params: string; body: string } | null = null
+  const queueHandlerEmissions: Array<{ name: string; params: string; body: string }> = []
+
+  if (parsed.mode === 'legacy') {
+    const { imports, body } = extractImports(parsed.fetchBody)
+    collectedImports.push(...imports)
+    fetchHandlerEmission = { params: 'request: Request, env: Env', body }
+  } else {
+    if (parsed.moduleCode.trim().length > 0) {
+      const { imports, body } = extractImports(parsed.moduleCode)
+      collectedImports.push(...imports)
+      moduleCode = body
+    }
+    if (parsed.fetchHandler) {
+      const { imports, body } = extractImports(parsed.fetchHandler.body)
+      collectedImports.push(...imports)
+      fetchHandlerEmission = { params: parsed.fetchHandler.params, body }
+    }
+    for (const qh of parsed.queueHandlers) {
+      const { imports, body } = extractImports(qh.body)
+      collectedImports.push(...imports)
+      queueHandlerEmissions.push({ name: qh.name, params: qh.params, body })
+    }
+  }
 
   // runGraph isolates node-emitted code in its own function. Only nodes
   // marked for export (display name prefixed with `EXPORT_`) surface on
@@ -248,16 +279,40 @@ ${declStatement}${graphBody.trim().length > 0 ? indent(graphBody, 2) + '\n' : ''
     !preview && classDefinitions.size > 0
       ? '\n' + [...classDefinitions.values()].join('\n\n') + '\n'
       : ''
+  const moduleCodeBlock = moduleCode.trim().length > 0 ? '\n' + moduleCode.trim() + '\n' : ''
   const envBlock = envFields.length > 0 ? `\n${envFields.join('\n')}\n` : ''
 
+  // Build the export default object — fetch handler is omitted entirely for
+  // queue-only workers; queue handler is omitted when no @queue annotations.
+  const handlerBlocks: string[] = []
+  if (fetchHandlerEmission) {
+    handlerBlocks.push(`  async fetch(${fetchHandlerEmission.params}): Promise<Response> {
+${indent(fetchHandlerEmission.body, 4)}
+  },`)
+  }
+  if (queueHandlerEmissions.length > 0) {
+    const cases = queueHandlerEmissions
+      .map(
+        (qh) => `      case "${qh.name}": {
+${indent(qh.body, 8)}
+        return
+      }`,
+      )
+      .join('\n')
+    handlerBlocks.push(`  async queue(batch: MessageBatch<unknown>, env: Env, ctx: ExecutionContext): Promise<void> {
+    switch (batch.queue) {
+${cases}
+    }
+  },`)
+  }
+  const exportDefault = `export default {
+${handlerBlocks.join('\n')}
+};`
+
   return `${importBlock ? importBlock.trimStart() + '\n\n' : ''}interface Env {${envBlock}}
-${classBlock}
+${classBlock}${moduleCodeBlock}
 ${runGraphBlock}
 
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-${indent(fetchBody, 4)}
-  },
-};
+${exportDefault}
 `
 }
