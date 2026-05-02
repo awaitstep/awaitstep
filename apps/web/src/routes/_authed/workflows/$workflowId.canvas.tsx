@@ -75,7 +75,8 @@ function WorkflowEditorPage() {
   } = useSearch({
     from: '/_authed/workflows/$workflowId/canvas',
   })
-  const [showEditor, setShowEditor] = useState(false)
+  const showEditor = useWorkflowStore((s) => s.showEditor)
+  const setShowEditor = useWorkflowStore((s) => s.setShowEditor)
   const [showLocalTest, setShowLocalTest] = useState(false)
   // Functions never show the template picker — templates are workflow-shaped.
   const [showTemplatePicker, setShowTemplatePicker] = useState(template && kindParam !== 'script')

@@ -4,6 +4,7 @@ import { generateWorkflow } from './generate-workflow.js'
 import { generateScript } from './generate-script.js'
 
 export { extractImports, generateNodeCode } from './generate-helpers.js'
+export { deriveQueueName } from './bindings.js'
 export { DEFAULT_TRIGGER_CODE, generateWorkflow } from './generate-workflow.js'
 export type { GenerateOptions } from './generate-workflow.js'
 export { DEFAULT_SCRIPT_TRIGGER_CODE, generateScript } from './generate-script.js'

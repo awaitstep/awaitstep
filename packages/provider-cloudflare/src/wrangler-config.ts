@@ -1,4 +1,4 @@
-import type { BindingRequirement } from './codegen/bindings.js'
+import { deriveQueueName, type BindingRequirement } from './codegen/bindings.js'
 import type { SubWorkflowBinding } from './codegen/generators/sub-workflow.js'
 
 export const WRANGLER_BASE_CONFIG = {
@@ -166,7 +166,10 @@ export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
           r2Bindings.push({ binding: b.name, bucket_name: b.resourceId ?? b.name.toLowerCase() })
           break
         case 'queue':
-          queueProducers.push({ binding: b.name, queue: b.resourceId ?? b.name.toLowerCase() })
+          // Default queue name strips the `QUEUE_` prefix so producer and
+          // consumer (`@queue function NAME`) agree on the same CF queue.
+          // Users can override via the `<NAME>_BINDING_ID` env var convention.
+          queueProducers.push({ binding: b.name, queue: b.resourceId ?? deriveQueueName(b.name) })
           break
         case 'service':
           serviceBindings.push({ binding: b.name, service: b.resourceId ?? b.name.toLowerCase() })

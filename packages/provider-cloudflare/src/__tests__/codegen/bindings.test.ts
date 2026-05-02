@@ -1,6 +1,28 @@
 import { describe, it, expect } from 'vitest'
-import { detectBindings } from '../../codegen/bindings.js'
+import { detectBindings, deriveQueueName } from '../../codegen/bindings.js'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
+
+describe('deriveQueueName', () => {
+  it('strips QUEUE_ prefix and lowercases', () => {
+    expect(deriveQueueName('QUEUE_EMAILS')).toBe('emails')
+    expect(deriveQueueName('QUEUE_JOBS_HIGH')).toBe('jobs_high')
+  })
+
+  it('handles bare QUEUE binding by lowercasing the original', () => {
+    expect(deriveQueueName('QUEUE')).toBe('queue')
+  })
+
+  it('is case-insensitive on the prefix', () => {
+    expect(deriveQueueName('queue_emails')).toBe('emails')
+    expect(deriveQueueName('Queue_emails')).toBe('emails')
+  })
+
+  it('passes non-QUEUE bindings through (lowercased)', () => {
+    // Defensive: shouldn't be called with non-queue bindings, but if so,
+    // returns a sensible value rather than throwing.
+    expect(deriveQueueName('FOO_BAR')).toBe('foo_bar')
+  })
+})
 
 const V = '1.0.0'
 const P = 'cloudflare'
