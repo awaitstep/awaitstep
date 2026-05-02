@@ -197,7 +197,18 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     }
 
     report('GENERATING_CODE', 'Compiling TypeScript to JavaScript', 15)
-    const compiled = await transpileToJS(artifact.source)
+    let compiled: string
+    try {
+      compiled = await transpileToJS(artifact.source)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      report('FAILED', `Compile error: ${message}`, 0)
+      return {
+        success: false,
+        deploymentId: '',
+        error: `Compile error: ${message}`,
+      }
+    }
     const compiledArtifact: GeneratedArtifact = {
       filename: 'worker.js',
       source: artifact.source,
@@ -425,7 +436,13 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     artifact: GeneratedArtifact,
     options: LocalDevOptions,
   ): Promise<LocalDevSession> {
-    const compiled = await transpileToJS(artifact.source)
+    let compiled: string
+    try {
+      compiled = await transpileToJS(artifact.source)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      throw new Error(`Compile error: ${message}`, { cause: err })
+    }
     return startLocalDev({ filename: 'worker.js', source: artifact.source, compiled }, options)
   }
 }

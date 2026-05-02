@@ -1,4 +1,5 @@
 import type { WorkflowProvider, GeneratedArtifact, ProviderConfig } from '@awaitstep/codegen'
+import { transpileToJS } from '@awaitstep/codegen/transpile'
 import type { ArtifactIR } from '@awaitstep/ir'
 import type { DatabaseAdapter, Workflow } from '@awaitstep/db'
 import type { AppNodeRegistry } from './node-registry.js'
@@ -114,6 +115,16 @@ export async function prepareWorkflow(
     ...(workflow.triggerCode && { options: { triggerCode: workflow.triggerCode } }),
   }
   const artifact = adapter.generate(ir, generateConfig)
+
+  // Catch syntax errors in user-authored code (step bodies, triggerCode, etc.)
+  // before deploy/preview consumers act on the artifact. Without this the
+  // sucrase exception bubbles up and surfaces as a generic 500.
+  try {
+    await transpileToJS(artifact.source)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { error: `Compile error: ${message}`, status: 422 }
+  }
 
   return {
     adapter,
