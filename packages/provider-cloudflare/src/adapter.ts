@@ -504,21 +504,34 @@ export function buildQueueConsumers(
     }>
   | undefined {
   if (!triggerCode) return undefined
-  let handlers: Array<{ name: string; config?: Record<string, string | number | boolean> }>
+  let handlers: Array<{
+    /** JS function identifier — used to match deployment config overrides. */
+    name: string
+    /** CF-valid queue name — used in the wrangler `queue` field. */
+    queueName: string
+    config?: Record<string, string | number | boolean>
+  }>
   try {
     const parsed = parseAnnotations(triggerCode)
     if (parsed.mode !== 'strict' || parsed.queueHandlers.length === 0) return undefined
-    handlers = parsed.queueHandlers.map((q) => ({ name: q.name, config: q.config }))
+    handlers = parsed.queueHandlers.map((q) => ({
+      name: q.name,
+      queueName: q.queueName ?? q.name,
+      config: q.config,
+    }))
   } catch {
     return undefined
   }
 
-  const overrides = new Map(
+  // Deployment-config overrides may be keyed by either the JS function name
+  // or the CF queue name — try both so users can write either form in the
+  // queueConsumers field of the deployment config.
+  const overridesByJsName = new Map(
     (deploymentConfig?.queueConsumers ?? []).map((c) => [c.queue, c] as const),
   )
-  return handlers.map(({ name, config }) => {
-    const override = overrides.get(name)
-    const merged: Record<string, unknown> = { queue: name }
+  return handlers.map(({ name, queueName, config }) => {
+    const override = overridesByJsName.get(name) ?? overridesByJsName.get(queueName)
+    const merged: Record<string, unknown> = { queue: queueName }
     // Layer (2): inline @config block.
     if (config) {
       for (const [k, v] of Object.entries(config)) merged[k] = v

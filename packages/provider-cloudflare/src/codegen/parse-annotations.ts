@@ -1,4 +1,5 @@
 import { cloudflareInlineQueueConfigSchema } from '../config-schema.js'
+import { toCFQueueName } from './bindings.js'
 
 /**
  * Parses trigger code for `@kind function name(params) { body }` annotations
@@ -32,7 +33,18 @@ export interface StrictParseResult {
 }
 
 export interface HandlerDecl {
+  /** The JS function identifier as written by the user. */
   name: string
+  /**
+   * For `@queue` handlers: the CF-valid queue name derived from `name`.
+   * Computed at parse time via `toCFQueueName`. Used as the switch case
+   * label in the generated `async queue(...)` handler and as the `queue`
+   * field in wrangler.json's `queues.consumers[]`. Always lowercase,
+   * alphanumeric + hyphens only — matches what CF accepts.
+   *
+   * Undefined for non-queue handlers (`@fetch`).
+   */
+  queueName?: string
   params: string
   body: string
   line: number
@@ -113,6 +125,7 @@ function buildStrictResult(source: string, annotations: RawAnnotation[]): Strict
       const { config, cleanedBody } = extractConfigBlock(ann.body, ann.line)
       queueHandlers.push({
         name: ann.name,
+        queueName: toCFQueueName(ann.name),
         params: ann.params,
         body: cleanedBody,
         line: ann.line,

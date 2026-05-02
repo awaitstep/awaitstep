@@ -11,6 +11,7 @@ export {
   detectBindings,
   detectBindingsFromSource,
   deriveQueueName,
+  toCFQueueName,
   type BindingRequirement,
   type BindingType,
 } from './codegen/bindings.js'

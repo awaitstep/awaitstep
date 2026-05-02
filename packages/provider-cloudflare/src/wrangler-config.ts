@@ -1,4 +1,4 @@
-import { deriveQueueName, type BindingRequirement } from './codegen/bindings.js'
+import { deriveQueueName, toCFQueueName, type BindingRequirement } from './codegen/bindings.js'
 import type { SubWorkflowBinding } from './codegen/generators/sub-workflow.js'
 import type { SubScriptBinding } from './codegen/generators/sub-script.js'
 
@@ -175,10 +175,17 @@ export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
           r2Bindings.push({ binding: b.name, bucket_name: b.resourceId ?? b.name.toLowerCase() })
           break
         case 'queue':
-          // Default queue name strips the `QUEUE_` prefix so producer and
-          // consumer (`@queue function NAME`) agree on the same CF queue.
-          // Users can override via the `<NAME>_BINDING_ID` env var convention.
-          queueProducers.push({ binding: b.name, queue: b.resourceId ?? deriveQueueName(b.name) })
+          // CF queue names must be lowercase alphanumeric + hyphens only
+          // (no underscores). We derive the JS-identifier form first
+          // (`QUEUE_FOO_BAR` → `foo_bar`) then normalize to CF naming
+          // (`foo_bar` → `foo-bar`). Same conversion applied to consumer
+          // function names so producer and consumer agree.
+          // The `<NAME>_BINDING_ID` env var override is taken verbatim
+          // (the user is responsible for using a CF-valid name).
+          queueProducers.push({
+            binding: b.name,
+            queue: b.resourceId ?? toCFQueueName(deriveQueueName(b.name)),
+          })
           break
         case 'service':
           serviceBindings.push({ binding: b.name, service: b.resourceId ?? b.name.toLowerCase() })
