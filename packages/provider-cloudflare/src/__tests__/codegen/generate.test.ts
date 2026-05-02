@@ -23,6 +23,11 @@ describe('generateWorkflow', () => {
         WORKFLOW: Workflow;
       }
 
+      // import packages here
+
+      // Add queue handlers below using:
+      // @queue function NAME(batch, env, ctx) { ... }
+
       export class SimpleWorkflow extends WorkflowEntrypoint<Env> {
         async run(event, step) {
           const Fetch_data = await step.do("Fetch data", { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" }, timeout: "30 seconds" }, async () => {
@@ -38,31 +43,30 @@ describe('generateWorkflow', () => {
       }
 
       export default {
-        async fetch(request: Request, env: Env): Promise<Response> {
-          try {
+        async fetch(request, env, ctx): Promise<Response> {
 
-          const url = new URL(request.url);
+            try {
+              const url = new URL(request.url);
 
-          if (request.method === "POST") {
-            const params = await request.json().catch(() => undefined);
-            const instance = await env.WORKFLOW.create({ params });
-            return Response.json({ instanceId: instance.id });
-          }
+              if (request.method === "POST") {
+                const params = await request.json().catch(() => undefined);
+                const instance = await env.WORKFLOW.create({ params });
+                return Response.json({ instanceId: instance.id });
+              }
 
-          const instanceId = url.searchParams.get("instanceId");
-          if (instanceId) {
-            const instance = await env.WORKFLOW.get(instanceId);
-            if (!instance) {
-              return Response.json({message: 'Instance not found'}, { status: 404 })
+              const instanceId = url.searchParams.get("instanceId");
+              if (instanceId) {
+                const instance = await env.WORKFLOW.get(instanceId);
+                if (!instance) {
+                  return Response.json({message: 'Instance not found'}, { status: 404 })
+                }
+                return Response.json(await instance.status());
+              }
+
+              return new Response(null, { status: 200 });
+            } catch (error) {
+              return Response.json({ message: error.message }, { status: 500 });
             }
-            return Response.json(await instance.status());
-          }
-
-          return new Response(null, { status: 200 });
-
-          } catch (error) {
-            return Response.json({ message: error.message }, { status: 500 });
-          }
 
         },
       };
@@ -114,7 +118,8 @@ describe('generateWorkflow', () => {
 
   it('generates functional fetch handler', () => {
     const code = generateWorkflow(simpleWorkflow as unknown as WorkflowIR)
-    expect(code).toContain('async fetch(request: Request, env: Env): Promise<Response>')
+    // Default scaffolding uses @fetch annotation form with user-supplied params.
+    expect(code).toContain('async fetch(request, env, ctx)')
     expect(code).toContain('request.method === "POST"')
     expect(code).toContain('env.WORKFLOW.create({ params })')
     expect(code).toContain('env.WORKFLOW.get(instanceId)')
@@ -353,8 +358,12 @@ function shared(x) { return x }
     expect(moduleIdx).toBeLessThan(classIdx)
   })
 
-  it('legacy mode emission unchanged when no annotations present', () => {
-    const code = generateWorkflow(ir)
+  it('legacy mode emission used when triggerCode has no annotations', () => {
+    // When user supplies a triggerCode that has no @fetch/@queue annotations,
+    // legacy emission applies: typed `async fetch(request: Request, env: Env)`.
+    const code = generateWorkflow(ir, {
+      triggerCode: 'try { return new Response("ok") } catch (e) { return Response.json({}) }',
+    })
     expect(code).toContain('async fetch(request: Request, env: Env): Promise<Response>')
     expect(code).not.toContain('async queue(')
   })

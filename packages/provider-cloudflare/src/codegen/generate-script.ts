@@ -16,6 +16,8 @@ import { hasTemplateExpressions } from './generators/state-tracking.js'
 import { detectBindings } from './bindings.js'
 import {
   CF_ENV_TYPE,
+  collapseBlankLines,
+  endsWithReturn,
   extractImports,
   generateNodeCode,
   resolveNodeExpressions,
@@ -23,28 +25,39 @@ import {
 import { parseAnnotations } from './parse-annotations.js'
 
 /**
- * Default body of the fetch handler for scripts. The graph nodes run inside
- * `runGraph(env, event)` (auto-generated, isolated), and this body decides
- * what to do with their outputs. Users can replace this code via the script's
- * `triggerCode` field — the runGraph call and the `graph.*` outputs stay
- * stable across edits.
+ * Default trigger-code scaffold for new scripts. Uses the annotated multi-handler
+ * form: `@fetch function handler(...)` for the HTTP entry point, with a comment
+ * showing how to add `@queue function NAME(...)` handlers.
+ *
+ * Top-level code outside annotated functions becomes module scope (imports,
+ * shared helpers). The graph nodes run inside `runGraph(env, event)` (auto-
+ * generated, isolated); the @fetch handler decides what to do with their
+ * outputs. Users can replace this code via the script's `triggerCode` field —
+ * the runGraph call and `graph.*` outputs stay stable across edits.
  */
-export const DEFAULT_SCRIPT_TRIGGER_CODE = `try {
-  if (request.method !== "POST") {
-    return new Response(null, { status: 200 });
+export const DEFAULT_SCRIPT_TRIGGER_CODE = `// import packages here
+
+@fetch function handler(request, env, ctx) {
+  try {
+    if (request.method !== "POST") {
+      return new Response(null, { status: 200 });
+    }
+    const params = await request.json().catch(() => undefined);
+    const event = { payload: params };
+
+    const graph = await runGraph(env, event);
+
+    // ▼ everything below is yours — change the response, add error
+    // handling, branch on request shape, etc. Available outputs are on
+    // \`graph.*\` (one entry per step that returns a value).
+    return Response.json(graph);
+  } catch (error) {
+    return Response.json({ message: error.message }, { status: 500 });
   }
-  const params = await request.json().catch(() => undefined);
-  const event = { payload: params };
-
-  const graph = await runGraph(env, event);
-
-  // ▼ everything below is yours — change the response, add error
-  // handling, branch on request shape, etc. Available outputs are on
-  // \`graph.*\` (one entry per step that returns a value).
-  return Response.json(graph);
-} catch (error) {
-  return Response.json({ message: error.message }, { status: 500 });
 }
+
+// Add queue handlers below using:
+// @queue function NAME(batch, env, ctx) { ... }
 `
 
 export interface GenerateScriptOptions {
@@ -267,10 +280,16 @@ export function generateScript(
   // `graph.X`. Hoisted vars (exported nodes living inside container blocks)
   // are declared via `let` at the top so the assignment can escape the block.
   const declStatement = hoistedVarNames.length > 0 ? `  let ${hoistedVarNames.join(', ')};\n` : ''
-  const returnStatement =
-    exportedVarNames.length > 0 ? `  return { ${exportedVarNames.join(', ')} };` : '  return {};'
+  const bodyAlreadyReturns = endsWithReturn(graphBody)
+  const returnStatement = bodyAlreadyReturns
+    ? ''
+    : exportedVarNames.length > 0
+      ? `  return { ${exportedVarNames.join(', ')} };`
+      : '  return {};'
+  const runGraphBody =
+    graphBody.trim().length > 0 ? indent(graphBody, 2) + (bodyAlreadyReturns ? '' : '\n') : ''
   const runGraphBlock = `async function runGraph(env: Env, event: { payload: unknown }) {
-${declStatement}${graphBody.trim().length > 0 ? indent(graphBody, 2) + '\n' : ''}${returnStatement}
+${declStatement}${runGraphBody}${returnStatement}
 }`
 
   const uniqueImports = [...new Set(collectedImports)]
@@ -279,7 +298,8 @@ ${declStatement}${graphBody.trim().length > 0 ? indent(graphBody, 2) + '\n' : ''
     !preview && classDefinitions.size > 0
       ? '\n' + [...classDefinitions.values()].join('\n\n') + '\n'
       : ''
-  const moduleCodeBlock = moduleCode.trim().length > 0 ? '\n' + moduleCode.trim() + '\n' : ''
+  const cleanedModuleCode = collapseBlankLines(moduleCode).trim()
+  const moduleCodeBlock = cleanedModuleCode.length > 0 ? '\n' + cleanedModuleCode + '\n' : ''
   const envBlock = envFields.length > 0 ? `\n${envFields.join('\n')}\n` : ''
 
   // Build the export default object — fetch handler is omitted entirely for
@@ -292,12 +312,12 @@ ${indent(fetchHandlerEmission.body, 4)}
   }
   if (queueHandlerEmissions.length > 0) {
     const cases = queueHandlerEmissions
-      .map(
-        (qh) => `      case "${qh.name}": {
-${indent(qh.body, 8)}
-        return
-      }`,
-      )
+      .map((qh) => {
+        const trailing = endsWithReturn(qh.body) ? '' : '\n        return'
+        return `      case "${qh.name}": {
+${indent(qh.body, 8)}${trailing}
+      }`
+      })
       .join('\n')
     handlerBlocks.push(`  async queue(batch: MessageBatch<unknown>, env: Env, ctx: ExecutionContext): Promise<void> {
     switch (batch.queue) {

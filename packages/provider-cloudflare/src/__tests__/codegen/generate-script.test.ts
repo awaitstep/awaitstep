@@ -38,7 +38,10 @@ describe('generateScript', () => {
     expect(code).not.toContain('WorkflowEntrypoint')
     expect(code).not.toContain('cloudflare:workers')
     expect(code).toContain('export default {')
-    expect(code).toContain('async fetch(request: Request, env: Env)')
+    // Default scaffolding uses the @fetch annotation form with user-supplied
+    // params (request, env, ctx). Legacy typed signature applies when a user
+    // overrides triggerCode without annotations.
+    expect(code).toContain('async fetch(request, env, ctx)')
   })
 
   it('isolates node code in a runGraph function', () => {
@@ -541,8 +544,13 @@ function shared(x) { return x * 2 }
     expect(code).toContain('req.url')
   })
 
-  it('legacy mode emission unchanged when no annotations present', () => {
-    const code = generateScript(trivialIR)
+  it('legacy mode emission used when triggerCode has no annotations', () => {
+    // When the user supplies a triggerCode that has no @fetch/@queue
+    // annotations (e.g. a raw try/catch body), legacy emission applies:
+    // typed `async fetch(request: Request, env: Env): Promise<Response>`.
+    const code = generateScript(trivialIR, {
+      triggerCode: 'try { return new Response("ok") } catch (e) { return Response.json({}) }',
+    })
     expect(code).toContain('async fetch(request: Request, env: Env): Promise<Response>')
     expect(code).not.toContain('async queue(')
   })
