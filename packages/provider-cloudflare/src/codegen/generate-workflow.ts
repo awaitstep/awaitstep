@@ -19,6 +19,7 @@ import {
   generateNodeCode,
   resolveNodeExpressions,
 } from './generate-helpers.js'
+import { parseAnnotations } from './parse-annotations.js'
 
 export const DEFAULT_TRIGGER_CODE = `try {
 
@@ -171,8 +172,36 @@ export function generateWorkflow(
   }
 
   const rawTriggerCode = triggerCode ?? DEFAULT_TRIGGER_CODE
-  const { imports: triggerImports, body: fetchBody } = extractImports(rawTriggerCode)
-  collectedImports.push(...triggerImports)
+  const parsed = parseAnnotations(rawTriggerCode)
+
+  // Per-block import extraction (same model as generate-script). Legacy mode
+  // is byte-identical to today; strict mode emits a fetch handler from the
+  // @fetch declaration and a switched queue handler from @queue declarations.
+  let moduleCode = ''
+  let fetchHandlerEmission: { params: string; body: string } | null = null
+  const queueHandlerEmissions: Array<{ name: string; params: string; body: string }> = []
+
+  if (parsed.mode === 'legacy') {
+    const { imports, body } = extractImports(parsed.fetchBody)
+    collectedImports.push(...imports)
+    fetchHandlerEmission = { params: 'request: Request, env: Env', body }
+  } else {
+    if (parsed.moduleCode.trim().length > 0) {
+      const { imports, body } = extractImports(parsed.moduleCode)
+      collectedImports.push(...imports)
+      moduleCode = body
+    }
+    if (parsed.fetchHandler) {
+      const { imports, body } = extractImports(parsed.fetchHandler.body)
+      collectedImports.push(...imports)
+      fetchHandlerEmission = { params: parsed.fetchHandler.params, body }
+    }
+    for (const qh of parsed.queueHandlers) {
+      const { imports, body } = extractImports(qh.body)
+      collectedImports.push(...imports)
+      queueHandlerEmissions.push({ name: qh.name, params: qh.params, body })
+    }
+  }
 
   const uniqueImports = [...new Set(collectedImports)]
   const importBlock = uniqueImports.length > 0 ? '\n' + uniqueImports.join('\n') : ''
@@ -180,23 +209,45 @@ export function generateWorkflow(
     !preview && classDefinitions.size > 0
       ? '\n' + [...classDefinitions.values()].join('\n\n') + '\n'
       : ''
+  const moduleCodeBlock = moduleCode.trim().length > 0 ? '\n' + moduleCode.trim() + '\n' : ''
+
+  const handlerBlocks: string[] = []
+  if (fetchHandlerEmission) {
+    handlerBlocks.push(`  async fetch(${fetchHandlerEmission.params}): Promise<Response> {
+${indent(fetchHandlerEmission.body, 4)}
+  },`)
+  }
+  if (queueHandlerEmissions.length > 0) {
+    const cases = queueHandlerEmissions
+      .map(
+        (qh) => `      case "${qh.name}": {
+${indent(qh.body, 8)}
+        return
+      }`,
+      )
+      .join('\n')
+    handlerBlocks.push(`  async queue(batch: MessageBatch<unknown>, env: Env, ctx: ExecutionContext): Promise<void> {
+    switch (batch.queue) {
+${cases}
+    }
+  },`)
+  }
+  const exportDefault = `export default {
+${handlerBlocks.join('\n')}
+};`
 
   return `import { WorkflowEntrypoint } from "cloudflare:workers";${importBlock}
 
 interface Env {
 ${envFields.join('\n')}
 }
-${classBlock}
+${classBlock}${moduleCodeBlock}
 export class ${className} extends WorkflowEntrypoint<Env> {
   async run(event, step) {
 ${indent(bodyLines, 4)}
   }
 }
 
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-${indent(fetchBody, 4)}
-  },
-};
+${exportDefault}
 `
 }

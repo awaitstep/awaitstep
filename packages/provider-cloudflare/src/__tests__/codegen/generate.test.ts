@@ -296,3 +296,66 @@ describe('CloudflareCodeGenerator', () => {
     expect(gen.generateWorkflow(ir)).toBe(generateWorkflow(ir))
   })
 })
+
+describe('generateWorkflow — annotation mode (@fetch / @queue)', () => {
+  const ir = simpleWorkflow as unknown as WorkflowIR
+
+  it('emits both fetch and queue handlers when @fetch and @queue are declared', () => {
+    const triggerCode = `
+@fetch function handler(request, env, ctx) {
+  return Response.json({ status: "ok" })
+}
+
+@queue function emails(batch, env, ctx) {
+  for (const msg of batch.messages) msg.ack()
+}
+`
+    const code = generateWorkflow(ir, { triggerCode })
+    expect(code).toContain('async fetch(request, env, ctx): Promise<Response>')
+    expect(code).toMatch(
+      /async queue\(batch: MessageBatch<unknown>, env: Env, ctx: ExecutionContext\): Promise<void>/,
+    )
+    expect(code).toContain('switch (batch.queue) {')
+    expect(code).toContain('case "emails":')
+  })
+
+  it('omits fetch handler entirely for queue-only workers', () => {
+    const triggerCode = `
+@queue function jobs(batch, env, ctx) {
+  for (const msg of batch.messages) {
+    await env.WORKFLOW.create({ params: msg.body })
+    msg.ack()
+  }
+}
+`
+    const code = generateWorkflow(ir, { triggerCode })
+    expect(code).not.toContain('async fetch(')
+    expect(code).toContain('async queue(')
+    expect(code).toContain('case "jobs":')
+    expect(code).toContain('env.WORKFLOW.create')
+  })
+
+  it('emits module-level code outside annotated functions, before the WorkflowEntrypoint class', () => {
+    const triggerCode = `
+const REGION = "eu"
+function shared(x) { return x }
+
+@fetch function handler(request, env, ctx) {
+  return Response.json({ region: REGION })
+}
+`
+    const code = generateWorkflow(ir, { triggerCode })
+    expect(code).toContain('const REGION = "eu"')
+    expect(code).toContain('function shared(x) { return x }')
+    const moduleIdx = code.indexOf('const REGION')
+    const classIdx = code.indexOf('export class')
+    expect(moduleIdx).toBeGreaterThan(0)
+    expect(moduleIdx).toBeLessThan(classIdx)
+  })
+
+  it('legacy mode emission unchanged when no annotations present', () => {
+    const code = generateWorkflow(ir)
+    expect(code).toContain('async fetch(request: Request, env: Env): Promise<Response>')
+    expect(code).not.toContain('async queue(')
+  })
+})
