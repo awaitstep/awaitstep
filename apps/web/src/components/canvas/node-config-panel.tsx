@@ -53,7 +53,7 @@ export function validateNode(node: WorkflowNode): string[] {
     }
     case 'branch': {
       const branches = (node.data.branches ?? []) as BranchCondition[]
-      if (branches.length < 2) errors.push('At least 2 branches are required')
+      if (branches.length < 1) errors.push('At least 1 branch is required')
       break
     }
     case 'loop': {
