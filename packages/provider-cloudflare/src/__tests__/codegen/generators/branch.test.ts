@@ -318,6 +318,52 @@ describe('collectBranchInlineTargets', () => {
     expect(inlineTargets.has('branch-1')).toBe(false)
   })
 
+  it('does not collect a "then" continuation target as inline', () => {
+    // The continuation node connected via the `then` edge should NOT be
+    // inlined inside the if/else — it runs AFTER the branch block via the
+    // topological walk.
+    const ir: WorkflowIR = {
+      metadata: { name: 'test', version: 1, createdAt: '', updatedAt: '' },
+      nodes: [
+        {
+          id: 'branch-1',
+          type: 'branch',
+          name: 'Check',
+          position: { x: 0, y: 0 },
+          version: V,
+          provider: P,
+          data: { branches: [{ label: 'yes', condition: 'true' }] },
+        },
+        {
+          id: 'inside',
+          type: 'step',
+          name: 'Inside',
+          position: { x: 0, y: 0 },
+          version: V,
+          provider: P,
+          data: { code: 'return 1;' },
+        },
+        {
+          id: 'after',
+          type: 'step',
+          name: 'After branch',
+          position: { x: 0, y: 0 },
+          version: V,
+          provider: P,
+          data: { code: 'return 2;' },
+        },
+      ],
+      edges: [
+        { id: 'e0', source: 'branch-1', target: 'inside', label: 'yes' },
+        { id: 'e1', source: 'branch-1', target: 'after', label: 'then' },
+      ],
+      entryNodeId: 'branch-1',
+    }
+    const inlineTargets = collectBranchInlineTargets(ir)
+    expect(inlineTargets.has('inside')).toBe(true)
+    expect(inlineTargets.has('after')).toBe(false)
+  })
+
   it('does not include join nodes with in-degree > 1', () => {
     const ir: WorkflowIR = {
       metadata: { name: 'test', version: 1, createdAt: '', updatedAt: '' },

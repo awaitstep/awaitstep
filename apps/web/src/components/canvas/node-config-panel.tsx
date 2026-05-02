@@ -432,7 +432,27 @@ function BranchFields({
         <span>Add condition</span>
       </Button>
 
-      <Hint>Select which node each branch should go to. Edges are created automatically.</Hint>
+      <div className="overflow-hidden rounded-lg border border-border">
+        <div className="bg-muted/40 px-3 py-1.5">
+          <span className="text-xs font-medium text-muted-foreground">After branch</span>
+        </div>
+        <div className="p-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground/60">Continue to</Label>
+            <Select
+              value={getTargetForLabel('then') || '__none__'}
+              onValueChange={(v) => setTargetForBranch('then', v === '__none__' ? '' : v)}
+              options={[{ value: '__none__', label: 'Not connected' }, ...targetOptions]}
+              className="h-8 text-xs"
+            />
+          </div>
+        </div>
+      </div>
+
+      <Hint>
+        Pick a target for each branch. A single condition is fine (no else needed). Use{' '}
+        <strong>Continue to</strong> for a node that runs after the entire if/else.
+      </Hint>
     </>
   )
 }
