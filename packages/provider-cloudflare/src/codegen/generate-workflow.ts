@@ -196,7 +196,12 @@ export function generateWorkflow(
   // @fetch declaration and a switched queue handler from @queue declarations.
   let moduleCode = ''
   let fetchHandlerEmission: { params: string; body: string } | null = null
-  const queueHandlerEmissions: Array<{ name: string; params: string; body: string }> = []
+  const queueHandlerEmissions: Array<{
+    name: string
+    queueName: string
+    params: string
+    body: string
+  }> = []
 
   if (parsed.mode === 'legacy') {
     const { imports, body } = extractImports(parsed.fetchBody)
@@ -216,7 +221,12 @@ export function generateWorkflow(
     for (const qh of parsed.queueHandlers) {
       const { imports, body } = extractImports(qh.body)
       collectedImports.push(...imports)
-      queueHandlerEmissions.push({ name: qh.name, params: qh.params, body })
+      queueHandlerEmissions.push({
+        name: qh.name,
+        queueName: qh.queueName ?? qh.name,
+        params: qh.params,
+        body,
+      })
     }
   }
 
@@ -239,7 +249,7 @@ ${indent(fetchHandlerEmission.body, 4)}
     const cases = queueHandlerEmissions
       .map((qh) => {
         const trailing = endsWithReturn(qh.body) ? '' : '\n        return'
-        return `      case "${qh.name}": {
+        return `      case "${qh.queueName}": {
 ${indent(qh.body, 8)}${trailing}
       }`
       })

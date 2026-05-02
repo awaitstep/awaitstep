@@ -451,6 +451,29 @@ describe('generateScript — annotation mode (@fetch / @queue)', () => {
     expect(code).toContain('msg.ack()')
   })
 
+  it('switch case label uses CF-valid queue name (snake_case → kebab-case)', () => {
+    const triggerCode = `
+@queue function marktplaats_processor(batch, env, ctx) {
+  for (const msg of batch.messages) msg.ack()
+}
+`
+    const code = generateScript(trivialIR, { triggerCode })
+    // Case label uses the kebab-case CF queue name, NOT the snake_case JS function name.
+    expect(code).toContain('case "marktplaats-processor":')
+    expect(code).not.toContain('case "marktplaats_processor":')
+  })
+
+  it('switch case label converts camelCase function names to kebab-case', () => {
+    const triggerCode = `
+@queue function userEvents(batch, env, ctx) {
+  for (const msg of batch.messages) msg.ack()
+}
+`
+    const code = generateScript(trivialIR, { triggerCode })
+    expect(code).toContain('case "user-events":')
+    expect(code).not.toContain('case "userEvents":')
+  })
+
   it('emits multiple @queue handlers as switch cases', () => {
     const triggerCode = `
 @fetch function handler(request, env, ctx) { return new Response("ok") }

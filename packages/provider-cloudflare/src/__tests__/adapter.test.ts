@@ -283,6 +283,31 @@ describe('buildQueueConsumers', () => {
     expect(result).toEqual([{ queue: 'emails', maxBatchSize: 5 }, { queue: 'jobs' }])
   })
 
+  it('emits CF-valid queue name (snake_case function → kebab-case queue)', () => {
+    const triggerCode = `
+@queue function marktplaats_processor(b, e, c) { msg.ack() }
+`
+    const result = buildQueueConsumers(triggerCode, undefined)
+    expect(result).toEqual([{ queue: 'marktplaats-processor' }])
+    expect(result![0]!.queue).toMatch(/^[a-z0-9-]+$/)
+  })
+
+  it('deployment override matches by either JS function name or CF queue name', () => {
+    const triggerCode = `
+@queue function marktplaats_processor(b, e, c) { msg.ack() }
+`
+    // Override keyed by JS function name (what user might naturally type)
+    const byJsName = buildQueueConsumers(triggerCode, {
+      queueConsumers: [{ queue: 'marktplaats_processor', maxBatchSize: 1 }],
+    })
+    expect(byJsName).toEqual([{ queue: 'marktplaats-processor', maxBatchSize: 1 }])
+    // Override keyed by CF queue name (what shows up in wrangler.json)
+    const byCFName = buildQueueConsumers(triggerCode, {
+      queueConsumers: [{ queue: 'marktplaats-processor', maxBatchSize: 1 }],
+    })
+    expect(byCFName).toEqual([{ queue: 'marktplaats-processor', maxBatchSize: 1 }])
+  })
+
   it('returns undefined on annotation parse error (already surfaced by generate)', () => {
     const triggerCode = `@fetch function notHandler() {}`
     expect(buildQueueConsumers(triggerCode, undefined)).toBeUndefined()

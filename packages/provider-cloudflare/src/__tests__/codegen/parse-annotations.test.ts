@@ -82,6 +82,24 @@ describe('parseAnnotations — strict mode @fetch', () => {
 })
 
 describe('parseAnnotations — strict mode @queue', () => {
+  it('attaches a CF-valid queueName (lowercase + hyphens) to each queue handler', () => {
+    const source = `
+@queue function marktplaats_processor(b, e, c) { msg.ack() }
+@queue function userEvents(b, e, c) { msg.ack() }
+@queue function simple(b, e, c) { msg.ack() }
+`
+    const result = expectStrict(source)
+    expect(result.queueHandlers.map((h) => ({ name: h.name, queueName: h.queueName }))).toEqual([
+      { name: 'marktplaats_processor', queueName: 'marktplaats-processor' },
+      { name: 'userEvents', queueName: 'user-events' },
+      { name: 'simple', queueName: 'simple' },
+    ])
+    // Belt-and-suspenders: every queueName matches CF's validation regex.
+    for (const h of result.queueHandlers) {
+      expect(h.queueName).toMatch(/^[a-z0-9-]+$/)
+    }
+  })
+
   it('extracts a single @queue handler', () => {
     const source = `@queue function emails(batch, env, ctx) {
   for (const msg of batch.messages) msg.ack()

@@ -508,6 +508,21 @@ describe('generateWranglerConfig', () => {
       expect(parsed.queues.consumers).toEqual([{ queue: 'emails' }])
     })
 
+    it('producer queue name converts underscores to hyphens for CF validation', () => {
+      // CF rule: queue names must be lowercase alphanumeric + hyphens only.
+      // QUEUE_MARKTPLAATS_PROCESSOR → marktplaats-processor (NOT marktplaats_processor).
+      const json = generateWranglerConfig({
+        ...baseScript,
+        bindings: [{ name: 'QUEUE_MARKTPLAATS_PROCESSOR', type: 'queue', source: 'code-scan' }],
+      })
+      const parsed = JSON.parse(json)
+      expect(parsed.queues.producers).toEqual([
+        { binding: 'QUEUE_MARKTPLAATS_PROCESSOR', queue: 'marktplaats-processor' },
+      ])
+      // Belt-and-suspenders: assert the queue name passes CF's validation regex.
+      expect(parsed.queues.producers[0].queue).toMatch(/^[a-z0-9-]+$/)
+    })
+
     it('producer queue name strips QUEUE_ prefix so it matches @queue annotation default', () => {
       // No resourceId override: producer derives the queue name from the binding
       // name. Must align with deriveQueueName() so that `env.QUEUE_EMAILS.send(...)`

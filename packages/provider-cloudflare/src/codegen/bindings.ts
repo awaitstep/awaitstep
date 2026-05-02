@@ -23,20 +23,58 @@ export interface BindingRequirement {
 }
 
 /**
- * Derives the canonical queue name from a `QUEUE_*` binding identifier.
+ * Derives a JS identifier from a `QUEUE_*` binding name. Used by the
+ * "+ Consume" snippet in the bindings panel — produces a name suitable
+ * for a JS function declaration (`@queue function <name>(...)`).
  *
  * - `QUEUE_EMAILS` → `emails`
- * - `QUEUE_JOBS` → `jobs`
+ * - `QUEUE_FOO_BAR` → `foo_bar` (keeps underscores — valid JS identifier)
  * - bare `QUEUE` → `queue`
  *
- * Used in two places that MUST agree, otherwise producer and consumer end
- * up wired to different CF queues:
- * - `generateWranglerConfig` producer derivation (`queues.producers[].queue`)
- * - `@queue function NAME(...)` annotation suggestion in the bindings panel
+ * Note: this is NOT the final CF queue name. CF requires lowercase
+ * alphanumeric + hyphens only, with no underscores. Pipe the result
+ * through `toCFQueueName` for the wrangler.json `queue` field.
  */
 export function deriveQueueName(bindingName: string): string {
   const stripped = bindingName.replace(/^QUEUE_?/i, '')
   return (stripped || bindingName).toLowerCase()
+}
+
+/**
+ * Normalizes any input string into a Cloudflare-valid queue name.
+ * CF rule (from wrangler validation): "Queue names can only contain
+ * hyphens & alphanumeric lowercase letters."
+ *
+ * Conversion:
+ * - Splits camelCase/PascalCase boundaries with hyphens
+ * - Replaces underscores with hyphens
+ * - Replaces any other non-`[a-z0-9-]` char with hyphens
+ * - Collapses runs of hyphens
+ * - Trims leading/trailing hyphens
+ * - Lowercases the result
+ *
+ * Examples:
+ * - `marktplaats_processor` → `marktplaats-processor`
+ * - `marktplaatsProcessor` → `marktplaats-processor`
+ * - `MARKTPLAATS_PROCESSOR` → `marktplaats-processor`
+ * - `simple` → `simple`
+ *
+ * Used in three places that MUST agree on the same name, otherwise
+ * producer and consumer wire to different CF queues:
+ * - Producer derivation in `generateWranglerConfig` (`queues.producers[].queue`)
+ * - Consumer entry in `generateWranglerConfig` (`queues.consumers[].queue`)
+ * - Switch case label in the generated `async queue(batch, env, ctx)` handler
+ */
+export function toCFQueueName(input: string): string {
+  if (!input) return ''
+  return input
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
+    .toLowerCase()
+    .replace(/_/g, '-')
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
 }
 
 const BINDING_PATTERNS: Array<{ pattern: RegExp; type: BindingType }> = [
