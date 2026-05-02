@@ -2,6 +2,7 @@ import { basename } from 'node:path'
 import type { GeneratedArtifact } from '@awaitstep/codegen'
 import type { BindingRequirement } from '../codegen/bindings.js'
 import type { SubWorkflowBinding } from '../codegen/generators/sub-workflow.js'
+import type { SubScriptBinding } from '../codegen/generators/sub-script.js'
 
 const SECRET_KEY_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/
 
@@ -70,6 +71,8 @@ export interface DeployOptions {
   dependencies?: Record<string, string>
   bindings?: BindingRequirement[]
   subWorkflowBindings?: SubWorkflowBinding[]
+  /** Service bindings collected from `sub_script` nodes. Forwarded to wrangler.json `services[]`. */
+  subScriptBindings?: SubScriptBinding[]
   previewUrls?: boolean
   workersDev?: boolean
   routes?: Array<{ pattern: string; zone_name: string }>

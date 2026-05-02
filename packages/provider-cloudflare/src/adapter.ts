@@ -23,6 +23,7 @@ import { CloudflareAPI } from './api.js'
 import { WRANGLER_BASE_CONFIG } from './wrangler-config.js'
 import { detectBindings, type BindingRequirement } from './codegen/bindings.js'
 import { getSubWorkflowBindings } from './codegen/generators/sub-workflow.js'
+import { getSubScriptBindings } from './codegen/generators/sub-script.js'
 import { parseAnnotations } from './codegen/parse-annotations.js'
 import {
   cloudflareDefaultDeploymentConfig,
@@ -275,6 +276,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
 
     // Collect sub-workflow bindings from IR
     const subWorkflowBindings = ir ? getSubWorkflowBindings(ir.nodes) : []
+    const subScriptBindings = ir ? getSubScriptBindings(ir.nodes) : []
 
     report('BINDINGS_READY', 'Resource bindings configured', 45)
 
@@ -354,6 +356,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
         dependencies: opts.dependencies,
         bindings: resolvedBindings,
         subWorkflowBindings: subWorkflowBindings.length > 0 ? subWorkflowBindings : undefined,
+        subScriptBindings: subScriptBindings.length > 0 ? subScriptBindings : undefined,
         previewUrls,
         workersDev,
         routes,

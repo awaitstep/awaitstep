@@ -31,6 +31,7 @@ const BUILTIN_FLOW_TYPES = new Set([
   'loop',
   'break',
   'sub_workflow',
+  'sub_script',
   'race',
 ])
 
@@ -206,6 +207,19 @@ function createDefaultNode(
           input: '',
           waitForCompletion: true,
           timeout: '5 minutes',
+        },
+      }
+    case 'sub_script':
+      return {
+        ...base,
+        name: 'Call Script',
+        data: {
+          workerName: '',
+          method: 'POST',
+          url: 'https://invoke/',
+          headers: {},
+          body: '',
+          retryLimit: 3,
         },
       }
     default: {

@@ -115,6 +115,7 @@ export function generateWorkflow(
     'loop',
     'break',
     'sub_workflow',
+    'sub_script',
     'race',
   ])
 

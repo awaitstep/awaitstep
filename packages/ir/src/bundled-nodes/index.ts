@@ -11,6 +11,7 @@ export { tryCatchDefinition } from './try-catch.js'
 export { loopDefinition } from './loop.js'
 export { breakDefinition } from './break.js'
 export { subWorkflowDefinition } from './sub-workflow.js'
+export { subScriptDefinition } from './sub-script.js'
 export { raceDefinition } from './race.js'
 
 import { stepDefinition } from './step.js'
@@ -24,6 +25,7 @@ import { tryCatchDefinition } from './try-catch.js'
 import { loopDefinition } from './loop.js'
 import { breakDefinition } from './break.js'
 import { subWorkflowDefinition } from './sub-workflow.js'
+import { subScriptDefinition } from './sub-script.js'
 import { raceDefinition } from './race.js'
 
 export const bundledNodeDefinitions: NodeDefinition[] = [
@@ -38,5 +40,6 @@ export const bundledNodeDefinitions: NodeDefinition[] = [
   loopDefinition,
   breakDefinition,
   subWorkflowDefinition,
+  subScriptDefinition,
   raceDefinition,
 ]
