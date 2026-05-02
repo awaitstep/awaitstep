@@ -71,6 +71,10 @@ export function validateNode(node: WorkflowNode): string[] {
       if (!String(node.data.workflowId ?? '').trim()) errors.push('Script name is required')
       if (!String(node.data.workflowName ?? '').trim()) errors.push('Workflow name is required')
       break
+    case 'sub_script':
+      if (!String(node.data.workerName ?? '').trim()) errors.push('Worker name is required')
+      if (!String(node.data.url ?? '').trim()) errors.push('URL is required')
+      break
   }
   return errors
 }

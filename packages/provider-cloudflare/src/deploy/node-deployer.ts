@@ -44,6 +44,7 @@ export class NodeWranglerDeployer implements WranglerDeployer {
         vars: options.vars,
         bindings: options.bindings,
         subWorkflowBindings: options.subWorkflowBindings,
+        subScriptBindings: options.subScriptBindings,
         previewUrls: options.previewUrls,
         workersDev: options.workersDev,
         routes: options.routes,

@@ -1,5 +1,6 @@
 import { deriveQueueName, type BindingRequirement } from './codegen/bindings.js'
 import type { SubWorkflowBinding } from './codegen/generators/sub-workflow.js'
+import type { SubScriptBinding } from './codegen/generators/sub-script.js'
 
 export const WRANGLER_BASE_CONFIG = {
   compatibility_date: '2025-04-01',
@@ -24,6 +25,14 @@ export interface WranglerWorkflowConfig {
   vars?: Record<string, string>
   bindings?: BindingRequirement[]
   subWorkflowBindings?: SubWorkflowBinding[]
+  /**
+   * Service bindings for `sub_script` calls — emitted as
+   * `services: [{ binding, service }]` entries in wrangler.json. Coexists with
+   * any service bindings auto-detected from `env.SERVICE_*` references; the
+   * two sources are merged with sub-script entries taking precedence on
+   * binding-name conflicts.
+   */
+  subScriptBindings?: SubScriptBinding[]
   previewUrls?: boolean
   workersDev?: boolean
   routes?: Array<{ pattern: string; zone_name: string }>
@@ -233,6 +242,23 @@ export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
     })
     const existing = (wranglerConfig.queues ?? {}) as Record<string, unknown>
     wranglerConfig.queues = { ...existing, consumers }
+  }
+
+  // Merge sub_script service bindings into the services array. Runs outside
+  // the `config.bindings` conditional so a workflow with only sub_script
+  // calls (and no other auto-detected bindings) still gets a services entry.
+  // Code-scan-detected service bindings (env.SERVICE_*) and sub_script
+  // bindings can both contribute; on binding-name conflict, sub_script wins
+  // because it carries the explicit deployed service name.
+  if (config.subScriptBindings && config.subScriptBindings.length > 0) {
+    const subScriptEntries = config.subScriptBindings.map((b) => ({
+      binding: b.binding,
+      service: b.service,
+    }))
+    const subScriptNames = new Set(subScriptEntries.map((e) => e.binding))
+    const existing = (wranglerConfig.services ?? []) as Array<{ binding: string }>
+    const filtered = existing.filter((s) => !subScriptNames.has(s.binding))
+    wranglerConfig.services = [...filtered, ...subScriptEntries]
   }
 
   return JSON.stringify(wranglerConfig, null, 2)

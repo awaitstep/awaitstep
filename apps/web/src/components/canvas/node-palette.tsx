@@ -26,6 +26,7 @@ const BUILTIN_IDS = new Set([
   'loop',
   'break',
   'sub_workflow',
+  'sub_script',
   'race',
 ])
 

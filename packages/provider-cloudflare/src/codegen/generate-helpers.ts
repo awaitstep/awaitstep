@@ -13,6 +13,7 @@ import { generateTryCatch } from './generators/try-catch.js'
 import { generateLoop } from './generators/loop.js'
 import { generateBreak } from './generators/break.js'
 import { generateSubWorkflow } from './generators/sub-workflow.js'
+import { generateSubScript } from './generators/sub-script.js'
 import { generateRace } from './generators/race.js'
 import type { BindingType } from './bindings.js'
 
@@ -142,6 +143,8 @@ export function generateNodeCode(
       return generateBreak(node)
     case 'sub_workflow':
       return generateSubWorkflow(node, mode)
+    case 'sub_script':
+      return generateSubScript(node, mode)
     case 'race':
       return generateRace(node, ir, recurse, mode)
     default: {

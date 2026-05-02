@@ -452,6 +452,53 @@ describe('generateWranglerConfig', () => {
     ).toThrow(/workflow deploys require/)
   })
 
+  describe('subScriptBindings', () => {
+    const baseScript = {
+      kind: 'script' as const,
+      workerName: 'awaitstep-q',
+      main: './worker.js',
+    }
+
+    it('emits services entries from subScriptBindings even when no other bindings exist', () => {
+      const json = generateWranglerConfig({
+        ...baseScript,
+        subScriptBindings: [
+          { binding: 'EMAILS', service: 'awaitstep-emails' },
+          { binding: 'JOBS', service: 'awaitstep-jobs' },
+        ],
+      })
+      const parsed = JSON.parse(json)
+      expect(parsed.services).toEqual([
+        { binding: 'EMAILS', service: 'awaitstep-emails' },
+        { binding: 'JOBS', service: 'awaitstep-jobs' },
+      ])
+    })
+
+    it('merges sub_script bindings with code-scan service bindings', () => {
+      const json = generateWranglerConfig({
+        ...baseScript,
+        bindings: [{ name: 'SERVICE_OTHER', type: 'service', source: 'code-scan' }],
+        subScriptBindings: [{ binding: 'EMAILS', service: 'awaitstep-emails' }],
+      })
+      const parsed = JSON.parse(json)
+      // Both entries present; code-scan kept its derived service name (lowercased binding).
+      expect(parsed.services).toEqual([
+        { binding: 'SERVICE_OTHER', service: 'service_other' },
+        { binding: 'EMAILS', service: 'awaitstep-emails' },
+      ])
+    })
+
+    it('sub_script wins on binding-name conflict (carries explicit deployed service name)', () => {
+      const json = generateWranglerConfig({
+        ...baseScript,
+        bindings: [{ name: 'EMAILS', type: 'service', source: 'code-scan' }],
+        subScriptBindings: [{ binding: 'EMAILS', service: 'awaitstep-emails' }],
+      })
+      const parsed = JSON.parse(json)
+      expect(parsed.services).toEqual([{ binding: 'EMAILS', service: 'awaitstep-emails' }])
+    })
+  })
+
   describe('queueConsumers', () => {
     const baseScript = {
       kind: 'script' as const,
