@@ -470,15 +470,18 @@ function extractCredentials(config: ProviderConfig): {
 
 /**
  * Returns the queue-consumer wiring for wrangler.json based on `@queue function NAME(...)`
- * annotations in the trigger code, merged with per-queue settings from
- * `deploymentConfig.queueConsumers`.
+ * annotations in the trigger code, merged with per-queue settings.
  *
- * - Each `@queue function NAME(...)` declaration produces one consumer entry.
- * - If `deploymentConfig.queueConsumers` has an entry for a given queue name,
- *   its batch/retry/concurrency/DLQ settings are applied. Otherwise CF defaults
- *   apply at runtime (max_batch_size: 10, max_batch_timeout: 5s, max_retries: 3).
- * - Returns `undefined` when there are no `@queue` declarations (no consumer
- *   block emitted in wrangler.json).
+ * Settings merge in priority order (highest wins):
+ *   1. `deploymentConfig.queueConsumers` — per-environment override from the
+ *      deployment config (lets dev/staging/prod tune independently).
+ *   2. The handler's inline `@config { ... }` block — the source-co-located
+ *      default for the queue.
+ *   3. CF defaults (no field) — `max_batch_size: 10`, `max_batch_timeout: 5s`,
+ *      `max_retries: 3`.
+ *
+ * Returns `undefined` when there are no `@queue` declarations (no consumer
+ * block emitted in wrangler.json).
  *
  * Annotation parse errors are silently swallowed here — they're already
  * surfaced as a structured DeployResult by the codegen path that runs first
@@ -498,11 +501,11 @@ export function buildQueueConsumers(
     }>
   | undefined {
   if (!triggerCode) return undefined
-  let queueNames: string[]
+  let handlers: Array<{ name: string; config?: Record<string, string | number | boolean> }>
   try {
     const parsed = parseAnnotations(triggerCode)
     if (parsed.mode !== 'strict' || parsed.queueHandlers.length === 0) return undefined
-    queueNames = parsed.queueHandlers.map((q) => q.name)
+    handlers = parsed.queueHandlers.map((q) => ({ name: q.name, config: q.config }))
   } catch {
     return undefined
   }
@@ -510,16 +513,28 @@ export function buildQueueConsumers(
   const overrides = new Map(
     (deploymentConfig?.queueConsumers ?? []).map((c) => [c.queue, c] as const),
   )
-  return queueNames.map((name) => {
-    const o = overrides.get(name)
-    if (!o) return { queue: name }
-    return {
-      queue: name,
-      ...(o.maxBatchSize !== undefined && { maxBatchSize: o.maxBatchSize }),
-      ...(o.maxBatchTimeout !== undefined && { maxBatchTimeout: o.maxBatchTimeout }),
-      ...(o.maxRetries !== undefined && { maxRetries: o.maxRetries }),
-      ...(o.deadLetterQueue !== undefined && { deadLetterQueue: o.deadLetterQueue }),
-      ...(o.maxConcurrency !== undefined && { maxConcurrency: o.maxConcurrency }),
+  return handlers.map(({ name, config }) => {
+    const override = overrides.get(name)
+    const merged: Record<string, unknown> = { queue: name }
+    // Layer (2): inline @config block.
+    if (config) {
+      for (const [k, v] of Object.entries(config)) merged[k] = v
+    }
+    // Layer (1): deploymentConfig override (highest priority).
+    if (override) {
+      if (override.maxBatchSize !== undefined) merged.maxBatchSize = override.maxBatchSize
+      if (override.maxBatchTimeout !== undefined) merged.maxBatchTimeout = override.maxBatchTimeout
+      if (override.maxRetries !== undefined) merged.maxRetries = override.maxRetries
+      if (override.deadLetterQueue !== undefined) merged.deadLetterQueue = override.deadLetterQueue
+      if (override.maxConcurrency !== undefined) merged.maxConcurrency = override.maxConcurrency
+    }
+    return merged as {
+      queue: string
+      maxBatchSize?: number
+      maxBatchTimeout?: number
+      maxRetries?: number
+      deadLetterQueue?: string
+      maxConcurrency?: number
     }
   })
 }

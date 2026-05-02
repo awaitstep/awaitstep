@@ -1,3 +1,5 @@
+import { cloudflareInlineQueueConfigSchema } from '../config-schema.js'
+
 /**
  * Parses trigger code for `@kind function name(params) { body }` annotations
  * (e.g. `@fetch function handler(...)`, `@queue function emails(...)`) and
@@ -34,6 +36,13 @@ export interface HandlerDecl {
   params: string
   body: string
   line: number
+  /**
+   * For `@queue` handlers, optional inline configuration parsed from a
+   * leading `@config { … }` block. Keys are camelCase (snake_case in the
+   * source is normalized at parse time). Validated against
+   * `cloudflareInlineQueueConfigSchema`.
+   */
+  config?: Record<string, string | number | boolean>
 }
 
 export class AnnotationParseError extends Error {
@@ -101,7 +110,14 @@ function buildStrictResult(source: string, annotations: RawAnnotation[]): Strict
         throw new AnnotationParseError(`Duplicate queue handler '${ann.name}'`, ann.line)
       }
       seenQueueNames.add(ann.name)
-      queueHandlers.push({ name: ann.name, params: ann.params, body: ann.body, line: ann.line })
+      const { config, cleanedBody } = extractConfigBlock(ann.body, ann.line)
+      queueHandlers.push({
+        name: ann.name,
+        params: ann.params,
+        body: cleanedBody,
+        line: ann.line,
+        ...(config && { config }),
+      })
     }
   }
 
@@ -400,4 +416,207 @@ function findBodyEnd(source: string, bodyStart: number, openLine: number): numbe
     'Unclosed annotated function body — missing matching "}"',
     openLine,
   )
+}
+
+// ────────────────────────────────────────────────────────────
+// @config block parsing (inline queue consumer settings)
+// ────────────────────────────────────────────────────────────
+
+const SNAKE_TO_CAMEL_KEY_MAP: Record<string, string> = {
+  max_batch_size: 'maxBatchSize',
+  max_batch_timeout: 'maxBatchTimeout',
+  max_retries: 'maxRetries',
+  dead_letter_queue: 'deadLetterQueue',
+  max_concurrency: 'maxConcurrency',
+}
+
+const KNOWN_CONFIG_KEYS = new Set([
+  ...Object.keys(SNAKE_TO_CAMEL_KEY_MAP),
+  ...Object.values(SNAKE_TO_CAMEL_KEY_MAP),
+])
+
+const NUMERIC_CONFIG_KEYS = new Set([
+  'maxBatchSize',
+  'maxBatchTimeout',
+  'maxRetries',
+  'maxConcurrency',
+])
+
+/**
+ * Looks for a leading `@config { ... }` block in a queue handler body. If
+ * present, parses it, validates against the inline queue config schema, and
+ * returns both the parsed config and the body with the block stripped.
+ *
+ * Only the FIRST statement-position `@config` is recognized. Multiple blocks
+ * or non-leading placement → throws.
+ */
+function extractConfigBlock(
+  body: string,
+  handlerLine: number,
+): {
+  config?: Record<string, string | number | boolean>
+  cleanedBody: string
+} {
+  const headerMatch = /^([\s]*)@config\s*\{/.exec(body)
+  if (!headerMatch) {
+    // No leading config — but reject any later occurrence to avoid silent
+    // miscounts (it's almost always a user error to put @config mid-body).
+    if (/(^|\n)\s*@config\s*\{/.test(body)) {
+      throw new AnnotationParseError(
+        '@config block must be at the start of the queue handler body',
+        handlerLine,
+      )
+    }
+    return { cleanedBody: body }
+  }
+  const openBraceIdx = headerMatch.index + headerMatch[0].length - 1
+  const closeBraceIdx = findConfigCloseBrace(body, openBraceIdx, handlerLine)
+  const inner = body.slice(openBraceIdx + 1, closeBraceIdx)
+
+  // Reject duplicate @config blocks (anything after the first one).
+  const remainder = body.slice(closeBraceIdx + 1)
+  if (/(^|\n)\s*@config\s*\{/.test(remainder)) {
+    throw new AnnotationParseError('Duplicate @config block in queue handler body', handlerLine)
+  }
+
+  const parsed = parseConfigContent(inner, handlerLine)
+  const validation = cloudflareInlineQueueConfigSchema.safeParse(parsed)
+  if (!validation.success) {
+    const issue = validation.error.issues[0]
+    const path = issue?.path.join('.') ?? '?'
+    throw new AnnotationParseError(
+      `@config validation failed at '${path}': ${issue?.message ?? 'invalid value'}`,
+      handlerLine,
+    )
+  }
+
+  const cleanedBody = body.slice(0, headerMatch.index) + remainder
+  return { config: validation.data, cleanedBody }
+}
+
+/**
+ * Walks from the opening `{` of a `@config` block to its matching `}`,
+ * tracking string/template/comment context so braces inside string literals
+ * don't confuse the matcher.
+ */
+function findConfigCloseBrace(body: string, openIdx: number, line: number): number {
+  const inner = makeState()
+  let i = step(body, openIdx, inner)
+  while (i < body.length) {
+    i = step(body, i, inner)
+    if (
+      inner.braceDepth === 0 &&
+      inner.parenDepth === 0 &&
+      inner.stack.length === 0 &&
+      !inAnyString(inner) &&
+      !inAnyComment(inner)
+    ) {
+      return i - 1
+    }
+  }
+  throw new AnnotationParseError('Unclosed @config block — missing matching "}"', line)
+}
+
+/**
+ * Parses the inside of a `@config { … }` block into a key/value object.
+ * Supports a small JSON-like subset:
+ *   - unquoted snake_case or camelCase keys
+ *   - string values: "foo" or 'foo'
+ *   - number values: 10, 0, 5.5
+ *   - boolean values: true, false
+ *   - trailing commas allowed
+ *   - line/block comments allowed
+ *
+ * snake_case keys are normalized to camelCase. Unknown keys throw.
+ */
+function parseConfigContent(
+  content: string,
+  line: number,
+): Record<string, string | number | boolean> {
+  const cleaned = content.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '')
+  const out: Record<string, string | number | boolean> = {}
+  const pairs = splitTopLevelCommas(cleaned)
+  for (const raw of pairs) {
+    const pair = raw.trim()
+    if (!pair) continue
+    const colonIdx = pair.indexOf(':')
+    if (colonIdx === -1) {
+      throw new AnnotationParseError(`@config: expected 'key: value', got '${pair}'`, line)
+    }
+    const rawKey = pair.slice(0, colonIdx).trim()
+    const rawValue = pair.slice(colonIdx + 1).trim()
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(rawKey)) {
+      throw new AnnotationParseError(`@config: invalid key '${rawKey}'`, line)
+    }
+    if (!KNOWN_CONFIG_KEYS.has(rawKey)) {
+      throw new AnnotationParseError(
+        `@config: unknown key '${rawKey}'. Allowed: ${[...Object.keys(SNAKE_TO_CAMEL_KEY_MAP)].join(', ')}`,
+        line,
+      )
+    }
+    const key = SNAKE_TO_CAMEL_KEY_MAP[rawKey] ?? rawKey
+    out[key] = parseConfigValue(rawValue, key, line)
+  }
+  return out
+}
+
+function parseConfigValue(s: string, key: string, line: number): string | number | boolean {
+  if (s === 'true') return true
+  if (s === 'false') return false
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    const stringValue = s.slice(1, -1)
+    // Lenient coercion: numeric keys accept "10" or "5s" (CF's wrangler
+    // accepts seconds as integer; strip the trailing 's' and parse).
+    if (NUMERIC_CONFIG_KEYS.has(key)) {
+      const trimmed = stringValue.replace(/s$/i, '')
+      const n = Number(trimmed)
+      if (!Number.isNaN(n)) return n
+      throw new AnnotationParseError(
+        `@config: '${key}' expected a number, got '${stringValue}'`,
+        line,
+      )
+    }
+    return stringValue
+  }
+  const n = Number(s)
+  if (!Number.isNaN(n) && s !== '') return n
+  throw new AnnotationParseError(`@config: cannot parse value '${s}' for '${key}'`, line)
+}
+
+/** Splits a string by commas at the top level (depth 0 of `{}`, `[]`, `()`). */
+function splitTopLevelCommas(s: string): string[] {
+  const out: string[] = []
+  let depth = 0
+  let inSingle = false
+  let inDouble = false
+  let start = 0
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]!
+    if (inSingle) {
+      if (c === '\\' && i + 1 < s.length) {
+        i++
+        continue
+      }
+      if (c === "'") inSingle = false
+      continue
+    }
+    if (inDouble) {
+      if (c === '\\' && i + 1 < s.length) {
+        i++
+        continue
+      }
+      if (c === '"') inDouble = false
+      continue
+    }
+    if (c === "'") inSingle = true
+    else if (c === '"') inDouble = true
+    else if (c === '{' || c === '[' || c === '(') depth++
+    else if (c === '}' || c === ']' || c === ')') depth--
+    else if (c === ',' && depth === 0) {
+      out.push(s.slice(start, i))
+      start = i + 1
+    }
+  }
+  if (start < s.length) out.push(s.slice(start))
+  return out
 }

@@ -288,3 +288,106 @@ describe('parseAnnotations — unsupported annotations', () => {
     expect(() => parseAnnotations(source)).toThrow(/Unknown annotation '@scheduled'/)
   })
 })
+
+describe('parseAnnotations — @config block in @queue handler', () => {
+  it('parses a basic @config block and strips it from the body', () => {
+    const source = `@queue function emails(batch, env, ctx) {
+  @config {
+    max_batch_size: 25,
+    max_retries: 5
+  }
+  for (const msg of batch.messages) msg.ack()
+}`
+    const result = expectStrict(source)
+    const handler = result.queueHandlers[0]!
+    expect(handler.config).toEqual({ maxBatchSize: 25, maxRetries: 5 })
+    // @config block stripped from body
+    expect(handler.body).not.toContain('@config')
+    expect(handler.body).not.toContain('max_batch_size')
+    expect(handler.body).toContain('msg.ack()')
+  })
+
+  it('normalizes snake_case keys to camelCase', () => {
+    const source = `@queue function jobs(b, e, c) {
+  @config {
+    max_batch_size: 1,
+    max_batch_timeout: 30,
+    dead_letter_queue: "jobs-dlq",
+    max_concurrency: 5
+  }
+}`
+    const result = expectStrict(source)
+    expect(result.queueHandlers[0]!.config).toEqual({
+      maxBatchSize: 1,
+      maxBatchTimeout: 30,
+      deadLetterQueue: 'jobs-dlq',
+      maxConcurrency: 5,
+    })
+  })
+
+  it('coerces "5s" → 5 for numeric timeout fields', () => {
+    const source = `@queue function jobs(b, e, c) {
+  @config {
+    max_batch_timeout: "5s"
+  }
+}`
+    const result = expectStrict(source)
+    expect(result.queueHandlers[0]!.config).toEqual({ maxBatchTimeout: 5 })
+  })
+
+  it('coerces stringified numbers like "2"', () => {
+    const source = `@queue function jobs(b, e, c) {
+  @config { max_retries: "2" }
+}`
+    const result = expectStrict(source)
+    expect(result.queueHandlers[0]!.config).toEqual({ maxRetries: 2 })
+  })
+
+  it('queue handlers without @config get no config field', () => {
+    const source = `@queue function plain(b, e, c) {
+  msg.ack()
+}`
+    const result = expectStrict(source)
+    expect(result.queueHandlers[0]!.config).toBeUndefined()
+  })
+
+  it('rejects unknown @config keys', () => {
+    const source = `@queue function jobs(b, e, c) {
+  @config { batch_size: 25 }
+}`
+    expect(() => parseAnnotations(source)).toThrow(/unknown key 'batch_size'/)
+  })
+
+  it('rejects out-of-range values via schema validation', () => {
+    const source = `@queue function jobs(b, e, c) {
+  @config { max_batch_size: 200 }
+}`
+    expect(() => parseAnnotations(source)).toThrow(/@config validation failed/)
+  })
+
+  it('rejects @config not at the start of the queue body', () => {
+    const source = `@queue function jobs(b, e, c) {
+  msg.ack()
+  @config { max_batch_size: 5 }
+}`
+    expect(() => parseAnnotations(source)).toThrow(/must be at the start/)
+  })
+
+  it('rejects multiple @config blocks in the same handler', () => {
+    const source = `@queue function jobs(b, e, c) {
+  @config { max_batch_size: 5 }
+  @config { max_retries: 1 }
+}`
+    expect(() => parseAnnotations(source)).toThrow(/Duplicate @config/)
+  })
+
+  it('allows trailing comma in @config', () => {
+    const source = `@queue function jobs(b, e, c) {
+  @config {
+    max_batch_size: 5,
+  }
+}`
+    const result = expectStrict(source)
+    expect(result.queueHandlers[0]!.config).toEqual({ maxBatchSize: 5 })
+  })
+})

@@ -287,4 +287,60 @@ describe('buildQueueConsumers', () => {
     const triggerCode = `@fetch function notHandler() {}`
     expect(buildQueueConsumers(triggerCode, undefined)).toBeUndefined()
   })
+
+  it('applies inline @config block as the per-queue default', () => {
+    const triggerCode = `
+@queue function emails(b, e, c) {
+  @config {
+    max_batch_size: 1,
+    max_retries: 5,
+    dead_letter_queue: "emails-dlq"
+  }
+  msg.ack()
+}
+`
+    const result = buildQueueConsumers(triggerCode, undefined)
+    expect(result).toEqual([
+      {
+        queue: 'emails',
+        maxBatchSize: 1,
+        maxRetries: 5,
+        deadLetterQueue: 'emails-dlq',
+      },
+    ])
+  })
+
+  it('deploymentConfig override wins over inline @config (per-environment tuning)', () => {
+    const triggerCode = `
+@queue function emails(b, e, c) {
+  @config { max_batch_size: 1, max_retries: 5 }
+}
+`
+    const result = buildQueueConsumers(triggerCode, {
+      queueConsumers: [{ queue: 'emails', maxBatchSize: 50 }],
+    })
+    expect(result).toEqual([
+      {
+        queue: 'emails',
+        maxBatchSize: 50, // override wins
+        maxRetries: 5, // from inline @config (not overridden)
+      },
+    ])
+  })
+
+  it('different queues can have different inline @config blocks', () => {
+    const triggerCode = `
+@queue function emails(b, e, c) {
+  @config { max_batch_size: 50 }
+}
+@queue function jobs(b, e, c) {
+  @config { max_batch_size: 1, max_concurrency: 20 }
+}
+`
+    const result = buildQueueConsumers(triggerCode, undefined)
+    expect(result).toEqual([
+      { queue: 'emails', maxBatchSize: 50 },
+      { queue: 'jobs', maxBatchSize: 1, maxConcurrency: 20 },
+    ])
+  })
 })
