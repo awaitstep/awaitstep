@@ -55,6 +55,7 @@ export class NodeWranglerDeployer implements WranglerDeployer {
         limits: options.limits,
         observability: options.observability,
         logpush: options.logpush,
+        queueConsumers: options.queueConsumers,
       })
       await writeFile(join(deployDir, 'wrangler.json'), wranglerConfig, 'utf-8')
 

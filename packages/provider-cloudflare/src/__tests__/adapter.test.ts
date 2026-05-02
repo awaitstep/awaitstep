@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { WorkflowIR } from '@awaitstep/ir'
 import type { ProviderConfig } from '@awaitstep/codegen'
-import { CloudflareWorkflowsAdapter } from '../adapter.js'
+import { CloudflareWorkflowsAdapter, buildQueueConsumers } from '../adapter.js'
 import type { WranglerDeployer } from '../deploy/deployer.js'
 
 const mockDeployer: WranglerDeployer = {
@@ -211,5 +211,80 @@ describe('CloudflareWorkflowsAdapter', () => {
       expect(result.status).toBe('complete')
       expect(result.output).toEqual({ result: 42 })
     })
+  })
+})
+
+describe('buildQueueConsumers', () => {
+  it('returns undefined when triggerCode is missing', () => {
+    expect(buildQueueConsumers(undefined, undefined)).toBeUndefined()
+  })
+
+  it('returns undefined for legacy-mode trigger code (no annotations)', () => {
+    expect(
+      buildQueueConsumers('try { return new Response() } catch(e) {}', undefined),
+    ).toBeUndefined()
+  })
+
+  it('returns undefined when strict mode has no @queue handlers', () => {
+    const triggerCode = `@fetch function handler(req, env, ctx) { return new Response() }`
+    expect(buildQueueConsumers(triggerCode, undefined)).toBeUndefined()
+  })
+
+  it('emits one entry per @queue annotation with no overrides', () => {
+    const triggerCode = `
+@queue function emails(b, e, c) { /* */ }
+@queue function jobs(b, e, c) { /* */ }
+`
+    const result = buildQueueConsumers(triggerCode, undefined)
+    expect(result).toEqual([{ queue: 'emails' }, { queue: 'jobs' }])
+  })
+
+  it('merges per-queue settings from deploymentConfig.queueConsumers', () => {
+    const triggerCode = `@queue function emails(b, e, c) {}`
+    const result = buildQueueConsumers(triggerCode, {
+      queueConsumers: [
+        {
+          queue: 'emails',
+          maxBatchSize: 5,
+          maxRetries: 1,
+          deadLetterQueue: 'emails-dlq',
+        },
+      ],
+    })
+    expect(result).toEqual([
+      {
+        queue: 'emails',
+        maxBatchSize: 5,
+        maxRetries: 1,
+        deadLetterQueue: 'emails-dlq',
+      },
+    ])
+  })
+
+  it('ignores queueConsumers entries that do not match any @queue annotation', () => {
+    const triggerCode = `@queue function emails(b, e, c) {}`
+    const result = buildQueueConsumers(triggerCode, {
+      queueConsumers: [
+        { queue: 'emails', maxBatchSize: 25 },
+        { queue: 'orphan', maxBatchSize: 100 },
+      ],
+    })
+    expect(result).toEqual([{ queue: 'emails', maxBatchSize: 25 }])
+  })
+
+  it('falls back to defaults (no overrides) when deploymentConfig has no entry for a queue', () => {
+    const triggerCode = `
+@queue function emails(b, e, c) {}
+@queue function jobs(b, e, c) {}
+`
+    const result = buildQueueConsumers(triggerCode, {
+      queueConsumers: [{ queue: 'emails', maxBatchSize: 5 }],
+    })
+    expect(result).toEqual([{ queue: 'emails', maxBatchSize: 5 }, { queue: 'jobs' }])
+  })
+
+  it('returns undefined on annotation parse error (already surfaced by generate)', () => {
+    const triggerCode = `@fetch function notHandler() {}`
+    expect(buildQueueConsumers(triggerCode, undefined)).toBeUndefined()
   })
 })

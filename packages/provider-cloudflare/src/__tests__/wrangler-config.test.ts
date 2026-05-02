@@ -451,4 +451,70 @@ describe('generateWranglerConfig', () => {
       } as Parameters<typeof generateWranglerConfig>[0]),
     ).toThrow(/workflow deploys require/)
   })
+
+  describe('queueConsumers', () => {
+    const baseScript = {
+      kind: 'script' as const,
+      workerName: 'awaitstep-q',
+      main: './worker.js',
+    }
+
+    it('emits queues.consumers when queueConsumers provided', () => {
+      const json = generateWranglerConfig({
+        ...baseScript,
+        queueConsumers: [
+          {
+            queue: 'emails',
+            maxBatchSize: 25,
+            maxBatchTimeout: 30,
+            maxRetries: 5,
+            deadLetterQueue: 'emails-dlq',
+            maxConcurrency: 10,
+          },
+        ],
+      })
+      const parsed = JSON.parse(json)
+      expect(parsed.queues.consumers).toEqual([
+        {
+          queue: 'emails',
+          max_batch_size: 25,
+          max_batch_timeout: 30,
+          max_retries: 5,
+          dead_letter_queue: 'emails-dlq',
+          max_concurrency: 10,
+        },
+      ])
+    })
+
+    it('emits a minimal consumer entry when only queue name is provided', () => {
+      const json = generateWranglerConfig({
+        ...baseScript,
+        queueConsumers: [{ queue: 'jobs' }],
+      })
+      const parsed = JSON.parse(json)
+      expect(parsed.queues.consumers).toEqual([{ queue: 'jobs' }])
+    })
+
+    it('coexists with queues.producers in the same queues object', () => {
+      const json = generateWranglerConfig({
+        ...baseScript,
+        bindings: [
+          { name: 'QUEUE_EMAILS', type: 'queue', source: 'code-scan', resourceId: 'emails' },
+        ],
+        queueConsumers: [{ queue: 'emails' }],
+      })
+      const parsed = JSON.parse(json)
+      expect(parsed.queues.producers).toEqual([{ binding: 'QUEUE_EMAILS', queue: 'emails' }])
+      expect(parsed.queues.consumers).toEqual([{ queue: 'emails' }])
+    })
+
+    it('omits queues.consumers entirely when queueConsumers is empty', () => {
+      const json = generateWranglerConfig({
+        ...baseScript,
+        queueConsumers: [],
+      })
+      const parsed = JSON.parse(json)
+      expect(parsed.queues).toBeUndefined()
+    })
+  })
 })

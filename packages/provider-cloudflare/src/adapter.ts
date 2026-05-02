@@ -23,6 +23,7 @@ import { CloudflareAPI } from './api.js'
 import { WRANGLER_BASE_CONFIG } from './wrangler-config.js'
 import { detectBindings, type BindingRequirement } from './codegen/bindings.js'
 import { getSubWorkflowBindings } from './codegen/generators/sub-workflow.js'
+import { parseAnnotations } from './codegen/parse-annotations.js'
 import {
   cloudflareDefaultDeploymentConfig,
   cloudflareDeploymentConfigSchema,
@@ -320,6 +321,13 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     const workersDev =
       deploymentConfig?.workersDev ?? (config.options?.['workersDev'] as boolean | undefined)
 
+    // Build queue consumer wiring from `@queue function NAME(...)` annotations in
+    // the trigger code. Each consumed queue gets one row in wrangler.json's
+    // `queues.consumers[]`. Per-queue settings come from
+    // `deploymentConfig.queueConsumers` if present; otherwise CF defaults apply.
+    const triggerCodeForAnnotations = config.options?.['triggerCode'] as string | undefined
+    const queueConsumers = buildQueueConsumers(triggerCodeForAnnotations, deploymentConfig)
+
     if (!this.deployer) {
       report('FAILED', 'No deployer configured — deploy is not available on this runtime', 0)
       return { success: false, deploymentId: '', error: 'No deployer configured' }
@@ -357,6 +365,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
         limits: deploymentConfig?.limits,
         observability: deploymentConfig?.observability,
         logpush: deploymentConfig?.logpush,
+        queueConsumers,
       },
       deployerProgress,
     )
@@ -457,6 +466,62 @@ function extractCredentials(config: ProviderConfig): {
     throw new Error('accountId and apiToken are required in credentials')
   }
   return { accountId, apiToken }
+}
+
+/**
+ * Returns the queue-consumer wiring for wrangler.json based on `@queue function NAME(...)`
+ * annotations in the trigger code, merged with per-queue settings from
+ * `deploymentConfig.queueConsumers`.
+ *
+ * - Each `@queue function NAME(...)` declaration produces one consumer entry.
+ * - If `deploymentConfig.queueConsumers` has an entry for a given queue name,
+ *   its batch/retry/concurrency/DLQ settings are applied. Otherwise CF defaults
+ *   apply at runtime (max_batch_size: 10, max_batch_timeout: 5s, max_retries: 3).
+ * - Returns `undefined` when there are no `@queue` declarations (no consumer
+ *   block emitted in wrangler.json).
+ *
+ * Annotation parse errors are silently swallowed here — they're already
+ * surfaced as a structured DeployResult by the codegen path that runs first
+ * (see `generate()` above).
+ */
+export function buildQueueConsumers(
+  triggerCode: string | undefined,
+  deploymentConfig: CloudflareDeploymentConfig | undefined,
+):
+  | Array<{
+      queue: string
+      maxBatchSize?: number
+      maxBatchTimeout?: number
+      maxRetries?: number
+      deadLetterQueue?: string
+      maxConcurrency?: number
+    }>
+  | undefined {
+  if (!triggerCode) return undefined
+  let queueNames: string[]
+  try {
+    const parsed = parseAnnotations(triggerCode)
+    if (parsed.mode !== 'strict' || parsed.queueHandlers.length === 0) return undefined
+    queueNames = parsed.queueHandlers.map((q) => q.name)
+  } catch {
+    return undefined
+  }
+
+  const overrides = new Map(
+    (deploymentConfig?.queueConsumers ?? []).map((c) => [c.queue, c] as const),
+  )
+  return queueNames.map((name) => {
+    const o = overrides.get(name)
+    if (!o) return { queue: name }
+    return {
+      queue: name,
+      ...(o.maxBatchSize !== undefined && { maxBatchSize: o.maxBatchSize }),
+      ...(o.maxBatchTimeout !== undefined && { maxBatchTimeout: o.maxBatchTimeout }),
+      ...(o.maxRetries !== undefined && { maxRetries: o.maxRetries }),
+      ...(o.deadLetterQueue !== undefined && { deadLetterQueue: o.deadLetterQueue }),
+      ...(o.maxConcurrency !== undefined && { maxConcurrency: o.maxConcurrency }),
+    }
+  })
 }
 
 export function mapCFStatus(cfStatus: string): WorkflowStatus {
