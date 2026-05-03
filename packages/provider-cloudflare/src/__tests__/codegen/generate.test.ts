@@ -219,6 +219,83 @@ describe('generateWorkflow', () => {
     expect(code).not.toContain('{{fetch_data.userId}}')
     expect(code).toContain('Fetch_Data.userId')
   })
+
+  it('keeps a parallel `then` continuation inside its parent loop body', () => {
+    // Regression: loop body containing a parallel whose `then` edge points to
+    // a follow-up step. The continuation must be emitted INSIDE the loop body
+    // (so it runs once per iteration after the parallel resolves), not at
+    // the top level of `run()` after the loop ends.
+    const ir: WorkflowIR = {
+      metadata: { name: 'NestedLoop', version: 1, createdAt: '', updatedAt: '' },
+      entryNodeId: 'loop',
+      nodes: [
+        {
+          id: 'loop',
+          type: 'loop',
+          name: 'iterate',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { loopType: 'forEach', collection: 'items', itemVar: 'item' },
+        },
+        {
+          id: 'par',
+          type: 'parallel',
+          name: 'translate',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: {},
+        },
+        {
+          id: 'title',
+          type: 'step',
+          name: 'title',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { code: 'return item.title;' },
+        },
+        {
+          id: 'desc',
+          type: 'step',
+          name: 'description',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { code: 'return item.description;' },
+        },
+        {
+          id: 'update',
+          type: 'step',
+          name: 'update',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { code: 'return "ok";' },
+        },
+      ],
+      edges: [
+        { id: 'e1', source: 'loop', target: 'par', label: 'body' },
+        { id: 'e2', source: 'par', target: 'title' },
+        { id: 'e3', source: 'par', target: 'desc' },
+        { id: 'e4', source: 'par', target: 'update', label: 'then' },
+      ],
+    }
+
+    const code = generateWorkflow(ir)
+    // The loop's step.do appears before update's step.do — i.e. update is
+    // emitted inside the loop body, not after the loop has closed.
+    const loopIdx = code.indexOf('await step.do("iterate"')
+    const updateIdx = code.indexOf('await step.do(`update')
+    const closeIdx = code.indexOf('return _output;')
+    expect(loopIdx).toBeGreaterThan(-1)
+    expect(updateIdx).toBeGreaterThan(loopIdx)
+    expect(updateIdx).toBeLessThan(closeIdx)
+    // Step name has been suffixed with the loop counter, proving it sits
+    // inside the loop's scope.
+    expect(code).toContain('update [${_loop_i}]')
+  })
 })
 
 describe('generateNodeCode', () => {

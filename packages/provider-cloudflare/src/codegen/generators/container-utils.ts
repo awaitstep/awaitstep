@@ -39,7 +39,7 @@ export function inlineChain(
   ir: WorkflowIR,
   spaces: number,
 ): string {
-  const chain = collectChain(startId, ctx.adj, ctx.inDegree, ctx.nodeMap)
+  const chain = collectChain(startId, ctx.adj, ctx.inDegree, ctx.nodeMap, ctx.edgeLabels)
   return chain
     .map((n) => {
       const code = generateNode(n, ir)
@@ -81,7 +81,7 @@ export function generatePromiseContainer(
 
   const branches = targets
     .map((targetId) => {
-      const chain = collectChain(targetId, ctx.adj, ctx.inDegree, ctx.nodeMap)
+      const chain = collectChain(targetId, ctx.adj, ctx.inDegree, ctx.nodeMap, ctx.edgeLabels)
       if (chain.length === 0) return null
       const code = chain.map((n) => generateNode(n, ir)).join('\n')
       return `    async () => {\n${indentCode(code, 6)}\n    }`
