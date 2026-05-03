@@ -1,9 +1,9 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Upload, FileText, AlertCircle, Loader2 } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { validateArtifact } from '@awaitstep/ir'
+import { validateArtifact, SCRIPT_INCOMPATIBLE_NODE_TYPES } from '@awaitstep/ir'
 import type { ArtifactIR } from '@awaitstep/ir'
 import { Button } from '../ui/button'
 import { CodeEditor } from '../ui/code-editor'
@@ -11,6 +11,31 @@ import { api } from '../../lib/api-client'
 import { toast } from 'sonner'
 
 type InputMode = 'paste' | 'file'
+type IRKind = 'workflow' | 'script'
+
+function detectedKind(ir: ArtifactIR): IRKind {
+  return ir.kind === 'script' ? 'script' : 'workflow'
+}
+
+function transformIR(ir: ArtifactIR, kind: IRKind): ArtifactIR {
+  if (kind === 'script') {
+    const trigger =
+      ir.trigger && ir.trigger.type === 'http' ? ir.trigger : ({ type: 'http' } as const)
+    return { ...ir, kind: 'script', trigger }
+  }
+  const { trigger, ...rest } = ir
+  return trigger ? { ...rest, kind: 'workflow', trigger } : { ...rest, kind: 'workflow' }
+}
+
+function incompatibleNodeTypes(ir: ArtifactIR): string[] {
+  const counts = new Map<string, number>()
+  for (const node of ir.nodes) {
+    if (SCRIPT_INCOMPATIBLE_NODE_TYPES.has(node.type)) {
+      counts.set(node.type, (counts.get(node.type) ?? 0) + 1)
+    }
+  }
+  return Array.from(counts.entries()).map(([type, count]) => `${count}× ${type}`)
+}
 
 function parseAndValidate(
   raw: string,
@@ -42,6 +67,7 @@ export function ImportWorkflowDialog({ onClose }: { onClose: () => void }) {
   const [fileName, setFileName] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [validIR, setValidIR] = useState<ArtifactIR | null>(null)
+  const [selectedKind, setSelectedKind] = useState<IRKind>('workflow')
   const [errors, setErrors] = useState<string[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -62,6 +88,7 @@ export function ImportWorkflowDialog({ onClose }: { onClose: () => void }) {
       setValidIR(result.ir)
       setErrors([])
       setName(result.ir.metadata.name)
+      setSelectedKind(detectedKind(result.ir))
     }
   }
 
@@ -71,6 +98,7 @@ export function ImportWorkflowDialog({ onClose }: { onClose: () => void }) {
     setValidIR(null)
     setErrors([])
     setName('')
+    setSelectedKind('workflow')
   }
 
   function switchMode(next: InputMode) {
@@ -115,19 +143,26 @@ export function ImportWorkflowDialog({ onClose }: { onClose: () => void }) {
     setIsDragOver(true)
   }
 
+  const incompatible = useMemo(
+    () => (validIR && selectedKind === 'script' ? incompatibleNodeTypes(validIR) : []),
+    [validIR, selectedKind],
+  )
+  const kindChangeBlocked = incompatible.length > 0
+
   const importMutation = useMutation({
     mutationFn: async () => {
       if (!validIR) throw new Error('No valid IR')
+      const transformed = transformIR(validIR, selectedKind)
       const workflow = await api.createWorkflow({
-        name: name.trim() || validIR.metadata.name,
-        description: validIR.metadata.description,
-        kind: validIR.kind,
+        name: name.trim() || transformed.metadata.name,
+        description: transformed.metadata.description,
+        kind: transformed.kind,
       })
-      await api.createVersion(workflow.id, { ir: validIR })
+      await api.createVersion(workflow.id, { ir: transformed })
       return workflow
     },
     onSuccess: (workflow) => {
-      const isScript = validIR?.kind === 'script'
+      const isScript = selectedKind === 'script'
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
       navigate({
         to: '/workflows/$workflowId/canvas',
@@ -143,7 +178,7 @@ export function ImportWorkflowDialog({ onClose }: { onClose: () => void }) {
   })
 
   const hasInput = jsonText.trim().length > 0
-  const canImport = validIR !== null && !importMutation.isPending
+  const canImport = validIR !== null && !kindChangeBlocked && !importMutation.isPending
 
   return (
     <Dialog.Root open onOpenChange={(v) => !v && onClose()}>
@@ -159,9 +194,8 @@ export function ImportWorkflowDialog({ onClose }: { onClose: () => void }) {
             Import Workflow or Function
           </Dialog.Title>
           <p className="mt-1 text-xs text-muted-foreground">
-            Paste an IR JSON document or upload an exported <code>.ir.json</code> file. The kind (
-            <code>workflow</code> or <code>script</code>) is read from the IR's <code>kind</code>{' '}
-            field; absent <code>kind</code> imports as a workflow.
+            Paste an IR JSON document or upload an exported <code>.ir.json</code> file. The kind is
+            detected from the IR but can be overridden before import.
           </p>
 
           {/* Mode tabs */}
@@ -263,30 +297,66 @@ export function ImportWorkflowDialog({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          {/* Name + detected kind (shown when IR is valid) */}
+          {/* Name + kind selector (shown when IR is valid) */}
           {validIR && (
-            <div className="mt-3">
-              <label className="text-xs font-medium text-foreground/60">
-                {validIR.kind === 'script' ? 'Function name' : 'Workflow name'}
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="mt-1 w-full rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/40"
-              />
-              <p className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
-                <span
-                  className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
-                    validIR.kind === 'script'
-                      ? 'bg-violet-500/15 text-violet-600 dark:text-violet-300'
-                      : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300'
-                  }`}
-                >
-                  {validIR.kind === 'script' ? 'Function' : 'Workflow'}
-                </span>
-                {validIR.nodes.length} nodes, {validIR.edges.length} edges
-              </p>
+            <div className="mt-3 space-y-3">
+              <div>
+                <label className="text-xs font-medium text-foreground/60">
+                  {selectedKind === 'script' ? 'Function name' : 'Workflow name'}
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/40"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-foreground/60">Import as</label>
+                <div className="mt-1 flex gap-1 rounded-md border border-border bg-muted/40 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedKind('workflow')}
+                    className={`flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+                      selectedKind === 'workflow'
+                        ? 'bg-card text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground/60'
+                    }`}
+                  >
+                    Workflow
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedKind('script')}
+                    className={`flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+                      selectedKind === 'script'
+                        ? 'bg-card text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground/60'
+                    }`}
+                  >
+                    Function
+                  </button>
+                </div>
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Detected: {detectedKind(validIR)}. {validIR.nodes.length} nodes,{' '}
+                  {validIR.edges.length} edges.
+                </p>
+              </div>
+
+              {kindChangeBlocked && (
+                <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+                    <div className="text-xs text-destructive">
+                      <p className="font-medium">Cannot import as Function.</p>
+                      <p className="mt-0.5">
+                        Contains nodes not supported in scripts: {incompatible.join(', ')}.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
