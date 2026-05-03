@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.12](https://github.com/awaitstep/awaitstep/compare/v1.4.11...v1.4.12) (2026-05-03)
+
+
+### Features
+
+* **canvas:** add sub_script node for script-to-script calls via service binding ([7311a1a](https://github.com/awaitstep/awaitstep/commit/7311a1ae0c26d6bd6d2486e0c619895f0596c1da))
+* **canvas:** add sub_script node for script-to-script calls via service binding ([1562366](https://github.com/awaitstep/awaitstep/commit/156236696eda5fb61d43d94f4f8bc412682856c6))
+* **canvas:** bindings panel "+ Consume" button + producer/consumer queue alignment ([5d8a044](https://github.com/awaitstep/awaitstep/commit/5d8a0444f086796b51cdb64f13de2173daf0dee3))
+* **codegen:** add annotation parser for @fetch/[@queue](https://github.com/queue) declarations ([ee465bf](https://github.com/awaitstep/awaitstep/commit/ee465bfc48b72a6a0be4c60b9dedbf283934b204))
+* **codegen:** annotated multi-handler workers ([@fetch](https://github.com/fetch), [@queue](https://github.com/queue), [@config](https://github.com/config)) ([4451c54](https://github.com/awaitstep/awaitstep/commit/4451c547a014e53887e07ee58bba712608dd8487))
+* **codegen:** default trigger code uses [@fetch](https://github.com/fetch) annotation scaffolding ([a4db7c9](https://github.com/awaitstep/awaitstep/commit/a4db7c96d72a0c31705d8a3523ad921687e357c4))
+* **codegen:** inline [@config](https://github.com/config) block for per-queue consumer settings ([4c8b898](https://github.com/awaitstep/awaitstep/commit/4c8b8988958b07a62170eb6477719abd20f546e0))
+* **codegen:** wire annotation parser into generate-script ([15b8dde](https://github.com/awaitstep/awaitstep/commit/15b8ddec9808bc8b59af832c5371274c09ca3c28))
+* **codegen:** wire annotation parser into generate-workflow ([027c575](https://github.com/awaitstep/awaitstep/commit/027c575d51eeb488af272d6ad17b90b8cf151872))
+* **config:** add queueConsumers field to deployment config schema ([7cc6eb7](https://github.com/awaitstep/awaitstep/commit/7cc6eb7e8f60facc56ef4210f54f6a1bfa08107f))
+* **provider-cloudflare:** emit queues.consumers from [@queue](https://github.com/queue) annotations ([5a74f5e](https://github.com/awaitstep/awaitstep/commit/5a74f5e738b2e2f9e305856b85021c30296ff33f))
+
+
+### Bug Fixes
+
+* **canvas:** allow branch nodes with a single branch ([01ebef2](https://github.com/awaitstep/awaitstep/commit/01ebef2689f25e30005be03c39f51220d3403e75))
+* **canvas:** allow branch nodes with a single branch ([30ffe78](https://github.com/awaitstep/awaitstep/commit/30ffe788deab05741e2e06b55a4daef471518593))
+* **canvas:** allow single-branch and post-branch continuation ([3357c6a](https://github.com/awaitstep/awaitstep/commit/3357c6a3d63be68f3a60c61d8436cc465bc01bd1))
+* **canvas:** allow single-branch and post-branch continuation ([ecdad77](https://github.com/awaitstep/awaitstep/commit/ecdad77c92e880434957ce9a89d7779df28c8897))
+* **codegen:** normalize queue names to CF validation rules ([6905265](https://github.com/awaitstep/awaitstep/commit/6905265f43417b1a9c9f35e792a7e6115f5d39f8))
+* **codegen:** normalize queue names to CF validation rules (lowercase + hyphens) ([0f49e2a](https://github.com/awaitstep/awaitstep/commit/0f49e2a5e037af3f6476c0acd41c529de18ed2ae))
+
 ## [1.4.11](https://github.com/awaitstep/awaitstep/compare/v1.4.10...v1.4.11) (2026-05-02)
 
 
