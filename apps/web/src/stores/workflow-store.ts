@@ -38,6 +38,69 @@ export function toFlowType(irType: string): string {
   return BUILTIN_FLOW_TYPES.has(irType) ? irType : 'custom'
 }
 
+const CLIPBOARD_FORMAT = 'awaitstep/nodes-v1'
+
+interface ClipboardEdge {
+  source: string
+  target: string
+  label?: string
+}
+
+interface ClipboardPayload {
+  __awaitstep: typeof CLIPBOARD_FORMAT
+  nodes: WorkflowNode[]
+  edges: ClipboardEdge[]
+}
+
+function isClipboardPayload(value: unknown): value is ClipboardPayload {
+  if (typeof value !== 'object' || value === null) return false
+  const obj = value as Record<string, unknown>
+  return (
+    obj.__awaitstep === CLIPBOARD_FORMAT && Array.isArray(obj.nodes) && Array.isArray(obj.edges)
+  )
+}
+
+function buildClipboardPayload(
+  nodes: FlowNode[],
+  edges: Edge[],
+  nodeIds: string[],
+): ClipboardPayload | null {
+  const idSet = new Set(nodeIds)
+  const sourceNodes = nodes.filter((n) => idSet.has(n.id)).map((n) => n.data.irNode)
+  if (sourceNodes.length === 0) return null
+  const sourceEdges = edges
+    .filter((e) => idSet.has(e.source) && idSet.has(e.target))
+    .map<ClipboardEdge>((e) => ({
+      source: e.source,
+      target: e.target,
+      ...(typeof e.label === 'string' ? { label: e.label } : {}),
+    }))
+  return { __awaitstep: CLIPBOARD_FORMAT, nodes: sourceNodes, edges: sourceEdges }
+}
+
+function instantiateClones(
+  payload: ClipboardPayload,
+  offset: { x: number; y: number },
+): { nodes: FlowNode[]; edges: Edge[] } {
+  const idMap = new Map<string, string>()
+  const newNodes: FlowNode[] = payload.nodes.map((src) => {
+    const newId = nanoid()
+    idMap.set(src.id, newId)
+    const position = { x: src.position.x + offset.x, y: src.position.y + offset.y }
+    const irNode: WorkflowNode = { ...structuredClone(src), id: newId, position }
+    return { id: newId, type: toFlowType(irNode.type), position, data: { irNode } }
+  })
+  const newEdges: Edge[] = payload.edges
+    .filter((e) => idMap.has(e.source) && idMap.has(e.target))
+    .map((e) => ({
+      id: nanoid(),
+      source: idMap.get(e.source)!,
+      target: idMap.get(e.target)!,
+      ...(e.label ? { label: e.label } : {}),
+    }))
+  return { nodes: newNodes, edges: newEdges }
+}
+
 export interface WorkflowNodeData extends Record<string, unknown> {
   irNode: WorkflowNode
 }
@@ -115,6 +178,9 @@ interface WorkflowState {
   removeNode: (nodeId: string) => void
   selectNode: (nodeId: string | null) => void
   selectEdge: (edgeId: string | null) => void
+  duplicateNodes: (nodeIds: string[]) => string[]
+  copyNodesToClipboard: (nodeIds: string[]) => Promise<boolean>
+  pasteNodesFromClipboard: (centerPosition?: { x: number; y: number }) => Promise<string[]>
 
   setKind: (kind: 'workflow' | 'script') => void
   setMetadata: (metadata: Partial<WorkflowMetadata>) => void
@@ -390,6 +456,82 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   selectEdge: (edgeId) => {
     set({ selectedEdgeId: edgeId, selectedNodeId: null })
+  },
+
+  duplicateNodes: (nodeIds) => {
+    if (get().readOnly || nodeIds.length === 0) return []
+    const { nodes, edges } = get()
+    const payload = buildClipboardPayload(nodes, edges, nodeIds)
+    if (!payload) return []
+    const cloned = instantiateClones(payload, { x: 40, y: 40 })
+    const newIds = cloned.nodes.map((n) => n.id)
+    set({
+      nodes: [
+        ...nodes.map((n) => (n.selected ? { ...n, selected: false } : n)),
+        ...cloned.nodes.map((n) => ({ ...n, selected: true })),
+      ],
+      edges: [...edges, ...cloned.edges],
+      selectedNodeId: newIds[0] ?? null,
+      selectedEdgeId: null,
+      isDirty: true,
+    })
+    return newIds
+  },
+
+  copyNodesToClipboard: async (nodeIds) => {
+    if (nodeIds.length === 0) return false
+    const { nodes, edges } = get()
+    const payload = buildClipboardPayload(nodes, edges, nodeIds)
+    if (!payload) return false
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(payload))
+      return true
+    } catch {
+      return false
+    }
+  },
+
+  pasteNodesFromClipboard: async (centerPosition) => {
+    if (get().readOnly) return []
+    let raw: string
+    try {
+      raw = await navigator.clipboard.readText()
+    } catch {
+      return []
+    }
+    if (!raw) return []
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      return []
+    }
+    if (!isClipboardPayload(parsed)) return []
+
+    let offset: { x: number; y: number }
+    if (centerPosition && parsed.nodes.length > 0) {
+      const cx = parsed.nodes.reduce((s, n) => s + n.position.x, 0) / parsed.nodes.length
+      const cy = parsed.nodes.reduce((s, n) => s + n.position.y, 0) / parsed.nodes.length
+      offset = { x: centerPosition.x - cx, y: centerPosition.y - cy }
+    } else {
+      offset = { x: 40, y: 40 }
+    }
+
+    const cloned = instantiateClones(parsed, offset)
+    if (cloned.nodes.length === 0) return []
+    const newIds = cloned.nodes.map((n) => n.id)
+    const { nodes, edges } = get()
+    set({
+      nodes: [
+        ...nodes.map((n) => (n.selected ? { ...n, selected: false } : n)),
+        ...cloned.nodes.map((n) => ({ ...n, selected: true })),
+      ],
+      edges: [...edges, ...cloned.edges],
+      selectedNodeId: newIds[0] ?? null,
+      selectedEdgeId: null,
+      isDirty: true,
+    })
+    return newIds
   },
 
   setKind: (kind) => {
