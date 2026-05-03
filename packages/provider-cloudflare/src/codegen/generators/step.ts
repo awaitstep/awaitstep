@@ -37,23 +37,16 @@ function resolveStepConfig(node: WorkflowNode): StepConfig | undefined {
 
 export function generateStep(node: WorkflowNode, mode: GenerateMode = 'workflow'): string {
   const code = String(node.data.code ?? '')
-  if (mode === 'script') {
-    // Step code is inlined raw into `runGraph`. `return X` exits runGraph
-    // with X. To share values across steps, declare `const myVar = ...`.
-    // To expose on graph, name the node `EXPORT_X` and declare `const X = ...`.
+  // Inline steps (and script mode) emit raw user code with no wrapping.
+  // The user owns the surrounding scope: they can mutate enclosing `let`s,
+  // declare local vars, and add their own IIFE if they want one. To share a
+  // value with downstream nodes, declare `const X = ...` matching the
+  // sanitized node id.
+  if (mode === 'script' || node.data.inline === true) {
     return code
   }
   const hasReturn = /\breturn\b/.test(code)
   const prefix = hasReturn ? `const ${varName(node.id)} = ` : ''
-  if (node.data.inline === true) {
-    // Inline steps skip the durable `step.do` wrap — user code runs as a
-    // bare async IIFE in the workflow body. Trades durability/retries for
-    // raw-code ergonomics; appropriate for pure transforms or quick checks
-    // that don't need to be cached/resumed.
-    return `${prefix}await (async () => {
-  ${code}
-})();`
-  }
   const config = generateStepConfig(resolveStepConfig(node))
   const configArg = config ? `, ${config}` : ''
   return `${prefix}await step.do("${escName(node.name)}"${configArg}, async () => {

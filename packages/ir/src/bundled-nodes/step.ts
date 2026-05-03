@@ -21,7 +21,7 @@ export const stepDefinition: NodeDefinition = {
       label: 'Inline (no step.do)',
       default: false,
       description:
-        'Emit this code directly in the workflow body instead of wrapping it in step.do. Loses durability and retries — use for pure transforms or quick checks.',
+        'Emit this code raw in the workflow body — no step.do, no wrapping. You own the surrounding scope: declare your own variables, add your own try/catch or IIFE if needed. Loses durability and retries.',
     },
     retryLimit: {
       type: 'number',

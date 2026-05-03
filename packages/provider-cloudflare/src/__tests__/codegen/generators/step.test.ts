@@ -120,18 +120,25 @@ describe('generateStep', () => {
   })
 
   describe('inline (workflow mode)', () => {
-    it('emits an async IIFE with const-bound output when `data.inline` is true', () => {
+    it('emits raw user code with no wrapping when `data.inline` is true', () => {
       const code = generateStep(makeNode({ data: { code: 'return 42;', inline: true } }))
-      expect(code).not.toContain('step.do')
-      expect(code).toContain('const step_1 = await (async () => {')
-      expect(code).toContain('return 42;')
-      expect(code).toMatch(/}\)\(\);$/)
+      expect(code).toBe('return 42;')
     })
 
-    it('omits the const prefix when the inline code has no return', () => {
-      const code = generateStep(makeNode({ data: { code: 'console.log("x");', inline: true } }))
+    it('emits side-effect-only inline code unchanged', () => {
+      const code = generateStep(
+        makeNode({
+          data: { code: '_output = [..._output, listing];', inline: true },
+        }),
+      )
+      expect(code).toBe('_output = [..._output, listing];')
+    })
+
+    it('does not add a const prefix or step.do wrap for inline', () => {
+      const code = generateStep(makeNode({ data: { code: 'return x;', inline: true } }))
       expect(code).not.toContain('const step_1')
-      expect(code).toMatch(/^await \(async \(\) => \{/)
+      expect(code).not.toContain('step.do')
+      expect(code).not.toContain('async () =>')
     })
 
     it('ignores `data.inline` in script mode (script is already inline)', () => {
