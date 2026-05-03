@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.13](https://github.com/awaitstep/awaitstep/compare/v1.4.12...v1.4.13) (2026-05-03)
+
+
+### Features
+
+* **canvas:** auto-save 30s after last meaningful change ([11452f2](https://github.com/awaitstep/awaitstep/commit/11452f2712108ebc2e591386c6cf7be169a73b9b))
+* **canvas:** inline step toggle — emit raw code without step.do wrap ([fefed3e](https://github.com/awaitstep/awaitstep/commit/fefed3e9d6c5968c04531a296b0cc8e4c703a19b))
+* **web:** allow overriding IR kind during import ([c9f4f98](https://github.com/awaitstep/awaitstep/commit/c9f4f98976dc2c7ed76e1b9bc414bc9a8daca5c8))
+
+
+### Bug Fixes
+
+* **codegen:** emit inline step body raw, no IIFE wrap ([25d7b95](https://github.com/awaitstep/awaitstep/commit/25d7b95ce67870cb95319bce8cb9945fa680450c))
+* **codegen:** follow container `then` edge in chain walker ([9c54eaf](https://github.com/awaitstep/awaitstep/commit/9c54eafb6fd914fcb680977ce1e79e4f1c877714))
+* **codegen:** return last bound variable from parallel/race branches ([ebff8a3](https://github.com/awaitstep/awaitstep/commit/ebff8a36b68b41666c6714d97791c170b3b5093a))
+
 ## [1.4.12](https://github.com/awaitstep/awaitstep/compare/v1.4.11...v1.4.12) (2026-05-03)
 
 
