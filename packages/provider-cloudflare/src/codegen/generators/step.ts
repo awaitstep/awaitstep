@@ -43,10 +43,19 @@ export function generateStep(node: WorkflowNode, mode: GenerateMode = 'workflow'
     // To expose on graph, name the node `EXPORT_X` and declare `const X = ...`.
     return code
   }
-  const config = generateStepConfig(resolveStepConfig(node))
-  const configArg = config ? `, ${config}` : ''
   const hasReturn = /\breturn\b/.test(code)
   const prefix = hasReturn ? `const ${varName(node.id)} = ` : ''
+  if (node.data.inline === true) {
+    // Inline steps skip the durable `step.do` wrap — user code runs as a
+    // bare async IIFE in the workflow body. Trades durability/retries for
+    // raw-code ergonomics; appropriate for pure transforms or quick checks
+    // that don't need to be cached/resumed.
+    return `${prefix}await (async () => {
+  ${code}
+})();`
+  }
+  const config = generateStepConfig(resolveStepConfig(node))
+  const configArg = config ? `, ${config}` : ''
   return `${prefix}await step.do("${escName(node.name)}"${configArg}, async () => {
   ${code}
 });`

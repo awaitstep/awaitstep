@@ -16,7 +16,24 @@ import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { customAlphabet } from 'nanoid'
 
 const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789_', 12)
-import type { WorkflowNode, BranchCondition } from '@awaitstep/ir'
+import type { WorkflowNode, BranchCondition, ConfigField } from '@awaitstep/ir'
+
+const STEP_DURABLE_FIELDS = new Set(['retryLimit', 'retryDelay', 'backoff', 'timeout'])
+
+function filterStepConfigSchema(
+  schema: Record<string, ConfigField>,
+  isScript: boolean,
+  isInline: boolean,
+): Record<string, ConfigField> {
+  if (!isScript && !isInline) return schema
+  const filtered: Record<string, ConfigField> = {}
+  for (const [key, field] of Object.entries(schema)) {
+    if (isScript && key === 'inline') continue
+    if ((isScript || isInline) && STEP_DURABLE_FIELDS.has(key)) continue
+    filtered[key] = field
+  }
+  return filtered
+}
 
 const NESTED_STEP_PATTERN = /step\.(do|sleep|sleepUntil|waitForEvent)\s*\(/
 
@@ -80,8 +97,8 @@ export function validateNode(node: WorkflowNode): string[] {
 }
 
 export function NodeConfigPanel() {
-  const { selectedNodeId, nodes } = useWorkflowStore(
-    useShallow((s) => ({ selectedNodeId: s.selectedNodeId, nodes: s.nodes })),
+  const { selectedNodeId, nodes, kind } = useWorkflowStore(
+    useShallow((s) => ({ selectedNodeId: s.selectedNodeId, nodes: s.nodes, kind: s.kind })),
   )
   const { updateNodeData, removeNode, selectNode } = useWorkflowStore()
   const { registry } = useNodeRegistry()
@@ -201,7 +218,15 @@ export function NodeConfigPanel() {
             </>
           ) : definition ? (
             <DynamicFields
-              configSchema={definition.configSchema}
+              configSchema={
+                irNode.type === 'step'
+                  ? filterStepConfigSchema(
+                      definition.configSchema,
+                      kind === 'script',
+                      Boolean(irNode.data.inline),
+                    )
+                  : definition.configSchema
+              }
               data={irNode.data}
               onChange={updateData}
             />
