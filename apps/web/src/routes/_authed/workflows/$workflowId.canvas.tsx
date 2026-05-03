@@ -24,6 +24,7 @@ import {
   deriveDeploymentState,
 } from '../../../lib/hydrate-workflow'
 import { useWorkflowPersistence } from '../../../hooks/use-workflow-persistence'
+import { useAutoSave } from '../../../hooks/use-auto-save'
 import { buildIRFromState } from '../../../lib/build-ir'
 import { serializeArtifact } from '@awaitstep/ir'
 import { downloadJsonFile } from '../../../lib/download-file'
@@ -166,12 +167,21 @@ function WorkflowEditorPage() {
   }, [workflowId, isNew, kindParam, fullData, setWorkflowId, isReadOnly, currentVersion])
 
   // Persistence (save + deploy)
-  const { handleSave, handleDeploy, isSaving } = useWorkflowPersistence({
-    workflowId,
-    isNew,
-    isDirty,
-    nodeRegistry,
-    kind: kindParam,
+  const { handleSave, handleDeploy, saveSilent, isSaving, lastSavedAt, autoSaveError } =
+    useWorkflowPersistence({
+      workflowId,
+      isNew,
+      isDirty,
+      nodeRegistry,
+      kind: kindParam,
+    })
+
+  // Auto-save 30s after the last meaningful change. Skipped on read-only
+  // workflows and on never-saved workflows (so a stray drag on /new doesn't
+  // create a phantom workflow).
+  useAutoSave({
+    enabled: !isReadOnly && !isNew,
+    save: saveSilent,
   })
 
   const handleAddNode = (type: Parameters<typeof addNode>[0]) => {
@@ -212,6 +222,8 @@ function WorkflowEditorPage() {
                 onToggleEditor={() => setShowEditor(!showEditor)}
                 onSave={handleSave}
                 isSaving={isSaving}
+                lastSavedAt={lastSavedAt}
+                autoSaveError={autoSaveError}
                 onDeploy={handleDeploy}
                 onTest={() => runSimulation()}
                 onTestLocally={localDevEnabled ? () => setShowLocalTest((v) => !v) : undefined}

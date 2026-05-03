@@ -8,10 +8,12 @@ import {
   Rocket,
   Loader2,
   Save,
-  Circle,
   LayoutTemplate,
   Terminal,
   Download,
+  Check,
+  AlertCircle,
+  Circle,
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { cn } from '../../lib/utils'
@@ -34,6 +36,8 @@ export interface EditorToolbarProps {
   onToggleEditor: () => void
   onSave: () => void
   isSaving: boolean
+  lastSavedAt?: Date | null
+  autoSaveError?: string | null
   onDeploy: () => void
   onTest: () => void
   onTestLocally?: () => void
@@ -41,6 +45,58 @@ export interface EditorToolbarProps {
   onExport?: () => void
   readOnly?: boolean
   readOnlyVersion?: number
+}
+
+function SaveStatusIndicator({
+  isDirty,
+  isSaving,
+  lastSavedAt,
+  autoSaveError,
+}: {
+  isDirty: boolean
+  isSaving: boolean
+  lastSavedAt: Date | null
+  autoSaveError: string | null
+}) {
+  if (isSaving) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        Saving…
+      </span>
+    )
+  }
+  if (autoSaveError && isDirty) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-xs text-destructive"
+        title={autoSaveError}
+      >
+        <AlertCircle className="h-3 w-3" />
+        Couldn&apos;t auto-save
+      </span>
+    )
+  }
+  if (isDirty) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-status-warning">
+        <Circle className="h-2 w-2 fill-status-warning text-status-warning" />
+        Unsaved
+      </span>
+    )
+  }
+  if (lastSavedAt) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+        title={`Saved at ${lastSavedAt.toLocaleTimeString()}`}
+      >
+        <Check className="h-3 w-3 text-status-success" />
+        Saved
+      </span>
+    )
+  }
+  return null
 }
 
 export function EditorToolbar({
@@ -60,6 +116,8 @@ export function EditorToolbar({
   onToggleEditor,
   onSave,
   isSaving,
+  lastSavedAt,
+  autoSaveError,
   onDeploy,
   onTest,
   onTestLocally,
@@ -117,7 +175,12 @@ export function EditorToolbar({
                 : `deployed v${currentVersion}`}
             </Link>
           )}
-          {isDirty && <Circle className="h-2 w-2 fill-status-warning text-status-warning" />}
+          <SaveStatusIndicator
+            isDirty={isDirty}
+            isSaving={isSaving}
+            lastSavedAt={lastSavedAt ?? null}
+            autoSaveError={autoSaveError ?? null}
+          />
         </div>
       </div>
 
