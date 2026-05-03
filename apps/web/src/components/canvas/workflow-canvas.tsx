@@ -18,6 +18,7 @@ import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { nodeTypes } from './nodes'
 import { LabeledEdge } from './labeled-edge'
 import { buildContainerEdgeColors } from '../../lib/container-edge-colors'
+import { CanvasContextMenu, type ContextMenuAction } from './canvas-context-menu'
 
 const edgeTypes = { smoothstep: LabeledEdge }
 
@@ -39,10 +40,16 @@ export function WorkflowCanvas() {
     duplicateNodes,
     copyNodesToClipboard,
     pasteNodesFromClipboard,
+    removeNode,
     readOnly,
   } = useWorkflowStore()
   const { registry } = useNodeRegistry()
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null)
+  const [contextMenu, setContextMenu] = useState<
+    | { type: 'node'; x: number; y: number; nodeId: string }
+    | { type: 'pane'; x: number; y: number; flowPosition: { x: number; y: number } }
+    | null
+  >(null)
 
   const validatedSelectNode = useCallback(
     (nodeId: string | null) => {
@@ -111,6 +118,65 @@ export function WorkflowCanvas() {
     const single = useWorkflowStore.getState().selectedNodeId
     return single ? [single] : []
   }, [])
+
+  const onNodeContextMenu = useCallback((event: React.MouseEvent, node: FlowNode) => {
+    event.preventDefault()
+    setContextMenu({ type: 'node', x: event.clientX, y: event.clientY, nodeId: node.id })
+  }, [])
+
+  const onPaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
+    event.preventDefault()
+    if (!reactFlowInstance.current) return
+    const flowPosition = reactFlowInstance.current.screenToFlowPosition({
+      x: event.clientX,
+      y: event.clientY,
+    })
+    setContextMenu({ type: 'pane', x: event.clientX, y: event.clientY, flowPosition })
+  }, [])
+
+  const handleContextMenuAction = useCallback(
+    (action: ContextMenuAction) => {
+      if (!contextMenu) return
+      if (contextMenu.type === 'node') {
+        const selected = useWorkflowStore
+          .getState()
+          .nodes.filter((n) => n.selected)
+          .map((n) => n.id)
+        const ids = selected.includes(contextMenu.nodeId) ? selected : [contextMenu.nodeId]
+        if (action === 'duplicate') {
+          if (!readOnly) {
+            const newIds = duplicateNodes(ids)
+            if (newIds.length > 1) toast.success(`Duplicated ${newIds.length} nodes`)
+          }
+        } else if (action === 'copy') {
+          void copyNodesToClipboard(ids).then((ok) => {
+            if (ok) toast.success(ids.length === 1 ? 'Node copied' : `${ids.length} nodes copied`)
+          })
+        } else if (action === 'delete') {
+          if (!readOnly) {
+            ids.forEach((id) => removeNode(id))
+          }
+        }
+      } else if (action === 'paste') {
+        if (!readOnly) {
+          void pasteNodesFromClipboard(contextMenu.flowPosition).then((newIds) => {
+            if (newIds.length > 0) {
+              toast.success(newIds.length === 1 ? 'Node pasted' : `${newIds.length} nodes pasted`)
+            }
+          })
+        }
+      }
+      setContextMenu(null)
+    },
+    [
+      contextMenu,
+      duplicateNodes,
+      copyNodesToClipboard,
+      pasteNodesFromClipboard,
+      removeNode,
+      readOnly,
+    ],
+  )
 
   const getViewportCenter = useCallback(() => {
     const instance = reactFlowInstance.current
@@ -230,6 +296,8 @@ export function WorkflowCanvas() {
         onNodeClick={(_event, node) => validatedSelectNode(node.id)}
         onEdgeClick={(_event, edge) => selectEdge(edge.id)}
         onPaneClick={() => validatedSelectNode(null)}
+        onNodeContextMenu={onNodeContextMenu}
+        onPaneContextMenu={onPaneContextMenu}
         nodeTypes={nodeTypes as NodeTypes}
         edgeTypes={edgeTypes}
         fitView
@@ -261,6 +329,15 @@ export function WorkflowCanvas() {
           zoomable
         />
       </ReactFlow>
+      {contextMenu && (
+        <CanvasContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          type={contextMenu.type}
+          onAction={handleContextMenuAction}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   )
 }
