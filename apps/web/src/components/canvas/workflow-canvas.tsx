@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, useMemo } from 'react'
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react'
 import {
   ReactFlow,
   Background,
@@ -23,6 +23,7 @@ const edgeTypes = { smoothstep: LabeledEdge }
 
 export function WorkflowCanvas() {
   const reactFlowInstance = useRef<ReactFlowInstance<FlowNode> | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const {
     nodes,
     edges,
@@ -35,6 +36,9 @@ export function WorkflowCanvas() {
     selectEdge,
     selectedNodeId,
     selectedEdgeId,
+    duplicateNodes,
+    copyNodesToClipboard,
+    pasteNodesFromClipboard,
     readOnly,
   } = useWorkflowStore()
   const { registry } = useNodeRegistry()
@@ -98,6 +102,77 @@ export function WorkflowCanvas() {
     setHoveredEdgeId(null)
   }, [])
 
+  const getActiveSelection = useCallback(() => {
+    const current = useWorkflowStore
+      .getState()
+      .nodes.filter((n) => n.selected)
+      .map((n) => n.id)
+    if (current.length > 0) return current
+    const single = useWorkflowStore.getState().selectedNodeId
+    return single ? [single] : []
+  }, [])
+
+  const getViewportCenter = useCallback(() => {
+    const instance = reactFlowInstance.current
+    const el = containerRef.current
+    if (!instance || !el) return undefined
+    const rect = el.getBoundingClientRect()
+    return instance.screenToFlowPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    })
+  }, [])
+
+  useEffect(() => {
+    function isTypingTarget(target: EventTarget | null): boolean {
+      const el = target as HTMLElement | null
+      if (!el) return false
+      const tag = el.tagName
+      return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable
+    }
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return
+      if (isTypingTarget(e.target)) return
+      const key = e.key.toLowerCase()
+      if (key === 'd') {
+        const ids = getActiveSelection()
+        if (ids.length === 0) return
+        e.preventDefault()
+        if (readOnly) return
+        const newIds = duplicateNodes(ids)
+        if (newIds.length > 1) {
+          toast.success(`Duplicated ${newIds.length} nodes`)
+        }
+      } else if (key === 'c') {
+        const ids = getActiveSelection()
+        if (ids.length === 0) return
+        e.preventDefault()
+        void copyNodesToClipboard(ids).then((ok) => {
+          if (ok) toast.success(ids.length === 1 ? 'Node copied' : `${ids.length} nodes copied`)
+        })
+      } else if (key === 'v') {
+        if (readOnly) return
+        e.preventDefault()
+        const center = getViewportCenter()
+        void pasteNodesFromClipboard(center).then((newIds) => {
+          if (newIds.length > 0) {
+            toast.success(newIds.length === 1 ? 'Node pasted' : `${newIds.length} nodes pasted`)
+          }
+        })
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [
+    duplicateNodes,
+    copyNodesToClipboard,
+    pasteNodesFromClipboard,
+    readOnly,
+    getActiveSelection,
+    getViewportCenter,
+  ])
+
   // Container edge colors only depend on graph topology (node types + edge connections).
   // Position drags change node references but not edge references — use edges array
   // identity as the primary cache key to avoid any work on drag frames.
@@ -137,53 +212,55 @@ export function WorkflowCanvas() {
   }, [edges, hoveredEdgeId, selectedEdgeId, containerEdgeColors])
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={styledEdges}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
-      onConnect={onConnect}
-      nodesDraggable={!readOnly}
-      nodesConnectable={!readOnly}
-      onInit={(instance) => {
-        reactFlowInstance.current = instance
-      }}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      onDragLeave={onDragLeave}
-      onNodeClick={(_event, node) => validatedSelectNode(node.id)}
-      onEdgeClick={(_event, edge) => selectEdge(edge.id)}
-      onPaneClick={() => validatedSelectNode(null)}
-      nodeTypes={nodeTypes as NodeTypes}
-      edgeTypes={edgeTypes}
-      fitView
-      snapToGrid
-      snapGrid={[20, 20]}
-      defaultEdgeOptions={{
-        type: 'smoothstep',
-        style: { stroke: 'var(--muted-foreground)', strokeWidth: 0.5 },
-      }}
-      proOptions={{ hideAttribution: true }}
-      className="!bg-background"
-    >
-      <Background
-        variant={BackgroundVariant.Dots}
-        gap={20}
-        size={1}
-        color="var(--muted-foreground)"
-        style={{ opacity: 0.3 }}
-      />
-      <Controls
-        showInteractive={false}
-        className="!rounded-lg !border !border-border !bg-card !shadow-lg [&_button]:!border-border [&_button]:!bg-transparent [&_button]:!text-muted-foreground [&_button:hover]:!bg-muted/60 [&_button:hover]:!text-foreground/80"
-      />
-      <MiniMap
-        className="!rounded-lg !border !border-border !bg-card"
-        nodeColor="var(--muted-foreground)"
-        maskColor="var(--background)"
-        pannable
-        zoomable
-      />
-    </ReactFlow>
+    <div ref={containerRef} className="h-full w-full">
+      <ReactFlow
+        nodes={nodes}
+        edges={styledEdges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        nodesDraggable={!readOnly}
+        nodesConnectable={!readOnly}
+        onInit={(instance) => {
+          reactFlowInstance.current = instance
+        }}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+        onDragLeave={onDragLeave}
+        onNodeClick={(_event, node) => validatedSelectNode(node.id)}
+        onEdgeClick={(_event, edge) => selectEdge(edge.id)}
+        onPaneClick={() => validatedSelectNode(null)}
+        nodeTypes={nodeTypes as NodeTypes}
+        edgeTypes={edgeTypes}
+        fitView
+        snapToGrid
+        snapGrid={[20, 20]}
+        defaultEdgeOptions={{
+          type: 'smoothstep',
+          style: { stroke: 'var(--muted-foreground)', strokeWidth: 0.5 },
+        }}
+        proOptions={{ hideAttribution: true }}
+        className="!bg-background"
+      >
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={20}
+          size={1}
+          color="var(--muted-foreground)"
+          style={{ opacity: 0.3 }}
+        />
+        <Controls
+          showInteractive={false}
+          className="!rounded-lg !border !border-border !bg-card !shadow-lg [&_button]:!border-border [&_button]:!bg-transparent [&_button]:!text-muted-foreground [&_button:hover]:!bg-muted/60 [&_button:hover]:!text-foreground/80"
+        />
+        <MiniMap
+          className="!rounded-lg !border !border-border !bg-card"
+          nodeColor="var(--muted-foreground)"
+          maskColor="var(--background)"
+          pannable
+          zoomable
+        />
+      </ReactFlow>
+    </div>
   )
 }
