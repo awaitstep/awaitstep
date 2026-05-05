@@ -329,6 +329,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     // `deploymentConfig.queueConsumers` if present; otherwise CF defaults apply.
     const triggerCodeForAnnotations = config.options?.['triggerCode'] as string | undefined
     const queueConsumers = buildQueueConsumers(triggerCodeForAnnotations, deploymentConfig)
+    const cronTriggers = buildCronTriggers(triggerCodeForAnnotations, deploymentConfig)
 
     if (!this.deployer) {
       report('FAILED', 'No deployer configured — deploy is not available on this runtime', 0)
@@ -363,7 +364,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
         customDomains: deploymentConfig?.customDomains,
         compatibilityDate: deploymentConfig?.compatibilityDate,
         compatibilityFlags: deploymentConfig?.compatibilityFlags,
-        cronTriggers: deploymentConfig?.cronTriggers,
+        cronTriggers,
         placement: deploymentConfig?.placement,
         limits: deploymentConfig?.limits,
         observability: deploymentConfig?.observability,
@@ -553,6 +554,48 @@ export function buildQueueConsumers(
       maxConcurrency?: number
     }
   })
+}
+
+/**
+ * Returns the union of cron expressions from `@scheduled` annotations and
+ * any explicit `deploymentConfig.cronTriggers`, deduped while preserving the
+ * order in which they first appear (annotation crons first). Returns
+ * undefined when neither source contributes any cron, so the wrangler config
+ * omits the `triggers` block entirely.
+ *
+ * Annotation parse errors are silently swallowed here — they're already
+ * surfaced by the codegen path that runs first.
+ */
+export function buildCronTriggers(
+  triggerCode: string | undefined,
+  deploymentConfig: CloudflareDeploymentConfig | undefined,
+): string[] | undefined {
+  const seen = new Set<string>()
+  const out: string[] = []
+  if (triggerCode) {
+    try {
+      const parsed = parseAnnotations(triggerCode)
+      if (parsed.mode === 'strict') {
+        for (const sh of parsed.scheduledHandlers) {
+          for (const cron of sh.crons ?? []) {
+            if (!seen.has(cron)) {
+              seen.add(cron)
+              out.push(cron)
+            }
+          }
+        }
+      }
+    } catch {
+      // Ignore — codegen path raises this as a structured DeployResult.
+    }
+  }
+  for (const cron of deploymentConfig?.cronTriggers ?? []) {
+    if (!seen.has(cron)) {
+      seen.add(cron)
+      out.push(cron)
+    }
+  }
+  return out.length > 0 ? out : undefined
 }
 
 export function mapCFStatus(cfStatus: string): WorkflowStatus {

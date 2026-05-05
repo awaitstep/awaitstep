@@ -531,4 +531,52 @@ function shared(x) { return x }
     expect(code).toContain('async fetch(request: Request, env: Env): Promise<Response>')
     expect(code).not.toContain('async queue(')
   })
+
+  it('emits a scheduled handler when @scheduled is declared', () => {
+    const triggerCode = `
+@fetch function handler(request, env, ctx) {
+  return Response.json({ ok: true })
+}
+
+@scheduled function nightly(controller, env, ctx) {
+  @crons ["0 2 * * *", "0 14 * * *"]
+  console.log("ran at", controller.scheduledTime)
+}
+`
+    const code = generateWorkflow(ir, { triggerCode })
+    expect(code).toMatch(
+      /async scheduled\(controller: ScheduledController, env: Env, ctx: ExecutionContext\): Promise<void>/,
+    )
+    expect(code).toContain('switch (controller.cron)')
+    expect(code).toContain('case "0 2 * * *":')
+    expect(code).toContain('case "0 14 * * *":')
+    expect(code).toContain('console.log("ran at", controller.scheduledTime)')
+    // Body emitted only once for the two-cron handler (case fallthrough).
+    expect(code.match(/console\.log\("ran at"/g)?.length ?? 0).toBe(1)
+  })
+
+  it('emits one case per cron across multiple @scheduled handlers', () => {
+    const triggerCode = `
+@scheduled function morning(controller, env, ctx) {
+  @crons ["0 6 * * *"]
+  console.log("morning")
+}
+
+@scheduled function evening(controller, env, ctx) {
+  @crons ["0 18 * * *"]
+  console.log("evening")
+}
+`
+    const code = generateWorkflow(ir, { triggerCode })
+    expect(code).toContain('case "0 6 * * *":')
+    expect(code).toContain('case "0 18 * * *":')
+    expect(code).toContain('console.log("morning")')
+    expect(code).toContain('console.log("evening")')
+  })
+
+  it('omits scheduled handler when no @scheduled is declared', () => {
+    const triggerCode = `@fetch function handler(req, env) { return new Response("ok") }`
+    const code = generateWorkflow(ir, { triggerCode })
+    expect(code).not.toContain('async scheduled(')
+  })
 })
