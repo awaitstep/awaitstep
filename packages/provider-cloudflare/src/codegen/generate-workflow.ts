@@ -203,6 +203,11 @@ export function generateWorkflow(
     params: string
     body: string
   }> = []
+  const scheduledHandlerEmissions: Array<{
+    name: string
+    crons: string[]
+    body: string
+  }> = []
 
   if (parsed.mode === 'legacy') {
     const { imports, body } = extractImports(parsed.fetchBody)
@@ -226,6 +231,15 @@ export function generateWorkflow(
         name: qh.name,
         queueName: qh.queueName ?? qh.name,
         params: qh.params,
+        body,
+      })
+    }
+    for (const sh of parsed.scheduledHandlers) {
+      const { imports, body } = extractImports(sh.body)
+      collectedImports.push(...imports)
+      scheduledHandlerEmissions.push({
+        name: sh.name,
+        crons: sh.crons ?? [],
         body,
       })
     }
@@ -257,6 +271,24 @@ ${indent(qh.body, 8)}${trailing}
       .join('\n')
     handlerBlocks.push(`  async queue(batch: MessageBatch<unknown>, env: Env, ctx: ExecutionContext): Promise<void> {
     switch (batch.queue) {
+${cases}
+    }
+  },`)
+  }
+  if (scheduledHandlerEmissions.length > 0) {
+    // One case per cron expression; multiple crons that share a handler use
+    // case-fallthrough so the body emits only once per handler.
+    const cases = scheduledHandlerEmissions
+      .map((sh) => {
+        const labels = sh.crons.map((c) => `      case "${c}":`).join('\n')
+        return `${labels} {
+${indent(sh.body, 8)}
+        break;
+      }`
+      })
+      .join('\n')
+    handlerBlocks.push(`  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    switch (controller.cron) {
 ${cases}
     }
   },`)

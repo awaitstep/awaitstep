@@ -258,8 +258,8 @@ describe('parseAnnotations — placement validation', () => {
 describe('parseAnnotations — entry-point validation', () => {
   it('rejects strict mode with no handlers (annotation but unsupported kind)', () => {
     // Only one annotation, and it's invalid kind — gets rejected before "no entry point".
-    const source = `@scheduled function cron(event, env, ctx) {}`
-    expect(() => parseAnnotations(source)).toThrow(/Unknown annotation '@scheduled'/)
+    const source = `@durable function thing(event, env, ctx) {}`
+    expect(() => parseAnnotations(source)).toThrow(/Unknown annotation '@durable'/)
   })
 
   it('queue-only worker is valid (no @fetch required)', () => {
@@ -302,8 +302,8 @@ describe('parseAnnotations — error messages include line numbers', () => {
 
 describe('parseAnnotations — unsupported annotations', () => {
   it('rejects unknown annotation kinds', () => {
-    const source = `@scheduled function cron(event, env, ctx) {}`
-    expect(() => parseAnnotations(source)).toThrow(/Unknown annotation '@scheduled'/)
+    const source = `@durable function thing(event, env, ctx) {}`
+    expect(() => parseAnnotations(source)).toThrow(/Unknown annotation '@durable'/)
   })
 })
 
@@ -407,5 +407,112 @@ describe('parseAnnotations — @config block in @queue handler', () => {
 }`
     const result = expectStrict(source)
     expect(result.queueHandlers[0]!.config).toEqual({ maxBatchSize: 5 })
+  })
+})
+
+describe('parseAnnotations — @scheduled handler with @crons', () => {
+  it('parses a single @scheduled handler with one cron', () => {
+    const source = `@scheduled function nightly(controller, env, ctx) {
+  @crons ["0 2 * * *"]
+  console.log("nightly run")
+}`
+    const result = expectStrict(source)
+    expect(result.scheduledHandlers).toHaveLength(1)
+    const sh = result.scheduledHandlers[0]!
+    expect(sh.name).toBe('nightly')
+    expect(sh.crons).toEqual(['0 2 * * *'])
+    expect(sh.body).toContain('console.log("nightly run")')
+    expect(sh.body).not.toContain('@crons')
+  })
+
+  it('parses multiple crons in a single handler', () => {
+    const source = `@scheduled function twice(controller, env, ctx) {
+  @crons ["0 2 * * *", "0 14 * * *"]
+  console.log("twice")
+}`
+    const result = expectStrict(source)
+    expect(result.scheduledHandlers[0]!.crons).toEqual(['0 2 * * *', '0 14 * * *'])
+  })
+
+  it('parses multiple @scheduled handlers', () => {
+    const source = `@scheduled function morning(controller, env, ctx) {
+  @crons ["0 6 * * *"]
+  await env.KV.put("morning", "ran")
+}
+
+@scheduled function evening(controller, env, ctx) {
+  @crons ["0 18 * * *"]
+  await env.KV.put("evening", "ran")
+}`
+    const result = expectStrict(source)
+    expect(result.scheduledHandlers).toHaveLength(2)
+    expect(result.scheduledHandlers[0]!.crons).toEqual(['0 6 * * *'])
+    expect(result.scheduledHandlers[1]!.crons).toEqual(['0 18 * * *'])
+  })
+
+  it('coexists with @fetch and @queue handlers', () => {
+    const source = `@fetch function handler(req, env) { return new Response("ok") }
+@queue function jobs(batch, env) { for (const m of batch.messages) m.ack() }
+@scheduled function nightly(controller, env, ctx) {
+  @crons ["0 0 * * *"]
+  console.log("nightly")
+}`
+    const result = expectStrict(source)
+    expect(result.fetchHandler).toBeDefined()
+    expect(result.queueHandlers).toHaveLength(1)
+    expect(result.scheduledHandlers).toHaveLength(1)
+  })
+
+  it('rejects @scheduled with no @crons block', () => {
+    const source = `@scheduled function nope(controller, env, ctx) {
+  console.log("oops")
+}`
+    expect(() => parseAnnotations(source)).toThrow(/missing required @crons/)
+  })
+
+  it('rejects @scheduled with empty @crons list', () => {
+    const source = `@scheduled function nope(controller, env, ctx) {
+  @crons []
+  console.log("oops")
+}`
+    expect(() => parseAnnotations(source)).toThrow(/at least one cron/)
+  })
+
+  it('rejects @crons with unquoted values', () => {
+    const source = `@scheduled function nope(controller, env, ctx) {
+  @crons [* * * * *]
+  console.log("oops")
+}`
+    expect(() => parseAnnotations(source)).toThrow(/quoted string/)
+  })
+
+  it('rejects duplicate cron expression across handlers', () => {
+    const source = `@scheduled function a(controller, env, ctx) {
+  @crons ["0 0 * * *"]
+}
+
+@scheduled function b(controller, env, ctx) {
+  @crons ["0 0 * * *"]
+}`
+    expect(() => parseAnnotations(source)).toThrow(/already used by @scheduled 'a'/)
+  })
+
+  it('rejects duplicate @scheduled handler name', () => {
+    const source = `@scheduled function dup(controller, env, ctx) {
+  @crons ["0 0 * * *"]
+}
+
+@scheduled function dup(controller, env, ctx) {
+  @crons ["0 12 * * *"]
+}`
+    expect(() => parseAnnotations(source)).toThrow(/Duplicate scheduled handler 'dup'/)
+  })
+
+  it('rejects @crons block placed mid-body', () => {
+    const source = `@scheduled function nope(controller, env, ctx) {
+  console.log("first")
+  @crons ["0 0 * * *"]
+}`
+    expect(() => parseAnnotations(source)).toThrow(/must be at the start/)
   })
 })

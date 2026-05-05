@@ -30,6 +30,7 @@ export interface StrictParseResult {
   moduleCode: string
   fetchHandler?: HandlerDecl
   queueHandlers: HandlerDecl[]
+  scheduledHandlers: HandlerDecl[]
 }
 
 export interface HandlerDecl {
@@ -55,6 +56,13 @@ export interface HandlerDecl {
    * `cloudflareInlineQueueConfigSchema`.
    */
   config?: Record<string, string | number | boolean>
+  /**
+   * For `@scheduled` handlers: the cron expressions (as written by the
+   * user) that trigger this handler. Parsed from a leading `@crons
+   * [...]` block. Always at least one — empty lists throw at parse time.
+   * Each cron also lands in wrangler `triggers.crons`.
+   */
+  crons?: string[]
 }
 
 export class AnnotationParseError extends Error {
@@ -66,7 +74,7 @@ export class AnnotationParseError extends Error {
   }
 }
 
-const SUPPORTED_KINDS = new Set(['fetch', 'queue'])
+const SUPPORTED_KINDS = new Set(['fetch', 'queue', 'scheduled'])
 const FETCH_HANDLER_NAME = 'handler'
 const VALID_IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/
 
@@ -91,12 +99,15 @@ export function parseAnnotations(source: string): ParsedTriggerCode {
 function buildStrictResult(source: string, annotations: RawAnnotation[]): StrictParseResult {
   let fetchHandler: HandlerDecl | undefined
   const queueHandlers: HandlerDecl[] = []
+  const scheduledHandlers: HandlerDecl[] = []
   const seenQueueNames = new Set<string>()
+  const seenScheduledNames = new Set<string>()
+  const seenCrons = new Map<string, string>() // cron → handler name
 
   for (const ann of annotations) {
     if (!SUPPORTED_KINDS.has(ann.kind)) {
       throw new AnnotationParseError(
-        `Unknown annotation '@${ann.kind}'. Supported: @fetch, @queue`,
+        `Unknown annotation '@${ann.kind}'. Supported: @fetch, @queue, @scheduled`,
         ann.line,
       )
     }
@@ -131,12 +142,41 @@ function buildStrictResult(source: string, annotations: RawAnnotation[]): Strict
         line: ann.line,
         ...(config && { config }),
       })
+    } else if (ann.kind === 'scheduled') {
+      if (!VALID_IDENTIFIER.test(ann.name)) {
+        throw new AnnotationParseError(
+          `@scheduled function name '${ann.name}' is not a valid identifier`,
+          ann.line,
+        )
+      }
+      if (seenScheduledNames.has(ann.name)) {
+        throw new AnnotationParseError(`Duplicate scheduled handler '${ann.name}'`, ann.line)
+      }
+      seenScheduledNames.add(ann.name)
+      const { crons, cleanedBody } = extractCronsBlock(ann.body, ann.line)
+      for (const cron of crons) {
+        const prior = seenCrons.get(cron)
+        if (prior) {
+          throw new AnnotationParseError(
+            `Cron '${cron}' is already used by @scheduled '${prior}'. Each cron expression can trigger only one handler.`,
+            ann.line,
+          )
+        }
+        seenCrons.set(cron, ann.name)
+      }
+      scheduledHandlers.push({
+        name: ann.name,
+        params: ann.params,
+        body: cleanedBody,
+        line: ann.line,
+        crons,
+      })
     }
   }
 
-  if (!fetchHandler && queueHandlers.length === 0) {
+  if (!fetchHandler && queueHandlers.length === 0 && scheduledHandlers.length === 0) {
     throw new AnnotationParseError(
-      'Workflow has no entry point. Define @fetch function handler(...) or @queue function NAME(...)',
+      'Workflow has no entry point. Define @fetch function handler(...), @queue function NAME(...), or @scheduled function NAME(...)',
       1,
     )
   }
@@ -146,7 +186,7 @@ function buildStrictResult(source: string, annotations: RawAnnotation[]): Strict
     annotations.map((a) => [a.spanStart, a.spanEnd] as const),
   )
 
-  return { mode: 'strict', moduleCode, fetchHandler, queueHandlers }
+  return { mode: 'strict', moduleCode, fetchHandler, queueHandlers, scheduledHandlers }
 }
 
 /**
@@ -594,6 +634,121 @@ function parseConfigValue(s: string, key: string, line: number): string | number
   const n = Number(s)
   if (!Number.isNaN(n) && s !== '') return n
   throw new AnnotationParseError(`@config: cannot parse value '${s}' for '${key}'`, line)
+}
+
+// ────────────────────────────────────────────────────────────
+// @crons block parsing (scheduled handler cron list)
+// ────────────────────────────────────────────────────────────
+
+/**
+ * Looks for a leading `@crons [ ... ]` block in a scheduled handler body.
+ * The block is required, must be at the start of the body, and must contain
+ * at least one non-empty cron expression string.
+ *
+ * Returns the parsed cron list and the body with the block stripped.
+ */
+function extractCronsBlock(
+  body: string,
+  handlerLine: number,
+): {
+  crons: string[]
+  cleanedBody: string
+} {
+  const headerMatch = /^([\s]*)@crons\s*\[/.exec(body)
+  if (!headerMatch) {
+    if (/(^|\n)\s*@crons\s*\[/.test(body)) {
+      throw new AnnotationParseError(
+        '@crons block must be at the start of the scheduled handler body',
+        handlerLine,
+      )
+    }
+    throw new AnnotationParseError(
+      '@scheduled handler is missing required @crons [ ... ] block',
+      handlerLine,
+    )
+  }
+  const openBracketIdx = headerMatch.index + headerMatch[0].length - 1
+  const closeBracketIdx = findCronsCloseBracket(body, openBracketIdx, handlerLine)
+  const inner = body.slice(openBracketIdx + 1, closeBracketIdx)
+
+  const remainder = body.slice(closeBracketIdx + 1)
+  if (/(^|\n)\s*@crons\s*\[/.test(remainder)) {
+    throw new AnnotationParseError('Duplicate @crons block in scheduled handler body', handlerLine)
+  }
+
+  const items = splitTopLevelCommas(inner)
+  const crons: string[] = []
+  for (const raw of items) {
+    const trimmed = raw.trim()
+    if (!trimmed) continue
+    if (
+      !(
+        (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+        (trimmed.startsWith("'") && trimmed.endsWith("'"))
+      )
+    ) {
+      throw new AnnotationParseError(
+        `@crons: each cron must be a quoted string, got ${trimmed}`,
+        handlerLine,
+      )
+    }
+    const cron = trimmed.slice(1, -1).trim()
+    if (!cron) {
+      throw new AnnotationParseError('@crons: cron expression must be non-empty', handlerLine)
+    }
+    crons.push(cron)
+  }
+  if (crons.length === 0) {
+    throw new AnnotationParseError(
+      '@crons: list must contain at least one cron expression',
+      handlerLine,
+    )
+  }
+
+  const cleanedBody = body.slice(0, headerMatch.index) + remainder
+  return { crons, cleanedBody }
+}
+
+/**
+ * Walks from the opening `[` of a `@crons` block to its matching `]`,
+ * tracking string/comment context so brackets inside string literals
+ * don't confuse the matcher.
+ */
+function findCronsCloseBracket(body: string, openIdx: number, line: number): number {
+  let i = openIdx + 1
+  let depth = 1
+  let inSingle = false
+  let inDouble = false
+  while (i < body.length) {
+    const c = body[i]!
+    if (inSingle) {
+      if (c === '\\' && i + 1 < body.length) {
+        i += 2
+        continue
+      }
+      if (c === "'") inSingle = false
+      i++
+      continue
+    }
+    if (inDouble) {
+      if (c === '\\' && i + 1 < body.length) {
+        i += 2
+        continue
+      }
+      if (c === '"') inDouble = false
+      i++
+      continue
+    }
+    if (c === "'") inSingle = true
+    else if (c === '"') inDouble = true
+    else if (c === '[') depth++
+    else if (c === ']') {
+      depth--
+      if (depth === 0) return i
+    }
+    i++
+  }
+  throw new AnnotationParseError('Unclosed @crons block — missing matching "]"', line)
 }
 
 /** Splits a string by commas at the top level (depth 0 of `{}`, `[]`, `()`). */

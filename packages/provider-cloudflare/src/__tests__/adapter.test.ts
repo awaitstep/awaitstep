@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { WorkflowIR } from '@awaitstep/ir'
 import type { ProviderConfig } from '@awaitstep/codegen'
-import { CloudflareWorkflowsAdapter, buildQueueConsumers } from '../adapter.js'
+import { CloudflareWorkflowsAdapter, buildQueueConsumers, buildCronTriggers } from '../adapter.js'
 import type { WranglerDeployer } from '../deploy/deployer.js'
 
 const mockDeployer: WranglerDeployer = {
@@ -367,5 +367,57 @@ describe('buildQueueConsumers', () => {
       { queue: 'emails', maxBatchSize: 50 },
       { queue: 'jobs', maxBatchSize: 1, maxConcurrency: 20 },
     ])
+  })
+})
+
+describe('buildCronTriggers', () => {
+  it('returns undefined when neither annotations nor config provide crons', () => {
+    expect(buildCronTriggers(undefined, undefined)).toBeUndefined()
+    expect(
+      buildCronTriggers('try { return new Response() } catch(e) {}', undefined),
+    ).toBeUndefined()
+  })
+
+  it('extracts crons from a single @scheduled handler', () => {
+    const triggerCode = `
+@scheduled function nightly(controller, env, ctx) {
+  @crons ["0 2 * * *"]
+}
+`
+    expect(buildCronTriggers(triggerCode, undefined)).toEqual(['0 2 * * *'])
+  })
+
+  it('unions crons from multiple @scheduled handlers in declaration order', () => {
+    const triggerCode = `
+@scheduled function morning(controller, env, ctx) {
+  @crons ["0 6 * * *"]
+}
+
+@scheduled function evening(controller, env, ctx) {
+  @crons ["0 18 * * *", "0 20 * * *"]
+}
+`
+    expect(buildCronTriggers(triggerCode, undefined)).toEqual([
+      '0 6 * * *',
+      '0 18 * * *',
+      '0 20 * * *',
+    ])
+  })
+
+  it('merges deploymentConfig.cronTriggers with annotation crons (annotations first, dedup)', () => {
+    const triggerCode = `
+@scheduled function nightly(controller, env, ctx) {
+  @crons ["0 2 * * *"]
+}
+`
+    const result = buildCronTriggers(triggerCode, {
+      cronTriggers: ['0 2 * * *', '*/15 * * * *'],
+    })
+    // "0 2 * * *" appears once even though both sources list it.
+    expect(result).toEqual(['0 2 * * *', '*/15 * * * *'])
+  })
+
+  it('uses deploymentConfig.cronTriggers when no annotation handlers are declared', () => {
+    expect(buildCronTriggers(undefined, { cronTriggers: ['0 0 * * *'] })).toEqual(['0 0 * * *'])
   })
 })
