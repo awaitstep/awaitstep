@@ -62,14 +62,47 @@ export const cloudflareDeploymentConfigSchema = z
       )
       .optional(),
 
-    // Observability (boolean true → { enabled: true } from UI toggle)
+    // Observability — the UI exposes a simple boolean toggle.
+    //   true  → full logs + traces config (persist, invocation_logs, head_sampling_rate)
+    //   false → everything disabled
+    //   object → passed through as-is for advanced overrides
+    // When undefined (not set) the adapter falls back to WRANGLER_BASE_CONFIG.observability.
     observability: z
       .preprocess(
-        (v) => (v === true ? { enabled: true } : v === false ? undefined : v),
+        (v) => {
+          if (v === true) {
+            return {
+              enabled: false,
+              head_sampling_rate: 1,
+              logs: { enabled: true, head_sampling_rate: 1, persist: true, invocation_logs: true },
+              traces: { enabled: true, persist: true, head_sampling_rate: 1 },
+            }
+          }
+          if (v === false) {
+            return { enabled: false, logs: { enabled: false }, traces: { enabled: false } }
+          }
+          return v
+        },
         z
           .object({
-            enabled: z.boolean(),
+            enabled: z.boolean().optional(),
+            head_sampling_rate: z.number().min(0).max(1).optional(),
             headSamplingRate: z.number().min(0).max(1).optional(),
+            logs: z
+              .object({
+                enabled: z.boolean().optional(),
+                head_sampling_rate: z.number().min(0).max(1).optional(),
+                persist: z.boolean().optional(),
+                invocation_logs: z.boolean().optional(),
+              })
+              .optional(),
+            traces: z
+              .object({
+                enabled: z.boolean().optional(),
+                persist: z.boolean().optional(),
+                head_sampling_rate: z.number().min(0).max(1).optional(),
+              })
+              .optional(),
           })
           .optional(),
       )
@@ -89,7 +122,8 @@ export type CloudflareDeploymentConfig = z.infer<typeof cloudflareDeploymentConf
 export const cloudflareDefaultDeploymentConfig: CloudflareDeploymentConfig = {
   workersDev: true,
   previewUrls: true,
-  observability: { enabled: true },
+  // observability is intentionally omitted here — the full nested
+  // logs/traces config comes from WRANGLER_BASE_CONFIG in wrangler-config.ts
 }
 
 export const cloudflareDeploymentConfigUiSchema: DeploymentConfigUiSchema = {
@@ -184,7 +218,7 @@ export const cloudflareDeploymentConfigUiSchema: DeploymentConfigUiSchema = {
           path: 'observability',
           label: 'Enable observability',
           widget: 'boolean',
-          help: 'Send Workers Trace Events for logs and metrics.',
+          help: 'Enable Workers Logs and Traces with persistence and full sampling (logs, traces, invocation events).',
         },
         {
           path: 'logpush',

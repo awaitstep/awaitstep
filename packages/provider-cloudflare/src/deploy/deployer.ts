@@ -82,7 +82,22 @@ export interface DeployOptions {
   cronTriggers?: string[]
   placement?: { mode: string }
   limits?: { cpuMs?: number }
-  observability?: { enabled: boolean; headSamplingRate?: number }
+  observability?: {
+    enabled?: boolean
+    head_sampling_rate?: number
+    headSamplingRate?: number
+    logs?: {
+      enabled?: boolean
+      head_sampling_rate?: number
+      persist?: boolean
+      invocation_logs?: boolean
+    }
+    traces?: {
+      enabled?: boolean
+      persist?: boolean
+      head_sampling_rate?: number
+    }
+  }
   logpush?: boolean
   /** Per-queue consumer settings; emitted as `queues.consumers[]` in wrangler.json. */
   queueConsumers?: Array<{
