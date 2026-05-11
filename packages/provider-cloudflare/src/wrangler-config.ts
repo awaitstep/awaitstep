@@ -5,7 +5,21 @@ import type { SubScriptBinding } from './codegen/generators/sub-script.js'
 export const WRANGLER_BASE_CONFIG = {
   compatibility_date: '2025-04-01',
   compatibility_flags: ['nodejs_compat'],
-  observability: { enabled: true },
+  observability: {
+    enabled: false,
+    head_sampling_rate: 1,
+    logs: {
+      enabled: true,
+      head_sampling_rate: 1,
+      persist: true,
+      invocation_logs: true,
+    },
+    traces: {
+      enabled: true,
+      persist: true,
+      head_sampling_rate: 1,
+    },
+  },
 } as const
 
 export interface WranglerWorkflowConfig {
@@ -42,7 +56,21 @@ export interface WranglerWorkflowConfig {
   cronTriggers?: string[]
   placement?: { mode: string }
   limits?: { cpuMs?: number }
-  observability?: { enabled: boolean; headSamplingRate?: number }
+  observability?: {
+    enabled?: boolean
+    head_sampling_rate?: number
+    logs?: {
+      enabled?: boolean
+      head_sampling_rate?: number
+      persist?: boolean
+      invocation_logs?: boolean
+    }
+    traces?: {
+      enabled?: boolean
+      persist?: boolean
+      head_sampling_rate?: number
+    }
+  }
   logpush?: boolean
   /**
    * Per-queue consumer settings — populated by the adapter from `@queue function NAME`

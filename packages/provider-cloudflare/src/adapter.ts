@@ -113,9 +113,12 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     if (c.limits?.cpuMs) {
       preview.limits = { cpu_ms: c.limits.cpuMs }
     }
-    if (c.observability) {
-      preview.observability = c.observability
-    }
+    // Always show the full observability config in the preview — merge
+    // WRANGLER_BASE_CONFIG as the base so the Review step reflects what
+    // actually gets deployed, with any Configure-step overrides on top.
+    preview.observability = c.observability
+      ? { ...WRANGLER_BASE_CONFIG.observability, ...c.observability }
+      : { ...WRANGLER_BASE_CONFIG.observability }
     if (c.logpush) {
       preview.logpush = true
     }
