@@ -38,7 +38,7 @@
     "better-auth": "^1.6.5",
     "better-sqlite3": "^12.9.0",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.12.14",
+    "hono": "^4.12.18",
     "hono-rate-limiter": "^0.5.3",
     "nanoid": "^5.1.6",
     "pg": "8.20.0",
