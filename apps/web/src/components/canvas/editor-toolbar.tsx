@@ -60,9 +60,12 @@ function SaveStatusIndicator({
 }) {
   if (isSaving) {
     return (
-      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+      <span
+        className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+        title="Saving…"
+      >
         <Loader2 className="h-3 w-3 animate-spin" />
-        Saving…
+        <span className="hidden sm:inline">Saving…</span>
       </span>
     )
   }
@@ -73,15 +76,18 @@ function SaveStatusIndicator({
         title={autoSaveError}
       >
         <AlertCircle className="h-3 w-3" />
-        Couldn&apos;t auto-save
+        <span className="hidden sm:inline">Couldn&apos;t auto-save</span>
       </span>
     )
   }
   if (isDirty) {
     return (
-      <span className="inline-flex items-center gap-1 text-xs text-status-warning">
+      <span
+        className="inline-flex items-center gap-1 text-xs text-status-warning"
+        title="Unsaved changes"
+      >
         <Circle className="h-2 w-2 fill-status-warning text-status-warning" />
-        Unsaved
+        <span className="hidden sm:inline">Unsaved</span>
       </span>
     )
   }
@@ -92,7 +98,7 @@ function SaveStatusIndicator({
         title={`Saved at ${lastSavedAt.toLocaleTimeString()}`}
       >
         <Check className="h-3 w-3 text-status-success" />
-        Saved
+        <span className="hidden sm:inline">Saved</span>
       </span>
     )
   }
@@ -129,34 +135,36 @@ export function EditorToolbar({
   const router = useRouter()
 
   return (
-    <header className="relative z-20 flex h-14 shrink-0 items-center justify-between border-b border-border bg-card px-4">
-      <div className="flex items-center gap-2">
+    <header className="relative z-20 flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border bg-card px-3 sm:px-4">
+      <div className="flex min-w-0 items-center gap-1 sm:gap-2">
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-foreground/80"
+          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground/80"
           onClick={() => router.history.back()}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div className="h-5 w-px bg-muted/70" />
-        <div className="flex items-center gap-2 px-1">
-          <span className="text-sm font-semibold text-foreground">{workflowName}</span>
+        <div className="hidden h-5 w-px shrink-0 bg-muted/70 sm:block" />
+        <div className="flex min-w-0 items-center gap-1.5 px-1 sm:gap-2">
+          <span className="max-w-[120px] truncate text-sm font-semibold text-foreground sm:max-w-[200px] md:max-w-[260px] lg:max-w-none">
+            {workflowName}
+          </span>
           {kind === 'script' && (
             <span
-              className="inline-flex items-center rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+              className="hidden shrink-0 items-center rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:inline-flex"
               title="Stateless fetch-only Worker — runs synchronously, no sleeps or waits"
             >
               Function
             </span>
           )}
           {!isNew && currentVersion > 0 && (
-            <span className="rounded bg-muted/60 px-1.5 py-0.5 text-xs font-medium text-muted-foreground/60">
+            <span className="shrink-0 rounded bg-muted/60 px-1.5 py-0.5 text-xs font-medium text-muted-foreground/60">
               v{currentVersion}
             </span>
           )}
           {nodeCount > 0 && (
-            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+            <span className="hidden shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary md:inline-flex">
               {nodeCount} node{nodeCount !== 1 ? 's' : ''}
             </span>
           )}
@@ -164,11 +172,12 @@ export function EditorToolbar({
             <Link
               to="/workflows/$workflowId/deployments"
               params={{ workflowId }}
-              className={`rounded px-1.5 py-0.5 text-xs font-medium transition-colors ${
+              className={cn(
+                'hidden shrink-0 rounded px-1.5 py-0.5 text-xs font-medium transition-colors md:inline-block',
                 hasUndeployedChanges
                   ? 'bg-status-warning/10 text-status-warning hover:bg-status-warning/20'
-                  : 'bg-status-success/10 text-status-success hover:bg-status-success/20'
-              }`}
+                  : 'bg-status-success/10 text-status-success hover:bg-status-success/20',
+              )}
             >
               {hasUndeployedChanges
                 ? `deployed v${deployedVersion ?? '?'} · v${currentVersion} unsaved`
@@ -184,15 +193,16 @@ export function EditorToolbar({
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5">
+      <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
         {readOnly ? (
           <>
-            <span className="rounded bg-muted/70 px-2 py-1 text-xs font-medium text-muted-foreground">
+            <span className="hidden rounded bg-muted/70 px-2 py-1 text-xs font-medium text-muted-foreground sm:inline-block">
               Read-only{readOnlyVersion ? ` · v${readOnlyVersion}` : ''}
             </span>
             <Link to="/workflows/$workflowId/canvas" params={{ workflowId }}>
               <Button size="sm" variant="outline" className="h-8 gap-1.5 px-3 text-xs">
-                Back to latest
+                <span className="hidden sm:inline">Back to latest</span>
+                <span className="sm:hidden">Latest</span>
               </Button>
             </Link>
           </>
@@ -203,8 +213,9 @@ export function EditorToolbar({
               size="sm"
               onClick={onSave}
               disabled={isSaving || !isDirty}
+              title="Save"
               className={cn(
-                'h-8 gap-1.5 px-2.5',
+                'h-8 gap-1.5 px-2 md:px-2.5',
                 isDirty ? 'text-foreground/70 hover:text-foreground' : 'text-muted-foreground/60',
               )}
             >
@@ -213,27 +224,30 @@ export function EditorToolbar({
               ) : (
                 <Save className="h-3.5 w-3.5" />
               )}
-              <span className="text-xs">Save</span>
+              <span className="hidden text-xs md:inline">Save</span>
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={onToggleSettings}
+              title="Settings"
               className={cn(
+                'hidden h-8 gap-1.5 px-2 sm:inline-flex md:px-2.5',
                 showSettings
                   ? 'bg-muted/70 text-foreground'
                   : 'text-muted-foreground hover:text-foreground/70',
               )}
             >
               <Settings2 className="h-3.5 w-3.5" />
-              <span className="text-xs">Settings</span>
+              <span className="hidden text-xs md:inline">Settings</span>
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={onToggleEditor}
+              title={showEditor ? 'Hide editor' : 'Show editor'}
               className={cn(
-                'h-8 gap-1.5 px-2.5',
+                'hidden h-8 gap-1.5 px-2 sm:inline-flex md:px-2.5',
                 showEditor
                   ? 'bg-muted/70 text-foreground'
                   : 'text-muted-foreground hover:text-foreground/70',
@@ -244,54 +258,63 @@ export function EditorToolbar({
               ) : (
                 <Code2 className="h-3.5 w-3.5" />
               )}
-              <span className="text-xs">Editor</span>
+              <span className="hidden text-xs md:inline">Editor</span>
             </Button>
             {isNew && kind !== 'script' && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 gap-1.5 px-2.5 text-muted-foreground hover:text-foreground/70"
+                title="Templates"
+                className="hidden h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground/70 sm:inline-flex md:px-2.5"
                 onClick={onOpenTemplatePicker}
               >
                 <LayoutTemplate className="h-3.5 w-3.5" />
-                <span className="text-xs">Templates</span>
+                <span className="hidden text-xs md:inline">Templates</span>
               </Button>
             )}
             {onExport && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 gap-1.5 px-2.5 text-muted-foreground hover:text-foreground/70"
+                title="Export"
+                className="hidden h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground/70 sm:inline-flex md:px-2.5"
                 onClick={onExport}
               >
                 <Download className="h-3.5 w-3.5" />
-                <span className="text-xs">Export</span>
+                <span className="hidden text-xs md:inline">Export</span>
               </Button>
             )}
-            <div className="h-5 w-px bg-muted/70" />
+            <div className="hidden h-5 w-px shrink-0 bg-muted/70 sm:block" />
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 gap-1.5 px-2.5 text-muted-foreground hover:text-foreground/80"
+              title="Test"
+              className="h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground/80 md:px-2.5"
               onClick={onTest}
             >
               <Play className="h-3.5 w-3.5" />
-              <span className="text-xs">Test</span>
+              <span className="hidden text-xs md:inline">Test</span>
             </Button>
             {onTestLocally && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 gap-1.5 px-2.5 text-muted-foreground hover:text-foreground/80"
+                title="Local test"
+                className="hidden h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground/80 sm:inline-flex md:px-2.5"
                 onClick={onTestLocally}
               >
                 <Terminal className="h-3.5 w-3.5" />
-                <span className="text-xs">Local</span>
+                <span className="hidden text-xs md:inline">Local</span>
               </Button>
             )}
-            <Button size="sm" className="h-8 gap-1.5 px-3" onClick={onDeploy}>
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 px-2.5 md:px-3"
+              onClick={onDeploy}
+              title="Deploy"
+            >
               <Rocket className="h-3.5 w-3.5" />
-              <span className="text-xs">Deploy</span>
+              <span className="hidden text-xs sm:inline">Deploy</span>
             </Button>
           </>
         )}
