@@ -1,11 +1,20 @@
+import { useState } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Select } from '../ui/select'
 import { Separator } from '../ui/separator'
 import { cn } from '../../lib/utils'
+import {
+  buildDefaults,
+  isVisible,
+  readPath,
+  writePath,
+  type DefaultsByPath,
+  type UiFieldLike,
+} from './config-paths'
 
-interface UiField {
-  path: string
+interface UiField extends UiFieldLike {
   label?: string
   help?: string
   placeholder?: string
@@ -30,35 +39,89 @@ interface DeploymentConfigFormProps {
 }
 
 export function DeploymentConfigForm({ uiSchema, config, onChange }: DeploymentConfigFormProps) {
+  const defaults = buildDefaults(uiSchema)
+
   function handleFieldChange(path: string, value: unknown) {
-    onChange({ ...config, [path]: value })
+    onChange(writePath(config, path, value, defaults))
   }
 
   return (
     <div className="space-y-8">
-      {uiSchema.groups.map((group, i) => (
-        <div key={group.title}>
-          {i > 0 && <Separator className="mb-8" />}
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-base font-semibold text-foreground">{group.title}</h3>
-              {group.description && (
-                <p className="text-xs text-muted-foreground/60">{group.description}</p>
+      {uiSchema.groups.map((group, i) => {
+        const visibleFields = group.fields.filter((f) => isVisible(f, config, defaults))
+        if (visibleFields.length === 0) return null
+        const normal = visibleFields.filter((f) => !f.advanced)
+        const advanced = visibleFields.filter((f) => f.advanced)
+        return (
+          <div key={group.title}>
+            {i > 0 && <Separator className="mb-8" />}
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-base font-semibold text-foreground">{group.title}</h3>
+                {group.description && (
+                  <p className="text-xs text-muted-foreground/60">{group.description}</p>
+                )}
+              </div>
+              <div className="space-y-3">
+                {normal.map((field) => (
+                  <ConfigField
+                    key={field.path}
+                    field={field}
+                    value={readPath(config, field.path, defaults)}
+                    onChange={(v) => handleFieldChange(field.path, v)}
+                  />
+                ))}
+              </div>
+              {advanced.length > 0 && (
+                <AdvancedSection
+                  fields={advanced}
+                  config={config}
+                  defaults={defaults}
+                  onFieldChange={handleFieldChange}
+                />
               )}
             </div>
-            <div className="space-y-3">
-              {group.fields.map((field) => (
-                <ConfigField
-                  key={field.path}
-                  field={field}
-                  value={config[field.path]}
-                  onChange={(v) => handleFieldChange(field.path, v)}
-                />
-              ))}
-            </div>
           </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function AdvancedSection({
+  fields,
+  config,
+  defaults,
+  onFieldChange,
+}: {
+  fields: UiField[]
+  config: Record<string, unknown>
+  defaults: DefaultsByPath
+  onFieldChange: (path: string, value: unknown) => void
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="pt-1">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+      >
+        {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        Advanced
+      </button>
+      {open && (
+        <div className="mt-3 space-y-3">
+          {fields.map((field) => (
+            <ConfigField
+              key={field.path}
+              field={field}
+              value={readPath(config, field.path, defaults)}
+              onChange={(v) => onFieldChange(field.path, v)}
+            />
+          ))}
         </div>
-      ))}
+      )}
     </div>
   )
 }

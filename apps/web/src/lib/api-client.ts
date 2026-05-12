@@ -297,6 +297,9 @@ export const api = {
           help?: string
           placeholder?: string
           widget?: string
+          visibleWhen?: { path: string; truthy: true }
+          defaultObject?: Record<string, unknown>
+          advanced?: boolean
         }>
       }>
     }
