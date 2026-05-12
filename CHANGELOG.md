@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.13](https://github.com/awaitstep/awaitstep/compare/v1.4.12...v1.4.13) (2026-05-12)
+
+
+### Features
+
+* **canvas:** auto-save 30s after last meaningful change ([11452f2](https://github.com/awaitstep/awaitstep/commit/11452f2712108ebc2e591386c6cf7be169a73b9b))
+* **canvas:** inline step toggle — emit raw code without step.do wrap ([fefed3e](https://github.com/awaitstep/awaitstep/commit/fefed3e9d6c5968c04531a296b0cc8e4c703a19b))
+* **codegen:** [@scheduled](https://github.com/scheduled) annotation with [@crons](https://github.com/crons) block ([952bb1e](https://github.com/awaitstep/awaitstep/commit/952bb1e2a74e2b118290b55cb395beb95a1a38fe))
+* **provider-cloudflare:** expose observability sub-controls in deploy UI ([a5d74ca](https://github.com/awaitstep/awaitstep/commit/a5d74cafc4dc399a1567150e2eba1e7e8b48ba42))
+* **web:** allow overriding IR kind during import ([c9f4f98](https://github.com/awaitstep/awaitstep/commit/c9f4f98976dc2c7ed76e1b9bc414bc9a8daca5c8))
+
+
+### Bug Fixes
+
+* **canvas:** responsive editor toolbar header ([dde6a1f](https://github.com/awaitstep/awaitstep/commit/dde6a1f69c89b8f4573c94a22a220689ac6aec44))
+* **codegen:** emit inline step body raw, no IIFE wrap ([25d7b95](https://github.com/awaitstep/awaitstep/commit/25d7b95ce67870cb95319bce8cb9945fa680450c))
+* **codegen:** follow container `then` edge in chain walker ([9c54eaf](https://github.com/awaitstep/awaitstep/commit/9c54eafb6fd914fcb680977ce1e79e4f1c877714))
+* **codegen:** return last bound variable from parallel/race branches ([ebff8a3](https://github.com/awaitstep/awaitstep/commit/ebff8a36b68b41666c6714d97791c170b3b5093a))
+* observability toggle generates legacy Logpush flag instead of Workers Logs & Traces ([973c48f](https://github.com/awaitstep/awaitstep/commit/973c48f14dd1d793483a3247b3ba6ac42a08a883))
+* **provider-cloudflare:** auto-export result-producer node types in scripts ([03d3a8a](https://github.com/awaitstep/awaitstep/commit/03d3a8a01875926aad877fefaa278bdb1e715ba4))
+* **provider-cloudflare:** link Worker dashboard URL to /production view ([478b718](https://github.com/awaitstep/awaitstep/commit/478b718cdd0481be38a408554cbbebb247650b4a))
+
+
+### Refactoring
+
+* **web:** render nested config fields with visibility + Advanced disclosure ([796867e](https://github.com/awaitstep/awaitstep/commit/796867eb7cf61c79bae728691fc2b82e34582f2e))
+
 ## [1.4.12](https://github.com/awaitstep/awaitstep/compare/v1.4.11...v1.4.12) (2026-05-03)
 
 
