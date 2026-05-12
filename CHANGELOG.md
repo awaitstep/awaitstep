@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.14](https://github.com/awaitstep/awaitstep/compare/v1.4.13...v1.4.14) (2026-05-12)
+
+
+### Bug Fixes
+
+* **web:** align @tanstack/react-start with bumped react-router ([1167f3e](https://github.com/awaitstep/awaitstep/commit/1167f3e443f83c2792bf5b95fc771c067652c437))
+* **web:** use SSR-safe storage in theme-store ([d72f5e1](https://github.com/awaitstep/awaitstep/commit/d72f5e11aa6f9eae5f96606f0abaef0c94f813b6))
+
 ## [1.4.13](https://github.com/awaitstep/awaitstep/compare/v1.4.12...v1.4.13) (2026-05-12)
 
 
