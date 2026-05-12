@@ -65,10 +65,10 @@ importers:
         version: 0.8.11
       '@hono/node-server':
         specifier: ^1.19.13
-        version: 1.19.13(hono@4.12.14)
+        version: 1.19.13(hono@4.12.18)
       '@hono/zod-validator':
         specifier: ^0.7.6
-        version: 0.7.6(hono@4.12.14)(zod@4.4.3)
+        version: 0.7.6(hono@4.12.18)(zod@4.4.3)
       better-auth:
         specifier: ^1.6.5
         version: 1.6.5(@cloudflare/workers-types@4.20260414.1)(@opentelemetry/api@1.9.1)(@tanstack/react-start@1.166.11(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(vite@8.0.8(@types/node@25.5.2)(esbuild@0.27.4)(jiti@2.6.1)(tsx@4.21.0)))(better-sqlite3@12.9.0)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@cloudflare/workers-types@4.20260414.1)(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(better-sqlite3@12.9.0)(kysely@0.28.16)(pg@8.20.0))(mongodb@7.1.0)(next@16.1.7(@babel/core@7.29.0)(@opentelemetry/api@1.9.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(pg@8.20.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(vitest@4.1.5(@opentelemetry/api@1.9.1)(@types/node@25.5.2)(jsdom@29.0.0(@noble/hashes@2.2.0))(vite@8.0.8(@types/node@25.5.2)(esbuild@0.27.4)(jiti@2.6.1)(tsx@4.21.0)))(vue@3.5.32(typescript@5.9.3))
@@ -79,11 +79,11 @@ importers:
         specifier: ^0.45.2
         version: 0.45.2(@cloudflare/workers-types@4.20260414.1)(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(better-sqlite3@12.9.0)(kysely@0.28.16)(pg@8.20.0)
       hono:
-        specifier: ^4.12.14
-        version: 4.12.14
+        specifier: ^4.12.18
+        version: 4.12.18
       hono-rate-limiter:
         specifier: ^0.5.3
-        version: 0.5.3(hono@4.12.14)(unstorage@1.17.5(aws4fetch@1.0.20))
+        version: 0.5.3(hono@4.12.18)(unstorage@1.17.5(aws4fetch@1.0.20))
       nanoid:
         specifier: ^5.1.6
         version: 5.1.6
@@ -5204,8 +5204,8 @@ packages:
       unstorage:
         optional: true
 
-  hono@4.12.14:
-    resolution: {integrity: sha512-am5zfg3yu6sqn5yjKBNqhnTX7Cv+m00ox+7jbaKkrLMRJ4rAdldd1xPd/JzbBWspqaQv6RSTrgFN95EsfhC+7w==}
+  hono@4.12.18:
+    resolution: {integrity: sha512-RWzP96k/yv0PQfyXnWjs6zot20TqfpfsNXhOnev8d1InAxubW93L11/oNUc3tQqn2G0bSdAOBpX+2uDFHV7kdQ==}
     engines: {node: '>=16.9.0'}
 
   hookable@5.5.3:
@@ -7824,7 +7824,7 @@ snapshots:
     dependencies:
       '@cloudflare/containers': 0.3.2
       aws4fetch: 1.0.20
-      hono: 4.12.14
+      hono: 4.12.18
 
   '@cloudflare/unenv-preset@2.16.0(unenv@2.0.0-rc.24)(workerd@1.20260317.1)':
     dependencies:
@@ -8550,13 +8550,13 @@ snapshots:
 
   '@floating-ui/utils@0.2.11': {}
 
-  '@hono/node-server@1.19.13(hono@4.12.14)':
+  '@hono/node-server@1.19.13(hono@4.12.18)':
     dependencies:
-      hono: 4.12.14
+      hono: 4.12.18
 
-  '@hono/zod-validator@0.7.6(hono@4.12.14)(zod@4.4.3)':
+  '@hono/zod-validator@0.7.6(hono@4.12.18)(zod@4.4.3)':
     dependencies:
-      hono: 4.12.14
+      hono: 4.12.18
       zod: 4.4.3
 
   '@hookform/resolvers@5.2.2(react-hook-form@7.73.1(react@19.2.5))':
@@ -11911,13 +11911,13 @@ snapshots:
       property-information: 7.1.0
       space-separated-tokens: 2.0.2
 
-  hono-rate-limiter@0.5.3(hono@4.12.14)(unstorage@1.17.5(aws4fetch@1.0.20)):
+  hono-rate-limiter@0.5.3(hono@4.12.18)(unstorage@1.17.5(aws4fetch@1.0.20)):
     dependencies:
-      hono: 4.12.14
+      hono: 4.12.18
     optionalDependencies:
       unstorage: 1.17.5(aws4fetch@1.0.20)
 
-  hono@4.12.14: {}
+  hono@4.12.18: {}
 
   hookable@5.5.3: {}
 
