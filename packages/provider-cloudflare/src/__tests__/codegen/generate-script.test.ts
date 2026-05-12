@@ -180,7 +180,11 @@ describe('generateScript', () => {
     expect(code).not.toContain('WORKFLOW: Workflow')
   })
 
-  it('a non-exported, unreferenced sub_workflow becomes a clean bare `await`', () => {
+  it('auto-exports a sub_workflow handle even without EXPORT_ prefix', () => {
+    // sub_workflow is a result-producer node — its value (the WorkflowInstance
+    // handle) is almost always what the user wants to surface (instance.id,
+    // status(), etc). Treated as implicitly exported so the const survives
+    // post-processing and the handle lands on `graph.<name>`.
     const ir = makeScript([
       {
         id: 'send-auth-email',
@@ -197,12 +201,53 @@ describe('generateScript', () => {
       },
     ])
     const code = generateScript(ir)
-    // The const-strip rewrite must not leave a bare object literal at
-    // statement position. Result: a single `await env.SEND_MAIL.create(...)`.
-    expect(code).toContain('await env.SEND_MAIL.create({')
-    expect(code).not.toMatch(/^\s*\{ instanceId:/m)
-    expect(code).not.toContain('const send_auth_email')
-    expect(code).toContain('return {};')
+    expect(code).toContain('const send_auth_email = await env.SEND_MAIL.create({')
+    expect(code).toContain('return { send_auth_email };')
+  })
+
+  it('auto-exports an http_request response even without EXPORT_ prefix', () => {
+    // http_request is a result-producer node — its purpose is to make a
+    // call and surface the JSON response. The response must land on
+    // `graph.<name>` without forcing the user to learn the EXPORT_
+    // convention; otherwise the entire request silently disappears.
+    const ir = makeScript([
+      {
+        id: 'fetch-rates',
+        type: 'http_request',
+        name: 'exchange_rate',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {
+          url: 'https://example.com/rates',
+          method: 'GET',
+        },
+      },
+    ])
+    const code = generateScript(ir)
+    expect(code).toContain('const exchange_rate = await fetch(')
+    expect(code).toContain('return { exchange_rate };')
+  })
+
+  it('auto-exports a sub_script response even without EXPORT_ prefix', () => {
+    const ir = makeScript([
+      {
+        id: 'call-pricing',
+        type: 'sub_script',
+        name: 'pricing',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {
+          workerName: 'pricing-svc',
+          method: 'GET',
+          url: 'https://pricing-svc.example/quote',
+        },
+      },
+    ])
+    const code = generateScript(ir)
+    expect(code).toContain('const pricing = await env.PRICING_SVC.fetch(')
+    expect(code).toContain('return { pricing };')
   })
 
   it('emits a sub_workflow forward as a fire-and-forget binding call', () => {

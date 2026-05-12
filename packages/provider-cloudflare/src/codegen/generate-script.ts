@@ -167,8 +167,15 @@ export function generateScript(
   //      the call becomes a bare `await ...;`.
   //   4. Not exported, referenced elsewhere: keep `const X = ...` (downstream
   //      nodes need the var) but don't include in return.
+  //
+  // Result-producer node types are implicitly exported (no EXPORT_ needed):
+  // their entire purpose is to surface a value (HTTP response, sub-worker
+  // output, sub-workflow handle). A bare `await fetch(...)` with the result
+  // thrown away is almost never what the user intends.
+  //
   // Must run before `clearVarNameMap` so `varName(node.id)` resolves to the
   // same name the per-node generators emitted.
+  const AUTO_EXPORT_TYPES = new Set(['http_request', 'sub_workflow', 'sub_script'])
   const exportedVarNames: string[] = []
   const hoistedVarNames: string[] = []
   for (const node of resolvedIR.nodes) {
@@ -177,7 +184,7 @@ export function generateScript(
     const m = declRe.exec(graphBody)
     if (!m) continue
 
-    const exported = isExportedName(node.name)
+    const exported = isExportedName(node.name) || AUTO_EXPORT_TYPES.has(node.type)
     const isNested = m[1].length > 0
     const refMatches = [...graphBody.matchAll(new RegExp(`\\b${v}\\b`, 'g'))]
     const isReferencedElsewhere = refMatches.length > 1
