@@ -33,7 +33,7 @@
     "@radix-ui/react-visually-hidden": "1.2.4",
     "@tanstack/react-query": "^5.96.2",
     "@tanstack/react-router": "^1.169.2",
-    "@tanstack/react-start": "^1.166.11",
+    "@tanstack/react-start": "^1.167.65",
     "@xyflow/react": "^12.10.2",
     "better-auth": "^1.6.5",
     "class-variance-authority": "^0.7.1",
