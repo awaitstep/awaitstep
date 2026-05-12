@@ -389,7 +389,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
       success: true,
       deploymentId: result.workerName,
       url: result.workerUrl,
-      dashboardUrl: `https://dash.cloudflare.com/${accountId}/workers/services/view/${result.workerName}`,
+      dashboardUrl: `https://dash.cloudflare.com/${accountId}/workers/services/view/${result.workerName}/production`,
     }
   }
 
