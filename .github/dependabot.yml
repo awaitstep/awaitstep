@@ -9,3 +9,11 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    # Next.js is pulled in transitively by @react-email/preview-server (the
+    # local email-preview dev tool in packages/email). It's a runtime dep of
+    # the preview server, but no Next code paths execute in our app — we
+    # have no Next entry point, no SSR/middleware/RSC. The `next` entry in
+    # `pnpm.overrides` pins it to the latest patched 16.x; this ignore
+    # silences alerts for not-yet-patched CVEs in code we don't run.
+    ignore:
+      - dependency-name: "next"
