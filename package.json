@@ -45,7 +45,7 @@
     "eslint-plugin-unused-imports": "4.4.1",
     "husky": "9.1.7",
     "prettier": "^3.8.3",
-    "turbo": "^2.8.17",
+    "turbo": "^2.9.12",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.59.0"
   }
