@@ -9,6 +9,18 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    # Group related packages so peer-aligned deps stay in lockstep across
+    # Dependabot PRs. Without grouping, an individual bump (e.g. just
+    # @tanstack/react-router) can desync from a sibling (@tanstack/react-start)
+    # that pins it as an exact dep — pnpm then resolves two copies and the
+    # SSR/client end up holding different module instances.
+    groups:
+      tanstack:
+        patterns:
+          - "@tanstack/*"
+      radix:
+        patterns:
+          - "@radix-ui/*"
     # Next.js is pulled in transitively by @react-email/preview-server (the
     # local email-preview dev tool in packages/email). It's a runtime dep of
     # the preview server, but no Next code paths execute in our app — we
