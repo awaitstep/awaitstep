@@ -24,7 +24,7 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.5",
-    "wrangler": "^4.82.2"
+    "wrangler": "^4.90.1"
   },
   "dependencies": {
     "@awaitstep/codegen": "workspace:*",
