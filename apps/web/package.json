@@ -44,7 +44,7 @@
     "nanoid": "^5.1.6",
     "react": "^19.2.5",
     "react-day-picker": "10.0.0",
-    "react-dom": "^19.2.5",
+    "react-dom": "^19.2.6",
     "react-hook-form": "7.75.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
