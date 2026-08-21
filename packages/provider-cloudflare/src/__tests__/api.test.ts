@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { CloudflareAPI } from '../api.js'
 
 describe('CloudflareAPI input validation', () => {
@@ -35,5 +35,52 @@ describe('CloudflareAPI input validation', () => {
     expect(() => new CloudflareAPI({ accountId: '../evil', apiToken: 'token' })).toThrow(
       'Invalid accountId',
     )
+  })
+})
+
+describe('CloudflareAPI createInstance retention', () => {
+  const api = new CloudflareAPI({ accountId: 'test-account', apiToken: 'test-token' })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  function stubFetch() {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true, result: { id: 'inst-1' } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    return fetchMock
+  }
+
+  it('sends instance_retention in snake_case when retention is provided', async () => {
+    const fetchMock = stubFetch()
+    await api.createInstance('my-workflow', { hello: 'world' }, undefined, {
+      successRetention: '7 days',
+      errorRetention: 86400000,
+    })
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
+    expect(body.instance_retention).toEqual({
+      success_retention: '7 days',
+      error_retention: 86400000,
+    })
+    expect(body.params).toEqual({ hello: 'world' })
+  })
+
+  it('omits instance_retention when retention is not provided', async () => {
+    const fetchMock = stubFetch()
+    await api.createInstance('my-workflow', { hello: 'world' })
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
+    expect(body.instance_retention).toBeUndefined()
+  })
+
+  it('omits unset retention fields', async () => {
+    const fetchMock = stubFetch()
+    await api.createInstance('my-workflow', undefined, undefined, { errorRetention: '30 days' })
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
+    expect(body.instance_retention).toEqual({ error_retention: '30 days' })
   })
 })

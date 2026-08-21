@@ -22,6 +22,7 @@ import {
   resolveNodeExpressions,
 } from './generate-helpers.js'
 import { parseAnnotations } from './parse-annotations.js'
+import { retentionLiteral, type CloudflareRetention } from './retention.js'
 
 /**
  * Default trigger-code scaffold for new workflows. Uses the annotated multi-handler
@@ -41,7 +42,7 @@ export const DEFAULT_TRIGGER_CODE = `// import packages here
 
     if (request.method === "POST") {
       const params = await request.json().catch(() => undefined);
-      const instance = await env.WORKFLOW.create({ params });
+      const instance = await env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION });
       return Response.json({ instanceId: instance.id });
     }
 
@@ -69,6 +70,12 @@ export interface GenerateOptions {
   envVarNames?: string[]
   triggerCode?: string
   preview?: boolean
+  /**
+   * Instance retention baked into the generated `AWAITSTEP_RETENTION` const,
+   * which the default trigger code and sub-workflow steps pass to
+   * `WORKFLOW.create()`. Unset → 7-day default (see codegen/retention.ts).
+   */
+  retention?: CloudflareRetention
 }
 
 export function generateWorkflow(
@@ -80,7 +87,7 @@ export function generateWorkflow(
       ? { templateResolver: templateResolverOrOptions }
       : templateResolverOrOptions
     : {}
-  const { templateResolver, envVarNames, triggerCode, preview } = opts
+  const { templateResolver, envVarNames, triggerCode, preview, retention } = opts
   const className = sanitizeIdentifier(ir.metadata.name)
     .split('_')
     .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
@@ -302,6 +309,8 @@ ${handlerBlocks.join('\n')}
 interface Env {
 ${envFields.join('\n')}
 }
+
+const AWAITSTEP_RETENTION = ${retentionLiteral(retention)};
 ${classBlock}${moduleCodeBlock}
 export class ${className} extends WorkflowEntrypoint<Env> {
   async run(event, step) {

@@ -14,6 +14,7 @@ import { generateCustomNodeParts } from './generators/custom.js'
 import { getSubWorkflowBindings } from './generators/sub-workflow.js'
 import { hasTemplateExpressions } from './generators/state-tracking.js'
 import { detectBindings } from './bindings.js'
+import { retentionLiteral, type CloudflareRetention } from './retention.js'
 import {
   CF_ENV_TYPE,
   collapseBlankLines,
@@ -72,6 +73,11 @@ export interface GenerateScriptOptions {
    * to return.
    */
   triggerCode?: string
+  /**
+   * Instance retention for sub-workflow creates. Scripts only emit the
+   * `AWAITSTEP_RETENTION` const when the IR contains a sub_workflow node.
+   */
+  retention?: CloudflareRetention
 }
 
 export function generateScript(
@@ -83,7 +89,7 @@ export function generateScript(
       ? { templateResolver: templateResolverOrOptions }
       : templateResolverOrOptions
     : {}
-  const { templateResolver, envVarNames, preview, triggerCode } = opts
+  const { templateResolver, envVarNames, preview, triggerCode, retention } = opts
 
   // Reuse the workflow-shaped helpers — the IR fields they read (nodes, edges,
   // entryNodeId, metadata) are identical between WorkflowIR and ScriptIR. The
@@ -349,8 +355,14 @@ ${cases}
 ${handlerBlocks.join('\n')}
 };`
 
+  // Sub-workflow creates reference AWAITSTEP_RETENTION; only emit the const
+  // when a sub_workflow node exists so plain scripts stay unchanged.
+  const retentionBlock = ir.nodes.some((n) => n.type === 'sub_workflow')
+    ? `\nconst AWAITSTEP_RETENTION = ${retentionLiteral(retention)};\n`
+    : ''
+
   return `${importBlock ? importBlock.trimStart() + '\n\n' : ''}interface Env {${envBlock}}
-${classBlock}${moduleCodeBlock}
+${retentionBlock}${classBlock}${moduleCodeBlock}
 ${runGraphBlock}
 
 ${exportDefault}

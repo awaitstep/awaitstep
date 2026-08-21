@@ -13,7 +13,7 @@ export function generateSubWorkflow(node: WorkflowNode, mode: GenerateMode = 'wo
     // Scripts can't poll for completion (no durable runtime). Fire-and-forget:
     // a single `const X = await env.X.create(...)` whose value is the
     // WorkflowInstance handle (callers can read `.id`, `.status()`, etc).
-    return `const ${varName(node.id)} = await env.${bindingName}.create({ id: crypto.randomUUID()${paramsArg} });`
+    return `const ${varName(node.id)} = await env.${bindingName}.create({ id: crypto.randomUUID()${paramsArg}, retention: AWAITSTEP_RETENTION });`
   }
 
   const lines: string[] = []
@@ -21,7 +21,7 @@ export function generateSubWorkflow(node: WorkflowNode, mode: GenerateMode = 'wo
   // Step 1: Create child workflow instance
   lines.push(`const ${instanceVar} = await step.do("Create ${escName(className)}", async () => {`)
   lines.push(
-    `  const instance = await env.${bindingName}.create({ id: crypto.randomUUID()${paramsArg} });`,
+    `  const instance = await env.${bindingName}.create({ id: crypto.randomUUID()${paramsArg}, retention: AWAITSTEP_RETENTION });`,
   )
   lines.push(`  return { instanceId: instance.id };`)
   lines.push(`});`)

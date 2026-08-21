@@ -86,7 +86,9 @@ describe('CloudflareWorkflowsAdapter', () => {
     it('uses default trigger code when no triggerCode provided', () => {
       const artifact = adapter.generate(simpleIR)
       expect(artifact.source).toContain('const params = await request.json()')
-      expect(artifact.source).toContain('env.WORKFLOW.create({ params })')
+      expect(artifact.source).toContain(
+        'env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION })',
+      )
     })
 
     it('uses custom triggerCode from config options', () => {
@@ -100,7 +102,9 @@ describe('CloudflareWorkflowsAdapter', () => {
       const artifact = adapter.generate(simpleIR, config)
       expect(artifact.source).toContain('const { name } = await request.json()')
       expect(artifact.source).toContain('env.WORKFLOW.create({ name })')
-      expect(artifact.source).not.toContain('env.WORKFLOW.create({ params })')
+      expect(artifact.source).not.toContain(
+        'env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION })',
+      )
     })
   })
 

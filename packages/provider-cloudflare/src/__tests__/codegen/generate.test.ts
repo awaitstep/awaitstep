@@ -23,6 +23,8 @@ describe('generateWorkflow', () => {
         WORKFLOW: Workflow;
       }
 
+      const AWAITSTEP_RETENTION = { successRetention: "7 days", errorRetention: "7 days" };
+
       // import packages here
 
       // Add queue handlers below using:
@@ -50,7 +52,7 @@ describe('generateWorkflow', () => {
 
               if (request.method === "POST") {
                 const params = await request.json().catch(() => undefined);
-                const instance = await env.WORKFLOW.create({ params });
+                const instance = await env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION });
                 return Response.json({ instanceId: instance.id });
               }
 
@@ -208,7 +210,7 @@ describe('generateWorkflow', () => {
     // Default scaffolding uses @fetch annotation form with user-supplied params.
     expect(code).toContain('async fetch(request, env, ctx)')
     expect(code).toContain('request.method === "POST"')
-    expect(code).toContain('env.WORKFLOW.create({ params })')
+    expect(code).toContain('env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION })')
     expect(code).toContain('env.WORKFLOW.get(instanceId)')
     expect(code).toContain('instance.status()')
   })

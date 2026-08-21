@@ -1,3 +1,5 @@
+import type { CloudflareRetention } from './codegen/retention.js'
+
 const CF_API_BASE = 'https://api.cloudflare.com/client/v4'
 const REQUEST_TIMEOUT_MS = 30_000
 
@@ -68,6 +70,7 @@ export class CloudflareAPI {
     workflowName: string,
     params?: unknown,
     instanceId?: string,
+    retention?: CloudflareRetention,
   ): Promise<{ id: string }> {
     validatePathSegment(workflowName, 'workflowName')
     if (instanceId) validatePathSegment(instanceId, 'instanceId')
@@ -75,6 +78,17 @@ export class CloudflareAPI {
     const body: Record<string, unknown> = {}
     if (params !== undefined) body.params = params
     if (instanceId) body.id = instanceId
+    if (retention?.successRetention !== undefined || retention?.errorRetention !== undefined) {
+      // REST body uses snake_case: instance_retention.{success,error}_retention
+      const instanceRetention: Record<string, unknown> = {}
+      if (retention.successRetention !== undefined) {
+        instanceRetention.success_retention = retention.successRetention
+      }
+      if (retention.errorRetention !== undefined) {
+        instanceRetention.error_retention = retention.errorRetention
+      }
+      body.instance_retention = instanceRetention
+    }
 
     const response = await this.request(
       'POST',

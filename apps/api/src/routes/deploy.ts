@@ -249,18 +249,29 @@ deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c)
 
   if (!workflow.currentVersionId) return c.json({ error: 'No version deployed' }, 400)
 
-  const connection = await db.getProviderConnectionById(body.connectionId, organizationId)
+  const [connection, storedDeployConfig] = await Promise.all([
+    db.getProviderConnectionById(body.connectionId, organizationId),
+    db.getDeploymentConfig(workflow.id, body.connectionId),
+  ])
   if (!connection) return c.json({ error: 'Connection not found' }, 404)
 
   const adapter = resolveProvider(undefined, {
     templateResolver: c.get('nodeRegistry')?.templateResolver,
   })
+  // Stored deployment config carries instance retention for created runs.
+  // Invalid/stale rows fall back to provider defaults (7-day retention).
+  let deploymentConfig: unknown
+  if (storedDeployConfig) {
+    const parsed = adapter.deploymentConfigSchema.safeParse(JSON.parse(storedDeployConfig.config))
+    if (parsed.success) deploymentConfig = parsed.data
+  }
   const triggerCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
   const config = {
     provider: 'cloudflare',
     credentials: triggerCreds,
     options: {
       workflowName: workflow.name,
+      ...(deploymentConfig !== undefined && { deploymentConfig }),
     },
   }
 

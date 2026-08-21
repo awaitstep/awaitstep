@@ -25,6 +25,7 @@ import { detectBindings, type BindingRequirement } from './codegen/bindings.js'
 import { getSubWorkflowBindings } from './codegen/generators/sub-workflow.js'
 import { getSubScriptBindings } from './codegen/generators/sub-script.js'
 import { parseAnnotations } from './codegen/parse-annotations.js'
+import { resolveRetention } from './codegen/retention.js'
 import {
   cloudflareDefaultDeploymentConfig,
   cloudflareDeploymentConfigSchema,
@@ -147,11 +148,15 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
   generate(ir: ArtifactIR, config?: ProviderConfig): GeneratedArtifact {
     const envVarNames = config?.envVars ? Object.keys(config.envVars) : undefined
     const triggerCode = config?.options?.['triggerCode'] as string | undefined
+    const retention = (
+      config?.options?.['deploymentConfig'] as CloudflareDeploymentConfig | undefined
+    )?.retention
     if (ir.kind === 'script') {
       const source = generateScript(ir as ScriptIR, {
         templateResolver: this.templateResolver,
         envVarNames,
         triggerCode,
+        retention,
       })
       return { filename: 'worker.ts', source }
     }
@@ -159,6 +164,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
       templateResolver: this.templateResolver,
       envVarNames,
       triggerCode,
+      retention,
     })
     return {
       filename: 'worker.ts',
@@ -403,9 +409,12 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     }
     const { accountId, apiToken } = extractCredentials(config)
     const workflowName = sanitizedWorkflowName(config.options?.['workflowName'] as string)
+    const retention = resolveRetention(
+      (config.options?.['deploymentConfig'] as CloudflareDeploymentConfig | undefined)?.retention,
+    )
 
     const api = new CloudflareAPI({ accountId, apiToken })
-    const instance = await api.createInstance(workflowName, params)
+    const instance = await api.createInstance(workflowName, params, undefined, retention)
     return { instanceId: instance.id }
   }
 
