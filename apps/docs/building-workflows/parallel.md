@@ -23,19 +23,13 @@ Use Parallel when you have independent work that does not depend on each other's
 ```typescript
 await Promise.all([
   step.do('Send Email', async () => {
-    await fetch('https://api.resend.com/emails', {
-      /* ... */
-    })
+    await fetch('https://api.resend.com/emails', {/* ... */})
   }),
   step.do('Send Slack Message', async () => {
-    await fetch('https://slack.com/api/chat.postMessage', {
-      /* ... */
-    })
+    await fetch('https://slack.com/api/chat.postMessage', {/* ... */})
   }),
   step.do('Log to Analytics', async () => {
-    await fetch('https://api.segment.io/v1/track', {
-      /* ... */
-    })
+    await fetch('https://api.segment.io/v1/track', {/* ... */})
   }),
 ])
 ```
@@ -57,15 +51,11 @@ Use Race when you want to take the fastest result from multiple sources — for 
 ```typescript
 const result = await Promise.race([
   step.do('Query Provider A', async () => {
-    const res = await fetch('https://api.provider-a.com/generate', {
-      /* ... */
-    })
+    const res = await fetch('https://api.provider-a.com/generate', {/* ... */})
     return await res.json()
   }),
   step.do('Query Provider B', async () => {
-    const res = await fetch('https://api.provider-b.com/generate', {
-      /* ... */
-    })
+    const res = await fetch('https://api.provider-b.com/generate', {/* ... */})
     return await res.json()
   }),
 ])

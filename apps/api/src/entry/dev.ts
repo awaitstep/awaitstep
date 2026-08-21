@@ -46,8 +46,7 @@ async function start() {
   const resendApiKey = process.env['RESEND_API_KEY']
   const appName = process.env['APP_NAME']
   let sendMagicLink:
-    | ((data: { email: string; url: string; token: string }) => Promise<void>)
-    | undefined
+    ((data: { email: string; url: string; token: string }) => Promise<void>) | undefined
   if (resendApiKey) {
     const emailService = createEmailService({
       apiKey: resendApiKey,

@@ -681,12 +681,10 @@ function extractCronsBlock(
   for (const raw of items) {
     const trimmed = raw.trim()
     if (!trimmed) continue
-    if (
-      !(
-        (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-        (trimmed.startsWith("'") && trimmed.endsWith("'"))
-      )
-    ) {
+    if (!(
+      (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith("'") && trimmed.endsWith("'"))
+    )) {
       throw new AnnotationParseError(
         `@crons: each cron must be a quoted string, got ${trimmed}`,
         handlerLine,

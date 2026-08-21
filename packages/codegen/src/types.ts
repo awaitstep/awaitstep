@@ -46,14 +46,7 @@ export interface LocalDevOptions {
 }
 
 export type WorkflowStatus =
-  | 'queued'
-  | 'running'
-  | 'paused'
-  | 'errored'
-  | 'terminated'
-  | 'complete'
-  | 'waiting'
-  | 'unknown'
+  'queued' | 'running' | 'paused' | 'errored' | 'terminated' | 'complete' | 'waiting' | 'unknown'
 
 export interface WorkflowRunStatus {
   instanceId: string
@@ -63,13 +56,7 @@ export interface WorkflowRunStatus {
 }
 
 export type DeploymentConfigUiWidget =
-  | 'text'
-  | 'textarea'
-  | 'number'
-  | 'boolean'
-  | 'select'
-  | 'array'
-  | 'array-of-objects'
+  'text' | 'textarea' | 'number' | 'boolean' | 'select' | 'array' | 'array-of-objects'
 
 export interface DeploymentConfigUiFieldOption {
   value: string

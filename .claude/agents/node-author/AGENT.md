@@ -224,24 +224,16 @@ describe('<node_id> / cloudflare', () => {
   it('returns correct output on success', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({
-        /* mock response */
-      }),
+      json: async () => ({/* mock response */}),
     })
 
     const ctx = createMockContext({
-      config: {
-        /* test config */
-      },
-      env: {
-        /* fake secrets */
-      },
+      config: {/* test config */},
+      env: {/* fake secrets */},
     })
 
     const result = await handler(ctx)
-    expect(result).toEqual({
-      /* expected output */
-    })
+    expect(result).toEqual({/* expected output */})
   })
 
   it('throws on API error', async () => {
@@ -252,12 +244,8 @@ describe('<node_id> / cloudflare', () => {
     })
 
     const ctx = createMockContext({
-      config: {
-        /* test config */
-      },
-      env: {
-        /* fake secrets */
-      },
+      config: {/* test config */},
+      env: {/* fake secrets */},
     })
 
     await expect(handler(ctx)).rejects.toThrow()

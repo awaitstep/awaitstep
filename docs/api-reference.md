@@ -57,19 +57,21 @@ List all workflows in the active project.
 Get a single workflow by ID.
 
 **Scope:** `read`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `id` | path | yes | Workflow ID |
+
+| Param | In   | Required | Description |
+| ----- | ---- | -------- | ----------- |
+| `id`  | path | yes      | Workflow ID |
 
 ### `GET /workflows/:id/full`
 
 Get a workflow with its current version, all version summaries, and active deployment.
 
 **Scope:** `read`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `id` | path | yes | Workflow ID |
-| `version` | query | no | Specific version ID to load |
+
+| Param     | In    | Required | Description                 |
+| --------- | ----- | -------- | --------------------------- |
+| `id`      | path  | yes      | Workflow ID                 |
+| `version` | query | no       | Specific version ID to load |
 
 ### `POST /workflows`
 
@@ -96,9 +98,10 @@ Create a new workflow or script.
 Update a workflow's name, description, environment variables, trigger code, dependencies, or deploy config.
 
 **Scope:** `write`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `id` | path | yes | Workflow ID |
+
+| Param | In   | Required | Description |
+| ----- | ---- | -------- | ----------- |
+| `id`  | path | yes      | Workflow ID |
 
 ```json
 {
@@ -121,9 +124,10 @@ Update a workflow's name, description, environment variables, trigger code, depe
 Move a workflow to another project within the same organization. Returns warnings if the workflow references env vars missing in the target project.
 
 **Scope:** `write`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `id` | path | yes | Workflow ID |
+
+| Param | In   | Required | Description |
+| ----- | ---- | -------- | ----------- |
+| `id`  | path | yes      | Workflow ID |
 
 ```json
 {
@@ -136,9 +140,10 @@ Move a workflow to another project within the same organization. Returns warning
 Delete a workflow.
 
 **Scope:** `write`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `id` | path | yes | Workflow ID |
+
+| Param | In   | Required | Description |
+| ----- | ---- | -------- | ----------- |
+| `id`  | path | yes      | Workflow ID |
 
 ---
 
@@ -247,9 +252,10 @@ Create a new project.
 Update a project.
 
 **Scope:** `write`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `id` | path | yes | Project ID |
+
+| Param | In   | Required | Description |
+| ----- | ---- | -------- | ----------- |
+| `id`  | path | yes      | Project ID  |
 
 ```json
 {
@@ -263,9 +269,10 @@ Update a project.
 Delete a project.
 
 **Scope:** `write`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `id` | path | yes | Project ID |
+
+| Param | In   | Required | Description |
+| ----- | ---- | -------- | ----------- |
+| `id`  | path | yes      | Project ID  |
 
 ---
 
@@ -276,28 +283,31 @@ Delete a project.
 List all versions for a workflow.
 
 **Scope:** `read`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `workflowId` | path | yes | Workflow ID |
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
 
 ### `GET /workflows/:workflowId/versions/:versionId`
 
 Get a specific version including its IR and generated code.
 
 **Scope:** `read`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `workflowId` | path | yes | Workflow ID |
-| `versionId` | path | yes | Version ID |
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
+| `versionId`  | path | yes      | Version ID  |
 
 ### `POST /workflows/:workflowId/versions`
 
 Create a new version by submitting a workflow IR. The IR is validated and compiled to code.
 
 **Scope:** `write`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `workflowId` | path | yes | Workflow ID |
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
 
 ```json
 {
@@ -310,10 +320,11 @@ Create a new version by submitting a workflow IR. The IR is validated and compil
 Lock or unlock a version. Locked versions cannot be deployed or deleted.
 
 **Scope:** `write`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `workflowId` | path | yes | Workflow ID |
-| `versionId` | path | yes | Version ID |
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
+| `versionId`  | path | yes      | Version ID  |
 
 ```json
 {
@@ -326,20 +337,22 @@ Lock or unlock a version. Locked versions cannot be deployed or deleted.
 Revert to a previous version. Creates a new version with the target version's IR and sets it as the current version.
 
 **Scope:** `write`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `workflowId` | path | yes | Workflow ID |
-| `versionId` | path | yes | Version ID to revert to |
+
+| Param        | In   | Required | Description             |
+| ------------ | ---- | -------- | ----------------------- |
+| `workflowId` | path | yes      | Workflow ID             |
+| `versionId`  | path | yes      | Version ID to revert to |
 
 ### `DELETE /workflows/:workflowId/versions/:versionId`
 
 Delete a version. Cannot delete the active version, a deployed version, or a locked version.
 
 **Scope:** `write`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `workflowId` | path | yes | Workflow ID |
-| `versionId` | path | yes | Version ID |
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
+| `versionId`  | path | yes      | Version ID  |
 
 ---
 
@@ -356,18 +369,20 @@ List all deployments across all workflows for the authenticated user.
 List deployments for a specific workflow.
 
 **Scope:** `read`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `workflowId` | path | yes | Workflow ID |
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
 
 ### `POST /workflows/:workflowId/deploy`
 
 Deploy a workflow version to a connection. Validates environment variables and credentials before deploying.
 
 **Scope:** `deploy`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `workflowId` | path | yes | Workflow ID |
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
 
 ```json
 {
@@ -381,9 +396,10 @@ Deploy a workflow version to a connection. Validates environment variables and c
 Deploy a workflow with real-time progress updates via Server-Sent Events. Same request body as `/deploy`.
 
 **Scope:** `deploy`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `workflowId` | path | yes | Workflow ID |
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
 
 ```json
 {
@@ -405,9 +421,10 @@ UPDATING_WORKFLOW → COMPLETED
 Trigger an execution of a deployed workflow. Params payload is capped at 100KB.
 
 **Scope:** `deploy`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `workflowId` | path | yes | Workflow ID |
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
 
 ```json
 {
@@ -423,9 +440,10 @@ Trigger an execution of a deployed workflow. Params payload is capped at 100KB.
 Remove a deployment and clear the workflow's active version.
 
 **Scope:** `deploy`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `workflowId` | path | yes | Workflow ID |
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
 
 ```json
 {
@@ -448,49 +466,54 @@ List all runs across all workflows for the authenticated user.
 List runs for a specific workflow.
 
 **Scope:** `read`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `workflowId` | path | yes | Workflow ID |
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
 
 ### `GET /workflows/:workflowId/runs/:runId`
 
 Get a specific run. If the run is in a non-terminal state, live status is fetched from Cloudflare.
 
 **Scope:** `read`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `workflowId` | path | yes | Workflow ID |
-| `runId` | path | yes | Run ID |
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
+| `runId`      | path | yes      | Run ID      |
 
 ### `POST /workflows/:workflowId/runs/:runId/pause`
 
 Pause a running workflow instance.
 
 **Scope:** `deploy`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `workflowId` | path | yes | Workflow ID |
-| `runId` | path | yes | Run ID |
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
+| `runId`      | path | yes      | Run ID      |
 
 ### `POST /workflows/:workflowId/runs/:runId/resume`
 
 Resume a paused workflow instance.
 
 **Scope:** `deploy`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `workflowId` | path | yes | Workflow ID |
-| `runId` | path | yes | Run ID |
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
+| `runId`      | path | yes      | Run ID      |
 
 ### `POST /workflows/:workflowId/runs/:runId/terminate`
 
 Terminate a running or paused workflow instance.
 
 **Scope:** `deploy`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `workflowId` | path | yes | Workflow ID |
-| `runId` | path | yes | Run ID |
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
+| `runId`      | path | yes      | Run ID      |
 
 ---
 
@@ -548,9 +571,10 @@ Returns:
 Update a connection's name or credentials.
 
 **Scope:** `write`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `id` | path | yes | Connection ID |
+
+| Param | In   | Required | Description   |
+| ----- | ---- | -------- | ------------- |
+| `id`  | path | yes      | Connection ID |
 
 ```json
 {
@@ -564,9 +588,10 @@ Update a connection's name or credentials.
 Delete a connection.
 
 **Scope:** `write`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `id` | path | yes | Connection ID |
+
+| Param | In   | Required | Description   |
+| ----- | ---- | -------- | ------------- |
+| `id`  | path | yes      | Connection ID |
 
 ---
 
@@ -597,9 +622,10 @@ Create a global environment variable. Name must match `^[A-Z][A-Z0-9_]*$`.
 Update an environment variable's name, value, or secret flag.
 
 **Scope:** `write`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `id` | path | yes | Environment variable ID |
+
+| Param | In   | Required | Description             |
+| ----- | ---- | -------- | ----------------------- |
+| `id`  | path | yes      | Environment variable ID |
 
 ```json
 {
@@ -612,9 +638,10 @@ Update an environment variable's name, value, or secret flag.
 Delete an environment variable.
 
 **Scope:** `write`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `id` | path | yes | Environment variable ID |
+
+| Param | In   | Required | Description             |
+| ----- | ---- | -------- | ----------------------- |
+| `id`  | path | yes      | Environment variable ID |
 
 ---
 
@@ -627,51 +654,56 @@ All resource endpoints require a `connectionId` query parameter pointing to a va
 List KV namespaces.
 
 **Scope:** `read`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `connectionId` | query | yes | Connection ID |
+
+| Param          | In    | Required | Description   |
+| -------------- | ----- | -------- | ------------- |
+| `connectionId` | query | yes      | Connection ID |
 
 ### `GET /resources/kv/namespaces/:namespaceId/keys`
 
 List keys in a KV namespace.
 
 **Scope:** `read`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `namespaceId` | path | yes | KV namespace ID |
-| `connectionId` | query | yes | Connection ID |
-| `prefix` | query | no | Filter keys by prefix |
-| `cursor` | query | no | Pagination cursor |
-| `limit` | query | no | Max keys to return |
+
+| Param          | In    | Required | Description           |
+| -------------- | ----- | -------- | --------------------- |
+| `namespaceId`  | path  | yes      | KV namespace ID       |
+| `connectionId` | query | yes      | Connection ID         |
+| `prefix`       | query | no       | Filter keys by prefix |
+| `cursor`       | query | no       | Pagination cursor     |
+| `limit`        | query | no       | Max keys to return    |
 
 ### `GET /resources/kv/namespaces/:namespaceId/values/:key`
 
 Get the value of a KV key.
 
 **Scope:** `read`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `namespaceId` | path | yes | KV namespace ID |
-| `key` | path | yes | Key name |
-| `connectionId` | query | yes | Connection ID |
+
+| Param          | In    | Required | Description     |
+| -------------- | ----- | -------- | --------------- |
+| `namespaceId`  | path  | yes      | KV namespace ID |
+| `key`          | path  | yes      | Key name        |
+| `connectionId` | query | yes      | Connection ID   |
 
 ### `GET /resources/d1/databases`
 
 List D1 databases.
 
 **Scope:** `read`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `connectionId` | query | yes | Connection ID |
+
+| Param          | In    | Required | Description   |
+| -------------- | ----- | -------- | ------------- |
+| `connectionId` | query | yes      | Connection ID |
 
 ### `POST /resources/d1/databases/:databaseId/query`
 
 Execute a SQL query against a D1 database.
 
 **Scope:** `read`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `databaseId` | path | yes | D1 database ID |
+
+| Param        | In   | Required | Description    |
+| ------------ | ---- | -------- | -------------- |
+| `databaseId` | path | yes      | D1 database ID |
 
 ```json
 {
@@ -686,22 +718,24 @@ Execute a SQL query against a D1 database.
 List R2 buckets.
 
 **Scope:** `read`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `connectionId` | query | yes | Connection ID |
+
+| Param          | In    | Required | Description   |
+| -------------- | ----- | -------- | ------------- |
+| `connectionId` | query | yes      | Connection ID |
 
 ### `GET /resources/r2/buckets/:bucketName/objects`
 
 List objects in an R2 bucket.
 
 **Scope:** `read`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `bucketName` | path | yes | Bucket name |
-| `connectionId` | query | yes | Connection ID |
-| `prefix` | query | no | Filter by prefix |
-| `cursor` | query | no | Pagination cursor |
-| `limit` | query | no | Max objects to return |
+
+| Param          | In    | Required | Description           |
+| -------------- | ----- | -------- | --------------------- |
+| `bucketName`   | path  | yes      | Bucket name           |
+| `connectionId` | query | yes      | Connection ID         |
+| `prefix`       | query | no       | Filter by prefix      |
+| `cursor`       | query | no       | Pagination cursor     |
+| `limit`        | query | no       | Max objects to return |
 
 ---
 
@@ -724,9 +758,10 @@ Get node template resolver data.
 Get a single node definition.
 
 **Scope:** `read`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `nodeId` | path | yes | Node type ID |
+
+| Param    | In   | Required | Description  |
+| -------- | ---- | -------- | ------------ |
+| `nodeId` | path | yes      | Node type ID |
 
 ---
 
@@ -743,9 +778,10 @@ Get the full marketplace catalog with installation status for the current organi
 Get details for a specific marketplace node, including available versions and installation status.
 
 **Scope:** `read`
-| Param | In | Required | Description |
-|-------|----|----------|-------------|
-| `nodeId` | path | yes | Node ID (alphanumeric, hyphens, underscores) |
+
+| Param    | In   | Required | Description                                  |
+| -------- | ---- | -------- | -------------------------------------------- |
+| `nodeId` | path | yes      | Node ID (alphanumeric, hyphens, underscores) |
 
 ### `GET /marketplace/installed`
 

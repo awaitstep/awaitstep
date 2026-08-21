@@ -89,10 +89,7 @@ export interface ManualTriggerConfig {
 }
 
 export type TriggerConfig =
-  | HttpTriggerConfig
-  | CronTriggerConfig
-  | EventTriggerConfig
-  | ManualTriggerConfig
+  HttpTriggerConfig | CronTriggerConfig | EventTriggerConfig | ManualTriggerConfig
 
 export interface WorkflowIR {
   /**

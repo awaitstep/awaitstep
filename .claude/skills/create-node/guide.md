@@ -491,9 +491,7 @@ describe('<node_id> / cloudflare', () => {
   it('sends correct authorization header', async () => {
     const fetchSpy = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({
-        /* mock response */
-      }),
+      json: async () => ({/* mock response */}),
     })
     global.fetch = fetchSpy
 

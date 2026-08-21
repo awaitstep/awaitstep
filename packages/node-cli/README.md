@@ -292,9 +292,7 @@ const Stripe_Charge = await step.do("Stripe Charge", { retries: ... }, async () 
 ```json
 [
   {
-    "definition": {
-      /* full NodeDefinition */
-    },
+    "definition": {/* full NodeDefinition */},
     "templates": {
       "cloudflare": "export default async function(ctx) { ... }"
     },

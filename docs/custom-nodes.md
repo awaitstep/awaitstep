@@ -313,9 +313,7 @@ export default async function (ctx: {
   inputs: Record<string, unknown> // Outputs from upstream nodes
 }) {
   // Node implementation
-  return {
-    /* matches outputSchema */
-  }
+  return {/* matches outputSchema */}
 }
 ```
 

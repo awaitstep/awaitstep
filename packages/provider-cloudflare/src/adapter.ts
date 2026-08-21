@@ -293,11 +293,9 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
 
     // Read typed deployment config (new path) with legacy fallback
     const deploymentConfig = config.options?.['deploymentConfig'] as
-      | CloudflareDeploymentConfig
-      | undefined
+      CloudflareDeploymentConfig | undefined
     const legacyDeployConfig = config.options?.['deployConfig'] as
-      | { route?: { pattern: string; zoneName: string } }
-      | undefined
+      { route?: { pattern: string; zoneName: string } } | undefined
 
     // Build wrangler routes from deployment config or legacy format
     const configRoutes = deploymentConfig?.routes

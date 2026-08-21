@@ -52,8 +52,7 @@ async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof cr
   const db = createD1DatabaseAdapter(env.DB, { tokenCrypto })
 
   let sendMagicLink:
-    | ((data: { email: string; url: string; token: string }) => Promise<void>)
-    | undefined
+    ((data: { email: string; url: string; token: string }) => Promise<void>) | undefined
   if (env.RESEND_API_KEY) {
     const emailService = createEmailService({
       apiKey: env.RESEND_API_KEY,
