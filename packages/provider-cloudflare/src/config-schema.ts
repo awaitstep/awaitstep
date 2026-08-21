@@ -1,5 +1,20 @@
 import { z } from 'zod'
 import type { DeploymentConfigUiSchema } from '@awaitstep/codegen'
+import { DEFAULT_RETENTION } from './codegen/retention.js'
+
+/**
+ * A Cloudflare retention duration: milliseconds as a number, or a duration
+ * string like "7 days" (same grammar as WorkflowSleepDuration).
+ */
+export const cloudflareRetentionDurationSchema = z.union([
+  z.number().int().positive(),
+  z
+    .string()
+    .trim()
+    .regex(/^\d+\s+(second|minute|hour|day|week|month|year)s?$/i, {
+      message: 'Use a duration like "7 days" or milliseconds as a number',
+    }),
+])
 
 export const cloudflareRouteSchema = z.object({
   pattern: z.string().min(1),
@@ -113,6 +128,18 @@ export const cloudflareDeploymentConfigSchema = z
     // declarations in trigger code. Each entry tunes the consumer for one queue
     // name. Cloudflare defaults apply to fields left undefined.
     queueConsumers: z.array(cloudflareQueueConsumerSchema).optional(),
+
+    // Instance retention — how long Cloudflare keeps instance state (step
+    // outputs, status, errors) after a run ends. Stored state bills at
+    // $0.20/GB-month past 1 GB, so AwaitStep applies a 7-day default when
+    // unset instead of the account maximum (3 days Free / 30 days Paid).
+    retention: z
+      .object({
+        successRetention: cloudflareRetentionDurationSchema.optional(),
+        errorRetention: cloudflareRetentionDurationSchema.optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
 
@@ -122,6 +149,7 @@ export type CloudflareDeploymentConfig = z.infer<typeof cloudflareDeploymentConf
 export const cloudflareDefaultDeploymentConfig: CloudflareDeploymentConfig = {
   workersDev: true,
   previewUrls: true,
+  retention: { ...DEFAULT_RETENTION },
   // observability is intentionally omitted here — the full nested
   // logs/traces config comes from WRANGLER_BASE_CONFIG in wrangler-config.ts
 }
@@ -208,6 +236,27 @@ export const cloudflareDeploymentConfigUiSchema: DeploymentConfigUiSchema = {
           label: 'CPU time limit (ms)',
           widget: 'number',
           help: 'Maximum CPU time per invocation in milliseconds.',
+        },
+      ],
+    },
+    {
+      title: 'Instance Retention',
+      description:
+        'How long Cloudflare retains instance state (step outputs, status, errors) after a run ends. Retained state bills at $0.20/GB-month past the included 1 GB. Applies to instances started via the default trigger code, the Trigger button/API, and sub-workflow steps.',
+      fields: [
+        {
+          path: 'retention.successRetention',
+          label: 'Retention after success',
+          widget: 'text',
+          placeholder: '7 days',
+          help: 'Duration like "7 days" or milliseconds. Defaults to 7 days; your plan caps it (3 days Free, 30 days Paid).',
+        },
+        {
+          path: 'retention.errorRetention',
+          label: 'Retention after error',
+          widget: 'text',
+          placeholder: '7 days',
+          help: 'Applies to errored and terminated runs. Duration like "7 days" or milliseconds. Defaults to 7 days; your plan caps it.',
         },
       ],
     },

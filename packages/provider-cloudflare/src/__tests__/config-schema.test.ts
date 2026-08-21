@@ -45,6 +45,43 @@ describe('cloudflareDeploymentConfigSchema', () => {
   })
 })
 
+describe('cloudflareDeploymentConfigSchema — retention', () => {
+  it('accepts duration strings and millisecond numbers', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({
+      retention: { successRetention: '7 days', errorRetention: 86400000 },
+    })
+    expect(parsed.success).toBe(true)
+  })
+
+  it('accepts a partial retention object', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({
+      retention: { errorRetention: '30 days' },
+    })
+    expect(parsed.success).toBe(true)
+  })
+
+  it('rejects malformed duration strings', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({
+      retention: { successRetention: 'seven days-ish' },
+    })
+    expect(parsed.success).toBe(false)
+  })
+
+  it('rejects unknown retention fields', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({
+      retention: { keepForever: true },
+    })
+    expect(parsed.success).toBe(false)
+  })
+
+  it('defaults to 7-day retention in the default deployment config', () => {
+    expect(cloudflareDefaultDeploymentConfig.retention).toEqual({
+      successRetention: '7 days',
+      errorRetention: '7 days',
+    })
+  })
+})
+
 describe('cloudflareDeploymentConfigSchema — queueConsumers', () => {
   it('accepts a valid queueConsumers array', () => {
     const parsed = cloudflareDeploymentConfigSchema.safeParse({

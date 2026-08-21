@@ -9,6 +9,8 @@ export { DEFAULT_TRIGGER_CODE, generateWorkflow } from './generate-workflow.js'
 export type { GenerateOptions } from './generate-workflow.js'
 export { DEFAULT_SCRIPT_TRIGGER_CODE, generateScript } from './generate-script.js'
 export type { GenerateScriptOptions } from './generate-script.js'
+export { DEFAULT_RETENTION, resolveRetention, retentionLiteral } from './retention.js'
+export type { CloudflareRetention } from './retention.js'
 
 export class CloudflareCodeGenerator implements CodeGenerator {
   readonly name = 'cloudflare-workflows'

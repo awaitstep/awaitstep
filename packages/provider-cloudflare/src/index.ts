@@ -44,7 +44,10 @@ export {
   cloudflareDefaultDeploymentConfig,
   cloudflareDeploymentConfigUiSchema,
 } from './config-schema.js'
+export { cloudflareRetentionDurationSchema } from './config-schema.js'
 export type { CloudflareRoute, CloudflareDeploymentConfig } from './config-schema.js'
+export { DEFAULT_RETENTION, resolveRetention } from './codegen/retention.js'
+export type { CloudflareRetention } from './codegen/retention.js'
 export { splitEnvVars } from './env.js'
 export { startLocalDev, killPort, isPortListening, readLogs, LOCAL_DEV_PORT } from './local-dev.js'
 export { CloudflareResourcesAPI } from './resources.js'
