@@ -9,58 +9,43 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SignInRouteImport } from './routes/sign-in'
-import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthedSettingsRouteImport } from './routes/_authed/settings'
-import { Route as AuthedEnvVarsRouteImport } from './routes/_authed/env-vars'
-import { Route as AuthedDashboardRouteImport } from './routes/_authed/dashboard'
-import { Route as AuthedConnectionsRouteImport } from './routes/_authed/connections'
-import { Route as AuthedApiPlaygroundRouteImport } from './routes/_authed/api-playground'
+import { Route as AuthedRouteImport } from './routes/_authed'
+import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AuthedAccountRouteImport } from './routes/_authed/account'
-import { Route as AuthedWorkflowsIndexRouteImport } from './routes/_authed/workflows.index'
+import { Route as AuthedApiPlaygroundRouteImport } from './routes/_authed/api-playground'
+import { Route as AuthedConnectionsRouteImport } from './routes/_authed/connections'
+import { Route as AuthedDashboardRouteImport } from './routes/_authed/dashboard'
+import { Route as AuthedEnvVarsRouteImport } from './routes/_authed/env-vars'
+import { Route as AuthedSettingsRouteImport } from './routes/_authed/settings'
 import { Route as AuthedRunsIndexRouteImport } from './routes/_authed/runs.index'
-import { Route as AuthedWorkflowsWorkflowIdRouteImport } from './routes/_authed/workflows/$workflowId'
 import { Route as AuthedRunsRunIdRouteImport } from './routes/_authed/runs.$runId'
+import { Route as AuthedWorkflowsIndexRouteImport } from './routes/_authed/workflows.index'
+import { Route as AuthedWorkflowsWorkflowIdRouteImport } from './routes/_authed/workflows/$workflowId'
 import { Route as AuthedWorkflowsWorkflowIdIndexRouteImport } from './routes/_authed/workflows/$workflowId.index'
-import { Route as AuthedWorkflowsWorkflowIdRunsRouteImport } from './routes/_authed/workflows/$workflowId.runs'
-import { Route as AuthedWorkflowsWorkflowIdDeploymentsRouteImport } from './routes/_authed/workflows/$workflowId.deployments'
-import { Route as AuthedWorkflowsWorkflowIdDeployRouteImport } from './routes/_authed/workflows/$workflowId.deploy'
 import { Route as AuthedWorkflowsWorkflowIdCanvasRouteImport } from './routes/_authed/workflows/$workflowId.canvas'
+import { Route as AuthedWorkflowsWorkflowIdDeployRouteImport } from './routes/_authed/workflows/$workflowId.deploy'
+import { Route as AuthedWorkflowsWorkflowIdDeploymentsRouteImport } from './routes/_authed/workflows/$workflowId.deployments'
+import { Route as AuthedWorkflowsWorkflowIdRunsRouteImport } from './routes/_authed/workflows/$workflowId.runs'
 import { Route as AuthedWorkflowsWorkflowIdRunsIndexRouteImport } from './routes/_authed/workflows/$workflowId.runs.index'
 
-const SignInRoute = SignInRouteImport.update({
-  id: '/sign-in',
-  path: '/sign-in',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const SignInRoute = SignInRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthedSettingsRoute = AuthedSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedEnvVarsRoute = AuthedEnvVarsRouteImport.update({
-  id: '/env-vars',
-  path: '/env-vars',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedDashboardRoute = AuthedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedConnectionsRoute = AuthedConnectionsRouteImport.update({
-  id: '/connections',
-  path: '/connections',
+const AuthedAccountRoute = AuthedAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedApiPlaygroundRoute = AuthedApiPlaygroundRouteImport.update({
@@ -68,19 +53,39 @@ const AuthedApiPlaygroundRoute = AuthedApiPlaygroundRouteImport.update({
   path: '/api-playground',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedAccountRoute = AuthedAccountRouteImport.update({
-  id: '/account',
-  path: '/account',
+const AuthedConnectionsRoute = AuthedConnectionsRouteImport.update({
+  id: '/connections',
+  path: '/connections',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedWorkflowsIndexRoute = AuthedWorkflowsIndexRouteImport.update({
-  id: '/workflows/',
-  path: '/workflows/',
+const AuthedDashboardRoute = AuthedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedEnvVarsRoute = AuthedEnvVarsRouteImport.update({
+  id: '/env-vars',
+  path: '/env-vars',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedSettingsRoute = AuthedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedRunsIndexRoute = AuthedRunsIndexRouteImport.update({
   id: '/runs/',
   path: '/runs/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedRunsRunIdRoute = AuthedRunsRunIdRouteImport.update({
+  id: '/runs/$runId',
+  path: '/runs/$runId',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedWorkflowsIndexRoute = AuthedWorkflowsIndexRouteImport.update({
+  id: '/workflows/',
+  path: '/workflows/',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedWorkflowsWorkflowIdRoute =
@@ -89,27 +94,16 @@ const AuthedWorkflowsWorkflowIdRoute =
     path: '/workflows/$workflowId',
     getParentRoute: () => AuthedRoute,
   } as any)
-const AuthedRunsRunIdRoute = AuthedRunsRunIdRouteImport.update({
-  id: '/runs/$runId',
-  path: '/runs/$runId',
-  getParentRoute: () => AuthedRoute,
-} as any)
 const AuthedWorkflowsWorkflowIdIndexRoute =
   AuthedWorkflowsWorkflowIdIndexRouteImport.update({
     id: '/',
     path: '/',
     getParentRoute: () => AuthedWorkflowsWorkflowIdRoute,
   } as any)
-const AuthedWorkflowsWorkflowIdRunsRoute =
-  AuthedWorkflowsWorkflowIdRunsRouteImport.update({
-    id: '/runs',
-    path: '/runs',
-    getParentRoute: () => AuthedWorkflowsWorkflowIdRoute,
-  } as any)
-const AuthedWorkflowsWorkflowIdDeploymentsRoute =
-  AuthedWorkflowsWorkflowIdDeploymentsRouteImport.update({
-    id: '/deployments',
-    path: '/deployments',
+const AuthedWorkflowsWorkflowIdCanvasRoute =
+  AuthedWorkflowsWorkflowIdCanvasRouteImport.update({
+    id: '/canvas',
+    path: '/canvas',
     getParentRoute: () => AuthedWorkflowsWorkflowIdRoute,
   } as any)
 const AuthedWorkflowsWorkflowIdDeployRoute =
@@ -118,10 +112,16 @@ const AuthedWorkflowsWorkflowIdDeployRoute =
     path: '/deploy',
     getParentRoute: () => AuthedWorkflowsWorkflowIdRoute,
   } as any)
-const AuthedWorkflowsWorkflowIdCanvasRoute =
-  AuthedWorkflowsWorkflowIdCanvasRouteImport.update({
-    id: '/canvas',
-    path: '/canvas',
+const AuthedWorkflowsWorkflowIdDeploymentsRoute =
+  AuthedWorkflowsWorkflowIdDeploymentsRouteImport.update({
+    id: '/deployments',
+    path: '/deployments',
+    getParentRoute: () => AuthedWorkflowsWorkflowIdRoute,
+  } as any)
+const AuthedWorkflowsWorkflowIdRunsRoute =
+  AuthedWorkflowsWorkflowIdRunsRouteImport.update({
+    id: '/runs',
+    path: '/runs',
     getParentRoute: () => AuthedWorkflowsWorkflowIdRoute,
   } as any)
 const AuthedWorkflowsWorkflowIdRunsIndexRoute =
@@ -261,11 +261,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/sign-in': {
-      id: '/sign-in'
-      path: '/sign-in'
-      fullPath: '/sign-in'
-      preLoaderRoute: typeof SignInRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authed': {
@@ -275,39 +275,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/sign-in': {
+      id: '/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof SignInRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authed/settings': {
-      id: '/_authed/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AuthedSettingsRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/env-vars': {
-      id: '/_authed/env-vars'
-      path: '/env-vars'
-      fullPath: '/env-vars'
-      preLoaderRoute: typeof AuthedEnvVarsRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/dashboard': {
-      id: '/_authed/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthedDashboardRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/connections': {
-      id: '/_authed/connections'
-      path: '/connections'
-      fullPath: '/connections'
-      preLoaderRoute: typeof AuthedConnectionsRouteImport
+    '/_authed/account': {
+      id: '/_authed/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AuthedAccountRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/api-playground': {
@@ -317,18 +296,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedApiPlaygroundRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/account': {
-      id: '/_authed/account'
-      path: '/account'
-      fullPath: '/account'
-      preLoaderRoute: typeof AuthedAccountRouteImport
+    '/_authed/connections': {
+      id: '/_authed/connections'
+      path: '/connections'
+      fullPath: '/connections'
+      preLoaderRoute: typeof AuthedConnectionsRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/workflows/': {
-      id: '/_authed/workflows/'
-      path: '/workflows'
-      fullPath: '/workflows/'
-      preLoaderRoute: typeof AuthedWorkflowsIndexRouteImport
+    '/_authed/dashboard': {
+      id: '/_authed/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthedDashboardRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/env-vars': {
+      id: '/_authed/env-vars'
+      path: '/env-vars'
+      fullPath: '/env-vars'
+      preLoaderRoute: typeof AuthedEnvVarsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/settings': {
+      id: '/_authed/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthedSettingsRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/runs/': {
@@ -338,18 +331,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedRunsIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/workflows/$workflowId': {
-      id: '/_authed/workflows/$workflowId'
-      path: '/workflows/$workflowId'
-      fullPath: '/workflows/$workflowId'
-      preLoaderRoute: typeof AuthedWorkflowsWorkflowIdRouteImport
-      parentRoute: typeof AuthedRoute
-    }
     '/_authed/runs/$runId': {
       id: '/_authed/runs/$runId'
       path: '/runs/$runId'
       fullPath: '/runs/$runId'
       preLoaderRoute: typeof AuthedRunsRunIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/workflows/': {
+      id: '/_authed/workflows/'
+      path: '/workflows'
+      fullPath: '/workflows/'
+      preLoaderRoute: typeof AuthedWorkflowsIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/workflows/$workflowId': {
+      id: '/_authed/workflows/$workflowId'
+      path: '/workflows/$workflowId'
+      fullPath: '/workflows/$workflowId'
+      preLoaderRoute: typeof AuthedWorkflowsWorkflowIdRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/workflows/$workflowId/': {
@@ -359,18 +359,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedWorkflowsWorkflowIdIndexRouteImport
       parentRoute: typeof AuthedWorkflowsWorkflowIdRoute
     }
-    '/_authed/workflows/$workflowId/runs': {
-      id: '/_authed/workflows/$workflowId/runs'
-      path: '/runs'
-      fullPath: '/workflows/$workflowId/runs'
-      preLoaderRoute: typeof AuthedWorkflowsWorkflowIdRunsRouteImport
-      parentRoute: typeof AuthedWorkflowsWorkflowIdRoute
-    }
-    '/_authed/workflows/$workflowId/deployments': {
-      id: '/_authed/workflows/$workflowId/deployments'
-      path: '/deployments'
-      fullPath: '/workflows/$workflowId/deployments'
-      preLoaderRoute: typeof AuthedWorkflowsWorkflowIdDeploymentsRouteImport
+    '/_authed/workflows/$workflowId/canvas': {
+      id: '/_authed/workflows/$workflowId/canvas'
+      path: '/canvas'
+      fullPath: '/workflows/$workflowId/canvas'
+      preLoaderRoute: typeof AuthedWorkflowsWorkflowIdCanvasRouteImport
       parentRoute: typeof AuthedWorkflowsWorkflowIdRoute
     }
     '/_authed/workflows/$workflowId/deploy': {
@@ -380,11 +373,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedWorkflowsWorkflowIdDeployRouteImport
       parentRoute: typeof AuthedWorkflowsWorkflowIdRoute
     }
-    '/_authed/workflows/$workflowId/canvas': {
-      id: '/_authed/workflows/$workflowId/canvas'
-      path: '/canvas'
-      fullPath: '/workflows/$workflowId/canvas'
-      preLoaderRoute: typeof AuthedWorkflowsWorkflowIdCanvasRouteImport
+    '/_authed/workflows/$workflowId/deployments': {
+      id: '/_authed/workflows/$workflowId/deployments'
+      path: '/deployments'
+      fullPath: '/workflows/$workflowId/deployments'
+      preLoaderRoute: typeof AuthedWorkflowsWorkflowIdDeploymentsRouteImport
+      parentRoute: typeof AuthedWorkflowsWorkflowIdRoute
+    }
+    '/_authed/workflows/$workflowId/runs': {
+      id: '/_authed/workflows/$workflowId/runs'
+      path: '/runs'
+      fullPath: '/workflows/$workflowId/runs'
+      preLoaderRoute: typeof AuthedWorkflowsWorkflowIdRunsRouteImport
       parentRoute: typeof AuthedWorkflowsWorkflowIdRoute
     }
     '/_authed/workflows/$workflowId/runs/': {

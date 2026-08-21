@@ -20,15 +20,15 @@
   "devDependencies": {
     "@awaitstep/tsconfig": "workspace:*",
     "@react-email/preview-server": "^5.2.10",
-    "@types/react": "^19.1.8",
-    "react-email": "^6.0.0",
+    "@types/react": "^19.2.18",
+    "react-email": "^6.9.2",
     "tsup": "8.5.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.5"
   },
   "dependencies": {
-    "@react-email/components": "^1.0.10",
-    "react": "^19.2.5"
+    "@react-email/components": "^1.0.12",
+    "react": "^19.2.8"
   }
 }
