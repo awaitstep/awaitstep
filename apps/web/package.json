@@ -55,7 +55,7 @@
   "devDependencies": {
     "@awaitstep/tsconfig": "workspace:*",
     "@cloudflare/vite-plugin": "^1.53.1",
-    "@cloudflare/workers-types": "^4.20260414.1",
+    "@cloudflare/workers-types": "^5.20260821.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
@@ -67,6 +67,6 @@
     "vite": "^8.2.2",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.1.11",
-    "wrangler": "^4.90.1"
+    "wrangler": "^4.125.0"
   }
 }

@@ -429,7 +429,8 @@ The Web Worker proxies `/api/*` requests to the API Worker via the service bindi
 ### Sandbox Dockerfile (`apps/api/Dockerfile.sandbox`)
 
 ```dockerfile
-FROM docker.io/cloudflare/sandbox:0.8.11
+# Image tag must match the @cloudflare/sandbox SDK version in apps/api/package.json.
+FROM docker.io/cloudflare/sandbox:0.12.7
 
 # Pre-install wrangler so deploys don't pay ~30s npm install cost
 RUN npm install -g wrangler@latest
