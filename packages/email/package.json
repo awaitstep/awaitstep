@@ -19,7 +19,6 @@
   },
   "devDependencies": {
     "@awaitstep/tsconfig": "workspace:*",
-    "@react-email/preview-server": "^5.2.10",
     "@types/react": "^19.2.18",
     "react-email": "^6.9.2",
     "tsup": "8.5.1",

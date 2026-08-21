@@ -14,10 +14,5 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "tailwindcss": "^4.3.3"
-  },
-  "pnpm": {
-    "overrides": {
-      "vite": "^7"
-    }
   }
 }
