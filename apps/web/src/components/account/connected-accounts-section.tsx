@@ -38,8 +38,8 @@ export function ConnectedAccountsSection({ enabledProviders }: Props) {
 
   const queryClient = useQueryClient()
   const unlinkMutation = useMutation({
-    mutationFn: async (providerId: string) => {
-      const res = await authClient.unlinkAccount({ providerId })
+    mutationFn: async (accountId: string) => {
+      const res = await authClient.unlinkAccount({ accountId })
       if (res.error) throw new Error(res.error.message)
     },
     onSuccess: () => {
@@ -85,7 +85,7 @@ export function ConnectedAccountsSection({ enabledProviders }: Props) {
                     size="sm"
                     className="h-7 text-xs"
                     disabled={unlinkMutation.isPending}
-                    onClick={() => account && unlinkMutation.mutate(account.providerId)}
+                    onClick={() => account && unlinkMutation.mutate(account.id)}
                   >
                     Disconnect
                   </Button>
