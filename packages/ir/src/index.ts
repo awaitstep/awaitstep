@@ -72,15 +72,18 @@ export {
   workflowIRSchema,
   scriptIRSchema,
   artifactIRSchema,
+  builtinNodeDataSchemas,
 } from './schema.js'
 
 export {
   validateIR,
   validateScript,
   validateArtifact,
+  validateNodeData,
   buildContainmentMap,
   SCRIPT_INCOMPATIBLE_NODE_TYPES,
 } from './validate.js'
+export type { ValidateNodeDataOptions } from './validate.js'
 export {
   serializeIR,
   deserializeIR,

@@ -20,6 +20,121 @@ const positionSchema = z.object({
 
 const nodeIdSchema = z.string().min(1)
 
+// ── Per-builtin data schemas ──
+// Deliberately lenient: every field optional, unknown keys allowed, and
+// primitives widened where stored workflows are known to vary (durations may
+// be string or number; enum-ish fields are plain strings because generators
+// coerce). Stored v1 workflows predate any data validation, so these schemas
+// must accept everything that ever saved. Strict, user-facing checks are
+// collected by validateNodeData (validate.ts) instead of failing the parse.
+
+const durationValueSchema = z.union([z.string(), z.number()])
+// Header/query values are emitted through toJsLiteral, which accepts any JSON
+// value — stored workflows with non-string values work today, so stay open.
+const openRecordSchema = z.record(z.string(), z.unknown())
+
+const stepNodeDataSchema = z
+  .object({
+    code: z.string().optional(),
+    inline: z.boolean().optional(),
+    retryLimit: z.number().optional(),
+    retryDelay: z.string().optional(),
+    backoff: z.string().optional(),
+    timeout: z.string().optional(),
+  })
+  .catchall(z.unknown())
+
+const sleepNodeDataSchema = z
+  .object({ duration: durationValueSchema.optional() })
+  .catchall(z.unknown())
+
+const sleepUntilNodeDataSchema = z
+  .object({ timestamp: z.string().optional() })
+  .catchall(z.unknown())
+
+const branchNodeDataSchema = z
+  .object({
+    branches: z
+      .array(z.object({ label: z.string(), condition: z.string() }).catchall(z.unknown()))
+      .optional(),
+  })
+  .catchall(z.unknown())
+
+const httpRequestNodeDataSchema = z
+  .object({
+    method: z.string().optional(),
+    url: z.string().optional(),
+    headers: openRecordSchema.optional(),
+    queryParams: openRecordSchema.optional(),
+    body: z.string().optional(),
+    retryLimit: z.number().optional(),
+    timeout: z.string().optional(),
+  })
+  .catchall(z.unknown())
+
+const waitForEventNodeDataSchema = z
+  .object({
+    eventType: z.string().optional(),
+    timeout: durationValueSchema.optional(),
+  })
+  .catchall(z.unknown())
+
+const loopNodeDataSchema = z
+  .object({
+    loopType: z.string().optional(),
+    collection: z.string().optional(),
+    itemVar: z.string().optional(),
+    indexVar: z.string().optional(),
+    condition: z.string().optional(),
+    count: z.number().optional(),
+  })
+  .catchall(z.unknown())
+
+const breakNodeDataSchema = z.object({ condition: z.string().optional() }).catchall(z.unknown())
+
+const subWorkflowNodeDataSchema = z
+  .object({
+    workflowId: z.string().optional(),
+    workflowName: z.string().optional(),
+    input: z.string().optional(),
+    waitForCompletion: z.boolean().optional(),
+    timeout: z.string().optional(),
+  })
+  .catchall(z.unknown())
+
+const subScriptNodeDataSchema = z
+  .object({
+    workerName: z.string().optional(),
+    method: z.string().optional(),
+    url: z.string().optional(),
+    headers: openRecordSchema.optional(),
+    body: z.string().optional(),
+    retryLimit: z.number().optional(),
+    timeout: z.string().optional(),
+  })
+  .catchall(z.unknown())
+
+/**
+ * Data schema per builtin node type. Not wired into workflowNodeSchema — the
+ * node-level parse stays type-agnostic so custom nodes and legacy rows never
+ * fail; validateNodeData applies these per type and collects the issues.
+ */
+export const builtinNodeDataSchemas = {
+  step: stepNodeDataSchema,
+  sleep: sleepNodeDataSchema,
+  sleep_until: sleepUntilNodeDataSchema,
+  branch: branchNodeDataSchema,
+  parallel: openRecordSchema,
+  http_request: httpRequestNodeDataSchema,
+  wait_for_event: waitForEventNodeDataSchema,
+  try_catch: openRecordSchema,
+  loop: loopNodeDataSchema,
+  break: breakNodeDataSchema,
+  sub_workflow: subWorkflowNodeDataSchema,
+  sub_script: subScriptNodeDataSchema,
+  race: openRecordSchema,
+} as const
+
 export const workflowNodeSchema = z.object({
   id: nodeIdSchema,
   type: z.string().min(1),
@@ -79,6 +194,8 @@ export const triggerConfigSchema = z.discriminatedUnion('type', [
 
 export const workflowIRSchema = z.object({
   kind: z.literal('workflow').optional(),
+  // Absent on v1 documents — see migrate.ts.
+  irVersion: z.literal(2).optional(),
   metadata: workflowMetadataSchema,
   nodes: z.array(workflowNodeSchema).min(1),
   edges: z.array(edgeSchema),

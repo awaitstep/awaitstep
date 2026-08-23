@@ -1,5 +1,13 @@
-import type { ArtifactIR, Result, ScriptIR, ValidationError, WorkflowIR } from './types.js'
-import { scriptIRSchema, workflowIRSchema } from './schema.js'
+import type {
+  ArtifactIR,
+  Result,
+  ScriptIR,
+  ValidationError,
+  WorkflowIR,
+  WorkflowNode,
+} from './types.js'
+import { isBuiltinNodeType } from './types.js'
+import { builtinNodeDataSchemas, scriptIRSchema, workflowIRSchema } from './schema.js'
 
 export function validateIR(input: unknown): Result<WorkflowIR, ValidationError[]> {
   const result = workflowIRSchema.safeParse(input)
@@ -139,7 +147,98 @@ function validateStructure(ir: ArtifactIR): ValidationError[] {
   // Type-specific validation
   errors.push(...validateTryCatchNodes(ir))
   errors.push(...validateLoopAndBreakNodes(ir))
-  errors.push(...validateSubWorkflowNodes(ir))
+  for (const node of ir.nodes) {
+    errors.push(...validateNodeData(node))
+  }
+
+  return errors
+}
+
+export interface ValidateNodeDataOptions {
+  /**
+   * When true, also checks the data object against the per-type schemas
+   * (builtinNodeDataSchemas). Strict checks are for editor diagnostics and
+   * v2-authoring paths — they must NOT gate saving or deploying, because
+   * stored v1 rows predate any data validation and may hold shapes the
+   * schemas reject (e.g. string counts, branch arms without a condition).
+   */
+  strict?: boolean
+}
+
+/**
+ * Per-node data validation for builtin types. Always applies the semantic
+ * rules that were historically enforced server-side (loop variants,
+ * sub-workflow identity); `strict` adds schema-driven shape checks on top.
+ * Errors are collected, never thrown.
+ */
+export function validateNodeData(
+  node: WorkflowNode,
+  options?: ValidateNodeDataOptions,
+): ValidationError[] {
+  const errors: ValidationError[] = []
+  if (!isBuiltinNodeType(node.type)) return errors
+
+  if (options?.strict) {
+    const schema = builtinNodeDataSchemas[node.type]
+    const parsed = schema.safeParse(node.data)
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        errors.push({
+          path: `nodes.${node.id}.data.${issue.path.join('.')}`,
+          message: issue.message,
+          nodeId: node.id,
+        })
+      }
+    }
+  }
+
+  if (node.type === 'loop') {
+    const loopType = node.data.loopType as string | undefined
+    if (!loopType || !['forEach', 'while', 'times'].includes(loopType)) {
+      errors.push({
+        path: `nodes.${node.id}.data.loopType`,
+        message: `Loop node "${node.name}" must have loopType of "forEach", "while", or "times"`,
+        nodeId: node.id,
+      })
+    }
+
+    if (loopType === 'forEach' && !node.data.collection) {
+      errors.push({
+        path: `nodes.${node.id}.data.collection`,
+        message: `forEach loop "${node.name}" requires a collection expression`,
+        nodeId: node.id,
+      })
+    }
+
+    if (loopType === 'times') {
+      const count = node.data.count as number | undefined
+      if (count === undefined || count < 1) {
+        errors.push({
+          path: `nodes.${node.id}.data.count`,
+          message: `times loop "${node.name}" requires a count >= 1`,
+          nodeId: node.id,
+        })
+      }
+    }
+  }
+
+  if (node.type === 'sub_workflow') {
+    if (!node.data.workflowId || typeof node.data.workflowId !== 'string') {
+      errors.push({
+        path: `nodes.${node.id}.data.workflowId`,
+        message: `Sub-workflow node "${node.name}" requires a script name (workflowId)`,
+        nodeId: node.id,
+      })
+    }
+
+    if (!node.data.workflowName || typeof node.data.workflowName !== 'string') {
+      errors.push({
+        path: `nodes.${node.id}.data.workflowName`,
+        message: `Sub-workflow node "${node.name}" requires a workflowName`,
+        nodeId: node.id,
+      })
+    }
+  }
 
   return errors
 }
@@ -204,35 +303,7 @@ function validateLoopAndBreakNodes(ir: ArtifactIR): ValidationError[] {
       })
     }
 
-    const loopType = node.data.loopType as string | undefined
-    if (!loopType || !['forEach', 'while', 'times'].includes(loopType)) {
-      errors.push({
-        path: `nodes.${node.id}.data.loopType`,
-        message: `Loop node "${node.name}" must have loopType of "forEach", "while", or "times"`,
-        nodeId: node.id,
-      })
-    }
-
-    if (loopType === 'forEach') {
-      if (!node.data.collection) {
-        errors.push({
-          path: `nodes.${node.id}.data.collection`,
-          message: `forEach loop "${node.name}" requires a collection expression`,
-          nodeId: node.id,
-        })
-      }
-    }
-
-    if (loopType === 'times') {
-      const count = node.data.count as number | undefined
-      if (count === undefined || count < 1) {
-        errors.push({
-          path: `nodes.${node.id}.data.count`,
-          message: `times loop "${node.name}" requires a count >= 1`,
-          nodeId: node.id,
-        })
-      }
-    }
+    // Data rules (loopType variants) live in validateNodeData.
 
     // v1: disallow nested loops
     const bodyNodes = collectContainedNodes(node.id, 'body', ir)
@@ -250,34 +321,6 @@ function validateLoopAndBreakNodes(ir: ArtifactIR): ValidationError[] {
 
   // Break/exit nodes are valid both inside and outside loops.
   // Inside loops: generates `break;`. Outside: generates `return;`.
-
-  return errors
-}
-
-// ── Sub-workflow validation ──
-
-function validateSubWorkflowNodes(ir: ArtifactIR): ValidationError[] {
-  const errors: ValidationError[] = []
-
-  for (const node of ir.nodes) {
-    if (node.type !== 'sub_workflow') continue
-
-    if (!node.data.workflowId || typeof node.data.workflowId !== 'string') {
-      errors.push({
-        path: `nodes.${node.id}.data.workflowId`,
-        message: `Sub-workflow node "${node.name}" requires a script name (workflowId)`,
-        nodeId: node.id,
-      })
-    }
-
-    if (!node.data.workflowName || typeof node.data.workflowName !== 'string') {
-      errors.push({
-        path: `nodes.${node.id}.data.workflowName`,
-        message: `Sub-workflow node "${node.name}" requires a workflowName`,
-        nodeId: node.id,
-      })
-    }
-  }
 
   return errors
 }
