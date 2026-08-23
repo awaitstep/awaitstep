@@ -1,4 +1,5 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
+import { BUILTIN_NODE_TYPES } from '@awaitstep/ir'
 import type { TemplateResolver } from '@awaitstep/codegen'
 import {
   topologicalSort,
@@ -110,21 +111,7 @@ export function generateWorkflow(
   const resolvedNodeMap = new Map(resolvedIR.nodes.map((n: WorkflowNode) => [n.id, n]))
   const resolvedSorted = sorted.map((n: WorkflowNode) => resolvedNodeMap.get(n.id) ?? n)
 
-  const builtinTypes = new Set([
-    'step',
-    'sleep',
-    'sleep_until',
-    'branch',
-    'parallel',
-    'http_request',
-    'wait_for_event',
-    'try_catch',
-    'loop',
-    'break',
-    'sub_workflow',
-    'sub_script',
-    'race',
-  ])
+  const builtinTypes = BUILTIN_NODE_TYPES
 
   for (const node of resolvedSorted) {
     if (inlineTargets.has(node.id)) continue

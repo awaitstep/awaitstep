@@ -1,4 +1,5 @@
 import type { ScriptIR, WorkflowIR, WorkflowNode } from '@awaitstep/ir'
+import { BUILTIN_NODE_TYPES } from '@awaitstep/ir'
 import type { TemplateResolver } from '@awaitstep/codegen'
 import {
   topologicalSort,
@@ -113,19 +114,8 @@ export function generateScript(
   const resolvedSorted = sorted.map((n: WorkflowNode) => resolvedNodeMap.get(n.id) ?? n)
 
   // Script-incompatible node types (sleep, sleep_until, wait_for_event) are
-  // rejected upstream by validateScript, so they never reach this set.
-  const builtinTypes = new Set([
-    'step',
-    'branch',
-    'parallel',
-    'http_request',
-    'try_catch',
-    'loop',
-    'break',
-    'sub_workflow',
-    'sub_script',
-    'race',
-  ])
+  // rejected upstream by validateScript, so they never reach codegen.
+  const builtinTypes = BUILTIN_NODE_TYPES
 
   for (const node of resolvedSorted) {
     if (inlineTargets.has(node.id)) continue
