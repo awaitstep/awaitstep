@@ -12,10 +12,19 @@ Expressions let you pass data from one step to another without writing glue code
 {{nodeId.property}}
 {{nodeId.nested.property}}
 {{nodeId.arrayField[0].name}}
+{{nodeId.headers["content-type"]}}
+{{nodeId.property ?? "fallback"}}
 ```
 
 - `nodeId` — the ID of an upstream node (shown in the node config drawer)
 - `property` — a dot-separated path into the node's output
+- `[0]` — array index access; `["key"]` — quoted keys for properties that are
+  not valid identifiers (hyphens, spaces)
+- `?? literal` — a default applied when the value is `null`/`undefined`;
+  literals may be a `"string"`, number, `true`/`false`, or `null`
+
+Anything inside <code v-pre>{{ }}</code> that does not match this grammar is
+left as literal text — braces in JSON or code snippets are never touched.
 
 ## Where expressions can be used
 
@@ -61,12 +70,11 @@ Hello {{user.firstName}}, your order {{place_order.orderId}} has been confirmed.
 
 At code-generation time, <code v-pre>{{nodeId.property}}</code> is replaced with a JavaScript property access on the step result variable:
 
-```typescript
-// {{create_user.email}} becomes:
-create_user.email
-
-// {{parse_webhook.body.order.id}} becomes:
-parse_webhook.body.order.id
+```txt
+{{create_user.email}}                 →  create_user.email
+{{parse_webhook.body.order.id}}       →  parse_webhook.body.order.id
+{{list_orders.items[0].id}}           →  list_orders.items[0].id
+{{fetch_user.name ?? "anonymous"}}    →  (fetch_user.name ?? "anonymous")
 ```
 
 Inside template literal strings (e.g. step names), expressions are wrapped in `${}`:
