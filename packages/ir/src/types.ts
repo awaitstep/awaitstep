@@ -184,7 +184,11 @@ export interface WorkflowNode {
   id: NodeId
   type: NodeType
   name: string
-  position: Position
+  /**
+   * Canvas position. Optional — code-derived workflows (SDK) have no layout;
+   * renderers must fall back to auto-layout for position-less nodes.
+   */
+  position?: Position
   version: string
   provider: string
   data: Record<string, unknown>

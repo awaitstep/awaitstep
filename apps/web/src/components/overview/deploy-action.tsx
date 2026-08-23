@@ -4,6 +4,7 @@ import { Rocket } from 'lucide-react'
 import type { WorkflowNode, Edge as IREdge } from '@awaitstep/ir'
 import { Button } from '../ui/button'
 import { api } from '../../lib/api-client'
+import { fallbackPosition } from '../../lib/hydrate-workflow'
 import { validateWorkflowForPublish } from '../../lib/validate-workflow'
 
 interface DeployButtonProps {
@@ -34,10 +35,10 @@ export function DeployButton({
         nodes: WorkflowNode[]
         edges: IREdge[]
       }
-      const flowNodes = ir.nodes.map((n) => ({
+      const flowNodes = ir.nodes.map((n, i) => ({
         id: n.id,
         type: n.type,
-        position: n.position,
+        position: n.position ?? fallbackPosition(i),
         data: { irNode: n },
       }))
       const flowEdges = ir.edges.map((e) => ({

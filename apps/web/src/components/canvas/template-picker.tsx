@@ -1,3 +1,4 @@
+import { fallbackPosition } from '../../lib/hydrate-workflow'
 import {
   ShoppingCart,
   ShoppingBag,
@@ -37,10 +38,10 @@ export function TemplatePicker({ onDismiss }: { onDismiss: () => void }) {
   const loadWorkflow = useWorkflowStore((s) => s.loadWorkflow)
 
   const handleSelect = (template: WorkflowTemplate) => {
-    const flowNodes: FlowNode[] = template.ir.nodes.map((irNode) => ({
+    const flowNodes: FlowNode[] = template.ir.nodes.map((irNode, i) => ({
       id: irNode.id,
       type: irNode.type,
-      position: irNode.position,
+      position: irNode.position ?? fallbackPosition(i),
       data: { irNode },
     }))
 

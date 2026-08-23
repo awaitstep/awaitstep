@@ -139,7 +139,7 @@ export const workflowNodeSchema = z.object({
   id: nodeIdSchema,
   type: z.string().min(1),
   name: z.string().min(1).max(256),
-  position: positionSchema,
+  position: positionSchema.optional(),
   version: z.string().min(1),
   provider: z.string().min(1),
   data: z.record(z.string(), z.unknown()),

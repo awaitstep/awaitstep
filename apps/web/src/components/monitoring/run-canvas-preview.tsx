@@ -1,3 +1,4 @@
+import { fallbackPosition } from '../../lib/hydrate-workflow'
 import { useMemo } from 'react'
 import { ReactFlow, Background, BackgroundVariant, type NodeTypes } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -17,10 +18,10 @@ export function RunCanvasPreview({ ir }: RunCanvasPreviewProps) {
     try {
       const parsed = JSON.parse(ir) as { nodes: WorkflowNode[]; edges: IREdge[] }
 
-      const flowNodes: FlowNode[] = parsed.nodes.map((n) => ({
+      const flowNodes: FlowNode[] = parsed.nodes.map((n, i) => ({
         id: n.id,
         type: n.type,
-        position: n.position,
+        position: n.position ?? fallbackPosition(i),
         data: { irNode: n },
       }))
 

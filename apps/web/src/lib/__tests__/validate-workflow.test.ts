@@ -18,7 +18,7 @@ function makeFlowNode(irNode: WorkflowNode): FlowNode {
   return {
     id: irNode.id,
     type: irNode.type,
-    position: irNode.position,
+    position: irNode.position ?? { x: 0, y: 0 },
     data: { irNode },
   }
 }
