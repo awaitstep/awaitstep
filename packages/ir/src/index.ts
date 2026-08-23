@@ -84,6 +84,8 @@ export {
   SCRIPT_INCOMPATIBLE_NODE_TYPES,
 } from './validate.js'
 export type { ValidateNodeDataOptions } from './validate.js'
+export { migrateArtifact } from './migrate.js'
+export { loadArtifact } from './load.js'
 export {
   serializeIR,
   deserializeIR,
