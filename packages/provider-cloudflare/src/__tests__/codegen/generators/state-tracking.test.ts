@@ -24,7 +24,19 @@ describe('hasTemplateExpressions', () => {
   })
 
   it('detects {{nodeId.property}} expressions', () => {
-    expect(hasTemplateExpressions([node({ code: '{{step-1.result}}' })])).toBe(true)
+    expect(hasTemplateExpressions([node({ code: '{{step_1.result}}' })])).toBe(true)
+  })
+
+  it('does not trigger on hyphenated refs the resolver rejects', () => {
+    // Detection and resolution share one parser: a hyphenated ref never
+    // resolves (it stays literal in output), so it must not flip the
+    // generated code into state-tracking mode either.
+    expect(hasTemplateExpressions([node({ code: '{{step-1.result}}' })])).toBe(false)
+  })
+
+  it('detects v2 grammar forms (indexing and fallbacks)', () => {
+    expect(hasTemplateExpressions([node({ code: '{{step1.items[0]}}' })])).toBe(true)
+    expect(hasTemplateExpressions([node({ code: '{{step1.name ?? "anon"}}' })])).toBe(true)
   })
 
   it('detects nested property paths', () => {

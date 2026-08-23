@@ -19,6 +19,8 @@ import {
   collapseBlankLines,
   endsWithReturn,
   extractImports,
+  collectEnvRefNames,
+  envFieldName,
   generateNodeCode,
   resolveNodeExpressions,
 } from './generate-helpers.js'
@@ -142,15 +144,8 @@ export function generateWorkflow(
   clearVarNameMap()
 
   const allEnvNames = new Set(envVarNames ?? [])
-  const envRefPattern = /\{\{env\.([A-Z][A-Z0-9_]*)\}\}/g
-  for (const node of ir.nodes) {
-    for (const value of Object.values(node.data)) {
-      if (typeof value === 'string') {
-        for (const m of value.matchAll(envRefPattern)) {
-          allEnvNames.add(m[1])
-        }
-      }
-    }
+  for (const name of collectEnvRefNames(ir.nodes)) {
+    allEnvNames.add(name)
   }
 
   const envVarPattern = /\benv\.([A-Z][A-Z0-9_]*)/g
@@ -179,7 +174,7 @@ export function generateWorkflow(
 
   for (const name of allEnvNames) {
     if (!bindingNames.has(name)) {
-      envFields.push(`  ${name}: string;`)
+      envFields.push(`  ${envFieldName(name)}: string;`)
     }
   }
 

@@ -1,5 +1,5 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { resolveExpressions } from '@awaitstep/ir'
+import { resolveExpressions, scanExpressions } from '@awaitstep/ir'
 import type { GenerateMode, TemplateResolver } from '@awaitstep/codegen'
 import { varName } from '@awaitstep/codegen'
 import { generateStep } from './generators/step.js'
@@ -16,6 +16,37 @@ import { generateSubWorkflow } from './generators/sub-workflow.js'
 import { generateSubScript } from './generators/sub-script.js'
 import { generateRace } from './generators/race.js'
 import type { BindingType } from './bindings.js'
+
+/**
+ * Collects env-var names referenced through `{{env.NAME}}` expressions in
+ * node data, for the generated `interface Env`. Parser-based so the v2
+ * grammar's fallback form (`{{env.NAME ?? "default"}}`) and quoted keys
+ * (`{{env["api-key"]}}`) are seen too — every ref the compiler resolves gets
+ * a declared Env field (quoted at the emission site when not an identifier).
+ */
+export function collectEnvRefNames(nodes: WorkflowNode[]): Set<string> {
+  const names = new Set<string>()
+  for (const node of nodes) {
+    for (const value of Object.values(node.data)) {
+      if (typeof value !== 'string') continue
+      for (const span of scanExpressions(value)) {
+        if (span.ast.ref !== 'env') continue
+        const first = span.ast.segments[0]
+        const name =
+          first?.kind === 'prop' ? first.name : first?.kind === 'key' ? first.value : null
+        if (name) names.add(name)
+      }
+    }
+  }
+  return names
+}
+
+const JS_IDENTIFIER_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/
+
+/** Interface-field form of an env-var name, quoted when not a valid identifier. */
+export function envFieldName(name: string): string {
+  return JS_IDENTIFIER_PATTERN.test(name) ? name : JSON.stringify(name)
+}
 
 /**
  * Cloudflare Worker `Env` interface field type for each detected binding kind.
