@@ -8,6 +8,24 @@ export type {
   BuiltinNodeType,
   NodeType,
   BranchCondition,
+  HttpMethod,
+  LoopType,
+  StepNodeData,
+  SleepNodeData,
+  SleepUntilNodeData,
+  BranchNodeData,
+  ParallelNodeData,
+  HttpRequestNodeData,
+  WaitForEventNodeData,
+  TryCatchNodeData,
+  LoopNodeData,
+  BreakNodeData,
+  SubWorkflowNodeData,
+  SubScriptNodeData,
+  RaceNodeData,
+  CustomNodeData,
+  BuiltinNodeDataMap,
+  TypedWorkflowNode,
   WorkflowNode,
   Edge,
   WorkflowMetadata,
@@ -22,6 +40,16 @@ export type {
   TriggerConfig,
   ValidationError,
   Result,
+} from './types.js'
+
+export {
+  BUILTIN_NODE_TYPE_LIST,
+  BUILTIN_NODE_TYPES,
+  isBuiltinNodeType,
+  isBuiltinNode,
+  isNodeOfType,
+  nodeDataOf,
+  IR_VERSION,
 } from './types.js'
 
 export type {
@@ -84,6 +112,7 @@ export {
   loopDefinition,
   breakDefinition,
   subWorkflowDefinition,
+  subScriptDefinition,
   raceDefinition,
   bundledNodeDefinitions,
 } from './bundled-nodes/index.js'
