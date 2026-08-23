@@ -90,7 +90,7 @@ export function buildWorkflowStoreState(
     }
     let irNodes: WorkflowNode[] | undefined
     let irEdges: unknown[] | undefined
-    if (raw !== undefined) {
+    if (raw !== null && typeof raw === 'object') {
       const loaded = loadArtifact(raw)
       if (loaded.ok) {
         irNodes = loaded.value.nodes

@@ -259,11 +259,16 @@ deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c)
     templateResolver: c.get('nodeRegistry')?.templateResolver,
   })
   // Stored deployment config carries instance retention for created runs.
-  // Invalid/stale rows fall back to provider defaults (7-day retention).
+  // Invalid/stale/corrupt rows fall back to provider defaults (7-day
+  // retention) — a bad row must never block triggering.
   let deploymentConfig: unknown
   if (storedDeployConfig) {
-    const parsed = adapter.deploymentConfigSchema.safeParse(JSON.parse(storedDeployConfig.config))
-    if (parsed.success) deploymentConfig = parsed.data
+    try {
+      const parsed = adapter.deploymentConfigSchema.safeParse(JSON.parse(storedDeployConfig.config))
+      if (parsed.success) deploymentConfig = parsed.data
+    } catch {
+      /* corrupt JSON — use defaults */
+    }
   }
   const triggerCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
   const config = {
