@@ -1,6 +1,7 @@
 import type { WorkflowProvider, GeneratedArtifact, ProviderConfig } from '@awaitstep/codegen'
 import { transpileToJS } from '@awaitstep/codegen/transpile'
 import type { ArtifactIR } from '@awaitstep/ir'
+import { loadArtifact } from '@awaitstep/ir'
 import type { DatabaseAdapter, Workflow } from '@awaitstep/db'
 import type { AppNodeRegistry } from './node-registry.js'
 import { createMergedNodeRegistry } from './node-registry.js'
@@ -47,7 +48,13 @@ export async function prepareWorkflow(
     return { error: 'Version not found', status: 404 }
   }
 
-  const parsedIr = JSON.parse(version.ir) as ArtifactIR
+  // Schema-invalid stored rows keep the pre-existing 400 semantics (they were
+  // previously caught by adapter.validate) so monitoring doesn't see a 5xx.
+  const loaded = loadArtifact(version.ir)
+  if (!loaded.ok) {
+    return { error: 'IR validation failed', status: 400, details: loaded.errors }
+  }
+  const parsedIr = loaded.value
   // Stamp kind from the workflow row when the stored IR predates the
   // discriminator. Existing workflows have no `kind` in their stored IR.
   // Scripts also require a `trigger` field — default to HTTP if the stored

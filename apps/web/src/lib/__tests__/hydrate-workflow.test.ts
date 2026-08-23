@@ -23,12 +23,25 @@ const baseVersion: WorkflowVersion = {
   workflowId: 'wf1',
   version: 1,
   ir: JSON.stringify({
+    metadata: { name: 'WF', version: 1, createdAt: '2025-01-01', updatedAt: '2025-01-01' },
+    entryNodeId: 'n1',
     nodes: [
       {
         id: 'n1',
         type: 'step',
+        name: 'Step 1',
         position: { x: 0, y: 0 },
-        config: { name: 'Step 1' },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { code: 'return 1;' },
+      },
+      {
+        id: 'n2',
+        type: 'step',
+        name: 'Step 2',
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { code: 'return 2;' },
       },
     ],
     edges: [{ id: 'e1', source: 'n1', target: 'n2' }],
@@ -108,8 +121,13 @@ describe('buildWorkflowStoreState', () => {
 
   it('parses IR nodes and edges from version data', () => {
     const result = buildWorkflowStoreState(baseWorkflow, baseVersion, 1, false)
-    const nodes = result.nodes as { id: string; type: string; data: { irNode: { id: string } } }[]
-    expect(nodes).toHaveLength(1)
+    const nodes = result.nodes as {
+      id: string
+      type: string
+      position: { x: number; y: number }
+      data: { irNode: { id: string } }
+    }[]
+    expect(nodes).toHaveLength(2)
     expect(nodes[0].id).toBe('n1')
     expect(nodes[0].type).toBe('step')
     expect(nodes[0].data.irNode.id).toBe('n1')
@@ -123,13 +141,54 @@ describe('buildWorkflowStoreState', () => {
     const version = {
       ...baseVersion,
       ir: JSON.stringify({
-        nodes: [{ id: 'n1', type: 'resend_send_email', position: { x: 0, y: 0 }, config: {} }],
+        metadata: { name: 'WF', version: 1, createdAt: '2025-01-01', updatedAt: '2025-01-01' },
+        entryNodeId: 'n1',
+        nodes: [
+          {
+            id: 'n1',
+            type: 'resend_send_email',
+            name: 'Send Email',
+            position: { x: 0, y: 0 },
+            version: '1.0.0',
+            provider: 'cloudflare',
+            data: {},
+          },
+        ],
         edges: [],
       }),
     }
     const result = buildWorkflowStoreState(baseWorkflow, version, 1, false)
     const nodes = result.nodes as { type: string }[]
     expect(nodes[0].type).toBe('custom')
+  })
+
+  it('assigns a deterministic fallback position to position-less nodes', () => {
+    const result = buildWorkflowStoreState(baseWorkflow, baseVersion, 1, false)
+    const nodes = result.nodes as { id: string; position: { x: number; y: number } }[]
+    // n2 has no stored position (code-derived shape) and falls back to the grid
+    expect(nodes[1].position).toEqual({ x: 320, y: 80 })
+  })
+
+  it('hydrates schema-invalid legacy rows through the lenient fallback', () => {
+    // Rows saved before the versions route validated IR can miss required
+    // fields (here: metadata/entryNodeId, node name) yet must still load.
+    const version = {
+      ...baseVersion,
+      ir: JSON.stringify({
+        nodes: [{ id: 'n1', type: 'step', position: { x: 0, y: 0 }, data: {} }],
+        edges: [],
+      }),
+    }
+    const result = buildWorkflowStoreState(baseWorkflow, version, 1, false)
+    const nodes = result.nodes as { id: string }[]
+    expect(nodes).toHaveLength(1)
+    expect(nodes[0].id).toBe('n1')
+  })
+
+  it('ignores IR that is not even array-shaped', () => {
+    const version = { ...baseVersion, ir: JSON.stringify({ nodes: 'nope' }) }
+    const result = buildWorkflowStoreState(baseWorkflow, version, 1, false)
+    expect(result.nodes).toBeUndefined()
   })
 
   it('handles malformed IR gracefully', () => {

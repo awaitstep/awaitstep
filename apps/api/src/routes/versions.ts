@@ -3,16 +3,51 @@ import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
-import { validateArtifact, artifactIRSchema } from '@awaitstep/ir'
+import { validateArtifact, migrateArtifact } from '@awaitstep/ir'
 import type { AppEnv } from '../types.js'
 
+// `ir` is validated by migrateArtifact + validateArtifact in the handler —
+// a second zod parse here would strip keys before migration runs and double
+// the schema work on every autosave.
 const createVersionSchema = z.object({
-  ir: artifactIRSchema,
+  ir: z.unknown(),
 })
 
 const lockVersionSchema = z.object({
   locked: z.boolean(),
 })
+
+/**
+ * Unchanged-IR check for save dedup. Fast path is string equality; the
+ * canonical comparison migrates the stored document first so the lazy
+ * irVersion stamp (and key-order differences) never register as a change —
+ * without it, every legacy workflow's first no-op save would spawn a
+ * content-identical version row and a false "undeployed changes" state.
+ */
+function irUnchanged(storedIr: string, newIr: string): boolean {
+  if (storedIr === newIr) return true
+  try {
+    return canonicalJson(migrateArtifact(JSON.parse(storedIr))) === canonicalJson(JSON.parse(newIr))
+  } catch {
+    return false
+  }
+}
+
+function canonicalJson(value: unknown): string {
+  return JSON.stringify(sortKeysDeep(value))
+}
+
+function sortKeysDeep(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortKeysDeep)
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const key of Object.keys(value as Record<string, unknown>).sort()) {
+      out[key] = sortKeysDeep((value as Record<string, unknown>)[key])
+    }
+    return out
+  }
+  return value
+}
 
 export const versions = new Hono<AppEnv>()
 
@@ -37,12 +72,17 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
   const workflowId = c.req.param('workflowId')
   const body = c.req.valid('json')
 
-  const validation = validateArtifact(body.ir)
+  // New saves are stamped to the current IR version; stored v1 rows migrate
+  // lazily on their next save rather than being rewritten in place.
+  const migratedIr = migrateArtifact(body.ir)
+  const validation = validateArtifact(migratedIr)
   if (!validation.ok) {
     return c.json({ error: 'Invalid IR', details: validation.errors }, 400)
   }
 
-  const irString = JSON.stringify(body.ir)
+  // Persist the schema-parsed value (unknown top-level keys stripped, as the
+  // previous zValidator parse did).
+  const irString = JSON.stringify(validation.value)
 
   const existingResult = await db.listVersionsByWorkflow(workflowId, { limit: 1 })
   const latest = existingResult.data[0] // most recent version
@@ -57,7 +97,7 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
     // If latest version has NOT been deployed, overwrite it in place
     if (latest.id !== activeDeployment?.versionId) {
       // Check if IR actually changed
-      if (latest.ir === irString) {
+      if (irUnchanged(latest.ir, irString)) {
         return c.json(latest, 200)
       }
       await db.updateVersion(latest.id, { ir: irString })
@@ -66,7 +106,7 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
     }
 
     // If latest version HAS been deployed and IR hasn't changed, return it
-    if (latest.ir === irString) {
+    if (irUnchanged(latest.ir, irString)) {
       return c.json(latest, 200)
     }
   }

@@ -1,3 +1,4 @@
+import { IR_VERSION } from '@awaitstep/ir'
 import type { useWorkflowStore } from '../stores/workflow-store'
 
 type StoreState = ReturnType<typeof useWorkflowStore.getState>
@@ -48,6 +49,7 @@ export function buildIRFromState(state: Pick<StoreState, 'metadata' | 'nodes' | 
     ...(e.label ? { label: String(e.label) } : {}),
   }))
   const base = {
+    irVersion: IR_VERSION,
     metadata: state.metadata,
     nodes: irNodes,
     edges: irEdges,

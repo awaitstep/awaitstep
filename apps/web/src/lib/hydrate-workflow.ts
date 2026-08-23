@@ -1,3 +1,4 @@
+import { loadArtifact } from '@awaitstep/ir'
 import type { WorkflowNode } from '@awaitstep/ir'
 import type {
   WorkflowSummary,
@@ -76,26 +77,57 @@ export function buildWorkflowStoreState(
   }
 
   if (versionData?.ir) {
+    // Parse once; loadArtifact (lazy v1→v2 migration + schema check) runs on
+    // the parsed object. Rows saved before the versions route validated IR can
+    // be schema-invalid yet still canvas-editable, so on schema failure fall
+    // back to the legacy lenient shape check — the canvas must never present
+    // stored work as an empty graph.
+    let raw: unknown
     try {
-      const ir = JSON.parse(versionData.ir) as {
-        nodes?: WorkflowNode[]
-        edges?: { id: string; source: string; target: string; label?: string }[]
-      }
-      if (ir.nodes && ir.edges) {
-        state.nodes = ir.nodes.map((irNode: WorkflowNode) => ({
-          id: irNode.id,
-          type: toFlowType(irNode.type),
-          position: irNode.position,
-          data: { irNode },
-        }))
-        state.edges = ir.edges
-      }
+      raw = JSON.parse(versionData.ir)
     } catch {
       /* ignore malformed IR */
+    }
+    let irNodes: WorkflowNode[] | undefined
+    let irEdges: unknown[] | undefined
+    if (raw !== undefined) {
+      const loaded = loadArtifact(raw)
+      if (loaded.ok) {
+        irNodes = loaded.value.nodes
+        irEdges = loaded.value.edges
+      } else {
+        const legacy = raw as {
+          nodes?: WorkflowNode[]
+          edges?: { id: string; source: string; target: string; label?: string }[]
+        }
+        if (Array.isArray(legacy.nodes) && Array.isArray(legacy.edges)) {
+          irNodes = legacy.nodes
+          irEdges = legacy.edges
+        }
+      }
+    }
+    if (irNodes && irEdges) {
+      state.nodes = irNodes.map((irNode: WorkflowNode, i: number) => ({
+        id: irNode.id,
+        type: toFlowType(irNode.type),
+        position: irNode.position ?? fallbackPosition(i),
+        data: { irNode },
+      }))
+      state.edges = irEdges
     }
   }
 
   return state
+}
+
+/**
+ * Grid cascade for nodes without a stored position (code-derived workflows).
+ * Deterministic so re-hydration is stable until a real auto-layout pass runs.
+ * Shared by every irNode→FlowNode mapping site so previews and the editor
+ * agree on where position-less nodes land.
+ */
+export function fallbackPosition(index: number): { x: number; y: number } {
+  return { x: 80 + (index % 4) * 240, y: 80 + Math.floor(index / 4) * 160 }
 }
 
 export function deriveReadOnlyState(
