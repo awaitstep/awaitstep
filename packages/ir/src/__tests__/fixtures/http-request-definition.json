@@ -1,0 +1,32 @@
+{
+  "id": "http_request",
+  "name": "HTTP Request",
+  "version": "1.0.0",
+  "description": "",
+  "category": "Utilities",
+  "author": "awaitstep",
+  "license": "MIT",
+  "configSchema": {},
+  "outputSchema": {
+    "status": {
+      "type": "number"
+    },
+    "body": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "providers": ["cloudflare"]
+}

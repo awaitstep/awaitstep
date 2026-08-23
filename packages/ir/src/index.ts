@@ -96,10 +96,24 @@ export {
 } from './serialize.js'
 export {
   parseExpressions,
+  parseExpressionContent,
+  scanExpressions,
+  findMalformedExpressions,
+  compileExpression,
   resolveExpressions,
+  resolveExpressionType,
+  findExpressions,
+  containsExpressions,
   validateExpressionRefs,
   RESERVED_EXPRESSION_REFS,
   type ParsedExpression,
+  type ExpressionAST,
+  type ExpressionSegment,
+  type ExpressionLiteral,
+  type ExpressionSpan,
+  type MalformedExpression,
+  type FoundExpression,
+  type NodeDefinitionLookup,
   type ExpressionValidationError,
 } from './expressions.js'
 export { NodeRegistry } from './node-registry.js'
