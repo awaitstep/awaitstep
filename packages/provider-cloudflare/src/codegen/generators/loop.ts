@@ -1,5 +1,5 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { varName, escName, type GenerateMode } from '@awaitstep/codegen'
+import { escName, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
 import { collectChain } from './branch.js'
 import { enterLoop, exitLoop } from './break.js'
 import { prepareContainerContext, indentCode } from './container-utils.js'
@@ -20,14 +20,21 @@ function suffixStepNames(code: string, counterVar: string): string {
 export function generateLoop(
   node: WorkflowNode,
   ir: WorkflowIR,
+  ctx: GenerationContext,
   generateNode: (node: WorkflowNode, ir: WorkflowIR) => string,
   mode: GenerateMode = 'workflow',
 ): string {
-  const ctx = prepareContainerContext(ir)
+  const containers = prepareContainerContext(ir)
 
   const bodyEdge = ir.edges.find((e) => e.source === node.id && e.label === 'body')
   const bodyChain = bodyEdge
-    ? collectChain(bodyEdge.target, ctx.adj, ctx.inDegree, ctx.nodeMap, ctx.edgeLabels)
+    ? collectChain(
+        bodyEdge.target,
+        containers.adj,
+        containers.inDegree,
+        containers.nodeMap,
+        containers.edgeLabels,
+      )
     : []
 
   const loopType = node.data.loopType as string
@@ -97,7 +104,7 @@ export function generateLoop(
       // in an IIFE — that's the cheapest way to scope `let _output` and
       // return its value into a `const X = ...` (which the EXPORT_
       // post-processing in generateScript scans for).
-      return `const ${varName(node.id)} = await (async () => {
+      return `const ${ctx.varName(node.id)} = await (async () => {
   let _output; // assign a value to return it from the loop
 ${loopLines.join('\n')}
   return _output;
@@ -110,7 +117,7 @@ ${loopLines.join('\n')}
   // Workflow mode: keep the step.do wrapper. The IIFE-style closure is
   // required by step.do's signature. Always include _output declaration
   // and return so the captured value (if any) flows out via const prefix.
-  const prefix = usesOutput ? `const ${varName(node.id)} = ` : ''
+  const prefix = usesOutput ? `const ${ctx.varName(node.id)} = ` : ''
   return `${prefix}await step.do("${escName(node.name)}", async () => {
   let _output; // assign a value to return it from the loop
 ${loopLines.join('\n')}

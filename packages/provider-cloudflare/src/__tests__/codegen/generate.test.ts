@@ -1,11 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import type { TemplateResolver } from '@awaitstep/codegen'
-import {
-  generateWorkflow,
-  generateNodeCode,
-  CloudflareCodeGenerator,
-} from '../../codegen/generate.js'
+import { generateWorkflow, CloudflareCodeGenerator } from '../../codegen/generate.js'
+import { recurseWithTestCtx as generateNodeCode } from './test-context.js'
 import simpleWorkflow from './fixtures/simple-workflow.json'
 import parallelWorkflow from './fixtures/parallel-workflow.json'
 import eventWorkflow from './fixtures/event-workflow.json'

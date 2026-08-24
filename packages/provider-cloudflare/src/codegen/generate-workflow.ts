@@ -4,9 +4,7 @@ import type { TemplateResolver } from '@awaitstep/codegen'
 import {
   topologicalSort,
   sanitizeIdentifier,
-  buildVarNameMap,
-  setVarNameMap,
-  clearVarNameMap,
+  createGenerationContext,
   indent,
 } from '@awaitstep/codegen'
 import { collectBranchInlineTargets } from './generators/branch.js'
@@ -97,14 +95,13 @@ export function generateWorkflow(
     .join('')
 
   const sorted = topologicalSort(ir)
-  const nameMap = buildVarNameMap(ir.nodes)
-  setVarNameMap(nameMap)
+  const ctx = createGenerationContext(ir.nodes)
   const useStateTracking = hasTemplateExpressions(ir.nodes)
 
   const inlineTargets = collectBranchInlineTargets(ir)
 
   const resolvedIR: WorkflowIR = useStateTracking
-    ? { ...ir, nodes: ir.nodes.map(resolveNodeExpressions) }
+    ? { ...ir, nodes: ir.nodes.map((n) => resolveNodeExpressions(n, ctx)) }
     : ir
 
   const bodyParts: string[] = []
@@ -121,7 +118,7 @@ export function generateWorkflow(
     if (!builtinTypes.has(node.type) && templateResolver) {
       const template = templateResolver.getTemplate(node.type, node.provider)
       if (template) {
-        const parts = generateCustomNodeParts(node, template)
+        const parts = generateCustomNodeParts(node, template, ctx)
         if (!classDefinitions.has(parts.className)) {
           classDefinitions.set(parts.className, parts.classDefinition)
         }
@@ -130,7 +127,7 @@ export function generateWorkflow(
       }
     }
 
-    bodyParts.push(generateNodeCode(node, resolvedIR, templateResolver, classDefinitions))
+    bodyParts.push(generateNodeCode(node, resolvedIR, ctx, templateResolver, classDefinitions))
   }
 
   const collectedImports: string[] = []
@@ -141,7 +138,6 @@ export function generateWorkflow(
   })
 
   const bodyLines = strippedParts.join('\n\n').replace(/\benv\./g, 'this.env.')
-  clearVarNameMap()
 
   const allEnvNames = new Set(envVarNames ?? [])
   for (const name of collectEnvRefNames(ir.nodes)) {

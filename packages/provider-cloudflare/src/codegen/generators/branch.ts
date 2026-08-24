@@ -7,9 +7,9 @@ export function generateBranch(
   generateNode: (node: WorkflowNode, ir: WorkflowIR) => string,
 ): string {
   const branches = (node.data.branches ?? []) as BranchCondition[]
-  const ctx = prepareContainerContext(ir)
-  const targets = ctx.adj.get(node.id) ?? []
-  const nodeLabels = ctx.edgeLabels.get(node.id) ?? new Map()
+  const containers = prepareContainerContext(ir)
+  const targets = containers.adj.get(node.id) ?? []
+  const nodeLabels = containers.edgeLabels.get(node.id) ?? new Map()
 
   const lines: string[] = []
 
@@ -28,7 +28,7 @@ export function generateBranch(
 
     const target = targets.find((t) => nodeLabels.get(t) === branch.label)
     if (target) {
-      lines.push(inlineChain(target, ctx, generateNode, ir, 2))
+      lines.push(inlineChain(target, containers, generateNode, ir, 2))
     }
   }
 
@@ -37,7 +37,7 @@ export function generateBranch(
 }
 
 export function collectBranchInlineTargets(ir: WorkflowIR): Set<string> {
-  const ctx = prepareContainerContext(ir)
+  const containers = prepareContainerContext(ir)
   const inlineTargets = new Set<string>()
 
   const inlineLabels = new Set(['body', 'try', 'catch', 'finally'])
@@ -54,7 +54,13 @@ export function collectBranchInlineTargets(ir: WorkflowIR): Set<string> {
         : ir.edges.filter((e) => e.source === node.id && e.label !== 'then').map((e) => e.target)
 
     for (const target of targets) {
-      const chain = collectChain(target, ctx.adj, ctx.inDegree, ctx.nodeMap, ctx.edgeLabels)
+      const chain = collectChain(
+        target,
+        containers.adj,
+        containers.inDegree,
+        containers.nodeMap,
+        containers.edgeLabels,
+      )
       for (const chainNode of chain) {
         inlineTargets.add(chainNode.id)
       }

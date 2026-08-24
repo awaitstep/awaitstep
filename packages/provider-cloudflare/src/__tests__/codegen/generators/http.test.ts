@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest'
+import { testCtx as ctx } from '../test-context.js'
 import type { WorkflowNode } from '@awaitstep/ir'
-import { generateHttp } from '../../../codegen/generators/http.js'
+import { generateHttp as generateHttpImpl } from '../../../codegen/generators/http.js'
+
+const generateHttp = (
+  node: Parameters<typeof generateHttpImpl>[0],
+  mode?: Parameters<typeof generateHttpImpl>[2],
+) => generateHttpImpl(node, ctx, mode)
 
 function makeNode(overrides: Partial<WorkflowNode> = {}): WorkflowNode {
   return {

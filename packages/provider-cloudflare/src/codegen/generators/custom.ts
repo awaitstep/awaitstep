@@ -1,5 +1,11 @@
 import type { WorkflowNode } from '@awaitstep/ir'
-import { varName, escName, sanitizeIdentifier, indent, type GenerateMode } from '@awaitstep/codegen'
+import {
+  escName,
+  sanitizeIdentifier,
+  indent,
+  type GenerateMode,
+  type GenerationContext,
+} from '@awaitstep/codegen'
 import { generateStepConfig } from './config.js'
 
 export function extractTemplateBody(source: string): string {
@@ -122,9 +128,10 @@ export interface CustomNodeOutput {
 export function generateCustomNode(
   node: WorkflowNode,
   templateSource: string,
+  ctx: GenerationContext,
   mode: GenerateMode = 'workflow',
 ): string {
-  const result = generateCustomNodeParts(node, templateSource, mode)
+  const result = generateCustomNodeParts(node, templateSource, ctx, mode)
   const parts: string[] = []
   if (result.imports.length > 0) parts.push(result.imports.join('\n'))
   parts.push(result.classDefinition)
@@ -135,6 +142,7 @@ export function generateCustomNode(
 export function generateCustomNodeParts(
   node: WorkflowNode,
   templateSource: string,
+  ctx: GenerationContext,
   mode: GenerateMode = 'workflow',
 ): CustomNodeOutput {
   const imports = extractImportLines(templateSource)
@@ -170,7 +178,7 @@ ${indent(body, 4)}
   const config = generateStepConfig(node.config)
   const configArg = config ? `, ${config}` : ''
   const hasReturn = /\breturn\b/.test(body)
-  const prefix = hasReturn ? `const ${varName(node.id)} = ` : ''
+  const prefix = hasReturn ? `const ${ctx.varName(node.id)} = ` : ''
 
   // Scripts run in a fetch handler and have no `this` — call the class on the
   // env directly instead of `this.env`. Workflows still use `this.env` because

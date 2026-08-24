@@ -1,8 +1,12 @@
 import type { WorkflowNode } from '@awaitstep/ir'
-import { varName, escName, type GenerateMode } from '@awaitstep/codegen'
+import { escName, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
 import { generateStepConfig } from './config.js'
 
-export function generateHttp(node: WorkflowNode, mode: GenerateMode = 'workflow'): string {
+export function generateHttp(
+  node: WorkflowNode,
+  ctx: GenerationContext,
+  mode: GenerateMode = 'workflow',
+): string {
   const method = String(node.data.method ?? 'GET')
   const url = String(node.data.url ?? '')
   const rawHeaders = node.data.headers
@@ -60,13 +64,13 @@ export function generateHttp(node: WorkflowNode, mode: GenerateMode = 'workflow'
     // simple no-queryparams case collapses to a single expression. With
     // queryparams the URL builder needs intermediate vars — namespace them
     // by node id so siblings don't collide, and keep the final assignment
-    // as `const ${varName(node.id)} = ...` so the EXPORT_ post-processing
+    // as `const ${ctx.varName(node.id)} = ...` so the EXPORT_ post-processing
     // (which scans for `const X =`) still finds it.
     if (!hasQueryParams) {
       const urlLiteral = toJsLiteral(url)
-      return `const ${varName(node.id)} = await fetch(${urlLiteral}${fetchOpts}).then(r => r.json());`
+      return `const ${ctx.varName(node.id)} = await fetch(${urlLiteral}${fetchOpts}).then(r => r.json());`
     }
-    const v = varName(node.id)
+    const v = ctx.varName(node.id)
     const urlLiteral = toJsLiteral(url)
     const scriptLines: string[] = [`const _${v}_url = new URL(${urlLiteral});`]
     for (const [k, qv] of Object.entries(queryParams)) {
@@ -75,7 +79,7 @@ export function generateHttp(node: WorkflowNode, mode: GenerateMode = 'workflow'
     scriptLines.push(`const ${v} = await fetch(_${v}_url${fetchOpts}).then(r => r.json());`)
     return scriptLines.join('\n')
   }
-  return `const ${varName(node.id)} = await step.do("${escName(node.name)}"${configArg}, async () => {
+  return `const ${ctx.varName(node.id)} = await step.do("${escName(node.name)}"${configArg}, async () => {
 ${bodyCode}
 });`
 }

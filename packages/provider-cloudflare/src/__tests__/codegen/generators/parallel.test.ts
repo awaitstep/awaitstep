@@ -1,7 +1,15 @@
 import { describe, it, expect } from 'vitest'
+import { testCtx as ctx } from '../test-context.js'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { generateParallel } from '../../../codegen/generators/parallel.js'
-import { generateNodeCode } from '../../../codegen/generate.js'
+import { generateParallel as generateParallelImpl } from '../../../codegen/generators/parallel.js'
+import { recurseWithTestCtx as generateNodeCode } from '../test-context.js'
+
+const generateParallel = (
+  node: Parameters<typeof generateParallelImpl>[0],
+  ir: Parameters<typeof generateParallelImpl>[1],
+  generateNode: Parameters<typeof generateParallelImpl>[3],
+  mode?: Parameters<typeof generateParallelImpl>[4],
+) => generateParallelImpl(node, ir, ctx, generateNode, mode)
 
 const V = '1.0.0'
 const P = 'cloudflare'

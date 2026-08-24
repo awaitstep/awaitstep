@@ -1,7 +1,7 @@
 import type { WorkflowNode } from '@awaitstep/ir'
-import { varName, escName } from '@awaitstep/codegen'
+import { escName, type GenerationContext } from '@awaitstep/codegen'
 
-export function generateWaitForEvent(node: WorkflowNode): string {
+export function generateWaitForEvent(node: WorkflowNode, ctx: GenerationContext): string {
   const eventType = String(node.data.eventType ?? '')
   const timeout = node.data.timeout
 
@@ -9,7 +9,7 @@ export function generateWaitForEvent(node: WorkflowNode): string {
     ? `, timeout: ${typeof timeout === 'string' ? `"${timeout}"` : timeout}`
     : ''
 
-  return `const ${varName(node.id)} = await step.waitForEvent("${escName(node.name)}", {
+  return `const ${ctx.varName(node.id)} = await step.waitForEvent("${escName(node.name)}", {
   type: "${eventType}"${timeoutPart}
 });`
 }

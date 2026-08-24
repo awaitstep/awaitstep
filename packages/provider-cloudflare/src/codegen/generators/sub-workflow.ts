@@ -1,19 +1,23 @@
 import type { WorkflowNode } from '@awaitstep/ir'
-import { varName, escName, type GenerateMode } from '@awaitstep/codegen'
+import { escName, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
 
-export function generateSubWorkflow(node: WorkflowNode, mode: GenerateMode = 'workflow'): string {
+export function generateSubWorkflow(
+  node: WorkflowNode,
+  ctx: GenerationContext,
+  mode: GenerateMode = 'workflow',
+): string {
   const className = String(node.data.workflowName ?? '')
   const bindingName = classNameToUpperSnake(className)
   const input = node.data.input as string | undefined
   const waitForCompletion = node.data.waitForCompletion !== false
-  const instanceVar = `${varName(node.id)}_instance`
+  const instanceVar = `${ctx.varName(node.id)}_instance`
   const paramsArg = input ? `, params: ${input}` : ''
 
   if (mode === 'script') {
     // Scripts can't poll for completion (no durable runtime). Fire-and-forget:
     // a single `const X = await env.X.create(...)` whose value is the
     // WorkflowInstance handle (callers can read `.id`, `.status()`, etc).
-    return `const ${varName(node.id)} = await env.${bindingName}.create({ id: crypto.randomUUID()${paramsArg}, retention: AWAITSTEP_RETENTION });`
+    return `const ${ctx.varName(node.id)} = await env.${bindingName}.create({ id: crypto.randomUUID()${paramsArg}, retention: AWAITSTEP_RETENTION });`
   }
 
   const lines: string[] = []
@@ -28,7 +32,7 @@ export function generateSubWorkflow(node: WorkflowNode, mode: GenerateMode = 'wo
 
   if (waitForCompletion) {
     // Step 2: Poll until child completes
-    const resultVar = varName(node.id)
+    const resultVar = ctx.varName(node.id)
     lines.push('')
     lines.push(`const ${resultVar} = await step.do("Await ${escName(className)}", {`)
     lines.push(`  retries: { limit: 60, delay: "5 seconds", backoff: "linear" },`)

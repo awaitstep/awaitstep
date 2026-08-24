@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest'
+import { testCtx as ctx } from '../test-context.js'
 import type { WorkflowNode } from '@awaitstep/ir'
-import { generateStep } from '../../../codegen/generators/step.js'
+import { generateStep as generateStepImpl } from '../../../codegen/generators/step.js'
+
+const generateStep = (
+  node: Parameters<typeof generateStepImpl>[0],
+  mode?: Parameters<typeof generateStepImpl>[2],
+) => generateStepImpl(node, ctx, mode)
 
 function makeNode(overrides: Partial<WorkflowNode> = {}): WorkflowNode {
   return {

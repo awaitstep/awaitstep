@@ -2,9 +2,9 @@ import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import {
   buildAdjacencyList,
   getEdgeLabels,
-  varName,
   escName,
   type GenerateMode,
+  type GenerationContext,
 } from '@awaitstep/codegen'
 import { collectChain, computeInDegree } from './branch.js'
 
@@ -34,12 +34,18 @@ export function indentCode(code: string, spaces: number): string {
 
 export function inlineChain(
   startId: string,
-  ctx: ContainerContext,
+  containers: ContainerContext,
   generateNode: (node: WorkflowNode, ir: WorkflowIR) => string,
   ir: WorkflowIR,
   spaces: number,
 ): string {
-  const chain = collectChain(startId, ctx.adj, ctx.inDegree, ctx.nodeMap, ctx.edgeLabels)
+  const chain = collectChain(
+    startId,
+    containers.adj,
+    containers.inDegree,
+    containers.nodeMap,
+    containers.edgeLabels,
+  )
   return chain
     .map((n) => {
       const code = generateNode(n, ir)
@@ -70,18 +76,25 @@ export function getForkTargets(nodeId: string, ir: WorkflowIR): string[] {
 export function generatePromiseContainer(
   node: WorkflowNode,
   ir: WorkflowIR,
+  ctx: GenerationContext,
   method: 'allSettled' | 'race',
   generateNode: (node: WorkflowNode, ir: WorkflowIR) => string,
   mode: GenerateMode = 'workflow',
 ): string {
-  const ctx = prepareContainerContext(ir)
+  const containers = prepareContainerContext(ir)
   const targets = getForkTargets(node.id, ir)
 
   if (targets.length === 0) return `// ${method === 'race' ? 'race' : 'parallel'}: no branches`
 
   const branches = targets
     .map((targetId) => {
-      const chain = collectChain(targetId, ctx.adj, ctx.inDegree, ctx.nodeMap, ctx.edgeLabels)
+      const chain = collectChain(
+        targetId,
+        containers.adj,
+        containers.inDegree,
+        containers.nodeMap,
+        containers.edgeLabels,
+      )
       if (chain.length === 0) return null
       const code = chain.map((n) => generateNode(n, ir)).join('\n')
       // If the last node in the branch bound a variable, surface it as the
@@ -89,7 +102,7 @@ export function generatePromiseContainer(
       // Promise.all / allSettled / race results. Side-effect-only nodes get
       // no return — the branch resolves to undefined as before.
       const lastNode = chain[chain.length - 1]!
-      const lastVar = varName(lastNode.id)
+      const lastVar = ctx.varName(lastNode.id)
       const declRe = new RegExp(`(?:^|\\n)\\s*(?:let|const)\\s+${lastVar}\\b`)
       const tail = declRe.test(code) ? `\n      return ${lastVar};` : ''
       return `    async () => {\n${indentCode(code, 6)}${tail}\n    }`
@@ -97,11 +110,11 @@ export function generatePromiseContainer(
     .filter(Boolean)
 
   if (mode === 'script') {
-    return `const ${varName(node.id)} = await Promise.${method}([
+    return `const ${ctx.varName(node.id)} = await Promise.${method}([
 ${branches.join(',\n')}
 ].map(fn => fn()));`
   }
-  return `const ${varName(node.id)} = await step.do("${escName(node.name)}", async () => {
+  return `const ${ctx.varName(node.id)} = await step.do("${escName(node.name)}", async () => {
   return await Promise.${method}([
 ${branches.join(',\n')}
   ].map(fn => fn()));

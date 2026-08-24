@@ -1,7 +1,7 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { resolveExpressions, scanExpressions } from '@awaitstep/ir'
 import type { GenerateMode, TemplateResolver } from '@awaitstep/codegen'
-import { varName } from '@awaitstep/codegen'
+import type { GenerationContext } from '@awaitstep/codegen'
 import { generateStep } from './generators/step.js'
 import { generateSleep, generateSleepUntil } from './generators/sleep.js'
 import { generateBranch } from './generators/branch.js'
@@ -144,16 +144,17 @@ export function extractImports(code: string): { imports: string[]; body: string 
 export function generateNodeCode(
   node: WorkflowNode,
   ir: WorkflowIR,
+  ctx: GenerationContext,
   templateResolver?: TemplateResolver,
   classDefinitions?: Map<string, string>,
   mode: GenerateMode = 'workflow',
 ): string {
   const recurse = (n: WorkflowNode, ir2: WorkflowIR) =>
-    generateNodeCode(n, ir2, templateResolver, classDefinitions, mode)
+    generateNodeCode(n, ir2, ctx, templateResolver, classDefinitions, mode)
 
   switch (node.type) {
     case 'step':
-      return generateStep(node, mode)
+      return generateStep(node, ctx, mode)
     case 'sleep':
       return generateSleep(node)
     case 'sleep_until':
@@ -161,35 +162,35 @@ export function generateNodeCode(
     case 'branch':
       return generateBranch(node, ir, recurse)
     case 'parallel':
-      return generateParallel(node, ir, recurse, mode)
+      return generateParallel(node, ir, ctx, recurse, mode)
     case 'http_request':
-      return generateHttp(node, mode)
+      return generateHttp(node, ctx, mode)
     case 'wait_for_event':
-      return generateWaitForEvent(node)
+      return generateWaitForEvent(node, ctx)
     case 'try_catch':
       return generateTryCatch(node, ir, recurse)
     case 'loop':
-      return generateLoop(node, ir, recurse, mode)
+      return generateLoop(node, ir, ctx, recurse, mode)
     case 'break':
       return generateBreak(node)
     case 'sub_workflow':
-      return generateSubWorkflow(node, mode)
+      return generateSubWorkflow(node, ctx, mode)
     case 'sub_script':
-      return generateSubScript(node, mode)
+      return generateSubScript(node, ctx, mode)
     case 'race':
-      return generateRace(node, ir, recurse, mode)
+      return generateRace(node, ir, ctx, recurse, mode)
     default: {
       if (templateResolver) {
         const template = templateResolver.getTemplate(node.type, node.provider)
         if (template) {
           if (classDefinitions) {
-            const parts = generateCustomNodeParts(node, template, mode)
+            const parts = generateCustomNodeParts(node, template, ctx, mode)
             if (!classDefinitions.has(parts.className)) {
               classDefinitions.set(parts.className, parts.classDefinition)
             }
             return parts.imports.join('\n') + '\n' + parts.stepCode
           }
-          return generateCustomNode(node, template, mode)
+          return generateCustomNode(node, template, ctx, mode)
         }
       }
       throw new Error(`Codegen not yet implemented for node type: ${node.type}`)
@@ -199,24 +200,25 @@ export function generateNodeCode(
 
 /**
  * Walks a node's `data` and replaces `{{ <expr> }}` template strings with
- * their resolved JS expressions, using the active `varName` map. Run on a
- * per-node copy when the IR contains template expressions.
+ * their resolved JS expressions, using the generation context's var names.
+ * Run on a per-node copy when the IR contains template expressions.
  */
-export function resolveNodeExpressions(node: WorkflowNode): WorkflowNode {
+export function resolveNodeExpressions(node: WorkflowNode, ctx: GenerationContext): WorkflowNode {
+  const resolve = (value: string) => resolveExpressions(value, (id) => ctx.varName(id))
   const resolvedData: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(node.data)) {
     if (typeof value === 'string') {
-      resolvedData[key] = resolveExpressions(value, varName)
+      resolvedData[key] = resolve(value)
     } else if (Array.isArray(value)) {
       resolvedData[key] = value.map((item) => {
         if (typeof item === 'object' && item !== null) {
           const resolved: Record<string, unknown> = {}
           for (const [k, v] of Object.entries(item as Record<string, unknown>)) {
-            resolved[k] = typeof v === 'string' ? resolveExpressions(v, varName) : v
+            resolved[k] = typeof v === 'string' ? resolve(v) : v
           }
           return resolved
         }
-        return typeof item === 'string' ? resolveExpressions(item, varName) : item
+        return typeof item === 'string' ? resolve(item) : item
       })
     } else {
       resolvedData[key] = value

@@ -1,13 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import type { WorkflowNode } from '@awaitstep/ir'
-import { setVarNameMap, clearVarNameMap } from '@awaitstep/codegen'
+import { createGenerationContext } from '@awaitstep/codegen'
 import {
   extractTemplateBody,
   toJsLiteral,
   resolveCtxConfig,
   resolveCtxEnv,
   resolveCtxInputs,
-  generateCustomNode,
+  generateCustomNode as generateCustomNodeImpl,
 } from '../../../codegen/generators/custom.js'
 
 describe('extractTemplateBody', () => {
@@ -121,13 +121,13 @@ describe('resolveCtxInputs', () => {
 })
 
 describe('generateCustomNode', () => {
-  beforeEach(() => {
-    setVarNameMap(new Map([['my-node', 'My_Node']]))
-  })
-
-  afterEach(() => {
-    clearVarNameMap()
-  })
+  // Named context replaces the old global var-name map: 'my-node' → My_Node.
+  const ctx = createGenerationContext([{ id: 'my-node', name: 'My Node' }])
+  const generateCustomNode = (
+    node: Parameters<typeof generateCustomNodeImpl>[0],
+    template: string,
+    mode?: Parameters<typeof generateCustomNodeImpl>[3],
+  ) => generateCustomNodeImpl(node, template, ctx, mode)
 
   const template = `export default async function(ctx: NodeContext<Config>) {
   const response = await fetch(ctx.config.webhookUrl, {

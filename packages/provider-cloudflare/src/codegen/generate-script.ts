@@ -3,10 +3,7 @@ import { BUILTIN_NODE_TYPES } from '@awaitstep/ir'
 import type { TemplateResolver } from '@awaitstep/codegen'
 import {
   topologicalSort,
-  buildVarNameMap,
-  setVarNameMap,
-  clearVarNameMap,
-  varName,
+  createGenerationContext,
   indent,
   isExportedName,
 } from '@awaitstep/codegen'
@@ -99,14 +96,13 @@ export function generateScript(
   // only structural difference is the literal `kind`.
   const irAsWorkflow = ir as unknown as WorkflowIR
   const sorted = topologicalSort(irAsWorkflow)
-  const nameMap = buildVarNameMap(ir.nodes)
-  setVarNameMap(nameMap)
+  const ctx = createGenerationContext(ir.nodes)
   const useStateTracking = hasTemplateExpressions(ir.nodes)
 
   const inlineTargets = collectBranchInlineTargets(irAsWorkflow)
 
   const resolvedIR: ScriptIR = useStateTracking
-    ? { ...ir, nodes: ir.nodes.map(resolveNodeExpressions) }
+    ? { ...ir, nodes: ir.nodes.map((n) => resolveNodeExpressions(n, ctx)) }
     : ir
 
   const bodyParts: string[] = []
@@ -125,7 +121,7 @@ export function generateScript(
     if (!builtinTypes.has(node.type) && templateResolver) {
       const template = templateResolver.getTemplate(node.type, node.provider)
       if (template) {
-        const parts = generateCustomNodeParts(node, template, 'script')
+        const parts = generateCustomNodeParts(node, template, ctx, 'script')
         if (!classDefinitions.has(parts.className)) {
           classDefinitions.set(parts.className, parts.classDefinition)
         }
@@ -137,6 +133,7 @@ export function generateScript(
     const code = generateNodeCode(
       node,
       resolvedIR as unknown as WorkflowIR,
+      ctx,
       templateResolver,
       classDefinitions,
       'script',
@@ -170,14 +167,11 @@ export function generateScript(
   // their entire purpose is to surface a value (HTTP response, sub-worker
   // output, sub-workflow handle). A bare `await fetch(...)` with the result
   // thrown away is almost never what the user intends.
-  //
-  // Must run before `clearVarNameMap` so `varName(node.id)` resolves to the
-  // same name the per-node generators emitted.
   const AUTO_EXPORT_TYPES = new Set(['http_request', 'sub_workflow', 'sub_script'])
   const exportedVarNames: string[] = []
   const hoistedVarNames: string[] = []
   for (const node of resolvedIR.nodes) {
-    const v = varName(node.id)
+    const v = ctx.varName(node.id)
     const declRe = new RegExp(`^(\\s*)const ${v}\\s*=`, 'm')
     const m = declRe.exec(graphBody)
     if (!m) continue
@@ -202,7 +196,6 @@ export function generateScript(
       graphBody = graphBody.replace(guardedRe, '$1')
     }
   }
-  clearVarNameMap()
 
   const allEnvNames = new Set(envVarNames ?? [])
   for (const name of collectEnvRefNames(ir.nodes)) {

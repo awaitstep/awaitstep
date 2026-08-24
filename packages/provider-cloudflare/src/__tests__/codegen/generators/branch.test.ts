@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowIR, WorkflowNode, BranchCondition } from '@awaitstep/ir'
 import { generateBranch, collectBranchInlineTargets } from '../../../codegen/generators/branch.js'
-import { generateNodeCode } from '../../../codegen/generate.js'
+import { recurseWithTestCtx as generateNodeCode } from '../test-context.js'
 
 const V = '1.0.0'
 const P = 'cloudflare'

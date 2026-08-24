@@ -1,5 +1,5 @@
 import type { WorkflowNode, StepConfig, RetryBackoff } from '@awaitstep/ir'
-import { varName, escName, type GenerateMode } from '@awaitstep/codegen'
+import { escName, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
 import { generateStepConfig } from './config.js'
 
 /**
@@ -35,7 +35,11 @@ function resolveStepConfig(node: WorkflowNode): StepConfig | undefined {
   return config
 }
 
-export function generateStep(node: WorkflowNode, mode: GenerateMode = 'workflow'): string {
+export function generateStep(
+  node: WorkflowNode,
+  ctx: GenerationContext,
+  mode: GenerateMode = 'workflow',
+): string {
   const code = String(node.data.code ?? '')
   // Inline steps (and script mode) emit raw user code with no wrapping.
   // The user owns the surrounding scope: they can mutate enclosing `let`s,
@@ -46,7 +50,7 @@ export function generateStep(node: WorkflowNode, mode: GenerateMode = 'workflow'
     return code
   }
   const hasReturn = /\breturn\b/.test(code)
-  const prefix = hasReturn ? `const ${varName(node.id)} = ` : ''
+  const prefix = hasReturn ? `const ${ctx.varName(node.id)} = ` : ''
   const config = generateStepConfig(resolveStepConfig(node))
   const configArg = config ? `, ${config}` : ''
   return `${prefix}await step.do("${escName(node.name)}"${configArg}, async () => {

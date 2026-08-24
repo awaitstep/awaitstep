@@ -1,9 +1,15 @@
 import { describe, it, expect } from 'vitest'
+import { testCtx as ctx } from '../test-context.js'
 import {
-  generateSubWorkflow,
+  generateSubWorkflow as generateSubWorkflowImpl,
   getSubWorkflowBindings,
 } from '../../../codegen/generators/sub-workflow.js'
 import type { WorkflowNode } from '@awaitstep/ir'
+
+const generateSubWorkflow = (
+  node: Parameters<typeof generateSubWorkflowImpl>[0],
+  mode?: Parameters<typeof generateSubWorkflowImpl>[2],
+) => generateSubWorkflowImpl(node, ctx, mode)
 
 const V = '1.0.0'
 const P = 'cloudflare'

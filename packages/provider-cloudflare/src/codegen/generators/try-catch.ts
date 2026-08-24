@@ -6,9 +6,9 @@ export function generateTryCatch(
   ir: WorkflowIR,
   generateNode: (node: WorkflowNode, ir: WorkflowIR) => string,
 ): string {
-  const ctx = prepareContainerContext(ir)
-  const targets = ctx.adj.get(node.id) ?? []
-  const nodeLabels = ctx.edgeLabels.get(node.id) ?? new Map()
+  const containers = prepareContainerContext(ir)
+  const targets = containers.adj.get(node.id) ?? []
+  const nodeLabels = containers.edgeLabels.get(node.id) ?? new Map()
 
   const findTarget = (label: string) => targets.find((t) => nodeLabels.get(t) === label)
 
@@ -17,18 +17,18 @@ export function generateTryCatch(
   // try block
   lines.push('try {')
   const tryTarget = findTarget('try')
-  if (tryTarget) lines.push(inlineChain(tryTarget, ctx, generateNode, ir, 2))
+  if (tryTarget) lines.push(inlineChain(tryTarget, containers, generateNode, ir, 2))
 
   // catch block
   lines.push('} catch (err) {')
   const catchTarget = findTarget('catch')
-  if (catchTarget) lines.push(inlineChain(catchTarget, ctx, generateNode, ir, 2))
+  if (catchTarget) lines.push(inlineChain(catchTarget, containers, generateNode, ir, 2))
 
   // optional finally block
   const finallyTarget = findTarget('finally')
   if (finallyTarget) {
     lines.push('} finally {')
-    lines.push(inlineChain(finallyTarget, ctx, generateNode, ir, 2))
+    lines.push(inlineChain(finallyTarget, containers, generateNode, ir, 2))
   }
 
   lines.push('}')

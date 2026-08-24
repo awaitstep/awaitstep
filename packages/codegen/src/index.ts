@@ -25,10 +25,11 @@ export type { TemplateResolver } from './template-resolver.js'
 export { topologicalSort, buildAdjacencyList, getEdgeLabels } from './dag.js'
 export {
   sanitizeIdentifier,
-  buildVarNameMap,
   deduplicateStepNames,
   isExportedName,
   stripExportPrefix,
 } from './sanitize.js'
-export { varName, escName, setVarNameMap, clearVarNameMap } from './var-names.js'
+export { escName } from './var-names.js'
+export { computeVarNames, createGenerationContext } from './context.js'
+export type { GenerationContext } from './context.js'
 export { indent } from './format.js'

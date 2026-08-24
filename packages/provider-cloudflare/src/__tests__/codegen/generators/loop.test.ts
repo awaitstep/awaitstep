@@ -1,7 +1,15 @@
 import { describe, it, expect } from 'vitest'
+import { testCtx as ctx } from '../test-context.js'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { generateLoop } from '../../../codegen/generators/loop.js'
-import { generateNodeCode } from '../../../codegen/generate.js'
+import { generateLoop as generateLoopImpl } from '../../../codegen/generators/loop.js'
+import { recurseWithTestCtx as generateNodeCode } from '../test-context.js'
+
+const generateLoop = (
+  node: Parameters<typeof generateLoopImpl>[0],
+  ir: Parameters<typeof generateLoopImpl>[1],
+  generateNode: Parameters<typeof generateLoopImpl>[3],
+  mode?: Parameters<typeof generateLoopImpl>[4],
+) => generateLoopImpl(node, ir, ctx, generateNode, mode)
 
 const V = '1.0.0'
 const P = 'cloudflare'

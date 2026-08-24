@@ -1,5 +1,5 @@
 import type { WorkflowNode } from '@awaitstep/ir'
-import { varName, escName, type GenerateMode } from '@awaitstep/codegen'
+import { escName, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
 import { generateStepConfig } from './config.js'
 
 /**
@@ -13,7 +13,11 @@ import { generateStepConfig } from './config.js'
  * In workflow mode, the call is wrapped in `step.do(...)` for durability +
  * retries. In script mode, it's a bare `await env.X.fetch(...).then(r => r.json())`.
  */
-export function generateSubScript(node: WorkflowNode, mode: GenerateMode = 'workflow'): string {
+export function generateSubScript(
+  node: WorkflowNode,
+  ctx: GenerationContext,
+  mode: GenerateMode = 'workflow',
+): string {
   const workerName = String(node.data.workerName ?? '')
   const binding = workerNameToBinding(workerName)
   const method = String(node.data.method ?? 'POST')
@@ -49,9 +53,9 @@ export function generateSubScript(node: WorkflowNode, mode: GenerateMode = 'work
   const fetchOpts = fetchOptions.length > 0 ? `, { ${fetchOptions.join(', ')} }` : ''
 
   if (mode === 'script') {
-    return `const ${varName(node.id)} = await env.${binding}.fetch(${urlLiteral}${fetchOpts}).then(r => r.json());`
+    return `const ${ctx.varName(node.id)} = await env.${binding}.fetch(${urlLiteral}${fetchOpts}).then(r => r.json());`
   }
-  return `const ${varName(node.id)} = await step.do("${escName(node.name)}"${configArg}, async () => {
+  return `const ${ctx.varName(node.id)} = await step.do("${escName(node.name)}"${configArg}, async () => {
   const response = await env.${binding}.fetch(${urlLiteral}${fetchOpts});
   return response.json();
 });`
