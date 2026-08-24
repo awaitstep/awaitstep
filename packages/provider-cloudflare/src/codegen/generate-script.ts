@@ -1,6 +1,5 @@
 import type { ScriptIR, WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { BUILTIN_NODE_TYPES } from '@awaitstep/ir'
-import type { TemplateResolver } from '@awaitstep/codegen'
+import type { GeneratorLookup, TemplateResolver } from '@awaitstep/codegen'
 import {
   topologicalSort,
   createGenerationContext,
@@ -8,7 +7,6 @@ import {
   isExportedName,
 } from '@awaitstep/codegen'
 import { collectBranchInlineTargets } from './generators/branch.js'
-import { generateCustomNodeParts } from './generators/custom.js'
 import { getSubWorkflowBindings } from './generators/sub-workflow.js'
 import { hasTemplateExpressions } from './generators/state-tracking.js'
 import { detectBindings } from './bindings.js'
@@ -78,6 +76,8 @@ export interface GenerateScriptOptions {
    * `AWAITSTEP_RETENTION` const when the IR contains a sub_workflow node.
    */
   retention?: CloudflareRetention
+  /** Generator lookup for node dispatch; defaults to the Cloudflare builtins. */
+  generators?: GeneratorLookup
 }
 
 export function generateScript(
@@ -89,7 +89,7 @@ export function generateScript(
       ? { templateResolver: templateResolverOrOptions }
       : templateResolverOrOptions
     : {}
-  const { templateResolver, envVarNames, preview, triggerCode, retention } = opts
+  const { templateResolver, envVarNames, preview, triggerCode, retention, generators } = opts
 
   // Reuse the workflow-shaped helpers — the IR fields they read (nodes, edges,
   // entryNodeId, metadata) are identical between WorkflowIR and ScriptIR. The
@@ -112,23 +112,11 @@ export function generateScript(
   const resolvedSorted = sorted.map((n: WorkflowNode) => resolvedNodeMap.get(n.id) ?? n)
 
   // Script-incompatible node types (sleep, sleep_until, wait_for_event) are
-  // rejected upstream by validateScript, so they never reach codegen.
-  const builtinTypes = BUILTIN_NODE_TYPES
-
+  // rejected upstream by validateScript, so they never reach codegen. Custom
+  // (non-registry) types fall through generateNodeCode's dispatch to the
+  // template path — one authority for what counts as builtin.
   for (const node of resolvedSorted) {
     if (inlineTargets.has(node.id)) continue
-
-    if (!builtinTypes.has(node.type) && templateResolver) {
-      const template = templateResolver.getTemplate(node.type, node.provider)
-      if (template) {
-        const parts = generateCustomNodeParts(node, template, ctx, 'script')
-        if (!classDefinitions.has(parts.className)) {
-          classDefinitions.set(parts.className, parts.classDefinition)
-        }
-        bodyParts.push(parts.imports.join('\n') + '\n' + parts.stepCode)
-        continue
-      }
-    }
 
     const code = generateNodeCode(
       node,
@@ -137,6 +125,7 @@ export function generateScript(
       templateResolver,
       classDefinitions,
       'script',
+      generators,
     )
     bodyParts.push(code)
   }

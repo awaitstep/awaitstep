@@ -22,8 +22,14 @@ export interface NodeGenerator {
   generate(args: NodeGeneratorArgs): string
 }
 
-/** Lookup-only view of a registry — what dispatch consumes and modules share. */
-export type GeneratorLookup = Pick<GeneratorRegistry, 'get' | 'has' | 'types'>
+/**
+ * The lookup dispatch consumes — hand-written (not derived from the class) so
+ * the published contract stays one method wide regardless of what the
+ * registry implementation grows.
+ */
+export interface GeneratorLookup {
+  get(type: string): NodeGenerator | undefined
+}
 
 /**
  * Provider-side registry mapping node types to their generators. Providers
@@ -44,13 +50,5 @@ export class GeneratorRegistry {
 
   get(type: string): NodeGenerator | undefined {
     return this.generators.get(type)
-  }
-
-  has(type: string): boolean {
-    return this.generators.has(type)
-  }
-
-  types(): string[] {
-    return [...this.generators.keys()]
   }
 }

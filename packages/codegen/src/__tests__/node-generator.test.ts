@@ -6,10 +6,9 @@ const stub = (type: string) => ({ type, generate: () => `// ${type}` })
 describe('GeneratorRegistry', () => {
   it('registers and looks up generators by type', () => {
     const registry = new GeneratorRegistry().register(stub('step')).register(stub('sleep'))
-    expect(registry.has('step')).toBe(true)
+    expect(registry.get('step')?.generate).toBeTypeOf('function')
     expect(registry.get('sleep')?.generate).toBeTypeOf('function')
     expect(registry.get('unknown')).toBeUndefined()
-    expect(registry.types().sort()).toEqual(['sleep', 'step'])
   })
 
   it('rejects duplicate registrations', () => {

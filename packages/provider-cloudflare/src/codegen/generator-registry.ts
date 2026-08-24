@@ -1,4 +1,6 @@
-import { GeneratorRegistry, type GeneratorLookup } from '@awaitstep/codegen'
+import { GeneratorRegistry } from '@awaitstep/codegen'
+import type { GeneratorLookup, NodeGeneratorArgs } from '@awaitstep/codegen'
+import type { BuiltinNodeType } from '@awaitstep/ir'
 import { generateStep } from './generators/step.js'
 import { generateSleep, generateSleepUntil } from './generators/sleep.js'
 import { generateBranch } from './generators/branch.js'
@@ -13,58 +15,45 @@ import { generateSubScript } from './generators/sub-script.js'
 import { generateRace } from './generators/race.js'
 
 /**
- * The Cloudflare provider's builtin generator set. Registered once at module
- * load; dispatch in generate-helpers looks node types up here, with custom
- * (registry/marketplace) nodes falling back to template resolution.
+ * The Cloudflare generator for every builtin node type. Keyed by
+ * BuiltinNodeType so a new entry in BUILTIN_NODE_TYPE_LIST without a
+ * generator here (or a typo'd key) is a compile error at this definition,
+ * not a runtime "not yet implemented" — and duplicate keys are structurally
+ * impossible.
  */
-export function createBuiltinGeneratorRegistry(): GeneratorRegistry {
-  return new GeneratorRegistry()
-    .register({ type: 'step', generate: ({ node, ctx, mode }) => generateStep(node, ctx, mode) })
-    .register({ type: 'sleep', generate: ({ node }) => generateSleep(node) })
-    .register({ type: 'sleep_until', generate: ({ node }) => generateSleepUntil(node) })
-    .register({
-      type: 'branch',
-      generate: ({ node, ir, recurse }) => generateBranch(node, ir, recurse),
-    })
-    .register({
-      type: 'parallel',
-      generate: ({ node, ir, ctx, recurse, mode }) =>
-        generateParallel(node, ir, ctx, recurse, mode),
-    })
-    .register({
-      type: 'http_request',
-      generate: ({ node, ctx, mode }) => generateHttp(node, ctx, mode),
-    })
-    .register({
-      type: 'wait_for_event',
-      generate: ({ node, ctx }) => generateWaitForEvent(node, ctx),
-    })
-    .register({
-      type: 'try_catch',
-      generate: ({ node, ir, recurse }) => generateTryCatch(node, ir, recurse),
-    })
-    .register({
-      type: 'loop',
-      generate: ({ node, ir, ctx, recurse, mode }) => generateLoop(node, ir, ctx, recurse, mode),
-    })
-    .register({ type: 'break', generate: ({ node }) => generateBreak(node) })
-    .register({
-      type: 'sub_workflow',
-      generate: ({ node, ctx, mode }) => generateSubWorkflow(node, ctx, mode),
-    })
-    .register({
-      type: 'sub_script',
-      generate: ({ node, ctx, mode }) => generateSubScript(node, ctx, mode),
-    })
-    .register({
-      type: 'race',
-      generate: ({ node, ir, ctx, recurse, mode }) => generateRace(node, ir, ctx, recurse, mode),
-    })
+const builtinGeneratorFns: Record<BuiltinNodeType, (args: NodeGeneratorArgs) => string> = {
+  step: ({ node, ctx, mode }) => generateStep(node, ctx, mode),
+  sleep: ({ node }) => generateSleep(node),
+  sleep_until: ({ node }) => generateSleepUntil(node),
+  branch: ({ node, ir, recurse }) => generateBranch(node, ir, recurse),
+  parallel: ({ node, ir, ctx, recurse, mode }) => generateParallel(node, ir, ctx, recurse, mode),
+  http_request: ({ node, ctx, mode }) => generateHttp(node, ctx, mode),
+  wait_for_event: ({ node, ctx }) => generateWaitForEvent(node, ctx),
+  try_catch: ({ node, ir, recurse }) => generateTryCatch(node, ir, recurse),
+  loop: ({ node, ir, ctx, recurse, mode }) => generateLoop(node, ir, ctx, recurse, mode),
+  break: ({ node }) => generateBreak(node),
+  sub_workflow: ({ node, ctx, mode }) => generateSubWorkflow(node, ctx, mode),
+  sub_script: ({ node, ctx, mode }) => generateSubScript(node, ctx, mode),
+  race: ({ node, ir, ctx, recurse, mode }) => generateRace(node, ir, ctx, recurse, mode),
 }
 
 /**
- * Shared lookup used by dispatch. Typed lookup-only so no importer can
- * register into the module-level instance — per-generation extension goes
- * through createBuiltinGeneratorRegistry() and a locally built registry.
+ * Builds a registry preloaded with the Cloudflare builtin set — the extension
+ * entry point: build one, register provider-specific generators on top, and
+ * pass it to generateWorkflow/generateScript via `options.generators` (or to
+ * generateNodeCode directly).
+ */
+export function createBuiltinGeneratorRegistry(): GeneratorRegistry {
+  const registry = new GeneratorRegistry()
+  for (const [type, generate] of Object.entries(builtinGeneratorFns)) {
+    registry.register({ type, generate })
+  }
+  return registry
+}
+
+/**
+ * Default lookup used when callers supply no registry. Sealed at the type
+ * level (GeneratorLookup exposes only `get`); nothing else holds the mutable
+ * reference.
  */
 export const builtinGenerators: GeneratorLookup = createBuiltinGeneratorRegistry()

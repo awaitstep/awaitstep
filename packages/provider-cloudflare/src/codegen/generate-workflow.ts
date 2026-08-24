@@ -1,6 +1,5 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { BUILTIN_NODE_TYPES } from '@awaitstep/ir'
-import type { TemplateResolver } from '@awaitstep/codegen'
+import type { GeneratorLookup, TemplateResolver } from '@awaitstep/codegen'
 import {
   topologicalSort,
   sanitizeIdentifier,
@@ -8,7 +7,6 @@ import {
   indent,
 } from '@awaitstep/codegen'
 import { collectBranchInlineTargets } from './generators/branch.js'
-import { generateCustomNodeParts } from './generators/custom.js'
 import { getSubWorkflowBindings } from './generators/sub-workflow.js'
 import { hasTemplateExpressions } from './generators/state-tracking.js'
 import { detectBindings } from './bindings.js'
@@ -77,6 +75,8 @@ export interface GenerateOptions {
    * `WORKFLOW.create()`. Unset → 7-day default (see codegen/retention.ts).
    */
   retention?: CloudflareRetention
+  /** Generator lookup for node dispatch; defaults to the Cloudflare builtins. */
+  generators?: GeneratorLookup
 }
 
 export function generateWorkflow(
@@ -88,7 +88,7 @@ export function generateWorkflow(
       ? { templateResolver: templateResolverOrOptions }
       : templateResolverOrOptions
     : {}
-  const { templateResolver, envVarNames, triggerCode, preview, retention } = opts
+  const { templateResolver, envVarNames, triggerCode, preview, retention, generators } = opts
   const className = sanitizeIdentifier(ir.metadata.name)
     .split('_')
     .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
@@ -110,24 +110,21 @@ export function generateWorkflow(
   const resolvedNodeMap = new Map(resolvedIR.nodes.map((n: WorkflowNode) => [n.id, n]))
   const resolvedSorted = sorted.map((n: WorkflowNode) => resolvedNodeMap.get(n.id) ?? n)
 
-  const builtinTypes = BUILTIN_NODE_TYPES
-
   for (const node of resolvedSorted) {
     if (inlineTargets.has(node.id)) continue
-
-    if (!builtinTypes.has(node.type) && templateResolver) {
-      const template = templateResolver.getTemplate(node.type, node.provider)
-      if (template) {
-        const parts = generateCustomNodeParts(node, template, ctx)
-        if (!classDefinitions.has(parts.className)) {
-          classDefinitions.set(parts.className, parts.classDefinition)
-        }
-        bodyParts.push(parts.imports.join('\n') + '\n' + parts.stepCode)
-        continue
-      }
-    }
-
-    bodyParts.push(generateNodeCode(node, resolvedIR, ctx, templateResolver, classDefinitions))
+    // Custom (non-registry) types fall through generateNodeCode's dispatch to
+    // the same template path — one authority for what counts as builtin.
+    bodyParts.push(
+      generateNodeCode(
+        node,
+        resolvedIR,
+        ctx,
+        templateResolver,
+        classDefinitions,
+        'workflow',
+        generators,
+      ),
+    )
   }
 
   const collectedImports: string[] = []
