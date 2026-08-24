@@ -2,19 +2,8 @@ import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { resolveExpressions, scanExpressions } from '@awaitstep/ir'
 import type { GenerateMode, TemplateResolver } from '@awaitstep/codegen'
 import type { GenerationContext } from '@awaitstep/codegen'
-import { generateStep } from './generators/step.js'
-import { generateSleep, generateSleepUntil } from './generators/sleep.js'
-import { generateBranch } from './generators/branch.js'
-import { generateParallel } from './generators/parallel.js'
-import { generateHttp } from './generators/http.js'
-import { generateWaitForEvent } from './generators/wait-for-event.js'
 import { generateCustomNode, generateCustomNodeParts } from './generators/custom.js'
-import { generateTryCatch } from './generators/try-catch.js'
-import { generateLoop } from './generators/loop.js'
-import { generateBreak } from './generators/break.js'
-import { generateSubWorkflow } from './generators/sub-workflow.js'
-import { generateSubScript } from './generators/sub-script.js'
-import { generateRace } from './generators/race.js'
+import { builtinGenerators } from './generator-registry.js'
 import type { BindingType } from './bindings.js'
 
 /**
@@ -152,50 +141,25 @@ export function generateNodeCode(
   const recurse = (n: WorkflowNode, ir2: WorkflowIR) =>
     generateNodeCode(n, ir2, ctx, templateResolver, classDefinitions, mode)
 
-  switch (node.type) {
-    case 'step':
-      return generateStep(node, ctx, mode)
-    case 'sleep':
-      return generateSleep(node)
-    case 'sleep_until':
-      return generateSleepUntil(node)
-    case 'branch':
-      return generateBranch(node, ir, recurse)
-    case 'parallel':
-      return generateParallel(node, ir, ctx, recurse, mode)
-    case 'http_request':
-      return generateHttp(node, ctx, mode)
-    case 'wait_for_event':
-      return generateWaitForEvent(node, ctx)
-    case 'try_catch':
-      return generateTryCatch(node, ir, recurse)
-    case 'loop':
-      return generateLoop(node, ir, ctx, recurse, mode)
-    case 'break':
-      return generateBreak(node)
-    case 'sub_workflow':
-      return generateSubWorkflow(node, ctx, mode)
-    case 'sub_script':
-      return generateSubScript(node, ctx, mode)
-    case 'race':
-      return generateRace(node, ir, ctx, recurse, mode)
-    default: {
-      if (templateResolver) {
-        const template = templateResolver.getTemplate(node.type, node.provider)
-        if (template) {
-          if (classDefinitions) {
-            const parts = generateCustomNodeParts(node, template, ctx, mode)
-            if (!classDefinitions.has(parts.className)) {
-              classDefinitions.set(parts.className, parts.classDefinition)
-            }
-            return parts.imports.join('\n') + '\n' + parts.stepCode
-          }
-          return generateCustomNode(node, template, ctx, mode)
+  const builtin = builtinGenerators.get(node.type)
+  if (builtin) {
+    return builtin.generate({ node, ir, ctx, mode, recurse })
+  }
+
+  if (templateResolver) {
+    const template = templateResolver.getTemplate(node.type, node.provider)
+    if (template) {
+      if (classDefinitions) {
+        const parts = generateCustomNodeParts(node, template, ctx, mode)
+        if (!classDefinitions.has(parts.className)) {
+          classDefinitions.set(parts.className, parts.classDefinition)
         }
+        return parts.imports.join('\n') + '\n' + parts.stepCode
       }
-      throw new Error(`Codegen not yet implemented for node type: ${node.type}`)
+      return generateCustomNode(node, template, ctx, mode)
     }
   }
+  throw new Error(`Codegen not yet implemented for node type: ${node.type}`)
 }
 
 /**
