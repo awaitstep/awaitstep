@@ -12,7 +12,10 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api/': {
-        target: process.env.API_URL ?? 'http://localhost:8080',
+        // Override when the API dev server runs on a non-default port.
+        // API_URL (the SSR fetch target) doubles as a fallback since both
+        // point at the same API server in dev.
+        target: process.env.API_PROXY_TARGET ?? process.env.API_URL ?? 'http://localhost:8080',
         changeOrigin: true,
       },
     },

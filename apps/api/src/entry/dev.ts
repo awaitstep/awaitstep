@@ -43,6 +43,12 @@ async function start() {
   }
 
   const baseURL = process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3001'
+  // Dev accepts a comma-separated CORS_ORIGIN list so the web app can run on
+  // alternate ports (e.g. 3003) and still pass auth trusted-origin checks.
+  const corsOrigins = (process.env['CORS_ORIGIN'] ?? 'http://localhost:3000,http://localhost:3003')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)
   const resendApiKey = process.env['RESEND_API_KEY']
   const appName = process.env['APP_NAME']
   let sendMagicLink:
@@ -60,7 +66,7 @@ async function start() {
     baseURL,
     secret: authSecret ?? crypto.randomUUID(),
     database: sqlite,
-    trustedOrigins: [baseURL, process.env['CORS_ORIGIN'] ?? 'http://localhost:3000'],
+    trustedOrigins: [...new Set([baseURL, ...corsOrigins])],
     sendMagicLink,
     github: process.env['GITHUB_CLIENT_ID']
       ? {
@@ -85,8 +91,6 @@ async function start() {
       : undefined,
   )
 
-  const corsOrigin = process.env['CORS_ORIGIN'] ?? 'http://localhost:3000'
-
   // Load node registry (built by `pnpm nodes:build`)
   const registryPath = resolve(__dirname, '../../../../nodes/registry.json')
   let nodeRegistry
@@ -105,7 +109,7 @@ async function start() {
     db,
     auth,
     logger,
-    corsOrigin,
+    corsOrigin: corsOrigins,
     isDev,
     enableLocalDev: true,
     nodeRegistry,
