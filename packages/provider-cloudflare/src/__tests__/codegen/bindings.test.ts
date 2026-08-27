@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { detectBindings, deriveQueueName, toCFQueueName } from '../../codegen/bindings.js'
+import {
+  detectBindings,
+  deriveQueueName,
+  toCFQueueName,
+  validateBindingDeclarations,
+} from '../../codegen/bindings.js'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 
 describe('deriveQueueName', () => {
@@ -418,5 +423,96 @@ describe('detectBindings', () => {
       },
     ])
     expect(detectBindings(ir)).toEqual([])
+  })
+})
+
+describe('detectBindings — runtime declarations', () => {
+  const baseIr = {
+    metadata: { name: 'T', version: 1, createdAt: '', updatedAt: '' },
+    entryNodeId: 'n1',
+    nodes: [
+      {
+        id: 'n1',
+        type: 'step',
+        name: 'n1',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        // Legacy scan would infer KV_CACHE from this code.
+        data: { code: 'await env.KV_CACHE.get("k"); await env.DB_MAIN.prepare("...");' },
+      },
+    ],
+    edges: [],
+  }
+
+  it('declared bindings are authoritative — no regex inference runs', () => {
+    const ir = {
+      ...baseIr,
+      runtime: {
+        bindings: [
+          { name: 'KV_CACHE', type: 'kv', resourceId: 'kv-123' },
+          { name: 'MY_QUEUE', type: 'queue' },
+        ],
+      },
+    }
+    const result = detectBindings(ir as never)
+    expect(result).toEqual([
+      { name: 'KV_CACHE', type: 'kv', source: 'declaration', resourceId: 'kv-123' },
+      { name: 'MY_QUEUE', type: 'queue', source: 'declaration' },
+    ])
+    // DB_MAIN from the code scan must NOT appear — declarations replace inference.
+    expect(result.some((b) => b.name === 'DB_MAIN')).toBe(false)
+  })
+
+  it('falls back to regex inference when no declarations exist', () => {
+    const inferred = detectBindings(baseIr as never)
+    expect(inferred.map((b) => `${b.type}:${b.name}`).sort()).toEqual(['d1:DB_MAIN', 'kv:KV_CACHE'])
+    expect(inferred.every((b) => b.source === 'code-scan')).toBe(true)
+  })
+
+  it('an empty declarations array also falls back to inference', () => {
+    const ir = { ...baseIr, runtime: { bindings: [] } }
+    expect(detectBindings(ir as never).length).toBeGreaterThan(0)
+  })
+
+  it('deduplicates declarations by type and name', () => {
+    const ir = {
+      ...baseIr,
+      runtime: {
+        bindings: [
+          { name: 'KV_CACHE', type: 'kv' },
+          { name: 'KV_CACHE', type: 'kv', resourceId: 'later' },
+        ],
+      },
+    }
+    expect(detectBindings(ir as never)).toHaveLength(1)
+  })
+})
+
+describe('validateBindingDeclarations', () => {
+  const ir = (bindings: unknown) =>
+    ({
+      metadata: { name: 'T', version: 1, createdAt: '', updatedAt: '' },
+      entryNodeId: 'n1',
+      nodes: [],
+      edges: [],
+      runtime: { bindings },
+    }) as never
+
+  it('accepts valid declarations and IRs without any', () => {
+    expect(validateBindingDeclarations(ir([{ name: 'KV_CACHE', type: 'kv' }]))).toEqual([])
+    expect(validateBindingDeclarations({ nodes: [], edges: [] } as never)).toEqual([])
+  })
+
+  it('rejects names that are not valid identifiers', () => {
+    const errors = validateBindingDeclarations(ir([{ name: 'my-cache', type: 'kv' }]))
+    expect(errors).toHaveLength(1)
+    expect(errors[0].message).toContain('valid identifier')
+  })
+
+  it('rejects unknown binding types', () => {
+    const errors = validateBindingDeclarations(ir([{ name: 'THING', type: 'durable_object' }]))
+    expect(errors).toHaveLength(1)
+    expect(errors[0].message).toContain('unknown type')
   })
 })

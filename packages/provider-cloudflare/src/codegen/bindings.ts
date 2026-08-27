@@ -1,4 +1,4 @@
-import type { WorkflowIR } from '@awaitstep/ir'
+import type { ValidationError, WorkflowIR } from '@awaitstep/ir'
 
 export type BindingType =
   | 'kv'
@@ -17,7 +17,7 @@ export type BindingType =
 export interface BindingRequirement {
   name: string
   type: BindingType
-  source: 'env-binding' | 'code-scan'
+  source: 'declaration' | 'env-binding' | 'code-scan'
   nodeId?: string
   resourceId?: string
 }
@@ -94,6 +94,28 @@ export function detectBindings(
   ir: WorkflowIR,
   envBindings?: Array<{ name: string; type: string }>,
 ): BindingRequirement[] {
+  // Declared bindings (ir.runtime.bindings) are authoritative: the workflow
+  // says exactly what it uses and carries resource ids in the declaration —
+  // no regex inference, no <NAME>_BINDING_ID env smuggling. The scan below
+  // remains the legacy fallback for IRs that predate declarations.
+  const declared = ir.runtime?.bindings
+  if (declared && declared.length > 0) {
+    const seen = new Set<string>()
+    const out: BindingRequirement[] = []
+    for (const d of declared) {
+      const key = `${d.type}:${d.name}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push({
+        name: d.name,
+        type: d.type as BindingType,
+        source: 'declaration',
+        ...(d.resourceId !== undefined && { resourceId: d.resourceId }),
+      })
+    }
+    return out
+  }
+
   const seen = new Set<string>()
   const bindings: BindingRequirement[] = []
 
@@ -146,4 +168,45 @@ export function detectBindingsFromSource(source: string): BindingRequirement[] {
   }
 
   return bindings
+}
+
+const BINDING_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/
+const KNOWN_BINDING_TYPES = new Set<string>([
+  'kv',
+  'd1',
+  'r2',
+  'queue',
+  'secret',
+  'variable',
+  'service',
+  'ai',
+  'vectorize',
+  'analytics_engine',
+  'hyperdrive',
+  'browser',
+])
+
+/**
+ * Validates runtime binding declarations against Cloudflare's rules: names
+ * must be valid identifiers (they become fields on the Worker Env) and types
+ * must be kinds this provider can provision. Declarations are new surface, so
+ * strict validation here cannot reject any stored legacy workflow.
+ */
+export function validateBindingDeclarations(ir: WorkflowIR): ValidationError[] {
+  const errors: ValidationError[] = []
+  for (const declaration of ir.runtime?.bindings ?? []) {
+    if (!BINDING_NAME_PATTERN.test(declaration.name)) {
+      errors.push({
+        path: 'runtime.bindings',
+        message: `Binding name "${declaration.name}" must be a valid identifier (letters, digits, underscores; not starting with a digit)`,
+      })
+    }
+    if (!KNOWN_BINDING_TYPES.has(declaration.type)) {
+      errors.push({
+        path: 'runtime.bindings',
+        message: `Binding "${declaration.name}" has unknown type "${declaration.type}" — supported: ${[...KNOWN_BINDING_TYPES].join(', ')}`,
+      })
+    }
+  }
+  return errors
 }

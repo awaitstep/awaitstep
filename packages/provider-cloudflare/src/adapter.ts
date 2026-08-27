@@ -21,7 +21,11 @@ import { startLocalDev } from './local-dev.js'
 import { sanitizedWorkflowName } from './naming.js'
 import { CloudflareAPI } from './api.js'
 import { WRANGLER_BASE_CONFIG } from './wrangler-config.js'
-import { detectBindings, type BindingRequirement } from './codegen/bindings.js'
+import {
+  detectBindings,
+  validateBindingDeclarations,
+  type BindingRequirement,
+} from './codegen/bindings.js'
 import { getSubWorkflowBindings } from './codegen/generators/sub-workflow.js'
 import { getSubScriptBindings } from './codegen/generators/sub-script.js'
 import { parseAnnotations } from './codegen/parse-annotations.js'
@@ -130,6 +134,8 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
   validate(ir: ArtifactIR): Result<void, ValidationError[]> {
     const result = validateArtifact(ir)
     if (!result.ok) return result
+    const bindingErrors = validateBindingDeclarations(ir as unknown as WorkflowIR)
+    if (bindingErrors.length > 0) return { ok: false, errors: bindingErrors }
     return { ok: true, value: undefined }
   }
 
@@ -257,6 +263,16 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
           hyperdrive: 'Hyperdrive config',
         }
         for (const b of needsId) {
+          if (b.source === 'declaration') {
+            // Declared bindings carry their resource id in the declaration —
+            // the <NAME>_BINDING_ID env-var convention does not apply.
+            if (!b.resourceId) {
+              missing.push(
+                `Binding '${b.name}' is declared without a resourceId — set the ${typeLabels[b.type] ?? b.type} ID on the binding declaration`,
+              )
+            }
+            continue
+          }
           const envKey = `${b.name}_BINDING_ID`
           const id = config.envVars?.[envKey]?.value
           if (id) {
@@ -268,8 +284,11 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
           }
         }
 
-        // Optionally resolve vectorize index names from env vars
-        for (const b of detected.filter((b) => b.type === 'vectorize')) {
+        // Optionally resolve vectorize index names from env vars (legacy path;
+        // declared vectorize bindings already carry resourceId when set).
+        for (const b of detected.filter(
+          (b) => b.type === 'vectorize' && b.source !== 'declaration',
+        )) {
           const envKey = `${b.name}_BINDING_ID`
           const id = config.envVars?.[envKey]?.value
           if (id) b.resourceId = id
