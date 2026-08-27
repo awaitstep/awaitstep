@@ -66,6 +66,29 @@ describe('loadArtifact', () => {
     if (second.ok) expect(second.value).toEqual(first.value)
   })
 
+  it('round-trips the runtime block', () => {
+    const withRuntime = {
+      ...(simpleWorkflow as Record<string, unknown>),
+      runtime: {
+        triggerCode: '@fetch function handler(request, env, ctx) { return new Response(null); }',
+        dependencies: { zod: '^4.0.0' },
+        env: [{ name: 'API_KEY', required: true, secret: true }],
+        bindings: [{ name: 'KV_CACHE', type: 'kv', resourceId: 'abc123' }],
+      },
+    }
+    const loaded = loadArtifact(withRuntime)
+    expect(loaded.ok).toBe(true)
+    if (!loaded.ok) return
+    expect(loaded.value.runtime?.bindings?.[0]).toEqual({
+      name: 'KV_CACHE',
+      type: 'kv',
+      resourceId: 'abc123',
+    })
+    const again = loadArtifact(serializeArtifact(loaded.value))
+    expect(again.ok).toBe(true)
+    if (again.ok) expect(again.value.runtime).toEqual(loaded.value.runtime)
+  })
+
   it('reports malformed JSON as a single error', () => {
     const result = loadArtifact('{ not json')
     expect(result.ok).toBe(false)

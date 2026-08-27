@@ -192,6 +192,33 @@ export const triggerConfigSchema = z.discriminatedUnion('type', [
   manualTriggerSchema,
 ])
 
+const envDeclarationSchema = z
+  .object({
+    name: z.string().min(1),
+    required: z.boolean().optional(),
+    secret: z.boolean().optional(),
+    description: z.string().optional(),
+  })
+  .catchall(z.unknown())
+
+const bindingDeclarationSchema = z
+  .object({
+    name: z.string().min(1),
+    type: z.string().min(1),
+    resourceId: z.string().optional(),
+    resourceName: z.string().optional(),
+  })
+  .catchall(z.unknown())
+
+export const workflowRuntimeSchema = z
+  .object({
+    triggerCode: z.string().optional(),
+    dependencies: z.record(z.string(), z.string()).optional(),
+    env: z.array(envDeclarationSchema).optional(),
+    bindings: z.array(bindingDeclarationSchema).optional(),
+  })
+  .catchall(z.unknown())
+
 export const workflowIRSchema = z.object({
   kind: z.literal('workflow').optional(),
   // Absent on v1 documents — see migrate.ts.
@@ -201,6 +228,7 @@ export const workflowIRSchema = z.object({
   edges: z.array(edgeSchema),
   entryNodeId: nodeIdSchema,
   trigger: triggerConfigSchema.optional(),
+  runtime: workflowRuntimeSchema.optional(),
 })
 
 export const scriptIRSchema = workflowIRSchema.extend({

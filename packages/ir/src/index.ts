@@ -38,6 +38,10 @@ export type {
   EventTriggerConfig,
   ManualTriggerConfig,
   TriggerConfig,
+  BindingKind,
+  EnvDeclaration,
+  BindingDeclaration,
+  WorkflowRuntime,
   ValidationError,
   Result,
 } from './types.js'
@@ -72,6 +76,7 @@ export {
   workflowIRSchema,
   scriptIRSchema,
   artifactIRSchema,
+  workflowRuntimeSchema,
   builtinNodeDataSchemas,
 } from './schema.js'
 

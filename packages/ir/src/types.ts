@@ -263,6 +263,60 @@ export type TriggerConfig =
   HttpTriggerConfig | CronTriggerConfig | EventTriggerConfig | ManualTriggerConfig
 
 /**
+ * Well-known resource binding kinds. Open-ended so providers can extend
+ * without editing the IR package; provider validation owns the closed set.
+ */
+export type BindingKind =
+  | 'kv'
+  | 'd1'
+  | 'r2'
+  | 'queue'
+  | 'service'
+  | 'ai'
+  | 'vectorize'
+  | 'analytics_engine'
+  | 'hyperdrive'
+  | 'browser'
+  | (string & {})
+
+/**
+ * Declares that the workflow reads an environment variable. Declarations
+ * carry metadata only — values stay in the platform's env-var store and are
+ * resolved at deploy time.
+ */
+export interface EnvDeclaration {
+  name: string
+  required?: boolean
+  secret?: boolean
+  description?: string
+}
+
+/** Declares a resource binding the workflow uses (KV namespace, D1 database, ...). */
+export interface BindingDeclaration {
+  name: string
+  type: BindingKind
+  /** Provider resource id (e.g. KV namespace id). Required by some kinds at deploy. */
+  resourceId?: string
+  /** Human-readable resource name, for display and provisioning flows. */
+  resourceName?: string
+}
+
+/**
+ * Everything beyond the node graph that a deployable workflow needs — trigger
+ * code, npm dependencies, env-var declarations, and resource bindings. With
+ * this block present, a workflow is fully described by its IR: exports are
+ * self-contained and nothing lives only in database columns.
+ */
+export interface WorkflowRuntime {
+  /** Worker entry code (the annotated @fetch/@queue/@scheduled source). */
+  triggerCode?: string
+  /** npm dependencies bundled at deploy: name → semver range. */
+  dependencies?: Record<string, string>
+  env?: EnvDeclaration[]
+  bindings?: BindingDeclaration[]
+}
+
+/**
  * Current IR document version. Documents without an `irVersion` field are v1;
  * `migrateArtifact` (migrate.ts) lazily upgrades them at load time — stored
  * rows are never rewritten in place.
@@ -283,6 +337,8 @@ export interface WorkflowIR {
   edges: Edge[]
   entryNodeId: NodeId
   trigger?: TriggerConfig
+  /** Absent on legacy documents — folded in from workflow columns at load. */
+  runtime?: WorkflowRuntime
 }
 
 export interface ScriptIR {
@@ -294,6 +350,8 @@ export interface ScriptIR {
   edges: Edge[]
   entryNodeId: NodeId
   trigger: HttpTriggerConfig
+  /** Absent on legacy documents — folded in from workflow columns at load. */
+  runtime?: WorkflowRuntime
 }
 
 export type ArtifactIR = WorkflowIR | ScriptIR
