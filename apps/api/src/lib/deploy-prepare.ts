@@ -112,7 +112,7 @@ export async function prepareDeploy(
       ir: prepared.ir,
       ...(prepared.dependencies && { dependencies: prepared.dependencies }),
       ...(appName && { packageName: appName }),
-      ...(workflow.triggerCode && { triggerCode: workflow.triggerCode }),
+      ...(prepared.ir.runtime?.triggerCode && { triggerCode: prepared.ir.runtime.triggerCode }),
       deploymentConfig: resolvedConfig.config,
     },
     envVars: prepared.envVars,

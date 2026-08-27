@@ -6,8 +6,9 @@ import type { DatabaseAdapter, Workflow } from '@awaitstep/db'
 import type { AppNodeRegistry } from './node-registry.js'
 import { createMergedNodeRegistry } from './node-registry.js'
 import { resolveProvider, validateNodesForProvider } from './provider-resolver.js'
-import { parseDependencies, collectNodeDependencies, mergeDependencies } from './dependencies.js'
+import { collectNodeDependencies, mergeDependencies } from './dependencies.js'
 import { resolveAndValidateEnvVars } from './env-resolve.js'
+import { foldWorkflowRuntime } from './runtime-fold.js'
 
 export interface WorkflowContext {
   adapter: WorkflowProvider
@@ -66,6 +67,9 @@ export async function prepareWorkflow(
   if (ir.kind === 'script' && !ir.trigger) {
     ir = { ...ir, trigger: { type: 'http' } } as ArtifactIR
   }
+  // Fold the legacy workflow columns into ir.runtime — from here on the IR is
+  // the single self-contained description (trigger code, deps, env, bindings).
+  ir = foldWorkflowRuntime(ir, workflow)
 
   // Merge installed nodes for custom node template resolution
   const nodeTypesInIR = new Set(ir.nodes.map((n) => n.type))
@@ -109,17 +113,18 @@ export async function prepareWorkflow(
     return { error: envResult.error, status: 400 }
   }
 
-  // Collect dependencies
-  const workflowDeps = parseDependencies(workflow.dependencies)
+  // Collect dependencies (runtime block is authoritative post-fold)
+  const workflowDeps = ir.runtime?.dependencies ?? {}
   const nodeDeps = collectNodeDependencies(ir, nodeRegistry)
   const dependencies = mergeDependencies(workflowDeps, nodeDeps)
 
   // Generate artifact
+  const triggerCode = ir.runtime?.triggerCode
   const generateConfig: ProviderConfig = {
     provider: 'cloudflare',
     credentials: {},
     ...(envResult.envVars && { envVars: envResult.envVars }),
-    ...(workflow.triggerCode && { options: { triggerCode: workflow.triggerCode } }),
+    ...(triggerCode && { options: { triggerCode } }),
   }
   const artifact = adapter.generate(ir, generateConfig)
 
