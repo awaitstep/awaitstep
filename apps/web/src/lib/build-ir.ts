@@ -1,4 +1,6 @@
 import { IR_VERSION } from '@awaitstep/ir'
+import type { EnvDeclaration, WorkflowRuntime } from '@awaitstep/ir'
+import { SECRET_PREFIX } from './env-var-parser'
 import type { useWorkflowStore } from '../stores/workflow-store'
 
 type StoreState = ReturnType<typeof useWorkflowStore.getState>
@@ -37,7 +39,42 @@ export function findEntryNodeId(
   return bestId
 }
 
-export function buildIRFromState(state: Pick<StoreState, 'metadata' | 'nodes' | 'edges' | 'kind'>) {
+type BuildState = Pick<
+  StoreState,
+  | 'metadata'
+  | 'nodes'
+  | 'edges'
+  | 'kind'
+  | 'triggerCode'
+  | 'dependencies'
+  | 'workflowEnvVars'
+  | 'runtimeBindings'
+>
+
+/**
+ * The runtime block makes the exported IR self-contained: trigger code, npm
+ * deps, env declarations (names + secrecy only — never values), and binding
+ * declarations all travel with the document.
+ */
+function buildRuntime(state: BuildState): WorkflowRuntime | undefined {
+  const env: EnvDeclaration[] = state.workflowEnvVars.flatMap((v) => {
+    const secret = v.name.startsWith(SECRET_PREFIX)
+    const name = (secret ? v.name.slice(SECRET_PREFIX.length) : v.name).trim()
+    // A bare "SECRET_" or blank row would export an invalid declaration that
+    // the schema rejects on reimport — drop it instead.
+    if (!name) return []
+    return [{ name, ...(secret && { secret: true }) }]
+  })
+  const runtime: WorkflowRuntime = {
+    ...(state.triggerCode && { triggerCode: state.triggerCode }),
+    ...(Object.keys(state.dependencies).length > 0 && { dependencies: state.dependencies }),
+    ...(env.length > 0 && { env }),
+    ...(state.runtimeBindings.length > 0 && { bindings: state.runtimeBindings }),
+  }
+  return Object.keys(runtime).length > 0 ? runtime : undefined
+}
+
+export function buildIRFromState(state: BuildState) {
   const irNodes = state.nodes.map((n) => ({
     ...n.data.irNode,
     position: n.position ?? n.data.irNode.position,
@@ -48,12 +85,14 @@ export function buildIRFromState(state: Pick<StoreState, 'metadata' | 'nodes' | 
     target: e.target,
     ...(e.label ? { label: String(e.label) } : {}),
   }))
+  const runtime = buildRuntime(state)
   const base = {
     irVersion: IR_VERSION,
     metadata: state.metadata,
     nodes: irNodes,
     edges: irEdges,
     entryNodeId: findEntryNodeId(irNodes, irEdges),
+    ...(runtime && { runtime }),
   }
   // Scripts require both `kind: 'script'` and a `trigger` per ScriptIRSchema;
   // default to HTTP since v1 only supports HTTP-triggered scripts.

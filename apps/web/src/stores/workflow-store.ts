@@ -9,7 +9,13 @@ import {
   type OnEdgesChange,
   type Connection,
 } from '@xyflow/react'
-import type { WorkflowNode, NodeType, WorkflowMetadata, ConfigField } from '@awaitstep/ir'
+import type {
+  BindingDeclaration,
+  WorkflowNode,
+  NodeType,
+  WorkflowMetadata,
+  ConfigField,
+} from '@awaitstep/ir'
 import { validateWorkflowForPublish, type PublishValidationResult } from '../lib/validate-workflow'
 import type { NodeRegistry } from '@awaitstep/ir'
 import { simulateWorkflow, type SimulationResult } from '../lib/simulate-workflow'
@@ -137,6 +143,7 @@ const getInitialWorkflowState = () => ({
   workflowEnvVars: [],
   dependencies: {},
   triggerCode: '',
+  runtimeBindings: [],
   deployConfig: {},
   showSettings: false,
   showEditor: false,
@@ -158,6 +165,8 @@ interface WorkflowState {
   workflowEnvVars: WorkflowEnvVar[]
   dependencies: Record<string, string>
   triggerCode: string
+  /** Resource binding declarations round-tripped through ir.runtime.bindings. */
+  runtimeBindings: BindingDeclaration[]
   deployConfig: DeployConfig
   showSettings: boolean
   showEditor: boolean

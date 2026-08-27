@@ -185,6 +185,57 @@ describe('buildWorkflowStoreState', () => {
     expect(nodes[0].id).toBe('n1')
   })
 
+  it('fills triggerCode and dependencies from ir.runtime when columns are empty', () => {
+    const ir = JSON.parse(baseVersion.ir)
+    ir.runtime = { triggerCode: 'from-runtime', dependencies: { zod: '^4.0.0' } }
+    const version = { ...baseVersion, ir: JSON.stringify(ir) }
+    const result = buildWorkflowStoreState(baseWorkflow, version, 1, false)
+    expect(result.triggerCode).toBe('from-runtime')
+    expect(result.dependencies).toEqual({ zod: '^4.0.0' })
+  })
+
+  it('columns win over runtime while dual-write is active', () => {
+    const ir = JSON.parse(baseVersion.ir)
+    ir.runtime = { triggerCode: 'stale-runtime' }
+    const version = { ...baseVersion, ir: JSON.stringify(ir) }
+    const wf = { ...baseWorkflow, triggerCode: 'fresh-column' }
+    const result = buildWorkflowStoreState(wf, version, 1, false)
+    expect(result.triggerCode).toBe('fresh-column')
+  })
+
+  it('surfaces runtime.env declarations as blank-valued env vars (import round-trip)', () => {
+    const ir = JSON.parse(baseVersion.ir)
+    ir.runtime = { env: [{ name: 'API_KEY', secret: true }, { name: 'REGION' }] }
+    const version = { ...baseVersion, ir: JSON.stringify(ir) }
+    const result = buildWorkflowStoreState(baseWorkflow, version, 1, false)
+    expect(result.workflowEnvVars).toEqual([
+      { name: 'SECRET_API_KEY', value: '' },
+      { name: 'REGION', value: '' },
+    ])
+  })
+
+  it('column env vars win over runtime declarations', () => {
+    const ir = JSON.parse(baseVersion.ir)
+    ir.runtime = { env: [{ name: 'FROM_RUNTIME' }] }
+    const version = { ...baseVersion, ir: JSON.stringify(ir) }
+    const wf = { ...baseWorkflow, envVars: JSON.stringify([{ name: 'FROM_COLUMN', value: 'x' }]) }
+    const result = buildWorkflowStoreState(wf, version, 1, false)
+    expect(result.workflowEnvVars).toEqual([{ name: 'FROM_COLUMN', value: 'x' }])
+  })
+
+  it('resets runtimeBindings on every hydrate — no leak across workflows', () => {
+    const result = buildWorkflowStoreState(baseWorkflow, baseVersion, 1, false)
+    expect(result.runtimeBindings).toEqual([])
+  })
+
+  it('loads binding declarations into runtimeBindings', () => {
+    const ir = JSON.parse(baseVersion.ir)
+    ir.runtime = { bindings: [{ name: 'KV_CACHE', type: 'kv', resourceId: 'abc' }] }
+    const version = { ...baseVersion, ir: JSON.stringify(ir) }
+    const result = buildWorkflowStoreState(baseWorkflow, version, 1, false)
+    expect(result.runtimeBindings).toEqual([{ name: 'KV_CACHE', type: 'kv', resourceId: 'abc' }])
+  })
+
   it('ignores IR that is not even array-shaped', () => {
     const version = { ...baseVersion, ir: JSON.stringify({ nodes: 'nope' }) }
     const result = buildWorkflowStoreState(baseWorkflow, version, 1, false)

@@ -1,5 +1,5 @@
 import { loadArtifact } from '@awaitstep/ir'
-import type { WorkflowNode } from '@awaitstep/ir'
+import type { WorkflowNode, WorkflowRuntime } from '@awaitstep/ir'
 import type {
   WorkflowSummary,
   WorkflowVersion,
@@ -20,6 +20,9 @@ export function buildWorkflowStoreState(
     workflowEnvVars: [],
     dependencies: {},
     triggerCode: '',
+    // Must reset on every hydrate — a leftover value from the previously
+    // opened workflow would leak into this workflow's exported runtime.
+    runtimeBindings: [],
     deployConfig: {},
     validationResult: null,
     simulationResult: null,
@@ -114,6 +117,31 @@ export function buildWorkflowStoreState(
         data: { irNode },
       }))
       state.edges = irEdges
+    }
+    // Runtime block: columns win while dual-write is active (they are updated
+    // on every save); runtime fills in for pure-IR imports with empty columns.
+    if (raw !== null && typeof raw === 'object' && 'runtime' in (raw as object)) {
+      const runtime = (raw as { runtime?: WorkflowRuntime }).runtime
+      if (runtime) {
+        if (!state.triggerCode && runtime.triggerCode) state.triggerCode = runtime.triggerCode
+        if (
+          Object.keys(state.dependencies as Record<string, string>).length === 0 &&
+          runtime.dependencies
+        ) {
+          state.dependencies = runtime.dependencies
+        }
+        // Declarations must survive the round-trip: without this, a pure-IR
+        // import's env names would be absent from the store and the next
+        // autosave would rebuild runtime.env from empty state, dropping them.
+        // Values are intentionally blank — declarations never carry values.
+        if ((state.workflowEnvVars as unknown[]).length === 0 && runtime.env) {
+          state.workflowEnvVars = runtime.env.map((declaration) => ({
+            name: declaration.secret ? `SECRET_${declaration.name}` : declaration.name,
+            value: '',
+          }))
+        }
+        if (runtime.bindings) state.runtimeBindings = runtime.bindings
+      }
     }
   }
 

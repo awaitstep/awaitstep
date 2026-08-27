@@ -114,7 +114,16 @@ function EditorHelpTooltip({ isScript }: { isScript: boolean }) {
 }
 
 export function EditorPanel() {
-  const { kind, metadata, nodes, edges, triggerCode, dependencies } = useWorkflowStore(
+  const {
+    kind,
+    metadata,
+    nodes,
+    edges,
+    triggerCode,
+    dependencies,
+    workflowEnvVars,
+    runtimeBindings,
+  } = useWorkflowStore(
     useShallow((s) => ({
       kind: s.kind,
       metadata: s.metadata,
@@ -122,6 +131,8 @@ export function EditorPanel() {
       edges: s.edges,
       triggerCode: s.triggerCode,
       dependencies: s.dependencies,
+      workflowEnvVars: s.workflowEnvVars,
+      runtimeBindings: s.runtimeBindings,
     })),
   )
   const { setTriggerCode, setDependencies } = useWorkflowStore()
@@ -149,7 +160,16 @@ export function EditorPanel() {
 
   const ir = useMemo(() => {
     if (nodes.length === 0) return null
-    return buildIRFromState({ metadata, nodes, edges, kind })
+    return buildIRFromState({
+      metadata,
+      nodes,
+      edges,
+      kind,
+      triggerCode,
+      dependencies,
+      workflowEnvVars,
+      runtimeBindings,
+    })
   }, [metadata, nodes, edges, kind])
 
   const templateResolver = useMemo<TemplateResolver>(
