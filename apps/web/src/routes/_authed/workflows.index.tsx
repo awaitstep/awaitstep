@@ -1,16 +1,13 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { Plus, Search, Upload, Workflow } from 'lucide-react'
 import { useState, useMemo } from 'react'
 import { Button } from '../../components/ui/button'
 import { GuardedLink } from '../../components/ui/guarded-link'
 import { PageHeader } from '../../components/ui/page-header'
-import type { WorkflowSummary } from '../../lib/api-client'
 import { useWorkflowsStore } from '../../stores/workflows-store'
-import { WorkflowActionsMenu } from '../../components/dashboard/workflow-actions-menu'
-import { TriggerButton } from '../../components/dashboard/trigger-button'
 import { ImportWorkflowDialog } from '../../components/dashboard/import-workflow-dialog'
 import { NewArtifactDropdown } from '../../components/dashboard/new-artifact-dropdown'
-import { timeAgo } from '../../lib/time'
+import { WorkflowRow } from '../../components/workflows/workflow-row'
 import { RequireProject } from '../../wrappers/require-project'
 import { NEW_WORKFLOW_NAV } from '../../lib/nav'
 import { LoadingView } from '../../components/ui/loading-view'
@@ -100,10 +97,12 @@ function WorkflowsIndexContent() {
               />
             </div>
           ) : (
-            <div className="mt-4 space-y-2">
-              {filtered.map((wf) => (
-                <WorkflowRow key={wf.id} workflow={wf} />
-              ))}
+            <>
+              <div className="mt-4 divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+                {filtered.map((wf) => (
+                  <WorkflowRow key={wf.id} workflow={wf} timestamp={wf.updatedAt} />
+                ))}
+              </div>
               {!search && (
                 <LoadMoreButton
                   hasMore={hasMore}
@@ -111,7 +110,7 @@ function WorkflowsIndexContent() {
                   onClick={() => loadMore?.()}
                 />
               )}
-            </div>
+            </>
           )}
         </LoadingView>
 
@@ -124,69 +123,5 @@ function WorkflowsIndexContent() {
 
       {importOpen && <ImportWorkflowDialog onClose={() => setImportOpen(false)} />}
     </div>
-  )
-}
-
-function WorkflowRow({ workflow: wf }: { workflow: WorkflowSummary }) {
-  return (
-    <Link
-      to="/workflows/$workflowId"
-      params={{ workflowId: wf.id }}
-      className="group block rounded-lg border border-border bg-card transition-all duration-150 hover:border-border/80 hover:bg-muted/20"
-    >
-      <div className="flex items-center justify-between px-4 py-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2.5">
-            <span className="text-sm font-medium text-foreground">{wf.name}</span>
-            {wf.kind === 'script' && (
-              <span
-                className="inline-flex items-center rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
-                title="Stateless fetch-only Worker — runs synchronously, no sleeps or waits"
-              >
-                Function
-              </span>
-            )}
-            <StatusLabel
-              hasVersion={!!wf.currentVersionId}
-              deployStatus={wf.deployStatus ?? undefined}
-            />
-          </div>
-          {wf.description && (
-            <p className="mt-0.5 max-w-sm truncate text-xs text-muted-foreground/60">
-              {wf.description}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-3" onClick={(e) => e.preventDefault()}>
-          <span className="text-xs text-muted-foreground">{timeAgo(wf.updatedAt)}</span>
-          <div className="flex items-center gap-1">
-            {wf.deployStatus === 'success' && <TriggerButton workflowId={wf.id} />}
-            <WorkflowActionsMenu workflow={wf} isDeployed={wf.deployStatus === 'success'} />
-          </div>
-        </div>
-      </div>
-    </Link>
-  )
-}
-
-function StatusLabel({ hasVersion, deployStatus }: { hasVersion: boolean; deployStatus?: string }) {
-  if (hasVersion && deployStatus === 'success') {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs text-status-success">
-        <span className="h-1.5 w-1.5 rounded-full bg-status-success" /> Deployed
-      </span>
-    )
-  }
-  if (deployStatus === 'failed') {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs text-status-error">
-        <span className="h-1.5 w-1.5 rounded-full bg-status-error" /> Error
-      </span>
-    )
-  }
-  return (
-    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground/60">
-      <span className="h-1.5 w-1.5 rounded-full border border-border" /> Draft
-    </span>
   )
 }
