@@ -55,7 +55,7 @@ export function ProjectsList({ projects, loading }: { projects: Project[]; loadi
   }
 
   return (
-    <section className="rounded-md border border-border p-4">
+    <section className="rounded-lg border border-border bg-card p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <FolderKanban size={14} className="text-muted-foreground/60" />
