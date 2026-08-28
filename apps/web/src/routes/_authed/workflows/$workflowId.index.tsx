@@ -1,10 +1,7 @@
 import { createFileRoute, Link, useParams, redirect } from '@tanstack/react-router'
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
-import { toast } from 'sonner'
-import type { WorkflowNode, Edge as IREdge } from '@awaitstep/ir'
-import { validateWorkflowForPublish } from '../../../lib/validate-workflow'
-import { Pencil, Rocket, GitBranch, Activity, Globe } from 'lucide-react'
+import { Pencil, GitBranch, Activity, Globe } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { api } from '../../../lib/api-client'
 import { queries, flatPages } from '../../../lib/queries'
@@ -12,7 +9,7 @@ import { useOrgReady } from '../../../stores/org-store'
 import { timeAgo } from '../../../lib/time'
 import { WorkflowActionsMenu } from '../../../components/dashboard/workflow-actions-menu'
 import { TriggerButton } from '../../../components/dashboard/trigger-button'
-import { useNavigate } from '@tanstack/react-router'
+import { DeployButton } from '../../../components/overview/deploy-action'
 import { EditableName, EditableDescription } from '../../../components/overview/editable-field'
 import { VersionList } from '../../../components/overview/version-list'
 import { RecentRuns } from '../../../components/overview/recent-runs'
@@ -33,7 +30,6 @@ export const Route = createFileRoute('/_authed/workflows/$workflowId/')({
 function WorkflowOverviewPage() {
   const ready = useOrgReady()
   const { workflowId } = useParams({ from: '/_authed/workflows/$workflowId/' })
-  const navigate = useNavigate()
 
   const { data: workflow, isLoading: wfLoading } = useQuery({
     queryKey: ['workflow', workflowId],
@@ -99,64 +95,12 @@ function WorkflowOverviewPage() {
                   Open Editor
                 </Button>
               </Link>
-              <Button
-                size="sm"
-                className="gap-1.5"
-                disabled={deployBlocked}
-                title={deployBlocked ? 'Deployed version is locked' : undefined}
-                onClick={async () => {
-                  if (!workflow?.currentVersionId) {
-                    toast.error(
-                      'No version to deploy. Open the editor and save your workflow first.',
-                    )
-                    return
-                  }
-                  try {
-                    const ver = await api.getVersion(workflowId, workflow.currentVersionId)
-                    const ir = JSON.parse(ver.ir) as {
-                      metadata: { name: string; description?: string }
-                      nodes: WorkflowNode[]
-                      edges: IREdge[]
-                    }
-                    const flowNodes = ir.nodes.map((n) => ({
-                      id: n.id,
-                      type: n.type,
-                      position: n.position,
-                      data: { irNode: n },
-                    }))
-                    const flowEdges = ir.edges.map((e) => ({
-                      id: e.id,
-                      source: e.source,
-                      target: e.target,
-                      label: e.label,
-                    }))
-                    const result = validateWorkflowForPublish(
-                      ir.metadata,
-                      flowNodes,
-                      flowEdges,
-                      undefined,
-                      undefined,
-                      workflow.kind,
-                    )
-                    if (!result.canPublish) {
-                      const errors = result.issues.filter((i) => i.severity === 'error')
-                      for (const issue of errors) {
-                        toast.error(
-                          issue.nodeName ? `${issue.nodeName}: ${issue.message}` : issue.message,
-                        )
-                      }
-                      return
-                    }
-                  } catch {
-                    toast.error('Failed to validate workflow')
-                    return
-                  }
-                  navigate({ to: '/workflows/$workflowId/deploy', params: { workflowId } })
-                }}
-              >
-                <Rocket className="h-3.5 w-3.5" />
-                Deploy
-              </Button>
+              <DeployButton
+                workflowId={workflowId}
+                currentVersionId={workflow.currentVersionId}
+                kind={workflow.kind}
+                deployBlocked={deployBlocked}
+              />
               {hasActiveDeployment && <TriggerButton workflowId={workflowId} />}
               <WorkflowActionsMenu workflow={workflow} isDeployed={hasActiveDeployment} />
             </div>
@@ -165,19 +109,19 @@ function WorkflowOverviewPage() {
           {/* Status strip */}
           <div className="mt-6 grid grid-cols-3 gap-3">
             <div className="rounded-lg border border-border bg-card px-4 py-3">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-2 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
                 <GitBranch className="h-3.5 w-3.5" />
                 Version
               </div>
-              <p className="mt-1 text-lg font-semibold text-foreground">
+              <p className="mt-1 font-mono text-lg font-semibold tabular-nums text-foreground">
                 {currentVersion > 0 ? `v${currentVersion}` : '—'}
               </p>
-              <p className="text-xs text-muted-foreground/60">
+              <p className="text-2xs text-muted-foreground/60">
                 Updated {timeAgo(workflow.updatedAt)}
               </p>
             </div>
             <div className="rounded-lg border border-border bg-card px-4 py-3">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-2 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
                 <Globe className="h-3.5 w-3.5" />
                 Deployment
               </div>
@@ -206,14 +150,14 @@ function WorkflowOverviewPage() {
               </div>
             </div>
             <div className="rounded-lg border border-border bg-card px-4 py-3">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-2 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
                 <Activity className="h-3.5 w-3.5" />
                 Runs
               </div>
-              <p className="mt-1 text-lg font-semibold text-foreground">
+              <p className="mt-1 font-mono text-lg font-semibold tabular-nums text-foreground">
                 {workflowRuns.length > 0 ? workflowRuns.length : '—'}
               </p>
-              <p className="text-xs text-muted-foreground/60">
+              <p className="text-2xs text-muted-foreground/60">
                 Created {timeAgo(workflow.createdAt)}
               </p>
             </div>
