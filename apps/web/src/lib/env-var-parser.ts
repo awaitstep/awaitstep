@@ -2,6 +2,7 @@ import type { EnvVarSummary } from './api-client'
 
 export const NAME_PATTERN = /^[A-Z][A-Z0-9_]*$/
 export const SECRET_PREFIX = 'SECRET_'
+export const MASKED_SECRET_VALUE = '••••••••'
 
 export interface ParsedLine {
   name: string
@@ -16,7 +17,7 @@ export function envVarsToString(vars: EnvVarSummary[]): string {
     .map((v) => {
       const displayName =
         v.isSecret && !v.name.startsWith(SECRET_PREFIX) ? `${SECRET_PREFIX}${v.name}` : v.name
-      return `${displayName}=${v.isSecret ? '••••••••' : v.value}`
+      return `${displayName}=${v.isSecret ? MASKED_SECRET_VALUE : v.value}`
     })
     .join('\n')
 }
