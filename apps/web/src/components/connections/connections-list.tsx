@@ -54,21 +54,21 @@ export function ConnectionsList({
             />
           </div>
         ) : (
-          <div className="mt-6 space-y-2">
-            {connections.map((conn) => (
-              <div
-                key={conn.id}
-                className="rounded-lg border border-border bg-card transition-colors hover:border-border/80 hover:bg-muted/20"
-              >
-                <div className="flex items-center justify-between px-4 py-3">
+          <>
+            <div className="mt-5 divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+              {connections.map((conn) => (
+                <div
+                  key={conn.id}
+                  className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-muted/20"
+                >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2.5">
                       <span className="text-sm font-medium text-foreground">{conn.name}</span>
-                      <span className="text-xs text-muted-foreground/60">
+                      <span className="text-2xs uppercase tracking-wide text-muted-foreground/60">
                         {getProvider(conn.provider)?.name ?? conn.provider}
                       </span>
                     </div>
-                    <p className="mt-0.5 font-mono text-xs text-muted-foreground/50">
+                    <p className="mt-0.5 font-mono text-2xs text-muted-foreground/50">
                       {conn.credentials.accountId}
                     </p>
                   </div>
@@ -90,21 +90,21 @@ export function ConnectionsList({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-red-400"
+                      className="h-8 w-8 text-muted-foreground hover:text-status-error"
                       onClick={() => setDeleteTarget({ id: conn.id, name: conn.name })}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
             <LoadMoreButton
               hasMore={hasMore}
               loading={isFetchingMore}
               onClick={() => loadMore?.()}
             />
-          </div>
+          </>
         )}
       </LoadingView>
 
