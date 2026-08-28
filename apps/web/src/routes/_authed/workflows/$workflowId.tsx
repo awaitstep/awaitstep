@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, Link, useMatches, useParams } from '@tanstack/
 import { useQuery } from '@tanstack/react-query'
 import { ChevronRight } from 'lucide-react'
 import { api } from '../../../lib/api-client'
+import { isChromelessRoute } from '../../../lib/shell-routes'
 import { RequireProject } from '../../../wrappers/require-project'
 import { cn } from '../../../lib/utils'
 
@@ -50,13 +51,7 @@ function WorkflowLayoutContent() {
     queryFn: () => api.getWorkflow(workflowId),
   })
 
-  const isFullScreen = matches.some(
-    (m) =>
-      m.routeId === '/_authed/workflows/$workflowId/canvas' ||
-      m.routeId === '/_authed/workflows/$workflowId/deploy',
-  )
-
-  if (isFullScreen) {
+  if (isChromelessRoute(matches)) {
     return <Outlet />
   }
 
