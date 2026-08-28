@@ -6,7 +6,8 @@ import { isChromelessRoute } from '../lib/shell-routes'
 import { useAuthStore, type SessionData } from '../stores/auth-store'
 import { type Organization } from '../stores/org-store'
 import OrgWrapper from '../wrappers/org'
-import { Dock } from '../components/nav/dock'
+import { AppSidebar } from '../components/nav/app-sidebar'
+import { MobileSidebar } from '../components/nav/mobile-sidebar'
 
 interface LoaderData {
   sessionData: SessionData
@@ -77,13 +78,14 @@ function AuthedLayout() {
   return (
     <>
       <OrgWrapper organizations={loaderData.organizations} />
-      <div className="flex min-h-screen flex-col">
-        <main className="mx-auto w-full max-w-screen-lg flex-1 px-8 py-6 pb-24">
-          <Outlet />
-        </main>
-        {loaderData.organizations.length !== 0 && (
-          <Dock email={loaderData.sessionData.user.email} />
-        )}
+      <div className="flex min-h-svh">
+        <AppSidebar />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <MobileSidebar />
+          <main className="mx-auto w-full max-w-screen-xl flex-1 px-6 py-6 md:px-8">
+            <Outlet />
+          </main>
+        </div>
       </div>
     </>
   )
