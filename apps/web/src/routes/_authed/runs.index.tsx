@@ -3,14 +3,13 @@ import { useState } from 'react'
 import { Play } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { PageHeader } from '../../components/ui/page-header'
-import { RunStatusBadge } from '../../components/monitoring/run-status-badge'
+import { RunRow } from '../../components/monitoring/run-row'
 import { RunDetailSheet } from '../../components/monitoring/run-detail-sheet'
 import { TriggerDialog } from '../../components/canvas/trigger-dialog'
 import { useWorkflowsStore } from '../../stores/workflows-store'
 import { useRunsStore } from '../../stores/runs-store'
 import { useSheetStore } from '../../stores/sheet-store'
 import { useShallow } from 'zustand/react/shallow'
-import { timeAgo, duration } from '../../lib/time'
 import { RequireProject } from '../../wrappers/require-project'
 import { LoadingView } from '../../components/ui/loading-view'
 import { LoadMoreButton } from '../../components/ui/load-more-button'
@@ -78,45 +77,32 @@ function RunsIndexContent() {
               />
             </div>
           ) : (
-            <div className="mt-6 space-y-2">
-              {runs.map((run) => {
-                const wf = workflowMap.get(run.workflowId)
-                return (
-                  <button
-                    key={run.id}
-                    onClick={() =>
-                      openRunSheet({
-                        runId: run.id,
-                        workflowId: run.workflowId,
-                        workflowName: wf?.name,
-                      })
-                    }
-                    className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:border-border/80 hover:bg-muted/20"
-                  >
-                    <div className="flex items-center gap-3">
-                      <RunStatusBadge status={run.status} />
-                      <div className="min-w-0 flex flex-col">
-                        <p className="text-sm text-foreground/70">{wf?.name ?? run.workflowId}</p>
-                        <span className="font-mono text-xs text-muted-foreground/50">
-                          {run.instanceId}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col flex-end items-end text-sm text-muted-foreground">
-                      <span>{timeAgo(run.createdAt)}</span>
-                      <span className="text-xs text-muted-foreground/50">
-                        {duration(run.createdAt, run.updatedAt, run.status)}
-                      </span>
-                    </div>
-                  </button>
-                )
-              })}
+            <>
+              <div className="mt-5 divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+                {runs.map((run) => {
+                  const wf = workflowMap.get(run.workflowId)
+                  return (
+                    <RunRow
+                      key={run.id}
+                      run={run}
+                      workflowName={wf?.name}
+                      onClick={() =>
+                        openRunSheet({
+                          runId: run.id,
+                          workflowId: run.workflowId,
+                          workflowName: wf?.name,
+                        })
+                      }
+                    />
+                  )
+                })}
+              </div>
               <LoadMoreButton
                 hasMore={hasMore}
                 loading={isFetchingMore}
                 onClick={() => loadMore?.()}
               />
-            </div>
+            </>
           )}
         </LoadingView>
       </div>

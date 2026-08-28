@@ -4,10 +4,9 @@ import { Button } from '../ui/button'
 import { useWorkflowsStore } from '../../stores/workflows-store'
 import { useRunsStore } from '../../stores/runs-store'
 import { useSheetStore } from '../../stores/sheet-store'
-import { RunStatusBadge } from '../monitoring/run-status-badge'
+import { RunRow } from '../monitoring/run-row'
 import { RunDetailSheet } from '../monitoring/run-detail-sheet'
 import { EmptyState } from '../ui/empty-state'
-import { timeAgo, duration } from '../../lib/time'
 
 export function RecentRunsList() {
   const runs = useRunsStore((s) => s.runs)
@@ -41,8 +40,10 @@ export function RecentRunsList() {
           {runs.slice(0, 5).map((run) => {
             const wf = workflowMap.get(run.workflowId)
             return (
-              <button
+              <RunRow
                 key={run.id}
+                run={run}
+                workflowName={wf?.name}
                 onClick={() =>
                   openRunSheet({
                     runId: run.id,
@@ -50,26 +51,7 @@ export function RecentRunsList() {
                     workflowName: wf?.name,
                   })
                 }
-                className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-muted/20"
-              >
-                <div className="flex items-center gap-3">
-                  <RunStatusBadge status={run.status} />
-                  <div className="min-w-0">
-                    <span className="text-sm text-foreground/70">
-                      {wf?.name ?? run.workflowId.slice(0, 8)}
-                    </span>
-                    <span className="ml-2 font-mono text-xs text-muted-foreground/50">
-                      {run.instanceId.slice(0, 12)}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 text-2xs text-muted-foreground">
-                  <span className="font-mono tabular-nums">
-                    {duration(run.createdAt, run.updatedAt, run.status)}
-                  </span>
-                  <span className="font-mono tabular-nums">{timeAgo(run.createdAt)}</span>
-                </div>
-              </button>
+              />
             )
           })}
         </div>
