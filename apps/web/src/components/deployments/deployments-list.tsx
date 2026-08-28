@@ -28,14 +28,14 @@ export function DeploymentsList({
   onSelect: (deployment: Deployment) => void
 }) {
   return (
-    <div className="space-y-2">
+    <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
       {deployments.map((d, i) => {
         const conn = d.connectionId ? connectionMap.get(d.connectionId) : undefined
         return (
           <button
             key={d.id}
             onClick={() => onSelect(d)}
-            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:border-border/80 hover:bg-muted/20"
+            className="w-full px-4 py-3 text-left transition-colors hover:bg-muted/20"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
