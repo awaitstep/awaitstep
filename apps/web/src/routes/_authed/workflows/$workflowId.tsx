@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, Link, useMatches, useParams } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronRight } from 'lucide-react'
+import { Badge } from '../../../components/ui/badge'
 import { api } from '../../../lib/api-client'
 import { isChromelessRoute } from '../../../lib/shell-routes'
 import { RequireProject } from '../../../wrappers/require-project'
@@ -61,23 +61,28 @@ function WorkflowLayoutContent() {
 
   return (
     <div>
-      <nav className="mb-4 flex items-center gap-1 text-xs text-muted-foreground/60">
-        <Link to="/workflows" className="transition-colors hover:text-muted-foreground">
-          Workflows
-        </Link>
-        <ChevronRight className="h-3 w-3" />
-        <span className="max-w-[200px] truncate text-muted-foreground">
-          {workflow?.name ?? workflowId}
-        </span>
-        {workflow?.kind === 'script' && (
-          <span
-            className="ml-1 inline-flex items-center rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
-            title="Stateless fetch-only Worker — runs synchronously, no sleeps or waits"
-          >
-            Function
+      <div className="-mx-6 flex h-16 shrink-0 items-center border-b border-border px-6 md:-mx-8 md:px-8">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground/60">
+            <Link to="/workflows" className="transition-colors hover:text-muted-foreground">
+              Workflows
+            </Link>
+            <span className="text-muted-foreground/40">/</span>
           </span>
-        )}
-      </nav>
+          <h1 className="max-w-[280px] truncate text-base font-semibold tracking-tight">
+            {workflow?.name ?? workflowId}
+          </h1>
+          {workflow?.kind === 'script' && (
+            <Badge
+              variant="outline"
+              className="uppercase tracking-wide"
+              title="Stateless fetch-only Worker — runs synchronously, no sleeps or waits"
+            >
+              Function
+            </Badge>
+          )}
+        </div>
+      </div>
       <nav className="-mx-6 flex gap-0 border-b border-border px-4 md:-mx-8 md:px-6">
         {tabs.map((tab) => (
           <Link
