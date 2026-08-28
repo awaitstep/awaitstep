@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, redirect, useMatches } from '@tanstack/react-r
 import { createServerFn } from '@tanstack/react-start'
 import { getRequestHeader, setCookie } from '@tanstack/react-start/server'
 import { apiFetch } from '../lib/cf-context'
+import { isChromelessRoute } from '../lib/shell-routes'
 import { useAuthStore, type SessionData } from '../stores/auth-store'
 import { type Organization } from '../stores/org-store'
 import OrgWrapper from '../wrappers/org'
@@ -60,11 +61,10 @@ export const Route = createFileRoute('/_authed')({
 function AuthedLayout() {
   const loaderData = Route.useLoaderData()
   const matches = useMatches()
-  const isCanvasPage = matches.some((m) => m.routeId === '/_authed/workflows/$workflowId/canvas')
 
   useAuthStore.getState().setSession(loaderData.sessionData)
 
-  if (isCanvasPage) {
+  if (isChromelessRoute(matches)) {
     return (
       <>
         <OrgWrapper organizations={loaderData.organizations} />
