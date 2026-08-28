@@ -1,5 +1,8 @@
 export type {
   GeneratedArtifact,
+  GeneratedFile,
+  GeneratedFileRole,
+  GeneratedBundle,
   ProviderConfig,
   DeployResult,
   WorkflowStatus,
@@ -29,6 +32,13 @@ export {
   isExportedName,
   stripExportPrefix,
 } from './sanitize.js'
+export {
+  toBundle,
+  bundleEntry,
+  bundleCodeFiles,
+  assertSafeBundlePath,
+  validateBundle,
+} from './bundle.js'
 export { escName } from './var-names.js'
 export { computeVarNames, createGenerationContext } from './context.js'
 export type { GenerationContext } from './context.js'

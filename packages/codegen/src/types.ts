@@ -1,7 +1,35 @@
+import type { ArtifactIR } from '@awaitstep/ir'
+/**
+ * @deprecated Single-file shape kept for legacy call sites and tests — the
+ * provider contract now produces a {@link GeneratedBundle}. Wrap with
+ * `toBundle()` (bundle.ts) where a bundle is required.
+ */
 export interface GeneratedArtifact {
   filename: string
   source: string
   compiled?: string
+}
+
+export type GeneratedFileRole = 'entry' | 'module' | 'config' | 'meta'
+
+export interface GeneratedFile {
+  /** Bundle-relative path, e.g. `worker.ts` or `src/nodes/fetch_data.ts`. */
+  path: string
+  source: string
+  /** Transpiled JavaScript, populated by the deploy pipeline before upload. */
+  compiled?: string
+  role: GeneratedFileRole
+}
+
+/**
+ * The full output of a generation: one entry plus any module/config/meta
+ * files. Single-file today; per-node module extraction lands on top of this
+ * shape without another contract change.
+ */
+export interface GeneratedBundle {
+  /** Path of the entry file within {@link files}. */
+  entry: string
+  files: GeneratedFile[]
 }
 
 export interface ProviderConfig {
@@ -43,6 +71,12 @@ export interface LocalDevOptions {
   vars?: Record<string, string>
   secrets?: Record<string, string>
   dependencies?: Record<string, string>
+  /**
+   * The workflow IR, when available. Lets providers derive bindings from
+   * declarations (authoritative) instead of regex-scanning generated source —
+   * keeping local dev consistent with the deploy path.
+   */
+  ir?: ArtifactIR
 }
 
 export type WorkflowStatus =

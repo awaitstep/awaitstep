@@ -1,6 +1,6 @@
 import type { ArtifactIR, ValidationError, Result } from '@awaitstep/ir'
 import type {
-  GeneratedArtifact,
+  GeneratedBundle,
   DeployResult,
   ProviderConfig,
   WorkflowRunStatus,
@@ -39,9 +39,9 @@ export interface WorkflowProvider {
    * Generate the deploy artifact for either a workflow or a script. Implementers
    * should dispatch on `ir.kind`.
    */
-  generate(ir: ArtifactIR, config?: ProviderConfig): GeneratedArtifact
+  generate(ir: ArtifactIR, config?: ProviderConfig): GeneratedBundle
 
-  deploy(artifact: GeneratedArtifact, config: ProviderConfig): Promise<DeployResult>
+  deploy(bundle: GeneratedBundle, config: ProviderConfig): Promise<DeployResult>
 
   getStatus(instanceId: string, config: ProviderConfig): Promise<WorkflowRunStatus>
 
@@ -58,7 +58,7 @@ export interface WorkflowProvider {
 }
 
 export interface LocalDevProvider {
-  startLocalDev(artifact: GeneratedArtifact, options: LocalDevOptions): Promise<LocalDevSession>
+  startLocalDev(bundle: GeneratedBundle, options: LocalDevOptions): Promise<LocalDevSession>
 }
 
 export function supportsLocalDev(
