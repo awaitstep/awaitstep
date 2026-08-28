@@ -82,31 +82,26 @@ export function RunDetail({ runId, workflowIdHint }: RunDetailProps) {
 
   return (
     <div>
-      <div className="-mx-6 border-b border-border px-6 pb-3 md:-mx-8 md:px-8">
-        <nav className="mb-1 flex items-center gap-1 text-xs text-muted-foreground/60">
-          <Link to="/runs" className="transition-colors hover:text-muted-foreground">
-            Runs
-          </Link>
-          <span>/</span>
-          <span className="max-w-[240px] truncate font-mono text-muted-foreground">
-            {run.instanceId}
+      <div className="-mx-6 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border px-6 md:-mx-8 md:px-8">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground/60">
+            <Link to="/runs" className="transition-colors hover:text-muted-foreground">
+              Runs
+            </Link>
+            <span className="text-muted-foreground/40">/</span>
           </span>
-        </nav>
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-3">
-            {workflow && (
-              <Link
-                to="/workflows/$workflowId"
-                params={{ workflowId }}
-                className="truncate text-base font-semibold tracking-tight hover:text-foreground/80"
-              >
-                {workflow.name}
-              </Link>
-            )}
-            <RunStatusBadge status={run.status} />
-          </div>
-          {!isTerminal && <RunActions workflowId={workflowId} runId={runId} status={run.status} />}
+          {workflow && (
+            <Link
+              to="/workflows/$workflowId"
+              params={{ workflowId }}
+              className="truncate text-base font-semibold tracking-tight hover:text-foreground/80"
+            >
+              {workflow.name}
+            </Link>
+          )}
+          <RunStatusBadge status={run.status} />
         </div>
+        {!isTerminal && <RunActions workflowId={workflowId} runId={runId} status={run.status} />}
       </div>
 
       <div className="max-w-screen-md">
