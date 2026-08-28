@@ -24,7 +24,8 @@ function ApiPlaygroundPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-7rem)] flex-col gap-4">
+    {/* 100svh minus the shell's pb-8 (2rem); below md also minus the h-12 mobile top bar. */}
+    <div className="flex h-[calc(100svh-2rem)] flex-col gap-4 max-md:h-[calc(100svh-5rem)]">
       <PageHeader
         title="API Playground"
         actions={
