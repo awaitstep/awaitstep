@@ -107,7 +107,6 @@ function EnvVarsContent() {
             />
           </span>
         }
-        breadcrumbs={[{ label: 'Home', href: '/dashboard' }, { label: 'Environment Variables' }]}
         actions={
           <Button size="sm" onClick={handleSave} disabled={!isDirty || saving || errors.length > 0}>
             <Save className="h-3.5 w-3.5" />
