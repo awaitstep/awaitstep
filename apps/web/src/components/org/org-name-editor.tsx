@@ -57,7 +57,7 @@ export function OrgNameEditor({ org }: { org: Organization }) {
           onChange={(e) => setValue(e.target.value)}
           onBlur={save}
           onKeyDown={handleKeyDown}
-          className="w-full rounded-md border border-border bg-transparent px-2 py-1 text-xl font-semibold outline-none focus:border-primary/50"
+          className="w-full rounded-md border border-border bg-transparent px-2 py-1 text-lg font-semibold tracking-tight outline-none focus:border-primary/50"
         />
       </div>
     )
@@ -67,7 +67,7 @@ export function OrgNameEditor({ org }: { org: Organization }) {
     <div className="mt-6">
       <p
         onClick={() => setEditing(true)}
-        className="cursor-text rounded-md px-2 py-1 text-xl font-semibold transition-colors hover:bg-muted/40"
+        className="cursor-text rounded-md px-2 py-1 text-lg font-semibold tracking-tight transition-colors hover:bg-muted/40"
         title="Click to rename"
       >
         {org.name}

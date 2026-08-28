@@ -83,7 +83,7 @@ export function ApiKeysSection() {
   }
 
   return (
-    <section className="rounded-md border border-border p-4">
+    <section className="rounded-lg border border-border bg-card p-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
           API Keys

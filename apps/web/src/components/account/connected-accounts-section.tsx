@@ -50,7 +50,7 @@ export function ConnectedAccountsSection({ enabledProviders }: Props) {
   const linkedProviders = new Set(accounts?.map((a) => a.providerId) ?? [])
 
   return (
-    <section className="rounded-md border border-border p-4">
+    <section className="rounded-lg border border-border bg-card p-4">
       <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
         Connected Accounts
       </h2>
