@@ -71,39 +71,39 @@ function RunsListPage() {
             No runs yet. Trigger the workflow to see execution history.
           </div>
         ) : (
-          <div className="space-y-2">
-            {runs.map(
-              (run: {
-                id: string
-                instanceId: string
-                status: string
-                createdAt: string
-                updatedAt: string
-              }) => (
-                <button
-                  key={run.id}
-                  onClick={() => openRunSheet({ runId: run.id, workflowId })}
-                  className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:border-border/80 hover:bg-muted/20"
-                >
-                  <div className="flex items-center gap-3">
-                    <RunStatusBadge status={run.status} />
-                    <span className="font-mono text-xs text-foreground/60">{run.instanceId}</span>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span className="font-mono">
-                      {duration(run.createdAt, run.updatedAt, run.status)}
-                    </span>
-                    <span>{timeAgo(run.createdAt)}</span>
-                  </div>
-                </button>
-              ),
-            )}
+          <>
+            <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+              {runs.map(
+                (run: {
+                  id: string
+                  instanceId: string
+                  status: string
+                  createdAt: string
+                  updatedAt: string
+                }) => (
+                  <button
+                    key={run.id}
+                    onClick={() => openRunSheet({ runId: run.id, workflowId })}
+                    className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-muted/20"
+                  >
+                    <div className="flex items-center gap-3">
+                      <RunStatusBadge status={run.status} />
+                      <span className="font-mono text-xs text-foreground/60">{run.instanceId}</span>
+                    </div>
+                    <div className="flex items-center gap-4 font-mono text-2xs tabular-nums text-muted-foreground">
+                      <span>{duration(run.createdAt, run.updatedAt, run.status)}</span>
+                      <span>{timeAgo(run.createdAt)}</span>
+                    </div>
+                  </button>
+                ),
+              )}
+            </div>
             <LoadMoreButton
               hasMore={!!hasNextPage}
               loading={isFetchingNextPage}
               onClick={() => fetchNextPage()}
             />
-          </div>
+          </>
         )}
       </LoadingView>
 
