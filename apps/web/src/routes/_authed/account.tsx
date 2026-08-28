@@ -35,10 +35,7 @@ function AccountPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Account"
-        breadcrumbs={[{ label: 'Home', href: '/dashboard' }, { label: 'Account' }]}
-      />
+      <PageHeader title="Account" />
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <div className="space-y-4">
           <ProfileSection user={user} />

@@ -53,7 +53,6 @@ function RunsIndexContent() {
     <div>
       <PageHeader
         title="Runs"
-        breadcrumbs={[{ label: 'Home', href: '/dashboard' }, { label: 'Runs' }]}
         actions={
           deployedWorkflows.length > 0 ? (
             <Button

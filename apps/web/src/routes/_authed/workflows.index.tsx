@@ -52,7 +52,6 @@ function WorkflowsIndexContent() {
     <div>
       <PageHeader
         title="Workflows"
-        breadcrumbs={[{ label: 'Home', href: '/dashboard' }, { label: 'Workflows' }]}
         actions={
           <div className="flex items-center gap-2">
             <Button

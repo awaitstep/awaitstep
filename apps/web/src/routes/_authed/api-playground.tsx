@@ -27,11 +27,6 @@ function ApiPlaygroundPage() {
     <div className="flex h-[calc(100vh-7rem)] flex-col gap-4">
       <PageHeader
         title="API Playground"
-        breadcrumbs={[
-          { label: 'Home', href: '/dashboard' },
-          { label: 'Developer' },
-          { label: 'API Playground' },
-        ]}
         actions={
           <div className="relative">
             <KeyRound

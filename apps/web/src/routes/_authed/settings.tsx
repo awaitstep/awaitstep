@@ -31,10 +31,7 @@ function SettingsContent() {
 
   return (
     <div>
-      <PageHeader
-        title="Settings"
-        breadcrumbs={[{ label: 'Home', href: '/dashboard' }, { label: 'Settings' }]}
-      />
+      <PageHeader title="Settings" />
       {activeOrg ? (
         <OrgNameEditor org={activeOrg} />
       ) : (

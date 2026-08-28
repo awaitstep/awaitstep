@@ -46,7 +46,6 @@ function ConnectionsContent() {
             />
           </span>
         }
-        breadcrumbs={[{ label: 'Home', href: '/dashboard' }, { label: 'Connections' }]}
         actions={
           <Button size="sm" className="gap-1.5" onClick={() => setDialogOpen(true)}>
             <Plus className="h-4 w-4" />

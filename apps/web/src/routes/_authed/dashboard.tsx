@@ -14,7 +14,7 @@ export const Route = createFileRoute('/_authed/dashboard')({
 function DashboardPage() {
   return (
     <RequireProject>
-      <PageHeader title="Dashboard" breadcrumbs={[{ label: 'Home' }]} />
+      <PageHeader title="Dashboard" />
       <DashboardStats />
       <WorkflowList />
       <RecentRunsList />
