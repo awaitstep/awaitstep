@@ -1,16 +1,12 @@
 import { writeFile, mkdir, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import type { GeneratedArtifact } from '@awaitstep/codegen'
+import { assertSafeBundlePath, bundleCodeFiles } from '@awaitstep/codegen'
+import type { GeneratedBundle } from '@awaitstep/codegen'
 import type { WranglerDeployer, DeployOptions, WranglerDeployResult } from './deployer.js'
-import {
-  buildSecretsBulkJson,
-  redactSensitive,
-  safeFilename,
-  SECRETS_BULK_FILENAME,
-} from './deployer.js'
+import { buildSecretsBulkJson, redactSensitive, SECRETS_BULK_FILENAME } from './deployer.js'
 import { generateWranglerConfig } from '../wrangler-config.js'
 import { workerName, workflowClassName, sanitizedWorkflowName } from '../naming.js'
 
@@ -18,21 +14,25 @@ const execFileAsync = promisify(execFile)
 
 export class NodeWranglerDeployer implements WranglerDeployer {
   async deploy(
-    artifact: GeneratedArtifact,
+    bundle: GeneratedBundle,
     options: DeployOptions,
     onProgress?: (stage: string, message: string) => void,
   ): Promise<WranglerDeployResult> {
     const name = workerName(options.workflowId)
     const className = options.className ?? workflowClassName(options.workflowName)
     const deployDir = join(tmpdir(), `awaitstep-deploy-${Date.now()}`)
-    const filename = safeFilename(artifact.filename)
 
     try {
       await mkdir(deployDir, { recursive: true })
 
-      // 1. Write generated code
+      // 1. Write generated code (entry + any per-node modules)
       onProgress?.('WRITING_FILES', 'Preparing worker files...')
-      await writeFile(join(deployDir, filename), artifact.compiled ?? artifact.source, 'utf-8')
+      const entryPath = assertSafeBundlePath(bundle.entry)
+      for (const file of bundleCodeFiles(bundle)) {
+        const target = join(deployDir, assertSafeBundlePath(file.path))
+        await mkdir(dirname(target), { recursive: true })
+        await writeFile(target, file.compiled ?? file.source, 'utf-8')
+      }
 
       // 2. Write wrangler config
       const wranglerConfig = generateWranglerConfig({
@@ -40,7 +40,7 @@ export class NodeWranglerDeployer implements WranglerDeployer {
         workerName: name,
         className,
         workflowName: sanitizedWorkflowName(options.workflowName),
-        main: `./${filename}`,
+        main: `./${entryPath}`,
         vars: options.vars,
         bindings: options.bindings,
         subWorkflowBindings: options.subWorkflowBindings,

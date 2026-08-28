@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { WorkflowIR } from '@awaitstep/ir'
 import type { ProviderConfig } from '@awaitstep/codegen'
+import { bundleEntry } from '@awaitstep/codegen'
 import { CloudflareWorkflowsAdapter, buildQueueConsumers, buildCronTriggers } from '../adapter.js'
 import type { WranglerDeployer } from '../deploy/deployer.js'
 
@@ -76,17 +77,17 @@ describe('CloudflareWorkflowsAdapter', () => {
 
   describe('generate', () => {
     it('generates a TypeScript artifact', () => {
-      const artifact = adapter.generate(simpleIR)
-      expect(artifact.filename).toBe('worker.ts')
-      expect(artifact.source).toContain('WorkflowEntrypoint')
-      expect(artifact.source).toContain('class TestWorkflow')
-      expect(artifact.source).toContain('step.do("Hello"')
+      const bundle = adapter.generate(simpleIR)
+      expect(bundle.entry).toBe('worker.ts')
+      expect(bundleEntry(bundle).source).toContain('WorkflowEntrypoint')
+      expect(bundleEntry(bundle).source).toContain('class TestWorkflow')
+      expect(bundleEntry(bundle).source).toContain('step.do("Hello"')
     })
 
     it('uses default trigger code when no triggerCode provided', () => {
-      const artifact = adapter.generate(simpleIR)
-      expect(artifact.source).toContain('const params = await request.json()')
-      expect(artifact.source).toContain(
+      const bundle = adapter.generate(simpleIR)
+      expect(bundleEntry(bundle).source).toContain('const params = await request.json()')
+      expect(bundleEntry(bundle).source).toContain(
         'env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION })',
       )
     })
@@ -99,10 +100,10 @@ describe('CloudflareWorkflowsAdapter', () => {
         credentials: {},
         options: { triggerCode: customTrigger },
       }
-      const artifact = adapter.generate(simpleIR, config)
-      expect(artifact.source).toContain('const { name } = await request.json()')
-      expect(artifact.source).toContain('env.WORKFLOW.create({ name })')
-      expect(artifact.source).not.toContain(
+      const bundle = adapter.generate(simpleIR, config)
+      expect(bundleEntry(bundle).source).toContain('const { name } = await request.json()')
+      expect(bundleEntry(bundle).source).toContain('env.WORKFLOW.create({ name })')
+      expect(bundleEntry(bundle).source).not.toContain(
         'env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION })',
       )
     })

@@ -5,7 +5,7 @@ import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import { workerName } from '@awaitstep/provider-cloudflare'
-import type { ProviderConfig, GeneratedArtifact, DeployResult } from '@awaitstep/codegen'
+import type { ProviderConfig, GeneratedBundle, DeployResult } from '@awaitstep/codegen'
 import type { AppEnv } from '../types.js'
 import { resolveProvider } from '../lib/provider-resolver.js'
 import { prepareDeploy, isDeployError } from '../lib/deploy-prepare.js'
@@ -53,9 +53,9 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
     return c.json({ error: prepared.error, details: prepared.details }, prepared.status as 400)
   }
 
-  const { adapter, artifact, providerConfig, versionId, connectionId } = prepared
+  const { adapter, bundle, providerConfig, versionId, connectionId } = prepared
   const configSnapshot = JSON.stringify(prepared.resolvedDeploymentConfig)
-  const result = await adapter.deploy(artifact, providerConfig)
+  const result = await adapter.deploy(bundle, providerConfig)
 
   await db.createDeployment({
     id: nanoid(),
@@ -107,7 +107,7 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
     return c.json({ error: prepared.error, details: prepared.details }, prepared.status as 400)
   }
 
-  const { adapter, artifact, providerConfig, versionId, connectionId } = prepared
+  const { adapter, bundle, providerConfig, versionId, connectionId } = prepared
   const configSnapshot = JSON.stringify(prepared.resolvedDeploymentConfig)
 
   return streamSSE(c, async (stream) => {
@@ -129,12 +129,12 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
       result = hasProgressDeploy
         ? await (
             adapterRecord.deployWithProgress as (
-              a: GeneratedArtifact,
+              a: GeneratedBundle,
               c: ProviderConfig,
               p: (progress: unknown) => Promise<void>,
             ) => Promise<DeployResult>
-          )(artifact, providerConfig, onProgress)
-        : await adapter.deploy(artifact, providerConfig)
+          )(bundle, providerConfig, onProgress)
+        : await adapter.deploy(bundle, providerConfig)
     } catch (err) {
       // Adapter contract is to return DeployResult; an uncaught exception is
       // a provider bug. Without this catch the SSE stream would close silently

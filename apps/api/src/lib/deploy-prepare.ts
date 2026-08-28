@@ -1,4 +1,4 @@
-import type { WorkflowProvider, ProviderConfig, GeneratedArtifact } from '@awaitstep/codegen'
+import type { WorkflowProvider, ProviderConfig, GeneratedBundle } from '@awaitstep/codegen'
 import type { ArtifactIR } from '@awaitstep/ir'
 import type { DatabaseAdapter, Workflow } from '@awaitstep/db'
 import type { WranglerDeployer } from '@awaitstep/provider-cloudflare'
@@ -8,7 +8,7 @@ import { resolveProvider } from './provider-resolver.js'
 
 export interface DeployContext {
   adapter: WorkflowProvider
-  artifact: GeneratedArtifact
+  bundle: GeneratedBundle
   providerConfig: ProviderConfig
   ir: ArtifactIR
   versionId: string
@@ -124,12 +124,12 @@ export async function prepareDeploy(
     return { error: credCheck.error ?? 'Invalid credentials', status: 403 }
   }
 
-  // Generate artifact with full provider config (includes credentials + installed node templates)
-  const artifact = adapter.generate(prepared.ir, providerConfig)
+  // Generate with full provider config (includes credentials + installed node templates)
+  const bundle = adapter.generate(prepared.ir, providerConfig)
 
   return {
     adapter,
-    artifact,
+    bundle,
     providerConfig,
     ir: prepared.ir,
     versionId: prepared.versionId,

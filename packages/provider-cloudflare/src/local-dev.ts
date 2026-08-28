@@ -1,11 +1,13 @@
 import { writeFile, mkdir, rm, readFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { execFile, exec, spawn, type ChildProcess } from 'node:child_process'
 import { promisify } from 'node:util'
 import { createConnection } from 'node:net'
-import type { GeneratedArtifact, LocalDevOptions, LocalDevLogEntry } from '@awaitstep/codegen'
-import { detectBindingsFromSource } from './codegen/bindings.js'
+import { assertSafeBundlePath, bundleCodeFiles, bundleEntry } from '@awaitstep/codegen'
+import type { WorkflowIR } from '@awaitstep/ir'
+import type { GeneratedBundle, LocalDevOptions, LocalDevLogEntry } from '@awaitstep/codegen'
+import { detectBindings, detectBindingsFromSource } from './codegen/bindings.js'
 import { generateWranglerConfig } from './wrangler-config.js'
 import { workerName, workflowClassName, sanitizedWorkflowName } from './naming.js'
 
@@ -64,14 +66,14 @@ export async function readLogs(since?: number): Promise<LocalDevLogEntry[]> {
 }
 
 export async function startLocalDev(
-  artifact: GeneratedArtifact,
+  bundle: GeneratedBundle,
   options: LocalDevOptions,
 ): Promise<{ port: number; url: string; pid: number }> {
   await killPort(LOCAL_DEV_PORT)
 
   // Wipe and recreate fixed deploy dir
   await rm(LOCAL_DEV_DIR, { recursive: true, force: true }).catch(() => {})
-  await scaffoldDeployDir(artifact, options)
+  await scaffoldDeployDir(bundle, options)
   await installDependencies(LOCAL_DEV_DIR, options.dependencies)
 
   const child = spawn(
@@ -116,19 +118,24 @@ export async function startLocalDev(
   return { port: LOCAL_DEV_PORT, url: externalUrl || fallbackUrl, pid: child.pid! }
 }
 
-async function scaffoldDeployDir(
-  artifact: GeneratedArtifact,
-  options: LocalDevOptions,
-): Promise<void> {
+async function scaffoldDeployDir(bundle: GeneratedBundle, options: LocalDevOptions): Promise<void> {
   await mkdir(LOCAL_DEV_DIR, { recursive: true })
 
-  await writeFile(
-    join(LOCAL_DEV_DIR, artifact.filename),
-    artifact.compiled ?? artifact.source,
-    'utf-8',
-  )
+  for (const file of bundleCodeFiles(bundle)) {
+    const target = join(LOCAL_DEV_DIR, assertSafeBundlePath(file.path))
+    await mkdir(dirname(target), { recursive: true })
+    await writeFile(target, file.compiled ?? file.source, 'utf-8')
+  }
 
-  const bindings = detectBindingsFromSource(artifact.source)
+  // Same authority as the deploy path: declared bindings from the IR when
+  // available, source regex scanning only as the legacy fallback.
+  const bindings = options.ir
+    ? detectBindings(options.ir as WorkflowIR)
+    : detectBindingsFromSource(
+        bundleCodeFiles(bundle)
+          .map((f) => f.source)
+          .join('\n'),
+      )
   const isScript = options.kind === 'script'
   const wranglerConfig = generateWranglerConfig({
     kind: options.kind,
@@ -140,7 +147,7 @@ async function scaffoldDeployDir(
           className: workflowClassName(options.workflowName),
           workflowName: sanitizedWorkflowName(options.workflowName),
         }),
-    main: `./${artifact.filename}`,
+    main: `./${bundleEntry(bundle).path}`,
     vars: options.vars,
     bindings: bindings.length > 0 ? bindings : undefined,
     localDev: true,

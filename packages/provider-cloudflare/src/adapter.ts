@@ -2,11 +2,13 @@ import { validateArtifact } from '@awaitstep/ir'
 import type { ArtifactIR, ScriptIR, WorkflowIR, ValidationError, Result } from '@awaitstep/ir'
 import { transpileToJS } from '@awaitstep/codegen/transpile'
 import { generateScript, generateWorkflow } from './codegen/generate.js'
+import { bundleEntry, toBundle, validateBundle } from '@awaitstep/codegen'
 import type {
   WorkflowProvider,
   LocalDevProvider,
   CredentialsCheckResult,
-  GeneratedArtifact,
+  GeneratedBundle,
+  GeneratedFile,
   DeployResult,
   ProviderConfig,
   WorkflowRunStatus,
@@ -151,7 +153,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     }
   }
 
-  generate(ir: ArtifactIR, config?: ProviderConfig): GeneratedArtifact {
+  generate(ir: ArtifactIR, config?: ProviderConfig): GeneratedBundle {
     const envVarNames = config?.envVars ? Object.keys(config.envVars) : undefined
     const triggerCode = config?.options?.['triggerCode'] as string | undefined
     const retention = (
@@ -164,7 +166,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
         triggerCode,
         retention,
       })
-      return { filename: 'worker.ts', source }
+      return validateBundle(toBundle({ filename: 'worker.ts', source }))
     }
     const source = generateWorkflow(ir as WorkflowIR, {
       templateResolver: this.templateResolver,
@@ -172,26 +174,23 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
       triggerCode,
       retention,
     })
-    return {
-      filename: 'worker.ts',
-      source,
-    }
+    return validateBundle(toBundle({ filename: 'worker.ts', source }))
   }
 
-  async deploy(artifact: GeneratedArtifact, config: ProviderConfig): Promise<DeployResult> {
-    return this._doDeploy(artifact, config)
+  async deploy(bundle: GeneratedBundle, config: ProviderConfig): Promise<DeployResult> {
+    return this._doDeploy(bundle, config)
   }
 
   async deployWithProgress(
-    artifact: GeneratedArtifact,
+    bundle: GeneratedBundle,
     config: ProviderConfig,
     onProgress?: OnDeployProgress,
   ): Promise<DeployResult> {
-    return this._doDeploy(artifact, config, onProgress)
+    return this._doDeploy(bundle, config, onProgress)
   }
 
   private async _doDeploy(
-    artifact: GeneratedArtifact,
+    bundle: GeneratedBundle,
     config: ProviderConfig,
     onProgress?: OnDeployProgress,
   ): Promise<DeployResult> {
@@ -214,9 +213,9 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     }
 
     report('GENERATING_CODE', 'Compiling TypeScript to JavaScript', 15)
-    let compiled: string
+    let compiledBundle: GeneratedBundle
     try {
-      compiled = await transpileToJS(artifact.source)
+      compiledBundle = await compileBundle(bundle)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       report('FAILED', `Compile error: ${message}`, 0)
@@ -226,21 +225,25 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
         error: `Compile error: ${message}`,
       }
     }
-    const compiledArtifact: GeneratedArtifact = {
-      filename: 'worker.js',
-      source: artifact.source,
-      compiled,
-    }
 
     // Extract the actual class name from the generated source so the wrangler
     // config matches exactly, even if ir.metadata.name differs from workflow.name.
     // Scripts have no `WorkflowEntrypoint` class — generatedClassName stays
     // undefined and the wrangler-config code path skips the primary workflow
     // entry when kind === 'script'.
-    const classNameMatch = artifact.source.match(
-      /export\s+class\s+(\w+)\s+extends\s+WorkflowEntrypoint/,
-    )
-    const generatedClassName = classNameMatch?.[1]
+    let generatedClassName: string | undefined
+    try {
+      const classNameMatch = bundleEntry(bundle).source.match(
+        /export\s+class\s+(\w+)\s+extends\s+WorkflowEntrypoint/,
+      )
+      generatedClassName = classNameMatch?.[1]
+    } catch (err) {
+      // A bundle without its entry is a generator bug — honor the
+      // deploy()-returns-DeployResult contract instead of throwing.
+      const message = err instanceof Error ? err.message : String(err)
+      report('FAILED', message, 0)
+      return { success: false, deploymentId: '', error: message }
+    }
 
     report('CODE_READY', 'Code compiled successfully', 25)
 
@@ -369,7 +372,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
       : undefined
 
     const result = await this.deployer.deploy(
-      compiledArtifact,
+      compiledBundle,
       {
         kind,
         workflowId: opts.workflowId,
@@ -474,19 +477,32 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     }
   }
 
-  async startLocalDev(
-    artifact: GeneratedArtifact,
-    options: LocalDevOptions,
-  ): Promise<LocalDevSession> {
-    let compiled: string
+  async startLocalDev(bundle: GeneratedBundle, options: LocalDevOptions): Promise<LocalDevSession> {
+    let compiledBundle: GeneratedBundle
     try {
-      compiled = await transpileToJS(artifact.source)
+      compiledBundle = await compileBundle(bundle)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       throw new Error(`Compile error: ${message}`, { cause: err })
     }
-    return startLocalDev({ filename: 'worker.js', source: artifact.source, compiled }, options)
+    return startLocalDev(compiledBundle, options)
   }
+}
+
+/**
+ * Transpiles every code file (entry + modules) and rewrites their paths to
+ * .js so wrangler uploads plain JavaScript; config/meta files pass through.
+ */
+async function compileBundle(bundle: GeneratedBundle): Promise<GeneratedBundle> {
+  const files: GeneratedFile[] = await Promise.all(
+    bundle.files.map(async (file): Promise<GeneratedFile> => {
+      if (file.role !== 'entry' && file.role !== 'module') return file
+      const compiled = await transpileToJS(file.source)
+      return { ...file, path: file.path.replace(/\.ts$/, '.js'), compiled }
+    }),
+  )
+  const entry = bundle.entry.replace(/\.ts$/, '.js')
+  return { entry, files }
 }
 
 function extractCredentials(config: ProviderConfig): {

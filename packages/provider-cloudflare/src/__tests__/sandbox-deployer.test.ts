@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { SandboxWranglerDeployer } from '../deploy/sandbox-deployer.js'
-import type { GeneratedArtifact } from '@awaitstep/codegen'
+import { toBundle } from '@awaitstep/codegen'
 
 interface ExecCall {
   command: string
@@ -54,11 +54,11 @@ function makeFakeSandbox(
   return fake
 }
 
-const artifact: GeneratedArtifact = {
+const bundle = toBundle({
   filename: 'worker.js',
   source: 'export class Test {}',
   compiled: 'export class Test {}',
-}
+})
 
 const baseOptions = {
   workflowId: 'my-workflow',
@@ -81,7 +81,7 @@ describe('SandboxWranglerDeployer', () => {
       return lastSandbox
     })
 
-    const result = await deployer.deploy(artifact, {
+    const result = await deployer.deploy(bundle, {
       ...baseOptions,
       secrets: { AWS_ACCESS_KEY_ID: 'AKIA', AWS_SECRET_ACCESS_KEY: 's3cr3t' },
     })
@@ -115,7 +115,7 @@ describe('SandboxWranglerDeployer', () => {
       return lastSandbox
     })
 
-    await deployer.deploy(artifact, {
+    await deployer.deploy(bundle, {
       ...baseOptions,
       secrets: { FOO: 'bar' },
     })
@@ -136,7 +136,7 @@ describe('SandboxWranglerDeployer', () => {
       }),
     )
 
-    const result = await deployer.deploy(artifact, {
+    const result = await deployer.deploy(bundle, {
       ...baseOptions,
       secrets: { FOO: 'bar' },
     })
@@ -153,7 +153,7 @@ describe('SandboxWranglerDeployer', () => {
       return lastSandbox
     })
 
-    await deployer.deploy(artifact, baseOptions)
+    await deployer.deploy(bundle, baseOptions)
 
     expect(lastSandbox!.files.has('/workspace/.secrets.bulk.json')).toBe(false)
     const bulkCall = lastSandbox!.execCalls.find((c) => c.command.includes('secret bulk'))
@@ -169,7 +169,7 @@ describe('SandboxWranglerDeployer', () => {
     })
 
     await deployer.deploy(
-      artifact,
+      bundle,
       {
         ...baseOptions,
         secrets: { GOOD: 'v', '1bad': 'x' },

@@ -24,11 +24,6 @@ export type {
   CFInstanceListItem,
   CFListInstancesOptions,
 } from './api.js'
-export { deployWithWrangler, deleteWorker } from './deploy.js'
-export type {
-  DeployOptions as LegacyDeployOptions,
-  WranglerDeployResult as LegacyWranglerDeployResult,
-} from './deploy.js'
 export { NodeWranglerDeployer, SandboxWranglerDeployer } from './deploy/index.js'
 export type {
   WranglerDeployer,

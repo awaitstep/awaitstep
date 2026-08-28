@@ -1,11 +1,7 @@
-import type { GeneratedArtifact } from '@awaitstep/codegen'
+import { assertSafeBundlePath, bundleCodeFiles } from '@awaitstep/codegen'
+import type { GeneratedBundle } from '@awaitstep/codegen'
 import type { WranglerDeployer, DeployOptions, WranglerDeployResult } from './deployer.js'
-import {
-  buildSecretsBulkJson,
-  redactSensitive,
-  safeFilename,
-  SECRETS_BULK_FILENAME,
-} from './deployer.js'
+import { buildSecretsBulkJson, redactSensitive, SECRETS_BULK_FILENAME } from './deployer.js'
 import { generateWranglerConfig } from '../wrangler-config.js'
 import { workerName, sanitizedWorkflowName, workflowClassName } from '../naming.js'
 
@@ -33,7 +29,7 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
   }
 
   async deploy(
-    artifact: GeneratedArtifact,
+    bundle: GeneratedBundle,
     options: DeployOptions,
     onProgress?: (stage: string, message: string) => void,
   ): Promise<WranglerDeployResult> {
@@ -41,7 +37,6 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
     const className = options.className ?? workflowClassName(options.workflowName)
     const sandboxId = `deploy-${options.workflowId}-${Date.now()}`.toLowerCase()
     const sandbox = this.getSandbox(sandboxId)
-    const filename = safeFilename(artifact.filename)
 
     // Hard kill timer — destroy the container after 5 minutes regardless
     // of whether processes are still running.
@@ -50,10 +45,27 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
     }, this.maxDeployMs)
 
     try {
-      // 1. Write generated code
+      // 1. Write generated code (entry + any per-node modules). Path checks
+      // run inside the try so an invalid path still returns a
+      // WranglerDeployResult instead of escaping as an exception.
       onProgress?.('WRITING_FILES', 'Preparing worker files...')
-      const scriptContent = artifact.compiled ?? artifact.source
-      await sandbox.writeFile(`/workspace/${filename}`, scriptContent)
+      const entryPath = assertSafeBundlePath(bundle.entry)
+      const codeFiles = bundleCodeFiles(bundle)
+      const nestedDirs = [
+        ...new Set(
+          codeFiles
+            .map((f) => assertSafeBundlePath(f.path))
+            .filter((p) => p.includes('/'))
+            .map((p) => p.slice(0, p.lastIndexOf('/'))),
+        ),
+      ]
+      if (nestedDirs.length > 0) {
+        // The sandbox SDK does not auto-create parent directories.
+        await sandbox.exec(`mkdir -p ${nestedDirs.join(' ')}`, { cwd: '/workspace' })
+      }
+      for (const file of codeFiles) {
+        await sandbox.writeFile(`/workspace/${file.path}`, file.compiled ?? file.source)
+      }
 
       // 2. Write wrangler config
       const wranglerConfig = generateWranglerConfig({
@@ -61,7 +73,7 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
         workerName: name,
         className,
         workflowName: sanitizedWorkflowName(options.workflowName),
-        main: `./${filename}`,
+        main: `./${entryPath}`,
         vars: options.vars,
         bindings: options.bindings,
         subWorkflowBindings: options.subWorkflowBindings,

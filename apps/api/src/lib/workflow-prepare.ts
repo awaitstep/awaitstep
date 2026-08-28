@@ -1,4 +1,5 @@
-import type { WorkflowProvider, GeneratedArtifact, ProviderConfig } from '@awaitstep/codegen'
+import type { WorkflowProvider, GeneratedBundle, ProviderConfig } from '@awaitstep/codegen'
+import { bundleCodeFiles } from '@awaitstep/codegen'
 import { transpileToJS } from '@awaitstep/codegen/transpile'
 import type { ArtifactIR } from '@awaitstep/ir'
 import { loadArtifact } from '@awaitstep/ir'
@@ -12,7 +13,7 @@ import { foldWorkflowRuntime } from './runtime-fold.js'
 
 export interface WorkflowContext {
   adapter: WorkflowProvider
-  artifact: GeneratedArtifact
+  bundle: GeneratedBundle
   ir: ArtifactIR
   versionId: string
   nodeRegistry: AppNodeRegistry
@@ -126,13 +127,15 @@ export async function prepareWorkflow(
     ...(envResult.envVars && { envVars: envResult.envVars }),
     ...(triggerCode && { options: { triggerCode } }),
   }
-  const artifact = adapter.generate(ir, generateConfig)
+  const bundle = adapter.generate(ir, generateConfig)
 
   // Catch syntax errors in user-authored code (step bodies, triggerCode, etc.)
-  // before deploy/preview consumers act on the artifact. Without this the
+  // before deploy/preview consumers act on the bundle. Without this the
   // sucrase exception bubbles up and surfaces as a generic 500.
   try {
-    await transpileToJS(artifact.source)
+    for (const file of bundleCodeFiles(bundle)) {
+      await transpileToJS(file.source)
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     return { error: `Compile error: ${message}`, status: 422 }
@@ -140,7 +143,7 @@ export async function prepareWorkflow(
 
   return {
     adapter,
-    artifact,
+    bundle,
     ir,
     versionId,
     nodeRegistry,

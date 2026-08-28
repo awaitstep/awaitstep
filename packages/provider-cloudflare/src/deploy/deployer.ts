@@ -1,5 +1,5 @@
 import { basename } from 'node:path'
-import type { GeneratedArtifact } from '@awaitstep/codegen'
+import type { GeneratedBundle } from '@awaitstep/codegen'
 import type { BindingRequirement } from '../codegen/bindings.js'
 import type { SubWorkflowBinding } from '../codegen/generators/sub-workflow.js'
 import type { SubScriptBinding } from '../codegen/generators/sub-script.js'
@@ -119,7 +119,7 @@ export interface WranglerDeployResult {
 
 export interface WranglerDeployer {
   deploy(
-    artifact: GeneratedArtifact,
+    bundle: GeneratedBundle,
     options: DeployOptions,
     onProgress?: (stage: string, message: string) => void,
   ): Promise<WranglerDeployResult>
