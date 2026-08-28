@@ -78,7 +78,7 @@ function WorkflowLayoutContent() {
           </span>
         )}
       </nav>
-      <nav className="flex gap-0 border-b border-border">
+      <nav className="-mx-6 flex gap-0 border-b border-border px-4 md:-mx-8 md:px-6">
         {tabs.map((tab) => (
           <Link
             key={tab.to}

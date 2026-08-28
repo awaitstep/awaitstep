@@ -82,7 +82,7 @@ function AuthedLayout() {
         <AppSidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <MobileSidebar />
-          <main className="mx-auto w-full max-w-screen-xl flex-1 px-6 py-6 md:px-8">
+          <main className="w-full max-w-screen-xl flex-1 px-6 py-5 md:px-8">
             <Outlet />
           </main>
         </div>
