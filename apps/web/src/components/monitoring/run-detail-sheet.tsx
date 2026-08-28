@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import * as Dialog from '@radix-ui/react-dialog'
+import { Sheet, SheetClose, SheetContent, SheetTitle } from '../ui/sheet'
 import {
   Loader2,
   AlertCircle,
@@ -33,26 +33,23 @@ export function RunDetailSheet() {
   }
 
   return (
-    <Dialog.Root open={!!runSheet} onOpenChange={handleOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
-        <Dialog.Content className="fixed right-0 top-0 bottom-0 z-50 flex w-full max-w-md flex-col border-l border-border bg-background shadow-lg data-[state=open]:animate-in data-[state=open]:slide-in-from-right data-[state=open]:duration-200 data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=closed]:duration-150">
-          <div className="flex items-center justify-between border-b border-border px-6 py-[1.125rem]">
-            <Dialog.Title className="text-lg font-semibold">Run Details</Dialog.Title>
-            <Dialog.Close className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground/60">
-              <X className="h-4 w-4" />
-            </Dialog.Close>
-          </div>
-          {runSheet && (
-            <RunDetailContent
-              runId={runSheet.runId}
-              workflowId={runSheet.workflowId}
-              workflowName={runSheet.workflowName}
-            />
-          )}
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <Sheet open={!!runSheet} onOpenChange={handleOpenChange}>
+      <SheetContent side="right">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-5">
+          <SheetTitle className="text-sm font-semibold">Run Details</SheetTitle>
+          <SheetClose className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground/60">
+            <X className="h-4 w-4" />
+          </SheetClose>
+        </div>
+        {runSheet && (
+          <RunDetailContent
+            runId={runSheet.runId}
+            workflowId={runSheet.workflowId}
+            workflowName={runSheet.workflowName}
+          />
+        )}
+      </SheetContent>
+    </Sheet>
   )
 }
 
