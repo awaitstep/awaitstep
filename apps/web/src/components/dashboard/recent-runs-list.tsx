@@ -17,9 +17,9 @@ export function RecentRunsList() {
   const workflowMap = new Map(workflows.map((w) => [w.id, w]))
 
   return (
-    <section className="mt-10">
+    <section className="mt-8">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Recent Runs</h2>
+        <h2 className="text-sm font-medium">Recent Runs</h2>
         {runs.length > 0 && (
           <Link to="/runs">
             <Button variant="ghost" size="sm" className="text-xs">
@@ -37,7 +37,7 @@ export function RecentRunsList() {
           />
         </div>
       ) : (
-        <div className="mt-4 space-y-2">
+        <div className="mt-4 divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
           {runs.slice(0, 5).map((run) => {
             const wf = workflowMap.get(run.workflowId)
             return (
@@ -50,7 +50,7 @@ export function RecentRunsList() {
                     workflowName: wf?.name,
                   })
                 }
-                className="flex w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:border-border/80 hover:bg-muted/20"
+                className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-muted/20"
               >
                 <div className="flex items-center gap-3">
                   <RunStatusBadge status={run.status} />
@@ -63,11 +63,11 @@ export function RecentRunsList() {
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <span className="font-mono">
+                <div className="flex items-center gap-4 text-2xs text-muted-foreground">
+                  <span className="font-mono tabular-nums">
                     {duration(run.createdAt, run.updatedAt, run.status)}
                   </span>
-                  <span>{timeAgo(run.createdAt)}</span>
+                  <span className="font-mono tabular-nums">{timeAgo(run.createdAt)}</span>
                 </div>
               </button>
             )

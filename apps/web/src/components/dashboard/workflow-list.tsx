@@ -24,9 +24,9 @@ export function WorkflowList() {
   const latestWorkflows = workflows.slice(0, 5)
 
   return (
-    <section className="mt-10">
+    <section className="mt-8">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Workflows</h2>
+        <h2 className="text-sm font-medium">Workflows</h2>
         <div className="flex items-center gap-2">
           {hasMore && (
             <Link to="/workflows">

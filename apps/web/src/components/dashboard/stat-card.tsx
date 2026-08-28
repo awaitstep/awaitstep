@@ -1,4 +1,5 @@
 import { Loader2 } from 'lucide-react'
+import { cn } from '../../lib/utils'
 
 export function StatCard({
   icon: Icon,
@@ -14,16 +15,19 @@ export function StatCard({
   variant?: 'warning'
 }) {
   return (
-    <div className="rounded-md border border-border bg-card px-4 py-3">
+    <div className="rounded-lg border border-border bg-card px-4 py-3">
       <div className="flex items-center gap-2 text-muted-foreground">
-        <Icon className="h-4 w-4" />
-        <span className="text-xs font-medium uppercase tracking-wider">{label}</span>
+        <Icon className="h-3.5 w-3.5" />
+        <span className="text-2xs font-medium uppercase tracking-wider">{label}</span>
       </div>
       {loading ? (
         <Loader2 className="mt-2 h-5 w-5 animate-spin text-muted-foreground/60" />
       ) : (
         <span
-          className={`mt-1 block text-xl font-semibold ${variant === 'warning' && value > 0 ? 'text-status-warning' : ''}`}
+          className={cn(
+            'mt-1 block font-mono text-xl font-semibold tabular-nums',
+            variant === 'warning' && value > 0 && 'text-status-warning',
+          )}
         >
           {value}
         </span>
