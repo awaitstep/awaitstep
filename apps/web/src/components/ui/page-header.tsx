@@ -10,7 +10,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description, breadcrumbs, actions }: PageHeaderProps) {
   return (
-    <div className="border-b border-border pb-3">
+    <div className="-mx-6 border-b border-border px-6 pb-3 md:-mx-8 md:px-8">
       {breadcrumbs && breadcrumbs.length > 0 && <Breadcrumb items={breadcrumbs} />}
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
