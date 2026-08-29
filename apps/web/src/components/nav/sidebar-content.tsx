@@ -239,7 +239,8 @@ export function SidebarContent({ inDrawer = false, onNavigate }: SidebarContentP
   return (
     <TooltipProvider delayDuration={200}>
       <div className="flex h-full min-h-0 flex-col">
-        <div className="flex flex-col gap-0.5 border-b border-sidebar-border p-2">
+        {/* Fixed h-16 to mirror the page header band exactly (border-box, 1px border included) so the two dividers align. */}
+        <div className="flex h-16 shrink-0 items-center border-b border-sidebar-border px-2">
           <OrgProjectSwitcher inDrawer={inDrawer} />
         </div>
 
