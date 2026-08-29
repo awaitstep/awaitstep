@@ -16,8 +16,10 @@ function DashboardPage() {
     <RequireProject>
       <PageHeader title="Dashboard" />
       <DashboardStats />
-      <WorkflowList />
-      <RecentRunsList />
+      <div className="grid items-start gap-x-8 xl:grid-cols-2">
+        <WorkflowList />
+        <RecentRunsList />
+      </div>
       <OnboardingOverlay />
     </RequireProject>
   )

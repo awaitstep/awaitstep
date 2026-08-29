@@ -27,7 +27,7 @@ export function DashboardStats() {
   }, [runs])
 
   return (
-    <div className="mt-5 grid gap-3 sm:grid-cols-3">
+    <div className="mt-5 grid divide-y divide-border overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-3 sm:divide-x sm:divide-y-0">
       <StatCard icon={Workflow} value={totalWorkflows} label="Workflows" loading={wfLoading} />
       <StatCard icon={Activity} value={runningNow} label="Running" loading={runLoading} />
       <StatCard

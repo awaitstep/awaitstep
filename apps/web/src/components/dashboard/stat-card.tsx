@@ -15,7 +15,7 @@ export function StatCard({
   variant?: 'warning'
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card px-4 py-3">
+    <div className="px-4 py-3">
       <div className="flex items-center gap-2 text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
         <span className="text-2xs font-medium uppercase tracking-wider">{label}</span>
