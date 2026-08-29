@@ -37,15 +37,6 @@ function ConnectionsContent() {
     <div>
       <PageHeader
         title="Connections"
-        description={
-          <span className="inline-flex items-center gap-1">
-            Deployment provider accounts
-            <HelpTooltip
-              title="Connections"
-              description="Connections link your AwaitStep workspace to a deployment provider (e.g. Cloudflare). Each connection stores API credentials used to deploy and manage workflows on that provider."
-            />
-          </span>
-        }
         actions={
           <Button size="sm" className="gap-1.5" onClick={() => setDialogOpen(true)}>
             <Plus className="h-4 w-4" />
@@ -55,6 +46,13 @@ function ConnectionsContent() {
       />
 
       <div>
+        <p className="mt-4 flex items-center gap-1 text-sm text-muted-foreground">
+          Deployment provider accounts
+          <HelpTooltip
+            title="Connections"
+            description="Connections link your AwaitStep workspace to a deployment provider (e.g. Cloudflare). Each connection stores API credentials used to deploy and manage workflows on that provider."
+          />
+        </p>
         <ConnectionsList onEdit={setEditTarget} />
       </div>
 

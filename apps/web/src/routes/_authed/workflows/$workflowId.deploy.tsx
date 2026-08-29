@@ -34,18 +34,18 @@ function DeployRouteContent() {
     <div className="@container mx-auto w-full max-w-screen-xl px-6 py-6 md:px-8">
       <PageHeader
         title={`Deploy ${workflow?.name ?? 'Workflow'}`}
-        description={
-          workflow?.kind === 'script'
-            ? 'Deploy as a fetch-only Worker. Invoke via HTTP POST — the response is the function’s return value.'
-            : 'Configure and deploy to a provider connection.'
-        }
         breadcrumbs={[
           { label: 'Workflows', href: '/workflows' },
           { label: workflow?.name ?? workflowId, href: `/workflows/${workflowId}` },
           { label: 'Deploy' },
         ]}
       />
-      <div className="pt-6">
+      <p className="mt-4 text-sm text-muted-foreground">
+        {workflow?.kind === 'script'
+          ? 'Deploy as a fetch-only Worker. Invoke via HTTP POST — the response is the function’s return value.'
+          : 'Configure and deploy to a provider connection.'}
+      </p>
+      <div className="pt-5">
         <LoadingView isLoading={isLoading || !ready} LoadingPlaceholder={DetailSkeleton}>
           <DeployPage workflowId={workflowId} kind={workflow?.kind} />
         </LoadingView>
