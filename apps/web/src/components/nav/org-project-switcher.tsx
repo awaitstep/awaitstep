@@ -27,17 +27,25 @@ export function OrgProjectSwitcher({ inDrawer = false }: OrgProjectSwitcherProps
   const [open, setOpen] = useState(false)
   const collapsed = useSidebarStore((s) => s.collapsed)
 
-  const { activeOrganizationId, activeOrg, orgs, projects, activeProject, fetchingProjects } =
-    useOrgStore(
-      useShallow((s) => ({
-        activeOrganizationId: s.activeOrganizationId,
-        activeOrg: s.organizations.find((org) => org.id === s.activeOrganizationId),
-        orgs: s.organizations,
-        fetchingProjects: s.projectsFetchState !== 'success',
-        projects: s.projects,
-        activeProject: s.projects.find((p) => p.id === s.activeProjectId),
-      })),
-    )
+  const {
+    appReady,
+    activeOrganizationId,
+    activeOrg,
+    orgs,
+    projects,
+    activeProject,
+    fetchingProjects,
+  } = useOrgStore(
+    useShallow((s) => ({
+      appReady: s.appReady,
+      activeOrganizationId: s.activeOrganizationId,
+      activeOrg: s.organizations.find((org) => org.id === s.activeOrganizationId),
+      orgs: s.organizations,
+      fetchingProjects: s.projectsFetchState !== 'success',
+      projects: s.projects,
+      activeProject: s.projects.find((p) => p.id === s.activeProjectId),
+    })),
+  )
 
   const { setActiveOrganization: setActiveOrg, setActiveProject } = useOrgStore()
   const { openOrgDialog, openProjectDialog } = useSheetStore()
@@ -73,6 +81,28 @@ export function OrgProjectSwitcher({ inDrawer = false }: OrgProjectSwitcherProps
 
   function handleClosePopover() {
     setOpen(false)
+  }
+
+  if (!appReady) {
+    return (
+      <div
+        className={cn(
+          'flex h-12 w-full items-center gap-2.5 rounded-md px-2',
+          collapseAware && 'sidebar-collapsed:justify-center sidebar-collapsed:px-0',
+        )}
+      >
+        <span className="h-7 w-7 shrink-0 animate-pulse rounded-md bg-muted/60" />
+        <span
+          className={cn(
+            'flex min-w-0 flex-1 flex-col gap-1.5',
+            collapseAware && 'sidebar-collapsed:hidden',
+          )}
+        >
+          <span className="h-3 w-24 animate-pulse rounded bg-muted/60" />
+          <span className="h-2.5 w-16 animate-pulse rounded bg-muted/40" />
+        </span>
+      </div>
+    )
   }
 
   if (orgs.length === 0) {
