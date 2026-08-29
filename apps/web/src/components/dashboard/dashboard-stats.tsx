@@ -16,6 +16,10 @@ export function DashboardStats() {
   )
 
   const totalWorkflows = workflows.length
+  const functionsCount = useMemo(
+    () => workflows.filter((w) => w.kind === 'script').length,
+    [workflows],
+  )
   const deployedCount = useMemo(
     () => workflows.filter((w) => w.deployStatus === 'success').length,
     [workflows],
@@ -36,6 +40,7 @@ export function DashboardStats() {
         icon={Workflow}
         value={totalWorkflows}
         label="Workflows"
+        sub={`${functionsCount} function${functionsCount === 1 ? '' : 's'}`}
         loading={wfLoading}
         to="/workflows"
       />
@@ -43,6 +48,7 @@ export function DashboardStats() {
         icon={Globe}
         value={deployedCount}
         label="Deployed"
+        sub={`of ${totalWorkflows} total`}
         loading={wfLoading}
         to="/workflows"
       />
@@ -50,13 +56,15 @@ export function DashboardStats() {
         icon={Activity}
         value={runningNow}
         label="Running"
+        sub="right now"
         loading={runLoading}
         to="/runs"
       />
       <StatCard
         icon={AlertTriangle}
         value={errorsWeek}
-        label="Errors (7d)"
+        label="Errors"
+        sub="past 7 days"
         loading={runLoading}
         to="/runs"
         tone="error"

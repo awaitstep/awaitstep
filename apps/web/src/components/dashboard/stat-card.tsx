@@ -6,6 +6,7 @@ export function StatCard({
   icon: Icon,
   value,
   label,
+  sub,
   loading,
   to,
   tone,
@@ -13,6 +14,8 @@ export function StatCard({
   icon: React.ComponentType<{ className?: string }>
   value: number
   label: string
+  /** Secondary context line under the value, e.g. "of 8 total". */
+  sub?: string
   loading?: boolean
   /** Destination when the cell is clicked — every stat doubles as navigation. */
   to: string
@@ -28,17 +31,22 @@ export function StatCard({
         <ArrowUpRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-60" />
       </div>
       {loading ? (
-        <Loader2 className="mt-2 h-5 w-5 animate-spin text-muted-foreground/60" />
+        <div className="mt-2 flex h-12 items-start">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/60" />
+        </div>
       ) : (
-        <span
-          className={cn(
-            'mt-1 block font-mono text-xl font-semibold tabular-nums',
-            tone === 'warning' && value > 0 && 'text-status-warning',
-            tone === 'error' && value > 0 && 'text-status-error',
-          )}
-        >
-          {value}
-        </span>
+        <>
+          <span
+            className={cn(
+              'mt-1 block font-mono text-2xl font-semibold tabular-nums',
+              tone === 'warning' && value > 0 && 'text-status-warning',
+              tone === 'error' && value > 0 && 'text-status-error',
+            )}
+          >
+            {value}
+          </span>
+          {sub && <span className="mt-0.5 block text-2xs text-muted-foreground/60">{sub}</span>}
+        </>
       )}
     </Link>
   )

@@ -37,7 +37,7 @@ export function RecentRunsList() {
         </div>
       ) : (
         <div className="mt-4 divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
-          {runs.slice(0, 5).map((run) => {
+          {runs.slice(0, 8).map((run) => {
             const wf = workflowMap.get(run.workflowId)
             return (
               <RunRow

@@ -3,7 +3,7 @@ import { Plus, Workflow } from 'lucide-react'
 import { Button, buttonVariants } from '../ui/button'
 import { GuardedLink } from '../ui/guarded-link'
 import { useWorkflowsStore } from '../../stores/workflows-store'
-import { WorkflowRow, WorkflowRowSkeleton } from '../workflows/workflow-row'
+import { WorkflowListHeader, WorkflowRow, WorkflowRowSkeleton } from '../workflows/workflow-row'
 import { NEW_WORKFLOW_NAV } from '../../lib/nav'
 import { useShallow } from 'zustand/react/shallow'
 import { LoadingView } from '../ui/loading-view'
@@ -38,8 +38,9 @@ export function WorkflowList() {
       <LoadingView isLoading={isLoading} LoadingPlaceholder={LoadingPlaceholder}>
         {latestWorkflows.length > 0 ? (
           <div className={`mt-4 ${listClass}`}>
+            <WorkflowListHeader />
             {latestWorkflows.map((wf) => (
-              <WorkflowRow key={wf.id} workflow={wf} timestamp={wf.lastRunAt} />
+              <WorkflowRow key={wf.id} workflow={wf} />
             ))}
           </div>
         ) : (

@@ -7,7 +7,7 @@ import { PageHeader } from '../../components/ui/page-header'
 import { useWorkflowsStore } from '../../stores/workflows-store'
 import { ImportWorkflowDialog } from '../../components/dashboard/import-workflow-dialog'
 import { NewArtifactDropdown } from '../../components/dashboard/new-artifact-dropdown'
-import { WorkflowRow } from '../../components/workflows/workflow-row'
+import { WorkflowListHeader, WorkflowRow } from '../../components/workflows/workflow-row'
 import { RequireProject } from '../../wrappers/require-project'
 import { NEW_WORKFLOW_NAV } from '../../lib/nav'
 import { LoadingView } from '../../components/ui/loading-view'
@@ -99,8 +99,9 @@ function WorkflowsIndexContent() {
           ) : (
             <>
               <div className="mt-4 divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+                <WorkflowListHeader />
                 {filtered.map((wf) => (
-                  <WorkflowRow key={wf.id} workflow={wf} timestamp={wf.updatedAt} />
+                  <WorkflowRow key={wf.id} workflow={wf} />
                 ))}
               </div>
               {!search && (
