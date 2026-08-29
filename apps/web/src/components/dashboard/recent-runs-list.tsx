@@ -16,7 +16,7 @@ export function RecentRunsList() {
   const workflowMap = new Map(workflows.map((w) => [w.id, w]))
 
   return (
-    <section className="mt-8">
+    <section className="mt-8 xl:mt-5">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium">Recent Runs</h2>
         {runs.length > 0 && (
