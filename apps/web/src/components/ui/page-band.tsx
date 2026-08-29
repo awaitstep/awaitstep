@@ -3,7 +3,7 @@ import { cn } from '../../lib/utils'
 
 /**
  * Full-bleed chrome band: spans the entire content pane via container-query
- * units while the inner content stays aligned with the centered page column.
+ * units, with its content pinned to the pane edges (not the centered column).
  * Requires an `@container` ancestor (the app shell's content column).
  */
 export function PageBand({
@@ -17,9 +17,7 @@ export function PageBand({
 }) {
   return (
     <div className={cn('mx-[calc((100%-100cqw)/2)] border-b border-border', className)}>
-      <div className={cn('mx-auto h-full w-full max-w-screen-xl px-6 md:px-8', innerClassName)}>
-        {children}
-      </div>
+      <div className={cn('h-full w-full px-6 md:px-8', innerClassName)}>{children}</div>
     </div>
   )
 }
