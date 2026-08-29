@@ -35,7 +35,7 @@ export function RunDetailSheet() {
   return (
     <Sheet open={!!runSheet} onOpenChange={handleOpenChange}>
       <SheetContent side="right">
-        <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-5">
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-5">
           <SheetTitle className="text-sm font-semibold">Run Details</SheetTitle>
           <SheetClose className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground/60">
             <X className="h-4 w-4" />
