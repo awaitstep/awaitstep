@@ -80,7 +80,7 @@ function AuthedLayout() {
       <OrgWrapper organizations={loaderData.organizations} />
       <div className="flex min-h-svh">
         <AppSidebar />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="@container flex min-w-0 flex-1 flex-col">
           <MobileSidebar />
           <main className="mx-auto w-full max-w-screen-xl flex-1 px-6 pb-8 md:px-8">
             <Outlet />
