@@ -79,15 +79,6 @@ function EnvVarsContent() {
     <div>
       <PageHeader
         title="Environment Variables"
-        description={
-          <span className="inline-flex items-center gap-1">
-            Global secrets and variables available to all workflows
-            <HelpTooltip
-              title="Environment Variables"
-              description="Prefix variable names with SECRET_ to encrypt their values. Secret values are masked and cannot be read back — replace the value to update. Variables are injected into all workflow deployments."
-            />
-          </span>
-        }
         actions={
           <Button size="sm" onClick={handleSave} disabled={!isDirty || saving || errors.length > 0}>
             <Save className="h-3.5 w-3.5" />
@@ -96,7 +87,14 @@ function EnvVarsContent() {
         }
       />
 
-      <div className="mt-5">
+      <div className="mt-4">
+        <p className="mb-3 flex items-center gap-1 text-sm text-muted-foreground">
+          Global secrets and variables available to all workflows
+          <HelpTooltip
+            title="Environment Variables"
+            description="Prefix variable names with SECRET_ to encrypt their values. Secret values are masked and cannot be read back — replace the value to update. Variables are injected into all workflow deployments."
+          />
+        </p>
         <EnvEditor value={text} onChange={setText} errors={errors} />
         <p className="mt-2 text-xs text-muted-foreground">
           {isLoading
