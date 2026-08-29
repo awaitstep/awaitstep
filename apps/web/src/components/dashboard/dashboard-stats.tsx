@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Workflow, Activity, AlertTriangle } from 'lucide-react'
+import { Workflow, Activity, AlertTriangle, Globe } from 'lucide-react'
 import { useWorkflowsStore } from '../../stores/workflows-store'
 import { useRunsStore } from '../../stores/runs-store'
 import { StatCard } from './stat-card'
@@ -16,6 +16,10 @@ export function DashboardStats() {
   )
 
   const totalWorkflows = workflows.length
+  const deployedCount = useMemo(
+    () => workflows.filter((w) => w.deployStatus === 'success').length,
+    [workflows],
+  )
   const runningNow = useMemo(
     () => runs.filter((r) => r.status === 'running' || r.status === 'queued').length,
     [runs],
@@ -27,15 +31,35 @@ export function DashboardStats() {
   }, [runs])
 
   return (
-    <div className="mt-5 grid divide-y divide-border overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-      <StatCard icon={Workflow} value={totalWorkflows} label="Workflows" loading={wfLoading} />
-      <StatCard icon={Activity} value={runningNow} label="Running" loading={runLoading} />
+    <div className="mt-5 grid divide-y divide-border overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-4 sm:divide-x sm:divide-y-0">
+      <StatCard
+        icon={Workflow}
+        value={totalWorkflows}
+        label="Workflows"
+        loading={wfLoading}
+        to="/workflows"
+      />
+      <StatCard
+        icon={Globe}
+        value={deployedCount}
+        label="Deployed"
+        loading={wfLoading}
+        to="/workflows"
+      />
+      <StatCard
+        icon={Activity}
+        value={runningNow}
+        label="Running"
+        loading={runLoading}
+        to="/runs"
+      />
       <StatCard
         icon={AlertTriangle}
         value={errorsWeek}
         label="Errors (7d)"
         loading={runLoading}
-        variant={errorsWeek > 0 ? 'warning' : undefined}
+        to="/runs"
+        tone="error"
       />
     </div>
   )
