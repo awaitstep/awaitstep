@@ -16,13 +16,9 @@ function DashboardPage() {
   return (
     <RequireProject>
       <PageHeader title="Dashboard" actions={<NewArtifactDropdown />} />
-      <div className="grid items-start gap-x-8 xl:grid-cols-3">
-        <div className="xl:col-span-2">
-          <DashboardStats />
-          <WorkflowList />
-        </div>
-        <RecentRunsList />
-      </div>
+      <DashboardStats />
+      <WorkflowList />
+      <RecentRunsList />
       <OnboardingOverlay />
     </RequireProject>
   )
