@@ -84,6 +84,8 @@ export function OrgProjectSwitcher({ inDrawer = false }: OrgProjectSwitcherProps
   }
 
   if (!appReady) {
+    // Structural twin of the loaded trigger (same icon square, line boxes, and
+    // chevron slot) so hydration causes zero layout shift.
     return (
       <div
         className={cn(
@@ -91,16 +93,23 @@ export function OrgProjectSwitcher({ inDrawer = false }: OrgProjectSwitcherProps
           collapseAware && 'sidebar-collapsed:justify-center sidebar-collapsed:px-0',
         )}
       >
-        <span className="h-7 w-7 shrink-0 animate-pulse rounded-md bg-muted/60" />
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-sidebar-border bg-sidebar-accent/60">
+          <span className="h-3.5 w-3.5 animate-pulse rounded bg-muted/60" />
+        </span>
         <span
           className={cn(
-            'flex min-w-0 flex-1 flex-col gap-1.5',
+            'flex min-w-0 flex-1 flex-col',
             collapseAware && 'sidebar-collapsed:hidden',
           )}
         >
-          <span className="h-3 w-24 animate-pulse rounded bg-muted/60" />
-          <span className="h-2.5 w-16 animate-pulse rounded bg-muted/40" />
+          <span className="flex h-6 items-center">
+            <span className="h-3 w-24 animate-pulse rounded bg-muted/60" />
+          </span>
+          <span className="flex h-4 items-center">
+            <span className="h-2.5 w-16 animate-pulse rounded bg-muted/40" />
+          </span>
         </span>
+        <span className={cn('h-3 w-3 shrink-0', collapseAware && 'sidebar-collapsed:hidden')} />
       </div>
     )
   }

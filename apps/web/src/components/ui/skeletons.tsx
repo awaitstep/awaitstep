@@ -4,14 +4,17 @@ function Bone({ className }: { className?: string }) {
 
 export function ListRowSkeleton() {
   return (
-    <div className="rounded-lg border border-border px-4 py-3">
+    <div className="px-4 py-3">
       <div className="flex items-center justify-between">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2.5">
-            <Bone className="h-4 w-32" />
-            <Bone className="h-4 w-16 bg-muted/25" />
+        <div>
+          {/* Line boxes match the real rows: text-sm (24px) title, text-xs (18px) meta. */}
+          <div className="flex h-6 items-center gap-2.5">
+            <Bone className="h-3.5 w-32" />
+            <Bone className="h-3.5 w-16 bg-muted/25" />
           </div>
-          <Bone className="h-3 w-48 bg-muted/20" />
+          <div className="mt-0.5 flex h-[1.125rem] items-center">
+            <Bone className="h-3 w-48 bg-muted/20" />
+          </div>
         </div>
         <Bone className="h-3 w-12 bg-muted/25" />
       </div>
@@ -21,7 +24,7 @@ export function ListRowSkeleton() {
 
 export function ListSkeleton({ rows = 3 }: { rows?: number }) {
   return (
-    <div className="mt-4 space-y-2">
+    <div className="mt-5 divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
       {Array.from({ length: rows }, (_, i) => (
         <ListRowSkeleton key={i} />
       ))}
