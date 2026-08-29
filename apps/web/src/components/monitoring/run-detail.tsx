@@ -5,6 +5,7 @@ import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import { api } from '../../lib/api-client'
 import { queries, flatPages } from '../../lib/queries'
 import { durationCompact, formatDateTime } from '../../lib/time'
+import { PageBand } from '../ui/page-band'
 import { RunActions } from './run-actions'
 import { RunErrorBlock } from './run-error-block'
 import { RunStatusBadge } from './run-status-badge'
@@ -82,27 +83,29 @@ export function RunDetail({ runId, workflowIdHint }: RunDetailProps) {
 
   return (
     <div>
-      <div className="-mx-6 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border px-6 md:-mx-8 md:px-8">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground/60">
-            <Link to="/runs" className="transition-colors hover:text-muted-foreground">
-              Runs
-            </Link>
-            <span className="text-muted-foreground/40">/</span>
-          </span>
-          {workflow && (
-            <Link
-              to="/workflows/$workflowId"
-              params={{ workflowId }}
-              className="truncate text-base font-semibold tracking-tight hover:text-foreground/80"
-            >
-              {workflow.name}
-            </Link>
-          )}
-          <RunStatusBadge status={run.status} />
+      <PageBand className="h-16 shrink-0">
+        <div className="flex h-full items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground/60">
+              <Link to="/runs" className="transition-colors hover:text-muted-foreground">
+                Runs
+              </Link>
+              <span className="text-muted-foreground/40">/</span>
+            </span>
+            {workflow && (
+              <Link
+                to="/workflows/$workflowId"
+                params={{ workflowId }}
+                className="truncate text-base font-semibold tracking-tight hover:text-foreground/80"
+              >
+                {workflow.name}
+              </Link>
+            )}
+            <RunStatusBadge status={run.status} />
+          </div>
+          {!isTerminal && <RunActions workflowId={workflowId} runId={runId} status={run.status} />}
         </div>
-        {!isTerminal && <RunActions workflowId={workflowId} runId={runId} status={run.status} />}
-      </div>
+      </PageBand>
 
       <div className="max-w-screen-md">
         <div className="mt-6 grid gap-x-12 gap-y-5 sm:grid-cols-2">

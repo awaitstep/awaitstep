@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, Link, useMatches, useParams } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Badge } from '../../../components/ui/badge'
+import { PageBand } from '../../../components/ui/page-band'
 import { api } from '../../../lib/api-client'
 import { isChromelessRoute } from '../../../lib/shell-routes'
 import { RequireProject } from '../../../wrappers/require-project'
@@ -61,8 +62,8 @@ function WorkflowLayoutContent() {
 
   return (
     <div>
-      <div className="-mx-6 flex h-16 shrink-0 items-center border-b border-border px-6 md:-mx-8 md:px-8">
-        <div className="flex min-w-0 items-center gap-1.5">
+      <PageBand className="h-16 shrink-0">
+        <div className="flex h-full min-w-0 items-center gap-1.5">
           <span className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground/60">
             <Link to="/workflows" className="transition-colors hover:text-muted-foreground">
               Workflows
@@ -82,25 +83,27 @@ function WorkflowLayoutContent() {
             </Badge>
           )}
         </div>
-      </div>
-      <nav className="-mx-6 flex gap-0 border-b border-border px-4 md:-mx-8 md:px-6">
-        {tabs.map((tab) => (
-          <Link
-            key={tab.to}
-            to={tab.to}
-            params={{ workflowId }}
-            className={cn(
-              'relative px-3 py-2 text-sm transition-colors',
-              tab.active
-                ? 'font-medium text-foreground'
-                : 'text-muted-foreground hover:text-foreground/70',
-            )}
-          >
-            {tab.label}
-            {tab.active && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
-          </Link>
-        ))}
-      </nav>
+      </PageBand>
+      <PageBand innerClassName="px-3 md:px-5">
+        <nav className="flex gap-0">
+          {tabs.map((tab) => (
+            <Link
+              key={tab.to}
+              to={tab.to}
+              params={{ workflowId }}
+              className={cn(
+                'relative px-3 py-2 text-sm transition-colors',
+                tab.active
+                  ? 'font-medium text-foreground'
+                  : 'text-muted-foreground hover:text-foreground/70',
+              )}
+            >
+              {tab.label}
+              {tab.active && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
+            </Link>
+          ))}
+        </nav>
+      </PageBand>
       <div className="pt-6">
         <Outlet />
       </div>

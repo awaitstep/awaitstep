@@ -31,7 +31,7 @@ function DeployRouteContent() {
   })
 
   return (
-    <div className="mx-auto w-full max-w-screen-xl px-6 py-6 md:px-8">
+    <div className="@container mx-auto w-full max-w-screen-xl px-6 py-6 md:px-8">
       <PageHeader
         title={`Deploy ${workflow?.name ?? 'Workflow'}`}
         description={
