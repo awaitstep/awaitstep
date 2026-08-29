@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { DashboardStats } from '../../components/dashboard/dashboard-stats'
 import { WorkflowList } from '../../components/dashboard/workflow-list'
 import { RecentRunsList } from '../../components/dashboard/recent-runs-list'
+import { NewArtifactDropdown } from '../../components/dashboard/new-artifact-dropdown'
 import { OnboardingOverlay } from '../../components/dashboard/onboarding-overlay'
 import { RequireProject } from '../../wrappers/require-project'
 import { PageHeader } from '../../components/ui/page-header'
@@ -14,7 +15,7 @@ export const Route = createFileRoute('/_authed/dashboard')({
 function DashboardPage() {
   return (
     <RequireProject>
-      <PageHeader title="Dashboard" />
+      <PageHeader title="Dashboard" actions={<NewArtifactDropdown />} />
       <div className="grid items-start gap-x-8 xl:grid-cols-3">
         <div className="xl:col-span-2">
           <DashboardStats />

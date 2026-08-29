@@ -17,7 +17,7 @@ export function RecentRunsList() {
 
   return (
     <section className="mt-8 xl:mt-5">
-      <div className="flex items-center justify-between">
+      <div className="flex h-8 items-center justify-between">
         <h2 className="text-sm font-medium">Recent Runs</h2>
         {runs.length > 0 && (
           <Link to="/runs">

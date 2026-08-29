@@ -4,7 +4,6 @@ import { Button, buttonVariants } from '../ui/button'
 import { GuardedLink } from '../ui/guarded-link'
 import { useWorkflowsStore } from '../../stores/workflows-store'
 import { WorkflowRow, WorkflowRowSkeleton } from '../workflows/workflow-row'
-import { NewArtifactDropdown } from './new-artifact-dropdown'
 import { NEW_WORKFLOW_NAV } from '../../lib/nav'
 import { useShallow } from 'zustand/react/shallow'
 import { LoadingView } from '../ui/loading-view'
@@ -25,18 +24,15 @@ export function WorkflowList() {
 
   return (
     <section className="mt-8">
-      <div className="flex items-center justify-between">
+      <div className="flex h-8 items-center justify-between">
         <h2 className="text-sm font-medium">Workflows</h2>
-        <div className="flex items-center gap-2">
-          {hasMore && (
-            <Link to="/workflows">
-              <Button variant="ghost" size="sm" className="text-xs">
-                View all
-              </Button>
-            </Link>
-          )}
-          <NewArtifactDropdown />
-        </div>
+        {hasMore && (
+          <Link to="/workflows">
+            <Button variant="ghost" size="sm" className="text-xs">
+              View all
+            </Button>
+          </Link>
+        )}
       </div>
 
       <LoadingView isLoading={isLoading} LoadingPlaceholder={LoadingPlaceholder}>
