@@ -6,13 +6,21 @@
 @custom-variant dark (&:is(.dark *));
 @custom-variant sidebar-collapsed (&:is(html[data-sidebar='collapsed'] *));
 
-@theme inline {
-  --font-sans:
+/* App-owned font variables: the TanStack Start dev styles endpoint appends the
+   raw tailwindcss/index.css after this file, redefining --font-sans/--font-mono
+   with the defaults. Using our own names keeps the cascade override-proof. */
+:root {
+  --app-font-sans:
     'Geist Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
     'Segoe UI Symbol', 'Noto Color Emoji';
-  --font-mono:
+  --app-font-mono:
     'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
     'Courier New', monospace;
+}
+
+@theme inline {
+  --font-sans: var(--app-font-sans);
+  --font-mono: var(--app-font-mono);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -173,7 +181,7 @@ html.light {
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: var(--font-sans);
+    font-family: var(--app-font-sans);
   }
 }
 
