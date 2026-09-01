@@ -1,10 +1,25 @@
-import type { BindingRequirement } from './codegen/bindings.js'
+import { deriveQueueName, toCFQueueName, type BindingRequirement } from './codegen/bindings.js'
 import type { SubWorkflowBinding } from './codegen/generators/sub-workflow.js'
+import type { SubScriptBinding } from './codegen/generators/sub-script.js'
 
 export const WRANGLER_BASE_CONFIG = {
   compatibility_date: '2025-04-01',
   compatibility_flags: ['nodejs_compat'],
-  observability: { enabled: true },
+  observability: {
+    enabled: false,
+    head_sampling_rate: 1,
+    logs: {
+      enabled: true,
+      head_sampling_rate: 1,
+      persist: true,
+      invocation_logs: true,
+    },
+    traces: {
+      enabled: true,
+      persist: true,
+      head_sampling_rate: 1,
+    },
+  },
 } as const
 
 export interface WranglerWorkflowConfig {
@@ -24,6 +39,14 @@ export interface WranglerWorkflowConfig {
   vars?: Record<string, string>
   bindings?: BindingRequirement[]
   subWorkflowBindings?: SubWorkflowBinding[]
+  /**
+   * Service bindings for `sub_script` calls — emitted as
+   * `services: [{ binding, service }]` entries in wrangler.json. Coexists with
+   * any service bindings auto-detected from `env.SERVICE_*` references; the
+   * two sources are merged with sub-script entries taking precedence on
+   * binding-name conflicts.
+   */
+  subScriptBindings?: SubScriptBinding[]
   previewUrls?: boolean
   workersDev?: boolean
   routes?: Array<{ pattern: string; zone_name: string }>
@@ -33,8 +56,36 @@ export interface WranglerWorkflowConfig {
   cronTriggers?: string[]
   placement?: { mode: string }
   limits?: { cpuMs?: number }
-  observability?: { enabled: boolean; headSamplingRate?: number }
+  observability?: {
+    enabled?: boolean
+    head_sampling_rate?: number
+    logs?: {
+      enabled?: boolean
+      head_sampling_rate?: number
+      persist?: boolean
+      invocation_logs?: boolean
+    }
+    traces?: {
+      enabled?: boolean
+      persist?: boolean
+      head_sampling_rate?: number
+    }
+  }
   logpush?: boolean
+  /**
+   * Per-queue consumer settings — populated by the adapter from `@queue function NAME`
+   * annotations cross-referenced with the deployment config's `queueConsumers`.
+   * Each entry produces one `queues.consumers[]` row in the emitted wrangler config.
+   * Cloudflare defaults apply to fields left undefined.
+   */
+  queueConsumers?: Array<{
+    queue: string
+    maxBatchSize?: number
+    maxBatchTimeout?: number
+    maxRetries?: number
+    deadLetterQueue?: string
+    maxConcurrency?: number
+  }>
   localDev?: boolean
 }
 
@@ -152,7 +203,17 @@ export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
           r2Bindings.push({ binding: b.name, bucket_name: b.resourceId ?? b.name.toLowerCase() })
           break
         case 'queue':
-          queueProducers.push({ binding: b.name, queue: b.resourceId ?? b.name.toLowerCase() })
+          // CF queue names must be lowercase alphanumeric + hyphens only
+          // (no underscores). We derive the JS-identifier form first
+          // (`QUEUE_FOO_BAR` → `foo_bar`) then normalize to CF naming
+          // (`foo_bar` → `foo-bar`). Same conversion applied to consumer
+          // function names so producer and consumer agree.
+          // The `<NAME>_BINDING_ID` env var override is taken verbatim
+          // (the user is responsible for using a CF-valid name).
+          queueProducers.push({
+            binding: b.name,
+            queue: b.resourceId ?? toCFQueueName(deriveQueueName(b.name)),
+          })
           break
         case 'service':
           serviceBindings.push({ binding: b.name, service: b.resourceId ?? b.name.toLowerCase() })
@@ -191,7 +252,10 @@ export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
     if (kvBindings.length > 0) wranglerConfig.kv_namespaces = kvBindings
     if (d1Bindings.length > 0) wranglerConfig.d1_databases = d1Bindings
     if (r2Bindings.length > 0) wranglerConfig.r2_buckets = r2Bindings
-    if (queueProducers.length > 0) wranglerConfig.queues = { producers: queueProducers }
+    if (queueProducers.length > 0) {
+      const existing = (wranglerConfig.queues ?? {}) as Record<string, unknown>
+      wranglerConfig.queues = { ...existing, producers: queueProducers }
+    }
     if (serviceBindings.length > 0) wranglerConfig.services = serviceBindings
     if (aiBinding) wranglerConfig.ai = aiBinding
     if (vectorizeBindings.length > 0) wranglerConfig.vectorize = vectorizeBindings
@@ -199,6 +263,37 @@ export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
       wranglerConfig.analytics_engine_datasets = analyticsEngineBindings
     if (hyperdriveBindings.length > 0) wranglerConfig.hyperdrive = hyperdriveBindings
     if (browserBinding) wranglerConfig.browser = browserBinding
+  }
+
+  if (config.queueConsumers && config.queueConsumers.length > 0) {
+    const consumers = config.queueConsumers.map((c) => {
+      const out: Record<string, unknown> = { queue: c.queue }
+      if (c.maxBatchSize !== undefined) out.max_batch_size = c.maxBatchSize
+      if (c.maxBatchTimeout !== undefined) out.max_batch_timeout = c.maxBatchTimeout
+      if (c.maxRetries !== undefined) out.max_retries = c.maxRetries
+      if (c.deadLetterQueue !== undefined) out.dead_letter_queue = c.deadLetterQueue
+      if (c.maxConcurrency !== undefined) out.max_concurrency = c.maxConcurrency
+      return out
+    })
+    const existing = (wranglerConfig.queues ?? {}) as Record<string, unknown>
+    wranglerConfig.queues = { ...existing, consumers }
+  }
+
+  // Merge sub_script service bindings into the services array. Runs outside
+  // the `config.bindings` conditional so a workflow with only sub_script
+  // calls (and no other auto-detected bindings) still gets a services entry.
+  // Code-scan-detected service bindings (env.SERVICE_*) and sub_script
+  // bindings can both contribute; on binding-name conflict, sub_script wins
+  // because it carries the explicit deployed service name.
+  if (config.subScriptBindings && config.subScriptBindings.length > 0) {
+    const subScriptEntries = config.subScriptBindings.map((b) => ({
+      binding: b.binding,
+      service: b.service,
+    }))
+    const subScriptNames = new Set(subScriptEntries.map((e) => e.binding))
+    const existing = (wranglerConfig.services ?? []) as Array<{ binding: string }>
+    const filtered = existing.filter((s) => !subScriptNames.has(s.binding))
+    wranglerConfig.services = [...filtered, ...subScriptEntries]
   }
 
   return JSON.stringify(wranglerConfig, null, 2)

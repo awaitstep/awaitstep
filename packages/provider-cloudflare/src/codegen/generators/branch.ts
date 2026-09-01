@@ -54,7 +54,7 @@ export function collectBranchInlineTargets(ir: WorkflowIR): Set<string> {
         : ir.edges.filter((e) => e.source === node.id && e.label !== 'then').map((e) => e.target)
 
     for (const target of targets) {
-      const chain = collectChain(target, ctx.adj, ctx.inDegree, ctx.nodeMap)
+      const chain = collectChain(target, ctx.adj, ctx.inDegree, ctx.nodeMap, ctx.edgeLabels)
       for (const chainNode of chain) {
         inlineTargets.add(chainNode.id)
       }
@@ -72,11 +72,14 @@ export function computeInDegree(ir: WorkflowIR): Map<string, number> {
   return inDegree
 }
 
+const CONTAINER_TYPES = new Set(['branch', 'parallel', 'try_catch', 'loop', 'race'])
+
 export function collectChain(
   startId: string,
   adj: Map<string, string[]>,
   inDegree: Map<string, number>,
   nodeMap: Map<string, WorkflowNode>,
+  edgeLabels: Map<string, Map<string, string | undefined>>,
 ): WorkflowNode[] {
   const chain: WorkflowNode[] = []
   let currentId: string | null = startId
@@ -87,14 +90,27 @@ export function collectChain(
 
     chain.push(node)
 
-    if (
-      node.type === 'branch' ||
-      node.type === 'parallel' ||
-      node.type === 'try_catch' ||
-      node.type === 'loop' ||
-      node.type === 'race'
-    )
+    if (CONTAINER_TYPES.has(node.type)) {
+      // Container's normal successors are emitted by the container's own
+      // generator (branches/body/etc.); the only thing that flows past it in
+      // the parent context is the `then` continuation. Follow it if present
+      // and not a join point — otherwise stop.
+      const labels = edgeLabels.get(currentId)
+      let thenTarget: string | null = null
+      if (labels) {
+        for (const [target, label] of labels) {
+          if (label === 'then') {
+            thenTarget = target
+            break
+          }
+        }
+      }
+      if (thenTarget && (inDegree.get(thenTarget) ?? 0) === 1) {
+        currentId = thenTarget
+        continue
+      }
       break
+    }
 
     const successors: string[] = adj.get(currentId) ?? []
     if (successors.length === 1 && (inDegree.get(successors[0]) ?? 0) === 1) {

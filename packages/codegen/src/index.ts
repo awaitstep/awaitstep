@@ -12,6 +12,7 @@ export type {
   DeploymentConfigUiField,
   DeploymentConfigUiFieldOption,
   DeploymentConfigUiWidget,
+  DeploymentConfigUiVisibility,
   DeploymentConfigValidator,
   DeploymentConfigPreview,
 } from './types.js'

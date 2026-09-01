@@ -46,13 +46,18 @@ export function WorkflowActionsMenu({ workflow, isDeployed }: WorkflowActionsMen
     mutationFn: async () => {
       const connsResult = await api.listConnections()
       if (connsResult.data.length === 0) throw new Error('No connection available')
-      return api.takedownDeployment(workflow.id, connsResult.data[0].id)
+      const result = await api.takedownDeployment(workflow.id, connsResult.data[0].id)
+      if (!result.success) throw new Error(result.error ?? 'Failed to take down workflow')
+      return result
     },
-    onSuccess: (result) => {
-      if (!result.success) throw new Error(result.error ?? 'Failed to take down')
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
       queryClient.invalidateQueries({ queryKey: ['all-deployments'] })
       setTakedownOpen(false)
+      toast.success('Workflow taken down')
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : 'Failed to take down workflow')
     },
   })
 

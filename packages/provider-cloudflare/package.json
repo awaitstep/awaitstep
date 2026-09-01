@@ -1,6 +1,6 @@
 {
   "name": "@awaitstep/provider-cloudflare",
-  "version": "1.4.7",
+  "version": "1.4.14",
   "private": true,
   "type": "module",
   "exports": {
@@ -25,12 +25,12 @@
     "@types/node": "^25.5.2",
     "tsup": "8.5.1",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.4",
-    "wrangler": "4.77.0"
+    "vitest": "^4.1.5",
+    "wrangler": "4.90.1"
   },
   "dependencies": {
     "@awaitstep/codegen": "workspace:*",
     "@awaitstep/ir": "workspace:*",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   }
 }

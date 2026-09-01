@@ -65,6 +65,7 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
         vars: options.vars,
         bindings: options.bindings,
         subWorkflowBindings: options.subWorkflowBindings,
+        subScriptBindings: options.subScriptBindings,
         previewUrls: options.previewUrls,
         workersDev: options.workersDev,
         routes: options.routes,
@@ -76,6 +77,7 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
         limits: options.limits,
         observability: options.observability,
         logpush: options.logpush,
+        queueConsumers: options.queueConsumers,
       })
       await sandbox.writeFile('/workspace/wrangler.json', wranglerConfig)
 
@@ -106,7 +108,7 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
 
       // 4. Deploy with wrangler
       onProgress?.('DEPLOYING', 'Uploading worker to Cloudflare...')
-      const deployResult = await sandbox.exec('npx wrangler deploy', {
+      const deployResult = await sandbox.exec('wrangler deploy', {
         cwd: '/workspace',
         timeout: 120_000,
         env: {
@@ -142,7 +144,7 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
         await sandbox.writeFile(secretsPath, bulk.json)
         try {
           const bulkResult = await sandbox.exec(
-            `npx wrangler secret bulk ${SECRETS_BULK_FILENAME} --name ${name}`,
+            `wrangler secret bulk ${SECRETS_BULK_FILENAME} --name ${name}`,
             {
               cwd: '/workspace',
               env: {
@@ -188,17 +190,14 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
     const sandboxId = `delete-${workerNameToDelete}-${Date.now()}`.toLowerCase()
     const sandbox = this.getSandbox(sandboxId)
     try {
-      const result = await sandbox.exec(
-        `npx wrangler delete --name ${workerNameToDelete} --force`,
-        {
-          cwd: '/workspace',
-          env: {
-            CLOUDFLARE_ACCOUNT_ID: options.accountId,
-            CLOUDFLARE_API_TOKEN: options.apiToken,
-          },
-          timeout: 60_000,
+      const result = await sandbox.exec(`wrangler delete --name ${workerNameToDelete} --force`, {
+        cwd: '/workspace',
+        env: {
+          CLOUDFLARE_ACCOUNT_ID: options.accountId,
+          CLOUDFLARE_API_TOKEN: options.apiToken,
         },
-      )
+        timeout: 60_000,
+      })
       return result.success
         ? { success: true }
         : { success: false, error: redactSensitive(result.stderr) }

@@ -16,6 +16,7 @@ const NODE_TYPE_LABELS: Record<string, string> = {
   try_catch: 'Try/Catch',
   break: 'Exit',
   sub_workflow: 'Sub-Workflow',
+  sub_script: 'Call Script',
   http_request: 'HTTP',
   wait_for_event: 'Event',
 }

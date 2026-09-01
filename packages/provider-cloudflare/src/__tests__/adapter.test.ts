@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { WorkflowIR } from '@awaitstep/ir'
 import type { ProviderConfig } from '@awaitstep/codegen'
-import { CloudflareWorkflowsAdapter } from '../adapter.js'
+import { CloudflareWorkflowsAdapter, buildQueueConsumers, buildCronTriggers } from '../adapter.js'
 import type { WranglerDeployer } from '../deploy/deployer.js'
 
 const mockDeployer: WranglerDeployer = {
@@ -162,6 +162,23 @@ describe('CloudflareWorkflowsAdapter', () => {
       expect(deployOpts.routes).toBeUndefined()
     })
 
+    it('returns a structured Compile error when transpile fails (does not throw)', async () => {
+      const brokenIR: WorkflowIR = {
+        ...simpleIR,
+        nodes: [
+          {
+            ...simpleIR.nodes[0]!,
+            // Missing comma between properties — sucrase will reject this.
+            data: { code: 'const obj = { a: 1\n  b: 2 }; return obj;' },
+          },
+        ],
+      }
+      const artifact = adapter.generate(brokenIR)
+      const result = await adapter.deploy(artifact, providerConfig)
+      expect(result.success).toBe(false)
+      expect(result.error).toMatch(/^Compile error:/)
+    })
+
     it('excludes _BINDING_ID env vars from wrangler vars', async () => {
       const artifact = adapter.generate(simpleIR)
       const configWithBindingIds: ProviderConfig = {
@@ -194,5 +211,213 @@ describe('CloudflareWorkflowsAdapter', () => {
       expect(result.status).toBe('complete')
       expect(result.output).toEqual({ result: 42 })
     })
+  })
+})
+
+describe('buildQueueConsumers', () => {
+  it('returns undefined when triggerCode is missing', () => {
+    expect(buildQueueConsumers(undefined, undefined)).toBeUndefined()
+  })
+
+  it('returns undefined for legacy-mode trigger code (no annotations)', () => {
+    expect(
+      buildQueueConsumers('try { return new Response() } catch(e) {}', undefined),
+    ).toBeUndefined()
+  })
+
+  it('returns undefined when strict mode has no @queue handlers', () => {
+    const triggerCode = `@fetch function handler(req, env, ctx) { return new Response() }`
+    expect(buildQueueConsumers(triggerCode, undefined)).toBeUndefined()
+  })
+
+  it('emits one entry per @queue annotation with no overrides', () => {
+    const triggerCode = `
+@queue function emails(b, e, c) { /* */ }
+@queue function jobs(b, e, c) { /* */ }
+`
+    const result = buildQueueConsumers(triggerCode, undefined)
+    expect(result).toEqual([{ queue: 'emails' }, { queue: 'jobs' }])
+  })
+
+  it('merges per-queue settings from deploymentConfig.queueConsumers', () => {
+    const triggerCode = `@queue function emails(b, e, c) {}`
+    const result = buildQueueConsumers(triggerCode, {
+      queueConsumers: [
+        {
+          queue: 'emails',
+          maxBatchSize: 5,
+          maxRetries: 1,
+          deadLetterQueue: 'emails-dlq',
+        },
+      ],
+    })
+    expect(result).toEqual([
+      {
+        queue: 'emails',
+        maxBatchSize: 5,
+        maxRetries: 1,
+        deadLetterQueue: 'emails-dlq',
+      },
+    ])
+  })
+
+  it('ignores queueConsumers entries that do not match any @queue annotation', () => {
+    const triggerCode = `@queue function emails(b, e, c) {}`
+    const result = buildQueueConsumers(triggerCode, {
+      queueConsumers: [
+        { queue: 'emails', maxBatchSize: 25 },
+        { queue: 'orphan', maxBatchSize: 100 },
+      ],
+    })
+    expect(result).toEqual([{ queue: 'emails', maxBatchSize: 25 }])
+  })
+
+  it('falls back to defaults (no overrides) when deploymentConfig has no entry for a queue', () => {
+    const triggerCode = `
+@queue function emails(b, e, c) {}
+@queue function jobs(b, e, c) {}
+`
+    const result = buildQueueConsumers(triggerCode, {
+      queueConsumers: [{ queue: 'emails', maxBatchSize: 5 }],
+    })
+    expect(result).toEqual([{ queue: 'emails', maxBatchSize: 5 }, { queue: 'jobs' }])
+  })
+
+  it('emits CF-valid queue name (snake_case function → kebab-case queue)', () => {
+    const triggerCode = `
+@queue function marktplaats_processor(b, e, c) { msg.ack() }
+`
+    const result = buildQueueConsumers(triggerCode, undefined)
+    expect(result).toEqual([{ queue: 'marktplaats-processor' }])
+    expect(result![0]!.queue).toMatch(/^[a-z0-9-]+$/)
+  })
+
+  it('deployment override matches by either JS function name or CF queue name', () => {
+    const triggerCode = `
+@queue function marktplaats_processor(b, e, c) { msg.ack() }
+`
+    // Override keyed by JS function name (what user might naturally type)
+    const byJsName = buildQueueConsumers(triggerCode, {
+      queueConsumers: [{ queue: 'marktplaats_processor', maxBatchSize: 1 }],
+    })
+    expect(byJsName).toEqual([{ queue: 'marktplaats-processor', maxBatchSize: 1 }])
+    // Override keyed by CF queue name (what shows up in wrangler.json)
+    const byCFName = buildQueueConsumers(triggerCode, {
+      queueConsumers: [{ queue: 'marktplaats-processor', maxBatchSize: 1 }],
+    })
+    expect(byCFName).toEqual([{ queue: 'marktplaats-processor', maxBatchSize: 1 }])
+  })
+
+  it('returns undefined on annotation parse error (already surfaced by generate)', () => {
+    const triggerCode = `@fetch function notHandler() {}`
+    expect(buildQueueConsumers(triggerCode, undefined)).toBeUndefined()
+  })
+
+  it('applies inline @config block as the per-queue default', () => {
+    const triggerCode = `
+@queue function emails(b, e, c) {
+  @config {
+    max_batch_size: 1,
+    max_retries: 5,
+    dead_letter_queue: "emails-dlq"
+  }
+  msg.ack()
+}
+`
+    const result = buildQueueConsumers(triggerCode, undefined)
+    expect(result).toEqual([
+      {
+        queue: 'emails',
+        maxBatchSize: 1,
+        maxRetries: 5,
+        deadLetterQueue: 'emails-dlq',
+      },
+    ])
+  })
+
+  it('deploymentConfig override wins over inline @config (per-environment tuning)', () => {
+    const triggerCode = `
+@queue function emails(b, e, c) {
+  @config { max_batch_size: 1, max_retries: 5 }
+}
+`
+    const result = buildQueueConsumers(triggerCode, {
+      queueConsumers: [{ queue: 'emails', maxBatchSize: 50 }],
+    })
+    expect(result).toEqual([
+      {
+        queue: 'emails',
+        maxBatchSize: 50, // override wins
+        maxRetries: 5, // from inline @config (not overridden)
+      },
+    ])
+  })
+
+  it('different queues can have different inline @config blocks', () => {
+    const triggerCode = `
+@queue function emails(b, e, c) {
+  @config { max_batch_size: 50 }
+}
+@queue function jobs(b, e, c) {
+  @config { max_batch_size: 1, max_concurrency: 20 }
+}
+`
+    const result = buildQueueConsumers(triggerCode, undefined)
+    expect(result).toEqual([
+      { queue: 'emails', maxBatchSize: 50 },
+      { queue: 'jobs', maxBatchSize: 1, maxConcurrency: 20 },
+    ])
+  })
+})
+
+describe('buildCronTriggers', () => {
+  it('returns undefined when neither annotations nor config provide crons', () => {
+    expect(buildCronTriggers(undefined, undefined)).toBeUndefined()
+    expect(
+      buildCronTriggers('try { return new Response() } catch(e) {}', undefined),
+    ).toBeUndefined()
+  })
+
+  it('extracts crons from a single @scheduled handler', () => {
+    const triggerCode = `
+@scheduled function nightly(controller, env, ctx) {
+  @crons ["0 2 * * *"]
+}
+`
+    expect(buildCronTriggers(triggerCode, undefined)).toEqual(['0 2 * * *'])
+  })
+
+  it('unions crons from multiple @scheduled handlers in declaration order', () => {
+    const triggerCode = `
+@scheduled function morning(controller, env, ctx) {
+  @crons ["0 6 * * *"]
+}
+
+@scheduled function evening(controller, env, ctx) {
+  @crons ["0 18 * * *", "0 20 * * *"]
+}
+`
+    expect(buildCronTriggers(triggerCode, undefined)).toEqual([
+      '0 6 * * *',
+      '0 18 * * *',
+      '0 20 * * *',
+    ])
+  })
+
+  it('merges deploymentConfig.cronTriggers with annotation crons (annotations first, dedup)', () => {
+    const triggerCode = `
+@scheduled function nightly(controller, env, ctx) {
+  @crons ["0 2 * * *"]
+}
+`
+    const result = buildCronTriggers(triggerCode, {
+      cronTriggers: ['0 2 * * *', '*/15 * * * *'],
+    })
+    // "0 2 * * *" appears once even though both sources list it.
+    expect(result).toEqual(['0 2 * * *', '*/15 * * * *'])
+  })
+
+  it('uses deploymentConfig.cronTriggers when no annotation handlers are declared', () => {
+    expect(buildCronTriggers(undefined, { cronTriggers: ['0 0 * * *'] })).toEqual(['0 0 * * *'])
   })
 })

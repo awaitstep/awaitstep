@@ -1,6 +1,6 @@
 {
   "name": "@awaitstep/node-cli",
-  "version": "1.4.7",
+  "version": "1.4.14",
   "private": true,
   "type": "module",
   "bin": {
@@ -21,13 +21,13 @@
   },
   "dependencies": {
     "@awaitstep/ir": "workspace:*",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@awaitstep/tsconfig": "workspace:*",
     "@types/node": "^25.5.2",
     "tsup": "8.5.1",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.4"
+    "vitest": "^4.1.5"
   }
 }

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import { browserStorage } from './ssr-safe-storage'
 
 export type Theme = 'dark' | 'light'
 
@@ -14,6 +15,6 @@ export const useThemeStore = create<ThemeState>()(
       theme: 'dark',
       setTheme: (theme) => set({ theme }),
     }),
-    { name: 'awaitstep-theme', storage: createJSONStorage(() => localStorage) },
+    { name: 'awaitstep-theme', storage: createJSONStorage(() => browserStorage()) },
   ),
 )

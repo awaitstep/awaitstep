@@ -112,7 +112,7 @@ describe('generateWranglerConfig', () => {
     })
 
     const parsed = JSON.parse(config)
-    expect(parsed.queues).toEqual({ producers: [{ binding: 'QUEUE_JOBS', queue: 'queue_jobs' }] })
+    expect(parsed.queues).toEqual({ producers: [{ binding: 'QUEUE_JOBS', queue: 'jobs' }] })
   })
 
   it('includes service bindings', () => {
@@ -450,5 +450,159 @@ describe('generateWranglerConfig', () => {
         main: './worker.js',
       } as Parameters<typeof generateWranglerConfig>[0]),
     ).toThrow(/workflow deploys require/)
+  })
+
+  describe('subScriptBindings', () => {
+    const baseScript = {
+      kind: 'script' as const,
+      workerName: 'awaitstep-q',
+      main: './worker.js',
+    }
+
+    it('emits services entries from subScriptBindings even when no other bindings exist', () => {
+      const json = generateWranglerConfig({
+        ...baseScript,
+        subScriptBindings: [
+          { binding: 'EMAILS', service: 'awaitstep-emails' },
+          { binding: 'JOBS', service: 'awaitstep-jobs' },
+        ],
+      })
+      const parsed = JSON.parse(json)
+      expect(parsed.services).toEqual([
+        { binding: 'EMAILS', service: 'awaitstep-emails' },
+        { binding: 'JOBS', service: 'awaitstep-jobs' },
+      ])
+    })
+
+    it('merges sub_script bindings with code-scan service bindings', () => {
+      const json = generateWranglerConfig({
+        ...baseScript,
+        bindings: [{ name: 'SERVICE_OTHER', type: 'service', source: 'code-scan' }],
+        subScriptBindings: [{ binding: 'EMAILS', service: 'awaitstep-emails' }],
+      })
+      const parsed = JSON.parse(json)
+      // Both entries present; code-scan kept its derived service name (lowercased binding).
+      expect(parsed.services).toEqual([
+        { binding: 'SERVICE_OTHER', service: 'service_other' },
+        { binding: 'EMAILS', service: 'awaitstep-emails' },
+      ])
+    })
+
+    it('sub_script wins on binding-name conflict (carries explicit deployed service name)', () => {
+      const json = generateWranglerConfig({
+        ...baseScript,
+        bindings: [{ name: 'EMAILS', type: 'service', source: 'code-scan' }],
+        subScriptBindings: [{ binding: 'EMAILS', service: 'awaitstep-emails' }],
+      })
+      const parsed = JSON.parse(json)
+      expect(parsed.services).toEqual([{ binding: 'EMAILS', service: 'awaitstep-emails' }])
+    })
+  })
+
+  describe('queueConsumers', () => {
+    const baseScript = {
+      kind: 'script' as const,
+      workerName: 'awaitstep-q',
+      main: './worker.js',
+    }
+
+    it('emits queues.consumers when queueConsumers provided', () => {
+      const json = generateWranglerConfig({
+        ...baseScript,
+        queueConsumers: [
+          {
+            queue: 'emails',
+            maxBatchSize: 25,
+            maxBatchTimeout: 30,
+            maxRetries: 5,
+            deadLetterQueue: 'emails-dlq',
+            maxConcurrency: 10,
+          },
+        ],
+      })
+      const parsed = JSON.parse(json)
+      expect(parsed.queues.consumers).toEqual([
+        {
+          queue: 'emails',
+          max_batch_size: 25,
+          max_batch_timeout: 30,
+          max_retries: 5,
+          dead_letter_queue: 'emails-dlq',
+          max_concurrency: 10,
+        },
+      ])
+    })
+
+    it('emits a minimal consumer entry when only queue name is provided', () => {
+      const json = generateWranglerConfig({
+        ...baseScript,
+        queueConsumers: [{ queue: 'jobs' }],
+      })
+      const parsed = JSON.parse(json)
+      expect(parsed.queues.consumers).toEqual([{ queue: 'jobs' }])
+    })
+
+    it('coexists with queues.producers in the same queues object', () => {
+      const json = generateWranglerConfig({
+        ...baseScript,
+        bindings: [
+          { name: 'QUEUE_EMAILS', type: 'queue', source: 'code-scan', resourceId: 'emails' },
+        ],
+        queueConsumers: [{ queue: 'emails' }],
+      })
+      const parsed = JSON.parse(json)
+      expect(parsed.queues.producers).toEqual([{ binding: 'QUEUE_EMAILS', queue: 'emails' }])
+      expect(parsed.queues.consumers).toEqual([{ queue: 'emails' }])
+    })
+
+    it('producer queue name converts underscores to hyphens for CF validation', () => {
+      // CF rule: queue names must be lowercase alphanumeric + hyphens only.
+      // QUEUE_MARKTPLAATS_PROCESSOR → marktplaats-processor (NOT marktplaats_processor).
+      const json = generateWranglerConfig({
+        ...baseScript,
+        bindings: [{ name: 'QUEUE_MARKTPLAATS_PROCESSOR', type: 'queue', source: 'code-scan' }],
+      })
+      const parsed = JSON.parse(json)
+      expect(parsed.queues.producers).toEqual([
+        { binding: 'QUEUE_MARKTPLAATS_PROCESSOR', queue: 'marktplaats-processor' },
+      ])
+      // Belt-and-suspenders: assert the queue name passes CF's validation regex.
+      expect(parsed.queues.producers[0].queue).toMatch(/^[a-z0-9-]+$/)
+    })
+
+    it('producer queue name strips QUEUE_ prefix so it matches @queue annotation default', () => {
+      // No resourceId override: producer derives the queue name from the binding
+      // name. Must align with deriveQueueName() so that `env.QUEUE_EMAILS.send(...)`
+      // and `@queue function emails(...)` end up wired to the same queue.
+      const json = generateWranglerConfig({
+        ...baseScript,
+        bindings: [{ name: 'QUEUE_EMAILS', type: 'queue', source: 'code-scan' }],
+        queueConsumers: [{ queue: 'emails' }],
+      })
+      const parsed = JSON.parse(json)
+      expect(parsed.queues.producers).toEqual([{ binding: 'QUEUE_EMAILS', queue: 'emails' }])
+      expect(parsed.queues.consumers).toEqual([{ queue: 'emails' }])
+    })
+
+    it('producer respects resourceId override when provided', () => {
+      // Backwards-compat path: explicit override wins over the derived default.
+      const json = generateWranglerConfig({
+        ...baseScript,
+        bindings: [
+          { name: 'QUEUE_LEGACY', type: 'queue', source: 'code-scan', resourceId: 'queue_legacy' },
+        ],
+      })
+      const parsed = JSON.parse(json)
+      expect(parsed.queues.producers).toEqual([{ binding: 'QUEUE_LEGACY', queue: 'queue_legacy' }])
+    })
+
+    it('omits queues.consumers entirely when queueConsumers is empty', () => {
+      const json = generateWranglerConfig({
+        ...baseScript,
+        queueConsumers: [],
+      })
+      const parsed = JSON.parse(json)
+      expect(parsed.queues).toBeUndefined()
+    })
   })
 })

@@ -23,6 +23,11 @@ describe('generateWorkflow', () => {
         WORKFLOW: Workflow;
       }
 
+      // import packages here
+
+      // Add queue handlers below using:
+      // @queue function NAME(batch, env, ctx) { ... }
+
       export class SimpleWorkflow extends WorkflowEntrypoint<Env> {
         async run(event, step) {
           const Fetch_data = await step.do("Fetch data", { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" }, timeout: "30 seconds" }, async () => {
@@ -38,31 +43,30 @@ describe('generateWorkflow', () => {
       }
 
       export default {
-        async fetch(request: Request, env: Env): Promise<Response> {
-          try {
+        async fetch(request, env, ctx): Promise<Response> {
 
-          const url = new URL(request.url);
+            try {
+              const url = new URL(request.url);
 
-          if (request.method === "POST") {
-            const params = await request.json().catch(() => undefined);
-            const instance = await env.WORKFLOW.create({ params });
-            return Response.json({ instanceId: instance.id });
-          }
+              if (request.method === "POST") {
+                const params = await request.json().catch(() => undefined);
+                const instance = await env.WORKFLOW.create({ params });
+                return Response.json({ instanceId: instance.id });
+              }
 
-          const instanceId = url.searchParams.get("instanceId");
-          if (instanceId) {
-            const instance = await env.WORKFLOW.get(instanceId);
-            if (!instance) {
-              return Response.json({message: 'Instance not found'}, { status: 404 })
+              const instanceId = url.searchParams.get("instanceId");
+              if (instanceId) {
+                const instance = await env.WORKFLOW.get(instanceId);
+                if (!instance) {
+                  return Response.json({message: 'Instance not found'}, { status: 404 })
+                }
+                return Response.json(await instance.status());
+              }
+
+              return new Response(null, { status: 200 });
+            } catch (error) {
+              return Response.json({ message: error.message }, { status: 500 });
             }
-            return Response.json(await instance.status());
-          }
-
-          return new Response(null, { status: 200 });
-
-          } catch (error) {
-            return Response.json({ message: error.message }, { status: 500 });
-          }
 
         },
       };
@@ -75,6 +79,93 @@ describe('generateWorkflow', () => {
     expect(code).toContain('if (state.shouldNotify === true)')
     expect(code).toContain('} else {')
     expect(code).toContain('fetch("https://api.example.com/notify"')
+  })
+
+  it('generates a single-branch (if without else)', () => {
+    const ir: WorkflowIR = {
+      metadata: { name: 'single-branch-test', version: 1, createdAt: '', updatedAt: '' },
+      nodes: [
+        {
+          id: 'br',
+          type: 'branch',
+          name: 'Maybe run',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { branches: [{ label: 'yes', condition: 'true' }] },
+        },
+        {
+          id: 's1',
+          type: 'step',
+          name: 'Inside',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { code: 'return 1;' },
+        },
+      ],
+      edges: [{ id: 'e0', source: 'br', target: 's1', label: 'yes' }],
+      entryNodeId: 'br',
+    }
+    const code = generateWorkflow(ir)
+    expect(code).toContain('if (true) {')
+    expect(code).not.toContain('} else {')
+    expect(code).toContain('step.do("Inside"')
+  })
+
+  it('emits a "then" continuation node AFTER the branch block', () => {
+    const ir: WorkflowIR = {
+      metadata: { name: 'branch-then-test', version: 1, createdAt: '', updatedAt: '' },
+      nodes: [
+        {
+          id: 'br',
+          type: 'branch',
+          name: 'Check',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { branches: [{ label: 'yes', condition: 'true' }] },
+        },
+        {
+          id: 's1',
+          type: 'step',
+          name: 'Inside',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { code: 'return 1;' },
+        },
+        {
+          id: 's2',
+          type: 'step',
+          name: 'After branch',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { code: 'return 2;' },
+        },
+      ],
+      edges: [
+        { id: 'e0', source: 'br', target: 's1', label: 'yes' },
+        { id: 'e1', source: 'br', target: 's2', label: 'then' },
+      ],
+      entryNodeId: 'br',
+    }
+    const code = generateWorkflow(ir)
+    // Branch body present
+    expect(code).toContain('if (true) {')
+    expect(code).toContain('step.do("Inside"')
+    // Continuation step also present, AFTER the branch's closing brace
+    expect(code).toContain('step.do("After branch"')
+    const branchCloseIdx = code.lastIndexOf('}')
+    const afterBranchIdx = code.indexOf('step.do("After branch"')
+    // The continuation must appear in the source after the branch close — i.e.,
+    // not inlined inside the if/else.
+    expect(afterBranchIdx).toBeGreaterThan(0)
+    // Sanity: the inside step appears BEFORE the continuation step
+    const insideIdx = code.indexOf('step.do("Inside"')
+    expect(insideIdx).toBeLessThan(afterBranchIdx)
+    expect(branchCloseIdx).toBeGreaterThan(0) // matched some closing brace
   })
 
   it('generates a parallel workflow', () => {
@@ -114,7 +205,8 @@ describe('generateWorkflow', () => {
 
   it('generates functional fetch handler', () => {
     const code = generateWorkflow(simpleWorkflow as unknown as WorkflowIR)
-    expect(code).toContain('async fetch(request: Request, env: Env): Promise<Response>')
+    // Default scaffolding uses @fetch annotation form with user-supplied params.
+    expect(code).toContain('async fetch(request, env, ctx)')
     expect(code).toContain('request.method === "POST"')
     expect(code).toContain('env.WORKFLOW.create({ params })')
     expect(code).toContain('env.WORKFLOW.get(instanceId)')
@@ -126,6 +218,83 @@ describe('generateWorkflow', () => {
     expect(code).not.toContain('_workflowState')
     expect(code).not.toContain('{{fetch_data.userId}}')
     expect(code).toContain('Fetch_Data.userId')
+  })
+
+  it('keeps a parallel `then` continuation inside its parent loop body', () => {
+    // Regression: loop body containing a parallel whose `then` edge points to
+    // a follow-up step. The continuation must be emitted INSIDE the loop body
+    // (so it runs once per iteration after the parallel resolves), not at
+    // the top level of `run()` after the loop ends.
+    const ir: WorkflowIR = {
+      metadata: { name: 'NestedLoop', version: 1, createdAt: '', updatedAt: '' },
+      entryNodeId: 'loop',
+      nodes: [
+        {
+          id: 'loop',
+          type: 'loop',
+          name: 'iterate',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { loopType: 'forEach', collection: 'items', itemVar: 'item' },
+        },
+        {
+          id: 'par',
+          type: 'parallel',
+          name: 'translate',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: {},
+        },
+        {
+          id: 'title',
+          type: 'step',
+          name: 'title',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { code: 'return item.title;' },
+        },
+        {
+          id: 'desc',
+          type: 'step',
+          name: 'description',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { code: 'return item.description;' },
+        },
+        {
+          id: 'update',
+          type: 'step',
+          name: 'update',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { code: 'return "ok";' },
+        },
+      ],
+      edges: [
+        { id: 'e1', source: 'loop', target: 'par', label: 'body' },
+        { id: 'e2', source: 'par', target: 'title' },
+        { id: 'e3', source: 'par', target: 'desc' },
+        { id: 'e4', source: 'par', target: 'update', label: 'then' },
+      ],
+    }
+
+    const code = generateWorkflow(ir)
+    // The loop's step.do appears before update's step.do — i.e. update is
+    // emitted inside the loop body, not after the loop has closed.
+    const loopIdx = code.indexOf('await step.do("iterate"')
+    const updateIdx = code.indexOf('await step.do(`update')
+    const closeIdx = code.indexOf('return _output;')
+    expect(loopIdx).toBeGreaterThan(-1)
+    expect(updateIdx).toBeGreaterThan(loopIdx)
+    expect(updateIdx).toBeLessThan(closeIdx)
+    // Step name has been suffixed with the loop counter, proving it sits
+    // inside the loop's scope.
+    expect(code).toContain('update [${_loop_i}]')
   })
 })
 
@@ -294,5 +463,120 @@ describe('CloudflareCodeGenerator', () => {
     const gen = new CloudflareCodeGenerator()
     const ir = simpleWorkflow as unknown as WorkflowIR
     expect(gen.generateWorkflow(ir)).toBe(generateWorkflow(ir))
+  })
+})
+
+describe('generateWorkflow — annotation mode (@fetch / @queue)', () => {
+  const ir = simpleWorkflow as unknown as WorkflowIR
+
+  it('emits both fetch and queue handlers when @fetch and @queue are declared', () => {
+    const triggerCode = `
+@fetch function handler(request, env, ctx) {
+  return Response.json({ status: "ok" })
+}
+
+@queue function emails(batch, env, ctx) {
+  for (const msg of batch.messages) msg.ack()
+}
+`
+    const code = generateWorkflow(ir, { triggerCode })
+    expect(code).toContain('async fetch(request, env, ctx): Promise<Response>')
+    expect(code).toMatch(
+      /async queue\(batch: MessageBatch<unknown>, env: Env, ctx: ExecutionContext\): Promise<void>/,
+    )
+    expect(code).toContain('switch (batch.queue) {')
+    expect(code).toContain('case "emails":')
+  })
+
+  it('omits fetch handler entirely for queue-only workers', () => {
+    const triggerCode = `
+@queue function jobs(batch, env, ctx) {
+  for (const msg of batch.messages) {
+    await env.WORKFLOW.create({ params: msg.body })
+    msg.ack()
+  }
+}
+`
+    const code = generateWorkflow(ir, { triggerCode })
+    expect(code).not.toContain('async fetch(')
+    expect(code).toContain('async queue(')
+    expect(code).toContain('case "jobs":')
+    expect(code).toContain('env.WORKFLOW.create')
+  })
+
+  it('emits module-level code outside annotated functions, before the WorkflowEntrypoint class', () => {
+    const triggerCode = `
+const REGION = "eu"
+function shared(x) { return x }
+
+@fetch function handler(request, env, ctx) {
+  return Response.json({ region: REGION })
+}
+`
+    const code = generateWorkflow(ir, { triggerCode })
+    expect(code).toContain('const REGION = "eu"')
+    expect(code).toContain('function shared(x) { return x }')
+    const moduleIdx = code.indexOf('const REGION')
+    const classIdx = code.indexOf('export class')
+    expect(moduleIdx).toBeGreaterThan(0)
+    expect(moduleIdx).toBeLessThan(classIdx)
+  })
+
+  it('legacy mode emission used when triggerCode has no annotations', () => {
+    // When user supplies a triggerCode that has no @fetch/@queue annotations,
+    // legacy emission applies: typed `async fetch(request: Request, env: Env)`.
+    const code = generateWorkflow(ir, {
+      triggerCode: 'try { return new Response("ok") } catch (e) { return Response.json({}) }',
+    })
+    expect(code).toContain('async fetch(request: Request, env: Env): Promise<Response>')
+    expect(code).not.toContain('async queue(')
+  })
+
+  it('emits a scheduled handler when @scheduled is declared', () => {
+    const triggerCode = `
+@fetch function handler(request, env, ctx) {
+  return Response.json({ ok: true })
+}
+
+@scheduled function nightly(controller, env, ctx) {
+  @crons ["0 2 * * *", "0 14 * * *"]
+  console.log("ran at", controller.scheduledTime)
+}
+`
+    const code = generateWorkflow(ir, { triggerCode })
+    expect(code).toMatch(
+      /async scheduled\(controller: ScheduledController, env: Env, ctx: ExecutionContext\): Promise<void>/,
+    )
+    expect(code).toContain('switch (controller.cron)')
+    expect(code).toContain('case "0 2 * * *":')
+    expect(code).toContain('case "0 14 * * *":')
+    expect(code).toContain('console.log("ran at", controller.scheduledTime)')
+    // Body emitted only once for the two-cron handler (case fallthrough).
+    expect(code.match(/console\.log\("ran at"/g)?.length ?? 0).toBe(1)
+  })
+
+  it('emits one case per cron across multiple @scheduled handlers', () => {
+    const triggerCode = `
+@scheduled function morning(controller, env, ctx) {
+  @crons ["0 6 * * *"]
+  console.log("morning")
+}
+
+@scheduled function evening(controller, env, ctx) {
+  @crons ["0 18 * * *"]
+  console.log("evening")
+}
+`
+    const code = generateWorkflow(ir, { triggerCode })
+    expect(code).toContain('case "0 6 * * *":')
+    expect(code).toContain('case "0 18 * * *":')
+    expect(code).toContain('console.log("morning")')
+    expect(code).toContain('console.log("evening")')
+  })
+
+  it('omits scheduled handler when no @scheduled is declared', () => {
+    const triggerCode = `@fetch function handler(req, env) { return new Response("ok") }`
+    const code = generateWorkflow(ir, { triggerCode })
+    expect(code).not.toContain('async scheduled(')
   })
 })

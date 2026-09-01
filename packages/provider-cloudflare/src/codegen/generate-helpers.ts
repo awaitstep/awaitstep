@@ -13,6 +13,7 @@ import { generateTryCatch } from './generators/try-catch.js'
 import { generateLoop } from './generators/loop.js'
 import { generateBreak } from './generators/break.js'
 import { generateSubWorkflow } from './generators/sub-workflow.js'
+import { generateSubScript } from './generators/sub-script.js'
 import { generateRace } from './generators/race.js'
 import type { BindingType } from './bindings.js'
 
@@ -34,6 +35,38 @@ export const CF_ENV_TYPE: Record<BindingType, string | null> = {
   browser: 'Fetcher',
   secret: null,
   variable: null,
+}
+
+/**
+ * Collapses runs of blank/whitespace-only lines in source so the generated
+ * worker doesn't carry the empty whitespace left behind by the annotation
+ * parser when it strips `@kind function NAME(...) { ... }` blocks (the
+ * stripper replaces those spans with spaces to preserve line numbers).
+ */
+export function collapseBlankLines(source: string): string {
+  return source.replace(/\n(?:[ \t]*\n){2,}/g, '\n\n')
+}
+
+/**
+ * Returns true if the body's last non-empty line is a `return` statement
+ * (with or without value, with or without trailing semicolon). Used to
+ * suppress redundant trailing returns appended by the codegen when the user's
+ * code already exits explicitly.
+ *
+ * Heuristic: walks the body backwards to find the last non-blank line, strips
+ * trailing semicolons, and matches `^return\b`. Doesn't reason about nested
+ * blocks (an `if (x) { return }` with no else is correctly NOT detected as
+ * always-returning, so the safety-net trailing return remains).
+ */
+export function endsWithReturn(body: string): boolean {
+  const lines = body.split('\n')
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i]!.trim()
+    if (line === '') continue
+    const stripped = line.replace(/;+\s*$/, '').trim()
+    return /^return\b/.test(stripped)
+  }
+  return false
 }
 
 /**
@@ -110,6 +143,8 @@ export function generateNodeCode(
       return generateBreak(node)
     case 'sub_workflow':
       return generateSubWorkflow(node, mode)
+    case 'sub_script':
+      return generateSubScript(node, mode)
     case 'race':
       return generateRace(node, ir, recurse, mode)
     default: {

@@ -8,20 +8,20 @@
     'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
     'Courier New', monospace;
 
-  --color-background: #f5f5f0;
-  --color-foreground: oklch(0.16 0.005 260);
-  --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.16 0.005 260);
+  --color-background: #fafafa;
+  --color-foreground: #0a0a0a;
+  --color-card: #ffffff;
+  --color-card-foreground: #0a0a0a;
   --color-primary: oklch(0.5 0.14 160);
   --color-primary-foreground: oklch(0.985 0 0);
-  --color-secondary: oklch(0.94 0.005 260);
-  --color-secondary-foreground: oklch(0.22 0.005 260);
-  --color-muted: oklch(0.94 0.005 260);
-  --color-muted-foreground: oklch(0.45 0.01 260);
-  --color-accent: oklch(0.94 0.005 260);
-  --color-accent-foreground: oklch(0.22 0.005 260);
-  --color-border: oklch(0 0 0 / 8%);
-  --color-input: oklch(0 0 0 / 10%);
+  --color-secondary: #f4f4f5;
+  --color-secondary-foreground: #0a0a0a;
+  --color-muted: #f4f4f5;
+  --color-muted-foreground: #71717a;
+  --color-accent: #f4f4f5;
+  --color-accent-foreground: #0a0a0a;
+  --color-border: rgba(0, 0, 0, 0.08);
+  --color-input: rgba(0, 0, 0, 0.1);
   --color-ring: oklch(0.5 0.14 160);
 
   --radius-sm: calc(var(--radius) - 4px);
@@ -31,7 +31,7 @@
 }
 
 :root {
-  --radius: 0.375rem;
+  --radius: 0.5rem;
 }
 
 @layer base {
@@ -46,6 +46,7 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
+    font-size: 0.875rem;
   }
   a {
     color: inherit;
@@ -54,6 +55,15 @@
   ul,
   ol {
     list-style: none;
+  }
+}
+
+@keyframes drift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 40px 40px;
   }
 }
 
@@ -71,4 +81,34 @@
   50% {
     opacity: 0.4;
   }
+}
+
+/* Dot grid pattern */
+.dot-grid {
+  background-image: radial-gradient(circle, #b0b0b0 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.dot-grid-lg {
+  background-image: radial-gradient(circle, #b0b0b0 1.2px, transparent 1.2px);
+  background-size: 40px 40px;
+}
+
+/* Subtle radial glow */
+.glow-primary {
+  background: radial-gradient(ellipse 60% 50% at 50% 40%, #2eb87a22 0%, transparent 70%);
+}
+
+.glow-primary-right {
+  background: radial-gradient(ellipse 50% 60% at 80% 50%, #2eb87a1a 0%, transparent 70%);
+}
+
+.glow-primary-left {
+  background: radial-gradient(ellipse 50% 60% at 20% 50%, #2eb87a1a 0%, transparent 70%);
+}
+
+/* Section divider */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.06), transparent);
 }

@@ -23,6 +23,8 @@ import { CloudflareAPI } from './api.js'
 import { WRANGLER_BASE_CONFIG } from './wrangler-config.js'
 import { detectBindings, type BindingRequirement } from './codegen/bindings.js'
 import { getSubWorkflowBindings } from './codegen/generators/sub-workflow.js'
+import { getSubScriptBindings } from './codegen/generators/sub-script.js'
+import { parseAnnotations } from './codegen/parse-annotations.js'
 import {
   cloudflareDefaultDeploymentConfig,
   cloudflareDeploymentConfigSchema,
@@ -111,9 +113,12 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     if (c.limits?.cpuMs) {
       preview.limits = { cpu_ms: c.limits.cpuMs }
     }
-    if (c.observability) {
-      preview.observability = c.observability
-    }
+    // Always show the full observability config in the preview — merge
+    // WRANGLER_BASE_CONFIG as the base so the Review step reflects what
+    // actually gets deployed, with any Configure-step overrides on top.
+    preview.observability = c.observability
+      ? { ...WRANGLER_BASE_CONFIG.observability, ...c.observability }
+      : { ...WRANGLER_BASE_CONFIG.observability }
     if (c.logpush) {
       preview.logpush = true
     }
@@ -141,8 +146,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
 
   generate(ir: ArtifactIR, config?: ProviderConfig): GeneratedArtifact {
     const envVarNames = config?.envVars ? Object.keys(config.envVars) : undefined
-    const dc = config?.options?.['deploymentConfig'] as CloudflareDeploymentConfig | undefined
-    const triggerCode = dc?.triggerCode ?? (config?.options?.['triggerCode'] as string | undefined)
+    const triggerCode = config?.options?.['triggerCode'] as string | undefined
     if (ir.kind === 'script') {
       const source = generateScript(ir as ScriptIR, {
         templateResolver: this.templateResolver,
@@ -198,7 +202,18 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     }
 
     report('GENERATING_CODE', 'Compiling TypeScript to JavaScript', 15)
-    const compiled = await transpileToJS(artifact.source)
+    let compiled: string
+    try {
+      compiled = await transpileToJS(artifact.source)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      report('FAILED', `Compile error: ${message}`, 0)
+      return {
+        success: false,
+        deploymentId: '',
+        error: `Compile error: ${message}`,
+      }
+    }
     const compiledArtifact: GeneratedArtifact = {
       filename: 'worker.js',
       source: artifact.source,
@@ -264,6 +279,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
 
     // Collect sub-workflow bindings from IR
     const subWorkflowBindings = ir ? getSubWorkflowBindings(ir.nodes) : []
+    const subScriptBindings = ir ? getSubScriptBindings(ir.nodes) : []
 
     report('BINDINGS_READY', 'Resource bindings configured', 45)
 
@@ -310,6 +326,14 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     const workersDev =
       deploymentConfig?.workersDev ?? (config.options?.['workersDev'] as boolean | undefined)
 
+    // Build queue consumer wiring from `@queue function NAME(...)` annotations in
+    // the trigger code. Each consumed queue gets one row in wrangler.json's
+    // `queues.consumers[]`. Per-queue settings come from
+    // `deploymentConfig.queueConsumers` if present; otherwise CF defaults apply.
+    const triggerCodeForAnnotations = config.options?.['triggerCode'] as string | undefined
+    const queueConsumers = buildQueueConsumers(triggerCodeForAnnotations, deploymentConfig)
+    const cronTriggers = buildCronTriggers(triggerCodeForAnnotations, deploymentConfig)
+
     if (!this.deployer) {
       report('FAILED', 'No deployer configured — deploy is not available on this runtime', 0)
       return { success: false, deploymentId: '', error: 'No deployer configured' }
@@ -336,17 +360,19 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
         dependencies: opts.dependencies,
         bindings: resolvedBindings,
         subWorkflowBindings: subWorkflowBindings.length > 0 ? subWorkflowBindings : undefined,
+        subScriptBindings: subScriptBindings.length > 0 ? subScriptBindings : undefined,
         previewUrls,
         workersDev,
         routes,
         customDomains: deploymentConfig?.customDomains,
         compatibilityDate: deploymentConfig?.compatibilityDate,
         compatibilityFlags: deploymentConfig?.compatibilityFlags,
-        cronTriggers: deploymentConfig?.cronTriggers,
+        cronTriggers,
         placement: deploymentConfig?.placement,
         limits: deploymentConfig?.limits,
         observability: deploymentConfig?.observability,
         logpush: deploymentConfig?.logpush,
+        queueConsumers,
       },
       deployerProgress,
     )
@@ -363,7 +389,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
       success: true,
       deploymentId: result.workerName,
       url: result.workerUrl,
-      dashboardUrl: `https://dash.cloudflare.com/${accountId}/workers/services/view/${result.workerName}`,
+      dashboardUrl: `https://dash.cloudflare.com/${accountId}/workers/services/view/${result.workerName}/production`,
     }
   }
 
@@ -407,16 +433,32 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     deploymentId: string,
     config: ProviderConfig,
   ): Promise<{ success: boolean; error?: string }> {
-    if (!this.deployer) return { success: false, error: 'No deployer configured' }
     const { accountId, apiToken } = extractCredentials(config)
-    return this.deployer.deleteWorker(deploymentId, { accountId, apiToken })
+    try {
+      const api = new CloudflareAPI({ accountId, apiToken })
+      await api.deleteWorker(deploymentId)
+      return { success: true }
+    } catch (err) {
+      const message = (err as Error).message
+      // Worker already gone — treat as successful takedown
+      if (message.includes('does not exist')) {
+        return { success: true }
+      }
+      return { success: false, error: message }
+    }
   }
 
   async startLocalDev(
     artifact: GeneratedArtifact,
     options: LocalDevOptions,
   ): Promise<LocalDevSession> {
-    const compiled = await transpileToJS(artifact.source)
+    let compiled: string
+    try {
+      compiled = await transpileToJS(artifact.source)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      throw new Error(`Compile error: ${message}`, { cause: err })
+    }
     return startLocalDev({ filename: 'worker.js', source: artifact.source, compiled }, options)
   }
 }
@@ -431,6 +473,132 @@ function extractCredentials(config: ProviderConfig): {
     throw new Error('accountId and apiToken are required in credentials')
   }
   return { accountId, apiToken }
+}
+
+/**
+ * Returns the queue-consumer wiring for wrangler.json based on `@queue function NAME(...)`
+ * annotations in the trigger code, merged with per-queue settings.
+ *
+ * Settings merge in priority order (highest wins):
+ *   1. `deploymentConfig.queueConsumers` — per-environment override from the
+ *      deployment config (lets dev/staging/prod tune independently).
+ *   2. The handler's inline `@config { ... }` block — the source-co-located
+ *      default for the queue.
+ *   3. CF defaults (no field) — `max_batch_size: 10`, `max_batch_timeout: 5s`,
+ *      `max_retries: 3`.
+ *
+ * Returns `undefined` when there are no `@queue` declarations (no consumer
+ * block emitted in wrangler.json).
+ *
+ * Annotation parse errors are silently swallowed here — they're already
+ * surfaced as a structured DeployResult by the codegen path that runs first
+ * (see `generate()` above).
+ */
+export function buildQueueConsumers(
+  triggerCode: string | undefined,
+  deploymentConfig: CloudflareDeploymentConfig | undefined,
+):
+  | Array<{
+      queue: string
+      maxBatchSize?: number
+      maxBatchTimeout?: number
+      maxRetries?: number
+      deadLetterQueue?: string
+      maxConcurrency?: number
+    }>
+  | undefined {
+  if (!triggerCode) return undefined
+  let handlers: Array<{
+    /** JS function identifier — used to match deployment config overrides. */
+    name: string
+    /** CF-valid queue name — used in the wrangler `queue` field. */
+    queueName: string
+    config?: Record<string, string | number | boolean>
+  }>
+  try {
+    const parsed = parseAnnotations(triggerCode)
+    if (parsed.mode !== 'strict' || parsed.queueHandlers.length === 0) return undefined
+    handlers = parsed.queueHandlers.map((q) => ({
+      name: q.name,
+      queueName: q.queueName ?? q.name,
+      config: q.config,
+    }))
+  } catch {
+    return undefined
+  }
+
+  // Deployment-config overrides may be keyed by either the JS function name
+  // or the CF queue name — try both so users can write either form in the
+  // queueConsumers field of the deployment config.
+  const overridesByJsName = new Map(
+    (deploymentConfig?.queueConsumers ?? []).map((c) => [c.queue, c] as const),
+  )
+  return handlers.map(({ name, queueName, config }) => {
+    const override = overridesByJsName.get(name) ?? overridesByJsName.get(queueName)
+    const merged: Record<string, unknown> = { queue: queueName }
+    // Layer (2): inline @config block.
+    if (config) {
+      for (const [k, v] of Object.entries(config)) merged[k] = v
+    }
+    // Layer (1): deploymentConfig override (highest priority).
+    if (override) {
+      if (override.maxBatchSize !== undefined) merged.maxBatchSize = override.maxBatchSize
+      if (override.maxBatchTimeout !== undefined) merged.maxBatchTimeout = override.maxBatchTimeout
+      if (override.maxRetries !== undefined) merged.maxRetries = override.maxRetries
+      if (override.deadLetterQueue !== undefined) merged.deadLetterQueue = override.deadLetterQueue
+      if (override.maxConcurrency !== undefined) merged.maxConcurrency = override.maxConcurrency
+    }
+    return merged as {
+      queue: string
+      maxBatchSize?: number
+      maxBatchTimeout?: number
+      maxRetries?: number
+      deadLetterQueue?: string
+      maxConcurrency?: number
+    }
+  })
+}
+
+/**
+ * Returns the union of cron expressions from `@scheduled` annotations and
+ * any explicit `deploymentConfig.cronTriggers`, deduped while preserving the
+ * order in which they first appear (annotation crons first). Returns
+ * undefined when neither source contributes any cron, so the wrangler config
+ * omits the `triggers` block entirely.
+ *
+ * Annotation parse errors are silently swallowed here — they're already
+ * surfaced by the codegen path that runs first.
+ */
+export function buildCronTriggers(
+  triggerCode: string | undefined,
+  deploymentConfig: CloudflareDeploymentConfig | undefined,
+): string[] | undefined {
+  const seen = new Set<string>()
+  const out: string[] = []
+  if (triggerCode) {
+    try {
+      const parsed = parseAnnotations(triggerCode)
+      if (parsed.mode === 'strict') {
+        for (const sh of parsed.scheduledHandlers) {
+          for (const cron of sh.crons ?? []) {
+            if (!seen.has(cron)) {
+              seen.add(cron)
+              out.push(cron)
+            }
+          }
+        }
+      }
+    } catch {
+      // Ignore — codegen path raises this as a structured DeployResult.
+    }
+  }
+  for (const cron of deploymentConfig?.cronTriggers ?? []) {
+    if (!seen.has(cron)) {
+      seen.add(cron)
+      out.push(cron)
+    }
+  }
+  return out.length > 0 ? out : undefined
 }
 
 export function mapCFStatus(cfStatus: string): WorkflowStatus {

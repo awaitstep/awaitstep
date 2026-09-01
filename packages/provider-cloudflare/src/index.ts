@@ -10,6 +10,8 @@ export type { GenerateOptions, GenerateScriptOptions } from './codegen/generate.
 export {
   detectBindings,
   detectBindingsFromSource,
+  deriveQueueName,
+  toCFQueueName,
   type BindingRequirement,
   type BindingType,
 } from './codegen/bindings.js'

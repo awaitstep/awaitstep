@@ -11,14 +11,20 @@ describe('cloudflareDeploymentConfigSchema', () => {
     expect(cloudflareDeploymentConfigSchema.safeParse({}).success).toBe(true)
   })
 
-  it('accepts routes, toggles, and triggerCode', () => {
+  it('accepts routes and toggles', () => {
     const parsed = cloudflareDeploymentConfigSchema.safeParse({
       routes: [{ pattern: 'example.com/*', zoneName: 'example.com' }],
       workersDev: true,
       previewUrls: false,
-      triggerCode: 'export default {}',
     })
     expect(parsed.success).toBe(true)
+  })
+
+  it('rejects triggerCode (workflow-level field, not a deployment setting)', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({
+      triggerCode: 'export default {}',
+    })
+    expect(parsed.success).toBe(false)
   })
 
   it('rejects routes missing zoneName', () => {
@@ -39,6 +45,63 @@ describe('cloudflareDeploymentConfigSchema', () => {
   })
 })
 
+describe('cloudflareDeploymentConfigSchema — queueConsumers', () => {
+  it('accepts a valid queueConsumers array', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({
+      queueConsumers: [
+        {
+          queue: 'emails',
+          maxBatchSize: 25,
+          maxBatchTimeout: 30,
+          maxRetries: 3,
+          deadLetterQueue: 'emails-dlq',
+          maxConcurrency: 5,
+        },
+      ],
+    })
+    expect(parsed.success).toBe(true)
+  })
+
+  it('accepts an entry with only the queue name (defaults applied at wrangler emission)', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({
+      queueConsumers: [{ queue: 'jobs' }],
+    })
+    expect(parsed.success).toBe(true)
+  })
+
+  it('rejects empty queue name', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({
+      queueConsumers: [{ queue: '' }],
+    })
+    expect(parsed.success).toBe(false)
+  })
+
+  it('rejects out-of-range maxBatchSize', () => {
+    const tooBig = cloudflareDeploymentConfigSchema.safeParse({
+      queueConsumers: [{ queue: 'jobs', maxBatchSize: 101 }],
+    })
+    const tooSmall = cloudflareDeploymentConfigSchema.safeParse({
+      queueConsumers: [{ queue: 'jobs', maxBatchSize: 0 }],
+    })
+    expect(tooBig.success).toBe(false)
+    expect(tooSmall.success).toBe(false)
+  })
+
+  it('rejects out-of-range maxConcurrency (CF caps at 20)', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({
+      queueConsumers: [{ queue: 'jobs', maxConcurrency: 21 }],
+    })
+    expect(parsed.success).toBe(false)
+  })
+
+  it('rejects unknown keys inside a queue consumer entry', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({
+      queueConsumers: [{ queue: 'jobs', unknownField: true }],
+    })
+    expect(parsed.success).toBe(false)
+  })
+})
+
 describe('cloudflareDefaultDeploymentConfig', () => {
   it('validates against its own schema', () => {
     expect(
@@ -49,6 +112,51 @@ describe('cloudflareDefaultDeploymentConfig', () => {
   it('enables workers.dev and preview URLs by default', () => {
     expect(cloudflareDefaultDeploymentConfig.workersDev).toBe(true)
     expect(cloudflareDefaultDeploymentConfig.previewUrls).toBe(true)
+  })
+
+  it('does not hardcode observability — falls back to WRANGLER_BASE_CONFIG', () => {
+    expect(cloudflareDefaultDeploymentConfig.observability).toBeUndefined()
+  })
+})
+
+describe('cloudflareDeploymentConfigSchema — observability toggle', () => {
+  it('maps boolean true to the full logs+traces config', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({ observability: true })
+    expect(parsed.success).toBe(true)
+    if (!parsed.success) return
+    const obs = parsed.data.observability
+    expect(obs?.logs?.enabled).toBe(true)
+    expect(obs?.logs?.persist).toBe(true)
+    expect(obs?.logs?.invocation_logs).toBe(true)
+    expect(obs?.traces?.enabled).toBe(true)
+    expect(obs?.traces?.persist).toBe(true)
+    // Legacy top-level flag should be off — we use the new system
+    expect(obs?.enabled).toBe(false)
+  })
+
+  it('maps boolean false to a fully-disabled config', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({ observability: false })
+    expect(parsed.success).toBe(true)
+    if (!parsed.success) return
+    const obs = parsed.data.observability
+    expect(obs?.logs?.enabled).toBe(false)
+    expect(obs?.traces?.enabled).toBe(false)
+  })
+
+  it('passes through an object config as-is', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({
+      observability: { logs: { enabled: true, persist: false } },
+    })
+    expect(parsed.success).toBe(true)
+    if (!parsed.success) return
+    expect(parsed.data.observability?.logs?.persist).toBe(false)
+  })
+
+  it('accepts undefined observability (uses WRANGLER_BASE_CONFIG defaults)', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({})
+    expect(parsed.success).toBe(true)
+    if (!parsed.success) return
+    expect(parsed.data.observability).toBeUndefined()
   })
 })
 

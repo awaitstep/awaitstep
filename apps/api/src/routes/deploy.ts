@@ -124,15 +124,24 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
     const hasProgressDeploy =
       'deployWithProgress' in adapter && typeof adapterRecord.deployWithProgress === 'function'
 
-    const result = hasProgressDeploy
-      ? await (
-          adapterRecord.deployWithProgress as (
-            a: GeneratedArtifact,
-            c: ProviderConfig,
-            p: (progress: unknown) => Promise<void>,
-          ) => Promise<DeployResult>
-        )(artifact, providerConfig, onProgress)
-      : await adapter.deploy(artifact, providerConfig)
+    let result: DeployResult
+    try {
+      result = hasProgressDeploy
+        ? await (
+            adapterRecord.deployWithProgress as (
+              a: GeneratedArtifact,
+              c: ProviderConfig,
+              p: (progress: unknown) => Promise<void>,
+            ) => Promise<DeployResult>
+          )(artifact, providerConfig, onProgress)
+        : await adapter.deploy(artifact, providerConfig)
+    } catch (err) {
+      // Adapter contract is to return DeployResult; an uncaught exception is
+      // a provider bug. Without this catch the SSE stream would close silently
+      // and the client would see no failure event.
+      const message = err instanceof Error ? err.message : String(err)
+      result = { success: false, deploymentId: '', error: message }
+    }
 
     await db.createDeployment({
       id: nanoid(),

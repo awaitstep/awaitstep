@@ -38,7 +38,10 @@ describe('generateScript', () => {
     expect(code).not.toContain('WorkflowEntrypoint')
     expect(code).not.toContain('cloudflare:workers')
     expect(code).toContain('export default {')
-    expect(code).toContain('async fetch(request: Request, env: Env)')
+    // Default scaffolding uses the @fetch annotation form with user-supplied
+    // params (request, env, ctx). Legacy typed signature applies when a user
+    // overrides triggerCode without annotations.
+    expect(code).toContain('async fetch(request, env, ctx)')
   })
 
   it('isolates node code in a runGraph function', () => {
@@ -177,7 +180,11 @@ describe('generateScript', () => {
     expect(code).not.toContain('WORKFLOW: Workflow')
   })
 
-  it('a non-exported, unreferenced sub_workflow becomes a clean bare `await`', () => {
+  it('auto-exports a sub_workflow handle even without EXPORT_ prefix', () => {
+    // sub_workflow is a result-producer node — its value (the WorkflowInstance
+    // handle) is almost always what the user wants to surface (instance.id,
+    // status(), etc). Treated as implicitly exported so the const survives
+    // post-processing and the handle lands on `graph.<name>`.
     const ir = makeScript([
       {
         id: 'send-auth-email',
@@ -194,12 +201,53 @@ describe('generateScript', () => {
       },
     ])
     const code = generateScript(ir)
-    // The const-strip rewrite must not leave a bare object literal at
-    // statement position. Result: a single `await env.SEND_MAIL.create(...)`.
-    expect(code).toContain('await env.SEND_MAIL.create({')
-    expect(code).not.toMatch(/^\s*\{ instanceId:/m)
-    expect(code).not.toContain('const send_auth_email')
-    expect(code).toContain('return {};')
+    expect(code).toContain('const send_auth_email = await env.SEND_MAIL.create({')
+    expect(code).toContain('return { send_auth_email };')
+  })
+
+  it('auto-exports an http_request response even without EXPORT_ prefix', () => {
+    // http_request is a result-producer node — its purpose is to make a
+    // call and surface the JSON response. The response must land on
+    // `graph.<name>` without forcing the user to learn the EXPORT_
+    // convention; otherwise the entire request silently disappears.
+    const ir = makeScript([
+      {
+        id: 'fetch-rates',
+        type: 'http_request',
+        name: 'exchange_rate',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {
+          url: 'https://example.com/rates',
+          method: 'GET',
+        },
+      },
+    ])
+    const code = generateScript(ir)
+    expect(code).toContain('const exchange_rate = await fetch(')
+    expect(code).toContain('return { exchange_rate };')
+  })
+
+  it('auto-exports a sub_script response even without EXPORT_ prefix', () => {
+    const ir = makeScript([
+      {
+        id: 'call-pricing',
+        type: 'sub_script',
+        name: 'pricing',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {
+          workerName: 'pricing-svc',
+          method: 'GET',
+          url: 'https://pricing-svc.example/quote',
+        },
+      },
+    ])
+    const code = generateScript(ir)
+    expect(code).toContain('const pricing = await env.PRICING_SVC.fetch(')
+    expect(code).toContain('return { pricing };')
   })
 
   it('emits a sub_workflow forward as a fire-and-forget binding call', () => {
@@ -422,5 +470,163 @@ describe('generateScript', () => {
 
     // env.API_KEY usage in the class body is auto-detected for the Env interface.
     expect(code).toMatch(/interface Env \{[\s\S]*API_KEY: string;[\s\S]*\}/)
+  })
+})
+
+describe('generateScript — annotation mode (@fetch / @queue)', () => {
+  const trivialIR = makeScript([stepNode('s', 'return { ok: true }')])
+
+  it('emits both fetch and queue handlers when @fetch and @queue are declared', () => {
+    const triggerCode = `
+@fetch function handler(request, env, ctx) {
+  return Response.json(await runGraph(env, { payload: {} }))
+}
+
+@queue function emails(batch, env, ctx) {
+  for (const msg of batch.messages) msg.ack()
+}
+`
+    const code = generateScript(trivialIR, { triggerCode })
+    expect(code).toContain('async fetch(request, env, ctx): Promise<Response>')
+    expect(code).toMatch(
+      /async queue\(batch: MessageBatch<unknown>, env: Env, ctx: ExecutionContext\): Promise<void>/,
+    )
+    expect(code).toContain('switch (batch.queue) {')
+    expect(code).toContain('case "emails":')
+    expect(code).toContain('msg.ack()')
+  })
+
+  it('switch case label uses CF-valid queue name (snake_case → kebab-case)', () => {
+    const triggerCode = `
+@queue function marktplaats_processor(batch, env, ctx) {
+  for (const msg of batch.messages) msg.ack()
+}
+`
+    const code = generateScript(trivialIR, { triggerCode })
+    // Case label uses the kebab-case CF queue name, NOT the snake_case JS function name.
+    expect(code).toContain('case "marktplaats-processor":')
+    expect(code).not.toContain('case "marktplaats_processor":')
+  })
+
+  it('switch case label converts camelCase function names to kebab-case', () => {
+    const triggerCode = `
+@queue function userEvents(batch, env, ctx) {
+  for (const msg of batch.messages) msg.ack()
+}
+`
+    const code = generateScript(trivialIR, { triggerCode })
+    expect(code).toContain('case "user-events":')
+    expect(code).not.toContain('case "userEvents":')
+  })
+
+  it('emits multiple @queue handlers as switch cases', () => {
+    const triggerCode = `
+@fetch function handler(request, env, ctx) { return new Response("ok") }
+
+@queue function emails(batch, env, ctx) { /* email processing */ }
+@queue function jobs(batch, env, ctx) { /* job processing */ }
+`
+    const code = generateScript(trivialIR, { triggerCode })
+    expect(code).toContain('case "emails":')
+    expect(code).toContain('case "jobs":')
+    expect(code).toContain('email processing')
+    expect(code).toContain('job processing')
+  })
+
+  it('omits fetch handler entirely for queue-only workers', () => {
+    const triggerCode = `
+@queue function emails(batch, env, ctx) {
+  for (const msg of batch.messages) msg.ack()
+}
+`
+    const code = generateScript(trivialIR, { triggerCode })
+    expect(code).not.toContain('async fetch(')
+    expect(code).toContain('async queue(batch: MessageBatch<unknown>')
+    expect(code).toContain('case "emails":')
+  })
+
+  it('omits queue handler when no @queue annotations are present', () => {
+    const triggerCode = `
+@fetch function handler(request, env, ctx) {
+  return Response.json({ ok: true })
+}
+`
+    const code = generateScript(trivialIR, { triggerCode })
+    expect(code).toContain('async fetch(request, env, ctx)')
+    expect(code).not.toContain('async queue(')
+    expect(code).not.toContain('switch (batch.queue)')
+  })
+
+  it('emits module-level code outside annotated functions', () => {
+    const triggerCode = `
+const SHARED_CONFIG = { region: "eu" }
+function shared(x) { return x * 2 }
+
+@fetch function handler(request, env, ctx) {
+  return Response.json({ doubled: shared(21), config: SHARED_CONFIG })
+}
+`
+    const code = generateScript(trivialIR, { triggerCode })
+    expect(code).toContain('const SHARED_CONFIG = { region: "eu" }')
+    expect(code).toContain('function shared(x) { return x * 2 }')
+    // Module code emitted before runGraph so handlers can reference it.
+    const moduleIdx = code.indexOf('const SHARED_CONFIG')
+    const runGraphIdx = code.indexOf('async function runGraph')
+    expect(moduleIdx).toBeGreaterThan(0)
+    expect(moduleIdx).toBeLessThan(runGraphIdx)
+  })
+
+  it('hoists imports from inside any annotated handler body to module top', () => {
+    const triggerCode = `
+@fetch function handler(request, env, ctx) {
+  import puppeteer from "@cloudflare/puppeteer"
+  return Response.json({})
+}
+
+@queue function emails(batch, env, ctx) {
+  import { sendEmail } from "./email"
+  for (const msg of batch.messages) await sendEmail(msg.body)
+}
+`
+    const code = generateScript(trivialIR, { triggerCode })
+    // Imports should appear at the very top, NOT inside handler bodies.
+    const puppeteerImportIdx = code.indexOf('import puppeteer')
+    const fetchHandlerIdx = code.indexOf('async fetch(')
+    expect(puppeteerImportIdx).toBeGreaterThanOrEqual(0)
+    expect(puppeteerImportIdx).toBeLessThan(fetchHandlerIdx)
+
+    const sendEmailImportIdx = code.indexOf('import { sendEmail }')
+    expect(sendEmailImportIdx).toBeGreaterThanOrEqual(0)
+    expect(sendEmailImportIdx).toBeLessThan(fetchHandlerIdx)
+  })
+
+  it('preserves user param names from @fetch annotation', () => {
+    const triggerCode = `
+@fetch function handler(req, env, ctx) {
+  return new Response("hi from " + req.url)
+}
+`
+    const code = generateScript(trivialIR, { triggerCode })
+    // Use of 'req' (user's chosen name) is preserved, not rewritten to 'request'.
+    expect(code).toContain('async fetch(req, env, ctx)')
+    expect(code).toContain('req.url')
+  })
+
+  it('legacy mode emission used when triggerCode has no annotations', () => {
+    // When the user supplies a triggerCode that has no @fetch/@queue
+    // annotations (e.g. a raw try/catch body), legacy emission applies:
+    // typed `async fetch(request: Request, env: Env): Promise<Response>`.
+    const code = generateScript(trivialIR, {
+      triggerCode: 'try { return new Response("ok") } catch (e) { return Response.json({}) }',
+    })
+    expect(code).toContain('async fetch(request: Request, env: Env): Promise<Response>')
+    expect(code).not.toContain('async queue(')
+  })
+
+  it('throws AnnotationParseError on invalid @fetch name (propagates from parser)', () => {
+    const triggerCode = `@fetch function notHandler() { return new Response() }`
+    expect(() => generateScript(trivialIR, { triggerCode })).toThrow(
+      /requires function named 'handler'/,
+    )
   })
 })

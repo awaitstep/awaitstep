@@ -44,6 +44,7 @@ export class NodeWranglerDeployer implements WranglerDeployer {
         vars: options.vars,
         bindings: options.bindings,
         subWorkflowBindings: options.subWorkflowBindings,
+        subScriptBindings: options.subScriptBindings,
         previewUrls: options.previewUrls,
         workersDev: options.workersDev,
         routes: options.routes,
@@ -55,6 +56,7 @@ export class NodeWranglerDeployer implements WranglerDeployer {
         limits: options.limits,
         observability: options.observability,
         logpush: options.logpush,
+        queueConsumers: options.queueConsumers,
       })
       await writeFile(join(deployDir, 'wrangler.json'), wranglerConfig, 'utf-8')
 

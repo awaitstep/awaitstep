@@ -31,6 +31,7 @@ const BUILTIN_FLOW_TYPES = new Set([
   'loop',
   'break',
   'sub_workflow',
+  'sub_script',
   'race',
 ])
 
@@ -138,6 +139,7 @@ const getInitialWorkflowState = () => ({
   triggerCode: '',
   deployConfig: {},
   showSettings: false,
+  showEditor: false,
   validationResult: null,
   simulationResult: null,
   isDirty: false,
@@ -158,6 +160,7 @@ interface WorkflowState {
   triggerCode: string
   deployConfig: DeployConfig
   showSettings: boolean
+  showEditor: boolean
   validationResult: PublishValidationResult | null
   simulationResult: SimulationResult | null
   isDirty: boolean
@@ -189,6 +192,7 @@ interface WorkflowState {
   setTriggerCode: (code: string) => void
   setDeployConfig: (config: DeployConfig) => void
   setShowSettings: (show: boolean) => void
+  setShowEditor: (show: boolean) => void
   runValidation: (nodeRegistry?: NodeRegistry) => PublishValidationResult
   clearValidation: () => void
   runSimulation: () => SimulationResult
@@ -269,6 +273,19 @@ function createDefaultNode(
           input: '',
           waitForCompletion: true,
           timeout: '5 minutes',
+        },
+      }
+    case 'sub_script':
+      return {
+        ...base,
+        name: 'Call Script',
+        data: {
+          workerName: '',
+          method: 'POST',
+          url: 'https://invoke/',
+          headers: {},
+          body: '',
+          retryLimit: 3,
         },
       }
     default: {
@@ -354,6 +371,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       else if (!labels.has('catch')) label = 'catch'
       else if (!labels.has('finally')) label = 'finally'
       else if (!labels.has('then')) label = 'then'
+      else return
+    } else if (type === 'branch') {
+      // Per-branch wiring (yes/no/etc.) is done via the config panel, which
+      // sets explicit branch labels. A direct drag from the branch's source
+      // handle is for the continuation path that runs after the if/else
+      // block returns — auto-label as 'then'. Block if one already exists.
+      const labels = new Set(outgoing!.map((e) => e.label))
+      if (!labels.has('then')) label = 'then'
       else return
     }
 
@@ -563,6 +588,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   setShowSettings: (show) => {
     set({ showSettings: show, selectedNodeId: show ? null : get().selectedNodeId })
+  },
+
+  setShowEditor: (show) => {
+    set({ showEditor: show })
   },
 
   runValidation: (nodeRegistry?: NodeRegistry) => {

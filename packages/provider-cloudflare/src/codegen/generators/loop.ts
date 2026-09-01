@@ -27,7 +27,7 @@ export function generateLoop(
 
   const bodyEdge = ir.edges.find((e) => e.source === node.id && e.label === 'body')
   const bodyChain = bodyEdge
-    ? collectChain(bodyEdge.target, ctx.adj, ctx.inDegree, ctx.nodeMap)
+    ? collectChain(bodyEdge.target, ctx.adj, ctx.inDegree, ctx.nodeMap, ctx.edgeLabels)
     : []
 
   const loopType = node.data.loopType as string

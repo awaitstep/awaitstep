@@ -1,6 +1,6 @@
 {
   "name": "@awaitstep/web",
-  "version": "1.4.7",
+  "version": "1.4.14",
   "private": true,
   "type": "module",
   "scripts": {
@@ -21,6 +21,7 @@
     "@fontsource-variable/outfit": "5.3.0",
     "@hookform/resolvers": "5.2.2",
     "@monaco-editor/react": "^4.7.0",
+    "@opentelemetry/api": "^1.9.1",
     "@radix-ui/react-alert-dialog": "1.1.15",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
@@ -31,10 +32,10 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@radix-ui/react-visually-hidden": "1.2.4",
-    "@tanstack/react-query": "^5.96.2",
-    "@tanstack/react-router": "^1.167.0",
-    "@tanstack/react-start": "^1.166.11",
-    "@xyflow/react": "^12.10.1",
+    "@tanstack/react-query": "^5.100.10",
+    "@tanstack/react-router": "^1.169.2",
+    "@tanstack/react-start": "^1.167.65",
+    "@xyflow/react": "^12.10.2",
     "better-auth": "^1.6.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -43,12 +44,12 @@
     "monaco-editor": "^0.55.1",
     "nanoid": "^5.1.6",
     "react": "^19.2.5",
-    "react-day-picker": "9.14.0",
+    "react-day-picker": "10.0.0",
     "react-dom": "^19.2.5",
-    "react-hook-form": "7.72.1",
+    "react-hook-form": "7.75.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
-    "zod": "^4.3.6",
+    "zod": "^4.4.3",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
@@ -65,7 +66,7 @@
     "typescript": "^5.9.3",
     "vite": "^8.0.8",
     "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "^4.1.4",
-    "wrangler": "^4.82.2"
+    "vitest": "^4.1.5",
+    "wrangler": "^4.90.1"
   }
 }

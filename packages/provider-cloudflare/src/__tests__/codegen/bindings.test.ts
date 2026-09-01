@@ -1,6 +1,104 @@
 import { describe, it, expect } from 'vitest'
-import { detectBindings } from '../../codegen/bindings.js'
+import { detectBindings, deriveQueueName, toCFQueueName } from '../../codegen/bindings.js'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
+
+describe('deriveQueueName', () => {
+  it('strips QUEUE_ prefix and lowercases', () => {
+    expect(deriveQueueName('QUEUE_EMAILS')).toBe('emails')
+    expect(deriveQueueName('QUEUE_JOBS_HIGH')).toBe('jobs_high')
+  })
+
+  it('handles bare QUEUE binding by lowercasing the original', () => {
+    expect(deriveQueueName('QUEUE')).toBe('queue')
+  })
+
+  it('is case-insensitive on the prefix', () => {
+    expect(deriveQueueName('queue_emails')).toBe('emails')
+    expect(deriveQueueName('Queue_emails')).toBe('emails')
+  })
+
+  it('passes non-QUEUE bindings through (lowercased)', () => {
+    // Defensive: shouldn't be called with non-queue bindings, but if so,
+    // returns a sensible value rather than throwing.
+    expect(deriveQueueName('FOO_BAR')).toBe('foo_bar')
+  })
+})
+
+describe('toCFQueueName', () => {
+  it('passes already-valid names through unchanged', () => {
+    expect(toCFQueueName('emails')).toBe('emails')
+    expect(toCFQueueName('marktplaats-processor')).toBe('marktplaats-processor')
+    expect(toCFQueueName('a1b2c3')).toBe('a1b2c3')
+  })
+
+  it('converts snake_case to kebab-case', () => {
+    expect(toCFQueueName('marktplaats_processor')).toBe('marktplaats-processor')
+    expect(toCFQueueName('foo_bar_baz')).toBe('foo-bar-baz')
+  })
+
+  it('converts camelCase to kebab-case', () => {
+    expect(toCFQueueName('marktplaatsProcessor')).toBe('marktplaats-processor')
+    expect(toCFQueueName('myQueue123')).toBe('my-queue123')
+  })
+
+  it('lowercases everything', () => {
+    expect(toCFQueueName('MARKTPLAATS_PROCESSOR')).toBe('marktplaats-processor')
+    expect(toCFQueueName('Foo')).toBe('foo')
+  })
+
+  it('replaces other special characters with hyphens', () => {
+    expect(toCFQueueName('foo.bar/baz')).toBe('foo-bar-baz')
+    expect(toCFQueueName('foo bar')).toBe('foo-bar')
+  })
+
+  it('collapses runs of hyphens', () => {
+    expect(toCFQueueName('foo--bar')).toBe('foo-bar')
+    expect(toCFQueueName('foo___bar')).toBe('foo-bar')
+  })
+
+  it('trims leading and trailing hyphens', () => {
+    expect(toCFQueueName('_foo_')).toBe('foo')
+    expect(toCFQueueName('---bar---')).toBe('bar')
+  })
+
+  it('returns empty string for empty input', () => {
+    expect(toCFQueueName('')).toBe('')
+  })
+
+  it('produces only [a-z0-9-] characters (CF validation rule)', () => {
+    const samples = [
+      'foo_bar',
+      'fooBar',
+      'FOO_BAR',
+      'foo.bar/baz space',
+      'marktplaats_processor',
+      'queue123',
+    ]
+    for (const s of samples) {
+      const result = toCFQueueName(s)
+      expect(result).toMatch(/^[a-z0-9-]+$/)
+    }
+  })
+
+  it('producer + consumer derivations agree on the same CF queue name', () => {
+    // Producer side: env.QUEUE_MARKTPLAATS_PROCESSOR → derive JS identifier → normalize for CF.
+    const producerCF = toCFQueueName(deriveQueueName('QUEUE_MARKTPLAATS_PROCESSOR'))
+    // Consumer side: @queue function marktplaats_processor → directly normalize.
+    const consumerCF = toCFQueueName('marktplaats_processor')
+    expect(producerCF).toBe('marktplaats-processor')
+    expect(consumerCF).toBe('marktplaats-processor')
+    expect(producerCF).toBe(consumerCF)
+  })
+
+  it('camelCase function name aligns with UPPER_SNAKE binding when both follow convention', () => {
+    // Function: @queue function marktplaatsProcessor → marktplaats-processor
+    // Binding:  env.QUEUE_MARKTPLAATS_PROCESSOR → marktplaats-processor
+    expect(toCFQueueName('marktplaatsProcessor')).toBe('marktplaats-processor')
+    expect(toCFQueueName(deriveQueueName('QUEUE_MARKTPLAATS_PROCESSOR'))).toBe(
+      'marktplaats-processor',
+    )
+  })
+})
 
 const V = '1.0.0'
 const P = 'cloudflare'

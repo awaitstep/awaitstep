@@ -39,7 +39,7 @@ export function inlineChain(
   ir: WorkflowIR,
   spaces: number,
 ): string {
-  const chain = collectChain(startId, ctx.adj, ctx.inDegree, ctx.nodeMap)
+  const chain = collectChain(startId, ctx.adj, ctx.inDegree, ctx.nodeMap, ctx.edgeLabels)
   return chain
     .map((n) => {
       const code = generateNode(n, ir)
@@ -81,10 +81,18 @@ export function generatePromiseContainer(
 
   const branches = targets
     .map((targetId) => {
-      const chain = collectChain(targetId, ctx.adj, ctx.inDegree, ctx.nodeMap)
+      const chain = collectChain(targetId, ctx.adj, ctx.inDegree, ctx.nodeMap, ctx.edgeLabels)
       if (chain.length === 0) return null
       const code = chain.map((n) => generateNode(n, ir)).join('\n')
-      return `    async () => {\n${indentCode(code, 6)}\n    }`
+      // If the last node in the branch bound a variable, surface it as the
+      // branch's promise value so callers can destructure it from
+      // Promise.all / allSettled / race results. Side-effect-only nodes get
+      // no return — the branch resolves to undefined as before.
+      const lastNode = chain[chain.length - 1]!
+      const lastVar = varName(lastNode.id)
+      const declRe = new RegExp(`(?:^|\\n)\\s*(?:let|const)\\s+${lastVar}\\b`)
+      const tail = declRe.test(code) ? `\n      return ${lastVar};` : ''
+      return `    async () => {\n${indentCode(code, 6)}${tail}\n    }`
     })
     .filter(Boolean)
 

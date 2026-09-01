@@ -13,6 +13,7 @@ import {
   CircleStop,
   Workflow,
   Zap,
+  Send,
 } from 'lucide-react'
 import { NodeBase } from './node-base'
 import type { FlowNode } from '../../stores/workflow-store'
@@ -208,6 +209,27 @@ export const SubWorkflowNode = memo(function SubWorkflowNode({
   )
 })
 
+export const SubScriptNode = memo(function SubScriptNode({ data, selected }: NodeProps<FlowNode>) {
+  const node = data.irNode
+  if (node.type !== 'sub_script') return null
+  const workerName = String(node.data.workerName ?? '')
+  const method = String(node.data.method ?? 'POST')
+  return (
+    <NodeBase
+      label={node.name}
+      icon={<Send className="h-2.5 w-2.5" />}
+      accent="bg-node-sub/15 text-node-sub"
+      selected={selected}
+    >
+      {workerName && (
+        <span className="font-mono">
+          {method} → {workerName}
+        </span>
+      )}
+    </NodeBase>
+  )
+})
+
 export const RaceNode = memo(function RaceNode({ data, selected }: NodeProps<FlowNode>) {
   const node = data.irNode
   if (node.type !== 'race') return null
@@ -255,6 +277,7 @@ export const nodeTypes = {
   loop: LoopNode,
   break: BreakNode,
   sub_workflow: SubWorkflowNode,
+  sub_script: SubScriptNode,
   race: RaceNode,
   custom: CustomNodeComponent,
 }

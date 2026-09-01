@@ -252,7 +252,7 @@ describe('validateWorkflowForPublish', () => {
   // ── branch ──
 
   describe('branch', () => {
-    it('errors with fewer than 2 branches', () => {
+    it('accepts a single-condition branch (if without else)', () => {
       const node = makeFlowNode({
         id: 'b1',
         type: 'branch',
@@ -262,9 +262,38 @@ describe('validateWorkflowForPublish', () => {
         provider: 'cloudflare',
         data: { branches: [{ label: 'yes', condition: 'true' }] },
       })
+      const target = makeFlowNode({
+        id: 'inside',
+        type: 'step',
+        name: 'Inside',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { code: 'return 1;' },
+      })
+      const result = validateWorkflowForPublish(
+        makeMetadata(),
+        [node, target],
+        [{ id: 'e0', source: 'b1', target: 'inside', label: 'yes' }],
+      )
+      expect(result.issues).not.toContainEqual(
+        expect.objectContaining({ severity: 'error', message: expect.stringMatching(/branches/i) }),
+      )
+    })
+
+    it('errors with zero branches', () => {
+      const node = makeFlowNode({
+        id: 'b1',
+        type: 'branch',
+        name: 'Check',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { branches: [] },
+      })
       const result = validateWorkflowForPublish(makeMetadata(), [node], [])
       expect(result.issues).toContainEqual(
-        expect.objectContaining({ severity: 'error', message: 'Fewer than 2 branches' }),
+        expect.objectContaining({ severity: 'error', message: 'Branch has no conditions' }),
       )
     })
 

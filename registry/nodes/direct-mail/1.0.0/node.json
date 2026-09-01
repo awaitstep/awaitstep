@@ -1,8 +1,6 @@
 {
   "id": "direct-mail",
   "name": "DirectMail",
-  "version": "1.0.0",
-  "description": "Send emails via Alibaba Cloud DirectMail API",
   "category": "Email",
   "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/direct-mail/icon.svg",
   "tags": ["alicloud", "directmail", "email", "transactional"],
@@ -91,5 +89,7 @@
   "runtime": {
     "defaultRetries": 3,
     "defaultTimeout": "30 seconds"
-  }
+  },
+  "version": "1.0.0",
+  "description": "Send emails via Alibaba Cloud DirectMail API"
 }

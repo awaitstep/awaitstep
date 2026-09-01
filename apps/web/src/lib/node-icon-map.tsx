@@ -12,6 +12,7 @@ import {
   CircleStop,
   Workflow,
   Zap,
+  Send,
 } from 'lucide-react'
 
 export interface NodeVisuals {
@@ -74,6 +75,11 @@ const iconMap: Record<string, NodeVisuals> = {
   sub_workflow: {
     icon: <Workflow className="h-2.5 w-2.5" />,
     paletteIcon: <Workflow className="h-4 w-4" />,
+    accent: 'bg-node-sub/15 text-node-sub',
+  },
+  sub_script: {
+    icon: <Send className="h-2.5 w-2.5" />,
+    paletteIcon: <Send className="h-4 w-4" />,
     accent: 'bg-node-sub/15 text-node-sub',
   },
   race: {

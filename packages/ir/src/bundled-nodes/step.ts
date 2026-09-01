@@ -16,6 +16,13 @@ export const stepDefinition: NodeDefinition = {
       description:
         'TypeScript code to execute. ctx.attempt is the current retry (1-indexed). Return value must be serializable.',
     },
+    inline: {
+      type: 'boolean',
+      label: 'Inline (no step.do)',
+      default: false,
+      description:
+        'Emit this code raw in the workflow body — no step.do, no wrapping. You own the surrounding scope: declare your own variables, add your own try/catch or IIFE if needed. Loses durability and retries.',
+    },
     retryLimit: {
       type: 'number',
       label: 'Retry Limit',

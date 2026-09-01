@@ -7,7 +7,8 @@ import {
 } from '@awaitstep/provider-cloudflare/codegen'
 import type { ScriptIR, WorkflowIR } from '@awaitstep/ir'
 import type { TemplateResolver } from '@awaitstep/codegen'
-import { Copy, Check, RotateCcw, ChevronDown, ChevronRight } from 'lucide-react'
+import { Copy, Check, RotateCcw, ChevronDown, ChevronRight, Info } from 'lucide-react'
+import * as Tooltip from '@radix-ui/react-tooltip'
 import { Button } from '../ui/button'
 import { useOrgStore } from '../../stores/org-store'
 import { useWorkflowStore } from '../../stores/workflow-store'
@@ -19,6 +20,98 @@ const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
 type Tab = 'code' | 'preview'
 type OutputMode = 'typescript' | 'ir-json'
+
+function EditorHelpTooltip({ isScript }: { isScript: boolean }) {
+  return (
+    <Tooltip.Provider delayDuration={150}>
+      <Tooltip.Root>
+        <Tooltip.Trigger asChild>
+          <button
+            type="button"
+            className="inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground/40 transition-colors hover:bg-muted/60 hover:text-muted-foreground"
+            aria-label="How the code editor works"
+          >
+            <Info size={12} />
+          </button>
+        </Tooltip.Trigger>
+        <Tooltip.Portal>
+          <Tooltip.Content
+            side="bottom"
+            align="start"
+            sideOffset={6}
+            className="z-50 max-w-md rounded-lg border border-border bg-card p-4 shadow-lg"
+          >
+            <p className="text-xs font-medium text-foreground">
+              How the {isScript ? 'script' : 'workflow'} editor works
+            </p>
+            <div className="mt-2 space-y-2 text-xs leading-relaxed text-muted-foreground">
+              <p>Declare top-level handlers anywhere in the file:</p>
+              <ul className="ml-3 space-y-1.5">
+                <li>
+                  <code className="rounded bg-muted/60 px-1 py-0.5 font-mono">
+                    @fetch function handler(request, env, ctx)
+                  </code>
+                  <br />
+                  HTTP entry point.{' '}
+                  {isScript
+                    ? 'Typically calls runGraph(env, event) and returns Response.json(graph).'
+                    : 'Typically creates an instance via env.WORKFLOW.create({ params }) and returns its id.'}
+                </li>
+                <li>
+                  <code className="rounded bg-muted/60 px-1 py-0.5 font-mono">
+                    @queue function NAME(batch, env, ctx)
+                  </code>
+                  <br />
+                  Consumes messages from queue <code className="font-mono">NAME</code>. CF delivers
+                  a batch; ack/retry per message. Add{' '}
+                  <code className="rounded bg-muted/60 px-1 py-0.5 font-mono">
+                    @config {`{ max_batch_size: 1, max_retries: 3, ... }`}
+                  </code>{' '}
+                  at the start of the body for per-queue tuning.
+                </li>
+              </ul>
+              {isScript ? (
+                <p>
+                  Your canvas nodes are compiled into{' '}
+                  <code className="rounded bg-muted/60 px-1 py-0.5 font-mono">
+                    runGraph(env, event)
+                  </code>
+                  . Call it from any handler. Outputs from steps named{' '}
+                  <code className="rounded bg-muted/60 px-1 py-0.5 font-mono">EXPORT_X</code>{' '}
+                  surface on{' '}
+                  <code className="rounded bg-muted/60 px-1 py-0.5 font-mono">graph.X</code>.
+                </p>
+              ) : (
+                <p>
+                  Your canvas nodes are compiled into a{' '}
+                  <code className="rounded bg-muted/60 px-1 py-0.5 font-mono">
+                    WorkflowEntrypoint
+                  </code>{' '}
+                  class with durable steps (<code className="font-mono">step.do</code>,{' '}
+                  <code className="font-mono">step.sleep</code>, etc.). Trigger it from{' '}
+                  <code className="rounded bg-muted/60 px-1 py-0.5 font-mono">@fetch</code> via{' '}
+                  <code className="rounded bg-muted/60 px-1 py-0.5 font-mono">env.WORKFLOW</code>.
+                </p>
+              )}
+              <p>
+                Top-level <code className="rounded bg-muted/60 px-1 py-0.5 font-mono">import</code>{' '}
+                statements (declared anywhere — including inside handler bodies) are hoisted to
+                module scope. Code outside annotated handlers becomes module-level (shared helpers,
+                constants).
+              </p>
+              <p className="text-muted-foreground/60">
+                With no annotations, the entire file is treated as the{' '}
+                <code className="rounded bg-muted/60 px-1 py-0.5 font-mono">fetch()</code> body
+                (legacy mode, preserved for backward compatibility).
+              </p>
+            </div>
+            <Tooltip.Arrow className="fill-card" />
+          </Tooltip.Content>
+        </Tooltip.Portal>
+      </Tooltip.Root>
+    </Tooltip.Provider>
+  )
+}
 
 export function EditorPanel() {
   const { kind, metadata, nodes, edges, triggerCode, dependencies } = useWorkflowStore(
@@ -278,17 +371,12 @@ export function EditorPanel() {
 
           {/* Entry code hint */}
           <div className="border-b border-border px-4 py-2">
-            {isScript ? (
-              <p className="text-xs leading-relaxed text-muted-foreground/40">
-                Body of{' '}
-                <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">fetch()</code>.
-                Graph nodes run inside{' '}
-                <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">
-                  runGraph()
-                </code>{' '}
-                — call it and reference outputs via{' '}
-                <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">graph.*</code>.
-                {graphOutputs.length > 0 && (
+            <div className="flex items-center gap-1.5 text-xs leading-relaxed text-muted-foreground/40">
+              <span>
+                Worker source. Annotated handlers (
+                <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">@fetch</code>,{' '}
+                <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">@queue</code>).
+                {isScript && graphOutputs.length > 0 && (
                   <>
                     {' '}
                     Available:{' '}
@@ -303,16 +391,9 @@ export function EditorPanel() {
                     .
                   </>
                 )}
-              </p>
-            ) : (
-              <p className="text-xs leading-relaxed text-muted-foreground/40">
-                Code for the{' '}
-                <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">fetch()</code>{' '}
-                handler. Write{' '}
-                <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-xs">import</code>{' '}
-                statements at the top — they are hoisted automatically.
-              </p>
-            )}
+              </span>
+              <EditorHelpTooltip isScript={isScript} />
+            </div>
           </div>
 
           {/* Entry code editor */}

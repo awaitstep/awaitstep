@@ -112,6 +112,7 @@ export async function prepareDeploy(
       ir: prepared.ir,
       ...(prepared.dependencies && { dependencies: prepared.dependencies }),
       ...(appName && { packageName: appName }),
+      ...(workflow.triggerCode && { triggerCode: workflow.triggerCode }),
       deploymentConfig: resolvedConfig.config,
     },
     envVars: prepared.envVars,
@@ -172,7 +173,12 @@ async function resolveDeploymentConfig(input: ResolveConfigInput): Promise<Resol
   // 2. Stored deployment config
   const stored = await db.getDeploymentConfig(workflowId, connectionId)
   if (stored) {
-    const parsed = adapter.deploymentConfigSchema.safeParse(JSON.parse(stored.config))
+    const storedConfig = JSON.parse(stored.config) as Record<string, unknown>
+    // Strip legacy `triggerCode` written by older deploys before it moved to
+    // workflow.triggerCode. Without this, strict() rejects the whole row and
+    // the user loses their saved routes/flags.
+    delete storedConfig.triggerCode
+    const parsed = adapter.deploymentConfigSchema.safeParse(storedConfig)
     if (parsed.success) {
       return { config: parsed.data }
     }
@@ -194,12 +200,11 @@ async function resolveDeploymentConfig(input: ResolveConfigInput): Promise<Resol
 
 function normalizeLegacyConfig(workflow: Workflow): unknown | undefined {
   const legacy = workflow.deployConfig ? JSON.parse(workflow.deployConfig) : undefined
-  if (!legacy && !workflow.triggerCode) return undefined
+  if (!legacy) return undefined
 
   return {
     ...(legacy?.route && {
       routes: [{ pattern: legacy.route.pattern, zoneName: legacy.route.zoneName }],
     }),
-    ...(workflow.triggerCode && { triggerCode: workflow.triggerCode }),
   }
 }

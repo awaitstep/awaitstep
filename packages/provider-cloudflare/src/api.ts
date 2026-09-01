@@ -174,6 +174,11 @@ export class CloudflareAPI {
     return results
   }
 
+  async deleteWorker(scriptName: string): Promise<void> {
+    validatePathSegment(scriptName, 'scriptName')
+    await this.request('DELETE', `/accounts/${this.config.accountId}/workers/scripts/${scriptName}`)
+  }
+
   private async request(
     method: string,
     path: string,

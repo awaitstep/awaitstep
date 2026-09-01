@@ -76,6 +76,16 @@ export interface DeploymentConfigUiFieldOption {
   label: string
 }
 
+/**
+ * Predicate for conditionally showing a UI field based on another field's value.
+ * Resolved against the live config object — when the field at `path` is truthy
+ * (boolean true, non-empty object/array, non-zero number), the gated field renders.
+ */
+export interface DeploymentConfigUiVisibility {
+  path: string
+  truthy: true
+}
+
 export interface DeploymentConfigUiField {
   path: string
   label?: string
@@ -83,6 +93,23 @@ export interface DeploymentConfigUiField {
   placeholder?: string
   widget?: DeploymentConfigUiWidget
   options?: DeploymentConfigUiFieldOption[]
+  /** Hide this field unless the visibility predicate is satisfied. */
+  visibleWhen?: DeploymentConfigUiVisibility
+  /**
+   * For boolean-toggle parents whose schema preprocess maps `true → full object`
+   * (e.g. observability, placement): the canonical object form. When a nested
+   * sub-field is edited while the parent is still a bare boolean, the form
+   * materializes the parent using this object before applying the leaf change,
+   * preserving sub-defaults that the user hasn't touched.
+   */
+  defaultObject?: Record<string, unknown>
+  /**
+   * When true, the field renders inside a collapsed "Show advanced" disclosure
+   * at the bottom of its group. Use for settings that are valid but rarely
+   * needed (e.g. Logpush, which has no effect without an out-of-band
+   * destination configured at the account level).
+   */
+  advanced?: boolean
 }
 
 export interface DeploymentConfigUiGroup {

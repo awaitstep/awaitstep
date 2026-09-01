@@ -16,7 +16,24 @@ import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { customAlphabet } from 'nanoid'
 
 const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789_', 12)
-import type { WorkflowNode, BranchCondition } from '@awaitstep/ir'
+import type { WorkflowNode, BranchCondition, ConfigField } from '@awaitstep/ir'
+
+const STEP_DURABLE_FIELDS = new Set(['retryLimit', 'retryDelay', 'backoff', 'timeout'])
+
+function filterStepConfigSchema(
+  schema: Record<string, ConfigField>,
+  isScript: boolean,
+  isInline: boolean,
+): Record<string, ConfigField> {
+  if (!isScript && !isInline) return schema
+  const filtered: Record<string, ConfigField> = {}
+  for (const [key, field] of Object.entries(schema)) {
+    if (isScript && key === 'inline') continue
+    if ((isScript || isInline) && STEP_DURABLE_FIELDS.has(key)) continue
+    filtered[key] = field
+  }
+  return filtered
+}
 
 const NESTED_STEP_PATTERN = /step\.(do|sleep|sleepUntil|waitForEvent)\s*\(/
 
@@ -53,7 +70,7 @@ export function validateNode(node: WorkflowNode): string[] {
     }
     case 'branch': {
       const branches = (node.data.branches ?? []) as BranchCondition[]
-      if (branches.length < 2) errors.push('At least 2 branches are required')
+      if (branches.length < 1) errors.push('At least 1 branch is required')
       break
     }
     case 'loop': {
@@ -71,13 +88,17 @@ export function validateNode(node: WorkflowNode): string[] {
       if (!String(node.data.workflowId ?? '').trim()) errors.push('Script name is required')
       if (!String(node.data.workflowName ?? '').trim()) errors.push('Workflow name is required')
       break
+    case 'sub_script':
+      if (!String(node.data.workerName ?? '').trim()) errors.push('Worker name is required')
+      if (!String(node.data.url ?? '').trim()) errors.push('URL is required')
+      break
   }
   return errors
 }
 
 export function NodeConfigPanel() {
-  const { selectedNodeId, nodes } = useWorkflowStore(
-    useShallow((s) => ({ selectedNodeId: s.selectedNodeId, nodes: s.nodes })),
+  const { selectedNodeId, nodes, kind } = useWorkflowStore(
+    useShallow((s) => ({ selectedNodeId: s.selectedNodeId, nodes: s.nodes, kind: s.kind })),
   )
   const { updateNodeData, removeNode, selectNode } = useWorkflowStore()
   const { registry } = useNodeRegistry()
@@ -197,7 +218,15 @@ export function NodeConfigPanel() {
             </>
           ) : definition ? (
             <DynamicFields
-              configSchema={definition.configSchema}
+              configSchema={
+                irNode.type === 'step'
+                  ? filterStepConfigSchema(
+                      definition.configSchema,
+                      kind === 'script',
+                      Boolean(irNode.data.inline),
+                    )
+                  : definition.configSchema
+              }
               data={irNode.data}
               onChange={updateData}
             />
@@ -432,7 +461,27 @@ function BranchFields({
         <span>Add condition</span>
       </Button>
 
-      <Hint>Select which node each branch should go to. Edges are created automatically.</Hint>
+      <div className="overflow-hidden rounded-lg border border-border">
+        <div className="bg-muted/40 px-3 py-1.5">
+          <span className="text-xs font-medium text-muted-foreground">After branch</span>
+        </div>
+        <div className="p-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground/60">Continue to</Label>
+            <Select
+              value={getTargetForLabel('then') || '__none__'}
+              onValueChange={(v) => setTargetForBranch('then', v === '__none__' ? '' : v)}
+              options={[{ value: '__none__', label: 'Not connected' }, ...targetOptions]}
+              className="h-8 text-xs"
+            />
+          </div>
+        </div>
+      </div>
+
+      <Hint>
+        Pick a target for each branch. A single condition is fine (no else needed). Use{' '}
+        <strong>Continue to</strong> for a node that runs after the entire if/else.
+      </Hint>
     </>
   )
 }

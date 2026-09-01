@@ -118,4 +118,32 @@ describe('generateStep', () => {
       expect(code).not.toContain('Run')
     })
   })
+
+  describe('inline (workflow mode)', () => {
+    it('emits raw user code with no wrapping when `data.inline` is true', () => {
+      const code = generateStep(makeNode({ data: { code: 'return 42;', inline: true } }))
+      expect(code).toBe('return 42;')
+    })
+
+    it('emits side-effect-only inline code unchanged', () => {
+      const code = generateStep(
+        makeNode({
+          data: { code: '_output = [..._output, listing];', inline: true },
+        }),
+      )
+      expect(code).toBe('_output = [..._output, listing];')
+    })
+
+    it('does not add a const prefix or step.do wrap for inline', () => {
+      const code = generateStep(makeNode({ data: { code: 'return x;', inline: true } }))
+      expect(code).not.toContain('const step_1')
+      expect(code).not.toContain('step.do')
+      expect(code).not.toContain('async () =>')
+    })
+
+    it('ignores `data.inline` in script mode (script is already inline)', () => {
+      const code = generateStep(makeNode({ data: { code: 'return 1;', inline: true } }), 'script')
+      expect(code).toBe('return 1;')
+    })
+  })
 })
