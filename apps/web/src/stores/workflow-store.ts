@@ -17,6 +17,7 @@ import type {
   ConfigField,
 } from '@awaitstep/ir'
 import { validateWorkflowForPublish, type PublishValidationResult } from '../lib/validate-workflow'
+import { fallbackPosition } from '../lib/hydrate-workflow'
 import type { NodeRegistry } from '@awaitstep/ir'
 import { simulateWorkflow, type SimulationResult } from '../lib/simulate-workflow'
 import { customAlphabet } from 'nanoid'
@@ -90,10 +91,11 @@ function instantiateClones(
   offset: { x: number; y: number },
 ): { nodes: FlowNode[]; edges: Edge[] } {
   const idMap = new Map<string, string>()
-  const newNodes: FlowNode[] = payload.nodes.map((src) => {
+  const newNodes: FlowNode[] = payload.nodes.map((src, i) => {
     const newId = nanoid()
     idMap.set(src.id, newId)
-    const position = { x: src.position.x + offset.x, y: src.position.y + offset.y }
+    const base = src.position ?? fallbackPosition(i)
+    const position = { x: base.x + offset.x, y: base.y + offset.y }
     const irNode: WorkflowNode = { ...structuredClone(src), id: newId, position }
     return { id: newId, type: toFlowType(irNode.type), position, data: { irNode } }
   })
@@ -544,8 +546,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
     let offset: { x: number; y: number }
     if (centerPosition && parsed.nodes.length > 0) {
-      const cx = parsed.nodes.reduce((s, n) => s + n.position.x, 0) / parsed.nodes.length
-      const cy = parsed.nodes.reduce((s, n) => s + n.position.y, 0) / parsed.nodes.length
+      const cx =
+        parsed.nodes.reduce((s, n, i) => s + (n.position ?? fallbackPosition(i)).x, 0) /
+        parsed.nodes.length
+      const cy =
+        parsed.nodes.reduce((s, n, i) => s + (n.position ?? fallbackPosition(i)).y, 0) /
+        parsed.nodes.length
       offset = { x: centerPosition.x - cx, y: centerPosition.y - cy }
     } else {
       offset = { x: 40, y: 40 }
