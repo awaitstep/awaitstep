@@ -1,5 +1,4 @@
-@import '@fontsource-variable/geist';
-@import '@fontsource-variable/geist-mono';
+@import '@fontsource-variable/outfit';
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
@@ -11,10 +10,10 @@
    with the defaults. Using our own names keeps the cascade override-proof. */
 :root {
   --app-font-sans:
-    'Geist Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Outfit Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
     'Segoe UI Symbol', 'Noto Color Emoji';
   --app-font-mono:
-    'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Outfit Variable', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
     'Courier New', monospace;
 }
 
