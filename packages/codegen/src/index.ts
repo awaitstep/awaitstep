@@ -40,8 +40,8 @@ export {
   validateBundle,
 } from './bundle.js'
 export { escName } from './var-names.js'
-export { computeVarNames, createGenerationContext } from './context.js'
-export type { GenerationContext } from './context.js'
+export { computeVarNames, createGenerationContext, inlineGenerationContext } from './context.js'
+export type { GenerationContext, GenerationContextOptions } from './context.js'
 export { GeneratorRegistry } from './node-generator.js'
 export type { NodeGenerator, NodeGeneratorArgs, GeneratorLookup } from './node-generator.js'
 export { indent } from './format.js'

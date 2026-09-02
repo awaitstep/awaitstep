@@ -28,7 +28,7 @@ export function bundleCodeFiles(bundle: GeneratedBundle): GeneratedFile[] {
   return bundle.files.filter((f) => f.role === 'entry' || f.role === 'module')
 }
 
-const SAFE_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
+const SAFE_SEGMENT = /^[A-Za-z0-9_][A-Za-z0-9._-]*$/
 
 /**
  * Asserts a bundle-relative path is safe to write: non-empty, relative,
