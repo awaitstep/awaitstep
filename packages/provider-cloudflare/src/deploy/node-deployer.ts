@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
+import { assertRegistryDependencies } from '@awaitstep/ir'
 import { assertSafeBundlePath, bundleCodeFiles } from '@awaitstep/codegen'
 import type { GeneratedBundle } from '@awaitstep/codegen'
 import type { WranglerDeployer, DeployOptions, WranglerDeployResult } from './deployer.js'
@@ -62,6 +63,7 @@ export class NodeWranglerDeployer implements WranglerDeployer {
 
       // 3. Install npm dependencies
       if (options.dependencies && Object.keys(options.dependencies).length > 0) {
+        assertRegistryDependencies(options.dependencies)
         const depNames = Object.keys(options.dependencies)
         onProgress?.(
           'INSTALLING_DEPS',

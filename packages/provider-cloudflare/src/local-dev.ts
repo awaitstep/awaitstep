@@ -6,6 +6,7 @@ import { promisify } from 'node:util'
 import { createConnection } from 'node:net'
 import { assertSafeBundlePath, bundleCodeFiles, bundleEntry } from '@awaitstep/codegen'
 import type { WorkflowIR } from '@awaitstep/ir'
+import { assertRegistryDependencies } from '@awaitstep/ir'
 import type { GeneratedBundle, LocalDevOptions, LocalDevLogEntry } from '@awaitstep/codegen'
 import { detectBindings, detectBindingsFromSource } from './codegen/bindings.js'
 import { generateWranglerConfig } from './wrangler-config.js'
@@ -167,6 +168,7 @@ async function installDependencies(
   dependencies?: Record<string, string>,
 ): Promise<void> {
   if (!dependencies || Object.keys(dependencies).length === 0) return
+  assertRegistryDependencies(dependencies)
   const pkg = { name: 'awaitstep-local-dev', private: true, dependencies }
   await writeFile(join(deployDir, 'package.json'), JSON.stringify(pkg, null, 2), 'utf-8')
   await execFileAsync(

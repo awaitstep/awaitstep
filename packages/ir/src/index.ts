@@ -89,6 +89,13 @@ export {
   SCRIPT_INCOMPATIBLE_NODE_TYPES,
 } from './validate.js'
 export type { ValidateNodeDataOptions } from './validate.js'
+export {
+  validateDependencySpecs,
+  assertRegistryDependencies,
+  NPM_PACKAGE_NAME_PATTERN,
+  NPM_VERSION_RANGE_PATTERN,
+  MAX_WORKFLOW_DEPENDENCIES,
+} from './dependencies.js'
 export { migrateArtifact } from './migrate.js'
 export { loadArtifact } from './load.js'
 export {

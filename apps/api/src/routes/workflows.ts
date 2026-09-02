@@ -3,6 +3,11 @@ import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
+import {
+  NPM_PACKAGE_NAME_PATTERN,
+  NPM_VERSION_RANGE_PATTERN,
+  MAX_WORKFLOW_DEPENDENCIES,
+} from '@awaitstep/ir'
 import type { AppEnv } from '../types.js'
 
 const createSchema = z.object({
@@ -23,20 +28,20 @@ const envVarSchema = z.object({
   isSecret: z.boolean().optional(),
 })
 
-const npmPackageName = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/
-const semverRange =
-  /^(\*|latest|next|canary|[\^~]?\d+(\.\d+){0,2}(-[a-zA-Z0-9.]+)?(\s*\|\|\s*[\^~]?\d+(\.\d+){0,2}(-[a-zA-Z0-9.]+)?)*)$/
-
+// Shared with IR validation and the deployers — see packages/ir/src/dependencies.ts.
 const dependenciesSchema = z
   .record(
-    z.string().min(1).max(214).regex(npmPackageName, 'Invalid npm package name'),
+    z.string().min(1).max(214).regex(NPM_PACKAGE_NAME_PATTERN, 'Invalid npm package name'),
     z
       .string()
       .min(1)
       .max(100)
-      .regex(semverRange, 'Invalid version range (e.g. ^1.0.0, ~2.3, latest)'),
+      .regex(NPM_VERSION_RANGE_PATTERN, 'Invalid version range (e.g. ^1.0.0, ~2.3, latest)'),
   )
-  .refine((deps) => Object.keys(deps).length <= 15, 'Maximum 15 dependencies')
+  .refine(
+    (deps) => Object.keys(deps).length <= MAX_WORKFLOW_DEPENDENCIES,
+    `Maximum ${MAX_WORKFLOW_DEPENDENCIES} dependencies`,
+  )
 
 const deployConfigSchema = z
   .object({

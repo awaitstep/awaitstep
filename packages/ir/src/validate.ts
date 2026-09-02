@@ -8,6 +8,7 @@ import type {
 } from './types.js'
 import { isBuiltinNodeType } from './types.js'
 import { builtinNodeDataSchemas, scriptIRSchema, workflowIRSchema } from './schema.js'
+import { validateDependencySpecs } from './dependencies.js'
 
 export function validateIR(input: unknown): Result<WorkflowIR, ValidationError[]> {
   const result = workflowIRSchema.safeParse(input)
@@ -92,6 +93,13 @@ function validateScriptCompatibility(ir: ScriptIR): ValidationError[] {
 
 function validateStructure(ir: ArtifactIR): ValidationError[] {
   const errors: ValidationError[] = []
+
+  // Dependency specs feed `npm install` on the deploy host — reject anything
+  // beyond registry ranges here so bad specs never persist or deploy.
+  if (ir.runtime?.dependencies) {
+    errors.push(...validateDependencySpecs(ir.runtime.dependencies))
+  }
+
   const nodeIds = new Set(ir.nodes.map((n) => n.id))
 
   if (!nodeIds.has(ir.entryNodeId)) {
