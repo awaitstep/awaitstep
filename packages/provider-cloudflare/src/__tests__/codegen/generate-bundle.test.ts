@@ -123,3 +123,91 @@ describe('generateWorkflowBundle with containers', () => {
     expect(entry).toBe(single)
   })
 })
+
+describe('generateWorkflowBundle with custom nodes', () => {
+  const template = `import { z } from 'zod'
+export default async function(ctx) {
+  const response = await fetch(ctx.config.url, {
+    headers: { Authorization: \`Bearer \${ctx.env.API_KEY}\` },
+  });
+  return z.object({ ok: z.boolean() }).parse(await response.json());
+}`
+  const resolver = {
+    getTemplate(nodeType: string) {
+      return nodeType === 'webhook-post' ? template : undefined
+    },
+  }
+  const customIR: WorkflowIR = {
+    metadata: { name: 'CustomDemo', version: 1, createdAt: '', updatedAt: '' },
+    entryNodeId: 'fetch',
+    nodes: [
+      node('fetch', 'Fetch data', { code: 'return { id: 7 };' }),
+      {
+        id: 'hook',
+        type: 'webhook-post',
+        name: 'Post webhook',
+        position: { x: 0, y: 1 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { url: 'https://example.com/${Fetch_data.id}' },
+      },
+    ],
+    edges: [{ id: 'e1', source: 'fetch', target: 'hook' }],
+  }
+  const bundle = generateWorkflowBundle(customIR, { templateResolver: resolver })
+
+  it('emits the custom node as its own module with the class inside', () => {
+    expect(bundle.files.map((f) => `${f.role}:${f.path}`)).toEqual([
+      'entry:worker.ts',
+      'module:nodes/Fetch_data.ts',
+      'module:nodes/Post_webhook.ts',
+    ])
+    const mod = bundle.files.find((f) => f.path === 'nodes/Post_webhook.ts')!
+    expect(mod.source).toContain("import { z } from 'zod'")
+    expect(mod.source).toContain('class WebhookPostNode {')
+    expect(mod.source).toContain(
+      'export default async function Post_webhook_step({ env, event, inputs, step })',
+    )
+    expect(mod.source).toContain('const { Fetch_data } = inputs;')
+    expect(mod.source).toContain('return WebhookPostNode.execute(env, {')
+    // env arrives as a parameter — never rewritten to this.env.
+    expect(mod.source).not.toContain('this.env')
+  })
+
+  it('entry calls the custom module and hoists no class definition', () => {
+    const entry = bundle.files[0].source
+    expect(entry).toContain('import $Post_webhook from "./nodes/Post_webhook.js";')
+    expect(entry).toContain(
+      'await step.do("Post webhook", () => $Post_webhook({ env: this.env, event, inputs: { Fetch_data }, step }));',
+    )
+    expect(entry).not.toContain('class WebhookPostNode')
+  })
+})
+
+describe('generateWorkflowBundle adversarial user code', () => {
+  const hostile = [
+    'const tpl = `hello ${event.payload.name} from env.` // env. inside a template',
+    'class Inner { run() { return "return inside string" } }',
+    'const s = "await step.do(\\"fake\\")";',
+    'if (event.payload.n > 1) { return new Inner().run(); }',
+    'return tpl;',
+  ].join('\n')
+
+  const hostileIR: WorkflowIR = {
+    metadata: { name: 'Hostile', version: 1, createdAt: '', updatedAt: '' },
+    entryNodeId: 'h',
+    nodes: [node('h', 'Hostile step', { code: hostile })],
+    edges: [],
+  }
+
+  it('round-trips backticks, ${}, class, and env.-in-strings untouched in the module', () => {
+    const bundle = generateWorkflowBundle(hostileIR)
+    const mod = bundle.files.find((f) => f.path === 'nodes/Hostile_step.ts')!
+    for (const line of hostile.split('\n')) {
+      expect(mod.source).toContain(line)
+    }
+    expect(mod.source).not.toContain('this.env')
+    const entry = bundle.files[0].source
+    expect(entry).not.toContain('class Inner')
+  })
+})

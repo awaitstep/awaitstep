@@ -139,6 +139,64 @@ export function generateCustomNode(
   return parts.join('\n')
 }
 
+/**
+ * Module mode: the custom node's template class and its invocation become a
+ * standalone file with explicit `{ env, event, inputs, step }` params —
+ * mirroring step modules. The class lives inside the module (no entry-level
+ * hoisting or dedup needed; module scope isolates it), `env` arrives as a
+ * parameter so the entry's legacy `env.` → `this.env.` rewrite never touches
+ * template code, and upstream vars referenced by config template literals are
+ * destructured from `inputs`.
+ */
+export function generateCustomNodeModule(
+  node: WorkflowNode,
+  templateSource: string,
+  ctx: GenerationContext,
+): string {
+  const parts = generateCustomNodeParts(node, templateSource, ctx, 'workflow')
+  const varName = ctx.varName(node.id)
+
+  const paramsEntries = customParamsEntries(node)
+  const referenced = ctx
+    .upstreamVars(node.id)
+    .filter((upstreamVar) => new RegExp(`\\b${upstreamVar}\\b`).test(paramsEntries))
+
+  const importBlock = parts.imports.length > 0 ? parts.imports.join('\n') + '\n\n' : ''
+  const destructure =
+    referenced.length > 0 ? `  const { ${referenced.join(', ')} } = inputs;\n` : ''
+  // Comment context, not string context: neutralize `*/` so a node name can
+  // never terminate the JSDoc block and leak tokens into module scope.
+  const commentName = node.name.replace(/\*\//g, '*\\/')
+  const moduleSource = `${importBlock}${parts.classDefinition}
+
+/** Step "${commentName}" — generated from the workflow node. */
+export default async function ${varName}_step({ env, event, inputs, step }) {
+${destructure}  return ${parts.className}.execute(env, {
+${paramsEntries}
+  });
+}
+`
+  ctx.addFile({ path: `nodes/${varName}.ts`, source: moduleSource, role: 'module' })
+
+  const config = generateStepConfig(node.config)
+  const configArg = config ? `, ${config}` : ''
+  const hasReturn = /\breturn\b/.test(extractTemplateBody(templateSource))
+  const prefix = hasReturn ? `const ${varName} = ` : ''
+  const inputsArg = referenced.length > 0 ? `{ ${referenced.join(', ')} }` : '{}'
+  return `${prefix}await step.do("${escName(node.name)}"${configArg}, () => $${varName}({ env: this.env, event, inputs: ${inputsArg}, step }));`
+}
+
+function customParamsEntries(node: WorkflowNode): string {
+  const configData: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(node.data)) {
+    const paramKey = key.startsWith('input_') ? key.slice(6) : key
+    configData[paramKey] = value
+  }
+  return Object.entries(configData)
+    .map(([key, value]) => `    ${key}: ${toJsLiteral(value)},`)
+    .join('\n')
+}
+
 export function generateCustomNodeParts(
   node: WorkflowNode,
   templateSource: string,
@@ -159,15 +217,7 @@ export function generateCustomNodeParts(
   body = body.replace(/ctx\.inputs\./g, 'params.')
 
   // Build the params object from node data
-  const configData: Record<string, unknown> = {}
-  for (const [key, value] of Object.entries(node.data)) {
-    const paramKey = key.startsWith('input_') ? key.slice(6) : key
-    configData[paramKey] = value
-  }
-
-  const paramsEntries = Object.entries(configData)
-    .map(([key, value]) => `    ${key}: ${toJsLiteral(value)},`)
-    .join('\n')
+  const paramsEntries = customParamsEntries(node)
 
   const classDefinition = `class ${className} {
   static async execute(env: Env, params: Record<string, unknown>) {

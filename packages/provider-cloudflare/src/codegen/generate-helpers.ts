@@ -3,7 +3,11 @@ import { resolveExpressions, scanExpressions } from '@awaitstep/ir'
 import type { GenerateMode, TemplateResolver } from '@awaitstep/codegen'
 import type { GenerationContext, GeneratorLookup } from '@awaitstep/codegen'
 import { inlineGenerationContext } from '@awaitstep/codegen'
-import { generateCustomNode, generateCustomNodeParts } from './generators/custom.js'
+import {
+  generateCustomNode,
+  generateCustomNodeModule,
+  generateCustomNodeParts,
+} from './generators/custom.js'
 import { CONTAINER_TYPES } from './generators/branch.js'
 import { builtinGenerators } from './generator-registry.js'
 import type { BindingType } from './bindings.js'
@@ -120,6 +124,11 @@ export function generateNodeCode(
   if (templateResolver) {
     const template = templateResolver.getTemplate(node.type, node.provider)
     if (template) {
+      // Scripts stay single-file; container children arrive with an inline
+      // ctx, so only top-level workflow custom nodes become modules.
+      if (ctx.emitModules && mode === 'workflow') {
+        return generateCustomNodeModule(node, template, ctx)
+      }
       if (classDefinitions) {
         const parts = generateCustomNodeParts(node, template, ctx, mode)
         if (!classDefinitions.has(parts.className)) {
