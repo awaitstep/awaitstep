@@ -5,6 +5,7 @@ import type { GenerationContext, GeneratorLookup } from '@awaitstep/codegen'
 import { generateCustomNode, generateCustomNodeParts } from './generators/custom.js'
 import { builtinGenerators } from './generator-registry.js'
 import type { BindingType } from './bindings.js'
+export { extractImports } from './imports.js'
 
 /**
  * Collects env-var names referenced through `{{env.NAME}}` expressions in
@@ -87,42 +88,6 @@ export function endsWithReturn(body: string): boolean {
     return /^return\b/.test(stripped)
   }
   return false
-}
-
-/**
- * Splits `import` statements (single- or multi-line) from the rest of a code
- * block. Used to hoist user-trigger-code imports to the top of the generated
- * Worker file alongside imports from per-node generators.
- */
-export function extractImports(code: string): { imports: string[]; body: string } {
-  const lines = code.split('\n')
-  const imports: string[] = []
-  const bodyLines: string[] = []
-  let pendingImport: string[] | null = null
-
-  for (const line of lines) {
-    if (pendingImport) {
-      pendingImport.push(line)
-      if (/from\s+['"]/.test(line)) {
-        imports.push(pendingImport.join('\n').trim())
-        pendingImport = null
-      }
-    } else if (/^\s*import\s+/.test(line)) {
-      if (/from\s+['"]/.test(line)) {
-        imports.push(line.trim())
-      } else {
-        pendingImport = [line]
-      }
-    } else {
-      bodyLines.push(line)
-    }
-  }
-
-  if (pendingImport) {
-    bodyLines.push(...pendingImport)
-  }
-
-  return { imports, body: bodyLines.join('\n') }
 }
 
 /**
