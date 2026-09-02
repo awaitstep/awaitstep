@@ -1,9 +1,16 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import type { GeneratorLookup, TemplateResolver } from '@awaitstep/codegen'
+import type {
+  GeneratedBundle,
+  GeneratedFile,
+  GeneratorLookup,
+  TemplateResolver,
+} from '@awaitstep/codegen'
 import {
   topologicalSort,
   sanitizeIdentifier,
+  computeVarNames,
   createGenerationContext,
+  validateBundle,
   indent,
 } from '@awaitstep/codegen'
 import { collectBranchInlineTargets } from './generators/branch.js'
@@ -83,6 +90,31 @@ export function generateWorkflow(
   ir: WorkflowIR,
   templateResolverOrOptions?: TemplateResolver | GenerateOptions,
 ): string {
+  return generateWorkflowInternal(ir, templateResolverOrOptions, false).source
+}
+
+/**
+ * Bundle generation: step nodes become standalone module files with explicit
+ * parameters (no regex rewriting of user code); the entry imports and calls
+ * them. The single-file generateWorkflow output remains available for
+ * previews and is unchanged byte-for-byte.
+ */
+export function generateWorkflowBundle(
+  ir: WorkflowIR,
+  templateResolverOrOptions?: TemplateResolver | GenerateOptions,
+): GeneratedBundle {
+  const { source, files } = generateWorkflowInternal(ir, templateResolverOrOptions, true)
+  return validateBundle({
+    entry: 'worker.ts',
+    files: [{ path: 'worker.ts', source, role: 'entry' }, ...files],
+  })
+}
+
+function generateWorkflowInternal(
+  ir: WorkflowIR,
+  templateResolverOrOptions: TemplateResolver | GenerateOptions | undefined,
+  emitModules: boolean,
+): { source: string; files: GeneratedFile[] } {
   const opts: GenerateOptions = templateResolverOrOptions
     ? 'getTemplate' in templateResolverOrOptions
       ? { templateResolver: templateResolverOrOptions }
@@ -95,7 +127,17 @@ export function generateWorkflow(
     .join('')
 
   const sorted = topologicalSort(ir)
-  const ctx = createGenerationContext(ir.nodes)
+  const upstream = new Map<string, string[]>()
+  if (emitModules) {
+    const names = computeVarNames(ir.nodes)
+    const acc: string[] = []
+    for (const node of sorted) {
+      upstream.set(node.id, [...acc])
+      const name = names.get(node.id)
+      if (name) acc.push(name)
+    }
+  }
+  const ctx = createGenerationContext(ir.nodes, { emitModules, upstream })
   const useStateTracking = hasTemplateExpressions(ir.nodes)
 
   const inlineTargets = collectBranchInlineTargets(ir)
@@ -227,6 +269,17 @@ export function generateWorkflow(
     }
   }
 
+  for (const moduleFile of ctx.files) {
+    if (moduleFile.role !== 'module') continue
+    const match = /^nodes\/([A-Za-z0-9_]+)\.ts$/.exec(moduleFile.path)
+    if (!match) {
+      throw new Error(`Generated module has unexpected path: ${moduleFile.path}`)
+    }
+    const base = match[1]!
+    // .js specifier: the deploy pipeline compiles module files to .js paths.
+    collectedImports.push(`import $${base} from "./nodes/${base}.js";`)
+  }
+
   const uniqueImports = [...new Set(collectedImports)]
   const importBlock = uniqueImports.length > 0 ? '\n' + uniqueImports.join('\n') : ''
   const classBlock =
@@ -279,7 +332,7 @@ ${cases}
 ${handlerBlocks.join('\n')}
 };`
 
-  return `import { WorkflowEntrypoint } from "cloudflare:workers";${importBlock}
+  const source = `import { WorkflowEntrypoint } from "cloudflare:workers";${importBlock}
 
 interface Env {
 ${envFields.join('\n')}
@@ -295,4 +348,5 @@ ${indent(bodyLines, 4)}
 
 ${exportDefault}
 `
+  return { source, files: ctx.files }
 }

@@ -1,7 +1,7 @@
 import { validateArtifact } from '@awaitstep/ir'
 import type { ArtifactIR, ScriptIR, WorkflowIR, ValidationError, Result } from '@awaitstep/ir'
 import { transpileToJS } from '@awaitstep/codegen/transpile'
-import { generateScript, generateWorkflow } from './codegen/generate.js'
+import { generateScript, generateWorkflowBundle } from './codegen/generate.js'
 import { bundleEntry, toBundle, validateBundle } from '@awaitstep/codegen'
 import type {
   WorkflowProvider,
@@ -168,13 +168,14 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
       })
       return validateBundle(toBundle({ filename: 'worker.ts', source }))
     }
-    const source = generateWorkflow(ir as WorkflowIR, {
+    // Workflows deploy as multi-file bundles: step code lives in per-node
+    // modules with explicit params — no regex rewriting of user code.
+    return generateWorkflowBundle(ir as WorkflowIR, {
       templateResolver: this.templateResolver,
       envVarNames,
       triggerCode,
       retention,
     })
-    return validateBundle(toBundle({ filename: 'worker.ts', source }))
   }
 
   async deploy(bundle: GeneratedBundle, config: ProviderConfig): Promise<DeployResult> {

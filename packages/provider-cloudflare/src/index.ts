@@ -1,6 +1,7 @@
 export {
   CloudflareCodeGenerator,
   generateWorkflow,
+  generateWorkflowBundle,
   generateScript,
   generateNodeCode,
   DEFAULT_TRIGGER_CODE,

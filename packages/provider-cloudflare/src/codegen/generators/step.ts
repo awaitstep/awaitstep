@@ -1,6 +1,7 @@
 import type { WorkflowNode, StepConfig, RetryBackoff } from '@awaitstep/ir'
-import { escName, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
+import { escName, indent, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
 import { generateStepConfig } from './config.js'
+import { extractImports } from '../imports.js'
 
 /**
  * Builds a StepConfig from node.data fields (retryLimit, retryDelay, backoff, timeout).
@@ -53,7 +54,58 @@ export function generateStep(
   const prefix = hasReturn ? `const ${ctx.varName(node.id)} = ` : ''
   const config = generateStepConfig(resolveStepConfig(node))
   const configArg = config ? `, ${config}` : ''
+
+  if (ctx.emitModules) {
+    return emitStepModule(node, ctx, code, prefix, configArg)
+  }
+
   return `${prefix}await step.do("${escName(node.name)}"${configArg}, async () => {
   ${code}
 });`
+}
+
+/**
+ * Module mode: the step body becomes its own file with explicit
+ * `{ env, event, inputs, step }` parameters — user code runs untouched (no
+ * `env.` → `this.env.` regex rewriting), and upstream step results arrive
+ * as `inputs`, destructured back to the bare names user code references.
+ *
+ * `inputs` carries exactly the upstream vars the resolved code mentions as
+ * whole words. That set is lexically in scope at the callsite by
+ * construction: code referencing an out-of-scope var was already broken
+ * when inlined.
+ */
+function emitStepModule(
+  node: WorkflowNode,
+  ctx: GenerationContext,
+  code: string,
+  prefix: string,
+  configArg: string,
+): string {
+  const varName = ctx.varName(node.id)
+  const referenced = ctx
+    .upstreamVars(node.id)
+    .filter((upstreamVar) => new RegExp(`\\b${upstreamVar}\\b`).test(code))
+
+  const { imports, body } = extractImports(code)
+  const importBlock = imports.length > 0 ? imports.join('\n') + '\n\n' : ''
+  const destructure =
+    referenced.length > 0 ? `  const { ${referenced.join(', ')} } = inputs;\n` : ''
+  // Comment context, not string context: neutralize `*/` so a node name can
+  // never terminate the JSDoc block and leak tokens into module scope.
+  const commentName = node.name.replace(/\*\//g, '*\\/')
+  const moduleSource = `${importBlock}/** Step "${commentName}" — generated from the workflow node. */
+export default async function ${varName}_step({ env, event, inputs, step }) {
+${destructure}${indent(body.trim(), 2)}
+}
+`
+  ctx.addFile({ path: `nodes/${varName}.ts`, source: moduleSource, role: 'module' })
+
+  const inputsArg = referenced.length > 0 ? `{ ${referenced.join(', ')} }` : '{}'
+  // `this.env` is written literally: the callsite lives inside the workflow
+  // class body, and the emitter's legacy env-rewrite regex only touches
+  // `env.` member access, which never appears here.
+  // `step` is forwarded so code that nested `step.do`/`step.sleep` calls
+  // inside a node keeps working — inline mode had it lexically in scope.
+  return `${prefix}await step.do("${escName(node.name)}"${configArg}, () => $${varName}({ env: this.env, event, inputs: ${inputsArg}, step }));`
 }

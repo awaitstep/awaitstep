@@ -5,7 +5,11 @@ import { generateScript } from './generate-script.js'
 
 export { extractImports, generateNodeCode } from './generate-helpers.js'
 export { deriveQueueName, toCFQueueName } from './bindings.js'
-export { DEFAULT_TRIGGER_CODE, generateWorkflow } from './generate-workflow.js'
+export {
+  DEFAULT_TRIGGER_CODE,
+  generateWorkflow,
+  generateWorkflowBundle,
+} from './generate-workflow.js'
 export type { GenerateOptions } from './generate-workflow.js'
 export { DEFAULT_SCRIPT_TRIGGER_CODE, generateScript } from './generate-script.js'
 export type { GenerateScriptOptions } from './generate-script.js'

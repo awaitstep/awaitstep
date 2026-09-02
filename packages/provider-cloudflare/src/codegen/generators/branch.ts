@@ -78,7 +78,7 @@ export function computeInDegree(ir: WorkflowIR): Map<string, number> {
   return inDegree
 }
 
-const CONTAINER_TYPES = new Set(['branch', 'parallel', 'try_catch', 'loop', 'race'])
+export const CONTAINER_TYPES = new Set(['branch', 'parallel', 'try_catch', 'loop', 'race'])
 
 export function collectChain(
   startId: string,

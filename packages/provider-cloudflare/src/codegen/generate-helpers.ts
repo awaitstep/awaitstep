@@ -2,7 +2,9 @@ import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { resolveExpressions, scanExpressions } from '@awaitstep/ir'
 import type { GenerateMode, TemplateResolver } from '@awaitstep/codegen'
 import type { GenerationContext, GeneratorLookup } from '@awaitstep/codegen'
+import { inlineGenerationContext } from '@awaitstep/codegen'
 import { generateCustomNode, generateCustomNodeParts } from './generators/custom.js'
+import { CONTAINER_TYPES } from './generators/branch.js'
 import { builtinGenerators } from './generator-registry.js'
 import type { BindingType } from './bindings.js'
 export { extractImports } from './imports.js'
@@ -104,8 +106,11 @@ export function generateNodeCode(
   mode: GenerateMode = 'workflow',
   generators: GeneratorLookup = builtinGenerators,
 ): string {
+  // Container children always inline (see inlineGenerationContext): their
+  // code depends on container-scope bindings and text post-processing.
+  const childCtx = CONTAINER_TYPES.has(node.type) ? inlineGenerationContext(ctx) : ctx
   const recurse = (n: WorkflowNode, ir2: WorkflowIR) =>
-    generateNodeCode(n, ir2, ctx, templateResolver, classDefinitions, mode, generators)
+    generateNodeCode(n, ir2, childCtx, templateResolver, classDefinitions, mode, generators)
 
   const builtin = generators.get(node.type)
   if (builtin) {
