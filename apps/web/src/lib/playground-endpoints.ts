@@ -352,6 +352,19 @@ export const endpoints: EndpointDef[] = [
     hasBody: false,
   },
   {
+    id: 'get-run-steps',
+    group: 'Runs',
+    method: 'GET',
+    path: '/api/workflows/:workflowId/runs/:runId/steps',
+    label: 'Get run steps',
+    scope: 'read',
+    params: [
+      { name: 'workflowId', in: 'path', required: true },
+      { name: 'runId', in: 'path', required: true },
+    ],
+    hasBody: false,
+  },
+  {
     id: 'pause-run',
     group: 'Runs',
     method: 'POST',

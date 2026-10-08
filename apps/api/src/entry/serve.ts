@@ -9,6 +9,7 @@ import { createLogger } from '../lib/logger.js'
 import { loadNodeRegistry } from '../lib/node-registry-fs.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
 import { createEmailService } from '../lib/email.js'
+import { startRunSyncLoop } from '../lib/run-sync.js'
 import { NodeWranglerDeployer } from '@awaitstep/provider-cloudflare'
 
 const DEFAULT_REGISTRY_URL = 'https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry'
@@ -137,6 +138,10 @@ async function start() {
   serve({ fetch: apiApp.fetch, port: apiPort })
   logger.info(`API running on http://localhost:${apiPort}`)
 
+  // Background reconciliation: run status + per-step telemetry sync off the
+  // request path (API run reads are pure DB queries).
+  const stopRunSync = startRunSyncLoop(db, 5000)
+
   // ── Web server (static + SSR) ───────────────────────
   const { Hono } = await import('hono')
   const { serveStatic } = await import('@hono/node-server/serve-static')
@@ -160,8 +165,14 @@ async function start() {
   serve({ fetch: webApp.fetch, port: webPort })
   logger.info(`Web running on http://localhost:${webPort}`)
 
-  process.on('SIGTERM', () => process.exit(0))
-  process.on('SIGINT', () => process.exit(0))
+  process.on('SIGTERM', () => {
+    stopRunSync()
+    process.exit(0)
+  })
+  process.on('SIGINT', () => {
+    stopRunSync()
+    process.exit(0)
+  })
 }
 
 start()

@@ -1,15 +1,10 @@
 import { Hono } from 'hono'
-import { CloudflareAPI, mapCFStatus, sanitizedWorkflowName } from '@awaitstep/provider-cloudflare'
+import { CloudflareAPI, sanitizedWorkflowName } from '@awaitstep/provider-cloudflare'
 import type { AppEnv } from '../types.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import { zValidator } from '../lib/validation.js'
-import { createLogger } from '../lib/logger.js'
-
-const log = createLogger('runs')
 
 export const runs = new Hono<AppEnv>()
-
-const TERMINAL_STATUSES = new Set(['complete', 'errored', 'terminated'])
 
 runs.get('/:workflowId/runs', zValidator('query', paginationQuerySchema), async (c) => {
   const db = c.get('db')
@@ -21,50 +16,31 @@ runs.get('/:workflowId/runs', zValidator('query', paginationQuerySchema), async 
   return c.json(result)
 })
 
+// Pure DB read — the background run-sync loop (lib/run-sync.ts) reconciles
+// status and per-step telemetry from the provider; requests never block on
+// provider round-trips.
 runs.get('/:workflowId/runs/:runId', async (c) => {
   const db = c.get('db')
-  const organizationId = c.get('organizationId')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const runId = c.req.param('runId')
-  const run = await db.getWorkflowRunById(runId)
+  const run = await db.getWorkflowRunById(c.req.param('runId'))
   if (!run || run.workflowId !== workflow.id) return c.json({ error: 'Run not found' }, 404)
-
-  // Fetch live status from CF if run is non-terminal
-  if (run.connectionId && run.instanceId && !TERMINAL_STATUSES.has(run.status)) {
-    try {
-      const connection = await db.getProviderConnectionById(run.connectionId)
-      if (connection && connection.organizationId === organizationId) {
-        const creds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
-        const cfApi = new CloudflareAPI(creds)
-        const status = await cfApi.getInstanceStatus(
-          sanitizedWorkflowName(workflow.name),
-          run.instanceId,
-        )
-        const mapped = mapCFStatus(status.status)
-
-        const updates: { status?: string; output?: string; error?: string; updatedAt?: string } = {}
-        if (mapped !== run.status) updates.status = mapped
-        if (status.output) updates.output = JSON.stringify(status.output)
-        if (status.error) updates.error = JSON.stringify(status.error)
-        // Use provider timestamp for accurate duration
-        if (status.modified_on) updates.updatedAt = status.modified_on
-
-        if (Object.keys(updates).length > 0) {
-          const updated = await db.updateRun(run.id, updates)
-          return c.json(updated)
-        }
-      }
-    } catch (err) {
-      log.error('Failed to sync run status from Cloudflare', {
-        runId,
-        error: err instanceof Error ? err.message : String(err),
-      })
-    }
-  }
-
   return c.json(run)
+})
+
+/**
+ * Per-step telemetry for a run, synced by the background loop. Ownership is
+ * enforced inside the query (steps JOIN runs filtered by workflowId), so an
+ * unknown or foreign run reads as an empty list.
+ */
+runs.get('/:workflowId/runs/:runId/steps', async (c) => {
+  const db = c.get('db')
+  const workflow = c.get('workflow')
+  if (!workflow) return c.json({ error: 'Not found' }, 404)
+
+  const steps = await db.listRunSteps(c.req.param('runId'), workflow.id)
+  return c.json({ data: steps })
 })
 
 runs.post('/:workflowId/runs/:runId/pause', async (c) => {

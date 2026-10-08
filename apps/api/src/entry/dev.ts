@@ -12,6 +12,7 @@ import { createLogger } from '../lib/logger.js'
 import { loadNodeRegistry } from '../lib/node-registry-fs.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
 import { createEmailService } from '../lib/email.js'
+import { startRunSyncLoop } from '../lib/run-sync.js'
 import { NodeWranglerDeployer } from '@awaitstep/provider-cloudflare'
 
 const DEFAULT_REGISTRY_URL = 'https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry'
@@ -123,12 +124,18 @@ async function start() {
 
   serve({ fetch: app.fetch, port })
 
+  // Background reconciliation: run status + per-step telemetry sync off the
+  // request path, same as the production serve entry.
+  const stopRunSync = startRunSyncLoop(db, 5000)
+
   // Clean up local dev sessions on shutdown
   process.on('SIGTERM', async () => {
+    stopRunSync()
     await cleanupLocalDevSessions()
     process.exit(0)
   })
   process.on('SIGINT', async () => {
+    stopRunSync()
     await cleanupLocalDevSessions()
     process.exit(0)
   })

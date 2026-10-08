@@ -4,6 +4,7 @@ import type {
   WorkflowVersion,
   Connection,
   WorkflowRun,
+  WorkflowRunStep,
   ApiKey,
   Deployment,
   Project,
@@ -17,6 +18,7 @@ const store = {
   versions: new Map<string, WorkflowVersion>(),
   connections: new Map<string, Connection>(),
   runs: new Map<string, WorkflowRun>(),
+  runSteps: new Map<string, WorkflowRunStep>(),
   apiKeys: new Map<string, ApiKey>(),
   deployments: new Map<string, Deployment>(),
   projects: new Map<string, Project>(),
@@ -28,6 +30,7 @@ export function resetStore() {
   store.versions.clear()
   store.connections.clear()
   store.runs.clear()
+  store.runSteps.clear()
   store.apiKeys.clear()
   store.deployments.clear()
   store.projects.clear()
@@ -244,6 +247,54 @@ const mockDb: DatabaseAdapter = {
       data: [...store.runs.values()].filter((r) => wfIds.has(r.workflowId)),
       nextCursor: null,
     }
+  },
+  async listActiveRunsForSync() {
+    const terminal = new Set(['complete', 'errored', 'terminated'])
+    return [...store.runs.values()]
+      .filter((r) => !terminal.has(r.status))
+      .map((run) => {
+        const deployment = [...store.deployments.values()]
+          .filter(
+            (d) =>
+              d.workflowId === run.workflowId &&
+              d.versionId === run.versionId &&
+              d.status === 'success',
+          )
+          .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0]
+        return {
+          run,
+          workflowName: store.workflows.get(run.workflowId)?.name ?? '',
+          configSnapshot: deployment?.configSnapshot ?? null,
+        }
+      })
+  },
+
+  // Run steps
+  async upsertRunSteps(runId, steps) {
+    for (const s of steps) {
+      const key = `${runId}|${s.stepName}|${s.kind}|${s.stepIndex}`
+      const existing = store.runSteps.get(key)
+      store.runSteps.set(key, {
+        id: existing?.id ?? s.id,
+        runId,
+        nodeId: s.nodeId ?? null,
+        stepName: s.stepName,
+        kind: s.kind,
+        stepIndex: s.stepIndex,
+        status: s.status,
+        attemptCount: s.attemptCount,
+        error: s.error ?? null,
+        startedAt: s.startedAt ?? null,
+        endedAt: s.endedAt ?? null,
+        createdAt: existing?.createdAt ?? now(),
+        updatedAt: now(),
+      })
+    }
+  },
+  async listRunSteps(runId, workflowId) {
+    const run = store.runs.get(runId)
+    if (!run || run.workflowId !== workflowId) return []
+    return [...store.runSteps.values()].filter((s) => s.runId === runId)
   },
 
   // Deployments

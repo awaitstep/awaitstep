@@ -6,6 +6,7 @@ import { createLogger } from '../lib/logger.js'
 import { buildNodeRegistry, type RegistryFile } from '../lib/node-registry.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
 import { createEmailService } from '../lib/email.js'
+import { syncActiveRuns } from '../lib/run-sync.js'
 import { SandboxWranglerDeployer } from '@awaitstep/provider-cloudflare'
 import { getSandbox, type Sandbox } from '@cloudflare/sandbox'
 import registryData from '../../../../nodes/registry.json' with { type: 'json' }
@@ -113,5 +114,17 @@ export default {
       cached = { env, baseURL, app: await buildApp(env, baseURL) }
     }
     return cached.app.fetch(request, env, ctx)
+  },
+
+  // Cron-driven counterpart of serve.ts's interval loop: reconciles run
+  // status and per-step telemetry so API reads stay pure DB queries.
+  async scheduled(
+    _controller: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<void> {
+    const tokenCrypto = await createTokenCrypto(env.TOKEN_ENCRYPTION_KEY)
+    const db = createD1DatabaseAdapter(env.DB, { tokenCrypto })
+    ctx.waitUntil(syncActiveRuns(db))
   },
 }

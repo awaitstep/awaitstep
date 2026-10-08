@@ -410,8 +410,10 @@ Returns `{ versionId, sourceMode, entry, files, manifest, baseGeneratedHash }`.
 
 Push edited source back onto the current ejected/sdk version. The bundle is
 drift-validated against the retained IR and step manifest (node regions
-present, `step.do` names intact) and transpile-checked before being stored;
-`422` responses carry the validation errors. The version must not be locked.
+present, durable-step labels intact — labels are derived from node ids and
+are machine-owned, so edit step bodies, not labels) and transpile-checked
+before being stored; `422` responses carry the validation errors. The
+version must not be locked.
 
 **Scope:** `write`
 
@@ -544,7 +546,18 @@ List runs for a specific workflow.
 
 ### `GET /workflows/:workflowId/runs/:runId`
 
-Get a specific run. If the run is in a non-terminal state, live status is fetched from Cloudflare.
+Get a specific run. Run status is reconciled from the provider by a background sync loop (every 5 seconds on the Node server, every minute via cron on Workers), so reads are immediate and never block on provider round-trips.
+
+**Scope:** `read`
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
+| `runId`      | path | yes      | Run ID      |
+
+### `GET /workflows/:workflowId/runs/:runId/steps`
+
+Per-step telemetry for a run, collected by the background sync loop: each durable step's label, kind (`do` / `sleep` / `waitForEvent` / `rollback`), status, timing, attempt count, and last error. Steps are attributed to canvas nodes (`nodeId`) through the step manifest recorded at deploy time; generated step labels are derived from node ids, so attribution survives node renames. Loop iterations appear as separate entries (`stepIndex` is the 1-based occurrence per label). Returns an empty list for runs synced before a manifest-bearing deploy existed or when no steps have been reported yet.
 
 **Scope:** `read`
 

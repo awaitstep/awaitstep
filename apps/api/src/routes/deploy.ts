@@ -55,6 +55,15 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
 
   const { adapter, bundle, providerConfig, versionId, connectionId } = prepared
   const configSnapshot = JSON.stringify(prepared.resolvedDeploymentConfig)
+  // The deployment row's snapshot additionally pins the step manifest of the
+  // code actually shipped — run telemetry joins step labels to nodes through
+  // it. The reusable deployment_configs copy stays schema-clean.
+  const deploymentSnapshot = bundle.manifest
+    ? JSON.stringify({
+        ...(prepared.resolvedDeploymentConfig as Record<string, unknown>),
+        stepManifest: bundle.manifest,
+      })
+    : configSnapshot
   const result = await adapter.deploy(bundle, providerConfig)
 
   await db.createDeployment({
@@ -66,7 +75,7 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
     serviceUrl: result.url,
     status: result.success ? 'success' : 'failed',
     error: result.error,
-    configSnapshot,
+    configSnapshot: deploymentSnapshot,
   })
 
   // Post-deploy: persist config only on success
@@ -109,6 +118,15 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
 
   const { adapter, bundle, providerConfig, versionId, connectionId } = prepared
   const configSnapshot = JSON.stringify(prepared.resolvedDeploymentConfig)
+  // The deployment row's snapshot additionally pins the step manifest of the
+  // code actually shipped — run telemetry joins step labels to nodes through
+  // it. The reusable deployment_configs copy stays schema-clean.
+  const deploymentSnapshot = bundle.manifest
+    ? JSON.stringify({
+        ...(prepared.resolvedDeploymentConfig as Record<string, unknown>),
+        stepManifest: bundle.manifest,
+      })
+    : configSnapshot
 
   return streamSSE(c, async (stream) => {
     let eventId = 0
@@ -152,7 +170,7 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
       serviceUrl: result.url,
       status: result.success ? 'success' : 'failed',
       error: result.error,
-      configSnapshot,
+      configSnapshot: deploymentSnapshot,
     })
 
     // Post-deploy: persist config only on success
