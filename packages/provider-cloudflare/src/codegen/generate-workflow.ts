@@ -3,13 +3,16 @@ import type {
   GeneratedBundle,
   GeneratedFile,
   GeneratorLookup,
+  StepManifest,
   TemplateResolver,
 } from '@awaitstep/codegen'
 import {
   topologicalSort,
   sanitizeIdentifier,
   computeVarNames,
+  contentHash,
   createGenerationContext,
+  escName,
   validateBundle,
   indent,
 } from '@awaitstep/codegen'
@@ -84,6 +87,13 @@ export interface GenerateOptions {
   retention?: CloudflareRetention
   /** Generator lookup for node dispatch; defaults to the Cloudflare builtins. */
   generators?: GeneratorLookup
+  /**
+   * Wrap each top-level node's emitted entry code in
+   * `// @awaitstep:node <id>` … `// @awaitstep:end` markers so ejected
+   * sources keep a machine-checkable node↔code mapping. Module files need no
+   * markers — the manifest's filePath already scopes them to one node.
+   */
+  eject?: boolean
 }
 
 export function generateWorkflow(
@@ -103,18 +113,21 @@ export function generateWorkflowBundle(
   ir: WorkflowIR,
   templateResolverOrOptions?: TemplateResolver | GenerateOptions,
 ): GeneratedBundle {
-  const { source, files } = generateWorkflowInternal(ir, templateResolverOrOptions, true)
-  return validateBundle({
-    entry: 'worker.ts',
-    files: [{ path: 'worker.ts', source, role: 'entry' }, ...files],
-  })
+  const { source, files, manifest } = generateWorkflowInternal(ir, templateResolverOrOptions, true)
+  return {
+    ...validateBundle({
+      entry: 'worker.ts',
+      files: [{ path: 'worker.ts', source, role: 'entry' }, ...files],
+    }),
+    manifest,
+  }
 }
 
 function generateWorkflowInternal(
   ir: WorkflowIR,
   templateResolverOrOptions: TemplateResolver | GenerateOptions | undefined,
   emitModules: boolean,
-): { source: string; files: GeneratedFile[] } {
+): { source: string; files: GeneratedFile[]; manifest: StepManifest } {
   const opts: GenerateOptions = templateResolverOrOptions
     ? 'getTemplate' in templateResolverOrOptions
       ? { templateResolver: templateResolverOrOptions }
@@ -147,6 +160,7 @@ function generateWorkflowInternal(
     : ir
 
   const bodyParts: string[] = []
+  const emittedNodes: WorkflowNode[] = []
   const classDefinitions = new Map<string, string>()
 
   const resolvedNodeMap = new Map(resolvedIR.nodes.map((n: WorkflowNode) => [n.id, n]))
@@ -156,6 +170,7 @@ function generateWorkflowInternal(
     if (inlineTargets.has(node.id)) continue
     // Custom (non-registry) types fall through generateNodeCode's dispatch to
     // the same template path — one authority for what counts as builtin.
+    emittedNodes.push(node)
     bodyParts.push(
       generateNodeCode(
         node,
@@ -170,10 +185,13 @@ function generateWorkflowInternal(
   }
 
   const collectedImports: string[] = []
-  const strippedParts = bodyParts.map((part) => {
+  const strippedParts = bodyParts.map((part, i) => {
     const { imports, body } = extractImports(part)
     collectedImports.push(...imports)
-    return body
+    if (!opts.eject) return body
+    // Container children inline inside their container's part, so a marker
+    // region covers the whole top-level subtree.
+    return `// @awaitstep:node ${emittedNodes[i]!.id}\n${body}\n// @awaitstep:end`
   })
 
   const bodyLines = strippedParts.join('\n\n').replace(/\benv\./g, 'this.env.')
@@ -348,5 +366,26 @@ ${indent(bodyLines, 4)}
 
 ${exportDefault}
 `
-  return { source, files: ctx.files }
+  const manifest: StepManifest = {
+    irHash: contentHash(JSON.stringify(ir)),
+    steps: emittedNodes.map((node, i) => {
+      const varName = ctx.varName(node.id)
+      const modulePath = `nodes/${varName}.ts`
+      const hasModule = ctx.files.some((f) => f.role === 'module' && f.path === modulePath)
+      // Raw name — the runtime `step.do` label (escName only guards the
+      // source-literal form). Recorded only when this node's emitted code
+      // actually carries the label: sleep/wait/sub-workflow nodes emit other
+      // primitives or derived labels, and drift validation must not demand a
+      // literal that never existed.
+      const emitsLabel = bodyParts[i]!.includes(`step.do("${escName(node.name)}"`)
+      return {
+        nodeId: node.id,
+        ...(emitsLabel && { stepName: node.name }),
+        varName,
+        ...(hasModule && { filePath: modulePath }),
+      }
+    }),
+  }
+
+  return { source, files: ctx.files, manifest }
 }

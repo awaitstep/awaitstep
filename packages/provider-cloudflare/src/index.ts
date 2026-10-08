@@ -8,6 +8,7 @@ export {
   DEFAULT_SCRIPT_TRIGGER_CODE,
 } from './codegen/generate.js'
 export type { GenerateOptions, GenerateScriptOptions } from './codegen/generate.js'
+export { validateSource } from './codegen/validate-source.js'
 export {
   detectBindings,
   detectBindingsFromSource,
