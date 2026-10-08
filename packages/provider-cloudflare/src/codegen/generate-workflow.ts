@@ -3,6 +3,7 @@ import type {
   GeneratedBundle,
   GeneratedFile,
   GeneratorLookup,
+  StepKind,
   StepManifest,
   TemplateResolver,
 } from '@awaitstep/codegen'
@@ -12,7 +13,7 @@ import {
   computeVarNames,
   contentHash,
   createGenerationContext,
-  escName,
+  stepLabel,
   validateBundle,
   indent,
 } from '@awaitstep/codegen'
@@ -372,15 +373,22 @@ ${exportDefault}
       const varName = ctx.varName(node.id)
       const modulePath = `nodes/${varName}.ts`
       const hasModule = ctx.files.some((f) => f.role === 'module' && f.path === modulePath)
-      // Raw name — the runtime `step.do` label (escName only guards the
-      // source-literal form). Recorded only when this node's emitted code
-      // actually carries the label: sleep/wait/sub-workflow nodes emit other
-      // primitives or derived labels, and drift validation must not demand a
+      // stepName/kind are recorded only when this node's emitted code
+      // actually carries its label on a durable primitive: sub-workflow
+      // nodes emit derived labels, and drift validation must not demand a
       // literal that never existed.
-      const emitsLabel = bodyParts[i]!.includes(`step.do("${escName(node.name)}"`)
+      const label = stepLabel(node)
+      const part = bodyParts[i]!
+      const kind: StepKind | undefined = part.includes(`step.do("${label}"`)
+        ? 'do'
+        : part.includes(`step.sleep("${label}"`) || part.includes(`step.sleepUntil("${label}"`)
+          ? 'sleep'
+          : part.includes(`step.waitForEvent("${label}"`)
+            ? 'waitForEvent'
+            : undefined
       return {
         nodeId: node.id,
-        ...(emitsLabel && { stepName: node.name }),
+        ...(kind && { stepName: label, kind }),
         varName,
         ...(hasModule && { filePath: modulePath }),
       }

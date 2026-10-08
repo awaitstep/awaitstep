@@ -10,6 +10,30 @@ export interface CFApiConfig {
   apiToken: string
 }
 
+export interface CFInstanceStepAttempt {
+  start?: string
+  end?: string
+  success?: boolean | null
+  error?: { name: string; message: string } | null
+}
+
+/**
+ * One entry of the instance-describe `steps` array, discriminated by `type`:
+ * "step"/"rollback" carry attempts + config, "sleep" and "waitForEvent"
+ * carry `finished`, "termination" has no name.
+ */
+export interface CFInstanceStep {
+  type: string
+  name?: string
+  start?: string
+  end?: string | null
+  success?: boolean | null
+  finished?: boolean
+  output?: unknown
+  error?: { name: string; message: string } | null
+  attempts?: CFInstanceStepAttempt[]
+}
+
 export interface CFInstanceStatus {
   id: string
   status: string
@@ -17,6 +41,11 @@ export interface CFInstanceStatus {
   error?: { name: string; message: string }
   created_on?: string
   modified_on?: string
+  queued?: string
+  start?: string
+  end?: string
+  step_count?: number
+  steps?: CFInstanceStep[]
 }
 
 export interface CFInstanceListItem {
@@ -115,6 +144,11 @@ export class CloudflareAPI {
       error: result.error,
       created_on: result.created_on,
       modified_on: result.modified_on,
+      queued: result.queued,
+      start: result.start,
+      end: result.end,
+      step_count: result.step_count,
+      steps: result.steps,
     }
   }
 

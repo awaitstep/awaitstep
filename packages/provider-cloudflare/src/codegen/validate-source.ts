@@ -1,6 +1,6 @@
 import type { ArtifactIR, ValidationError } from '@awaitstep/ir'
-import type { GeneratedBundle, StepManifest } from '@awaitstep/codegen'
-import { bundleCodeFiles, escName, validateBundle } from '@awaitstep/codegen'
+import type { GeneratedBundle, StepKind, StepManifest } from '@awaitstep/codegen'
+import { bundleCodeFiles, validateBundle } from '@awaitstep/codegen'
 
 /**
  * Drift validation for user-edited bundles (ejected/sdk source modes):
@@ -12,14 +12,31 @@ import { bundleCodeFiles, escName, validateBundle } from '@awaitstep/codegen'
  * - every manifest node still exists in the IR (a canvas deletion is a
  *   structural edit that requires regenerate-or-revert, not a source push);
  * - every manifest module file is still present;
- * - every step's `step.do("<name>"` literal survives somewhere in the code
- *   (renaming a step breaks run telemetry and Cloudflare's step identity);
+ * - every step's labeled primitive (`step.do("<label>"`, `step.sleep(...)`,
+ *   `step.waitForEvent(...)` per its manifest kind) survives somewhere in
+ *   the code (labels are derived from node ids — relabeling a step breaks
+ *   run telemetry and Cloudflare's step identity);
  * - inline node regions keep their `// @awaitstep:node <id>` marker in the
  *   entry (module-backed nodes are scoped by their file instead).
  *
  * Transpile/expression checks stay in the deploy pipeline — this module is
  * pure and browser-safe.
  */
+const PRIMITIVES_BY_KIND: Record<StepKind, string[]> = {
+  do: ['step.do'],
+  sleep: ['step.sleep', 'step.sleepUntil'],
+  waitForEvent: ['step.waitForEvent'],
+}
+
+// Quote-insensitive so a formatter switching to single quotes doesn't read
+// as a relabeled step; labels are charset-safe (node-id derived) so no
+// escaping is needed. (AST-level checking is the durable follow-up.)
+function labelSurvives(code: string, label: string, kind: StepKind | undefined): boolean {
+  return PRIMITIVES_BY_KIND[kind ?? 'do'].some(
+    (method) => code.includes(`${method}("${label}"`) || code.includes(`${method}('${label}'`),
+  )
+}
+
 export function validateSource(
   ir: ArtifactIR,
   bundle: GeneratedBundle,
@@ -72,16 +89,11 @@ export function validateSource(
       continue
     }
 
-    // Quote-insensitive so a formatter switching to single quotes doesn't
-    // read as a renamed step. (AST-level checking is the durable follow-up.)
-    if (
-      step.stepName !== undefined &&
-      !allCode.includes(`step.do("${escName(step.stepName)}"`) &&
-      !allCode.includes(`step.do('${step.stepName.replace(/'/g, "\\'")}'`)
-    ) {
+    if (step.stepName !== undefined && !labelSurvives(allCode, step.stepName, step.kind)) {
+      const method = PRIMITIVES_BY_KIND[step.kind ?? 'do'][0]!
       errors.push({
         path: `source`,
-        message: `step.do("${step.stepName}") no longer appears in the source — renaming or removing steps breaks run telemetry; edit the body, not the name`,
+        message: `${method}("${step.stepName}") no longer appears in the source — removing or relabeling steps breaks run telemetry; edit the body, not the label`,
         nodeId: step.nodeId,
       })
     }

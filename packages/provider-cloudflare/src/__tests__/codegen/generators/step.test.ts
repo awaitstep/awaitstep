@@ -24,7 +24,7 @@ function makeNode(overrides: Partial<WorkflowNode> = {}): WorkflowNode {
 describe('generateStep', () => {
   it('generates a basic step with return', () => {
     const code = generateStep(makeNode())
-    expect(code).toContain('step.do("Do work"')
+    expect(code).toContain('step.do("step-1"')
     expect(code).toContain('return { done: true };')
     expect(code).toContain('const step_1 =')
   })
@@ -82,7 +82,7 @@ describe('generateStep', () => {
 
   it('omits config when not provided', () => {
     const code = generateStep(makeNode())
-    expect(code).toMatch(/step\.do\("Do work", async/)
+    expect(code).toMatch(/step\.do\("step-1", async/)
   })
 
   it('sanitizes node id for variable name', () => {
@@ -90,9 +90,10 @@ describe('generateStep', () => {
     expect(code).toContain('const process_data =')
   })
 
-  it('escapes quotes in step name', () => {
+  it('labels are id-derived, so quotes in the node name never reach the source', () => {
     const code = generateStep(makeNode({ name: 'Run "fast" task' }))
-    expect(code).toContain('step.do("Run \\"fast\\" task"')
+    expect(code).toContain('step.do("step-1"')
+    expect(code).not.toContain('fast')
   })
 
   it('preserves multiline code', () => {

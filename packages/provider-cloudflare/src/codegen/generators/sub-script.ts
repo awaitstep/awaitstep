@@ -1,5 +1,5 @@
 import type { WorkflowNode } from '@awaitstep/ir'
-import { escName, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
+import { stepLabel, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
 import { generateStepConfig } from './config.js'
 
 /**
@@ -55,7 +55,7 @@ export function generateSubScript(
   if (mode === 'script') {
     return `const ${ctx.varName(node.id)} = await env.${binding}.fetch(${urlLiteral}${fetchOpts}).then(r => r.json());`
   }
-  return `const ${ctx.varName(node.id)} = await step.do("${escName(node.name)}"${configArg}, async () => {
+  return `const ${ctx.varName(node.id)} = await step.do("${stepLabel(node)}"${configArg}, async () => {
   const response = await env.${binding}.fetch(${urlLiteral}${fetchOpts});
   return response.json();
 });`

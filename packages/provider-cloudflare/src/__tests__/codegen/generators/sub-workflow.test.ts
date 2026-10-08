@@ -36,9 +36,9 @@ function subNode(overrides: Partial<WorkflowNode['data']> = {}): WorkflowNode {
 describe('generateSubWorkflow', () => {
   it('generates wait-for-completion two-step pattern', () => {
     const code = generateSubWorkflow(subNode())
-    expect(code).toContain('Create OrderFulfillment')
+    expect(code).toContain('step.do("sub-1--create"')
     expect(code).toContain('ORDER_FULFILLMENT')
-    expect(code).toContain('Await OrderFulfillment')
+    expect(code).toContain('step.do("sub-1--await"')
     expect(code).toContain('retries:')
     expect(code).toContain('NonRetryableError')
     expect(code).toContain('params: charge_result')
@@ -46,9 +46,9 @@ describe('generateSubWorkflow', () => {
 
   it('generates fire-and-forget pattern', () => {
     const code = generateSubWorkflow(subNode({ waitForCompletion: false }))
-    expect(code).toContain('Create OrderFulfillment')
+    expect(code).toContain('step.do("sub-1--create"')
     expect(code).toContain('ORDER_FULFILLMENT')
-    expect(code).not.toContain('Await OrderFulfillment')
+    expect(code).not.toContain('step.do("sub-1--await"')
     expect(code).not.toContain('retries:')
   })
 
@@ -95,7 +95,7 @@ describe('generateSubWorkflow in script mode', () => {
   it('emits a single fire-and-forget create call (no step.do, no polling)', () => {
     const code = generateSubWorkflow(subNode(), 'script')
     expect(code).not.toContain('step.do')
-    expect(code).not.toContain('Await OrderFulfillment')
+    expect(code).not.toContain('step.do("sub-1--await"')
     expect(code).not.toContain('NonRetryableError')
     // The node's varName is the WorkflowInstance handle directly — callers
     // can read `.id`, `.status()`, etc. No second `{ instanceId: ... }` line.
@@ -107,7 +107,7 @@ describe('generateSubWorkflow in script mode', () => {
 
   it('ignores waitForCompletion in script mode (always fire-and-forget)', () => {
     const code = generateSubWorkflow(subNode({ waitForCompletion: true }), 'script')
-    expect(code).not.toContain('Await OrderFulfillment')
+    expect(code).not.toContain('step.do("sub-1--await"')
     expect(code).not.toContain('retries:')
   })
 })

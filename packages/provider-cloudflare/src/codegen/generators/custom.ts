@@ -1,6 +1,6 @@
 import type { WorkflowNode } from '@awaitstep/ir'
 import {
-  escName,
+  stepLabel,
   sanitizeIdentifier,
   indent,
   type GenerateMode,
@@ -183,7 +183,7 @@ ${paramsEntries}
   const hasReturn = /\breturn\b/.test(extractTemplateBody(templateSource))
   const prefix = hasReturn ? `const ${varName} = ` : ''
   const inputsArg = referenced.length > 0 ? `{ ${referenced.join(', ')} }` : '{}'
-  return `${prefix}await step.do("${escName(node.name)}"${configArg}, () => $${varName}({ env: this.env, event, inputs: ${inputsArg}, step }));`
+  return `${prefix}await step.do("${stepLabel(node)}"${configArg}, () => $${varName}({ env: this.env, event, inputs: ${inputsArg}, step }));`
 }
 
 function customParamsEntries(node: WorkflowNode): string {
@@ -240,7 +240,7 @@ ${indent(body, 4)}
       ? `${prefix}await ${className}.execute(${envRef}, {
 ${paramsEntries}
 });`
-      : `${prefix}await step.do("${escName(node.name)}"${configArg}, async () => {
+      : `${prefix}await step.do("${stepLabel(node)}"${configArg}, async () => {
   return ${className}.execute(${envRef}, {
 ${paramsEntries}
   });

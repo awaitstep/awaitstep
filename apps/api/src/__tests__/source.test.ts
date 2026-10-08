@@ -153,7 +153,7 @@ describe('source routes', () => {
       }
       const files = stored.files.map((f) =>
         f.path === stored.entry
-          ? { ...f, source: f.source.replace('step.do("Hello"', 'step.do("Renamed"') }
+          ? { ...f, source: f.source.replace('step.do("step-1"', 'step.do("Renamed"') }
           : f,
       )
       const res = await app.request(url('/api/workflows/wf-1/source'), {

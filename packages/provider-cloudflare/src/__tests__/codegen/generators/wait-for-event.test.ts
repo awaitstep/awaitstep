@@ -22,7 +22,7 @@ function makeNode(overrides: Partial<WorkflowNode> = {}): WorkflowNode {
 describe('generateWaitForEvent', () => {
   it('generates basic wait for event', () => {
     const code = generateWaitForEvent(makeNode())
-    expect(code).toContain('step.waitForEvent("Wait for approval"')
+    expect(code).toContain('step.waitForEvent("wait-1"')
     expect(code).toContain('type: "user-approval"')
     expect(code).toContain('const wait_1 =')
   })
@@ -51,8 +51,9 @@ describe('generateWaitForEvent', () => {
     expect(code).toContain('const wait_for_payment =')
   })
 
-  it('escapes quotes in step name', () => {
+  it('labels are id-derived, so quotes in the node name never reach the source', () => {
     const code = generateWaitForEvent(makeNode({ name: 'Wait for "yes"' }))
-    expect(code).toContain('waitForEvent("Wait for \\"yes\\"')
+    expect(code).toContain('waitForEvent("wait-1"')
+    expect(code).not.toContain('yes')
   })
 })

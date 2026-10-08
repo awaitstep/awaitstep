@@ -74,10 +74,10 @@ describe('generateWorkflowBundle', () => {
     expect(entry).toContain('import $Fetch_data from "./nodes/Fetch_data.js";')
     expect(entry).toContain('import $Report from "./nodes/Report.js";')
     expect(entry).toContain(
-      'const Fetch_data = await step.do("Fetch data", { retries: { limit: 3, delay: "5 seconds" } }, () => $Fetch_data({ env: this.env, event, inputs: {}, step }));',
+      'const Fetch_data = await step.do("fetch", { retries: { limit: 3, delay: "5 seconds" } }, () => $Fetch_data({ env: this.env, event, inputs: {}, step }));',
     )
     expect(entry).toContain(
-      'const Report = await step.do("Report", () => $Report({ env: this.env, event, inputs: { Fetch_data }, step }));',
+      'const Report = await step.do("report", () => $Report({ env: this.env, event, inputs: { Fetch_data }, step }));',
     )
     // No user code left in the entry to need env rewriting.
     expect(entry).not.toContain('z.object')
@@ -178,7 +178,7 @@ export default async function(ctx) {
     const entry = bundle.files[0].source
     expect(entry).toContain('import $Post_webhook from "./nodes/Post_webhook.js";')
     expect(entry).toContain(
-      'await step.do("Post webhook", () => $Post_webhook({ env: this.env, event, inputs: { Fetch_data }, step }));',
+      'await step.do("hook", () => $Post_webhook({ env: this.env, event, inputs: { Fetch_data }, step }));',
     )
     expect(entry).not.toContain('class WebhookPostNode')
   })

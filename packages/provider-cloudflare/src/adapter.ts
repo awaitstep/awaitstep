@@ -14,7 +14,7 @@ import type {
   DeployResult,
   ProviderConfig,
   WorkflowRunStatus,
-  WorkflowStatus,
+  WorkflowRunDetail,
   LocalDevSession,
   LocalDevOptions,
   TemplateResolver,
@@ -23,6 +23,8 @@ import { splitEnvVars } from './env.js'
 import type { WranglerDeployer } from './deploy/deployer.js'
 import { startLocalDev } from './local-dev.js'
 import { sanitizedWorkflowName } from './naming.js'
+import { mapCFStatus } from './status-map.js'
+import { toRunDetail } from './run-detail.js'
 import { CloudflareAPI } from './api.js'
 import { WRANGLER_BASE_CONFIG } from './wrangler-config.js'
 import {
@@ -470,6 +472,16 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     }
   }
 
+  async getRunDetail(instanceId: string, config: ProviderConfig): Promise<WorkflowRunDetail> {
+    if (config.options?.['kind'] === 'script') {
+      throw new Error('Scripts have no instance lifecycle — getRunDetail is not supported')
+    }
+    const { accountId, apiToken } = extractCredentials(config)
+    const workflowName = sanitizedWorkflowName(config.options?.['workflowName'] as string)
+    const api = new CloudflareAPI({ accountId, apiToken })
+    return toRunDetail(await api.getInstanceStatus(workflowName, instanceId))
+  }
+
   async destroy(
     deploymentId: string,
     config: ProviderConfig,
@@ -653,18 +665,4 @@ export function buildCronTriggers(
     }
   }
   return out.length > 0 ? out : undefined
-}
-
-export function mapCFStatus(cfStatus: string): WorkflowStatus {
-  const statusMap: Record<string, WorkflowStatus> = {
-    queued: 'queued',
-    running: 'running',
-    paused: 'paused',
-    errored: 'errored',
-    terminated: 'terminated',
-    complete: 'complete',
-    waiting: 'waiting',
-    waitingForPause: 'running',
-  }
-  return statusMap[cfStatus] ?? 'unknown'
 }

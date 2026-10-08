@@ -75,8 +75,8 @@ describe('generateBranch', () => {
     const code = generateBranch(node, ir, generateNodeCode)
     expect(code).toContain('if (state.active === true) {')
     expect(code).toContain('} else {')
-    expect(code).toContain('Active path')
-    expect(code).toContain('Fallback')
+    expect(code).toContain('step.do("a"')
+    expect(code).toContain('step.do("b"')
   })
 
   it('generates if/else if/else chain', () => {
@@ -207,8 +207,8 @@ describe('generateBranch', () => {
     }
     const node = ir.nodes[0]!
     const code = generateBranch(node, ir, generateNodeCode)
-    expect(code).toContain('step.sleep("Wait"')
-    expect(code).toContain('step.do("Log"')
+    expect(code).toContain('step.sleep("wait"')
+    expect(code).toContain('step.do("log"')
   })
 
   it('stops chain at nodes with in-degree > 1', () => {
@@ -268,8 +268,8 @@ describe('generateBranch', () => {
     const node = ir.nodes[0]!
     const code = generateBranch(node, ir, generateNodeCode)
     expect(code).not.toContain('Join')
-    expect(code).toContain('step.do("A"')
-    expect(code).toContain('step.do("B"')
+    expect(code).toContain('step.do("step-a"')
+    expect(code).toContain('step.do("step-b"')
   })
 })
 

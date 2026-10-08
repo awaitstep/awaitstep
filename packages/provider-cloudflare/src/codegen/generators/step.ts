@@ -1,5 +1,5 @@
 import type { WorkflowNode, StepConfig, RetryBackoff } from '@awaitstep/ir'
-import { escName, indent, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
+import { stepLabel, indent, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
 import { generateStepConfig } from './config.js'
 import { extractImports } from '../imports.js'
 
@@ -59,7 +59,7 @@ export function generateStep(
     return emitStepModule(node, ctx, code, prefix, configArg)
   }
 
-  return `${prefix}await step.do("${escName(node.name)}"${configArg}, async () => {
+  return `${prefix}await step.do("${stepLabel(node)}"${configArg}, async () => {
   ${code}
 });`
 }
@@ -107,5 +107,5 @@ ${destructure}${indent(body.trim(), 2)}
   // `env.` member access, which never appears here.
   // `step` is forwarded so code that nested `step.do`/`step.sleep` calls
   // inside a node keeps working — inline mode had it lexically in scope.
-  return `${prefix}await step.do("${escName(node.name)}"${configArg}, () => $${varName}({ env: this.env, event, inputs: ${inputsArg}, step }));`
+  return `${prefix}await step.do("${stepLabel(node)}"${configArg}, () => $${varName}({ env: this.env, event, inputs: ${inputsArg}, step }));`
 }

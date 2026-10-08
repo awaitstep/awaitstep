@@ -1,5 +1,5 @@
 import type { WorkflowNode } from '@awaitstep/ir'
-import { escName, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
+import { stepLabel, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
 import { generateStepConfig } from './config.js'
 
 export function generateHttp(
@@ -79,7 +79,7 @@ export function generateHttp(
     scriptLines.push(`const ${v} = await fetch(_${v}_url${fetchOpts}).then(r => r.json());`)
     return scriptLines.join('\n')
   }
-  return `const ${ctx.varName(node.id)} = await step.do("${escName(node.name)}"${configArg}, async () => {
+  return `const ${ctx.varName(node.id)} = await step.do("${stepLabel(node)}"${configArg}, async () => {
 ${bodyCode}
 });`
 }

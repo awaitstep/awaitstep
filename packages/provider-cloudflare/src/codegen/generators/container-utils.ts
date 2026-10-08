@@ -2,7 +2,7 @@ import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import {
   buildAdjacencyList,
   getEdgeLabels,
-  escName,
+  stepLabel,
   type GenerateMode,
   type GenerationContext,
 } from '@awaitstep/codegen'
@@ -114,7 +114,7 @@ export function generatePromiseContainer(
 ${branches.join(',\n')}
 ].map(fn => fn()));`
   }
-  return `const ${ctx.varName(node.id)} = await step.do("${escName(node.name)}", async () => {
+  return `const ${ctx.varName(node.id)} = await step.do("${stepLabel(node)}", async () => {
   return await Promise.${method}([
 ${branches.join(',\n')}
   ].map(fn => fn()));

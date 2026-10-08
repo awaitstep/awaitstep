@@ -29,13 +29,13 @@ describe('generateWorkflow', () => {
 
       export class SimpleWorkflow extends WorkflowEntrypoint<Env> {
         async run(event, step) {
-          const Fetch_data = await step.do("Fetch data", { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" }, timeout: "30 seconds" }, async () => {
+          const Fetch_data = await step.do("step-1", { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" }, timeout: "30 seconds" }, async () => {
             const res = await fetch('https://api.example.com/data'); return res.json();
           });
 
-          await step.sleep("Wait 10s", "10 seconds");
+          await step.sleep("sleep-1", "10 seconds");
 
-          const Process_data = await step.do("Process data", async () => {
+          const Process_data = await step.do("step-2", async () => {
             return { processed: true };
           });
         }
@@ -109,7 +109,7 @@ describe('generateWorkflow', () => {
     const code = generateWorkflow(ir)
     expect(code).toContain('if (true) {')
     expect(code).not.toContain('} else {')
-    expect(code).toContain('step.do("Inside"')
+    expect(code).toContain('step.do("s1"')
   })
 
   it('emits a "then" continuation node AFTER the branch block', () => {
@@ -153,16 +153,16 @@ describe('generateWorkflow', () => {
     const code = generateWorkflow(ir)
     // Branch body present
     expect(code).toContain('if (true) {')
-    expect(code).toContain('step.do("Inside"')
+    expect(code).toContain('step.do("s1"')
     // Continuation step also present, AFTER the branch's closing brace
-    expect(code).toContain('step.do("After branch"')
+    expect(code).toContain('step.do("s2"')
     const branchCloseIdx = code.lastIndexOf('}')
-    const afterBranchIdx = code.indexOf('step.do("After branch"')
+    const afterBranchIdx = code.indexOf('step.do("s2"')
     // The continuation must appear in the source after the branch close — i.e.,
     // not inlined inside the if/else.
     expect(afterBranchIdx).toBeGreaterThan(0)
     // Sanity: the inside step appears BEFORE the continuation step
-    const insideIdx = code.indexOf('step.do("Inside"')
+    const insideIdx = code.indexOf('step.do("s1"')
     expect(insideIdx).toBeLessThan(afterBranchIdx)
     expect(branchCloseIdx).toBeGreaterThan(0) // matched some closing brace
   })
@@ -170,8 +170,8 @@ describe('generateWorkflow', () => {
   it('generates a parallel workflow', () => {
     const code = generateWorkflow(parallelWorkflow as unknown as WorkflowIR)
     expect(code).toContain('Promise.allSettled')
-    expect(code).toContain('Task A')
-    expect(code).toContain('Task B')
+    expect(code).toContain('step.do("task_a"')
+    expect(code).toContain('step.do("task_b"')
   })
 
   it('generates a wait-for-event workflow', () => {
@@ -285,7 +285,7 @@ describe('generateWorkflow', () => {
     const code = generateWorkflow(ir)
     // The loop's step.do appears before update's step.do — i.e. update is
     // emitted inside the loop body, not after the loop has closed.
-    const loopIdx = code.indexOf('await step.do("iterate"')
+    const loopIdx = code.indexOf('await step.do("loop"')
     const updateIdx = code.indexOf('await step.do(`update')
     const closeIdx = code.indexOf('return _output;')
     expect(loopIdx).toBeGreaterThan(-1)
@@ -370,8 +370,8 @@ describe('generateWorkflow with custom nodes', () => {
     expect(code).toContain('class WebhookPostNode {')
     expect(code).toContain('static async execute(env: Env, params: Record<string, unknown>)')
     // Step calls use the class
-    expect(code).toContain('const Fetch_Data = await step.do("Fetch Data"')
-    expect(code).toContain('const Send_Webhook = await step.do("Send Webhook"')
+    expect(code).toContain('const Fetch_Data = await step.do("step-1"')
+    expect(code).toContain('const Send_Webhook = await step.do("webhook-1"')
     expect(code).toContain('WebhookPostNode.execute(this.env, {')
     expect(code).toContain('url: "https://hook.example.com/endpoint"')
     expect(code).toContain('retries: { limit: 3, delay: "5 seconds" }')

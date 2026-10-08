@@ -56,7 +56,7 @@ describe('validateSource drift matrix', () => {
   it('renaming a step.do label fails', () => {
     const bundle = ejectedBundle()
     const entry = bundle.files.find((f) => f.path === 'worker.ts')!
-    entry.source = entry.source.replace('step.do("Fetch data"', 'step.do("Renamed"')
+    entry.source = entry.source.replace('step.do("fetch"', 'step.do("Renamed"')
     const errors = validateSource(ir, bundle, bundle.manifest!)
     expect(errors.some((e) => e.nodeId === 'fetch' && e.message.includes('step.do'))).toBe(true)
   })
@@ -95,7 +95,8 @@ describe('validateSource drift matrix', () => {
     }
     const bundle = generateWorkflowBundle(sleepIR, { eject: true })
     const napEntry = bundle.manifest!.steps.find((s) => s.nodeId === 'nap')!
-    expect(napEntry.stepName).toBeUndefined()
+    expect(napEntry.stepName).toBe('nap')
+    expect(napEntry.kind).toBe('sleep')
     expect(validateSource(sleepIR, bundle, bundle.manifest!)).toEqual([])
   })
 

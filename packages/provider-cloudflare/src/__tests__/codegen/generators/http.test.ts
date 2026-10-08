@@ -26,7 +26,7 @@ describe('generateHttp', () => {
     const code = generateHttp(makeNode())
     expect(code).toContain('await fetch("https://api.example.com/data")')
     expect(code).not.toContain('method:')
-    expect(code).toContain('step.do("Fetch data"')
+    expect(code).toContain('step.do("http-1"')
     expect(code).toContain('return response.json()')
   })
 
@@ -159,9 +159,10 @@ describe('generateHttp', () => {
     expect(code).toContain('const fetch_user_data =')
   })
 
-  it('escapes quotes in step name', () => {
+  it('labels are id-derived, so quotes in the node name never reach the source', () => {
     const code = generateHttp(makeNode({ name: 'Fetch "important" data' }))
-    expect(code).toContain('step.do("Fetch \\"important\\" data"')
+    expect(code).toContain('step.do("http-1"')
+    expect(code).not.toContain('important')
   })
 
   it('omits headers when empty object', () => {

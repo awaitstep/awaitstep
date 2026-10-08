@@ -62,8 +62,8 @@ describe('generateParallel', () => {
     const node = ir.nodes[0]!
     const code = generateParallel(node, ir, generateNodeCode)
     expect(code).toContain('Promise.allSettled')
-    expect(code).toContain('Task A')
-    expect(code).toContain('Task B')
+    expect(code).toContain('step.do("a"')
+    expect(code).toContain('step.do("b"')
     expect(code).toContain('async () => {')
   })
 
@@ -82,7 +82,7 @@ describe('generateParallel', () => {
     const node = ir.nodes[0]!
     const code = generateParallel(node, ir, generateNodeCode)
     expect(code).toContain('Promise.allSettled')
-    expect(code).toContain('Only task')
+    expect(code).toContain('step.do("a"')
   })
 
   it('returns comment for no branches', () => {
@@ -121,7 +121,7 @@ describe('generateParallel', () => {
     ])
     const node = ir.nodes[0]!
     const code = generateParallel(node, ir, generateNodeCode)
-    expect(code).toContain('await step.do("Run in parallel"')
+    expect(code).toContain('await step.do("parallel-1"')
     expect(code).toContain('return await Promise.allSettled')
   })
 

@@ -271,7 +271,7 @@ describe('generateScript', () => {
     ir.edges = [{ id: 'e1', source: 'transform', target: 'forward' }]
     const code = generateScript(ir)
     expect(code).toContain('env.ONBOARDING_WORKFLOW.create(')
-    expect(code).not.toContain('Await OnboardingWorkflow') // no polling
+    expect(code).not.toContain('--await') // no polling
     expect(code).not.toContain('step.do')
     expect(code).toMatch(/interface Env \{[\s\S]*ONBOARDING_WORKFLOW: Workflow;[\s\S]*\}/)
   })

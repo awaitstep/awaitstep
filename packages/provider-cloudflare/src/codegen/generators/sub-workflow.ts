@@ -1,5 +1,5 @@
 import type { WorkflowNode } from '@awaitstep/ir'
-import { escName, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
+import { derivedStepLabel, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
 
 export function generateSubWorkflow(
   node: WorkflowNode,
@@ -23,7 +23,9 @@ export function generateSubWorkflow(
   const lines: string[] = []
 
   // Step 1: Create child workflow instance
-  lines.push(`const ${instanceVar} = await step.do("Create ${escName(className)}", async () => {`)
+  lines.push(
+    `const ${instanceVar} = await step.do("${derivedStepLabel(node, 'create')}", async () => {`,
+  )
   lines.push(
     `  const instance = await env.${bindingName}.create({ id: crypto.randomUUID()${paramsArg}, retention: AWAITSTEP_RETENTION });`,
   )
@@ -34,7 +36,7 @@ export function generateSubWorkflow(
     // Step 2: Poll until child completes
     const resultVar = ctx.varName(node.id)
     lines.push('')
-    lines.push(`const ${resultVar} = await step.do("Await ${escName(className)}", {`)
+    lines.push(`const ${resultVar} = await step.do("${derivedStepLabel(node, 'await')}", {`)
     lines.push(`  retries: { limit: 60, delay: "5 seconds", backoff: "linear" },`)
     lines.push(`}, async () => {`)
     lines.push(`  const instance = await env.${bindingName}.get(${instanceVar}.instanceId);`)

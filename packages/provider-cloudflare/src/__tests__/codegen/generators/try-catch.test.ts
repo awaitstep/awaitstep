@@ -57,9 +57,9 @@ describe('generateTryCatch', () => {
     ])
     const code = generateTryCatch(ir.nodes[0]!, ir, generateNodeCode)
     expect(code).toContain('try {')
-    expect(code).toContain('Charge Payment')
+    expect(code).toContain('step.do("charge"')
     expect(code).toContain('} catch (err) {')
-    expect(code).toContain('Refund Order')
+    expect(code).toContain('step.do("refund"')
     expect(code).toContain('}')
   })
 
@@ -71,11 +71,11 @@ describe('generateTryCatch', () => {
     ])
     const code = generateTryCatch(ir.nodes[0]!, ir, generateNodeCode)
     expect(code).toContain('try {')
-    expect(code).toContain('Do Work')
+    expect(code).toContain('step.do("work"')
     expect(code).toContain('} catch (err) {')
-    expect(code).toContain('Handle Error')
+    expect(code).toContain('step.do("handle"')
     expect(code).toContain('} finally {')
-    expect(code).toContain('Cleanup')
+    expect(code).toContain('step.do("cleanup"')
   })
 
   it('generates chain within try path', () => {
@@ -90,8 +90,8 @@ describe('generateTryCatch', () => {
     )
     ir.nodes.push(step2)
     const code = generateTryCatch(ir.nodes[0]!, ir, generateNodeCode)
-    expect(code).toContain('Step 1')
-    expect(code).toContain('Step 2')
+    expect(code).toContain('step.do("s1"')
+    expect(code).toContain('step.do("s2"')
   })
 
   it('handles empty catch path gracefully', () => {

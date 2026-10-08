@@ -1,5 +1,5 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { escName, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
+import { stepLabel, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
 import { collectChain } from './branch.js'
 import { enterLoop, exitLoop } from './break.js'
 import { prepareContainerContext, indentCode } from './container-utils.js'
@@ -118,7 +118,7 @@ ${loopLines.join('\n')}
   // required by step.do's signature. Always include _output declaration
   // and return so the captured value (if any) flows out via const prefix.
   const prefix = usesOutput ? `const ${ctx.varName(node.id)} = ` : ''
-  return `${prefix}await step.do("${escName(node.name)}", async () => {
+  return `${prefix}await step.do("${stepLabel(node)}", async () => {
   let _output; // assign a value to return it from the loop
 ${loopLines.join('\n')}
   return _output;

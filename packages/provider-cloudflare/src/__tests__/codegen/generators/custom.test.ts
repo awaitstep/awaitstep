@@ -164,7 +164,7 @@ describe('generateCustomNode', () => {
     expect(code).not.toContain('ctx.')
 
     // Step call
-    expect(code).toContain('const My_Node = await step.do("My Node"')
+    expect(code).toContain('const My_Node = await step.do("my-node"')
     expect(code).toContain('WebhookPostNode.execute(this.env, {')
     expect(code).toContain('webhookUrl: "https://hook.example.com"')
     expect(code).toContain('previous_step: "step_1"')
@@ -186,7 +186,7 @@ describe('generateCustomNode', () => {
 
     const code = generateCustomNode(node, noReturnTemplate)
     expect(code).toContain('class LoggerNode {')
-    expect(code).toContain('await step.do("Log"')
+    expect(code).toContain('await step.do("my-node"')
     expect(code).toContain('LoggerNode.execute(this.env, {')
   })
 
@@ -214,7 +214,7 @@ export default async function(ctx) {
     expect(code).toContain(
       "import { uniqueNamesGenerator, adjectives, colors, animals } from 'unique-names-generator'",
     )
-    expect(code).toContain('await step.do("Generate Name"')
+    expect(code).toContain('await step.do("my-node"')
     expect(code).toContain('return { name };')
   })
 
@@ -233,7 +233,7 @@ export default async function(ctx) {
     }
 
     const code = generateCustomNode(node, simpleTemplate)
-    expect(code).toContain('await step.do("Simple", async () => {')
+    expect(code).toContain('await step.do("my-node", async () => {')
     expect(code).toContain('42')
   })
 
