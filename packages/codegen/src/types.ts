@@ -94,6 +94,34 @@ export interface WorkflowRunStatus {
   error?: { name: string; message: string }
 }
 
+/** Step record kinds a provider can report for a run ('do' = plain step). */
+export type RunStepDetailKind = 'do' | 'sleep' | 'waitForEvent' | 'rollback'
+
+export type RunStepDetailStatus = 'running' | 'waiting' | 'complete' | 'errored'
+
+/** One provider-reported step occurrence within a run. */
+export interface RunStepDetail {
+  /** The durable-step label (joins to StepManifest.steps[].stepName). */
+  name: string
+  kind: RunStepDetailKind
+  /** 1-based occurrence per (name, kind), in provider report order. */
+  index: number
+  status: RunStepDetailStatus
+  start?: string
+  end?: string
+  attemptCount: number
+  error?: { name: string; message: string }
+}
+
+/** Instance detail with per-step telemetry, from WorkflowProvider.getRunDetail. */
+export interface WorkflowRunDetail extends WorkflowRunStatus {
+  startedAt?: string
+  endedAt?: string
+  /** The provider's billable step count for the run, when reported. */
+  stepCount?: number
+  steps: RunStepDetail[]
+}
+
 export type DeploymentConfigUiWidget =
   'text' | 'textarea' | 'number' | 'boolean' | 'select' | 'array' | 'array-of-objects'
 

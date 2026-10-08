@@ -7,6 +7,10 @@ export type {
   DeployResult,
   WorkflowStatus,
   WorkflowRunStatus,
+  WorkflowRunDetail,
+  RunStepDetail,
+  RunStepDetailKind,
+  RunStepDetailStatus,
   LocalDevSession,
   LocalDevLogEntry,
   LocalDevOptions,
@@ -45,5 +49,6 @@ export type { GenerationContext, GenerationContextOptions } from './context.js'
 export { GeneratorRegistry } from './node-generator.js'
 export type { NodeGenerator, NodeGeneratorArgs, GeneratorLookup } from './node-generator.js'
 export { indent } from './format.js'
-export { contentHash, bundleHash } from './manifest.js'
-export type { StepManifest, StepManifestEntry } from './manifest.js'
+export { contentHash, bundleHash, resolveStepNode } from './manifest.js'
+export type { StepManifest, StepManifestEntry, StepKind } from './manifest.js'
+export { stepLabel, sanitizeStepLabel, derivedStepLabel } from './naming.js'

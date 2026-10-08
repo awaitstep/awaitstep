@@ -5,6 +5,7 @@ import type {
   DeployResult,
   ProviderConfig,
   WorkflowRunStatus,
+  WorkflowRunDetail,
   LocalDevSession,
   LocalDevOptions,
   DeploymentConfigUiSchema,
@@ -57,6 +58,13 @@ export interface WorkflowProvider {
   deploy(bundle: GeneratedBundle, config: ProviderConfig): Promise<DeployResult>
 
   getStatus(instanceId: string, config: ProviderConfig): Promise<WorkflowRunStatus>
+
+  /**
+   * Instance status plus per-step telemetry (labels, attempts, timing).
+   * Step labels join back to nodes through the deploy's StepManifest.
+   * Absent = provider reports run status only.
+   */
+  getRunDetail?(instanceId: string, config: ProviderConfig): Promise<WorkflowRunDetail>
 
   trigger(
     deploymentId: string,
