@@ -9,6 +9,9 @@ export type {
   EnvVar,
   Project,
   InstalledNode,
+  WorkflowSourceMode,
+  CreateVersionData,
+  UpdateVersionData,
 } from './types.js'
 export type {
   DatabaseAdapter,

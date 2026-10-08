@@ -9,6 +9,8 @@ import type {
   EnvVar,
   Project,
   InstalledNode,
+  CreateVersionData,
+  UpdateVersionData,
 } from './types.js'
 import type { PaginationParams, PaginatedResult } from './pagination.js'
 
@@ -88,19 +90,14 @@ export interface DatabaseAdapter {
   deleteWorkflow(id: string): Promise<void>
 
   // Workflow Versions
-  createVersion(data: {
-    id: string
-    workflowId: string
-    version: number
-    ir: string
-  }): Promise<WorkflowVersion>
+  createVersion(data: CreateVersionData): Promise<WorkflowVersion>
   getWorkflowVersionById(id: string): Promise<WorkflowVersion | null>
   getNextVersionNumber(workflowId: string): Promise<number>
   listVersionsByWorkflow(
     workflowId: string,
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<WorkflowVersion>>
-  updateVersion(id: string, data: { ir?: string; locked?: number }): Promise<void>
+  updateVersion(id: string, data: UpdateVersionData): Promise<void>
   deleteVersion(id: string): Promise<void>
 
   // Connections

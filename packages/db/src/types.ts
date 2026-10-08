@@ -12,6 +12,39 @@ import type { deploymentConfigs } from './schema/sqlite/deployment-configs.js'
 
 export type Workflow = InferSelectModel<typeof workflows>
 export type WorkflowVersion = InferSelectModel<typeof workflowVersions>
+
+/**
+ * How a version's deployable source relates to its IR.
+ * 'generated' — IR is truth, code derived at deploy time (v1 behavior).
+ * 'ejected'   — user edits the stored bundle; IR retained, drift-validated.
+ * 'sdk'       — source authoritative (CLI push), IR derived from code.
+ */
+export type WorkflowSourceMode = 'generated' | 'ejected' | 'sdk'
+
+export interface CreateVersionData {
+  id: string
+  workflowId: string
+  /**
+   * Omit to have the adapter assign MAX(version)+1 atomically in SQL —
+   * callers that read the next number first race under concurrency and trip
+   * the (workflowId, version) unique index.
+   */
+  version?: number
+  ir: string
+  sourceMode?: WorkflowSourceMode
+  source?: string | null
+  manifest?: string | null
+  baseGeneratedHash?: string | null
+}
+
+export interface UpdateVersionData {
+  ir?: string
+  locked?: number
+  sourceMode?: WorkflowSourceMode
+  source?: string | null
+  manifest?: string | null
+  baseGeneratedHash?: string | null
+}
 export type Connection = InferSelectModel<typeof connections>
 export type WorkflowRun = InferSelectModel<typeof workflowRuns>
 export type Deployment = InferSelectModel<typeof deployments>

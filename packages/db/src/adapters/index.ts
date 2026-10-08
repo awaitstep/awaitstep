@@ -16,6 +16,8 @@ import type {
   EnvVar,
   Project,
   InstalledNode,
+  CreateVersionData,
+  UpdateVersionData,
 } from '../types.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
@@ -254,12 +256,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
 
   // Versions
-  createVersion(data: {
-    id: string
-    workflowId: string
-    version: number
-    ir: string
-  }): Promise<WorkflowVersion> {
+  createVersion(data: CreateVersionData): Promise<WorkflowVersion> {
     return this._versions.create(data)
   }
   getWorkflowVersionById(id: string): Promise<WorkflowVersion | null> {
@@ -275,7 +272,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   ): Promise<PaginatedResult<WorkflowVersion>> {
     return this._versions.listByWorkflow(workflowId, pagination)
   }
-  updateVersion(id: string, data: { ir?: string; locked?: number }): Promise<void> {
+  updateVersion(id: string, data: UpdateVersionData): Promise<void> {
     return this._versions.update(id, data)
   }
   deleteVersion(id: string): Promise<void> {

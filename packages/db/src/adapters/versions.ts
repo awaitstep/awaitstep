@@ -1,5 +1,5 @@
-import { eq, desc, max, and, or, lt } from 'drizzle-orm'
-import type { WorkflowVersion } from '../types.js'
+import { eq, desc, max, and, or, lt, sql } from 'drizzle-orm'
+import type { CreateVersionData, UpdateVersionData, WorkflowVersion } from '../types.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 
@@ -12,23 +12,41 @@ export class VersionsAdapter {
     private table: AnyTable,
   ) {}
 
-  async create(data: {
-    id: string
-    workflowId: string
-    version: number
-    ir: string
-  }): Promise<WorkflowVersion> {
+  async create(data: CreateVersionData): Promise<WorkflowVersion> {
     const now = new Date().toISOString()
     const row = {
       id: data.id,
       workflowId: data.workflowId,
-      version: data.version,
       ir: data.ir,
+      sourceMode: data.sourceMode ?? 'generated',
+      source: data.source ?? null,
+      manifest: data.manifest ?? null,
+      baseGeneratedHash: data.baseGeneratedHash ?? null,
       locked: 0,
       createdAt: now,
     }
-    await this.db.insert(this.table).values(row)
-    return row
+    if (data.version !== undefined) {
+      const explicit = { ...row, version: data.version }
+      await this.db.insert(this.table).values(explicit)
+      return explicit
+    }
+    // Assign MAX(version)+1 in the INSERT itself. SQLite serializes writers
+    // so this is fully atomic; Postgres can still collide under concurrency
+    // (two INSERTs reading the same MAX), so the unique-index loser retries.
+    const versionExpr = sql`(SELECT COALESCE(MAX(${sql.raw('version')}), 0) + 1 FROM ${this.table} WHERE ${sql.raw('workflow_id')} = ${data.workflowId})`
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const inserted = await this.db
+          .insert(this.table)
+          .values({ ...row, version: versionExpr })
+          .returning({ version: this.table.version })
+        return { ...row, version: inserted[0]!.version }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        if (attempt < 2 && /unique/i.test(message)) continue
+        throw err
+      }
+    }
   }
 
   async getById(id: string): Promise<WorkflowVersion | null> {
@@ -68,7 +86,7 @@ export class VersionsAdapter {
     return paginateResults(rows, limit, (r) => r.createdAt)
   }
 
-  async update(id: string, data: { ir?: string; locked?: number }): Promise<void> {
+  async update(id: string, data: UpdateVersionData): Promise<void> {
     await this.db.update(this.table).set(data).where(eq(this.table.id, id))
   }
 
