@@ -12,6 +12,11 @@ export type {
   WorkflowSourceMode,
   CreateVersionData,
   UpdateVersionData,
+  WorkflowRunStep,
+  RunStepKind,
+  RunStepStatus,
+  UpsertRunStepData,
+  ActiveRunForSync,
 } from './types.js'
 export type {
   DatabaseAdapter,

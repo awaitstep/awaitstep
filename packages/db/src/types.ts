@@ -3,6 +3,7 @@ import type { workflows } from './schema/sqlite/workflows.js'
 import type { workflowVersions } from './schema/sqlite/versions.js'
 import type { connections } from './schema/sqlite/connections.js'
 import type { workflowRuns } from './schema/sqlite/runs.js'
+import type { workflowRunSteps } from './schema/sqlite/run-steps.js'
 import type { deployments } from './schema/sqlite/deployments.js'
 import type { apiKeys } from './schema/sqlite/api-keys.js'
 import type { envVars } from './schema/sqlite/env-vars.js'
@@ -47,6 +48,42 @@ export interface UpdateVersionData {
 }
 export type Connection = InferSelectModel<typeof connections>
 export type WorkflowRun = InferSelectModel<typeof workflowRuns>
+export type WorkflowRunStep = InferSelectModel<typeof workflowRunSteps>
+
+/** Provider step record kinds persisted per run ('do' covers plain steps). */
+export type RunStepKind = 'do' | 'sleep' | 'waitForEvent' | 'rollback'
+
+export type RunStepStatus = 'running' | 'waiting' | 'complete' | 'errored'
+
+/**
+ * One provider-reported step occurrence, upserted by its stable identity
+ * (runId, stepName, kind, stepIndex) so repeated syncs converge instead of
+ * duplicating rows.
+ */
+export interface UpsertRunStepData {
+  id: string
+  nodeId?: string | null
+  stepName: string
+  kind: RunStepKind
+  stepIndex: number
+  status: RunStepStatus
+  attemptCount: number
+  error?: string | null
+  startedAt?: string | null
+  endedAt?: string | null
+}
+
+/**
+ * An active (non-terminal) run joined with everything one sync tick needs:
+ * the provider workflow name and the deployed version's config snapshot
+ * (which carries the step manifest). Credentials stay out — they decrypt
+ * through the connections adapter, once per connection group.
+ */
+export interface ActiveRunForSync {
+  run: WorkflowRun
+  workflowName: string
+  configSnapshot: string | null
+}
 export type Deployment = InferSelectModel<typeof deployments>
 export type ApiKey = InferSelectModel<typeof apiKeys>
 export type EnvVar = InferSelectModel<typeof envVars>

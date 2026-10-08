@@ -10,6 +10,9 @@ import type {
   WorkflowVersion,
   Connection,
   WorkflowRun,
+  WorkflowRunStep,
+  UpsertRunStepData,
+  ActiveRunForSync,
   Deployment,
   DeploymentConfig,
   ApiKey,
@@ -26,6 +29,7 @@ import { WorkflowsAdapter } from './workflows.js'
 import { VersionsAdapter } from './versions.js'
 import { ConnectionsAdapter } from './connections.js'
 import { RunsAdapter } from './runs.js'
+import { RunStepsAdapter } from './run-steps.js'
 import { DeploymentsAdapter } from './deployments.js'
 import { ApiKeysAdapter } from './api-keys.js'
 import { EnvVarsAdapter } from './env-vars.js'
@@ -38,6 +42,7 @@ export interface SchemaRef {
   workflowVersions: unknown
   connections: unknown
   workflowRuns: unknown
+  workflowRunSteps: unknown
   deployments: unknown
   deploymentConfigs: unknown
   apiKeys: unknown
@@ -59,6 +64,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _versions: VersionsAdapter
   private _connections: ConnectionsAdapter
   private _runs: RunsAdapter
+  private _runSteps: RunStepsAdapter
   private _deployments: DeploymentsAdapter
   private _apiKeys: ApiKeysAdapter
   private _envVars: EnvVarsAdapter
@@ -75,7 +81,8 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     this._workflows = new WorkflowsAdapter(db, schema.workflows)
     this._versions = new VersionsAdapter(db, schema.workflowVersions)
     this._connections = new ConnectionsAdapter(db, schema.connections, options?.tokenCrypto)
-    this._runs = new RunsAdapter(db, schema.workflowRuns)
+    this._runs = new RunsAdapter(db, schema.workflowRuns, schema.workflows, schema.deployments)
+    this._runSteps = new RunStepsAdapter(db, schema.workflowRunSteps, schema.workflowRuns)
     this._deployments = new DeploymentsAdapter(db, schema.deployments)
     this._apiKeys = new ApiKeysAdapter(db, schema.apiKeys)
     this._envVars = new EnvVarsAdapter(db, schema.envVars, options?.tokenCrypto, schema.projects)
@@ -334,6 +341,15 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     data: { status?: string; output?: string; error?: string },
   ): Promise<WorkflowRun> {
     return this._runs.update(id, data)
+  }
+  listActiveRunsForSync(limit?: number): Promise<ActiveRunForSync[]> {
+    return this._runs.listActiveForSync(limit)
+  }
+  upsertRunSteps(runId: string, steps: UpsertRunStepData[]): Promise<void> {
+    return this._runSteps.upsertMany(runId, steps)
+  }
+  listRunSteps(runId: string, workflowId: string): Promise<WorkflowRunStep[]> {
+    return this._runSteps.listByRun(runId, workflowId)
   }
 
   async listRecentRunsByProject(

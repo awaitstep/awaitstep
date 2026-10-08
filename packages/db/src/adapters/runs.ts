@@ -1,15 +1,19 @@
-import { eq, desc, and, or, lt } from 'drizzle-orm'
-import type { WorkflowRun } from '../types.js'
+import { eq, desc, and, or, lt, notInArray, sql } from 'drizzle-orm'
+import type { ActiveRunForSync, WorkflowRun } from '../types.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
 
+const TERMINAL_RUN_STATUSES = ['complete', 'errored', 'terminated']
+
 export class RunsAdapter {
   constructor(
     private db: AnyTable,
     private table: AnyTable,
+    private workflowsTable?: AnyTable,
+    private deploymentsTable?: AnyTable,
   ) {}
 
   async create(data: {
@@ -64,6 +68,30 @@ export class RunsAdapter {
       .orderBy(desc(this.table.createdAt), desc(this.table.id))
       .limit(limit + 1)
     return paginateResults(rows, limit, (r) => r.createdAt)
+  }
+
+  /**
+   * Non-terminal runs joined with the provider workflow name and the
+   * deployed version's config snapshot (latest successful deployment of the
+   * run's own version — the one whose step manifest matches the running
+   * code), all in one query per the no-sequential-awaits rule.
+   */
+  async listActiveForSync(limit = 200): Promise<ActiveRunForSync[]> {
+    const runs = this.table
+    const workflows = this.workflowsTable
+    const deployments = this.deploymentsTable
+    if (!workflows || !deployments) {
+      throw new Error('RunsAdapter needs workflows and deployments tables for sync queries')
+    }
+    const snapshotExpr = sql`(SELECT ${deployments.configSnapshot} FROM ${deployments} WHERE ${deployments.workflowId} = ${runs.workflowId} AND ${deployments.versionId} = ${runs.versionId} AND ${deployments.status} = 'success' ORDER BY ${deployments.createdAt} DESC LIMIT 1)`
+    const rows = await this.db
+      .select({ run: runs, workflowName: workflows.name, configSnapshot: snapshotExpr })
+      .from(runs)
+      .innerJoin(workflows, eq(runs.workflowId, workflows.id))
+      .where(notInArray(runs.status, TERMINAL_RUN_STATUSES))
+      .orderBy(desc(runs.createdAt))
+      .limit(limit)
+    return rows as ActiveRunForSync[]
   }
 
   async update(

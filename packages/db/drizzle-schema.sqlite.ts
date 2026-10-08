@@ -248,6 +248,36 @@ export const workflowRuns = sqliteTable(
   (table) => [index('idx_workflow_runs_workflow_id').on(table.workflowId)],
 )
 
+export const workflowRunSteps = sqliteTable(
+  'workflow_run_steps',
+  {
+    id: text('id').primaryKey(),
+    runId: text('run_id')
+      .notNull()
+      .references(() => workflowRuns.id, { onDelete: 'cascade' }),
+    nodeId: text('node_id'),
+    stepName: text('step_name').notNull(),
+    kind: text('kind').notNull(),
+    stepIndex: integer('step_index').notNull().default(1),
+    status: text('status').notNull(),
+    attemptCount: integer('attempt_count').notNull().default(1),
+    error: text('error'),
+    startedAt: text('started_at'),
+    endedAt: text('ended_at'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [
+    index('idx_workflow_run_steps_run_id').on(table.runId),
+    uniqueIndex('idx_workflow_run_steps_identity').on(
+      table.runId,
+      table.stepName,
+      table.kind,
+      table.stepIndex,
+    ),
+  ],
+)
+
 export const apiKeys = sqliteTable(
   'api_keys',
   {

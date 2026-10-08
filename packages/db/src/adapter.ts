@@ -3,6 +3,9 @@ import type {
   WorkflowVersion,
   Connection,
   WorkflowRun,
+  WorkflowRunStep,
+  UpsertRunStepData,
+  ActiveRunForSync,
   Deployment,
   DeploymentConfig,
   ApiKey,
@@ -142,6 +145,11 @@ export interface DatabaseAdapter {
     projectId: string,
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<WorkflowRun>>
+  listActiveRunsForSync(limit?: number): Promise<ActiveRunForSync[]>
+
+  // Run steps (per-step telemetry)
+  upsertRunSteps(runId: string, steps: UpsertRunStepData[]): Promise<void>
+  listRunSteps(runId: string, workflowId: string): Promise<WorkflowRunStep[]>
 
   // Deployments
   createDeployment(data: {
