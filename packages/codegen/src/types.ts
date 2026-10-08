@@ -1,4 +1,7 @@
 import type { ArtifactIR } from '@awaitstep/ir'
+// Type-only circular reference (manifest.ts imports GeneratedBundle) — erased
+// at runtime, legal in TS.
+import type { StepManifest } from './manifest.js'
 /**
  * @deprecated Single-file shape kept for legacy call sites and tests — the
  * provider contract now produces a {@link GeneratedBundle}. Wrap with
@@ -30,6 +33,8 @@ export interface GeneratedBundle {
   /** Path of the entry file within {@link files}. */
   entry: string
   files: GeneratedFile[]
+  /** Node → step identity map, populated by workflow bundle generation. */
+  manifest?: StepManifest
 }
 
 export interface ProviderConfig {

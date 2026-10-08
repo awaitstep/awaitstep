@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toBundle, bundleEntry, bundleCodeFiles } from '../bundle.js'
+import { toBundle, bundleEntry, bundleCodeFiles, validateBundle } from '../bundle.js'
 import type { GeneratedBundle } from '../types.js'
 
 describe('toBundle', () => {
@@ -36,5 +36,55 @@ describe('bundleCodeFiles', () => {
       ],
     }
     expect(bundleCodeFiles(bundle).map((f) => f.path)).toEqual(['worker.ts', 'src/nodes/a.ts'])
+  })
+})
+
+describe('validateBundle reserved filenames', () => {
+  function bundleWith(path: string, role: 'entry' | 'module' | 'config'): GeneratedBundle {
+    return {
+      entry: 'worker.ts',
+      files: [
+        { path: 'worker.ts', source: '', role: 'entry' },
+        { path, source: '', role },
+      ],
+    }
+  }
+
+  it.each([
+    'package.json',
+    'package-lock.json',
+    'npm-shrinkwrap.json',
+    'tsconfig.json',
+    'wrangler.json',
+    'wrangler.jsonc',
+    'wrangler.toml',
+  ])('rejects a code file named %s that the deploy toolchain would interpret', (path) => {
+    expect(() => validateBundle(bundleWith(path, 'module'))).toThrow('Reserved toolchain filename')
+  })
+
+  it('rejects reserved names at any nesting depth, since Node resolves the nearest package.json', () => {
+    expect(() => validateBundle(bundleWith('nodes/package.json', 'module'))).toThrow(
+      'Reserved toolchain filename',
+    )
+  })
+
+  it('rejects reserved names case-insensitively for case-insensitive filesystems', () => {
+    expect(() => validateBundle(bundleWith('Package.JSON', 'module'))).toThrow(
+      'Reserved toolchain filename',
+    )
+  })
+
+  it('rejects any code file under a node_modules directory', () => {
+    expect(() => validateBundle(bundleWith('node_modules/x/index.ts', 'module'))).toThrow(
+      'Reserved toolchain filename',
+    )
+  })
+
+  it('allows server-authored config-role files to use toolchain names', () => {
+    expect(() => validateBundle(bundleWith('wrangler.json', 'config'))).not.toThrow()
+  })
+
+  it('allows ordinary module paths', () => {
+    expect(() => validateBundle(bundleWith('nodes/fetch_user.ts', 'module'))).not.toThrow()
   })
 })
