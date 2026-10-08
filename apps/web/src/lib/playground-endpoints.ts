@@ -1,4 +1,4 @@
-type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE'
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 type Scope = 'read' | 'write' | 'deploy'
 
 export interface EndpointParam {
@@ -225,6 +225,42 @@ export const endpoints: EndpointDef[] = [
       { name: 'versionId', in: 'path', required: true },
     ],
     hasBody: false,
+  },
+  {
+    id: 'eject-workflow',
+    group: 'Source',
+    method: 'POST',
+    path: '/api/workflows/:workflowId/eject',
+    label: 'Eject to editable source',
+    scope: 'write',
+    params: [{ name: 'workflowId', in: 'path', required: true }],
+    hasBody: true,
+    bodyExample: '{}',
+  },
+  {
+    id: 'get-source',
+    group: 'Source',
+    method: 'GET',
+    path: '/api/workflows/:workflowId/source',
+    label: 'Get deployable source',
+    scope: 'read',
+    params: [
+      { name: 'workflowId', in: 'path', required: true },
+      { name: 'versionId', in: 'query', required: false },
+    ],
+    hasBody: false,
+  },
+  {
+    id: 'put-source',
+    group: 'Source',
+    method: 'PUT',
+    path: '/api/workflows/:workflowId/source',
+    label: 'Update ejected source',
+    scope: 'write',
+    params: [{ name: 'workflowId', in: 'path', required: true }],
+    hasBody: true,
+    bodyExample:
+      '{\n  "entry": "worker.ts",\n  "files": [{ "path": "worker.ts", "source": "...", "role": "entry" }]\n}',
   },
 
   // Deployments

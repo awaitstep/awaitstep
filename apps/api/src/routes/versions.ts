@@ -100,7 +100,18 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
       if (irUnchanged(latest.ir, irString)) {
         return c.json(latest, 200)
       }
-      await db.updateVersion(latest.id, { ir: irString })
+      // A canvas save is an implicit revert to visual mode: without this
+      // reset, an overwritten ejected row would keep its stale source and
+      // deploy the old code while the canvas shows the new IR.
+      await db.updateVersion(latest.id, {
+        ir: irString,
+        ...(latest.sourceMode !== 'generated' && {
+          sourceMode: 'generated' as const,
+          source: null,
+          manifest: null,
+          baseGeneratedHash: null,
+        }),
+      })
       const updated = await db.getWorkflowVersionById(latest.id)
       return c.json(updated, 200)
     }
@@ -111,13 +122,11 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
     }
   }
 
-  // Create new version: either first version, or IR changed from a deployed version
-  const nextVersion = await db.getNextVersionNumber(workflowId)
-
+  // Create new version: either first version, or IR changed from a deployed
+  // version. The adapter assigns MAX(version)+1 atomically in SQL.
   const version = await db.createVersion({
     id: nanoid(),
     workflowId,
-    version: nextVersion,
     ir: irString,
   })
 
@@ -156,12 +165,12 @@ versions.post('/:workflowId/versions/:versionId/revert', async (c) => {
     return c.json({ error: 'Not found' }, 404)
   }
 
-  const nextVersion = await db.getNextVersionNumber(workflowId)
-
+  // Revert intentionally yields a generated-mode version (createVersion's
+  // default): the target's IR is reproduced, but any hand-edited source on
+  // an ejected target stays on that old row — re-eject to edit code again.
   const newVersion = await db.createVersion({
     id: nanoid(),
     workflowId,
-    version: nextVersion,
     ir: targetVersion.ir,
   })
 

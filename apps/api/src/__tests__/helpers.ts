@@ -138,8 +138,20 @@ const mockDb: DatabaseAdapter = {
 
   // Versions
   async createVersion(data) {
+    const maxExisting = Math.max(
+      0,
+      ...[...store.versions.values()]
+        .filter((v) => v.workflowId === data.workflowId)
+        .map((v) => v.version),
+    )
+    const assigned = data.version ?? maxExisting + 1
     const v: WorkflowVersion = {
+      sourceMode: 'generated',
+      source: null,
+      manifest: null,
+      baseGeneratedHash: null,
       ...data,
+      version: assigned,
       locked: 0,
       createdAt: now(),
     }

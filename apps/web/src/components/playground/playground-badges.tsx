@@ -1,6 +1,7 @@
 const METHOD_COLORS: Record<string, string> = {
   GET: 'bg-status-success/15 text-status-success',
   POST: 'bg-status-info/15 text-status-info',
+  PUT: 'bg-status-warning/15 text-status-warning',
   PATCH: 'bg-status-warning/15 text-status-warning',
   DELETE: 'bg-status-error/15 text-status-error',
 }

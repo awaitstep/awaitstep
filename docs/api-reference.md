@@ -356,6 +356,75 @@ Delete a version. Cannot delete the active version, a deployed version, or a loc
 
 ---
 
+## Source
+
+Every version has a `sourceMode`: `generated` (the default — the IR is the
+source of truth and code is generated at deploy time), `ejected` (the stored
+source bundle is user-editable; the IR is retained and drift-validated), or
+`sdk` (source authoritative, IR derived — CLI push).
+
+Saving from the canvas (`POST /versions`) always yields a `generated`-mode
+version — on an ejected workflow that acts as an implicit revert to visual
+mode for subsequent deploys (an overwritten ejected row is reset the same
+way). Re-eject to edit source again.
+
+After eject, the stored source owns everything baked into code at eject
+time — trigger code, and the `AWAITSTEP_RETENTION` constant used by
+code-initiated `WORKFLOW.create()` calls. Later changes to the workflow's
+trigger code or deployment-config retention affect REST-triggered instances
+and generated-mode versions, but do not rewrite an ejected source: edit those
+values in the source directly, or re-eject.
+
+### `POST /workflows/:workflowId/eject`
+
+Materialize the current (or given) version's generated code as an editable
+source bundle. Creates a new version with `sourceMode: "ejected"`, node
+region markers (`// @awaitstep:node <id>` … `// @awaitstep:end`) in the
+entry, a step manifest, and the generated-bundle hash as the drift baseline.
+Not yet supported for functions (script-kind workflows).
+
+**Scope:** `write`
+
+| Param        | In   | Required | Description                            |
+| ------------ | ---- | -------- | -------------------------------------- |
+| `workflowId` | path | yes      | Workflow ID                            |
+| `versionId`  | body | no       | Version to eject (defaults to current) |
+
+Returns `201` with `{ versionId, version, sourceMode, entry, fileCount }`.
+
+### `GET /workflows/:workflowId/source`
+
+Read the deployable source for a version. Ejected/sdk versions return their
+stored bundle; generated versions return a freshly generated read-only view.
+
+**Scope:** `read`
+
+| Param        | In    | Required | Description                           |
+| ------------ | ----- | -------- | ------------------------------------- |
+| `workflowId` | path  | yes      | Workflow ID                           |
+| `versionId`  | query | no       | Version to read (defaults to current) |
+
+Returns `{ versionId, sourceMode, entry, files, manifest, baseGeneratedHash }`.
+
+### `PUT /workflows/:workflowId/source`
+
+Push edited source back onto the current ejected/sdk version. The bundle is
+drift-validated against the retained IR and step manifest (node regions
+present, `step.do` names intact) and transpile-checked before being stored;
+`422` responses carry the validation errors. The version must not be locked.
+
+**Scope:** `write`
+
+| Param        | In   | Required | Description                              |
+| ------------ | ---- | -------- | ---------------------------------------- |
+| `workflowId` | path | yes      | Workflow ID                              |
+| `entry`      | body | yes      | Path of the entry file within `files`    |
+| `files`      | body | yes      | `[{ path, source, role }]` (≤ 100 files) |
+
+Returns `{ ok, versionId, sourceMode }`.
+
+---
+
 ## Deployments
 
 ### `GET /deployments`

@@ -9,6 +9,7 @@ import { createRateLimiter } from '../middleware/rate-limit.js'
 import { requireWorkflowAccess, requireConnectionAccess } from '../middleware/ownership.js'
 import { workflows } from './workflows.js'
 import { versions } from './versions.js'
+import { source } from './source.js'
 import { createConnectionRoutes } from './connections.js'
 import { deploy } from './deploy.js'
 import { runs } from './runs.js'
@@ -52,6 +53,8 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.use('/workflows/:id/move', requireWorkflowAccess)
   router.use('/workflows/:workflowId/versions', requireWorkflowAccess)
   router.use('/workflows/:workflowId/versions/*', requireWorkflowAccess)
+  router.use('/workflows/:workflowId/source', requireWorkflowAccess)
+  router.use('/workflows/:workflowId/eject', requireWorkflowAccess)
   router.use('/workflows/:workflowId/deploy', requireWorkflowAccess)
   router.use('/workflows/:workflowId/deploy-config/*', requireWorkflowAccess)
   router.use('/workflows/:workflowId/deploy-stream', requireWorkflowAccess)
@@ -98,6 +101,8 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.patch('/workflows/:workflowId/versions/:versionId', requireScope('write'))
   router.post('/workflows/:workflowId/versions/:versionId/revert', requireScope('write'))
   router.delete('/workflows/:workflowId/versions/:versionId', requireScope('write'))
+  router.post('/workflows/:workflowId/eject', requireScope('write'))
+  router.put('/workflows/:workflowId/source', requireScope('write'))
   router.post('/workflows', requireScope('write'))
   router.patch('/workflows/:id', requireScope('write'))
   router.patch('/workflows/:id/move', requireScope('write'))
@@ -145,6 +150,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   // Routes
   router.route('/workflows', workflows)
   router.route('/workflows', versions)
+  router.route('/workflows', source)
   router.route('/workflows', deploy)
   router.route('/workflows', runs)
   router.route('/connections', createConnectionRoutes())

@@ -13,14 +13,30 @@ import { parseDependencies } from './dependencies.js'
  * always survives. The columns are dropped in the Phase 2 cleanup migration,
  * after which this fold becomes a no-op.
  */
-export function foldWorkflowRuntime(ir: ArtifactIR, workflow: Workflow): ArtifactIR {
+export function foldWorkflowRuntime(
+  ir: ArtifactIR,
+  workflow: Workflow,
+  options?: {
+    /**
+     * Keep the IR's own triggerCode over the column when both exist — used
+     * for ejected/sdk versions, whose stored source contains handlers
+     * compiled from THEIR trigger code: folding the current column would
+     * derive wrangler queue/cron config for handlers the frozen bundle
+     * doesn't have. Dependencies and env still fold (they act at deploy
+     * time, not inside the stored code).
+     */
+    preserveTriggerCode?: boolean
+  },
+): ArtifactIR {
   // parseDependencies returns undefined for null/empty/malformed input.
   const columnDeps = parseDependencies(workflow.dependencies)
   const envDeclarations = parseEnvDeclarations(workflow.envVars)
+  const columnTriggerWins =
+    workflow.triggerCode && !(options?.preserveTriggerCode && ir.runtime?.triggerCode)
 
   const runtime: WorkflowRuntime = {
     ...ir.runtime,
-    ...(workflow.triggerCode && { triggerCode: workflow.triggerCode }),
+    ...(columnTriggerWins && { triggerCode: workflow.triggerCode as string }),
     ...(columnDeps && { dependencies: columnDeps }),
     ...(envDeclarations.length > 0 && { env: envDeclarations }),
   }

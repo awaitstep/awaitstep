@@ -1,9 +1,14 @@
-import type { WorkflowProvider, GeneratedBundle, ProviderConfig } from '@awaitstep/codegen'
+import type {
+  WorkflowProvider,
+  GeneratedBundle,
+  ProviderConfig,
+  StepManifest,
+} from '@awaitstep/codegen'
 import { bundleCodeFiles } from '@awaitstep/codegen'
 import { transpileToJS } from '@awaitstep/codegen/transpile'
 import type { ArtifactIR } from '@awaitstep/ir'
 import { loadArtifact } from '@awaitstep/ir'
-import type { DatabaseAdapter, Workflow } from '@awaitstep/db'
+import type { DatabaseAdapter, Workflow, WorkflowSourceMode, WorkflowVersion } from '@awaitstep/db'
 import type { AppNodeRegistry } from './node-registry.js'
 import { createMergedNodeRegistry } from './node-registry.js'
 import { resolveProvider, validateNodesForProvider } from './provider-resolver.js'
@@ -16,6 +21,7 @@ export interface WorkflowContext {
   bundle: GeneratedBundle
   ir: ArtifactIR
   versionId: string
+  sourceMode: WorkflowSourceMode
   nodeRegistry: AppNodeRegistry
   envVars?: Record<string, { value: string; isSecret: boolean }>
   dependencies?: Record<string, string>
@@ -34,7 +40,14 @@ interface WorkflowPrepareInput {
   projectId: string
   nodeRegistry?: AppNodeRegistry
   versionId?: string
+  /** Pre-fetched version row — skips the lookup (must match versionId). */
+  version?: WorkflowVersion
   provider?: string
+  /**
+   * Regenerate from IR with node region markers, ignoring any stored source
+   * (used by POST /eject). Mutually exclusive with the stored-source path.
+   */
+  eject?: boolean
 }
 
 export async function prepareWorkflow(
@@ -42,10 +55,10 @@ export async function prepareWorkflow(
 ): Promise<WorkflowContext | WorkflowPrepareError> {
   const { db, workflow, organizationId, projectId } = input
 
-  const versionId = input.versionId ?? workflow.currentVersionId
+  const versionId = input.version?.id ?? input.versionId ?? workflow.currentVersionId
   if (!versionId) return { error: 'No version to use', status: 400 }
 
-  const version = await db.getWorkflowVersionById(versionId)
+  const version = input.version ?? (await db.getWorkflowVersionById(versionId))
   if (!version || version.workflowId !== workflow.id) {
     return { error: 'Version not found', status: 404 }
   }
@@ -70,7 +83,13 @@ export async function prepareWorkflow(
   }
   // Fold the legacy workflow columns into ir.runtime — from here on the IR is
   // the single self-contained description (trigger code, deps, env, bindings).
-  ir = foldWorkflowRuntime(ir, workflow)
+  // Ejected/sdk versions keep their own trigger code: their stored bundle's
+  // handlers were compiled from it, and wrangler queue/cron config must match
+  // the handlers that will actually deploy.
+  const sourceMode = (version.sourceMode ?? 'generated') as WorkflowSourceMode
+  ir = foldWorkflowRuntime(ir, workflow, {
+    preserveTriggerCode: sourceMode !== 'generated',
+  })
 
   // Merge installed nodes for custom node template resolution
   const nodeTypesInIR = new Set(ir.nodes.map((n) => n.type))
@@ -119,15 +138,40 @@ export async function prepareWorkflow(
   const nodeDeps = collectNodeDependencies(ir, nodeRegistry)
   const dependencies = mergeDependencies(workflowDeps, nodeDeps)
 
-  // Generate artifact
-  const triggerCode = ir.runtime?.triggerCode
-  const generateConfig: ProviderConfig = {
-    provider: 'cloudflare',
-    credentials: {},
-    ...(envResult.envVars && { envVars: envResult.envVars }),
-    ...(triggerCode && { options: { triggerCode } }),
+  // Source resolution: user-edited versions (ejected/sdk) deploy their
+  // stored bundle after drift validation; everything else regenerates from
+  // the IR. Config artifacts (wrangler.json, bindings) always derive from IR
+  // declarations at deploy time regardless of mode.
+  let bundle: GeneratedBundle
+  if (!input.eject && sourceMode !== 'generated') {
+    if (!version.source) {
+      return {
+        error: 'Version is in ejected/sdk mode but has no stored source — re-eject to repair',
+        status: 422,
+      }
+    }
+    const stored = parseStoredSource(version.source, version.manifest)
+    if ('error' in stored) return stored
+    if (adapter.validateSource) {
+      const driftErrors = adapter.validateSource(ir, stored.bundle, stored.manifest)
+      if (driftErrors.length > 0) {
+        return { error: 'Source drift validation failed', status: 422, details: driftErrors }
+      }
+    }
+    bundle = stored.bundle
+  } else {
+    const triggerCode = ir.runtime?.triggerCode
+    const generateConfig: ProviderConfig = {
+      provider: 'cloudflare',
+      credentials: {},
+      ...(envResult.envVars && { envVars: envResult.envVars }),
+      options: {
+        ...(triggerCode && { triggerCode }),
+        ...(input.eject && { eject: true }),
+      },
+    }
+    bundle = adapter.generate(ir, generateConfig)
   }
-  const bundle = adapter.generate(ir, generateConfig)
 
   // Catch syntax errors in user-authored code (step bodies, triggerCode, etc.)
   // before deploy/preview consumers act on the bundle. Without this the
@@ -146,9 +190,38 @@ export async function prepareWorkflow(
     bundle,
     ir,
     versionId,
+    sourceMode,
     nodeRegistry,
     envVars: envResult.envVars,
     dependencies,
+  }
+}
+
+/**
+ * Parses a version row's stored source + manifest JSON — 422 on corruption
+ * or on a missing manifest (a manifest-less non-generated row would make
+ * drift validation pass vacuously, so it is an error, not a fallback).
+ * Shared by the prepare pipeline and the GET/PUT /source routes.
+ */
+export function parseStoredSource(
+  sourceJson: string,
+  manifestJson: string | null | undefined,
+): { bundle: GeneratedBundle; manifest: StepManifest } | WorkflowPrepareError {
+  try {
+    const bundle = JSON.parse(sourceJson) as GeneratedBundle
+    if (typeof bundle.entry !== 'string' || !Array.isArray(bundle.files)) {
+      return { error: 'Stored source is not a valid bundle', status: 422 }
+    }
+    if (!manifestJson) {
+      return { error: 'Stored source has no step manifest — re-eject to repair', status: 422 }
+    }
+    const manifest = JSON.parse(manifestJson) as StepManifest
+    if (!Array.isArray(manifest.steps)) {
+      return { error: 'Stored step manifest is corrupted — re-eject to repair', status: 422 }
+    }
+    return { bundle, manifest }
+  } catch {
+    return { error: 'Stored source is corrupted', status: 422 }
   }
 }
 
