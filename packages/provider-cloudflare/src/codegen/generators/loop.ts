@@ -2,6 +2,7 @@ import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { stepLabel, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
 import { collectChain } from './branch.js'
 import { enterLoop, exitLoop } from './break.js'
+import { emitGroupedChain } from '../coalesce.js'
 import { prepareContainerContext, indentCode } from './container-utils.js'
 
 // Pre-compiled regex for step name suffixing (hot path in large workflows)
@@ -41,7 +42,13 @@ export function generateLoop(
   const counterVar = '_loop_i'
 
   enterLoop()
-  const rawBody = bodyChain.map((n) => generateNode(n, ir)).join('\n')
+  // Loop bodies multiply step cost by iteration count, so adjacent
+  // config-less steps coalesce here too (script mode has no steps to merge).
+  const rawBody = (
+    mode === 'workflow'
+      ? emitGroupedChain(bodyChain, ir, ctx, generateNode)
+      : bodyChain.map((n) => generateNode(n, ir))
+  ).join('\n')
   exitLoop()
 
   // Step-name suffixing only matters when the body actually contains

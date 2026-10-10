@@ -102,7 +102,7 @@ export function generateScript(
   const inlineTargets = collectBranchInlineTargets(irAsWorkflow)
 
   const resolvedIR: ScriptIR = useStateTracking
-    ? { ...ir, nodes: ir.nodes.map((n) => resolveNodeExpressions(n, ctx)) }
+    ? { ...ir, nodes: ir.nodes.map((n) => resolveNodeExpressions(n, (id) => ctx.varName(id))) }
     : ir
 
   const bodyParts: string[] = []

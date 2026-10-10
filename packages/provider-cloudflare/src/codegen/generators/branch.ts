@@ -1,10 +1,13 @@
 import type { WorkflowIR, WorkflowNode, BranchCondition } from '@awaitstep/ir'
+import type { GenerateMode, GenerationContext } from '@awaitstep/codegen'
 import { prepareContainerContext, inlineChain } from './container-utils.js'
 
 export function generateBranch(
   node: WorkflowNode,
   ir: WorkflowIR,
+  ctx: GenerationContext,
   generateNode: (node: WorkflowNode, ir: WorkflowIR) => string,
+  mode: GenerateMode = 'workflow',
 ): string {
   const branches = (node.data.branches ?? []) as BranchCondition[]
   const containers = prepareContainerContext(ir)
@@ -28,7 +31,7 @@ export function generateBranch(
 
     const target = targets.find((t) => nodeLabels.get(t) === branch.label)
     if (target) {
-      lines.push(inlineChain(target, containers, generateNode, ir, 2))
+      lines.push(inlineChain(target, containers, generateNode, ir, 2, ctx, mode))
     }
   }
 

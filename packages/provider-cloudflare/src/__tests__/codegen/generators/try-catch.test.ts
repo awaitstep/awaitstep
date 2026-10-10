@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { generateTryCatch } from '../../../codegen/generators/try-catch.js'
-import { recurseWithTestCtx as generateNodeCode } from '../test-context.js'
+import { recurseWithTestCtx as generateNodeCode, testCtx as ctx } from '../test-context.js'
 
 const V = '1.0.0'
 const P = 'cloudflare'
@@ -55,7 +55,7 @@ describe('generateTryCatch', () => {
       { node: node('charge', 'Charge Payment'), label: 'try' },
       { node: node('refund', 'Refund Order'), label: 'catch' },
     ])
-    const code = generateTryCatch(ir.nodes[0]!, ir, generateNodeCode)
+    const code = generateTryCatch(ir.nodes[0]!, ir, ctx, generateNodeCode)
     expect(code).toContain('try {')
     expect(code).toContain('step.do("charge"')
     expect(code).toContain('} catch (err) {')
@@ -69,7 +69,7 @@ describe('generateTryCatch', () => {
       { node: node('handle', 'Handle Error'), label: 'catch' },
       { node: node('cleanup', 'Cleanup'), label: 'finally' },
     ])
-    const code = generateTryCatch(ir.nodes[0]!, ir, generateNodeCode)
+    const code = generateTryCatch(ir.nodes[0]!, ir, ctx, generateNodeCode)
     expect(code).toContain('try {')
     expect(code).toContain('step.do("work"')
     expect(code).toContain('} catch (err) {')
@@ -78,7 +78,7 @@ describe('generateTryCatch', () => {
     expect(code).toContain('step.do("cleanup"')
   })
 
-  it('generates chain within try path', () => {
+  it('coalesces an adjacent plain-step chain within the try path', () => {
     const step1 = node('s1', 'Step 1')
     const step2 = node('s2', 'Step 2')
     const ir = makeTryCatchIR(
@@ -89,16 +89,18 @@ describe('generateTryCatch', () => {
       [{ id: 'chain', source: 's1', target: 's2' }],
     )
     ir.nodes.push(step2)
-    const code = generateTryCatch(ir.nodes[0]!, ir, generateNodeCode)
-    expect(code).toContain('step.do("s1"')
-    expect(code).toContain('step.do("s2"')
+    const code = generateTryCatch(ir.nodes[0]!, ir, ctx, generateNodeCode)
+    // One merged billable step under the leader's label; both results stay
+    // referenceable (container children never lean-prune their returns).
+    expect(code).toContain('const { s1, s2 } = await step.do("s1"')
+    expect(code).not.toContain('step.do("s2"')
   })
 
   it('handles empty catch path gracefully', () => {
     const ir = makeTryCatchIR([{ node: node('work', 'Do Work'), label: 'try' }])
     // Manually add catch edge with no target in nodes — just testing the structure
     ir.edges.push({ id: 'catch-edge', source: 'tc-1', target: 'missing', label: 'catch' })
-    const code = generateTryCatch(ir.nodes[0]!, ir, generateNodeCode)
+    const code = generateTryCatch(ir.nodes[0]!, ir, ctx, generateNodeCode)
     expect(code).toContain('try {')
     expect(code).toContain('} catch (err) {')
     expect(code).toContain('}')

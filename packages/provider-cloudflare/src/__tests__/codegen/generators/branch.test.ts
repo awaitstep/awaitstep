@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowIR, WorkflowNode, BranchCondition } from '@awaitstep/ir'
 import { generateBranch, collectBranchInlineTargets } from '../../../codegen/generators/branch.js'
-import { recurseWithTestCtx as generateNodeCode } from '../test-context.js'
+import { recurseWithTestCtx as generateNodeCode, testCtx as ctx } from '../test-context.js'
 
 const V = '1.0.0'
 const P = 'cloudflare'
@@ -72,7 +72,7 @@ describe('generateBranch', () => {
       ],
     )
     const node = ir.nodes[0]!
-    const code = generateBranch(node, ir, generateNodeCode)
+    const code = generateBranch(node, ir, ctx, generateNodeCode)
     expect(code).toContain('if (state.active === true) {')
     expect(code).toContain('} else {')
     expect(code).toContain('step.do("a"')
@@ -126,7 +126,7 @@ describe('generateBranch', () => {
       ],
     )
     const node = ir.nodes[0]!
-    const code = generateBranch(node, ir, generateNodeCode)
+    const code = generateBranch(node, ir, ctx, generateNodeCode)
     expect(code).toContain('if (state.score > 90) {')
     expect(code).toContain('} else if (state.score > 50) {')
     expect(code).toContain('} else {')
@@ -151,7 +151,7 @@ describe('generateBranch', () => {
       ],
     )
     const node = ir.nodes[0]!
-    const code = generateBranch(node, ir, generateNodeCode)
+    const code = generateBranch(node, ir, ctx, generateNodeCode)
     expect(code).toContain('if (state.enabled) {')
     expect(code).toContain('}')
     expect(code).not.toContain('else')
@@ -160,7 +160,7 @@ describe('generateBranch', () => {
   it('handles branch with no matching target', () => {
     const ir = makeIR([{ label: 'yes', condition: 'true' }], [])
     const node = ir.nodes[0]!
-    const code = generateBranch(node, ir, generateNodeCode)
+    const code = generateBranch(node, ir, ctx, generateNodeCode)
     expect(code).toContain('if (true) {')
     expect(code).toContain('}')
   })
@@ -206,7 +206,7 @@ describe('generateBranch', () => {
       entryNodeId: 'branch-1',
     }
     const node = ir.nodes[0]!
-    const code = generateBranch(node, ir, generateNodeCode)
+    const code = generateBranch(node, ir, ctx, generateNodeCode)
     expect(code).toContain('step.sleep("wait"')
     expect(code).toContain('step.do("log"')
   })
@@ -266,7 +266,7 @@ describe('generateBranch', () => {
       entryNodeId: 'branch-1',
     }
     const node = ir.nodes[0]!
-    const code = generateBranch(node, ir, generateNodeCode)
+    const code = generateBranch(node, ir, ctx, generateNodeCode)
     expect(code).not.toContain('Join')
     expect(code).toContain('step.do("step-a"')
     expect(code).toContain('step.do("step-b"')

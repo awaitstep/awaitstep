@@ -7,6 +7,7 @@ import {
   type GenerationContext,
 } from '@awaitstep/codegen'
 import { collectChain, computeInDegree } from './branch.js'
+import { emitGroupedChain } from '../coalesce.js'
 
 export interface ContainerContext {
   adj: Map<string, string[]>
@@ -38,6 +39,8 @@ export function inlineChain(
   generateNode: (node: WorkflowNode, ir: WorkflowIR) => string,
   ir: WorkflowIR,
   spaces: number,
+  ctx: GenerationContext,
+  mode: GenerateMode = 'workflow',
 ): string {
   const chain = collectChain(
     startId,
@@ -46,12 +49,13 @@ export function inlineChain(
     containers.nodeMap,
     containers.edgeLabels,
   )
-  return chain
-    .map((n) => {
-      const code = generateNode(n, ir)
-      return indentCode(code, spaces)
-    })
-    .join('\n')
+  // Workflow-mode chains coalesce adjacent plain steps (F9 billing); script
+  // mode has no step primitives to merge.
+  const parts =
+    mode === 'workflow'
+      ? emitGroupedChain(chain, ir, ctx, generateNode)
+      : chain.map((n) => generateNode(n, ir))
+  return parts.map((code) => indentCode(code, spaces)).join('\n')
 }
 
 /**

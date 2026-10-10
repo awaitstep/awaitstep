@@ -29,14 +29,18 @@ describe('generateWorkflow', () => {
 
       export class SimpleWorkflow extends WorkflowEntrypoint<Env> {
         async run(event, step) {
-          const Fetch_data = await step.do("step-1", { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" }, timeout: "30 seconds" }, async () => {
-            const res = await fetch('https://api.example.com/data'); return res.json();
+          await step.do("step-1", { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" }, timeout: "30 seconds" }, async () => {
+            await (async () => {
+              const res = await fetch('https://api.example.com/data'); return res.json();
+            })();
           });
 
           await step.sleep("sleep-1", "10 seconds");
 
-          const Process_data = await step.do("step-2", async () => {
-            return { processed: true };
+          await step.do("step-2", async () => {
+            await (async () => {
+              return { processed: true };
+            })();
           });
         }
       }

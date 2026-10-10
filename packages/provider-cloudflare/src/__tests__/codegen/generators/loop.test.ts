@@ -124,10 +124,30 @@ describe('generateLoop', () => {
     expect(code).not.toContain('step.do("work"')
   })
 
-  it('chains multiple body nodes', () => {
+  it('coalesces adjacent config-less body steps into one billable step per iteration', () => {
     const ir = makeLoopIR({ loopType: 'forEach', collection: 'items', itemVar: 'item' }, [
       step('s1', 'Step 1'),
       step('s2', 'Step 2'),
+    ])
+    const code = generateLoop(ir.nodes[0]!, ir, generateNodeCode)
+    // One suffixed step.do under the leader's label; the member label is gone.
+    expect(code).toContain('s1 [${_loop_i}]')
+    expect(code).not.toContain('s2 [${_loop_i}]')
+    // Two step.do total: the loop's own durable wrapper + the merged group.
+    expect(code.match(/step\.do\(/g)).toHaveLength(2)
+    // Both member results stay referenceable via the destructured return.
+    expect(code).toContain('const { s1, s2 } =')
+    expect(code).toContain('return { s1, s2 };')
+  })
+
+  it('does not coalesce body steps that carry retry config', () => {
+    const configured = {
+      ...step('s2', 'Step 2'),
+      config: { retries: { limit: 3, delay: '5 seconds' } },
+    }
+    const ir = makeLoopIR({ loopType: 'forEach', collection: 'items', itemVar: 'item' }, [
+      step('s1', 'Step 1'),
+      configured,
     ])
     const code = generateLoop(ir.nodes[0]!, ir, generateNodeCode)
     expect(code).toContain('s1 [${_loop_i}]')

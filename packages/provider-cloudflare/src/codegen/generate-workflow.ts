@@ -18,6 +18,9 @@ import {
   indent,
 } from '@awaitstep/codegen'
 import { collectBranchInlineTargets } from './generators/branch.js'
+import { groupChain } from './coalesce.js'
+import { buildOutputConsumption } from './consumption.js'
+import { generateStepGroup } from './generators/step.js'
 import { getSubWorkflowBindings } from './generators/sub-workflow.js'
 import { hasTemplateExpressions } from './generators/state-tracking.js'
 import { detectBindings } from './bindings.js'
@@ -108,7 +111,9 @@ export function generateWorkflow(
  * Bundle generation: step nodes become standalone module files with explicit
  * parameters (no regex rewriting of user code); the entry imports and calls
  * them. The single-file generateWorkflow output remains available for
- * previews and is unchanged byte-for-byte.
+ * previews and goes through the same coalescing and lean-state passes, so
+ * preview and deploy stay semantically aligned (it is NOT byte-stable
+ * across releases that change those passes).
  */
 export function generateWorkflowBundle(
   ir: WorkflowIR,
@@ -122,6 +127,15 @@ export function generateWorkflowBundle(
     }),
     manifest,
   }
+}
+
+function detectKind(part: string, label: string): StepKind | undefined {
+  if (part.includes(`step.do("${label}"`)) return 'do'
+  if (part.includes(`step.sleep("${label}"`) || part.includes(`step.sleepUntil("${label}"`)) {
+    return 'sleep'
+  }
+  if (part.includes(`step.waitForEvent("${label}"`)) return 'waitForEvent'
+  return undefined
 }
 
 function generateWorkflowInternal(
@@ -141,9 +155,12 @@ function generateWorkflowInternal(
     .join('')
 
   const sorted = topologicalSort(ir)
+  const names = computeVarNames(ir.nodes)
+  // Mirror ctx.varName's truthiness fallback so pre-context consumers (the
+  // expression resolver, the consumption index) agree with the generators.
+  const varNameFor = (nodeId: string): string => names.get(nodeId) || sanitizeIdentifier(nodeId)
   const upstream = new Map<string, string[]>()
   if (emitModules) {
-    const names = computeVarNames(ir.nodes)
     const acc: string[] = []
     for (const node of sorted) {
       upstream.set(node.id, [...acc])
@@ -151,30 +168,61 @@ function generateWorkflowInternal(
       if (name) acc.push(name)
     }
   }
-  const ctx = createGenerationContext(ir.nodes, { emitModules, upstream })
+  const inlineTargets = collectBranchInlineTargets(ir)
   const useStateTracking = hasTemplateExpressions(ir.nodes)
 
-  const inlineTargets = collectBranchInlineTargets(ir)
-
   const resolvedIR: WorkflowIR = useStateTracking
-    ? { ...ir, nodes: ir.nodes.map((n) => resolveNodeExpressions(n, ctx)) }
+    ? { ...ir, nodes: ir.nodes.map((n) => resolveNodeExpressions(n, varNameFor)) }
     : ir
 
+  // Lean stored state (F9): a top-level step whose output nothing consumes
+  // returns undefined, shrinking storage-billed state to what's used.
+  // Container children never lean — container glue (parallel returns, loop
+  // _output capture) references their vars outside any node data the
+  // consumption scan can see. Built on the RESOLVED nodes so compiled
+  // expressions count as references; mustStore is the single predicate for
+  // both singleton leaning and group return-pruning.
+  const leanCandidates = new Set(
+    ir.nodes.filter((n) => n.type === 'step' && !inlineTargets.has(n.id)).map((n) => n.id),
+  )
+  const consumption = buildOutputConsumption(resolvedIR, varNameFor)
+  const mustStore = (nodeId: string, exclude?: ReadonlySet<string>): boolean =>
+    !leanCandidates.has(nodeId) || consumption.isConsumed(nodeId, exclude)
+
+  const ctx = createGenerationContext(ir.nodes, {
+    emitModules,
+    upstream,
+    isOutputConsumed: (nodeId) => mustStore(nodeId),
+  })
+
   const bodyParts: string[] = []
-  const emittedNodes: WorkflowNode[] = []
+  const emittedGroups: WorkflowNode[][] = []
   const classDefinitions = new Map<string, string>()
 
   const resolvedNodeMap = new Map(resolvedIR.nodes.map((n: WorkflowNode) => [n.id, n]))
   const resolvedSorted = sorted.map((n: WorkflowNode) => resolvedNodeMap.get(n.id) ?? n)
 
-  for (const node of resolvedSorted) {
-    if (inlineTargets.has(node.id)) continue
+  const topLevel = resolvedSorted.filter((n: WorkflowNode) => !inlineTargets.has(n.id))
+  for (const group of groupChain(topLevel, resolvedIR)) {
+    emittedGroups.push(group)
+    if (group.length > 1) {
+      // Adjacent config-less steps merge into one billable step.do (F9).
+      // Members enter the stored return object only when consumed OUTSIDE
+      // the group — intra-group references live on callback-local consts.
+      const groupIds: ReadonlySet<string> = new Set(group.map((n) => n.id))
+      bodyParts.push(
+        generateStepGroup(group, ctx, {
+          eject: opts.eject === true,
+          includeInReturn: (nodeId) => mustStore(nodeId, groupIds),
+        }),
+      )
+      continue
+    }
     // Custom (non-registry) types fall through generateNodeCode's dispatch to
     // the same template path — one authority for what counts as builtin.
-    emittedNodes.push(node)
     bodyParts.push(
       generateNodeCode(
-        node,
+        group[0]!,
         resolvedIR,
         ctx,
         templateResolver,
@@ -190,9 +238,12 @@ function generateWorkflowInternal(
     const { imports, body } = extractImports(part)
     collectedImports.push(...imports)
     if (!opts.eject) return body
+    // Coalesced groups already carry one marker region per member inside
+    // their callback.
+    if (emittedGroups[i]!.length > 1) return body
     // Container children inline inside their container's part, so a marker
     // region covers the whole top-level subtree.
-    return `// @awaitstep:node ${emittedNodes[i]!.id}\n${body}\n// @awaitstep:end`
+    return `// @awaitstep:node ${emittedGroups[i]![0]!.id}\n${body}\n// @awaitstep:end`
   })
 
   const bodyLines = strippedParts.join('\n\n').replace(/\benv\./g, 'this.env.')
@@ -369,29 +420,28 @@ ${exportDefault}
 `
   const manifest: StepManifest = {
     irHash: contentHash(JSON.stringify(ir)),
-    steps: emittedNodes.map((node, i) => {
-      const varName = ctx.varName(node.id)
-      const modulePath = `nodes/${varName}.ts`
-      const hasModule = ctx.files.some((f) => f.role === 'module' && f.path === modulePath)
-      // stepName/kind are recorded only when this node's emitted code
-      // actually carries its label on a durable primitive: sub-workflow
-      // nodes emit derived labels, and drift validation must not demand a
-      // literal that never existed.
-      const label = stepLabel(node)
+    steps: emittedGroups.flatMap((group, i) => {
       const part = bodyParts[i]!
-      const kind: StepKind | undefined = part.includes(`step.do("${label}"`)
-        ? 'do'
-        : part.includes(`step.sleep("${label}"`) || part.includes(`step.sleepUntil("${label}"`)
-          ? 'sleep'
-          : part.includes(`step.waitForEvent("${label}"`)
-            ? 'waitForEvent'
-            : undefined
-      return {
-        nodeId: node.id,
-        ...(kind && { stepName: label, kind }),
-        varName,
-        ...(hasModule && { filePath: modulePath }),
-      }
+      return group.map((node, j) => {
+        const varName = ctx.varName(node.id)
+        const modulePath = `nodes/${varName}.ts`
+        const hasModule = ctx.files.some((f) => f.role === 'module' && f.path === modulePath)
+        // stepName/kind are recorded only when this node's emitted code
+        // actually carries its label on a durable primitive: sub-workflow
+        // nodes emit derived labels, and drift validation must not demand a
+        // literal that never existed. Coalesced members (j > 0) run under
+        // the leader's label — coalescedInto records that linkage so run
+        // telemetry can attribute the merged step record to every member.
+        const label = stepLabel(node)
+        const kind = j === 0 ? detectKind(part, label) : undefined
+        return {
+          nodeId: node.id,
+          ...(kind && { stepName: label, kind }),
+          ...(j > 0 && { coalescedInto: group[0]!.id }),
+          varName,
+          ...(hasModule && { filePath: modulePath }),
+        }
+      })
     }),
   }
 

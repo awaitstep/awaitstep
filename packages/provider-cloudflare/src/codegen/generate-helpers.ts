@@ -147,8 +147,11 @@ export function generateNodeCode(
  * their resolved JS expressions, using the generation context's var names.
  * Run on a per-node copy when the IR contains template expressions.
  */
-export function resolveNodeExpressions(node: WorkflowNode, ctx: GenerationContext): WorkflowNode {
-  const resolve = (value: string) => resolveExpressions(value, (id) => ctx.varName(id))
+export function resolveNodeExpressions(
+  node: WorkflowNode,
+  varNameFor: (nodeId: string) => string,
+): WorkflowNode {
+  const resolve = (value: string) => resolveExpressions(value, varNameFor)
   const resolvedData: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(node.data)) {
     if (typeof value === 'string') {
