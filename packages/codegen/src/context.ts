@@ -23,12 +23,22 @@ export interface GenerationContext {
    * exact set an extracted module receives as `inputs`.
    */
   upstreamVars(nodeId: string): string[]
+  /**
+   * Whether the node's step output is consumed anywhere the generator can
+   * see (downstream references, exports). Absent — or returning true — means
+   * the output must be stored; generators may only lean a step's return
+   * when this explicitly answers false. Emitters set it for nodes where the
+   * analysis is sound (top-level steps); container children must always
+   * store, since container glue references their vars invisibly.
+   */
+  isOutputConsumed?(nodeId: string): boolean
 }
 
 export interface GenerationContextOptions {
   emitModules?: boolean
   /** nodeId → upstream var names, provided by the emitter from its topo order. */
   upstream?: Map<string, string[]>
+  isOutputConsumed?(nodeId: string): boolean
 }
 
 /**
@@ -75,5 +85,6 @@ export function createGenerationContext(
     upstreamVars(nodeId: string): string[] {
       return upstream?.get(nodeId) ?? []
     },
+    ...(options?.isOutputConsumed && { isOutputConsumed: options.isOutputConsumed }),
   }
 }

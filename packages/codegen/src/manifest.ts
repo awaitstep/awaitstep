@@ -21,6 +21,12 @@ export interface StepManifestEntry {
   stepName?: string
   /** The primitive the label is attached to; present exactly when stepName is. */
   kind?: StepKind
+  /**
+   * For a coalesced group member: the leader node whose labeled step this
+   * node's code runs inside. Run telemetry attributes the provider's single
+   * step record for the leader's label to every member through this link.
+   */
+  coalescedInto?: string
   varName: string
   filePath?: string
 }
@@ -57,8 +63,10 @@ const DERIVED_SEPARATOR = '--'
  * Maps a provider-reported step label back to its node id via the manifest.
  * Handles the two generated label transforms: loop iteration suffixes
  * (`<label> [<i>]`) and derived multi-step labels (`<nodeId>--<suffix>`).
- * Returns undefined for labels the manifest can't claim — callers keep the
- * step with no node attribution rather than guessing.
+ * A coalesced group's single record maps to its leader; members link to the
+ * leader through their entries' `coalescedInto`. Returns undefined for
+ * labels the manifest can't claim — callers keep the step with no node
+ * attribution rather than guessing.
  */
 export function resolveStepNode(manifest: StepManifest, label: string): string | undefined {
   const base = label.replace(LOOP_SUFFIX, '')
