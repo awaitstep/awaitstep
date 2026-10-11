@@ -1,32 +1,19 @@
 import { lazy, Suspense, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { StatusBadge } from './playground-badges'
+import { READONLY_EDITOR_OPTIONS } from '../../lib/monaco/options'
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
 const readOnlyEditorOptions = {
-  readOnly: true,
-  minimap: { enabled: false },
-  fontSize: 11,
-  lineNumbers: 'on' as const,
-  scrollBeyondLastLine: false,
-  wordWrap: 'on' as const,
-  tabSize: 2,
-  automaticLayout: true,
-  padding: { top: 8, bottom: 8 },
-  overviewRulerLanes: 0,
-  hideCursorInOverviewRuler: true,
-  renderLineHighlight: 'none' as const,
+  ...READONLY_EDITOR_OPTIONS,
   scrollbar: {
     vertical: 'hidden' as const,
     horizontal: 'hidden' as const,
     verticalScrollbarSize: 0,
     horizontalScrollbarSize: 0,
   },
-  lineNumbersMinChars: 3,
   folding: true,
-  glyphMargin: false,
-  domReadOnly: true,
   contextmenu: false,
 }
 

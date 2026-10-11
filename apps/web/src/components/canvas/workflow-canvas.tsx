@@ -19,10 +19,14 @@ import { nodeTypes } from './nodes'
 import { LabeledEdge } from './labeled-edge'
 import { buildContainerEdgeColors } from '../../lib/container-edge-colors'
 import { CanvasContextMenu, type ContextMenuAction } from './canvas-context-menu'
+import { useWorkflowTypeContext } from '../../lib/monaco/use-workflow-type-context'
 
 const edgeTypes = { smoothstep: LabeledEdge }
 
 export function WorkflowCanvas() {
+  // Keep Monaco's per-workflow ambient types (Env, node outputs) in sync
+  // with the canvas for every editor pane on this page.
+  useWorkflowTypeContext()
   const reactFlowInstance = useRef<ReactFlowInstance<FlowNode> | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const {

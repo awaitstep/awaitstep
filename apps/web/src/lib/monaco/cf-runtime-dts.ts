@@ -1,4 +1,10 @@
-export const CF_WORKFLOW_TYPE_DEFS = `
+/**
+ * Static ambient types for the Cloudflare Workers/Workflows runtime, shared
+ * by every editor. Workflow-specific declarations (the Env interface, node
+ * output consts, runGraph) are generated per workflow by context-dts.ts and
+ * layered on top.
+ */
+export const CF_RUNTIME_DTS = `
 // ── Cloudflare Workflows API ──
 
 declare type WorkflowBackoff = "constant" | "linear" | "exponential";
@@ -27,10 +33,10 @@ declare interface WorkflowStep {
   /** Execute a durable step with retry/timeout configuration. */
   do<T>(name: string, config: WorkflowStepConfig, callback: (ctx: StepContext) => Promise<T>): Promise<T>;
 
-  /** Sleep for a relative duration. Accepts ms or human-readable ("10 seconds", "1 hour", "7 days"). Max 365 days. Does NOT count toward step limit. */
+  /** Sleep for a relative duration. Accepts ms or human-readable ("10 seconds", "1 hour", "7 days"). Max 365 days. */
   sleep(name: string, duration: string | number): Promise<void>;
 
-  /** Sleep until a specific Date or UNIX timestamp (ms). Does NOT count toward step limit. */
+  /** Sleep until a specific Date or UNIX timestamp (ms). */
   sleepUntil(name: string, timestamp: Date | number): Promise<void>;
 
   /** Wait for an external event. Type: alphanumeric + hyphens + underscores only (no dots), max 100 chars. Default timeout: 24 hours, max: 365 days. Throws on timeout — wrap in try-catch to continue. */
@@ -127,13 +133,18 @@ declare interface R2ObjectBody extends R2Object {
   blob(): Promise<Blob>;
 }
 
+declare interface Queue<T = unknown> {
+  send(message: T, options?: { contentType?: "text" | "bytes" | "json" | "v8"; delaySeconds?: number }): Promise<void>;
+  sendBatch(messages: { body: T; contentType?: string; delaySeconds?: number }[]): Promise<void>;
+}
+
 declare interface ServiceBinding {
   fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
 }
 
 declare interface Workflow<T = unknown> {
   /** Create a new workflow instance */
-  create(options?: { id?: string; params?: T }): Promise<WorkflowInstance>;
+  create(options?: { id?: string; params?: T; retention?: { successRetention?: string | number; errorRetention?: string | number } }): Promise<WorkflowInstance>;
   /** Get an existing workflow instance by ID */
   get(id: string): Promise<WorkflowInstance>;
 }
@@ -148,10 +159,20 @@ declare interface WorkflowInstance {
   sendEvent(event: { type: string; payload?: unknown }): Promise<void>;
 }
 
-/** Environment bindings — KV, D1, R2, service bindings, secrets, variables, and workflow bindings */
-declare const env: {
-  [key: string]: KVNamespace | D1Database | R2Bucket | ServiceBinding | Workflow | string | undefined;
-};
+// ── Module shims for generated imports ──
+
+declare module "cloudflare:workers" {
+  export class WorkflowEntrypoint<E = unknown, P = unknown> {
+    env: E;
+    run(event: WorkflowEvent<P>, step: WorkflowStep): Promise<unknown>;
+  }
+  export class WorkerEntrypoint<E = unknown> {
+    env: E;
+  }
+  export class NonRetryableError extends Error {
+    constructor(message: string, name?: string);
+  }
+}
 
 // ── Web Platform APIs (available in Workers runtime) ──
 

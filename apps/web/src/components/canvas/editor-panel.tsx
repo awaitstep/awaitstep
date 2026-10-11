@@ -15,6 +15,8 @@ import { useWorkflowStore } from '../../stores/workflow-store'
 import { useShallow } from 'zustand/react/shallow'
 import { buildIRFromState } from '../../lib/build-ir'
 import { cn, copyToClipboard } from '../../lib/utils'
+import { configureMonaco, workflowModelPath } from '../../lib/monaco/setup'
+import { BASE_EDITOR_OPTIONS, READONLY_EDITOR_OPTIONS } from '../../lib/monaco/options'
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
@@ -123,6 +125,7 @@ export function EditorPanel() {
     dependencies,
     workflowEnvVars,
     runtimeBindings,
+    workflowId,
   } = useWorkflowStore(
     useShallow((s) => ({
       kind: s.kind,
@@ -133,6 +136,7 @@ export function EditorPanel() {
       dependencies: s.dependencies,
       workflowEnvVars: s.workflowEnvVars,
       runtimeBindings: s.runtimeBindings,
+      workflowId: s.workflowId,
     })),
   )
   const { setTriggerCode, setDependencies } = useWorkflowStore()
@@ -423,6 +427,7 @@ export function EditorPanel() {
               value={triggerCode || (isScript ? DEFAULT_SCRIPT_TRIGGER_CODE : DEFAULT_TRIGGER_CODE)}
               onChange={setTriggerCode}
               language="typescript"
+              path={workflowModelPath(workflowId ?? 'draft', 'entry.ts')}
             />
           </div>
         </div>
@@ -462,32 +467,8 @@ function OutputEditor({
         language={language}
         value={code}
         theme="vs-dark"
-        options={{
-          readOnly: true,
-          minimap: { enabled: false },
-          fontSize: 11,
-          lineNumbers: 'on',
-          scrollBeyondLastLine: false,
-          wordWrap: 'on',
-          tabSize: 2,
-          automaticLayout: true,
-          padding: { top: 8, bottom: 8 },
-          overviewRulerLanes: 0,
-          hideCursorInOverviewRuler: true,
-          renderLineHighlight: 'none',
-          scrollbar: { vertical: 'auto', horizontal: 'hidden', verticalScrollbarSize: 6 },
-          lineNumbersMinChars: 3,
-          folding: false,
-          glyphMargin: false,
-          domReadOnly: true,
-          cursorStyle: 'line-thin',
-        }}
-        beforeMount={(monaco) => {
-          monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
-            noSemanticValidation: true,
-            noSyntaxValidation: true,
-          })
-        }}
+        options={READONLY_EDITOR_OPTIONS}
+        beforeMount={configureMonaco}
       />
     </Suspense>
   )
@@ -498,11 +479,13 @@ function EditableEditor({
   value,
   onChange,
   language,
+  path,
 }: {
   mounted: boolean
   value: string
   onChange: (v: string) => void
   language: string
+  path?: string
 }) {
   if (!mounted) {
     return <div className="flex-1 bg-[oklch(0.12_0_0)]" />
@@ -514,33 +497,11 @@ function EditableEditor({
         height="100%"
         language={language}
         value={value}
+        path={path}
         onChange={(v) => onChange(v ?? '')}
         theme="vs-dark"
-        options={{
-          minimap: { enabled: false },
-          fontSize: 11,
-          lineNumbers: 'on',
-          scrollBeyondLastLine: false,
-          wordWrap: 'on',
-          tabSize: 2,
-          automaticLayout: true,
-          padding: { top: 8, bottom: 8 },
-          overviewRulerLanes: 0,
-          hideCursorInOverviewRuler: true,
-          renderLineHighlight: 'none',
-          scrollbar: { vertical: 'auto', horizontal: 'hidden', verticalScrollbarSize: 6 },
-          lineNumbersMinChars: 3,
-          folding: false,
-          glyphMargin: false,
-          quickSuggestions: true,
-          suggestOnTriggerCharacters: true,
-        }}
-        beforeMount={(monaco) => {
-          monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
-            noSemanticValidation: true,
-            noSyntaxValidation: true,
-          })
-        }}
+        options={BASE_EDITOR_OPTIONS}
+        beforeMount={configureMonaco}
       />
     </Suspense>
   )

@@ -1,12 +1,11 @@
 import { lazy, Suspense, useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Maximize2, Minimize2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
-import { CF_WORKFLOW_TYPE_DEFS } from '../../lib/cf-workflow-types'
 import { debounce } from '../../lib/debounce'
+import { configureMonaco } from '../../lib/monaco/setup'
+import { BASE_EDITOR_OPTIONS, FULLSCREEN_EDITOR_OPTIONS } from '../../lib/monaco/options'
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
-
-let typesInjected = false
 
 interface CodeEditorProps {
   value: string
@@ -17,54 +16,11 @@ interface CodeEditorProps {
   expandable?: boolean
   title?: string
   debounceMs?: number
+  /** Stable model URI (see workflowModelPath) so panes share one model. */
+  path?: string
 }
 
-function injectTypes(
-  monaco: Parameters<
-    Exclude<React.ComponentProps<typeof MonacoEditor>['beforeMount'], undefined>
-  >[0],
-) {
-  if (!typesInjected) {
-    monaco.languages.typescript.typescriptDefaults.addExtraLib(
-      CF_WORKFLOW_TYPE_DEFS,
-      'cf-workflow-globals.d.ts',
-    )
-    monaco.languages.typescript.javascriptDefaults.addExtraLib(
-      CF_WORKFLOW_TYPE_DEFS,
-      'cf-workflow-globals.d.ts',
-    )
-    monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
-      target: monaco.languages.typescript.ScriptTarget.ES2022,
-      module: monaco.languages.typescript.ModuleKind.ESNext,
-      allowJs: true,
-      checkJs: false,
-      strict: false,
-      noEmit: true,
-      allowNonTsExtensions: true,
-    })
-    typesInjected = true
-  }
-}
-
-const editorOptions = {
-  minimap: { enabled: false },
-  fontSize: 11,
-  lineNumbers: 'on' as const,
-  scrollBeyondLastLine: false,
-  wordWrap: 'on' as const,
-  tabSize: 2,
-  automaticLayout: true,
-  padding: { top: 6, bottom: 6 },
-  overviewRulerLanes: 0,
-  hideCursorInOverviewRuler: true,
-  renderLineHighlight: 'none' as const,
-  scrollbar: { vertical: 'auto' as const, horizontal: 'hidden' as const, verticalScrollbarSize: 6 },
-  lineNumbersMinChars: 3,
-  folding: false,
-  glyphMargin: false,
-  quickSuggestions: true,
-  suggestOnTriggerCharacters: true,
-}
+const editorOptions = { ...BASE_EDITOR_OPTIONS, padding: { top: 6, bottom: 6 } }
 
 export function CodeEditor({
   value,
@@ -75,6 +31,7 @@ export function CodeEditor({
   expandable = true,
   title,
   debounceMs,
+  path,
 }: CodeEditorProps) {
   const [mounted, setMounted] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
@@ -166,17 +123,11 @@ export function CodeEditor({
               height="100%"
               language={language}
               value={displayValue}
+              path={path}
               onChange={(v) => handleChange(v ?? '')}
               theme="vs-dark"
-              beforeMount={injectTypes}
-              options={{
-                ...editorOptions,
-                fontSize: 13,
-                lineNumbersMinChars: 4,
-                padding: { top: 16, bottom: 16 },
-                minimap: { enabled: true },
-                folding: true,
-              }}
+              beforeMount={configureMonaco}
+              options={FULLSCREEN_EDITOR_OPTIONS}
             />
           </Suspense>
         </div>
@@ -211,9 +162,10 @@ export function CodeEditor({
           height={height}
           language={language}
           value={displayValue}
+          path={path}
           onChange={(v) => handleChange(v ?? '')}
           theme="vs-dark"
-          beforeMount={injectTypes}
+          beforeMount={configureMonaco}
           options={editorOptions}
         />
       </Suspense>
