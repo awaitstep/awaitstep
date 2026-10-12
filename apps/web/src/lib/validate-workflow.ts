@@ -6,6 +6,7 @@ import {
   type NodeRegistry,
 } from '@awaitstep/ir'
 import type { FlowNode, WorkflowEnvVar } from '../stores/workflow-store'
+import { computeUpstreamSets } from './expressions/upstream'
 import { z } from 'zod'
 
 export type IssueSeverity = 'error' | 'warning'
@@ -214,36 +215,7 @@ export function validateWorkflowForPublish(
 
   // ── Expression validation setup (topo-sort for upstream tracking) ──
   const allNodeIds = new Set(nodes.map((n) => n.id))
-  const nodeAdj = new Map<string, string[]>()
-  const inDegree = new Map<string, number>()
-  for (const node of nodes) {
-    nodeAdj.set(node.id, [])
-    inDegree.set(node.id, 0)
-  }
-  for (const edge of edges) {
-    nodeAdj.get(edge.source)?.push(edge.target)
-    inDegree.set(edge.target, (inDegree.get(edge.target) ?? 0) + 1)
-  }
-  const topoQueue: string[] = []
-  for (const [nodeId, degree] of inDegree) {
-    if (degree === 0) topoQueue.push(nodeId)
-  }
-  const topoOrder: string[] = []
-  while (topoQueue.length > 0) {
-    const current = topoQueue.shift()!
-    topoOrder.push(current)
-    for (const neighbor of nodeAdj.get(current) ?? []) {
-      const newDeg = (inDegree.get(neighbor) ?? 1) - 1
-      inDegree.set(neighbor, newDeg)
-      if (newDeg === 0) topoQueue.push(neighbor)
-    }
-  }
-  const upstreamSets = new Map<string, Set<string>>()
-  const seen = new Set<string>()
-  for (const nodeId of topoOrder) {
-    upstreamSets.set(nodeId, new Set(seen))
-    seen.add(nodeId)
-  }
+  const upstreamSets = computeUpstreamSets(nodes, edges)
 
   // ── Per-node ──
   const BUILTIN_TYPES = new Set([
