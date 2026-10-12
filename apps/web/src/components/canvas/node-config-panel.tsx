@@ -8,6 +8,7 @@ import { Separator } from '../ui/separator'
 import { CodeEditor } from '../ui/code-editor'
 import { Select } from '../ui/select'
 import { DynamicFields } from './dynamic-fields'
+import { ExpressionEditor } from './expression-editor'
 import { getNodeVisuals } from '../../lib/node-icon-map'
 import { cn } from '../../lib/utils'
 import { useWorkflowStore } from '../../stores/workflow-store'
@@ -229,6 +230,7 @@ export function NodeConfigPanel() {
               }
               data={irNode.data}
               onChange={updateData}
+              nodeId={irNode.id}
             />
           ) : (
             <div className="flex items-start gap-1.5 rounded-lg bg-destructive/10 px-2.5 py-2 text-xs leading-relaxed text-destructive">
@@ -592,12 +594,11 @@ function LoopFields({
       {loopType === 'forEach' && (
         <>
           <Field label="Collection" hint="Expression resolving to an array">
-            <Input
+            <ExpressionEditor
               value={String(node.data.collection ?? '')}
-              onChange={(e) => updateField('collection', e.target.value)}
-              debounceMs={300}
+              onChange={(value) => updateField('collection', value)}
+              nodeId={node.id}
               placeholder="{{get_customers.customers}}"
-              className="font-mono text-xs"
             />
           </Field>
           <Field label="Item Variable">

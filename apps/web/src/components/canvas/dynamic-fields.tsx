@@ -5,6 +5,7 @@ import { Label } from '../ui/label'
 import { Select } from '../ui/select'
 import { formatDate } from '../../lib/time'
 import { CodeEditor } from '../ui/code-editor'
+import { ExpressionEditor } from './expression-editor'
 import { DateTimePicker } from '../ui/datetime-picker'
 import { cn } from '../../lib/utils'
 
@@ -12,9 +13,11 @@ interface DynamicFieldsProps {
   configSchema: Record<string, ConfigField>
   data: Record<string, unknown>
   onChange: (fieldId: string, value: unknown) => void
+  /** The configured node's id — scopes expression completions to upstream refs. */
+  nodeId?: string
 }
 
-export function DynamicFields({ configSchema, data, onChange }: DynamicFieldsProps) {
+export function DynamicFields({ configSchema, data, onChange, nodeId }: DynamicFieldsProps) {
   return (
     <div className="space-y-4">
       {Object.entries(configSchema).map(([fieldId, field]) => (
@@ -23,6 +26,7 @@ export function DynamicFields({ configSchema, data, onChange }: DynamicFieldsPro
           field={field}
           value={data[fieldId]}
           onChange={(value) => onChange(fieldId, value)}
+          nodeId={nodeId}
         />
       ))}
     </div>
@@ -33,9 +37,10 @@ interface DynamicFieldProps {
   field: ConfigField
   value: unknown
   onChange: (value: unknown) => void
+  nodeId?: string
 }
 
-function DynamicField({ field, value, onChange }: DynamicFieldProps) {
+function DynamicField({ field, value, onChange, nodeId }: DynamicFieldProps) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
@@ -44,13 +49,13 @@ function DynamicField({ field, value, onChange }: DynamicFieldProps) {
           {field.required && <span className="ml-0.5 text-destructive">*</span>}
         </Label>
       </div>
-      <FieldRenderer field={field} value={value} onChange={onChange} />
+      <FieldRenderer field={field} value={value} onChange={onChange} nodeId={nodeId} />
       {field.description && <p className="text-xs text-muted-foreground/60">{field.description}</p>}
     </div>
   )
 }
 
-function FieldRenderer({ field, value, onChange }: DynamicFieldProps) {
+function FieldRenderer({ field, value, onChange, nodeId }: DynamicFieldProps) {
   const stringValue = String(value ?? '')
 
   switch (field.type) {
@@ -203,6 +208,16 @@ function FieldRenderer({ field, value, onChange }: DynamicFieldProps) {
     }
 
     case 'expression':
+      if (nodeId) {
+        return (
+          <ExpressionEditor
+            value={stringValue}
+            onChange={onChange}
+            nodeId={nodeId}
+            placeholder={field.placeholder ?? '{{step_result.fieldName}}'}
+          />
+        )
+      }
       return (
         <Input
           value={stringValue}
