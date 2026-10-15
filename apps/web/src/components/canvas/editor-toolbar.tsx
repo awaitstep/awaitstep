@@ -14,9 +14,12 @@ import {
   Check,
   AlertCircle,
   Circle,
+  Undo2,
+  Redo2,
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { cn } from '../../lib/utils'
+import { redoWorkflowEdit, undoWorkflowEdit, useTemporalStore } from '../../stores/workflow-store'
 
 export interface EditorToolbarProps {
   workflowId: string
@@ -208,12 +211,13 @@ export function EditorToolbar({
           </>
         ) : (
           <>
+            <UndoRedoButtons />
             <Button
               variant="ghost"
               size="sm"
               onClick={onSave}
               disabled={isSaving || !isDirty}
-              title="Save"
+              title="Save (⌘↵)"
               className={cn(
                 'h-8 gap-1.5 px-2 md:px-2.5',
                 isDirty ? 'text-foreground/70 hover:text-foreground' : 'text-muted-foreground/60',
@@ -320,5 +324,40 @@ export function EditorToolbar({
         )}
       </div>
     </header>
+  )
+}
+
+/**
+ * Undo/redo buttons bound to the store's temporal history. Subscribed to
+ * the history depths so they enable and disable as edits land, and labeled
+ * with their shortcuts for discoverability.
+ */
+function UndoRedoButtons() {
+  const canUndo = useTemporalStore((t) => t.pastStates.length > 0)
+  const canRedo = useTemporalStore((t) => t.futureStates.length > 0)
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={undoWorkflowEdit}
+        disabled={!canUndo}
+        title="Undo (⌘Z)"
+        className="h-8 px-2 text-muted-foreground/70 hover:text-foreground"
+      >
+        <Undo2 className="h-3.5 w-3.5" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={redoWorkflowEdit}
+        disabled={!canRedo}
+        title="Redo (⇧⌘Z)"
+        className="h-8 px-2 text-muted-foreground/70 hover:text-foreground"
+      >
+        <Redo2 className="h-3.5 w-3.5" />
+      </Button>
+    </>
   )
 }

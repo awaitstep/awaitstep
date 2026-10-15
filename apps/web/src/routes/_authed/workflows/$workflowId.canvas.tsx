@@ -8,8 +8,9 @@ import { TemplatePicker } from '../../../components/canvas/template-picker'
 import { ClientOnly } from '../../../components/canvas/client-only'
 import { CanvasSkeleton } from '../../../components/canvas/canvas-skeleton'
 import { LoadingView } from '../../../components/ui/loading-view'
-import { useWorkflowStore } from '../../../stores/workflow-store'
+import { clearWorkflowHistory, useWorkflowStore } from '../../../stores/workflow-store'
 import { SimulationPanel } from '../../../components/canvas/simulation-panel'
+import { ValidationPanel } from '../../../components/canvas/validation-panel'
 import { BindingsPanel } from '../../../components/canvas/bindings-panel'
 import { NodeRegistryProvider, useNodeRegistry } from '../../../contexts/node-registry-context'
 import { api } from '../../../lib/api-client'
@@ -156,6 +157,9 @@ function WorkflowEditorPage() {
         readOnly: false,
       })
       setWorkflowId('new')
+      // Loading a document is not an undoable edit — start from a clean slate
+      // so ⌘Z can never rewind into another workflow's graph.
+      clearWorkflowHistory()
       return
     }
     setWorkflowId(workflowId)
@@ -163,6 +167,7 @@ function WorkflowEditorPage() {
       useWorkflowStore.setState(
         buildWorkflowStoreState(fullData.workflow, fullData.version, currentVersion, isReadOnly),
       )
+      clearWorkflowHistory()
     }
   }, [workflowId, isNew, kindParam, fullData, setWorkflowId, isReadOnly, currentVersion])
 
@@ -175,6 +180,19 @@ function WorkflowEditorPage() {
       nodeRegistry,
       kind: kindParam,
     })
+
+  // ⌘↵ saves from anywhere on the canvas, including while typing in a
+  // config field (the only shortcut that deliberately fires in inputs).
+  useEffect(() => {
+    function handleSaveShortcut(e: KeyboardEvent) {
+      if (e.key !== 'Enter' || !(e.metaKey || e.ctrlKey)) return
+      e.preventDefault()
+      if (isReadOnly || isSaving) return
+      handleSave()
+    }
+    window.addEventListener('keydown', handleSaveShortcut)
+    return () => window.removeEventListener('keydown', handleSaveShortcut)
+  }, [handleSave, isReadOnly, isSaving])
 
   // Auto-save 30s after the last meaningful change. Skipped on read-only
   // workflows and on never-saved workflows (so a stray drag on /new doesn't
@@ -250,6 +268,7 @@ function WorkflowEditorPage() {
                 )}
                 <BindingsPanel />
                 <SimulationPanel />
+                <ValidationPanel />
                 <CanvasSidePanels
                   showEditor={showEditor}
                   showLocalTest={showLocalTest && !isNew}

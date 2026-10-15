@@ -11,7 +11,12 @@ import {
 import '@xyflow/react/dist/style.css'
 import { toast } from 'sonner'
 import type { NodeType } from '@awaitstep/ir'
-import { useWorkflowStore, type FlowNode } from '../../stores/workflow-store'
+import {
+  redoWorkflowEdit,
+  undoWorkflowEdit,
+  useWorkflowStore,
+  type FlowNode,
+} from '../../stores/workflow-store'
 import { validateNode } from './node-config-panel'
 import { findNearestEdge } from '../../lib/edge-proximity'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
@@ -205,7 +210,15 @@ export function WorkflowCanvas() {
       if (!(e.metaKey || e.ctrlKey) || e.altKey) return
       if (isTypingTarget(e.target)) return
       const key = e.key.toLowerCase()
-      if (key === 'd') {
+      if (key === 'z') {
+        e.preventDefault()
+        // ⇧⌘Z redoes; ⌘Y is the Windows-style alias handled below.
+        if (e.shiftKey) redoWorkflowEdit()
+        else undoWorkflowEdit()
+      } else if (key === 'y') {
+        e.preventDefault()
+        redoWorkflowEdit()
+      } else if (key === 'd') {
         const ids = getActiveSelection()
         if (ids.length === 0) return
         e.preventDefault()
