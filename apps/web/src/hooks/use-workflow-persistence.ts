@@ -108,12 +108,16 @@ export function useWorkflowPersistence(opts: {
       state.kind,
     )
     if (!result.canPublish) {
-      const errors = result.issues.filter((i) => i.severity === 'error')
-      for (const issue of errors) {
-        toast.error(issue.nodeName ? `${issue.nodeName}: ${issue.message}` : issue.message)
-      }
+      // The panel lists every issue (click-to-focus) and node badges mark
+      // them on the canvas — one toast points there instead of N toasts.
+      useWorkflowStore.setState({ validationResult: result, simulationResult: null })
+      const errorCount = result.issues.filter((i) => i.severity === 'error').length
+      toast.error(
+        errorCount === 1 ? 'Fix 1 issue before saving' : `Fix ${errorCount} issues before saving`,
+      )
       return
     }
+    useWorkflowStore.getState().clearValidation()
     saveMutation.mutate()
   }, [saveMutation])
 
@@ -143,16 +147,16 @@ export function useWorkflowPersistence(opts: {
   }, [performSave, onSaveSuccess])
 
   const handleDeploy = useCallback(async () => {
+    // runValidation publishes into the store: the panel and node badges
+    // carry the detail, so the toast is a single pointer to them.
     const result = runValidation(nodeRegistry ?? undefined)
     if (!result.canPublish) {
-      const errors = result.issues.filter((i) => i.severity === 'error')
-      const warnings = result.issues.filter((i) => i.severity === 'warning')
-      for (const issue of errors) {
-        toast.error(issue.nodeName ? `${issue.nodeName}: ${issue.message}` : issue.message)
-      }
-      for (const issue of warnings) {
-        toast.warning(issue.nodeName ? `${issue.nodeName}: ${issue.message}` : issue.message)
-      }
+      const errorCount = result.issues.filter((i) => i.severity === 'error').length
+      toast.error(
+        errorCount === 1
+          ? 'Fix 1 issue before deploying'
+          : `Fix ${errorCount} issues before deploying`,
+      )
       return
     }
     if (isDirty || isNew) {

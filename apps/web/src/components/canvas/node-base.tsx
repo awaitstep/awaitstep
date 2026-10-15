@@ -13,6 +13,32 @@ interface NodeBaseProps {
   children?: ReactNode
 }
 
+/**
+ * The worst validation issue reported for this node, with its message —
+ * errors outrank warnings. Nodes show it as a badge so publish problems are
+ * visible on the canvas, not only in the panel.
+ */
+function useNodeIssue(
+  nodeId: string | null,
+): { severity: 'error' | 'warning'; message: string } | null {
+  return useWorkflowStore(
+    useCallback(
+      (s) => {
+        if (!nodeId || !s.validationResult) return null
+        let warning: { severity: 'warning'; message: string } | null = null
+        for (const issue of s.validationResult.issues) {
+          if (issue.nodeId !== nodeId) continue
+          if (issue.severity === 'error')
+            return { severity: 'error' as const, message: issue.message }
+          warning ??= { severity: 'warning' as const, message: issue.message }
+        }
+        return warning
+      },
+      [nodeId],
+    ),
+  )
+}
+
 const STATUS_STYLES: Record<string, string> = {
   complete: 'border-status-success/60 shadow-[0_0_6px_oklch(0.72_0.14_155/0.2)]',
   running: 'border-status-info/60 shadow-[0_0_6px_oklch(0.7_0.1_230/0.2)] animate-pulse',
@@ -31,6 +57,7 @@ export function NodeBase({ label, icon, accent, selected, warning, children }: N
   )
   const { active: overlayActive, nodeStatuses } = useRunOverlayStore()
   const stepStatus = nodeId ? nodeStatuses[nodeId] : undefined
+  const issue = useNodeIssue(nodeId)
 
   return (
     <div
@@ -39,13 +66,27 @@ export function NodeBase({ label, icon, accent, selected, warning, children }: N
         selected &&
           'border-primary/60 shadow-[0_0_0_1px_oklch(0.696_0.17_162.48/0.3),0_2px_8px_rgba(0,0,0,0.5)]',
         overlayActive && stepStatus && !selected && STATUS_STYLES[stepStatus],
+        // A run overlay owns the border while it is active; outside a run,
+        // validation errors take precedence over the selected ring.
+        !overlayActive && issue?.severity === 'error' && 'border-status-error/70',
       )}
     >
-      {warning && !overlayActive && (
+      {issue && !overlayActive ? (
         <div
-          className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-card bg-amber-500"
-          title="Unknown node type"
+          className={cn(
+            'absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-card',
+            issue.severity === 'error' ? 'bg-status-error' : 'bg-status-warning',
+          )}
+          title={issue.message}
         />
+      ) : (
+        warning &&
+        !overlayActive && (
+          <div
+            className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-card bg-amber-500"
+            title="Unknown node type"
+          />
+        )
       )}
 
       {overlayActive && stepStatus && stepStatus !== 'pending' && stepStatus !== 'skipped' && (
