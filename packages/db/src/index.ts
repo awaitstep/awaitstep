@@ -13,6 +13,7 @@ export type {
   CreateVersionData,
   UpdateVersionData,
   WorkflowRunStep,
+  RunStepsResult,
   RunStepKind,
   RunStepStatus,
   UpsertRunStepData,

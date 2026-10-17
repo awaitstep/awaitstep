@@ -1,5 +1,6 @@
 import { eq, and, asc, sql } from 'drizzle-orm'
-import type { UpsertRunStepData, WorkflowRunStep } from '../types.js'
+import type { RunStepsResult, UpsertRunStepData } from '../types.js'
+import { latestDeploymentSnapshot } from './deployment-snapshot.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -9,6 +10,7 @@ export class RunStepsAdapter {
     private db: AnyTable,
     private table: AnyTable,
     private runsTable: AnyTable,
+    private deploymentsTable: AnyTable,
   ) {}
 
   /**
@@ -55,15 +57,24 @@ export class RunStepsAdapter {
    * Steps for one run, ownership-checked in the same query: the INNER JOIN
    * on workflow_runs filters by workflowId so a run from another workflow
    * reads as empty rather than needing a prior fetch-then-check round trip.
+   * The deployed version's config snapshot rides along (scalar subquery:
+   * latest successful deployment of the run's version) because it carries
+   * the step manifest that links coalesced members to their leader.
    */
-  async listByRun(runId: string, workflowId: string): Promise<WorkflowRunStep[]> {
+  async listByRun(runId: string, workflowId: string): Promise<RunStepsResult> {
+    const runs = this.runsTable
+    const deployments = this.deploymentsTable
+    const snapshotExpr = latestDeploymentSnapshot(deployments, runs)
     const rows = await this.db
-      .select({ step: this.table })
+      .select({ step: this.table, configSnapshot: snapshotExpr })
       .from(this.table)
-      .innerJoin(this.runsTable, eq(this.table.runId, this.runsTable.id))
-      .where(and(eq(this.table.runId, runId), eq(this.runsTable.workflowId, workflowId)))
+      .innerJoin(runs, eq(this.table.runId, runs.id))
+      .where(and(eq(this.table.runId, runId), eq(runs.workflowId, workflowId)))
       .orderBy(asc(this.table.startedAt), asc(this.table.stepIndex))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return rows.map((r: any) => r.step)
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      steps: rows.map((r: any) => r.step),
+      configSnapshot: rows[0]?.configSnapshot ?? null,
+    }
   }
 }

@@ -1,0 +1,1 @@
+CREATE INDEX `idx_deployments_workflow_version` ON `deployments` (`workflow_id`,`version_id`);

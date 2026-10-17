@@ -337,7 +337,10 @@ export const deployments = sqliteTable(
     configSnapshot: text('config_snapshot'),
     createdAt: text('created_at').notNull(),
   },
-  (table) => [index('idx_deployments_workflow_id').on(table.workflowId)],
+  (table) => [
+    index('idx_deployments_workflow_id').on(table.workflowId),
+    index('idx_deployments_workflow_version').on(table.workflowId, table.versionId),
+  ],
 )
 
 export const deploymentConfigs = sqliteTable(

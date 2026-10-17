@@ -73,6 +73,12 @@ export interface UpsertRunStepData {
   endedAt?: string | null
 }
 
+/** A run's step rows plus the deployed version's config snapshot (manifest carrier). */
+export interface RunStepsResult {
+  steps: WorkflowRunStep[]
+  configSnapshot: string | null
+}
+
 /**
  * An active (non-terminal) run joined with everything one sync tick needs:
  * the provider workflow name and the deployed version's config snapshot

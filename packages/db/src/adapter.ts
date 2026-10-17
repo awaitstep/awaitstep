@@ -3,7 +3,7 @@ import type {
   WorkflowVersion,
   Connection,
   WorkflowRun,
-  WorkflowRunStep,
+  RunStepsResult,
   UpsertRunStepData,
   ActiveRunForSync,
   Deployment,
@@ -149,7 +149,7 @@ export interface DatabaseAdapter {
 
   // Run steps (per-step telemetry)
   upsertRunSteps(runId: string, steps: UpsertRunStepData[]): Promise<void>
-  listRunSteps(runId: string, workflowId: string): Promise<WorkflowRunStep[]>
+  listRunSteps(runId: string, workflowId: string): Promise<RunStepsResult>
 
   // Deployments
   createDeployment(data: {

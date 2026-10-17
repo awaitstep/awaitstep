@@ -1,7 +1,8 @@
-import { eq, desc, and, or, lt, notInArray, sql } from 'drizzle-orm'
+import { eq, desc, and, or, lt, notInArray } from 'drizzle-orm'
 import type { ActiveRunForSync, WorkflowRun } from '../types.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
+import { latestDeploymentSnapshot } from './deployment-snapshot.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -83,7 +84,7 @@ export class RunsAdapter {
     if (!workflows || !deployments) {
       throw new Error('RunsAdapter needs workflows and deployments tables for sync queries')
     }
-    const snapshotExpr = sql`(SELECT ${deployments.configSnapshot} FROM ${deployments} WHERE ${deployments.workflowId} = ${runs.workflowId} AND ${deployments.versionId} = ${runs.versionId} AND ${deployments.status} = 'success' ORDER BY ${deployments.createdAt} DESC LIMIT 1)`
+    const snapshotExpr = latestDeploymentSnapshot(deployments, runs)
     const rows = await this.db
       .select({ run: runs, workflowName: workflows.name, configSnapshot: snapshotExpr })
       .from(runs)

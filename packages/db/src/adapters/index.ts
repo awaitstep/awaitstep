@@ -10,7 +10,7 @@ import type {
   WorkflowVersion,
   Connection,
   WorkflowRun,
-  WorkflowRunStep,
+  RunStepsResult,
   UpsertRunStepData,
   ActiveRunForSync,
   Deployment,
@@ -82,7 +82,12 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     this._versions = new VersionsAdapter(db, schema.workflowVersions)
     this._connections = new ConnectionsAdapter(db, schema.connections, options?.tokenCrypto)
     this._runs = new RunsAdapter(db, schema.workflowRuns, schema.workflows, schema.deployments)
-    this._runSteps = new RunStepsAdapter(db, schema.workflowRunSteps, schema.workflowRuns)
+    this._runSteps = new RunStepsAdapter(
+      db,
+      schema.workflowRunSteps,
+      schema.workflowRuns,
+      schema.deployments,
+    )
     this._deployments = new DeploymentsAdapter(db, schema.deployments)
     this._apiKeys = new ApiKeysAdapter(db, schema.apiKeys)
     this._envVars = new EnvVarsAdapter(db, schema.envVars, options?.tokenCrypto, schema.projects)
@@ -348,7 +353,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   upsertRunSteps(runId: string, steps: UpsertRunStepData[]): Promise<void> {
     return this._runSteps.upsertMany(runId, steps)
   }
-  listRunSteps(runId: string, workflowId: string): Promise<WorkflowRunStep[]> {
+  listRunSteps(runId: string, workflowId: string): Promise<RunStepsResult> {
     return this._runSteps.listByRun(runId, workflowId)
   }
 

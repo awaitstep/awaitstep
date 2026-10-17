@@ -66,14 +66,14 @@ describe('RunStepsAdapter', () => {
 
   it('inserts steps and reads them back scoped to the owning workflow', async () => {
     await adapter.upsertRunSteps('run-1', [step(), step({ stepName: 'node-2', nodeId: 'node-2' })])
-    const steps = await adapter.listRunSteps('run-1', 'wf-1')
+    const { steps } = await adapter.listRunSteps('run-1', 'wf-1')
     expect(steps).toHaveLength(2)
     expect(steps.map((s) => s.stepName).sort()).toEqual(['node-1', 'node-2'])
   })
 
   it('returns nothing for a run queried under the wrong workflow', async () => {
     await adapter.upsertRunSteps('run-1', [step()])
-    expect(await adapter.listRunSteps('run-1', 'other-wf')).toEqual([])
+    expect((await adapter.listRunSteps('run-1', 'other-wf')).steps).toEqual([])
   })
 
   it('converges on re-sync: same identity updates in place instead of duplicating', async () => {
@@ -81,7 +81,7 @@ describe('RunStepsAdapter', () => {
     await adapter.upsertRunSteps('run-1', [
       step({ status: 'complete', attemptCount: 3, endedAt: now }),
     ])
-    const steps = await adapter.listRunSteps('run-1', 'wf-1')
+    const { steps } = await adapter.listRunSteps('run-1', 'wf-1')
     expect(steps).toHaveLength(1)
     expect(steps[0]!.status).toBe('complete')
     expect(steps[0]!.attemptCount).toBe(3)
@@ -93,8 +93,23 @@ describe('RunStepsAdapter', () => {
       step({ stepIndex: 1, status: 'complete' }),
       step({ stepIndex: 2, status: 'running' }),
     ])
-    const steps = await adapter.listRunSteps('run-1', 'wf-1')
+    const { steps } = await adapter.listRunSteps('run-1', 'wf-1')
     expect(steps).toHaveLength(2)
+  })
+
+  it('carries the deployed version snapshot alongside the steps', async () => {
+    sqlite.exec(
+      `INSERT INTO deployments (id, workflow_id, version_id, service_name, status, created_at, config_snapshot)
+       VALUES ('d-1', 'wf-1', 'v-1', 'svc', 'success', '2026-02-01T00:00:00Z', '{"stepManifest":{"steps":[]}}')`,
+    )
+    await adapter.upsertRunSteps('run-1', [step()])
+    const result = await adapter.listRunSteps('run-1', 'wf-1')
+    expect(result.configSnapshot).toBe('{"stepManifest":{"steps":[]}}')
+  })
+
+  it('yields a null snapshot and no rows for a run with no steps yet', async () => {
+    const result = await adapter.listRunSteps('run-1', 'wf-1')
+    expect(result).toEqual({ steps: [], configSnapshot: null })
   })
 })
 

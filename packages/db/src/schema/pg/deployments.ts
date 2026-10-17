@@ -21,5 +21,8 @@ export const deployments = pgTable(
     configSnapshot: text('config_snapshot'),
     createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
   },
-  (table) => [index('idx_deployments_workflow_id').on(table.workflowId)],
+  (table) => [
+    index('idx_deployments_workflow_id').on(table.workflowId),
+    index('idx_deployments_workflow_version').on(table.workflowId, table.versionId),
+  ],
 )

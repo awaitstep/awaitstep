@@ -71,6 +71,13 @@
       "when": 1791422377696,
       "tag": "0009_odd_captain_britain",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792088598809,
+      "tag": "0010_absent_crusher_hogan",
+      "breakpoints": true
     }
   ]
 }
