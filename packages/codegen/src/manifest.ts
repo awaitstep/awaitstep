@@ -60,6 +60,19 @@ const LOOP_SUFFIX = / \[\d+\]$/
 const DERIVED_SEPARATOR = '--'
 
 /**
+ * The node id a generated step label was derived from: strips the loop
+ * iteration suffix (`<id> [3]`) and the derived multi-step suffix
+ * (`<id>--create`). Container children run under their bare node id as
+ * label, so this is also how consumers attribute labels the manifest does
+ * not list.
+ */
+export function stepLabelBase(label: string): string {
+  const base = label.replace(LOOP_SUFFIX, '')
+  const sep = base.indexOf(DERIVED_SEPARATOR)
+  return sep > 0 ? base.slice(0, sep) : base
+}
+
+/**
  * Maps a provider-reported step label back to its node id via the manifest.
  * Handles the two generated label transforms: loop iteration suffixes
  * (`<label> [<i>]`) and derived multi-step labels (`<nodeId>--<suffix>`).
@@ -69,13 +82,12 @@ const DERIVED_SEPARATOR = '--'
  * attribution rather than guessing.
  */
 export function resolveStepNode(manifest: StepManifest, label: string): string | undefined {
-  const base = label.replace(LOOP_SUFFIX, '')
-  const byLabel = manifest.steps.find((s) => s.stepName === base)
+  const unsuffixed = label.replace(LOOP_SUFFIX, '')
+  const byLabel = manifest.steps.find((s) => s.stepName === unsuffixed)
   if (byLabel) return byLabel.nodeId
-  const sep = base.indexOf(DERIVED_SEPARATOR)
-  if (sep > 0) {
-    const prefix = base.slice(0, sep)
-    const byId = manifest.steps.find((s) => s.nodeId === prefix)
+  const base = stepLabelBase(label)
+  if (base !== unsuffixed) {
+    const byId = manifest.steps.find((s) => s.nodeId === base)
     if (byId) return byId.nodeId
   }
   return undefined
