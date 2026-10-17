@@ -1,8 +1,9 @@
 import { nanoid } from 'nanoid'
 import { resolveStepNode } from '@awaitstep/codegen'
-import type { ProviderConfig, StepManifest, WorkflowProvider } from '@awaitstep/codegen'
+import type { ProviderConfig, WorkflowProvider } from '@awaitstep/codegen'
 import type { ActiveRunForSync, DatabaseAdapter, UpsertRunStepData } from '@awaitstep/db'
 import { resolveProvider } from './provider-resolver.js'
+import { parseStepManifest } from './step-manifest.js'
 import { createLogger } from './logger.js'
 
 const log = createLogger('run-sync')
@@ -100,18 +101,6 @@ async function syncRun(
     endedAt: step.end ?? null,
   }))
   await db.upsertRunSteps(run.id, rows)
-}
-
-function parseStepManifest(configSnapshot: string | null): StepManifest | undefined {
-  if (!configSnapshot) return undefined
-  try {
-    const parsed = JSON.parse(configSnapshot) as { stepManifest?: StepManifest }
-    return parsed.stepManifest && Array.isArray(parsed.stepManifest.steps)
-      ? parsed.stepManifest
-      : undefined
-  } catch {
-    return undefined
-  }
 }
 
 /**

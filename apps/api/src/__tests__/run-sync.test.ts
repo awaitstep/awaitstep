@@ -14,6 +14,7 @@ const MANIFEST = {
   irHash: 'x',
   steps: [
     { nodeId: 'step-1', stepName: 'step-1', kind: 'do', varName: 'Hello' },
+    { nodeId: 'step-2', coalescedInto: 'step-1', varName: 'Follow' },
     { nodeId: 'loop-1', stepName: 'work', kind: 'do', varName: 'Work' },
   ],
 }
@@ -97,7 +98,7 @@ describe('syncActiveRuns', () => {
     expect(run!.status).toBe('complete')
     expect(run!.output).toBe(JSON.stringify({ ok: true }))
 
-    const steps = await mockDb.listRunSteps('run-1', 'wf-1')
+    const { steps } = await mockDb.listRunSteps('run-1', 'wf-1')
     expect(steps).toHaveLength(3)
     const byName = new Map(steps.map((s) => [s.stepName, s]))
     expect(byName.get('step-1')!.nodeId).toBe('step-1')
@@ -120,7 +121,7 @@ describe('syncActiveRuns', () => {
     await syncActiveRuns(mockDb, { provider: running })
     await syncActiveRuns(mockDb, { provider: done })
 
-    const steps = await mockDb.listRunSteps('run-1', 'wf-1')
+    const { steps } = await mockDb.listRunSteps('run-1', 'wf-1')
     expect(steps).toHaveLength(1)
     expect(steps[0]!.status).toBe('complete')
     expect(steps[0]!.attemptCount).toBe(2)
@@ -182,9 +183,14 @@ describe('GET /api/workflows/:workflowId/runs/:runId/steps', () => {
       `/api/workflows/wf-1/runs/run-1/steps?projectId=${TEST_PROJECT_ID}`,
     )
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { data: { stepName: string; nodeId: string | null }[] }
+    const body = (await res.json()) as {
+      data: { stepName: string; nodeId: string | null }[]
+      coalescedInto: Record<string, string>
+    }
     expect(body.data).toHaveLength(1)
     expect(body.data[0]!.nodeId).toBe('step-1')
+    // Members of a merged step link to the leader through the deploy manifest.
+    expect(body.coalescedInto).toEqual({ 'step-2': 'step-1' })
   })
 
   it('reads as empty for a run that is not in the workflow', async () => {

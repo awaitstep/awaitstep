@@ -3,6 +3,7 @@ import { CloudflareAPI, sanitizedWorkflowName } from '@awaitstep/provider-cloudf
 import type { AppEnv } from '../types.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import { zValidator } from '../lib/validation.js'
+import { coalescedMembers, parseStepManifest } from '../lib/step-manifest.js'
 
 export const runs = new Hono<AppEnv>()
 
@@ -32,15 +33,21 @@ runs.get('/:workflowId/runs/:runId', async (c) => {
 /**
  * Per-step telemetry for a run, synced by the background loop. Ownership is
  * enforced inside the query (steps JOIN runs filtered by workflowId), so an
- * unknown or foreign run reads as an empty list.
+ * unknown or foreign run reads as an empty list. `coalescedInto` maps each
+ * node whose code ran inside a merged step to that step's leader node, from
+ * the deploy manifest — the provider reports one record per merged step,
+ * and the UI needs the linkage to show members as executed.
  */
 runs.get('/:workflowId/runs/:runId/steps', async (c) => {
   const db = c.get('db')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const steps = await db.listRunSteps(c.req.param('runId'), workflow.id)
-  return c.json({ data: steps })
+  const { steps, configSnapshot } = await db.listRunSteps(c.req.param('runId'), workflow.id)
+  return c.json({
+    data: steps,
+    coalescedInto: coalescedMembers(parseStepManifest(configSnapshot)),
+  })
 })
 
 runs.post('/:workflowId/runs/:runId/pause', async (c) => {

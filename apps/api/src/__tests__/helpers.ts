@@ -293,8 +293,21 @@ const mockDb: DatabaseAdapter = {
   },
   async listRunSteps(runId, workflowId) {
     const run = store.runs.get(runId)
-    if (!run || run.workflowId !== workflowId) return []
-    return [...store.runSteps.values()].filter((s) => s.runId === runId)
+    if (!run || run.workflowId !== workflowId) return { steps: [], configSnapshot: null }
+    const deployment = [...store.deployments.values()]
+      .filter(
+        (d) =>
+          d.workflowId === run.workflowId &&
+          d.versionId === run.versionId &&
+          d.status === 'success',
+      )
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0]
+    const steps = [...store.runSteps.values()].filter((s) => s.runId === runId)
+    return {
+      steps,
+      // The adapter's scalar subquery rides on step rows: no rows, no snapshot.
+      configSnapshot: steps.length > 0 ? (deployment?.configSnapshot ?? null) : null,
+    }
   },
 
   // Deployments
