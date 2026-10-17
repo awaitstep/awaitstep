@@ -22,7 +22,13 @@ export function duration(start: string, end: string, status?: string): string {
 
 /** Compact exact duration, e.g. "850ms", "42s", "3m 12s", "2h 5m". */
 export function durationCompact(start: string, end: string): string {
-  const ms = new Date(end).getTime() - new Date(start).getTime()
+  return formatDurationMs(new Date(end).getTime() - new Date(start).getTime())
+}
+
+export function formatDurationMs(rawMs: number): string {
+  // Clock skew between provider timestamps can produce negative spans; a
+  // negative duration is meaningless in every branch, not just sub-second.
+  const ms = Math.max(0, Math.round(rawMs))
   if (ms < 1000) return `${ms}ms`
   const secs = Math.floor(ms / 1000)
   if (secs < 60) return `${secs}s`

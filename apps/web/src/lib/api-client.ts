@@ -144,6 +144,34 @@ export interface RunSummary {
   updatedAt: string
 }
 
+export type RunStepKind = 'do' | 'sleep' | 'waitForEvent' | 'rollback'
+export type RunStepStatus = 'running' | 'waiting' | 'complete' | 'errored'
+
+/** One provider-reported durable step occurrence within a run (F8 telemetry). */
+export interface RunStep {
+  id: string
+  runId: string
+  /** Owning canvas node, when the deploy manifest could attribute the label. */
+  nodeId: string | null
+  stepName: string
+  kind: RunStepKind
+  /** 1-based occurrence per (label, kind) — loop iterations repeat a label. */
+  stepIndex: number
+  status: RunStepStatus
+  attemptCount: number
+  error: string | null
+  startedAt: string | null
+  endedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface RunStepsResponse {
+  data: RunStep[]
+  /** memberNodeId → leader nodeId for nodes whose code ran inside a merged step. */
+  coalescedInto: Record<string, string>
+}
+
 export interface ConnectionSummary {
   id: string
   name: string
@@ -342,6 +370,10 @@ export const api = {
 
   getWorkflowRun(workflowId: string, runId: string): Promise<RunSummary> {
     return request(withProject(`/workflows/${workflowId}/runs/${runId}`))
+  },
+
+  getWorkflowRunSteps(workflowId: string, runId: string): Promise<RunStepsResponse> {
+    return request(withProject(`/workflows/${workflowId}/runs/${runId}/steps`))
   },
 
   controlWorkflowRun(

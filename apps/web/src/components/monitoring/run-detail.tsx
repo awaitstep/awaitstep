@@ -9,6 +9,7 @@ import { PageBand } from '../ui/page-band'
 import { RunActions } from './run-actions'
 import { RunErrorBlock } from './run-error-block'
 import { RunStatusBadge } from './run-status-badge'
+import { RunTelemetry } from './run-telemetry'
 
 const TERMINAL_STATUSES = new Set(['complete', 'errored', 'terminated'])
 
@@ -107,7 +108,7 @@ export function RunDetail({ runId, workflowIdHint }: RunDetailProps) {
         </div>
       </PageBand>
 
-      <div className="max-w-screen-md">
+      <div className="max-w-screen-xl">
         <div className="mt-6 grid gap-x-12 gap-y-5 sm:grid-cols-2">
           <Field label="Instance ID">
             <span className="font-mono text-sm text-foreground">{run.instanceId}</span>
@@ -159,6 +160,8 @@ export function RunDetail({ runId, workflowIdHint }: RunDetailProps) {
         <div className="mt-4 text-xs text-muted-foreground/40">
           <span className="font-mono">{run.id}</span>
         </div>
+
+        <RunTelemetry workflowId={workflowId} run={run} />
 
         {run.output && (
           <div className="mt-8">
