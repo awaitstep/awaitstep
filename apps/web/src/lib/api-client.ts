@@ -1,3 +1,4 @@
+import type { GeneratedFile, SourceMode, StepManifest } from '@awaitstep/codegen'
 import { useOrgStore } from '../stores/org-store'
 
 const API_BASE = '/api'
@@ -131,6 +132,20 @@ export interface WorkflowFull {
   activeDeployment: DeploymentSummary | null
 }
 
+/**
+ * A version's deployable source as `GET /workflows/:id/source` returns it:
+ * the stored bundle for ejected/sdk versions, a freshly generated read-only
+ * view for generated ones (manifest and drift baseline absent for scripts).
+ */
+export interface WorkflowSource {
+  versionId: string
+  sourceMode: SourceMode
+  entry: string
+  files: GeneratedFile[]
+  manifest: StepManifest | null
+  baseGeneratedHash: string | null
+}
+
 export interface RunSummary {
   id: string
   workflowId: string
@@ -218,6 +233,11 @@ export const api = {
   getWorkflowFull(id: string, versionId?: string): Promise<WorkflowFull> {
     const params = versionId ? `?version=${versionId}` : ''
     return request(withProject(`/workflows/${id}/full${params}`))
+  },
+
+  getWorkflowSource(id: string, versionId?: string): Promise<WorkflowSource> {
+    const params = versionId ? `?versionId=${encodeURIComponent(versionId)}` : ''
+    return request(withProject(`/workflows/${id}/source${params}`))
   },
 
   createWorkflow(data: {

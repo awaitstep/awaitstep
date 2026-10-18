@@ -1,4 +1,4 @@
-import { infiniteQueryOptions } from '@tanstack/react-query'
+import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query'
 import { api } from './api-client'
 
 const infiniteDefaults = {
@@ -13,6 +13,18 @@ export const queries = {
         queryKey: ['workflows', projectId] as const,
         queryFn: ({ pageParam }) => api.listWorkflows({ cursor: pageParam }),
         ...infiniteDefaults,
+      }),
+    full: (workflowId: string, versionId?: string) =>
+      queryOptions({
+        queryKey: ['workflow-full', workflowId, versionId] as const,
+        queryFn: () => api.getWorkflowFull(workflowId, versionId),
+        retry: false,
+      }),
+    source: (workflowId: string, versionId?: string) =>
+      queryOptions({
+        queryKey: ['workflow-source', workflowId, versionId] as const,
+        queryFn: () => api.getWorkflowSource(workflowId, versionId),
+        retry: false,
       }),
   },
 

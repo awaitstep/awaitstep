@@ -34,6 +34,39 @@ export const READONLY_EDITOR_OPTIONS: editor.IStandaloneEditorConstructionOption
   cursorStyle: 'line-thin',
 }
 
+/**
+ * The IDE workspace editor group: a full editing surface with folding,
+ * minimap, line highlight and horizontal scrolling instead of soft wrap.
+ */
+export const IDE_EDITOR_OPTIONS: editor.IStandaloneEditorConstructionOptions = {
+  ...BASE_EDITOR_OPTIONS,
+  fontSize: 12,
+  lineNumbersMinChars: 4,
+  padding: { top: 12, bottom: 12 },
+  minimap: { enabled: true, renderCharacters: false },
+  folding: true,
+  glyphMargin: true,
+  wordWrap: 'off',
+  renderLineHighlight: 'line',
+  overviewRulerLanes: 2,
+  hideCursorInOverviewRuler: false,
+  scrollbar: {
+    vertical: 'auto',
+    horizontal: 'auto',
+    verticalScrollbarSize: 8,
+    horizontalScrollbarSize: 8,
+  },
+}
+
+/** IDE surface for files that cannot be edited in place (generated source). */
+export const IDE_READONLY_EDITOR_OPTIONS: editor.IStandaloneEditorConstructionOptions = {
+  ...IDE_EDITOR_OPTIONS,
+  readOnly: true,
+  domReadOnly: true,
+  quickSuggestions: false,
+  suggestOnTriggerCharacters: false,
+}
+
 /** Fullscreen editing surface — roomier type, minimap, folding. */
 export const FULLSCREEN_EDITOR_OPTIONS: editor.IStandaloneEditorConstructionOptions = {
   ...BASE_EDITOR_OPTIONS,

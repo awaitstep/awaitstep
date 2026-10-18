@@ -62,5 +62,26 @@ export function configureMonaco(monaco: Monaco): void {
  * same logical file shares one Monaco model (undo stack, markers, state).
  */
 export function workflowModelPath(workflowId: string, file: string): string {
-  return `awaitstep://workflow/${encodeURIComponent(workflowId)}/${file}`
+  return `${MODEL_PATH_PREFIX}${encodeURIComponent(workflowId)}/${file}`
+}
+
+const MODEL_PATH_PREFIX = 'awaitstep://workflow/'
+
+/**
+ * Inverse of {@link workflowModelPath} for URIs Monaco hands back (markers,
+ * model lists). Null for anything that is not a workflow file model.
+ */
+export function parseWorkflowModelPath(uri: string): { workflowId: string; file: string } | null {
+  if (!uri.startsWith(MODEL_PATH_PREFIX)) return null
+  const rest = uri.slice(MODEL_PATH_PREFIX.length)
+  const slash = rest.indexOf('/')
+  if (slash <= 0 || slash === rest.length - 1) return null
+  try {
+    return {
+      workflowId: decodeURIComponent(rest.slice(0, slash)),
+      file: decodeURIComponent(rest.slice(slash + 1)),
+    }
+  } catch {
+    return null
+  }
 }
