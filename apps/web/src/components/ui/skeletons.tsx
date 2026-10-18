@@ -1,4 +1,4 @@
-function Bone({ className }: { className?: string }) {
+export function Bone({ className }: { className?: string }) {
   return <div className={`animate-pulse rounded bg-muted/40 ${className ?? ''}`} />
 }
 

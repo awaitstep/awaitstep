@@ -14,6 +14,12 @@ describe('isChromelessRoute', () => {
     ).toBe(true)
   })
 
+  it('treats the code workspace as chromeless', () => {
+    expect(
+      isChromelessRoute(matchesFor('__root__', '/_authed', '/_authed/workflows/$workflowId/code')),
+    ).toBe(true)
+  })
+
   it('treats the deploy wizard as chromeless', () => {
     expect(
       isChromelessRoute(
