@@ -30,7 +30,7 @@
     "drizzle-kit": "^0.31.11",
     "tsup": "8.5.1",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.5"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.4"

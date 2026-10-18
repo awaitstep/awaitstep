@@ -23,7 +23,7 @@
     "tsup": "8.5.1",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.11",
+    "vitest": "^5.0.5",
     "wrangler": "^4.151.1"
   },
   "dependencies": {
