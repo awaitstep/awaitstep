@@ -20,12 +20,12 @@
   "devDependencies": {
     "@awaitstep/tsconfig": "workspace:*",
     "@react-email/render": "^2.1.1",
-    "@types/react": "^19.2.18",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
+    "@types/react": "^19.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "react-email": "^6.11.3",
     "tsup": "8.5.1",
-    "tsx": "^4.23.12",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^4.1.11"
   }

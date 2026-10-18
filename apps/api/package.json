@@ -17,14 +17,14 @@
   },
   "devDependencies": {
     "@awaitstep/tsconfig": "workspace:*",
-    "@cloudflare/workers-types": "^5.20260821.1",
-    "@types/better-sqlite3": "^7.6.13",
-    "@types/node": "^26.2.0",
+    "@cloudflare/workers-types": "^5.20261016.1",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.5",
     "tsup": "8.5.1",
-    "tsx": "^4.23.12",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^4.1.11",
-    "wrangler": "^4.125.0"
+    "wrangler": "^4.151.1"
   },
   "dependencies": {
     "@awaitstep/codegen": "workspace:*",
@@ -34,16 +34,16 @@
     "@awaitstep/provider-cloudflare": "workspace:*",
     "@cloudflare/sandbox": "^0.12.7",
     "@hono/node-server": "^1.19.13",
-    "@hono/zod-validator": "^0.9.0",
+    "@hono/zod-validator": "^0.9.1",
     "@opentelemetry/api": "^1.9.1",
-    "better-auth": "^1.7.1",
+    "better-auth": "^1.7.10",
     "better-sqlite3": "^12.10.0",
-    "drizzle-orm": "^0.45.2",
-    "hono": "^4.13.3",
-    "hono-rate-limiter": "^0.5.3",
-    "nanoid": "^6.0.1",
-    "pg": "8.23.0",
-    "resend": "^6.22.0",
-    "zod": "^4.4.3"
+    "drizzle-orm": "^0.45.4",
+    "hono": "^4.13.13",
+    "hono-rate-limiter": "^0.5.4",
+    "nanoid": "^6.0.2",
+    "pg": "8.23.1",
+    "resend": "^6.34.1",
+    "zod": "^4.6.7"
   }
 }

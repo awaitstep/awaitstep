@@ -25,14 +25,14 @@
   },
   "devDependencies": {
     "@awaitstep/tsconfig": "workspace:*",
-    "@types/better-sqlite3": "^7.6.13",
+    "@types/better-sqlite3": "^9.6.0",
     "better-sqlite3": "12.10.0",
-    "drizzle-kit": "^0.31.10",
+    "drizzle-kit": "^0.31.11",
     "tsup": "8.5.1",
     "typescript": "^5.9.3",
     "vitest": "^4.1.11"
   },
   "dependencies": {
-    "drizzle-orm": "^0.45.2"
+    "drizzle-orm": "^0.45.4"
   }
 }

@@ -36,7 +36,7 @@ const getAuthData = createServerFn({ method: 'GET' }).handler(
 )
 
 const saveRedirectPath = createServerFn({ method: 'POST' })
-  .inputValidator((data: string) => data)
+  .validator((data: string) => data)
   .handler(async ({ data: path }) => {
     setCookie('auth_redirect', path, {
       path: '/',

@@ -21,11 +21,11 @@
   },
   "dependencies": {
     "@awaitstep/ir": "workspace:*",
-    "zod": "^4.4.3"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@awaitstep/tsconfig": "workspace:*",
-    "@types/node": "^26.2.0",
+    "@types/node": "^26.6.5",
     "tsup": "8.5.1",
     "typescript": "^5.9.3",
     "vitest": "^4.1.11"
