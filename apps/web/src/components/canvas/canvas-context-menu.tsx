@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ComponentType } from 'react'
 import { Copy, Files, Trash2, ClipboardPaste } from 'lucide-react'
+import { isMacPlatform } from '../../lib/platform'
 
 export type ContextMenuAction = 'duplicate' | 'copy' | 'delete' | 'paste'
 
@@ -11,9 +12,7 @@ interface CanvasContextMenuProps {
   onClose: () => void
 }
 
-const isMac =
-  typeof navigator !== 'undefined' && /mac|iphone|ipad|ipod/i.test(navigator.platform || '')
-const mod = isMac ? '⌘' : 'Ctrl+'
+const mod = isMacPlatform() ? '⌘' : 'Ctrl+'
 
 export function CanvasContextMenu({ x, y, type, onAction, onClose }: CanvasContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null)

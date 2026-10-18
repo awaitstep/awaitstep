@@ -16,8 +16,10 @@ import {
   Circle,
   Undo2,
   Redo2,
+  FileCode2,
 } from 'lucide-react'
 import { Button } from '../ui/button'
+import { WorkflowTitle } from '../workflows/workflow-title'
 import { cn } from '../../lib/utils'
 import { useTemporalStore } from '../../stores/workflow-store'
 import { redoWithFeedback, undoWithFeedback } from './time-travel'
@@ -49,6 +51,8 @@ export interface EditorToolbarProps {
   onExport?: () => void
   readOnly?: boolean
   readOnlyVersion?: number
+  /** The `?version=` being viewed, carried over to the code workspace link. */
+  versionParam?: string
 }
 
 function SaveStatusIndicator({
@@ -135,6 +139,7 @@ export function EditorToolbar({
   onExport,
   readOnly,
   readOnlyVersion,
+  versionParam,
 }: EditorToolbarProps) {
   const router = useRouter()
 
@@ -150,23 +155,7 @@ export function EditorToolbar({
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="hidden h-5 w-px shrink-0 bg-muted/70 sm:block" />
-        <div className="flex min-w-0 items-center gap-1.5 px-1 sm:gap-2">
-          <span className="max-w-[120px] truncate text-sm font-semibold text-foreground sm:max-w-[200px] md:max-w-[260px] lg:max-w-none">
-            {workflowName}
-          </span>
-          {kind === 'script' && (
-            <span
-              className="hidden shrink-0 items-center rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:inline-flex"
-              title="Stateless fetch-only Worker — runs synchronously, no sleeps or waits"
-            >
-              Function
-            </span>
-          )}
-          {!isNew && currentVersion > 0 && (
-            <span className="shrink-0 rounded bg-muted/60 px-1.5 py-0.5 text-xs font-medium text-muted-foreground/60">
-              v{currentVersion}
-            </span>
-          )}
+        <WorkflowTitle name={workflowName} kind={kind} version={isNew ? undefined : currentVersion}>
           {nodeCount > 0 && (
             <span className="hidden shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary md:inline-flex">
               {nodeCount} node{nodeCount !== 1 ? 's' : ''}
@@ -194,10 +183,22 @@ export function EditorToolbar({
             lastSavedAt={lastSavedAt ?? null}
             autoSaveError={autoSaveError ?? null}
           />
-        </div>
+        </WorkflowTitle>
       </div>
 
       <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+        {!isNew && currentVersion > 0 && (
+          <Link
+            to="/workflows/$workflowId/code"
+            params={{ workflowId }}
+            search={versionParam ? { version: versionParam } : {}}
+            title="Open the code workspace"
+            className="hidden h-8 items-center gap-1.5 rounded-md px-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground/70 sm:inline-flex md:px-2.5"
+          >
+            <FileCode2 className="h-3.5 w-3.5" />
+            <span className="hidden text-xs md:inline">Code</span>
+          </Link>
+        )}
         {readOnly ? (
           <>
             <span className="hidden rounded bg-muted/70 px-2 py-1 text-xs font-medium text-muted-foreground sm:inline-block">

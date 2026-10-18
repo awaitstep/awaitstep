@@ -255,6 +255,7 @@ function WorkflowEditorPage() {
                 }}
                 readOnly={isReadOnly}
                 readOnlyVersion={readOnlyVersion}
+                versionParam={versionParam}
               />
               <div className="relative flex-1 overflow-hidden">
                 <LazyCanvas />

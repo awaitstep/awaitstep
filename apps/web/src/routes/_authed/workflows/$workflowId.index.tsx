@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useParams, redirect } from '@tanstack/react-router'
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
-import { Pencil, GitBranch, Activity, Globe } from 'lucide-react'
+import { Pencil, GitBranch, Activity, Globe, FileCode2 } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { api } from '../../../lib/api-client'
 import { queries, flatPages } from '../../../lib/queries'
@@ -92,9 +92,17 @@ function WorkflowOverviewPage() {
               <Link to="/workflows/$workflowId/canvas" params={{ workflowId }}>
                 <Button size="sm" variant="outline" className="gap-1.5">
                   <Pencil className="h-3.5 w-3.5" />
-                  Open Editor
+                  Open Canvas
                 </Button>
               </Link>
+              {workflow.currentVersionId && (
+                <Link to="/workflows/$workflowId/code" params={{ workflowId }} search={{}}>
+                  <Button size="sm" variant="outline" className="gap-1.5">
+                    <FileCode2 className="h-3.5 w-3.5" />
+                    Open Code
+                  </Button>
+                </Link>
+              )}
               <DeployButton
                 workflowId={workflowId}
                 currentVersionId={workflow.currentVersionId}

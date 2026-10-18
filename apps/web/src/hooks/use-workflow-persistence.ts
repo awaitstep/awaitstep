@@ -72,6 +72,7 @@ export function useWorkflowPersistence(opts: {
       setLastSavedAt(new Date())
       setAutoSaveError(null)
       queryClient.invalidateQueries({ queryKey: ['workflow-full', workflowId] })
+      queryClient.invalidateQueries({ queryKey: ['workflow-source', workflowId] })
       if (created) {
         window.history.replaceState(null, '', `/workflows/${created.id}/canvas`)
         setWorkflowId(created.id)
