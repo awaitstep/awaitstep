@@ -1,9 +1,13 @@
 import { Hono } from 'hono'
+import { streamSSE } from 'hono/streaming'
 import { CloudflareAPI, sanitizedWorkflowName } from '@awaitstep/provider-cloudflare'
 import type { AppEnv } from '../types.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import { zValidator } from '../lib/validation.js'
 import { coalescedMembers, parseStepManifest } from '../lib/step-manifest.js'
+import { syncRunById } from '../lib/run-sync.js'
+import { diffRunDetail } from '../lib/run-events.js'
+import type { WorkflowRunDetail } from '@awaitstep/codegen'
 
 export const runs = new Hono<AppEnv>()
 
@@ -47,6 +51,69 @@ runs.get('/:workflowId/runs/:runId/steps', async (c) => {
   return c.json({
     data: steps,
     coalescedInto: coalescedMembers(parseStepManifest(configSnapshot)),
+  })
+})
+
+const STREAM_TICK_MS = 2_000
+const STREAM_MAX_MS = 10 * 60_000
+const TERMINAL_RUN_STATUSES = new Set(['complete', 'errored', 'terminated'])
+
+/**
+ * Live run events as SSE. Each tick reconciles the run through the provider
+ * (writing through to the DB, so the stream and the 5s background loop
+ * share one truth) and pushes only what changed: `run` for status moves,
+ * `step` per step whose status/attempts moved, `done` when terminal. The
+ * stream closes after STREAM_MAX_MS so a forgotten tab cannot hold a
+ * reconciliation loop forever; clients keep their polling as the floor and
+ * simply reconnect. Cloudflare's subscribe endpoint is the intended source
+ * once its REST shape is verified against a live account — this tick loop is
+ * the provider-agnostic fallback it will slot in front of.
+ */
+runs.get('/:workflowId/runs/:runId/stream', async (c) => {
+  const db = c.get('db')
+  const workflow = c.get('workflow')
+  if (!workflow) return c.json({ error: 'Not found' }, 404)
+  const runId = c.req.param('runId')
+
+  const run = await db.getWorkflowRunById(runId)
+  if (!run || run.workflowId !== workflow.id) return c.json({ error: 'Run not found' }, 404)
+
+  return streamSSE(c, async (stream) => {
+    let open = true
+    stream.onAbort(() => {
+      open = false
+    })
+    const startedAt = Date.now()
+    let previous: WorkflowRunDetail | null = null
+    let eventId = 0
+    const send = (event: string, data: unknown) =>
+      stream.writeSSE({ id: String(eventId++), event, data: JSON.stringify(data) })
+
+    while (open && Date.now() - startedAt < STREAM_MAX_MS) {
+      let detail: WorkflowRunDetail | null
+      try {
+        detail = await syncRunById(db, runId, workflow.id)
+      } catch (err) {
+        await send('error', { message: err instanceof Error ? err.message : String(err) })
+        return
+      }
+      if (!detail) {
+        // No connection to reach the provider through — nothing will ever
+        // change on this stream.
+        await send('done', {})
+        return
+      }
+      for (const event of diffRunDetail(previous, detail)) {
+        await send(event.event, event.data)
+      }
+      previous = detail
+      if (TERMINAL_RUN_STATUSES.has(detail.status)) {
+        await send('done', {})
+        return
+      }
+      await stream.sleep(STREAM_TICK_MS)
+    }
+    if (open) await send('timeout', {})
   })
 })
 

@@ -566,6 +566,27 @@ Per-step telemetry for a run, collected by the background sync loop: each durabl
 | `workflowId` | path | yes      | Workflow ID |
 | `runId`      | path | yes      | Run ID      |
 
+### `GET /workflows/:workflowId/runs/:runId/stream`
+
+Live run events as a Server-Sent Events stream. Each tick (every 2s while the run is active) reconciles the run with the provider — writing through to the same store the background sync loop and `GET …/steps` read — and pushes only what changed:
+
+| Event     | Data                                          | Meaning                                                |
+| --------- | --------------------------------------------- | ------------------------------------------------------ |
+| `run`     | `{ status }`                                  | The run status changed                                 |
+| `step`    | `{ name, kind, index, status, attemptCount }` | A step's status or attempt count moved (new steps too) |
+| `done`    | `{}`                                          | The run reached a terminal status; the stream closes   |
+| `timeout` | `{}`                                          | 10 minutes elapsed; reconnect to keep streaming        |
+| `error`   | `{ message }`                                 | The provider could not be reached; the stream closes   |
+
+Clients should keep polling `GET …/steps` as the floor and treat the stream as acceleration — on any close, resume polling or reconnect. The stream ends immediately with `done` for runs with no provider connection.
+
+**Scope:** `read`
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
+| `runId`      | path | yes      | Run ID      |
+
 ### `POST /workflows/:workflowId/runs/:runId/pause`
 
 Pause a running workflow instance.

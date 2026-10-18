@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import { resolveStepNode } from '@awaitstep/codegen'
-import type { ProviderConfig, WorkflowProvider } from '@awaitstep/codegen'
+import type { ProviderConfig, WorkflowProvider, WorkflowRunDetail } from '@awaitstep/codegen'
 import type { ActiveRunForSync, DatabaseAdapter, UpsertRunStepData } from '@awaitstep/db'
 import { resolveProvider } from './provider-resolver.js'
 import { parseStepManifest } from './step-manifest.js'
@@ -60,13 +60,34 @@ export async function syncActiveRuns(db: DatabaseAdapter, options?: RunSyncOptio
   }
 }
 
+/**
+ * Reconciles one run on demand (the live stream's tick). Returns the
+ * provider detail so the caller can diff it, or null when the run has no
+ * connection to reach the provider through.
+ */
+export async function syncRunById(
+  db: DatabaseAdapter,
+  runId: string,
+  workflowId: string,
+  options?: RunSyncOptions,
+): Promise<WorkflowRunDetail | null> {
+  const provider = options?.provider ?? resolveProvider()
+  if (!provider.getRunDetail) return null
+  const entry = await db.getRunForSync(runId, workflowId)
+  if (!entry?.run.connectionId || !entry.run.instanceId) return null
+  const connection = await db.getProviderConnectionById(entry.run.connectionId)
+  if (!connection) return null
+  const credentials = JSON.parse(connection.credentials) as Record<string, string>
+  return syncRun(db, provider, connection.provider, credentials, entry)
+}
+
 async function syncRun(
   db: DatabaseAdapter,
   provider: WorkflowProvider,
   providerName: string,
   credentials: Record<string, string>,
   entry: ActiveRunForSync,
-): Promise<void> {
+): Promise<WorkflowRunDetail> {
   const { run, workflowName } = entry
   const config: ProviderConfig = {
     provider: providerName,
@@ -86,7 +107,7 @@ async function syncRun(
     await db.updateRun(run.id, updates)
   }
 
-  if (detail.steps.length === 0) return
+  if (detail.steps.length === 0) return detail
   const manifest = parseStepManifest(entry.configSnapshot)
   const rows: UpsertRunStepData[] = detail.steps.map((step) => ({
     id: nanoid(),
@@ -101,6 +122,7 @@ async function syncRun(
     endedAt: step.end ?? null,
   }))
   await db.upsertRunSteps(run.id, rows)
+  return detail
 }
 
 /**

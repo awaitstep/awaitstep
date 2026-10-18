@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import type { WorkflowProvider, WorkflowRunDetail } from '@awaitstep/codegen'
-import { syncActiveRuns } from '../lib/run-sync.js'
+import { syncActiveRuns, syncRunById } from '../lib/run-sync.js'
 import {
   createTestApp,
   mockDb,
@@ -207,5 +207,111 @@ describe('GET /api/workflows/:workflowId/runs/:runId/steps', () => {
     )
     expect(res.status).toBe(200)
     expect(((await res.json()) as { data: unknown[] }).data).toEqual([])
+  })
+})
+
+describe('syncRunById', () => {
+  beforeEach(() => {
+    resetStore()
+  })
+
+  it('reconciles one run on demand and returns the provider detail', async () => {
+    await seedActiveRun()
+    const provider = stubProvider({
+      status: 'complete',
+      steps: [{ name: 'step-1', kind: 'do', index: 1, status: 'complete', attemptCount: 1 }],
+    })
+    const detail = await syncRunById(mockDb, 'run-1', 'wf-1', { provider })
+    expect(detail?.status).toBe('complete')
+    expect((await mockDb.getWorkflowRunById('run-1'))!.status).toBe('complete')
+    expect((await mockDb.listRunSteps('run-1', 'wf-1')).steps).toHaveLength(1)
+  })
+
+  it('returns null for a run outside the workflow', async () => {
+    await seedActiveRun()
+    const provider = stubProvider({ status: 'complete' })
+    expect(await syncRunById(mockDb, 'run-1', 'other-wf', { provider })).toBeNull()
+  })
+})
+
+describe('GET /api/workflows/:workflowId/runs/:runId/stream', () => {
+  beforeEach(() => {
+    resetStore()
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('streams run and step events, writes through, and closes with done once terminal', async () => {
+    const app = createTestApp()
+    await seedActiveRun()
+    // The route reconciles through the real Cloudflare adapter; stand in for
+    // the instance-describe endpoint with a completed instance.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            result: {
+              id: 'inst-1',
+              status: 'complete',
+              step_count: 1,
+              steps: [
+                {
+                  type: 'step',
+                  name: 'step-1',
+                  success: true,
+                  start: '2026-10-17T00:00:00Z',
+                  end: '2026-10-17T00:00:01Z',
+                },
+              ],
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      ),
+    )
+    const res = await app.request(
+      `/api/workflows/wf-1/runs/run-1/stream?projectId=${TEST_PROJECT_ID}`,
+    )
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('text/event-stream')
+    const text = await res.text()
+    const order = ['event: run', 'event: step', 'event: done'].map((m) => text.indexOf(m))
+    expect(order.every((i) => i >= 0)).toBe(true)
+    expect(order).toEqual([...order].sort((a, b) => a - b))
+    expect(text).toContain('"status":"complete"')
+    // Write-through: the tick reconciled the DB, not just the stream.
+    expect((await mockDb.getWorkflowRunById('run-1'))!.status).toBe('complete')
+    expect((await mockDb.listRunSteps('run-1', 'wf-1')).steps).toHaveLength(1)
+  })
+
+  it('reports a provider failure as an error event and closes', async () => {
+    const app = createTestApp()
+    await seedActiveRun()
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('upstream unreachable')))
+    const res = await app.request(
+      `/api/workflows/wf-1/runs/run-1/stream?projectId=${TEST_PROJECT_ID}`,
+    )
+    const text = await res.text()
+    expect(text).toContain('event: error')
+    expect(text).toContain('upstream unreachable')
+    expect(text).not.toContain('event: done')
+  })
+
+  it('404s for a run that is not in the workflow', async () => {
+    const app = createTestApp()
+    await seedActiveRun()
+    await mockDb.createWorkflow({
+      id: 'wf-2',
+      projectId: TEST_PROJECT_ID,
+      createdBy: TEST_USER_ID,
+      name: 'Other',
+    })
+    const res = await app.request(
+      `/api/workflows/wf-2/runs/run-1/stream?projectId=${TEST_PROJECT_ID}`,
+    )
+    expect(res.status).toBe(404)
   })
 })

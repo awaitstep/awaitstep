@@ -269,6 +269,19 @@ const mockDb: DatabaseAdapter = {
       })
   },
 
+  async getRunForSync(runId, workflowId) {
+    const run = store.runs.get(runId)
+    if (!run || run.workflowId !== workflowId) return null
+    const [entry] = (await this.listActiveRunsForSync()).filter((e) => e.run.id === runId)
+    return (
+      entry ?? {
+        run,
+        workflowName: store.workflows.get(run.workflowId)?.name ?? '',
+        configSnapshot: null,
+      }
+    )
+  },
+
   // Run steps
   async upsertRunSteps(runId, steps) {
     for (const s of steps) {
