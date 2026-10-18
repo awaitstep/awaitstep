@@ -333,17 +333,84 @@ type ZundoHandleSet = NonNullable<
   NonNullable<Parameters<typeof temporal<WorkflowState, [], [], UndoableState>>[1]>['handleSet']
 >
 
+/**
+ * History tracks the SEMANTIC graph, not React Flow's view objects. React
+ * Flow routes every change through onNodesChange — including `select` (a
+ * click, or a freshly added node auto-selecting) and `dimensions` (a node
+ * mounting and being measured) — and each one yields a fresh nodes array.
+ * Tracking those would bury the real edit several entries deep: add → measure
+ * → select → drag means four undos to remove one node. So the slice keeps
+ * only identity, type, position, data (and the transient dragging flag the
+ * drag-collapse anchor needs); restoring it hands React Flow nodes it simply
+ * re-measures, with no stale selection.
+ */
+function undoableNode(node: FlowNode): FlowNode {
+  return {
+    id: node.id,
+    type: node.type,
+    position: node.position,
+    data: node.data,
+    ...(node.dragging !== undefined && { dragging: node.dragging }),
+  }
+}
+
+function undoableEdge(edge: Edge): Edge {
+  return {
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    ...(edge.label !== undefined && { label: edge.label }),
+    ...(edge.type !== undefined && { type: edge.type }),
+    ...(edge.sourceHandle != null && { sourceHandle: edge.sourceHandle }),
+    ...(edge.targetHandle != null && { targetHandle: edge.targetHandle }),
+  }
+}
+
 function undoableSlice(state: WorkflowState): UndoableState {
   return {
     kind: state.kind,
     metadata: state.metadata,
-    nodes: state.nodes,
-    edges: state.edges,
+    nodes: state.nodes.map(undoableNode),
+    edges: state.edges.map(undoableEdge),
     workflowEnvVars: state.workflowEnvVars,
     dependencies: state.dependencies,
     triggerCode: state.triggerCode,
     runtimeBindings: state.runtimeBindings,
   }
+}
+
+function sameNodes(a: FlowNode[], b: FlowNode[]): boolean {
+  if (a.length !== b.length) return false
+  return a.every((node, i) => {
+    const other = b[i]!
+    return (
+      node.id === other.id &&
+      node.type === other.type &&
+      node.data === other.data &&
+      node.position.x === other.position.x &&
+      node.position.y === other.position.y &&
+      // The drag flag flipping is what lets the drop reach the recorder —
+      // without it the final tick (same position, dragging → false) would be
+      // skipped as equal and the anchored pre-drag state never recorded.
+      (node.dragging ?? false) === (other.dragging ?? false)
+    )
+  })
+}
+
+function sameEdges(a: Edge[], b: Edge[]): boolean {
+  if (a.length !== b.length) return false
+  return a.every((edge, i) => {
+    const other = b[i]!
+    return (
+      edge.id === other.id &&
+      edge.source === other.source &&
+      edge.target === other.target &&
+      edge.label === other.label &&
+      edge.type === other.type &&
+      edge.sourceHandle === other.sourceHandle &&
+      edge.targetHandle === other.targetHandle
+    )
+  })
 }
 
 /**
@@ -354,8 +421,8 @@ function undoableEquality(past: UndoableState, current: UndoableState): boolean 
   return (
     past.kind === current.kind &&
     past.metadata === current.metadata &&
-    past.nodes === current.nodes &&
-    past.edges === current.edges &&
+    sameNodes(past.nodes, current.nodes) &&
+    sameEdges(past.edges, current.edges) &&
     past.workflowEnvVars === current.workflowEnvVars &&
     past.dependencies === current.dependencies &&
     past.triggerCode === current.triggerCode &&
@@ -777,23 +844,67 @@ export const useWorkflowStore = create<WorkflowState>()(
  * invariants: a time-travelled graph is unsaved by definition, and a stale
  * validation report would point at nodes that may no longer exist.
  */
-function applyTimeTravel(step: () => void): void {
-  const { readOnly } = useWorkflowStore.getState()
-  if (readOnly) return
+/** What a time-travel step did to the node set, for user-facing feedback. */
+export interface TimeTravelSummary {
+  direction: 'undo' | 'redo'
+  removedNodeNames: string[]
+  addedNodeNames: string[]
+}
+
+function applyTimeTravel(direction: 'undo' | 'redo', step: () => void): TimeTravelSummary | null {
+  const before = useWorkflowStore.getState()
+  if (before.readOnly) return null
   step()
-  useWorkflowStore.setState({ isDirty: true, validationResult: null, simulationResult: null })
+  const after = useWorkflowStore.getState()
+  const afterIds = new Set(after.nodes.map((n) => n.id))
+  const beforeIds = new Set(before.nodes.map((n) => n.id))
+  // A time-travelled graph is unsaved by definition, stale reports may name
+  // nodes that no longer exist, and the config panel must not keep showing a
+  // node the undo just removed.
+  useWorkflowStore.setState({
+    isDirty: true,
+    validationResult: null,
+    simulationResult: null,
+    ...(after.selectedNodeId && !afterIds.has(after.selectedNodeId) && { selectedNodeId: null }),
+  })
+  return {
+    direction,
+    removedNodeNames: before.nodes
+      .filter((n) => !afterIds.has(n.id))
+      .map((n) => n.data.irNode.name),
+    addedNodeNames: after.nodes.filter((n) => !beforeIds.has(n.id)).map((n) => n.data.irNode.name),
+  }
 }
 
-export function undoWorkflowEdit(): void {
+export function undoWorkflowEdit(): TimeTravelSummary | null {
   const temporalState = useWorkflowStore.temporal.getState()
-  if (temporalState.pastStates.length === 0) return
-  applyTimeTravel(() => temporalState.undo())
+  if (temporalState.pastStates.length === 0) return null
+  return applyTimeTravel('undo', () => temporalState.undo())
 }
 
-export function redoWorkflowEdit(): void {
+export function redoWorkflowEdit(): TimeTravelSummary | null {
   const temporalState = useWorkflowStore.temporal.getState()
-  if (temporalState.futureStates.length === 0) return
-  applyTimeTravel(() => temporalState.redo())
+  if (temporalState.futureStates.length === 0) return null
+  return applyTimeTravel('redo', () => temporalState.redo())
+}
+
+/**
+ * One-line description of a time-travel step worth telling the user about
+ * — node additions and removals, which are easy to miss on a busy canvas.
+ * Position/config changes return null (visible where they happened).
+ */
+export function describeTimeTravel(summary: TimeTravelSummary | null): string | null {
+  if (!summary) return null
+  const verb = summary.direction === 'undo' ? 'Undo' : 'Redo'
+  const list = (names: string[]) =>
+    names.length === 1 ? `node “${names[0]}”` : `${names.length} nodes`
+  if (summary.removedNodeNames.length > 0) {
+    return `${verb}: removed ${list(summary.removedNodeNames)}`
+  }
+  if (summary.addedNodeNames.length > 0) {
+    return `${verb}: restored ${list(summary.addedNodeNames)}`
+  }
+  return null
 }
 
 /**

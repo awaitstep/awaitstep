@@ -19,7 +19,8 @@ import {
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { cn } from '../../lib/utils'
-import { redoWorkflowEdit, undoWorkflowEdit, useTemporalStore } from '../../stores/workflow-store'
+import { useTemporalStore } from '../../stores/workflow-store'
+import { redoWithFeedback, undoWithFeedback } from './time-travel'
 
 export interface EditorToolbarProps {
   workflowId: string
@@ -341,7 +342,7 @@ function UndoRedoButtons() {
       <Button
         variant="ghost"
         size="sm"
-        onClick={undoWorkflowEdit}
+        onClick={undoWithFeedback}
         disabled={!canUndo}
         title="Undo (⌘Z)"
         className="h-8 px-2 text-muted-foreground/70 hover:text-foreground"
@@ -351,7 +352,7 @@ function UndoRedoButtons() {
       <Button
         variant="ghost"
         size="sm"
-        onClick={redoWorkflowEdit}
+        onClick={redoWithFeedback}
         disabled={!canRedo}
         title="Redo (⇧⌘Z)"
         className="h-8 px-2 text-muted-foreground/70 hover:text-foreground"

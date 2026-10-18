@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import {
   clearWorkflowHistory,
+  describeTimeTravel,
   redoWorkflowEdit,
   undoWorkflowEdit,
   useWorkflowStore,
@@ -112,6 +113,65 @@ describe('workflow undo/redo', () => {
       .onNodesChange([{ id, type: 'position', position: { x: 80, y: 80 } }])
 
     expect(history().past).toBe(before + 1)
+  })
+
+  it('ignores React Flow select and dimensions changes (clicks, mount measurement)', () => {
+    useWorkflowStore.getState().addNode('step', { x: 0, y: 0 })
+    const id = useWorkflowStore.getState().nodes[0]!.id
+    const before = history().past
+
+    useWorkflowStore.getState().onNodesChange([{ id, type: 'select', selected: true }])
+    useWorkflowStore
+      .getState()
+      .onNodesChange([{ id, type: 'dimensions', dimensions: { width: 120, height: 40 } }])
+    useWorkflowStore.getState().onNodesChange([{ id, type: 'select', selected: false }])
+
+    expect(history().past).toBe(before)
+  })
+
+  it('add → select → drag → undo → undo removes the node (the reported scenario)', () => {
+    useWorkflowStore.getState().addNode('step', { x: 0, y: 0 })
+    const id = useWorkflowStore.getState().nodes[0]!.id
+    // React Flow auto-selects and measures a freshly added node.
+    useWorkflowStore.getState().onNodesChange([{ id, type: 'select', selected: true }])
+    useWorkflowStore
+      .getState()
+      .onNodesChange([{ id, type: 'dimensions', dimensions: { width: 120, height: 40 } }])
+    for (let i = 1; i <= 3; i++) {
+      useWorkflowStore
+        .getState()
+        .onNodesChange([{ id, type: 'position', position: { x: i * 10, y: 0 }, dragging: true }])
+    }
+    useWorkflowStore
+      .getState()
+      .onNodesChange([{ id, type: 'position', position: { x: 30, y: 0 }, dragging: false }])
+
+    undoWorkflowEdit()
+    expect(useWorkflowStore.getState().nodes[0]!.position).toEqual({ x: 0, y: 0 })
+    const summary = undoWorkflowEdit()
+    expect(nodeCount()).toBe(0)
+    expect(summary?.removedNodeNames).toHaveLength(1)
+  })
+
+  it('clears the selection when the undone node was the selected one', () => {
+    useWorkflowStore.getState().addNode('step', { x: 0, y: 0 })
+    const id = useWorkflowStore.getState().nodes[0]!.id
+    useWorkflowStore.getState().selectNode(id)
+    undoWorkflowEdit()
+    expect(useWorkflowStore.getState().selectedNodeId).toBeNull()
+  })
+
+  it('describes node removals and restorations for the toast, and nothing for moves', () => {
+    expect(
+      describeTimeTravel({ direction: 'undo', removedNodeNames: ['Fetch'], addedNodeNames: [] }),
+    ).toBe('Undo: removed node “Fetch”')
+    expect(
+      describeTimeTravel({ direction: 'redo', removedNodeNames: [], addedNodeNames: ['A', 'B'] }),
+    ).toBe('Redo: restored 2 nodes')
+    expect(
+      describeTimeTravel({ direction: 'undo', removedNodeNames: [], addedNodeNames: [] }),
+    ).toBe(null)
+    expect(describeTimeTravel(null)).toBeNull()
   })
 
   it('clearWorkflowHistory drops past and future', () => {
