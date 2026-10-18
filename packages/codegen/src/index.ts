@@ -22,7 +22,9 @@ export type {
   DeploymentConfigUiVisibility,
   DeploymentConfigValidator,
   DeploymentConfigPreview,
+  SourceMode,
 } from './types.js'
+export { SOURCE_MODES } from './types.js'
 
 export type { WorkflowProvider, CredentialsCheckResult, LocalDevProvider } from './provider.js'
 export { supportsLocalDev } from './provider.js'

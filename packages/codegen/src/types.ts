@@ -37,6 +37,15 @@ export interface GeneratedBundle {
   manifest?: StepManifest
 }
 
+export const SOURCE_MODES = ['generated', 'ejected', 'sdk'] as const
+
+/**
+ * Who owns a version's deployable source: the canvas (`generated`, produced
+ * on demand from the IR), the user after eject (`ejected`, the stored bundle
+ * is the truth), or the SDK push flow (`sdk`).
+ */
+export type SourceMode = (typeof SOURCE_MODES)[number]
+
 export interface ProviderConfig {
   provider: string
   credentials: Record<string, string>
