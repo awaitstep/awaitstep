@@ -1,4 +1,4 @@
-import { Heading, Link, Section, Text } from '@react-email/components'
+import { Heading, Link, Section, Text } from 'react-email'
 import Layout from '../layout.js'
 
 interface MagicLinkEmailProps {

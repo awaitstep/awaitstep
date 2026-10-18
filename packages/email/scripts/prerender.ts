@@ -7,7 +7,7 @@
 // placeholder strings through React, so the rendered HTML contains those
 // tokens verbatim, ready for a simple .replaceAll() at runtime.
 
-import { render } from '@react-email/components'
+import { render } from '@react-email/render'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'

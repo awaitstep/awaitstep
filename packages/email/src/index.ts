@@ -1,7 +1,5 @@
 import { MAGIC_LINK_HTML } from './templates/__generated__/magic-link.js'
 
-export { MagicLinkEmail } from './templates/magic-link.js'
-
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
