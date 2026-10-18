@@ -365,6 +365,19 @@ export const endpoints: EndpointDef[] = [
     hasBody: false,
   },
   {
+    id: 'stream-run',
+    group: 'Runs',
+    method: 'GET',
+    path: '/api/workflows/:workflowId/runs/:runId/stream',
+    label: 'Stream run events (SSE)',
+    scope: 'read',
+    params: [
+      { name: 'workflowId', in: 'path', required: true },
+      { name: 'runId', in: 'path', required: true },
+    ],
+    hasBody: false,
+  },
+  {
     id: 'pause-run',
     group: 'Runs',
     method: 'POST',

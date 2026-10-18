@@ -6,6 +6,7 @@ import { computeStepStatuses } from '../../lib/compute-step-statuses'
 import { isTerminalRunStatus, mapRunStepsToNodeStatuses } from '../../lib/run-steps'
 import { RunCanvasPreview } from './run-canvas-preview'
 import { RunTimeline } from './run-timeline'
+import { useRunStream } from '../../hooks/use-run-stream'
 
 const EMPTY_STEPS = { data: [], coalescedInto: {} }
 
@@ -23,6 +24,7 @@ interface RunTelemetryProps {
 export function RunTelemetry({ workflowId, run }: RunTelemetryProps) {
   const queryClient = useQueryClient()
   const isActive = !isTerminalRunStatus(run.status)
+  useRunStream({ workflowId, runId: run.id, enabled: isActive })
 
   // The run and steps queries poll independently; when the run flips to
   // terminal, its polling stops but the last steps snapshot may predate the
