@@ -2,3 +2,34 @@ packages:
   - 'packages/*'
   - 'apps/*'
   - 'tooling/*'
+
+# Skip optional peer-dep resolution. Dependencies like better-auth declare
+# Next.js / SvelteKit / Solid / Vue as optional peers for their adapter
+# packages; with autoInstallPeers on, pnpm pulls those into the lockfile
+# (and node_modules/.pnpm) even though we never import them — bloating
+# installs and surfacing CVEs in code that's never executed. We only use
+# better-auth's React + Drizzle adapters, which are direct deps.
+autoInstallPeers: false
+
+# Security floors for transitive packages (moved from package.json "pnpm.overrides",
+# which pnpm 12 no longer reads).
+overrides:
+  h3: '>=2.0.1-rc.19'
+  h3-v2: 'npm:h3@>=2.0.1-rc.19'
+  defu: '>=6.1.5'
+  dompurify: '>=3.4.3'
+  lodash-es: '>=4.18.1'
+  next: '>=16.2.6'
+
+# Native/binary postinstall scripts pnpm 12 blocks unless allowlisted.
+allowBuilds:
+  better-sqlite3: true
+  esbuild: true
+  sharp: true
+  workerd: true
+
+# Third-party packages that ship agent skills are never linked into this
+# repo's .claude/skills — ours are hand-written.
+permissions:
+  '@tanstack/react-start':
+    skills: false
