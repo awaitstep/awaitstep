@@ -146,6 +146,7 @@ export interface DatabaseAdapter {
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<WorkflowRun>>
   listActiveRunsForSync(limit?: number): Promise<ActiveRunForSync[]>
+  getRunForSync(runId: string, workflowId: string): Promise<ActiveRunForSync | null>
 
   // Run steps (per-step telemetry)
   upsertRunSteps(runId: string, steps: UpsertRunStepData[]): Promise<void>

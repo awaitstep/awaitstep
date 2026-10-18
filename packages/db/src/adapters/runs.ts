@@ -95,6 +95,31 @@ export class RunsAdapter {
     return rows as ActiveRunForSync[]
   }
 
+  /**
+   * One run with the same JOINed context listActiveForSync provides, for
+   * on-demand reconciliation (the live stream). Ownership is enforced in the
+   * query: a run from another workflow reads as null.
+   */
+  async getForSync(runId: string, workflowId: string): Promise<ActiveRunForSync | null> {
+    const runs = this.table
+    const workflows = this.workflowsTable
+    const deployments = this.deploymentsTable
+    if (!workflows || !deployments) {
+      throw new Error('RunsAdapter needs workflows and deployments tables for sync queries')
+    }
+    const rows = await this.db
+      .select({
+        run: runs,
+        workflowName: workflows.name,
+        configSnapshot: latestDeploymentSnapshot(deployments, runs),
+      })
+      .from(runs)
+      .innerJoin(workflows, eq(runs.workflowId, workflows.id))
+      .where(and(eq(runs.id, runId), eq(runs.workflowId, workflowId)))
+      .limit(1)
+    return (rows[0] as ActiveRunForSync | undefined) ?? null
+  }
+
   async update(
     id: string,
     data: { status?: string; output?: string; error?: string; updatedAt?: string },

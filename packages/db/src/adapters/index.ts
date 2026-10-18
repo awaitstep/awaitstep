@@ -350,6 +350,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   listActiveRunsForSync(limit?: number): Promise<ActiveRunForSync[]> {
     return this._runs.listActiveForSync(limit)
   }
+  getRunForSync(runId: string, workflowId: string): Promise<ActiveRunForSync | null> {
+    return this._runs.getForSync(runId, workflowId)
+  }
   upsertRunSteps(runId: string, steps: UpsertRunStepData[]): Promise<void> {
     return this._runSteps.upsertMany(runId, steps)
   }

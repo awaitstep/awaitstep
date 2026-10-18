@@ -151,3 +151,14 @@ describe('listActiveRunsForSync', () => {
     expect(active[0]!.configSnapshot).toBeNull()
   })
 })
+
+describe('getRunForSync', () => {
+  it('returns one run with the same joined context, scoped to its workflow', async () => {
+    const { adapter, sqlite } = createTestDb()
+    seedRun(sqlite, 'run-1', 'complete')
+    const entry = await adapter.getRunForSync('run-1', 'wf-1')
+    expect(entry?.run.id).toBe('run-1')
+    expect(entry?.workflowName).toBe('My Flow')
+    expect(await adapter.getRunForSync('run-1', 'other-wf')).toBeNull()
+  })
+})
