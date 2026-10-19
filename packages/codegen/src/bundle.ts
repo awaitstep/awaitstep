@@ -1,3 +1,11 @@
+import type { ProjectFile } from '@awaitstep/ir'
+import {
+  PACKAGE_MANIFEST_PATH,
+  PROJECT_ROOT_CONFIG_FILES,
+  compiledPathKey,
+  isProjectCodePath,
+  isReservedToolchainPath,
+} from '@awaitstep/ir'
 import type { GeneratedArtifact, GeneratedBundle, GeneratedFile } from './types.js'
 
 /** Wraps a legacy single-file artifact in the bundle shape. */
@@ -30,27 +38,42 @@ export function bundleCodeFiles(bundle: GeneratedBundle): GeneratedFile[] {
 
 const SAFE_SEGMENT = /^[A-Za-z0-9_][A-Za-z0-9._-]*$/
 
-const RESERVED_CODE_FILENAMES = new Set([
-  'package.json',
-  'package-lock.json',
-  'npm-shrinkwrap.json',
-  'tsconfig.json',
-  'jsconfig.json',
-])
+/** The only paths a config/meta-role file may have — exact, root-level. */
+const BUNDLE_CONFIG_ALLOWLIST = new Set<string>(PROJECT_ROOT_CONFIG_FILES)
 
 /**
- * True when npm, wrangler, or tsc would interpret a file of this name in the
- * deploy directory instead of treating it as inert worker code. Code-role
- * files are written verbatim to the directory where `npm install` and
- * `wrangler deploy` run, so these names must never be claimable by
- * user-edited bundles — regardless of nesting (Node and esbuild resolve the
- * nearest package.json, so depth is no protection).
+ * Project-owned files ride along in the bundle: code becomes modules, the
+ * root package.json is the deploy's `meta` input, other root toolchain
+ * config is `config`, and everything else is an `asset` written verbatim.
  */
-function isReservedCodePath(path: string): boolean {
-  const segments = path.toLowerCase().split('/')
-  if (segments.includes('node_modules')) return true
-  const basename = segments[segments.length - 1]!
-  return RESERVED_CODE_FILENAMES.has(basename) || basename.startsWith('wrangler.')
+export function projectBundleFiles(files: readonly ProjectFile[] | undefined): GeneratedFile[] {
+  return (files ?? []).map((file) => ({
+    path: file.path,
+    source: file.source,
+    role: projectFileRole(file.path),
+  }))
+}
+
+function projectFileRole(path: string): GeneratedFile['role'] {
+  if (path === PACKAGE_MANIFEST_PATH) return 'meta'
+  if ((PROJECT_ROOT_CONFIG_FILES as readonly string[]).includes(path)) return 'config'
+  return isProjectCodePath(path) ? 'module' : 'asset'
+}
+
+/**
+ * Everything a deployer writes into the deploy directory: code and assets
+ * only. Config/meta roles never reach the disk — the deployer generates
+ * wrangler config and merges package.json itself, and a project tsconfig
+ * is an editor-typing input, not something the bundler may read (its
+ * `paths`/`baseUrl` could pull files off the build host).
+ */
+export function bundleDeployFiles(bundle: GeneratedBundle): GeneratedFile[] {
+  return bundle.files.filter((f) => f.role === 'entry' || f.role === 'module' || f.role === 'asset')
+}
+
+/** The project's own package.json source, when the bundle carries one. */
+export function bundlePackageManifest(bundle: GeneratedBundle): string | undefined {
+  return bundle.files.find((f) => f.path === PACKAGE_MANIFEST_PATH)?.source
 }
 
 /**
@@ -82,10 +105,21 @@ export function validateBundle(bundle: GeneratedBundle): GeneratedBundle {
   for (const file of bundle.files) {
     assertSafeBundlePath(file.path)
     const isCode = file.role === 'entry' || file.role === 'module'
-    if (isCode && isReservedCodePath(file.path)) {
+    // Code and assets are written verbatim to the directory where `npm
+    // install` and `wrangler deploy` run, so toolchain names are never
+    // claimable at any depth. Config/meta roles exist only for the root
+    // files a project may own; a fixed allowlist here means no later change
+    // to what deployers write can smuggle a lockfile or wrangler config in.
+    if (file.role === 'config' || file.role === 'meta') {
+      if (!BUNDLE_CONFIG_ALLOWLIST.has(file.path)) {
+        throw new Error(
+          `Config/meta files are limited to ${PROJECT_ROOT_CONFIG_FILES.join(', ')} at the project root: "${file.path}"`,
+        )
+      }
+    } else if (isReservedToolchainPath(file.path)) {
       throw new Error(`Reserved toolchain filename in bundle: "${file.path}" — rename the file`)
     }
-    const outPath = isCode ? file.path.replace(/\.ts$/, '.js') : file.path
+    const outPath = isCode ? compiledPathKey(file.path) : file.path.toLowerCase()
     if (rewritten.has(outPath)) {
       throw new Error(`Bundle file paths collide after compile rewrite: "${outPath}"`)
     }

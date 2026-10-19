@@ -44,6 +44,9 @@ export {
   bundleCodeFiles,
   assertSafeBundlePath,
   validateBundle,
+  projectBundleFiles,
+  bundleDeployFiles,
+  bundlePackageManifest,
 } from './bundle.js'
 export { escName } from './var-names.js'
 export { computeVarNames, createGenerationContext, inlineGenerationContext } from './context.js'

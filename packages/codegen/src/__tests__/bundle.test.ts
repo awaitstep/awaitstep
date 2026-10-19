@@ -40,7 +40,10 @@ describe('bundleCodeFiles', () => {
 })
 
 describe('validateBundle reserved filenames', () => {
-  function bundleWith(path: string, role: 'entry' | 'module' | 'config'): GeneratedBundle {
+  function bundleWith(
+    path: string,
+    role: GeneratedBundle['files'][number]['role'],
+  ): GeneratedBundle {
     return {
       entry: 'worker.ts',
       files: [
@@ -80,8 +83,21 @@ describe('validateBundle reserved filenames', () => {
     )
   })
 
-  it('allows server-authored config-role files to use toolchain names', () => {
-    expect(() => validateBundle(bundleWith('wrangler.json', 'config'))).not.toThrow()
+  it('limits config/meta roles to the root toolchain files a project may own', () => {
+    expect(() => validateBundle(bundleWith('package.json', 'meta'))).not.toThrow()
+    expect(() => validateBundle(bundleWith('tsconfig.json', 'config'))).not.toThrow()
+    expect(() => validateBundle(bundleWith('jsconfig.json', 'config'))).not.toThrow()
+    for (const [path, role] of [
+      ['wrangler.json', 'config'],
+      ['package-lock.json', 'meta'],
+      ['config/package.json', 'meta'],
+      ['node_modules/x.json', 'config'],
+      ['notes.json', 'meta'],
+    ] as const) {
+      expect(() => validateBundle(bundleWith(path, role)), `${role}:${path}`).toThrow(
+        'Config/meta files are limited to',
+      )
+    }
   })
 
   it('allows ordinary module paths', () => {

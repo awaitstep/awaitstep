@@ -13,7 +13,12 @@ export interface GeneratedArtifact {
   compiled?: string
 }
 
-export type GeneratedFileRole = 'entry' | 'module' | 'config' | 'meta'
+/**
+ * `entry`/`module` are transpiled and bundled; `config` (tsconfig) and
+ * `meta` (package.json) steer the toolchain; `asset` files (JSON, docs,
+ * styles) are written verbatim and never transpiled.
+ */
+export type GeneratedFileRole = 'entry' | 'module' | 'config' | 'meta' | 'asset'
 
 export interface GeneratedFile {
   /** Bundle-relative path, e.g. `worker.ts` or `src/nodes/fetch_data.ts`. */
