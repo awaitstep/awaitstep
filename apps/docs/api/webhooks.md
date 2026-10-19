@@ -40,7 +40,7 @@ When the service sends a POST request, the Worker parses the JSON body, creates 
 
 ### Customising the trigger code
 
-The default trigger code creates an instance for any POST request. You can customise it in `handlers.ts` (click **Code** in the canvas toolbar, then open `handlers.ts` under **Project**) to:
+The default trigger code creates an instance for any POST request. You can customise it in `handlers/fetch.ts` (click **Code** in the canvas toolbar, then create the file under **Project**) to:
 
 - Validate a signature before accepting the webhook
 - Extract specific fields from the request body

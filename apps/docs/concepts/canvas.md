@@ -62,7 +62,7 @@ Secret values are never stored in the IR or in the AwaitStep database. They exis
 
 **Code** in the toolbar opens the same workflow as a project in the browser IDE. The explorer has two groups:
 
-- **Project** — files you own: `handlers.ts` (the `@fetch` / `@queue` / `@scheduled` entry handlers), `package.json` (npm dependencies), and any code or data files you create in any folder. Import them from anywhere as `#app/<path>`. Edits save per file (⌘S) and take effect on the next deploy without creating a new version.
+- **Project** — files you own: the handler modules (`handlers/fetch.ts` for HTTP, `handlers/queue/<queue>.ts` for each queue you consume, `handlers/scheduled.ts` for cron triggers, with anything they share in `handlers/shared.ts`), `package.json` (npm dependencies), and any code or data files you create in any folder. Import them from anywhere as `#app/<path>`. Edits save per file (⌘S) and take effect on the next deploy without creating a new version. A workflow that still has the older annotated `handlers.ts` can convert it from the file's menu.
 - **Generated** — `worker.ts` and `nodes/*.ts`, compiled from the canvas. Read-only: the canvas regenerates them on every save, so put your code in a project file instead (or eject the workflow to take over the generated source).
 
 What starts the workflow (manual, HTTP, cron, queue) is part of the workflow definition; the handler code that runs for it is what you edit in `handlers.ts`.

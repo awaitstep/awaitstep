@@ -82,7 +82,7 @@ if (instanceId) {
 return new Response(null, { status: 200 })
 ```
 
-You can customise this code in `handlers.ts`: click **Code** in the canvas toolbar and open `handlers.ts` under **Project**. It holds the `@fetch` handler (and any `@queue` / `@scheduled` handlers) with access to `request`, `env`, and `ctx`; ⌘S saves the file, and the next deploy compiles it into the Worker.
+You can customise this code in `handlers/fetch.ts`: click **Code** in the canvas toolbar and create the file under **Project** (the New file dialog accepts the path). It is a plain module whose default export receives `request`, `env`, and `ctx`; ⌘S saves it, and the next deploy wires it into the Worker. Queue consumers live in `handlers/queue/<queue>.ts` and the cron handler in `handlers/scheduled.ts`; the schedules themselves stay on the workflow's trigger and the deployment config.
 
 ### Incoming webhook example
 

@@ -64,7 +64,7 @@ Get a single workflow by ID.
 
 ### `GET /workflows/:id/full`
 
-Get a workflow with its current version, all version summaries, and active deployment. When the project has a `handlers.ts` file, `workflow.triggerCode` carries its contents (see [Project files](#project-files)).
+Get a workflow with its current version, all version summaries, and active deployment. `handlers` reports the project's handler modules (`modules`, `consumedQueues`); while a project still has the legacy `handlers.ts` file, `workflow.triggerCode` carries its contents, and once it uses modules `triggerCode` is `null` (see [Project files](#project-files)).
 
 **Scope:** `read`
 
@@ -450,7 +450,37 @@ the matching `imports` map (one pattern per extension), so wrangler
 (esbuild) and `wrangler dev` resolve it natively, and `#app/` is a valid Node
 subpath-import prefix, so the same code runs under Node tooling too.
 
-**handlers.ts.** The entry handlers — `@fetch`, `@queue` and `@scheduled`
+**Handler modules.** The entry handlers are plain ES modules under
+`handlers/`, each with a default export, and the filename is the only fact
+the deploy reads from them:
+
+| File                        | Export                                     | Declares                                                  |
+| --------------------------- | ------------------------------------------ | --------------------------------------------------------- |
+| `handlers/fetch.ts`         | `(request, env, ctx) => Promise<Response>` | the HTTP entry (the default scaffold is used when absent) |
+| `handlers/queue/<queue>.ts` | `(batch, env, ctx) => Promise<void>`       | a consumer of `<queue>` (lowercase letters, digits, `-`)  |
+| `handlers/scheduled.ts`     | `(controller, env, ctx) => Promise<void>`  | the handler for every cron trigger of the workflow        |
+
+The generated `worker.ts` imports whichever exist and wires them into its
+`export default`; a script also exports `runGraph` so `handlers/fetch.ts`
+can `import { runGraph } from '#app/worker'`. Nothing is parsed out of
+code: the queue binding, cron expressions (the workflow's cron trigger
+plus `deploymentConfig.cronTriggers`) and per-queue settings
+(`deploymentConfig.queueConsumers`) stay declared. A `handlers/scheduled.ts`
+without a schedule, or schedules without the module, fail the deploy with
+a message naming the missing half. Helpers may live under `handlers/` too,
+and `handlers/shared.ts` is special: the generated entry re-exports it, so
+anything the runtime must find on the Worker (a Durable Object class, say)
+belongs there. Writes are refused (`422`) for a path that merely looks like
+an entry (`handlers/Fetch.ts`, a queue file whose name is not a valid queue
+name), since it would silently never run, and for a second file naming an
+entry another file already provides. Those are write-time rules only:
+versions stored before the convention keep validating and deploying.
+`GET /workflows/:id/full` reports
+`handlers.modules` and `handlers.consumedQueues`. The code workspace and the
+canvas's bindings panel create consumer modules; the annotation file below
+and the folder never coexist (`422` on either write).
+
+**handlers.ts (legacy).** The entry handlers — `@fetch`, `@queue` and `@scheduled`
 functions in the annotation syntax the trigger-code setting uses — as a
 project file. When it exists it _is_ the trigger code: deploys, queue/cron
 detection, the generated `worker.ts` and the canvas all read it, and the
@@ -540,6 +570,43 @@ Returns `201` (created) or `200` (replaced) with `{ path, hash, size, updatedAt 
 and the new `ETag`; `422` (with `details` for a manifest) for invalid paths,
 compile collisions, invalid `package.json` or exceeded limits; `409` while the
 current version is ejected.
+
+### `GET /workflows/:workflowId/project/convert-handlers`
+
+A dry run of the conversion below: `{ source, paths, declarations }` where
+`source` is `"file"` (a stored `handlers.ts`), `"setting"` (the legacy
+trigger-code setting) or `"version"` (trigger code carried inline in the
+current version's IR), and `declarations` is what the annotations declared
+that modules cannot carry (for Cloudflare: `crons`, `queueConfigs`,
+`queueNames`). `404` when there is nothing to convert.
+
+**Scope:** `read`
+
+### `POST /workflows/:workflowId/project/convert-handlers`
+
+Splits the annotated `handlers.ts` — or, when the project has no such
+file, the legacy `triggerCode` setting or the current version's inline
+`runtime.triggerCode` — into handler modules, in one request: the
+declarations are folded first (applying them twice changes nothing, so a
+later failure costs only a retry), then the modules are written together,
+then the file is removed (optional `If-Match` against its hash). Module-level
+code the handlers shared becomes `handlers/shared.ts`. The legacy setting
+is left as it is: versions saved before the conversion still deploy from
+it, while the current version uses the modules. The `@crons` /
+`@config` facts the annotations carried are folded into the stored
+deployment configs of the workflow by the provider (for Cloudflare:
+`cronTriggers`, `queueConsumers`; overrides keyed by a handler's old JS name
+are renamed to its queue; declared settings win). Should `handlers.ts`
+change between the writes, the modules are withdrawn again and the
+response is `409` — the project never holds both models. Returns
+`{ source, files, declarations, deploymentConfigUpdated }`;
+`deploymentConfigUpdated` is false when no deployment config is stored yet,
+in which case declare the facts before deploying. `409` while the current
+version is ejected, when the hash does not match, or when the project
+already uses handler modules; `422` when the annotations do not parse or
+the resulting set breaks a project rule.
+
+**Scope:** `write`
 
 ### `DELETE /workflows/:workflowId/files/:path`
 
