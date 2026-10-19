@@ -67,6 +67,8 @@ Secret values are never stored in the IR or in the AwaitStep database. They exis
 
 What starts the workflow (manual, HTTP, cron, queue) is part of the workflow definition; the handler code that runs for it is what you edit in `handlers.ts`.
 
+The whole project is one TypeScript program: `#app/<path>` and relative imports resolve between your files and the generated ones (JSON files included), types flow across them, and the **Problems** panel lists issues in every file, opened or not. Declarations for the npm packages you import are fetched automatically from the registry CDN, at the version `package.json` declares; a package without types is treated as `any` rather than flagged. A root `tsconfig.json` can switch on strictness options such as `strict` or `noUnusedLocals`; path, library and module settings are fixed by the workspace so the generated modules and the Workers types always stay in the program.
+
 ## Validation
 
 The canvas continuously validates the workflow as you edit. Validation errors are shown as red badges on affected nodes and as a list in the bottom bar.

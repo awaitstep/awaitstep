@@ -467,7 +467,11 @@ that setting entirely). It always forces `private`, `"type": "module"`, the
 `#app/` map, and merges dependencies required by installed nodes; `scripts`,
 `workspaces`, `overrides` and similar are dropped, and installs run with
 `--ignore-scripts`. A root `tsconfig.json`/`jsconfig.json` is kept for the
-editor's type program and is never written to the deploy directory.
+editor's type program and is never written to the deploy directory: the
+code workspace honours its strictness switches (`strict`, `noImplicitAny`,
+`strictNullChecks`, `noUnusedLocals`, `noUnusedParameters`,
+`noImplicitReturns`, `checkJs` and the like), while `paths`, `lib`,
+`types`, `module` and resolution settings are fixed by the workspace.
 
 **Versions.** The project-file table is the source of truth: writes land
 immediately, every `POST /versions` snapshots the current set into the
