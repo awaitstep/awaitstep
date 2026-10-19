@@ -396,6 +396,9 @@ Returns `201` with `{ versionId, version, sourceMode, entry, fileCount }`.
 
 Read the deployable source for a version. Ejected/sdk versions return their
 stored bundle; generated versions return a freshly generated read-only view.
+Env vars only need to be declared, not set — a read never resolves values,
+so a workflow whose secrets are still missing can be viewed and edited
+(the deploy is what refuses until they resolve).
 
 **Scope:** `read`
 

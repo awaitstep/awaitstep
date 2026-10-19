@@ -48,6 +48,13 @@ interface WorkflowPrepareInput {
    * (used by POST /eject). Mutually exclusive with the stored-source path.
    */
   eject?: boolean
+  /**
+   * Whether every env var the workflow references must resolve to a value
+   * (the default — a deploy or local run cannot proceed without them). A
+   * read-only view of the source (the code workspace, an eject) needs the
+   * names only, which come from the IR; missing values are not an error.
+   */
+  requireEnvVars?: boolean
 }
 
 export async function prepareWorkflow(
@@ -141,7 +148,7 @@ export async function prepareWorkflow(
     ir,
     nodeRegistry,
   )
-  if (envResult.error) {
+  if (envResult.error && input.requireEnvVars !== false) {
     return { error: envResult.error, status: 400 }
   }
 

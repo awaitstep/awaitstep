@@ -66,6 +66,7 @@ source.post('/:workflowId/eject', zValidator('json', ejectSchema), async (c) => 
     projectId: c.get('projectId'),
     nodeRegistry: c.get('nodeRegistry'),
     versionId: body.versionId,
+    requireEnvVars: false,
     eject: true,
   })
   if (isPrepareError(prepared)) {
@@ -154,6 +155,7 @@ source.get('/:workflowId/source', async (c) => {
     projectId: c.get('projectId'),
     nodeRegistry: c.get('nodeRegistry'),
     version,
+    requireEnvVars: false,
   })
   if (isPrepareError(prepared)) {
     return c.json({ error: prepared.error, details: prepared.details }, prepared.status as 400)
