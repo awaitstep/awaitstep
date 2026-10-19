@@ -17,12 +17,21 @@ import { cn } from '../../lib/utils'
 
 interface CommandPaletteProps {
   actions: IdeCommandActions
-  canSave: boolean
+  canEdit: boolean
+  activeIsStoredFile: boolean
+  activeDirty: boolean
+  dirtyCount: number
 }
 
 const GROUP_ORDER: IdeCommandGroup[] = ['file', 'navigate', 'view']
 
-export function CommandPalette({ actions, canSave }: CommandPaletteProps) {
+export function CommandPalette({
+  actions,
+  canEdit,
+  activeIsStoredFile,
+  activeDirty,
+  dirtyCount,
+}: CommandPaletteProps) {
   const { open, closeDialog, hasActiveFile, openCount } = useIdeStore(
     useShallow((s) => ({
       open: s.dialog === 'palette',
@@ -39,17 +48,30 @@ export function CommandPalette({ actions, canSave }: CommandPaletteProps) {
   const groups = useMemo(() => {
     const commands = buildIdeCommands({
       hasActiveFile,
+      activeIsStoredFile,
+      activeDirty,
+      dirtyCount,
       openCount,
+      canEdit,
       explorerOpen,
       dockOpen,
-      canSave,
       actions,
     })
     return GROUP_ORDER.map((group) => ({
       group,
       commands: commands.filter((c) => c.group === group),
     }))
-  }, [hasActiveFile, openCount, explorerOpen, dockOpen, canSave, actions])
+  }, [
+    hasActiveFile,
+    activeIsStoredFile,
+    activeDirty,
+    dirtyCount,
+    openCount,
+    canEdit,
+    explorerOpen,
+    dockOpen,
+    actions,
+  ])
 
   function handleOpenChange(next: boolean) {
     if (!next) closeDialog()

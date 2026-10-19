@@ -19,8 +19,11 @@ const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
 interface EditorGroupProps {
   workflowId: string
+  /** Baseline with drafts laid over it — what the editor shows. */
   files: ReadonlyMap<string, GeneratedFile>
-  editability: Editability
+  dirty: ReadonlySet<string>
+  editabilityOf: (path: string) => Editability
+  onChange: (path: string, source: string) => void
 }
 
 interface CursorPosition {
@@ -28,7 +31,13 @@ interface CursorPosition {
   column: number
 }
 
-export function EditorGroup({ workflowId, files, editability }: EditorGroupProps) {
+export function EditorGroup({
+  workflowId,
+  files,
+  dirty,
+  editabilityOf,
+  onChange,
+}: EditorGroupProps) {
   useWorkflowTypeContext()
   const monaco = useMonaco()
   const { activePath, reveal, clearReveal } = useIdeStore(
@@ -38,10 +47,12 @@ export function EditorGroup({ workflowId, files, editability }: EditorGroupProps
   const [cursor, setCursor] = useState<CursorPosition>({ line: 1, column: 1 })
 
   const activeFile = activePath ? files.get(activePath) : undefined
+  const editability = activePath ? editabilityOf(activePath) : null
 
   // Models outlive editor mounts and the wrapper reuses them without
-  // re-applying `value`, so keep this workflow's models in step with the
-  // loaded bundle and drop them all when the workspace goes away.
+  // re-applying `value`, so keep this workflow's models in step with what
+  // the editor should show (drafts included — a draft equals its model, so
+  // typing never fights the sync) and drop them all when the workspace goes.
   useEffect(() => {
     if (monaco) syncWorkflowModels(monaco, workflowId, files)
   }, [monaco, workflowId, files])
@@ -80,11 +91,15 @@ export function EditorGroup({ workflowId, files, editability }: EditorGroupProps
     applyReveal()
   }
 
+  function handleChange(value: string | undefined) {
+    if (activeFile) onChange(activeFile.path, value ?? '')
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <EditorTabs files={files} />
+      <EditorTabs files={files} dirty={dirty} />
       <div className="min-h-0 flex-1">
-        {activeFile ? (
+        {activeFile && editability ? (
           <Suspense fallback={<div className="h-full bg-[oklch(0.12_0_0)]" />}>
             <MonacoEditor
               height="100%"
@@ -95,13 +110,19 @@ export function EditorGroup({ workflowId, files, editability }: EditorGroupProps
               options={editability.readOnly ? IDE_READONLY_EDITOR_OPTIONS : IDE_EDITOR_OPTIONS}
               beforeMount={configureMonaco}
               onMount={handleMount}
+              onChange={handleChange}
             />
           </Suspense>
         ) : (
           <EditorPlaceholder />
         )}
       </div>
-      <EditorStatusBar file={activeFile} cursor={cursor} editability={editability} />
+      <EditorStatusBar
+        file={activeFile}
+        cursor={cursor}
+        editability={editability}
+        dirty={activeFile ? dirty.has(activeFile.path) : false}
+      />
     </div>
   )
 }
@@ -110,10 +131,12 @@ function EditorStatusBar({
   file,
   cursor,
   editability,
+  dirty,
 }: {
   file: GeneratedFile | undefined
   cursor: CursorPosition
-  editability: Editability
+  editability: Editability | null
+  dirty: boolean
 }) {
   return (
     <div className="flex h-6 shrink-0 items-center justify-between border-t border-border bg-card px-3 text-[11px] text-muted-foreground/70">
@@ -126,13 +149,14 @@ function EditorStatusBar({
             <span className="hidden shrink-0 sm:inline" title={roleTitle(file.role)}>
               {file.role}
             </span>
+            {dirty && <span className="shrink-0 text-status-warning">Modified</span>}
           </>
         ) : (
           <span>No file open</span>
         )}
       </div>
       <div className="flex shrink-0 items-center gap-3">
-        {editability.readOnly && (
+        {editability?.readOnly && (
           <span className="inline-flex items-center gap-1" title={editability.message ?? undefined}>
             <Lock className="h-3 w-3" />
             Read-only

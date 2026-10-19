@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import type { GeneratedFile } from '@awaitstep/codegen'
 import { useIdeLayoutStore } from '../ide-layout-store'
 import { useIdeStore } from '../ide-store'
+
+const baseline = new Map<string, GeneratedFile>([
+  ['a.ts', { path: 'a.ts', source: 'base', role: 'module' }],
+])
 
 describe('useIdeStore (session)', () => {
   beforeEach(() => {
@@ -30,12 +35,52 @@ describe('useIdeStore (session)', () => {
     expect(useIdeStore.getState().reveal).toBeNull()
   })
 
-  it('allows only one dialog at a time', () => {
-    useIdeStore.getState().showDialog('palette')
+  it('allows only one dialog at a time and remembers its target', () => {
+    useIdeStore.getState().showDialog('renameFile', 'a.ts')
+    expect(useIdeStore.getState()).toMatchObject({ dialog: 'renameFile', dialogTarget: 'a.ts' })
     useIdeStore.getState().showDialog('quickOpen')
-    expect(useIdeStore.getState().dialog).toBe('quickOpen')
+    expect(useIdeStore.getState()).toMatchObject({ dialog: 'quickOpen', dialogTarget: null })
     useIdeStore.getState().closeDialog()
     expect(useIdeStore.getState().dialog).toBeNull()
+  })
+
+  it('tracks drafts and reconciles them against the baseline', () => {
+    const s = useIdeStore.getState()
+    s.setDraft('a.ts', 'edited', 'h1')
+    s.setDraft('b.ts', 'new', null)
+    useIdeStore.getState().reconcileDrafts(baseline)
+    expect(useIdeStore.getState().drafts).toEqual({
+      'a.ts': { source: 'edited', baseHash: 'h1' },
+      'b.ts': { source: 'new', baseHash: null },
+    })
+    useIdeStore.getState().setDraft('a.ts', 'base', 'h1')
+    useIdeStore.getState().reconcileDrafts(baseline)
+    expect(useIdeStore.getState().drafts).toEqual({ 'b.ts': { source: 'new', baseHash: null } })
+    useIdeStore.getState().clearDraft('b.ts')
+    expect(useIdeStore.getState().drafts).toEqual({})
+  })
+
+  it('keeps the hash an edit started from across keystrokes until a save rebases it', () => {
+    useIdeStore.getState().setDraft('a.ts', 'e', 'h1')
+    useIdeStore.getState().setDraft('a.ts', 'ed', 'h2-newer-fetch')
+    expect(useIdeStore.getState().drafts['a.ts']).toEqual({ source: 'ed', baseHash: 'h1' })
+    useIdeStore.getState().rebaseDraft('a.ts', 'h3')
+    expect(useIdeStore.getState().drafts['a.ts']).toEqual({ source: 'ed', baseHash: 'h3' })
+    useIdeStore.getState().rebaseDraft('missing.ts', 'h4')
+    expect(useIdeStore.getState().drafts['missing.ts']).toBeUndefined()
+  })
+
+  it('moves a draft and its tab when a file is renamed', () => {
+    const s = useIdeStore.getState()
+    s.openFile('a.ts')
+    s.openFile('z.ts')
+    useIdeStore.getState().setDraft('a.ts', 'edited', 'h1')
+    useIdeStore.getState().moveFile('a.ts', 'config/a.ts')
+    expect(useIdeStore.getState()).toMatchObject({
+      openPaths: ['z.ts', 'config/a.ts'],
+      activePath: 'config/a.ts',
+      drafts: { 'config/a.ts': { source: 'edited', baseHash: 'h1' } },
+    })
   })
 
   it('drops tabs for files that vanished from the bundle', () => {
@@ -46,9 +91,10 @@ describe('useIdeStore (session)', () => {
     expect(useIdeStore.getState()).toMatchObject({ openPaths: ['b.ts'], activePath: 'b.ts' })
   })
 
-  it('resetSession clears tabs, reveal and dialog', () => {
+  it('resetSession clears tabs, drafts, reveal and dialog', () => {
     const s = useIdeStore.getState()
     s.openFile('a.ts')
+    s.setDraft('a.ts', 'x', null)
     s.showDialog('palette')
     useIdeStore.getState().resetSession()
     expect(useIdeStore.getState()).toMatchObject({
@@ -56,6 +102,7 @@ describe('useIdeStore (session)', () => {
       activePath: null,
       reveal: null,
       dialog: null,
+      drafts: {},
     })
   })
 })

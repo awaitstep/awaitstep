@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   disposeWorkflowModels,
   syncWorkflowModels,
@@ -64,6 +64,26 @@ describe('syncWorkflowModels', () => {
     expect(gone.disposed).toBe(true)
     expect(foreign.disposed).toBe(false)
     expect(foreign.getValue()).toBe('other')
+  })
+
+  it('skips models whose file object has not changed since the last sync', () => {
+    const model = new FakeModel(workflowModelPath('wf-1', 'worker.ts'), 'typed')
+    const file = { source: 'typed' }
+    const files = new Map([['worker.ts', file]])
+    syncWorkflowModels(monacoWith([model]), 'wf-1', files)
+
+    // Monaco already holds what the user typed; the same file object means
+    // nothing to compare — the model's text is not even read.
+    const reads = vi.spyOn(model, 'getValue')
+    expect(syncWorkflowModels(monacoWith([model]), 'wf-1', files).updated).toEqual([])
+    expect(reads).not.toHaveBeenCalled()
+
+    // A new file object (the baseline refetched) is compared again.
+    const refreshed = new Map([['worker.ts', { source: 'from server' }]])
+    expect(syncWorkflowModels(monacoWith([model]), 'wf-1', refreshed).updated).toEqual([
+      'worker.ts',
+    ])
+    expect(model.getValue()).toBe('from server')
   })
 })
 

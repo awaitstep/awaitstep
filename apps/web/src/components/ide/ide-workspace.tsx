@@ -1,27 +1,32 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link, useBlocker, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import type { Layout, LayoutChangedMeta } from 'react-resizable-panels'
 import { toast } from 'sonner'
-import type { GeneratedFile } from '@awaitstep/codegen'
 import { useShallow } from 'zustand/react/shallow'
 import type { IdeCommandActions } from '../../lib/ide/commands'
-import { describeEditability } from '../../lib/ide/editability'
-import { buildFileTree, normalizeBundlePath } from '../../lib/ide/file-tree'
+import { dirtyPaths, overlayDrafts } from '../../lib/ide/drafts'
+import { fileEditability, workspaceEditability } from '../../lib/ide/editability'
+import { basename, buildFileTree, normalizeBundlePath } from '../../lib/ide/file-tree'
+import { fileOwner, splitWorkspaceFiles, virtualSeedFiles } from '../../lib/ide/project'
 import { buildWorkflowStoreState, deriveReadOnlyState } from '../../lib/hydrate-workflow'
+import type { SourceFile } from '../../lib/api-client'
 import { queries } from '../../lib/queries'
 import { copyToClipboard } from '../../lib/utils'
 import { useIdeShortcuts } from '../../hooks/use-ide-shortcuts'
+import { useProjectFiles } from '../../hooks/use-project-files'
 import { useOrgReady } from '../../stores/org-store'
 import { useIdeLayoutStore, type IdeLayoutKey } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
 import { clearWorkflowHistory, useWorkflowStore } from '../../stores/workflow-store'
 import { Button } from '../ui/button'
+import { ConfirmDialog } from '../ui/confirm-dialog'
 import { BottomDock } from './bottom-dock'
 import { CommandPalette } from './command-palette'
 import { EditorGroup } from './editor-group'
 import { FileExplorer } from './file-explorer'
+import { FilePathDialog } from './file-path-dialog'
 import { IdeHeader } from './ide-header'
 import { IdeSkeleton } from './ide-skeleton'
 import { QuickOpenDialog } from './quick-open-dialog'
@@ -32,10 +37,13 @@ interface IdeWorkspaceProps {
   fileParam?: string
 }
 
+const EMPTY_FILES: ReadonlyMap<string, SourceFile> = new Map()
+
 export function IdeWorkspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   if (workflowId === 'new') return <UnsavedWorkflowNotice />
-  // Keyed so navigating between workflows remounts: tabs, reveal targets and
-  // the hydrated canvas store never leak from one workflow into the next.
+  // Keyed so navigating between workflows remounts: tabs, drafts, reveal
+  // targets and the hydrated canvas store never leak from one workflow into
+  // the next.
   return (
     <Workspace
       key={workflowId}
@@ -61,14 +69,39 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   const fullData = fullQuery.data
   const source = sourceQuery.data
 
-  const { openFile, closeFile, closeAllFiles, cycleFile, pruneFiles, showDialog } = useIdeStore(
+  const {
+    activePath,
+    drafts,
+    dialog,
+    dialogTarget,
+    openFile,
+    closeFile,
+    closeAllFiles,
+    cycleFile,
+    pruneFiles,
+    setDraft,
+    clearDraft,
+    clearDrafts,
+    reconcileDrafts,
+    showDialog,
+    closeDialog,
+  } = useIdeStore(
     useShallow((s) => ({
+      activePath: s.activePath,
+      drafts: s.drafts,
+      dialog: s.dialog,
+      dialogTarget: s.dialogTarget,
       openFile: s.openFile,
       closeFile: s.closeFile,
       closeAllFiles: s.closeAllFiles,
       cycleFile: s.cycleFile,
       pruneFiles: s.pruneFiles,
+      setDraft: s.setDraft,
+      clearDraft: s.clearDraft,
+      clearDrafts: s.clearDrafts,
+      reconcileDrafts: s.reconcileDrafts,
       showDialog: s.showDialog,
+      closeDialog: s.closeDialog,
     })),
   )
   const { explorerOpen, dockOpen, toggleExplorer, toggleDock, showDock, setLayout } =
@@ -86,15 +119,52 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   // back through setLayout, so subscribing would only cause re-renders.
   const [initialLayouts] = useState(() => useIdeLayoutStore.getState().layouts)
 
-  const files = useMemo(
-    () => new Map<string, GeneratedFile>((source?.files ?? []).map((file) => [file.path, file])),
+  const { isReadOnly: isHistorical, readOnlyVersion } = deriveReadOnlyState(
+    versionParam,
+    fullData?.workflow.currentVersionId,
+    fullData?.versions,
+  )
+  const workspace = useMemo(
+    () =>
+      source
+        ? workspaceEditability({ sourceMode: source.sourceMode, historical: isHistorical })
+        : null,
+    [source, isHistorical],
+  )
+  const canEdit = workspace !== null && !workspace.readOnly
+
+  // Everything about ownership comes from the one source response: a file
+  // with a hash is project-owned (the hash is its write precondition), the
+  // rest is generated. Legacy settings surface as virtual files to adopt.
+  const storedPaths = useMemo(
+    () => new Set((source?.files ?? []).filter((f) => f.hash !== undefined).map((f) => f.path)),
     [source],
   )
-  const tree = useMemo(() => buildFileTree([...files.values()]), [files])
-  const editability = useMemo(
-    () => (source ? describeEditability(source.sourceMode) : null),
-    [source],
+  const seeds = useMemo(
+    () => (canEdit && fullData ? virtualSeedFiles(fullData.workflow, storedPaths) : []),
+    [canEdit, fullData, storedPaths],
   )
+  const projectPaths = useMemo(
+    () => new Set([...storedPaths, ...seeds.map((f) => f.path)]),
+    [storedPaths, seeds],
+  )
+  const virtualPaths = useMemo(() => new Set(seeds.map((f) => f.path)), [seeds])
+
+  const baseline = useMemo(() => {
+    if (!source) return EMPTY_FILES
+    const map = new Map<string, SourceFile>(source.files.map((file) => [file.path, file]))
+    for (const seed of seeds) if (!map.has(seed.path)) map.set(seed.path, seed)
+    return map
+  }, [source, seeds])
+  const files = useMemo(() => overlayDrafts(baseline, drafts), [baseline, drafts])
+  const dirty = useMemo(() => new Set(dirtyPaths(baseline, drafts)), [baseline, drafts])
+  // Trees only depend on which files exist, so a keystroke never rebuilds them.
+  const trees = useMemo(() => {
+    const split = splitWorkspaceFiles(baseline.values(), projectPaths)
+    return { project: buildFileTree(split.project), generated: buildFileTree(split.generated) }
+  }, [baseline, projectPaths])
+
+  const projectFiles = useProjectFiles({ workflowId, baseline })
 
   // Hydrate the canvas store (always read-only here) so Monaco's per-workflow
   // ambient types — typed Env, node outputs, runGraph — apply in the IDE too.
@@ -120,16 +190,18 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     }
   }, [])
 
-  // Keep tabs consistent with the loaded bundle and land on the deep-linked
-  // file (or the entry) when nothing is open yet.
+  // Keep tabs and drafts consistent with the loaded bundle (a refetch after
+  // a save makes the saved draft redundant) and land on the deep-linked file
+  // (or the entry) when nothing is open yet.
   useEffect(() => {
     if (!source) return
-    pruneFiles(files.keys())
+    pruneFiles(baseline.keys())
+    reconcileDrafts(baseline)
     if (useIdeStore.getState().activePath !== null) return
     const requested = fileParam ? normalizeBundlePath(fileParam) : null
-    const initial = requested && files.has(requested) ? requested : source.entry
-    if (files.has(initial)) openFile(initial)
-  }, [source, files, fileParam, openFile, pruneFiles])
+    const initial = requested && baseline.has(requested) ? requested : source.entry
+    if (baseline.has(initial)) openFile(initial)
+  }, [source, baseline, fileParam, openFile, pruneFiles, reconcileDrafts])
 
   // A workflow without any version has no source to show; that case renders
   // its own notice, so the source query's 400 is not an error worth toasting.
@@ -138,11 +210,49 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     if (loadError) toast.error(loadError.message || 'Failed to load the workflow source')
   }, [loadError])
 
-  const readOnlyMessage = editability?.message ?? null
+  const hasUnsaved = dirty.size > 0
+  const blocker = useBlocker({
+    shouldBlockFn: () => hasUnsaved,
+    enableBeforeUnload: () => hasUnsaved,
+    withResolver: true,
+  })
+
+  const activeIsStoredFile = activePath !== null && storedPaths.has(activePath)
+  const activeDirty = activePath !== null && dirty.has(activePath)
+  const readOnlyMessage = workspace?.message ?? null
+
+  // Text equal to the baseline is not a draft: keeping it would let a stale
+  // "edit" survive an agent's later change and overwrite it on save.
+  function handleEditorChange(path: string, text: string) {
+    if (baseline.get(path)?.source === text) clearDraft(path)
+    else setDraft(path, text, baseline.get(path)?.hash ?? null)
+  }
+
   const actions = useMemo<IdeCommandActions>(
     () => ({
       save: () => {
-        if (readOnlyMessage) toast.info(readOnlyMessage)
+        if (!canEdit) {
+          if (readOnlyMessage) toast.info(readOnlyMessage)
+          return
+        }
+        const path = useIdeStore.getState().activePath
+        if (path) void projectFiles.saveFile(path)
+      },
+      saveAll: () => {
+        if (canEdit) void projectFiles.saveAll()
+      },
+      discardChanges: () => {
+        clearDrafts()
+        toast.info('Unsaved changes discarded')
+      },
+      newFile: () => showDialog('newFile'),
+      renameFile: () => {
+        const path = useIdeStore.getState().activePath
+        if (path && storedPaths.has(path)) showDialog('renameFile', path)
+      },
+      deleteFile: () => {
+        const path = useIdeStore.getState().activePath
+        if (path && storedPaths.has(path)) showDialog('deleteFile', path)
       },
       quickOpen: () => showDialog('quickOpen'),
       switchToCanvas: () =>
@@ -170,12 +280,16 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       showRun: () => showDock('run'),
     }),
     [
+      canEdit,
       readOnlyMessage,
+      projectFiles,
+      storedPaths,
       navigate,
       workflowId,
       versionParam,
       closeFile,
       closeAllFiles,
+      clearDrafts,
       toggleExplorer,
       toggleDock,
       showDock,
@@ -200,6 +314,50 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     if (meta.isUserInteraction) setLayout(key, meta.requestedLayout ?? layout)
   }
 
+  function editabilityOf(path: string) {
+    return fileEditability(
+      fileOwner(path, projectPaths),
+      workspace ?? { readOnly: true, message: null },
+    )
+  }
+
+  function handleDialogOpenChange(open: boolean) {
+    if (!open) closeDialog()
+  }
+
+  function handleRenameRequest(path: string) {
+    showDialog('renameFile', path)
+  }
+
+  function handleDeleteRequest(path: string) {
+    showDialog('deleteFile', path)
+  }
+
+  function handleCreate(path: string) {
+    closeDialog()
+    void projectFiles.createFile(path)
+  }
+
+  function handleRename(to: string) {
+    const from = dialogTarget
+    closeDialog()
+    if (from) void projectFiles.renameFile(from, to)
+  }
+
+  function handleDelete() {
+    const path = dialogTarget
+    closeDialog()
+    if (path) void projectFiles.deleteFile(path)
+  }
+
+  function handleBlockerOpenChange(open: boolean) {
+    if (!open) blocker.reset?.()
+  }
+
+  function handleLeave() {
+    blocker.proceed?.()
+  }
+
   if (fullQuery.isPending) return <IdeSkeleton />
   if (!fullData) {
     return <LoadFailure workflowId={workflowId} message={fullQuery.error?.message} />
@@ -208,15 +366,12 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     return <NoVersionNotice workflowId={workflowId} name={fullData.workflow.name} />
   }
   if (sourceQuery.isPending) return <IdeSkeleton />
-  if (!source || !editability) {
+  if (!source || !workspace) {
     return <LoadFailure workflowId={workflowId} message={sourceQuery.error?.message} />
   }
 
-  const { isReadOnly: isHistorical, readOnlyVersion } = deriveReadOnlyState(
-    versionParam,
-    fullData.workflow.currentVersionId,
-    fullData.versions,
-  )
+  const existingPaths = [...baseline.keys()]
+  const renameExisting = existingPaths.filter((p) => p !== dialogTarget)
 
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-background">
@@ -228,6 +383,10 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         historicalVersion={isHistorical ? (readOnlyVersion ?? fullData.version.version) : undefined}
         sourceMode={source.sourceMode}
         versionParam={versionParam}
+        dirtyCount={dirty.size}
+        canEdit={canEdit}
+        saving={projectFiles.busy}
+        onSave={actions.saveAll}
       />
       <Group
         orientation="horizontal"
@@ -238,7 +397,16 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         {explorerOpen && (
           <>
             <Panel id="explorer" defaultSize="18" minSize={180} maxSize="40">
-              <FileExplorer tree={tree} fileCount={files.size} />
+              <FileExplorer
+                project={trees.project}
+                generated={trees.generated}
+                dirty={dirty}
+                virtual={virtualPaths}
+                canEdit={canEdit}
+                onNewFile={actions.newFile}
+                onRename={handleRenameRequest}
+                onDelete={handleDeleteRequest}
+              />
             </Panel>
             <Separator className="w-px bg-border transition-colors hover:bg-primary/50" />
           </>
@@ -251,7 +419,13 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
             onLayoutChanged={handleLayoutChanged('editor')}
           >
             <Panel id="editor" minSize="30">
-              <EditorGroup workflowId={workflowId} files={files} editability={editability} />
+              <EditorGroup
+                workflowId={workflowId}
+                files={files}
+                dirty={dirty}
+                editabilityOf={editabilityOf}
+                onChange={handleEditorChange}
+              />
             </Panel>
             {dockOpen && (
               <>
@@ -264,8 +438,55 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
           </Group>
         </Panel>
       </Group>
-      <CommandPalette actions={actions} canSave={!editability.readOnly} />
-      <QuickOpenDialog files={files} />
+      <CommandPalette
+        actions={actions}
+        canEdit={canEdit}
+        activeIsStoredFile={activeIsStoredFile}
+        activeDirty={activeDirty}
+        dirtyCount={dirty.size}
+      />
+      <QuickOpenDialog files={baseline} />
+      <FilePathDialog
+        key={`new:${dialog === 'newFile'}`}
+        open={dialog === 'newFile'}
+        title="New file"
+        description="Any folder works. Import it from anywhere as #app/<path> (no extension for .ts/.js files)."
+        submitLabel="Create"
+        existingPaths={existingPaths}
+        busy={projectFiles.busy}
+        onOpenChange={handleDialogOpenChange}
+        onSubmit={handleCreate}
+      />
+      <FilePathDialog
+        key={`rename:${dialogTarget ?? ''}:${dialog === 'renameFile'}`}
+        open={dialog === 'renameFile'}
+        title="Rename file"
+        description="Imports pointing at the old path are not rewritten."
+        submitLabel="Rename"
+        initialPath={dialogTarget ?? ''}
+        existingPaths={renameExisting}
+        busy={projectFiles.busy}
+        onOpenChange={handleDialogOpenChange}
+        onSubmit={handleRename}
+      />
+      <ConfirmDialog
+        open={dialog === 'deleteFile'}
+        onOpenChange={handleDialogOpenChange}
+        title={`Delete ${dialogTarget ? basename(dialogTarget) : 'file'}?`}
+        description={`${dialogTarget ?? 'The file'} will be removed from the project. Code that imports it will fail to build until it is updated.`}
+        confirmLabel="Delete"
+        loading={projectFiles.busy}
+        onConfirm={handleDelete}
+      />
+      <ConfirmDialog
+        open={blocker.status === 'blocked'}
+        onOpenChange={handleBlockerOpenChange}
+        title="Unsaved changes"
+        description={`${dirty.size === 1 ? 'One file has' : `${dirty.size} files have`} unsaved changes that will be lost if you leave.`}
+        confirmLabel="Leave"
+        variant="warning"
+        onConfirm={handleLeave}
+      />
     </div>
   )
 }

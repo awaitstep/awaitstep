@@ -1,4 +1,5 @@
 import type { SourceMode } from '@awaitstep/codegen'
+import type { FileOwner } from './project'
 
 export interface Editability {
   readOnly: boolean
@@ -6,24 +7,51 @@ export interface Editability {
   message: string | null
 }
 
+export interface WorkspaceContext {
+  sourceMode: SourceMode
+  /** `?version=` points at an older version than the current one. */
+  historical: boolean
+}
+
+const EDITABLE: Editability = { readOnly: false, message: null }
+
 /**
- * The one place that decides whether the workspace may edit a version's
- * source. Generated source is owned by the canvas (eject to take it over);
- * stored ejected/sdk source becomes editable when the project-files slice
- * lands, so for now every mode is read-only but says why in its own words.
+ * Whether the workspace as a whole accepts edits: only the current version
+ * of a canvas-owned (generated) workflow does. Older versions are frozen,
+ * and an ejected version owns its stored source, which is edited through
+ * the source API.
  */
-export function describeEditability(mode: SourceMode): Editability {
-  switch (mode) {
+export function workspaceEditability(ctx: WorkspaceContext): Editability {
+  if (ctx.historical) {
+    return {
+      readOnly: true,
+      message: 'Older versions are read-only — open the latest version to edit.',
+    }
+  }
+  switch (ctx.sourceMode) {
     case 'generated':
-      return {
-        readOnly: true,
-        message: 'Generated source is read-only — eject the workflow to edit it.',
-      }
+      return EDITABLE
     case 'ejected':
     case 'sdk':
       return {
         readOnly: true,
-        message: 'Editing stored source in the code workspace is not available yet.',
+        message: 'This version is ejected and owns its source; edit it through PUT /source.',
       }
   }
+}
+
+/**
+ * Per-file editability: project files follow the workspace, generated
+ * files never accept edits (the canvas would overwrite them on the next
+ * save) — put the code in a project file or eject instead.
+ */
+export function fileEditability(owner: FileOwner, workspace: Editability): Editability {
+  if (owner === 'generated') {
+    return {
+      readOnly: true,
+      message:
+        'Generated from the canvas — put your code in a project file, or eject to take over the generated source.',
+    }
+  }
+  return workspace
 }

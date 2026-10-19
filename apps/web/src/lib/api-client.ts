@@ -24,6 +24,28 @@ function withPagination(path: string, opts?: PaginationOptions): string {
   return `${path}${sep}${qs}`
 }
 
+/** The human-readable error an API response carries, falling back to its body or status. */
+async function readErrorMessage(res: Response): Promise<string> {
+  const text = await res.text().catch(() => res.statusText)
+  try {
+    const json = JSON.parse(text) as { error?: string; message?: string }
+    return json.error ?? json.message ?? text
+  } catch {
+    return text
+  }
+}
+
+/** A non-2xx API response; `message` is the server's human-readable error. */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'include',
@@ -35,16 +57,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   })
 
   if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText)
-    // Try to extract a human-readable error from JSON response
-    let message: string
-    try {
-      const json = JSON.parse(text) as { error?: string; message?: string }
-      message = json.error ?? json.message ?? text
-    } catch {
-      message = text
-    }
-    throw new Error(message)
+    throw new ApiError(await readErrorMessage(res), res.status)
   }
 
   return res.json()
@@ -141,9 +154,83 @@ export interface WorkflowSource {
   versionId: string
   sourceMode: SourceMode
   entry: string
-  files: GeneratedFile[]
+  files: SourceFile[]
   manifest: StepManifest | null
   baseGeneratedHash: string | null
+}
+
+/**
+ * A bundle file as `GET /source` returns it. Project-owned files carry the
+ * content hash the file routes serve as ETag, taken from the same read as
+ * the text, so an edit started from this response has a precondition that
+ * matches what was actually read. Generated files have none.
+ */
+export interface SourceFile extends GeneratedFile {
+  hash?: string
+}
+
+export interface ProjectFileSummary {
+  path: string
+  /** Content hash; the API serves it as the file's ETag. */
+  hash: string
+  size: number
+  updatedAt: string
+}
+
+export interface ProjectFileContent extends ProjectFileSummary {
+  source: string
+}
+
+/**
+ * What a write is conditional on: the hash the caller read (`If-Match`), or
+ * that the path is still free (`If-None-Match: *`). Every write from the
+ * workspace carries one, so nothing an agent wrote meanwhile is overwritten
+ * without the user choosing to.
+ */
+export type WritePrecondition = { ifMatch: string } | { ifNoneMatch: true }
+
+/**
+ * A conditional write or delete the server refused: the file changed since
+ * it was read or already exists (`currentHash` is what is stored now), or
+ * the current version is ejected and owns its source.
+ */
+export class ProjectFileConflictError extends Error {
+  constructor(
+    message: string,
+    readonly currentHash: string | null,
+    readonly sourceMode?: SourceMode,
+  ) {
+    super(message)
+    this.name = 'ProjectFileConflictError'
+  }
+}
+
+function encodeProjectPath(path: string): string {
+  return path.split('/').map(encodeURIComponent).join('/')
+}
+
+async function projectFileRequest<T>(path: string, options: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}${withProject(path)}`, {
+    credentials: 'include',
+    ...options,
+  })
+  if (res.status === 409) {
+    const body = (await res.json().catch(() => ({}))) as {
+      error?: string
+      currentHash?: string | null
+      sourceMode?: SourceMode
+    }
+    throw new ProjectFileConflictError(
+      body.error ?? 'Conflict',
+      body.currentHash ?? null,
+      body.sourceMode,
+    )
+  }
+  if (!res.ok) {
+    throw new ApiError(await readErrorMessage(res), res.status)
+  }
+  if (res.status === 204) return undefined as T
+  return res.json()
 }
 
 export interface RunSummary {
@@ -238,6 +325,35 @@ export const api = {
   getWorkflowSource(id: string, versionId?: string): Promise<WorkflowSource> {
     const params = versionId ? `?versionId=${encodeURIComponent(versionId)}` : ''
     return request(withProject(`/workflows/${id}/source${params}`))
+  },
+
+  getProjectFile(id: string, path: string): Promise<ProjectFileContent> {
+    return request(withProject(`/workflows/${id}/files/${encodeProjectPath(path)}`))
+  },
+
+  /** Creates or replaces a file under the given precondition. */
+  putProjectFile(
+    id: string,
+    path: string,
+    source: string,
+    precondition: WritePrecondition,
+  ): Promise<ProjectFileSummary> {
+    const header: Record<string, string> =
+      'ifMatch' in precondition
+        ? { 'If-Match': `"${precondition.ifMatch}"` }
+        : { 'If-None-Match': '*' }
+    return projectFileRequest(`/workflows/${id}/files/${encodeProjectPath(path)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...header },
+      body: JSON.stringify({ source }),
+    })
+  },
+
+  deleteProjectFile(id: string, path: string, ifMatch?: string): Promise<void> {
+    return projectFileRequest(`/workflows/${id}/files/${encodeProjectPath(path)}`, {
+      method: 'DELETE',
+      headers: { ...(ifMatch && { 'If-Match': `"${ifMatch}"` }) },
+    })
   },
 
   createWorkflow(data: {

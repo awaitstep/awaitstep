@@ -8,9 +8,10 @@ import { FileIcon } from './file-icon'
 
 interface EditorTabsProps {
   files: ReadonlyMap<string, GeneratedFile>
+  dirty: ReadonlySet<string>
 }
 
-export function EditorTabs({ files }: EditorTabsProps) {
+export function EditorTabs({ files, dirty }: EditorTabsProps) {
   const { openPaths, activePath, openFile, closeFile } = useIdeStore(
     useShallow((s) => ({
       openPaths: s.openPaths,
@@ -31,6 +32,7 @@ export function EditorTabs({ files }: EditorTabsProps) {
           path={path}
           role={files.get(path)?.role ?? 'module'}
           active={path === activePath}
+          dirty={dirty.has(path)}
           onSelect={openFile}
           onClose={closeFile}
         />
@@ -43,12 +45,14 @@ function EditorTab({
   path,
   role,
   active,
+  dirty,
   onSelect,
   onClose,
 }: {
   path: string
   role: GeneratedFile['role']
   active: boolean
+  dirty: boolean
   onSelect: (path: string) => void
   onClose: (path: string) => void
 }) {
@@ -70,7 +74,7 @@ function EditorTab({
     <div
       role="tab"
       aria-selected={active}
-      title={path}
+      title={dirty ? `${path} · unsaved changes` : path}
       onClick={handleSelect}
       onAuxClick={handleAuxClick}
       className={cn(
@@ -81,17 +85,24 @@ function EditorTab({
       )}
     >
       <FileIcon role={role} className="h-3 w-3" />
-      <span className="truncate">{basename(path)}</span>
+      <span className={cn('truncate', dirty && 'italic')}>{basename(path)}</span>
       <button
         type="button"
         aria-label={`Close ${basename(path)}`}
         onClick={handleClose}
         className={cn(
           'ml-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground/60 transition-opacity hover:bg-muted/70 hover:text-foreground',
-          active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+          active || dirty ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
         )}
       >
-        <X className="h-3 w-3" />
+        {dirty ? (
+          <>
+            <span className="h-2 w-2 rounded-full bg-status-warning group-hover:hidden" />
+            <X className="hidden h-3 w-3 group-hover:block" />
+          </>
+        ) : (
+          <X className="h-3 w-3" />
+        )}
       </button>
       {active && <span className="absolute inset-x-0 top-0 h-px bg-primary" />}
     </div>

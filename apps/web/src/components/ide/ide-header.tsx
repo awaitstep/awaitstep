@@ -4,8 +4,10 @@ import {
   Command,
   FileCode2,
   History,
+  Loader2,
   PanelBottom,
   PanelLeft,
+  Save,
   Search,
   Workflow,
 } from 'lucide-react'
@@ -30,6 +32,11 @@ interface IdeHeaderProps {
   historicalVersion?: number
   sourceMode?: SourceMode
   versionParam?: string
+  /** Files with unsaved changes; drives the Save button and its badge. */
+  dirtyCount: number
+  canEdit: boolean
+  saving: boolean
+  onSave: () => void
 }
 
 export function IdeHeader({
@@ -40,6 +47,10 @@ export function IdeHeader({
   historicalVersion,
   sourceMode,
   versionParam,
+  dirtyCount,
+  canEdit,
+  saving,
+  onSave,
 }: IdeHeaderProps) {
   const router = useRouter()
   const { explorerOpen, dockOpen, toggleExplorer, toggleDock } = useIdeLayoutStore(
@@ -99,6 +110,34 @@ export function IdeHeader({
       <SurfaceSwitch workflowId={workflowId} versionParam={versionParam} />
 
       <div className="flex flex-1 shrink-0 items-center justify-end gap-1">
+        {canEdit && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onSave}
+            disabled={saving || dirtyCount === 0}
+            title={`Save (${hint('save')})`}
+            className={cn(
+              'h-8 gap-1.5 px-2 md:px-2.5',
+              dirtyCount > 0
+                ? 'text-foreground/70 hover:text-foreground'
+                : 'text-muted-foreground/60',
+            )}
+          >
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
+            <span className="hidden text-xs md:inline">Save</span>
+            {dirtyCount > 0 && (
+              <span className="rounded-full bg-status-warning/15 px-1.5 py-px text-[10px] tabular-nums text-status-warning">
+                {dirtyCount}
+              </span>
+            )}
+          </Button>
+        )}
+        <div className="hidden h-5 w-px shrink-0 bg-muted/70 sm:block" />
         <HeaderToggle
           active={explorerOpen}
           title={`${explorerOpen ? 'Hide' : 'Show'} explorer (${hint('toggleExplorer')})`}

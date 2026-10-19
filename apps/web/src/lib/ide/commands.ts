@@ -13,6 +13,11 @@ export interface IdeCommand {
 
 export interface IdeCommandActions {
   save: () => void
+  saveAll: () => void
+  discardChanges: () => void
+  newFile: () => void
+  renameFile: () => void
+  deleteFile: () => void
   quickOpen: () => void
   switchToCanvas: () => void
   closeActiveFile: () => void
@@ -27,10 +32,18 @@ export interface IdeCommandActions {
 
 export interface IdeCommandContext {
   hasActiveFile: boolean
+  /**
+   * The active file is a stored project file (renamable, deletable). A
+   * virtual seed is not: it has nothing on the server to rename or delete.
+   */
+  activeIsStoredFile: boolean
+  activeDirty: boolean
+  dirtyCount: number
   openCount: number
+  /** The workspace accepts edits at all (current generated version). */
+  canEdit: boolean
   explorerOpen: boolean
   dockOpen: boolean
-  canSave: boolean
   actions: IdeCommandActions
 }
 
@@ -47,8 +60,43 @@ export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
       label: 'Save',
       group: 'file',
       shortcut: 'save',
-      enabled: ctx.canSave,
+      enabled: ctx.canEdit && ctx.activeDirty,
       run: actions.save,
+    },
+    {
+      id: 'file.saveAll',
+      label: ctx.dirtyCount > 1 ? `Save All (${ctx.dirtyCount})` : 'Save All',
+      group: 'file',
+      enabled: ctx.canEdit && ctx.dirtyCount > 0,
+      run: actions.saveAll,
+    },
+    {
+      id: 'file.discard',
+      label: 'Discard Unsaved Changes',
+      group: 'file',
+      enabled: ctx.dirtyCount > 0,
+      run: actions.discardChanges,
+    },
+    {
+      id: 'file.new',
+      label: 'New File…',
+      group: 'file',
+      enabled: ctx.canEdit,
+      run: actions.newFile,
+    },
+    {
+      id: 'file.rename',
+      label: 'Rename File…',
+      group: 'file',
+      enabled: ctx.canEdit && ctx.activeIsStoredFile,
+      run: actions.renameFile,
+    },
+    {
+      id: 'file.delete',
+      label: 'Delete File',
+      group: 'file',
+      enabled: ctx.canEdit && ctx.activeIsStoredFile,
+      run: actions.deleteFile,
     },
     {
       id: 'file.close',

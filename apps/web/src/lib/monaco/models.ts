@@ -27,6 +27,11 @@ export function workflowModels(
   return owned
 }
 
+// The file object each model was last synced from. The workspace keeps a
+// file's object until its text changes, so a sync after a keystroke only
+// reads the one model whose file is new instead of every model's full text.
+const lastSynced = new WeakMap<WorkflowModelLike, { source: string }>()
+
 /**
  * Brings this workflow's models in step with the loaded bundle: text is
  * replaced where it drifted and models for files that no longer exist are
@@ -47,10 +52,14 @@ export function syncWorkflowModels(
     if (!current) {
       model.dispose()
       disposed.push(file)
-    } else if (model.getValue() !== current.source) {
+      continue
+    }
+    if (lastSynced.get(model) === current) continue
+    if (model.getValue() !== current.source) {
       model.setValue(current.source)
       updated.push(file)
     }
+    lastSynced.set(model, current)
   }
   return { updated, disposed }
 }
