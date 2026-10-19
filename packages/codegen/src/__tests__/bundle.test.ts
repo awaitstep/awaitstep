@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { toBundle, bundleEntry, bundleCodeFiles, validateBundle } from '../bundle.js'
+import {
+  toBundle,
+  bundleEntry,
+  bundleCodeFiles,
+  bundleDeployFiles,
+  bundleEjectFiles,
+  projectBundleFiles,
+  validateBundle,
+} from '../bundle.js'
 import type { GeneratedBundle } from '../types.js'
 
 describe('toBundle', () => {
@@ -102,5 +110,46 @@ describe('validateBundle reserved filenames', () => {
 
   it('allows ordinary module paths', () => {
     expect(() => validateBundle(bundleWith('nodes/fetch_user.ts', 'module'))).not.toThrow()
+  })
+
+  it('pins the handlers role to the root handlers.ts', () => {
+    expect(() => validateBundle(bundleWith('handlers.ts', 'handlers'))).not.toThrow()
+    expect(() => validateBundle(bundleWith('src/handlers.ts', 'handlers'))).toThrow(
+      'handlers role belongs to handlers.ts',
+    )
+  })
+})
+
+describe('project file roles', () => {
+  const artifact = { filename: 'worker.ts', source: 'export {}' }
+  const files = projectBundleFiles([
+    { path: 'handlers.ts', source: '@fetch function handler() {}' },
+    { path: 'config/env.ts', source: 'export const a = 1' },
+    { path: 'package.json', source: '{}' },
+    { path: 'data.json', source: '[]' },
+  ])
+
+  it('marks handlers.ts as a handlers input, not a module', () => {
+    expect(files.map((f) => `${f.role}:${f.path}`)).toEqual([
+      'handlers:handlers.ts',
+      'module:config/env.ts',
+      'meta:package.json',
+      'asset:data.json',
+    ])
+  })
+
+  it('keeps the handlers input out of the deploy and out of ejected source', () => {
+    const bundle = { entry: 'worker.ts', files: [...toBundle(artifact).files, ...files] }
+    expect(bundleDeployFiles(bundle).map((f) => f.path)).toEqual([
+      'worker.ts',
+      'config/env.ts',
+      'data.json',
+    ])
+    expect(bundleEjectFiles(bundle).map((f) => f.path)).toEqual([
+      'worker.ts',
+      'config/env.ts',
+      'package.json',
+      'data.json',
+    ])
   })
 })

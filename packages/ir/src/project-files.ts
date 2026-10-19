@@ -49,6 +49,20 @@ export const PROJECT_FILE_EXTENSIONS = [
 
 export const PACKAGE_MANIFEST_PATH = 'package.json'
 
+/**
+ * The entry handlers (`@fetch` / `@queue` / `@scheduled`) as a project file.
+ * When present it is the trigger-code source and replaces the legacy
+ * trigger-code setting.
+ */
+export const PROJECT_HANDLERS_PATH = 'handlers.ts'
+
+/** The project's handlers.ts source, or undefined when the project has none. */
+export function projectHandlersSource(
+  files: readonly ProjectFile[] | undefined,
+): string | undefined {
+  return files?.find((f) => f.path === PROJECT_HANDLERS_PATH)?.source
+}
+
 /** Toolchain config a project may own, at the root only (nesting changes resolution). */
 export const PROJECT_ROOT_CONFIG_FILES = ['package.json', 'tsconfig.json', 'jsconfig.json'] as const
 

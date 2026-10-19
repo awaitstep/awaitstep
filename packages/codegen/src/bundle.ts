@@ -1,6 +1,7 @@
 import type { ProjectFile } from '@awaitstep/ir'
 import {
   PACKAGE_MANIFEST_PATH,
+  PROJECT_HANDLERS_PATH,
   PROJECT_ROOT_CONFIG_FILES,
   compiledPathKey,
   isProjectCodePath,
@@ -44,7 +45,9 @@ const BUNDLE_CONFIG_ALLOWLIST = new Set<string>(PROJECT_ROOT_CONFIG_FILES)
 /**
  * Project-owned files ride along in the bundle: code becomes modules, the
  * root package.json is the deploy's `meta` input, other root toolchain
- * config is `config`, and everything else is an `asset` written verbatim.
+ * config is `config`, `handlers.ts` is the entry-handler input codegen has
+ * already compiled into the entry, and everything else is an `asset`
+ * written verbatim.
  */
 export function projectBundleFiles(files: readonly ProjectFile[] | undefined): GeneratedFile[] {
   return (files ?? []).map((file) => ({
@@ -56,6 +59,7 @@ export function projectBundleFiles(files: readonly ProjectFile[] | undefined): G
 
 function projectFileRole(path: string): GeneratedFile['role'] {
   if (path === PACKAGE_MANIFEST_PATH) return 'meta'
+  if (path === PROJECT_HANDLERS_PATH) return 'handlers'
   if ((PROJECT_ROOT_CONFIG_FILES as readonly string[]).includes(path)) return 'config'
   return isProjectCodePath(path) ? 'module' : 'asset'
 }
@@ -65,10 +69,21 @@ function projectFileRole(path: string): GeneratedFile['role'] {
  * only. Config/meta roles never reach the disk — the deployer generates
  * wrangler config and merges package.json itself, and a project tsconfig
  * is an editor-typing input, not something the bundler may read (its
- * `paths`/`baseUrl` could pull files off the build host).
+ * `paths`/`baseUrl` could pull files off the build host). The handlers
+ * file is annotation syntax, not a module: its handlers already live in
+ * the entry.
  */
 export function bundleDeployFiles(bundle: GeneratedBundle): GeneratedFile[] {
   return bundle.files.filter((f) => f.role === 'entry' || f.role === 'module' || f.role === 'asset')
+}
+
+/**
+ * What an ejected version stores as its editable source: everything but the
+ * handlers input, whose handlers the entry already compiles in — in ejected
+ * mode the entry itself is where they are edited.
+ */
+export function bundleEjectFiles(bundle: GeneratedBundle): GeneratedFile[] {
+  return bundle.files.filter((f) => f.role !== 'handlers')
 }
 
 /** The project's own package.json source, when the bundle carries one. */
@@ -114,6 +129,12 @@ export function validateBundle(bundle: GeneratedBundle): GeneratedBundle {
       if (!BUNDLE_CONFIG_ALLOWLIST.has(file.path)) {
         throw new Error(
           `Config/meta files are limited to ${PROJECT_ROOT_CONFIG_FILES.join(', ')} at the project root: "${file.path}"`,
+        )
+      }
+    } else if (file.role === 'handlers') {
+      if (file.path !== PROJECT_HANDLERS_PATH) {
+        throw new Error(
+          `The handlers role belongs to ${PROJECT_HANDLERS_PATH} at the project root: "${file.path}"`,
         )
       }
     } else if (isReservedToolchainPath(file.path)) {

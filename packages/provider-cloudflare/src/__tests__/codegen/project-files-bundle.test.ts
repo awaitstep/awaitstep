@@ -88,6 +88,21 @@ describe('project files in generated bundles', () => {
     ])
   })
 
+  it('carries handlers.ts as a handlers input that is compiled into the entry, not deployed', () => {
+    // The API folds handlers.ts into the triggerCode option before generating.
+    const handlers = '@fetch function handler(request, env) { return new Response("file") }'
+    const withHandlers = generateWorkflowBundle(
+      { ...workflowIr, runtime: { files: [{ path: 'handlers.ts', source: handlers }] } },
+      { triggerCode: handlers },
+    )
+    expect(withHandlers.files.map((f) => `${f.role}:${f.path}`)).toContain('handlers:handlers.ts')
+    expect(bundleDeployFiles(withHandlers).map((f) => f.path)).not.toContain('handlers.ts')
+    expect(bundleCodeFiles(withHandlers).map((f) => f.path)).not.toContain('handlers.ts')
+    expect(withHandlers.files.find((f) => f.path === 'worker.ts')?.source).toContain(
+      'new Response("file")',
+    )
+  })
+
   it('still refuses a nested package.json that slipped past IR validation', () => {
     expect(() =>
       generateWorkflowBundle({

@@ -46,6 +46,7 @@ export {
   validateBundle,
   projectBundleFiles,
   bundleDeployFiles,
+  bundleEjectFiles,
   bundlePackageManifest,
 } from './bundle.js'
 export { escName } from './var-names.js'
