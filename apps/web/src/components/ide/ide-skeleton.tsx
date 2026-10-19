@@ -33,7 +33,7 @@ export function IdeSkeleton() {
             <Bone className="h-6 w-28 rounded-md" />
             <Bone className="h-6 w-24 rounded-md bg-muted/25" />
           </div>
-          <div className="flex-1 bg-[oklch(0.12_0_0)] p-4">
+          <div className="flex-1 bg-editor p-4">
             <div className="space-y-2.5">
               <Bone className="h-2.5 w-2/5 bg-muted/25" />
               <Bone className="h-2.5 w-3/5 bg-muted/20" />

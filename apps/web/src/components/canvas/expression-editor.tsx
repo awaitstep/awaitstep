@@ -19,6 +19,7 @@ import {
   setExpressionContext,
   validateExpressionModel,
 } from '../../lib/monaco/expression-language'
+import { useMonacoTheme } from '../../lib/monaco/theme'
 import { debounce } from '../../lib/debounce'
 import { cn } from '../../lib/utils'
 
@@ -61,6 +62,7 @@ interface ExpressionEditorProps {
  * validator the workflow panel uses, and an insert-binding picker.
  */
 export function ExpressionEditor({ value, onChange, nodeId, placeholder }: ExpressionEditorProps) {
+  const monacoTheme = useMonacoTheme()
   const [mounted, setMounted] = useState(false)
   const [localValue, setLocalValue] = useState(value)
   const pendingRef = useRef(false)
@@ -176,19 +178,19 @@ export function ExpressionEditor({ value, onChange, nodeId, placeholder }: Expre
   )
 
   if (!mounted) {
-    return <div className="h-[30px] rounded-md border border-input bg-[oklch(0.12_0_0)]" />
+    return <div className="h-[30px] rounded-md border border-input bg-editor" />
   }
 
   return (
     <div className="group relative" onKeyDown={(e) => e.stopPropagation()}>
       <div className="h-[30px] overflow-hidden rounded-md border border-input">
-        <Suspense fallback={<div className="h-full bg-[oklch(0.12_0_0)]" />}>
+        <Suspense fallback={<div className="h-full bg-editor" />}>
           <MonacoEditor
             height="100%"
             language={EXPRESSION_LANGUAGE_ID}
             value={localValue}
             onChange={handleChange}
-            theme="vs-dark"
+            theme={monacoTheme}
             beforeMount={configureExpressionLanguage}
             onMount={handleMount}
             options={EXPRESSION_EDITOR_OPTIONS}

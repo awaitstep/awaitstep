@@ -12,7 +12,7 @@ export function EditorPlaceholder() {
   ]
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-6 bg-[oklch(0.12_0_0)] text-muted-foreground">
+    <div className="flex h-full flex-col items-center justify-center gap-6 bg-editor text-muted-foreground">
       <FileCode2 className="h-10 w-10 text-muted-foreground/30" />
       <dl className="grid grid-cols-[auto_auto] gap-x-6 gap-y-2 text-xs">
         {hints.map((hint) => (

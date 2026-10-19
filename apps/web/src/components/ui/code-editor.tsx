@@ -4,6 +4,7 @@ import { cn } from '../../lib/utils'
 import { debounce } from '../../lib/debounce'
 import { configureMonaco } from '../../lib/monaco/setup'
 import { BASE_EDITOR_OPTIONS, FULLSCREEN_EDITOR_OPTIONS } from '../../lib/monaco/options'
+import { useMonacoTheme } from '../../lib/monaco/theme'
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
@@ -33,6 +34,7 @@ export function CodeEditor({
   debounceMs,
   path,
 }: CodeEditorProps) {
+  const monacoTheme = useMonacoTheme()
   const [mounted, setMounted] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
   const [localValue, setLocalValue] = useState(value)
@@ -90,7 +92,7 @@ export function CodeEditor({
       <div
         style={{ height }}
         className={cn(
-          'flex items-center justify-center overflow-hidden bg-[oklch(0.12_0_0)] text-xs text-muted-foreground/60',
+          'flex items-center justify-center overflow-hidden bg-editor text-xs text-muted-foreground/60',
           bordered && 'rounded-lg border border-input',
         )}
       >
@@ -102,10 +104,10 @@ export function CodeEditor({
   if (fullscreen) {
     return (
       <div
-        className="fixed inset-0 z-50 flex flex-col bg-[oklch(0.10_0_0)]"
+        className="fixed inset-0 z-50 flex flex-col bg-background"
         onKeyDown={(e) => e.stopPropagation()}
       >
-        <div className="flex h-10 shrink-0 items-center justify-between border-b border-border bg-[oklch(0.13_0_0)] px-4">
+        <div className="flex h-10 shrink-0 items-center justify-between border-b border-border bg-card px-4">
           <span className="text-xs font-medium text-foreground/60">{title ?? 'Code Editor'}</span>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground/40">ESC to close</span>
@@ -125,7 +127,7 @@ export function CodeEditor({
               value={displayValue}
               path={path}
               onChange={(v) => handleChange(v ?? '')}
-              theme="vs-dark"
+              theme={monacoTheme}
               beforeMount={configureMonaco}
               options={FULLSCREEN_EDITOR_OPTIONS}
             />
@@ -143,7 +145,7 @@ export function CodeEditor({
       {expandable && (
         <button
           onClick={() => setFullscreen(true)}
-          className="absolute right-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-md bg-[oklch(0.2_0_0)] text-muted-foreground opacity-0 transition-opacity hover:bg-[oklch(0.25_0_0)] hover:text-foreground group-hover:opacity-100"
+          className="absolute right-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-md bg-muted text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
         >
           <Maximize2 className="h-3 w-3" />
         </button>
@@ -152,7 +154,7 @@ export function CodeEditor({
         fallback={
           <div
             style={{ height }}
-            className="flex items-center justify-center bg-[oklch(0.12_0_0)] text-xs text-muted-foreground/60"
+            className="flex items-center justify-center bg-editor text-xs text-muted-foreground/60"
           >
             Loading editor...
           </div>
@@ -164,7 +166,7 @@ export function CodeEditor({
           value={displayValue}
           path={path}
           onChange={(v) => handleChange(v ?? '')}
-          theme="vs-dark"
+          theme={monacoTheme}
           beforeMount={configureMonaco}
           options={editorOptions}
         />

@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { StatusBadge } from './playground-badges'
 import { READONLY_EDITOR_OPTIONS } from '../../lib/monaco/options'
+import { useMonacoTheme } from '../../lib/monaco/theme'
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
@@ -26,6 +27,7 @@ export interface ResponseData {
 }
 
 export function ResponsePanel({ response }: { response: ResponseData }) {
+  const monacoTheme = useMonacoTheme()
   const [headersExpanded, setHeadersExpanded] = useState(false)
 
   const headersText = response.headers.map(([k, v]) => `${k}: ${v}`).join('\n')
@@ -56,7 +58,7 @@ export function ResponsePanel({ response }: { response: ResponseData }) {
               height={`${Math.min(response.headers.length * 18 + 16, 150)}px`}
               language="plaintext"
               value={headersText}
-              theme="vs-dark"
+              theme={monacoTheme}
               options={readOnlyEditorOptions}
             />
           </Suspense>
@@ -80,7 +82,7 @@ export function ResponsePanel({ response }: { response: ResponseData }) {
               height="100%"
               language="json"
               value={response.body}
-              theme="vs-dark"
+              theme={monacoTheme}
               options={readOnlyEditorOptions}
             />
           </Suspense>

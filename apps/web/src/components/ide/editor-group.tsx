@@ -18,6 +18,7 @@ import {
   workflowModelPath,
 } from '../../lib/monaco/setup'
 import { useTypeAcquisition } from '../../lib/monaco/use-type-acquisition'
+import { useMonacoTheme } from '../../lib/monaco/theme'
 import { useDebouncedValue } from '../../hooks/use-debounced-value'
 import { IDE_EDITOR_OPTIONS, IDE_READONLY_EDITOR_OPTIONS } from '../../lib/monaco/options'
 import { useWorkflowTypeContext } from '../../lib/monaco/use-workflow-type-context'
@@ -53,6 +54,7 @@ export function EditorGroup({
   onChange,
 }: EditorGroupProps) {
   useWorkflowTypeContext()
+  const monacoTheme = useMonacoTheme()
   const monaco = useMonaco()
   const { activePath, reveal, clearReveal } = useIdeStore(
     useShallow((s) => ({ activePath: s.activePath, reveal: s.reveal, clearReveal: s.clearReveal })),
@@ -158,7 +160,7 @@ export function EditorGroup({
       <EditorTabs files={files} dirty={dirty} />
       <div className="min-h-0 flex-1">
         {activeFile && editability ? (
-          <Suspense fallback={<div className="h-full bg-[oklch(0.12_0_0)]" />}>
+          <Suspense fallback={<div className="h-full bg-editor" />}>
             <MonacoEditor
               height="100%"
               path={workflowModelPath(workflowId, activeFile.path)}
@@ -167,7 +169,7 @@ export function EditorGroup({
               // model text (sync + drafts). A `value` prop would let the
               // wrapper write into whichever model it holds mid-switch.
               defaultValue={activeFile.source}
-              theme="vs-dark"
+              theme={monacoTheme}
               options={editability.readOnly ? IDE_READONLY_EDITOR_OPTIONS : IDE_EDITOR_OPTIONS}
               // The workspace owns the models: closing the last tab must not
               // drop the file from the type program.
