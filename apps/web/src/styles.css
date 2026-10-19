@@ -38,6 +38,7 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-surface-overlay: var(--surface-overlay);
+  --color-editor: var(--editor);
 
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -89,6 +90,7 @@
 
 /* Dark */
 html.dark {
+  color-scheme: dark;
   --background: oklch(0.13 0.004 260);
   --foreground: oklch(0.93 0 0);
   --card: oklch(0.155 0.004 260);
@@ -106,6 +108,8 @@ html.dark {
   --input: oklch(1 0 0 / 12%);
   --ring: oklch(0.7 0.15 160);
   --surface-overlay: oklch(0.155 0.004 260);
+  /* Backdrop behind Monaco: matches the editor theme, not the app card. */
+  --editor: oklch(0.12 0 0);
   --sidebar: oklch(0.115 0.004 260);
   --sidebar-foreground: oklch(0.93 0 0);
   --sidebar-accent: oklch(0.19 0.004 260);
@@ -132,6 +136,7 @@ html.dark {
 
 /* Light */
 html.light {
+  color-scheme: light;
   --background: oklch(0.985 0 0);
   --foreground: oklch(0.16 0.005 260);
   --card: oklch(1 0 0);
@@ -149,6 +154,8 @@ html.light {
   --input: oklch(0 0 0 / 10%);
   --ring: oklch(0.5 0.14 160);
   --surface-overlay: oklch(1 0 0);
+  /* Backdrop behind Monaco: matches the editor theme, not the app card. */
+  --editor: oklch(1 0 0);
   --sidebar: oklch(0.965 0.003 260);
   --sidebar-foreground: oklch(0.16 0.005 260);
   --sidebar-accent: oklch(0.92 0.005 260);
@@ -177,6 +184,15 @@ html.light {
   * {
     @apply border-border;
     scrollbar-color: oklch(0.5 0 0 / 40%) transparent;
+  }
+  /*
+   * The canvas is painted here rather than left to background propagation
+   * from <body>: body is only `min-h-screen`, so anything the document adds
+   * past the viewport (or any overscroll) exposed the UA's own canvas colour
+   * as darker bands above and below the page.
+   */
+  html {
+    @apply bg-background;
   }
   body {
     @apply bg-background text-foreground antialiased;
