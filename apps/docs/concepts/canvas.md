@@ -58,28 +58,14 @@ Secret fields do not store values directly. Instead, they bind to a named enviro
 Secret values are never stored in the IR or in the AwaitStep database. They exist only in your Cloudflare Worker's encrypted secret store.
 :::
 
-## The Editor Panel
+## Code mode
 
-The bottom panel has four tabs:
+**Code** in the toolbar opens the same workflow as a project in the browser IDE. The explorer has two groups:
 
-### Code
+- **Project** — files you own: `handlers.ts` (the `@fetch` / `@queue` / `@scheduled` entry handlers), `package.json` (npm dependencies), and any code or data files you create in any folder. Import them from anywhere as `#app/<path>`. Edits save per file (⌘S) and take effect on the next deploy without creating a new version.
+- **Generated** — `worker.ts` and `nodes/*.ts`, compiled from the canvas. Read-only: the canvas regenerates them on every save, so put your code in a project file instead (or eject the workflow to take over the generated source).
 
-A read-only Monaco editor showing the TypeScript code that will be compiled from the current workflow IR. Updates in real time as you edit the canvas. Useful for understanding what gets deployed.
-
-### IR
-
-A read-only JSON view of the current `WorkflowIR`. Shows the raw IR that is saved to the database and passed to the codegen pipeline.
-
-### Triggers
-
-Configure how the workflow is started:
-
-- **Manual** — only started via the AwaitStep UI or API
-- **HTTP** — triggered by an incoming HTTP request to a generated endpoint
-
-### Dependencies
-
-If your workflow uses custom nodes that require npm packages, they are listed here. Dependencies are installed in the deploy directory before `wrangler deploy` is called.
+What starts the workflow (manual, HTTP, cron, queue) is part of the workflow definition; the handler code that runs for it is what you edit in `handlers.ts`.
 
 ## Validation
 

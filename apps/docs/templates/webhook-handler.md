@@ -118,7 +118,7 @@ export class WebhookHandlerWorkflow extends WorkflowEntrypoint<Env, Params> {
 
 ## Customising the HTTP trigger code
 
-The default trigger code immediately creates a Workflow instance and returns the `instanceId`. For webhook senders that expect a `200 OK` with no body latency, this is fast enough. If the sender requires a specific response body, customise the trigger code in **Settings → Trigger Code**:
+The default trigger code immediately creates a Workflow instance and returns the `instanceId`. For webhook senders that expect a `200 OK` with no body latency, this is fast enough. If the sender requires a specific response body, customise the `@fetch` handler in `handlers.ts` (open **Code** from the canvas toolbar):
 
 ```typescript
 if (request.method === 'POST') {

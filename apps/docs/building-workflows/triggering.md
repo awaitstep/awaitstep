@@ -82,9 +82,7 @@ if (instanceId) {
 return new Response(null, { status: 200 })
 ```
 
-You can customise this code in the canvas editor panel under the **Entry** tab. This tab shows the `fetch()` handler code with access to `request`, `env`, and `ctx`.
-
-![Editor Entry tab showing the fetch handler code](/images/editor-entry-tab.png)
+You can customise this code in `handlers.ts`: click **Code** in the canvas toolbar and open `handlers.ts` under **Project**. It holds the `@fetch` handler (and any `@queue` / `@scheduled` handlers) with access to `request`, `env`, and `ctx`; ⌘S saves the file, and the next deploy compiles it into the Worker.
 
 ### Incoming webhook example
 

@@ -86,7 +86,7 @@ See [Wrangler Errors](./wrangler-errors.md) for more wrangler-specific issues.
 
 1. Check the Cloudflare dashboard → Workers & Pages to confirm the Worker was created.
 2. Check Worker logs in the Cloudflare dashboard for runtime errors.
-3. If the Worker exists but returns errors, the trigger code may have a syntax error. Edit the trigger code in **Settings → Trigger Code** and redeploy.
+3. If the Worker exists but returns errors, the trigger code may have a syntax error. Open **Code** from the canvas toolbar, fix `handlers.ts` (the Problems panel lists syntax errors), and redeploy.
 
 ---
 
