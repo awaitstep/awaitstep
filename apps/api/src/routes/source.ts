@@ -17,7 +17,7 @@ const MAX_TOTAL_BYTES = 2_000_000
 const sourceFileSchema = z.object({
   path: z.string().min(1).max(300),
   source: z.string().max(MAX_FILE_BYTES),
-  role: z.enum(['entry', 'module', 'config', 'meta']),
+  role: z.enum(['entry', 'module', 'config', 'meta', 'asset']),
 })
 
 const putSourceSchema = z

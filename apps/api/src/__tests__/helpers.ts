@@ -5,6 +5,7 @@ import type {
   Connection,
   WorkflowRun,
   WorkflowRunStep,
+  WorkflowFile,
   ApiKey,
   Deployment,
   Project,
@@ -19,6 +20,7 @@ const store = {
   connections: new Map<string, Connection>(),
   runs: new Map<string, WorkflowRun>(),
   runSteps: new Map<string, WorkflowRunStep>(),
+  files: new Map<string, WorkflowFile>(),
   apiKeys: new Map<string, ApiKey>(),
   deployments: new Map<string, Deployment>(),
   projects: new Map<string, Project>(),
@@ -31,6 +33,7 @@ export function resetStore() {
   store.connections.clear()
   store.runs.clear()
   store.runSteps.clear()
+  store.files.clear()
   store.apiKeys.clear()
   store.deployments.clear()
   store.projects.clear()
@@ -321,6 +324,66 @@ const mockDb: DatabaseAdapter = {
       // The adapter's scalar subquery rides on step rows: no rows, no snapshot.
       configSnapshot: steps.length > 0 ? (deployment?.configSnapshot ?? null) : null,
     }
+  },
+
+  // Project files
+  async listWorkflowFiles(workflowId) {
+    return [...store.files.values()]
+      .filter((f) => f.workflowId === workflowId)
+      .sort((a, b) => (a.path < b.path ? -1 : 1))
+  },
+  async getWorkflowFile(workflowId, path) {
+    return store.files.get(`${workflowId}|${path}`) ?? null
+  },
+  async upsertWorkflowFile(data) {
+    const [row] = await this.upsertWorkflowFiles([data])
+    return row!
+  },
+  async upsertWorkflowFiles(rows) {
+    return rows.map((data) => {
+      const key = `${data.workflowId}|${data.path}`
+      const existing = store.files.get(key)
+      const row: WorkflowFile = {
+        id: existing?.id ?? data.id,
+        workflowId: data.workflowId,
+        path: data.path,
+        source: data.source,
+        hash: data.hash,
+        size: data.size,
+        createdAt: existing?.createdAt ?? now(),
+        updatedAt: now(),
+      }
+      store.files.set(key, row)
+      return row
+    })
+  },
+  async updateWorkflowFileIfMatches(data, expectedHash) {
+    const key = `${data.workflowId}|${data.path}`
+    const existing = store.files.get(key)
+    if (!existing) return null
+    if (expectedHash !== '*' && existing.hash !== expectedHash) return null
+    const row: WorkflowFile = {
+      ...existing,
+      source: data.source,
+      hash: data.hash,
+      size: data.size,
+      updatedAt: now(),
+    }
+    store.files.set(key, row)
+    return row
+  },
+  async replaceWorkflowFiles(workflowId, rows) {
+    for (const [key, file] of store.files) {
+      if (file.workflowId === workflowId) store.files.delete(key)
+    }
+    return this.upsertWorkflowFiles(rows)
+  },
+  async deleteWorkflowFile(workflowId, path, expectedHash) {
+    const key = `${workflowId}|${path}`
+    const existing = store.files.get(key)
+    if (!existing) return false
+    if (expectedHash !== undefined && existing.hash !== expectedHash) return false
+    return store.files.delete(key)
   },
 
   // Deployments

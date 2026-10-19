@@ -4,6 +4,8 @@ import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import { validateArtifact, migrateArtifact } from '@awaitstep/ir'
+import { foldProjectFiles } from '../lib/runtime-fold.js'
+import { snapshotFilesOf, toWorkflowFileRows } from '../lib/project-files.js'
 import type { AppEnv } from '../types.js'
 
 // `ir` is validated by migrateArtifact + validateArtifact in the handler —
@@ -80,18 +82,30 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
     return c.json({ error: 'Invalid IR', details: validation.errors }, 400)
   }
 
-  // Persist the schema-parsed value (unknown top-level keys stripped, as the
-  // previous zValidator parse did).
-  const irString = JSON.stringify(validation.value)
-
-  const existingResult = await db.listVersionsByWorkflow(workflowId, { limit: 1 })
+  const [existingResult, workflow, activeDeployment, storedFiles] = await Promise.all([
+    db.listVersionsByWorkflow(workflowId, { limit: 1 }),
+    db.getWorkflowById(workflowId),
+    db.getActiveDeployment(workflowId),
+    db.listWorkflowFiles(workflowId),
+  ])
   const latest = existingResult.data[0] // most recent version
-
-  // Check if the latest version has been deployed
-  const workflow = await db.getWorkflowById(workflowId)
   if (!workflow) return c.json({ error: 'Workflow not found' }, 404)
 
-  const activeDeployment = await db.getActiveDeployment(workflowId)
+  // The project-file table is the truth. An IR that arrives carrying files
+  // before the table has any (an import) seeds it once, so later saves,
+  // deploys and the code workspace all see the same set.
+  const importedFiles = validation.value.runtime?.files ?? []
+  const projectFiles =
+    storedFiles.length === 0 && importedFiles.length > 0
+      ? await db.upsertWorkflowFiles(toWorkflowFileRows(workflowId, importedFiles))
+      : storedFiles
+
+  // Persist the schema-parsed value (unknown top-level keys stripped, as the
+  // previous zValidator parse did) with the project files snapshotted in,
+  // so the version is self-contained.
+  const irString = JSON.stringify(
+    foldProjectFiles(validation.value, projectFiles, { useSnapshot: false }),
+  )
 
   if (latest) {
     // If latest version has NOT been deployed, overwrite it in place
@@ -168,11 +182,19 @@ versions.post('/:workflowId/versions/:versionId/revert', async (c) => {
   // Revert intentionally yields a generated-mode version (createVersion's
   // default): the target's IR is reproduced, but any hand-edited source on
   // an ejected target stays on that old row — re-eject to edit code again.
-  const newVersion = await db.createVersion({
-    id: nanoid(),
-    workflowId,
-    ir: targetVersion.ir,
-  })
+  // The project-file table follows the snapshot, so the current version
+  // deploys the reverted files rather than whatever was live.
+  const [newVersion] = await Promise.all([
+    db.createVersion({
+      id: nanoid(),
+      workflowId,
+      ir: targetVersion.ir,
+    }),
+    db.replaceWorkflowFiles(
+      workflowId,
+      toWorkflowFileRows(workflowId, snapshotFilesOf(targetVersion.ir)),
+    ),
+  ])
 
   await db.updateWorkflow(workflowId, { currentVersionId: newVersion.id })
 

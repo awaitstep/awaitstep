@@ -4,17 +4,17 @@ import type {
   ProviderConfig,
   StepManifest,
 } from '@awaitstep/codegen'
-import { bundleCodeFiles } from '@awaitstep/codegen'
+import { bundleCodeFiles, bundlePackageManifest } from '@awaitstep/codegen'
 import { transpileToJS } from '@awaitstep/codegen/transpile'
 import type { ArtifactIR } from '@awaitstep/ir'
-import { loadArtifact } from '@awaitstep/ir'
+import { loadArtifact, parsePackageManifest } from '@awaitstep/ir'
 import type { DatabaseAdapter, Workflow, WorkflowSourceMode, WorkflowVersion } from '@awaitstep/db'
 import type { AppNodeRegistry } from './node-registry.js'
 import { createMergedNodeRegistry } from './node-registry.js'
 import { resolveProvider, validateNodesForProvider } from './provider-resolver.js'
 import { collectNodeDependencies, mergeDependencies } from './dependencies.js'
 import { resolveAndValidateEnvVars } from './env-resolve.js'
-import { foldWorkflowRuntime } from './runtime-fold.js'
+import { foldProjectFiles, foldWorkflowRuntime } from './runtime-fold.js'
 
 export interface WorkflowContext {
   adapter: WorkflowProvider
@@ -58,7 +58,13 @@ export async function prepareWorkflow(
   const versionId = input.version?.id ?? input.versionId ?? workflow.currentVersionId
   if (!versionId) return { error: 'No version to use', status: 400 }
 
-  const version = input.version ?? (await db.getWorkflowVersionById(versionId))
+  // Only the current version reads the live project-file table; older
+  // versions deploy their snapshot, so their rows are never fetched.
+  const isCurrentVersion = versionId === workflow.currentVersionId
+  const [version, projectFiles] = await Promise.all([
+    input.version ?? db.getWorkflowVersionById(versionId),
+    isCurrentVersion ? db.listWorkflowFiles(workflow.id) : [],
+  ])
   if (!version || version.workflowId !== workflow.id) {
     return { error: 'Version not found', status: 404 }
   }
@@ -90,6 +96,12 @@ export async function prepareWorkflow(
   ir = foldWorkflowRuntime(ir, workflow, {
     preserveTriggerCode: sourceMode !== 'generated',
   })
+  // Ejected/sdk bundles already carry the project files they were ejected
+  // with; only generated versions read the live table (current version) or
+  // their saved snapshot (older versions).
+  if (sourceMode === 'generated') {
+    ir = foldProjectFiles(ir, projectFiles, { useSnapshot: !isCurrentVersion })
+  }
 
   // Merge installed nodes for custom node template resolution
   const nodeTypesInIR = new Set(ir.nodes.map((n) => n.type))
@@ -133,11 +145,6 @@ export async function prepareWorkflow(
     return { error: envResult.error, status: 400 }
   }
 
-  // Collect dependencies (runtime block is authoritative post-fold)
-  const workflowDeps = ir.runtime?.dependencies ?? {}
-  const nodeDeps = collectNodeDependencies(ir, nodeRegistry)
-  const dependencies = mergeDependencies(workflowDeps, nodeDeps)
-
   // Source resolution: user-edited versions (ejected/sdk) deploy their
   // stored bundle after drift validation; everything else regenerates from
   // the IR. Config artifacts (wrangler.json, bindings) always derive from IR
@@ -170,8 +177,25 @@ export async function prepareWorkflow(
         ...(input.eject && { eject: true }),
       },
     }
-    bundle = adapter.generate(ir, generateConfig)
+    // Bundle invariants (path collisions, reserved names) are a 422 the
+    // caller can act on, not a 500 that repeats on every deploy.
+    try {
+      bundle = adapter.generate(ir, generateConfig)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      return { error: `Bundle validation failed: ${message}`, status: 422 }
+    }
   }
+
+  // Dependencies: the bundle's own package.json is the source of truth —
+  // for ejected/sdk versions that is the stored, possibly hand-edited
+  // manifest; the legacy dependencies setting (folded into the runtime
+  // block) only applies when the project has no manifest at all.
+  const manifestSource = bundlePackageManifest(bundle)
+  const manifest = manifestSource ? parsePackageManifest(manifestSource) : null
+  const workflowDeps = manifest ? (manifest.dependencies ?? {}) : (ir.runtime?.dependencies ?? {})
+  const nodeDeps = collectNodeDependencies(ir, nodeRegistry)
+  const dependencies = mergeDependencies(workflowDeps, nodeDeps)
 
   // Catch syntax errors in user-authored code (step bodies, triggerCode, etc.)
   // before deploy/preview consumers act on the bundle. Without this the

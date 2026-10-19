@@ -1,6 +1,33 @@
-import type { ArtifactIR, EnvDeclaration, WorkflowRuntime } from '@awaitstep/ir'
+import type { ArtifactIR, EnvDeclaration, ProjectFile, WorkflowRuntime } from '@awaitstep/ir'
 import type { Workflow } from '@awaitstep/db'
 import { parseDependencies } from './dependencies.js'
+
+/**
+ * Project files live in their own table — the one source of truth, seeded
+ * from an imported IR on first save — and are snapshotted into
+ * `runtime.files` whenever a version is saved. For the current version the
+ * table replaces the snapshot (per-file writes land there first); older
+ * versions keep theirs so a historical deploy or source view reproduces
+ * exactly what was saved.
+ */
+export function foldProjectFiles(
+  ir: ArtifactIR,
+  files: readonly ProjectFile[],
+  options: { useSnapshot: boolean },
+): ArtifactIR {
+  if (options.useSnapshot) return ir
+  const runtime: WorkflowRuntime = { ...ir.runtime }
+  delete runtime.files
+  if (files.length > 0) {
+    runtime.files = files.map(({ path, source }) => ({ path, source }))
+  }
+  if (Object.keys(runtime).length === 0) {
+    const stripped = { ...ir }
+    delete stripped.runtime
+    return stripped
+  }
+  return { ...ir, runtime }
+}
 
 /**
  * Folds the legacy workflow columns (triggerCode, dependencies, envVars) into
