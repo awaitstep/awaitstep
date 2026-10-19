@@ -7,7 +7,18 @@ import { useShallow } from 'zustand/react/shallow'
 import type { Editability } from '../../lib/ide/editability'
 import { fileLanguage } from '../../lib/ide/file-tree'
 import { disposeWorkflowModels, syncWorkflowModels } from '../../lib/monaco/models'
-import { configureMonaco, parseWorkflowModelPath, workflowModelPath } from '../../lib/monaco/setup'
+import { projectRootOptions, tsconfigEditorOptions } from '../../lib/monaco/project-config'
+import { disposeProjectLibs, syncProjectLibs } from '../../lib/monaco/project-libs'
+import {
+  configureMonaco,
+  languageHosts,
+  parseWorkflowModelPath,
+  setProjectCompilerOptions,
+  setProjectDiagnostics,
+  workflowModelPath,
+} from '../../lib/monaco/setup'
+import { useTypeAcquisition } from '../../lib/monaco/use-type-acquisition'
+import { useDebouncedValue } from '../../hooks/use-debounced-value'
 import { IDE_EDITOR_OPTIONS, IDE_READONLY_EDITOR_OPTIONS } from '../../lib/monaco/options'
 import { useWorkflowTypeContext } from '../../lib/monaco/use-workflow-type-context'
 import { useIdeStore } from '../../stores/ide-store'
@@ -16,6 +27,9 @@ import { EditorTabs } from './editor-tabs'
 import { roleTitle } from './file-icon'
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
+
+/** How long typing must pause before project-wide work (lib sync, type acquisition) runs. */
+const WORKER_SYNC_DELAY_MS = 600
 
 interface EditorGroupProps {
   workflowId: string
@@ -49,17 +63,54 @@ export function EditorGroup({
   const activeFile = activePath ? files.get(activePath) : undefined
   const editability = activePath ? editabilityOf(activePath) : null
 
-  // Models outlive editor mounts and the wrapper reuses them without
-  // re-applying `value`, so keep this workflow's models in step with what
-  // the editor should show (drafts included — a draft equals its model, so
-  // typing never fights the sync) and drop them all when the workspace goes.
+  // Every file is a model (created up front, not when its tab opens) so
+  // TypeScript sees the whole project: imports resolve across files and
+  // Problems covers files nobody has opened. The sync keeps the models in
+  // step with what the editor should show (drafts included — a draft
+  // equals its model, so typing never fights the sync); everything is
+  // dropped when the workspace goes.
   useEffect(() => {
     if (monaco) syncWorkflowModels(monaco, workflowId, files)
   }, [monaco, workflowId, files])
 
+  // Everything below restarts the language workers when it changes, so it
+  // follows the files only once typing has paused.
+  const settledFiles = useDebouncedValue(files, WORKER_SYNC_DELAY_MS)
+
+  // JSON declarations and, in a mixed project, each language's files for
+  // the other service.
+  useEffect(() => {
+    if (monaco) syncProjectLibs(languageHosts(monaco), workflowId, settledFiles)
+  }, [monaco, workflowId, settledFiles])
+
+  // The project is one TypeScript program rooted at the workflow: `#app/*`
+  // and relative imports resolve between its models, and a project
+  // tsconfig.json (or jsconfig.json) may turn on strictness switches.
+  const configSource =
+    settledFiles.get('tsconfig.json')?.source ?? settledFiles.get('jsconfig.json')?.source
+  useEffect(() => {
+    if (!monaco) return
+    setProjectCompilerOptions(monaco, {
+      ...projectRootOptions(workflowId),
+      ...tsconfigEditorOptions(configSource),
+    })
+  }, [monaco, workflowId, configSource])
+
+  // npm packages get real declarations; "Cannot find module" only counts
+  // once every package in view has been typed or stubbed. Keyed on the
+  // workflow as well, so a workspace that opens after another's cleanup
+  // muted the errors always re-applies its own state.
+  const typesSettled = useTypeAcquisition(settledFiles)
+  useEffect(() => {
+    if (monaco) setProjectDiagnostics(monaco, { reportUnresolvedImports: typesSettled })
+  }, [monaco, workflowId, typesSettled])
+
   useEffect(() => {
     if (!monaco) return
     return () => {
+      setProjectDiagnostics(monaco, null)
+      setProjectCompilerOptions(monaco, null)
+      disposeProjectLibs(workflowId)
       disposeWorkflowModels(monaco, workflowId)
     }
   }, [monaco, workflowId])
@@ -108,6 +159,9 @@ export function EditorGroup({
               value={activeFile.source}
               theme="vs-dark"
               options={editability.readOnly ? IDE_READONLY_EDITOR_OPTIONS : IDE_EDITOR_OPTIONS}
+              // The workspace owns the models: closing the last tab must not
+              // drop the file from the type program.
+              keepCurrentModel
               beforeMount={configureMonaco}
               onMount={handleMount}
               onChange={handleChange}
