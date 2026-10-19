@@ -8,6 +8,7 @@ import {
   MAX_PROJECT_FILE_BYTES,
   MAX_PROJECT_TOTAL_BYTES,
   PACKAGE_MANIFEST_PATH,
+  PROJECT_HANDLERS_PATH,
   PROJECT_FILE_EXTENSIONS,
   PROJECT_IMPORT_PREFIX,
   PROJECT_ROOT_CONFIG_FILES,
@@ -107,10 +108,11 @@ projectFiles.get('/:workflowId/files/:path{.+}', async (c) => {
 
 /**
  * Create or replace one project file. `If-Match` (a hash from a previous
- * read, or `*` for "must already exist") makes the write conditional so two
- * writers — a person in the IDE and an agent — cannot silently clobber each
- * other; the precondition is enforced inside the UPDATE itself, and a
- * mismatch is a 409 carrying the current hash.
+ * read, or `*` for "must already exist") and `If-None-Match: *` ("must not
+ * exist yet") make the write conditional so two writers — a person in the
+ * IDE and an agent — cannot silently clobber each other; each precondition
+ * is enforced inside the statement itself, and a failure is a 409 carrying
+ * the current hash.
  */
 projectFiles.put('/:workflowId/files/:path{.+}', zValidator('json', putFileSchema), async (c) => {
   const db = c.get('db')
@@ -123,6 +125,11 @@ projectFiles.put('/:workflowId/files/:path{.+}', zValidator('json', putFileSchem
     return c.json({ error: `Invalid project file path "${path}": ${pathError}` }, 422)
   }
   const { source } = c.req.valid('json')
+  const expected = requestedHash(c.req.header('If-Match'))
+  const mustCreate = c.req.header('If-None-Match') !== undefined
+  if (mustCreate && expected !== null) {
+    return c.json({ error: 'Send either If-Match or If-None-Match, not both' }, 400)
+  }
   const size = projectFileBytes(source)
   if (size > MAX_PROJECT_FILE_BYTES) {
     return c.json({ error: `File exceeds ${MAX_PROJECT_FILE_BYTES} bytes` }, 422)
@@ -166,24 +173,36 @@ projectFiles.put('/:workflowId/files/:path{.+}', zValidator('json', putFileSchem
     hash: contentHash(source),
     size,
   }
-  const expected = requestedHash(c.req.header('If-Match'))
-  const saved =
-    expected === null
+  const saved = mustCreate
+    ? await db.createWorkflowFile(row)
+    : expected === null
       ? await db.upsertWorkflowFile(row)
       : await db.updateWorkflowFileIfMatches(row, expected)
   if (!saved) {
     const latest = await db.getWorkflowFile(workflow.id, path)
-    return c.json(
-      {
-        error: latest ? 'File changed since it was read' : 'File does not exist',
-        currentHash: latest?.hash ?? null,
-      },
-      409,
-    )
+    const error = mustCreate
+      ? 'File already exists'
+      : latest
+        ? 'File changed since it was read'
+        : 'File does not exist'
+    return c.json({ error, currentHash: latest?.hash ?? null }, 409)
   }
   c.header('ETag', etag(saved.hash))
   return c.json(summarize(saved), current ? 200 : 201)
 })
+
+/**
+ * Removing a project file that stands in for a legacy workflow setting
+ * (handlers.ts for trigger code, package.json for dependencies) must not
+ * let the setting resurface: the workspace would show the "deleted" file
+ * again as a virtual seed, and the next deploy would still use it.
+ */
+const LEGACY_SETTING_BY_PATH: Readonly<
+  Record<string, { triggerCode?: null; dependencies?: null }>
+> = {
+  [PROJECT_HANDLERS_PATH]: { triggerCode: null },
+  [PACKAGE_MANIFEST_PATH]: { dependencies: null },
+}
 
 projectFiles.delete('/:workflowId/files/:path{.+}', async (c) => {
   const db = c.get('db')
@@ -202,7 +221,13 @@ projectFiles.delete('/:workflowId/files/:path{.+}', async (c) => {
     path,
     expected !== null && expected !== '*' ? expected : undefined,
   )
-  if (removed) return c.body(null, 204)
+  if (removed) {
+    // A follow-up write, not a lookup: it only applies once the conditional
+    // delete has succeeded.
+    const legacy = LEGACY_SETTING_BY_PATH[path]
+    if (legacy) await db.updateWorkflow(workflow.id, legacy)
+    return c.body(null, 204)
+  }
 
   const current = await db.getWorkflowFile(workflow.id, path)
   if (!current) return c.json({ error: 'File not found' }, 404)

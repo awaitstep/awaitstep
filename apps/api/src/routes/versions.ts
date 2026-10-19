@@ -4,7 +4,11 @@ import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import { validateArtifact, migrateArtifact } from '@awaitstep/ir'
-import { foldProjectFiles } from '../lib/runtime-fold.js'
+import {
+  foldProjectFiles,
+  legacyRuntimeSeeds,
+  stripProjectOwnedRuntime,
+} from '../lib/runtime-fold.js'
 import { snapshotFilesOf, toWorkflowFileRows } from '../lib/project-files.js'
 import type { AppEnv } from '../types.js'
 
@@ -92,19 +96,32 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
   if (!workflow) return c.json({ error: 'Workflow not found' }, 404)
 
   // The project-file table is the truth. An IR that arrives carrying files
-  // before the table has any (an import) seeds it once, so later saves,
-  // deploys and the code workspace all see the same set.
+  // before the table has any (an import) seeds it once, and inline trigger
+  // code / dependencies become handlers.ts / package.json when the project
+  // has none yet, so later saves, deploys and the code workspace all see
+  // the same set.
   const importedFiles = validation.value.runtime?.files ?? []
+  const seeds = storedFiles.length === 0 ? [...importedFiles] : []
+  seeds.push(
+    ...legacyRuntimeSeeds(
+      validation.value.runtime,
+      [...storedFiles, ...seeds].map((f) => f.path),
+    ),
+  )
   const projectFiles =
-    storedFiles.length === 0 && importedFiles.length > 0
-      ? await db.upsertWorkflowFiles(toWorkflowFileRows(workflowId, importedFiles))
+    seeds.length > 0
+      ? [...storedFiles, ...(await db.upsertWorkflowFiles(toWorkflowFileRows(workflowId, seeds)))]
       : storedFiles
 
   // Persist the schema-parsed value (unknown top-level keys stripped, as the
-  // previous zValidator parse did) with the project files snapshotted in,
-  // so the version is self-contained.
+  // previous zValidator parse did) with the project files snapshotted in and
+  // the settings those files own removed, so the version is self-contained
+  // and never carries a stale duplicate of handlers.ts or package.json.
   const irString = JSON.stringify(
-    foldProjectFiles(validation.value, projectFiles, { useSnapshot: false }),
+    stripProjectOwnedRuntime(
+      foldProjectFiles(validation.value, projectFiles, { useSnapshot: false }),
+      projectFiles,
+    ),
   )
 
   if (latest) {

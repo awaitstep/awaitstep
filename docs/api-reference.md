@@ -64,7 +64,7 @@ Get a single workflow by ID.
 
 ### `GET /workflows/:id/full`
 
-Get a workflow with its current version, all version summaries, and active deployment.
+Get a workflow with its current version, all version summaries, and active deployment. When the project has a `handlers.ts` file, `workflow.triggerCode` carries its contents (see [Project files](#project-files)).
 
 **Scope:** `read`
 
@@ -447,6 +447,18 @@ the matching `imports` map (one pattern per extension), so wrangler
 (esbuild) and `wrangler dev` resolve it natively, and `#app/` is a valid Node
 subpath-import prefix, so the same code runs under Node tooling too.
 
+**handlers.ts.** The entry handlers — `@fetch`, `@queue` and `@scheduled`
+functions in the annotation syntax the trigger-code setting uses — as a
+project file. When it exists it _is_ the trigger code: deploys, queue/cron
+detection, the generated `worker.ts` and the canvas all read it, and the
+legacy `triggerCode` setting is ignored (the `full` workflow response
+returns the file's contents as `triggerCode` so existing clients keep
+working). It is compiled into the entry and never shipped as a module, so
+it may not `import` other files; put shared code in a module and reach it
+from a generated step instead. The code workspace offers it (seeded from
+the setting) until it is saved for the first time; the canvas never writes
+trigger code itself, it only mirrors this file.
+
 **package.json.** Write it like any Node package. The deploy honours `name`,
 `version`, `description`, `license`, `engines`, your own `#`-prefixed
 `imports` entries and `dependencies` (registry ranges only — the same rule
@@ -460,8 +472,12 @@ editor's type program and is never written to the deploy directory.
 **Versions.** The project-file table is the source of truth: writes land
 immediately, every `POST /versions` snapshots the current set into the
 version's IR (`runtime.files`), an IR that arrives with files before the
-table has any (an import) seeds it, and a revert replaces the table with the
-reverted version's snapshot. Generated-mode deploys of the current version
+table has any (an import) seeds it, inline `runtime.triggerCode` /
+`runtime.dependencies` seed `handlers.ts` / `package.json` when the project
+has none (and are dropped from the stored IR once those files exist, so a
+stale copy can never come back through a version), and a revert replaces
+the table with the reverted version's snapshot. `GET /source` marks each
+project-owned file with its `hash`, the ETag a conditional write needs. Generated-mode deploys of the current version
 use the live set, older versions deploy exactly what they snapshotted, and
 ejected versions carry the files they were ejected with inside their stored
 bundle — while the current version is ejected, `PUT`/`DELETE` on files
@@ -500,9 +516,11 @@ Returns `{ path, hash, size, updatedAt, source }` with an `ETag` header equal to
 
 Create or replace a file (folders are created implicitly). Send
 `If-Match: "<hash>"` from a previous read to make the write conditional (`*`
-means "must already exist"); on a mismatch the response is `409` with
-`{ error, currentHash }` and nothing is written. A `package.json` is checked
-against the contract above before it is stored.
+means "must already exist"), or `If-None-Match: *` to create only (the write
+fails if the path is taken); on a failed precondition the response is `409`
+with `{ error, currentHash }` and nothing is written. Sending both headers is
+a `400`. A `package.json` is checked against the contract above before it is
+stored.
 
 **Scope:** `write`
 
@@ -520,6 +538,10 @@ current version is ejected.
 
 Optional `If-Match` as above. Returns `204`; `404` when the file does not
 exist; `409` when the precondition fails or the current version is ejected.
+Deleting `handlers.ts` or `package.json` also clears the legacy setting it
+stood in for (`triggerCode` / `dependencies`), so the file does not
+reappear as a seed and the next deploy uses the default handlers / no
+project dependencies.
 
 **Scope:** `write`
 

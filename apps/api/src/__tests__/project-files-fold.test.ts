@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import type { ArtifactIR } from '@awaitstep/ir'
-import { foldProjectFiles } from '../lib/runtime-fold.js'
+import {
+  foldProjectFiles,
+  foldProjectHandlers,
+  legacyRuntimeSeeds,
+  stripProjectOwnedRuntime,
+} from '../lib/runtime-fold.js'
 import { snapshotFilesOf, toWorkflowFileRows } from '../lib/project-files.js'
 
 const baseIr: ArtifactIR = {
@@ -52,6 +57,66 @@ describe('foldProjectFiles', () => {
       { useSnapshot: false },
     )
     expect(folded.runtime?.files).toEqual([{ path: 'config/a.ts', source: 'x' }])
+  })
+})
+
+describe('foldProjectHandlers', () => {
+  it('lets a project handlers.ts replace the folded trigger code', () => {
+    const folded = foldProjectHandlers({
+      ...baseIr,
+      runtime: {
+        triggerCode: 'legacy',
+        files: [{ path: 'handlers.ts', source: '@fetch function handler() {}' }],
+      },
+    })
+    expect(folded.runtime?.triggerCode).toBe('@fetch function handler() {}')
+  })
+
+  it('leaves the IR untouched without a handlers file', () => {
+    expect(foldProjectHandlers(withSnapshot)).toBe(withSnapshot)
+    expect(foldProjectHandlers(baseIr)).toBe(baseIr)
+  })
+})
+
+describe('legacyRuntimeSeeds', () => {
+  it('turns inline trigger code and dependencies into the files the project lacks', () => {
+    const seeds = legacyRuntimeSeeds(
+      { triggerCode: '@fetch function handler() {}', dependencies: { zod: '^4.0.0' } },
+      ['config/env.ts'],
+    )
+    expect(seeds.map((s) => s.path)).toEqual(['handlers.ts', 'package.json'])
+    expect(JSON.parse(seeds[1]!.source)).toEqual({ dependencies: { zod: '^4.0.0' } })
+  })
+
+  it('never re-seeds a file the project already has, and ignores empty settings', () => {
+    expect(
+      legacyRuntimeSeeds({ triggerCode: 'x', dependencies: { zod: '^4' } }, [
+        'handlers.ts',
+        'package.json',
+      ]),
+    ).toEqual([])
+    expect(legacyRuntimeSeeds({ triggerCode: '', dependencies: {} }, [])).toEqual([])
+    expect(legacyRuntimeSeeds(undefined, [])).toEqual([])
+  })
+})
+
+describe('stripProjectOwnedRuntime', () => {
+  it('drops the inline copy of every setting a project file owns', () => {
+    const ir = {
+      ...baseIr,
+      runtime: { triggerCode: 'stale', dependencies: { zod: '^4' }, env: [{ name: 'A' }] },
+    }
+    expect(stripProjectOwnedRuntime(ir, [{ path: 'handlers.ts', source: '' }]).runtime).toEqual({
+      dependencies: { zod: '^4' },
+      env: [{ name: 'A' }],
+    })
+    expect(
+      stripProjectOwnedRuntime(ir, [
+        { path: 'handlers.ts', source: '' },
+        { path: 'package.json', source: '{}' },
+      ]).runtime,
+    ).toEqual({ env: [{ name: 'A' }] })
+    expect(stripProjectOwnedRuntime(baseIr, [{ path: 'handlers.ts', source: '' }])).toBe(baseIr)
   })
 })
 

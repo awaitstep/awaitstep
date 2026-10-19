@@ -14,7 +14,7 @@ import { createMergedNodeRegistry } from './node-registry.js'
 import { resolveProvider, validateNodesForProvider } from './provider-resolver.js'
 import { collectNodeDependencies, mergeDependencies } from './dependencies.js'
 import { resolveAndValidateEnvVars } from './env-resolve.js'
-import { foldProjectFiles, foldWorkflowRuntime } from './runtime-fold.js'
+import { foldProjectFiles, foldProjectHandlers, foldWorkflowRuntime } from './runtime-fold.js'
 
 export interface WorkflowContext {
   adapter: WorkflowProvider
@@ -100,7 +100,7 @@ export async function prepareWorkflow(
   // with; only generated versions read the live table (current version) or
   // their saved snapshot (older versions).
   if (sourceMode === 'generated') {
-    ir = foldProjectFiles(ir, projectFiles, { useSnapshot: !isCurrentVersion })
+    ir = foldProjectHandlers(foldProjectFiles(ir, projectFiles, { useSnapshot: !isCurrentVersion }))
   }
 
   // Merge installed nodes for custom node template resolution

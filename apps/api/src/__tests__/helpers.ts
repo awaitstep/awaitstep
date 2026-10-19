@@ -357,6 +357,12 @@ const mockDb: DatabaseAdapter = {
       return row
     })
   },
+  async createWorkflowFile(data) {
+    const key = `${data.workflowId}|${data.path}`
+    if (store.files.has(key)) return null
+    const [row] = await this.upsertWorkflowFiles([data])
+    return row!
+  },
   async updateWorkflowFileIfMatches(data, expectedHash) {
     const key = `${data.workflowId}|${data.path}`
     const existing = store.files.get(key)

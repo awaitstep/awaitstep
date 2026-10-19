@@ -1,6 +1,63 @@
 import type { ArtifactIR, EnvDeclaration, ProjectFile, WorkflowRuntime } from '@awaitstep/ir'
+import { PACKAGE_MANIFEST_PATH, PROJECT_HANDLERS_PATH, projectHandlersSource } from '@awaitstep/ir'
 import type { Workflow } from '@awaitstep/db'
 import { parseDependencies } from './dependencies.js'
+
+/**
+ * A project-owned handlers.ts is the entry-handler source: it replaces the
+ * trigger code folded from the legacy setting so codegen, queue/cron
+ * detection and the IDE all read the same file.
+ */
+export function foldProjectHandlers(ir: ArtifactIR): ArtifactIR {
+  const source = projectHandlersSource(ir.runtime?.files)
+  if (source === undefined) return ir
+  return { ...ir, runtime: { ...ir.runtime, triggerCode: source } }
+}
+
+/**
+ * The project files a legacy runtime block implies: an IR that arrives with
+ * inline trigger code or dependencies (an import, or an older client) seeds
+ * `handlers.ts` / `package.json` when the project does not have them yet,
+ * so the setting lives in one place the IDE and agents can edit. Returns
+ * only the files still missing from `existing`.
+ */
+export function legacyRuntimeSeeds(
+  runtime: WorkflowRuntime | undefined,
+  existing: Iterable<string>,
+): ProjectFile[] {
+  if (!runtime) return []
+  const paths = new Set(existing)
+  const seeds: ProjectFile[] = []
+  if (runtime.triggerCode && !paths.has(PROJECT_HANDLERS_PATH)) {
+    seeds.push({ path: PROJECT_HANDLERS_PATH, source: runtime.triggerCode })
+  }
+  const deps = runtime.dependencies ?? {}
+  if (Object.keys(deps).length > 0 && !paths.has(PACKAGE_MANIFEST_PATH)) {
+    seeds.push({
+      path: PACKAGE_MANIFEST_PATH,
+      source: `${JSON.stringify({ dependencies: deps }, null, 2)}\n`,
+    })
+  }
+  return seeds
+}
+
+/**
+ * Drops the inline copies of settings the project files now own, so a
+ * stored version never carries a stale duplicate: with a `handlers.ts` the
+ * runtime's `triggerCode` is redundant, with a `package.json` so is
+ * `dependencies`.
+ */
+export function stripProjectOwnedRuntime(
+  ir: ArtifactIR,
+  files: readonly ProjectFile[],
+): ArtifactIR {
+  if (!ir.runtime) return ir
+  const paths = new Set(files.map((f) => f.path))
+  const runtime: WorkflowRuntime = { ...ir.runtime }
+  if (paths.has(PROJECT_HANDLERS_PATH)) delete runtime.triggerCode
+  if (paths.has(PACKAGE_MANIFEST_PATH)) delete runtime.dependencies
+  return { ...ir, runtime }
+}
 
 /**
  * Project files live in their own table — the one source of truth, seeded

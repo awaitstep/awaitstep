@@ -4,7 +4,13 @@ import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { prepareWorkflow, isPrepareError, parseStoredSource } from '../lib/workflow-prepare.js'
 import { resolveProvider } from '../lib/provider-resolver.js'
-import { bundleHash, bundleCodeFiles, validateBundle } from '@awaitstep/codegen'
+import {
+  bundleHash,
+  bundleCodeFiles,
+  bundleEjectFiles,
+  contentHash,
+  validateBundle,
+} from '@awaitstep/codegen'
 import type { GeneratedBundle, StepManifest } from '@awaitstep/codegen'
 import { transpileToJS } from '@awaitstep/codegen/transpile'
 import { loadArtifact } from '@awaitstep/ir'
@@ -73,15 +79,20 @@ source.post('/:workflowId/eject', zValidator('json', ejectSchema), async (c) => 
   // The FOLDED IR is persisted so the ejected version is fully
   // self-contained: its runtime block (trigger code especially) matches the
   // handlers compiled into the stored bundle, and later column changes
-  // cannot silently diverge wrangler config from the frozen source.
+  // cannot silently diverge wrangler config from the frozen source. The
+  // drift baseline is the hash of exactly what is stored.
+  const stored: GeneratedBundle = {
+    entry: prepared.bundle.entry,
+    files: bundleEjectFiles(prepared.bundle),
+  }
   const version = await db.createVersion({
     id: nanoid(),
     workflowId: workflow.id,
     ir: JSON.stringify(prepared.ir),
     sourceMode: 'ejected',
-    source: JSON.stringify({ entry: prepared.bundle.entry, files: prepared.bundle.files }),
+    source: JSON.stringify(stored),
     manifest: JSON.stringify(prepared.bundle.manifest),
-    baseGeneratedHash: bundleHash(prepared.bundle),
+    baseGeneratedHash: bundleHash(stored),
   })
   await db.updateWorkflow(workflow.id, { currentVersionId: version.id })
 
@@ -90,8 +101,8 @@ source.post('/:workflowId/eject', zValidator('json', ejectSchema), async (c) => 
       versionId: version.id,
       version: version.version,
       sourceMode: 'ejected',
-      entry: prepared.bundle.entry,
-      fileCount: prepared.bundle.files.length,
+      entry: stored.entry,
+      fileCount: stored.files.length,
     },
     201,
   )
@@ -147,11 +158,17 @@ source.get('/:workflowId/source', async (c) => {
   if (isPrepareError(prepared)) {
     return c.json({ error: prepared.error, details: prepared.details }, prepared.status as 400)
   }
+  // Project-owned files carry their content hash — the same value the file
+  // routes serve as ETag — so a client editing from this one response has a
+  // precondition that matches the text it read.
+  const projectPaths = new Set((prepared.ir.runtime?.files ?? []).map((f) => f.path))
   return c.json({
     versionId,
     sourceMode: 'generated',
     entry: prepared.bundle.entry,
-    files: prepared.bundle.files,
+    files: prepared.bundle.files.map((f) =>
+      projectPaths.has(f.path) ? { ...f, hash: contentHash(f.source) } : f,
+    ),
     manifest: prepared.bundle.manifest ?? null,
     baseGeneratedHash: null,
   })

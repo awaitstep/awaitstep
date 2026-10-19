@@ -7,6 +7,7 @@ import {
   NPM_PACKAGE_NAME_PATTERN,
   NPM_VERSION_RANGE_PATTERN,
   MAX_WORKFLOW_DEPENDENCIES,
+  PROJECT_HANDLERS_PATH,
 } from '@awaitstep/ir'
 import type { AppEnv } from '../types.js'
 
@@ -103,20 +104,25 @@ workflows.get('/:id/full', async (c) => {
 
   const versionId = c.req.query('version')
 
-  const [activeDeployment, versionsResult] = await Promise.all([
+  const [activeDeployment, versionsResult, handlersFile, requested] = await Promise.all([
     db.getActiveDeployment(workflow.id),
     db.listVersionsByWorkflow(workflow.id, { limit: 100 }),
+    db.getWorkflowFile(workflow.id, PROJECT_HANDLERS_PATH),
+    versionId ? db.getWorkflowVersionById(versionId) : null,
   ])
   const versions = versionsResult.data
 
   let version: (typeof versions)[number] | null = versions[0] ?? null
   if (versionId) {
-    const requested = await db.getWorkflowVersionById(versionId)
     version = requested?.workflowId === workflow.id ? requested : null
   }
 
+  // A project handlers.ts is the live trigger code: the canvas hydrates it
+  // (and its bindings panel reads it) in place of the legacy column.
+  const triggerCode = handlersFile?.source ?? workflow.triggerCode
+
   return c.json({
-    workflow: maskWorkflowSecrets(workflow),
+    workflow: { ...maskWorkflowSecrets(workflow), triggerCode },
     version,
     versions: versions.map(({ id, version, locked, createdAt }) => ({
       id,

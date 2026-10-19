@@ -193,6 +193,119 @@ describe('project file routes', () => {
     expect(roles).toContain('meta:package.json')
   })
 
+  it('treats a project handlers.ts as the trigger code everywhere it is read', async () => {
+    await app.request(url('/api/workflows/wf-1'), {
+      method: 'PATCH',
+      headers: json,
+      body: JSON.stringify({
+        triggerCode: '@fetch function legacy(request, env) { return new Response("old") }',
+      }),
+    })
+    const handlers = '@fetch function handler(request, env) { return new Response("file") }'
+    expect((await putFile(app, 'handlers.ts', handlers)).status).toBe(201)
+
+    // The canvas hydrates from /full: the file's contents, not the column.
+    const full = await (await app.request(url('/api/workflows/wf-1/full'))).json()
+    expect(full.workflow.triggerCode).toBe(handlers)
+
+    // A saved version snapshots the file and drops the inline copy, so a
+    // stale duplicate can never come back through the IR.
+    const saved = await (
+      await saveVersion(app, { ...validIR, runtime: { triggerCode: 'stale' } })
+    ).json()
+    const runtime = JSON.parse(saved.ir).runtime
+    expect(runtime.files).toEqual([{ path: 'handlers.ts', source: handlers }])
+    expect(runtime.triggerCode).toBeUndefined()
+
+    // Codegen compiles it into the entry; the bundle carries it as a
+    // handlers input, never as a module.
+    const bundle = await (await app.request(url('/api/workflows/wf-1/source'))).json()
+    const entry = bundle.files.find((f: { path: string }) => f.path === bundle.entry)
+    expect(entry.source).toContain('new Response("file")')
+    expect(entry.source).not.toContain('new Response("old")')
+    expect(
+      bundle.files.map((f: { role: string; path: string }) => `${f.role}:${f.path}`),
+    ).toContain('handlers:handlers.ts')
+    // Project files carry the hash the file routes use as ETag; generated
+    // files do not.
+    const handlersFile = bundle.files.find((f: { path: string }) => f.path === 'handlers.ts')
+    const stored = await (await app.request(url('/api/workflows/wf-1/files/handlers.ts'))).json()
+    expect(handlersFile.hash).toBe(stored.hash)
+    expect(entry.hash).toBeUndefined()
+  })
+
+  it('creates only when asked to with If-None-Match', async () => {
+    const created = await putFile(app, 'config/a.ts', 'v1', { 'If-None-Match': '*' })
+    expect(created.status).toBe(201)
+    const createdBody = await created.json()
+
+    const taken = await putFile(app, 'config/a.ts', 'v2', { 'If-None-Match': '*' })
+    expect(taken.status).toBe(409)
+    expect(await taken.json()).toEqual({
+      error: 'File already exists',
+      currentHash: createdBody.hash,
+    })
+    expect(
+      (await (await app.request(url('/api/workflows/wf-1/files/config/a.ts'))).json()).source,
+    ).toBe('v1')
+
+    const both = await putFile(app, 'config/a.ts', 'v2', { 'If-None-Match': '*', 'If-Match': '*' })
+    expect(both.status).toBe(400)
+  })
+
+  it('deleting handlers.ts or package.json also retires the legacy setting', async () => {
+    await app.request(url('/api/workflows/wf-1'), {
+      method: 'PATCH',
+      headers: json,
+      body: JSON.stringify({ triggerCode: 'legacy', dependencies: { zod: '^4.0.0' } }),
+    })
+    await putFile(app, 'handlers.ts', '@fetch function handler() {}')
+    await putFile(app, 'package.json', '{"dependencies":{"zod":"^4.0.0"}}')
+
+    for (const path of ['handlers.ts', 'package.json']) {
+      const res = await app.request(url(`/api/workflows/wf-1/files/${path}`), { method: 'DELETE' })
+      expect(res.status).toBe(204)
+    }
+    const full = await (await app.request(url('/api/workflows/wf-1/full'))).json()
+    expect(full.workflow.triggerCode).toBeNull()
+    expect(full.workflow.dependencies).toBeNull()
+
+    // A missing file leaves the settings alone.
+    const missing = await app.request(url('/api/workflows/wf-1/files/handlers.ts'), {
+      method: 'DELETE',
+    })
+    expect(missing.status).toBe(404)
+  })
+
+  it('seeds handlers.ts and package.json from an IR that carries inline settings', async () => {
+    const imported = {
+      ...validIR,
+      runtime: { triggerCode: '@fetch function handler() {}', dependencies: { zod: '^4.0.0' } },
+    }
+    const saved = await (await saveVersion(app, imported)).json()
+    const listed = await (await app.request(url('/api/workflows/wf-1/project'))).json()
+    expect(listed.files.map((f: { path: string }) => f.path)).toEqual([
+      'handlers.ts',
+      'package.json',
+    ])
+    const pkg = await (await app.request(url('/api/workflows/wf-1/files/package.json'))).json()
+    expect(JSON.parse(pkg.source)).toEqual({ dependencies: { zod: '^4.0.0' } })
+    const runtime = JSON.parse(saved.ir).runtime
+    expect(runtime.triggerCode).toBeUndefined()
+    expect(runtime.dependencies).toBeUndefined()
+    expect(runtime.files.map((f: { path: string }) => f.path)).toEqual([
+      'handlers.ts',
+      'package.json',
+    ])
+
+    // Once the files exist the table is the truth: inline settings in a later
+    // IR neither re-seed nor overwrite them.
+    await putFile(app, 'handlers.ts', '@fetch function edited() {}', { 'If-Match': '*' })
+    await saveVersion(app, { ...imported, runtime: { triggerCode: 'stale again' } })
+    const stored = await (await app.request(url('/api/workflows/wf-1/files/handlers.ts'))).json()
+    expect(stored.source).toBe('@fetch function edited() {}')
+  })
+
   it('seeds the table from an IR that arrives with files, then treats the table as truth', async () => {
     const imported = {
       ...validIR,

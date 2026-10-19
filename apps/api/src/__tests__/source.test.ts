@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
+import { bundleHash } from '@awaitstep/codegen'
 import { createTestApp, resetStore, TEST_USER_ID, TEST_PROJECT_ID, mockDb } from './helpers.js'
 
 const validIR = {
@@ -78,6 +79,29 @@ describe('source routes', () => {
       expect(entry.source).toContain('// @awaitstep:node step-1')
       const manifest = JSON.parse(version!.manifest!) as { steps: { nodeId: string }[] }
       expect(manifest.steps.map((s) => s.nodeId)).toEqual(['step-1'])
+    })
+
+    it('compiles a project handlers.ts into the entry and leaves the input out of the stored source', async () => {
+      const put = await app.request(url('/api/workflows/wf-1/files/handlers.ts'), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source: '@fetch function handler(request, env) { return new Response("from file") }',
+        }),
+      })
+      expect(put.status).toBe(201)
+
+      const body = (await (await eject(app)).json()) as { versionId: string }
+      const version = await mockDb.getWorkflowVersionById(body.versionId)
+      const bundle = JSON.parse(version!.source!) as {
+        entry: string
+        files: { path: string; source: string; role: string }[]
+      }
+      expect(bundle.files.map((f) => f.path)).not.toContain('handlers.ts')
+      expect(bundle.files.find((f) => f.path === bundle.entry)!.source).toContain('"from file"')
+      // The drift baseline is the hash of what is stored, so an untouched
+      // eject never reads as modified.
+      expect(bundleHash(bundle)).toBe(version!.baseGeneratedHash)
     })
 
     it('rejects functions', async () => {
