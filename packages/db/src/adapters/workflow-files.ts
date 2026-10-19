@@ -72,6 +72,30 @@ export class WorkflowFilesAdapter {
   }
 
   /**
+   * Insert only: the "must not exist" precondition rides in the INSERT's
+   * conflict clause, so two writers creating the same path cannot both
+   * succeed. Null when the path was already taken.
+   */
+  async createIfAbsent(data: UpsertWorkflowFileData): Promise<WorkflowFile | null> {
+    const now = new Date().toISOString()
+    const rows = await this.db
+      .insert(this.table)
+      .values({
+        id: data.id,
+        workflowId: data.workflowId,
+        path: data.path,
+        source: data.source,
+        hash: data.hash,
+        size: data.size,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing({ target: [this.table.workflowId, this.table.path] })
+      .returning()
+    return rows[0] ?? null
+  }
+
+  /**
    * Conditional replace for optimistic concurrency: the precondition rides
    * in the UPDATE's own WHERE clause, so two writers racing on the same
    * file cannot both succeed. `expectedHash` of `'*'` only requires the

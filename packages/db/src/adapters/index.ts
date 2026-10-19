@@ -378,6 +378,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   upsertWorkflowFiles(rows: UpsertWorkflowFileData[]): Promise<WorkflowFile[]> {
     return this._workflowFiles.upsertMany(rows)
   }
+  createWorkflowFile(data: UpsertWorkflowFileData): Promise<WorkflowFile | null> {
+    return this._workflowFiles.createIfAbsent(data)
+  }
   updateWorkflowFileIfMatches(
     data: UpsertWorkflowFileData,
     expectedHash: string,

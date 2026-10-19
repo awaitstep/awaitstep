@@ -159,6 +159,8 @@ export interface DatabaseAdapter {
   getWorkflowFile(workflowId: string, path: string): Promise<WorkflowFile | null>
   upsertWorkflowFile(data: UpsertWorkflowFileData): Promise<WorkflowFile>
   upsertWorkflowFiles(rows: UpsertWorkflowFileData[]): Promise<WorkflowFile[]>
+  /** Insert only; null when the path already exists (the check is in the statement). */
+  createWorkflowFile(data: UpsertWorkflowFileData): Promise<WorkflowFile | null>
   /** Conditional replace; `'*'` only requires existence. Null when nothing matched. */
   updateWorkflowFileIfMatches(
     data: UpsertWorkflowFileData,

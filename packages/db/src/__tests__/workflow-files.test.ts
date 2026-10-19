@@ -110,6 +110,13 @@ describe('workflow files adapter', () => {
     expect(await db.adapter.listWorkflowFiles('wf-1')).toEqual([])
   })
 
+  it('creates only when the path is free, in one statement', async () => {
+    const created = await db.adapter.createWorkflowFile(row({ id: '1', source: 'first' }))
+    expect(created?.source).toBe('first')
+    expect(await db.adapter.createWorkflowFile(row({ id: '2', source: 'second' }))).toBeNull()
+    expect((await db.adapter.getWorkflowFile('wf-1', 'config/env.ts'))?.source).toBe('first')
+  })
+
   it('deletes by path and reports whether anything was removed', async () => {
     await db.adapter.upsertWorkflowFile(row())
     expect(await db.adapter.deleteWorkflowFile('wf-2', 'config/env.ts')).toBe(false)
