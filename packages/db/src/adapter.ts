@@ -14,6 +14,8 @@ import type {
   InstalledNode,
   CreateVersionData,
   UpdateVersionData,
+  WorkflowFile,
+  UpsertWorkflowFileData,
 } from './types.js'
 import type { PaginationParams, PaginatedResult } from './pagination.js'
 
@@ -151,6 +153,19 @@ export interface DatabaseAdapter {
   // Run steps (per-step telemetry)
   upsertRunSteps(runId: string, steps: UpsertRunStepData[]): Promise<void>
   listRunSteps(runId: string, workflowId: string): Promise<RunStepsResult>
+
+  // Project files (user-authored modules/assets/config, folded into the IR at prepare)
+  listWorkflowFiles(workflowId: string): Promise<WorkflowFile[]>
+  getWorkflowFile(workflowId: string, path: string): Promise<WorkflowFile | null>
+  upsertWorkflowFile(data: UpsertWorkflowFileData): Promise<WorkflowFile>
+  upsertWorkflowFiles(rows: UpsertWorkflowFileData[]): Promise<WorkflowFile[]>
+  /** Conditional replace; `'*'` only requires existence. Null when nothing matched. */
+  updateWorkflowFileIfMatches(
+    data: UpsertWorkflowFileData,
+    expectedHash: string,
+  ): Promise<WorkflowFile | null>
+  replaceWorkflowFiles(workflowId: string, rows: UpsertWorkflowFileData[]): Promise<WorkflowFile[]>
+  deleteWorkflowFile(workflowId: string, path: string, expectedHash?: string): Promise<boolean>
 
   // Deployments
   createDeployment(data: {

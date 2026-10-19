@@ -13,6 +13,8 @@ import type {
   RunStepsResult,
   UpsertRunStepData,
   ActiveRunForSync,
+  WorkflowFile,
+  UpsertWorkflowFileData,
   Deployment,
   DeploymentConfig,
   ApiKey,
@@ -30,6 +32,7 @@ import { VersionsAdapter } from './versions.js'
 import { ConnectionsAdapter } from './connections.js'
 import { RunsAdapter } from './runs.js'
 import { RunStepsAdapter } from './run-steps.js'
+import { WorkflowFilesAdapter } from './workflow-files.js'
 import { DeploymentsAdapter } from './deployments.js'
 import { ApiKeysAdapter } from './api-keys.js'
 import { EnvVarsAdapter } from './env-vars.js'
@@ -43,6 +46,7 @@ export interface SchemaRef {
   connections: unknown
   workflowRuns: unknown
   workflowRunSteps: unknown
+  workflowFiles: unknown
   deployments: unknown
   deploymentConfigs: unknown
   apiKeys: unknown
@@ -65,6 +69,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _connections: ConnectionsAdapter
   private _runs: RunsAdapter
   private _runSteps: RunStepsAdapter
+  private _workflowFiles: WorkflowFilesAdapter
   private _deployments: DeploymentsAdapter
   private _apiKeys: ApiKeysAdapter
   private _envVars: EnvVarsAdapter
@@ -88,6 +93,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       schema.workflowRuns,
       schema.deployments,
     )
+    this._workflowFiles = new WorkflowFilesAdapter(db, schema.workflowFiles)
     this._deployments = new DeploymentsAdapter(db, schema.deployments)
     this._apiKeys = new ApiKeysAdapter(db, schema.apiKeys)
     this._envVars = new EnvVarsAdapter(db, schema.envVars, options?.tokenCrypto, schema.projects)
@@ -358,6 +364,34 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
   listRunSteps(runId: string, workflowId: string): Promise<RunStepsResult> {
     return this._runSteps.listByRun(runId, workflowId)
+  }
+
+  listWorkflowFiles(workflowId: string): Promise<WorkflowFile[]> {
+    return this._workflowFiles.listByWorkflow(workflowId)
+  }
+  getWorkflowFile(workflowId: string, path: string): Promise<WorkflowFile | null> {
+    return this._workflowFiles.getByPath(workflowId, path)
+  }
+  upsertWorkflowFile(data: UpsertWorkflowFileData): Promise<WorkflowFile> {
+    return this._workflowFiles.upsert(data)
+  }
+  upsertWorkflowFiles(rows: UpsertWorkflowFileData[]): Promise<WorkflowFile[]> {
+    return this._workflowFiles.upsertMany(rows)
+  }
+  updateWorkflowFileIfMatches(
+    data: UpsertWorkflowFileData,
+    expectedHash: string,
+  ): Promise<WorkflowFile | null> {
+    return this._workflowFiles.updateIfMatches(data, expectedHash)
+  }
+  replaceWorkflowFiles(
+    workflowId: string,
+    rows: UpsertWorkflowFileData[],
+  ): Promise<WorkflowFile[]> {
+    return this._workflowFiles.replaceAll(workflowId, rows)
+  }
+  deleteWorkflowFile(workflowId: string, path: string, expectedHash?: string): Promise<boolean> {
+    return this._workflowFiles.deleteByPath(workflowId, path, expectedHash)
   }
 
   async listRecentRunsByProject(

@@ -18,6 +18,8 @@ export type {
   RunStepStatus,
   UpsertRunStepData,
   ActiveRunForSync,
+  WorkflowFile,
+  UpsertWorkflowFileData,
 } from './types.js'
 export type {
   DatabaseAdapter,

@@ -366,3 +366,23 @@ export const deploymentConfigs = sqliteTable(
     index('idx_deployment_configs_workflow_id').on(table.workflowId),
   ],
 )
+
+export const workflowFiles = sqliteTable(
+  'workflow_files',
+  {
+    id: text('id').primaryKey(),
+    workflowId: text('workflow_id')
+      .notNull()
+      .references(() => workflows.id, { onDelete: 'cascade' }),
+    path: text('path').notNull(),
+    source: text('source').notNull(),
+    hash: text('hash').notNull(),
+    size: integer('size').notNull(),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [
+    index('idx_workflow_files_workflow_id').on(table.workflowId),
+    uniqueIndex('idx_workflow_files_path').on(table.workflowId, table.path),
+  ],
+)

@@ -10,8 +10,22 @@ import type { envVars } from './schema/sqlite/env-vars.js'
 import type { projects } from './schema/sqlite/projects.js'
 import type { installedNodes } from './schema/sqlite/installed-nodes.js'
 import type { deploymentConfigs } from './schema/sqlite/deployment-configs.js'
+import type { workflowFiles } from './schema/sqlite/workflow-files.js'
 
 export type Workflow = InferSelectModel<typeof workflows>
+
+/** A project-owned `lib/` file; `hash` is the content hash the API serves as its ETag. */
+export type WorkflowFile = InferSelectModel<typeof workflowFiles>
+
+export interface UpsertWorkflowFileData {
+  id: string
+  workflowId: string
+  path: string
+  source: string
+  hash: string
+  /** UTF-8 byte size of `source`. */
+  size: number
+}
 export type WorkflowVersion = InferSelectModel<typeof workflowVersions>
 
 /**

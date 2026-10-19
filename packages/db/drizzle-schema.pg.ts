@@ -366,3 +366,23 @@ export const apiKeys = pgTable(
     index('idx_api_keys_key_hash').on(table.keyHash),
   ],
 )
+
+export const workflowFiles = pgTable(
+  'workflow_files',
+  {
+    id: text('id').primaryKey(),
+    workflowId: text('workflow_id')
+      .notNull()
+      .references(() => workflows.id, { onDelete: 'cascade' }),
+    path: text('path').notNull(),
+    source: text('source').notNull(),
+    hash: text('hash').notNull(),
+    size: integer('size').notNull(),
+    createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { mode: 'string' }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_workflow_files_workflow_id').on(table.workflowId),
+    uniqueIndex('idx_workflow_files_path').on(table.workflowId, table.path),
+  ],
+)
