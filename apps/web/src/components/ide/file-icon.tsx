@@ -4,9 +4,10 @@ import { cn } from '../../lib/utils'
 
 const ROLE_TITLES: Record<GeneratedFileRole, string> = {
   entry: 'Entry — the Worker module wrangler uploads first',
-  module: 'Module — imported by the entry',
-  config: 'Config — wrangler configuration',
+  module: 'Module — code bundled with the entry',
+  config: 'Config — toolchain configuration',
   meta: 'Metadata — package manifest',
+  asset: 'Asset — written to the deploy as-is',
 }
 
 export function roleTitle(role: GeneratedFileRole): string {
@@ -23,6 +24,7 @@ export function FileIcon({ role, className }: { role: GeneratedFileRole; classNa
     case 'config':
       return <FileJson className={cn(classes, 'text-status-warning/80')} />
     case 'meta':
+    case 'asset':
       return <FileText className={cn(classes, 'text-muted-foreground/70')} />
   }
 }

@@ -427,6 +427,104 @@ Returns `{ ok, versionId, sourceMode }`.
 
 ---
 
+## Project files
+
+A workflow is a small project: beside the code the canvas generates
+(`worker.ts`, `nodes/**`, `wrangler.*`) it owns any files you create — code in
+any folder (`config/env.ts`, `services/stripe/client.ts`), data and docs
+(`data/countries.json`, `README.md`), and the standard root config files
+(`package.json`, `tsconfig.json`). Folders exist implicitly through file
+paths. Nothing touches a disk until deploy, when every file is written beside
+the generated code.
+
+**Imports.** Use plain relative paths, or the `#app/` alias for the project
+root from anywhere: `import { region } from '#app/config/env'` reaches
+`config/env.ts` from the entry, a generated step module, or another project
+file. Omit the extension for `.ts`/`.js` files; name data and
+explicit-extension files in full (`#app/data/countries.json`,
+`#app/legacy.mjs`, `#app/legacy.mts`). The deployed `package.json` carries
+the matching `imports` map (one pattern per extension), so wrangler
+(esbuild) and `wrangler dev` resolve it natively, and `#app/` is a valid Node
+subpath-import prefix, so the same code runs under Node tooling too.
+
+**package.json.** Write it like any Node package. The deploy honours `name`,
+`version`, `description`, `license`, `engines`, your own `#`-prefixed
+`imports` entries and `dependencies` (registry ranges only — the same rule
+the dependencies setting follows; when a project manifest exists it replaces
+that setting entirely). It always forces `private`, `"type": "module"`, the
+`#app/` map, and merges dependencies required by installed nodes; `scripts`,
+`workspaces`, `overrides` and similar are dropped, and installs run with
+`--ignore-scripts`. A root `tsconfig.json`/`jsconfig.json` is kept for the
+editor's type program and is never written to the deploy directory.
+
+**Versions.** The project-file table is the source of truth: writes land
+immediately, every `POST /versions` snapshots the current set into the
+version's IR (`runtime.files`), an IR that arrives with files before the
+table has any (an import) seeds it, and a revert replaces the table with the
+reverted version's snapshot. Generated-mode deploys of the current version
+use the live set, older versions deploy exactly what they snapshotted, and
+ejected versions carry the files they were ejected with inside their stored
+bundle — while the current version is ejected, `PUT`/`DELETE` on files
+return `409` (edit through `PUT /source` or revert to visual mode first).
+
+**Limits.** 100 files, 512 KB per file, 2 MB in total. Paths use
+`[A-Za-z0-9._-]` segments (no dotfiles, no `..`), may not be generated paths
+(`worker.*`, `nodes/**`, `wrangler.*`, in any case), lockfiles or
+`node_modules`, may hold `package.json`/`tsconfig.json`/`jsconfig.json` only
+at the root, must not collide with another file after compile or on a
+case-insensitive disk (`a.ts` vs `a.js`, `Env.ts` vs `env.ts`), and end in a
+code (`ts js mts cts mjs cjs`) or asset (`json md txt toml yaml yml css html
+sql`) extension. Code is transpiled and bundled; assets are written as-is.
+
+### `GET /workflows/:workflowId/project`
+
+The file tree with content hashes plus the conventions above — poll this to
+know whether anything changed before reading or writing.
+
+**Scope:** `read`
+
+Returns `{ importPrefix: "#app/", generated: ["worker.*", "nodes/**", "wrangler.*"], rootConfigFiles, extensions, limits: { maxFiles, maxFileBytes, maxTotalBytes }, sourceMode, files: [{ path, hash, size, updatedAt }] }`.
+
+### `GET /workflows/:workflowId/files/:path`
+
+**Scope:** `read`
+
+| Param  | In   | Required | Description                            |
+| ------ | ---- | -------- | -------------------------------------- |
+| `path` | path | yes      | Project-relative, e.g. `config/env.ts` |
+
+Returns `{ path, hash, size, updatedAt, source }` with an `ETag` header equal to
+`"<hash>"`.
+
+### `PUT /workflows/:workflowId/files/:path`
+
+Create or replace a file (folders are created implicitly). Send
+`If-Match: "<hash>"` from a previous read to make the write conditional (`*`
+means "must already exist"); on a mismatch the response is `409` with
+`{ error, currentHash }` and nothing is written. A `package.json` is checked
+against the contract above before it is stored.
+
+**Scope:** `write`
+
+| Param    | In   | Required | Description              |
+| -------- | ---- | -------- | ------------------------ |
+| `path`   | path | yes      | Project-relative path    |
+| `source` | body | yes      | File contents (≤ 512 KB) |
+
+Returns `201` (created) or `200` (replaced) with `{ path, hash, size, updatedAt }`
+and the new `ETag`; `422` (with `details` for a manifest) for invalid paths,
+compile collisions, invalid `package.json` or exceeded limits; `409` while the
+current version is ejected.
+
+### `DELETE /workflows/:workflowId/files/:path`
+
+Optional `If-Match` as above. Returns `204`; `404` when the file does not
+exist; `409` when the precondition fails or the current version is ejected.
+
+**Scope:** `write`
+
+---
+
 ## Deployments
 
 ### `GET /deployments`

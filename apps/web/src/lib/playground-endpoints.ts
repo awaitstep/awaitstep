@@ -263,6 +263,58 @@ export const endpoints: EndpointDef[] = [
       '{\n  "entry": "worker.ts",\n  "files": [{ "path": "worker.ts", "source": "...", "role": "entry" }]\n}',
   },
 
+  // Project files
+  {
+    id: 'get-project',
+    group: 'Project files',
+    method: 'GET',
+    path: '/api/workflows/:workflowId/project',
+    label: 'List project files (tree, hashes, conventions)',
+    scope: 'read',
+    params: [{ name: 'workflowId', in: 'path', required: true }],
+    hasBody: false,
+  },
+  {
+    id: 'get-project-file',
+    group: 'Project files',
+    method: 'GET',
+    path: '/api/workflows/:workflowId/files/:path',
+    label: 'Read a project file',
+    scope: 'read',
+    params: [
+      { name: 'workflowId', in: 'path', required: true },
+      { name: 'path', in: 'path', required: true },
+    ],
+    hasBody: false,
+  },
+  {
+    id: 'put-project-file',
+    group: 'Project files',
+    method: 'PUT',
+    path: '/api/workflows/:workflowId/files/:path',
+    label: 'Create or replace a project file',
+    scope: 'write',
+    params: [
+      { name: 'workflowId', in: 'path', required: true },
+      { name: 'path', in: 'path', required: true },
+    ],
+    hasBody: true,
+    bodyExample: '{\n  "source": "export const region = \'eu\'"\n}',
+  },
+  {
+    id: 'delete-project-file',
+    group: 'Project files',
+    method: 'DELETE',
+    path: '/api/workflows/:workflowId/files/:path',
+    label: 'Delete a project file',
+    scope: 'write',
+    params: [
+      { name: 'workflowId', in: 'path', required: true },
+      { name: 'path', in: 'path', required: true },
+    ],
+    hasBody: false,
+  },
+
   // Deployments
   {
     id: 'list-all-deployments',
