@@ -9,6 +9,7 @@ import type {
 import { isBuiltinNodeType } from './types.js'
 import { builtinNodeDataSchemas, scriptIRSchema, workflowIRSchema } from './schema.js'
 import { validateDependencySpecs } from './dependencies.js'
+import { validateProjectFiles } from './project-files.js'
 
 export function validateIR(input: unknown): Result<WorkflowIR, ValidationError[]> {
   const result = workflowIRSchema.safeParse(input)
@@ -98,6 +99,11 @@ function validateStructure(ir: ArtifactIR): ValidationError[] {
   // beyond registry ranges here so bad specs never persist or deploy.
   if (ir.runtime?.dependencies) {
     errors.push(...validateDependencySpecs(ir.runtime.dependencies))
+  }
+  // Project files are written verbatim into the deploy directory — the same
+  // gate keeps unsafe paths and oversized sources out of every version.
+  if (ir.runtime?.files) {
+    errors.push(...validateProjectFiles(ir.runtime.files))
   }
 
   const nodeIds = new Set(ir.nodes.map((n) => n.id))

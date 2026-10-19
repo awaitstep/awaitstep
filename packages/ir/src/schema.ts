@@ -210,12 +210,18 @@ const bindingDeclarationSchema = z
   })
   .catchall(z.unknown())
 
+const projectFileSchema = z.object({
+  path: z.string(),
+  source: z.string(),
+})
+
 export const workflowRuntimeSchema = z
   .object({
     triggerCode: z.string().optional(),
     dependencies: z.record(z.string(), z.string()).optional(),
     env: z.array(envDeclarationSchema).optional(),
     bindings: z.array(bindingDeclarationSchema).optional(),
+    files: z.array(projectFileSchema).optional(),
   })
   .catchall(z.unknown())
 

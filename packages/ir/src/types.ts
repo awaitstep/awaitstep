@@ -307,6 +307,17 @@ export interface BindingDeclaration {
  * this block present, a workflow is fully described by its IR: exports are
  * self-contained and nothing lives only in database columns.
  */
+/**
+ * A project-owned file deployed next to the generated code: code in any
+ * folder (importable from anywhere as `#/<path>`), assets written as-is, or
+ * a root config file such as `package.json`.
+ */
+export interface ProjectFile {
+  /** Project-relative path, e.g. `config/env.ts` or `package.json`. */
+  path: string
+  source: string
+}
+
 export interface WorkflowRuntime {
   /** Worker entry code (the annotated @fetch/@queue/@scheduled source). */
   triggerCode?: string
@@ -314,6 +325,8 @@ export interface WorkflowRuntime {
   dependencies?: Record<string, string>
   env?: EnvDeclaration[]
   bindings?: BindingDeclaration[]
+  /** Reusable modules the user (or an agent) wrote; snapshotted per version. */
+  files?: ProjectFile[]
 }
 
 /**

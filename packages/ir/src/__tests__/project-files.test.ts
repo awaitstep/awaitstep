@@ -1,0 +1,239 @@
+import { describe, expect, it } from 'vitest'
+import {
+  MAX_PROJECT_FILES,
+  MAX_PROJECT_FILE_BYTES,
+  MAX_PROJECT_TOTAL_BYTES,
+  PROJECT_IMPORTS_FIELD,
+  PROJECT_IMPORT_PREFIX,
+  compiledPathKey,
+  findProjectPathCollision,
+  isGeneratedPath,
+  isProjectCodePath,
+  isReservedToolchainPath,
+  parsePackageManifest,
+  projectFileBytes,
+  projectFilePathError,
+  projectPackageManifest,
+  validatePackageManifest,
+  validateProjectFiles,
+} from '../project-files.js'
+import { validateArtifact } from '../validate.js'
+
+describe('projectFilePathError', () => {
+  it('accepts code, data and docs in any folder, plus root config files', () => {
+    for (const path of [
+      'config/env.ts',
+      'services/stripe/client.js',
+      'lib/retry.mts',
+      'data/countries.json',
+      'README.md',
+      'types.d.ts',
+      'package.json',
+      'tsconfig.json',
+      'styles/email.css',
+    ]) {
+      expect(projectFilePathError(path), path).toBeNull()
+    }
+  })
+
+  it('rejects traversal, dotfiles, odd segments and unknown extensions', () => {
+    expect(projectFilePathError('config/../worker.ts')).toMatch(/unsafe/)
+    expect(projectFilePathError('config//x.ts')).toMatch(/unsafe/)
+    expect(projectFilePathError('.npmrc')).toMatch(/unsafe/)
+    expect(projectFilePathError('config/.env.ts')).toMatch(/unsafe/)
+    expect(projectFilePathError('config/with space.ts')).toMatch(/unsafe/)
+    expect(projectFilePathError('bin/tool')).toMatch(/must end in/)
+    expect(projectFilePathError('image.png')).toMatch(/must end in/)
+    expect(projectFilePathError(`${'a'.repeat(300)}.ts`)).toMatch(/exceeds/)
+  })
+
+  it('keeps project files off what the canvas generates, in any case or code extension', () => {
+    expect(projectFilePathError('worker.ts')).toMatch(/generated/)
+    expect(projectFilePathError('worker.js')).toMatch(/generated/)
+    expect(projectFilePathError('Worker.mts')).toMatch(/generated/)
+    expect(projectFilePathError('nodes/fetch.ts')).toMatch(/generated/)
+    expect(projectFilePathError('Nodes/deep/x.ts')).toMatch(/generated/)
+    expect(projectFilePathError('wrangler.json')).toMatch(/generated/)
+    expect(projectFilePathError('config/Wrangler.toml')).toMatch(/generated/)
+    expect(isGeneratedPath('worker.md')).toBe(false)
+    expect(isGeneratedPath('workers/x.ts')).toBe(false)
+    expect(isGeneratedPath('nodesx.ts')).toBe(false)
+  })
+
+  it('refuses lockfiles, node_modules and nested toolchain config', () => {
+    expect(projectFilePathError('package-lock.json')).toMatch(/lockfile/)
+    expect(projectFilePathError('pnpm-lock.yaml')).toMatch(/lockfile/)
+    expect(projectFilePathError('node_modules/x/index.js')).toMatch(/node_modules/)
+    expect(projectFilePathError('config/package.json')).toMatch(/project root/)
+    expect(projectFilePathError('src/tsconfig.json')).toMatch(/project root/)
+  })
+
+  it('still tells codegen which code paths the toolchain would hijack', () => {
+    expect(isReservedToolchainPath('config/package.json')).toBe(true)
+    expect(isReservedToolchainPath('Package.JSON')).toBe(true)
+    expect(isReservedToolchainPath('a/node_modules/b.js')).toBe(true)
+    expect(isReservedToolchainPath('yarn.lock')).toBe(true)
+    expect(isReservedToolchainPath('config/packages.ts')).toBe(false)
+  })
+
+  it('classifies code versus assets by extension', () => {
+    expect(isProjectCodePath('config/env.ts')).toBe(true)
+    expect(isProjectCodePath('x.cjs')).toBe(true)
+    expect(isProjectCodePath('data/countries.json')).toBe(false)
+    expect(isProjectCodePath('README.md')).toBe(false)
+  })
+})
+
+describe('compile-time collisions', () => {
+  it('keys paths by their compiled, case-folded form', () => {
+    expect(compiledPathKey('Config/Env.ts')).toBe('config/env.js')
+    expect(compiledPathKey('a.mts')).toBe('a.mjs')
+    expect(compiledPathKey('a.cts')).toBe('a.cjs')
+    expect(compiledPathKey('data/x.json')).toBe('data/x.json')
+  })
+
+  it('finds the existing file a new path would overwrite', () => {
+    const existing = ['config/env.ts', 'data/x.json', 'lib/a.mts']
+    expect(findProjectPathCollision('config/env.js', existing)).toBe('config/env.ts')
+    expect(findProjectPathCollision('CONFIG/ENV.ts', existing)).toBe('config/env.ts')
+    expect(findProjectPathCollision('lib/a.mjs', existing)).toBe('lib/a.mts')
+    expect(findProjectPathCollision('config/env.ts', existing)).toBeNull()
+    expect(findProjectPathCollision('config/other.ts', existing)).toBeNull()
+  })
+})
+
+describe('package.json contract', () => {
+  it('parses only the honoured fields', () => {
+    const manifest = parsePackageManifest(
+      JSON.stringify({
+        name: 'my-worker',
+        version: '1.2.3',
+        type: 'module',
+        scripts: { postinstall: 'curl evil' },
+        workspaces: ['*'],
+        dependencies: { zod: '^4.0.0' },
+        imports: { '#utils/*': './utils/*.js' },
+        engines: { node: '>=22' },
+        devDependencies: { vitest: '*' },
+      }),
+    )
+    expect(manifest).toEqual({
+      name: 'my-worker',
+      version: '1.2.3',
+      type: 'module',
+      dependencies: { zod: '^4.0.0' },
+      imports: { '#utils/*': './utils/*.js' },
+      engines: { node: '>=22' },
+    })
+    expect(parsePackageManifest('[]')).toBeNull()
+    expect(parsePackageManifest('nope')).toBeNull()
+  })
+
+  it('validates JSON shape, dependency specs, import keys and ESM', () => {
+    expect(validatePackageManifest('{')[0].message).toMatch(/valid JSON/)
+    expect(validatePackageManifest('"str"')[0].message).toMatch(/JSON object/)
+    const errors = validatePackageManifest(
+      JSON.stringify({
+        type: 'commonjs',
+        dependencies: { loot: 'file:/srv', zod: '^4.0.0' },
+        imports: { 'utils/*': './utils/*.js' },
+        engines: ['22'],
+      }),
+    )
+    expect(errors.map((e) => e.path)).toEqual([
+      'package.json.engines',
+      'package.json.dependencies.loot',
+      'package.json.imports',
+      'package.json.type',
+    ])
+    expect(validatePackageManifest('{"name":"ok","dependencies":{"zod":"^4.0.0"}}')).toEqual([])
+  })
+
+  it('finds the project manifest among files', () => {
+    expect(projectPackageManifest([{ path: 'config/a.ts', source: '' }])).toBeNull()
+    expect(
+      projectPackageManifest([{ path: 'package.json', source: '{"dependencies":{"zod":"*"}}' }]),
+    ).toEqual({ dependencies: { zod: '*' } })
+  })
+})
+
+describe('validateProjectFiles', () => {
+  it('passes a well-formed set', () => {
+    expect(
+      validateProjectFiles([
+        { path: 'config/env.ts', source: 'export const a = 1' },
+        { path: 'package.json', source: '{"name":"w"}' },
+      ]),
+    ).toEqual([])
+  })
+
+  it('reports path problems, duplicates, compile collisions and manifest errors with their index', () => {
+    const errors = validateProjectFiles([
+      { path: 'config/env.ts', source: '' },
+      { path: 'config/env.ts', source: '' },
+      { path: 'config/env.js', source: '' },
+      { path: 'worker.ts', source: '' },
+      { path: 'package.json', source: '{"type":"commonjs"}' },
+    ])
+    expect(errors.map((e) => `${e.path}: ${e.message}`)).toEqual([
+      'runtime.files[1].path: Duplicate project file "config/env.ts"',
+      'runtime.files[2].path: "config/env.js" would overwrite "config/env.ts" after compile',
+      'runtime.files[3].path: "worker.ts" is generated from the canvas',
+      'runtime.files[4].source.type: Workers deploy as ES modules — use "module"',
+    ])
+  })
+
+  it('enforces the per-file, total and count caps in UTF-8 bytes', () => {
+    const big = 'é'.repeat(MAX_PROJECT_FILE_BYTES / 2 + 1)
+    expect(projectFileBytes(big)).toBeGreaterThan(MAX_PROJECT_FILE_BYTES)
+    expect(validateProjectFiles([{ path: 'big.ts', source: big }])[0].message).toMatch(
+      /exceeds 512000 bytes/,
+    )
+
+    const chunk = 'x'.repeat(MAX_PROJECT_FILE_BYTES)
+    const many = Array.from({ length: 4 }, (_, i) => ({ path: `c${i}.ts`, source: chunk }))
+    expect(validateProjectFiles(many).map((e) => e.message)).toContain(
+      `Project files exceed ${MAX_PROJECT_TOTAL_BYTES} bytes in total`,
+    )
+
+    const tooMany = Array.from({ length: MAX_PROJECT_FILES + 1 }, (_, i) => ({
+      path: `f${i}.ts`,
+      source: '',
+    }))
+    expect(validateProjectFiles(tooMany)[0].message).toMatch(/Maximum 100/)
+  })
+
+  it('runs as part of artifact validation', () => {
+    const result = validateArtifact({
+      metadata: { name: 'T', version: 1, createdAt: '', updatedAt: '' },
+      entryNodeId: 'n1',
+      nodes: [
+        {
+          id: 'n1',
+          type: 'step',
+          name: 'n1',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { code: 'return 1;' },
+        },
+      ],
+      edges: [],
+      runtime: { files: [{ path: 'nodes/n1.ts', source: 'nope' }] },
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.errors.some((e) => e.path === 'runtime.files[0].path')).toBe(true)
+    }
+  })
+})
+
+describe('import conventions', () => {
+  it('uses a Node-valid named prefix and one map entry per extension', () => {
+    expect(PROJECT_IMPORT_PREFIX).toBe('#app/')
+    expect(Object.keys(PROJECT_IMPORTS_FIELD).every((k) => k.startsWith('#app/'))).toBe(true)
+    expect(PROJECT_IMPORTS_FIELD['#app/*']).toBe('./*.js')
+    expect(PROJECT_IMPORTS_FIELD['#app/*.json']).toBe('./*.json')
+    expect(PROJECT_IMPORTS_FIELD['#app/*.mts']).toBe('./*.mjs')
+  })
+})

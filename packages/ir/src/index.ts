@@ -41,6 +41,7 @@ export type {
   BindingKind,
   EnvDeclaration,
   BindingDeclaration,
+  ProjectFile,
   WorkflowRuntime,
   ValidationError,
   Result,
@@ -96,6 +97,32 @@ export {
   NPM_VERSION_RANGE_PATTERN,
   MAX_WORKFLOW_DEPENDENCIES,
 } from './dependencies.js'
+export {
+  PROJECT_IMPORT_PREFIX,
+  PROJECT_IMPORTS_FIELD,
+  PROJECT_FILE_EXTENSIONS,
+  PROJECT_CODE_EXTENSIONS,
+  PROJECT_ROOT_CONFIG_FILES,
+  PACKAGE_MANIFEST_PATH,
+  GENERATED_PATH_RULES,
+  MAX_PROJECT_FILES,
+  MAX_PROJECT_FILE_BYTES,
+  MAX_PROJECT_TOTAL_BYTES,
+  MAX_PROJECT_FILE_PATH_LENGTH,
+  compiledPathKey,
+  fileExtension,
+  findProjectPathCollision,
+  isGeneratedPath,
+  isProjectCodePath,
+  isReservedToolchainPath,
+  parsePackageManifest,
+  projectFileBytes,
+  projectFilePathError,
+  projectPackageManifest,
+  validatePackageManifest,
+  validateProjectFiles,
+} from './project-files.js'
+export type { PackageManifest } from './project-files.js'
 export { migrateArtifact } from './migrate.js'
 export { loadArtifact } from './load.js'
 export {
