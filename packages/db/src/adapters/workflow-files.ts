@@ -1,5 +1,5 @@
 import { eq, and, asc, sql } from 'drizzle-orm'
-import type { UpsertWorkflowFileData, WorkflowFile } from '../types.js'
+import type { UpsertWorkflowFileData, WorkflowFile, WorkflowFileSummary } from '../types.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -18,6 +18,23 @@ export class WorkflowFilesAdapter {
   async listByWorkflow(workflowId: string): Promise<WorkflowFile[]> {
     return this.db
       .select()
+      .from(this.table)
+      .where(eq(this.table.workflowId, workflowId))
+      .orderBy(asc(this.table.path))
+  }
+
+  /** Every file's metadata, no text — a listing must not pull 2 MB of source. */
+  async listSummariesByWorkflow(workflowId: string): Promise<WorkflowFileSummary[]> {
+    return this.db
+      .select({
+        id: this.table.id,
+        workflowId: this.table.workflowId,
+        path: this.table.path,
+        hash: this.table.hash,
+        size: this.table.size,
+        createdAt: this.table.createdAt,
+        updatedAt: this.table.updatedAt,
+      })
       .from(this.table)
       .where(eq(this.table.workflowId, workflowId))
       .orderBy(asc(this.table.path))

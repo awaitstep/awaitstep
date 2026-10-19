@@ -110,6 +110,13 @@ describe('workflow files adapter', () => {
     expect(await db.adapter.listWorkflowFiles('wf-1')).toEqual([])
   })
 
+  it('lists summaries without the text', async () => {
+    await db.adapter.upsertWorkflowFile(row({ source: 'export const big = 1' }))
+    const [summary] = await db.adapter.listWorkflowFileSummaries('wf-1')
+    expect(summary).toMatchObject({ path: 'config/env.ts', hash: 'h1' })
+    expect(summary).not.toHaveProperty('source')
+  })
+
   it('creates only when the path is free, in one statement', async () => {
     const created = await db.adapter.createWorkflowFile(row({ id: '1', source: 'first' }))
     expect(created?.source).toBe('first')

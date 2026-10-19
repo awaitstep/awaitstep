@@ -16,6 +16,8 @@ export type Workflow = InferSelectModel<typeof workflows>
 
 /** A project-owned `lib/` file; `hash` is the content hash the API serves as its ETag. */
 export type WorkflowFile = InferSelectModel<typeof workflowFiles>
+/** A project file without its text: what a listing needs. */
+export type WorkflowFileSummary = Omit<WorkflowFile, 'source'>
 
 export interface UpsertWorkflowFileData {
   id: string

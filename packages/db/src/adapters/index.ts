@@ -14,6 +14,7 @@ import type {
   UpsertRunStepData,
   ActiveRunForSync,
   WorkflowFile,
+  WorkflowFileSummary,
   UpsertWorkflowFileData,
   Deployment,
   DeploymentConfig,
@@ -368,6 +369,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
 
   listWorkflowFiles(workflowId: string): Promise<WorkflowFile[]> {
     return this._workflowFiles.listByWorkflow(workflowId)
+  }
+  listWorkflowFileSummaries(workflowId: string): Promise<WorkflowFileSummary[]> {
+    return this._workflowFiles.listSummariesByWorkflow(workflowId)
   }
   getWorkflowFile(workflowId: string, path: string): Promise<WorkflowFile | null> {
     return this._workflowFiles.getByPath(workflowId, path)

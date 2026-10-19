@@ -15,6 +15,7 @@ import type {
   CreateVersionData,
   UpdateVersionData,
   WorkflowFile,
+  WorkflowFileSummary,
   UpsertWorkflowFileData,
 } from './types.js'
 import type { PaginationParams, PaginatedResult } from './pagination.js'
@@ -156,6 +157,8 @@ export interface DatabaseAdapter {
 
   // Project files (user-authored modules/assets/config, folded into the IR at prepare)
   listWorkflowFiles(workflowId: string): Promise<WorkflowFile[]>
+  /** Paths, hashes and sizes only — for listings and ownership checks. */
+  listWorkflowFileSummaries(workflowId: string): Promise<WorkflowFileSummary[]>
   getWorkflowFile(workflowId: string, path: string): Promise<WorkflowFile | null>
   upsertWorkflowFile(data: UpsertWorkflowFileData): Promise<WorkflowFile>
   upsertWorkflowFiles(rows: UpsertWorkflowFileData[]): Promise<WorkflowFile[]>

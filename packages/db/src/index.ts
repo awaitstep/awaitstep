@@ -19,6 +19,7 @@ export type {
   UpsertRunStepData,
   ActiveRunForSync,
   WorkflowFile,
+  WorkflowFileSummary,
   UpsertWorkflowFileData,
 } from './types.js'
 export type {
