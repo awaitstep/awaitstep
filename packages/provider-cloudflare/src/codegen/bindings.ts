@@ -1,4 +1,5 @@
-import type { ValidationError, WorkflowIR } from '@awaitstep/ir'
+import type { ArtifactIR, ValidationError, WorkflowIR } from '@awaitstep/ir'
+import { workerNameToBinding } from './generators/sub-script.js'
 
 export type BindingType =
   | 'kv'
@@ -192,6 +193,43 @@ const KNOWN_BINDING_TYPES = new Set<string>([
  * must be kinds this provider can provision. Declarations are new surface, so
  * strict validation here cannot reject any stored legacy workflow.
  */
+export function validateSubScriptBindings(ir: ArtifactIR): ValidationError[] {
+  const errors: ValidationError[] = []
+  const claimed = new Map<string, { nodeName: string; workerName: string }>()
+
+  for (const node of ir.nodes) {
+    if (node.type !== 'sub_script') continue
+    const workerName = String(node.data.workerName ?? '')
+    const binding = workerNameToBinding(workerName)
+
+    if (!binding) {
+      errors.push({
+        path: `nodes.${node.id}.data.workerName`,
+        message: workerName.trim()
+          ? `Call Script node "${node.name}" cannot use worker "${workerName}": the name has no letters or digits to build an Env binding from`
+          : `Call Script node "${node.name}" has no worker selected`,
+        nodeId: node.id,
+      })
+      continue
+    }
+
+    const prior = claimed.get(binding)
+    if (prior && prior.workerName !== workerName) {
+      // Both nodes would read `env.<binding>`, but only one service binding is
+      // emitted — one of them would silently call the other's worker.
+      errors.push({
+        path: `nodes.${node.id}.data.workerName`,
+        message: `Call Script nodes "${prior.nodeName}" and "${node.name}" both map to the Env binding "${binding}" ("${prior.workerName}" and "${workerName}") — rename one of the workers`,
+        nodeId: node.id,
+      })
+      continue
+    }
+    claimed.set(binding, { nodeName: node.name, workerName })
+  }
+
+  return errors
+}
+
 export function validateBindingDeclarations(ir: WorkflowIR): ValidationError[] {
   const errors: ValidationError[] = []
   for (const declaration of ir.runtime?.bindings ?? []) {

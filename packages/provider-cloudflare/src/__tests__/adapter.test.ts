@@ -181,7 +181,8 @@ describe('CloudflareWorkflowsAdapter', () => {
       const artifact = adapter.generate(brokenIR)
       const result = await adapter.deploy(artifact, providerConfig)
       expect(result.success).toBe(false)
-      expect(result.error).toMatch(/^Compile error:/)
+      // The failing file is named — a bundle has more than one.
+      expect(result.error).toMatch(/^Compile error in \S+\.ts:/)
     })
 
     it('excludes _BINDING_ID env vars from wrangler vars', async () => {

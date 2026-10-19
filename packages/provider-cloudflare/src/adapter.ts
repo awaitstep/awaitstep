@@ -14,7 +14,7 @@ import {
   type HandlerConversion,
 } from './codegen/handler-modules.js'
 import type { HandlerConversionResult } from '@awaitstep/codegen'
-import { transpileToJS } from '@awaitstep/codegen/transpile'
+import { transpileFile } from '@awaitstep/codegen/transpile'
 import { generateScript, generateWorkflowBundle } from './codegen/generate.js'
 import { validateSource } from './codegen/validate-source.js'
 import { bundleEntry, projectBundleFiles, toBundle, validateBundle } from '@awaitstep/codegen'
@@ -44,6 +44,7 @@ import { WRANGLER_BASE_CONFIG } from './wrangler-config.js'
 import {
   detectBindings,
   validateBindingDeclarations,
+  validateSubScriptBindings,
   type BindingRequirement,
 } from './codegen/bindings.js'
 import { getSubWorkflowBindings } from './codegen/generators/sub-workflow.js'
@@ -152,11 +153,14 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
   }
 
   validate(ir: ArtifactIR): Result<void, ValidationError[]> {
+    // Every source contributes: returning at the first one hid the provider's
+    // own findings whenever the IR also had a structural problem, so a user
+    // fixing one error immediately met the next.
     const result = validateArtifact(ir)
-    if (!result.ok) return result
-    const bindingErrors = validateBindingDeclarations(ir as unknown as WorkflowIR)
-    if (bindingErrors.length > 0) return { ok: false, errors: bindingErrors }
-    return { ok: true, value: undefined }
+    const errors: ValidationError[] = result.ok ? [] : [...result.errors]
+    errors.push(...validateBindingDeclarations(ir as unknown as WorkflowIR))
+    errors.push(...validateSubScriptBindings(ir))
+    return errors.length > 0 ? { ok: false, errors } : { ok: true, value: undefined }
   }
 
   validateSource(
@@ -270,12 +274,13 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     try {
       compiledBundle = await compileBundle(bundle)
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      report('FAILED', `Compile error: ${message}`, 0)
+      // transpileFile already names the file in its message.
+      const message = err instanceof Error ? err.message : `Compile error: ${String(err)}`
+      report('FAILED', message, 0)
       return {
         success: false,
         deploymentId: '',
-        error: `Compile error: ${message}`,
+        error: message,
       }
     }
 
@@ -559,13 +564,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
   }
 
   async startLocalDev(bundle: GeneratedBundle, options: LocalDevOptions): Promise<LocalDevSession> {
-    let compiledBundle: GeneratedBundle
-    try {
-      compiledBundle = await compileBundle(bundle)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      throw new Error(`Compile error: ${message}`, { cause: err })
-    }
+    const compiledBundle = await compileBundle(bundle)
     return startLocalDev(compiledBundle, options)
   }
 }
@@ -578,7 +577,7 @@ async function compileBundle(bundle: GeneratedBundle): Promise<GeneratedBundle> 
   const files: GeneratedFile[] = await Promise.all(
     bundle.files.map(async (file): Promise<GeneratedFile> => {
       if (file.role !== 'entry' && file.role !== 'module') return file
-      const compiled = await transpileToJS(file.source)
+      const compiled = await transpileFile(file.path, file.source)
       return { ...file, path: file.path.replace(/\.ts$/, '.js'), compiled }
     }),
   )

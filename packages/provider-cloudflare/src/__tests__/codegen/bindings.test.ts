@@ -4,7 +4,9 @@ import {
   deriveQueueName,
   toCFQueueName,
   validateBindingDeclarations,
+  validateSubScriptBindings,
 } from '../../codegen/bindings.js'
+import { workerNameToBinding } from '../../codegen/generators/sub-script.js'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 
 describe('deriveQueueName', () => {
@@ -514,5 +516,101 @@ describe('validateBindingDeclarations', () => {
     const errors = validateBindingDeclarations(ir([{ name: 'THING', type: 'durable_object' }]))
     expect(errors).toHaveLength(1)
     expect(errors[0].message).toContain('unknown type')
+  })
+})
+
+describe('workerNameToBinding', () => {
+  it('derives a readable identifier from a worker name', () => {
+    expect(workerNameToBinding('my-worker')).toBe('MY_WORKER')
+    expect(workerNameToBinding('awaitstep-my-script')).toBe('MY_SCRIPT')
+  })
+
+  it('never starts the identifier with a digit', () => {
+    // AwaitStep's own worker names end in a nanoid, so this is the common
+    // case, not an edge case: `env.4FGH.fetch()` does not parse.
+    expect(workerNameToBinding('awaitstep-4fgh')).toBe('W_4FGH')
+    expect(workerNameToBinding('123-api')).toBe('W_123_API')
+  })
+
+  it('returns empty when there is nothing to derive from', () => {
+    for (const name of ['', '   ', '---', '...']) {
+      expect(workerNameToBinding(name), name).toBe('')
+    }
+  })
+})
+
+describe('validateSubScriptBindings', () => {
+  const ir = (nodes: { id: string; name: string; workerName: string }[]) =>
+    ({
+      metadata: { name: 'T', version: 1, createdAt: '', updatedAt: '' },
+      entryNodeId: nodes[0]?.id ?? 'n1',
+      nodes: nodes.map((n) => ({
+        id: n.id,
+        name: n.name,
+        type: 'sub_script',
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { workerName: n.workerName },
+      })),
+      edges: [],
+    }) as never
+
+  it('accepts workers that derive a usable binding', () => {
+    expect(
+      validateSubScriptBindings(
+        ir([
+          { id: 'a', name: 'Call A', workerName: 'awaitstep-4fgh' },
+          { id: 'b', name: 'Call B', workerName: 'my-worker' },
+        ]),
+      ),
+    ).toEqual([])
+  })
+
+  it('accepts an IR with no sub_script nodes', () => {
+    expect(validateSubScriptBindings({ nodes: [], edges: [] } as never)).toEqual([])
+  })
+
+  it('reports a node with no worker selected', () => {
+    const errors = validateSubScriptBindings(ir([{ id: 'a', name: 'Call', workerName: '' }]))
+    expect(errors).toHaveLength(1)
+    expect(errors[0]!.nodeId).toBe('a')
+    expect(errors[0]!.message).toContain('no worker selected')
+  })
+
+  it('treats a whitespace-only name as nothing selected', () => {
+    const errors = validateSubScriptBindings(ir([{ id: 'a', name: 'Call', workerName: '   ' }]))
+    expect(errors).toHaveLength(1)
+    expect(errors[0]!.message).toContain('no worker selected')
+  })
+
+  it('reports a name that cannot produce a binding at all', () => {
+    const errors = validateSubScriptBindings(ir([{ id: 'a', name: 'Call', workerName: '---' }]))
+    expect(errors).toHaveLength(1)
+    expect(errors[0]!.message).toContain('no letters or digits')
+  })
+
+  it('reports two workers that collapse onto one binding', () => {
+    // Only one service binding is emitted for a given name, so without this
+    // one of the nodes silently calls the other node's worker.
+    const errors = validateSubScriptBindings(
+      ir([
+        { id: 'a', name: 'First', workerName: 'my-worker' },
+        { id: 'b', name: 'Second', workerName: 'my.worker' },
+      ]),
+    )
+    expect(errors).toHaveLength(1)
+    expect(errors[0]!.nodeId).toBe('b')
+    expect(errors[0]!.message).toContain('MY_WORKER')
+  })
+
+  it('accepts the same worker called twice', () => {
+    expect(
+      validateSubScriptBindings(
+        ir([
+          { id: 'a', name: 'First', workerName: 'my-worker' },
+          { id: 'b', name: 'Second', workerName: 'my-worker' },
+        ]),
+      ),
+    ).toEqual([])
   })
 })

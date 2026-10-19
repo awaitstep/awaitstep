@@ -27,6 +27,7 @@ export { validateSource } from './codegen/validate-source.js'
 export {
   detectBindings,
   detectBindingsFromSource,
+  validateSubScriptBindings,
   deriveQueueName,
   toCFQueueName,
   type BindingRequirement,

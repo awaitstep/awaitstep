@@ -76,15 +76,24 @@ export interface SubScriptBinding {
  * readable; all hyphens become underscores; non-identifier chars are replaced
  * with underscores. Falls back to the raw name uppercased if stripping yields
  * an empty string.
+ *
+ * The result is always a usable identifier or the empty string: a name that
+ * would start with a digit is prefixed (AwaitStep's own worker names end in a
+ * nanoid, which starts with a digit often enough that `env.4FGH.fetch()` would
+ * otherwise be generated for a perfectly valid selection). Empty means the
+ * name carried no identifier characters at all — the caller treats that as
+ * unset, since there is nothing to derive from.
  */
 export function workerNameToBinding(workerName: string): string {
-  if (!workerName) return ''
+  if (!workerName.trim()) return ''
   const stripped = workerName.replace(/^awaitstep-/i, '')
-  const base = stripped.length > 0 ? stripped : workerName
-  return base
+  const base = stripped.trim().length > 0 ? stripped : workerName
+  const sanitized = base
     .replace(/[^A-Za-z0-9_]/g, '_')
     .replace(/^_+|_+$/g, '')
     .toUpperCase()
+  if (!sanitized) return ''
+  return /^[0-9]/.test(sanitized) ? `W_${sanitized}` : sanitized
 }
 
 /**
