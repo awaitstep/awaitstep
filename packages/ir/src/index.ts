@@ -105,6 +105,12 @@ export {
   PROJECT_ROOT_CONFIG_FILES,
   PACKAGE_MANIFEST_PATH,
   PROJECT_HANDLERS_PATH,
+  PROJECT_HANDLERS_DIR,
+  HANDLER_FETCH_PATH,
+  HANDLER_SCHEDULED_PATH,
+  HANDLER_QUEUE_DIR,
+  HANDLER_SHARED_PATH,
+  QUEUE_NAME_PATTERN,
   GENERATED_PATH_RULES,
   MAX_PROJECT_FILES,
   MAX_PROJECT_FILE_BYTES,
@@ -120,11 +126,16 @@ export {
   projectFileBytes,
   projectFilePathError,
   projectHandlersSource,
+  handlerEntry,
+  handlerWriteError,
+  projectHandlerModules,
+  hasHandlerModules,
+  projectHandlersConflict,
   projectPackageManifest,
   validatePackageManifest,
   validateProjectFiles,
 } from './project-files.js'
-export type { PackageManifest } from './project-files.js'
+export type { PackageManifest, HandlerEntry, ProjectHandlerModules } from './project-files.js'
 export { migrateArtifact } from './migrate.js'
 export { loadArtifact } from './load.js'
 export {

@@ -16,6 +16,11 @@ import {
   projectPackageManifest,
   validatePackageManifest,
   validateProjectFiles,
+  handlerEntry,
+  handlerWriteError,
+  hasHandlerModules,
+  projectHandlerModules,
+  projectHandlersConflict,
 } from '../project-files.js'
 import { validateArtifact } from '../validate.js'
 
@@ -225,6 +230,115 @@ describe('validateProjectFiles', () => {
     if (!result.ok) {
       expect(result.errors.some((e) => e.path === 'runtime.files[0].path')).toBe(true)
     }
+  })
+})
+
+describe('handler modules', () => {
+  it('recognises the three entries by stem and the queue name by file name', () => {
+    expect(handlerEntry('handlers/fetch.ts')).toEqual({ kind: 'fetch' })
+    expect(handlerEntry('handlers/fetch.js')).toEqual({ kind: 'fetch' })
+    expect(handlerEntry('handlers/scheduled.mts')).toEqual({ kind: 'scheduled' })
+    expect(handlerEntry('handlers/queue/orders-v2.ts')).toEqual({
+      kind: 'queue',
+      queue: 'orders-v2',
+    })
+    for (const bad of [
+      'handlers/util.ts',
+      'handlers/queue/Orders.ts',
+      'handlers/queue/a/b.ts',
+      'handlers/queue/-x.ts',
+      'handlers/fetch.md',
+      'handlers.ts',
+      'lib/handlers/fetch.ts',
+    ]) {
+      expect(handlerEntry(bad), bad).toBeNull()
+    }
+  })
+
+  it('keeps path validation free of handler rules, so older versions still validate', () => {
+    for (const path of [
+      'handlers/fetch.ts',
+      'handlers/queue/orders.ts',
+      'handlers/util.ts',
+      'handlers/README.md',
+      'handlers/Fetch.ts',
+      'handlers/queue/Orders.ts',
+    ]) {
+      expect(projectFilePathError(path), path).toBeNull()
+    }
+  })
+
+  it('refuses writing an inert look-alike or a second file for one entry', () => {
+    expect(handlerWriteError('handlers/fetch.ts', [])).toBeNull()
+    expect(handlerWriteError('handlers/util.ts', [])).toBeNull()
+    expect(handlerWriteError('handlers/README.md', [])).toBeNull()
+    expect(handlerWriteError('lib/fetch.ts', [])).toBeNull()
+    expect(handlerWriteError('handlers/Fetch.ts', [])).toMatch(/did you mean handlers\/fetch.ts/)
+    expect(handlerWriteError('handlers/scheduled.md', [])).toMatch(/did you mean/)
+    expect(handlerWriteError('handlers/queue/Orders.ts', [])).toMatch(/not a queue consumer/)
+    expect(handlerWriteError('handlers/queue/order_events.ts', [])).toMatch(/not a queue consumer/)
+
+    // One file per entry: a second extension for the same role is refused.
+    expect(handlerWriteError('handlers/fetch.mjs', ['handlers/fetch.ts'])).toMatch(
+      /second fetch handler beside "handlers\/fetch.ts"/,
+    )
+    expect(handlerWriteError('handlers/queue/orders.mjs', ['handlers/queue/orders.ts'])).toMatch(
+      /second consumer for "orders"/,
+    )
+    // Replacing the same path, and a different queue, are both fine.
+    expect(handlerWriteError('handlers/fetch.ts', ['handlers/fetch.ts'])).toBeNull()
+    expect(handlerWriteError('handlers/queue/other.ts', ['handlers/queue/orders.ts'])).toBeNull()
+  })
+
+  it('settles duplicate entries in older versions by the lowest path, deduping queues', () => {
+    const modules = projectHandlerModules([
+      { path: 'handlers/fetch.mjs' },
+      { path: 'handlers/fetch.ts' },
+      { path: 'handlers/queue/orders.ts' },
+      { path: 'handlers/queue/orders.mjs' },
+      { path: 'handlers/shared.ts' },
+    ])
+    expect(modules).toEqual({
+      fetch: 'handlers/fetch.mjs',
+      queues: [{ queue: 'orders', path: 'handlers/queue/orders.mjs' }],
+      shared: 'handlers/shared.ts',
+    })
+    // The shared module alone is not an entry: the project is still legacy.
+    expect(hasHandlerModules(projectHandlerModules([{ path: 'handlers/shared.ts' }]))).toBe(false)
+  })
+
+  it('collects a project’s handler modules by role, queues sorted', () => {
+    const modules = projectHandlerModules([
+      { path: 'handlers/queue/zeta.ts' },
+      { path: 'lib/x.ts' },
+      { path: 'handlers/fetch.ts' },
+      { path: 'handlers/queue/alpha.ts' },
+    ])
+    expect(modules).toEqual({
+      fetch: 'handlers/fetch.ts',
+      queues: [
+        { queue: 'alpha', path: 'handlers/queue/alpha.ts' },
+        { queue: 'zeta', path: 'handlers/queue/zeta.ts' },
+      ],
+    })
+    expect(modules.shared).toBeUndefined()
+    expect(hasHandlerModules(modules)).toBe(true)
+    expect(hasHandlerModules(projectHandlerModules([{ path: 'lib/x.ts' }]))).toBe(false)
+    expect(hasHandlerModules(projectHandlerModules(undefined))).toBe(false)
+  })
+
+  it('never lets the annotation file and the handler folder coexist', () => {
+    expect(projectHandlersConflict('handlers/fetch.ts', ['handlers.ts'])).toMatch(/convert/)
+    expect(projectHandlersConflict('handlers.ts', ['handlers/queue/orders.ts'])).toMatch(
+      /already uses handler modules/,
+    )
+    expect(projectHandlersConflict('handlers/fetch.ts', ['lib/x.ts'])).toBeNull()
+    expect(projectHandlersConflict('lib/x.ts', ['handlers.ts'])).toBeNull()
+    const errors = validateProjectFiles([
+      { path: 'handlers.ts', source: '' },
+      { path: 'handlers/fetch.ts', source: '' },
+    ])
+    expect(errors.map((e) => e.message)).toContain('handlers.ts and handlers/ cannot coexist')
   })
 })
 

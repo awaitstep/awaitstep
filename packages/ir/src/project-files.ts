@@ -63,6 +63,156 @@ export function projectHandlersSource(
   return files?.find((f) => f.path === PROJECT_HANDLERS_PATH)?.source
 }
 
+/**
+ * Handler modules: the folder convention that supersedes the annotation
+ * file. Plain ES modules with a default export; the filename is the only
+ * fact the deploy reads from them (`handlers/queue/orders.ts` consumes the
+ * `orders` queue). Everything else — the queue binding, cron expressions,
+ * batch settings — stays declared in the IR or the deployment config.
+ */
+export const PROJECT_HANDLERS_DIR = 'handlers/'
+export const HANDLER_FETCH_PATH = 'handlers/fetch.ts'
+export const HANDLER_SCHEDULED_PATH = 'handlers/scheduled.ts'
+export const HANDLER_QUEUE_DIR = 'handlers/queue/'
+
+/**
+ * Code the handlers share. It is the one module the generated entry
+ * re-exports, so a class the entry must expose (a Durable Object, say)
+ * still reaches the runtime, and module-level state stays single.
+ */
+export const HANDLER_SHARED_PATH = 'handlers/shared.ts'
+
+/** Cloudflare's queue-name rule: lowercase alphanumerics and hyphens, 1–63 characters. */
+export const QUEUE_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/
+
+export type HandlerEntry =
+  { kind: 'fetch' } | { kind: 'scheduled' } | { kind: 'queue'; queue: string }
+
+export interface ProjectHandlerModules {
+  fetch?: string
+  scheduled?: string
+  queues: { queue: string; path: string }[]
+  /** `handlers/shared.ts`, when the project has one. */
+  shared?: string
+}
+
+function stemOf(path: string): string {
+  const name = basenameOf(path)
+  const dot = name.lastIndexOf('.')
+  return dot > 0 ? name.slice(0, dot) : name
+}
+
+/**
+ * The handler a path under `handlers/` provides, or null when the path is
+ * not a handler entry (a helper, an asset, a misspelt name). Any code
+ * extension is accepted; the stem decides.
+ */
+export function handlerEntry(path: string): HandlerEntry | null {
+  if (!path.startsWith(PROJECT_HANDLERS_DIR) || !isProjectCodePath(path)) return null
+  const rest = path.slice(PROJECT_HANDLERS_DIR.length)
+  if (!rest.includes('/')) {
+    const stem = stemOf(rest)
+    if (stem === 'fetch') return { kind: 'fetch' }
+    if (stem === 'scheduled') return { kind: 'scheduled' }
+    return null
+  }
+  if (path.startsWith(HANDLER_QUEUE_DIR)) {
+    const name = path.slice(HANDLER_QUEUE_DIR.length)
+    if (name.includes('/')) return null
+    const queue = stemOf(name)
+    return QUEUE_NAME_PATTERN.test(queue) ? { kind: 'queue', queue } : null
+  }
+  return null
+}
+
+/** The role a path fills, as one comparable key: `fetch`, `scheduled`, `queue:orders`. */
+function entryKey(entry: HandlerEntry): string {
+  return entry.kind === 'queue' ? `queue:${entry.queue}` : entry.kind
+}
+
+/**
+ * The handler modules a project has, by role. Two files can name the same
+ * entry (`fetch.ts` beside `fetch.mjs`); rather than let the file order
+ * decide, the lowest path wins everywhere — writes of a second file for a
+ * role are refused (see {@link handlerWriteError}), so this only settles
+ * what older stored versions already contain.
+ */
+export function projectHandlerModules(
+  files: readonly { path: string }[] | undefined,
+): ProjectHandlerModules {
+  const byRole = new Map<string, string>()
+  let shared: string | undefined
+  for (const { path } of files ?? []) {
+    if (path === HANDLER_SHARED_PATH) shared = path
+    const entry = handlerEntry(path)
+    if (!entry) continue
+    const key = entryKey(entry)
+    const current = byRole.get(key)
+    if (current === undefined || path < current) byRole.set(key, path)
+  }
+  const modules: ProjectHandlerModules = { queues: [], ...(shared && { shared }) }
+  for (const [key, path] of byRole) {
+    if (key === 'fetch') modules.fetch = path
+    else if (key === 'scheduled') modules.scheduled = path
+    else modules.queues.push({ queue: key.slice('queue:'.length), path })
+  }
+  modules.queues.sort((a, b) => a.queue.localeCompare(b.queue, 'en'))
+  return modules
+}
+
+export function hasHandlerModules(modules: ProjectHandlerModules): boolean {
+  return modules.fetch !== undefined || modules.scheduled !== undefined || modules.queues.length > 0
+}
+
+/**
+ * Why `path` cannot be added beside `existing`: the annotation file and the
+ * handler folder are two models of the same thing and never coexist, so a
+ * project converts (or deletes `handlers.ts`) before it gains a module, and
+ * cannot regain the file while modules exist.
+ */
+export function projectHandlersConflict(path: string, existing: Iterable<string>): string | null {
+  const paths = [...existing]
+  if (handlerEntry(path) && paths.includes(PROJECT_HANDLERS_PATH)) {
+    return `${PROJECT_HANDLERS_PATH} and ${PROJECT_HANDLERS_DIR} cannot coexist — convert ${PROJECT_HANDLERS_PATH} to handler modules or delete it first`
+  }
+  if (path === PROJECT_HANDLERS_PATH && paths.some((p) => handlerEntry(p))) {
+    return `${PROJECT_HANDLERS_PATH} and ${PROJECT_HANDLERS_DIR} cannot coexist — the project already uses handler modules`
+  }
+  return null
+}
+
+/**
+ * Why `path` may not be *written* under `handlers/`, or null. These are
+ * write-time rules, deliberately not part of {@link projectFilePathError}:
+ * a stored version that predates the convention keeps validating and
+ * deploying, while new files cannot introduce an inert look-alike
+ * (`handlers/Fetch.ts` would never run) or a second file for a role.
+ */
+export function handlerWriteError(path: string, existing: Iterable<string>): string | null {
+  if (!path.startsWith(PROJECT_HANDLERS_DIR)) return null
+  const entry = handlerEntry(path)
+  if (!entry) {
+    if (path.startsWith(HANDLER_QUEUE_DIR)) {
+      return `is not a queue consumer — ${HANDLER_QUEUE_DIR}<queue-name>.ts needs a Cloudflare queue name (lowercase letters, digits and hyphens, 1–63 characters)`
+    }
+    const rest = path.slice(PROJECT_HANDLERS_DIR.length)
+    const stem = stemOf(rest).toLowerCase()
+    if (!rest.includes('/') && (stem === 'fetch' || stem === 'scheduled')) {
+      return `would never run — did you mean ${PROJECT_HANDLERS_DIR}${stem}.ts?`
+    }
+    return null
+  }
+  const key = entryKey(entry)
+  for (const other of existing) {
+    if (other === path) continue
+    const otherEntry = handlerEntry(other)
+    if (otherEntry && entryKey(otherEntry) === key) {
+      return `would be a second ${key === 'fetch' || key === 'scheduled' ? key : `consumer for "${entry.kind === 'queue' ? entry.queue : key}"`} handler beside "${other}" — one file per entry`
+    }
+  }
+  return null
+}
+
 /** Toolchain config a project may own, at the root only (nesting changes resolution). */
 export const PROJECT_ROOT_CONFIG_FILES = ['package.json', 'tsconfig.json', 'jsconfig.json'] as const
 
@@ -178,6 +328,9 @@ export function projectFilePathError(path: string): string | null {
   if (!(PROJECT_FILE_EXTENSIONS as readonly string[]).includes(fileExtension(path))) {
     return `must end in ${PROJECT_FILE_EXTENSIONS.map((e) => `.${e}`).join(', ')}`
   }
+  // Nothing handler-specific here: `handlers/` rules are write-time only
+  // (see handlerWriteError), so versions stored before the convention keep
+  // validating and deploying.
   return null
 }
 
@@ -341,6 +494,14 @@ export function validateProjectFiles(
       errors.push(...validatePackageManifest(file.source, `${path}[${index}].source`))
     }
   })
+
+  const handlersFile = files.findIndex((f) => f.path === PROJECT_HANDLERS_PATH)
+  if (handlersFile !== -1 && files.some((f) => handlerEntry(f.path))) {
+    errors.push({
+      path: `${path}[${handlersFile}].path`,
+      message: `${PROJECT_HANDLERS_PATH} and ${PROJECT_HANDLERS_DIR} cannot coexist`,
+    })
+  }
 
   if (total > MAX_PROJECT_TOTAL_BYTES) {
     errors.push({ path, message: `Project files exceed ${MAX_PROJECT_TOTAL_BYTES} bytes in total` })
