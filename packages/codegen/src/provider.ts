@@ -1,4 +1,4 @@
-import type { ArtifactIR, ValidationError, Result } from '@awaitstep/ir'
+import type { ArtifactIR, ProjectFile, ValidationError, Result } from '@awaitstep/ir'
 import type { StepManifest } from './manifest.js'
 import type {
   GeneratedBundle,
@@ -16,6 +16,17 @@ import type {
 export interface CredentialsCheckResult {
   valid: boolean
   error?: string
+}
+
+/**
+ * The outcome of splitting a provider's annotated entry-handler source into
+ * handler modules: the modules, plus whatever the annotations declared that
+ * modules cannot carry (schedules, per-queue settings — provider-shaped)
+ * and now belongs in the deployment config.
+ */
+export interface HandlerConversionResult {
+  files: ProjectFile[]
+  declarations: Record<string, unknown>
 }
 
 export interface WorkflowProvider {
@@ -54,6 +65,22 @@ export interface WorkflowProvider {
     bundle: GeneratedBundle,
     manifest: StepManifest,
   ): ValidationError[]
+
+  /**
+   * Splits an annotated entry-handler source (the legacy trigger-code model)
+   * into handler modules. Throws when the source does not parse. Absent =
+   * the provider never had an annotation model.
+   */
+  convertHandlers?(source: string, target: 'workflow' | 'script'): HandlerConversionResult
+
+  /**
+   * Folds a conversion's declarations into a stored deployment config;
+   * returns the same object when nothing changes.
+   */
+  applyHandlerDeclarations?(
+    config: Record<string, unknown>,
+    declarations: Record<string, unknown>,
+  ): Record<string, unknown>
 
   deploy(bundle: GeneratedBundle, config: ProviderConfig): Promise<DeployResult>
 

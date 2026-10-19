@@ -6,6 +6,21 @@ import { generateScript } from './generate-script.js'
 export { extractImports, generateNodeCode } from './generate-helpers.js'
 export { deriveQueueName, toCFQueueName } from './bindings.js'
 export {
+  entryImportFor,
+  handlerModuleScaffold,
+  handlerModulesFromTriggerCode,
+  handlerWiring,
+  handlerDelegates,
+  scheduleProblem,
+  withConversionSettings,
+} from './handler-modules.js'
+export type {
+  HandlerConversion,
+  HandlerTarget,
+  HandlerWiring,
+  QueueConsumerSettings,
+} from './handler-modules.js'
+export {
   DEFAULT_TRIGGER_CODE,
   generateWorkflow,
   generateWorkflowBundle,

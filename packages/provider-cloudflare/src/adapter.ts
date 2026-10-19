@@ -1,5 +1,19 @@
-import { validateArtifact } from '@awaitstep/ir'
-import type { ArtifactIR, ScriptIR, WorkflowIR, ValidationError, Result } from '@awaitstep/ir'
+import { hasHandlerModules, projectHandlerModules, validateArtifact } from '@awaitstep/ir'
+import type {
+  ArtifactIR,
+  ProjectHandlerModules,
+  ScriptIR,
+  WorkflowIR,
+  ValidationError,
+  Result,
+} from '@awaitstep/ir'
+import {
+  handlerModulesFromTriggerCode,
+  scheduleProblem,
+  withConversionSettings,
+  type HandlerConversion,
+} from './codegen/handler-modules.js'
+import type { HandlerConversionResult } from '@awaitstep/codegen'
 import { transpileToJS } from '@awaitstep/codegen/transpile'
 import { generateScript, generateWorkflowBundle } from './codegen/generate.js'
 import { validateSource } from './codegen/validate-source.js'
@@ -163,6 +177,27 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     } catch {
       return { valid: false, error: 'Failed to verify API token with Cloudflare' }
     }
+  }
+
+  convertHandlers(source: string, target: 'workflow' | 'script'): HandlerConversionResult {
+    const { files, crons, queueConfigs, queueNames } = handlerModulesFromTriggerCode(source, target)
+    return { files, declarations: { crons, queueConfigs, queueNames } }
+  }
+
+  applyHandlerDeclarations(
+    config: Record<string, unknown>,
+    declarations: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const {
+      crons = [],
+      queueConfigs = [],
+      queueNames = [],
+    } = declarations as Partial<Pick<HandlerConversion, 'crons' | 'queueConfigs' | 'queueNames'>>
+    return withConversionSettings(config as Partial<CloudflareDeploymentConfig>, {
+      crons,
+      queueConfigs,
+      queueNames,
+    }) as Record<string, unknown>
   }
 
   generate(ir: ArtifactIR, config?: ProviderConfig): GeneratedBundle {
@@ -370,13 +405,31 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     const workersDev =
       deploymentConfig?.workersDev ?? (config.options?.['workersDev'] as boolean | undefined)
 
-    // Build queue consumer wiring from `@queue function NAME(...)` annotations in
-    // the trigger code. Each consumed queue gets one row in wrangler.json's
-    // `queues.consumers[]`. Per-queue settings come from
-    // `deploymentConfig.queueConsumers` if present; otherwise CF defaults apply.
+    // Queue consumers and cron triggers: from the project's handler modules
+    // when it has any (a `handlers/queue/<name>.ts` file is the consumer, the
+    // schedules are declared on the workflow / deployment config), otherwise
+    // from the `@queue` / `@scheduled` annotations in the trigger code.
+    // Per-queue settings come from `deploymentConfig.queueConsumers` if
+    // present; otherwise CF defaults apply.
     const triggerCodeForAnnotations = config.options?.['triggerCode'] as string | undefined
-    const queueConsumers = buildQueueConsumers(triggerCodeForAnnotations, deploymentConfig)
-    const cronTriggers = buildCronTriggers(triggerCodeForAnnotations, deploymentConfig)
+    const modules = projectHandlerModules(bundle.files)
+    const queueConsumers = buildQueueConsumers(triggerCodeForAnnotations, deploymentConfig, modules)
+    const cronTriggers = buildCronTriggers(
+      triggerCodeForAnnotations,
+      deploymentConfig,
+      modules,
+      workflowCronTrigger(config.options?.['ir'] as ArtifactIR | undefined),
+    )
+    if (hasHandlerModules(modules)) {
+      const problem = scheduleProblem({
+        hasScheduledModule: modules.scheduled !== undefined,
+        crons: cronTriggers ?? [],
+      })
+      if (problem) {
+        report('FAILED', problem, 0)
+        return { success: false, deploymentId: '', error: problem }
+      }
+    }
 
     if (!this.deployer) {
       report('FAILED', 'No deployer configured — deploy is not available on this runtime', 0)
@@ -567,6 +620,7 @@ function extractCredentials(config: ProviderConfig): {
 export function buildQueueConsumers(
   triggerCode: string | undefined,
   deploymentConfig: CloudflareDeploymentConfig | undefined,
+  modules: ProjectHandlerModules = { queues: [] },
 ):
   | Array<{
       queue: string
@@ -577,7 +631,6 @@ export function buildQueueConsumers(
       maxConcurrency?: number
     }>
   | undefined {
-  if (!triggerCode) return undefined
   let handlers: Array<{
     /** JS function identifier — used to match deployment config overrides. */
     name: string
@@ -585,16 +638,23 @@ export function buildQueueConsumers(
     queueName: string
     config?: Record<string, string | number | boolean>
   }>
-  try {
-    const parsed = parseAnnotations(triggerCode)
-    if (parsed.mode !== 'strict' || parsed.queueHandlers.length === 0) return undefined
-    handlers = parsed.queueHandlers.map((q) => ({
-      name: q.name,
-      queueName: q.queueName ?? q.name,
-      config: q.config,
-    }))
-  } catch {
-    return undefined
+  if (hasHandlerModules(modules)) {
+    // The file is the declaration: handlers/queue/<name>.ts consumes <name>.
+    if (modules.queues.length === 0) return undefined
+    handlers = modules.queues.map(({ queue }) => ({ name: queue, queueName: queue }))
+  } else {
+    if (!triggerCode) return undefined
+    try {
+      const parsed = parseAnnotations(triggerCode)
+      if (parsed.mode !== 'strict' || parsed.queueHandlers.length === 0) return undefined
+      handlers = parsed.queueHandlers.map((q) => ({
+        name: q.name,
+        queueName: q.queueName ?? q.name,
+        config: q.config,
+      }))
+    } catch {
+      return undefined
+    }
   }
 
   // Deployment-config overrides may be keyed by either the JS function name
@@ -639,13 +699,30 @@ export function buildQueueConsumers(
  * Annotation parse errors are silently swallowed here — they're already
  * surfaced by the codegen path that runs first.
  */
+/** The cron expression a workflow's own trigger declares, if any. */
+export function workflowCronTrigger(ir: ArtifactIR | undefined): string | undefined {
+  return ir && ir.kind !== 'script' && ir.trigger?.type === 'cron'
+    ? ir.trigger.expression
+    : undefined
+}
+
 export function buildCronTriggers(
   triggerCode: string | undefined,
   deploymentConfig: CloudflareDeploymentConfig | undefined,
+  modules: ProjectHandlerModules = { queues: [] },
+  workflowCron?: string,
 ): string[] | undefined {
   const seen = new Set<string>()
   const out: string[] = []
-  if (triggerCode) {
+  // With handler modules the schedules are declared, never read from code.
+  // The workflow's own cron trigger counts once handlers/scheduled.ts
+  // exists to run it — the annotation model ignored it, and a project that
+  // only adds a queue consumer must keep deploying as before.
+  if (modules.scheduled !== undefined && workflowCron) {
+    seen.add(workflowCron)
+    out.push(workflowCron)
+  }
+  if (triggerCode && !hasHandlerModules(modules)) {
     try {
       const parsed = parseAnnotations(triggerCode)
       if (parsed.mode === 'strict') {

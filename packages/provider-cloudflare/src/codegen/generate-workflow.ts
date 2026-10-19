@@ -1,4 +1,5 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
+import { hasHandlerModules, projectHandlerModules } from '@awaitstep/ir'
 import type {
   GeneratedBundle,
   GeneratedFile,
@@ -35,6 +36,7 @@ import {
   generateNodeCode,
   resolveNodeExpressions,
 } from './generate-helpers.js'
+import { handlerDelegates, handlerWiring } from './handler-modules.js'
 import { parseAnnotations } from './parse-annotations.js'
 import { retentionLiteral, type CloudflareRetention } from './retention.js'
 
@@ -288,7 +290,12 @@ function generateWorkflowInternal(
     }
   }
 
-  const rawTriggerCode = triggerCode ?? DEFAULT_TRIGGER_CODE
+  // Handler modules (handlers/**) replace the annotation file outright: once
+  // the project has any, the trigger code is not consulted and the default
+  // scaffold only supplies the fetch entry when no module does.
+  const modules = projectHandlerModules(ir.runtime?.files)
+  const wiring = hasHandlerModules(modules) ? handlerWiring(modules) : null
+  const rawTriggerCode = wiring ? DEFAULT_TRIGGER_CODE : (triggerCode ?? DEFAULT_TRIGGER_CODE)
   const parsed = parseAnnotations(rawTriggerCode)
 
   // Per-block import extraction (same model as generate-script). Legacy mode
@@ -344,6 +351,11 @@ function generateWorkflowInternal(
     }
   }
 
+  if (wiring) {
+    collectedImports.push(...wiring.imports)
+    if (wiring.fetch) fetchHandlerEmission = null
+  }
+
   for (const moduleFile of ctx.files) {
     if (moduleFile.role !== 'module') continue
     const match = /^nodes\/([A-Za-z0-9_]+)\.ts$/.exec(moduleFile.path)
@@ -370,6 +382,7 @@ function generateWorkflowInternal(
 ${indent(fetchHandlerEmission.body, 4)}
   },`)
   }
+  if (wiring) handlerBlocks.push(...handlerDelegates(wiring))
   if (queueHandlerEmissions.length > 0) {
     const cases = queueHandlerEmissions
       .map((qh) => {
@@ -405,7 +418,7 @@ ${cases}
   }
   const exportDefault = `export default {
 ${handlerBlocks.join('\n')}
-};`
+};${wiring && wiring.reexports.length > 0 ? `\n\n${wiring.reexports.join('\n')}` : ''}`
 
   const source = `import { WorkflowEntrypoint } from "cloudflare:workers";${importBlock}
 
@@ -413,7 +426,7 @@ interface Env {
 ${envFields.join('\n')}
 }
 
-const AWAITSTEP_RETENTION = ${retentionLiteral(retention)};
+${wiring ? 'export ' : ''}const AWAITSTEP_RETENTION = ${retentionLiteral(retention)};
 ${classBlock}${moduleCodeBlock}
 export class ${className} extends WorkflowEntrypoint<Env> {
   async run(event, step) {

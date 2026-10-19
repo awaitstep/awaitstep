@@ -1,5 +1,7 @@
 import type { ScriptIR, WorkflowIR, WorkflowNode } from '@awaitstep/ir'
+import { hasHandlerModules, projectHandlerModules } from '@awaitstep/ir'
 import type { GeneratorLookup, TemplateResolver } from '@awaitstep/codegen'
+import { handlerDelegates, handlerWiring } from './handler-modules.js'
 import {
   topologicalSort,
   createGenerationContext,
@@ -221,8 +223,12 @@ export function generateScript(
     }
   }
 
+  // Handler modules (handlers/**) replace the annotation file outright; the
+  // default scaffold only supplies the fetch entry when no module does.
+  const modules = projectHandlerModules(ir.runtime?.files)
+  const wiring = hasHandlerModules(modules) ? handlerWiring(modules) : null
   const rawTriggerCode =
-    triggerCode && triggerCode.length > 0 ? triggerCode : DEFAULT_SCRIPT_TRIGGER_CODE
+    !wiring && triggerCode && triggerCode.length > 0 ? triggerCode : DEFAULT_SCRIPT_TRIGGER_CODE
 
   const parsed = parseAnnotations(rawTriggerCode)
 
@@ -268,10 +274,16 @@ export function generateScript(
     }
   }
 
+  if (wiring) {
+    collectedImports.push(...wiring.imports)
+    if (wiring.fetch) fetchHandlerEmission = null
+  }
+
   // runGraph isolates node-emitted code in its own function. Only nodes
   // marked for export (display name prefixed with `EXPORT_`) surface on
   // `graph.X`. Hoisted vars (exported nodes living inside container blocks)
   // are declared via `let` at the top so the assignment can escape the block.
+  // With handler modules it is exported so handlers/fetch.ts can import it.
   const declStatement = hoistedVarNames.length > 0 ? `  let ${hoistedVarNames.join(', ')};\n` : ''
   const bodyAlreadyReturns = endsWithReturn(graphBody)
   const returnStatement = bodyAlreadyReturns
@@ -281,7 +293,7 @@ export function generateScript(
       : '  return {};'
   const runGraphBody =
     graphBody.trim().length > 0 ? indent(graphBody, 2) + (bodyAlreadyReturns ? '' : '\n') : ''
-  const runGraphBlock = `async function runGraph(env: Env, event: { payload: unknown }) {
+  const runGraphBlock = `${wiring ? 'export ' : ''}async function runGraph(env: Env, event: { payload: unknown }) {
 ${declStatement}${runGraphBody}${returnStatement}
 }`
 
@@ -303,6 +315,7 @@ ${declStatement}${runGraphBody}${returnStatement}
 ${indent(fetchHandlerEmission.body, 4)}
   },`)
   }
+  if (wiring) handlerBlocks.push(...handlerDelegates(wiring))
   if (queueHandlerEmissions.length > 0) {
     const cases = queueHandlerEmissions
       .map((qh) => {
@@ -320,12 +333,12 @@ ${cases}
   }
   const exportDefault = `export default {
 ${handlerBlocks.join('\n')}
-};`
+};${wiring && wiring.reexports.length > 0 ? `\n\n${wiring.reexports.join('\n')}` : ''}`
 
   // Sub-workflow creates reference AWAITSTEP_RETENTION; only emit the const
   // when a sub_workflow node exists so plain scripts stay unchanged.
   const retentionBlock = ir.nodes.some((n) => n.type === 'sub_workflow')
-    ? `\nconst AWAITSTEP_RETENTION = ${retentionLiteral(retention)};\n`
+    ? `\n${wiring ? 'export ' : ''}const AWAITSTEP_RETENTION = ${retentionLiteral(retention)};\n`
     : ''
 
   return `${importBlock ? importBlock.trimStart() + '\n\n' : ''}interface Env {${envBlock}}

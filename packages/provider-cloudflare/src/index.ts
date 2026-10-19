@@ -8,6 +8,21 @@ export {
   DEFAULT_SCRIPT_TRIGGER_CODE,
 } from './codegen/generate.js'
 export type { GenerateOptions, GenerateScriptOptions } from './codegen/generate.js'
+export {
+  entryImportFor,
+  handlerDelegates,
+  handlerModuleScaffold,
+  handlerModulesFromTriggerCode,
+  handlerWiring,
+  scheduleProblem,
+  withConversionSettings,
+} from './codegen/handler-modules.js'
+export type {
+  HandlerConversion,
+  HandlerTarget,
+  HandlerWiring,
+  QueueConsumerSettings,
+} from './codegen/handler-modules.js'
 export { validateSource } from './codegen/validate-source.js'
 export {
   detectBindings,

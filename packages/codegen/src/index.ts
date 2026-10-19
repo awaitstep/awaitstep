@@ -26,7 +26,12 @@ export type {
 } from './types.js'
 export { SOURCE_MODES } from './types.js'
 
-export type { WorkflowProvider, CredentialsCheckResult, LocalDevProvider } from './provider.js'
+export type {
+  WorkflowProvider,
+  CredentialsCheckResult,
+  HandlerConversionResult,
+  LocalDevProvider,
+} from './provider.js'
 export { supportsLocalDev } from './provider.js'
 export type { CodeGenerator, GenerateMode } from './code-generator.js'
 export type { TemplateResolver } from './template-resolver.js'
