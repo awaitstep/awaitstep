@@ -9,6 +9,7 @@ function actions(): IdeCommandActions {
     newFile: vi.fn(),
     renameFile: vi.fn(),
     deleteFile: vi.fn(),
+    convertHandlers: vi.fn(),
     quickOpen: vi.fn(),
     switchToCanvas: vi.fn(),
     closeActiveFile: vi.fn(),
@@ -26,6 +27,7 @@ function context(overrides: Partial<IdeCommandContext> = {}): IdeCommandContext 
   return {
     hasActiveFile: true,
     activeIsStoredFile: true,
+    activeIsHandlersFile: false,
     activeDirty: true,
     dirtyCount: 1,
     openCount: 2,
@@ -70,6 +72,14 @@ describe('buildIdeCommands', () => {
     expect(generated['file.rename']).toBe(false)
     expect(generated['file.delete']).toBe(false)
     expect(generated['file.copyPath']).toBe(true)
+  })
+
+  it('offers the handler conversion only on the annotation file in an editable workspace', () => {
+    expect(enabledById(context())['file.convertHandlers']).toBe(false)
+    expect(enabledById(context({ activeIsHandlersFile: true }))['file.convertHandlers']).toBe(true)
+    expect(
+      enabledById(context({ activeIsHandlersFile: true, canEdit: false }))['file.convertHandlers'],
+    ).toBe(false)
   })
 
   it('disables tab commands with nothing open', () => {

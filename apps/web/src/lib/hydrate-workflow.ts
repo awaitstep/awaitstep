@@ -14,6 +14,13 @@ export function buildWorkflowStoreState(
   versionData: WorkflowVersion | null | undefined,
   currentVersion: number,
   isReadOnly: boolean,
+  options: {
+    /**
+     * The project is on handler modules: whatever trigger code an older
+     * version's IR still carries is history, not something to mirror.
+     */
+    handlerModules?: boolean
+  } = {},
 ) {
   const state: Record<string, unknown> = {
     kind: serverWorkflow.kind ?? 'workflow',
@@ -123,7 +130,9 @@ export function buildWorkflowStoreState(
     if (raw !== null && typeof raw === 'object' && 'runtime' in (raw as object)) {
       const runtime = (raw as { runtime?: WorkflowRuntime }).runtime
       if (runtime) {
-        if (!state.triggerCode && runtime.triggerCode) state.triggerCode = runtime.triggerCode
+        if (!state.triggerCode && runtime.triggerCode && !options.handlerModules) {
+          state.triggerCode = runtime.triggerCode
+        }
         if (
           Object.keys(state.dependencies as Record<string, string>).length === 0 &&
           runtime.dependencies

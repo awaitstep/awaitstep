@@ -1,12 +1,15 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import type { HandlerTarget } from '@awaitstep/provider-cloudflare/codegen'
 import { api, type SourceFile } from '../lib/api-client'
 import { createProjectFileActions, type ProjectFileActions } from '../lib/ide/project-actions'
 import { useIdeStore } from '../stores/ide-store'
 
 interface ProjectFilesInput {
   workflowId: string
+  /** What the workflow compiles to; it decides a new fetch handler's scaffold. */
+  target: HandlerTarget
   /** The loaded files with virtual seeds — not the draft overlay. */
   baseline: ReadonlyMap<string, SourceFile>
 }
@@ -23,6 +26,7 @@ export interface ProjectFilesController extends ProjectFileActions {
  */
 export function useProjectFiles({
   workflowId,
+  target,
   baseline,
 }: ProjectFilesInput): ProjectFilesController {
   const queryClient = useQueryClient()
@@ -39,13 +43,14 @@ export function useProjectFiles({
     () =>
       createProjectFileActions({
         workflowId,
+        target,
         client: api,
         notify: toast,
         getBaseline: () => baseline,
         getStore: useIdeStore.getState,
         refresh,
       }),
-    [workflowId, baseline, refresh],
+    [workflowId, target, baseline, refresh],
   )
 
   const busy = inFlight > 0
@@ -59,12 +64,22 @@ export function useProjectFiles({
       }
     }
     return {
-      saveFile: (path) => track(() => actions.saveFile(path)),
+      saveFile: (path: string) => track(() => actions.saveFile(path)),
       saveAll: () => track(() => actions.saveAll()),
-      createFile: (path, source) => track(() => actions.createFile(path, source)),
-      renameFile: (from, to) => track(() => actions.renameFile(from, to)),
-      deleteFile: (path) => track(() => actions.deleteFile(path)),
+      createFile: (path: string, source?: string) => track(() => actions.createFile(path, source)),
+      renameFile: (from: string, to: string) => track(() => actions.renameFile(from, to)),
+      deleteFile: (path: string) => track(() => actions.deleteFile(path)),
+      convertHandlers: () =>
+        track(async () => {
+          const result = await actions.convertHandlers()
+          // The conversion rewrites the stored deployment configs; a deploy
+          // page still holding the old one would save it back over them.
+          if (result?.deploymentConfigUpdated) {
+            await queryClient.invalidateQueries({ queryKey: ['deploy-config', workflowId] })
+          }
+          return result
+        }),
       busy,
     }
-  }, [actions, busy])
+  }, [actions, busy, queryClient, workflowId])
 }

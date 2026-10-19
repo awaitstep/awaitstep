@@ -159,7 +159,9 @@ function WorkflowEditorPage() {
     setWorkflowId(workflowId)
     if (fullData?.workflow) {
       useWorkflowStore.setState(
-        buildWorkflowStoreState(fullData.workflow, fullData.version, currentVersion, isReadOnly),
+        buildWorkflowStoreState(fullData.workflow, fullData.version, currentVersion, isReadOnly, {
+          handlerModules: fullData.handlers.modules,
+        }),
       )
       clearWorkflowHistory()
     }

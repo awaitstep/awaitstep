@@ -39,6 +39,15 @@ describe('virtualSeedFiles', () => {
     expect(JSON.parse(seeds[1].source)).toEqual({ dependencies: { zod: '^4' } })
   })
 
+  it('does not offer the annotation file to a project on handler modules', () => {
+    expect(
+      virtualSeedFiles(
+        { triggerCode: '@fetch function handler() {}' },
+        new Set(['handlers/fetch.ts']),
+      ),
+    ).toEqual([])
+  })
+
   it('yields to real project files and skips empty settings', () => {
     expect(
       virtualSeedFiles(
@@ -66,5 +75,8 @@ describe('newFileError', () => {
     expect(newFileError('config/env.ts', existing)).toMatch(/already exists/)
     expect(newFileError('config/env.js', existing)).toMatch(/would overwrite config\/env.ts/)
     expect(newFileError('notes', existing)).toMatch(/must end in/)
+    expect(newFileError('handlers/util.ts', existing)).toBeNull()
+    expect(newFileError('handlers/Fetch.ts', existing)).toMatch(/did you mean/)
+    expect(newFileError('handlers/fetch.ts', [...existing, 'handlers.ts'])).toMatch(/convert/)
   })
 })

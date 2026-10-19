@@ -10,7 +10,8 @@ import {
   type TabState,
 } from '../lib/ide/tabs'
 
-export type IdeDialog = 'palette' | 'quickOpen' | 'newFile' | 'renameFile' | 'deleteFile'
+export type IdeDialog =
+  'palette' | 'quickOpen' | 'newFile' | 'renameFile' | 'deleteFile' | 'convertHandlers'
 
 export interface RevealTarget {
   path: string

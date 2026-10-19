@@ -3,7 +3,10 @@ import {
   PACKAGE_MANIFEST_PATH,
   PROJECT_HANDLERS_PATH,
   findProjectPathCollision,
+  handlerEntry,
+  handlerWriteError,
   projectFilePathError,
+  projectHandlersConflict,
 } from '@awaitstep/ir'
 import { normalizeBundlePath } from './file-tree'
 
@@ -47,7 +50,10 @@ export function virtualSeedFiles(
 ): GeneratedFile[] {
   const seeds: GeneratedFile[] = []
   const handlers = settings.triggerCode?.trim()
-  if (handlers && !projectPaths.has(PROJECT_HANDLERS_PATH)) {
+  // A project on handler modules has left the annotation model; the legacy
+  // setting is not offered back to it.
+  const usesModules = [...projectPaths].some((p) => handlerEntry(p))
+  if (handlers && !usesModules && !projectPaths.has(PROJECT_HANDLERS_PATH)) {
     seeds.push({ path: PROJECT_HANDLERS_PATH, source: settings.triggerCode!, role: 'handlers' })
   }
   const dependencies = parseDependencySetting(settings.dependencies)
@@ -91,5 +97,7 @@ export function newFileError(raw: string, existing: Iterable<string>): string | 
   if (paths.includes(path)) return `${path} already exists`
   const collision = findProjectPathCollision(path, paths)
   if (collision) return `${path} would overwrite ${collision} after compile`
-  return null
+  const handlerError = handlerWriteError(path, paths)
+  if (handlerError) return `${path} ${handlerError}`
+  return projectHandlersConflict(path, paths)
 }

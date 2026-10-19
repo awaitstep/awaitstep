@@ -96,6 +96,30 @@ describe('buildWorkflowStoreState', () => {
     expect(result.triggerCode).toBe('return { params }')
   })
 
+  it('ignores trigger code an older IR still carries once the project is on handler modules', () => {
+    const version = {
+      id: 'v1',
+      workflowId: 'wf1',
+      version: 1,
+      ir: JSON.stringify({
+        nodes: [],
+        edges: [],
+        runtime: { triggerCode: '@fetch function old() {}' },
+      }),
+      locked: 0,
+      createdAt: '',
+    }
+    expect(
+      buildWorkflowStoreState({ ...baseWorkflow, triggerCode: null }, version, 1, false)
+        .triggerCode,
+    ).toBe('@fetch function old() {}')
+    expect(
+      buildWorkflowStoreState({ ...baseWorkflow, triggerCode: null }, version, 1, false, {
+        handlerModules: true,
+      }).triggerCode,
+    ).toBe('')
+  })
+
   it('defaults triggerCode to empty string when absent', () => {
     const result = buildWorkflowStoreState(baseWorkflow, null, 1, false)
     expect(result.triggerCode).toBe('')
@@ -290,6 +314,7 @@ describe('deriveDeploymentState', () => {
       workflow: baseWorkflow,
       version: null,
       versions: [],
+      handlers: { modules: false, consumedQueues: [] },
       activeDeployment: {
         id: 'd1',
         workflowId: 'wf1',
@@ -311,6 +336,7 @@ describe('deriveDeploymentState', () => {
       workflow: baseWorkflow,
       version: null,
       versions: [],
+      handlers: { modules: false, consumedQueues: [] },
       activeDeployment: null,
     }
     const result = deriveDeploymentState(fullData)
@@ -322,6 +348,7 @@ describe('deriveDeploymentState', () => {
       workflow: { ...baseWorkflow, currentVersionId: 'v2' },
       version: null,
       versions: [{ id: 'v2', version: 2, locked: 0, createdAt: '' }],
+      handlers: { modules: false, consumedQueues: [] },
       activeDeployment: {
         id: 'd1',
         workflowId: 'wf1',

@@ -3,6 +3,7 @@ import {
   ChevronDown,
   ChevronRight,
   Folder,
+  FolderInput,
   FolderOpen,
   Lock,
   MoreHorizontal,
@@ -10,6 +11,7 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react'
+import { PROJECT_HANDLERS_PATH } from '@awaitstep/ir'
 import { useShallow } from 'zustand/react/shallow'
 import type { TreeNode } from '../../lib/ide/file-tree'
 import { useIdeStore } from '../../stores/ide-store'
@@ -32,11 +34,14 @@ interface FileExplorerProps {
   onNewFile: () => void
   onRename: (path: string) => void
   onDelete: (path: string) => void
+  /** Splits the annotation file into handler modules. */
+  onConvert: (path: string) => void
 }
 
 interface RowActions {
   onRename: (path: string) => void
   onDelete: (path: string) => void
+  onConvert: (path: string) => void
 }
 
 export function FileExplorer({
@@ -48,6 +53,7 @@ export function FileExplorer({
   onNewFile,
   onRename,
   onDelete,
+  onConvert,
 }: FileExplorerProps) {
   const { activePath, openFile } = useIdeStore(
     useShallow((s) => ({ activePath: s.activePath, openFile: s.openFile })),
@@ -65,7 +71,7 @@ export function FileExplorer({
     })
   }
 
-  const rowActions: RowActions | undefined = canEdit ? { onRename, onDelete } : undefined
+  const rowActions: RowActions | undefined = canEdit ? { onRename, onDelete, onConvert } : undefined
 
   return (
     <div className="flex h-full flex-col bg-card">
@@ -317,12 +323,22 @@ function FileRow({
           />
         )}
       </button>
-      {actions && !virtual && <RowMenu path={node.path} actions={actions} />}
+      {actions && (!virtual || node.path === PROJECT_HANDLERS_PATH) && (
+        <RowMenu path={node.path} actions={actions} virtual={virtual} />
+      )}
     </div>
   )
 }
 
-function RowMenu({ path, actions }: { path: string; actions: RowActions }) {
+function RowMenu({
+  path,
+  actions,
+  virtual,
+}: {
+  path: string
+  actions: RowActions
+  virtual: boolean
+}) {
   function handleRename() {
     actions.onRename(path)
   }
@@ -330,6 +346,14 @@ function RowMenu({ path, actions }: { path: string; actions: RowActions }) {
   function handleDelete() {
     actions.onDelete(path)
   }
+
+  function handleConvert() {
+    actions.onConvert(path)
+  }
+
+  // The annotation file (stored or still a virtual seed) can be split into
+  // handler modules; a virtual seed has nothing to rename or delete.
+  const convertible = path === PROJECT_HANDLERS_PATH
 
   return (
     <DropdownMenu>
@@ -344,14 +368,24 @@ function RowMenu({ path, actions }: { path: string; actions: RowActions }) {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[140px]">
-        <DropdownMenuItem onSelect={handleRename} className="text-xs">
-          <Pencil className="h-3.5 w-3.5" />
-          Rename…
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={handleDelete} className="text-xs text-status-error">
-          <Trash2 className="h-3.5 w-3.5" />
-          Delete
-        </DropdownMenuItem>
+        {convertible && (
+          <DropdownMenuItem onSelect={handleConvert} className="text-xs">
+            <FolderInput className="h-3.5 w-3.5" />
+            Convert to handler modules
+          </DropdownMenuItem>
+        )}
+        {!virtual && (
+          <>
+            <DropdownMenuItem onSelect={handleRename} className="text-xs">
+              <Pencil className="h-3.5 w-3.5" />
+              Rename…
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={handleDelete} className="text-xs text-status-error">
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

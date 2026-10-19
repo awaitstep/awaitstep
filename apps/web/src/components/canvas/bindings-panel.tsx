@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import {
@@ -17,10 +17,20 @@ import {
   Link,
   Plus,
 } from 'lucide-react'
-import { PROJECT_HANDLERS_PATH } from '@awaitstep/ir'
-import { deriveQueueName } from '@awaitstep/provider-cloudflare/codegen'
+import { HANDLER_QUEUE_DIR, PROJECT_HANDLERS_PATH } from '@awaitstep/ir'
+import {
+  deriveQueueName,
+  handlerModuleScaffold,
+  toCFQueueName,
+} from '@awaitstep/provider-cloudflare/codegen'
 import { useWorkflowStore } from '../../stores/workflow-store'
-import { ApiError, ProjectFileConflictError, api } from '../../lib/api-client'
+import {
+  ApiError,
+  ProjectFileConflictError,
+  api,
+  describeHandlerDeclarations,
+} from '../../lib/api-client'
+import { queries } from '../../lib/queries'
 import {
   detectBindingsFromNodes,
   type ClientBinding,
@@ -42,19 +52,30 @@ const BINDING_META: Record<ClientBindingType, { label: string; icon: typeof Data
 }
 
 /**
- * Returns true if the trigger code already declares a `@queue function NAME(...)`
- * for the given queue name. Plain regex — assumes annotations live at top
- * level (matches our parser's contract).
+ * The queue a binding produces to, as Cloudflare names it: the same
+ * normalisation the generated producer binding and the annotation parser
+ * apply, so a consumer module's file name matches.
  */
-function hasQueueHandler(triggerCode: string, queueName: string): boolean {
-  const re = new RegExp(`@queue\\s+function\\s+${queueName}\\s*\\(`)
-  return re.test(triggerCode)
+function queueOf(binding: ClientBinding): string {
+  return toCFQueueName(deriveQueueName(binding.name))
 }
 
-function buildConsumeSnippet(queueName: string): string {
+/**
+ * Returns true if the trigger code already declares a `@queue function` whose
+ * normalised name is `queue`. Plain regex — assumes annotations live at top
+ * level (matches our parser's contract).
+ */
+function hasQueueHandler(triggerCode: string, queue: string): boolean {
+  for (const match of triggerCode.matchAll(/@queue\s+function\s+([A-Za-z_$][\w$]*)\s*\(/g)) {
+    if (toCFQueueName(match[1]!) === queue) return true
+  }
+  return false
+}
+
+function buildConsumeSnippet(queue: string): string {
   return `
 
-@queue function ${queueName}(batch, env, ctx) {
+@queue function ${queue.replace(/-/g, '_')}(batch, env, ctx) {
   for (const msg of batch.messages) {
     // process msg.body
     msg.ack()
@@ -62,10 +83,20 @@ function buildConsumeSnippet(queueName: string): string {
 }`
 }
 
-/** The stored handlers.ts, or null when the project has none yet. */
+/** The stored annotation file, or null when the project has none. */
 async function fetchStoredHandlers(workflowId: string) {
   try {
     return await api.getProjectFile(workflowId, PROJECT_HANDLERS_PATH)
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null
+    throw err
+  }
+}
+
+/** Converts the workflow's legacy trigger code, or null when it has none. */
+async function convertIfLegacy(workflowId: string) {
+  try {
+    return await api.convertHandlers(workflowId)
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) return null
     throw err
@@ -80,6 +111,11 @@ export function BindingsPanel() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const canConsume = workflowId !== null && workflowId !== 'new'
+  const { data: full } = useQuery({
+    ...queries.workflows.full(canConsume ? workflowId : ''),
+    enabled: canConsume,
+  })
+  const consumedQueues = full?.handlers.consumedQueues ?? []
 
   const bindings: ClientBinding[] = useMemo(() => {
     if (nodes.length === 0) return []
@@ -88,51 +124,91 @@ export function BindingsPanel() {
 
   if (bindings.length === 0) return null
 
-  // Handlers are project code (handlers.ts), so the consumer is appended to
-  // the stored file — created from the legacy trigger code when there is
-  // none — under the same preconditions the code workspace uses, and the
-  // canvas keeps a mirror for the "consumed" marker.
-  async function handleConsumeClick(bindingName: string) {
+  // A consumer is a handler module (handlers/queue/<name>.ts) — the file
+  // is the declaration. A project still on the annotation model (a stored
+  // handlers.ts or the legacy trigger-code setting) is converted first, so
+  // its custom fetch handler and schedules survive; appending to the
+  // annotation file is only kept for the stored-file case. The canvas does
+  // not edit trigger code, so the server's copy is the whole truth and the
+  // refetch below re-hydrates the mirror.
+  async function handleConsumeClick(binding: ClientBinding) {
     if (!canConsume) return
-    const queueName = deriveQueueName(bindingName)
+    const queue = queueOf(binding)
+    const notices: string[] = []
     try {
       const stored = await fetchStoredHandlers(workflowId)
-      const base = stored?.source ?? triggerCode
-      const next = hasQueueHandler(base, queueName) ? base : base + buildConsumeSnippet(queueName)
-      if (next !== stored?.source) {
+      let created: string
+      if (stored) {
+        const next = hasQueueHandler(stored.source, queue)
+          ? stored.source
+          : stored.source + buildConsumeSnippet(queue)
+        if (next !== stored.source) {
+          await api.putProjectFile(workflowId, PROJECT_HANDLERS_PATH, next, {
+            ifMatch: stored.hash,
+          })
+        }
+        created = PROJECT_HANDLERS_PATH
+      } else {
+        // Trigger code can live in the setting or inside the current
+        // version's IR; the server knows which, and says 404 when there is
+        // nothing to convert.
+        const conversion = full?.handlers.modules ? null : await convertIfLegacy(workflowId)
+        if (conversion) {
+          notices.push('Trigger code converted to handler modules.')
+          if (!conversion.deploymentConfigUpdated) {
+            const facts = describeHandlerDeclarations(conversion.declarations)
+            if (facts.length > 0) {
+              notices.push(
+                `Declare in the deployment config before deploying: ${facts.join('; ')}.`,
+              )
+            }
+          }
+        }
+        created = `${HANDLER_QUEUE_DIR}${queue}.ts`
         await api.putProjectFile(
           workflowId,
-          PROJECT_HANDLERS_PATH,
-          next,
-          stored ? { ifMatch: stored.hash } : { ifNoneMatch: true },
+          created,
+          handlerModuleScaffold({ kind: 'queue', queue }),
+          { ifNoneMatch: true },
         )
       }
-      // Mirror without marking the canvas dirty — the file is already saved.
-      useWorkflowStore.setState({ triggerCode: next })
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['workflow-full', workflowId] }),
         queryClient.invalidateQueries({ queryKey: ['workflow-source', workflowId] }),
       ])
-      toast.success(`Consumer for ${queueName} added to ${PROJECT_HANDLERS_PATH}`, {
+      toast.success(`Consumer for ${queue} added in ${created}`, {
+        ...(notices.length > 0 && { description: notices.join(' '), duration: 15_000 }),
         action: {
           label: 'Open in Code',
           onClick: () => {
             void navigate({
               to: '/workflows/$workflowId/code',
               params: { workflowId },
-              search: { file: PROJECT_HANDLERS_PATH },
+              search: { file: created },
             })
           },
         },
       })
     } catch (err) {
-      if (err instanceof ProjectFileConflictError) {
-        toast.error(`${PROJECT_HANDLERS_PATH} changed while adding the consumer`, {
-          description: 'Open Code to add it there with the latest handlers in view.',
-        })
-        return
+      // A conversion that already succeeded stands even though the consumer
+      // did not: say so, and let the refetch show the new modules.
+      if (notices.length > 0) {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['workflow-full', workflowId] }),
+          queryClient.invalidateQueries({ queryKey: ['workflow-source', workflowId] }),
+          queryClient.invalidateQueries({ queryKey: ['deploy-config', workflowId] }),
+        ])
       }
-      toast.error(err instanceof Error ? err.message : `Could not update ${PROJECT_HANDLERS_PATH}`)
+      const detail =
+        err instanceof ProjectFileConflictError
+          ? `The consumer for ${queue} changed while it was being added. Open Code to see the latest handlers.`
+          : err instanceof Error
+            ? err.message
+            : 'Could not add the consumer'
+      toast.error(`Could not add the consumer for ${queue}`, {
+        description: [...notices, detail].join(' '),
+        ...(notices.length > 0 && { duration: 15_000 }),
+      })
     }
   }
 
@@ -160,9 +236,10 @@ export function BindingsPanel() {
               const meta = BINDING_META[binding.type]
               const Icon = meta.icon
               const isQueue = binding.type === 'queue'
-              const queueName = isQueue ? deriveQueueName(binding.name) : null
+              const queue = isQueue ? queueOf(binding) : null
               const alreadyConsumed =
-                isQueue && queueName !== null && hasQueueHandler(triggerCode, queueName)
+                queue !== null &&
+                (consumedQueues.includes(queue) || hasQueueHandler(triggerCode, queue))
               return (
                 <div
                   key={`${binding.type}:${binding.name}`}
@@ -183,12 +260,12 @@ export function BindingsPanel() {
                       <span className="text-muted-foreground/60 text-xs italic">consumed</span>
                     ) : (
                       <button
-                        onClick={() => handleConsumeClick(binding.name)}
+                        onClick={() => handleConsumeClick(binding)}
                         disabled={!canConsume}
                         className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
                         title={
                           canConsume
-                            ? `Add @queue function ${queueName}(...) to ${PROJECT_HANDLERS_PATH}`
+                            ? `Create ${HANDLER_QUEUE_DIR}${queue}.ts`
                             : 'Save the workflow first'
                         }
                       >

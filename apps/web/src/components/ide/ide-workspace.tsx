@@ -11,7 +11,12 @@ import { fileEditability, workspaceEditability } from '../../lib/ide/editability
 import { basename, buildFileTree, normalizeBundlePath } from '../../lib/ide/file-tree'
 import { fileOwner, splitWorkspaceFiles, virtualSeedFiles } from '../../lib/ide/project'
 import { buildWorkflowStoreState, deriveReadOnlyState } from '../../lib/hydrate-workflow'
-import type { SourceFile } from '../../lib/api-client'
+import { PROJECT_HANDLERS_PATH } from '@awaitstep/ir'
+import {
+  describeHandlerDeclarations,
+  type HandlerConversionPreview,
+  type SourceFile,
+} from '../../lib/api-client'
 import { queries } from '../../lib/queries'
 import { copyToClipboard } from '../../lib/utils'
 import { useIdeShortcuts } from '../../hooks/use-ide-shortcuts'
@@ -164,7 +169,11 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     return { project: buildFileTree(split.project), generated: buildFileTree(split.generated) }
   }, [baseline, projectPaths])
 
-  const projectFiles = useProjectFiles({ workflowId, baseline })
+  const projectFiles = useProjectFiles({
+    workflowId,
+    target: fullData?.workflow.kind === 'script' ? 'script' : 'workflow',
+    baseline,
+  })
 
   // Hydrate the canvas store (always read-only here) so Monaco's per-workflow
   // ambient types — typed Env, node outputs, runGraph — apply in the IDE too.
@@ -178,6 +187,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         fullData.version,
         fullData.version?.version ?? 0,
         true,
+        { handlerModules: fullData.handlers.modules },
       ),
     )
     clearWorkflowHistory()
@@ -218,6 +228,12 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   })
 
   const activeIsStoredFile = activePath !== null && storedPaths.has(activePath)
+  const activeIsHandlersFile = activePath === PROJECT_HANDLERS_PATH
+  // What the conversion will do, shown before it is confirmed.
+  const conversionPreview = useQuery({
+    ...queries.workflows.handlerConversion(workflowId),
+    enabled: dialog === 'convertHandlers',
+  })
   const activeDirty = activePath !== null && dirty.has(activePath)
   const readOnlyMessage = workspace?.message ?? null
 
@@ -253,6 +269,19 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       deleteFile: () => {
         const path = useIdeStore.getState().activePath
         if (path && storedPaths.has(path)) showDialog('deleteFile', path)
+      },
+      convertHandlers: () => {
+        if (!canEdit) return
+        // The server converts what it has stored, so an unsaved handlers.ts
+        // is saved before the plan is drawn up: the dialog then describes
+        // the conversion that will actually run.
+        if (!useIdeStore.getState().drafts[PROJECT_HANDLERS_PATH]) {
+          showDialog('convertHandlers')
+          return
+        }
+        void projectFiles.saveFile(PROJECT_HANDLERS_PATH).then((saved) => {
+          if (saved) showDialog('convertHandlers')
+        })
       },
       quickOpen: () => showDialog('quickOpen'),
       switchToCanvas: () =>
@@ -333,6 +362,24 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     showDialog('deleteFile', path)
   }
 
+  function handleConvertRequest() {
+    actions.convertHandlers()
+  }
+
+  function handleConvert() {
+    closeDialog()
+    void projectFiles.convertHandlers().then((result) => {
+      if (!result || result.deploymentConfigUpdated) return
+      const facts = describeHandlerDeclarations(result.declarations)
+      if (facts.length > 0) {
+        toast.info(`Declare in the deployment config before deploying: ${facts.join('; ')}`, {
+          description: 'There is no stored deployment config yet to carry them.',
+          duration: 15_000,
+        })
+      }
+    })
+  }
+
   function handleCreate(path: string) {
     closeDialog()
     void projectFiles.createFile(path)
@@ -406,6 +453,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
                 onNewFile={actions.newFile}
                 onRename={handleRenameRequest}
                 onDelete={handleDeleteRequest}
+                onConvert={handleConvertRequest}
               />
             </Panel>
             <Separator className="w-px bg-border transition-colors hover:bg-primary/50" />
@@ -442,6 +490,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         actions={actions}
         canEdit={canEdit}
         activeIsStoredFile={activeIsStoredFile}
+        activeIsHandlersFile={activeIsHandlersFile}
         activeDirty={activeDirty}
         dirtyCount={dirty.size}
       />
@@ -479,6 +528,16 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         onConfirm={handleDelete}
       />
       <ConfirmDialog
+        open={dialog === 'convertHandlers'}
+        onOpenChange={handleDialogOpenChange}
+        title="Convert to handler modules?"
+        description={describeConversion(conversionPreview.data, conversionPreview.error)}
+        confirmLabel="Convert"
+        variant="warning"
+        loading={projectFiles.busy || conversionPreview.isPending}
+        onConfirm={handleConvert}
+      />
+      <ConfirmDialog
         open={blocker.status === 'blocked'}
         onOpenChange={handleBlockerOpenChange}
         title="Unsaved changes"
@@ -489,6 +548,25 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       />
     </div>
   )
+}
+
+/** The conversion, in the user's terms, from the server's dry run. */
+function describeConversion(
+  preview: HandlerConversionPreview | undefined,
+  error: Error | null,
+): string {
+  if (error) return `The conversion cannot run: ${error.message}`
+  if (!preview) return 'Working out what the handlers become…'
+  const origin = {
+    file: 'handlers.ts is replaced by',
+    setting: 'The trigger-code setting becomes',
+    version: 'The trigger code saved with this version becomes',
+  }[preview.source]
+  const parts = [`${origin} ${preview.paths.join(', ')}.`]
+  const facts = describeHandlerDeclarations(preview.declarations)
+  if (facts.length > 0) parts.push(`Moving to the deployment config: ${facts.join('; ')}.`)
+  parts.push('Modules are plain TypeScript: typed, importable, no annotations.')
+  return parts.join(' ')
 }
 
 function Notice({

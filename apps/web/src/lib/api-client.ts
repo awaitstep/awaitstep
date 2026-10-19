@@ -143,6 +143,13 @@ export interface WorkflowFull {
   version: WorkflowVersion | null
   versions: VersionSummary[]
   activeDeployment: DeploymentSummary | null
+  /** The project's handler modules, as far as the canvas needs to know. */
+  handlers: {
+    /** The project uses handler modules; `workflow.triggerCode` is then null. */
+    modules: boolean
+    /** Queues with a `handlers/queue/<name>.ts` consumer. */
+    consumedQueues: string[]
+  }
 }
 
 /**
@@ -179,6 +186,40 @@ export interface ProjectFileSummary {
 
 export interface ProjectFileContent extends ProjectFileSummary {
   source: string
+}
+
+/**
+ * What the annotations declared that modules cannot carry — provider-shaped;
+ * these are the Cloudflare keys the UI knows how to describe.
+ */
+export interface HandlerDeclarations {
+  crons?: string[]
+  queueConfigs?: { queue: string }[]
+  [key: string]: unknown
+}
+
+/** Where the annotation file's handlers would land, and the settings only the deployment config can hold. */
+export interface HandlerConversionPreview {
+  /** Where the conversion reads from: the stored handlers.ts, the legacy setting, or the current version's IR. */
+  source: 'file' | 'setting' | 'version'
+  paths: string[]
+  declarations: HandlerDeclarations
+}
+
+export interface HandlerConversionResult extends Omit<HandlerConversionPreview, 'paths'> {
+  files: ProjectFileSummary[]
+  /** The declarations were folded into the stored deployment configs. */
+  deploymentConfigUpdated: boolean
+}
+
+/** The declarations a conversion leaves for the deployment config, worded for a notice; empty when none. */
+export function describeHandlerDeclarations(declarations: HandlerDeclarations): string[] {
+  const facts: string[] = []
+  if (declarations.crons?.length) facts.push(`cron triggers ${declarations.crons.join(', ')}`)
+  if (declarations.queueConfigs?.length) {
+    facts.push(`queue settings for ${declarations.queueConfigs.map((q) => q.queue).join(', ')}`)
+  }
+  return facts
 }
 
 /**
@@ -346,6 +387,19 @@ export const api = {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...header },
       body: JSON.stringify({ source }),
+    })
+  },
+
+  /** What converting the annotation file would produce, without writing anything. */
+  previewHandlerConversion(id: string): Promise<HandlerConversionPreview> {
+    return request(withProject(`/workflows/${id}/project/convert-handlers`))
+  },
+
+  /** Splits handlers.ts (or the legacy trigger-code setting) into handler modules, atomically on the server. */
+  convertHandlers(id: string, ifMatch?: string): Promise<HandlerConversionResult> {
+    return projectFileRequest(`/workflows/${id}/project/convert-handlers`, {
+      method: 'POST',
+      headers: ifMatch ? { 'If-Match': `"${ifMatch}"` } : {},
     })
   },
 

@@ -19,6 +19,7 @@ interface CommandPaletteProps {
   actions: IdeCommandActions
   canEdit: boolean
   activeIsStoredFile: boolean
+  activeIsHandlersFile: boolean
   activeDirty: boolean
   dirtyCount: number
 }
@@ -29,6 +30,7 @@ export function CommandPalette({
   actions,
   canEdit,
   activeIsStoredFile,
+  activeIsHandlersFile,
   activeDirty,
   dirtyCount,
 }: CommandPaletteProps) {
@@ -49,6 +51,7 @@ export function CommandPalette({
     const commands = buildIdeCommands({
       hasActiveFile,
       activeIsStoredFile,
+      activeIsHandlersFile,
       activeDirty,
       dirtyCount,
       openCount,
@@ -64,6 +67,7 @@ export function CommandPalette({
   }, [
     hasActiveFile,
     activeIsStoredFile,
+    activeIsHandlersFile,
     activeDirty,
     dirtyCount,
     openCount,

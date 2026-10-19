@@ -26,6 +26,15 @@ export const queries = {
         queryFn: () => api.getWorkflowSource(workflowId, versionId),
         retry: false,
       }),
+    handlerConversion: (workflowId: string) =>
+      queryOptions({
+        queryKey: ['workflow-handler-conversion', workflowId] as const,
+        queryFn: () => api.previewHandlerConversion(workflowId),
+        // A dry run over the current file: never serve a stale plan.
+        staleTime: 0,
+        gcTime: 0,
+        retry: false,
+      }),
   },
 
   connections: {

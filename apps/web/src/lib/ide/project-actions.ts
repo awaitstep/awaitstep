@@ -1,5 +1,8 @@
+import { PROJECT_HANDLERS_PATH, handlerEntry } from '@awaitstep/ir'
+import { handlerModuleScaffold, type HandlerTarget } from '@awaitstep/provider-cloudflare/codegen'
 import {
   ProjectFileConflictError,
+  type HandlerConversionResult,
   type ProjectFileSummary,
   type SourceFile,
   type WritePrecondition,
@@ -16,6 +19,7 @@ export interface ProjectFileClient {
     precondition: WritePrecondition,
   ): Promise<ProjectFileSummary>
   deleteProjectFile(workflowId: string, path: string, ifMatch?: string): Promise<void>
+  convertHandlers(workflowId: string, ifMatch?: string): Promise<HandlerConversionResult>
 }
 
 export interface Notifier {
@@ -28,6 +32,8 @@ export interface Notifier {
 
 export interface ProjectActionDeps {
   workflowId: string
+  /** What the workflow compiles to; it decides a new fetch handler's scaffold. */
+  target: HandlerTarget
   client: ProjectFileClient
   notify: Notifier
   /** The loaded files, virtual seeds included — never the draft overlay. */
@@ -45,6 +51,14 @@ export interface ProjectFileActions {
   createFile(path: string, source?: string): Promise<boolean>
   renameFile(from: string, to: string): Promise<boolean>
   deleteFile(path: string): Promise<boolean>
+  /**
+   * Splits the annotation file (or the legacy trigger-code setting) into
+   * handler modules. The server does the whole conversion in one request —
+   * modules written together, the file removed, the setting cleared, crons
+   * and queue settings folded into the deployment config — so a failure
+   * never leaves the project half converted.
+   */
+  convertHandlers(): Promise<HandlerConversionResult | null>
 }
 
 type WriteOutcome = ProjectFileSummary | 'conflict' | 'failed'
@@ -62,7 +76,7 @@ function errorMessage(err: unknown, fallback: string): string {
  * save cannot conflict with itself, and tabs follow renames and deletes.
  */
 export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileActions {
-  const { workflowId, client, notify, getBaseline, getStore, refresh } = deps
+  const { workflowId, target, client, notify, getBaseline, getStore, refresh } = deps
 
   async function write(
     path: string,
@@ -106,28 +120,30 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     await refresh()
   }
 
-  async function saveOne(path: string): Promise<boolean> {
+  // 'unchanged' is a draft that matches the file (or a stored file with no
+  // draft): nothing to send, and nothing wrong either.
+  async function saveOne(path: string): Promise<'saved' | 'unchanged' | 'failed'> {
     const base = getBaseline().get(path)
     const draft = getStore().drafts[path]
-    if (!draft && !base) return false
+    if (!draft && !base) return 'failed'
     if (draft && base && draft.source === base.source) {
       getStore().clearDraft(path)
-      return false
+      return 'unchanged'
     }
     // Without a draft only a virtual seed (no hash yet) has anything to save.
-    if (!draft && base?.hash !== undefined) return false
+    if (!draft && base?.hash !== undefined) return 'unchanged'
     const source = draft ? draft.source : base!.source
     const baseHash = draft ? draft.baseHash : (base?.hash ?? null)
     const precondition: WritePrecondition = baseHash ? { ifMatch: baseHash } : { ifNoneMatch: true }
     const saved = await write(path, source, precondition, true)
-    if (typeof saved === 'string') return false
+    if (typeof saved === 'string') return 'failed'
     getStore().rebaseDraft(path, saved.hash)
-    return true
+    return 'saved'
   }
 
   return {
     async saveFile(path) {
-      const ok = await saveOne(path)
+      const ok = (await saveOne(path)) === 'saved'
       if (ok) await refresh()
       return ok
     },
@@ -135,7 +151,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     async saveAll() {
       const paths = dirtyPaths(getBaseline(), getStore().drafts)
       const results = await Promise.all(paths.map(saveOne))
-      const saved = results.filter(Boolean).length
+      const saved = results.filter((r) => r === 'saved').length
       if (saved > 0) {
         await refresh()
         notify.success(saved === 1 ? 'Saved 1 file' : `Saved ${saved} files`)
@@ -143,8 +159,17 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       return saved
     },
 
-    async createFile(path, source = '') {
-      const created = await write(path, source, { ifNoneMatch: true }, false)
+    async createFile(path, source) {
+      // A new handler entry starts from its scaffold: an empty
+      // handlers/fetch.ts would take over the HTTP entry and answer
+      // nothing, and the New file dialog is how the docs say to add one.
+      const entry = handlerEntry(path)
+      const initial =
+        source ??
+        (entry
+          ? handlerModuleScaffold(entry.kind === 'fetch' ? { kind: 'fetch', target } : entry)
+          : '')
+      const created = await write(path, initial, { ifNoneMatch: true }, false)
       // A conflict means someone else created it first: show their file.
       if (created === 'conflict') await refresh()
       if (typeof created === 'string') return false
@@ -191,6 +216,38 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       store.closeFile(path)
       await refresh()
       return true
+    },
+
+    async convertHandlers() {
+      // The server converts what it has stored; an unsaved draft of the
+      // annotation file would be lost, so it is saved first.
+      if (getStore().drafts[PROJECT_HANDLERS_PATH]) {
+        if ((await saveOne(PROJECT_HANDLERS_PATH)) === 'failed') return null
+      }
+      // The hash the conversion is conditional on is read after that save:
+      // a saved draft now builds on the hash the server returned.
+      const hash =
+        getStore().drafts[PROJECT_HANDLERS_PATH]?.baseHash ??
+        getBaseline().get(PROJECT_HANDLERS_PATH)?.hash
+      let result: HandlerConversionResult
+      try {
+        result = await client.convertHandlers(workflowId, hash)
+      } catch (err) {
+        notify.error(errorMessage(err, `${PROJECT_HANDLERS_PATH} could not be converted`))
+        if (err instanceof ProjectFileConflictError) await refresh()
+        return null
+      }
+      const store = getStore()
+      store.clearDraft(PROJECT_HANDLERS_PATH)
+      store.closeFile(PROJECT_HANDLERS_PATH)
+      await refresh()
+      if (result.files[0]) store.openFile(result.files[0].path)
+      notify.success(
+        result.files.length === 1
+          ? `Created ${result.files[0]!.path}`
+          : `Created ${result.files.length} handler modules`,
+      )
+      return result
     },
   }
 }

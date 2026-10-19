@@ -18,6 +18,8 @@ export interface IdeCommandActions {
   newFile: () => void
   renameFile: () => void
   deleteFile: () => void
+  /** Splits the annotation file (handlers.ts) into handler modules. */
+  convertHandlers: () => void
   quickOpen: () => void
   switchToCanvas: () => void
   closeActiveFile: () => void
@@ -37,6 +39,8 @@ export interface IdeCommandContext {
    * virtual seed is not: it has nothing on the server to rename or delete.
    */
   activeIsStoredFile: boolean
+  /** The active file is the annotation file (stored or virtual), convertible to modules. */
+  activeIsHandlersFile: boolean
   activeDirty: boolean
   dirtyCount: number
   openCount: number
@@ -97,6 +101,13 @@ export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
       group: 'file',
       enabled: ctx.canEdit && ctx.activeIsStoredFile,
       run: actions.deleteFile,
+    },
+    {
+      id: 'file.convertHandlers',
+      label: 'Convert handlers.ts to Handler Modules',
+      group: 'file',
+      enabled: ctx.canEdit && ctx.activeIsHandlersFile,
+      run: actions.convertHandlers,
     },
     {
       id: 'file.close',

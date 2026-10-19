@@ -314,6 +314,26 @@ export const endpoints: EndpointDef[] = [
     ],
     hasBody: false,
   },
+  {
+    id: 'preview-handler-conversion',
+    group: 'Project files',
+    method: 'GET',
+    path: '/api/workflows/:workflowId/project/convert-handlers',
+    label: 'Preview converting handlers.ts to handler modules',
+    scope: 'read',
+    params: [{ name: 'workflowId', in: 'path', required: true }],
+    hasBody: false,
+  },
+  {
+    id: 'convert-handlers',
+    group: 'Project files',
+    method: 'POST',
+    path: '/api/workflows/:workflowId/project/convert-handlers',
+    label: 'Convert handlers.ts (or the trigger-code setting) to handler modules',
+    scope: 'write',
+    params: [{ name: 'workflowId', in: 'path', required: true }],
+    hasBody: false,
+  },
 
   // Deployments
   {

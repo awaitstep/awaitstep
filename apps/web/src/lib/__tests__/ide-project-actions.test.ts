@@ -29,11 +29,18 @@ function setup(baselineOverride = baseline) {
       }),
     ),
     deleteProjectFile: vi.fn(async () => undefined),
+    convertHandlers: vi.fn(async () => ({
+      source: 'file' as const,
+      files: [{ path: 'handlers/fetch.ts', hash: 'h-fetch', size: 10, updatedAt: 'now' }],
+      declarations: {},
+      deploymentConfigUpdated: false,
+    })),
   } satisfies ProjectFileClient
   const notify = { success: vi.fn(), error: vi.fn() } satisfies Notifier
   const refresh = vi.fn(async () => undefined)
   const actions = createProjectFileActions({
     workflowId: 'wf-1',
+    target: 'workflow',
     client,
     notify,
     getBaseline: () => baselineOverride,
@@ -127,6 +134,19 @@ describe('project file actions', () => {
     expect(notify.error).toHaveBeenCalledWith('Version is ejected')
   })
 
+  it('starts a new handler entry from its scaffold rather than an empty file', async () => {
+    const { client, actions } = setup()
+    await actions.createFile('handlers/fetch.ts')
+    expect(client.putProjectFile.mock.calls[0]![2]).toContain('env.WORKFLOW.create')
+    await actions.createFile('handlers/queue/orders.ts')
+    expect(client.putProjectFile.mock.calls[1]![2]).toContain('"orders" queue')
+    // Ordinary files still start empty, and an explicit source wins.
+    await actions.createFile('config/env.ts')
+    expect(client.putProjectFile.mock.calls[2]![2]).toBe('')
+    await actions.createFile('handlers/scheduled.ts', 'mine')
+    expect(client.putProjectFile.mock.calls[3]![2]).toBe('mine')
+  })
+
   it('createFile never replaces an existing file and shows the one that won', async () => {
     const { client, notify, refresh, actions } = setup()
     expect(await actions.createFile('services/stripe.ts')).toBe(true)
@@ -164,6 +184,64 @@ describe('project file actions', () => {
     )
     expect(await actions.renameFile('config/env.ts', 'config/other.ts')).toBe(false)
     expect(client.deleteProjectFile).not.toHaveBeenCalled()
+  })
+
+  it('convertHandlers saves a pending draft, converts on the server against the hash it read, and moves the tabs', async () => {
+    const annotated = new Map<string, SourceFile>([
+      ['handlers.ts', file('handlers.ts', '@fetch function handler() {}', 'h-handlers')],
+    ])
+    const store = useIdeStore.getState()
+    store.openFile('handlers.ts')
+    store.setDraft(
+      'handlers.ts',
+      '@fetch function handler() { return new Response("edited") }',
+      'h-handlers',
+    )
+    const { client, notify, refresh, actions } = setup(annotated)
+
+    const result = await actions.convertHandlers()
+    expect(result?.files.map((f) => f.path)).toEqual(['handlers/fetch.ts'])
+    // The draft went first, so the server converted the edited text.
+    expect(client.putProjectFile).toHaveBeenCalledWith(
+      'wf-1',
+      'handlers.ts',
+      '@fetch function handler() { return new Response("edited") }',
+      { ifMatch: 'h-handlers' },
+    )
+    // ...and the conversion is conditional on the hash that save returned,
+    // not the one the draft started from.
+    expect(client.convertHandlers).toHaveBeenCalledWith(
+      'wf-1',
+      'saved:@fetch function handler() { return new Response("edited") }',
+    )
+    expect(client.deleteProjectFile).not.toHaveBeenCalled()
+    expect(refresh).toHaveBeenCalled()
+    expect(useIdeStore.getState()).toMatchObject({ openPaths: ['handlers/fetch.ts'], drafts: {} })
+    expect(notify.success).toHaveBeenCalledWith('Created handlers/fetch.ts')
+  })
+
+  it('convertHandlers goes ahead when the draft merely matches the file', async () => {
+    const annotated = new Map<string, SourceFile>([
+      ['handlers.ts', file('handlers.ts', '@fetch function handler() {}', 'h-handlers')],
+    ])
+    useIdeStore.getState().setDraft('handlers.ts', '@fetch function handler() {}', 'h-handlers')
+    const { client, actions } = setup(annotated)
+    expect(await actions.convertHandlers()).not.toBeNull()
+    expect(client.putProjectFile).not.toHaveBeenCalled()
+    expect(client.convertHandlers).toHaveBeenCalledWith('wf-1', 'h-handlers')
+  })
+
+  it('convertHandlers reports a server refusal and reloads on a conflict', async () => {
+    const seed = new Map<string, SourceFile>([
+      ['handlers.ts', file('handlers.ts', 'return new Response("legacy")')],
+    ])
+    const { client, notify, refresh, actions } = setup(seed)
+    client.convertHandlers.mockRejectedValueOnce(
+      new ProjectFileConflictError('The project already uses handler modules', null),
+    )
+    expect(await actions.convertHandlers()).toBeNull()
+    expect(notify.error).toHaveBeenCalledWith('The project already uses handler modules')
+    expect(refresh).toHaveBeenCalledTimes(1)
   })
 
   it('deleteFile is conditional on the baseline hash and closes the tab', async () => {
