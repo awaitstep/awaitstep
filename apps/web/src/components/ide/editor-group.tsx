@@ -142,8 +142,15 @@ export function EditorGroup({
     applyReveal()
   }
 
+  // The file is the one whose model the editor holds right now — not the
+  // active file of the render that registered this handler, which is one
+  // render behind while the wrapper switches models. Edits that reach a
+  // read-only file can only be the wrapper's own writes and are ignored.
   function handleChange(value: string | undefined) {
-    if (activeFile) onChange(activeFile.path, value ?? '')
+    const model = editorRef.current?.getModel()
+    const path = model ? parseWorkflowModelPath(model.uri.toString())?.file : undefined
+    if (!path || editabilityOf(path).readOnly) return
+    onChange(path, value ?? '')
   }
 
   return (
@@ -156,7 +163,10 @@ export function EditorGroup({
               height="100%"
               path={workflowModelPath(workflowId, activeFile.path)}
               language={fileLanguage(activeFile.path)}
-              value={activeFile.source}
+              // Only for a model that does not exist yet; the workspace owns
+              // model text (sync + drafts). A `value` prop would let the
+              // wrapper write into whichever model it holds mid-switch.
+              defaultValue={activeFile.source}
               theme="vs-dark"
               options={editability.readOnly ? IDE_READONLY_EDITOR_OPTIONS : IDE_EDITOR_OPTIONS}
               // The workspace owns the models: closing the last tab must not

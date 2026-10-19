@@ -5,6 +5,10 @@ import type { editor } from 'monaco-editor'
  * playground). Variants spread on top of this instead of redeclaring it.
  */
 export const BASE_EDITOR_OPTIONS: editor.IStandaloneEditorConstructionOptions = {
+  // Explicit, because `updateOptions` merges: a pane that toggles between
+  // these and a read-only variant must be able to become writable again.
+  readOnly: false,
+  domReadOnly: false,
   minimap: { enabled: false },
   fontSize: 11,
   lineNumbers: 'on',
