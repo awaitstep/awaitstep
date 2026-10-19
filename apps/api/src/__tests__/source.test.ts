@@ -129,6 +129,103 @@ describe('source routes', () => {
     })
   })
 
+  describe('GET /source with an unconfigured node', () => {
+    // A sub_script with no worker selected generates `env..fetch(...)`, which
+    // does not parse. The workspace still has to open — that is where the user
+    // sees what is wrong — so the read reports the issue instead of refusing.
+    const irWithEmptyBinding = {
+      ...validIR,
+      nodes: [
+        ...validIR.nodes,
+        {
+          id: 'call',
+          type: 'sub_script',
+          name: 'call',
+          position: { x: 200, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { workerName: '', method: 'POST', url: 'https://invoke/' },
+        },
+      ],
+      edges: [{ id: 'e1', source: 'step-1', target: 'call' }],
+    }
+
+    beforeEach(async () => {
+      // Written straight to the store: saving this IR is refused now, but
+      // rows predating the rule still have to open.
+      const version = await mockDb.createVersion({
+        id: 'v-invalid',
+        workflowId: 'wf-1',
+        ir: JSON.stringify(irWithEmptyBinding),
+      })
+      await mockDb.updateWorkflow('wf-1', { currentVersionId: version.id })
+    })
+
+    it('still returns the source, with the validation issue attached', async () => {
+      const res = await app.request(url('/api/workflows/wf-1/source'))
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as {
+        files: { path: string }[]
+        diagnostics: { source: string; nodeId?: string; message: string }[]
+      }
+      expect(body.files.some((f) => f.path === 'worker.ts')).toBe(true)
+
+      // Both halves are reported: the cause (an unconfigured node) and the
+      // effect (the `env..fetch(` it generates). Dropping either leaves the
+      // workspace showing broken code with no explanation, or an explanation
+      // with no marker on the file.
+      const ir = body.diagnostics.find((d) => d.source === 'ir')
+      expect(ir).toMatchObject({ nodeId: 'call' })
+      expect(ir!.message).toContain('no worker selected')
+
+      const compile = body.diagnostics.find((d) => d.source === 'compile')
+      expect(compile).toMatchObject({ path: 'worker.ts' })
+    })
+
+    it('still refuses to eject a workflow the provider cannot deploy', async () => {
+      // 400 from validation, before any code is generated — the compile gate
+      // is covered separately below, so neither test can pass for the other's
+      // reason.
+      const res = await eject(app)
+      expect(res.status).toBe(400)
+      const body = (await res.json()) as { error: string; details: { message: string }[] }
+      expect(body.error).toBe('IR validation failed')
+      expect(body.details.some((d) => d.message.includes('no worker selected'))).toBe(true)
+    })
+
+    it('names the file a compile error came from', async () => {
+      const broken = {
+        ...validIR,
+        nodes: [{ ...validIR.nodes[0], data: { code: 'const x = ;' } }],
+      }
+      const version = await mockDb.createVersion({
+        id: 'v-broken',
+        workflowId: 'wf-1',
+        ir: JSON.stringify(broken),
+      })
+      await mockDb.updateWorkflow('wf-1', { currentVersionId: version.id })
+
+      const res = await eject(app)
+      expect(res.status).toBe(422)
+      const body = (await res.json()) as { error: string }
+      // Without the path, a multi-file project gets "Unexpected token (3:10)"
+      // and no way to tell which file it came from.
+      expect(body.error).toMatch(/^Compile error in \S+\.ts:/)
+    })
+
+    it('reports no issues for a healthy workflow', async () => {
+      const version = await mockDb.createVersion({
+        id: 'v-ok',
+        workflowId: 'wf-1',
+        ir: JSON.stringify(validIR),
+      })
+      await mockDb.updateWorkflow('wf-1', { currentVersionId: version.id })
+      const res = await app.request(url('/api/workflows/wf-1/source'))
+      const body = (await res.json()) as { diagnostics: unknown[] }
+      expect(body.diagnostics).toEqual([])
+    })
+  })
+
   describe('PUT /api/workflows/:workflowId/source', () => {
     it('rejects generated-mode versions', async () => {
       const res = await app.request(url('/api/workflows/wf-1/source'), {

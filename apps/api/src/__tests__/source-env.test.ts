@@ -84,7 +84,9 @@ describe('source and eject with unresolved env vars', () => {
     expect(isPrepareError(forDeploy) && forDeploy.error).toMatch(
       /Missing or unresolved environment variables: ALICLOUD_ACCESS_KEY_ID/,
     )
-    const forReading = await prepareWorkflow({ ...base, requireEnvVars: false })
-    expect(isPrepareError(forReading)).toBe(false)
+    for (const mode of ['build', 'read'] as const) {
+      const prepared = await prepareWorkflow({ ...base, mode })
+      expect(isPrepareError(prepared), mode).toBe(false)
+    }
   })
 })

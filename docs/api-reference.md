@@ -407,7 +407,35 @@ so a workflow whose secrets are still missing can be viewed and edited
 | `workflowId` | path  | yes      | Workflow ID                           |
 | `versionId`  | query | no       | Version to read (defaults to current) |
 
-Returns `{ versionId, sourceMode, entry, files, manifest, baseGeneratedHash }`.
+A read never refuses because the workflow is broken: a workspace has to open
+before anyone can fix what is wrong with it. An IR that fails validation, a
+node this provider cannot deploy, and code that does not parse all still
+return `200`, with what was found listed in `diagnostics`:
+
+```json
+{
+  "diagnostics": [
+    {
+      "source": "ir",
+      "nodeId": "call",
+      "message": "Call Script node \"call\" has no worker selected"
+    },
+    {
+      "source": "compile",
+      "path": "worker.ts",
+      "message": "Unexpected token, expected \";\" (16:21)"
+    }
+  ]
+}
+```
+
+`source` is `ir` (fix it on the canvas), `provider` (the node cannot deploy
+here) or `compile` (the file does not parse; `path` names it). The array is
+empty for a healthy workflow and always present. Only a failure that leaves
+no source to return — generation itself throwing — is still an error
+response, and it carries the diagnostics collected before it.
+
+Returns `{ versionId, sourceMode, entry, files, manifest, diagnostics, baseGeneratedHash }`.
 
 ### `PUT /workflows/:workflowId/source`
 

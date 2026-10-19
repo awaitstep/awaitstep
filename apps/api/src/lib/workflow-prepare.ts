@@ -5,7 +5,7 @@ import type {
   StepManifest,
 } from '@awaitstep/codegen'
 import { bundleCodeFiles, bundlePackageManifest } from '@awaitstep/codegen'
-import { transpileToJS } from '@awaitstep/codegen/transpile'
+import { collectCompileErrors } from '@awaitstep/codegen/transpile'
 import type { ArtifactIR } from '@awaitstep/ir'
 import { loadArtifact, parsePackageManifest } from '@awaitstep/ir'
 import type { DatabaseAdapter, Workflow, WorkflowSourceMode, WorkflowVersion } from '@awaitstep/db'
@@ -25,12 +25,44 @@ export interface WorkflowContext {
   nodeRegistry: AppNodeRegistry
   envVars?: Record<string, { value: string; isSecret: boolean }>
   dependencies?: Record<string, string>
+  /**
+   * Everything wrong with the workflow that this prepare chose not to fail
+   * on. Always empty in the strict modes — they return an error instead —
+   * and the full picture in `'read'`, which has to open the workspace before
+   * the user can fix what is wrong with it.
+   */
+  diagnostics: PrepareDiagnostic[]
 }
+
+/** Where a diagnostic came from, so a client can route it to the right place. */
+export type DiagnosticSource = 'ir' | 'provider' | 'compile'
+
+export interface PrepareDiagnostic {
+  source: DiagnosticSource
+  message: string
+  /** The node the issue belongs to, when it is about one. */
+  nodeId?: string
+  /** The bundle file, for compile diagnostics. */
+  path?: string
+}
+
+/**
+ * How strict a prepare is.
+ * - `'deploy'` — everything must hold: env values resolve, the IR validates,
+ *   the bundle compiles. Anything less cannot ship.
+ * - `'build'` — as `'deploy'` without env values, which a bundle does not
+ *   need to be produced or stored (eject).
+ * - `'read'`  — nothing is fatal that still leaves a bundle to show; the
+ *   problems come back as diagnostics.
+ */
+export type PrepareMode = 'deploy' | 'build' | 'read'
 
 export interface WorkflowPrepareError {
   error: string
   status: number
   details?: unknown
+  /** Issues collected before the failure, when there were any. */
+  diagnostics?: PrepareDiagnostic[]
 }
 
 interface WorkflowPrepareInput {
@@ -54,13 +86,17 @@ interface WorkflowPrepareInput {
    * read-only view of the source (the code workspace, an eject) needs the
    * names only, which come from the IR; missing values are not an error.
    */
-  requireEnvVars?: boolean
+  // How strict to be. Defaults to 'deploy'.
+  mode?: PrepareMode
 }
 
 export async function prepareWorkflow(
   input: WorkflowPrepareInput,
 ): Promise<WorkflowContext | WorkflowPrepareError> {
   const { db, workflow, organizationId, projectId } = input
+  const mode: PrepareMode = input.mode ?? 'deploy'
+  const lenient = mode === 'read'
+  const diagnostics: PrepareDiagnostic[] = []
 
   const versionId = input.version?.id ?? input.versionId ?? workflow.currentVersionId
   if (!versionId) return { error: 'No version to use', status: 400 }
@@ -128,15 +164,25 @@ export async function prepareWorkflow(
   // Validate IR
   const validation = adapter.validate(ir)
   if (!validation.ok) {
-    return { error: 'IR validation failed', status: 400, details: validation.errors }
+    if (!lenient) {
+      return { error: 'IR validation failed', status: 400, details: validation.errors }
+    }
+    for (const error of validation.errors) {
+      diagnostics.push({
+        source: 'ir',
+        message: error.message,
+        ...(error.nodeId && { nodeId: error.nodeId }),
+      })
+    }
   }
 
   const nodeCheck = validateNodesForProvider(ir, input.provider)
   if (!nodeCheck.valid) {
-    return {
-      error: `Nodes not supported by this provider: ${nodeCheck.unsupportedNodes.join(', ')}`,
-      status: 400,
-    }
+    const message = `Nodes not supported by this provider: ${nodeCheck.unsupportedNodes.join(', ')}`
+    // Unsupported nodes still generate something worth looking at, so a read
+    // reports them rather than refusing to open the workspace.
+    if (!lenient) return { error: message, status: 400 }
+    diagnostics.push({ source: 'provider', message })
   }
 
   // Resolve env vars
@@ -148,7 +194,7 @@ export async function prepareWorkflow(
     ir,
     nodeRegistry,
   )
-  if (envResult.error && input.requireEnvVars !== false) {
+  if (envResult.error && mode === 'deploy') {
     return { error: envResult.error, status: 400 }
   }
 
@@ -190,7 +236,15 @@ export async function prepareWorkflow(
       bundle = adapter.generate(ir, generateConfig)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      return { error: `Bundle validation failed: ${message}`, status: 422 }
+      // Nothing to show without a bundle, but whatever the IR was already
+      // flagged for travels with the failure — generation usually fails
+      // *because* of it, and "graph contains a cycle" alone reads as if the
+      // code were the problem.
+      return {
+        error: `Bundle validation failed: ${message}`,
+        status: 422,
+        ...(diagnostics.length > 0 && { diagnostics }),
+      }
     }
   }
 
@@ -204,16 +258,24 @@ export async function prepareWorkflow(
   const nodeDeps = collectNodeDependencies(ir, nodeRegistry)
   const dependencies = mergeDependencies(workflowDeps, nodeDeps)
 
-  // Catch syntax errors in user-authored code (step bodies, triggerCode, etc.)
-  // before deploy/preview consumers act on the bundle. Without this the
-  // sucrase exception bubbles up and surfaces as a generic 500.
-  try {
-    for (const file of bundleCodeFiles(bundle)) {
-      await transpileToJS(file.source)
+  // Catch syntax errors in user-authored code (step bodies, handlers, project
+  // modules) before deploy/preview consumers act on the bundle. Without this
+  // the sucrase exception bubbles up and surfaces as a generic 500. Each
+  // error names its file: in a multi-file project "Unexpected token (16:21)"
+  // on its own does not say where to look.
+  const compileErrors = await collectCompileErrors(bundleCodeFiles(bundle))
+  if (compileErrors.length > 0) {
+    if (!lenient) {
+      const first = compileErrors[0]!
+      return {
+        error: `Compile error in ${first.path}: ${first.message}`,
+        status: 422,
+        ...(compileErrors.length > 1 && { details: compileErrors }),
+      }
     }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    return { error: `Compile error: ${message}`, status: 422 }
+    for (const error of compileErrors) {
+      diagnostics.push({ source: 'compile', message: error.message, path: error.path })
+    }
   }
 
   return {
@@ -225,6 +287,7 @@ export async function prepareWorkflow(
     nodeRegistry,
     envVars: envResult.envVars,
     dependencies,
+    diagnostics,
   }
 }
 

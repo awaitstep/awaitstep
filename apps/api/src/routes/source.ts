@@ -12,7 +12,7 @@ import {
   validateBundle,
 } from '@awaitstep/codegen'
 import type { GeneratedBundle, StepManifest } from '@awaitstep/codegen'
-import { transpileToJS } from '@awaitstep/codegen/transpile'
+import { collectCompileErrors } from '@awaitstep/codegen/transpile'
 import { loadArtifact } from '@awaitstep/ir'
 import type { AppEnv } from '../types.js'
 
@@ -66,7 +66,9 @@ source.post('/:workflowId/eject', zValidator('json', ejectSchema), async (c) => 
     projectId: c.get('projectId'),
     nodeRegistry: c.get('nodeRegistry'),
     versionId: body.versionId,
-    requireEnvVars: false,
+    // Eject stores the bundle as a version's source: it must compile and the
+    // IR must validate, but env *values* are not part of what gets stored.
+    mode: 'build',
     eject: true,
   })
   if (isPrepareError(prepared)) {
@@ -144,6 +146,9 @@ source.get('/:workflowId/source', async (c) => {
       entry: stored.bundle.entry,
       files: stored.bundle.files,
       manifest: stored.manifest,
+      // Ejected/sdk source is the user's own; drift and compile checks run on
+      // write (PUT /source), so a read has nothing of its own to report.
+      diagnostics: [],
       baseGeneratedHash: version.baseGeneratedHash,
     })
   }
@@ -155,7 +160,7 @@ source.get('/:workflowId/source', async (c) => {
     projectId: c.get('projectId'),
     nodeRegistry: c.get('nodeRegistry'),
     version,
-    requireEnvVars: false,
+    mode: 'read',
   })
   if (isPrepareError(prepared)) {
     return c.json({ error: prepared.error, details: prepared.details }, prepared.status as 400)
@@ -172,6 +177,10 @@ source.get('/:workflowId/source', async (c) => {
       projectPaths.has(f.path) ? { ...f, hash: contentHash(f.source) } : f,
     ),
     manifest: prepared.bundle.manifest ?? null,
+    // Issues a strict prepare would have refused on. The workspace still
+    // opens: the generated code is shown as it is, and these say why it may
+    // not be what the user expects.
+    diagnostics: prepared.diagnostics,
     baseGeneratedHash: null,
   })
 })
@@ -234,13 +243,13 @@ source.put('/:workflowId/source', zValidator('json', putSourceSchema), async (c)
     }
   }
 
-  try {
-    for (const file of bundleCodeFiles(bundle)) {
-      await transpileToJS(file.source)
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    return c.json({ error: `Compile error: ${message}` }, 422)
+  const compileErrors = await collectCompileErrors(bundleCodeFiles(bundle))
+  if (compileErrors.length > 0) {
+    const first = compileErrors[0]!
+    return c.json(
+      { error: `Compile error in ${first.path}: ${first.message}`, details: compileErrors },
+      422,
+    )
   }
 
   await db.updateVersion(version.id, { source: JSON.stringify(bundle) })
