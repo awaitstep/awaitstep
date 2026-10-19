@@ -15,6 +15,7 @@ import {
   createGenerationContext,
   stepLabel,
   validateBundle,
+  projectBundleFiles,
   indent,
 } from '@awaitstep/codegen'
 import { collectBranchInlineTargets } from './generators/branch.js'
@@ -123,7 +124,11 @@ export function generateWorkflowBundle(
   return {
     ...validateBundle({
       entry: 'worker.ts',
-      files: [{ path: 'worker.ts', source, role: 'entry' }, ...files],
+      files: [
+        { path: 'worker.ts', source, role: 'entry' },
+        ...files,
+        ...projectBundleFiles(ir.runtime?.files),
+      ],
     }),
     manifest,
   }

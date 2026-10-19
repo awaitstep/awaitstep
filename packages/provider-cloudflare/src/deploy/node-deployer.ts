@@ -4,10 +4,15 @@ import { tmpdir } from 'node:os'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { assertRegistryDependencies } from '@awaitstep/ir'
-import { assertSafeBundlePath, bundleCodeFiles } from '@awaitstep/codegen'
+import { assertSafeBundlePath, bundleDeployFiles, bundlePackageManifest } from '@awaitstep/codegen'
 import type { GeneratedBundle } from '@awaitstep/codegen'
 import type { WranglerDeployer, DeployOptions, WranglerDeployResult } from './deployer.js'
 import { buildSecretsBulkJson, redactSensitive, SECRETS_BULK_FILENAME } from './deployer.js'
+import {
+  DEFAULT_WORKER_PACKAGE_NAME,
+  buildWorkerPackageJson,
+  hasDependencies,
+} from './package-manifest.js'
 import { generateWranglerConfig } from '../wrangler-config.js'
 import { workerName, workflowClassName, sanitizedWorkflowName } from '../naming.js'
 
@@ -26,10 +31,10 @@ export class NodeWranglerDeployer implements WranglerDeployer {
     try {
       await mkdir(deployDir, { recursive: true })
 
-      // 1. Write generated code (entry + any per-node modules)
+      // 1. Write the bundle: generated code, project modules, assets, config
       onProgress?.('WRITING_FILES', 'Preparing worker files...')
       const entryPath = assertSafeBundlePath(bundle.entry)
-      for (const file of bundleCodeFiles(bundle)) {
+      for (const file of bundleDeployFiles(bundle)) {
         const target = join(deployDir, assertSafeBundlePath(file.path))
         await mkdir(dirname(target), { recursive: true })
         await writeFile(target, file.compiled ?? file.source, 'utf-8')
@@ -61,21 +66,23 @@ export class NodeWranglerDeployer implements WranglerDeployer {
       })
       await writeFile(join(deployDir, 'wrangler.json'), wranglerConfig, 'utf-8')
 
-      // 3. Install npm dependencies
-      if (options.dependencies && Object.keys(options.dependencies).length > 0) {
+      // 3. package.json (project manifest + #/ import map) and npm dependencies
+      await writeFile(
+        join(deployDir, 'package.json'),
+        buildWorkerPackageJson({
+          name: options.packageName ?? DEFAULT_WORKER_PACKAGE_NAME,
+          dependencies: options.dependencies,
+          manifestSource: bundlePackageManifest(bundle),
+        }),
+        'utf-8',
+      )
+      if (hasDependencies(options.dependencies)) {
         assertRegistryDependencies(options.dependencies)
         const depNames = Object.keys(options.dependencies)
         onProgress?.(
           'INSTALLING_DEPS',
           `Installing ${depNames.length} ${depNames.length === 1 ? 'dependency' : 'dependencies'}...`,
         )
-
-        const pkg = {
-          name: options.packageName ?? 'awaitstep-worker',
-          private: true,
-          dependencies: options.dependencies,
-        }
-        await writeFile(join(deployDir, 'package.json'), JSON.stringify(pkg, null, 2), 'utf-8')
 
         await execFileAsync(
           'npm',

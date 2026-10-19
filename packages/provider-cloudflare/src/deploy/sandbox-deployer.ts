@@ -1,8 +1,13 @@
 import { assertRegistryDependencies } from '@awaitstep/ir'
-import { assertSafeBundlePath, bundleCodeFiles } from '@awaitstep/codegen'
+import { assertSafeBundlePath, bundleDeployFiles, bundlePackageManifest } from '@awaitstep/codegen'
 import type { GeneratedBundle } from '@awaitstep/codegen'
 import type { WranglerDeployer, DeployOptions, WranglerDeployResult } from './deployer.js'
 import { buildSecretsBulkJson, redactSensitive, SECRETS_BULK_FILENAME } from './deployer.js'
+import {
+  DEFAULT_WORKER_PACKAGE_NAME,
+  buildWorkerPackageJson,
+  hasDependencies,
+} from './package-manifest.js'
 import { generateWranglerConfig } from '../wrangler-config.js'
 import { workerName, sanitizedWorkflowName, workflowClassName } from '../naming.js'
 
@@ -51,10 +56,10 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
       // WranglerDeployResult instead of escaping as an exception.
       onProgress?.('WRITING_FILES', 'Preparing worker files...')
       const entryPath = assertSafeBundlePath(bundle.entry)
-      const codeFiles = bundleCodeFiles(bundle)
+      const deployFiles = bundleDeployFiles(bundle)
       const nestedDirs = [
         ...new Set(
-          codeFiles
+          deployFiles
             .map((f) => assertSafeBundlePath(f.path))
             .filter((p) => p.includes('/'))
             .map((p) => p.slice(0, p.lastIndexOf('/'))),
@@ -64,7 +69,7 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
         // The sandbox SDK does not auto-create parent directories.
         await sandbox.exec(`mkdir -p ${nestedDirs.join(' ')}`, { cwd: '/workspace' })
       }
-      for (const file of codeFiles) {
+      for (const file of deployFiles) {
         await sandbox.writeFile(`/workspace/${file.path}`, file.compiled ?? file.source)
       }
 
@@ -94,21 +99,22 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
       })
       await sandbox.writeFile('/workspace/wrangler.json', wranglerConfig)
 
-      // 3. Install npm dependencies
-      if (options.dependencies && Object.keys(options.dependencies).length > 0) {
+      // 3. package.json (project manifest + #/ import map) and npm dependencies
+      await sandbox.writeFile(
+        '/workspace/package.json',
+        buildWorkerPackageJson({
+          name: options.packageName ?? DEFAULT_WORKER_PACKAGE_NAME,
+          dependencies: options.dependencies,
+          manifestSource: bundlePackageManifest(bundle),
+        }),
+      )
+      if (hasDependencies(options.dependencies)) {
         assertRegistryDependencies(options.dependencies)
         const depNames = Object.keys(options.dependencies)
         onProgress?.(
           'INSTALLING_DEPS',
           `Installing ${depNames.length} ${depNames.length === 1 ? 'dependency' : 'dependencies'}...`,
         )
-
-        const pkg = {
-          name: options.packageName ?? 'awaitstep-worker',
-          private: true,
-          dependencies: options.dependencies,
-        }
-        await sandbox.writeFile('/workspace/package.json', JSON.stringify(pkg, null, 2))
 
         const installResult = await sandbox.exec(
           'npm install --omit=dev --ignore-scripts --no-audit --no-fund',
