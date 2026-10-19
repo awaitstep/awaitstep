@@ -479,7 +479,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
               <>
                 <Separator className="h-px bg-border transition-colors hover:bg-primary/50" />
                 <Panel id="dock" defaultSize="28" minSize={120} maxSize="70">
-                  <BottomDock workflowId={workflowId} />
+                  <BottomDock workflowId={workflowId} diagnostics={source?.diagnostics} />
                 </Panel>
               </>
             )}

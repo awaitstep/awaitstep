@@ -14,6 +14,46 @@ export interface Problem {
   code?: string
 }
 
+/**
+ * Server-reported problems as dock entries. Monaco only knows about files, so
+ * an issue about a node (no worker selected) carries no file — the dock shows
+ * it without a location rather than dropping it, since it is usually the
+ * explanation for the marker sitting next to it.
+ *
+ * A compile message ends in `(line:column)`; that position is lifted out so
+ * the entry navigates like any other.
+ */
+export function diagnosticProblems(
+  diagnostics: readonly {
+    source: 'ir' | 'provider' | 'compile'
+    message: string
+    nodeId?: string
+    path?: string
+  }[],
+): Problem[] {
+  return diagnostics.map((diagnostic) => {
+    const position = diagnostic.source === 'compile' ? parsePosition(diagnostic.message) : null
+    return {
+      file: diagnostic.path ?? '',
+      line: position?.line ?? 1,
+      column: position?.column ?? 1,
+      endLine: position?.line ?? 1,
+      endColumn: position?.column ?? 1,
+      message: diagnostic.message,
+      severity: 'error' as ProblemSeverity,
+      source: diagnostic.source === 'compile' ? 'compile' : 'workflow',
+    }
+  })
+}
+
+const POSITION = /\((\d+):(\d+)\)/
+
+function parsePosition(message: string): { line: number; column: number } | null {
+  const match = POSITION.exec(message)
+  if (!match) return null
+  return { line: Number(match[1]), column: Number(match[2]) + 1 }
+}
+
 /** The subset of Monaco's `editor.IMarker` the dock reads. */
 export interface MarkerLike {
   resource: { toString(): string }

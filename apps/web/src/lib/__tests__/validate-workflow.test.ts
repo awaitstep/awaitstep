@@ -748,4 +748,31 @@ describe('validateWorkflowForPublish', () => {
       expect(result.canPublish).toBe(true)
     })
   })
+
+  describe('sub_script nodes', () => {
+    const callNode = (workerName: string) =>
+      makeFlowNode({
+        id: 'call',
+        type: 'sub_script',
+        name: 'Call',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { workerName, method: 'POST', url: 'https://invoke/' },
+      })
+
+    it('warns about an unselected worker without blocking the save', () => {
+      const result = validateWorkflowForPublish(makeMetadata(), [callNode('')], [])
+      const issue = result.issues.find((i) => i.nodeId === 'call')
+      expect(issue).toMatchObject({ severity: 'warning' })
+      expect(issue!.message).toContain('No worker selected')
+      // Saving an unfinished node has to keep working; deploy is what refuses.
+      expect(result.canPublish).toBe(true)
+    })
+
+    it('is satisfied once a worker is chosen', () => {
+      const result = validateWorkflowForPublish(makeMetadata(), [callNode('awaitstep-4fgh')], [])
+      expect(result.issues.filter((i) => i.nodeId === 'call')).toEqual([])
+    })
+  })
 })

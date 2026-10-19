@@ -1,7 +1,14 @@
+import { useMemo } from 'react'
 import { CircleAlert, Info, Play, SquareTerminal, TriangleAlert, X } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useWorkspaceProblems } from '../../hooks/use-workspace-problems'
-import { countBySeverity, type Problem, type ProblemSeverity } from '../../lib/ide/problems'
+import {
+  countBySeverity,
+  diagnosticProblems,
+  type Problem,
+  type ProblemSeverity,
+} from '../../lib/ide/problems'
+import type { SourceDiagnostic } from '../../lib/api-client'
 import { IDE_SHORTCUTS, formatShortcut } from '../../lib/ide/shortcuts'
 import { isMacPlatform } from '../../lib/platform'
 import { useIdeLayoutStore, type DockTab } from '../../stores/ide-layout-store'
@@ -10,6 +17,8 @@ import { cn } from '../../lib/utils'
 
 interface BottomDockProps {
   workflowId: string
+  /** What the server found while producing this source, if anything. */
+  diagnostics?: SourceDiagnostic[]
 }
 
 const TABS: { id: DockTab; label: string }[] = [
@@ -18,16 +27,23 @@ const TABS: { id: DockTab; label: string }[] = [
   { id: 'run', label: 'Run' },
 ]
 
-export function BottomDock({ workflowId }: BottomDockProps) {
+export function BottomDock({ workflowId, diagnostics }: BottomDockProps) {
   const { dockTab, showDock, toggleDock } = useIdeLayoutStore(
     useShallow((s) => ({ dockTab: s.dockTab, showDock: s.showDock, toggleDock: s.toggleDock })),
   )
   const revealLocation = useIdeStore((s) => s.revealLocation)
-  const problems = useWorkspaceProblems(workflowId)
+  const markers = useWorkspaceProblems(workflowId)
+  // Server findings first: they explain the markers below them.
+  const problems = useMemo(
+    () => [...diagnosticProblems(diagnostics ?? []), ...markers],
+    [diagnostics, markers],
+  )
   const counts = countBySeverity(problems)
   const hideHint = formatShortcut(IDE_SHORTCUTS.toggleDock, isMacPlatform())
 
   function handleProblemSelect(problem: Problem) {
+    // A workflow-level finding has no file to reveal.
+    if (!problem.file) return
     revealLocation({ path: problem.file, line: problem.line, column: problem.column })
   }
 

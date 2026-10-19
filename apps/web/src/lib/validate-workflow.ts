@@ -342,6 +342,17 @@ export function validateWorkflowForPublish(
         break
       }
 
+      case 'sub_script': {
+        // A warning, not an error: an unconfigured node must stay saveable
+        // mid-authoring. The deploy refuses it — the provider derives an Env
+        // binding from the worker name and cannot do that from nothing.
+        const workerName = String(ir.data.workerName ?? '')
+        if (!workerName.trim()) {
+          add('warning', id, name, 'No worker selected — deploy will fail')
+        }
+        break
+      }
+
       case 'http_request': {
         const url = String(ir.data.url ?? '')
         if (!url.trim()) add('error', id, name, 'URL is empty')

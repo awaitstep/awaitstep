@@ -157,12 +157,26 @@ export interface WorkflowFull {
  * the stored bundle for ejected/sdk versions, a freshly generated read-only
  * view for generated ones (manifest and drift baseline absent for scripts).
  */
+/**
+ * Something wrong with the workflow that did not stop the source being
+ * produced: an IR rule the canvas should fix (`ir`), a node this provider
+ * cannot deploy (`provider`), or a file that does not parse (`compile`).
+ */
+export interface SourceDiagnostic {
+  source: 'ir' | 'provider' | 'compile'
+  message: string
+  nodeId?: string
+  path?: string
+}
+
 export interface WorkflowSource {
   versionId: string
   sourceMode: SourceMode
   entry: string
   files: SourceFile[]
   manifest: StepManifest | null
+  /** Empty when the workflow is healthy; never absent. */
+  diagnostics: SourceDiagnostic[]
   baseGeneratedHash: string | null
 }
 
