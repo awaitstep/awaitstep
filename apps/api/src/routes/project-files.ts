@@ -1,7 +1,11 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
-import { contentHash } from '@awaitstep/codegen'
+import {
+  contentHash,
+  type HandlerConversionResult,
+  type WorkflowProvider,
+} from '@awaitstep/codegen'
 import {
   GENERATED_PATH_RULES,
   MAX_PROJECT_FILES,
@@ -13,11 +17,26 @@ import {
   PROJECT_IMPORT_PREFIX,
   PROJECT_ROOT_CONFIG_FILES,
   findProjectPathCollision,
+  handlerEntry,
+  handlerWriteError,
+  hasHandlerModules,
+  loadArtifact,
   projectFileBytes,
   projectFilePathError,
+  projectHandlerModules,
+  projectHandlersConflict,
   validatePackageManifest,
+  validateProjectFiles,
 } from '@awaitstep/ir'
-import type { DatabaseAdapter, Workflow, WorkflowFile, WorkflowSourceMode } from '@awaitstep/db'
+import type {
+  DatabaseAdapter,
+  Workflow,
+  WorkflowFile,
+  WorkflowFileSummary,
+  WorkflowSourceMode,
+} from '@awaitstep/db'
+import { toWorkflowFileRows } from '../lib/project-files.js'
+import { resolveProvider } from '../lib/provider-resolver.js'
 import { zValidator } from '../lib/validation.js'
 import type { AppEnv } from '../types.js'
 
@@ -42,7 +61,7 @@ const CONVENTIONS = {
 
 export const projectFiles = new Hono<AppEnv>()
 
-function summarize(file: WorkflowFile) {
+function summarize(file: WorkflowFileSummary) {
   return { path: file.path, hash: file.hash, size: file.size, updatedAt: file.updatedAt }
 }
 
@@ -89,7 +108,7 @@ projectFiles.get('/:workflowId/project', async (c) => {
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
   const [files, sourceMode] = await Promise.all([
-    db.listWorkflowFiles(workflow.id),
+    db.listWorkflowFileSummaries(workflow.id),
     currentSourceMode(db, workflow),
   ])
   return c.json({ ...CONVENTIONS, sourceMode, files: files.map(summarize) })
@@ -144,7 +163,7 @@ projectFiles.put('/:workflowId/files/:path{.+}', zValidator('json', putFileSchem
   // One listing answers the count and total-size caps and the collision
   // check; the current version's mode decides whether writes apply at all.
   const [existing, sourceMode] = await Promise.all([
-    db.listWorkflowFiles(workflow.id),
+    db.listWorkflowFileSummaries(workflow.id),
     currentSourceMode(db, workflow),
   ])
   if (sourceMode !== 'generated') return c.json(ejectedResponse(sourceMode), 409)
@@ -156,6 +175,33 @@ projectFiles.put('/:workflowId/files/:path{.+}', zValidator('json', putFileSchem
   )
   if (collision) {
     return c.json({ error: `"${path}" would overwrite "${collision}" after compile` }, 422)
+  }
+  const handlersConflict = projectHandlersConflict(
+    path,
+    existing.map((f) => f.path),
+  )
+  if (handlersConflict) return c.json({ error: handlersConflict }, 422)
+  const handlerError = handlerWriteError(
+    path,
+    existing.map((f) => f.path),
+  )
+  if (handlerError) {
+    return c.json({ error: `Invalid handler path "${path}": ${handlerError}` }, 422)
+  }
+  // Legacy trigger code — in the setting or inline in the current
+  // version's IR — is the same model as handlers.ts: a first handler
+  // module would silently retire it, so the project converts first (the
+  // workspace offers that as one action).
+  if (handlerEntry(path) && !hasHandlerModules(projectHandlerModules(existing))) {
+    const legacy = await legacyTriggerCode(db, workflow)
+    if (legacy) {
+      return c.json(
+        {
+          error: `The workflow still has legacy trigger code — convert it to handler modules first (POST /workflows/${workflow.id}/project/convert-handlers)`,
+        },
+        422,
+      )
+    }
   }
   if (!current && existing.length >= MAX_PROJECT_FILES) {
     return c.json({ error: `Maximum ${MAX_PROJECT_FILES} project files` }, 422)
@@ -202,6 +248,182 @@ const LEGACY_SETTING_BY_PATH: Readonly<
 > = {
   [PROJECT_HANDLERS_PATH]: { triggerCode: null },
   [PACKAGE_MANIFEST_PATH]: { dependencies: null },
+}
+
+/**
+ * What converting the annotation file would produce. The source is the
+ * stored handlers.ts, or the legacy trigger-code setting when the project
+ * has no such file — the same precedence the generators apply.
+ */
+/**
+ * The entry-handler source a project still carries in the annotation
+ * model, and where it lives. The column is the usual home, but an IR that
+ * arrived with inline `runtime.triggerCode` (an import, an older client)
+ * is just as real: the generators read it, so the conversion must too.
+ */
+export async function legacyTriggerCode(
+  db: DatabaseAdapter,
+  workflow: Workflow,
+): Promise<{ source: string; origin: 'setting' | 'version' } | null> {
+  if (workflow.triggerCode?.trim()) return { source: workflow.triggerCode, origin: 'setting' }
+  if (!workflow.currentVersionId) return null
+  const version = await db.getWorkflowVersionById(workflow.currentVersionId)
+  if (!version || version.workflowId !== workflow.id) return null
+  const loaded = loadArtifact(version.ir)
+  const source = loaded.ok ? loaded.value.runtime?.triggerCode : undefined
+  return source?.trim() ? { source, origin: 'version' } : null
+}
+
+async function planConversion(
+  db: DatabaseAdapter,
+  adapter: WorkflowProvider,
+  workflow: Workflow,
+): Promise<
+  | { error: string; status: 404 | 409 | 422 | 501 }
+  | {
+      stored: WorkflowFile | null
+      origin: 'file' | 'setting' | 'version'
+      conversion: HandlerConversionResult
+    }
+> {
+  const convert = adapter.convertHandlers?.bind(adapter)
+  if (!convert) {
+    return { error: `The ${adapter.name} provider has no annotation model to convert`, status: 501 }
+  }
+  const existing = await db.listWorkflowFiles(workflow.id)
+  if (hasHandlerModules(projectHandlerModules(existing))) {
+    return { error: 'The project already uses handler modules', status: 409 }
+  }
+  const stored = existing.find((f) => f.path === PROJECT_HANDLERS_PATH) ?? null
+  const legacy = stored
+    ? ({ source: stored.source, origin: 'file' } as const)
+    : await legacyTriggerCode(db, workflow)
+  if (!legacy) {
+    return { error: 'Nothing to convert: no handlers.ts and no trigger code', status: 404 }
+  }
+  let conversion: HandlerConversionResult
+  try {
+    conversion = convert(legacy.source, workflow.kind === 'script' ? 'script' : 'workflow')
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { error: `handlers.ts could not be parsed: ${message}`, status: 422 }
+  }
+  if (conversion.files.length === 0) {
+    return { error: 'handlers.ts declares no handlers to convert', status: 422 }
+  }
+  const next = [...existing.filter((f) => f !== stored), ...conversion.files]
+  const problems = validateProjectFiles(next.map(({ path, source }) => ({ path, source })))
+  if (problems.length > 0) {
+    return { error: `Conversion would break a project rule: ${problems[0]!.message}`, status: 422 }
+  }
+  return { stored, origin: legacy.origin, conversion }
+}
+
+projectFiles.get('/:workflowId/project/convert-handlers', async (c) => {
+  const db = c.get('db')
+  const workflow = c.get('workflow')
+  if (!workflow) return c.json({ error: 'Not found' }, 404)
+  const plan = await planConversion(db, resolveProvider(), workflow)
+  if ('error' in plan) return c.json({ error: plan.error }, plan.status)
+  return c.json({
+    source: plan.origin,
+    paths: plan.conversion.files.map((f) => f.path),
+    declarations: plan.conversion.declarations,
+  })
+})
+
+/**
+ * The conversion itself, in one request so a project is never left half
+ * converted. The adapter has no transactions, so the order is chosen for
+ * what a failure leaves behind: the deployment configs go first because
+ * folding the same declarations twice changes nothing, so a later failure
+ * costs only a retry; then every module in one statement; then the
+ * annotation file, conditionally on the hash the plan read (and on
+ * `If-Match` when given) — and if it moved meanwhile the modules are
+ * withdrawn again, so the project never holds both models.
+ *
+ * The legacy trigger-code setting is left alone: versions saved before the
+ * conversion still deploy from it, while the current version uses the
+ * modules (which take precedence everywhere) and `GET /full` reports the
+ * setting as retired.
+ */
+projectFiles.post('/:workflowId/project/convert-handlers', async (c) => {
+  const db = c.get('db')
+  const workflow = c.get('workflow')
+  if (!workflow) return c.json({ error: 'Not found' }, 404)
+  const adapter = resolveProvider()
+
+  const [sourceMode, plan, deploymentConfigs] = await Promise.all([
+    currentSourceMode(db, workflow),
+    planConversion(db, adapter, workflow),
+    db.listDeploymentConfigsByWorkflow(workflow.id),
+  ])
+  if (sourceMode !== 'generated') return c.json(ejectedResponse(sourceMode), 409)
+  if ('error' in plan) return c.json({ error: plan.error }, plan.status)
+  const { stored, conversion } = plan
+
+  const expected = requestedHash(c.req.header('If-Match'))
+  if (expected !== null && expected !== '*' && stored?.hash !== expected) {
+    return c.json(
+      { error: 'handlers.ts changed since it was read', currentHash: stored?.hash ?? null },
+      409,
+    )
+  }
+
+  const apply = adapter.applyHandlerDeclarations?.bind(adapter)
+  const updates = apply
+    ? deploymentConfigs.flatMap((row) => {
+        const current = parseStoredConfig(row.config)
+        const next = apply(current, conversion.declarations)
+        return next === current
+          ? []
+          : [
+              db.upsertDeploymentConfig({
+                id: row.id,
+                workflowId: row.workflowId,
+                connectionId: row.connectionId,
+                provider: row.provider,
+                config: JSON.stringify(next),
+                ...(row.updatedBy && { updatedBy: row.updatedBy }),
+              }),
+            ]
+      })
+    : []
+  await Promise.all(updates)
+
+  const rows = toWorkflowFileRows(workflow.id, conversion.files)
+  const files = await db.upsertWorkflowFiles(rows)
+  if (stored) {
+    const removed = await db.deleteWorkflowFile(workflow.id, PROJECT_HANDLERS_PATH, stored.hash)
+    if (!removed) {
+      await Promise.all(rows.map((row) => db.deleteWorkflowFile(workflow.id, row.path)))
+      const latest = await db.getWorkflowFile(workflow.id, PROJECT_HANDLERS_PATH)
+      return c.json(
+        {
+          error:
+            'handlers.ts changed during the conversion — nothing was converted; read it again and retry',
+          currentHash: latest?.hash ?? null,
+        },
+        409,
+      )
+    }
+  }
+
+  return c.json({
+    source: plan.origin,
+    files: files.map(summarize),
+    declarations: conversion.declarations,
+    deploymentConfigUpdated: updates.length > 0,
+  })
+})
+
+function parseStoredConfig(raw: string): Record<string, unknown> {
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    return typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {}
+  } catch {
+    return {}
+  }
 }
 
 projectFiles.delete('/:workflowId/files/:path{.+}', async (c) => {

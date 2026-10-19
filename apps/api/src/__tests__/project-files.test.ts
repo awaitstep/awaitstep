@@ -306,6 +306,166 @@ describe('project file routes', () => {
     expect(stored.source).toBe('@fetch function edited() {}')
   })
 
+  it('handler modules replace the annotation file: the two never coexist, and /full reports consumers', async () => {
+    expect(
+      (await putFile(app, 'handlers/queue/orders.ts', 'export default async () => {}')).status,
+    ).toBe(201)
+    // Helpers may live beside the entries; only a path that merely looks
+    // like an entry is refused, since it would silently never run.
+    expect((await putFile(app, 'handlers/util.ts', 'export const x = 1')).status).toBe(201)
+    expect((await putFile(app, 'handlers/Fetch.ts', 'export default 1')).status).toBe(422)
+    const annotation = await putFile(app, 'handlers.ts', '@fetch function handler() {}')
+    expect(annotation.status).toBe(422)
+    expect((await annotation.json()).error).toMatch(/already uses handler modules/)
+
+    await app.request(url('/api/workflows/wf-1'), {
+      method: 'PATCH',
+      headers: json,
+      body: JSON.stringify({ triggerCode: '@fetch function legacy() {}' }),
+    })
+    const full = await (await app.request(url('/api/workflows/wf-1/full'))).json()
+    expect(full.handlers).toEqual({ modules: true, consumedQueues: ['orders'] })
+    // The legacy setting is not consulted once modules exist.
+    expect(full.workflow.triggerCode).toBeNull()
+
+    // The generated entry delegates to the module and keeps the default fetch.
+    await saveVersion(app)
+    const bundle = await (await app.request(url('/api/workflows/wf-1/source'))).json()
+    const entry = bundle.files.find((f: { path: string }) => f.path === bundle.entry)
+    expect(entry.source).toContain('import $$queue_orders from "./handlers/queue/orders.js";')
+    expect(entry.source).toContain('case "orders":')
+    expect(entry.source).not.toContain('legacy')
+  })
+
+  it('converts the annotation file to handler modules in one request, folding its facts into stored deployment configs', async () => {
+    const annotated = `import { z } from "zod"
+
+@fetch function handler(request, env, ctx) {
+  return Response.json({ ok: true });
+}
+
+@queue function orders(batch, env, ctx) {
+  @config { max_retries: 2 }
+  batch.ackAll();
+}
+
+@scheduled function hourly(controller, env, ctx) {
+  @crons ["0 * * * *"]
+}
+`
+    const stored = await (await putFile(app, 'handlers.ts', annotated)).json()
+    await mockDb.upsertDeploymentConfig({
+      id: 'dc-1',
+      workflowId: 'wf-1',
+      connectionId: 'conn-1',
+      provider: 'cloudflare',
+      config: JSON.stringify({ queueConsumers: [{ queue: 'orders', maxRetries: 9 }] }),
+    })
+
+    // The dry run shows the plan without touching anything.
+    const preview = await (
+      await app.request(url('/api/workflows/wf-1/project/convert-handlers'))
+    ).json()
+    expect(preview).toEqual({
+      source: 'file',
+      paths: ['handlers/fetch.ts', 'handlers/queue/orders.ts', 'handlers/scheduled.ts'],
+      declarations: {
+        crons: ['0 * * * *'],
+        queueConfigs: [{ queue: 'orders', maxRetries: 2 }],
+        queueNames: [{ name: 'orders', queue: 'orders' }],
+      },
+    })
+    expect((await app.request(url('/api/workflows/wf-1/files/handlers.ts'))).status).toBe(200)
+
+    const stale = await app.request(url('/api/workflows/wf-1/project/convert-handlers'), {
+      method: 'POST',
+      headers: { 'If-Match': '"not-the-hash"' },
+    })
+    expect(stale.status).toBe(409)
+
+    const res = await app.request(url('/api/workflows/wf-1/project/convert-handlers'), {
+      method: 'POST',
+      headers: { 'If-Match': `"${stored.hash}"` },
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.files.map((f: { path: string }) => f.path)).toEqual([
+      'handlers/fetch.ts',
+      'handlers/queue/orders.ts',
+      'handlers/scheduled.ts',
+    ])
+    expect(body.deploymentConfigUpdated).toBe(true)
+
+    expect((await app.request(url('/api/workflows/wf-1/files/handlers.ts'))).status).toBe(404)
+    const fetchModule = await (
+      await app.request(url('/api/workflows/wf-1/files/handlers/fetch.ts'))
+    ).json()
+    // Module-level imports follow the handlers that may use them.
+    expect(fetchModule.source).toContain('import { z } from "zod"')
+    expect(fetchModule.source).toContain('export default async function (request, env, ctx)')
+    const full = await (await app.request(url('/api/workflows/wf-1/full'))).json()
+    expect(full.handlers).toEqual({ modules: true, consumedQueues: ['orders'] })
+    expect(full.workflow.triggerCode).toBeNull()
+    // Declared settings win over the inline @config; the cron joins the list.
+    const config = JSON.parse((await mockDb.getDeploymentConfig('wf-1', 'conn-1'))!.config)
+    expect(config).toEqual({
+      queueConsumers: [{ queue: 'orders', maxRetries: 9 }],
+      cronTriggers: ['0 * * * *'],
+    })
+
+    // Done once: the project is on modules now.
+    const again = await app.request(url('/api/workflows/wf-1/project/convert-handlers'), {
+      method: 'POST',
+    })
+    expect(again.status).toBe(409)
+  })
+
+  it('converts the legacy trigger-code setting when there is no file, and clears it', async () => {
+    await app.request(url('/api/workflows/wf-1'), {
+      method: 'PATCH',
+      headers: json,
+      body: JSON.stringify({ triggerCode: 'return new Response("legacy")' }),
+    })
+    // A first handler module would silently retire the setting: refused.
+    const premature = await putFile(
+      app,
+      'handlers/queue/orders.ts',
+      'export default async () => {}',
+    )
+    expect(premature.status).toBe(422)
+    expect((await premature.json()).error).toMatch(/convert it to handler modules first/)
+
+    const preview = await (
+      await app.request(url('/api/workflows/wf-1/project/convert-handlers'))
+    ).json()
+    expect(preview.source).toBe('setting')
+    const res = await app.request(url('/api/workflows/wf-1/project/convert-handlers'), {
+      method: 'POST',
+    })
+    expect(res.status).toBe(200)
+    expect((await res.json()).deploymentConfigUpdated).toBe(false)
+    const full = await (await app.request(url('/api/workflows/wf-1/full'))).json()
+    expect(full.workflow.triggerCode).toBeNull()
+    expect(full.handlers.modules).toBe(true)
+    expect(
+      (await putFile(app, 'handlers/queue/orders.ts', 'export default async () => {}')).status,
+    ).toBe(201)
+  })
+
+  it('has nothing to convert for a fresh project', async () => {
+    const res = await app.request(url('/api/workflows/wf-1/project/convert-handlers'), {
+      method: 'POST',
+    })
+    expect(res.status).toBe(404)
+  })
+
+  it('refuses a handler module while the annotation file exists', async () => {
+    await putFile(app, 'handlers.ts', '@fetch function handler() {}')
+    const res = await putFile(app, 'handlers/fetch.ts', 'export default async () => new Response()')
+    expect(res.status).toBe(422)
+    expect((await res.json()).error).toMatch(/convert handlers.ts/)
+  })
+
   it('seeds the table from an IR that arrives with files, then treats the table as truth', async () => {
     const imported = {
       ...validIR,

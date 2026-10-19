@@ -8,6 +8,8 @@ import {
   NPM_VERSION_RANGE_PATTERN,
   MAX_WORKFLOW_DEPENDENCIES,
   PROJECT_HANDLERS_PATH,
+  hasHandlerModules,
+  projectHandlerModules,
 } from '@awaitstep/ir'
 import type { AppEnv } from '../types.js'
 
@@ -104,12 +106,14 @@ workflows.get('/:id/full', async (c) => {
 
   const versionId = c.req.query('version')
 
-  const [activeDeployment, versionsResult, handlersFile, requested] = await Promise.all([
-    db.getActiveDeployment(workflow.id),
-    db.listVersionsByWorkflow(workflow.id, { limit: 100 }),
-    db.getWorkflowFile(workflow.id, PROJECT_HANDLERS_PATH),
-    versionId ? db.getWorkflowVersionById(versionId) : null,
-  ])
+  const [activeDeployment, versionsResult, projectFiles, handlersFile, requested] =
+    await Promise.all([
+      db.getActiveDeployment(workflow.id),
+      db.listVersionsByWorkflow(workflow.id, { limit: 100 }),
+      db.listWorkflowFileSummaries(workflow.id),
+      db.getWorkflowFile(workflow.id, PROJECT_HANDLERS_PATH),
+      versionId ? db.getWorkflowVersionById(versionId) : null,
+    ])
   const versions = versionsResult.data
 
   let version: (typeof versions)[number] | null = versions[0] ?? null
@@ -118,11 +122,20 @@ workflows.get('/:id/full', async (c) => {
   }
 
   // A project handlers.ts is the live trigger code: the canvas hydrates it
-  // (and its bindings panel reads it) in place of the legacy column.
-  const triggerCode = handlersFile?.source ?? workflow.triggerCode
+  // (and its bindings panel reads it) in place of the legacy column. With
+  // handler modules the trigger code is not consulted at all, and the
+  // canvas learns which queues the project consumes from the file names.
+  const handlers = projectHandlerModules(projectFiles)
+  const triggerCode = hasHandlerModules(handlers)
+    ? null
+    : (handlersFile?.source ?? workflow.triggerCode)
 
   return c.json({
     workflow: { ...maskWorkflowSecrets(workflow), triggerCode },
+    handlers: {
+      modules: hasHandlerModules(handlers),
+      consumedQueues: handlers.queues.map((q) => q.queue),
+    },
     version,
     versions: versions.map(({ id, version, locked, createdAt }) => ({
       id,

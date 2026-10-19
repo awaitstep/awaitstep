@@ -1,5 +1,11 @@
 import type { ArtifactIR, EnvDeclaration, ProjectFile, WorkflowRuntime } from '@awaitstep/ir'
-import { PACKAGE_MANIFEST_PATH, PROJECT_HANDLERS_PATH, projectHandlersSource } from '@awaitstep/ir'
+import {
+  PACKAGE_MANIFEST_PATH,
+  PROJECT_HANDLERS_PATH,
+  hasHandlerModules,
+  projectHandlerModules,
+  projectHandlersSource,
+} from '@awaitstep/ir'
 import type { Workflow } from '@awaitstep/db'
 import { parseDependencies } from './dependencies.js'
 
@@ -28,7 +34,11 @@ export function legacyRuntimeSeeds(
   if (!runtime) return []
   const paths = new Set(existing)
   const seeds: ProjectFile[] = []
-  if (runtime.triggerCode && !paths.has(PROJECT_HANDLERS_PATH)) {
+  // A project on handler modules has left the annotation model: seeding
+  // handlers.ts from an IR that still carries trigger code would put both
+  // models in one project, which no deploy accepts.
+  const modular = hasHandlerModules(projectHandlerModules([...paths].map((path) => ({ path }))))
+  if (runtime.triggerCode && !modular && !paths.has(PROJECT_HANDLERS_PATH)) {
     seeds.push({ path: PROJECT_HANDLERS_PATH, source: runtime.triggerCode })
   }
   const deps = runtime.dependencies ?? {}
@@ -43,9 +53,9 @@ export function legacyRuntimeSeeds(
 
 /**
  * Drops the inline copies of settings the project files now own, so a
- * stored version never carries a stale duplicate: with a `handlers.ts` the
- * runtime's `triggerCode` is redundant, with a `package.json` so is
- * `dependencies`.
+ * stored version never carries a stale duplicate: with a `handlers.ts` or
+ * handler modules the runtime's `triggerCode` is redundant, with a
+ * `package.json` so is `dependencies`.
  */
 export function stripProjectOwnedRuntime(
   ir: ArtifactIR,
@@ -54,7 +64,9 @@ export function stripProjectOwnedRuntime(
   if (!ir.runtime) return ir
   const paths = new Set(files.map((f) => f.path))
   const runtime: WorkflowRuntime = { ...ir.runtime }
-  if (paths.has(PROJECT_HANDLERS_PATH)) delete runtime.triggerCode
+  if (paths.has(PROJECT_HANDLERS_PATH) || hasHandlerModules(projectHandlerModules(files))) {
+    delete runtime.triggerCode
+  }
   if (paths.has(PACKAGE_MANIFEST_PATH)) delete runtime.dependencies
   return { ...ir, runtime }
 }

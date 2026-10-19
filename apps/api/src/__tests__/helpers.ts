@@ -8,6 +8,7 @@ import type {
   WorkflowFile,
   ApiKey,
   Deployment,
+  DeploymentConfig,
   Project,
   InstalledNode,
 } from '@awaitstep/db'
@@ -21,6 +22,7 @@ const store = {
   runs: new Map<string, WorkflowRun>(),
   runSteps: new Map<string, WorkflowRunStep>(),
   files: new Map<string, WorkflowFile>(),
+  deploymentConfigs: new Map<string, DeploymentConfig>(),
   apiKeys: new Map<string, ApiKey>(),
   deployments: new Map<string, Deployment>(),
   projects: new Map<string, Project>(),
@@ -34,6 +36,7 @@ export function resetStore() {
   store.runs.clear()
   store.runSteps.clear()
   store.files.clear()
+  store.deploymentConfigs.clear()
   store.apiKeys.clear()
   store.deployments.clear()
   store.projects.clear()
@@ -332,6 +335,9 @@ const mockDb: DatabaseAdapter = {
       .filter((f) => f.workflowId === workflowId)
       .sort((a, b) => (a.path < b.path ? -1 : 1))
   },
+  async listWorkflowFileSummaries(workflowId) {
+    return (await this.listWorkflowFiles(workflowId)).map(({ source: _source, ...rest }) => rest)
+  },
   async getWorkflowFile(workflowId, path) {
     return store.files.get(`${workflowId}|${path}`) ?? null
   },
@@ -390,6 +396,33 @@ const mockDb: DatabaseAdapter = {
     if (!existing) return false
     if (expectedHash !== undefined && existing.hash !== expectedHash) return false
     return store.files.delete(key)
+  },
+
+  // Deployment configs (one per workflow + connection)
+  async getDeploymentConfig(workflowId, connectionId) {
+    return store.deploymentConfigs.get(`${workflowId}|${connectionId}`) ?? null
+  },
+  async upsertDeploymentConfig(data) {
+    const key = `${data.workflowId}|${data.connectionId}`
+    const existing = store.deploymentConfigs.get(key)
+    const row = {
+      id: existing?.id ?? data.id,
+      workflowId: data.workflowId,
+      connectionId: data.connectionId,
+      provider: data.provider,
+      config: data.config,
+      updatedBy: data.updatedBy ?? null,
+      createdAt: existing?.createdAt ?? now(),
+      updatedAt: now(),
+    } as DeploymentConfig
+    store.deploymentConfigs.set(key, row)
+    return row
+  },
+  async listDeploymentConfigsByWorkflow(workflowId) {
+    return [...store.deploymentConfigs.values()].filter((c) => c.workflowId === workflowId)
+  },
+  async deleteDeploymentConfig(workflowId, connectionId) {
+    store.deploymentConfigs.delete(`${workflowId}|${connectionId}`)
   },
 
   // Deployments

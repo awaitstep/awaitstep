@@ -95,6 +95,8 @@ describe('legacyRuntimeSeeds', () => {
         'package.json',
       ]),
     ).toEqual([])
+    // A converted project never gets the annotation file back.
+    expect(legacyRuntimeSeeds({ triggerCode: 'x' }, ['handlers/fetch.ts'])).toEqual([])
     expect(legacyRuntimeSeeds({ triggerCode: '', dependencies: {} }, [])).toEqual([])
     expect(legacyRuntimeSeeds(undefined, [])).toEqual([])
   })
@@ -117,6 +119,10 @@ describe('stripProjectOwnedRuntime', () => {
       ]).runtime,
     ).toEqual({ env: [{ name: 'A' }] })
     expect(stripProjectOwnedRuntime(baseIr, [{ path: 'handlers.ts', source: '' }])).toBe(baseIr)
+    // Handler modules own the trigger code just as the annotation file did.
+    expect(
+      stripProjectOwnedRuntime(ir, [{ path: 'handlers/queue/orders.ts', source: '' }]).runtime,
+    ).toEqual({ dependencies: { zod: '^4' }, env: [{ name: 'A' }] })
   })
 })
 
