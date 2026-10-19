@@ -1,4 +1,7 @@
 import { useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
+import { toast } from 'sonner'
 import {
   ChevronDown,
   ChevronRight,
@@ -14,8 +17,10 @@ import {
   Link,
   Plus,
 } from 'lucide-react'
+import { PROJECT_HANDLERS_PATH } from '@awaitstep/ir'
 import { deriveQueueName } from '@awaitstep/provider-cloudflare/codegen'
 import { useWorkflowStore } from '../../stores/workflow-store'
+import { ApiError, ProjectFileConflictError, api } from '../../lib/api-client'
 import {
   detectBindingsFromNodes,
   type ClientBinding,
@@ -57,12 +62,24 @@ function buildConsumeSnippet(queueName: string): string {
 }`
 }
 
+/** The stored handlers.ts, or null when the project has none yet. */
+async function fetchStoredHandlers(workflowId: string) {
+  try {
+    return await api.getProjectFile(workflowId, PROJECT_HANDLERS_PATH)
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null
+    throw err
+  }
+}
+
 export function BindingsPanel() {
   const [expanded, setExpanded] = useState(false)
   const nodes = useWorkflowStore((s) => s.nodes)
   const triggerCode = useWorkflowStore((s) => s.triggerCode)
-  const setTriggerCode = useWorkflowStore((s) => s.setTriggerCode)
-  const setShowEditor = useWorkflowStore((s) => s.setShowEditor)
+  const workflowId = useWorkflowStore((s) => s.workflowId)
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const canConsume = workflowId !== null && workflowId !== 'new'
 
   const bindings: ClientBinding[] = useMemo(() => {
     if (nodes.length === 0) return []
@@ -71,13 +88,52 @@ export function BindingsPanel() {
 
   if (bindings.length === 0) return null
 
-  const handleConsumeClick = (bindingName: string) => {
+  // Handlers are project code (handlers.ts), so the consumer is appended to
+  // the stored file — created from the legacy trigger code when there is
+  // none — under the same preconditions the code workspace uses, and the
+  // canvas keeps a mirror for the "consumed" marker.
+  async function handleConsumeClick(bindingName: string) {
+    if (!canConsume) return
     const queueName = deriveQueueName(bindingName)
-    if (!hasQueueHandler(triggerCode, queueName)) {
-      setTriggerCode(triggerCode + buildConsumeSnippet(queueName))
+    try {
+      const stored = await fetchStoredHandlers(workflowId)
+      const base = stored?.source ?? triggerCode
+      const next = hasQueueHandler(base, queueName) ? base : base + buildConsumeSnippet(queueName)
+      if (next !== stored?.source) {
+        await api.putProjectFile(
+          workflowId,
+          PROJECT_HANDLERS_PATH,
+          next,
+          stored ? { ifMatch: stored.hash } : { ifNoneMatch: true },
+        )
+      }
+      // Mirror without marking the canvas dirty — the file is already saved.
+      useWorkflowStore.setState({ triggerCode: next })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['workflow-full', workflowId] }),
+        queryClient.invalidateQueries({ queryKey: ['workflow-source', workflowId] }),
+      ])
+      toast.success(`Consumer for ${queueName} added to ${PROJECT_HANDLERS_PATH}`, {
+        action: {
+          label: 'Open in Code',
+          onClick: () => {
+            void navigate({
+              to: '/workflows/$workflowId/code',
+              params: { workflowId },
+              search: { file: PROJECT_HANDLERS_PATH },
+            })
+          },
+        },
+      })
+    } catch (err) {
+      if (err instanceof ProjectFileConflictError) {
+        toast.error(`${PROJECT_HANDLERS_PATH} changed while adding the consumer`, {
+          description: 'Open Code to add it there with the latest handlers in view.',
+        })
+        return
+      }
+      toast.error(err instanceof Error ? err.message : `Could not update ${PROJECT_HANDLERS_PATH}`)
     }
-    // Open the code editor so the user sees the inserted handler in context.
-    setShowEditor(true)
   }
 
   return (
@@ -128,8 +184,13 @@ export function BindingsPanel() {
                     ) : (
                       <button
                         onClick={() => handleConsumeClick(binding.name)}
-                        className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-primary hover:bg-primary/10"
-                        title={`Add @queue function ${queueName}(...) to trigger code`}
+                        disabled={!canConsume}
+                        className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+                        title={
+                          canConsume
+                            ? `Add @queue function ${queueName}(...) to ${PROJECT_HANDLERS_PATH}`
+                            : 'Save the workflow first'
+                        }
                       >
                         <Plus className="h-3 w-3" />
                         Consume

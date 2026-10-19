@@ -41,20 +41,15 @@ export function findEntryNodeId(
 
 type BuildState = Pick<
   StoreState,
-  | 'metadata'
-  | 'nodes'
-  | 'edges'
-  | 'kind'
-  | 'triggerCode'
-  | 'dependencies'
-  | 'workflowEnvVars'
-  | 'runtimeBindings'
+  'metadata' | 'nodes' | 'edges' | 'kind' | 'workflowEnvVars' | 'runtimeBindings'
 >
 
 /**
- * The runtime block makes the exported IR self-contained: trigger code, npm
- * deps, env declarations (names + secrecy only — never values), and binding
- * declarations all travel with the document.
+ * The runtime block carries what the canvas owns: env declarations (names +
+ * secrecy only — never values) and binding declarations. Trigger code and
+ * npm dependencies are project files (`handlers.ts`, `package.json`) the
+ * canvas only mirrors, so it never writes them into a version — a stale
+ * mirror could otherwise resurrect a file the code workspace deleted.
  */
 function buildRuntime(state: BuildState): WorkflowRuntime | undefined {
   const env: EnvDeclaration[] = state.workflowEnvVars.flatMap((v) => {
@@ -66,8 +61,6 @@ function buildRuntime(state: BuildState): WorkflowRuntime | undefined {
     return [{ name, ...(secret && { secret: true }) }]
   })
   const runtime: WorkflowRuntime = {
-    ...(state.triggerCode && { triggerCode: state.triggerCode }),
-    ...(Object.keys(state.dependencies).length > 0 && { dependencies: state.dependencies }),
     ...(env.length > 0 && { env }),
     ...(state.runtimeBindings.length > 0 && { bindings: state.runtimeBindings }),
   }

@@ -1,8 +1,6 @@
 import { Link, useRouter } from '@tanstack/react-router'
 import {
   ArrowLeft,
-  Code2,
-  PanelRightClose,
   Settings2,
   Play,
   Rocket,
@@ -38,8 +36,6 @@ export interface EditorToolbarProps {
   deployedVersion: number | undefined
   showSettings: boolean
   onToggleSettings: () => void
-  showEditor: boolean
-  onToggleEditor: () => void
   onSave: () => void
   isSaving: boolean
   lastSavedAt?: Date | null
@@ -126,8 +122,6 @@ export function EditorToolbar({
   deployedVersion,
   showSettings,
   onToggleSettings,
-  showEditor,
-  onToggleEditor,
   onSave,
   isSaving,
   lastSavedAt,
@@ -246,25 +240,6 @@ export function EditorToolbar({
             >
               <Settings2 className="h-3.5 w-3.5" />
               <span className="hidden text-xs md:inline">Settings</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onToggleEditor}
-              title={showEditor ? 'Hide editor' : 'Show editor'}
-              className={cn(
-                'hidden h-8 gap-1.5 px-2 sm:inline-flex md:px-2.5',
-                showEditor
-                  ? 'bg-muted/70 text-foreground'
-                  : 'text-muted-foreground hover:text-foreground/70',
-              )}
-            >
-              {showEditor ? (
-                <PanelRightClose className="h-3.5 w-3.5" />
-              ) : (
-                <Code2 className="h-3.5 w-3.5" />
-              )}
-              <span className="hidden text-xs md:inline">Editor</span>
             </Button>
             {isNew && kind !== 'script' && (
               <Button

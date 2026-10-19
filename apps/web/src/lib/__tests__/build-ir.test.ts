@@ -48,11 +48,9 @@ describe('buildIRFromState — runtime block', () => {
     expect(ir.irVersion).toBe(2)
   })
 
-  it('emits a self-contained runtime block with env declarations, never values', () => {
+  it('emits a runtime block with env declarations (never values) and bindings', () => {
     const ir = buildIRFromState({
       ...baseState,
-      triggerCode: '@fetch function handler() {}',
-      dependencies: { zod: '^4.0.0' },
       workflowEnvVars: [
         { name: 'SECRET_API_KEY', value: 'shh' },
         { name: 'REGION', value: 'eu' },
@@ -60,11 +58,18 @@ describe('buildIRFromState — runtime block', () => {
       runtimeBindings: [{ name: 'KV_CACHE', type: 'kv', resourceId: 'abc' }],
     } as never) as { runtime?: Record<string, unknown> }
     expect(ir.runtime).toEqual({
-      triggerCode: '@fetch function handler() {}',
-      dependencies: { zod: '^4.0.0' },
       env: [{ name: 'API_KEY', secret: true }, { name: 'REGION' }],
       bindings: [{ name: 'KV_CACHE', type: 'kv', resourceId: 'abc' }],
     })
     expect(JSON.stringify(ir)).not.toContain('shh')
+  })
+
+  it('leaves trigger code and dependencies to the project files the canvas only mirrors', () => {
+    const ir = buildIRFromState({
+      ...baseState,
+      triggerCode: '@fetch function handler() {}',
+      dependencies: { zod: '^4.0.0' },
+    } as never)
+    expect('runtime' in ir).toBe(false)
   })
 })

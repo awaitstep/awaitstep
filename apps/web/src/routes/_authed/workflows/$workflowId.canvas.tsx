@@ -36,10 +36,6 @@ const LazyReactFlowProvider = lazy(() =>
 const LazyCanvas = lazy(() =>
   import('../../../components/canvas/workflow-canvas').then((m) => ({ default: m.WorkflowCanvas })),
 )
-const LazyEditorPanel = lazy(() =>
-  import('../../../components/canvas/editor-panel').then((m) => ({ default: m.EditorPanel })),
-)
-
 const getCanvasContext = createServerFn({ method: 'GET' }).handler(async () => ({
   localDev: process.env['ENABLE_LOCAL_DEV'] === 'true',
 }))
@@ -77,8 +73,6 @@ function WorkflowEditorPage() {
   } = useSearch({
     from: '/_authed/workflows/$workflowId/canvas',
   })
-  const showEditor = useWorkflowStore((s) => s.showEditor)
-  const setShowEditor = useWorkflowStore((s) => s.setShowEditor)
   const [showLocalTest, setShowLocalTest] = useState(false)
   // Functions never show the template picker — templates are workflow-shaped.
   const [showTemplatePicker, setShowTemplatePicker] = useState(template && kindParam !== 'script')
@@ -236,8 +230,6 @@ function WorkflowEditorPage() {
                 deployedVersion={deployedVersion?.version}
                 showSettings={showSettings}
                 onToggleSettings={() => setShowSettings(!showSettings)}
-                showEditor={showEditor}
-                onToggleEditor={() => setShowEditor(!showEditor)}
                 onSave={handleSave}
                 isSaving={isSaving}
                 lastSavedAt={lastSavedAt}
@@ -271,11 +263,9 @@ function WorkflowEditorPage() {
                 <SimulationPanel />
                 <ValidationPanel />
                 <CanvasSidePanels
-                  showEditor={showEditor}
                   showLocalTest={showLocalTest && !isNew}
                   onCloseLocalTest={() => setShowLocalTest(false)}
                   workflowId={workflowId}
-                  LazyEditorPanel={LazyEditorPanel}
                 />
               </div>
             </div>

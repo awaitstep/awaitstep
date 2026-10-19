@@ -37,8 +37,9 @@ export function useWorkflowPersistence(opts: {
       }
       return { name: v.name, value: v.value, isSecret: false }
     })
-    const triggerCode = state.triggerCode || undefined
-    const dependencies = Object.keys(state.dependencies).length > 0 ? state.dependencies : undefined
+    // Trigger code and dependencies are project files (handlers.ts,
+    // package.json) edited in the code workspace; the canvas only mirrors
+    // them, so it never writes them back.
     const deployConfig = state.deployConfig.route ? state.deployConfig : undefined
 
     if (isNew) {
@@ -47,8 +48,8 @@ export function useWorkflowPersistence(opts: {
         description: state.metadata.description,
         kind,
       })
-      if (envVars || triggerCode || dependencies || deployConfig) {
-        await api.updateWorkflow(created.id, { envVars, triggerCode, dependencies, deployConfig })
+      if (envVars || deployConfig) {
+        await api.updateWorkflow(created.id, { envVars, deployConfig })
       }
       await api.createVersion(created.id, { ir })
       return created
@@ -58,8 +59,6 @@ export function useWorkflowPersistence(opts: {
       name: state.metadata.name,
       description: state.metadata.description,
       envVars,
-      triggerCode,
-      dependencies,
       deployConfig,
     })
     await api.createVersion(workflowId, { ir })

@@ -150,7 +150,6 @@ const getInitialWorkflowState = () => ({
   runtimeBindings: [],
   deployConfig: {},
   showSettings: false,
-  showEditor: false,
   validationResult: null,
   simulationResult: null,
   isDirty: false,
@@ -173,7 +172,6 @@ interface WorkflowState {
   runtimeBindings: BindingDeclaration[]
   deployConfig: DeployConfig
   showSettings: boolean
-  showEditor: boolean
   validationResult: PublishValidationResult | null
   simulationResult: SimulationResult | null
   isDirty: boolean
@@ -201,11 +199,8 @@ interface WorkflowState {
   setKind: (kind: 'workflow' | 'script') => void
   setMetadata: (metadata: Partial<WorkflowMetadata>) => void
   setWorkflowEnvVars: (vars: WorkflowEnvVar[]) => void
-  setDependencies: (deps: Record<string, string>) => void
-  setTriggerCode: (code: string) => void
   setDeployConfig: (config: DeployConfig) => void
   setShowSettings: (show: boolean) => void
-  setShowEditor: (show: boolean) => void
   runValidation: (nodeRegistry?: NodeRegistry) => PublishValidationResult
   clearValidation: () => void
   runSimulation: () => SimulationResult
@@ -762,24 +757,12 @@ export const useWorkflowStore = create<WorkflowState>()(
         set({ workflowEnvVars: vars, isDirty: true })
       },
 
-      setDependencies: (deps) => {
-        set({ dependencies: deps, isDirty: true })
-      },
-
-      setTriggerCode: (code) => {
-        set({ triggerCode: code, isDirty: true })
-      },
-
       setDeployConfig: (config) => {
         set({ deployConfig: config, isDirty: true })
       },
 
       setShowSettings: (show) => {
         set({ showSettings: show, selectedNodeId: show ? null : get().selectedNodeId })
-      },
-
-      setShowEditor: (show) => {
-        set({ showEditor: show })
       },
 
       runValidation: (nodeRegistry?: NodeRegistry) => {
