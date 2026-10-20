@@ -121,7 +121,10 @@ Update a workflow's name, description, environment variables, trigger code, depe
 
 ### `PATCH /workflows/:id/move`
 
-Move a workflow to another project within the same organization. Returns warnings if the workflow references env vars missing in the target project.
+Move a workflow to another project within the same organization. Returns
+`warnings` naming any `{{global.env.X}}` reference the destination cannot
+satisfy — checked across both project and organization scope, the same way
+a deploy resolves them.
 
 **Scope:** `write`
 
@@ -396,9 +399,11 @@ Returns `201` with `{ versionId, version, sourceMode, entry, fileCount }`.
 
 Read the deployable source for a version. Ejected/sdk versions return their
 stored bundle; generated versions return a freshly generated read-only view.
-Env vars only need to be declared, not set — a read never resolves values,
-so a workflow whose secrets are still missing can be viewed and edited
-(the deploy is what refuses until they resolve).
+Env vars only need to be declared, not set: a workflow whose secrets are
+still missing can be viewed and edited, and the deploy is what refuses
+until they resolve. A read does attempt the resolution and reports what it
+could not satisfy as an `env` diagnostic — names only, never values — so
+the problem is visible before the deploy finds it.
 
 **Scope:** `read`
 
@@ -429,11 +434,24 @@ return `200`, with what was found listed in `diagnostics`:
 }
 ```
 
-`source` is `ir` (fix it on the canvas), `provider` (the node cannot deploy
-here) or `compile` (the file does not parse; `path` names it). The array is
-empty for a healthy workflow and always present. Only a failure that leaves
-no source to return — generation itself throwing — is still an error
-response, and it carries the diagnostics collected before it.
+`source` is one of:
+
+|            |                                                                              |
+| ---------- | ---------------------------------------------------------------------------- |
+| `ir`       | the workflow itself — fix it on the canvas                                   |
+| `provider` | the node cannot deploy here                                                  |
+| `compile`  | the file does not parse; `path` names it                                     |
+| `import`   | an `#app/` specifier with no file behind it; `path` names the importing file |
+| `env`      | a variable with no value to resolve at deploy; names only, never values      |
+| `drift`    | stored source no longer matches the graph                                    |
+
+The array is empty for a healthy workflow and always present. Only a
+failure that leaves no source to return — generation itself throwing — is
+still an error response, and it carries the diagnostics collected before it.
+
+`drift` does not appear on this endpoint: an ejected version returns its
+stored bundle without analysing it. `POST /workflows/:id/source/check`
+reports drift for those versions.
 
 Returns `{ versionId, sourceMode, entry, files, manifest, diagnostics, baseGeneratedHash }`.
 

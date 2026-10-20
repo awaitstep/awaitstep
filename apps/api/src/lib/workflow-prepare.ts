@@ -5,7 +5,7 @@ import type {
   StepManifest,
   SourceDiagnostic,
 } from '@awaitstep/codegen'
-import { bundleCodeFiles, bundlePackageManifest } from '@awaitstep/codegen'
+import { bundleCodeFiles, bundleDeployFiles, bundlePackageManifest } from '@awaitstep/codegen'
 import { collectCompileErrors } from '@awaitstep/codegen/transpile'
 import type { ArtifactIR, ValidationError } from '@awaitstep/ir'
 import { loadArtifact, parsePackageManifest } from '@awaitstep/ir'
@@ -62,7 +62,7 @@ export type PrepareMode = 'deploy' | 'build' | 'read'
  * bundle itself. Only the first names a file a client could open, so only
  * that one becomes a `path`; the node id it already carries does the rest.
  */
-function driftDiagnostic(error: ValidationError): PrepareDiagnostic {
+export function driftDiagnostic(error: ValidationError): PrepareDiagnostic {
   const file = error.path.startsWith('source.') ? error.path.slice('source.'.length) : undefined
   return {
     source: 'drift',
@@ -290,7 +290,8 @@ export async function prepareWorkflow(
   // the sucrase exception bubbles up and surfaces as a generic 500. Each
   // error names its file: in a multi-file project "Unexpected token (16:21)"
   // on its own does not say where to look.
-  const compileErrors = await collectCompileErrors(bundleCodeFiles(bundle))
+  const codeFiles = bundleCodeFiles(bundle)
+  const compileErrors = await collectCompileErrors(codeFiles)
   if (compileErrors.length > 0) {
     if (!lenient) {
       const first = compileErrors[0]!
@@ -310,7 +311,9 @@ export async function prepareWorkflow(
   // path reaches the deploy untouched. A deploy still finds out the hard
   // way, from the bundler; this is so a check does not have to.
   if (lenient) {
-    for (const unresolved of unresolvedAppImports(bundleCodeFiles(bundle))) {
+    // Every deploy file is a resolution target — `#app/data/x.json` is an
+    // asset — while only code files are worth scanning for imports.
+    for (const unresolved of unresolvedAppImports(bundleDeployFiles(bundle), codeFiles)) {
       diagnostics.push({
         source: 'import',
         message: `Cannot resolve "${unresolved.specifier}" — no project file matches it`,

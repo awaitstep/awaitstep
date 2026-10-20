@@ -72,7 +72,17 @@ source.post('/:workflowId/eject', zValidator('json', ejectSchema), async (c) => 
     eject: true,
   })
   if (isPrepareError(prepared)) {
-    return c.json({ error: prepared.error, details: prepared.details }, prepared.status as 400)
+    // Whatever was found before the failure travels with it — a bundle that
+    // would not generate is usually unbuildable *because* of something
+    // already collected, and dropping that leaves only the symptom.
+    return c.json(
+      {
+        error: prepared.error,
+        details: prepared.details,
+        ...(prepared.diagnostics?.length && { diagnostics: prepared.diagnostics }),
+      },
+      prepared.status as 400,
+    )
   }
 
   if (!prepared.bundle.manifest) {
@@ -146,8 +156,11 @@ source.get('/:workflowId/source', async (c) => {
       entry: stored.bundle.entry,
       files: stored.bundle.files,
       manifest: stored.manifest,
-      // Ejected/sdk source is the user's own; drift and compile checks run on
-      // write (PUT /source), so a read has nothing of its own to report.
+      // The stored bundle is returned as it is. A read of an ejected
+      // version does not analyse it — `prepareWorkflow` in read mode now
+      // reports drift, but this path never reaches it, so Code mode shows
+      // no problems on a version `POST /source/check` would call drifted.
+      // Deliberate for now; I6 is what wires drift into the editor.
       diagnostics: [],
       baseGeneratedHash: version.baseGeneratedHash,
     })
@@ -163,7 +176,17 @@ source.get('/:workflowId/source', async (c) => {
     mode: 'read',
   })
   if (isPrepareError(prepared)) {
-    return c.json({ error: prepared.error, details: prepared.details }, prepared.status as 400)
+    // Whatever was found before the failure travels with it — a bundle that
+    // would not generate is usually unbuildable *because* of something
+    // already collected, and dropping that leaves only the symptom.
+    return c.json(
+      {
+        error: prepared.error,
+        details: prepared.details,
+        ...(prepared.diagnostics?.length && { diagnostics: prepared.diagnostics }),
+      },
+      prepared.status as 400,
+    )
   }
   // Project-owned files carry their content hash — the same value the file
   // routes serve as ETag — so a client editing from this one response has a
