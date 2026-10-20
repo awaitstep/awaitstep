@@ -17,14 +17,10 @@ import {
   PROJECT_IMPORT_PREFIX,
   PROJECT_ROOT_CONFIG_FILES,
   findProjectPathCollision,
-  handlerEntry,
-  handlerWriteError,
   hasHandlerModules,
-  loadArtifact,
   projectFileBytes,
   projectFilePathError,
   projectHandlerModules,
-  projectHandlersConflict,
   validatePackageManifest,
   validateProjectFiles,
 } from '@awaitstep/ir'
@@ -36,6 +32,7 @@ import type {
   WorkflowSourceMode,
 } from '@awaitstep/db'
 import { toWorkflowFileRows } from '../lib/project-files.js'
+import { legacyTriggerCode, projectWriteRuleErrors } from '../lib/project-write-rules.js'
 import { resolveProvider } from '../lib/provider-resolver.js'
 import { zValidator } from '../lib/validation.js'
 import type { AppEnv } from '../types.js'
@@ -176,33 +173,15 @@ projectFiles.put('/:workflowId/files/:path{.+}', zValidator('json', putFileSchem
   if (collision) {
     return c.json({ error: `"${path}" would overwrite "${collision}" after compile` }, 422)
   }
-  const handlersConflict = projectHandlersConflict(
-    path,
-    existing.map((f) => f.path),
-  )
-  if (handlersConflict) return c.json({ error: handlersConflict }, 422)
-  const handlerError = handlerWriteError(
-    path,
-    existing.map((f) => f.path),
-  )
-  if (handlerError) {
-    return c.json({ error: `Invalid handler path "${path}": ${handlerError}` }, 422)
-  }
-  // Legacy trigger code — in the setting or inline in the current
-  // version's IR — is the same model as handlers.ts: a first handler
-  // module would silently retire it, so the project converts first (the
-  // workspace offers that as one action).
-  if (handlerEntry(path) && !hasHandlerModules(projectHandlerModules(existing))) {
-    const legacy = await legacyTriggerCode(db, workflow)
-    if (legacy) {
-      return c.json(
-        {
-          error: `The workflow still has legacy trigger code — convert it to handler modules first (POST /workflows/${workflow.id}/project/convert-handlers)`,
-        },
-        422,
-      )
-    }
-  }
+  // The handler rules, from the same function the candidate checker calls —
+  // one write is just the smallest change set.
+  const writeErrors = await projectWriteRuleErrors({
+    db,
+    workflow,
+    existing,
+    changes: [{ path, source }],
+  })
+  if (writeErrors[0]) return c.json({ error: writeErrors[0].message }, 422)
   if (!current && existing.length >= MAX_PROJECT_FILES) {
     return c.json({ error: `Maximum ${MAX_PROJECT_FILES} project files` }, 422)
   }
@@ -255,25 +234,6 @@ const LEGACY_SETTING_BY_PATH: Readonly<
  * stored handlers.ts, or the legacy trigger-code setting when the project
  * has no such file — the same precedence the generators apply.
  */
-/**
- * The entry-handler source a project still carries in the annotation
- * model, and where it lives. The column is the usual home, but an IR that
- * arrived with inline `runtime.triggerCode` (an import, an older client)
- * is just as real: the generators read it, so the conversion must too.
- */
-export async function legacyTriggerCode(
-  db: DatabaseAdapter,
-  workflow: Workflow,
-): Promise<{ source: string; origin: 'setting' | 'version' } | null> {
-  if (workflow.triggerCode?.trim()) return { source: workflow.triggerCode, origin: 'setting' }
-  if (!workflow.currentVersionId) return null
-  const version = await db.getWorkflowVersionById(workflow.currentVersionId)
-  if (!version || version.workflowId !== workflow.id) return null
-  const loaded = loadArtifact(version.ir)
-  const source = loaded.ok ? loaded.value.runtime?.triggerCode : undefined
-  return source?.trim() ? { source, origin: 'version' } : null
-}
-
 async function planConversion(
   db: DatabaseAdapter,
   adapter: WorkflowProvider,
