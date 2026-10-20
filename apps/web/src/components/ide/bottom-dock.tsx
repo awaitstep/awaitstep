@@ -16,6 +16,7 @@ import { useIdeStore } from '../../stores/ide-store'
 import { cn } from '../../lib/utils'
 import type { TestSessionState } from '../../hooks/use-test-session'
 import { OutputPanel } from './output-panel'
+import { QuickTestPanel } from './quick-test-panel'
 import { RunPanel } from './run-panel'
 
 interface BottomDockProps {
@@ -28,15 +29,18 @@ interface BottomDockProps {
    * stream and threw away the logs.
    */
   testSession: TestSessionState
+  /** The file in the editor, with unsaved edits applied — what Quick test runs. */
+  activeFile: { path: string; source: string } | null
 }
 
 const TABS: { id: DockTab; label: string }[] = [
   { id: 'problems', label: 'Problems' },
   { id: 'output', label: 'Output' },
   { id: 'run', label: 'Run' },
+  { id: 'quickTest', label: 'Quick test' },
 ]
 
-export function BottomDock({ workflowId, diagnostics, testSession }: BottomDockProps) {
+export function BottomDock({ workflowId, diagnostics, testSession, activeFile }: BottomDockProps) {
   const { dockTab, showDock, toggleDock } = useIdeLayoutStore(
     useShallow((s) => ({ dockTab: s.dockTab, showDock: s.showDock, toggleDock: s.toggleDock })),
   )
@@ -88,6 +92,9 @@ export function BottomDock({ workflowId, diagnostics, testSession }: BottomDockP
         )}
         {dockTab === 'output' && <OutputPanel entries={testSession.logs} />}
         {dockTab === 'run' && <RunPanel session={testSession} />}
+        {dockTab === 'quickTest' && (
+          <QuickTestPanel workflowId={workflowId} activeFile={activeFile} />
+        )}
       </div>
     </div>
   )

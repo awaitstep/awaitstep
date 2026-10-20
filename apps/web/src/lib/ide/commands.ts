@@ -31,6 +31,7 @@ export interface IdeCommandActions {
   showProblems: () => void
   showOutput: () => void
   showRun: () => void
+  showQuickTest: () => void
 }
 
 export interface IdeCommandContext {
@@ -187,6 +188,15 @@ export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
       run: actions.showOutput,
     },
     { id: 'view.run', label: 'Show Run', group: 'view', enabled: true, run: actions.showRun },
+    {
+      id: 'view.quickTest',
+      label: 'Quick Test This Step',
+      group: 'view',
+      // Listed even for a file it cannot run: the panel explains what it
+      // needs, which is how someone learns the feature exists at all.
+      enabled: true,
+      run: actions.showQuickTest,
+    },
   ]
 }
 

@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import type { Layout } from 'react-resizable-panels'
 import { browserStorage } from './ssr-safe-storage'
 
-export type DockTab = 'problems' | 'output' | 'run'
+export type DockTab = 'problems' | 'output' | 'run' | 'quickTest'
 
 /** The two resizable groups: explorer | main, and editor / dock inside main. */
 export type IdeLayoutKey = 'workspace' | 'editor'

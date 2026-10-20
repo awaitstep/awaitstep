@@ -21,6 +21,7 @@ function actions(): IdeCommandActions {
     showProblems: vi.fn(),
     showOutput: vi.fn(),
     showRun: vi.fn(),
+    showQuickTest: vi.fn(),
   }
 }
 

@@ -25,6 +25,7 @@ import { useProjectFiles } from '../../hooks/use-project-files'
 import { useOrgReady } from '../../stores/org-store'
 import { useIdeLayoutStore, type IdeLayoutKey } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
+import { useQuickTestStore } from '../../stores/quick-test-store'
 import { clearWorkflowHistory, useWorkflowStore } from '../../stores/workflow-store'
 import { Button } from '../ui/button'
 import { ConfirmDialog } from '../ui/confirm-dialog'
@@ -226,6 +227,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     return () => {
       useWorkflowStore.getState().reset()
       useIdeStore.getState().resetSession()
+      useQuickTestStore.getState().reset()
     }
   }, [])
 
@@ -255,6 +257,19 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     enableBeforeUnload: () => hasUnsaved,
     withResolver: true,
   })
+
+  // The file as the editor has it, drafts included: a quick test runs what
+  // is on screen, not what was last saved. Keyed on this file's own text
+  // rather than the whole map, so a keystroke in another tab does not hand
+  // the dock a new object to re-render for.
+  const activeSource = activePath === null ? null : (files.get(activePath)?.source ?? null)
+  const activeFile = useMemo(
+    () =>
+      activePath !== null && activeSource !== null
+        ? { path: activePath, source: activeSource }
+        : null,
+    [activePath, activeSource],
+  )
 
   const activeIsStoredFile = activePath !== null && storedPaths.has(activePath)
   const activeIsHandlersFile = activePath === PROJECT_HANDLERS_PATH
@@ -337,6 +352,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       showProblems: () => showDock('problems'),
       showOutput: () => showDock('output'),
       showRun: () => showDock('run'),
+      showQuickTest: () => showDock('quickTest'),
     }),
     [
       canEdit,
@@ -542,6 +558,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
                       workflowId={workflowId}
                       diagnostics={source?.diagnostics}
                       testSession={testSession}
+                      activeFile={activeFile}
                     />
                   </Panel>
                 </>
