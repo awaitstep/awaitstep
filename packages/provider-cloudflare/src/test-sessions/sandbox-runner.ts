@@ -61,6 +61,15 @@ export class SandboxTestSessionRunner implements TestSessionRunner {
     this.sleepAfter = options?.sleepAfter ?? DEFAULT_SLEEP_AFTER
   }
 
+  /**
+   * Always with this session's sleep window. A call that omits it lets the
+   * host's default apply, and the host's default is the deploy's — which
+   * would put the container to sleep well before the session expires.
+   */
+  private sandboxFor(containerId: string): Sandbox {
+    return this.getSandbox(containerId, { sleepAfter: this.sleepAfter })
+  }
+
   containerId(sessionId: string): string {
     // Sandbox ids are lowercased by the platform; deriving it here means the
     // API can record the container before the container exists.
@@ -69,7 +78,7 @@ export class SandboxTestSessionRunner implements TestSessionRunner {
 
   async start(bundle: GeneratedBundle, target: TestSessionTarget): Promise<TestSessionStart> {
     const containerId = this.containerId(target.sessionId)
-    const sandbox = this.getSandbox(containerId, { sleepAfter: this.sleepAfter })
+    const sandbox = this.sandboxFor(containerId)
 
     try {
       const files = await buildDevWorkspaceFiles(bundle, target)
@@ -144,7 +153,7 @@ export class SandboxTestSessionRunner implements TestSessionRunner {
   }
 
   async logs(handle: StartedTestSessionHandle, after?: string): Promise<TestSessionLogPage> {
-    const sandbox = this.getSandbox(handle.containerId)
+    const sandbox = this.sandboxFor(handle.containerId)
     const output = await sandbox.getProcessLogs(handle.processId)
     return logPageFromBuffers(output ?? {}, after)
   }
@@ -153,7 +162,7 @@ export class SandboxTestSessionRunner implements TestSessionRunner {
     // Disposing the container stops everything in it, which is why this is
     // safe for a session that never finished starting — the reaper calls it
     // with nothing but the container id.
-    await this.getSandbox(handle.containerId)
+    await this.sandboxFor(handle.containerId)
       .destroy()
       .catch(() => {})
   }
@@ -163,7 +172,7 @@ export class SandboxTestSessionRunner implements TestSessionRunner {
     url: string,
     init: RequestInit,
   ): Promise<TestSessionResponse> {
-    const sandbox = this.getSandbox(handle.containerId)
+    const sandbox = this.sandboxFor(handle.containerId)
     const response = await sandbox.containerFetch(url, init, handle.port)
     const text = await response.text()
     return { status: response.status, body: parseBody(text) }
