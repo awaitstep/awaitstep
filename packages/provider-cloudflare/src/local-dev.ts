@@ -13,7 +13,7 @@ import {
 } from '@awaitstep/codegen'
 import type { WorkflowIR } from '@awaitstep/ir'
 import { assertRegistryDependencies } from '@awaitstep/ir'
-import type { GeneratedBundle, LocalDevOptions, LocalDevLogEntry } from '@awaitstep/codegen'
+import type { GeneratedBundle, LocalDevOptions, ProcessLogEntry } from '@awaitstep/codegen'
 import { detectBindings, detectBindingsFromSource } from './codegen/bindings.js'
 import { generateWranglerConfig } from './wrangler-config.js'
 import { workerName, workflowClassName, sanitizedWorkflowName } from './naming.js'
@@ -62,10 +62,10 @@ export function isPortListening(port: number = LOCAL_DEV_PORT): Promise<boolean>
 }
 
 /** Read logs from the local dev log file. */
-export async function readLogs(since?: number): Promise<LocalDevLogEntry[]> {
+export async function readLogs(since?: number): Promise<ProcessLogEntry[]> {
   try {
     const content = await readFile(LOG_FILE, 'utf-8')
-    const logs: LocalDevLogEntry[] = JSON.parse(content)
+    const logs: ProcessLogEntry[] = JSON.parse(content)
     if (!since) return logs.slice(-MAX_LOG_LINES)
     return logs.filter((l) => l.timestamp > since)
   } catch {
@@ -84,13 +84,16 @@ export async function startLocalDev(
   await scaffoldDeployDir(bundle, options)
   await installDependencies(LOCAL_DEV_DIR, options.dependencies, bundlePackageManifest(bundle))
 
+  // Detached so the child leads its own process group: `npx` is a wrapper,
+  // and signalling it alone leaves wrangler and workerd running. The group is
+  // what gets killed if the start never finishes.
   const child = spawn(
     'npx',
     ['wrangler', 'dev', '--port', String(LOCAL_DEV_PORT), '--ip', '0.0.0.0'],
-    { cwd: LOCAL_DEV_DIR, stdio: ['ignore', 'pipe', 'pipe'], detached: false },
+    { cwd: LOCAL_DEV_DIR, stdio: ['ignore', 'pipe', 'pipe'], detached: true },
   )
 
-  const logs: LocalDevLogEntry[] = []
+  const logs: ProcessLogEntry[] = []
   let externalUrl = ''
 
   function appendLog(stream: 'stdout' | 'stderr', data: Buffer) {
@@ -119,7 +122,17 @@ export async function startLocalDev(
   child.stderr?.on('data', (data: Buffer) => appendLog('stderr', data))
 
   const fallbackUrl = `http://localhost:${LOCAL_DEV_PORT}`
-  await waitForReady(child, fallbackUrl, logs)
+  try {
+    await waitForReady(child, fallbackUrl, logs)
+  } catch (err) {
+    // The caller only gets a rejection, so nothing else would ever stop this
+    // child. Freeing the port is not enough on its own: a start that times
+    // out while npx is still downloading has nothing listening yet, and
+    // wrangler would bind the port afterwards and keep running.
+    killProcessGroup(child)
+    await killPort(LOCAL_DEV_PORT)
+    throw err
+  }
   // Wait briefly for wrangler to print the additional IP lines after "Ready on"
   await new Promise((r) => setTimeout(r, 1000))
 
@@ -190,7 +203,17 @@ async function installDependencies(
   )
 }
 
-function waitForReady(child: ChildProcess, url: string, logs: LocalDevLogEntry[]): Promise<void> {
+/** Kills the child and everything it spawned, falling back to the child alone. */
+function killProcessGroup(child: ChildProcess): void {
+  if (child.pid === undefined || child.exitCode !== null) return
+  try {
+    process.kill(-child.pid, 'SIGTERM')
+  } catch {
+    child.kill('SIGTERM')
+  }
+}
+
+function waitForReady(child: ChildProcess, url: string, logs: ProcessLogEntry[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       reject(new Error('wrangler dev did not start within 30 seconds'))
