@@ -224,11 +224,19 @@ export interface DatabaseAdapter {
     status: Extract<TestSessionStatus, 'stopped' | 'failed'>,
     options?: { userId?: string; error?: string },
   ): Promise<boolean>
-  /** Sessions past a cut-off (idle, lifetime, or stuck starting), oldest first, with reasons. */
+  /** Sessions past a cut-off, oldest first, with reasons; one user's when given. */
   listExpiredTestSessions(
     cutoffs: TestSessionCutoffs,
     limit: number,
+    userId?: string,
   ): Promise<ExpiringTestSession[]>
+  /** Every unfinished session for a workflow, whoever started it. */
+  listUnfinishedTestSessionsForWorkflow(workflowId: string): Promise<TestSession[]>
+  /** Writes off a runtime's sessions without touching their workers (boot cleanup). */
+  markTestSessionRuntimeAbandoned(
+    runtime: TestSession['runtime'],
+    error: string,
+  ): Promise<TestSession[]>
 
   // Deployments
   createDeployment(data: {

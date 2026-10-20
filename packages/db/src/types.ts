@@ -67,6 +67,8 @@ export interface ReserveTestSessionLimits {
   projectId: string
   /** Unfinished sessions this user may hold, counted across every project. */
   maxConcurrentPerUser: number
+  /** Unfinished sessions everyone may hold together — the container pool. */
+  maxConcurrentTotal: number
   /** Sessions the project may start inside the quota window. */
   maxPerWindowPerProject: number
   quotaWindowStart: string
@@ -103,6 +105,8 @@ export interface TestSessionUsage {
    * cut-offs, because an unreaped session is still billing.
    */
   activeForUser: number
+  /** Unfinished sessions held by everyone — the shared container pool. */
+  activeEverywhere: number
   /** Sessions created in the project since the quota window opened. */
   createdInWindow: number
 }

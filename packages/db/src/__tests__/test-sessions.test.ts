@@ -72,6 +72,7 @@ function limits(overrides: Partial<ReserveTestSessionLimits> = {}): ReserveTestS
     cutoffs: CUTOFFS,
     projectId: 'p-1',
     maxConcurrentPerUser: 1,
+    maxConcurrentTotal: 10,
     maxPerWindowPerProject: 3,
     quotaWindowStart: '2026-10-18T12:00:00.000Z',
     ...overrides,
@@ -217,12 +218,28 @@ describe('test sessions adapter', () => {
       ).not.toBeNull()
     })
 
+    it('refuses once every container is in use, whoever holds them', async () => {
+      // Sessions share a fixed pool with deploys: a handful of users holding
+      // one each must not leave nothing to deploy with.
+      seed(db.sqlite, { ...LIVE, id: 'theirs-1', userId: 'u-2' })
+      seed(db.sqlite, { ...LIVE, id: 'theirs-2', userId: 'u-3' })
+      expect(
+        await db.adapter.reserveTestSession(reservation(), limits({ maxConcurrentTotal: 2 })),
+      ).toBeNull()
+      expect(
+        await db.adapter.reserveTestSession(reservation(), limits({ maxConcurrentTotal: 3 })),
+      ).not.toBeNull()
+    })
+
     it('inserts nothing when a cap is zero', async () => {
       expect(
         await db.adapter.reserveTestSession(reservation(), limits({ maxConcurrentPerUser: 0 })),
       ).toBeNull()
       expect(
         await db.adapter.reserveTestSession(reservation(), limits({ maxPerWindowPerProject: 0 })),
+      ).toBeNull()
+      expect(
+        await db.adapter.reserveTestSession(reservation(), limits({ maxConcurrentTotal: 0 })),
       ).toBeNull()
       expect(db.sqlite.prepare('SELECT count(*) as n FROM test_sessions').get()).toEqual({ n: 0 })
     })
@@ -422,6 +439,8 @@ describe('test sessions adapter', () => {
         // Unfinished anywhere: p-1, p-2, and the expired-but-unstopped one —
         // all three may still own a container. Concurrency ignores project.
         activeForUser: 3,
+        // Everyone's, including the other user's live session.
+        activeEverywhere: 4,
         // p-1 rows inside the window: mine-live, mine-expired, mine-stopped, theirs-live
         createdInWindow: 4,
       })
@@ -430,7 +449,7 @@ describe('test sessions adapter', () => {
     it('reports no usage for a project that has never run a session', async () => {
       expect(
         await db.adapter.getTestSessionUsage('p-9', 'u-9', '2026-10-18T12:00:00.000Z'),
-      ).toEqual({ activeForUser: 0, createdInWindow: 0 })
+      ).toEqual({ activeForUser: 0, activeEverywhere: 0, createdInWindow: 0 })
     })
   })
 

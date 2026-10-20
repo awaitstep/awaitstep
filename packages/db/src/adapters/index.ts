@@ -464,8 +464,18 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   listExpiredTestSessions(
     cutoffs: TestSessionCutoffs,
     limit: number,
+    userId?: string,
   ): Promise<ExpiringTestSession[]> {
-    return this._testSessions.listExpired(cutoffs, limit)
+    return this._testSessions.listExpired(cutoffs, limit, userId)
+  }
+  listUnfinishedTestSessionsForWorkflow(workflowId: string): Promise<TestSession[]> {
+    return this._testSessions.listUnfinishedForWorkflow(workflowId)
+  }
+  markTestSessionRuntimeAbandoned(
+    runtime: TestSession['runtime'],
+    error: string,
+  ): Promise<TestSession[]> {
+    return this._testSessions.markRuntimeAbandoned(runtime, error)
   }
 
   async listRecentRunsByProject(
