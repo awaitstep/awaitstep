@@ -1,3 +1,4 @@
+import type { SourceDiagnostic } from '@awaitstep/codegen'
 import type {
   GeneratedFile,
   SourceMode,
@@ -165,15 +166,10 @@ export interface WorkflowFull {
  */
 /**
  * Something wrong with the workflow that did not stop the source being
- * produced: an IR rule the canvas should fix (`ir`), a node this provider
- * cannot deploy (`provider`), or a file that does not parse (`compile`).
+ * produced. Re-exported from codegen, which owns the shape — three copies
+ * of it used to drift because the data arrives as JSON and nothing checks.
  */
-export interface SourceDiagnostic {
-  source: 'ir' | 'provider' | 'compile'
-  message: string
-  nodeId?: string
-  path?: string
-}
+export type { SourceDiagnostic }
 
 /** A disposable worker running this workflow before it is deployed. */
 export interface TestSession {

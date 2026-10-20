@@ -59,6 +59,35 @@ export const SOURCE_MODES = ['generated', 'ejected', 'sdk'] as const
  */
 export type SourceMode = (typeof SOURCE_MODES)[number]
 
+export const DIAGNOSTIC_SOURCES = ['ir', 'provider', 'compile', 'import', 'env', 'drift'] as const
+
+/**
+ * Where a diagnostic came from, so a client can route it to the right place.
+ *
+ * Lives here rather than in the API because three copies of it existed —
+ * the API's prepare, the web client and the IDE's problem list — and the
+ * data crosses between them as JSON, so a new source added to one of them
+ * left the others silently wrong.
+ *
+ * - `ir` — the workflow itself: schema, a cycle, a bundle that cannot be built
+ * - `provider` — a node this provider cannot deploy
+ * - `compile` — a file that does not parse
+ * - `import` — an `#app/` specifier with no file behind it
+ * - `env` — a variable with no value to resolve at deploy
+ * - `drift` — stored source no longer consistent with the graph
+ */
+export type DiagnosticSource = (typeof DIAGNOSTIC_SOURCES)[number]
+
+/** One finding about a workflow, from whichever check produced it. */
+export interface SourceDiagnostic {
+  source: DiagnosticSource
+  message: string
+  /** The node the issue belongs to, when it is about one. */
+  nodeId?: string
+  /** The bundle file, for diagnostics about a file. */
+  path?: string
+}
+
 export interface ProviderConfig {
   provider: string
   credentials: Record<string, string>

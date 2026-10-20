@@ -1,3 +1,4 @@
+import type { SourceDiagnostic } from '@awaitstep/codegen'
 import { parseWorkflowModelPath } from '../monaco/setup'
 
 export type ProblemSeverity = 'error' | 'warning' | 'info'
@@ -23,14 +24,7 @@ export interface Problem {
  * A compile message ends in `(line:column)`; that position is lifted out so
  * the entry navigates like any other.
  */
-export function diagnosticProblems(
-  diagnostics: readonly {
-    source: 'ir' | 'provider' | 'compile'
-    message: string
-    nodeId?: string
-    path?: string
-  }[],
-): Problem[] {
+export function diagnosticProblems(diagnostics: readonly SourceDiagnostic[]): Problem[] {
   return diagnostics.map((diagnostic) => {
     const position = diagnostic.source === 'compile' ? parsePosition(diagnostic.message) : null
     return {

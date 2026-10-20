@@ -3,6 +3,7 @@ import type {
   GeneratedBundle,
   ProviderConfig,
   StepManifest,
+  SourceDiagnostic,
 } from '@awaitstep/codegen'
 import { bundleCodeFiles, bundlePackageManifest } from '@awaitstep/codegen'
 import { collectCompileErrors } from '@awaitstep/codegen/transpile'
@@ -34,17 +35,12 @@ export interface WorkflowContext {
   diagnostics: PrepareDiagnostic[]
 }
 
-/** Where a diagnostic came from, so a client can route it to the right place. */
-export type DiagnosticSource = 'ir' | 'provider' | 'compile'
-
-export interface PrepareDiagnostic {
-  source: DiagnosticSource
-  message: string
-  /** The node the issue belongs to, when it is about one. */
-  nodeId?: string
-  /** The bundle file, for compile diagnostics. */
-  path?: string
-}
+/**
+ * One finding about a workflow. The shape lives in `@awaitstep/codegen` so
+ * the API, the web client and the IDE's problem list cannot drift apart —
+ * the data crosses between them as JSON, where nothing would catch it.
+ */
+export type PrepareDiagnostic = SourceDiagnostic
 
 /**
  * How strict a prepare is.
