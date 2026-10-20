@@ -1,6 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { bundleHash } from '@awaitstep/codegen'
-import { createTestApp, resetStore, TEST_USER_ID, TEST_PROJECT_ID, mockDb } from './helpers.js'
+import type { GeneratedBundle } from '@awaitstep/codegen'
+import {
+  createTestApp,
+  resetStore,
+  setWorkflowKind,
+  TEST_USER_ID,
+  TEST_PROJECT_ID,
+  mockDb,
+} from './helpers.js'
 
 const validIR = {
   metadata: {
@@ -71,10 +79,7 @@ describe('source routes', () => {
       const version = await mockDb.getWorkflowVersionById(body.versionId)
       expect(version?.sourceMode).toBe('ejected')
       expect(version?.baseGeneratedHash).toBeTruthy()
-      const bundle = JSON.parse(version!.source!) as {
-        entry: string
-        files: { path: string; source: string }[]
-      }
+      const bundle = JSON.parse(version!.source!) as GeneratedBundle
       const entry = bundle.files.find((f) => f.path === bundle.entry)!
       expect(entry.source).toContain('// @awaitstep:node step-1')
       const manifest = JSON.parse(version!.manifest!) as { steps: { nodeId: string }[] }
@@ -93,10 +98,7 @@ describe('source routes', () => {
 
       const body = (await (await eject(app)).json()) as { versionId: string }
       const version = await mockDb.getWorkflowVersionById(body.versionId)
-      const bundle = JSON.parse(version!.source!) as {
-        entry: string
-        files: { path: string; source: string; role: string }[]
-      }
+      const bundle = JSON.parse(version!.source!) as GeneratedBundle
       expect(bundle.files.map((f) => f.path)).not.toContain('handlers.ts')
       expect(bundle.files.find((f) => f.path === bundle.entry)!.source).toContain('"from file"')
       // The drift baseline is the hash of what is stored, so an untouched
@@ -105,7 +107,7 @@ describe('source routes', () => {
     })
 
     it('rejects functions', async () => {
-      await mockDb.updateWorkflow('wf-1', { kind: 'script' })
+      setWorkflowKind('wf-1', 'script')
       const res = await eject(app)
       expect(res.status).toBe(400)
     })

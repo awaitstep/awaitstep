@@ -6,6 +6,9 @@ import type {
   WorkflowRun,
   WorkflowRunStep,
   WorkflowFile,
+  TestSession,
+  TestSessionCutoffs,
+  TestSessionExpiry,
   ApiKey,
   Deployment,
   DeploymentConfig,
@@ -22,6 +25,7 @@ const store = {
   runs: new Map<string, WorkflowRun>(),
   runSteps: new Map<string, WorkflowRunStep>(),
   files: new Map<string, WorkflowFile>(),
+  testSessions: new Map<string, TestSession>(),
   deploymentConfigs: new Map<string, DeploymentConfig>(),
   apiKeys: new Map<string, ApiKey>(),
   deployments: new Map<string, Deployment>(),
@@ -36,6 +40,7 @@ export function resetStore() {
   store.runs.clear()
   store.runSteps.clear()
   store.files.clear()
+  store.testSessions.clear()
   store.deploymentConfigs.clear()
   store.apiKeys.clear()
   store.deployments.clear()
@@ -45,6 +50,34 @@ export function resetStore() {
 
 function now() {
   return new Date().toISOString()
+}
+
+// A session whose workflow was deleted keeps its row (the container is still
+// running) but belongs to no project any more.
+function sessionProject(session: TestSession): string | null {
+  return session.workflowId ? (store.workflows.get(session.workflowId)?.projectId ?? null) : null
+}
+
+// A session that may still own a container — what the cap counts and what
+// the unique index covers.
+function isUnfinishedSession(session: TestSession): boolean {
+  return session.status === 'starting' || session.status === 'running'
+}
+
+// Mirrors the adapter's expiry CASE. Kept in one place here so the mock and
+// the real adapter cannot disagree about the same row.
+function sessionExpiry(session: TestSession, cutoffs: TestSessionCutoffs): TestSessionExpiry {
+  if (!isUnfinishedSession(session)) return null
+  if (session.status === 'starting') {
+    return session.createdAt <= cutoffs.starting ? 'start-timeout' : null
+  }
+  if (session.createdAt <= cutoffs.started) return 'lifetime'
+  if (session.lastUsedAt <= cutoffs.idle) return 'idle'
+  return null
+}
+
+function isLiveSession(session: TestSession, cutoffs: TestSessionCutoffs): boolean {
+  return isUnfinishedSession(session) && sessionExpiry(session, cutoffs) === null
 }
 
 export const TEST_USER_ID = 'test-user-1'
@@ -398,6 +431,107 @@ const mockDb: DatabaseAdapter = {
     return store.files.delete(key)
   },
 
+  // Test sessions — the caps the real adapter enforces inside its INSERT are
+  // applied here in the same order, so route tests see the same refusals.
+  async reserveTestSession(data, limits) {
+    const unfinished = [...store.testSessions.values()].filter(isUnfinishedSession)
+    const held = unfinished.filter((s) => s.userId === data.userId)
+    if (held.length >= limits.maxConcurrentPerUser) return null
+    const inProject = [...store.testSessions.values()].filter(
+      (s) => sessionProject(s) === limits.projectId && s.createdAt >= limits.quotaWindowStart,
+    )
+    if (inProject.length >= limits.maxPerWindowPerProject) return null
+
+    // What the partial unique index enforces: one unfinished row per
+    // (user, slot). Without it a route test can never reach the race path.
+    const slot = Math.max(-1, ...held.map((s) => s.slot)) + 1
+    if (held.some((s) => s.slot === slot)) return null
+
+    const session: TestSession = {
+      id: data.id,
+      workflowId: data.workflowId,
+      slot,
+      versionId: data.versionId ?? null,
+      userId: data.userId,
+      runtime: data.runtime,
+      containerId: data.containerId,
+      processId: null,
+      port: null,
+      status: 'starting',
+      error: null,
+      createdAt: now(),
+      lastUsedAt: now(),
+      stoppedAt: null,
+    }
+    store.testSessions.set(session.id, session)
+    return session
+  },
+  async activateTestSession(id, userId, processId, port, cutoffs) {
+    const session = store.testSessions.get(id)
+    if (!session || session.userId !== userId) return null
+    if (session.status !== 'starting' || session.createdAt <= cutoffs.starting) return null
+    const activated: TestSession = {
+      ...session,
+      processId,
+      port,
+      status: 'running',
+      lastUsedAt: now(),
+    }
+    store.testSessions.set(id, activated)
+    return activated
+  },
+  async getOwnedTestSession(id, userId, projectId, cutoffs) {
+    const session = store.testSessions.get(id)
+    if (!session || session.userId !== userId) return null
+    const workflow = session.workflowId ? store.workflows.get(session.workflowId) : undefined
+    if (!workflow || workflow.projectId !== projectId) return null
+    return { session, workflow, expiry: sessionExpiry(session, cutoffs) }
+  },
+  async getLiveTestSessionForWorkflow(workflowId, userId, cutoffs) {
+    return (
+      [...store.testSessions.values()]
+        .filter(
+          (s) => s.workflowId === workflowId && s.userId === userId && isLiveSession(s, cutoffs),
+        )
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
+    )
+  },
+  async getTestSessionUsage(projectId, userId, quotaWindowStart) {
+    const sessions = [...store.testSessions.values()]
+    return {
+      activeForUser: sessions.filter((s) => s.userId === userId && isUnfinishedSession(s)).length,
+      createdInWindow: sessions.filter(
+        (s) => sessionProject(s) === projectId && s.createdAt >= quotaWindowStart,
+      ).length,
+    }
+  },
+  async touchTestSession(id, userId, cutoffs) {
+    const session = store.testSessions.get(id)
+    if (!session || session.userId !== userId) return false
+    if (session.status !== 'running' || !isLiveSession(session, cutoffs)) return false
+    store.testSessions.set(id, { ...session, lastUsedAt: now() })
+    return true
+  },
+  async markTestSessionStopped(id, status, options) {
+    const session = store.testSessions.get(id)
+    if (!session || (session.status !== 'running' && session.status !== 'starting')) return false
+    if (options?.userId && session.userId !== options.userId) return false
+    store.testSessions.set(id, {
+      ...session,
+      status,
+      error: options?.error ?? null,
+      stoppedAt: now(),
+    })
+    return true
+  },
+  async listExpiredTestSessions(cutoffs, limit) {
+    return [...store.testSessions.values()]
+      .filter((s) => isUnfinishedSession(s) && sessionExpiry(s, cutoffs) !== null)
+      .sort((a, b) => a.lastUsedAt.localeCompare(b.lastUsedAt))
+      .slice(0, limit)
+      .map((session) => ({ session, expiry: sessionExpiry(session, cutoffs) }))
+  },
+
   // Deployment configs (one per workflow + connection)
   async getDeploymentConfig(workflowId, connectionId) {
     return store.deploymentConfigs.get(`${workflowId}|${connectionId}`) ?? null
@@ -412,9 +546,8 @@ const mockDb: DatabaseAdapter = {
       provider: data.provider,
       config: data.config,
       updatedBy: data.updatedBy ?? null,
-      createdAt: existing?.createdAt ?? now(),
       updatedAt: now(),
-    } as DeploymentConfig
+    } satisfies DeploymentConfig
     store.deploymentConfigs.set(key, row)
     return row
   },
@@ -429,8 +562,11 @@ const mockDb: DatabaseAdapter = {
   async createDeployment(data) {
     const d: Deployment = {
       ...data,
+      versionId: data.versionId ?? null,
+      connectionId: data.connectionId ?? null,
       serviceUrl: data.serviceUrl ?? null,
       error: data.error ?? null,
+      configSnapshot: data.configSnapshot ?? null,
       createdAt: now(),
     }
     store.deployments.set(d.id, d)
@@ -444,12 +580,17 @@ const mockDb: DatabaseAdapter = {
     )
   },
   async isActiveDeploymentLocked(workflowId) {
-    const deployment = [...store.deployments.values()].find(
-      (d) => d.workflowId === workflowId && d.status === 'success',
-    )
-    if (!deployment) return false
-    const version = store.versions.get(deployment.versionId)
-    return version?.locked === 1
+    // Mirrors the real query: inner join on the version (a deployment whose
+    // version is gone drops out), newest first, and the later-inserted row
+    // wins a tie in createdAt — picking the first match answered for the
+    // oldest deployment instead.
+    const candidate = [...store.deployments.values()]
+      .filter((d) => d.workflowId === workflowId && d.status === 'success')
+      .filter((d) => d.versionId !== null && store.versions.has(d.versionId))
+      .reverse()
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
+    if (!candidate?.versionId) return false
+    return store.versions.get(candidate.versionId)?.locked === 1
   },
   async listDeploymentsByWorkflow(workflowId) {
     return {
@@ -590,6 +731,17 @@ const mockAuth = {
     }),
   },
 } as unknown as Auth
+
+/**
+ * Fixture escape hatch: a workflow's `kind` is fixed at creation and cannot be
+ * changed through the adapter's update path, so tests that need an existing
+ * fixture to be a script set it here.
+ */
+export function setWorkflowKind(id: string, kind: 'workflow' | 'script') {
+  const workflow = store.workflows.get(id)
+  if (!workflow) throw new Error(`No workflow ${id} in the test store`)
+  store.workflows.set(id, { ...workflow, kind })
+}
 
 export { mockDb, mockAuth }
 
