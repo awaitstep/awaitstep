@@ -12,6 +12,7 @@ import {
   projectHandlerModules,
 } from '@awaitstep/ir'
 import type { AppEnv } from '../types.js'
+import { stopWorkflowTestSessions } from '../lib/test-sessions.js'
 
 const createSchema = z.object({
   name: z.string().min(1).max(255),
@@ -250,6 +251,21 @@ workflows.patch(
 
 workflows.delete('/:id', async (c) => {
   const db = c.get('db')
-  await db.deleteWorkflow(c.req.param('id'))
+  const workflowId = c.req.param('id')
+
+  // Every session for this workflow, not just the caller's: a colleague's
+  // container would otherwise keep running with no route left to stop it —
+  // their session answers 404 once the workflow is gone, while still
+  // holding their concurrency slot.
+  const runner = c.get('testSessionRunner')
+  if (runner) {
+    await stopWorkflowTestSessions(
+      { db, runner, limits: c.get('testSessionLimits') },
+      workflowId,
+      'Workflow deleted',
+    )
+  }
+
+  await db.deleteWorkflow(workflowId)
   return c.json({ ok: true })
 })

@@ -11,9 +11,12 @@ import type { Logger } from './lib/logger.js'
 import type { AppNodeRegistry } from './lib/node-registry.js'
 import type { RemoteNodeRegistry } from './lib/remote-node-registry.js'
 import type { WranglerDeployer } from '@awaitstep/provider-cloudflare'
+import type { TestSessionRunner } from '@awaitstep/codegen'
+import type { TestSessionLimits } from './lib/test-session-policy.js'
 import { createLogger } from './lib/logger.js'
 import { createRouter } from './routes/index.js'
 import { createRateLimiter } from './middleware/rate-limit.js'
+import { resolveTestSessionLimits } from './lib/test-session-policy.js'
 
 export interface AppDeps {
   db: AppEnv['Variables']['db']
@@ -27,10 +30,20 @@ export interface AppDeps {
   remoteNodeRegistry?: RemoteNodeRegistry
   appName?: string
   deployer?: WranglerDeployer
+  /**
+   * Runs workflows before they are deployed. Absent — the kill switch, or a
+   * deployment with no container available — and the test-session routes
+   * answer 501 rather than disappearing, so a client is told why.
+   */
+  testSessionRunner?: TestSessionRunner
+  testSessionLimits?: Partial<Record<keyof TestSessionLimits, number | undefined>>
 }
 
 export function createApp(deps: AppDeps) {
   const log = deps.logger ?? createLogger('app')
+  // Resolved once: the overrides come from the environment, and clamping
+  // them on every request would be work with one answer.
+  const resolvedTestSessionLimits = resolveTestSessionLimits(deps.testSessionLimits)
   const app = new Hono<AppEnv>()
 
   // Request ID — unique ID for every request, returned in X-Request-Id header
@@ -101,11 +114,18 @@ export function createApp(deps: AppDeps) {
     if (deps.remoteNodeRegistry) c.set('remoteNodeRegistry', deps.remoteNodeRegistry)
     if (deps.appName) c.set('appName', deps.appName)
     if (deps.deployer) c.set('deployer', deps.deployer)
+    if (deps.testSessionRunner) c.set('testSessionRunner', deps.testSessionRunner)
+    c.set('testSessionLimits', resolvedTestSessionLimits)
     await next()
   })
 
   // Routes (auth + ownership middleware registered inside)
-  app.route('/api', createRouter(deps.auth, { enableLocalDev: deps.enableLocalDev }))
+  app.route(
+    '/api',
+    createRouter(deps.auth, {
+      ...(deps.enableLocalDev !== undefined && { enableLocalDev: deps.enableLocalDev }),
+    }),
+  )
 
   // Error handler
   app.onError((err, c) => {

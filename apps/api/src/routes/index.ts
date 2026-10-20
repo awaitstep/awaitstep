@@ -20,6 +20,7 @@ import { projects } from './projects.js'
 import { nodes } from './nodes.js'
 import { marketplace } from './marketplace.js'
 import { localDev } from './local-dev.js'
+import { testSessions, workflowTestSessions } from './test-sessions.js'
 
 export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean }) {
   const router = new Hono<AppEnv>()
@@ -47,6 +48,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.use('/workflows', requireProject)
   router.use('/deployments', requireProject)
   router.use('/runs', requireProject)
+  router.use('/test-sessions/*', requireProject)
 
   // Ownership — workflow routes
   router.use('/workflows/:id', requireWorkflowAccess)
@@ -67,6 +69,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.use('/workflows/:workflowId/runs', requireWorkflowAccess)
   router.use('/workflows/:workflowId/runs/*', requireWorkflowAccess)
   router.use('/workflows/:workflowId/deployments', requireWorkflowAccess)
+  router.use('/workflows/:workflowId/test-sessions', requireWorkflowAccess)
 
   // Ownership — connection routes (skip non-ID sub-routes)
   router.use('/connections/:id', async (c, next) => {
@@ -90,6 +93,9 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.use('/workflows/:workflowId/deploy', deployLimit)
   router.use('/workflows/:workflowId/deploy-stream', deployLimit)
   router.use('/workflows/:workflowId/trigger', writeLimit)
+  // Starting a session is the expensive verb; reading one is a poll, and
+  // sharing the deploy limiter let polling spend the budget for deploys.
+  router.post('/workflows/:workflowId/test-sessions', deployLimit)
   router.use('/workflows/:workflowId/takedown', writeLimit)
   router.post('/api-keys', apiKeyCreateLimit)
   router.post('/marketplace/install', marketplaceLimit)
@@ -110,6 +116,9 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.put('/workflows/:workflowId/files/*', requireScope('write'))
   router.delete('/workflows/:workflowId/files/*', requireScope('write'))
   router.post('/workflows/:workflowId/project/convert-handlers', requireScope('write'))
+  router.post('/workflows/:workflowId/test-sessions', requireScope('write'))
+  router.post('/test-sessions/:sessionId/trigger', requireScope('write'))
+  router.delete('/test-sessions/:sessionId', requireScope('write'))
   router.post('/workflows', requireScope('write'))
   router.patch('/workflows/:id', requireScope('write'))
   router.patch('/workflows/:id/move', requireScope('write'))
@@ -161,6 +170,8 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.route('/workflows', projectFiles)
   router.route('/workflows', deploy)
   router.route('/workflows', runs)
+  router.route('/workflows', workflowTestSessions)
+  router.route('/', testSessions)
   router.route('/connections', createConnectionRoutes())
   router.route('/api-keys', apiKeys)
   router.route('/env-vars', envVars)

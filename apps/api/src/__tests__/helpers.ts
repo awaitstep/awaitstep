@@ -15,6 +15,13 @@ import type {
   Project,
   InstalledNode,
 } from '@awaitstep/db'
+import type {
+  GeneratedBundle,
+  ProcessLogEntry,
+  StartedTestSessionHandle,
+  TestSessionRunner,
+  TestSessionTarget,
+} from '@awaitstep/codegen'
 import { createApp, type AppDeps } from '../app.js'
 import type { Auth } from '../auth/config.js'
 
@@ -437,6 +444,7 @@ const mockDb: DatabaseAdapter = {
     const unfinished = [...store.testSessions.values()].filter(isUnfinishedSession)
     const held = unfinished.filter((s) => s.userId === data.userId)
     if (held.length >= limits.maxConcurrentPerUser) return null
+    if (unfinished.length >= limits.maxConcurrentTotal) return null
     const inProject = [...store.testSessions.values()].filter(
       (s) => sessionProject(s) === limits.projectId && s.createdAt >= limits.quotaWindowStart,
     )
@@ -500,6 +508,7 @@ const mockDb: DatabaseAdapter = {
     const sessions = [...store.testSessions.values()]
     return {
       activeForUser: sessions.filter((s) => s.userId === userId && isUnfinishedSession(s)).length,
+      activeEverywhere: sessions.filter(isUnfinishedSession).length,
       createdInWindow: sessions.filter(
         (s) => sessionProject(s) === projectId && s.createdAt >= quotaWindowStart,
       ).length,
@@ -524,12 +533,33 @@ const mockDb: DatabaseAdapter = {
     })
     return true
   },
-  async listExpiredTestSessions(cutoffs, limit) {
+  async listExpiredTestSessions(cutoffs, limit, userId) {
     return [...store.testSessions.values()]
       .filter((s) => isUnfinishedSession(s) && sessionExpiry(s, cutoffs) !== null)
+      .filter((s) => userId === undefined || s.userId === userId)
       .sort((a, b) => a.lastUsedAt.localeCompare(b.lastUsedAt))
       .slice(0, limit)
       .map((session) => ({ session, expiry: sessionExpiry(session, cutoffs) }))
+  },
+
+  async listUnfinishedTestSessionsForWorkflow(workflowId) {
+    return [...store.testSessions.values()]
+      .filter((s) => s.workflowId === workflowId && isUnfinishedSession(s))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+  },
+  async markTestSessionRuntimeAbandoned(runtime, error) {
+    const abandoned = [...store.testSessions.values()].filter(
+      (s) => s.runtime === runtime && isUnfinishedSession(s),
+    )
+    for (const session of abandoned) {
+      store.testSessions.set(session.id, {
+        ...session,
+        status: 'failed',
+        error,
+        stoppedAt: now(),
+      })
+    }
+    return abandoned
   },
 
   // Deployment configs (one per workflow + connection)
@@ -745,7 +775,53 @@ export function setWorkflowKind(id: string, kind: 'workflow' | 'script') {
 
 export { mockDb, mockAuth }
 
-export function createTestApp(options?: { remoteNodeRegistry?: AppDeps['remoteNodeRegistry'] }) {
+/**
+ * A runner that records what it was asked to do. Every lifecycle decision —
+ * what gets started, what gets stopped, in which order — is visible here, so
+ * the route tests assert on the protocol rather than on a container.
+ */
+export class FakeTestSessionRunner implements TestSessionRunner {
+  readonly runtime = 'node' as const
+  started: string[] = []
+  stopped: string[] = []
+  triggers: { sessionId: string; payload: unknown }[] = []
+  failStart: string | null = null
+  logs_: ProcessLogEntry[] = []
+
+  containerId(sessionId: string) {
+    return `fake-${sessionId}`
+  }
+
+  async start(_bundle: GeneratedBundle, target: TestSessionTarget) {
+    if (this.failStart) throw new Error(this.failStart)
+    this.started.push(target.sessionId)
+    return { processId: `pid-${target.sessionId}`, port: 8800 }
+  }
+
+  async trigger(handle: StartedTestSessionHandle, payload: unknown) {
+    this.triggers.push({ sessionId: handle.sessionId, payload })
+    return { status: 200, body: { instanceId: 'inst-1' } }
+  }
+
+  async instanceStatus() {
+    return { status: 200, body: { status: 'complete' } }
+  }
+
+  async logs(_handle: StartedTestSessionHandle, after?: string) {
+    const seen = Number(after ?? 0)
+    return { entries: this.logs_.slice(seen), cursor: String(this.logs_.length) }
+  }
+
+  async stop(handle: { sessionId: string }) {
+    this.stopped.push(handle.sessionId)
+  }
+}
+
+export function createTestApp(options?: {
+  remoteNodeRegistry?: AppDeps['remoteNodeRegistry']
+  testSessionRunner?: AppDeps['testSessionRunner']
+  testSessionLimits?: AppDeps['testSessionLimits']
+}) {
   // Seed the test project so auth middleware can find it
   store.projects.set(TEST_PROJECT_ID, {
     id: TEST_PROJECT_ID,
@@ -763,5 +839,7 @@ export function createTestApp(options?: { remoteNodeRegistry?: AppDeps['remoteNo
     corsOrigin: '*',
     isDev: true,
     remoteNodeRegistry: options?.remoteNodeRegistry,
+    testSessionRunner: options?.testSessionRunner,
+    testSessionLimits: options?.testSessionLimits,
   })
 }

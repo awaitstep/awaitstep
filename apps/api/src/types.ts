@@ -1,5 +1,7 @@
 import type { DatabaseAdapter, Workflow, Connection } from '@awaitstep/db'
 import type { WranglerDeployer } from '@awaitstep/provider-cloudflare'
+import type { TestSessionRunner } from '@awaitstep/codegen'
+import type { TestSessionLimits } from './lib/test-session-policy.js'
 import type { ApiKeyScope } from './middleware/auth.js'
 import type { AppNodeRegistry } from './lib/node-registry.js'
 import type { RemoteNodeRegistry } from './lib/remote-node-registry.js'
@@ -20,5 +22,7 @@ export interface AppEnv {
     remoteNodeRegistry: RemoteNodeRegistry | undefined
     appName: string | undefined
     deployer: WranglerDeployer | undefined
+    testSessionRunner: TestSessionRunner | undefined
+    testSessionLimits: TestSessionLimits
   }
 }
