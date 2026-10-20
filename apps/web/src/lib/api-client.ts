@@ -1,4 +1,10 @@
-import type { GeneratedFile, SourceMode, StepManifest } from '@awaitstep/codegen'
+import type {
+  GeneratedFile,
+  SourceMode,
+  StepManifest,
+  TestSessionResponse,
+  TestSessionRuntime,
+} from '@awaitstep/codegen'
 import { useOrgStore } from '../stores/org-store'
 
 const API_BASE = '/api'
@@ -168,6 +174,27 @@ export interface SourceDiagnostic {
   nodeId?: string
   path?: string
 }
+
+/** A disposable worker running this workflow before it is deployed. */
+export interface TestSession {
+  id: string
+  workflowId: string | null
+  versionId: string | null
+  runtime: TestSessionRuntime
+  status: 'starting' | 'running' | 'stopped' | 'failed'
+  error: string | null
+  createdAt: string
+  lastUsedAt: string
+}
+
+export interface StartTestSessionResponse {
+  session: TestSession
+  /** True when this is the session the user already had. */
+  reused: boolean
+}
+
+/** The worker's own response, not the API's. */
+export type TestSessionTriggerResponse = TestSessionResponse
 
 export interface WorkflowSource {
   versionId: string
@@ -375,6 +402,42 @@ export const api = {
   getWorkflowFull(id: string, versionId?: string): Promise<WorkflowFull> {
     const params = versionId ? `?version=${versionId}` : ''
     return request(withProject(`/workflows/${id}/full${params}`))
+  },
+
+  // ── Test sessions ──
+  //
+  // A session is personal: another member's is indistinguishable from one
+  // that does not exist, so a 404 here needs no special handling.
+
+  getTestSession(workflowId: string): Promise<{ session: TestSession | null }> {
+    return request(withProject(`/workflows/${workflowId}/test-sessions`))
+  },
+
+  /** Starts one, or returns the session this user already has. */
+  startTestSession(workflowId: string): Promise<StartTestSessionResponse> {
+    return request(withProject(`/workflows/${workflowId}/test-sessions`), { method: 'POST' })
+  },
+
+  /**
+   * Invokes the session's worker. Takes a timeout because the thing being
+   * called is the user's own half-written code: a handler that never returns
+   * would otherwise leave the UI waiting with no way to stop it.
+   */
+  triggerTestSession(
+    sessionId: string,
+    payload: unknown,
+    options?: { timeoutMs?: number },
+  ): Promise<TestSessionTriggerResponse> {
+    return request(withProject(`/test-sessions/${sessionId}/trigger`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payload }),
+      ...(options?.timeoutMs !== undefined && { signal: AbortSignal.timeout(options.timeoutMs) }),
+    })
+  },
+
+  stopTestSession(sessionId: string): Promise<{ status: string }> {
+    return request(withProject(`/test-sessions/${sessionId}`), { method: 'DELETE' })
   },
 
   getWorkflowSource(id: string, versionId?: string): Promise<WorkflowSource> {
