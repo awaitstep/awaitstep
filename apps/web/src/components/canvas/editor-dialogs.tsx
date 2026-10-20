@@ -1,4 +1,6 @@
 import { ConfirmDialog } from '../ui/confirm-dialog'
+import { UnsavedChangesDialog } from '../workflows/unsaved-changes-dialog'
+import type { WorkspaceSurface } from '../../lib/workflows/surfaces'
 
 export interface EditorDialogsProps {
   confirmAction: 'switch-template' | null
@@ -7,6 +9,12 @@ export interface EditorDialogsProps {
   blockerStatus: 'blocked' | 'idle'
   onBlockerProceed: (() => void) | undefined
   onBlockerReset: (() => void) | undefined
+  /** Set when the blocked navigation is the move to the code workspace. */
+  switchTarget: WorkspaceSurface | null
+  /** This version accepts a save (an older version does not). */
+  canSave: boolean
+  onSaveAndSwitch: () => void
+  isSaving: boolean
 }
 
 export function EditorDialogs({
@@ -16,6 +24,10 @@ export function EditorDialogs({
   blockerStatus,
   onBlockerProceed,
   onBlockerReset,
+  switchTarget,
+  canSave,
+  onSaveAndSwitch,
+  isSaving,
 }: EditorDialogsProps) {
   function handleSwitchTemplateOpenChange(open: boolean) {
     if (!open) setConfirmAction(null)
@@ -26,11 +38,11 @@ export function EditorDialogs({
     onConfirmSwitchTemplate()
   }
 
-  function handleBlockerOpenChange(open: boolean) {
-    if (!open) onBlockerReset?.()
+  function handleCancel() {
+    onBlockerReset?.()
   }
 
-  function handleBlockerConfirm() {
+  function handleDiscardAndGo() {
     onBlockerProceed?.()
   }
 
@@ -45,14 +57,15 @@ export function EditorDialogs({
         variant="warning"
         onConfirm={handleSwitchTemplateConfirm}
       />
-      <ConfirmDialog
+      <UnsavedChangesDialog
         open={blockerStatus === 'blocked'}
-        onOpenChange={handleBlockerOpenChange}
-        title="Unsaved changes"
-        description="You have unsaved changes that will be lost if you leave this page."
-        confirmLabel="Leave"
-        variant="warning"
-        onConfirm={handleBlockerConfirm}
+        unsaved="The canvas has unsaved changes."
+        switchTarget={switchTarget}
+        canSave={canSave}
+        saving={isSaving}
+        onCancel={handleCancel}
+        onSaveAndGo={onSaveAndSwitch}
+        onDiscardAndGo={handleDiscardAndGo}
       />
     </>
   )

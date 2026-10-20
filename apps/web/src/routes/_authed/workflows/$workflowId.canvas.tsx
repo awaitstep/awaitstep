@@ -24,6 +24,7 @@ import {
   deriveReadOnlyState,
   deriveDeploymentState,
 } from '../../../lib/hydrate-workflow'
+import { surfaceSwitchTarget } from '../../../lib/workflows/surfaces'
 import { useWorkflowPersistence } from '../../../hooks/use-workflow-persistence'
 import { useAutoSave } from '../../../hooks/use-auto-save'
 import { buildIRFromState } from '../../../lib/build-ir'
@@ -106,7 +107,7 @@ function WorkflowEditorPage() {
 
   // Navigation blocker
   const hasUnsavedChanges = isDirty || (isNew && nodeCount > 0)
-  const { proceed, reset, status } = useBlocker({
+  const { proceed, reset, status, next } = useBlocker({
     shouldBlockFn: () => hasUnsavedChanges,
     enableBeforeUnload: () => hasUnsavedChanges,
     withResolver: true,
@@ -168,7 +169,7 @@ function WorkflowEditorPage() {
   }, [workflowId, isNew, kindParam, fullData, setWorkflowId, isReadOnly, currentVersion])
 
   // Persistence (save + deploy)
-  const { handleSave, handleDeploy, saveSilent, isSaving, lastSavedAt, autoSaveError } =
+  const { handleSave, saveNow, handleDeploy, saveSilent, isSaving, lastSavedAt, autoSaveError } =
     useWorkflowPersistence({
       workflowId,
       isNew,
@@ -176,6 +177,27 @@ function WorkflowEditorPage() {
       nodeRegistry,
       kind: kindParam,
     })
+
+  // Moving to the code workspace is a switch, not a departure, and it is
+  // the one blocked navigation worth offering to save for.
+  const switchTarget =
+    status === 'blocked' && next
+      ? surfaceSwitchTarget({ from: 'canvas', workflowId, nextPathname: next.pathname })
+      : null
+
+  function handleSaveAndSwitch() {
+    void saveNow().then((saved) => {
+      // `proceed()` resumes the navigation that was already blocked, which
+      // is the only option that does not re-run shouldBlockFn — that still
+      // closes over the pre-save isDirty, so a fresh navigate() here would
+      // simply be blocked again. The link's own search is what keeps this
+      // landing on the version the save just created.
+      if (saved) proceed?.()
+      // A refused save puts its reasons in the validation panel and on the
+      // node badges — both behind this dialog, so close it and stay.
+      else reset?.()
+    })
+  }
 
   // ⌘↵ saves from anywhere on the canvas, including while typing in a
   // config field (the only shortcut that deliberately fires in inputs).
@@ -278,6 +300,10 @@ function WorkflowEditorPage() {
               blockerStatus={status}
               onBlockerProceed={proceed}
               onBlockerReset={reset}
+              switchTarget={switchTarget}
+              canSave={!isReadOnly}
+              onSaveAndSwitch={handleSaveAndSwitch}
+              isSaving={isSaving}
             />
           </LazyReactFlowProvider>
         </LoadingView>

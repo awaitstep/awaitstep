@@ -94,7 +94,13 @@ export function useWorkflowPersistence(opts: {
     },
   })
 
-  const handleSave = useCallback(() => {
+  /**
+   * Saves and reports whether it worked, for callers that do something next
+   * — switching surface, say. Both failure paths have already told the user
+   * why (the validation panel, or the mutation's error toast), so the
+   * boolean is only about whether to carry on.
+   */
+  const saveNow = useCallback(async (): Promise<boolean> => {
     const state = useWorkflowStore.getState()
     const settings = {
       workflowEnvVars: state.workflowEnvVars,
@@ -115,11 +121,20 @@ export function useWorkflowPersistence(opts: {
       toast.error(
         errorCount === 1 ? 'Fix 1 issue before saving' : `Fix ${errorCount} issues before saving`,
       )
-      return
+      return false
     }
     useWorkflowStore.getState().clearValidation()
-    saveMutation.mutate()
+    try {
+      await saveMutation.mutateAsync()
+      return true
+    } catch {
+      return false
+    }
   }, [saveMutation])
+
+  const handleSave = useCallback(() => {
+    void saveNow()
+  }, [saveNow])
 
   const saveSilent = useCallback(async (): Promise<AutoSaveOutcome> => {
     const state = useWorkflowStore.getState()
@@ -173,6 +188,7 @@ export function useWorkflowPersistence(opts: {
 
   return {
     handleSave,
+    saveNow,
     handleDeploy,
     saveSilent,
     isSaving: saveMutation.isPending || isAutoSaving,
