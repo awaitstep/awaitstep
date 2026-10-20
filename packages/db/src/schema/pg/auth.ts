@@ -70,6 +70,15 @@ export const verification = pgTable(
   (table) => [index('idx_verification_identifier').on(table.identifier)],
 )
 
+export const organization = pgTable('organization', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  slug: text('slug').notNull().unique(),
+  logo: text('logo'),
+  metadata: text('metadata'),
+  createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
+})
+
 export const member = pgTable(
   'member',
   {
@@ -77,7 +86,9 @@ export const member = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
-    organizationId: text('organization_id').notNull(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
     role: text('role').notNull(),
     createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
   },
@@ -85,4 +96,23 @@ export const member = pgTable(
     index('idx_member_user_id').on(table.userId),
     index('idx_member_org_id').on(table.organizationId),
   ],
+)
+
+export const invitation = pgTable(
+  'invitation',
+  {
+    id: text('id').primaryKey(),
+    email: text('email').notNull(),
+    inviterId: text('inviter_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    role: text('role'),
+    status: text('status').notNull(),
+    expiresAt: timestamp('expires_at', { mode: 'string' }).notNull(),
+    createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
+  },
+  (table) => [index('idx_invitation_org_id').on(table.organizationId)],
 )
