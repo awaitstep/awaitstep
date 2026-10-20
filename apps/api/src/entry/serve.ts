@@ -93,6 +93,12 @@ async function start() {
     sendMagicLink = (data) => emailService.sendMagicLink(data)
     logger.info('Email: Resend configured')
   } else {
+    // Left undefined, this unregisters the magic-link plugin entirely and the
+    // sign-in route 404s — so a self-host with no Resend key and no OAuth had
+    // no way in at all, while the log promised the link would be printed.
+    sendMagicLink = async (data) => {
+      logger.warn(`Magic link for ${data.email}: ${data.url}`)
+    }
     logger.warn('RESEND_API_KEY not set — magic link emails will be logged to console')
   }
 
