@@ -2,6 +2,7 @@ import { serve } from '@hono/node-server'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkdirSync } from 'node:fs'
+import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { DrizzleDatabaseAdapter, schema } from '@awaitstep/db'
 import { createApp, createAuth } from '../index.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
@@ -36,7 +37,7 @@ async function initDatabase() {
     const drizzleDb = drizzle(pool, { schema: pgSchema })
     await migrate(drizzleDb, { migrationsFolder: resolve(__appRoot, 'packages/db/drizzle/pg') })
 
-    return { drizzleDb, dbSchema: pgSchema, rawDb: pool }
+    return { drizzleDb, dbSchema: pgSchema, provider: 'pg' as const }
   }
 
   const Database = (await import('better-sqlite3')).default
@@ -54,12 +55,12 @@ async function initDatabase() {
   const drizzleDb = drizzle(sqlite, { schema: sqliteSchema })
   migrate(drizzleDb, { migrationsFolder: resolve(__appRoot, 'packages/db/drizzle/sqlite') })
 
-  return { drizzleDb, dbSchema: sqliteSchema, rawDb: sqlite }
+  return { drizzleDb, dbSchema: sqliteSchema, provider: 'sqlite' as const }
 }
 
 async function start() {
   const logger = createLogger('app')
-  const { drizzleDb, dbSchema, rawDb } = await initDatabase()
+  const { drizzleDb, dbSchema, provider } = await initDatabase()
   logger.info(`Database: ${process.env['DATABASE_URL'] ? 'postgres' : 'sqlite'}`)
 
   const tokenEncryptionKey = process.env['TOKEN_ENCRYPTION_KEY']
@@ -98,7 +99,14 @@ async function start() {
   const auth = createAuth({
     baseURL,
     secret: authSecret,
-    database: rawDb,
+    // Through drizzle, not the raw handle. Better-auth's own dialects map a
+    // field to a column of the same name, and the postgres schema names
+    // columns `email_verified`, `expires_at`, `user_id` — so every insert it
+    // owns failed and nobody could sign in. SQLite only escaped that because
+    // its schema happens to name columns `emailVerified`. The drizzle
+    // adapter reads the mapping off the schema, so both dialects work and
+    // this matches what the Workers entry already does.
+    database: drizzleAdapter(drizzleDb, { provider, schema: dbSchema }),
     trustedOrigins: [baseURL],
     sendMagicLink,
     github: process.env['GITHUB_CLIENT_ID']
