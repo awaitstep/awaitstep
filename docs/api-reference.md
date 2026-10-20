@@ -1092,6 +1092,89 @@ Get a single node definition.
 
 ---
 
+## Test Sessions
+
+Run a workflow before deploying it. A session is a disposable worker —
+a container in the cloud, a child process when self-hosting — running
+`wrangler dev` over the same bundle a deploy would ship. Nothing is deployed
+and no provider credentials are involved.
+
+Sessions are **personal and billed**, so every endpoint is scoped to the user
+who started one: another member of the same project gets `404`, the same as
+for a session that does not exist. They are also **time-boxed** — an idle
+window, a hard lifetime, and a cap on how many a user may hold at once — and
+a request that arrives after a cut-off stops the session rather than serving
+it, answering `410`.
+
+Test runs are never recorded as workflow runs: they have no deployment and
+must not appear in run history or per-step telemetry.
+
+When a deployment cannot run sessions at all, every endpoint answers `501`;
+when an operator has switched them off, a start answers `503`. Both say so
+rather than pretending the route does not exist.
+
+### `POST /workflows/:workflowId/test-sessions`
+
+Starts a session, or returns the one this user already has for the workflow
+(`reused: true`, status `200`) — a second click asks for the session you have,
+not an error about it.
+
+**Scope:** `write`
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
+
+Returns `201` with `{ session, reused: false }`. A session reports its `id`,
+`workflowId`, `versionId`, `runtime`, `status`, `error` and clocks; the
+container and process behind it are not part of the response.
+
+Refusals: `400` no version to run, `429` the user's concurrency cap or the
+project's quota, `502` the worker could not start (the message carries the
+worker's own output), `504` the start took longer than the start timeout.
+
+### `GET /workflows/:workflowId/test-sessions`
+
+The live session for this user and workflow, or `{ session: null }`.
+
+**Scope:** `read`
+
+### `POST /test-sessions/:sessionId/trigger`
+
+Invokes the session's `fetch` handler, the way a deployed worker would be
+invoked. Body: `{ "payload": { ... } }`, under 100 KB. Returns the worker's
+own `{ status, body }`.
+
+**Scope:** `write`
+
+### `GET /test-sessions/:sessionId/stream`
+
+Server-sent events for one session. `logs` carries `{ entries, cursor }`;
+pass the cursor back as `after` to continue where you left off — it is opaque
+and must not be parsed. `instance` carries the status of the run named by
+`instanceId`, when given, and is sent only when it changes. `closed` ends the
+stream, either because the session stopped or because the stream reached its
+own five-minute limit and the client should reconnect.
+
+Holding the stream open counts as using the session, so a run is never reaped
+mid-flight.
+
+**Scope:** `read`
+
+| Param        | In    | Required | Description                       |
+| ------------ | ----- | -------- | --------------------------------- |
+| `sessionId`  | path  | yes      | Session ID                        |
+| `after`      | query | no       | Cursor from the last `logs` event |
+| `instanceId` | query | no       | Also stream this run's status     |
+
+### `DELETE /test-sessions/:sessionId`
+
+Stops the worker and closes the session. Stopping one that has already
+stopped is not an error — the container may still exist even when the record
+says otherwise.
+
+**Scope:** `write`
+
 ## Marketplace
 
 ### `GET /marketplace`
