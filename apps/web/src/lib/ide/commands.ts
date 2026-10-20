@@ -27,6 +27,7 @@ export interface IdeCommandActions {
   copyActivePath: () => void
   toggleExplorer: () => void
   toggleDock: () => void
+  togglePreview: () => void
   showProblems: () => void
   showOutput: () => void
   showRun: () => void
@@ -48,6 +49,7 @@ export interface IdeCommandContext {
   canEdit: boolean
   explorerOpen: boolean
   dockOpen: boolean
+  previewOpen: boolean
   actions: IdeCommandActions
 }
 
@@ -161,6 +163,14 @@ export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
       shortcut: 'toggleDock',
       enabled: true,
       run: actions.toggleDock,
+    },
+    {
+      id: 'view.canvasPreview',
+      label: ctx.previewOpen ? 'Hide Canvas Preview' : 'Show Canvas Preview',
+      group: 'view',
+      shortcut: 'togglePreview',
+      enabled: true,
+      run: actions.togglePreview,
     },
     {
       id: 'view.problems',

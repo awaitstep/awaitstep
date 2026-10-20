@@ -18,13 +18,18 @@ export type IdeShortcutId =
   | 'commandPalette'
   | 'toggleExplorer'
   | 'toggleDock'
+  | 'togglePreview'
   | 'nextTab'
   | 'prevTab'
   | 'closeTab'
 
 /**
- * Workspace key bindings. Combos the browser owns outright (⌘W, Ctrl+Tab)
- * are avoided; tab cycling mirrors VS Code's ⇧⌘] / ⇧⌘[.
+ * Workspace key bindings. Combos the browser or the platform owns outright
+ * are avoided: ⌘W and Ctrl+Tab, but also Ctrl+Shift+V, which is paste as
+ * plain text on Windows and Linux — this listener runs in the capture phase,
+ * so binding it there would have stopped paste working anywhere in the IDE.
+ * Tab cycling mirrors VS Code's ⇧⌘] / ⇧⌘[, and the preview takes VS Code's
+ * secondary-side-bar chord, a sibling of ⌘B for the explorer.
  */
 export const IDE_SHORTCUTS: Readonly<Record<IdeShortcutId, ShortcutKeys>> = {
   save: { key: 's', mod: true },
@@ -32,6 +37,7 @@ export const IDE_SHORTCUTS: Readonly<Record<IdeShortcutId, ShortcutKeys>> = {
   commandPalette: { key: 'p', mod: true, shift: true },
   toggleExplorer: { key: 'b', mod: true },
   toggleDock: { key: 'j', mod: true },
+  togglePreview: { code: 'KeyB', mod: true, alt: true },
   nextTab: { code: 'BracketRight', mod: true, shift: true },
   prevTab: { code: 'BracketLeft', mod: true, shift: true },
   closeTab: { code: 'KeyW', mod: true, alt: true },

@@ -70,3 +70,19 @@ export function buildContainerEdgeColors(nodes: FlowNode[], edges: Edge[]): Map<
 
   return colors
 }
+
+/**
+ * The same edges with container colors applied, for surfaces that only draw
+ * the graph and have no hover or selection to merge in.
+ *
+ * Returns the original array when there is nothing to color, so a preview
+ * re-renders no edges for a graph without containers.
+ */
+export function withContainerEdgeColors(nodes: FlowNode[], edges: Edge[]): Edge[] {
+  const colors = buildContainerEdgeColors(nodes, edges)
+  if (colors.size === 0) return edges
+  return edges.map((edge) => {
+    const containerColor = colors.get(edge.id)
+    return containerColor ? { ...edge, data: { ...edge.data, containerColor } } : edge
+  })
+}

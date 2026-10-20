@@ -34,6 +34,44 @@ describe('matchShortcut', () => {
     ).toBe('commandPalette')
   })
 
+  it('matches the canvas preview on the physical key, since Option rewrites the glyph', () => {
+    expect(matchShortcut(key({ key: '∫', code: 'KeyB', metaKey: true, altKey: true }), true)).toBe(
+      'togglePreview',
+    )
+    expect(matchShortcut(key({ key: 'b', code: 'KeyB', ctrlKey: true, altKey: true }), false)).toBe(
+      'togglePreview',
+    )
+  })
+
+  it('leaves both kinds of paste alone', () => {
+    // Ctrl+Shift+V is paste-as-plain-text on Windows and Linux. The listener
+    // captures and preventDefaults, so binding it would have stopped paste
+    // working anywhere in the workspace, Monaco included.
+    expect(
+      matchShortcut(key({ key: 'V', code: 'KeyV', ctrlKey: true, shiftKey: true }), false),
+    ).toBeNull()
+    expect(
+      matchShortcut(key({ key: 'V', code: 'KeyV', metaKey: true, shiftKey: true }), true),
+    ).toBeNull()
+    expect(matchShortcut(key({ key: 'v', code: 'KeyV', metaKey: true }), true)).toBeNull()
+  })
+
+  it('keeps the explorer toggle distinct from the preview toggle', () => {
+    // Same physical key, told apart by Alt — so a missing Alt must not fall
+    // through to the preview, nor a present one to the explorer.
+    expect(matchShortcut(key({ key: 'b', code: 'KeyB', metaKey: true }), true)).toBe(
+      'toggleExplorer',
+    )
+    expect(matchShortcut(key({ key: 'b', code: 'KeyB', metaKey: true, altKey: true }), true)).toBe(
+      'togglePreview',
+    )
+  })
+
+  it('gives every binding a distinct chord', () => {
+    const chords = Object.values(IDE_SHORTCUTS).map((keys) => formatShortcut(keys, true))
+    expect(new Set(chords).size).toBe(chords.length)
+  })
+
   it('matches tab cycling on physical codes even though Shift changes the key', () => {
     expect(
       matchShortcut(key({ key: '}', code: 'BracketRight', metaKey: true, shiftKey: true }), true),

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { Link, useBlocker, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Group, Panel, Separator } from 'react-resizable-panels'
@@ -18,6 +18,7 @@ import {
   type SourceFile,
 } from '../../lib/api-client'
 import { queries } from '../../lib/queries'
+import { surfaceSwitchTarget } from '../../lib/workflows/surfaces'
 import { copyToClipboard } from '../../lib/utils'
 import { useIdeShortcuts } from '../../hooks/use-ide-shortcuts'
 import { useProjectFiles } from '../../hooks/use-project-files'
@@ -27,6 +28,7 @@ import { useIdeStore } from '../../stores/ide-store'
 import { clearWorkflowHistory, useWorkflowStore } from '../../stores/workflow-store'
 import { Button } from '../ui/button'
 import { ConfirmDialog } from '../ui/confirm-dialog'
+import { UnsavedChangesDialog } from '../workflows/unsaved-changes-dialog'
 import { BottomDock } from './bottom-dock'
 import { useTestSession } from '../../hooks/use-test-session'
 import { CommandPalette } from './command-palette'
@@ -42,6 +44,16 @@ interface IdeWorkspaceProps {
   versionParam?: string
   fileParam?: string
 }
+
+// React Flow and every node component would otherwise load on each visit to
+// the code workspace, preview open or not.
+const LazyCanvasPreview = lazy(() =>
+  import('./canvas-preview').then((m) => ({ default: m.CanvasPreview })),
+)
+
+/** The drawer's frame is layout, so the workspace owns it, not the panel. */
+const PREVIEW_FRAME =
+  'absolute inset-y-0 right-0 z-20 flex w-[30%] min-w-[20rem] max-w-full flex-col overflow-hidden border-l border-border bg-card shadow-2xl'
 
 const EMPTY_FILES: ReadonlyMap<string, SourceFile> = new Map()
 
@@ -116,17 +128,27 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       closeDialog: s.closeDialog,
     })),
   )
-  const { explorerOpen, dockOpen, toggleExplorer, toggleDock, showDock, setLayout } =
-    useIdeLayoutStore(
-      useShallow((s) => ({
-        explorerOpen: s.explorerOpen,
-        dockOpen: s.dockOpen,
-        toggleExplorer: s.toggleExplorer,
-        toggleDock: s.toggleDock,
-        showDock: s.showDock,
-        setLayout: s.setLayout,
-      })),
-    )
+  const {
+    explorerOpen,
+    dockOpen,
+    previewOpen,
+    toggleExplorer,
+    toggleDock,
+    togglePreview,
+    showDock,
+    setLayout,
+  } = useIdeLayoutStore(
+    useShallow((s) => ({
+      explorerOpen: s.explorerOpen,
+      dockOpen: s.dockOpen,
+      previewOpen: s.previewOpen,
+      toggleExplorer: s.toggleExplorer,
+      toggleDock: s.toggleDock,
+      togglePreview: s.togglePreview,
+      showDock: s.showDock,
+      setLayout: s.setLayout,
+    })),
+  )
   // Panel groups read their default layout once at mount; later drags flow
   // back through setLayout, so subscribing would only cause re-renders.
   const [initialLayouts] = useState(() => useIdeLayoutStore.getState().layouts)
@@ -311,6 +333,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       },
       toggleExplorer,
       toggleDock,
+      togglePreview,
       showProblems: () => showDock('problems'),
       showOutput: () => showDock('output'),
       showRun: () => showDock('run'),
@@ -328,6 +351,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       clearDrafts,
       toggleExplorer,
       toggleDock,
+      togglePreview,
       showDock,
       showDialog,
     ],
@@ -339,6 +363,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     commandPalette: () => showDialog('palette'),
     toggleExplorer,
     toggleDock,
+    togglePreview,
     nextTab: () => cycleFile(1),
     prevTab: () => cycleFile(-1),
     closeTab: actions.closeActiveFile,
@@ -404,12 +429,23 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     if (path) void projectFiles.deleteFile(path)
   }
 
-  function handleBlockerOpenChange(open: boolean) {
-    if (!open) blocker.reset?.()
+  function handleBlockerCancel() {
+    blocker.reset?.()
   }
 
   function handleLeave() {
     blocker.proceed?.()
+  }
+
+  function handleSaveAndSwitch() {
+    const pending = dirty.size
+    void projectFiles.saveAll().then((saved) => {
+      // Every dirty path is a real write, so a shortfall means one failed —
+      // it has toasted why, and switching would hide both the error and the
+      // file still holding the change.
+      if (saved === pending) blocker.proceed?.()
+      else blocker.reset?.()
+    })
   }
 
   if (fullQuery.isPending) return <IdeSkeleton />
@@ -427,6 +463,19 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   const existingPaths = [...baseline.keys()]
   const renameExisting = existingPaths.filter((p) => p !== dialogTarget)
 
+  // Opening the canvas is a switch, not a departure: the work stays, it just
+  // needs saving first to be visible over there.
+  const switchTarget =
+    blocker.status === 'blocked'
+      ? surfaceSwitchTarget({ from: 'code', workflowId, nextPathname: blocker.next.pathname })
+      : null
+  const unsavedSentence =
+    dirty.size === 1 ? 'One file has unsaved changes.' : `${dirty.size} files have unsaved changes.`
+  // Pinned only while actually reading an older version. Otherwise it names
+  // whichever version is current right now, and the canvas would open that
+  // one read-only the moment anything creates a newer one.
+  const linkVersion = isHistorical ? versionParam : undefined
+
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-background">
       <IdeHeader
@@ -436,67 +485,81 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         version={fullData.version.version}
         historicalVersion={isHistorical ? (readOnlyVersion ?? fullData.version.version) : undefined}
         sourceMode={source.sourceMode}
-        versionParam={versionParam}
+        {...(linkVersion !== undefined && { versionParam: linkVersion })}
         dirtyCount={dirty.size}
         canEdit={canEdit}
         saving={projectFiles.busy}
         onSave={actions.saveAll}
       />
-      <Group
-        orientation="horizontal"
-        className="min-h-0 flex-1"
-        defaultLayout={initialLayouts.workspace}
-        onLayoutChanged={handleLayoutChanged('workspace')}
-      >
-        {explorerOpen && (
-          <>
-            <Panel id="explorer" defaultSize="18" minSize={180} maxSize="40">
-              <FileExplorer
-                project={trees.project}
-                generated={trees.generated}
-                dirty={dirty}
-                virtual={virtualPaths}
-                canEdit={canEdit}
-                onNewFile={actions.newFile}
-                onRename={handleRenameRequest}
-                onDelete={handleDeleteRequest}
-                onConvert={handleConvertRequest}
-              />
-            </Panel>
-            <Separator className="w-px bg-border transition-colors hover:bg-primary/50" />
-          </>
-        )}
-        <Panel id="main" minSize="40">
-          <Group
-            orientation="vertical"
-            className="h-full"
-            defaultLayout={initialLayouts.editor}
-            onLayoutChanged={handleLayoutChanged('editor')}
-          >
-            <Panel id="editor" minSize="30">
-              <EditorGroup
+      {/* The preview floats over this area rather than taking a column from
+          it: the editor's width is what a dev is least willing to give up. */}
+      <div className="relative min-h-0 flex-1">
+        <Group
+          orientation="horizontal"
+          className="h-full"
+          defaultLayout={initialLayouts.workspace}
+          onLayoutChanged={handleLayoutChanged('workspace')}
+        >
+          {explorerOpen && (
+            <>
+              <Panel id="explorer" defaultSize="18" minSize={180} maxSize="40">
+                <FileExplorer
+                  project={trees.project}
+                  generated={trees.generated}
+                  dirty={dirty}
+                  virtual={virtualPaths}
+                  canEdit={canEdit}
+                  onNewFile={actions.newFile}
+                  onRename={handleRenameRequest}
+                  onDelete={handleDeleteRequest}
+                  onConvert={handleConvertRequest}
+                />
+              </Panel>
+              <Separator className="w-px bg-border transition-colors hover:bg-primary/50" />
+            </>
+          )}
+          <Panel id="main" minSize="40">
+            <Group
+              orientation="vertical"
+              className="h-full"
+              defaultLayout={initialLayouts.editor}
+              onLayoutChanged={handleLayoutChanged('editor')}
+            >
+              <Panel id="editor" minSize="30">
+                <EditorGroup
+                  workflowId={workflowId}
+                  files={files}
+                  dirty={dirty}
+                  editabilityOf={editabilityOf}
+                  onChange={handleEditorChange}
+                />
+              </Panel>
+              {dockOpen && (
+                <>
+                  <Separator className="h-px bg-border transition-colors hover:bg-primary/50" />
+                  <Panel id="dock" defaultSize="28" minSize={120} maxSize="70">
+                    <BottomDock
+                      workflowId={workflowId}
+                      diagnostics={source?.diagnostics}
+                      testSession={testSession}
+                    />
+                  </Panel>
+                </>
+              )}
+            </Group>
+          </Panel>
+        </Group>
+        {previewOpen && (
+          <div className={PREVIEW_FRAME}>
+            <Suspense fallback={null}>
+              <LazyCanvasPreview
                 workflowId={workflowId}
-                files={files}
-                dirty={dirty}
-                editabilityOf={editabilityOf}
-                onChange={handleEditorChange}
+                {...(linkVersion !== undefined && { versionParam: linkVersion })}
               />
-            </Panel>
-            {dockOpen && (
-              <>
-                <Separator className="h-px bg-border transition-colors hover:bg-primary/50" />
-                <Panel id="dock" defaultSize="28" minSize={120} maxSize="70">
-                  <BottomDock
-                    workflowId={workflowId}
-                    diagnostics={source?.diagnostics}
-                    testSession={testSession}
-                  />
-                </Panel>
-              </>
-            )}
-          </Group>
-        </Panel>
-      </Group>
+            </Suspense>
+          </div>
+        )}
+      </div>
       <CommandPalette
         actions={actions}
         canEdit={canEdit}
@@ -548,14 +611,15 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         loading={projectFiles.busy || conversionPreview.isPending}
         onConfirm={handleConvert}
       />
-      <ConfirmDialog
+      <UnsavedChangesDialog
         open={blocker.status === 'blocked'}
-        onOpenChange={handleBlockerOpenChange}
-        title="Unsaved changes"
-        description={`${dirty.size === 1 ? 'One file has' : `${dirty.size} files have`} unsaved changes that will be lost if you leave.`}
-        confirmLabel="Leave"
-        variant="warning"
-        onConfirm={handleLeave}
+        unsaved={unsavedSentence}
+        switchTarget={switchTarget}
+        canSave={canEdit}
+        saving={projectFiles.busy}
+        onCancel={handleBlockerCancel}
+        onSaveAndGo={handleSaveAndSwitch}
+        onDiscardAndGo={handleLeave}
       />
     </div>
   )

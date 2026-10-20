@@ -11,10 +11,13 @@ export type IdeLayoutKey = 'workspace' | 'editor'
 interface IdeLayoutState {
   explorerOpen: boolean
   dockOpen: boolean
+  /** The read-only graph floating over the editor. */
+  previewOpen: boolean
   dockTab: DockTab
   layouts: Partial<Record<IdeLayoutKey, Layout>>
   toggleExplorer: () => void
   toggleDock: () => void
+  togglePreview: () => void
   showDock: (tab: DockTab) => void
   setLayout: (key: IdeLayoutKey, layout: Layout) => void
 }
@@ -29,10 +32,14 @@ export const useIdeLayoutStore = create<IdeLayoutState>()(
     (set, get) => ({
       explorerOpen: true,
       dockOpen: true,
+      // Open by default: the graph is what the code workspace was missing,
+      // and a panel nobody knows to open is a panel nobody uses.
+      previewOpen: true,
       dockTab: 'problems',
       layouts: {},
       toggleExplorer: () => set({ explorerOpen: !get().explorerOpen }),
       toggleDock: () => set({ dockOpen: !get().dockOpen }),
+      togglePreview: () => set({ previewOpen: !get().previewOpen }),
       showDock: (dockTab) => set({ dockOpen: true, dockTab }),
       setLayout: (key, layout) => set({ layouts: { ...get().layouts, [key]: layout } }),
     }),

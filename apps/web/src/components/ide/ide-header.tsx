@@ -1,12 +1,11 @@
-import { Link, useRouter } from '@tanstack/react-router'
+import { Link } from '@tanstack/react-router'
 import {
-  ArrowLeft,
   Command,
-  FileCode2,
   History,
   Loader2,
   PanelBottom,
   PanelLeft,
+  PanelRight,
   Save,
   Search,
   Workflow,
@@ -19,6 +18,7 @@ import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
 import { Button } from '../ui/button'
 import { WorkflowTitle } from '../workflows/workflow-title'
+import { WorkspaceChrome } from '../workflows/workspace-chrome'
 import { cn } from '../../lib/utils'
 import { SourceModeBadge } from './source-mode-badge'
 
@@ -31,6 +31,7 @@ interface IdeHeaderProps {
   /** Set when `?version=` points at an older version than the current one. */
   historicalVersion?: number
   sourceMode?: SourceMode
+  /** Carried across so the canvas opens the same version being read here. */
   versionParam?: string
   /** Files with unsaved changes; drives the Save button and its badge. */
   dirtyCount: number
@@ -52,22 +53,20 @@ export function IdeHeader({
   saving,
   onSave,
 }: IdeHeaderProps) {
-  const router = useRouter()
-  const { explorerOpen, dockOpen, toggleExplorer, toggleDock } = useIdeLayoutStore(
-    useShallow((s) => ({
-      explorerOpen: s.explorerOpen,
-      dockOpen: s.dockOpen,
-      toggleExplorer: s.toggleExplorer,
-      toggleDock: s.toggleDock,
-    })),
-  )
+  const { explorerOpen, dockOpen, previewOpen, toggleExplorer, toggleDock, togglePreview } =
+    useIdeLayoutStore(
+      useShallow((s) => ({
+        explorerOpen: s.explorerOpen,
+        dockOpen: s.dockOpen,
+        previewOpen: s.previewOpen,
+        toggleExplorer: s.toggleExplorer,
+        toggleDock: s.toggleDock,
+        togglePreview: s.togglePreview,
+      })),
+    )
   const showDialog = useIdeStore((s) => s.showDialog)
   const isMac = isMacPlatform()
   const hint = (id: IdeShortcutId) => formatShortcut(IDE_SHORTCUTS[id], isMac)
-
-  function handleBack() {
-    router.history.back()
-  }
 
   function handleQuickOpen() {
     showDialog('quickOpen')
@@ -77,132 +76,120 @@ export function IdeHeader({
     showDialog('palette')
   }
 
-  return (
-    <header className="relative z-20 flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border bg-card px-3 sm:px-4">
-      <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground/80"
-          onClick={handleBack}
-          aria-label="Back"
+  const title = (
+    <WorkflowTitle name={workflowName} kind={kind} version={version}>
+      {sourceMode && <SourceModeBadge mode={sourceMode} className="hidden sm:inline-block" />}
+      {historicalVersion !== undefined && (
+        <Link
+          to="/workflows/$workflowId/code"
+          params={{ workflowId }}
+          search={{}}
+          title="You are viewing an older version — open the latest"
+          className="hidden shrink-0 items-center gap-1 rounded bg-status-warning/10 px-1.5 py-0.5 text-xs font-medium text-status-warning transition-colors hover:bg-status-warning/20 md:inline-flex"
         >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="hidden h-5 w-px shrink-0 bg-muted/70 sm:block" />
-        <WorkflowTitle name={workflowName} kind={kind} version={version}>
-          {sourceMode && <SourceModeBadge mode={sourceMode} className="hidden sm:inline-block" />}
-          {historicalVersion !== undefined && (
-            <Link
-              to="/workflows/$workflowId/code"
-              params={{ workflowId }}
-              search={{}}
-              title="You are viewing an older version — open the latest"
-              className="hidden shrink-0 items-center gap-1 rounded bg-status-warning/10 px-1.5 py-0.5 text-xs font-medium text-status-warning transition-colors hover:bg-status-warning/20 md:inline-flex"
-            >
-              <History className="h-3 w-3" />
-              Viewing v{historicalVersion} · back to latest
-            </Link>
-          )}
-        </WorkflowTitle>
-      </div>
-
-      <SurfaceSwitch workflowId={workflowId} versionParam={versionParam} />
-
-      <div className="flex flex-1 shrink-0 items-center justify-end gap-1">
-        {canEdit && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onSave}
-            disabled={saving || dirtyCount === 0}
-            title={`Save (${hint('save')})`}
-            className={cn(
-              'h-8 gap-1.5 px-2 md:px-2.5',
-              dirtyCount > 0
-                ? 'text-foreground/70 hover:text-foreground'
-                : 'text-muted-foreground/60',
-            )}
-          >
-            {saving ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Save className="h-3.5 w-3.5" />
-            )}
-            <span className="hidden text-xs md:inline">Save</span>
-            {dirtyCount > 0 && (
-              <span className="rounded-full bg-status-warning/15 px-1.5 py-px text-[10px] tabular-nums text-status-warning">
-                {dirtyCount}
-              </span>
-            )}
-          </Button>
-        )}
-        <div className="hidden h-5 w-px shrink-0 bg-muted/70 sm:block" />
-        <HeaderToggle
-          active={explorerOpen}
-          title={`${explorerOpen ? 'Hide' : 'Show'} explorer (${hint('toggleExplorer')})`}
-          onClick={toggleExplorer}
-        >
-          <PanelLeft className="h-3.5 w-3.5" />
-        </HeaderToggle>
-        <HeaderToggle
-          active={dockOpen}
-          title={`${dockOpen ? 'Hide' : 'Show'} panel (${hint('toggleDock')})`}
-          onClick={toggleDock}
-        >
-          <PanelBottom className="h-3.5 w-3.5" />
-        </HeaderToggle>
-        <div className="hidden h-5 w-px shrink-0 bg-muted/70 sm:block" />
-        <HeaderToggle title={`Go to file (${hint('quickOpen')})`} onClick={handleQuickOpen}>
-          <Search className="h-3.5 w-3.5" />
-        </HeaderToggle>
-        <HeaderToggle title={`Command palette (${hint('commandPalette')})`} onClick={handlePalette}>
-          <Command className="h-3.5 w-3.5" />
-        </HeaderToggle>
-      </div>
-    </header>
+          <History className="h-3 w-3" />
+          Viewing v{historicalVersion} · back to latest
+        </Link>
+      )}
+    </WorkflowTitle>
   )
-}
 
-/** Canvas ↔ Code: the two editing surfaces of the same workflow. */
-function SurfaceSwitch({
-  workflowId,
-  versionParam,
-}: {
-  workflowId: string
-  versionParam?: string
-}) {
-  const itemClass =
-    'inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors'
   return (
-    <nav
-      aria-label="Editing surface"
-      className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border bg-muted/30 p-0.5"
-    >
-      <Link
-        to="/workflows/$workflowId/canvas"
-        params={{ workflowId }}
-        search={versionParam ? { version: versionParam } : {}}
-        className={cn(itemClass, 'text-muted-foreground hover:text-foreground')}
-      >
-        <Workflow className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Canvas</span>
-      </Link>
-      <span aria-current="page" className={cn(itemClass, 'bg-card text-foreground shadow-sm')}>
-        <FileCode2 className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Code</span>
-      </span>
-    </nav>
+    <WorkspaceChrome
+      title={title}
+      actions={
+        <>
+          {/* Mirrors the canvas header's Code button, in the same slot. The
+              preview carries its own way over, but it can be closed — and
+              then the command palette was the only route left. */}
+          <Link
+            to="/workflows/$workflowId/canvas"
+            params={{ workflowId }}
+            search={versionParam ? { version: versionParam } : {}}
+            title="Open the canvas, where the graph can be edited"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground/70 md:px-2.5"
+          >
+            <Workflow className="h-3.5 w-3.5" />
+            <span className="hidden text-xs md:inline">Canvas</span>
+          </Link>
+          {canEdit && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onSave}
+              disabled={saving || dirtyCount === 0}
+              title={`Save (${hint('save')})`}
+              className={cn(
+                'h-8 gap-1.5 px-2 md:px-2.5',
+                dirtyCount > 0
+                  ? 'text-foreground/70 hover:text-foreground'
+                  : 'text-muted-foreground/60',
+              )}
+            >
+              {saving ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Save className="h-3.5 w-3.5" />
+              )}
+              <span className="hidden text-xs md:inline">Save</span>
+              {dirtyCount > 0 && (
+                <span className="rounded-full bg-status-warning/15 px-1.5 py-px text-[10px] tabular-nums text-status-warning">
+                  {dirtyCount}
+                </span>
+              )}
+            </Button>
+          )}
+          <div className="hidden h-5 w-px shrink-0 bg-muted/70 sm:block" />
+          <HeaderToggle
+            active={explorerOpen}
+            title={`${explorerOpen ? 'Hide' : 'Show'} explorer (${hint('toggleExplorer')})`}
+            onClick={toggleExplorer}
+          >
+            <PanelLeft className="h-3.5 w-3.5" />
+          </HeaderToggle>
+          <HeaderToggle
+            active={dockOpen}
+            title={`${dockOpen ? 'Hide' : 'Show'} panel (${hint('toggleDock')})`}
+            onClick={toggleDock}
+          >
+            <PanelBottom className="h-3.5 w-3.5" />
+          </HeaderToggle>
+          {/* The third pane, so it takes the third panel icon — and a label,
+              because "preview of what?" is not answerable from an icon. */}
+          <HeaderToggle
+            active={previewOpen}
+            label="Preview"
+            title={`${previewOpen ? 'Hide' : 'Show'} canvas preview (${hint('togglePreview')})`}
+            onClick={togglePreview}
+          >
+            <PanelRight className="h-3.5 w-3.5" />
+          </HeaderToggle>
+          <div className="hidden h-5 w-px shrink-0 bg-muted/70 sm:block" />
+          <HeaderToggle title={`Go to file (${hint('quickOpen')})`} onClick={handleQuickOpen}>
+            <Search className="h-3.5 w-3.5" />
+          </HeaderToggle>
+          <HeaderToggle
+            title={`Command palette (${hint('commandPalette')})`}
+            onClick={handlePalette}
+          >
+            <Command className="h-3.5 w-3.5" />
+          </HeaderToggle>
+        </>
+      }
+    />
   )
 }
 
 function HeaderToggle({
   active,
+  label,
   title,
   onClick,
   children,
 }: {
   active?: boolean
+  /** Shown beside the icon on wider screens; icon-only without it. */
+  label?: string
   title: string
   onClick: () => void
   children: React.ReactNode
@@ -216,11 +203,13 @@ function HeaderToggle({
       aria-label={title}
       aria-pressed={active}
       className={cn(
-        'h-8 w-8 px-0',
+        'h-8',
+        label ? 'gap-1.5 px-2 md:px-2.5' : 'w-8 px-0',
         active ? 'bg-muted/70 text-foreground' : 'text-muted-foreground hover:text-foreground/70',
       )}
     >
       {children}
+      {label && <span className="hidden text-xs md:inline">{label}</span>}
     </Button>
   )
 }

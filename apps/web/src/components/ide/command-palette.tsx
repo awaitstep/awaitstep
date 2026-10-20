@@ -42,8 +42,12 @@ export function CommandPalette({
       openCount: s.openPaths.length,
     })),
   )
-  const { explorerOpen, dockOpen } = useIdeLayoutStore(
-    useShallow((s) => ({ explorerOpen: s.explorerOpen, dockOpen: s.dockOpen })),
+  const { explorerOpen, dockOpen, previewOpen } = useIdeLayoutStore(
+    useShallow((s) => ({
+      explorerOpen: s.explorerOpen,
+      dockOpen: s.dockOpen,
+      previewOpen: s.previewOpen,
+    })),
   )
   const isMac = isMacPlatform()
 
@@ -58,6 +62,7 @@ export function CommandPalette({
       canEdit,
       explorerOpen,
       dockOpen,
+      previewOpen,
       actions,
     })
     return GROUP_ORDER.map((group) => ({
@@ -74,6 +79,7 @@ export function CommandPalette({
     canEdit,
     explorerOpen,
     dockOpen,
+    previewOpen,
     actions,
   ])
 

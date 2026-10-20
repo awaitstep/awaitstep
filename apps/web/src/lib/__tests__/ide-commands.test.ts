@@ -17,6 +17,7 @@ function actions(): IdeCommandActions {
     copyActivePath: vi.fn(),
     toggleExplorer: vi.fn(),
     toggleDock: vi.fn(),
+    togglePreview: vi.fn(),
     showProblems: vi.fn(),
     showOutput: vi.fn(),
     showRun: vi.fn(),
@@ -34,6 +35,7 @@ function context(overrides: Partial<IdeCommandContext> = {}): IdeCommandContext 
     canEdit: true,
     explorerOpen: true,
     dockOpen: false,
+    previewOpen: true,
     actions: actions(),
     ...overrides,
   }
