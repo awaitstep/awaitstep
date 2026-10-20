@@ -13,7 +13,11 @@ import { loadNodeRegistry } from '../lib/node-registry-fs.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
 import { createEmailService } from '../lib/email.js'
 import { startRunSyncLoop } from '../lib/run-sync.js'
-import { NodeWranglerDeployer } from '@awaitstep/provider-cloudflare'
+import { NodeWranglerDeployer, NodeTestSessionRunner } from '@awaitstep/provider-cloudflare'
+import { testSessionLimitsFromEnv } from '../lib/test-session-env.js'
+import { abandonStaleNodeSessions, startTestSessionReaper } from '../lib/test-sessions.js'
+import { resolveTestSessionLimits } from '../lib/test-session-policy.js'
+import { releaseClaimedPorts } from '@awaitstep/provider-cloudflare'
 
 const DEFAULT_REGISTRY_URL = 'https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry'
 
@@ -106,6 +110,9 @@ async function start() {
   const remoteNodeRegistry = createRemoteNodeRegistry({ baseUrl: registryUrl })
   logger.info(`Remote node registry: ${registryUrl}`)
 
+  const testSessionLimits = testSessionLimitsFromEnv(process.env)
+  const testSessionRunner = new NodeTestSessionRunner()
+
   const app = createApp({
     db,
     auth,
@@ -117,6 +124,8 @@ async function start() {
     remoteNodeRegistry,
     appName,
     deployer: new NodeWranglerDeployer(),
+    testSessionRunner,
+    testSessionLimits,
   })
 
   const port = Number(process.env['PORT'] ?? 8080)
@@ -127,15 +136,31 @@ async function start() {
   // Background reconciliation: run status + per-step telemetry sync off the
   // request path, same as the production serve entry.
   const stopRunSync = startRunSyncLoop(db, 5000)
+  // The dev entry reaps too: without it a session started here outlives its
+  // window, keeps its port, and holds the developer's own concurrency slot.
+  const stopTestSessionReaper = startTestSessionReaper(
+    { db, runner: testSessionRunner, limits: resolveTestSessionLimits(testSessionLimits) },
+    30_000,
+  )
+  const abandoned = await abandonStaleNodeSessions(db)
+  if (abandoned > 0) {
+    logger.info(`Wrote off ${abandoned} test session(s) left by a previous run`)
+  }
 
   // Clean up local dev sessions on shutdown
-  process.on('SIGTERM', async () => {
+  const stopBackground = () => {
     stopRunSync()
+    stopTestSessionReaper()
+    releaseClaimedPorts()
+  }
+
+  process.on('SIGTERM', async () => {
+    stopBackground()
     await cleanupLocalDevSessions()
     process.exit(0)
   })
   process.on('SIGINT', async () => {
-    stopRunSync()
+    stopBackground()
     await cleanupLocalDevSessions()
     process.exit(0)
   })

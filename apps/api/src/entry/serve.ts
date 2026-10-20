@@ -10,7 +10,14 @@ import { loadNodeRegistry } from '../lib/node-registry-fs.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
 import { createEmailService } from '../lib/email.js'
 import { startRunSyncLoop } from '../lib/run-sync.js'
-import { NodeWranglerDeployer } from '@awaitstep/provider-cloudflare'
+import {
+  NodeWranglerDeployer,
+  NodeTestSessionRunner,
+  releaseClaimedPorts,
+} from '@awaitstep/provider-cloudflare'
+import { abandonStaleNodeSessions, startTestSessionReaper } from '../lib/test-sessions.js'
+import { resolveTestSessionLimits } from '../lib/test-session-policy.js'
+import { testSessionLimitsFromEnv } from '../lib/test-session-env.js'
 
 const DEFAULT_REGISTRY_URL = 'https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry'
 
@@ -122,6 +129,9 @@ async function start() {
   logger.info(`Remote node registry: ${registryUrl}`)
 
   // ── API server ──────────────────────────────────────
+  const testSessionLimits = testSessionLimitsFromEnv(process.env)
+  const testSessionRunner = new NodeTestSessionRunner()
+
   const apiApp = createApp({
     db,
     auth,
@@ -133,7 +143,16 @@ async function start() {
     remoteNodeRegistry,
     appName,
     deployer: new NodeWranglerDeployer(),
+    testSessionRunner: testSessionRunner,
+    testSessionLimits: testSessionLimits,
   })
+
+  // Before anything reaps: the previous run's sessions name processes this
+  // host no longer has, and those numbers get reused.
+  const abandoned = await abandonStaleNodeSessions(db)
+  if (abandoned > 0) {
+    logger.info(`Wrote off ${abandoned} test session(s) left by a previous run`)
+  }
 
   serve({ fetch: apiApp.fetch, port: apiPort })
   logger.info(`API running on http://localhost:${apiPort}`)
@@ -141,6 +160,12 @@ async function start() {
   // Background reconciliation: run status + per-step telemetry sync off the
   // request path (API run reads are pure DB queries).
   const stopRunSync = startRunSyncLoop(db, 5000)
+  // Disposable workers cost nothing here, but they still hold ports and
+  // directories; the same loop keeps them from outliving their window.
+  const stopTestSessionReaper = startTestSessionReaper(
+    { db, runner: testSessionRunner, limits: resolveTestSessionLimits(testSessionLimits) },
+    30_000,
+  )
 
   // ── Web server (static + SSR) ───────────────────────
   const { Hono } = await import('hono')
@@ -165,14 +190,15 @@ async function start() {
   serve({ fetch: webApp.fetch, port: webPort })
   logger.info(`Web running on http://localhost:${webPort}`)
 
-  process.on('SIGTERM', () => {
+  const shutdown = () => {
     stopRunSync()
+    stopTestSessionReaper()
+    // Claims only describe this process's in-flight starts.
+    releaseClaimedPorts()
     process.exit(0)
-  })
-  process.on('SIGINT', () => {
-    stopRunSync()
-    process.exit(0)
-  })
+  }
+  process.on('SIGTERM', shutdown)
+  process.on('SIGINT', shutdown)
 }
 
 start()

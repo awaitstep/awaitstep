@@ -7,7 +7,10 @@ import { buildNodeRegistry, type RegistryFile } from '../lib/node-registry.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
 import { createEmailService } from '../lib/email.js'
 import { syncActiveRuns } from '../lib/run-sync.js'
-import { SandboxWranglerDeployer } from '@awaitstep/provider-cloudflare'
+import { SandboxWranglerDeployer, SandboxTestSessionRunner } from '@awaitstep/provider-cloudflare'
+import { testSessionLimitsFromEnv } from '../lib/test-session-env.js'
+import { reapTestSessions } from '../lib/test-sessions.js'
+import { containerSleepAfter, resolveTestSessionLimits } from '../lib/test-session-policy.js'
 import { getSandbox, type Sandbox } from '@cloudflare/sandbox'
 import registryData from '../../../../nodes/registry.json' with { type: 'json' }
 
@@ -92,6 +95,11 @@ async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof cr
     maxDeployMs ? { maxDeployMs } : undefined,
   )
 
+  const testSessionLimits = testSessionLimitsFromEnv(
+    env as unknown as Record<string, string | undefined>,
+  )
+  const sessionSleepAfter = containerSleepAfter(resolveTestSessionLimits(testSessionLimits))
+
   return createApp({
     db,
     auth,
@@ -104,6 +112,17 @@ async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof cr
     remoteNodeRegistry,
     appName: env.APP_NAME,
     deployer,
+    // A test session's container must outlast the session's idle window, so
+    // the runner asks for its own sleepAfter rather than the deploy's.
+    // Every call takes the session's own window: falling back to the
+    // deploy's five minutes on any call without options reset the container
+    // to sleep long before the session expires.
+    testSessionRunner: new SandboxTestSessionRunner(
+      (id, options) =>
+        getSandbox(env.SANDBOX, id, { sleepAfter: options?.sleepAfter ?? sessionSleepAfter }),
+      { sleepAfter: sessionSleepAfter },
+    ),
+    testSessionLimits,
   })
 }
 
@@ -125,6 +144,27 @@ export default {
   ): Promise<void> {
     const tokenCrypto = await createTokenCrypto(env.TOKEN_ENCRYPTION_KEY)
     const db = createD1DatabaseAdapter(env.DB, { tokenCrypto })
-    ctx.waitUntil(syncActiveRuns(db))
+    // Nothing in a Worker survives between requests, so the cron is where
+    // expired sessions get stopped.
+    const limits = resolveTestSessionLimits(
+      testSessionLimitsFromEnv(env as unknown as Record<string, string | undefined>),
+    )
+    const sleepAfter = containerSleepAfter(limits)
+    // allSettled, not all: one task rejecting would otherwise end the other
+    // one's waitUntil partway through, leaving sessions unreaped.
+    ctx.waitUntil(
+      Promise.allSettled([
+        syncActiveRuns(db),
+        reapTestSessions({
+          db,
+          runner: new SandboxTestSessionRunner(
+            (id, options) =>
+              getSandbox(env.SANDBOX, id, { sleepAfter: options?.sleepAfter ?? sleepAfter }),
+            { sleepAfter },
+          ),
+          limits,
+        }),
+      ]),
+    )
   },
 }
