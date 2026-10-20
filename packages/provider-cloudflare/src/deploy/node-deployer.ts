@@ -15,6 +15,7 @@ import {
 } from './package-manifest.js'
 import { generateWranglerConfig } from '../wrangler-config.js'
 import { workerName, workflowClassName, sanitizedWorkflowName } from '../naming.js'
+import { wranglerCommand, wranglerEnv } from '../wrangler-exec.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -93,16 +94,19 @@ export class NodeWranglerDeployer implements WranglerDeployer {
       }
 
       // 4. Deploy with wrangler
-      const wranglerEnv = {
-        ...process.env,
+      // An allow-listed environment, not the API's: this runs in a directory
+      // whose dependencies the user chose. The credentials are added
+      // deliberately because a deploy needs them.
+      const deployEnv = wranglerEnv({
         CLOUDFLARE_ACCOUNT_ID: options.accountId,
         CLOUDFLARE_API_TOKEN: options.apiToken,
-      }
+      })
 
       onProgress?.('DEPLOYING', 'Uploading worker to Cloudflare...')
-      const { stdout } = await execFileAsync('npx', ['wrangler', 'deploy'], {
+      const wrangler = wranglerCommand()
+      const { stdout } = await execFileAsync(wrangler.command, [...wrangler.args, 'deploy'], {
         cwd: deployDir,
-        env: wranglerEnv,
+        env: deployEnv,
         timeout: 120_000,
       })
 
@@ -120,9 +124,9 @@ export class NodeWranglerDeployer implements WranglerDeployer {
         await writeFile(secretsPath, bulk.json, 'utf-8')
         try {
           await execFileAsync(
-            'npx',
-            ['wrangler', 'secret', 'bulk', SECRETS_BULK_FILENAME, '--name', name],
-            { cwd: deployDir, env: wranglerEnv, timeout: 60_000 },
+            wrangler.command,
+            [...wrangler.args, 'secret', 'bulk', SECRETS_BULK_FILENAME, '--name', name],
+            { cwd: deployDir, env: deployEnv, timeout: 60_000 },
           )
         } finally {
           await rm(secretsPath, { force: true }).catch(() => {})
@@ -151,14 +155,18 @@ export class NodeWranglerDeployer implements WranglerDeployer {
     options: { accountId: string; apiToken: string },
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      await execFileAsync('npx', ['wrangler', 'delete', '--name', name, '--force'], {
-        env: {
-          ...process.env,
-          CLOUDFLARE_ACCOUNT_ID: options.accountId,
-          CLOUDFLARE_API_TOKEN: options.apiToken,
+      const wrangler = wranglerCommand()
+      await execFileAsync(
+        wrangler.command,
+        [...wrangler.args, 'delete', '--name', name, '--force'],
+        {
+          env: wranglerEnv({
+            CLOUDFLARE_ACCOUNT_ID: options.accountId,
+            CLOUDFLARE_API_TOKEN: options.apiToken,
+          }),
+          timeout: 60_000,
         },
-        timeout: 60_000,
-      })
+      )
       return { success: true }
     } catch (err) {
       return { success: false, error: redactSensitive((err as Error).message) }

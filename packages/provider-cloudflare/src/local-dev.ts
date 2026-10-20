@@ -10,6 +10,7 @@ import {
   installWorkspaceDependencies,
   writeDevWorkspace,
 } from './dev-workspace.js'
+import { wranglerCommand, wranglerEnv } from './wrangler-exec.js'
 
 const execAsync = promisify(exec)
 
@@ -75,13 +76,23 @@ export async function startLocalDev(
   await writeDevWorkspace(LOCAL_DEV_DIR, await buildDevWorkspaceFiles(bundle, options))
   await installWorkspaceDependencies(LOCAL_DEV_DIR, options.dependencies)
 
-  // Detached so the child leads its own process group: `npx` is a wrapper,
-  // and signalling it alone leaves wrangler and workerd running. The group is
-  // what gets killed if the start never finishes.
+  // Our own wrangler by absolute path, with a withheld environment — the
+  // workspace's node_modules is user-controlled and `npx` would search it
+  // first. See wrangler-exec.ts.
+  //
+  // Detached so the child leads its own process group: signalling the node
+  // wrapper alone leaves workerd running. The group is what gets killed if
+  // the start never finishes.
+  const wrangler = wranglerCommand()
   const child = spawn(
-    'npx',
-    ['wrangler', 'dev', '--port', String(LOCAL_DEV_PORT), '--ip', '0.0.0.0'],
-    { cwd: LOCAL_DEV_DIR, stdio: ['ignore', 'pipe', 'pipe'], detached: true },
+    wrangler.command,
+    [...wrangler.args, 'dev', '--port', String(LOCAL_DEV_PORT), '--ip', '0.0.0.0'],
+    {
+      cwd: LOCAL_DEV_DIR,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      detached: true,
+      env: wranglerEnv(),
+    },
   )
 
   const logs: ProcessLogEntry[] = []

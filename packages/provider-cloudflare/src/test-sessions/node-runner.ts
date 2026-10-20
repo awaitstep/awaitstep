@@ -20,6 +20,7 @@ import {
 } from '../dev-workspace.js'
 import { isPortListening } from '../local-dev.js'
 import { logPageFromEntries } from './log-page.js'
+import { wranglerCommand, wranglerEnv } from '../wrangler-exec.js'
 
 const SESSIONS_DIR = join(tmpdir(), 'awaitstep-test-sessions')
 const LOG_FILE = 'output.log'
@@ -165,12 +166,18 @@ export class NodeTestSessionRunner implements TestSessionRunner {
   }
 
   private async spawnWrangler(dir: string, port: number): Promise<ChildProcess> {
-    // Detached so the child leads its own process group: `npx` is a wrapper,
-    // and signalling it alone leaves wrangler and workerd running.
-    const child = spawn('npx', ['wrangler', 'dev', '--port', String(port)], {
+    // Our own wrangler, by absolute path, with a withheld environment: the
+    // workspace's node_modules is user-controlled, and `npx` would prefer
+    // whatever `wrangler` it finds there. See wrangler-exec.ts.
+    //
+    // Detached so the child leads its own process group — node is a wrapper
+    // here too, and signalling it alone leaves workerd running.
+    const wrangler = wranglerCommand()
+    const child = spawn(wrangler.command, [...wrangler.args, 'dev', '--port', String(port)], {
       cwd: dir,
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: true,
+      env: wranglerEnv(),
     })
 
     // Without this listener a spawn failure (ENOENT, EMFILE) is an unhandled
