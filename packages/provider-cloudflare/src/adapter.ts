@@ -14,7 +14,7 @@ import {
   type HandlerConversion,
 } from './codegen/handler-modules.js'
 import type { HandlerConversionResult } from '@awaitstep/codegen'
-import { transpileFile } from '@awaitstep/codegen/transpile'
+import { compileBundle } from './compile-bundle.js'
 import { generateScript, generateWorkflowBundle } from './codegen/generate.js'
 import { validateSource } from './codegen/validate-source.js'
 import { bundleEntry, projectBundleFiles, toBundle, validateBundle } from '@awaitstep/codegen'
@@ -24,7 +24,6 @@ import type {
   LocalDevProvider,
   CredentialsCheckResult,
   GeneratedBundle,
-  GeneratedFile,
   DeployResult,
   ProviderConfig,
   WorkflowRunStatus,
@@ -573,18 +572,6 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
  * Transpiles every code file (entry + modules) and rewrites their paths to
  * .js so wrangler uploads plain JavaScript; config/meta files pass through.
  */
-async function compileBundle(bundle: GeneratedBundle): Promise<GeneratedBundle> {
-  const files: GeneratedFile[] = await Promise.all(
-    bundle.files.map(async (file): Promise<GeneratedFile> => {
-      if (file.role !== 'entry' && file.role !== 'module') return file
-      const compiled = await transpileFile(file.path, file.source)
-      return { ...file, path: file.path.replace(/\.ts$/, '.js'), compiled }
-    }),
-  )
-  const entry = bundle.entry.replace(/\.ts$/, '.js')
-  return { entry, files }
-}
-
 function extractCredentials(config: ProviderConfig): {
   accountId: string
   apiToken: string
