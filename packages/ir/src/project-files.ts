@@ -213,6 +213,46 @@ export function handlerWriteError(path: string, existing: Iterable<string>): str
   return null
 }
 
+export interface ProjectWriteError {
+  /** The path being written that the rule refused. */
+  path: string
+  /** Worded as the write endpoints report it, so both phrase it alike. */
+  message: string
+}
+
+/**
+ * Why the paths being written may not be, or empty.
+ *
+ * The write-time rules in one place, so a checker and a writer cannot
+ * disagree about what is allowed. They stay apart from
+ * {@link validateProjectFiles} deliberately: a stored version predating
+ * the handler convention has to keep validating and deploying, so these
+ * are judged only against what is actually changing — never against
+ * everything already there.
+ *
+ * @param changed paths being added or replaced; deletions are not writes
+ * @param merged every path that exists once the change lands
+ */
+export function projectWriteErrors(
+  changed: Iterable<string>,
+  merged: Iterable<string>,
+): ProjectWriteError[] {
+  const all = [...merged]
+  const errors: ProjectWriteError[] = []
+  for (const path of changed) {
+    const conflict = projectHandlersConflict(path, all)
+    if (conflict) {
+      errors.push({ path, message: conflict })
+      continue
+    }
+    const handler = handlerWriteError(path, all)
+    if (handler) {
+      errors.push({ path, message: `Invalid handler path "${path}": ${handler}` })
+    }
+  }
+  return errors
+}
+
 /** Toolchain config a project may own, at the root only (nesting changes resolution). */
 export const PROJECT_ROOT_CONFIG_FILES = ['package.json', 'tsconfig.json', 'jsconfig.json'] as const
 

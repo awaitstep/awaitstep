@@ -134,8 +134,14 @@ export {
   projectPackageManifest,
   validatePackageManifest,
   validateProjectFiles,
+  projectWriteErrors,
 } from './project-files.js'
-export type { PackageManifest, HandlerEntry, ProjectHandlerModules } from './project-files.js'
+export type {
+  PackageManifest,
+  HandlerEntry,
+  ProjectHandlerModules,
+  ProjectWriteError,
+} from './project-files.js'
 export { globalEnvRefName, isGlobalEnvRef } from './env-vars.js'
 export { migrateArtifact } from './migrate.js'
 export { loadArtifact } from './load.js'

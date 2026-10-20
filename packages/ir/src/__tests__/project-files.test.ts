@@ -21,6 +21,7 @@ import {
   hasHandlerModules,
   projectHandlerModules,
   projectHandlersConflict,
+  projectWriteErrors,
 } from '../project-files.js'
 import { validateArtifact } from '../validate.js'
 
@@ -339,6 +340,75 @@ describe('handler modules', () => {
       { path: 'handlers/fetch.ts', source: '' },
     ])
     expect(errors.map((e) => e.message)).toContain('handlers.ts and handlers/ cannot coexist')
+  })
+})
+
+describe('projectWriteErrors', () => {
+  it('judges one write exactly as the single-path rules do', () => {
+    expect(projectWriteErrors(['handlers/fetch.ts'], ['handlers/fetch.ts'])).toEqual([])
+    expect(projectWriteErrors(['lib/x.ts'], ['lib/x.ts', 'handlers.ts'])).toEqual([])
+    expect(projectWriteErrors(['handlers/fetch.ts'], ['handlers.ts', 'handlers/fetch.ts'])).toEqual(
+      [
+        {
+          path: 'handlers/fetch.ts',
+          message: projectHandlersConflict('handlers/fetch.ts', ['handlers.ts'])!,
+        },
+      ],
+    )
+  })
+
+  it('reuses the write endpoint’s wording for a handler path', () => {
+    expect(projectWriteErrors(['handlers/Fetch.ts'], ['handlers/Fetch.ts'])).toEqual([
+      {
+        path: 'handlers/Fetch.ts',
+        message:
+          'Invalid handler path "handlers/Fetch.ts": would never run — did you mean handlers/fetch.ts?',
+      },
+    ])
+  })
+
+  it('catches a pair of changes that only conflict with each other', () => {
+    // Neither write is wrong on its own against an empty project; together
+    // they are two files for one role. Judging each against the merged set
+    // is what sees it.
+    const changed = ['handlers/fetch.ts', 'handlers/fetch.mjs']
+    expect(projectWriteErrors(changed, changed)).toEqual([
+      {
+        path: 'handlers/fetch.ts',
+        message:
+          'Invalid handler path "handlers/fetch.ts": would be a second fetch handler beside "handlers/fetch.mjs" — one file per entry',
+      },
+      {
+        path: 'handlers/fetch.mjs',
+        message:
+          'Invalid handler path "handlers/fetch.mjs": would be a second fetch handler beside "handlers/fetch.ts" — one file per entry',
+      },
+    ])
+  })
+
+  it('allows a swap that removes the file it would have conflicted with', () => {
+    // handlers.ts out, handlers/fetch.ts in: the merged set never holds
+    // both, so the write stands. A set judged against what is stored today
+    // would refuse it.
+    expect(projectWriteErrors(['handlers/fetch.ts'], ['handlers/fetch.ts', 'lib/x.ts'])).toEqual([])
+  })
+
+  it('reports one error per refused path and leaves the rest alone', () => {
+    const errors = projectWriteErrors(
+      ['lib/ok.ts', 'handlers/queue/Orders.ts'],
+      ['lib/ok.ts', 'handlers/queue/Orders.ts'],
+    )
+    expect(errors).toHaveLength(1)
+    expect(errors[0]!.path).toBe('handlers/queue/Orders.ts')
+    expect(errors[0]!.message).toMatch(/^Invalid handler path .*not a queue consumer/)
+  })
+
+  it('says nothing about files that merely exist', () => {
+    // A stored version that predates the convention keeps deploying: only
+    // what is being written is judged.
+    expect(
+      projectWriteErrors([], ['handlers/Fetch.ts', 'handlers.ts', 'handlers/fetch.ts']),
+    ).toEqual([])
   })
 })
 
