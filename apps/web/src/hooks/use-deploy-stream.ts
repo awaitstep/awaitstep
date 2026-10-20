@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { projectUrl } from '../lib/api-client'
-import { parseSseChunk } from '../lib/parse-sse'
+import { readSseStream } from '../lib/sse-stream'
 import { usePollingStore } from '../stores/polling-store'
 
 export interface DeployProgress {
@@ -64,53 +64,44 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
           throw new Error(body?.error ?? `Deploy request failed: ${response.status}`)
         }
 
-        const reader = response.body?.getReader()
-        if (!reader) throw new Error('No response body')
+        // `settled` keeps the original control flow: a stage failure or a
+        // result ends the deploy, and only a stream that ended without
+        // either falls through to the optimistic success below.
+        let settled = false
+        await readSseStream(response, (event) => {
+          const data = JSON.parse(event.data)
 
-        const decoder = new TextDecoder()
-        let buffer = ''
-
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          const { events, buffer: newBuffer } = parseSseChunk(
-            buffer,
-            decoder.decode(value, { stream: true }),
-          )
-          buffer = newBuffer
-
-          for (const event of events) {
-            const data = JSON.parse(event.data)
-
-            if (data.stage) {
-              setProgress(data)
-              if (data.stage === 'FAILED') {
-                setError(data.message)
-                setState('error')
-                toast.error('Deployment failed', { description: data.message })
-                return
-              }
-            }
-
-            if (data.success !== undefined) {
-              setResult(data)
-              if (data.success) {
-                setState('success')
-                invalidateDeployQueries()
-                usePollingStore.getState().start('all-deployments')
-                setTimeout(() => usePollingStore.getState().stop('all-deployments'), 30_000)
-                toast.success('Deployed successfully')
-              } else {
-                const msg = data.error ?? 'Deploy failed'
-                setError(msg)
-                setState('error')
-                toast.error('Deployment failed', { description: msg })
-              }
-              return
+          if (data.stage) {
+            setProgress(data)
+            if (data.stage === 'FAILED') {
+              setError(data.message)
+              setState('error')
+              toast.error('Deployment failed', { description: data.message })
+              settled = true
+              return false
             }
           }
-        }
+
+          if (data.success !== undefined) {
+            setResult(data)
+            if (data.success) {
+              setState('success')
+              invalidateDeployQueries()
+              usePollingStore.getState().start('all-deployments')
+              setTimeout(() => usePollingStore.getState().stop('all-deployments'), 30_000)
+              toast.success('Deployed successfully')
+            } else {
+              const msg = data.error ?? 'Deploy failed'
+              setError(msg)
+              setState('error')
+              toast.error('Deployment failed', { description: msg })
+            }
+            settled = true
+            return false
+          }
+          return true
+        })
+        if (settled) return
 
         // Stream ended without result event — treat as success
         setState('success')

@@ -42,4 +42,20 @@ describe('parseSseChunk', () => {
     expect(events).toHaveLength(0)
     expect(buffer).toBe('')
   })
+
+  it('keeps the event name when a chunk splits before the data line', () => {
+    // A frame can be split anywhere. Dropping the name here made every
+    // consumer that switches on it ignore the event.
+    const first = parseSseChunk('', 'event: logs\ndata: {"a":')
+    expect(first.events).toEqual([])
+
+    const second = parseSseChunk(first.buffer, '1}\n\n')
+    expect(second.events).toEqual([{ event: 'logs', data: '{"a":1}', id: undefined }])
+  })
+
+  it('keeps an id that arrives before its data', () => {
+    const first = parseSseChunk('', 'id: 7\nevent: step\n')
+    const second = parseSseChunk(first.buffer, 'data: {}\n\n')
+    expect(second.events).toEqual([{ event: 'step', data: '{}', id: '7' }])
+  })
 })

@@ -36,13 +36,16 @@ export function parseSseChunk(
     }
   }
 
-  // If there's an in-progress event with data and no trailing blank line yet,
-  // keep it in the buffer so it gets completed on the next chunk
-  if (current.data !== undefined) {
+  // Any in-progress event goes back into the buffer to be completed by the
+  // next chunk — including one whose `event:` line arrived without its
+  // `data:` line yet. Keeping only events that already had data dropped the
+  // name whenever a chunk boundary fell between the two lines, and a
+  // consumer that switches on the name then ignored the event entirely.
+  if (current.data !== undefined || current.event !== undefined || current.id !== undefined) {
     const reconstructed: string[] = []
     if (current.event) reconstructed.push(`event: ${current.event}`)
     if (current.id) reconstructed.push(`id: ${current.id}`)
-    reconstructed.push(`data: ${current.data}`)
+    if (current.data !== undefined) reconstructed.push(`data: ${current.data}`)
     return { events, buffer: reconstructed.join('\n') + '\n' + remaining }
   }
 

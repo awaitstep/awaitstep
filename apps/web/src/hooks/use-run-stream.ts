@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { projectUrl } from '../lib/api-client'
-import { parseSseChunk } from '../lib/parse-sse'
+import { readSseStream } from '../lib/sse-stream'
 
 interface UseRunStreamOptions {
   workflowId: string
@@ -41,21 +41,16 @@ export function useRunStream({ workflowId, runId, enabled }: UseRunStreamOptions
         credentials: 'include',
         signal: controller.signal,
       })
-      const reader = response.body?.getReader()
-      if (!response.ok || !reader) return
-      const decoder = new TextDecoder()
-      let buffer = ''
-      for (;;) {
-        const { done, value } = await reader.read()
-        if (done) break
-        const parsed = parseSseChunk(buffer, decoder.decode(value, { stream: true }))
-        buffer = parsed.buffer
-        for (const event of parsed.events) {
+      if (!response.ok) return
+      await readSseStream(
+        response,
+        (event) => {
           if (event.event === 'run' || event.event === 'step' || event.event === 'done') {
             scheduleRefresh()
           }
-        }
-      }
+        },
+        controller.signal,
+      )
     }
 
     consume().catch(() => {
