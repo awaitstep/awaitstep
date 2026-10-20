@@ -53,6 +53,20 @@ export interface TestSessionResponse {
 }
 
 /**
+ * A page of worker output. The cursor is opaque, and deliberately not a
+ * timestamp: a container reports its logs as whole stdout/stderr buffers
+ * with no per-line clock, so "everything after what I last saw" is the only
+ * question both runtimes can answer the same way. Each runner decides what
+ * it has to remember to answer that — the container's has to track both
+ * buffers, which no single number can do.
+ */
+export interface TestSessionLogPage {
+  entries: ProcessLogEntry[]
+  /** Pass back as `after` to continue from here. */
+  cursor: string
+}
+
+/**
  * Runs a generated bundle somewhere disposable so a workflow can be executed
  * before it is deployed. Implementations are DB-free; the API owns session
  * records, quotas and TTL.
@@ -76,8 +90,8 @@ export interface TestSessionRunner {
   /** Reads one workflow instance's status out of the running session. */
   instanceStatus(handle: StartedTestSessionHandle, instanceId: string): Promise<TestSessionResponse>
 
-  /** Worker output since `since` (epoch ms), oldest first. */
-  logs(handle: StartedTestSessionHandle, since?: number): Promise<ProcessLogEntry[]>
+  /** Worker output after the given cursor, oldest first. */
+  logs(handle: StartedTestSessionHandle, after?: string): Promise<TestSessionLogPage>
 
   /**
    * Stops the worker and disposes the container/workspace. Idempotent, and

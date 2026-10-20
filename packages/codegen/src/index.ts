@@ -41,6 +41,7 @@ export type {
   StartedTestSessionHandle,
   TestSessionStart,
   TestSessionResponse,
+  TestSessionLogPage,
 } from './test-session.js'
 export { TEST_SESSION_RUNTIMES } from './test-session.js'
 export type { CodeGenerator, GenerateMode } from './code-generator.js'
