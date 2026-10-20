@@ -74,6 +74,14 @@
 - Always write plan output (implementation plans, audit reports, task breakdowns) to the `./plan/` directory as markdown files.
 - Name plan files descriptively (e.g., `phase-1-audit.md`, `refactor-connections.md`).
 
+## QA Notes
+
+- After implementing a feature, append QA notes to `plan/qa-notes.md` — newest section first, dated, one section per feature.
+- Notes must be runnable: exact commands, URLs, request bodies and expected responses. Never "verify it works".
+- Always state the prerequisites (migrations to run, env vars, which entry point — `pnpm dev` wires different runtimes than the deployed Worker) and anything destructive.
+- Always state what the notes do **not** cover: what needs a browser, a live Cloudflare account, or a deploy, and which failure modes are only reasoned about rather than observed.
+- Keep a short "what broke before" list per feature — the bugs found in review are the first things worth re-testing by hand.
+
 ## File Organization
 
 - Don't create utility grab-bag files (`utils.ts`, `helpers.ts`). Place functions in domain-specific modules.
