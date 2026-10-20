@@ -1153,8 +1153,10 @@ Server-sent events for one session. `logs` carries `{ entries, cursor }`;
 pass the cursor back as `after` to continue where you left off — it is opaque
 and must not be parsed. `instance` carries the status of the run named by
 `instanceId`, when given, and is sent only when it changes. `closed` ends the
-stream, either because the session stopped or because the stream reached its
-own five-minute limit and the client should reconnect.
+stream and carries `{ final, reason }`: `final: true` means the session itself
+is over and reconnecting would only return `410`; `final: false` means the
+stream reached its own five-minute limit and the client should reconnect from
+its cursor. Act on `final`, not on the wording.
 
 Holding the stream open counts as using the session, so a run is never reaped
 mid-flight.

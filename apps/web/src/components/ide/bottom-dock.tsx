@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { CircleAlert, Info, Play, SquareTerminal, TriangleAlert, X } from 'lucide-react'
+import { CircleAlert, Info, TriangleAlert, X } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useWorkspaceProblems } from '../../hooks/use-workspace-problems'
 import {
@@ -14,11 +14,20 @@ import { isMacPlatform } from '../../lib/platform'
 import { useIdeLayoutStore, type DockTab } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
 import { cn } from '../../lib/utils'
+import type { TestSessionState } from '../../hooks/use-test-session'
+import { OutputPanel } from './output-panel'
+import { RunPanel } from './run-panel'
 
 interface BottomDockProps {
   workflowId: string
   /** What the server found while producing this source, if anything. */
   diagnostics?: SourceDiagnostic[]
+  /**
+   * Owned by the workspace, not by this component: the dock unmounts when it
+   * is hidden, and holding the session here meant hiding it dropped the
+   * stream and threw away the logs.
+   */
+  testSession: TestSessionState
 }
 
 const TABS: { id: DockTab; label: string }[] = [
@@ -27,7 +36,7 @@ const TABS: { id: DockTab; label: string }[] = [
   { id: 'run', label: 'Run' },
 ]
 
-export function BottomDock({ workflowId, diagnostics }: BottomDockProps) {
+export function BottomDock({ workflowId, diagnostics, testSession }: BottomDockProps) {
   const { dockTab, showDock, toggleDock } = useIdeLayoutStore(
     useShallow((s) => ({ dockTab: s.dockTab, showDock: s.showDock, toggleDock: s.toggleDock })),
   )
@@ -58,6 +67,7 @@ export function BottomDock({ workflowId, diagnostics }: BottomDockProps) {
               label={tab.label}
               active={dockTab === tab.id}
               badge={tab.id === 'problems' ? problems.length : 0}
+              live={tab.id === 'run' && testSession.session?.status === 'running'}
               onSelect={showDock}
             />
           ))}
@@ -76,20 +86,8 @@ export function BottomDock({ workflowId, diagnostics }: BottomDockProps) {
         {dockTab === 'problems' && (
           <ProblemsList problems={problems} counts={counts} onSelect={handleProblemSelect} />
         )}
-        {dockTab === 'output' && (
-          <DockEmptyState
-            icon={SquareTerminal}
-            title="No output yet"
-            description="Logs from test sessions stream here while they run."
-          />
-        )}
-        {dockTab === 'run' && (
-          <DockEmptyState
-            icon={Play}
-            title="No run yet"
-            description="Step-by-step execution of a test run appears here."
-          />
-        )}
+        {dockTab === 'output' && <OutputPanel entries={testSession.logs} />}
+        {dockTab === 'run' && <RunPanel session={testSession} />}
       </div>
     </div>
   )
@@ -100,12 +98,15 @@ function DockTabButton({
   label,
   active,
   badge,
+  live,
   onSelect,
 }: {
   tab: DockTab
   label: string
   active: boolean
   badge: number
+  /** A session is running behind this tab, whether or not it is open. */
+  live?: boolean
   onSelect: (tab: DockTab) => void
 }) {
   function handleClick() {
@@ -124,6 +125,12 @@ function DockTabButton({
       )}
     >
       {label}
+      {live && (
+        <span
+          aria-label="Test session running"
+          className="h-1.5 w-1.5 rounded-full bg-status-success"
+        />
+      )}
       {badge > 0 && (
         <span
           className={cn(

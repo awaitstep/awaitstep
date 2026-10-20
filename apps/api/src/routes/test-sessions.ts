@@ -229,7 +229,8 @@ testSessions.get(
         )
         if (!alive) {
           closed = true
-          await send('closed', { reason: 'Test session is no longer running' })
+          // `final` is what a client acts on: the wording is for people.
+          await send('closed', { final: true, reason: 'Test session is no longer running' })
           break
         }
 
@@ -261,7 +262,7 @@ testSessions.get(
       // Only when the stream ran out of time. Saying "reconnect" after the
       // session died sends the client back for a 410.
       if (open && !closed) {
-        await send('closed', { reason: 'Stream expired — reconnect to continue' })
+        await send('closed', { final: false, reason: 'Stream expired — reconnect to continue' })
       }
     })
   },

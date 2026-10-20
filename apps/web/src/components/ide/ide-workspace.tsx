@@ -28,6 +28,7 @@ import { clearWorkflowHistory, useWorkflowStore } from '../../stores/workflow-st
 import { Button } from '../ui/button'
 import { ConfirmDialog } from '../ui/confirm-dialog'
 import { BottomDock } from './bottom-dock'
+import { useTestSession } from '../../hooks/use-test-session'
 import { CommandPalette } from './command-palette'
 import { EditorGroup } from './editor-group'
 import { FileExplorer } from './file-explorer'
@@ -73,6 +74,12 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   })
   const fullData = fullQuery.data
   const source = sourceQuery.data
+  // Owned here so it outlives the dock being hidden, and so the version on
+  // screen is what a stale session is compared against.
+  const testSession = useTestSession({
+    workflowId,
+    versionId: source?.versionId ?? null,
+  })
 
   const {
     activePath,
@@ -479,7 +486,11 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
               <>
                 <Separator className="h-px bg-border transition-colors hover:bg-primary/50" />
                 <Panel id="dock" defaultSize="28" minSize={120} maxSize="70">
-                  <BottomDock workflowId={workflowId} diagnostics={source?.diagnostics} />
+                  <BottomDock
+                    workflowId={workflowId}
+                    diagnostics={source?.diagnostics}
+                    testSession={testSession}
+                  />
                 </Panel>
               </>
             )}
