@@ -1,6 +1,5 @@
-import { Link, useRouter } from '@tanstack/react-router'
+import { Link } from '@tanstack/react-router'
 import {
-  ArrowLeft,
   Settings2,
   Play,
   Rocket,
@@ -18,6 +17,7 @@ import {
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { WorkflowTitle } from '../workflows/workflow-title'
+import { WorkspaceChrome } from '../workflows/workspace-chrome'
 import { cn } from '../../lib/utils'
 import { useTemporalStore } from '../../stores/workflow-store'
 import { redoWithFeedback, undoWithFeedback } from './time-travel'
@@ -135,172 +135,173 @@ export function EditorToolbar({
   readOnlyVersion,
   versionParam,
 }: EditorToolbarProps) {
-  const router = useRouter()
+  const title = (
+    <WorkflowTitle name={workflowName} kind={kind} version={isNew ? undefined : currentVersion}>
+      {nodeCount > 0 && (
+        <span className="hidden shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary md:inline-flex">
+          {nodeCount} node{nodeCount !== 1 ? 's' : ''}
+        </span>
+      )}
+      {hasActiveDeployment && (
+        <Link
+          to="/workflows/$workflowId/deployments"
+          params={{ workflowId }}
+          className={cn(
+            'hidden shrink-0 rounded px-1.5 py-0.5 text-xs font-medium transition-colors md:inline-block',
+            hasUndeployedChanges
+              ? 'bg-status-warning/10 text-status-warning hover:bg-status-warning/20'
+              : 'bg-status-success/10 text-status-success hover:bg-status-success/20',
+          )}
+        >
+          {hasUndeployedChanges
+            ? `deployed v${deployedVersion ?? '?'} · v${currentVersion} unsaved`
+            : `deployed v${currentVersion}`}
+        </Link>
+      )}
+      <SaveStatusIndicator
+        isDirty={isDirty}
+        isSaving={isSaving}
+        lastSavedAt={lastSavedAt ?? null}
+        autoSaveError={autoSaveError ?? null}
+      />
+    </WorkflowTitle>
+  )
 
   return (
-    <header className="relative z-20 flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border bg-card px-3 sm:px-4">
-      <div className="flex min-w-0 items-center gap-1 sm:gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground/80"
-          onClick={() => router.history.back()}
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="hidden h-5 w-px shrink-0 bg-muted/70 sm:block" />
-        <WorkflowTitle name={workflowName} kind={kind} version={isNew ? undefined : currentVersion}>
-          {nodeCount > 0 && (
-            <span className="hidden shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary md:inline-flex">
-              {nodeCount} node{nodeCount !== 1 ? 's' : ''}
-            </span>
-          )}
-          {hasActiveDeployment && (
-            <Link
-              to="/workflows/$workflowId/deployments"
-              params={{ workflowId }}
-              className={cn(
-                'hidden shrink-0 rounded px-1.5 py-0.5 text-xs font-medium transition-colors md:inline-block',
-                hasUndeployedChanges
-                  ? 'bg-status-warning/10 text-status-warning hover:bg-status-warning/20'
-                  : 'bg-status-success/10 text-status-success hover:bg-status-success/20',
-              )}
-            >
-              {hasUndeployedChanges
-                ? `deployed v${deployedVersion ?? '?'} · v${currentVersion} unsaved`
-                : `deployed v${currentVersion}`}
-            </Link>
-          )}
-          <SaveStatusIndicator
-            isDirty={isDirty}
-            isSaving={isSaving}
-            lastSavedAt={lastSavedAt ?? null}
-            autoSaveError={autoSaveError ?? null}
-          />
-        </WorkflowTitle>
-      </div>
+    <WorkspaceChrome
+      title={title}
+      actions={
+        <>
+          {/* Nothing to show source for until the workflow has been saved
+              once. Navigating away from a dirty canvas is blocked, so this
+              link raises the switch dialog rather than losing the graph.
 
-      <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
-        {!isNew && currentVersion > 0 && (
-          <Link
-            to="/workflows/$workflowId/code"
-            params={{ workflowId }}
-            search={versionParam ? { version: versionParam } : {}}
-            title="Open the code workspace"
-            className="hidden h-8 items-center gap-1.5 rounded-md px-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground/70 sm:inline-flex md:px-2.5"
-          >
-            <FileCode2 className="h-3.5 w-3.5" />
-            <span className="hidden text-xs md:inline">Code</span>
-          </Link>
-        )}
-        {readOnly ? (
-          <>
-            <span className="hidden rounded bg-muted/70 px-2 py-1 text-xs font-medium text-muted-foreground sm:inline-block">
-              Read-only{readOnlyVersion ? ` · v${readOnlyVersion}` : ''}
-            </span>
-            <Link to="/workflows/$workflowId/canvas" params={{ workflowId }}>
-              <Button size="sm" variant="outline" className="h-8 gap-1.5 px-3 text-xs">
-                <span className="hidden sm:inline">Back to latest</span>
-                <span className="sm:hidden">Latest</span>
-              </Button>
+              ?version= is carried only while actually viewing an older
+              version. On an editable canvas it names the version that is
+              current *right now*, which a save immediately supersedes —
+              carrying it would land Save-and-switch on a read-only version
+              without the save in it. Without it, Code opens the latest. */}
+          {!isNew && currentVersion > 0 && (
+            <Link
+              to="/workflows/$workflowId/code"
+              params={{ workflowId }}
+              search={readOnly && versionParam ? { version: versionParam } : {}}
+              title="Open the code workspace"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground/70 md:px-2.5"
+            >
+              <FileCode2 className="h-3.5 w-3.5" />
+              <span className="hidden text-xs md:inline">Code</span>
             </Link>
-          </>
-        ) : (
-          <>
-            <UndoRedoButtons />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onSave}
-              disabled={isSaving || !isDirty}
-              title="Save (⌘↵)"
-              className={cn(
-                'h-8 gap-1.5 px-2 md:px-2.5',
-                isDirty ? 'text-foreground/70 hover:text-foreground' : 'text-muted-foreground/60',
-              )}
-            >
-              {isSaving ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Save className="h-3.5 w-3.5" />
-              )}
-              <span className="hidden text-xs md:inline">Save</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onToggleSettings}
-              title="Settings"
-              className={cn(
-                'hidden h-8 gap-1.5 px-2 sm:inline-flex md:px-2.5',
-                showSettings
-                  ? 'bg-muted/70 text-foreground'
-                  : 'text-muted-foreground hover:text-foreground/70',
-              )}
-            >
-              <Settings2 className="h-3.5 w-3.5" />
-              <span className="hidden text-xs md:inline">Settings</span>
-            </Button>
-            {isNew && kind !== 'script' && (
+          )}
+          {readOnly ? (
+            <>
+              <span className="hidden rounded bg-muted/70 px-2 py-1 text-xs font-medium text-muted-foreground sm:inline-block">
+                Read-only{readOnlyVersion ? ` · v${readOnlyVersion}` : ''}
+              </span>
+              <Link to="/workflows/$workflowId/canvas" params={{ workflowId }}>
+                <Button size="sm" variant="outline" className="h-8 gap-1.5 px-3 text-xs">
+                  <span className="hidden sm:inline">Back to latest</span>
+                  <span className="sm:hidden">Latest</span>
+                </Button>
+              </Link>
+            </>
+          ) : (
+            <>
+              <UndoRedoButtons />
               <Button
                 variant="ghost"
                 size="sm"
-                title="Templates"
-                className="hidden h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground/70 sm:inline-flex md:px-2.5"
-                onClick={onOpenTemplatePicker}
+                onClick={onSave}
+                disabled={isSaving || !isDirty}
+                title="Save (⌘↵)"
+                className={cn(
+                  'h-8 gap-1.5 px-2 md:px-2.5',
+                  isDirty ? 'text-foreground/70 hover:text-foreground' : 'text-muted-foreground/60',
+                )}
               >
-                <LayoutTemplate className="h-3.5 w-3.5" />
-                <span className="hidden text-xs md:inline">Templates</span>
+                {isSaving ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Save className="h-3.5 w-3.5" />
+                )}
+                <span className="hidden text-xs md:inline">Save</span>
               </Button>
-            )}
-            {onExport && (
               <Button
                 variant="ghost"
                 size="sm"
-                title="Export"
-                className="hidden h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground/70 sm:inline-flex md:px-2.5"
-                onClick={onExport}
+                onClick={onToggleSettings}
+                title="Settings"
+                className={cn(
+                  'hidden h-8 gap-1.5 px-2 sm:inline-flex md:px-2.5',
+                  showSettings
+                    ? 'bg-muted/70 text-foreground'
+                    : 'text-muted-foreground hover:text-foreground/70',
+                )}
               >
-                <Download className="h-3.5 w-3.5" />
-                <span className="hidden text-xs md:inline">Export</span>
+                <Settings2 className="h-3.5 w-3.5" />
+                <span className="hidden text-xs md:inline">Settings</span>
               </Button>
-            )}
-            <div className="hidden h-5 w-px shrink-0 bg-muted/70 sm:block" />
-            <Button
-              variant="ghost"
-              size="sm"
-              title="Test"
-              className="h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground/80 md:px-2.5"
-              onClick={onTest}
-            >
-              <Play className="h-3.5 w-3.5" />
-              <span className="hidden text-xs md:inline">Test</span>
-            </Button>
-            {onTestLocally && (
+              {isNew && kind !== 'script' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  title="Templates"
+                  className="hidden h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground/70 sm:inline-flex md:px-2.5"
+                  onClick={onOpenTemplatePicker}
+                >
+                  <LayoutTemplate className="h-3.5 w-3.5" />
+                  <span className="hidden text-xs md:inline">Templates</span>
+                </Button>
+              )}
+              {onExport && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  title="Export"
+                  className="hidden h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground/70 sm:inline-flex md:px-2.5"
+                  onClick={onExport}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span className="hidden text-xs md:inline">Export</span>
+                </Button>
+              )}
+              <div className="hidden h-5 w-px shrink-0 bg-muted/70 sm:block" />
               <Button
                 variant="ghost"
                 size="sm"
-                title="Local test"
-                className="hidden h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground/80 sm:inline-flex md:px-2.5"
-                onClick={onTestLocally}
+                title="Test"
+                className="h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground/80 md:px-2.5"
+                onClick={onTest}
               >
-                <Terminal className="h-3.5 w-3.5" />
-                <span className="hidden text-xs md:inline">Local</span>
+                <Play className="h-3.5 w-3.5" />
+                <span className="hidden text-xs md:inline">Test</span>
               </Button>
-            )}
-            <Button
-              size="sm"
-              className="h-8 gap-1.5 px-2.5 md:px-3"
-              onClick={onDeploy}
-              title="Deploy"
-            >
-              <Rocket className="h-3.5 w-3.5" />
-              <span className="hidden text-xs sm:inline">Deploy</span>
-            </Button>
-          </>
-        )}
-      </div>
-    </header>
+              {onTestLocally && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  title="Local test"
+                  className="hidden h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground/80 sm:inline-flex md:px-2.5"
+                  onClick={onTestLocally}
+                >
+                  <Terminal className="h-3.5 w-3.5" />
+                  <span className="hidden text-xs md:inline">Local</span>
+                </Button>
+              )}
+              <Button
+                size="sm"
+                className="h-8 gap-1.5 px-2.5 md:px-3"
+                onClick={onDeploy}
+                title="Deploy"
+              >
+                <Rocket className="h-3.5 w-3.5" />
+                <span className="hidden text-xs sm:inline">Deploy</span>
+              </Button>
+            </>
+          )}
+        </>
+      }
+    />
   )
 }
 
