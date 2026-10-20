@@ -80,7 +80,8 @@ export interface LocalDevSession {
   pid: number
 }
 
-export interface LocalDevLogEntry {
+/** One line of output from a worker process — local dev or a test session. */
+export interface ProcessLogEntry {
   timestamp: number
   stream: 'stdout' | 'stderr'
   text: string

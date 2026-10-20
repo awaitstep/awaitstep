@@ -12,7 +12,7 @@ export type {
   RunStepDetailKind,
   RunStepDetailStatus,
   LocalDevSession,
-  LocalDevLogEntry,
+  ProcessLogEntry,
   LocalDevOptions,
   DeploymentConfigUiSchema,
   DeploymentConfigUiGroup,
@@ -33,6 +33,16 @@ export type {
   LocalDevProvider,
 } from './provider.js'
 export { supportsLocalDev } from './provider.js'
+export type {
+  TestSessionRunner,
+  TestSessionRuntime,
+  TestSessionTarget,
+  TestSessionHandle,
+  StartedTestSessionHandle,
+  TestSessionStart,
+  TestSessionResponse,
+} from './test-session.js'
+export { TEST_SESSION_RUNTIMES } from './test-session.js'
 export type { CodeGenerator, GenerateMode } from './code-generator.js'
 export type { TemplateResolver } from './template-resolver.js'
 
