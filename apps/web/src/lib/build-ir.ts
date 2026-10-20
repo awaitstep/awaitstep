@@ -1,6 +1,6 @@
 import { IR_VERSION } from '@awaitstep/ir'
 import type { EnvDeclaration, WorkflowRuntime } from '@awaitstep/ir'
-import { SECRET_PREFIX } from './env-var-parser'
+import { splitSecretName } from './env-var-parser'
 import type { useWorkflowStore } from '../stores/workflow-store'
 
 type StoreState = ReturnType<typeof useWorkflowStore.getState>
@@ -53,12 +53,12 @@ type BuildState = Pick<
  */
 function buildRuntime(state: BuildState): WorkflowRuntime | undefined {
   const env: EnvDeclaration[] = state.workflowEnvVars.flatMap((v) => {
-    const secret = v.name.startsWith(SECRET_PREFIX)
-    const name = (secret ? v.name.slice(SECRET_PREFIX.length) : v.name).trim()
+    const { name, isSecret } = splitSecretName(v.name)
+    const trimmed = name.trim()
     // A bare "SECRET_" or blank row would export an invalid declaration that
     // the schema rejects on reimport — drop it instead.
-    if (!name) return []
-    return [{ name, ...(secret && { secret: true }) }]
+    if (!trimmed) return []
+    return [{ name: trimmed, ...(isSecret && { secret: true }) }]
   })
   const runtime: WorkflowRuntime = {
     ...(env.length > 0 && { env }),

@@ -7,8 +7,7 @@ import { Separator } from '../ui/separator'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import type { WorkflowEnvVar } from '../../stores/workflow-store'
 import { useShallow } from 'zustand/react/shallow'
-
-const SECRET_PREFIX = 'SECRET_'
+import { splitSecretName } from '../../lib/env-var-parser'
 
 export function WorkflowSettings() {
   const { metadata, workflowEnvVars } = useWorkflowStore(
@@ -45,9 +44,7 @@ export function WorkflowSettings() {
     (index: number) => {
       const v = useWorkflowStore.getState().workflowEnvVars[index]
       if (v?.name) {
-        const rawName = v.name.startsWith(SECRET_PREFIX)
-          ? v.name.slice(SECRET_PREFIX.length)
-          : v.name
+        const { name: rawName } = splitSecretName(v.name)
         setWorkflowEnvVars(
           useWorkflowStore
             .getState()
@@ -113,7 +110,7 @@ export function WorkflowSettings() {
             ) : (
               <div className="space-y-2">
                 {workflowEnvVars.map((envVar, i) => {
-                  const isSecret = envVar.name.startsWith(SECRET_PREFIX)
+                  const { isSecret } = splitSecretName(envVar.name)
                   return (
                     <div key={i} className="space-y-1">
                       <div className="flex items-center gap-1.5">

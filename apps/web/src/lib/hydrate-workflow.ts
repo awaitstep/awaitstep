@@ -1,5 +1,6 @@
 import { loadArtifact } from '@awaitstep/ir'
 import type { WorkflowNode, WorkflowRuntime } from '@awaitstep/ir'
+import { secretDisplayName } from './env-var-parser'
 import type {
   WorkflowSummary,
   WorkflowVersion,
@@ -50,7 +51,7 @@ export function buildWorkflowStoreState(
       if (Array.isArray(parsed)) {
         state.workflowEnvVars = parsed.map(
           (v: { name: string; value: string; isSecret?: boolean }) => ({
-            name: v.isSecret ? `SECRET_${v.name}` : v.name,
+            name: secretDisplayName(v.name, v.isSecret ?? false),
             value: v.value,
           }),
         )
@@ -145,7 +146,7 @@ export function buildWorkflowStoreState(
         // Values are intentionally blank — declarations never carry values.
         if ((state.workflowEnvVars as unknown[]).length === 0 && runtime.env) {
           state.workflowEnvVars = runtime.env.map((declaration) => ({
-            name: declaration.secret ? `SECRET_${declaration.name}` : declaration.name,
+            name: secretDisplayName(declaration.name, declaration.secret ?? false),
             value: '',
           }))
         }

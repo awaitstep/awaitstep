@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { useWorkflowStore } from '../stores/workflow-store'
 import { validateWorkflowForPublish } from '../lib/validate-workflow'
 import { buildIRFromState } from '../lib/build-ir'
+import { splitSecretName } from '../lib/env-var-parser'
 import { api, type WorkflowSummary } from '../lib/api-client'
 import type { NodeRegistry } from '@awaitstep/ir'
 
@@ -30,12 +31,13 @@ export function useWorkflowPersistence(opts: {
     const state = useWorkflowStore.getState()
     const ir = buildIRFromState(state)
 
-    const SECRET_PREFIX = 'SECRET_'
-    const envVars = state.workflowEnvVars.map((v) => {
-      if (v.name.startsWith(SECRET_PREFIX)) {
-        return { name: v.name.slice(SECRET_PREFIX.length), value: v.value, isSecret: true }
-      }
-      return { name: v.name, value: v.value, isSecret: false }
+    // A blank row, or a bare "SECRET_", is a half-typed line in the editor
+    // and not a variable. Sending it fails the API's name check and takes
+    // the whole save down with it — the IR builder drops these too.
+    const envVars = state.workflowEnvVars.flatMap((v) => {
+      const { name, isSecret } = splitSecretName(v.name)
+      const trimmed = name.trim()
+      return trimmed ? [{ name: trimmed, isSecret, value: v.value }] : []
     })
     // Trigger code and dependencies are project files (handlers.ts,
     // package.json) edited in the code workspace; the canvas only mirrors
