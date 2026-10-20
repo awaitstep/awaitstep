@@ -66,6 +66,23 @@ export { DEFAULT_RETENTION, resolveRetention } from './codegen/retention.js'
 export type { CloudflareRetention } from './codegen/retention.js'
 export { splitEnvVars } from './env.js'
 export { startLocalDev, killPort, isPortListening, readLogs, LOCAL_DEV_PORT } from './local-dev.js'
+export { SandboxTestSessionRunner } from './test-sessions/sandbox-runner.js'
+export type { SandboxTestSessionRunnerOptions } from './test-sessions/sandbox-runner.js'
+export {
+  NodeTestSessionRunner,
+  TEST_SESSION_PORT_RANGE,
+  releaseClaimedPorts,
+} from './test-sessions/node-runner.js'
+export type { NodeTestSessionRunnerOptions } from './test-sessions/node-runner.js'
+export { logPageFromBuffers, logPageFromEntries } from './test-sessions/log-page.js'
+export {
+  buildDevWorkspaceFiles,
+  writeDevWorkspace,
+  installWorkspaceDependencies,
+  formatDevVars,
+} from './dev-workspace.js'
+export type { DevWorkspaceFile } from './dev-workspace.js'
+export { compileBundle } from './compile-bundle.js'
 export { CloudflareResourcesAPI } from './resources.js'
 export type {
   KVNamespace,
