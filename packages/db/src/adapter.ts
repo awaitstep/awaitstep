@@ -17,6 +17,14 @@ import type {
   WorkflowFile,
   WorkflowFileSummary,
   UpsertWorkflowFileData,
+  TestSession,
+  TestSessionCutoffs,
+  TestSessionStatus,
+  TestSessionUsage,
+  OwnedTestSession,
+  ExpiringTestSession,
+  ReserveTestSessionData,
+  ReserveTestSessionLimits,
 } from './types.js'
 import type { PaginationParams, PaginatedResult } from './pagination.js'
 
@@ -171,6 +179,56 @@ export interface DatabaseAdapter {
   ): Promise<WorkflowFile | null>
   replaceWorkflowFiles(workflowId: string, rows: UpsertWorkflowFileData[]): Promise<WorkflowFile[]>
   deleteWorkflowFile(workflowId: string, path: string, expectedHash?: string): Promise<boolean>
+
+  // Test sessions (disposable workers running a workflow before deploy)
+  /**
+   * Records a session as `starting` if both caps have room — the counts are
+   * subqueries of the INSERT. Null when a cap was full.
+   */
+  reserveTestSession(
+    data: ReserveTestSessionData,
+    limits: ReserveTestSessionLimits,
+  ): Promise<TestSession | null>
+  /** Publishes the worker's process and port; null unless still `starting` and in time. */
+  activateTestSession(
+    id: string,
+    userId: string,
+    processId: string,
+    port: number,
+    cutoffs: TestSessionCutoffs,
+  ): Promise<TestSession | null>
+  /** Session + workflow + expiry, scoped to its owner and project in one statement. */
+  getOwnedTestSession(
+    id: string,
+    userId: string,
+    projectId: string,
+    cutoffs: TestSessionCutoffs,
+  ): Promise<OwnedTestSession | null>
+  /** The user's newest live session for a workflow — never an expired one. */
+  getLiveTestSessionForWorkflow(
+    workflowId: string,
+    userId: string,
+    cutoffs: TestSessionCutoffs,
+  ): Promise<TestSession | null>
+  /** Concurrency (per user, all projects) and quota (per project), for refusal messages. */
+  getTestSessionUsage(
+    projectId: string,
+    userId: string,
+    quotaWindowStart: string,
+  ): Promise<TestSessionUsage>
+  /** Bumps the idle clock; false once the session is expired, finished or not theirs. */
+  touchTestSession(id: string, userId: string, cutoffs: TestSessionCutoffs): Promise<boolean>
+  /** False when another writer already finished it (the transition is in the statement). */
+  markTestSessionStopped(
+    id: string,
+    status: Extract<TestSessionStatus, 'stopped' | 'failed'>,
+    options?: { userId?: string; error?: string },
+  ): Promise<boolean>
+  /** Sessions past a cut-off (idle, lifetime, or stuck starting), oldest first, with reasons. */
+  listExpiredTestSessions(
+    cutoffs: TestSessionCutoffs,
+    limit: number,
+  ): Promise<ExpiringTestSession[]>
 
   // Deployments
   createDeployment(data: {

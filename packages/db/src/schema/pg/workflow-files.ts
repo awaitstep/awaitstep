@@ -8,7 +8,7 @@ export const workflowFiles = pgTable(
     workflowId: text('workflow_id')
       .notNull()
       .references(() => workflows.id, { onDelete: 'cascade' }),
-    // Bundle-relative, always under lib/ (validated before every write).
+    // Bundle-relative; validated against the project-file rules on every write.
     path: text('path').notNull(),
     source: text('source').notNull(),
     // Content hash doubling as the ETag for optimistic concurrency.

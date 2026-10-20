@@ -11,10 +11,11 @@ import type { projects } from './schema/sqlite/projects.js'
 import type { installedNodes } from './schema/sqlite/installed-nodes.js'
 import type { deploymentConfigs } from './schema/sqlite/deployment-configs.js'
 import type { workflowFiles } from './schema/sqlite/workflow-files.js'
+import type { testSessions } from './schema/sqlite/test-sessions.js'
 
 export type Workflow = InferSelectModel<typeof workflows>
 
-/** A project-owned `lib/` file; `hash` is the content hash the API serves as its ETag. */
+/** A project-owned file; `hash` is the content hash the API serves as its ETag. */
 export type WorkflowFile = InferSelectModel<typeof workflowFiles>
 /** A project file without its text: what a listing needs. */
 export type WorkflowFileSummary = Omit<WorkflowFile, 'source'>
@@ -27,6 +28,83 @@ export interface UpsertWorkflowFileData {
   hash: string
   /** UTF-8 byte size of `source`. */
   size: number
+}
+
+/** A disposable worker running a workflow before it is deployed. */
+export type TestSession = InferSelectModel<typeof testSessions>
+export type TestSessionStatus = TestSession['status']
+
+/** What a session is recorded with, before its container exists. */
+export interface ReserveTestSessionData {
+  id: string
+  workflowId: string
+  versionId?: string | null
+  userId: string
+  runtime: TestSession['runtime']
+  containerId: string
+}
+
+/**
+ * The instants that separate a live session from an expired one. Produced by
+ * the API's session policy, so TTL is never stored on a row: queries that
+ * select live sessions compare strictly after these, and the reaper's query
+ * compares at-or-before them — exact complements, so the two can never
+ * disagree about a session on the boundary.
+ */
+export interface TestSessionCutoffs {
+  /** A running session used at or before this is idle. */
+  idle: string
+  /** A session created at or before this has outlived its hard lifetime. */
+  started: string
+  /** A session still `starting` at or before this never came up. */
+  starting: string
+}
+
+/** The caps a reservation has to fit inside, evaluated in the statement. */
+export interface ReserveTestSessionLimits {
+  cutoffs: TestSessionCutoffs
+  /** Project the quota applies to; resolved through the session's workflow. */
+  projectId: string
+  /** Unfinished sessions this user may hold, counted across every project. */
+  maxConcurrentPerUser: number
+  /** Sessions the project may start inside the quota window. */
+  maxPerWindowPerProject: number
+  quotaWindowStart: string
+}
+
+/**
+ * Why a session should be stopped, or `null` while it may keep running.
+ * Computed in SQL and returned as a column, so nothing above the adapter
+ * parses a stored timestamp.
+ */
+export type TestSessionExpiry = 'idle' | 'lifetime' | 'start-timeout' | null
+
+/**
+ * A session with the workflow it belongs to, resolved in one query. Access is
+ * verified through the workflow's project, never a column on the session.
+ */
+export interface OwnedTestSession {
+  session: TestSession
+  workflow: Workflow
+  expiry: TestSessionExpiry
+}
+
+/** A session the reaper should stop, with the reason to report. */
+export interface ExpiringTestSession {
+  session: TestSession
+  expiry: TestSessionExpiry
+}
+
+/** Counts the session policy needs, both from a single query. */
+export interface TestSessionUsage {
+  /**
+   * Sessions this user holds anywhere that may still own a container —
+   * starting and running both count, including ones already past their
+   * cut-offs, because an unreaped session is still billing.
+   */
+  activeForUser: number
+  /** Sessions created in the project since the quota window opened. */
+  createdInWindow: number
 }
 export type WorkflowVersion = InferSelectModel<typeof workflowVersions>
 

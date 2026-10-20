@@ -16,6 +16,14 @@ import type {
   WorkflowFile,
   WorkflowFileSummary,
   UpsertWorkflowFileData,
+  TestSession,
+  TestSessionCutoffs,
+  TestSessionStatus,
+  TestSessionUsage,
+  OwnedTestSession,
+  ExpiringTestSession,
+  ReserveTestSessionData,
+  ReserveTestSessionLimits,
   Deployment,
   DeploymentConfig,
   ApiKey,
@@ -34,6 +42,7 @@ import { ConnectionsAdapter } from './connections.js'
 import { RunsAdapter } from './runs.js'
 import { RunStepsAdapter } from './run-steps.js'
 import { WorkflowFilesAdapter } from './workflow-files.js'
+import { TestSessionsAdapter } from './test-sessions.js'
 import { DeploymentsAdapter } from './deployments.js'
 import { ApiKeysAdapter } from './api-keys.js'
 import { EnvVarsAdapter } from './env-vars.js'
@@ -48,6 +57,7 @@ export interface SchemaRef {
   workflowRuns: unknown
   workflowRunSteps: unknown
   workflowFiles: unknown
+  testSessions: unknown
   deployments: unknown
   deploymentConfigs: unknown
   apiKeys: unknown
@@ -71,6 +81,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _runs: RunsAdapter
   private _runSteps: RunStepsAdapter
   private _workflowFiles: WorkflowFilesAdapter
+  private _testSessions: TestSessionsAdapter
   private _deployments: DeploymentsAdapter
   private _apiKeys: ApiKeysAdapter
   private _envVars: EnvVarsAdapter
@@ -95,6 +106,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       schema.deployments,
     )
     this._workflowFiles = new WorkflowFilesAdapter(db, schema.workflowFiles)
+    this._testSessions = new TestSessionsAdapter(db, schema.testSessions, schema.workflows)
     this._deployments = new DeploymentsAdapter(db, schema.deployments)
     this._apiKeys = new ApiKeysAdapter(db, schema.apiKeys)
     this._envVars = new EnvVarsAdapter(db, schema.envVars, options?.tokenCrypto, schema.projects)
@@ -399,6 +411,61 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
   deleteWorkflowFile(workflowId: string, path: string, expectedHash?: string): Promise<boolean> {
     return this._workflowFiles.deleteByPath(workflowId, path, expectedHash)
+  }
+
+  // Test sessions
+  reserveTestSession(
+    data: ReserveTestSessionData,
+    limits: ReserveTestSessionLimits,
+  ): Promise<TestSession | null> {
+    return this._testSessions.reserve(data, limits)
+  }
+  activateTestSession(
+    id: string,
+    userId: string,
+    processId: string,
+    port: number,
+    cutoffs: TestSessionCutoffs,
+  ): Promise<TestSession | null> {
+    return this._testSessions.activate(id, userId, processId, port, cutoffs)
+  }
+  getOwnedTestSession(
+    id: string,
+    userId: string,
+    projectId: string,
+    cutoffs: TestSessionCutoffs,
+  ): Promise<OwnedTestSession | null> {
+    return this._testSessions.getOwned(id, userId, projectId, cutoffs)
+  }
+  getLiveTestSessionForWorkflow(
+    workflowId: string,
+    userId: string,
+    cutoffs: TestSessionCutoffs,
+  ): Promise<TestSession | null> {
+    return this._testSessions.getLiveForWorkflow(workflowId, userId, cutoffs)
+  }
+  getTestSessionUsage(
+    projectId: string,
+    userId: string,
+    quotaWindowStart: string,
+  ): Promise<TestSessionUsage> {
+    return this._testSessions.usage(projectId, userId, quotaWindowStart)
+  }
+  touchTestSession(id: string, userId: string, cutoffs: TestSessionCutoffs): Promise<boolean> {
+    return this._testSessions.touch(id, userId, cutoffs)
+  }
+  markTestSessionStopped(
+    id: string,
+    status: Extract<TestSessionStatus, 'stopped' | 'failed'>,
+    options?: { userId?: string; error?: string },
+  ): Promise<boolean> {
+    return this._testSessions.markStopped(id, status, options)
+  }
+  listExpiredTestSessions(
+    cutoffs: TestSessionCutoffs,
+    limit: number,
+  ): Promise<ExpiringTestSession[]> {
+    return this._testSessions.listExpired(cutoffs, limit)
   }
 
   async listRecentRunsByProject(

@@ -21,6 +21,15 @@ export type {
   WorkflowFile,
   WorkflowFileSummary,
   UpsertWorkflowFileData,
+  TestSession,
+  TestSessionCutoffs,
+  TestSessionStatus,
+  TestSessionUsage,
+  OwnedTestSession,
+  ExpiringTestSession,
+  TestSessionExpiry,
+  ReserveTestSessionData,
+  ReserveTestSessionLimits,
 } from './types.js'
 export type {
   DatabaseAdapter,

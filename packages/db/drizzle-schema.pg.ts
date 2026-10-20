@@ -1,4 +1,5 @@
 import { pgTable, text, timestamp, boolean, integer, index, uniqueIndex } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
 export const envVars = pgTable(
   'env_vars',
@@ -384,5 +385,40 @@ export const workflowFiles = pgTable(
   (table) => [
     index('idx_workflow_files_workflow_id').on(table.workflowId),
     uniqueIndex('idx_workflow_files_path').on(table.workflowId, table.path),
+  ],
+)
+
+export const testSessions = pgTable(
+  'test_sessions',
+  {
+    id: text('id').primaryKey(),
+    workflowId: text('workflow_id').references(() => workflows.id, { onDelete: 'set null' }),
+    versionId: text('version_id').references(() => workflowVersions.id, {
+      onDelete: 'set null',
+    }),
+    userId: text('user_id').notNull(),
+    runtime: text('runtime', { enum: ['sandbox', 'node'] }).notNull(),
+    containerId: text('container_id').notNull(),
+    processId: text('process_id'),
+    port: integer('port'),
+    slot: integer('slot').notNull().default(0),
+    status: text('status', { enum: ['starting', 'running', 'stopped', 'failed'] })
+      .notNull()
+      .default('starting'),
+    error: text('error'),
+    createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
+    lastUsedAt: timestamp('last_used_at', { mode: 'string' }).notNull().defaultNow(),
+    stoppedAt: timestamp('stopped_at', { mode: 'string' }),
+  },
+  (table) => [
+    index('idx_test_sessions_workflow_id').on(table.workflowId),
+    index('idx_test_sessions_user_status').on(table.userId, table.status),
+    index('idx_test_sessions_status_last_used').on(table.status, table.lastUsedAt),
+    // The per-project quota counts a window of a workflow's sessions on
+    // every start; without this it reads every session the project ever had.
+    index('idx_test_sessions_workflow_created').on(table.workflowId, table.createdAt),
+    uniqueIndex('idx_test_sessions_live_slot')
+      .on(table.userId, table.slot)
+      .where(sql`${table.status} in ('starting', 'running')`),
   ],
 )
