@@ -1,5 +1,17 @@
 # AwaitStep — Claude Code Rules
 
+## Review Feedback
+
+When review feedback is shared, work through **every** comment in it — in full, before reporting back. For each one:
+
+- **Verify it against the code first.** Open the file, read the surrounding code, and confirm the claim. A finding is not a fact until it is checked. If one is wrong or already handled, say so with evidence instead of changing code to match it.
+- **Fix the cause, not the line cited.** The comment names where the symptom surfaced; find where the mistake actually is. If the right fix is at a different layer, make it there and explain why.
+- **Check for the same bug elsewhere.** A finding is a class of mistake, not one instance. Grep for the pattern across the repo and fix every copy, including ones the reviewer did not list.
+- **Note whether it is new or pre-existing.** New means this change introduced it. Pre-existing in code being touched still gets fixed; pre-existing elsewhere gets flagged, with a recommendation, rather than silently expanded into.
+- **Update the comments and docs the fix invalidates** — the code comment explaining the old behaviour, `plan/decision-context.md` if a decision was reversed, `plan/qa-notes.md`'s "what broke before" list.
+- **Add a regression test** that fails without the fix. If a finding slipped through because nothing covered it, that gap is itself a finding.
+- **Report every comment's outcome**, including ones deliberately not fixed and why. Never report a review as handled while any comment is unaddressed or unexplained.
+
 ## Dependencies
 
 - Always install the latest stable version of any new package. Check with `npm view <pkg> version` before adding.
@@ -73,6 +85,10 @@
 
 - Always write plan output (implementation plans, audit reports, task breakdowns) to the `./plan/` directory as markdown files.
 - Name plan files descriptively (e.g., `phase-1-audit.md`, `refactor-connections.md`).
+- **One plan item per chat.** Start a new chat (or `/clear`) before beginning a planned item. A long chat carries the previous item's assumptions, half-reverted decisions and stale file contents, and those leak into the next one as confident mistakes.
+- **Refine before executing.** A plan item is not ready to build until it has its own `plan/<item>.md` containing: what it is for (in the user's terms), the slices it breaks into, the files and packages each slice touches, the decisions still open, what it explicitly does **not** cover, and **acceptance criteria** — specific, checkable statements, not "it works".
+- **Wait for agreement on the refinement before writing code.** Refinement is a separate step from execution; do not roll them into one pass.
+- Acceptance criteria are what the QA notes are written against, so phrase them as things a person can check.
 
 ## QA Notes
 
@@ -81,6 +97,8 @@
 - Always state the prerequisites (migrations to run, env vars, which entry point — `pnpm dev` wires different runtimes than the deployed Worker) and anything destructive.
 - Always state what the notes do **not** cover: what needs a browser, a live Cloudflare account, or a deploy, and which failure modes are only reasoned about rather than observed.
 - Keep a short "what broke before" list per feature — the bugs found in review are the first things worth re-testing by hand.
+- **Delete a feature's section as soon as its branch merges into `feat/awaitstep-v2`.** The file is a list of what still needs checking, not a changelog — it holds notes for unmerged work only. Do this as part of the merge, in the same step as deleting the task branch.
+- `plan/` is gitignored, so a deleted section cannot be recovered. Anything worth keeping past the merge — a design decision, why something is the way it is — belongs in `plan/decision-context.md` before the section goes.
 
 ## File Organization
 
