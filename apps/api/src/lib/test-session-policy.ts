@@ -13,6 +13,12 @@ export interface TestSessionLimits {
   startTimeoutMs: number
   /** Live sessions one user may hold across every project. Zero disables starts. */
   maxConcurrentPerUser: number
+  /**
+   * Live sessions everyone may hold together. Containers come from a fixed
+   * pool shared with deploys, so without this a few users each holding one
+   * can leave nothing to deploy with.
+   */
+  maxConcurrentTotal: number
   /** Sessions a project may start inside `quotaWindowMs`. Zero disables starts. */
   maxPerWindowPerProject: number
   quotaWindowMs: number
@@ -23,6 +29,7 @@ export const DEFAULT_TEST_SESSION_LIMITS: TestSessionLimits = {
   maxLifetimeMs: 60 * 60_000,
   startTimeoutMs: 5 * 60_000,
   maxConcurrentPerUser: 1,
+  maxConcurrentTotal: 10,
   maxPerWindowPerProject: 50,
   quotaWindowMs: 24 * 60 * 60_000,
 }
@@ -36,6 +43,7 @@ const BOUNDS = {
   maxLifetimeMs: { min: 5 * 60_000, max: 8 * 60 * 60_000 },
   startTimeoutMs: { min: 30_000, max: 30 * 60_000 },
   maxConcurrentPerUser: { min: 0, max: 10 },
+  maxConcurrentTotal: { min: 0, max: 50 },
   maxPerWindowPerProject: { min: 0, max: 10_000 },
   quotaWindowMs: { min: 60_000, max: 7 * 24 * 60 * 60_000 },
 } as const satisfies Record<keyof TestSessionLimits, { min: number; max: number }>
@@ -57,6 +65,7 @@ function resolveDuration(value: number, bounds: { min: number; max: number }): n
 
 const CAP_KEYS = new Set<keyof TestSessionLimits>([
   'maxConcurrentPerUser',
+  'maxConcurrentTotal',
   'maxPerWindowPerProject',
 ])
 
@@ -120,13 +129,24 @@ export function testSessionCutoffs(
   }
 }
 
+/**
+ * How long a session's container may idle before the platform sleeps it.
+ * It has to outlast the session itself — a container asleep behind a live
+ * session leaves the API proxying into nothing — so it follows the limits
+ * rather than being a constant that quietly stops matching them.
+ */
+export function containerSleepAfter(limits: TestSessionLimits): string {
+  const longest = Math.max(limits.idleMs, limits.maxLifetimeMs, limits.startTimeoutMs)
+  return `${Math.ceil(longest / 60_000) + 5}m`
+}
+
 /** When the quota window opened — the lower bound for a usage count. */
 export function quotaWindowStart(limits: TestSessionLimits, now: number = Date.now()): string {
   return new Date(now - limits.quotaWindowMs).toISOString()
 }
 
 export type TestSessionStartRefusal = {
-  limit: 'concurrency' | 'quota' | 'disabled' | 'race'
+  limit: 'concurrency' | 'capacity' | 'quota' | 'disabled' | 'race'
   error: string
 }
 
@@ -141,7 +161,11 @@ export function testSessionStartRefusal(
   usage: TestSessionUsage,
   limits: TestSessionLimits,
 ): TestSessionStartRefusal {
-  if (limits.maxConcurrentPerUser === 0 || limits.maxPerWindowPerProject === 0) {
+  if (
+    limits.maxConcurrentPerUser === 0 ||
+    limits.maxConcurrentTotal === 0 ||
+    limits.maxPerWindowPerProject === 0
+  ) {
     return { limit: 'disabled', error: 'Test sessions are currently disabled' }
   }
   if (usage.activeForUser >= limits.maxConcurrentPerUser) {
@@ -151,6 +175,12 @@ export function testSessionStartRefusal(
         limits.maxConcurrentPerUser === 1
           ? 'You already have a test session running — stop it before starting another'
           : `You already have ${limits.maxConcurrentPerUser} test sessions running`,
+    }
+  }
+  if (usage.activeEverywhere >= limits.maxConcurrentTotal) {
+    return {
+      limit: 'capacity',
+      error: 'All test session capacity is in use — try again in a few minutes',
     }
   }
   if (usage.createdInWindow >= limits.maxPerWindowPerProject) {

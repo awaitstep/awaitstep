@@ -15,6 +15,7 @@ const limits: TestSessionLimits = {
   maxLifetimeMs: 60 * 60_000,
   startTimeoutMs: 5 * 60_000,
   maxConcurrentPerUser: 1,
+  maxConcurrentTotal: 5,
   maxPerWindowPerProject: 3,
   quotaWindowMs: 24 * 60 * 60_000,
 }
@@ -122,29 +123,34 @@ describe('cut-offs and windows', () => {
 
 describe('testSessionStartRefusal', () => {
   it('reports the concurrency limit a user can clear themselves', () => {
-    const refusal = testSessionStartRefusal({ activeForUser: 1, createdInWindow: 0 }, limits)
+    const refusal = testSessionStartRefusal(
+      { activeForUser: 1, activeEverywhere: 1, createdInWindow: 0 },
+      limits,
+    )
     expect(refusal.limit).toBe('concurrency')
     expect(refusal.error).toContain('stop it')
   })
 
   it('names the limit when more than one session is allowed', () => {
     const refusal = testSessionStartRefusal(
-      { activeForUser: 2, createdInWindow: 0 },
+      { activeForUser: 2, activeEverywhere: 2, createdInWindow: 0 },
       { ...limits, maxConcurrentPerUser: 2 },
     )
     expect(refusal.error).toContain('2 test sessions')
   })
 
   it('reports a spent project quota', () => {
-    expect(testSessionStartRefusal({ activeForUser: 0, createdInWindow: 3 }, limits).limit).toBe(
-      'quota',
-    )
+    expect(
+      testSessionStartRefusal({ activeForUser: 0, activeEverywhere: 0, createdInWindow: 3 }, limits)
+        .limit,
+    ).toBe('quota')
   })
 
   it('reports concurrency first when both limits are reached', () => {
-    expect(testSessionStartRefusal({ activeForUser: 1, createdInWindow: 3 }, limits).limit).toBe(
-      'concurrency',
-    )
+    expect(
+      testSessionStartRefusal({ activeForUser: 1, activeEverywhere: 1, createdInWindow: 3 }, limits)
+        .limit,
+    ).toBe('concurrency')
   })
 
   it('says sessions are disabled when a cap is zeroed', () => {
@@ -152,7 +158,10 @@ describe('testSessionStartRefusal', () => {
       { ...limits, maxConcurrentPerUser: 0 },
       { ...limits, maxPerWindowPerProject: 0 },
     ]) {
-      const refusal = testSessionStartRefusal({ activeForUser: 0, createdInWindow: 0 }, zeroed)
+      const refusal = testSessionStartRefusal(
+        { activeForUser: 0, activeEverywhere: 0, createdInWindow: 0 },
+        zeroed,
+      )
       expect(refusal.limit).toBe('disabled')
       expect(refusal.error).toContain('disabled')
     }
@@ -161,7 +170,10 @@ describe('testSessionStartRefusal', () => {
   it('does not blame a full quota when the reservation lost a race', () => {
     // Both caps have room, so the refusal came from the unique index, not a
     // limit — telling the user their quota is spent would be a lie.
-    const refusal = testSessionStartRefusal({ activeForUser: 0, createdInWindow: 0 }, limits)
+    const refusal = testSessionStartRefusal(
+      { activeForUser: 0, activeEverywhere: 0, createdInWindow: 0 },
+      limits,
+    )
     expect(refusal.limit).toBe('race')
     expect(refusal.error).toContain('try again')
   })
