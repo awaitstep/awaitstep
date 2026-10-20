@@ -28,8 +28,6 @@ function url(path: string) {
   return `${path}${path.includes('?') ? '&' : '?'}projectId=${TEST_PROJECT_ID}`
 }
 
-type Resolved = Awaited<ReturnType<typeof mockDb.resolveEnvVars>>
-
 describe('source and eject with unresolved env vars', () => {
   let app: ReturnType<typeof createTestApp>
 
@@ -48,11 +46,17 @@ describe('source and eject with unresolved env vars', () => {
       body: JSON.stringify({ ir: validIR }),
     })
     expect(saved.status).toBe(201)
-    // A declared secret whose value was never set: a deploy must refuse,
-    // a read of the source must not.
-    vi.spyOn(mockDb, 'resolveEnvVars').mockResolvedValue({
-      ALICLOUD_ACCESS_KEY_ID: { value: undefined, isSecret: true },
-    } as unknown as Resolved)
+    // A declared secret pointing at a project variable that does not exist:
+    // a deploy must refuse, a read of the source must not. Stubbed at the
+    // storage layer so the resolution itself is the code under test —
+    // findEnvVarsByNames finds nothing, so the reference stays unresolved.
+    vi.spyOn(mockDb, 'getWorkflowEnvVars').mockResolvedValue([
+      {
+        name: 'ALICLOUD_ACCESS_KEY_ID',
+        value: '{{global.env.ALICLOUD_ACCESS_KEY_ID}}',
+        isSecret: true,
+      },
+    ])
   })
 
   it('GET /source renders the generated view without env values', async () => {

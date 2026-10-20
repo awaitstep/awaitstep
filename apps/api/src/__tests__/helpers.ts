@@ -711,8 +711,8 @@ const mockDb: DatabaseAdapter = {
     return []
   },
   async setWorkflowEnvVars() {},
-  async resolveEnvVars() {
-    return {}
+  async findEnvVarsByNames() {
+    return []
   },
 
   // Installed Nodes

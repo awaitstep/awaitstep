@@ -1,10 +1,5 @@
 import { eq, and, desc, or, lt, sql } from 'drizzle-orm'
-import type {
-  DatabaseAdapter,
-  WorkflowEnvVar,
-  ResolvedEnvVar,
-  WorkflowWithStatus,
-} from '../adapter.js'
+import type { DatabaseAdapter, WorkflowEnvVar, WorkflowWithStatus } from '../adapter.js'
 import type {
   Workflow,
   WorkflowVersion,
@@ -765,36 +760,12 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     await this._workflows.update(workflowId, { envVars: JSON.stringify(toStore) })
   }
 
-  async resolveEnvVars(
+  findEnvVarsByNames(
     organizationId: string,
-    projectId: string,
-    workflowId: string,
-  ): Promise<Record<string, ResolvedEnvVar>> {
-    const workflowVars = await this.getWorkflowEnvVars(workflowId)
-    const globalRefPattern = /^\{\{global\.env\.([A-Z][A-Z0-9_]*)\}\}$/
-    const result: Record<string, ResolvedEnvVar> = {}
-
-    for (const wVar of workflowVars) {
-      const match = wVar.value.match(globalRefPattern)
-      if (match) {
-        const globalName = match[1]
-        // Try project-level first, then org-level (project overrides org)
-        const projectVar = await this._envVars.getByOrgAndName(
-          organizationId,
-          globalName,
-          projectId,
-        )
-        const envVar =
-          projectVar ?? (await this._envVars.getByOrgAndName(organizationId, globalName))
-        result[wVar.name] = envVar
-          ? { value: envVar.value, isSecret: envVar.isSecret }
-          : { value: undefined, isSecret: wVar.isSecret }
-      } else {
-        result[wVar.name] = { value: wVar.value, isSecret: wVar.isSecret }
-      }
-    }
-
-    return result
+    names: readonly string[],
+    projectId?: string | null,
+  ): Promise<EnvVar[]> {
+    return this._envVars.findByNames(organizationId, names, projectId)
   }
 
   // Installed Nodes (Marketplace)

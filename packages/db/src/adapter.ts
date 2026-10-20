@@ -326,11 +326,17 @@ export interface DatabaseAdapter {
   deleteEnvVar(id: string): Promise<void>
   getWorkflowEnvVars(workflowId: string): Promise<WorkflowEnvVar[]>
   setWorkflowEnvVars(workflowId: string, vars: WorkflowEnvVar[]): Promise<void>
-  resolveEnvVars(
+  /**
+   * Variables matching any of `names`, from the project and the org, in one
+   * query. Resolving a `{{global.env.X}}` reference to a value is the
+   * caller's job: the form of a reference is defined in `@awaitstep/ir`,
+   * which this package is standalone from.
+   */
+  findEnvVarsByNames(
     organizationId: string,
-    projectId: string,
-    workflowId: string,
-  ): Promise<Record<string, ResolvedEnvVar>>
+    names: readonly string[],
+    projectId?: string | null,
+  ): Promise<EnvVar[]>
 
   // Installed Nodes (Marketplace)
   installNode(data: {

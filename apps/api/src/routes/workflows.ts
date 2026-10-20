@@ -11,6 +11,7 @@ import {
   hasHandlerModules,
   projectHandlerModules,
 } from '@awaitstep/ir'
+import { unresolvableEnvRefs } from '../lib/env-resolve.js'
 import type { AppEnv } from '../types.js'
 import { stopWorkflowTestSessions } from '../lib/test-sessions.js'
 
@@ -222,22 +223,11 @@ workflows.patch(
     }
 
     // Check for env var warnings
-    const workflowEnvVars = await db.getWorkflowEnvVars(workflow.id)
-    const warnings: string[] = []
-    const globalRefPattern = /^\{\{global\.env\.([A-Z][A-Z0-9_]*)\}\}$/
-
-    for (const wVar of workflowEnvVars) {
-      const match = wVar.value.match(globalRefPattern)
-      if (match) {
-        const targetVarsResult = await db.listEnvVarsByProject(organizationId, targetProjectId, {
-          limit: 100,
-        })
-        const hasVar = targetVarsResult.data.some((v) => v.name === match[1])
-        if (!hasVar) {
-          warnings.push(match[1])
-        }
-      }
-    }
+    // What the destination cannot supply, judged the way a deploy judges it:
+    // one query, both project and org scope, no page limit. Listing the
+    // first 100 project variables per reference missed org-level ones and
+    // warned about variables that resolve perfectly well.
+    const warnings = await unresolvableEnvRefs(db, organizationId, targetProjectId, workflow.id)
 
     const updated = await db.updateWorkflow(workflow.id, { projectId: targetProjectId })
 

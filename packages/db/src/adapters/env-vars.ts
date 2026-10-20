@@ -1,4 +1,4 @@
-import { eq, desc, and, isNull, or, lt } from 'drizzle-orm'
+import { eq, desc, and, isNull, inArray, or, lt } from 'drizzle-orm'
 import type { EnvVar } from '../types.js'
 import type { TokenCrypto } from '../crypto.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
@@ -146,6 +146,40 @@ export class EnvVarsAdapter {
       row.value = await this.tryDecrypt(row.value)
     }
     return row
+  }
+
+  /**
+   * Every variable in this organization matching one of `names`, from the
+   * project and from the org, in one query.
+   *
+   * Both scopes together because a reference resolves against either, and
+   * one query because the caller is resolving a whole workflow's worth of
+   * names: a lookup per name per scope is 2N round trips for something a
+   * single `IN` answers.
+   */
+  async findByNames(
+    organizationId: string,
+    names: readonly string[],
+    projectId?: string | null,
+  ): Promise<EnvVar[]> {
+    if (names.length === 0) return []
+    const scope = projectId
+      ? or(eq(this.table.projectId, projectId), isNull(this.table.projectId))
+      : isNull(this.table.projectId)
+    const rows: EnvVar[] = await this.db
+      .select()
+      .from(this.table)
+      .where(
+        and(
+          eq(this.table.organizationId, organizationId),
+          inArray(this.table.name, [...names]),
+          scope,
+        ),
+      )
+    if (!this.crypto) return rows
+    return Promise.all(
+      rows.map(async (row) => ({ ...row, value: await this.tryDecrypt(row.value) })),
+    )
   }
 
   async update(
