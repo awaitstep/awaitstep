@@ -7,7 +7,7 @@ import type {
 } from '@awaitstep/codegen'
 import { bundleCodeFiles, bundlePackageManifest } from '@awaitstep/codegen'
 import { collectCompileErrors } from '@awaitstep/codegen/transpile'
-import type { ArtifactIR } from '@awaitstep/ir'
+import type { ArtifactIR, ValidationError } from '@awaitstep/ir'
 import { loadArtifact, parsePackageManifest } from '@awaitstep/ir'
 import type { DatabaseAdapter, Workflow, WorkflowSourceMode, WorkflowVersion } from '@awaitstep/db'
 import type { AppNodeRegistry } from './node-registry.js'
@@ -15,6 +15,7 @@ import { createMergedNodeRegistry } from './node-registry.js'
 import { resolveProvider, validateNodesForProvider } from './provider-resolver.js'
 import { collectNodeDependencies, mergeDependencies } from './dependencies.js'
 import { resolveAndValidateEnvVars } from './env-resolve.js'
+import { unresolvedAppImports } from './import-check.js'
 import { foldProjectFiles, foldProjectHandlers, foldWorkflowRuntime } from './runtime-fold.js'
 
 export interface WorkflowContext {
@@ -52,6 +53,24 @@ export type PrepareDiagnostic = SourceDiagnostic
  *   problems come back as diagnostics.
  */
 export type PrepareMode = 'deploy' | 'build' | 'read'
+
+/**
+ * A drift error, located the way every other diagnostic is.
+ *
+ * `validateSource` reports where it looked: `source.<file>` for a bundle
+ * file, `manifest.steps.<nodeId>` for a step record, bare `source` for the
+ * bundle itself. Only the first names a file a client could open, so only
+ * that one becomes a `path`; the node id it already carries does the rest.
+ */
+function driftDiagnostic(error: ValidationError): PrepareDiagnostic {
+  const file = error.path.startsWith('source.') ? error.path.slice('source.'.length) : undefined
+  return {
+    source: 'drift',
+    message: error.message,
+    ...(error.nodeId && { nodeId: error.nodeId }),
+    ...(file && { path: file }),
+  }
+}
 
 export interface WorkflowPrepareError {
   error: string
@@ -190,8 +209,13 @@ export async function prepareWorkflow(
     ir,
     nodeRegistry,
   )
-  if (envResult.error && mode === 'deploy') {
-    return { error: envResult.error, status: 400 }
+  if (envResult.error) {
+    if (mode === 'deploy') return { error: envResult.error, status: 400 }
+    // A read used to drop this silently, so a check could call a workflow
+    // healthy and the deploy then refuse it on a missing secret — the
+    // likeliest "it passed, then it failed" surprise. The message names
+    // variables, never values.
+    if (lenient) diagnostics.push({ source: 'env', message: envResult.error })
   }
 
   // Source resolution: user-edited versions (ejected/sdk) deploy their
@@ -211,7 +235,14 @@ export async function prepareWorkflow(
     if (adapter.validateSource) {
       const driftErrors = adapter.validateSource(ir, stored.bundle, stored.manifest)
       if (driftErrors.length > 0) {
-        return { error: 'Source drift validation failed', status: 422, details: driftErrors }
+        // A deploy still refuses — drift means the stored source and the graph
+        // disagree about what would ship. A read reports it instead, because
+        // the only way to ask "has this drifted?" used to be to attempt a
+        // deploy and read the 422.
+        if (!lenient) {
+          return { error: 'Source drift validation failed', status: 422, details: driftErrors }
+        }
+        for (const error of driftErrors) diagnostics.push(driftDiagnostic(error))
       }
     }
     bundle = stored.bundle
@@ -271,6 +302,20 @@ export async function prepareWorkflow(
     }
     for (const error of compileErrors) {
       diagnostics.push({ source: 'compile', message: error.message, path: error.path })
+    }
+  }
+
+  // Only a read looks for these. Compiling says nothing about whether an
+  // import resolves — each file transpiles alone — so a misspelled `#app/`
+  // path reaches the deploy untouched. A deploy still finds out the hard
+  // way, from the bundler; this is so a check does not have to.
+  if (lenient) {
+    for (const unresolved of unresolvedAppImports(bundleCodeFiles(bundle))) {
+      diagnostics.push({
+        source: 'import',
+        message: `Cannot resolve "${unresolved.specifier}" — no project file matches it`,
+        path: unresolved.path,
+      })
     }
   }
 

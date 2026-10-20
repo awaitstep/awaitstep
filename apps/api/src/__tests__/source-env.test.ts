@@ -93,4 +93,43 @@ describe('source and eject with unresolved env vars', () => {
       expect(isPrepareError(prepared), mode).toBe(false)
     }
   })
+
+  it('reports the unresolved variable as a diagnostic instead of dropping it', async () => {
+    // A read used to ignore the env result entirely, so a check could call
+    // this workflow healthy and the deploy then refuse it — the likeliest
+    // "it passed, then it failed" surprise for anything automated.
+    const workflow = await mockDb.getWorkflowById('wf-1')
+    const prepared = await prepareWorkflow({
+      db: mockDb,
+      workflow: workflow!,
+      organizationId: 'org-1',
+      projectId: TEST_PROJECT_ID,
+      mode: 'read',
+    })
+
+    expect(isPrepareError(prepared)).toBe(false)
+    if (isPrepareError(prepared)) return
+    const env = prepared.diagnostics.filter((d) => d.source === 'env')
+    expect(env).toHaveLength(1)
+    expect(env[0]!.message).toContain('ALICLOUD_ACCESS_KEY_ID')
+  })
+
+  it('never puts a variable value in a diagnostic', async () => {
+    // Diagnostics travel to an editor, an agent and a log. Names are the
+    // whole point; a value would be a leak with no purpose.
+    vi.spyOn(mockDb, 'getWorkflowEnvVars').mockResolvedValue([
+      { name: 'ALICLOUD_ACCESS_KEY_ID', value: 'sk-live-should-never-appear', isSecret: true },
+    ])
+    const workflow = await mockDb.getWorkflowById('wf-1')
+    const prepared = await prepareWorkflow({
+      db: mockDb,
+      workflow: workflow!,
+      organizationId: 'org-1',
+      projectId: TEST_PROJECT_ID,
+      mode: 'read',
+    })
+
+    if (isPrepareError(prepared)) return
+    expect(JSON.stringify(prepared.diagnostics)).not.toContain('sk-live-should-never-appear')
+  })
 })
