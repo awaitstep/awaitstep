@@ -1,4 +1,6 @@
 import { createRequire } from 'node:module'
+import { mkdirSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, resolve as resolvePath } from 'node:path'
 
 /**
@@ -79,9 +81,10 @@ function resolveLocalWrangler(): WranglerCommand | null {
  * running a user's workspace — the same hijack {@link wranglerCommand}
  * closes, through the environment rather than the binary.
  *
- * `HOME` is withheld for the same reason: `~/.wrangler` holds an OAuth login
- * on a self-host, and wrangler would read it. Callers that need a writable
- * home pass one.
+ * `npm_config_*` **is** inherited: the npx fallback has to reach whatever
+ * registry, proxy or CA the host is configured for, and the deploy's own
+ * `npm install` already runs with the host's configuration. Withholding it
+ * here would only break private mirrors.
  */
 const ALLOWED_ENV = [
   'PATH',
@@ -100,12 +103,30 @@ const ALLOWED_ENV = [
   'ComSpec',
 ] as const
 
+const ALLOWED_PREFIXES = ['npm_config_', 'NPM_CONFIG_'] as const
+
+/**
+ * The home directory every wrangler child gets.
+ *
+ * Not the host's: `~/.wrangler` holds an OAuth login on a self-host, and
+ * wrangler would read it. Not a fresh directory per run either — that was
+ * the first attempt at this, and it meant the **npm cache started empty
+ * every time**, so the npx fallback re-downloaded wrangler inside each
+ * deploy's timeout. One stable directory, outside the host's home, keeps
+ * both properties.
+ *
+ * `HOME` is always set, never just omitted: `os.homedir()` falls back to
+ * the user's passwd entry when it is missing, so an unset `HOME` would
+ * reach the host's home anyway.
+ */
+export function wranglerHome(): string {
+  const dir = resolvePath(tmpdir(), 'awaitstep-wrangler-home')
+  mkdirSync(dir, { recursive: true })
+  return dir
+}
+
 export interface WranglerEnvOptions {
-  /**
-   * `HOME` for the child — wrangler needs a writable one for its cache.
-   * Give it a directory that belongs to this run; omitted, the child gets
-   * no `HOME` rather than the host's.
-   */
+  /** Overrides {@link wranglerHome}; for tests, and for a caller that wants its own. */
   home?: string
 }
 
@@ -126,7 +147,11 @@ export function wranglerEnv(
     const value = process.env[name]
     if (value !== undefined) env[name] = value
   }
-  if (options?.home) env['HOME'] = options.home
+  for (const [name, value] of Object.entries(process.env)) {
+    if (value === undefined) continue
+    if (ALLOWED_PREFIXES.some((prefix) => name.startsWith(prefix))) env[name] = value
+  }
+  env['HOME'] = options?.home ?? wranglerHome()
   // Wrangler prints a banner and checks for updates otherwise; neither is
   // useful in a log a user reads.
   env['WRANGLER_SEND_METRICS'] = 'false'

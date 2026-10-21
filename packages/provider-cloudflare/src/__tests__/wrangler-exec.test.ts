@@ -2,7 +2,12 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import { existsSync, readFileSync } from 'node:fs'
 import { isAbsolute } from 'node:path'
 import { createRequire } from 'node:module'
-import { PINNED_WRANGLER_VERSION, wranglerCommand, wranglerEnv } from '../wrangler-exec.js'
+import {
+  PINNED_WRANGLER_VERSION,
+  wranglerCommand,
+  wranglerEnv,
+  wranglerHome,
+} from '../wrangler-exec.js'
 
 afterEach(() => {
   vi.unstubAllEnvs()
@@ -90,12 +95,33 @@ describe('wranglerEnv', () => {
     expect(JSON.stringify(env)).not.toContain('platform-token')
   })
 
-  it('withholds HOME, where a wrangler login is stored', () => {
-    // ~/.wrangler holds an OAuth login on a self-host. Wrangler reads it.
+  it('replaces HOME rather than leaving it unset', () => {
+    // ~/.wrangler holds an OAuth login on a self-host, and wrangler reads
+    // it. Omitting HOME does not help: os.homedir() falls back to the
+    // user's passwd entry, so it has to be pointed somewhere else.
     vi.stubEnv('HOME', '/home/platform')
-    expect(wranglerEnv()['HOME']).toBeUndefined()
-    // A caller that needs a writable home names one that belongs to the run.
-    expect(wranglerEnv(undefined, { home: '/tmp/session-7' })['HOME']).toBe('/tmp/session-7')
+    const home = wranglerEnv()['HOME']
+    expect(home).toBeTruthy()
+    expect(home).not.toBe('/home/platform')
+    expect(home).toBe(wranglerHome())
+    expect(wranglerEnv(undefined, { home: '/tmp/elsewhere' })['HOME']).toBe('/tmp/elsewhere')
+  })
+
+  it('keeps one home across calls, so the npx cache survives', () => {
+    // A fresh directory per run emptied the npm cache every time, and the
+    // npx fallback re-downloaded wrangler inside each deploy's timeout.
+    expect(wranglerEnv()['HOME']).toBe(wranglerEnv()['HOME'])
+    expect(existsSync(wranglerHome())).toBe(true)
+  })
+
+  it('passes npm configuration through, so a private mirror still works', () => {
+    // The npx fallback has to fetch from wherever the host is pointed, and
+    // the deploy's own `npm install` already runs with this configuration.
+    vi.stubEnv('npm_config_registry', 'https://npm.internal/')
+    vi.stubEnv('npm_config_cafile', '/etc/ssl/internal.pem')
+    const env = wranglerEnv()
+    expect(env['npm_config_registry']).toBe('https://npm.internal/')
+    expect(env['npm_config_cafile']).toBe('/etc/ssl/internal.pem')
   })
 
   it('takes credentials handed to it deliberately', () => {

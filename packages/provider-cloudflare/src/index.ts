@@ -92,3 +92,10 @@ export type {
   R2Bucket,
   R2Object,
 } from './resources.js'
+export {
+  PINNED_WRANGLER_VERSION,
+  wranglerCommand,
+  wranglerEnv,
+  wranglerHome,
+} from './wrangler-exec.js'
+export type { WranglerCommand, WranglerEnvOptions } from './wrangler-exec.js'

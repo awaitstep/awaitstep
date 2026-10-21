@@ -177,7 +177,7 @@ export class NodeTestSessionRunner implements TestSessionRunner {
       cwd: dir,
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: true,
-      env: wranglerEnv(undefined, { home: dir }),
+      env: wranglerEnv(),
     })
 
     // Without this listener a spawn failure (ENOENT, EMFILE) is an unhandled
