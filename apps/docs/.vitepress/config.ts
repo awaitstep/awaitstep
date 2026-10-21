@@ -147,6 +147,7 @@ export default withMermaid(
           text: 'API Reference',
           items: [
             { text: 'REST API', link: '/api/rest' },
+            { text: 'Project Files', link: '/api/project-files' },
             { text: 'Functions', link: '/api/rest#functions' },
             { text: 'Triggers', link: '/api/triggers' },
             { text: 'Webhooks', link: '/api/webhooks' },

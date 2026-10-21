@@ -567,6 +567,11 @@ Returns `{ ok, versionId, sourceMode }`.
 
 ## Project files
 
+For the conventions in prose — the `#app/` import model, handler modules, the
+ETag rules and a worked end-to-end pass — see the
+[Project Files guide](https://docs.awaitstep.dev/api/project-files). This
+section is the per-endpoint reference.
+
 A workflow is a small project: beside the code the canvas generates
 (`worker.ts`, `nodes/**`, `wrangler.*`) it owns any files you create — code in
 any folder (`config/env.ts`, `services/stripe/client.ts`), data and docs
