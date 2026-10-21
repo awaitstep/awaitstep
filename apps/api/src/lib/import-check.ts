@@ -12,6 +12,18 @@ const BLOCK_COMMENT = /\/\*[\s\S]*?\*\//g
 const LINE_COMMENT = /(^|[^:])\/\/[^\n]*/g
 
 /**
+ * A whole `import type … from '…'` or `export type … from '…'` statement.
+ *
+ * These are erased before anything bundles, so the file behind them need
+ * not exist as a module — `import type { Row } from '#app/types'` is
+ * satisfied by a `types.d.ts`, which resolves for the type checker and for
+ * nothing else. Reporting them was a permanent `ok: false` on workflows
+ * that deploy perfectly well. An inline `{ type A, b }` is **not** matched:
+ * `b` is a value, so that import is real.
+ */
+const TYPE_ONLY_STATEMENT = /\b(?:import|export)\s+type\s+[^;'"`]*?\bfrom\s*(['"`])[^'"`]*\1/g
+
+/**
  * How `PROJECT_IMPORTS_FIELD` maps an explicit extension to the file on
  * disk, plus the source file a bundler falls back to. `#app/*.mts` resolves
  * to `*.mjs`, which is the compiled name of an `.mts` source.
@@ -56,12 +68,18 @@ export interface UnresolvedImport {
  * @param files every file the deploy will see — assets included, since
  *   `#app/data/x.json` resolves to one.
  * @param codeFiles the subset worth scanning for imports.
+ * @param imports the project's own `package.json` `imports` map, which the
+ *   deploy carries into the worker manifest. A specifier one of its
+ *   patterns claims is resolved by Node, whatever the file tree looks like,
+ *   so it is not this check's business.
  */
 export function unresolvedAppImports(
   files: readonly { path: string }[],
   codeFiles: readonly { path: string; source: string }[],
+  imports?: Readonly<Record<string, string>>,
 ): UnresolvedImport[] {
   const present = new Set(files.map((file) => file.path))
+  const declared = Object.keys(imports ?? {})
   const unresolved: UnresolvedImport[] = []
   const seen = new Set<string>()
 
@@ -69,6 +87,7 @@ export function unresolvedAppImports(
     for (const match of withoutComments(file.source).matchAll(IMPORT_SPECIFIER)) {
       const specifier = match[2]!
       if (!specifier.startsWith(PROJECT_IMPORT_PREFIX)) continue
+      if (claimedByManifest(specifier, declared)) continue
       const target = specifier.slice(PROJECT_IMPORT_PREFIX.length)
       if (target === '' || resolves(target, present)) continue
       // One report per file and specifier: the same bad import written
@@ -91,7 +110,29 @@ export function unresolvedAppImports(
  * later at the bundler with no file attached.
  */
 function withoutComments(source: string): string {
-  return source.replace(BLOCK_COMMENT, '').replace(LINE_COMMENT, '$1')
+  return source
+    .replace(BLOCK_COMMENT, '')
+    .replace(LINE_COMMENT, '$1')
+    .replace(TYPE_ONLY_STATEMENT, '')
+}
+
+/**
+ * Whether the project's own `imports` map claims this specifier — an exact
+ * key, or a `*` pattern whose halves surround it. Node's subpath imports
+ * allow one `*`, so prefix plus suffix is the whole grammar.
+ */
+function claimedByManifest(specifier: string, declared: readonly string[]): boolean {
+  return declared.some((key) => {
+    const star = key.indexOf('*')
+    if (star === -1) return key === specifier
+    const prefix = key.slice(0, star)
+    const suffix = key.slice(star + 1)
+    return (
+      specifier.length > prefix.length + suffix.length &&
+      specifier.startsWith(prefix) &&
+      specifier.endsWith(suffix)
+    )
+  })
 }
 
 function resolves(target: string, present: ReadonlySet<string>): boolean {
@@ -102,6 +143,12 @@ function resolves(target: string, present: ReadonlySet<string>): boolean {
     return mapped.some((ext) => present.has(`${base}.${ext}`))
   }
   // No extension, or a dot that is part of the name (`config/app.config`):
-  // the catch-all pattern appends `.js`, so the name stands whole.
-  return DEFAULT_EXTENSIONS.some((ext) => present.has(`${target}.${ext}`))
+  // the catch-all pattern appends `.js`, so the name stands whole. A
+  // `.d.ts` counts: a declaration file satisfies the only kind of import
+  // that can be left pointing at one, since type-only statements are
+  // stripped before this runs.
+  return (
+    DEFAULT_EXTENSIONS.some((ext) => present.has(`${target}.${ext}`)) ||
+    present.has(`${target}.d.ts`)
+  )
 }

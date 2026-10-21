@@ -71,10 +71,15 @@ describe('a mistake in code the user wrote', () => {
     expect(res.status).toBe(200)
     const body = (await res.json()) as {
       ok: boolean
-      diagnostics: { source: string; message: string }[]
+      diagnostics: { source: string; message: string; path?: string }[]
     }
     expect(body.ok).toBe(false)
-    expect(body.diagnostics.some((d) => d.message.includes('@fetch'))).toBe(true)
+    const problem = body.diagnostics.find((d) => d.message.includes('@fetch'))
+    expect(problem).toBeDefined()
+    // It names the file, so an editor can open it. Without a path the
+    // diagnostic arrives as an `ir` problem with nothing to point at.
+    expect(problem).toMatchObject({ source: 'ir', path: 'handlers.ts' })
+    expect(problem!.message).toMatch(/line \d+/)
   })
 
   it('still lets the workspace open, with the problem attached', async () => {

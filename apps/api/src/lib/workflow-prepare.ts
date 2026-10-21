@@ -331,7 +331,11 @@ export async function prepareWorkflow(
       // code were the problem. The failure itself joins the list so a
       // caller reporting diagnostics alone never reports an empty list for
       // a workflow that could not be generated at all.
-      diagnostics.push({ source: err.source, message: err.message })
+      diagnostics.push({
+        source: err.source,
+        message: err.message,
+        ...(err.path && { path: err.path }),
+      })
       return {
         error: `Bundle validation failed: ${err.message}`,
         status: 422,
@@ -382,7 +386,13 @@ export async function prepareWorkflow(
     checked.push('import')
     // Every deploy file is a resolution target — `#app/data/x.json` is an
     // asset — while only code files are worth scanning for imports.
-    for (const unresolved of unresolvedAppImports(bundleDeployFiles(bundle), codeFiles)) {
+    // The project's own `imports` map travels into the worker manifest, so
+    // a specifier it claims resolves at deploy whatever the file tree holds.
+    for (const unresolved of unresolvedAppImports(
+      bundleDeployFiles(bundle),
+      codeFiles,
+      manifest?.imports,
+    )) {
       diagnostics.push({
         source: 'import',
         message: `Cannot resolve "${unresolved.specifier}" — no project file matches it`,

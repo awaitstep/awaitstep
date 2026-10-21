@@ -171,3 +171,66 @@ describe('unresolvedAppImports', () => {
     expect(check([code('worker.ts', "import x from '#app/'")])).toEqual([])
   })
 })
+
+describe('imports that resolve for reasons this check has to know about', () => {
+  it('ignores a type-only import, which is erased before bundling', () => {
+    // `types.d.ts` resolves for the type checker and for nothing else, so
+    // requiring a module behind it was a permanent ok:false on a workflow
+    // that deploys fine.
+    const files = [{ path: 'types.d.ts' }, { path: 'lib/a.ts' }]
+    const code = [
+      {
+        path: 'lib/a.ts',
+        source: [
+          "import type { Row } from '#app/types'",
+          "export type { Row as R } from '#app/types'",
+          'export const a = 1',
+        ].join('\n'),
+      },
+    ]
+    expect(unresolvedAppImports(files, code)).toEqual([])
+  })
+
+  it('still reports a value import, even one with an inline type specifier', () => {
+    const code = [
+      {
+        path: 'lib/a.ts',
+        source: "import { type Row, rows } from '#app/missing'\nexport default rows",
+      },
+    ]
+    expect(unresolvedAppImports([{ path: 'lib/a.ts' }], code)).toEqual([
+      { path: 'lib/a.ts', specifier: '#app/missing' },
+    ])
+  })
+
+  it('accepts a declaration file for an extensionless specifier', () => {
+    const files = [{ path: 'env.d.ts' }]
+    const code = [{ path: 'lib/a.ts', source: "import x from '#app/env'\nexport default x" }]
+    expect(unresolvedAppImports(files, code)).toEqual([])
+  })
+
+  it('leaves the project’s own imports map alone', () => {
+    // The deploy carries the project package.json's `imports` into the
+    // worker manifest, so Node resolves these whatever the file tree holds.
+    const code = [
+      {
+        path: 'lib/a.ts',
+        source:
+          "import v from '#app/vendor/thing'\nimport e from '#app/exact'\nexport default [v, e]",
+      },
+    ]
+    const imports = { '#app/vendor/*': './third_party/*.js', '#app/exact': './x.js' }
+    expect(unresolvedAppImports([{ path: 'lib/a.ts' }], code, imports)).toEqual([])
+    // Without the map they are exactly what the check is for.
+    expect(unresolvedAppImports([{ path: 'lib/a.ts' }], code).map((u) => u.specifier)).toEqual([
+      '#app/vendor/thing',
+      '#app/exact',
+    ])
+  })
+
+  it('does not let a pattern match less than one character', () => {
+    const code = [{ path: 'lib/a.ts', source: "import v from '#app/vendor/'\nexport default v" }]
+    const imports = { '#app/vendor/*': './third_party/*.js' }
+    expect(unresolvedAppImports([{ path: 'lib/a.ts' }], code, imports)).toHaveLength(1)
+  })
+})

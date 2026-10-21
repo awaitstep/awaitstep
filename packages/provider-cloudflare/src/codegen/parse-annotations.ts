@@ -1,4 +1,5 @@
 import { GenerateInputError } from '@awaitstep/codegen'
+import { PROJECT_HANDLERS_PATH } from '@awaitstep/ir'
 import { cloudflareInlineQueueConfigSchema } from '../config-schema.js'
 import { toCFQueueName } from './bindings.js'
 
@@ -77,7 +78,10 @@ export interface HandlerDecl {
 export class AnnotationParseError extends GenerateInputError {
   readonly line: number
   constructor(message: string, line: number) {
-    super(`${message} (line ${line})`)
+    // The annotation model keeps this code in handlers.ts — the stored file
+    // when there is one, and a seeded view of the legacy setting when there
+    // is not. Either way that is the file an editor should open.
+    super(`${message} (line ${line})`, 'ir', { path: PROJECT_HANDLERS_PATH })
     this.name = 'AnnotationParseError'
     this.line = line
   }
