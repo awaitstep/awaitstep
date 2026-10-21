@@ -491,6 +491,46 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
       expect((await res.json()).error).toContain('role "handlers"')
     })
 
+    it('measures the bundle as a request body, not as raw sources', async () => {
+      // PUT /source sends JSON, where every newline becomes two characters.
+      // Two files of 400 KB of newlines are 800 KB raw — under the request
+      // limit, so the old sum passed them — and about 1.6 MB once encoded,
+      // which is the size the push would actually have to carry.
+      await putFile('lib/a.ts', '\n'.repeat(400_000))
+      await putFile('lib/b.ts', '\n'.repeat(400_000))
+      await ejectVersion(request)
+
+      const res = await request('/api/workflows/wf-1/source/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: [{ path: 'lib/tiny.ts', source: 'export const a = 1' }] }),
+      })
+      expect(res.status).toBe(422)
+      expect((await res.json()).error).toMatch(/as a request body/)
+    })
+
+    it('refuses an edit that pushes an already-over-limit project further over', async () => {
+      // Written straight to the table, past the count cap. The cap problem
+      // is pre-existing, but adding to it is not something a save accepts.
+      const rows = Array.from({ length: MAX_PROJECT_FILES + 2 }, (_, i) => ({
+        id: `f-${i}`,
+        workflowId: 'wf-1',
+        path: `lib/f${i}.ts`,
+        source: 'export const a = 1',
+        hash: `h${i}`,
+        size: 18,
+      }))
+      await mockDb.upsertWorkflowFiles(rows)
+
+      const adding = await check('', [{ path: 'lib/extra.ts', source: 'export const a = 1' }])
+      expect(adding.status).toBe(422)
+
+      // Replacing a file in place leaves the count alone, so it is judged
+      // on its own merits rather than on the cap it did not move.
+      const replacing = await check('', [{ path: 'lib/f0.ts', source: 'export const a = 2' }])
+      expect(replacing.status).toBe(200)
+    })
+
     it('refuses candidates for a bundle too large to push back', async () => {
       // The storage caps allow 2 MB; no single request may exceed 1 MB. A
       // project built up over several writes can be ejected into a bundle

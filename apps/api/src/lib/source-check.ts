@@ -9,7 +9,7 @@ import type { ProjectFile, ValidationError } from '@awaitstep/ir'
 import { projectBundleFiles, storedBundleErrors } from '@awaitstep/codegen'
 import type { GeneratedBundle, GeneratedFile } from '@awaitstep/codegen'
 import type { DatabaseAdapter, Workflow, WorkflowVersion } from '@awaitstep/db'
-import { MAX_REQUEST_BYTES } from '../app.js'
+import { MAX_REQUEST_BYTES } from './request-limits.js'
 import { loadStoredSource, type WorkflowPrepareInput } from './workflow-prepare.js'
 import { projectWriteRuleErrors } from './project-write-rules.js'
 import { workflowAfterDeletes } from './project-files.js'
@@ -102,9 +102,24 @@ export function overlayBundleFiles(
   return { entry: bundle.entry, files: [...merged.values()] }
 }
 
-/** A bundle's source as bytes, the unit the request limit is expressed in. */
-function bundleBytes(bundle: GeneratedBundle): number {
-  return bundle.files.reduce((sum, file) => sum + projectFileBytes(file.source), 0)
+/**
+ * What `PUT /source` would actually put on the wire for this bundle.
+ *
+ * Not the sum of the sources: the body is JSON, where every newline and
+ * quote in a source becomes two characters, so raw bytes understate it by
+ * enough to matter at the limit.
+ */
+function pushedBytes(bundle: GeneratedBundle): number {
+  return projectFileBytes(
+    JSON.stringify({
+      entry: bundle.entry,
+      files: bundle.files.map((file) => ({
+        path: file.path,
+        source: file.source,
+        role: file.role,
+      })),
+    }),
+  )
 }
 
 /** The file a `runtime.files[<i>].…` validation path points at, if any. */
@@ -134,6 +149,11 @@ export function newProjectFileProblems(
   written: Iterable<string>,
 ): ValidationError[] {
   const owned = new Set(written)
+  // A set-level cap — the file count, the total size — can already be
+  // exceeded. Being pre-existing excuses a change that leaves it no worse,
+  // never one that adds to it: otherwise an over-limit project could be
+  // pushed further over, one edit at a time.
+  const grew = merged.length > stored.length || setBytes(merged) > setBytes(stored)
   const before = new Map<string, number>()
   for (const problem of validateProjectFiles(stored)) {
     before.set(problem.message, (before.get(problem.message) ?? 0) + 1)
@@ -141,6 +161,7 @@ export function newProjectFileProblems(
   return validateProjectFiles(merged).filter((problem) => {
     const path = problemPath(problem, merged)
     if (path !== undefined && owned.has(path)) return true
+    if (path === undefined && grew) return true
     // Messages, not indices, for everything else: an index shifts when a
     // file is added or removed, while the message names what it is about.
     const seen = before.get(problem.message) ?? 0
@@ -148,6 +169,10 @@ export function newProjectFileProblems(
     before.set(problem.message, seen - 1)
     return false
   })
+}
+
+function setBytes(files: readonly ProjectFile[]): number {
+  return files.reduce((sum, file) => sum + projectFileBytes(file.source), 0)
 }
 
 /**
@@ -204,9 +229,10 @@ export async function buildCandidateOverlay(input: {
     // these rules ran. Said here rather than left for the caller to
     // discover as a 413 — including when the stored bundle is already that
     // large, which is the case eject can produce and no candidate can fix.
-    if (bundleBytes(bundle) > MAX_REQUEST_BYTES) {
+    const pushed = pushedBytes(bundle)
+    if (pushed > MAX_REQUEST_BYTES) {
       return {
-        error: `Source is ${bundleBytes(bundle)} bytes; no request may exceed ${MAX_REQUEST_BYTES}, so this cannot be pushed through PUT /source`,
+        error: `The source would be ${pushed} bytes as a request body and no request may exceed ${MAX_REQUEST_BYTES}, so this cannot be pushed through PUT /source`,
         status: 422,
       }
     }
