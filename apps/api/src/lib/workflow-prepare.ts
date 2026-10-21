@@ -1,13 +1,19 @@
 import type {
   WorkflowProvider,
+  DiagnosticSource,
   GeneratedBundle,
   ProviderConfig,
   StepManifest,
   SourceDiagnostic,
 } from '@awaitstep/codegen'
-import { bundleCodeFiles, bundleDeployFiles, bundlePackageManifest } from '@awaitstep/codegen'
+import {
+  GenerateInputError,
+  bundleCodeFiles,
+  bundleDeployFiles,
+  bundlePackageManifest,
+} from '@awaitstep/codegen'
 import { collectCompileErrors } from '@awaitstep/codegen/transpile'
-import type { ArtifactIR, ValidationError } from '@awaitstep/ir'
+import type { ArtifactIR, ProjectFile, ValidationError } from '@awaitstep/ir'
 import { loadArtifact, parsePackageManifest } from '@awaitstep/ir'
 import type { DatabaseAdapter, Workflow, WorkflowSourceMode, WorkflowVersion } from '@awaitstep/db'
 import type { AppNodeRegistry } from './node-registry.js'
@@ -34,6 +40,13 @@ export interface WorkflowContext {
    * the user can fix what is wrong with it.
    */
   diagnostics: PrepareDiagnostic[]
+  /**
+   * Which checks actually ran, in the order they ran. An empty
+   * `diagnostics` only means "nothing found" for the checks listed here, so
+   * a caller reporting one has to report the other — silence about a check
+   * that never happened is how a passing check becomes a failing deploy.
+   */
+  checked: DiagnosticSource[]
 }
 
 /**
@@ -78,9 +91,19 @@ export interface WorkflowPrepareError {
   details?: unknown
   /** Issues collected before the failure, when there were any. */
   diagnostics?: PrepareDiagnostic[]
+  /** Which checks ran before the failure. */
+  checked?: DiagnosticSource[]
+  /**
+   * True when this is a fact about the workflow rather than a reason the
+   * prepare could not run — an IR that fails its schema, a graph no bundle
+   * can be generated from. A strict caller refuses either way; a caller
+   * whose job is to *report* answers with the findings instead of an error,
+   * because "your graph has a cycle" is the answer, not a malfunction.
+   */
+  finding?: boolean
 }
 
-interface WorkflowPrepareInput {
+export interface WorkflowPrepareInput {
   db: DatabaseAdapter
   workflow: Workflow
   organizationId: string
@@ -95,6 +118,20 @@ interface WorkflowPrepareInput {
    * (used by POST /eject). Mutually exclusive with the stored-source path.
    */
   eject?: boolean
+  /**
+   * Project files to fold instead of the stored rows — how a candidate
+   * overlay reaches a generated version without being written first. Only
+   * the current version folds the table at all (older ones use their
+   * snapshot), so this is ignored for any other version; the caller decides
+   * whether an overlay is allowed at all.
+   */
+  projectFiles?: readonly ProjectFile[]
+  /**
+   * The stored bundle to judge instead of the one in `version.source` —
+   * the same overlay, for an ejected/sdk version, where project files live
+   * inside the bundle rather than in the table.
+   */
+  storedSource?: { bundle: GeneratedBundle; manifest: StepManifest }
   /**
    * Whether every env var the workflow references must resolve to a value
    * (the default — a deploy or local run cannot proceed without them). A
@@ -112,6 +149,7 @@ export async function prepareWorkflow(
   const mode: PrepareMode = input.mode ?? 'deploy'
   const lenient = mode === 'read'
   const diagnostics: PrepareDiagnostic[] = []
+  const checked: DiagnosticSource[] = []
 
   const versionId = input.version?.id ?? input.versionId ?? workflow.currentVersionId
   if (!versionId) return { error: 'No version to use', status: 400 }
@@ -121,7 +159,7 @@ export async function prepareWorkflow(
   const isCurrentVersion = versionId === workflow.currentVersionId
   const [version, projectFiles] = await Promise.all([
     input.version ?? db.getWorkflowVersionById(versionId),
-    isCurrentVersion ? db.listWorkflowFiles(workflow.id) : [],
+    input.projectFiles ?? (isCurrentVersion ? db.listWorkflowFiles(workflow.id) : []),
   ])
   if (!version || version.workflowId !== workflow.id) {
     return { error: 'Version not found', status: 404 }
@@ -129,9 +167,21 @@ export async function prepareWorkflow(
 
   // Schema-invalid stored rows keep the pre-existing 400 semantics (they were
   // previously caught by adapter.validate) so monitoring doesn't see a 5xx.
+  checked.push('ir')
   const loaded = loadArtifact(version.ir)
   if (!loaded.ok) {
-    return { error: 'IR validation failed', status: 400, details: loaded.errors }
+    return {
+      error: 'IR validation failed',
+      status: 400,
+      details: loaded.errors,
+      checked,
+      finding: true,
+      diagnostics: loaded.errors.map((error) => ({
+        source: 'ir' as const,
+        message: error.message,
+        ...(error.nodeId && { nodeId: error.nodeId }),
+      })),
+    }
   }
   const parsedIr = loaded.value
   // Stamp kind from the workflow row when the stored IR predates the
@@ -191,16 +241,28 @@ export async function prepareWorkflow(
     }
   }
 
+  checked.push('provider')
   const nodeCheck = validateNodesForProvider(ir, input.provider)
   if (!nodeCheck.valid) {
-    const message = `Nodes not supported by this provider: ${nodeCheck.unsupportedNodes.join(', ')}`
+    const names = nodeCheck.unsupportedNodes.map((node) => node.name)
     // Unsupported nodes still generate something worth looking at, so a read
-    // reports them rather than refusing to open the workspace.
-    if (!lenient) return { error: message, status: 400 }
-    diagnostics.push({ source: 'provider', message })
+    // reports them rather than refusing to open the workspace — one
+    // diagnostic per node, each carrying the id, because a client marks the
+    // node and names are not unique.
+    if (!lenient) {
+      return { error: `Nodes not supported by this provider: ${names.join(', ')}`, status: 400 }
+    }
+    for (const node of nodeCheck.unsupportedNodes) {
+      diagnostics.push({
+        source: 'provider',
+        message: `Node "${node.name}" is not supported by this provider`,
+        nodeId: node.id,
+      })
+    }
   }
 
   // Resolve env vars
+  checked.push('env')
   const envResult = await resolveAndValidateEnvVars(
     db,
     organizationId,
@@ -224,15 +286,10 @@ export async function prepareWorkflow(
   // declarations at deploy time regardless of mode.
   let bundle: GeneratedBundle
   if (!input.eject && sourceMode !== 'generated') {
-    if (!version.source) {
-      return {
-        error: 'Version is in ejected/sdk mode but has no stored source — re-eject to repair',
-        status: 422,
-      }
-    }
-    const stored = parseStoredSource(version.source, version.manifest)
-    if ('error' in stored) return stored
+    const stored = input.storedSource ?? loadStoredSource(version)
+    if ('error' in stored) return { ...stored, checked }
     if (adapter.validateSource) {
+      checked.push('drift')
       const driftErrors = adapter.validateSource(ir, stored.bundle, stored.manifest)
       if (driftErrors.length > 0) {
         // A deploy still refuses — drift means the stored source and the graph
@@ -262,15 +319,25 @@ export async function prepareWorkflow(
     try {
       bundle = adapter.generate(ir, generateConfig)
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
+      // Only a failure the generator blames on its input is a fact about the
+      // workflow. Anything else is a bug in the generator, and has to look
+      // like one: reported as a 500 and logged, never as "something is wrong
+      // with your workflow" — an agent would go looking in its own files,
+      // and nobody would ever see the exception.
+      if (!(err instanceof GenerateInputError)) throw err
       // Nothing to show without a bundle, but whatever the IR was already
       // flagged for travels with the failure — generation usually fails
       // *because* of it, and "graph contains a cycle" alone reads as if the
-      // code were the problem.
+      // code were the problem. The failure itself joins the list so a
+      // caller reporting diagnostics alone never reports an empty list for
+      // a workflow that could not be generated at all.
+      diagnostics.push({ source: err.source, message: err.message })
       return {
-        error: `Bundle validation failed: ${message}`,
+        error: `Bundle validation failed: ${err.message}`,
         status: 422,
-        ...(diagnostics.length > 0 && { diagnostics }),
+        diagnostics,
+        checked,
+        finding: true,
       }
     }
   }
@@ -291,6 +358,7 @@ export async function prepareWorkflow(
   // error names its file: in a multi-file project "Unexpected token (16:21)"
   // on its own does not say where to look.
   const codeFiles = bundleCodeFiles(bundle)
+  checked.push('compile')
   const compileErrors = await collectCompileErrors(codeFiles)
   if (compileErrors.length > 0) {
     if (!lenient) {
@@ -311,6 +379,7 @@ export async function prepareWorkflow(
   // path reaches the deploy untouched. A deploy still finds out the hard
   // way, from the bundler; this is so a check does not have to.
   if (lenient) {
+    checked.push('import')
     // Every deploy file is a resolution target — `#app/data/x.json` is an
     // asset — while only code files are worth scanning for imports.
     for (const unresolved of unresolvedAppImports(bundleDeployFiles(bundle), codeFiles)) {
@@ -332,14 +401,35 @@ export async function prepareWorkflow(
     envVars: envResult.envVars,
     dependencies,
     diagnostics,
+    checked,
   }
+}
+
+/**
+ * A version's stored source, or why it cannot be read.
+ *
+ * Every caller that touches an ejected/sdk version needs the same two
+ * steps — "is there a source at all?" then "does it parse?" — and the same
+ * two refusals. One function so the wording and the status stay identical
+ * wherever the question is asked.
+ */
+export function loadStoredSource(
+  version: Pick<WorkflowVersion, 'source' | 'manifest'>,
+): { bundle: GeneratedBundle; manifest: StepManifest } | WorkflowPrepareError {
+  if (!version.source) {
+    return {
+      error: 'Version is in ejected/sdk mode but has no stored source — re-eject to repair',
+      status: 422,
+    }
+  }
+  return parseStoredSource(version.source, version.manifest)
 }
 
 /**
  * Parses a version row's stored source + manifest JSON — 422 on corruption
  * or on a missing manifest (a manifest-less non-generated row would make
  * drift validation pass vacuously, so it is an error, not a fallback).
- * Shared by the prepare pipeline and the GET/PUT /source routes.
+ * Prefer {@link loadStoredSource}, which also handles a row with no source.
  */
 export function parseStoredSource(
   sourceJson: string,

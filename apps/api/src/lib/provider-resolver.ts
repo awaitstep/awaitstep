@@ -27,22 +27,21 @@ export function resolveProvider(
 }
 
 /**
- * Validate that all nodes in the IR are compatible with the target deploy provider.
- * Returns a list of node names that don't support the provider.
+ * Validate that all nodes in the IR are compatible with the target deploy
+ * provider. Returns the offending nodes by id and name: the name is what a
+ * message should read, the id is what a client can locate on the canvas.
  */
 export function validateNodesForProvider(
   ir: ArtifactIR,
   provider?: string,
-): { valid: boolean; unsupportedNodes: string[] } {
+): { valid: boolean; unsupportedNodes: { id: string; name: string }[] } {
   const name = provider ?? DEFAULT_PROVIDER
   const nodeProvider = NODE_PROVIDER_MAP[name]
-  if (!nodeProvider) {
-    return { valid: false, unsupportedNodes: ir.nodes.map((n) => n.name) }
-  }
-
-  const unsupported = ir.nodes.filter((node) => node.provider !== nodeProvider)
+  const unsupported = nodeProvider
+    ? ir.nodes.filter((node) => node.provider !== nodeProvider)
+    : ir.nodes
   return {
     valid: unsupported.length === 0,
-    unsupportedNodes: unsupported.map((n) => n.name),
+    unsupportedNodes: unsupported.map((node) => ({ id: node.id, name: node.name })),
   }
 }
