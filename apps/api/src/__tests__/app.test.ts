@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { MAX_REQUEST_BYTES } from '../app.js'
+import { HTTPException } from 'hono/http-exception'
+import { MAX_REQUEST_BYTES } from '../lib/request-limits.js'
 import { createTestApp, resetStore, TEST_PROJECT_ID } from './helpers.js'
 
 describe('app', () => {
@@ -52,6 +53,37 @@ describe('app', () => {
     expect(res.status).toBe(403)
     expect(res.headers.get('content-type')).toContain('application/json')
     expect((await res.json()).error).toBeTruthy()
+  })
+
+  it('keeps the headers a refusal carries', async () => {
+    // Some refusals are only actionable because of a header —
+    // `WWW-Authenticate`, `Retry-After`. Rebuilding the response from the
+    // message and status alone throws those away.
+    const guarded = createTestApp()
+    guarded.get('/api/__header-test', () => {
+      throw new HTTPException(429, {
+        res: new Response('slow down', {
+          status: 429,
+          headers: { 'Retry-After': '30' },
+        }),
+      })
+    })
+    const res = await guarded.request('/api/__header-test')
+    expect(res.status).toBe(429)
+    expect(res.headers.get('retry-after')).toBe('30')
+    expect(res.headers.get('content-type')).toContain('application/json')
+  })
+
+  it('passes a JSON refusal through untouched', async () => {
+    const guarded = createTestApp()
+    guarded.get('/api/__json-test', () => {
+      throw new HTTPException(402, {
+        res: Response.json({ error: 'payment required', invoice: 'inv_1' }, { status: 402 }),
+      })
+    })
+    const res = await guarded.request('/api/__json-test')
+    expect(res.status).toBe(402)
+    expect(await res.json()).toEqual({ error: 'payment required', invoice: 'inv_1' })
   })
 
   it('refuses an oversized body with 413 and a JSON reason', async () => {

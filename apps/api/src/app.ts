@@ -18,14 +18,7 @@ import { createLogger } from './lib/logger.js'
 import { createRouter } from './routes/index.js'
 import { createRateLimiter } from './middleware/rate-limit.js'
 import { resolveTestSessionLimits } from './lib/test-session-policy.js'
-
-/**
- * The cap on any API request body. It sits below the project-file caps, so
- * the 2 MB project total is reached across requests rather than in one —
- * documented in `docs/api-reference.md`, which an agent reads before it
- * tries to send a whole project at once.
- */
-export const MAX_REQUEST_BYTES = 1024 * 1024
+import { MAX_REQUEST_BYTES } from './lib/request-limits.js'
 
 export interface AppDeps {
   db: AppEnv['Variables']['db']
@@ -149,11 +142,24 @@ export function createApp(deps: AppDeps) {
     // An HTTPException already carries the answer — Hono's own middleware
     // throws them to refuse a request. Reporting one as a 500 blames the
     // server for something it refused correctly, and buries the status the
-    // client needed. The status is kept and the body re-shaped: these
-    // default to plain text, and every other error here is JSON, so a
-    // client that parses one would choke on a csrf 403.
+    // client needed. So the response it carries is kept, headers included:
+    // a `WWW-Authenticate` or `Retry-After` is the useful half of some
+    // refusals. Only a non-JSON body is replaced, because every other
+    // error here is JSON and a client that parses one would choke on the
+    // plain-text default.
     if (err instanceof HTTPException) {
-      return c.json({ error: err.message || 'Request refused' }, err.status)
+      const res = err.getResponse()
+      if (res.headers.get('content-type')?.includes('application/json')) return res
+      const headers = new Headers(res.headers)
+      headers.set('content-type', 'application/json; charset=UTF-8')
+      headers.delete('content-length')
+      return new Response(
+        JSON.stringify({ error: err.message || res.statusText || 'Request refused' }),
+        {
+          status: res.status,
+          headers,
+        },
+      )
     }
     const reqId = c.get('requestId')
     log.error(err.message, { requestId: reqId, method: c.req.method, path: c.req.path })
