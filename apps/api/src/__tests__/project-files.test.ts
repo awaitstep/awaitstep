@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createTestApp, resetStore, TEST_USER_ID, TEST_PROJECT_ID, mockDb } from './helpers.js'
 
 const validIR = {
@@ -450,6 +450,27 @@ describe('project file routes', () => {
     expect(
       (await putFile(app, 'handlers/queue/orders.ts', 'export default async () => {}')).status,
     ).toBe(201)
+  })
+
+  it('reads the current version once while converting', async () => {
+    // The source-mode check and the legacy trigger-code lookup are the same
+    // row. The plan takes the read as a promise so both still go out at
+    // once, rather than fetching it twice.
+    await app.request(url('/api/workflows/wf-1'), {
+      method: 'PATCH',
+      headers: json,
+      body: JSON.stringify({ triggerCode: 'return new Response("legacy")' }),
+    })
+    await saveVersion(app)
+    const versions = vi.spyOn(mockDb, 'getWorkflowVersionById')
+
+    const res = await app.request(url('/api/workflows/wf-1/project/convert-handlers'), {
+      method: 'POST',
+    })
+
+    expect(res.status).toBe(200)
+    expect(versions).toHaveBeenCalledTimes(1)
+    versions.mockRestore()
   })
 
   it('converts even when an untouched file already breaks a project rule', async () => {

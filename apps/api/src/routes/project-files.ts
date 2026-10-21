@@ -237,6 +237,13 @@ async function planConversion(
   db: DatabaseAdapter,
   adapter: WorkflowProvider,
   workflow: Workflow,
+  /**
+   * The current version row, as a promise so this still runs in parallel
+   * with the caller's other reads. Awaited only on the path that needs it —
+   * a project with no stored handlers.ts, where the trigger code can only
+   * be in the setting or inline in that version's IR.
+   */
+  version?: Promise<WorkflowVersion | null>,
 ): Promise<
   | { error: string; status: 404 | 409 | 422 | 501 }
   | {
@@ -256,7 +263,7 @@ async function planConversion(
   const stored = existing.find((f) => f.path === PROJECT_HANDLERS_PATH) ?? null
   const legacy = stored
     ? ({ source: stored.source, origin: 'file' } as const)
-    : await legacyTriggerCode(db, workflow)
+    : await legacyTriggerCode(db, workflow, version ? await version : undefined)
   if (!legacy) {
     return { error: 'Nothing to convert: no handlers.ts and no trigger code', status: 404 }
   }
@@ -320,9 +327,13 @@ projectFiles.post('/:workflowId/project/convert-handlers', async (c) => {
   if (!workflow) return c.json({ error: 'Not found' }, 404)
   const adapter = resolveProvider()
 
+  // One read of the version row, shared: the source-mode check needs it and
+  // so does the legacy trigger-code lookup inside the plan. Handing the
+  // promise over keeps both in flight at once.
+  const versionRead = currentVersion(db, workflow)
   const [version, plan, deploymentConfigs] = await Promise.all([
-    currentVersion(db, workflow),
-    planConversion(db, adapter, workflow),
+    versionRead,
+    planConversion(db, adapter, workflow, versionRead),
     db.listDeploymentConfigsByWorkflow(workflow.id),
   ])
   const sourceMode = sourceModeOf(version)
