@@ -15,6 +15,10 @@ Base URL: `https://app.awaitstep.dev/api` (cloud) or `http://localhost:8080/api`
 | Deploy operations       | 10 req/min per user |
 | Credential verification | 10 req/min per user |
 
+Request bodies are capped at **1 MB** across all API routes. A larger one is
+rejected with `413` and `{ "error": "Request body exceeds 1048576 bytes" }`
+before the endpoint's own limits are considered.
+
 ---
 
 ## Pagination
@@ -455,6 +459,91 @@ reports drift for those versions.
 
 Returns `{ versionId, sourceMode, entry, files, manifest, diagnostics, baseGeneratedHash }`.
 
+### `POST /workflows/:workflowId/source/check`
+
+Everything `GET /source` finds, without the source. Built for the question
+an agent asks after every edit — _did that work?_ — where fetching the whole
+bundle to read a verdict is the wrong trade.
+
+**Scope:** `read`
+
+| Param        | In    | Required | Description                                       |
+| ------------ | ----- | -------- | ------------------------------------------------- |
+| `workflowId` | path  | yes      | Workflow ID                                       |
+| `versionId`  | query | no       | Version to check (defaults to current)            |
+| `files`      | body  | no       | Candidate files, `[{ path, source }]` (see below) |
+
+The body is optional — no body at all checks what is stored:
+
+```bash
+curl -X POST "$API/workflows/$WF/source/check" -H "Authorization: Bearer $KEY"
+```
+
+```json
+{
+  "ok": false,
+  "versionId": "v_2b…",
+  "sourceMode": "generated",
+  "checked": ["ir", "provider", "env", "compile", "import"],
+  "diagnostics": [
+    {
+      "source": "import",
+      "path": "lib/orders.ts",
+      "message": "Cannot resolve \"#app/lib/retry\" — no project file matches it"
+    }
+  ]
+}
+```
+
+`checked` lists what actually ran, in order. It never contains a type
+check — there isn't one yet, and an agent should not have to guess that.
+`drift` appears only for `ejected`/`sdk` versions, so its absence in
+generated mode means "nothing could drift", not "drift was ignored".
+`diagnostics` uses the same shape and the same `source` values as
+`GET /source` (table above).
+
+**A broken workflow is an answer, not an error.** A cycle, drift, a file
+that will not parse, a missing secret: all `200` with `ok: false`. Non-2xx
+is reserved for "the check could not run" — unknown workflow or version
+(`404`), no version at all (`400`), an ejected version whose stored source
+is missing or corrupt (`422`), or candidates that were refused (below).
+
+#### Candidate files
+
+`files` overlays files the check should judge **instead of** what is stored.
+Nothing is written, and nothing is kept:
+
+```json
+{
+  "files": [
+    { "path": "lib/retry.ts", "source": "export const retry = 3" },
+    { "path": "lib/old.ts", "source": null }
+  ]
+}
+```
+
+`source: null` asks what deleting a file would break — the edit most likely
+to orphan an import. The set is judged as a unit, so two files that are only
+valid together pass together.
+
+Candidates are judged by the rules the matching write path applies, so a
+check cannot bless what a save would refuse:
+
+| Version              | Candidates merge into    | Judged by                                                       |
+| -------------------- | ------------------------ | --------------------------------------------------------------- |
+| `generated`, current | the project-file set     | `validateProjectFiles` plus the per-file write rules            |
+| `ejected` / `sdk`    | the stored source bundle | the same structural rules as `PUT /source`                      |
+| any older version    | — refused with `400`     | nothing to overlay: older versions deploy their frozen snapshot |
+
+A refused candidate returns `422` with the reason (and `details` when the
+rule reports more than one) — or `400` for an older version and for a locked
+one, which no write could reach either. A problem the project **already** has
+in storage is not a refusal: it comes back as a diagnostic in the `200`, so a
+file that predates a rule cannot block every check that follows.
+
+The caps are the storage caps — at most 100 files, 512 KB each, the project
+total — under the same 1 MB request-body limit as every other route.
+
 ### `PUT /workflows/:workflowId/source`
 
 Push edited source back onto the current ejected/sdk version. The bundle is
@@ -566,7 +655,11 @@ ejected versions carry the files they were ejected with inside their stored
 bundle — while the current version is ejected, `PUT`/`DELETE` on files
 return `409` (edit through `PUT /source` or revert to visual mode first).
 
-**Limits.** 100 files, 512 KB per file, 2 MB in total. Paths use
+**Limits.** 100 files, 512 KB per file, 2 MB in total — but every API
+request body is capped at **1 MB** (see [Rate Limits](#rate-limits)), and a
+larger one is rejected with `413` before any of these apply. So the 2 MB
+project total is reached across several requests, never in one, and a single
+file near 512 KB has to be sent on its own. Paths use
 `[A-Za-z0-9._-]` segments (no dotfiles, no `..`), may not be generated paths
 (`worker.*`, `nodes/**`, `wrangler.*`, in any case), lockfiles or
 `node_modules`, may hold `package.json`/`tsconfig.json`/`jsconfig.json` only

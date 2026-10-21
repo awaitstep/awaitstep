@@ -251,6 +251,23 @@ export const endpoints: EndpointDef[] = [
     hasBody: false,
   },
   {
+    id: 'check-source',
+    group: 'Source',
+    method: 'POST',
+    path: '/api/workflows/:workflowId/source/check',
+    label: 'Check for problems (optionally with candidate files)',
+    scope: 'read',
+    params: [
+      { name: 'workflowId', in: 'path', required: true },
+      { name: 'versionId', in: 'query', required: false },
+    ],
+    hasBody: true,
+    // Send it empty to check what is stored; `source: null` asks what
+    // deleting a file would break. Nothing is written either way.
+    bodyExample:
+      '{\n  "files": [{ "path": "lib/retry.ts", "source": "export const retry = 3" }]\n}',
+  },
+  {
     id: 'put-source',
     group: 'Source',
     method: 'PUT',
