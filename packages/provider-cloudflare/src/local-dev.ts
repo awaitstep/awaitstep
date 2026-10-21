@@ -91,7 +91,7 @@ export async function startLocalDev(
       cwd: LOCAL_DEV_DIR,
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: true,
-      env: wranglerEnv(),
+      env: wranglerEnv(undefined, { home: LOCAL_DEV_DIR }),
     },
   )
 

@@ -70,9 +70,32 @@ describe('wranglerEnv', () => {
     expect(env['PATH']).toBe(process.env['PATH'])
   })
 
-  it('passes Cloudflare credentials through, since a deploy needs them', () => {
-    vi.stubEnv('CLOUDFLARE_API_TOKEN', 'from-environment')
-    expect(wranglerEnv()['CLOUDFLARE_API_TOKEN']).toBe('from-environment')
+  it('never inherits the platform’s own Cloudflare credentials', () => {
+    // A self-host operator may well have these exported for the API
+    // process. `wrangler dev` sessions run a user's workspace with the
+    // dependencies that user chose: handing them the platform's token is
+    // the same hijack wranglerCommand closes, by another route. A deploy
+    // passes the connection's credentials explicitly instead.
+    vi.stubEnv('CLOUDFLARE_API_TOKEN', 'platform-token')
+    vi.stubEnv('CLOUDFLARE_ACCOUNT_ID', 'platform-account')
+    vi.stubEnv('CF_API_TOKEN', 'platform-token-legacy-name')
+    vi.stubEnv('WRANGLER_API_TOKEN', 'platform-token-other-name')
+
+    const env = wranglerEnv()
+
+    expect(env['CLOUDFLARE_API_TOKEN']).toBeUndefined()
+    expect(env['CLOUDFLARE_ACCOUNT_ID']).toBeUndefined()
+    expect(env['CF_API_TOKEN']).toBeUndefined()
+    expect(env['WRANGLER_API_TOKEN']).toBeUndefined()
+    expect(JSON.stringify(env)).not.toContain('platform-token')
+  })
+
+  it('withholds HOME, where a wrangler login is stored', () => {
+    // ~/.wrangler holds an OAuth login on a self-host. Wrangler reads it.
+    vi.stubEnv('HOME', '/home/platform')
+    expect(wranglerEnv()['HOME']).toBeUndefined()
+    // A caller that needs a writable home names one that belongs to the run.
+    expect(wranglerEnv(undefined, { home: '/tmp/session-7' })['HOME']).toBe('/tmp/session-7')
   })
 
   it('takes credentials handed to it deliberately', () => {

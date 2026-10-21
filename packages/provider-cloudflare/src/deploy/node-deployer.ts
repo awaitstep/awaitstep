@@ -97,10 +97,15 @@ export class NodeWranglerDeployer implements WranglerDeployer {
       // An allow-listed environment, not the API's: this runs in a directory
       // whose dependencies the user chose. The credentials are added
       // deliberately because a deploy needs them.
-      const deployEnv = wranglerEnv({
-        CLOUDFLARE_ACCOUNT_ID: options.accountId,
-        CLOUDFLARE_API_TOKEN: options.apiToken,
-      })
+      const deployEnv = wranglerEnv(
+        {
+          CLOUDFLARE_ACCOUNT_ID: options.accountId,
+          CLOUDFLARE_API_TOKEN: options.apiToken,
+        },
+        // Wrangler's cache goes in the deploy directory, not the host's
+        // home — this still runs beside dependencies the user chose.
+        { home: deployDir },
+      )
 
       onProgress?.('DEPLOYING', 'Uploading worker to Cloudflare...')
       const wrangler = wranglerCommand()

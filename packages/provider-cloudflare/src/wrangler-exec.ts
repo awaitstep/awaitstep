@@ -71,12 +71,20 @@ function resolveLocalWrangler(): WranglerCommand | null {
  *
  * Everything else is withheld, because the API process holds the database
  * URL, the token-encryption key and the auth secret — and wrangler runs
- * user-supplied dependencies. `CLOUDFLARE_*` is included because a deploy
- * authenticates with it; a test session has none set and does not need any.
+ * user-supplied dependencies.
+ *
+ * **No `CLOUDFLARE_*` / `CF_*` / `WRANGLER_*` is inherited.** A deploy needs
+ * credentials and passes the connection's own, explicitly. Inheriting them
+ * instead would hand the *platform's* token to every `wrangler dev` session
+ * running a user's workspace — the same hijack {@link wranglerCommand}
+ * closes, through the environment rather than the binary.
+ *
+ * `HOME` is withheld for the same reason: `~/.wrangler` holds an OAuth login
+ * on a self-host, and wrangler would read it. Callers that need a writable
+ * home pass one.
  */
 const ALLOWED_ENV = [
   'PATH',
-  'HOME',
   'TMPDIR',
   'TEMP',
   'TMP',
@@ -89,30 +97,36 @@ const ALLOWED_ENV = [
   'SystemRoot',
   'APPDATA',
   'LOCALAPPDATA',
-  'USERPROFILE',
   'ComSpec',
 ] as const
 
-const ALLOWED_PREFIXES = ['CLOUDFLARE_', 'CF_', 'WRANGLER_'] as const
+export interface WranglerEnvOptions {
+  /**
+   * `HOME` for the child — wrangler needs a writable one for its cache.
+   * Give it a directory that belongs to this run; omitted, the child gets
+   * no `HOME` rather than the host's.
+   */
+  home?: string
+}
 
 /**
- * The environment a wrangler child runs with: an allow-list, plus anything
- * the caller adds deliberately.
+ * The environment a wrangler child runs with: a short allow-list, plus
+ * whatever the caller adds deliberately.
  *
  * An allow-list rather than a deny-list because the risk is what nobody
  * thought to exclude — a new secret added to the API's environment should
  * not reach user code by default.
  */
-export function wranglerEnv(extra?: Record<string, string>): NodeJS.ProcessEnv {
+export function wranglerEnv(
+  extra?: Record<string, string>,
+  options?: WranglerEnvOptions,
+): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {}
   for (const name of ALLOWED_ENV) {
     const value = process.env[name]
     if (value !== undefined) env[name] = value
   }
-  for (const [name, value] of Object.entries(process.env)) {
-    if (value === undefined) continue
-    if (ALLOWED_PREFIXES.some((prefix) => name.startsWith(prefix))) env[name] = value
-  }
+  if (options?.home) env['HOME'] = options.home
   // Wrangler prints a banner and checks for updates otherwise; neither is
   // useful in a log a user reads.
   env['WRANGLER_SEND_METRICS'] = 'false'
