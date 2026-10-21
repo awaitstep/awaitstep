@@ -1,12 +1,17 @@
 import type { ProjectFile } from '@awaitstep/ir'
 import {
+  MAX_PROJECT_FILES,
+  MAX_PROJECT_FILE_BYTES,
+  MAX_PROJECT_TOTAL_BYTES,
   PACKAGE_MANIFEST_PATH,
   PROJECT_HANDLERS_PATH,
   PROJECT_ROOT_CONFIG_FILES,
   compiledPathKey,
   isProjectCodePath,
   isReservedToolchainPath,
+  projectFileBytes,
 } from '@awaitstep/ir'
+import { GenerateInputError } from './errors.js'
 import type { GeneratedArtifact, GeneratedBundle, GeneratedFile } from './types.js'
 
 /** Wraps a legacy single-file artifact in the bundle shape. */
@@ -21,8 +26,11 @@ export function toBundle(artifact: GeneratedArtifact): GeneratedBundle {
 }
 
 /**
- * The bundle's entry file. Every valid bundle has exactly one — a missing
- * entry is a generator bug, so this throws rather than returning undefined.
+ * The bundle's entry file. Every valid bundle has exactly one — in a bundle
+ * a generator produced, a missing entry is a generator bug, so this throws
+ * a plain error rather than one blamed on the workflow. A bundle that
+ * *arrived* from a client is checked by {@link storedBundleErrors} before
+ * it gets here.
  */
 export function bundleEntry(bundle: GeneratedBundle): GeneratedFile {
   const entry = bundle.files.find((f) => f.path === bundle.entry)
@@ -78,12 +86,76 @@ export function bundleDeployFiles(bundle: GeneratedBundle): GeneratedFile[] {
 }
 
 /**
- * What an ejected version stores as its editable source: everything but the
- * handlers input, whose handlers the entry already compiles in — in ejected
- * mode the entry itself is where they are edited.
+ * The roles a **stored** source bundle may contain.
+ *
+ * `handlers` is absent on purpose: it is annotation input that codegen has
+ * already compiled into the entry, so nothing compiles or deploys a file
+ * holding it. An ejected version edits its handlers in the entry instead.
+ * {@link bundleEjectFiles} is defined by this list, so what eject strips and
+ * what a write accepts cannot drift apart.
+ */
+export const STORED_BUNDLE_ROLES = ['entry', 'module', 'config', 'meta', 'asset'] as const
+
+export type StoredBundleRole = (typeof STORED_BUNDLE_ROLES)[number]
+
+const STORABLE_ROLES = new Set<string>(STORED_BUNDLE_ROLES)
+
+/**
+ * What an ejected version stores as its editable source: everything a stored
+ * bundle may hold, which excludes the handlers input, whose handlers the
+ * entry already compiles in — in ejected mode the entry itself is where they
+ * are edited.
  */
 export function bundleEjectFiles(bundle: GeneratedBundle): GeneratedFile[] {
-  return bundle.files.filter((f) => f.role !== 'handlers')
+  return bundle.files.filter((f) => STORABLE_ROLES.has(f.role))
+}
+
+/**
+ * Why a bundle may not be stored as a version's editable source, or empty.
+ *
+ * The one authority for that question, so `PUT /source` and anything that
+ * *checks* a candidate bundle cannot disagree about what is storable — they
+ * did, and the check silently accepted a `handlers.ts` nothing would ever
+ * compile. Structural invariants come from {@link validateBundle}; the caps
+ * are the project-file caps, because a stored bundle is where project files
+ * live once a version is ejected.
+ */
+export function storedBundleErrors(bundle: GeneratedBundle): string[] {
+  const errors: string[] = []
+  // Checked here rather than left to `validateBundle`: a bundle that
+  // arrived from a client naming an entry it did not send is that client's
+  // mistake, while the same state in a generated bundle is a bug, and the
+  // two must not share one error.
+  if (!bundle.files.some((file) => file.path === bundle.entry)) {
+    return [`"${bundle.entry}" is named as the entry but is not one of the files`]
+  }
+  try {
+    validateBundle(bundle)
+  } catch (err) {
+    errors.push(err instanceof Error ? err.message : 'Invalid bundle structure')
+    // Everything below assumes a structurally sound bundle.
+    return errors
+  }
+  if (bundle.files.length > MAX_PROJECT_FILES) {
+    errors.push(`Maximum ${MAX_PROJECT_FILES} files`)
+  }
+  let total = 0
+  for (const file of bundle.files) {
+    if (!STORABLE_ROLES.has(file.role)) {
+      errors.push(
+        `"${file.path}" has role "${file.role}", which a stored source cannot hold — editable roles are ${STORED_BUNDLE_ROLES.join(', ')}`,
+      )
+    }
+    const bytes = projectFileBytes(file.source)
+    total += bytes
+    if (bytes > MAX_PROJECT_FILE_BYTES) {
+      errors.push(`"${file.path}" exceeds ${MAX_PROJECT_FILE_BYTES} bytes`)
+    }
+  }
+  if (total > MAX_PROJECT_TOTAL_BYTES) {
+    errors.push(`Source exceeds ${MAX_PROJECT_TOTAL_BYTES} bytes in total`)
+  }
+  return errors
 }
 
 /** The project's own package.json source, when the bundle carries one. */
@@ -102,7 +174,7 @@ export function assertSafeBundlePath(path: string): string {
     segments.length > 0 &&
     segments.every((segment) => SAFE_SEGMENT.test(segment) && !segment.includes('..'))
   if (!valid) {
-    throw new Error(`Unsafe bundle file path: "${path}"`)
+    throw new GenerateInputError(`Unsafe bundle file path: "${path}"`)
   }
   return path
 }
@@ -127,22 +199,24 @@ export function validateBundle(bundle: GeneratedBundle): GeneratedBundle {
     // to what deployers write can smuggle a lockfile or wrangler config in.
     if (file.role === 'config' || file.role === 'meta') {
       if (!BUNDLE_CONFIG_ALLOWLIST.has(file.path)) {
-        throw new Error(
+        throw new GenerateInputError(
           `Config/meta files are limited to ${PROJECT_ROOT_CONFIG_FILES.join(', ')} at the project root: "${file.path}"`,
         )
       }
     } else if (file.role === 'handlers') {
       if (file.path !== PROJECT_HANDLERS_PATH) {
-        throw new Error(
+        throw new GenerateInputError(
           `The handlers role belongs to ${PROJECT_HANDLERS_PATH} at the project root: "${file.path}"`,
         )
       }
     } else if (isReservedToolchainPath(file.path)) {
-      throw new Error(`Reserved toolchain filename in bundle: "${file.path}" — rename the file`)
+      throw new GenerateInputError(
+        `Reserved toolchain filename in bundle: "${file.path}" — rename the file`,
+      )
     }
     const outPath = isCode ? compiledPathKey(file.path) : file.path.toLowerCase()
     if (rewritten.has(outPath)) {
-      throw new Error(`Bundle file paths collide after compile rewrite: "${outPath}"`)
+      throw new GenerateInputError(`Bundle file paths collide after compile rewrite: "${outPath}"`)
     }
     rewritten.add(outPath)
   }

@@ -66,7 +66,11 @@ export {
   bundleDeployFiles,
   bundleEjectFiles,
   bundlePackageManifest,
+  storedBundleErrors,
+  STORED_BUNDLE_ROLES,
 } from './bundle.js'
+export type { StoredBundleRole } from './bundle.js'
+export { GenerateInputError } from './errors.js'
 export { escName } from './var-names.js'
 export { computeVarNames, createGenerationContext, inlineGenerationContext } from './context.js'
 export type { GenerationContext, GenerationContextOptions } from './context.js'

@@ -1,4 +1,5 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
+import { GenerateInputError } from './errors.js'
 
 export function buildAdjacencyList(ir: WorkflowIR): Map<string, string[]> {
   const adj = new Map<string, string[]>()
@@ -41,7 +42,7 @@ export function topologicalSort(ir: WorkflowIR): WorkflowNode[] {
   }
 
   if (sorted.length !== reachableNodes.length) {
-    throw new Error('Workflow graph contains a cycle')
+    throw new GenerateInputError('Workflow graph contains a cycle')
   }
 
   const nodeMap = new Map(reachableNodes.map((n) => [n.id, n]))

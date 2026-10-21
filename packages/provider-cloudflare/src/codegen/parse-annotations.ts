@@ -1,3 +1,4 @@
+import { GenerateInputError } from '@awaitstep/codegen'
 import { cloudflareInlineQueueConfigSchema } from '../config-schema.js'
 import { toCFQueueName } from './bindings.js'
 
@@ -65,7 +66,15 @@ export interface HandlerDecl {
   crons?: string[]
 }
 
-export class AnnotationParseError extends Error {
+/**
+ * A problem in the entry-handler source the user wrote: two `@fetch`
+ * handlers, an unclosed `@config` block, an empty `@crons` list.
+ *
+ * A `GenerateInputError` because that is exactly what it is — the code
+ * being compiled is wrong, not the compiler. Reported as a diagnostic by
+ * anything whose job is reporting, and still a 4xx everywhere else.
+ */
+export class AnnotationParseError extends GenerateInputError {
   readonly line: number
   constructor(message: string, line: number) {
     super(`${message} (line ${line})`)

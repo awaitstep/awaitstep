@@ -6,9 +6,13 @@ import {
   bundleDeployFiles,
   bundleEjectFiles,
   projectBundleFiles,
+  storedBundleErrors,
   validateBundle,
+  STORED_BUNDLE_ROLES,
 } from '../bundle.js'
-import type { GeneratedBundle } from '../types.js'
+import { GenerateInputError } from '../errors.js'
+import { MAX_PROJECT_FILES, MAX_PROJECT_FILE_BYTES } from '@awaitstep/ir'
+import type { GeneratedBundle, GeneratedFile } from '../types.js'
 
 describe('toBundle', () => {
   it('wraps a legacy artifact as a single-entry bundle', () => {
@@ -151,5 +155,105 @@ describe('project file roles', () => {
       'package.json',
       'data.json',
     ])
+  })
+})
+
+describe('storedBundleErrors', () => {
+  const entry: GeneratedFile = { path: 'worker.ts', source: 'export default {}', role: 'entry' }
+
+  it('accepts a bundle a write would accept', () => {
+    expect(storedBundleErrors({ entry: 'worker.ts', files: [entry] })).toEqual([])
+  })
+
+  it('refuses the handlers role, which nothing compiles or deploys', () => {
+    // The role exists for annotation input codegen has already folded into
+    // the entry. A stored bundle holding one would silently never run.
+    const errors = storedBundleErrors({
+      entry: 'worker.ts',
+      files: [
+        entry,
+        ...projectBundleFiles([{ path: 'handlers.ts', source: '@fetch function h() {}' }]),
+      ],
+    })
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toContain('role "handlers"')
+  })
+
+  it('is the list bundleEjectFiles filters on, so the two cannot drift', () => {
+    const bundle = {
+      entry: 'worker.ts',
+      files: [
+        entry,
+        ...projectBundleFiles([
+          { path: 'handlers.ts', source: '' },
+          { path: 'lib/a.ts', source: '' },
+        ]),
+      ],
+    }
+    const ejected = { entry: 'worker.ts', files: bundleEjectFiles(bundle) }
+    expect(storedBundleErrors(ejected)).toEqual([])
+    expect(STORED_BUNDLE_ROLES).not.toContain('handlers')
+  })
+
+  it('applies the project caps to a stored bundle', () => {
+    const many = Array.from({ length: MAX_PROJECT_FILES + 1 }, (_, i) => ({
+      path: `lib/f${i}.ts`,
+      source: 'export const a = 1',
+      role: 'module' as const,
+    }))
+    expect(storedBundleErrors({ entry: 'worker.ts', files: [entry, ...many] })).toContain(
+      `Maximum ${MAX_PROJECT_FILES} files`,
+    )
+    const big = {
+      path: 'lib/big.ts',
+      source: 'a'.repeat(MAX_PROJECT_FILE_BYTES + 1),
+      role: 'module' as const,
+    }
+    expect(storedBundleErrors({ entry: 'worker.ts', files: [entry, big] })).toContain(
+      `"lib/big.ts" exceeds ${MAX_PROJECT_FILE_BYTES} bytes`,
+    )
+  })
+
+  it('reports an entry that was named but not sent, as the client’s mistake', () => {
+    // A bundle that arrived from a client naming an entry it did not send
+    // is that client's error. The same state inside a generated bundle is a
+    // generator bug, so the two cannot share one message or one class.
+    const errors = storedBundleErrors({ entry: 'missing.ts', files: [entry] })
+    expect(errors).toEqual(['"missing.ts" is named as the entry but is not one of the files'])
+  })
+
+  it('reports a structural problem and stops there', () => {
+    const errors = storedBundleErrors({
+      entry: 'worker.ts',
+      files: [entry, { path: '../escape.ts', source: '', role: 'module' }],
+    })
+    expect(errors).toEqual(['Unsafe bundle file path: "../escape.ts"'])
+  })
+})
+
+describe('GenerateInputError', () => {
+  it('marks a bundle invariant as the input\u2019s fault, not the generator\u2019s', () => {
+    // A caller that reports problems answers these with diagnostics; it
+    // rethrows anything else, so a generator bug cannot be blamed on the
+    // workflow being checked.
+    expect(() =>
+      validateBundle({
+        entry: 'worker.ts',
+        files: [
+          { path: 'worker.ts', source: '', role: 'entry' },
+          { path: '../escape.ts', source: '', role: 'module' },
+        ],
+      }),
+    ).toThrow(GenerateInputError)
+    expect(new GenerateInputError('x')).toBeInstanceOf(Error)
+  })
+
+  it('leaves a missing entry as a generator bug, not the workflow\u2019s fault', () => {
+    // Nothing a client sends reaches this: storedBundleErrors checks the
+    // entry first. Here it means the generator built a bundle without one,
+    // which has to surface as a 500 and a log, not as "your workflow is
+    // broken".
+    expect(() => validateBundle({ entry: 'missing.ts', files: [] })).toThrow(/no entry file/)
+    expect(() => validateBundle({ entry: 'missing.ts', files: [] })).not.toThrow(GenerateInputError)
   })
 })

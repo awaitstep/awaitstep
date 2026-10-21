@@ -2,7 +2,7 @@ import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { resolveExpressions, scanExpressions } from '@awaitstep/ir'
 import type { GenerateMode, TemplateResolver } from '@awaitstep/codegen'
 import type { GenerationContext, GeneratorLookup } from '@awaitstep/codegen'
-import { inlineGenerationContext } from '@awaitstep/codegen'
+import { GenerateInputError, inlineGenerationContext } from '@awaitstep/codegen'
 import {
   generateCustomNode,
   generateCustomNodeModule,
@@ -139,7 +139,10 @@ export function generateNodeCode(
       return generateCustomNode(node, template, ctx, mode)
     }
   }
-  throw new Error(`Codegen not yet implemented for node type: ${node.type}`)
+  throw new GenerateInputError(
+    `Codegen not yet implemented for node type: ${node.type}`,
+    'provider',
+  )
 }
 
 /**

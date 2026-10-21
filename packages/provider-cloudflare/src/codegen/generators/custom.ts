@@ -1,5 +1,6 @@
 import type { WorkflowNode } from '@awaitstep/ir'
 import {
+  GenerateInputError,
   stepLabel,
   sanitizeIdentifier,
   indent,
@@ -11,7 +12,10 @@ import { generateStepConfig } from './config.js'
 export function extractTemplateBody(source: string): string {
   const match = source.match(/export\s+default\s+async\s+function\s*[^(]*\([^)]*\)\s*\{/)
   if (!match) {
-    throw new Error('Template must contain an `export default async function`')
+    throw new GenerateInputError(
+      'Template must contain an `export default async function`',
+      'provider',
+    )
   }
 
   const startIndex = match.index! + match[0].length
@@ -25,7 +29,7 @@ export function extractTemplateBody(source: string): string {
   }
 
   if (depth !== 0) {
-    throw new Error('Unmatched braces in template function')
+    throw new GenerateInputError('Unmatched braces in template function', 'provider')
   }
 
   return source.slice(startIndex, i - 1).trim()

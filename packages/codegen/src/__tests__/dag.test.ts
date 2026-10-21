@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowIR } from '@awaitstep/ir'
 import { topologicalSort, buildAdjacencyList } from '../dag.js'
+import { GenerateInputError } from '../errors.js'
 import simpleWorkflow from './fixtures/simple-workflow.json'
 
 describe('topologicalSort', () => {
@@ -30,6 +31,10 @@ describe('topologicalSort', () => {
       entryNodeId: 'a',
     }
     expect(() => topologicalSort(cyclic)).toThrow('cycle')
+    // A fact about the workflow, not a generator malfunction: a caller
+    // whose job is reporting answers it with a diagnostic, and rethrows
+    // anything that is not marked this way.
+    expect(() => topologicalSort(cyclic)).toThrow(GenerateInputError)
   })
 })
 

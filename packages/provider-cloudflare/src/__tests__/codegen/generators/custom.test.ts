@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowNode } from '@awaitstep/ir'
-import { createGenerationContext } from '@awaitstep/codegen'
+import { GenerateInputError, createGenerationContext } from '@awaitstep/codegen'
 import {
   extractTemplateBody,
   toJsLiteral,
@@ -33,6 +33,19 @@ describe('extractTemplateBody', () => {
   it('throws if no export default async function found', () => {
     expect(() => extractTemplateBody('function foo() {}')).toThrow(
       'Template must contain an `export default async function`',
+    )
+  })
+
+  it('blames the template, not the generator', () => {
+    // A node's template is input to codegen. Thrown as a plain error these
+    // reached the API as a 500, so a malformed custom node read as "the
+    // server is broken" instead of "this node's template is".
+    expect(() => extractTemplateBody('function foo() {}')).toThrow(GenerateInputError)
+    expect(() => extractTemplateBody('export default async function(ctx) { if (x) {')).toThrow(
+      GenerateInputError,
+    )
+    expect(() => extractTemplateBody('export default async function(ctx) { if (x) {')).toThrow(
+      'Unmatched braces',
     )
   })
 })
