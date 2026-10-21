@@ -821,6 +821,8 @@ export function createTestApp(options?: {
   remoteNodeRegistry?: AppDeps['remoteNodeRegistry']
   testSessionRunner?: AppDeps['testSessionRunner']
   testSessionLimits?: AppDeps['testSessionLimits']
+  /** A concrete origin turns CSRF checking on, as a deployment has it. */
+  corsOrigin?: AppDeps['corsOrigin']
 }) {
   // Seed the test project so auth middleware can find it
   store.projects.set(TEST_PROJECT_ID, {
@@ -836,7 +838,7 @@ export function createTestApp(options?: {
   return createApp({
     db: mockDb,
     auth: mockAuth,
-    corsOrigin: '*',
+    corsOrigin: options?.corsOrigin ?? '*',
     isDev: true,
     remoteNodeRegistry: options?.remoteNodeRegistry,
     testSessionRunner: options?.testSessionRunner,

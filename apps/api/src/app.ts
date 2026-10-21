@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { HTTPException } from 'hono/http-exception'
 import { cors } from 'hono/cors'
 import { csrf } from 'hono/csrf'
 import { bodyLimit } from 'hono/body-limit'
@@ -17,6 +18,14 @@ import { createLogger } from './lib/logger.js'
 import { createRouter } from './routes/index.js'
 import { createRateLimiter } from './middleware/rate-limit.js'
 import { resolveTestSessionLimits } from './lib/test-session-policy.js'
+
+/**
+ * The cap on any API request body. It sits below the project-file caps, so
+ * the 2 MB project total is reached across requests rather than in one —
+ * documented in `docs/api-reference.md`, which an agent reads before it
+ * tries to send a whole project at once.
+ */
+export const MAX_REQUEST_BYTES = 1024 * 1024
 
 export interface AppDeps {
   db: AppEnv['Variables']['db']
@@ -69,8 +78,16 @@ export function createApp(deps: AppDeps) {
     }),
   )
 
-  // Body size limit — 1MB default for all API routes
-  app.use('/api/*', bodyLimit({ maxSize: 1024 * 1024 }))
+  // Body size limit — 1MB default for all API routes. The refusal is JSON
+  // like every other error here: the default is a plain-text body, which a
+  // client parsing JSON cannot read.
+  app.use(
+    '/api/*',
+    bodyLimit({
+      maxSize: MAX_REQUEST_BYTES,
+      onError: (c) => c.json({ error: `Request body exceeds ${MAX_REQUEST_BYTES} bytes` }, 413),
+    }),
+  )
 
   // CSRF protection — origin check for cookie-based auth
   // Skips when: (a) using bearer token auth, or (b) no cookie header (no session to abuse)
@@ -129,6 +146,15 @@ export function createApp(deps: AppDeps) {
 
   // Error handler
   app.onError((err, c) => {
+    // An HTTPException already carries the answer — Hono's own middleware
+    // throws them to refuse a request. Reporting one as a 500 blames the
+    // server for something it refused correctly, and buries the status the
+    // client needed. The status is kept and the body re-shaped: these
+    // default to plain text, and every other error here is JSON, so a
+    // client that parses one would choke on a csrf 403.
+    if (err instanceof HTTPException) {
+      return c.json({ error: err.message || 'Request refused' }, err.status)
+    }
     const reqId = c.get('requestId')
     log.error(err.message, { requestId: reqId, method: c.req.method, path: c.req.path })
     return c.json(
