@@ -452,6 +452,32 @@ describe('project file routes', () => {
     ).toBe(201)
   })
 
+  it('converts even when an untouched file already breaks a project rule', async () => {
+    // Written straight to the table, as an import or an older client could
+    // have. The conversion does not touch it, so it is not a reason to
+    // refuse — the save and the deploy report it on their own.
+    await mockDb.upsertWorkflowFiles([
+      {
+        id: 'f-bad',
+        workflowId: 'wf-1',
+        path: 'package.json',
+        source: '{"type":"commonjs"}',
+        hash: 'h',
+        size: 20,
+      },
+    ])
+    await app.request(url('/api/workflows/wf-1'), {
+      method: 'PATCH',
+      headers: json,
+      body: JSON.stringify({ triggerCode: 'return new Response("legacy")' }),
+    })
+
+    const res = await app.request(url('/api/workflows/wf-1/project/convert-handlers'), {
+      method: 'POST',
+    })
+    expect(res.status).toBe(200)
+  })
+
   it('has nothing to convert for a fresh project', async () => {
     const res = await app.request(url('/api/workflows/wf-1/project/convert-handlers'), {
       method: 'POST',

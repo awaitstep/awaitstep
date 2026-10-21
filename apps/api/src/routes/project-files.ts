@@ -22,7 +22,6 @@ import {
   projectFilePathError,
   projectHandlerModules,
   validatePackageManifest,
-  validateProjectFiles,
 } from '@awaitstep/ir'
 import type {
   DatabaseAdapter,
@@ -30,8 +29,10 @@ import type {
   WorkflowFile,
   WorkflowFileSummary,
   WorkflowSourceMode,
+  WorkflowVersion,
 } from '@awaitstep/db'
-import { toWorkflowFileRows } from '../lib/project-files.js'
+import { retiredByDelete, toWorkflowFileRows } from '../lib/project-files.js'
+import { newProjectFileProblems } from '../lib/source-check.js'
 import { legacyTriggerCode, projectWriteRuleErrors } from '../lib/project-write-rules.js'
 import { resolveProvider } from '../lib/provider-resolver.js'
 import { zValidator } from '../lib/validation.js'
@@ -77,13 +78,18 @@ function requestedHash(header: string | undefined): string | null {
   return trimmed.replace(/^"|"$/g, '')
 }
 
+/**
+ * The current version row, or null when the workflow has none yet. Read
+ * once per request and passed on: the source mode and the legacy
+ * trigger-code lookup are both questions about this same row.
+ */
+function currentVersion(db: DatabaseAdapter, workflow: Workflow): Promise<WorkflowVersion | null> {
+  if (!workflow.currentVersionId) return Promise.resolve(null)
+  return db.getWorkflowVersionById(workflow.currentVersionId)
+}
+
 /** The source mode writes would apply to: the current version's, or generated when there is none yet. */
-async function currentSourceMode(
-  db: DatabaseAdapter,
-  workflow: Workflow,
-): Promise<WorkflowSourceMode> {
-  if (!workflow.currentVersionId) return 'generated'
-  const version = await db.getWorkflowVersionById(workflow.currentVersionId)
+function sourceModeOf(version: WorkflowVersion | null): WorkflowSourceMode {
   return (version?.sourceMode ?? 'generated') as WorkflowSourceMode
 }
 
@@ -104,11 +110,15 @@ projectFiles.get('/:workflowId/project', async (c) => {
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const [files, sourceMode] = await Promise.all([
+  const [files, version] = await Promise.all([
     db.listWorkflowFileSummaries(workflow.id),
-    currentSourceMode(db, workflow),
+    currentVersion(db, workflow),
   ])
-  return c.json({ ...CONVENTIONS, sourceMode, files: files.map(summarize) })
+  return c.json({
+    ...CONVENTIONS,
+    sourceMode: sourceModeOf(version),
+    files: files.map(summarize),
+  })
 })
 
 projectFiles.get('/:workflowId/files/:path{.+}', async (c) => {
@@ -159,10 +169,11 @@ projectFiles.put('/:workflowId/files/:path{.+}', zValidator('json', putFileSchem
 
   // One listing answers the count and total-size caps and the collision
   // check; the current version's mode decides whether writes apply at all.
-  const [existing, sourceMode] = await Promise.all([
+  const [existing, version] = await Promise.all([
     db.listWorkflowFileSummaries(workflow.id),
-    currentSourceMode(db, workflow),
+    currentVersion(db, workflow),
   ])
+  const sourceMode = sourceModeOf(version)
   if (sourceMode !== 'generated') return c.json(ejectedResponse(sourceMode), 409)
 
   const current = existing.find((f) => f.path === path) ?? null
@@ -178,6 +189,7 @@ projectFiles.put('/:workflowId/files/:path{.+}', zValidator('json', putFileSchem
   const writeErrors = await projectWriteRuleErrors({
     db,
     workflow,
+    version,
     existing,
     changes: [{ path, source }],
   })
@@ -215,19 +227,6 @@ projectFiles.put('/:workflowId/files/:path{.+}', zValidator('json', putFileSchem
   c.header('ETag', etag(saved.hash))
   return c.json(summarize(saved), current ? 200 : 201)
 })
-
-/**
- * Removing a project file that stands in for a legacy workflow setting
- * (handlers.ts for trigger code, package.json for dependencies) must not
- * let the setting resurface: the workspace would show the "deleted" file
- * again as a virtual seed, and the next deploy would still use it.
- */
-const LEGACY_SETTING_BY_PATH: Readonly<
-  Record<string, { triggerCode?: null; dependencies?: null }>
-> = {
-  [PROJECT_HANDLERS_PATH]: { triggerCode: null },
-  [PACKAGE_MANIFEST_PATH]: { dependencies: null },
-}
 
 /**
  * What converting the annotation file would produce. The source is the
@@ -271,8 +270,16 @@ async function planConversion(
   if (conversion.files.length === 0) {
     return { error: 'handlers.ts declares no handlers to convert', status: 422 }
   }
-  const next = [...existing.filter((f) => f !== stored), ...conversion.files]
-  const problems = validateProjectFiles(next.map(({ path, source }) => ({ path, source })))
+  // Only what the conversion itself would break. A file already in the
+  // project that breaks a current rule — imported before the rule, or
+  // seeded by an older client — is not a reason to refuse a conversion
+  // that does not touch it; the save and the deploy report it anyway.
+  const files = ({ path, source }: { path: string; source: string }) => ({ path, source })
+  const problems = newProjectFileProblems(
+    existing.map(files),
+    [...existing.filter((f) => f !== stored), ...conversion.files].map(files),
+    conversion.files.map((f) => f.path),
+  )
   if (problems.length > 0) {
     return { error: `Conversion would break a project rule: ${problems[0]!.message}`, status: 422 }
   }
@@ -313,11 +320,12 @@ projectFiles.post('/:workflowId/project/convert-handlers', async (c) => {
   if (!workflow) return c.json({ error: 'Not found' }, 404)
   const adapter = resolveProvider()
 
-  const [sourceMode, plan, deploymentConfigs] = await Promise.all([
-    currentSourceMode(db, workflow),
+  const [version, plan, deploymentConfigs] = await Promise.all([
+    currentVersion(db, workflow),
     planConversion(db, adapter, workflow),
     db.listDeploymentConfigsByWorkflow(workflow.id),
   ])
+  const sourceMode = sourceModeOf(version)
   if (sourceMode !== 'generated') return c.json(ejectedResponse(sourceMode), 409)
   if ('error' in plan) return c.json({ error: plan.error }, plan.status)
   const { stored, conversion } = plan
@@ -391,7 +399,7 @@ projectFiles.delete('/:workflowId/files/:path{.+}', async (c) => {
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const sourceMode = await currentSourceMode(db, workflow)
+  const sourceMode = sourceModeOf(await currentVersion(db, workflow))
   if (sourceMode !== 'generated') return c.json(ejectedResponse(sourceMode), 409)
 
   const path = c.req.param('path')
@@ -406,7 +414,7 @@ projectFiles.delete('/:workflowId/files/:path{.+}', async (c) => {
   if (removed) {
     // A follow-up write, not a lookup: it only applies once the conditional
     // delete has succeeded.
-    const legacy = LEGACY_SETTING_BY_PATH[path]
+    const legacy = retiredByDelete(path)
     if (legacy) await db.updateWorkflow(workflow.id, legacy)
     return c.body(null, 204)
   }

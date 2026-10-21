@@ -1,8 +1,45 @@
 import { nanoid } from 'nanoid'
 import { contentHash } from '@awaitstep/codegen'
-import { projectFileBytes } from '@awaitstep/ir'
+import { PACKAGE_MANIFEST_PATH, PROJECT_HANDLERS_PATH, projectFileBytes } from '@awaitstep/ir'
 import type { ProjectFile } from '@awaitstep/ir'
-import type { UpsertWorkflowFileData } from '@awaitstep/db'
+import type { UpsertWorkflowFileData, Workflow } from '@awaitstep/db'
+
+/**
+ * The legacy workflow setting a project file stands in for.
+ *
+ * Removing such a file must retire its setting: the workspace seeds the
+ * "deleted" file again from the setting, and a deploy would still use it.
+ * So a delete clears the column — and anything that *models* a delete has
+ * to model that too, or it judges the edit against a state no real delete
+ * leaves behind.
+ */
+const LEGACY_SETTING_BY_PATH: Readonly<
+  Record<string, { triggerCode?: null; dependencies?: null }>
+> = {
+  [PROJECT_HANDLERS_PATH]: { triggerCode: null },
+  [PACKAGE_MANIFEST_PATH]: { dependencies: null },
+}
+
+/** The workflow columns to clear when this path is deleted, if any. */
+export function retiredByDelete(
+  path: string,
+): { triggerCode?: null; dependencies?: null } | undefined {
+  return LEGACY_SETTING_BY_PATH[path]
+}
+
+/**
+ * The workflow as it would be once these paths are deleted — the state a
+ * check has to judge a candidate deletion against, since `DELETE /files`
+ * retires the settings those files stand in for.
+ */
+export function workflowAfterDeletes(workflow: Workflow, deleted: Iterable<string>): Workflow {
+  let next = workflow
+  for (const path of deleted) {
+    const retired = retiredByDelete(path)
+    if (retired) next = { ...next, ...retired }
+  }
+  return next
+}
 
 /** Table rows for a set of project files: fresh ids, content hashes, byte sizes. */
 export function toWorkflowFileRows(

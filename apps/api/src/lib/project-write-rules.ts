@@ -6,7 +6,7 @@ import {
   projectWriteErrors,
   type ProjectWriteError,
 } from '@awaitstep/ir'
-import type { DatabaseAdapter, Workflow } from '@awaitstep/db'
+import type { DatabaseAdapter, Workflow, WorkflowVersion } from '@awaitstep/db'
 
 /**
  * A file a request would write or remove. `source: null` is a removal, and a
@@ -20,6 +20,8 @@ export interface ProjectFileChange {
 export interface ProjectWriteRuleInput {
   db: DatabaseAdapter
   workflow: Workflow
+  /** The current version row, when the caller has already read it. */
+  version?: WorkflowVersion | null
   /** The project's files as stored. Only their paths are read. */
   existing: readonly { path: string }[]
   changes: readonly ProjectFileChange[]
@@ -30,16 +32,25 @@ export interface ProjectWriteRuleInput {
  * and where it lives. The column is the usual home, but an IR that arrived
  * with inline `runtime.triggerCode` (an import, an older client) is just as
  * real: the generators read it, so everything else must too.
+ *
+ * `version` is a row the caller has already read, passed in to save a
+ * second query for the same one. It is used only when it *is* the current
+ * version — anything else is fetched, because a wrong row here would
+ * silently switch the rule off rather than fail.
  */
 export async function legacyTriggerCode(
   db: DatabaseAdapter,
   workflow: Workflow,
+  version?: WorkflowVersion | null,
 ): Promise<{ source: string; origin: 'setting' | 'version' } | null> {
   if (workflow.triggerCode?.trim()) return { source: workflow.triggerCode, origin: 'setting' }
   if (!workflow.currentVersionId) return null
-  const version = await db.getWorkflowVersionById(workflow.currentVersionId)
-  if (!version || version.workflowId !== workflow.id) return null
-  const loaded = loadArtifact(version.ir)
+  const current =
+    version?.id === workflow.currentVersionId
+      ? version
+      : await db.getWorkflowVersionById(workflow.currentVersionId)
+  if (!current || current.workflowId !== workflow.id) return null
+  const loaded = loadArtifact(current.ir)
   const source = loaded.ok ? loaded.value.runtime?.triggerCode : undefined
   return source?.trim() ? { source, origin: 'version' } : null
 }
@@ -81,7 +92,7 @@ export async function projectWriteRuleErrors(
   // IR — is the same model as handlers.ts: a first handler module would
   // silently retire it, so the project converts first (the workspace offers
   // that as one action).
-  const legacy = await legacyTriggerCode(input.db, input.workflow)
+  const legacy = await legacyTriggerCode(input.db, input.workflow, input.version)
   if (!legacy) return []
   return [
     {

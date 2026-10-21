@@ -135,6 +135,25 @@ describe('projectWriteRuleErrors', () => {
     expect(lookup).not.toHaveBeenCalled()
   })
 
+  it('uses the version row the caller already read instead of reading it again', async () => {
+    const withVersion = await withLegacyVersion()
+    const version = await mockDb.getWorkflowVersionById('v-1')
+    const lookup = vi.spyOn(mockDb, 'getWorkflowVersionById')
+
+    const errors = await projectWriteRuleErrors({
+      db: mockDb,
+      workflow: withVersion,
+      version,
+      existing: [],
+      changes: [{ path: 'handlers/fetch.ts', source: handler }],
+    })
+
+    // Same verdict, one query fewer: every caller has already read this row
+    // to decide whether writes apply at all.
+    expect(errors[0]?.message).toMatch(/convert it to handler modules first/)
+    expect(lookup).not.toHaveBeenCalled()
+  })
+
   it('treats a removal as a removal, not a write', async () => {
     // handlers.ts out and a module in, in one change set: the merged project
     // never holds both models, so nothing is refused — and no handler entry
