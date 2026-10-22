@@ -64,7 +64,7 @@ describe('project file routes', () => {
     })
   })
 
-  it('describes an empty project with its conventions, mode and limits', async () => {
+  it('describes an empty project with its conventions and limits', async () => {
     const res = await app.request(url('/api/workflows/wf-1/project'))
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -72,7 +72,6 @@ describe('project file routes', () => {
       importPrefix: '#app/',
       generated: ['worker.*', 'nodes/**', 'wrangler.*'],
       rootConfigFiles: ['package.json', 'tsconfig.json', 'jsconfig.json'],
-      sourceMode: 'generated',
       files: [],
       limits: { maxFiles: 100, maxFileBytes: 512_000, maxTotalBytes: 2_000_000 },
     })

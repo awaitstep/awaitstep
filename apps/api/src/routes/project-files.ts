@@ -28,7 +28,6 @@ import type {
   Workflow,
   WorkflowFile,
   WorkflowFileSummary,
-  WorkflowSourceMode,
   WorkflowVersion,
 } from '@awaitstep/db'
 import { retiredByDelete, toWorkflowFileRows } from '../lib/project-files.js'
@@ -88,19 +87,6 @@ function currentVersion(db: DatabaseAdapter, workflow: Workflow): Promise<Workfl
   return db.getWorkflowVersionById(workflow.currentVersionId)
 }
 
-/** The source mode writes would apply to: the current version's, or generated when there is none yet. */
-function sourceModeOf(version: WorkflowVersion | null): WorkflowSourceMode {
-  return (version?.sourceMode ?? 'generated') as WorkflowSourceMode
-}
-
-function ejectedResponse(sourceMode: WorkflowSourceMode) {
-  return {
-    error:
-      'The current version owns its source (ejected); edit files through PUT /source or revert to visual mode first',
-    sourceMode,
-  }
-}
-
 /**
  * The project's file tree with content hashes plus the conventions: what an
  * agent polls to know whether anything changed and where it may write.
@@ -110,13 +96,9 @@ projectFiles.get('/:workflowId/project', async (c) => {
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const [files, version] = await Promise.all([
-    db.listWorkflowFileSummaries(workflow.id),
-    currentVersion(db, workflow),
-  ])
+  const files = await db.listWorkflowFileSummaries(workflow.id)
   return c.json({
     ...CONVENTIONS,
-    sourceMode: sourceModeOf(version),
     files: files.map(summarize),
   })
 })
@@ -168,13 +150,12 @@ projectFiles.put('/:workflowId/files/:path{.+}', zValidator('json', putFileSchem
   }
 
   // One listing answers the count and total-size caps and the collision
-  // check; the current version's mode decides whether writes apply at all.
+  // check; the version row is what the handler write rules are judged
+  // against.
   const [existing, version] = await Promise.all([
     db.listWorkflowFileSummaries(workflow.id),
     currentVersion(db, workflow),
   ])
-  const sourceMode = sourceModeOf(version)
-  if (sourceMode !== 'generated') return c.json(ejectedResponse(sourceMode), 409)
 
   const current = existing.find((f) => f.path === path) ?? null
   const collision = findProjectPathCollision(
@@ -327,17 +308,14 @@ projectFiles.post('/:workflowId/project/convert-handlers', async (c) => {
   if (!workflow) return c.json({ error: 'Not found' }, 404)
   const adapter = resolveProvider()
 
-  // One read of the version row, shared: the source-mode check needs it and
-  // so does the legacy trigger-code lookup inside the plan. Handing the
-  // promise over keeps both in flight at once.
+  // One read of the version row: the legacy trigger-code lookup inside the
+  // plan is what needs it, and handing the promise over keeps it in flight
+  // beside the deployment-config read.
   const versionRead = currentVersion(db, workflow)
-  const [version, plan, deploymentConfigs] = await Promise.all([
-    versionRead,
+  const [plan, deploymentConfigs] = await Promise.all([
     planConversion(db, adapter, workflow, versionRead),
     db.listDeploymentConfigsByWorkflow(workflow.id),
   ])
-  const sourceMode = sourceModeOf(version)
-  if (sourceMode !== 'generated') return c.json(ejectedResponse(sourceMode), 409)
   if ('error' in plan) return c.json({ error: plan.error }, plan.status)
   const { stored, conversion } = plan
 
@@ -409,9 +387,6 @@ projectFiles.delete('/:workflowId/files/:path{.+}', async (c) => {
   const db = c.get('db')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
-
-  const sourceMode = sourceModeOf(await currentVersion(db, workflow))
-  if (sourceMode !== 'generated') return c.json(ejectedResponse(sourceMode), 409)
 
   const path = c.req.param('path')
   const expected = requestedHash(c.req.header('If-Match'))

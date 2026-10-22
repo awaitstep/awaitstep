@@ -6,11 +6,8 @@ import {
   validateProjectFiles,
 } from '@awaitstep/ir'
 import type { ProjectFile, ValidationError } from '@awaitstep/ir'
-import { projectBundleFiles, storedBundleErrors } from '@awaitstep/codegen'
-import type { GeneratedBundle, GeneratedFile } from '@awaitstep/codegen'
 import type { DatabaseAdapter, Workflow, WorkflowVersion } from '@awaitstep/db'
-import { MAX_REQUEST_BYTES } from './request-limits.js'
-import { loadStoredSource, type WorkflowPrepareInput } from './workflow-prepare.js'
+import { type WorkflowPrepareInput } from './workflow-prepare.js'
 import { projectWriteRuleErrors } from './project-write-rules.js'
 import { workflowAfterDeletes } from './project-files.js'
 
@@ -35,13 +32,13 @@ export const checkBodySchema = z.object({
 export type CandidateFile = z.infer<typeof candidateSchema>
 
 /**
- * The state a check judges: the workflow, plus whichever store the files
- * live in for this version. Spelled as the prepare's own inputs, so its
- * field names are what this has to match and a rename cannot leave an
- * overlay that is silently ignored.
+ * The state a check judges: the workflow, plus the files it is judged
+ * against. Spelled as the prepare's own inputs, so its field names are what
+ * this has to match and a rename cannot leave an overlay that is silently
+ * ignored.
  */
 export type JudgedState = Pick<WorkflowPrepareInput, 'workflow'> &
-  Partial<Pick<WorkflowPrepareInput, 'projectFiles' | 'storedSource'>>
+  Partial<Pick<WorkflowPrepareInput, 'projectFiles'>>
 
 export interface CandidateRefusal {
   error: string
@@ -70,56 +67,6 @@ export function overlayProjectFiles(
     else merged.set(candidate.path, { path: candidate.path, source: candidate.source })
   }
   return [...merged.values()]
-}
-
-/**
- * The same overlay for an ejected/sdk version, whose project files live
- * inside the stored bundle rather than in the table. A replaced file keeps
- * the role it was stored with; a new one is classified exactly as a project
- * file entering a bundle is, so a candidate cannot smuggle in a role it
- * would never have been given — and `storedBundleErrors` then refuses any
- * role a stored bundle cannot hold, as a write would.
- */
-export function overlayBundleFiles(
-  bundle: GeneratedBundle,
-  candidates: readonly CandidateFile[],
-): GeneratedBundle {
-  const merged = new Map(bundle.files.map((file) => [file.path, file]))
-  for (const candidate of candidates) {
-    if (candidate.source === null) {
-      merged.delete(candidate.path)
-      continue
-    }
-    const current = merged.get(candidate.path)
-    const next: GeneratedFile = current
-      ? { ...current, source: candidate.source }
-      : projectBundleFiles([{ path: candidate.path, source: candidate.source }])[0]!
-    // A stored `compiled` is the old text's output; keeping it would hand a
-    // consumer code the candidate never contained.
-    delete next.compiled
-    merged.set(candidate.path, next)
-  }
-  return { entry: bundle.entry, files: [...merged.values()] }
-}
-
-/**
- * What `PUT /source` would actually put on the wire for this bundle.
- *
- * Not the sum of the sources: the body is JSON, where every newline and
- * quote in a source becomes two characters, so raw bytes understate it by
- * enough to matter at the limit.
- */
-function pushedBytes(bundle: GeneratedBundle): number {
-  return projectFileBytes(
-    JSON.stringify({
-      entry: bundle.entry,
-      files: bundle.files.map((file) => ({
-        path: file.path,
-        source: file.source,
-        role: file.role,
-      })),
-    }),
-  )
 }
 
 /** The file a `runtime.files[<i>].…` validation path points at, if any. */
@@ -178,16 +125,12 @@ function setBytes(files: readonly ProjectFile[]): number {
 /**
  * What the candidates mean for this version, or why they cannot be applied.
  *
- * Each source mode keeps its own rules, because the files live somewhere
- * different in each:
- * - **generated, current** — the project-file table. Judged by
- *   `validateProjectFiles` (the set-level authority the save path uses) and
- *   by the write rules every write path shares.
- * - **ejected/sdk** — inside the stored bundle. Judged by
- *   `storedBundleErrors`, the same authority `PUT /source` applies.
- * - **any older version** — nothing to overlay: the table is not read and
- *   the snapshot is frozen, so a candidate would be silently ignored. Said
- *   plainly instead.
+ * Candidates overlay the project-file table, and are judged by
+ * `validateProjectFiles` (the set-level authority the save path uses) and by
+ * the write rules every write path shares — so a check cannot bless what a
+ * save would refuse. Against any older version there is nothing to overlay:
+ * the table is not read and the snapshot is frozen, so a candidate would be
+ * silently ignored. Said plainly instead.
  */
 export async function buildCandidateOverlay(input: {
   db: DatabaseAdapter
@@ -205,42 +148,6 @@ export async function buildCandidateOverlay(input: {
       status: 400,
     }
   }
-  if ((version.sourceMode ?? 'generated') !== 'generated') {
-    // Only the stored-source path has a lock to respect: `PUT /source`
-    // refuses a locked version, while `PUT`/`DELETE /files` never consult
-    // it — project files belong to the workflow, not to a version.
-    if (version.locked === 1) {
-      return { error: 'Version is locked', status: 400 }
-    }
-    const parsed = loadStoredSource(version)
-    if ('error' in parsed) return { error: parsed.error, status: 422 }
-    const bundle = overlayBundleFiles(parsed.bundle, candidates)
-    const problems = storedBundleErrors(bundle)
-    if (problems.length > 0) {
-      return {
-        error: problems[0]!,
-        status: 422,
-        ...(problems.length > 1 && { details: problems }),
-      }
-    }
-    // A bundle no write could carry must not come back as healthy: the
-    // storage caps allow more than a single request may contain, so
-    // `PUT /source` would be refused by the body-size limit long before
-    // these rules ran. Said here rather than left for the caller to
-    // discover as a 413 — including when the stored bundle is already that
-    // large, which is the case eject can produce and no candidate can fix.
-    const pushed = pushedBytes(bundle)
-    if (pushed > MAX_REQUEST_BYTES) {
-      return {
-        error: `The source would be ${pushed} bytes as a request body and no request may exceed ${MAX_REQUEST_BYTES}, so this cannot be pushed through PUT /source`,
-        status: 422,
-      }
-    }
-    // The legacy settings are a project-file concern; nothing writes them
-    // on an ejected version, so there is nothing to model here.
-    return { workflow, storedSource: { bundle, manifest: parsed.manifest } }
-  }
-
   // Deleting a file that stands in for a legacy setting retires the setting
   // too, so the state being judged is the workflow a real delete would
   // leave — otherwise the check answers for trigger code that would no

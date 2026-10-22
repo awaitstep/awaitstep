@@ -80,9 +80,9 @@ source.get('/:workflowId/source', async (c) => {
  * question can be asked *before* a broken intermediate state is visible to
  * the dev, to a deploy, or to the reaper.
  *
- * A problem with the workflow is an answer, not a malfunction: a cycle,
- * drift, a file that will not parse all return `200 { ok: false }`. Non-200
- * means the check could not run at all.
+ * A problem with the workflow is an answer, not a malfunction: a cycle, a
+ * file that will not parse, a missing secret all return `200 { ok: false }`.
+ * Non-200 means the check could not run at all.
  */
 source.post('/:workflowId/source/check', async (c) => {
   const db = c.get('db')

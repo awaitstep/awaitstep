@@ -124,13 +124,10 @@ export async function prepareDeploy(
     return { error: credCheck.error ?? 'Invalid credentials', status: 403 }
   }
 
-  // Ejected/sdk versions deploy their stored, drift-validated bundle; only
-  // generated versions regenerate here with the full provider config
-  // (credentials + installed-node templates + deployment config).
-  const bundle =
-    prepared.sourceMode !== 'generated'
-      ? prepared.bundle
-      : adapter.generate(prepared.ir, providerConfig)
+  // Regenerated here with the full provider config (credentials +
+  // installed-node templates + deployment config), which the prepare's own
+  // generate pass does not have.
+  const bundle = adapter.generate(prepared.ir, providerConfig)
 
   return {
     adapter,

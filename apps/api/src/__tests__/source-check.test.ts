@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { MAX_PROJECT_FILES, MAX_PROJECT_FILE_BYTES } from '@awaitstep/ir'
-import { overlayBundleFiles } from '../lib/source-check.js'
 import {
   createTestApp,
   resetStore,
@@ -142,8 +141,9 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
       const { body } = await check()
       expect(body.checked).toEqual(['ir', 'provider', 'env', 'compile', 'import'])
       expect(body.checked).not.toContain('type')
-      // Nothing drifts in generated mode — so it says so rather than
-      // leaving an agent to assume drift was considered.
+      // The canvas owns the generated code, so nothing can drift from it —
+      // and `checked` says so rather than leaving an agent to assume drift
+      // was considered.
       expect(body.checked).not.toContain('drift')
     })
 
@@ -578,32 +578,6 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
         }),
       })
       expect(tooBig.status).toBe(422)
-    })
-
-    it('keeps a bundle file’s role when replacing it, and classifies a new one', async () => {
-      // Through the overlay directly: the role decides whether a file is
-      // uploaded as code, written as an asset, or read as config, and a
-      // candidate must not be able to choose one.
-      const bundle = {
-        entry: 'worker.ts',
-        files: [
-          { path: 'worker.ts', source: 'export default {}', role: 'entry' as const, compiled: 'x' },
-        ],
-      }
-      const merged = overlayBundleFiles(bundle, [
-        { path: 'worker.ts', source: 'export default { v: 2 }' },
-        { path: 'data/x.json', source: '{}' },
-        { path: 'lib/a.ts', source: 'export const a = 1' },
-        { path: 'package.json', source: '{"name":"w"}' },
-      ])
-      expect(merged.files.map((f) => [f.path, f.role])).toEqual([
-        ['worker.ts', 'entry'],
-        ['data/x.json', 'asset'],
-        ['lib/a.ts', 'module'],
-        ['package.json', 'meta'],
-      ])
-      // The stored compile output belonged to the old text.
-      expect(merged.files[0]!.compiled).toBeUndefined()
     })
 
     it('refuses a body that does not parse rather than reading it as no candidates', async () => {
