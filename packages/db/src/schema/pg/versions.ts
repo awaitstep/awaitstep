@@ -10,15 +10,14 @@ export const workflowVersions = pgTable(
       .references(() => workflows.id, { onDelete: 'cascade' }),
     version: integer('version').notNull(),
     ir: text('ir').notNull(),
-    // 'generated' = IR is truth, code derived (v1 behavior).
-    // 'ejected'   = user edits stored source; IR retained, drift-validated.
-    // 'sdk'       = source authoritative (CLI push), IR derived.
+    // Dead since W0 removed eject: the IR is the only source of truth, so
+    // every row reads 'generated' with no source and no baseline. Kept
+    // because migrations here are additive only; dropped in the Phase 2
+    // cleanup beside workflows.triggerCode/dependencies/envVars.
     sourceMode: text('source_mode').notNull().default('generated'),
-    // JSON GeneratedBundle when sourceMode !== 'generated'; null otherwise.
     source: text('source'),
-    // JSON step manifest (nodeId → stepName/filePath) for drift validation.
+    // JSON step manifest (nodeId → stepName/filePath) for run telemetry.
     manifest: text('manifest'),
-    // Hash of the freshly generated bundle at eject time — the drift baseline.
     baseGeneratedHash: text('base_generated_hash'),
     locked: integer('locked').notNull().default(0),
     createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),

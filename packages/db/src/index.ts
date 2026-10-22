@@ -9,7 +9,6 @@ export type {
   EnvVar,
   Project,
   InstalledNode,
-  WorkflowSourceMode,
   CreateVersionData,
   UpdateVersionData,
   WorkflowRunStep,

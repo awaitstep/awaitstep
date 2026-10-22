@@ -22,11 +22,10 @@ export type {
   DeploymentConfigUiVisibility,
   DeploymentConfigValidator,
   DeploymentConfigPreview,
-  SourceMode,
   DiagnosticSource,
   SourceDiagnostic,
 } from './types.js'
-export { SOURCE_MODES, DIAGNOSTIC_SOURCES } from './types.js'
+export { DIAGNOSTIC_SOURCES } from './types.js'
 
 export type {
   WorkflowProvider,
