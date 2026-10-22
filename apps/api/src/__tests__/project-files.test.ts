@@ -554,27 +554,6 @@ describe('project file routes', () => {
     expect(a.source).toBe('first')
   })
 
-  it('refuses file writes while the current version is ejected', async () => {
-    await putFile(app, 'config/a.ts', 'v1')
-    expect((await saveVersion(app)).status).toBe(201)
-    const ejected = await app.request(url('/api/workflows/wf-1/eject'), {
-      method: 'POST',
-      headers: json,
-      body: JSON.stringify({}),
-    })
-    expect(ejected.status).toBe(201)
-
-    const write = await putFile(app, 'config/b.ts', 'nope')
-    expect(write.status).toBe(409)
-    expect(await write.json()).toMatchObject({ sourceMode: 'ejected' })
-    const remove = await app.request(url('/api/workflows/wf-1/files/config/a.ts'), {
-      method: 'DELETE',
-    })
-    expect(remove.status).toBe(409)
-    const listed = await (await app.request(url('/api/workflows/wf-1/project'))).json()
-    expect(listed.sourceMode).toBe('ejected')
-  })
-
   it('is scoped to the workflow in the caller’s project', async () => {
     await mockDb.createWorkflow({
       id: 'wf-other',

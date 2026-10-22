@@ -382,23 +382,6 @@ trigger code or deployment-config retention affect REST-triggered instances
 and generated-mode versions, but do not rewrite an ejected source: edit those
 values in the source directly, or re-eject.
 
-### `POST /workflows/:workflowId/eject`
-
-Materialize the current (or given) version's generated code as an editable
-source bundle. Creates a new version with `sourceMode: "ejected"`, node
-region markers (`// @awaitstep:node <id>` … `// @awaitstep:end`) in the
-entry, a step manifest, and the generated-bundle hash as the drift baseline.
-Not yet supported for functions (script-kind workflows).
-
-**Scope:** `write`
-
-| Param        | In   | Required | Description                            |
-| ------------ | ---- | -------- | -------------------------------------- |
-| `workflowId` | path | yes      | Workflow ID                            |
-| `versionId`  | body | no       | Version to eject (defaults to current) |
-
-Returns `201` with `{ versionId, version, sourceMode, entry, fileCount }`.
-
 ### `GET /workflows/:workflowId/source`
 
 Read the deployable source for a version. Ejected/sdk versions return their
@@ -543,25 +526,6 @@ file that predates a rule cannot block every check that follows.
 
 The caps are the storage caps — at most 100 files, 512 KB each, the project
 total — under the same 1 MB request-body limit as every other route.
-
-### `PUT /workflows/:workflowId/source`
-
-Push edited source back onto the current ejected/sdk version. The bundle is
-drift-validated against the retained IR and step manifest (node regions
-present, durable-step labels intact — labels are derived from node ids and
-are machine-owned, so edit step bodies, not labels) and transpile-checked
-before being stored; `422` responses carry the validation errors. The
-version must not be locked.
-
-**Scope:** `write`
-
-| Param        | In   | Required | Description                              |
-| ------------ | ---- | -------- | ---------------------------------------- |
-| `workflowId` | path | yes      | Workflow ID                              |
-| `entry`      | body | yes      | Path of the entry file within `files`    |
-| `files`      | body | yes      | `[{ path, source, role }]` (≤ 100 files) |
-
-Returns `{ ok, versionId, sourceMode }`.
 
 ---
 

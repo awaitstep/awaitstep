@@ -28,7 +28,7 @@ function url(path: string) {
   return `${path}${path.includes('?') ? '&' : '?'}projectId=${TEST_PROJECT_ID}`
 }
 
-describe('source and eject with unresolved env vars', () => {
+describe('source with unresolved env vars', () => {
   let app: ReturnType<typeof createTestApp>
 
   beforeEach(async () => {
@@ -64,15 +64,6 @@ describe('source and eject with unresolved env vars', () => {
     expect(res.status).toBe(200)
     const body = (await res.json()) as { entry: string; files: { path: string }[] }
     expect(body.files.map((f) => f.path)).toContain(body.entry)
-  })
-
-  it('POST /eject materializes the source without env values', async () => {
-    const res = await app.request(url('/api/workflows/wf-1/eject'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    })
-    expect(res.status).toBe(201)
   })
 
   it('preparing for a deploy still refuses until every env var resolves', async () => {
