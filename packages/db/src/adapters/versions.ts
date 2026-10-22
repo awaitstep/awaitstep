@@ -19,11 +19,12 @@ export class VersionsAdapter {
       workflowId: data.workflowId,
       ir: data.ir,
       manifest: data.manifest ?? null,
-      // The source columns outlive eject only until the Phase 2 cleanup
-      // migration drops them. Written as what they now permanently mean,
-      // rather than from the caller, which can no longer ask for anything
-      // else: the IR is the source of truth and the row returned here has
-      // to match what the insert left in the table.
+      // The source columns survive only until the Phase 2 cleanup
+      // migration drops them (W0 removed the stored-source mode they
+      // belonged to). Written as what they now permanently mean, rather
+      // than from the caller, which can no longer ask for anything else:
+      // the IR is the source of truth and the row returned here has to
+      // match what the insert left in the table.
       sourceMode: 'generated',
       source: null,
       baseGeneratedHash: null,

@@ -18,11 +18,11 @@ per-endpoint reference lives in [REST API](/api/rest).
 
 An API key is scoped, and the wrong scope is the first thing to go wrong:
 
-| Scope    | What it covers                                                                     |
-| -------- | ---------------------------------------------------------------------------------- |
-| `read`   | Reading the tree and any file, and **`POST /source/check`**                        |
-| `write`  | `PUT`/`DELETE` on files, `convert-handlers`, `eject`, `PUT /source`, test sessions |
-| `deploy` | `deploy`, `trigger`, `takedown`, run control                                       |
+| Scope    | What it covers                                              |
+| -------- | ----------------------------------------------------------- |
+| `read`   | Reading the tree and any file, and **`POST /source/check`** |
+| `write`  | `PUT`/`DELETE` on files, `convert-handlers`, test sessions  |
+| `deploy` | `deploy`, `trigger`, `takedown`, run control                |
 
 So a key that only reads can still answer "is this workflow healthy?" — but
 creating a file, or running one, needs `write`.
@@ -44,7 +44,6 @@ curl -s "$API/workflows/$WF/project?projectId=$P" -H "Authorization: Bearer $KEY
   "rootConfigFiles": ["package.json", "tsconfig.json", "jsconfig.json"],
   "extensions": ["ts", "mts", "cts", "js", "mjs", "cjs", "json", "md", "…"],
   "limits": { "maxFiles": 100, "maxFileBytes": 512000, "maxTotalBytes": 2000000 },
-  "sourceMode": "generated",
   "files": [{ "path": "lib/retry.ts", "hash": "…", "size": 42, "updatedAt": "…" }]
 }
 ```
@@ -63,9 +62,6 @@ otherwise find by trial:
 - **Paths must not collide after compile.** `lib/a.ts` and `lib/a.js` become
   the same file, and so do `Env.ts` and `env.ts` on a case-insensitive disk.
   Either is refused with the name it would have overwritten.
-
-`sourceMode` tells you where the files actually live, which changes what you
-can do — see [Generated and ejected](#generated-and-ejected) below.
 
 ## Reading and writing one file
 
@@ -179,7 +175,6 @@ curl -s -X POST "$API/workflows/$WF/source/check?projectId=$P" -H "Authorization
 {
   "ok": false,
   "versionId": "v_2b…",
-  "sourceMode": "generated",
   "checked": ["ir", "provider", "env", "compile", "import"],
   "diagnostics": [
     {
@@ -194,8 +189,8 @@ curl -s -X POST "$API/workflows/$WF/source/check?projectId=$P" -H "Authorization
 `checked` is what actually ran, so an empty `diagnostics` means "nothing
 found **by these checks**". There is no type check yet, and `checked` never
 claims one. `ok: false` is an answer, not an error: a cycle in the graph, a
-file that will not parse, a missing secret and drifted source are all `200`.
-A non-2xx means the check could not run at all.
+file that will not parse and a missing secret are all `200`. A non-2xx means
+the check could not run at all.
 
 A `read` key is enough, which makes it cheap to call in a loop.
 
@@ -222,20 +217,17 @@ here too — with the same reason, as a `422`.
 This is how to avoid publishing a broken intermediate state: ask first, write
 once.
 
-## Generated and ejected
+## Generated files
 
-`sourceMode` on the version decides where your files live.
+The canvas owns `worker.ts`, `nodes/*` and `wrangler.*`: they are generated
+from the graph on every read and every deploy, so a write to one is refused
+and an edit would be overwritten regardless. Your own files live in the
+project, which is everything above — put the code there and import it with
+`#app/`.
 
-- **`generated`** (the default) — the canvas owns `worker.ts` and `nodes/*`,
-  and your files live in the project. This is everything above.
-- **`ejected`** — you took over the generated source (`POST /eject`). Your
-  files now live _inside_ the stored bundle, so `PUT`/`DELETE` on files
-  return `409`; edit through `PUT /source` instead. The check still works,
-  and gains a `drift` entry in `checked`: it compares the stored source
-  against the graph it was generated from.
-
-Saving from the canvas returns a `generated` version, which is an implicit
-revert to visual mode for later deploys. Re-eject to edit source again.
+The whole generated bundle is readable at any time through
+`GET /workflows/:id/source`, project files folded in, which is what the code
+workspace shows.
 
 ## A complete pass
 

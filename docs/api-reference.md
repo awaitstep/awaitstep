@@ -365,28 +365,16 @@ Delete a version. Cannot delete the active version, a deployed version, or a loc
 
 ## Source
 
-Every version has a `sourceMode`: `generated` (the default — the IR is the
-source of truth and code is generated at deploy time), `ejected` (the stored
-source bundle is user-editable; the IR is retained and drift-validated), or
-`sdk` (source authoritative, IR derived — CLI push).
-
-Saving from the canvas (`POST /versions`) always yields a `generated`-mode
-version — on an ejected workflow that acts as an implicit revert to visual
-mode for subsequent deploys (an overwritten ejected row is reset the same
-way). Re-eject to edit source again.
-
-After eject, the stored source owns everything baked into code at eject
-time — trigger code, and the `AWAITSTEP_RETENTION` constant used by
-code-initiated `WORKFLOW.create()` calls. Later changes to the workflow's
-trigger code or deployment-config retention affect REST-triggered instances
-and generated-mode versions, but do not rewrite an ejected source: edit those
-values in the source directly, or re-eject.
+The IR is the only source of truth. A version's deployable code is generated
+from it on demand — the canvas owns `worker.ts`, `nodes/**` and `wrangler.*`,
+and nothing stores a copy you could edit in their place. What you write lives
+in project files (below), which are folded into every generation, and the
+whole bundle is readable here at any time.
 
 ### `GET /workflows/:workflowId/source`
 
-Read the deployable source for a version. Ejected/sdk versions return their
-stored bundle; generated versions return a freshly generated read-only view.
-Env vars only need to be declared, not set: a workflow whose secrets are
+Generate the deployable source for a version and return it read-only;
+nothing is persisted. Env vars only need to be declared, not set: a workflow whose secrets are
 still missing can be viewed and edited, and the deploy is what refuses
 until they resolve. A read does attempt the resolution and reports what it
 could not satisfy as an `env` diagnostic — names only, never values — so
@@ -430,17 +418,12 @@ return `200`, with what was found listed in `diagnostics`:
 | `compile`  | the file does not parse; `path` names it                                     |
 | `import`   | an `#app/` specifier with no file behind it; `path` names the importing file |
 | `env`      | a variable with no value to resolve at deploy; names only, never values      |
-| `drift`    | stored source no longer matches the graph                                    |
 
 The array is empty for a healthy workflow and always present. Only a
 failure that leaves no source to return — generation itself throwing — is
 still an error response, and it carries the diagnostics collected before it.
 
-`drift` does not appear on this endpoint: an ejected version returns its
-stored bundle without analysing it. `POST /workflows/:id/source/check`
-reports drift for those versions.
-
-Returns `{ versionId, sourceMode, entry, files, manifest, diagnostics, baseGeneratedHash }`.
+Returns `{ versionId, entry, files, manifest, diagnostics }`.
 
 ### `POST /workflows/:workflowId/source/check`
 
@@ -466,7 +449,6 @@ curl -X POST "$API/workflows/$WF/source/check" -H "Authorization: Bearer $KEY"
 {
   "ok": false,
   "versionId": "v_2b…",
-  "sourceMode": "generated",
   "checked": ["ir", "provider", "env", "compile", "import"],
   "diagnostics": [
     {
@@ -480,16 +462,13 @@ curl -X POST "$API/workflows/$WF/source/check" -H "Authorization: Bearer $KEY"
 
 `checked` lists what actually ran, in order. It never contains a type
 check — there isn't one yet, and an agent should not have to guess that.
-`drift` appears only for `ejected`/`sdk` versions, so its absence in
-generated mode means "nothing could drift", not "drift was ignored".
 `diagnostics` uses the same shape and the same `source` values as
 `GET /source` (table above).
 
-**A broken workflow is an answer, not an error.** A cycle, drift, a file
-that will not parse, a missing secret: all `200` with `ok: false`. Non-2xx
-is reserved for "the check could not run" — unknown workflow or version
-(`404`), no version at all (`400`), an ejected version whose stored source
-is missing or corrupt (`422`), or candidates that were refused (below).
+**A broken workflow is an answer, not an error.** A cycle, a file that will
+not parse, a missing secret: all `200` with `ok: false`. Non-2xx is reserved
+for "the check could not run" — unknown workflow or version (`404`), no
+version at all (`400`), or candidates that were refused (below).
 
 #### Candidate files
 
@@ -512,11 +491,10 @@ valid together pass together.
 Candidates are judged by the rules the matching write path applies, so a
 check cannot bless what a save would refuse:
 
-| Version              | Candidates merge into    | Judged by                                                       |
-| -------------------- | ------------------------ | --------------------------------------------------------------- |
-| `generated`, current | the project-file set     | `validateProjectFiles` plus the per-file write rules            |
-| `ejected` / `sdk`    | the stored source bundle | the same structural rules as `PUT /source`                      |
-| any older version    | — refused with `400`     | nothing to overlay: older versions deploy their frozen snapshot |
+| Version           | Candidates merge into | Judged by                                                       |
+| ----------------- | --------------------- | --------------------------------------------------------------- |
+| the current one   | the project-file set  | `validateProjectFiles` plus the per-file write rules            |
+| any older version | — refused with `400`  | nothing to overlay: older versions deploy their frozen snapshot |
 
 A refused candidate returns `422` with the reason (and `details` when the
 rule reports more than one) — or `400` for an older version and for a locked
@@ -619,10 +597,7 @@ has none (and are dropped from the stored IR once those files exist, so a
 stale copy can never come back through a version), and a revert replaces
 the table with the reverted version's snapshot. `GET /source` marks each
 project-owned file with its `hash`, the ETag a conditional write needs. Generated-mode deploys of the current version
-use the live set, older versions deploy exactly what they snapshotted, and
-ejected versions carry the files they were ejected with inside their stored
-bundle — while the current version is ejected, `PUT`/`DELETE` on files
-return `409` (edit through `PUT /source` or revert to visual mode first).
+use the live set, and older versions deploy exactly what they snapshotted.
 
 **Limits.** 100 files, 512 KB per file, 2 MB in total — but every API
 request body is capped at **1 MB** (see [Rate Limits](#rate-limits)), and a
@@ -644,7 +619,7 @@ know whether anything changed before reading or writing.
 
 **Scope:** `read`
 
-Returns `{ importPrefix: "#app/", generated: ["worker.*", "nodes/**", "wrangler.*"], rootConfigFiles, extensions, limits: { maxFiles, maxFileBytes, maxTotalBytes }, sourceMode, files: [{ path, hash, size, updatedAt }] }`.
+Returns `{ importPrefix: "#app/", generated: ["worker.*", "nodes/**", "wrangler.*"], rootConfigFiles, extensions, limits: { maxFiles, maxFileBytes, maxTotalBytes }, files: [{ path, hash, size, updatedAt }] }`.
 
 ### `GET /workflows/:workflowId/files/:path`
 
@@ -676,8 +651,7 @@ stored.
 
 Returns `201` (created) or `200` (replaced) with `{ path, hash, size, updatedAt }`
 and the new `ETag`; `422` (with `details` for a manifest) for invalid paths,
-compile collisions, invalid `package.json` or exceeded limits; `409` while the
-current version is ejected.
+compile collisions, invalid `package.json` or exceeded limits.
 
 ### `GET /workflows/:workflowId/project/convert-handlers`
 
@@ -709,9 +683,8 @@ change between the writes, the modules are withdrawn again and the
 response is `409` — the project never holds both models. Returns
 `{ source, files, declarations, deploymentConfigUpdated }`;
 `deploymentConfigUpdated` is false when no deployment config is stored yet,
-in which case declare the facts before deploying. `409` while the current
-version is ejected, when the hash does not match, or when the project
-already uses handler modules; `422` when the annotations do not parse or
+in which case declare the facts before deploying. `409` when the hash does
+not match, or when the project already uses handler modules; `422` when the annotations do not parse or
 the resulting set breaks a project rule.
 
 **Scope:** `write`
@@ -719,7 +692,7 @@ the resulting set breaks a project rule.
 ### `DELETE /workflows/:workflowId/files/:path`
 
 Optional `If-Match` as above. Returns `204`; `404` when the file does not
-exist; `409` when the precondition fails or the current version is ejected.
+exist; `409` when the precondition fails.
 Deleting `handlers.ts` or `package.json` also clears the legacy setting it
 stood in for (`triggerCode` / `dependencies`), so the file does not
 reappear as a seed and the next deploy uses the default handlers / no
