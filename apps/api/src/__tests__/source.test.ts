@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createTestApp, resetStore, TEST_USER_ID, TEST_PROJECT_ID, mockDb } from './helpers.js'
 
 const validIR = {
@@ -58,6 +58,38 @@ describe('source routes', () => {
       const body = (await res.json()) as { entry: string; files: { path: string }[] }
       expect(body.entry).toBe('worker.ts')
       expect(body.files.some((f) => f.path === 'worker.ts')).toBe(true)
+    })
+
+    it('reads the version row once, beside the file rows', async () => {
+      // The route used to fetch the row to decide whether the version owned
+      // its source, then hand the id to the prepare, which fetched it again —
+      // two serialized round trips for one row.
+      const versions = vi.spyOn(mockDb, 'getWorkflowVersionById')
+      const files = vi.spyOn(mockDb, 'listWorkflowFiles')
+      const res = await app.request(url('/api/workflows/wf-1/source'))
+      expect(res.status).toBe(200)
+      expect(versions).toHaveBeenCalledTimes(1)
+      expect(files).toHaveBeenCalledTimes(1)
+      vi.restoreAllMocks()
+    })
+
+    it('still answers 404 for a version belonging to another workflow', async () => {
+      // The 404 moved into the prepare with the row read; it has to arrive
+      // with the same status it did from the route's own check.
+      await mockDb.createWorkflow({
+        id: 'wf-2',
+        projectId: TEST_PROJECT_ID,
+        createdBy: TEST_USER_ID,
+        name: 'Other',
+      })
+      const other = await mockDb.createVersion({
+        id: 'v-other',
+        workflowId: 'wf-2',
+        ir: JSON.stringify(validIR),
+      })
+      const res = await app.request(url(`/api/workflows/wf-1/source?versionId=${other.id}`))
+      expect(res.status).toBe(404)
+      expect((await res.json()) as { error: string }).toMatchObject({ error: 'Version not found' })
     })
 
     it('compiles a project handlers.ts into the generated entry', async () => {

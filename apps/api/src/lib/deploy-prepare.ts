@@ -55,12 +55,11 @@ export async function prepareDeploy(
     return { error: 'Connection not found', status: 404 }
   }
 
-  // Version lock check
-  if (input.versionId) {
-    const version = await db.getWorkflowVersionById(input.versionId)
-    if (version?.locked === 1) {
-      return { error: 'Version is locked', status: 400 }
-    }
+  // Version lock check. The row is handed to the prepare below rather than
+  // read twice — the lock and the IR are two questions about one row.
+  const version = input.versionId ? await db.getWorkflowVersionById(input.versionId) : undefined
+  if (version?.locked === 1) {
+    return { error: 'Version is locked', status: 400 }
   }
 
   // Initial adapter for config schema validation (no installed-node templates yet)
@@ -90,6 +89,9 @@ export async function prepareDeploy(
     projectId,
     nodeRegistry: input.nodeRegistry,
     versionId: input.versionId,
+    // Null only when the id names no row, which the prepare answers with its
+    // own 404; passing it through would claim the row was never asked for.
+    ...(version && { version }),
   })
 
   if (isPrepareError(prepared)) return prepared

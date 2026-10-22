@@ -26,18 +26,17 @@ source.get('/:workflowId/source', async (c) => {
   const versionId = c.req.query('versionId') ?? workflow.currentVersionId
   if (!versionId) return c.json({ error: 'No version to read' }, 400)
 
-  const version = await db.getWorkflowVersionById(versionId)
-  if (!version || version.workflowId !== workflow.id) {
-    return c.json({ error: 'Version not found' }, 404)
-  }
-
+  // The id goes in rather than the row: the prepare reads the version row and
+  // the project files in one round trip, and it owns the same 404 for a
+  // version that is missing or belongs to another workflow. Reading it here
+  // first only serialized the two queries.
   const prepared = await prepareWorkflow({
     db,
     workflow,
     organizationId: c.get('organizationId'),
     projectId: c.get('projectId'),
     nodeRegistry: c.get('nodeRegistry'),
-    version,
+    versionId,
     mode: 'read',
   })
   if (isPrepareError(prepared)) {
