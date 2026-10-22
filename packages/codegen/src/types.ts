@@ -50,16 +50,7 @@ export interface GeneratedBundle {
   manifest?: StepManifest
 }
 
-export const SOURCE_MODES = ['generated', 'ejected', 'sdk'] as const
-
-/**
- * Who owns a version's deployable source: the canvas (`generated`, produced
- * on demand from the IR), the user after eject (`ejected`, the stored bundle
- * is the truth), or the SDK push flow (`sdk`).
- */
-export type SourceMode = (typeof SOURCE_MODES)[number]
-
-export const DIAGNOSTIC_SOURCES = ['ir', 'provider', 'compile', 'import', 'env', 'drift'] as const
+export const DIAGNOSTIC_SOURCES = ['ir', 'provider', 'compile', 'import', 'env'] as const
 
 /**
  * Where a diagnostic came from, so a client can route it to the right place.
@@ -74,7 +65,6 @@ export const DIAGNOSTIC_SOURCES = ['ir', 'provider', 'compile', 'import', 'env',
  * - `compile` — a file that does not parse
  * - `import` — an `#app/` specifier with no file behind it
  * - `env` — a variable with no value to resolve at deploy
- * - `drift` — stored source no longer consistent with the graph
  */
 export type DiagnosticSource = (typeof DIAGNOSTIC_SOURCES)[number]
 

@@ -62,7 +62,7 @@ Every change on the canvas instantly reflects in the code preview. Toggle betwee
 
 - Real-time TypeScript generation
 - IR, TypeScript, and package output views
-- No lock-in — eject and own the code anytime
+- No lock-in — the generated code is yours, readable in full and deployed to your own Cloudflare account
 
 </td>
 </tr>

@@ -89,14 +89,4 @@ describe('a mistake in code the user wrote', () => {
     expect(res.status).toBe(422)
     expect((await res.json()).error).toContain('@fetch')
   })
-
-  it('refuses an eject with a 4xx', async () => {
-    await seed()
-    const res = await app.request(url('/api/workflows/wf-1/eject'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    })
-    expect(res.status).toBe(422)
-  })
 })

@@ -3,7 +3,6 @@ import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { bundleEntry } from '@awaitstep/codegen'
 import { groupChain, isCoalescible } from '../../codegen/coalesce.js'
 import { generateWorkflowBundle } from '../../codegen/generate.js'
-import { validateSource } from '../../codegen/validate-source.js'
 
 function node(
   id: string,
@@ -148,21 +147,5 @@ describe('coalesced bundle emission', () => {
     expect(steps[0]!.coalescedInto).toBeUndefined()
     expect(steps[3]).toMatchObject({ stepName: 'd', kind: 'do' })
     expect(steps[3]!.coalescedInto).toBeUndefined()
-  })
-
-  it('ejects with one marker region per member and validates clean', () => {
-    const bundle = generateWorkflowBundle(ir, { eject: true })
-    const entry = bundleEntry(bundle).source
-    for (const id of ['a', 'b', 'c']) {
-      expect(entry).toContain(`// @awaitstep:node ${id}`)
-    }
-    expect(validateSource(ir, bundle, bundle.manifest!)).toEqual([])
-  })
-
-  it('drift validation still catches a deleted member module after eject', () => {
-    const bundle = generateWorkflowBundle(ir, { eject: true })
-    bundle.files = bundle.files.filter((f) => f.path !== 'nodes/Node_b.ts')
-    const errors = validateSource(ir, bundle, bundle.manifest!)
-    expect(errors.some((e) => e.nodeId === 'b')).toBe(true)
   })
 })

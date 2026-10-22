@@ -28,7 +28,7 @@ function url(path: string) {
   return `${path}${path.includes('?') ? '&' : '?'}projectId=${TEST_PROJECT_ID}`
 }
 
-describe('source and eject with unresolved env vars', () => {
+describe('source with unresolved env vars', () => {
   let app: ReturnType<typeof createTestApp>
 
   beforeEach(async () => {
@@ -66,15 +66,6 @@ describe('source and eject with unresolved env vars', () => {
     expect(body.files.map((f) => f.path)).toContain(body.entry)
   })
 
-  it('POST /eject materializes the source without env values', async () => {
-    const res = await app.request(url('/api/workflows/wf-1/eject'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    })
-    expect(res.status).toBe(201)
-  })
-
   it('preparing for a deploy still refuses until every env var resolves', async () => {
     const workflow = await mockDb.getWorkflowById('wf-1')
     const base = {
@@ -88,10 +79,10 @@ describe('source and eject with unresolved env vars', () => {
     expect(isPrepareError(forDeploy) && forDeploy.error).toMatch(
       /Missing or unresolved environment variables: ALICLOUD_ACCESS_KEY_ID/,
     )
-    for (const mode of ['build', 'read'] as const) {
-      const prepared = await prepareWorkflow({ ...base, mode })
-      expect(isPrepareError(prepared), mode).toBe(false)
-    }
+    // A read of the same workflow still succeeds: the names come from the
+    // IR, and only a deploy needs the values.
+    const forRead = await prepareWorkflow({ ...base, mode: 'read' })
+    expect(isPrepareError(forRead)).toBe(false)
   })
 
   it('reports the unresolved variable as a diagnostic instead of dropping it', async () => {

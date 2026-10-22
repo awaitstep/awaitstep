@@ -1,7 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { MAX_PROJECT_FILES, MAX_PROJECT_FILE_BYTES } from '@awaitstep/ir'
-import { prepareWorkflow } from '../lib/workflow-prepare.js'
-import { overlayBundleFiles } from '../lib/source-check.js'
 import {
   createTestApp,
   resetStore,
@@ -11,7 +9,6 @@ import {
   TEST_PROJECT_ID,
   mockDb,
 } from './helpers.js'
-import { ejectVersion, removeFile, rewriteStoredSource } from './fixtures/ejected-version.js'
 
 const validIR = {
   metadata: {
@@ -38,7 +35,6 @@ const validIR = {
 interface CheckBody {
   ok: boolean
   versionId: string
-  sourceMode: string
   checked: string[]
   diagnostics: { source: string; message: string; path?: string; nodeId?: string }[]
 }
@@ -130,7 +126,6 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
       expect(status).toBe(200)
       expect(body.ok).toBe(true)
       expect(body.diagnostics).toEqual([])
-      expect(body.sourceMode).toBe('generated')
     })
 
     it('answers without a body, a Content-Type, or anything else to get right', async () => {
@@ -146,8 +141,9 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
       const { body } = await check()
       expect(body.checked).toEqual(['ir', 'provider', 'env', 'compile', 'import'])
       expect(body.checked).not.toContain('type')
-      // Nothing drifts in generated mode — so it says so rather than
-      // leaving an agent to assume drift was considered.
+      // The canvas owns the generated code, so nothing can drift from it —
+      // and `checked` says so rather than leaving an agent to assume drift
+      // was considered.
       expect(body.checked).not.toContain('drift')
     })
 
@@ -176,13 +172,7 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
     it('returns a verdict, never the source', async () => {
       await saveVersion()
       const { body } = await check()
-      expect(Object.keys(body).sort()).toEqual([
-        'checked',
-        'diagnostics',
-        'ok',
-        'sourceMode',
-        'versionId',
-      ])
+      expect(Object.keys(body).sort()).toEqual(['checked', 'diagnostics', 'ok', 'versionId'])
     })
 
     it('reports a node the provider cannot deploy, by id, still 200', async () => {
@@ -307,68 +297,17 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
       expect(status).toBe(404)
     })
 
-    it('checks a function, which cannot be ejected', async () => {
+    it('checks a function, not only a workflow', async () => {
       setWorkflowKind('wf-1', 'script')
       await saveVersion({ ...validIR, kind: 'script', trigger: { type: 'http' } })
       const { status, body } = await check()
       expect(status).toBe(200)
-      expect(body.sourceMode).toBe('generated')
+      expect(body.ok).toBe(true)
     })
 
     it('refuses when there is nothing to check', async () => {
       const { status } = await check()
       expect(status).toBe(400)
-    })
-
-    it('refuses when an ejected version has no stored source, or an unreadable one', async () => {
-      await saveVersion()
-      const { versionId } = await ejectVersion(request)
-
-      await mockDb.updateVersion(versionId, { source: null })
-      expect((await check()).status).toBe(422)
-
-      await mockDb.updateVersion(versionId, { source: 'not json' })
-      expect((await check()).status).toBe(422)
-    })
-  })
-
-  describe('an ejected version', () => {
-    beforeEach(async () => {
-      await saveVersion()
-    })
-
-    it('reports drift as a diagnostic, while a deploy still refuses it', async () => {
-      const { versionId } = await ejectVersion(request)
-      // The module the step was generated into, gone: the stored source and
-      // the graph now disagree about what would ship.
-      await rewriteStoredSource(versionId, removeFile('nodes/Hello.ts'))
-
-      const { status, body } = await check()
-      expect(status).toBe(200)
-      expect(body.ok).toBe(false)
-      expect(body.checked).toContain('drift')
-      const drift = body.diagnostics.find((d) => d.source === 'drift')
-      // Located like every other diagnostic: the file to open and the node
-      // to mark, not the `source.`-prefixed path validateSource reports.
-      expect(drift).toMatchObject({ path: 'nodes/Hello.ts', nodeId: 'step-1' })
-
-      // The same workflow, through the gate a deploy goes through.
-      const workflow = (await mockDb.getWorkflowById('wf-1'))!
-      const prepared = await prepareWorkflow({
-        db: mockDb,
-        workflow,
-        organizationId: TEST_ORG_ID,
-        projectId: TEST_PROJECT_ID,
-        mode: 'deploy',
-      })
-      expect(prepared).toMatchObject({ error: 'Source drift validation failed', status: 422 })
-    })
-
-    it('reports no drift when the stored source still matches', async () => {
-      await ejectVersion(request)
-      const { body } = await check()
-      expect(body.checked).toContain('drift')
-      expect(body.diagnostics.filter((d) => d.source === 'drift')).toEqual([])
     })
   })
 
@@ -459,56 +398,6 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
       )
     })
 
-    it('merges into the stored bundle on an ejected version', async () => {
-      await ejectVersion(request)
-
-      // A module the bundle does not contain: judged inside the bundle, so
-      // its compile error is found.
-      const added = await check('', [{ path: 'lib/extra.ts', source: 'export const a = (' }])
-      expect(added.status).toBe(200)
-      expect(added.body.sourceMode).toBe('ejected')
-      expect(added.body.diagnostics).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ source: 'compile', path: 'lib/extra.ts' }),
-        ]),
-      )
-    })
-
-    it('refuses a handlers.ts an ejected bundle could never run', async () => {
-      // Its role is annotation input the entry already compiles in, so
-      // nothing bundles or deploys it. Accepting it would make the check
-      // pass code that is never looked at, and PUT /source refuses the
-      // role outright.
-      await ejectVersion(request)
-      const res = await request('/api/workflows/wf-1/source/check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          files: [{ path: 'handlers.ts', source: '@fetch function h() { oops( }' }],
-        }),
-      })
-      expect(res.status).toBe(422)
-      expect((await res.json()).error).toContain('role "handlers"')
-    })
-
-    it('measures the bundle as a request body, not as raw sources', async () => {
-      // PUT /source sends JSON, where every newline becomes two characters.
-      // Two files of 400 KB of newlines are 800 KB raw — under the request
-      // limit, so the old sum passed them — and about 1.6 MB once encoded,
-      // which is the size the push would actually have to carry.
-      await putFile('lib/a.ts', '\n'.repeat(400_000))
-      await putFile('lib/b.ts', '\n'.repeat(400_000))
-      await ejectVersion(request)
-
-      const res = await request('/api/workflows/wf-1/source/check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ files: [{ path: 'lib/tiny.ts', source: 'export const a = 1' }] }),
-      })
-      expect(res.status).toBe(422)
-      expect((await res.json()).error).toMatch(/as a request body/)
-    })
-
     it('refuses an edit that pushes an already-over-limit project further over', async () => {
       // Written straight to the table, past the count cap. The cap problem
       // is pre-existing, but adding to it is not something a save accepts.
@@ -531,43 +420,8 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
       expect(replacing.status).toBe(200)
     })
 
-    it('refuses candidates for a bundle too large to push back', async () => {
-      // The storage caps allow 2 MB; no single request may exceed 1 MB. A
-      // project built up over several writes can be ejected into a bundle
-      // `PUT /source` could never carry, and the check used to call that
-      // healthy — the caller found out from a 413.
-      await putFile('lib/big1.ts', `// ${'a'.repeat(MAX_PROJECT_FILE_BYTES - 10)}`)
-      await putFile('lib/big2.ts', `// ${'b'.repeat(MAX_PROJECT_FILE_BYTES - 10)}`)
-      await putFile('lib/big3.ts', `// ${'c'.repeat(100_000)}`)
-      await ejectVersion(request)
-
-      const res = await request('/api/workflows/wf-1/source/check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ files: [{ path: 'lib/tiny.ts', source: 'export const a = 1' }] }),
-      })
-      expect(res.status).toBe(422)
-      expect((await res.json()).error).toMatch(/cannot be pushed/)
-    })
-
-    it('applies the stored-source caps an ejected write applies', async () => {
-      const { bundle } = await ejectVersion(request)
-      const room = MAX_PROJECT_FILES - bundle.files.length
-      const tooMany = Array.from({ length: room + 1 }, (_, i) => ({
-        path: `lib/f${i}.ts`,
-        source: 'export const a = 1',
-      }))
-      const res = await request('/api/workflows/wf-1/source/check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ files: tooMany }),
-      })
-      expect(res.status).toBe(422)
-      expect((await res.json()).error).toBe(`Maximum ${MAX_PROJECT_FILES} files`)
-    })
-
-    it('lets project files be checked on a locked generated version', async () => {
-      // A lock stops `PUT /source`. It does not stop `PUT`/`DELETE /files`,
+    it('lets project files be checked on a locked version', async () => {
+      // A lock pins what is deployed. It does not stop `PUT`/`DELETE /files`,
       // which never consult it — project files belong to the workflow, not
       // to a version — so refusing here would block an edit a save takes.
       const workflow = (await mockDb.getWorkflowById('wf-1'))!
@@ -604,18 +458,6 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
       expect((await mockDb.getWorkflowById('wf-1'))!.triggerCode).toBe(
         'return new Response("legacy")',
       )
-    })
-
-    it('refuses candidates for a locked version, as a write would', async () => {
-      const { versionId } = await ejectVersion(request)
-      await mockDb.updateVersion(versionId, { locked: 1 })
-      const res = await request('/api/workflows/wf-1/source/check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ files: [{ path: 'lib/a.ts', source: 'export const a = 1' }] }),
-      })
-      expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe('Version is locked')
     })
 
     it('models a deletion retiring the setting the file stood in for', async () => {
@@ -702,17 +544,6 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
       expect(put.status).toBe(422)
     })
 
-    it('refuses a candidate that would break the bundle’s structure', async () => {
-      const { bundle } = await ejectVersion(request)
-      const res = await request('/api/workflows/wf-1/source/check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ files: [{ path: bundle.entry, source: null }] }),
-      })
-      expect(res.status).toBe(422)
-      expect((await res.json()).error).toMatch(/named as the entry/)
-    })
-
     it('refuses candidates against an older version instead of ignoring them', async () => {
       const first = await mockDb.getWorkflowById('wf-1')
       const older = first!.currentVersionId!
@@ -747,32 +578,6 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
         }),
       })
       expect(tooBig.status).toBe(422)
-    })
-
-    it('keeps a bundle file’s role when replacing it, and classifies a new one', async () => {
-      // Through the overlay directly: the role decides whether a file is
-      // uploaded as code, written as an asset, or read as config, and a
-      // candidate must not be able to choose one.
-      const bundle = {
-        entry: 'worker.ts',
-        files: [
-          { path: 'worker.ts', source: 'export default {}', role: 'entry' as const, compiled: 'x' },
-        ],
-      }
-      const merged = overlayBundleFiles(bundle, [
-        { path: 'worker.ts', source: 'export default { v: 2 }' },
-        { path: 'data/x.json', source: '{}' },
-        { path: 'lib/a.ts', source: 'export const a = 1' },
-        { path: 'package.json', source: '{"name":"w"}' },
-      ])
-      expect(merged.files.map((f) => [f.path, f.role])).toEqual([
-        ['worker.ts', 'entry'],
-        ['data/x.json', 'asset'],
-        ['lib/a.ts', 'module'],
-        ['package.json', 'meta'],
-      ])
-      // The stored compile output belonged to the old text.
-      expect(merged.files[0]!.compiled).toBeUndefined()
     })
 
     it('refuses a body that does not parse rather than reading it as no candidates', async () => {

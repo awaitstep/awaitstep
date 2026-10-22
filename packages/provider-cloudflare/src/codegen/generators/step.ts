@@ -148,7 +148,7 @@ ${destructure}${indent(body.trim(), 2)}
 export function generateStepGroup(
   nodes: WorkflowNode[],
   ctx: GenerationContext,
-  options?: { eject?: boolean; includeInReturn?: (nodeId: string) => boolean },
+  options?: { includeInReturn?: (nodeId: string) => boolean },
 ): string {
   const members = nodes.map((node) => {
     const code = String(node.data.code ?? '')
@@ -164,9 +164,6 @@ export function generateStepGroup(
       // and gives each body its own `return` scope.
       const iife = `await (async () => {\n${indent(code, 2)}\n})();`
       stmt = hasReturn ? `const ${varName} = ${iife}` : iife
-    }
-    if (options?.eject) {
-      stmt = `// @awaitstep:node ${node.id}\n${stmt}\n// @awaitstep:end`
     }
     // The callback-local const stays for intra-group references; only
     // membership in the stored return object is subject to lean analysis.

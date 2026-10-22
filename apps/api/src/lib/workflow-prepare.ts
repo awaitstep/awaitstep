@@ -3,7 +3,6 @@ import type {
   DiagnosticSource,
   GeneratedBundle,
   ProviderConfig,
-  StepManifest,
   SourceDiagnostic,
 } from '@awaitstep/codegen'
 import {
@@ -13,9 +12,9 @@ import {
   bundlePackageManifest,
 } from '@awaitstep/codegen'
 import { collectCompileErrors } from '@awaitstep/codegen/transpile'
-import type { ArtifactIR, ProjectFile, ValidationError } from '@awaitstep/ir'
+import type { ArtifactIR, ProjectFile } from '@awaitstep/ir'
 import { loadArtifact, parsePackageManifest } from '@awaitstep/ir'
-import type { DatabaseAdapter, Workflow, WorkflowSourceMode, WorkflowVersion } from '@awaitstep/db'
+import type { DatabaseAdapter, Workflow, WorkflowVersion } from '@awaitstep/db'
 import type { AppNodeRegistry } from './node-registry.js'
 import { createMergedNodeRegistry } from './node-registry.js'
 import { resolveProvider, validateNodesForProvider } from './provider-resolver.js'
@@ -29,15 +28,14 @@ export interface WorkflowContext {
   bundle: GeneratedBundle
   ir: ArtifactIR
   versionId: string
-  sourceMode: WorkflowSourceMode
   nodeRegistry: AppNodeRegistry
   envVars?: Record<string, { value: string; isSecret: boolean }>
   dependencies?: Record<string, string>
   /**
    * Everything wrong with the workflow that this prepare chose not to fail
-   * on. Always empty in the strict modes — they return an error instead —
-   * and the full picture in `'read'`, which has to open the workspace before
-   * the user can fix what is wrong with it.
+   * on. Always empty in `'deploy'`, which returns an error instead, and the
+   * full picture in `'read'`, which has to open the workspace before the user
+   * can fix what is wrong with it.
    */
   diagnostics: PrepareDiagnostic[]
   /**
@@ -60,30 +58,10 @@ export type PrepareDiagnostic = SourceDiagnostic
  * How strict a prepare is.
  * - `'deploy'` — everything must hold: env values resolve, the IR validates,
  *   the bundle compiles. Anything less cannot ship.
- * - `'build'` — as `'deploy'` without env values, which a bundle does not
- *   need to be produced or stored (eject).
  * - `'read'`  — nothing is fatal that still leaves a bundle to show; the
  *   problems come back as diagnostics.
  */
-export type PrepareMode = 'deploy' | 'build' | 'read'
-
-/**
- * A drift error, located the way every other diagnostic is.
- *
- * `validateSource` reports where it looked: `source.<file>` for a bundle
- * file, `manifest.steps.<nodeId>` for a step record, bare `source` for the
- * bundle itself. Only the first names a file a client could open, so only
- * that one becomes a `path`; the node id it already carries does the rest.
- */
-export function driftDiagnostic(error: ValidationError): PrepareDiagnostic {
-  const file = error.path.startsWith('source.') ? error.path.slice('source.'.length) : undefined
-  return {
-    source: 'drift',
-    message: error.message,
-    ...(error.nodeId && { nodeId: error.nodeId }),
-    ...(file && { path: file }),
-  }
-}
+export type PrepareMode = 'deploy' | 'read'
 
 export interface WorkflowPrepareError {
   error: string
@@ -114,31 +92,27 @@ export interface WorkflowPrepareInput {
   version?: WorkflowVersion
   provider?: string
   /**
-   * Regenerate from IR with node region markers, ignoring any stored source
-   * (used by POST /eject). Mutually exclusive with the stored-source path.
-   */
-  eject?: boolean
-  /**
    * Project files to fold instead of the stored rows — how a candidate
-   * overlay reaches a generated version without being written first. Only
-   * the current version folds the table at all (older ones use their
-   * snapshot), so this is ignored for any other version; the caller decides
-   * whether an overlay is allowed at all.
+   * overlay reaches a version without being written first. Only the current
+   * version folds the table at all (older ones use their snapshot), so this
+   * is ignored for any other version; the caller decides whether an overlay
+   * is allowed at all.
    */
   projectFiles?: readonly ProjectFile[]
   /**
-   * The stored bundle to judge instead of the one in `version.source` —
-   * the same overlay, for an ejected/sdk version, where project files live
-   * inside the bundle rather than in the table.
+   * The resolved deployment config, when the caller has one. Generation reads
+   * what it bakes into the code — for Cloudflare, the retention constant
+   * `WORKFLOW.create()` passes — so a deploy has to hand it over, or the
+   * bundle this returns is not the bundle that would ship. A read has no
+   * config to resolve and generates the provider's defaults.
    */
-  storedSource?: { bundle: GeneratedBundle; manifest: StepManifest }
+  deploymentConfig?: unknown
   /**
-   * Whether every env var the workflow references must resolve to a value
-   * (the default — a deploy or local run cannot proceed without them). A
-   * read-only view of the source (the code workspace, an eject) needs the
-   * names only, which come from the IR; missing values are not an error.
+   * How strict to be. Defaults to `'deploy'`, where every env var the
+   * workflow references must resolve to a value. A read-only view of the
+   * source (the code workspace) needs the names only, which come from the
+   * IR; missing values are not an error there.
    */
-  // How strict to be. Defaults to 'deploy'.
   mode?: PrepareMode
 }
 
@@ -197,19 +171,10 @@ export async function prepareWorkflow(
   }
   // Fold the legacy workflow columns into ir.runtime — from here on the IR is
   // the single self-contained description (trigger code, deps, env, bindings).
-  // Ejected/sdk versions keep their own trigger code: their stored bundle's
-  // handlers were compiled from it, and wrangler queue/cron config must match
-  // the handlers that will actually deploy.
-  const sourceMode = (version.sourceMode ?? 'generated') as WorkflowSourceMode
-  ir = foldWorkflowRuntime(ir, workflow, {
-    preserveTriggerCode: sourceMode !== 'generated',
-  })
-  // Ejected/sdk bundles already carry the project files they were ejected
-  // with; only generated versions read the live table (current version) or
-  // their saved snapshot (older versions).
-  if (sourceMode === 'generated') {
-    ir = foldProjectHandlers(foldProjectFiles(ir, projectFiles, { useSnapshot: !isCurrentVersion }))
-  }
+  ir = foldWorkflowRuntime(ir, workflow)
+  // The current version reads the live project-file table; older versions
+  // fold the snapshot they were saved with.
+  ir = foldProjectHandlers(foldProjectFiles(ir, projectFiles, { useSnapshot: !isCurrentVersion }))
 
   // Merge installed nodes for custom node template resolution
   const nodeTypesInIR = new Set(ir.nodes.map((n) => n.type))
@@ -272,84 +237,68 @@ export async function prepareWorkflow(
     nodeRegistry,
   )
   if (envResult.error) {
-    if (mode === 'deploy') return { error: envResult.error, status: 400 }
+    if (!lenient) return { error: envResult.error, status: 400 }
     // A read used to drop this silently, so a check could call a workflow
     // healthy and the deploy then refuse it on a missing secret — the
     // likeliest "it passed, then it failed" surprise. The message names
     // variables, never values.
-    if (lenient) diagnostics.push({ source: 'env', message: envResult.error })
+    diagnostics.push({ source: 'env', message: envResult.error })
   }
 
-  // Source resolution: user-edited versions (ejected/sdk) deploy their
-  // stored bundle after drift validation; everything else regenerates from
-  // the IR. Config artifacts (wrangler.json, bindings) always derive from IR
-  // declarations at deploy time regardless of mode.
+  // Source resolution: the bundle is always generated from the IR. Config
+  // artifacts (wrangler.json, bindings) derive from IR declarations at
+  // deploy time regardless of mode.
+  //
+  // Everything generation reads goes in here, so this bundle is the one that
+  // ships: a deploy used to generate a second time with its deployment config
+  // attached, which meant the code the compile gate below checked was not the
+  // code that was uploaded. Credentials are not among generation's inputs —
+  // only the deploy itself needs them.
   let bundle: GeneratedBundle
-  if (!input.eject && sourceMode !== 'generated') {
-    const stored = input.storedSource ?? loadStoredSource(version)
-    if ('error' in stored) return { ...stored, checked }
-    if (adapter.validateSource) {
-      checked.push('drift')
-      const driftErrors = adapter.validateSource(ir, stored.bundle, stored.manifest)
-      if (driftErrors.length > 0) {
-        // A deploy still refuses — drift means the stored source and the graph
-        // disagree about what would ship. A read reports it instead, because
-        // the only way to ask "has this drifted?" used to be to attempt a
-        // deploy and read the 422.
-        if (!lenient) {
-          return { error: 'Source drift validation failed', status: 422, details: driftErrors }
-        }
-        for (const error of driftErrors) diagnostics.push(driftDiagnostic(error))
-      }
-    }
-    bundle = stored.bundle
-  } else {
-    const triggerCode = ir.runtime?.triggerCode
-    const generateConfig: ProviderConfig = {
-      provider: 'cloudflare',
-      credentials: {},
-      ...(envResult.envVars && { envVars: envResult.envVars }),
-      options: {
-        ...(triggerCode && { triggerCode }),
-        ...(input.eject && { eject: true }),
-      },
-    }
-    // Bundle invariants (path collisions, reserved names) are a 422 the
-    // caller can act on, not a 500 that repeats on every deploy.
-    try {
-      bundle = adapter.generate(ir, generateConfig)
-    } catch (err) {
-      // Only a failure the generator blames on its input is a fact about the
-      // workflow. Anything else is a bug in the generator, and has to look
-      // like one: reported as a 500 and logged, never as "something is wrong
-      // with your workflow" — an agent would go looking in its own files,
-      // and nobody would ever see the exception.
-      if (!(err instanceof GenerateInputError)) throw err
-      // Nothing to show without a bundle, but whatever the IR was already
-      // flagged for travels with the failure — generation usually fails
-      // *because* of it, and "graph contains a cycle" alone reads as if the
-      // code were the problem. The failure itself joins the list so a
-      // caller reporting diagnostics alone never reports an empty list for
-      // a workflow that could not be generated at all.
-      diagnostics.push({
-        source: err.source,
-        message: err.message,
-        ...(err.path && { path: err.path }),
-      })
-      return {
-        error: `Bundle validation failed: ${err.message}`,
-        status: 422,
-        diagnostics,
-        checked,
-        finding: true,
-      }
+  const triggerCode = ir.runtime?.triggerCode
+  const generateConfig: ProviderConfig = {
+    provider: input.provider ?? 'cloudflare',
+    credentials: {},
+    ...(envResult.envVars && { envVars: envResult.envVars }),
+    options: {
+      ...(triggerCode && { triggerCode }),
+      ...(input.deploymentConfig !== undefined && { deploymentConfig: input.deploymentConfig }),
+    },
+  }
+  // Bundle invariants (path collisions, reserved names) are a 422 the
+  // caller can act on, not a 500 that repeats on every deploy.
+  try {
+    bundle = adapter.generate(ir, generateConfig)
+  } catch (err) {
+    // Only a failure the generator blames on its input is a fact about the
+    // workflow. Anything else is a bug in the generator, and has to look
+    // like one: reported as a 500 and logged, never as "something is wrong
+    // with your workflow" — an agent would go looking in its own files,
+    // and nobody would ever see the exception.
+    if (!(err instanceof GenerateInputError)) throw err
+    // Nothing to show without a bundle, but whatever the IR was already
+    // flagged for travels with the failure — generation usually fails
+    // *because* of it, and "graph contains a cycle" alone reads as if the
+    // code were the problem. The failure itself joins the list so a
+    // caller reporting diagnostics alone never reports an empty list for
+    // a workflow that could not be generated at all.
+    diagnostics.push({
+      source: err.source,
+      message: err.message,
+      ...(err.path && { path: err.path }),
+    })
+    return {
+      error: `Bundle validation failed: ${err.message}`,
+      status: 422,
+      diagnostics,
+      checked,
+      finding: true,
     }
   }
 
   // Dependencies: the bundle's own package.json is the source of truth —
-  // for ejected/sdk versions that is the stored, possibly hand-edited
-  // manifest; the legacy dependencies setting (folded into the runtime
-  // block) only applies when the project has no manifest at all.
+  // the project's own manifest when it has one; the legacy dependencies
+  // setting (folded into the runtime block) only applies when it does not.
   const manifestSource = bundlePackageManifest(bundle)
   const manifest = manifestSource ? parsePackageManifest(manifestSource) : null
   const workflowDeps = manifest ? (manifest.dependencies ?? {}) : (ir.runtime?.dependencies ?? {})
@@ -406,60 +355,11 @@ export async function prepareWorkflow(
     bundle,
     ir,
     versionId,
-    sourceMode,
     nodeRegistry,
     envVars: envResult.envVars,
     dependencies,
     diagnostics,
     checked,
-  }
-}
-
-/**
- * A version's stored source, or why it cannot be read.
- *
- * Every caller that touches an ejected/sdk version needs the same two
- * steps — "is there a source at all?" then "does it parse?" — and the same
- * two refusals. One function so the wording and the status stay identical
- * wherever the question is asked.
- */
-export function loadStoredSource(
-  version: Pick<WorkflowVersion, 'source' | 'manifest'>,
-): { bundle: GeneratedBundle; manifest: StepManifest } | WorkflowPrepareError {
-  if (!version.source) {
-    return {
-      error: 'Version is in ejected/sdk mode but has no stored source — re-eject to repair',
-      status: 422,
-    }
-  }
-  return parseStoredSource(version.source, version.manifest)
-}
-
-/**
- * Parses a version row's stored source + manifest JSON — 422 on corruption
- * or on a missing manifest (a manifest-less non-generated row would make
- * drift validation pass vacuously, so it is an error, not a fallback).
- * Prefer {@link loadStoredSource}, which also handles a row with no source.
- */
-export function parseStoredSource(
-  sourceJson: string,
-  manifestJson: string | null | undefined,
-): { bundle: GeneratedBundle; manifest: StepManifest } | WorkflowPrepareError {
-  try {
-    const bundle = JSON.parse(sourceJson) as GeneratedBundle
-    if (typeof bundle.entry !== 'string' || !Array.isArray(bundle.files)) {
-      return { error: 'Stored source is not a valid bundle', status: 422 }
-    }
-    if (!manifestJson) {
-      return { error: 'Stored source has no step manifest — re-eject to repair', status: 422 }
-    }
-    const manifest = JSON.parse(manifestJson) as StepManifest
-    if (!Array.isArray(manifest.steps)) {
-      return { error: 'Stored step manifest is corrupted — re-eject to repair', status: 422 }
-    }
-    return { bundle, manifest }
-  } catch {
-    return { error: 'Stored source is corrupted', status: 422 }
   }
 }
 

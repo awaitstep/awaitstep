@@ -55,12 +55,11 @@ export async function prepareDeploy(
     return { error: 'Connection not found', status: 404 }
   }
 
-  // Version lock check
-  if (input.versionId) {
-    const version = await db.getWorkflowVersionById(input.versionId)
-    if (version?.locked === 1) {
-      return { error: 'Version is locked', status: 400 }
-    }
+  // Version lock check. The row is handed to the prepare below rather than
+  // read twice — the lock and the IR are two questions about one row.
+  const version = input.versionId ? await db.getWorkflowVersionById(input.versionId) : undefined
+  if (version?.locked === 1) {
+    return { error: 'Version is locked', status: 400 }
   }
 
   // Initial adapter for config schema validation (no installed-node templates yet)
@@ -81,8 +80,11 @@ export async function prepareDeploy(
     return resolvedConfig
   }
 
-  // Shared workflow preparation (IR, validation, env vars, codegen)
-  // This merges installed-node templates into the registry.
+  // Shared workflow preparation (IR, validation, env vars, codegen). It
+  // merges installed-node templates into the registry and generates the
+  // bundle — the deployable one: the connection's provider and the resolved
+  // deployment config are generation's remaining inputs, so they go in here
+  // rather than into a second generate pass whose output nothing had checked.
   const prepared = await prepareWorkflow({
     db,
     workflow,
@@ -90,12 +92,17 @@ export async function prepareDeploy(
     projectId,
     nodeRegistry: input.nodeRegistry,
     versionId: input.versionId,
+    // Null only when the id names no row, which the prepare answers with its
+    // own 404; passing it through would claim the row was never asked for.
+    ...(version && { version }),
+    provider: connection.provider,
+    deploymentConfig: resolvedConfig.config,
   })
 
   if (isPrepareError(prepared)) return prepared
 
-  // Rebuild adapter with merged template resolver (includes installed nodes)
-  // so codegen can resolve custom node templates like S3, Supabase, etc.
+  // The adapter the deploy itself runs through: same provider and the same
+  // merged template resolver the prepare generated with, plus the deployer.
   const adapter = resolveProvider(connection.provider, {
     templateResolver: prepared.nodeRegistry.templateResolver,
     deployer: input.deployer,
@@ -124,17 +131,9 @@ export async function prepareDeploy(
     return { error: credCheck.error ?? 'Invalid credentials', status: 403 }
   }
 
-  // Ejected/sdk versions deploy their stored, drift-validated bundle; only
-  // generated versions regenerate here with the full provider config
-  // (credentials + installed-node templates + deployment config).
-  const bundle =
-    prepared.sourceMode !== 'generated'
-      ? prepared.bundle
-      : adapter.generate(prepared.ir, providerConfig)
-
   return {
     adapter,
-    bundle,
+    bundle: prepared.bundle,
     providerConfig,
     ir: prepared.ir,
     versionId: prepared.versionId,

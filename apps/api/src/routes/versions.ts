@@ -131,18 +131,7 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
       if (irUnchanged(latest.ir, irString)) {
         return c.json(latest, 200)
       }
-      // A canvas save is an implicit revert to visual mode: without this
-      // reset, an overwritten ejected row would keep its stale source and
-      // deploy the old code while the canvas shows the new IR.
-      await db.updateVersion(latest.id, {
-        ir: irString,
-        ...(latest.sourceMode !== 'generated' && {
-          sourceMode: 'generated' as const,
-          source: null,
-          manifest: null,
-          baseGeneratedHash: null,
-        }),
-      })
+      await db.updateVersion(latest.id, { ir: irString })
       const updated = await db.getWorkflowVersionById(latest.id)
       return c.json(updated, 200)
     }
@@ -196,11 +185,9 @@ versions.post('/:workflowId/versions/:versionId/revert', async (c) => {
     return c.json({ error: 'Not found' }, 404)
   }
 
-  // Revert intentionally yields a generated-mode version (createVersion's
-  // default): the target's IR is reproduced, but any hand-edited source on
-  // an ejected target stays on that old row — re-eject to edit code again.
-  // The project-file table follows the snapshot, so the current version
-  // deploys the reverted files rather than whatever was live.
+  // Revert reproduces the target's IR as a new version. The project-file
+  // table follows the snapshot, so the current version deploys the reverted
+  // files rather than whatever was live.
   const [newVersion] = await Promise.all([
     db.createVersion({
       id: nanoid(),

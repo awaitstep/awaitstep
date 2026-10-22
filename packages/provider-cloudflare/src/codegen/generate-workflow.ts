@@ -94,13 +94,6 @@ export interface GenerateOptions {
   retention?: CloudflareRetention
   /** Generator lookup for node dispatch; defaults to the Cloudflare builtins. */
   generators?: GeneratorLookup
-  /**
-   * Wrap each top-level node's emitted entry code in
-   * `// @awaitstep:node <id>` … `// @awaitstep:end` markers so ejected
-   * sources keep a machine-checkable node↔code mapping. Module files need no
-   * markers — the manifest's filePath already scopes them to one node.
-   */
-  eject?: boolean
 }
 
 export function generateWorkflow(
@@ -219,7 +212,6 @@ function generateWorkflowInternal(
       const groupIds: ReadonlySet<string> = new Set(group.map((n) => n.id))
       bodyParts.push(
         generateStepGroup(group, ctx, {
-          eject: opts.eject === true,
           includeInReturn: (nodeId) => mustStore(nodeId, groupIds),
         }),
       )
@@ -241,16 +233,10 @@ function generateWorkflowInternal(
   }
 
   const collectedImports: string[] = []
-  const strippedParts = bodyParts.map((part, i) => {
+  const strippedParts = bodyParts.map((part) => {
     const { imports, body } = extractImports(part)
     collectedImports.push(...imports)
-    if (!opts.eject) return body
-    // Coalesced groups already carry one marker region per member inside
-    // their callback.
-    if (emittedGroups[i]!.length > 1) return body
-    // Container children inline inside their container's part, so a marker
-    // region covers the whole top-level subtree.
-    return `// @awaitstep:node ${emittedGroups[i]![0]!.id}\n${body}\n// @awaitstep:end`
+    return body
   })
 
   const bodyLines = strippedParts.join('\n\n').replace(/\benv\./g, 'this.env.')

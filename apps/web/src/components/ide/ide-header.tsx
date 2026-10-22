@@ -10,7 +10,6 @@ import {
   Search,
   Workflow,
 } from 'lucide-react'
-import type { SourceMode } from '@awaitstep/codegen'
 import { useShallow } from 'zustand/react/shallow'
 import { IDE_SHORTCUTS, formatShortcut, type IdeShortcutId } from '../../lib/ide/shortcuts'
 import { isMacPlatform } from '../../lib/platform'
@@ -20,7 +19,6 @@ import { Button } from '../ui/button'
 import { WorkflowTitle } from '../workflows/workflow-title'
 import { WorkspaceChrome } from '../workflows/workspace-chrome'
 import { cn } from '../../lib/utils'
-import { SourceModeBadge } from './source-mode-badge'
 
 interface IdeHeaderProps {
   workflowId: string
@@ -30,7 +28,6 @@ interface IdeHeaderProps {
   version?: number
   /** Set when `?version=` points at an older version than the current one. */
   historicalVersion?: number
-  sourceMode?: SourceMode
   /** Carried across so the canvas opens the same version being read here. */
   versionParam?: string
   /** Files with unsaved changes; drives the Save button and its badge. */
@@ -46,7 +43,6 @@ export function IdeHeader({
   kind,
   version,
   historicalVersion,
-  sourceMode,
   versionParam,
   dirtyCount,
   canEdit,
@@ -78,7 +74,6 @@ export function IdeHeader({
 
   const title = (
     <WorkflowTitle name={workflowName} kind={kind} version={version}>
-      {sourceMode && <SourceModeBadge mode={sourceMode} className="hidden sm:inline-block" />}
       {historicalVersion !== undefined && (
         <Link
           to="/workflows/$workflowId/code"

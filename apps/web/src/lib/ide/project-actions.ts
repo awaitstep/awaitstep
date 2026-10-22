@@ -87,7 +87,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     try {
       return await client.putProjectFile(workflowId, path, source, precondition)
     } catch (err) {
-      if (err instanceof ProjectFileConflictError && !err.sourceMode && offerOverwrite) {
+      if (err instanceof ProjectFileConflictError && offerOverwrite) {
         const { currentHash } = err
         const what = 'ifNoneMatch' in precondition ? 'was created' : 'changed'
         notify.error(`${basename(path)} ${what} on the server since you opened it`, {

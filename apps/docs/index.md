@@ -19,7 +19,7 @@ Cloudflare Workflows is a powerful primitive for durable execution, but writing 
 ## What AwaitStep is NOT
 
 - **Not no-code.** You still write expressions, secrets, and custom logic in TypeScript. AwaitStep generates the structural plumbing.
-- **Not a proprietary engine.** Your workflows compile to standard Cloudflare Workflows TypeScript. You can eject and maintain the code yourself at any time.
+- **Not a proprietary engine.** Your workflows compile to standard Cloudflare Workflows TypeScript — readable in full in the browser IDE and through the API at any time, and yours to run on your own Cloudflare account.
 - **Not the runtime.** AwaitStep does not run your workflows. Cloudflare runs them. AwaitStep is a build and deploy tool.
 
 ## How it works

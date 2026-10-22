@@ -18,10 +18,18 @@ export class VersionsAdapter {
       id: data.id,
       workflowId: data.workflowId,
       ir: data.ir,
-      sourceMode: data.sourceMode ?? 'generated',
-      source: data.source ?? null,
-      manifest: data.manifest ?? null,
-      baseGeneratedHash: data.baseGeneratedHash ?? null,
+      // The four dead source columns, written as what they now permanently
+      // mean. W0 removed the stored-source mode they belonged to and no
+      // caller can ask for anything else; they are spelled out here rather
+      // than left to the column defaults because the row this returns has to
+      // match what the insert left in the table. The Phase 2 cleanup
+      // migration drops them, and this block goes with it. `manifest` has no
+      // writer at all — a deploy pins the step manifest it shipped in its own
+      // `deployments.config_snapshot`, which is what run telemetry reads.
+      sourceMode: 'generated',
+      source: null,
+      manifest: null,
+      baseGeneratedHash: null,
       locked: 0,
       createdAt: now,
     }

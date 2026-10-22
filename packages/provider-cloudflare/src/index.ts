@@ -23,7 +23,6 @@ export type {
   HandlerWiring,
   QueueConsumerSettings,
 } from './codegen/handler-modules.js'
-export { validateSource } from './codegen/validate-source.js'
 export {
   detectBindings,
   detectBindingsFromSource,

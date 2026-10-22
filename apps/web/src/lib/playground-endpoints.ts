@@ -227,17 +227,6 @@ export const endpoints: EndpointDef[] = [
     hasBody: false,
   },
   {
-    id: 'eject-workflow',
-    group: 'Source',
-    method: 'POST',
-    path: '/api/workflows/:workflowId/eject',
-    label: 'Eject to editable source',
-    scope: 'write',
-    params: [{ name: 'workflowId', in: 'path', required: true }],
-    hasBody: true,
-    bodyExample: '{}',
-  },
-  {
     id: 'get-source',
     group: 'Source',
     method: 'GET',
@@ -266,18 +255,6 @@ export const endpoints: EndpointDef[] = [
     // deleting a file would break. Nothing is written either way.
     bodyExample:
       '{\n  "files": [{ "path": "lib/retry.ts", "source": "export const retry = 3" }]\n}',
-  },
-  {
-    id: 'put-source',
-    group: 'Source',
-    method: 'PUT',
-    path: '/api/workflows/:workflowId/source',
-    label: 'Update ejected source',
-    scope: 'write',
-    params: [{ name: 'workflowId', in: 'path', required: true }],
-    hasBody: true,
-    bodyExample:
-      '{\n  "entry": "worker.ts",\n  "files": [{ "path": "worker.ts", "source": "...", "role": "entry" }]\n}',
   },
 
   // Project files

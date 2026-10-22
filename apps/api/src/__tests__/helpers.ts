@@ -195,6 +195,9 @@ const mockDb: DatabaseAdapter = {
     )
     const assigned = data.version ?? maxExisting + 1
     const v: WorkflowVersion = {
+      // The dead source columns, as a real row comes back from the adapter —
+      // mirrored here, not configurable, because `CreateVersionData` no
+      // longer carries them. Both copies go in the Phase 2 cleanup.
       sourceMode: 'generated',
       source: null,
       manifest: null,

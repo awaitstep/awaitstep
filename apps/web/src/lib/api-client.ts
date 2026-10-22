@@ -1,7 +1,6 @@
 import type { SourceDiagnostic } from '@awaitstep/codegen'
 import type {
   GeneratedFile,
-  SourceMode,
   StepManifest,
   TestSessionResponse,
   TestSessionRuntime,
@@ -161,8 +160,8 @@ export interface WorkflowFull {
 
 /**
  * A version's deployable source as `GET /workflows/:id/source` returns it:
- * the stored bundle for ejected/sdk versions, a freshly generated read-only
- * view for generated ones (manifest and drift baseline absent for scripts).
+ * a freshly generated read-only view of what would deploy (no manifest for
+ * scripts).
  */
 /**
  * Something wrong with the workflow that did not stop the source being
@@ -194,13 +193,11 @@ export type TestSessionTriggerResponse = TestSessionResponse
 
 export interface WorkflowSource {
   versionId: string
-  sourceMode: SourceMode
   entry: string
   files: SourceFile[]
   manifest: StepManifest | null
   /** Empty when the workflow is healthy; never absent. */
   diagnostics: SourceDiagnostic[]
-  baseGeneratedHash: string | null
 }
 
 /**
@@ -269,14 +266,12 @@ export type WritePrecondition = { ifMatch: string } | { ifNoneMatch: true }
 
 /**
  * A conditional write or delete the server refused: the file changed since
- * it was read or already exists (`currentHash` is what is stored now), or
- * the current version is ejected and owns its source.
+ * it was read, or already exists (`currentHash` is what is stored now).
  */
 export class ProjectFileConflictError extends Error {
   constructor(
     message: string,
     readonly currentHash: string | null,
-    readonly sourceMode?: SourceMode,
   ) {
     super(message)
     this.name = 'ProjectFileConflictError'
@@ -296,13 +291,8 @@ async function projectFileRequest<T>(path: string, options: RequestInit): Promis
     const body = (await res.json().catch(() => ({}))) as {
       error?: string
       currentHash?: string | null
-      sourceMode?: SourceMode
     }
-    throw new ProjectFileConflictError(
-      body.error ?? 'Conflict',
-      body.currentHash ?? null,
-      body.sourceMode,
-    )
+    throw new ProjectFileConflictError(body.error ?? 'Conflict', body.currentHash ?? null)
   }
   if (!res.ok) {
     throw new ApiError(await readErrorMessage(res), res.status)

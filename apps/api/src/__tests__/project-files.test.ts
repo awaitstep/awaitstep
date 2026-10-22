@@ -64,7 +64,7 @@ describe('project file routes', () => {
     })
   })
 
-  it('describes an empty project with its conventions, mode and limits', async () => {
+  it('describes an empty project with its conventions and limits', async () => {
     const res = await app.request(url('/api/workflows/wf-1/project'))
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -72,7 +72,6 @@ describe('project file routes', () => {
       importPrefix: '#app/',
       generated: ['worker.*', 'nodes/**', 'wrangler.*'],
       rootConfigFiles: ['package.json', 'tsconfig.json', 'jsconfig.json'],
-      sourceMode: 'generated',
       files: [],
       limits: { maxFiles: 100, maxFileBytes: 512_000, maxTotalBytes: 2_000_000 },
     })
@@ -552,27 +551,6 @@ describe('project file routes', () => {
     expect(listed.files.map((f: { path: string }) => f.path)).toEqual(['config/a.ts'])
     const a = await (await app.request(url('/api/workflows/wf-1/files/config/a.ts'))).json()
     expect(a.source).toBe('first')
-  })
-
-  it('refuses file writes while the current version is ejected', async () => {
-    await putFile(app, 'config/a.ts', 'v1')
-    expect((await saveVersion(app)).status).toBe(201)
-    const ejected = await app.request(url('/api/workflows/wf-1/eject'), {
-      method: 'POST',
-      headers: json,
-      body: JSON.stringify({}),
-    })
-    expect(ejected.status).toBe(201)
-
-    const write = await putFile(app, 'config/b.ts', 'nope')
-    expect(write.status).toBe(409)
-    expect(await write.json()).toMatchObject({ sourceMode: 'ejected' })
-    const remove = await app.request(url('/api/workflows/wf-1/files/config/a.ts'), {
-      method: 'DELETE',
-    })
-    expect(remove.status).toBe(409)
-    const listed = await (await app.request(url('/api/workflows/wf-1/project'))).json()
-    expect(listed.sourceMode).toBe('ejected')
   })
 
   it('is scoped to the workflow in the caller’s project', async () => {

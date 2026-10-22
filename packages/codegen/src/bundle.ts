@@ -1,15 +1,11 @@
 import type { ProjectFile } from '@awaitstep/ir'
 import {
-  MAX_PROJECT_FILES,
-  MAX_PROJECT_FILE_BYTES,
-  MAX_PROJECT_TOTAL_BYTES,
   PACKAGE_MANIFEST_PATH,
   PROJECT_HANDLERS_PATH,
   PROJECT_ROOT_CONFIG_FILES,
   compiledPathKey,
   isProjectCodePath,
   isReservedToolchainPath,
-  projectFileBytes,
 } from '@awaitstep/ir'
 import { GenerateInputError } from './errors.js'
 import type { GeneratedArtifact, GeneratedBundle, GeneratedFile } from './types.js'
@@ -26,11 +22,9 @@ export function toBundle(artifact: GeneratedArtifact): GeneratedBundle {
 }
 
 /**
- * The bundle's entry file. Every valid bundle has exactly one — in a bundle
- * a generator produced, a missing entry is a generator bug, so this throws
- * a plain error rather than one blamed on the workflow. A bundle that
- * *arrived* from a client is checked by {@link storedBundleErrors} before
- * it gets here.
+ * The bundle's entry file. Every valid bundle has exactly one — and every
+ * bundle is one a generator produced, so a missing entry is a generator bug:
+ * this throws a plain error rather than one blamed on the workflow.
  */
 export function bundleEntry(bundle: GeneratedBundle): GeneratedFile {
   const entry = bundle.files.find((f) => f.path === bundle.entry)
@@ -83,79 +77,6 @@ function projectFileRole(path: string): GeneratedFile['role'] {
  */
 export function bundleDeployFiles(bundle: GeneratedBundle): GeneratedFile[] {
   return bundle.files.filter((f) => f.role === 'entry' || f.role === 'module' || f.role === 'asset')
-}
-
-/**
- * The roles a **stored** source bundle may contain.
- *
- * `handlers` is absent on purpose: it is annotation input that codegen has
- * already compiled into the entry, so nothing compiles or deploys a file
- * holding it. An ejected version edits its handlers in the entry instead.
- * {@link bundleEjectFiles} is defined by this list, so what eject strips and
- * what a write accepts cannot drift apart.
- */
-export const STORED_BUNDLE_ROLES = ['entry', 'module', 'config', 'meta', 'asset'] as const
-
-export type StoredBundleRole = (typeof STORED_BUNDLE_ROLES)[number]
-
-const STORABLE_ROLES = new Set<string>(STORED_BUNDLE_ROLES)
-
-/**
- * What an ejected version stores as its editable source: everything a stored
- * bundle may hold, which excludes the handlers input, whose handlers the
- * entry already compiles in — in ejected mode the entry itself is where they
- * are edited.
- */
-export function bundleEjectFiles(bundle: GeneratedBundle): GeneratedFile[] {
-  return bundle.files.filter((f) => STORABLE_ROLES.has(f.role))
-}
-
-/**
- * Why a bundle may not be stored as a version's editable source, or empty.
- *
- * The one authority for that question, so `PUT /source` and anything that
- * *checks* a candidate bundle cannot disagree about what is storable — they
- * did, and the check silently accepted a `handlers.ts` nothing would ever
- * compile. Structural invariants come from {@link validateBundle}; the caps
- * are the project-file caps, because a stored bundle is where project files
- * live once a version is ejected.
- */
-export function storedBundleErrors(bundle: GeneratedBundle): string[] {
-  const errors: string[] = []
-  // Checked here rather than left to `validateBundle`: a bundle that
-  // arrived from a client naming an entry it did not send is that client's
-  // mistake, while the same state in a generated bundle is a bug, and the
-  // two must not share one error.
-  if (!bundle.files.some((file) => file.path === bundle.entry)) {
-    return [`"${bundle.entry}" is named as the entry but is not one of the files`]
-  }
-  try {
-    validateBundle(bundle)
-  } catch (err) {
-    errors.push(err instanceof Error ? err.message : 'Invalid bundle structure')
-    // Everything below assumes a structurally sound bundle.
-    return errors
-  }
-  if (bundle.files.length > MAX_PROJECT_FILES) {
-    errors.push(`Maximum ${MAX_PROJECT_FILES} files`)
-  }
-  let total = 0
-  for (const file of bundle.files) {
-    if (!STORABLE_ROLES.has(file.role)) {
-      errors.push(
-        `"${file.path}" has role "${file.role}", which a stored source cannot hold — editable roles are ${STORED_BUNDLE_ROLES.join(', ')}`,
-      )
-    }
-    const bytes = projectFileBytes(file.source)
-    total += bytes
-    if (bytes > MAX_PROJECT_FILE_BYTES) {
-      errors.push(`"${file.path}" exceeds ${MAX_PROJECT_FILE_BYTES} bytes`)
-    }
-  }
-  if (total > MAX_PROJECT_TOTAL_BYTES) {
-    errors.push(`Source exceeds ${MAX_PROJECT_TOTAL_BYTES} bytes in total`)
-  }
-  return errors
 }
 
 /** The project's own package.json source, when the bundle carries one. */
