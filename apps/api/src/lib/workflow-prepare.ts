@@ -100,6 +100,14 @@ export interface WorkflowPrepareInput {
    */
   projectFiles?: readonly ProjectFile[]
   /**
+   * The resolved deployment config, when the caller has one. Generation reads
+   * what it bakes into the code — for Cloudflare, the retention constant
+   * `WORKFLOW.create()` passes — so a deploy has to hand it over, or the
+   * bundle this returns is not the bundle that would ship. A read has no
+   * config to resolve and generates the provider's defaults.
+   */
+  deploymentConfig?: unknown
+  /**
    * How strict to be. Defaults to `'deploy'`, where every env var the
    * workflow references must resolve to a value. A read-only view of the
    * source (the code workspace) needs the names only, which come from the
@@ -240,14 +248,21 @@ export async function prepareWorkflow(
   // Source resolution: the bundle is always generated from the IR. Config
   // artifacts (wrangler.json, bindings) derive from IR declarations at
   // deploy time regardless of mode.
+  //
+  // Everything generation reads goes in here, so this bundle is the one that
+  // ships: a deploy used to generate a second time with its deployment config
+  // attached, which meant the code the compile gate below checked was not the
+  // code that was uploaded. Credentials are not among generation's inputs —
+  // only the deploy itself needs them.
   let bundle: GeneratedBundle
   const triggerCode = ir.runtime?.triggerCode
   const generateConfig: ProviderConfig = {
-    provider: 'cloudflare',
+    provider: input.provider ?? 'cloudflare',
     credentials: {},
     ...(envResult.envVars && { envVars: envResult.envVars }),
     options: {
       ...(triggerCode && { triggerCode }),
+      ...(input.deploymentConfig !== undefined && { deploymentConfig: input.deploymentConfig }),
     },
   }
   // Bundle invariants (path collisions, reserved names) are a 422 the

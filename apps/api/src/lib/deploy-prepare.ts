@@ -80,8 +80,11 @@ export async function prepareDeploy(
     return resolvedConfig
   }
 
-  // Shared workflow preparation (IR, validation, env vars, codegen)
-  // This merges installed-node templates into the registry.
+  // Shared workflow preparation (IR, validation, env vars, codegen). It
+  // merges installed-node templates into the registry and generates the
+  // bundle — the deployable one: the connection's provider and the resolved
+  // deployment config are generation's remaining inputs, so they go in here
+  // rather than into a second generate pass whose output nothing had checked.
   const prepared = await prepareWorkflow({
     db,
     workflow,
@@ -92,12 +95,14 @@ export async function prepareDeploy(
     // Null only when the id names no row, which the prepare answers with its
     // own 404; passing it through would claim the row was never asked for.
     ...(version && { version }),
+    provider: connection.provider,
+    deploymentConfig: resolvedConfig.config,
   })
 
   if (isPrepareError(prepared)) return prepared
 
-  // Rebuild adapter with merged template resolver (includes installed nodes)
-  // so codegen can resolve custom node templates like S3, Supabase, etc.
+  // The adapter the deploy itself runs through: same provider and the same
+  // merged template resolver the prepare generated with, plus the deployer.
   const adapter = resolveProvider(connection.provider, {
     templateResolver: prepared.nodeRegistry.templateResolver,
     deployer: input.deployer,
@@ -126,14 +131,9 @@ export async function prepareDeploy(
     return { error: credCheck.error ?? 'Invalid credentials', status: 403 }
   }
 
-  // Regenerated here with the full provider config (credentials +
-  // installed-node templates + deployment config), which the prepare's own
-  // generate pass does not have.
-  const bundle = adapter.generate(prepared.ir, providerConfig)
-
   return {
     adapter,
-    bundle,
+    bundle: prepared.bundle,
     providerConfig,
     ir: prepared.ir,
     versionId: prepared.versionId,
