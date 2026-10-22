@@ -2,11 +2,10 @@ const SAFE_LABEL = /^[A-Za-z0-9_-]+$/
 
 /**
  * Deterministic durable-step label for a node: the node id itself. Node ids
- * are stable across renames, so run telemetry, eject drift checking, and SDK
- * step identity all join on one scheme — a canvas rename never orphans step
- * history or invalidates `restart from` targets. Human-readable names are a
- * display concern: consumers map the label back to the node via the step
- * manifest.
+ * are stable across renames, so run telemetry and SDK step identity join on
+ * one scheme — a canvas rename never orphans step history or invalidates
+ * `restart from` targets. Human-readable names are a display concern:
+ * consumers map the label back to the node via the step manifest.
  */
 export function stepLabel(node: { id: string }): string {
   return SAFE_LABEL.test(node.id) ? node.id : sanitizeStepLabel(node.id)

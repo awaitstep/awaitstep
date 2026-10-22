@@ -16,9 +16,7 @@ import {
 import type { HandlerConversionResult } from '@awaitstep/codegen'
 import { compileBundle } from './compile-bundle.js'
 import { generateScript, generateWorkflowBundle } from './codegen/generate.js'
-import { validateSource } from './codegen/validate-source.js'
 import { bundleEntry, projectBundleFiles, toBundle, validateBundle } from '@awaitstep/codegen'
-import type { StepManifest } from '@awaitstep/codegen'
 import type {
   WorkflowProvider,
   LocalDevProvider,
@@ -162,14 +160,6 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     return errors.length > 0 ? { ok: false, errors } : { ok: true, value: undefined }
   }
 
-  validateSource(
-    ir: ArtifactIR,
-    bundle: GeneratedBundle,
-    manifest: StepManifest,
-  ): ValidationError[] {
-    return validateSource(ir, bundle, manifest)
-  }
-
   async verifyCredentials(config: ProviderConfig): Promise<CredentialsCheckResult> {
     const { accountId, apiToken } = extractCredentials(config)
     const api = new CloudflareAPI({ accountId, apiToken })
@@ -229,7 +219,6 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
       envVarNames,
       triggerCode,
       retention,
-      eject: config?.options?.['eject'] === true,
     })
   }
 

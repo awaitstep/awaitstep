@@ -1,5 +1,4 @@
 import type { ArtifactIR, ProjectFile, ValidationError, Result } from '@awaitstep/ir'
-import type { StepManifest } from './manifest.js'
 import type {
   GeneratedBundle,
   DeployResult,
@@ -53,18 +52,6 @@ export interface WorkflowProvider {
    * should dispatch on `ir.kind`.
    */
   generate(ir: ArtifactIR, config?: ProviderConfig): GeneratedBundle
-
-  /**
-   * Drift validation for user-edited sources (ejected/sdk modes): checks the
-   * bundle is still consistent with the IR and its step manifest — node
-   * regions present, step names intact. Consistency, not equality — edits
-   * inside regions are the point. Absent = provider has no eject support.
-   */
-  validateSource?(
-    ir: ArtifactIR,
-    bundle: GeneratedBundle,
-    manifest: StepManifest,
-  ): ValidationError[]
 
   /**
    * Splits an annotated entry-handler source (the legacy trigger-code model)

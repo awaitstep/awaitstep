@@ -64,12 +64,8 @@ export {
   validateBundle,
   projectBundleFiles,
   bundleDeployFiles,
-  bundleEjectFiles,
   bundlePackageManifest,
-  storedBundleErrors,
-  STORED_BUNDLE_ROLES,
 } from './bundle.js'
-export type { StoredBundleRole } from './bundle.js'
 export { GenerateInputError } from './errors.js'
 export { escName } from './var-names.js'
 export { computeVarNames, createGenerationContext, inlineGenerationContext } from './context.js'
@@ -77,7 +73,7 @@ export type { GenerationContext, GenerationContextOptions } from './context.js'
 export { GeneratorRegistry } from './node-generator.js'
 export type { NodeGenerator, NodeGeneratorArgs, GeneratorLookup } from './node-generator.js'
 export { indent } from './format.js'
-export { contentHash, bundleHash, resolveStepNode, stepLabelBase } from './manifest.js'
+export { contentHash, resolveStepNode, stepLabelBase } from './manifest.js'
 export type { StepManifest, StepManifestEntry, StepKind } from './manifest.js'
 export { stepLabel, sanitizeStepLabel, derivedStepLabel } from './naming.js'
 export { outputFieldToType, outputSchemaToType, propertyKey, escapeJsdoc } from './output-types.js'
