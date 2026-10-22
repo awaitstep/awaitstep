@@ -1,6 +1,27 @@
--- W0 removed eject: the IR is the only source of truth, so no row may claim
--- a stored bundle the code will never read. Data only — the source_mode,
--- source and base_generated_hash columns stay until the Phase 2 cleanup
--- migration drops them, and nothing is deployed, so these rows exist only
--- in development databases.
+-- W0 removed the stored-source mode: the IR is the only source of truth, so
+-- no row may claim a stored bundle the code will never read. Data only — the
+-- source_mode, source and base_generated_hash columns stay until the Phase 2
+-- cleanup migration drops them, and nothing is deployed, so these rows exist
+-- only in development databases.
+--
+-- The IR is cleaned FIRST, while source_mode still identifies which rows need
+-- it. These rows were written by the old eject route, which stored the folded
+-- IR without the project-owned strip every `POST /versions` applies, so they
+-- still carry `runtime.triggerCode` and `runtime.dependencies` — a duplicate
+-- of what handlers.ts and package.json own. Left in place, deleting
+-- handlers.ts would resurrect the old trigger code on the next deploy, and
+-- switching to handler modules would put both handler models in one project,
+-- which no deploy accepts.
+--
+-- Trade-off: a row whose snapshot carried inline trigger code and no handlers
+-- file now deploys the default handlers instead. That only reaches a deploy of
+-- an older version, in a development database, and is the same answer a
+-- `POST /versions` save would have produced.
+--
+-- Unlike the SQLite file this has no json_valid() guard: Postgres has no
+-- version-independent one. A row whose `ir` is not valid JSON (nothing this
+-- codebase writes — every IR goes through JSON.stringify) aborts the
+-- migration loudly rather than being skipped silently; fix or delete that row
+-- and re-run.
+UPDATE "workflow_versions" SET "ir" = ("ir"::jsonb #- '{runtime,triggerCode}' #- '{runtime,dependencies}')::text WHERE "source_mode" <> 'generated';--> statement-breakpoint
 UPDATE "workflow_versions" SET "source_mode" = 'generated', "source" = NULL, "base_generated_hash" = NULL WHERE "source_mode" <> 'generated';
