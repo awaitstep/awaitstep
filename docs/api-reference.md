@@ -497,8 +497,10 @@ check cannot bless what a save would refuse:
 | any older version | — refused with `400`  | nothing to overlay: older versions deploy their frozen snapshot |
 
 A refused candidate returns `422` with the reason (and `details` when the
-rule reports more than one) — or `400` for an older version and for a locked
-one, which no write could reach either. A problem the project **already** has
+rule reports more than one) — or `400` for an older version, which no write
+could reach either. A **locked** version is not refused: a lock pins what is
+deployed, while project files belong to the workflow rather than to a
+version, so `PUT`/`DELETE /files` never consult it and neither does this. A problem the project **already** has
 in storage is not a refusal: it comes back as a diagnostic in the `200`, so a
 file that predates a rule cannot block every check that follows.
 
@@ -596,8 +598,9 @@ table has any (an import) seeds it, inline `runtime.triggerCode` /
 has none (and are dropped from the stored IR once those files exist, so a
 stale copy can never come back through a version), and a revert replaces
 the table with the reverted version's snapshot. `GET /source` marks each
-project-owned file with its `hash`, the ETag a conditional write needs. Generated-mode deploys of the current version
-use the live set, and older versions deploy exactly what they snapshotted.
+project-owned file with its `hash`, the ETag a conditional write needs. A
+deploy of the current version uses the live set, and older versions deploy
+exactly what they snapshotted.
 
 **Limits.** 100 files, 512 KB per file, 2 MB in total — but every API
 request body is capped at **1 MB** (see [Rate Limits](#rate-limits)), and a

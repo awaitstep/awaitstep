@@ -10,14 +10,15 @@ export const workflowVersions = sqliteTable(
       .references(() => workflows.id, { onDelete: 'cascade' }),
     version: integer('version').notNull(),
     ir: text('ir').notNull(),
-    // Dead since W0 removed the stored-source mode: the IR is the only
-    // source of truth, so every row reads 'generated' with no source and
-    // no baseline. Kept because migrations here are additive only; dropped
-    // in the Phase 2 cleanup beside
+    // All four are dead since W0 removed the stored-source mode: the IR is
+    // the only source of truth, so every row reads 'generated' with the
+    // other three null. `manifest` has no reader either — a deploy pins the
+    // step manifest it shipped in its own config_snapshot, which is where
+    // run telemetry joins step labels to nodes. Kept because migrations here
+    // are additive only; dropped in the Phase 2 cleanup beside
     // workflows.triggerCode/dependencies/envVars.
     sourceMode: text('source_mode').notNull().default('generated'),
     source: text('source'),
-    // JSON step manifest (nodeId → stepName/filePath) for run telemetry.
     manifest: text('manifest'),
     baseGeneratedHash: text('base_generated_hash'),
     locked: integer('locked').notNull().default(0),

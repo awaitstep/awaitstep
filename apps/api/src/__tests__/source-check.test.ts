@@ -420,8 +420,8 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
       expect(replacing.status).toBe(200)
     })
 
-    it('lets project files be checked on a locked generated version', async () => {
-      // A lock stops `PUT /source`. It does not stop `PUT`/`DELETE /files`,
+    it('lets project files be checked on a locked version', async () => {
+      // A lock pins what is deployed. It does not stop `PUT`/`DELETE /files`,
       // which never consult it — project files belong to the workflow, not
       // to a version — so refusing here would block an edit a save takes.
       const workflow = (await mockDb.getWorkflowById('wf-1'))!

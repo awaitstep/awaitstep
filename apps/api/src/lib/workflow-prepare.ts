@@ -33,9 +33,9 @@ export interface WorkflowContext {
   dependencies?: Record<string, string>
   /**
    * Everything wrong with the workflow that this prepare chose not to fail
-   * on. Always empty in the strict modes — they return an error instead —
-   * and the full picture in `'read'`, which has to open the workspace before
-   * the user can fix what is wrong with it.
+   * on. Always empty in `'deploy'`, which returns an error instead, and the
+   * full picture in `'read'`, which has to open the workspace before the user
+   * can fix what is wrong with it.
    */
   diagnostics: PrepareDiagnostic[]
   /**
@@ -229,12 +229,12 @@ export async function prepareWorkflow(
     nodeRegistry,
   )
   if (envResult.error) {
-    if (mode === 'deploy') return { error: envResult.error, status: 400 }
+    if (!lenient) return { error: envResult.error, status: 400 }
     // A read used to drop this silently, so a check could call a workflow
     // healthy and the deploy then refuse it on a missing secret — the
     // likeliest "it passed, then it failed" surprise. The message names
     // variables, never values.
-    if (lenient) diagnostics.push({ source: 'env', message: envResult.error })
+    diagnostics.push({ source: 'env', message: envResult.error })
   }
 
   // Source resolution: the bundle is always generated from the IR. Config

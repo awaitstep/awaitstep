@@ -122,14 +122,11 @@ export interface CreateVersionData {
    */
   version?: number
   ir: string
-  /** JSON step manifest (nodeId → stepName/filePath) for run telemetry. */
-  manifest?: string | null
 }
 
 export interface UpdateVersionData {
   ir?: string
   locked?: number
-  manifest?: string | null
 }
 export type Connection = InferSelectModel<typeof connections>
 export type WorkflowRun = InferSelectModel<typeof workflowRuns>

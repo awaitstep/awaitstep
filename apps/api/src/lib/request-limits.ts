@@ -6,7 +6,9 @@
  * `docs/api-reference.md`, which an agent reads before it tries to send a
  * whole project at once.
  *
- * Its own module so the app can enforce it without anything importing the
- * app back: that would close a cycle, app → routes → source → source-check.
+ * Its own module so the number and the 413 message it appears in have one
+ * home: `app.ts` enforces it and `app.test.ts` asserts against the same
+ * constant. (It was also shared with the source check, which reported what a
+ * `PUT /source` body could not carry — that endpoint and that rule are gone.)
  */
 export const MAX_REQUEST_BYTES = 1024 * 1024
