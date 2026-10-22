@@ -160,10 +160,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     fullData?.versions,
   )
   const workspace = useMemo(
-    () =>
-      source
-        ? workspaceEditability({ sourceMode: source.sourceMode, historical: isHistorical })
-        : null,
+    () => (source ? workspaceEditability({ historical: isHistorical }) : null),
     [source, isHistorical],
   )
   const canEdit = workspace !== null && !workspace.readOnly
@@ -500,7 +497,6 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         kind={fullData.workflow.kind}
         version={fullData.version.version}
         historicalVersion={isHistorical ? (readOnlyVersion ?? fullData.version.version) : undefined}
-        sourceMode={source.sourceMode}
         {...(linkVersion !== undefined && { versionParam: linkVersion })}
         dirtyCount={dirty.size}
         canEdit={canEdit}

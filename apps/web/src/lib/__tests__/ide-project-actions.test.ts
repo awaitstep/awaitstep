@@ -124,16 +124,6 @@ describe('project file actions', () => {
     expect(useIdeStore.getState().drafts['config/env.ts']?.baseHash).toBe('saved:mine')
   })
 
-  it('reports an ejected version plainly, without an Overwrite', async () => {
-    useIdeStore.getState().setDraft('config/env.ts', 'mine', 'h-env')
-    const { client, notify, actions } = setup()
-    client.putProjectFile.mockRejectedValueOnce(
-      new ProjectFileConflictError('Version is ejected', null, 'ejected'),
-    )
-    expect(await actions.saveFile('config/env.ts')).toBe(false)
-    expect(notify.error).toHaveBeenCalledWith('Version is ejected')
-  })
-
   it('starts a new handler entry from its scaffold rather than an empty file', async () => {
     const { client, actions } = setup()
     await actions.createFile('handlers/fetch.ts')
