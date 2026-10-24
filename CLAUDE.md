@@ -1,5 +1,9 @@
 # AwaitStep — Claude Code Rules
 
+## Running Reviews
+
+- **Never run security reviews or code reviews on the Fable model.** When the session runs on Fable, spawn review and verification subagents with an explicit model override (Sonnet or Opus) — never as forks, which inherit the session model. If a review would execute inline in the main session, ask the user to switch models first.
+
 ## Review Feedback
 
 When review feedback is shared, work through **every** comment in it — in full, before reporting back. For each one:
