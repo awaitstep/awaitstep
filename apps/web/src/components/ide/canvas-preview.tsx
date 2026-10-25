@@ -1,5 +1,4 @@
 import { useEffect, useMemo } from 'react'
-import { Link } from '@tanstack/react-router'
 import {
   ReactFlow,
   Background,
@@ -18,6 +17,7 @@ import { LabeledEdge } from '../canvas/labeled-edge'
 import { withContainerEdgeColors } from '../../lib/container-edge-colors'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import { useIdeLayoutStore } from '../../stores/ide-layout-store'
+import { useSwitchView } from '../../hooks/use-switch-view'
 
 const edgeTypes = { smoothstep: LabeledEdge }
 
@@ -57,6 +57,11 @@ export function CanvasPreview({ workflowId, versionParam }: CanvasPreviewProps) 
   const { nodes, edges } = useWorkflowStore(useShallow((s) => ({ nodes: s.nodes, edges: s.edges })))
   const togglePreview = useIdeLayoutStore((s) => s.togglePreview)
   const styledEdges = useMemo(() => withContainerEdgeColors(nodes, edges), [nodes, edges])
+  const switchView = useSwitchView(workflowId)
+
+  function handleEditOnCanvas() {
+    void switchView('canvas', { version: versionParam })
+  }
 
   return (
     <>
@@ -75,16 +80,15 @@ export function CanvasPreview({ workflowId, versionParam }: CanvasPreviewProps) 
           )}
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
-          <Link
-            to="/workflows/$workflowId/canvas"
-            params={{ workflowId }}
-            search={versionParam ? { version: versionParam } : {}}
+          <button
+            type="button"
+            onClick={handleEditOnCanvas}
             title="Open the full canvas, where the graph can be edited"
             className="inline-flex h-6 items-center gap-1.5 rounded px-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
           >
             <Maximize2 className="h-3 w-3" />
             Edit on canvas
-          </Link>
+          </button>
           <button
             type="button"
             onClick={togglePreview}

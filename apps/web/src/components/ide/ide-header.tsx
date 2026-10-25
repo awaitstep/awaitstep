@@ -1,4 +1,3 @@
-import { Link } from '@tanstack/react-router'
 import {
   Command,
   History,
@@ -13,6 +12,7 @@ import {
 import { useShallow } from 'zustand/react/shallow'
 import { IDE_SHORTCUTS, formatShortcut, type IdeShortcutId } from '../../lib/ide/shortcuts'
 import { isMacPlatform } from '../../lib/platform'
+import { useSwitchView } from '../../hooks/use-switch-view'
 import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
 import { Button } from '../ui/button'
@@ -63,6 +63,15 @@ export function IdeHeader({
   const showDialog = useIdeStore((s) => s.showDialog)
   const isMac = isMacPlatform()
   const hint = (id: IdeShortcutId) => formatShortcut(IDE_SHORTCUTS[id], isMac)
+  const switchView = useSwitchView(workflowId)
+
+  function handleOpenLatest() {
+    void switchView('ide')
+  }
+
+  function handleOpenCanvas() {
+    void switchView('canvas', { version: versionParam })
+  }
 
   function handleQuickOpen() {
     showDialog('quickOpen')
@@ -75,16 +84,15 @@ export function IdeHeader({
   const title = (
     <WorkflowTitle name={workflowName} kind={kind} version={version}>
       {historicalVersion !== undefined && (
-        <Link
-          to="/workflows/$workflowId/code"
-          params={{ workflowId }}
-          search={{}}
+        <button
+          type="button"
+          onClick={handleOpenLatest}
           title="You are viewing an older version — open the latest"
           className="hidden shrink-0 items-center gap-1 rounded bg-status-warning/10 px-1.5 py-0.5 text-xs font-medium text-status-warning transition-colors hover:bg-status-warning/20 md:inline-flex"
         >
           <History className="h-3 w-3" />
           Viewing v{historicalVersion} · back to latest
-        </Link>
+        </button>
       )}
     </WorkflowTitle>
   )
@@ -97,16 +105,15 @@ export function IdeHeader({
           {/* Mirrors the canvas header's Code button, in the same slot. The
               preview carries its own way over, but it can be closed — and
               then the command palette was the only route left. */}
-          <Link
-            to="/workflows/$workflowId/canvas"
-            params={{ workflowId }}
-            search={versionParam ? { version: versionParam } : {}}
+          <button
+            type="button"
+            onClick={handleOpenCanvas}
             title="Open the canvas, where the graph can be edited"
             className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground/70 md:px-2.5"
           >
             <Workflow className="h-3.5 w-3.5" />
             <span className="hidden text-xs md:inline">Canvas</span>
-          </Link>
+          </button>
           {canEdit && (
             <Button
               variant="ghost"

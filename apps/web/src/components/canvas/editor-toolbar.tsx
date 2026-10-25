@@ -21,6 +21,7 @@ import { WorkspaceChrome } from '../workflows/workspace-chrome'
 import { cn } from '../../lib/utils'
 import { useTemporalStore } from '../../stores/workflow-store'
 import { redoWithFeedback, undoWithFeedback } from './time-travel'
+import { useSwitchView } from '../../hooks/use-switch-view'
 
 export interface EditorToolbarProps {
   workflowId: string
@@ -135,6 +136,20 @@ export function EditorToolbar({
   readOnlyVersion,
   versionParam,
 }: EditorToolbarProps) {
+  const switchView = useSwitchView(workflowId)
+
+  // ?version= is carried only while actually viewing an older version. On
+  // an editable canvas it names the version that is current *right now*,
+  // which a save immediately supersedes — carrying it would land
+  // Save-and-switch on a read-only version without the save in it.
+  function handleOpenCode() {
+    void switchView('ide', { version: readOnly ? versionParam : undefined })
+  }
+
+  function handleOpenLatest() {
+    void switchView('canvas')
+  }
+
   const title = (
     <WorkflowTitle name={workflowName} kind={kind} version={isNew ? undefined : currentVersion}>
       {nodeCount > 0 && (
@@ -173,37 +188,33 @@ export function EditorToolbar({
       actions={
         <>
           {/* Nothing to show source for until the workflow has been saved
-              once. Navigating away from a dirty canvas is blocked, so this
-              link raises the switch dialog rather than losing the graph.
-
-              ?version= is carried only while actually viewing an older
-              version. On an editable canvas it names the version that is
-              current *right now*, which a save immediately supersedes —
-              carrying it would land Save-and-switch on a read-only version
-              without the save in it. Without it, Code opens the latest. */}
+              once. Switching away from a dirty canvas is blocked, so this
+              raises the switch dialog rather than losing the graph. */}
           {!isNew && currentVersion > 0 && (
-            <Link
-              to="/workflows/$workflowId/code"
-              params={{ workflowId }}
-              search={readOnly && versionParam ? { version: versionParam } : {}}
+            <button
+              type="button"
+              onClick={handleOpenCode}
               title="Open the code workspace"
               className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground/70 md:px-2.5"
             >
               <FileCode2 className="h-3.5 w-3.5" />
               <span className="hidden text-xs md:inline">Code</span>
-            </Link>
+            </button>
           )}
           {readOnly ? (
             <>
               <span className="hidden rounded bg-muted/70 px-2 py-1 text-xs font-medium text-muted-foreground sm:inline-block">
                 Read-only{readOnlyVersion ? ` · v${readOnlyVersion}` : ''}
               </span>
-              <Link to="/workflows/$workflowId/canvas" params={{ workflowId }}>
-                <Button size="sm" variant="outline" className="h-8 gap-1.5 px-3 text-xs">
-                  <span className="hidden sm:inline">Back to latest</span>
-                  <span className="sm:hidden">Latest</span>
-                </Button>
-              </Link>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 px-3 text-xs"
+                onClick={handleOpenLatest}
+              >
+                <span className="hidden sm:inline">Back to latest</span>
+                <span className="sm:hidden">Latest</span>
+              </Button>
             </>
           ) : (
             <>

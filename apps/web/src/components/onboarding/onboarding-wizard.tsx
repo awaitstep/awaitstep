@@ -97,13 +97,17 @@ export function OnboardingWizard() {
                 queryClient.invalidateQueries({ queryKey: ['workflows'] })
               }}
               onStartFromScratch={() =>
-                navigate({ to: '/workflows/$workflowId/canvas', params: { workflowId: 'new' } })
+                navigate({
+                  to: '/workflows/$workflowId/editor',
+                  params: { workflowId: 'new' },
+                  search: { view: 'canvas' },
+                })
               }
               onUseTemplate={() =>
                 navigate({
-                  to: '/workflows/$workflowId/canvas',
+                  to: '/workflows/$workflowId/editor',
                   params: { workflowId: 'new' },
-                  search: { template: true },
+                  search: { view: 'canvas', template: true },
                 })
               }
             />

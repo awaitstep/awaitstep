@@ -139,9 +139,9 @@ export function VersionList({
                       <DropdownMenuSeparator />
                       <DropdownMenuItem asChild>
                         <Link
-                          to="/workflows/$workflowId/canvas"
+                          to="/workflows/$workflowId/editor"
                           params={{ workflowId }}
-                          search={{ version: v.id }}
+                          search={{ view: 'canvas', version: v.id }}
                         >
                           <Eye className="h-3.5 w-3.5" />
                           View in canvas

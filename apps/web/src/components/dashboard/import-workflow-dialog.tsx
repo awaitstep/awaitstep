@@ -165,8 +165,9 @@ export function ImportWorkflowDialog({ onClose }: { onClose: () => void }) {
       const isScript = selectedKind === 'script'
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
       navigate({
-        to: '/workflows/$workflowId/canvas',
+        to: '/workflows/$workflowId/editor',
         params: { workflowId: workflow.id },
+        search: { view: 'canvas' },
       }).finally(() => {
         toast.success(isScript ? 'Function imported' : 'Workflow imported')
         onClose()

@@ -21,7 +21,11 @@ export const Route = createFileRoute('/_authed/workflows/$workflowId/')({
   head: () => ({ meta: [{ title: 'Workflow | AwaitStep' }] }),
   beforeLoad: ({ params }) => {
     if (params.workflowId === 'new') {
-      throw redirect({ to: '/workflows/$workflowId/canvas', params })
+      throw redirect({
+        to: '/workflows/$workflowId/editor',
+        params,
+        search: { view: 'canvas' },
+      })
     }
   },
   component: WorkflowOverviewPage,
@@ -93,14 +97,22 @@ function WorkflowOverviewPage() {
                   header switches to Canvas. A workflow with no saved version
                   has no source yet, so it starts on the canvas instead. */}
               {workflow.currentVersionId ? (
-                <Link to="/workflows/$workflowId/code" params={{ workflowId }} search={{}}>
+                <Link
+                  to="/workflows/$workflowId/editor"
+                  params={{ workflowId }}
+                  search={{ view: 'ide' }}
+                >
                   <Button size="sm" variant="outline" className="gap-1.5">
                     <FileCode2 className="h-3.5 w-3.5" />
                     Open Editor
                   </Button>
                 </Link>
               ) : (
-                <Link to="/workflows/$workflowId/canvas" params={{ workflowId }} search={{}}>
+                <Link
+                  to="/workflows/$workflowId/editor"
+                  params={{ workflowId }}
+                  search={{ view: 'canvas' }}
+                >
                   <Button size="sm" variant="outline" className="gap-1.5">
                     <FileCode2 className="h-3.5 w-3.5" />
                     Open Editor

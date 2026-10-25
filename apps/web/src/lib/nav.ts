@@ -38,14 +38,14 @@ export function isNavItemActive(routeIds: readonly string[], to: string): boolea
 }
 
 export const NEW_WORKFLOW_NAV: NavigateOptions = {
-  to: '/workflows/$workflowId/canvas',
+  to: '/workflows/$workflowId/editor',
   params: { workflowId: 'new' },
-  search: { template: true },
+  search: { view: 'canvas', template: true },
 }
 
 export const NEW_FUNCTION_NAV: NavigateOptions = {
-  to: '/workflows/$workflowId/canvas',
+  to: '/workflows/$workflowId/editor',
   params: { workflowId: 'new' },
   // Functions skip the template picker — templates are workflow-shaped.
-  search: { kind: 'script' },
+  search: { view: 'canvas', kind: 'script' },
 }

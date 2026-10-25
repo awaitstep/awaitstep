@@ -75,7 +75,7 @@ export function useWorkflowPersistence(opts: {
       queryClient.invalidateQueries({ queryKey: ['workflow-full', workflowId] })
       queryClient.invalidateQueries({ queryKey: ['workflow-source', workflowId] })
       if (created) {
-        window.history.replaceState(null, '', `/workflows/${created.id}/canvas`)
+        window.history.replaceState(null, '', `/workflows/${created.id}/editor?view=canvas`)
         setWorkflowId(created.id)
         if (isNew) {
           queryClient.invalidateQueries({ queryKey: ['workflows'] })

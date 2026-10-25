@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import {
   ChevronDown,
@@ -37,6 +36,7 @@ import {
   type ClientBindingType,
 } from '../../lib/detect-bindings-client'
 import { cn } from '../../lib/utils'
+import { useSwitchView } from '../../hooks/use-switch-view'
 
 const BINDING_META: Record<ClientBindingType, { label: string; icon: typeof Database }> = {
   kv: { label: 'KV', icon: HardDrive },
@@ -109,7 +109,7 @@ export function BindingsPanel() {
   const triggerCode = useWorkflowStore((s) => s.triggerCode)
   const workflowId = useWorkflowStore((s) => s.workflowId)
   const queryClient = useQueryClient()
-  const navigate = useNavigate()
+  const switchView = useSwitchView(workflowId ?? 'new')
   const canConsume = workflowId !== null && workflowId !== 'new'
   const { data: full } = useQuery({
     ...queries.workflows.full(canConsume ? workflowId : ''),
@@ -181,11 +181,7 @@ export function BindingsPanel() {
         action: {
           label: 'Open in Code',
           onClick: () => {
-            void navigate({
-              to: '/workflows/$workflowId/code',
-              params: { workflowId },
-              search: { file: created },
-            })
+            void switchView('ide', { file: created })
           },
         },
       })
