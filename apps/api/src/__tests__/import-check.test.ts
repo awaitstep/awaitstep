@@ -284,6 +284,87 @@ describe('escapingImports', () => {
   })
 })
 
+describe('escapingImports — specifiers the scan used to skip', () => {
+  it('reads a "$" in a quoted path as the character it is', () => {
+    // `$` was excluded to keep backtick templates out, which dropped every
+    // quoted specifier containing one.
+    expect(escapingImports([code('a.ts', "import x from '../../$secrets/key.json'")])).toEqual([
+      { path: 'a.ts', specifier: '../../$secrets/key.json' },
+    ])
+    expect(unresolvedAppImports([], [code('a.ts', "import x from '#app/lib/$util'")])).toEqual([
+      { path: 'a.ts', specifier: '#app/lib/$util' },
+    ])
+  })
+
+  it('looks past a comment between the keyword and the specifier', () => {
+    for (const source of [
+      "import x from /* c */ '../../y.json'",
+      "const m = await import(/* webpackIgnore: true */ '../../y.json')",
+      "const m = require(// note\n'../../y.json')",
+    ]) {
+      expect(escapingImports([code('a.ts', source)]), source).toHaveLength(1)
+    }
+  })
+})
+
+describe('escapingImports — escaped paths', () => {
+  it('decodes string escapes before judging, as the bundler does', () => {
+    for (const source of [
+      String.raw`import x from '\u002e\u002e/\u002e\u002e/host.json'`,
+      String.raw`const m = await import('\x2e\x2e/host.json')`,
+      String.raw`const m = require("\u{2e}\u{2e}/host.json")`,
+      String.raw`const m = await import('\u002e./' + name)`,
+      'const m = await import(`\\u002e\\u002e/${name}.json`)',
+    ]) {
+      expect(escapingImports([code('a.ts', source)]), source).toHaveLength(1)
+    }
+  })
+
+  it('leaves an escaped character that stays inside alone', () => {
+    expect(
+      escapingImports([code('lib/a.ts', String.raw`import x from './d\u0061ta.json'`)]),
+    ).toEqual([])
+  })
+})
+
+describe('escapingImports — paths built in pieces', () => {
+  it('refuses a concatenation that climbs out', () => {
+    for (const source of [
+      "const m = await import('../' + 'host.json')",
+      "const m = require('..' + '/host.json')",
+      "const m = await import('.' + './host.json')",
+      "const m = await import(base + '/../host.json')",
+      "const m = await import(['..', 'host.json'].join('/'))",
+      'const m = await import(`..` + `/host.json`)',
+    ]) {
+      expect(escapingImports([code('a.ts', source)]), source).toHaveLength(1)
+    }
+  })
+
+  it('refuses an absolute path built in pieces', () => {
+    expect(escapingImports([code('a.ts', "await import('/etc/' + name)")])).toHaveLength(1)
+  })
+
+  it('passes pieces that never climb', () => {
+    for (const source of [
+      "const m = await import('./data/' + name + '.json')",
+      "const m = await import(name + '.json')",
+      'const m = await import(specifier)',
+      "const m = await import('./plain.js')",
+    ]) {
+      expect(escapingImports([code('lib/a.ts', source)]), source).toEqual([])
+    }
+  })
+
+  it('is not thrown off by a stray quote in a comment inside the call', () => {
+    expect(
+      escapingImports([
+        code('a.ts', "await import(name /* don't */ + '.json')\nconst ok = '../x'"),
+      ]),
+    ).toEqual([])
+  })
+})
+
 describe('escapingImports — what the bundler does beyond plain specifiers', () => {
   it('reports a bare name with a ".." segment, which only the module collector resolves', () => {
     expect(
