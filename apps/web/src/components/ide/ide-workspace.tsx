@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
-import { Link, useBlocker, useNavigate } from '@tanstack/react-router'
+import { Link, useBlocker } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import type { Layout, LayoutChangedMeta } from 'react-resizable-panels'
@@ -22,6 +22,7 @@ import { surfaceSwitchTarget } from '../../lib/workflows/surfaces'
 import { copyToClipboard } from '../../lib/utils'
 import { useIdeShortcuts } from '../../hooks/use-ide-shortcuts'
 import { useProjectFiles } from '../../hooks/use-project-files'
+import { useSwitchView } from '../../hooks/use-switch-view'
 import { useOrgReady } from '../../stores/org-store'
 import { useIdeLayoutStore, type IdeLayoutKey } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
@@ -75,7 +76,7 @@ export function IdeWorkspace({ workflowId, versionParam, fileParam }: IdeWorkspa
 
 function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   const ready = useOrgReady()
-  const navigate = useNavigate()
+  const switchView = useSwitchView(workflowId)
 
   const fullQuery = useQuery({
     ...queries.workflows.full(workflowId, versionParam),
@@ -325,12 +326,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         })
       },
       quickOpen: () => showDialog('quickOpen'),
-      switchToCanvas: () =>
-        navigate({
-          to: '/workflows/$workflowId/canvas',
-          params: { workflowId },
-          search: versionParam ? { version: versionParam } : {},
-        }),
+      switchToCanvas: () => void switchView('canvas', { version: versionParam }),
       closeActiveFile: () => {
         const path = useIdeStore.getState().activePath
         if (path) closeFile(path)
@@ -356,8 +352,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       readOnlyMessage,
       projectFiles,
       storedPaths,
-      navigate,
-      workflowId,
+      switchView,
       versionParam,
       closeFile,
       closeAllFiles,
@@ -480,7 +475,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   // needs saving first to be visible over there.
   const switchTarget =
     blocker.status === 'blocked'
-      ? surfaceSwitchTarget({ from: 'code', workflowId, nextPathname: blocker.next.pathname })
+      ? surfaceSwitchTarget({ current: blocker.current, next: blocker.next })
       : null
   const unsavedSentence =
     dirty.size === 1 ? 'One file has unsaved changes.' : `${dirty.size} files have unsaved changes.`
@@ -678,32 +673,40 @@ function Notice({
 }
 
 function UnsavedWorkflowNotice() {
+  const switchView = useSwitchView('new')
+
+  function handleOpenCanvas() {
+    void switchView('canvas')
+  }
+
   return (
     <Notice
       title="Save the workflow first"
       description="The code workspace shows a saved version’s source. Build the first version on the canvas, then come back here."
       action={
-        <Link to="/workflows/$workflowId/canvas" params={{ workflowId: 'new' }} search={{}}>
-          <Button size="sm" variant="outline">
-            Open canvas
-          </Button>
-        </Link>
+        <Button size="sm" variant="outline" onClick={handleOpenCanvas}>
+          Open canvas
+        </Button>
       }
     />
   )
 }
 
 function NoVersionNotice({ workflowId, name }: { workflowId: string; name: string }) {
+  const switchView = useSwitchView(workflowId)
+
+  function handleOpenCanvas() {
+    void switchView('canvas')
+  }
+
   return (
     <Notice
       title={`${name} has no saved version yet`}
       description="Source is generated from a saved version. Save the workflow on the canvas once and the code workspace will show it."
       action={
-        <Link to="/workflows/$workflowId/canvas" params={{ workflowId }} search={{}}>
-          <Button size="sm" variant="outline">
-            Open canvas
-          </Button>
-        </Link>
+        <Button size="sm" variant="outline" onClick={handleOpenCanvas}>
+          Open canvas
+        </Button>
       }
     />
   )

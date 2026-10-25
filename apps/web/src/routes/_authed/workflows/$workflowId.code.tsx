@@ -1,33 +1,19 @@
-import { createFileRoute, useParams, useSearch } from '@tanstack/react-router'
-import { lazy, Suspense } from 'react'
-import { ClientOnly } from '../../../components/canvas/client-only'
-import { IdeSkeleton } from '../../../components/ide/ide-skeleton'
-import { NodeRegistryProvider } from '../../../contexts/node-registry-context'
+import { createFileRoute, redirect } from '@tanstack/react-router'
+import { editorSearch } from '../../../lib/workflows/surfaces'
 
-const LazyIdeWorkspace = lazy(() =>
-  import('../../../components/ide/ide-workspace').then((m) => ({ default: m.IdeWorkspace })),
-)
-
+// Legacy URL: Code is now the editor's `ide` view. Kept so bookmarks and
+// shared links still land; `replace` keeps the old URL out of history.
 export const Route = createFileRoute('/_authed/workflows/$workflowId/code')({
-  head: () => ({ meta: [{ title: 'Code | AwaitStep' }] }),
-  component: CodeWorkspacePage,
   validateSearch: (search: Record<string, unknown>): { version?: string; file?: string } => ({
     version: typeof search.version === 'string' ? search.version : undefined,
     file: typeof search.file === 'string' ? search.file : undefined,
   }),
+  beforeLoad: ({ params, search }) => {
+    throw redirect({
+      to: '/workflows/$workflowId/editor',
+      params,
+      search: editorSearch('ide', search),
+      replace: true,
+    })
+  },
 })
-
-function CodeWorkspacePage() {
-  const { workflowId } = useParams({ from: '/_authed/workflows/$workflowId/code' })
-  const { version, file } = useSearch({ from: '/_authed/workflows/$workflowId/code' })
-
-  return (
-    <NodeRegistryProvider>
-      <ClientOnly fallback={<IdeSkeleton />}>
-        <Suspense fallback={<IdeSkeleton />}>
-          <LazyIdeWorkspace workflowId={workflowId} versionParam={version} fileParam={file} />
-        </Suspense>
-      </ClientOnly>
-    </NodeRegistryProvider>
-  )
-}

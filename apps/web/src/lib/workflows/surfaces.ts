@@ -1,23 +1,60 @@
 /** The two ways to edit a workflow. Peers, not a page and a side trip. */
-export const WORKSPACE_SURFACES = ['canvas', 'code'] as const
+export const WORKSPACE_SURFACES = ['canvas', 'ide'] as const
 export type WorkspaceSurface = (typeof WORKSPACE_SURFACES)[number]
+
+/** What an editor URL without `?view=` opens — valid even before a first save. */
+export const DEFAULT_SURFACE: WorkspaceSurface = 'canvas'
 
 const SURFACE_LABELS: Readonly<Record<WorkspaceSurface, string>> = {
   canvas: 'Canvas',
-  code: 'Code',
+  ide: 'Code',
+}
+
+export function parseSurface(value: unknown): WorkspaceSurface {
+  return WORKSPACE_SURFACES.find((surface) => surface === value) ?? DEFAULT_SURFACE
+}
+
+export interface EditorSearch {
+  view: WorkspaceSurface
+  version?: string
+  file?: string
+}
+
+/**
+ * The editor's search params for a view, carrying only what was given.
+ * Moving within the editor drops everything else (`template`, `kind`, a
+ * stale `file`), so each caller states exactly what the destination needs.
+ */
+export function editorSearch(
+  view: WorkspaceSurface,
+  extra: { version?: string; file?: string } = {},
+): EditorSearch {
+  return {
+    view,
+    ...(extra.version !== undefined && { version: extra.version }),
+    ...(extra.file !== undefined && { file: extra.file }),
+  }
+}
+
+interface EditorLocation {
+  pathname: string
+  search: unknown
 }
 
 function withoutTrailingSlash(pathname: string): string {
   return pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
 }
 
-function otherSurface(surface: WorkspaceSurface): WorkspaceSurface {
-  return surface === 'canvas' ? 'code' : 'canvas'
+function surfaceOf(location: EditorLocation): WorkspaceSurface {
+  const search = location.search
+  return parseSurface(
+    typeof search === 'object' && search !== null ? (search as { view?: unknown }).view : undefined,
+  )
 }
 
 /**
- * The other surface of this same workflow, when that is where a blocked
- * navigation is heading — otherwise null.
+ * The surface a blocked navigation switches to, when it stays in this
+ * editor and only changes the view — otherwise null.
  *
  * Switching surface and leaving the workflow are different events to the
  * person doing them: one stays with the same work and the other walks away
@@ -25,13 +62,13 @@ function otherSurface(surface: WorkspaceSurface): WorkspaceSurface {
  * before it can word itself correctly.
  */
 export function surfaceSwitchTarget(args: {
-  from: WorkspaceSurface
-  workflowId: string
-  nextPathname: string
+  current: EditorLocation
+  next: EditorLocation
 }): WorkspaceSurface | null {
-  const to = otherSurface(args.from)
-  const target = `/workflows/${args.workflowId}/${to}`
-  return withoutTrailingSlash(args.nextPathname) === target ? to : null
+  const { current, next } = args
+  if (withoutTrailingSlash(current.pathname) !== withoutTrailingSlash(next.pathname)) return null
+  const to = surfaceOf(next)
+  return to === surfaceOf(current) ? null : to
 }
 
 export interface UnsavedDialogCopy {

@@ -6,17 +6,11 @@ function matchesFor(...routeIds: string[]) {
 }
 
 describe('isChromelessRoute', () => {
-  it('treats the canvas editor as chromeless', () => {
+  it('treats the editor (canvas and code views) as chromeless', () => {
     expect(
       isChromelessRoute(
-        matchesFor('__root__', '/_authed', '/_authed/workflows/$workflowId/canvas'),
+        matchesFor('__root__', '/_authed', '/_authed/workflows/$workflowId/editor'),
       ),
-    ).toBe(true)
-  })
-
-  it('treats the code workspace as chromeless', () => {
-    expect(
-      isChromelessRoute(matchesFor('__root__', '/_authed', '/_authed/workflows/$workflowId/code')),
     ).toBe(true)
   })
 
@@ -32,7 +26,7 @@ describe('isChromelessRoute', () => {
     expect(isChromelessRoute(matchesFor('__root__', '/_authed', '/_authed/dashboard'))).toBe(false)
   })
 
-  it('keeps the shell on workflow sub-pages that are not canvas or deploy', () => {
+  it('keeps the shell on workflow sub-pages that are not the editor or deploy', () => {
     expect(
       isChromelessRoute(
         matchesFor('__root__', '/_authed', '/_authed/workflows/$workflowId/deployments'),

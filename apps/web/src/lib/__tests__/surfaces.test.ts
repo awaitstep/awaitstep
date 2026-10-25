@@ -1,38 +1,57 @@
 import { describe, it, expect } from 'vitest'
-import { surfaceSwitchTarget, unsavedDialogCopy, WORKSPACE_SURFACES } from '../workflows/surfaces'
+import {
+  DEFAULT_SURFACE,
+  editorSearch,
+  parseSurface,
+  surfaceSwitchTarget,
+  unsavedDialogCopy,
+  WORKSPACE_SURFACES,
+} from '../workflows/surfaces'
+
+const EDITOR = '/workflows/wf-1/editor'
+
+function at(pathname: string, search: Record<string, unknown> = {}) {
+  return { pathname, search }
+}
 
 describe('surfaceSwitchTarget', () => {
-  it('recognises the switch to the other surface of the same workflow', () => {
+  it('recognises a view change within the same editor', () => {
     expect(
       surfaceSwitchTarget({
-        from: 'canvas',
-        workflowId: 'wf-1',
-        nextPathname: '/workflows/wf-1/code',
+        current: at(EDITOR, { view: 'canvas' }),
+        next: at(EDITOR, { view: 'ide' }),
       }),
-    ).toBe('code')
+    ).toBe('ide')
     expect(
       surfaceSwitchTarget({
-        from: 'code',
-        workflowId: 'wf-1',
-        nextPathname: '/workflows/wf-1/canvas',
+        current: at(EDITOR, { view: 'ide', version: 'v-1' }),
+        next: at(EDITOR, { view: 'canvas', version: 'v-1' }),
       }),
     ).toBe('canvas')
   })
 
-  it('ignores a trailing slash on the destination', () => {
+  it('treats a missing view as the default canvas view', () => {
+    expect(surfaceSwitchTarget({ current: at(EDITOR), next: at(EDITOR, { view: 'ide' }) })).toBe(
+      'ide',
+    )
+    expect(surfaceSwitchTarget({ current: at(EDITOR, { view: 'ide' }), next: at(EDITOR) })).toBe(
+      'canvas',
+    )
+  })
+
+  it('ignores a trailing slash on either side', () => {
     expect(
       surfaceSwitchTarget({
-        from: 'code',
-        workflowId: 'wf-1',
-        nextPathname: '/workflows/wf-1/canvas/',
+        current: at(EDITOR, { view: 'ide' }),
+        next: at(`${EDITOR}/`, { view: 'canvas' }),
       }),
     ).toBe('canvas')
   })
 
-  it('is not a switch when the destination leaves the workflow', () => {
-    // The whole point of the distinction: these are departures, and get the
-    // departure wording rather than "the other surface opens the saved
-    // version", which would be nonsense here.
+  it('is not a switch when the destination leaves the editor', () => {
+    // The whole point of the distinction: these are departures — Back
+    // included — and get the departure wording rather than "the other
+    // surface opens the saved version", which would be nonsense here.
     for (const pathname of [
       '/workflows',
       '/workflows/wf-1',
@@ -41,31 +60,53 @@ describe('surfaceSwitchTarget', () => {
       '/dashboard',
     ]) {
       expect(
-        surfaceSwitchTarget({ from: 'code', workflowId: 'wf-1', nextPathname: pathname }),
+        surfaceSwitchTarget({ current: at(EDITOR, { view: 'ide' }), next: at(pathname) }),
       ).toBe(null)
     }
   })
 
-  it('is not a switch when another workflow has the same surface', () => {
-    // Same surface name, different workflow: leaving this workflow's work
-    // behind, so it must not be worded as staying put.
+  it('is not a switch when another workflow opens in the other view', () => {
+    // Leaving this workflow's work behind, so it must not be worded as
+    // staying put.
     expect(
       surfaceSwitchTarget({
-        from: 'code',
-        workflowId: 'wf-1',
-        nextPathname: '/workflows/wf-2/canvas',
+        current: at(EDITOR, { view: 'ide' }),
+        next: at('/workflows/wf-2/editor', { view: 'canvas' }),
       }),
     ).toBe(null)
   })
 
-  it('is not a switch when the destination is the surface already shown', () => {
+  it('is not a switch when the view stays the same', () => {
+    // e.g. "back to latest": same view, different version.
     expect(
       surfaceSwitchTarget({
-        from: 'code',
-        workflowId: 'wf-1',
-        nextPathname: '/workflows/wf-1/code',
+        current: at(EDITOR, { view: 'canvas', version: 'v-1' }),
+        next: at(EDITOR, { view: 'canvas' }),
       }),
     ).toBe(null)
+  })
+})
+
+describe('parseSurface', () => {
+  it('accepts the two views and defaults anything else to canvas', () => {
+    expect(parseSurface('ide')).toBe('ide')
+    expect(parseSurface('canvas')).toBe('canvas')
+    for (const value of [undefined, null, '', 'code', 'IDE', 1]) {
+      expect(parseSurface(value)).toBe(DEFAULT_SURFACE)
+    }
+    expect(DEFAULT_SURFACE).toBe('canvas')
+  })
+})
+
+describe('editorSearch', () => {
+  it('carries only the params it is given', () => {
+    expect(editorSearch('ide')).toEqual({ view: 'ide' })
+    expect(editorSearch('canvas', { version: undefined })).toEqual({ view: 'canvas' })
+    expect(editorSearch('ide', { version: 'v-1', file: 'src/a.ts' })).toEqual({
+      view: 'ide',
+      version: 'v-1',
+      file: 'src/a.ts',
+    })
   })
 })
 
@@ -81,7 +122,7 @@ describe('unsavedDialogCopy', () => {
   })
 
   it('says what is unsaved and what the other surface will show', () => {
-    const copy = unsavedDialogCopy({ to: 'code', unsaved, canSave: true })
+    const copy = unsavedDialogCopy({ to: 'ide', unsaved, canSave: true })
     expect(copy.description).toContain(unsaved)
     expect(copy.description).toContain('last saved version')
     expect(copy.title).toContain('Code')

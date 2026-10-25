@@ -4,8 +4,7 @@
  * the two escape hatches can never drift apart.
  */
 export const CHROMELESS_ROUTE_IDS: readonly string[] = [
-  '/_authed/workflows/$workflowId/canvas',
-  '/_authed/workflows/$workflowId/code',
+  '/_authed/workflows/$workflowId/editor',
   '/_authed/workflows/$workflowId/deploy',
 ]
 
