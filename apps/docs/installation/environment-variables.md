@@ -52,6 +52,12 @@ To create a Google OAuth client: **Google Cloud Console → APIs & Services → 
 | `APP_NAME`     | `AwaitStep`       | Display name shown in the UI and email templates.                       |
 | `REGISTRY_URL` | Built-in registry | URL of a custom node registry. Omit to use the default public registry. |
 
+## Network
+
+| Variable          | Default | Description                                                                                                                                                                                                                                                                                                                       |
+| ----------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TRUSTED_PROXIES` | (none)  | Comma-separated addresses or CIDR ranges of reverse proxies allowed to name the client in `X-Forwarded-For`, e.g. `172.16.0.0/12` for a proxy container on a Docker network. Loopback is always trusted. Leave unset when the proxy runs on the same host. See [Reverse Proxy](./reverse-proxy#client-addresses-and-rate-limits). |
+
 ## Complete .env example
 
 ```bash

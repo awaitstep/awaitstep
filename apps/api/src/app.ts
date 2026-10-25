@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { cors } from 'hono/cors'
 import { csrf } from 'hono/csrf'
@@ -16,9 +16,14 @@ import type { TestSessionRunner } from '@awaitstep/codegen'
 import type { TestSessionLimits } from './lib/test-session-policy.js'
 import { createLogger } from './lib/logger.js'
 import { createRouter } from './routes/index.js'
-import { createRateLimiter } from './middleware/rate-limit.js'
 import { resolveTestSessionLimits } from './lib/test-session-policy.js'
 import { MAX_REQUEST_BYTES } from './lib/request-limits.js'
+import {
+  CLIENT_IP_HEADER,
+  LOOPBACK_PROXIES,
+  resolveClientIp,
+  type ClientIpPolicy,
+} from './lib/client-ip.js'
 
 export interface AppDeps {
   db: AppEnv['Variables']['db']
@@ -39,6 +44,16 @@ export interface AppDeps {
    */
   testSessionRunner?: TestSessionRunner
   testSessionLimits?: Partial<Record<keyof TestSessionLimits, number | undefined>>
+  /**
+   * The TCP peer's address, read from the runtime the entry point owns.
+   * Under the `proxied` policy it is the client unless it is a trusted proxy.
+   */
+  connectionAddress?: (c: Context<AppEnv>) => string | undefined
+  /**
+   * Whose word on the client address counts — see lib/client-ip.ts. Defaults
+   * to `proxied` with loopback trusted; the Workers entry passes `edge`.
+   */
+  clientIpPolicy?: ClientIpPolicy
 }
 
 export function createApp(deps: AppDeps) {
@@ -50,6 +65,16 @@ export function createApp(deps: AppDeps) {
 
   // Request ID — unique ID for every request, returned in X-Request-Id header
   app.use('*', requestId())
+
+  // Client address, once per request, under the deployment's trust policy.
+  const clientIpPolicy = deps.clientIpPolicy ?? {
+    mode: 'proxied',
+    trustedProxies: [...LOOPBACK_PROXIES],
+  }
+  app.use('*', async (c, next) => {
+    c.set('clientIp', resolveClientIp(c.req, deps.connectionAddress?.(c), clientIpPolicy))
+    await next()
+  })
 
   // Request logger — logs method, path, and status for every request
   app.use('*', honoLogger())
@@ -105,16 +130,17 @@ export function createApp(deps: AppDeps) {
     })
   }
 
-  // Auth rate limit — 5 requests per minute per IP (login, signup, magic link)
-  // Excludes get-session since SSR hits it on every page load
-  app.use('/api/auth/*', async (c, next) => {
-    if (c.req.path.endsWith('/get-session')) return next()
-    return createRateLimiter({ windowMs: 60_000, max: 5 })(c, next)
-  })
-
-  // Better-auth handler
+  // Better-auth handler. Its own limiter guards the sensitive paths (sign-in,
+  // sign-up, password and email changes) and records the session address;
+  // both read the address this app resolved, never a header a client can set.
+  // An app-level limiter used to sit in front of every auth path, sign-out
+  // and OAuth callbacks included — removed for this one.
   app.on(['POST', 'GET'], '/api/auth/*', (c) => {
-    return deps.auth.handler(c.req.raw)
+    const headers = new Headers(c.req.raw.headers)
+    headers.delete(CLIENT_IP_HEADER)
+    const clientIp = c.get('clientIp')
+    if (clientIp) headers.set(CLIENT_IP_HEADER, clientIp)
+    return deps.auth.handler(new Request(c.req.raw, { headers }))
   })
 
   // DB + node registry + app config context

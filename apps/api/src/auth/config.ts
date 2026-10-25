@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth'
 import { magicLink, organization } from 'better-auth/plugins'
+import { CLIENT_IP_HEADER } from '../lib/client-ip.js'
 
 export interface AuthOptions {
   baseURL: string
@@ -9,6 +10,12 @@ export interface AuthOptions {
   github?: { clientId: string; clientSecret: string }
   google?: { clientId: string; clientSecret: string }
   sendMagicLink?: (data: { email: string; url: string; token: string }) => Promise<void>
+  /**
+   * better-auth's limiter on sign-in, sign-up and the password/email-change
+   * paths. Decided by the entry point: left to better-auth it follows
+   * NODE_ENV, which a Worker typically does not set.
+   */
+  rateLimit?: boolean
 }
 
 export function createAuth(options: AuthOptions) {
@@ -54,10 +61,15 @@ export function createAuth(options: AuthOptions) {
     user: {
       deleteUser: { enabled: true },
     },
+    // The address the app resolved under its trust policy, set on every
+    // request in app.ts — never a forwarding header a client could choose.
     advanced: {
       ipAddress: {
-        ipAddressHeaders: ['cf-connecting-ip', 'x-forwarded-for', 'x-real-ip'],
+        ipAddressHeaders: [CLIENT_IP_HEADER],
       },
+    },
+    rateLimit: {
+      enabled: options.rateLimit ?? true,
     },
     socialProviders: {
       ...(options.github && {

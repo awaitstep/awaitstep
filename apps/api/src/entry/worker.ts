@@ -108,6 +108,9 @@ async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof cr
     isDev: false,
     enableLocalDev: false,
     runtime: 'workers',
+    // Cloudflare's edge writes cf-connecting-ip on every request; the web
+    // Worker forwards it across the service binding.
+    clientIpPolicy: { mode: 'edge', header: 'cf-connecting-ip' },
     nodeRegistry,
     remoteNodeRegistry,
     appName: env.APP_NAME,

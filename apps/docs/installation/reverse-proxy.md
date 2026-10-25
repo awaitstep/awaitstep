@@ -90,3 +90,31 @@ BETTER_AUTH_URL=https://workflows.example.com
 ```
 
 Restart the container after changing this value.
+
+## Client addresses and rate limits
+
+AwaitStep rate-limits by client address and records it on sessions. A
+forwarding header is a claim, so it only counts when the connection it
+arrives on comes from a **trusted proxy**:
+
+- A connection from anywhere else is keyed on its own address, whatever
+  headers it sends — reaching port `8080` directly cannot fake an address.
+- A connection from a trusted proxy is read from `X-Forwarded-For`, right to
+  left: each proxy appends the address it saw, so AwaitStep skips trusted
+  hops and takes the first address that is not one. Whatever the client
+  wrote further left is ignored. (`X-Real-IP` is used only when there is no
+  `X-Forwarded-For` at all.)
+
+Loopback is always trusted, which covers both configurations above when the
+proxy runs on the same host — Caddy and nginx both set `X-Forwarded-For`.
+
+**A proxy on another host or container must be named in `TRUSTED_PROXIES`**,
+e.g. `TRUSTED_PROXIES=172.16.0.0/12` for a Caddy container on a Docker
+network (the [Docker Compose](./docker-compose) setup). Without it the proxy
+itself looks like the client: nothing can be spoofed, but every user shares
+the proxy's limits.
+
+The limits are counted in memory, per process. They reset when the container
+restarts and are not shared between instances — fine for the single-instance
+deployment this guide sets up; a horizontally scaled deployment would need a
+shared store.

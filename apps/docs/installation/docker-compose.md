@@ -36,6 +36,10 @@ services:
       - '3000'
     env_file:
       - .env
+    environment:
+      # Caddy reaches AwaitStep over the Compose network; trust it to name
+      # the client, or every user shares Caddy's rate limits.
+      TRUSTED_PROXIES: 172.16.0.0/12
     volumes:
       - awaitstep-data:/app/data
 

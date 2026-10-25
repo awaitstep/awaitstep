@@ -1,4 +1,5 @@
 import { serve } from '@hono/node-server'
+import { getConnInfo } from '@hono/node-server/conninfo'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkdirSync } from 'node:fs'
@@ -7,6 +8,7 @@ import { DrizzleDatabaseAdapter, schema } from '@awaitstep/db'
 import { createApp, createAuth } from '../index.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
 import { createLogger } from '../lib/logger.js'
+import { LOOPBACK_PROXIES, parseTrustedProxies } from '../lib/client-ip.js'
 import { loadNodeRegistry } from '../lib/node-registry-fs.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
 import { createEmailService } from '../lib/email.js'
@@ -159,6 +161,12 @@ async function start() {
     deployer: new NodeWranglerDeployer(),
     testSessionRunner: testSessionRunner,
     testSessionLimits: testSessionLimits,
+
+    connectionAddress: (c) => getConnInfo(c).remote.address,
+    clientIpPolicy: {
+      mode: 'proxied',
+      trustedProxies: [...LOOPBACK_PROXIES, ...parseTrustedProxies(process.env['TRUSTED_PROXIES'])],
+    },
   })
 
   // Before anything reaps: the previous run's sessions name processes this
@@ -196,9 +204,18 @@ async function start() {
   const ssrModule = await import(ssrPath)
   const ssrServer = ssrModule.default
 
+  // The web server is a proxy hop for its own SSR calls to the API: it
+  // appends the address it saw to X-Forwarded-For, as nginx does, and the
+  // pages forward that chain. The API trusts it because the hop is loopback;
+  // without it every user's SSR call was keyed on 127.0.0.1 and shared one
+  // rate-limit bucket.
   webApp.all('/*', async (c) => {
-    const response = await ssrServer.fetch(c.req.raw)
-    return response
+    const peer = getConnInfo(c).remote.address
+    if (!peer) return ssrServer.fetch(c.req.raw)
+    const headers = new Headers(c.req.raw.headers)
+    const prior = headers.get('x-forwarded-for')
+    headers.set('x-forwarded-for', prior ? `${prior}, ${peer}` : peer)
+    return ssrServer.fetch(new Request(c.req.raw, { headers }))
   })
 
   serve({ fetch: webApp.fetch, port: webPort })

@@ -17,6 +17,8 @@ export interface AppEnv {
     workflow: Workflow | undefined
     connection: Connection | undefined
     requestId: string
+    /** The caller's address, resolved once per request — the rate limiters' key. */
+    clientIp: string | undefined
     apiKeyScopes: ApiKeyScope[] | null
     /** The key's own expiry — the ceiling for any key it mints. Null for sessions. */
     apiKeyExpiresAt: string | null

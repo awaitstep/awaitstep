@@ -582,6 +582,18 @@ Set `CF_RESEND_API_KEY` and optionally `CF_RESEND_FROM_EMAIL`. The Web Worker wi
 2. Add `<WEB_WORKER_URL>/api/auth/callback/google` as an authorized redirect URI
 3. Set `CF_GOOGLE_CLIENT_ID` and `CF_GOOGLE_CLIENT_SECRET`
 
+### Rate limits on Workers
+
+The API identifies clients by `CF-Connecting-IP`, which Cloudflare's edge sets
+on every request and the Web Worker forwards across its service binding. Its
+rate limits — the global per-client limit and the sign-in/sign-up limits —
+are counted in memory, and on Workers every isolate counts on its own, so
+they are loose here: a burst spread across isolates is not added up.
+Configure [Cloudflare rate limiting rules](https://developers.cloudflare.com/waf/rate-limiting-rules/)
+on `/api/auth/sign-in/*` and `/api/auth/sign-up/*` for a limit that holds.
+Requests that arrive without `CF-Connecting-IP` (local `wrangler dev`,
+internal calls) share one bucket.
+
 ## Local Development
 
 ```bash

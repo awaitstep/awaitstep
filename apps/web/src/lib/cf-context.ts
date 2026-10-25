@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { getRequestHeader } from '@tanstack/react-start/server'
 
 interface ServiceFetcher {
   fetch: (request: Request) => Promise<Response>
@@ -41,5 +42,21 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
     return ctx.bindings.API.fetch(new Request(`https://api.internal${path}`, { ...init, headers }))
   }
   const base = process.env['API_URL'] ?? `http://localhost:${process.env['PORT'] || 8080}`
-  return fetch(`${base}${path}`, init)
+  // On Node the web server reaches the API over loopback, so the API keys
+  // this call on the forwarding chain, not the connection. The server entry
+  // has already appended the address it saw; pass the chain on unchanged.
+  const forwardedFor = currentForwardedFor()
+  if (!forwardedFor) return fetch(`${base}${path}`, init)
+  const headers = new Headers(init?.headers)
+  headers.set('x-forwarded-for', forwardedFor)
+  return fetch(`${base}${path}`, { ...init, headers })
+}
+
+function currentForwardedFor(): string | undefined {
+  try {
+    return getRequestHeader('x-forwarded-for') || undefined
+  } catch {
+    // Called outside a request (a build step, a script): no client to name.
+    return undefined
+  }
 }

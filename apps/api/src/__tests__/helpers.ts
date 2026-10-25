@@ -836,8 +836,18 @@ const mockDb: DatabaseAdapter = {
   },
 }
 
+let lastAuthRequest: Request | null = null
+
+/** The request the app last handed better-auth — what its handler sees. */
+export function lastAuthHandlerRequest(): Request | null {
+  return lastAuthRequest
+}
+
 const mockAuth = {
-  handler: async () => new Response(JSON.stringify({ ok: true })),
+  handler: async (req: Request) => {
+    lastAuthRequest = req
+    return new Response(JSON.stringify({ ok: true }))
+  },
   api: {
     getSession: async () => ({
       user: { id: TEST_USER_ID, email: 'test@example.com', name: 'Test' },
@@ -913,6 +923,8 @@ export function createTestApp(options?: {
   /** A concrete origin turns CSRF checking on, as a deployment has it. */
   corsOrigin?: AppDeps['corsOrigin']
   enableLocalDev?: AppDeps['enableLocalDev']
+  connectionAddress?: AppDeps['connectionAddress']
+  clientIpPolicy?: AppDeps['clientIpPolicy']
 }) {
   // Seed the test project so auth middleware can find it
   store.projects.set(TEST_PROJECT_ID, {
@@ -934,5 +946,7 @@ export function createTestApp(options?: {
     testSessionRunner: options?.testSessionRunner,
     testSessionLimits: options?.testSessionLimits,
     ...(options?.enableLocalDev !== undefined && { enableLocalDev: options.enableLocalDev }),
+    ...(options?.connectionAddress && { connectionAddress: options.connectionAddress }),
+    ...(options?.clientIpPolicy && { clientIpPolicy: options.clientIpPolicy }),
   })
 }

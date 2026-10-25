@@ -1,4 +1,5 @@
 import { serve } from '@hono/node-server'
+import { getConnInfo } from '@hono/node-server/conninfo'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
@@ -9,6 +10,7 @@ import { createApp, createAuth } from '../index.js'
 import { cleanupLocalDevSessions } from '../routes/local-dev.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
 import { createLogger } from '../lib/logger.js'
+import { LOOPBACK_PROXIES, parseTrustedProxies } from '../lib/client-ip.js'
 import { loadNodeRegistry } from '../lib/node-registry-fs.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
 import { createEmailService } from '../lib/email.js'
@@ -70,6 +72,7 @@ async function start() {
   const auth = createAuth({
     baseURL,
     secret: authSecret ?? crypto.randomUUID(),
+    rateLimit: !isDev,
     database: sqlite,
     trustedOrigins: [...new Set([baseURL, ...corsOrigins])],
     sendMagicLink,
@@ -126,6 +129,12 @@ async function start() {
     deployer: new NodeWranglerDeployer(),
     testSessionRunner,
     testSessionLimits,
+
+    connectionAddress: (c) => getConnInfo(c).remote.address,
+    clientIpPolicy: {
+      mode: 'proxied',
+      trustedProxies: [...LOOPBACK_PROXIES, ...parseTrustedProxies(process.env['TRUSTED_PROXIES'])],
+    },
   })
 
   const port = Number(process.env['PORT'] ?? 8080)
