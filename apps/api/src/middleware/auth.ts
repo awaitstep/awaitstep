@@ -56,6 +56,15 @@ export function createAuthMiddleware(auth: Auth) {
         return c.json({ error: 'API key creator is no longer a member of the organization' }, 401)
       }
 
+      // A key minted by another key lives no longer than it: revoking a
+      // leaked organization key takes everything it minted with it.
+      if (!apiKey.parentKeyLive) {
+        return c.json(
+          { error: 'The API key that created this key has been revoked or expired' },
+          401,
+        )
+      }
+
       c.set('userId', apiKey.createdBy)
       c.set('organizationId', apiKey.resolvedOrganizationId)
       // An organization-level key has no project: project-scoped routes
@@ -65,6 +74,7 @@ export function createAuthMiddleware(auth: Auth) {
       }
       c.set('user', null)
       c.set('session', null)
+      c.set('apiKeyId', apiKey.id)
       c.set('apiKeyScopes', scopes)
       c.set('apiKeyExpiresAt', apiKey.expiresAt)
 
@@ -90,6 +100,7 @@ export function createAuthMiddleware(auth: Auth) {
     c.set('user', session.user)
     c.set('session', session.session)
     c.set('userId', session.user.id)
+    c.set('apiKeyId', null)
     c.set('apiKeyScopes', null)
     c.set('apiKeyExpiresAt', null)
 

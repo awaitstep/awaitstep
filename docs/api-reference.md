@@ -1363,8 +1363,10 @@ variables) and is refused on every project route. Organization-level keys can
 only be created from a session; an organization-level key may create project
 keys (`403` when it tries to create another org key). A key never mints past
 itself: the new key's scopes must be a subset of the caller's (`403`
-otherwise) and its expiry is capped at the caller's own. Keys stop working
-when their creator leaves the organization.
+otherwise) and its expiry is capped at the caller's own. A key minted by
+another key records it as `parentKeyId` and stops working (`401`) when that
+key is revoked or expires. Keys stop working when their creator leaves the
+organization.
 
 ```json
 {
@@ -1380,4 +1382,5 @@ organization-level key.
 
 ### `DELETE /api-keys/:id`
 
-Revoke an API key.
+Revoke an API key. Revoking an organization-level key also stops every key it
+minted.

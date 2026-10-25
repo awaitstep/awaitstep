@@ -65,6 +65,11 @@ export function ApiKeysSection() {
   // in — no client-side filtering or name lookups.
   const activeKeys = keys ?? []
 
+  const revokingOrgKey = activeKeys.some((key) => key.id === revokeTarget && !key.projectId)
+  const revokeDescription = revokingOrgKey
+    ? 'This key will immediately stop working, and so will every project key it created. Any applications using them will lose access.'
+    : 'This key will immediately stop working. Any applications using it will lose access.'
+
   function handleKeyCreated(key: ApiKeyCreated) {
     setCreateOpen(false)
     setCreatedKey(key)
@@ -138,7 +143,7 @@ export function ApiKeysSection() {
         open={!!revokeTarget}
         onOpenChange={handleRevokeOpenChange}
         title="Revoke API key"
-        description="This key will immediately stop working. Any applications using it will lose access."
+        description={revokeDescription}
         confirmLabel="Revoke"
         variant="destructive"
         loading={revokeMutation.isPending}

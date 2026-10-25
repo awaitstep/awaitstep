@@ -19,6 +19,8 @@ export interface AppEnv {
     requestId: string
     /** The caller's address, resolved once per request — the rate limiters' key. */
     clientIp: string | undefined
+    /** The calling key — recorded as the parent of any key it mints. Null for sessions. */
+    apiKeyId: string | null
     apiKeyScopes: ApiKeyScope[] | null
     /** The key's own expiry — the ceiling for any key it mints. Null for sessions. */
     apiKeyExpiresAt: string | null

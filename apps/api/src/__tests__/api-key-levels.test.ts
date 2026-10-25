@@ -519,6 +519,59 @@ describe('organization-level API keys', () => {
     expect(capped.expiresAt).toBe(callerExpiry)
   })
 
+  it('compares expiries as instants, not as strings', async () => {
+    // Lexically `…00.500Z` sorts before `…00Z`, though it is half a second
+    // later — a string compare let the minted key outlive its parent.
+    const EXPIRING_KEY = 'ask_test-expiring-org-key'
+    const callerExpiry = '2099-01-01T00:00:00Z'
+    await mockDb.createApiKey({
+      id: 'org-key-2',
+      organizationId: TEST_ORG_ID,
+      projectId: null,
+      createdBy: TEST_USER_ID,
+      name: 'expiring org key',
+      keyHash: await hashApiKey(EXPIRING_KEY),
+      keyPrefix: EXPIRING_KEY.slice(0, 8),
+      scopes: JSON.stringify(['read', 'write']),
+      expiresAt: callerExpiry,
+    })
+    const res = await app.request('/api/api-keys', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${EXPIRING_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'later by half a second',
+        projectId: TEST_PROJECT_ID,
+        scopes: ['read'],
+        expiresAt: '2099-01-01T00:00:00.500Z',
+      }),
+    })
+    expect(res.status).toBe(201)
+    expect(((await res.json()) as { expiresAt: string }).expiresAt).toBe(callerExpiry)
+  })
+
+  it('takes every key it minted with it when it is revoked', async () => {
+    const minted = await app.request(
+      '/api/api-keys',
+      asOrgKey({
+        method: 'POST',
+        body: JSON.stringify({ name: 'child', projectId: TEST_PROJECT_ID, scopes: ['read'] }),
+      }),
+    )
+    expect(minted.status).toBe(201)
+    const child = (await minted.json()) as { key: string; parentKeyId: string }
+    expect(child.parentKeyId).toBe('org-key-1')
+    const asChild = { headers: { Authorization: `Bearer ${child.key}` } }
+
+    expect((await app.request('/api/workflows', asChild)).status).toBe(200)
+
+    const revoked = await app.request(...asSession('/api/api-keys/org-key-1', { method: 'DELETE' }))
+    expect(revoked.status).toBe(200)
+
+    const after = await app.request('/api/workflows', asChild)
+    expect(after.status).toBe(401)
+    expect(((await after.json()) as { error: string }).error).toContain('revoked or expired')
+  })
+
   it('stops working when its creator leaves the organization', async () => {
     const GHOST_KEY = 'ask_test-ghost-key'
     await mockDb.createApiKey({

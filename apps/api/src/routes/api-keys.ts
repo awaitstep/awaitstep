@@ -57,7 +57,9 @@ apiKeys.post('/', zValidator('json', createApiKeySchema), async (c) => {
       )
     }
     const callerExpiresAt = c.get('apiKeyExpiresAt')
-    if (callerExpiresAt && (!expiresAt || expiresAt > callerExpiresAt)) {
+    // As instants: ISO strings of one moment can differ (`…00Z` vs `…00.000Z`)
+    // and sort the wrong way round.
+    if (callerExpiresAt && (!expiresAt || Date.parse(expiresAt) > Date.parse(callerExpiresAt))) {
       expiresAt = callerExpiresAt
     }
   }
@@ -72,6 +74,7 @@ apiKeys.post('/', zValidator('json', createApiKeySchema), async (c) => {
     id: nanoid(),
     organizationId,
     projectId: body.projectId ?? null,
+    parentKeyId: c.get('apiKeyId'),
     createdBy: userId,
     name: body.name,
     keyHash,

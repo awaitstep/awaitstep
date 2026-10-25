@@ -675,6 +675,7 @@ const mockDb: DatabaseAdapter = {
       ...data,
       projectId: data.projectId ?? null,
       organizationId: data.projectId ? null : data.organizationId,
+      parentKeyId: data.parentKeyId ?? null,
       expiresAt: data.expiresAt ?? null,
       lastUsedAt: null,
       revokedAt: null,
@@ -694,11 +695,17 @@ const mockDb: DatabaseAdapter = {
       ? (store.projects.get(key.projectId)?.organizationId ?? null)
       : null
     const resolvedOrganizationId = key.organizationId ?? projectOrg
+    const parent = key.parentKeyId ? store.apiKeys.get(key.parentKeyId) : undefined
     return {
       ...key,
       resolvedOrganizationId,
       // The same membership rule as the isOrgMember mock above.
       createdByIsMember: key.createdBy === TEST_USER_ID && resolvedOrganizationId === TEST_ORG_ID,
+      parentKeyLive:
+        !key.parentKeyId ||
+        (!!parent &&
+          !parent.revokedAt &&
+          (!parent.expiresAt || Date.parse(parent.expiresAt) > Date.now())),
     }
   },
   async listApiKeysByOrganization(organizationId) {
