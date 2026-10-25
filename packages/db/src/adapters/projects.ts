@@ -62,21 +62,26 @@ export class ProjectsAdapter {
     return paginateResults(rows, limit, (r) => r.createdAt)
   }
 
+  /** The organization check rides in the WHERE — one statement, no prior read. */
   async update(
     id: string,
+    organizationId: string,
     data: { name?: string; slug?: string; description?: string },
-  ): Promise<Project> {
+  ): Promise<Project | null> {
     const now = new Date().toISOString()
-    await this.db
+    const rows = await this.db
       .update(this.table)
       .set({ ...data, updatedAt: now })
-      .where(eq(this.table.id, id))
-    const updated = await this.getById(id)
-    if (!updated) throw new Error(`Project ${id} not found`)
-    return updated
+      .where(and(eq(this.table.id, id), eq(this.table.organizationId, organizationId)))
+      .returning()
+    return rows[0] ?? null
   }
 
-  async delete(id: string): Promise<void> {
-    await this.db.delete(this.table).where(eq(this.table.id, id))
+  async delete(id: string, organizationId: string): Promise<boolean> {
+    const rows = await this.db
+      .delete(this.table)
+      .where(and(eq(this.table.id, id), eq(this.table.organizationId, organizationId)))
+      .returning({ id: this.table.id })
+    return rows.length > 0
   }
 }

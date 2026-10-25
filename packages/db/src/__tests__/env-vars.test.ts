@@ -25,14 +25,21 @@ function createTestDb() {
 
 function insert(
   sqlite: Database.Database,
-  row: { id: string; org?: string; project?: string | null; name: string; value: string },
+  row: {
+    id: string
+    org?: string
+    project?: string | null
+    name: string
+    value: string
+    secret?: boolean
+  },
 ) {
   sqlite
     .prepare(
       `INSERT INTO env_vars (id, organization_id, project_id, created_by, name, value, is_secret, created_at, updated_at)
-       VALUES (?, ?, ?, 'u-1', ?, ?, 0, '${now}', '${now}')`,
+       VALUES (?, ?, ?, 'u-1', ?, ?, ?, '${now}', '${now}')`,
     )
-    .run(row.id, row.org ?? 'org-1', row.project ?? null, row.name, row.value)
+    .run(row.id, row.org ?? 'org-1', row.project ?? null, row.name, row.value, row.secret ? 1 : 0)
 }
 
 describe('findEnvVarsByNames', () => {
@@ -98,5 +105,93 @@ describe('findEnvVarsByNames', () => {
     insert(db.sqlite, { id: 'e-1', project: 'p-1', name: 'API_URL', value: 'a' })
 
     expect(await db.adapter.findEnvVarsByNames('org-1', [], 'p-1')).toEqual([])
+  })
+})
+
+describe('scoped update and delete', () => {
+  let db: ReturnType<typeof createTestDb>
+
+  beforeEach(() => {
+    db = createTestDb()
+  })
+
+  it('updates only rows inside the scope', async () => {
+    insert(db.sqlite, { id: 'e-1', project: 'p-1', name: 'API_URL', value: 'before' })
+
+    const wrongProject = await db.adapter.updateEnvVar(
+      'e-1',
+      { organizationId: 'org-1', projectId: 'p-2' },
+      { value: 'hijacked' },
+    )
+    expect(wrongProject).toBeNull()
+
+    const wrongOrg = await db.adapter.updateEnvVar(
+      'e-1',
+      { organizationId: 'org-2' },
+      { value: 'hijacked' },
+    )
+    expect(wrongOrg).toBeNull()
+    expect((await db.adapter.getEnvVarById('e-1'))?.value).toBe('before')
+
+    const updated = await db.adapter.updateEnvVar(
+      'e-1',
+      { organizationId: 'org-1', projectId: 'p-1' },
+      { value: 'after' },
+    )
+    expect(updated?.value).toBe('after')
+  })
+
+  it('a null project scope touches only org-wide rows', async () => {
+    insert(db.sqlite, { id: 'e-org', project: null, name: 'ORG_WIDE', value: 'org' })
+    insert(db.sqlite, { id: 'e-proj', project: 'p-1', name: 'PROJ', value: 'proj' })
+
+    const orgWide = await db.adapter.updateEnvVar(
+      'e-org',
+      { organizationId: 'org-1', projectId: null },
+      { value: 'changed' },
+    )
+    expect(orgWide?.value).toBe('changed')
+
+    const projectRow = await db.adapter.updateEnvVar(
+      'e-proj',
+      { organizationId: 'org-1', projectId: null },
+      { value: 'changed' },
+    )
+    expect(projectRow).toBeNull()
+  })
+
+  it('never turns a stored secret readable by flipping the flag', async () => {
+    insert(db.sqlite, { id: 'e-s', project: null, name: 'SECRET', value: 'hidden', secret: true })
+
+    const flipped = await db.adapter.updateEnvVar(
+      'e-s',
+      { organizationId: 'org-1' },
+      { isSecret: false },
+    )
+    expect(flipped).toBeNull()
+    expect((await db.adapter.getEnvVarById('e-s'))?.isSecret).toBe(true)
+
+    const replaced = await db.adapter.updateEnvVar(
+      'e-s',
+      { organizationId: 'org-1' },
+      { isSecret: false, value: 'public' },
+    )
+    expect(replaced?.isSecret).toBe(false)
+    expect(replaced?.value).toBe('public')
+  })
+
+  it('deletes within the scope and reports whether a row went', async () => {
+    insert(db.sqlite, { id: 'e-1', project: 'p-1', name: 'API_URL', value: 'a' })
+
+    expect(
+      await db.adapter.deleteEnvVar('e-1', { organizationId: 'org-1', projectId: 'p-2' }),
+    ).toBe(false)
+    expect(await db.adapter.deleteEnvVar('e-1', { organizationId: 'org-2' })).toBe(false)
+    expect(await db.adapter.getEnvVarById('e-1')).not.toBeNull()
+
+    expect(
+      await db.adapter.deleteEnvVar('e-1', { organizationId: 'org-1', projectId: 'p-1' }),
+    ).toBe(true)
+    expect(await db.adapter.getEnvVarById('e-1')).toBeNull()
   })
 })

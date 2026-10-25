@@ -167,12 +167,13 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
   updateProject(
     id: string,
+    organizationId: string,
     data: { name?: string; slug?: string; description?: string },
-  ): Promise<Project> {
-    return this._projects.update(id, data)
+  ): Promise<Project | null> {
+    return this._projects.update(id, organizationId, data)
   }
-  deleteProject(id: string): Promise<void> {
-    return this._projects.delete(id)
+  deleteProject(id: string, organizationId: string): Promise<boolean> {
+    return this._projects.delete(id, organizationId)
   }
 
   // Workflows
@@ -718,12 +719,16 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
   updateEnvVar(
     id: string,
+    scope: { organizationId: string; projectId?: string | null },
     data: { name?: string; value?: string; isSecret?: boolean },
   ): Promise<EnvVar | null> {
-    return this._envVars.update(id, data)
+    return this._envVars.update(id, scope, data)
   }
-  deleteEnvVar(id: string): Promise<void> {
-    return this._envVars.delete(id)
+  deleteEnvVar(
+    id: string,
+    scope: { organizationId: string; projectId?: string | null },
+  ): Promise<boolean> {
+    return this._envVars.delete(id, scope)
   }
 
   async getWorkflowEnvVars(workflowId: string): Promise<WorkflowEnvVar[]> {

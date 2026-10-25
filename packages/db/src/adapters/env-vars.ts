@@ -182,8 +182,15 @@ export class EnvVarsAdapter {
     )
   }
 
+  /**
+   * One statement: the ownership check — organization, and the project when
+   * the caller is pinned to one — rides in the WHERE instead of a prior read.
+   * `scope.projectId` of `null` restricts to org-wide rows; leaving it out
+   * means any row of the organization.
+   */
   async update(
     id: string,
+    scope: { organizationId: string; projectId?: string | null },
     data: { name?: string; value?: string; isSecret?: boolean },
   ): Promise<EnvVar | null> {
     const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() }
@@ -192,12 +199,51 @@ export class EnvVarsAdapter {
       updates.value = this.crypto ? await this.crypto.encrypt(data.value) : data.value
     }
     if (data.isSecret !== undefined) updates.isSecret = data.isSecret
-    await this.db.update(this.table).set(updates).where(eq(this.table.id, id))
-    return this.getById(id)
+
+    const conditions = [eq(this.table.id, id), eq(this.table.organizationId, scope.organizationId)]
+    if (scope.projectId !== undefined) {
+      conditions.push(
+        scope.projectId === null
+          ? isNull(this.table.projectId)
+          : eq(this.table.projectId, scope.projectId),
+      )
+    }
+    // A stored secret must not become readable by flipping the flag: without
+    // a replacement value, the update applies only to rows that are already
+    // non-secret. The caller tells this refusal from a miss on the error path.
+    if (data.isSecret === false && data.value === undefined) {
+      conditions.push(eq(this.table.isSecret, false))
+    }
+
+    const rows = await this.db
+      .update(this.table)
+      .set(updates)
+      .where(and(...conditions))
+      .returning()
+    const row = rows[0] ?? null
+    if (row && this.crypto) {
+      row.value = await this.tryDecrypt(row.value)
+    }
+    return row
   }
 
-  async delete(id: string): Promise<void> {
-    await this.db.delete(this.table).where(eq(this.table.id, id))
+  async delete(
+    id: string,
+    scope: { organizationId: string; projectId?: string | null },
+  ): Promise<boolean> {
+    const conditions = [eq(this.table.id, id), eq(this.table.organizationId, scope.organizationId)]
+    if (scope.projectId !== undefined) {
+      conditions.push(
+        scope.projectId === null
+          ? isNull(this.table.projectId)
+          : eq(this.table.projectId, scope.projectId),
+      )
+    }
+    const rows = await this.db
+      .delete(this.table)
+      .where(and(...conditions))
+      .returning({ id: this.table.id })
+    return rows.length > 0
   }
 
   private async tryDecrypt(value: string): Promise<string> {

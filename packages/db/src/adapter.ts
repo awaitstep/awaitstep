@@ -64,11 +64,14 @@ export interface DatabaseAdapter {
     organizationId: string,
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<Project>>
+  /** Updates only within the organization — null when no such row there. */
   updateProject(
     id: string,
+    organizationId: string,
     data: { name?: string; slug?: string; description?: string },
-  ): Promise<Project>
-  deleteProject(id: string): Promise<void>
+  ): Promise<Project | null>
+  /** Deletes only within the organization — false when no such row there. */
+  deleteProject(id: string, organizationId: string): Promise<boolean>
 
   // Workflows
   createWorkflow(data: {
@@ -319,11 +322,22 @@ export interface DatabaseAdapter {
     projectId: string,
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<EnvVar>>
+  /**
+   * Updates one statement-scoped row: the organization always, the project
+   * when given (`null` = org-wide rows only). Null when no row matches — or
+   * when the update would make a stored secret readable (isSecret flipped
+   * false with no replacement value).
+   */
   updateEnvVar(
     id: string,
+    scope: { organizationId: string; projectId?: string | null },
     data: { name?: string; value?: string; isSecret?: boolean },
   ): Promise<EnvVar | null>
-  deleteEnvVar(id: string): Promise<void>
+  /** Deletes within the scope — false when no row matched. */
+  deleteEnvVar(
+    id: string,
+    scope: { organizationId: string; projectId?: string | null },
+  ): Promise<boolean>
   getWorkflowEnvVars(workflowId: string): Promise<WorkflowEnvVar[]>
   setWorkflowEnvVars(workflowId: string, vars: WorkflowEnvVar[]): Promise<void>
   /**
