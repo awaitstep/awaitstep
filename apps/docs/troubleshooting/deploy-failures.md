@@ -80,7 +80,19 @@ also catches symlinks and packages found in a parent `node_modules`.
 **Fix:** Move the file into the project and import it with `#app/` (or a
 relative path that stays inside), or add the package as a dependency. The
 source check reads raw text, so an escaping specifier in a comment or string
-is reported too — remove it.
+is reported too — remove it. A path built in pieces inside `import()` or
+`require()` (`'../' + name`) is refused if any piece climbs with `..`, even
+when the result would land inside the project: write the path whole, or
+start it with `./`.
+
+## `Could not check that the bundle stays inside the project: …`
+
+**Cause:** The build itself failed before it could be checked — most often an
+import of a file that does not exist. The text after the colon is the
+bundler's own error.
+
+**Fix:** Correct the import it names. A build that cannot be checked is never
+deployed.
 
 ---
 

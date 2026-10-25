@@ -65,7 +65,11 @@ export { DEFAULT_RETENTION, resolveRetention } from './codegen/retention.js'
 export type { CloudflareRetention } from './codegen/retention.js'
 export { splitEnvVars } from './env.js'
 export { startLocalDev, killPort, isPortListening, readLogs, LOCAL_DEV_PORT } from './local-dev.js'
-export { assertBundleContained, BundleEscapeError } from './bundle-containment.js'
+export {
+  assertBundleContained,
+  buildContainedBundle,
+  BundleEscapeError,
+} from './bundle-containment.js'
 export { SandboxTestSessionRunner } from './test-sessions/sandbox-runner.js'
 export type { SandboxTestSessionRunnerOptions } from './test-sessions/sandbox-runner.js'
 export {
@@ -79,6 +83,7 @@ export {
   buildDevWorkspaceFiles,
   writeDevWorkspace,
   prepareHostWorkspace,
+  prepareHostDeploy,
   formatDevVars,
 } from './dev-workspace.js'
 export type { DevWorkspaceFile } from './dev-workspace.js'

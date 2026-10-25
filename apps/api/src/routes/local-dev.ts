@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { supportsLocalDev, type LocalDevProvider } from '@awaitstep/codegen'
+import { GenerateInputError, supportsLocalDev, type LocalDevProvider } from '@awaitstep/codegen'
 import {
   killPort,
   isPortListening,
@@ -54,7 +54,8 @@ localDev.post('/:workflowId/local-dev/start', async (c) => {
 
     return c.json({ status: 'running', port: result.port, url: result.url, pid: result.pid })
   } catch (err) {
-    return c.json({ error: err instanceof Error ? err.message : 'Failed to start local dev' }, 500)
+    const message = err instanceof Error ? err.message : 'Failed to start local dev'
+    return c.json({ error: message }, err instanceof GenerateInputError ? 422 : 500)
   }
 })
 

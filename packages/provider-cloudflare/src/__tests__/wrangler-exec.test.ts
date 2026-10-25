@@ -6,6 +6,7 @@ import {
   PINNED_WRANGLER_VERSION,
   wranglerCommand,
   wranglerEnv,
+  wranglerFailureReason,
   wranglerHome,
 } from '../wrangler-exec.js'
 
@@ -147,5 +148,26 @@ describe('wranglerEnv', () => {
     expect(wranglerEnv({ CLOUDFLARE_API_TOKEN: 'explicit' })['CLOUDFLARE_API_TOKEN']).toBe(
       'explicit',
     )
+  })
+})
+
+describe('wranglerFailureReason', () => {
+  it('keeps the error lines, without colour codes or the log-file footer', () => {
+    const output = [
+      '\x1b[31m✘ \x1b[41;31m[\x1b[41;97mERROR\x1b[41;31m]\x1b[0m \x1b[1mBuild failed with 1 error:\x1b[0m',
+      '',
+      '  \x1b[31m✘ \x1b[41;31m[\x1b[41;97mERROR\x1b[41;31m]\x1b[0m \x1b[1mCould not resolve "./missing.js"\x1b[0m',
+      '      worker.js:1:14:',
+      '',
+      '',
+      '🪵  Logs were written to "/home/x/.wrangler/logs/wrangler.log"',
+    ].join('\n')
+    expect(wranglerFailureReason(output)).toBe(
+      'Build failed with 1 error:\nCould not resolve "./missing.js"',
+    )
+  })
+
+  it('falls back to the last meaningful lines when nothing is marked an error', () => {
+    expect(wranglerFailureReason('a\n\nb\n🪵  Logs were written to "x"\n\n')).toBe('a\nb')
   })
 })

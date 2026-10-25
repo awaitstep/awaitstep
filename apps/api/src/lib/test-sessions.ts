@@ -1,6 +1,10 @@
 import { nanoid } from 'nanoid'
 import type { DatabaseAdapter, TestSession, Workflow } from '@awaitstep/db'
-import type { TestSessionHandle, TestSessionRunner } from '@awaitstep/codegen'
+import {
+  GenerateInputError,
+  type TestSessionHandle,
+  type TestSessionRunner,
+} from '@awaitstep/codegen'
 import { splitEnvVars } from '@awaitstep/provider-cloudflare'
 import type { AppNodeRegistry } from './node-registry.js'
 import { prepareWorkflow, isPrepareError } from './workflow-prepare.js'
@@ -199,7 +203,9 @@ export async function startTestSession(
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Could not start the test session'
     await stopTestSession({ db, runner, limits }, reserved, 'failed', { error: message })
-    return { ok: false, status: 502, error: message }
+    // The workflow refused (its imports reach outside it) is the caller's to
+    // fix; anything else is the runner failing.
+    return { ok: false, status: err instanceof GenerateInputError ? 422 : 502, error: message }
   }
 
   const session = await db.activateTestSession(

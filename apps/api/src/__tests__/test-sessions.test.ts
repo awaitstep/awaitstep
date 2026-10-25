@@ -9,6 +9,7 @@ import {
 } from './helpers.js'
 import { reapTestSessions, resolveTestSession } from '../lib/test-sessions.js'
 import { resolveTestSessionLimits, testSessionCutoffs } from '../lib/test-session-policy.js'
+import { BundleEscapeError } from '@awaitstep/provider-cloudflare'
 
 const validIR = {
   metadata: {
@@ -152,6 +153,16 @@ describe('test session routes', () => {
       expect(runner.stopped).toHaveLength(1)
       const stored = [...(await mockDb.listExpiredTestSessions(FUTURE, 10))]
       expect(stored).toHaveLength(0)
+    })
+
+    it('answers a workflow whose imports leave the project as the caller’s mistake', async () => {
+      // The containment check refusing the bundle came back as a 502, which
+      // blamed the server for the workflow's own import.
+      runner.failStart = new BundleEscapeError(['"../host-secret.json"'])
+      const res = await start(app)
+
+      expect(res.status).toBe(422)
+      expect(((await res.json()) as { error: string }).error).toContain('host-secret')
     })
 
     it('refuses a workflow with no version', async () => {

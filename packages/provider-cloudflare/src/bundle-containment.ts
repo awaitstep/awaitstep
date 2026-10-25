@@ -4,8 +4,9 @@ import { mkdtemp, readdir, readFile, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { promisify } from 'node:util'
+import { GenerateInputError } from '@awaitstep/codegen'
 import { redactSensitive } from './deploy/deployer.js'
-import { wranglerCommand, wranglerEnv } from './wrangler-exec.js'
+import { wranglerCommand, wranglerEnv, wranglerFailureReason } from './wrangler-exec.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -26,10 +27,15 @@ const WRANGLER_RUNTIME_PACKAGES = [
 // output: the sha1 of the file's content, then its basename.
 const COLLECTED_MODULE = /^([0-9a-f]{40})-(.+)$/
 
-export class BundleEscapeError extends Error {
+/**
+ * The workflow's own imports reach outside it — a finding about the input,
+ * so callers answer it as one (a 4xx, a diagnostic), not as a server fault.
+ */
+export class BundleEscapeError extends GenerateInputError {
   constructor(readonly escapes: readonly string[]) {
     super(
       `The bundle reaches outside the project: ${escapes.join('; ')}. Imports must stay inside it.`,
+      'import',
     )
     this.name = 'BundleEscapeError'
   }
@@ -37,6 +43,7 @@ export class BundleEscapeError extends Error {
 
 interface Metafile {
   inputs: Record<string, unknown>
+  outputs: Record<string, { entryPoint?: string }>
 }
 
 function inside(root: string, path: string): boolean {
@@ -72,15 +79,18 @@ async function filesByBasename(root: string): Promise<Map<string, string[]>> {
 }
 
 /**
- * Proves the bundle wrangler builds from `dir` reads nothing outside it.
+ * Builds the Worker wrangler would deploy from `dir` into `outdir`, and proves
+ * the build reads nothing outside `dir`. Returns the bundled entry's absolute
+ * path: deploying that file with `--no-bundle` uploads exactly what was
+ * checked, rather than a second build that merely should match.
  *
  * Wrangler's bundler follows any path on the filesystem it runs on, so an
  * import that climbs out of the directory, a bare package found in a parent
  * `node_modules`, a symlink, a glob import or a dependency's `browser` remap
  * can each pack a file from the build host into the Worker. Rather than
  * imitate wrangler's resolver — every imitation drifts — this asks wrangler
- * for the build it would deploy (`deploy --dry-run --metafile`) and checks
- * what it actually read:
+ * for the build (`deploy --dry-run --outdir --metafile`) and checks what it
+ * actually read:
  *
  * - every metafile input, after realpath, is inside `dir` or inside the
  *   wrangler runtime it injects itself;
@@ -89,12 +99,15 @@ async function filesByBasename(root: string): Promise<Map<string, string[]>> {
  *   `dir` — however the collector resolved it.
  *
  * Fails closed: a build that cannot be produced or read is not deployed.
+ * `outdir` must be outside `dir`, empty, and the caller's to remove.
  */
-export async function assertBundleContained(dir: string): Promise<void> {
+export async function buildContainedBundle(dir: string, outdir: string): Promise<string> {
   const root = await realpath(dir)
-  const outdir = await mkdtemp(join(tmpdir(), 'awaitstep-containment-'))
+  const metaDir = await mkdtemp(join(tmpdir(), 'awaitstep-metafile-'))
   try {
-    const metafilePath = join(outdir, 'meta.json')
+    // Beside the output, not in it: everything in the output directory is
+    // uploaded as a module by a `--no-bundle` deploy.
+    const metafilePath = join(metaDir, 'meta.json')
     const wrangler = wranglerCommand()
     try {
       await execFileAsync(
@@ -103,8 +116,8 @@ export async function assertBundleContained(dir: string): Promise<void> {
         { cwd: root, env: wranglerEnv(), timeout: DRY_RUN_TIMEOUT_MS },
       )
     } catch (err) {
-      const stderr = (err as { stderr?: string }).stderr ?? ''
-      const detail = redactSensitive(stderr.trim().split('\n').slice(-5).join('\n'))
+      const { stderr = '', stdout = '' } = err as { stderr?: string; stdout?: string }
+      const detail = redactSensitive(wranglerFailureReason(`${stdout}\n${stderr}`))
       throw new Error(
         `Could not check that the bundle stays inside the project${detail ? `: ${detail}` : ''}`,
         { cause: err },
@@ -136,6 +149,29 @@ export async function assertBundleContained(dir: string): Promise<void> {
     }
 
     if (escapes.length > 0) throw new BundleEscapeError(escapes)
+
+    const entries = Object.entries(metafile.outputs)
+      .filter(([path, output]) => output.entryPoint !== undefined && path.endsWith('.js'))
+      .map(([path]) => resolve(root, path))
+    if (entries.length !== 1) {
+      throw new Error(
+        `Could not check that the bundle stays inside the project: expected one bundled entry, found ${entries.length}`,
+      )
+    }
+    return entries[0]!
+  } finally {
+    await rm(metaDir, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
+/**
+ * {@link buildContainedBundle} for a run that bundles on its own — a test
+ * session, local dev — and only needs the proof: the build is discarded.
+ */
+export async function assertBundleContained(dir: string): Promise<void> {
+  const outdir = await mkdtemp(join(tmpdir(), 'awaitstep-containment-'))
+  try {
+    await buildContainedBundle(dir, outdir)
   } finally {
     await rm(outdir, { recursive: true, force: true }).catch(() => {})
   }

@@ -900,7 +900,7 @@ export class FakeTestSessionRunner implements TestSessionRunner {
   started: string[] = []
   stopped: string[] = []
   triggers: { sessionId: string; payload: unknown }[] = []
-  failStart: string | null = null
+  failStart: string | Error | null = null
   logs_: ProcessLogEntry[] = []
 
   containerId(sessionId: string) {
@@ -908,7 +908,9 @@ export class FakeTestSessionRunner implements TestSessionRunner {
   }
 
   async start(_bundle: GeneratedBundle, target: TestSessionTarget) {
-    if (this.failStart) throw new Error(this.failStart)
+    if (this.failStart) {
+      throw typeof this.failStart === 'string' ? new Error(this.failStart) : this.failStart
+    }
     this.started.push(target.sessionId)
     return { processId: `pid-${target.sessionId}`, port: 8800 }
   }

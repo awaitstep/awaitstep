@@ -157,3 +157,24 @@ export function wranglerEnv(
   env['WRANGLER_SEND_METRICS'] = 'false'
   return { ...env, ...extra }
 }
+
+// eslint-disable-next-line no-control-regex
+const ANSI_ESCAPE = /\x1b\[[0-9;]*m/g
+
+/**
+ * The part of a failed wrangler run's output worth showing: its `[ERROR]`
+ * lines, or else the last few meaningful ones. Wrangler colours its output
+ * and ends every failure with blank lines and a "Logs were written to" path,
+ * so the tail alone is usually nothing but noise.
+ */
+export function wranglerFailureReason(output: string): string {
+  const lines = output
+    .replace(ANSI_ESCAPE, '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '' && !line.includes('Logs were written to'))
+  const errors = lines
+    .filter((line) => line.includes('[ERROR]'))
+    .map((line) => line.replace(/^.*\[ERROR\]\s*/, ''))
+  return (errors.length > 0 ? errors : lines.slice(-5)).join('\n')
+}

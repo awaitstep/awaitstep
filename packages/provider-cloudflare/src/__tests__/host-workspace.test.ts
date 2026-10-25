@@ -36,8 +36,18 @@ vi.mock('node:child_process', async (importOriginal) => {
   }
 })
 
+let containment: 'refuse' | 'pass' = 'refuse'
+const CHECKED_ENTRY = '/checked-build/worker.js'
+
 vi.mock('../bundle-containment.js', () => ({
-  assertBundleContained: () => Promise.reject(new Error('refused by containment')),
+  assertBundleContained: () =>
+    containment === 'refuse'
+      ? Promise.reject(new Error('refused by containment'))
+      : Promise.resolve(),
+  buildContainedBundle: () =>
+    containment === 'refuse'
+      ? Promise.reject(new Error('refused by containment'))
+      : Promise.resolve(CHECKED_ENTRY),
   BundleEscapeError: class extends Error {},
 }))
 
@@ -57,17 +67,20 @@ function wranglerCalls(calls: string[][]): string[][] {
 beforeEach(() => {
   spawned.length = 0
   executed.length = 0
+  containment = 'refuse'
 })
+
+const deployOptions = {
+  kind: 'script' as const,
+  workflowId: 'wf-1',
+  workflowName: 'probe',
+  accountId: 'acct',
+  apiToken: 'token',
+}
 
 describe('host-side wrangler runs check containment first', () => {
   it('a deploy is refused before wrangler deploys', async () => {
-    const result = await new NodeWranglerDeployer().deploy(bundle, {
-      kind: 'script',
-      workflowId: 'wf-1',
-      workflowName: 'probe',
-      accountId: 'acct',
-      apiToken: 'token',
-    })
+    const result = await new NodeWranglerDeployer().deploy(bundle, deployOptions)
 
     expect(result.success).toBe(false)
     expect(result.error).toContain('refused by containment')
@@ -96,5 +109,19 @@ describe('host-side wrangler runs check containment first', () => {
     ).rejects.toThrow('refused by containment')
 
     expect(spawned).toEqual([])
+  })
+
+  it('a deploy uploads the build that was checked, never a second one', async () => {
+    // A plain `wrangler deploy` rebuilt from source: the upload was a build
+    // the check had only predicted, not the one it read.
+    containment = 'pass'
+    const result = await new NodeWranglerDeployer().deploy(bundle, deployOptions)
+
+    expect(result.success).toBe(true)
+    const deploys = wranglerCalls(executed).filter((call) => call.includes('deploy'))
+    expect(deploys).toHaveLength(1)
+    expect(deploys[0]).toEqual(
+      expect.arrayContaining(['deploy', '-c', 'wrangler.json', '--no-bundle', CHECKED_ENTRY]),
+    )
   })
 })

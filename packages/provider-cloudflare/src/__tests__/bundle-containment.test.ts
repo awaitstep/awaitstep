@@ -1,8 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, rm, symlink, readFile, readdir } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
-import { assertBundleContained, BundleEscapeError } from '../bundle-containment.js'
+import {
+  assertBundleContained,
+  buildContainedBundle,
+  BundleEscapeError,
+} from '../bundle-containment.js'
+import { wranglerCommand, wranglerEnv } from '../wrangler-exec.js'
 
 /**
  * Real wrangler, real directories. The check exists because imitating
@@ -169,6 +176,65 @@ describe('assertBundleContained', () => {
       await projectWith({ 'worker.js': 'export default {{{' })
 
       await expect(assertBundleContained(project)).rejects.toThrow(/Could not check/)
+    },
+    TIMEOUT,
+  )
+})
+
+describe('buildContainedBundle — the build a deploy uploads', () => {
+  it(
+    'returns the bundled entry, which a --no-bundle deploy uploads unchanged with its modules',
+    async () => {
+      await projectWith({
+        'worker.js':
+          "import page from './page.html'\nexport default { fetch: () => new Response(page) }",
+        'page.html': '<p>checked</p>',
+      })
+      const outdir = join(sandbox, 'build')
+      await mkdir(outdir)
+
+      const entry = await buildContainedBundle(project, outdir)
+      expect(dirname(entry)).toBe(outdir)
+      expect(await readFile(entry, 'utf-8')).toContain('new Response(')
+
+      // What a deploy runs, minus the upload. A wrangler upgrade that
+      // stopped honouring the config or the collected modules here would
+      // deploy something other than what was checked.
+      const replay = join(sandbox, 'replay')
+      const wrangler = wranglerCommand()
+      const { stdout } = await promisify(execFile)(
+        wrangler.command,
+        [
+          ...wrangler.args,
+          'deploy',
+          '-c',
+          'wrangler.json',
+          '--dry-run',
+          '--no-bundle',
+          entry,
+          '--outdir',
+          replay,
+        ],
+        { cwd: project, env: wranglerEnv() },
+      )
+      expect(stdout).toMatch(/[0-9a-f]{40}-page\.html/)
+      const uploaded = await readFile(join(replay, 'worker.js'), 'utf-8')
+      const strip = (code: string) => code.replace(/\/\/# sourceMappingURL=.*$/m, '')
+      expect(strip(uploaded)).toBe(strip(await readFile(entry, 'utf-8')))
+      expect(await readdir(outdir)).not.toContain('meta.json')
+    },
+    TIMEOUT,
+  )
+
+  it(
+    'says why when wrangler cannot build at all',
+    async () => {
+      // The reason was on stdout, and the message ended at "project".
+      await projectWith({ 'worker.js': "import x from './missing.js'\nexport default x" })
+
+      await expect(assertBundleContained(project)).rejects.toThrow(
+        /Could not check that the bundle stays inside the project: .*missing/s,
+      )
     },
     TIMEOUT,
   )

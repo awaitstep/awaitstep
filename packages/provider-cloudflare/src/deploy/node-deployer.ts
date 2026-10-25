@@ -11,7 +11,7 @@ import { DEFAULT_WORKER_PACKAGE_NAME, buildWorkerPackageJson } from './package-m
 import { generateWranglerConfig } from '../wrangler-config.js'
 import { workerName, workflowClassName, sanitizedWorkflowName } from '../naming.js'
 import { wranglerCommand, wranglerEnv } from '../wrangler-exec.js'
-import { prepareHostWorkspace } from '../dev-workspace.js'
+import { prepareHostDeploy } from '../dev-workspace.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -24,6 +24,8 @@ export class NodeWranglerDeployer implements WranglerDeployer {
     const name = workerName(options.workflowId)
     const className = options.className ?? workflowClassName(options.workflowName)
     const deployDir = join(tmpdir(), `awaitstep-deploy-${Date.now()}`)
+    // Beside the project, not inside it: the checked build is what uploads.
+    const buildDir = `${deployDir}-build`
 
     try {
       await mkdir(deployDir, { recursive: true })
@@ -73,8 +75,15 @@ export class NodeWranglerDeployer implements WranglerDeployer {
         }),
         'utf-8',
       )
-      // Install, then prove the build reads nothing outside the directory.
-      await prepareHostWorkspace(deployDir, options.dependencies, onProgress)
+      // Install, build, and prove the build reads nothing outside the
+      // directory — then upload that build, not a second one.
+      await mkdir(buildDir, { recursive: true })
+      const builtEntry = await prepareHostDeploy(
+        deployDir,
+        options.dependencies,
+        buildDir,
+        onProgress,
+      )
 
       // 4. Deploy with wrangler
       // An allow-listed environment, not the API's: this runs in a directory
@@ -87,11 +96,13 @@ export class NodeWranglerDeployer implements WranglerDeployer {
 
       onProgress?.('DEPLOYING', 'Uploading worker to Cloudflare...')
       const wrangler = wranglerCommand()
-      const { stdout } = await execFileAsync(wrangler.command, [...wrangler.args, 'deploy'], {
-        cwd: deployDir,
-        env: deployEnv,
-        timeout: 120_000,
-      })
+      // `-c` because a script argument otherwise makes wrangler look for a
+      // config beside the script — and deploy without bindings.
+      const { stdout } = await execFileAsync(
+        wrangler.command,
+        [...wrangler.args, 'deploy', '-c', 'wrangler.json', '--no-bundle', builtEntry],
+        { cwd: deployDir, env: deployEnv, timeout: 120_000 },
+      )
 
       // 5. Upload secrets via bulk
       const bulk = buildSecretsBulkJson(options.secrets)
@@ -130,6 +141,7 @@ export class NodeWranglerDeployer implements WranglerDeployer {
       return { success: false, workerName: name, error: safeError }
     } finally {
       await rm(deployDir, { recursive: true, force: true }).catch(() => {})
+      await rm(buildDir, { recursive: true, force: true }).catch(() => {})
     }
   }
 
