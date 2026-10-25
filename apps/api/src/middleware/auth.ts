@@ -1,4 +1,5 @@
 import { createMiddleware } from 'hono/factory'
+import type { Context } from 'hono'
 import { z } from 'zod'
 import type { AppEnv } from '../types.js'
 import type { Auth } from '../auth/config.js'
@@ -81,6 +82,29 @@ export function createAuthMiddleware(auth: Auth) {
     await next()
   })
 }
+
+/**
+ * The project an API key is pinned to — null for a session, and for a key
+ * that carries no project. Derived from what the auth middleware already set
+ * (a key's `projectId` lands in context before any route runs), so no auth
+ * path can forget to keep a second value in sync.
+ */
+export function apiKeyProjectPin(c: Context<AppEnv>): string | null {
+  if (c.get('apiKeyScopes') === null) return null
+  return (c.get('projectId') as string | undefined) ?? null
+}
+
+/**
+ * Org-level resources — connections, projects, installed nodes — are managed
+ * by sessions and organization-level keys. A key pinned to one project is
+ * refused: every project in the organization depends on these resources.
+ */
+export const requireOrgLevelAuth = createMiddleware<AppEnv>(async (c, next) => {
+  if (apiKeyProjectPin(c) !== null) {
+    return c.json({ error: 'A project-scoped API key cannot manage organization resources' }, 403)
+  }
+  return next()
+})
 
 export function requireScope(scope: ApiKeyScope) {
   return createMiddleware<AppEnv>(async (c, next) => {

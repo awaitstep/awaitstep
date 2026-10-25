@@ -52,13 +52,9 @@ projects.patch('/:id', zValidator('json', updateProjectSchema), async (c) => {
   const organizationId = c.get('organizationId')
   const id = c.req.param('id')
 
-  const existing = await db.getProjectById(id)
-  if (!existing || existing.organizationId !== organizationId) {
-    return c.json({ error: 'Not found' }, 404)
-  }
-
   const body = c.req.valid('json')
-  const updated = await db.updateProject(id, body)
+  const updated = await db.updateProject(id, organizationId, body)
+  if (!updated) return c.json({ error: 'Not found' }, 404)
   return c.json(updated)
 })
 
@@ -67,11 +63,7 @@ projects.delete('/:id', async (c) => {
   const organizationId = c.get('organizationId')
   const id = c.req.param('id')
 
-  const existing = await db.getProjectById(id)
-  if (!existing || existing.organizationId !== organizationId) {
-    return c.json({ error: 'Not found' }, 404)
-  }
-
-  await db.deleteProject(id)
+  const deleted = await db.deleteProject(id, organizationId)
+  if (!deleted) return c.json({ error: 'Not found' }, 404)
   return c.json({ ok: true })
 })

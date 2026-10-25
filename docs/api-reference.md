@@ -4,6 +4,8 @@ All endpoints require authentication via API key (`Authorization: Bearer ask_...
 
 API keys are scoped: `read` (queries), `write` (create/update/delete), `deploy` (deploy/trigger/takedown/run control). All keys require at least `read` scope.
 
+API keys are also **pinned to one project**. A key works on that project's workflows and variables, and reads org-level resources, but organization-level mutations — connections, projects, marketplace nodes, org-wide environment variables, moving a workflow between projects — answer `403` to a project key. They need a session.
+
 Base URL: `https://app.awaitstep.dev/api` (cloud) or `http://localhost:8080/api` (self-hosted, adjust to match your instance URL)
 
 ## Rate Limits
@@ -130,7 +132,8 @@ Move a workflow to another project within the same organization. Returns
 satisfy — checked across both project and organization scope, the same way
 a deploy resolves them.
 
-**Scope:** `write`
+**Scope:** `write` — session only: a move crosses project boundaries, so a
+project-scoped API key answers `403`.
 
 | Param | In   | Required | Description |
 | ----- | ---- | -------- | ----------- |
@@ -233,6 +236,9 @@ The body is parsed and exposed to nodes as `event.payload`. The response is `Res
 ---
 
 ## Projects
+
+Project mutations (create, rename, delete) are organization-level: a
+project-scoped API key answers `403`.
 
 ### `GET /projects`
 
@@ -902,6 +908,10 @@ Terminate a running or paused workflow instance.
 
 ## Connections
 
+Connection mutations (create, update, delete) are organization-level: a
+project-scoped API key answers `403`. Reads stay available to keys — a deploy
+needs its connection.
+
 ### `GET /connections`
 
 List all connections. Credential values are redacted in the response.
@@ -980,6 +990,12 @@ Delete a connection.
 
 ## Environment Variables
 
+A project-scoped API key manages only its own project's variables: creating,
+updating or deleting an org-wide variable or another project's answers `403`
+(create) or `404` (update/delete), and listing another project's variables
+answers `404`. Org-wide variables stay readable to keys — they resolve into
+the key's project at deploy time.
+
 ### `GET /env-vars`
 
 List all global environment variables. Secret values are masked as `••••••••`.
@@ -1002,7 +1018,9 @@ Create a global environment variable. Name must match `^[A-Z][A-Z0-9_]*$`.
 
 ### `PATCH /env-vars/:id`
 
-Update an environment variable's name, value, or secret flag.
+Update an environment variable's name, value, or secret flag. Making a secret
+variable non-secret requires a new `value` in the same request — a stored
+secret never becomes readable — otherwise the request answers `422`.
 
 **Scope:** `write`
 
@@ -1234,6 +1252,9 @@ says otherwise.
 **Scope:** `write`
 
 ## Marketplace
+
+Installing, uninstalling and updating nodes are organization-level actions: a
+project-scoped API key answers `403`.
 
 ### `GET /marketplace`
 

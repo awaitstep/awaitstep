@@ -3,7 +3,12 @@ import type { AppEnv } from '../types.js'
 import type { Auth } from '../auth/config.js'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
-import { createAuthMiddleware, requireScope, requireSessionAuth } from '../middleware/auth.js'
+import {
+  createAuthMiddleware,
+  requireOrgLevelAuth,
+  requireScope,
+  requireSessionAuth,
+} from '../middleware/auth.js'
 import { requireProject, requireOrganization } from '../middleware/project.js'
 import { createRateLimiter } from '../middleware/rate-limit.js'
 import { requireWorkflowAccess, requireConnectionAccess } from '../middleware/ownership.js'
@@ -150,6 +155,20 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.post('/env-vars', requireScope('write'))
   router.patch('/env-vars/:id', requireScope('write'))
   router.delete('/env-vars/:id', requireScope('write'))
+
+  // Org-level mutations are closed to project-scoped API keys: a project key
+  // must not rewrite the connections, projects or installed nodes every other
+  // project depends on. Env vars are handled in their routes instead — a
+  // project key may still manage its own project's variables.
+  router.post('/connections', requireOrgLevelAuth)
+  router.patch('/connections/:id', requireOrgLevelAuth)
+  router.delete('/connections/:id', requireOrgLevelAuth)
+  router.post('/projects', requireOrgLevelAuth)
+  router.patch('/projects/:id', requireOrgLevelAuth)
+  router.delete('/projects/:id', requireOrgLevelAuth)
+  router.post('/marketplace/install', requireOrgLevelAuth)
+  router.post('/marketplace/uninstall', requireOrgLevelAuth)
+  router.post('/marketplace/update', requireOrgLevelAuth)
 
   // API key management is session-only (no API key auth)
   router.use('/api-keys/*', requireSessionAuth)

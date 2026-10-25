@@ -12,6 +12,7 @@ import {
   projectHandlerModules,
 } from '@awaitstep/ir'
 import { unresolvableEnvRefs } from '../lib/env-resolve.js'
+import { apiKeyProjectPin } from '../middleware/auth.js'
 import type { AppEnv } from '../types.js'
 import { stopWorkflowTestSessions } from '../lib/test-sessions.js'
 
@@ -210,6 +211,15 @@ workflows.patch(
     const organizationId = c.get('organizationId')
     const workflow = c.get('workflow')
     if (!workflow) return c.json({ error: 'Not found' }, 404)
+
+    // A move always crosses a project boundary, so a key pinned to one
+    // project has no legitimate move to make.
+    if (apiKeyProjectPin(c) !== null) {
+      return c.json(
+        { error: 'A project-scoped API key cannot move workflows between projects' },
+        403,
+      )
+    }
 
     const { targetProjectId } = c.req.valid('json')
 

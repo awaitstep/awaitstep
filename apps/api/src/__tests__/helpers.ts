@@ -12,6 +12,7 @@ import type {
   ApiKey,
   Deployment,
   DeploymentConfig,
+  EnvVar,
   Project,
   InstalledNode,
 } from '@awaitstep/db'
@@ -38,6 +39,7 @@ const store = {
   deployments: new Map<string, Deployment>(),
   projects: new Map<string, Project>(),
   installedNodes: new Map<string, InstalledNode>(),
+  envVars: new Map<string, EnvVar>(),
 }
 
 export function resetStore() {
@@ -53,6 +55,7 @@ export function resetStore() {
   store.deployments.clear()
   store.projects.clear()
   store.installedNodes.clear()
+  store.envVars.clear()
 }
 
 function now() {
@@ -85,6 +88,15 @@ function sessionExpiry(session: TestSession, cutoffs: TestSessionCutoffs): TestS
 
 function isLiveSession(session: TestSession, cutoffs: TestSessionCutoffs): boolean {
   return isUnfinishedSession(session) && sessionExpiry(session, cutoffs) === null
+}
+
+function envVarInScope(
+  v: EnvVar,
+  scope: { organizationId: string; projectId?: string | null },
+): boolean {
+  if (v.organizationId !== scope.organizationId) return false
+  if (scope.projectId === undefined) return true
+  return v.projectId === scope.projectId
 }
 
 export const TEST_USER_ID = 'test-user-1'
@@ -123,15 +135,17 @@ const mockDb: DatabaseAdapter = {
       nextCursor: null,
     }
   },
-  async updateProject(id, data) {
+  async updateProject(id, organizationId, data) {
     const p = store.projects.get(id)
-    if (!p) throw new Error('Not found')
+    if (!p || p.organizationId !== organizationId) return null
     const updated = { ...p, ...data, updatedAt: now() }
     store.projects.set(id, updated)
     return updated
   },
-  async deleteProject(id) {
-    store.projects.delete(id)
+  async deleteProject(id, organizationId) {
+    const p = store.projects.get(id)
+    if (!p || p.organizationId !== organizationId) return false
+    return store.projects.delete(id)
   },
 
   // Workflows
@@ -687,29 +701,57 @@ const mockDb: DatabaseAdapter = {
     return revoked
   },
 
-  // Env Vars
+  // Env Vars — store-backed, mirroring the real adapter's org validation on
+  // create and its org-wide (projectId IS NULL) vs per-project list split.
   async createEnvVar(data) {
-    return {
+    if (data.projectId) {
+      const project = store.projects.get(data.projectId)
+      if (!project || project.organizationId !== data.organizationId) return null
+    }
+    const row: EnvVar = {
       ...data,
       projectId: data.projectId ?? null,
       isSecret: data.isSecret,
       createdAt: now(),
       updatedAt: now(),
     }
+    store.envVars.set(row.id, row)
+    return row
   },
-  async getEnvVarById() {
-    return null
+  async getEnvVarById(id) {
+    return store.envVars.get(id) ?? null
   },
-  async listEnvVarsByOrganization() {
-    return { data: [], nextCursor: null }
+  async listEnvVarsByOrganization(organizationId) {
+    return {
+      data: [...store.envVars.values()].filter(
+        (v) => v.organizationId === organizationId && v.projectId === null,
+      ),
+      nextCursor: null,
+    }
   },
-  async listEnvVarsByProject() {
-    return { data: [], nextCursor: null }
+  async listEnvVarsByProject(organizationId, projectId) {
+    return {
+      data: [...store.envVars.values()].filter(
+        (v) => v.organizationId === organizationId && v.projectId === projectId,
+      ),
+      nextCursor: null,
+    }
   },
-  async updateEnvVar() {
-    return null
+  async updateEnvVar(id, scope, data) {
+    const v = store.envVars.get(id)
+    if (!v || !envVarInScope(v, scope)) return null
+    // Mirrors the adapter's reveal guard: a stored secret cannot become
+    // readable by flipping the flag without a replacement value.
+    if (data.isSecret === false && data.value === undefined && v.isSecret) return null
+    const updated = { ...v, ...data, updatedAt: now() }
+    store.envVars.set(id, updated)
+    return updated
   },
-  async deleteEnvVar() {},
+  async deleteEnvVar(id, scope) {
+    const v = store.envVars.get(id)
+    if (!v || !envVarInScope(v, scope)) return false
+    return store.envVars.delete(id)
+  },
   async getWorkflowEnvVars() {
     return []
   },
