@@ -36,16 +36,16 @@ services:
       - '3000'
     env_file:
       - .env
-    environment:
-      # Caddy reaches AwaitStep over the Compose network; trust it to name
-      # the client, or every user shares Caddy's rate limits.
-      TRUSTED_PROXIES: 172.16.0.0/12
     volumes:
       - awaitstep-data:/app/data
 
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    # The same TRUSTED_PROXY_SECRET as AwaitStep's .env: Caddy proves with it
+    # that it may name the client. Without it every user shares Caddy's limits.
+    environment:
+      TRUSTED_PROXY_SECRET: ${TRUSTED_PROXY_SECRET}
     ports:
       - '8080:80'
     configs:
@@ -57,10 +57,16 @@ configs:
     content: |
       :80 {
         handle /api/* {
-          reverse_proxy awaitstep:8080
+          reverse_proxy awaitstep:8080 {
+            header_up X-AwaitStep-Proxy {$$TRUSTED_PROXY_SECRET}
+            header_up X-AwaitStep-Client {client_ip}
+          }
         }
         handle {
-          reverse_proxy awaitstep:3000
+          reverse_proxy awaitstep:3000 {
+            header_up X-AwaitStep-Proxy {$$TRUSTED_PROXY_SECRET}
+            header_up X-AwaitStep-Client {client_ip}
+          }
         }
       }
 
@@ -80,6 +86,8 @@ If you need the **Local Test** feature, add a `/local-dev/*` route to the Caddyf
 # Security
 TOKEN_ENCRYPTION_KEY=your-first-generated-key
 BETTER_AUTH_SECRET=your-second-generated-key
+# Shared with Caddy: proves it may name the client (see Reverse Proxy)
+TRUSTED_PROXY_SECRET=your-third-generated-key
 BETTER_AUTH_URL=http://localhost:8080
 
 # Database (SQLite default)
@@ -99,6 +107,7 @@ RESEND_API_KEY=
 ```bash
 openssl rand -hex 32   # use output for TOKEN_ENCRYPTION_KEY
 openssl rand -hex 32   # use output for BETTER_AUTH_SECRET
+openssl rand -hex 32   # use output for TRUSTED_PROXY_SECRET
 ```
 
 Paste each value into `.env`.

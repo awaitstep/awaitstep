@@ -105,3 +105,13 @@ Point your domain to the Droplet IP. Replace `your-droplet-domain.com` in the Ca
 ## App Platform (alternative)
 
 DigitalOcean App Platform can deploy Docker images, but persistent disk support is limited. Use a Droplet if you need SQLite; use App Platform with a Managed PostgreSQL database if you prefer a fully managed setup.
+
+### Client addresses on App Platform
+
+App Platform's load balancer sits in front of AwaitStep and cannot add a custom
+header, so AwaitStep cannot tell your users apart on its own: by default every
+user shares the balancer's address and its rate limits. Set `TRUSTED_PROXIES`
+to the address range the balancer connects from, as DigitalOcean's App Platform docs
+give it, and AwaitStep reads `X-Forwarded-For` from those connections. Never
+include `127.0.0.0/8` or the service's own private network. See
+[Reverse Proxy](../reverse-proxy#client-addresses-and-rate-limits).

@@ -68,8 +68,17 @@ export function createAuth(options: AuthOptions) {
         ipAddressHeaders: [CLIENT_IP_HEADER],
       },
     },
+    // better-auth's defaults already guard sign-in, sign-up and the
+    // password/email-change paths (3 per 10s). Two need a tighter budget:
+    // every magic-link request sends an email to whatever address it names,
+    // and organization creation writes rows — both were 5/min under the
+    // app-level limiter this replaced, and 18/min and 600/min without these.
     rateLimit: {
       enabled: options.rateLimit ?? true,
+      customRules: {
+        '/sign-in/magic-link': { window: 60, max: 5 },
+        '/organization/create': { window: 60, max: 10 },
+      },
     },
     socialProviders: {
       ...(options.github && {

@@ -20,7 +20,7 @@ import { resolveTestSessionLimits } from './lib/test-session-policy.js'
 import { MAX_REQUEST_BYTES } from './lib/request-limits.js'
 import {
   CLIENT_IP_HEADER,
-  LOOPBACK_PROXIES,
+  compileClientIpPolicy,
   resolveClientIp,
   type ClientIpPolicy,
 } from './lib/client-ip.js'
@@ -51,7 +51,8 @@ export interface AppDeps {
   connectionAddress?: (c: Context<AppEnv>) => string | undefined
   /**
    * Whose word on the client address counts — see lib/client-ip.ts. Defaults
-   * to `proxied` with loopback trusted; the Workers entry passes `edge`.
+   * to trusting no one (every client keyed on its connection); the Node
+   * entries add the proxy secrets, the Workers entry passes `edge`.
    */
   clientIpPolicy?: ClientIpPolicy
 }
@@ -66,11 +67,11 @@ export function createApp(deps: AppDeps) {
   // Request ID — unique ID for every request, returned in X-Request-Id header
   app.use('*', requestId())
 
-  // Client address, once per request, under the deployment's trust policy.
-  const clientIpPolicy = deps.clientIpPolicy ?? {
-    mode: 'proxied',
-    trustedProxies: [...LOOPBACK_PROXIES],
-  }
+  // Client address, once per request, under the deployment's trust policy —
+  // compiled at startup, which also refuses a malformed TRUSTED_PROXIES.
+  const clientIpPolicy = compileClientIpPolicy(
+    deps.clientIpPolicy ?? { mode: 'proxied', proxySecrets: [], trustedProxies: [] },
+  )
   app.use('*', async (c, next) => {
     c.set('clientIp', resolveClientIp(c.req, deps.connectionAddress?.(c), clientIpPolicy))
     await next()

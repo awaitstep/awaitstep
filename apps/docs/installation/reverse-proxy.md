@@ -17,14 +17,18 @@ workflows.example.com {
         uri strip_prefix /local-dev
         reverse_proxy localhost:8787
     }
-    reverse_proxy localhost:8080
+    reverse_proxy localhost:8080 {
+        header_up X-AwaitStep-Proxy {$TRUSTED_PROXY_SECRET}
+        header_up X-AwaitStep-Client {client_ip}
+    }
 }
 ```
 
-Start Caddy:
+Start Caddy with the same `TRUSTED_PROXY_SECRET` AwaitStep has in its `.env`
+(see [Client addresses](#client-addresses-and-rate-limits)):
 
 ```bash
-caddy run --config Caddyfile
+TRUSTED_PROXY_SECRET=<the value from .env> caddy run --config Caddyfile
 ```
 
 That is all that is required. Caddy handles HTTPS, HTTP→HTTPS redirects, and certificate renewal automatically.
@@ -60,6 +64,10 @@ server {
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        # Proves this proxy may name the client — the value of
+        # TRUSTED_PROXY_SECRET from AwaitStep's .env.
+        proxy_set_header X-AwaitStep-Proxy  "<TRUSTED_PROXY_SECRET>";
+        proxy_set_header X-AwaitStep-Client $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
 
         # Required for Server-Sent Events (live log streaming)
@@ -93,26 +101,30 @@ Restart the container after changing this value.
 
 ## Client addresses and rate limits
 
-AwaitStep rate-limits by client address and records it on sessions. A
-forwarding header is a claim, so it only counts when the connection it
-arrives on comes from a **trusted proxy**:
+AwaitStep rate-limits by client address and records it on sessions. A proxy
+in front of it has to tell AwaitStep who the client is — and has to **prove**
+it is the proxy, because an address cannot: workflow code AwaitStep runs for
+test sessions and local dev reaches the API from the same host, and from the
+same Docker network, as any proxy would.
 
-- A connection from anywhere else is keyed on its own address, whatever
-  headers it sends — reaching port `8080` directly cannot fake an address.
-- A connection from a trusted proxy is read from `X-Forwarded-For`, right to
-  left: each proxy appends the address it saw, so AwaitStep skips trusted
-  hops and takes the first address that is not one. Whatever the client
-  wrote further left is ignored. (`X-Real-IP` is used only when there is no
-  `X-Forwarded-For` at all.)
+- Generate a secret, put it in AwaitStep's `.env` as `TRUSTED_PROXY_SECRET`
+  (`openssl rand -hex 32`), and give the same value to the proxy. The
+  configurations above send it as `X-AwaitStep-Proxy` and name the client in
+  `X-AwaitStep-Client`. The [install script](../getting-started/quickstart)
+  does all of this for you.
+- A request without the secret — a client reaching port `8080` directly,
+  workflow code on the host — is keyed on its own connection, whatever
+  headers it sends.
+- Without `TRUSTED_PROXY_SECRET`, AwaitStep cannot tell who is behind the
+  proxy, and every user shares the proxy's address and its rate limits. The
+  startup log says so.
 
-Loopback is always trusted, which covers both configurations above when the
-proxy runs on the same host — Caddy and nginx both set `X-Forwarded-For`.
-
-**A proxy on another host or container must be named in `TRUSTED_PROXIES`**,
-e.g. `TRUSTED_PROXIES=172.16.0.0/12` for a Caddy container on a Docker
-network (the [Docker Compose](./docker-compose) setup). Without it the proxy
-itself looks like the client: nothing can be spoofed, but every user shares
-the proxy's limits.
+**Managed platforms** whose load balancers cannot add a header (Railway,
+Render, App Platform) can instead name the balancer's address range in
+`TRUSTED_PROXIES`; AwaitStep then reads `X-Forwarded-For` from connections in
+that range. Never include loopback or the network AwaitStep itself runs on —
+workflow code could then name any client it likes. A malformed entry stops
+AwaitStep at startup rather than being ignored.
 
 The limits are counted in memory, per process. They reset when the container
 restarts and are not shared between instances — fine for the single-instance

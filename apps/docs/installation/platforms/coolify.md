@@ -88,6 +88,16 @@ Under **Storage**, add a persistent volume mapped to `/app/data`.
 
 Click **Deploy**.
 
+### Client addresses
+
+Coolify's proxy (Traefik or Caddy) is yours to configure, so let it prove it
+may name the client: set `TRUSTED_PROXY_SECRET` (`openssl rand -hex 32`) in
+AwaitStep's environment, and have the proxy add the same value as an
+`X-AwaitStep-Proxy` request header on both routes — with Traefik, a
+`headers.customrequestheaders` middleware label; Traefik's own `X-Real-IP`
+then names the client. Without it every user shares the proxy's rate limits.
+See [Reverse Proxy](../reverse-proxy#client-addresses-and-rate-limits).
+
 ## Notes
 
 - Coolify handles TLS automatically if you configure a domain. Caddy runs on port 80 internally and Coolify's Traefik terminates TLS in front of it.

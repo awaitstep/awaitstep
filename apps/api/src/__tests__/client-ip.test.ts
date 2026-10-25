@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createTestApp, resetStore, lastAuthHandlerRequest, TEST_PROJECT_ID } from './helpers.js'
-import { CLIENT_IP_HEADER } from '../lib/client-ip.js'
+import { CLIENT_IP_HEADER, PROXY_CLIENT_HEADER, PROXY_SECRET_HEADER } from '../lib/client-ip.js'
 import { createAuth } from '../auth/config.js'
 
 /**
@@ -48,14 +48,32 @@ describe('client address', () => {
     expect(lastAuthHandlerRequest()?.headers.get(CLIENT_IP_HEADER)).toBe('203.0.113.50')
   })
 
-  it('hands better-auth the client behind a trusted proxy', async () => {
-    const instance = app()
+  it('hands better-auth the client a proven hop names — and not one from loopback alone', async () => {
+    const secret = 's'.repeat(64)
+    const instance = createTestApp({
+      connectionAddress: (c) => c.req.header(peerHeader),
+      clientIpPolicy: { mode: 'proxied', proxySecrets: [secret], trustedProxies: [] },
+    })
     await instance.request('/api/auth/sign-in/magic-link', {
       method: 'POST',
-      headers: { [peerHeader]: '127.0.0.1', 'x-forwarded-for': '6.6.6.6, 198.51.100.7' },
+      headers: {
+        [peerHeader]: '127.0.0.1',
+        [PROXY_SECRET_HEADER]: secret,
+        [PROXY_CLIENT_HEADER]: '198.51.100.7',
+      },
     })
-
     expect(lastAuthHandlerRequest()?.headers.get(CLIENT_IP_HEADER)).toBe('198.51.100.7')
+
+    // Workflow code on this host: loopback, forwarding headers, no secret.
+    await instance.request('/api/auth/sign-in/magic-link', {
+      method: 'POST',
+      headers: {
+        [peerHeader]: '127.0.0.1',
+        'x-forwarded-for': '6.6.6.6',
+        [PROXY_CLIENT_HEADER]: '6.6.6.6',
+      },
+    })
+    expect(lastAuthHandlerRequest()?.headers.get(CLIENT_IP_HEADER)).toBe('127.0.0.1')
   })
 
   it('gives better-auth no address rather than a client-chosen one', async () => {
@@ -78,6 +96,16 @@ describe('better-auth configuration', () => {
     })
     expect(auth.options.advanced?.ipAddress?.ipAddressHeaders).toEqual([CLIENT_IP_HEADER])
     expect(auth.options.rateLimit?.enabled).toBe(true)
+    // Tighter than better-auth's defaults where a request costs something:
+    // an email sent to any address, an organization created.
+    expect(auth.options.rateLimit?.customRules?.['/sign-in/magic-link']).toEqual({
+      window: 60,
+      max: 5,
+    })
+    expect(auth.options.rateLimit?.customRules?.['/organization/create']).toEqual({
+      window: 60,
+      max: 10,
+    })
 
     const dev = createAuth({
       baseURL: 'http://localhost:8080',

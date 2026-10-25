@@ -54,9 +54,10 @@ To create a Google OAuth client: **Google Cloud Console → APIs & Services → 
 
 ## Network
 
-| Variable          | Default | Description                                                                                                                                                                                                                                                                                                                       |
-| ----------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TRUSTED_PROXIES` | (none)  | Comma-separated addresses or CIDR ranges of reverse proxies allowed to name the client in `X-Forwarded-For`, e.g. `172.16.0.0/12` for a proxy container on a Docker network. Loopback is always trusted. Leave unset when the proxy runs on the same host. See [Reverse Proxy](./reverse-proxy#client-addresses-and-rate-limits). |
+| Variable               | Default | Description                                                                                                                                                                                                                                                                                                                                    |
+| ---------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TRUSTED_PROXY_SECRET` | (none)  | Shared with your reverse proxy, which sends it as `X-AwaitStep-Proxy` to prove it may name the client. At least 32 characters — generate with `openssl rand -hex 32`. The install script sets it. Without it, every user behind a proxy shares the proxy's rate limits. See [Reverse Proxy](./reverse-proxy#client-addresses-and-rate-limits). |
+| `TRUSTED_PROXIES`      | (none)  | Managed platforms only: comma-separated address ranges (CIDR) of a load balancer that cannot add headers; `X-Forwarded-For` is read from those connections. Never include loopback or AwaitStep's own network. A malformed entry stops startup.                                                                                                |
 
 ## Complete .env example
 

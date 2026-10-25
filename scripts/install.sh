@@ -77,6 +77,8 @@ read -rp "  Google Client Secret: " GOOGLE_CLIENT_SECRET
 # Generate secrets
 TOKEN_ENCRYPTION_KEY=$(openssl rand -hex 32)
 BETTER_AUTH_SECRET=$(openssl rand -hex 32)
+# Caddy proves it is the trusted proxy with this; nothing else may name the client.
+TRUSTED_PROXY_SECRET=$(openssl rand -hex 32)
 
 # Write .env
 cat > .env <<EOF
@@ -84,6 +86,7 @@ PORT=8080
 WEB_PORT=3000
 TOKEN_ENCRYPTION_KEY=${TOKEN_ENCRYPTION_KEY}
 BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+TRUSTED_PROXY_SECRET=${TRUSTED_PROXY_SECRET}
 BETTER_AUTH_URL=${APP_URL}
 DATABASE_URL=${DATABASE_URL}
 ENABLE_LOCAL_DEV=${ENABLE_LOCAL_DEV}
@@ -106,6 +109,12 @@ if [ "${ENABLE_LOCAL_DEV}" = "true" ]; then
   }'
 fi
 
+# Every hop to AwaitStep proves itself with the secret and names the client.
+# {$TRUSTED_PROXY_SECRET} is read by Caddy from its environment at load time,
+# so the secret lives only in .env.
+PROXY_HEADERS='      header_up X-AwaitStep-Proxy {$TRUSTED_PROXY_SECRET}
+      header_up X-AwaitStep-Client {client_ip}'
+
 # ── Caddyfile + docker-compose.yml ──
 
 if [ "${MANAGE_SSL}" = "true" ]; then
@@ -113,11 +122,15 @@ if [ "${MANAGE_SSL}" = "true" ]; then
   cat > Caddyfile <<CADDYFILE
 ${DOMAIN} {
   handle /api/* {
-    reverse_proxy awaitstep:8080
+    reverse_proxy awaitstep:8080 {
+${PROXY_HEADERS}
+    }
   }
 ${LOCAL_DEV_ROUTE}
   handle {
-    reverse_proxy awaitstep:3000
+    reverse_proxy awaitstep:3000 {
+${PROXY_HEADERS}
+    }
   }
 }
 CADDYFILE
@@ -139,6 +152,8 @@ services:
     image: caddy:2-alpine
     container_name: awaitstep-caddy
     restart: unless-stopped
+    environment:
+      TRUSTED_PROXY_SECRET: \${TRUSTED_PROXY_SECRET}
     ports:
       - "80:80"
       - "443:443"
@@ -159,15 +174,35 @@ COMPOSE
   echo "Generated docker-compose.yml with Caddy (SSL)"
 
 elif [ "${IS_DOMAIN}" = "true" ]; then
-  # Domain but no SSL (e.g. behind Cloudflare)
+  # Domain but no SSL (e.g. behind Cloudflare). Caddy's peer is a Cloudflare
+  # edge, so {client_ip} reads CF-Connecting-IP — believed only from
+  # Cloudflare's published ranges, fetched now rather than hardcoded.
+  CF_GLOBAL=""
+  if CF_RANGES=$( (curl -fsSL https://www.cloudflare.com/ips-v4 && echo && curl -fsSL https://www.cloudflare.com/ips-v6) 2>/dev/null | tr '\n' ' ') && [ -n "${CF_RANGES// /}" ]; then
+    CF_GLOBAL="{
+  servers {
+    trusted_proxies static ${CF_RANGES}
+    client_ip_headers CF-Connecting-IP
+  }
+}
+"
+  else
+    echo "Warning: could not fetch Cloudflare's IP ranges; every visitor will be"
+    echo "keyed on a Cloudflare edge address and share its rate limits. See"
+    echo "https://docs.awaitstep.dev/installation/reverse-proxy to configure them."
+  fi
   cat > Caddyfile <<CADDYFILE
-:80 {
+${CF_GLOBAL}:80 {
   handle /api/* {
-    reverse_proxy awaitstep:8080
+    reverse_proxy awaitstep:8080 {
+${PROXY_HEADERS}
+    }
   }
 ${LOCAL_DEV_ROUTE}
   handle {
-    reverse_proxy awaitstep:3000
+    reverse_proxy awaitstep:3000 {
+${PROXY_HEADERS}
+    }
   }
 }
 CADDYFILE
@@ -189,6 +224,8 @@ services:
     image: caddy:2-alpine
     container_name: awaitstep-caddy
     restart: unless-stopped
+    environment:
+      TRUSTED_PROXY_SECRET: \${TRUSTED_PROXY_SECRET}
     ports:
       - "80:80"
     volumes:
@@ -206,11 +243,15 @@ else
   cat > Caddyfile <<CADDYFILE
 :${PORT} {
   handle /api/* {
-    reverse_proxy awaitstep:8080
+    reverse_proxy awaitstep:8080 {
+${PROXY_HEADERS}
+    }
   }
 ${LOCAL_DEV_ROUTE}
   handle {
-    reverse_proxy awaitstep:3000
+    reverse_proxy awaitstep:3000 {
+${PROXY_HEADERS}
+    }
   }
 }
 CADDYFILE
@@ -232,6 +273,8 @@ services:
     image: caddy:2-alpine
     container_name: awaitstep-caddy
     restart: unless-stopped
+    environment:
+      TRUSTED_PROXY_SECRET: \${TRUSTED_PROXY_SECRET}
     ports:
       - "${PORT}:${PORT}"
     volumes:

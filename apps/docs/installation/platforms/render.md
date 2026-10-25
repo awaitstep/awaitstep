@@ -59,6 +59,16 @@ Set the **Port** to `8080`.
 
 Click **Create Web Service**.
 
+### Client addresses
+
+Render's load balancer sits in front of AwaitStep and cannot add a custom
+header, so AwaitStep cannot tell your users apart on its own: by default every
+user shares the balancer's address and its rate limits. Set `TRUSTED_PROXIES`
+to the address range the balancer connects from, as Render's networking docs
+give it, and AwaitStep reads `X-Forwarded-For` from those connections. Never
+include `127.0.0.0/8` or the service's own private network. See
+[Reverse Proxy](../reverse-proxy#client-addresses-and-rate-limits).
+
 ## Notes
 
 - Render's free tier spins down after inactivity. Use a paid plan for always-on availability.

@@ -3,12 +3,20 @@ import { getConnInfo } from '@hono/node-server/conninfo'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkdirSync } from 'node:fs'
+import { randomBytes } from 'node:crypto'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { DrizzleDatabaseAdapter, schema } from '@awaitstep/db'
 import { createApp, createAuth } from '../index.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
 import { createLogger } from '../lib/logger.js'
-import { LOOPBACK_PROXIES, parseTrustedProxies } from '../lib/client-ip.js'
+import {
+  compileClientIpPolicy,
+  parseTrustedProxies,
+  PROXY_CLIENT_HEADER,
+  PROXY_SECRET_HEADER,
+  resolveClientIp,
+  type ClientIpPolicy,
+} from '../lib/client-ip.js'
 import { loadNodeRegistry } from '../lib/node-registry-fs.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
 import { createEmailService } from '../lib/email.js'
@@ -148,6 +156,23 @@ async function start() {
   const testSessionLimits = testSessionLimitsFromEnv(process.env)
   const testSessionRunner = new NodeTestSessionRunner()
 
+  // Who may name the client. The web server's own SSR calls prove
+  // themselves with a secret that lives only in this process; a reverse
+  // proxy in front proves itself with TRUSTED_PROXY_SECRET. Addresses are
+  // never enough on their own — workflow code runs on this host too.
+  const webHopSecret = randomBytes(32).toString('hex')
+  const externalProxy: Extract<ClientIpPolicy, { mode: 'proxied' }> = {
+    mode: 'proxied',
+    proxySecrets: process.env['TRUSTED_PROXY_SECRET'] ? [process.env['TRUSTED_PROXY_SECRET']] : [],
+    trustedProxies: parseTrustedProxies(process.env['TRUSTED_PROXIES']),
+  }
+  if (externalProxy.proxySecrets.length === 0 && externalProxy.trustedProxies.length === 0) {
+    logger.info(
+      'No trusted proxy configured: every client is keyed on its own connection. Behind a reverse proxy, set TRUSTED_PROXY_SECRET.',
+    )
+  }
+  const webHopPolicy = compileClientIpPolicy(externalProxy)
+
   const apiApp = createApp({
     db,
     auth,
@@ -165,7 +190,8 @@ async function start() {
     connectionAddress: (c) => getConnInfo(c).remote.address,
     clientIpPolicy: {
       mode: 'proxied',
-      trustedProxies: [...LOOPBACK_PROXIES, ...parseTrustedProxies(process.env['TRUSTED_PROXIES'])],
+      proxySecrets: [webHopSecret, ...externalProxy.proxySecrets],
+      trustedProxies: externalProxy.trustedProxies,
     },
   })
 
@@ -204,17 +230,17 @@ async function start() {
   const ssrModule = await import(ssrPath)
   const ssrServer = ssrModule.default
 
-  // The web server is a proxy hop for its own SSR calls to the API: it
-  // appends the address it saw to X-Forwarded-For, as nginx does, and the
-  // pages forward that chain. The API trusts it because the hop is loopback;
-  // without it every user's SSR call was keyed on 127.0.0.1 and shared one
-  // rate-limit bucket.
+  // The web server is a trusted hop for its own SSR calls to the API: it
+  // resolves the client under the same rules as the API, then states it
+  // with the per-process secret, which the pages forward. Whatever proof
+  // headers the request arrived with are dropped first — only this process
+  // may vouch for itself.
   webApp.all('/*', async (c) => {
-    const peer = getConnInfo(c).remote.address
-    if (!peer) return ssrServer.fetch(c.req.raw)
+    const client = resolveClientIp(c.req, getConnInfo(c).remote.address, webHopPolicy)
     const headers = new Headers(c.req.raw.headers)
-    const prior = headers.get('x-forwarded-for')
-    headers.set('x-forwarded-for', prior ? `${prior}, ${peer}` : peer)
+    headers.delete(PROXY_CLIENT_HEADER)
+    headers.set(PROXY_SECRET_HEADER, webHopSecret)
+    if (client) headers.set(PROXY_CLIENT_HEADER, client)
     return ssrServer.fetch(new Request(c.req.raw, { headers }))
   })
 
