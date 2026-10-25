@@ -5,11 +5,7 @@ import { exec, spawn, type ChildProcess } from 'node:child_process'
 import { promisify } from 'node:util'
 import { createConnection } from 'node:net'
 import type { GeneratedBundle, LocalDevOptions, ProcessLogEntry } from '@awaitstep/codegen'
-import {
-  buildDevWorkspaceFiles,
-  installWorkspaceDependencies,
-  writeDevWorkspace,
-} from './dev-workspace.js'
+import { buildDevWorkspaceFiles, prepareHostWorkspace, writeDevWorkspace } from './dev-workspace.js'
 import { wranglerCommand, wranglerEnv } from './wrangler-exec.js'
 
 const execAsync = promisify(exec)
@@ -74,7 +70,7 @@ export async function startLocalDev(
   // Wipe and recreate fixed deploy dir
   await rm(LOCAL_DEV_DIR, { recursive: true, force: true }).catch(() => {})
   await writeDevWorkspace(LOCAL_DEV_DIR, await buildDevWorkspaceFiles(bundle, options))
-  await installWorkspaceDependencies(LOCAL_DEV_DIR, options.dependencies)
+  await prepareHostWorkspace(LOCAL_DEV_DIR, options.dependencies)
 
   // Our own wrangler by absolute path, with a withheld environment — the
   // workspace's node_modules is user-controlled and `npx` would search it

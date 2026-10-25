@@ -3,19 +3,15 @@ import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { assertRegistryDependencies } from '@awaitstep/ir'
 import { assertSafeBundlePath, bundleDeployFiles, bundlePackageManifest } from '@awaitstep/codegen'
 import type { GeneratedBundle } from '@awaitstep/codegen'
 import type { WranglerDeployer, DeployOptions, WranglerDeployResult } from './deployer.js'
 import { buildSecretsBulkJson, redactSensitive, SECRETS_BULK_FILENAME } from './deployer.js'
-import {
-  DEFAULT_WORKER_PACKAGE_NAME,
-  buildWorkerPackageJson,
-  hasDependencies,
-} from './package-manifest.js'
+import { DEFAULT_WORKER_PACKAGE_NAME, buildWorkerPackageJson } from './package-manifest.js'
 import { generateWranglerConfig } from '../wrangler-config.js'
 import { workerName, workflowClassName, sanitizedWorkflowName } from '../naming.js'
 import { wranglerCommand, wranglerEnv } from '../wrangler-exec.js'
+import { prepareHostWorkspace } from '../dev-workspace.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -77,21 +73,8 @@ export class NodeWranglerDeployer implements WranglerDeployer {
         }),
         'utf-8',
       )
-      if (hasDependencies(options.dependencies)) {
-        assertRegistryDependencies(options.dependencies)
-        const depNames = Object.keys(options.dependencies)
-        onProgress?.(
-          'INSTALLING_DEPS',
-          `Installing ${depNames.length} ${depNames.length === 1 ? 'dependency' : 'dependencies'}...`,
-        )
-
-        await execFileAsync(
-          'npm',
-          ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'],
-          { cwd: deployDir, timeout: 60_000 },
-        )
-        onProgress?.('INSTALLING_DEPS', 'Dependencies installed')
-      }
+      // Install, then prove the build reads nothing outside the directory.
+      await prepareHostWorkspace(deployDir, options.dependencies, onProgress)
 
       // 4. Deploy with wrangler
       // An allow-listed environment, not the API's: this runs in a directory

@@ -15,7 +15,7 @@ import type {
 } from '@awaitstep/codegen'
 import {
   buildDevWorkspaceFiles,
-  installWorkspaceDependencies,
+  prepareHostWorkspace,
   writeDevWorkspace,
 } from '../dev-workspace.js'
 import { isPortListening } from '../local-dev.js'
@@ -78,9 +78,18 @@ export class NodeTestSessionRunner implements TestSessionRunner {
 
   async start(bundle: GeneratedBundle, target: TestSessionTarget): Promise<TestSessionStart> {
     const dir = this.containerId(target.sessionId)
-    await rm(dir, { recursive: true, force: true }).catch(() => {})
-    await writeDevWorkspace(dir, await buildDevWorkspaceFiles(bundle, target))
-    await installWorkspaceDependencies(dir, target.dependencies)
+    // Until a handle exists, nothing will ever call stop() for this session:
+    // a refused or failed start removes its own directory, or the user's code
+    // and its installed dependencies stay on the host.
+    const discard = () => rm(dir, { recursive: true, force: true }).catch(() => {})
+    await discard()
+    try {
+      await writeDevWorkspace(dir, await buildDevWorkspaceFiles(bundle, target))
+      await prepareHostWorkspace(dir, target.dependencies)
+    } catch (err) {
+      await discard()
+      throw err
+    }
 
     const port = await this.claimPort()
     let child: ChildProcess
@@ -88,6 +97,7 @@ export class NodeTestSessionRunner implements TestSessionRunner {
       child = await this.spawnWrangler(dir, port)
     } catch (err) {
       claimedPorts.delete(port)
+      await discard()
       throw err
     }
 

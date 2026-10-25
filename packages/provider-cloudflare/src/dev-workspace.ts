@@ -19,6 +19,7 @@ import { getSubWorkflowBindings } from './codegen/generators/sub-workflow.js'
 import { generateWranglerConfig } from './wrangler-config.js'
 import { workerName, workflowClassName, sanitizedWorkflowName } from './naming.js'
 import { buildWorkerPackageJson, hasDependencies } from './deploy/package-manifest.js'
+import { assertBundleContained } from './bundle-containment.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -164,19 +165,32 @@ export async function writeDevWorkspace(
 }
 
 /**
- * Installs the workspace's dependencies. The manifest is already written by
- * the builder — it carries the `#app/` import map even when there is nothing
- * to install.
+ * Readies a written workspace for wrangler on this host: installs its
+ * dependencies, then proves the build reads nothing outside the directory.
+ * One step on purpose — every host-side wrangler run (deploy, test session,
+ * local dev) goes through here, so none can install without the check. The
+ * manifest is already written by the builder; it carries the `#app/` import
+ * map even when there is nothing to install.
  */
-export async function installWorkspaceDependencies(
+export async function prepareHostWorkspace(
   dir: string,
   dependencies?: Record<string, string>,
+  onProgress?: (stage: string, message: string) => void,
 ): Promise<void> {
-  if (!hasDependencies(dependencies)) return
-  assertRegistryDependencies(dependencies)
-  await execFileAsync(
-    'npm',
-    ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'],
-    { cwd: dir, timeout: INSTALL_TIMEOUT_MS },
-  )
+  if (hasDependencies(dependencies)) {
+    assertRegistryDependencies(dependencies)
+    const count = Object.keys(dependencies).length
+    onProgress?.(
+      'INSTALLING_DEPS',
+      `Installing ${count} ${count === 1 ? 'dependency' : 'dependencies'}...`,
+    )
+    await execFileAsync(
+      'npm',
+      ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'],
+      { cwd: dir, timeout: INSTALL_TIMEOUT_MS },
+    )
+    onProgress?.('INSTALLING_DEPS', 'Dependencies installed')
+  }
+  // After the install, so dependencies are checked too.
+  await assertBundleContained(dir)
 }

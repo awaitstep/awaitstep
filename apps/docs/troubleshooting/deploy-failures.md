@@ -66,6 +66,24 @@ See [Wrangler Errors](./wrangler-errors.md) for more wrangler-specific issues.
 
 ---
 
+## `Import "…" in … reaches outside the project` / `The bundle reaches outside the project`
+
+**Cause:** A step body, project file or dependency imports a path above the
+project root (`'../../config.json'` from a top-level file), an absolute path,
+or a bare package that only exists outside the project. The bundler would
+pick that file up from the machine doing the build, so the deploy, test
+session or local run is refused. The first message comes from the check on
+your source and names the file and specifier; the second comes from the
+bundler-level check self-hosted runs make on the real build directory, which
+also catches symlinks and packages found in a parent `node_modules`.
+
+**Fix:** Move the file into the project and import it with `#app/` (or a
+relative path that stays inside), or add the package as a dependency. The
+source check reads raw text, so an escaping specifier in a comment or string
+is reported too — remove it.
+
+---
+
 ## `Binding resolution failed: WORKFLOW_NAME not found`
 
 **Cause:** A Sub-Workflow node references a workflow by name, but no deployed Cloudflare Worker with that binding name was found in the account.
