@@ -25,6 +25,7 @@ import type {
   ExpiringTestSession,
   ReserveTestSessionData,
   ReserveTestSessionLimits,
+  ApiKeyAuth,
 } from './types.js'
 import type { PaginationParams, PaginatedResult } from './pagination.js'
 
@@ -278,19 +279,27 @@ export interface DatabaseAdapter {
   listDeploymentConfigsByWorkflow(workflowId: string): Promise<DeploymentConfig[]>
   deleteDeploymentConfig(workflowId: string, connectionId: string): Promise<void>
 
-  // API Keys
+  // API Keys — exactly one of projectId / organizationId is stored per key
+  // (schema CHECK): with projectId the key is project-level and must belong
+  // to organizationId, without it the key is organization-level.
+  /** Null when the project is not the organization's. */
   createApiKey(data: {
     id: string
-    projectId: string
+    organizationId: string
+    projectId?: string | null
     createdBy: string
     name: string
     keyHash: string
     keyPrefix: string
     scopes: string
     expiresAt?: string | null
-  }): Promise<ApiKey>
+  }): Promise<ApiKey | null>
   getApiKeyById(id: string): Promise<ApiKey | null>
-  getApiKeyByHash(keyHash: string): Promise<ApiKey | null>
+  /**
+   * The key, its organization (own or its project's) and whether its creator
+   * is still a member there — one read.
+   */
+  getApiKeyAuthByHash(keyHash: string): Promise<ApiKeyAuth | null>
   listApiKeysByProject(
     projectId: string,
     pagination?: PaginationParams,
@@ -300,7 +309,8 @@ export interface DatabaseAdapter {
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<ApiKey>>
   updateApiKeyLastUsed(id: string, lastUsedAt: string): Promise<void>
-  revokeApiKey(id: string, projectId: string): Promise<ApiKey | null>
+  /** Revokes within the organization — the key's own, or its project's. */
+  revokeApiKey(id: string, organizationId: string): Promise<ApiKey | null>
 
   // Environment Variables
   createEnvVar(data: {

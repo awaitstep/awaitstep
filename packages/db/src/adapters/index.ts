@@ -22,6 +22,7 @@ import type {
   Deployment,
   DeploymentConfig,
   ApiKey,
+  ApiKeyAuth,
   EnvVar,
   Project,
   InstalledNode,
@@ -103,7 +104,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     this._workflowFiles = new WorkflowFilesAdapter(db, schema.workflowFiles)
     this._testSessions = new TestSessionsAdapter(db, schema.testSessions, schema.workflows)
     this._deployments = new DeploymentsAdapter(db, schema.deployments)
-    this._apiKeys = new ApiKeysAdapter(db, schema.apiKeys)
+    this._apiKeys = new ApiKeysAdapter(db, schema.apiKeys, schema.projects, schema.member)
     this._envVars = new EnvVarsAdapter(db, schema.envVars, options?.tokenCrypto, schema.projects)
     this._projects = new ProjectsAdapter(db, schema.projects)
     this._installedNodes = new InstalledNodesAdapter(db, schema.installedNodes)
@@ -620,21 +621,22 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   // API Keys
   createApiKey(data: {
     id: string
-    projectId: string
+    organizationId: string
+    projectId?: string | null
     createdBy: string
     name: string
     keyHash: string
     keyPrefix: string
     scopes: string
     expiresAt?: string | null
-  }): Promise<ApiKey> {
+  }): Promise<ApiKey | null> {
     return this._apiKeys.create(data)
   }
   getApiKeyById(id: string): Promise<ApiKey | null> {
     return this._apiKeys.getById(id)
   }
-  getApiKeyByHash(keyHash: string): Promise<ApiKey | null> {
-    return this._apiKeys.getByHash(keyHash)
+  getApiKeyAuthByHash(keyHash: string): Promise<ApiKeyAuth | null> {
+    return this._apiKeys.getAuthByHash(keyHash)
   }
   listApiKeysByProject(
     projectId: string,
@@ -642,51 +644,17 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   ): Promise<PaginatedResult<ApiKey>> {
     return this._apiKeys.listByProject(projectId, pagination)
   }
-  async listApiKeysByOrganization(
+  listApiKeysByOrganization(
     organizationId: string,
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<ApiKey>> {
-    const limit = clampLimit(pagination?.limit)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const k = this._schema.apiKeys as any
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const p = this._schema.projects as any
-
-    const conditions = [eq(p.organizationId, organizationId)]
-    if (pagination?.cursor) {
-      const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
-      conditions.push(
-        or(lt(k.createdAt, timestamp), and(eq(k.createdAt, timestamp), lt(k.id, cursorId)))!,
-      )
-    }
-
-    const rows = await this._db
-      .select({
-        id: k.id,
-        projectId: k.projectId,
-        createdBy: k.createdBy,
-        name: k.name,
-        keyHash: k.keyHash,
-        keyPrefix: k.keyPrefix,
-        scopes: k.scopes,
-        expiresAt: k.expiresAt,
-        lastUsedAt: k.lastUsedAt,
-        revokedAt: k.revokedAt,
-        createdAt: k.createdAt,
-      })
-      .from(k)
-      .innerJoin(p, eq(k.projectId, p.id))
-      .where(and(...conditions))
-      .orderBy(desc(k.createdAt), desc(k.id))
-      .limit(limit + 1)
-
-    return paginateResults(rows, limit, (row) => row.createdAt)
+    return this._apiKeys.listByOrganization(organizationId, pagination)
   }
   updateApiKeyLastUsed(id: string, lastUsedAt: string): Promise<void> {
     return this._apiKeys.updateLastUsed(id, lastUsedAt)
   }
-  revokeApiKey(id: string, projectId: string): Promise<ApiKey | null> {
-    return this._apiKeys.revoke(id, projectId)
+  revokeApiKey(id: string, organizationId: string): Promise<ApiKey | null> {
+    return this._apiKeys.revoke(id, organizationId)
   }
 
   // Env Vars

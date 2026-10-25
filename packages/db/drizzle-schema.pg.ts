@@ -1,4 +1,13 @@
-import { pgTable, text, timestamp, boolean, integer, index, uniqueIndex } from 'drizzle-orm/pg-core'
+import {
+  pgTable,
+  text,
+  timestamp,
+  boolean,
+  integer,
+  index,
+  uniqueIndex,
+  check,
+} from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 
 export const envVars = pgTable(
@@ -349,9 +358,10 @@ export const apiKeys = pgTable(
   'api_keys',
   {
     id: text('id').primaryKey(),
-    projectId: text('project_id')
-      .notNull()
-      .references(() => projects.id, { onDelete: 'cascade' }),
+    projectId: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
+    organizationId: text('organization_id').references(() => organization.id, {
+      onDelete: 'cascade',
+    }),
     createdBy: text('created_by').notNull(),
     name: text('name').notNull(),
     keyHash: text('key_hash').notNull().unique(),
@@ -364,7 +374,9 @@ export const apiKeys = pgTable(
   },
   (table) => [
     index('idx_api_keys_project_id').on(table.projectId),
+    index('idx_api_keys_organization_id').on(table.organizationId),
     index('idx_api_keys_key_hash').on(table.keyHash),
+    check('api_keys_one_level', sql`(project_id IS NULL) <> (organization_id IS NULL)`),
   ],
 )
 

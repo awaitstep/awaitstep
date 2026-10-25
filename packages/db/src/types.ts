@@ -174,6 +174,15 @@ export interface ActiveRunForSync {
 }
 export type Deployment = InferSelectModel<typeof deployments>
 export type ApiKey = InferSelectModel<typeof apiKeys>
+/**
+ * An API key as auth reads it: with its organization resolved from either
+ * source (its own, or its project's) and whether its creator is still a
+ * member of that organization.
+ */
+export type ApiKeyAuth = ApiKey & {
+  resolvedOrganizationId: string | null
+  createdByIsMember: boolean
+}
 export type EnvVar = InferSelectModel<typeof envVars>
 export type Project = InferSelectModel<typeof projects>
 export type InstalledNode = InferSelectModel<typeof installedNodes>
