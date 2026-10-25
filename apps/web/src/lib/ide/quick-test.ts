@@ -4,9 +4,10 @@
  *
  * A test session boots a real worker in a container: correct, and slow
  * enough that you stop reaching for it while editing a transform. This runs
- * the open step module in a Web Worker instead — no container, no deploy,
- * no version. It is a scratchpad for the body's logic, not a runtime: the
- * `step` object is a stub, nothing is durable, and imports are not resolved.
+ * the open step module in a Web Worker inside a null-origin sandbox instead —
+ * no container, no deploy, no version, no access to this app's session or
+ * API. It is a scratchpad for the body's logic, not a runtime: the `step`
+ * object is a stub, nothing is durable, and imports are not resolved.
  */
 import { isGlobalEnvRef } from '@awaitstep/ir'
 import { splitSecretName } from '../env-var-parser'

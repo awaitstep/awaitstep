@@ -1,4 +1,5 @@
 import { buildWorkerSource, unrunnableReason, type QuickTestArgs } from './quick-test'
+import { createQuickTestSandbox, type QuickTestSandbox } from './quick-test-sandbox'
 
 export interface QuickTestLog {
   level: 'log' | 'info' | 'warn' | 'error'
@@ -52,17 +53,18 @@ interface WorkerMessage {
 }
 
 /**
- * Runs one step module in a Web Worker and reports what it did.
+ * Runs one step module in a worker inside a null-origin sandbox and reports
+ * what it did.
  *
- * The worker is terminated on every path — done, thrown, timed out,
+ * The sandbox is torn down on every path — done, thrown, timed out,
  * abandoned — because a body with a `while (true)` in it is exactly the kind
  * of mistake someone reaches for a quick test to find, and a leaked worker
  * would keep a core busy for the rest of the session.
  *
- * Note this is the page's own origin: a Worker is an isolation boundary for
- * the DOM, not a security sandbox. That is the same trust as the editor the
- * code was typed into, but it does mean quick test is not a safe way to run
- * code from somewhere else.
+ * The opaque origin is the security boundary: generated step modules carry
+ * marketplace node templates — someone else's code — and code run on the
+ * page's own origin could ride the user's session. Inside the sandbox it has
+ * no cookies and no API; see quick-test-sandbox.ts.
  */
 export async function runQuickTest(opts: {
   path: string
@@ -93,13 +95,14 @@ export async function runQuickTest(opts: {
     return { status: 'aborted', result: '', error: null, logs, durationMs: 0 }
   }
 
-  const url = URL.createObjectURL(new Blob([buildWorkerSource(js)], { type: 'text/javascript' }))
-  const worker = new Worker(url)
   // Started once the step is actually handed over, so the reported time is
-  // the step's and not the transpiler's first load.
+  // the step's and not the transpiler's — or the sandbox's — first load.
   let startedAt = 0
   const since = () => (startedAt === 0 ? 0 : Date.now() - startedAt)
 
+  // A holder, not a let: the assignment happens inside the promise executor,
+  // which TypeScript's narrowing cannot see into from the finally below.
+  const held: { sandbox: QuickTestSandbox | null } = { sandbox: null }
   try {
     return await new Promise<QuickTestResult>((resolve) => {
       const timeoutMs = opts.timeoutMs ?? QUICK_TEST_TIMEOUT_MS
@@ -127,40 +130,67 @@ export async function runQuickTest(opts: {
 
       opts.signal?.addEventListener('abort', handleAbort, { once: true })
 
-      worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
-        const message = event.data
-        if (message.type === 'log') {
-          logs.push({ level: message.level ?? 'log', text: message.text ?? '' })
-          return
-        }
-        if (message.type === 'done') {
-          settle({
-            status: 'ok',
-            result: message.result ?? '',
-            error: null,
-            logs,
-            durationMs: since(),
-          })
-          return
-        }
-        settle(failedResult(message.message ?? 'The step failed.', logs, since()))
+      function handleUnavailable(message: string) {
+        settle(
+          refusedResult(
+            `Quick test could not start its sandbox in this browser${message ? ` (${message})` : ''}. Use Run to execute the whole workflow.`,
+          ),
+        )
       }
 
-      // A script-level failure (bad syntax that survived transpiling, a
-      // reference to something the worker has no business having) never
-      // reaches onmessage.
-      worker.onerror = (event) => {
-        settle(refusedResult(event.message || 'The step could not be loaded.'))
+      let sandbox: QuickTestSandbox
+      try {
+        sandbox = createQuickTestSandbox(buildWorkerSource(js), {
+          onMessage(data) {
+            // The step's own code can post anything it likes; a shape this
+            // panel does not know is noise, not a reason to hang the run.
+            if (typeof data !== 'object' || data === null) return
+            const message = data as WorkerMessage
+            if (message.type === 'log') {
+              logs.push({ level: message.level ?? 'log', text: message.text ?? '' })
+              return
+            }
+            if (message.type === 'done') {
+              settle({
+                status: 'ok',
+                result: message.result ?? '',
+                error: null,
+                logs,
+                durationMs: since(),
+              })
+              return
+            }
+            if (message.type === 'failed') {
+              settle(failedResult(message.message ?? 'The step failed.', logs, since()))
+            }
+          },
+          // Before the step ran, this is a script that never loaded (bad
+          // syntax that survived transpiling, a reference the worker has no
+          // business having). After it started, it is the step failing out of
+          // band — an uncaught error in a timer, an unhandled rejection — and
+          // "never ran" would blame code that plainly did, and drop its logs.
+          onLoadError(message) {
+            if (startedAt > 0) {
+              settle(failedResult(message || 'The step failed.', logs, since()))
+            } else {
+              settle(refusedResult(message || 'The step could not be loaded.'))
+            }
+          },
+          // The sandbox refusing to start is a browser limitation, never a
+          // reason to fall back to running the step on the page's own origin.
+          onUnavailable: handleUnavailable,
+          onStarted() {
+            startedAt = Date.now()
+          },
+        })
+      } catch (err) {
+        handleUnavailable(err instanceof Error ? err.message : String(err))
+        return
       }
-
-      // The script only defines the step; this is what runs it. Posted after
-      // the handlers are attached so a step that answers immediately cannot
-      // reply into a worker nobody is listening to.
-      startedAt = Date.now()
-      worker.postMessage(opts.args)
+      held.sandbox = sandbox
+      sandbox.start(opts.args)
     })
   } finally {
-    worker.terminate()
-    URL.revokeObjectURL(url)
+    held.sandbox?.destroy()
   }
 }
