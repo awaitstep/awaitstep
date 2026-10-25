@@ -912,6 +912,7 @@ export function createTestApp(options?: {
   testSessionLimits?: AppDeps['testSessionLimits']
   /** A concrete origin turns CSRF checking on, as a deployment has it. */
   corsOrigin?: AppDeps['corsOrigin']
+  enableLocalDev?: AppDeps['enableLocalDev']
 }) {
   // Seed the test project so auth middleware can find it
   store.projects.set(TEST_PROJECT_ID, {
@@ -932,5 +933,6 @@ export function createTestApp(options?: {
     remoteNodeRegistry: options?.remoteNodeRegistry,
     testSessionRunner: options?.testSessionRunner,
     testSessionLimits: options?.testSessionLimits,
+    ...(options?.enableLocalDev !== undefined && { enableLocalDev: options.enableLocalDev }),
   })
 }

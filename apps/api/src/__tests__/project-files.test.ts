@@ -147,6 +147,19 @@ describe('project file routes', () => {
     expect(good.status).toBe(201)
   })
 
+  it('refuses import-map targets by kind: escapes always, untidy ones on write', async () => {
+    // An escape fails the contract every version is held to.
+    const escape = await putFile(app, 'package.json', '{"imports":{"#x":"../../etc/x.js"}}')
+    expect(escape.status).toBe(422)
+    expect((await escape.json()).details[0].path).toBe('package.json.imports')
+
+    // A contained but untidy target is refused only because package.json is
+    // being written — a stored version carrying one keeps deploying.
+    const untidy = await putFile(app, 'package.json', '{"imports":{"#lib/":"./lib/"}}')
+    expect(untidy.status).toBe(422)
+    expect(JSON.stringify(await untidy.json())).toContain('empty')
+  })
+
   it('deletes with and without a precondition', async () => {
     const saved = await (await putFile(app, 'config/a.ts', 'v1')).json()
 

@@ -2,6 +2,8 @@ import {
   handlerEntry,
   hasHandlerModules,
   loadArtifact,
+  packageManifestWriteErrors,
+  PACKAGE_MANIFEST_PATH,
   projectHandlerModules,
   projectWriteErrors,
   type ProjectWriteError,
@@ -84,6 +86,14 @@ export async function projectWriteRuleErrors(
 
   const errors = projectWriteErrors(written, merged)
   if (errors.length > 0) return errors
+
+  const manifest = input.changes.find(
+    (change) => change.path === PACKAGE_MANIFEST_PATH && change.source !== null,
+  )
+  if (manifest?.source) {
+    const manifestErrors = packageManifestWriteErrors(manifest.source)
+    if (manifestErrors.length > 0) return manifestErrors
+  }
 
   const firstHandler = written.find((path) => handlerEntry(path))
   if (!firstHandler || hasHandlerModules(projectHandlerModules(input.existing))) return []

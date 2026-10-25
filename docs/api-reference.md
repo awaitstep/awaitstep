@@ -1142,6 +1142,13 @@ List objects in an R2 bucket.
 
 ## Nodes
 
+Node listings merge the organization's installed marketplace nodes into the
+registry. The organization comes from the caller — an API key's own, or a
+session's `organizationId` query parameter (membership checked; `404` for an
+organization the caller is not in). A session that omits it gets the public
+registry without any installs. `GET /nodes/:nodeId` resolves against the same
+merged set, so installed nodes are found individually too.
+
 ### `GET /nodes`
 
 List all available node definitions from the registry.

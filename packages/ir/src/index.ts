@@ -135,6 +135,7 @@ export {
   validatePackageManifest,
   validateProjectFiles,
   projectWriteErrors,
+  packageManifestWriteErrors,
 } from './project-files.js'
 export type {
   PackageManifest,

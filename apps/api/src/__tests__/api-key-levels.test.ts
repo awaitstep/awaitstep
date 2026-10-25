@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   createTestApp,
   resetStore,
@@ -324,6 +324,20 @@ describe('project-scoped API keys and env vars', () => {
 
 const ORG_KEY = 'ask_test-org-key'
 
+async function installNode(organizationId: string, nodeId: string) {
+  await mockDb.installNode({
+    id: `inst-${organizationId}-${nodeId}`,
+    organizationId,
+    nodeId,
+    version: '1.0.0',
+    bundle: JSON.stringify({
+      definition: { id: nodeId, name: nodeId, version: '1.0.0', category: 'Utilities' },
+      templates: { cloudflare: 'export default async function () {}' },
+    }),
+    installedBy: TEST_USER_ID,
+  })
+}
+
 function asOrgKey(init?: { method?: string; body?: string }): RequestInit {
   return {
     ...init,
@@ -579,6 +593,49 @@ describe('organization-level API keys', () => {
     expect(allBody.data.map((k) => k.id)).not.toContain('key-other')
   })
 
+  it('the nodes routes take the org from context, never from the query', async () => {
+    // Before the fix, any authenticated principal could pass a victim org's
+    // id and read its installed-node list and templates. The victim org has
+    // a node installed, so the old query-param behaviour fails these.
+    await seedProjectKey()
+    await installNode('victim-org', 'victim_secret_node')
+    await installNode(TEST_ORG_ID, 'own_node')
+
+    const foreign = await app.request('/api/nodes?organizationId=victim-org')
+    expect(foreign.status).toBe(404)
+
+    const keyed = await app.request('/api/nodes?organizationId=victim-org', asKey())
+    expect(keyed.status).toBe(200)
+    const keyedIds = ((await keyed.json()) as { id: string }[]).map((d) => d.id)
+    expect(keyedIds).not.toContain('victim_secret_node')
+    expect(keyedIds).toContain('own_node')
+
+    const templates = await app.request('/api/nodes/templates?organizationId=victim-org', asKey())
+    expect(Object.keys((await templates.json()) as object)).not.toContain('victim_secret_node')
+  })
+
+  it('a session without an organization still gets the public registry', async () => {
+    // The palette loads before an organization is chosen; refusing it there
+    // dropped users back to the bundled nodes.
+    await installNode(TEST_ORG_ID, 'own_node')
+
+    const res = await app.request('/api/nodes')
+
+    expect(res.status).toBe(200)
+    const ids = ((await res.json()) as { id: string }[]).map((d) => d.id)
+    expect(ids).not.toContain('own_node')
+  })
+
+  it('a single node is found among the organization installs too', async () => {
+    await installNode(TEST_ORG_ID, 'own_node')
+
+    const found = await app.request(`/api/nodes/own_node?organizationId=${TEST_ORG_ID}`)
+    expect(found.status).toBe(200)
+
+    const foreign = await app.request('/api/nodes/own_node?organizationId=victim-org')
+    expect(foreign.status).toBe(404)
+  })
+
   it('sessions create org keys and revoke within the org', async () => {
     const created = await app.request(
       ...asSession('/api/api-keys', {
@@ -595,5 +652,89 @@ describe('organization-level API keys', () => {
       ...asSession(`/api/api-keys/${body.id}`, { method: 'DELETE' }),
     )
     expect(revoked.status).toBe(200)
+  })
+})
+
+describe('local-dev routes', () => {
+  it('run control needs the deploy scope, not just read', async () => {
+    resetStore()
+    const app = createTestApp({ enableLocalDev: true })
+    await mockDb.createWorkflow({
+      id: 'wf-1',
+      projectId: TEST_PROJECT_ID,
+      createdBy: TEST_USER_ID,
+      name: 'Local',
+    })
+    await seedProjectKey(['read', 'write'])
+
+    const res = await app.request('/api/workflows/wf-1/local-dev/start', asKey({ method: 'POST' }))
+
+    expect(res.status).toBe(403)
+    const body = (await res.json()) as { error: string }
+    expect(body.error).toContain('deploy')
+  })
+})
+
+describe('router middleware', () => {
+  // In afterEach, not the test body: a failed assertion must not leave the
+  // database spies in place for every test that runs after it.
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('a refused request does not spend its owner’s rate budget', async () => {
+    // Limiters ran before scope checks: a leaked read key hammering deploy
+    // got 403s and still locked its owner out of deploying for the window.
+    resetStore()
+    const app = createTestApp()
+    await mockDb.createWorkflow({
+      id: 'wf-1',
+      projectId: TEST_PROJECT_ID,
+      createdBy: TEST_USER_ID,
+      name: 'Budget',
+    })
+    await seedProjectKey(['read'])
+
+    for (let i = 0; i < 10; i++) {
+      const refused = await app.request(
+        '/api/workflows/wf-1/deploy',
+        asKey({ method: 'POST', body: JSON.stringify({ connectionId: 'none' }) }),
+      )
+      expect(refused.status).toBe(403)
+    }
+
+    const owner = await app.request(`/api/workflows/wf-1/deploy?projectId=${TEST_PROJECT_ID}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ connectionId: 'none' }),
+    })
+    expect(owner.status).not.toBe(429)
+  })
+
+  it('runs each membership and ownership check once per request', async () => {
+    // A `/x/*` pattern also matches `/x` in Hono; registering both ran every
+    // check — and its query — twice on collection routes.
+    resetStore()
+    const app = createTestApp()
+    await mockDb.createWorkflow({
+      id: 'wf-1',
+      projectId: TEST_PROJECT_ID,
+      createdBy: TEST_USER_ID,
+      name: 'Once',
+    })
+    const isOrgMember = vi.spyOn(mockDb, 'isOrgMember')
+    const getProjectIfMember = vi.spyOn(mockDb, 'getProjectIfMember')
+    const getWorkflowById = vi.spyOn(mockDb, 'getWorkflowById')
+
+    await app.request(`/api/connections?organizationId=${TEST_ORG_ID}`)
+    expect(isOrgMember).toHaveBeenCalledTimes(1)
+
+    await app.request(`/api/workflows?projectId=${TEST_PROJECT_ID}`)
+    expect(getProjectIfMember).toHaveBeenCalledTimes(1)
+
+    getProjectIfMember.mockClear()
+    await app.request(`/api/workflows/wf-1/versions?projectId=${TEST_PROJECT_ID}`)
+    expect(getProjectIfMember).toHaveBeenCalledTimes(1)
+    expect(getWorkflowById).toHaveBeenCalledTimes(1)
   })
 })

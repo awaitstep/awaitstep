@@ -1,28 +1,34 @@
 import { createMiddleware } from 'hono/factory'
 import type { AppEnv } from '../types.js'
 
-export const requireOrganization = createMiddleware<AppEnv>(async (c, next) => {
-  // API key auth already set organizationId — a project key's comes off its
-  // project, an organization key carries its own.
-  if (c.get('apiKeyScopes') !== null) {
-    return next()
-  }
+// The one membership check for organization context. API key auth already
+// set organizationId — a project key's comes off its project, an
+// organization key carries its own. A session names one, and it is always
+// membership-checked; `optional` only decides whether naming none is allowed.
+function organizationContext(options: { optional: boolean }) {
+  return createMiddleware<AppEnv>(async (c, next) => {
+    if (c.get('apiKeyScopes') !== null) return next()
 
-  const organizationId = c.req.query('organizationId')
-  if (!organizationId) {
-    return c.json({ error: 'Missing organizationId query parameter' }, 400)
-  }
+    const organizationId = c.req.query('organizationId')
+    if (!organizationId) {
+      if (options.optional) return next()
+      return c.json({ error: 'Missing organizationId query parameter' }, 400)
+    }
 
-  const db = c.get('db')
-  const userId = c.get('userId')
-  const isMember = await db.isOrgMember(userId, organizationId)
-  if (!isMember) {
-    return c.json({ error: 'Not found' }, 404)
-  }
+    const isMember = await c.get('db').isOrgMember(c.get('userId'), organizationId)
+    if (!isMember) {
+      return c.json({ error: 'Not found' }, 404)
+    }
 
-  c.set('organizationId', organizationId)
-  await next()
-})
+    c.set('organizationId', organizationId)
+    await next()
+  })
+}
+
+export const requireOrganization = organizationContext({ optional: false })
+
+/** A session may omit the organization and get no organization context. */
+export const resolveOptionalOrganization = organizationContext({ optional: true })
 
 export const requireProject = createMiddleware<AppEnv>(async (c, next) => {
   // A project key already carries projectId and organizationId. An

@@ -15,6 +15,7 @@ import {
   projectFilePathError,
   projectPackageManifest,
   validatePackageManifest,
+  packageManifestWriteErrors,
   validateProjectFiles,
   handlerEntry,
   handlerWriteError,
@@ -153,6 +154,72 @@ describe('package.json contract', () => {
       'package.json.type',
     ])
     expect(validatePackageManifest('{"name":"ok","dependencies":{"zod":"^4.0.0"}}')).toEqual([])
+  })
+
+  it('refuses import-map targets that climb out of the project, however spelled', () => {
+    // Part of the stored-version check, so only actual escapes: a target is a
+    // file in the deploy directory, a dependency or a runtime built-in.
+    const escapes = [
+      '../outside.js',
+      './ok/../../up.js',
+      '/etc/passwd',
+      'file:/srv',
+      'https://evil.example/x.js',
+      './%2e%2e/%2e%2e/etc/x.js',
+      './%2E%2E/x.js',
+      './a%2f..%2fb.js',
+      'zod/../../../etc/x.js',
+    ]
+    for (const target of escapes) {
+      const errors = validatePackageManifest(JSON.stringify({ imports: { '#x': target } }))
+      expect(
+        errors.map((e) => e.path),
+        target,
+      ).toEqual(['package.json.imports'])
+    }
+  })
+
+  it('keeps validating stored manifests with untidy but contained targets', () => {
+    // These cannot escape. Refusing them in the stored-version check would
+    // stop a project saved with `"#lib/": "./lib/"` from deploying.
+    const contained = [
+      './lib/util.js',
+      './lib/*.js',
+      './lib/',
+      './lib/./x.js',
+      './/x.js',
+      './node_modules/zod/index.js',
+      './%zz.js',
+      'zod',
+      '@scope/pkg/sub',
+      'cloudflare:workers',
+      'node:buffer',
+      'workerd:x',
+    ]
+    for (const target of contained) {
+      expect(
+        validatePackageManifest(JSON.stringify({ imports: { '#x': target } })),
+        target,
+      ).toEqual([])
+    }
+  })
+
+  it('refuses untidy targets only when package.json itself is written', () => {
+    const untidy = ['./lib/', './lib/./x.js', './/x.js', './node_modules/zod/index.js', './%zz.js']
+    for (const target of untidy) {
+      const errors = packageManifestWriteErrors(JSON.stringify({ imports: { '#x': target } }))
+      expect(
+        errors.map((e) => e.path),
+        target,
+      ).toEqual(['package.json'])
+    }
+    const tidy = ['./lib/util.js', './lib/*.js', 'zod', '@scope/pkg/sub', 'cloudflare:workers']
+    for (const target of tidy) {
+      expect(
+        packageManifestWriteErrors(JSON.stringify({ imports: { '#x': target } })),
+        target,
+      ).toEqual([])
+    }
   })
 
   it('finds the project manifest among files', () => {

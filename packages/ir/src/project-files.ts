@@ -434,10 +434,79 @@ export function parsePackageManifest(source: string): PackageManifest | null {
   return manifest
 }
 
+// Runtime built-ins: no filesystem behind them, and refusing them would stop
+// projects that map one (`"#kv": "cloudflare:workers"`) from deploying.
+const BUILTIN_SCHEME = /^(?:node|cloudflare|workerd):/
+const URL_SCHEME = /^[A-Za-z][\w+.-]*:/
+// Shapes that stay inside the project but no resolver should be handed —
+// Node's own invalid segments, minus `..`, which is the escape rule's.
+const UNTIDY_TARGET_SEGMENTS = new Set(['', '.', 'node_modules'])
+
+function safeDecode(value: string): string | null {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return null
+  }
+}
+
+// Why an import-map target could climb out of the project, or null. Part of
+// validatePackageManifest, so it judges stored versions too: only what is an
+// actual escape belongs here — anything stricter would stop saved projects
+// from deploying. Decoded first, so `%2e%2e` cannot stand in for `..`.
+function importTargetEscape(value: string): string | null {
+  if (BUILTIN_SCHEME.test(value)) return null
+  if (URL_SCHEME.test(value)) return 'must not be a URL'
+  if (value.startsWith('/') || value.includes('\\')) {
+    return 'must be a relative path or package name'
+  }
+  const decoded = safeDecode(value) ?? value
+  if (decoded.startsWith('/') || decoded.split(/[/\\]/).includes('..')) {
+    return 'must stay inside the project (no "..")'
+  }
+  return null
+}
+
+// Why a target is refused on write though it cannot escape, or null. Kept
+// out of the stored-version check, like every write-time rule.
+function importTargetUntidy(value: string): string | null {
+  if (BUILTIN_SCHEME.test(value) || URL_SCHEME.test(value)) return null
+  const segments = (value.startsWith('./') ? value.slice(2) : value).split('/')
+  for (const segment of segments) {
+    const decoded = safeDecode(segment)
+    if (decoded === null) return 'must not contain malformed percent-encoding'
+    if (UNTIDY_TARGET_SEGMENTS.has(decoded.toLowerCase())) {
+      return 'must not contain empty, "." or node_modules segments'
+    }
+  }
+  return null
+}
+
+/**
+ * Write-time rules for a `package.json` being saved — judged only when the
+ * file itself is written, never against a stored version, so a project
+ * saved before a rule existed keeps deploying.
+ */
+export function packageManifestWriteErrors(
+  source: string,
+  path: string = PACKAGE_MANIFEST_PATH,
+): ProjectWriteError[] {
+  const manifest = parsePackageManifest(source)
+  const errors: ProjectWriteError[] = []
+  for (const [key, value] of Object.entries(manifest?.imports ?? {})) {
+    const problem = importTargetUntidy(value)
+    if (problem) {
+      errors.push({ path, message: `Import map target for "${key}" ${problem} ("${value}")` })
+    }
+  }
+  return errors
+}
+
 /**
  * Rules for a project-owned package.json: a JSON object, registry-only
  * dependency specs (the same gate the dependencies setting passes), string
- * maps for `imports`/`engines` with `#`-prefixed import keys, and ESM only.
+ * maps for `imports`/`engines` with `#`-prefixed import keys whose targets
+ * stay inside the project, and ESM only.
  */
 export function validatePackageManifest(source: string, path = 'package.json'): ValidationError[] {
   let parsed: unknown
@@ -460,11 +529,18 @@ export function validatePackageManifest(source: string, path = 'package.json'): 
     errors.push(...validateDependencySpecs(raw['dependencies'], `${path}.dependencies`))
   }
   if (isStringMap(raw['imports'])) {
-    for (const key of Object.keys(raw['imports'])) {
+    for (const [key, value] of Object.entries(raw['imports'])) {
       if (!key.startsWith('#')) {
         errors.push({
           path: `${path}.imports`,
           message: `Import map keys must start with "#" ("${key}")`,
+        })
+      }
+      const problem = importTargetEscape(value)
+      if (problem) {
+        errors.push({
+          path: `${path}.imports`,
+          message: `Import map target for "${key}" ${problem} ("${value}")`,
         })
       }
     }

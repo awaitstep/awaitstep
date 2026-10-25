@@ -10,7 +10,11 @@ import {
   requireScope,
   requireSessionAuth,
 } from '../middleware/auth.js'
-import { requireProject, requireOrganization } from '../middleware/project.js'
+import {
+  requireProject,
+  requireOrganization,
+  resolveOptionalOrganization,
+} from '../middleware/project.js'
 import { createRateLimiter } from '../middleware/rate-limit.js'
 import { requireWorkflowAccess, requireConnectionAccess } from '../middleware/ownership.js'
 import { workflows } from './workflows.js'
@@ -37,21 +41,23 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   // Auth — all API routes require authentication
   router.use('*', createAuthMiddleware(auth))
 
+  // A `/x/*` pattern also matches `/x` itself in Hono, so one registration
+  // covers a collection and everything under it. Registering both ran each
+  // middleware — and its membership or ownership query — twice per request.
+
   // Organization context — required for org-scoped routes
   router.use('/connections/*', requireOrganization)
-  router.use('/connections', requireOrganization)
   router.use('/env-vars/*', requireOrganization)
-  router.use('/env-vars', requireOrganization)
   router.use('/projects/*', requireOrganization)
-  router.use('/projects', requireOrganization)
   router.use('/api-keys/*', requireOrganization)
-  router.use('/api-keys', requireOrganization)
   router.use('/marketplace/*', requireOrganization)
-  router.use('/marketplace', requireOrganization)
+  // The node palette also loads before an organization is chosen: without
+  // one it gets the public registry, with one the organization's installs —
+  // membership checked either way, never an arbitrary id.
+  router.use('/nodes/*', resolveOptionalOrganization)
 
   // Project context — required for project-scoped routes (also sets organizationId)
   router.use('/workflows/*', requireProject)
-  router.use('/workflows', requireProject)
   router.use('/deployments', requireProject)
   router.use('/runs', requireProject)
   router.use('/test-sessions/*', requireProject)
@@ -60,11 +66,8 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.use('/workflows/:id', requireWorkflowAccess)
   router.use('/workflows/:id/full', requireWorkflowAccess)
   router.use('/workflows/:id/move', requireWorkflowAccess)
-  router.use('/workflows/:workflowId/versions', requireWorkflowAccess)
   router.use('/workflows/:workflowId/versions/*', requireWorkflowAccess)
-  router.use('/workflows/:workflowId/source', requireWorkflowAccess)
   router.use('/workflows/:workflowId/source/*', requireWorkflowAccess)
-  router.use('/workflows/:workflowId/project', requireWorkflowAccess)
   router.use('/workflows/:workflowId/project/*', requireWorkflowAccess)
   router.use('/workflows/:workflowId/files/*', requireWorkflowAccess)
   router.use('/workflows/:workflowId/deploy', requireWorkflowAccess)
@@ -72,7 +75,6 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.use('/workflows/:workflowId/deploy-stream', requireWorkflowAccess)
   router.use('/workflows/:workflowId/trigger', requireWorkflowAccess)
   router.use('/workflows/:workflowId/takedown', requireWorkflowAccess)
-  router.use('/workflows/:workflowId/runs', requireWorkflowAccess)
   router.use('/workflows/:workflowId/runs/*', requireWorkflowAccess)
   router.use('/workflows/:workflowId/deployments', requireWorkflowAccess)
   router.use('/workflows/:workflowId/test-sessions', requireWorkflowAccess)
@@ -82,31 +84,6 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
     if (c.req.param('id') === 'verify-token') return next()
     return requireConnectionAccess(c, next)
   })
-
-  // Stricter rate limits for sensitive endpoints (per user)
-  const userKey = (c: { get: (key: 'userId') => string }): string => c.get('userId')
-  const writeLimit = createRateLimiter({ windowMs: 60_000, max: 30, keyGenerator: userKey })
-  const verifyLimit = createRateLimiter({ windowMs: 60_000, max: 10, keyGenerator: userKey })
-  const deployLimit = createRateLimiter({ windowMs: 60_000, max: 10, keyGenerator: userKey })
-  const apiKeyCreateLimit = createRateLimiter({ windowMs: 60_000, max: 5, keyGenerator: userKey })
-
-  const marketplaceLimit = createRateLimiter({ windowMs: 60_000, max: 10, keyGenerator: userKey })
-
-  router.post('/projects', writeLimit)
-  router.patch('/projects/:id', writeLimit)
-  router.delete('/projects/:id', writeLimit)
-  router.use('/connections/verify-token', verifyLimit)
-  router.use('/workflows/:workflowId/deploy', deployLimit)
-  router.use('/workflows/:workflowId/deploy-stream', deployLimit)
-  router.use('/workflows/:workflowId/trigger', writeLimit)
-  // Starting a session is the expensive verb; reading one is a poll, and
-  // sharing the deploy limiter let polling spend the budget for deploys.
-  router.post('/workflows/:workflowId/test-sessions', deployLimit)
-  router.use('/workflows/:workflowId/takedown', writeLimit)
-  router.post('/api-keys', apiKeyCreateLimit)
-  router.post('/marketplace/install', marketplaceLimit)
-  router.post('/marketplace/uninstall', marketplaceLimit)
-  router.post('/marketplace/update', marketplaceLimit)
 
   // Scope enforcement for API key auth
   // All authenticated routes require at least 'read' scope
@@ -180,13 +157,55 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
     if (isCreate) return requireOrgLevelAuth(c, next)
     return requireSessionAuth(c, next)
   })
-  router.use('/api-keys', apiKeysGuard)
   router.use('/api-keys/*', apiKeysGuard)
   router.post('/api-keys', requireScope('write'))
+
+  // Stricter rate limits for sensitive endpoints (per user). Registered after
+  // every scope and level check: a request those refuse must not spend its
+  // owner's budget — a leaked read key hammering deploy would otherwise lock
+  // the owner out of deploying for the window.
+  const userKey = (c: { get: (key: 'userId') => string }): string => c.get('userId')
+  const writeLimit = createRateLimiter({ windowMs: 60_000, max: 30, keyGenerator: userKey })
+  const verifyLimit = createRateLimiter({ windowMs: 60_000, max: 10, keyGenerator: userKey })
+  const deployLimit = createRateLimiter({ windowMs: 60_000, max: 10, keyGenerator: userKey })
+  const apiKeyCreateLimit = createRateLimiter({ windowMs: 60_000, max: 5, keyGenerator: userKey })
+  const marketplaceLimit = createRateLimiter({ windowMs: 60_000, max: 10, keyGenerator: userKey })
+
+  router.post('/projects', writeLimit)
+  router.patch('/projects/:id', writeLimit)
+  router.delete('/projects/:id', writeLimit)
+  router.use('/connections/verify-token', verifyLimit)
+  router.use('/workflows/:workflowId/deploy', deployLimit)
+  router.use('/workflows/:workflowId/deploy-stream', deployLimit)
+  router.use('/workflows/:workflowId/trigger', writeLimit)
+  // Starting a session is the expensive verb; reading one is a poll, and
+  // sharing the deploy limiter let polling spend the budget for deploys.
+  router.post('/workflows/:workflowId/test-sessions', deployLimit)
+  router.use('/workflows/:workflowId/takedown', writeLimit)
+  router.post('/api-keys', apiKeyCreateLimit)
+  router.post('/marketplace/install', marketplaceLimit)
+  router.post('/marketplace/uninstall', marketplaceLimit)
+  router.post('/marketplace/update', marketplaceLimit)
 
   // Local dev routes (opt-in via ENABLE_LOCAL_DEV)
   if (options?.enableLocalDev) {
     router.use('/workflows/:workflowId/local-dev/*', requireWorkflowAccess)
+    // Starting, stopping and triggering a local wrangler process is run
+    // control — not something a read key does. Its own budget for starts
+    // (spawning a process on the host), the write budget for stop and
+    // trigger: sharing the deploy limiter let a few local triggers block
+    // real deploys. Scope first, so a refused call spends nothing.
+    const localDevStartLimit = createRateLimiter({
+      windowMs: 60_000,
+      max: 10,
+      keyGenerator: userKey,
+    })
+    for (const action of ['start', 'stop', 'trigger']) {
+      router.post(`/workflows/:workflowId/local-dev/${action}`, requireScope('deploy'))
+    }
+    router.post('/workflows/:workflowId/local-dev/start', localDevStartLimit)
+    router.post('/workflows/:workflowId/local-dev/stop', writeLimit)
+    router.post('/workflows/:workflowId/local-dev/trigger', writeLimit)
     router.route('/workflows', localDev)
   }
 
