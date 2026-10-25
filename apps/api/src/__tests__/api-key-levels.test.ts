@@ -15,6 +15,7 @@ const PROJECT_KEY = 'ask_test-project-key'
 async function seedProjectKey(scopes: string[] = ['read', 'write', 'deploy']) {
   await mockDb.createApiKey({
     id: 'key-1',
+    organizationId: TEST_ORG_ID,
     projectId: TEST_PROJECT_ID,
     createdBy: TEST_USER_ID,
     name: 'project key',
@@ -318,5 +319,246 @@ describe('project-scoped API keys and env vars', () => {
     expect(orgWide.status).toBe(200)
     const orgBody = (await orgWide.json()) as { data: { name: string }[] }
     expect(orgBody.data.map((v) => v.name)).toEqual(['ORG_WIDE'])
+  })
+})
+
+const ORG_KEY = 'ask_test-org-key'
+
+function asOrgKey(init?: { method?: string; body?: string }): RequestInit {
+  return {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${ORG_KEY}`,
+      'Content-Type': 'application/json',
+    },
+  }
+}
+
+describe('organization-level API keys', () => {
+  let app: ReturnType<typeof createTestApp>
+
+  beforeEach(async () => {
+    resetStore()
+    app = createTestApp()
+    await mockDb.createApiKey({
+      id: 'org-key-1',
+      organizationId: TEST_ORG_ID,
+      projectId: null,
+      createdBy: TEST_USER_ID,
+      name: 'org key',
+      keyHash: await hashApiKey(ORG_KEY),
+      keyPrefix: ORG_KEY.slice(0, 8),
+      scopes: JSON.stringify(['read', 'write']),
+      expiresAt: null,
+    })
+  })
+
+  it('manages org resources', async () => {
+    const project = await app.request(
+      '/api/projects',
+      asOrgKey({ method: 'POST', body: JSON.stringify({ name: 'From key', slug: 'from-key' }) }),
+    )
+    expect(project.status).toBe(201)
+
+    const connection = await app.request(
+      '/api/connections',
+      asOrgKey({
+        method: 'POST',
+        body: JSON.stringify({ provider: 'cloudflare', credentials: { a: 'b' }, name: 'c' }),
+      }),
+    )
+    expect(connection.status).toBe(201)
+  })
+
+  it('is refused on project and workflow routes, reads included', async () => {
+    await mockDb.createWorkflow({
+      id: 'wf-1',
+      projectId: TEST_PROJECT_ID,
+      createdBy: TEST_USER_ID,
+      name: 'Test',
+    })
+
+    for (const [path, init] of [
+      ['/api/workflows', asOrgKey()],
+      ['/api/workflows/wf-1', asOrgKey()],
+      ['/api/runs', asOrgKey()],
+      ['/api/deployments', asOrgKey()],
+    ] as const) {
+      const res = await app.request(path, init)
+      expect(res.status, path).toBe(403)
+      const body = (await res.json()) as { error: string }
+      expect(body.error, path).toContain('organization-level API key')
+    }
+  })
+
+  it('manages only org-wide variables', async () => {
+    await mockDb.createEnvVar({
+      id: 'env-proj',
+      organizationId: TEST_ORG_ID,
+      projectId: TEST_PROJECT_ID,
+      createdBy: TEST_USER_ID,
+      name: 'PROJ_VAR',
+      value: 'v',
+      isSecret: false,
+    })
+
+    const orgWide = await app.request(
+      '/api/env-vars',
+      asOrgKey({ method: 'POST', body: JSON.stringify({ name: 'ORG_NEW', value: 'v' }) }),
+    )
+    expect(orgWide.status).toBe(201)
+
+    const intoProject = await app.request(
+      '/api/env-vars',
+      asOrgKey({
+        method: 'POST',
+        body: JSON.stringify({ name: 'NOPE', value: 'v', projectId: TEST_PROJECT_ID }),
+      }),
+    )
+    expect(intoProject.status).toBe(403)
+
+    const patchProject = await app.request(
+      '/api/env-vars/env-proj',
+      asOrgKey({ method: 'PATCH', body: JSON.stringify({ value: 'x' }) }),
+    )
+    expect(patchProject.status).toBe(404)
+
+    const listProject = await app.request(`/api/env-vars?projectId=${TEST_PROJECT_ID}`, asOrgKey())
+    expect(listProject.status).toBe(404)
+  })
+
+  it('mints project keys, never org keys', async () => {
+    const minted = await app.request(
+      '/api/api-keys',
+      asOrgKey({
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'ci key',
+          projectId: TEST_PROJECT_ID,
+          scopes: ['read', 'write'],
+        }),
+      }),
+    )
+    expect(minted.status).toBe(201)
+    const body = (await minted.json()) as { key: string; projectId: string }
+    expect(body.key).toMatch(/^ask_/)
+    expect(body.projectId).toBe(TEST_PROJECT_ID)
+
+    const peer = await app.request(
+      '/api/api-keys',
+      asOrgKey({
+        method: 'POST',
+        body: JSON.stringify({ name: 'peer', scopes: ['read', 'write'] }),
+      }),
+    )
+    expect(peer.status).toBe(403)
+
+    const listed = await app.request('/api/api-keys', asOrgKey())
+    expect(listed.status).toBe(403)
+  })
+
+  it('never mints past itself: scopes and expiry are capped at its own', async () => {
+    // The org key holds read+write — deploy would be an escalation.
+    const escalated = await app.request(
+      '/api/api-keys',
+      asOrgKey({
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'escalated',
+          projectId: TEST_PROJECT_ID,
+          scopes: ['read', 'deploy'],
+        }),
+      }),
+    )
+    expect(escalated.status).toBe(403)
+    expect(JSON.stringify(await escalated.json())).toContain('deploy')
+
+    // An expiring caller cannot mint a key that outlives it.
+    const EXPIRING_KEY = 'ask_test-expiring-org-key'
+    const callerExpiry = new Date(Date.now() + 60 * 60_000).toISOString()
+    await mockDb.createApiKey({
+      id: 'org-key-2',
+      organizationId: TEST_ORG_ID,
+      projectId: null,
+      createdBy: TEST_USER_ID,
+      name: 'expiring org key',
+      keyHash: await hashApiKey(EXPIRING_KEY),
+      keyPrefix: EXPIRING_KEY.slice(0, 8),
+      scopes: JSON.stringify(['read', 'write']),
+      expiresAt: callerExpiry,
+    })
+    const outliving = await app.request('/api/api-keys', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${EXPIRING_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: 'outliving',
+        projectId: TEST_PROJECT_ID,
+        scopes: ['read'],
+        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60_000).toISOString(),
+      }),
+    })
+    expect(outliving.status).toBe(201)
+    const capped = (await outliving.json()) as { expiresAt: string }
+    expect(capped.expiresAt).toBe(callerExpiry)
+  })
+
+  it('stops working when its creator leaves the organization', async () => {
+    const GHOST_KEY = 'ask_test-ghost-key'
+    await mockDb.createApiKey({
+      id: 'org-key-ghost',
+      organizationId: TEST_ORG_ID,
+      projectId: null,
+      createdBy: 'departed-user',
+      name: 'ghost key',
+      keyHash: await hashApiKey(GHOST_KEY),
+      keyPrefix: GHOST_KEY.slice(0, 8),
+      scopes: JSON.stringify(['read', 'write']),
+      expiresAt: null,
+    })
+    const res = await app.request('/api/connections', {
+      headers: { Authorization: `Bearer ${GHOST_KEY}` },
+    })
+    expect(res.status).toBe(401)
+    const body = (await res.json()) as { error: string }
+    expect(body.error).toContain('no longer a member')
+  })
+
+  it('a project key still cannot mint anything', async () => {
+    await mockDb.createProject({
+      id: OTHER_PROJECT_ID,
+      organizationId: TEST_ORG_ID,
+      name: 'Other',
+      slug: 'other',
+    })
+    await seedProjectKey()
+    const res = await app.request(
+      '/api/api-keys',
+      asKey({
+        method: 'POST',
+        body: JSON.stringify({ name: 'x', projectId: TEST_PROJECT_ID, scopes: ['read'] }),
+      }),
+    )
+    expect(res.status).toBe(403)
+  })
+
+  it('sessions create org keys and revoke within the org', async () => {
+    const created = await app.request(
+      ...asSession('/api/api-keys', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'session org key', scopes: ['read', 'write'] }),
+      }),
+    )
+    expect(created.status).toBe(201)
+    const body = (await created.json()) as { id: string; projectId: null; organizationId: string }
+    expect(body.projectId).toBeNull()
+    expect(body.organizationId).toBe(TEST_ORG_ID)
+
+    const revoked = await app.request(
+      ...asSession(`/api/api-keys/${body.id}`, { method: 'DELETE' }),
+    )
+    expect(revoked.status).toBe(200)
   })
 })

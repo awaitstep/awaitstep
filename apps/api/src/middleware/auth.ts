@@ -20,7 +20,9 @@ export function createAuthMiddleware(auth: Auth) {
       const token = authHeader.slice(7)
       const db = c.get('db')
       const keyHash = await hashApiKey(token)
-      const apiKey = await db.getApiKeyByHash(keyHash)
+      // One read resolves the key and its organization: a project key's
+      // organization comes off its project, an org key carries its own.
+      const apiKey = await db.getApiKeyAuthByHash(keyHash)
 
       if (!apiKey) {
         return c.json({ error: 'Invalid API key' }, 401)
@@ -42,18 +44,28 @@ export function createAuthMiddleware(auth: Auth) {
       }
       const scopes = parsed.data
 
-      // API keys are project-scoped — derive organizationId from the project
-      const project = await db.getProjectById(apiKey.projectId)
-      if (!project) {
-        return c.json({ error: 'API key project not found' }, 401)
+      if (!apiKey.resolvedOrganizationId) {
+        // A project key whose project is gone, or a malformed row.
+        return c.json({ error: 'API key organization not found' }, 401)
+      }
+
+      // A key is the creator's standing in the organization, lent out: when
+      // the creator leaves, every key they minted stops working.
+      if (!apiKey.createdByIsMember) {
+        return c.json({ error: 'API key creator is no longer a member of the organization' }, 401)
       }
 
       c.set('userId', apiKey.createdBy)
-      c.set('organizationId', project.organizationId)
-      c.set('projectId', apiKey.projectId)
+      c.set('organizationId', apiKey.resolvedOrganizationId)
+      // An organization-level key has no project: project-scoped routes
+      // refuse it in requireProject.
+      if (apiKey.projectId) {
+        c.set('projectId', apiKey.projectId)
+      }
       c.set('user', null)
       c.set('session', null)
       c.set('apiKeyScopes', scopes)
+      c.set('apiKeyExpiresAt', apiKey.expiresAt)
 
       db.updateApiKeyLastUsed(apiKey.id, new Date().toISOString()).catch((err) => {
         log.error('Failed to update API key lastUsedAt', {
@@ -78,6 +90,7 @@ export function createAuthMiddleware(auth: Auth) {
     c.set('session', session.session)
     c.set('userId', session.user.id)
     c.set('apiKeyScopes', null)
+    c.set('apiKeyExpiresAt', null)
 
     await next()
   })

@@ -4,7 +4,7 @@ All endpoints require authentication via API key (`Authorization: Bearer ask_...
 
 API keys are scoped: `read` (queries), `write` (create/update/delete), `deploy` (deploy/trigger/takedown/run control). All keys require at least `read` scope.
 
-API keys are also **pinned to one project**. A key works on that project's workflows and variables, and reads org-level resources, but organization-level mutations — connections, projects, marketplace nodes, org-wide environment variables, moving a workflow between projects — answer `403` to a project key. They need a session.
+A key is also **project-level or organization-level, never both**. A project key works on its project's workflows and variables and reads org-level resources, but organization-level mutations — connections, projects, marketplace nodes, org-wide environment variables, moving a workflow between projects — answer `403` to it. An organization-level key (created without a `projectId`) manages those org resources and may mint project keys, but is refused on every project-scoped route, reads included.
 
 Base URL: `https://app.awaitstep.dev/api` (cloud) or `http://localhost:8080/api` (self-hosted, adjust to match your instance URL)
 
@@ -1329,7 +1329,9 @@ Update an installed node to a newer version.
 
 ## Session-Only Endpoints
 
-These endpoints require session authentication and are **not accessible via API key**.
+These endpoints require session authentication and are **not accessible via
+API key** — with one exception: an organization-level key may `POST /api-keys`
+to mint project keys.
 
 ### `GET /api-keys`
 
@@ -1342,7 +1344,17 @@ List all API keys for the current organization.
 
 ### `POST /api-keys`
 
-Create a new API key scoped to a project. The full key is returned only once in the response.
+Create a new API key. The full key is returned only once in the response.
+
+A key is **project-level or organization-level, never both**: with `projectId`
+it works that project's workflows and variables; without, it manages
+organization resources (projects, connections, marketplace, org-wide
+variables) and is refused on every project route. Organization-level keys can
+only be created from a session; an organization-level key may create project
+keys (`403` when it tries to create another org key). A key never mints past
+itself: the new key's scopes must be a subset of the caller's (`403`
+otherwise) and its expiry is capped at the caller's own. Keys stop working
+when their creator leaves the organization.
 
 ```json
 {
@@ -1353,7 +1365,8 @@ Create a new API key scoped to a project. The full key is returned only once in 
 }
 ```
 
-`expiresAt` is optional.
+`projectId` and `expiresAt` are optional — omit `projectId` for an
+organization-level key.
 
 ### `DELETE /api-keys/:id`
 

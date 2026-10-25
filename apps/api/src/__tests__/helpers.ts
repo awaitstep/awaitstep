@@ -662,11 +662,20 @@ const mockDb: DatabaseAdapter = {
     }
   },
 
-  // API Keys
+  // API Keys — mirrors the adapter: create validates the project belongs to
+  // the organization and stores exactly one level; auth resolves the org from
+  // either source and checks the creator's membership; the org listing never
+  // crosses organizations.
   async createApiKey(data) {
+    if (data.projectId) {
+      const project = store.projects.get(data.projectId)
+      if (!project || project.organizationId !== data.organizationId) return null
+    }
     const key: ApiKey = {
       ...data,
-      expiresAt: null,
+      projectId: data.projectId ?? null,
+      organizationId: data.projectId ? null : data.organizationId,
+      expiresAt: data.expiresAt ?? null,
       lastUsedAt: null,
       revokedAt: null,
       createdAt: now(),
@@ -677,11 +686,31 @@ const mockDb: DatabaseAdapter = {
   async getApiKeyById(id) {
     return store.apiKeys.get(id) ?? null
   },
-  async getApiKeyByHash(keyHash) {
-    return [...store.apiKeys.values()].find((k) => k.keyHash === keyHash && !k.revokedAt) ?? null
+  async getApiKeyAuthByHash(keyHash) {
+    const key =
+      [...store.apiKeys.values()].find((k) => k.keyHash === keyHash && !k.revokedAt) ?? null
+    if (!key) return null
+    const projectOrg = key.projectId
+      ? (store.projects.get(key.projectId)?.organizationId ?? null)
+      : null
+    const resolvedOrganizationId = key.organizationId ?? projectOrg
+    return {
+      ...key,
+      resolvedOrganizationId,
+      // The same membership rule as the isOrgMember mock above.
+      createdByIsMember: key.createdBy === TEST_USER_ID && resolvedOrganizationId === TEST_ORG_ID,
+    }
   },
-  async listApiKeysByOrganization() {
-    return { data: [...store.apiKeys.values()], nextCursor: null }
+  async listApiKeysByOrganization(organizationId) {
+    return {
+      data: [...store.apiKeys.values()].filter((k) => {
+        const org =
+          k.organizationId ??
+          (k.projectId ? (store.projects.get(k.projectId)?.organizationId ?? null) : null)
+        return org === organizationId
+      }),
+      nextCursor: null,
+    }
   },
   async listApiKeysByProject(projectId) {
     return {
@@ -693,9 +722,13 @@ const mockDb: DatabaseAdapter = {
     const k = store.apiKeys.get(id)
     if (k) store.apiKeys.set(id, { ...k, lastUsedAt })
   },
-  async revokeApiKey(id, projectId) {
+  async revokeApiKey(id, organizationId) {
     const k = store.apiKeys.get(id)
-    if (!k || k.projectId !== projectId) return null
+    if (!k) return null
+    const keyOrg =
+      k.organizationId ??
+      (k.projectId ? (store.projects.get(k.projectId)?.organizationId ?? null) : null)
+    if (keyOrg !== organizationId) return null
     const revoked = { ...k, revokedAt: now() }
     store.apiKeys.set(id, revoked)
     return revoked

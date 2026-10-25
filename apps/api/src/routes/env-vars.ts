@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
@@ -42,16 +42,27 @@ const listEnvVarsQuerySchema = z
   .object({ projectId: z.string().optional() })
   .merge(paginationQuerySchema)
 
+/**
+ * The project restriction a principal carries: undefined for sessions (none),
+ * the key's project for a project key, null for an organization key (org-wide
+ * rows only). Matches the adapter's scope semantics one to one.
+ */
+function varRestriction(c: Context<AppEnv>): string | null | undefined {
+  if (c.get('apiKeyScopes') === null) return undefined
+  return apiKeyProjectPin(c)
+}
+
 envVars.get('/', zValidator('query', listEnvVarsQuerySchema), async (c) => {
   const db = c.get('db')
   const organizationId = c.get('organizationId')
   const { projectId, cursor, limit } = c.req.valid('query')
 
-  // A project-scoped key reads its own project's list and the org-wide list —
+  // A project key reads its own project's list and the org-wide list —
   // org-wide variables resolve into its project at deploy time — but never
-  // another project's. Mutations below are pinned to the key's project.
-  const pin = apiKeyProjectPin(c)
-  if (pin !== null && projectId !== undefined && projectId !== pin) {
+  // another project's. An org key reads only the org-wide list. Mutations
+  // below carry the same restriction.
+  const restriction = varRestriction(c)
+  if (restriction !== undefined && projectId !== undefined && projectId !== restriction) {
     return c.json({ error: 'Not found' }, 404)
   }
 
@@ -74,10 +85,15 @@ envVars.post('/', zValidator('json', createEnvVarSchema), async (c) => {
   const userId = c.get('userId')
   const body = c.req.valid('json')
 
-  const pin = apiKeyProjectPin(c)
-  if (pin !== null && body.projectId !== pin) {
+  const restriction = varRestriction(c)
+  if (restriction !== undefined && (body.projectId ?? null) !== restriction) {
     return c.json(
-      { error: "A project-scoped API key can only manage its own project's variables" },
+      {
+        error:
+          restriction === null
+            ? 'An organization-level API key can only manage org-wide variables'
+            : "A project-scoped API key can only manage its own project's variables",
+      },
       403,
     )
   }
@@ -111,8 +127,9 @@ envVars.patch('/:id', zValidator('json', updateEnvVarSchema), async (c) => {
   const id = c.req.param('id')
   const body = c.req.valid('json')
 
-  const pin = apiKeyProjectPin(c)
-  const scope = pin === null ? { organizationId } : { organizationId, projectId: pin }
+  const restriction = varRestriction(c)
+  const scope =
+    restriction === undefined ? { organizationId } : { organizationId, projectId: restriction }
   const updated = await db.updateEnvVar(id, scope, body)
   if (!updated) {
     // One read, only on this error path: tell the secret-reveal refusal from
@@ -122,7 +139,7 @@ envVars.patch('/:id', zValidator('json', updateEnvVarSchema), async (c) => {
       if (
         existing &&
         existing.organizationId === organizationId &&
-        (pin === null || existing.projectId === pin) &&
+        (restriction === undefined || existing.projectId === restriction) &&
         existing.isSecret
       ) {
         return c.json(
@@ -145,8 +162,9 @@ envVars.delete('/:id', async (c) => {
   const organizationId = c.get('organizationId')
   const id = c.req.param('id')
 
-  const pin = apiKeyProjectPin(c)
-  const scope = pin === null ? { organizationId } : { organizationId, projectId: pin }
+  const restriction = varRestriction(c)
+  const scope =
+    restriction === undefined ? { organizationId } : { organizationId, projectId: restriction }
   const deleted = await db.deleteEnvVar(id, scope)
   if (!deleted) return c.json({ error: 'Not found' }, 404)
   return c.json({ ok: true })

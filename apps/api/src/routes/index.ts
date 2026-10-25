@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { createMiddleware } from 'hono/factory'
 import type { AppEnv } from '../types.js'
 import type { Auth } from '../auth/config.js'
 import { zValidator } from '../lib/validation.js'
@@ -170,9 +171,18 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.post('/marketplace/uninstall', requireOrgLevelAuth)
   router.post('/marketplace/update', requireOrgLevelAuth)
 
-  // API key management is session-only (no API key auth)
-  router.use('/api-keys/*', requireSessionAuth)
-  router.use('/api-keys', requireSessionAuth)
+  // API key management is session-only, with one exemption: POST /api-keys
+  // also accepts an organization-level key, which may mint project keys (the
+  // handler refuses minting past the caller: level, scopes, expiry). A
+  // catch-all, so a route added here later is closed by default.
+  const apiKeysGuard = createMiddleware<AppEnv>(async (c, next) => {
+    const isCreate = c.req.method === 'POST' && /\/api-keys\/?$/.test(c.req.path)
+    if (isCreate) return requireOrgLevelAuth(c, next)
+    return requireSessionAuth(c, next)
+  })
+  router.use('/api-keys', apiKeysGuard)
+  router.use('/api-keys/*', apiKeysGuard)
+  router.post('/api-keys', requireScope('write'))
 
   // Local dev routes (opt-in via ENABLE_LOCAL_DEV)
   if (options?.enableLocalDev) {

@@ -18,6 +18,8 @@ export interface AppEnv {
     connection: Connection | undefined
     requestId: string
     apiKeyScopes: ApiKeyScope[] | null
+    /** The key's own expiry — the ceiling for any key it mints. Null for sessions. */
+    apiKeyExpiresAt: string | null
     nodeRegistry: AppNodeRegistry
     remoteNodeRegistry: RemoteNodeRegistry | undefined
     appName: string | undefined
