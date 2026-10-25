@@ -7,6 +7,7 @@ export type {
   DeploymentConfig,
   ApiKey,
   ApiKeyAuth,
+  ApiKeyListItem,
   EnvVar,
   Project,
   InstalledNode,

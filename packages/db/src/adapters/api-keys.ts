@@ -1,5 +1,5 @@
 import { eq, desc, isNull, and, or, lt, inArray, sql, type SQL } from 'drizzle-orm'
-import type { ApiKey, ApiKeyAuth } from '../types.js'
+import type { ApiKey, ApiKeyAuth, ApiKeyListItem } from '../types.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 
@@ -115,52 +115,77 @@ export class ApiKeysAdapter {
     }
   }
 
+  /**
+   * Live keys of the organization — both levels — with each project key's
+   * project name joined in (the join is for the name only; the ownership
+   * check stays on the indexed condition). Revoked keys never leave the
+   * database: they are history, not something a list pages through.
+   */
   async listByOrganization(
     organizationId: string,
     pagination?: PaginationParams,
-  ): Promise<PaginatedResult<ApiKey>> {
+  ): Promise<PaginatedResult<ApiKeyListItem>> {
+    const k = this.table
+    const p = this.projectsTable
     const limit = clampLimit(pagination?.limit)
-    const conditions = [this.ownedByOrg(organizationId)]
+    const conditions = [this.ownedByOrg(organizationId), isNull(k.revokedAt)]
     if (pagination?.cursor) {
       const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
       conditions.push(
-        or(
-          lt(this.table.createdAt, timestamp),
-          and(eq(this.table.createdAt, timestamp), lt(this.table.id, cursorId)),
-        )!,
+        or(lt(k.createdAt, timestamp), and(eq(k.createdAt, timestamp), lt(k.id, cursorId)))!,
       )
     }
     const rows = await this.db
-      .select()
-      .from(this.table)
+      .select({ key: k, projectName: p.name })
+      .from(k)
+      .leftJoin(p, eq(k.projectId, p.id))
       .where(and(...conditions))
-      .orderBy(desc(this.table.createdAt), desc(this.table.id))
+      .orderBy(desc(k.createdAt), desc(k.id))
       .limit(limit + 1)
-    return paginateResults(rows, limit, (r: ApiKey) => r.createdAt)
+    const items: ApiKeyListItem[] = rows.map(
+      (row: { key: ApiKey; projectName: string | null }) => ({
+        ...row.key,
+        projectName: row.projectName ?? null,
+      }),
+    )
+    return paginateResults(items, limit, (r) => r.createdAt)
   }
 
+  /**
+   * One project's live keys. The inner join carries the organization check:
+   * a project id from another organization matches nothing.
+   */
   async listByProject(
+    organizationId: string,
     projectId: string,
     pagination?: PaginationParams,
-  ): Promise<PaginatedResult<ApiKey>> {
+  ): Promise<PaginatedResult<ApiKeyListItem>> {
+    const k = this.table
+    const p = this.projectsTable
     const limit = clampLimit(pagination?.limit)
-    const conditions = [eq(this.table.projectId, projectId)]
+    const conditions = [
+      eq(k.projectId, projectId),
+      eq(p.organizationId, organizationId),
+      isNull(k.revokedAt),
+    ]
     if (pagination?.cursor) {
       const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
       conditions.push(
-        or(
-          lt(this.table.createdAt, timestamp),
-          and(eq(this.table.createdAt, timestamp), lt(this.table.id, cursorId)),
-        )!,
+        or(lt(k.createdAt, timestamp), and(eq(k.createdAt, timestamp), lt(k.id, cursorId)))!,
       )
     }
     const rows = await this.db
-      .select()
-      .from(this.table)
+      .select({ key: k, projectName: p.name })
+      .from(k)
+      .innerJoin(p, eq(k.projectId, p.id))
       .where(and(...conditions))
-      .orderBy(desc(this.table.createdAt), desc(this.table.id))
+      .orderBy(desc(k.createdAt), desc(k.id))
       .limit(limit + 1)
-    return paginateResults(rows, limit, (r: ApiKey) => r.createdAt)
+    const items: ApiKeyListItem[] = rows.map((row: { key: ApiKey; projectName: string }) => ({
+      ...row.key,
+      projectName: row.projectName,
+    }))
+    return paginateResults(items, limit, (r) => r.createdAt)
   }
 
   async updateLastUsed(id: string, lastUsedAt: string): Promise<void> {

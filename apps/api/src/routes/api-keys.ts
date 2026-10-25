@@ -18,11 +18,17 @@ const createApiKeySchema = z.object({
 
 export const apiKeys = new Hono<AppEnv>()
 
-apiKeys.get('/', zValidator('query', paginationQuerySchema), async (c) => {
+const listApiKeysQuerySchema = z
+  .object({ projectId: z.string().optional() })
+  .merge(paginationQuerySchema)
+
+apiKeys.get('/', zValidator('query', listApiKeysQuerySchema), async (c) => {
   const db = c.get('db')
   const organizationId = c.get('organizationId')
-  const { cursor, limit } = c.req.valid('query')
-  const result = await db.listApiKeysByOrganization(organizationId, { cursor, limit })
+  const { projectId, cursor, limit } = c.req.valid('query')
+  const result = projectId
+    ? await db.listApiKeysByProject(organizationId, projectId, { cursor, limit })
+    : await db.listApiKeysByOrganization(organizationId, { cursor, limit })
   return c.json({
     data: result.data.map(({ keyHash: _, ...key }) => key),
     nextCursor: result.nextCursor,

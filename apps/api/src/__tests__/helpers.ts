@@ -703,18 +703,29 @@ const mockDb: DatabaseAdapter = {
   },
   async listApiKeysByOrganization(organizationId) {
     return {
-      data: [...store.apiKeys.values()].filter((k) => {
-        const org =
-          k.organizationId ??
-          (k.projectId ? (store.projects.get(k.projectId)?.organizationId ?? null) : null)
-        return org === organizationId
-      }),
+      data: [...store.apiKeys.values()]
+        .filter((k) => {
+          const org =
+            k.organizationId ??
+            (k.projectId ? (store.projects.get(k.projectId)?.organizationId ?? null) : null)
+          return org === organizationId && !k.revokedAt
+        })
+        .map((k) => ({
+          ...k,
+          projectName: k.projectId ? (store.projects.get(k.projectId)?.name ?? null) : null,
+        })),
       nextCursor: null,
     }
   },
-  async listApiKeysByProject(projectId) {
+  async listApiKeysByProject(organizationId, projectId) {
+    const project = store.projects.get(projectId)
+    if (!project || project.organizationId !== organizationId) {
+      return { data: [], nextCursor: null }
+    }
     return {
-      data: [...store.apiKeys.values()].filter((k) => k.projectId === projectId),
+      data: [...store.apiKeys.values()]
+        .filter((k) => k.projectId === projectId && !k.revokedAt)
+        .map((k) => ({ ...k, projectName: project.name })),
       nextCursor: null,
     }
   },

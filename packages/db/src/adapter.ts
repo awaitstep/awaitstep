@@ -26,6 +26,7 @@ import type {
   ReserveTestSessionData,
   ReserveTestSessionLimits,
   ApiKeyAuth,
+  ApiKeyListItem,
 } from './types.js'
 import type { PaginationParams, PaginatedResult } from './pagination.js'
 
@@ -300,14 +301,17 @@ export interface DatabaseAdapter {
    * is still a member there — one read.
    */
   getApiKeyAuthByHash(keyHash: string): Promise<ApiKeyAuth | null>
+  /** One project's live keys; a foreign organization's project matches nothing. */
   listApiKeysByProject(
+    organizationId: string,
     projectId: string,
     pagination?: PaginationParams,
-  ): Promise<PaginatedResult<ApiKey>>
+  ): Promise<PaginatedResult<ApiKeyListItem>>
+  /** The organization's live keys, both levels, with project names joined in. */
   listApiKeysByOrganization(
     organizationId: string,
     pagination?: PaginationParams,
-  ): Promise<PaginatedResult<ApiKey>>
+  ): Promise<PaginatedResult<ApiKeyListItem>>
   updateApiKeyLastUsed(id: string, lastUsedAt: string): Promise<void>
   /** Revokes within the organization — the key's own, or its project's. */
   revokeApiKey(id: string, organizationId: string): Promise<ApiKey | null>

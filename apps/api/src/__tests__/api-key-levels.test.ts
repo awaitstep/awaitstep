@@ -544,6 +544,41 @@ describe('organization-level API keys', () => {
     expect(res.status).toBe(403)
   })
 
+  it('lists one project server-side, with names joined and revoked keys gone', async () => {
+    await mockDb.createProject({
+      id: OTHER_PROJECT_ID,
+      organizationId: TEST_ORG_ID,
+      name: 'Other',
+      slug: 'other',
+    })
+    await seedProjectKey()
+    await mockDb.createApiKey({
+      id: 'key-other',
+      organizationId: TEST_ORG_ID,
+      projectId: OTHER_PROJECT_ID,
+      createdBy: TEST_USER_ID,
+      name: 'other project key',
+      keyHash: 'hash-other',
+      keyPrefix: 'ask_othe',
+      scopes: '["read"]',
+      expiresAt: null,
+    })
+    await mockDb.revokeApiKey('key-other', TEST_ORG_ID)
+
+    const [url, init] = asSession(`/api/api-keys?projectId=${TEST_PROJECT_ID}`, {})
+    const res = await app.request(url, init)
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { data: { id: string; projectName: string }[] }
+    expect(body.data.map((k) => k.id)).toEqual(['key-1'])
+    expect(body.data[0]?.projectName).toBe('Test Project')
+
+    const [allUrl, allInit] = asSession('/api/api-keys', {})
+    const all = await app.request(allUrl, allInit)
+    const allBody = (await all.json()) as { data: { id: string }[] }
+    expect(allBody.data.map((k) => k.id)).toContain('key-1')
+    expect(allBody.data.map((k) => k.id)).not.toContain('key-other')
+  })
+
   it('sessions create org keys and revoke within the org', async () => {
     const created = await app.request(
       ...asSession('/api/api-keys', {

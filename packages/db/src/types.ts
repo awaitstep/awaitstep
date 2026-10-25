@@ -183,6 +183,8 @@ export type ApiKeyAuth = ApiKey & {
   resolvedOrganizationId: string | null
   createdByIsMember: boolean
 }
+/** A listed key with its project's name joined in — null on org-level keys. */
+export type ApiKeyListItem = ApiKey & { projectName: string | null }
 export type EnvVar = InferSelectModel<typeof envVars>
 export type Project = InferSelectModel<typeof projects>
 export type InstalledNode = InferSelectModel<typeof installedNodes>

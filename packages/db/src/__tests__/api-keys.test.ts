@@ -131,6 +131,27 @@ describe('ApiKeysAdapter', () => {
     expect(revoked?.revokedAt).not.toBeNull()
   })
 
+  it('lists live keys with project names and scopes the project list by org', async () => {
+    await db.adapter.createApiKey(keyData({ id: 'k-p', organizationId: 'org-1', projectId: 'p-1' }))
+    await db.adapter.createApiKey(keyData({ id: 'k-o', organizationId: 'org-1' }))
+    await db.adapter.createApiKey(
+      keyData({ id: 'k-dead', organizationId: 'org-1', projectId: 'p-1' }),
+    )
+    await db.adapter.revokeApiKey('k-dead', 'org-1')
+
+    const orgList = await db.adapter.listApiKeysByOrganization('org-1')
+    expect(orgList.data.map((k) => k.id).sort()).toEqual(['k-o', 'k-p'])
+    expect(orgList.data.find((k) => k.id === 'k-p')?.projectName).toBe('One')
+    expect(orgList.data.find((k) => k.id === 'k-o')?.projectName).toBeNull()
+
+    const projectList = await db.adapter.listApiKeysByProject('org-1', 'p-1')
+    expect(projectList.data.map((k) => k.id)).toEqual(['k-p'])
+
+    // A project id from another organization matches nothing.
+    const foreign = await db.adapter.listApiKeysByProject('org-1', 'p-2')
+    expect(foreign.data).toEqual([])
+  })
+
   it('lists both key levels of one organization and nothing of another', async () => {
     await db.adapter.createApiKey(keyData({ id: 'k-p', organizationId: 'org-1', projectId: 'p-1' }))
     await db.adapter.createApiKey(keyData({ id: 'k-o', organizationId: 'org-1' }))

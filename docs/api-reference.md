@@ -1335,12 +1335,15 @@ to mint project keys.
 
 ### `GET /api-keys`
 
-List all API keys for the current organization.
+List the organization's live API keys — revoked keys are never returned. Each
+project-level key carries its project's name as `projectName` (null on
+organization-level keys).
 
-| Param    | In    | Required | Description                        |
-| -------- | ----- | -------- | ---------------------------------- |
-| `cursor` | query | no       | Pagination cursor                  |
-| `limit`  | query | no       | Items per page (1–100, default 50) |
+| Param       | In    | Required | Description                                                 |
+| ----------- | ----- | -------- | ----------------------------------------------------------- |
+| `projectId` | query | no       | List only this project's keys (must be in the organization) |
+| `cursor`    | query | no       | Pagination cursor                                           |
+| `limit`     | query | no       | Items per page (1–100, default 50)                          |
 
 ### `POST /api-keys`
 

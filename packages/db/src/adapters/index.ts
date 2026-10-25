@@ -23,6 +23,7 @@ import type {
   DeploymentConfig,
   ApiKey,
   ApiKeyAuth,
+  ApiKeyListItem,
   EnvVar,
   Project,
   InstalledNode,
@@ -639,15 +640,16 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     return this._apiKeys.getAuthByHash(keyHash)
   }
   listApiKeysByProject(
+    organizationId: string,
     projectId: string,
     pagination?: PaginationParams,
-  ): Promise<PaginatedResult<ApiKey>> {
-    return this._apiKeys.listByProject(projectId, pagination)
+  ): Promise<PaginatedResult<ApiKeyListItem>> {
+    return this._apiKeys.listByProject(organizationId, projectId, pagination)
   }
   listApiKeysByOrganization(
     organizationId: string,
     pagination?: PaginationParams,
-  ): Promise<PaginatedResult<ApiKey>> {
+  ): Promise<PaginatedResult<ApiKeyListItem>> {
     return this._apiKeys.listByOrganization(organizationId, pagination)
   }
   updateApiKeyLastUsed(id: string, lastUsedAt: string): Promise<void> {
