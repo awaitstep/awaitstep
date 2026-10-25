@@ -1,4 +1,6 @@
-import { pgTable, text, timestamp, uniqueIndex, index } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import { pgTable, text, uniqueIndex, index } from 'drizzle-orm/pg-core'
+import { isoTimestamp } from './iso-timestamp.js'
 import { workflows } from './workflows.js'
 import { connections } from './connections.js'
 
@@ -14,7 +16,9 @@ export const deploymentConfigs = pgTable(
       .references(() => connections.id, { onDelete: 'cascade' }),
     provider: text('provider').notNull(),
     config: text('config').notNull(),
-    updatedAt: timestamp('updated_at', { mode: 'string' }).notNull().defaultNow(),
+    updatedAt: isoTimestamp('updated_at')
+      .notNull()
+      .default(sql`now()`),
     updatedBy: text('updated_by'),
   },
   (table) => [

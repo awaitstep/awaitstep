@@ -254,9 +254,10 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         ),
         lastRunAt: sql<
           string | null
-        >`(SELECT ${r.createdAt} FROM ${r} WHERE ${r.workflowId} = ${wId} ORDER BY ${r.createdAt} DESC LIMIT 1)`.as(
-          'last_run_at',
-        ),
+        >`(SELECT ${r.createdAt} FROM ${r} WHERE ${r.workflowId} = ${wId} ORDER BY ${r.createdAt} DESC LIMIT 1)`
+          // A raw subquery skips the column's decoder; pg would return its own text format.
+          .mapWith(r.createdAt)
+          .as('last_run_at'),
       })
       .from(w)
       .where(and(...conditions))

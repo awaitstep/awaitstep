@@ -1,4 +1,6 @@
-import { pgTable, text, integer, uniqueIndex, index, timestamp } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import { pgTable, text, integer, uniqueIndex, index } from 'drizzle-orm/pg-core'
+import { isoTimestamp } from './iso-timestamp.js'
 import { workflows } from './workflows.js'
 
 export const workflowVersions = pgTable(
@@ -22,7 +24,9 @@ export const workflowVersions = pgTable(
     manifest: text('manifest'),
     baseGeneratedHash: text('base_generated_hash'),
     locked: integer('locked').notNull().default(0),
-    createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
+    createdAt: isoTimestamp('created_at')
+      .notNull()
+      .default(sql`now()`),
   },
   (table) => [
     uniqueIndex('idx_workflow_version_unique').on(table.workflowId, table.version),

@@ -1,4 +1,6 @@
-import { pgTable, text, index, timestamp } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import { pgTable, text, index } from 'drizzle-orm/pg-core'
+import { isoTimestamp } from './iso-timestamp.js'
 import { workflows } from './workflows.js'
 import { workflowVersions } from './versions.js'
 import { connections } from './connections.js'
@@ -18,8 +20,12 @@ export const workflowRuns = pgTable(
     status: text('status').notNull().default('queued'),
     output: text('output'),
     error: text('error'),
-    createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { mode: 'string' }).notNull().defaultNow(),
+    createdAt: isoTimestamp('created_at')
+      .notNull()
+      .default(sql`now()`),
+    updatedAt: isoTimestamp('updated_at')
+      .notNull()
+      .default(sql`now()`),
   },
   (table) => [index('idx_workflow_runs_workflow_id').on(table.workflowId)],
 )

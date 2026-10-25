@@ -1,4 +1,5 @@
-import { pgTable, text, integer, index, uniqueIndex, timestamp } from 'drizzle-orm/pg-core'
+import { pgTable, text, integer, index, uniqueIndex } from 'drizzle-orm/pg-core'
+import { isoTimestamp } from './iso-timestamp.js'
 import { sql } from 'drizzle-orm'
 import { workflows } from './workflows.js'
 import { workflowVersions } from './versions.js'
@@ -40,9 +41,13 @@ export const testSessions = pgTable(
       .notNull()
       .default('starting'),
     error: text('error'),
-    createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
-    lastUsedAt: timestamp('last_used_at', { mode: 'string' }).notNull().defaultNow(),
-    stoppedAt: timestamp('stopped_at', { mode: 'string' }),
+    createdAt: isoTimestamp('created_at')
+      .notNull()
+      .default(sql`now()`),
+    lastUsedAt: isoTimestamp('last_used_at')
+      .notNull()
+      .default(sql`now()`),
+    stoppedAt: isoTimestamp('stopped_at'),
   },
   (table) => [
     index('idx_test_sessions_workflow_id').on(table.workflowId),

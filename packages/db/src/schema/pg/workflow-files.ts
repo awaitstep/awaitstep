@@ -1,4 +1,6 @@
-import { pgTable, text, integer, index, uniqueIndex, timestamp } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import { pgTable, text, integer, index, uniqueIndex } from 'drizzle-orm/pg-core'
+import { isoTimestamp } from './iso-timestamp.js'
 import { workflows } from './workflows.js'
 
 export const workflowFiles = pgTable(
@@ -15,8 +17,12 @@ export const workflowFiles = pgTable(
     hash: text('hash').notNull(),
     // UTF-8 byte size, so listings and caps never re-measure the source.
     size: integer('size').notNull(),
-    createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { mode: 'string' }).notNull().defaultNow(),
+    createdAt: isoTimestamp('created_at')
+      .notNull()
+      .default(sql`now()`),
+    updatedAt: isoTimestamp('updated_at')
+      .notNull()
+      .default(sql`now()`),
   },
   (table) => [
     index('idx_workflow_files_workflow_id').on(table.workflowId),

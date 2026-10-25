@@ -1,4 +1,6 @@
-import { pgTable, text, index, timestamp } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import { pgTable, text, index } from 'drizzle-orm/pg-core'
+import { isoTimestamp } from './iso-timestamp.js'
 
 export const connections = pgTable(
   'connections',
@@ -9,8 +11,12 @@ export const connections = pgTable(
     provider: text('provider').notNull(),
     name: text('name').notNull(),
     credentials: text('credentials').notNull(),
-    createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { mode: 'string' }).notNull().defaultNow(),
+    createdAt: isoTimestamp('created_at')
+      .notNull()
+      .default(sql`now()`),
+    updatedAt: isoTimestamp('updated_at')
+      .notNull()
+      .default(sql`now()`),
   },
   (table) => [
     index('idx_connections_org_id').on(table.organizationId),

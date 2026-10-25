@@ -1,4 +1,6 @@
-import { pgTable, text, index, timestamp } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import { pgTable, text, index } from 'drizzle-orm/pg-core'
+import { isoTimestamp } from './iso-timestamp.js'
 import { projects } from './projects.js'
 
 export const workflows = pgTable(
@@ -19,8 +21,12 @@ export const workflows = pgTable(
     triggerCode: text('trigger_code'),
     dependencies: text('dependencies'),
     deployConfig: text('deploy_config'),
-    createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { mode: 'string' }).notNull().defaultNow(),
+    createdAt: isoTimestamp('created_at')
+      .notNull()
+      .default(sql`now()`),
+    updatedAt: isoTimestamp('updated_at')
+      .notNull()
+      .default(sql`now()`),
   },
   (table) => [
     index('idx_workflows_project_id').on(table.projectId),
