@@ -120,19 +120,29 @@ export function escapingImports(
 ): UnresolvedImport[] {
   const escaping: UnresolvedImport[] = []
   const seen = new Set<string>()
+  function report(path: string, specifier: string) {
+    const key = JSON.stringify([path, specifier])
+    if (seen.has(key)) return
+    seen.add(key)
+    escaping.push({ path, specifier })
+  }
   for (const file of codeFiles) {
     const dir = file.path.split('/').slice(0, -1)
     for (const match of file.source.matchAll(IMPORT_SPECIFIER)) {
-      const specifier = match[2]!
-      if (!escapesRoot(dir, specifier)) continue
-      const key = JSON.stringify([file.path, specifier])
-      if (seen.has(key)) continue
-      seen.add(key)
-      escaping.push({ path: file.path, specifier })
+      if (escapesRoot(dir, match[2]!)) report(file.path, match[2]!)
+    }
+    // A template with interpolation is a glob to the bundler: its static
+    // parts are the pattern, so they are judged with each `${…}` standing in
+    // for one path segment.
+    for (const match of file.source.matchAll(TEMPLATE_IMPORT)) {
+      const pattern = match[1]!.replace(/\$\{[^}]*\}/g, 'x')
+      if (escapesRoot(dir, pattern)) report(file.path, match[1]!)
     }
   }
   return escaping
 }
+
+const TEMPLATE_IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*)`([^`]*\$\{[^`]*)`/g
 
 function escapesRoot(dir: readonly string[], specifier: string): boolean {
   if (specifier.startsWith('/')) return true
@@ -141,7 +151,9 @@ function escapesRoot(dir: readonly string[], specifier: string): boolean {
     specifier === '..' ||
     specifier.startsWith('./') ||
     specifier.startsWith('../')
-  if (!relative) return false
+  // A bare name with a `..` segment is never a package: the module collector
+  // resolves `nope/../../x.txt` against the filesystem and lands outside.
+  if (!relative) return specifier.split('/').includes('..')
   const stack = [...dir]
   for (const segment of specifier.split('/')) {
     if (segment === '' || segment === '.') continue

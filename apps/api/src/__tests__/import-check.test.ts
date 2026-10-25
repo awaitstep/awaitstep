@@ -283,3 +283,29 @@ describe('escapingImports', () => {
     expect(escapingImports([code('a.ts', "// import x from '../../y.json'")])).toHaveLength(1)
   })
 })
+
+describe('escapingImports — what the bundler does beyond plain specifiers', () => {
+  it('reports a bare name with a ".." segment, which only the module collector resolves', () => {
+    expect(
+      escapingImports([code('a.ts', "import t from 'nope/../../../host-secret.txt'")]),
+    ).toEqual([{ path: 'a.ts', specifier: 'nope/../../../host-secret.txt' }])
+  })
+
+  it('reports a template import whose glob pattern climbs out', () => {
+    expect(
+      escapingImports([code('a.ts', 'export default await import(`../host-${n}.json`)')]),
+    ).toEqual([{ path: 'a.ts', specifier: '../host-${n}.json' }])
+  })
+
+  it('passes a template import whose glob stays inside', () => {
+    expect(
+      escapingImports([code('lib/a.ts', 'const m = await import(`../data/${name}.json`)')]),
+    ).toEqual([])
+  })
+
+  it('passes bare scoped packages and subpaths', () => {
+    expect(
+      escapingImports([code('a.ts', "import a from '@scope/pkg/sub'\nimport b from 'zod/v4'")]),
+    ).toEqual([])
+  })
+})
