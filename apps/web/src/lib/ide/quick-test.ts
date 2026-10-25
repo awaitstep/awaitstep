@@ -254,12 +254,20 @@ function __awaitstep_json(value) {
 }
 `
 
+/**
+ * The worker's first message, before any user code: from then on it is
+ * running, and an error the browser leaves undescribed is the step failing,
+ * not the sandbox refusing to start a worker.
+ */
+export const WORKER_ALIVE = 'awaitstep:alive'
+
 // Everything the prelude declares is prefixed, because it shares top-level
 // scope with the user's module: a body with its own `const step` or
 // `function toJSON` would otherwise fail to load with "already declared",
 // and that arrives at the panel looking like the step threw.
 const PRELUDE = `
 "use strict";
+self.postMessage({ type: '${WORKER_ALIVE}' });
 ${SERIALIZER_SOURCE}
 function __awaitstep_post(message) { self.postMessage(message); }
 function __awaitstep_log(level, args) {

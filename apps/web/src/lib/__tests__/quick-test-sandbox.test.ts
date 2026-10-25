@@ -5,6 +5,7 @@ import {
   type QuickTestSandbox,
   type QuickTestSandboxCallbacks,
 } from '../ide/quick-test-sandbox'
+import { WORKER_ALIVE } from '../ide/quick-test'
 
 /**
  * The boundary's shape and its protocol, over a hand-rolled document and
@@ -211,6 +212,31 @@ describe('createQuickTestSandbox — the protocol', () => {
       'message:{"type":"done","result":"1"}',
       'load-error:bad token',
       'unavailable:no workers',
+    ])
+  })
+
+  it('an undescribed worker error before the worker ran is the sandbox refusing', () => {
+    create()
+    const port = boot(onlyIframe())
+
+    port.postMessage({ type: 'worker-error', message: '' })
+
+    expect(events).toEqual([expect.stringMatching(/^unavailable:/)])
+  })
+
+  it('an undescribed worker error after the worker ran is the step failing', () => {
+    // Reported as "unavailable", a step that had been running — and logging —
+    // was blamed on the browser.
+    create()
+    const port = boot(onlyIframe())
+
+    port.postMessage({ type: 'worker', data: { type: WORKER_ALIVE } })
+    port.postMessage({ type: 'worker', data: { type: 'log', level: 'log', text: 'hi' } })
+    port.postMessage({ type: 'worker-error', message: '' })
+
+    expect(events).toEqual([
+      'message:{"type":"log","level":"log","text":"hi"}',
+      expect.stringMatching(/^load-error:.+/),
     ])
   })
 

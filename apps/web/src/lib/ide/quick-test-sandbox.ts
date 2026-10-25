@@ -1,3 +1,5 @@
+import { WORKER_ALIVE } from './quick-test'
+
 /**
  * The quick-test isolation boundary: a sandboxed iframe with an opaque
  * origin, hosting the worker that runs the step.
@@ -38,10 +40,9 @@ export const SANDBOX_BOOT_TIMEOUT_MS = 3_000
 
 // Runs inside the opaque origin. It only relays: user code executes in the
 // worker, never in this window — and even this window could not reach the
-// app's API, which is the point of the opaque origin. A worker error with no
-// message is reported as the sandbox being unavailable, because that is what
-// an opaque-origin browser refusal to start a worker looks like; a real
-// script failure in the same origin carries its message.
+// app's API, which is the point of the opaque origin. Worker errors are
+// relayed as they come, an empty message included; the page decides what an
+// undescribed one means.
 const BOOTSTRAP_HTML =
   `<!doctype html><meta charset="utf-8"><script>
 window.onmessage = function (e) {
@@ -58,11 +59,7 @@ window.onmessage = function (e) {
   }
   worker.onmessage = function (we) { port.postMessage({ type: 'worker', data: we.data }); };
   worker.onerror = function (we) {
-    port.postMessage(
-      we.message
-        ? { type: 'worker-error', message: we.message }
-        : { type: 'sandbox-unavailable', message: 'the worker could not start' },
-    );
+    port.postMessage({ type: 'worker-error', message: we.message || '' });
   };
   port.onmessage = function (pe) {
     if (!pe.data) return;
@@ -77,6 +74,10 @@ interface BootstrapMessage {
   type: 'ready' | 'worker' | 'worker-error' | 'sandbox-unavailable'
   data?: unknown
   message?: string
+}
+
+function isAlive(data: unknown): boolean {
+  return (data as { type?: unknown } | null)?.type === WORKER_ALIVE
 }
 
 export function createQuickTestSandbox(
@@ -94,6 +95,7 @@ export function createQuickTestSandbox(
   let pendingArgs: unknown | undefined
   let ready = false
   let destroyed = false
+  let workerAlive = false
 
   const bootTimer = setTimeout(() => {
     if (ready || destroyed) return
@@ -114,11 +116,25 @@ export function createQuickTestSandbox(
       return
     }
     if (message.type === 'worker') {
+      if (isAlive(message.data)) {
+        workerAlive = true
+        return
+      }
       callbacks.onMessage(message.data)
       return
     }
     if (message.type === 'worker-error') {
-      callbacks.onLoadError(message.message ?? '')
+      if (message.message) {
+        callbacks.onLoadError(message.message)
+      } else if (workerAlive) {
+        // A running step failing in a way the browser does not describe:
+        // reporting "unavailable" would blame the browser and drop its logs.
+        callbacks.onLoadError('the step stopped with an error the browser did not describe')
+      } else {
+        // No worker ever ran: what an opaque-origin refusal to start a
+        // worker looks like.
+        callbacks.onUnavailable('the worker could not start')
+      }
       return
     }
     callbacks.onUnavailable(message.message ?? 'the sandbox could not start')
