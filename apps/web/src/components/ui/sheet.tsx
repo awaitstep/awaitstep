@@ -6,6 +6,7 @@ const Sheet = DialogPrimitive.Root
 const SheetTrigger = DialogPrimitive.Trigger
 const SheetClose = DialogPrimitive.Close
 const SheetTitle = DialogPrimitive.Title
+const SheetDescription = DialogPrimitive.Description
 
 const sheetVariants = cva(
   'fixed z-50 flex flex-col bg-background shadow-lg data-[state=open]:animate-in data-[state=open]:duration-200 data-[state=closed]:animate-out data-[state=closed]:duration-150',
@@ -39,4 +40,4 @@ function SheetContent({
   )
 }
 
-export { Sheet, SheetTrigger, SheetClose, SheetTitle, SheetContent }
+export { Sheet, SheetTrigger, SheetClose, SheetTitle, SheetDescription, SheetContent }

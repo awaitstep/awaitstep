@@ -98,10 +98,10 @@ export const queries = {
   },
 
   apiKeys: {
-    list: () =>
+    list: (projectId?: string) =>
       infiniteQueryOptions({
-        queryKey: ['api-keys'] as const,
-        queryFn: ({ pageParam }) => api.listApiKeys({ cursor: pageParam }),
+        queryKey: ['api-keys', projectId ?? 'all'] as const,
+        queryFn: ({ pageParam }) => api.listApiKeys({ cursor: pageParam, projectId }),
         ...infiniteDefaults,
       }),
   },

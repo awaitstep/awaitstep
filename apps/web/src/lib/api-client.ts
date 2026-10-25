@@ -362,6 +362,12 @@ export interface EnvVarSummary {
 export interface ApiKeySummary {
   id: string
   name: string
+  /** Set on project-level keys; null on organization-level keys. */
+  projectId: string | null
+  /** Set on organization-level keys; null on project-level keys. */
+  organizationId: string | null
+  /** The project's name, joined in by the list endpoint; null on org keys. */
+  projectName: string | null
   keyPrefix: string
   scopes: string
   expiresAt: string | null
@@ -723,13 +729,18 @@ export const api = {
     return request(withOrg(`/env-vars/${id}`), { method: 'DELETE' })
   },
 
-  listApiKeys(opts?: PaginationOptions): Promise<PaginatedResponse<ApiKeySummary>> {
-    return request(withPagination(withOrg('/api-keys'), opts))
+  listApiKeys(
+    opts?: PaginationOptions & { projectId?: string },
+  ): Promise<PaginatedResponse<ApiKeySummary>> {
+    const base = withOrg('/api-keys')
+    const url = opts?.projectId ? `${base}&projectId=${opts.projectId}` : base
+    return request(withPagination(url, opts))
   },
 
   createApiKey(data: {
     name: string
-    projectId: string
+    /** With a projectId the key is project-level; without, organization-level. */
+    projectId?: string
     scopes: string[]
     expiresAt?: string | null
   }): Promise<ApiKeyCreated> {
