@@ -22,7 +22,7 @@ import { dirname, resolve as resolvePath } from 'node:path'
  * dependency in package.json — a test asserts it does. Used only when a
  * local copy cannot be resolved.
  */
-export const PINNED_WRANGLER_VERSION = '4.151.1'
+export const PINNED_WRANGLER_VERSION = '4.152.0'
 
 export interface WranglerCommand {
   command: string

@@ -17,14 +17,14 @@
   },
   "devDependencies": {
     "@awaitstep/tsconfig": "workspace:*",
-    "@cloudflare/workers-types": "^5.20261016.1",
+    "@cloudflare/workers-types": "^5.20261024.1",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.6.5",
     "tsup": "8.5.1",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^5.0.5",
-    "wrangler": "^4.151.1"
+    "wrangler": "^4.152.0"
   },
   "dependencies": {
     "@awaitstep/codegen": "workspace:*",
@@ -33,10 +33,10 @@
     "@awaitstep/ir": "workspace:*",
     "@awaitstep/provider-cloudflare": "workspace:*",
     "@cloudflare/sandbox": "^0.12.7",
-    "@hono/node-server": "^1.19.13",
+    "@hono/node-server": "^1.19.17",
     "@hono/zod-validator": "^0.9.1",
     "@opentelemetry/api": "^1.9.1",
-    "better-auth": "^1.7.10",
+    "better-auth": "^1.7.12",
     "better-sqlite3": "^12.10.0",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.13.13",

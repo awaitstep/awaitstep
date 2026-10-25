@@ -30,7 +30,7 @@
   "dependencies": {
     "@awaitstep/codegen": "workspace:*",
     "@awaitstep/ir": "workspace:*",
-    "wrangler": "4.151.1",
+    "wrangler": "4.152.0",
     "zod": "^4.6.7"
   }
 }

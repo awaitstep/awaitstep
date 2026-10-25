@@ -33,10 +33,10 @@
     "@radix-ui/react-tooltip": "^1.4.1",
     "@radix-ui/react-visually-hidden": "1.2.13",
     "@tanstack/react-query": "^5.104.4",
-    "@tanstack/react-router": "^1.170.45",
-    "@tanstack/react-start": "^1.169.3",
+    "@tanstack/react-router": "^1.170.46",
+    "@tanstack/react-start": "^1.169.4",
     "@xyflow/react": "^12.12.0",
-    "better-auth": "^1.7.10",
+    "better-auth": "^1.7.12",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.1.1",
@@ -57,8 +57,8 @@
   },
   "devDependencies": {
     "@awaitstep/tsconfig": "workspace:*",
-    "@cloudflare/vite-plugin": "^1.64.0",
-    "@cloudflare/workers-types": "^5.20261016.1",
+    "@cloudflare/vite-plugin": "^1.65.0",
+    "@cloudflare/workers-types": "^5.20261024.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
@@ -71,6 +71,6 @@
     "vite": "^8.3.4",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^5.0.5",
-    "wrangler": "^4.151.1"
+    "wrangler": "^4.152.0"
   }
 }

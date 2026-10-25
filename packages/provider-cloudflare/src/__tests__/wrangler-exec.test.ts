@@ -45,6 +45,18 @@ describe('wranglerCommand', () => {
     }
     expect(manifest.dependencies['wrangler']).toBe(PINNED_WRANGLER_VERSION)
   })
+
+  it('pins the same version the sandbox image installs', () => {
+    // A third hand-kept copy: a bump that missed it would have sandbox
+    // deploys run a different wrangler than self-hosted ones, silently.
+    const require = createRequire(import.meta.url)
+    const dockerfile = readFileSync(
+      require.resolve('../../../../apps/api/Dockerfile.sandbox'),
+      'utf-8',
+    )
+    const installed = /npm install -g wrangler@(\S+)/.exec(dockerfile)?.[1]
+    expect(installed).toBe(PINNED_WRANGLER_VERSION)
+  })
 })
 
 describe('wranglerEnv', () => {
