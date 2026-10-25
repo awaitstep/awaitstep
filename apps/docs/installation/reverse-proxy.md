@@ -117,7 +117,19 @@ same Docker network, as any proxy would.
   headers it sends.
 - Without `TRUSTED_PROXY_SECRET`, AwaitStep cannot tell who is behind the
   proxy, and every user shares the proxy's address and its rate limits. The
-  startup log says so.
+  startup log warns about it, and so does the first request that arrives
+  with an `X-Forwarded-For` it had to ignore.
+
+::: warning Upgrading from an earlier release
+Earlier releases believed `X-Forwarded-For` from anyone. They no longer do:
+after upgrading, a deployment behind a proxy keeps working, but every user
+shares one set of rate limits until the proxy sends the secret. Add
+`TRUSTED_PROXY_SECRET` to `.env`, add the `X-AwaitStep-Proxy` /
+`X-AwaitStep-Client` lines above to your proxy configuration, and restart
+both. Do not re-run the install script on an existing installation: it
+writes a fresh `.env`, including a new `TOKEN_ENCRYPTION_KEY`, and stored
+credentials would no longer decrypt.
+:::
 
 **Managed platforms** whose load balancers cannot add a header (Railway,
 Render, App Platform) can instead name the balancer's address range in

@@ -10,7 +10,7 @@ import { createApp, createAuth } from '../index.js'
 import { cleanupLocalDevSessions } from '../routes/local-dev.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
 import { createLogger } from '../lib/logger.js'
-import { parseTrustedProxies } from '../lib/client-ip.js'
+import { clientIpPolicyFromEnv } from '../lib/client-ip.js'
 import { loadNodeRegistry } from '../lib/node-registry-fs.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
 import { createEmailService } from '../lib/email.js'
@@ -133,13 +133,7 @@ async function start() {
     connectionAddress: (c) => getConnInfo(c).remote.address,
     // The Vite dev server is not a trusted hop: in dev, SSR calls are keyed
     // on loopback like any other local caller.
-    clientIpPolicy: {
-      mode: 'proxied',
-      proxySecrets: process.env['TRUSTED_PROXY_SECRET']
-        ? [process.env['TRUSTED_PROXY_SECRET']]
-        : [],
-      trustedProxies: parseTrustedProxies(process.env['TRUSTED_PROXIES']),
-    },
+    clientIpPolicy: clientIpPolicyFromEnv(process.env),
   })
 
   const port = Number(process.env['PORT'] ?? 8080)
@@ -180,4 +174,7 @@ async function start() {
   })
 }
 
-start()
+start().catch((err: unknown) => {
+  createLogger('app').error(`Startup failed: ${err instanceof Error ? err.message : String(err)}`)
+  process.exit(1)
+})

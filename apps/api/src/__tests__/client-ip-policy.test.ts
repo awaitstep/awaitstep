@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
+  CLIENT_IP_HEADER,
+  clientIpPolicyFromEnv,
   compileClientIpPolicy,
+  headersForAuth,
+  ignoresForwarding,
   parseTrustedProxies,
   PROXY_CLIENT_HEADER,
   PROXY_SECRET_HEADER,
@@ -159,5 +163,57 @@ describe('parseTrustedProxies', () => {
       'fd00::/8',
     ])
     expect(parseTrustedProxies(undefined)).toEqual([])
+  })
+})
+
+describe('clientIpPolicyFromEnv', () => {
+  it('reads the secret and the platform ranges, and trusts no one without them', () => {
+    expect(
+      clientIpPolicyFromEnv({
+        TRUSTED_PROXY_SECRET: SECRET,
+        TRUSTED_PROXIES: '10.0.0.0/8, fd00::/8',
+      }),
+    ).toEqual({
+      mode: 'proxied',
+      proxySecrets: [SECRET],
+      trustedProxies: ['10.0.0.0/8', 'fd00::/8'],
+    })
+    expect(clientIpPolicyFromEnv({ TRUSTED_PROXY_SECRET: '' })).toEqual({
+      mode: 'proxied',
+      proxySecrets: [],
+      trustedProxies: [],
+    })
+  })
+})
+
+describe('ignoresForwarding', () => {
+  it('flags a forwarding claim only when nothing vouches for it', () => {
+    const xff = { 'x-forwarded-for': '198.51.100.7' }
+    expect(ignoresForwarding(headers(xff), '172.18.0.2', secretOnly)).toBe(true)
+    expect(
+      ignoresForwarding(headers({ 'x-real-ip': '198.51.100.7' }), '172.18.0.2', secretOnly),
+    ).toBe(true)
+    expect(ignoresForwarding(headers({}), '172.18.0.2', secretOnly)).toBe(false)
+    expect(
+      ignoresForwarding(
+        headers({ ...xff, [PROXY_SECRET_HEADER]: SECRET }),
+        '172.18.0.2',
+        secretOnly,
+      ),
+    ).toBe(false)
+    expect(ignoresForwarding(headers(xff), '10.1.2.3', platform)).toBe(false)
+    expect(ignoresForwarding(headers(xff), '9.9.9.9', edge)).toBe(false)
+  })
+})
+
+describe('headersForAuth', () => {
+  it('replaces a client-sent address and removes it when there is none to give', () => {
+    const raw = new Headers({ [CLIENT_IP_HEADER]: '6.6.6.6', cookie: 'a=b' })
+    const given = headersForAuth(raw, '203.0.113.50')
+    expect(given.get(CLIENT_IP_HEADER)).toBe('203.0.113.50')
+    expect(given.get('cookie')).toBe('a=b')
+    expect(headersForAuth(raw, undefined).has(CLIENT_IP_HEADER)).toBe(false)
+    // The original is left alone.
+    expect(raw.get(CLIENT_IP_HEADER)).toBe('6.6.6.6')
   })
 })

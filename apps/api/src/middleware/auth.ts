@@ -4,6 +4,7 @@ import { z } from 'zod'
 import type { AppEnv } from '../types.js'
 import type { Auth } from '../auth/config.js'
 import { hashApiKey } from '../lib/api-key-hash.js'
+import { headersForAuth } from '../lib/client-ip.js'
 import { createLogger } from '../lib/logger.js'
 
 const log = createLogger('auth')
@@ -79,7 +80,7 @@ export function createAuthMiddleware(auth: Auth) {
 
     // Fall back to session cookie auth
     const session = await auth.api.getSession({
-      headers: c.req.raw.headers,
+      headers: headersForAuth(c.req.raw.headers, c.get('clientIp')),
     })
 
     if (!session) {

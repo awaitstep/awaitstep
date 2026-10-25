@@ -256,3 +256,49 @@ export function parseTrustedProxies(value: string | undefined): string[] {
     .map((entry) => entry.trim())
     .filter((entry) => entry !== '')
 }
+
+export type ProxiedClientIpPolicy = Extract<ClientIpPolicy, { mode: 'proxied' }>
+
+/** The Node entries' policy, from `TRUSTED_PROXY_SECRET` and `TRUSTED_PROXIES`. */
+export function clientIpPolicyFromEnv(
+  env: Record<string, string | undefined>,
+): ProxiedClientIpPolicy {
+  const secret = env['TRUSTED_PROXY_SECRET']
+  return {
+    mode: 'proxied',
+    proxySecrets: secret ? [secret] : [],
+    trustedProxies: parseTrustedProxies(env['TRUSTED_PROXIES']),
+  }
+}
+
+/**
+ * True when a request names a client in a forwarding header that `policy`
+ * will not believe — no valid proof, peer outside `TRUSTED_PROXIES`. On a
+ * deployment behind a proxy that was never given `TRUSTED_PROXY_SECRET`,
+ * every request looks like this, and every user shares one rate limit.
+ */
+export function ignoresForwarding(
+  req: HeaderSource,
+  peer: string | undefined,
+  policy: CompiledClientIpPolicy,
+): boolean {
+  if (policy.mode === 'edge') return false
+  if (!req.header('x-forwarded-for') && !req.header('x-real-ip')) return false
+  const proof = req.header(PROXY_SECRET_HEADER)
+  if (proof && policy.proxySecrets.some((secret) => sameSecret(proof, secret))) return false
+  const peerIp = parse(peer)
+  return !peerIp || !policy.networks.some((network) => inNetwork(network, peerIp))
+}
+
+/**
+ * The headers to hand better-auth: the caller's own copy of
+ * `CLIENT_IP_HEADER` dropped, the resolved address in its place. Every call
+ * into better-auth goes through this — it reads that header for its rate
+ * limits and session records, and a client must never get to set it.
+ */
+export function headersForAuth(raw: Headers, clientIp: string | undefined): Headers {
+  const headers = new Headers(raw)
+  headers.delete(CLIENT_IP_HEADER)
+  if (clientIp) headers.set(CLIENT_IP_HEADER, clientIp)
+  return headers
+}

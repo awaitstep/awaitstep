@@ -837,10 +837,16 @@ const mockDb: DatabaseAdapter = {
 }
 
 let lastAuthRequest: Request | null = null
+let lastSessionLookupHeaders: Headers | null = null
 
 /** The request the app last handed better-auth — what its handler sees. */
 export function lastAuthHandlerRequest(): Request | null {
   return lastAuthRequest
+}
+
+/** The headers the app last looked a session up with. */
+export function lastSessionHeaders(): Headers | null {
+  return lastSessionLookupHeaders
 }
 
 const mockAuth = {
@@ -849,15 +855,18 @@ const mockAuth = {
     return new Response(JSON.stringify({ ok: true }))
   },
   api: {
-    getSession: async () => ({
-      user: { id: TEST_USER_ID, email: 'test@example.com', name: 'Test' },
-      session: {
-        id: 'session-1',
-        userId: TEST_USER_ID,
-        expiresAt: new Date(Date.now() + 86400000),
-        activeOrganizationId: TEST_ORG_ID,
-      },
-    }),
+    getSession: async ({ headers }: { headers: Headers }) => {
+      lastSessionLookupHeaders = headers
+      return {
+        user: { id: TEST_USER_ID, email: 'test@example.com', name: 'Test' },
+        session: {
+          id: 'session-1',
+          userId: TEST_USER_ID,
+          expiresAt: new Date(Date.now() + 86400000),
+          activeOrganizationId: TEST_ORG_ID,
+        },
+      }
+    },
   },
 } as unknown as Auth
 
@@ -925,6 +934,7 @@ export function createTestApp(options?: {
   enableLocalDev?: AppDeps['enableLocalDev']
   connectionAddress?: AppDeps['connectionAddress']
   clientIpPolicy?: AppDeps['clientIpPolicy']
+  logger?: AppDeps['logger']
 }) {
   // Seed the test project so auth middleware can find it
   store.projects.set(TEST_PROJECT_ID, {
@@ -948,5 +958,6 @@ export function createTestApp(options?: {
     ...(options?.enableLocalDev !== undefined && { enableLocalDev: options.enableLocalDev }),
     ...(options?.connectionAddress && { connectionAddress: options.connectionAddress }),
     ...(options?.clientIpPolicy && { clientIpPolicy: options.clientIpPolicy }),
+    ...(options?.logger && { logger: options.logger }),
   })
 }

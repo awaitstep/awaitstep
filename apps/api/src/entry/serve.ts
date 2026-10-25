@@ -10,12 +10,11 @@ import { createApp, createAuth } from '../index.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
 import { createLogger } from '../lib/logger.js'
 import {
+  clientIpPolicyFromEnv,
   compileClientIpPolicy,
-  parseTrustedProxies,
   PROXY_CLIENT_HEADER,
   PROXY_SECRET_HEADER,
   resolveClientIp,
-  type ClientIpPolicy,
 } from '../lib/client-ip.js'
 import { loadNodeRegistry } from '../lib/node-registry-fs.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
@@ -161,14 +160,13 @@ async function start() {
   // proxy in front proves itself with TRUSTED_PROXY_SECRET. Addresses are
   // never enough on their own — workflow code runs on this host too.
   const webHopSecret = randomBytes(32).toString('hex')
-  const externalProxy: Extract<ClientIpPolicy, { mode: 'proxied' }> = {
-    mode: 'proxied',
-    proxySecrets: process.env['TRUSTED_PROXY_SECRET'] ? [process.env['TRUSTED_PROXY_SECRET']] : [],
-    trustedProxies: parseTrustedProxies(process.env['TRUSTED_PROXIES']),
-  }
+  const externalProxy = clientIpPolicyFromEnv(process.env)
   if (externalProxy.proxySecrets.length === 0 && externalProxy.trustedProxies.length === 0) {
-    logger.info(
-      'No trusted proxy configured: every client is keyed on its own connection. Behind a reverse proxy, set TRUSTED_PROXY_SECRET.',
+    // An upgrade from a release that trusted X-Forwarded-For lands here with
+    // a proxy still in front: warn, not inform — it is the one setting that
+    // silently merges every user into one rate limit.
+    logger.warn(
+      'TRUSTED_PROXY_SECRET is not set: X-Forwarded-For is ignored and every client is keyed on its own connection. Behind a reverse proxy that means every user shares the proxy’s address and rate limits — set TRUSTED_PROXY_SECRET and have the proxy send it (see the reverse proxy guide).',
     )
   }
   const webHopPolicy = compileClientIpPolicy(externalProxy)
@@ -189,9 +187,8 @@ async function start() {
 
     connectionAddress: (c) => getConnInfo(c).remote.address,
     clientIpPolicy: {
-      mode: 'proxied',
+      ...externalProxy,
       proxySecrets: [webHopSecret, ...externalProxy.proxySecrets],
-      trustedProxies: externalProxy.trustedProxies,
     },
   })
 
@@ -258,4 +255,10 @@ async function start() {
   process.on('SIGINT', shutdown)
 }
 
-start()
+// One readable line. Left unhandled, Node prints the throwing source line —
+// in the bundled build that is the whole minified file, and the message
+// itself scrolls out of `docker logs`.
+start().catch((err: unknown) => {
+  createLogger('app').error(`Startup failed: ${err instanceof Error ? err.message : String(err)}`)
+  process.exit(1)
+})

@@ -19,8 +19,9 @@ import { createRouter } from './routes/index.js'
 import { resolveTestSessionLimits } from './lib/test-session-policy.js'
 import { MAX_REQUEST_BYTES } from './lib/request-limits.js'
 import {
-  CLIENT_IP_HEADER,
   compileClientIpPolicy,
+  headersForAuth,
+  ignoresForwarding,
   resolveClientIp,
   type ClientIpPolicy,
 } from './lib/client-ip.js'
@@ -72,8 +73,16 @@ export function createApp(deps: AppDeps) {
   const clientIpPolicy = compileClientIpPolicy(
     deps.clientIpPolicy ?? { mode: 'proxied', proxySecrets: [], trustedProxies: [] },
   )
+  let warnedIgnoredForwarding = false
   app.use('*', async (c, next) => {
-    c.set('clientIp', resolveClientIp(c.req, deps.connectionAddress?.(c), clientIpPolicy))
+    const peer = deps.connectionAddress?.(c)
+    c.set('clientIp', resolveClientIp(c.req, peer, clientIpPolicy))
+    if (!warnedIgnoredForwarding && ignoresForwarding(c.req, peer, clientIpPolicy)) {
+      warnedIgnoredForwarding = true
+      log.warn(
+        'A request named its client in X-Forwarded-For / X-Real-IP without proving it came from a trusted proxy, so the header was ignored. If AwaitStep runs behind a reverse proxy, set TRUSTED_PROXY_SECRET and have the proxy send it — until then every user shares the proxy’s rate limits. See the reverse proxy guide.',
+      )
+    }
     await next()
   })
 
@@ -137,10 +146,7 @@ export function createApp(deps: AppDeps) {
   // An app-level limiter used to sit in front of every auth path, sign-out
   // and OAuth callbacks included — removed for this one.
   app.on(['POST', 'GET'], '/api/auth/*', (c) => {
-    const headers = new Headers(c.req.raw.headers)
-    headers.delete(CLIENT_IP_HEADER)
-    const clientIp = c.get('clientIp')
-    if (clientIp) headers.set(CLIENT_IP_HEADER, clientIp)
+    const headers = headersForAuth(c.req.raw.headers, c.get('clientIp'))
     return deps.auth.handler(new Request(c.req.raw, { headers }))
   })
 

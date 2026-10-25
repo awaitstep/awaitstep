@@ -1,7 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { createTestApp, resetStore, lastAuthHandlerRequest, TEST_PROJECT_ID } from './helpers.js'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import {
+  createTestApp,
+  resetStore,
+  lastAuthHandlerRequest,
+  lastSessionHeaders,
+  TEST_PROJECT_ID,
+} from './helpers.js'
 import { CLIENT_IP_HEADER, PROXY_CLIENT_HEADER, PROXY_SECRET_HEADER } from '../lib/client-ip.js'
 import { createAuth } from '../auth/config.js'
+import { createLogger } from '../lib/logger.js'
 
 /**
  * Who the client is, end to end: the rate limiters' key and the address
@@ -84,6 +91,59 @@ describe('client address', () => {
     })
 
     expect(lastAuthHandlerRequest()?.headers.has(CLIENT_IP_HEADER)).toBe(false)
+  })
+
+  it('looks sessions up with the resolved address, never a client-sent copy', async () => {
+    // getSession is a second way into better-auth: it records and limits on
+    // the same header the auth handler does.
+    await app().request(`/api/workflows?projectId=${TEST_PROJECT_ID}`, {
+      headers: { [peerHeader]: '203.0.113.50', [CLIENT_IP_HEADER]: '6.6.6.6' },
+    })
+    expect(lastSessionHeaders()?.get(CLIENT_IP_HEADER)).toBe('203.0.113.50')
+  })
+
+  it('warns once when it ignores a forwarding header nobody proved', async () => {
+    // The upgrade path: a proxy that predates TRUSTED_PROXY_SECRET still
+    // sends X-Forwarded-For, and every user silently shares its bucket.
+    const logger = createLogger('test')
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+    const instance = createTestApp({
+      connectionAddress: (c) => c.req.header(peerHeader),
+      corsOrigin: 'http://localhost:3000',
+      logger,
+    })
+    const hit = (extra: Record<string, string>) =>
+      instance.request('/api/health', { headers: { [peerHeader]: '172.18.0.2', ...extra } })
+
+    await hit({})
+    expect(warn).not.toHaveBeenCalled()
+    await hit({ 'x-forwarded-for': '198.51.100.7' })
+    await hit({ 'x-real-ip': '198.51.100.8' })
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0]![0]).toContain('TRUSTED_PROXY_SECRET')
+  })
+
+  it('stays quiet when the forwarding header comes from a proven hop', async () => {
+    const secret = 's'.repeat(64)
+    const logger = createLogger('test')
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+    const instance = createTestApp({
+      connectionAddress: (c) => c.req.header(peerHeader),
+      clientIpPolicy: { mode: 'proxied', proxySecrets: [secret], trustedProxies: ['10.0.0.0/8'] },
+      corsOrigin: 'http://localhost:3000',
+      logger,
+    })
+    await instance.request('/api/health', {
+      headers: {
+        [peerHeader]: '172.18.0.2',
+        [PROXY_SECRET_HEADER]: secret,
+        'x-forwarded-for': '1.1.1.1',
+      },
+    })
+    await instance.request('/api/health', {
+      headers: { [peerHeader]: '10.0.0.4', 'x-forwarded-for': '1.1.1.1' },
+    })
+    expect(warn).not.toHaveBeenCalled()
   })
 })
 
