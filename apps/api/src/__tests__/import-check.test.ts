@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { unresolvedAppImports } from '../lib/import-check.js'
+import { escapingImports, unresolvedAppImports } from '../lib/import-check.js'
 
 function code(path: string, source: string) {
   return { path, source }
@@ -232,5 +232,54 @@ describe('imports that resolve for reasons this check has to know about', () => 
     const code = [{ path: 'lib/a.ts', source: "import v from '#app/vendor/'\nexport default v" }]
     const imports = { '#app/vendor/*': './third_party/*.js' }
     expect(unresolvedAppImports([{ path: 'lib/a.ts' }], code, imports)).toHaveLength(1)
+  })
+})
+
+describe('escapingImports', () => {
+  it('reports relative imports that climb above the project, per file', () => {
+    expect(
+      escapingImports([
+        code('lib/a.ts', "import cfg from '../../srv/app/config.json'"),
+        code('handlers/fetch.ts', "export { x } from '../lib/a'"),
+        code('nodes/step_a.ts', "const m = await import('../../../etc/x.json')"),
+      ]),
+    ).toEqual([
+      { path: 'lib/a.ts', specifier: '../../srv/app/config.json' },
+      { path: 'nodes/step_a.ts', specifier: '../../../etc/x.json' },
+    ])
+  })
+
+  it('reports absolute imports', () => {
+    expect(escapingImports([code('a.ts', "import x from '/etc/passwd.json'")])).toEqual([
+      { path: 'a.ts', specifier: '/etc/passwd.json' },
+    ])
+  })
+
+  it('passes contained relative imports, bare packages and project aliases', () => {
+    expect(
+      escapingImports([
+        code('lib/deep/a.ts', "import b from '../b'\nimport c from '../../c'"),
+        code(
+          'x.ts',
+          "import z from 'zod'\nimport u from '#app/lib/u'\nimport n from 'node:buffer'",
+        ),
+        code('y.ts', "import s from './lib/../lib/./s'"),
+      ]),
+    ).toEqual([])
+  })
+
+  it('cannot be steered past by a comment-like string on the same line', () => {
+    // A comment stripper would eat the rest of this line, import included.
+    const source = "const u = 'a//b'; import cfg from '../../srv/x.json'"
+    expect(escapingImports([code('a.ts', source)])).toHaveLength(1)
+  })
+
+  it('cannot be steered past by an import that only looks type-only', () => {
+    // `import type from '…'` imports a default export named `type` — a value.
+    expect(escapingImports([code('a.ts', "import type from '../../srv/x.json'")])).toHaveLength(1)
+  })
+
+  it('fails safe on a commented-out escaping import', () => {
+    expect(escapingImports([code('a.ts', "// import x from '../../y.json'")])).toHaveLength(1)
   })
 })

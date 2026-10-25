@@ -110,6 +110,14 @@ another file of yours. Extensionless specifiers find `.ts` and `.js`; JSON
 needs its extension (`#app/data/countries.json`). Relative imports work too,
 but `#app/` does not change meaning when a file moves.
 
+Imports must stay inside the project. A relative import that climbs above
+the project root (`'../../config.json'` from a top-level file) or an
+absolute one (`'/etc/…'`) would have the bundler pick up a file from the
+machine doing the build, so deploys, test sessions and local runs refuse it
+with a `422` naming the file and specifier, and `source/check` reports it.
+The scan is deliberately blunt — it reads the raw source, so the same
+specifier inside a comment or a string is reported too.
+
 A step on the canvas can import your code the same way, which is the usual
 reason to create a file at all:
 

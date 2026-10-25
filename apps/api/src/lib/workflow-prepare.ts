@@ -20,7 +20,7 @@ import { createMergedNodeRegistry } from './node-registry.js'
 import { resolveProvider, validateNodesForProvider } from './provider-resolver.js'
 import { collectNodeDependencies, mergeDependencies } from './dependencies.js'
 import { resolveAndValidateEnvVars } from './env-resolve.js'
-import { unresolvedAppImports } from './import-check.js'
+import { escapingImports, unresolvedAppImports } from './import-check.js'
 import { foldProjectFiles, foldProjectHandlers, foldWorkflowRuntime } from './runtime-fold.js'
 
 export interface WorkflowContext {
@@ -327,12 +327,34 @@ export async function prepareWorkflow(
     }
   }
 
+  // A gate in every mode: an import that climbs out of the bundle would have
+  // the bundler pack a file from the build host into the Worker. Refused
+  // before any bundling path acts on it; reported, not refused, in a read.
+  const escapes = escapingImports(codeFiles)
+  if (escapes.length > 0 && !lenient) {
+    const first = escapes[0]!
+    return {
+      error: `Import "${first.specifier}" in ${first.path} reaches outside the project`,
+      status: 422,
+      ...(escapes.length > 1 && {
+        details: escapes.map((e) => ({ path: e.path, message: `"${e.specifier}"` })),
+      }),
+    }
+  }
+
   // Only a read looks for these. Compiling says nothing about whether an
   // import resolves — each file transpiles alone — so a misspelled `#app/`
   // path reaches the deploy untouched. A deploy still finds out the hard
   // way, from the bundler; this is so a check does not have to.
   if (lenient) {
     checked.push('import')
+    for (const escape of escapes) {
+      diagnostics.push({
+        source: 'import',
+        message: `"${escape.specifier}" reaches outside the project — imports must stay inside it`,
+        path: escape.path,
+      })
+    }
     // Every deploy file is a resolution target — `#app/data/x.json` is an
     // asset — while only code files are worth scanning for imports.
     // The project's own `imports` map travels into the worker manifest, so

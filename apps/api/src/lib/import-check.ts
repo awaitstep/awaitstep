@@ -102,6 +102,60 @@ export function unresolvedAppImports(
 }
 
 /**
+ * Relative or absolute imports that resolve outside the bundle root.
+ *
+ * Wrangler's bundler follows any path on the filesystem it runs on, so
+ * `import cfg from '../../srv/app/config.json'` packs a file from the build
+ * host into the user's Worker. This is the gate every bundling path passes;
+ * the host-side runners add a real-resolver check on top.
+ *
+ * Scans the **raw** source — no comment or type-only stripping. Both
+ * strippers can be steered past a real import (`'a//b'; import x from
+ * '../y'` on one line; `import type from '../y'` is a value import named
+ * `type`), and a refusal over a commented-out line is the safe way to be
+ * wrong.
+ */
+export function escapingImports(
+  codeFiles: readonly { path: string; source: string }[],
+): UnresolvedImport[] {
+  const escaping: UnresolvedImport[] = []
+  const seen = new Set<string>()
+  for (const file of codeFiles) {
+    const dir = file.path.split('/').slice(0, -1)
+    for (const match of file.source.matchAll(IMPORT_SPECIFIER)) {
+      const specifier = match[2]!
+      if (!escapesRoot(dir, specifier)) continue
+      const key = JSON.stringify([file.path, specifier])
+      if (seen.has(key)) continue
+      seen.add(key)
+      escaping.push({ path: file.path, specifier })
+    }
+  }
+  return escaping
+}
+
+function escapesRoot(dir: readonly string[], specifier: string): boolean {
+  if (specifier.startsWith('/')) return true
+  const relative =
+    specifier === '.' ||
+    specifier === '..' ||
+    specifier.startsWith('./') ||
+    specifier.startsWith('../')
+  if (!relative) return false
+  const stack = [...dir]
+  for (const segment of specifier.split('/')) {
+    if (segment === '' || segment === '.') continue
+    if (segment === '..') {
+      if (stack.length === 0) return true
+      stack.pop()
+    } else {
+      stack.push(segment)
+    }
+  }
+  return false
+}
+
+/**
  * Comments stripped so a commented-out import is not reported as broken.
  *
  * Known limit: a specifier written inside a *string* that also contains the
