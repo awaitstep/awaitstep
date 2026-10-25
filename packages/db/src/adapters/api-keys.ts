@@ -1,5 +1,6 @@
-import { eq, desc, isNull, and, or, lt, inArray, sql, type SQL } from 'drizzle-orm'
+import { eq, desc, isNull, and, or, lt, inArray, sql, aliasedTable, type SQL } from 'drizzle-orm'
 import type { ApiKey, ApiKeyAuth, ApiKeyListItem } from '../types.js'
+import { insertWhere } from './insert-where.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 
@@ -32,14 +33,16 @@ export class ApiKeysAdapter {
 
   /**
    * Creates a key of exactly one level: with `projectId` the project must
-   * belong to `organizationId` (validated here, like createEnvVar) and the
-   * row stores the project; without, the row stores the organization. Null
-   * when the project is not the organization's.
+   * belong to `organizationId` and the row stores the project; without, the
+   * row stores the organization. `parentKeyId` names the key that minted
+   * this one — it stops working when its parent does. Null when the project
+   * is not the organization's.
    */
   async create(data: {
     id: string
     organizationId: string
     projectId?: string | null
+    parentKeyId?: string | null
     createdBy: string
     name: string
     keyHash: string
@@ -47,21 +50,11 @@ export class ApiKeysAdapter {
     scopes: string
     expiresAt?: string | null
   }): Promise<ApiKey | null> {
-    if (data.projectId) {
-      const p = this.projectsTable
-      const valid = await this.db
-        .select({ id: p.id })
-        .from(p)
-        .where(and(eq(p.id, data.projectId), eq(p.organizationId, data.organizationId)))
-        .limit(1)
-      if (valid.length === 0) return null
-    }
-
-    const now = new Date().toISOString()
-    const row = {
+    const row: ApiKey = {
       id: data.id,
       projectId: data.projectId ?? null,
       organizationId: data.projectId ? null : data.organizationId,
+      parentKeyId: data.parentKeyId ?? null,
       createdBy: data.createdBy,
       name: data.name,
       keyHash: data.keyHash,
@@ -70,10 +63,21 @@ export class ApiKeysAdapter {
       expiresAt: data.expiresAt ?? null,
       lastUsedAt: null,
       revokedAt: null,
-      createdAt: now,
+      createdAt: new Date().toISOString(),
     }
-    await this.db.insert(this.table).values(row)
-    return row
+    if (!data.projectId) {
+      await this.db.insert(this.table).values(row)
+      return row
+    }
+    const p = this.projectsTable
+    const inserted = await insertWhere<ApiKey>(
+      this.db,
+      this.table,
+      row,
+      p,
+      and(eq(p.id, data.projectId), eq(p.organizationId, data.organizationId))!,
+    )
+    return inserted ? row : null
   }
 
   async getById(id: string): Promise<ApiKey | null> {
@@ -83,24 +87,34 @@ export class ApiKeysAdapter {
 
   /**
    * Everything auth needs in one read: the key, its organization (own or its
-   * project's) and whether its creator is still a member there. Without a
-   * member table in the schema, membership is not tracked and reads as true —
-   * the same posture as isOrgMember.
+   * project's), whether its creator is still a member there, and whether the
+   * key that minted it is still live. Without a member table in the schema,
+   * membership is not tracked and reads as true — the same posture as
+   * isOrgMember.
+   *
+   * Only the direct parent is checked: only organization-level keys mint,
+   * and they mint project-level keys, which cannot mint — so a chain is
+   * never longer than one link.
    */
   async getAuthByHash(keyHash: string): Promise<ApiKeyAuth | null> {
     const k = this.table
     const p = this.projectsTable
     const m = this.memberTable
+    const parent = aliasedTable(k, 'parent_key')
     const orgExpr = sql`coalesce(${k.organizationId}, ${p.organizationId})`
 
     let query = this.db
       .select({
         key: k,
         projectOrganizationId: p.organizationId,
+        parentId: parent.id,
+        parentRevokedAt: parent.revokedAt,
+        parentExpiresAt: parent.expiresAt,
         ...(m ? { memberId: m.id } : {}),
       })
       .from(k)
       .leftJoin(p, eq(k.projectId, p.id))
+      .leftJoin(parent, eq(k.parentKeyId, parent.id))
     if (m) {
       query = query.leftJoin(m, and(eq(m.userId, k.createdBy), eq(m.organizationId, orgExpr)))
     }
@@ -108,10 +122,16 @@ export class ApiKeysAdapter {
 
     const row = rows[0]
     if (!row) return null
+    const parentLive =
+      row.key.parentKeyId == null ||
+      (row.parentId != null &&
+        row.parentRevokedAt == null &&
+        (row.parentExpiresAt == null || Date.parse(row.parentExpiresAt) > Date.now()))
     return {
       ...row.key,
       resolvedOrganizationId: row.key.organizationId ?? row.projectOrganizationId ?? null,
       createdByIsMember: m ? row.memberId != null : true,
+      parentKeyLive: parentLive,
     }
   }
 

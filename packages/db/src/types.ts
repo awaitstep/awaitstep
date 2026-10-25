@@ -176,12 +176,14 @@ export type Deployment = InferSelectModel<typeof deployments>
 export type ApiKey = InferSelectModel<typeof apiKeys>
 /**
  * An API key as auth reads it: with its organization resolved from either
- * source (its own, or its project's) and whether its creator is still a
- * member of that organization.
+ * source (its own, or its project's), whether its creator is still a member
+ * of that organization, and whether the key that minted it (if any) is still
+ * unrevoked and unexpired.
  */
 export type ApiKeyAuth = ApiKey & {
   resolvedOrganizationId: string | null
   createdByIsMember: boolean
+  parentKeyLive: boolean
 }
 /** A listed key with its project's name joined in — null on org-level keys. */
 export type ApiKeyListItem = ApiKey & { projectName: string | null }

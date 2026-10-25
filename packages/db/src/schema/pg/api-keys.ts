@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { pgTable, text, timestamp, index, check } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, index, check, type AnyPgColumn } from 'drizzle-orm/pg-core'
 import { projects } from './projects.js'
 import { organization } from './auth.js'
 
@@ -12,6 +12,11 @@ export const apiKeys = pgTable(
     // organization-level key carries organizationId.
     projectId: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
     organizationId: text('organization_id').references(() => organization.id, {
+      onDelete: 'cascade',
+    }),
+    // The key that minted this one, when a key did: revoking or expiring the
+    // parent stops it too.
+    parentKeyId: text('parent_key_id').references((): AnyPgColumn => apiKeys.id, {
       onDelete: 'cascade',
     }),
     createdBy: text('created_by').notNull(),
@@ -27,6 +32,7 @@ export const apiKeys = pgTable(
   (table) => [
     index('idx_api_keys_project_id').on(table.projectId),
     index('idx_api_keys_organization_id').on(table.organizationId),
+    index('idx_api_keys_parent_key_id').on(table.parentKeyId),
     index('idx_api_keys_key_hash').on(table.keyHash),
     check('api_keys_one_level', sql`(project_id IS NULL) <> (organization_id IS NULL)`),
   ],

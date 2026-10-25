@@ -18,6 +18,7 @@ function createTestDb() {
     );
     INSERT INTO projects VALUES ('p-1', 'org-1', 'One', '${now}', '${now}');
     INSERT INTO projects VALUES ('p-2', 'org-1', 'Two', '${now}', '${now}');
+    INSERT INTO projects VALUES ('p-9', 'org-9', 'Elsewhere', '${now}', '${now}');
   `)
   const adapter = new DrizzleDatabaseAdapter(drizzle(sqlite), sqliteSchema)
   return { adapter, sqlite }
@@ -41,6 +42,39 @@ function insert(
     )
     .run(row.id, row.org ?? 'org-1', row.project ?? null, row.name, row.value, row.secret ? 1 : 0)
 }
+
+describe('createEnvVar', () => {
+  let db: ReturnType<typeof createTestDb>
+
+  beforeEach(() => {
+    db = createTestDb()
+  })
+
+  const data = (projectId: string | null) => ({
+    id: 'e-new',
+    organizationId: 'org-1',
+    projectId,
+    createdBy: 'u-1',
+    name: 'TOKEN',
+    value: 'v',
+    isSecret: true,
+  })
+
+  it('writes a project variable when the project is the organization’s', async () => {
+    expect(await db.adapter.createEnvVar(data('p-1'))).toMatchObject({ projectId: 'p-1' })
+    const stored = db.sqlite.prepare('SELECT project_id, is_secret FROM env_vars').get()
+    expect(stored).toEqual({ project_id: 'p-1', is_secret: 1 })
+  })
+
+  it('writes nothing for another organization’s project', async () => {
+    expect(await db.adapter.createEnvVar(data('p-9'))).toBeNull()
+    expect(db.sqlite.prepare('SELECT count(*) AS n FROM env_vars').get()).toEqual({ n: 0 })
+  })
+
+  it('writes an organization variable without a project check', async () => {
+    expect(await db.adapter.createEnvVar(data(null))).toMatchObject({ projectId: null })
+  })
+})
 
 describe('findEnvVarsByNames', () => {
   let db: ReturnType<typeof createTestDb>

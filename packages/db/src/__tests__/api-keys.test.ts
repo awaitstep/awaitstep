@@ -17,6 +17,7 @@ function createTestDb() {
     CREATE TABLE projects (id text PRIMARY KEY, organization_id text NOT NULL, name text NOT NULL, created_at text NOT NULL, updated_at text NOT NULL);
     CREATE TABLE api_keys (
       id text PRIMARY KEY, project_id text, organization_id text,
+      parent_key_id text REFERENCES api_keys(id) ON DELETE CASCADE,
       created_by text NOT NULL, name text NOT NULL,
       key_hash text NOT NULL UNIQUE, key_prefix text NOT NULL, scopes text NOT NULL,
       expires_at text, last_used_at text, revoked_at text, created_at text NOT NULL,
@@ -36,7 +37,9 @@ function keyData(overrides: {
   id: string
   organizationId: string
   projectId?: string | null
+  parentKeyId?: string | null
   createdBy?: string
+  expiresAt?: string | null
 }) {
   return {
     createdBy: 'u-1',
@@ -70,6 +73,18 @@ describe('ApiKeysAdapter', () => {
       keyData({ id: 'k-x', organizationId: 'org-1', projectId: 'p-2' }),
     )
     expect(foreign).toBeNull()
+    // Refused in the same statement that would have written it.
+    expect(await db.adapter.getApiKeyById('k-x')).toBeNull()
+  })
+
+  it('stores a project key in one statement, booleans and nulls intact', async () => {
+    const key = await db.adapter.createApiKey(
+      keyData({ id: 'k-p', organizationId: 'org-1', projectId: 'p-1', expiresAt: now }),
+    )
+    const stored = await db.adapter.getApiKeyById('k-p')
+    expect(stored).toEqual(key)
+    expect(stored?.expiresAt).toBe(now)
+    expect(stored?.revokedAt).toBeNull()
   })
 
   it('the CHECK refuses a row carrying both levels, or neither', async () => {
@@ -120,6 +135,32 @@ describe('ApiKeysAdapter', () => {
     await db.adapter.createApiKey(keyData({ id: 'k-o', organizationId: 'org-1' }))
     await db.adapter.revokeApiKey('k-o', 'org-1')
     expect(await db.adapter.getApiKeyAuthByHash('hash-k-o')).toBeNull()
+  })
+
+  it('stops a minted key when the key that minted it is revoked', async () => {
+    await db.adapter.createApiKey(keyData({ id: 'k-o', organizationId: 'org-1' }))
+    await db.adapter.createApiKey(
+      keyData({ id: 'k-child', organizationId: 'org-1', projectId: 'p-1', parentKeyId: 'k-o' }),
+    )
+    expect((await db.adapter.getApiKeyAuthByHash('hash-k-child'))?.parentKeyLive).toBe(true)
+
+    await db.adapter.revokeApiKey('k-o', 'org-1')
+    expect((await db.adapter.getApiKeyAuthByHash('hash-k-child'))?.parentKeyLive).toBe(false)
+  })
+
+  it('stops a minted key when the key that minted it has expired', async () => {
+    await db.adapter.createApiKey(
+      keyData({ id: 'k-o', organizationId: 'org-1', expiresAt: '2000-01-01T00:00:00.000Z' }),
+    )
+    await db.adapter.createApiKey(
+      keyData({ id: 'k-child', organizationId: 'org-1', projectId: 'p-1', parentKeyId: 'k-o' }),
+    )
+    expect((await db.adapter.getApiKeyAuthByHash('hash-k-child'))?.parentKeyLive).toBe(false)
+  })
+
+  it('treats a key nobody minted as having a live parent', async () => {
+    await db.adapter.createApiKey(keyData({ id: 'k-p', organizationId: 'org-1', projectId: 'p-1' }))
+    expect((await db.adapter.getApiKeyAuthByHash('hash-k-p'))?.parentKeyLive).toBe(true)
   })
 
   it('revokes only within the organization', async () => {

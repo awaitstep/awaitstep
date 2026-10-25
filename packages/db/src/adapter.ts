@@ -288,6 +288,7 @@ export interface DatabaseAdapter {
     id: string
     organizationId: string
     projectId?: string | null
+    parentKeyId?: string | null
     createdBy: string
     name: string
     keyHash: string

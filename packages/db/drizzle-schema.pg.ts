@@ -7,6 +7,7 @@ import {
   index,
   uniqueIndex,
   check,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 
@@ -362,6 +363,9 @@ export const apiKeys = pgTable(
     organizationId: text('organization_id').references(() => organization.id, {
       onDelete: 'cascade',
     }),
+    parentKeyId: text('parent_key_id').references((): AnyPgColumn => apiKeys.id, {
+      onDelete: 'cascade',
+    }),
     createdBy: text('created_by').notNull(),
     name: text('name').notNull(),
     keyHash: text('key_hash').notNull().unique(),
@@ -375,6 +379,7 @@ export const apiKeys = pgTable(
   (table) => [
     index('idx_api_keys_project_id').on(table.projectId),
     index('idx_api_keys_organization_id').on(table.organizationId),
+    index('idx_api_keys_parent_key_id').on(table.parentKeyId),
     index('idx_api_keys_key_hash').on(table.keyHash),
     check('api_keys_one_level', sql`(project_id IS NULL) <> (organization_id IS NULL)`),
   ],

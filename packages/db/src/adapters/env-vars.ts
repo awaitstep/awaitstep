@@ -1,5 +1,6 @@
 import { eq, desc, and, isNull, inArray, or, lt } from 'drizzle-orm'
 import type { EnvVar } from '../types.js'
+import { insertWhere } from './insert-where.js'
 import type { TokenCrypto } from '../crypto.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
@@ -27,17 +28,6 @@ export class EnvVarsAdapter {
     const now = new Date().toISOString()
     const encryptedValue = this.crypto ? await this.crypto.encrypt(data.value) : data.value
 
-    // If projectId is provided, validate it belongs to the org in a single statement
-    if (data.projectId && this.projectsTable) {
-      const p = this.projectsTable
-      const valid = await this.db
-        .select({ id: p.id })
-        .from(p)
-        .where(and(eq(p.id, data.projectId), eq(p.organizationId, data.organizationId)))
-        .limit(1)
-      if (valid.length === 0) return null
-    }
-
     const row = {
       id: data.id,
       organizationId: data.organizationId,
@@ -49,7 +39,21 @@ export class EnvVarsAdapter {
       createdAt: now,
       updatedAt: now,
     }
-    await this.db.insert(this.table).values(row)
+    // A project variable is written only if the project is the
+    // organization's — checked by the insert itself.
+    if (data.projectId && this.projectsTable) {
+      const p = this.projectsTable
+      const inserted = await insertWhere<EnvVar>(
+        this.db,
+        this.table,
+        row,
+        p,
+        and(eq(p.id, data.projectId), eq(p.organizationId, data.organizationId))!,
+      )
+      if (!inserted) return null
+    } else {
+      await this.db.insert(this.table).values(row)
+    }
     return { ...row, value: data.value }
   }
 
