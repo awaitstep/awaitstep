@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AppShell } from '../app-shell'
 import { MobileTabBar } from '../mobile-nav'
-import { SampleRail } from './fixtures/frame'
+import { ProjectMenu } from '../project-menu'
+import { SampleRail, workspaceItems } from './fixtures/frame'
 import {
   OrgMobileHeader,
   SampleTabBar,
@@ -106,6 +107,56 @@ describe('Project menu', () => {
     ).toBeInTheDocument()
     expect(within(dialog).getByRole('link', { name: 'Project settings' })).toBeInTheDocument()
     expect(within(dialog).getByRole('link', { name: 'New' })).toBeInTheDocument()
+  })
+
+  function renderMenu(newWorkspaceHref?: string) {
+    const onClose = vi.fn()
+    // Hash links, so following one in jsdom doesn't try to navigate.
+    render(
+      <ProjectMenu
+        project={{ name: 'Project 101', tile: { initial: 'P' }, switchHref: '#projects' }}
+        workspaces={menuWorkspaces.map((w) => ({ ...w, href: `#${w.key}` }))}
+        newWorkspaceHref={newWorkspaceHref}
+        nav={workspaceItems.map((item) => ({ ...item, href: `#${item.key}` }))}
+        projectSettingsHref="#settings"
+        onClose={onClose}
+      />,
+    )
+    return onClose
+  }
+
+  it('closes when any of its links is followed', async () => {
+    const user = userEvent.setup()
+    const onClose = renderMenu('#new')
+    const links = screen.getAllByRole('link')
+    for (const link of links) await user.click(link)
+    expect(onClose).toHaveBeenCalledTimes(links.length)
+  })
+
+  it('hides New when the viewer may not create workspaces', () => {
+    renderMenu()
+    expect(screen.queryByRole('link', { name: 'New' })).not.toBeInTheDocument()
+  })
+
+  it('draws each workspace tile from its tile prop, not the name', () => {
+    render(
+      <ProjectMenu
+        project={{ name: 'Project 101', tile: { initial: 'P' }, switchHref: '#projects' }}
+        workspaces={[
+          {
+            key: 'ops',
+            name: ' ops',
+            tile: { initial: 'O', colour: 'rose' },
+            count: '',
+            href: '#ops',
+          },
+        ]}
+        nav={[]}
+        projectSettingsHref="#settings"
+        onClose={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole('link', { name: /ops/ })).toHaveTextContent(/^O/)
   })
 
   it('closes from its Close button', async () => {

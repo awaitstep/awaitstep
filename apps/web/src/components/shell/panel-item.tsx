@@ -36,6 +36,8 @@ export interface PanelItemProps {
   badge?: ReactNode
   /** Opens in a new tab as a plain anchor instead of an in-app link. */
   external?: boolean
+  /** Called when the row is followed, e.g. to close the menu it sits in. */
+  onSelect?: () => void
 }
 
 /** A panel row: icon + label, with the active bar and `aria-current` when active. */
@@ -46,6 +48,7 @@ export function PanelItem({
   active = false,
   badge,
   external = false,
+  onSelect,
 }: PanelItemProps) {
   const isActive = active && !external
   const hasBadge = hasContent(badge)
@@ -68,14 +71,20 @@ export function PanelItem({
 
   if (external) {
     return (
-      <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={onSelect}
+        className={className}
+      >
         {content}
       </a>
     )
   }
 
   return (
-    <ShellLink href={href} aria-current={ariaCurrent} className={className}>
+    <ShellLink href={href} aria-current={ariaCurrent} onClick={onSelect} className={className}>
       {content}
     </ShellLink>
   )

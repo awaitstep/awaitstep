@@ -1,14 +1,15 @@
 import { Check, Plus, Settings, X } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { ShellLink } from '../ui/shell-link'
-import { scopeTileColourClass, type WorkspaceColour } from '../ui/workspace-colour'
+import { scopeTileColourClass } from '../ui/workspace-colour'
 import type { ScopeTile } from './context-panel'
 import { PanelItem, type PanelItemProps } from './panel-item'
 
 export interface ProjectMenuWorkspace {
   key: string
   name: string
-  colour: WorkspaceColour
+  /** Initial + swatch, the same tile the switchers draw. */
+  tile: ScopeTile
   /** "4 workflows". */
   count: string
   href: string
@@ -18,17 +19,26 @@ export interface ProjectMenuWorkspace {
 interface ProjectMenuProps {
   project: { name: string; tile: ScopeTile; switchHref: string }
   workspaces: ProjectMenuWorkspace[]
-  newWorkspaceHref: string
+  /** Omitted when the viewer can't create workspaces; the New tile is then hidden. */
+  newWorkspaceHref?: string
   /** The current workspace's pages: Overview, Workflows, … Workspace settings. */
   nav: (PanelItemProps & { key: string })[]
   projectSettingsHref: string
+  /** Called on Close and on every link, so the sheet doesn't stay up over the page it opened. */
   onClose: () => void
 }
 
-function WorkspaceTile({ workspace }: { workspace: ProjectMenuWorkspace }) {
+function WorkspaceTile({
+  workspace,
+  onSelect,
+}: {
+  workspace: ProjectMenuWorkspace
+  onSelect: () => void
+}) {
   return (
     <ShellLink
       href={workspace.href}
+      onClick={onSelect}
       aria-current={workspace.current ? 'true' : undefined}
       className={cn(
         'flex min-h-11 items-center gap-2.5 rounded-xl border px-3 py-2.5',
@@ -39,10 +49,10 @@ function WorkspaceTile({ workspace }: { workspace: ProjectMenuWorkspace }) {
         aria-hidden="true"
         className={cn(
           'relative flex size-7 shrink-0 items-center justify-center rounded-md text-2xs font-semibold',
-          scopeTileColourClass(workspace.colour),
+          scopeTileColourClass(workspace.tile.colour),
         )}
       >
-        {workspace.name[0]}
+        {workspace.tile.initial}
         {workspace.current && (
           <Check
             size={12}
@@ -72,6 +82,7 @@ export function ProjectMenu({
       <div className="flex items-center gap-2 px-4 py-2">
         <ShellLink
           href={project.switchHref}
+          onClick={onClose}
           aria-label={`Project ${project.name}, switch project`}
           className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg"
         >
@@ -104,26 +115,34 @@ export function ProjectMenu({
       </p>
       <div className="grid grid-cols-2 gap-2 px-4 pb-3">
         {workspaces.map((workspace) => (
-          <WorkspaceTile key={workspace.key} workspace={workspace} />
+          <WorkspaceTile key={workspace.key} workspace={workspace} onSelect={onClose} />
         ))}
-        <ShellLink
-          href={newWorkspaceHref}
-          className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-dashed border-border text-xs font-medium text-muted-foreground hover:text-foreground"
-        >
-          <Plus size={14} aria-hidden="true" />
-          New
-        </ShellLink>
+        {newWorkspaceHref && (
+          <ShellLink
+            href={newWorkspaceHref}
+            onClick={onClose}
+            className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-dashed border-border text-xs font-medium text-muted-foreground hover:text-foreground"
+          >
+            <Plus size={14} aria-hidden="true" />
+            New
+          </ShellLink>
+        )}
       </div>
       <nav
         aria-label="Workspace"
         className="flex flex-col gap-0.5 border-t border-border px-2.5 py-2"
       >
         {nav.map(({ key, ...item }) => (
-          <PanelItem key={key} {...item} />
+          <PanelItem key={key} {...item} onSelect={onClose} />
         ))}
       </nav>
       <div className="border-t border-border px-2.5 py-2">
-        <PanelItem href={projectSettingsHref} icon={Settings} label="Project settings" />
+        <PanelItem
+          href={projectSettingsHref}
+          icon={Settings}
+          label="Project settings"
+          onSelect={onClose}
+        />
       </div>
     </div>
   )
