@@ -2,16 +2,20 @@ import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { Workflow } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { Banner } from './banner'
+import { LoadError } from './load-error'
 import { ListCard, ListRow } from './list-card'
 import { RunHistoryBars } from './run-history-bars'
 import { SegmentedFilter, type FilterOption } from './segmented-filter'
 import { ShareToggle } from './share-toggle'
+import { FilterSkeleton, ListCardSkeleton, LoadingRegion } from './skeletons'
 import { StatusPill } from './status-pill'
 import { Tile } from './tile'
 import { SALES_WORKFLOWS, type SampleWorkflow } from './__tests__/fixtures/lists'
 
 // The K3 parts composed as the `Workflows` board draws them, to check side by
-// side with it. The page itself (P2) composes the same parts from real hooks.
+// side with it; Loading and LoadError (K5) are the `LoadingState` and
+// `LoadError` boards in the same frame. The page itself (P2) composes the same parts from real hooks.
 // Temporary: P2 deletes this file once the page matches the board, see
 // "Temporary composite stories" in plan/workspaces-w1.md.
 const meta = {
@@ -125,3 +129,44 @@ function WorkflowsListDemo({ viewer = false }: { viewer?: boolean }) {
 export const Editor: Story = { render: () => <WorkflowsListDemo /> }
 
 export const Viewer: Story = { render: () => <WorkflowsListDemo viewer /> }
+
+export const Loading: Story = {
+  render: () => (
+    <div className="flex max-w-screen-xl flex-col gap-6">
+      <LoadingRegion label="Loading workflows">
+        <div className="flex justify-end">
+          <FilterSkeleton />
+        </div>
+        <ListCardSkeleton />
+      </LoadingRegion>
+    </div>
+  ),
+}
+
+function LoadErrorDemo() {
+  const [attempts, setAttempts] = useState(0)
+  function handleRetry() {
+    setAttempts((current) => current + 1)
+  }
+  return (
+    <div className="flex max-w-screen-xl flex-col gap-6">
+      <LoadError
+        title="We couldn't load workflows"
+        detail={
+          attempts === 0
+            ? 'The server took too long to answer. Nothing was changed. Try again in a moment.'
+            : `Still not answering after ${attempts + 1} tries. Check the status page, or try again in a minute.`
+        }
+        onRetry={handleRetry}
+        attempts={attempts}
+        statusHref="https://status.awaitstep.dev"
+        errorId="req_7f2a91c4"
+      />
+      <Banner tone="warn">
+        Your deployed workflows keep running. Only this page couldn&apos;t load.
+      </Banner>
+    </div>
+  )
+}
+
+export const LoadErrorState: Story = { name: 'Load error', render: () => <LoadErrorDemo /> }

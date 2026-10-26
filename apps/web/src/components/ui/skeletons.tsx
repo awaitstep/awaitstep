@@ -1,5 +1,11 @@
+import type { ReactNode } from 'react'
+
 export function Bone({ className }: { className?: string }) {
-  return <div className={`animate-pulse rounded bg-muted/40 ${className ?? ''}`} />
+  return (
+    <div
+      className={`animate-pulse rounded bg-muted/40 motion-reduce:animate-none ${className ?? ''}`}
+    />
+  )
 }
 
 export function ListRowSkeleton() {
@@ -54,6 +60,67 @@ export function DetailSkeleton() {
         <Bone className="h-4 w-32" />
         <Bone className="h-20 w-full rounded-lg bg-muted/20" />
       </div>
+    </div>
+  )
+}
+
+interface LoadingRegionProps {
+  /** Read out instead of the placeholders, e.g. "Loading workflows". */
+  label: string
+  children: ReactNode
+}
+
+/** Wraps placeholders so screen readers hear one "Loading …" instead of empty shapes. */
+export function LoadingRegion({ label, children }: LoadingRegionProps) {
+  return (
+    <div role="status" className="flex flex-col gap-6">
+      <span className="sr-only">{label}</span>
+      <div aria-hidden="true" className="contents">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+interface ListCardSkeletonProps {
+  rows?: number
+  /** How many trailing slots each row has (status, history, toggle…). */
+  trailing?: number
+  tile?: boolean
+}
+
+/** Placeholder for a `ListCard`: rows keep `ListRow`'s padding and line boxes so nothing jumps. */
+export function ListCardSkeleton({ rows = 4, trailing = 3, tile = true }: ListCardSkeletonProps) {
+  return (
+    <div className="flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
+      {Array.from({ length: rows }, (_, row) => (
+        <div key={row} className="flex flex-wrap items-center gap-x-4.5 gap-y-3 px-5 py-4">
+          {tile && <Bone className="size-10 rounded-xl" />}
+          {/* Line boxes match ListRow: text-sm (24px) title, text-2xs (16px) description. */}
+          <div className="flex min-w-[200px] flex-1 flex-col gap-0.5">
+            <div className="flex h-6 items-center">
+              <Bone className="h-3.5 w-40" />
+            </div>
+            <div className="flex h-4 items-center">
+              <Bone className="h-3 w-64 bg-muted/25" />
+            </div>
+          </div>
+          {Array.from({ length: trailing }, (_, slot) => (
+            <Bone key={slot} className="h-6 w-[120px] bg-muted/25" />
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** Placeholder for a `SegmentedFilter`'s pills. */
+export function FilterSkeleton({ count = 4 }: { count?: number }) {
+  return (
+    <div className="flex gap-1">
+      {Array.from({ length: count }, (_, pill) => (
+        <Bone key={pill} className="h-[30px] w-[76px] rounded-lg" />
+      ))}
     </div>
   )
 }
