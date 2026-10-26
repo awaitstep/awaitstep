@@ -21,6 +21,21 @@ describe('AvatarStack', () => {
     ).not.toHaveTextContent('+')
   })
 
+  it('draws two people who share a name as two avatars', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    render(
+      <AvatarStack
+        people={[
+          { id: 'a', name: 'Alex Kim' },
+          { id: 'b', name: 'Alex Kim' },
+        ]}
+      />,
+    )
+    expect(screen.getByRole('img', { name: 'Alex Kim and Alex Kim' }).children).toHaveLength(2)
+    expect(consoleError).not.toHaveBeenCalled()
+    consoleError.mockRestore()
+  })
+
   it('says "other" for a single extra person', () => {
     render(<AvatarStack people={PEOPLE.slice(0, 4)} />)
     expect(

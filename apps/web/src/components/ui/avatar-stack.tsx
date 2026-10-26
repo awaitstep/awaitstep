@@ -1,6 +1,8 @@
 import { Avatar } from './avatar'
 
 interface Person {
+  /** Keys the avatar; names repeat. */
+  id: string
   name: string
   image?: string | null
 }
@@ -26,7 +28,7 @@ export function AvatarStack({ people, max = 3 }: AvatarStackProps) {
   return (
     <span role="img" aria-label={describePeople(people, shown)} className="flex">
       {people.slice(0, shown).map((person, i) => (
-        <span key={person.name} aria-hidden="true" className={i > 0 ? '-ml-2' : undefined}>
+        <span key={person.id} aria-hidden="true" className={i > 0 ? '-ml-2' : undefined}>
           <Avatar
             name={person.name}
             src={person.image}

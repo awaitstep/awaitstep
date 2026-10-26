@@ -151,10 +151,10 @@ export const SALES_RUNS: SampleRun[] = [
 ]
 
 export const PEOPLE = [
-  { name: 'Ama Mensah' },
-  { name: 'Daniel Kim' },
-  { name: 'Lena Ortiz' },
-  { name: 'Priya Shah' },
-  { name: 'Jonas Reed' },
-  { name: 'Tomás Barros' },
+  { id: 'ama', name: 'Ama Mensah' },
+  { id: 'daniel', name: 'Daniel Kim' },
+  { id: 'lena', name: 'Lena Ortiz' },
+  { id: 'priya', name: 'Priya Shah' },
+  { id: 'jonas', name: 'Jonas Reed' },
+  { id: 'tomas', name: 'Tomás Barros' },
 ]
