@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { cn } from '../../lib/utils'
 import { debounce } from '../../lib/debounce'
 
-type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
+type InputProps = React.ComponentProps<'input'> & {
   debounceMs?: number
 }
 
