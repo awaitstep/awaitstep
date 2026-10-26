@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { ExternalLink, type LucideIcon } from 'lucide-react'
 import { cn } from '../../lib/utils'
-import { hasContent } from './has-content'
+import { hasContent } from '../ui/has-content'
 import { ShellLink } from './shell-link'
 
 const rowClass =

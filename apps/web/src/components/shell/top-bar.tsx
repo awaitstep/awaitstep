@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from 'react'
-import { hasContent } from './has-content'
+import { hasContent } from '../ui/has-content'
 import { ShellLink } from './shell-link'
 
 export interface Crumb {

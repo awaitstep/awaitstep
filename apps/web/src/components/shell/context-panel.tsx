@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronsUpDown } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { WORKSPACE_TILE_CLASS, type WorkspaceColour } from '../ui/workspace-colour'
 import { panelRowClass } from './panel-item'
-import { hasContent } from './has-content'
+import { hasContent } from '../ui/has-content'
 import { ShellLink } from './shell-link'
 
 interface ContextPanelProps {

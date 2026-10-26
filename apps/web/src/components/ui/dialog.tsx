@@ -1,23 +1,49 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '../../lib/utils'
+import { overlayBackdropVariants } from './overlay-parts'
 
 const Dialog = DialogPrimitive.Root
 const DialogTrigger = DialogPrimitive.Trigger
 const DialogClose = DialogPrimitive.Close
 
+const dialogContentVariants = cva(
+  'fixed left-1/2 top-1/2 z-50 max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 border bg-card shadow-lg data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
+  {
+    variants: {
+      size: {
+        sm: 'w-[400px]',
+        md: 'w-[480px]',
+        lg: 'w-[560px]',
+      },
+      // `padded` is the original bare dialog. `sectioned` is the dashboard's
+      // header / scrolling body / footer layout built from overlay-parts.
+      layout: {
+        padded: 'rounded-md border-border p-6',
+        sectioned:
+          'flex max-h-[calc(100dvh-3rem)] flex-col overflow-hidden rounded-2xl border-border',
+      },
+    },
+    defaultVariants: {
+      size: 'sm',
+      layout: 'padded',
+    },
+  },
+)
+
 function DialogContent({
   className,
   children,
+  size,
+  layout,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content>) {
+}: React.ComponentProps<typeof DialogPrimitive.Content> &
+  VariantProps<typeof dialogContentVariants>) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
+      <DialogPrimitive.Overlay className={overlayBackdropVariants({ layout })} />
       <DialogPrimitive.Content
-        className={cn(
-          'fixed left-1/2 top-1/2 z-50 w-[400px] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
-          className,
-        )}
+        className={cn(dialogContentVariants({ size, layout }), className)}
         {...props}
       >
         {children}
