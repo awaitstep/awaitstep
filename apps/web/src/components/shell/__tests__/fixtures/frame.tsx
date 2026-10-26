@@ -97,7 +97,7 @@ function ProjectHeader() {
   )
 }
 
-const workspaceItems = [
+export const workspaceItems = [
   { key: 'overview', href: `${WORKSPACE}/overview`, icon: LayoutGrid, label: 'Overview' },
   { key: 'workflows', href: `${WORKSPACE}/workflows`, icon: Workflow, label: 'Workflows' },
   { key: 'functions', href: `${WORKSPACE}/functions`, icon: Code, label: 'Functions' },

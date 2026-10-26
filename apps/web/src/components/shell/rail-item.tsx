@@ -36,12 +36,12 @@ export interface RailItemProps {
   external?: boolean
 }
 
-function visibleBadge(badge: RailBadge | undefined): RailBadge | undefined {
+export function visibleBadge(badge: RailBadge | undefined): RailBadge | undefined {
   if (badge?.kind === 'count' && badge.value <= 0) return undefined
   return badge
 }
 
-function RailBadgeMark({ badge }: { badge: RailBadge }) {
+export function RailBadgeMark({ badge }: { badge: RailBadge }) {
   if (badge.kind === 'dot') {
     return (
       <span

@@ -17,6 +17,9 @@ const sheetVariants = cva(
         right:
           'bottom-0 right-0 top-0 w-full border-l border-border data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right',
         left: 'bottom-0 left-0 top-0 w-full border-r border-border data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left',
+        // The phone project menu: full width, rounded top, never taller than the screen.
+        bottom:
+          'inset-x-0 bottom-0 max-h-[92svh] rounded-t-2xl border-t border-border data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom',
       },
       size: {
         sm: 'max-w-xs',
@@ -37,6 +40,15 @@ const sheetVariants = cva(
   },
 )
 
+type SheetSide = VariantProps<typeof sheetVariants>['side']
+
+// A left sheet was always narrower (the mobile nav drawer); a bottom sheet
+// spans the screen, so it takes no max width.
+function defaultSize(side: SheetSide) {
+  if (side === 'bottom') return null
+  return side === 'left' ? 'sm' : 'md'
+}
+
 function SheetContent({
   className,
   side,
@@ -45,8 +57,7 @@ function SheetContent({
   children,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & VariantProps<typeof sheetVariants>) {
-  // A left sheet was always narrower (the mobile nav drawer).
-  const resolvedSize = size ?? (side === 'left' ? 'sm' : 'md')
+  const resolvedSize = size ?? defaultSize(side)
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className={overlayBackdropVariants({ layout })} />

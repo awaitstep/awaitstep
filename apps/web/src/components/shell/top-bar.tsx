@@ -37,11 +37,14 @@ function CrumbLabel({ crumb, current }: { crumb: Crumb; current: boolean }) {
   return <span className="text-muted-foreground">{crumb.label}</span>
 }
 
-/** The 64px band at the top of the main column, level with the panel's header row. */
+/**
+ * The 64px band at the top of the main column, level with the panel's header
+ * row. Hidden below `md`, where `MobileHeader` takes its place.
+ */
 export function TopBar({ breadcrumbs, children, actions }: TopBarProps) {
   const lastIndex = breadcrumbs.length - 1
   return (
-    <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border px-6 md:px-8">
+    <header className="hidden h-16 shrink-0 items-center gap-3 border-b border-border px-6 md:flex md:px-8">
       <nav aria-label="Breadcrumb" className="min-w-0">
         <ol className="flex min-w-0 items-center gap-2 text-xs">
           {breadcrumbs.map((crumb, index) => (
