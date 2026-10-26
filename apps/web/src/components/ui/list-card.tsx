@@ -1,4 +1,5 @@
 import { Children, type ReactNode } from 'react'
+import { cn } from '../../lib/utils'
 import { hasContent } from './has-content'
 import { ShellLink } from './shell-link'
 
@@ -7,15 +8,17 @@ interface ListCardProps {
   label?: string
   /** Shown inside the card when there are no rows. */
   empty?: ReactNode
+  /** `false` drops the card's border and fill, for use inside a `ScopedSection`. */
+  framed?: boolean
   /** `ListRow`s. */
   children?: ReactNode
 }
 
 /** A bordered card of rows: workflows, functions, activity, notifications. */
-export function ListCard({ label, empty, children }: ListCardProps) {
+export function ListCard({ label, empty, framed = true, children }: ListCardProps) {
   const isEmpty = Children.toArray(children).length === 0
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+    <div className={cn(framed && 'overflow-hidden rounded-2xl border border-border bg-card')}>
       {isEmpty ? (
         <div className="px-5 py-8 text-center text-xs text-muted-foreground">{empty}</div>
       ) : (

@@ -23,6 +23,8 @@ interface DataTableProps<Row> {
   minWidth?: string
   /** Inside the card under the table, usually a `Pager`. */
   footer?: ReactNode
+  /** `false` drops the card's border and fill, for use inside a `ScopedSection`. */
+  framed?: boolean
 }
 
 /** A bordered table of runs, events, members or keys. */
@@ -34,9 +36,10 @@ export function DataTable<Row>({
   empty = 'Nothing here yet.',
   minWidth = '760px',
   footer,
+  framed = true,
 }: DataTableProps<Row>) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+    <div className={cn(framed && 'overflow-hidden rounded-2xl border border-border bg-card')}>
       <div className="overflow-x-auto">
         <table className="w-full table-fixed border-collapse text-left" style={{ minWidth }}>
           <caption className="sr-only">{caption}</caption>
