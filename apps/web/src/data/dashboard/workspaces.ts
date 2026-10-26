@@ -1,0 +1,67 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { mockServer } from '../../mocks/dashboard/server'
+import type { ScopeSlugs } from '../../types/dashboard/scope'
+import type { NewWorkspaceInput, WorkspaceUpdate } from '../../types/dashboard/workspaces'
+import { dashKeys, invalidateAll, withMockContext } from './keys'
+import { useMockContext } from './scenario-context'
+
+/**
+ * What the URL's slugs name, with the viewer's role and `viewerCan` at each
+ * level. A missing slug and one the viewer can't open give the same
+ * `{ found: false }` result, which pages render as NotFoundView.
+ */
+export function useScope(slugs: ScopeSlugs) {
+  const ctx = useMockContext()
+  return useQuery({
+    queryKey: withMockContext(dashKeys.scopeOf(slugs), ctx),
+    queryFn: () => mockServer.workspaces.getScope(ctx, slugs),
+  })
+}
+
+export function useWorkspaces(org: string, project: string) {
+  const ctx = useMockContext()
+  return useQuery({
+    queryKey: withMockContext(dashKeys.workspaces(org, project), ctx),
+    queryFn: () => mockServer.workspaces.listWorkspaces(ctx, org, project),
+  })
+}
+
+const workspaceKeys = (org: string, project: string) => [
+  dashKeys.workspaces(org, project),
+  dashKeys.projects(org),
+  dashKeys.scope(),
+]
+
+export function useCreateWorkspace(org: string, project: string) {
+  const ctx = useMockContext()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (input: NewWorkspaceInput) =>
+      mockServer.workspaces.createWorkspace(ctx, org, project, input),
+    onSuccess: () => invalidateAll(client, workspaceKeys(org, project)),
+  })
+}
+
+export function useUpdateWorkspace(slugs: Required<ScopeSlugs>) {
+  const ctx = useMockContext()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (update: WorkspaceUpdate) =>
+      mockServer.workspaces.updateWorkspace(ctx, slugs, update),
+    onSuccess: (updated) =>
+      invalidateAll(
+        client,
+        workspaceKeys(slugs.org, slugs.project),
+        updated.slug === slugs.workspace ? undefined : slugs,
+      ),
+  })
+}
+
+export function useDeleteWorkspace(slugs: Required<ScopeSlugs>) {
+  const ctx = useMockContext()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => mockServer.workspaces.deleteWorkspace(ctx, slugs),
+    onSuccess: () => invalidateAll(client, workspaceKeys(slugs.org, slugs.project), slugs),
+  })
+}

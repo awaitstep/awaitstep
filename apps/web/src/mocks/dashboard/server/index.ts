@@ -1,0 +1,10 @@
+import * as locks from './locks'
+import * as projects from './projects'
+import * as session from './session'
+import * as workspaces from './workspaces'
+
+/**
+ * The fake API the dashboard hooks call until each feature's backend lands.
+ * Shaped like the real one will be: slugs in, records with `viewerCan` out.
+ */
+export const mockServer = { session, projects, workspaces, locks }
