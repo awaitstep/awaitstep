@@ -2,17 +2,23 @@ import * as SelectPrimitive from '@radix-ui/react-select'
 import { ChevronDown } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
-interface SelectProps {
+type TriggerAttributes = Pick<
+  React.ComponentProps<typeof SelectPrimitive.Trigger>,
+  'id' | 'aria-describedby' | 'aria-invalid' | 'aria-required'
+>
+
+interface SelectProps extends TriggerAttributes {
   value: string
   onValueChange: (value: string) => void
   options: { value: string; label: string }[]
   className?: string
 }
 
-export function Select({ value, onValueChange, options, className }: SelectProps) {
+export function Select({ value, onValueChange, options, className, ...triggerProps }: SelectProps) {
   return (
     <SelectPrimitive.Root value={value} onValueChange={onValueChange}>
       <SelectPrimitive.Trigger
+        {...triggerProps}
         className={cn(
           'flex h-10 items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 [&>span:first-child]:truncate [&>span:first-child]:min-w-0',
           className,
