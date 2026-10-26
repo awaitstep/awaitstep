@@ -1,10 +1,9 @@
-import { useId, useState, type FocusEvent, type ReactNode } from 'react'
+import { useId, type FocusEvent, type ReactNode } from 'react'
 import { Check, Copy, TriangleAlert } from 'lucide-react'
-import { copyToClipboard, cn } from '../../lib/utils'
+import { cn } from '../../lib/utils'
 import { Button } from './button'
 import { hasContent } from './has-content'
-
-type CopyStatus = 'idle' | 'copied' | 'failed'
+import { useCopyStatus } from './use-copy-status'
 
 const COPY_FAILED = "Couldn't copy. Select the key and copy it yourself."
 
@@ -14,8 +13,12 @@ interface SecretRevealProps {
   value: string
   /** Why to copy it now, e.g. "This is the only time AwaitStep shows the full key." */
   warning: ReactNode
-  /** Fires `true` once copied, so the dialog's footer can say it's safe to close. */
-  onCopiedChange?: (copied: boolean) => void
+  /**
+   * Fires with the value once it is copied, so the dialog's footer can say
+   * it's safe to close. Compare it with the value now shown: a regenerated
+   * value hasn't been copied yet.
+   */
+  onCopied?: (value: string) => void
   /** Under the warning, e.g. the "Can: …" permission chips. */
   children?: ReactNode
 }
@@ -25,26 +28,14 @@ function selectAll(event: FocusEvent<HTMLInputElement>) {
 }
 
 /** A value shown once, such as a new API key, with Copy and a warning to store it. */
-export function SecretReveal({
-  label,
-  value,
-  warning,
-  onCopiedChange,
-  children,
-}: SecretRevealProps) {
+export function SecretReveal({ label, value, warning, onCopied, children }: SecretRevealProps) {
   const inputId = useId()
-  const [status, setStatus] = useState<CopyStatus>('idle')
+  const { status, copy } = useCopyStatus(value)
   const copied = status === 'copied'
   const failed = status === 'failed'
 
   async function handleCopy() {
-    try {
-      await copyToClipboard(value)
-      setStatus('copied')
-      onCopiedChange?.(true)
-    } catch {
-      setStatus('failed')
-    }
+    if (await copy()) onCopied?.(value)
   }
 
   return (

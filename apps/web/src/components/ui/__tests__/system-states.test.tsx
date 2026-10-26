@@ -33,7 +33,7 @@ describe('LoadError', () => {
 
   function renderError(props: Partial<Parameters<typeof LoadError>[0]> = {}) {
     const onRetry = vi.fn()
-    render(
+    return render(
       <LoadError
         title="We couldn't load workflows"
         detail="Nothing was changed."
@@ -43,7 +43,6 @@ describe('LoadError', () => {
         {...props}
       />,
     )
-    return onRetry
   }
 
   it('announces the title and detail as an alert', () => {
@@ -55,14 +54,16 @@ describe('LoadError', () => {
 
   it('retries on click and counts the attempts', async () => {
     const user = userEvent.setup()
-    const onRetry = renderError({ attempts: 2 })
+    const onRetry = vi.fn()
+    renderError({ attempts: 2, onRetry })
     await user.click(screen.getByRole('button', { name: 'Try again (2)' }))
     expect(onRetry).toHaveBeenCalledTimes(1)
   })
 
   it('ignores clicks while retrying but stays focusable', async () => {
     const user = userEvent.setup()
-    const onRetry = renderError({ retrying: true })
+    const onRetry = vi.fn()
+    renderError({ retrying: true, onRetry })
     const button = screen.getByRole('button', { name: 'Try again' })
     expect(button).toHaveAttribute('aria-busy', 'true')
     await user.click(button)
@@ -84,6 +85,22 @@ describe('LoadError', () => {
     await user.click(screen.getByRole('button', { name: 'Copy error ID req_7f2a91c4' }))
     expect(copy).toHaveBeenCalledWith('req_7f2a91c4')
     expect(screen.getByRole('status')).toHaveTextContent('Copied')
+  })
+
+  it('forgets "Copied" when a retry brings a new error ID', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue()
+    const { rerender } = renderError()
+    await user.click(screen.getByRole('button', { name: 'Copy error ID req_7f2a91c4' }))
+    rerender(
+      <LoadError
+        title="We couldn't load workflows"
+        detail="Nothing was changed."
+        onRetry={vi.fn()}
+        errorId="req_0b1c2d3e"
+      />,
+    )
+    expect(screen.getByRole('status')).not.toHaveTextContent('Copied')
   })
 
   it('says when copying the error ID fails', async () => {

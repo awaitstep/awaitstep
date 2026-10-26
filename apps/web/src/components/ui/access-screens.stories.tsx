@@ -267,13 +267,13 @@ function KeyForm() {
   )
 }
 
-function KeyRevealed({ onCopiedChange }: { onCopiedChange: (copied: boolean) => void }) {
+function KeyRevealed({ onCopied }: { onCopied: (value: string) => void }) {
   return (
     <SecretReveal
       label="Your API key"
       value={SAMPLE_SECRET}
       warning="Copy it now and store it somewhere safe. This is the only time AwaitStep shows the full key. If you lose it, revoke it and create a new one."
-      onCopiedChange={onCopiedChange}
+      onCopied={onCopied}
     >
       <span className="flex flex-wrap items-center gap-1.5 text-2xs text-muted-foreground">
         Can:
@@ -288,7 +288,8 @@ function KeyRevealed({ onCopiedChange }: { onCopiedChange: (copied: boolean) => 
 function CreateKeyDialog({ initialStep }: { initialStep: 'form' | 'reveal' }) {
   const [open, setOpen] = useState(true)
   const [step, setStep] = useState(initialStep)
-  const [copied, setCopied] = useState(false)
+  const [copiedValue, setCopiedValue] = useState<string | null>(null)
+  const copied = copiedValue === SAMPLE_SECRET
   const revealing = step === 'reveal'
 
   function handleCreate() {
@@ -331,7 +332,7 @@ function CreateKeyDialog({ initialStep }: { initialStep: 'form' | 'reveal' }) {
       footerStart={footerHint}
       actions={actions}
     >
-      {revealing ? <KeyRevealed onCopiedChange={setCopied} /> : <KeyForm />}
+      {revealing ? <KeyRevealed onCopied={setCopiedValue} /> : <KeyForm />}
     </ModalDialog>
   )
 }

@@ -1,8 +1,8 @@
-import { useState } from 'react'
 import { Check, Copy, Loader2, RotateCw, TriangleAlert } from 'lucide-react'
-import { copyToClipboard, cn } from '../../lib/utils'
+import { cn } from '../../lib/utils'
 import { Button } from './button'
 import { Tile } from './tile'
+import { useCopyStatus } from './use-copy-status'
 
 interface LoadErrorProps {
   /** "We couldn't load workflows". */
@@ -32,7 +32,7 @@ export function LoadError({
   errorId,
   framed = true,
 }: LoadErrorProps) {
-  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
+  const { status: copyStatus, copy: copyErrorId } = useCopyStatus(errorId)
   const copied = copyStatus === 'copied'
 
   function handleRetry() {
@@ -40,13 +40,7 @@ export function LoadError({
   }
 
   async function handleCopyId() {
-    if (!errorId) return
-    try {
-      await copyToClipboard(errorId)
-      setCopyStatus('copied')
-    } catch {
-      setCopyStatus('failed')
-    }
+    await copyErrorId()
   }
 
   return (

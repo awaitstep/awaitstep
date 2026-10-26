@@ -4,16 +4,16 @@ import userEvent from '@testing-library/user-event'
 import { SecretReveal } from '../secret-reveal'
 import { SAMPLE_SECRET } from './fixtures/access'
 
-function renderReveal(onCopiedChange = vi.fn()) {
-  render(
+function renderReveal(onCopied = vi.fn()) {
+  const view = render(
     <SecretReveal
       label="Your API key"
       value={SAMPLE_SECRET}
       warning="This is the only time AwaitStep shows the full key."
-      onCopiedChange={onCopiedChange}
+      onCopied={onCopied}
     />,
   )
-  return onCopiedChange
+  return Object.assign(onCopied, { rerender: view.rerender })
 }
 
 describe('SecretReveal', () => {
@@ -24,24 +24,34 @@ describe('SecretReveal', () => {
   it('copies the full value, then says so', async () => {
     const user = userEvent.setup()
     const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue()
-    const onCopiedChange = renderReveal()
+    const onCopied = renderReveal()
     await user.click(screen.getByRole('button', { name: 'Copy' }))
     expect(writeText).toHaveBeenCalledWith(SAMPLE_SECRET)
     expect(screen.getByRole('button', { name: 'Copied' })).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('Copied')
-    expect(onCopiedChange).toHaveBeenCalledWith(true)
+    expect(onCopied).toHaveBeenCalledWith(SAMPLE_SECRET)
+  })
+
+  it('asks to copy again when the value changes', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue()
+    const { rerender } = renderReveal()
+    await user.click(screen.getByRole('button', { name: 'Copy' }))
+    rerender(<SecretReveal label="Your API key" value="ask_new_key" warning="Once only." />)
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument()
+    expect(screen.getByRole('status')).not.toHaveTextContent('Copied')
   })
 
   it('says when the copy failed and keeps "Copy"', async () => {
     const user = userEvent.setup()
     vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'))
-    const onCopiedChange = renderReveal()
+    const onCopied = renderReveal()
     await user.click(screen.getByRole('button', { name: 'Copy' }))
     expect(screen.getByRole('status')).toHaveTextContent(
       "Couldn't copy. Select the key and copy it yourself.",
     )
     expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument()
-    expect(onCopiedChange).not.toHaveBeenCalled()
+    expect(onCopied).not.toHaveBeenCalled()
   })
 
   it('selects the whole value when the field is focused', async () => {
