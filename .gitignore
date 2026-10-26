@@ -6,6 +6,7 @@ dist/
 .turbo/
 **/.astro/
 **/.vitepress/cache/
+storybook-static/
 
 # Environment
 .env
