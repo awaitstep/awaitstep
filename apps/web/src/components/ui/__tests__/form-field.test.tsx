@@ -26,16 +26,57 @@ describe('FormField', () => {
     expect(input).not.toHaveAttribute('aria-invalid')
   })
 
-  it('adds the error to the description and marks the control invalid', () => {
+  it('shows the error in place of the hint and marks the control invalid', () => {
     render(
       <FormField label="Name" hint="Letters only." error="Use STRIPE_KEY." required>
         <Input />
       </FormField>,
     )
     const input = screen.getByRole('textbox', { name: 'Name' })
-    expect(input).toHaveAccessibleDescription('Letters only. Use STRIPE_KEY.')
+    expect(input).toHaveAccessibleDescription('Use STRIPE_KEY.')
+    expect(screen.queryByText('Letters only.')).not.toBeInTheDocument()
     expect(input).toHaveAttribute('aria-invalid', 'true')
     expect(input).toBeRequired()
+  })
+
+  it('shows the success message in place of the hint and leaves the control valid', () => {
+    render(
+      <FormField label="URL" hint="Lowercase and dashes." success="project-101 is free.">
+        <Input />
+      </FormField>,
+    )
+    const input = screen.getByRole('textbox', { name: 'URL' })
+    expect(input).toHaveAccessibleDescription('project-101 is free.')
+    expect(screen.queryByText('Lowercase and dashes.')).not.toBeInTheDocument()
+    expect(input).not.toHaveAttribute('aria-invalid')
+  })
+
+  it('prefers the error over the success message', () => {
+    render(
+      <FormField label="URL" success="project-101 is free." error="project-101 is taken.">
+        <Input />
+      </FormField>,
+    )
+    expect(screen.getByRole('textbox', { name: 'URL' })).toHaveAccessibleDescription(
+      'project-101 is taken.',
+    )
+    expect(screen.queryByText('project-101 is free.')).not.toBeInTheDocument()
+  })
+
+  it('brings the hint back once the error is cleared', () => {
+    const { rerender } = render(
+      <FormField label="Name" hint="Letters only." error="Use STRIPE_KEY.">
+        <Input />
+      </FormField>,
+    )
+    rerender(
+      <FormField label="Name" hint="Letters only.">
+        <Input />
+      </FormField>,
+    )
+    const input = screen.getByRole('textbox', { name: 'Name' })
+    expect(input).toHaveAccessibleDescription('Letters only.')
+    expect(input).not.toHaveAttribute('aria-invalid')
   })
 
   it('shows "Optional" after the label', () => {

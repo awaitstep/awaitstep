@@ -61,6 +61,18 @@ export const WithError: Story = {
   ),
 }
 
+export const WithSuccess: Story = {
+  render: () => (
+    <FormField
+      label="URL"
+      hint="Lowercase letters, numbers and dashes."
+      success="project-101 is free."
+    >
+      <Input defaultValue="project-101" />
+    </FormField>
+  ),
+}
+
 export const UrlPrefix: Story = {
   render: () => (
     <FormField label="URL" hint="Changing it breaks bookmarked links to this project.">

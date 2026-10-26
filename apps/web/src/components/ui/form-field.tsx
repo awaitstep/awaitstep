@@ -9,12 +9,33 @@ export function joinIds(...ids: (string | false | undefined)[]): string | undefi
   return joined || undefined
 }
 
+type MessageTone = 'hint' | 'error' | 'success'
+
+const MESSAGE_TONE_CLASS: Record<MessageTone, string> = {
+  hint: 'text-muted-foreground',
+  error: 'text-status-error',
+  success: 'text-status-success',
+}
+
+function fieldMessage(
+  hint: ReactNode,
+  error: ReactNode,
+  success: ReactNode,
+): { tone: MessageTone; text: ReactNode } | undefined {
+  if (hasContent(error)) return { tone: 'error', text: error }
+  if (hasContent(success)) return { tone: 'success', text: success }
+  if (hasContent(hint)) return { tone: 'hint', text: hint }
+  return undefined
+}
+
 interface FormFieldProps {
   label: ReactNode
   /** Shown under the control and read out as its description. */
   hint?: ReactNode
-  /** Shown under the hint in red; marks the control invalid. */
+  /** Takes the hint's place in red and marks the control invalid. */
   error?: ReactNode
+  /** Takes the hint's place in green, e.g. "project-101 is free". Ignored while there is an error. */
+  success?: ReactNode
   /** Adds a muted "Optional" after the label. */
   optional?: boolean
   required?: boolean
@@ -25,14 +46,15 @@ interface FormFieldProps {
 }
 
 /**
- * A label above one control, with an optional hint and error under it. The
- * control gets the id, description and validity attributes, so it needs no
- * wiring of its own.
+ * A label above one control, with one line under it: the error, else the
+ * success message, else the hint. The control gets the id, description and
+ * validity attributes, so it needs no wiring of its own.
  */
 export function FormField({
   label,
   hint,
   error,
+  success,
   optional,
   required,
   id,
@@ -40,10 +62,9 @@ export function FormField({
 }: FormFieldProps) {
   const generatedId = useId()
   const controlId = id ?? generatedId
-  const hintId = `${controlId}-hint`
-  const errorId = `${controlId}-error`
-  const hasHint = hasContent(hint)
+  const messageId = `${controlId}-message`
   const hasError = hasContent(error)
+  const message = fieldMessage(hint, error, success)
 
   return (
     <div className="flex flex-col gap-2">
@@ -53,20 +74,15 @@ export function FormField({
       </Label>
       <Slot
         id={controlId}
-        aria-describedby={joinIds(hasHint && hintId, hasError && errorId)}
+        aria-describedby={message ? messageId : undefined}
         aria-invalid={hasError || undefined}
         aria-required={required || undefined}
       >
         {children}
       </Slot>
-      {hasHint && (
-        <p id={hintId} className="text-2xs text-muted-foreground">
-          {hint}
-        </p>
-      )}
-      {hasError && (
-        <p id={errorId} className="text-2xs text-status-error">
-          {error}
+      {message && (
+        <p id={messageId} className={`text-2xs ${MESSAGE_TONE_CLASS[message.tone]}`}>
+          {message.text}
         </p>
       )}
     </div>
