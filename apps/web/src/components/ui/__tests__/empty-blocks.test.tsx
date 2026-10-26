@@ -72,6 +72,28 @@ describe('ActionCard', () => {
     expect(link).toHaveAccessibleDescription('Where your workflows will live')
     expect(link).toHaveClass('border-primary')
   })
+
+  it('is a filled card by default and an unfilled dashed one as `dashed`', () => {
+    render(
+      <>
+        <ActionCard href="/a" icon={Workflow} tone="ok" title="Solid" description="One" />
+        <ActionCard
+          href="/b"
+          icon={Workflow}
+          tone="ok"
+          title="New project"
+          description="Starts with a Default workspace"
+          variant="dashed"
+        />
+      </>,
+    )
+    const solid = screen.getByRole('link', { name: 'Solid' })
+    expect(solid).toHaveClass('bg-card')
+    expect(solid).not.toHaveClass('border-dashed')
+    const dashed = screen.getByRole('link', { name: 'New project' })
+    expect(dashed).toHaveClass('border-dashed', 'bg-transparent')
+    expect(dashed).not.toHaveClass('bg-card')
+  })
 })
 
 describe('ProgressMeter', () => {

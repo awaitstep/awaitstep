@@ -25,6 +25,8 @@ interface ActionCardProps {
   corner?: ReactNode
   /** The suggested next step: a primary-coloured border. */
   highlighted?: boolean
+  /** `dashed`: an unfilled card with a dashed border, for "New project" / "New workspace". */
+  variant?: 'solid' | 'dashed'
 }
 
 /** A whole-card link to the next thing to do in a new org, project or workspace. */
@@ -37,6 +39,7 @@ export function ActionCard({
   cta,
   corner,
   highlighted,
+  variant = 'solid',
 }: ActionCardProps) {
   const titleId = useId()
   const descriptionId = useId()
@@ -46,7 +49,8 @@ export function ActionCard({
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
       className={cn(
-        'flex flex-col gap-3 rounded-2xl border bg-card p-5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'flex flex-col gap-3 rounded-2xl border p-5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        variant === 'dashed' ? 'border-dashed bg-transparent' : 'bg-card',
         highlighted ? 'border-primary shadow-lg' : 'border-border hover:border-foreground/20',
       )}
     >
