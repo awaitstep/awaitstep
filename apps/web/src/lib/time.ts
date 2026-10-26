@@ -7,6 +7,15 @@ export function timeAgo(dateStr: string | Date): string {
   return formatDistanceToNowStrict(date, { addSuffix: true })
 }
 
+const WEEK_MS = 7 * 24 * 60 * 60_000
+
+/** "5 minutes ago" within the last week, then the day: "12 Oct". For feeds. */
+export function timeAgoOrDay(dateStr: string | Date, now: Date = new Date()): string {
+  const date = new Date(dateStr)
+  if (now.getTime() - date.getTime() < WEEK_MS) return timeAgo(date)
+  return format(date, 'd MMM')
+}
+
 export function timeUntil(dateStr: string | Date): string {
   const date = new Date(dateStr)
   if (isPast(date)) return 'expired'

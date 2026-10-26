@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { durationCompact, duration, formatDateTime } from '../time'
+import { durationCompact, duration, formatDateTime, timeAgoOrDay } from '../time'
 
 const T0 = '2026-01-05T12:00:00.000Z'
 
@@ -39,5 +39,18 @@ describe('duration', () => {
 describe('formatDateTime', () => {
   it('includes second precision', () => {
     expect(formatDateTime('2026-01-05T14:30:45')).toBe('Jan 5, 2026 2:30:45 PM')
+  })
+})
+
+describe('timeAgoOrDay', () => {
+  it('is relative within the last week', () => {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60_000)
+    expect(timeAgoOrDay(fiveMinutesAgo)).toBe('5 minutes ago')
+  })
+
+  it('is the day once a week has passed', () => {
+    expect(timeAgoOrDay('2026-10-12T09:30:00.000Z', new Date('2026-10-26T12:00:00.000Z'))).toBe(
+      '12 Oct',
+    )
   })
 })
