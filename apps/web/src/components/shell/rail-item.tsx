@@ -4,7 +4,7 @@ import type { Theme } from '../../lib/theme'
 import { cn } from '../../lib/utils'
 import { Avatar } from '../ui/avatar'
 import { ActiveBar } from './panel-item'
-import { ShellLink } from './shell-link'
+import { ShellLink } from '../ui/shell-link'
 
 const railItemBase =
   'relative flex w-[60px] flex-col items-center gap-1 rounded-md py-2 text-center text-3xs font-medium transition-colors'

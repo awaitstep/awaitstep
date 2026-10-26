@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { ExternalLink, type LucideIcon } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { hasContent } from '../ui/has-content'
-import { ShellLink } from './shell-link'
+import { ShellLink } from '../ui/shell-link'
 
 const rowClass =
   'relative flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-sm font-medium transition-colors'

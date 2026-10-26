@@ -1,6 +1,6 @@
 import { Fragment, type ReactNode } from 'react'
 import { hasContent } from '../ui/has-content'
-import { ShellLink } from './shell-link'
+import { ShellLink } from '../ui/shell-link'
 
 export interface Crumb {
   label: string

@@ -1,6 +1,6 @@
 import type { MouseEvent } from 'react'
 import type { Decorator, Preview } from '@storybook/react-vite'
-import { ShellLinkProvider, type ShellLinkProps } from '../src/components/shell/shell-link'
+import { ShellLinkProvider, type ShellLinkProps } from '../src/components/ui/shell-link'
 import '../src/styles.css'
 
 // The app themes by the class on <html> (see theme-script.tsx), so the toolbar

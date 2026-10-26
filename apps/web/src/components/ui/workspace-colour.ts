@@ -16,3 +16,12 @@ export const WORKSPACE_TILE_CLASS: Record<WorkspaceColour, string> = {
 export function scopeTileColourClass(colour?: WorkspaceColour): string {
   return colour ? WORKSPACE_TILE_CLASS[colour] : 'bg-muted text-foreground'
 }
+
+/** Background class for a workspace's colour square (no text on it). */
+export const WORKSPACE_DOT_CLASS: Record<WorkspaceColour, string> = {
+  green: 'bg-workspace-green',
+  blue: 'bg-workspace-blue',
+  amber: 'bg-workspace-amber',
+  purple: 'bg-workspace-purple',
+  rose: 'bg-workspace-rose',
+}

@@ -18,9 +18,9 @@ interface ShellLinkProviderProps {
 }
 
 /**
- * Sets the component every in-app shell link renders through. Shell
- * components stay router-free; the route tree provides a router-aware link
- * here. Without a provider, links are plain anchors.
+ * Sets the component every in-app link in the shell and UI kit renders
+ * through. Kit components stay router-free; the route tree provides a
+ * router-aware link here. Without a provider, links are plain anchors.
  */
 export function ShellLinkProvider({ link, children }: ShellLinkProviderProps) {
   return <ShellLinkContext.Provider value={link}>{children}</ShellLinkContext.Provider>

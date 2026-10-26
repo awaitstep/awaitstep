@@ -4,7 +4,7 @@ import { cn } from '../../lib/utils'
 import { scopeTileColourClass, type WorkspaceColour } from '../ui/workspace-colour'
 import { panelRowClass } from './panel-item'
 import { hasContent } from '../ui/has-content'
-import { ShellLink } from './shell-link'
+import { ShellLink } from '../ui/shell-link'
 
 interface ContextPanelProps {
   /** Names the panel's navigation landmark, e.g. "Project" or "Organization settings". */

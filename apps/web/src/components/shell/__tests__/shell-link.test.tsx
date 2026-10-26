@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { ShellLinkProvider, type ShellLinkProps } from '../shell-link'
+import { ShellLinkProvider, type ShellLinkProps } from '../../ui/shell-link'
 import { TopBar } from '../top-bar'
 import { SampleRail, WorkspacePanel } from './fixtures/frame'
 
