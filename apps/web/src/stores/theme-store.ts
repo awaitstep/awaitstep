@@ -1,8 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import type { Theme } from '../lib/theme'
 import { browserStorage } from './ssr-safe-storage'
-
-export type Theme = 'dark' | 'light'
 
 interface ThemeState {
   theme: Theme

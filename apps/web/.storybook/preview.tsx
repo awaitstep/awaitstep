@@ -1,4 +1,6 @@
+import type { MouseEvent } from 'react'
 import type { Decorator, Preview } from '@storybook/react-vite'
+import { ShellLinkProvider, type ShellLinkProps } from '../src/components/shell/shell-link'
 import '../src/styles.css'
 
 // The app themes by the class on <html> (see theme-script.tsx), so the toolbar
@@ -8,8 +10,24 @@ const withTheme: Decorator = (Story, context) => {
   return <Story />
 }
 
+// Shell links point at app routes that don't exist inside Storybook's iframe,
+// so they render as anchors that don't navigate.
+function InertLink({ onClick, ...props }: ShellLinkProps) {
+  function handleClick(event: MouseEvent<HTMLAnchorElement>) {
+    event.preventDefault()
+    onClick?.(event)
+  }
+  return <a {...props} onClick={handleClick} />
+}
+
+const withInertLinks: Decorator = (Story) => (
+  <ShellLinkProvider link={InertLink}>
+    <Story />
+  </ShellLinkProvider>
+)
+
 const preview: Preview = {
-  decorators: [withTheme],
+  decorators: [withTheme, withInertLinks],
   globalTypes: {
     theme: {
       description: 'Colour theme',

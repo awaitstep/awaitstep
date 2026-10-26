@@ -1,5 +1,5 @@
 import { useThemeStore } from '../../stores/theme-store'
-import type { Theme } from '../../stores/theme-store'
+import type { Theme } from '../theme'
 
 /**
  * Monaco's built-in themes, one per app theme. Every editor reads its theme
