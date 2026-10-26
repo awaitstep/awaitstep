@@ -12,6 +12,8 @@ import { SALES_WORKFLOWS, type SampleWorkflow } from './__tests__/fixtures/lists
 
 // The K3 parts composed as the `Workflows` board draws them, to check side by
 // side with it. The page itself (P2) composes the same parts from real hooks.
+// Temporary: P2 deletes this file once the page matches the board, see
+// "Temporary composite stories" in plan/workspaces-w1.md.
 const meta = {
   title: 'UI/Workflows list',
   parameters: { layout: 'padded' },
