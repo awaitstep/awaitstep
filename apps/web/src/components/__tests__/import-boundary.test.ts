@@ -33,6 +33,10 @@ const LEGACY_ALLOWED = new Set([
 ])
 
 const IMPORT_PATTERN = /(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g
+// `import type` / `export type` statements are erased at build time, so they
+// add no runtime dependency: a kit component may name a dashboard type whose
+// file extends an API-client type. Mixed imports (`import { type A, b }`) still count.
+const TYPE_ONLY_STATEMENT = /^\s*(?:import|export)\s+type\s[^;]*?from\s*['"][^'"]+['"]/gm
 const EXTENSIONS = ['', '.ts', '.tsx', '/index.ts', '/index.tsx']
 
 type ReadSource = (file: string) => string | undefined
@@ -65,7 +69,7 @@ function forbiddenImports(entry: string, read: ReadSource = readFromDisk): strin
     const file = queue.shift()!
     if (seen.has(file)) continue
     seen.add(file)
-    const source = read(file) ?? ''
+    const source = (read(file) ?? '').replace(TYPE_ONLY_STATEMENT, '')
     for (const [, spec] of source.matchAll(IMPORT_PATTERN)) {
       if (isForbidden(file, spec!)) {
         found.push(`${relative(SRC, file)} → ${spec}`)
@@ -118,6 +122,24 @@ describe('kit import boundary', () => {
       'components/shell/example.tsx → ../../stores/auth-store',
       'components/shell/example.tsx → ../../lib/api-client',
       'components/shell/example.tsx → ../../mocks/dashboard/projects',
+    ])
+  })
+
+  it('ignores type-only imports, which leave no runtime dependency', () => {
+    const entry = join(SRC, 'components/ui/example.tsx')
+    const files: Record<string, string> = {
+      [entry]: [
+        "import type { Project } from '../../types/dashboard/projects'",
+        'import type {',
+        '  ApiKeySummary,',
+        "} from '../../lib/api-client'",
+        "import { type RunSummary, api } from '../../lib/api-client'",
+      ].join('\n'),
+      [join(SRC, 'types/dashboard/projects.ts')]:
+        "import type { ProjectSummary } from '../../lib/api-client'",
+    }
+    expect(forbiddenImports(entry, (file) => files[file])).toEqual([
+      'components/ui/example.tsx → ../../lib/api-client',
     ])
   })
 
