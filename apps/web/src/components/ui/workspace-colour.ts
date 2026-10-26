@@ -11,3 +11,8 @@ export const WORKSPACE_TILE_CLASS: Record<WorkspaceColour, string> = {
   purple: 'bg-workspace-purple text-workspace-purple-foreground',
   rose: 'bg-workspace-rose text-workspace-rose-foreground',
 }
+
+/** Tile classes for a scope: its workspace swatch, or neutral for projects. */
+export function scopeTileColourClass(colour?: WorkspaceColour): string {
+  return colour ? WORKSPACE_TILE_CLASS[colour] : 'bg-muted text-foreground'
+}

@@ -1,7 +1,7 @@
 import type { ComponentProps, ReactNode } from 'react'
 import { ChevronLeft, ChevronsUpDown } from 'lucide-react'
 import { cn } from '../../lib/utils'
-import { WORKSPACE_TILE_CLASS, type WorkspaceColour } from '../ui/workspace-colour'
+import { scopeTileColourClass, type WorkspaceColour } from '../ui/workspace-colour'
 import { panelRowClass } from './panel-item'
 import { hasContent } from '../ui/has-content'
 import { ShellLink } from './shell-link'
@@ -38,7 +38,7 @@ export function ContextPanel({ label, header, footer, children }: ContextPanelPr
   )
 }
 
-interface ScopeTile {
+export interface ScopeTile {
   initial: string
   /** Workspaces carry their swatch; projects use a neutral tile. */
   colour?: WorkspaceColour
@@ -67,8 +67,6 @@ const SCOPE_BUTTON_VARIANT = {
   },
 } as const
 
-const NEUTRAL_TILE_CLASS = 'bg-muted text-foreground'
-
 /**
  * Shows the current project or workspace and opens its switcher. Spreads extra
  * props and the ref onto the button so a popover can use it as its trigger.
@@ -82,7 +80,6 @@ export function PanelScopeButton({
   ...props
 }: PanelScopeButtonProps) {
   const classes = SCOPE_BUTTON_VARIANT[variant]
-  const tileColourClass = tile.colour ? WORKSPACE_TILE_CLASS[tile.colour] : NEUTRAL_TILE_CLASS
   return (
     <button
       type="button"
@@ -99,7 +96,7 @@ export function PanelScopeButton({
         className={cn(
           'flex shrink-0 items-center justify-center rounded-md font-semibold',
           classes.tile,
-          tileColourClass,
+          scopeTileColourClass(tile.colour),
         )}
       >
         {tile.initial}
