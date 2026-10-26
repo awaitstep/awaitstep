@@ -13,6 +13,7 @@ function withoutTanStackStart(plugins: PluginOption[] = []): PluginOption[] {
 const config: StorybookConfig = {
   framework: '@storybook/react-vite',
   stories: ['../src/**/*.stories.@(ts|tsx)'],
+  addons: ['@storybook/addon-a11y'],
   core: { disableTelemetry: true },
   viteFinal(viteConfig) {
     return { ...viteConfig, plugins: withoutTanStackStart(viteConfig.plugins) }

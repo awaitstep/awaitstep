@@ -63,6 +63,7 @@
     "@awaitstep/tsconfig": "workspace:*",
     "@cloudflare/vite-plugin": "^1.65.0",
     "@cloudflare/workers-types": "^5.20261024.1",
+    "@storybook/addon-a11y": "10.6.3",
     "@storybook/react-vite": "10.6.3",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/jest-dom": "7.0.1",

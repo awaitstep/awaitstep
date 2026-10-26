@@ -47,6 +47,9 @@ const preview: Preview = {
   },
   parameters: {
     layout: 'padded',
+    // Accessibility panel: axe runs on every story in the current theme and
+    // viewport. 'todo' lists violations without failing anything.
+    a11y: { test: 'todo' },
     viewport: {
       options: {
         phone: { name: 'Phone (390)', styles: { width: '390px', height: '844px' }, type: 'mobile' },
