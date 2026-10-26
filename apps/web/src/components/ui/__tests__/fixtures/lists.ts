@@ -1,6 +1,5 @@
 import type { PillStatus } from '../../status-pill'
-
-type RunOutcome = 'ok' | 'fail'
+import type { RunOutcome } from '../../run-history-bars'
 
 // Canvas sample data (Sales in Project 101) shared by the list stories and tests.
 
