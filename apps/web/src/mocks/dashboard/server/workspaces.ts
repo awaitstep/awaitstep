@@ -5,6 +5,7 @@ import type {
   WorkspaceUpdate,
 } from '../../../types/dashboard/workspaces'
 import { getDb, type WorkspaceRow } from '../db'
+import { deleteWorkspaces } from './item-records'
 import { conflictError, forbiddenError, frameEndpoint, invalidError, mutation } from '../scenario'
 import {
   orgScope,
@@ -115,6 +116,5 @@ export const deleteWorkspace = mutation((ctx, slugs: Required<ScopeSlugs>): void
   const { project, workspace } = requireScope(db, ctx, slugs)
   const can = workspaceScope(db, ctx, project!, workspace!).viewerCan.delete
   if (!can.allowed) throw forbiddenError(can.reason!)
-  db.workspaces = db.workspaces.filter((w) => w.id !== workspace!.id)
-  db.workspaceMembers = db.workspaceMembers.filter((m) => m.workspaceId !== workspace!.id)
+  deleteWorkspaces(db, new Set([workspace!.id]))
 })

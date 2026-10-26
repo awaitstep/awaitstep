@@ -93,6 +93,7 @@ export const REASONS = {
   lockToggle: 'Only this workspace’s admins and editors can change the lock',
   lockFirst: 'Turn off the deletion lock first',
   lastWorkspace: 'A project’s last workspace can’t be deleted',
+  sharedInUse: 'Other workspaces call its shared workflows. Unshare them first',
   lockedBy: (name: string) => `Locked by ${name}`,
 } as const
 
@@ -125,6 +126,8 @@ export interface WorkspaceFacts {
   /** The project's name when the project's lock covers this workspace. */
   lockedByProject: string | null
   isLastWorkspace: boolean
+  /** Another workspace calls one of its shared items. */
+  sharedInUse: boolean
 }
 
 export function workspaceCapabilities(
@@ -147,7 +150,9 @@ export function workspaceCapabilities(
         ? no(REASONS.lockFirst)
         : facts.isLastWorkspace
           ? no(REASONS.lastWorkspace)
-          : YES
+          : facts.sharedInUse
+            ? no(REASONS.sharedInUse)
+            : YES
   return {
     edit: editor,
     deploy: editor,

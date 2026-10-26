@@ -19,6 +19,8 @@ export interface Project extends ProjectSummary {
   /** Everyone in the workspaces the viewer can open (hidden ones reveal no one). */
   people: Person[]
   lock: LockState
+  /** Over the workspaces the viewer can open: "1 failing · 5m ago", "All passing · 3h ago". */
+  health: { workflows: number; failing: number; lastRunAt: string | null }
 }
 
 export interface NewProjectInput {

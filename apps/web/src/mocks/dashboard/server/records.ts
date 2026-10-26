@@ -14,6 +14,7 @@ import {
 } from '../access'
 import type { LockRow, MockDb, OrgRow, ProjectRow, WorkspaceRow } from '../db'
 import { type MockContext, notFoundError } from '../scenario'
+import { callersOf, workspaceCounts } from './item-records'
 
 // Row → record joins: what the fake API returns for each table.
 
@@ -98,15 +99,23 @@ export function workspaceRecord(db: MockDb, project: ProjectRow, row: WorkspaceR
     createdAt: row.createdAt,
     createdBy: { id: row.createdBy, name: personById(db, row.createdBy).name },
     lock: workspaceLock(db, project, row),
+    counts: workspaceCounts(db, row),
   }
 }
 
 export function projectRecord(db: MockDb, ctx: MockContext, row: ProjectRow): Project {
   const workspaces = visibleWorkspaces(db, ctx, row)
   const people = new Map<string, Person>()
-  // People of hidden workspaces stay hidden too, or the avatars would reveal them.
+  const health = { workflows: 0, failing: 0, lastRunAt: null as string | null }
+  // Hidden workspaces add no people and no health, or the card would reveal them.
   for (const w of workspaces) {
     for (const person of workspacePeople(db, row, w)) people.set(person.id, person)
+    const counts = workspaceCounts(db, w)
+    health.workflows += counts.workflows
+    health.failing += counts.failing
+    if (counts.lastRunAt && (!health.lastRunAt || counts.lastRunAt > health.lastRunAt)) {
+      health.lastRunAt = counts.lastRunAt
+    }
   }
   return {
     id: row.id,
@@ -120,6 +129,7 @@ export function projectRecord(db: MockDb, ctx: MockContext, row: ProjectRow): Pr
     workspaces: workspaces.map((w) => ({ id: w.id, slug: w.slug, name: w.name, colour: w.colour })),
     people: [...people.values()],
     lock: { own: lockRecord(db, row.lock), inherited: null },
+    health,
   }
 }
 
@@ -152,6 +162,9 @@ export function workspaceScope(
       ownLock: row.lock !== null,
       lockedByProject: project.lock ? project.name : null,
       isLastWorkspace: db.workspaces.filter((w) => w.projectId === project.id).length === 1,
+      sharedInUse: db.items.some(
+        (i) => i.workspaceId === row.id && i.sharing && callersOf(db, i).length > 0,
+      ),
     }),
   }
 }

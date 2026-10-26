@@ -3,9 +3,11 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { resetMockDb } from '../../../mocks/dashboard/db'
+import { useSetShared, useSharedWithWorkspace, useWorkspaceItems } from '../items'
 import { useSetLock } from '../locks'
 import { useCreateProject, useProjects } from '../projects'
 import { useResetMockData } from '../reset'
+import { useWorkspaceRuns } from '../runs'
 import {
   MockScenarioProvider,
   type MockScenario,
@@ -50,7 +52,8 @@ describe('dashboard hooks', () => {
     const { wrapper } = setup()
     const { result } = renderHook(
       () => ({
-        scope: useScope(sales),
+        // Support: Sales stays undeletable after unlocking (IT calls its shared workflow).
+        scope: useScope({ ...sales, workspace: 'support' }),
         lock: useSetLock({ level: 'project', org: 'acme', project: 'project-101' }),
       }),
       { wrapper },
@@ -101,6 +104,45 @@ describe('dashboard hooks', () => {
     await waitFor(() => expect(client.isFetching()).toBe(0))
     expect(result.current.scope.data?.found).toBe(true)
     expect(result.current.scope.isFetching).toBe(false)
+  })
+
+  it('shows a workflow shared in Sales under IT’s “Shared with” without a refetch', async () => {
+    const { wrapper } = setup()
+    const it_ = { ...sales, workspace: 'it' }
+    const { result } = renderHook(
+      () => ({
+        sales: useWorkspaceItems(sales, 'workflow'),
+        sharedWithIt: useSharedWithWorkspace(it_),
+        share: useSetShared(sales),
+      }),
+      { wrapper },
+    )
+    await waitFor(() => expect(result.current.sales.data).toHaveLength(4))
+    const quote = result.current.sales.data!.find((w) => w.name === 'Quote follow-up')!
+
+    await act(() => result.current.share.mutateAsync({ itemId: quote.id, shared: true }))
+
+    await waitFor(() =>
+      expect(result.current.sharedWithIt.data?.map((s) => s.name)).toContain('Quote follow-up'),
+    )
+    const updated = result.current.sales.data!.find((w) => w.id === quote.id)!
+    expect(updated.sharing).not.toBeNull()
+  })
+
+  it('keeps the current runs page on screen while the next one loads', async () => {
+    const { wrapper } = setup()
+    const { result, rerender } = renderHook(
+      ({ cursor }: { cursor?: string }) => useWorkspaceRuns(sales, { limit: 8, cursor }),
+      { wrapper, initialProps: {} },
+    )
+    await waitFor(() => expect(result.current.data?.data).toHaveLength(8))
+    const first = result.current.data!
+
+    rerender({ cursor: first.nextCursor! })
+
+    expect(result.current.data).toBe(first)
+    expect(result.current.isPlaceholderData).toBe(true)
+    await waitFor(() => expect(result.current.data?.data[0]?.id).not.toBe(first.data[0]!.id))
   })
 
   it('runs as the person and scenario the provider names', async () => {

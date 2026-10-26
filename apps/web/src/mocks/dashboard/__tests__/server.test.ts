@@ -288,7 +288,8 @@ describe('deletion lock', () => {
 
   it('locks every workspace when the project is locked, and Viewers can’t toggle', async () => {
     await locks.setLock(ama, { level: 'project', org: 'acme', project: 'project-101' }, false)
-    expect((await scopeOf(ama, sales)).workspace!.viewerCan.delete.allowed).toBe(true)
+    const support = { ...sales, workspace: 'support' }
+    expect((await scopeOf(ama, support)).workspace!.viewerCan.delete.allowed).toBe(true)
     await locks.setLock(as(TOM), { level: 'project', org: 'acme', project: 'project-101' }, true)
     const { project, workspace } = await scopeOf(ama, sales)
     expect(project!.viewerCan.delete.reason).toBe('Turn off the deletion lock first')

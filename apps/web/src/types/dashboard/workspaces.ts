@@ -17,6 +17,18 @@ export interface Workspace {
   createdAt: string
   createdBy: { id: string; name: string }
   lock: LockState
+  counts: WorkspaceCounts
+}
+
+export interface WorkspaceCounts {
+  workflows: number
+  functions: number
+  /** Its items shared to the project. */
+  sharedOut: number
+  runs24h: number
+  /** Items whose latest run failed. */
+  failing: number
+  lastRunAt: string | null
 }
 
 export type NewWorkspaceAccess =

@@ -67,7 +67,12 @@ describe('effective workspace roles for the canvas people', () => {
 })
 
 describe('capabilities', () => {
-  const unlocked = { ownLock: false, lockedByProject: null, isLastWorkspace: false }
+  const unlocked = {
+    ownLock: false,
+    lockedByProject: null,
+    isLastWorkspace: false,
+    sharedInUse: false,
+  }
 
   it('lets a Viewer read and run, with the canvas reason on everything else they see', () => {
     const can = workspaceCapabilities('viewer', unlocked)

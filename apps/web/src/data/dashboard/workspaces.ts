@@ -30,6 +30,11 @@ const workspaceKeys = (org: string, project: string) => [
   dashKeys.workspaces(org, project),
   dashKeys.projects(org),
   dashKeys.scope(),
+  // A deleted workspace takes its items, runs and shares with it.
+  dashKeys.items(org, project),
+  dashKeys.shared(org, project),
+  dashKeys.runs(org, project),
+  dashKeys.failing(org),
 ]
 
 export function useCreateWorkspace(org: string, project: string) {

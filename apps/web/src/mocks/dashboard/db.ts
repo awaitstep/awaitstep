@@ -1,4 +1,6 @@
 import type { WorkspaceColour } from '../../components/ui/workspace-colour'
+import type { FunctionTraffic, ItemKind } from '../../types/dashboard/items'
+import type { RunResult, RunTrigger } from '../../types/dashboard/runs'
 import type { ProjectRole } from '../../types/dashboard/projects'
 import type { OrgRole, Person } from '../../types/dashboard/session'
 import type { WorkspaceRole } from '../../types/dashboard/workspaces'
@@ -62,6 +64,39 @@ export interface WorkspaceMemberRow {
   role: WorkspaceRole
 }
 
+export interface ItemRow {
+  id: string
+  workspaceId: string
+  kind: ItemKind
+  name: string
+  description: string | null
+  status: 'deployed' | 'draft'
+  version: number | null
+  route: string | null
+  createdAt: string
+  updatedAt: string
+  sharing: { sharedAt: string; sharedBy: string } | null
+  traffic: FunctionTraffic | null
+}
+
+export interface RunRow {
+  id: string
+  itemId: string
+  result: RunResult
+  trigger: RunTrigger
+  startedAt: string
+  durationMs: number | null
+  waitingOn: string | null
+  httpStatus: number | null
+  failure: { step: string; message: string } | null
+}
+
+/** A workspace calling another workspace's shared item (a Call Workflow step). */
+export interface CallRow {
+  callerWorkspaceId: string
+  itemId: string
+}
+
 export interface MockDb {
   people: Person[]
   orgs: OrgRow[]
@@ -70,11 +105,14 @@ export interface MockDb {
   projectMembers: ProjectMemberRow[]
   workspaces: WorkspaceRow[]
   workspaceMembers: WorkspaceMemberRow[]
+  items: ItemRow[]
+  runs: RunRow[]
+  calls: CallRow[]
 }
 
 // Bump when the tables or the seed change, so a tab's saved copy is reseeded
 // instead of read with missing tables.
-const DB_VERSION = 1
+const DB_VERSION = 2
 const STORAGE_KEY = 'awaitstep:dashboard-mock-db'
 
 let current: MockDb | null = null

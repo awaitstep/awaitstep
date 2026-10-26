@@ -39,7 +39,13 @@ export function useUpdateProject(org: string, project: string) {
     onSuccess: (updated) =>
       invalidateAll(
         client,
-        [...projectKeys(org), dashKeys.workspaces(org, project)],
+        [
+          ...projectKeys(org),
+          dashKeys.workspaces(org, project),
+          dashKeys.items(org, project),
+          dashKeys.shared(org, project),
+          dashKeys.runs(org, project),
+        ],
         updated.slug === project ? undefined : { org, project },
       ),
   })
@@ -51,9 +57,17 @@ export function useDeleteProject(org: string, project: string) {
   return useMutation({
     mutationFn: () => mockServer.projects.deleteProject(ctx, org, project),
     onSuccess: () =>
-      invalidateAll(client, [...projectKeys(org), dashKeys.workspaces(org, project)], {
-        org,
-        project,
-      }),
+      invalidateAll(
+        client,
+        [
+          ...projectKeys(org),
+          dashKeys.workspaces(org, project),
+          dashKeys.items(org, project),
+          dashKeys.shared(org, project),
+          dashKeys.runs(org, project),
+          dashKeys.failing(org),
+        ],
+        { org, project },
+      ),
   })
 }

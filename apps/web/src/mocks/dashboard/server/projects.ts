@@ -3,6 +3,7 @@ import type { Workspace } from '../../../types/dashboard/workspaces'
 import { canSeeProject } from '../access'
 import { getDb, type ProjectRow, type WorkspaceRow } from '../db'
 import { conflictError, endpoint, forbiddenError, invalidError, mutation, rows } from '../scenario'
+import { deleteWorkspaces } from './item-records'
 import { orgScope, projectRecord, projectScope, workspaceRecord } from './records'
 import { newId, requireScope, slugFrom, uniqueSlug } from './resolve'
 
@@ -80,7 +81,7 @@ export const updateProject = mutation(
   },
 )
 
-/** Deletes the project, its workspaces and every membership in them. */
+/** Deletes the project, its workspaces and everything in them. */
 export const deleteProject = mutation((ctx, orgSlug: string, projectSlug: string): void => {
   const db = getDb()
   const { project } = requireScope(db, ctx, { org: orgSlug, project: projectSlug })
@@ -91,6 +92,5 @@ export const deleteProject = mutation((ctx, orgSlug: string, projectSlug: string
   )
   db.projects = db.projects.filter((p) => p.id !== project!.id)
   db.projectMembers = db.projectMembers.filter((m) => m.projectId !== project!.id)
-  db.workspaces = db.workspaces.filter((w) => !workspaceIds.has(w.id))
-  db.workspaceMembers = db.workspaceMembers.filter((m) => !workspaceIds.has(m.workspaceId))
+  deleteWorkspaces(db, workspaceIds)
 })
