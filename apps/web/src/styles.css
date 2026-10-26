@@ -89,7 +89,10 @@
   --radius-xl: calc(var(--radius) + 4px);
 
   /* Type scale shifted one notch up: 16px body (sm), 13px secondary (xs),
-     12px meta (2xs), 18px titles (base). */
+     12px meta (2xs), 18px titles (base). 3xs is for the org rail's labels only,
+     which must fit "What's new" under an icon in a 60px tile. */
+  --text-3xs: 0.625rem;
+  --text-3xs--line-height: 0.875rem;
   --text-2xs: 0.75rem;
   --text-2xs--line-height: 1rem;
   --text-xs: 0.8125rem;
