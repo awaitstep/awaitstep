@@ -6,7 +6,17 @@ import { describe, expect, it } from 'vitest'
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
 // Kit directories hold presentational components only: props in, callbacks out.
+// So does each feature domain's `parts/` folder; the page components beside it
+// in `components/<domain>/` may read data.
 const KIT_DIRS = ['components/ui', 'components/shell']
+
+function featurePartsDirs(): string[] {
+  return readdirSync(join(SRC, 'components'), { withFileTypes: true })
+    .filter(
+      (entry) => entry.isDirectory() && existsSync(join(SRC, 'components', entry.name, 'parts')),
+    )
+    .map((entry) => `components/${entry.name}/parts`)
+}
 
 const FORBIDDEN_PACKAGES = ['@tanstack/react-router', '@tanstack/react-query']
 const FORBIDDEN_SRC_PREFIXES = [
@@ -92,9 +102,9 @@ function listSourceFiles(dir: string): string[] {
 }
 
 describe('kit import boundary', () => {
-  const files = KIT_DIRS.flatMap((dir) => listSourceFiles(join(SRC, dir))).filter(
-    (file) => !LEGACY_ALLOWED.has(relative(SRC, file)),
-  )
+  const files = [...KIT_DIRS, ...featurePartsDirs()]
+    .flatMap((dir) => listSourceFiles(join(SRC, dir)))
+    .filter((file) => !LEGACY_ALLOWED.has(relative(SRC, file)))
 
   it.each(files.map((file) => [relative(SRC, file), file]))(
     '%s reaches no router, query, store, mock, wrapper, context or API client',
@@ -102,6 +112,23 @@ describe('kit import boundary', () => {
       expect(forbiddenImports(file)).toEqual([])
     },
   )
+
+  it('checks every feature domain’s parts folder', () => {
+    expect(featurePartsDirs()).toContain('components/keys/parts')
+    expect(files.map((file) => relative(SRC, file))).toContain(
+      'components/keys/parts/permission-grid.tsx',
+    )
+  })
+
+  it('flags a parts component that reads dashboard data', () => {
+    const entry = join(SRC, 'components/keys/parts/example.tsx')
+    const files: Record<string, string> = {
+      [entry]: "import { useScopedKeys } from '../../../data/dashboard/keys'",
+    }
+    expect(forbiddenImports(entry, (file) => files[file])).toEqual([
+      'components/keys/parts/example.tsx → ../../../data/dashboard/keys',
+    ])
+  })
 
   it('flags direct router and app-state imports', () => {
     const entry = join(SRC, 'components/shell/example.tsx')

@@ -21,6 +21,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs'
 import { Tile } from './tile'
 import { WorkspaceDot } from './workspace-dot'
 import { WORKSPACE_TILE_CLASS, type WorkspaceColour } from './workspace-colour'
+import type { KeyLevel as GridLevel } from '../../types/dashboard/api-keys'
+import { GrantSummary } from '../keys/parts/grant-summary'
+import { describeReach, presetPermissions } from '../keys/parts/key-permissions'
+import { PermissionGrid } from '../keys/parts/permission-grid'
 import {
   KEY_LEVELS,
   LOCK_SET_BY,
@@ -238,11 +242,24 @@ const EXPIRY_OPTIONS = [
   { value: 'never', label: 'Never' },
 ]
 
-const GRANTS = ['Workflows: read · deploy · run', 'Runs: read', 'Variables: read']
+// The fixtures' level ids are the kit's; the grid speaks the dashboard's.
+const GRID_LEVEL: Record<KeyLevel, GridLevel> = {
+  org: 'organization',
+  project: 'project',
+  workspace: 'workspace',
+}
+
+const GRANTED = presetPermissions('project', 'deploy-run')
 
 function KeyForm() {
   const [level, setLevel] = useState<KeyLevel>('project')
   const [expiry, setExpiry] = useState('30')
+  const [permissions, setPermissions] = useState(GRANTED)
+
+  function handleLevelChange(next: KeyLevel) {
+    setLevel(next)
+    setPermissions(presetPermissions(GRID_LEVEL[next], next === 'org' ? 'read' : 'deploy-run'))
+  }
   return (
     <div className="flex flex-col gap-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_200px]">
@@ -257,12 +274,15 @@ function KeyForm() {
         legend="What it reaches"
         layout="grid"
         value={level}
-        onChange={setLevel}
+        onChange={handleLevelChange}
         options={LEVEL_OPTIONS}
       />
-      <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-inherited-border text-xs text-muted-foreground">
-        Permission grid (F · PermissionGrid)
-      </div>
+      <PermissionGrid
+        level={GRID_LEVEL[level]}
+        value={permissions}
+        onChange={setPermissions}
+        note={describeReach(GRID_LEVEL[level], { project: 'Project 101', workspace: 'Sales' })}
+      />
     </div>
   )
 }
@@ -275,12 +295,7 @@ function KeyRevealed({ onCopied }: { onCopied: (value: string) => void }) {
       warning="Copy it now and store it somewhere safe. This is the only time AwaitStep shows the full key. If you lose it, revoke it and create a new one."
       onCopied={onCopied}
     >
-      <span className="flex flex-wrap items-center gap-1.5 text-2xs text-muted-foreground">
-        Can:
-        {GRANTS.map((grant) => (
-          <Badge key={grant}>{grant}</Badge>
-        ))}
-      </span>
+      <GrantSummary level="project" value={GRANTED} />
     </SecretReveal>
   )
 }
