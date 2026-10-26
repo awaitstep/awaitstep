@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import tailwindcss from '@tailwindcss/vite'
@@ -37,5 +38,22 @@ export default defineConfig({
     // Monaco is browser-only. On Node SSR we mark it external; on CF we rely on
     // components loading it lazily/client-side (no externals allowed by CF plugin).
     ...(isCloudflare ? {} : { external: ['@monaco-editor/react', 'monaco-editor'] }),
+  },
+  test: {
+    projects: [
+      {
+        extends: true,
+        test: { name: 'unit', include: ['src/**/*.test.ts'], environment: 'node' },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'dom',
+          include: ['src/**/*.test.tsx'],
+          environment: 'jsdom',
+          setupFiles: ['src/__tests__/setup-dom.ts'],
+        },
+      },
+    ],
   },
 })
