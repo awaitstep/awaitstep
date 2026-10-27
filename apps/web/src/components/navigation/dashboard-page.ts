@@ -13,6 +13,8 @@ export type DashboardPage =
   | { kind: 'project-settings'; page: ProjectSettingsPage }
   | { kind: 'workspace'; page: WorkspacePage }
   | { kind: 'account'; page: AccountPage }
+  /** A workflow, function or run of sample data (W1 placeholder until B1). */
+  | { kind: 'item' }
 
 declare module '@tanstack/react-router' {
   interface StaticDataRouteOption {
@@ -70,6 +72,8 @@ export function pageLabel(page: DashboardPage): string {
       return WORKSPACE_PAGE_LABEL[page.page]
     case 'account':
       return ACCOUNT_PAGE_LABEL[page.page]
+    case 'item':
+      return 'Sample item'
   }
 }
 

@@ -69,8 +69,3 @@ export function functionSummary(item: Pick<WorkspaceItem, 'route' | 'description
     : null
   return [item.route, description].filter(Boolean).join(' · ')
 }
-
-/** Today's item pages: rows link there unchanged until B1 (D-P2-8). */
-export function itemHref(itemId: string): string {
-  return `/workflows/${itemId}`
-}

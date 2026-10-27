@@ -51,6 +51,13 @@ describe('Workflows page', () => {
     expect(within(filters).getByRole('button', { name: 'Drafts 1' })).toBeInTheDocument()
   })
 
+  it('leads each row to the sample-data placeholder, not the editor', async () => {
+    renderWorkflows()
+    const list = await waitFor(desktopList)
+    const link = within(list).getByRole('link', { name: 'Lead enrichment' })
+    expect(link.getAttribute('href')).toMatch(/^\/acme\/items\/itm_/)
+  })
+
   it('narrows to the failing workflow', async () => {
     renderWorkflows()
     await waitFor(desktopList)

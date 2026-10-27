@@ -36,6 +36,7 @@ import { Route as AuthedOrgProjectWorkspaceRouteImport } from './routes/_authed/
 import { Route as AuthedOrgAccountIndexRouteImport } from './routes/_authed/$org.account.index'
 import { Route as AuthedOrgAccountProfileRouteImport } from './routes/_authed/$org.account.profile'
 import { Route as AuthedOrgAccountSessionsRouteImport } from './routes/_authed/$org.account.sessions'
+import { Route as AuthedOrgItemsItemIdRouteImport } from './routes/_authed/$org.items.$itemId'
 import { Route as AuthedOrgSettingsIndexRouteImport } from './routes/_authed/$org.settings.index'
 import { Route as AuthedOrgSettingsApiKeysRouteImport } from './routes/_authed/$org.settings.api-keys'
 import { Route as AuthedOrgSettingsConnectionsRouteImport } from './routes/_authed/$org.settings.connections'
@@ -201,6 +202,11 @@ const AuthedOrgAccountSessionsRoute =
     path: '/account/sessions',
     getParentRoute: () => AuthedOrgRoute,
   } as any)
+const AuthedOrgItemsItemIdRoute = AuthedOrgItemsItemIdRouteImport.update({
+  id: '/items/$itemId',
+  path: '/items/$itemId',
+  getParentRoute: () => AuthedOrgRoute,
+} as any)
 const AuthedOrgSettingsIndexRoute = AuthedOrgSettingsIndexRouteImport.update({
   id: '/settings/',
   path: '/settings/',
@@ -388,6 +394,7 @@ export interface FileRoutesByFullPath {
   '/$org/$project/$workspace': typeof AuthedOrgProjectWorkspaceRouteWithChildren
   '/$org/account/profile': typeof AuthedOrgAccountProfileRoute
   '/$org/account/sessions': typeof AuthedOrgAccountSessionsRoute
+  '/$org/items/$itemId': typeof AuthedOrgItemsItemIdRoute
   '/$org/settings/api-keys': typeof AuthedOrgSettingsApiKeysRoute
   '/$org/settings/connections': typeof AuthedOrgSettingsConnectionsRoute
   '/$org/settings/general': typeof AuthedOrgSettingsGeneralRoute
@@ -440,6 +447,7 @@ export interface FileRoutesByTo {
   '/workflows': typeof AuthedWorkflowsIndexRoute
   '/$org/account/profile': typeof AuthedOrgAccountProfileRoute
   '/$org/account/sessions': typeof AuthedOrgAccountSessionsRoute
+  '/$org/items/$itemId': typeof AuthedOrgItemsItemIdRoute
   '/$org/settings/api-keys': typeof AuthedOrgSettingsApiKeysRoute
   '/$org/settings/connections': typeof AuthedOrgSettingsConnectionsRoute
   '/$org/settings/general': typeof AuthedOrgSettingsGeneralRoute
@@ -496,6 +504,7 @@ export interface FileRoutesById {
   '/_authed/$org/$project/$workspace': typeof AuthedOrgProjectWorkspaceRouteWithChildren
   '/_authed/$org/account/profile': typeof AuthedOrgAccountProfileRoute
   '/_authed/$org/account/sessions': typeof AuthedOrgAccountSessionsRoute
+  '/_authed/$org/items/$itemId': typeof AuthedOrgItemsItemIdRoute
   '/_authed/$org/settings/api-keys': typeof AuthedOrgSettingsApiKeysRoute
   '/_authed/$org/settings/connections': typeof AuthedOrgSettingsConnectionsRoute
   '/_authed/$org/settings/general': typeof AuthedOrgSettingsGeneralRoute
@@ -553,6 +562,7 @@ export interface FileRouteTypes {
     | '/$org/$project/$workspace'
     | '/$org/account/profile'
     | '/$org/account/sessions'
+    | '/$org/items/$itemId'
     | '/$org/settings/api-keys'
     | '/$org/settings/connections'
     | '/$org/settings/general'
@@ -605,6 +615,7 @@ export interface FileRouteTypes {
     | '/workflows'
     | '/$org/account/profile'
     | '/$org/account/sessions'
+    | '/$org/items/$itemId'
     | '/$org/settings/api-keys'
     | '/$org/settings/connections'
     | '/$org/settings/general'
@@ -660,6 +671,7 @@ export interface FileRouteTypes {
     | '/_authed/$org/$project/$workspace'
     | '/_authed/$org/account/profile'
     | '/_authed/$org/account/sessions'
+    | '/_authed/$org/items/$itemId'
     | '/_authed/$org/settings/api-keys'
     | '/_authed/$org/settings/connections'
     | '/_authed/$org/settings/general'
@@ -887,6 +899,13 @@ declare module '@tanstack/react-router' {
       path: '/account/sessions'
       fullPath: '/$org/account/sessions'
       preLoaderRoute: typeof AuthedOrgAccountSessionsRouteImport
+      parentRoute: typeof AuthedOrgRoute
+    }
+    '/_authed/$org/items/$itemId': {
+      id: '/_authed/$org/items/$itemId'
+      path: '/items/$itemId'
+      fullPath: '/$org/items/$itemId'
+      preLoaderRoute: typeof AuthedOrgItemsItemIdRouteImport
       parentRoute: typeof AuthedOrgRoute
     }
     '/_authed/$org/settings/': {
@@ -1122,6 +1141,7 @@ interface AuthedOrgRouteChildren {
   AuthedOrgProjectWorkspaceRoute: typeof AuthedOrgProjectWorkspaceRouteWithChildren
   AuthedOrgAccountProfileRoute: typeof AuthedOrgAccountProfileRoute
   AuthedOrgAccountSessionsRoute: typeof AuthedOrgAccountSessionsRoute
+  AuthedOrgItemsItemIdRoute: typeof AuthedOrgItemsItemIdRoute
   AuthedOrgSettingsApiKeysRoute: typeof AuthedOrgSettingsApiKeysRoute
   AuthedOrgSettingsConnectionsRoute: typeof AuthedOrgSettingsConnectionsRoute
   AuthedOrgSettingsGeneralRoute: typeof AuthedOrgSettingsGeneralRoute
@@ -1148,6 +1168,7 @@ const AuthedOrgRouteChildren: AuthedOrgRouteChildren = {
   AuthedOrgProjectWorkspaceRoute: AuthedOrgProjectWorkspaceRouteWithChildren,
   AuthedOrgAccountProfileRoute: AuthedOrgAccountProfileRoute,
   AuthedOrgAccountSessionsRoute: AuthedOrgAccountSessionsRoute,
+  AuthedOrgItemsItemIdRoute: AuthedOrgItemsItemIdRoute,
   AuthedOrgSettingsApiKeysRoute: AuthedOrgSettingsApiKeysRoute,
   AuthedOrgSettingsConnectionsRoute: AuthedOrgSettingsConnectionsRoute,
   AuthedOrgSettingsGeneralRoute: AuthedOrgSettingsGeneralRoute,

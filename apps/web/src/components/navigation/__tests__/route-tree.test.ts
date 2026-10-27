@@ -69,8 +69,16 @@ describe('dashboard route tree', () => {
     expect(leafRoute('/invite/projects')).toBe('/invite/$token')
   })
 
-  it.each(RESERVED_SLUGS.project)('lets no project be called "%s"', (slug) => {
-    expect(leafRoute(`/acme/${slug}`)).not.toBe('/_authed/$org/$project/')
+  // `items` has no page of its own; its ids sit one level down.
+  it.each(RESERVED_SLUGS.project.filter((slug) => slug !== 'items'))(
+    'lets no project be called "%s"',
+    (slug) => {
+      expect(leafRoute(`/acme/${slug}`)).not.toBe('/_authed/$org/$project/')
+    },
+  )
+
+  it('keeps /{org}/items/{id} for the item placeholder, never a project’s workspace', () => {
+    expect(leafRoute('/acme/items/itm_123')).toBe('/_authed/$org/items/$itemId')
   })
 
   it('lets no workspace be called "settings"', () => {

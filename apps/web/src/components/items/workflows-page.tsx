@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Lock } from 'lucide-react'
 import { useSetShared, useSharedWithWorkspace, useWorkspaceItems } from '../../data/dashboard/items'
-import type { WorkspaceSlugs } from '../../lib/dashboard-paths'
+import { itemPath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
 import { Banner } from '../ui/banner'
 import { ListCard } from '../ui/list-card'
 import { SegmentedFilter, type FilterOption } from '../ui/segmented-filter'
@@ -14,7 +14,7 @@ import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
 import { WorkspaceWelcome } from '../workspaces/workspace-welcome'
 import { ImportItemDialog } from './import-item-dialog'
 import { ItemActions, NewItemButton } from './item-actions'
-import { filterCounts, itemHref, matchesFilter, type WorkflowFilter } from './item-format'
+import { filterCounts, matchesFilter, type WorkflowFilter } from './item-format'
 import { ItemLinkRow } from './parts/item-link-row'
 import { WorkflowRow } from './parts/workflow-row'
 import { SharedWithSection } from './shared-with-section'
@@ -114,7 +114,7 @@ export function WorkflowsPage({ slugs, dialog, onCloseDialog }: WorkflowsPagePro
               <WorkflowRow
                 key={item.id}
                 item={item}
-                href={itemHref(item.id)}
+                href={itemPath(slugs.org, item)}
                 projectName={projectName}
                 onShareChange={shareHandler(item.id)}
               />
@@ -124,7 +124,7 @@ export function WorkflowsPage({ slugs, dialog, onCloseDialog }: WorkflowsPagePro
         <div className="md:hidden">
           <ListCard label={`Workflows in ${workspace.name}`} empty={empty}>
             {visible.map((item) => (
-              <ItemLinkRow key={item.id} item={item} href={itemHref(item.id)} />
+              <ItemLinkRow key={item.id} item={item} href={itemPath(slugs.org, item)} />
             ))}
           </ListCard>
         </div>
@@ -138,6 +138,7 @@ export function WorkflowsPage({ slugs, dialog, onCloseDialog }: WorkflowsPagePro
           deploy or roll back.
         </p>
         <SharedWithSection
+          org={slugs.org}
           workspaceName={workspace.name}
           projectName={projectName}
           items={shared.data ?? []}

@@ -188,6 +188,7 @@ export function panelModel(
   switch (page.kind) {
     case 'org':
     case 'account':
+    case 'item':
       return { mode: 'none' }
     case 'org-settings':
       return {

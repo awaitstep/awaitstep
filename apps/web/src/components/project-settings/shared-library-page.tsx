@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useProjectShared, useUnshareItem } from '../../data/dashboard/items'
-import type { ProjectSlugs } from '../../lib/dashboard-paths'
+import { itemPath, type ProjectSlugs } from '../../lib/dashboard-paths'
 import { cn } from '../../lib/utils'
 import { timeAgoOrDay } from '../../lib/time'
 import type { SharedItem } from '../../types/dashboard/items'
@@ -15,7 +15,6 @@ import { WORKSPACE_TILE_CLASS } from '../ui/workspace-colour'
 import { ScopeChip } from '../ui/workspace-dot'
 import { PageBody, PageIntro } from '../shell/page-intro'
 import { TopBarContent } from '../navigation/top-bar-slot'
-import { itemHref } from '../items/item-format'
 import { ITEM_KIND_LABEL } from '../items/item-kind'
 import { LibraryExplainerDialog } from '../library/library-explainer-dialog'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
@@ -40,7 +39,7 @@ function unshareReason(item: SharedItem): string | undefined {
   return item.unshare.allowed ? undefined : item.unshare.reason
 }
 
-function ItemCell({ item }: { item: SharedItem }) {
+function ItemCell({ item, org }: { item: SharedItem; org: string }) {
   const version = item.version === null ? 'Draft' : `v${item.version}`
   return (
     <span className="flex min-w-0 items-center gap-3">
@@ -55,7 +54,7 @@ function ItemCell({ item }: { item: SharedItem }) {
       </span>
       <span className="flex min-w-0 flex-col gap-0.5">
         <ShellLink
-          href={itemHref(item.id)}
+          href={itemPath(org, item)}
           className="truncate text-sm font-semibold text-foreground hover:underline"
         >
           {item.name}
@@ -96,7 +95,7 @@ export function SharedLibraryPage({ slugs }: SharedLibraryPageProps) {
   }
 
   const columns: DataColumn<SharedItem>[] = [
-    { id: 'item', header: 'Item', cell: (item) => <ItemCell item={item} /> },
+    { id: 'item', header: 'Item', cell: (item) => <ItemCell item={item} org={slugs.org} /> },
     {
       id: 'from',
       header: 'From',

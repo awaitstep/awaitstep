@@ -57,8 +57,3 @@ export function tookLabel(durationMs: number | null): string {
   const seconds = Math.round(ms / 1000)
   return `${Math.floor(seconds / 60)}m ${seconds % 60}s`
 }
-
-/** Today's run pages: rows link there unchanged until B1 (D-P2-8). */
-export function runHref(run: Pick<WorkspaceRun, 'id'>): string {
-  return `/runs/${run.id}`
-}

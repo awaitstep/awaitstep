@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Download } from 'lucide-react'
 import { useRunsExport, useWorkspaceRuns } from '../../data/dashboard/runs'
 import { downloadTextFile } from '../../lib/download-file'
-import type { WorkspaceSlugs } from '../../lib/dashboard-paths'
+import { itemPath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
 import { timeAgoOrDay } from '../../lib/time'
 import { cn } from '../../lib/utils'
 import type { RunPeriod, RunResult, WorkspaceRun } from '../../types/dashboard/runs'
@@ -18,14 +18,7 @@ import { PageBody, PageIntro } from '../shell/page-intro'
 import { TopBarContent } from '../navigation/top-bar-slot'
 import { useWorkspaceScope } from '../workspaces/use-workspace-scope'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
-import {
-  RESULT_DOT_CLASS,
-  resultLabel,
-  runHref,
-  runKindLabel,
-  tookLabel,
-  triggerLabel,
-} from './run-format'
+import { RESULT_DOT_CLASS, resultLabel, runKindLabel, tookLabel, triggerLabel } from './run-format'
 import { runsCsvName, runsToCsv } from './runs-csv'
 
 type ResultFilter = 'all' | RunResult
@@ -36,60 +29,65 @@ const PERIODS: { value: RunPeriod; label: string; phrase: string }[] = [
   { value: '30d', label: 'Last 30 days', phrase: 'in the last 30 days' },
 ]
 
-const COLUMNS: DataColumn<WorkspaceRun>[] = [
-  {
-    id: 'result',
-    header: 'Result',
-    width: '120px',
-    cell: (run) => (
-      <span className="flex items-center gap-2">
-        <span
-          aria-hidden="true"
-          className={cn('size-2 shrink-0 rounded-full', RESULT_DOT_CLASS[run.result])}
-        />
-        {resultLabel(run)}
-      </span>
-    ),
-  },
-  {
-    id: 'workflow',
-    header: 'Workflow',
-    cell: (run) => (
-      <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="truncate text-sm font-semibold text-foreground">{run.workflowName}</span>
-        <span className="truncate text-2xs text-muted-foreground">{runKindLabel(run)}</span>
-      </span>
-    ),
-  },
-  {
-    id: 'run',
-    header: 'Run',
-    width: '120px',
-    cell: (run) => (
-      <ShellLink href={runHref(run)} className="font-mono text-2xs text-foreground hover:underline">
-        {run.id}
-      </ShellLink>
-    ),
-  },
-  {
-    id: 'trigger',
-    header: 'Trigger',
-    width: '110px',
-    cell: (run) => <span className="text-muted-foreground">{triggerLabel(run.trigger)}</span>,
-  },
-  {
-    id: 'started',
-    header: 'Started',
-    width: '110px',
-    cell: (run) => <span className="text-muted-foreground">{timeAgoOrDay(run.createdAt)}</span>,
-  },
-  {
-    id: 'took',
-    header: 'Took',
-    width: '80px',
-    cell: (run) => <span className="text-muted-foreground">{tookLabel(run.durationMs)}</span>,
-  },
-]
+function runColumns(org: string): DataColumn<WorkspaceRun>[] {
+  return [
+    {
+      id: 'result',
+      header: 'Result',
+      width: '120px',
+      cell: (run) => (
+        <span className="flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className={cn('size-2 shrink-0 rounded-full', RESULT_DOT_CLASS[run.result])}
+          />
+          {resultLabel(run)}
+        </span>
+      ),
+    },
+    {
+      id: 'workflow',
+      header: 'Workflow',
+      cell: (run) => (
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate text-sm font-semibold text-foreground">{run.workflowName}</span>
+          <span className="truncate text-2xs text-muted-foreground">{runKindLabel(run)}</span>
+        </span>
+      ),
+    },
+    {
+      id: 'run',
+      header: 'Run',
+      width: '120px',
+      cell: (run) => (
+        <ShellLink
+          href={itemPath(org, { id: run.workflowId, kind: run.kind }, run.id)}
+          className="font-mono text-2xs text-foreground hover:underline"
+        >
+          {run.id}
+        </ShellLink>
+      ),
+    },
+    {
+      id: 'trigger',
+      header: 'Trigger',
+      width: '110px',
+      cell: (run) => <span className="text-muted-foreground">{triggerLabel(run.trigger)}</span>,
+    },
+    {
+      id: 'started',
+      header: 'Started',
+      width: '110px',
+      cell: (run) => <span className="text-muted-foreground">{timeAgoOrDay(run.createdAt)}</span>,
+    },
+    {
+      id: 'took',
+      header: 'Took',
+      width: '80px',
+      cell: (run) => <span className="text-muted-foreground">{tookLabel(run.durationMs)}</span>,
+    },
+  ]
+}
 
 interface RunsPageProps {
   slugs: WorkspaceSlugs
@@ -98,6 +96,8 @@ interface RunsPageProps {
 /** `/{org}/{project}/{workspace}/runs`: the `WsRuns` board. */
 export function RunsPage({ slugs }: RunsPageProps) {
   const scope = useWorkspaceScope(slugs)
+  // Built once per org, so the table keeps the same columns between renders.
+  const columns = useMemo(() => runColumns(slugs.org), [slugs.org])
   const [result, setResult] = useState<ResultFilter>('all')
   const [search, setSearch] = useState('')
   const [period, setPeriod] = useState<RunPeriod>('24h')
@@ -223,7 +223,7 @@ export function RunsPage({ slugs }: RunsPageProps) {
         </div>
         <DataTable
           caption={`Runs in ${workspace.name}`}
-          columns={COLUMNS}
+          columns={columns}
           rows={runs.data.data}
           getRowKey={(run) => run.id}
           empty={emptyText}

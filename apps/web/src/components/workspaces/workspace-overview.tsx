@@ -1,5 +1,7 @@
+import { useMemo } from 'react'
 import { CircleAlert } from 'lucide-react'
 import {
+  itemPath,
   workspacePath,
   workspaceSettingsPath,
   type WorkspaceSlugs,
@@ -16,7 +18,7 @@ import { ShellLink } from '../ui/shell-link'
 import { StatusPill } from '../ui/status-pill'
 import { StatTile, Tile } from '../ui/tile'
 import { ScopeChip } from '../ui/workspace-dot'
-import { RESULT_DOT_CLASS, resultLabel, runHref, tookLabel, triggerLabel } from '../runs/run-format'
+import { RESULT_DOT_CLASS, resultLabel, tookLabel, triggerLabel } from '../runs/run-format'
 import {
   attentionDetail,
   attentionTitle,
@@ -33,55 +35,57 @@ function personRole({ role, inherited }: WorkspacePerson): string {
   return inherited && role === 'admin' ? 'Project admin' : ROLE_LABEL[role]
 }
 
-const RECENT_COLUMNS: DataColumn<WorkspaceRun>[] = [
-  {
-    id: 'workflow',
-    header: 'Workflow',
-    cell: (run) => (
-      <span className="flex min-w-0 flex-col gap-0.5">
-        <ShellLink
-          href={runHref(run)}
-          className="w-fit truncate text-sm font-semibold text-foreground hover:underline"
-        >
-          {run.workflowName}
-        </ShellLink>
-        <span className="text-2xs text-muted-foreground">{ITEM_KIND_LABEL[run.kind]}</span>
-      </span>
-    ),
-  },
-  {
-    id: 'result',
-    header: 'Result',
-    width: '140px',
-    cell: (run) => (
-      <span className="flex items-center gap-2">
-        <span
-          aria-hidden="true"
-          className={cn('size-2 shrink-0 rounded-full', RESULT_DOT_CLASS[run.result])}
-        />
-        {resultLabel(run, { httpStatus: true })}
-      </span>
-    ),
-  },
-  {
-    id: 'trigger',
-    header: 'Trigger',
-    width: '110px',
-    cell: (run) => <span className="text-muted-foreground">{triggerLabel(run.trigger)}</span>,
-  },
-  {
-    id: 'started',
-    header: 'Started',
-    width: '110px',
-    cell: (run) => <span className="text-muted-foreground">{timeAgoOrDay(run.createdAt)}</span>,
-  },
-  {
-    id: 'took',
-    header: 'Took',
-    width: '80px',
-    cell: (run) => <span className="text-muted-foreground">{tookLabel(run.durationMs)}</span>,
-  },
-]
+function recentColumns(org: string): DataColumn<WorkspaceRun>[] {
+  return [
+    {
+      id: 'workflow',
+      header: 'Workflow',
+      cell: (run) => (
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <ShellLink
+            href={itemPath(org, { id: run.workflowId, kind: run.kind }, run.id)}
+            className="w-fit truncate text-sm font-semibold text-foreground hover:underline"
+          >
+            {run.workflowName}
+          </ShellLink>
+          <span className="text-2xs text-muted-foreground">{ITEM_KIND_LABEL[run.kind]}</span>
+        </span>
+      ),
+    },
+    {
+      id: 'result',
+      header: 'Result',
+      width: '140px',
+      cell: (run) => (
+        <span className="flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className={cn('size-2 shrink-0 rounded-full', RESULT_DOT_CLASS[run.result])}
+          />
+          {resultLabel(run, { httpStatus: true })}
+        </span>
+      ),
+    },
+    {
+      id: 'trigger',
+      header: 'Trigger',
+      width: '110px',
+      cell: (run) => <span className="text-muted-foreground">{triggerLabel(run.trigger)}</span>,
+    },
+    {
+      id: 'started',
+      header: 'Started',
+      width: '110px',
+      cell: (run) => <span className="text-muted-foreground">{timeAgoOrDay(run.createdAt)}</span>,
+    },
+    {
+      id: 'took',
+      header: 'Took',
+      width: '80px',
+      cell: (run) => <span className="text-muted-foreground">{tookLabel(run.durationMs)}</span>,
+    },
+  ]
+}
 
 interface WorkspaceOverviewProps {
   slugs: WorkspaceSlugs
@@ -104,6 +108,8 @@ export function WorkspaceOverview({
   sharedIn,
 }: WorkspaceOverviewProps) {
   const runsHref = workspacePath(slugs, 'runs')
+  // Built once per org, so the table keeps the same columns between renders.
+  const columns = useMemo(() => recentColumns(slugs.org), [slugs.org])
   const attention = needsAttention(items, failedRuns)
   const shared = sharedSummary(items, sharedIn)
   const workflows = items.filter((item) => item.kind === 'workflow').length
@@ -165,7 +171,7 @@ export function WorkspaceOverview({
       >
         <DataTable
           caption={`Recent runs in ${workspace.name}`}
-          columns={RECENT_COLUMNS}
+          columns={columns}
           rows={recentRuns}
           getRowKey={(run) => run.id}
           empty="No runs yet."
