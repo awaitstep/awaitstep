@@ -6,6 +6,7 @@ import {
 } from '../../components/navigation/dashboard-providers'
 import { isReservedSlug } from '../../lib/dashboard-paths'
 import { DashboardShell, PageNotFound } from '../../components/navigation/dashboard-shell'
+import { TopBarSlotProvider } from '../../components/navigation/top-bar-slot'
 
 // The new dashboard (W1). Rendered in the browser only: its dummy data lives
 // in sessionStorage, which a server render can't see.
@@ -26,9 +27,11 @@ function DashboardLayout() {
   const search = Route.useSearch()
   return (
     <DashboardProviders search={search}>
-      <DashboardShell>
-        <Outlet />
-      </DashboardShell>
+      <TopBarSlotProvider>
+        <DashboardShell>
+          <Outlet />
+        </DashboardShell>
+      </TopBarSlotProvider>
     </DashboardProviders>
   )
 }

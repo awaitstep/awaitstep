@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
-import { PagePlaceholder } from '../../components/navigation/page-placeholder'
+import { OrgHomePage } from '../../components/projects/org-home-page'
 
 const page: DashboardPage = { kind: 'org', page: 'projects' }
 
@@ -11,5 +11,23 @@ export const Route = createFileRoute('/_authed/$org/projects')({
 })
 
 function ProjectsPage() {
-  return <PagePlaceholder title="Projects" boards="Main and EmptyOrg" step="P1" />
+  const { org } = Route.useParams()
+  const search = Route.useSearch()
+  const navigate = Route.useNavigate()
+
+  function handleCloseDialog() {
+    void navigate({
+      search: (prev) => ({ ...prev, new: undefined, then: undefined }),
+      replace: true,
+    })
+  }
+
+  return (
+    <OrgHomePage
+      org={org}
+      dialog={search.new}
+      then={search.then}
+      onCloseDialog={handleCloseDialog}
+    />
+  )
 }
