@@ -73,3 +73,10 @@ export function formatShortDate(dateStr: string | Date): string {
 export function formatMonthYear(dateStr: string | Date): string {
   return format(new Date(dateStr), 'MMMM yyyy')
 }
+
+const NEW_FOR_MS = 7 * DAY_MS
+
+/** Created in the last 7 days: the "New" pill on a project or workspace. */
+export function isNew(createdAt: string | Date, now: Date = new Date()): boolean {
+  return now.getTime() - new Date(createdAt).getTime() < NEW_FOR_MS
+}

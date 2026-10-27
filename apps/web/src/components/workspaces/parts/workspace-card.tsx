@@ -7,6 +7,7 @@ import { HealthLine } from '../../ui/health-line'
 import { ShellLink } from '../../ui/shell-link'
 import { WORKSPACE_TILE_CLASS, WORKSPACE_TINT_CLASS } from '../../ui/workspace-colour'
 import type { Workspace, WorkspaceCounts } from '../../../types/dashboard/workspaces'
+import { plural } from '../../../lib/plural'
 
 interface WorkspaceCardProps {
   workspace: Workspace
@@ -15,10 +16,6 @@ interface WorkspaceCardProps {
   current?: boolean
   /** Created recently; the page decides what counts as new. */
   isNew?: boolean
-}
-
-function plural(count: number, one: string, many: string): string {
-  return `${count} ${count === 1 ? one : many}`
 }
 
 function describeCounts(counts: WorkspaceCounts): string {
