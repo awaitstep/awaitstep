@@ -5,7 +5,7 @@ import { getDb, type ProjectRow, type WorkspaceRow } from '../db'
 import { conflictError, endpoint, forbiddenError, invalidError, mutation, rows } from '../scenario'
 import { deleteWorkspaces } from './item-records'
 import { orgScope, projectRecord, projectScope, workspaceRecord } from './records'
-import { newId, requireScope, slugFrom, uniqueSlug } from './resolve'
+import { assertNotReserved, availableSlug, newId, requireScope, slugFrom } from './resolve'
 
 /** Projects the viewer can open at least one workspace in. */
 export const listProjects = endpoint((ctx, orgSlug: string): Project[] => {
@@ -32,7 +32,9 @@ export const createProject = mutation(
     const project: ProjectRow = {
       id: newId('prj'),
       orgId: org.id,
-      slug: uniqueSlug(base, (s) => db.projects.some((p) => p.orgId === org.id && p.slug === s)),
+      slug: availableSlug('project', base, (s) =>
+        db.projects.some((p) => p.orgId === org.id && p.slug === s),
+      ),
       name,
       description: input.description?.trim() || null,
       createdAt: now,
@@ -70,6 +72,7 @@ export const updateProject = mutation(
     const name = update.name?.trim()
     if (name === '') throw invalidError('A project needs a name')
     const slug = update.slug === undefined ? undefined : slugFrom(update.slug, 'URL')
+    if (slug) assertNotReserved('project', slug)
     if (slug && db.projects.some((p) => p.orgId === org.id && p.slug === slug && p.id !== row.id)) {
       throw conflictError('Another project in this organization already uses that URL')
     }

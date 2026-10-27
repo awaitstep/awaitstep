@@ -155,6 +155,25 @@ describe('projects', () => {
     expect((await scopeOf(ama, sales)).project!.project.slug).toBe('project-101')
   })
 
+  it('keeps projects and workspaces off the URLs dashboard pages own', async () => {
+    const { project } = await projects.createProject(ama, 'acme', { name: 'Settings' })
+    expect(project.slug).toBe('settings-2')
+    const inbox = await projects.createProject(ama, 'acme', { name: 'Inbox' })
+    expect(inbox.project.slug).toBe('inbox-2')
+    const workspace = await workspaces.createWorkspace(ama, 'acme', 'project-101', {
+      name: 'Settings',
+      colour: 'blue',
+      access: { kind: 'admins' },
+    })
+    expect(workspace.slug).toBe('settings-2')
+    await expect(
+      projects.updateProject(ama, 'acme', 'project-101', { slug: 'audit' }),
+    ).rejects.toMatchObject({ status: 422, message: expect.stringMatching(/dashboard page/) })
+    await expect(
+      workspaces.updateWorkspace(ama, sales, { slug: 'settings' }),
+    ).rejects.toMatchObject({ status: 422 })
+  })
+
   it('counts and shows only what the viewer can open', async () => {
     const acme = (await session.listOrgs(as(PRIYA))).find((o) => o.slug === 'acme')!
     expect(acme.projectCount).toBe(1)

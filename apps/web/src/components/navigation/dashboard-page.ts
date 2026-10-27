@@ -1,0 +1,75 @@
+import type {
+  OrgPage,
+  OrgSettingsPage,
+  ProjectSettingsPage,
+  WorkspacePage,
+} from '../../lib/dashboard-paths'
+
+/** Which dashboard page a route is. Each page route declares it in `staticData`. */
+export type DashboardPage =
+  | { kind: 'org'; page: OrgPage }
+  | { kind: 'org-settings'; page: OrgSettingsPage }
+  | { kind: 'project-settings'; page: ProjectSettingsPage }
+  | { kind: 'workspace'; page: WorkspacePage }
+
+declare module '@tanstack/react-router' {
+  interface StaticDataRouteOption {
+    dashboardPage?: DashboardPage
+  }
+}
+
+const ORG_PAGE_LABEL: Record<OrgPage, string> = {
+  projects: 'Projects',
+  resources: 'Resources',
+  audit: 'Audit log',
+  inbox: 'Inbox',
+  'whats-new': 'What’s new',
+}
+
+const ORG_SETTINGS_LABEL: Record<OrgSettingsPage, string> = {
+  general: 'General',
+  members: 'Members',
+  connections: 'Connections',
+  'api-keys': 'API keys',
+}
+
+const PROJECT_SETTINGS_LABEL: Record<ProjectSettingsPage, string> = {
+  workspaces: 'Workspaces',
+  shared: 'Shared library',
+  members: 'Members',
+  'api-keys': 'API keys',
+  variables: 'Variables',
+  general: 'General',
+}
+
+const WORKSPACE_PAGE_LABEL: Record<WorkspacePage, string> = {
+  overview: 'Overview',
+  workflows: 'Workflows',
+  functions: 'Functions',
+  library: 'Library',
+  runs: 'Runs',
+  settings: 'Workspace settings',
+}
+
+export function pageLabel(page: DashboardPage): string {
+  switch (page.kind) {
+    case 'org':
+      return ORG_PAGE_LABEL[page.page]
+    case 'org-settings':
+      return ORG_SETTINGS_LABEL[page.page]
+    case 'project-settings':
+      return PROJECT_SETTINGS_LABEL[page.page]
+    case 'workspace':
+      return WORKSPACE_PAGE_LABEL[page.page]
+  }
+}
+
+/** The document title: "Workflows · AwaitStep". */
+export function pageTitle(page: DashboardPage): string {
+  return `${pageLabel(page)} · AwaitStep`
+}
+
+/** `head` for a dashboard route. */
+export function pageHead(page: DashboardPage) {
+  return { meta: [{ title: pageTitle(page) }] }
+}

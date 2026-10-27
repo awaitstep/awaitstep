@@ -15,13 +15,14 @@ import {
   workspaceScope,
 } from './records'
 import {
+  assertNotReserved,
+  availableSlug,
   newId,
   requireScope,
   resolveOrg,
   resolveProject,
   resolveWorkspace,
   slugFrom,
-  uniqueSlug,
 } from './resolve'
 
 /**
@@ -69,7 +70,7 @@ export const createWorkspace = mutation(
     const row: WorkspaceRow = {
       id: newId('ws'),
       projectId: project!.id,
-      slug: uniqueSlug(base, (s) =>
+      slug: availableSlug('workspace', base, (s) =>
         db.workspaces.some((w) => w.projectId === project!.id && w.slug === s),
       ),
       name,
@@ -97,6 +98,7 @@ export const updateWorkspace = mutation(
     const name = update.name?.trim()
     if (name === '') throw invalidError('A workspace needs a name')
     const slug = update.slug === undefined ? undefined : slugFrom(update.slug, 'URL')
+    if (slug) assertNotReserved('workspace', slug)
     if (
       slug &&
       db.workspaces.some((w) => w.projectId === row.projectId && w.slug === slug && w.id !== row.id)

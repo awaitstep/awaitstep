@@ -1,3 +1,4 @@
+import { isReservedSlug } from '../../../lib/dashboard-paths'
 import { slugify } from '../../../lib/slug'
 import type { NotFound } from '../../../types/dashboard/scope'
 import { canSeeProject, orgRoleOf, workspaceRoleOf } from '../access'
@@ -69,10 +70,28 @@ export function slugFrom(input: string, field: string): string {
 }
 
 /** `base`, suffixed `-2`, `-3`… until no sibling uses it. */
-export function uniqueSlug(base: string, taken: (slug: string) => boolean): string {
+function uniqueSlug(base: string, taken: (slug: string) => boolean): string {
   let slug = base
   for (let n = 2; taken(slug); n++) slug = `${base}-${n}`
   return slug
+}
+
+type SlugLevel = 'project' | 'workspace'
+
+/** A new slug from `base` that no sibling uses and no dashboard page owns. */
+export function availableSlug(
+  level: SlugLevel,
+  base: string,
+  takenBySibling: (slug: string) => boolean,
+): string {
+  return uniqueSlug(base, (slug) => isReservedSlug(level, slug) || takenBySibling(slug))
+}
+
+/** Refuses a chosen slug that a dashboard page already owns. */
+export function assertNotReserved(level: SlugLevel, slug: string): void {
+  if (isReservedSlug(level, slug)) {
+    throw invalidError(`“${slug}” is used by a dashboard page. Pick another URL`)
+  }
 }
 
 export function newId(prefix: string): string {
