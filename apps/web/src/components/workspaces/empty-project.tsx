@@ -5,6 +5,7 @@ import {
   orgSettingsPath,
   projectSettingsPath,
   workspacePath,
+  withNewDialog,
   type WorkspaceSlugs,
 } from '../../lib/dashboard-paths'
 import { isNew } from '../../lib/time'
@@ -96,7 +97,7 @@ export function EmptyProject({
         {
           label: setup.data.cloudflareConnected ? 'Cloudflare connected' : 'Connect Cloudflare',
           done: setup.data.cloudflareConnected,
-          href: orgSettingsPath(slugs.org, 'connections'),
+          href: withNewDialog(orgSettingsPath(slugs.org, 'connections'), 'connection'),
         },
         {
           label: 'Add project variables',
@@ -110,7 +111,7 @@ export function EmptyProject({
         {
           label: 'Invite teammates',
           done: others > 0,
-          href: orgSettingsPath(slugs.org, 'members'),
+          href: withNewDialog(orgSettingsPath(slugs.org, 'members'), 'invite'),
           caption: 'Only you so far',
         },
       ]

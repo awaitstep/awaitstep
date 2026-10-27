@@ -1,0 +1,241 @@
+import { useState } from 'react'
+import { Cloud, KeyRound, Lock, Pencil } from 'lucide-react'
+import {
+  useConnections,
+  useRemoveConnection,
+  useReplaceToken,
+  useUpdateConnection,
+} from '../../data/dashboard/org-settings'
+import { useProjects } from '../../data/dashboard/projects'
+import type { Connection } from '../../types/dashboard/org-settings'
+import { Banner } from '../ui/banner'
+import { Button } from '../ui/button'
+import { ConfirmDialog } from '../ui/confirm-dialog'
+import { ListCardSkeleton, LoadingRegion } from '../ui/skeletons'
+import { Tile } from '../ui/tile'
+import { PageBody, PageIntro } from '../shell/page-intro'
+import { TopBarContent } from '../navigation/top-bar-slot'
+import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
+import { ConnectCloudflareDialog } from './connect-cloudflare-dialog'
+import { ConnectionCard } from './parts/connection-card'
+import { TextFieldDialog } from './text-field-dialog'
+import { useOrgScope } from './use-org-scope'
+
+type Overlay = { kind: 'rename' | 'token' | 'remove'; connection: Connection } | null
+
+interface OrgConnectionsPageProps {
+  org: string
+  /** `?new=connection` opens Connect Cloudflare. */
+  connectOpen: boolean
+  onConnectChange: (open: boolean) => void
+}
+
+/** `/{org}/settings/connections` (`OrgConnections`): Cloudflare accounts and who may deploy with each. */
+export function OrgConnectionsPage({ org, connectOpen, onConnectChange }: OrgConnectionsPageProps) {
+  const scope = useOrgScope(org)
+  const connections = useConnections(org)
+  const projects = useProjects(org)
+  const update = useUpdateConnection(org)
+  const replace = useReplaceToken(org)
+  const remove = useRemoveConnection(org)
+  const [overlay, setOverlay] = useState<Overlay>(null)
+
+  if (!scope) return null
+  const orgInfo = { slug: org, name: scope.org.name }
+  const canManage = scope.viewerCan.manageSettings.allowed
+
+  function handleConnect() {
+    onConnectChange(true)
+  }
+
+  function handleCloseConnect() {
+    onConnectChange(false)
+  }
+
+  function handleCloseOverlay() {
+    setOverlay(null)
+  }
+
+  function open(kind: 'rename' | 'token' | 'remove', connection: Connection) {
+    update.reset()
+    replace.reset()
+    remove.reset()
+    setOverlay({ kind, connection })
+  }
+
+  function projectIds(connection: Connection): string[] {
+    return connection.projects === 'all' ? [] : connection.projects.map((p) => p.id)
+  }
+
+  function actionsFor(connection: Connection) {
+    if (!canManage) return undefined
+    return {
+      onAddProject: (projectId: string) =>
+        update.mutate({
+          connectionId: connection.id,
+          update: { projects: [...projectIds(connection), projectId] },
+        }),
+      onRemoveProject: (projectId: string) =>
+        update.mutate({
+          connectionId: connection.id,
+          update: { projects: projectIds(connection).filter((id) => id !== projectId) },
+        }),
+      onReplaceToken: () => open('token', connection),
+      onRename: () => open('rename', connection),
+      onRemove: () => open('remove', connection),
+    }
+  }
+
+  function addableFor(connection: Connection) {
+    const taken = new Set(projectIds(connection))
+    return (projects.data ?? [])
+      .filter((p) => !taken.has(p.id))
+      .map((p) => ({ id: p.id, name: p.name }))
+  }
+
+  function handleRename(name: string) {
+    if (overlay?.kind !== 'rename') return
+    update.mutate(
+      { connectionId: overlay.connection.id, update: { name } },
+      { onSuccess: handleCloseOverlay },
+    )
+  }
+
+  function handleReplace(token: string) {
+    if (overlay?.kind !== 'token') return
+    replace.mutate(
+      { connectionId: overlay.connection.id, token },
+      { onSuccess: handleCloseOverlay },
+    )
+  }
+
+  function handleRemoveOpenChange(isOpen: boolean) {
+    if (!isOpen) setOverlay(null)
+  }
+
+  function handleRemove() {
+    if (overlay?.kind !== 'remove') return
+    remove.mutate(overlay.connection.id, { onSuccess: handleCloseOverlay })
+  }
+
+  function handleRetry() {
+    void connections.refetch()
+  }
+
+  let body
+  if (connections.isError) {
+    body = (
+      <WorkspaceLoadError
+        what="connections"
+        error={connections.error}
+        onRetry={handleRetry}
+        retrying={connections.isFetching}
+      />
+    )
+  } else if (!connections.data) {
+    body = (
+      <LoadingRegion label="Loading connections">
+        <ListCardSkeleton rows={2} trailing={2} />
+      </LoadingRegion>
+    )
+  } else if (connections.data.length === 0) {
+    body = (
+      <p className="rounded-2xl border border-dashed border-border px-5 py-8 text-center text-sm text-muted-foreground">
+        No Cloudflare account yet. Connect one to deploy workflows; you can build first.
+      </p>
+    )
+  } else {
+    body = connections.data.map((connection) => (
+      <ConnectionCard
+        key={connection.id}
+        connection={connection}
+        addable={addableFor(connection)}
+        actions={actionsFor(connection)}
+      />
+    ))
+  }
+
+  const updateError = update.error && overlay === null ? update.error.message : undefined
+  const removeBody =
+    overlay?.kind === 'remove' &&
+    (remove.error?.message ??
+      `Projects using ${overlay.connection.name} can’t deploy until they get another account. Deployed workers keep running.`)
+
+  return (
+    <>
+      {canManage && (
+        <TopBarContent>
+          <Button type="button" size="sm" onClick={handleConnect}>
+            <Cloud aria-hidden="true" />
+            Connect Cloudflare
+          </Button>
+        </TopBarContent>
+      )}
+      <PageBody>
+        <PageIntro
+          title="Connections"
+          description="Cloudflare accounts AwaitStep deploys to. Pick which projects may use each one."
+        />
+        {updateError && <Banner tone="warn">{updateError}</Banner>}
+        {body}
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Lock className="size-3.5 shrink-0" aria-hidden="true" />
+          Tokens stay encrypted and are never shown again after you save them. Workflows only see
+          the account they deploy to, never the token.
+        </p>
+      </PageBody>
+      {canManage && connectOpen && (
+        <ConnectCloudflareDialog org={orgInfo} onClose={handleCloseConnect} />
+      )}
+      {overlay?.kind === 'rename' && (
+        <TextFieldDialog
+          title={`Rename ${overlay.connection.name}`}
+          description="Only the name you see here changes."
+          leading={
+            <Tile tone="info" size="lg">
+              <Pencil />
+            </Tile>
+          }
+          label="Name"
+          initial={overlay.connection.name}
+          submitLabel="Rename"
+          error={update.error?.message}
+          pending={update.isPending}
+          onSubmit={handleRename}
+          onClose={handleCloseOverlay}
+        />
+      )}
+      {overlay?.kind === 'token' && (
+        <TextFieldDialog
+          title={`Replace the token for ${overlay.connection.name}`}
+          description="Paste a new token for the same account. The old one stops being used."
+          leading={
+            <Tile tone="warn" size="lg">
+              <KeyRound />
+            </Tile>
+          }
+          label="API token"
+          hint="Stored encrypted. Never shown again after you save."
+          submitLabel="Replace token"
+          error={replace.error?.message}
+          pending={replace.isPending}
+          monospace
+          type="password"
+          onSubmit={handleReplace}
+          onClose={handleCloseOverlay}
+        />
+      )}
+      {overlay?.kind === 'remove' && (
+        <ConfirmDialog
+          open
+          onOpenChange={handleRemoveOpenChange}
+          title={`Remove ${overlay.connection.name}?`}
+          description={removeBody}
+          confirmLabel="Remove connection"
+          onConfirm={handleRemove}
+          loading={remove.isPending}
+        />
+      )}
+    </>
+  )
+}

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import {
   PRIYA,
   renderWithDashboardData,
+  dashboardDb,
   resetDashboardData,
 } from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
 import { useCreateProject } from '../../../data/dashboard/projects'
@@ -126,7 +127,7 @@ function CreateBilling({ onCreated }: { onCreated: (slug: string) => void }) {
 }
 
 describe('a new project', () => {
-  it('reads as EmptyProject: ready, three ways to start, 1 of 3 set up', async () => {
+  it('reads as EmptyProject: ready, three ways to start, 0 of 3 until an account covers it', async () => {
     const created = vi.fn()
     const first = renderWithDashboardData(<CreateBilling onCreated={created} />)
     await userEvent.click(screen.getByRole('button', { name: 'Create Billing' }))
@@ -146,14 +147,36 @@ describe('a new project', () => {
     )
     expect(await screen.findByRole('progressbar', { name: 'Set up Billing' })).toHaveAttribute(
       'aria-valuetext',
-      '1 of 3 done',
+      '0 of 3 done',
     )
-    expect(screen.getByText('Cloudflare connected')).toBeInTheDocument()
+    // Acme's accounts list their projects, and none lists Billing yet.
+    expect(screen.getByRole('link', { name: /Connect Cloudflare/ })).toHaveAttribute(
+      'href',
+      '/acme/settings/connections?new=connection',
+    )
     expect(screen.getByText('3 inherited from Acme Inc')).toBeInTheDocument()
     expect(screen.getByText('Only you so far')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Add a workspace' })).toHaveAttribute(
       'href',
       '/acme/billing/settings/workspaces?new=workspace',
     )
+  })
+
+  it('counts Cloudflare as connected once an account covers every project', async () => {
+    dashboardDb().connections.find((c) => c.id === 'conn_production')!.projects = 'all'
+    const created = vi.fn()
+    const first = renderWithDashboardData(<CreateBilling onCreated={created} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Create Billing' }))
+    await waitFor(() => expect(created).toHaveBeenCalledWith('billing'))
+    first.unmount()
+
+    renderWithDashboardData(
+      <WorkspaceOverviewPage slugs={{ org: 'acme', project: 'billing', workspace: 'default' }} />,
+    )
+    expect(await screen.findByRole('progressbar', { name: 'Set up Billing' })).toHaveAttribute(
+      'aria-valuetext',
+      '1 of 3 done',
+    )
+    expect(screen.getByText('Cloudflare connected')).toBeInTheDocument()
   })
 })

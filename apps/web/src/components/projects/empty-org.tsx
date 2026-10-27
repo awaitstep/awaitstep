@@ -1,5 +1,5 @@
 import { Download, FolderPlus, Plug, Plus, Users } from 'lucide-react'
-import { orgPath, orgSettingsPath } from '../../lib/dashboard-paths'
+import { orgPath, orgSettingsPath, withNewDialog } from '../../lib/dashboard-paths'
 import { ActionCard } from '../ui/action-card'
 import { buttonVariants } from '../ui/button'
 import { ProgressMeter } from '../ui/progress-meter'
@@ -52,7 +52,7 @@ function ScopeSketch({ org }: EmptyOrgProps) {
  * connections and members.
  */
 export function EmptyOrg({ org }: EmptyOrgProps) {
-  const newProject = `${orgPath(org.slug)}?new=project`
+  const newProject = withNewDialog(orgPath(org.slug), 'project')
   return (
     <PageBody>
       <section className="flex flex-wrap items-center gap-10 rounded-2xl border border-primary/20 bg-primary/5 p-8 md:p-10">
@@ -109,7 +109,7 @@ export function EmptyOrg({ org }: EmptyOrgProps) {
           </li>
           <li className="flex min-w-0 [&>a]:min-w-0 [&>a]:flex-1">
             <ActionCard
-              href={orgSettingsPath(org.slug, 'connections')}
+              href={withNewDialog(orgSettingsPath(org.slug, 'connections'), 'connection')}
               icon={Plug}
               tone="warn"
               title="Connect Cloudflare"
@@ -119,7 +119,7 @@ export function EmptyOrg({ org }: EmptyOrgProps) {
           </li>
           <li className="flex min-w-0 [&>a]:min-w-0 [&>a]:flex-1">
             <ActionCard
-              href={orgSettingsPath(org.slug, 'members')}
+              href={withNewDialog(orgSettingsPath(org.slug, 'members'), 'invite')}
               icon={Users}
               tone="info"
               title="Invite your team"
