@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { plural } from '../plural'
+import { plural, pluralNoun } from '../plural'
 
 describe('plural', () => {
   it('uses the singular for one and adds an s otherwise', () => {
@@ -10,5 +10,13 @@ describe('plural', () => {
 
   it('takes an irregular plural', () => {
     expect(plural(2, 'person', 'people')).toBe('2 people')
+  })
+})
+
+describe('pluralNoun', () => {
+  it('gives the noun alone, for a count shown apart from it', () => {
+    expect(pluralNoun(1, 'item')).toBe('item')
+    expect(pluralNoun(3, 'item')).toBe('items')
+    expect(pluralNoun(2, 'person', 'people')).toBe('people')
   })
 })

@@ -10,7 +10,7 @@ describe('WorkspaceCard', () => {
     const link = screen.getByRole('link', { name: 'Sales' })
     expect(link).toHaveAttribute('href', '/acme/project-101/sales')
     expect(link).toHaveAccessibleDescription(
-      /4 workflows · 2 functions · 1 shared out.*1 failing · 5m ago/,
+      /^4 workflows · 2 functions · 1 shared out.*1 failing · 5m ago$/,
     )
   })
 
@@ -23,13 +23,22 @@ describe('WorkspaceCard', () => {
   it('flags a new, empty workspace', () => {
     render(<WorkspaceCard workspace={SUPPORT} href="/w" isNew />)
     expect(screen.getByText('New')).toBeVisible()
-    expect(screen.getByText('Nothing built yet')).toBeVisible()
-    expect(screen.getByText('No runs yet')).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Support' })).toHaveAccessibleDescription(
+      /^Nothing built yet.*No runs yet$/,
+    )
+  })
+
+  it('says who created a workspace that has no description', () => {
+    const now = new Date(SUPPORT.createdAt)
+    render(<WorkspaceCard workspace={{ ...SUPPORT, description: null }} href="/w" now={now} />)
+    expect(screen.getByText(`Created today by ${SUPPORT.createdBy.name}`)).toBeVisible()
   })
 
   it('counts in the singular and shows passing runs', () => {
     render(<WorkspaceCard workspace={IT} href="/w" />)
-    expect(screen.getByText('4 workflows · 1 function · 2 shared out')).toBeVisible()
+    expect(screen.getByRole('link', { name: 'IT' })).toHaveAccessibleDescription(
+      /^4 workflows · 1 function · 2 shared out/,
+    )
     expect(screen.getByText('All passing · 1h ago')).toBeVisible()
     expect(screen.queryByText('New')).not.toBeInTheDocument()
   })
