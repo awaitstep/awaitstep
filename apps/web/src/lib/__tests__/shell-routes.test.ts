@@ -34,6 +34,17 @@ describe('isChromelessRoute', () => {
     ).toBe(false)
   })
 
+  it('leaves the old sidebar off the new dashboard, which draws its own shell', () => {
+    expect(
+      isChromelessRoute(
+        matchesFor('__root__', '/_authed', '/_authed/$org', '/_authed/$org/projects'),
+      ),
+    ).toBe(true)
+    expect(isChromelessRoute(matchesFor('__root__', '/_authed', '/_authed/choose-org'))).toBe(true)
+    // A prefix of the id, not of the text: an old route starting with "$org" isn't one.
+    expect(isChromelessRoute(matchesFor('__root__', '/_authed', '/_authed/$organize'))).toBe(false)
+  })
+
   it('returns false for no matches', () => {
     expect(isChromelessRoute([])).toBe(false)
   })

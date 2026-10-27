@@ -5,11 +5,13 @@ import { dashKeys, invalidateAll, withMockContext } from './keys'
 import { useMockContext } from './scenario-context'
 import { useScope } from './workspaces'
 
-export function useProjects(org: string) {
+/** `enabled: false` holds the request back, for a frame that needs the list on one page only. */
+export function useProjects(org: string, { enabled = true }: { enabled?: boolean } = {}) {
   const ctx = useMockContext()
   return useQuery({
     queryKey: withMockContext(dashKeys.projects(org), ctx),
     queryFn: () => mockServer.projects.listProjects(ctx, org),
+    enabled,
   })
 }
 

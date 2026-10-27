@@ -12,6 +12,7 @@ import {
   Moon,
   PanelLeft,
   Settings,
+  Sparkles,
   SquareTerminal,
   Sun,
   Workflow,
@@ -304,6 +305,13 @@ export function SidebarContent({ inDrawer = false, onNavigate }: SidebarContentP
         </nav>
 
         <div className="flex flex-col gap-0.5 border-t border-sidebar-border p-2">
+          <SidebarNavLink
+            to="/choose-org"
+            label="Try the new dashboard"
+            icon={Sparkles}
+            collapseAware={collapseAware}
+            onNavigate={onNavigate}
+          />
           <SidebarNavLink
             to="/settings"
             label="Settings"
