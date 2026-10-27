@@ -75,18 +75,34 @@ function sharingRecord(db: MockDb, item: ItemRow) {
   }
 }
 
-/** Why an item's share switch is blocked, if it is: unsharing while others call it. */
-export function unshareBlock(db: MockDb, item: ItemRow): string | null {
+/**
+ * Why an item's share switch is blocked, if it is: unsharing while others call
+ * it. Callers the viewer can't open are counted, never named (O9).
+ */
+export function unshareBlock(db: MockDb, item: ItemRow, visible: Set<string>): string | null {
   if (!item.sharing) return null
   const callers = callersOf(db, item)
   if (callers.length === 0) return null
-  return `Called by ${callers.map((w) => w.name).join(', ')}. Unshare is blocked while another workspace uses it`
+  const named = callers.filter((w) => visible.has(w.id)).map((w) => w.name)
+  const hidden = callers.length - named.length
+  if (hidden > 0) {
+    named.push(hidden === 1 ? '1 other workspace' : `${hidden} other workspaces`)
+  }
+  return `Called by ${named.join(', ')}. Unshare is blocked while another workspace uses it`
 }
 
-/** `share` is the viewer's share capability in the item's workspace. */
-export function itemRecord(db: MockDb, row: ItemRow, share: Allowed): WorkspaceItem {
+/**
+ * `share` is the viewer's share capability in the item's workspace; `visible`
+ * the workspaces they can open, so "used by" never names a hidden one (O9).
+ */
+export function itemRecord(
+  db: MockDb,
+  row: ItemRow,
+  share: Allowed,
+  visible: Set<string>,
+): WorkspaceItem {
   const finished = finishedRunsOf(db, row.id)
-  const blocked = unshareBlock(db, row)
+  const blocked = unshareBlock(db, row, visible)
   const recentRuns: RunResult[] = finished
     .slice(0, RECENT_RUNS)
     .reverse()
@@ -106,12 +122,24 @@ export function itemRecord(db: MockDb, row: ItemRow, share: Allowed): WorkspaceI
     lastRun: finished[0] ? { result: finished[0].result, at: finished[0].startedAt } : null,
     traffic: row.traffic,
     sharing: sharingRecord(db, row),
-    usedBy: callersOf(db, row).map(workspaceRef),
+    usedBy: callersOf(db, row)
+      .filter((w) => visible.has(w.id))
+      .map(workspaceRef),
     shareToggle: !share.allowed ? share : blocked ? { allowed: false, reason: blocked } : share,
   }
 }
 
-export function sharedItemRecord(db: MockDb, row: ItemRow): SharedItem {
+/**
+ * `unshare` is whether the viewer may unshare it now (see `unshareOf` in the
+ * items server); `visible` the workspaces the viewer can open, so "Called by"
+ * never names a hidden one (O9). Sharing publishes `from` to the whole project.
+ */
+export function sharedItemRecord(
+  db: MockDb,
+  row: ItemRow,
+  unshare: Allowed,
+  visible: Set<string>,
+): SharedItem {
   const sharing = sharingRecord(db, row)
   if (!sharing) throw notFoundError()
   return {
@@ -121,7 +149,10 @@ export function sharedItemRecord(db: MockDb, row: ItemRow): SharedItem {
     kind: row.kind,
     version: row.version,
     from: workspaceRef(workspaceById(db, row.workspaceId)),
-    usedBy: callersOf(db, row).map(workspaceRef),
+    usedBy: callersOf(db, row)
+      .filter((w) => visible.has(w.id))
+      .map(workspaceRef),
+    unshare,
   }
 }
 
@@ -147,7 +178,8 @@ export function workspaceCounts(db: MockDb, workspace: WorkspaceRow): WorkspaceC
 
 /**
  * Removes workspaces and everything in them: members, items, their runs,
- * calls made to or from them, and edit requests for them. Projects and workspaces delete through this.
+ * calls made to or from them, edit requests for them, and their keys and
+ * variables. Projects and workspaces delete through this.
  */
 export function deleteWorkspaces(db: MockDb, workspaceIds: Set<string>): void {
   const itemIds = new Set(db.items.filter((i) => workspaceIds.has(i.workspaceId)).map((i) => i.id))
@@ -159,4 +191,6 @@ export function deleteWorkspaces(db: MockDb, workspaceIds: Set<string>): void {
     (c) => !itemIds.has(c.itemId) && !workspaceIds.has(c.callerWorkspaceId),
   )
   db.editRequests = db.editRequests.filter((r) => !workspaceIds.has(r.workspaceId))
+  db.keys = db.keys.filter((k) => !k.workspaceId || !workspaceIds.has(k.workspaceId))
+  db.variables = db.variables.filter((v) => v.level !== 'workspace' || !workspaceIds.has(v.scopeId))
 }

@@ -124,8 +124,10 @@ export function orgCapabilities(role: OrgRole): Capabilities<OrgCapability> {
 export function projectCapabilities(
   role: ProjectRole | null,
   locked: boolean,
+  orgRole: OrgRole | null = null,
 ): Capabilities<ProjectCapability> {
   const admin = role === 'admin' ? YES : no(REASONS.projectAdmins)
+  const orgAdmin = orgRole === 'owner' || orgRole === 'admin'
   return {
     manageSettings: admin,
     createWorkspace: admin,
@@ -134,6 +136,9 @@ export function projectCapabilities(
     manageVariables: admin,
     toggleLock: admin,
     delete: !admin.allowed ? admin : locked ? no(REASONS.lockFirst) : YES,
+    // A project admin can't take the project out of an org they don't run, and the
+    // deletion lock keeps it where it is: a move removes it from the org.
+    move: !orgAdmin ? no(REASONS.orgAdmins) : locked ? no(REASONS.lockFirst) : YES,
   }
 }
 

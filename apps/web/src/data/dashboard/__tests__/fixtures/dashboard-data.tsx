@@ -13,6 +13,8 @@ import { MockScenarioProvider, type MockScenario } from '../../scenario-context'
 // Page tests use this instead of mocking the hooks, so they exercise the seam.
 
 export { resetMockDb as resetDashboardData }
+/** The dummy tables, for asserting what a page's mutation wrote. */
+export { getDb as dashboardDb } from '../../../../mocks/dashboard/db'
 export { AMA, DANIEL, PRIYA } from '../../../../mocks/dashboard/fixtures/people'
 
 interface Options {

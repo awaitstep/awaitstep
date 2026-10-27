@@ -14,11 +14,10 @@ export function seedOrgs(now: Date): OrgRow[] {
     name,
     createdAt: daysAgo(now, ageDays),
     cloudflareConnected: false,
-    variableCount: 0,
   })
   return [
-    // EmptyProject: "Cloudflare connected", "3 inherited from Acme Inc".
-    { ...org(ACME, 'acme', 'Acme Inc', 400), cloudflareConnected: true, variableCount: 3 },
+    // EmptyProject: "Cloudflare connected".
+    { ...org(ACME, 'acme', 'Acme Inc', 400), cloudflareConnected: true },
     org(BOLT, 'bolt-labs', 'Bolt Labs', 200),
     org(GLOBEX, 'globex', 'Globex', 300),
     org(SANDBOX, 'daniels-sandbox', 'Daniel’s sandbox', 90),
@@ -47,7 +46,8 @@ export function seedOrgMembers(now: Date): OrgMemberRow[] {
     member(ACME, LENA, 'member', 200, 30),
     member(ACME, JONAS, 'member', 150, 300),
     member(BOLT, TOMAS, 'owner', 200, 60),
-    member(BOLT, AMA, 'member', 7, null),
+    // Admin, so Ama has somewhere to move a project to (Project settings → General).
+    member(BOLT, AMA, 'admin', 7, null),
     member(GLOBEX, LENA, 'owner', 300, 600),
     member(SANDBOX, DANIEL, 'owner', 90, 1440),
   ]

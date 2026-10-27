@@ -45,6 +45,11 @@ const workspaceKeys = (org: string, project: string) => [
   dashKeys.runs(org, project),
   dashKeys.failing(org),
   dashKeys.activity(org),
+  // Workspace keys, overrides and grants go with a deleted workspace.
+  dashKeys.setup(org, project),
+  dashKeys.projectKeys(org, project),
+  dashKeys.projectVariables(org, project),
+  dashKeys.projectMembers(org, project),
 ]
 
 export function useCreateWorkspace(org: string, project: string) {

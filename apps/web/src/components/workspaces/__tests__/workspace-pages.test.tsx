@@ -93,7 +93,7 @@ describe('an empty workspace', () => {
     ).toBeVisible()
     const inherited = await screen.findByRole('link', { name: /Inherited from Project 101/ })
     await waitFor(() => expect(inherited).toHaveTextContent('2 project admins'))
-    expect(inherited).toHaveTextContent('1 project key')
+    expect(inherited).toHaveTextContent('3 project keys')
     expect(inherited).toHaveTextContent('5 variables')
     expect(inherited).toHaveAttribute('href', '/acme/project-101/support/settings')
     const sharedIn = screen.getByRole('link', { name: /Shared with Support/ })

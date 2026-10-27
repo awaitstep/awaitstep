@@ -35,6 +35,12 @@ export const dashKeys = {
   library: (s: WorkspaceSlugs) => ['dash', 'library', s.org, s.project, s.workspace] as const,
   editRequest: (s: WorkspaceSlugs) => ['dash', 'requests', s.org, s.project, s.workspace] as const,
   setup: (org: string, project: string) => ['dash', 'setup', org, project, null] as const,
+  projectKeys: (org: string, project: string) => ['dash', 'keys', org, project, null] as const,
+  projectVariables: (org: string, project: string) =>
+    ['dash', 'variables', org, project, null] as const,
+  projectMembers: (org: string, project: string) =>
+    ['dash', 'members', org, project, null] as const,
+  orgPeople: (org: string) => ['dash', 'members', org, null, null] as const,
 }
 
 const SCOPED_DOMAINS = new Set([
@@ -46,6 +52,9 @@ const SCOPED_DOMAINS = new Set([
   'library',
   'requests',
   'setup',
+  'keys',
+  'variables',
+  'members',
 ])
 
 /**

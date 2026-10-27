@@ -19,19 +19,23 @@ export const DEFAULT_MOCK_CONTEXT: MockContext = { scenario: 'none', userId: AMA
 export class MockApiError extends Error {
   readonly status: number
   readonly errorId: string
+  /** The form field a validation error belongs to (`name`, `slug`…), when it has one. */
+  readonly field: string | undefined
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, field?: string) {
     super(message)
     this.name = 'MockApiError'
     this.status = status
+    this.field = field
     this.errorId = `req_${crypto.randomUUID().replaceAll('-', '').slice(0, 8)}`
   }
 }
 
 export const notFoundError = () => new MockApiError(404, 'Not found')
 export const forbiddenError = (reason: string) => new MockApiError(403, reason)
-export const conflictError = (reason: string) => new MockApiError(409, reason)
-export const invalidError = (reason: string) => new MockApiError(422, reason)
+export const conflictError = (reason: string, field?: string) =>
+  new MockApiError(409, reason, field)
+export const invalidError = (reason: string, field?: string) => new MockApiError(422, reason, field)
 
 // Long enough to see the skeletons in the app; tests don't wait.
 const LATENCY_MS = import.meta.env.MODE === 'test' ? 0 : 250

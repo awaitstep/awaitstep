@@ -63,9 +63,9 @@ export function requireScope(
  * `slugify`'s "default" fallback, which would silently move a project or
  * workspace to `/default`.
  */
-export function slugFrom(input: string, field: string): string {
+export function slugFrom(input: string, label: string, field: 'name' | 'slug'): string {
   const slug = slugify(input, '')
-  if (!slug) throw invalidError(`The ${field} needs at least one letter or number`)
+  if (!slug) throw invalidError(`The ${label} needs at least one letter or number`, field)
   return slug
 }
 
@@ -90,7 +90,7 @@ export function availableSlug(
 /** Refuses a chosen slug that a dashboard page already owns. */
 export function assertNotReserved(level: SlugLevel, slug: string): void {
   if (isReservedSlug(level, slug)) {
-    throw invalidError(`“${slug}” is used by a dashboard page. Pick another URL`)
+    throw invalidError(`“${slug}” is used by a dashboard page. Pick another URL`, 'slug')
   }
 }
 

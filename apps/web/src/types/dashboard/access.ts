@@ -1,5 +1,6 @@
 import type { ProjectRole, WorkspaceChip } from './projects'
-import type { OrgRole } from './session'
+import type { WorkspaceRef } from './items'
+import type { OrgRole, Person } from './session'
 import type { WorkspaceRole } from './workspaces'
 
 // Dashboard types for one person's access. Web-only until B2 moves them.
@@ -37,4 +38,18 @@ export interface EditRequest {
   from: { id: string; name: string }
   to: { id: string; name: string }
   at: string
+}
+
+/** How someone reaches every workspace in a project. */
+export type ProjectWideRole = 'owner' | 'org-admin' | 'project-admin' | 'project-member'
+
+/** Project settings → Members, in the board's two groups. */
+export interface ProjectMembers {
+  /** Can open every workspace: org owners and admins, and the project's own members. */
+  wholeProject: { person: Person; role: ProjectWideRole }[]
+  /** Can open only the workspaces listed (only ones the viewer can open are shown). */
+  workspacesOnly: {
+    person: Person
+    workspaces: { workspace: WorkspaceRef; role: WorkspaceRole }[]
+  }[]
 }

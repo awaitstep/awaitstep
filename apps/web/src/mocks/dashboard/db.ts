@@ -1,8 +1,10 @@
 import type { WorkspaceColour } from '../../components/ui/workspace-colour'
+import type { KeyLevel, KeyPermissions } from '../../types/dashboard/api-keys'
 import type { FunctionTraffic, ItemKind } from '../../types/dashboard/items'
 import type { RunResult, RunTrigger } from '../../types/dashboard/runs'
 import type { ProjectRole } from '../../types/dashboard/projects'
 import type { OrgRole, Person } from '../../types/dashboard/session'
+import type { VariableLevel } from '../../types/dashboard/variables'
 import type { WorkspaceRole } from '../../types/dashboard/workspaces'
 import { seedDb } from './fixtures'
 
@@ -21,8 +23,6 @@ export interface OrgRow {
   createdAt: string
   /** Thin until P5 brings connections: whether the org has connected Cloudflare. */
   cloudflareConnected: boolean
-  /** Thin until P4/P6 bring variables: how many the org sets. */
-  variableCount: number
 }
 
 export interface OrgMemberRow {
@@ -42,10 +42,6 @@ export interface ProjectRow {
   createdAt: string
   updatedAt: string
   lock: LockRow | null
-  /** Thin until P3/P6 bring keys: how many project keys it has. */
-  keyCount: number
-  /** Thin until P3/P6 bring variables: how many the project sets itself. */
-  variableCount: number
 }
 
 export interface ProjectMemberRow {
@@ -114,6 +110,31 @@ export interface EditRequestRow {
   at: string
 }
 
+/** An API key at any level; `projectId` / `workspaceId` say what it reaches. */
+export interface KeyRow {
+  id: string
+  level: KeyLevel
+  orgId: string
+  projectId: string | null
+  workspaceId: string | null
+  name: string
+  prefix: string
+  permissions: KeyPermissions
+  createdBy: string
+  createdAt: string
+  lastUsedAt: string | null
+  expiresAt: string | null
+}
+
+/** A variable set at one level; the scope id is the org, project or workspace it belongs to. */
+export interface VariableRow {
+  level: VariableLevel
+  scopeId: string
+  name: string
+  value: string
+  isSecret: boolean
+}
+
 export interface MockDb {
   people: Person[]
   orgs: OrgRow[]
@@ -126,11 +147,13 @@ export interface MockDb {
   runs: RunRow[]
   calls: CallRow[]
   editRequests: EditRequestRow[]
+  keys: KeyRow[]
+  variables: VariableRow[]
 }
 
 // Bump when the tables or the seed change, so a tab's saved copy is reseeded
 // instead of read with missing tables.
-const DB_VERSION = 3
+const DB_VERSION = 4
 const STORAGE_KEY = 'awaitstep:dashboard-mock-db'
 
 let current: MockDb | null = null

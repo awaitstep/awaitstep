@@ -1,11 +1,14 @@
 import * as activity from './activity'
 import * as items from './items'
+import * as keys from './keys'
 import * as locks from './locks'
+import * as members from './members'
 import * as projects from './projects'
 import * as requests from './requests'
 import * as runs from './runs'
 import * as session from './session'
 import * as setup from './setup'
+import * as variables from './variables'
 import * as workspaces from './workspaces'
 
 /**
@@ -22,4 +25,7 @@ export const mockServer = {
   activity,
   requests,
   setup,
+  keys,
+  variables,
+  members,
 }

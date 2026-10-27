@@ -1,0 +1,146 @@
+import type { KeyRow } from '../db'
+import { daysAgo, minutesAgo } from './clock'
+import { ACME } from './orgs'
+import { AMA, LENA, TOM } from './people'
+import { P101 } from './projects'
+import { IT, SALES } from './workspaces'
+
+// `KeysPage` (project and org levels) and its Workspace keys card ("Sales · 1", "IT · 2").
+
+const DAY_MINUTES = 24 * 60
+
+export function seedKeys(now: Date): KeyRow[] {
+  const inDays = (days: number) => daysAgo(now, -days)
+  const key = (
+    seed: Omit<KeyRow, 'orgId' | 'projectId' | 'workspaceId'>,
+    scope: Partial<KeyRow>,
+  ) => ({
+    orgId: ACME,
+    projectId: null,
+    workspaceId: null,
+    ...seed,
+    ...scope,
+  })
+  const project = { projectId: P101 }
+  return [
+    key(
+      {
+        id: 'key_ci',
+        level: 'project',
+        name: 'CI deploys',
+        prefix: 'ask_p1…a71d',
+        permissions: { workflows: ['read', 'deploy'], runs: ['read'] },
+        createdBy: TOM,
+        createdAt: daysAgo(now, 60),
+        lastUsedAt: minutesAgo(now, 22),
+        expiresAt: null,
+      },
+      project,
+    ),
+    key(
+      {
+        id: 'key_agent',
+        level: 'project',
+        name: 'Agent (Claude)',
+        prefix: 'ask_p1…2e07',
+        permissions: { workflows: ['read', 'write'], variables: ['read'], runs: ['read'] },
+        createdBy: AMA,
+        createdAt: daysAgo(now, 2),
+        lastUsedAt: minutesAgo(now, 180),
+        expiresAt: inDays(28),
+      },
+      project,
+    ),
+    key(
+      {
+        id: 'key_dashboard',
+        level: 'project',
+        name: 'Read-only dashboard',
+        prefix: 'ask_p1…90fa',
+        permissions: {
+          workspaces: ['read'],
+          workflows: ['read'],
+          runs: ['read'],
+          variables: ['read'],
+          library: ['read'],
+          members: ['read'],
+        },
+        createdBy: LENA,
+        createdAt: daysAgo(now, 30),
+        lastUsedAt: minutesAgo(now, DAY_MINUTES + 120),
+        expiresAt: inDays(3),
+      },
+      project,
+    ),
+    key(
+      {
+        id: 'key_sales_crm',
+        level: 'workspace',
+        name: 'CRM webhook',
+        prefix: 'ask_w1…5c3a',
+        permissions: { workflows: ['run'] },
+        createdBy: AMA,
+        createdAt: daysAgo(now, 40),
+        lastUsedAt: minutesAgo(now, 5),
+        expiresAt: null,
+      },
+      { projectId: P101, workspaceId: SALES },
+    ),
+    key(
+      {
+        id: 'key_it_okta',
+        level: 'workspace',
+        name: 'Okta events',
+        prefix: 'ask_w1…d810',
+        permissions: { workflows: ['run'] },
+        createdBy: LENA,
+        createdAt: daysAgo(now, 80),
+        lastUsedAt: minutesAgo(now, 60),
+        expiresAt: null,
+      },
+      { projectId: P101, workspaceId: IT },
+    ),
+    key(
+      {
+        id: 'key_it_deploy',
+        level: 'workspace',
+        name: 'IT deploys',
+        prefix: 'ask_w1…7b42',
+        permissions: { workflows: ['read', 'deploy'], runs: ['read'] },
+        createdBy: LENA,
+        createdAt: daysAgo(now, 20),
+        lastUsedAt: null,
+        expiresAt: inDays(60),
+      },
+      { projectId: P101, workspaceId: IT },
+    ),
+    key(
+      {
+        id: 'key_terraform',
+        level: 'organization',
+        name: 'Terraform',
+        prefix: 'ask_o1…3b9e',
+        permissions: { projects: ['read', 'write'], connections: ['read'] },
+        createdBy: TOM,
+        createdAt: daysAgo(now, 36),
+        lastUsedAt: daysAgo(now, 2),
+        expiresAt: inDays(54),
+      },
+      {},
+    ),
+    key(
+      {
+        id: 'key_onboarding',
+        level: 'organization',
+        name: 'Onboarding bot',
+        prefix: 'ask_o1…c41d',
+        permissions: { members: ['write'] },
+        createdBy: AMA,
+        createdAt: daysAgo(now, 10),
+        lastUsedAt: null,
+        expiresAt: inDays(5),
+      },
+      {},
+    ),
+  ]
+}

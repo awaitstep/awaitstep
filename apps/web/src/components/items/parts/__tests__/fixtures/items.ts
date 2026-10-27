@@ -85,6 +85,7 @@ export const PROVISION_ACCOUNT: SharedItem = {
   usedBy: [],
   sharedAt: ago(60 * 24 * 20),
   sharedBy: { id: 'usr_lena', name: 'Lena Vogel' },
+  unshare: { allowed: true },
 }
 
 export const SEND_SLACK_ALERT: SharedItem = {

@@ -64,6 +64,18 @@ export function useSetShared(slugs: WorkspaceSlugs) {
   })
 }
 
+/** Project settings → Shared library: Unshare on any workspace's item. Refused while others call it. */
+export function useUnshareItem(org: string, project: string) {
+  const ctx = useMockContext()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ workspace, itemId }: { workspace: string; itemId: string }) =>
+      mockServer.items.setShared(ctx, { org, project, workspace }, itemId, false),
+    onSuccess: (_item, { workspace }) =>
+      invalidateAll(client, itemKeys({ org, project, workspace })),
+  })
+}
+
 /** Move workflows: sends items (and their runs) to another workspace in the project. */
 export function useMoveWorkflows(slugs: WorkspaceSlugs) {
   const ctx = useMockContext()

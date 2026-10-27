@@ -7,7 +7,7 @@ import type {
   WorkspaceItem,
 } from '../../../types/dashboard/items'
 import type { LibraryEntry } from '../../../types/dashboard/library'
-import type { ScopeSlugs } from '../../../types/dashboard/scope'
+import type { Allowed, ScopeSlugs } from '../../../types/dashboard/scope'
 import { getDb, type ItemRow, type MockDb, type ProjectRow, type WorkspaceRow } from '../db'
 import {
   type MockContext,
@@ -19,8 +19,9 @@ import {
   notFoundError,
   rows,
 } from '../scenario'
+import { workspaceRoleOf } from '../access'
 import { itemRecord, sharedItemRecord, unshareBlock } from './item-records'
-import { workspaceScope } from './records'
+import { visibleWorkspaces, workspaceScope } from './records'
 import { newId, requireScope, resolveWorkspace } from './resolve'
 
 type WorkspaceSlugs = Required<ScopeSlugs>
@@ -44,7 +45,34 @@ function records(
   items: ItemRow[],
 ): WorkspaceItem[] {
   const share = workspaceScope(db, ctx, project, workspace).viewerCan.share
-  return items.map((i) => itemRecord(db, i, share))
+  const visible = visibleIds(db, ctx, project)
+  return items.map((i) => itemRecord(db, i, share, visible))
+}
+
+/**
+ * Whether the viewer may unshare a shared item: they need share rights in
+ * the item's own workspace, and nobody else may be calling it.
+ */
+function unshareOf(db: MockDb, ctx: MockContext, project: ProjectRow, item: ItemRow): Allowed {
+  const from = db.workspaces.find((w) => w.id === item.workspaceId)!
+  if (!workspaceRoleOf(db, ctx, project, from)) {
+    return { allowed: false, reason: `Only people in ${from.name} can unshare it` }
+  }
+  const share = workspaceScope(db, ctx, project, from).viewerCan.share
+  if (!share.allowed) return share
+  const blocked = unshareBlock(db, item, visibleIds(db, ctx, project))
+  return blocked ? { allowed: false, reason: blocked } : share
+}
+
+// "Shared with Sales" is read-only: unsharing happens in the item's own workspace
+// or Project settings, so the workspace views don't work out whether it could.
+const UNSHARE_ELSEWHERE: Allowed = {
+  allowed: false,
+  reason: 'Unshare it from its own workspace',
+}
+
+function visibleIds(db: MockDb, ctx: MockContext, project: ProjectRow): Set<string> {
+  return new Set(visibleWorkspaces(db, ctx, project).map((w) => w.id))
 }
 
 /** A workspace's own workflows (`kind: 'workflow'`) or functions (`'script'`). */
@@ -68,9 +96,10 @@ export const listSharedWith = endpoint(
     const shared = db.items.filter(
       (i) => i.sharing && siblings.has(i.workspaceId) && (kind === undefined || i.kind === kind),
     )
+    const visible = visibleIds(db, ctx, project)
     return rows(
       ctx,
-      shared.map((i) => sharedItemRecord(db, i)),
+      shared.map((i) => sharedItemRecord(db, i, UNSHARE_ELSEWHERE, visible)),
     )
   },
 )
@@ -84,9 +113,10 @@ export const listProjectShared = endpoint(
       db.workspaces.filter((w) => w.projectId === project!.id).map((w) => w.id),
     )
     const shared = db.items.filter((i) => i.sharing && workspaceIds.has(i.workspaceId))
+    const visible = visibleIds(db, ctx, project!)
     return rows(
       ctx,
-      shared.map((i) => sharedItemRecord(db, i)),
+      shared.map((i) => sharedItemRecord(db, i, unshareOf(db, ctx, project!, i), visible)),
     )
   },
 )
@@ -100,7 +130,7 @@ export const setShared = mutation(
     if (!can.allowed) throw forbiddenError(can.reason!)
     const item = itemIn(db, workspace, itemId)
     if (!shared) {
-      const blocked = unshareBlock(db, item)
+      const blocked = unshareBlock(db, item, visibleIds(db, ctx, project))
       if (blocked) throw conflictError(blocked)
       item.sharing = null
     } else {

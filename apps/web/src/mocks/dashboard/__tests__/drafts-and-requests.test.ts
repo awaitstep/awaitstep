@@ -162,12 +162,12 @@ describe('workspace people', () => {
 })
 
 describe('project setup counts', () => {
-  it('gives Project 101 the board’s counts: Cloudflare connected, 3 org + 2 project variables, 1 key', async () => {
+  it('counts Project 101’s lists: Cloudflare connected, 3 org + 2 project variables, 3 keys', async () => {
     expect(await setup.getProjectSetup(ama, 'acme', 'project-101')).toEqual({
       cloudflareConnected: true,
       orgVariables: 3,
       projectVariables: 2,
-      projectKeys: 1,
+      projectKeys: 3,
     })
   })
 

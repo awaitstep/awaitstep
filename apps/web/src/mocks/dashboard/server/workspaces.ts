@@ -71,8 +71,8 @@ export const createWorkspace = mutation(
     const can = projectScope(db, ctx, project!).viewerCan.createWorkspace
     if (!can.allowed) throw forbiddenError(can.reason!)
     const name = input.name.trim()
-    if (!name) throw invalidError('A workspace needs a name')
-    const base = slugFrom(name, 'workspace name')
+    if (!name) throw invalidError('A workspace needs a name', 'name')
+    const base = slugFrom(name, 'workspace name', 'name')
     const people = input.access.kind === 'pick' ? input.access.people : []
     const orgMembers = new Set(db.orgMembers.filter((m) => m.orgId === org.id).map((m) => m.userId))
     if (people.some((p) => !orgMembers.has(p.userId))) {
@@ -107,14 +107,14 @@ export const updateWorkspace = mutation(
     if (!can.allowed) throw forbiddenError(can.reason!)
     const row = workspace!
     const name = update.name?.trim()
-    if (name === '') throw invalidError('A workspace needs a name')
-    const slug = update.slug === undefined ? undefined : slugFrom(update.slug, 'URL')
+    if (name === '') throw invalidError('A workspace needs a name', 'name')
+    const slug = update.slug === undefined ? undefined : slugFrom(update.slug, 'URL', 'slug')
     if (slug) assertNotReserved('workspace', slug)
     if (
       slug &&
       db.workspaces.some((w) => w.projectId === row.projectId && w.slug === slug && w.id !== row.id)
     ) {
-      throw conflictError('Another workspace in this project already uses that URL')
+      throw conflictError('Another workspace in this project already uses that URL', 'slug')
     }
     if (name) row.name = name
     if (slug) row.slug = slug

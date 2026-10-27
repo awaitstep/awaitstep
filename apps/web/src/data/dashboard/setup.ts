@@ -3,7 +3,7 @@ import { mockServer } from '../../mocks/dashboard/server'
 import { dashKeys, withMockContext } from './keys'
 import { useMockContext } from './scenario-context'
 
-/** Thin setup counts for the empty-project and empty-workspace pages, until P3–P6 bring the lists. */
+/** Setup counts for the empty-project and empty-workspace pages. */
 export function useProjectSetup(org: string, project: string) {
   const ctx = useMockContext()
   return useQuery({

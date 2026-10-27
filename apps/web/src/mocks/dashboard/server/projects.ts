@@ -1,6 +1,6 @@
 import type { NewProjectInput, Project, ProjectUpdate } from '../../../types/dashboard/projects'
 import type { Workspace } from '../../../types/dashboard/workspaces'
-import { canSeeProject } from '../access'
+import { canSeeProject, orgRoleOf } from '../access'
 import { getDb, type ProjectRow, type WorkspaceRow } from '../db'
 import { conflictError, endpoint, forbiddenError, invalidError, mutation, rows } from '../scenario'
 import { deleteWorkspaces } from './item-records'
@@ -26,8 +26,8 @@ export const createProject = mutation(
     const can = orgScope(db, ctx, org).viewerCan.createProject
     if (!can.allowed) throw forbiddenError(can.reason!)
     const name = input.name.trim()
-    if (!name) throw invalidError('A project needs a name')
-    const base = slugFrom(name, 'project name')
+    if (!name) throw invalidError('A project needs a name', 'name')
+    const base = slugFrom(name, 'project name', 'name')
     const now = new Date().toISOString()
     const project: ProjectRow = {
       id: newId('prj'),
@@ -40,8 +40,6 @@ export const createProject = mutation(
       createdAt: now,
       updatedAt: now,
       lock: null,
-      keyCount: 0,
-      variableCount: 0,
     }
     const workspace: WorkspaceRow = {
       id: newId('ws'),
@@ -72,11 +70,11 @@ export const updateProject = mutation(
     if (!can.allowed) throw forbiddenError(can.reason!)
     const row = project!
     const name = update.name?.trim()
-    if (name === '') throw invalidError('A project needs a name')
-    const slug = update.slug === undefined ? undefined : slugFrom(update.slug, 'URL')
+    if (name === '') throw invalidError('A project needs a name', 'name')
+    const slug = update.slug === undefined ? undefined : slugFrom(update.slug, 'URL', 'slug')
     if (slug) assertNotReserved('project', slug)
     if (slug && db.projects.some((p) => p.orgId === org.id && p.slug === slug && p.id !== row.id)) {
-      throw conflictError('Another project in this organization already uses that URL')
+      throw conflictError('Another project in this organization already uses that URL', 'slug')
     }
     if (name) row.name = name
     if (slug) row.slug = slug
@@ -97,5 +95,50 @@ export const deleteProject = mutation((ctx, orgSlug: string, projectSlug: string
   )
   db.projects = db.projects.filter((p) => p.id !== project!.id)
   db.projectMembers = db.projectMembers.filter((m) => m.projectId !== project!.id)
+  db.keys = db.keys.filter((k) => k.projectId !== project!.id)
+  db.variables = db.variables.filter((v) => v.level !== 'project' || v.scopeId !== project!.id)
   deleteWorkspaces(db, workspaceIds)
 })
+
+/**
+ * Moves the project, with its workspaces, items and keys, to another org the
+ * viewer owns or administers. Resolves to its new address.
+ */
+export const moveProject = mutation(
+  (
+    ctx,
+    orgSlug: string,
+    projectSlug: string,
+    toOrgSlug: string,
+  ): { org: string; project: string } => {
+    const db = getDb()
+    const { org, project } = requireScope(db, ctx, { org: orgSlug, project: projectSlug })
+    const can = projectScope(db, ctx, project!).viewerCan.move
+    if (!can.allowed) throw forbiddenError(can.reason!)
+    const { org: to } = requireScope(db, ctx, { org: toOrgSlug })
+    if (to.id === org.id) throw invalidError('Pick another organization')
+    const role = orgRoleOf(db, ctx, to.id)
+    if (role !== 'owner' && role !== 'admin') {
+      throw forbiddenError(`Only owners and admins of ${to.name} can move projects into it`)
+    }
+    const row = project!
+    row.orgId = to.id
+    row.slug = availableSlug('project', row.slug, (s) =>
+      db.projects.some((p) => p.orgId === to.id && p.slug === s && p.id !== row.id),
+    )
+    row.updatedAt = new Date().toISOString()
+    for (const key of db.keys.filter((k) => k.projectId === row.id)) key.orgId = to.id
+    // Grants for people outside the new org don't travel: joining it later mustn't revive them.
+    const inTarget = new Set(db.orgMembers.filter((m) => m.orgId === to.id).map((m) => m.userId))
+    const workspaceIds = new Set(
+      db.workspaces.filter((w) => w.projectId === row.id).map((w) => w.id),
+    )
+    db.projectMembers = db.projectMembers.filter(
+      (m) => m.projectId !== row.id || inTarget.has(m.userId),
+    )
+    db.workspaceMembers = db.workspaceMembers.filter(
+      (m) => !workspaceIds.has(m.workspaceId) || inTarget.has(m.userId),
+    )
+    return { org: to.slug, project: row.slug }
+  },
+)

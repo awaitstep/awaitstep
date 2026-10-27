@@ -27,16 +27,11 @@ export function seedProjects(now: Date): ProjectRow[] {
     createdAt: daysAgo(now, ageDays),
     updatedAt: daysAgo(now, Math.min(ageDays, 3)),
     lock: null,
-    keyCount: 0,
-    variableCount: 0,
   })
   return [
     {
       ...project(P101, ACME, 'project-101', 'Project 101', 'Sales and IT automations', 120),
       lock: { setBy: AMA, setAt: P101_LOCKED_AT },
-      // EmptyWorkspace: "1 project key · 5 variables" (2 here + Acme's 3).
-      keyCount: 1,
-      variableCount: 2,
     },
     project(
       MARKETING,

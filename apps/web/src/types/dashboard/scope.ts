@@ -18,6 +18,8 @@ export type ProjectCapability =
   | 'manageVariables'
   | 'toggleLock'
   | 'delete'
+  /** Move the project to another org: the org's owners and admins only. */
+  | 'move'
 
 export type WorkspaceCapability =
   | 'edit'

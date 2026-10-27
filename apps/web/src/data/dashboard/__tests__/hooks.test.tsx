@@ -2,12 +2,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { resetMockDb } from '../../../mocks/dashboard/db'
+import { getDb as dashboardDb, resetMockDb } from '../../../mocks/dashboard/db'
+import { useProjectKeys, useRevokeProjectKey } from '../api-keys'
 import { useSetShared, useSharedWithWorkspace, useWorkspaceItems } from '../items'
 import { useSetLock } from '../locks'
-import { useCreateProject, useProjects } from '../projects'
+import { useCreateProject, useMoveProject, useProjects } from '../projects'
 import { useResetMockData } from '../reset'
-import { useWorkspaceRuns } from '../runs'
+import { useProjectSetup } from '../setup'
+import { useFailingNow, useWorkspaceRuns } from '../runs'
 import {
   MockScenarioProvider,
   type MockScenario,
@@ -143,6 +145,51 @@ describe('dashboard hooks', () => {
     expect(result.current.data).toBe(first)
     expect(result.current.isPlaceholderData).toBe(true)
     await waitFor(() => expect(result.current.data?.data[0]?.id).not.toBe(first.data[0]!.id))
+  })
+
+  it('drops a revoked key from the list and the setup count', async () => {
+    const { wrapper } = setup()
+    const { result } = renderHook(
+      () => ({
+        keys: useProjectKeys('acme', 'project-101'),
+        setup: useProjectSetup('acme', 'project-101'),
+        revoke: useRevokeProjectKey('acme', 'project-101'),
+      }),
+      { wrapper },
+    )
+    await waitFor(() => expect(result.current.setup.data?.projectKeys).toBe(3))
+
+    await act(() => result.current.revoke.mutateAsync('key_ci'))
+
+    await waitFor(() => expect(result.current.setup.data?.projectKeys).toBe(2))
+    expect(result.current.keys.data?.keys.map((k) => k.id)).not.toContain('key_ci')
+  })
+
+  it('shows a moved project’s failures on its new org’s home', async () => {
+    dashboardDb().projects.find((p) => p.id === 'prj_101')!.lock = null
+    const { wrapper } = setup()
+    const { result } = renderHook(
+      () => ({ failing: useFailingNow('bolt-labs'), move: useMoveProject('acme', 'project-101') }),
+      { wrapper },
+    )
+    await waitFor(() => expect(result.current.failing.data).toEqual([]))
+
+    await act(() => result.current.move.mutateAsync('bolt-labs'))
+
+    await waitFor(() => expect(result.current.failing.data?.length).toBeGreaterThan(0))
+  })
+
+  it('lists a moved project under its new org', async () => {
+    const { wrapper } = setup()
+    const { result } = renderHook(
+      () => ({ bolt: useProjects('bolt-labs'), move: useMoveProject('acme', 'internal-tools') }),
+      { wrapper },
+    )
+    await waitFor(() => expect(result.current.bolt.data).toHaveLength(1))
+
+    await act(() => result.current.move.mutateAsync('bolt-labs'))
+
+    await waitFor(() => expect(result.current.bolt.data).toHaveLength(2))
   })
 
   it('runs as the person and scenario the provider names', async () => {
