@@ -1,3 +1,4 @@
+import { createRef } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -83,5 +84,19 @@ describe('SearchField', () => {
     )
     expect(screen.getByRole('searchbox')).toHaveAttribute('aria-keyshortcuts', 'Meta+K')
     expect(screen.getByText('⌘K')).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('empties itself on Escape', async () => {
+    const onChange = vi.fn()
+    render(<SearchField label="Search projects" value="mark" onChange={onChange} />)
+    await userEvent.type(screen.getByRole('searchbox'), '{Escape}')
+    expect(onChange).toHaveBeenLastCalledWith('')
+  })
+
+  it('hands its input to a ref, so a shortcut can focus it', () => {
+    const ref = createRef<HTMLInputElement>()
+    render(<SearchField label="Search projects" value="" onChange={vi.fn()} ref={ref} />)
+    ref.current?.focus()
+    expect(screen.getByRole('searchbox')).toHaveFocus()
   })
 })

@@ -19,6 +19,7 @@ import { TopBar } from '../shell/top-bar'
 import type { DashboardPage } from './dashboard-page'
 import { DashboardAccountMenu } from './account-menu-container'
 import { MobileProjectMenu } from './mobile-project-menu'
+import { TopBarSlotTarget } from './top-bar-slot'
 import { OrgSwitcher } from './org-switcher'
 import { ProjectSwitcher } from './project-switcher'
 import { WorkspaceSwitcher } from './workspace-switcher'
@@ -123,7 +124,9 @@ export function DashboardFrame({
         <MobileTabBar items={tabBarEntries(rail)} activeKey={page ? rail.activeKey : undefined} />
       }
     >
-      <TopBar breadcrumbs={crumbs} />
+      <TopBar breadcrumbs={crumbs}>
+        <TopBarSlotTarget />
+      </TopBar>
       {children}
     </AppShell>
   )

@@ -18,16 +18,18 @@ export interface DashboardSearch {
    * the switchers link to it, and the page that owns the dialog reads it.
    */
   new?: string
+  /** What follows the dialog: `import` after New project (P2 opens Import). */
+  then?: string
 }
 
-/** Kept from page to page; `new` is not, so a dialog doesn't follow you around. */
+/** Kept from page to page; `new` and `then` are not, so a dialog doesn't follow you around. */
 export const DASHBOARD_SEARCH_KEYS = ['mock', 'as'] as const
 
 /** Keeps only the dashboard's own params, as strings. */
 export function validateDashboardSearch(search: Record<string, unknown>): DashboardSearch {
   const pick = (key: keyof DashboardSearch) =>
     typeof search[key] === 'string' ? (search[key] as string) : undefined
-  return { mock: pick('mock'), as: pick('as'), new: pick('new') }
+  return { mock: pick('mock'), as: pick('as'), new: pick('new'), then: pick('then') }
 }
 
 interface DashboardProvidersProps {

@@ -46,8 +46,10 @@ describe('rail', () => {
 })
 
 describe('panel', () => {
-  it('has no panel on org pages', () => {
-    expect(panelModel({ kind: 'org', page: 'projects' }, ORG, null)).toEqual({ mode: 'none' })
+  it('has no panel on any org page — the org home included (Main and EmptyOrg: mode "org")', () => {
+    for (const page of ['projects', 'resources', 'audit', 'inbox', 'whats-new'] as const) {
+      expect(panelModel({ kind: 'org', page }, ORG, null)).toEqual({ mode: 'none' })
+    }
   })
 
   it('lists the workspace’s pages, with Project settings pinned', () => {

@@ -1,4 +1,4 @@
-import { useId, type ChangeEvent } from 'react'
+import { useId, type ChangeEvent, type KeyboardEvent, type Ref } from 'react'
 import { Search } from 'lucide-react'
 
 interface SearchFieldProps {
@@ -12,14 +12,31 @@ interface SearchFieldProps {
    * value, e.g. "Meta+K". Display only: whoever owns the shortcut binds it.
    */
   shortcut?: { hint: string; keys: string }
+  /** The input, for whoever binds the shortcut to focus it. */
+  ref?: Ref<HTMLInputElement>
 }
 
 /** Search box with a leading magnifier and an optional shortcut hint. */
-export function SearchField({ label, placeholder, value, onChange, shortcut }: SearchFieldProps) {
+export function SearchField({
+  label,
+  placeholder,
+  value,
+  onChange,
+  shortcut,
+  ref,
+}: SearchFieldProps) {
   const id = useId()
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
     onChange(event.target.value)
+  }
+
+  // Escape empties the field, the same in every browser.
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'Escape' && value) {
+      event.preventDefault()
+      onChange('')
+    }
   }
 
   return (
@@ -29,10 +46,12 @@ export function SearchField({ label, placeholder, value, onChange, shortcut }: S
         {label}
       </label>
       <input
+        ref={ref}
         id={id}
         type="search"
         value={value}
         onChange={handleChange}
+        onKeyDown={handleKeyDown}
         placeholder={placeholder}
         aria-keyshortcuts={shortcut?.keys}
         className="h-full min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"

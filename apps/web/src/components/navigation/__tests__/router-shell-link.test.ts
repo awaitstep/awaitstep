@@ -37,6 +37,7 @@ describe('validateDashboardSearch', () => {
       mock: 'viewer',
       as: 'daniel',
       new: undefined,
+      then: undefined,
     })
   })
 
@@ -45,6 +46,7 @@ describe('validateDashboardSearch', () => {
       mock: undefined,
       as: undefined,
       new: undefined,
+      then: undefined,
     })
   })
 
