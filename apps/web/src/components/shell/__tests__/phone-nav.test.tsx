@@ -3,7 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AppShell } from '../app-shell'
 import { MobileTabBar } from '../mobile-nav'
-import { ProjectMenu } from '../project-menu'
+import { ProjectMenu, ProjectMenuSwitchButton } from '../project-menu'
 import { SampleRail, workspaceItems } from './fixtures/frame'
 import {
   OrgMobileHeader,
@@ -157,6 +157,26 @@ describe('Project menu', () => {
       />,
     )
     expect(screen.getByRole('link', { name: /ops/ })).toHaveTextContent(/^O/)
+  })
+
+  it('puts a switch control in place of the Switch link when given one', async () => {
+    const onClick = vi.fn()
+    const project = { name: 'Project 101', tile: { initial: 'P' } }
+    render(
+      <ProjectMenu
+        project={{ ...project, switchHref: '#projects' }}
+        switchControl={<ProjectMenuSwitchButton project={project} onClick={onClick} />}
+        workspaces={[]}
+        nav={[]}
+        projectSettingsHref="#settings"
+        onClose={vi.fn()}
+      />,
+    )
+    expect(screen.queryByRole('link', { name: /switch project/ })).not.toBeInTheDocument()
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Project Project 101, switch project' }),
+    )
+    expect(onClick).toHaveBeenCalled()
   })
 
   it('closes from its Close button', async () => {
