@@ -75,3 +75,13 @@ export interface ScopeSlugs {
   project?: string
   workspace?: string
 }
+
+/**
+ * A level something is set at, by slug: the org, a project in it, or a
+ * workspace in that. Keys and variables are both scoped this way.
+ */
+export interface LevelSlugs {
+  level: 'organization' | 'project' | 'workspace'
+  project?: string
+  workspace?: string
+}

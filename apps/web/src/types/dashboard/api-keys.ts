@@ -1,4 +1,5 @@
 import type { WorkspaceRef } from './items'
+import type { LevelSlugs } from './scope'
 
 // Dashboard types for scoped API keys. Web-only until B3 moves them, with the
 // permission catalog, into the package the API checks keys against.
@@ -51,4 +52,19 @@ export interface ProjectKeys {
 export interface WorkspaceKeys {
   own: ApiKey[]
   inherited: ApiKey[]
+}
+
+export type KeyExpiry = '30' | '90' | '365' | 'never'
+
+/** Create an API key: where it reaches, for how long, and what it may do. */
+export interface NewKeyInput extends LevelSlugs {
+  name: string
+  expires: KeyExpiry
+  permissions: KeyPermissions
+}
+
+/** A created key: its record, and the secret, shown this once and never stored. */
+export interface CreatedKey {
+  key: ApiKey
+  secret: string
 }

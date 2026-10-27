@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { mockServer } from '../../mocks/dashboard/server'
+import type { NewKeyInput } from '../../types/dashboard/api-keys'
 import type { ScopeSlugs } from '../../types/dashboard/scope'
 import { dashKeys, invalidateAll, withMockContext } from './keys'
 import { useMockContext } from './scenario-context'
@@ -61,5 +62,20 @@ export function useRevokeOrgKey(org: string) {
   return useMutation({
     mutationFn: (keyId: string) => mockServer.keys.revokeOrgKey(ctx, org, keyId),
     onSuccess: () => invalidateAll(client, [dashKeys.orgKeys(org)]),
+  })
+}
+
+/** Create an API key at any level; the new key shows on its level's page. */
+export function useCreateKey(org: string) {
+  const ctx = useMockContext()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (input: NewKeyInput) => mockServer.keys.createKey(ctx, org, input),
+    onSuccess: () =>
+      invalidateAll(client, [
+        dashKeys.inOrg('keys', org),
+        dashKeys.inOrg('setup', org),
+        dashKeys.orgKeys(org),
+      ]),
   })
 }

@@ -1,4 +1,5 @@
 import type { WorkspaceRef } from './items'
+import type { LevelSlugs } from './scope'
 
 // Dashboard types for variables. Web-only until B4 moves them.
 
@@ -28,4 +29,18 @@ export interface WorkspaceVariable {
   source: { level: VariableLevel; name: string }
   /** The level whose value this one replaces, when it replaces one. */
   overrides: Exclude<VariableLevel, 'workspace'> | null
+}
+
+/** Where a variable is set, by slug. */
+export type VariableScope = LevelSlugs
+
+/** New variable, Edit, or Override. */
+export interface VariableInput {
+  scope: VariableScope
+  name: string
+  /** Empty on an edit of a secret keeps its value. */
+  value: string
+  isSecret: boolean
+  /** `create` refuses a name already set at that scope; `edit` needs it to exist there. */
+  mode: 'create' | 'edit'
 }

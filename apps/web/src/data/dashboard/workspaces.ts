@@ -27,11 +27,17 @@ export function useWorkspacePeople(slugs: Required<ScopeSlugs>) {
   })
 }
 
-export function useWorkspaces(org: string, project: string) {
+/** `enabled: false` holds the request back, e.g. until a dialog that needs it opens. */
+export function useWorkspaces(
+  org: string,
+  project: string,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
   const ctx = useMockContext()
   return useQuery({
     queryKey: withMockContext(dashKeys.workspaces(org, project), ctx),
     queryFn: () => mockServer.workspaces.listWorkspaces(ctx, org, project),
+    enabled,
   })
 }
 

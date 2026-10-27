@@ -224,3 +224,16 @@ export function describeReach(level: KeyLevel, names: ReachNames): string {
       return `Only ${names.workspace}. Shared workflows from other workspaces can be called but not changed.`
   }
 }
+
+/**
+ * Grants `value` holds that `level` doesn't offer ("Workflows & functions:
+ * deploy" on an org key). The API refuses a key with any (B3's rule).
+ */
+export function grantsOutsideLevel(level: KeyLevel, value: KeyPermissions): string[] {
+  const offered = new Map(KEY_CATALOG[level].map((r) => [r.id, r.actions]))
+  return Object.entries(value).flatMap(([resource, actions]) =>
+    (actions ?? [])
+      .filter((action) => !offered.get(resource as KeyResource)?.includes(action))
+      .map((action) => `${resource}: ${action}`),
+  )
+}

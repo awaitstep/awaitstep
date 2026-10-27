@@ -1,10 +1,24 @@
 import type { ScopeSlugs } from '../../../types/dashboard/scope'
-import type { ResolvedVariable, WorkspaceVariable } from '../../../types/dashboard/variables'
+import type {
+  ResolvedVariable,
+  VariableInput,
+  VariableScope,
+  WorkspaceVariable,
+} from '../../../types/dashboard/variables'
 import { getDb, type VariableRow } from '../db'
-import { endpoint, rows } from '../scenario'
+import {
+  type MockContext,
+  conflictError,
+  endpoint,
+  invalidError,
+  mutation,
+  notFoundError,
+  rows,
+} from '../scenario'
 import { workspaceRef } from './item-records'
 import { visibleWorkspaces } from './records'
 import { requireScope } from './resolve'
+import { requireLevel } from './levels'
 
 // Variables as a project resolves them. Creating and editing them is P6.
 
@@ -84,5 +98,61 @@ export const listWorkspaceVariables = endpoint(
     const order = { workspace: 0, project: 1, organization: 2 }
     list.sort((a, b) => order[a.source.level] - order[b.source.level])
     return rows(ctx, list)
+  },
+)
+
+const VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/
+
+/** The scope a variable input names, after checking the viewer may change its variables. */
+function scopeFor(ctx: MockContext, orgSlug: string, scope: VariableScope) {
+  const db = getDb()
+  return { db, target: requireLevel(db, ctx, orgSlug, scope, 'variables').target }
+}
+
+/** New variable / Edit / Override, at the org, a project or a workspace. */
+export const setVariable = mutation((ctx, orgSlug: string, input: VariableInput): void => {
+  const { db, target } = scopeFor(ctx, orgSlug, input.scope)
+  const name = input.name.trim()
+  if (!VARIABLE_NAME.test(name)) {
+    throw invalidError('Use letters, numbers and underscores, not starting with a number', 'name')
+  }
+  const existing = db.variables.find(
+    (v) => v.level === input.scope.level && v.scopeId === target.id && v.name === name,
+  )
+  if (input.mode === 'create' && existing) {
+    throw conflictError(`Already set in ${target.name}. Edit it instead`, 'name')
+  }
+  if (input.mode === 'edit' && !existing) throw notFoundError()
+  if (existing) {
+    // An empty value on a secret keeps the one already stored — but only while
+    // it stays a secret: un-hiding it needs the value typed, or the stored
+    // secret would show to everyone who can see variables.
+    const keeps = input.value === '' && existing.isSecret
+    if (keeps && !input.isSecret) {
+      throw invalidError('Enter the value to stop hiding it', 'value')
+    }
+    if (input.value === '' && !keeps) throw invalidError('Give it a value', 'value')
+    if (!keeps) existing.value = input.value
+    existing.isSecret = input.isSecret
+    return
+  }
+  if (input.value === '') throw invalidError('Give it a value', 'value')
+  db.variables.push({
+    level: input.scope.level,
+    scopeId: target.id,
+    name,
+    value: input.value,
+    isSecret: input.isSecret,
+  })
+})
+
+export const deleteVariable = mutation(
+  (ctx, orgSlug: string, scope: VariableScope, name: string): void => {
+    const { db, target } = scopeFor(ctx, orgSlug, scope)
+    const before = db.variables.length
+    db.variables = db.variables.filter(
+      (v) => !(v.level === scope.level && v.scopeId === target.id && v.name === name),
+    )
+    if (db.variables.length === before) throw notFoundError()
   },
 )
