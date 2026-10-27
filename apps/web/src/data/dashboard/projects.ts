@@ -68,6 +68,7 @@ export function useDeleteProject(org: string, project: string) {
           dashKeys.shared(org, project),
           dashKeys.runs(org, project),
           dashKeys.failing(org),
+          dashKeys.activity(org),
         ],
         { org, project },
       ),

@@ -136,6 +136,7 @@ export function workspaceCounts(db: MockDb, workspace: WorkspaceRow): WorkspaceC
   )
   return {
     workflows: items.filter((i) => i.kind === 'workflow').length,
+    deployed: items.filter((i) => i.kind === 'workflow' && i.status === 'deployed').length,
     functions: items.filter((i) => i.kind === 'script').length,
     sharedOut: items.filter((i) => i.sharing).length,
     runs24h: runs.filter((r) => r.startedAt >= since).length,

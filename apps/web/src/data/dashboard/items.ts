@@ -43,6 +43,7 @@ function itemKeys(slugs: WorkspaceSlugs) {
     dashKeys.workspaces(slugs.org, slugs.project),
     dashKeys.projects(slugs.org),
     dashKeys.failing(slugs.org),
+    dashKeys.activity(slugs.org),
     dashKeys.scope(),
   ]
 }

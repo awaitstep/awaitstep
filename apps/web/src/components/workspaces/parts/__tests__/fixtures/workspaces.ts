@@ -48,7 +48,15 @@ export const SALES = workspace(
   'green',
   'Lead handling and pipeline reports',
   [AMA, DANIEL, PRIYA, TOM],
-  { workflows: 4, functions: 2, sharedOut: 1, runs24h: 40, failing: 1, lastRunAt: minutesAgo(5) },
+  {
+    workflows: 4,
+    deployed: 4,
+    functions: 2,
+    sharedOut: 1,
+    runs24h: 40,
+    failing: 1,
+    lastRunAt: minutesAgo(5),
+  },
 )
 
 export const IT = workspace(
@@ -57,7 +65,15 @@ export const IT = workspace(
   'blue',
   'Accounts, alerts and provisioning',
   [AMA, LENA, TOM],
-  { workflows: 4, functions: 1, sharedOut: 2, runs24h: 12, failing: 0, lastRunAt: minutesAgo(60) },
+  {
+    workflows: 4,
+    deployed: 4,
+    functions: 1,
+    sharedOut: 2,
+    runs24h: 12,
+    failing: 0,
+    lastRunAt: minutesAgo(60),
+  },
 )
 
 export const SUPPORT = workspace(
@@ -66,5 +82,13 @@ export const SUPPORT = workspace(
   'amber',
   'Created today by Ama Mensah',
   [AMA, TOM],
-  { workflows: 0, functions: 0, sharedOut: 0, runs24h: 0, failing: 0, lastRunAt: null },
+  {
+    workflows: 0,
+    deployed: 0,
+    functions: 0,
+    sharedOut: 0,
+    runs24h: 0,
+    failing: 0,
+    lastRunAt: null,
+  },
 )

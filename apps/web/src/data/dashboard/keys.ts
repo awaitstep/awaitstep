@@ -15,6 +15,7 @@ export const dashKeys = {
   orgs: () => ['dash', 'orgs'] as const,
   projects: (org: string) => ['dash', 'projects', org] as const,
   failing: (org: string) => ['dash', 'failing', org] as const,
+  activity: (org: string) => ['dash', 'activity', org] as const,
   scope: () => ['dash', 'scope'] as const,
   scopeOf: (slugs: ScopeSlugs) =>
     ['dash', 'scope', slugs.org, slugs.project ?? null, slugs.workspace ?? null] as const,

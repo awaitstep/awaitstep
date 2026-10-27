@@ -106,12 +106,13 @@ export function workspaceRecord(db: MockDb, project: ProjectRow, row: WorkspaceR
 export function projectRecord(db: MockDb, ctx: MockContext, row: ProjectRow): Project {
   const workspaces = visibleWorkspaces(db, ctx, row)
   const people = new Map<string, Person>()
-  const health = { workflows: 0, failing: 0, lastRunAt: null as string | null }
+  const health = { workflows: 0, deployed: 0, failing: 0, lastRunAt: null as string | null }
   // Hidden workspaces add no people and no health, or the card would reveal them.
   for (const w of workspaces) {
     for (const person of workspacePeople(db, row, w)) people.set(person.id, person)
     const counts = workspaceCounts(db, w)
     health.workflows += counts.workflows
+    health.deployed += counts.deployed
     health.failing += counts.failing
     if (counts.lastRunAt && (!health.lastRunAt || counts.lastRunAt > health.lastRunAt)) {
       health.lastRunAt = counts.lastRunAt

@@ -22,6 +22,8 @@ export interface Workspace {
 
 export interface WorkspaceCounts {
   workflows: number
+  /** Workflows with a deployed version. */
+  deployed: number
   functions: number
   /** Its items shared to the project. */
   sharedOut: number

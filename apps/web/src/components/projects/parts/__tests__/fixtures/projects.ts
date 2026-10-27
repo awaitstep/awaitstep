@@ -48,7 +48,7 @@ export const PROJECT_101 = project('project-101', 'Project 101', 'Sales and IT a
     { id: 'support', slug: 'support', name: 'Support', colour: 'amber' },
   ],
   people: [AMA, DANIEL, LENA, PRIYA, TOM, JONAS],
-  health: { workflows: 8, failing: 1, lastRunAt: minutesAgo(5) },
+  health: { workflows: 8, deployed: 6, failing: 1, lastRunAt: minutesAgo(5) },
 })
 
 export const MARKETING_SITE = project(
@@ -58,12 +58,12 @@ export const MARKETING_SITE = project(
   {
     workspaces: [{ id: 'm-default', slug: 'default', name: 'Default', colour: 'amber' }],
     people: [AMA, LENA, JONAS],
-    health: { workflows: 4, failing: 0, lastRunAt: minutesAgo(180) },
+    health: { workflows: 4, deployed: 4, failing: 0, lastRunAt: minutesAgo(180) },
   },
 )
 
 export const NEW_PROJECT = project('billing', 'Billing', 'Invoices and dunning', {
   workspaces: [{ id: 'b-default', slug: 'default', name: 'Default', colour: 'green' }],
   people: [AMA],
-  health: { workflows: 0, failing: 0, lastRunAt: null },
+  health: { workflows: 0, deployed: 0, failing: 0, lastRunAt: null },
 })

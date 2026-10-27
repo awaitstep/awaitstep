@@ -20,7 +20,7 @@ export interface Project extends ProjectSummary {
   people: Person[]
   lock: LockState
   /** Over the workspaces the viewer can open: "1 failing · 5m ago", "All passing · 3h ago". */
-  health: { workflows: number; failing: number; lastRunAt: string | null }
+  health: { workflows: number; deployed: number; failing: number; lastRunAt: string | null }
 }
 
 export interface NewProjectInput {
