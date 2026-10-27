@@ -20,6 +20,8 @@ export interface RadioCardOption<Value extends string> {
   description?: ReactNode
   /** A dot or icon before the title. Decorative. */
   leading?: ReactNode
+  /** Can't be picked, and why: shown under the description and read with it. */
+  disabledReason?: string
 }
 
 interface RadioCardGroupProps<Value extends string> {
@@ -53,10 +55,23 @@ export function RadioCardGroup<Value extends string>({
     const picked = option.value === value
     const titleId = `${name}-${option.value}-title`
     const descriptionId = `${name}-${option.value}-description`
-    const hasDescription = hasContent(option.description)
+    const disabled = option.disabledReason !== undefined
+    const hasDescription = hasContent(option.description) || disabled
+    const description = disabled ? (
+      <>
+        {option.description} <span className="text-status-warning">{option.disabledReason}</span>
+      </>
+    ) : (
+      option.description
+    )
     const card = (
       <label
-        className={cn(CARD_CLASS, cardTone(picked), grid ? 'flex-col gap-1.5' : 'items-start')}
+        className={cn(
+          CARD_CLASS,
+          cardTone(picked),
+          grid ? 'flex-col gap-1.5' : 'items-start',
+          disabled && 'cursor-not-allowed opacity-60',
+        )}
       >
         <span className="flex items-center gap-2.5">
           <input
@@ -64,6 +79,7 @@ export function RadioCardGroup<Value extends string>({
             name={name}
             value={option.value}
             checked={picked}
+            disabled={disabled}
             onChange={() => onChange(option.value)}
             aria-labelledby={titleId}
             aria-describedby={hasDescription ? descriptionId : undefined}
@@ -79,7 +95,7 @@ export function RadioCardGroup<Value extends string>({
         {grid ? (
           hasDescription && (
             <span id={descriptionId} className="text-2xs text-muted-foreground">
-              {option.description}
+              {description}
             </span>
           )
         ) : (
@@ -92,7 +108,7 @@ export function RadioCardGroup<Value extends string>({
             </span>
             {hasDescription && (
               <span id={descriptionId} className="text-2xs text-muted-foreground">
-                {option.description}
+                {description}
               </span>
             )}
           </span>

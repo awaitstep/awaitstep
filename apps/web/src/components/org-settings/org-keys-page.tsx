@@ -18,13 +18,17 @@ import { KeyTable } from '../keys/parts/key-table'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
 import { OverviewCard } from '../workspaces/parts/overview-card'
 import { useOrgScope } from './use-org-scope'
+import { CreateKeyDialog } from '../keys/create-key-dialog'
 
 interface OrgKeysPageProps {
   org: string
+  /** `?new=key` opens Create an API key at the org level. */
+  createOpen: boolean
+  onCloseCreate: () => void
 }
 
 /** `/{org}/settings/api-keys` (`KeysPage` at org level): keys for automating the org itself. */
-export function OrgKeysPage({ org }: OrgKeysPageProps) {
+export function OrgKeysPage({ org, createOpen, onCloseCreate }: OrgKeysPageProps) {
   const scope = useOrgScope(org)
   const keys = useOrgKeys(org)
   const projects = useProjects(org)
@@ -60,6 +64,9 @@ export function OrgKeysPage({ org }: OrgKeysPageProps) {
   }
 
   const onRevoke = canManage ? handleRevoke : undefined
+  // Project and workspace keys can be made from here too, for the last project you opened.
+  const projectRow = projects.data?.find((p) => p.slug === project)
+  const projectRef = projectRow && { slug: projectRow.slug, name: projectRow.name }
   const links = project
     ? {
         project: {
@@ -129,6 +136,14 @@ export function OrgKeysPage({ org }: OrgKeysPageProps) {
         {revoke.error && !revoking && <Banner tone="warn">{revoke.error.message}</Banner>}
         {body}
       </PageBody>
+      {createOpen && canManage && (
+        <CreateKeyDialog
+          org={{ slug: org, name: scope.org.name }}
+          start="organization"
+          project={projectRef}
+          onClose={onCloseCreate}
+        />
+      )}
       {revoking && (
         <ConfirmDialog
           open

@@ -12,5 +12,14 @@ export const Route = createFileRoute('/_authed/$org/$project/settings/api-keys')
 
 function ProjectApiKeysPage() {
   const slugs = Route.useParams()
-  return <KeysPage slugs={slugs} />
+  const search = Route.useSearch()
+  const navigate = Route.useNavigate()
+
+  function handleCloseDialog() {
+    void navigate({ search: (prev) => ({ ...prev, new: undefined }), replace: true })
+  }
+
+  return (
+    <KeysPage slugs={slugs} createOpen={search.new === 'key'} onCloseCreate={handleCloseDialog} />
+  )
 }

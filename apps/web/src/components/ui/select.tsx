@@ -4,7 +4,7 @@ import { cn } from '../../lib/utils'
 
 type TriggerAttributes = Pick<
   React.ComponentProps<typeof SelectPrimitive.Trigger>,
-  'id' | 'aria-label' | 'aria-describedby' | 'aria-invalid' | 'aria-required'
+  'id' | 'aria-label' | 'aria-describedby' | 'aria-invalid' | 'aria-required' | 'disabled'
 >
 
 interface SelectProps extends TriggerAttributes {

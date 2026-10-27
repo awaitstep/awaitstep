@@ -16,16 +16,29 @@ import { ShellLink } from '../ui/shell-link'
 import { TopBarContent } from '../navigation/top-bar-slot'
 import { lastUsedLabel } from '../keys/parts/key-format'
 import { KeyTable } from '../keys/parts/key-table'
+import { CreateKeyDialog } from '../keys/create-key-dialog'
 
 interface KeysTabProps {
   slugs: WorkspaceSlugs
   scope: WorkspaceScope
+  orgName: string
   projectName: string
   keys: WorkspaceKeys
+  /** `?tab=keys&new=key` opens Create an API key for this workspace. */
+  createOpen: boolean
+  onCloseCreate: () => void
 }
 
 /** Workspace settings → API keys (`Access`): its own keys, then the project keys that reach it. */
-export function KeysTab({ slugs, scope, projectName, keys }: KeysTabProps) {
+export function KeysTab({
+  slugs,
+  scope,
+  orgName,
+  projectName,
+  keys,
+  createOpen,
+  onCloseCreate,
+}: KeysTabProps) {
   const revoke = useRevokeWorkspaceKey(slugs)
   const [revoking, setRevoking] = useState<ApiKey | null>(null)
   const workspace = scope.workspace
@@ -101,6 +114,15 @@ export function KeysTab({ slugs, scope, projectName, keys }: KeysTabProps) {
           framed={false}
         />
       </ScopedSection>
+      {createOpen && canManage && (
+        <CreateKeyDialog
+          org={{ slug: slugs.org, name: orgName }}
+          start="workspace"
+          project={{ slug: slugs.project, name: projectName }}
+          workspace={slugs.workspace}
+          onClose={onCloseCreate}
+        />
+      )}
       {revoking && (
         <ConfirmDialog
           open

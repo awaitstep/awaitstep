@@ -12,5 +12,14 @@ export const Route = createFileRoute('/_authed/$org/settings/api-keys')({
 
 function OrgApiKeysPage() {
   const { org } = Route.useParams()
-  return <OrgKeysPage org={org} />
+  const search = Route.useSearch()
+  const navigate = Route.useNavigate()
+
+  function handleCloseDialog() {
+    void navigate({ search: (prev) => ({ ...prev, new: undefined }), replace: true })
+  }
+
+  return (
+    <OrgKeysPage org={org} createOpen={search.new === 'key'} onCloseCreate={handleCloseDialog} />
+  )
 }

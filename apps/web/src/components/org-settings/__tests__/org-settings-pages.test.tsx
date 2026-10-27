@@ -21,6 +21,8 @@ beforeEach(() => {
   goTo.mockReset()
 })
 
+function noop() {}
+
 const topBar = () => screen.getByRole('banner', { name: 'Top bar' })
 
 function Members({ start = null }: { start?: MembersOverlay }) {
@@ -82,7 +84,7 @@ describe('org General', () => {
 
 describe('org API keys', () => {
   it('lists the org keys at the Org level and revokes one', async () => {
-    renderWithDashboardData(<OrgKeysPage org="acme" />)
+    renderWithDashboardData(<OrgKeysPage org="acme" createOpen={false} onCloseCreate={noop} />)
     await screen.findByText('Terraform')
     const levels = screen.getByRole('list', { name: 'Key levels' })
     const here = within(levels)
@@ -255,7 +257,7 @@ describe('review round (2026-10-27)', () => {
     dashboardDb().keys.find((k) => k.id === 'key_terraform')!.expiresAt = new Date(
       Date.now() - 1000,
     ).toISOString()
-    renderWithDashboardData(<OrgKeysPage org="acme" />)
+    renderWithDashboardData(<OrgKeysPage org="acme" createOpen={false} onCloseCreate={noop} />)
     expect(await screen.findByText('1 active')).toBeVisible()
   })
 

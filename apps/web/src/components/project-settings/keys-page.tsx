@@ -26,9 +26,13 @@ import { KeyTable } from '../keys/parts/key-table'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
 import { OverviewCard } from '../workspaces/parts/overview-card'
 import { useProjectScope } from './use-project-scope'
+import { CreateKeyDialog } from '../keys/create-key-dialog'
 
 interface KeysPageProps {
   slugs: ProjectSlugs
+  /** `?new=key` opens Create an API key. */
+  createOpen: boolean
+  onCloseCreate: () => void
 }
 
 function revokeText(key: ApiKey): string {
@@ -40,7 +44,7 @@ function revokeText(key: ApiKey): string {
  * `/{org}/{project}/settings/api-keys` (`KeysPage`, project level). New API
  * key opens P6's dialog through `?new=key` (D-P3-4); revoking works here.
  */
-export function KeysPage({ slugs }: KeysPageProps) {
+export function KeysPage({ slugs, createOpen, onCloseCreate }: KeysPageProps) {
   const scope = useProjectScope(slugs)
   const keys = useProjectKeys(slugs.org, slugs.project)
   const workspaces = useWorkspaces(slugs.org, slugs.project)
@@ -172,6 +176,14 @@ export function KeysPage({ slugs }: KeysPageProps) {
         <KeyLevelCards current="project" links={links} />
         {body}
       </PageBody>
+      {createOpen && canManage && (
+        <CreateKeyDialog
+          org={{ slug: slugs.org, name: scope.org.org.name }}
+          start="project"
+          project={{ slug: slugs.project, name: project.name }}
+          onClose={onCloseCreate}
+        />
+      )}
       {revoking && (
         <ConfirmDialog
           open
