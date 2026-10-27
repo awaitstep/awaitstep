@@ -1,4 +1,5 @@
-import type { ResolvedVariable } from '../../../types/dashboard/variables'
+import type { ScopeSlugs } from '../../../types/dashboard/scope'
+import type { ResolvedVariable, WorkspaceVariable } from '../../../types/dashboard/variables'
 import { getDb, type VariableRow } from '../db'
 import { endpoint, rows } from '../scenario'
 import { workspaceRef } from './item-records'
@@ -45,6 +46,43 @@ export const listProjectVariables = endpoint(
           )
           .map(workspaceRef),
       }))
+    return rows(ctx, list)
+  },
+)
+
+/**
+ * Workspace settings → Variables: each name once, the closest level winning
+ * (workspace › project › org), with where it's set and what it replaces.
+ */
+export const listWorkspaceVariables = endpoint(
+  (ctx, slugs: Required<ScopeSlugs>): WorkspaceVariable[] => {
+    const db = getDb()
+    const { org, project, workspace } = requireScope(db, ctx, slugs)
+    const levels = [
+      { level: 'workspace' as const, id: workspace!.id, name: workspace!.name },
+      { level: 'project' as const, id: project!.id, name: project!.name },
+      { level: 'organization' as const, id: org.id, name: org.name },
+    ]
+    // One pass: each name's values, closest level first.
+    const byName = new Map<string, { level: (typeof levels)[number]; row: VariableRow }[]>()
+    for (const level of levels) {
+      for (const row of db.variables.filter(
+        (v) => v.level === level.level && v.scopeId === level.id,
+      )) {
+        byName.set(row.name, [...(byName.get(row.name) ?? []), { level, row }])
+      }
+    }
+    const list = [...byName].map(([name, [winner, replaced]]): WorkspaceVariable => ({
+      name,
+      value: winner!.row.isSecret ? null : winner!.row.value,
+      isSecret: winner!.row.isSecret,
+      source: { level: winner!.level.level, name: winner!.level.name },
+      // The winner is the closest level, so what it replaces is never the workspace.
+      overrides: replaced ? (replaced.level.level as 'project' | 'organization') : null,
+    }))
+    // Closest level first, as the board lists them.
+    const order = { workspace: 0, project: 1, organization: 2 }
+    list.sort((a, b) => order[a.source.level] - order[b.source.level])
     return rows(ctx, list)
   },
 )

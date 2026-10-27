@@ -17,7 +17,7 @@ export function useSetLock(target: LockTarget) {
       invalidateAll(client, [
         dashKeys.scope(),
         dashKeys.projects(target.org),
-        dashKeys.workspaces(target.org, target.project),
+        dashKeys.inProject('workspaces', target.org, target.project),
       ]),
   })
 }

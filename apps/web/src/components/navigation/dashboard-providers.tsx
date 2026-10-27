@@ -28,6 +28,8 @@ export interface DashboardSearch {
   variable?: string
   /** With `variable`: `1` overrides an inherited value instead of editing it. */
   override?: string
+  /** Workspace settings: the open tab (`members`, `keys`, `variables`); none = General. */
+  tab?: string
 }
 
 /** Kept from page to page; the dialog params are not, so a dialog doesn't follow you around. */
@@ -46,6 +48,7 @@ export function validateDashboardSearch(search: Record<string, unknown>): Dashbo
     project: pick('project'),
     variable: pick('variable'),
     override: pick('override'),
+    tab: pick('tab'),
   }
 }
 

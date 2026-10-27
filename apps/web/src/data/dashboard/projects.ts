@@ -24,14 +24,14 @@ const projectKeys = (org: string) => [dashKeys.projects(org), dashKeys.orgs(), d
 
 /** Everything read through one project, for a change to its slug, org or existence. */
 const throughProject = (org: string, project: string) => [
-  dashKeys.workspaces(org, project),
+  dashKeys.inProject('workspaces', org, project),
   dashKeys.items(org, project),
   dashKeys.shared(org, project),
   dashKeys.runs(org, project),
   dashKeys.setup(org, project),
-  dashKeys.projectKeys(org, project),
-  dashKeys.projectVariables(org, project),
-  dashKeys.projectMembers(org, project),
+  dashKeys.inProject('keys', org, project),
+  dashKeys.inProject('variables', org, project),
+  dashKeys.inProject('members', org, project),
 ]
 
 /** Creates the project with its Default workspace; resolves to both, so the page can open it. */

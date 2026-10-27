@@ -11,6 +11,7 @@ import {
   projectSettingsPath,
   variableDialogPath,
   workspacePath,
+  workspaceSettingsPath,
 } from '../dashboard-paths'
 
 const SALES = { org: 'acme', project: 'project-101', workspace: 'sales' }
@@ -94,6 +95,19 @@ describe('dialog addresses', () => {
     )
     expect(variableDialogPath(p101, { kind: 'override', name: 'REGION' })).toBe(
       '/acme/project-101/settings/variables?variable=REGION&override=1',
+    )
+  })
+})
+
+describe('workspaceSettingsPath', () => {
+  const sales = { org: 'acme', project: 'project-101', workspace: 'sales' }
+  it('opens General, a tab, or a tab with its New dialog', () => {
+    expect(workspaceSettingsPath(sales)).toBe('/acme/project-101/sales/settings')
+    expect(workspaceSettingsPath(sales, 'members')).toBe(
+      '/acme/project-101/sales/settings?tab=members',
+    )
+    expect(workspaceSettingsPath(sales, 'keys', 'key')).toBe(
+      '/acme/project-101/sales/settings?tab=keys&new=key',
     )
   })
 })

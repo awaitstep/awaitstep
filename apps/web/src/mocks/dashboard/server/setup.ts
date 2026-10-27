@@ -1,6 +1,7 @@
 import type { ProjectSetup } from '../../../types/dashboard/setup'
 import { getDb } from '../db'
 import { endpoint } from '../scenario'
+import { isLive } from './keys'
 import { requireScope } from './resolve'
 
 /** Counts for the empty-project and empty-workspace pages (see `ProjectSetup`). */
@@ -23,10 +24,7 @@ export const getProjectSetup = endpoint(
       projectVariables: own.size,
       // Expired keys stay listed (as "Expired") but no longer reach anything.
       projectKeys: db.keys.filter(
-        (k) =>
-          k.level === 'project' &&
-          k.projectId === project!.id &&
-          (k.expiresAt === null || new Date(k.expiresAt) > new Date()),
+        (k) => k.level === 'project' && k.projectId === project!.id && isLive(k),
       ).length,
     }
   },

@@ -17,3 +17,15 @@ export interface ResolvedVariable {
   setAt: { level: Exclude<VariableLevel, 'workspace'>; name: string }
   overriddenIn: WorkspaceRef[]
 }
+
+/** A variable as a workspace resolves it: the closest level wins (workspace › project › org). */
+export interface WorkspaceVariable {
+  name: string
+  /** Null for a secret. */
+  value: string | null
+  isSecret: boolean
+  /** Where the winning value is set. */
+  source: { level: VariableLevel; name: string }
+  /** The level whose value this one replaces, when it replaces one. */
+  overrides: Exclude<VariableLevel, 'workspace'> | null
+}

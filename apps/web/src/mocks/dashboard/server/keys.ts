@@ -1,11 +1,17 @@
-import type { ApiKey, ProjectKeys } from '../../../types/dashboard/api-keys'
+import type { ApiKey, ProjectKeys, WorkspaceKeys } from '../../../types/dashboard/api-keys'
+import type { ScopeSlugs } from '../../../types/dashboard/scope'
 import { getDb, type KeyRow, type MockDb } from '../db'
 import { endpoint, forbiddenError, mutation, notFoundError, rows } from '../scenario'
 import { workspaceRef } from './item-records'
-import { personById, projectScope, visibleWorkspaces } from './records'
+import { personById, projectScope, visibleWorkspaces, workspaceScope } from './records'
 import { requireScope } from './resolve'
 
 // API keys, listed and revoked. Creating them is P6.
+
+/** Not yet expired: the key still reaches what it was made for. */
+export function isLive(key: KeyRow, now: Date = new Date()): boolean {
+  return key.expiresAt === null || new Date(key.expiresAt) > now
+}
 
 function keyRecord(db: MockDb, row: KeyRow): ApiKey {
   const workspace = row.workspaceId ? db.workspaces.find((w) => w.id === row.workspaceId) : null
@@ -54,6 +60,42 @@ export const revokeProjectKey = mutation(
     if (!can.allowed) throw forbiddenError(can.reason!)
     const key = db.keys.find(
       (k) => k.id === keyId && k.level === 'project' && k.projectId === project!.id,
+    )
+    if (!key) throw notFoundError()
+    db.keys = db.keys.filter((k) => k !== key)
+  },
+)
+
+/** Workspace settings → API keys: its own keys, and the project keys that reach it. */
+export const listWorkspaceKeys = endpoint((ctx, slugs: Required<ScopeSlugs>): WorkspaceKeys => {
+  const db = getDb()
+  const { project, workspace } = requireScope(db, ctx, slugs)
+  const own = db.keys.filter((k) => k.level === 'workspace' && k.workspaceId === workspace!.id)
+  // An expired project key no longer reaches anything, so it isn't listed as reaching this one.
+  const inherited = db.keys.filter(
+    (k) => k.level === 'project' && k.projectId === project!.id && isLive(k),
+  )
+  return {
+    own: rows(
+      ctx,
+      own.map((k) => keyRecord(db, k)),
+    ),
+    inherited: rows(
+      ctx,
+      inherited.map((k) => keyRecord(db, k)),
+    ),
+  }
+})
+
+/** Revokes one of the workspace's own keys. Needs the workspace's manageKeys. */
+export const revokeWorkspaceKey = mutation(
+  (ctx, slugs: Required<ScopeSlugs>, keyId: string): void => {
+    const db = getDb()
+    const { project, workspace } = requireScope(db, ctx, slugs)
+    const can = workspaceScope(db, ctx, project!, workspace!).viewerCan.manageKeys
+    if (!can.allowed) throw forbiddenError(can.reason!)
+    const key = db.keys.find(
+      (k) => k.id === keyId && k.level === 'workspace' && k.workspaceId === workspace!.id,
     )
     if (!key) throw notFoundError()
     db.keys = db.keys.filter((k) => k !== key)

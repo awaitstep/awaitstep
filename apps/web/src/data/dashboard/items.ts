@@ -45,7 +45,7 @@ function itemKeys(slugs: WorkspaceSlugs) {
     dashKeys.items(slugs.org, slugs.project),
     dashKeys.shared(slugs.org, slugs.project),
     dashKeys.runs(slugs.org, slugs.project),
-    dashKeys.workspaces(slugs.org, slugs.project),
+    dashKeys.inProject('workspaces', slugs.org, slugs.project),
     dashKeys.projects(slugs.org),
     dashKeys.failing(slugs.org),
     dashKeys.activity(slugs.org),

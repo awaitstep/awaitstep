@@ -10,6 +10,7 @@ import type { OrgRole } from '../../types/dashboard/session'
 import type { WorkspaceRole } from '../../types/dashboard/workspaces'
 import type { MockDb, ProjectRow, WorkspaceRow } from './db'
 import type { MockContext } from './scenario'
+import { roleAbove } from '../../lib/workspace-roles'
 
 // The role table the dashboard IA agreed (O1, O9). The fake API applies it
 // and hands pages capabilities; it is the spec for the real one (B2).
@@ -21,8 +22,6 @@ import type { MockContext } from './scenario'
 // - Otherwise a person opens only the workspaces they hold a role in.
 // - Viewers read and run; they never edit, deploy or share.
 // - A workspace nobody gave you is not found, never "forbidden".
-
-const ROLE_RANK: Record<WorkspaceRole, number> = { viewer: 0, editor: 1, admin: 2 }
 
 export function orgRoleOf(db: MockDb, ctx: MockContext, orgId: string): OrgRole | null {
   const row = db.orgMembers.find((m) => m.orgId === orgId && m.userId === ctx.userId)
@@ -58,7 +57,7 @@ function realWorkspaceRole(
     (m) => m.workspaceId === workspace.id && m.userId === ctx.userId,
   )?.role
   if (projectRole === 'member') {
-    return grant && ROLE_RANK[grant] > ROLE_RANK.editor ? grant : 'editor'
+    return grant && roleAbove(grant, 'editor') ? grant : 'editor'
   }
   return grant ?? null
 }

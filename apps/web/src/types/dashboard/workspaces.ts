@@ -10,6 +10,15 @@ export interface WorkspacePerson {
   role: WorkspaceRole
   /** The role comes from the project or org ("Project admin"), not the workspace itself. */
   inherited: boolean
+  /** When they last opened the org: "Active 2h ago". */
+  lastActiveAt: string | null
+  /**
+   * The role the project alone gives them (project admin → admin, member →
+   * editor). A grant here only counts above it, and removing the grant leaves it.
+   */
+  projectRole: WorkspaceRole | null
+  /** Org owners and admins open every workspace through the org, not the project. */
+  orgRole: 'owner' | 'admin' | null
 }
 
 export interface Workspace {

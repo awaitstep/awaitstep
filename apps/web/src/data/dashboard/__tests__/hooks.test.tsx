@@ -3,7 +3,8 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { getDb as dashboardDb, resetMockDb } from '../../../mocks/dashboard/db'
-import { useProjectKeys, useRevokeProjectKey } from '../api-keys'
+import { useProjectKeys, useRevokeProjectKey, useWorkspaceKeys } from '../api-keys'
+import { useWorkspaceVariables } from '../variables'
 import { useSetShared, useSharedWithWorkspace, useWorkspaceItems } from '../items'
 import { useSetLock } from '../locks'
 import { useCreateProject, useMoveProject, useProjects } from '../projects'
@@ -177,6 +178,39 @@ describe('dashboard hooks', () => {
     await act(() => result.current.move.mutateAsync('bolt-labs'))
 
     await waitFor(() => expect(result.current.failing.data?.length).toBeGreaterThan(0))
+  })
+
+  it('refreshes a workspace’s variables and keys after it is renamed', async () => {
+    const { wrapper } = setup()
+    const { result } = renderHook(
+      () => ({
+        variables: useWorkspaceVariables(sales),
+        keys: useWorkspaceKeys(sales),
+        rename: useUpdateWorkspace(sales),
+      }),
+      { wrapper },
+    )
+    await waitFor(() => expect(result.current.variables.data?.[0]?.source.name).toBe('Sales'))
+    await waitFor(() => expect(result.current.keys.data?.own[0]?.workspace?.name).toBe('Sales'))
+
+    await act(() => result.current.rename.mutateAsync({ name: 'Sales EU' }))
+
+    await waitFor(() => expect(result.current.variables.data?.[0]?.source.name).toBe('Sales EU'))
+    await waitFor(() => expect(result.current.keys.data?.own[0]?.workspace?.name).toBe('Sales EU'))
+  })
+
+  it('drops a revoked project key from the workspace’s inherited keys', async () => {
+    const { wrapper } = setup()
+    const { result } = renderHook(
+      () => ({
+        keys: useWorkspaceKeys(sales),
+        revoke: useRevokeProjectKey('acme', 'project-101'),
+      }),
+      { wrapper },
+    )
+    await waitFor(() => expect(result.current.keys.data?.inherited).toHaveLength(3))
+    await act(() => result.current.revoke.mutateAsync('key_ci'))
+    await waitFor(() => expect(result.current.keys.data?.inherited).toHaveLength(2))
   })
 
   it('lists a moved project under its new org', async () => {

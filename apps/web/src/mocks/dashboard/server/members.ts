@@ -1,9 +1,14 @@
 import type { ProjectMembers, ProjectWideRole } from '../../../types/dashboard/access'
-import { getDb } from '../db'
+import type { ScopeSlugs } from '../../../types/dashboard/scope'
+import type { WorkspaceRole } from '../../../types/dashboard/workspaces'
+import { getDb, type MockDb, type ProjectRow } from '../db'
+import { grantCounts } from '../../../lib/workspace-roles'
+import { projectGrantedRole } from '../access'
 import type { Person } from '../../../types/dashboard/session'
-import { endpoint, rows } from '../scenario'
+import type { MockContext } from '../scenario'
+import { conflictError, endpoint, forbiddenError, mutation, notFoundError, rows } from '../scenario'
 import { workspaceRef } from './item-records'
-import { personById, visibleWorkspaces } from './records'
+import { personById, visibleWorkspaces, workspaceScope } from './records'
 import { requireScope } from './resolve'
 
 /**
@@ -62,3 +67,70 @@ export const listOrgPeople = endpoint((ctx, orgSlug: string): Person[] => {
     db.orgMembers.filter((m) => m.orgId === org.id).map((m) => personById(db, m.userId)),
   )
 })
+
+type WorkspaceSlugs = Required<ScopeSlugs>
+
+/** The workspace, after checking the viewer may manage its members. */
+function managedWorkspace(ctx: MockContext, slugs: WorkspaceSlugs) {
+  const db = getDb()
+  const { org, project, workspace } = requireScope(db, ctx, slugs)
+  const can = workspaceScope(db, ctx, project!, workspace!).viewerCan.manageMembers
+  if (!can.allowed) throw forbiddenError(can.reason!)
+  return { db, org, project: project!, workspace: workspace! }
+}
+
+/**
+ * Refuses a grant at or below what the project already gives: it would do
+ * nothing now, and quietly keep them in if they later leave the project.
+ */
+function assertAboveProject(
+  db: MockDb,
+  project: ProjectRow,
+  userId: string,
+  role: WorkspaceRole,
+): void {
+  const fromProject = projectGrantedRole(db, { scenario: 'none', userId }, project)
+  if (!grantCounts(role, fromProject)) {
+    throw conflictError(`They already have ${fromProject} access through ${project.name}`)
+  }
+}
+
+/** Add member: someone already in the org gets a role in this workspace. */
+export const addWorkspaceMember = mutation(
+  (ctx, slugs: WorkspaceSlugs, userId: string, role: WorkspaceRole): void => {
+    const { db, org, project, workspace } = managedWorkspace(ctx, slugs)
+    if (!db.orgMembers.some((m) => m.orgId === org.id && m.userId === userId)) {
+      throw conflictError(`They need to join ${org.name} first`)
+    }
+    if (db.workspaceMembers.some((m) => m.workspaceId === workspace.id && m.userId === userId)) {
+      throw conflictError(`Already in ${workspace.name}`)
+    }
+    assertAboveProject(db, project, userId, role)
+    db.workspaceMembers.push({ workspaceId: workspace.id, userId, role })
+  },
+)
+
+/** Change role on someone's own workspace grant (inherited roles change at the project). */
+export const setWorkspaceRole = mutation(
+  (ctx, slugs: WorkspaceSlugs, userId: string, role: WorkspaceRole): void => {
+    const { db, project, workspace } = managedWorkspace(ctx, slugs)
+    const row = db.workspaceMembers.find(
+      (m) => m.workspaceId === workspace.id && m.userId === userId,
+    )
+    if (!row) throw notFoundError()
+    assertAboveProject(db, project, userId, role)
+    row.role = role
+  },
+)
+
+/** Remove from the workspace: drops their own grant here. */
+export const removeWorkspaceMember = mutation(
+  (ctx, slugs: WorkspaceSlugs, userId: string): void => {
+    const { db, workspace } = managedWorkspace(ctx, slugs)
+    const before = db.workspaceMembers.length
+    db.workspaceMembers = db.workspaceMembers.filter(
+      (m) => !(m.workspaceId === workspace.id && m.userId === userId),
+    )
+    if (db.workspaceMembers.length === before) throw notFoundError()
+  },
+)

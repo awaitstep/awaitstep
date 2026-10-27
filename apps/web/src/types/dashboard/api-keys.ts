@@ -46,3 +46,9 @@ export interface ProjectKeys {
   keys: ApiKey[]
   workspaceKeys: { workspace: WorkspaceRef; count: number }[]
 }
+
+/** Workspace settings → API keys: the workspace's own keys, and the project keys that reach it. */
+export interface WorkspaceKeys {
+  own: ApiKey[]
+  inherited: ApiKey[]
+}

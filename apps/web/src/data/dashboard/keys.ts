@@ -11,6 +11,13 @@ type WorkspaceSlugs = Required<ScopeSlugs>
 // project or workspace are shaped [dash, domain, org, project, workspace | null, …]
 // so `readsGoneSlugs` can find them after a delete or a URL change.
 export const dashKeys = {
+  /**
+   * Every query of `domain` that reads through the project: the project's own
+   * (workspace slot null) and each workspace's. Mutations invalidate this, so a
+   * workspace-level list is never missed.
+   */
+  inProject: (domain: ScopedDomain, org: string, project: string) =>
+    ['dash', domain, org, project] as const,
   viewer: () => ['dash', 'viewer'] as const,
   orgs: () => ['dash', 'orgs'] as const,
   projects: (org: string) => ['dash', 'projects', org] as const,
@@ -41,9 +48,12 @@ export const dashKeys = {
   projectMembers: (org: string, project: string) =>
     ['dash', 'members', org, project, null] as const,
   orgPeople: (org: string) => ['dash', 'members', org, null, null] as const,
+  workspaceKeys: (s: WorkspaceSlugs) => ['dash', 'keys', s.org, s.project, s.workspace] as const,
+  workspaceVariables: (s: WorkspaceSlugs) =>
+    ['dash', 'variables', s.org, s.project, s.workspace] as const,
 }
 
-const SCOPED_DOMAINS = new Set([
+const SCOPED = [
   'scope',
   'workspaces',
   'items',
@@ -55,7 +65,11 @@ const SCOPED_DOMAINS = new Set([
   'keys',
   'variables',
   'members',
-])
+] as const
+
+type ScopedDomain = (typeof SCOPED)[number]
+
+const SCOPED_DOMAINS = new Set<string>(SCOPED)
 
 /**
  * Appends the dummy session's scenario and person, so switching either

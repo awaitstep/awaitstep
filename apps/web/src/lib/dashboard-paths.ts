@@ -99,6 +99,26 @@ export function workspacePath(
   return `${projectPath(slugs)}/${segment(slugs.workspace)}/${page}`
 }
 
+export const WORKSPACE_SETTINGS_TABS = ['members', 'keys', 'variables'] as const
+export type WorkspaceSettingsTab = (typeof WORKSPACE_SETTINGS_TABS)[number]
+
+/**
+ * Workspace settings, on a tab (`?tab=`), or General without one; `dialog`
+ * also opens that tab's "New …" dialog (P6 builds them).
+ */
+export function workspaceSettingsPath(
+  slugs: WorkspaceSlugs,
+  tab?: WorkspaceSettingsTab,
+  dialog?: 'key' | 'variable',
+): string {
+  const query = new URLSearchParams({
+    ...(tab && { tab }),
+    ...(dialog && { new: dialog }),
+  }).toString()
+  const path = workspacePath(slugs, 'settings')
+  return query ? `${path}?${query}` : path
+}
+
 /** Your own account, shown in the org you're in so the rail keeps its place. */
 export function accountPath(org: string, page: AccountPage = 'profile'): string {
   return `/${segment(org)}/account/${page}`

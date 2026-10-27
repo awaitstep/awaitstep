@@ -42,6 +42,7 @@ describe('validateDashboardSearch', () => {
       project: undefined,
       variable: undefined,
       override: undefined,
+      tab: undefined,
     })
   })
 
@@ -55,6 +56,7 @@ describe('validateDashboardSearch', () => {
       project: undefined,
       variable: undefined,
       override: undefined,
+      tab: undefined,
     })
   })
 

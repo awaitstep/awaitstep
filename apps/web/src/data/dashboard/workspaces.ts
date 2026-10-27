@@ -36,7 +36,7 @@ export function useWorkspaces(org: string, project: string) {
 }
 
 const workspaceKeys = (org: string, project: string) => [
-  dashKeys.workspaces(org, project),
+  dashKeys.inProject('workspaces', org, project),
   dashKeys.projects(org),
   dashKeys.scope(),
   // A deleted workspace takes its items, runs and shares with it.
@@ -47,9 +47,9 @@ const workspaceKeys = (org: string, project: string) => [
   dashKeys.activity(org),
   // Workspace keys, overrides and grants go with a deleted workspace.
   dashKeys.setup(org, project),
-  dashKeys.projectKeys(org, project),
-  dashKeys.projectVariables(org, project),
-  dashKeys.projectMembers(org, project),
+  dashKeys.inProject('keys', org, project),
+  dashKeys.inProject('variables', org, project),
+  dashKeys.inProject('members', org, project),
 ]
 
 export function useCreateWorkspace(org: string, project: string) {

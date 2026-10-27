@@ -141,13 +141,27 @@ export const listWorkspacePeople = endpoint(
   (ctx, slugs: Required<ScopeSlugs>): WorkspacePerson[] => {
     const db = getDb()
     const { project, workspace } = requireScope(db, ctx, slugs)
+    // One pass over the org's members, joined to each person (B2: one query).
+    const orgRows = new Map(
+      db.orgMembers.filter((m) => m.orgId === project!.orgId).map((m) => [m.userId, m]),
+    )
     return rows(
       ctx,
       workspacePeople(db, project!, workspace!).map((person) => {
         const as = { scenario: 'none' as const, userId: person.id }
         const role = workspaceRoleOf(db, as, project!, workspace!)!
+        const projectRole = projectGrantedRole(db, as, project!)
+        const orgRow = orgRows.get(person.id)
+        const orgRole = orgRow?.role === 'owner' || orgRow?.role === 'admin' ? orgRow.role : null
         // A workspace grant that raises a project member to Admin is the workspace's own.
-        return { person, role, inherited: role === projectGrantedRole(db, as, project!) }
+        return {
+          person,
+          role,
+          inherited: role === projectRole,
+          lastActiveAt: orgRow?.lastOpenedAt ?? null,
+          projectRole,
+          orgRole,
+        }
       }),
     )
   },
