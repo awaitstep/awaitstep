@@ -92,22 +92,25 @@ export function FormField({
 interface FieldGroupProps {
   legend: ReactNode
   hint?: ReactNode
+  /** Takes the hint's place in red and marks the group invalid. */
+  error?: ReactNode
   children: ReactNode
 }
 
 /** A titled group of related controls: swatches, radio cards, checkboxes. */
-export function FieldGroup({ legend, hint, children }: FieldGroupProps) {
-  const hintId = useId()
-  const hasHint = hasContent(hint)
+export function FieldGroup({ legend, hint, error, children }: FieldGroupProps) {
+  const messageId = useId()
+  const message = fieldMessage(hint, error, undefined)
   return (
     <fieldset
-      aria-describedby={hasHint ? hintId : undefined}
+      aria-describedby={message ? messageId : undefined}
+      aria-invalid={hasContent(error) || undefined}
       className="m-0 flex min-w-0 flex-col gap-2.5 border-0 p-0"
     >
       <legend className="mb-2.5 p-0 text-xs font-medium text-foreground/80">{legend}</legend>
-      {hasHint && (
-        <p id={hintId} className="-mt-2.5 text-2xs text-muted-foreground">
-          {hint}
+      {message && (
+        <p id={messageId} className={`-mt-2.5 text-2xs ${MESSAGE_TONE_CLASS[message.tone]}`}>
+          {message.text}
         </p>
       )}
       {children}

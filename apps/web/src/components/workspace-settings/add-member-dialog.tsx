@@ -6,7 +6,8 @@ import type { Person } from '../../types/dashboard/session'
 import type { WorkspaceRole } from '../../types/dashboard/workspaces'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
-import { FormField } from '../ui/form-field'
+import { Banner } from '../ui/banner'
+import { FieldGroup, FormField } from '../ui/form-field'
 import { ModalDialog } from '../ui/modal-dialog'
 import { Select } from '../ui/select'
 import { Tile } from '../ui/tile'
@@ -85,7 +86,8 @@ export function AddMemberDialog({
       }
     >
       <div className="flex flex-col gap-5">
-        <FormField label="Person" error={add.error?.message}>
+        {add.error && <Banner tone="warn">{add.error.message}</Banner>}
+        <FieldGroup legend="Person">
           <span className="flex flex-wrap items-center gap-2">
             {person ? (
               <Badge variant="success" className="gap-1.5 py-1 pr-1">
@@ -103,7 +105,7 @@ export function AddMemberDialog({
               <PersonPicker org={org} exclude={exclude} onPick={handlePick} />
             )}
           </span>
-        </FormField>
+        </FieldGroup>
         <FormField label="Role">
           <Select value={role} onValueChange={handleRole} options={WORKSPACE_ROLE_OPTIONS} />
         </FormField>

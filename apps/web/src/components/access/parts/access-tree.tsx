@@ -26,6 +26,9 @@ const ORG_ROLE_OPTIONS = (['member', 'admin', 'owner'] as const).map((role) => (
   label: ORG_ROLE_LABEL[role],
 }))
 
+// Without owner rights the Owner choice isn't offered (only owners make owners).
+const NON_OWNER_ROLE_OPTIONS = ORG_ROLE_OPTIONS.filter((option) => option.value !== 'owner')
+
 const PROJECT_ROLE_OPTIONS = [
   { value: NO_ROLE, label: 'No project role' },
   ...(['member', 'admin'] as const).map((role) => ({
@@ -53,6 +56,8 @@ interface AccessTreeProps {
   projects: AccessProject[]
   value: AccessDraft
   onChange: (next: AccessDraft) => void
+  /** The viewer is an owner, so Owner can be offered. */
+  canMakeOwner?: boolean
 }
 
 /**
@@ -65,12 +70,14 @@ export function AccessTree({
   projects,
   value,
   onChange,
+  canMakeOwner = true,
 }: AccessTreeProps) {
   const orgLabelId = useId()
   const orgHintId = useId()
   const projectsHeadingId = useId()
   const orgWide = isOrgWide(value)
   const places = describeAccess(value, projects, orgName)
+  const orgRoleOptions = canMakeOwner ? ORG_ROLE_OPTIONS : NON_OWNER_ROLE_OPTIONS
 
   function handleOrgRole(role: string) {
     onChange({ ...value, orgRole: role as OrgRole })
@@ -98,7 +105,7 @@ export function AccessTree({
         <Select
           value={value.orgRole}
           onValueChange={handleOrgRole}
-          options={ORG_ROLE_OPTIONS}
+          options={orgRoleOptions}
           aria-labelledby={orgLabelId}
           aria-describedby={orgHintId}
           className="h-9 w-36"
