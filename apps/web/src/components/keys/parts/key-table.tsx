@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../ui/dropdown-menu'
+import { InheritedMark } from '../../ui/scoped-section'
 import { Tile } from '../../ui/tile'
 import { expiryLabel, lastUsedLabel } from './key-format'
 import { describeGrants } from './key-permissions'
@@ -21,6 +22,8 @@ interface KeyTableProps {
   keys: ApiKey[]
   /** Without it the table is read-only: no Revoke, no menu. */
   onRevoke?: (key: ApiKey) => void
+  /** Keys from a parent scope: the last column reads "Inherited" (workspace settings). */
+  inherited?: boolean
   onCopyPrefix?: (key: ApiKey) => void
   empty?: string
   /** Inside a titled card. */
@@ -49,17 +52,19 @@ export function KeyTable({
   keys,
   onRevoke,
   onCopyPrefix,
+  inherited = false,
   empty = 'No keys yet.',
   framed = true,
   now = new Date(),
 }: KeyTableProps) {
+  const keyTone = inherited ? 'neutral' : 'warn'
   const columns: DataColumn<ApiKey>[] = [
     {
       id: 'key',
       header: 'Key',
       cell: (key) => (
         <span className="flex min-w-0 items-center gap-3">
-          <Tile tone="warn" size="sm">
+          <Tile tone={keyTone} size="sm">
             <KeyRound />
           </Tile>
           <span className="flex min-w-0 flex-col gap-0.5">
@@ -100,7 +105,9 @@ export function KeyTable({
       },
     },
   ]
-  if (onRevoke) {
+  if (inherited) {
+    columns.push({ id: 'inherited', header: '', width: '110px', cell: () => <InheritedMark /> })
+  } else if (onRevoke) {
     columns.push({
       id: 'actions',
       header: 'Actions',

@@ -63,3 +63,21 @@ export function AvatarStack({ people, max = 3 }: AvatarStackProps) {
     </span>
   )
 }
+
+/**
+ * One person's avatar in their steady colour, beside their name in a list row.
+ * Shows the initials the person record carries, as every other surface does.
+ */
+export function PersonAvatar({ person }: { person: Person & { initials: string } }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        'flex size-8 shrink-0 items-center justify-center rounded-full text-2xs font-semibold',
+        WORKSPACE_TILE_CLASS[avatarColour(person.id)],
+      )}
+    >
+      {person.initials}
+    </span>
+  )
+}

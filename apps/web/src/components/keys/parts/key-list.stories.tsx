@@ -78,3 +78,9 @@ export const ReadOnly: Story = {
 export const Empty: Story = {
   render: () => <KeyTable caption="Project keys" keys={[]} empty="No project keys yet." />,
 }
+
+export const Inherited: Story = {
+  render: () => (
+    <KeyTable caption="Project keys that reach Sales" keys={KEYS} inherited now={NOW} />
+  ),
+}

@@ -2,17 +2,15 @@ import { Plus } from 'lucide-react'
 import { useProjectMembers } from '../../data/dashboard/members'
 import { useViewer } from '../../data/dashboard/session'
 import { accessEditorPath, type ProjectSlugs } from '../../lib/dashboard-paths'
-import { cn } from '../../lib/utils'
 import type { ProjectMembers, ProjectWideRole } from '../../types/dashboard/access'
 import type { Person } from '../../types/dashboard/session'
 import type { WorkspaceRole } from '../../types/dashboard/workspaces'
-import { avatarColour } from '../ui/avatar-stack'
+import { PersonAvatar } from '../ui/avatar-stack'
 import { Badge } from '../ui/badge'
 import { buttonVariants } from '../ui/button'
 import { DataTable, type DataColumn } from '../ui/data-table'
 import { ShellLink } from '../ui/shell-link'
 import { ListCardSkeleton, LoadingRegion } from '../ui/skeletons'
-import { WORKSPACE_TILE_CLASS } from '../ui/workspace-colour'
 import { ScopeChip } from '../ui/workspace-dot'
 import { PageBody, PageIntro } from '../shell/page-intro'
 import { TopBarContent } from '../navigation/top-bar-slot'
@@ -43,15 +41,7 @@ interface MembersPageProps {
 function PersonCell({ person, you }: { person: Person; you: boolean }) {
   return (
     <span className="flex min-w-0 items-center gap-3">
-      <span
-        aria-hidden="true"
-        className={cn(
-          'flex size-8 shrink-0 items-center justify-center rounded-full text-2xs font-semibold',
-          WORKSPACE_TILE_CLASS[avatarColour(person.id)],
-        )}
-      >
-        {person.initials}
-      </span>
+      <PersonAvatar person={person} />
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="truncate text-sm font-semibold text-foreground">
           {person.name}
