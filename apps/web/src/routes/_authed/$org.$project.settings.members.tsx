@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
-import { PagePlaceholder } from '../../components/navigation/page-placeholder'
+import { MembersPage } from '../../components/project-settings/members-page'
 
 const page: DashboardPage = { kind: 'project-settings', page: 'members' }
 
@@ -11,5 +11,6 @@ export const Route = createFileRoute('/_authed/$org/$project/settings/members')(
 })
 
 function ProjectMembersPage() {
-  return <PagePlaceholder title="Members" boards="ProjectMembers" step="P3" />
+  const slugs = Route.useParams()
+  return <MembersPage slugs={slugs} />
 }

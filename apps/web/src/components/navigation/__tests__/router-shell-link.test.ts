@@ -38,6 +38,10 @@ describe('validateDashboardSearch', () => {
       as: 'daniel',
       new: undefined,
       then: undefined,
+      access: undefined,
+      project: undefined,
+      variable: undefined,
+      override: undefined,
     })
   })
 
@@ -47,10 +51,25 @@ describe('validateDashboardSearch', () => {
       as: undefined,
       new: undefined,
       then: undefined,
+      access: undefined,
+      project: undefined,
+      variable: undefined,
+      override: undefined,
     })
   })
 
   it('keeps the dialog a switcher asked for', () => {
     expect(validateDashboardSearch({ new: 'project' })).toMatchObject({ new: 'project' })
+  })
+
+  it('keeps the access-editor and variable dialog params', () => {
+    expect(
+      validateDashboardSearch({
+        access: 'add',
+        project: 'project-101',
+        variable: 'REGION',
+        override: '1',
+      }),
+    ).toMatchObject({ access: 'add', project: 'project-101', variable: 'REGION', override: '1' })
   })
 })

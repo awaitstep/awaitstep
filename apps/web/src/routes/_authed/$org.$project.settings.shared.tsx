@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
-import { PagePlaceholder } from '../../components/navigation/page-placeholder'
+import { SharedLibraryPage } from '../../components/project-settings/shared-library-page'
 
 const page: DashboardPage = { kind: 'project-settings', page: 'shared' }
 
@@ -11,5 +11,6 @@ export const Route = createFileRoute('/_authed/$org/$project/settings/shared')({
 })
 
 function ProjectSharedLibraryPage() {
-  return <PagePlaceholder title="Shared library" boards="ProjectShared" step="P3" />
+  const slugs = Route.useParams()
+  return <SharedLibraryPage slugs={slugs} />
 }

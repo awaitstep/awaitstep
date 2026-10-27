@@ -104,6 +104,36 @@ export function accountPath(org: string, page: AccountPage = 'profile'): string 
   return `/${segment(org)}/account/${page}`
 }
 
+/**
+ * The access editor on org Members (built in P5): one person's access, or
+ * adding people to a project.
+ */
+export function accessEditorPath(
+  org: string,
+  target: { userId: string } | { addTo: string },
+): string {
+  const query =
+    'userId' in target
+      ? new URLSearchParams({ access: target.userId })
+      : new URLSearchParams({ access: 'add', project: target.addTo })
+  return `${orgSettingsPath(org, 'members')}?${query}`
+}
+
+/** Project settings → Variables with a variable's dialog open (built in P6). */
+export function variableDialogPath(
+  slugs: ProjectSlugs,
+  dialog: { kind: 'new' } | { kind: 'edit' | 'override'; name: string },
+): string {
+  const query =
+    dialog.kind === 'new'
+      ? new URLSearchParams({ new: 'variable' })
+      : new URLSearchParams({
+          variable: dialog.name,
+          ...(dialog.kind === 'override' && { override: '1' }),
+        })
+  return `${projectSettingsPath(slugs, 'variables')}?${query}`
+}
+
 export function chooseOrgPath(): string {
   return '/choose-org'
 }

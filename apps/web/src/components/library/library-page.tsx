@@ -1,37 +1,15 @@
 import { useState } from 'react'
-import { Boxes, Package, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useWorkspaceLibrary } from '../../data/dashboard/library'
 import type { WorkspaceSlugs } from '../../lib/dashboard-paths'
 import { Button } from '../ui/button'
 import { ListCardSkeleton, LoadingRegion } from '../ui/skeletons'
-import { ModalDialog } from '../ui/modal-dialog'
-import { Tile } from '../ui/tile'
 import { PageBody, PageIntro } from '../shell/page-intro'
-import { DOCS_URL } from '../navigation/nav-model'
 import { TopBarContent } from '../navigation/top-bar-slot'
 import { useWorkspaceScope } from '../workspaces/use-workspace-scope'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
 import { OverviewCard } from '../workspaces/parts/overview-card'
-
-type Explainer = 'module' | 'resource'
-
-const EXPLAINERS: Record<
-  Explainer,
-  { title: string; body: string; tone: 'ok' | 'info'; icon: typeof Package }
-> = {
-  module: {
-    title: 'New module',
-    tone: 'ok',
-    icon: Package,
-    body: 'A module is code your workflows import as #modules/<name>. You publish versions, and each workflow pins the one it uses.',
-  },
-  resource: {
-    title: 'New resource',
-    tone: 'info',
-    icon: Boxes,
-    body: 'A resource is a node you write: it shows in the canvas palette for this workspace, next to the org’s installed nodes.',
-  },
-}
+import { LibraryExplainerDialog, type LibraryExplainer } from './library-explainer-dialog'
 
 interface LibraryPageProps {
   slugs: WorkspaceSlugs
@@ -45,7 +23,7 @@ interface LibraryPageProps {
 export function LibraryPage({ slugs }: LibraryPageProps) {
   const scope = useWorkspaceScope(slugs)
   const library = useWorkspaceLibrary(slugs)
-  const [explainer, setExplainer] = useState<Explainer | null>(null)
+  const [explainer, setExplainer] = useState<LibraryExplainer | null>(null)
 
   if (!scope) return null
   const workspace = scope.workspace.workspace
@@ -58,10 +36,6 @@ export function LibraryPage({ slugs }: LibraryPageProps) {
 
   function handleNewResource() {
     setExplainer('resource')
-  }
-
-  function handleExplainerChange(open: boolean) {
-    if (!open) setExplainer(null)
   }
 
   function handleClose() {
@@ -114,8 +88,6 @@ export function LibraryPage({ slugs }: LibraryPageProps) {
     )
   }
 
-  const shown = explainer ? EXPLAINERS[explainer] : null
-
   return (
     <>
       {!readOnly && (
@@ -136,33 +108,7 @@ export function LibraryPage({ slugs }: LibraryPageProps) {
         />
         {body}
       </PageBody>
-      {shown && (
-        <ModalDialog
-          open
-          onOpenChange={handleExplainerChange}
-          size="sm"
-          leading={
-            <Tile tone={shown.tone} size="lg">
-              <shown.icon />
-            </Tile>
-          }
-          title={shown.title}
-          description="Coming with modules"
-          actions={
-            <Button type="button" onClick={handleClose}>
-              Got it
-            </Button>
-          }
-        >
-          <p className="text-sm leading-relaxed text-foreground/90">{shown.body}</p>
-          <p className="text-xs text-muted-foreground">
-            Creating them arrives with modules.{' '}
-            <a href={DOCS_URL} target="_blank" rel="noreferrer" className="underline">
-              Read about modules in the docs ↗
-            </a>
-          </p>
-        </ModalDialog>
-      )}
+      {explainer && <LibraryExplainerDialog kind={explainer} onClose={handleClose} />}
     </>
   )
 }

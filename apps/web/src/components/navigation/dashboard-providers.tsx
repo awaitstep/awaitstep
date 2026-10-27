@@ -20,16 +20,33 @@ export interface DashboardSearch {
   new?: string
   /** What follows the dialog: `import` after New project (P2 opens Import). */
   then?: string
+  /** Org Members: whose access to edit (a user id), or `add` (P5's access editor). */
+  access?: string
+  /** With `access=add`: the project to add people to. */
+  project?: string
+  /** Variables: the variable to edit (P6's dialog). */
+  variable?: string
+  /** With `variable`: `1` overrides an inherited value instead of editing it. */
+  override?: string
 }
 
-/** Kept from page to page; `new` and `then` are not, so a dialog doesn't follow you around. */
+/** Kept from page to page; the dialog params are not, so a dialog doesn't follow you around. */
 export const DASHBOARD_SEARCH_KEYS = ['mock', 'as'] as const
 
 /** Keeps only the dashboard's own params, as strings. */
 export function validateDashboardSearch(search: Record<string, unknown>): DashboardSearch {
   const pick = (key: keyof DashboardSearch) =>
     typeof search[key] === 'string' ? (search[key] as string) : undefined
-  return { mock: pick('mock'), as: pick('as'), new: pick('new'), then: pick('then') }
+  return {
+    mock: pick('mock'),
+    as: pick('as'),
+    new: pick('new'),
+    then: pick('then'),
+    access: pick('access'),
+    project: pick('project'),
+    variable: pick('variable'),
+    override: pick('override'),
+  }
 }
 
 interface DashboardProvidersProps {

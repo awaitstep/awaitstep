@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  accessEditorPath,
   accountPath,
   chooseOrgPath,
   invitePath,
@@ -8,6 +9,7 @@ import {
   orgSettingsPath,
   projectPath,
   projectSettingsPath,
+  variableDialogPath,
   workspacePath,
 } from '../dashboard-paths'
 
@@ -69,5 +71,29 @@ describe('reserved slugs', () => {
   it('keeps workspaces off the project’s settings path only', () => {
     expect(isReservedSlug('workspace', 'settings')).toBe(true)
     expect(isReservedSlug('workspace', 'workflows')).toBe(false)
+  })
+})
+
+describe('dialog addresses', () => {
+  it('opens the access editor for a person, or for adding people to a project', () => {
+    expect(accessEditorPath('acme', { userId: 'usr_tom' })).toBe(
+      '/acme/settings/members?access=usr_tom',
+    )
+    expect(accessEditorPath('acme', { addTo: 'project-101' })).toBe(
+      '/acme/settings/members?access=add&project=project-101',
+    )
+  })
+
+  it('opens the variable dialogs on project Variables', () => {
+    const p101 = { org: 'acme', project: 'project-101' }
+    expect(variableDialogPath(p101, { kind: 'new' })).toBe(
+      '/acme/project-101/settings/variables?new=variable',
+    )
+    expect(variableDialogPath(p101, { kind: 'edit', name: 'SLACK_TOKEN' })).toBe(
+      '/acme/project-101/settings/variables?variable=SLACK_TOKEN',
+    )
+    expect(variableDialogPath(p101, { kind: 'override', name: 'REGION' })).toBe(
+      '/acme/project-101/settings/variables?variable=REGION&override=1',
+    )
   })
 })
