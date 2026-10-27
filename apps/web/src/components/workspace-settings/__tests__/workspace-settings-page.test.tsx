@@ -8,7 +8,7 @@ import {
   renderWithDashboardData,
   resetDashboardData,
 } from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
-import { WorkspaceSettingsPage, searchForTab, tabFrom } from '../workspace-settings-page'
+import { WorkspaceSettingsPage, tabFrom } from '../workspace-settings-page'
 
 const goTo = vi.fn()
 vi.mock('../../navigation/router-shell-link', () => ({ useGoTo: () => goTo }))
@@ -43,23 +43,6 @@ describe('tabFrom', () => {
     expect(tabFrom('keys')).toBe('keys')
     expect(tabFrom(undefined)).toBe('general')
     expect(tabFrom('nope')).toBe('general')
-  })
-})
-
-describe('searchForTab', () => {
-  it('keeps the dev params and the tab, never a dialog param', () => {
-    expect(searchForTab({ mock: 'viewer', as: 'priya', new: 'key' } as never, 'variables')).toEqual(
-      {
-        mock: 'viewer',
-        as: 'priya',
-        tab: 'variables',
-      },
-    )
-    expect(searchForTab({}, 'general')).toEqual({
-      mock: undefined,
-      as: undefined,
-      tab: undefined,
-    })
   })
 })
 

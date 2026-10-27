@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
+import { searchForTab } from '../../components/navigation/tab-search'
 import {
   WorkspaceSettingsPage,
-  searchForTab,
   tabFrom,
 } from '../../components/workspace-settings/workspace-settings-page'
 import { variableRequestFrom } from '../../components/variables/variable-requests'
@@ -21,7 +21,7 @@ function WorkspaceSettingsRoute() {
   const navigate = Route.useNavigate()
 
   function handleTabChange(tab: string) {
-    void navigate({ search: (prev) => searchForTab(prev, tab), replace: true })
+    void navigate({ search: (prev) => searchForTab(prev, tab, 'general'), replace: true })
   }
 
   function handleCloseDialog() {

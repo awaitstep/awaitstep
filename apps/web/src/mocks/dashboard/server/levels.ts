@@ -1,8 +1,17 @@
-import type { MockDb, OrgRow, ProjectRow, WorkspaceRow } from '../db'
+import { getDb, type MockDb, type OrgRow, type ProjectRow, type WorkspaceRow } from '../db'
 import { type MockContext, forbiddenError, invalidError } from '../scenario'
 import { orgScope, projectScope, workspaceScope } from './records'
 import { requireScope } from './resolve'
 import type { LevelSlugs } from '../../../types/dashboard/scope'
+
+/** The org, after checking the viewer runs it (owner or admin). */
+export function managedOrg(ctx: MockContext, orgSlug: string): { db: MockDb; org: OrgRow } {
+  const db = getDb()
+  const { org } = requireScope(db, ctx, { org: orgSlug })
+  const can = orgScope(db, ctx, org).viewerCan.manageSettings
+  if (!can.allowed) throw forbiddenError(can.reason!)
+  return { db, org }
+}
 
 export type ResolvedLevel =
   | { level: 'organization'; org: OrgRow; target: { id: string; name: string } }

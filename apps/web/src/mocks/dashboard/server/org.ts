@@ -24,6 +24,7 @@ import {
   rows,
 } from '../scenario'
 import { orgRecord, orgScope, personById } from './records'
+import { managedOrg } from './levels'
 import { assertNotReserved, newId, requireScope, slugFrom } from './resolve'
 
 // Org settings: members and their access, invitations, connections, and the
@@ -36,14 +37,6 @@ const ACCOUNT_ID = /^[0-9a-f]{32}$/i
 function orgOf(ctx: MockContext, orgSlug: string) {
   const db = getDb()
   const { org } = requireScope(db, ctx, { org: orgSlug })
-  return { db, org }
-}
-
-/** The org, after checking the viewer runs it (owner or admin). */
-function managedOrg(ctx: MockContext, orgSlug: string) {
-  const { db, org } = orgOf(ctx, orgSlug)
-  const can = orgScope(db, ctx, org).viewerCan.manageSettings
-  if (!can.allowed) throw forbiddenError(can.reason!)
   return { db, org }
 }
 

@@ -12,10 +12,12 @@ interface ListCardProps {
   framed?: boolean
   /** `ListRow`s. */
   children?: ReactNode
+  /** Under the rows, e.g. a `Pager`. */
+  footer?: ReactNode
 }
 
 /** A bordered card of rows: workflows, functions, activity, notifications. */
-export function ListCard({ label, empty, framed = true, children }: ListCardProps) {
+export function ListCard({ label, empty, framed = true, children, footer }: ListCardProps) {
   const isEmpty = Children.toArray(children).length === 0
   return (
     <div className={cn(framed && 'overflow-hidden rounded-2xl border border-border bg-card')}>
@@ -26,6 +28,7 @@ export function ListCard({ label, empty, framed = true, children }: ListCardProp
           {children}
         </ul>
       )}
+      {hasContent(footer) && <div className="border-t border-border">{footer}</div>}
     </div>
   )
 }

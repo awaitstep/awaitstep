@@ -8,8 +8,9 @@ import type {
 import type { ScopeSlugs } from '../../../types/dashboard/scope'
 import { canSeeProject } from '../access'
 import { getDb, type RunRow } from '../db'
-import { endpoint, invalidError, rows } from '../scenario'
+import { endpoint, rows } from '../scenario'
 import { isFailing, runRecord } from './item-records'
+import { pageOf } from './paging'
 import { visibleWorkspaces } from './records'
 import { requireScope } from './resolve'
 
@@ -18,17 +19,7 @@ const PERIOD_MS: Record<RunPeriod, number> = {
   '7d': 7 * 24 * 60 * 60 * 1000,
   '30d': 30 * 24 * 60 * 60 * 1000,
 }
-const DEFAULT_LIMIT = 25
-const MAX_LIMIT = 100
 const RESULTS: RunResult[] = ['succeeded', 'failed', 'running']
-
-/** Cursors are offsets into the filtered list, opaque to callers. */
-function offsetOf(cursor: string | undefined): number {
-  if (cursor === undefined) return 0
-  const offset = Number(cursor)
-  if (!Number.isInteger(offset) || offset < 0) throw invalidError('That page no longer exists')
-  return offset
-}
 
 /**
  * A workspace's runs, newest first: its own workflows' and functions'. Runs
@@ -64,14 +55,8 @@ export const listRuns = endpoint(
     const filtered: RunRow[] = filter.result
       ? matching.filter((r) => r.result === filter.result)
       : matching
-    const limit = Math.min(Math.max(filter.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT)
-    const offset = offsetOf(filter.cursor)
-    const page = filtered.slice(offset, offset + limit)
-    return {
-      data: page.map((r) => runRecord(db, r)),
-      nextCursor: offset + limit < filtered.length ? String(offset + limit) : null,
-      counts,
-    }
+    const { page, nextCursor } = pageOf(filtered, filter)
+    return { data: page.map((r) => runRecord(db, r)), nextCursor, counts }
   },
 )
 
