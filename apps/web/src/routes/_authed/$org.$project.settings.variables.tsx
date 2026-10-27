@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
-import { PagePlaceholder } from '../../components/navigation/page-placeholder'
+import { VariablesPage } from '../../components/project-settings/variables-page'
 
 const page: DashboardPage = { kind: 'project-settings', page: 'variables' }
 
@@ -11,5 +11,6 @@ export const Route = createFileRoute('/_authed/$org/$project/settings/variables'
 })
 
 function ProjectVariablesPage() {
-  return <PagePlaceholder title="Variables" boards="ProjectVariables" step="P3" />
+  const slugs = Route.useParams()
+  return <VariablesPage slugs={slugs} />
 }

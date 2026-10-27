@@ -14,6 +14,8 @@ interface ConfirmDialogProps {
   title: string
   description: ReactNode
   confirmLabel?: string
+  /** The way out, e.g. "Keep key". */
+  cancelLabel?: string
   variant?: ConfirmVariant
   onConfirm: () => void
   /**
@@ -53,6 +55,7 @@ interface ConfirmActionsProps extends ConfirmDialogProps {
 
 function ConfirmActions({
   confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
   variant = 'destructive',
   onConfirm,
   secondaryLabel,
@@ -75,7 +78,7 @@ function ConfirmActions({
     <>
       <AlertDialog.Cancel asChild>
         <Button variant={cancelVariant} size={size}>
-          Cancel
+          {cancelLabel}
         </Button>
       </AlertDialog.Cancel>
       {secondaryLabel && onSecondary && (
