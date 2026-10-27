@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render } from '@testing-library/react'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import { resetMockDb } from '../../../../mocks/dashboard/db'
 import {
   TopBarSlotProvider,
@@ -26,17 +26,21 @@ export function renderWithDashboardData(ui: ReactElement, options: Options = {})
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  const result = render(
-    <QueryClientProvider client={client}>
-      <MockScenarioProvider scenario={options.scenario} userId={options.userId}>
-        <TopBarSlotProvider>
-          <header aria-label="Top bar">
-            <TopBarSlotTarget />
-          </header>
-          {ui}
-        </TopBarSlotProvider>
-      </MockScenarioProvider>
-    </QueryClientProvider>,
-  )
+  // A wrapper, so `rerender` keeps the providers and the cache.
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <QueryClientProvider client={client}>
+        <MockScenarioProvider scenario={options.scenario} userId={options.userId}>
+          <TopBarSlotProvider>
+            <header aria-label="Top bar">
+              <TopBarSlotTarget />
+            </header>
+            {children}
+          </TopBarSlotProvider>
+        </MockScenarioProvider>
+      </QueryClientProvider>
+    )
+  }
+  const result = render(ui, { wrapper: Wrapper })
   return { ...result, client }
 }

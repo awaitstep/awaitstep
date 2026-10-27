@@ -42,6 +42,7 @@ export function orgRecord(db: MockDb, ctx: MockContext, row: OrgRow): OrgSummary
     slug: row.slug,
     name: row.name,
     initial: initial(row.name),
+    logo: row.logo,
     role,
     // Only what the viewer can open: a hidden project must not show up even as a count (O9).
     projectCount: db.projects.filter((p) => p.orgId === row.id && canSeeProject(db, ctx, p)).length,
@@ -140,7 +141,8 @@ export function projectRecord(db: MockDb, ctx: MockContext, row: ProjectRow): Pr
 
 export function orgScope(db: MockDb, ctx: MockContext, row: OrgRow): OrgScope {
   const org = orgRecord(db, ctx, row)
-  return { org, viewerRole: org.role, viewerCan: orgCapabilities(org.role) }
+  const projectsLeft = db.projects.filter((p) => p.orgId === row.id).length
+  return { org, viewerRole: org.role, viewerCan: orgCapabilities(org.role, projectsLeft) }
 }
 
 export function projectScope(db: MockDb, ctx: MockContext, row: ProjectRow): ProjectScope {

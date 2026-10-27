@@ -100,6 +100,8 @@ const no = (reason: string): Allowed => ({ allowed: false, reason })
 
 export const REASONS = {
   orgAdmins: 'Only org owners and admins can do this',
+  orgOwners: 'Only org owners can do this',
+  projectsLeft: (n: number) => (n === 1 ? '1 project still in it' : `${n} projects still in it`),
   projectAdmins: 'Only project admins and org owners can do this',
   workspaceAdmins: 'Only this workspace’s admins can do this',
   needsEditor: 'Building, deploying and sharing need an Editor',
@@ -112,11 +114,18 @@ export const REASONS = {
   lockedBy: (name: string) => `Locked by ${name}`,
 } as const
 
-export function orgCapabilities(role: OrgRole): Capabilities<OrgCapability> {
+/** `projectsLeft`: every project still in the org, seen or not; deleting waits for them. */
+export function orgCapabilities(role: OrgRole, projectsLeft = 0): Capabilities<OrgCapability> {
   const admin = role === 'owner' || role === 'admin'
   return {
     createProject: YES,
     manageSettings: admin ? YES : no(REASONS.orgAdmins),
+    delete:
+      role !== 'owner'
+        ? no(REASONS.orgOwners)
+        : projectsLeft > 0
+          ? no(REASONS.projectsLeft(projectsLeft))
+          : YES,
   }
 }
 

@@ -3,7 +3,7 @@ import type { ScopeSlugs } from '../../../types/dashboard/scope'
 import { getDb, type KeyRow, type MockDb } from '../db'
 import { endpoint, forbiddenError, mutation, notFoundError, rows } from '../scenario'
 import { workspaceRef } from './item-records'
-import { personById, projectScope, visibleWorkspaces, workspaceScope } from './records'
+import { orgScope, personById, projectScope, visibleWorkspaces, workspaceScope } from './records'
 import { requireScope } from './resolve'
 
 // API keys, listed and revoked. Creating them is P6.
@@ -101,3 +101,28 @@ export const revokeWorkspaceKey = mutation(
     db.keys = db.keys.filter((k) => k !== key)
   },
 )
+
+/** Org Settings → API keys. */
+export const listOrgKeys = endpoint((ctx, orgSlug: string): ApiKey[] => {
+  const db = getDb()
+  const { org } = requireScope(db, ctx, { org: orgSlug })
+  return rows(
+    ctx,
+    db.keys
+      .filter((k) => k.level === 'organization' && k.orgId === org.id)
+      .map((k) => keyRecord(db, k)),
+  )
+})
+
+/** Revokes an org key. Needs the org's manageSettings. */
+export const revokeOrgKey = mutation((ctx, orgSlug: string, keyId: string): void => {
+  const db = getDb()
+  const { org } = requireScope(db, ctx, { org: orgSlug })
+  const can = orgScope(db, ctx, org).viewerCan.manageSettings
+  if (!can.allowed) throw forbiddenError(can.reason!)
+  const key = db.keys.find(
+    (k) => k.id === keyId && k.level === 'organization' && k.orgId === org.id,
+  )
+  if (!key) throw notFoundError()
+  db.keys = db.keys.filter((k) => k !== key)
+})

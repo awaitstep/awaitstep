@@ -48,6 +48,13 @@ export const dashKeys = {
   projectMembers: (org: string, project: string) =>
     ['dash', 'members', org, project, null] as const,
   orgPeople: (org: string) => ['dash', 'members', org, null, null] as const,
+  orgMembers: (org: string) => ['dash', 'orgMembers', org] as const,
+  personAccess: (org: string, userId: string) => ['dash', 'orgMembers', org, userId] as const,
+  invitations: (org: string) => ['dash', 'invitations', org] as const,
+  connections: (org: string) => ['dash', 'connections', org] as const,
+  orgKeys: (org: string) => ['dash', 'orgKeys', org] as const,
+  /** Every query of a domain across the org's projects and workspaces. */
+  inOrg: (domain: ScopedDomain, org: string) => ['dash', domain, org] as const,
   workspaceKeys: (s: WorkspaceSlugs) => ['dash', 'keys', s.org, s.project, s.workspace] as const,
   workspaceVariables: (s: WorkspaceSlugs) =>
     ['dash', 'variables', s.org, s.project, s.workspace] as const,
@@ -71,6 +78,9 @@ type ScopedDomain = (typeof SCOPED)[number]
 
 const SCOPED_DOMAINS = new Set<string>(SCOPED)
 
+// Org-level lists, keyed [dash, domain, org]: gone with the org's slug too.
+const ORG_DOMAINS = new Set(['orgMembers', 'invitations', 'connections', 'orgKeys', 'projects'])
+
 /**
  * Appends the dummy session's scenario and person, so switching either
  * refetches instead of serving another state's cache. Goes with the mocks.
@@ -82,7 +92,9 @@ export function withMockContext(key: QueryKey, ctx: MockContext): QueryKey {
 /** Whether a scoped key reads through slugs that no longer exist. */
 function readsGoneSlugs(key: QueryKey, gone: ScopeSlugs): boolean {
   const [, domain, org, project, workspace] = key
-  if (!SCOPED_DOMAINS.has(domain as string) || org !== gone.org) return false
+  if (org !== gone.org) return false
+  if (ORG_DOMAINS.has(domain as string)) return gone.project === undefined
+  if (!SCOPED_DOMAINS.has(domain as string)) return false
   if (gone.project !== undefined && project !== gone.project) return false
   // Project-level keys (workspace slot null) outlive a gone workspace and are refetched.
   if (gone.workspace !== undefined && workspace !== gone.workspace) return false

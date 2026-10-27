@@ -45,3 +45,21 @@ export function useRevokeWorkspaceKey(slugs: Required<ScopeSlugs>) {
     onSuccess: () => invalidateAll(client, [dashKeys.inProject('keys', slugs.org, slugs.project)]),
   })
 }
+
+/** Org Settings → API keys. */
+export function useOrgKeys(org: string) {
+  const ctx = useMockContext()
+  return useQuery({
+    queryKey: withMockContext(dashKeys.orgKeys(org), ctx),
+    queryFn: () => mockServer.keys.listOrgKeys(ctx, org),
+  })
+}
+
+export function useRevokeOrgKey(org: string) {
+  const ctx = useMockContext()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (keyId: string) => mockServer.keys.revokeOrgKey(ctx, org, keyId),
+    onSuccess: () => invalidateAll(client, [dashKeys.orgKeys(org)]),
+  })
+}

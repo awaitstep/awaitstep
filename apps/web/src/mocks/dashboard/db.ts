@@ -21,8 +21,8 @@ export interface OrgRow {
   slug: string
   name: string
   createdAt: string
-  /** Thin until P5 brings connections: whether the org has connected Cloudflare. */
-  cloudflareConnected: boolean
+  /** An uploaded logo (data URL), or null for the initial. */
+  logo: string | null
 }
 
 export interface OrgMemberRow {
@@ -135,6 +135,31 @@ export interface VariableRow {
   isSecret: boolean
 }
 
+/** A pending invitation to an org (P9's invite pages accept it). */
+export interface InvitationRow {
+  id: string
+  orgId: string
+  email: string
+  role: OrgRole
+  places: { projectId: string; workspaceId: string | null; role: ProjectRole | WorkspaceRole }[]
+  sentAt: string
+  invitedBy: string
+}
+
+/** A Cloudflare account an org deploys to. */
+export interface ConnectionRow {
+  id: string
+  orgId: string
+  name: string
+  accountId: string
+  addedBy: string
+  tokenExpiresAt: string | null
+  /** `all`, or project ids. */
+  projects: 'all' | string[]
+  deployments: number
+  lastDeployAt: string | null
+}
+
 export interface MockDb {
   people: Person[]
   orgs: OrgRow[]
@@ -149,11 +174,13 @@ export interface MockDb {
   editRequests: EditRequestRow[]
   keys: KeyRow[]
   variables: VariableRow[]
+  invitations: InvitationRow[]
+  connections: ConnectionRow[]
 }
 
 // Bump when the tables or the seed change, so a tab's saved copy is reseeded
 // instead of read with missing tables.
-const DB_VERSION = 4
+const DB_VERSION = 5
 const STORAGE_KEY = 'awaitstep:dashboard-mock-db'
 
 let current: MockDb | null = null

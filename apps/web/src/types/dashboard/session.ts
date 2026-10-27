@@ -20,6 +20,8 @@ export interface OrgSummary {
   slug: string
   name: string
   initial: string
+  /** An uploaded logo (data URL), shown instead of the initial. */
+  logo: string | null
   role: OrgRole
   projectCount: number
   memberCount: number

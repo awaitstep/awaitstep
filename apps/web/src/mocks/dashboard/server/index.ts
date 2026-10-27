@@ -3,6 +3,7 @@ import * as items from './items'
 import * as keys from './keys'
 import * as locks from './locks'
 import * as members from './members'
+import * as org from './org'
 import * as projects from './projects'
 import * as requests from './requests'
 import * as runs from './runs'
@@ -28,4 +29,5 @@ export const mockServer = {
   keys,
   variables,
   members,
+  org,
 }

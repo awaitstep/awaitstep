@@ -39,6 +39,7 @@ function org(slug: string, name: string, role: OrgSummary['role'], projects: num
     slug,
     name,
     initial: name.charAt(0),
+    logo: null,
     role,
     projectCount: projects,
     memberCount: 2,

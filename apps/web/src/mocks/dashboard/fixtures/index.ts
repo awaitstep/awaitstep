@@ -1,6 +1,7 @@
 import type { MockDb } from '../db'
 import { CALLS, seedItems } from './items'
 import { seedKeys } from './keys'
+import { seedConnections, seedInvitations } from './org-settings'
 import { seedOrgMembers, seedOrgs } from './orgs'
 import { PEOPLE } from './people'
 import { PROJECT_MEMBERS, seedProjects } from './projects'
@@ -24,5 +25,7 @@ export function seedDb(now: Date): MockDb {
     editRequests: [],
     keys: seedKeys(now),
     variables: VARIABLES,
+    invitations: seedInvitations(now),
+    connections: seedConnections(now),
   })
 }

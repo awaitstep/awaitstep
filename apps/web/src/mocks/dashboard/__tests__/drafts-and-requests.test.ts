@@ -173,8 +173,9 @@ describe('project setup counts', () => {
 
   it('starts a new project with nothing of its own', async () => {
     const { project } = await projects.createProject(ama, 'acme', { name: 'Billing' })
+    // Acme's accounts list their projects; none lists the new one yet.
     expect(await setup.getProjectSetup(ama, 'acme', project.slug)).toEqual({
-      cloudflareConnected: true,
+      cloudflareConnected: false,
       orgVariables: 3,
       projectVariables: 0,
       projectKeys: 0,

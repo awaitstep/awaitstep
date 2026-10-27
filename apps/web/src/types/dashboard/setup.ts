@@ -1,10 +1,9 @@
-// Counts for the EmptyProject and EmptyWorkspace boards. Keys and variables
-// are counted from their lists (P3); `cloudflareConnected` stays a thin flag
-// until P5 brings connections.
+// Counts for the EmptyProject and EmptyWorkspace boards, from their lists:
+// keys and variables (P3), connections (P5).
 
 /** What a project has set up and what its workspaces inherit. */
 export interface ProjectSetup {
-  /** The org has connected Cloudflare. */
+  /** A Cloudflare account this project may deploy with, with a working token. */
   cloudflareConnected: boolean
   /** Org variables the project inherits: those it doesn't set itself. */
   orgVariables: number

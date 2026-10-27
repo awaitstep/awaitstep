@@ -8,7 +8,7 @@ export interface Allowed {
   reason?: string
 }
 
-export type OrgCapability = 'createProject' | 'manageSettings'
+export type OrgCapability = 'createProject' | 'manageSettings' | 'delete'
 
 export type ProjectCapability =
   | 'manageSettings'

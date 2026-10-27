@@ -76,7 +76,7 @@ function uniqueSlug(base: string, taken: (slug: string) => boolean): string {
   return slug
 }
 
-type SlugLevel = 'project' | 'workspace'
+type SlugLevel = 'org' | 'project' | 'workspace'
 
 /** A new slug from `base` that no sibling uses and no dashboard page owns. */
 export function availableSlug(

@@ -13,11 +13,10 @@ export function seedOrgs(now: Date): OrgRow[] {
     slug,
     name,
     createdAt: daysAgo(now, ageDays),
-    cloudflareConnected: false,
+    logo: null,
   })
   return [
-    // EmptyProject: "Cloudflare connected".
-    { ...org(ACME, 'acme', 'Acme Inc', 400), cloudflareConnected: true },
+    org(ACME, 'acme', 'Acme Inc', 400),
     org(BOLT, 'bolt-labs', 'Bolt Labs', 200),
     org(GLOBEX, 'globex', 'Globex', 300),
     org(SANDBOX, 'daniels-sandbox', 'Daniel’s sandbox', 90),

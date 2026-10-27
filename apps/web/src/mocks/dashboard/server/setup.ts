@@ -19,7 +19,13 @@ export const getProjectSetup = endpoint(
       (v) => v.level === 'organization' && v.scopeId === org.id && !own.has(v.name),
     )
     return {
-      cloudflareConnected: org.cloudflareConnected,
+      // An account this project may deploy with, whose token still works.
+      cloudflareConnected: db.connections.some(
+        (c) =>
+          c.orgId === org.id &&
+          (c.projects === 'all' || c.projects.includes(project!.id)) &&
+          (c.tokenExpiresAt === null || new Date(c.tokenExpiresAt) > new Date()),
+      ),
       orgVariables: inherited.length,
       projectVariables: own.size,
       // Expired keys stay listed (as "Expired") but no longer reach anything.
