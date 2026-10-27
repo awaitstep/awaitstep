@@ -55,6 +55,10 @@ export const dashKeys = {
   connections: (org: string) => ['dash', 'connections', org] as const,
   orgKeys: (org: string) => ['dash', 'orgKeys', org] as const,
   orgNodes: (org: string) => ['dash', 'orgNodes', org] as const,
+  notifications: (org: string) => ['dash', 'notifications', org] as const,
+  releases: (org: string) => ['dash', 'releases', org] as const,
+  /** What's new in every org: a visit is the person's, so it changes all of them. */
+  allReleases: () => ['dash', 'releases'] as const,
   audit: (org: string, filter: AuditFilter) => ['dash', 'audit', org, filter] as const,
   /** Org-level variables: the project and workspace slots are empty. */
   orgVariables: (org: string) => ['dash', 'variables', org, null, null] as const,
@@ -92,6 +96,8 @@ const ORG_DOMAINS = new Set([
   'projects',
   'orgNodes',
   'audit',
+  'notifications',
+  'releases',
 ])
 
 /**

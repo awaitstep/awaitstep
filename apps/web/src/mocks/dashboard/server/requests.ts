@@ -2,7 +2,7 @@ import type { EditRequest } from '../../../types/dashboard/access'
 import type { ScopeSlugs } from '../../../types/dashboard/scope'
 import { workspaceRoleOf } from '../access'
 import { getDb, type EditRequestRow, type MockDb } from '../db'
-import { frameEndpoint, invalidError, mutation } from '../scenario'
+import { type MockContext, frameEndpoint, invalidError, mutation } from '../scenario'
 import { personById, workspacePeople, workspaceScope } from './records'
 import { newId, requireScope } from './resolve'
 
@@ -19,16 +19,22 @@ function requestRecord(db: MockDb, row: EditRequestRow): EditRequest {
   }
 }
 
+/** The viewer's request for this workspace still waiting on an answer. */
+function pendingRequest(db: MockDb, ctx: MockContext, workspaceId: string) {
+  return db.editRequests.find(
+    (r) => r.workspaceId === workspaceId && r.userId === ctx.userId && r.status === 'pending',
+  )
+}
+
 /**
  * The viewer's open edit-access request for this workspace, if any. Part of
- * the frame: the top bar's "Asked …" shows while the lists load.
+ * the frame: the top bar's "Asked …" shows while the lists load. A declined
+ * one isn't open: they may ask again.
  */
 export const getEditRequest = frameEndpoint((ctx, slugs: WorkspaceSlugs): EditRequest | null => {
   const db = getDb()
   const { workspace } = requireScope(db, ctx, slugs)
-  const row = db.editRequests.find(
-    (r) => r.workspaceId === workspace!.id && r.userId === ctx.userId,
-  )
+  const row = pendingRequest(db, ctx, workspace!.id)
   return row ? requestRecord(db, row) : null
 })
 
@@ -39,9 +45,7 @@ export const requestEditAccess = mutation((ctx, slugs: WorkspaceSlugs): EditRequ
   if (workspaceScope(db, ctx, project!, workspace!).viewerRole !== 'viewer') {
     throw invalidError('You can already edit in this workspace')
   }
-  const existing = db.editRequests.find(
-    (r) => r.workspaceId === workspace!.id && r.userId === ctx.userId,
-  )
+  const existing = pendingRequest(db, ctx, workspace!.id)
   if (existing) return requestRecord(db, existing)
   const admin = workspacePeople(db, project!, workspace!).find(
     (person) =>
@@ -56,6 +60,7 @@ export const requestEditAccess = mutation((ctx, slugs: WorkspaceSlugs): EditRequ
     userId: ctx.userId,
     toUserId: admin.id,
     at: new Date().toISOString(),
+    status: 'pending',
   }
   db.editRequests.push(row)
   return requestRecord(db, row)

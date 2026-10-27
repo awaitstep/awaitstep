@@ -8,6 +8,9 @@ import { useWorkspaceVariables } from '../variables'
 import { useSetShared, useSharedWithWorkspace, useWorkspaceItems } from '../items'
 import { useSetLock } from '../locks'
 import { useCreateProject, useMoveProject, useProjects } from '../projects'
+import { useDecideEditRequest, useNotifications } from '../inbox'
+import { useOrgMembers } from '../org-settings'
+import { useRequestEditAccess } from '../requests'
 import { useResetMockData } from '../reset'
 import { useProjectSetup } from '../setup'
 import { useFailingNow, useWorkspaceRuns } from '../runs'
@@ -278,5 +281,44 @@ describe('URL parsing for the dummy session', () => {
     expect(parseMockUser('Tomás')).toBe('usr_tomas')
     expect(parseMockUser('nobody')).toBe('usr_ama')
     expect(parseMockUser(3)).toBe('usr_ama')
+  })
+
+  it('puts a new edit request in the asked admin’s Inbox, even one already loaded', async () => {
+    // One client for the tab: switching ?as= from Priya to Ama reuses the cache.
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const as = (userId: string) =>
+      function Wrapper({ children }: { children: ReactNode }) {
+        return (
+          <QueryClientProvider client={client}>
+            <MockScenarioProvider userId={userId}>{children}</MockScenarioProvider>
+          </QueryClientProvider>
+        )
+      }
+    dashboardDb().editRequests = []
+    const inbox = renderHook(() => useNotifications('acme'), { wrapper: as('usr_ama') })
+    await waitFor(() => expect(inbox.result.current.data).toBeDefined())
+    const ask = renderHook(() => useRequestEditAccess(sales), { wrapper: as('usr_priya') })
+    await act(() => ask.result.current.mutateAsync())
+    await waitFor(() =>
+      expect(inbox.result.current.data!.some((n) => n.kind === 'request')).toBe(true),
+    )
+  })
+
+  it('shows an approved asker’s new role on org Members', async () => {
+    const { wrapper } = setup()
+    const members = renderHook(() => useOrgMembers('acme'), { wrapper })
+    await waitFor(() => expect(members.result.current.data).toBeDefined())
+    const before = JSON.stringify(
+      members.result.current.data!.find((m) => m.person.id === 'usr_priya'),
+    )
+    const decide = renderHook(() => useDecideEditRequest('acme'), { wrapper })
+    await act(() =>
+      decide.result.current.mutateAsync({ id: 'req_priya_sales', decision: 'approve' }),
+    )
+    await waitFor(() =>
+      expect(
+        JSON.stringify(members.result.current.data!.find((m) => m.person.id === 'usr_priya')),
+      ).not.toBe(before),
+    )
   })
 })

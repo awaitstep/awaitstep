@@ -1,7 +1,9 @@
 import type { WorkspaceColour } from '../../components/ui/workspace-colour'
 import type { AuditKind, AuditLevel } from '../../types/dashboard/audit'
 import type { KeyLevel, KeyPermissions } from '../../types/dashboard/api-keys'
+import type { NotificationKind } from '../../types/dashboard/inbox'
 import type { FunctionTraffic, ItemKind } from '../../types/dashboard/items'
+import type { OrgSettingsPage, ProjectSettingsPage, WorkspacePage } from '../../lib/dashboard-paths'
 import type { RunResult, RunTrigger } from '../../types/dashboard/runs'
 import type { ProjectRole } from '../../types/dashboard/projects'
 import type { NodeSource } from '../../types/dashboard/resources'
@@ -103,12 +105,51 @@ export interface CallRow {
   itemId: string
 }
 
-/** A Viewer's ask for edit access; P8's Inbox approves or declines it. */
+/** A Viewer's ask for edit access; the Inbox approves or declines it. */
 export interface EditRequestRow {
   id: string
   workspaceId: string
   userId: string
   toUserId: string
+  at: string
+  /** A declined request stays for the outcome line; the person may ask again. */
+  status: 'pending' | 'approved' | 'declined'
+  /** Approved when they could already edit (raised meanwhile): nothing was granted. */
+  alreadyEditing?: boolean
+}
+
+/** Where a notification's link goes, by id, so renames don't break it. */
+export type NotificationTarget =
+  | { kind: 'workspace'; workspaceId: string; page: WorkspacePage }
+  | { kind: 'project-settings'; projectId: string; page: ProjectSettingsPage }
+  | { kind: 'org-settings'; page: OrgSettingsPage }
+
+/** A sample notification (failures, expiring keys, people, deploys); requests come from `editRequests`. */
+export interface NotificationRow {
+  id: string
+  orgId: string
+  userId: string
+  kind: Exclude<NotificationKind, 'request'>
+  title: string
+  /** Where it happened: the org, a project, or a workspace. */
+  projectId: string | null
+  workspaceId: string | null
+  /** After the place: "Connections" in "Acme Inc · Connections". */
+  whereDetail: string | null
+  at: string
+  needsAction: boolean
+  link: { label: string; to: NotificationTarget } | null
+}
+
+/** A notification someone has read (an edit request's id for request rows). */
+export interface NotificationReadRow {
+  userId: string
+  notificationId: string
+}
+
+/** When someone last closed What's new. */
+export interface ReleaseVisitRow {
+  userId: string
   at: string
 }
 
@@ -212,11 +253,14 @@ export interface MockDb {
   connections: ConnectionRow[]
   nodes: NodeRow[]
   audit: AuditRow[]
+  notifications: NotificationRow[]
+  notificationReads: NotificationReadRow[]
+  releaseVisits: ReleaseVisitRow[]
 }
 
 // Bump when the tables or the seed change, so a tab's saved copy is reseeded
 // instead of read with missing tables.
-const DB_VERSION = 6
+const DB_VERSION = 7
 const STORAGE_KEY = 'awaitstep:dashboard-mock-db'
 
 let current: MockDb | null = null

@@ -1,5 +1,6 @@
 import type { MockDb } from '../db'
 import { seedAudit } from './audit'
+import { NOTIFICATION_READS, RELEASE_VISITS, seedEditRequests, seedNotifications } from './inbox'
 import { CALLS, seedItems } from './items'
 import { seedKeys } from './keys'
 import { seedConnections, seedInvitations } from './org-settings'
@@ -25,12 +26,15 @@ export function seedDb(now: Date): MockDb {
     items: seedItems(now),
     runs: seedRuns(now),
     calls: CALLS,
-    editRequests: [],
+    editRequests: seedEditRequests(now),
     keys: seedKeys(now),
     variables: VARIABLES,
     invitations: seedInvitations(now),
     connections: seedConnections(now),
     nodes: seedNodes(orgs.map((o) => o.id)),
     audit: seedAudit(now),
+    notifications: seedNotifications(now),
+    notificationReads: NOTIFICATION_READS,
+    releaseVisits: RELEASE_VISITS,
   })
 }

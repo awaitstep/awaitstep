@@ -28,11 +28,17 @@ export type ReleaseTag = 'new' | 'improved' | 'fixed'
 export interface Release {
   id: string
   tag: ReleaseTag
-  /** ISO date it shipped. */
+  /** ISO time it shipped. */
   date: string
   title: string
   body: string
   link: { label: string; href: string }
   /** Shipped since the viewer last opened What's new. */
   fresh: boolean
+}
+
+/** What's new: every release, and when the viewer last looked (null: never). */
+export interface ReleaseFeed {
+  releases: Release[]
+  lastVisit: string | null
 }

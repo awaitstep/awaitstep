@@ -15,12 +15,13 @@ export function useEditRequest(slugs: WorkspaceSlugs) {
   })
 }
 
-/** A Viewer's "Ask for edit access". Asking again returns the open request. */
+/** A Viewer's "Ask for edit access". Asking again returns the open request. It lands in an Inbox. */
 export function useRequestEditAccess(slugs: WorkspaceSlugs) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
     mutationFn: () => mockServer.requests.requestEditAccess(ctx, slugs),
-    onSuccess: () => invalidateAll(client, [dashKeys.editRequest(slugs)]),
+    onSuccess: () =>
+      invalidateAll(client, [dashKeys.editRequest(slugs), dashKeys.notifications(slugs.org)]),
   })
 }

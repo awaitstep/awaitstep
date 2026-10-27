@@ -106,6 +106,8 @@ describe('import', () => {
 
 describe('ask for edit access', () => {
   it('sends a Viewer’s request to the workspace’s first admin, once, and keeps it', async () => {
+    // Start without the Inbox board's request from her.
+    getDb().editRequests = []
     expect(await requests.getEditRequest(priya, sales)).toBeNull()
     const request = await requests.requestEditAccess(priya, sales)
     expect(request).toMatchObject({
@@ -138,7 +140,7 @@ describe('ask for edit access', () => {
     await requests.requestEditAccess(as(AMA, 'viewer'), support)
     await locks.setLock(ama, { level: 'project', org: 'acme', project: 'project-101' }, false)
     await workspaces.deleteWorkspace(ama, support)
-    expect(getDb().editRequests).toHaveLength(0)
+    expect(getDb().editRequests.map((r) => r.workspaceId)).toEqual(['ws_sales'])
   })
 })
 
