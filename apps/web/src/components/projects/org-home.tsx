@@ -83,7 +83,7 @@ export function OrgHome({
         </div>
         {newProjectButton}
       </TopBarContent>
-      <PageBody width="full">
+      <PageBody>
         <PageIntro
           title="Projects"
           description={`Everything in ${org.name}. Open a project to work in one of its workspaces.`}

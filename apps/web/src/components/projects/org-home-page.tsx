@@ -20,7 +20,7 @@ interface OrgHomePageProps {
 
 function OrgHomeSkeleton() {
   return (
-    <PageBody width="full">
+    <PageBody>
       <LoadingRegion label="Loading projects">
         <div className="flex flex-wrap items-end gap-5">
           <Bone className="h-8 w-40" />

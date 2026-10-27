@@ -76,21 +76,16 @@ describe('PageIntro', () => {
     expect(screen.getByText('3 Projects')).toBeInTheDocument()
   })
 
-  it('caps the page column at screen-xl and centres it, so wide screens don’t leave a gap on one side', () => {
+  it('fills the main column on every page, with no width cap, as the boards draw it', () => {
     render(
-      <PageBody>
-        <p>Body</p>
-      </PageBody>,
+      <AppShell rail={<nav>Rail</nav>}>
+        <PageBody>
+          <p>Body</p>
+        </PageBody>
+      </AppShell>,
     )
-    expect(screen.getByText('Body').parentElement).toHaveClass('mx-auto', 'max-w-screen-xl')
-  })
-
-  it('lets the org home fill the column', () => {
-    render(
-      <PageBody width="full">
-        <p>Body</p>
-      </PageBody>,
-    )
-    expect(screen.getByText('Body').parentElement).not.toHaveClass('max-w-screen-xl')
+    const column = screen.getByText('Body').parentElement!
+    expect(column).toHaveClass('w-full')
+    expect(column.className).not.toMatch(/max-w-|mx-auto/)
   })
 })

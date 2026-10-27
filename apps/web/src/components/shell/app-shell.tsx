@@ -5,7 +5,7 @@ import { hasContent } from '../ui/has-content'
 interface AppShellProps {
   /** The `OrgRail`. */
   rail: ReactNode
-  /** The `ContextPanel`. Omit it on org pages (Resources, Audit log), which use the full width. */
+  /** The `ContextPanel`. Omit it on org and account pages. */
   panel?: ReactNode
   /** Below `md`: the `MobileHeader` that replaces the panel and `TopBar`. */
   mobileHeader?: ReactNode

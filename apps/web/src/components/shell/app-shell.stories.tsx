@@ -71,7 +71,7 @@ export const ProjectGeneral: Story = {
         ]}
         actions={<Button size="sm">Save changes</Button>}
       />
-      <PageBody width="narrow">
+      <PageBody>
         <PageIntro
           title="General"
           description="Project 101's name and address, and the actions that can't be undone."

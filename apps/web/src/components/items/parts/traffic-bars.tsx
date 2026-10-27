@@ -19,7 +19,7 @@ export function TrafficBars({ buckets }: TrafficBarsProps) {
       {buckets.map((count, i) => (
         <span
           key={i}
-          className="flex-1 rounded-[2px] bg-status-info"
+          className="flex-1 rounded-[2px] bg-status-success/60"
           style={{ height: Math.max(MIN_PX, Math.round((count / peak) * MAX_PX)) }}
         />
       ))}

@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { cn } from '../../lib/utils'
 import { hasContent } from '../ui/has-content'
 
 interface PageIntroProps {
@@ -31,26 +30,11 @@ export function PageIntro({ title, description, aside, action }: PageIntroProps)
   )
 }
 
-const PAGE_BODY_WIDTH = {
-  wide: 'max-w-screen-xl',
-  narrow: 'max-w-3xl',
-  /** No cap: the org home fills the column, as the `Main` board draws it. */
-  full: '',
-} as const
-
 interface PageBodyProps {
-  /** `wide` for lists and dashboards; `narrow` for settings forms; `full` for the org home. */
-  width?: keyof typeof PAGE_BODY_WIDTH
   children: ReactNode
 }
 
-/** The padded, width-capped column under the top bar, centred like the old app's pages. */
-export function PageBody({ width = 'wide', children }: PageBodyProps) {
-  return (
-    <div
-      className={cn('mx-auto flex w-full flex-col gap-8 px-6 py-8 md:px-8', PAGE_BODY_WIDTH[width])}
-    >
-      {children}
-    </div>
-  )
+/** The padded column under the top bar. It fills the main column on every page, as the boards do. */
+export function PageBody({ children }: PageBodyProps) {
+  return <div className="flex w-full flex-col gap-8 px-6 py-8 md:px-8">{children}</div>
 }
