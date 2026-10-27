@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { Workflow } from 'lucide-react'
 import { ActionCard } from '../action-card'
 import { EmptyState } from '../empty-state'
@@ -93,6 +94,43 @@ describe('ActionCard', () => {
     const dashed = screen.getByRole('link', { name: 'New project' })
     expect(dashed).toHaveClass('border-dashed', 'bg-transparent')
     expect(dashed).not.toHaveClass('bg-card')
+  })
+})
+
+describe('ActionCard as a button', () => {
+  it('is one button named by its title when given onSelect instead of href', async () => {
+    const onSelect = vi.fn()
+    render(
+      <ActionCard
+        onSelect={onSelect}
+        icon={Workflow}
+        tone="ok"
+        title="New workflow"
+        description="Durable steps that retry, wait and resume"
+        cta="Start building"
+      />,
+    )
+    const button = screen.getByRole('button', { name: 'New workflow' })
+    expect(button).toHaveAttribute('type', 'button')
+    expect(button).toHaveAccessibleDescription('Durable steps that retry, wait and resume')
+    await userEvent.click(button)
+    expect(onSelect).toHaveBeenCalledOnce()
+  })
+
+  it('ignores clicks while disabled', async () => {
+    const onSelect = vi.fn()
+    render(
+      <ActionCard
+        onSelect={onSelect}
+        disabled
+        icon={Workflow}
+        tone="ok"
+        title="New workflow"
+        description="d"
+      />,
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'New workflow' }))
+    expect(onSelect).not.toHaveBeenCalled()
   })
 })
 

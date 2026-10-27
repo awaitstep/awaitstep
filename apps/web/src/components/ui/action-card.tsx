@@ -14,7 +14,11 @@ const CTA_TONE_CLASS: Record<ActionCardTone, string> = {
 }
 
 interface ActionCardProps {
-  href: string
+  /** Where the card leads. Give `onSelect` instead for an action, e.g. "New workflow". */
+  href?: string
+  onSelect?: () => void
+  /** With `onSelect`: while the action runs, so a second click doesn't repeat it. */
+  disabled?: boolean
   icon: LucideIcon
   tone: ActionCardTone
   title: string
@@ -29,9 +33,11 @@ interface ActionCardProps {
   variant?: 'solid' | 'dashed'
 }
 
-/** A whole-card link to the next thing to do in a new org, project or workspace. */
+/** A whole-card link (or, with `onSelect`, a button) to the next thing to do in a new org, project or workspace. */
 export function ActionCard({
   href,
+  onSelect,
+  disabled,
   icon: Icon,
   tone,
   title,
@@ -43,20 +49,16 @@ export function ActionCard({
 }: ActionCardProps) {
   const titleId = useId()
   const descriptionId = useId()
-  return (
-    <ShellLink
-      href={href}
-      aria-labelledby={titleId}
-      aria-describedby={descriptionId}
-      className={cn(
-        'flex flex-col gap-3 rounded-2xl border p-5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        // The "New …" tile: unfilled, its content centred, as the boards draw it.
-        variant === 'dashed'
-          ? 'min-h-[200px] items-center justify-center border-dashed bg-transparent text-center'
-          : 'bg-card',
-        highlighted ? 'border-primary shadow-lg' : 'border-border hover:border-foreground/20',
-      )}
-    >
+  const className = cn(
+    'flex flex-col gap-3 rounded-2xl border p-5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+    // The "New …" tile: unfilled, its content centred, as the boards draw it.
+    variant === 'dashed'
+      ? 'min-h-[200px] items-center justify-center border-dashed bg-transparent text-center'
+      : 'bg-card',
+    highlighted ? 'border-primary shadow-lg' : 'border-border hover:border-foreground/20',
+  )
+  const content = (
+    <>
       <span className="flex items-center justify-between gap-2">
         <Tile tone={tone}>
           <Icon />
@@ -83,6 +85,25 @@ export function ActionCard({
           <ArrowRight className="size-3.5" />
         </span>
       )}
+    </>
+  )
+  const labelling = { 'aria-labelledby': titleId, 'aria-describedby': descriptionId }
+  if (href === undefined) {
+    return (
+      <button
+        type="button"
+        onClick={onSelect}
+        disabled={disabled}
+        className={cn(className, 'disabled:cursor-wait disabled:opacity-70')}
+        {...labelling}
+      >
+        {content}
+      </button>
+    )
+  }
+  return (
+    <ShellLink href={href} className={className} {...labelling}>
+      {content}
     </ShellLink>
   )
 }

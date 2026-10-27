@@ -1,15 +1,16 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
-import { PagePlaceholder } from '../../components/navigation/page-placeholder'
+import { WorkspaceOverviewPage } from '../../components/workspaces/workspace-overview-page'
 
 const page: DashboardPage = { kind: 'workspace', page: 'overview' }
 
 export const Route = createFileRoute('/_authed/$org/$project/$workspace/overview')({
   staticData: { dashboardPage: page },
   head: () => pageHead(page),
-  component: OverviewPage,
+  component: OverviewRoute,
 })
 
-function OverviewPage() {
-  return <PagePlaceholder title="Overview" boards="WsOverview" step="P2" />
+function OverviewRoute() {
+  const slugs = Route.useParams()
+  return <WorkspaceOverviewPage slugs={slugs} />
 }
