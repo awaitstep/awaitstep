@@ -41,13 +41,20 @@ describe('validateDashboardSearch', () => {
       access: undefined,
       project: undefined,
       variable: undefined,
-      override: undefined,
       tab: undefined,
     })
   })
 
-  it('drops other params and anything that isn’t a string', () => {
-    expect(validateDashboardSearch({ mock: 3, as: ['x'], new: 1, page: '2' })).toEqual({
+  it('reads numbers and booleans back as the text they were written as', () => {
+    // The router JSON-parses `?override=1` and `?variable=true`.
+    expect(validateDashboardSearch({ tab: 1, variable: true })).toMatchObject({
+      tab: '1',
+      variable: 'true',
+    })
+  })
+
+  it('drops other params and anything that isn’t text, a number or a boolean', () => {
+    expect(validateDashboardSearch({ mock: { a: 1 }, as: ['x'], new: null, page: '2' })).toEqual({
       mock: undefined,
       as: undefined,
       new: undefined,
@@ -55,7 +62,6 @@ describe('validateDashboardSearch', () => {
       access: undefined,
       project: undefined,
       variable: undefined,
-      override: undefined,
       tab: undefined,
     })
   })
@@ -70,8 +76,7 @@ describe('validateDashboardSearch', () => {
         access: 'add',
         project: 'project-101',
         variable: 'REGION',
-        override: '1',
       }),
-    ).toMatchObject({ access: 'add', project: 'project-101', variable: 'REGION', override: '1' })
+    ).toMatchObject({ access: 'add', project: 'project-101', variable: 'REGION' })
   })
 })

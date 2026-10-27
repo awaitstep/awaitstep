@@ -10,6 +10,7 @@ import { KeysPage } from '../keys-page'
 import { VariablesPage } from '../variables-page'
 
 const p101 = { org: 'acme', project: 'project-101' }
+function noop() {}
 
 beforeEach(() => {
   resetDashboardData(new Date())
@@ -21,7 +22,7 @@ const topBar = () => screen.getByRole('banner', { name: 'Top bar' })
 
 describe('project API keys', () => {
   it('reads as KeysPage: level cards, the project keys, workspace key counts', async () => {
-    renderWithDashboardData(<KeysPage slugs={p101} />)
+    renderWithDashboardData(<KeysPage slugs={p101} createOpen={false} onCloseCreate={noop} />)
     await screen.findByText('CI deploys')
     const levels = screen.getByRole('list', { name: 'Key levels' })
     const here = within(levels)
@@ -50,7 +51,7 @@ describe('project API keys', () => {
   })
 
   it('revokes after the board’s warning, and keeps the key on Keep key', async () => {
-    renderWithDashboardData(<KeysPage slugs={p101} />)
+    renderWithDashboardData(<KeysPage slugs={p101} createOpen={false} onCloseCreate={noop} />)
     await screen.findByText('CI deploys')
     await userEvent.click(within(rowWith('CI deploys')).getByRole('button', { name: 'Revoke' }))
     const dialog = screen.getByRole('alertdialog', { name: 'Revoke CI deploys?' })
@@ -67,7 +68,9 @@ describe('project API keys', () => {
   })
 
   it('lists keys read-only for someone who isn’t a project admin', async () => {
-    renderWithDashboardData(<KeysPage slugs={p101} />, { userId: DANIEL })
+    renderWithDashboardData(<KeysPage slugs={p101} createOpen={false} onCloseCreate={noop} />, {
+      userId: DANIEL,
+    })
     await screen.findByText('CI deploys')
     expect(screen.queryByRole('button', { name: 'Revoke' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'New API key' })).not.toBeInTheDocument()
@@ -76,7 +79,7 @@ describe('project API keys', () => {
 
 describe('project Variables', () => {
   it('reads as ProjectVariables: secrets hidden, where each is set, overrides and actions', async () => {
-    renderWithDashboardData(<VariablesPage slugs={p101} />)
+    renderWithDashboardData(<VariablesPage slugs={p101} request={null} onCloseDialog={noop} />)
     await screen.findByText('SLACK_TOKEN')
     const slack = rowWith('SLACK_TOKEN')
     expect(within(slack).getByLabelText('Hidden secret value')).toHaveTextContent('••••••••')
@@ -94,7 +97,7 @@ describe('project Variables', () => {
     expect(region).toHaveTextContent('From the org')
     expect(within(region).getByRole('link', { name: 'Override' })).toHaveAttribute(
       'href',
-      '/acme/project-101/settings/variables?variable=REGION&override=1',
+      '/acme/project-101/settings/variables?variable=REGION',
     )
     expect(within(topBar()).getByRole('link', { name: 'New variable' })).toHaveAttribute(
       'href',
@@ -103,7 +106,9 @@ describe('project Variables', () => {
   })
 
   it('shows the values without actions to a project member', async () => {
-    renderWithDashboardData(<VariablesPage slugs={p101} />, { userId: DANIEL })
+    renderWithDashboardData(<VariablesPage slugs={p101} request={null} onCloseDialog={noop} />, {
+      userId: DANIEL,
+    })
     await screen.findByText('SLACK_TOKEN')
     expect(screen.queryByRole('link', { name: 'Edit' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'New variable' })).not.toBeInTheDocument()

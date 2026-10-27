@@ -1,11 +1,17 @@
 import { Plus } from 'lucide-react'
-import { workspaceSettingsPath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
+import {
+  workspaceSettingsPath,
+  variableDialogPath,
+  type WorkspaceSlugs,
+} from '../../lib/dashboard-paths'
 import type { WorkspaceScope } from '../../types/dashboard/scope'
 import type { WorkspaceVariable } from '../../types/dashboard/variables'
 import { buttonVariants } from '../ui/button'
 import { ShellLink } from '../ui/shell-link'
 import { TopBarContent } from '../navigation/top-bar-slot'
 import { WorkspaceVariableTable } from '../variables/parts/workspace-variable-table'
+import { VariableDialogHost } from '../variables/variable-dialog-host'
+import { workspaceDialogMode, type VariableRequest } from '../variables/variable-requests'
 import { OverviewCard } from '../workspaces/parts/overview-card'
 
 interface VariablesTabProps {
@@ -14,12 +20,35 @@ interface VariablesTabProps {
   projectName: string
   orgName: string
   variables: WorkspaceVariable[]
+  /** `?tab=variables&new=variable`, or `&variable=NAME`. */
+  request: VariableRequest | null
+  onCloseDialog: () => void
 }
 
-/** Workspace settings → Variables (`Access`): resolved for this workspace, closest level winning. */
-export function VariablesTab({ slugs, scope, projectName, orgName, variables }: VariablesTabProps) {
+/**
+ * Workspace settings → Variables (`Access`): resolved for this workspace,
+ * closest level winning. Its own values can be edited here; inherited ones
+ * overridden for this workspace (D-P6-6).
+ */
+export function VariablesTab({
+  slugs,
+  scope,
+  projectName,
+  orgName,
+  variables,
+  request,
+  onCloseDialog,
+}: VariablesTabProps) {
   const workspace = scope.workspace
   const canManage = scope.viewerCan.manageVariables.allowed
+  const mode = workspaceDialogMode(request, variables)
+
+  function actionHref(variable: WorkspaceVariable): string {
+    return variableDialogPath(slugs, { kind: 'variable', name: variable.name })
+  }
+
+  const editHref = canManage ? actionHref : undefined
+
   return (
     <>
       {canManage && (
@@ -41,9 +70,19 @@ export function VariablesTab({ slugs, scope, projectName, orgName, variables }: 
           caption={`Variables in ${workspace.name}`}
           variables={variables}
           colour={workspace.colour}
+          actionHref={editHref}
           framed={false}
         />
       </OverviewCard>
+      {canManage && mode && (
+        <VariableDialogHost
+          org={slugs.org}
+          project={{ slug: slugs.project, name: projectName }}
+          workspace={{ slug: slugs.workspace, name: workspace.name }}
+          mode={mode}
+          onClose={onCloseDialog}
+        />
+      )}
     </>
   )
 }

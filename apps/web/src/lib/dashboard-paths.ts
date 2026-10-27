@@ -58,7 +58,7 @@ export const RESERVED_SLUGS = {
     'sign-in',
     'workflows',
   ],
-  project: [...ORG_PAGES, 'settings', 'account'],
+  project: [...ORG_PAGES, 'settings', 'account', 'items'],
   // A workspace's pages sit one level below it, so only the project's own
   // settings path collides.
   workspace: ['settings'],
@@ -139,18 +139,21 @@ export function accessEditorPath(
   return `${orgSettingsPath(org, 'members')}?${query}`
 }
 
-/** Project settings → Variables with a variable's dialog open (built in P6). */
+/**
+ * Variables with a dialog open: New variable, or one variable's (the page
+ * opens Edit where it's set, Override where it's inherited). Project
+ * settings for project slugs, the workspace's Variables tab for workspace slugs.
+ */
 export function variableDialogPath(
-  slugs: ProjectSlugs,
-  dialog: { kind: 'new' } | { kind: 'edit' | 'override'; name: string },
+  slugs: ProjectSlugs | WorkspaceSlugs,
+  dialog: { kind: 'new' } | { kind: 'variable'; name: string },
 ): string {
-  const query =
-    dialog.kind === 'new'
-      ? new URLSearchParams({ new: 'variable' })
-      : new URLSearchParams({
-          variable: dialog.name,
-          ...(dialog.kind === 'override' && { override: '1' }),
-        })
+  const query = new URLSearchParams(
+    dialog.kind === 'new' ? { new: 'variable' } : { variable: dialog.name },
+  )
+  if ('workspace' in slugs) {
+    return `${workspacePath(slugs, 'settings')}?${new URLSearchParams({ tab: 'variables', ...Object.fromEntries(query) })}`
+  }
   return `${projectSettingsPath(slugs, 'variables')}?${query}`
 }
 
@@ -160,6 +163,24 @@ export function withNewDialog(
   dialog: 'project' | 'workspace' | 'org' | 'invite' | 'connection' | 'key' | 'variable' | 'import',
 ): string {
   return `${path}?${new URLSearchParams({ new: dialog })}`
+}
+
+/**
+ * Where a workflow, function or run row leads. In W1 every item is sample
+ * data, so it's the dashboard's placeholder page; B1 points this at the
+ * editor and run pages for real ids.
+ */
+export function itemPath(
+  org: string,
+  item: { id: string; kind: 'workflow' | 'script' },
+  runId?: string,
+): string {
+  const query = new URLSearchParams({
+    ...(item.kind === 'script' && { kind: 'function' }),
+    ...(runId && { run: runId }),
+  }).toString()
+  const path = `/${segment(org)}/items/${segment(item.id)}`
+  return query ? `${path}?${query}` : path
 }
 
 export function chooseOrgPath(): string {

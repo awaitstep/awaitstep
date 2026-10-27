@@ -5,6 +5,7 @@ import {
   searchForTab,
   tabFrom,
 } from '../../components/workspace-settings/workspace-settings-page'
+import { variableRequestFrom } from '../../components/variables/variable-requests'
 
 const page: DashboardPage = { kind: 'workspace', page: 'settings' }
 
@@ -23,7 +24,21 @@ function WorkspaceSettingsRoute() {
     void navigate({ search: (prev) => searchForTab(prev, tab), replace: true })
   }
 
+  function handleCloseDialog() {
+    void navigate({
+      search: (prev) => ({ ...prev, new: undefined, variable: undefined }),
+      replace: true,
+    })
+  }
+
   return (
-    <WorkspaceSettingsPage slugs={slugs} tab={tabFrom(search.tab)} onTabChange={handleTabChange} />
+    <WorkspaceSettingsPage
+      slugs={slugs}
+      tab={tabFrom(search.tab)}
+      onTabChange={handleTabChange}
+      dialog={search.new}
+      variableRequest={variableRequestFrom(search)}
+      onCloseDialog={handleCloseDialog}
+    />
   )
 }

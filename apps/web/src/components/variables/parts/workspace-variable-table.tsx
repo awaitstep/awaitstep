@@ -3,6 +3,7 @@ import { Badge } from '../../ui/badge'
 import { DataTable, type DataColumn } from '../../ui/data-table'
 import type { WorkspaceColour } from '../../ui/workspace-colour'
 import { ScopeChip } from '../../ui/workspace-dot'
+import { ShellLink } from '../../ui/shell-link'
 
 const SECRET_MASK = '••••••••'
 
@@ -13,6 +14,8 @@ interface WorkspaceVariableTableProps {
   variables: WorkspaceVariable[]
   /** The workspace's colour, for its own values' source chip. */
   colour: WorkspaceColour
+  /** Edit (set here) or Override (inherited); without it the table is read-only. */
+  actionHref?: (variable: WorkspaceVariable) => string
   framed?: boolean
 }
 
@@ -40,6 +43,7 @@ export function WorkspaceVariableTable({
   caption,
   variables,
   colour,
+  actionHref,
   framed = true,
 }: WorkspaceVariableTableProps) {
   const columns: DataColumn<WorkspaceVariable>[] = [
@@ -72,6 +76,21 @@ export function WorkspaceVariableTable({
       cell: (v) => <span className="text-xs text-muted-foreground">{note(v)}</span>,
     },
   ]
+  if (actionHref) {
+    columns.push({
+      id: 'action',
+      header: '',
+      width: '100px',
+      cell: (v) => (
+        <ShellLink
+          href={actionHref(v)}
+          className="text-xs font-medium text-status-success hover:underline"
+        >
+          {v.source.level === 'workspace' ? 'Edit' : 'Override'}
+        </ShellLink>
+      ),
+    })
+  }
   return (
     <DataTable
       caption={caption}

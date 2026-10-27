@@ -16,16 +16,20 @@ import { VariableTable } from '../variables/parts/variable-table'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
 import { OverviewCard } from '../workspaces/parts/overview-card'
 import { useProjectScope } from './use-project-scope'
+import { VariableDialogHost } from '../variables/variable-dialog-host'
+import { projectDialogMode, type VariableRequest } from '../variables/variable-requests'
 
 interface VariablesPageProps {
   slugs: ProjectSlugs
+  request: VariableRequest | null
+  onCloseDialog: () => void
 }
 
 /**
  * `/{org}/{project}/settings/variables` (`ProjectVariables`). New variable,
- * Edit and Override open P6's dialogs through the URL (D-P3-4).
+ * Edit and Override open the variable dialog through the URL (D-P3-4).
  */
-export function VariablesPage({ slugs }: VariablesPageProps) {
+export function VariablesPage({ slugs, request, onCloseDialog }: VariablesPageProps) {
   const scope = useProjectScope(slugs)
   const variables = useProjectVariables(slugs.org, slugs.project)
 
@@ -38,8 +42,7 @@ export function VariablesPage({ slugs }: VariablesPageProps) {
   }
 
   function actionHref(variable: ResolvedVariable): string {
-    const kind = variable.setAt.level === 'organization' ? 'override' : 'edit'
-    return variableDialogPath(slugs, { kind, name: variable.name })
+    return variableDialogPath(slugs, { kind: 'variable', name: variable.name })
   }
 
   function handleRetry() {
@@ -47,6 +50,7 @@ export function VariablesPage({ slugs }: VariablesPageProps) {
   }
 
   const editHref = canManage ? actionHref : undefined
+  const mode = projectDialogMode(request, variables.data)
 
   let body
   if (variables.isError) {
@@ -101,6 +105,14 @@ export function VariablesPage({ slugs }: VariablesPageProps) {
         />
         {body}
       </PageBody>
+      {canManage && mode && (
+        <VariableDialogHost
+          org={slugs.org}
+          project={{ slug: slugs.project, name: project.name }}
+          mode={mode}
+          onClose={onCloseDialog}
+        />
+      )}
     </>
   )
 }

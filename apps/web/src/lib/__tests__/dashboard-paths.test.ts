@@ -4,6 +4,7 @@ import {
   accountPath,
   chooseOrgPath,
   invitePath,
+  itemPath,
   isReservedSlug,
   orgPath,
   orgSettingsPath,
@@ -90,11 +91,14 @@ describe('dialog addresses', () => {
     expect(variableDialogPath(p101, { kind: 'new' })).toBe(
       '/acme/project-101/settings/variables?new=variable',
     )
-    expect(variableDialogPath(p101, { kind: 'edit', name: 'SLACK_TOKEN' })).toBe(
+    expect(variableDialogPath(p101, { kind: 'variable', name: 'SLACK_TOKEN' })).toBe(
       '/acme/project-101/settings/variables?variable=SLACK_TOKEN',
     )
-    expect(variableDialogPath(p101, { kind: 'override', name: 'REGION' })).toBe(
-      '/acme/project-101/settings/variables?variable=REGION&override=1',
+    expect(
+      variableDialogPath({ ...p101, workspace: 'sales' }, { kind: 'variable', name: 'REGION' }),
+    ).toBe('/acme/project-101/sales/settings?tab=variables&variable=REGION')
+    expect(variableDialogPath({ ...p101, workspace: 'sales' }, { kind: 'new' })).toBe(
+      '/acme/project-101/sales/settings?tab=variables&new=variable',
     )
   })
 })
@@ -108,6 +112,18 @@ describe('workspaceSettingsPath', () => {
     )
     expect(workspaceSettingsPath(sales, 'keys', 'key')).toBe(
       '/acme/project-101/sales/settings?tab=keys&new=key',
+    )
+  })
+})
+
+describe('itemPath', () => {
+  it('leads a row to the item placeholder, with the run when there is one', () => {
+    expect(itemPath('acme', { id: 'itm_1', kind: 'workflow' })).toBe('/acme/items/itm_1')
+    expect(itemPath('acme', { id: 'itm_1', kind: 'workflow' }, 'run_9')).toBe(
+      '/acme/items/itm_1?run=run_9',
+    )
+    expect(itemPath('acme', { id: 'itm_2', kind: 'script' })).toBe(
+      '/acme/items/itm_2?kind=function',
     )
   })
 })

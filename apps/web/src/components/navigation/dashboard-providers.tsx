@@ -26,8 +26,6 @@ export interface DashboardSearch {
   project?: string
   /** Variables: the variable to edit (P6's dialog). */
   variable?: string
-  /** With `variable`: `1` overrides an inherited value instead of editing it. */
-  override?: string
   /** Workspace settings: the open tab (`members`, `keys`, `variables`); none = General. */
   tab?: string
 }
@@ -37,8 +35,13 @@ export const DASHBOARD_SEARCH_KEYS = ['mock', 'as'] as const
 
 /** Keeps only the dashboard's own params, as strings. */
 export function validateDashboardSearch(search: Record<string, unknown>): DashboardSearch {
-  const pick = (key: keyof DashboardSearch) =>
-    typeof search[key] === 'string' ? (search[key] as string) : undefined
+  // The router JSON-parses search values, so `?override=1` arrives as 1 and
+  // `?variable=true` as true; our links build them as text, so read them back as text.
+  const pick = (key: keyof DashboardSearch) => {
+    const value = search[key]
+    if (typeof value === 'string') return value
+    return typeof value === 'number' || typeof value === 'boolean' ? String(value) : undefined
+  }
   return {
     mock: pick('mock'),
     as: pick('as'),
@@ -47,7 +50,6 @@ export function validateDashboardSearch(search: Record<string, unknown>): Dashbo
     access: pick('access'),
     project: pick('project'),
     variable: pick('variable'),
-    override: pick('override'),
     tab: pick('tab'),
   }
 }

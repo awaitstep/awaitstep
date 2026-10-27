@@ -20,8 +20,11 @@ import { GeneralTab } from './general-tab'
 import { KeysTab } from './keys-tab'
 import { MembersTab } from './members-tab'
 import { VariablesTab } from './variables-tab'
+import type { VariableRequest } from '../variables/variable-requests'
 
 type Tab = 'general' | WorkspaceSettingsTab
+
+function noop() {}
 
 /** `?tab=` → the open tab; anything else is General. */
 export function tabFrom(search: string | undefined): Tab {
@@ -47,6 +50,11 @@ interface WorkspaceSettingsPageProps {
   slugs: WorkspaceSlugs
   tab: Tab
   onTabChange: (tab: Tab) => void
+  /** `?new=key`: Create an API key on the API keys tab. */
+  dialog?: string
+  /** `?new=variable` / `?variable=NAME` on the Variables tab. */
+  variableRequest?: VariableRequest | null
+  onCloseDialog?: () => void
 }
 
 function Count({ value }: { value: number | undefined }) {
@@ -68,7 +76,14 @@ function TabSkeleton() {
 }
 
 /** `/{org}/{project}/{workspace}/settings` (`Access`): General · Members · API keys · Variables. */
-export function WorkspaceSettingsPage({ slugs, tab, onTabChange }: WorkspaceSettingsPageProps) {
+export function WorkspaceSettingsPage({
+  slugs,
+  tab,
+  onTabChange,
+  dialog,
+  variableRequest = null,
+  onCloseDialog = noop,
+}: WorkspaceSettingsPageProps) {
   const scope = useWorkspaceScope(slugs)
   const people = useWorkspacePeople(slugs)
   const keys = useWorkspaceKeys(slugs)
@@ -155,13 +170,23 @@ export function WorkspaceSettingsPage({ slugs, tab, onTabChange }: WorkspaceSett
         </TabsContent>
         <TabsContent value="keys" className="flex flex-col gap-4 pt-0">
           {listTab(keys, 'API keys', (data) => (
-            <KeysTab slugs={slugs} scope={scope.workspace} projectName={projectName} keys={data} />
+            <KeysTab
+              slugs={slugs}
+              scope={scope.workspace}
+              orgName={org.name}
+              projectName={projectName}
+              keys={data}
+              createOpen={dialog === 'key'}
+              onCloseCreate={onCloseDialog}
+            />
           ))}
         </TabsContent>
         <TabsContent value="variables" className="flex flex-col gap-4 pt-0">
           {listTab(variables, 'variables', (data) => (
             <VariablesTab
               slugs={slugs}
+              request={variableRequest}
+              onCloseDialog={onCloseDialog}
               scope={scope.workspace}
               projectName={projectName}
               orgName={org.name}
