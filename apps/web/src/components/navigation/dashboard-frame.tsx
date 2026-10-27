@@ -3,7 +3,7 @@ import { Settings } from 'lucide-react'
 import type { Theme } from '../../lib/theme'
 import type { ScopeSlugs } from '../../types/dashboard/scope'
 import type { WorkspaceColour } from '../ui/workspace-colour'
-import { orgPath } from '../../lib/dashboard-paths'
+import { orgPath, withOverlay } from '../../lib/dashboard-paths'
 import { AppShell } from '../shell/app-shell'
 import {
   ContextPanel,
@@ -27,6 +27,7 @@ import {
   breadcrumbs,
   panelModel,
   railModel,
+  type RailOverlays,
   tabBarEntries,
   type LastProject,
   type NavItem,
@@ -52,6 +53,8 @@ interface DashboardFrameProps {
   page: DashboardPage | null
   viewer: FrameViewer | null
   lastProject: LastProject | null
+  /** Where the rail's Inbox and What's new open, and their markers. */
+  overlays: RailOverlays
   theme: Theme
   onToggleTheme: () => void
   children: ReactNode
@@ -67,11 +70,13 @@ export function DashboardFrame({
   page,
   viewer,
   lastProject,
+  overlays,
   theme,
   onToggleTheme,
   children,
 }: DashboardFrameProps) {
-  const rail = railModel(scope.slugs.org, page ?? { kind: 'org', page: 'projects' })
+  const rail = railModel(scope.slugs.org, page ?? { kind: 'org', page: 'projects' }, overlays)
+  const whatsNewHref = withOverlay(overlays.here, 'whats-new')
   const panel = page ? panelModel(page, scope.slugs, lastProject) : { mode: 'none' as const }
   const crumbs = page
     ? breadcrumbs(page, scope.slugs, {
@@ -106,6 +111,7 @@ export function DashboardFrame({
             viewer ? (
               <DashboardAccountMenu
                 placement="rail"
+                whatsNewHref={whatsNewHref}
                 trigger={<RailAccountButton user={viewer} />}
                 user={viewer}
                 org={scope.slugs.org}
@@ -122,6 +128,7 @@ export function DashboardFrame({
           panel={panel}
           scope={scope}
           viewer={viewer}
+          whatsNewHref={whatsNewHref}
           theme={theme}
           onToggleTheme={onToggleTheme}
         />
@@ -239,15 +246,24 @@ interface FrameMobileHeaderProps {
   panel: PanelModel
   scope: FrameScope
   viewer: FrameViewer | null
+  whatsNewHref: string
   theme: Theme
   onToggleTheme: () => void
 }
 
 /** Below `md`: on workspace pages, back to projects and the project menu; elsewhere the org. */
-function FrameMobileHeader({ panel, scope, viewer, theme, onToggleTheme }: FrameMobileHeaderProps) {
+function FrameMobileHeader({
+  panel,
+  scope,
+  viewer,
+  whatsNewHref,
+  theme,
+  onToggleTheme,
+}: FrameMobileHeaderProps) {
   const account = viewer ? (
     <DashboardAccountMenu
       placement="phone"
+      whatsNewHref={whatsNewHref}
       trigger={<RailAccountButton user={viewer} className="mt-0" />}
       user={viewer}
       org={scope.slugs.org}

@@ -11,6 +11,7 @@ import {
   projectPath,
   projectSettingsPath,
   variableDialogPath,
+  withOverlay,
   workspacePath,
   workspaceSettingsPath,
 } from '../dashboard-paths'
@@ -130,6 +131,24 @@ describe('itemPath', () => {
     )
     expect(itemPath('acme', { id: 'itm_2', kind: 'script' })).toBe(
       '/acme/items/itm_2?kind=function',
+    )
+  })
+
+  it('opens and closes the Inbox or What’s new over the page, keeping its query', () => {
+    expect(withOverlay('/acme/resources?tab=variables', 'inbox')).toBe(
+      '/acme/resources?tab=variables&open=inbox',
+    )
+    expect(withOverlay('/acme/projects?open=inbox', 'whats-new')).toBe(
+      '/acme/projects?open=whats-new',
+    )
+    expect(withOverlay('/acme/resources?tab=variables&open=inbox', null)).toBe(
+      '/acme/resources?tab=variables',
+    )
+    expect(withOverlay('/acme/projects?open=inbox', null)).toBe('/acme/projects')
+    // A fragment stays after the query, and doesn't leak into a param.
+    expect(withOverlay('/acme/resources#nodes', 'inbox')).toBe('/acme/resources?open=inbox#nodes')
+    expect(withOverlay('/acme/resources?tab=variables#x', 'inbox')).toBe(
+      '/acme/resources?tab=variables&open=inbox#x',
     )
   })
 })

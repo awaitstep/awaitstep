@@ -26,8 +26,10 @@ export interface DashboardSearch {
   project?: string
   /** Variables: the variable to edit (P6's dialog). */
   variable?: string
-  /** Workspace settings: the open tab (`members`, `keys`, `variables`); none = General. */
+  /** Workspace settings and Resources: the open tab; none = the first. */
   tab?: string
+  /** The Inbox or What's new, open over the page (`inbox`, `whats-new`). */
+  open?: string
 }
 
 /** Kept from page to page; the dialog params are not, so a dialog doesn't follow you around. */
@@ -51,6 +53,7 @@ export function validateDashboardSearch(search: Record<string, unknown>): Dashbo
     project: pick('project'),
     variable: pick('variable'),
     tab: pick('tab'),
+    open: pick('open'),
   }
 }
 

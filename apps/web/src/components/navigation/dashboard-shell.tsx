@@ -1,19 +1,31 @@
 import type { ReactNode } from 'react'
-import { useLocation, useMatches, useParams } from '@tanstack/react-router'
+import { useLocation, useMatches, useNavigate, useParams, useSearch } from '@tanstack/react-router'
+import { useNotifications, useReleases } from '../../data/dashboard/inbox'
 import { useProjects } from '../../data/dashboard/projects'
 import { useViewer } from '../../data/dashboard/session'
 import { useScope } from '../../data/dashboard/workspaces'
-import { chooseOrgPath, orgPath, projectPath } from '../../lib/dashboard-paths'
+import { chooseOrgPath, orgPath, projectPath, withOverlay } from '../../lib/dashboard-paths'
 import { useThemeStore } from '../../stores/theme-store'
+import type { InboxNotification, ReleaseFeed } from '../../types/dashboard/inbox'
 import type { NotFound, ScopeLookup, ScopeSlugs } from '../../types/dashboard/scope'
 import { LoadError } from '../ui/load-error'
 import { NotFoundView } from '../ui/not-found-view'
 import { Bone, LoadingRegion } from '../ui/skeletons'
 import { PageBody } from '../shell/page-intro'
+import { DashboardOverlays } from '../inbox/dashboard-overlays'
 import type { DashboardPage } from './dashboard-page'
+import type { DashboardSearch } from './dashboard-providers'
 import { DashboardFrame, type FrameScope } from './dashboard-frame'
-import type { LastProject } from './nav-model'
+import type { LastProject, RailOverlays } from './nav-model'
 import { recentProjects } from './scope-memory'
+
+function countUnread(list: InboxNotification[] | undefined): number {
+  return list?.filter((n) => !n.read).length ?? 0
+}
+
+function countFresh(feed: ReleaseFeed | undefined): number {
+  return feed?.releases.filter((r) => r.fresh).length ?? 0
+}
 
 function useScopeSlugs(): ScopeSlugs {
   const params = useParams({ strict: false }) as Partial<ScopeSlugs>
@@ -74,7 +86,16 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const viewer = useViewer()
   const last = useLastProject(slugs.org, declaredPage?.kind === 'org-settings')
   const { theme, setTheme } = useThemeStore()
-  const { pathname } = useLocation()
+  const { pathname, href } = useLocation()
+  const search = useSearch({ strict: false }) as DashboardSearch
+  const navigate = useNavigate()
+  const notifications = useNotifications(slugs.org)
+  const releases = useReleases(slugs.org)
+
+  // A new history entry, as opening one is: Back reopens it rather than standing still.
+  function handleCloseOverlay() {
+    void navigate({ href: withOverlay(href, null) })
+  }
 
   function handleToggleTheme() {
     setTheme(theme === 'dark' ? 'light' : 'dark')
@@ -84,6 +105,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     void scope.refetch()
   }
 
+  const overlays: RailOverlays = {
+    here: href,
+    unread: countUnread(notifications.data),
+    freshReleases: countFresh(releases.data),
+  }
   const found = scope.data?.found === true
   const notFound = scope.data && !scope.data.found ? scope.data.notFound : null
 
@@ -109,10 +135,14 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       page={found ? declaredPage : null}
       viewer={viewer.data ?? null}
       lastProject={last}
+      overlays={overlays}
       theme={theme}
       onToggleTheme={handleToggleTheme}
     >
       {content}
+      {found && (
+        <DashboardOverlays org={slugs.org} open={search.open} onClose={handleCloseOverlay} />
+      )}
     </DashboardFrame>
   )
 }

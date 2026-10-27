@@ -6,19 +6,23 @@ const ORG = { org: 'acme' }
 const PROJECT = { org: 'acme', project: 'project-101' }
 const SALES = { org: 'acme', project: 'project-101', workspace: 'sales' }
 const NAMES = { org: 'Acme Inc', project: 'Project 101', workspace: 'Sales' }
+/** On Projects, with nothing unread or new. */
+const QUIET = { here: '/acme/projects', unread: 0, freshReleases: 0 }
 
 describe('rail', () => {
   it('marks the org page itself, Settings for org settings, and Projects inside a project', () => {
-    expect(railModel('acme', { kind: 'org', page: 'audit' }).activeKey).toBe('audit')
-    expect(railModel('acme', { kind: 'org-settings', page: 'members' }).activeKey).toBe('settings')
-    expect(railModel('acme', { kind: 'project-settings', page: 'general' }).activeKey).toBe(
+    expect(railModel('acme', { kind: 'org', page: 'audit' }, QUIET).activeKey).toBe('audit')
+    expect(railModel('acme', { kind: 'org-settings', page: 'members' }, QUIET).activeKey).toBe(
+      'settings',
+    )
+    expect(railModel('acme', { kind: 'project-settings', page: 'general' }, QUIET).activeKey).toBe(
       'projects',
     )
-    expect(railModel('acme', { kind: 'workspace', page: 'runs' }).activeKey).toBe('projects')
+    expect(railModel('acme', { kind: 'workspace', page: 'runs' }, QUIET).activeKey).toBe('projects')
   })
 
-  it('links every entry into the org, with API to the old playground and Docs outside', () => {
-    const rail = railModel('acme', { kind: 'org', page: 'projects' })
+  it('links every entry into the org, Inbox and What’s new over the page, API to the old playground and Docs outside', () => {
+    const rail = railModel('acme', { kind: 'org', page: 'projects' }, QUIET)
     expect(rail.primary.map((e) => e.href)).toEqual([
       '/acme/projects',
       '/acme/resources',
@@ -26,15 +30,44 @@ describe('rail', () => {
       '/acme/settings/general',
     ])
     expect(rail.secondary.map((e) => [e.key, e.href, e.external ?? false])).toEqual([
-      ['whats-new', '/acme/whats-new', false],
-      ['inbox', '/acme/inbox', false],
+      ['whats-new', '/acme/projects?open=whats-new', false],
+      ['inbox', '/acme/projects?open=inbox', false],
       ['api', '/api-playground', false],
       ['docs', 'https://docs.awaitstep.dev', true],
     ])
   })
 
+  it('opens Inbox and What’s new over the current page, with the unread count and a dot', () => {
+    const here = '/acme/resources?tab=variables'
+    const rail = railModel(
+      'acme',
+      { kind: 'org', page: 'resources' },
+      { here, unread: 3, freshReleases: 2 },
+    )
+    const [whatsNew, inbox] = rail.secondary
+    expect(whatsNew).toMatchObject({
+      href: '/acme/resources?tab=variables&open=whats-new',
+      badge: { kind: 'dot', description: '2 new updates' },
+    })
+    expect(inbox).toMatchObject({
+      href: '/acme/resources?tab=variables&open=inbox',
+      badge: { kind: 'count', value: 3, description: '3 unread notifications' },
+    })
+    const quiet = railModel(
+      'acme',
+      { kind: 'org', page: 'projects' },
+      {
+        here,
+        unread: 0,
+        freshReleases: 0,
+      },
+    )
+    expect(quiet.secondary[0]!.badge).toBeUndefined()
+    expect(quiet.secondary[1]!.badge).toMatchObject({ value: 0 })
+  })
+
   it('gives the phone tab bar five of the rail’s entries', () => {
-    const tabs = tabBarEntries(railModel('acme', { kind: 'org', page: 'projects' }))
+    const tabs = tabBarEntries(railModel('acme', { kind: 'org', page: 'projects' }, QUIET))
     expect(tabs.map((e) => e.label)).toEqual([
       'Projects',
       'Resources',
@@ -146,7 +179,7 @@ describe('account pages', () => {
   const page = { kind: 'account', page: 'sessions' } as const
 
   it('show the rail with nothing active and no panel', () => {
-    expect(railModel('acme', page).activeKey).toBe('')
+    expect(railModel('acme', page, QUIET).activeKey).toBe('')
     expect(panelModel(page, ORG, null)).toEqual({ mode: 'none' })
   })
 

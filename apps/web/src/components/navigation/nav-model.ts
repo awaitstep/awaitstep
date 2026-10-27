@@ -23,6 +23,7 @@ import {
 import {
   accountPath,
   orgPath,
+  withOverlay,
   orgSettingsPath,
   projectPath,
   projectSettingsPath,
@@ -32,6 +33,7 @@ import {
   type WorkspacePage,
   type WorkspaceSlugs,
 } from '../../lib/dashboard-paths'
+import { plural } from '../../lib/plural'
 import type { ScopeSlugs } from '../../types/dashboard/scope'
 import type { RailEntry } from '../shell/org-rail'
 import type { Crumb } from '../shell/top-bar'
@@ -83,7 +85,36 @@ export interface RailModel {
 
 export const DOCS_URL = 'https://docs.awaitstep.dev'
 
-export function railModel(org: string, page: DashboardPage): RailModel {
+/** What the rail's Inbox and What's new need: where they open, and their markers. */
+export interface RailOverlays {
+  /** The current path and query: both open over it. */
+  here: string
+  unread: number
+  freshReleases: number
+}
+
+export function railModel(org: string, page: DashboardPage, overlays: RailOverlays): RailModel {
+  const whatsNew: RailEntry = {
+    key: 'whats-new',
+    href: withOverlay(overlays.here, 'whats-new'),
+    icon: Sparkles,
+    label: 'What’s new',
+    badge:
+      overlays.freshReleases > 0
+        ? { kind: 'dot', description: plural(overlays.freshReleases, 'new update') }
+        : undefined,
+  }
+  const inbox: RailEntry = {
+    key: 'inbox',
+    href: withOverlay(overlays.here, 'inbox'),
+    icon: Bell,
+    label: 'Inbox',
+    badge: {
+      kind: 'count',
+      value: overlays.unread,
+      description: plural(overlays.unread, 'unread notification'),
+    },
+  }
   return {
     primary: [
       { key: 'projects', href: orgPath(org, 'projects'), icon: House, label: 'Projects' },
@@ -91,10 +122,9 @@ export function railModel(org: string, page: DashboardPage): RailModel {
       { key: 'audit', href: orgPath(org, 'audit'), icon: Activity, label: 'Audit log' },
       { key: 'settings', href: orgSettingsPath(org), icon: Settings, label: 'Settings' },
     ],
-    // Badges arrive with the Inbox and What's new data (P8).
     secondary: [
-      { key: 'whats-new', href: orgPath(org, 'whats-new'), icon: Sparkles, label: 'What’s new' },
-      { key: 'inbox', href: orgPath(org, 'inbox'), icon: Bell, label: 'Inbox' },
+      whatsNew,
+      inbox,
       { key: 'api', href: '/api-playground', icon: SquareTerminal, label: 'API' },
       { key: 'docs', href: DOCS_URL, icon: BookOpen, label: 'Docs', external: true },
     ],

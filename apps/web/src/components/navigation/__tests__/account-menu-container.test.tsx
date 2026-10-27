@@ -27,6 +27,7 @@ function renderMenu(
       trigger={<RailAccountButton user={AMA} />}
       user={AMA}
       org="acme"
+      whatsNewHref="/acme/project-101/sales/runs?open=whats-new"
       theme="dark"
       onToggleTheme={options.onToggleTheme ?? vi.fn()}
       showReset={options.showReset ?? false}
@@ -72,9 +73,10 @@ describe('DashboardAccountMenu', () => {
     const onToggleTheme = vi.fn()
     renderMenu('phone', { onToggleTheme })
     await openMenu()
+    // Opens over the page you're on, as the rail's does.
     expect(screen.getByRole('menuitem', { name: 'What’s new' })).toHaveAttribute(
       'href',
-      '/acme/whats-new',
+      '/acme/project-101/sales/runs?open=whats-new',
     )
     expect(screen.getByRole('menuitem', { name: 'API' })).toHaveAttribute('href', '/api-playground')
     expect(screen.getByRole('menuitem', { name: 'Docs' })).toHaveAttribute('target', '_blank')

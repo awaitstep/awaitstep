@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { useResetMockData } from '../../data/dashboard/reset'
 import { handleSignOut } from '../../lib/auth-client'
-import { accountPath, orgPath } from '../../lib/dashboard-paths'
+import { accountPath } from '../../lib/dashboard-paths'
 import type { Theme } from '../../lib/theme'
 import { ConfirmDialog } from '../ui/confirm-dialog'
 import { AccountMenu, type AccountMenuItem } from '../shell/account-menu'
@@ -26,6 +26,8 @@ interface DashboardAccountMenuProps {
   org: string
   /** The phone menu also carries the rail items the tab bar has no room for. */
   placement: 'rail' | 'phone'
+  /** The phone menu's What's new: opens over the page you're on, as the rail's does. */
+  whatsNewHref: string
   theme: Theme
   onToggleTheme: () => void
   /** "Reset dummy data" is a dev tool; production builds leave it out. */
@@ -51,9 +53,13 @@ function accountItems(org: string): AccountMenuItem[] {
   ]
 }
 
-function phoneItems(org: string, theme: Theme, onToggleTheme: () => void): AccountMenuItem[] {
+function phoneItems(
+  whatsNewHref: string,
+  theme: Theme,
+  onToggleTheme: () => void,
+): AccountMenuItem[] {
   return [
-    { key: 'whats-new', label: 'What’s new', href: orgPath(org, 'whats-new'), icon: Sparkles },
+    { key: 'whats-new', label: 'What’s new', href: whatsNewHref, icon: Sparkles },
     { key: 'api', label: 'API', href: '/api-playground', icon: SquareTerminal },
     { key: 'docs', label: 'Docs', href: DOCS_URL, icon: BookOpen, external: true },
     {
@@ -71,6 +77,7 @@ export function DashboardAccountMenu({
   user,
   org,
   placement,
+  whatsNewHref,
   theme,
   onToggleTheme,
   showReset = import.meta.env.DEV,
@@ -92,7 +99,7 @@ export function DashboardAccountMenu({
   }
 
   const groups: AccountMenuItem[][] = [accountItems(org)]
-  if (placement === 'phone') groups.push(phoneItems(org, theme, onToggleTheme))
+  if (placement === 'phone') groups.push(phoneItems(whatsNewHref, theme, onToggleTheme))
   if (showReset) {
     groups.push([
       { key: 'reset', label: 'Reset dummy data', icon: RotateCcw, onSelect: handleAskReset },

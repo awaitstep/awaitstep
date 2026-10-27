@@ -17,6 +17,8 @@ const state = vi.hoisted(() => ({
   params: {} as Partial<ScopeSlugs>,
   page: null as DashboardPage | null,
   pathname: '/',
+  search: {} as Record<string, string>,
+  navigate: vi.fn(),
   scope: { isPending: true, isError: false, isFetching: false } as ScopeQuery,
 }))
 
@@ -26,8 +28,18 @@ vi.mock('@tanstack/react-router', () => ({
     { staticData: {} },
     { staticData: { dashboardPage: state.page ?? undefined } },
   ],
-  useLocation: () => ({ pathname: state.pathname }),
-  useNavigate: () => vi.fn(),
+  useLocation: () => ({ pathname: state.pathname, href: state.pathname }),
+  useNavigate: () => state.navigate,
+  useSearch: () => state.search,
+}))
+
+vi.mock('../../inbox/dashboard-overlays', () => ({
+  DashboardOverlays: ({ open, onClose }: { open?: string; onClose: () => void }) =>
+    open ? (
+      <button type="button" onClick={onClose}>
+        Close {open}
+      </button>
+    ) : null,
 }))
 
 vi.mock('../../../data/dashboard/workspaces', () => ({
@@ -54,6 +66,11 @@ vi.mock('../../../data/dashboard/workspaces', () => ({
       },
     ],
   }),
+}))
+
+vi.mock('../../../data/dashboard/inbox', () => ({
+  useNotifications: () => ({ data: [{ read: false }, { read: false }, { read: true }] }),
+  useReleases: () => ({ data: { releases: [{ fresh: true }], lastVisit: null } }),
 }))
 
 vi.mock('../../../data/dashboard/session', () => ({
@@ -137,6 +154,8 @@ afterEach(() => {
   state.params = {}
   state.page = null
   state.pathname = '/'
+  state.search = {}
+  state.navigate.mockReset()
   state.scope = { isPending: true, isError: false, isFetching: false, refetch: vi.fn() }
 })
 
@@ -272,6 +291,7 @@ describe('DashboardShell', () => {
   it('gives phones a tab bar and, on workspace pages, a header with the project menu', async () => {
     state.params = { org: 'acme', project: 'project-101', workspace: 'sales' }
     state.page = { kind: 'workspace', page: 'runs' }
+    state.pathname = '/acme/project-101/sales/runs'
     settle(found('workspace'))
     renderShell()
     const tabBar = screen.getAllByRole('navigation', { name: 'Organization' })[1]!
@@ -279,7 +299,11 @@ describe('DashboardShell', () => {
       within(tabBar)
         .getAllByRole('link')
         .map((link) => link.textContent),
-    ).toEqual(['Projects', 'Resources', 'Audit log', 'Inbox', 'Settings'])
+    ).toEqual(['Projects', 'Resources', 'Audit log', '2Inbox', 'Settings'])
+    // The unread count rides on Inbox, which opens over the page you're on.
+    expect(
+      within(tabBar).getByRole('link', { name: 'Inbox, 2 unread notifications' }),
+    ).toHaveAttribute('href', '/acme/project-101/sales/runs?open=inbox')
     expect(within(tabBar).getByRole('link', { name: 'Projects' })).toHaveAttribute(
       'aria-current',
       'page',
@@ -322,5 +346,17 @@ describe('DashboardShell', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('We couldn’t open this page')
     await userEvent.click(screen.getByRole('button', { name: /Try again/ }))
     expect(refetch).toHaveBeenCalled()
+  })
+
+  it('opens ?open= over the page and closes it as a new step in history', async () => {
+    state.params = { org: 'acme' }
+    state.page = { kind: 'org', page: 'resources' }
+    state.pathname = '/acme/resources'
+    state.search = { open: 'inbox' }
+    settle(found('org'))
+    renderShell()
+    await userEvent.click(screen.getByRole('button', { name: 'Close inbox' }))
+    // Not a replace: that would leave two identical entries, and Back would stand still.
+    expect(state.navigate).toHaveBeenCalledWith({ href: '/acme/resources' })
   })
 })

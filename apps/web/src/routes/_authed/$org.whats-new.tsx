@@ -1,15 +1,13 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
-import { PagePlaceholder } from '../../components/navigation/page-placeholder'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
-const page: DashboardPage = { kind: 'org', page: 'whats-new' }
-
+// The overlay over Projects (D-P8-1), so old links keep working.
 export const Route = createFileRoute('/_authed/$org/whats-new')({
-  staticData: { dashboardPage: page },
-  head: () => pageHead(page),
-  component: WhatsNewPage,
+  beforeLoad: ({ params, search }) => {
+    throw redirect({
+      to: '/$org/projects',
+      params,
+      search: { ...search, open: 'whats-new' },
+      replace: true,
+    })
+  },
 })
-
-function WhatsNewPage() {
-  return <PagePlaceholder title="What’s new" boards="WhatsNew" step="P8" />
-}

@@ -161,6 +161,21 @@ export function variableDialogPath(
   return `${orgPath(slugs.org, 'resources')}?${new URLSearchParams({ tab: 'variables', ...query })}`
 }
 
+export const DASHBOARD_OVERLAYS = ['inbox', 'whats-new'] as const
+export type DashboardOverlay = (typeof DASHBOARD_OVERLAYS)[number]
+
+/**
+ * The page you're on (path and query) with the Inbox or What's new open over
+ * it (`?open=`), or with neither for `null`.
+ */
+export function withOverlay(here: string, overlay: DashboardOverlay | null): string {
+  // Parsed as a URL so a #fragment stays a fragment, after the query.
+  const url = new URL(here, 'https://dashboard.invalid')
+  if (overlay) url.searchParams.set('open', overlay)
+  else url.searchParams.delete('open')
+  return `${url.pathname}${url.search}${url.hash}`
+}
+
 /** A dashboard page with its "New …" dialog open (`?new=`): the page owning the dialog reads it. */
 export function withNewDialog(
   path: string,
