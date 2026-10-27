@@ -16,6 +16,7 @@ import { Input } from '../ui/input'
 import { LockSwitch } from '../ui/lock-switch'
 import { SwatchPicker } from '../ui/swatch-picker'
 import type { WorkspaceColour } from '../ui/workspace-colour'
+import { FormCard } from '../ui/form-card'
 import { useGoTo } from '../navigation/router-shell-link'
 import { TopBarContent } from '../navigation/top-bar-slot'
 import { MoveWorkflowsDialog } from './move-workflows-dialog'
@@ -137,11 +138,7 @@ export function GeneralTab({ slugs, scope, projectName }: GeneralTabProps) {
           </Button>
         </TopBarContent>
       )}
-      <form
-        id={FORM_ID}
-        onSubmit={handleSubmit}
-        className="flex flex-col gap-5 rounded-2xl border border-border bg-card p-6"
-      >
+      <FormCard id={FORM_ID} onSubmit={handleSubmit}>
         <FormField label="Name" error={nameError}>
           <Input
             value={values.name}
@@ -157,7 +154,7 @@ export function GeneralTab({ slugs, scope, projectName }: GeneralTabProps) {
           />
         </FormField>
         <SwatchPicker value={values.colour} onChange={handleColour} />
-      </form>
+      </FormCard>
       <DangerZone>
         <LockSwitch
           locked={locked}

@@ -11,6 +11,7 @@ import { DangerRow, DangerZone } from '../ui/danger-zone'
 import { FieldGroup, FormField } from '../ui/form-field'
 import { Input } from '../ui/input'
 import { InputGroup } from '../ui/input-group'
+import { FormCard } from '../ui/form-card'
 import { PageBody, PageIntro } from '../shell/page-intro'
 import { OrgMark } from '../shell/org-mark'
 import { useGoTo } from '../navigation/router-shell-link'
@@ -140,11 +141,7 @@ function OrgGeneral({ slug, scope }: { slug: string; scope: OrgScope }) {
       )}
       <PageBody>
         <PageIntro title="General" description={`${org.name}’s name, address and logo.`} />
-        <form
-          id={FORM_ID}
-          onSubmit={handleSubmit}
-          className="flex flex-col gap-5 rounded-2xl border border-border bg-card p-6"
-        >
+        <FormCard id={FORM_ID} onSubmit={handleSubmit}>
           <FieldGroup legend="Logo" error={logoError}>
             <span className="flex flex-wrap items-center gap-3">
               <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary text-lg font-semibold text-primary-foreground">
@@ -195,7 +192,7 @@ function OrgGeneral({ slug, scope }: { slug: string; scope: OrgScope }) {
               />
             </InputGroup>
           </FormField>
-        </form>
+        </FormCard>
         <DangerZone>
           <DangerRow
             icon={<Trash2 aria-hidden="true" />}

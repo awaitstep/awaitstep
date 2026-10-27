@@ -20,9 +20,9 @@ interface OrgHomePageProps {
 
 function OrgHomeSkeleton() {
   return (
-    <PageBody>
-      <LoadingRegion label="Loading projects">
-        <div className="flex flex-wrap items-end gap-5">
+    <PageBody
+      header={
+        <div aria-hidden="true" className="flex flex-wrap items-end gap-5">
           <Bone className="h-8 w-40" />
           <span className="ml-auto hidden gap-2.5 md:flex">
             <Bone className="h-14 w-28 rounded-xl" />
@@ -30,6 +30,9 @@ function OrgHomeSkeleton() {
             <Bone className="h-14 w-28 rounded-xl" />
           </span>
         </div>
+      }
+    >
+      <LoadingRegion label="Loading projects">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
           <Bone className="h-44 rounded-2xl" />
           <Bone className="h-44 rounded-2xl" />

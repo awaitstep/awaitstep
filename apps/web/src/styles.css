@@ -251,6 +251,30 @@ html.light {
   }
 }
 
+/* How wide dashboard page content gets on wide screens, left-aligned in the
+   main column. PageBody uses it; change the width here and nowhere else. */
+:root {
+  /* "screen-3xl": one step past Tailwind's 2xl (96rem), 1920px. */
+  --page-max-width: 120rem;
+}
+
+@utility page-width {
+  width: 100%;
+  max-width: var(--page-max-width);
+}
+
+/* How wide settings cards get (forms, the Danger zone, connection cards): their
+   fields and buttons stay together on wide screens. FormCard, DangerZone and
+   ConnectionCard use it. */
+:root {
+  --settings-max-width: 48rem;
+}
+
+@utility settings-width {
+  width: 100%;
+  max-width: var(--settings-max-width);
+}
+
 @utility scrollbar-none {
   scrollbar-width: none;
   -ms-overflow-style: none;

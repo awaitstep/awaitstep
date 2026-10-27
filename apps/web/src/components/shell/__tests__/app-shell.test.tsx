@@ -76,7 +76,7 @@ describe('PageIntro', () => {
     expect(screen.getByText('3 Projects')).toBeInTheDocument()
   })
 
-  it('fills the main column on every page, with no width cap, as the boards draw it', () => {
+  it('caps every page at the shared page width, left-aligned in the main column', () => {
     render(
       <AppShell rail={<nav>Rail</nav>}>
         <PageBody>
@@ -85,7 +85,19 @@ describe('PageIntro', () => {
       </AppShell>,
     )
     const column = screen.getByText('Body').parentElement!
-    expect(column).toHaveClass('w-full')
+    // One width for the whole dashboard: `--page-max-width` in styles.css.
+    expect(column).toHaveClass('page-width')
     expect(column.className).not.toMatch(/max-w-|mx-auto/)
+  })
+
+  it('runs a header the full width, above the capped content', () => {
+    render(
+      <PageBody header={<h1>Projects</h1>}>
+        <p>Body</p>
+      </PageBody>,
+    )
+    const header = screen.getByRole('heading', { name: 'Projects' }).parentElement!
+    expect(header.className).not.toMatch(/page-width|max-w-/)
+    expect(screen.getByText('Body').parentElement).toHaveClass('page-width')
   })
 })

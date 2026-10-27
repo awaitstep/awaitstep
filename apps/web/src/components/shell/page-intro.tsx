@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { cn } from '../../lib/utils'
 import { hasContent } from '../ui/has-content'
 
 interface PageIntroProps {
@@ -31,10 +32,26 @@ export function PageIntro({ title, description, aside, action }: PageIntroProps)
 }
 
 interface PageBodyProps {
+  /** Spans the whole main column above the capped content: a title row with stat tiles. */
+  header?: ReactNode
   children: ReactNode
 }
 
-/** The padded column under the top bar. It fills the main column on every page, as the boards do. */
-export function PageBody({ children }: PageBodyProps) {
-  return <div className="flex w-full flex-col gap-8 px-6 py-8 md:px-8">{children}</div>
+const PAGE_PADDING = 'px-6 md:px-8'
+
+/**
+ * The padded column under the top bar, on every dashboard page. It stops at
+ * `--page-max-width` (styles.css, `page-width`), left-aligned, as the boards do;
+ * only `header` runs the full width.
+ */
+export function PageBody({ header, children }: PageBodyProps) {
+  if (!hasContent(header)) {
+    return <div className={cn('page-width flex flex-col gap-8 py-8', PAGE_PADDING)}>{children}</div>
+  }
+  return (
+    <div className="flex flex-col">
+      <div className={cn('pt-8', PAGE_PADDING)}>{header}</div>
+      <div className={cn('page-width flex flex-col gap-8 py-8', PAGE_PADDING)}>{children}</div>
+    </div>
+  )
 }

@@ -15,7 +15,7 @@ export function DangerZone({ title = 'Danger zone', children }: DangerZoneProps)
   return (
     <section
       aria-labelledby={titleId}
-      className="overflow-hidden rounded-2xl border border-destructive/40"
+      className="settings-width overflow-hidden rounded-2xl border border-destructive/40"
     >
       <div className="border-b border-destructive/40 bg-tone-fail px-6 py-4">
         <h2 id={titleId} className="text-sm font-semibold text-status-error">

@@ -17,6 +17,7 @@ import { FormField } from '../ui/form-field'
 import { Input } from '../ui/input'
 import { InputGroup } from '../ui/input-group'
 import { LockSwitch } from '../ui/lock-switch'
+import { FormCard } from '../ui/form-card'
 import { PageBody, PageIntro } from '../shell/page-intro'
 import { useGoTo } from '../navigation/router-shell-link'
 import { TopBarContent } from '../navigation/top-bar-slot'
@@ -169,11 +170,7 @@ function GeneralSettings({ slugs, scope }: { slugs: ProjectSlugs; scope: Project
           title="General"
           description={`${project.name}’s name and address, and the actions that can’t be undone.`}
         />
-        <form
-          id={FORM_ID}
-          onSubmit={handleSubmit}
-          className="flex flex-col gap-5 rounded-2xl border border-border bg-card p-6"
-        >
+        <FormCard id={FORM_ID} onSubmit={handleSubmit}>
           <FormField label="Project name" error={nameError}>
             <Input
               value={values.name}
@@ -201,7 +198,7 @@ function GeneralSettings({ slugs, scope }: { slugs: ProjectSlugs; scope: Project
               disabled={readOnly}
             />
           </FormField>
-        </form>
+        </FormCard>
         <DangerZone>
           <LockSwitch
             locked={lock !== null}

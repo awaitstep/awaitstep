@@ -83,26 +83,29 @@ export function OrgHome({
         </div>
         {newProjectButton}
       </TopBarContent>
-      <PageBody>
-        <PageIntro
-          title="Projects"
-          description={`Everything in ${org.name}. Open a project to work in one of its workspaces.`}
-          aside={
-            <>
-              <span className="hidden flex-wrap gap-2.5 md:flex">
-                <StatTile value={projects.length} label="Projects" />
-                <StatTile value={deployed} label="Workflows deployed" />
-                <StatTile
-                  value={failing.length}
-                  label="Failing now"
-                  tone={failing.length > 0 ? 'danger' : undefined}
-                  href={firstFailing ? failingHref(org.slug, firstFailing) : undefined}
-                />
-              </span>
-              <span className="md:hidden">{newProjectButton}</span>
-            </>
-          }
-        />
+      <PageBody
+        header={
+          <PageIntro
+            title="Projects"
+            description={`Everything in ${org.name}. Open a project to work in one of its workspaces.`}
+            aside={
+              <>
+                <span className="hidden flex-wrap gap-2.5 md:flex">
+                  <StatTile value={projects.length} label="Projects" />
+                  <StatTile value={deployed} label="Workflows deployed" />
+                  <StatTile
+                    value={failing.length}
+                    label="Failing now"
+                    tone={failing.length > 0 ? 'danger' : undefined}
+                    href={firstFailing ? failingHref(org.slug, firstFailing) : undefined}
+                  />
+                </span>
+                <span className="md:hidden">{newProjectButton}</span>
+              </>
+            }
+          />
+        }
+      >
         <div className="flex flex-col gap-3 md:hidden">
           {firstFailing && (
             <ShellLink
