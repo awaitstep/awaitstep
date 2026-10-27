@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ChooseOrgEntry } from '../../components/navigation/choose-org-entry'
+import { ChooseOrgPage } from '../../components/orgs/choose-org-page'
 import {
   DashboardProviders,
   validateDashboardSearch,
@@ -9,14 +9,14 @@ export const Route = createFileRoute('/_authed/choose-org')({
   ssr: false,
   validateSearch: validateDashboardSearch,
   head: () => ({ meta: [{ title: 'Choose an organization · AwaitStep' }] }),
-  component: ChooseOrgPage,
+  component: ChooseOrgRoute,
 })
 
-function ChooseOrgPage() {
+function ChooseOrgRoute() {
   const search = Route.useSearch()
   return (
     <DashboardProviders search={search}>
-      <ChooseOrgEntry />
+      <ChooseOrgPage />
     </DashboardProviders>
   )
 }
