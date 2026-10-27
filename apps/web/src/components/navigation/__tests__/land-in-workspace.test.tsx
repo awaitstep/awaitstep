@@ -59,7 +59,7 @@ describe('LandInWorkspace', () => {
     workspaces.data = [{ slug: 'sales' }, { slug: 'it' }]
     render(<LandInWorkspace slugs={SLUGS} />)
     const navigate = screen.getByTestId('navigate')
-    expect(navigate).toHaveTextContent('/acme/project-101/it/workflows')
+    expect(navigate).toHaveTextContent('/acme/project-101/it/overview')
     expect(navigate).toHaveAttribute('data-replace', 'true')
   })
 
@@ -68,7 +68,7 @@ describe('LandInWorkspace', () => {
     rememberWorkspace('acme', 'project-101', 'old-ws')
     workspaces.data = [{ slug: 'sales' }, { slug: 'it' }]
     render(<LandInWorkspace slugs={SLUGS} />)
-    expect(screen.getByTestId('navigate')).toHaveTextContent('/acme/project-101/it/workflows')
+    expect(screen.getByTestId('navigate')).toHaveTextContent('/acme/project-101/it/overview')
   })
 
   it('goes to the project’s Workspaces page when there’s no workspace to open', () => {

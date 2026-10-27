@@ -129,7 +129,7 @@ describe('breadcrumbs', () => {
     expect(breadcrumbs({ kind: 'workspace', page: 'runs' }, SALES, NAMES)).toEqual([
       { label: 'Acme Inc', href: '/acme/projects' },
       { label: 'Project 101', href: '/acme/project-101' },
-      { label: 'Sales', href: '/acme/project-101/sales/workflows' },
+      { label: 'Sales', href: '/acme/project-101/sales/overview' },
       { label: 'Runs' },
     ])
   })

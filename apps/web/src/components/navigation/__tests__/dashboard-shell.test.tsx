@@ -162,7 +162,7 @@ describe('DashboardShell', () => {
     expect(within(crumbs).getByText('Workflows')).toHaveAttribute('aria-current', 'page')
     expect(within(crumbs).getByRole('link', { name: 'Sales' })).toHaveAttribute(
       'href',
-      '/acme/project-101/sales/workflows',
+      '/acme/project-101/sales/overview',
     )
     expect(screen.getByRole('link', { name: 'Project settings' })).toHaveAttribute(
       'href',
@@ -295,7 +295,7 @@ describe('DashboardShell', () => {
     await userEvent.click(trigger)
     const sheet = screen.getByRole('dialog', { name: 'Project menu' })
     const it = within(sheet).getByRole('link', { name: /^IT/ })
-    expect(it).toHaveAttribute('href', '/acme/project-101/it/workflows')
+    expect(it).toHaveAttribute('href', '/acme/project-101/it/overview')
     await userEvent.click(it)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 

@@ -31,8 +31,8 @@ describe('dashboard paths', () => {
     expect(projectSettingsPath(SALES, 'variables')).toBe('/acme/project-101/settings/variables')
   })
 
-  it('builds workspace pages, defaulting to Workflows', () => {
-    expect(workspacePath(SALES)).toBe('/acme/project-101/sales/workflows')
+  it('builds workspace pages, defaulting to Overview', () => {
+    expect(workspacePath(SALES)).toBe('/acme/project-101/sales/overview')
     expect(workspacePath(SALES, 'settings')).toBe('/acme/project-101/sales/settings')
   })
 

@@ -35,8 +35,8 @@ export type AccountPage = (typeof ACCOUNT_PAGES)[number]
 export type ProjectSlugs = Required<Pick<ScopeSlugs, 'org' | 'project'>>
 export type WorkspaceSlugs = Required<ScopeSlugs>
 
-/** Where a bare workspace URL goes: every card and switcher on the canvas links here. */
-export const DEFAULT_WORKSPACE_PAGE: WorkspacePage = 'workflows'
+/** Where a bare workspace URL goes, and where every project card and switcher links. */
+export const DEFAULT_WORKSPACE_PAGE: WorkspacePage = 'overview'
 
 /**
  * Slugs that a URL segment at each level can't be, because a route already

@@ -59,7 +59,7 @@ describe('project Workspaces page', () => {
     rememberWorkspace('acme', 'project-101', 'sales')
     renderPage()
     const sales = await screen.findByRole('link', { name: 'Sales' })
-    expect(sales).toHaveAttribute('href', '/acme/project-101/sales/workflows')
+    expect(sales).toHaveAttribute('href', '/acme/project-101/sales/overview')
     expect(within(sales).getByText('You’re here')).toBeVisible()
     expect(within(sales).getByText('4 workflows')).toBeVisible()
     expect(within(screen.getByRole('link', { name: 'IT' })).getByText(/All passing/)).toBeVisible()
@@ -136,7 +136,7 @@ describe('New workspace dialog', () => {
     expect(within(people).getByText('Daniel Kim')).toBeVisible()
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create workspace' }))
-    await waitFor(() => expect(goTo).toHaveBeenCalledWith('/acme/project-101/billing/workflows'))
+    await waitFor(() => expect(goTo).toHaveBeenCalledWith('/acme/project-101/billing/overview'))
     const db = dashboardDb()
     const billing = db.workspaces.find((w) => w.slug === 'billing')!
     expect(billing.colour).toBe('rose')

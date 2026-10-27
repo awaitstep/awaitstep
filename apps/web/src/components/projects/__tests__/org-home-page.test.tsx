@@ -66,8 +66,8 @@ function settle(projects: Project[] = [PROJECT_101, MARKETING_SITE]) {
   state.activity = ok([])
 }
 
-function renderPage(dialog?: string, onCloseDialog = vi.fn()) {
-  render(<OrgHomePage org="acme" dialog={dialog} then={undefined} onCloseDialog={onCloseDialog} />)
+function renderPage(dialog?: string, onCloseDialog = vi.fn(), then?: string) {
+  render(<OrgHomePage org="acme" dialog={dialog} then={then} onCloseDialog={onCloseDialog} />)
   return { onCloseDialog }
 }
 
@@ -168,7 +168,24 @@ describe('New project dialog', () => {
       expect.anything(),
     )
     expect(navigate).toHaveBeenCalledWith(
-      expect.objectContaining({ to: '/acme/billing/default/workflows' }),
+      expect.objectContaining({ to: '/acme/billing/default/overview' }),
+    )
+  })
+
+  it('lands on the new workspace’s Workflows with the import dialog open after Import a workflow', async () => {
+    settle()
+    createProject.mutate.mockImplementation((_input, { onSuccess }) =>
+      onSuccess({ project: { slug: 'billing' }, workspace: { slug: 'default' } }),
+    )
+    renderPage('project', vi.fn(), 'import')
+    const dialog = screen.getByRole('dialog', { name: 'Create a project' })
+    await userEvent.type(within(dialog).getByRole('textbox', { name: /Project name/ }), 'Billing')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Create project' }))
+    expect(navigate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: '/acme/billing/default/workflows',
+        search: { new: 'import' },
+      }),
     )
   })
 

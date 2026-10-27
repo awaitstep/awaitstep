@@ -34,12 +34,12 @@ export function NewProjectDialog({ open, onOpenChange, org, then }: NewProjectDi
       { name, description: description || undefined },
       {
         onSuccess: ({ project, workspace }) => {
-          const landing = workspacePath({
-            org: org.slug,
-            project: project.slug,
-            workspace: workspace.slug,
-          })
-          goTo(then === 'import' ? `${landing}?new=import` : landing)
+          const slugs = { org: org.slug, project: project.slug, workspace: workspace.slug }
+          goTo(
+            then === 'import'
+              ? `${workspacePath(slugs, 'workflows')}?new=import`
+              : workspacePath(slugs),
+          )
         },
       },
     )
