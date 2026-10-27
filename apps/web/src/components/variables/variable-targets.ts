@@ -7,20 +7,23 @@ interface TargetsInput {
   workspaces: { slug: string; name: string; canManage: boolean }[]
 }
 
+/** The org as a place to set variables: "Acme Inc · every project". */
+export function orgVariableTarget(orgName: string): VariableTarget {
+  return {
+    id: 'org',
+    label: `${orgName} · every project`,
+    name: orgName,
+    scope: { level: 'organization' },
+  }
+}
+
 /**
  * The "Applies to" choices (`NewVariable`): the org, the project, then each
  * workspace — only the ones the viewer may change (D-P6-7).
  */
 export function variableTargets({ org, project, workspaces }: TargetsInput): VariableTarget[] {
   const targets: VariableTarget[] = []
-  if (org.canManage) {
-    targets.push({
-      id: 'org',
-      label: `${org.name} · every project`,
-      name: org.name,
-      scope: { level: 'organization' },
-    })
-  }
+  if (org.canManage) targets.push(orgVariableTarget(org.name))
   if (project.canManage) {
     targets.push({
       id: 'project',

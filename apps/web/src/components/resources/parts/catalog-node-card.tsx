@@ -1,4 +1,4 @@
-import { Download, Loader2 } from 'lucide-react'
+import { ArrowUpCircle, Download, Loader2 } from 'lucide-react'
 import { Badge } from '../../ui/badge'
 import { Button } from '../../ui/button'
 import { Tile } from '../../ui/tile'
@@ -17,10 +17,14 @@ interface CatalogNodeCardProps {
   node: OrgNode
   /** Names who an install reaches: "Install Slack for every project in Acme Inc". */
   orgName: string
+  /** Each action shows only when its handler is given: none for people who can't change the org. */
   onInstall?: (nodeId: string) => void
   onUninstall?: (nodeId: string) => void
-  /** An install or uninstall of this node is in flight. */
+  onUpdate?: (nodeId: string) => void
+  /** A change to this node is in flight. */
   busy?: boolean
+  /** Another node's change is in flight: wait for it. */
+  disabled?: boolean
 }
 
 function describeVersion(node: OrgNode): string {
@@ -35,17 +39,20 @@ function describeUsage(usage: number | undefined): string {
 
 /**
  * A node on the org's Resources page. Installed marketplace nodes can be
- * uninstalled (the page confirms first when they're in use); custom nodes
- * always stay installed.
+ * updated and uninstalled (the page confirms first when they're in use);
+ * custom nodes always stay installed.
  */
 export function CatalogNodeCard({
   node,
   orgName,
   onInstall,
   onUninstall,
+  onUpdate,
   busy,
+  disabled,
 }: CatalogNodeCardProps) {
   const custom = node.source === 'custom'
+  const spinner = busy && <Loader2 className="animate-spin" aria-hidden="true" />
 
   function handleInstall() {
     onInstall?.(node.id)
@@ -53,6 +60,10 @@ export function CatalogNodeCard({
 
   function handleUninstall() {
     onUninstall?.(node.id)
+  }
+
+  function handleUpdate() {
+    onUpdate?.(node.id)
   }
 
   return (
@@ -71,22 +82,42 @@ export function CatalogNodeCard({
         <Badge variant={custom ? 'info' : 'neutral'}>{custom ? 'Custom' : 'Marketplace'}</Badge>
       </div>
       <p className="text-xs leading-relaxed text-muted-foreground">{node.description}</p>
-      <div className="mt-auto flex flex-wrap items-center gap-2">
+      {node.updateAvailable && (
+        <p className="text-2xs text-muted-foreground">
+          v{node.latestVersion} is out.
+          {onUpdate && ' Update to move workflows to it when they’re next deployed.'}
+        </p>
+      )}
+      <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border pt-3">
         {node.installed ? (
           <>
             <span className="text-2xs text-muted-foreground">{describeUsage(node.usage)}</span>
             <span className="flex-1" />
             {node.updateAvailable && <Badge variant="warning">Update available</Badge>}
-            {!custom && (
+            {node.updateAvailable && onUpdate && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleUpdate}
+                disabled={busy || disabled}
+                aria-busy={busy || undefined}
+                aria-label={`Update ${node.name} to v${node.latestVersion}`}
+              >
+                {spinner || <ArrowUpCircle aria-hidden="true" />}
+                Update
+              </Button>
+            )}
+            {!custom && onUninstall && (
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 onClick={handleUninstall}
-                disabled={busy}
+                disabled={busy || disabled}
                 aria-busy={busy || undefined}
               >
-                {busy && <Loader2 className="animate-spin" aria-hidden="true" />}
+                {spinner}
                 Uninstall
               </Button>
             )}
@@ -94,22 +125,20 @@ export function CatalogNodeCard({
         ) : (
           <>
             <span className="flex-1" />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleInstall}
-              disabled={busy}
-              aria-busy={busy || undefined}
-              aria-label={`Install ${node.name} for every project in ${orgName}`}
-            >
-              {busy ? (
-                <Loader2 className="animate-spin" aria-hidden="true" />
-              ) : (
-                <Download aria-hidden="true" />
-              )}
-              Install
-            </Button>
+            {onInstall && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleInstall}
+                disabled={busy || disabled}
+                aria-busy={busy || undefined}
+                aria-label={`Install ${node.name} for every project in ${orgName}`}
+              >
+                {spinner || <Download aria-hidden="true" />}
+                Install
+              </Button>
+            )}
           </>
         )}
       </div>

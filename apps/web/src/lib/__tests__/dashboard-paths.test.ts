@@ -94,6 +94,12 @@ describe('dialog addresses', () => {
     expect(variableDialogPath(p101, { kind: 'variable', name: 'SLACK_TOKEN' })).toBe(
       '/acme/project-101/settings/variables?variable=SLACK_TOKEN',
     )
+    expect(variableDialogPath({ org: 'acme' }, { kind: 'new' })).toBe(
+      '/acme/resources?tab=variables&new=variable',
+    )
+    expect(variableDialogPath({ org: 'acme' }, { kind: 'variable', name: 'REGION' })).toBe(
+      '/acme/resources?tab=variables&variable=REGION',
+    )
     expect(
       variableDialogPath({ ...p101, workspace: 'sales' }, { kind: 'variable', name: 'REGION' }),
     ).toBe('/acme/project-101/sales/settings?tab=variables&variable=REGION')

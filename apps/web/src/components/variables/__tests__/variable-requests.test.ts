@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { ResolvedVariable, WorkspaceVariable } from '../../../types/dashboard/variables'
 import { validateDashboardSearch } from '../../navigation/dashboard-providers'
-import { projectDialogMode, variableRequestFrom, workspaceDialogMode } from '../variable-requests'
+import {
+  orgDialogMode,
+  projectDialogMode,
+  variableRequestFrom,
+  workspaceDialogMode,
+} from '../variable-requests'
 
 const resolved = (
   name: string,
@@ -70,5 +75,33 @@ describe('workspaceDialogMode', () => {
     expect(workspaceDialogMode({ kind: 'variable', name: 'SLACK_TOKEN' }, list)).toMatchObject({
       kind: 'override',
     })
+  })
+})
+
+describe('orgDialogMode', () => {
+  const ORG = [
+    { name: 'REGION', value: 'eu', isSecret: false, overriddenIn: 1 },
+    { name: 'SENTRY_DSN', value: null, isSecret: true, overriddenIn: 0 },
+  ]
+
+  it('edits the org’s own variables, a secret starting empty', () => {
+    expect(orgDialogMode({ kind: 'variable', name: 'REGION' }, ORG)).toEqual({
+      kind: 'edit',
+      name: 'REGION',
+      value: 'eu',
+      isSecret: false,
+    })
+    expect(orgDialogMode({ kind: 'variable', name: 'SENTRY_DSN' }, ORG)).toMatchObject({
+      kind: 'edit',
+      value: null,
+      isSecret: true,
+    })
+    expect(orgDialogMode({ kind: 'new' }, undefined)).toEqual({ kind: 'new' })
+  })
+
+  it('waits for the list, and opens nothing for an unknown name', () => {
+    expect(orgDialogMode({ kind: 'variable', name: 'REGION' }, undefined)).toBeNull()
+    expect(orgDialogMode({ kind: 'variable', name: 'NOPE' }, ORG)).toBeNull()
+    expect(orgDialogMode(null, ORG)).toBeNull()
   })
 })

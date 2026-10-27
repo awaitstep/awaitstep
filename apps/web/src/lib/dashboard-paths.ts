@@ -141,20 +141,24 @@ export function accessEditorPath(
 
 /**
  * Variables with a dialog open: New variable, or one variable's (the page
- * opens Edit where it's set, Override where it's inherited). Project
- * settings for project slugs, the workspace's Variables tab for workspace slugs.
+ * opens Edit where it's set, Override where it's inherited). Resources'
+ * Variables tab for the org, project settings for project slugs, the
+ * workspace's Variables tab for workspace slugs.
  */
 export function variableDialogPath(
-  slugs: ProjectSlugs | WorkspaceSlugs,
+  slugs: { org: string } | ProjectSlugs | WorkspaceSlugs,
   dialog: { kind: 'new' } | { kind: 'variable'; name: string },
 ): string {
-  const query = new URLSearchParams(
-    dialog.kind === 'new' ? { new: 'variable' } : { variable: dialog.name },
-  )
+  const query: Record<string, string> =
+    dialog.kind === 'new' ? { new: 'variable' } : { variable: dialog.name }
+  // Workspace settings and Resources hold variables on a tab.
   if ('workspace' in slugs) {
-    return `${workspacePath(slugs, 'settings')}?${new URLSearchParams({ tab: 'variables', ...Object.fromEntries(query) })}`
+    return `${workspacePath(slugs, 'settings')}?${new URLSearchParams({ tab: 'variables', ...query })}`
   }
-  return `${projectSettingsPath(slugs, 'variables')}?${query}`
+  if ('project' in slugs) {
+    return `${projectSettingsPath(slugs, 'variables')}?${new URLSearchParams(query)}`
+  }
+  return `${orgPath(slugs.org, 'resources')}?${new URLSearchParams({ tab: 'variables', ...query })}`
 }
 
 /** A dashboard page with its "New …" dialog open (`?new=`): the page owning the dialog reads it. */

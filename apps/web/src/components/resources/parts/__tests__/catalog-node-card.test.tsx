@@ -46,3 +46,40 @@ describe('CatalogNodeCard', () => {
     expect(button).toHaveAttribute('aria-busy', 'true')
   })
 })
+
+describe('CatalogNodeCard updates and read-only', () => {
+  it('reports an update to the latest version and says when workflows move', async () => {
+    const onUpdate = vi.fn()
+    render(<CatalogNodeCard node={SLACK} orgName="Acme Inc" onUpdate={onUpdate} />)
+    expect(screen.getByText(/v2.4.0 is out/)).toHaveTextContent(
+      'v2.4.0 is out. Update to move workflows to it when they’re next deployed.',
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Update Slack to v2.4.0' }))
+    expect(onUpdate).toHaveBeenCalledWith('slack')
+  })
+
+  it('shows no actions without handlers, for people who can’t change the org', () => {
+    render(<CatalogNodeCard node={SLACK} orgName="Acme Inc" />)
+    render(<CatalogNodeCard node={ANTHROPIC} orgName="Acme Inc" />)
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    // Nothing they could do: the note says only that a version is out.
+    expect(screen.getByText(/v2.4.0 is out/)).toHaveTextContent(/^v2.4.0 is out.$/)
+  })
+
+  it('waits while another node’s change is in flight, without its own spinner', () => {
+    render(
+      <CatalogNodeCard
+        node={SLACK}
+        orgName="Acme Inc"
+        onUpdate={vi.fn()}
+        onUninstall={vi.fn()}
+        disabled
+      />,
+    )
+    render(<CatalogNodeCard node={ANTHROPIC} orgName="Acme Inc" onInstall={vi.fn()} disabled />)
+    for (const button of screen.getAllByRole('button')) {
+      expect(button).toBeDisabled()
+      expect(button).not.toHaveAttribute('aria-busy')
+    }
+  })
+})
