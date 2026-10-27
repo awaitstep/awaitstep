@@ -31,6 +31,16 @@ export interface WorkspaceVariable {
   overrides: Exclude<VariableLevel, 'workspace'> | null
 }
 
+/** A variable the org sets (Resources → Variables): it reaches every project that doesn't set its own. */
+export interface OrgVariable {
+  name: string
+  /** Null for a secret. */
+  value: string | null
+  isSecret: boolean
+  /** Projects the viewer can open that set their own value, here or in a workspace. */
+  overriddenIn: number
+}
+
 /** Where a variable is set, by slug. */
 export type VariableScope = LevelSlugs
 

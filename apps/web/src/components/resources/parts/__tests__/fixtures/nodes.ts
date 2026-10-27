@@ -12,6 +12,7 @@ export const ACME_CRM: OrgNode = {
   author: 'Tom Becker',
   installed: true,
   usage: 5,
+  latestVersion: '4',
   updateAvailable: false,
 }
 
@@ -24,6 +25,7 @@ export const SLACK: OrgNode = {
   source: 'marketplace',
   installed: true,
   usage: 6,
+  latestVersion: '2.4.0',
   updateAvailable: true,
 }
 
@@ -36,6 +38,7 @@ export const RESEND: OrgNode = {
   source: 'marketplace',
   installed: true,
   usage: 0,
+  latestVersion: '1.0.3',
   updateAvailable: false,
 }
 
@@ -47,5 +50,6 @@ export const ANTHROPIC: OrgNode = {
   version: '1.2.0',
   source: 'marketplace',
   installed: false,
+  latestVersion: '1.2.0',
   updateAvailable: false,
 }

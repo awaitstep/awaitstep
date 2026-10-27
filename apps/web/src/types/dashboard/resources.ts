@@ -20,5 +20,10 @@ export interface OrgNode {
   installed: boolean
   /** Workflows that use it; 0 when installed but unused. Absent when not installed. */
   usage?: number
+  /** The marketplace's newest version; Update moves `version` to it. */
+  latestVersion: string
   updateAvailable: boolean
 }
+
+/** The category pills on Resources, in the board's order. */
+export const NODE_CATEGORIES = ['AI', 'Data', 'Messaging', 'Payments', 'Utilities'] as const

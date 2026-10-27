@@ -1,10 +1,12 @@
 import type { ScopeSlugs } from '../../../types/dashboard/scope'
 import type {
+  OrgVariable,
   ResolvedVariable,
   VariableInput,
   VariableScope,
   WorkspaceVariable,
 } from '../../../types/dashboard/variables'
+import { canSeeProject } from '../access'
 import { getDb, type VariableRow } from '../db'
 import {
   type MockContext,
@@ -100,6 +102,33 @@ export const listWorkspaceVariables = endpoint(
     return rows(ctx, list)
   },
 )
+
+/**
+ * Resources → Variables: what the org sets, and how many projects the viewer
+ * can open set their own value (in the project or one of its workspaces).
+ */
+export const listOrgVariables = endpoint((ctx, orgSlug: string): OrgVariable[] => {
+  const db = getDb()
+  const { org } = requireScope(db, ctx, { org: orgSlug })
+  const projects = db.projects.filter((p) => p.orgId === org.id && canSeeProject(db, ctx, p))
+  const setsOwn = (projectId: string, name: string) =>
+    db.variables.some(
+      (v) =>
+        v.name === name &&
+        ((v.level === 'project' && v.scopeId === projectId) ||
+          (v.level === 'workspace' &&
+            db.workspaces.some((w) => w.id === v.scopeId && w.projectId === projectId))),
+    )
+  const list = db.variables
+    .filter((v) => v.level === 'organization' && v.scopeId === org.id)
+    .map((row): OrgVariable => ({
+      name: row.name,
+      value: row.isSecret ? null : row.value,
+      isSecret: row.isSecret,
+      overriddenIn: projects.filter((p) => setsOwn(p.id, row.name)).length,
+    }))
+  return rows(ctx, list)
+})
 
 const VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/
 

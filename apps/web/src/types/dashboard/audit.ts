@@ -27,3 +27,22 @@ export interface AuditEvent {
     colour?: WorkspaceColour
   }
 }
+
+/** The audit log's Period select. Events are kept for 90 days. */
+export type AuditPeriod = '24h' | '7d' | '30d' | '90d'
+
+export interface AuditFilter {
+  level?: AuditLevel
+  period?: AuditPeriod
+  /** Matches the person, the action and the target. */
+  search?: string
+  cursor?: string
+  limit?: number
+}
+
+export interface AuditPage {
+  data: AuditEvent[]
+  nextCursor: string | null
+  /** Events matching the filter, across every page. */
+  total: number
+}

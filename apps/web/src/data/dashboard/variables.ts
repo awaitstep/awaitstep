@@ -5,6 +5,15 @@ import type { VariableInput, VariableScope } from '../../types/dashboard/variabl
 import { dashKeys, invalidateAll, withMockContext } from './keys'
 import { useMockContext } from './scenario-context'
 
+/** Resources → Variables: what the org sets for every project. */
+export function useOrgVariables(org: string) {
+  const ctx = useMockContext()
+  return useQuery({
+    queryKey: withMockContext(dashKeys.orgVariables(org), ctx),
+    queryFn: () => mockServer.variables.listOrgVariables(ctx, org),
+  })
+}
+
 /** Project settings → Variables: each name once, as the project resolves it. */
 export function useProjectVariables(org: string, project: string) {
   const ctx = useMockContext()

@@ -1,5 +1,6 @@
 import type { QueryClient, QueryKey } from '@tanstack/react-query'
 import type { MockContext } from '../../mocks/dashboard/scenario'
+import type { AuditFilter } from '../../types/dashboard/audit'
 import type { ItemKind } from '../../types/dashboard/items'
 import type { RunFilter } from '../../types/dashboard/runs'
 import type { ScopeSlugs } from '../../types/dashboard/scope'
@@ -53,6 +54,10 @@ export const dashKeys = {
   invitations: (org: string) => ['dash', 'invitations', org] as const,
   connections: (org: string) => ['dash', 'connections', org] as const,
   orgKeys: (org: string) => ['dash', 'orgKeys', org] as const,
+  orgNodes: (org: string) => ['dash', 'orgNodes', org] as const,
+  audit: (org: string, filter: AuditFilter) => ['dash', 'audit', org, filter] as const,
+  /** Org-level variables: the project and workspace slots are empty. */
+  orgVariables: (org: string) => ['dash', 'variables', org, null, null] as const,
   /** Every query of a domain across the org's projects and workspaces. */
   inOrg: (domain: ScopedDomain, org: string) => ['dash', domain, org] as const,
   workspaceKeys: (s: WorkspaceSlugs) => ['dash', 'keys', s.org, s.project, s.workspace] as const,
@@ -79,7 +84,15 @@ type ScopedDomain = (typeof SCOPED)[number]
 const SCOPED_DOMAINS = new Set<string>(SCOPED)
 
 // Org-level lists, keyed [dash, domain, org]: gone with the org's slug too.
-const ORG_DOMAINS = new Set(['orgMembers', 'invitations', 'connections', 'orgKeys', 'projects'])
+const ORG_DOMAINS = new Set([
+  'orgMembers',
+  'invitations',
+  'connections',
+  'orgKeys',
+  'projects',
+  'orgNodes',
+  'audit',
+])
 
 /**
  * Appends the dummy session's scenario and person, so switching either

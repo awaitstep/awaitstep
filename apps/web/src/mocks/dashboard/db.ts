@@ -1,8 +1,10 @@
 import type { WorkspaceColour } from '../../components/ui/workspace-colour'
+import type { AuditKind, AuditLevel } from '../../types/dashboard/audit'
 import type { KeyLevel, KeyPermissions } from '../../types/dashboard/api-keys'
 import type { FunctionTraffic, ItemKind } from '../../types/dashboard/items'
 import type { RunResult, RunTrigger } from '../../types/dashboard/runs'
 import type { ProjectRole } from '../../types/dashboard/projects'
+import type { NodeSource } from '../../types/dashboard/resources'
 import type { OrgRole, Person } from '../../types/dashboard/session'
 import type { VariableLevel } from '../../types/dashboard/variables'
 import type { WorkspaceRole } from '../../types/dashboard/workspaces'
@@ -160,6 +162,38 @@ export interface ConnectionRow {
   lastDeployAt: string | null
 }
 
+/** A node in an org's catalog: a marketplace node, installed or not, or one the org built. */
+export interface NodeRow {
+  orgId: string
+  id: string
+  name: string
+  category: string
+  description: string
+  source: NodeSource
+  /** Custom nodes: who built it. */
+  authorId: string | null
+  /** Null while not installed; custom nodes are always installed. */
+  installedVersion: string | null
+  latestVersion: string
+  /** Workflows using it (fixed sample numbers until B9). */
+  usage: number
+}
+
+/** One audit log event; the scope ids say where it happened. */
+export interface AuditRow {
+  id: string
+  orgId: string
+  at: string
+  kind: AuditKind
+  actor: string
+  action: string
+  target: string
+  detail: string
+  level: AuditLevel
+  projectId: string | null
+  workspaceId: string | null
+}
+
 export interface MockDb {
   people: Person[]
   orgs: OrgRow[]
@@ -176,11 +210,13 @@ export interface MockDb {
   variables: VariableRow[]
   invitations: InvitationRow[]
   connections: ConnectionRow[]
+  nodes: NodeRow[]
+  audit: AuditRow[]
 }
 
 // Bump when the tables or the seed change, so a tab's saved copy is reseeded
 // instead of read with missing tables.
-const DB_VERSION = 5
+const DB_VERSION = 6
 const STORAGE_KEY = 'awaitstep:dashboard-mock-db'
 
 let current: MockDb | null = null
