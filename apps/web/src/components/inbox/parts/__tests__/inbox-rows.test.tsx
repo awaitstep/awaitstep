@@ -41,7 +41,7 @@ describe('NotificationRow', () => {
   it('marks an unread notification with a named dot', () => {
     renderRow(FAILURE)
     expect(screen.getByRole('img', { name: 'Unread' })).toBeVisible()
-    expect(screen.getByText('Project 101 · Sales · 5 minutes ago')).toBeVisible()
+    expect(screen.getByText('Project 101 · Sales · 5m ago')).toBeVisible()
   })
 
   it('has no unread dot once read', () => {

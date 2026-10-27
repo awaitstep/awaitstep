@@ -29,7 +29,7 @@ describe('AuditRow', () => {
   })
 
   it('shows a recent event’s time relative to now', () => {
-    expect(within(renderEvent('deploy')).getByText('22 minutes ago')).toHaveAttribute('dateTime')
+    expect(within(renderEvent('deploy')).getByText('22m ago')).toHaveAttribute('dateTime')
   })
 
   it('dates an event older than a week', () => {

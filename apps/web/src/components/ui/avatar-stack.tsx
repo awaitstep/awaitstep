@@ -1,4 +1,6 @@
+import { cn } from '../../lib/utils'
 import { Avatar } from './avatar'
+import { WORKSPACE_COLOURS, WORKSPACE_TILE_CLASS, type WorkspaceColour } from './workspace-colour'
 
 interface Person {
   /** Keys the avatar; names repeat. */
@@ -21,6 +23,17 @@ function describePeople(people: Person[], shown: number): string {
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
 }
 
+/** A steady colour per person, from the workspace swatches, so the same face reads the same everywhere. */
+export function avatarColour(id: string): WorkspaceColour {
+  let hash = 0
+  for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) >>> 0
+  return WORKSPACE_COLOURS[hash % WORKSPACE_COLOURS.length]!
+}
+
+// 30px with a 2px border in the card colour, overlapping by 8px: as the boards
+// draw it, so two initials stay readable under the next avatar.
+const CIRCLE = 'size-[30px] border-2 border-card text-3xs font-semibold'
+
 /** Overlapping avatars for who is in a project or workspace. */
 export function AvatarStack({ people, max = 3 }: AvatarStackProps) {
   const shown = Math.min(max, people.length)
@@ -32,14 +45,17 @@ export function AvatarStack({ people, max = 3 }: AvatarStackProps) {
           <Avatar
             name={person.name}
             src={person.image}
-            className="size-[26px] text-3xs ring-2 ring-card"
+            className={cn(CIRCLE, WORKSPACE_TILE_CLASS[avatarColour(person.id)])}
           />
         </span>
       ))}
       {rest > 0 && (
         <span
           aria-hidden="true"
-          className="-ml-2 flex size-[26px] items-center justify-center rounded-full bg-muted text-3xs text-muted-foreground ring-2 ring-card"
+          className={cn(
+            CIRCLE,
+            '-ml-2 flex items-center justify-center rounded-full bg-muted font-normal text-muted-foreground',
+          )}
         >
           +{rest}
         </span>

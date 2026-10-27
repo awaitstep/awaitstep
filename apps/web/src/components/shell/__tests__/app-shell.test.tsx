@@ -75,4 +75,22 @@ describe('PageIntro', () => {
     expect(screen.getByText('Everything in Acme Inc.')).toBeInTheDocument()
     expect(screen.getByText('3 Projects')).toBeInTheDocument()
   })
+
+  it('caps the page column at screen-xl and centres it, so wide screens don’t leave a gap on one side', () => {
+    render(
+      <PageBody>
+        <p>Body</p>
+      </PageBody>,
+    )
+    expect(screen.getByText('Body').parentElement).toHaveClass('mx-auto', 'max-w-screen-xl')
+  })
+
+  it('lets the org home fill the column', () => {
+    render(
+      <PageBody width="full">
+        <p>Body</p>
+      </PageBody>,
+    )
+    expect(screen.getByText('Body').parentElement).not.toHaveClass('max-w-screen-xl')
+  })
 })

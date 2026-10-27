@@ -10,12 +10,20 @@ describe('ProjectCard', () => {
     const link = screen.getByRole('link', { name: 'Project 101' })
     expect(link).toHaveAttribute('href', '/acme/project-101/sales')
     expect(link).toHaveAccessibleDescription(/Sales.*IT.*Support.*8 workflows/)
-    expect(link).toHaveAccessibleDescription(/1 failing · 5 minutes ago/)
+    expect(link).toHaveAccessibleDescription(/1 failing · 5m ago/)
   })
 
-  it('marks the current project', () => {
+  it('marks the current project, with a primary border', () => {
     render(<ProjectCard project={PROJECT_101} href="/p" current />)
     expect(screen.getByText('Current')).toBeVisible()
+    expect(screen.getByRole('link')).toHaveClass('border-primary')
+  })
+
+  it('tints its header with its first workspace’s colour', () => {
+    render(<ProjectCard project={MARKETING_SITE} href="/p" />)
+    const header = screen.getByText('Marketing Site').closest('span.border-b')
+    expect(header).toHaveClass('bg-workspace-amber/15')
+    expect(screen.getByRole('link')).not.toHaveClass('border-primary')
   })
 
   it('shows every workspace as a chip and the people as one image', () => {
@@ -29,7 +37,7 @@ describe('ProjectCard', () => {
 
   it('says when every run is passing, and when there are no runs yet', () => {
     const { unmount } = render(<ProjectCard project={MARKETING_SITE} href="/p" />)
-    expect(screen.getByText('All passing · 3 hours ago')).toBeVisible()
+    expect(screen.getByText('All passing · 3h ago')).toBeVisible()
     unmount()
     render(<ProjectCard project={NEW_PROJECT} href="/p" />)
     expect(screen.getByText('No runs yet')).toBeVisible()

@@ -1,12 +1,30 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AvatarStack } from '../avatar-stack'
+import { AvatarStack, avatarColour } from '../avatar-stack'
 import { RunHistoryBars } from '../run-history-bars'
 import { ShareToggle } from '../share-toggle'
 import { PEOPLE } from './fixtures/lists'
 
 describe('AvatarStack', () => {
+  it('draws each avatar large enough that the next one doesn’t cover its initials', () => {
+    const { container } = render(<AvatarStack people={PEOPLE} max={2} />)
+    const circles = container.querySelectorAll(
+      '[aria-hidden="true"] > span, [aria-hidden="true"].rounded-full',
+    )
+    expect(circles.length).toBe(3) // two avatars and "+N"
+    for (const circle of circles) {
+      expect(circle).toHaveClass('size-[30px]', 'border-2', 'border-card')
+      expect(circle).not.toHaveClass('ring-2')
+    }
+  })
+
+  it('gives each person a steady colour of their own', () => {
+    expect(avatarColour('ama')).toBe(avatarColour('ama'))
+    const colours = new Set(['ama', 'daniel', 'lena', 'priya', 'tom', 'jonas'].map(avatarColour))
+    expect(colours.size).toBeGreaterThan(1)
+  })
+
   it('names everyone, folding the rest into "+N"', () => {
     render(<AvatarStack people={PEOPLE} max={2} />)
     expect(

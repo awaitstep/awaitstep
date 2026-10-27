@@ -25,3 +25,12 @@ export const WORKSPACE_DOT_CLASS: Record<WorkspaceColour, string> = {
   purple: 'bg-workspace-purple',
   rose: 'bg-workspace-rose',
 }
+
+/** A card header tinted with a workspace's colour, as on the project and workspace cards. */
+export const WORKSPACE_TINT_CLASS: Record<WorkspaceColour, string> = {
+  green: 'bg-workspace-green/15 border-workspace-green/40',
+  blue: 'bg-workspace-blue/15 border-workspace-blue/40',
+  amber: 'bg-workspace-amber/15 border-workspace-amber/40',
+  purple: 'bg-workspace-purple/15 border-workspace-purple/40',
+  rose: 'bg-workspace-rose/15 border-workspace-rose/40',
+}

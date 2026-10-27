@@ -10,7 +10,7 @@ describe('WorkspaceCard', () => {
     const link = screen.getByRole('link', { name: 'Sales' })
     expect(link).toHaveAttribute('href', '/acme/project-101/sales')
     expect(link).toHaveAccessibleDescription(
-      /4 workflows · 2 functions · 1 shared out.*1 failing · 5 minutes ago/,
+      /4 workflows · 2 functions · 1 shared out.*1 failing · 5m ago/,
     )
   })
 
@@ -30,7 +30,7 @@ describe('WorkspaceCard', () => {
   it('counts in the singular and shows passing runs', () => {
     render(<WorkspaceCard workspace={IT} href="/w" />)
     expect(screen.getByText('4 workflows · 1 function · 2 shared out')).toBeVisible()
-    expect(screen.getByText('All passing · 1 hour ago')).toBeVisible()
+    expect(screen.getByText('All passing · 1h ago')).toBeVisible()
     expect(screen.queryByText('New')).not.toBeInTheDocument()
   })
 })

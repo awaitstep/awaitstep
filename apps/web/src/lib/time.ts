@@ -7,12 +7,23 @@ export function timeAgo(dateStr: string | Date): string {
   return formatDistanceToNowStrict(date, { addSuffix: true })
 }
 
-const WEEK_MS = 7 * 24 * 60 * 60_000
+const MINUTE_MS = 60_000
+const HOUR_MS = 60 * MINUTE_MS
+const DAY_MS = 24 * HOUR_MS
+const WEEK_MS = 7 * DAY_MS
 
-/** "5 minutes ago" within the last week, then the day: "12 Oct". For feeds. */
+/**
+ * The dashboard's short times: "just now", "5m ago", "3h ago", "Yesterday",
+ * "2 days ago", then the day ("12 Oct") once a week has passed.
+ */
 export function timeAgoOrDay(dateStr: string | Date, now: Date = new Date()): string {
   const date = new Date(dateStr)
-  if (now.getTime() - date.getTime() < WEEK_MS) return timeAgo(date)
+  const elapsed = now.getTime() - date.getTime()
+  if (elapsed < MINUTE_MS) return 'just now'
+  if (elapsed < HOUR_MS) return `${Math.floor(elapsed / MINUTE_MS)}m ago`
+  if (elapsed < DAY_MS) return `${Math.floor(elapsed / HOUR_MS)}h ago`
+  if (elapsed < 2 * DAY_MS) return 'Yesterday'
+  if (elapsed < WEEK_MS) return `${Math.floor(elapsed / DAY_MS)} days ago`
   return format(date, 'd MMM')
 }
 

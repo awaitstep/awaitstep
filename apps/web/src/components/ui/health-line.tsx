@@ -1,5 +1,5 @@
 import { cn } from '../../lib/utils'
-import { timeAgo } from '../../lib/time'
+import { timeAgoOrDay } from '../../lib/time'
 
 interface HealthLineProps {
   /** Items whose latest run failed. */
@@ -7,7 +7,7 @@ interface HealthLineProps {
   lastRunAt: string | null
 }
 
-/** "1 failing · 5 minutes ago", "All passing · 3 hours ago" or "No runs yet", on project and workspace cards. */
+/** "1 failing · 5m ago", "All passing · 3h ago" or "No runs yet", on project and workspace cards. */
 export function HealthLine({ failing, lastRunAt }: HealthLineProps) {
   if (!lastRunAt) {
     return <span className="text-2xs text-muted-foreground">No runs yet</span>
@@ -27,7 +27,7 @@ export function HealthLine({ failing, lastRunAt }: HealthLineProps) {
           failed ? 'bg-status-error' : 'bg-status-success',
         )}
       />
-      {failed ? `${failing} failing` : 'All passing'} · {timeAgo(lastRunAt)}
+      {failed ? `${failing} failing` : 'All passing'} · {timeAgoOrDay(lastRunAt)}
     </span>
   )
 }

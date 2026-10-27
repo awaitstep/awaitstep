@@ -25,7 +25,7 @@ interface ActionCardProps {
   corner?: ReactNode
   /** The suggested next step: a primary-coloured border. */
   highlighted?: boolean
-  /** `dashed`: an unfilled card with a dashed border, for "New project" / "New workspace". */
+  /** `dashed`: an unfilled, centred card with a dashed border, for "New project" / "New workspace". */
   variant?: 'solid' | 'dashed'
 }
 
@@ -50,7 +50,10 @@ export function ActionCard({
       aria-describedby={descriptionId}
       className={cn(
         'flex flex-col gap-3 rounded-2xl border p-5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        variant === 'dashed' ? 'border-dashed bg-transparent' : 'bg-card',
+        // The "New …" tile: unfilled, its content centred, as the boards draw it.
+        variant === 'dashed'
+          ? 'min-h-[200px] items-center justify-center border-dashed bg-transparent text-center'
+          : 'bg-card',
         highlighted ? 'border-primary shadow-lg' : 'border-border hover:border-foreground/20',
       )}
     >

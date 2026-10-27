@@ -43,14 +43,21 @@ describe('formatDateTime', () => {
 })
 
 describe('timeAgoOrDay', () => {
-  it('is relative within the last week', () => {
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60_000)
-    expect(timeAgoOrDay(fiveMinutesAgo)).toBe('5 minutes ago')
+  const NOW = new Date('2026-10-26T12:00:00.000Z')
+  const ago = (ms: number) => new Date(NOW.getTime() - ms)
+
+  it('reads short within a day', () => {
+    expect(timeAgoOrDay(ago(20_000), NOW)).toBe('just now')
+    expect(timeAgoOrDay(ago(5 * 60_000), NOW)).toBe('5m ago')
+    expect(timeAgoOrDay(ago(3 * 3_600_000 + 59 * 60_000), NOW)).toBe('3h ago')
+  })
+
+  it('says Yesterday, then days, within a week', () => {
+    expect(timeAgoOrDay(ago(30 * 3_600_000), NOW)).toBe('Yesterday')
+    expect(timeAgoOrDay(ago(3 * 86_400_000), NOW)).toBe('3 days ago')
   })
 
   it('is the day once a week has passed', () => {
-    expect(timeAgoOrDay('2026-10-12T09:30:00.000Z', new Date('2026-10-26T12:00:00.000Z'))).toBe(
-      '12 Oct',
-    )
+    expect(timeAgoOrDay('2026-10-12T09:30:00.000Z', NOW)).toBe('12 Oct')
   })
 })
