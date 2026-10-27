@@ -29,6 +29,9 @@ export const WORKSPACE_PAGES = [
 ] as const
 export type WorkspacePage = (typeof WORKSPACE_PAGES)[number]
 
+export const ACCOUNT_PAGES = ['profile', 'sessions'] as const
+export type AccountPage = (typeof ACCOUNT_PAGES)[number]
+
 export type ProjectSlugs = Required<Pick<ScopeSlugs, 'org' | 'project'>>
 export type WorkspaceSlugs = Required<ScopeSlugs>
 
@@ -55,7 +58,7 @@ export const RESERVED_SLUGS = {
     'sign-in',
     'workflows',
   ],
-  project: [...ORG_PAGES, 'settings'],
+  project: [...ORG_PAGES, 'settings', 'account'],
   // A workspace's pages sit one level below it, so only the project's own
   // settings path collides.
   workspace: ['settings'],
@@ -94,6 +97,11 @@ export function workspacePath(
   page: WorkspacePage = DEFAULT_WORKSPACE_PAGE,
 ): string {
   return `${projectPath(slugs)}/${segment(slugs.workspace)}/${page}`
+}
+
+/** Your own account, shown in the org you're in so the rail keeps its place. */
+export function accountPath(org: string, page: AccountPage = 'profile'): string {
+  return `/${segment(org)}/account/${page}`
 }
 
 export function chooseOrgPath(): string {

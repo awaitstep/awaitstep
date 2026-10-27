@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  accountPath,
   chooseOrgPath,
   invitePath,
   isReservedSlug,
@@ -37,6 +38,8 @@ describe('dashboard paths', () => {
     )
     expect(invitePath('tok/en')).toBe('/invite/tok%2Fen')
     expect(chooseOrgPath()).toBe('/choose-org')
+    expect(accountPath('acme')).toBe('/acme/account/profile')
+    expect(accountPath('acme', 'sessions')).toBe('/acme/account/sessions')
   })
 })
 
@@ -49,7 +52,15 @@ describe('reserved slugs', () => {
   })
 
   it('keeps projects off the org’s own pages', () => {
-    for (const slug of ['projects', 'resources', 'audit', 'inbox', 'whats-new', 'settings']) {
+    for (const slug of [
+      'projects',
+      'resources',
+      'audit',
+      'inbox',
+      'whats-new',
+      'settings',
+      'account',
+    ]) {
       expect(isReservedSlug('project', slug)).toBe(true)
     }
     expect(isReservedSlug('project', 'project-101')).toBe(false)

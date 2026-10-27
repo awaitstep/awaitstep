@@ -1,14 +1,20 @@
 import { useState } from 'react'
 import { useWorkspaces } from '../../data/dashboard/workspaces'
-import { orgPath, workspacePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
+import { workspacePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
 import { BottomSheet } from '../ui/bottom-sheet'
 import type { WorkspaceColour } from '../ui/workspace-colour'
 import { MobileScopeButton } from '../shell/mobile-nav'
-import { ProjectMenu, type ProjectMenuWorkspace } from '../shell/project-menu'
+import {
+  ProjectMenu,
+  ProjectMenuSwitchButton,
+  type ProjectMenuWorkspace,
+} from '../shell/project-menu'
 import type { NavItem } from './nav-model'
+import { ProjectSwitcher } from './project-switcher'
 
 interface MobileProjectMenuProps {
   slugs: WorkspaceSlugs
+  orgName: string
   project: { name: string; initial: string }
   workspace: { name: string; initial: string; colour: WorkspaceColour }
   /** The workspace's pages, as in the desktop panel. */
@@ -28,6 +34,7 @@ function countLabel(workflows: number): string {
  */
 export function MobileProjectMenu({
   slugs,
+  orgName,
   project,
   workspace,
   nav,
@@ -64,12 +71,19 @@ export function MobileProjectMenu({
       }
     >
       <ProjectMenu
-        // Switching projects is N2's switcher; until then "Switch" lists them.
-        project={{
-          name: project.name,
-          tile: { initial: project.initial },
-          switchHref: orgPath(slugs.org),
-        }}
+        project={{ name: project.name, tile: { initial: project.initial } }}
+        switchControl={
+          <ProjectSwitcher
+            org={{ slug: slugs.org, name: orgName }}
+            currentProject={slugs.project}
+            onDone={handleClose}
+            trigger={
+              <ProjectMenuSwitchButton
+                project={{ name: project.name, tile: { initial: project.initial } }}
+              />
+            }
+          />
+        }
         workspaces={tiles}
         nav={nav.map((item) => ({ ...item, active: item.key === activeKey }))}
         projectSettingsHref={projectSettingsHref}

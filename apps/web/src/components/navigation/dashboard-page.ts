@@ -1,4 +1,5 @@
 import type {
+  AccountPage,
   OrgPage,
   OrgSettingsPage,
   ProjectSettingsPage,
@@ -11,6 +12,7 @@ export type DashboardPage =
   | { kind: 'org-settings'; page: OrgSettingsPage }
   | { kind: 'project-settings'; page: ProjectSettingsPage }
   | { kind: 'workspace'; page: WorkspacePage }
+  | { kind: 'account'; page: AccountPage }
 
 declare module '@tanstack/react-router' {
   interface StaticDataRouteOption {
@@ -51,6 +53,11 @@ const WORKSPACE_PAGE_LABEL: Record<WorkspacePage, string> = {
   settings: 'Workspace settings',
 }
 
+const ACCOUNT_PAGE_LABEL: Record<AccountPage, string> = {
+  profile: 'Profile',
+  sessions: 'Sessions and sign-in',
+}
+
 export function pageLabel(page: DashboardPage): string {
   switch (page.kind) {
     case 'org':
@@ -61,6 +68,8 @@ export function pageLabel(page: DashboardPage): string {
       return PROJECT_SETTINGS_LABEL[page.page]
     case 'workspace':
       return WORKSPACE_PAGE_LABEL[page.page]
+    case 'account':
+      return ACCOUNT_PAGE_LABEL[page.page]
   }
 }
 

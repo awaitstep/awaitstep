@@ -17,7 +17,11 @@ import { PanelItem, PanelSection } from '../shell/panel-item'
 import { RailAccountButton, RailOrgButton } from '../shell/rail-item'
 import { TopBar } from '../shell/top-bar'
 import type { DashboardPage } from './dashboard-page'
+import { DashboardAccountMenu } from './account-menu-container'
 import { MobileProjectMenu } from './mobile-project-menu'
+import { OrgSwitcher } from './org-switcher'
+import { ProjectSwitcher } from './project-switcher'
+import { WorkspaceSwitcher } from './workspace-switcher'
 import {
   breadcrumbs,
   panelModel,
@@ -80,17 +84,41 @@ export function DashboardFrame({
     <AppShell
       rail={
         <OrgRail
-          org={<RailOrgButton name={scope.org.name} initial={scope.org.initial} />}
+          org={
+            <OrgSwitcher
+              trigger={<RailOrgButton name={scope.org.name} initial={scope.org.initial} />}
+              current={{ slug: scope.slugs.org, name: scope.org.name }}
+            />
+          }
           primary={rail.primary}
           secondary={rail.secondary}
           activeKey={page ? rail.activeKey : undefined}
           theme={theme}
           onToggleTheme={onToggleTheme}
-          account={viewer ? <RailAccountButton user={viewer} /> : null}
+          account={
+            viewer ? (
+              <DashboardAccountMenu
+                placement="rail"
+                trigger={<RailAccountButton user={viewer} />}
+                user={viewer}
+                org={scope.slugs.org}
+                theme={theme}
+                onToggleTheme={onToggleTheme}
+              />
+            ) : null
+          }
         />
       }
       panel={<FramePanel panel={panel} scope={scope} />}
-      mobileHeader={<FrameMobileHeader panel={panel} scope={scope} viewer={viewer} />}
+      mobileHeader={
+        <FrameMobileHeader
+          panel={panel}
+          scope={scope}
+          viewer={viewer}
+          theme={theme}
+          onToggleTheme={onToggleTheme}
+        />
+      }
       tabBar={
         <MobileTabBar items={tabBarEntries(rail)} activeKey={page ? rail.activeKey : undefined} />
       }
@@ -119,13 +147,22 @@ function NavSection({
   )
 }
 
-function ProjectHeader({ project }: { project: NonNullable<FrameScope['project']> }) {
+/** The panel's project header: opens the project switcher. */
+function ProjectHeader({ scope }: { scope: FrameScope }) {
+  const project = scope.project!
   return (
-    <PanelScopeButton
-      variant="header"
-      scope="Project"
-      name={project.name}
-      tile={{ initial: project.initial }}
+    <ProjectSwitcher
+      org={{ slug: scope.slugs.org, name: scope.org.name }}
+      currentProject={scope.slugs.project}
+      // The kit button itself: a popover trigger must receive its props and ref.
+      trigger={
+        <PanelScopeButton
+          variant="header"
+          scope="Project"
+          name={project.name}
+          tile={{ initial: project.initial }}
+        />
+      }
     />
   )
 }
@@ -138,23 +175,30 @@ function FramePanel({ panel, scope }: { panel: PanelModel; scope: FrameScope }) 
       return (
         <ContextPanel
           label="Project"
-          header={<ProjectHeader project={scope.project!} />}
+          header={<ProjectHeader scope={scope} />}
           footer={
             <PanelItem href={panel.projectSettingsHref} icon={Settings} label="Project settings" />
           }
         >
-          <PanelScopeButton
-            variant="card"
-            scope="Workspace"
-            name={scope.workspace!.name}
-            tile={{ initial: scope.workspace!.initial, colour: scope.workspace!.colour }}
+          <WorkspaceSwitcher
+            slugs={panel.slugs}
+            projectName={scope.project!.name}
+            page={panel.page}
+            trigger={
+              <PanelScopeButton
+                variant="card"
+                scope="Workspace"
+                name={scope.workspace!.name}
+                tile={{ initial: scope.workspace!.initial, colour: scope.workspace!.colour }}
+              />
+            }
           />
           <NavSection items={panel.items} activeKey={panel.activeKey} />
         </ContextPanel>
       )
     case 'project-settings':
       return (
-        <ContextPanel label="Project settings" header={<ProjectHeader project={scope.project!} />}>
+        <ContextPanel label="Project settings" header={<ProjectHeader scope={scope} />}>
           <PanelBackLink href={panel.backHref} label="Back to workspace" />
           <NavSection title="Project settings" items={panel.items} activeKey={panel.activeKey} />
         </ContextPanel>
@@ -180,18 +224,30 @@ interface FrameMobileHeaderProps {
   panel: PanelModel
   scope: FrameScope
   viewer: FrameViewer | null
+  theme: Theme
+  onToggleTheme: () => void
 }
 
 /** Below `md`: on workspace pages, back to projects and the project menu; elsewhere the org. */
-function FrameMobileHeader({ panel, scope, viewer }: FrameMobileHeaderProps) {
-  const account = viewer ? <RailAccountButton user={viewer} className="mt-0" /> : null
+function FrameMobileHeader({ panel, scope, viewer, theme, onToggleTheme }: FrameMobileHeaderProps) {
+  const account = viewer ? (
+    <DashboardAccountMenu
+      placement="phone"
+      trigger={<RailAccountButton user={viewer} className="mt-0" />}
+      user={viewer}
+      org={scope.slugs.org}
+      theme={theme}
+      onToggleTheme={onToggleTheme}
+    />
+  ) : null
   if (panel.mode === 'workspace') {
     return (
       <MobileHeader
         back={{ label: 'Back to projects', href: orgPath(scope.slugs.org) }}
         scope={
           <MobileProjectMenu
-            slugs={scope.slugs as Required<FrameScope['slugs']>}
+            slugs={panel.slugs}
+            orgName={scope.org.name}
             project={scope.project!}
             workspace={scope.workspace!}
             nav={panel.items}
@@ -205,7 +261,13 @@ function FrameMobileHeader({ panel, scope, viewer }: FrameMobileHeaderProps) {
   }
   return (
     <MobileHeader
-      org={<MobileOrgButton name={scope.org.name} initial={scope.org.initial} />}
+      org={
+        <OrgSwitcher
+          side="bottom"
+          trigger={<MobileOrgButton name={scope.org.name} initial={scope.org.initial} />}
+          current={{ slug: scope.slugs.org, name: scope.org.name }}
+        />
+      }
       account={account}
     />
   )

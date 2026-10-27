@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import type { ShellLinkProps } from '../ui/shell-link'
 
 export type RouterTarget =
@@ -36,4 +36,17 @@ export function RouterShellLink({ href, ...props }: ShellLinkProps) {
   const target = routerTarget(href)
   if (target.kind === 'anchor') return <a href={href} {...props} />
   return <Link to={target.to} search={target.search} hash={target.hash} {...props} />
+}
+
+/** Follows an href from code (a switcher's choice), the same way `RouterShellLink` would. */
+export function useGoTo(): (href: string) => void {
+  const navigate = useNavigate()
+  return (href) => {
+    const target = routerTarget(href)
+    if (target.kind === 'anchor') {
+      window.location.assign(href)
+      return
+    }
+    void navigate({ to: target.to, search: target.search, hash: target.hash })
+  }
 }

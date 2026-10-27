@@ -36,13 +36,19 @@ describe('validateDashboardSearch', () => {
     expect(validateDashboardSearch({ mock: 'viewer', as: 'daniel' })).toEqual({
       mock: 'viewer',
       as: 'daniel',
+      new: undefined,
     })
   })
 
   it('drops other params and anything that isn’t a string', () => {
-    expect(validateDashboardSearch({ mock: 3, as: ['x'], page: '2' })).toEqual({
+    expect(validateDashboardSearch({ mock: 3, as: ['x'], new: 1, page: '2' })).toEqual({
       mock: undefined,
       as: undefined,
+      new: undefined,
     })
+  })
+
+  it('keeps the dialog a switcher asked for', () => {
+    expect(validateDashboardSearch({ new: 'project' })).toMatchObject({ new: 'project' })
   })
 })

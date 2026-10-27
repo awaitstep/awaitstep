@@ -33,6 +33,9 @@ import { Route as AuthedWorkflowsIndexRouteImport } from './routes/_authed/workf
 import { Route as AuthedWorkflowsWorkflowIdRouteImport } from './routes/_authed/workflows/$workflowId'
 import { Route as AuthedOrgProjectIndexRouteImport } from './routes/_authed/$org.$project.index'
 import { Route as AuthedOrgProjectWorkspaceRouteImport } from './routes/_authed/$org.$project.$workspace'
+import { Route as AuthedOrgAccountIndexRouteImport } from './routes/_authed/$org.account.index'
+import { Route as AuthedOrgAccountProfileRouteImport } from './routes/_authed/$org.account.profile'
+import { Route as AuthedOrgAccountSessionsRouteImport } from './routes/_authed/$org.account.sessions'
 import { Route as AuthedOrgSettingsIndexRouteImport } from './routes/_authed/$org.settings.index'
 import { Route as AuthedOrgSettingsApiKeysRouteImport } from './routes/_authed/$org.settings.api-keys'
 import { Route as AuthedOrgSettingsConnectionsRouteImport } from './routes/_authed/$org.settings.connections'
@@ -180,6 +183,22 @@ const AuthedOrgProjectWorkspaceRoute =
   AuthedOrgProjectWorkspaceRouteImport.update({
     id: '/$project/$workspace',
     path: '/$project/$workspace',
+    getParentRoute: () => AuthedOrgRoute,
+  } as any)
+const AuthedOrgAccountIndexRoute = AuthedOrgAccountIndexRouteImport.update({
+  id: '/account/',
+  path: '/account/',
+  getParentRoute: () => AuthedOrgRoute,
+} as any)
+const AuthedOrgAccountProfileRoute = AuthedOrgAccountProfileRouteImport.update({
+  id: '/account/profile',
+  path: '/account/profile',
+  getParentRoute: () => AuthedOrgRoute,
+} as any)
+const AuthedOrgAccountSessionsRoute =
+  AuthedOrgAccountSessionsRouteImport.update({
+    id: '/account/sessions',
+    path: '/account/sessions',
     getParentRoute: () => AuthedOrgRoute,
   } as any)
 const AuthedOrgSettingsIndexRoute = AuthedOrgSettingsIndexRouteImport.update({
@@ -367,6 +386,8 @@ export interface FileRoutesByFullPath {
   '/runs/': typeof AuthedRunsIndexRoute
   '/workflows/': typeof AuthedWorkflowsIndexRoute
   '/$org/$project/$workspace': typeof AuthedOrgProjectWorkspaceRouteWithChildren
+  '/$org/account/profile': typeof AuthedOrgAccountProfileRoute
+  '/$org/account/sessions': typeof AuthedOrgAccountSessionsRoute
   '/$org/settings/api-keys': typeof AuthedOrgSettingsApiKeysRoute
   '/$org/settings/connections': typeof AuthedOrgSettingsConnectionsRoute
   '/$org/settings/general': typeof AuthedOrgSettingsGeneralRoute
@@ -378,6 +399,7 @@ export interface FileRoutesByFullPath {
   '/workflows/$workflowId/editor': typeof AuthedWorkflowsWorkflowIdEditorRoute
   '/workflows/$workflowId/runs': typeof AuthedWorkflowsWorkflowIdRunsRouteWithChildren
   '/$org/$project/': typeof AuthedOrgProjectIndexRoute
+  '/$org/account/': typeof AuthedOrgAccountIndexRoute
   '/$org/settings/': typeof AuthedOrgSettingsIndexRoute
   '/workflows/$workflowId/': typeof AuthedWorkflowsWorkflowIdIndexRoute
   '/$org/$project/$workspace/functions': typeof AuthedOrgProjectWorkspaceFunctionsRoute
@@ -416,6 +438,8 @@ export interface FileRoutesByTo {
   '/$org': typeof AuthedOrgIndexRoute
   '/runs': typeof AuthedRunsIndexRoute
   '/workflows': typeof AuthedWorkflowsIndexRoute
+  '/$org/account/profile': typeof AuthedOrgAccountProfileRoute
+  '/$org/account/sessions': typeof AuthedOrgAccountSessionsRoute
   '/$org/settings/api-keys': typeof AuthedOrgSettingsApiKeysRoute
   '/$org/settings/connections': typeof AuthedOrgSettingsConnectionsRoute
   '/$org/settings/general': typeof AuthedOrgSettingsGeneralRoute
@@ -426,6 +450,7 @@ export interface FileRoutesByTo {
   '/workflows/$workflowId/deployments': typeof AuthedWorkflowsWorkflowIdDeploymentsRoute
   '/workflows/$workflowId/editor': typeof AuthedWorkflowsWorkflowIdEditorRoute
   '/$org/$project': typeof AuthedOrgProjectIndexRoute
+  '/$org/account': typeof AuthedOrgAccountIndexRoute
   '/$org/settings': typeof AuthedOrgSettingsIndexRoute
   '/workflows/$workflowId': typeof AuthedWorkflowsWorkflowIdIndexRoute
   '/$org/$project/$workspace/functions': typeof AuthedOrgProjectWorkspaceFunctionsRoute
@@ -469,6 +494,8 @@ export interface FileRoutesById {
   '/_authed/runs/': typeof AuthedRunsIndexRoute
   '/_authed/workflows/': typeof AuthedWorkflowsIndexRoute
   '/_authed/$org/$project/$workspace': typeof AuthedOrgProjectWorkspaceRouteWithChildren
+  '/_authed/$org/account/profile': typeof AuthedOrgAccountProfileRoute
+  '/_authed/$org/account/sessions': typeof AuthedOrgAccountSessionsRoute
   '/_authed/$org/settings/api-keys': typeof AuthedOrgSettingsApiKeysRoute
   '/_authed/$org/settings/connections': typeof AuthedOrgSettingsConnectionsRoute
   '/_authed/$org/settings/general': typeof AuthedOrgSettingsGeneralRoute
@@ -480,6 +507,7 @@ export interface FileRoutesById {
   '/_authed/workflows/$workflowId/editor': typeof AuthedWorkflowsWorkflowIdEditorRoute
   '/_authed/workflows/$workflowId/runs': typeof AuthedWorkflowsWorkflowIdRunsRouteWithChildren
   '/_authed/$org/$project/': typeof AuthedOrgProjectIndexRoute
+  '/_authed/$org/account/': typeof AuthedOrgAccountIndexRoute
   '/_authed/$org/settings/': typeof AuthedOrgSettingsIndexRoute
   '/_authed/workflows/$workflowId/': typeof AuthedWorkflowsWorkflowIdIndexRoute
   '/_authed/$org/$project/$workspace/functions': typeof AuthedOrgProjectWorkspaceFunctionsRoute
@@ -523,6 +551,8 @@ export interface FileRouteTypes {
     | '/runs/'
     | '/workflows/'
     | '/$org/$project/$workspace'
+    | '/$org/account/profile'
+    | '/$org/account/sessions'
     | '/$org/settings/api-keys'
     | '/$org/settings/connections'
     | '/$org/settings/general'
@@ -534,6 +564,7 @@ export interface FileRouteTypes {
     | '/workflows/$workflowId/editor'
     | '/workflows/$workflowId/runs'
     | '/$org/$project/'
+    | '/$org/account/'
     | '/$org/settings/'
     | '/workflows/$workflowId/'
     | '/$org/$project/$workspace/functions'
@@ -572,6 +603,8 @@ export interface FileRouteTypes {
     | '/$org'
     | '/runs'
     | '/workflows'
+    | '/$org/account/profile'
+    | '/$org/account/sessions'
     | '/$org/settings/api-keys'
     | '/$org/settings/connections'
     | '/$org/settings/general'
@@ -582,6 +615,7 @@ export interface FileRouteTypes {
     | '/workflows/$workflowId/deployments'
     | '/workflows/$workflowId/editor'
     | '/$org/$project'
+    | '/$org/account'
     | '/$org/settings'
     | '/workflows/$workflowId'
     | '/$org/$project/$workspace/functions'
@@ -624,6 +658,8 @@ export interface FileRouteTypes {
     | '/_authed/runs/'
     | '/_authed/workflows/'
     | '/_authed/$org/$project/$workspace'
+    | '/_authed/$org/account/profile'
+    | '/_authed/$org/account/sessions'
     | '/_authed/$org/settings/api-keys'
     | '/_authed/$org/settings/connections'
     | '/_authed/$org/settings/general'
@@ -635,6 +671,7 @@ export interface FileRouteTypes {
     | '/_authed/workflows/$workflowId/editor'
     | '/_authed/workflows/$workflowId/runs'
     | '/_authed/$org/$project/'
+    | '/_authed/$org/account/'
     | '/_authed/$org/settings/'
     | '/_authed/workflows/$workflowId/'
     | '/_authed/$org/$project/$workspace/functions'
@@ -829,6 +866,27 @@ declare module '@tanstack/react-router' {
       path: '/$project/$workspace'
       fullPath: '/$org/$project/$workspace'
       preLoaderRoute: typeof AuthedOrgProjectWorkspaceRouteImport
+      parentRoute: typeof AuthedOrgRoute
+    }
+    '/_authed/$org/account/': {
+      id: '/_authed/$org/account/'
+      path: '/account'
+      fullPath: '/$org/account/'
+      preLoaderRoute: typeof AuthedOrgAccountIndexRouteImport
+      parentRoute: typeof AuthedOrgRoute
+    }
+    '/_authed/$org/account/profile': {
+      id: '/_authed/$org/account/profile'
+      path: '/account/profile'
+      fullPath: '/$org/account/profile'
+      preLoaderRoute: typeof AuthedOrgAccountProfileRouteImport
+      parentRoute: typeof AuthedOrgRoute
+    }
+    '/_authed/$org/account/sessions': {
+      id: '/_authed/$org/account/sessions'
+      path: '/account/sessions'
+      fullPath: '/$org/account/sessions'
+      preLoaderRoute: typeof AuthedOrgAccountSessionsRouteImport
       parentRoute: typeof AuthedOrgRoute
     }
     '/_authed/$org/settings/': {
@@ -1062,11 +1120,14 @@ interface AuthedOrgRouteChildren {
   AuthedOrgWhatsNewRoute: typeof AuthedOrgWhatsNewRoute
   AuthedOrgIndexRoute: typeof AuthedOrgIndexRoute
   AuthedOrgProjectWorkspaceRoute: typeof AuthedOrgProjectWorkspaceRouteWithChildren
+  AuthedOrgAccountProfileRoute: typeof AuthedOrgAccountProfileRoute
+  AuthedOrgAccountSessionsRoute: typeof AuthedOrgAccountSessionsRoute
   AuthedOrgSettingsApiKeysRoute: typeof AuthedOrgSettingsApiKeysRoute
   AuthedOrgSettingsConnectionsRoute: typeof AuthedOrgSettingsConnectionsRoute
   AuthedOrgSettingsGeneralRoute: typeof AuthedOrgSettingsGeneralRoute
   AuthedOrgSettingsMembersRoute: typeof AuthedOrgSettingsMembersRoute
   AuthedOrgProjectIndexRoute: typeof AuthedOrgProjectIndexRoute
+  AuthedOrgAccountIndexRoute: typeof AuthedOrgAccountIndexRoute
   AuthedOrgSettingsIndexRoute: typeof AuthedOrgSettingsIndexRoute
   AuthedOrgProjectSettingsApiKeysRoute: typeof AuthedOrgProjectSettingsApiKeysRoute
   AuthedOrgProjectSettingsGeneralRoute: typeof AuthedOrgProjectSettingsGeneralRoute
@@ -1085,11 +1146,14 @@ const AuthedOrgRouteChildren: AuthedOrgRouteChildren = {
   AuthedOrgWhatsNewRoute: AuthedOrgWhatsNewRoute,
   AuthedOrgIndexRoute: AuthedOrgIndexRoute,
   AuthedOrgProjectWorkspaceRoute: AuthedOrgProjectWorkspaceRouteWithChildren,
+  AuthedOrgAccountProfileRoute: AuthedOrgAccountProfileRoute,
+  AuthedOrgAccountSessionsRoute: AuthedOrgAccountSessionsRoute,
   AuthedOrgSettingsApiKeysRoute: AuthedOrgSettingsApiKeysRoute,
   AuthedOrgSettingsConnectionsRoute: AuthedOrgSettingsConnectionsRoute,
   AuthedOrgSettingsGeneralRoute: AuthedOrgSettingsGeneralRoute,
   AuthedOrgSettingsMembersRoute: AuthedOrgSettingsMembersRoute,
   AuthedOrgProjectIndexRoute: AuthedOrgProjectIndexRoute,
+  AuthedOrgAccountIndexRoute: AuthedOrgAccountIndexRoute,
   AuthedOrgSettingsIndexRoute: AuthedOrgSettingsIndexRoute,
   AuthedOrgProjectSettingsApiKeysRoute: AuthedOrgProjectSettingsApiKeysRoute,
   AuthedOrgProjectSettingsGeneralRoute: AuthedOrgProjectSettingsGeneralRoute,

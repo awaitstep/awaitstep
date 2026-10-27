@@ -21,6 +21,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import {
+  accountPath,
   orgPath,
   orgSettingsPath,
   projectPath,
@@ -29,6 +30,7 @@ import {
   type OrgSettingsPage,
   type ProjectSettingsPage,
   type WorkspacePage,
+  type WorkspaceSlugs,
 } from '../../lib/dashboard-paths'
 import type { ScopeSlugs } from '../../types/dashboard/scope'
 import type { RailEntry } from '../shell/org-rail'
@@ -55,7 +57,16 @@ export interface ScopeNames {
 
 export type PanelModel =
   | { mode: 'none' }
-  | { mode: 'workspace'; items: NavItem[]; activeKey: string; projectSettingsHref: string }
+  | {
+      mode: 'workspace'
+      /** The workspace URL's slugs, all three present. */
+      slugs: WorkspaceSlugs
+      /** The page being shown, kept when switching workspace. */
+      page: WorkspacePage
+      items: NavItem[]
+      activeKey: string
+      projectSettingsHref: string
+    }
   | { mode: 'project-settings'; items: NavItem[]; activeKey: string; backHref: string }
   | {
       mode: 'org-settings'
@@ -105,6 +116,9 @@ function railActiveKey(page: DashboardPage): string {
       return page.page
     case 'org-settings':
       return 'settings'
+    case 'account':
+      // Your account isn't one of the rail's places.
+      return ''
     default:
       // Project and workspace pages are all inside "Projects".
       return 'projects'
@@ -173,6 +187,7 @@ export function panelModel(
 ): PanelModel {
   switch (page.kind) {
     case 'org':
+    case 'account':
       return { mode: 'none' }
     case 'org-settings':
       return {
@@ -197,9 +212,16 @@ export function panelModel(
       }
     }
     case 'workspace': {
-      const workspace = slugs as Required<ScopeSlugs>
+      // A workspace page's route always has all three slugs.
+      const workspace: WorkspaceSlugs = {
+        org: slugs.org,
+        project: slugs.project!,
+        workspace: slugs.workspace!,
+      }
       return {
         mode: 'workspace',
+        slugs: workspace,
+        page: page.page,
         items: workspaceItems(workspace),
         activeKey: page.page,
         projectSettingsHref: projectSettingsPath(workspace),
@@ -208,8 +230,14 @@ export function panelModel(
   }
 }
 
-/** Always starts at the org; the current page is last and never a link. */
+/**
+ * Starts at the org — or at "Your account", which is the same in every org —
+ * and ends on the current page, which is never a link.
+ */
 export function breadcrumbs(page: DashboardPage, slugs: ScopeSlugs, names: ScopeNames): Crumb[] {
+  if (page.kind === 'account') {
+    return [{ label: 'Your account', href: accountPath(slugs.org) }, { label: pageLabel(page) }]
+  }
   const crumbs: Crumb[] = [{ label: names.org, href: orgPath(slugs.org) }]
   if (page.kind === 'org-settings') crumbs.push({ label: 'Settings' })
   if (page.kind === 'project-settings' || page.kind === 'workspace') {

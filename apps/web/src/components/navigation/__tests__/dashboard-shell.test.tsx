@@ -27,20 +27,39 @@ vi.mock('@tanstack/react-router', () => ({
     { staticData: { dashboardPage: state.page ?? undefined } },
   ],
   useLocation: () => ({ pathname: state.pathname }),
+  useNavigate: () => vi.fn(),
 }))
 
 vi.mock('../../../data/dashboard/workspaces', () => ({
   useScope: () => state.scope,
   useWorkspaces: () => ({
     data: [
-      { slug: 'sales', name: 'Sales', initial: 'S', colour: 'green', counts: { workflows: 4 } },
-      { slug: 'it', name: 'IT', initial: 'I', colour: 'blue', counts: { workflows: 1 } },
+      {
+        slug: 'sales',
+        name: 'Sales',
+        initial: 'S',
+        colour: 'green',
+        people: [],
+        createdAt: '2026-01-01',
+        counts: { workflows: 4, functions: 0 },
+      },
+      {
+        slug: 'it',
+        name: 'IT',
+        initial: 'I',
+        colour: 'blue',
+        people: [],
+        createdAt: '2026-01-01',
+        counts: { workflows: 1, functions: 0 },
+      },
     ],
   }),
 }))
 
 vi.mock('../../../data/dashboard/session', () => ({
   useViewer: () => ({ data: { name: 'Ama Mensah', email: 'ama@acme.test' } }),
+  useOrgs: () => ({ data: [] }),
+  useSwitchOrg: () => ({ mutate: vi.fn() }),
 }))
 
 const projectRequests = vi.hoisted(() => [] as boolean[])
@@ -48,8 +67,20 @@ const projectRequests = vi.hoisted(() => [] as boolean[])
 vi.mock('../../../data/dashboard/projects', () => ({
   useProjects: (_org: string, { enabled = true }: { enabled?: boolean } = {}) => {
     projectRequests.push(enabled)
-    return { data: enabled ? [{ slug: 'project-101', name: 'Project 101' }] : undefined }
+    return {
+      data: enabled
+        ? [{ slug: 'project-101', name: 'Project 101', initial: 'P', workspaces: [] }]
+        : undefined,
+    }
   },
+}))
+
+vi.mock('../../../data/dashboard/reset', () => ({
+  useResetMockData: () => vi.fn(),
+}))
+
+vi.mock('../../../lib/auth-client', () => ({
+  handleSignOut: vi.fn(),
 }))
 
 const ALLOWED = { allowed: true }
@@ -168,12 +199,31 @@ describe('DashboardShell', () => {
     localStorage.clear()
   })
 
-  it('asks for the project list on org settings only', () => {
+  it('asks for the project list only on org settings or with the switcher open', () => {
     state.params = { org: 'acme', project: 'project-101', workspace: 'sales' }
     state.page = { kind: 'workspace', page: 'workflows' }
     settle(found('workspace'))
     renderShell()
     expect(projectRequests.every((enabled) => !enabled)).toBe(true)
+  })
+
+  it('opens the switchers from the rail avatar, project header and workspace card', async () => {
+    state.params = { org: 'acme', project: 'project-101', workspace: 'sales' }
+    state.page = { kind: 'workspace', page: 'runs' }
+    settle(found('workspace'))
+    renderShell()
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Project: Project 101. Switch project' }),
+    )
+    expect(screen.getByRole('dialog', { name: 'Switch project' })).toBeVisible()
+    await userEvent.keyboard('{Escape}')
+    await userEvent.click(within(rail()).getByRole('button', { name: /Acme Inc/ }))
+    expect(screen.getByRole('dialog', { name: 'Switch organization' })).toBeVisible()
+    await userEvent.keyboard('{Escape}')
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Workspace: Sales. Switch workspace' }),
+    )
+    expect(screen.getByRole('dialog', { name: 'Switch workspace' })).toBeVisible()
   })
 
   it('has no panel on an org page', () => {

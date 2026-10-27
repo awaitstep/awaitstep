@@ -2,11 +2,13 @@ import { createMemoryHistory, createRouter, isNotFound } from '@tanstack/react-r
 import { describe, expect, it } from 'vitest'
 import { routeTree } from '../../../routeTree.gen'
 import {
+  ACCOUNT_PAGES,
   ORG_PAGES,
   ORG_SETTINGS_PAGES,
   PROJECT_SETTINGS_PAGES,
   RESERVED_SLUGS,
   WORKSPACE_PAGES,
+  accountPath,
   chooseOrgPath,
   invitePath,
   orgPath,
@@ -32,6 +34,7 @@ describe('dashboard route tree', () => {
     ...ORG_SETTINGS_PAGES.map((page) => orgSettingsPath('acme', page)),
     ...PROJECT_SETTINGS_PAGES.map((page) => projectSettingsPath(SALES, page)),
     ...WORKSPACE_PAGES.map((page) => workspacePath(SALES, page)),
+    ...ACCOUNT_PAGES.map((page) => accountPath('acme', page)),
   ]
 
   it.each(paths)('has a page route for %s', (path) => {
@@ -47,6 +50,7 @@ describe('dashboard route tree', () => {
     expect(leafRoute(projectPath(SALES))).toBe('/_authed/$org/$project/')
     expect(leafRoute('/acme/project-101/settings')).toBe('/_authed/$org/$project/settings/')
     expect(leafRoute('/acme/project-101/sales')).toBe('/_authed/$org/$project/$workspace/')
+    expect(leafRoute('/acme/account')).toBe('/_authed/$org/account/')
     expect(leafRoute(chooseOrgPath())).toBe('/_authed/choose-org')
     expect(leafRoute(invitePath('abc'))).toBe('/invite/$token')
   })
@@ -113,6 +117,21 @@ describe('dashboard search params', () => {
       params: { org: 'acme' },
     })
     expect(location.search).toEqual({ as: 'priya', mock: 'viewer' })
+  })
+
+  it('lets a switcher’s ?new reach the page, without carrying it to the next one', () => {
+    const router = routerAt('/acme/project-101/sales/runs?as=daniel')
+    const toDialog = router.buildLocation({
+      to: '/$org/projects',
+      params: { org: 'acme' },
+      search: { new: 'project' },
+    })
+    expect(toDialog.search).toEqual({ as: 'daniel', new: 'project' })
+    const onward = routerAt('/acme/projects?new=project&as=daniel').buildLocation({
+      to: '/$org/audit',
+      params: { org: 'acme' },
+    })
+    expect(onward.search).toEqual({ as: 'daniel' })
   })
 
   it('keeps them across a page change inside the dashboard, and drops anything else', () => {

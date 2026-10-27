@@ -139,3 +139,20 @@ describe('page titles', () => {
     expect(pageTitle({ kind: 'org', page: 'whats-new' })).toBe('What’s new · AwaitStep')
   })
 })
+
+describe('account pages', () => {
+  const page = { kind: 'account', page: 'sessions' } as const
+
+  it('show the rail with nothing active and no panel', () => {
+    expect(railModel('acme', page).activeKey).toBe('')
+    expect(panelModel(page, ORG, null)).toEqual({ mode: 'none' })
+  })
+
+  it('start their breadcrumbs at Your account and end on the page', () => {
+    expect(breadcrumbs(page, ORG, NAMES)).toEqual([
+      { label: 'Your account', href: '/acme/account/profile' },
+      { label: 'Sessions and sign-in' },
+    ])
+    expect(pageTitle(page)).toBe('Sessions and sign-in · AwaitStep')
+  })
+})

@@ -7,19 +7,27 @@ import {
 } from '../../data/dashboard/scenario-context'
 import { RouterShellLink } from './router-shell-link'
 
-/** The dev-only search params every dashboard URL may carry. */
+/** The search params every dashboard URL may carry. */
 export interface DashboardSearch {
+  /** Dev only: a forced state (`loading`, `error`, `empty`, `viewer`). */
   mock?: string
+  /** Dev only: the sample person the dummy session runs as. */
   as?: string
+  /**
+   * Which "New …" dialog to open on arrival (`project`, `workspace`, `org`):
+   * the switchers link to it, and the page that owns the dialog reads it.
+   */
+  new?: string
 }
 
+/** Kept from page to page; `new` is not, so a dialog doesn't follow you around. */
 export const DASHBOARD_SEARCH_KEYS = ['mock', 'as'] as const
 
 /** Keeps only the dashboard's own params, as strings. */
 export function validateDashboardSearch(search: Record<string, unknown>): DashboardSearch {
   const pick = (key: keyof DashboardSearch) =>
     typeof search[key] === 'string' ? (search[key] as string) : undefined
-  return { mock: pick('mock'), as: pick('as') }
+  return { mock: pick('mock'), as: pick('as'), new: pick('new') }
 }
 
 interface DashboardProvidersProps {
