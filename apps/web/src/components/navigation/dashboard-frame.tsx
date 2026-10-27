@@ -36,7 +36,7 @@ import {
 /** What the frame shows of the scope the URL names. */
 export interface FrameScope {
   slugs: ScopeSlugs
-  org: { name: string; initial: string }
+  org: { name: string; initial: string; logo: string | null }
   project?: { name: string; initial: string }
   workspace?: { name: string; initial: string; colour: WorkspaceColour }
 }
@@ -87,7 +87,13 @@ export function DashboardFrame({
         <OrgRail
           org={
             <OrgSwitcher
-              trigger={<RailOrgButton name={scope.org.name} initial={scope.org.initial} />}
+              trigger={
+                <RailOrgButton
+                  name={scope.org.name}
+                  initial={scope.org.initial}
+                  logo={scope.org.logo}
+                />
+              }
               current={{ slug: scope.slugs.org, name: scope.org.name }}
             />
           }
@@ -210,7 +216,13 @@ function FramePanel({ panel, scope }: { panel: PanelModel; scope: FrameScope }) 
       return (
         <ContextPanel
           label="Organization settings"
-          header={<PanelOrgHeader name={scope.org.name} initial={scope.org.initial} />}
+          header={
+            <PanelOrgHeader
+              name={scope.org.name}
+              initial={scope.org.initial}
+              logo={scope.org.logo}
+            />
+          }
         >
           <PanelBackLink href={panel.back.href} label={panel.back.label} />
           <NavSection
@@ -267,7 +279,13 @@ function FrameMobileHeader({ panel, scope, viewer, theme, onToggleTheme }: Frame
       org={
         <OrgSwitcher
           side="bottom"
-          trigger={<MobileOrgButton name={scope.org.name} initial={scope.org.initial} />}
+          trigger={
+            <MobileOrgButton
+              name={scope.org.name}
+              initial={scope.org.initial}
+              logo={scope.org.logo}
+            />
+          }
           current={{ slug: scope.slugs.org, name: scope.org.name }}
         />
       }

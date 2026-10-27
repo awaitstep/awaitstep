@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react'
 import { Moon, Sun, type LucideIcon } from 'lucide-react'
 import type { Theme } from '../../lib/theme'
 import { cn } from '../../lib/utils'
+import { OrgMark } from './org-mark'
 import { Avatar } from '../ui/avatar'
 import { ActiveBar } from './panel-item'
 import { ShellLink } from '../ui/shell-link'
@@ -135,24 +136,25 @@ export function ThemeButton({ theme, onToggle }: ThemeButtonProps) {
 interface RailOrgButtonProps extends ComponentProps<'button'> {
   name: string
   initial: string
+  logo?: string | null
 }
 
 /**
  * The org avatar at the top of the rail. Spreads extra props and the ref onto
  * the button so a menu can use it as its trigger.
  */
-export function RailOrgButton({ name, initial, className, ...props }: RailOrgButtonProps) {
+export function RailOrgButton({ name, initial, logo, className, ...props }: RailOrgButtonProps) {
   return (
     <button
       type="button"
       aria-label={`${name} — switch organization`}
       className={cn(
-        'mb-3 flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground',
+        'mb-3 flex size-10 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-primary text-sm font-semibold text-primary-foreground',
         className,
       )}
       {...props}
     >
-      {initial}
+      <OrgMark initial={initial} logo={logo} />
     </button>
   )
 }

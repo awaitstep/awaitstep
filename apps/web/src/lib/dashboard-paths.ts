@@ -154,6 +154,14 @@ export function variableDialogPath(
   return `${projectSettingsPath(slugs, 'variables')}?${query}`
 }
 
+/** A dashboard page with its "New …" dialog open (`?new=`): the page owning the dialog reads it. */
+export function withNewDialog(
+  path: string,
+  dialog: 'project' | 'workspace' | 'org' | 'invite' | 'connection' | 'key' | 'variable' | 'import',
+): string {
+  return `${path}?${new URLSearchParams({ new: dialog })}`
+}
+
 export function chooseOrgPath(): string {
   return '/choose-org'
 }

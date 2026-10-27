@@ -1,6 +1,7 @@
 import type { ComponentProps, ReactNode } from 'react'
 import { ChevronDown, ChevronLeft } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { OrgMark } from './org-mark'
 import { hasContent } from '../ui/has-content'
 import { ShellLink } from '../ui/shell-link'
 import { scopeTileColourClass } from '../ui/workspace-colour'
@@ -139,10 +140,17 @@ export function MobileScopeButton({
 type MobileOrgButtonProps = ComponentProps<'button'> & {
   name: string
   initial: string
+  logo?: string | null
 }
 
 /** The org name in the phone header on org pages: opens the org switcher. */
-export function MobileOrgButton({ name, initial, className, ...props }: MobileOrgButtonProps) {
+export function MobileOrgButton({
+  name,
+  initial,
+  logo,
+  className,
+  ...props
+}: MobileOrgButtonProps) {
   return (
     <button
       type="button"
@@ -155,9 +163,9 @@ export function MobileOrgButton({ name, initial, className, ...props }: MobileOr
     >
       <span
         aria-hidden="true"
-        className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-2xs font-semibold text-primary-foreground"
+        className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-primary text-2xs font-semibold text-primary-foreground"
       >
-        {initial}
+        <OrgMark initial={initial} logo={logo} />
       </span>
       <span className="truncate text-sm font-semibold text-sidebar-foreground">{name}</span>
       <ChevronDown size={16} aria-hidden="true" className="shrink-0 text-muted-foreground" />

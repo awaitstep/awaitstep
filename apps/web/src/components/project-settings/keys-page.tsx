@@ -5,6 +5,7 @@ import { useWorkspaces } from '../../data/dashboard/workspaces'
 import {
   orgSettingsPath,
   projectSettingsPath,
+  withNewDialog,
   workspaceSettingsPath,
   type ProjectSlugs,
 } from '../../lib/dashboard-paths'
@@ -155,7 +156,7 @@ export function KeysPage({ slugs }: KeysPageProps) {
       {canManage && (
         <TopBarContent>
           <ShellLink
-            href={`${projectSettingsPath(slugs, 'api-keys')}?new=key`}
+            href={withNewDialog(projectSettingsPath(slugs, 'api-keys'), 'key')}
             className={buttonVariants({ size: 'sm' })}
           >
             <Plus aria-hidden="true" />

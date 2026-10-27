@@ -2,7 +2,12 @@ import { useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { useMoveProject } from '../../data/dashboard/projects'
 import { useOrgs } from '../../data/dashboard/session'
-import { chooseOrgPath, projectSettingsPath, type ProjectSlugs } from '../../lib/dashboard-paths'
+import {
+  chooseOrgPath,
+  projectSettingsPath,
+  withNewDialog,
+  type ProjectSlugs,
+} from '../../lib/dashboard-paths'
 import { Button, buttonVariants } from '../ui/button'
 import { FormField } from '../ui/form-field'
 import { ModalDialog } from '../ui/modal-dialog'
@@ -75,7 +80,7 @@ export function MoveProjectDialog({ slugs, projectName, onClose }: MoveProjectDi
           {projectName} to.
         </p>
         <ShellLink
-          href={`${chooseOrgPath()}?new=org`}
+          href={withNewDialog(chooseOrgPath(), 'org')}
           className={buttonVariants({ variant: 'outline', size: 'sm', className: 'self-start' })}
         >
           New organization

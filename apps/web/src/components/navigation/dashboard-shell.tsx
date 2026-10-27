@@ -37,6 +37,7 @@ function frameScope(slugs: ScopeSlugs, lookup: ScopeLookup | undefined): FrameSc
     org: {
       name: org?.name ?? slugs.org,
       initial: org?.initial ?? slugs.org.charAt(0).toUpperCase(),
+      logo: org?.logo ?? null,
     },
     project: project && { name: project.name, initial: project.initial },
     workspace: workspace && {

@@ -1,6 +1,7 @@
 import type { ComponentProps, ReactNode } from 'react'
 import { ChevronLeft, ChevronsUpDown } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { OrgMark } from './org-mark'
 import { scopeTileColourClass, type WorkspaceColour } from '../ui/workspace-colour'
 import { panelRowClass } from './panel-item'
 import { hasContent } from '../ui/has-content'
@@ -113,17 +114,18 @@ export function PanelScopeButton({
 interface PanelOrgHeaderProps {
   name: string
   initial: string
+  logo?: string | null
 }
 
 /** The org-settings panel header: the org itself, not a switcher. */
-export function PanelOrgHeader({ name, initial }: PanelOrgHeaderProps) {
+export function PanelOrgHeader({ name, initial, logo }: PanelOrgHeaderProps) {
   return (
     <div className="flex h-full w-full items-center gap-2.5 px-3.5">
       <span
         aria-hidden="true"
-        className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-2xs font-semibold text-primary-foreground"
+        className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-primary text-2xs font-semibold text-primary-foreground"
       >
-        {initial}
+        <OrgMark initial={initial} logo={logo} />
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="text-2xs text-muted-foreground">Organization</span>
