@@ -1,6 +1,8 @@
 import type {
+  ImportItemInput,
   ItemKind,
   MoveItemsInput,
+  NewItemInput,
   SharedItem,
   WorkspaceItem,
 } from '../../../types/dashboard/items'
@@ -19,7 +21,7 @@ import {
 } from '../scenario'
 import { itemRecord, sharedItemRecord, unshareBlock } from './item-records'
 import { workspaceScope } from './records'
-import { requireScope, resolveWorkspace } from './resolve'
+import { newId, requireScope, resolveWorkspace } from './resolve'
 
 type WorkspaceSlugs = Required<ScopeSlugs>
 
@@ -131,6 +133,98 @@ export const moveItems = mutation(
       (c) => !(moved.has(c.itemId) && c.callerWorkspaceId === target.row.id),
     )
     return { moved: items.length }
+  },
+)
+
+const UNTITLED: Record<ItemKind, string> = {
+  workflow: 'Untitled workflow',
+  script: 'Untitled function',
+}
+
+/** "Untitled workflow", then "Untitled workflow 2", … within the workspace. */
+function untitledName(db: MockDb, workspace: WorkspaceRow, kind: ItemKind): string {
+  const taken = new Set(db.items.filter((i) => i.workspaceId === workspace.id).map((i) => i.name))
+  const base = UNTITLED[kind]
+  let name = base
+  for (let n = 2; taken.has(name); n++) name = `${base} ${n}`
+  return name
+}
+
+function addDraft(
+  db: MockDb,
+  ctx: MockContext,
+  slugs: WorkspaceSlugs,
+  draft: { kind: ItemKind; name: string | null; description: string | null },
+): WorkspaceItem {
+  const { project, workspace } = requireWorkspace(db, ctx, slugs)
+  const can = workspaceScope(db, ctx, project, workspace).viewerCan.edit
+  if (!can.allowed) throw forbiddenError(can.reason!)
+  const now = new Date().toISOString()
+  const row: ItemRow = {
+    id: newId('itm'),
+    workspaceId: workspace.id,
+    kind: draft.kind,
+    name: draft.name ?? untitledName(db, workspace, draft.kind),
+    description: draft.description,
+    status: 'draft',
+    version: null,
+    route: null,
+    createdAt: now,
+    updatedAt: now,
+    sharing: null,
+    traffic: null,
+  }
+  // Newest first: the list shows it at the top.
+  db.items.unshift(row)
+  return records(db, ctx, project, workspace, [row])[0]!
+}
+
+/** New workflow / New function: an empty draft in the workspace. */
+export const createItem = mutation(
+  (ctx, slugs: WorkspaceSlugs, input: NewItemInput): WorkspaceItem =>
+    addDraft(getDb(), ctx, slugs, {
+      kind: input.kind,
+      name: input.name?.trim() || null,
+      description: null,
+    }),
+)
+
+export const NOT_AN_EXPORT =
+  'That file isn’t a workflow export. Pick a .json file with a "nodes" list.'
+
+function parseExport(content: string): Record<string, unknown> {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(content)
+  } catch {
+    throw invalidError(NOT_AN_EXPORT)
+  }
+  const isObject = typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+  if (!isObject || !Array.isArray((parsed as { nodes?: unknown }).nodes)) {
+    throw invalidError(NOT_AN_EXPORT)
+  }
+  return parsed as Record<string, unknown>
+}
+
+const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : null)
+
+/**
+ * Import: a draft named after the export's `metadata.name` (or the file,
+ * `lead-enrichment.ir.json` → "lead-enrichment"), as the old Import dialog
+ * reads it. Dummy data only checks the shape; IR validation comes with the backend.
+ */
+export const importItem = mutation(
+  (ctx, slugs: WorkspaceSlugs, input: ImportItemInput): WorkspaceItem => {
+    const parsed = parseExport(input.content)
+    const metadata =
+      typeof parsed.metadata === 'object' && parsed.metadata !== null
+        ? (parsed.metadata as Record<string, unknown>)
+        : {}
+    return addDraft(getDb(), ctx, slugs, {
+      kind: parsed.kind === 'script' ? 'script' : 'workflow',
+      name: text(metadata.name) ?? text(input.fileName.replace(/(\.ir)?\.json$/i, '')),
+      description: text(metadata.description),
+    })
   },
 )
 

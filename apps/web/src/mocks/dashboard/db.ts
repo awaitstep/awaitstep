@@ -19,6 +19,10 @@ export interface OrgRow {
   slug: string
   name: string
   createdAt: string
+  /** Thin until P5 brings connections: whether the org has connected Cloudflare. */
+  cloudflareConnected: boolean
+  /** Thin until P4/P6 bring variables: how many the org sets. */
+  variableCount: number
 }
 
 export interface OrgMemberRow {
@@ -38,6 +42,10 @@ export interface ProjectRow {
   createdAt: string
   updatedAt: string
   lock: LockRow | null
+  /** Thin until P3/P6 bring keys: how many project keys it has. */
+  keyCount: number
+  /** Thin until P3/P6 bring variables: how many the project sets itself. */
+  variableCount: number
 }
 
 export interface ProjectMemberRow {
@@ -97,6 +105,15 @@ export interface CallRow {
   itemId: string
 }
 
+/** A Viewer's ask for edit access; P8's Inbox approves or declines it. */
+export interface EditRequestRow {
+  id: string
+  workspaceId: string
+  userId: string
+  toUserId: string
+  at: string
+}
+
 export interface MockDb {
   people: Person[]
   orgs: OrgRow[]
@@ -108,11 +125,12 @@ export interface MockDb {
   items: ItemRow[]
   runs: RunRow[]
   calls: CallRow[]
+  editRequests: EditRequestRow[]
 }
 
 // Bump when the tables or the seed change, so a tab's saved copy is reseeded
 // instead of read with missing tables.
-const DB_VERSION = 2
+const DB_VERSION = 3
 const STORAGE_KEY = 'awaitstep:dashboard-mock-db'
 
 let current: MockDb | null = null

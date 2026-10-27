@@ -2,15 +2,26 @@ import type { ScopeLookup, ScopeSlugs } from '../../../types/dashboard/scope'
 import type {
   NewWorkspaceInput,
   Workspace,
+  WorkspacePerson,
   WorkspaceUpdate,
 } from '../../../types/dashboard/workspaces'
+import { projectGrantedRole, workspaceRoleOf } from '../access'
 import { getDb, type WorkspaceRow } from '../db'
 import { deleteWorkspaces } from './item-records'
-import { conflictError, forbiddenError, frameEndpoint, invalidError, mutation } from '../scenario'
+import {
+  conflictError,
+  endpoint,
+  forbiddenError,
+  frameEndpoint,
+  invalidError,
+  mutation,
+  rows,
+} from '../scenario'
 import {
   orgScope,
   projectScope,
   visibleWorkspaces,
+  workspacePeople,
   workspaceRecord,
   workspaceScope,
 } from './records'
@@ -120,3 +131,24 @@ export const deleteWorkspace = mutation((ctx, slugs: Required<ScopeSlugs>): void
   if (!can.allowed) throw forbiddenError(can.reason!)
   deleteWorkspaces(db, new Set([workspace!.id]))
 })
+
+/**
+ * Everyone who can open the workspace, with their effective role: the
+ * Overview's People chips ("Daniel Kim · Editor"). P4's Access tab grows this
+ * into the members list.
+ */
+export const listWorkspacePeople = endpoint(
+  (ctx, slugs: Required<ScopeSlugs>): WorkspacePerson[] => {
+    const db = getDb()
+    const { project, workspace } = requireScope(db, ctx, slugs)
+    return rows(
+      ctx,
+      workspacePeople(db, project!, workspace!).map((person) => {
+        const as = { scenario: 'none' as const, userId: person.id }
+        const role = workspaceRoleOf(db, as, project!, workspace!)!
+        // A workspace grant that raises a project member to Admin is the workspace's own.
+        return { person, role, inherited: role === projectGrantedRole(db, as, project!) }
+      }),
+    )
+  },
+)

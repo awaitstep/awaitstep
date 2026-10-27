@@ -4,6 +4,14 @@ import type { Person } from './session'
 
 export type WorkspaceRole = 'admin' | 'editor' | 'viewer'
 
+/** Someone who can open a workspace, with their effective role there. */
+export interface WorkspacePerson {
+  person: Person
+  role: WorkspaceRole
+  /** The role comes from the project or org ("Project admin"), not the workspace itself. */
+  inherited: boolean
+}
+
 export interface Workspace {
   id: string
   projectId: string

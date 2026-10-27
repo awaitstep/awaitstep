@@ -146,8 +146,8 @@ export function workspaceCounts(db: MockDb, workspace: WorkspaceRow): WorkspaceC
 }
 
 /**
- * Removes workspaces and everything in them: members, items, their runs, and
- * calls made to or from them. Projects and workspaces delete through this.
+ * Removes workspaces and everything in them: members, items, their runs,
+ * calls made to or from them, and edit requests for them. Projects and workspaces delete through this.
  */
 export function deleteWorkspaces(db: MockDb, workspaceIds: Set<string>): void {
   const itemIds = new Set(db.items.filter((i) => workspaceIds.has(i.workspaceId)).map((i) => i.id))
@@ -158,4 +158,5 @@ export function deleteWorkspaces(db: MockDb, workspaceIds: Set<string>): void {
   db.calls = db.calls.filter(
     (c) => !itemIds.has(c.itemId) && !workspaceIds.has(c.callerWorkspaceId),
   )
+  db.editRequests = db.editRequests.filter((r) => !workspaceIds.has(r.workspaceId))
 }

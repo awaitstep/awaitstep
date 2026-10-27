@@ -20,6 +20,8 @@ export const dashKeys = {
   scopeOf: (slugs: ScopeSlugs) =>
     ['dash', 'scope', slugs.org, slugs.project ?? null, slugs.workspace ?? null] as const,
   workspaces: (org: string, project: string) => ['dash', 'workspaces', org, project, null] as const,
+  workspacePeople: (s: WorkspaceSlugs) =>
+    ['dash', 'workspaces', s.org, s.project, s.workspace, 'people'] as const,
   items: (org: string, project: string) => ['dash', 'items', org, project] as const,
   itemsOf: (s: WorkspaceSlugs, kind: ItemKind) =>
     ['dash', 'items', s.org, s.project, s.workspace, kind] as const,
@@ -31,9 +33,20 @@ export const dashKeys = {
   runsOf: (s: WorkspaceSlugs, filter: RunFilter) =>
     ['dash', 'runs', s.org, s.project, s.workspace, filter] as const,
   library: (s: WorkspaceSlugs) => ['dash', 'library', s.org, s.project, s.workspace] as const,
+  editRequest: (s: WorkspaceSlugs) => ['dash', 'requests', s.org, s.project, s.workspace] as const,
+  setup: (org: string, project: string) => ['dash', 'setup', org, project, null] as const,
 }
 
-const SCOPED_DOMAINS = new Set(['scope', 'workspaces', 'items', 'shared', 'runs', 'library'])
+const SCOPED_DOMAINS = new Set([
+  'scope',
+  'workspaces',
+  'items',
+  'shared',
+  'runs',
+  'library',
+  'requests',
+  'setup',
+])
 
 /**
  * Appends the dummy session's scenario and person, so switching either

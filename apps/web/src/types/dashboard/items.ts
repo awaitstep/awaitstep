@@ -66,3 +66,15 @@ export interface MoveItemsInput {
   /** Slug of the workspace in the same project to move them to. */
   to: string
 }
+
+/** New workflow / New function: a draft, "Untitled workflow" unless named. */
+export interface NewItemInput {
+  kind: ItemKind
+  name?: string
+}
+
+/** Import: an exported workflow file, read in the browser. */
+export interface ImportItemInput {
+  fileName: string
+  content: string
+}

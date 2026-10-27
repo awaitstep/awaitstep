@@ -8,11 +8,20 @@ export const GLOBEX = 'org_globex'
 export const SANDBOX = 'org_sandbox'
 
 export function seedOrgs(now: Date): OrgRow[] {
+  const org = (id: string, slug: string, name: string, ageDays: number): OrgRow => ({
+    id,
+    slug,
+    name,
+    createdAt: daysAgo(now, ageDays),
+    cloudflareConnected: false,
+    variableCount: 0,
+  })
   return [
-    { id: ACME, slug: 'acme', name: 'Acme Inc', createdAt: daysAgo(now, 400) },
-    { id: BOLT, slug: 'bolt-labs', name: 'Bolt Labs', createdAt: daysAgo(now, 200) },
-    { id: GLOBEX, slug: 'globex', name: 'Globex', createdAt: daysAgo(now, 300) },
-    { id: SANDBOX, slug: 'daniels-sandbox', name: 'Daniel’s sandbox', createdAt: daysAgo(now, 90) },
+    // EmptyProject: "Cloudflare connected", "3 inherited from Acme Inc".
+    { ...org(ACME, 'acme', 'Acme Inc', 400), cloudflareConnected: true, variableCount: 3 },
+    org(BOLT, 'bolt-labs', 'Bolt Labs', 200),
+    org(GLOBEX, 'globex', 'Globex', 300),
+    org(SANDBOX, 'daniels-sandbox', 'Daniel’s sandbox', 90),
   ]
 }
 

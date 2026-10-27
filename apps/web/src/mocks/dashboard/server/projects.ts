@@ -40,6 +40,8 @@ export const createProject = mutation(
       createdAt: now,
       updatedAt: now,
       lock: null,
+      keyCount: 0,
+      variableCount: 0,
     }
     const workspace: WorkspaceRow = {
       id: newId('ws'),

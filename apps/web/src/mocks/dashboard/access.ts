@@ -63,6 +63,20 @@ function realWorkspaceRole(
   return grant ?? null
 }
 
+/**
+ * The workspace role the project alone gives (admin → Admin, member →
+ * Editor), before any workspace grant. A role equal to it is inherited.
+ */
+export function projectGrantedRole(
+  db: MockDb,
+  ctx: MockContext,
+  project: ProjectRow,
+): WorkspaceRole | null {
+  const projectRole = projectRoleOf(db, ctx, project)
+  if (projectRole === 'admin') return 'admin'
+  return projectRole === 'member' ? 'editor' : null
+}
+
 /** Effective workspace role, or null when the workspace is hidden from the viewer. */
 export function workspaceRoleOf(
   db: MockDb,
@@ -90,6 +104,8 @@ export const REASONS = {
   projectAdmins: 'Only project admins and org owners can do this',
   workspaceAdmins: 'Only this workspace’s admins can do this',
   needsEditor: 'Building, deploying and sharing need an Editor',
+  // The ViewerWorkflows board's title on the disabled share switch.
+  shareNeedsEditor: 'Only Editors can share',
   lockToggle: 'Only this workspace’s admins and editors can change the lock',
   lockFirst: 'Turn off the deletion lock first',
   lastWorkspace: 'A project’s last workspace can’t be deleted',
@@ -157,7 +173,7 @@ export function workspaceCapabilities(
     edit: editor,
     deploy: editor,
     run: YES,
-    share: editor,
+    share: role === 'viewer' ? no(REASONS.shareNeedsEditor) : YES,
     manageSettings: admin,
     manageMembers: admin,
     manageKeys: admin,

@@ -77,9 +77,10 @@ describe('capabilities', () => {
   it('lets a Viewer read and run, with the canvas reason on everything else they see', () => {
     const can = workspaceCapabilities('viewer', unlocked)
     expect(can.run).toEqual({ allowed: true })
-    for (const key of ['edit', 'deploy', 'share'] as const) {
+    for (const key of ['edit', 'deploy'] as const) {
       expect(can[key]).toEqual({ allowed: false, reason: REASONS.needsEditor })
     }
+    expect(can.share).toEqual({ allowed: false, reason: 'Only Editors can share' })
     expect(can.toggleLock.allowed).toBe(false)
   })
 

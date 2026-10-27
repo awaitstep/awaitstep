@@ -1,0 +1,40 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { render } from '@testing-library/react'
+import type { ReactElement } from 'react'
+import { resetMockDb } from '../../../../mocks/dashboard/db'
+import {
+  TopBarSlotProvider,
+  TopBarSlotTarget,
+} from '../../../../components/navigation/top-bar-slot'
+import { MockScenarioProvider, type MockScenario } from '../../scenario-context'
+
+// Renders a dashboard page against the real dummy server, the way the app
+// does: React Query, the `?mock=` / `?as=` context and the top bar's slot.
+// Page tests use this instead of mocking the hooks, so they exercise the seam.
+
+export { resetMockDb as resetDashboardData }
+export { AMA, DANIEL, PRIYA } from '../../../../mocks/dashboard/fixtures/people'
+
+interface Options {
+  scenario?: MockScenario
+  userId?: string
+}
+
+export function renderWithDashboardData(ui: ReactElement, options: Options = {}) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  const result = render(
+    <QueryClientProvider client={client}>
+      <MockScenarioProvider scenario={options.scenario} userId={options.userId}>
+        <TopBarSlotProvider>
+          <header aria-label="Top bar">
+            <TopBarSlotTarget />
+          </header>
+          {ui}
+        </TopBarSlotProvider>
+      </MockScenarioProvider>
+    </QueryClientProvider>,
+  )
+  return { ...result, client }
+}

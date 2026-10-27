@@ -84,7 +84,7 @@ describe('workspace items', () => {
     })
     expect((await byName(as(PRIYA)))['Quote follow-up']).toEqual({
       allowed: false,
-      reason: 'Building, deploying and sharing need an Editor',
+      reason: 'Only Editors can share',
     })
   })
 })

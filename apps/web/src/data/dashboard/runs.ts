@@ -1,6 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useCallback } from 'react'
 import { mockServer } from '../../mocks/dashboard/server'
-import type { RunFilter } from '../../types/dashboard/runs'
+import type { RunFilter, WorkspaceRun } from '../../types/dashboard/runs'
 import type { ScopeSlugs } from '../../types/dashboard/scope'
 import { dashKeys, withMockContext } from './keys'
 import { useMockContext } from './scenario-context'
@@ -26,4 +27,28 @@ export function useFailingNow(org: string) {
     queryKey: withMockContext(dashKeys.failing(org), ctx),
     queryFn: () => mockServer.runs.listFailingNow(ctx, org),
   })
+}
+
+/** Export stops here; a bigger export is a backend job (B1). */
+export const EXPORT_CAP = 1000
+
+/**
+ * Runs → Export: every run matching `filter` (period, result, search), page
+ * by page, up to `EXPORT_CAP`. A one-off read, so it skips the query cache.
+ */
+export function useRunsExport(slugs: Required<ScopeSlugs>) {
+  const ctx = useMockContext()
+  return useCallback(
+    async (filter: Omit<RunFilter, 'cursor' | 'limit'>): Promise<WorkspaceRun[]> => {
+      const runs: WorkspaceRun[] = []
+      let cursor: string | undefined
+      do {
+        const page = await mockServer.runs.listRuns(ctx, slugs, { ...filter, cursor, limit: 100 })
+        runs.push(...page.data)
+        cursor = page.nextCursor ?? undefined
+      } while (cursor && runs.length < EXPORT_CAP)
+      return runs.slice(0, EXPORT_CAP)
+    },
+    [ctx, slugs],
+  )
 }

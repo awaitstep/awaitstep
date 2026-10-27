@@ -54,7 +54,11 @@ export function orgRecord(db: MockDb, ctx: MockContext, row: OrgRow): OrgSummary
  * Everyone who can open the workspace, in the order the canvas draws them:
  * org owners and admins, the workspace's own members, then project members.
  */
-function workspacePeople(db: MockDb, project: ProjectRow, workspace: WorkspaceRow): Person[] {
+export function workspacePeople(
+  db: MockDb,
+  project: ProjectRow,
+  workspace: WorkspaceRow,
+): Person[] {
   const real: MockContext = { scenario: 'none', userId: '' }
   const ids = [
     ...db.orgMembers

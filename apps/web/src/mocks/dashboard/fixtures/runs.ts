@@ -11,7 +11,7 @@ type RunSeed = Partial<RunRow> & Pick<RunRow, 'id' | 'itemId'> & { minutes: numb
 
 const FETCH_FAILED = {
   step: 'Fetch company',
-  message: 'The CRM returned 429 Too Many Requests',
+  message: 'CRM returned 429',
 }
 
 const SALES_TOTAL_24H = 128

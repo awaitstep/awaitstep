@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { mockServer } from '../../mocks/dashboard/server'
-import type { ItemKind, MoveItemsInput } from '../../types/dashboard/items'
+import type {
+  ImportItemInput,
+  ItemKind,
+  MoveItemsInput,
+  NewItemInput,
+} from '../../types/dashboard/items'
 import type { ScopeSlugs } from '../../types/dashboard/scope'
 import { dashKeys, invalidateAll, withMockContext } from './keys'
 import { useMockContext } from './scenario-context'
@@ -65,6 +70,26 @@ export function useMoveWorkflows(slugs: WorkspaceSlugs) {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (input: MoveItemsInput) => mockServer.items.moveItems(ctx, slugs, input),
+    onSuccess: () => invalidateAll(client, itemKeys(slugs)),
+  })
+}
+
+/** New workflow / New function: adds a draft at the top of its list. */
+export function useCreateItem(slugs: WorkspaceSlugs) {
+  const ctx = useMockContext()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (input: NewItemInput) => mockServer.items.createItem(ctx, slugs, input),
+    onSuccess: () => invalidateAll(client, itemKeys(slugs)),
+  })
+}
+
+/** Import: an exported workflow file becomes a draft. Rejects files that aren't exports. */
+export function useImportItem(slugs: WorkspaceSlugs) {
+  const ctx = useMockContext()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (input: ImportItemInput) => mockServer.items.importItem(ctx, slugs, input),
     onSuccess: () => invalidateAll(client, itemKeys(slugs)),
   })
 }

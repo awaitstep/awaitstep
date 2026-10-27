@@ -19,5 +19,6 @@ export function seedDb(now: Date): MockDb {
     items: seedItems(now),
     runs: seedRuns(now),
     calls: CALLS,
+    editRequests: [],
   })
 }

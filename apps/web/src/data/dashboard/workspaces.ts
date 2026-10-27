@@ -18,6 +18,15 @@ export function useScope(slugs: ScopeSlugs) {
   })
 }
 
+/** Everyone who can open the workspace, with their effective role there. */
+export function useWorkspacePeople(slugs: Required<ScopeSlugs>) {
+  const ctx = useMockContext()
+  return useQuery({
+    queryKey: withMockContext(dashKeys.workspacePeople(slugs), ctx),
+    queryFn: () => mockServer.workspaces.listWorkspacePeople(ctx, slugs),
+  })
+}
+
 export function useWorkspaces(org: string, project: string) {
   const ctx = useMockContext()
   return useQuery({

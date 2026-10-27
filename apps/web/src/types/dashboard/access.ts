@@ -29,3 +29,12 @@ export interface AccessGrant {
   projects: { projectId: string; role: ProjectRole }[]
   workspaces: { workspaceId: string; role: WorkspaceRole }[]
 }
+
+/** A Viewer's ask for edit access to a workspace, sent to one of its admins. */
+export interface EditRequest {
+  id: string
+  workspaceId: string
+  from: { id: string; name: string }
+  to: { id: string; name: string }
+  at: string
+}
