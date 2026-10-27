@@ -1,15 +1,16 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { AuditLogPage } from '../../components/audit/audit-log-page'
 import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
-import { PagePlaceholder } from '../../components/navigation/page-placeholder'
 
 const page: DashboardPage = { kind: 'org', page: 'audit' }
 
 export const Route = createFileRoute('/_authed/$org/audit')({
   staticData: { dashboardPage: page },
   head: () => pageHead(page),
-  component: AuditLogPage,
+  component: OrgAuditPage,
 })
 
-function AuditLogPage() {
-  return <PagePlaceholder title="Audit log" boards="AuditLog" step="P7" />
+function OrgAuditPage() {
+  const { org } = Route.useParams()
+  return <AuditLogPage org={org} />
 }
