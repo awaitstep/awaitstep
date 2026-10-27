@@ -41,7 +41,7 @@ describe('project API keys', () => {
     expect(rowWith('Read-only dashboard')).toHaveTextContent('+4')
     expect(screen.getByRole('link', { name: 'IT · 2' })).toHaveAttribute(
       'href',
-      '/acme/project-101/it/settings',
+      '/acme/project-101/it/settings?tab=keys',
     )
     expect(within(topBar()).getByRole('link', { name: 'New API key' })).toHaveAttribute(
       'href',
@@ -88,7 +88,7 @@ describe('project Variables', () => {
     )
     expect(
       within(rowWith('CRM_BASE_URL')).getByRole('link', { name: 'Overridden in Sales' }),
-    ).toHaveAttribute('href', '/acme/project-101/sales/settings')
+    ).toHaveAttribute('href', '/acme/project-101/sales/settings?tab=variables')
     const region = rowWith('REGION')
     expect(region).toHaveTextContent('Acme Inc')
     expect(region).toHaveTextContent('From the org')

@@ -1,5 +1,9 @@
 import { CircleAlert } from 'lucide-react'
-import { workspacePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
+import {
+  workspacePath,
+  workspaceSettingsPath,
+  type WorkspaceSlugs,
+} from '../../lib/dashboard-paths'
 import { cn } from '../../lib/utils'
 import { timeAgoOrDay } from '../../lib/time'
 import type { SharedItem, WorkspaceItem } from '../../types/dashboard/items'
@@ -176,7 +180,7 @@ export function WorkspaceOverview({
           caption={`${people.length} can open ${workspace.name}`}
           action={
             <ShellLink
-              href={workspacePath(slugs, 'settings')}
+              href={workspaceSettingsPath(slugs, 'members')}
               className="text-xs font-medium text-status-success"
             >
               Manage

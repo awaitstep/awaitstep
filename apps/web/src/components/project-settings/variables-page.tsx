@@ -1,6 +1,10 @@
 import { Plus } from 'lucide-react'
 import { useProjectVariables } from '../../data/dashboard/variables'
-import { variableDialogPath, workspacePath, type ProjectSlugs } from '../../lib/dashboard-paths'
+import {
+  variableDialogPath,
+  workspaceSettingsPath,
+  type ProjectSlugs,
+} from '../../lib/dashboard-paths'
 import type { WorkspaceRef } from '../../types/dashboard/items'
 import type { ResolvedVariable } from '../../types/dashboard/variables'
 import { buttonVariants } from '../ui/button'
@@ -30,7 +34,7 @@ export function VariablesPage({ slugs }: VariablesPageProps) {
   const canManage = scope.project.viewerCan.manageVariables.allowed
 
   function overrideHref(workspace: WorkspaceRef): string {
-    return workspacePath({ ...slugs, workspace: workspace.slug }, 'settings')
+    return workspaceSettingsPath({ ...slugs, workspace: workspace.slug }, 'variables')
   }
 
   function actionHref(variable: ResolvedVariable): string {

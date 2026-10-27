@@ -5,7 +5,7 @@ import { useWorkspaces } from '../../data/dashboard/workspaces'
 import {
   orgSettingsPath,
   projectSettingsPath,
-  workspacePath,
+  workspaceSettingsPath,
   type ProjectSlugs,
 } from '../../lib/dashboard-paths'
 import type { ApiKey } from '../../types/dashboard/api-keys'
@@ -83,7 +83,7 @@ export function KeysPage({ slugs }: KeysPageProps) {
     organization: { href: orgSettingsPath(slugs.org, 'api-keys'), label: 'Org keys' },
     ...(lastWorkspace && {
       workspace: {
-        href: workspacePath({ ...slugs, workspace: lastWorkspace }, 'settings'),
+        href: workspaceSettingsPath({ ...slugs, workspace: lastWorkspace }, 'keys'),
         label: 'In Workspace settings',
       },
     }),
@@ -134,7 +134,7 @@ export function KeysPage({ slugs }: KeysPageProps) {
               {keys.data.workspaceKeys.map(({ workspace, count }) => (
                 <li key={workspace.id}>
                   <ShellLink
-                    href={workspacePath({ ...slugs, workspace: workspace.slug }, 'settings')}
+                    href={workspaceSettingsPath({ ...slugs, workspace: workspace.slug }, 'keys')}
                     className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <ScopeChip colour={workspace.colour}>

@@ -2,7 +2,12 @@ import { Share2, ShieldCheck } from 'lucide-react'
 import { useSharedWithWorkspace } from '../../data/dashboard/items'
 import { useProjectSetup } from '../../data/dashboard/setup'
 import { useWorkspacePeople } from '../../data/dashboard/workspaces'
-import { projectSettingsPath, workspacePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
+import {
+  projectSettingsPath,
+  workspacePath,
+  workspaceSettingsPath,
+  type WorkspaceSlugs,
+} from '../../lib/dashboard-paths'
 import { plural } from '../../lib/plural'
 import { AvatarStack } from '../ui/avatar-stack'
 import { Badge } from '../ui/badge'
@@ -65,7 +70,7 @@ export function EmptyWorkspace({
       />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <AvailableCard
-          href={workspacePath(slugs, 'settings')}
+          href={workspaceSettingsPath(slugs, 'members')}
           icon={ShieldCheck}
           tone="info"
           title={`Inherited from ${projectName}`}

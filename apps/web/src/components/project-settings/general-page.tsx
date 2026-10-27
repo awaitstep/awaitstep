@@ -73,10 +73,16 @@ function GeneralSettings({ slugs, scope }: { slugs: ProjectSlugs; scope: Project
   const [dialog, setDialog] = useState<'move' | 'delete' | null>(null)
 
   const saved = valuesOf(project)
+  // Compared and sent trimmed, as the server stores them, so "Project 101 " isn't a change.
+  const trimmed = {
+    name: values.name.trim(),
+    slug: values.slug.trim(),
+    description: values.description.trim(),
+  }
   const dirty =
-    values.name !== saved.name ||
-    values.slug !== saved.slug ||
-    values.description !== saved.description
+    trimmed.name !== saved.name ||
+    trimmed.slug !== saved.slug ||
+    trimmed.description !== saved.description
   const readOnly = !can.manageSettings.allowed
   const lock = project.lock.own
   const names = (workspaces.data ?? []).map((w) => w.name)
@@ -91,9 +97,9 @@ function GeneralSettings({ slugs, scope }: { slugs: ProjectSlugs; scope: Project
     event.preventDefault()
     update.mutate(
       {
-        name: values.name,
-        description: values.description || null,
-        ...(values.slug !== saved.slug && { slug: values.slug }),
+        name: trimmed.name,
+        description: trimmed.description || null,
+        ...(trimmed.slug !== saved.slug && { slug: trimmed.slug }),
       },
       {
         onSuccess: (updated) => {

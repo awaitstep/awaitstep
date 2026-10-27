@@ -43,6 +43,12 @@ async function renderPage(userId?: string) {
 }
 
 describe('project General', () => {
+  it('doesn’t count spaces around a value as a change', async () => {
+    await renderPage()
+    await userEvent.type(field(/Project name/), '  ')
+    expect(within(topBar()).getByRole('button', { name: 'Save changes' })).toBeDisabled()
+  })
+
   it('saves a renamed project once something changed', async () => {
     await renderPage()
     const save = within(topBar()).getByRole('button', { name: 'Save changes' })

@@ -95,7 +95,7 @@ describe('an empty workspace', () => {
     await waitFor(() => expect(inherited).toHaveTextContent('2 project admins'))
     expect(inherited).toHaveTextContent('3 project keys')
     expect(inherited).toHaveTextContent('5 variables')
-    expect(inherited).toHaveAttribute('href', '/acme/project-101/support/settings')
+    expect(inherited).toHaveAttribute('href', '/acme/project-101/support/settings?tab=members')
     const sharedIn = screen.getByRole('link', { name: /Shared with Support/ })
     await waitFor(() => expect(sharedIn).toHaveTextContent('Lead enrichment · Sales'))
     expect(sharedIn).toHaveTextContent('Provision account · IT')
