@@ -5,7 +5,7 @@ import { hasContent } from '../ui/has-content'
 import { ShellLink } from '../ui/shell-link'
 
 const rowClass =
-  'relative flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-sm font-medium transition-colors'
+  'relative flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-sm font-medium transition-colors'
 const inactiveRowClass =
   'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
 const activeRowClass = 'bg-sidebar-accent text-sidebar-foreground'
@@ -99,7 +99,7 @@ interface PanelSectionProps {
 /** A group of panel rows, optionally captioned. */
 export function PanelSection({ title, children }: PanelSectionProps) {
   return (
-    <div role="group" aria-label={title} className="flex flex-col gap-0.5 px-2.5">
+    <div role="group" aria-label={title} className="flex flex-col gap-1 px-2.5">
       {title && (
         <p
           aria-hidden="true"

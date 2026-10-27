@@ -31,7 +31,7 @@ export function ContextPanel({ label, header, footer, children }: ContextPanelPr
       <div className="flex h-16 shrink-0 items-center border-b border-sidebar-border">{header}</div>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-2">{children}</div>
       {hasContent(footer) && (
-        <div className="flex shrink-0 flex-col gap-0.5 border-t border-sidebar-border p-2.5">
+        <div className="flex shrink-0 flex-col gap-1 border-t border-sidebar-border p-2.5">
           {footer}
         </div>
       )}
@@ -62,7 +62,7 @@ const SCOPE_BUTTON_VARIANT = {
   },
   card: {
     button:
-      'mx-2.5 mb-1 mt-3 rounded-lg border border-border bg-card px-2.5 py-2 hover:bg-sidebar-accent',
+      'mx-2.5 mb-3 mt-3 rounded-lg border border-border bg-card px-2.5 py-2 hover:bg-sidebar-accent',
     tile: 'size-[22px] text-3xs',
     name: 'font-medium',
   },
