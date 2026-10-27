@@ -3,10 +3,10 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   DANIEL,
+  dashboardServer,
   renderWithDashboardData,
   resetDashboardData,
 } from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
-import { mockServer } from '../../../mocks/dashboard/server'
 import { AuditLogPage } from '../audit-log-page'
 
 const download = vi.fn()
@@ -154,7 +154,7 @@ describe('Audit log', () => {
   })
 
   it('waits for typing to stop before searching', async () => {
-    const list = vi.spyOn(mockServer.audit, 'listAuditEvents')
+    const list = vi.spyOn(dashboardServer.audit, 'listAuditEvents')
     renderWithDashboardData(<AuditLogPage org="acme" />)
     await screen.findByRole('list', { name: 'Audit events in Acme Inc' })
     const before = list.mock.calls.length

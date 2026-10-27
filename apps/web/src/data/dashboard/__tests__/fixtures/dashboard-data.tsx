@@ -16,6 +16,8 @@ export { resetMockDb as resetDashboardData }
 /** The dummy tables, for asserting what a page's mutation wrote. */
 export { getDb as dashboardDb } from '../../../../mocks/dashboard/db'
 export { AMA, DANIEL, PRIYA } from '../../../../mocks/dashboard/fixtures/people'
+/** The dummy server, for spying on how often a page asks it. */
+export { mockServer as dashboardServer } from '../../../../mocks/dashboard/server'
 
 interface Options {
   scenario?: MockScenario
