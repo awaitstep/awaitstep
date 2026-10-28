@@ -1,6 +1,8 @@
 import { betterAuth } from 'better-auth'
+import { APIError } from 'better-auth/api'
 import { magicLink, organization } from 'better-auth/plugins'
 import { CLIENT_IP_HEADER } from '../lib/client-ip.js'
+import { orgSlugProblem } from '../lib/slugs.js'
 
 export interface AuthOptions {
   baseURL: string
@@ -16,6 +18,11 @@ export interface AuthOptions {
    * NODE_ENV, which a Worker typically does not set.
    */
   rateLimit?: boolean
+}
+
+function refuseBadOrgSlug(slug: unknown): void {
+  const problem = orgSlugProblem(slug)
+  if (problem) throw new APIError('BAD_REQUEST', { message: problem })
 }
 
 export function createAuth(options: AuthOptions) {
@@ -35,25 +42,18 @@ export function createAuth(options: AuthOptions) {
         : []),
       organization({
         allowUserToCreateOrganization: true,
-        // Org name is user-facing and may collide across tenants (two users
-        // can both have an "ABC" org). The `slug` column is globally unique
-        // for URL routing, so we append a short random suffix to keep slugs
-        // unique while letting users pick whatever name they want.
-        organizationCreation: {
-          beforeCreate: async ({
-            organization,
-          }: {
-            organization: { name?: string; slug?: string; [k: string]: unknown }
-          }) => {
-            const rand = crypto.randomUUID().slice(0, 6)
-            const base =
-              (organization.slug || organization.name || 'org')
-                .toString()
-                .toLowerCase()
-                .replace(/[^a-z0-9]+/g, '-')
-                .replace(/^-+|-+$/g, '')
-                .slice(0, 32) || 'org'
-            return { data: { ...organization, slug: `${base}-${rand}` } }
+        // An organization's slug is the first segment of every dashboard URL
+        // and is globally unique (better-auth refuses a taken one). It keeps
+        // to the same rule as projects and workspaces: the slug shape, and
+        // never a page the app already serves at the top level (`/settings`,
+        // `/sign-in`, …). The client sends the name slugified; a collision
+        // comes back as better-auth's "slug already taken".
+        organizationHooks: {
+          beforeCreateOrganization: async ({ organization }) => {
+            refuseBadOrgSlug(organization.slug)
+          },
+          beforeUpdateOrganization: async ({ organization }) => {
+            if (organization.slug !== undefined) refuseBadOrgSlug(organization.slug)
           },
         },
       }),
