@@ -34,12 +34,12 @@ describe('projectWriteRuleErrors', () => {
 
   beforeEach(async () => {
     resetStore()
-    workflow = await mockDb.createWorkflow({
+    workflow = (await mockDb.createWorkflow({
       id: 'wf-1',
       projectId: TEST_PROJECT_ID,
       createdBy: TEST_USER_ID,
       name: 'Test',
-    })
+    }))!
   })
 
   afterEach(() => {

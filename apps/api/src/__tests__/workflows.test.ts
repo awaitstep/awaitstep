@@ -225,3 +225,67 @@ describe('workflow routes', () => {
     })
   })
 })
+
+describe('workflows in projects and workspaces', () => {
+  let app: ReturnType<typeof createTestApp>
+
+  beforeEach(() => {
+    resetStore()
+    app = createTestApp()
+  })
+
+  it('moves a workflow to another project and into that project’s oldest workspace', async () => {
+    await mockDb.createProject({
+      id: 'p-other',
+      organizationId: 'test-org-1',
+      name: 'Other',
+      slug: 'other',
+      defaultWorkspaceId: 'ws-other',
+    })
+    const created = await (
+      await app.request(url('/api/workflows'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Mover' }),
+      })
+    ).json()
+
+    const res = await app.request(url(`/api/workflows/${created.id}/move`), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetProjectId: 'p-other' }),
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.workflow).toMatchObject({ projectId: 'p-other', workspaceId: 'ws-other' })
+    // Nothing of it is left in the old project's workspace.
+    const old = await (await app.request(url('/api/workflows'))).json()
+    expect(old.data.map((w: { id: string }) => w.id)).not.toContain(created.id)
+  })
+
+  it('masks secret values on the list as it does on a single read', async () => {
+    const created = await (
+      await app.request(url('/api/workflows'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'With secret' }),
+      })
+    ).json()
+    // As the column holds it (the PATCH route keeps per-workflow variables elsewhere in the mock).
+    await mockDb.updateWorkflow(created.id, {
+      envVars: JSON.stringify([
+        { name: 'API_TOKEN', value: 'hunter2', isSecret: true },
+        { name: 'REGION', value: 'eu', isSecret: false },
+      ]),
+    })
+    const list = await (await app.request(url('/api/workflows'))).json()
+    const row = list.data.find((w: { id: string }) => w.id === created.id)
+    expect(row.envVars).not.toContain('hunter2')
+    expect(row.envVars).toContain('REGION')
+    expect(JSON.parse(row.envVars)).toContainEqual({
+      name: 'API_TOKEN',
+      value: '••••••••',
+      isSecret: true,
+    })
+  })
+})

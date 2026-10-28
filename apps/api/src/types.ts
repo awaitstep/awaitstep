@@ -5,6 +5,7 @@ import type { TestSessionLimits } from './lib/test-session-policy.js'
 import type { ApiKeyScope } from './middleware/auth.js'
 import type { AppNodeRegistry } from './lib/node-registry.js'
 import type { RemoteNodeRegistry } from './lib/remote-node-registry.js'
+import type { OrgRole } from '@awaitstep/ir'
 
 export interface AppEnv {
   Variables: {
@@ -12,6 +13,13 @@ export interface AppEnv {
     userId: string
     organizationId: string
     projectId: string
+    /** Set by requireProject when the request names a workspace, and by requireWorkspace. */
+    workspaceId: string | undefined
+    /**
+     * The session's role in the organization, from the same JOIN that
+     * resolved the scope. Null for an API key: a key acts by its scopes.
+     */
+    orgRole: OrgRole | null
     user: { id: string; email: string; name?: string } | null
     session: { id: string; userId: string; expiresAt: Date } | null
     workflow: Workflow | undefined

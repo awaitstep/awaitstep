@@ -13,9 +13,11 @@ import {
 import {
   requireProject,
   requireOrganization,
+  requireWorkspace,
   resolveOptionalOrganization,
 } from '../middleware/project.js'
 import { createRateLimiter } from '../middleware/rate-limit.js'
+import { requireOrgAdmin } from '../middleware/org-admin.js'
 import { requireWorkflowAccess, requireConnectionAccess } from '../middleware/ownership.js'
 import { workflows } from './workflows.js'
 import { versions } from './versions.js'
@@ -31,6 +33,9 @@ import { nodes } from './nodes.js'
 import { marketplace } from './marketplace.js'
 import { localDev } from './local-dev.js'
 import { testSessions, workflowTestSessions } from './test-sessions.js'
+import { workspaces } from './workspaces.js'
+import { scope } from './scope.js'
+import { runsQuerySchema, workspaceRunFilter } from './runs-query.js'
 
 export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean }) {
   const router = new Hono<AppEnv>()
@@ -51,6 +56,9 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.use('/projects/*', requireOrganization)
   router.use('/api-keys/*', requireOrganization)
   router.use('/marketplace/*', requireOrganization)
+  router.use('/failing', requireOrganization)
+  // Failing runs across the organization answer for a person; a key is pinned narrower.
+  router.use('/failing', requireSessionAuth)
   // The node palette also loads before an organization is chosen: without
   // one it gets the public registry, with one the organization's installs —
   // membership checked either way, never an arbitrary id.
@@ -61,6 +69,23 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.use('/deployments', requireProject)
   router.use('/runs', requireProject)
   router.use('/test-sessions/*', requireProject)
+  // The collection is addressed by project; an item carries its own project.
+  router.use('/workspaces', requireProject)
+  router.use('/workspaces/:id/*', requireWorkspace)
+
+  // The dashboard's own reads answer for a person: session only.
+  router.use('/scope', requireSessionAuth)
+  router.use('/orgs', requireSessionAuth)
+
+  // Managing projects and workspaces is for org owners and admins (B2 adds
+  // roles below the org). After the scope middleware set the role, before the
+  // scope and limiter checks, so a refused member spends no write budget.
+  router.patch('/projects/:id', requireOrgAdmin)
+  router.delete('/projects/:id', requireOrgAdmin)
+  router.post('/workspaces', requireOrgAdmin)
+  router.patch('/workspaces/:id', requireOrgAdmin)
+  router.delete('/workspaces/:id', requireOrgAdmin)
+  router.post('/workspaces/:id/move-workflows', requireOrgAdmin)
 
   // Ownership — workflow routes
   router.use('/workflows/:id', requireWorkflowAccess)
@@ -104,6 +129,10 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.patch('/workflows/:id', requireScope('write'))
   router.patch('/workflows/:id/move', requireScope('write'))
   router.delete('/workflows/:id', requireScope('write'))
+  router.post('/workspaces', requireScope('write'))
+  router.patch('/workspaces/:id', requireScope('write'))
+  router.delete('/workspaces/:id', requireScope('write'))
+  router.post('/workspaces/:id/move-workflows', requireScope('write'))
   router.post('/connections', requireScope('write'))
   router.patch('/connections/:id', requireScope('write'))
   router.delete('/connections/:id', requireScope('write'))
@@ -174,6 +203,10 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.post('/projects', writeLimit)
   router.patch('/projects/:id', writeLimit)
   router.delete('/projects/:id', writeLimit)
+  router.post('/workspaces', writeLimit)
+  router.patch('/workspaces/:id', writeLimit)
+  router.delete('/workspaces/:id', writeLimit)
+  router.post('/workspaces/:id/move-workflows', writeLimit)
   router.use('/connections/verify-token', verifyLimit)
   router.use('/workflows/:workflowId/deploy', deployLimit)
   router.use('/workflows/:workflowId/deploy-stream', deployLimit)
@@ -222,6 +255,8 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.route('/api-keys', apiKeys)
   router.route('/env-vars', envVars)
   router.route('/projects', projects)
+  router.route('/workspaces', workspaces)
+  router.route('/', scope)
   router.route('/nodes', nodes)
   router.route('/marketplace', marketplace)
 
@@ -234,12 +269,22 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
     return c.json(result)
   })
 
-  // Global runs list (across all project's workflows)
-  router.get('/runs', zValidator('query', paginationQuerySchema), async (c) => {
+  // Global runs list: across the project's workflows, or — with a workspace
+  // named — that workspace's, with the filters and counts its Runs page shows.
+  router.get('/runs', zValidator('query', runsQuerySchema), async (c) => {
     const db = c.get('db')
-    const projectId = c.get('projectId')
-    const { cursor, limit } = c.req.valid('query')
-    const result = await db.listRecentRunsByProject(projectId, { cursor, limit })
+    const query = c.req.valid('query')
+    const workspaceId = c.get('workspaceId')
+    if (workspaceId) {
+      return c.json(await db.listWorkspaceRuns(workspaceId, workspaceRunFilter(query)))
+    }
+    if (query.result || query.period || query.search) {
+      return c.json({ error: 'Filtering runs needs a workspace' }, 400)
+    }
+    const result = await db.listRecentRunsByProject(c.get('projectId'), {
+      cursor: query.cursor,
+      limit: query.limit,
+    })
     return c.json(result)
   })
 

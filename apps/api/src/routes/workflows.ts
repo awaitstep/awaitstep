@@ -20,6 +20,12 @@ const createSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().max(1000).optional(),
   kind: z.enum(['workflow', 'script']).optional(),
+  /** Else the `workspace`/`workspaceId` query parameter, else the project's oldest workspace. */
+  workspaceId: z.string().min(1).optional(),
+})
+
+const listQuerySchema = paginationQuerySchema.extend({
+  kind: z.enum(['workflow', 'script']).optional(),
 })
 
 const envVarNamePattern = /^[A-Z][A-Z0-9_]*$/
@@ -88,12 +94,16 @@ function maskWorkflowSecrets<T extends { envVars?: string | null }>(workflow: T)
 
 export const workflows = new Hono<AppEnv>()
 
-workflows.get('/', zValidator('query', paginationQuerySchema), async (c) => {
+workflows.get('/', zValidator('query', listQuerySchema), async (c) => {
   const db = c.get('db')
   const projectId = c.get('projectId')
-  const { cursor, limit } = c.req.valid('query')
-  const result = await db.listWorkflowsWithStatus(projectId, { cursor, limit })
-  return c.json(result)
+  const { cursor, limit, kind } = c.req.valid('query')
+  const result = await db.listWorkflowsWithStatus(
+    projectId,
+    { cursor, limit },
+    { workspaceId: c.get('workspaceId'), kind },
+  )
+  return c.json({ ...result, data: result.data.map(maskWorkflowSecrets) })
 })
 
 workflows.get('/:id', async (c) => {
@@ -158,11 +168,14 @@ workflows.post('/', zValidator('json', createSchema), async (c) => {
   const workflow = await db.createWorkflow({
     id: nanoid(),
     projectId,
+    workspaceId: body.workspaceId ?? c.get('workspaceId') ?? null,
     createdBy: userId,
     name: body.name,
     description: body.description,
     kind: body.kind,
   })
+  // The insert itself checks the workspace is the project's.
+  if (!workflow) return c.json({ error: 'Workspace not found' }, 404)
   return c.json(workflow, 201)
 })
 
@@ -239,10 +252,13 @@ workflows.patch(
     // warned about variables that resolve perfectly well.
     const warnings = await unresolvableEnvRefs(db, organizationId, targetProjectId, workflow.id)
 
-    const updated = await db.updateWorkflow(workflow.id, { projectId: targetProjectId })
+    // Into the target's oldest workspace in the same statement: a workflow
+    // left in a workspace of its old project would be read and deleted there.
+    const updated = await db.moveWorkflowToProject(workflow.id, targetProjectId)
+    if (!updated) return c.json({ error: 'Not found' }, 404)
 
     return c.json({
-      workflow: updated,
+      workflow: maskWorkflowSecrets(updated),
       warnings:
         warnings.length > 0 ? `Missing env vars in target project: ${warnings.join(', ')}` : null,
     })

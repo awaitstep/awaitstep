@@ -6,6 +6,7 @@ import {
   TEST_USER_ID,
   TEST_ORG_ID,
   TEST_PROJECT_ID,
+  TEST_WORKSPACE_ID,
 } from './helpers.js'
 import { hashApiKey } from '../lib/api-key-hash.js'
 
@@ -38,6 +39,7 @@ function concrete(path: string): string {
     workflows: 'wf-1',
     connections: 'conn-1',
     projects: 'test-project-2',
+    workspaces: TEST_WORKSPACE_ID,
     'env-vars': 'env-1',
     'api-keys': 'key-x',
   }
@@ -161,6 +163,7 @@ describe('mutation route guards', () => {
     const orgLevel = (path: string) =>
       !path.startsWith('/api/workflows') &&
       !path.startsWith('/api/test-sessions') &&
+      !path.startsWith('/api/workspaces') &&
       !path.startsWith('/api/api-keys/')
     expect(await refusals(ORG_READ_KEY, orgLevel, /missing required scope/)).toEqual([])
   })

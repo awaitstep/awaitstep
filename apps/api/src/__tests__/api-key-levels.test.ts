@@ -52,6 +52,7 @@ describe('project-scoped API keys cannot mutate org resources', () => {
       organizationId: TEST_ORG_ID,
       name: 'Other Project',
       slug: 'other-project',
+      defaultWorkspaceId: `${OTHER_PROJECT_ID}-ws`,
     })
     await mockDb.createConnection({
       id: 'conn-1',
@@ -185,6 +186,7 @@ describe('project-scoped API keys and env vars', () => {
       organizationId: TEST_ORG_ID,
       name: 'Other Project',
       slug: 'other-project',
+      defaultWorkspaceId: `${OTHER_PROJECT_ID}-ws`,
     })
     await seedProjectKey()
     await mockDb.createEnvVar({
@@ -599,6 +601,7 @@ describe('organization-level API keys', () => {
       organizationId: TEST_ORG_ID,
       name: 'Other',
       slug: 'other',
+      defaultWorkspaceId: `${OTHER_PROJECT_ID}-ws`,
     })
     await seedProjectKey()
     const res = await app.request(
@@ -617,6 +620,7 @@ describe('organization-level API keys', () => {
       organizationId: TEST_ORG_ID,
       name: 'Other',
       slug: 'other',
+      defaultWorkspaceId: `${OTHER_PROJECT_ID}-ws`,
     })
     await seedProjectKey()
     await mockDb.createApiKey({
@@ -775,7 +779,7 @@ describe('router middleware', () => {
       createdBy: TEST_USER_ID,
       name: 'Once',
     })
-    const isOrgMember = vi.spyOn(mockDb, 'isOrgMember')
+    const isOrgMember = vi.spyOn(mockDb, 'getOrganizationIfMember')
     const getProjectIfMember = vi.spyOn(mockDb, 'getProjectIfMember')
     const getWorkflowById = vi.spyOn(mockDb, 'getWorkflowById')
 

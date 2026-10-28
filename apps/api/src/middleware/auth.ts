@@ -6,6 +6,7 @@ import type { Auth } from '../auth/config.js'
 import { hashApiKey } from '../lib/api-key-hash.js'
 import { headersForAuth } from '../lib/client-ip.js'
 import { createLogger } from '../lib/logger.js'
+import { parseOrgRole } from '../lib/org-role.js'
 
 const log = createLogger('auth')
 
@@ -67,6 +68,9 @@ export function createAuthMiddleware(auth: Auth) {
 
       c.set('userId', apiKey.createdBy)
       c.set('organizationId', apiKey.resolvedOrganizationId)
+      // What the key may manage is what its creator may: the role is read in
+      // the same statement as the membership above.
+      c.set('orgRole', parseOrgRole(apiKey.createdByRole))
       // An organization-level key has no project: project-scoped routes
       // refuse it in requireProject.
       if (apiKey.projectId) {
@@ -100,6 +104,8 @@ export function createAuthMiddleware(auth: Auth) {
     c.set('user', session.user)
     c.set('session', session.session)
     c.set('userId', session.user.id)
+    // The scope middleware sets the role once it has resolved which organization.
+    c.set('orgRole', null)
     c.set('apiKeyId', null)
     c.set('apiKeyScopes', null)
     c.set('apiKeyExpiresAt', null)

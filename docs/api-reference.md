@@ -8,6 +8,12 @@ A key is also **project-level or organization-level, never both**. A project key
 
 Base URL: `https://app.awaitstep.dev/api` (cloud) or `http://localhost:8080/api` (self-hosted, adjust to match your instance URL)
 
+## Addressing scope
+
+Project-scoped routes take the project as `?projectId=<id>`, or as the slugs the dashboard's URLs carry: `?org=<org slug>&project=<project slug>`. Either way the project and your membership are resolved in one read; a project you are not a member of answers `404`, exactly like one that does not exist. Organization-scoped routes take `?organizationId=<id>` or `?org=<slug>`.
+
+A workspace can be named on any project-scoped route with `?workspaceId=<id>` or `?workspace=<slug>`. It must be the project's; otherwise `404`. API keys carry their project, so they omit the project parameters and may still name a workspace.
+
 ## Rate Limits
 
 | Scope                   | Limit               |
@@ -51,6 +57,15 @@ When `nextCursor` is `null`, there are no more pages. Pass the `nextCursor` valu
 
 List all workflows in the active project.
 
+| Param                       | In    | Required | Description            |
+| --------------------------- | ----- | -------- | ---------------------- |
+| `workspace` / `workspaceId` | query | no       | Only this workspace's  |
+| `kind`                      | query | no       | `workflow` or `script` |
+
+Each row carries `workspaceId`, `deployedVersion` (the version number the
+latest deployment put live, or null) and `recentRunStatuses` (the last ten
+finished runs, newest first).
+
 **Scope:** `read`
 
 | Param    | In    | Required | Description                        |
@@ -89,9 +104,14 @@ Create a new workflow or script.
 {
   "name": "My Workflow",
   "description": "",
-  "kind": "workflow"
+  "kind": "workflow",
+  "workspaceId": "ws_..."
 }
 ```
+
+`workspaceId` is optional: else the `workspace`/`workspaceId` query
+parameter, else the project's oldest workspace. One that is not the
+project's answers `404`.
 
 | Field         | Required | Description                                                                                                                                                                                                                                                                   |
 | ------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -126,6 +146,8 @@ Update a workflow's name, description, environment variables, trigger code, depe
 ```
 
 ### `PATCH /workflows/:id/move`
+
+The workflow lands in the target project's oldest workspace.
 
 Move a workflow to another project within the same organization. Returns
 `warnings` naming any `{{global.env.X}}` reference the destination cannot
@@ -240,6 +262,22 @@ The body is parsed and exposed to nodes as `event.payload`. The response is `Res
 Project mutations (create, rename, delete) are organization-level: a
 project-scoped API key answers `403`.
 
+Every project has at least one workspace. `POST /projects` creates the
+project together with its `Default` workspace (both or neither) and returns
+it as `defaultWorkspace`. Listed projects carry what the dashboard shows:
+`workspaces` (id, slug, name, colour; oldest first), `health` (workflow,
+deployed and failing counts, last run), `lock`, `members` (sessions only; a
+key gets an empty list) and the caller's `viewerRole` and `viewerCan`.
+
+Renaming (`PATCH`, which also takes `slug`) and deleting a project is for the
+organization's owners and admins; any member may create one. A key acts
+with the standing of whoever minted it, so a member's key is refused too.
+
+Slugs are lowercase letters, digits and inner hyphens, up to 100 characters,
+and may not be a page the dashboard already serves at that level
+(`settings`, `account`, `items`, `projects`, `resources`, `audit`, `inbox`,
+`whats-new`). Such a slug answers `422`.
+
 ### `GET /projects`
 
 List all projects in the active organization.
@@ -286,6 +324,117 @@ Delete a project.
 | Param | In   | Required | Description |
 | ----- | ---- | -------- | ----------- |
 | `id`  | path | yes      | Project ID  |
+
+---
+
+## Workspaces
+
+A workspace is a room inside a project: workflows and functions live in
+exactly one. Workspace routes take a project key or a session; an
+organization-level key answers `403`. Until roles arrive, creating, renaming
+and deleting workspaces and moving workflows between them is for the
+organization's owners and admins (`403` otherwise). A key acts with the
+standing of whoever minted it, and needs the `write` scope as well.
+
+### `GET /workspaces`
+
+The project's workspaces, oldest first, each with `counts` (workflows,
+deployed, functions, runs in the last 24 hours, failing, last run),
+`createdBy`, `lock`, `inheritedLock`, `members` (sessions only; a key gets
+an empty list), `viewerRole` and `viewerCan`.
+
+**Scope:** `read`
+
+| Param       | In    | Required | Description                    |
+| ----------- | ----- | -------- | ------------------------------ |
+| `projectId` | query | session  | or the `org` + `project` slugs |
+
+### `POST /workspaces`
+
+Create a workspace. `slug` defaults to the name, slugified; `colour` is one of
+`green`, `blue`, `amber`, `purple`, `rose`. A slug another workspace in the
+project uses answers `409`; a reserved one (`settings`) `422`.
+
+**Scope:** `write`
+
+```json
+{
+  "name": "Sales",
+  "slug": "sales",
+  "description": "",
+  "colour": "blue"
+}
+```
+
+### `GET /workspaces/:id`
+
+One workspace, as stored.
+
+**Scope:** `read`
+
+### `PATCH /workspaces/:id`
+
+Rename, re-slug, describe or recolour. A slug a sibling uses answers `409`.
+
+**Scope:** `write`
+
+```json
+{
+  "name": "Sales",
+  "slug": "sales",
+  "description": null,
+  "colour": "amber"
+}
+```
+
+### `DELETE /workspaces/:id`
+
+Delete the workspace with the workflows in it. Deployed Workers keep running
+on Cloudflare. A project's last workspace cannot be deleted: `409`.
+
+**Scope:** `write`
+
+### `POST /workspaces/:id/move-workflows`
+
+Move workflows from this workspace to another one in the same project. A
+target that is not this project's answers `404`; workflow ids that are not
+in this workspace move nothing, and `moved` lists the ids that did.
+
+**Scope:** `write`
+
+```json
+{
+  "workflowIds": ["wf_..."],
+  "targetWorkspaceId": "ws_..."
+}
+```
+
+Response: `{ "moved": ["wf_..."] }`
+
+### `GET /scope`
+
+Session only. What the dashboard URL `/{org}/{project}/{workspace}` names:
+`{ found: true, org, project?, workspace? }`, each level with its record,
+the caller's role there and `viewerCan`; or `{ found: false, notFound: {
+kind, slug, parent } }` naming the first level that did not match. A slug the
+caller may not open reads as not found.
+
+| Param       | In    | Required | Description                      |
+| ----------- | ----- | -------- | -------------------------------- |
+| `org`       | query | yes      | Organization slug                |
+| `project`   | query | no       | Project slug                     |
+| `workspace` | query | no       | Workspace slug (needs `project`) |
+
+### `GET /orgs`
+
+Session only. The organizations the session is a member of, with the
+caller's `role`, `projectCount`, `memberCount` and `viewerCan`.
+
+### `GET /failing`
+
+Session only. Workflows and functions whose latest run failed, across the
+organization (`?org=` or `?organizationId=`), most recent failure first, with
+the run and where each lives.
 
 ---
 
@@ -817,6 +966,19 @@ Remove a deployment and clear the workflow's active version.
 List all runs across all workflows for the authenticated user.
 
 **Scope:** `read`
+
+With a workspace named (`?workspace=` or `?workspaceId=`), that workspace's
+runs, newest first, each with `workflowName` and `kind`, plus `counts`
+(`all`, `succeeded`, `failed`, `running`) over the period and search —
+before `result` is applied, so the filter pills keep their numbers.
+
+| Param    | In    | Required | Description                             |
+| -------- | ----- | -------- | --------------------------------------- |
+| `result` | query | no       | `succeeded`, `failed` or `running`      |
+| `period` | query | no       | `24h`, `7d` or `30d`                    |
+| `search` | query | no       | Matches the workflow name or the run id |
+
+These three need a workspace: without one they answer `400`.
 
 ### `GET /workflows/:workflowId/runs`
 

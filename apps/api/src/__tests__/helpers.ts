@@ -15,6 +15,10 @@ import type {
   EnvVar,
   Project,
   InstalledNode,
+  Workspace,
+  WorkspaceOverview,
+  ProjectOverview,
+  WorkspaceRunRow,
 } from '@awaitstep/db'
 import type {
   GeneratedBundle,
@@ -38,6 +42,7 @@ const store = {
   apiKeys: new Map<string, ApiKey>(),
   deployments: new Map<string, Deployment>(),
   projects: new Map<string, Project>(),
+  workspaces: new Map<string, Workspace>(),
   installedNodes: new Map<string, InstalledNode>(),
   envVars: new Map<string, EnvVar>(),
 }
@@ -54,7 +59,10 @@ export function resetStore() {
   store.apiKeys.clear()
   store.deployments.clear()
   store.projects.clear()
+  store.workspaces.clear()
   store.installedNodes.clear()
+  testOrgRole = 'owner'
+  seedTestProject()
   store.envVars.clear()
 }
 
@@ -101,39 +109,305 @@ function envVarInScope(
 
 export const TEST_USER_ID = 'test-user-1'
 export const TEST_ORG_ID = 'test-org-1'
+export const TEST_ORG_SLUG = 'test-org'
 export const TEST_PROJECT_ID = 'test-project-1'
+export const TEST_PROJECT_SLUG = 'test-project'
+export const TEST_WORKSPACE_ID = 'test-workspace-1'
+
+/** The test user's role in the test org; `resetStore` puts it back to owner. */
+let testOrgRole = 'owner'
+export function setTestOrgRole(role: 'owner' | 'admin' | 'member') {
+  testOrgRole = role
+}
+
+const TEST_MEMBER = {
+  id: TEST_USER_ID,
+  name: 'Test',
+  email: 'test@example.com',
+  image: null,
+}
+
+// The org and user tables are better-auth's; the mock knows one of each.
+function isTestOrg(ref: { id: string } | { slug: string }): boolean {
+  return 'id' in ref ? ref.id === TEST_ORG_ID : ref.slug === TEST_ORG_SLUG
+}
+
+function memberOfTestOrg(userId: string): boolean {
+  return userId === TEST_USER_ID
+}
+
+function workspacesOf(projectId: string): Workspace[] {
+  return [...store.workspaces.values()]
+    .filter((w) => w.projectId === projectId)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
+}
+
+function workspaceOverview(w: Workspace): WorkspaceOverview {
+  const project = store.projects.get(w.projectId)!
+  const items = [...store.workflows.values()].filter((x) => x.workspaceId === w.id)
+  return {
+    ...w,
+    counts: {
+      workflows: items.filter((x) => x.kind === 'workflow').length,
+      deployed: 0,
+      functions: items.filter((x) => x.kind === 'script').length,
+      runs24h: 0,
+      failing: 0,
+      lastRunAt: null,
+    },
+    createdByName: w.createdBy ? TEST_MEMBER.name : null,
+    lockedByName: null,
+    projectName: project.name,
+    projectLockedAt: project.lockedAt,
+    siblings: workspacesOf(w.projectId).length,
+    members: [{ ...TEST_MEMBER, role: testOrgRole }],
+  }
+}
+
+function projectOverview(p: Project): ProjectOverview {
+  return {
+    ...p,
+    workspaces: workspacesOf(p.id).map((w) => ({
+      id: w.id,
+      slug: w.slug,
+      name: w.name,
+      colour: w.colour,
+    })),
+    health: { workflows: 0, deployed: 0, failing: 0, lastRunAt: null },
+    lockedByName: null,
+    members: [{ ...TEST_MEMBER, role: testOrgRole }],
+  }
+}
 
 const mockDb: DatabaseAdapter = {
   // Membership
   async isOrgMember(userId, organizationId) {
-    return userId === TEST_USER_ID && organizationId === TEST_ORG_ID
+    return memberOfTestOrg(userId) && organizationId === TEST_ORG_ID
   },
-  async getProjectIfMember(userId, projectId) {
-    const project = store.projects.get(projectId)
+  async getOrganizationIfMember(userId, ref) {
+    if (!memberOfTestOrg(userId) || !isTestOrg(ref)) return null
+    return { id: TEST_ORG_ID, slug: TEST_ORG_SLUG, role: testOrgRole }
+  },
+  async getProjectIfMember(userId, ref, workspace) {
+    const project =
+      'id' in ref
+        ? store.projects.get(ref.id)
+        : ref.org === TEST_ORG_SLUG
+          ? [...store.projects.values()].find((p) => p.slug === ref.slug)
+          : undefined
     if (!project) return null
-    if (userId !== TEST_USER_ID || project.organizationId !== TEST_ORG_ID) return null
-    return project
+    if (!memberOfTestOrg(userId) || project.organizationId !== TEST_ORG_ID) return null
+    let workspaceId: string | null = null
+    if (workspace) {
+      const found = workspacesOf(project.id).find((w) =>
+        'id' in workspace ? w.id === workspace.id : w.slug === workspace.slug,
+      )
+      if (!found) return null
+      workspaceId = found.id
+    }
+    return { project, workspaceId, role: testOrgRole }
+  },
+  async getWorkspaceIfMember(userId, ref) {
+    if (!memberOfTestOrg(userId)) return null
+    const w =
+      'id' in ref
+        ? store.workspaces.get(ref.id)
+        : [...store.workspaces.values()].find(
+            (x) =>
+              ref.org === TEST_ORG_SLUG &&
+              store.projects.get(x.projectId)?.slug === ref.project &&
+              x.slug === ref.workspace,
+          )
+    if (!w) return null
+    const project = store.projects.get(w.projectId)
+    if (!project || project.organizationId !== TEST_ORG_ID) return null
+    return {
+      workspaceId: w.id,
+      projectId: w.projectId,
+      organizationId: project.organizationId,
+      role: testOrgRole,
+    }
+  },
+  async getWorkspaceInProject(projectId, ref) {
+    const w = workspacesOf(projectId).find((x) =>
+      'id' in ref ? x.id === ref.id : x.slug === ref.slug,
+    )
+    if (!w) return null
+    return {
+      workspaceId: w.id,
+      projectId,
+      organizationId: store.projects.get(projectId)!.organizationId,
+    }
+  },
+  async listOrganizationsForMember(userId) {
+    if (!memberOfTestOrg(userId)) return []
+    return [
+      {
+        id: TEST_ORG_ID,
+        slug: TEST_ORG_SLUG,
+        name: 'Test Org',
+        logo: null,
+        createdAt: now(),
+        viewerRole: testOrgRole,
+        projectCount: store.projects.size,
+        memberCount: 1,
+      },
+    ]
+  },
+  async getScopeBySlugs(userId, slugs) {
+    if (!memberOfTestOrg(userId) || slugs.org !== TEST_ORG_SLUG) return null
+    const org = {
+      id: TEST_ORG_ID,
+      slug: TEST_ORG_SLUG,
+      name: 'Test Org',
+      logo: null,
+      createdAt: now(),
+      viewerRole: testOrgRole,
+      projectCount: store.projects.size,
+      memberCount: 1,
+      members: [{ ...TEST_MEMBER, role: testOrgRole }],
+    }
+    const project =
+      slugs.project === undefined
+        ? null
+        : ([...store.projects.values()].find((p) => p.slug === slugs.project) ?? null)
+    const workspace =
+      project && slugs.workspace !== undefined
+        ? (workspacesOf(project.id).find((w) => w.slug === slugs.workspace) ?? null)
+        : null
+    return {
+      org,
+      project: project && projectOverview(project),
+      workspace: workspace && workspaceOverview(workspace),
+    }
   },
 
   // Projects
   async createProject(data) {
     const p: Project = {
-      ...data,
+      id: data.id,
+      organizationId: data.organizationId,
+      name: data.name,
+      slug: data.slug,
       description: data.description ?? null,
+      lockedBy: null,
+      lockedAt: null,
+      createdAt: now(),
+      updatedAt: now(),
+    }
+    const w: Workspace = {
+      id: data.defaultWorkspaceId,
+      projectId: p.id,
+      name: 'Default',
+      slug: 'default',
+      description: null,
+      colour: 'green',
+      createdBy: data.createdBy ?? null,
+      lockedBy: null,
+      lockedAt: null,
       createdAt: now(),
       updatedAt: now(),
     }
     store.projects.set(p.id, p)
-    return p
+    store.workspaces.set(w.id, w)
+    return { project: p, workspace: w }
   },
   async getProjectById(id) {
     return store.projects.get(id) ?? null
   },
   async listProjectsByOrganization(organizationId) {
     return {
-      data: [...store.projects.values()].filter((p) => p.organizationId === organizationId),
+      data: [...store.projects.values()]
+        .filter((p) => p.organizationId === organizationId)
+        .map(projectOverview),
       nextCursor: null,
     }
+  },
+
+  // Workspaces
+  async listWorkspacesByProject(projectId) {
+    return workspacesOf(projectId).map(workspaceOverview)
+  },
+  async createWorkspace(data) {
+    if (workspacesOf(data.projectId).some((w) => w.slug === data.slug)) return null
+    const w: Workspace = {
+      id: data.id,
+      projectId: data.projectId,
+      name: data.name,
+      slug: data.slug,
+      description: data.description ?? null,
+      colour: data.colour ?? 'green',
+      createdBy: data.createdBy ?? null,
+      lockedBy: null,
+      lockedAt: null,
+      createdAt: now(),
+      updatedAt: now(),
+    }
+    store.workspaces.set(w.id, w)
+    return w
+  },
+  async getWorkspaceById(id) {
+    return store.workspaces.get(id) ?? null
+  },
+  async updateWorkspace(id, data) {
+    const w = store.workspaces.get(id)
+    if (!w) return null
+    if (
+      data.slug !== undefined &&
+      workspacesOf(w.projectId).some((x) => x.slug === data.slug && x.id !== id)
+    ) {
+      return null
+    }
+    const updated = { ...w, ...data, updatedAt: now() }
+    store.workspaces.set(id, updated)
+    return updated
+  },
+  async deleteWorkspaceUnlessLast(id) {
+    const w = store.workspaces.get(id)
+    if (!w || workspacesOf(w.projectId).length < 2) return false
+    store.workspaces.delete(id)
+    for (const [wfId, wf] of store.workflows)
+      if (wf.workspaceId === id) store.workflows.delete(wfId)
+    return true
+  },
+  async moveWorkflowsToWorkspace(fromWorkspaceId, toWorkspaceId, workflowIds) {
+    const from = store.workspaces.get(fromWorkspaceId)
+    const to = store.workspaces.get(toWorkspaceId)
+    if (!from || !to || from.projectId !== to.projectId) return []
+    const moved: string[] = []
+    for (const id of workflowIds) {
+      const wf = store.workflows.get(id)
+      if (!wf || wf.workspaceId !== fromWorkspaceId) continue
+      store.workflows.set(id, { ...wf, workspaceId: toWorkspaceId, updatedAt: now() })
+      moved.push(id)
+    }
+    return moved
+  },
+  async listWorkspaceRuns(workspaceId, filter) {
+    const failed = new Set(['errored', 'terminated'])
+    const result = (status: string) =>
+      status === 'complete' ? 'succeeded' : failed.has(status) ? 'failed' : 'running'
+    const matching: WorkspaceRunRow[] = [...store.runs.values()]
+      .filter((r) => store.workflows.get(r.workflowId)?.workspaceId === workspaceId)
+      .filter((r) => !filter.since || r.createdAt >= filter.since)
+      .map((r) => {
+        const wf = store.workflows.get(r.workflowId)!
+        return { ...r, workflowName: wf.name, kind: wf.kind }
+      })
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    const counts = {
+      all: matching.length,
+      succeeded: matching.filter((r) => result(r.status) === 'succeeded').length,
+      failed: matching.filter((r) => result(r.status) === 'failed').length,
+      running: matching.filter((r) => result(r.status) === 'running').length,
+    }
+    const data = filter.result
+      ? matching.filter((r) => result(r.status) === filter.result)
+      : matching
+    return { data, nextCursor: null, counts }
+  },
+  async listFailingWorkflows() {
+    return []
   },
   async updateProject(id, organizationId, data) {
     const p = store.projects.get(id)
@@ -150,8 +424,14 @@ const mockDb: DatabaseAdapter = {
 
   // Workflows
   async createWorkflow(data) {
+    const candidates = workspacesOf(data.projectId)
+    const workspace = data.workspaceId
+      ? candidates.find((w) => w.id === data.workspaceId)
+      : candidates[0]
+    if (!workspace) return null
     const wf: Workflow = {
       ...data,
+      workspaceId: workspace.id,
       description: data.description ?? null,
       kind: data.kind ?? 'workflow',
       currentVersionId: null,
@@ -174,16 +454,20 @@ const mockDb: DatabaseAdapter = {
       nextCursor: null,
     }
   },
-  async listWorkflowsWithStatus(projectId) {
+  async listWorkflowsWithStatus(projectId, _pagination, filter) {
     return {
       data: [...store.workflows.values()]
         .filter((w) => w.projectId === projectId)
+        .filter((w) => !filter?.workspaceId || w.workspaceId === filter.workspaceId)
+        .filter((w) => !filter?.kind || w.kind === filter.kind)
         .map((w) => ({
           ...w,
           deployStatus: null,
           deployVersionId: null,
+          deployedVersion: null,
           lastRunStatus: null,
           lastRunAt: null,
+          recentRunStatuses: [],
         })),
       nextCursor: null,
     }
@@ -197,6 +481,14 @@ const mockDb: DatabaseAdapter = {
   },
   async deleteWorkflow(id) {
     store.workflows.delete(id)
+  },
+  async moveWorkflowToProject(id, targetProjectId) {
+    const wf = store.workflows.get(id)
+    const home = workspacesOf(targetProjectId)[0]
+    if (!wf || !home) return null
+    const moved = { ...wf, projectId: targetProjectId, workspaceId: home.id, updatedAt: now() }
+    store.workflows.set(id, moved)
+    return moved
   },
 
   // Versions
@@ -701,6 +993,7 @@ const mockDb: DatabaseAdapter = {
       resolvedOrganizationId,
       // The same membership rule as the isOrgMember mock above.
       createdByIsMember: key.createdBy === TEST_USER_ID && resolvedOrganizationId === TEST_ORG_ID,
+      createdByRole: resolvedOrganizationId === TEST_ORG_ID ? testOrgRole : null,
       parentKeyLive:
         !key.parentKeyId ||
         (!!parent &&
@@ -934,6 +1227,35 @@ export class FakeTestSessionRunner implements TestSessionRunner {
   }
 }
 
+// The test project and its Default workspace: what every request resolves
+// against. Seeded by resetStore, so a test that only uses the mock db has it too.
+function seedTestProject() {
+  store.projects.set(TEST_PROJECT_ID, {
+    id: TEST_PROJECT_ID,
+    organizationId: TEST_ORG_ID,
+    name: 'Test Project',
+    slug: TEST_PROJECT_SLUG,
+    description: null,
+    lockedBy: null,
+    lockedAt: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  })
+  store.workspaces.set(TEST_WORKSPACE_ID, {
+    id: TEST_WORKSPACE_ID,
+    projectId: TEST_PROJECT_ID,
+    name: 'Default',
+    slug: 'default',
+    description: null,
+    colour: 'green',
+    createdBy: TEST_USER_ID,
+    lockedBy: null,
+    lockedAt: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  })
+}
+
 export function createTestApp(options?: {
   remoteNodeRegistry?: AppDeps['remoteNodeRegistry']
   testSessionRunner?: AppDeps['testSessionRunner']
@@ -945,16 +1267,7 @@ export function createTestApp(options?: {
   clientIpPolicy?: AppDeps['clientIpPolicy']
   logger?: AppDeps['logger']
 }) {
-  // Seed the test project so auth middleware can find it
-  store.projects.set(TEST_PROJECT_ID, {
-    id: TEST_PROJECT_ID,
-    organizationId: TEST_ORG_ID,
-    name: 'Test Project',
-    slug: 'test-project',
-    description: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  })
+  seedTestProject()
 
   return createApp({
     db: mockDb,
