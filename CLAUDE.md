@@ -4,6 +4,10 @@
 
 - **Never run security reviews or code reviews on the Fable model.** When the session runs on Fable, spawn review and verification subagents with an explicit model override (Sonnet or Opus) — never as forks, which inherit the session model. If a review would execute inline in the main session, ask the user to switch models first.
 
+## Subagents
+
+- **Give simple subagents a cheaper model.** Mechanical or lookup work — finding files, reading logs, listing usages, summarising a board or a diff, checking formatting — runs with an explicit `model: "haiku"` (or `"sonnet"` when it needs some judgement). Keep the session's model for work that needs real reasoning: designing, writing code, and reviews (which still follow the Fable rule above). Forks inherit the session model, so don't fork simple work; spawn a fresh agent with the override instead.
+
 ## Review Feedback
 
 When review feedback is shared, work through **every** comment in it — in full, before reporting back. For each one:
