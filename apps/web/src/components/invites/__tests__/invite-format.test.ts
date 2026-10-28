@@ -5,7 +5,13 @@ import { firstName, inviteRole, placeKind, shortDay } from '../invite-format'
 const INVITE: InviteDetails = {
   token: 'inv',
   org: { name: 'Acme Inc', initial: 'A', logo: null },
-  invitedBy: { id: 'usr_ama', name: 'Ama Mensah', email: 'ama@acme.test', initials: 'AM' },
+  invitedBy: {
+    id: 'usr_ama',
+    name: 'Ama Mensah',
+    email: 'ama@acme.test',
+    initials: 'AM',
+    image: null,
+  },
   email: 'daniel@acme.test',
   orgRole: 'member',
   place: { kind: 'workspace', name: 'Sales', projectName: 'Project 101', role: 'editor' },

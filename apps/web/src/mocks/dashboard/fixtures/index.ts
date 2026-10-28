@@ -1,4 +1,5 @@
 import type { MockDb } from '../db'
+import { seedSessions, seedSignInMethods } from './account'
 import { seedAudit } from './audit'
 import { NOTIFICATION_READS, RELEASE_VISITS, seedEditRequests, seedNotifications } from './inbox'
 import { CALLS, seedItems } from './items'
@@ -36,5 +37,8 @@ export function seedDb(now: Date): MockDb {
     notifications: seedNotifications(now),
     notificationReads: NOTIFICATION_READS,
     releaseVisits: RELEASE_VISITS,
+    pendingEmails: [],
+    signInMethods: seedSignInMethods(now),
+    sessions: seedSessions(now),
   })
 }

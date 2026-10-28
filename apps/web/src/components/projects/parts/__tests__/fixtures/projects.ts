@@ -9,7 +9,7 @@ function minutesAgo(minutes: number): string {
 }
 
 function person(id: string, name: string, initials: string): Person {
-  return { id, name, initials, email: `${id}@acme.test` }
+  return { id, name, initials, email: `${id}@acme.test`, image: null }
 }
 
 const AMA = person('ama', 'Ama Mensah', 'AM')

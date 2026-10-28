@@ -13,7 +13,7 @@ export interface InviteDetails {
   /** Its token in the URL (`/invite/<token>`). */
   token: string
   org: { name: string; initial: string; logo: string | null }
-  invitedBy: { id: string; name: string; email: string; initials: string }
+  invitedBy: { id: string; name: string; email: string; initials: string; image: string | null }
   /** The address that can accept it. */
   email: string
   orgRole: OrgRole

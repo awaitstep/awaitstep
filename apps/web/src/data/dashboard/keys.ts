@@ -20,6 +20,9 @@ export const dashKeys = {
   inProject: (domain: ScopedDomain, org: string, project: string) =>
     ['dash', domain, org, project] as const,
   viewer: () => ['dash', 'viewer'] as const,
+  account: () => ['dash', 'account'] as const,
+  signInMethods: () => ['dash', 'signInMethods'] as const,
+  sessions: () => ['dash', 'sessions'] as const,
   orgs: () => ['dash', 'orgs'] as const,
   projects: (org: string) => ['dash', 'projects', org] as const,
   failing: (org: string) => ['dash', 'failing', org] as const,

@@ -63,6 +63,7 @@ function details(db: MockDb, row: InvitationRow): InviteDetails {
       name: inviter.name,
       email: inviter.email,
       initials: inviter.initials,
+      image: inviter.image,
     },
     email: row.email,
     orgRole: row.role,

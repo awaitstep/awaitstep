@@ -1,4 +1,5 @@
 import type { WorkspaceColour } from '../../components/ui/workspace-colour'
+import type { SessionDevice, SignInProvider } from '../../types/dashboard/account'
 import type { AuditKind, AuditLevel } from '../../types/dashboard/audit'
 import type { KeyLevel, KeyPermissions } from '../../types/dashboard/api-keys'
 import type { NotificationKind } from '../../types/dashboard/inbox'
@@ -239,6 +240,33 @@ export interface AuditRow {
   workspaceId: string | null
 }
 
+/** A new address waiting for its confirmation link; the person's email stays until then. */
+export interface PendingEmailRow {
+  userId: string
+  email: string
+  sentAt: string
+}
+
+/** A GitHub or Google account linked for sign-in. The email link needs no row: it's always on. */
+export interface SignInMethodRow {
+  userId: string
+  provider: SignInProvider
+  account: string
+  connectedAt: string
+}
+
+/** A signed-in browser or device; `current` is the one the dummy session is using. */
+export interface SessionRow {
+  id: string
+  userId: string
+  device: string
+  kind: SessionDevice
+  ip: string
+  signedInAt: string
+  activeAt: string
+  current: boolean
+}
+
 export interface MockDb {
   people: Person[]
   orgs: OrgRow[]
@@ -260,11 +288,14 @@ export interface MockDb {
   notifications: NotificationRow[]
   notificationReads: NotificationReadRow[]
   releaseVisits: ReleaseVisitRow[]
+  pendingEmails: PendingEmailRow[]
+  signInMethods: SignInMethodRow[]
+  sessions: SessionRow[]
 }
 
 // Bump when the tables or the seed change, so a tab's saved copy is reseeded
 // instead of read with missing tables.
-const DB_VERSION = 8
+const DB_VERSION = 9
 const STORAGE_KEY = 'awaitstep:dashboard-mock-db'
 
 let current: MockDb | null = null

@@ -1,3 +1,4 @@
+import * as account from './account'
 import * as activity from './activity'
 import * as audit from './audit'
 import * as inbox from './inbox'
@@ -38,4 +39,5 @@ export const mockServer = {
   audit,
   inbox,
   invites,
+  account,
 }

@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest'
 import type { ProjectMembers } from '../../../types/dashboard/access'
 import { inheritedVariables, projectAdmins, wholeProjectIds } from '../project-pool'
 
-const person = (id: string) => ({ id, name: id, email: `${id}@acme.test`, initials: 'XX' })
+const person = (id: string) => ({
+  id,
+  name: id,
+  email: `${id}@acme.test`,
+  initials: 'XX',
+  image: null,
+})
 
 const MEMBERS: ProjectMembers = {
   wholeProject: [

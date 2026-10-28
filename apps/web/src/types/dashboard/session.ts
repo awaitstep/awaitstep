@@ -8,6 +8,8 @@ export interface Person {
   name: string
   email: string
   initials: string
+  /** An uploaded photo (data URL), shown instead of the initials. */
+  image: string | null
 }
 
 /** The signed-in person, plus the organization they opened last. */

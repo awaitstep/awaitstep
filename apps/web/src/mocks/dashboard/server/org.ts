@@ -25,13 +25,14 @@ import {
 } from '../scenario'
 import { orgRecord, orgScope, personById } from './records'
 import { askedNoticeId } from './invites'
+import { assertImage } from './images'
 import { managedOrg } from './levels'
 import { assertNotReserved, newId, requireScope, slugFrom } from './resolve'
 
 // Org settings: members and their access, invitations, connections, and the
 // org itself. Thin: records and the rules the boards state, nothing more.
 
-const LOGO_MAX_BYTES = 200 * 1024
+const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp']
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const ACCOUNT_ID = /^[0-9a-f]{32}$/i
 
@@ -124,16 +125,19 @@ export const getPersonAccess = endpoint((ctx, orgSlug: string, userId: string): 
   }
 })
 
-/** Refuses taking away the org's last owner. */
-function assertKeepsAnOwner(db: MockDb, org: OrgRow, userId: string): void {
+/** Whether `userId` is the org's only owner: they can't leave or stop being one. */
+export function isOnlyOwner(db: MockDb, org: OrgRow, userId: string): boolean {
   const owners = db.orgMembers.filter((m) => m.orgId === org.id && m.role === 'owner')
-  if (owners.length === 1 && owners[0]!.userId === userId) {
-    throw conflictError('Make someone else an owner first')
-  }
+  return owners.length === 1 && owners[0]!.userId === userId
+}
+
+/** Refuses taking away the org's last owner. */
+export function assertKeepsAnOwner(db: MockDb, org: OrgRow, userId: string): void {
+  if (isOnlyOwner(db, org, userId)) throw conflictError('Make someone else an owner first')
 }
 
 /** Drops someone's project and workspace grants in the org. */
-function dropGrants(db: MockDb, org: OrgRow, userId: string): void {
+export function dropGrants(db: MockDb, org: OrgRow, userId: string): void {
   const projectIds = new Set(projectsOf(db, org).map((p) => p.id))
   const workspaceIds = new Set(
     db.workspaces.filter((w) => projectIds.has(w.projectId)).map((w) => w.id),
@@ -416,9 +420,7 @@ export const updateOrg = mutation((ctx, orgSlug: string, update: OrgUpdate): Org
   if (slug && db.orgs.some((o) => o.slug === slug && o.id !== org.id)) {
     throw conflictError('Another organization already uses that URL', 'slug')
   }
-  if (update.logo && update.logo.length > LOGO_MAX_BYTES * 1.37) {
-    throw invalidError('Pick an image under 200 KB', 'logo')
-  }
+  if (update.logo) assertImage(update.logo, LOGO_TYPES, 'logo')
   if (name) org.name = name
   if (slug) org.slug = slug
   if (update.logo !== undefined) org.logo = update.logo
