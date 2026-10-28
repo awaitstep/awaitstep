@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm'
 import { pgTable, text, index } from 'drizzle-orm/pg-core'
 import { isoTimestamp } from './iso-timestamp.js'
 import { projects } from './projects.js'
+import { workspaces } from './workspaces.js'
 
 export const workflows = pgTable(
   'workflows',
@@ -10,6 +11,9 @@ export const workflows = pgTable(
     projectId: text('project_id')
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
     createdBy: text('created_by').notNull(),
     name: text('name').notNull(),
     description: text('description'),
@@ -30,6 +34,7 @@ export const workflows = pgTable(
   },
   (table) => [
     index('idx_workflows_project_id').on(table.projectId),
+    index('idx_workflows_workspace_id').on(table.workspaceId),
     index('idx_workflows_created_by').on(table.createdBy),
   ],
 )

@@ -10,6 +10,8 @@ export const projects = pgTable(
     name: text('name').notNull(),
     slug: text('slug').notNull(),
     description: text('description'),
+    lockedBy: text('locked_by'),
+    lockedAt: isoTimestamp('locked_at'),
     createdAt: isoTimestamp('created_at')
       .notNull()
       .default(sql`now()`),

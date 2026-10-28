@@ -18,6 +18,7 @@ async function createPgDb() {
   await client.exec(`
     INSERT INTO organization (id, name, slug) VALUES ('org-1', 'One', 'one');
     INSERT INTO projects (id, organization_id, name, slug) VALUES ('p-1', 'org-1', 'One', 'one');
+    INSERT INTO workspaces (id, project_id, name, slug) VALUES ('ws-1', 'p-1', 'Default', 'default');
   `)
   return { client, adapter: new DrizzleDatabaseAdapter(db, pgSchema) }
 }

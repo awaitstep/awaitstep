@@ -162,12 +162,37 @@ export const projects = pgTable(
     name: text('name').notNull(),
     slug: text('slug').notNull(),
     description: text('description'),
+    lockedBy: text('locked_by'),
+    lockedAt: timestamp('locked_at', { mode: 'string' }),
     createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { mode: 'string' }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex('idx_projects_org_slug').on(table.organizationId, table.slug),
     index('idx_projects_org_id').on(table.organizationId),
+  ],
+)
+
+export const workspaces = pgTable(
+  'workspaces',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    slug: text('slug').notNull(),
+    description: text('description'),
+    colour: text('colour').notNull().default('green'),
+    createdBy: text('created_by'),
+    lockedBy: text('locked_by'),
+    lockedAt: timestamp('locked_at', { mode: 'string' }),
+    createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { mode: 'string' }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('idx_workspaces_project_slug').on(table.projectId, table.slug),
+    index('idx_workspaces_project_id').on(table.projectId),
   ],
 )
 
@@ -178,6 +203,9 @@ export const workflows = pgTable(
     projectId: text('project_id')
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
     createdBy: text('created_by').notNull(),
     name: text('name').notNull(),
     description: text('description'),
@@ -194,6 +222,7 @@ export const workflows = pgTable(
   },
   (table) => [
     index('idx_workflows_project_id').on(table.projectId),
+    index('idx_workflows_workspace_id').on(table.workspaceId),
     index('idx_workflows_created_by').on(table.createdBy),
   ],
 )

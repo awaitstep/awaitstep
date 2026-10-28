@@ -8,6 +8,8 @@ export const projects = sqliteTable(
     name: text('name').notNull(),
     slug: text('slug').notNull(),
     description: text('description'),
+    lockedBy: text('locked_by'),
+    lockedAt: text('locked_at'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },
