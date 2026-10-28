@@ -4,6 +4,13 @@
 
 - **Never run security reviews or code reviews on the Fable model.** When the session runs on Fable, spawn review and verification subagents with an explicit model override (Sonnet or Opus) — never as forks, which inherit the session model. If a review would execute inline in the main session, ask the user to switch models first.
 
+## Full-cycle steps (the user reviews only ship-ready work)
+
+- A planned step is built end to end before the user sees it: all slices, `pnpm build`/`test`/`lint`/`tsc` green, QA notes written. Do not stop between slices to ask.
+- Then, without asking, spawn **two review subagents in parallel** with an explicit model override (`opus` or `sonnet`, never a fork): one `/code-review`-style correctness review at **high** effort, one security review. Work through every finding as in "Review Feedback" below, with regression tests, then re-run the checks.
+- **Backend steps also get an e2e run on real endpoints.** Spawn a `sonnet` subagent that builds the Docker image from the host dist, brings up the container(s) and exercises every new or changed endpoint with real HTTP calls on both dialects, following the recipe in `plan/qa/w0-docker/` and the step's QA notes. It reports each call's request, status and body, and any failure is fixed before the step is presented.
+- Only then present the commit summary and wait for the one commit approval.
+
 ## Subagents
 
 - **Give simple subagents a cheaper model.** Mechanical or lookup work — finding files, reading logs, listing usages, summarising a board or a diff, checking formatting — runs with an explicit `model: "haiku"` (or `"sonnet"` when it needs some judgement). Keep the session's model for work that needs real reasoning: designing, writing code, and reviews (which still follow the Fable rule above). Forks inherit the session model, so don't fork simple work; spawn a fresh agent with the override instead.
