@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
-import { PagePlaceholder } from '../../components/navigation/page-placeholder'
+import { SessionsPage } from '../../components/account-pages/sessions-page'
 
 const page: DashboardPage = { kind: 'account', page: 'sessions' }
 
@@ -11,5 +11,6 @@ export const Route = createFileRoute('/_authed/$org/account/sessions')({
 })
 
 function AccountSessionsPage() {
-  return <PagePlaceholder title="Sessions and sign-in" boards="AccountSessions" step="P10" />
+  const { org } = Route.useParams()
+  return <SessionsPage org={org} />
 }

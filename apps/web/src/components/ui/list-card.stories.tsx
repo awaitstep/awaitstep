@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { CircleAlert, Share2, Upload, Workflow } from 'lucide-react'
+import { CircleAlert, Monitor, Share2, Upload, Workflow } from 'lucide-react'
+import { Badge } from './badge'
 import { Button } from './button'
 import { ListCard, ListRow } from './list-card'
 import { SectionHeader } from './section-header'
@@ -93,6 +94,25 @@ export const ActivityRows: Story = {
         ))}
       </ListCard>
     </section>
+  ),
+}
+
+/** A pill beside the title (`AccountSessions`). */
+export const TitleBadge: Story = {
+  render: () => (
+    <ListCard label="Active sessions">
+      <ListRow
+        leading={
+          <Tile tone="ok">
+            <Monitor />
+          </Tile>
+        }
+        title="Chrome on macOS"
+        badge={<Badge variant="success">This device</Badge>}
+        description="81.2.69.x · signed in 3 days ago"
+        trailing={<span className="text-2xs text-muted-foreground">Active now</span>}
+      />
+    </ListCard>
   ),
 }
 

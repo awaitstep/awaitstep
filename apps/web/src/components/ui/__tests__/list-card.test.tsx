@@ -23,6 +23,15 @@ describe('ListCard', () => {
 })
 
 describe('ListRow', () => {
+  it('puts a badge beside the title', () => {
+    render(
+      <ListCard>
+        <ListRow title="Chrome on macOS" badge={<span>This device</span>} />
+      </ListCard>,
+    )
+    expect(screen.getByRole('listitem')).toHaveTextContent('Chrome on macOSThis device')
+  })
+
   it('makes only the title a link when given an href', () => {
     render(
       <ListCard>
