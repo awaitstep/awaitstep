@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent } from 'react'
+import { useId, useState, type SubmitEvent } from 'react'
 import { X } from 'lucide-react'
 import { useProjectMembers } from '../../data/dashboard/members'
 import { useProjectSetup } from '../../data/dashboard/setup'
@@ -77,7 +77,7 @@ export function NewWorkspaceDialog({
     'Shared library',
   ].filter((item) => typeof item === 'string')
 
-  function handleSubmit(event: FormEvent) {
+  function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     create.mutate(
       {

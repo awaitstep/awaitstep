@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type SubmitEvent } from 'react'
 import { format } from 'date-fns'
 import { ArrowRight, Trash2 } from 'lucide-react'
 import { useDeleteProject, useUpdateProject } from '../../data/dashboard/projects'
@@ -94,7 +94,7 @@ function GeneralSettings({ slugs, scope }: { slugs: ProjectSlugs; scope: Project
     update.reset()
   }
 
-  function handleSubmit(event: FormEvent) {
+  function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     update.mutate(
       {

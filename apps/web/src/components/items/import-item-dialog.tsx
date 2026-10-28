@@ -1,4 +1,4 @@
-import { useId, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useId, useState, type ChangeEvent, type SubmitEvent } from 'react'
 import { Upload } from 'lucide-react'
 import { useImportItem } from '../../data/dashboard/items'
 import { workspacePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
@@ -36,7 +36,7 @@ export function ImportItemDialog({
     importItem.reset()
   }
 
-  async function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     if (!file) return
     const content = await file.text()

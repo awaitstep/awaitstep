@@ -80,7 +80,7 @@ export function GeneralTab({ slugs, scope, projectName }: GeneralTabProps) {
     handleChange('colour', colour)
   }
 
-  function handleSubmit(event: React.FormEvent) {
+  function handleSubmit(event: React.SubmitEvent) {
     event.preventDefault()
     update.mutate({ name, description: description || null, colour: values.colour })
   }

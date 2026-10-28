@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent } from 'react'
+import { useId, useState, type SubmitEvent } from 'react'
 import { Braces, Trash2 } from 'lucide-react'
 import { errorFieldOf } from '../../data/dashboard/errors'
 import { useDeleteVariable, useSetVariable } from '../../data/dashboard/variables'
@@ -80,7 +80,7 @@ export function VariableDialog({ org, mode, targets, startTarget, onClose }: Var
     save.reset()
   }
 
-  function handleSubmit(event: FormEvent) {
+  function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     if (!target) return
     save.mutate(

@@ -1,9 +1,9 @@
-import type { FormEvent, ReactNode } from 'react'
+import type { SubmitEvent, ReactNode } from 'react'
 
 interface FormCardProps {
   /** The top bar's Save button submits it with `form={id}`. */
   id: string
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  onSubmit: (event: SubmitEvent<HTMLFormElement>) => void
   children: ReactNode
 }
 

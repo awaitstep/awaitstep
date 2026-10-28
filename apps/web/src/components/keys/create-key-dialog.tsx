@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent } from 'react'
+import { useId, useState, type SubmitEvent } from 'react'
 import { KeyRound } from 'lucide-react'
 import { useCreateKey } from '../../data/dashboard/api-keys'
 import { errorFieldOf } from '../../data/dashboard/errors'
@@ -153,7 +153,7 @@ export function CreateKeyDialog({
     create.reset()
   }
 
-  function handleSubmit(event: FormEvent) {
+  function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     create.mutate(
       {

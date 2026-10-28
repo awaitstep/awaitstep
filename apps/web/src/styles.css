@@ -267,7 +267,8 @@ html.light {
    fields and buttons stay together on wide screens. FormCard, DangerZone and
    ConnectionCard use it. */
 :root {
-  --settings-max-width: 48rem;
+  /* 720px, as the OrgGeneral and Access boards draw them. */
+  --settings-max-width: 45rem;
 }
 
 @utility settings-width {

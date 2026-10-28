@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useRef, useState, type ChangeEvent, type SubmitEvent } from 'react'
 import { Trash2 } from 'lucide-react'
 import { errorFieldOf } from '../../data/dashboard/errors'
 import { useDeleteOrg, useUpdateOrg } from '../../data/dashboard/org-settings'
@@ -89,7 +89,7 @@ function OrgGeneral({ slug, scope }: { slug: string; scope: OrgScope }) {
     setUrlSlug(value)
   }
 
-  function handleSubmit(event: FormEvent) {
+  function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     update.mutate(
       {

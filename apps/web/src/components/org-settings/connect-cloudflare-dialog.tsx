@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent } from 'react'
+import { useId, useState, type SubmitEvent } from 'react'
 import { Check, Cloud } from 'lucide-react'
 import { errorFieldOf } from '../../data/dashboard/errors'
 import { useConnect } from '../../data/dashboard/org-settings'
@@ -49,7 +49,7 @@ export function ConnectCloudflareDialog({ org, onClose }: ConnectCloudflareDialo
     setAll(event.target.checked)
   }
 
-  function handleSubmit(event: FormEvent) {
+  function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     const ids = picks.map((id) => id.slice(projectPickId('').length))
     connect.mutate({ name, accountId, token, projects: all ? 'all' : ids }, { onSuccess: onClose })

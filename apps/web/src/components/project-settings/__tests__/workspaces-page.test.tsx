@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
@@ -56,6 +56,13 @@ const poolCard = (title: string) =>
 
 describe('project Workspaces page', () => {
   it('reads as ProjectOverview: a card per workspace, the last one opened marked', async () => {
+    // Support was made 90 minutes ago: pin the clock to midday so that's still "today".
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 27, 12))
+    resetDashboardData(new Date())
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
     rememberWorkspace('acme', 'project-101', 'sales')
     renderPage()
     const sales = await screen.findByRole('link', { name: 'Sales' })

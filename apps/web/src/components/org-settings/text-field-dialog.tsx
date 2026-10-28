@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent, type ReactNode } from 'react'
+import { useId, useState, type SubmitEvent, type ReactNode } from 'react'
 import { Button } from '../ui/button'
 import { FormField } from '../ui/form-field'
 import { Input } from '../ui/input'
@@ -46,7 +46,7 @@ export function TextFieldDialog({
     if (!open) onClose()
   }
 
-  function handleSubmit(event: FormEvent) {
+  function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     onSubmit(value)
   }

@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent } from 'react'
+import { useId, useState, type SubmitEvent } from 'react'
 import { FolderPlus, Package, ShieldCheck } from 'lucide-react'
 import { useCreateProject } from '../../data/dashboard/projects'
 import { workspacePath } from '../../lib/dashboard-paths'
@@ -28,7 +28,7 @@ export function NewProjectDialog({ open, onOpenChange, org, then }: NewProjectDi
   const [description, setDescription] = useState('')
   const slug = slugify(name, '')
 
-  function handleSubmit(event: FormEvent) {
+  function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     createProject.mutate(
       { name, description: description || undefined },
