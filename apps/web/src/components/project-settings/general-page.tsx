@@ -6,6 +6,7 @@ import { errorFieldOf } from '../../data/dashboard/errors'
 import { useSetLock } from '../../data/dashboard/locks'
 import { useWorkspaces } from '../../data/dashboard/workspaces'
 import { orgPath, projectSettingsPath, type ProjectSlugs } from '../../lib/dashboard-paths'
+import { listNames } from '../../lib/name-list'
 import { plural } from '../../lib/plural'
 import type { Project } from '../../types/dashboard/projects'
 import type { ProjectScope } from '../../types/dashboard/scope'
@@ -28,12 +29,6 @@ const FORM_ID = 'project-general'
 
 interface GeneralPageProps {
   slugs: ProjectSlugs
-}
-
-/** "Sales, IT and Support". */
-function listNames(names: string[]): string {
-  if (names.length < 2) return names.join('')
-  return `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
 }
 
 function lockText(name: string, on: boolean): string {

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { initialsOf } from '../../lib/initials'
 import { cn } from '../../lib/utils'
 
 const sizeClasses = {
@@ -12,14 +13,6 @@ export interface AvatarProps {
   src?: string | null
   size?: keyof typeof sizeClasses
   className?: string
-}
-
-function initialsOf(name?: string | null, email?: string | null): string {
-  const source = name?.trim() || email?.trim() || ''
-  if (!source) return '?'
-  const parts = source.split(/\s+/).filter(Boolean)
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
-  return source.slice(0, 2).toUpperCase()
 }
 
 function Avatar({ name, email, src, size = 'default', className }: AvatarProps) {

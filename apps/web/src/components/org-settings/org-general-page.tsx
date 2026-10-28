@@ -3,6 +3,7 @@ import { Trash2 } from 'lucide-react'
 import { errorFieldOf } from '../../data/dashboard/errors'
 import { useDeleteOrg, useUpdateOrg } from '../../data/dashboard/org-settings'
 import { chooseOrgPath, orgSettingsPath } from '../../lib/dashboard-paths'
+import { readImageAsDataUrl } from '../../lib/read-file'
 import type { OrgScope } from '../../types/dashboard/scope'
 import { BlockedAction } from '../ui/blocked-action'
 import { Button } from '../ui/button'
@@ -38,15 +39,6 @@ export function OrgGeneralPage({ org }: OrgGeneralPageProps) {
   )
 }
 
-function readAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result))
-    reader.onerror = () => reject(reader.error)
-    reader.readAsDataURL(file)
-  })
-}
-
 function OrgGeneral({ slug, scope }: { slug: string; scope: OrgScope }) {
   const org = scope.org
   const can = scope.viewerCan
@@ -58,6 +50,8 @@ function OrgGeneral({ slug, scope }: { slug: string; scope: OrgScope }) {
   const [urlSlug, setUrlSlug] = useState(org.slug)
   const [logo, setLogo] = useState(org.logo)
   const [deleting, setDeleting] = useState(false)
+  // Why the picked file wasn't used (too large, unreadable), before anything is saved.
+  const [pickError, setPickError] = useState<string | null>(null)
   const readOnly = !can.manageSettings.allowed
   const trimmed = { name: name.trim(), slug: urlSlug.trim() }
   const dirty = trimmed.name !== org.name || trimmed.slug !== org.slug || logo !== org.logo
@@ -71,11 +65,17 @@ function OrgGeneral({ slug, scope }: { slug: string; scope: OrgScope }) {
     event.target.value = ''
     if (!file) return
     update.reset()
-    setLogo(await readAsDataUrl(file))
+    setPickError(null)
+    try {
+      setLogo(await readImageAsDataUrl(file))
+    } catch (failure) {
+      setPickError(failure instanceof Error ? failure.message : 'We couldn’t read that file')
+    }
   }
 
   function handleUseInitial() {
     update.reset()
+    setPickError(null)
     setLogo(null)
   }
 
@@ -122,7 +122,7 @@ function OrgGeneral({ slug, scope }: { slug: string; scope: OrgScope }) {
   const field = errorFieldOf(update.error)
   const error = update.error?.message
   const slugError = field === 'slug' ? error : undefined
-  const logoError = field === 'logo' ? error : undefined
+  const logoError = pickError ?? (field === 'logo' ? error : undefined)
   const nameError = field === 'slug' || field === 'logo' ? undefined : error
   const canClearLogo = !readOnly && logo !== null
   const deleteReason = can.delete.allowed ? undefined : can.delete.reason
