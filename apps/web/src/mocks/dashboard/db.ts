@@ -187,6 +187,10 @@ export interface InvitationRow {
   places: { projectId: string; workspaceId: string | null; role: ProjectRole | WorkspaceRole }[]
   sentAt: string
   invitedBy: string
+  /** Declined by the person invited; Undo reopens it. Accepted invites are removed. */
+  declined?: boolean
+  /** When they asked the inviter for a new one, after it expired. */
+  askedForNewAt?: string
 }
 
 /** A Cloudflare account an org deploys to. */
@@ -260,7 +264,7 @@ export interface MockDb {
 
 // Bump when the tables or the seed change, so a tab's saved copy is reseeded
 // instead of read with missing tables.
-const DB_VERSION = 7
+const DB_VERSION = 8
 const STORAGE_KEY = 'awaitstep:dashboard-mock-db'
 
 let current: MockDb | null = null

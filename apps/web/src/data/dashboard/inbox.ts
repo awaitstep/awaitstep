@@ -65,7 +65,7 @@ function useMarkReleasesSeen() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: () => mockServer.inbox.markReleasesSeen(ctx),
-    onSuccess: () => invalidateAll(client, [dashKeys.allReleases()]),
+    onSuccess: () => invalidateAll(client, [dashKeys.inAnyOrg('releases')]),
   })
 }
 

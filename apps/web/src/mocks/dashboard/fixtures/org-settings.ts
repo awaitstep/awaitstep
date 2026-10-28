@@ -1,11 +1,14 @@
 import type { ConnectionRow, InvitationRow } from '../db'
 import { daysAgo, minutesAgo } from './clock'
-import { ACME } from './orgs'
-import { AMA, LENA } from './people'
+import { ACME, BOLT, GLOBEX } from './orgs'
+import { AMA, LENA, TOMAS } from './people'
 import { INTERNAL, MARKETING, P101 } from './projects'
 import { IT } from './workspaces'
 
 // `OrgMembers` (one pending invite) and `OrgConnections` (two accounts).
+// P9's invite boards: Daniel's open Globex invite (`AcceptInvite`, `ChooseOrg`),
+// his expired Bolt Labs one (`InviteExpired`), and Sam's opened by anyone else
+// (`InviteWrongAccount`).
 
 export function seedInvitations(now: Date): InvitationRow[] {
   return [
@@ -17,6 +20,24 @@ export function seedInvitations(now: Date): InvitationRow[] {
       places: [{ projectId: P101, workspaceId: IT, role: 'editor' }],
       sentAt: daysAgo(now, 2),
       invitedBy: AMA,
+    },
+    {
+      id: 'inv_globex_daniel',
+      orgId: GLOBEX,
+      email: 'daniel@acme.test',
+      role: 'member',
+      places: [{ projectId: 'prj_globex_ops', workspaceId: 'ws_globex_default', role: 'editor' }],
+      sentAt: daysAgo(now, 2),
+      invitedBy: LENA,
+    },
+    {
+      id: 'inv_bolt_daniel',
+      orgId: BOLT,
+      email: 'daniel@acme.test',
+      role: 'member',
+      places: [{ projectId: 'prj_bolt_api', workspaceId: null, role: 'member' }],
+      sentAt: daysAgo(now, 10),
+      invitedBy: TOMAS,
     },
   ]
 }

@@ -24,6 +24,7 @@ import {
   rows,
 } from '../scenario'
 import { orgRecord, orgScope, personById } from './records'
+import { askedNoticeId } from './invites'
 import { managedOrg } from './levels'
 import { assertNotReserved, newId, requireScope, slugFrom } from './resolve'
 
@@ -247,7 +248,8 @@ export const listInvitations = endpoint((ctx, orgSlug: string): Invitation[] => 
   return rows(
     ctx,
     db.invitations
-      .filter((i) => i.orgId === org.id)
+      // A declined invite isn't waiting on anyone; inviting them again replaces it.
+      .filter((i) => i.orgId === org.id && !i.declined)
       .map((i) => invitationRecord(db, i, visibleProjectIds(db, ctx, org))),
   )
 })
@@ -268,9 +270,12 @@ export const sendInvites = mutation(
     const member = emails.find((e) => memberEmails.has(e))
     if (member) throw conflictError(`${member} is already in ${org.name}`, 'emails')
     const invited = emails.find((e) =>
-      db.invitations.some((i) => i.orgId === org.id && i.email === e),
+      db.invitations.some((i) => i.orgId === org.id && i.email === e && !i.declined),
     )
     if (invited) throw conflictError(`${invited} is already invited`, 'emails')
+    db.invitations = db.invitations.filter(
+      (i) => !(i.orgId === org.id && i.declined && emails.includes(i.email)),
+    )
     const now = new Date().toISOString()
     const created = emails.map((email) => ({
       id: newId('inv'),
@@ -291,7 +296,11 @@ export const resendInvite = mutation((ctx, orgSlug: string, invitationId: string
   const { db, org } = managedOrg(ctx, orgSlug)
   const row = db.invitations.find((i) => i.id === invitationId && i.orgId === org.id)
   if (!row) throw notFoundError()
+  // A fresh week, so an expired invite opens again and can be asked about again.
   row.sentAt = new Date().toISOString()
+  delete row.askedForNewAt
+  // Resending answers "asked for a new invite" in the inviter's Inbox.
+  db.notifications = db.notifications.filter((n) => n.id !== askedNoticeId(row.id))
 })
 
 export const cancelInvite = mutation((ctx, orgSlug: string, invitationId: string): void => {

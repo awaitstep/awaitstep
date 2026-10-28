@@ -1,6 +1,7 @@
 import * as activity from './activity'
 import * as audit from './audit'
 import * as inbox from './inbox'
+import * as invites from './invites'
 import * as items from './items'
 import * as keys from './keys'
 import * as locks from './locks'
@@ -36,4 +37,5 @@ export const mockServer = {
   resources,
   audit,
   inbox,
+  invites,
 }
