@@ -50,7 +50,9 @@ async function run<T>(ctx: MockContext, call: () => T, frame = false): Promise<T
   if (ctx.scenario === 'error' && !frame) {
     throw new MockApiError(503, 'The service didn’t answer in time.')
   }
-  return call()
+  // A copy, as a real response is: records often hold the table's own rows
+  // (people), and a later mutation must not change what the cache holds.
+  return structuredClone(call())
 }
 
 /** A read endpoint of the fake API: async, and subject to the scenario. */
