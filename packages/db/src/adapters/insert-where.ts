@@ -20,16 +20,24 @@ export async function insertWhere<T>(
   from: AnyTable,
   condition: SQL,
 ): Promise<T | null> {
-  const fields = Object.fromEntries(
+  const rows = await db
+    .insert(table)
+    .select(db.select(boundFields(table, row)).from(from).where(condition))
+    .returning()
+  return (rows[0] as T | undefined) ?? null
+}
+
+/**
+ * `row`'s values as the select list of an `INSERT … SELECT`, one bound
+ * parameter per column of `table` so each reaches the driver the way a plain
+ * insert would send it.
+ */
+export function boundFields(table: AnyTable, row: Record<string, unknown>): Record<string, SQL> {
+  return Object.fromEntries(
     Object.entries(getTableColumns(table) as Record<string, Column>).map(([key, column]) => [
       key,
       // Null bypasses the encoder: some map it to a value (a boolean to 0).
       row[key] == null ? sql`null` : sql`${sql.param(row[key], column)}`,
     ]),
   )
-  const rows = await db
-    .insert(table)
-    .select(db.select(fields).from(from).where(condition))
-    .returning()
-  return (rows[0] as T | undefined) ?? null
 }

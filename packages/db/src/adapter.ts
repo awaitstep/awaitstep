@@ -27,14 +27,39 @@ import type {
   ReserveTestSessionLimits,
   ApiKeyAuth,
   ApiKeyListItem,
+  Workspace,
+  WorkspaceOverview,
+  WorkspaceIds,
+  WorkspaceRef,
+  WorkspaceInProjectRef,
+  ProjectRef,
+  ProjectOverview,
+  OrgOverview,
+  ScopeRows,
+  ScopeSlugs,
+  CreateWorkspaceData,
+  UpdateWorkspaceData,
+  WorkspaceRunFilter,
+  WorkspaceRunPage,
+  FailingWorkflow,
+  MemberRole,
 } from './types.js'
 import type { PaginationParams, PaginatedResult } from './pagination.js'
 
 export interface WorkflowWithStatus extends Workflow {
   deployStatus: string | null
   deployVersionId: string | null
+  /** The version number the latest deployment put live, null for drafts. */
+  deployedVersion: number | null
   lastRunStatus: string | null
   lastRunAt: string | null
+  /** The statuses of the last ten finished runs, newest first. */
+  recentRunStatuses: string[]
+}
+
+export interface WorkflowListFilter {
+  workspaceId?: string
+  kind?: 'workflow' | 'script'
 }
 
 export interface WorkflowEnvVar {
@@ -49,23 +74,45 @@ export interface ResolvedEnvVar {
 }
 
 export interface DatabaseAdapter {
-  // Membership
+  // Membership and scope — each a single JOIN; a row the caller may not open
+  // reads as null, exactly like one that does not exist.
   isOrgMember(userId: string, organizationId: string): Promise<boolean>
-  getProjectIfMember(userId: string, projectId: string): Promise<Project | null>
+  getOrganizationIfMember(
+    userId: string,
+    ref: { id: string } | { slug: string },
+  ): Promise<({ id: string; slug: string } & MemberRole) | null>
+  /** With `workspace`, null unless that workspace is the project's too. */
+  getProjectIfMember(
+    userId: string,
+    ref: ProjectRef,
+    workspace?: WorkspaceInProjectRef,
+  ): Promise<({ project: Project; workspaceId: string | null } & MemberRole) | null>
+  getWorkspaceIfMember(
+    userId: string,
+    ref: WorkspaceRef,
+  ): Promise<(WorkspaceIds & MemberRole) | null>
+  /** For a caller that already holds the project (an API key): no membership read. */
+  getWorkspaceInProject(projectId: string, ref: WorkspaceInProjectRef): Promise<WorkspaceIds | null>
+  listOrganizationsForMember(userId: string): Promise<OrgOverview[]>
+  /** What `/{org}/{project}/{workspace}` names, with each level's counts and lists. */
+  getScopeBySlugs(userId: string, slugs: ScopeSlugs): Promise<ScopeRows | null>
 
   // Projects
+  /** Creates the project and its Default workspace together: both rows, or neither. */
   createProject(data: {
     id: string
     organizationId: string
     name: string
     slug: string
     description?: string
-  }): Promise<Project>
+    defaultWorkspaceId: string
+    createdBy?: string | null
+  }): Promise<{ project: Project; workspace: Workspace }>
   getProjectById(id: string): Promise<Project | null>
   listProjectsByOrganization(
     organizationId: string,
     pagination?: PaginationParams,
-  ): Promise<PaginatedResult<Project>>
+  ): Promise<PaginatedResult<ProjectOverview>>
   /** Updates only within the organization — null when no such row there. */
   updateProject(
     id: string,
@@ -75,15 +122,38 @@ export interface DatabaseAdapter {
   /** Deletes only within the organization — false when no such row there. */
   deleteProject(id: string, organizationId: string): Promise<boolean>
 
+  // Workspaces
+  listWorkspacesByProject(projectId: string): Promise<WorkspaceOverview[]>
+  /** Null when the slug is taken in the project (checked in the statement). */
+  createWorkspace(data: CreateWorkspaceData): Promise<Workspace | null>
+  getWorkspaceById(id: string): Promise<Workspace | null>
+  /** Null when gone, or when a given slug is a sibling's. */
+  updateWorkspace(id: string, data: UpdateWorkspaceData): Promise<Workspace | null>
+  /** False when it is the project's last workspace (checked in the statement) or gone. */
+  deleteWorkspaceUnlessLast(id: string): Promise<boolean>
+  /** The ids that moved; a target outside the source's project moves none. */
+  moveWorkflowsToWorkspace(
+    fromWorkspaceId: string,
+    toWorkspaceId: string,
+    workflowIds: string[],
+  ): Promise<string[]>
+  listWorkspaceRuns(workspaceId: string, filter: WorkspaceRunFilter): Promise<WorkspaceRunPage>
+  listFailingWorkflows(organizationId: string): Promise<FailingWorkflow[]>
+
   // Workflows
+  /**
+   * Into `workspaceId` when given (null when it is not the project's), else
+   * into the project's oldest workspace.
+   */
   createWorkflow(data: {
     id: string
     projectId: string
+    workspaceId?: string | null
     createdBy: string
     name: string
     description?: string
     kind?: 'workflow' | 'script'
-  }): Promise<Workflow>
+  }): Promise<Workflow | null>
   getWorkflowById(id: string): Promise<Workflow | null>
   listWorkflowsByProject(
     projectId: string,
@@ -92,6 +162,7 @@ export interface DatabaseAdapter {
   listWorkflowsWithStatus(
     projectId: string,
     pagination?: PaginationParams,
+    filter?: WorkflowListFilter,
   ): Promise<PaginatedResult<WorkflowWithStatus>>
   updateWorkflow(
     id: string,
@@ -107,6 +178,8 @@ export interface DatabaseAdapter {
     },
   ): Promise<Workflow>
   deleteWorkflow(id: string): Promise<void>
+  /** Into the target project's oldest workspace, in one statement; null when nothing moved. */
+  moveWorkflowToProject(id: string, targetProjectId: string): Promise<Workflow | null>
 
   // Workflow Versions
   createVersion(data: CreateVersionData): Promise<WorkflowVersion>

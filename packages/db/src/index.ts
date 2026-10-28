@@ -10,6 +10,28 @@ export type {
   ApiKeyListItem,
   EnvVar,
   Project,
+  Workspace,
+  WorkspaceOverview,
+  WorkspaceCounts,
+  WorkspaceChip,
+  WorkspaceIds,
+  WorkspaceRef,
+  WorkspaceInProjectRef,
+  ProjectRef,
+  ProjectOverview,
+  ProjectHealth,
+  OrgOverview,
+  OrgMemberSummary,
+  ScopeRows,
+  ScopeSlugs,
+  MemberRole,
+  CreateWorkspaceData,
+  UpdateWorkspaceData,
+  RunResultFilter,
+  WorkspaceRunFilter,
+  WorkspaceRunRow,
+  WorkspaceRunPage,
+  FailingWorkflow,
   InstalledNode,
   CreateVersionData,
   UpdateVersionData,
@@ -37,7 +59,11 @@ export type {
   WorkflowEnvVar,
   ResolvedEnvVar,
   WorkflowWithStatus,
+  WorkflowListFilter,
 } from './adapter.js'
+export { FAILED_RUN_STATUSES, TERMINAL_RUN_STATUSES } from './adapters/overview-fields.js'
+export { isUniqueViolation } from './db-errors.js'
+export type { Dialect } from './adapters/json-array.js'
 export type { TokenCrypto } from './crypto.js'
 export type { PaginationParams, PaginatedResult } from './pagination.js'
 export {

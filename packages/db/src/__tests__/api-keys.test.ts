@@ -111,6 +111,7 @@ describe('ApiKeysAdapter', () => {
     const viaProject = await db.adapter.getApiKeyAuthByHash('hash-k-p')
     expect(viaProject?.resolvedOrganizationId).toBe('org-1')
     expect(viaProject?.createdByIsMember).toBe(true)
+    expect(viaProject?.createdByRole).toBe('owner')
 
     await db.adapter.createApiKey(keyData({ id: 'k-o', organizationId: 'org-1' }))
     const viaOrg = await db.adapter.getApiKeyAuthByHash('hash-k-o')
@@ -124,6 +125,7 @@ describe('ApiKeysAdapter', () => {
     )
     const ghost = await db.adapter.getApiKeyAuthByHash('hash-k-g')
     expect(ghost?.createdByIsMember).toBe(false)
+    expect(ghost?.createdByRole).toBeNull()
 
     db.sqlite.prepare(`DELETE FROM member WHERE userId = 'u-1'`).run()
     await db.adapter.createApiKey(keyData({ id: 'k-l', organizationId: 'org-1', projectId: 'p-1' }))

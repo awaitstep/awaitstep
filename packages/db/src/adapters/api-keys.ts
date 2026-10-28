@@ -110,7 +110,7 @@ export class ApiKeysAdapter {
         parentId: parent.id,
         parentRevokedAt: parent.revokedAt,
         parentExpiresAt: parent.expiresAt,
-        ...(m ? { memberId: m.id } : {}),
+        ...(m ? { memberId: m.id, memberRole: m.role } : {}),
       })
       .from(k)
       .leftJoin(p, eq(k.projectId, p.id))
@@ -131,6 +131,7 @@ export class ApiKeysAdapter {
       ...row.key,
       resolvedOrganizationId: row.key.organizationId ?? row.projectOrganizationId ?? null,
       createdByIsMember: m ? row.memberId != null : true,
+      createdByRole: m ? (row.memberRole ?? null) : null,
       parentKeyLive: parentLive,
     }
   }

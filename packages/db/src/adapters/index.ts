@@ -1,5 +1,10 @@
 import { eq, and, desc, or, lt, sql } from 'drizzle-orm'
-import type { DatabaseAdapter, WorkflowEnvVar, WorkflowWithStatus } from '../adapter.js'
+import type {
+  DatabaseAdapter,
+  WorkflowEnvVar,
+  WorkflowListFilter,
+  WorkflowWithStatus,
+} from '../adapter.js'
 import type {
   Workflow,
   WorkflowVersion,
@@ -26,13 +31,36 @@ import type {
   ApiKeyListItem,
   EnvVar,
   Project,
+  ProjectOverview,
+  ProjectRef,
   InstalledNode,
   CreateVersionData,
   UpdateVersionData,
+  Workspace,
+  WorkspaceOverview,
+  WorkspaceIds,
+  WorkspaceRef,
+  WorkspaceInProjectRef,
+  OrgOverview,
+  ScopeRows,
+  ScopeSlugs,
+  CreateWorkspaceData,
+  UpdateWorkspaceData,
+  WorkspaceRunFilter,
+  WorkspaceRunPage,
+  FailingWorkflow,
+  MemberRole,
 } from '../types.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 import type { TokenCrypto } from '../crypto.js'
+import { is } from 'drizzle-orm'
+import { PgDialect } from 'drizzle-orm/pg-core'
+import { type Dialect, jsonArrayOfValues, readJsonArray } from './json-array.js'
+import { TERMINAL_RUN_STATUSES, type OverviewTables } from './overview-fields.js'
+import { ScopeAdapter } from './scope.js'
+import { WorkspacesAdapter } from './workspaces.js'
+import { WorkspaceRunsAdapter } from './workspace-runs.js'
 import { WorkflowsAdapter } from './workflows.js'
 import { VersionsAdapter } from './versions.js'
 import { ConnectionsAdapter } from './connections.js'
@@ -60,12 +88,25 @@ export interface SchemaRef {
   apiKeys: unknown
   envVars: unknown
   projects: unknown
+  workspaces: unknown
   installedNodes: unknown
   member?: unknown
+  organization?: unknown
+  user?: unknown
 }
 
 export interface DrizzleAdapterOptions {
   tokenCrypto?: TokenCrypto
+  /**
+   * Which SQL the JSON aggregates are spelled in. Read off the drizzle
+   * instance when omitted (sqlite covers D1 too); set it only to override.
+   */
+  dialect?: Dialect
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function detectDialect(db: any): Dialect {
+  return is(db.dialect, PgDialect) ? 'pg' : 'sqlite'
 }
 
 export class DrizzleDatabaseAdapter implements DatabaseAdapter {
@@ -85,6 +126,10 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _projects: ProjectsAdapter
   private _installedNodes: InstalledNodesAdapter
   private _deploymentConfigs: DeploymentConfigsAdapter
+  private _scope: ScopeAdapter
+  private _workspaces: WorkspacesAdapter
+  private _workspaceRuns: WorkspaceRunsAdapter
+  private _dialect: Dialect
   private _crypto?: TokenCrypto
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -92,7 +137,24 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     this._db = db
     this._schema = schema
     this._crypto = options?.tokenCrypto
-    this._workflows = new WorkflowsAdapter(db, schema.workflows)
+    this._dialect = options?.dialect ?? detectDialect(db)
+    // The dashboard's reads join the auth tables; a schema without them (a
+    // test with app tables only) fails on first use rather than at construction.
+    const tables: OverviewTables = {
+      organization: schema.organization,
+      member: schema.member,
+      user: schema.user,
+      projects: schema.projects,
+      workspaces: schema.workspaces,
+      workflows: schema.workflows,
+      workflowRuns: schema.workflowRuns,
+      deployments: schema.deployments,
+      workflowVersions: schema.workflowVersions,
+    }
+    this._scope = new ScopeAdapter(db, tables, this._dialect)
+    this._workspaces = new WorkspacesAdapter(db, tables, this._dialect)
+    this._workspaceRuns = new WorkspaceRunsAdapter(db, tables)
+    this._workflows = new WorkflowsAdapter(db, schema.workflows, schema.workspaces)
     this._versions = new VersionsAdapter(db, schema.workflowVersions)
     this._connections = new ConnectionsAdapter(db, schema.connections, options?.tokenCrypto)
     this._runs = new RunsAdapter(db, schema.workflowRuns, schema.workflows, schema.deployments)
@@ -107,7 +169,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     this._deployments = new DeploymentsAdapter(db, schema.deployments)
     this._apiKeys = new ApiKeysAdapter(db, schema.apiKeys, schema.projects, schema.member)
     this._envVars = new EnvVarsAdapter(db, schema.envVars, options?.tokenCrypto, schema.projects)
-    this._projects = new ProjectsAdapter(db, schema.projects)
+    this._projects = new ProjectsAdapter(db, tables, this._dialect)
     this._installedNodes = new InstalledNodesAdapter(db, schema.installedNodes)
     this._deploymentConfigs = new DeploymentConfigsAdapter(db, schema.deploymentConfigs)
   }
@@ -125,27 +187,36 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     return rows.length > 0
   }
 
-  async getProjectIfMember(userId: string, projectId: string): Promise<Project | null> {
-    if (!this._schema.member) return this._projects.getById(projectId)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const p = this._schema.projects as any
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const m = this._schema.member as any
-    const rows = await this._db
-      .select({
-        id: p.id,
-        organizationId: p.organizationId,
-        name: p.name,
-        slug: p.slug,
-        description: p.description,
-        createdAt: p.createdAt,
-        updatedAt: p.updatedAt,
-      })
-      .from(p)
-      .innerJoin(m, and(eq(m.organizationId, p.organizationId), eq(m.userId, userId)))
-      .where(eq(p.id, projectId))
-      .limit(1)
-    return rows[0] ?? null
+  getOrganizationIfMember(
+    userId: string,
+    ref: { id: string } | { slug: string },
+  ): Promise<({ id: string; slug: string } & MemberRole) | null> {
+    return this._scope.getOrganizationIfMember(userId, ref)
+  }
+  getProjectIfMember(
+    userId: string,
+    ref: ProjectRef,
+    workspace?: WorkspaceInProjectRef,
+  ): Promise<({ project: Project; workspaceId: string | null } & MemberRole) | null> {
+    return this._scope.getProjectIfMember(userId, ref, workspace)
+  }
+  getWorkspaceIfMember(
+    userId: string,
+    ref: WorkspaceRef,
+  ): Promise<(WorkspaceIds & MemberRole) | null> {
+    return this._scope.getWorkspaceIfMember(userId, ref)
+  }
+  getWorkspaceInProject(
+    projectId: string,
+    ref: WorkspaceInProjectRef,
+  ): Promise<WorkspaceIds | null> {
+    return this._scope.getWorkspaceInProject(projectId, ref)
+  }
+  listOrganizationsForMember(userId: string): Promise<OrgOverview[]> {
+    return this._scope.listOrganizationsForMember(userId)
+  }
+  getScopeBySlugs(userId: string, slugs: ScopeSlugs): Promise<ScopeRows | null> {
+    return this._scope.getScopeBySlugs(userId, slugs)
   }
 
   // Projects
@@ -155,7 +226,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     name: string
     slug: string
     description?: string
-  }): Promise<Project> {
+    defaultWorkspaceId: string
+    createdBy?: string | null
+  }): Promise<{ project: Project; workspace: Workspace }> {
     return this._projects.create(data)
   }
   getProjectById(id: string): Promise<Project | null> {
@@ -164,7 +237,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   listProjectsByOrganization(
     organizationId: string,
     pagination?: PaginationParams,
-  ): Promise<PaginatedResult<Project>> {
+  ): Promise<PaginatedResult<ProjectOverview>> {
     return this._projects.listByOrganization(organizationId, pagination)
   }
   updateProject(
@@ -178,14 +251,46 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     return this._projects.delete(id, organizationId)
   }
 
+  // Workspaces
+  listWorkspacesByProject(projectId: string): Promise<WorkspaceOverview[]> {
+    return this._workspaces.listByProject(projectId)
+  }
+  createWorkspace(data: CreateWorkspaceData): Promise<Workspace | null> {
+    return this._workspaces.create(data)
+  }
+  getWorkspaceById(id: string): Promise<Workspace | null> {
+    return this._workspaces.getById(id)
+  }
+  updateWorkspace(id: string, data: UpdateWorkspaceData): Promise<Workspace | null> {
+    return this._workspaces.update(id, data)
+  }
+  deleteWorkspaceUnlessLast(id: string): Promise<boolean> {
+    return this._workspaces.deleteUnlessLast(id)
+  }
+  moveWorkflowsToWorkspace(
+    fromWorkspaceId: string,
+    toWorkspaceId: string,
+    workflowIds: string[],
+  ): Promise<string[]> {
+    return this._workspaces.moveWorkflows(fromWorkspaceId, toWorkspaceId, workflowIds)
+  }
+  listWorkspaceRuns(workspaceId: string, filter: WorkspaceRunFilter): Promise<WorkspaceRunPage> {
+    return this._workspaceRuns.listByWorkspace(workspaceId, filter)
+  }
+  listFailingWorkflows(organizationId: string): Promise<FailingWorkflow[]> {
+    return this._workspaceRuns.listFailing(organizationId)
+  }
+
   // Workflows
   createWorkflow(data: {
     id: string
     projectId: string
+    workspaceId?: string | null
     createdBy: string
     name: string
     description?: string
-  }): Promise<Workflow> {
+    kind?: 'workflow' | 'script'
+  }): Promise<Workflow | null> {
     return this._workflows.create(data)
   }
   getWorkflowById(id: string): Promise<Workflow | null> {
@@ -201,6 +306,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   async listWorkflowsWithStatus(
     projectId: string,
     pagination?: PaginationParams,
+    filter?: WorkflowListFilter,
   ): Promise<PaginatedResult<WorkflowWithStatus>> {
     const limit = clampLimit(pagination?.limit)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -209,13 +315,19 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     const d = this._schema.deployments as any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = this._schema.workflowRuns as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const v = this._schema.workflowVersions as any
 
     // Drizzle's sql template does not qualify column references with table names,
     // so correlated subqueries must use sql.raw() for the outer table's columns
     // to avoid ambiguous "id" resolving to the inner table instead of "workflows".
     const wId = sql.raw('"workflows"."id"')
+    const latestDeployVersionId = sql`(SELECT ${d.versionId} FROM ${d} WHERE ${d.workflowId} = ${wId} ORDER BY ${d.createdAt} DESC LIMIT 1)`
+    const terminal = sql.raw(TERMINAL_RUN_STATUSES.map((s) => `'${s}'`).join(', '))
 
     const conditions = [eq(w.projectId, projectId)]
+    if (filter?.workspaceId) conditions.push(eq(w.workspaceId, filter.workspaceId))
+    if (filter?.kind) conditions.push(eq(w.kind, filter.kind))
     if (pagination?.cursor) {
       const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
       conditions.push(
@@ -227,6 +339,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       .select({
         id: w.id,
         projectId: w.projectId,
+        workspaceId: w.workspaceId,
         createdBy: w.createdBy,
         name: w.name,
         description: w.description,
@@ -235,8 +348,18 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         envVars: w.envVars,
         triggerCode: w.triggerCode,
         dependencies: w.dependencies,
+        deployConfig: w.deployConfig,
         createdAt: w.createdAt,
         updatedAt: w.updatedAt,
+        deployedVersion: sql<
+          number | null
+        >`(SELECT ${v.version} FROM ${v} WHERE ${v.id} = ${latestDeployVersionId})`.as(
+          'deployed_version',
+        ),
+        recentRunStatuses:
+          sql`(SELECT ${jsonArrayOfValues(this._dialect, sql.raw('recent.status'))} FROM (SELECT ${r.status} AS status FROM ${r} WHERE ${r.workflowId} = ${wId} AND ${r.status} IN (${terminal}) ORDER BY ${r.createdAt} DESC LIMIT 10) AS recent)`.as(
+            'recent_run_statuses',
+          ),
         deployStatus: sql<
           string | null
         >`(SELECT ${d.status} FROM ${d} WHERE ${d.workflowId} = ${wId} ORDER BY ${d.createdAt} DESC LIMIT 1)`.as(
@@ -264,7 +387,11 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       .orderBy(desc(w.createdAt), desc(w.id))
       .limit(limit + 1)
 
-    return paginateResults(rows, limit, (row) => row.createdAt)
+    const withStatus: WorkflowWithStatus[] = rows.map((row: WorkflowWithStatus) => ({
+      ...row,
+      recentRunStatuses: readJsonArray<string>(row.recentRunStatuses),
+    }))
+    return paginateResults(withStatus, limit, (row) => row.createdAt)
   }
   updateWorkflow(
     id: string,
@@ -283,6 +410,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
   deleteWorkflow(id: string): Promise<void> {
     return this._workflows.delete(id)
+  }
+  moveWorkflowToProject(id: string, targetProjectId: string): Promise<Workflow | null> {
+    return this._workflows.moveToProject(id, targetProjectId)
   }
 
   // Versions

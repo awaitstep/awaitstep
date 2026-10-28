@@ -8,12 +8,20 @@ import type { deployments } from './schema/sqlite/deployments.js'
 import type { apiKeys } from './schema/sqlite/api-keys.js'
 import type { envVars } from './schema/sqlite/env-vars.js'
 import type { projects } from './schema/sqlite/projects.js'
+import type { workspaces } from './schema/sqlite/workspaces.js'
 import type { installedNodes } from './schema/sqlite/installed-nodes.js'
 import type { deploymentConfigs } from './schema/sqlite/deployment-configs.js'
 import type { workflowFiles } from './schema/sqlite/workflow-files.js'
 import type { testSessions } from './schema/sqlite/test-sessions.js'
 
-export type Workflow = InferSelectModel<typeof workflows>
+/**
+ * `workspaceId` is always set: the migration filled it and the adapter never
+ * writes null. SQLite's column stays nullable only because adding NOT NULL
+ * there means rebuilding the table (the Phase-2 cleanup migration).
+ */
+export type Workflow = Omit<InferSelectModel<typeof workflows>, 'workspaceId'> & {
+  workspaceId: string
+}
 
 /** A project-owned file; `hash` is the content hash the API serves as its ETag. */
 export type WorkflowFile = InferSelectModel<typeof workflowFiles>
@@ -183,11 +191,166 @@ export type ApiKey = InferSelectModel<typeof apiKeys>
 export type ApiKeyAuth = ApiKey & {
   resolvedOrganizationId: string | null
   createdByIsMember: boolean
+  /** The creator's role in that organization: a key acts with the standing of whoever minted it. */
+  createdByRole: string | null
   parentKeyLive: boolean
 }
 /** A listed key with its project's name joined in — null on org-level keys. */
 export type ApiKeyListItem = ApiKey & { projectName: string | null }
 export type EnvVar = InferSelectModel<typeof envVars>
 export type Project = InferSelectModel<typeof projects>
+export type Workspace = InferSelectModel<typeof workspaces>
 export type InstalledNode = InferSelectModel<typeof installedNodes>
 export type DeploymentConfig = InferSelectModel<typeof deploymentConfigs>
+
+// Dashboard scope (B1): what `/{org}/{project}/{workspace}` names, with the
+// counts and lists each level's record shows, read in one statement.
+
+export interface ScopeSlugs {
+  org: string
+  project?: string
+  workspace?: string
+}
+
+/** A project named by id, or by its organization's slug and its own. */
+export type ProjectRef = { id: string } | { org: string; slug: string }
+
+/** A workspace named by id, or by the three slugs of its URL. */
+export type WorkspaceRef = { id: string } | { org: string; project: string; workspace: string }
+
+/** A workspace within a project the caller already holds: by id or by slug. */
+export type WorkspaceInProjectRef = { id: string } | { slug: string }
+
+export interface OrgMemberSummary {
+  id: string
+  name: string
+  email: string
+  image: string | null
+  role: string
+}
+
+export interface OrgOverview {
+  id: string
+  slug: string
+  name: string
+  logo: string | null
+  createdAt: string
+  /** The caller's role in it. */
+  viewerRole: string
+  projectCount: number
+  memberCount: number
+}
+
+export interface WorkspaceChip {
+  id: string
+  slug: string
+  name: string
+  colour: string
+}
+
+export interface ProjectHealth {
+  workflows: number
+  /** Workflows whose latest deployment succeeded. */
+  deployed: number
+  /** Workflows and functions whose latest run failed. */
+  failing: number
+  lastRunAt: string | null
+}
+
+export interface ProjectOverview extends Project {
+  /** Oldest first: the order the switcher shows. */
+  workspaces: WorkspaceChip[]
+  health: ProjectHealth
+  lockedByName: string | null
+  /** Who can open it — every member of the organization until B2 adds roles. */
+  members: OrgMemberSummary[]
+}
+
+export interface WorkspaceCounts {
+  workflows: number
+  deployed: number
+  functions: number
+  runs24h: number
+  failing: number
+  lastRunAt: string | null
+}
+
+export interface WorkspaceOverview extends Workspace {
+  counts: WorkspaceCounts
+  createdByName: string | null
+  lockedByName: string | null
+  projectName: string
+  /** The project's own lock, which covers every workspace in it. */
+  projectLockedAt: string | null
+  /** Workspaces in the project, this one included: 1 means it is the last. */
+  siblings: number
+  members: OrgMemberSummary[]
+}
+
+export interface ScopeRows {
+  org: OrgOverview & { members: OrgMemberSummary[] }
+  /** Null when no project slug was asked for, or none matched. */
+  project: ProjectOverview | null
+  workspace: WorkspaceOverview | null
+}
+
+export interface WorkspaceIds {
+  workspaceId: string
+  projectId: string
+  organizationId: string
+}
+
+/** A membership lookup's answer carries the caller's role in the organization. */
+export interface MemberRole {
+  /** As better-auth stores it: `owner`, `admin`, `member`, or a comma-joined list. */
+  role: string
+}
+
+export interface CreateWorkspaceData {
+  id: string
+  projectId: string
+  name: string
+  slug: string
+  description?: string | null
+  colour?: string
+  createdBy?: string | null
+}
+
+export interface UpdateWorkspaceData {
+  name?: string
+  slug?: string
+  description?: string | null
+  colour?: string
+}
+
+export type RunResultFilter = 'succeeded' | 'failed' | 'running'
+
+export interface WorkspaceRunFilter {
+  result?: RunResultFilter
+  /** Runs created at or after this instant. */
+  since?: string
+  /** Matches the workflow name or the run id, case-insensitively. */
+  search?: string
+  cursor?: string
+  limit?: number
+}
+
+export interface WorkspaceRunRow extends WorkflowRun {
+  workflowName: string
+  kind: 'workflow' | 'script'
+}
+
+export interface WorkspaceRunPage {
+  data: WorkspaceRunRow[]
+  nextCursor: string | null
+  /** Over the period and search, before the result filter: the filter pills. */
+  counts: { all: number; succeeded: number; failed: number; running: number }
+}
+
+/** A workflow whose latest run failed, with where it lives and that run. */
+export interface FailingWorkflow {
+  workflow: { id: string; name: string; kind: 'workflow' | 'script' }
+  project: { slug: string; name: string }
+  workspace: { slug: string; name: string; colour: string }
+  run: WorkflowRun
+}
