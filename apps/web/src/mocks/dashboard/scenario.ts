@@ -1,5 +1,5 @@
 import { AMA } from './fixtures/people'
-import { saveDb } from './db'
+import { getDb, saveDb, syntheticPeople } from './db'
 
 /**
  * Forces a system state on every dummy call: `loading` never answers,
@@ -12,7 +12,14 @@ export interface MockContext {
   scenario: MockScenario
   /** Which sample person the dummy session is signed in as. */
   userId: string
+  /**
+   * The dashboard is on the real API and this call reaches a feature still on
+   * dummy data: it answers empty for the real scope and refuses to write.
+   */
+  real?: boolean
 }
+
+export const NOT_CONNECTED = 'This isn’t connected to the API yet'
 
 export const DEFAULT_MOCK_CONTEXT: MockContext = { scenario: 'none', userId: AMA }
 
@@ -44,15 +51,35 @@ function delay(ms: number): Promise<void> {
   return ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)) : Promise.resolve()
 }
 
-async function run<T>(ctx: MockContext, call: () => T, frame = false): Promise<T> {
+async function run<T>(
+  ctx: MockContext,
+  call: () => T,
+  options: { frame?: boolean; writes?: boolean } = {},
+): Promise<T> {
+  const frame = options.frame ?? false
   if (ctx.scenario === 'loading' && !frame) return new Promise<T>(() => {})
   await delay(LATENCY_MS)
   if (ctx.scenario === 'error' && !frame) {
     throw new MockApiError(503, 'The service didn’t answer in time.')
   }
+  if (ctx.real) {
+    if (options.writes) throw new MockApiError(501, NOT_CONNECTED)
+    ensureRealViewer(ctx)
+  }
   // A copy, as a real response is: records often hold the table's own rows
   // (people), and a later mutation must not change what the cache holds.
   return structuredClone(call())
+}
+
+/**
+ * The signed-in person, as the dummy tables know them, so a feature still on
+ * dummy data can name the viewer. In memory only: nothing saves it.
+ */
+function ensureRealViewer(ctx: MockContext): void {
+  const db = getDb()
+  if (db.people.some((p) => p.id === ctx.userId)) return
+  db.people.push({ id: ctx.userId, name: 'You', email: '', initials: '?', image: null })
+  syntheticPeople.add(ctx.userId)
 }
 
 /** A read endpoint of the fake API: async, and subject to the scenario. */
@@ -70,7 +97,7 @@ export function endpoint<A extends unknown[], R>(
 export function frameEndpoint<A extends unknown[], R>(
   handler: (ctx: MockContext, ...args: A) => R,
 ): (ctx: MockContext, ...args: A) => Promise<R> {
-  return (ctx, ...args) => run(ctx, () => handler(ctx, ...args), true)
+  return (ctx, ...args) => run(ctx, () => handler(ctx, ...args), { frame: true })
 }
 
 /** A write endpoint: as `endpoint`, and the tab's db is saved after it succeeds. */
@@ -78,11 +105,15 @@ export function mutation<A extends unknown[], R>(
   handler: (ctx: MockContext, ...args: A) => R,
 ): (ctx: MockContext, ...args: A) => Promise<R> {
   return (ctx, ...args) =>
-    run(ctx, () => {
-      const result = handler(ctx, ...args)
-      saveDb()
-      return result
-    })
+    run(
+      ctx,
+      () => {
+        const result = handler(ctx, ...args)
+        saveDb()
+        return result
+      },
+      { writes: true },
+    )
 }
 
 /** List rows, or none under the `empty` scenario. */

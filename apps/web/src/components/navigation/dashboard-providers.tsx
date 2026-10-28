@@ -5,6 +5,8 @@ import {
   parseMockScenario,
   parseMockUser,
 } from '../../data/dashboard/scenario-context'
+import { DataSourceProvider, type DataSource } from '../../data/dashboard/source'
+import { useAuthStore } from '../../stores/auth-store'
 import { RouterShellLink } from './router-shell-link'
 
 /** The search params every dashboard URL may carry. */
@@ -62,17 +64,29 @@ interface DashboardProvidersProps {
   children: ReactNode
 }
 
+/** The real API, unless the URL asks for a dummy scenario or a sample person. */
+export function dataSourceFor(search: Pick<DashboardSearch, 'mock' | 'as'>): DataSource {
+  return search.mock || search.as ? 'mock' : 'api'
+}
+
 /**
- * What every page of the new dashboard renders inside: the dummy session the
- * URL asks for (`?mock=`, `?as=`) and router-aware kit links.
+ * What every page of the new dashboard renders inside: the data source the
+ * URL asks for — the API, or the dummy session (`?mock=`, `?as=`) — and
+ * router-aware kit links. On the API, features still on dummy data run as
+ * the signed-in user against an empty dummy scope.
  */
 export function DashboardProviders({ search, children }: DashboardProvidersProps) {
+  const source = dataSourceFor(search)
+  const userId = useAuthStore((s) => s.user?.id)
   return (
-    <MockScenarioProvider
-      scenario={parseMockScenario(search.mock)}
-      userId={parseMockUser(search.as)}
-    >
-      <ShellLinkProvider link={RouterShellLink}>{children}</ShellLinkProvider>
-    </MockScenarioProvider>
+    <DataSourceProvider source={source}>
+      <MockScenarioProvider
+        scenario={source === 'api' ? 'empty' : parseMockScenario(search.mock)}
+        userId={source === 'api' ? (userId ?? 'you') : parseMockUser(search.as)}
+        real={source === 'api'}
+      >
+        <ShellLinkProvider link={RouterShellLink}>{children}</ShellLinkProvider>
+      </MockScenarioProvider>
+    </DataSourceProvider>
   )
 }

@@ -1,9 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { slugify } from '@awaitstep/ir'
+import { availableSlug } from '../../lib/available-slug'
+import { ApiError } from '../../lib/api-client'
+import { dashboardApi } from '../../lib/dashboard-api'
 import { mockServer } from '../../mocks/dashboard/server'
 import type { ScopeSlugs } from '../../types/dashboard/scope'
-import type { NewWorkspaceInput, WorkspaceUpdate } from '../../types/dashboard/workspaces'
-import { dashKeys, invalidateAll, withMockContext } from './keys'
+import type {
+  NewWorkspaceInput,
+  Workspace,
+  WorkspacePerson,
+  WorkspaceUpdate,
+} from '../../types/dashboard/workspaces'
+import { toScopeLookup, toWorkspace, toWorkspacePeople, workspaceFromRow } from './api/records'
+import { dashKeys, invalidateAll } from './keys'
 import { useMockContext } from './scenario-context'
+import { useDashKey, useDataSource } from './source'
 
 /**
  * What the URL's slugs name, with the viewer's role and `viewerCan` at each
@@ -11,19 +22,33 @@ import { useMockContext } from './scenario-context'
  * `{ found: false }` result, which pages render as NotFoundView.
  */
 export function useScope(slugs: ScopeSlugs) {
+  const source = useDataSource()
   const ctx = useMockContext()
+  const key = useDashKey()
   return useQuery({
-    queryKey: withMockContext(dashKeys.scopeOf(slugs), ctx),
-    queryFn: () => mockServer.workspaces.getScope(ctx, slugs),
+    queryKey: key(dashKeys.scopeOf(slugs)),
+    queryFn: () =>
+      source === 'api'
+        ? dashboardApi.getScope(slugs).then(toScopeLookup)
+        : mockServer.workspaces.getScope(ctx, slugs),
   })
 }
 
 /** Everyone who can open the workspace, with their effective role there. */
 export function useWorkspacePeople(slugs: Required<ScopeSlugs>) {
+  const source = useDataSource()
   const ctx = useMockContext()
+  const key = useDashKey()
   return useQuery({
-    queryKey: withMockContext(dashKeys.workspacePeople(slugs), ctx),
-    queryFn: () => mockServer.workspaces.listWorkspacePeople(ctx, slugs),
+    queryKey: key(dashKeys.workspacePeople(slugs)),
+    queryFn: (): Promise<WorkspacePerson[]> =>
+      source === 'api'
+        ? dashboardApi
+            .getScope(slugs)
+            .then((scope) =>
+              scope.found && scope.workspace ? toWorkspacePeople(scope.workspace) : [],
+            )
+        : mockServer.workspaces.listWorkspacePeople(ctx, slugs),
   })
 }
 
@@ -33,12 +58,27 @@ export function useWorkspaces(
   project: string,
   { enabled = true }: { enabled?: boolean } = {},
 ) {
+  return useQuery({ ...useWorkspacesQuery(org, project), enabled })
+}
+
+/** The list's key and fetcher, for the hooks that read it from the cache before a write. */
+function useWorkspacesQuery(org: string, project: string) {
+  const source = useDataSource()
   const ctx = useMockContext()
-  return useQuery({
-    queryKey: withMockContext(dashKeys.workspaces(org, project), ctx),
-    queryFn: () => mockServer.workspaces.listWorkspaces(ctx, org, project),
-    enabled,
-  })
+  const key = useDashKey()
+  return {
+    queryKey: key(dashKeys.workspaces(org, project)),
+    queryFn: (): Promise<Workspace[]> =>
+      source === 'api'
+        ? dashboardApi.listWorkspaces({ org, project }).then((res) => res.data.map(toWorkspace))
+        : mockServer.workspaces.listWorkspaces(ctx, org, project),
+  }
+}
+
+/** The workspace's id from the scope the page already resolved; a page edits what it is on. */
+export function useWorkspaceId(slugs: Required<ScopeSlugs>): string | null {
+  const scope = useScope(slugs)
+  return scope.data?.found ? (scope.data.workspace?.workspace.id ?? null) : null
 }
 
 const workspaceKeys = (org: string, project: string) => [
@@ -58,22 +98,56 @@ const workspaceKeys = (org: string, project: string) => [
   dashKeys.inProject('members', org, project),
 ]
 
+/**
+ * Creates the workspace. The slug comes from the name, stepped past the
+ * project's existing ones ("Ops" twice gives `ops-2`), as the dummy server
+ * does. Who gets in (`access`) waits for B2 on the API: everyone in the org
+ * can open it.
+ */
 export function useCreateWorkspace(org: string, project: string) {
+  const source = useDataSource()
   const ctx = useMockContext()
   const client = useQueryClient()
+  const siblings = useWorkspacesQuery(org, project)
   return useMutation({
-    mutationFn: (input: NewWorkspaceInput) =>
-      mockServer.workspaces.createWorkspace(ctx, org, project, input),
+    mutationFn: async (input: NewWorkspaceInput): Promise<Workspace> => {
+      if (source !== 'api') return mockServer.workspaces.createWorkspace(ctx, org, project, input)
+      const name = input.name.trim()
+      const base = slugify(name)
+      if (!base) {
+        throw new ApiError('The workspace name needs at least one letter or number', 422, {
+          field: 'name',
+        })
+      }
+      // The list the page already holds, else one read: the slug steps past the siblings.
+      const taken = new Set((await client.ensureQueryData(siblings)).map((w) => w.slug))
+      const row = await dashboardApi.createWorkspace(
+        { org, project },
+        {
+          name,
+          slug: availableSlug('workspace', base, (slug) => taken.has(slug)),
+          colour: input.colour,
+          description: input.description?.trim() || undefined,
+        },
+      )
+      return workspaceFromRow(row)
+    },
     onSuccess: () => invalidateAll(client, workspaceKeys(org, project)),
   })
 }
 
 export function useUpdateWorkspace(slugs: Required<ScopeSlugs>) {
+  const source = useDataSource()
   const ctx = useMockContext()
   const client = useQueryClient()
+  const workspaceId = useWorkspaceId(slugs)
   return useMutation({
-    mutationFn: (update: WorkspaceUpdate) =>
-      mockServer.workspaces.updateWorkspace(ctx, slugs, update),
+    mutationFn: async (update: WorkspaceUpdate): Promise<Workspace> => {
+      if (source !== 'api') return mockServer.workspaces.updateWorkspace(ctx, slugs, update)
+      if (!workspaceId) throw new Error('The workspace has not loaded yet')
+      const row = await dashboardApi.updateWorkspace(workspaceId, update)
+      return workspaceFromRow(row)
+    },
     onSuccess: (updated) =>
       invalidateAll(
         client,
@@ -84,10 +158,16 @@ export function useUpdateWorkspace(slugs: Required<ScopeSlugs>) {
 }
 
 export function useDeleteWorkspace(slugs: Required<ScopeSlugs>) {
+  const source = useDataSource()
   const ctx = useMockContext()
   const client = useQueryClient()
+  const workspaceId = useWorkspaceId(slugs)
   return useMutation({
-    mutationFn: () => mockServer.workspaces.deleteWorkspace(ctx, slugs),
+    mutationFn: async (): Promise<void> => {
+      if (source !== 'api') return mockServer.workspaces.deleteWorkspace(ctx, slugs)
+      if (!workspaceId) throw new Error('The workspace has not loaded yet')
+      await dashboardApi.deleteWorkspace(workspaceId)
+    },
     onSuccess: () => invalidateAll(client, workspaceKeys(slugs.org, slugs.project), slugs),
   })
 }

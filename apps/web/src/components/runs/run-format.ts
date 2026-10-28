@@ -36,8 +36,8 @@ const TRIGGER_LABEL: Record<RunTrigger, string> = {
   manual: 'Manual',
 }
 
-export function triggerLabel(trigger: RunTrigger): string {
-  return TRIGGER_LABEL[trigger]
+export function triggerLabel(trigger: RunTrigger | null): string {
+  return trigger ? TRIGGER_LABEL[trigger] : '—'
 }
 
 /** "Workflow", "Function", or for a run that waits, "Workflow · waiting on step "Wait 1 day"". */

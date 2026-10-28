@@ -6,9 +6,6 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
-  { to: '/dashboard', label: 'Dashboard' },
-  { to: '/workflows', label: 'Workflows' },
-  { to: '/runs', label: 'Runs' },
   { to: '/connections', label: 'Connections' },
   { to: '/env-vars', label: 'Env Vars' },
 ]

@@ -326,10 +326,33 @@ export function getDb(): MockDb {
 }
 
 /** Saves the db for this tab, so a reload keeps what the session changed. */
+/** Rows real mode makes up for the signed-in user's slugs (`real:<org slug>`…) and the person it adds. */
+const SYNTHETIC = 'real:'
+export const syntheticPeople = new Set<string>()
+
+/** The tables without what real mode made up: those rows exist for one tab's reads only. */
+export function withoutSynthetic(db: MockDb): MockDb {
+  const realOrg = (id: string) => id.startsWith(SYNTHETIC)
+  const orgs = db.orgs.filter((o) => !realOrg(o.id))
+  const projects = db.projects.filter((p) => !realOrg(p.orgId))
+  const projectIds = new Set(projects.map((p) => p.id))
+  return {
+    ...db,
+    orgs,
+    orgMembers: db.orgMembers.filter((m) => !realOrg(m.orgId)),
+    projects,
+    workspaces: db.workspaces.filter((w) => projectIds.has(w.projectId)),
+    people: db.people.filter((p) => !syntheticPeople.has(p.id)),
+  }
+}
+
 export function saveDb(): void {
   if (!current) return
   try {
-    storage()?.setItem(STORAGE_KEY, JSON.stringify({ version: DB_VERSION, db: current }))
+    storage()?.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ version: DB_VERSION, db: withoutSynthetic(current) }),
+    )
   } catch {
     // Storage full or blocked: the session keeps working from memory.
   }

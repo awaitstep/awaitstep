@@ -24,7 +24,11 @@ export function runsToCsv(runs: WorkspaceRun[]): string {
     triggerLabel(run.trigger),
     run.createdAt,
     run.durationMs,
-    run.failure ? `${run.failure.step}: ${run.failure.message}` : null,
+    run.failure
+      ? run.failure.step
+        ? `${run.failure.step}: ${run.failure.message}`
+        : run.failure.message
+      : null,
   ])
   return toCsv(HEADER, rows)
 }

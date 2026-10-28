@@ -2,7 +2,9 @@ import type { WorkspaceColour } from '../../components/ui/workspace-colour'
 import type { LockState } from './locks'
 import type { Person } from './session'
 
-export type WorkspaceRole = 'admin' | 'editor' | 'viewer'
+import type { WorkspaceRole } from '@awaitstep/ir'
+
+export type { WorkspaceRole } from '@awaitstep/ir'
 
 /** Someone who can open a workspace, with their effective role there. */
 export interface WorkspacePerson {
@@ -32,7 +34,8 @@ export interface Workspace {
   /** Everyone who can open it: its own members and those it inherits. */
   people: Person[]
   createdAt: string
-  createdBy: { id: string; name: string }
+  /** Null on a Default workspace the migration made: nobody created it. */
+  createdBy: { id: string; name: string } | null
   lock: LockState
   counts: WorkspaceCounts
 }

@@ -34,7 +34,7 @@ function countChips(counts: WorkspaceCounts): string[] {
 function createdLine(workspace: Workspace, now: Date): string {
   const created = new Date(workspace.createdAt)
   const day = created.toDateString() === now.toDateString() ? 'today' : format(created, 'd MMM')
-  return `Created ${day} by ${workspace.createdBy.name}`
+  return workspace.createdBy ? `Created ${day} by ${workspace.createdBy.name}` : `Created ${day}`
 }
 
 /** A workspace on the project's Workspaces page. One link, to the workspace. */

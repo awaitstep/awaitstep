@@ -1,23 +1,41 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { dashboardApi } from '../../lib/dashboard-api'
 import { mockServer } from '../../mocks/dashboard/server'
 import type {
   ImportItemInput,
   ItemKind,
   MoveItemsInput,
   NewItemInput,
+  WorkspaceItem,
 } from '../../types/dashboard/items'
 import type { ScopeSlugs } from '../../types/dashboard/scope'
+import { toWorkspaceItem } from './api/runs'
+import { collectPages } from './export-pages'
 import { dashKeys, invalidateAll, withMockContext } from './keys'
 import { useMockContext } from './scenario-context'
+import { useDashKey, useDataSource } from './source'
+import { useWorkspaceId, useWorkspaces } from './workspaces'
 
 type WorkspaceSlugs = Required<ScopeSlugs>
 
+const UNTITLED: Record<ItemKind, string> = {
+  workflow: 'Untitled workflow',
+  script: 'Untitled function',
+}
+
 /** A workspace's own workflows (`'workflow'`) or functions (`'script'`), each with its share switch state. */
 export function useWorkspaceItems(slugs: WorkspaceSlugs, kind: ItemKind) {
+  const source = useDataSource()
   const ctx = useMockContext()
+  const key = useDashKey()
   return useQuery({
-    queryKey: withMockContext(dashKeys.itemsOf(slugs, kind), ctx),
-    queryFn: () => mockServer.items.listItems(ctx, slugs, kind),
+    queryKey: key(dashKeys.itemsOf(slugs, kind)),
+    queryFn: () =>
+      source === 'api'
+        ? collectPages((cursor, limit) =>
+            dashboardApi.listWorkflows(slugs, { kind, cursor, limit }),
+          ).then((rows) => rows.map(toWorkspaceItem))
+        : mockServer.items.listItems(ctx, slugs, kind),
   })
 }
 
@@ -78,20 +96,52 @@ export function useUnshareItem(org: string, project: string) {
 
 /** Move workflows: sends items (and their runs) to another workspace in the project. */
 export function useMoveWorkflows(slugs: WorkspaceSlugs) {
+  const source = useDataSource()
   const ctx = useMockContext()
   const client = useQueryClient()
+  const workspaceId = useWorkspaceId(slugs)
+  // The dialog that moves lists the project's workspaces, so the target's id is at hand.
+  const workspaces = useWorkspaces(slugs.org, slugs.project, { enabled: source === 'api' })
   return useMutation({
-    mutationFn: (input: MoveItemsInput) => mockServer.items.moveItems(ctx, slugs, input),
+    mutationFn: async (input: MoveItemsInput): Promise<{ moved: number }> => {
+      if (source !== 'api') return mockServer.items.moveItems(ctx, slugs, input)
+      const target = workspaces.data?.find((w) => w.slug === input.to)
+      if (!workspaceId || !target) throw new Error('The workspaces have not loaded yet')
+      const result = await dashboardApi.moveWorkflows(workspaceId, {
+        workflowIds: input.itemIds,
+        targetWorkspaceId: target.id,
+      })
+      return { moved: result.moved.length }
+    },
     onSuccess: () => invalidateAll(client, itemKeys(slugs)),
   })
 }
 
 /** New workflow / New function: adds a draft at the top of its list. */
 export function useCreateItem(slugs: WorkspaceSlugs) {
+  const source = useDataSource()
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (input: NewItemInput) => mockServer.items.createItem(ctx, slugs, input),
+    mutationFn: (input: NewItemInput): Promise<WorkspaceItem> =>
+      source === 'api'
+        ? dashboardApi
+            .createWorkflow(slugs, {
+              name: input.name?.trim() || UNTITLED[input.kind],
+              kind: input.kind,
+            })
+            .then((row) =>
+              toWorkspaceItem({
+                ...row,
+                deployStatus: null,
+                deployVersionId: null,
+                deployedVersion: null,
+                lastRunStatus: null,
+                lastRunAt: null,
+                recentRunStatuses: [],
+              }),
+            )
+        : mockServer.items.createItem(ctx, slugs, input),
     onSuccess: () => invalidateAll(client, itemKeys(slugs)),
   })
 }

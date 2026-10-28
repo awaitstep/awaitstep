@@ -30,29 +30,51 @@ function withPagination(path: string, opts?: PaginationOptions): string {
   return `${path}${sep}${qs}`
 }
 
+interface ErrorBody {
+  message: string
+  /** The form field a validation failure points at: the first issue's path. */
+  field?: string
+}
+
 /** The human-readable error an API response carries, falling back to its body or status. */
-async function readErrorMessage(res: Response): Promise<string> {
+async function readErrorBody(res: Response): Promise<ErrorBody> {
   const text = await res.text().catch(() => res.statusText)
   try {
-    const json = JSON.parse(text) as { error?: string; message?: string }
-    return json.error ?? json.message ?? text
+    const json = JSON.parse(text) as {
+      error?: string
+      message?: string
+      details?: { path?: string; message?: string }[]
+    }
+    const issue = json.details?.[0]
+    return {
+      message: issue?.message ?? json.error ?? json.message ?? text,
+      field: issue?.path || undefined,
+    }
   } catch {
-    return text
+    return { message: text }
   }
 }
 
 /** A non-2xx API response; `message` is the server's human-readable error. */
 export class ApiError extends Error {
+  /** The server's `X-Request-Id`, for "Error ID …" on error states. */
+  readonly requestId: string | undefined
+  /** The form field the error belongs to, when the server named one. */
+  readonly field: string | undefined
+
   constructor(
     message: string,
     readonly status: number,
+    extra: { requestId?: string; field?: string } = {},
   ) {
     super(message)
     this.name = 'ApiError'
+    this.requestId = extra.requestId
+    this.field = extra.field
   }
 }
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
+export async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'include',
     headers: {
@@ -63,7 +85,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   })
 
   if (!res.ok) {
-    throw new ApiError(await readErrorMessage(res), res.status)
+    const { message, field } = await readErrorBody(res)
+    throw new ApiError(message, res.status, {
+      requestId: res.headers.get('x-request-id') ?? undefined,
+      field,
+    })
   }
 
   return res.json()
@@ -295,7 +321,7 @@ async function projectFileRequest<T>(path: string, options: RequestInit): Promis
     throw new ProjectFileConflictError(body.error ?? 'Conflict', body.currentHash ?? null)
   }
   if (!res.ok) {
-    throw new ApiError(await readErrorMessage(res), res.status)
+    throw new ApiError((await readErrorBody(res)).message, res.status)
   }
   if (res.status === 204) return undefined as T
   return res.json()

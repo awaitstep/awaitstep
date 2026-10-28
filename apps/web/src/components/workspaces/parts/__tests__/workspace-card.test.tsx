@@ -31,7 +31,7 @@ describe('WorkspaceCard', () => {
   it('says who created a workspace that has no description', () => {
     const now = new Date(SUPPORT.createdAt)
     render(<WorkspaceCard workspace={{ ...SUPPORT, description: null }} href="/w" now={now} />)
-    expect(screen.getByText(`Created today by ${SUPPORT.createdBy.name}`)).toBeVisible()
+    expect(screen.getByText(`Created today by ${SUPPORT.createdBy?.name}`)).toBeVisible()
   })
 
   it('counts in the singular and shows passing runs', () => {

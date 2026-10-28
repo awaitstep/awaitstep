@@ -113,7 +113,7 @@ const ORG_DOMAINS = new Set([
  * refetches instead of serving another state's cache. Goes with the mocks.
  */
 export function withMockContext(key: QueryKey, ctx: MockContext): QueryKey {
-  return [...key, ctx.scenario, ctx.userId]
+  return [...key, ctx.real ? 'real' : ctx.scenario, ctx.userId]
 }
 
 /** Whether a scoped key reads through slugs that no longer exist. */

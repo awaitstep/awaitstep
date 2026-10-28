@@ -21,6 +21,8 @@ function projectsKey(org: string): string {
   return `${PREFIX}:recent-projects:${org}`
 }
 
+const ORGS_KEY = `${PREFIX}:recent-orgs`
+
 function browserStorage(): ScopeStorage | null {
   try {
     return typeof window === 'undefined' ? null : window.localStorage
@@ -65,6 +67,16 @@ export function recentWorkspaces(
   storage: ScopeStorage | null = browserStorage(),
 ): string[] {
   return readList(storage, workspacesKey(org, project))
+}
+
+/** Called whenever an organization is opened; signing in lands in the most recent one. */
+export function rememberOrg(org: string, storage: ScopeStorage | null = browserStorage()): void {
+  pushRecent(storage, ORGS_KEY, org)
+}
+
+/** Organization slugs opened, most recent first. */
+export function recentOrgs(storage: ScopeStorage | null = browserStorage()): string[] {
+  return readList(storage, ORGS_KEY)
 }
 
 /** Project slugs entered in this org, most recent first. */

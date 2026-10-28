@@ -12,15 +12,16 @@ export interface WorkspaceRun extends Pick<RunSummary, 'id' | 'workflowId' | 'cr
   workflowName: string
   kind: ItemKind
   result: RunResult
-  trigger: RunTrigger
+  /** Null when the run's trigger isn't recorded (the API doesn't keep it yet). */
+  trigger: RunTrigger | null
   /** Null while it is still running. */
   durationMs: number | null
   /** The step a running workflow waits on, e.g. "Wait 1 day". */
   waitingOn: string | null
   /** A function's response, e.g. 200. */
   httpStatus: number | null
-  /** Where a failed run stopped and why. */
-  failure: { step: string; message: string } | null
+  /** Where a failed run stopped and why; the step is null when only the error is known. */
+  failure: { step: string | null; message: string } | null
 }
 
 export interface RunFilter {

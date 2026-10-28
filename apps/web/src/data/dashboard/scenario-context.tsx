@@ -20,13 +20,19 @@ const MockContextValue = createContext<MockContext>(DEFAULT_MOCK_CONTEXT)
 export function MockScenarioProvider({
   scenario = DEFAULT_MOCK_CONTEXT.scenario,
   userId = DEFAULT_MOCK_CONTEXT.userId,
+  real = false,
   children,
 }: {
   scenario?: MockScenario
   userId?: string
+  /** The dashboard is on the real API: dummy features answer empty and refuse writes. */
+  real?: boolean
   children: ReactNode
 }) {
-  const value = useMemo(() => ({ scenario, userId }), [scenario, userId])
+  const value = useMemo(
+    () => (real ? { scenario, userId, real } : { scenario, userId }),
+    [scenario, userId, real],
+  )
   return <MockContextValue.Provider value={value}>{children}</MockContextValue.Provider>
 }
 
