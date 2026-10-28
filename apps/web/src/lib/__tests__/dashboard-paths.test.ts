@@ -6,6 +6,7 @@ import {
   invitePath,
   itemPath,
   isReservedSlug,
+  ORG_PAGES,
   orgPath,
   orgSettingsPath,
   projectPath,
@@ -74,6 +75,19 @@ describe('reserved slugs', () => {
   it('keeps workspaces off the project’s settings path only', () => {
     expect(isReservedSlug('workspace', 'settings')).toBe(true)
     expect(isReservedSlug('workspace', 'workflows')).toBe(false)
+  })
+
+  // The lists live in @awaitstep/ir (the API refuses them too); a page added
+  // here without a reserved slug would let a project shadow it.
+  it('reserves every page name the path builders use', () => {
+    for (const page of ORG_PAGES) expect(isReservedSlug('project', page), page).toBe(true)
+    for (const page of ['settings', 'account', 'items']) {
+      expect(isReservedSlug('project', page), page).toBe(true)
+    }
+    expect(isReservedSlug('workspace', 'settings')).toBe(true)
+    for (const page of ['api-playground', 'choose-org', 'invite', 'sign-in']) {
+      expect(isReservedSlug('org', page), page).toBe(true)
+    }
   })
 })
 

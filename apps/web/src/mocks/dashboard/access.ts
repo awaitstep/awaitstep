@@ -1,11 +1,4 @@
 import type { ProjectRole } from '../../types/dashboard/projects'
-import type {
-  Allowed,
-  Capabilities,
-  OrgCapability,
-  ProjectCapability,
-  WorkspaceCapability,
-} from '../../types/dashboard/scope'
 import type { OrgRole } from '../../types/dashboard/session'
 import type { WorkspaceRole } from '../../types/dashboard/workspaces'
 import type { MockDb, ProjectRow, WorkspaceRow } from './db'
@@ -95,103 +88,11 @@ export function canSeeProject(db: MockDb, ctx: MockContext, project: ProjectRow)
   )
 }
 
-const YES: Allowed = { allowed: true }
-const no = (reason: string): Allowed => ({ allowed: false, reason })
-
-export const REASONS = {
-  orgAdmins: 'Only org owners and admins can do this',
-  orgOwners: 'Only org owners can do this',
-  projectsLeft: (n: number) => (n === 1 ? '1 project still in it' : `${n} projects still in it`),
-  projectAdmins: 'Only project admins and org owners can do this',
-  workspaceAdmins: 'Only this workspace’s admins can do this',
-  needsEditor: 'Building, deploying and sharing need an Editor',
-  // The ViewerWorkflows board's title on the disabled share switch.
-  shareNeedsEditor: 'Only Editors can share',
-  lockToggle: 'Only this workspace’s admins and editors can change the lock',
-  lockFirst: 'Turn off the deletion lock first',
-  lastWorkspace: 'A project’s last workspace can’t be deleted',
-  sharedInUse: 'Other workspaces call its shared workflows. Unshare them first',
-  lockedBy: (name: string) => `Locked by ${name}`,
-} as const
-
-/** `projectsLeft`: every project still in the org, seen or not; deleting waits for them. */
-export function orgCapabilities(role: OrgRole, projectsLeft = 0): Capabilities<OrgCapability> {
-  const admin = role === 'owner' || role === 'admin'
-  return {
-    createProject: YES,
-    manageSettings: admin ? YES : no(REASONS.orgAdmins),
-    delete:
-      role !== 'owner'
-        ? no(REASONS.orgOwners)
-        : projectsLeft > 0
-          ? no(REASONS.projectsLeft(projectsLeft))
-          : YES,
-  }
-}
-
-export function projectCapabilities(
-  role: ProjectRole | null,
-  locked: boolean,
-  orgRole: OrgRole | null = null,
-): Capabilities<ProjectCapability> {
-  const admin = role === 'admin' ? YES : no(REASONS.projectAdmins)
-  const orgAdmin = orgRole === 'owner' || orgRole === 'admin'
-  return {
-    manageSettings: admin,
-    createWorkspace: admin,
-    manageMembers: admin,
-    manageKeys: admin,
-    manageVariables: admin,
-    toggleLock: admin,
-    delete: !admin.allowed ? admin : locked ? no(REASONS.lockFirst) : YES,
-    // A project admin can't take the project out of an org they don't run, and the
-    // deletion lock keeps it where it is: a move removes it from the org.
-    move: !orgAdmin ? no(REASONS.orgAdmins) : locked ? no(REASONS.lockFirst) : YES,
-  }
-}
-
-export interface WorkspaceFacts {
-  ownLock: boolean
-  /** The project's name when the project's lock covers this workspace. */
-  lockedByProject: string | null
-  isLastWorkspace: boolean
-  /** Another workspace calls one of its shared items. */
-  sharedInUse: boolean
-}
-
-export function workspaceCapabilities(
-  role: WorkspaceRole,
-  facts: WorkspaceFacts,
-): Capabilities<WorkspaceCapability> {
-  const editor = role === 'viewer' ? no(REASONS.needsEditor) : YES
-  const admin = role === 'admin' ? YES : no(REASONS.workspaceAdmins)
-  const toggleLock =
-    role === 'viewer'
-      ? no(REASONS.lockToggle)
-      : facts.lockedByProject
-        ? no(REASONS.lockedBy(facts.lockedByProject))
-        : YES
-  const deleteWorkspace = !admin.allowed
-    ? admin
-    : facts.lockedByProject
-      ? no(REASONS.lockedBy(facts.lockedByProject))
-      : facts.ownLock
-        ? no(REASONS.lockFirst)
-        : facts.isLastWorkspace
-          ? no(REASONS.lastWorkspace)
-          : facts.sharedInUse
-            ? no(REASONS.sharedInUse)
-            : YES
-  return {
-    edit: editor,
-    deploy: editor,
-    run: YES,
-    share: role === 'viewer' ? no(REASONS.shareNeedsEditor) : YES,
-    manageSettings: admin,
-    manageMembers: admin,
-    manageKeys: admin,
-    manageVariables: admin,
-    toggleLock,
-    delete: deleteWorkspace,
-  }
-}
+// The capability tables live in @awaitstep/ir, where the API applies them too.
+export {
+  ACCESS_REASONS as REASONS,
+  orgCapabilities,
+  projectCapabilities,
+  workspaceCapabilities,
+  type WorkspaceFacts,
+} from '@awaitstep/ir'

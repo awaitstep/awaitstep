@@ -2,38 +2,20 @@ import type { Project, ProjectRole } from './projects'
 import type { OrgRole, OrgSummary } from './session'
 import type { Workspace, WorkspaceRole } from './workspaces'
 
-/** Whether the viewer may do something here, and why not when they may not. */
-export interface Allowed {
-  allowed: boolean
-  reason?: string
-}
-
-export type OrgCapability = 'createProject' | 'manageSettings' | 'delete'
-
-export type ProjectCapability =
-  | 'manageSettings'
-  | 'createWorkspace'
-  | 'manageMembers'
-  | 'manageKeys'
-  | 'manageVariables'
-  | 'toggleLock'
-  | 'delete'
-  /** Move the project to another org: the org's owners and admins only. */
-  | 'move'
-
-export type WorkspaceCapability =
-  | 'edit'
-  | 'deploy'
-  | 'run'
-  | 'share'
-  | 'manageSettings'
-  | 'manageMembers'
-  | 'manageKeys'
-  | 'manageVariables'
-  | 'toggleLock'
-  | 'delete'
-
-export type Capabilities<C extends string> = Record<C, Allowed>
+// The capability vocabulary is @awaitstep/ir's, shared with the API and the dummy server.
+export type {
+  Allowed,
+  Capabilities,
+  OrgCapability,
+  ProjectCapability,
+  WorkspaceCapability,
+} from '@awaitstep/ir'
+import type {
+  Capabilities,
+  OrgCapability,
+  ProjectCapability,
+  WorkspaceCapability,
+} from '@awaitstep/ir'
 
 export interface OrgScope {
   org: OrgSummary

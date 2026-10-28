@@ -1,7 +1,9 @@
 // Dashboard types for the signed-in person and their organizations. Web-only
 // until the backend phase moves them into their package (W1 brief, §D).
 
-export type OrgRole = 'owner' | 'admin' | 'member'
+import type { OrgRole } from '@awaitstep/ir'
+
+export type { OrgRole } from '@awaitstep/ir'
 
 export interface Person {
   id: string

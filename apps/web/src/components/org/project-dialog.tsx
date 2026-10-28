@@ -9,7 +9,7 @@ import { Input } from '../ui/input'
 import { Textarea } from '../ui/textarea'
 import { Label } from '../ui/label'
 import { api } from '../../lib/api-client'
-import { slugify } from '../../lib/slug'
+import { slugify } from '@awaitstep/ir'
 import { useSheetStore } from '../../stores/sheet-store'
 import { useOrgStore } from '../../stores/org-store'
 import { toast } from 'sonner'
@@ -50,7 +50,7 @@ export function ProjectDialog() {
       }
       return api.createProject({
         name: values.name.trim(),
-        slug: slugify(values.name),
+        slug: slugify(values.name, 'default'),
         description: values.description?.trim() || undefined,
       })
     },

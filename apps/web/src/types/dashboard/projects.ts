@@ -3,7 +3,7 @@ import type { WorkspaceColour } from '../../components/ui/workspace-colour'
 import type { LockState } from './locks'
 import type { Person } from './session'
 
-export type ProjectRole = 'admin' | 'member'
+export type { ProjectRole } from '@awaitstep/ir'
 
 export interface WorkspaceChip {
   id: string

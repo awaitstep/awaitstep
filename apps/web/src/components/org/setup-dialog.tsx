@@ -7,7 +7,7 @@ import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { authClient } from '../../lib/auth-client'
 import { api } from '../../lib/api-client'
-import { slugify } from '../../lib/slug'
+import { slugify } from '@awaitstep/ir'
 import { useOrgStore } from '../../stores/org-store'
 
 export function SetupDialog({ open }: { open: boolean }) {
@@ -30,7 +30,7 @@ export function SetupDialog({ open }: { open: boolean }) {
     try {
       const orgResult = await authClient.organization.create({
         name: orgName.trim(),
-        slug: slugify(orgName),
+        slug: slugify(orgName, 'org'),
       })
 
       if (orgResult.error) {
@@ -43,7 +43,7 @@ export function SetupDialog({ open }: { open: boolean }) {
 
       await api.createProject({
         name: projectName.trim(),
-        slug: slugify(projectName),
+        slug: slugify(projectName, 'default'),
       })
 
       // ProjectsProvider will pick up the new project via this invalidation

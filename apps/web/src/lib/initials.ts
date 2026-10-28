@@ -6,3 +6,8 @@ export function initialsOf(name?: string | null, email?: string | null): string 
   if (parts.length >= 2) return (parts[0]![0]! + parts[1]![0]!).toUpperCase()
   return source.slice(0, 2).toUpperCase()
 }
+
+/** "A" for Acme: the tile letter of an organization, project or workspace. */
+export function initialOf(name: string): string {
+  return name.trim().charAt(0).toUpperCase()
+}

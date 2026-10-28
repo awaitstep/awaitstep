@@ -1,7 +1,7 @@
-export const WORKSPACE_COLOURS = ['green', 'blue', 'amber', 'purple', 'rose'] as const
+import type { WorkspaceColour } from '@awaitstep/ir'
 
-/** One of the preset swatches a workspace is tinted with. */
-export type WorkspaceColour = (typeof WORKSPACE_COLOURS)[number]
+// The swatch list is in @awaitstep/ir, where the API validates it; this file maps each one to its classes.
+export { WORKSPACE_COLOURS, type WorkspaceColour } from '@awaitstep/ir'
 
 /** Background + foreground classes for a solid workspace tile. */
 export const WORKSPACE_TILE_CLASS: Record<WorkspaceColour, string> = {

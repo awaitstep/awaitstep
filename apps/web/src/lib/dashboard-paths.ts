@@ -38,35 +38,10 @@ export type WorkspaceSlugs = Required<ScopeSlugs>
 /** Where a bare workspace URL goes, and where every project card and switcher links. */
 export const DEFAULT_WORKSPACE_PAGE: WorkspacePage = 'overview'
 
-/**
- * Slugs that a URL segment at each level can't be, because a route already
- * owns that path: the old app's top-level pages, and the new tree's own page
- * names. B1 enforces the same lists in the API.
- */
-export const RESERVED_SLUGS = {
-  org: [
-    'api',
-    'account',
-    'api-playground',
-    'choose-org',
-    'connections',
-    'dashboard',
-    'env-vars',
-    'invite',
-    'runs',
-    'settings',
-    'sign-in',
-    'workflows',
-  ],
-  project: [...ORG_PAGES, 'settings', 'account', 'items'],
-  // A workspace's pages sit one level below it, so only the project's own
-  // settings path collides.
-  workspace: ['settings'],
-} as const satisfies Record<'org' | 'project' | 'workspace', readonly string[]>
-
-export function isReservedSlug(level: keyof typeof RESERVED_SLUGS, slug: string): boolean {
-  return (RESERVED_SLUGS[level] as readonly string[]).includes(slug)
-}
+// A URL segment at each level can't be a page a route already owns. The lists
+// live in `@awaitstep/ir` so the API refuses the same slugs the router hides;
+// `lib/__tests__/dashboard-paths.test.ts` checks every page name here is in them.
+export { RESERVED_SLUGS, isReservedSlug } from '@awaitstep/ir'
 
 function segment(slug: string): string {
   return encodeURIComponent(slug)

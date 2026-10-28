@@ -195,3 +195,30 @@ export {
   raceDefinition,
   bundledNodeDefinitions,
 } from './bundled-nodes/index.js'
+export {
+  SLUG_PATTERN,
+  MAX_SLUG_LENGTH,
+  RESERVED_SLUGS,
+  isReservedSlug,
+  isValidSlug,
+  slugify,
+  type SlugLevel,
+} from './slugs.js'
+export { WORKSPACE_COLOURS, isWorkspaceColour, type WorkspaceColour } from './workspaces.js'
+export {
+  ACCESS_REASONS,
+  isOrgAdmin,
+  rolesFromOrgRole,
+  orgCapabilities,
+  projectCapabilities,
+  workspaceCapabilities,
+  type OrgRole,
+  type ProjectRole,
+  type WorkspaceRole,
+  type Allowed,
+  type Capabilities,
+  type OrgCapability,
+  type ProjectCapability,
+  type WorkspaceCapability,
+  type WorkspaceFacts,
+} from './access.js'

@@ -8,7 +8,7 @@ import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { authClient } from '../../lib/auth-client'
-import { slugify } from '../../lib/slug'
+import { slugify } from '@awaitstep/ir'
 import { useSheetStore } from '../../stores/sheet-store'
 import { useOrgStore } from '../../stores/org-store'
 import { toast } from 'sonner'
@@ -46,7 +46,7 @@ export function OrgDialog({ hasOrgs }: OrgDialogProps) {
     mutationFn: async (values: OrgFormValues) => {
       const res = await authClient.organization.create({
         name: values.name.trim(),
-        slug: slugify(values.name),
+        slug: slugify(values.name, 'org'),
       })
       if (res.error) throw new Error(res.error.message)
       return res.data
