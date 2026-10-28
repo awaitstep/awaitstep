@@ -22,7 +22,7 @@ import { DOCS_URL } from './nav-model'
 interface DashboardAccountMenuProps {
   /** The rail's or the phone header's avatar. */
   trigger: ReactElement
-  user: { name: string; email: string }
+  user: { name: string; email: string; image: string | null }
   org: string
   /** The phone menu also carries the rail items the tab bar has no room for. */
   placement: 'rail' | 'phone'

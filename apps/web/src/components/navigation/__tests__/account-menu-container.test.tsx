@@ -15,7 +15,7 @@ vi.mock('../../../lib/auth-client', () => ({
   handleSignOut: signOut,
 }))
 
-const AMA = { name: 'Ama Mensah', email: 'ama@acme.test' }
+const AMA = { name: 'Ama Mensah', email: 'ama@acme.test', image: null }
 
 function renderMenu(
   placement: 'rail' | 'phone',
@@ -46,6 +46,27 @@ afterEach(() => {
 })
 
 describe('DashboardAccountMenu', () => {
+  it('shows the uploaded photo on the avatar and in the menu', async () => {
+    const withPhoto = { ...AMA, image: 'data:image/png;base64,AAAA' }
+    render(
+      <DashboardAccountMenu
+        placement="rail"
+        trigger={<RailAccountButton user={withPhoto} />}
+        user={withPhoto}
+        org="acme"
+        whatsNewHref="/acme/projects?open=whats-new"
+        theme="dark"
+        onToggleTheme={vi.fn()}
+        showReset={false}
+      />,
+    )
+    expect(
+      within(screen.getByRole('button', { name: 'Your account' })).getByRole('img'),
+    ).toHaveAttribute('src', withPhoto.image)
+    const menu = await openMenu()
+    expect(within(menu).getByRole('img')).toHaveAttribute('src', withPhoto.image)
+  })
+
   it('links Profile and Sessions to the account pages in this org', async () => {
     renderMenu('rail')
     await openMenu()

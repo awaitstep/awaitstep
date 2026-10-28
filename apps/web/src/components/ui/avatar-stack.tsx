@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { listNames } from '../../lib/name-list'
 import { cn } from '../../lib/utils'
 import { Avatar } from './avatar'
 import { WORKSPACE_COLOURS, WORKSPACE_TILE_CLASS, type WorkspaceColour } from './workspace-colour'
@@ -19,8 +21,7 @@ function describePeople(people: Person[], shown: number): string {
   const names = people.slice(0, shown).map((person) => person.name)
   const rest = people.length - shown
   if (rest > 0) return `${names.join(', ')} and ${rest} ${rest === 1 ? 'other' : 'others'}`
-  if (names.length <= 1) return names.join('')
-  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+  return listNames(names)
 }
 
 /** A steady colour per person, from the workspace swatches, so the same face reads the same everywhere. */
@@ -66,18 +67,40 @@ export function AvatarStack({ people, max = 3 }: AvatarStackProps) {
 
 /**
  * One person's avatar in their steady colour, beside their name in a list row.
- * Shows the initials the person record carries, as every other surface does.
+ * Shows their photo, else the initials the person record carries, as every
+ * other surface does.
  */
-export function PersonAvatar({ person }: { person: Person & { initials: string } }) {
+export function PersonAvatar({
+  person,
+  className,
+}: {
+  person: Person & { initials: string }
+  /** Size and text overrides, e.g. the Profile page's 64px photo. */
+  className?: string
+}) {
+  // The photo that failed to load, so a broken one falls back to the initials
+  // and a new photo is tried again.
+  const [failed, setFailed] = useState<string | null>(null)
+  const image = person.image && person.image !== failed ? person.image : null
+
+  function handleError() {
+    setFailed(person.image ?? null)
+  }
+
   return (
     <span
       aria-hidden="true"
       className={cn(
-        'flex size-8 shrink-0 items-center justify-center rounded-full text-2xs font-semibold',
+        'flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full text-2xs font-semibold',
         WORKSPACE_TILE_CLASS[avatarColour(person.id)],
+        className,
       )}
     >
-      {person.initials}
+      {image ? (
+        <img src={image} alt="" className="size-full object-cover" onError={handleError} />
+      ) : (
+        person.initials
+      )}
     </span>
   )
 }

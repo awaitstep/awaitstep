@@ -45,6 +45,7 @@ export interface FrameScope {
 export interface FrameViewer {
   name: string
   email: string
+  image: string | null
 }
 
 interface DashboardFrameProps {
