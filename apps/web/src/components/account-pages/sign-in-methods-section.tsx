@@ -20,7 +20,7 @@ const ICONS = {
 export function SignInMethodsSection() {
   const methods = useSignInMethods()
   return (
-    <section className="flex flex-col gap-3">
+    <section className="settings-width flex flex-col gap-3">
       <SectionHeader title="Sign-in methods" caption="Any of these opens the same account" />
       <LoadedQuery query={methods} what="sign-in methods">
         {(data) => (

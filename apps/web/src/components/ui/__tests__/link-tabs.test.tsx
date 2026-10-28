@@ -22,5 +22,7 @@ describe('LinkTabs', () => {
     )
     // Keyboard focus shows, as on the kit's other tabs.
     expect(screen.getByRole('link', { name: 'Profile' })).toHaveClass('focus-visible:ring-2')
+    // No scroll box: the underline's 1px overlap made one scroll vertically.
+    expect(screen.getByRole('navigation')).not.toHaveClass('overflow-x-auto')
   })
 })

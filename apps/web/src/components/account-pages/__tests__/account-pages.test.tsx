@@ -184,6 +184,19 @@ describe('Your data', () => {
   })
 })
 
+describe('Profile layout', () => {
+  it('caps every section at the settings width, About you on its card', async () => {
+    renderProfile()
+    const name = await screen.findByLabelText('Full name')
+    expect(name.closest('.bg-card')).toHaveClass('settings-width')
+    for (const title of ['About you', 'Organizations', 'Your data']) {
+      expect(screen.getByRole('heading', { name: title }).closest('section')).toHaveClass(
+        'settings-width',
+      )
+    }
+  })
+})
+
 describe('Profile states', () => {
   it('shows the skeleton while loading and the error card when it fails', async () => {
     const { unmount } = renderProfile(AMA, 'loading')

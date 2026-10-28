@@ -17,7 +17,7 @@ interface LinkTabsProps {
 /** Underlined tabs that are pages of their own (`AccountProfile`): links, not a tablist. */
 export function LinkTabs({ label, tabs, activeKey }: LinkTabsProps) {
   return (
-    <nav aria-label={label} className="flex gap-6 overflow-x-auto border-b border-border">
+    <nav aria-label={label} className="flex flex-wrap gap-x-6 border-b border-border">
       {tabs.map((tab) => {
         const active = tab.key === activeKey
         return (

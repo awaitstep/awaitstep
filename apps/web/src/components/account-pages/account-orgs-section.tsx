@@ -44,7 +44,7 @@ export function AccountOrgsSection({ currentOrg, orgs }: AccountOrgsSectionProps
   }
 
   return (
-    <section className="flex flex-col gap-3">
+    <section className="settings-width flex flex-col gap-3">
       <SectionHeader title="Organizations" caption="Where you’re a member" />
       <ListCard label="Organizations" empty="You’re not in any organization.">
         {orgs.map((org) => (

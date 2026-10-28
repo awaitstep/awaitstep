@@ -58,7 +58,7 @@ export function SessionsSection() {
   const failed = asking?.kind === 'one' ? revokeOne.error : revokeOthers.error
 
   return (
-    <section className="flex flex-col gap-3">
+    <section className="settings-width flex flex-col gap-3">
       <SectionHeader
         title="Active sessions"
         caption={list && plural(list.length, 'session')}

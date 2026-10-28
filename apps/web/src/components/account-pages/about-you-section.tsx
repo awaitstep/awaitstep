@@ -7,6 +7,7 @@ import type { Account } from '../../types/dashboard/account'
 import { PersonAvatar } from '../ui/avatar-stack'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
+import { SettingsCard } from '../ui/form-card'
 import { FormField } from '../ui/form-field'
 import { Input } from '../ui/input'
 import { SectionHeader } from '../ui/section-header'
@@ -43,7 +44,7 @@ export function AboutYouSection({ account }: { account: Account }) {
   const saveError = saveName.error && !nameError ? saveName.error.message : undefined
 
   return (
-    <section className="flex flex-col gap-5">
+    <section className="settings-width flex flex-col gap-3">
       <TopBarContent>
         <Button
           type="submit"
@@ -56,18 +57,20 @@ export function AboutYouSection({ account }: { account: Account }) {
         </Button>
       </TopBarContent>
       <SectionHeader title="About you" />
-      <PhotoRow account={account} />
-      <form id={FORM_ID} onSubmit={handleSubmit}>
-        <FormField label="Full name" error={nameError}>
-          <Input value={name} onChange={handleName} autoComplete="name" />
-        </FormField>
-      </form>
-      {saveError && (
-        <p role="alert" className="text-2xs text-status-error">
-          {saveError}
-        </p>
-      )}
-      <EmailField account={account} />
+      <SettingsCard>
+        <PhotoRow account={account} />
+        <form id={FORM_ID} onSubmit={handleSubmit}>
+          <FormField label="Full name" error={nameError}>
+            <Input value={name} onChange={handleName} autoComplete="name" />
+          </FormField>
+        </form>
+        {saveError && (
+          <p role="alert" className="text-2xs text-status-error">
+            {saveError}
+          </p>
+        )}
+        <EmailField account={account} />
+      </SettingsCard>
     </section>
   )
 }

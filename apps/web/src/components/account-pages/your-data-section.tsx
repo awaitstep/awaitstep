@@ -45,7 +45,7 @@ export function YourDataSection({ account, currentOrg }: YourDataSectionProps) {
   }
 
   return (
-    <section className="flex flex-col gap-3">
+    <section className="settings-width flex flex-col gap-3">
       <SectionHeader title="Your data" />
       <div className="flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
         <DataRow
