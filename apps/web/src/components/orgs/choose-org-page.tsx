@@ -1,9 +1,11 @@
 import { Navigate } from '@tanstack/react-router'
 import { ArrowRight, Plus } from 'lucide-react'
+import { useMyInvites } from '../../data/dashboard/invites'
 import { useOrgs, useSwitchOrg, useViewer } from '../../data/dashboard/session'
 import { handleSignOut } from '../../lib/auth-client'
-import { chooseOrgPath, orgPath } from '../../lib/dashboard-paths'
+import { chooseOrgPath, invitePath, orgPath } from '../../lib/dashboard-paths'
 import { timeAgoOrDay } from '../../lib/time'
+import type { PendingInvite } from '../../types/dashboard/invites'
 import type { OrgSummary } from '../../types/dashboard/session'
 import { AuthCard } from '../ui/auth-card'
 import { Badge } from '../ui/badge'
@@ -13,6 +15,7 @@ import { ShellLink } from '../ui/shell-link'
 import { Bone, LoadingRegion } from '../ui/skeletons'
 import { Tile } from '../ui/tile'
 import { AuthLayout } from '../shell/auth-layout'
+import { ORG_ROLE_LABEL } from '../access/parts/access-draft'
 import { orgDetail } from '../navigation/switcher-details'
 
 const FOOTER_LINKS = [{ label: 'Docs', href: 'https://docs.awaitstep.dev' }]
@@ -54,14 +57,38 @@ function OrgRow({ org, lastUsed, onChoose }: OrgRowProps) {
   )
 }
 
+/** `ChooseOrg`'s invite row: "Globex · Lena Ortiz invited you · Member", Join. */
+function InviteRow({ invite }: { invite: PendingInvite }) {
+  return (
+    <li>
+      <ShellLink
+        href={invitePath(invite.token)}
+        className="flex items-center gap-3.5 rounded-xl border border-dashed border-border bg-background px-4 py-3.5 transition-colors hover:border-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Tile tone="info" size="lg">
+          {invite.org.initial}
+        </Tile>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="truncate text-sm font-semibold text-foreground">{invite.org.name}</span>
+          <span className="truncate text-xs text-muted-foreground">
+            {invite.invitedBy} invited you · {ORG_ROLE_LABEL[invite.orgRole]}
+          </span>
+        </span>
+        <Badge variant="info">Join</Badge>
+      </ShellLink>
+    </li>
+  )
+}
+
 /**
  * The way into the dashboard after sign-in: straight to the org you opened
- * last, else the ChooseOrg board — your organizations, Create an
- * organization (its dialog is P9's), Sign out.
+ * last, else the ChooseOrg board — your organizations, invites waiting for
+ * you, Create an organization, Sign out. Open invites keep you here.
  */
 export function ChooseOrgPage() {
   const viewer = useViewer()
   const orgs = useOrgs()
+  const invites = useMyInvites()
   const switchOrg = useSwitchOrg()
 
   function handleRetry() {
@@ -87,7 +114,7 @@ export function ChooseOrgPage() {
         retrying={viewer.isFetching || orgs.isFetching}
       />
     )
-  } else if (!viewer.data || !orgs.data) {
+  } else if (!viewer.data || !orgs.data || invites.isPending) {
     card = (
       <LoadingRegion label="Loading your organizations">
         <Bone className="h-8 w-64" />
@@ -97,7 +124,10 @@ export function ChooseOrgPage() {
     )
   } else {
     const last = viewer.data.lastOrgSlug
-    if (last && orgs.data.some((org) => org.slug === last)) {
+    // Invites are extra: if they fail to load, the orgs still show (and still open).
+    const pending = invites.data ?? []
+    // An invite waiting for you is worth a look before the usual org.
+    if (pending.length === 0 && last && orgs.data.some((org) => org.slug === last)) {
       return <Navigate to={orgPath(last)} replace />
     }
     card = (
@@ -120,7 +150,7 @@ export function ChooseOrgPage() {
           </>
         }
       >
-        {orgs.data.length === 0 ? (
+        {orgs.data.length === 0 && pending.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             You aren’t in any organization yet. Create one, or ask for an invite.
           </p>
@@ -128,6 +158,9 @@ export function ChooseOrgPage() {
           <ul aria-label="Your organizations" className="flex flex-col gap-2.5">
             {orgs.data.map((org) => (
               <OrgRow key={org.id} org={org} lastUsed={org.slug === last} onChoose={handleChoose} />
+            ))}
+            {pending.map((invite) => (
+              <InviteRow key={invite.token} invite={invite} />
             ))}
           </ul>
         )}

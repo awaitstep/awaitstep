@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { PendingInvite } from '../../../types/dashboard/invites'
 import type { OrgSummary } from '../../../types/dashboard/session'
 import { ChooseOrgPage } from '../choose-org-page'
 
@@ -17,6 +18,9 @@ const queries = vi.hoisted(() => ({
     lastOrgSlug: string | null
   }>,
   orgs: { isError: false, isFetching: false } as Query<OrgSummary[]>,
+  invites: { isError: false, isFetching: false, data: [], refetch: () => undefined } as Query<
+    PendingInvite[]
+  >,
 }))
 const switchOrg = vi.hoisted(() => vi.fn())
 const signOut = vi.hoisted(() => vi.fn())
@@ -25,6 +29,10 @@ vi.mock('../../../data/dashboard/session', () => ({
   useViewer: () => queries.viewer,
   useOrgs: () => queries.orgs,
   useSwitchOrg: () => ({ mutate: switchOrg }),
+}))
+
+vi.mock('../../../data/dashboard/invites', () => ({
+  useMyInvites: () => queries.invites,
 }))
 
 vi.mock('../../../lib/auth-client', () => ({ handleSignOut: signOut }))
@@ -65,6 +73,7 @@ function settle(lastOrgSlug: string | null, orgs: OrgSummary[] = ORGS) {
 afterEach(() => {
   queries.viewer = { isError: false, isFetching: false, refetch: vi.fn() }
   queries.orgs = { isError: false, isFetching: false, refetch: vi.fn() }
+  queries.invites = { isError: false, isFetching: false, data: [], refetch: vi.fn() }
   switchOrg.mockReset()
   signOut.mockReset()
 })
@@ -117,5 +126,47 @@ describe('ChooseOrgPage', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('We couldn’t load your organizations')
     await userEvent.click(screen.getByRole('button', { name: /Try again/ }))
     expect(refetch).toHaveBeenCalled()
+  })
+
+  it('lists an invite waiting for you, with Join, and stays even with a last org', () => {
+    queries.viewer = {
+      isError: false,
+      isFetching: false,
+      data: { email: 'daniel@acme.test', lastOrgSlug: 'acme' },
+      refetch: vi.fn(),
+    }
+    queries.orgs = { isError: false, isFetching: false, data: ORGS, refetch: vi.fn() }
+    queries.invites = {
+      isError: false,
+      isFetching: false,
+      refetch: vi.fn(),
+      data: [
+        {
+          token: 'inv_globex_daniel',
+          org: { name: 'Globex', initial: 'G' },
+          invitedBy: 'Lena Ortiz',
+          orgRole: 'member',
+        },
+      ],
+    }
+    render(<ChooseOrgPage />)
+    expect(screen.queryByTestId('navigate')).not.toBeInTheDocument()
+    const invite = screen.getByRole('link', { name: /Globex/ })
+    expect(invite).toHaveTextContent('Lena Ortiz invited you · Member')
+    expect(invite).toHaveTextContent('Join')
+    expect(invite).toHaveAttribute('href', '/invite/inv_globex_daniel')
+  })
+
+  it('still opens your last org when the invites can’t load', () => {
+    queries.viewer = {
+      isError: false,
+      isFetching: false,
+      data: { email: 'daniel@acme.test', lastOrgSlug: 'acme' },
+      refetch: vi.fn(),
+    }
+    queries.orgs = { isError: false, isFetching: false, data: ORGS, refetch: vi.fn() }
+    queries.invites = { isError: true, isFetching: false, refetch: vi.fn() }
+    render(<ChooseOrgPage />)
+    expect(screen.getByTestId('navigate')).toHaveTextContent('/acme/projects')
   })
 })
