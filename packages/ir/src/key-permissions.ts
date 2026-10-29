@@ -5,7 +5,9 @@
 // offers exactly the cells the API backs (dashboard IA, O10). Labels and
 // hints live in the web; this is the data and the rules.
 
-export type KeyLevel = 'organization' | 'project' | 'workspace'
+import type { ScopeLevel } from './access.js'
+
+export type KeyLevel = ScopeLevel
 
 export type KeyAction = 'read' | 'write' | 'delete' | 'deploy' | 'run'
 
@@ -39,9 +41,9 @@ const READ_WRITE_DELETE = ['read', 'write', 'delete'] as const
 
 /**
  * The cells each level offers — only those the API backs today. Members
- * are read-only for keys (people are a person's decision); a workspace
- * key reads variables until B4 gives workspaces values of their own; audit
- * (B7) and the library (W2) return with their routes.
+ * are read-only for keys (people are a person's decision); a workspace key
+ * sets its own workspace's variables (B4); audit (B7) and the library (W2)
+ * return with their routes.
  */
 export const KEY_CATALOG: Record<KeyLevel, readonly KeyCatalogEntry[]> = {
   organization: [
@@ -60,7 +62,7 @@ export const KEY_CATALOG: Record<KeyLevel, readonly KeyCatalogEntry[]> = {
   workspace: [
     { id: 'workflows', actions: KEY_ACTIONS },
     { id: 'runs', actions: READ_ONLY },
-    { id: 'variables', actions: READ_ONLY },
+    { id: 'variables', actions: READ_WRITE_DELETE },
   ],
 }
 

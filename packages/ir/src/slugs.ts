@@ -24,7 +24,6 @@ export const RESERVED_SLUGS = {
     'choose-org',
     'connections',
     'dashboard',
-    'env-vars',
     'invite',
     'runs',
     'settings',

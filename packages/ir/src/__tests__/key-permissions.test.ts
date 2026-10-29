@@ -37,10 +37,14 @@ describe('the key catalog', () => {
     expect(resourceAtLevel('project', 'workspaces')).toBe(true)
   })
 
-  it('offers people as read-only, and workspace variables as read-only until B4', () => {
+  it('offers people as read-only, and a workspace’s own variables in full (B4)', () => {
     expect(KEY_CATALOG.organization.find((r) => r.id === 'members')!.actions).toEqual(['read'])
     expect(KEY_CATALOG.project.find((r) => r.id === 'members')!.actions).toEqual(['read'])
-    expect(KEY_CATALOG.workspace.find((r) => r.id === 'variables')!.actions).toEqual(['read'])
+    expect(KEY_CATALOG.workspace.find((r) => r.id === 'variables')!.actions).toEqual([
+      'read',
+      'write',
+      'delete',
+    ])
   })
 })
 
@@ -50,6 +54,14 @@ describe('presets', () => {
       workflows: ['read'],
       runs: ['read'],
       variables: ['read'],
+    })
+  })
+
+  it('Full access on a workspace key sets its variables', () => {
+    expect(presetPermissions('workspace', 'full')).toEqual({
+      workflows: ['read', 'write', 'delete', 'deploy', 'run'],
+      runs: ['read'],
+      variables: ['read', 'write', 'delete'],
     })
   })
 
@@ -118,7 +130,10 @@ describe('editing a grid', () => {
     expect(
       grantsOutsideLevel('organization', { workflows: ['deploy'], projects: ['read'] }),
     ).toEqual(['workflows: deploy'])
-    expect(grantsOutsideLevel('workspace', { variables: ['write'] })).toEqual(['variables: write'])
+    expect(grantsOutsideLevel('workspace', { workspaces: ['write'] })).toEqual([
+      'workspaces: write',
+    ])
+    expect(grantsOutsideLevel('workspace', { variables: ['write'] })).toEqual([])
     expect(grantsOutsideLevel('project', presetPermissions('project', 'full'))).toEqual([])
   })
 })
@@ -131,7 +146,8 @@ describe('checking a key', () => {
     expect(keyMay('project', { workflows: [...grid.workflows] }, 'runs', 'read')).toBe(false)
     // Granted but not offered at the level: never.
     expect(keyMay('organization', { workflows: ['read'] }, 'workflows', 'read')).toBe(false)
-    expect(keyMay('workspace', { variables: ['write'] }, 'variables', 'write')).toBe(false)
+    expect(keyMay('workspace', { workspaces: ['write'] }, 'workspaces', 'write')).toBe(false)
+    expect(keyMay('workspace', { variables: ['write'] }, 'variables', 'write')).toBe(true)
   })
 
   it('reads the level off the row', () => {

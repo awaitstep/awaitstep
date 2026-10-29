@@ -143,7 +143,13 @@ export type {
   ProjectHandlerModules,
   ProjectWriteError,
 } from './project-files.js'
-export { globalEnvRefName, isGlobalEnvRef } from './env-vars.js'
+export {
+  ENV_VAR_NAME,
+  globalEnvRefName,
+  isEnvVarName,
+  isGlobalEnvRef,
+  variableLevelOf,
+} from './env-vars.js'
 export { migrateArtifact } from './migrate.js'
 export { loadArtifact } from './load.js'
 export {
@@ -244,6 +250,7 @@ export {
   type OrgRole,
   type ProjectRole,
   type WorkspaceRole,
+  type ScopeLevel,
   type RoleGrants,
   type ResolvedRoles,
   type Allowed,

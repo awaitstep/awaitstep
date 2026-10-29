@@ -18,6 +18,9 @@ export type OrgRole = 'owner' | 'admin' | 'member'
 export type ProjectRole = 'admin' | 'member'
 export type WorkspaceRole = 'admin' | 'editor' | 'viewer'
 
+/** The three places something is set at: keys and variables are both scoped this way. */
+export type ScopeLevel = 'organization' | 'project' | 'workspace'
+
 /** What the membership rows say about one person at one workspace. */
 export interface RoleGrants {
   /** Null when they are not in the organization. */
