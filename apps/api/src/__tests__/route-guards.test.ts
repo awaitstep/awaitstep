@@ -43,6 +43,8 @@ function sessionOnly(method: string, path: string): boolean {
   if (path === '/api/scope' || path === '/api/orgs' || path === '/api/failing') return true
   if (/^\/api\/workspaces\/:id\/access-request/.test(path)) return true
   if (/^\/api\/workspaces\/:id\/members/.test(path)) return method !== 'GET'
+  // A key that may delete must not lift the lock first (D-B5-3).
+  if (path === '/api/projects/:id/lock' || path === '/api/workspaces/:id/lock') return true
   return path === '/api/projects/:id/move' || path === '/api/workflows/:id/move'
 }
 
@@ -222,7 +224,8 @@ describe('mutation route guards', () => {
       !path.startsWith('/api/members') &&
       !path.startsWith('/api/invitations') &&
       !path.startsWith('/api/access-requests') &&
-      !path.startsWith('/api/projects/:id/move')
+      !path.startsWith('/api/projects/:id/move') &&
+      !path.startsWith('/api/projects/:id/lock')
     expect(await refusals(ORG_READ_KEY, orgLevel, /lacks permission/)).toEqual([])
   })
 

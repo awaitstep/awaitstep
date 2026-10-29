@@ -210,6 +210,7 @@ function projectOverview(p: Project): ProjectOverview {
     })),
     health: { workflows: 0, deployed: 0, failing: 0, lastRunAt: null },
     lockedByName: null,
+    lockedWorkspaces: [],
     members: [{ ...TEST_MEMBER, role: testOrgRole }],
     viewer: testGrantRows(),
   }
@@ -373,6 +374,29 @@ const mockDb: DatabaseAdapter = {
   async moveProjectToOrganization() {
     return notMocked('moveProjectToOrganization')
   },
+  // Lock writes are the SQL's: their tests run on the real database (sqlite-app.ts).
+  async getProjectLocks(id, organizationId) {
+    const p = store.projects.get(id)
+    if (!p || p.organizationId !== organizationId) return null
+    const locked = workspacesOf(id).filter((w) => w.lockedAt !== null)
+    return { ownLock: p.lockedAt !== null, lockedWorkspaces: locked.map((w) => w.name) }
+  },
+  async setProjectLock() {
+    return notMocked('setProjectLock')
+  },
+  async getWorkspaceLocks(id) {
+    const w = store.workspaces.get(id)
+    const project = w && store.projects.get(w.projectId)
+    if (!w || !project) return null
+    return {
+      ownLock: w.lockedAt !== null,
+      lockedByProject: project.lockedAt !== null ? project.name : null,
+      isLastWorkspace: workspacesOf(w.projectId).length === 1,
+    }
+  },
+  async setWorkspaceLock() {
+    return notMocked('setWorkspaceLock')
+  },
 
   // Workspaces
   async listWorkspacesByProject(projectId, _userId) {
@@ -412,9 +436,10 @@ const mockDb: DatabaseAdapter = {
     store.workspaces.set(id, updated)
     return updated
   },
-  async deleteWorkspaceUnlessLast(id) {
+  async deleteWorkspaceUnlessBlocked(id) {
     const w = store.workspaces.get(id)
     if (!w || workspacesOf(w.projectId).length < 2) return false
+    if (w.lockedAt !== null || store.projects.get(w.projectId)?.lockedAt) return false
     store.workspaces.delete(id)
     for (const [wfId, wf] of store.workflows)
       if (wf.workspaceId === id) store.workflows.delete(wfId)
@@ -552,6 +577,7 @@ const mockDb: DatabaseAdapter = {
   async deleteProject(id, organizationId) {
     const p = store.projects.get(id)
     if (!p || p.organizationId !== organizationId) return false
+    if (p.lockedAt !== null || workspacesOf(id).some((w) => w.lockedAt !== null)) return false
     return store.projects.delete(id)
   },
 

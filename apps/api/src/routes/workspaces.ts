@@ -5,6 +5,7 @@ import { ACCESS_REASONS, WORKSPACE_COLOURS, slugify, workspaceCapabilities } fro
 import { isUniqueViolation } from '@awaitstep/db'
 import { zValidator } from '../lib/validation.js'
 import { isSession } from '../middleware/auth.js'
+import { CHANGED_MEANWHILE, lockBodySchema, lockResponse } from '../lib/locks.js'
 import { FOR_KEY, FOR_SESSION, rolesOf, workspaceRecord } from '../lib/scope-records.js'
 import { workspaceSlugSchema } from '../lib/slugs.js'
 import type { AppEnv } from '../types.js'
@@ -129,9 +130,32 @@ workspaces.patch('/:id', zValidator('json', updateWorkspaceSchema), async (c) =>
 })
 
 workspaces.delete('/:id', async (c) => {
-  const deleted = await c.get('db').deleteWorkspaceUnlessLast(c.get('workspaceId')!)
-  if (!deleted) return c.json({ error: ACCESS_REASONS.lastWorkspace }, 409)
-  return c.json({ ok: true })
+  const db = c.get('db')
+  const id = c.get('workspaceId')!
+  // Locks and "not the last" are checked in the statement; only a refusal reads why.
+  if (await db.deleteWorkspaceUnlessBlocked(id)) return c.json({ ok: true })
+  const locks = await db.getWorkspaceLocks(id)
+  if (!locks) return c.json({ error: 'Not found' }, 404)
+  // Sharing arrives with B6; until then nothing calls across workspaces.
+  const can = workspaceCapabilities(c.get('workspaceRole')!, { ...locks, sharedInUse: false })
+  return c.json({ error: can.delete.reason ?? CHANGED_MEANWHILE }, 409)
+})
+
+/**
+ * Turns the workspace's own deletion lock on or off. While its project is
+ * locked the project's lock decides, and the switch is refused.
+ */
+workspaces.put('/:id/lock', zValidator('json', lockBodySchema), async (c) => {
+  const db = c.get('db')
+  const id = c.get('workspaceId')!
+  const row = await db.setWorkspaceLock(id, c.get('userId'), c.req.valid('json').locked)
+  if (row) return c.json(lockResponse(row))
+  const locks = await db.getWorkspaceLocks(id)
+  if (!locks) return c.json({ error: 'Not found' }, 404)
+  const reason = locks.lockedByProject
+    ? ACCESS_REASONS.lockedBy(locks.lockedByProject)
+    : CHANGED_MEANWHILE
+  return c.json({ error: reason }, 409)
 })
 
 /**

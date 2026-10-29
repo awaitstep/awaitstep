@@ -124,6 +124,17 @@ describe('POST /api/projects', () => {
     expect((await post(app, { name: 'Mine', slug: 'mine' })).status).toBe(201)
   })
 
+  it('keeps a locked project, as the real database does', async () => {
+    // The in-memory store holds the row itself: locking it in place stands in
+    // for `PUT /projects/:id/lock`, which is the SQL's (locks.test.ts).
+    const project = await mockDb.getProjectById('test-project-1')
+    project!.lockedAt = '2026-10-20T00:00:00.000Z'
+    const del = await app.request(url('/api/projects/test-project-1'), { method: 'DELETE' })
+    expect(del.status).toBe(409)
+    expect((await del.json()).error).toBe('Turn off the deletion lock first')
+    expect(await mockDb.getProjectById('test-project-1')).not.toBeNull()
+  })
+
   it('refuses a slug of the wrong shape', async () => {
     for (const slug of ['Sales', 'my project', '-sales', 'sales-', '']) {
       const res = await post(app, { name: 'Sales', slug })

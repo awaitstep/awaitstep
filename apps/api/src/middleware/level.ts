@@ -3,6 +3,7 @@ import { createMiddleware } from 'hono/factory'
 import {
   orgCapabilities,
   projectCapabilities,
+  UNLOCKED_PROJECT,
   workspaceCapabilities,
   type Allowed,
   type ProjectCapability,
@@ -45,7 +46,7 @@ export function levelCan(c: Context<AppEnv>, capability: LevelCapability): Allow
     return orgRole ? orgCapabilities(orgRole).manageSettings : { allowed: false }
   }
   if (level === 'project') {
-    return projectCapabilities(c.get('projectRole'), false, orgRole)[capability]
+    return projectCapabilities(c.get('projectRole'), UNLOCKED_PROJECT, orgRole)[capability]
   }
   const role = c.get('workspaceRole')
   return role ? workspaceCapabilities(role, NO_FACTS)[capability] : { allowed: false }

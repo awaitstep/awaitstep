@@ -4,9 +4,10 @@ import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import { isUniqueViolation } from '@awaitstep/db'
-import { ACCESS_REASONS, isOrgAdmin } from '@awaitstep/ir'
+import { ACCESS_REASONS, isOrgAdmin, projectCapabilities } from '@awaitstep/ir'
 import { isSession } from '../middleware/auth.js'
 import { FOR_KEY, FOR_SESSION, projectRecord } from '../lib/scope-records.js'
+import { CHANGED_MEANWHILE, lockBodySchema, lockResponse } from '../lib/locks.js'
 import { parseOrgRole } from '../lib/org-role.js'
 import { projectSlugSchema } from '../lib/slugs.js'
 import type { AppEnv } from '../types.js'
@@ -87,9 +88,26 @@ projects.delete('/:id', async (c) => {
   const organizationId = c.get('organizationId')
   const id = c.req.param('id')
 
-  const deleted = await db.deleteProject(id, organizationId)
-  if (!deleted) return c.json({ error: 'Not found' }, 404)
-  return c.json({ ok: true })
+  // The locks are checked in the statement; only a refusal reads why.
+  if (await db.deleteProject(id, organizationId)) return c.json({ ok: true })
+  const locks = await db.getProjectLocks(id, organizationId)
+  if (!locks) return c.json({ error: 'Not found' }, 404)
+  const can = projectCapabilities(c.get('projectRole'), locks, c.get('orgRole')).delete
+  return c.json({ error: can.reason ?? CHANGED_MEANWHILE }, 409)
+})
+
+/** Turns the project's deletion lock on or off; on again keeps who set it and when. */
+projects.put('/:id/lock', zValidator('json', lockBodySchema), async (c) => {
+  const row = await c
+    .get('db')
+    .setProjectLock(
+      c.req.param('id'),
+      c.get('organizationId'),
+      c.get('userId'),
+      c.req.valid('json').locked,
+    )
+  if (!row) return c.json({ error: 'Not found' }, 404)
+  return c.json(lockResponse(row))
 })
 
 const SLUG_TAKEN_THERE = 'Another project in that organization already uses this URL'
@@ -98,7 +116,7 @@ const SLUG_TAKEN_THERE = 'Another project in that organization already uses this
  * Move the project to another organization the caller also runs. Its
  * workflows, workspaces, keys and variables go with it; rows of people who
  * are not in the target organization go, the rest follow, and open
- * invitations into it lose their places there.
+ * invitations into it lose their places there. A locked project stays.
  */
 projects.post(
   '/:id/move',
@@ -121,6 +139,7 @@ projects.post(
     }
     const project = await db.getProjectById(id)
     if (project?.organizationId === to) return c.json({ ok: true })
+    if (project?.lockedAt) return c.json({ error: ACCESS_REASONS.lockFirst }, 409)
     const targetRole = await db.getOrgRole(to, userId)
     if (targetRole === null || !isOrgAdmin(parseOrgRole(targetRole))) {
       return c.json({ error: ACCESS_REASONS.orgAdmins }, 403)

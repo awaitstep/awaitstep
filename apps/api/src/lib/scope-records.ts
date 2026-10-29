@@ -153,13 +153,15 @@ export function workspacePersonRecord(row: WorkspacePersonRow): WorkspacePersonR
   }
 }
 
-function lockRecord(
+export function lockRecord(
   lockedBy: string | null,
   lockedAt: string | null,
   name: string | null,
 ): LockRecord | null {
-  if (!lockedBy || !lockedAt) return null
-  return { setBy: { id: lockedBy, name: name ?? 'Someone' }, setAt: lockedAt }
+  // On is `locked_at`, as every check in the database reads it; the setter
+  // may be unknown (no row on record), never the lock.
+  if (!lockedAt) return null
+  return { setBy: { id: lockedBy ?? '', name: name ?? 'Someone' }, setAt: lockedAt }
 }
 
 export function orgRecord(row: OrgOverview): OrgRecord {
@@ -204,7 +206,11 @@ export function projectRecord(
     lock,
     members: audience.withMembers ? row.members.map(memberRecord) : [],
     viewerRole: roles.projectRole,
-    viewerCan: projectCapabilities(roles.projectRole, lock !== null, roles.orgRole),
+    viewerCan: projectCapabilities(
+      roles.projectRole,
+      { ownLock: lock !== null, lockedWorkspaces: row.lockedWorkspaces },
+      roles.orgRole,
+    ),
   }
 }
 

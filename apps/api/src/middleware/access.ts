@@ -3,6 +3,7 @@ import { createMiddleware } from 'hono/factory'
 import {
   orgCapabilities,
   projectCapabilities,
+  UNLOCKED_PROJECT,
   resolveRoles,
   workspaceCapabilities,
   type OrgCapability,
@@ -46,7 +47,9 @@ export function requireOrgCan(capability: OrgCapability) {
 
 export function requireProjectCan(capability: ProjectCapability) {
   return createMiddleware<AppEnv>(async (c, next) => {
-    const can = projectCapabilities(c.get('projectRole'), false, c.get('orgRole'))[capability]
+    const can = projectCapabilities(c.get('projectRole'), UNLOCKED_PROJECT, c.get('orgRole'))[
+      capability
+    ]
     if (!can.allowed) return c.json({ error: can.reason ?? 'Forbidden' }, 403)
     return next()
   })
