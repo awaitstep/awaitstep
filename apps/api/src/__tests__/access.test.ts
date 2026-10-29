@@ -10,6 +10,7 @@ import {
 } from '@awaitstep/ir'
 import { createSqliteApp, seedAcme, type SqliteApp } from './sqlite-app.js'
 import { rolesOf } from '../lib/scope-records.js'
+import { and, eq } from 'drizzle-orm'
 
 // Roles below the organization, through the real API on a real database:
 // the SQL role table against the one in @awaitstep/ir, what is hidden, and
@@ -379,8 +380,8 @@ describe('API keys act with their creator’s standing', () => {
     )
     expect(minted.status).toBe(201)
     const set = await h.app.request(
-      '/api/env-vars?org=acme',
-      h.as('u-ama', h.json({ projectId: 'p-101', name: 'API_URL', value: 'x', isSecret: false })),
+      '/api/env-vars?org=acme&project=project-101',
+      h.as('u-ama', h.json({ name: 'API_URL', value: 'x', isSecret: false })),
     )
     expect(set.status).toBe(201)
     // Eve can open Project 101 (a Viewer in Sales); Fay, in the organization, can open no project.
@@ -393,34 +394,42 @@ describe('API keys act with their creator’s standing', () => {
     expect(
       (await h.app.request('/api/api-keys?org=acme&project=project-101', h.as('u-fay'))).status,
     ).toBe(404)
-    const varsForEve = await (
-      await h.app.request('/api/env-vars?org=acme&projectId=p-101', h.as('u-eve'))
-    ).json()
-    expect(varsForEve.data).toHaveLength(1)
-    const varsForFay = await (
-      await h.app.request('/api/env-vars?org=acme&projectId=p-101', h.as('u-fay'))
-    ).json()
-    expect(varsForFay.data).toEqual([])
+    const varsForEve = await h.app.request(
+      '/api/env-vars?org=acme&project=project-101',
+      h.as('u-eve'),
+    )
+    expect(varsForEve.status).toBe(200)
+    expect((await varsForEve.json()).data).toHaveLength(1)
+    // A project she cannot open is not found, as the keys are (B4: the
+    // address is resolved by the one scope read, never cut by the list).
+    expect(
+      (await h.app.request('/api/env-vars?org=acme&project=project-101', h.as('u-fay'))).status,
+    ).toBe(404)
   })
 
   it('changes or removes a project’s variables only for someone who can open it', async () => {
     const set = await h.app.request(
-      '/api/env-vars?org=acme',
-      h.as('u-ama', h.json({ projectId: 'p-202', name: 'HIDDEN', value: 'x', isSecret: false })),
+      '/api/env-vars?org=acme&project=project-202',
+      h.as('u-ama', h.json({ name: 'HIDDEN', value: 'x', isSecret: false })),
     )
     expect(set.status).toBe(201)
     const id = (await set.json()).id
-    // Gus is in the organization but can open Project 202 by no route: by
-    // id, its variable answers like a missing one (it once answered 200).
+    // Gus is in the organization but can open Project 202 by no route: its
+    // address, and so its variable, answers like a missing one.
     const patch = await h.app.request(
-      `/api/env-vars/${id}?org=acme`,
+      `/api/env-vars/${id}?org=acme&project=project-202`,
       h.as('u-gus', h.json({ value: 'y' }, 'PATCH')),
     )
     expect(patch.status).toBe(404)
     expect(
-      (await h.app.request(`/api/env-vars/${id}?org=acme`, h.as('u-gus', { method: 'DELETE' })))
-        .status,
+      (
+        await h.app.request(
+          `/api/env-vars/${id}?org=acme&project=project-202`,
+          h.as('u-gus', { method: 'DELETE' }),
+        )
+      ).status,
     ).toBe(404)
+    // Addressed at the organization, a project's row is not there either.
     expect(
       (
         await h.app.request(
@@ -428,10 +437,22 @@ describe('API keys act with their creator’s standing', () => {
           h.as('u-ama', h.json({ value: 'z' }, 'PATCH')),
         )
       ).status,
+    ).toBe(404)
+    expect(
+      (
+        await h.app.request(
+          `/api/env-vars/${id}?org=acme&project=project-202`,
+          h.as('u-ama', h.json({ value: 'z' }, 'PATCH')),
+        )
+      ).status,
     ).toBe(200)
     expect(
-      (await h.app.request(`/api/env-vars/${id}?org=acme`, h.as('u-ama', { method: 'DELETE' })))
-        .status,
+      (
+        await h.app.request(
+          `/api/env-vars/${id}?org=acme&project=project-202`,
+          h.as('u-ama', { method: 'DELETE' }),
+        )
+      ).status,
     ).toBe(200)
   })
 
@@ -460,8 +481,8 @@ describe('API keys act with their creator’s standing', () => {
     )
     expect(mint.status).toBe(404)
     const set = await h.app.request(
-      '/api/env-vars?org=acme',
-      h.as('u-eve', h.json({ projectId: 'p-202', name: 'X', value: 'x', isSecret: false })),
+      '/api/env-vars?org=acme&project=project-202',
+      h.as('u-eve', h.json({ name: 'X', value: 'x', isSecret: false })),
     )
     expect(set.status).toBe(404)
   })
@@ -753,13 +774,21 @@ describe('API keys act with their creator’s standing', () => {
         ).status,
       ).toBe(403)
       expect((await h.app.request('/api/env-vars', asSales)).status).toBe(200)
+      // Full access on a workspace key sets that workspace's variables (B4);
+      // naming the project in the body is refused rather than obeyed.
       const setVar = await h.app.request('/api/env-vars', {
         ...asSales,
         method: 'POST',
-        body: JSON.stringify({ projectId: 'p-101', name: 'X', value: 'x' }),
+        body: JSON.stringify({ name: 'X', value: 'x' }),
       })
-      expect(setVar.status).toBe(403)
-      expect((await setVar.json()).error).toBe('API key lacks permission: variables:write')
+      expect(setVar.status).toBe(201)
+      expect(await setVar.json()).toMatchObject({ level: 'workspace', workspaceId: 'ws-sales' })
+      const inBody = await h.app.request('/api/env-vars', {
+        ...asSales,
+        method: 'POST',
+        body: JSON.stringify({ projectId: 'p-101', name: 'Y', value: 'y' }),
+      })
+      expect(inBody.status).toBe(400)
       // The project-wide lists are cut to the pin: a deployment and a run in
       // each workspace, and only Sales comes back.
       await h.db.insert(h.schema.deployments).values([
@@ -855,5 +884,317 @@ describe('local dev', () => {
       (await h.app.request('/api/workflows/wf-sales/local-dev/logs?projectId=p-101', h.as('u-eve')))
         .status,
     ).not.toBe(403)
+  })
+})
+
+describe('variables at three levels', () => {
+  let h: SqliteApp
+  beforeEach(async () => {
+    h = createSqliteApp()
+    await seedAcme(h)
+  })
+
+  const ORG = 'org=acme'
+  const P101 = 'org=acme&project=project-101'
+  const P202 = 'org=acme&project=project-202'
+  const SALES = 'org=acme&project=project-101&workspace=sales'
+  const OPS = 'org=acme&project=project-101&workspace=ops'
+
+  const set = (as: string, at: string, body: Record<string, unknown>) =>
+    h.app.request(`/api/env-vars?${at}`, h.as(as, h.json(body)))
+  const list = async (as: string, at: string, path = '') =>
+    (await h.app.request(`/api/env-vars${path}?${at}`, h.as(as))).json()
+  const created = async (as: string, at: string, name: string, value = 'x', isSecret = false) => {
+    const res = await set(as, at, { name, value, isSecret })
+    expect(res.status, `${name} at ${at}`).toBe(201)
+    return (await res.json()) as { id: string }
+  }
+
+  it('are set by whoever manages the addressed level, with the dashboard’s reason otherwise', async () => {
+    // The organization: owners and admins. Dan is a plain member.
+    const byMember = await set('u-dan', ORG, { name: 'REGION', value: 'eu' })
+    expect(byMember.status).toBe(403)
+    expect((await byMember.json()).error).toBe(ACCESS_REASONS.orgAdmins)
+    const byAdmin = await set('u-ben', ORG, { name: 'REGION', value: 'eu' })
+    expect(byAdmin.status).toBe(201)
+    expect(await byAdmin.json()).toMatchObject({
+      level: 'organization',
+      projectId: null,
+      workspaceId: null,
+      value: 'eu',
+    })
+    // A project: its admins (org owners and admins included). Dan is a project member.
+    const byProjectMember = await set('u-dan', P101, { name: 'API_URL', value: 'x' })
+    expect(byProjectMember.status).toBe(403)
+    expect((await byProjectMember.json()).error).toBe(ACCESS_REASONS.projectAdmins)
+    expect((await set('u-ama', P101, { name: 'API_URL', value: 'x' })).status).toBe(201)
+    // A workspace: its admins. Gus is an Editor in Ops; Eve a Viewer in Sales.
+    const byEditor = await set('u-gus', OPS, { name: 'TOKEN', value: 't', isSecret: true })
+    expect(byEditor.status).toBe(403)
+    expect((await byEditor.json()).error).toBe(ACCESS_REASONS.workspaceAdmins)
+    expect((await set('u-eve', SALES, { name: 'TOKEN', value: 't' })).status).toBe(403)
+    await h.seed.workspaceGrant('ws-sales', 'u-dan', 'admin')
+    const byWorkspaceAdmin = await set('u-dan', SALES, { name: 'REGION', value: 'apac' })
+    expect(byWorkspaceAdmin.status).toBe(201)
+    expect(await byWorkspaceAdmin.json()).toMatchObject({
+      level: 'workspace',
+      projectId: 'p-101',
+      workspaceId: 'ws-sales',
+    })
+    // A place the caller cannot open is not found; a level in the body is refused.
+    expect((await set('u-fay', P101, { name: 'X', value: 'x' })).status).toBe(404)
+    expect((await set('u-eve', OPS, { name: 'X', value: 'x' })).status).toBe(404)
+    const inBody = await set('u-ama', ORG, { name: 'X', value: 'x', projectId: 'p-101' })
+    expect(inBody.status).toBe(400)
+    expect((await inBody.json()).error).toMatch(/Address the level in the query/)
+  })
+
+  it('refuses a name already set at the level, and allows it at another', async () => {
+    await created('u-ama', ORG, 'REGION', 'eu')
+    const again = await set('u-ama', ORG, { name: 'REGION', value: 'us' })
+    expect(again.status).toBe(409)
+    expect(await again.json()).toEqual({
+      error: 'REGION is already set here. Edit it instead',
+      details: [{ path: 'name', message: 'Already set here. Edit it instead' }],
+    })
+    expect((await set('u-ama', P101, { name: 'REGION', value: 'us' })).status).toBe(201)
+    expect((await set('u-ama', SALES, { name: 'REGION', value: 'apac' })).status).toBe(201)
+    expect((await set('u-ama', SALES, { name: 'REGION', value: 'again' })).status).toBe(409)
+  })
+
+  it('edits and deletes a row only where it is addressed, by whoever manages that level', async () => {
+    const orgRow = await created('u-ama', ORG, 'REGION', 'eu')
+    const projectRow = await created('u-ama', P101, 'API_URL')
+    const salesRow = await created('u-ama', SALES, 'REGION', 'apac')
+    const patch = (as: string, id: string, at: string, body: Record<string, unknown>) =>
+      h.app.request(`/api/env-vars/${id}?${at}`, h.as(as, h.json(body, 'PATCH')))
+    const remove = (as: string, id: string, at: string) =>
+      h.app.request(`/api/env-vars/${id}?${at}`, h.as(as, { method: 'DELETE' }))
+    // The org row addressed at the project, the Sales row at the project or at Ops: not there.
+    expect((await patch('u-ama', orgRow.id, P101, { value: 'x' })).status).toBe(404)
+    expect((await patch('u-ama', salesRow.id, P101, { value: 'x' })).status).toBe(404)
+    expect((await patch('u-ama', salesRow.id, OPS, { value: 'x' })).status).toBe(404)
+    expect((await remove('u-ama', projectRow.id, ORG)).status).toBe(404)
+    // The role at the addressed level, before the row is looked for.
+    const byMember = await patch('u-dan', projectRow.id, P101, { value: 'x' })
+    expect(byMember.status).toBe(403)
+    expect((await byMember.json()).error).toBe(ACCESS_REASONS.projectAdmins)
+    expect((await remove('u-gus', orgRow.id, ORG)).status).toBe(403)
+    // Addressed right, by someone who manages it.
+    const edited = await patch('u-ben', orgRow.id, ORG, { value: 'eu-west' })
+    expect(edited.status).toBe(200)
+    expect(await edited.json()).toMatchObject({ value: 'eu-west', level: 'organization' })
+    expect((await remove('u-ama', salesRow.id, SALES)).status).toBe(200)
+    expect((await remove('u-ama', salesRow.id, SALES)).status).toBe(404)
+    // A rename into a taken name is the same refusal as a create.
+    await created('u-ama', P101, 'OTHER')
+    const renamed = await patch('u-ama', projectRow.id, P101, { name: 'OTHER' })
+    expect(renamed.status).toBe(409)
+  })
+
+  it('lists each level’s own rows, the organization’s with how many projects the viewer can open override them', async () => {
+    await created('u-ama', ORG, 'REGION', 'eu')
+    await created('u-ama', ORG, 'LOG_LEVEL', 'info')
+    await created('u-ama', P202, 'REGION', 'us')
+    await created('u-ama', SALES, 'REGION', 'apac')
+    await created('u-ama', OPS, 'TOKEN', 'hidden', true)
+    const forAma = await list('u-ama', ORG)
+    expect(
+      Object.fromEntries(
+        forAma.data.map((v: { name: string; overriddenIn: number }) => [v.name, v.overriddenIn]),
+      ),
+    ).toEqual({ REGION: 2, LOG_LEVEL: 0 })
+    // Eve opens Project 101 (Sales), not Project 202; Fay opens no project.
+    const forEve = await list('u-eve', ORG)
+    expect(forEve.data.find((v: { name: string }) => v.name === 'REGION').overriddenIn).toBe(1)
+    const forFay = await list('u-fay', ORG)
+    expect(forFay.data.find((v: { name: string }) => v.name === 'REGION').overriddenIn).toBe(0)
+    expect((await list('u-ama', P101)).data).toEqual([])
+    expect((await list('u-ama', P202)).data.map((v: { value: string }) => v.value)).toEqual(['us'])
+    expect((await list('u-ama', SALES)).data.map((v: { value: string }) => v.value)).toEqual([
+      'apac',
+    ])
+    const ops = await list('u-gus', OPS)
+    expect(ops.data).toMatchObject([{ name: 'TOKEN', isSecret: true, value: '••••••••' }])
+  })
+
+  it('answers each level’s resolved view: project over org, then the closest level winning', async () => {
+    await created('u-ama', ORG, 'REGION', 'eu')
+    await created('u-ama', ORG, 'LOG_LEVEL', 'info')
+    await created('u-ama', P101, 'API_URL', 'https://101.test')
+    await created('u-ama', P202, 'REGION', 'us')
+    await created('u-ama', SALES, 'REGION', 'apac')
+    const project = await list('u-ama', P101, '/resolved')
+    expect(
+      project.data.map(
+        (v: {
+          name: string
+          value: string
+          setAt: { level: string; name: string }
+          overriddenIn: { slug: string }[]
+        }) => [v.name, v.value, v.setAt.level, v.setAt.name, v.overriddenIn.map((w) => w.slug)],
+      ),
+    ).toEqual([
+      ['API_URL', 'https://101.test', 'project', 'Project 101', []],
+      ['LOG_LEVEL', 'info', 'organization', 'Acme', []],
+      ['REGION', 'eu', 'organization', 'Acme', ['sales']],
+    ])
+    // Gus opens Ops only: Sales's override is not his to see.
+    const forGus = await list('u-gus', P101, '/resolved')
+    expect(forGus.data.find((v: { name: string }) => v.name === 'REGION').overriddenIn).toEqual([])
+    const other = await list('u-ama', P202, '/resolved')
+    expect(other.data.map((v: { name: string; value: string }) => [v.name, v.value])).toEqual([
+      ['REGION', 'us'],
+      ['LOG_LEVEL', 'info'],
+    ])
+    const sales = await list('u-eve', SALES, '/resolved')
+    expect(
+      sales.data.map(
+        (v: {
+          name: string
+          value: string
+          source: { level: string; name: string }
+          overrides: string | null
+        }) => [v.name, v.value, v.source.level, v.source.name, v.overrides],
+      ),
+    ).toEqual([
+      ['REGION', 'apac', 'workspace', 'Sales', 'organization'],
+      ['API_URL', 'https://101.test', 'project', 'Project 101', null],
+      ['LOG_LEVEL', 'info', 'organization', 'Acme', null],
+    ])
+    const ops = await list('u-gus', OPS, '/resolved')
+    expect(ops.data.map((v: { name: string; value: string }) => [v.name, v.value])).toEqual([
+      ['API_URL', 'https://101.test'],
+      ['LOG_LEVEL', 'info'],
+      ['REGION', 'eu'],
+    ])
+    const atOrg = await h.app.request('/api/env-vars/resolved?org=acme', h.as('u-ama'))
+    expect(atOrg.status).toBe(400)
+  })
+
+  it('reach keys at their level, with the creator’s standing as the floor', async () => {
+    await created('u-ama', ORG, 'REGION', 'eu')
+    const opsRow = await created('u-ama', OPS, 'TOKEN', 't', true)
+    const full = presetPermissions('workspace', 'full')
+    const asSales = await h.seed.key(
+      'k-sales',
+      'u-ama',
+      { level: 'workspace', projectId: 'p-101', workspaceId: 'ws-sales' },
+      full,
+    )
+    const setBySales = await h.app.request('/api/env-vars', {
+      ...asSales,
+      method: 'POST',
+      body: JSON.stringify({ name: 'REGION', value: 'apac' }),
+    })
+    expect(setBySales.status).toBe(201)
+    expect(await setBySales.json()).toMatchObject({ level: 'workspace', workspaceId: 'ws-sales' })
+    expect(
+      (
+        await h.app.request(`/api/env-vars/${opsRow.id}`, {
+          ...asSales,
+          method: 'PATCH',
+          body: JSON.stringify({ value: 'x' }),
+        })
+      ).status,
+    ).toBe(404)
+    const resolved = await (await h.app.request('/api/env-vars/resolved', asSales)).json()
+    expect(
+      resolved.data.map((v: { name: string; value: string; overrides: string | null }) => [
+        v.name,
+        v.value,
+        v.overrides,
+      ]),
+    ).toEqual([['REGION', 'apac', 'organization']])
+    // Gus is an Editor in Ops: his key holds the cell, he does not manage the workspace.
+    const asGus = await h.seed.key(
+      'k-gus',
+      'u-gus',
+      { level: 'workspace', projectId: 'p-101', workspaceId: 'ws-ops' },
+      full,
+    )
+    const byGus = await h.app.request('/api/env-vars', {
+      ...asGus,
+      method: 'POST',
+      body: JSON.stringify({ name: 'X', value: 'x' }),
+    })
+    expect(byGus.status).toBe(403)
+    expect((await byGus.json()).error).toBe(ACCESS_REASONS.workspaceAdmins)
+    // A project key reads its project's own rows, and resolves a workspace it names.
+    const asProject = await h.seed.key(
+      'k-p101',
+      'u-ama',
+      { level: 'project', projectId: 'p-101' },
+      presetPermissions('project', 'read'),
+    )
+    expect((await (await h.app.request('/api/env-vars', asProject)).json()).data).toEqual([])
+    const opsView = await (
+      await h.app.request('/api/env-vars/resolved?workspace=ops', asProject)
+    ).json()
+    expect(opsView.data.map((v: { name: string; value: string }) => [v.name, v.value])).toEqual([
+      ['TOKEN', '••••••••'],
+      ['REGION', 'eu'],
+    ])
+    const readOnly = await h.app.request('/api/env-vars', {
+      ...asProject,
+      method: 'POST',
+      body: JSON.stringify({ name: 'X', value: 'x' }),
+    })
+    expect(readOnly.status).toBe(403)
+    expect((await readOnly.json()).error).toBe('API key lacks permission: variables:write')
+  })
+
+  it('keeps a project’s variables, its workspaces’ included, when the project moves to another organization', async () => {
+    await created('u-ama', P101, 'API_URL')
+    await created('u-ama', SALES, 'REGION', 'apac')
+    // Ama must run Globex too: the move is an owner's or admin's act in both.
+    await h.db
+      .update(h.schema.member)
+      .set({ role: 'admin' })
+      .where(
+        and(eq(h.schema.member.userId, 'u-ama'), eq(h.schema.member.organizationId, 'org-globex')),
+      )
+    const moved = await h.app.request(
+      '/api/projects/p-101/move?org=acme',
+      h.as('u-ama', h.json({ organizationId: 'org-globex' })),
+    )
+    expect(moved.status).toBe(200)
+    const there = await list('u-ama', 'org=globex&project=project-101')
+    expect(there.data.map((v: { name: string }) => v.name)).toEqual(['API_URL'])
+    const sales = await list('u-ama', 'org=globex&project=project-101&workspace=sales')
+    expect(sales.data.map((v: { value: string }) => v.value)).toEqual(['apac'])
+    expect((await h.app.request(`/api/env-vars?${P101}`, h.as('u-ama'))).status).toBe(404)
+    // Its workflows resolve there too.
+    const resolved = await list(
+      'u-ama',
+      'org=globex&project=project-101&workspace=sales',
+      '/resolved',
+    )
+    expect(resolved.data.map((v: { name: string }) => v.name)).toEqual(['REGION', 'API_URL'])
+  })
+
+  it('tells the un-hide refusal from a miss at every level, and refuses a level in the body', async () => {
+    const projectRow = await created('u-ama', P101, 'TOKEN', 't', true)
+    const salesRow = await created('u-ama', SALES, 'TOKEN', 't', true)
+    const flip = (id: string, at: string) =>
+      h.app.request(
+        `/api/env-vars/${id}?${at}`,
+        h.as('u-ama', h.json({ isSecret: false }, 'PATCH')),
+      )
+    for (const [id, at] of [
+      [projectRow.id, P101],
+      [salesRow.id, SALES],
+    ] as const) {
+      const refused = await flip(id, at)
+      expect(refused.status).toBe(422)
+      const body = (await refused.json()) as { details: { path: string }[] }
+      expect(body.details[0]!.path).toBe('value')
+      expect(JSON.stringify(body)).not.toContain("'t'")
+    }
+    // Addressed where the row is not, the same request is a miss.
+    expect((await flip(projectRow.id, SALES)).status).toBe(404)
+    expect((await flip(salesRow.id, P101)).status).toBe(404)
+    const inBody = await set('u-ama', P101, { name: 'X', value: 'x', workspaceId: 'ws-sales' })
+    expect(inBody.status).toBe(400)
   })
 })

@@ -25,6 +25,7 @@ import {
   requireWorkspaceCanWrite,
 } from '../middleware/access.js'
 import { requireWorkflowAccess, requireConnectionAccess } from '../middleware/ownership.js'
+import { requireLevelCan } from '../middleware/level.js'
 import { workflows } from './workflows.js'
 import { versions } from './versions.js'
 import { source } from './source.js'
@@ -61,7 +62,15 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
 
   // Organization context — required for org-scoped routes
   router.use('/connections/*', requireOrganization)
-  router.use('/env-vars/*', requireOrganization)
+  // Variables are addressed at their level (B4): a query naming a project or
+  // a workspace, or a project key's pin, is a project address with that
+  // level's one scope read; otherwise the organization's.
+  router.use('/env-vars/*', async (c, next) =>
+    ['project', 'projectId', 'workspace', 'workspaceId'].some((param) => c.req.query(param)) ||
+    apiKeyProjectPin(c) !== null
+      ? requireProject(c, next)
+      : requireOrganization(c, next),
+  )
   router.use('/projects', requireOrganization)
   router.use('/marketplace/*', requireOrganization)
   router.use('/failing', requireOrganization)
@@ -147,6 +156,12 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.post('/invitations', requireOrgCan('manageSettings'))
   router.post('/invitations/:id/resend', requireOrgCan('manageSettings'))
   router.delete('/invitations/:id', requireOrgCan('manageSettings'))
+  // Variables are set by whoever manages the addressed level (B4): org
+  // owners and admins, project admins, workspace admins. A key acts with its
+  // creator's standing here as everywhere.
+  router.post('/env-vars', requireLevelCan('manageVariables'))
+  router.patch('/env-vars/:id', requireLevelCan('manageVariables'))
+  router.delete('/env-vars/:id', requireLevelCan('manageVariables'))
 
   // Ownership — workflow routes
   router.use('/workflows/:id', requireWorkflowAccess)
@@ -245,6 +260,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.post('/marketplace/update', key('resources', 'write'))
   router.post('/marketplace/uninstall', key('resources', 'delete'))
   router.get('/env-vars', key('resources', 'read', variables('read')))
+  router.get('/env-vars/resolved', key('resources', 'read', variables('read')))
   router.post('/env-vars', key('resources', 'write', variables('write')))
   router.patch('/env-vars/:id', key('resources', 'write', variables('write')))
   router.delete('/env-vars/:id', key('resources', 'delete', variables('delete')))
@@ -352,6 +368,9 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.patch('/workspaces/:id', writeLimit)
   router.delete('/workspaces/:id', writeLimit)
   router.post('/workspaces/:id/move-workflows', writeLimit)
+  router.post('/env-vars', writeLimit)
+  router.patch('/env-vars/:id', writeLimit)
+  router.delete('/env-vars/:id', writeLimit)
   router.use('/connections/verify-token', verifyLimit)
   router.use('/workflows/:workflowId/deploy', deployLimit)
   router.use('/workflows/:workflowId/deploy-stream', deployLimit)

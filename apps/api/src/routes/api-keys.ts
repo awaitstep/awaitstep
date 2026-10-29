@@ -8,17 +8,14 @@ import {
   keyLevelOf,
   keyScopesOf,
   normalisePermissions,
-  orgCapabilities,
   parseKeyPermissions,
-  projectCapabilities,
-  workspaceCapabilities,
-  type Allowed,
   type KeyLevel,
 } from '@awaitstep/ir'
 import type { ApiKey, ApiKeyListItem, ApiKeyTarget, CreateApiKeyData } from '@awaitstep/db'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import { hashApiKey } from '../lib/api-key-hash.js'
+import { addressedLevel, levelCan } from '../middleware/level.js'
 import type { AppEnv } from '../types.js'
 
 // API keys at three levels (B3). Session-only, addressed at the level they
@@ -45,32 +42,6 @@ const createApiKeySchema = z.object({
     .nullable()
     .optional(),
 })
-
-const NO_FACTS = {
-  ownLock: false,
-  lockedByProject: null,
-  isLastWorkspace: false,
-  sharedInUse: false,
-}
-
-/** The level the request is addressed at, from what the router resolved. */
-function addressedLevel(c: Context<AppEnv>): KeyLevel {
-  if (c.get('workspaceId')) return 'workspace'
-  return (c.get('projectId') as string | undefined) ? 'project' : 'organization'
-}
-
-/** Whether the caller manages keys at the addressed level, with the dashboard's reason. */
-function canManageKeys(c: Context<AppEnv>, level: KeyLevel): Allowed {
-  const orgRole = c.get('orgRole')
-  if (level === 'organization') {
-    return orgRole ? orgCapabilities(orgRole).manageSettings : { allowed: false }
-  }
-  if (level === 'project') {
-    return projectCapabilities(c.get('projectRole'), false, orgRole).manageKeys
-  }
-  const role = c.get('workspaceRole')
-  return role ? workspaceCapabilities(role, NO_FACTS).manageKeys : { allowed: false }
-}
 
 function targetOf(c: Context<AppEnv>, level: KeyLevel): ApiKeyTarget {
   if (level === 'workspace') return { level, workspaceId: c.get('workspaceId')! }
@@ -101,7 +72,7 @@ apiKeys.get('/', zValidator('query', paginationQuerySchema), async (c) => {
   const level = addressedLevel(c)
   const { cursor, limit } = c.req.valid('query')
   if (level === 'organization') {
-    const can = canManageKeys(c, level)
+    const can = levelCan(c, 'manageKeys')
     if (!can.allowed) return c.json({ error: can.reason ?? 'Forbidden' }, 403)
     const result = await db.listApiKeysByOrganization(c.get('organizationId'), { cursor, limit })
     return c.json({ data: result.data.map(keyRecord), nextCursor: result.nextCursor })
@@ -141,7 +112,7 @@ apiKeys.post('/', zValidator('json', createApiKeySchema), async (c) => {
       400,
     )
   }
-  const can = canManageKeys(c, level)
+  const can = levelCan(c, 'manageKeys')
   if (!can.allowed) return c.json({ error: can.reason ?? 'Forbidden' }, 403)
 
   const invalid = (message: string) =>
@@ -198,7 +169,7 @@ apiKeys.post('/', zValidator('json', createApiKeySchema), async (c) => {
 /** Revoke a key of the addressed level — the statement holds it to that level's place. */
 apiKeys.delete('/:id', async (c) => {
   const level = addressedLevel(c)
-  const can = canManageKeys(c, level)
+  const can = levelCan(c, 'manageKeys')
   if (!can.allowed) return c.json({ error: can.reason ?? 'Forbidden' }, 403)
   const revoked = await c.get('db').revokeApiKey(c.req.param('id'), targetOf(c, level))
   if (!revoked) return c.json({ error: 'Not found' }, 404)

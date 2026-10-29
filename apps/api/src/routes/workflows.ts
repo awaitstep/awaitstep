@@ -289,7 +289,7 @@ workflows.patch(
     // one query, both project and org scope, no page limit. Listing the
     // first 100 project variables per reference missed org-level ones and
     // warned about variables that resolve perfectly well.
-    const warnings = await unresolvableEnvRefs(db, organizationId, targetProjectId, workflow.id)
+    const warnings = await unresolvableEnvRefs(db, organizationId, targetProjectId, workflow)
 
     // Into the target's oldest workspace in the same statement: a workflow
     // left in a workspace of its old project would be read and deleted there.

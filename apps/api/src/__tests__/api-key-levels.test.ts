@@ -263,6 +263,12 @@ describe('a key’s grid', () => {
 
 describe('project keys and variables', () => {
   let app: ReturnType<typeof createTestApp>
+  const atOrg = { level: 'organization' as const, organizationId: TEST_ORG_ID }
+  const atProject = {
+    level: 'project' as const,
+    organizationId: TEST_ORG_ID,
+    projectId: TEST_PROJECT_ID,
+  }
 
   beforeEach(async () => {
     resetStore()
@@ -277,8 +283,7 @@ describe('project keys and variables', () => {
     await seedProjectKey()
     await mockDb.createEnvVar({
       id: 'env-org',
-      organizationId: TEST_ORG_ID,
-      projectId: null,
+      place: atOrg,
       createdBy: TEST_USER_ID,
       name: 'ORG_WIDE',
       value: 'org-value',
@@ -286,8 +291,7 @@ describe('project keys and variables', () => {
     })
     await mockDb.createEnvVar({
       id: 'env-own',
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
+      place: atProject,
       createdBy: TEST_USER_ID,
       name: 'OWN_VAR',
       value: 'own-value',
@@ -295,28 +299,28 @@ describe('project keys and variables', () => {
     })
   })
 
-  it('creates variables only in its own project', async () => {
+  it('creates variables in its own project, where its pin addresses them', async () => {
     const own = await app.request(
       '/api/env-vars',
-      asKey({
-        method: 'POST',
-        body: JSON.stringify({ name: 'NEW_VAR', value: 'v', projectId: TEST_PROJECT_ID }),
-      }),
+      asKey({ method: 'POST', body: JSON.stringify({ name: 'NEW_VAR', value: 'v' }) }),
     )
     expect(own.status).toBe(201)
-    const orgWide = await app.request(
-      '/api/env-vars',
-      asKey({ method: 'POST', body: JSON.stringify({ name: 'NOPE', value: 'v' }) }),
-    )
-    expect(orgWide.status).toBe(403)
-    const foreign = await app.request(
+    expect(await own.json()).toMatchObject({ level: 'project', projectId: TEST_PROJECT_ID })
+    // The level is in the query (B4): a body naming a project is refused, not obeyed.
+    const inBody = await app.request(
       '/api/env-vars',
       asKey({
         method: 'POST',
-        body: JSON.stringify({ name: 'NOPE', value: 'v', projectId: OTHER_PROJECT_ID }),
+        body: JSON.stringify({ name: 'NOPE', value: 'v', projectId: TEST_PROJECT_ID }),
       }),
     )
-    expect(foreign.status).toBe(403)
+    expect(inBody.status).toBe(400)
+    expect(await errorOf(inBody)).toMatch(/Address the level in the query/)
+    const foreign = await app.request(
+      `/api/env-vars?projectId=${OTHER_PROJECT_ID}`,
+      asKey({ method: 'POST', body: JSON.stringify({ name: 'NOPE', value: 'v' }) }),
+    )
+    expect(foreign.status).toBe(404)
   })
 
   it('updates and deletes only its own project variables', async () => {
@@ -325,18 +329,25 @@ describe('project keys and variables', () => {
       asKey({ method: 'PATCH', body: JSON.stringify({ value: 'updated' }) }),
     )
     expect(ownPatch.status).toBe(200)
+    // An org-wide row is not at the key's address.
     const orgPatch = await app.request(
       '/api/env-vars/env-org',
       asKey({ method: 'PATCH', body: JSON.stringify({ value: 'hijacked' }) }),
     )
     expect(orgPatch.status).toBe(404)
-    expect((await mockDb.getEnvVarById('env-org'))?.value).toBe('org-value')
+    const orgRow = async () =>
+      (
+        (await (await app.request(...asSession('/api/env-vars', {}))).json()) as {
+          data: { id: string; value: string }[]
+        }
+      ).data.find((v) => v.id === 'env-org')
+    expect((await orgRow())?.value).toBe('org-value')
     const orgDelete = await app.request('/api/env-vars/env-org', asKey({ method: 'DELETE' }))
     expect(orgDelete.status).toBe(404)
-    expect(await mockDb.getEnvVarById('env-org')).not.toBeNull()
+    expect(await orgRow()).toBeDefined()
   })
 
-  it('sessions still create variables at both levels', async () => {
+  it('sessions create variables at the level they address', async () => {
     const orgWide = await app.request(
       ...asSession('/api/env-vars', {
         method: 'POST',
@@ -344,20 +355,40 @@ describe('project keys and variables', () => {
       }),
     )
     expect(orgWide.status).toBe(201)
+    expect(await orgWide.json()).toMatchObject({ level: 'organization', projectId: null })
     const project = await app.request(
-      ...asSession('/api/env-vars', {
+      ...asSession(`/api/env-vars?projectId=${TEST_PROJECT_ID}`, {
         method: 'POST',
-        body: JSON.stringify({ name: 'SESSION_PROJ', value: 'v', projectId: TEST_PROJECT_ID }),
+        body: JSON.stringify({ name: 'SESSION_PROJ', value: 'v' }),
       }),
     )
     expect(project.status).toBe(201)
+    expect(await project.json()).toMatchObject({ level: 'project', projectId: TEST_PROJECT_ID })
+  })
+
+  it('refuses a name already set at the level, naming the fix', async () => {
+    const again = await app.request(
+      ...asSession(`/api/env-vars?projectId=${TEST_PROJECT_ID}`, {
+        method: 'POST',
+        body: JSON.stringify({ name: 'OWN_VAR', value: 'v' }),
+      }),
+    )
+    expect(again.status).toBe(409)
+    expect(await errorOf(again)).toBe('OWN_VAR is already set here. Edit it instead')
+    // The same name one level up is another variable.
+    const atOrgLevel = await app.request(
+      ...asSession('/api/env-vars', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'OWN_VAR', value: 'v' }),
+      }),
+    )
+    expect(atOrgLevel.status).toBe(201)
   })
 
   it('a stored secret never becomes readable by flipping its flag', async () => {
     await mockDb.createEnvVar({
       id: 'env-secret',
-      organizationId: TEST_ORG_ID,
-      projectId: null,
+      place: atOrg,
       createdBy: TEST_USER_ID,
       name: 'SECRET_VAR',
       value: 'sk-live-very-secret',
@@ -371,7 +402,13 @@ describe('project keys and variables', () => {
     )
     expect(flip.status).toBe(422)
     expect(JSON.stringify(await flip.json())).not.toContain('sk-live-very-secret')
-    expect((await mockDb.getEnvVarById('env-secret'))?.isSecret).toBe(true)
+    const listed = (await (await app.request(...asSession('/api/env-vars', {}))).json()) as {
+      data: { id: string; isSecret: boolean; value: string }[]
+    }
+    expect(listed.data.find((v) => v.id === 'env-secret')).toMatchObject({
+      isSecret: true,
+      value: '••••••••',
+    })
     const replaced = await app.request(
       ...asSession('/api/env-vars/env-secret', {
         method: 'PATCH',
@@ -384,7 +421,7 @@ describe('project keys and variables', () => {
     expect(body.value).toBe('public-now')
   })
 
-  it("cannot list another project's variables, but keeps its own views", async () => {
+  it("cannot list another project's variables; reads its own and what resolves into it", async () => {
     const foreign = await app.request(
       `/api/env-vars?projectId=${OTHER_PROJECT_ID}`,
       asKey({ method: 'GET' }),
@@ -394,10 +431,24 @@ describe('project keys and variables', () => {
     expect(own.status).toBe(200)
     const ownBody = (await own.json()) as { data: { name: string }[] }
     expect(ownBody.data.map((v) => v.name)).toEqual(['OWN_VAR'])
-    const orgWide = await app.request('/api/env-vars', asKey())
-    expect(orgWide.status).toBe(200)
-    const orgBody = (await orgWide.json()) as { data: { name: string }[] }
-    expect(orgBody.data.map((v) => v.name)).toEqual(['ORG_WIDE'])
+    // An empty parameter names nothing: the pin answers, as with no parameter.
+    expect((await app.request('/api/env-vars?project=&projectId=', asKey())).status).toBe(200)
+    // Its pin is its address: the plain list is its project's own rows …
+    const pinned = await app.request('/api/env-vars', asKey())
+    expect(pinned.status).toBe(200)
+    expect(((await pinned.json()) as { data: { name: string }[] }).data.map((v) => v.name)).toEqual(
+      ['OWN_VAR'],
+    )
+    // … and the resolved read is what its workflows resolve against (D-B3-14 re-cut).
+    const resolved = await app.request('/api/env-vars/resolved', asKey())
+    expect(resolved.status).toBe(200)
+    const resolvedBody = (await resolved.json()) as {
+      data: { name: string; level: string; setAt: { level: string } }[]
+    }
+    expect(resolvedBody.data.map((v) => [v.name, v.level, v.setAt.level])).toEqual([
+      ['OWN_VAR', 'project', 'project'],
+      ['ORG_WIDE', 'organization', 'organization'],
+    ])
   })
 })
 
@@ -457,8 +508,7 @@ describe('organization-level API keys', () => {
   it('manages only org-wide variables', async () => {
     await mockDb.createEnvVar({
       id: 'env-proj',
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
+      place: { level: 'project', organizationId: TEST_ORG_ID, projectId: TEST_PROJECT_ID },
       createdBy: TEST_USER_ID,
       name: 'PROJ_VAR',
       value: 'v',
@@ -469,21 +519,26 @@ describe('organization-level API keys', () => {
       asOrgKey({ method: 'POST', body: JSON.stringify({ name: 'ORG_NEW', value: 'v' }) }),
     )
     expect(orgWide.status).toBe(201)
+    // A project address is a project route: refused for its level, before any cell.
     const intoProject = await app.request(
-      '/api/env-vars',
-      asOrgKey({
-        method: 'POST',
-        body: JSON.stringify({ name: 'NOPE', value: 'v', projectId: TEST_PROJECT_ID }),
-      }),
+      `/api/env-vars?projectId=${TEST_PROJECT_ID}`,
+      asOrgKey({ method: 'POST', body: JSON.stringify({ name: 'NOPE', value: 'v' }) }),
     )
     expect(intoProject.status).toBe(403)
+    expect(await errorOf(intoProject)).toMatch(/organization-level API key cannot access project/)
     const patchProject = await app.request(
       '/api/env-vars/env-proj',
       asOrgKey({ method: 'PATCH', body: JSON.stringify({ value: 'x' }) }),
     )
     expect(patchProject.status).toBe(404)
     const listProject = await app.request(`/api/env-vars?projectId=${TEST_PROJECT_ID}`, asOrgKey())
-    expect(listProject.status).toBe(404)
+    expect(listProject.status).toBe(403)
+    const resolved = await app.request(
+      `/api/env-vars/resolved?projectId=${TEST_PROJECT_ID}`,
+      asOrgKey(),
+    )
+    expect(resolved.status).toBe(403)
+    expect((await app.request('/api/env-vars/resolved', asOrgKey())).status).toBe(400)
   })
 
   it('with a read-only grid, reads org resources and writes none', async () => {

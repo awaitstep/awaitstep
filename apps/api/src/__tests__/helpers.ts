@@ -13,6 +13,7 @@ import type {
   Deployment,
   DeploymentConfig,
   EnvVar,
+  VariablePlace,
   Project,
   InstalledNode,
   Workspace,
@@ -99,13 +100,29 @@ function isLiveSession(session: TestSession, cutoffs: TestSessionCutoffs): boole
   return isUnfinishedSession(session) && sessionExpiry(session, cutoffs) === null
 }
 
-function envVarInScope(
-  v: EnvVar,
-  scope: { organizationId: string; projectId?: string | null },
-): boolean {
-  if (v.organizationId !== scope.organizationId) return false
-  if (scope.projectId === undefined) return true
-  return v.projectId === scope.projectId
+/** Whether a stored variable sits at the place a write is addressed at (the adapter's pin). */
+function envVarAtPlace(v: EnvVar, place: VariablePlace): boolean {
+  if (v.organizationId !== place.organizationId) return false
+  if (place.level === 'organization') return v.projectId === null
+  if (place.level === 'project') return v.projectId === place.projectId && v.workspaceId === null
+  return v.workspaceId === place.workspaceId
+}
+
+function envVarLevel(v: EnvVar): 'organization' | 'project' | 'workspace' {
+  if (v.workspaceId) return 'workspace'
+  return v.projectId ? 'project' : 'organization'
+}
+
+/** Closest level first, as the adapter ranks them. */
+function envVarRank(v: EnvVar): number {
+  return v.workspaceId ? 0 : v.projectId ? 1 : 2
+}
+
+/** A name already set at the place: what the level's unique index raises. */
+function uniqueViolation(): Error {
+  return Object.assign(new Error('UNIQUE constraint failed: env_vars.name'), {
+    code: 'SQLITE_CONSTRAINT_UNIQUE',
+  })
 }
 
 export const TEST_USER_ID = 'test-user-1'
@@ -1181,63 +1198,171 @@ const mockDb: DatabaseAdapter = {
     return revoked
   },
 
-  // Env Vars — store-backed, mirroring the real adapter's org validation on
-  // create and its org-wide (projectId IS NULL) vs per-project list split.
+  // Env Vars — store-backed, mirroring the real adapter: one row per level
+  // (B4), a write pinned to its place, one name per level, the closest
+  // level's value per name when resolving.
   async createEnvVar(data) {
-    if (data.projectId) {
-      const project = store.projects.get(data.projectId)
-      if (!project || project.organizationId !== data.organizationId) return null
+    const { place } = data
+    if (place.level !== 'organization') {
+      const project = store.projects.get(place.projectId)
+      if (!project || project.organizationId !== place.organizationId) return null
+      if (place.level === 'workspace') {
+        const workspace = store.workspaces.get(place.workspaceId)
+        if (!workspace || workspace.projectId !== place.projectId) return null
+      }
     }
     const row: EnvVar = {
-      ...data,
-      projectId: data.projectId ?? null,
+      id: data.id,
+      organizationId: place.organizationId,
+      projectId: place.level === 'organization' ? null : place.projectId,
+      workspaceId: place.level === 'workspace' ? place.workspaceId : null,
+      createdBy: data.createdBy,
+      name: data.name,
+      value: data.value,
       isSecret: data.isSecret,
       createdAt: now(),
       updatedAt: now(),
     }
+    for (const v of store.envVars.values()) {
+      if (v.name === row.name && envVarAtPlace(v, place)) throw uniqueViolation()
+    }
     store.envVars.set(row.id, row)
     return row
   },
-  async getEnvVarById(id) {
-    return store.envVars.get(id) ?? null
-  },
   async listEnvVarsByOrganization(organizationId) {
+    const rows = [...store.envVars.values()]
     return {
-      data: [...store.envVars.values()].filter(
-        (v) => v.organizationId === organizationId && v.projectId === null,
-      ),
+      data: rows
+        .filter((v) => v.organizationId === organizationId && v.projectId === null)
+        .map((v) => ({
+          ...v,
+          overriddenIn: new Set(
+            rows.filter((o) => o.projectId !== null && o.name === v.name).map((o) => o.projectId),
+          ).size,
+        })),
       nextCursor: null,
     }
   },
   async listEnvVarsByProject(organizationId, projectId) {
     return {
       data: [...store.envVars.values()].filter(
-        (v) => v.organizationId === organizationId && v.projectId === projectId,
+        (v) =>
+          v.organizationId === organizationId &&
+          v.projectId === projectId &&
+          v.workspaceId === null,
       ),
       nextCursor: null,
     }
   },
-  async updateEnvVar(id, scope, data) {
+  async listEnvVarsByWorkspace(organizationId, projectId, workspaceId) {
+    return {
+      data: [...store.envVars.values()].filter(
+        (v) =>
+          v.organizationId === organizationId &&
+          v.projectId === projectId &&
+          v.workspaceId === workspaceId,
+      ),
+      nextCursor: null,
+    }
+  },
+  async listResolvedVariablesForProject(organizationId, projectId) {
+    const rows = [...store.envVars.values()].filter((v) => v.organizationId === organizationId)
+    const own = rows.filter((v) => v.projectId === projectId && v.workspaceId === null)
+    const ownNames = new Set(own.map((v) => v.name))
+    const org = rows.filter((v) => v.projectId === null && !ownNames.has(v.name))
+    const byName = (a: EnvVar, b: EnvVar) => a.name.localeCompare(b.name)
+    return [...own.sort(byName), ...org.sort(byName)].map((v) => {
+      const level = envVarLevel(v) as 'organization' | 'project'
+      const overriding = rows.filter((o) => o.workspaceId !== null && o.name === v.name)
+      return {
+        ...v,
+        level,
+        setAt: { level, id: v.projectId ?? v.organizationId, name: null },
+        overriddenIn: overriding.flatMap((o) => {
+          const w = store.workspaces.get(o.workspaceId!)
+          return w && w.projectId === projectId
+            ? [{ id: w.id, slug: w.slug, name: w.name, colour: w.colour }]
+            : []
+        }),
+      }
+    })
+  },
+  async listResolvedVariablesForWorkspace(organizationId, projectId, workspaceId) {
+    const inPlace = [...store.envVars.values()]
+      .filter(
+        (v) =>
+          v.organizationId === organizationId &&
+          (v.workspaceId === workspaceId ||
+            (v.projectId === projectId && v.workspaceId === null) ||
+            v.projectId === null),
+      )
+      .sort((a, b) => envVarRank(a) - envVarRank(b) || a.name.localeCompare(b.name))
+    const seen = new Set<string>()
+    const winners: EnvVar[] = []
+    for (const v of inPlace) {
+      if (seen.has(v.name)) continue
+      seen.add(v.name)
+      winners.push(v)
+    }
+    return winners.map((v) => {
+      const level = envVarLevel(v)
+      const below = inPlace.find((o) => o.name === v.name && envVarRank(o) > envVarRank(v))
+      const overrides = below ? envVarLevel(below) : null
+      return {
+        ...v,
+        level,
+        source: { level, id: v.workspaceId ?? v.projectId ?? v.organizationId, name: null },
+        overrides: overrides === 'project' || overrides === 'organization' ? overrides : null,
+      }
+    })
+  },
+  async updateEnvVar(id, place, data) {
     const v = store.envVars.get(id)
-    if (!v || !envVarInScope(v, scope)) return null
+    if (!v || !envVarAtPlace(v, place)) return null
     // Mirrors the adapter's reveal guard: a stored secret cannot become
     // readable by flipping the flag without a replacement value.
     if (data.isSecret === false && data.value === undefined && v.isSecret) return null
+    if (data.name !== undefined && data.name !== v.name) {
+      for (const o of store.envVars.values()) {
+        if (o.id !== id && o.name === data.name && envVarAtPlace(o, place)) throw uniqueViolation()
+      }
+    }
     const updated = { ...v, ...data, updatedAt: now() }
     store.envVars.set(id, updated)
     return updated
   },
-  async deleteEnvVar(id, scope) {
+  async deleteEnvVar(id, place) {
     const v = store.envVars.get(id)
-    if (!v || !envVarInScope(v, scope)) return false
+    if (!v || !envVarAtPlace(v, place)) return false
     return store.envVars.delete(id)
   },
-  async getWorkflowEnvVars() {
+  async getWorkflowEnvVars(workflowId) {
+    const workflow = store.workflows.get(workflowId)
+    return workflow ? mockDb.decodeWorkflowEnvVars(workflow) : []
+  },
+  async decodeWorkflowEnvVars() {
     return []
   },
   async setWorkflowEnvVars() {},
-  async findEnvVarsByNames() {
-    return []
+  async isSecretVariableAt(id, place) {
+    const v = store.envVars.get(id)
+    return !!v && envVarAtPlace(v, place) && v.isSecret
+  },
+  async findEnvVarsByNames(organizationId, names, projectId, workspaceId) {
+    if (names.length === 0) return []
+    const wanted = new Set(names)
+    const inPlace = [...store.envVars.values()]
+      .filter(
+        (v) =>
+          v.organizationId === organizationId &&
+          wanted.has(v.name) &&
+          (v.projectId === null ||
+            (!!projectId && v.projectId === projectId && v.workspaceId === null) ||
+            (!!workspaceId && v.workspaceId === workspaceId)),
+      )
+      .sort((a, b) => envVarRank(a) - envVarRank(b))
+    const seen = new Set<string>()
+    return inPlace.filter((v) => !seen.has(v.name) && seen.add(v.name) !== null)
   },
 
   // Installed Nodes

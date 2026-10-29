@@ -50,7 +50,7 @@ describe('source with unresolved env vars', () => {
     // a deploy must refuse, a read of the source must not. Stubbed at the
     // storage layer so the resolution itself is the code under test —
     // findEnvVarsByNames finds nothing, so the reference stays unresolved.
-    vi.spyOn(mockDb, 'getWorkflowEnvVars').mockResolvedValue([
+    vi.spyOn(mockDb, 'decodeWorkflowEnvVars').mockResolvedValue([
       {
         name: 'ALICLOUD_ACCESS_KEY_ID',
         value: '{{global.env.ALICLOUD_ACCESS_KEY_ID}}',
@@ -114,7 +114,7 @@ describe('source with unresolved env vars', () => {
     // produced and it asserted against an empty list — it would have passed
     // however badly the message leaked.
     const secret = 'sk-live-should-never-appear'
-    vi.spyOn(mockDb, 'getWorkflowEnvVars').mockResolvedValue([
+    vi.spyOn(mockDb, 'decodeWorkflowEnvVars').mockResolvedValue([
       { name: 'ALICLOUD_ACCESS_KEY_ID', value: `{{global.env.MISSING}}`, isSecret: true },
       { name: 'OTHER', value: secret, isSecret: true },
     ])

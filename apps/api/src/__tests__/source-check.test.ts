@@ -231,7 +231,7 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
       await saveVersion()
       // One variable that resolves to a real secret and one that cannot:
       // the check has to name the second without carrying the first.
-      vi.spyOn(mockDb, 'getWorkflowEnvVars').mockResolvedValue([
+      vi.spyOn(mockDb, 'decodeWorkflowEnvVars').mockResolvedValue([
         { name: 'PRESENT', value: '{{global.env.SHARED_TOKEN}}', isSecret: true },
         { name: 'ABSENT', value: '{{global.env.NOT_A_TOKEN}}', isSecret: true },
       ])
@@ -240,6 +240,7 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
           id: 'ev-1',
           organizationId: TEST_ORG_ID,
           projectId: TEST_PROJECT_ID,
+          workspaceId: null,
           name: 'SHARED_TOKEN',
           value: 'super-secret-value',
           isSecret: true,

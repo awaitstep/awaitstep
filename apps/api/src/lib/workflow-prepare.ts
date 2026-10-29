@@ -19,7 +19,7 @@ import type { AppNodeRegistry } from './node-registry.js'
 import { createMergedNodeRegistry } from './node-registry.js'
 import { resolveProvider, validateNodesForProvider } from './provider-resolver.js'
 import { collectNodeDependencies, mergeDependencies } from './dependencies.js'
-import { resolveAndValidateEnvVars } from './env-resolve.js'
+import { placeOf, resolveAndValidateEnvVars } from './env-resolve.js'
 import { escapingImports, unresolvedAppImports } from './import-check.js'
 import { foldProjectFiles, foldProjectHandlers, foldWorkflowRuntime } from './runtime-fold.js'
 
@@ -119,7 +119,7 @@ export interface WorkflowPrepareInput {
 export async function prepareWorkflow(
   input: WorkflowPrepareInput,
 ): Promise<WorkflowContext | WorkflowPrepareError> {
-  const { db, workflow, organizationId, projectId } = input
+  const { db, workflow, organizationId } = input
   const mode: PrepareMode = input.mode ?? 'deploy'
   const lenient = mode === 'read'
   const diagnostics: PrepareDiagnostic[] = []
@@ -226,13 +226,13 @@ export async function prepareWorkflow(
     }
   }
 
-  // Resolve env vars
+  // Resolve env vars against the workflow's place: its workspace, then its
+  // project, then the organization (B4).
   checked.push('env')
   const envResult = await resolveAndValidateEnvVars(
     db,
-    organizationId,
-    projectId,
-    workflow.id,
+    placeOf(organizationId, workflow),
+    workflow,
     ir,
     nodeRegistry,
   )

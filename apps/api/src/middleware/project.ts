@@ -68,11 +68,18 @@ export const requireProject = createMiddleware<AppEnv>(async (c, next) => {
   const workspacePin = apiKeyWorkspacePin(c)
 
   let ref: ProjectRef
+  // An empty parameter is no parameter, as the routers' choosers read it.
+  const namedSlug = c.req.query('project') || undefined
   if (!isSession(c)) {
     // A project key already carries its project. An organization-level key
     // carries none — and gets none here: org management and project work
     // never share a key.
     if (pin === null) return c.json({ error: ORG_KEY_ON_PROJECT }, 403)
+    // A key naming another project by id is not found there — as a workspace
+    // key naming another workspace — never quietly answered from its own.
+    // One named by slug is compared below, once the read says which it is.
+    const namedId = c.req.query('projectId') || undefined
+    if (namedId && namedId !== pin) return c.json({ error: 'Not found' }, 404)
     ref = { id: pin }
     // A workspace key names its workspace or none; another by id is not found
     // here, one by slug below, once the read says which workspace that is.
@@ -94,7 +101,11 @@ export const requireProject = createMiddleware<AppEnv>(async (c, next) => {
   }
 
   const found = await db.getProjectIfMember(c.get('userId'), ref, workspace)
-  if (!found || (workspacePin !== null && found.workspace?.id !== workspacePin)) {
+  if (
+    !found ||
+    (workspacePin !== null && found.workspace?.id !== workspacePin) ||
+    (!isSession(c) && namedSlug !== undefined && found.project.slug !== namedSlug)
+  ) {
     return c.json({ error: 'Not found' }, 404)
   }
 
