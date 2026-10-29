@@ -1,3 +1,4 @@
+import { ENV_VAR_NAME } from '@awaitstep/ir'
 import type { ScopeSlugs } from '../../../types/dashboard/scope'
 import type {
   OrgVariable,
@@ -50,6 +51,7 @@ export const listProjectVariables = endpoint(
         (a, b) => Number(a.row.level === 'organization') - Number(b.row.level === 'organization'),
       )
       .map(({ row, setAtName }): ResolvedVariable => ({
+        id: variableId(row),
         name: row.name,
         value: row.isSecret ? null : row.value,
         isSecret: row.isSecret,
@@ -89,6 +91,7 @@ export const listWorkspaceVariables = endpoint(
       }
     }
     const list = [...byName].map(([name, [winner, replaced]]): WorkspaceVariable => ({
+      id: variableId(winner!.row),
       name,
       value: winner!.row.isSecret ? null : winner!.row.value,
       isSecret: winner!.row.isSecret,
@@ -122,6 +125,7 @@ export const listOrgVariables = endpoint((ctx, orgSlug: string): OrgVariable[] =
   const list = db.variables
     .filter((v) => v.level === 'organization' && v.scopeId === org.id)
     .map((row): OrgVariable => ({
+      id: variableId(row),
       name: row.name,
       value: row.isSecret ? null : row.value,
       isSecret: row.isSecret,
@@ -130,7 +134,10 @@ export const listOrgVariables = endpoint((ctx, orgSlug: string): OrgVariable[] =
   return rows(ctx, list)
 })
 
-const VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/
+/** A row's id: the dummy keeps no ids, so one is read off where the row is set. */
+function variableId(row: VariableRow): string {
+  return `${row.level}:${row.scopeId}:${row.name}`
+}
 
 /** The scope a variable input names, after checking the viewer may change its variables. */
 function scopeFor(ctx: MockContext, orgSlug: string, scope: VariableScope) {
@@ -142,8 +149,11 @@ function scopeFor(ctx: MockContext, orgSlug: string, scope: VariableScope) {
 export const setVariable = mutation((ctx, orgSlug: string, input: VariableInput): void => {
   const { db, target } = scopeFor(ctx, orgSlug, input.scope)
   const name = input.name.trim()
-  if (!VARIABLE_NAME.test(name)) {
-    throw invalidError('Use letters, numbers and underscores, not starting with a number', 'name')
+  if (!ENV_VAR_NAME.test(name)) {
+    throw invalidError(
+      'Use capital letters, numbers and underscores, starting with a letter',
+      'name',
+    )
   }
   const existing = db.variables.find(
     (v) => v.level === input.scope.level && v.scopeId === target.id && v.name === name,

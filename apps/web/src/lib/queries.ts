@@ -88,15 +88,6 @@ export const queries = {
       }),
   },
 
-  envVars: {
-    list: () =>
-      infiniteQueryOptions({
-        queryKey: ['env-vars'] as const,
-        queryFn: ({ pageParam }) => api.listEnvVars({ cursor: pageParam }),
-        ...infiniteDefaults,
-      }),
-  },
-
   apiKeys: {
     list: (projectId?: string) =>
       infiniteQueryOptions({

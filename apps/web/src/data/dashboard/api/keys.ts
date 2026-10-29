@@ -1,9 +1,4 @@
-import type {
-  ApiKeyPage,
-  ApiKeyRow,
-  ApiProjectKeys,
-  ApiWorkspaceKeys,
-} from '../../../lib/dashboard-api'
+import type { ApiKeyRow, ApiProjectKeys, ApiWorkspaceKeys } from '../../../lib/dashboard-api'
 import type {
   ApiKey,
   CreatedKey,
@@ -23,25 +18,6 @@ const EXPIRY_DAYS: Record<KeyExpiry, number | null> = {
   '90': 90,
   '365': 365,
   never: null,
-}
-
-/**
- * Every page of a level's key list, as one: the keys pages draw the whole
- * list and have no pager, so a page size is not a cap. The first page's
- * other fields (the per-workspace counts) are kept.
- */
-export async function allKeyPages<T extends ApiKeyPage>(
-  fetchPage: (cursor?: string) => Promise<T>,
-): Promise<T> {
-  const first = await fetchPage()
-  const data = [...first.data]
-  let cursor = first.nextCursor
-  while (cursor) {
-    const page = await fetchPage(cursor)
-    data.push(...page.data)
-    cursor = page.nextCursor
-  }
-  return { ...first, data, nextCursor: null }
 }
 
 export function toApiKey(row: ApiKeyRow): ApiKey {

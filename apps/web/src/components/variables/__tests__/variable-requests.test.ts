@@ -13,6 +13,7 @@ const resolved = (
   level: 'organization' | 'project',
   isSecret = false,
 ): ResolvedVariable => ({
+  id: `project:${name}`,
   name,
   value: isSecret ? null : 'v',
   isSecret,
@@ -24,6 +25,7 @@ const inWorkspace = (
   name: string,
   level: 'organization' | 'project' | 'workspace',
 ): WorkspaceVariable => ({
+  id: `${level}:${name}`,
   name,
   value: 'v',
   isSecret: false,
@@ -50,6 +52,7 @@ describe('projectDialogMode', () => {
     const list = [resolved('SLACK_TOKEN', 'project', true), resolved('REGION', 'organization')]
     expect(projectDialogMode({ kind: 'variable', name: 'SLACK_TOKEN' }, list)).toEqual({
       kind: 'edit',
+      id: 'project:SLACK_TOKEN',
       name: 'SLACK_TOKEN',
       value: null,
       isSecret: true,
@@ -80,13 +83,14 @@ describe('workspaceDialogMode', () => {
 
 describe('orgDialogMode', () => {
   const ORG = [
-    { name: 'REGION', value: 'eu', isSecret: false, overriddenIn: 1 },
-    { name: 'SENTRY_DSN', value: null, isSecret: true, overriddenIn: 0 },
+    { id: 'org:REGION', name: 'REGION', value: 'eu', isSecret: false, overriddenIn: 1 },
+    { id: 'org:SENTRY_DSN', name: 'SENTRY_DSN', value: null, isSecret: true, overriddenIn: 0 },
   ]
 
   it('edits the org’s own variables, a secret starting empty', () => {
     expect(orgDialogMode({ kind: 'variable', name: 'REGION' }, ORG)).toEqual({
       kind: 'edit',
+      id: 'org:REGION',
       name: 'REGION',
       value: 'eu',
       isSecret: false,

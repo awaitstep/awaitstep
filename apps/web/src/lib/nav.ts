@@ -5,15 +5,11 @@ export interface NavItem {
   label: string
 }
 
-export const NAV_ITEMS: readonly NavItem[] = [
-  { to: '/connections', label: 'Connections' },
-  { to: '/env-vars', label: 'Env Vars' },
-]
+export const NAV_ITEMS: readonly NavItem[] = [{ to: '/connections', label: 'Connections' }]
 
 const EXACT_ROUTE_IDS: Record<string, string> = {
   '/dashboard': '/_authed/dashboard',
   '/connections': '/_authed/connections',
-  '/env-vars': '/_authed/env-vars',
   '/api-playground': '/_authed/api-playground',
   '/settings': '/_authed/settings',
   '/account': '/_authed/account',

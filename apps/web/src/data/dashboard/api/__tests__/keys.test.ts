@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { ApiKeyRow } from '../../../../lib/dashboard-api'
 import {
-  allKeyPages,
   expiresAtOf,
   toApiKey,
   toCreateKeyRequest,
@@ -9,6 +8,7 @@ import {
   toProjectKeys,
   toWorkspaceKeys,
 } from '../keys'
+import { allPages } from '../pages'
 
 const row: ApiKeyRow = {
   id: 'key_1',
@@ -58,7 +58,7 @@ describe('key rows → records', () => {
       ...pages[cursor ?? 'first']!,
       workspaceCounts: cursor ? [] : [{ workspace: row.workspace!, count: 1 }],
     }))
-    const all = await allKeyPages(fetchPage)
+    const all = await allPages(fetchPage)
     expect(all.data.map((k) => k.id)).toEqual(['key_1', 'key_2', 'key_3'])
     expect(all.nextCursor).toBeNull()
     expect(all.workspaceCounts).toEqual([{ workspace: row.workspace, count: 1 }])

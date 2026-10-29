@@ -1,16 +1,20 @@
+import type { ScopeLevel } from '@awaitstep/ir'
 import type { WorkspaceRef } from './items'
 import type { LevelSlugs } from './scope'
 
-// Dashboard types for variables. Web-only until B4 moves them.
+// Dashboard types for variables: what the pages render, mapped from the
+// API's rows (`data/dashboard/api/variables.ts`) or served by the dummy.
 
 /** Where a variable is set: the org, the project, or one workspace. */
-export type VariableLevel = 'organization' | 'project' | 'workspace'
+export type VariableLevel = ScopeLevel
 
 /**
  * A variable as a project resolves it: the project's own value wins over the
  * org's. Workspaces that set their own value are listed, not resolved here.
  */
 export interface ResolvedVariable {
+  /** The winning row's id: what Edit and Delete address. */
+  id: string
   name: string
   /** Null for a secret: its value is never sent back. */
   value: string | null
@@ -21,6 +25,7 @@ export interface ResolvedVariable {
 
 /** A variable as a workspace resolves it: the closest level wins (workspace › project › org). */
 export interface WorkspaceVariable {
+  id: string
   name: string
   /** Null for a secret. */
   value: string | null
@@ -33,6 +38,7 @@ export interface WorkspaceVariable {
 
 /** A variable the org sets (Resources → Variables): it reaches every project that doesn't set its own. */
 export interface OrgVariable {
+  id: string
   name: string
   /** Null for a secret. */
   value: string | null
@@ -53,4 +59,8 @@ export interface VariableInput {
   isSecret: boolean
   /** `create` refuses a name already set at that scope; `edit` needs it to exist there. */
   mode: 'create' | 'edit'
+  /** The row an edit addresses on the API; the dummy addresses by scope and name. */
+  id?: string
+  /** On an edit: whether the stored value is a secret, which an empty value keeps. */
+  wasSecret?: boolean
 }

@@ -9,6 +9,7 @@ import type {
   WorkspaceRole,
   KeyLevel,
   KeyPermissions,
+  ScopeLevel,
 } from '@awaitstep/ir'
 import {
   request,
@@ -327,6 +328,54 @@ export interface ApiWorkspaceKeys {
   inherited: ApiKeyRow[]
 }
 
+/** A variable as `/env-vars` lists it (B4): its level read off its columns, a secret's value masked. */
+export interface ApiVariableRow {
+  id: string
+  level: ScopeLevel
+  organizationId: string
+  projectId: string | null
+  workspaceId: string | null
+  name: string
+  value: string
+  isSecret: boolean
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+/** An org-wide row with how many projects the viewer can open set the name themselves. */
+export interface ApiOrgVariableRow extends ApiVariableRow {
+  overriddenIn: number
+}
+
+export interface ApiVariableSource {
+  level: ScopeLevel
+  id: string
+  name: string | null
+}
+
+/** `/env-vars/resolved` at a project: each name once, the project's value over the org's. */
+export interface ApiResolvedProjectVariable extends ApiVariableRow {
+  setAt: ApiVariableSource
+  overriddenIn: { id: string; slug: string; name: string; colour: string }[]
+}
+
+/** `/env-vars/resolved` at a workspace: each name once, the closest level winning. */
+export interface ApiResolvedWorkspaceVariable extends ApiVariableRow {
+  source: ApiVariableSource
+  overrides: 'project' | 'organization' | null
+}
+
+export interface ApiVariablePage {
+  data: ApiVariableRow[]
+  nextCursor: string | null
+}
+
+export interface ApiOrgVariablePage {
+  data: ApiOrgVariableRow[]
+  nextCursor: string | null
+}
+
 /** Where a key call is addressed: the level's slugs. */
 export interface KeySlugs {
   org: string
@@ -495,6 +544,48 @@ export const dashboardApi = {
 
   revokeKey(slugs: KeySlugs, id: string): Promise<ApiKeyRow> {
     return request(`/api-keys/${id}${query(slugs)}`, { method: 'DELETE' })
+  },
+
+  // Variables (B4), addressed at their level like keys: `?org=` the
+  // organization's own, `&project=` a project's own, `&workspace=` a
+  // workspace's own; the resolved reads give a project's or a workspace's view.
+  listOrgVariables(org: string, cursor?: string): Promise<ApiOrgVariablePage> {
+    return request(`/env-vars${query({ org, cursor })}`)
+  },
+
+  listResolvedProjectVariables(
+    slugs: ProjectSlugs,
+  ): Promise<{ data: ApiResolvedProjectVariable[] }> {
+    return request(`/env-vars/resolved${query(slugs)}`)
+  },
+
+  listResolvedWorkspaceVariables(
+    slugs: WorkspaceSlugs,
+  ): Promise<{ data: ApiResolvedWorkspaceVariable[] }> {
+    return request(`/env-vars/resolved${query(slugs)}`)
+  },
+
+  createVariable(
+    slugs: KeySlugs,
+    data: { name: string; value: string; isSecret: boolean },
+  ): Promise<ApiVariableRow> {
+    return request(`/env-vars${query(slugs)}`, { method: 'POST', body: JSON.stringify(data) })
+  },
+
+  /** `value` left out keeps a secret's stored value. */
+  updateVariable(
+    slugs: KeySlugs,
+    id: string,
+    data: { value?: string; isSecret: boolean },
+  ): Promise<ApiVariableRow> {
+    return request(`/env-vars/${id}${query(slugs)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  },
+
+  deleteVariable(slugs: KeySlugs, id: string): Promise<{ ok: true }> {
+    return request(`/env-vars/${id}${query(slugs)}`, { method: 'DELETE' })
   },
 
   getInvite(token: string): Promise<ApiInviteView> {

@@ -36,10 +36,10 @@ describe('isNavItemActive', () => {
     expect(isNavItemActive(routeIds, '/runs')).toBe(true)
   })
 
-  it('matches connections and env-vars exactly', () => {
+  it('matches connections exactly, and knows no env-vars page any more (B4)', () => {
     expect(isNavItemActive(['/_authed/connections'], '/connections')).toBe(true)
-    expect(isNavItemActive(['/_authed/env-vars'], '/env-vars')).toBe(true)
     expect(isNavItemActive(['/_authed/connections'], '/env-vars')).toBe(false)
+    expect(isNavItemActive(['/_authed/env-vars'], '/env-vars')).toBe(false)
   })
 
   it('matches settings, account, and the api playground exactly', () => {

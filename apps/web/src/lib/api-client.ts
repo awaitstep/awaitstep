@@ -376,15 +376,6 @@ export interface ConnectionSummary {
   createdAt: string
 }
 
-export interface EnvVarSummary {
-  id: string
-  name: string
-  value: string
-  isSecret: boolean
-  createdAt: string
-  updatedAt: string
-}
-
 export interface ApiKeySummary {
   id: string
   name: string
@@ -734,25 +725,6 @@ export const api = {
   ): Promise<{ timestamp: number; stream: 'stdout' | 'stderr'; text: string }[]> {
     const params = since ? `?since=${since}` : ''
     return request(withProject(`/workflows/${workflowId}/local-dev/logs${params}`))
-  },
-
-  listEnvVars(opts?: PaginationOptions): Promise<PaginatedResponse<EnvVarSummary>> {
-    return request(withPagination(withOrg('/env-vars'), opts))
-  },
-
-  createEnvVar(data: { name: string; value: string; isSecret: boolean }): Promise<EnvVarSummary> {
-    return request(withOrg('/env-vars'), { method: 'POST', body: JSON.stringify(data) })
-  },
-
-  updateEnvVar(
-    id: string,
-    data: { name?: string; value?: string; isSecret?: boolean },
-  ): Promise<EnvVarSummary> {
-    return request(withOrg(`/env-vars/${id}`), { method: 'PATCH', body: JSON.stringify(data) })
-  },
-
-  deleteEnvVar(id: string): Promise<void> {
-    return request(withOrg(`/env-vars/${id}`), { method: 'DELETE' })
   },
 
   listApiKeys(

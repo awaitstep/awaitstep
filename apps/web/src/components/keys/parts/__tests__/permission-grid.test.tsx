@@ -49,9 +49,10 @@ describe('PermissionGrid', () => {
     expect(screen.getByRole('checkbox', { name: 'Workflows & functions: Deploy' })).toBeVisible()
     expect(screen.getByRole('checkbox', { name: 'Runs: Read' })).toBeVisible()
     expect(screen.queryByRole('checkbox', { name: 'Runs: Write' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('checkbox', { name: 'Variables: Write' })).not.toBeInTheDocument()
-    // 5 workflow actions + read on runs + read on variables (B4 adds the rest)
-    expect(screen.getAllByRole('checkbox')).toHaveLength(7)
+    expect(screen.getByRole('checkbox', { name: 'Variables: Write' })).toBeVisible()
+    expect(screen.queryByRole('checkbox', { name: 'Variables: Deploy' })).not.toBeInTheDocument()
+    // 5 workflow actions + read on runs + read, write and delete on variables (B4)
+    expect(screen.getAllByRole('checkbox')).toHaveLength(9)
   })
 
   it('reports one ticked cell as a change', async () => {

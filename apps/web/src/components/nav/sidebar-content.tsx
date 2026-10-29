@@ -6,7 +6,6 @@ import {
   BookOpen,
   Cable,
   ExternalLink,
-  KeyRound,
   LayoutDashboard,
   LogOut,
   Moon,
@@ -35,7 +34,6 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   '/workflows': Workflow,
   '/runs': Activity,
   '/connections': Cable,
-  '/env-vars': KeyRound,
 }
 
 interface SidebarContentProps {

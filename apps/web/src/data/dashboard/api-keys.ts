@@ -10,13 +10,13 @@ import type {
 } from '../../types/dashboard/api-keys'
 import type { ScopeSlugs } from '../../types/dashboard/scope'
 import {
-  allKeyPages,
   toApiKey,
   toCreateKeyRequest,
   toCreatedKey,
   toProjectKeys,
   toWorkspaceKeys,
 } from './api/keys'
+import { allPages } from './api/pages'
 import { dashKeys, invalidateAll } from './keys'
 import { useMockContext } from './scenario-context'
 import { useDashKey, useDataSource } from './source'
@@ -30,7 +30,7 @@ export function useProjectKeys(org: string, project: string) {
     queryKey: key(dashKeys.projectKeys(org, project)),
     queryFn: (): Promise<ProjectKeys> =>
       source === 'api'
-        ? allKeyPages((cursor) => dashboardApi.listProjectKeys({ org, project }, cursor)).then(
+        ? allPages((cursor) => dashboardApi.listProjectKeys({ org, project }, cursor)).then(
             toProjectKeys,
           )
         : mockServer.keys.listProjectKeys(ctx, org, project),
@@ -92,7 +92,7 @@ export function useOrgKeys(org: string) {
     queryKey: key(dashKeys.orgKeys(org)),
     queryFn: (): Promise<ApiKey[]> =>
       source === 'api'
-        ? allKeyPages((cursor) => dashboardApi.listOrgKeys(org, cursor)).then((res) =>
+        ? allPages((cursor) => dashboardApi.listOrgKeys(org, cursor)).then((res) =>
             res.data.map(toApiKey),
           )
         : mockServer.keys.listOrgKeys(ctx, org),

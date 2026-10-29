@@ -1,5 +1,3 @@
-import type { EnvVarSummary } from './api-client'
-
 export const NAME_PATTERN = /^[A-Z][A-Z0-9_]*$/
 export const SECRET_PREFIX = 'SECRET_'
 export const MASKED_SECRET_VALUE = '••••••••'
@@ -35,16 +33,6 @@ export interface ParsedLine {
   value: string
   isSecret: boolean
   error?: string
-}
-
-export function envVarsToString(vars: EnvVarSummary[]): string {
-  if (vars.length === 0) return ''
-  return vars
-    .map((v) => {
-      const displayName = secretDisplayName(v.name, v.isSecret)
-      return `${displayName}=${v.isSecret ? MASKED_SECRET_VALUE : v.value}`
-    })
-    .join('\n')
 }
 
 export function parseEnvString(text: string): ParsedLine[] {

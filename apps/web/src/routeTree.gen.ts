@@ -18,7 +18,6 @@ import { Route as AuthedApiPlaygroundRouteImport } from './routes/_authed/api-pl
 import { Route as AuthedChooseOrgRouteImport } from './routes/_authed/choose-org'
 import { Route as AuthedConnectionsRouteImport } from './routes/_authed/connections'
 import { Route as AuthedDashboardRouteImport } from './routes/_authed/dashboard'
-import { Route as AuthedEnvVarsRouteImport } from './routes/_authed/env-vars'
 import { Route as AuthedSettingsRouteImport } from './routes/_authed/settings'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AuthedOrgIndexRouteImport } from './routes/_authed/$org.index'
@@ -107,11 +106,6 @@ const AuthedConnectionsRoute = AuthedConnectionsRouteImport.update({
 const AuthedDashboardRoute = AuthedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedEnvVarsRoute = AuthedEnvVarsRouteImport.update({
-  id: '/env-vars',
-  path: '/env-vars',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedSettingsRoute = AuthedSettingsRouteImport.update({
@@ -378,7 +372,6 @@ export interface FileRoutesByFullPath {
   '/choose-org': typeof AuthedChooseOrgRoute
   '/connections': typeof AuthedConnectionsRoute
   '/dashboard': typeof AuthedDashboardRoute
-  '/env-vars': typeof AuthedEnvVarsRoute
   '/settings': typeof AuthedSettingsRoute
   '/invite/$token': typeof InviteTokenRoute
   '/$org/audit': typeof AuthedOrgAuditRoute
@@ -433,7 +426,6 @@ export interface FileRoutesByTo {
   '/choose-org': typeof AuthedChooseOrgRoute
   '/connections': typeof AuthedConnectionsRoute
   '/dashboard': typeof AuthedDashboardRoute
-  '/env-vars': typeof AuthedEnvVarsRoute
   '/settings': typeof AuthedSettingsRoute
   '/invite/$token': typeof InviteTokenRoute
   '/$org/audit': typeof AuthedOrgAuditRoute
@@ -488,7 +480,6 @@ export interface FileRoutesById {
   '/_authed/choose-org': typeof AuthedChooseOrgRoute
   '/_authed/connections': typeof AuthedConnectionsRoute
   '/_authed/dashboard': typeof AuthedDashboardRoute
-  '/_authed/env-vars': typeof AuthedEnvVarsRoute
   '/_authed/settings': typeof AuthedSettingsRoute
   '/invite/$token': typeof InviteTokenRoute
   '/_authed/$org/audit': typeof AuthedOrgAuditRoute
@@ -546,7 +537,6 @@ export interface FileRouteTypes {
     | '/choose-org'
     | '/connections'
     | '/dashboard'
-    | '/env-vars'
     | '/settings'
     | '/invite/$token'
     | '/$org/audit'
@@ -601,7 +591,6 @@ export interface FileRouteTypes {
     | '/choose-org'
     | '/connections'
     | '/dashboard'
-    | '/env-vars'
     | '/settings'
     | '/invite/$token'
     | '/$org/audit'
@@ -655,7 +644,6 @@ export interface FileRouteTypes {
     | '/_authed/choose-org'
     | '/_authed/connections'
     | '/_authed/dashboard'
-    | '/_authed/env-vars'
     | '/_authed/settings'
     | '/invite/$token'
     | '/_authed/$org/audit'
@@ -773,13 +761,6 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthedDashboardRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/env-vars': {
-      id: '/_authed/env-vars'
-      path: '/env-vars'
-      fullPath: '/env-vars'
-      preLoaderRoute: typeof AuthedEnvVarsRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/settings': {
@@ -1241,7 +1222,6 @@ interface AuthedRouteChildren {
   AuthedChooseOrgRoute: typeof AuthedChooseOrgRoute
   AuthedConnectionsRoute: typeof AuthedConnectionsRoute
   AuthedDashboardRoute: typeof AuthedDashboardRoute
-  AuthedEnvVarsRoute: typeof AuthedEnvVarsRoute
   AuthedSettingsRoute: typeof AuthedSettingsRoute
   AuthedRunsRunIdRoute: typeof AuthedRunsRunIdRoute
   AuthedWorkflowsWorkflowIdRoute: typeof AuthedWorkflowsWorkflowIdRouteWithChildren
@@ -1256,7 +1236,6 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedChooseOrgRoute: AuthedChooseOrgRoute,
   AuthedConnectionsRoute: AuthedConnectionsRoute,
   AuthedDashboardRoute: AuthedDashboardRoute,
-  AuthedEnvVarsRoute: AuthedEnvVarsRoute,
   AuthedSettingsRoute: AuthedSettingsRoute,
   AuthedRunsRunIdRoute: AuthedRunsRunIdRoute,
   AuthedWorkflowsWorkflowIdRoute: AuthedWorkflowsWorkflowIdRouteWithChildren,

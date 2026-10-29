@@ -207,13 +207,40 @@ describe('hooks on the API', () => {
     ).rejects.toMatchObject({ message: 'Taken', status: 422, field: 'slug', requestId: 'req-9' })
   })
 
-  it('leaves a feature still on dummy data empty, without a request', async () => {
-    // Variables wait for B4; keys moved to the API in B3.
+  it('reads a project’s resolved variables through GET /env-vars/resolved and hides secrets', async () => {
+    answer({
+      data: [
+        {
+          id: 'v-1',
+          level: 'project',
+          organizationId: 'org-1',
+          projectId: 'p-1',
+          workspaceId: null,
+          name: 'SLACK_TOKEN',
+          value: '••••••••',
+          isSecret: true,
+          createdBy: 'user-real',
+          createdAt: '2026-10-20T00:00:00.000Z',
+          updatedAt: '2026-10-20T00:00:00.000Z',
+          setAt: { level: 'project', id: 'p-1', name: 'Project 101' },
+          overriddenIn: [{ id: 'ws-sales', slug: 'sales', name: 'Sales', colour: 'blue' }],
+        },
+      ],
+    })
     const { wrapper } = setup('api')
     const { result } = renderHook(() => useProjectVariables('acme', 'p'), { wrapper })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data).toEqual([])
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(result.current.data).toEqual([
+      {
+        id: 'v-1',
+        name: 'SLACK_TOKEN',
+        value: null,
+        isSecret: true,
+        setAt: { level: 'project', name: 'Project 101' },
+        overriddenIn: [{ id: 'ws-sales', slug: 'sales', name: 'Sales', colour: 'blue' }],
+      },
+    ])
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/env-vars/resolved?org=acme&project=p')
   })
 
   it('names what is not connected yet', async () => {

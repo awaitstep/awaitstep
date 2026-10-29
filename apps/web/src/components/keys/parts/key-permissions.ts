@@ -69,7 +69,7 @@ const RESOURCE_HINT: Record<KeyLevel, Partial<Record<KeyResource, string>>> = {
   workspace: {
     workflows: 'In this workspace only',
     runs: 'History and logs',
-    variables: 'What this workspace’s workflows resolve',
+    variables: 'This workspace’s own values',
   },
 }
 

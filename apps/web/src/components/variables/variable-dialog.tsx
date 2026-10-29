@@ -1,6 +1,8 @@
 import { useId, useState, type SubmitEvent } from 'react'
 import { Braces, Trash2 } from 'lucide-react'
+import { isEnvVarName } from '@awaitstep/ir'
 import { errorFieldOf } from '../../data/dashboard/errors'
+import { ApiError } from '../../lib/api-client'
 import { useDeleteVariable, useSetVariable } from '../../data/dashboard/variables'
 import type { VariableLevel, VariableScope } from '../../types/dashboard/variables'
 import { Button } from '../ui/button'
@@ -26,8 +28,10 @@ export interface VariableTarget {
 /** What the dialog does: add, change one value, or override an inherited one. */
 export type VariableDialogMode =
   | { kind: 'new' }
-  | { kind: 'edit'; name: string; value: string | null; isSecret: boolean }
+  | { kind: 'edit'; id: string; name: string; value: string | null; isSecret: boolean }
   | { kind: 'override'; name: string; isSecret: boolean }
+
+const NAME_RULE = 'Use capital letters, numbers and underscores, starting with a letter'
 
 interface VariableDialogProps {
   org: string
@@ -58,6 +62,9 @@ export function VariableDialog({ org, mode, targets, startTarget, onClose }: Var
   const [isSecret, setIsSecret] = useState(mode.kind === 'new' ? false : mode.isSecret)
   const [targetId, setTargetId] = useState(startTarget)
   const [deleting, setDeleting] = useState(false)
+  // The name as the API and a reference accept it: checked here before a
+  // request, so a typo never waits on a round trip.
+  const [nameIssue, setNameIssue] = useState<string | undefined>(undefined)
   // No fallback: a target that isn't listed yet waits, rather than saving somewhere broader.
   const target = targets.find((t) => t.id === targetId)
 
@@ -66,7 +73,9 @@ export function VariableDialog({ org, mode, targets, startTarget, onClose }: Var
   }
 
   function handleName(next: string) {
-    setName(next)
+    // A deployed worker reads `env.NAME`: the name is capitals, as typed on the canvas.
+    setName(next.toUpperCase())
+    setNameIssue(undefined)
     save.reset()
   }
 
@@ -83,6 +92,10 @@ export function VariableDialog({ org, mode, targets, startTarget, onClose }: Var
   function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     if (!target) return
+    if (!isEnvVarName(name)) {
+      setNameIssue(NAME_RULE)
+      return
+    }
     save.mutate(
       {
         scope: target.scope,
@@ -90,6 +103,7 @@ export function VariableDialog({ org, mode, targets, startTarget, onClose }: Var
         value,
         isSecret,
         mode: mode.kind === 'edit' ? 'edit' : 'create',
+        ...(mode.kind === 'edit' && { id: mode.id, wasSecret: mode.isSecret }),
       },
       { onSuccess: onClose },
     )
@@ -106,11 +120,25 @@ export function VariableDialog({ org, mode, targets, startTarget, onClose }: Var
 
   function handleDelete() {
     if (!target || !fixedName) return
-    remove.mutate({ scope: target.scope, name: fixedName }, { onSuccess: onClose })
+    remove.mutate(
+      {
+        scope: target.scope,
+        name: fixedName,
+        ...(mode.kind === 'edit' && { id: mode.id }),
+      },
+      { onSuccess: onClose },
+    )
   }
 
   const field = errorFieldOf(save.error)
-  const nameError = field === 'name' ? save.error?.message : undefined
+  const nameError =
+    nameIssue ??
+    (field === 'name'
+      ? // The API's 409 says "here"; the dialog knows where "here" is.
+        save.error instanceof ApiError && save.error.status === 409
+        ? `Already set in ${target?.name ?? 'this level'}. Edit it instead`
+        : save.error?.message
+      : undefined)
   const valueError = field === 'value' ? save.error?.message : undefined
   // Errors that belong to no field (no access, gone meanwhile) go above the form.
   const formError = save.error && !field ? save.error.message : undefined

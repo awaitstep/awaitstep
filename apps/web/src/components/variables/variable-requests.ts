@@ -18,6 +18,7 @@ export function variableRequestFrom(search: {
 
 /** What a variable dialog needs from a listed variable. */
 interface ListedVariable {
+  id: string
   name: string
   value: string | null
   isSecret: boolean
@@ -40,7 +41,13 @@ function dialogModeFor<V extends ListedVariable>(
   if (isInherited(variable)) {
     return { kind: 'override', name: variable.name, isSecret: variable.isSecret }
   }
-  return { kind: 'edit', name: variable.name, value: variable.value, isSecret: variable.isSecret }
+  return {
+    kind: 'edit',
+    id: variable.id,
+    name: variable.name,
+    value: variable.value,
+    isSecret: variable.isSecret,
+  }
 }
 
 /** On project Variables: the project's own values open Edit; the org's open Override. */

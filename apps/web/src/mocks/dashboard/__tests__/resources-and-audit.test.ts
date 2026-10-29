@@ -95,7 +95,7 @@ describe('org nodes', () => {
 describe('org variables', () => {
   it('lists what Acme sets, with secrets hidden and REGION overridden in one project', async () => {
     const list = await variables.listOrgVariables(ama, 'acme')
-    expect(list).toEqual([
+    expect(list).toMatchObject([
       { name: 'REGION', value: 'eu', isSecret: false, overriddenIn: 1 },
       { name: 'SUPPORT_EMAIL', value: 'support@acme.test', isSecret: false, overriddenIn: 0 },
       { name: 'SENTRY_DSN', value: null, isSecret: true, overriddenIn: 0 },

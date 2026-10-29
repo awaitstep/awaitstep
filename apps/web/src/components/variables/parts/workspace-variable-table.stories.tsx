@@ -13,6 +13,7 @@ type Story = StoryObj<typeof meta>
 
 const VARIABLES: WorkspaceVariable[] = [
   {
+    id: 'v_crm_base_url',
     name: 'CRM_BASE_URL',
     value: 'https://crm.acme.test',
     isSecret: false,
@@ -20,6 +21,7 @@ const VARIABLES: WorkspaceVariable[] = [
     overrides: 'project',
   },
   {
+    id: 'v_slack_token',
     name: 'SLACK_TOKEN',
     value: null,
     isSecret: true,
@@ -27,6 +29,7 @@ const VARIABLES: WorkspaceVariable[] = [
     overrides: null,
   },
   {
+    id: 'v_region',
     name: 'REGION',
     value: 'eu',
     isSecret: false,

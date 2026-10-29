@@ -15,6 +15,7 @@ const SALES = { id: 'ws_sales', slug: 'sales', name: 'Sales', colour: 'green' as
 
 const VARIABLES: ResolvedVariable[] = [
   {
+    id: 'v_slack_token',
     name: 'SLACK_TOKEN',
     value: null,
     isSecret: true,
@@ -22,6 +23,7 @@ const VARIABLES: ResolvedVariable[] = [
     overriddenIn: [],
   },
   {
+    id: 'v_crm_base_url',
     name: 'CRM_BASE_URL',
     value: 'https://crm-staging.acme.test',
     isSecret: false,
@@ -29,6 +31,7 @@ const VARIABLES: ResolvedVariable[] = [
     overriddenIn: [SALES],
   },
   {
+    id: 'v_region',
     name: 'REGION',
     value: 'eu',
     isSecret: false,

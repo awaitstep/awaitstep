@@ -601,16 +601,37 @@ export const endpoints: EndpointDef[] = [
     hasBody: false,
   },
 
-  // Environment Variables
+  // Environment Variables — addressed at their level (B4): `org` alone for
+  // the organization's own, `project` for a project's, `workspace` for a
+  // workspace's; a key's pin is its address, so a project or workspace key
+  // needs none of them.
   {
     id: 'list-env-vars',
     group: 'Environment Variables',
     method: 'GET',
     path: '/api/env-vars',
-    label: 'List environment variables',
+    label: 'List the level’s own variables',
     permission: 'resources:read',
     belowPermission: 'variables:read',
-    params: [{ name: 'projectId', in: 'query', required: false }, ...paginationParams],
+    params: [
+      { name: 'project', in: 'query', required: false },
+      { name: 'workspace', in: 'query', required: false },
+      ...paginationParams,
+    ],
+    hasBody: false,
+  },
+  {
+    id: 'resolved-env-vars',
+    group: 'Environment Variables',
+    method: 'GET',
+    path: '/api/env-vars/resolved',
+    label: 'Resolved variables of a project or workspace',
+    permission: 'resources:read',
+    belowPermission: 'variables:read',
+    params: [
+      { name: 'project', in: 'query', required: false },
+      { name: 'workspace', in: 'query', required: false },
+    ],
     hasBody: false,
   },
   {
@@ -618,10 +639,13 @@ export const endpoints: EndpointDef[] = [
     group: 'Environment Variables',
     method: 'POST',
     path: '/api/env-vars',
-    label: 'Create environment variable',
+    label: 'Set a variable at the level',
     permission: 'resources:write',
     belowPermission: 'variables:write',
-    params: [],
+    params: [
+      { name: 'project', in: 'query', required: false },
+      { name: 'workspace', in: 'query', required: false },
+    ],
     hasBody: true,
     bodyExample: JSON.stringify({ name: 'MY_VAR', value: 'my-value', isSecret: false }, null, 2),
   },
@@ -630,10 +654,14 @@ export const endpoints: EndpointDef[] = [
     group: 'Environment Variables',
     method: 'PATCH',
     path: '/api/env-vars/:id',
-    label: 'Update environment variable',
+    label: 'Update a variable at the level',
     permission: 'resources:write',
     belowPermission: 'variables:write',
-    params: [{ name: 'id', in: 'path', required: true }],
+    params: [
+      { name: 'id', in: 'path', required: true },
+      { name: 'project', in: 'query', required: false },
+      { name: 'workspace', in: 'query', required: false },
+    ],
     hasBody: true,
     bodyExample: JSON.stringify({ value: 'new-value' }, null, 2),
   },
@@ -642,10 +670,14 @@ export const endpoints: EndpointDef[] = [
     group: 'Environment Variables',
     method: 'DELETE',
     path: '/api/env-vars/:id',
-    label: 'Delete environment variable',
+    label: 'Delete a variable at the level',
     permission: 'resources:delete',
     belowPermission: 'variables:delete',
-    params: [{ name: 'id', in: 'path', required: true }],
+    params: [
+      { name: 'id', in: 'path', required: true },
+      { name: 'project', in: 'query', required: false },
+      { name: 'workspace', in: 'query', required: false },
+    ],
     hasBody: false,
   },
 
