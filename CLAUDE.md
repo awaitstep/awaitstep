@@ -7,8 +7,12 @@
 ## Full-cycle steps (the user reviews only ship-ready work)
 
 - A planned step is built end to end before the user sees it: all slices, `pnpm build`/`test`/`lint`/`tsc` green, QA notes written. Do not stop between slices to ask.
-- Then, without asking, spawn **two review subagents in parallel** with an explicit model override (`opus` or `sonnet`, never a fork): one `/code-review`-style correctness review at **high** effort, one security review. Work through every finding as in "Review Feedback" below, with regression tests, then re-run the checks.
-- **Backend steps also get an e2e run on real endpoints.** Spawn a `sonnet` subagent that builds the Docker image from the host dist, brings up the container(s) and exercises every new or changed endpoint with real HTTP calls on both dialects, following the recipe in `plan/qa/w0-docker/` and the step's QA notes. It reports each call's request, status and body, and any failure is fixed before the step is presented.
+- Then, without asking, run the review subagents **one after another, never in parallel**, each with an explicit model override (`opus` or `sonnet`, never a fork):
+  1. a `/code-review`-style correctness review at **high** effort; work through every finding as in "Review Feedback" below, with regression tests, and re-run the checks;
+  2. only then a security review; work through its findings the same way;
+  3. only then, for backend steps that add or change API endpoints, the e2e run below.
+     Do not start the next agent while one is still running, and do not start the next stage while the previous stage's findings are unfixed.
+- **Backend steps also get an e2e run on real endpoints**, after both reviews are handled and only when endpoints were added or changed. Spawn a `sonnet` subagent that builds the Docker image from the host dist, brings up the container(s) and exercises every new or changed endpoint with real HTTP calls on both dialects, following the recipe in `plan/qa/w0-docker/` and the step's QA notes. It reports each call's request, status and body, and any failure is fixed before the step is presented.
 - Only then present the commit summary and wait for the one commit approval.
 
 ## Subagents
@@ -83,6 +87,7 @@ When review feedback is shared, work through **every** comment in it — in full
 - **NEVER chain sequential `await` calls when a single SQL query can do the same work.** If you need data from table A to query table B, use a JOIN — not two round trips. This applies to validation checks (e.g. "fetch project then check membership") — combine them into one query with `INNER JOIN`. Violations of this rule are treated as bugs.
 - Prefer Drizzle's `.select().from().innerJoin().where()` chain over raw SQL. Use raw `sql` template literals only when the query builder can't express the query.
 - Filter at the SQL layer (`WHERE`, `LIMIT`, `MAX`) — never fetch all rows and filter/reduce in JS.
+- **Do every transformation on the SQL side when it can be done there.** If the caller needs a JSON structure, build it in the statement (`json_object` / `json_group_array`, `json_build_object` / `json_agg`) so JS does no shaping work. Checks go the same way: "does this workflow belong to that workspace, and is the requester in the organization that owns it" is one statement with the checks in its joins and `WHERE`, never several queries judged in JS.
 
 ## Testing
 
