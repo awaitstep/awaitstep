@@ -24,6 +24,8 @@ const NO_FACTS = {
   sharedInUse: false,
 }
 import { stopWorkflowTestSessions } from '../lib/test-sessions.js'
+import { shareBodySchema, shareResponse, sharingRecord } from '../lib/sharing.js'
+import { CHANGED_MEANWHILE } from '../lib/locks.js'
 
 const createSchema = z.object({
   name: z.string().min(1).max(255),
@@ -113,7 +115,13 @@ workflows.get('/', zValidator('query', listQuerySchema), async (c) => {
     { cursor, limit },
     { workspaceId: c.get('workspaceId'), kind, visibleTo: c.get('userId') },
   )
-  return c.json({ ...result, data: result.data.map(maskWorkflowSecrets) })
+  return c.json({
+    ...result,
+    data: result.data.map(({ sharedByName, ...row }) => ({
+      ...maskWorkflowSecrets(row),
+      sharing: sharingRecord({ sharedBy: row.sharedBy, sharedAt: row.sharedAt, sharedByName }),
+    })),
+  })
 })
 
 workflows.get('/:id', async (c) => {
@@ -248,6 +256,25 @@ workflows.patch('/:id', zValidator('json', updateSchema), async (c) => {
   }
   const updated = await db.updateWorkflow(workflowId, dbData)
   return c.json(maskWorkflowSecrets(updated))
+})
+
+/**
+ * The "Shared to project" switch: on keeps the first sharer; both ways are
+ * idempotent. The write holds to the workspace the `share` gate judged, so a
+ * move landing between the two is refused rather than shared over.
+ */
+workflows.put('/:id/share', zValidator('json', shareBodySchema), async (c) => {
+  const workflow = c.get('workflow')!
+  const row = await c
+    .get('db')
+    .setWorkflowShared(
+      workflow.id,
+      workflow.workspaceId,
+      c.get('userId'),
+      c.req.valid('json').shared,
+    )
+  if (!row) return c.json({ error: CHANGED_MEANWHILE }, 409)
+  return c.json(shareResponse(row))
 })
 
 workflows.patch(

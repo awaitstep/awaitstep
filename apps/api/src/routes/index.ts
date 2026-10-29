@@ -169,6 +169,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.use('/workflows/:id', requireWorkflowAccess)
   router.use('/workflows/:id/full', requireWorkflowAccess)
   router.use('/workflows/:id/move', requireWorkflowAccess)
+  router.use('/workflows/:id/share', requireWorkflowAccess)
   router.use('/workflows/:workflowId/versions/*', requireWorkflowAccess)
   router.use('/workflows/:workflowId/source/*', requireWorkflowAccess)
   router.use('/workflows/:workflowId/project/*', requireWorkflowAccess)
@@ -209,6 +210,8 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   ]) {
     router.use(path, requireWorkspaceCanWrite('deploy'))
   }
+  // Sharing is its own capability in the workflow's own workspace (B6).
+  router.put('/workflows/:id/share', requireWorkspaceCan('share'))
   for (const path of [
     '/workflows/:workflowId/trigger',
     '/workflows/:workflowId/runs/:runId/pause',
@@ -254,6 +257,10 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   // delete must not be able to lift it first (D-B5-3).
   router.put('/projects/:id/lock', requireSessionAuth)
   router.put('/workspaces/:id/lock', requireSessionAuth)
+  // Everything under a project item is the project's (project keys are refused
+  // there) and organization keys never touch workflows: the project's shared
+  // library is a person's read. A workspace's "Shared with" list is a key's.
+  router.get('/projects/:id/shared', requireSessionAuth)
   router.get('/connections', key('connections', 'read', belowReads))
   // Asks Cloudflare whether a token is valid; writes nothing.
   router.post('/connections/verify-token', key('connections', 'read', belowReads))
@@ -280,6 +287,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.patch('/workspaces/:id', key('workspaces', 'write'))
   router.post('/workspaces/:id/move-workflows', key('workspaces', 'write'))
   router.delete('/workspaces/:id', key('workspaces', 'delete'))
+  router.get('/workspaces/:id/shared', key('workflows', 'read'))
 
   // Project and workspace level: workflows and runs
   for (const path of [
@@ -303,6 +311,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.post('/workflows/:workflowId/deploy-config-preview', key('workflows', 'read'))
   router.post('/workflows', key('workflows', 'write'))
   router.patch('/workflows/:id', key('workflows', 'write'))
+  router.put('/workflows/:id/share', key('workflows', 'write'))
   // A move crosses projects: never a key's (the handler says so for the old clients too).
   router.patch('/workflows/:id/move', requireSessionAuth)
   router.post('/workflows/:workflowId/versions', key('workflows', 'write'))
@@ -376,6 +385,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.delete('/workspaces/:id', writeLimit)
   router.put('/workspaces/:id/lock', writeLimit)
   router.post('/workspaces/:id/move-workflows', writeLimit)
+  router.put('/workflows/:id/share', writeLimit)
   router.post('/env-vars', writeLimit)
   router.patch('/env-vars/:id', writeLimit)
   router.delete('/env-vars/:id', writeLimit)

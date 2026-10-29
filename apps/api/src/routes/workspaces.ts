@@ -4,8 +4,9 @@ import { nanoid } from 'nanoid'
 import { ACCESS_REASONS, WORKSPACE_COLOURS, slugify, workspaceCapabilities } from '@awaitstep/ir'
 import { isUniqueViolation } from '@awaitstep/db'
 import { zValidator } from '../lib/validation.js'
-import { isSession } from '../middleware/auth.js'
+import { apiKeyWorkspacePin, isSession } from '../middleware/auth.js'
 import { CHANGED_MEANWHILE, lockBodySchema, lockResponse } from '../lib/locks.js'
+import { sharedItemRecord, sharedListQuerySchema } from '../lib/sharing.js'
 import { FOR_KEY, FOR_SESSION, rolesOf, workspaceRecord } from '../lib/scope-records.js'
 import { workspaceSlugSchema } from '../lib/slugs.js'
 import type { AppEnv } from '../types.js'
@@ -136,9 +137,30 @@ workspaces.delete('/:id', async (c) => {
   if (await db.deleteWorkspaceUnlessBlocked(id)) return c.json({ ok: true })
   const locks = await db.getWorkspaceLocks(id)
   if (!locks) return c.json({ error: 'Not found' }, 404)
-  // Sharing arrives with B6; until then nothing calls across workspaces.
+  // Nothing calls across workspaces until the Call Workflow node links callers (D-B6-3).
   const can = workspaceCapabilities(c.get('workspaceRole')!, { ...locks, sharedInUse: false })
   return c.json({ error: can.delete.reason ?? CHANGED_MEANWHILE }, 409)
+})
+
+/** "Shared with Sales": what the project's other workspaces shared, read-only here. */
+workspaces.get('/:id/shared', zValidator('query', sharedListQuerySchema), async (c) => {
+  const { cursor, limit, kind } = c.req.valid('query')
+  const page = await c.get('db').listSharedWorkflows(
+    {
+      projectId: c.get('projectId'),
+      organizationId: c.get('organizationId'),
+      viewer: c.get('userId'),
+      exceptWorkspaceId: c.get('workspaceId')!,
+      kind,
+    },
+    { cursor, limit },
+  )
+  // A workspace key opens its own workspace only, which this list leaves out.
+  const opens = apiKeyWorkspacePin(c) === null
+  return c.json({
+    ...page,
+    data: page.data.map((row) => sharedItemRecord(row, 'workspace', opens)),
+  })
 })
 
 /**

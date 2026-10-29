@@ -45,6 +45,8 @@ function sessionOnly(method: string, path: string): boolean {
   if (/^\/api\/workspaces\/:id\/members/.test(path)) return method !== 'GET'
   // A key that may delete must not lift the lock first (D-B5-3).
   if (path === '/api/projects/:id/lock' || path === '/api/workspaces/:id/lock') return true
+  // Under a project item (project keys refused) and no organization key holds workflows (B6).
+  if (path === '/api/projects/:id/shared') return true
   return path === '/api/projects/:id/move' || path === '/api/workflows/:id/move'
 }
 

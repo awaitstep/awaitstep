@@ -22,6 +22,7 @@ import type {
   WorkspacePersonRow,
 } from '@awaitstep/db'
 import { parseOrgRole } from './org-role.js'
+import { personOf } from './sharing.js'
 
 // What the dashboard reads for each level of `/{org}/{project}/{workspace}`:
 // the row, its counts and lists, and what the caller may do there. Roles are
@@ -159,9 +160,9 @@ export function lockRecord(
   name: string | null,
 ): LockRecord | null {
   // On is `locked_at`, as every check in the database reads it; the setter
-  // may be unknown (no row on record), never the lock.
+  // may be unknown (no row on record, or left the org), never the lock.
   if (!lockedAt) return null
-  return { setBy: { id: lockedBy ?? '', name: name ?? 'Someone' }, setAt: lockedAt }
+  return { setBy: personOf(lockedBy, name), setAt: lockedAt }
 }
 
 export function orgRecord(row: OrgOverview): OrgRecord {
@@ -248,7 +249,7 @@ export function workspaceRecord(
       ownLock: lock !== null,
       lockedByProject: inheritedLock ? inheritedLock.fromName : null,
       isLastWorkspace: row.siblings === 1,
-      // Sharing arrives with B6; until then nothing calls across workspaces.
+      // Nothing calls across workspaces until the Call Workflow node links callers (D-B6-3).
       sharedInUse: false,
     }),
   }

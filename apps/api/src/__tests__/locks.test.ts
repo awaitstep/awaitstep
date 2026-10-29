@@ -274,6 +274,17 @@ describe('deletion locks', () => {
       await expectRefused(await remove('u-ama', '/projects/p-101'), 409, ACCESS_REASONS.lockFirst)
     })
 
+    it('shows neither the name nor the id of a setter who has left the organization', async () => {
+      await h.db
+        .update(h.schema.projects)
+        .set({ lockedAt: '2026-10-20T00:00:00.000Z', lockedBy: 'u-cleo' })
+        .where(eq(h.schema.projects.id, 'p-101'))
+      const scope = await (
+        await h.app.request('/api/scope?org=acme&project=project-101', h.as('u-ama'))
+      ).json()
+      expect(scope.project.lock.setBy).toEqual({ id: '', name: 'Someone' })
+    })
+
     it('keeps a locked project in its organization, but not for a workspace’s lock', async () => {
       // Ama runs both organizations for the move.
       await h.db

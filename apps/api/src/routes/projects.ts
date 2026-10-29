@@ -8,6 +8,7 @@ import { ACCESS_REASONS, isOrgAdmin, projectCapabilities } from '@awaitstep/ir'
 import { isSession } from '../middleware/auth.js'
 import { FOR_KEY, FOR_SESSION, projectRecord } from '../lib/scope-records.js'
 import { CHANGED_MEANWHILE, lockBodySchema, lockResponse } from '../lib/locks.js'
+import { sharedItemRecord, sharedListQuerySchema } from '../lib/sharing.js'
 import { parseOrgRole } from '../lib/org-role.js'
 import { projectSlugSchema } from '../lib/slugs.js'
 import type { AppEnv } from '../types.js'
@@ -108,6 +109,21 @@ projects.put('/:id/lock', zValidator('json', lockBodySchema), async (c) => {
     )
   if (!row) return c.json({ error: 'Not found' }, 404)
   return c.json(lockResponse(row))
+})
+
+/** Project settings › Shared library: every workspace's shared items, hidden ones named (D-B6-8). */
+projects.get('/:id/shared', zValidator('query', sharedListQuerySchema), async (c) => {
+  const { cursor, limit, kind } = c.req.valid('query')
+  const page = await c.get('db').listSharedWorkflows(
+    {
+      projectId: c.get('projectId'),
+      organizationId: c.get('organizationId'),
+      viewer: c.get('userId'),
+      kind,
+    },
+    { cursor, limit },
+  )
+  return c.json({ ...page, data: page.data.map((row) => sharedItemRecord(row, 'project')) })
 })
 
 const SLUG_TAKEN_THERE = 'Another project in that organization already uses this URL'

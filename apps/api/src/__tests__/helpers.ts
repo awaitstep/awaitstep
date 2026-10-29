@@ -185,6 +185,7 @@ function workspaceOverview(w: Workspace): WorkspaceOverview {
       workflows: items.filter((x) => x.kind === 'workflow').length,
       deployed: 0,
       functions: items.filter((x) => x.kind === 'script').length,
+      sharedOut: items.filter((x) => x.sharedAt !== null).length,
       runs24h: 0,
       failing: 0,
       lastRunAt: null,
@@ -598,6 +599,8 @@ const mockDb: DatabaseAdapter = {
       triggerCode: null,
       dependencies: null,
       deployConfig: null,
+      sharedBy: null,
+      sharedAt: null,
       createdAt: now(),
       updatedAt: now(),
     }
@@ -624,6 +627,7 @@ const mockDb: DatabaseAdapter = {
           deployStatus: null,
           deployVersionId: null,
           deployedVersion: null,
+          sharedByName: null,
           lastRunStatus: null,
           lastRunAt: null,
           recentRunStatuses: [],
@@ -645,9 +649,28 @@ const mockDb: DatabaseAdapter = {
     const wf = store.workflows.get(id)
     const home = workspacesOf(targetProjectId)[0]
     if (!wf || !home) return null
-    const moved = { ...wf, projectId: targetProjectId, workspaceId: home.id, updatedAt: now() }
+    const moved = {
+      ...wf,
+      projectId: targetProjectId,
+      workspaceId: home.id,
+      sharedBy: null,
+      sharedAt: null,
+      updatedAt: now(),
+    }
     store.workflows.set(id, moved)
     return moved
+  },
+  // Sharing runs through the real database in sharing.test.ts; these keep the fake whole.
+  async setWorkflowShared(id, workspaceId, userId, shared) {
+    const wf = store.workflows.get(id)
+    if (!wf || wf.workspaceId !== workspaceId) return null
+    const sharedAt = shared ? (wf.sharedAt ?? now()) : null
+    const sharedBy = shared ? (wf.sharedBy ?? userId) : null
+    store.workflows.set(id, { ...wf, sharedBy, sharedAt })
+    return { sharedBy, sharedAt, sharedByName: null }
+  },
+  async listSharedWorkflows() {
+    return { data: [], nextCursor: null }
   },
 
   // Versions
