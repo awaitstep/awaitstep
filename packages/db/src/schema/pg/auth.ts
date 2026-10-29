@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { pgTable, text, boolean, index } from 'drizzle-orm/pg-core'
+import { pgTable, text, boolean, index, uniqueIndex } from 'drizzle-orm/pg-core'
 import { isoTimestamp } from './iso-timestamp.js'
 
 export const user = pgTable(
@@ -105,6 +105,8 @@ export const member = pgTable(
   (table) => [
     index('idx_member_user_id').on(table.userId),
     index('idx_member_org_id').on(table.organizationId),
+    // One row per person and organization: better-auth reads it as a lookup and `accept` writes it guarded, so two accepts at once cannot make two.
+    uniqueIndex('uq_member_org_user').on(table.organizationId, table.userId),
   ],
 )
 
@@ -125,6 +127,8 @@ export const invitation = pgTable(
     createdAt: isoTimestamp('created_at')
       .notNull()
       .default(sql`now()`),
+    // When the person asked the inviter for a new one, after it expired (B2).
+    askedForNewAt: isoTimestamp('asked_for_new_at'),
   },
   (table) => [index('idx_invitation_org_id').on(table.organizationId)],
 )

@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core'
 
 export const user = sqliteTable(
   'user',
@@ -95,6 +95,8 @@ export const member = sqliteTable(
   (table) => [
     index('idx_member_user_id').on(table.userId),
     index('idx_member_org_id').on(table.organizationId),
+    // One row per person and organization: better-auth reads it as a lookup and `accept` writes it guarded, so two accepts at once cannot make two.
+    uniqueIndex('uq_member_org_user').on(table.organizationId, table.userId),
   ],
 )
 
@@ -113,6 +115,8 @@ export const invitation = sqliteTable(
     status: text('status').notNull(),
     expiresAt: text('expiresAt').notNull(),
     createdAt: text('createdAt').notNull(),
+    // When the person asked the inviter for a new one, after it expired (B2).
+    askedForNewAt: text('askedForNewAt'),
   },
   (table) => [index('idx_invitation_org_id').on(table.organizationId)],
 )

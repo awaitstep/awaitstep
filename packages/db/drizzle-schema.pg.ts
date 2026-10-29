@@ -7,6 +7,7 @@ import {
   index,
   uniqueIndex,
   check,
+  primaryKey,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
@@ -130,6 +131,7 @@ export const member = pgTable(
   (table) => [
     index('idx_member_user_id').on(table.userId),
     index('idx_member_org_id').on(table.organizationId),
+    uniqueIndex('uq_member_org_user').on(table.organizationId, table.userId),
   ],
 )
 
@@ -148,6 +150,7 @@ export const invitation = pgTable(
     status: text('status').notNull(),
     expiresAt: timestamp('expires_at', { mode: 'string' }).notNull(),
     createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
+    askedForNewAt: timestamp('asked_for_new_at', { mode: 'string' }),
   },
   (table) => [index('idx_invitation_org_id').on(table.organizationId)],
 )
@@ -466,5 +469,93 @@ export const testSessions = pgTable(
     uniqueIndex('idx_test_sessions_live_slot')
       .on(table.userId, table.slot)
       .where(sql`${table.status} in ('starting', 'running')`),
+  ],
+)
+
+// Access below the organization (B2): project and workspace roles, where an
+// invitation leads, and a Viewer's edit-access requests.
+
+export const projectMembers = pgTable(
+  'project_members',
+  {
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    role: text('role', { enum: ['admin', 'member'] }).notNull(),
+    createdBy: text('created_by'),
+    createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.userId] }),
+    index('idx_project_members_user_id').on(table.userId),
+  ],
+)
+
+export const workspaceMembers = pgTable(
+  'workspace_members',
+  {
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    role: text('role', { enum: ['admin', 'editor', 'viewer'] }).notNull(),
+    createdBy: text('created_by'),
+    createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.workspaceId, table.userId] }),
+    index('idx_workspace_members_user_id').on(table.userId),
+  ],
+)
+
+export const invitationPlaces = pgTable(
+  'invitation_places',
+  {
+    id: text('id').primaryKey(),
+    invitationId: text('invitation_id')
+      .notNull()
+      .references(() => invitation.id, { onDelete: 'cascade' }),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
+    role: text('role').notNull(),
+  },
+  (table) => [index('idx_invitation_places_invitation_id').on(table.invitationId)],
+)
+
+export const accessRequests = pgTable(
+  'access_requests',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    toUserId: text('to_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    status: text('status', { enum: ['pending', 'approved', 'declined'] })
+      .notNull()
+      .default('pending'),
+    alreadyEditing: boolean('already_editing').notNull().default(false),
+    createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
+    decidedAt: timestamp('decided_at', { mode: 'string' }),
+    decidedBy: text('decided_by'),
+  },
+  (table) => [
+    index('idx_access_requests_workspace_id').on(table.workspaceId),
+    index('idx_access_requests_user_id').on(table.userId),
+    index('idx_access_requests_to_user_id').on(table.toUserId),
+    uniqueIndex('uq_access_requests_pending')
+      .on(table.workspaceId, table.userId)
+      .where(sql`status = 'pending'`),
   ],
 )

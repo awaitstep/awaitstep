@@ -5,6 +5,7 @@ import {
   uniqueIndex,
   index,
   check,
+  primaryKey,
   type AnySQLiteColumn,
 } from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
@@ -128,6 +129,7 @@ export const member = sqliteTable(
   (table) => [
     index('idx_member_user_id').on(table.userId),
     index('idx_member_org_id').on(table.organizationId),
+    uniqueIndex('uq_member_org_user').on(table.organizationId, table.userId),
   ],
 )
 
@@ -146,6 +148,7 @@ export const invitation = sqliteTable(
     status: text('status').notNull(),
     expiresAt: text('expiresAt').notNull(),
     createdAt: text('createdAt').notNull(),
+    askedForNewAt: text('askedForNewAt'),
   },
   (table) => [index('idx_invitation_org_id').on(table.organizationId)],
 )
@@ -462,5 +465,93 @@ export const testSessions = sqliteTable(
     uniqueIndex('idx_test_sessions_live_slot')
       .on(table.userId, table.slot)
       .where(sql`${table.status} in ('starting', 'running')`),
+  ],
+)
+
+// Access below the organization (B2): project and workspace roles, where an
+// invitation leads, and a Viewer's edit-access requests.
+
+export const projectMembers = sqliteTable(
+  'project_members',
+  {
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    role: text('role', { enum: ['admin', 'member'] }).notNull(),
+    createdBy: text('created_by'),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.userId] }),
+    index('idx_project_members_user_id').on(table.userId),
+  ],
+)
+
+export const workspaceMembers = sqliteTable(
+  'workspace_members',
+  {
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    role: text('role', { enum: ['admin', 'editor', 'viewer'] }).notNull(),
+    createdBy: text('created_by'),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.workspaceId, table.userId] }),
+    index('idx_workspace_members_user_id').on(table.userId),
+  ],
+)
+
+export const invitationPlaces = sqliteTable(
+  'invitation_places',
+  {
+    id: text('id').primaryKey(),
+    invitationId: text('invitation_id')
+      .notNull()
+      .references(() => invitation.id, { onDelete: 'cascade' }),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
+    role: text('role').notNull(),
+  },
+  (table) => [index('idx_invitation_places_invitation_id').on(table.invitationId)],
+)
+
+export const accessRequests = sqliteTable(
+  'access_requests',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    toUserId: text('to_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    status: text('status', { enum: ['pending', 'approved', 'declined'] })
+      .notNull()
+      .default('pending'),
+    alreadyEditing: integer('already_editing', { mode: 'boolean' }).notNull().default(false),
+    createdAt: text('created_at').notNull(),
+    decidedAt: text('decided_at'),
+    decidedBy: text('decided_by'),
+  },
+  (table) => [
+    index('idx_access_requests_workspace_id').on(table.workspaceId),
+    index('idx_access_requests_user_id').on(table.userId),
+    index('idx_access_requests_to_user_id').on(table.toUserId),
+    uniqueIndex('uq_access_requests_pending')
+      .on(table.workspaceId, table.userId)
+      .where(sql`status = 'pending'`),
   ],
 )
