@@ -43,7 +43,15 @@ title: REST API
 
 All endpoints require authentication via API key (`Authorization: Bearer ask_...`) or session cookie.
 
-API keys are scoped: **read** (queries), **write** (create/update/delete), **deploy** (deploy/trigger/takedown/run control). All keys require at least `read` scope.
+An API key is minted at one **level** — the organization, a project, or one workspace — and carries a **grid** of permissions from that level's catalog: the resources it may touch and the actions (`read`, `write`, `delete`, `deploy`, `run`) it may take on them. Every endpoint below names the cell it needs as <span class="api-scope">resource:action</span>; a key without it answers `403`. An organization key never reaches a project route, and a project or workspace key never manages organization resources, whatever its grid. Where a project or workspace key reaches an organization resource through its own grid (the connections, nodes and variables its workflows deploy with), the second badge is its cell. A workspace key is pinned to its workspace: every list is cut to it and anything elsewhere in the project is not found.
+
+| Level        | Reaches                                       | Resources                                                                                             |
+| ------------ | --------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| organization | the organization's settings, never a workflow | `projects`, `members` (read), `connections`, `resources` (nodes, the marketplace, org-wide variables) |
+| project      | everything in one project, every workspace    | `workspaces`, `workflows`, `runs` (read), `variables`, `members` (read)                               |
+| workspace    | one workspace of a project                    | `workflows`, `runs` (read), `variables` (read)                                                        |
+
+A key acts with the standing of whoever minted it — a key minted by a Viewer cannot edit workflows — and stops working (`401`) when its creator leaves the organization or can no longer open the key's project or workspace.
 
 **Base URL:** `https://your-instance/api`
 
@@ -81,7 +89,7 @@ When `nextCursor` is `null`, there are no more pages.
 
 ## Workflows
 
-### <span class="api-method get">GET</span> <span class="api-endpoint">/workflows</span> <span class="api-scope">read</span>
+### <span class="api-method get">GET</span> <span class="api-endpoint">/workflows</span> <span class="api-scope">workflows:read</span>
 
 List all workflows in the active project.
 
@@ -92,13 +100,13 @@ List all workflows in the active project.
 
 ---
 
-### <span class="api-method get">GET</span> <span class="api-endpoint">/workflows/:id</span> <span class="api-scope">read</span>
+### <span class="api-method get">GET</span> <span class="api-endpoint">/workflows/:id</span> <span class="api-scope">workflows:read</span>
 
 Get a single workflow by ID.
 
 ---
 
-### <span class="api-method get">GET</span> <span class="api-endpoint">/workflows/:id/full</span> <span class="api-scope">read</span>
+### <span class="api-method get">GET</span> <span class="api-endpoint">/workflows/:id/full</span> <span class="api-scope">workflows:read</span>
 
 Get a workflow with its current version, all version summaries, and active deployment.
 
@@ -108,7 +116,7 @@ Get a workflow with its current version, all version summaries, and active deplo
 
 ---
 
-### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows</span> <span class="api-scope">write</span>
+### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows</span> <span class="api-scope">workflows:write</span>
 
 Create a new workflow or function.
 
@@ -130,7 +138,7 @@ Create a new workflow or function.
 
 ---
 
-### <span class="api-method patch">PATCH</span> <span class="api-endpoint">/workflows/:id</span> <span class="api-scope">write</span>
+### <span class="api-method patch">PATCH</span> <span class="api-endpoint">/workflows/:id</span> <span class="api-scope">workflows:write</span>
 
 Update a workflow's name, description, environment variables, trigger code, dependencies, or deploy config.
 
@@ -154,7 +162,7 @@ Update a workflow's name, description, environment variables, trigger code, depe
 
 ---
 
-### <span class="api-method patch">PATCH</span> <span class="api-endpoint">/workflows/:id/move</span> <span class="api-scope">write</span>
+### <span class="api-method patch">PATCH</span> <span class="api-endpoint">/workflows/:id/move</span> <span class="api-scope">session only</span>
 
 Move a workflow to another project within the same organization.
 
@@ -166,7 +174,7 @@ Move a workflow to another project within the same organization.
 
 ---
 
-### <span class="api-method delete">DELETE</span> <span class="api-endpoint">/workflows/:id</span> <span class="api-scope">write</span>
+### <span class="api-method delete">DELETE</span> <span class="api-endpoint">/workflows/:id</span> <span class="api-scope">workflows:delete</span>
 
 Delete a workflow and all its versions, deployments, and runs.
 
@@ -200,13 +208,13 @@ See [Compilation → Full Generated Worker Shape](/concepts/compilation#script-s
 
 ## Projects
 
-### <span class="api-method get">GET</span> <span class="api-endpoint">/projects</span> <span class="api-scope">read</span>
+### <span class="api-method get">GET</span> <span class="api-endpoint">/projects</span> <span class="api-scope">projects:read</span>
 
 List all projects in the active organization.
 
 ---
 
-### <span class="api-method post">POST</span> <span class="api-endpoint">/projects</span> <span class="api-scope">write</span>
+### <span class="api-method post">POST</span> <span class="api-endpoint">/projects</span> <span class="api-scope">projects:write</span>
 
 Create a new project.
 
@@ -222,7 +230,7 @@ Create a new project.
 
 ---
 
-### <span class="api-method patch">PATCH</span> <span class="api-endpoint">/projects/:id</span> <span class="api-scope">write</span>
+### <span class="api-method patch">PATCH</span> <span class="api-endpoint">/projects/:id</span> <span class="api-scope">projects:write</span>
 
 Update a project's name or description.
 
@@ -234,7 +242,7 @@ Update a project's name or description.
 
 ---
 
-### <span class="api-method delete">DELETE</span> <span class="api-endpoint">/projects/:id</span> <span class="api-scope">write</span>
+### <span class="api-method delete">DELETE</span> <span class="api-endpoint">/projects/:id</span> <span class="api-scope">projects:delete</span>
 
 Delete a project.
 
@@ -242,19 +250,19 @@ Delete a project.
 
 ## Versions
 
-### <span class="api-method get">GET</span> <span class="api-endpoint">/workflows/:workflowId/versions</span> <span class="api-scope">read</span>
+### <span class="api-method get">GET</span> <span class="api-endpoint">/workflows/:workflowId/versions</span> <span class="api-scope">workflows:read</span>
 
 List all versions for a workflow.
 
 ---
 
-### <span class="api-method get">GET</span> <span class="api-endpoint">/workflows/:workflowId/versions/:versionId</span> <span class="api-scope">read</span>
+### <span class="api-method get">GET</span> <span class="api-endpoint">/workflows/:workflowId/versions/:versionId</span> <span class="api-scope">workflows:read</span>
 
 Get a specific version including its IR and generated code.
 
 ---
 
-### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/versions</span> <span class="api-scope">write</span>
+### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/versions</span> <span class="api-scope">workflows:write</span>
 
 Create a new version by submitting a workflow IR. The IR is validated and compiled to code.
 
@@ -266,7 +274,7 @@ Create a new version by submitting a workflow IR. The IR is validated and compil
 
 ---
 
-### <span class="api-method patch">PATCH</span> <span class="api-endpoint">/workflows/:workflowId/versions/:versionId</span> <span class="api-scope">write</span>
+### <span class="api-method patch">PATCH</span> <span class="api-endpoint">/workflows/:workflowId/versions/:versionId</span> <span class="api-scope">workflows:write</span>
 
 Lock or unlock a version. Locked versions cannot be deployed.
 
@@ -278,13 +286,13 @@ Lock or unlock a version. Locked versions cannot be deployed.
 
 ---
 
-### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/versions/:versionId/revert</span> <span class="api-scope">write</span>
+### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/versions/:versionId/revert</span> <span class="api-scope">workflows:write</span>
 
 Revert to a previous version. Creates a new version with the target version's IR.
 
 ---
 
-### <span class="api-method delete">DELETE</span> <span class="api-endpoint">/workflows/:workflowId/versions/:versionId</span> <span class="api-scope">write</span>
+### <span class="api-method delete">DELETE</span> <span class="api-endpoint">/workflows/:workflowId/versions/:versionId</span> <span class="api-scope">workflows:delete</span>
 
 Delete a version. Cannot delete the active, deployed, or locked version.
 
@@ -292,19 +300,19 @@ Delete a version. Cannot delete the active, deployed, or locked version.
 
 ## Deployments
 
-### <span class="api-method get">GET</span> <span class="api-endpoint">/deployments</span> <span class="api-scope">read</span>
+### <span class="api-method get">GET</span> <span class="api-endpoint">/deployments</span> <span class="api-scope">runs:read</span>
 
 List all deployments across all workflows.
 
 ---
 
-### <span class="api-method get">GET</span> <span class="api-endpoint">/workflows/:workflowId/deployments</span> <span class="api-scope">read</span>
+### <span class="api-method get">GET</span> <span class="api-endpoint">/workflows/:workflowId/deployments</span> <span class="api-scope">runs:read</span>
 
 List deployments for a specific workflow.
 
 ---
 
-### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/deploy</span> <span class="api-scope">deploy</span>
+### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/deploy</span> <span class="api-scope">workflows:deploy</span>
 
 Deploy a workflow version to a connection. Validates environment variables and credentials before deploying.
 
@@ -319,7 +327,7 @@ Deploy a workflow version to a connection. Validates environment variables and c
 
 ---
 
-### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/deploy-stream</span> <span class="api-scope">deploy</span>
+### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/deploy-stream</span> <span class="api-scope">workflows:deploy</span>
 
 Deploy with real-time progress updates via Server-Sent Events. Same request body as `/deploy`.
 
@@ -333,7 +341,7 @@ UPDATING_WORKFLOW → COMPLETED
 
 ---
 
-### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/trigger</span> <span class="api-scope">deploy</span>
+### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/trigger</span> <span class="api-scope">workflows:run</span>
 
 Trigger an execution of a deployed workflow. Params payload is capped at 100 KB.
 
@@ -362,7 +370,7 @@ This endpoint is for `kind: "workflow"` only. Calling it on a function (`kind: "
 
 ---
 
-### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/takedown</span> <span class="api-scope">deploy</span>
+### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/takedown</span> <span class="api-scope">workflows:deploy</span>
 
 Remove a deployment and clear the workflow's active version.
 
@@ -376,37 +384,37 @@ Remove a deployment and clear the workflow's active version.
 
 ## Runs
 
-### <span class="api-method get">GET</span> <span class="api-endpoint">/runs</span> <span class="api-scope">read</span>
+### <span class="api-method get">GET</span> <span class="api-endpoint">/runs</span> <span class="api-scope">runs:read</span>
 
 List all runs across all workflows.
 
 ---
 
-### <span class="api-method get">GET</span> <span class="api-endpoint">/workflows/:workflowId/runs</span> <span class="api-scope">read</span>
+### <span class="api-method get">GET</span> <span class="api-endpoint">/workflows/:workflowId/runs</span> <span class="api-scope">runs:read</span>
 
 List runs for a specific workflow.
 
 ---
 
-### <span class="api-method get">GET</span> <span class="api-endpoint">/workflows/:workflowId/runs/:runId</span> <span class="api-scope">read</span>
+### <span class="api-method get">GET</span> <span class="api-endpoint">/workflows/:workflowId/runs/:runId</span> <span class="api-scope">runs:read</span>
 
 Get a specific run. If the run is in a non-terminal state, live status is fetched from Cloudflare.
 
 ---
 
-### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/runs/:runId/pause</span> <span class="api-scope">deploy</span>
+### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/runs/:runId/pause</span> <span class="api-scope">workflows:run</span>
 
 Pause a running workflow instance.
 
 ---
 
-### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/runs/:runId/resume</span> <span class="api-scope">deploy</span>
+### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/runs/:runId/resume</span> <span class="api-scope">workflows:run</span>
 
 Resume a paused workflow instance.
 
 ---
 
-### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/runs/:runId/terminate</span> <span class="api-scope">deploy</span>
+### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/runs/:runId/terminate</span> <span class="api-scope">workflows:run</span>
 
 Terminate a running or paused workflow instance.
 
@@ -414,13 +422,13 @@ Terminate a running or paused workflow instance.
 
 ## Connections
 
-### <span class="api-method get">GET</span> <span class="api-endpoint">/connections</span> <span class="api-scope">read</span>
+### <span class="api-method get">GET</span> <span class="api-endpoint">/connections</span> <span class="api-scope">connections:read</span> <span class="api-scope">workflows:read</span>
 
 List all connections. Credential values are redacted in the response.
 
 ---
 
-### <span class="api-method post">POST</span> <span class="api-endpoint">/connections</span> <span class="api-scope">write</span>
+### <span class="api-method post">POST</span> <span class="api-endpoint">/connections</span> <span class="api-scope">connections:write</span>
 
 Create a new provider connection.
 
@@ -436,7 +444,7 @@ Create a new provider connection.
 
 ---
 
-### <span class="api-method post">POST</span> <span class="api-endpoint">/connections/verify-token</span> <span class="api-scope">write</span>
+### <span class="api-method post">POST</span> <span class="api-endpoint">/connections/verify-token</span> <span class="api-scope">connections:read</span> <span class="api-scope">workflows:read</span>
 
 Verify provider credentials before saving.
 
@@ -457,13 +465,13 @@ Verify provider credentials before saving.
 
 ---
 
-### <span class="api-method patch">PATCH</span> <span class="api-endpoint">/connections/:id</span> <span class="api-scope">write</span>
+### <span class="api-method patch">PATCH</span> <span class="api-endpoint">/connections/:id</span> <span class="api-scope">connections:write</span>
 
 Update a connection's name or credentials.
 
 ---
 
-### <span class="api-method delete">DELETE</span> <span class="api-endpoint">/connections/:id</span> <span class="api-scope">write</span>
+### <span class="api-method delete">DELETE</span> <span class="api-endpoint">/connections/:id</span> <span class="api-scope">connections:delete</span>
 
 Delete a connection.
 
@@ -471,13 +479,13 @@ Delete a connection.
 
 ## Environment Variables
 
-### <span class="api-method get">GET</span> <span class="api-endpoint">/env-vars</span> <span class="api-scope">read</span>
+### <span class="api-method get">GET</span> <span class="api-endpoint">/env-vars</span> <span class="api-scope">resources:read</span> <span class="api-scope">variables:read</span>
 
 List all global environment variables. Secret values are masked.
 
 ---
 
-### <span class="api-method post">POST</span> <span class="api-endpoint">/env-vars</span> <span class="api-scope">write</span>
+### <span class="api-method post">POST</span> <span class="api-endpoint">/env-vars</span> <span class="api-scope">resources:write</span> <span class="api-scope">variables:write</span>
 
 Create a global environment variable. Name must match `^[A-Z][A-Z0-9_]*$`.
 
@@ -489,85 +497,33 @@ Create a global environment variable. Name must match `^[A-Z][A-Z0-9_]*$`.
 
 ---
 
-### <span class="api-method patch">PATCH</span> <span class="api-endpoint">/env-vars/:id</span> <span class="api-scope">write</span>
+### <span class="api-method patch">PATCH</span> <span class="api-endpoint">/env-vars/:id</span> <span class="api-scope">resources:write</span> <span class="api-scope">variables:write</span>
 
 Update an environment variable's name, value, or secret flag.
 
 ---
 
-### <span class="api-method delete">DELETE</span> <span class="api-endpoint">/env-vars/:id</span> <span class="api-scope">write</span>
+### <span class="api-method delete">DELETE</span> <span class="api-endpoint">/env-vars/:id</span> <span class="api-scope">resources:delete</span> <span class="api-scope">variables:delete</span>
 
 Delete an environment variable.
 
 ---
 
-## Resources
-
-All resource endpoints require a `connectionId` query parameter pointing to a valid Cloudflare connection.
-
-### <span class="api-method get">GET</span> <span class="api-endpoint">/resources/kv/namespaces</span> <span class="api-scope">read</span>
-
-List KV namespaces.
-
----
-
-### <span class="api-method get">GET</span> <span class="api-endpoint">/resources/kv/namespaces/:namespaceId/keys</span> <span class="api-scope">read</span>
-
-List keys in a KV namespace. Supports `prefix`, `cursor`, and `limit` query params.
-
----
-
-### <span class="api-method get">GET</span> <span class="api-endpoint">/resources/kv/namespaces/:namespaceId/values/:key</span> <span class="api-scope">read</span>
-
-Get the value of a KV key.
-
----
-
-### <span class="api-method get">GET</span> <span class="api-endpoint">/resources/d1/databases</span> <span class="api-scope">read</span>
-
-List D1 databases.
-
----
-
-### <span class="api-method post">POST</span> <span class="api-endpoint">/resources/d1/databases/:databaseId/query</span> <span class="api-scope">read</span>
-
-Execute a SQL query against a D1 database.
-
-**Request body:**
-
-```json
-{ "connectionId": "connection-id", "sql": "SELECT 1", "params": [] }
-```
-
----
-
-### <span class="api-method get">GET</span> <span class="api-endpoint">/resources/r2/buckets</span> <span class="api-scope">read</span>
-
-List R2 buckets.
-
----
-
-### <span class="api-method get">GET</span> <span class="api-endpoint">/resources/r2/buckets/:bucketName/objects</span> <span class="api-scope">read</span>
-
-List objects in an R2 bucket. Supports `prefix`, `cursor`, and `limit` query params.
-
----
-
 ## Nodes
 
-### <span class="api-method get">GET</span> <span class="api-endpoint">/nodes</span> <span class="api-scope">read</span>
+### <span class="api-method get">GET</span> <span class="api-endpoint">/nodes</span> <span class="api-scope">resources:read</span> <span class="api-scope">workflows:read</span>
 
 List all available node definitions from the registry.
 
 ---
 
-### <span class="api-method get">GET</span> <span class="api-endpoint">/nodes/templates</span> <span class="api-scope">read</span>
+### <span class="api-method get">GET</span> <span class="api-endpoint">/nodes/templates</span> <span class="api-scope">resources:read</span> <span class="api-scope">workflows:read</span>
 
 Get node template resolver data.
 
 ---
 
-### <span class="api-method get">GET</span> <span class="api-endpoint">/nodes/:nodeId</span> <span class="api-scope">read</span>
+### <span class="api-method get">GET</span> <span class="api-endpoint">/nodes/:nodeId</span> <span class="api-scope">resources:read</span> <span class="api-scope">workflows:read</span>
 
 Get a single node definition.
 
@@ -575,25 +531,25 @@ Get a single node definition.
 
 ## Marketplace
 
-### <span class="api-method get">GET</span> <span class="api-endpoint">/marketplace</span> <span class="api-scope">read</span>
+### <span class="api-method get">GET</span> <span class="api-endpoint">/marketplace</span> <span class="api-scope">resources:read</span> <span class="api-scope">workflows:read</span>
 
 Get the full marketplace catalog with installation status for the current organization.
 
 ---
 
-### <span class="api-method get">GET</span> <span class="api-endpoint">/marketplace/:nodeId</span> <span class="api-scope">read</span>
+### <span class="api-method get">GET</span> <span class="api-endpoint">/marketplace/:nodeId</span> <span class="api-scope">resources:read</span> <span class="api-scope">workflows:read</span>
 
 Get details for a specific marketplace node, including available versions and installation status.
 
 ---
 
-### <span class="api-method get">GET</span> <span class="api-endpoint">/marketplace/installed</span> <span class="api-scope">read</span>
+### <span class="api-method get">GET</span> <span class="api-endpoint">/marketplace/installed</span> <span class="api-scope">resources:read</span> <span class="api-scope">workflows:read</span>
 
 List installed marketplace nodes for the current organization.
 
 ---
 
-### <span class="api-method post">POST</span> <span class="api-endpoint">/marketplace/install</span> <span class="api-scope">write</span>
+### <span class="api-method post">POST</span> <span class="api-endpoint">/marketplace/install</span> <span class="api-scope">resources:write</span>
 
 Install a node from the marketplace.
 
@@ -607,7 +563,7 @@ Install a node from the marketplace.
 
 ---
 
-### <span class="api-method post">POST</span> <span class="api-endpoint">/marketplace/uninstall</span> <span class="api-scope">write</span>
+### <span class="api-method post">POST</span> <span class="api-endpoint">/marketplace/uninstall</span> <span class="api-scope">resources:delete</span>
 
 Uninstall a previously installed node.
 
@@ -619,7 +575,7 @@ Uninstall a previously installed node.
 
 ---
 
-### <span class="api-method post">POST</span> <span class="api-endpoint">/marketplace/update</span> <span class="api-scope">write</span>
+### <span class="api-method post">POST</span> <span class="api-endpoint">/marketplace/update</span> <span class="api-scope">resources:write</span>
 
 Update an installed node to a newer version.
 
@@ -633,33 +589,31 @@ Update an installed node to a newer version.
 
 ## API Keys <span class="api-scope">session only</span>
 
-These endpoints require session authentication and are **not accessible via API key**.
+Keys never manage keys: these endpoints take a session, addressed at the level they manage — `?org=<slug>` the organization's keys (owners and admins), `?org=&project=<slug>` a project's (its admins), `?org=&project=&workspace=<slug>` a workspace's (its admins). A workspace named without its project is `400`.
 
 ### <span class="api-method get">GET</span> <span class="api-endpoint">/api-keys</span>
 
-List all API keys for the current organization.
+The keys of the addressed level: the organization's own; a project's own with `workspaceCounts` (unrevoked keys per workspace the caller can open); a workspace's `own` keys and the `inherited` project keys that reach it. Revoked keys never return; the secret never does.
 
 ---
 
 ### <span class="api-method post">POST</span> <span class="api-endpoint">/api-keys</span>
 
-Create a new API key scoped to a project. The full key is returned only once.
+Mint a key at the addressed level. `level` must be the addressed one (`400`); `permissions` is the grid — only cells the level offers (`422` naming any other), at least one (`422`); `expiresAt` is optional and must be in the future (`422`). The secret is returned once, as `key`, beside the key's record (its level, grid, `keyPrefix` and `keySuffix`, who minted it and — for a workspace key — its `workspace`).
 
 **Request body:**
 
 ```json
 {
-  "name": "My Key",
-  "projectId": "project-id",
-  "scopes": ["read", "write"],
-  "expiresAt": "2025-12-31T00:00:00Z"
+  "name": "CI deploys",
+  "level": "project",
+  "permissions": { "workflows": ["read", "deploy", "run"], "runs": ["read"] },
+  "expiresAt": "2026-12-31T00:00:00Z"
 }
 ```
-
-`expiresAt` is optional.
 
 ---
 
 ### <span class="api-method delete">DELETE</span> <span class="api-endpoint">/api-keys/:id</span>
 
-Revoke an API key.
+Revoke a key of the addressed level; a key of another level at that address is `404`.

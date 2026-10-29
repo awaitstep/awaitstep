@@ -2,9 +2,17 @@
 
 All endpoints require authentication via API key (`Authorization: Bearer ask_...`) or session cookie.
 
-API keys are scoped: `read` (queries), `write` (create/update/delete), `deploy` (deploy/trigger/takedown/run control). All keys require at least `read` scope.
+An API key is minted at one **level** and carries a **grid** of permissions — the resources it may touch and the actions it may take on them — from the catalog of that level (the Create key dialog shows the same grid):
 
-A key is also **project-level or organization-level, never both**. A project key works on its project's workflows and variables and reads org-level resources, but organization-level mutations — connections, projects, marketplace nodes, org-wide environment variables, moving a workflow between projects — answer `403` to it. An organization-level key (created without a `projectId`) manages those org resources and may mint project keys, but is refused on every project-scoped route, reads included.
+| Level        | Reaches                                                                       | Resources (actions)                                                                                                                                                          |
+| ------------ | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| organization | the organization's settings, never a workflow                                 | `projects` (read, write, delete) · `members` (read) · `connections` (read, write, delete) · `resources` (read, write, delete: nodes, the marketplace and org-wide variables) |
+| project      | everything in one project, every workspace of it, ones created later included | `workspaces` (read, write, delete) · `workflows` (read, write, delete, deploy, run) · `runs` (read) · `variables` (read, write, delete) · `members` (read)                   |
+| workspace    | one workspace of a project                                                    | `workflows` (read, write, delete, deploy, run) · `runs` (read) · `variables` (read)                                                                                          |
+
+Every endpoint below names the cell it needs as **Permission:** `resource:action`; a key without it answers `403 API key lacks permission: resource:action`. A key of a level the resource is not offered at is refused for its level (`403`): an organization key never reaches a project route, a project or workspace key never manages organization resources. Project and workspace keys may still read the connections, nodes and org-wide variables their workflows deploy with and resolve against, through their own `workflows:read` and `variables:read` cells. A workspace key is pinned to its workspace: every list is cut to it, a workflow elsewhere is not found, and naming another workspace is `404`.
+
+A key acts with the standing of whoever minted it: a key minted by a Viewer cannot edit workflows, whatever its grid (variables get their own roles in B4 — until then anyone who can open a project may set its variables); a key stops working (`401`) when its creator leaves the organization or can no longer open the key's project or workspace. Keys never manage keys: listing, minting and revoking them take a session (see the end of this document).
 
 Base URL: `https://app.awaitstep.dev/api` (cloud) or `http://localhost:8080/api` (self-hosted, adjust to match your instance URL)
 
@@ -12,7 +20,7 @@ Base URL: `https://app.awaitstep.dev/api` (cloud) or `http://localhost:8080/api`
 
 Project-scoped routes take the project as `?projectId=<id>`, or as the slugs the dashboard's URLs carry: `?org=<org slug>&project=<project slug>`. Either way the project and your membership are resolved in one read; a project you are not a member of answers `404`, exactly like one that does not exist. Organization-scoped routes take `?organizationId=<id>` or `?org=<slug>`.
 
-A workspace can be named on any project-scoped route with `?workspaceId=<id>` or `?workspace=<slug>`. It must be the project's; otherwise `404`. API keys carry their project, so they omit the project parameters and may still name a workspace.
+A workspace can be named on any project-scoped route with `?workspaceId=<id>` or `?workspace=<slug>`. It must be the project's; otherwise `404`. API keys carry their project, so they omit the project parameters and may still name a workspace; a workspace key names only its own, or none.
 
 ## Rate Limits
 
@@ -66,7 +74,7 @@ Each row carries `workspaceId`, `deployedVersion` (the version number the
 latest deployment put live, or null) and `recentRunStatuses` (the last ten
 finished runs, newest first).
 
-**Scope:** `read`
+**Permission:** `workflows:read`
 
 | Param    | In    | Required | Description                        |
 | -------- | ----- | -------- | ---------------------------------- |
@@ -77,7 +85,7 @@ finished runs, newest first).
 
 Get a single workflow by ID.
 
-**Scope:** `read`
+**Permission:** `workflows:read`
 
 | Param | In   | Required | Description |
 | ----- | ---- | -------- | ----------- |
@@ -87,7 +95,7 @@ Get a single workflow by ID.
 
 Get a workflow with its current version, all version summaries, and active deployment. `handlers` reports the project's handler modules (`modules`, `consumedQueues`); while a project still has the legacy `handlers.ts` file, `workflow.triggerCode` carries its contents, and once it uses modules `triggerCode` is `null` (see [Project files](#project-files)).
 
-**Scope:** `read`
+**Permission:** `workflows:read`
 
 | Param     | In    | Required | Description                 |
 | --------- | ----- | -------- | --------------------------- |
@@ -98,7 +106,7 @@ Get a workflow with its current version, all version summaries, and active deplo
 
 Create a new workflow or script.
 
-**Scope:** `write`
+**Permission:** `workflows:write`
 
 ```json
 {
@@ -123,7 +131,7 @@ project's answers `404`.
 
 Update a workflow's name, description, environment variables, trigger code, dependencies, or deploy config.
 
-**Scope:** `write`
+**Permission:** `workflows:write`
 
 | Param | In   | Required | Description |
 | ----- | ---- | -------- | ----------- |
@@ -154,8 +162,8 @@ Move a workflow to another project within the same organization. Returns
 satisfy — checked across both project and organization scope, the same way
 a deploy resolves them.
 
-**Scope:** `write` — session only: a move crosses project boundaries, so a
-project-scoped API key answers `403`.
+**Permission:** session only — a move crosses project boundaries, so any API
+key answers `403`.
 
 | Param | In   | Required | Description |
 | ----- | ---- | -------- | ----------- |
@@ -171,7 +179,7 @@ project-scoped API key answers `403`.
 
 Delete a workflow.
 
-**Scope:** `write`
+**Permission:** `workflows:delete`
 
 | Param | In   | Required | Description |
 | ----- | ---- | -------- | ----------- |
@@ -291,13 +299,13 @@ workspaces, health and people the caller may see. `viewerRole` is `admin`,
 `member`, or `null` for someone who reaches the project through a workspace
 grant alone.
 
-**Scope:** `read`
+**Permission:** `projects:read`
 
 ### `POST /projects`
 
 Create a new project.
 
-**Scope:** `write`
+**Permission:** `projects:write`
 
 ```json
 {
@@ -311,7 +319,7 @@ Create a new project.
 
 Update a project.
 
-**Scope:** `write`
+**Permission:** `projects:write`
 
 | Param | In   | Required | Description |
 | ----- | ---- | -------- | ----------- |
@@ -328,7 +336,7 @@ Update a project.
 
 Delete a project.
 
-**Scope:** `write`
+**Permission:** `projects:delete`
 
 | Param | In   | Required | Description |
 | ----- | ---- | -------- | ----------- |
@@ -367,7 +375,7 @@ exists.
 project member is an editor everywhere (a workspace grant can raise that to
 admin), and a workspace grant alone gives its own role. A viewer reads and
 runs; building, deploying and sharing need an editor; managing the
-workspace, its members, keys and variables needs an admin. Every refusal is
+workspace, its members and keys needs an admin (variables follow in B4). Every refusal is
 `403` with the same reason the dashboard shows on the disabled action. A key
 acts with the standing of whoever minted it (its creator's roles in the
 project and workspace), needs the matching scope as well, and stops working
@@ -383,7 +391,7 @@ their effective `role`, `inherited` (it comes from the project or org, not a
 grant here), `projectRole` (what the project alone gives), `orgRole` for
 owners and admins, and `lastActiveAt`.
 
-**Scope:** `read`
+**Permission:** `workspaces:read`
 
 | Param       | In    | Required | Description                    |
 | ----------- | ----- | -------- | ------------------------------ |
@@ -401,7 +409,7 @@ workspace but not its roster (`members` from a key → `403`). A slug another
 workspace in the project uses answers `409`; a reserved one (`settings`)
 `422`.
 
-**Scope:** `write`
+**Permission:** `workspaces:write`
 
 ```json
 {
@@ -417,14 +425,14 @@ workspace in the project uses answers `409`; a reserved one (`settings`)
 
 One workspace, as stored.
 
-**Scope:** `read`
+**Permission:** `workspaces:read`
 
 ### `PATCH /workspaces/:id`
 
 Rename, re-slug, describe or recolour (workspace admins). A slug a sibling
 uses answers `409`.
 
-**Scope:** `write`
+**Permission:** `workspaces:write`
 
 ```json
 {
@@ -441,7 +449,7 @@ Delete the workspace with the workflows in it (workspace admins). Deployed
 Workers keep running on Cloudflare. A project's last workspace cannot be
 deleted: `409`.
 
-**Scope:** `write`
+**Permission:** `workspaces:delete`
 
 ### `POST /workspaces/:id/move-workflows`
 
@@ -451,7 +459,7 @@ cannot open, answers `404`; one the caller cannot build in (a Viewer there)
 answers `403`; workflow ids that are not in this workspace move nothing, and
 `moved` lists the ids that did.
 
-**Scope:** `write`
+**Permission:** `workspaces:write`
 
 ```json
 {
@@ -492,13 +500,16 @@ lives.
 
 ## Members and access
 
-Who can work where, below the organization. Session only: every answer here
-names people. Org owners and admins run the access editor and remove people;
-a workspace's admins manage its own grants. A grant at or below what the
-project already gives someone is refused (`409`), since it would do nothing
-now and quietly keep them in later.
+Who can work where, below the organization. Every answer here names people,
+so the writes are session only; the two lists are open to a key holding
+`members:read` at its own level. Org owners and admins run the access editor
+and remove people; a workspace's admins manage its own grants. A grant at or
+below what the project already gives someone is refused (`409`), since it
+would do nothing now and quietly keep them in later.
 
 ### `GET /members`
+
+**Permission:** `members:read` — an organization key reads the organization's people (`?org=`), a project key its project's; a workspace key holds no `members` cell.
 
 With `?org=`: everyone in the organization, each with `role`, `joinedAt` and
 `places` (where a plain member can work: a project-wide role, or a role in
@@ -543,6 +554,8 @@ remove an owner (`403`); the only owner cannot be removed (`409`).
 
 Everyone who can open the workspace, with their effective `role`,
 `inherited`, `projectRole`, `orgRole` and `lastActiveAt`.
+
+**Permission:** `members:read` (project keys; a workspace key holds no `members` cell, an organization key no workspace)
 
 ### `POST /workspaces/:id/members`
 
@@ -661,7 +674,7 @@ organization — none for a session whose address is not verified.
 
 List all versions for a workflow.
 
-**Scope:** `read`
+**Permission:** `workflows:read`
 
 | Param        | In   | Required | Description |
 | ------------ | ---- | -------- | ----------- |
@@ -671,7 +684,7 @@ List all versions for a workflow.
 
 Get a specific version including its IR and generated code.
 
-**Scope:** `read`
+**Permission:** `workflows:read`
 
 | Param        | In   | Required | Description |
 | ------------ | ---- | -------- | ----------- |
@@ -682,7 +695,7 @@ Get a specific version including its IR and generated code.
 
 Create a new version by submitting a workflow IR. The IR is validated and compiled to code.
 
-**Scope:** `write`
+**Permission:** `workflows:write`
 
 | Param        | In   | Required | Description |
 | ------------ | ---- | -------- | ----------- |
@@ -698,7 +711,7 @@ Create a new version by submitting a workflow IR. The IR is validated and compil
 
 Lock or unlock a version. Locked versions cannot be deployed or deleted.
 
-**Scope:** `write`
+**Permission:** `workflows:write`
 
 | Param        | In   | Required | Description |
 | ------------ | ---- | -------- | ----------- |
@@ -715,7 +728,7 @@ Lock or unlock a version. Locked versions cannot be deployed or deleted.
 
 Revert to a previous version. Creates a new version with the target version's IR and sets it as the current version.
 
-**Scope:** `write`
+**Permission:** `workflows:write`
 
 | Param        | In   | Required | Description             |
 | ------------ | ---- | -------- | ----------------------- |
@@ -726,7 +739,7 @@ Revert to a previous version. Creates a new version with the target version's IR
 
 Delete a version. Cannot delete the active version, a deployed version, or a locked version.
 
-**Scope:** `write`
+**Permission:** `workflows:delete`
 
 | Param        | In   | Required | Description |
 | ------------ | ---- | -------- | ----------- |
@@ -752,7 +765,7 @@ until they resolve. A read does attempt the resolution and reports what it
 could not satisfy as an `env` diagnostic — names only, never values — so
 the problem is visible before the deploy finds it.
 
-**Scope:** `read`
+**Permission:** `workflows:read`
 
 | Param        | In    | Required | Description                           |
 | ------------ | ----- | -------- | ------------------------------------- |
@@ -803,7 +816,7 @@ Everything `GET /source` finds, without the source. Built for the question
 an agent asks after every edit — _did that work?_ — where fetching the whole
 bundle to read a verdict is the wrong trade.
 
-**Scope:** `read`
+**Permission:** `workflows:read`
 
 | Param        | In    | Required | Description                                       |
 | ------------ | ----- | -------- | ------------------------------------------------- |
@@ -992,13 +1005,13 @@ sql`) extension. Code is transpiled and bundled; assets are written as-is.
 The file tree with content hashes plus the conventions above — poll this to
 know whether anything changed before reading or writing.
 
-**Scope:** `read`
+**Permission:** `workflows:read`
 
 Returns `{ importPrefix: "#app/", generated: ["worker.*", "nodes/**", "wrangler.*"], rootConfigFiles, extensions, limits: { maxFiles, maxFileBytes, maxTotalBytes }, files: [{ path, hash, size, updatedAt }] }`.
 
 ### `GET /workflows/:workflowId/files/:path`
 
-**Scope:** `read`
+**Permission:** `workflows:read`
 
 | Param  | In   | Required | Description                            |
 | ------ | ---- | -------- | -------------------------------------- |
@@ -1017,7 +1030,7 @@ with `{ error, currentHash }` and nothing is written. Sending both headers is
 a `400`. A `package.json` is checked against the contract above before it is
 stored.
 
-**Scope:** `write`
+**Permission:** `workflows:write`
 
 | Param    | In   | Required | Description              |
 | -------- | ---- | -------- | ------------------------ |
@@ -1037,7 +1050,7 @@ current version's IR), and `declarations` is what the annotations declared
 that modules cannot carry (for Cloudflare: `crons`, `queueConfigs`,
 `queueNames`). `404` when there is nothing to convert.
 
-**Scope:** `read`
+**Permission:** `workflows:read`
 
 ### `POST /workflows/:workflowId/project/convert-handlers`
 
@@ -1062,7 +1075,7 @@ in which case declare the facts before deploying. `409` when the hash does
 not match, or when the project already uses handler modules; `422` when the annotations do not parse or
 the resulting set breaks a project rule.
 
-**Scope:** `write`
+**Permission:** `workflows:write`
 
 ### `DELETE /workflows/:workflowId/files/:path`
 
@@ -1073,7 +1086,7 @@ stood in for (`triggerCode` / `dependencies`), so the file does not
 reappear as a seed and the next deploy uses the default handlers / no
 project dependencies.
 
-**Scope:** `write`
+**Permission:** `workflows:delete`
 
 ---
 
@@ -1083,13 +1096,13 @@ project dependencies.
 
 List all deployments across all workflows for the authenticated user.
 
-**Scope:** `read`
+**Permission:** `runs:read`
 
 ### `GET /workflows/:workflowId/deployments`
 
 List deployments for a specific workflow.
 
-**Scope:** `read`
+**Permission:** `runs:read`
 
 | Param        | In   | Required | Description |
 | ------------ | ---- | -------- | ----------- |
@@ -1099,7 +1112,7 @@ List deployments for a specific workflow.
 
 Deploy a workflow version to a connection. Validates environment variables and credentials before deploying.
 
-**Scope:** `deploy`
+**Permission:** `workflows:deploy`
 
 | Param        | In   | Required | Description |
 | ------------ | ---- | -------- | ----------- |
@@ -1116,7 +1129,7 @@ Deploy a workflow version to a connection. Validates environment variables and c
 
 Deploy a workflow with real-time progress updates via Server-Sent Events. Same request body as `/deploy`.
 
-**Scope:** `deploy`
+**Permission:** `workflows:deploy`
 
 | Param        | In   | Required | Description |
 | ------------ | ---- | -------- | ----------- |
@@ -1141,7 +1154,7 @@ UPDATING_WORKFLOW → COMPLETED
 
 Trigger an execution of a deployed workflow. Params payload is capped at 100KB.
 
-**Scope:** `deploy`
+**Permission:** `workflows:run`
 
 | Param        | In   | Required | Description |
 | ------------ | ---- | -------- | ----------- |
@@ -1162,7 +1175,7 @@ Created instances use the **instance retention** settings from the workflow's st
 
 Remove a deployment and clear the workflow's active version.
 
-**Scope:** `deploy`
+**Permission:** `workflows:deploy`
 
 | Param        | In   | Required | Description |
 | ------------ | ---- | -------- | ----------- |
@@ -1182,7 +1195,7 @@ Remove a deployment and clear the workflow's active version.
 
 List all runs across all workflows for the authenticated user.
 
-**Scope:** `read`
+**Permission:** `runs:read`
 
 With a workspace named (`?workspace=` or `?workspaceId=`), that workspace's
 runs, newest first, each with `workflowName` and `kind`, plus `counts`
@@ -1201,7 +1214,7 @@ These three need a workspace: without one they answer `400`.
 
 List runs for a specific workflow.
 
-**Scope:** `read`
+**Permission:** `runs:read`
 
 | Param        | In   | Required | Description |
 | ------------ | ---- | -------- | ----------- |
@@ -1211,7 +1224,7 @@ List runs for a specific workflow.
 
 Get a specific run. Run status is reconciled from the provider by a background sync loop (every 5 seconds on the Node server, every minute via cron on Workers), so reads are immediate and never block on provider round-trips.
 
-**Scope:** `read`
+**Permission:** `runs:read`
 
 | Param        | In   | Required | Description |
 | ------------ | ---- | -------- | ----------- |
@@ -1222,7 +1235,7 @@ Get a specific run. Run status is reconciled from the provider by a background s
 
 Per-step telemetry for a run, collected by the background sync loop: each durable step's label, kind (`do` / `sleep` / `waitForEvent` / `rollback`), status, timing, attempt count, and last error. Steps are attributed to canvas nodes (`nodeId`) through the step manifest recorded at deploy time; generated step labels are derived from node ids, so attribution survives node renames. Loop iterations appear as separate entries (`stepIndex` is the 1-based occurrence per label). Coalesced steps (adjacent plain nodes merged into one billable step) report one record attributed to the group's leader node; the response's `coalescedInto` map (`memberNodeId → leaderNodeId`, read from the deploy manifest) links each member node to that leader, so UIs can show members as having run inside the leader's step. Response shape: `{ data: RunStep[], coalescedInto: Record<string, string> }`. Returns an empty list for runs synced before a manifest-bearing deploy existed or when no steps have been reported yet.
 
-**Scope:** `read`
+**Permission:** `runs:read`
 
 | Param        | In   | Required | Description |
 | ------------ | ---- | -------- | ----------- |
@@ -1243,7 +1256,7 @@ Live run events as a Server-Sent Events stream. Each tick (every 2s while the ru
 
 Clients should keep polling `GET …/steps` as the floor and treat the stream as acceleration — on any close, resume polling or reconnect. The stream ends immediately with `done` for runs with no provider connection.
 
-**Scope:** `read`
+**Permission:** `runs:read`
 
 | Param        | In   | Required | Description |
 | ------------ | ---- | -------- | ----------- |
@@ -1254,7 +1267,7 @@ Clients should keep polling `GET …/steps` as the floor and treat the stream as
 
 Pause a running workflow instance.
 
-**Scope:** `deploy`
+**Permission:** `workflows:run`
 
 | Param        | In   | Required | Description |
 | ------------ | ---- | -------- | ----------- |
@@ -1265,7 +1278,7 @@ Pause a running workflow instance.
 
 Resume a paused workflow instance.
 
-**Scope:** `deploy`
+**Permission:** `workflows:run`
 
 | Param        | In   | Required | Description |
 | ------------ | ---- | -------- | ----------- |
@@ -1276,7 +1289,7 @@ Resume a paused workflow instance.
 
 Terminate a running or paused workflow instance.
 
-**Scope:** `deploy`
+**Permission:** `workflows:run`
 
 | Param        | In   | Required | Description |
 | ------------ | ---- | -------- | ----------- |
@@ -1295,7 +1308,7 @@ needs its connection.
 
 List all connections. Credential values are redacted in the response.
 
-**Scope:** `read`
+**Permission:** `connections:read` (project and workspace keys: `workflows:read`)
 
 | Param    | In    | Required | Description                        |
 | -------- | ----- | -------- | ---------------------------------- |
@@ -1306,7 +1319,7 @@ List all connections. Credential values are redacted in the response.
 
 Create a new provider connection.
 
-**Scope:** `write`
+**Permission:** `connections:write`
 
 ```json
 {
@@ -1320,7 +1333,7 @@ Create a new provider connection.
 
 Verify provider credentials before saving. Currently supports the `cloudflare` provider.
 
-**Scope:** `write`
+**Permission:** `connections:read` (project and workspace keys: `workflows:read`)
 
 ```json
 {
@@ -1342,7 +1355,7 @@ Returns:
 
 Update a connection's name or credentials.
 
-**Scope:** `write`
+**Permission:** `connections:write`
 
 | Param | In   | Required | Description   |
 | ----- | ---- | -------- | ------------- |
@@ -1359,7 +1372,7 @@ Update a connection's name or credentials.
 
 Delete a connection.
 
-**Scope:** `write`
+**Permission:** `connections:delete`
 
 | Param | In   | Required | Description   |
 | ----- | ---- | -------- | ------------- |
@@ -1381,7 +1394,7 @@ List all global environment variables. Secret values are masked as `••••
 With `?projectId=`, that project's variables — a project the caller cannot
 open (B2) lists nothing.
 
-**Scope:** `read`
+**Permission:** `resources:read` (organization keys) · `variables:read` (project and workspace keys)
 
 ### `POST /env-vars`
 
@@ -1389,7 +1402,7 @@ Create a global environment variable. Name must match `^[A-Z][A-Z0-9_]*$`.
 With `projectId`, a project variable — in a project the caller can open
 (`404` otherwise).
 
-**Scope:** `write`
+**Permission:** `resources:write` (organization keys) · `variables:write` (project keys; a workspace key reads only)
 
 ```json
 {
@@ -1405,7 +1418,7 @@ Update an environment variable's name, value, or secret flag. Making a secret
 variable non-secret requires a new `value` in the same request — a stored
 secret never becomes readable — otherwise the request answers `422`.
 
-**Scope:** `write`
+**Permission:** `resources:write` (organization keys) · `variables:write` (project keys; a workspace key reads only)
 
 | Param | In   | Required | Description             |
 | ----- | ---- | -------- | ----------------------- |
@@ -1421,105 +1434,11 @@ secret never becomes readable — otherwise the request answers `422`.
 
 Delete an environment variable.
 
-**Scope:** `write`
+**Permission:** `resources:delete` (organization keys) · `variables:delete` (project keys; a workspace key reads only)
 
 | Param | In   | Required | Description             |
 | ----- | ---- | -------- | ----------------------- |
 | `id`  | path | yes      | Environment variable ID |
-
----
-
-## Resources
-
-All resource endpoints require a `connectionId` query parameter pointing to a valid Cloudflare connection.
-
-### `GET /resources/kv/namespaces`
-
-List KV namespaces.
-
-**Scope:** `read`
-
-| Param          | In    | Required | Description   |
-| -------------- | ----- | -------- | ------------- |
-| `connectionId` | query | yes      | Connection ID |
-
-### `GET /resources/kv/namespaces/:namespaceId/keys`
-
-List keys in a KV namespace.
-
-**Scope:** `read`
-
-| Param          | In    | Required | Description           |
-| -------------- | ----- | -------- | --------------------- |
-| `namespaceId`  | path  | yes      | KV namespace ID       |
-| `connectionId` | query | yes      | Connection ID         |
-| `prefix`       | query | no       | Filter keys by prefix |
-| `cursor`       | query | no       | Pagination cursor     |
-| `limit`        | query | no       | Max keys to return    |
-
-### `GET /resources/kv/namespaces/:namespaceId/values/:key`
-
-Get the value of a KV key.
-
-**Scope:** `read`
-
-| Param          | In    | Required | Description     |
-| -------------- | ----- | -------- | --------------- |
-| `namespaceId`  | path  | yes      | KV namespace ID |
-| `key`          | path  | yes      | Key name        |
-| `connectionId` | query | yes      | Connection ID   |
-
-### `GET /resources/d1/databases`
-
-List D1 databases.
-
-**Scope:** `read`
-
-| Param          | In    | Required | Description   |
-| -------------- | ----- | -------- | ------------- |
-| `connectionId` | query | yes      | Connection ID |
-
-### `POST /resources/d1/databases/:databaseId/query`
-
-Execute a SQL query against a D1 database.
-
-**Scope:** `read`
-
-| Param        | In   | Required | Description    |
-| ------------ | ---- | -------- | -------------- |
-| `databaseId` | path | yes      | D1 database ID |
-
-```json
-{
-  "connectionId": "connection-id",
-  "sql": "SELECT 1",
-  "params": []
-}
-```
-
-### `GET /resources/r2/buckets`
-
-List R2 buckets.
-
-**Scope:** `read`
-
-| Param          | In    | Required | Description   |
-| -------------- | ----- | -------- | ------------- |
-| `connectionId` | query | yes      | Connection ID |
-
-### `GET /resources/r2/buckets/:bucketName/objects`
-
-List objects in an R2 bucket.
-
-**Scope:** `read`
-
-| Param          | In    | Required | Description           |
-| -------------- | ----- | -------- | --------------------- |
-| `bucketName`   | path  | yes      | Bucket name           |
-| `connectionId` | query | yes      | Connection ID         |
-| `prefix`       | query | no       | Filter by prefix      |
-| `cursor`       | query | no       | Pagination cursor     |
-| `limit`        | query | no       | Max objects to return |
 
 ---
 
@@ -1536,19 +1455,19 @@ merged set, so installed nodes are found individually too.
 
 List all available node definitions from the registry.
 
-**Scope:** `read`
+**Permission:** `resources:read` (project and workspace keys: `workflows:read`)
 
 ### `GET /nodes/templates`
 
 Get node template resolver data.
 
-**Scope:** `read`
+**Permission:** `resources:read` (project and workspace keys: `workflows:read`)
 
 ### `GET /nodes/:nodeId`
 
 Get a single node definition.
 
-**Scope:** `read`
+**Permission:** `resources:read` (project and workspace keys: `workflows:read`)
 
 | Param    | In   | Required | Description  |
 | -------- | ---- | -------- | ------------ |
@@ -1583,7 +1502,7 @@ Starts a session, or returns the one this user already has for the workflow
 (`reused: true`, status `200`) — a second click asks for the session you have,
 not an error about it.
 
-**Scope:** `write`
+**Permission:** `workflows:write`
 
 | Param        | In   | Required | Description |
 | ------------ | ---- | -------- | ----------- |
@@ -1601,7 +1520,7 @@ worker's own output), `504` the start took longer than the start timeout.
 
 The live session for this user and workflow, or `{ session: null }`.
 
-**Scope:** `read`
+**Permission:** `workflows:read`
 
 ### `POST /test-sessions/:sessionId/trigger`
 
@@ -1609,7 +1528,7 @@ Invokes the session's `fetch` handler, the way a deployed worker would be
 invoked. Body: `{ "payload": { ... } }`, under 100 KB. Returns the worker's
 own `{ status, body }`.
 
-**Scope:** `write`
+**Permission:** `workflows:run`
 
 ### `GET /test-sessions/:sessionId/stream`
 
@@ -1625,7 +1544,7 @@ its cursor. Act on `final`, not on the wording.
 Holding the stream open counts as using the session, so a run is never reaped
 mid-flight.
 
-**Scope:** `read`
+**Permission:** `workflows:read`
 
 | Param        | In    | Required | Description                       |
 | ------------ | ----- | -------- | --------------------------------- |
@@ -1639,7 +1558,7 @@ Stops the worker and closes the session. Stopping one that has already
 stopped is not an error — the container may still exist even when the record
 says otherwise.
 
-**Scope:** `write`
+**Permission:** `workflows:run`
 
 ## Marketplace
 
@@ -1650,13 +1569,13 @@ project-scoped API key answers `403`.
 
 Get the full marketplace catalog with installation status for the current organization.
 
-**Scope:** `read`
+**Permission:** `resources:read` (project and workspace keys: `workflows:read`)
 
 ### `GET /marketplace/:nodeId`
 
 Get details for a specific marketplace node, including available versions and installation status.
 
-**Scope:** `read`
+**Permission:** `resources:read` (project and workspace keys: `workflows:read`)
 
 | Param    | In   | Required | Description                                  |
 | -------- | ---- | -------- | -------------------------------------------- |
@@ -1666,7 +1585,7 @@ Get details for a specific marketplace node, including available versions and in
 
 List installed marketplace nodes for the current organization.
 
-**Scope:** `read`
+**Permission:** `resources:read` (project and workspace keys: `workflows:read`)
 
 | Param    | In    | Required | Description                        |
 | -------- | ----- | -------- | ---------------------------------- |
@@ -1677,7 +1596,7 @@ List installed marketplace nodes for the current organization.
 
 Install a node from the marketplace.
 
-**Scope:** `write`
+**Permission:** `resources:write`
 
 ```json
 {
@@ -1692,7 +1611,7 @@ Install a node from the marketplace.
 
 Uninstall a previously installed node.
 
-**Scope:** `write`
+**Permission:** `resources:delete`
 
 ```json
 {
@@ -1704,7 +1623,7 @@ Uninstall a previously installed node.
 
 Update an installed node to a newer version.
 
-**Scope:** `write`
+**Permission:** `resources:write`
 
 ```json
 {
@@ -1720,52 +1639,35 @@ Update an installed node to a newer version.
 ## Session-Only Endpoints
 
 These endpoints require session authentication and are **not accessible via
-API key** — with one exception: an organization-level key may `POST /api-keys`
-to mint project keys.
+API key**: keys never manage keys.
 
 ### `GET /api-keys`
 
-List the organization's live API keys — revoked keys are never returned. Each
-project-level key carries its project's name as `projectName` (null on
-organization-level keys).
+The keys of one level, addressed by its slugs: `?org=` the organization's own keys (owners and admins only, `403` otherwise), `?org=&project=` the project's own keys with `workspaceCounts` (unrevoked keys per workspace the caller can open, expired ones included as the workspace's own list is), `?org=&project=&workspace=` the workspace's `own` keys and the `inherited` project keys that reach it (unrevoked and unexpired). A workspace named without its project is `400`. Revoked keys never return. Each key carries `level`, `permissions` (the grid), `keyPrefix` and `keySuffix` (the first eight and last four characters of the secret), `createdBy` and `createdByName`, `expiresAt`, `lastUsedAt`, and for workspace keys its `workspace`.
 
-| Param       | In    | Required | Description                                                                                                                                                                                             |
-| ----------- | ----- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `projectId` | query | no       | List only this project's keys (must be in the organization and open to the caller; a hidden one lists nothing). Without it, the organization's keys — project keys only of projects the caller can open |
-| `cursor`    | query | no       | Pagination cursor                                                                                                                                                                                       |
-| `limit`     | query | no       | Items per page (1–100, default 50)                                                                                                                                                                      |
+| Param    | In    | Required | Description                         |
+| -------- | ----- | -------- | ----------------------------------- |
+| `cursor` | query | no       | Pagination cursor (org and project) |
+| `limit`  | query | no       | Items per page (1–100, default 50)  |
 
 ### `POST /api-keys`
 
-Create a new API key. The full key is returned only once in the response.
-A project key is minted only in a project the caller can open (`404`
-otherwise).
-
-A key is **project-level or organization-level, never both**: with `projectId`
-it works that project's workflows and variables; without, it manages
-organization resources (projects, connections, marketplace, org-wide
-variables) and is refused on every project route. Organization-level keys can
-only be created from a session; an organization-level key may create project
-keys (`403` when it tries to create another org key). A key never mints past
-itself: the new key's scopes must be a subset of the caller's (`403`
-otherwise) and its expiry is capped at the caller's own. A key minted by
-another key records it as `parentKeyId` and stops working (`401`) when that
-key is revoked or expires. Keys stop working when their creator leaves the
-organization.
+Mint a key at the addressed level — `?org=` by an org owner or admin, `?org=&project=` by a project admin, `?org=&project=&workspace=` by a workspace admin (`403` with the reason otherwise). The body's `level` must be the addressed one (`400`); `permissions` is the grid, only cells the level offers (`422` naming any other), at least one (`422`); `expiresAt` is optional and must be in the future (`422`). The answer is the key as `GET` lists it — `level`, `permissions`, `keyPrefix` and `keySuffix`, `createdBy` and `createdByName`, and for a workspace key its `workspace` — plus the secret, once, as `key`; a project or workspace the caller cannot open answers `404`.
 
 ```json
 {
-  "name": "My Key",
-  "projectId": "project-id",
-  "scopes": ["read", "write"],
-  "expiresAt": "2025-12-31T00:00:00Z"
+  "name": "CI deploys",
+  "level": "project",
+  "permissions": { "workflows": ["read", "deploy", "run"], "runs": ["read"] },
+  "expiresAt": "2026-12-31T00:00:00Z"
 }
 ```
 
-`projectId` and `expiresAt` are optional — omit `projectId` for an
-organization-level key.
+Keys never mint keys: this endpoint takes a session. Keys minted before this
+by an organization key keep their `parentKeyId` and still stop working
+(`401`) when that key is revoked or expires.
 
 ### `DELETE /api-keys/:id`
 
-Revoke an API key. Revoking an organization-level key also stops every key it
-minted.
+Revoke a key of the addressed level, by whoever manages it there (as for
+`POST`); a key of another level at that address is `404`.

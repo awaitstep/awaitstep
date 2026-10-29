@@ -14,18 +14,25 @@ on the cloud, or `http://localhost:8080/api` self-hosted — and every request
 carries `?projectId=<id>` and `Authorization: Bearer ask_…`. The exhaustive
 per-endpoint reference lives in [REST API](/api/rest).
 
-## Scopes
+## Permissions
 
-An API key is scoped, and the wrong scope is the first thing to go wrong:
+An API key carries a grid of permissions, and a missing cell is the first
+thing to go wrong. Project files are workflow work, so every call here needs
+a cell of the `workflows` resource — on a project key or a workspace key
+(an organization key never reaches a workflow):
 
-| Scope    | What it covers                                              |
-| -------- | ----------------------------------------------------------- |
-| `read`   | Reading the tree and any file, and **`POST /source/check`** |
-| `write`  | `PUT`/`DELETE` on files, `convert-handlers`, test sessions  |
-| `deploy` | `deploy`, `trigger`, `takedown`, run control                |
+| Cell               | What it covers                                                 |
+| ------------------ | -------------------------------------------------------------- |
+| `workflows:read`   | Reading the tree and any file, and **`POST /source/check`**    |
+| `workflows:write`  | `PUT` on files, `convert-handlers`, starting a test session    |
+| `workflows:delete` | `DELETE` on files                                              |
+| `workflows:run`    | Triggering and stopping a test session, `trigger`, run control |
+| `workflows:deploy` | `deploy`, `takedown`                                           |
 
 So a key that only reads can still answer "is this workflow healthy?" — but
-creating a file, or running one, needs `write`.
+creating a file needs `workflows:write`, and running one `workflows:run`.
+A workspace key sees only its own workspace's workflows; one elsewhere in
+the project is `404`.
 
 ## The rules come from the API, not from this page
 
@@ -239,8 +246,9 @@ workspace shows.
 
 ## A complete pass
 
-Create a file, import it from a handler, check it, and deploy — with a
-`write`-scoped key:
+Create a file, import it from a handler, check it, and deploy — with a key
+holding `workflows:write` and `workflows:run` (the Deploy & run preset plus
+write does):
 
 ```bash
 # 1. A helper of your own
@@ -258,12 +266,12 @@ curl -s -X PUT "$API/workflows/$WF/files/handlers/fetch.ts?projectId=$P" \
 curl -s -X POST "$API/workflows/$WF/source/check?projectId=$P" -H "Authorization: Bearer $KEY"
 # → {"ok":true,...,"diagnostics":[]}
 
-# 4. Run it without deploying: a test session (write scope)
+# 4. Run it without deploying: a test session (workflows:write to start it)
 curl -s -X POST "$API/workflows/$WF/test-sessions?projectId=$P" \
   -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' -d '{}'
 # → {"session":{"id":"c6Vg…","runtime":"node","status":"running",…},"reused":false}
 
-# Send it a request. `payload` is optional and becomes the trigger input.
+# Send it a request (workflows:run). `payload` is optional and becomes the trigger input.
 curl -s -X POST "$API/test-sessions/$SESSION_ID/trigger?projectId=$P" \
   -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
   -d '{"payload":{"name":"world"}}'
@@ -271,7 +279,7 @@ curl -s -X POST "$API/test-sessions/$SESSION_ID/trigger?projectId=$P" \
 # Done with it
 curl -s -X DELETE "$API/test-sessions/$SESSION_ID?projectId=$P" -H "Authorization: Bearer $KEY"
 
-# 5. Or deploy it for real (deploy scope)
+# 5. Or deploy it for real (workflows:deploy)
 curl -s -X POST "$API/workflows/$WF/deploy?projectId=$P" \
   -H "Authorization: Bearer $KEY_WITH_DEPLOY" -H 'Content-Type: application/json' -d '{}'
 ```
