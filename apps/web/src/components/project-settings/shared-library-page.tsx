@@ -53,12 +53,16 @@ function ItemCell({ item, org }: { item: SharedItem; org: string }) {
         {item.kind === 'script' ? 'ƒ' : 'W'}
       </span>
       <span className="flex min-w-0 flex-col gap-0.5">
-        <ShellLink
-          href={itemPath(org, item)}
-          className="truncate text-sm font-semibold text-foreground hover:underline"
-        >
-          {item.name}
-        </ShellLink>
+        {item.canOpen ? (
+          <ShellLink
+            href={itemPath(org, item)}
+            className="truncate text-sm font-semibold text-foreground hover:underline"
+          >
+            {item.name}
+          </ShellLink>
+        ) : (
+          <span className="truncate text-sm font-semibold text-foreground">{item.name}</span>
+        )}
         <span className="text-2xs text-muted-foreground">
           {ITEM_KIND_LABEL[item.kind]} · {version}
         </span>

@@ -8,19 +8,35 @@ import { WorkspaceDot } from '../../ui/workspace-dot'
 
 interface SharedItemCardProps {
   item: SharedItem
-  href: string
+  /** Null when the viewer can't open its workspace: the card then names it without linking. */
+  href: string | null
 }
+
+const CARD = 'flex items-center gap-3.5 rounded-2xl border border-border bg-card p-4.5'
 
 /** An item another workspace shared, under "Shared with Sales": read-only, called from a step. */
 export function SharedItemCard({ item, href }: SharedItemCardProps) {
+  if (href === null) {
+    return (
+      <div className={CARD}>
+        <SharedItemBody item={item} />
+      </div>
+    )
+  }
+  return (
+    <ShellLink href={href} className={`${CARD} transition-colors hover:border-foreground/20`}>
+      <SharedItemBody item={item} />
+      <ArrowRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+    </ShellLink>
+  )
+}
+
+function SharedItemBody({ item }: { item: SharedItem }) {
   const isFunction = item.kind === 'script'
   const Icon = isFunction ? Code : Workflow
   const version = item.version === null ? '' : ` · v${item.version}`
   return (
-    <ShellLink
-      href={href}
-      className="flex items-center gap-3.5 rounded-2xl border border-border bg-card p-4.5 transition-colors hover:border-foreground/20"
-    >
+    <>
       <Tile tone="info">
         <Icon />
       </Tile>
@@ -37,7 +53,6 @@ export function SharedItemCard({ item, href }: SharedItemCardProps) {
           </span>
         </span>
       </span>
-      <ArrowRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-    </ShellLink>
+    </>
   )
 }

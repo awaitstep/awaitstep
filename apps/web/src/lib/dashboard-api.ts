@@ -193,6 +193,7 @@ export interface ApiWorkspace {
     workflows: number
     deployed: number
     functions: number
+    sharedOut: number
     runs24h: number
     failing: number
     lastRunAt: string | null
@@ -241,9 +242,29 @@ export type ApiScope =
       }
     }
 
+/** A workflow's share to its project; null while it is not shared. */
+export interface ApiSharing {
+  sharedAt: string
+  sharedBy: { id: string; name: string }
+}
+
+/** An item shared to the project, as the Shared library and "Shared with" lists read it. */
+export interface ApiSharedItem extends ApiSharing {
+  id: string
+  name: string
+  kind: 'workflow' | 'script'
+  version: number | null
+  from: { id: string; slug: string; name: string; colour: WorkspaceColour }
+  usedBy: { id: string; slug: string; name: string; colour: WorkspaceColour }[]
+  /** Whether the viewer can open its workspace (sharing shows metadata, not the item). */
+  canOpen: boolean
+  unshare: { allowed: boolean; reason?: string }
+}
+
 export interface ApiWorkflowRow extends WorkflowSummary {
   workspaceId: string
   deployedVersion: number | null
+  sharing: ApiSharing | null
   /** The last ten finished runs, newest first. */
   recentRunStatuses: string[]
 }
@@ -653,6 +674,32 @@ export const dashboardApi = {
     filter: { kind?: 'workflow' | 'script'; cursor?: string; limit?: number },
   ): Promise<PaginatedResponse<ApiWorkflowRow>> {
     return request(`/workflows${query({ ...slugs, ...filter })}`)
+  },
+
+  setWorkflowShared(
+    slugs: WorkspaceSlugs,
+    id: string,
+    shared: boolean,
+  ): Promise<{ sharing: ApiSharing | null }> {
+    return request(`/workflows/${id}/share${query(slugs)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ shared }),
+    })
+  },
+
+  listProjectShared(
+    org: string,
+    projectId: string,
+    filter: { cursor?: string; limit?: number } = {},
+  ): Promise<PaginatedResponse<ApiSharedItem>> {
+    return request(`/projects/${projectId}/shared${query({ org, ...filter })}`)
+  },
+
+  listSharedWith(
+    workspaceId: string,
+    filter: { kind?: 'workflow' | 'script'; cursor?: string; limit?: number },
+  ): Promise<PaginatedResponse<ApiSharedItem>> {
+    return request(`/workspaces/${workspaceId}/shared${query(filter)}`)
   },
 
   /** Answers with the row as stored: none of the status fields a listing carries. */

@@ -49,6 +49,18 @@ describe('project Shared library', () => {
     )
   })
 
+  it('names an item from a workspace the viewer can’t open, without linking to it', async () => {
+    // Daniel is in Sales only; Provision account comes from IT.
+    renderWithDashboardData(<SharedLibraryPage slugs={p101} />, { userId: DANIEL })
+    await screen.findByRole('link', { name: 'Lead enrichment' })
+    expect(screen.queryByRole('link', { name: 'Provision account' })).not.toBeInTheDocument()
+    const provision = screen.getByText('Provision account').closest('tr') as HTMLElement
+    expect(provision).toHaveTextContent('IT')
+    const button = within(provision).getByRole('button', { name: 'Unshare' })
+    expect(button).toHaveAttribute('aria-disabled', 'true')
+    expect(button).toHaveAccessibleDescription('Only people in IT can unshare it')
+  })
+
   it('explains New project module', async () => {
     renderWithDashboardData(<SharedLibraryPage slugs={p101} />)
     await userEvent.click(await screen.findByRole('button', { name: 'New project module' }))

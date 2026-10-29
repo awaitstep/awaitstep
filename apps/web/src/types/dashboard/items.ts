@@ -59,6 +59,8 @@ export interface SharedItem extends Sharing {
   version: number | null
   from: WorkspaceRef
   usedBy: WorkspaceRef[]
+  /** Whether the viewer can open its workspace: sharing shows what it is, not the item itself. */
+  canOpen: boolean
   /** Whether the viewer may unshare it now, and why not (others call it, or no share rights). */
   unshare: Allowed
 }

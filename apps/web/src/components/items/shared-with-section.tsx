@@ -27,8 +27,8 @@ export function SharedWithSection({
       />
       <ul className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
         {items.map((item) => (
-          <li key={item.id} className="flex min-w-0 [&>a]:min-w-0 [&>a]:flex-1">
-            <SharedItemCard item={item} href={itemPath(org, item)} />
+          <li key={item.id} className="flex min-w-0 [&>*]:min-w-0 [&>*]:flex-1">
+            <SharedItemCard item={item} href={item.canOpen ? itemPath(org, item) : null} />
           </li>
         ))}
       </ul>

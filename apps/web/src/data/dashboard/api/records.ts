@@ -88,8 +88,7 @@ export function toWorkspace(workspace: ApiWorkspace): Workspace {
     createdAt: workspace.createdAt,
     createdBy: workspace.createdBy,
     lock: lockState(workspace.lock, workspace.inheritedLock),
-    // Sharing arrives with the shared library (B6).
-    counts: { ...workspace.counts, sharedOut: 0 },
+    counts: workspace.counts,
   }
 }
 

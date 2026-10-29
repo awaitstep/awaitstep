@@ -5,7 +5,9 @@ import type {
   ApiWorkspaceRun,
 } from '../../../lib/dashboard-api'
 import type { RunSummary } from '../../../lib/api-client'
+import { toSharing } from './sharing'
 import type { WorkspaceItem } from '../../../types/dashboard/items'
+import type { Allowed } from '../../../types/dashboard/scope'
 import type { FailingItem, RunPage, RunResult, WorkspaceRun } from '../../../types/dashboard/runs'
 
 // Runs and workflows as the API lists them → the rows the Runs, Workflows,
@@ -67,8 +69,11 @@ export function toFailingItem(failing: ApiFailing): FailingItem {
   }
 }
 
-/** A workflow or function on a workspace's list, from the API's status row. */
-export function toWorkspaceItem(row: ApiWorkflowRow): WorkspaceItem {
+/**
+ * A workflow or function on a workspace's list, from the API's status row.
+ * `share` is the viewer's `share` capability in the workspace: the switch's state.
+ */
+export function toWorkspaceItem(row: ApiWorkflowRow, share: Allowed): WorkspaceItem {
   const finished = row.recentRunStatuses.map(runResult)
   return {
     id: row.id,
@@ -87,8 +92,9 @@ export function toWorkspaceItem(row: ApiWorkflowRow): WorkspaceItem {
     // the same run unless one is still going.
     lastRun: finished[0] && row.lastRunAt ? { result: finished[0], at: row.lastRunAt } : null,
     traffic: null,
-    sharing: null,
+    sharing: toSharing(row.sharing),
+    // Callers arrive with the Call Workflow node; until then nothing blocks unsharing.
     usedBy: [],
-    shareToggle: { allowed: false, reason: 'Sharing arrives with the shared library' },
+    shareToggle: share,
   }
 }

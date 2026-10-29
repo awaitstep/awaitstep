@@ -86,6 +86,13 @@ describe('SharedItemCard', () => {
     expect(link).toHaveTextContent('Workflow')
     expect(link).toHaveTextContent('from IT · v7')
   })
+
+  it('names the item without a link when the viewer can’t open its workspace', () => {
+    render(<SharedItemCard item={{ ...PROVISION_ACCOUNT, canOpen: false }} href={null} />)
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    expect(screen.getByText('Provision account')).toBeVisible()
+    expect(screen.getByText(/from IT · v7/)).toBeVisible()
+  })
 })
 
 describe('TrafficBars', () => {

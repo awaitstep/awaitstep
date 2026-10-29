@@ -95,7 +95,15 @@ const workspace: ApiWorkspace = {
   createdBy: { id: 'u-1', name: 'Ama Mensah' },
   lock: null,
   inheritedLock: { fromName: 'Project 101', lock: project.lock! },
-  counts: { workflows: 3, deployed: 1, functions: 1, runs24h: 5, failing: 1, lastRunAt: null },
+  counts: {
+    workflows: 3,
+    deployed: 1,
+    functions: 1,
+    sharedOut: 2,
+    runs24h: 5,
+    failing: 1,
+    lastRunAt: null,
+  },
   members: people,
   viewerRole: 'admin',
   viewerCan: {
@@ -141,7 +149,7 @@ describe('toProject / toWorkspace', () => {
 
     const w = toWorkspace(workspace)
     expect(w.lock).toEqual({ own: null, inherited: workspace.inheritedLock })
-    expect(w.counts).toEqual({ ...workspace.counts, sharedOut: 0 })
+    expect(w.counts).toEqual(workspace.counts)
     expect(w.createdBy).toEqual({ id: 'u-1', name: 'Ama Mensah' })
   })
 })

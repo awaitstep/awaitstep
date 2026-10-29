@@ -93,6 +93,7 @@ describe('toWorkspaceItem', () => {
     deployStatus: 'success',
     deployVersionId: 'v-2',
     deployedVersion: 2,
+    sharing: null,
     lastRunStatus: 'running',
     lastRunAt: '2026-10-28T07:00:00.000Z',
     recentRunStatuses: ['errored', 'complete', 'complete'],
@@ -100,7 +101,7 @@ describe('toWorkspaceItem', () => {
   })
 
   it('reads deployed from the latest deployment and the bars from the finished runs, oldest first', () => {
-    const item = toWorkspaceItem(row())
+    const item = toWorkspaceItem(row(), { allowed: false, reason: 'Only Editors can share' })
     expect(item).toMatchObject({
       status: 'deployed',
       version: 2,
@@ -113,7 +114,14 @@ describe('toWorkspaceItem', () => {
       sharing: null,
       usedBy: [],
     })
-    expect(item.shareToggle.allowed).toBe(false)
+    expect(item.shareToggle).toEqual({ allowed: false, reason: 'Only Editors can share' })
+  })
+
+  it('carries the share and takes the switch’s state from the workspace’s capability', () => {
+    const sharing = { sharedAt: '2026-10-29T10:00:00.000Z', sharedBy: { id: 'u-ama', name: 'Ama' } }
+    const item = toWorkspaceItem(row({ sharing }), { allowed: true })
+    expect(item.sharing).toEqual(sharing)
+    expect(item.shareToggle).toEqual({ allowed: true })
   })
 
   it('is a draft with no runs when nothing has happened yet', () => {
@@ -126,6 +134,7 @@ describe('toWorkspaceItem', () => {
         recentRunStatuses: [],
         kind: 'script',
       }),
+      { allowed: true },
     )
     expect(draft).toMatchObject({
       status: 'draft',

@@ -132,7 +132,8 @@ export function itemRecord(
 /**
  * `unshare` is whether the viewer may unshare it now (see `unshareOf` in the
  * items server); `visible` the workspaces the viewer can open, so "Called by"
- * never names a hidden one (O9). Sharing publishes `from` to the whole project.
+ * never names a hidden one (O9), and `canOpen` whether the item's own one is
+ * among them. Sharing publishes `from` to the whole project.
  */
 export function sharedItemRecord(
   db: MockDb,
@@ -152,6 +153,7 @@ export function sharedItemRecord(
     usedBy: callersOf(db, row)
       .filter((w) => visible.has(w.id))
       .map(workspaceRef),
+    canOpen: visible.has(row.workspaceId),
     unshare,
   }
 }

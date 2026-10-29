@@ -97,6 +97,17 @@ export const endpoints: EndpointDef[] = [
     params: [{ name: 'id', in: 'path', required: true }],
     hasBody: false,
   },
+  {
+    id: 'share-workflow',
+    group: 'Workflows',
+    method: 'PUT',
+    path: '/api/workflows/:id/share',
+    label: 'Share to project / unshare',
+    permission: 'workflows:write',
+    params: [{ name: 'id', in: 'path', required: true }],
+    hasBody: true,
+    bodyExample: JSON.stringify({ shared: true }, null, 2),
+  },
 
   // Projects
   // Workspaces
@@ -150,6 +161,20 @@ export const endpoints: EndpointDef[] = [
     label: 'Delete workspace',
     permission: 'workspaces:delete',
     params: [{ name: 'id', in: 'path', required: true }],
+    hasBody: false,
+  },
+  {
+    id: 'list-shared-with-workspace',
+    group: 'Workspaces',
+    method: 'GET',
+    path: '/api/workspaces/:id/shared',
+    label: 'List what other workspaces shared',
+    permission: 'workflows:read',
+    params: [
+      { name: 'id', in: 'path', required: true },
+      { name: 'kind', in: 'query', required: false },
+      ...paginationParams,
+    ],
     hasBody: false,
   },
   {

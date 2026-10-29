@@ -19,6 +19,7 @@ import {
   notFoundError,
   rows,
 } from '../scenario'
+import { ACCESS_REASONS, unshareCapability } from '@awaitstep/ir'
 import { workspaceRoleOf } from '../access'
 import { itemRecord, sharedItemRecord, unshareBlock } from './item-records'
 import { visibleWorkspaces, workspaceScope } from './records'
@@ -55,10 +56,7 @@ function records(
  */
 function unshareOf(db: MockDb, ctx: MockContext, project: ProjectRow, item: ItemRow): Allowed {
   const from = db.workspaces.find((w) => w.id === item.workspaceId)!
-  if (!workspaceRoleOf(db, ctx, project, from)) {
-    return { allowed: false, reason: `Only people in ${from.name} can unshare it` }
-  }
-  const share = workspaceScope(db, ctx, project, from).viewerCan.share
+  const share = unshareCapability(workspaceRoleOf(db, ctx, project, from), from.name)
   if (!share.allowed) return share
   const blocked = unshareBlock(db, item, visibleIds(db, ctx, project))
   return blocked ? { allowed: false, reason: blocked } : share
@@ -68,7 +66,7 @@ function unshareOf(db: MockDb, ctx: MockContext, project: ProjectRow, item: Item
 // or Project settings, so the workspace views don't work out whether it could.
 const UNSHARE_ELSEWHERE: Allowed = {
   allowed: false,
-  reason: 'Unshare it from its own workspace',
+  reason: ACCESS_REASONS.unshareElsewhere,
 }
 
 function visibleIds(db: MockDb, ctx: MockContext, project: ProjectRow): Set<string> {

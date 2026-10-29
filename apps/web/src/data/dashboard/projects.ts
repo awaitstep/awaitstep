@@ -54,7 +54,7 @@ const throughProject = (org: string, project: string) => [
 ]
 
 /** The project's id from the scope the page already resolved; a page edits what it is on. */
-function useProjectId(org: string, project: string): string | null {
+export function useProjectId(org: string, project: string): string | null {
   const scope = useScope({ org, project })
   return scope.data?.found ? (scope.data.project?.project.id ?? null) : null
 }
