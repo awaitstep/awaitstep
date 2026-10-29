@@ -40,6 +40,9 @@ import type {
   VariablePlace,
   Project,
   ProjectOverview,
+  ProjectLocks,
+  WorkspaceLocks,
+  LockRow,
   ProjectRef,
   InstalledNode,
   CreateVersionData,
@@ -355,6 +358,17 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   deleteProject(id: string, organizationId: string): Promise<boolean> {
     return this._projects.delete(id, organizationId)
   }
+  getProjectLocks(id: string, organizationId: string): Promise<ProjectLocks | null> {
+    return this._projects.getLocks(id, organizationId)
+  }
+  setProjectLock(
+    id: string,
+    organizationId: string,
+    userId: string,
+    locked: boolean,
+  ): Promise<LockRow | null> {
+    return this._projects.setLock(id, organizationId, userId, locked)
+  }
 
   // Workspaces
   listWorkspacesByProject(projectId: string, userId: string): Promise<WorkspaceOverview[]> {
@@ -372,8 +386,14 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   updateWorkspace(id: string, data: UpdateWorkspaceData): Promise<Workspace | null> {
     return this._workspaces.update(id, data)
   }
-  deleteWorkspaceUnlessLast(id: string): Promise<boolean> {
-    return this._workspaces.deleteUnlessLast(id)
+  deleteWorkspaceUnlessBlocked(id: string): Promise<boolean> {
+    return this._workspaces.deleteUnlessBlocked(id)
+  }
+  getWorkspaceLocks(id: string): Promise<WorkspaceLocks | null> {
+    return this._workspaces.getLocks(id)
+  }
+  setWorkspaceLock(id: string, userId: string, locked: boolean): Promise<LockRow | null> {
+    return this._workspaces.setLock(id, userId, locked)
   }
   moveWorkflowsToWorkspace(
     fromWorkspaceId: string,

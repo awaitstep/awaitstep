@@ -357,10 +357,33 @@ export interface ProjectOverview extends Project {
   /** Over the workspaces the viewer can open: a hidden one adds nothing. */
   health: ProjectHealth
   lockedByName: string | null
+  /** Its workspaces locked on their own, by name, oldest first (seen or not). */
+  lockedWorkspaces: string[]
   /** Who can open a workspace the viewer can open, with their org role. */
   members: OrgMemberSummary[]
   /** The viewer's own rows here. */
   viewer: GrantRows
+}
+
+/** A project's or workspace's deletion lock as a write left it: all null when off. */
+export interface LockRow {
+  lockedBy: string | null
+  lockedAt: string | null
+  lockedByName: string | null
+}
+
+/** What stands in the way of deleting a project. */
+export interface ProjectLocks {
+  ownLock: boolean
+  lockedWorkspaces: string[]
+}
+
+/** What stands in the way of deleting a workspace. */
+export interface WorkspaceLocks {
+  ownLock: boolean
+  /** The project's name when the project is locked. */
+  lockedByProject: string | null
+  isLastWorkspace: boolean
 }
 
 export interface WorkspaceCounts {

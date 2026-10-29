@@ -42,6 +42,9 @@ import type {
   WorkspaceInProjectRef,
   ProjectRef,
   ProjectOverview,
+  ProjectLocks,
+  WorkspaceLocks,
+  LockRow,
   OrgOverview,
   ScopeRows,
   ScopeSlugs,
@@ -153,7 +156,7 @@ export interface DatabaseAdapter {
   ): Promise<PaginatedResult<ProjectOverview>>
   /**
    * Moves the project, as one unit, if the mover runs the target organization
-   * (checked in the statement): open invitations' places into it and grants
+   * and the project is not locked (both checked in the statement): open invitations' places into it and grants
    * held by people outside the target go. Nothing says whether it moved —
    * `getProjectById` afterwards does — and a slug the target already uses
    * surfaces as `isUniqueViolation`.
@@ -170,8 +173,25 @@ export interface DatabaseAdapter {
     organizationId: string,
     data: { name?: string; slug?: string; description?: string },
   ): Promise<Project | null>
-  /** Deletes only within the organization — false when no such row there. */
+  /**
+   * Deletes only within the organization, and only while neither the project
+   * nor any workspace in it is locked (checked in the statement) — false
+   * otherwise; `getProjectLocks` says which.
+   */
   deleteProject(id: string, organizationId: string): Promise<boolean>
+  /** Null when no such project in the organization. */
+  getProjectLocks(id: string, organizationId: string): Promise<ProjectLocks | null>
+  /**
+   * Turns the project's deletion lock on or off. Turning on a lock that is
+   * on keeps who set it and when. Null when no such project in the
+   * organization.
+   */
+  setProjectLock(
+    id: string,
+    organizationId: string,
+    userId: string,
+    locked: boolean,
+  ): Promise<LockRow | null>
 
   // Workspaces
   /** The project's workspaces the user can open, with counts and people. */
@@ -188,8 +208,19 @@ export interface DatabaseAdapter {
   getWorkspaceById(id: string): Promise<Workspace | null>
   /** Null when gone, or when a given slug is a sibling's. */
   updateWorkspace(id: string, data: UpdateWorkspaceData): Promise<Workspace | null>
-  /** False when it is the project's last workspace (checked in the statement) or gone. */
-  deleteWorkspaceUnlessLast(id: string): Promise<boolean>
+  /**
+   * False when it is the project's last workspace, it or its project is
+   * locked (checked in the statement), or it is gone; `getWorkspaceLocks`
+   * says which.
+   */
+  deleteWorkspaceUnlessBlocked(id: string): Promise<boolean>
+  /** Null when no such workspace. */
+  getWorkspaceLocks(id: string): Promise<WorkspaceLocks | null>
+  /**
+   * As `setProjectLock`, for a workspace: null when it is gone or its
+   * project is locked (the project's lock decides for every workspace in it).
+   */
+  setWorkspaceLock(id: string, userId: string, locked: boolean): Promise<LockRow | null>
   /** The ids that moved; a target outside the source's project moves none. */
   moveWorkflowsToWorkspace(
     fromWorkspaceId: string,

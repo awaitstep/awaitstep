@@ -12,6 +12,8 @@ import { drizzle as drizzlePg } from 'drizzle-orm/pglite'
 import { migrate as migratePg } from 'drizzle-orm/pglite/migrator'
 import { sql } from 'drizzle-orm'
 import { DrizzleDatabaseAdapter } from '../adapters/index.js'
+import { lockReturning } from '../adapters/projects.js'
+import { OverviewFields } from '../adapters/overview-fields.js'
 import * as sqliteSchema from '../schema/sqlite/index.js'
 import * as pgSchema from '../schema/pg/index.js'
 import { decodeCursor, encodeCursor } from '../pagination.js'
@@ -207,7 +209,7 @@ async function seed(h: Harness) {
 describe.each([
   ['sqlite', sqliteHarness],
   ['pg', pgHarness],
-])('workspaces on %s', (_dialect, create) => {
+])('workspaces on %s', (dialect, create) => {
   let h: Harness
 
   beforeEach(async () => {
@@ -540,14 +542,14 @@ describe.each([
     })
 
     it('refuses to delete a project’s last workspace, and cascades otherwise', async () => {
-      expect(await h.adapter.deleteWorkspaceUnlessLast('ws-202')).toBe(false)
+      expect(await h.adapter.deleteWorkspaceUnlessBlocked('ws-202')).toBe(false)
       expect(await h.count('workspaces', "id = 'ws-202'")).toBe(1)
 
-      expect(await h.adapter.deleteWorkspaceUnlessLast('ws-sales')).toBe(true)
+      expect(await h.adapter.deleteWorkspaceUnlessBlocked('ws-sales')).toBe(true)
       expect(await h.count('workflows', "workspace_id = 'ws-sales'")).toBe(0)
       expect(await h.count('workflow_runs', "workflow_id = 'wf-enrich'")).toBe(0)
       // Now Ops is the last one.
-      expect(await h.adapter.deleteWorkspaceUnlessLast('ws-ops')).toBe(false)
+      expect(await h.adapter.deleteWorkspaceUnlessBlocked('ws-ops')).toBe(false)
     })
 
     it('moves workflows within the project only', async () => {
@@ -565,6 +567,188 @@ describe.each([
       )
       expect(await h.count('workflows', "workspace_id = 'ws-sales'")).toBe(3)
       expect(await h.adapter.moveWorkflowsToWorkspace('ws-sales', 'ws-ops', [])).toEqual([])
+    })
+  })
+
+  describe('deletion locks', () => {
+    it('sets a project lock with its setter’s name, keeps the first setter, and clears it', async () => {
+      const on = await h.adapter.setProjectLock('p-101', 'org-acme', 'u-ama', true)
+      expect(on).toMatchObject({ lockedBy: 'u-ama', lockedByName: 'Ama Mensah' })
+      expect(on!.lockedAt).toEqual(expect.any(String))
+      const again = await h.adapter.setProjectLock('p-101', 'org-acme', 'u-ben', true)
+      expect(again).toEqual(on)
+      expect(await h.adapter.setProjectLock('p-101', 'org-acme', 'u-ben', false)).toEqual({
+        lockedBy: null,
+        lockedAt: null,
+        lockedByName: null,
+      })
+      // Another org's id is not found.
+      expect(await h.adapter.setProjectLock('p-g', 'org-acme', 'u-ama', true)).toBeNull()
+      expect(await h.count('projects', "id = 'p-g' and locked_at is not null")).toBe(0)
+    })
+
+    it('counts a lock by its time alone, and gives one with no setter on record the next', async () => {
+      await h.db
+        .update(h.schema.projects)
+        .set({ lockedAt: T0, lockedBy: null })
+        .where(sql`id = 'p-101'`)
+      expect(await h.adapter.deleteProject('p-101', 'org-acme')).toBe(false)
+      expect(await h.adapter.getProjectLocks('p-101', 'org-acme')).toMatchObject({ ownLock: true })
+      const filled = await h.adapter.setProjectLock('p-101', 'org-acme', 'u-ben', true)
+      expect(filled).toMatchObject({ lockedBy: 'u-ben', lockedByName: 'Ben Okoro' })
+      // The time it was set stays.
+      expect(new Date(filled!.lockedAt!).toISOString()).toBe(T0)
+    })
+
+    it('names the locked row’s own column when it reads the setter back', () => {
+      // RETURNING renders columns bare; the subquery's lookup must say whose
+      // `locked_by` it means.
+      const query = h.db
+        .update(h.schema.workspaces)
+        .set({ lockedAt: null })
+        .returning(
+          lockReturning(
+            h.schema.workspaces,
+            h.schema.user,
+            new OverviewFields(h.schema, dialect),
+            'org-acme',
+          ),
+        )
+        .toSQL().sql
+      expect(query).toContain('"workspaces"."locked_by"')
+    })
+
+    it('names the setter only while they are in the organization', async () => {
+      await h.adapter.setProjectLock('p-101', 'org-acme', 'u-ben', true)
+      await h.adapter.setWorkspaceLock('ws-202', 'u-ben', true)
+      // Ben leaves Acme; his lock stays, his name goes. Cleo (Globex) sets nothing here.
+      await h.db.delete(h.schema.member).where(sql`id = 'm-2'`)
+      const scope = await h.adapter.getScopeBySlugs('u-ama', {
+        org: 'acme',
+        project: 'project-101',
+        workspace: 'sales',
+      })
+      expect(scope!.project).toMatchObject({ lockedBy: 'u-ben', lockedByName: null })
+      const projects = await h.adapter.listProjectsByOrganization('org-acme', 'u-ama')
+      expect(projects.data.find((p) => p.id === 'p-101')!.lockedByName).toBeNull()
+      const workspaces = await h.adapter.listWorkspacesByProject('p-202', 'u-ama')
+      expect(workspaces[0]).toMatchObject({ lockedBy: 'u-ben', lockedByName: null })
+      expect(await h.adapter.setProjectLock('p-101', 'org-acme', 'u-ama', true)).toMatchObject({
+        lockedBy: 'u-ben',
+        lockedByName: null,
+      })
+      expect(await h.adapter.setWorkspaceLock('ws-202', 'u-ama', true)).toMatchObject({
+        lockedBy: 'u-ben',
+        lockedByName: null,
+      })
+      // A member's name still comes back.
+      await h.adapter.setProjectLock('p-101', 'org-acme', 'u-ama', false)
+      expect(await h.adapter.setWorkspaceLock('ws-sales', 'u-ama', true)).toMatchObject({
+        lockedByName: 'Ama Mensah',
+      })
+    })
+
+    it('reads the lock on the project and the workspace overviews', async () => {
+      await h.adapter.setProjectLock('p-101', 'org-acme', 'u-ben', true)
+      const scope = await h.adapter.getScopeBySlugs('u-ama', {
+        org: 'acme',
+        project: 'project-101',
+        workspace: 'sales',
+      })
+      expect(scope!.project).toMatchObject({ lockedBy: 'u-ben', lockedByName: 'Ben Okoro' })
+      expect(scope!.workspace!.projectLockedAt).toEqual(scope!.project!.lockedAt)
+    })
+
+    it('refuses a workspace lock change while its project is locked', async () => {
+      expect(await h.adapter.setWorkspaceLock('ws-sales', 'u-ama', true)).toMatchObject({
+        lockedBy: 'u-ama',
+      })
+      await h.adapter.setProjectLock('p-101', 'org-acme', 'u-ben', true)
+      expect(await h.adapter.setWorkspaceLock('ws-sales', 'u-ama', false)).toBeNull()
+      expect(await h.adapter.setWorkspaceLock('ws-ops', 'u-ama', true)).toBeNull()
+      expect(await h.count('workspaces', 'locked_at is not null')).toBe(1)
+      expect(await h.adapter.setWorkspaceLock('ws-nowhere', 'u-ama', true)).toBeNull()
+    })
+
+    it('keeps a locked project, or one with a locked workspace, from being deleted', async () => {
+      await h.adapter.setProjectLock('p-101', 'org-acme', 'u-ama', true)
+      expect(await h.adapter.deleteProject('p-101', 'org-acme')).toBe(false)
+      expect(await h.adapter.getProjectLocks('p-101', 'org-acme')).toEqual({
+        ownLock: true,
+        lockedWorkspaces: [],
+      })
+      await h.adapter.setProjectLock('p-101', 'org-acme', 'u-ama', false)
+      await h.adapter.setWorkspaceLock('ws-ops', 'u-ama', true)
+      await h.adapter.setWorkspaceLock('ws-sales', 'u-ama', true)
+      expect(await h.adapter.deleteProject('p-101', 'org-acme')).toBe(false)
+      expect(await h.count('workspaces', "project_id = 'p-101'")).toBe(2)
+      // Oldest first, every locked one.
+      expect(await h.adapter.getProjectLocks('p-101', 'org-acme')).toEqual({
+        ownLock: false,
+        lockedWorkspaces: ['Sales', 'Ops'],
+      })
+      const projects = await h.adapter.listProjectsByOrganization('org-acme', 'u-ama')
+      expect(projects.data.find((p) => p.id === 'p-101')!.lockedWorkspaces).toEqual([
+        'Sales',
+        'Ops',
+      ])
+      await h.adapter.setWorkspaceLock('ws-ops', 'u-ama', false)
+      await h.adapter.setWorkspaceLock('ws-sales', 'u-ama', false)
+      expect(await h.adapter.deleteProject('p-101', 'org-acme')).toBe(true)
+      expect(await h.adapter.getProjectLocks('p-101', 'org-acme')).toBeNull()
+    })
+
+    it('keeps a locked workspace, or one in a locked project, from being deleted', async () => {
+      await h.adapter.setWorkspaceLock('ws-sales', 'u-ama', true)
+      expect(await h.adapter.deleteWorkspaceUnlessBlocked('ws-sales')).toBe(false)
+      expect(await h.adapter.getWorkspaceLocks('ws-sales')).toEqual({
+        ownLock: true,
+        lockedByProject: null,
+        isLastWorkspace: false,
+      })
+      await h.adapter.setProjectLock('p-101', 'org-acme', 'u-ama', true)
+      expect(await h.adapter.deleteWorkspaceUnlessBlocked('ws-ops')).toBe(false)
+      expect(await h.adapter.getWorkspaceLocks('ws-ops')).toEqual({
+        ownLock: false,
+        lockedByProject: 'Project 101',
+        isLastWorkspace: false,
+      })
+      await h.adapter.setProjectLock('p-101', 'org-acme', 'u-ama', false)
+      expect(await h.adapter.deleteWorkspaceUnlessBlocked('ws-ops')).toBe(true)
+      expect(await h.adapter.getWorkspaceLocks('ws-ops')).toBeNull()
+      expect(await h.count('workspaces', "id = 'ws-sales'")).toBe(1)
+    })
+
+    // better-sqlite3 and PGlite run one statement at a time, so this checks the
+    // outcome only; the pg row lock is exercised against a real server in the
+    // Docker e2e (plan/qa/b5-docker).
+    it('leaves one workspace when both of a project’s two are deleted at once', async () => {
+      const results = await Promise.all([
+        h.adapter.deleteWorkspaceUnlessBlocked('ws-sales'),
+        h.adapter.deleteWorkspaceUnlessBlocked('ws-ops'),
+      ])
+      expect(results.filter(Boolean)).toHaveLength(1)
+      expect(await h.count('workspaces', "project_id = 'p-101'")).toBe(1)
+    })
+
+    it('keeps a locked project in its organization', async () => {
+      // Ama runs both orgs for the move.
+      await h.db
+        .update(h.schema.member)
+        .set({ role: 'owner' })
+        .where(sql`id = 'm-3'`)
+      await h.adapter.setProjectLock('p-202', 'org-acme', 'u-ama', true)
+      await h.adapter.moveProjectToOrganization('p-202', 'org-acme', 'org-globex', 'u-ama')
+      expect(await h.adapter.getProjectById('p-202')).toMatchObject({
+        organizationId: 'org-acme',
+      })
+      // A workspace's own lock does not hold it.
+      await h.adapter.setProjectLock('p-202', 'org-acme', 'u-ama', false)
+      await h.adapter.setWorkspaceLock('ws-202', 'u-ama', true)
+      await h.adapter.moveProjectToOrganization('p-202', 'org-acme', 'org-globex', 'u-ama')
+      expect(await h.adapter.getProjectById('p-202')).toMatchObject({
+        organizationId: 'org-globex',
+      })
     })
   })
 

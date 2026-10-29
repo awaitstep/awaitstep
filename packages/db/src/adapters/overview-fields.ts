@@ -1,5 +1,5 @@
-import { sql, aliasedTable, type SQL } from 'drizzle-orm'
-import { aliasedFrom, type Dialect, jsonArrayOf } from './json-array.js'
+import { sql, aliasedTable, getTableName, type SQL } from 'drizzle-orm'
+import { aliasedFrom, type Dialect, jsonArrayOf, jsonArrayOfValues } from './json-array.js'
 import { RoleFields, type AccessTables } from './role-fields.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -130,6 +130,29 @@ export class OverviewFields {
       ? sql` and ${this.roles.workspaceRoleOf(viewer.userId, { organizationId: viewer.organizationId, projectId, workspaceId: w.id })} is not null`
       : sql``
     return sql`(select ${list} from ${aliasedFrom(w)} where ${w.projectId} = ${projectId}${visible})`
+  }
+
+  /**
+   * Names of the project's workspaces locked on their own, oldest first —
+   * every one, seen or not: deleting the project waits for all of them. Only
+   * a project admin hears the names (in the delete reason), and project
+   * admins open every workspace.
+   */
+  lockedWorkspaceNames(projectId: SQL | unknown): SQL {
+    const w = aliasedTable(this.t.workspaces, 'lw')
+    const list = jsonArrayOfValues(this.dialect, sql`${w.name}`, sql`${w.createdAt}, ${w.id}`)
+    return sql`(select ${list} from ${aliasedFrom(w)} where ${w.projectId} = ${projectId} and ${w.lockedAt} is not null)`
+  }
+
+  /**
+   * A lock's setter is named only while they are in the row's organization:
+   * someone who left reads as "Someone", as the lock's own record says.
+   * Spelled out with its table, so it binds in a statement without joins too.
+   */
+  inOrganization(userId: SQL | unknown, organizationId: SQL | unknown): SQL {
+    const m = this.t.member
+    const col = (name: string) => sql`${sql.identifier('lock_member')}.${sql.identifier(name)}`
+    return sql`exists (select 1 from ${sql.identifier(getTableName(m))} ${sql.identifier('lock_member')} where ${col(m.userId.name)} = ${userId} and ${col(m.organizationId.name)} = ${organizationId})`
   }
 
   workspaceCount(projectId: SQL | unknown): SQL<number> {

@@ -1,6 +1,19 @@
-import { and, asc, eq, inArray, ne, notExists, sql, aliasedTable } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  eq,
+  inArray,
+  isNull,
+  ne,
+  notExists,
+  sql,
+  aliasedTable,
+  type SQL,
+} from 'drizzle-orm'
 import type {
   CreateWorkspaceData,
+  LockRow,
+  WorkspaceLocks,
   UpdateWorkspaceData,
   Workspace,
   WorkspaceGrant,
@@ -12,6 +25,11 @@ import { boundFields, insertWhere } from './insert-where.js'
 import { aliasedFrom, type Dialect } from './json-array.js'
 import { OverviewFields, type OverviewTables } from './overview-fields.js'
 import { readPeople } from './people.js'
+import { lockReturning, lockValues } from './projects.js'
+import { holdingProjectRow } from './project-row.js'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyDb = any
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -64,7 +82,10 @@ export class WorkspacesAdapter {
       .leftJoin(pm, and(eq(pm.projectId, p.id), eq(pm.userId, userId)))
       .leftJoin(wm, and(eq(wm.workspaceId, w.id), eq(wm.userId, userId)))
       .leftJoin(creator, eq(creator.id, w.createdBy))
-      .leftJoin(locker, eq(locker.id, w.lockedBy))
+      .leftJoin(
+        locker,
+        and(eq(locker.id, w.lockedBy), this.fields.inOrganization(locker.id, p.organizationId)),
+      )
       .where(
         and(
           eq(w.projectId, projectId),
@@ -224,22 +245,106 @@ export class WorkspacesAdapter {
   }
 
   /**
-   * Deletes the workspace unless it is its project's last one — the check is
-   * in the statement, so two deletes racing cannot empty a project. False
-   * when nothing was deleted.
+   * Deletes the workspace unless it is its project's last one, or it or its
+   * project is locked — checked in the statement, with the project's row
+   * held first, so two deletes racing cannot empty a project and a lock set
+   * at the same moment is seen. False when nothing was deleted.
    */
-  async deleteUnlessLast(id: string): Promise<boolean> {
+  async deleteUnlessBlocked(id: string): Promise<boolean> {
     const w = this.t.workspaces
     const sibling = aliasedTable(this.t.workspaces, 'sibling')
     const self = aliasedTable(this.t.workspaces, 'self')
     // "Not the project's last workspace", by its own aliased lookup bound to the id.
     const deletable = sql`exists (select 1 from ${aliasedFrom(self)} where ${self.id} = ${id} and (select count(*) from ${aliasedFrom(sibling)} where ${sibling.projectId} = ${self.projectId}) > 1)`
-    // Its keys go with it by the column's cascade, on both dialects.
-    const rows = await this.db
-      .delete(w)
-      .where(and(eq(w.id, id), deletable))
-      .returning({ id: w.id })
+    const remove = (db: AnyDb) =>
+      db
+        .delete(w)
+        .where(and(eq(w.id, id), isNull(w.lockedAt), notExists(this.projectLocked(id)), deletable))
+        .returning({ id: w.id })
+    // Its keys go with it by the column's cascade, on both dialects. The
+    // hold leaves the project's key alone, so inserts under it don't wait.
+    const rows = await holdingProjectRow<{ id: string }[]>(
+      this.db,
+      this.dialect,
+      this.t.projects,
+      this.projectOf(id),
+      'no key update',
+      remove,
+    )
     return rows.length > 0
+  }
+
+  /** The workspace's organization, bound to its id: a subquery with a join, so its columns are qualified. */
+  private organizationOf(id: string): SQL {
+    const own = aliasedTable(this.t.workspaces, 'org_ws')
+    const p = aliasedTable(this.t.projects, 'org_p')
+    return sql`(${this.db
+      .select({ organizationId: p.organizationId })
+      .from(own)
+      .innerJoin(p, eq(p.id, own.projectId))
+      .where(eq(own.id, id))})`
+  }
+
+  private projectOf(id: string) {
+    const own = aliasedTable(this.t.workspaces, 'own')
+    return this.db.select({ projectId: own.projectId }).from(own).where(eq(own.id, id))
+  }
+
+  /** The workspace's project is locked: bound to the id, so it names no outer table. */
+  private projectLocked(id: string) {
+    const lp = aliasedTable(this.t.projects, 'lp')
+    const own = aliasedTable(this.t.workspaces, 'lw')
+    return this.db
+      .select({ one: sql`1` })
+      .from(lp)
+      .innerJoin(own, eq(own.projectId, lp.id))
+      .where(and(eq(own.id, id), sql`${lp.lockedAt} is not null`))
+  }
+
+  async getLocks(id: string): Promise<WorkspaceLocks | null> {
+    const w = aliasedTable(this.t.workspaces, 'w')
+    const p = aliasedTable(this.t.projects, 'p')
+    const rows = await this.db
+      .select({
+        lockedAt: w.lockedAt,
+        projectLockedAt: p.lockedAt,
+        projectName: p.name,
+        siblings: this.fields.workspaceCount(p.id),
+      })
+      .from(w)
+      .innerJoin(p, eq(p.id, w.projectId))
+      .where(eq(w.id, id))
+      .limit(1)
+    const row = rows[0]
+    if (!row) return null
+    return {
+      ownLock: row.lockedAt !== null,
+      lockedByProject: row.projectLockedAt !== null ? row.projectName : null,
+      isLastWorkspace: row.siblings === 1,
+    }
+  }
+
+  /**
+   * Refused (null) while the project is locked: its lock decides for every
+   * workspace in it. Holds the project's row shared, so a project delete or
+   * lock in flight either finishes first or waits for this.
+   */
+  async setLock(id: string, userId: string, locked: boolean): Promise<LockRow | null> {
+    const w = this.t.workspaces
+    const rows = await holdingProjectRow<LockRow[]>(
+      this.db,
+      this.dialect,
+      this.t.projects,
+      this.projectOf(id),
+      'share',
+      (db) =>
+        db
+          .update(w)
+          .set(lockValues(w, userId, locked))
+          .where(and(eq(w.id, id), notExists(this.projectLocked(id))))
+          .returning(lockReturning(w, this.t.user, this.fields, this.organizationOf(id))),
+    )
+    return rows[0] ?? null
   }
 
   /**

@@ -524,7 +524,7 @@ describe.each([
     })
 
     it('a workspace’s variables go with the workspace', async () => {
-      expect(await h.adapter.deleteWorkspaceUnlessLast('ws-sales')).toBe(true)
+      expect(await h.adapter.deleteWorkspaceUnlessBlocked('ws-sales')).toBe(true)
       const rows = await h.adapter.listResolvedVariablesForProject('org-acme', 'p-101', 'u-ama')
       expect(rows.find((v) => v.name === 'REGION')!.overriddenIn).toEqual([])
     })

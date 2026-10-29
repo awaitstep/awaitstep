@@ -1440,14 +1440,14 @@ describe.each([
         workspaceId: 'ws-sales',
       })
       await key('k-202', 'u-ama', { level: 'workspace', projectId: 'p-202', workspaceId: 'ws-202' })
-      expect(await h.adapter.deleteWorkspaceUnlessLast('ws-202')).toBe(false)
+      expect(await h.adapter.deleteWorkspaceUnlessBlocked('ws-202')).toBe(false)
       expect(await h.adapter.getApiKeyById('k-202')).not.toBeNull()
       // One statement, its answer from the rows it removed: a workspace that
       // never existed is not "deleted".
-      expect(await h.adapter.deleteWorkspaceUnlessLast('ws-nowhere')).toBe(false)
+      expect(await h.adapter.deleteWorkspaceUnlessBlocked('ws-nowhere')).toBe(false)
       // The keys go by the column's cascade on both dialects (the sqlite
       // migration once added the column without one).
-      expect(await h.adapter.deleteWorkspaceUnlessLast('ws-sales')).toBe(true)
+      expect(await h.adapter.deleteWorkspaceUnlessBlocked('ws-sales')).toBe(true)
       expect(await h.adapter.getApiKeyById('k-own')).toBeNull()
     })
   })

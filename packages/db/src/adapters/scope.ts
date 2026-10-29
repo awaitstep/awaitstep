@@ -287,6 +287,7 @@ export class ScopeAdapter {
         projectHealth: this.fields.projectHealth(p.id, viewer),
         projectMembers: this.fields.projectPeople(p.id, viewer),
         projectLockedByName: projectLocker.name,
+        projectLockedWorkspaces: this.fields.lockedWorkspaceNames(p.id),
         projectGrant: pm.role,
         workspace: w,
         workspaceCounts: this.fields.workspaceCounts(w.id, since),
@@ -323,8 +324,17 @@ export class ScopeAdapter {
       .leftJoin(pm, and(eq(pm.projectId, p.id), eq(pm.userId, userId)))
       .leftJoin(wm, and(eq(wm.workspaceId, w.id), eq(wm.userId, userId)))
       .leftJoin(creator, eq(creator.id, w.createdBy))
-      .leftJoin(projectLocker, eq(projectLocker.id, p.lockedBy))
-      .leftJoin(workspaceLocker, eq(workspaceLocker.id, w.lockedBy))
+      .leftJoin(
+        projectLocker,
+        and(eq(projectLocker.id, p.lockedBy), this.fields.inOrganization(projectLocker.id, o.id)),
+      )
+      .leftJoin(
+        workspaceLocker,
+        and(
+          eq(workspaceLocker.id, w.lockedBy),
+          this.fields.inOrganization(workspaceLocker.id, o.id),
+        ),
+      )
       .where(eq(o.slug, slugs.org))
       .limit(1)
     const row = rows[0]
@@ -343,6 +353,7 @@ export class ScopeAdapter {
             workspaces: readJsonArray<WorkspaceChip>(row.projectWorkspaces),
             health: row.projectHealth,
             lockedByName: row.projectLockedByName,
+            lockedWorkspaces: readJsonArray<string>(row.projectLockedWorkspaces),
             members: readJsonArray<OrgMemberSummary>(row.projectMembers),
             viewer: viewerRows,
           }

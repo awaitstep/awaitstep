@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, notInArray, sql, aliasedTable, type SQL } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, notInArray, sql, aliasedTable, type SQL } from 'drizzle-orm'
 import type {
   AccessGrantData,
   GrantRows,
@@ -658,7 +658,15 @@ export class AccessAdapter {
       tx
         .update(p)
         .set({ organizationId: toOrganizationId, updatedAt: new Date().toISOString() })
-        .where(and(eq(p.id, projectId), eq(p.organizationId, fromOrganizationId), moverRuns)),
+        .where(
+          and(
+            eq(p.id, projectId),
+            eq(p.organizationId, fromOrganizationId),
+            // The deletion lock keeps the project in its org: a move removes it from there.
+            isNull(p.lockedAt),
+            moverRuns,
+          ),
+        ),
       tx.delete(ip).where(and(eq(ip.projectId, projectId), moved)),
       // The project's and its workspaces' variables name their organization
       // on the row; left behind, every list and deploy of the moved project
