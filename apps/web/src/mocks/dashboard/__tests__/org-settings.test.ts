@@ -220,11 +220,17 @@ describe('review round (2026-10-27)', () => {
     ).rejects.toMatchObject({ status: 404 })
   })
 
-  it('names no project a plain member can’t open, in members, invites or connections', async () => {
-    // Daniel opens Sales only: Marketing Site and Internal Tools are hidden from him.
+  it('names no project or workspace a plain member can’t open, in members, invites or connections', async () => {
+    // Daniel opens Sales only: Marketing Site and Internal Tools are hidden from him,
+    // and so is Project 101's IT workspace — where Lena's place and the invite's are.
     const daniel = as(DANIEL)
     const lena = (await org.listOrgMembers(daniel, 'acme')).find((m) => m.person.id === LENA)!
-    expect(lena.places.map((p) => p.project.name)).toEqual(['Project 101'])
+    expect(lena.places).toEqual([])
+    const lenaForAma = (await org.listOrgMembers(ama, 'acme')).find((m) => m.person.id === LENA)!
+    expect(lenaForAma.places.map((p) => [p.project.name, p.workspace?.name ?? null])).toEqual([
+      ['Project 101', 'IT'],
+      ['Marketing Site', null],
+    ])
     const production = (await org.listConnections(daniel, 'acme')).find(
       (c) => c.id === 'conn_production',
     )!
@@ -234,8 +240,10 @@ describe('review round (2026-10-27)', () => {
       workspaceId: null,
       role: 'member',
     })
-    const invite = (await org.listInvitations(daniel, 'acme'))[0]!
-    expect(invite.places.map((p) => p.project)).toEqual(['Project 101'])
+    // The invitation list, whose ids are the invite links, is for owners and admins only.
+    await expect(org.listInvitations(daniel, 'acme')).rejects.toMatchObject({ status: 403 })
+    const forAma = (await org.listInvitations(ama, 'acme'))[0]!
+    expect(forAma.places.map((p) => p.project)).toEqual(['Project 101', 'Internal Tools'])
   })
 
   it('drops a deleted workspace from an invitation’s places', async () => {

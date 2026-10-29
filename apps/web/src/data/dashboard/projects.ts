@@ -9,7 +9,8 @@ import { projectFromRow, toProject, workspaceFromRow } from './api/records'
 import { collectPages } from './export-pages'
 import { dashKeys, invalidateAll } from './keys'
 import { useMockContext } from './scenario-context'
-import { notYet, useDashKey, useDataSource } from './source'
+import { useOrgs } from './session'
+import { useDashKey, useDataSource } from './source'
 import { useScope } from './workspaces'
 
 /** `enabled: false` holds the request back, for a frame that needs the list on one page only. */
@@ -146,14 +147,21 @@ export function useDeleteProject(org: string, project: string) {
   })
 }
 
-/** Moves the project to another org; resolves to its new slugs, for the page to follow. Waits for B2 on the API. */
+/** Moves the project to another org (one the viewer runs too); resolves to its new slugs, for the page to follow. */
 export function useMoveProject(org: string, project: string) {
   const source = useDataSource()
   const ctx = useMockContext()
   const client = useQueryClient()
+  const projectId = useProjectId(org, project)
+  const orgs = useOrgs()
   return useMutation({
-    mutationFn: (toOrg: string) =>
-      source === 'api' ? notYet() : mockServer.projects.moveProject(ctx, org, project, toOrg),
+    mutationFn: async (toOrg: string): Promise<{ org: string; project: string }> => {
+      if (source !== 'api') return mockServer.projects.moveProject(ctx, org, project, toOrg)
+      const target = orgs.data?.find((o) => o.slug === toOrg)
+      if (!projectId || !target) throw new Error('The organization has not loaded yet')
+      await dashboardApi.moveProject(projectId, target.id)
+      return { org: toOrg, project }
+    },
     onSuccess: (moved) =>
       invalidateAll(
         client,

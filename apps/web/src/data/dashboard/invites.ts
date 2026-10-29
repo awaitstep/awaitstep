@@ -1,23 +1,39 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { dashboardApi } from '../../lib/dashboard-api'
 import { mockServer } from '../../mocks/dashboard/server'
-import { dashKeys, invalidateAll, withMockContext } from './keys'
+import type { AcceptedInvite, InviteView, PendingInvite } from '../../types/dashboard/invites'
+import { toAcceptedInvite, toInviteView, toPendingInvite } from './api/access'
+import { dashKeys, invalidateAll } from './keys'
 import { useMockContext } from './scenario-context'
+import { useDashKey, useDataSource } from './source'
 
 /** The invite page: which state it's in for the person who opened it. */
 export function useInvite(token: string) {
+  const source = useDataSource()
   const ctx = useMockContext()
+  const key = useDashKey()
   return useQuery({
-    queryKey: withMockContext(dashKeys.invite(token), ctx),
-    queryFn: () => mockServer.invites.getInvite(ctx, token),
+    queryKey: key(dashKeys.invite(token)),
+    queryFn: (): Promise<InviteView> =>
+      source === 'api'
+        ? dashboardApi.getInvite(token).then(toInviteView)
+        : mockServer.invites.getInvite(ctx, token),
+    // A signed-out visitor gets 401, which the page turns into the sign-in redirect.
+    retry: false,
   })
 }
 
 /** Invites waiting for the viewer, on Choose an organization. */
 export function useMyInvites() {
+  const source = useDataSource()
   const ctx = useMockContext()
+  const key = useDashKey()
   return useQuery({
-    queryKey: withMockContext(dashKeys.myInvites(), ctx),
-    queryFn: () => mockServer.invites.listMyInvites(ctx),
+    queryKey: key(dashKeys.myInvites()),
+    queryFn: (): Promise<PendingInvite[]> =>
+      source === 'api'
+        ? dashboardApi.listMyInvites().then((res) => res.data.map(toPendingInvite))
+        : mockServer.invites.listMyInvites(ctx),
   })
 }
 
@@ -33,10 +49,14 @@ function inviteKeys(token: string) {
 
 /** Accept: they join the org; its lists and the org switcher change too. */
 export function useAcceptInvite(token: string) {
+  const source = useDataSource()
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
-    mutationFn: () => mockServer.invites.acceptInvite(ctx, token),
+    mutationFn: (): Promise<AcceptedInvite> =>
+      source === 'api'
+        ? dashboardApi.acceptInvite(token).then(toAcceptedInvite)
+        : mockServer.invites.acceptInvite(ctx, token),
     onSuccess: () =>
       Promise.all([
         // The page is about to leave: refetching would flash "no longer open" first.
@@ -57,11 +77,23 @@ export function useAcceptInvite(token: string) {
   })
 }
 
-function useInviteAnswer(token: string, answer: 'declineInvite' | 'undoDeclineInvite') {
+type Answer = 'declineInvite' | 'undoDeclineInvite' | 'askForNewInvite'
+
+const API_ACTION: Record<Answer, 'decline' | 'undo-decline' | 'ask-again'> = {
+  declineInvite: 'decline',
+  undoDeclineInvite: 'undo-decline',
+  askForNewInvite: 'ask-again',
+}
+
+function useInviteAnswer(token: string, answer: Answer) {
+  const source = useDataSource()
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
-    mutationFn: () => mockServer.invites[answer](ctx, token),
+    mutationFn: async (): Promise<void> => {
+      if (source !== 'api') return mockServer.invites[answer](ctx, token)
+      await dashboardApi.answerInvite(token, API_ACTION[answer])
+    },
     onSuccess: () => invalidateAll(client, inviteKeys(token)),
   })
 }
@@ -76,10 +108,5 @@ export function useUndoDeclineInvite(token: string) {
 
 /** "Ask … for a new invite", once. */
 export function useAskForNewInvite(token: string) {
-  const ctx = useMockContext()
-  const client = useQueryClient()
-  return useMutation({
-    mutationFn: () => mockServer.invites.askForNewInvite(ctx, token),
-    onSuccess: () => invalidateAll(client, inviteKeys(token)),
-  })
+  return useInviteAnswer(token, 'askForNewInvite')
 }

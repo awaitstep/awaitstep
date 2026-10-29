@@ -11,7 +11,8 @@ import type {
   WorkspacePerson,
   WorkspaceUpdate,
 } from '../../types/dashboard/workspaces'
-import { toScopeLookup, toWorkspace, toWorkspacePeople, workspaceFromRow } from './api/records'
+import { toWorkspacePerson } from './api/access'
+import { toScopeLookup, toWorkspace, workspaceFromRow } from './api/records'
 import { dashKeys, invalidateAll } from './keys'
 import { useMockContext } from './scenario-context'
 import { useDashKey, useDataSource } from './source'
@@ -39,16 +40,17 @@ export function useWorkspacePeople(slugs: Required<ScopeSlugs>) {
   const source = useDataSource()
   const ctx = useMockContext()
   const key = useDashKey()
+  const workspaceId = useWorkspaceId(slugs)
   return useQuery({
     queryKey: key(dashKeys.workspacePeople(slugs)),
     queryFn: (): Promise<WorkspacePerson[]> =>
       source === 'api'
         ? dashboardApi
-            .getScope(slugs)
-            .then((scope) =>
-              scope.found && scope.workspace ? toWorkspacePeople(scope.workspace) : [],
-            )
+            .listWorkspacePeople(workspaceId!)
+            .then((res) => res.data.map(toWorkspacePerson))
         : mockServer.workspaces.listWorkspacePeople(ctx, slugs),
+    // On the API people are read by the workspace's id, which the scope read gives.
+    enabled: source !== 'api' || workspaceId !== null,
   })
 }
 
@@ -101,8 +103,7 @@ const workspaceKeys = (org: string, project: string) => [
 /**
  * Creates the workspace. The slug comes from the name, stepped past the
  * project's existing ones ("Ops" twice gives `ops-2`), as the dummy server
- * does. Who gets in (`access`) waits for B2 on the API: everyone in the org
- * can open it.
+ * does. "Who can get in → choose people" is written with it, as one unit.
  */
 export function useCreateWorkspace(org: string, project: string) {
   const source = useDataSource()
@@ -128,6 +129,7 @@ export function useCreateWorkspace(org: string, project: string) {
           slug: availableSlug('workspace', base, (slug) => taken.has(slug)),
           colour: input.colour,
           description: input.description?.trim() || undefined,
+          members: input.access.kind === 'pick' ? input.access.people : undefined,
         },
       )
       return workspaceFromRow(row)

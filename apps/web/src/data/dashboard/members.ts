@@ -1,25 +1,42 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { dashboardApi } from '../../lib/dashboard-api'
 import { mockServer } from '../../mocks/dashboard/server'
+import type { ProjectMembers } from '../../types/dashboard/access'
 import type { ScopeSlugs } from '../../types/dashboard/scope'
+import type { Person } from '../../types/dashboard/session'
 import type { WorkspaceRole } from '../../types/dashboard/workspaces'
-import { dashKeys, invalidateAll, withMockContext } from './keys'
+import { toProjectMembers } from './api/access'
+import { toPerson } from './api/records'
+import { dashKeys, invalidateAll } from './keys'
 import { useMockContext } from './scenario-context'
+import { useDashKey, useDataSource } from './source'
+import { useWorkspaceId } from './workspaces'
 
 /** Project settings → Members: whole-project people and workspace-only people. */
 export function useProjectMembers(org: string, project: string) {
+  const source = useDataSource()
   const ctx = useMockContext()
+  const key = useDashKey()
   return useQuery({
-    queryKey: withMockContext(dashKeys.projectMembers(org, project), ctx),
-    queryFn: () => mockServer.members.listProjectMembers(ctx, org, project),
+    queryKey: key(dashKeys.projectMembers(org, project)),
+    queryFn: (): Promise<ProjectMembers> =>
+      source === 'api'
+        ? dashboardApi.listProjectMembers({ org, project }).then(toProjectMembers)
+        : mockServer.members.listProjectMembers(ctx, org, project),
   })
 }
 
 /** Everyone in the org; `enabled: false` waits until a picker opens. */
 export function useOrgPeople(org: string, { enabled = true }: { enabled?: boolean } = {}) {
+  const source = useDataSource()
   const ctx = useMockContext()
+  const key = useDashKey()
   return useQuery({
-    queryKey: withMockContext(dashKeys.orgPeople(org), ctx),
-    queryFn: () => mockServer.members.listOrgPeople(ctx, org),
+    queryKey: key(dashKeys.orgPeople(org)),
+    queryFn: (): Promise<Person[]> =>
+      source === 'api'
+        ? dashboardApi.listOrgMembers(org).then((res) => res.data.map(toPerson))
+        : mockServer.members.listOrgPeople(ctx, org),
     enabled,
   })
 }
@@ -39,22 +56,32 @@ function memberKeys(slugs: WorkspaceSlugs) {
 
 /** Add member: someone in the org gets a role in this workspace. */
 export function useAddWorkspaceMember(slugs: WorkspaceSlugs) {
+  const source = useDataSource()
   const ctx = useMockContext()
   const client = useQueryClient()
+  const workspaceId = useWorkspaceId(slugs)
   return useMutation({
-    mutationFn: ({ userId, role }: { userId: string; role: WorkspaceRole }) =>
-      mockServer.members.addWorkspaceMember(ctx, slugs, userId, role),
+    mutationFn: async ({ userId, role }: { userId: string; role: WorkspaceRole }) => {
+      if (source !== 'api') return mockServer.members.addWorkspaceMember(ctx, slugs, userId, role)
+      if (!workspaceId) throw new Error('The workspace has not loaded yet')
+      await dashboardApi.addWorkspaceMember(workspaceId, { userId, role })
+    },
     onSuccess: () => invalidateAll(client, memberKeys(slugs)),
   })
 }
 
 /** Changes the role on someone's own grant in this workspace. */
 export function useSetWorkspaceRole(slugs: WorkspaceSlugs) {
+  const source = useDataSource()
   const ctx = useMockContext()
   const client = useQueryClient()
+  const workspaceId = useWorkspaceId(slugs)
   return useMutation({
-    mutationFn: ({ userId, role }: { userId: string; role: WorkspaceRole }) =>
-      mockServer.members.setWorkspaceRole(ctx, slugs, userId, role),
+    mutationFn: async ({ userId, role }: { userId: string; role: WorkspaceRole }) => {
+      if (source !== 'api') return mockServer.members.setWorkspaceRole(ctx, slugs, userId, role)
+      if (!workspaceId) throw new Error('The workspace has not loaded yet')
+      await dashboardApi.setWorkspaceRole(workspaceId, userId, role)
+    },
     onSuccess: () => invalidateAll(client, memberKeys(slugs)),
   })
 }
@@ -65,11 +92,16 @@ export function useSetWorkspaceRole(slugs: WorkspaceSlugs) {
  * stale (the page navigates away instead of flashing Not found).
  */
 export function useRemoveWorkspaceMember(slugs: WorkspaceSlugs) {
+  const source = useDataSource()
   const ctx = useMockContext()
   const client = useQueryClient()
+  const workspaceId = useWorkspaceId(slugs)
   return useMutation({
-    mutationFn: ({ userId }: { userId: string; leaving: boolean }) =>
-      mockServer.members.removeWorkspaceMember(ctx, slugs, userId),
+    mutationFn: async ({ userId }: { userId: string; leaving: boolean }) => {
+      if (source !== 'api') return mockServer.members.removeWorkspaceMember(ctx, slugs, userId)
+      if (!workspaceId) throw new Error('The workspace has not loaded yet')
+      await dashboardApi.removeWorkspaceMember(workspaceId, userId)
+    },
     onSuccess: (_result, { leaving }) =>
       invalidateAll(client, memberKeys(slugs), leaving ? slugs : undefined),
   })

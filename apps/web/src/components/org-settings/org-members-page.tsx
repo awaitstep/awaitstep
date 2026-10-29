@@ -57,7 +57,9 @@ interface OrgMembersPageProps {
 export function OrgMembersPage({ org, overlay, onOverlayChange }: OrgMembersPageProps) {
   const scope = useOrgScope(org)
   const members = useOrgMembers(org)
-  const invitations = useInvitations(org)
+  // Pending invites are listed to those who may act on them: an invite's id is its link.
+  const canManage = scope?.viewerCan.manageSettings.allowed ?? false
+  const invitations = useInvitations(org, { enabled: canManage })
   const viewer = useViewer()
   const resend = useResendInvite(org)
   const cancel = useCancelInvite(org)
@@ -65,7 +67,6 @@ export function OrgMembersPage({ org, overlay, onOverlayChange }: OrgMembersPage
 
   if (!scope) return null
   const orgInfo = { slug: org, name: scope.org.name }
-  const canManage = scope.viewerCan.manageSettings.allowed
   const viewerId = viewer.data?.id
 
   function handleInvite() {
@@ -157,7 +158,7 @@ export function OrgMembersPage({ org, overlay, onOverlayChange }: OrgMembersPage
         retrying={members.isFetching || invitations.isFetching}
       />
     )
-  } else if (!members.data || !invitations.data) {
+  } else if (!members.data || (canManage && !invitations.data)) {
     body = (
       <LoadingRegion label="Loading members">
         <ListCardSkeleton rows={5} trailing={3} />
@@ -173,7 +174,7 @@ export function OrgMembersPage({ org, overlay, onOverlayChange }: OrgMembersPage
           getRowKey={(m) => m.person.id}
           minWidth="820px"
         />
-        {invitations.data.length > 0 && (
+        {canManage && invitations.data && invitations.data.length > 0 && (
           <OverviewCard title="Pending invitations">
             <ListCard framed={false} label="Pending invitations">
               {invitations.data.map((invitation) => (

@@ -1,20 +1,38 @@
+import {
+  canSeeProject as seesProject,
+  inheritedWorkspaceRole,
+  resolveRoles,
+  type RoleGrants,
+} from '@awaitstep/ir'
 import type { ProjectRole } from '../../types/dashboard/projects'
 import type { OrgRole } from '../../types/dashboard/session'
 import type { WorkspaceRole } from '../../types/dashboard/workspaces'
 import type { MockDb, ProjectRow, WorkspaceRow } from './db'
 import type { MockContext } from './scenario'
-import { roleAbove } from '../../lib/workspace-roles'
 
-// The role table the dashboard IA agreed (O1, O9). The fake API applies it
-// and hands pages capabilities; it is the spec for the real one (B2).
-//
-// - Org owners and admins open and manage everything.
-// - A project admin manages the project and every workspace in it.
-// - A project member opens every workspace in the project as an Editor;
-//   a workspace role can raise that to Admin.
-// - Otherwise a person opens only the workspaces they hold a role in.
-// - Viewers read and run; they never edit, deploy or share.
-// - A workspace nobody gave you is not found, never "forbidden".
+// The role table the dashboard IA agreed (O1, O9) lives in @awaitstep/ir
+// (`resolveRoles`), where the API applies it too. This file only reads the
+// dummy membership rows and adds the `?mock=viewer` scenario on top.
+
+function grantsOf(
+  db: MockDb,
+  ctx: MockContext,
+  project: ProjectRow,
+  workspace?: WorkspaceRow,
+): RoleGrants {
+  const orgRow = db.orgMembers.find((m) => m.orgId === project.orgId && m.userId === ctx.userId)
+  const projectRow = db.projectMembers.find(
+    (m) => m.projectId === project.id && m.userId === ctx.userId,
+  )
+  const workspaceRow = workspace
+    ? db.workspaceMembers.find((m) => m.workspaceId === workspace.id && m.userId === ctx.userId)
+    : undefined
+  return {
+    orgRole: orgRow?.role ?? null,
+    projectGrant: projectRow?.role ?? null,
+    workspaceGrant: workspaceRow?.role ?? null,
+  }
+}
 
 export function orgRoleOf(db: MockDb, ctx: MockContext, orgId: string): OrgRole | null {
   const row = db.orgMembers.find((m) => m.orgId === orgId && m.userId === ctx.userId)
@@ -29,30 +47,7 @@ export function projectRoleOf(
   project: ProjectRow,
 ): ProjectRole | null {
   if (ctx.scenario === 'viewer') return null
-  const orgRole = orgRoleOf(db, ctx, project.orgId)
-  if (orgRole === 'owner' || orgRole === 'admin') return 'admin'
-  if (!orgRole) return null
-  const row = db.projectMembers.find((m) => m.projectId === project.id && m.userId === ctx.userId)
-  return row?.role ?? null
-}
-
-function realWorkspaceRole(
-  db: MockDb,
-  ctx: MockContext,
-  project: ProjectRow,
-  workspace: WorkspaceRow,
-): WorkspaceRole | null {
-  const real: MockContext = { ...ctx, scenario: 'none' }
-  const projectRole = projectRoleOf(db, real, project)
-  if (projectRole === 'admin') return 'admin'
-  if (!orgRoleOf(db, real, project.orgId)) return null
-  const grant = db.workspaceMembers.find(
-    (m) => m.workspaceId === workspace.id && m.userId === ctx.userId,
-  )?.role
-  if (projectRole === 'member') {
-    return grant && roleAbove(grant, 'editor') ? grant : 'editor'
-  }
-  return grant ?? null
+  return resolveRoles(grantsOf(db, ctx, project)).projectRole
 }
 
 /**
@@ -64,9 +59,7 @@ export function projectGrantedRole(
   ctx: MockContext,
   project: ProjectRow,
 ): WorkspaceRole | null {
-  const projectRole = projectRoleOf(db, ctx, project)
-  if (projectRole === 'admin') return 'admin'
-  return projectRole === 'member' ? 'editor' : null
+  return inheritedWorkspaceRole(projectRoleOf(db, ctx, project))
 }
 
 /** Effective workspace role, or null when the workspace is hidden from the viewer. */
@@ -76,16 +69,20 @@ export function workspaceRoleOf(
   project: ProjectRow,
   workspace: WorkspaceRow,
 ): WorkspaceRole | null {
-  const role = realWorkspaceRole(db, ctx, project, workspace)
+  const role = resolveRoles(grantsOf(db, ctx, project, workspace)).workspaceRole
   if (!role) return null
   return ctx.scenario === 'viewer' ? 'viewer' : role
 }
 
+/** Whether the project shows up for the viewer at all (`?mock=viewer` hides nothing extra). */
 export function canSeeProject(db: MockDb, ctx: MockContext, project: ProjectRow): boolean {
-  if (projectRoleOf(db, { ...ctx, scenario: 'none' }, project)) return true
-  return db.workspaces.some(
-    (w) => w.projectId === project.id && workspaceRoleOf(db, ctx, project, w) !== null,
+  const grants = grantsOf(db, ctx, project)
+  const hasWorkspaceGrant = db.workspaces.some(
+    (w) =>
+      w.projectId === project.id &&
+      db.workspaceMembers.some((m) => m.workspaceId === w.id && m.userId === ctx.userId),
   )
+  return seesProject(grants.orgRole, grants.projectGrant, hasWorkspaceGrant)
 }
 
 // The capability tables live in @awaitstep/ir, where the API applies them too.

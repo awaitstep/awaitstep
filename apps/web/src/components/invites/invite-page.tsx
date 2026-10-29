@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import {
   useAcceptInvite,
   useAskForNewInvite,
@@ -5,7 +6,9 @@ import {
   useInvite,
   useUndoDeclineInvite,
 } from '../../data/dashboard/invites'
+import { ApiError } from '../../lib/api-client'
 import { handleSignOut } from '../../lib/auth-client'
+import { signInPath } from '../../lib/auth-redirect'
 import { invitePath, orgPath, projectPath, workspacePath } from '../../lib/dashboard-paths'
 import type { AcceptedInvite } from '../../types/dashboard/invites'
 import { LoadError } from '../ui/load-error'
@@ -43,6 +46,14 @@ export function InvitePage({ token }: InvitePageProps) {
   const ask = useAskForNewInvite(token)
   const goTo = useGoTo()
 
+  // Nobody is signed in: the invite page is public, the invite is not. Sign
+  // in (which creates the account) and come straight back here. A
+  // navigation after the answer arrives is a side effect, hence the effect.
+  const signedOut = invite.error instanceof ApiError && invite.error.status === 401
+  useEffect(() => {
+    if (signedOut) window.location.assign(signInPath(invitePath(token)))
+  }, [signedOut, token])
+
   function handleAccept() {
     decline.reset()
     accept.mutate(undefined, { onSuccess: (landing) => goTo(landingPath(landing)) })
@@ -74,7 +85,14 @@ export function InvitePage({ token }: InvitePageProps) {
   const answerError = (accept.error ?? decline.error)?.message
 
   let card
-  if (invite.isError) {
+  if (signedOut) {
+    card = (
+      <LoadingRegion label="Taking you to sign in">
+        <Bone className="h-12 w-64" />
+        <Bone className="h-48 w-full rounded-2xl" />
+      </LoadingRegion>
+    )
+  } else if (invite.isError) {
     card = (
       <LoadError
         title="We couldn’t open this invite"

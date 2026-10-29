@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import type { ApiMember, ApiProject, ApiScope, ApiWorkspace } from '../../../../lib/dashboard-api'
+import type {
+  ApiMember,
+  ApiProject,
+  ApiScope,
+  ApiWorkspace,
+  ApiWorkspacePerson,
+} from '../../../../lib/dashboard-api'
 import {
   projectFromRow,
   toOrgSummary,
@@ -17,6 +23,26 @@ const no = { allowed: false, reason: 'no' }
 const members: ApiMember[] = [
   { id: 'u-1', name: 'Ama Mensah', email: 'ama@acme.test', image: null, role: 'owner' },
   { id: 'u-2', name: '', email: 'ben@acme.test', image: 'data:x', role: 'member' },
+]
+
+// The API resolves each person's role in the workspace and where it comes from.
+const people: ApiWorkspacePerson[] = [
+  {
+    ...members[0]!,
+    role: 'admin',
+    inherited: true,
+    projectRole: 'admin',
+    orgRole: 'owner',
+    lastActiveAt: null,
+  },
+  {
+    ...members[1]!,
+    role: 'admin',
+    inherited: false,
+    projectRole: 'editor',
+    orgRole: null,
+    lastActiveAt: '2026-10-28T06:00:00.000Z',
+  },
 ]
 
 const org = {
@@ -70,7 +96,7 @@ const workspace: ApiWorkspace = {
   lock: null,
   inheritedLock: { fromName: 'Project 101', lock: project.lock! },
   counts: { workflows: 3, deployed: 1, functions: 1, runs24h: 5, failing: 1, lastRunAt: null },
-  members,
+  members: people,
   viewerRole: 'admin',
   viewerCan: {
     edit: yes,
@@ -121,14 +147,22 @@ describe('toProject / toWorkspace', () => {
 })
 
 describe('toWorkspacePeople', () => {
-  it('gives each member the role the org alone implies, inherited', () => {
-    const people = toWorkspacePeople(workspace)
-    expect(people.map((p) => [p.person.id, p.role, p.projectRole, p.orgRole, p.inherited])).toEqual(
-      [
-        ['u-1', 'admin', 'admin', 'owner', true],
-        ['u-2', 'editor', 'editor', null, true],
-      ],
-    )
+  it('keeps the role the API resolved and where it comes from, nesting the person', () => {
+    const rows = toWorkspacePeople(workspace)
+    expect(
+      rows.map((p) => [
+        p.person.id,
+        p.person.initials,
+        p.role,
+        p.projectRole,
+        p.orgRole,
+        p.inherited,
+        p.lastActiveAt,
+      ]),
+    ).toEqual([
+      ['u-1', 'AM', 'admin', 'admin', 'owner', true, null],
+      ['u-2', 'BE', 'admin', 'editor', null, false, '2026-10-28T06:00:00.000Z'],
+    ])
   })
 })
 

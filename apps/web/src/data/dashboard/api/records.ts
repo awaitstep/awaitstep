@@ -1,7 +1,5 @@
-import { isOrgAdmin, rolesFromOrgRole } from '@awaitstep/ir'
 import type {
   ApiLock,
-  ApiMember,
   ApiOrg,
   ApiProject,
   ApiProjectRow,
@@ -16,12 +14,18 @@ import type { Project } from '../../../types/dashboard/projects'
 import type { ScopeLookup } from '../../../types/dashboard/scope'
 import type { OrgSummary, Person } from '../../../types/dashboard/session'
 import type { Workspace, WorkspacePerson } from '../../../types/dashboard/workspaces'
+import { toWorkspacePerson } from './access'
 
 // API responses → the records the pages render. The API already decides
 // roles and capabilities; this adds what the pages derive (initials, people
 // as persons) and shapes the locks the way the kit shows them.
 
-export function toPerson(member: ApiMember): Person {
+export function toPerson(member: {
+  id: string
+  name: string
+  email: string
+  image: string | null
+}): Person {
   return {
     id: member.id,
     name: member.name,
@@ -37,7 +41,8 @@ export function toOrgSummary(org: ApiOrg): OrgSummary {
     slug: org.slug,
     name: org.name,
     initial: initialOf(org.name),
-    logo: org.logo,
+    // better-auth stores a cleared logo as an empty string.
+    logo: org.logo || null,
     role: org.role,
     projectCount: org.projectCount,
     memberCount: org.memberCount,
@@ -88,19 +93,9 @@ export function toWorkspace(workspace: ApiWorkspace): Workspace {
   }
 }
 
-/** Everyone who can open the workspace, with the role the org gives them (B2 adds grants). */
+/** Everyone who can open the workspace, with their effective role there and where it comes from. */
 export function toWorkspacePeople(workspace: ApiWorkspace): WorkspacePerson[] {
-  return workspace.members.map((member) => {
-    const { projectRole, workspaceRole } = rolesFromOrgRole(member.role)
-    return {
-      person: toPerson(member),
-      role: workspaceRole,
-      inherited: true,
-      lastActiveAt: null,
-      projectRole: projectRole === 'admin' ? 'admin' : 'editor',
-      orgRole: isOrgAdmin(member.role) ? member.role : null,
-    } as WorkspacePerson
-  })
+  return workspace.members.map(toWorkspacePerson)
 }
 
 export function toScopeLookup(scope: ApiScope): ScopeLookup {

@@ -11,7 +11,7 @@ import type {
 } from '../../../types/dashboard/org-settings'
 import type { OrgSummary } from '../../../types/dashboard/session'
 import type { OrgRole } from '../../../types/dashboard/session'
-import { canSeeProject, orgRoleOf } from '../access'
+import { canSeeProject, orgRoleOf, workspaceRoleOf } from '../access'
 import { getDb, type MockDb, type OrgRow } from '../db'
 import {
   type MockContext,
@@ -55,10 +55,18 @@ function visibleProjectIds(db: MockDb, ctx: MockContext, org: OrgRow): Set<strin
   )
 }
 
-function placesOf(db: MockDb, org: OrgRow, userId: string, visible: Set<string>): AccessPlace[] {
-  const seen = projectsOf(db, org).filter((p) => visible.has(p.id))
+/**
+ * Where a member can work, as the viewer may see it: projects the viewer
+ * can open, naming and counting only the workspaces the viewer can open
+ * (the API's `listOrgMembers`). A workspace row in a project the person
+ * holds project-wide adds nothing, and is left out.
+ */
+function placesOf(db: MockDb, ctx: MockContext, org: OrgRow, userId: string): AccessPlace[] {
+  const seen = projectsOf(db, org).filter((p) => canSeeProject(db, ctx, p))
   return seen.flatMap((project): AccessPlace[] => {
-    const workspaces = db.workspaces.filter((w) => w.projectId === project.id)
+    const workspaces = db.workspaces.filter(
+      (w) => w.projectId === project.id && workspaceRoleOf(db, ctx, project, w) !== null,
+    )
     const ref = { id: project.id, name: project.name, workspaceCount: workspaces.length }
     const projectRow = db.projectMembers.find(
       (m) => m.projectId === project.id && m.userId === userId,
@@ -76,7 +84,6 @@ function placesOf(db: MockDb, org: OrgRow, userId: string, visible: Set<string>)
 /** Org Settings → Members: everyone in the org, and where each can work. */
 export const listOrgMembers = endpoint((ctx, orgSlug: string): OrgMember[] => {
   const { db, org } = orgOf(ctx, orgSlug)
-  const visible = visibleProjectIds(db, ctx, org)
   return rows(
     ctx,
     db.orgMembers
@@ -84,7 +91,7 @@ export const listOrgMembers = endpoint((ctx, orgSlug: string): OrgMember[] => {
       .map((m) => ({
         person: personById(db, m.userId),
         role: m.role,
-        places: m.role === 'member' ? placesOf(db, org, m.userId, visible) : [],
+        places: m.role === 'member' ? placesOf(db, ctx, org, m.userId) : [],
       })),
   )
 })
@@ -214,24 +221,25 @@ export const removeFromOrg = mutation((ctx, orgSlug: string, userId: string): vo
 
 function invitationRecord(
   db: MockDb,
+  ctx: MockContext,
   row: MockDb['invitations'][number],
-  visible: Set<string>,
 ): Invitation {
   return {
     id: row.id,
     email: row.email,
     role: row.role,
-    // Places in projects the viewer can't open, or that are gone, aren't named.
+    // Places the viewer can't open — the project for a project-wide place,
+    // the workspace itself for a workspace place — or that are gone, aren't named.
     places: row.places.flatMap((place): Invitation['places'] => {
       const project = db.projects.find((p) => p.id === place.projectId)
-      if (!project || !visible.has(project.id)) return []
+      if (!project || !canSeeProject(db, ctx, project)) return []
       if (!place.workspaceId) {
         return [
           { kind: 'project' as const, project: project.name, workspace: null, role: place.role },
         ]
       }
       const workspace = db.workspaces.find((w) => w.id === place.workspaceId)
-      return workspace
+      return workspace && workspaceRoleOf(db, ctx, project, workspace) !== null
         ? [
             {
               kind: 'workspace' as const,
@@ -248,13 +256,13 @@ function invitationRecord(
 }
 
 export const listInvitations = endpoint((ctx, orgSlug: string): Invitation[] => {
-  const { db, org } = orgOf(ctx, orgSlug)
+  const { db, org } = managedOrg(ctx, orgSlug)
   return rows(
     ctx,
     db.invitations
       // A declined invite isn't waiting on anyone; inviting them again replaces it.
       .filter((i) => i.orgId === org.id && !i.declined)
-      .map((i) => invitationRecord(db, i, visibleProjectIds(db, ctx, org))),
+      .map((i) => invitationRecord(db, ctx, i)),
   )
 })
 
@@ -291,8 +299,7 @@ export const sendInvites = mutation(
       invitedBy: ctx.userId,
     }))
     db.invitations.push(...created)
-    const visible = visibleProjectIds(db, ctx, org)
-    return created.map((row) => invitationRecord(db, row, visible))
+    return created.map((row) => invitationRecord(db, ctx, row))
   },
 )
 

@@ -29,6 +29,109 @@ export interface ApiMember {
   role: OrgRole
 }
 
+/** Someone who can open a workspace, with their effective role there and where it comes from. */
+export interface ApiWorkspacePerson {
+  id: string
+  name: string
+  email: string
+  image: string | null
+  role: WorkspaceRole
+  inherited: boolean
+  projectRole: WorkspaceRole | null
+  orgRole: 'owner' | 'admin' | null
+  lastActiveAt: string | null
+}
+
+export interface ApiAccessPlace {
+  project: { id: string; name: string; workspaceCount: number }
+  workspace: { id: string; name: string } | null
+  role: ProjectRole | WorkspaceRole
+}
+
+export interface ApiOrgMember extends ApiMember {
+  joinedAt: string
+  places: ApiAccessPlace[]
+}
+
+export interface ApiPersonAccess {
+  person: { id: string; name: string; email: string; image: string | null }
+  joinedAt: string
+  orgRole: OrgRole
+  projects: { id: string; name: string; workspaces: ApiWorkspaceChip[] }[]
+  projectRoles: Record<string, ProjectRole>
+  workspaceRoles: Record<string, WorkspaceRole>
+}
+
+export type ApiProjectWideRole = 'owner' | 'org-admin' | 'project-admin' | 'project-member'
+
+export interface ApiProjectMembers {
+  wholeProject: { person: ApiPersonAccess['person']; role: ApiProjectWideRole }[]
+  workspacesOnly: {
+    person: ApiPersonAccess['person']
+    workspaces: { workspace: ApiWorkspaceChip; role: WorkspaceRole }[]
+  }[]
+}
+
+export interface ApiAccessGrant {
+  orgRole: OrgRole
+  projects: { projectId: string; role: ProjectRole }[]
+  workspaces: { workspaceId: string; role: WorkspaceRole }[]
+}
+
+export interface ApiInvitation {
+  id: string
+  email: string
+  role: OrgRole
+  places: {
+    kind: 'project' | 'workspace'
+    project: string
+    workspace: string | null
+    role: ProjectRole | WorkspaceRole
+  }[]
+  sentAt: string
+  expiresAt: string
+  invitedBy: { id: string; name: string }
+  askedForNewAt: string | null
+}
+
+export interface ApiInviteDetails {
+  token: string
+  org: { name: string; slug: string; logo: string | null }
+  invitedBy: { id: string; name: string; email: string; image: string | null }
+  email: string
+  orgRole: OrgRole
+  place:
+    | { kind: 'workspace'; name: string; projectName: string; role: WorkspaceRole }
+    | { kind: 'project'; name: string; role: ProjectRole }
+    | null
+  sentAt: string
+  expiresAt: string
+}
+
+export type ApiInviteView =
+  | { state: 'open'; invite: ApiInviteDetails; viewerEmail: string }
+  | { state: 'declined'; invite: ApiInviteDetails; viewerEmail: string }
+  | { state: 'wrong-account'; invite: ApiInviteDetails; viewerEmail: string }
+  | { state: 'expired'; invite: ApiInviteDetails; askedForNew: boolean }
+  | { state: 'gone' }
+
+export interface ApiPendingInvite {
+  token: string
+  org: { name: string; slug: string; logo: string | null }
+  invitedBy: string
+  orgRole: OrgRole
+  expiresAt: string
+}
+
+export interface ApiAccessRequest {
+  id: string
+  workspaceId: string
+  from: { id: string; name: string }
+  to: { id: string; name: string }
+  status: 'pending' | 'approved' | 'declined'
+  at: string
+}
+
 export interface ApiLock {
   setBy: { id: string; name: string }
   setAt: string
@@ -64,8 +167,10 @@ export interface ApiProject {
   workspaces: ApiWorkspaceChip[]
   health: { workflows: number; deployed: number; failing: number; lastRunAt: string | null }
   lock: ApiLock | null
+  /** Who can open a workspace the caller can open, with their org role. */
   members: ApiMember[]
-  viewerRole: ProjectRole
+  /** Null for someone who reaches the project through a workspace grant alone. */
+  viewerRole: ProjectRole | null
   viewerCan: ApiCapabilities<ProjectCapability>
 }
 
@@ -89,7 +194,7 @@ export interface ApiWorkspace {
     failing: number
     lastRunAt: string | null
   }
-  members: ApiMember[]
+  members: ApiWorkspacePerson[]
   viewerRole: WorkspaceRole
   viewerCan: ApiCapabilities<WorkspaceCapability>
 }
@@ -232,9 +337,123 @@ export const dashboardApi = {
 
   createWorkspace(
     slugs: ProjectSlugs,
-    data: { name: string; slug?: string; colour?: WorkspaceColour; description?: string },
+    data: {
+      name: string
+      slug?: string
+      colour?: WorkspaceColour
+      description?: string
+      members?: { userId: string; role: WorkspaceRole }[]
+    },
   ): Promise<ApiWorkspaceRow> {
     return request(`/workspaces${query(slugs)}`, { method: 'POST', body: JSON.stringify(data) })
+  },
+
+  moveProject(id: string, organizationId: string): Promise<{ ok: true }> {
+    return request(`/projects/${id}/move`, {
+      method: 'POST',
+      body: JSON.stringify({ organizationId }),
+    })
+  },
+
+  // People and access (session only)
+  listOrgMembers(org: string): Promise<{ data: ApiOrgMember[] }> {
+    return request(`/members${query({ org })}`)
+  },
+
+  listProjectMembers(slugs: ProjectSlugs): Promise<ApiProjectMembers> {
+    return request(`/members${query(slugs)}`)
+  },
+
+  getPersonAccess(org: string, userId: string): Promise<ApiPersonAccess> {
+    return request(`/members/${userId}/access${query({ org })}`)
+  },
+
+  saveAccess(org: string, userId: string, grant: ApiAccessGrant): Promise<{ ok: true }> {
+    return request(`/members/${userId}/access${query({ org })}`, {
+      method: 'PUT',
+      body: JSON.stringify(grant),
+    })
+  },
+
+  removeFromOrg(org: string, userId: string): Promise<{ ok: true }> {
+    return request(`/members/${userId}${query({ org })}`, { method: 'DELETE' })
+  },
+
+  listWorkspacePeople(workspaceId: string): Promise<{ data: ApiWorkspacePerson[] }> {
+    return request(`/workspaces/${workspaceId}/members`)
+  },
+
+  addWorkspaceMember(
+    workspaceId: string,
+    data: { userId: string; role: WorkspaceRole },
+  ): Promise<unknown> {
+    return request(`/workspaces/${workspaceId}/members`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  setWorkspaceRole(workspaceId: string, userId: string, role: WorkspaceRole): Promise<unknown> {
+    return request(`/workspaces/${workspaceId}/members/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    })
+  },
+
+  removeWorkspaceMember(workspaceId: string, userId: string): Promise<{ ok: true }> {
+    return request(`/workspaces/${workspaceId}/members/${userId}`, { method: 'DELETE' })
+  },
+
+  // Invitations (session only)
+  listInvitations(org: string): Promise<{ data: ApiInvitation[] }> {
+    return request(`/invitations${query({ org })}`)
+  },
+
+  sendInvites(
+    org: string,
+    data: {
+      emails: string[]
+      role: 'member' | 'admin'
+      places: { projectId: string; workspaceId: string | null; role: ProjectRole | WorkspaceRole }[]
+    },
+  ): Promise<{ data: { id: string; email: string }[] }> {
+    return request(`/invitations${query({ org })}`, { method: 'POST', body: JSON.stringify(data) })
+  },
+
+  resendInvite(org: string, id: string): Promise<{ ok: true; expiresAt: string }> {
+    return request(`/invitations/${id}/resend${query({ org })}`, { method: 'POST' })
+  },
+
+  cancelInvite(org: string, id: string): Promise<{ ok: true }> {
+    return request(`/invitations/${id}${query({ org })}`, { method: 'DELETE' })
+  },
+
+  getInvite(token: string): Promise<ApiInviteView> {
+    return request(`/invitations/${encodeURIComponent(token)}`)
+  },
+
+  acceptInvite(token: string): Promise<{ org: string; project?: string; workspace?: string }> {
+    return request(`/invitations/${encodeURIComponent(token)}/accept`, { method: 'POST' })
+  },
+
+  answerInvite(
+    token: string,
+    action: 'decline' | 'undo-decline' | 'ask-again',
+  ): Promise<{ ok: true }> {
+    return request(`/invitations/${encodeURIComponent(token)}/${action}`, { method: 'POST' })
+  },
+
+  listMyInvites(): Promise<{ data: ApiPendingInvite[] }> {
+    return request('/me/invitations')
+  },
+
+  // A Viewer's edit-access request (session only)
+  getEditRequest(workspaceId: string): Promise<ApiAccessRequest | null> {
+    return request(`/workspaces/${workspaceId}/access-request`)
+  },
+
+  requestEditAccess(workspaceId: string): Promise<ApiAccessRequest> {
+    return request(`/workspaces/${workspaceId}/access-requests`, { method: 'POST' })
   },
 
   updateWorkspace(
