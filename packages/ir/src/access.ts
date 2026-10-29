@@ -151,6 +151,10 @@ export const ACCESS_REASONS = {
   lastWorkspace: 'A project’s last workspace can’t be deleted',
   sharedInUse: 'Other workspaces call its shared workflows. Unshare them first',
   lockedBy: (name: string) => `Locked by ${name}`,
+  // The shared library's Unshare, for someone with no role in the item's workspace.
+  unshareOutsider: (workspace: string) => `Only people in ${workspace} can unshare it`,
+  // "Shared with Sales" is read-only: unsharing happens where the item lives.
+  unshareElsewhere: 'Unshare it from its own workspace',
   workspacesLocked: (names: string[]) =>
     names.length === 1 ? `${names[0]} is locked` : `${names.length} workspaces in it are locked`,
 } as const
@@ -247,7 +251,7 @@ export function workspaceCapabilities(
     edit: editor,
     deploy: editor,
     run: YES,
-    share: role === 'viewer' ? no(ACCESS_REASONS.shareNeedsEditor) : YES,
+    share: shareFor(role),
     manageSettings: admin,
     manageMembers: admin,
     manageKeys: admin,
@@ -255,4 +259,18 @@ export function workspaceCapabilities(
     toggleLock,
     delete: deleteWorkspace,
   }
+}
+
+/**
+ * Whether someone may unshare an item shared to the project, by their role in
+ * the workspace it comes from (null: they cannot open it). Sharing rights are
+ * the workspace's `share`, whoever's list the item is on.
+ */
+export function unshareCapability(roleInFrom: WorkspaceRole | null, fromName: string): Allowed {
+  if (roleInFrom === null) return no(ACCESS_REASONS.unshareOutsider(fromName))
+  return shareFor(roleInFrom)
+}
+
+function shareFor(role: WorkspaceRole): Allowed {
+  return role === 'viewer' ? no(ACCESS_REASONS.shareNeedsEditor) : YES
 }

@@ -9,6 +9,7 @@ import {
   UNLOCKED_PROJECT,
   roleAbove,
   workspaceCapabilities,
+  unshareCapability,
   type OrgRole,
   type ProjectRole,
   type WorkspaceRole,
@@ -156,6 +157,18 @@ describe('projectCapabilities', () => {
     expect(projectCapabilities('member', two).delete.reason).toBe(ACCESS_REASONS.projectAdmins)
     // A workspace's lock does not keep the project in its org.
     expect(projectCapabilities('admin', two, 'owner').move.allowed).toBe(true)
+  })
+})
+
+describe('unshareCapability', () => {
+  it('lets the item’s own workspace Admins and Editors unshare it, from any list', () => {
+    expect(unshareCapability('admin', 'Sales')).toEqual({ allowed: true })
+    expect(unshareCapability('editor', 'Sales')).toEqual({ allowed: true })
+  })
+
+  it('refuses Viewers there, and names the workspace to someone outside it', () => {
+    expect(unshareCapability('viewer', 'Sales').reason).toBe(ACCESS_REASONS.shareNeedsEditor)
+    expect(unshareCapability(null, 'Sales').reason).toBe('Only people in Sales can unshare it')
   })
 })
 

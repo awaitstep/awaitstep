@@ -248,6 +248,7 @@ export {
   projectCapabilities,
   UNLOCKED_PROJECT,
   workspaceCapabilities,
+  unshareCapability,
   type OrgRole,
   type ProjectRole,
   type WorkspaceRole,
