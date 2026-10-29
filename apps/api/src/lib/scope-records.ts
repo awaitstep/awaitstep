@@ -1,7 +1,7 @@
 import {
   orgCapabilities,
   projectCapabilities,
-  rolesFromOrgRole,
+  resolveRoles,
   workspaceCapabilities,
   type Capabilities,
   type OrgCapability,
@@ -12,18 +12,21 @@ import {
   type WorkspaceRole,
 } from '@awaitstep/ir'
 import type {
+  GrantRows,
   OrgMemberSummary,
   OrgOverview,
   ProjectOverview,
   ScopeRows,
   ScopeSlugs,
   WorkspaceOverview,
+  WorkspacePersonRow,
 } from '@awaitstep/db'
 import { parseOrgRole } from './org-role.js'
 
 // What the dashboard reads for each level of `/{org}/{project}/{workspace}`:
-// the row, its counts and lists, and what the caller may do there. Roles
-// come from the org alone until B2 (`rolesFromOrgRole`).
+// the row, its counts and lists, and what the caller may do there. Roles are
+// resolved here, by @awaitstep/ir, from the membership rows each read
+// returned alongside the row.
 
 export interface MemberRecord {
   id: string
@@ -31,6 +34,22 @@ export interface MemberRecord {
   email: string
   image: string | null
   role: OrgRole
+}
+
+/** Someone who can open a workspace, with their effective role there and where it comes from. */
+export interface WorkspacePersonRecord {
+  id: string
+  name: string
+  email: string
+  image: string | null
+  role: WorkspaceRole
+  /** The role comes from the project or org, not a grant in the workspace itself. */
+  inherited: boolean
+  /** The role the project alone gives them; a grant counts only above it. */
+  projectRole: WorkspaceRole | null
+  /** Org owners and admins open every workspace through the org. */
+  orgRole: 'owner' | 'admin' | null
+  lastActiveAt: string | null
 }
 
 export interface LockRecord {
@@ -46,6 +65,7 @@ export interface OrgRecord {
   createdAt: string
   /** The caller's role in it. */
   role: OrgRole
+  /** Projects the caller can open. */
   projectCount: number
   memberCount: number
   viewerCan: Capabilities<OrgCapability>
@@ -63,11 +83,14 @@ export interface ProjectRecord {
   description: string | null
   createdAt: string
   updatedAt: string
+  /** The workspaces the caller can open. */
   workspaces: ProjectOverview['workspaces']
   health: ProjectOverview['health']
   lock: LockRecord | null
+  /** Who can open a workspace the caller can open. */
   members: MemberRecord[]
-  viewerRole: ProjectRole
+  /** Null for someone who reaches the project through a workspace grant alone. */
+  viewerRole: ProjectRole | null
   viewerCan: Capabilities<ProjectCapability>
 }
 
@@ -85,7 +108,7 @@ export interface WorkspaceRecord {
   /** The project's lock, which covers this workspace too. */
   inheritedLock: { fromName: string; lock: LockRecord } | null
   counts: WorkspaceOverview['counts']
-  members: MemberRecord[]
+  members: WorkspacePersonRecord[]
   viewerRole: WorkspaceRole
   viewerCan: Capabilities<WorkspaceCapability>
 }
@@ -102,6 +125,32 @@ export type ScopeResponse =
 
 function memberRecord(row: OrgMemberSummary): MemberRecord {
   return { ...row, role: parseOrgRole(row.role) }
+}
+
+/** The roles a set of membership rows resolves to. */
+export function rolesOf(rows: GrantRows) {
+  return resolveRoles({
+    orgRole: rows.orgRole === null ? null : parseOrgRole(rows.orgRole),
+    projectGrant: rows.projectGrant,
+    workspaceGrant: rows.workspaceGrant,
+  })
+}
+
+export function workspacePersonRecord(row: WorkspacePersonRow): WorkspacePersonRecord {
+  const roles = rolesOf(row)
+  // The read lists only people who can open the workspace, so the role is never null.
+  const role = roles.workspaceRole ?? 'viewer'
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    image: row.image,
+    role,
+    inherited: role === roles.inheritedWorkspaceRole,
+    projectRole: roles.inheritedWorkspaceRole,
+    orgRole: roles.orgRole === 'owner' || roles.orgRole === 'admin' ? roles.orgRole : null,
+    lastActiveAt: row.lastActiveAt,
+  }
 }
 
 function lockRecord(
@@ -138,10 +187,9 @@ export const FOR_KEY: RecordAudience = { withMembers: false }
 
 export function projectRecord(
   row: ProjectOverview,
-  orgRole: OrgRole,
   audience: RecordAudience = FOR_SESSION,
 ): ProjectRecord {
-  const { projectRole } = rolesFromOrgRole(orgRole)
+  const roles = rolesOf(row.viewer)
   const lock = lockRecord(row.lockedBy, row.lockedAt, row.lockedByName)
   return {
     id: row.id,
@@ -155,17 +203,18 @@ export function projectRecord(
     health: row.health,
     lock,
     members: audience.withMembers ? row.members.map(memberRecord) : [],
-    viewerRole: projectRole,
-    viewerCan: projectCapabilities(projectRole, lock !== null, orgRole),
+    viewerRole: roles.projectRole,
+    viewerCan: projectCapabilities(roles.projectRole, lock !== null, roles.orgRole),
   }
 }
 
 export function workspaceRecord(
   row: WorkspaceOverview,
-  orgRole: OrgRole,
   audience: RecordAudience = FOR_SESSION,
 ): WorkspaceRecord {
-  const { workspaceRole } = rolesFromOrgRole(orgRole)
+  const roles = rolesOf(row.viewer)
+  // The read hides workspaces the caller cannot open, so the role is never null.
+  const workspaceRole = roles.workspaceRole ?? 'viewer'
   const lock = lockRecord(row.lockedBy, row.lockedAt, row.lockedByName)
   // The project's locker is not joined here; the lock's presence is what the rules need.
   const inheritedLock = row.projectLockedAt
@@ -187,7 +236,7 @@ export function workspaceRecord(
     lock,
     inheritedLock,
     counts: row.counts,
-    members: audience.withMembers ? row.members.map(memberRecord) : [],
+    members: audience.withMembers ? row.members.map(workspacePersonRecord) : [],
     viewerRole: workspaceRole,
     viewerCan: workspaceCapabilities(workspaceRole, {
       ownLock: lock !== null,
@@ -201,8 +250,9 @@ export function workspaceRecord(
 
 /**
  * The response for `GET /scope`. A level that was asked for and did not
- * match is reported with its parent's name, so the page can say "no
- * workspace `x` in Project 101"; a non-member reads the org as missing.
+ * match — or that the caller may not open — is reported with its parent's
+ * name, so the page can say "no workspace `x` in Project 101"; a non-member
+ * reads the org as missing.
  */
 export function toScopeResponse(rows: ScopeRows | null, slugs: ScopeSlugs): ScopeResponse {
   if (!rows) {
@@ -220,7 +270,7 @@ export function toScopeResponse(rows: ScopeRows | null, slugs: ScopeSlugs): Scop
       },
     }
   }
-  const project = projectRecord(rows.project, org.role)
+  const project = projectRecord(rows.project)
   if (slugs.workspace === undefined) return { found: true, org, project }
   if (!rows.workspace) {
     return {
@@ -232,5 +282,5 @@ export function toScopeResponse(rows: ScopeRows | null, slugs: ScopeSlugs): Scop
       },
     }
   }
-  return { found: true, org, project, workspace: workspaceRecord(rows.workspace, org.role) }
+  return { found: true, org, project, workspace: workspaceRecord(rows.workspace) }
 }

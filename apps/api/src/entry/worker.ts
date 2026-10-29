@@ -5,7 +5,8 @@ import { createTokenCrypto } from '../lib/token-crypto.js'
 import { createLogger } from '../lib/logger.js'
 import { buildNodeRegistry, type RegistryFile } from '../lib/node-registry.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
-import { createEmailService } from '../lib/email.js'
+import { ACCESS_REASONS } from '@awaitstep/ir'
+import { createAppEmails, createEmailService, type EmailService } from '../lib/email.js'
 import { syncActiveRuns } from '../lib/run-sync.js'
 import { SandboxWranglerDeployer, SandboxTestSessionRunner } from '@awaitstep/provider-cloudflare'
 import { testSessionLimitsFromEnv } from '../lib/test-session-env.js'
@@ -27,6 +28,10 @@ export interface Env {
   BETTER_AUTH_SECRET: string
   BETTER_AUTH_URL?: string
   CORS_ORIGIN?: string
+  /** The web app's origin, for invite links; defaults to CORS_ORIGIN, then the API's URL. */
+  WEB_URL?: string
+  /** `1` logs invite links instead of sending them when RESEND_API_KEY is unset — QA only. */
+  LOG_EMAIL_LINKS?: string
   RESEND_API_KEY?: string
   RESEND_FROM_EMAIL?: string
   APP_NAME?: string
@@ -55,21 +60,33 @@ async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof cr
   const drizzleDb = createD1DrizzleDb(env.DB)
   const db = createD1DatabaseAdapter(env.DB, { tokenCrypto })
 
+  let emailService: EmailService | null = null
   let sendMagicLink:
     ((data: { email: string; url: string; token: string }) => Promise<void>) | undefined
   if (env.RESEND_API_KEY) {
-    const emailService = createEmailService({
+    emailService = createEmailService({
       apiKey: env.RESEND_API_KEY,
       fromAddress: env.RESEND_FROM_EMAIL,
       appName: env.APP_NAME,
       appUrl: baseURL,
     })
-    sendMagicLink = (data) => emailService.sendMagicLink(data)
+    const service = emailService
+    sendMagicLink = (data) => service.sendMagicLink(data)
   }
+  const emails = createAppEmails({
+    webUrl: env.WEB_URL ?? env.CORS_ORIGIN ?? baseURL,
+    service: emailService,
+    logLinks: env.LOG_EMAIL_LINKS === '1',
+    log: (message) => logger.warn(message),
+  })
 
   const auth = createAuth({
     baseURL,
     secret: env.BETTER_AUTH_SECRET,
+    deleteOrganizationProblem: async (organizationId) => {
+      const left = await db.countProjectsInOrganization(organizationId)
+      return left > 0 ? ACCESS_REASONS.projectsLeft(left) : null
+    },
     database: drizzleAdapter(drizzleDb, { provider: 'sqlite', schema: sqliteSchema }),
     trustedOrigins: [baseURL, ...(env.CORS_ORIGIN ? [env.CORS_ORIGIN] : [])],
     sendMagicLink,
@@ -126,6 +143,7 @@ async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof cr
       { sleepAfter: sessionSleepAfter },
     ),
     testSessionLimits,
+    emails,
   })
 }
 

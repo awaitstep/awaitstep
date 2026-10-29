@@ -26,9 +26,11 @@ apiKeys.get('/', zValidator('query', listApiKeysQuerySchema), async (c) => {
   const db = c.get('db')
   const organizationId = c.get('organizationId')
   const { projectId, cursor, limit } = c.req.valid('query')
+  // A project the caller cannot open (B2) is never named: its list is empty,
+  // and the organization's list leaves its keys out — in the statement.
   const result = projectId
-    ? await db.listApiKeysByProject(organizationId, projectId, { cursor, limit })
-    : await db.listApiKeysByOrganization(organizationId, { cursor, limit })
+    ? await db.listApiKeysByProject(organizationId, projectId, { cursor, limit }, c.get('userId'))
+    : await db.listApiKeysByOrganization(organizationId, { cursor, limit }, c.get('userId'))
   return c.json({
     data: result.data.map(({ keyHash: _, ...key }) => key),
     nextCursor: result.nextCursor,

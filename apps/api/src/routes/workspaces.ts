@@ -1,10 +1,10 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
-import { ACCESS_REASONS, WORKSPACE_COLOURS, slugify } from '@awaitstep/ir'
+import { ACCESS_REASONS, WORKSPACE_COLOURS, slugify, workspaceCapabilities } from '@awaitstep/ir'
 import { isUniqueViolation } from '@awaitstep/db'
 import { zValidator } from '../lib/validation.js'
-import { FOR_KEY, FOR_SESSION, workspaceRecord } from '../lib/scope-records.js'
+import { FOR_KEY, FOR_SESSION, rolesOf, workspaceRecord } from '../lib/scope-records.js'
 import { workspaceSlugSchema } from '../lib/slugs.js'
 import type { AppEnv } from '../types.js'
 
@@ -16,6 +16,11 @@ const createWorkspaceSchema = z.object({
   slug: workspaceSlugSchema.optional(),
   description: z.string().max(1000).optional(),
   colour: colourSchema.optional(),
+  /** "Who can get in → choose people": people in the organization, each with a role here. */
+  members: z
+    .array(z.object({ userId: z.string().min(1), role: z.enum(['admin', 'editor', 'viewer']) }))
+    .max(100)
+    .optional(),
 })
 
 const updateWorkspaceSchema = z.object({
@@ -30,16 +35,15 @@ const moveWorkflowsSchema = z.object({
   targetWorkspaceId: z.string().min(1),
 })
 
-// Who may create, rename, delete or move: the router's requireOrgAdmin.
+// Who may create, rename, delete or move: the router's capability gates.
 export const workspaces = new Hono<AppEnv>()
 
 const SLUG_TAKEN = 'Another workspace in this project already uses that URL'
 
 workspaces.get('/', async (c) => {
-  const rows = await c.get('db').listWorkspacesByProject(c.get('projectId'))
-  const orgRole = c.get('orgRole') ?? 'member'
+  const rows = await c.get('db').listWorkspacesByProject(c.get('projectId'), c.get('userId'))
   const audience = c.get('apiKeyScopes') === null ? FOR_SESSION : FOR_KEY
-  return c.json({ data: rows.map((row) => workspaceRecord(row, orgRole, audience)) })
+  return c.json({ data: rows.map((row) => workspaceRecord(row, audience)) })
 })
 
 workspaces.post('/', zValidator('json', createWorkspaceSchema), async (c) => {
@@ -61,16 +65,34 @@ workspaces.post('/', zValidator('json', createWorkspaceSchema), async (c) => {
       422,
     )
   }
+  const db = c.get('db')
+  const members = [...new Map((body.members ?? []).map((m) => [m.userId, m])).values()]
+  // Who can get in is a person's decision: a key creates the workspace, not its roster.
+  if (members.length > 0 && c.get('apiKeyScopes') !== null) {
+    return c.json({ error: 'An API key cannot add people to a workspace' }, 403)
+  }
+  if (members.length > 0) {
+    // Everyone named must already be in the organization: the write skips
+    // anyone who is not, so the refusal has to come first — one count.
+    const userIds = members.map((m) => m.userId)
+    const check = await db.checkInOrganization(c.get('organizationId'), { userIds })
+    if (check.users !== userIds.length) {
+      return c.json({ error: 'Everyone you add must already be in the organization' }, 409)
+    }
+  }
   try {
-    const workspace = await c.get('db').createWorkspace({
-      id: nanoid(),
-      projectId: c.get('projectId'),
-      name: body.name,
-      slug: parsed.data,
-      description: body.description?.trim() || null,
-      colour: body.colour,
-      createdBy: c.get('userId'),
-    })
+    const workspace = await db.createWorkspace(
+      {
+        id: nanoid(),
+        projectId: c.get('projectId'),
+        name: body.name,
+        slug: parsed.data,
+        description: body.description?.trim() || null,
+        colour: body.colour,
+        createdBy: c.get('userId'),
+      },
+      members,
+    )
     if (!workspace) return c.json({ error: SLUG_TAKEN }, 409)
     return c.json(workspace, 201)
   } catch (error) {
@@ -123,10 +145,21 @@ workspaces.post('/:id/move-workflows', zValidator('json', moveWorkflowsSchema), 
   if (targetWorkspaceId === workspaceId) {
     return c.json({ error: 'The workflows are already in this workspace' }, 400)
   }
-  // The same read requireWorkspace made for the source, for the target; the
-  // update checks the pair again, so a target gone meanwhile moves nothing.
-  const target = await db.getWorkspaceInProject(c.get('projectId'), { id: targetWorkspaceId })
-  if (!target) return c.json({ error: 'Target workspace not found' }, 404)
+  // The same read requireWorkspace made for the source, for the target: one
+  // the caller cannot open is not found, and moving workflows into one is
+  // building there. The update checks the pair again, so a target gone
+  // meanwhile moves nothing.
+  const target = await db.getWorkspaceIfMember(c.get('userId'), { id: targetWorkspaceId })
+  if (!target || target.projectId !== c.get('projectId')) {
+    return c.json({ error: 'Target workspace not found' }, 404)
+  }
+  const can = workspaceCapabilities(rolesOf(target).workspaceRole!, {
+    ownLock: false,
+    lockedByProject: null,
+    isLastWorkspace: false,
+    sharedInUse: false,
+  }).edit
+  if (!can.allowed) return c.json({ error: can.reason }, 403)
   const moved = await db.moveWorkflowsToWorkspace(workspaceId, targetWorkspaceId, workflowIds)
   return c.json({ moved })
 })

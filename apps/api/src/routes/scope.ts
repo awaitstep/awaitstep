@@ -31,6 +31,6 @@ scope.get('/orgs', async (c) => {
 
 /** Org home's "Failing now": behind requireOrganization (`?org=` or `?organizationId=`) and session-only. */
 scope.get('/failing', async (c) => {
-  const data = await c.get('db').listFailingWorkflows(c.get('organizationId'))
+  const data = await c.get('db').listFailingWorkflows(c.get('organizationId'), c.get('userId'))
   return c.json({ data })
 })

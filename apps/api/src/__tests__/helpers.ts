@@ -120,6 +120,22 @@ export function setTestOrgRole(role: 'owner' | 'admin' | 'member') {
   testOrgRole = role
 }
 
+// The mock knows one org with one person. A plain member reads as a project
+// member of every project (what the access migration backfills), so the old
+// route tests keep their meaning; the people, invitation and request reads
+// are not mocked — their tests run on the sqlite harness (`sqlite-app.ts`).
+function testGrantRows() {
+  return {
+    orgRole: testOrgRole,
+    projectGrant: testOrgRole === 'member' ? ('member' as const) : null,
+    workspaceGrant: null,
+  }
+}
+
+function notMocked(name: string): never {
+  throw new Error(`${name} is not mocked; use the sqlite harness in sqlite-app.ts`)
+}
+
 const TEST_MEMBER = {
   id: TEST_USER_ID,
   name: 'Test',
@@ -160,7 +176,8 @@ function workspaceOverview(w: Workspace): WorkspaceOverview {
     projectName: project.name,
     projectLockedAt: project.lockedAt,
     siblings: workspacesOf(w.projectId).length,
-    members: [{ ...TEST_MEMBER, role: testOrgRole }],
+    members: [{ ...TEST_MEMBER, ...testGrantRows(), lastActiveAt: null }],
+    viewer: testGrantRows(),
   }
 }
 
@@ -176,6 +193,7 @@ function projectOverview(p: Project): ProjectOverview {
     health: { workflows: 0, deployed: 0, failing: 0, lastRunAt: null },
     lockedByName: null,
     members: [{ ...TEST_MEMBER, role: testOrgRole }],
+    viewer: testGrantRows(),
   }
 }
 
@@ -205,7 +223,7 @@ const mockDb: DatabaseAdapter = {
       if (!found) return null
       workspaceId = found.id
     }
-    return { project, workspaceId, role: testOrgRole }
+    return { project, workspaceId, ...testGrantRows() }
   },
   async getWorkspaceIfMember(userId, ref) {
     if (!memberOfTestOrg(userId)) return null
@@ -225,8 +243,15 @@ const mockDb: DatabaseAdapter = {
       workspaceId: w.id,
       projectId: w.projectId,
       organizationId: project.organizationId,
-      role: testOrgRole,
+      ...testGrantRows(),
     }
+  },
+  async getWorkflowForUser(userId, workflowId) {
+    const workflow = store.workflows.get(workflowId)
+    if (!workflow || !memberOfTestOrg(userId)) return null
+    const project = store.projects.get(workflow.projectId)
+    if (!project || project.organizationId !== TEST_ORG_ID) return null
+    return { workflow, organizationId: project.organizationId, ...testGrantRows() }
   },
   async getWorkspaceInProject(projectId, ref) {
     const w = workspacesOf(projectId).find((x) =>
@@ -315,7 +340,10 @@ const mockDb: DatabaseAdapter = {
   async getProjectById(id) {
     return store.projects.get(id) ?? null
   },
-  async listProjectsByOrganization(organizationId) {
+  async countProjectsInOrganization(organizationId) {
+    return [...store.projects.values()].filter((p) => p.organizationId === organizationId).length
+  },
+  async listProjectsByOrganization(organizationId, _userId) {
     return {
       data: [...store.projects.values()]
         .filter((p) => p.organizationId === organizationId)
@@ -324,11 +352,15 @@ const mockDb: DatabaseAdapter = {
     }
   },
 
+  async moveProjectToOrganization() {
+    return notMocked('moveProjectToOrganization')
+  },
+
   // Workspaces
-  async listWorkspacesByProject(projectId) {
+  async listWorkspacesByProject(projectId, _userId) {
     return workspacesOf(projectId).map(workspaceOverview)
   },
-  async createWorkspace(data) {
+  async createWorkspace(data, _members) {
     if (workspacesOf(data.projectId).some((w) => w.slug === data.slug)) return null
     const w: Workspace = {
       id: data.id,
@@ -408,6 +440,89 @@ const mockDb: DatabaseAdapter = {
   },
   async listFailingWorkflows() {
     return []
+  },
+
+  // Access, invitations and requests: the sqlite harness covers these.
+  async listOrgMembers() {
+    return notMocked('listOrgMembers')
+  },
+  async getPersonAccess() {
+    return notMocked('getPersonAccess')
+  },
+  async checkInOrganization() {
+    return notMocked('checkInOrganization')
+  },
+  async setOrgRole() {
+    return notMocked('setOrgRole')
+  },
+  async saveAccess() {
+    return notMocked('saveAccess')
+  },
+  async removeOrgMember() {
+    return notMocked('removeOrgMember')
+  },
+  async listWorkspacePeople() {
+    return notMocked('listWorkspacePeople')
+  },
+  async listProjectMembers() {
+    return notMocked('listProjectMembers')
+  },
+  async getGrantRows() {
+    return notMocked('getGrantRows')
+  },
+  async addWorkspaceMember() {
+    return notMocked('addWorkspaceMember')
+  },
+  async setWorkspaceGrant() {
+    return notMocked('setWorkspaceGrant')
+  },
+  async removeWorkspaceGrant() {
+    return notMocked('removeWorkspaceGrant')
+  },
+  async getOrgRole() {
+    return notMocked('getOrgRole')
+  },
+  async invitationChecks() {
+    return notMocked('invitationChecks')
+  },
+  async createInvitations() {
+    return notMocked('createInvitations')
+  },
+  async listInvitations() {
+    return notMocked('listInvitations')
+  },
+  async getInvitation() {
+    return notMocked('getInvitation')
+  },
+  async acceptInvitation() {
+    return notMocked('acceptInvitation')
+  },
+  async setInvitationStatus() {
+    return notMocked('setInvitationStatus')
+  },
+  async cancelInvitation() {
+    return notMocked('cancelInvitation')
+  },
+  async resendInvitation() {
+    return notMocked('resendInvitation')
+  },
+  async askForNewInvitation() {
+    return notMocked('askForNewInvitation')
+  },
+  async listInvitationsForEmail() {
+    return notMocked('listInvitationsForEmail')
+  },
+  async getOwnAccessRequest() {
+    return notMocked('getOwnAccessRequest')
+  },
+  async createAccessRequest() {
+    return notMocked('createAccessRequest')
+  },
+  async getAccessRequestForDecision() {
+    return notMocked('getAccessRequestForDecision')
+  },
+  async decideAccessRequest() {
+    return notMocked('decideAccessRequest')
   },
   async updateProject(id, organizationId, data) {
     const p = store.projects.get(id)
@@ -994,6 +1109,9 @@ const mockDb: DatabaseAdapter = {
       // The same membership rule as the isOrgMember mock above.
       createdByIsMember: key.createdBy === TEST_USER_ID && resolvedOrganizationId === TEST_ORG_ID,
       createdByRole: resolvedOrganizationId === TEST_ORG_ID ? testOrgRole : null,
+      createdByProjectGrant:
+        resolvedOrganizationId === TEST_ORG_ID ? testGrantRows().projectGrant : null,
+      createdByHasWorkspaceGrant: false,
       parentKeyLive:
         !key.parentKeyId ||
         (!!parent &&

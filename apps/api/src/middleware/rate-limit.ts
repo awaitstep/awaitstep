@@ -21,3 +21,29 @@ export function createRateLimiter(config: {
     keyGenerator: config.keyGenerator ?? ((c) => rateLimitKey(c.get('clientIp'))),
   })
 }
+
+/**
+ * A per-key budget spent in units rather than requests — emails, where one
+ * request may send many. In memory per instance, like the limiters above.
+ */
+export function createBudget(config: { windowMs: number; max: number }) {
+  const buckets = new Map<string, { used: number; resetAt: number }>()
+  return {
+    /** Spends `cost` from the key's window; false (and nothing spent) when it would exceed the budget. */
+    take(key: string, cost: number, now = Date.now()): boolean {
+      if (buckets.size > 10_000) {
+        for (const [k, b] of buckets) if (b.resetAt <= now) buckets.delete(k)
+      }
+      let bucket = buckets.get(key)
+      if (!bucket || bucket.resetAt <= now) {
+        bucket = { used: 0, resetAt: now + config.windowMs }
+        buckets.set(key, bucket)
+      }
+      if (bucket.used + cost > config.max) return false
+      bucket.used += cost
+      return true
+    },
+  }
+}
+
+export type Budget = ReturnType<typeof createBudget>

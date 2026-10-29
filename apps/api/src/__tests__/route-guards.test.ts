@@ -38,7 +38,8 @@ function concrete(path: string): string {
   const ids: Record<string, string> = {
     workflows: 'wf-1',
     connections: 'conn-1',
-    projects: 'test-project-2',
+    // A real project: the guards, not existence, are what is probed.
+    projects: TEST_PROJECT_ID,
     workspaces: TEST_WORKSPACE_ID,
     'env-vars': 'env-1',
     'api-keys': 'key-x',
@@ -164,7 +165,13 @@ describe('mutation route guards', () => {
       !path.startsWith('/api/workflows') &&
       !path.startsWith('/api/test-sessions') &&
       !path.startsWith('/api/workspaces') &&
-      !path.startsWith('/api/api-keys/')
+      !path.startsWith('/api/api-keys/') &&
+      // People, invitations and requests are session-only: a key is refused
+      // for being a key, before any scope rule (checked above as a refusal).
+      !path.startsWith('/api/members') &&
+      !path.startsWith('/api/invitations') &&
+      !path.startsWith('/api/access-requests') &&
+      !path.startsWith('/api/projects/:id/move')
     expect(await refusals(ORG_READ_KEY, orgLevel, /missing required scope/)).toEqual([])
   })
 

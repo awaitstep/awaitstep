@@ -11,9 +11,18 @@ import {
   hasHandlerModules,
   projectHandlerModules,
 } from '@awaitstep/ir'
+import { inheritedWorkspaceRole, workspaceCapabilities } from '@awaitstep/ir'
 import { unresolvableEnvRefs } from '../lib/env-resolve.js'
+import { rolesOf } from '../lib/scope-records.js'
 import { apiKeyProjectPin } from '../middleware/auth.js'
 import type { AppEnv } from '../types.js'
+
+const NO_FACTS = {
+  ownLock: false,
+  lockedByProject: null,
+  isLastWorkspace: false,
+  sharedInUse: false,
+}
 import { stopWorkflowTestSessions } from '../lib/test-sessions.js'
 
 const createSchema = z.object({
@@ -98,10 +107,11 @@ workflows.get('/', zValidator('query', listQuerySchema), async (c) => {
   const db = c.get('db')
   const projectId = c.get('projectId')
   const { cursor, limit, kind } = c.req.valid('query')
+  // Without a workspace, only the workspaces the caller can open are listed.
   const result = await db.listWorkflowsWithStatus(
     projectId,
     { cursor, limit },
-    { workspaceId: c.get('workspaceId'), kind },
+    { workspaceId: c.get('workspaceId'), kind, visibleTo: c.get('userId') },
   )
   return c.json({ ...result, data: result.data.map(maskWorkflowSecrets) })
 })
@@ -165,6 +175,24 @@ workflows.post('/', zValidator('json', createSchema), async (c) => {
   const projectId = c.get('projectId')
   const userId = c.get('userId')
   const body = c.req.valid('json')
+
+  // Building needs an Editor in the target workspace. One named in the query
+  // was resolved with the caller's role; one named in the body is read here;
+  // none means the project's oldest, which the project role alone decides.
+  let role = c.get('workspaceRole')
+  if (body.workspaceId && body.workspaceId !== c.get('workspaceId')) {
+    const target = await db.getWorkspaceIfMember(userId, { id: body.workspaceId })
+    if (!target || target.projectId !== projectId)
+      return c.json({ error: 'Workspace not found' }, 404)
+    role = rolesOf(target).workspaceRole
+  } else if (!role) {
+    role = inheritedWorkspaceRole(c.get('projectRole'))
+  }
+  const can = role ? workspaceCapabilities(role, NO_FACTS).edit : null
+  if (!can?.allowed) {
+    return c.json({ error: can?.reason ?? 'Pick a workspace you can build in' }, 403)
+  }
+
   const workflow = await db.createWorkflow({
     id: nanoid(),
     projectId,
@@ -236,9 +264,14 @@ workflows.patch(
 
     const { targetProjectId } = c.req.valid('json')
 
-    const targetProject = await db.getProjectById(targetProjectId)
-    if (!targetProject || targetProject.organizationId !== organizationId) {
+    // The target is read with the caller's roles there: moving into a
+    // project is a project admin's act, and a hidden one is not found.
+    const target = await db.getProjectIfMember(c.get('userId'), { id: targetProjectId })
+    if (!target || target.project.organizationId !== organizationId) {
       return c.json({ error: 'Target project not found' }, 404)
+    }
+    if (rolesOf(target).projectRole !== 'admin') {
+      return c.json({ error: 'Only project admins can move workflows into a project' }, 403)
     }
 
     if (targetProjectId === workflow.projectId) {

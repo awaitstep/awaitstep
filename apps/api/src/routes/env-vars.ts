@@ -66,8 +66,9 @@ envVars.get('/', zValidator('query', listEnvVarsQuerySchema), async (c) => {
     return c.json({ error: 'Not found' }, 404)
   }
 
+  // A project the caller cannot open (B2) lists nothing, in the statement.
   const result = projectId
-    ? await db.listEnvVarsByProject(organizationId, projectId, { cursor, limit })
+    ? await db.listEnvVarsByProject(organizationId, projectId, { cursor, limit }, c.get('userId'))
     : await db.listEnvVarsByOrganization(organizationId, { cursor, limit })
 
   return c.json({

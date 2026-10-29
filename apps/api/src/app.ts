@@ -6,7 +6,7 @@ import { bodyLimit } from 'hono/body-limit'
 import { secureHeaders } from 'hono/secure-headers'
 import { logger as honoLogger } from 'hono/logger'
 import { requestId } from 'hono/request-id'
-import type { AppEnv } from './types.js'
+import type { AppEmails, AppEnv } from './types.js'
 import type { Auth } from './auth/config.js'
 import type { Logger } from './lib/logger.js'
 import type { AppNodeRegistry } from './lib/node-registry.js'
@@ -56,6 +56,12 @@ export interface AppDeps {
    * entries add the proxy secrets, the Workers entry passes `edge`.
    */
   clientIpPolicy?: ClientIpPolicy
+  /**
+   * How invitations and their follow-ups are sent. Absent, nothing is sent
+   * and the links are not even logged; the entry points pass a logger-backed
+   * one when there is no mail service, as they do for magic links.
+   */
+  emails?: AppEmails
 }
 
 export function createApp(deps: AppDeps) {
@@ -159,6 +165,7 @@ export function createApp(deps: AppDeps) {
     if (deps.deployer) c.set('deployer', deps.deployer)
     if (deps.testSessionRunner) c.set('testSessionRunner', deps.testSessionRunner)
     c.set('testSessionLimits', resolvedTestSessionLimits)
+    c.set('emails', deps.emails)
     await next()
   })
 

@@ -18,7 +18,8 @@ import {
 } from '../lib/client-ip.js'
 import { loadNodeRegistry } from '../lib/node-registry-fs.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
-import { createEmailService } from '../lib/email.js'
+import { ACCESS_REASONS } from '@awaitstep/ir'
+import { createAppEmails, createEmailService, type EmailService } from '../lib/email.js'
 import { startRunSyncLoop } from '../lib/run-sync.js'
 import {
   NodeWranglerDeployer,
@@ -90,30 +91,57 @@ async function start() {
 
   const resendApiKey = process.env['RESEND_API_KEY']
   const appName = process.env['APP_NAME']
+  // Where the web app is: invite links point there. One origin in the
+  // reference deployment (the proxy in front serves both), so the API's own
+  // URL is the default.
+  const webUrl = process.env['WEB_URL'] ?? baseURL
+  const logLinks = process.env['LOG_EMAIL_LINKS'] === '1'
+  let emailService: EmailService | null = null
   let sendMagicLink:
     ((data: { email: string; url: string; token: string }) => Promise<void>) | undefined
   if (resendApiKey) {
-    const emailService = createEmailService({
+    emailService = createEmailService({
       apiKey: resendApiKey,
       fromAddress: process.env['RESEND_FROM_EMAIL'],
       appName,
       appUrl: baseURL,
     })
-    sendMagicLink = (data) => emailService.sendMagicLink(data)
+    const service = emailService
+    sendMagicLink = (data) => service.sendMagicLink(data)
     logger.info('Email: Resend configured')
   } else {
     // Left undefined, this unregisters the magic-link plugin entirely and the
     // sign-in route 404s — so a self-host with no Resend key and no OAuth had
-    // no way in at all, while the log promised the link would be printed.
+    // no way in at all, while the log promised the link would be printed. A
+    // link is a sign-in, and logs are not a private place: it is printed only
+    // when LOG_EMAIL_LINKS asks for it (dev and QA stacks), else just the fact.
     sendMagicLink = async (data) => {
-      logger.warn(`Magic link for ${data.email}: ${data.url}`)
+      logger.warn(
+        logLinks
+          ? `Magic link for ${data.email}: ${data.url}`
+          : `Magic link for ${data.email} not sent: no email service (set LOG_EMAIL_LINKS=1 to log links)`,
+      )
     }
-    logger.warn('RESEND_API_KEY not set — magic link emails will be logged to console')
+    logger.warn(
+      logLinks
+        ? 'RESEND_API_KEY not set — magic link and invite emails will be logged to console'
+        : 'RESEND_API_KEY not set — no email can be sent (LOG_EMAIL_LINKS=1 logs the links instead)',
+    )
   }
+  const emails = createAppEmails({
+    webUrl,
+    service: emailService,
+    logLinks,
+    log: (message) => logger.warn(message),
+  })
 
   const auth = createAuth({
     baseURL,
     secret: authSecret,
+    deleteOrganizationProblem: async (organizationId) => {
+      const left = await db.countProjectsInOrganization(organizationId)
+      return left > 0 ? ACCESS_REASONS.projectsLeft(left) : null
+    },
     // Through drizzle, not the raw handle. Better-auth's own dialects map a
     // field to a column of the same name, and the postgres schema names
     // columns `email_verified`, `expires_at`, `user_id` — so every insert it
@@ -184,6 +212,7 @@ async function start() {
     deployer: new NodeWranglerDeployer(),
     testSessionRunner: testSessionRunner,
     testSessionLimits: testSessionLimits,
+    emails,
 
     connectionAddress: (c) => getConnInfo(c).remote.address,
     clientIpPolicy: {

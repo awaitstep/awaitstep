@@ -52,7 +52,13 @@ describe('workspace routes', () => {
         allowed: false,
         reason: 'A project’s last workspace can’t be deleted',
       })
-      expect(data[0].members[0]).toMatchObject({ id: TEST_USER_ID, role: 'owner' })
+      // People carry their workspace role and where it comes from.
+      expect(data[0].members[0]).toMatchObject({
+        id: TEST_USER_ID,
+        role: 'admin',
+        inherited: true,
+        orgRole: 'owner',
+      })
     })
 
     it('is addressable by the org and project slugs', async () => {

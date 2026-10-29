@@ -13,7 +13,8 @@ import { createLogger } from '../lib/logger.js'
 import { clientIpPolicyFromEnv } from '../lib/client-ip.js'
 import { loadNodeRegistry } from '../lib/node-registry-fs.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
-import { createEmailService } from '../lib/email.js'
+import { ACCESS_REASONS } from '@awaitstep/ir'
+import { createAppEmails, createEmailService, type EmailService } from '../lib/email.js'
 import { startRunSyncLoop } from '../lib/run-sync.js'
 import { NodeWranglerDeployer, NodeTestSessionRunner } from '@awaitstep/provider-cloudflare'
 import { testSessionLimitsFromEnv } from '../lib/test-session-env.js'
@@ -58,20 +59,28 @@ async function start() {
     .filter(Boolean)
   const resendApiKey = process.env['RESEND_API_KEY']
   const appName = process.env['APP_NAME']
+  // The web app's origin, for invite links: the first CORS origin is the Vite dev server.
+  const webUrl = process.env['WEB_URL'] ?? corsOrigins[0] ?? baseURL
+  let emailService: EmailService | null = null
   let sendMagicLink:
     ((data: { email: string; url: string; token: string }) => Promise<void>) | undefined
   if (resendApiKey) {
-    const emailService = createEmailService({
+    emailService = createEmailService({
       apiKey: resendApiKey,
       fromAddress: process.env['RESEND_FROM_EMAIL'],
       appName,
       appUrl: baseURL,
     })
-    sendMagicLink = (data) => emailService.sendMagicLink(data)
+    const service = emailService
+    sendMagicLink = (data) => service.sendMagicLink(data)
   }
   const auth = createAuth({
     baseURL,
     secret: authSecret ?? crypto.randomUUID(),
+    deleteOrganizationProblem: async (organizationId) => {
+      const left = await db.countProjectsInOrganization(organizationId)
+      return left > 0 ? ACCESS_REASONS.projectsLeft(left) : null
+    },
     rateLimit: !isDev,
     database: sqlite,
     trustedOrigins: [...new Set([baseURL, ...corsOrigins])],
@@ -115,6 +124,13 @@ async function start() {
 
   const testSessionLimits = testSessionLimitsFromEnv(process.env)
   const testSessionRunner = new NodeTestSessionRunner()
+  const emails = createAppEmails({
+    webUrl,
+    service: emailService,
+    // The dev server is its own inbox.
+    logLinks: isDev,
+    log: (message) => logger.warn(message),
+  })
 
   const app = createApp({
     db,
@@ -129,6 +145,7 @@ async function start() {
     deployer: new NodeWranglerDeployer(),
     testSessionRunner,
     testSessionLimits,
+    emails,
 
     connectionAddress: (c) => getConnInfo(c).remote.address,
     // The Vite dev server is not a trusted hop: in dev, SSR calls are keyed

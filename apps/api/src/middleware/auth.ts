@@ -1,6 +1,7 @@
 import { createMiddleware } from 'hono/factory'
 import type { Context } from 'hono'
 import { z } from 'zod'
+import { canSeeProject } from '@awaitstep/ir'
 import type { AppEnv } from '../types.js'
 import type { Auth } from '../auth/config.js'
 import { hashApiKey } from '../lib/api-key-hash.js'
@@ -66,11 +67,28 @@ export function createAuthMiddleware(auth: Auth) {
         )
       }
 
+      // A project key reaches what its creator can open; a creator who lost
+      // every way into the project takes the key's way in with them.
+      const creatorOrgRole = parseOrgRole(apiKey.createdByRole)
+      if (
+        apiKey.projectId &&
+        !canSeeProject(
+          creatorOrgRole,
+          apiKey.createdByProjectGrant,
+          apiKey.createdByHasWorkspaceGrant,
+        )
+      ) {
+        return c.json({ error: 'The API key’s creator can no longer access this project' }, 401)
+      }
+
       c.set('userId', apiKey.createdBy)
       c.set('organizationId', apiKey.resolvedOrganizationId)
       // What the key may manage is what its creator may: the role is read in
-      // the same statement as the membership above.
-      c.set('orgRole', parseOrgRole(apiKey.createdByRole))
+      // the same statement as the membership above; the scope middleware
+      // resolves the project and workspace roles from the same creator.
+      c.set('orgRole', creatorOrgRole)
+      c.set('projectRole', null)
+      c.set('workspaceRole', null)
       // An organization-level key has no project: project-scoped routes
       // refuse it in requireProject.
       if (apiKey.projectId) {
@@ -104,8 +122,10 @@ export function createAuthMiddleware(auth: Auth) {
     c.set('user', session.user)
     c.set('session', session.session)
     c.set('userId', session.user.id)
-    // The scope middleware sets the role once it has resolved which organization.
+    // The scope middleware sets the roles once it has resolved which place.
     c.set('orgRole', null)
+    c.set('projectRole', null)
+    c.set('workspaceRole', null)
     c.set('apiKeyId', null)
     c.set('apiKeyScopes', null)
     c.set('apiKeyExpiresAt', null)

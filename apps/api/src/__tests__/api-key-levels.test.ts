@@ -781,7 +781,7 @@ describe('router middleware', () => {
     })
     const isOrgMember = vi.spyOn(mockDb, 'getOrganizationIfMember')
     const getProjectIfMember = vi.spyOn(mockDb, 'getProjectIfMember')
-    const getWorkflowById = vi.spyOn(mockDb, 'getWorkflowById')
+    const getWorkflowForUser = vi.spyOn(mockDb, 'getWorkflowForUser')
 
     await app.request(`/api/connections?organizationId=${TEST_ORG_ID}`)
     expect(isOrgMember).toHaveBeenCalledTimes(1)
@@ -792,6 +792,6 @@ describe('router middleware', () => {
     getProjectIfMember.mockClear()
     await app.request(`/api/workflows/wf-1/versions?projectId=${TEST_PROJECT_ID}`)
     expect(getProjectIfMember).toHaveBeenCalledTimes(1)
-    expect(getWorkflowById).toHaveBeenCalledTimes(1)
+    expect(getWorkflowForUser).toHaveBeenCalledTimes(1)
   })
 })
