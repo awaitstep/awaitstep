@@ -33,6 +33,8 @@ const ORG_ADMINS = sql.raw(`('owner', 'admin')`)
 export interface AccessAdapterTables extends OverviewTables {
   invitation: unknown
   invitationPlaces: unknown
+  /** A project's variables carry its organization; a move re-homes them (B4). */
+  envVars: unknown
 }
 
 /** The caller's own standing, for the rules a statement enforces about owners. */
@@ -639,6 +641,7 @@ export class AccessAdapter {
     const pm = this.t.projectMembers
     const wm = this.t.workspaceMembers
     const ip = this.t.invitationPlaces as typeof pm
+    const ev = this.t.envVars as typeof pm
     const w = aliasedTable(this.t.workspaces, 'mw')
     const m = aliasedTable(this.t.member, 'mm')
     const mp = aliasedTable(this.t.projects, 'mp')
@@ -657,6 +660,13 @@ export class AccessAdapter {
         .set({ organizationId: toOrganizationId, updatedAt: new Date().toISOString() })
         .where(and(eq(p.id, projectId), eq(p.organizationId, fromOrganizationId), moverRuns)),
       tx.delete(ip).where(and(eq(ip.projectId, projectId), moved)),
+      // The project's and its workspaces' variables name their organization
+      // on the row; left behind, every list and deploy of the moved project
+      // would lose them.
+      tx
+        .update(ev)
+        .set({ organizationId: toOrganizationId })
+        .where(and(eq(ev.projectId, projectId), moved)),
       tx
         .delete(pm)
         .where(and(eq(pm.projectId, projectId), moved, notInArray(pm.userId, targetMembers))),
