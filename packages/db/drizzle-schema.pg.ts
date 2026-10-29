@@ -395,6 +395,7 @@ export const apiKeys = pgTable(
     organizationId: text('organization_id').references(() => organization.id, {
       onDelete: 'cascade',
     }),
+    workspaceId: text('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
     parentKeyId: text('parent_key_id').references((): AnyPgColumn => apiKeys.id, {
       onDelete: 'cascade',
     }),
@@ -402,7 +403,9 @@ export const apiKeys = pgTable(
     name: text('name').notNull(),
     keyHash: text('key_hash').notNull().unique(),
     keyPrefix: text('key_prefix').notNull(),
+    keySuffix: text('key_suffix'),
     scopes: text('scopes').notNull(),
+    permissions: text('permissions').notNull().default('{}'),
     expiresAt: timestamp('expires_at', { mode: 'string' }),
     lastUsedAt: timestamp('last_used_at', { mode: 'string' }),
     revokedAt: timestamp('revoked_at', { mode: 'string' }),
@@ -413,6 +416,7 @@ export const apiKeys = pgTable(
     index('idx_api_keys_organization_id').on(table.organizationId),
     index('idx_api_keys_parent_key_id').on(table.parentKeyId),
     index('idx_api_keys_key_hash').on(table.keyHash),
+    index('idx_api_keys_workspace_id').on(table.workspaceId),
     check('api_keys_one_level', sql`(project_id IS NULL) <> (organization_id IS NULL)`),
   ],
 )
