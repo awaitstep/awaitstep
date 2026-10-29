@@ -113,7 +113,7 @@ export const PROJECT_KEYS: SampleKey[] = [
   {
     id: 'ci',
     name: 'CI deploys',
-    prefix: 'ask_p1…a71d',
+    prefix: 'ask_Kq3VtR8m…a71d',
     permissions: ['Workflows: read · deploy', 'Runs: read'],
     createdBy: 'Tom Becker',
     lastUsed: '22m ago',

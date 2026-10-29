@@ -33,13 +33,13 @@ describe('project API keys', () => {
       'href',
       '/acme/settings/api-keys',
     )
-    expect(rowWith('CI deploys')).toHaveTextContent('ask_p1…a71d')
+    expect(rowWith('CI deploys')).toHaveTextContent('ask_Kq3VtR8m…a71d')
     expect(rowWith('CI deploys')).toHaveTextContent('Workflows & functions: read · deploy')
     expect(rowWith('CI deploys')).toHaveTextContent('Never')
     expect(within(rowWith('Read-only dashboard')).getByText('In 3 days')).toHaveClass(
       'text-status-warning',
     )
-    expect(rowWith('Read-only dashboard')).toHaveTextContent('+4')
+    expect(rowWith('Read-only dashboard')).toHaveTextContent('+3')
     expect(screen.getByRole('link', { name: 'IT · 2' })).toHaveAttribute(
       'href',
       '/acme/project-101/it/settings?tab=keys',
@@ -56,7 +56,7 @@ describe('project API keys', () => {
     await userEvent.click(within(rowWith('CI deploys')).getByRole('button', { name: 'Revoke' }))
     const dialog = screen.getByRole('alertdialog', { name: 'Revoke CI deploys?' })
     expect(dialog).toHaveTextContent(
-      'Anything using ask_p1…a71d stops working immediately (last used: 22m ago). Keys it minted stop too.',
+      'Anything using ask_Kq3VtR8m…a71d stops working immediately (last used: 22m ago). Keys it minted stop too.',
     )
     await userEvent.click(within(dialog).getByRole('button', { name: 'Keep key' }))
     expect(screen.getByText('CI deploys')).toBeVisible()

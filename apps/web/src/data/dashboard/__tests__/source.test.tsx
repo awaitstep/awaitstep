@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDb as dashboardDb, resetMockDb, withoutSynthetic } from '../../../mocks/dashboard/db'
 import { mockServer } from '../../../mocks/dashboard/server'
 import { NOT_CONNECTED } from '../../../mocks/dashboard/scenario'
-import { useProjectKeys } from '../api-keys'
+import { useProjectVariables } from '../variables'
 import { useCreateWorkspace, useScope, useWorkspaces } from '../workspaces'
 import { MockScenarioProvider } from '../scenario-context'
 import { DataSourceProvider, notYet, useDashKey, type DataSource } from '../source'
@@ -208,10 +208,11 @@ describe('hooks on the API', () => {
   })
 
   it('leaves a feature still on dummy data empty, without a request', async () => {
+    // Variables wait for B4; keys moved to the API in B3.
     const { wrapper } = setup('api')
-    const { result } = renderHook(() => useProjectKeys('acme', 'p'), { wrapper })
+    const { result } = renderHook(() => useProjectVariables('acme', 'p'), { wrapper })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data).toEqual({ keys: [], workspaceKeys: [] })
+    expect(result.current.data).toEqual([])
     expect(fetchMock).not.toHaveBeenCalled()
   })
 

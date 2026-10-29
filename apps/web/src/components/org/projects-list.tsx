@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, FolderKanban, Pencil, Trash2, KeyRound } from 'lucide-react'
+import { Plus, FolderKanban, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { ConfirmDialog } from '../ui/confirm-dialog'
 import { api } from '../../lib/api-client'
 import { useOrgStore, type Project } from '../../stores/org-store'
 import { useSheetStore } from '../../stores/sheet-store'
 import { LoadMoreButton } from '../ui/load-more-button'
-import { ProjectKeysSheet } from './project-keys-sheet'
 import { toast } from 'sonner'
 
 function ProjectSkeleton() {
@@ -27,7 +26,6 @@ function ProjectSkeleton() {
 
 export function ProjectsList({ projects, loading }: { projects: Project[]; loading: boolean }) {
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null)
-  const [keysTarget, setKeysTarget] = useState<Project | null>(null)
   const activeProjectId = useOrgStore((s) => s.activeProjectId)
   const projectsHasMore = useOrgStore((s) => s.projectsHasMore)
   const projectsLoadMore = useOrgStore((s) => s.projectsLoadMore)
@@ -54,10 +52,6 @@ export function ProjectsList({ projects, loading }: { projects: Project[]; loadi
 
   function handleDeleteOpenChange(open: boolean) {
     if (!open) setDeleteTarget(null)
-  }
-
-  function handleKeysOpenChange(open: boolean) {
-    if (!open) setKeysTarget(null)
   }
 
   return (
@@ -110,15 +104,6 @@ export function ProjectsList({ projects, loading }: { projects: Project[]; loadi
                     variant="ghost"
                     size="sm"
                     className="h-7 w-7 p-0"
-                    title="API keys"
-                    onClick={() => setKeysTarget(project)}
-                  >
-                    <KeyRound size={12} />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0"
                     onClick={() => openProjectDialog(project)}
                   >
                     <Pencil size={12} />
@@ -143,7 +128,6 @@ export function ProjectsList({ projects, loading }: { projects: Project[]; loadi
         )}
       </div>
 
-      <ProjectKeysSheet project={keysTarget} onOpenChange={handleKeysOpenChange} />
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={handleDeleteOpenChange}

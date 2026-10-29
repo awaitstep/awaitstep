@@ -43,7 +43,7 @@ describe('Create an API key', () => {
     await user.type(within(dialog).getByRole('textbox', { name: /Name/ }), 'Release bot')
     await user.click(within(dialog).getByRole('button', { name: 'Create key' }))
     const secret = await within(dialog).findByRole('textbox', { name: 'Your API key' })
-    expect((secret as HTMLInputElement).value).toMatch(/^ask_p1_/)
+    expect((secret as HTMLInputElement).value).toMatch(/^ask_[A-Za-z0-9_-]{40}$/)
     expect(dialog).toHaveTextContent('Release bot is ready.')
     await user.click(within(dialog).getByRole('button', { name: 'Copy' }))
     expect(await within(dialog).findByText('Key copied. You can close this.')).toBeVisible()

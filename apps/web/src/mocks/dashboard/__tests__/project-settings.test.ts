@@ -20,7 +20,10 @@ describe('project keys', () => {
   it('lists the board’s three project keys and a count per workspace', async () => {
     const { keys: list, workspaceKeys } = await keys.listProjectKeys(ama, ...p101)
     expect(list.map((k) => k.name)).toEqual(['CI deploys', 'Agent (Claude)', 'Read-only dashboard'])
-    expect(list[0]).toMatchObject({ prefix: 'ask_p1…a71d', createdBy: { name: 'Tom Becker' } })
+    expect(list[0]).toMatchObject({
+      prefix: 'ask_Kq3VtR8m…a71d',
+      createdBy: { name: 'Tom Becker' },
+    })
     expect(workspaceKeys.map((w) => [w.workspace.name, w.count])).toEqual([
       ['Sales', 1],
       ['IT', 2],

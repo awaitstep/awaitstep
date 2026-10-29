@@ -41,16 +41,17 @@ describe('PermissionGrid', () => {
       .getAllByRole('columnheader')
       .map((header) => header.textContent)
     expect(headers).toEqual(['Resource', 'Read', 'Write', 'Delete', 'Deploy', 'Run'])
-    expect(within(table).getAllByRole('rowheader')).toHaveLength(4)
+    expect(within(table).getAllByRole('rowheader')).toHaveLength(3)
   })
 
   it('has a checkbox only for the cells valid at the level', () => {
     render(<PermissionGrid level="workspace" value={{}} onChange={vi.fn()} />)
     expect(screen.getByRole('checkbox', { name: 'Workflows & functions: Deploy' })).toBeVisible()
-    expect(screen.getByRole('checkbox', { name: 'Runs: Delete' })).toBeVisible()
+    expect(screen.getByRole('checkbox', { name: 'Runs: Read' })).toBeVisible()
     expect(screen.queryByRole('checkbox', { name: 'Runs: Write' })).not.toBeInTheDocument()
-    // 5 workflow actions + 2 for runs + 3 each for variables and library
-    expect(screen.getAllByRole('checkbox')).toHaveLength(13)
+    expect(screen.queryByRole('checkbox', { name: 'Variables: Write' })).not.toBeInTheDocument()
+    // 5 workflow actions + read on runs + read on variables (B4 adds the rest)
+    expect(screen.getAllByRole('checkbox')).toHaveLength(7)
   })
 
   it('reports one ticked cell as a change', async () => {
@@ -112,7 +113,7 @@ describe('GrantSummary', () => {
     expect(items.map((item) => item.textContent)).toContain(
       'Workflows & functions: read · deploy · run',
     )
-    expect(items).toHaveLength(6)
+    expect(items).toHaveLength(5)
   })
 
   it('says Nothing when no permission is granted', () => {

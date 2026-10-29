@@ -20,8 +20,8 @@ describe('create key', () => {
       expires: '30',
       permissions: { workflows: ['read', 'deploy'] },
     })
-    expect(secret).toMatch(/^ask_p1_[a-z0-9]{32}$/)
-    expect(key.prefix).toBe(`ask_p1…${secret.slice(-4)}`)
+    expect(secret).toMatch(/^ask_[A-Za-z0-9_-]{40}$/)
+    expect(key.prefix).toBe(`${secret.slice(0, 8)}…${secret.slice(-4)}`)
     expect(JSON.stringify(getDb().keys)).not.toContain(secret)
     expect((await keys.listProjectKeys(ama, 'acme', 'project-101')).keys[0]!.name).toBe(
       'Release bot',
@@ -34,7 +34,7 @@ describe('create key', () => {
       level: 'organization',
       name: 'Audit export',
       expires: 'never',
-      permissions: { audit: ['read'] },
+      permissions: { projects: ['read'] },
     })
     expect((await keys.listOrgKeys(ama, 'acme'))[0]!).toMatchObject({
       name: 'Audit export',
@@ -193,7 +193,7 @@ describe('review round (2026-10-27)', () => {
       keys.createKey(ama, 'acme', {
         ...base,
         expires: '60' as '30',
-        permissions: { audit: ['read'] },
+        permissions: { projects: ['read'] },
       }),
     ).rejects.toMatchObject({ field: 'expires' })
     await expect(

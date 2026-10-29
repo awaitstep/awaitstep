@@ -25,7 +25,7 @@ export const AUDIT_EVENTS: AuditEvent[] = [
     actor: 'CI deploys',
     action: 'deployed',
     target: 'Lead enrichment v12',
-    detail: 'Project API key ask_p1…a71d',
+    detail: 'Project API key ask_Kq3VtR8m…a71d',
     scope: { level: 'workspace', name: 'Project 101 · Sales', colour: 'green' },
   },
   {

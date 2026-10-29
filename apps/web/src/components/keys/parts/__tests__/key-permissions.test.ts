@@ -32,6 +32,15 @@ describe('key permission catalog', () => {
     expect(KEY_CATALOG.organization.flatMap((resource) => resource.actions)).not.toContain('deploy')
     expect(KEY_PRESETS.organization).not.toContain('deploy-run')
   })
+
+  it('gives every row a label and a hint', () => {
+    for (const level of LEVELS) {
+      for (const resource of KEY_CATALOG[level]) {
+        expect(resource.label).not.toBe('')
+        expect(resource.hint).not.toBe('')
+      }
+    }
+  })
 })
 
 describe('presets', () => {
@@ -40,7 +49,6 @@ describe('presets', () => {
       workflows: ['read'],
       runs: ['read'],
       variables: ['read'],
-      library: ['read'],
     })
   })
 
@@ -50,7 +58,6 @@ describe('presets', () => {
       workflows: ['read', 'deploy', 'run'],
       runs: ['read'],
       variables: ['read'],
-      library: ['read'],
       members: ['read'],
     })
   })
@@ -58,10 +65,9 @@ describe('presets', () => {
   it('Full access grants every valid cell', () => {
     expect(presetPermissions('organization', 'full')).toEqual({
       projects: ['read', 'write', 'delete'],
-      members: ['read', 'write', 'delete'],
+      members: ['read'],
       connections: ['read', 'write', 'delete'],
       resources: ['read', 'write', 'delete'],
-      audit: ['read'],
     })
   })
 
@@ -74,7 +80,6 @@ describe('presets', () => {
   it('matches regardless of action order or empty resources', () => {
     expect(
       matchPreset('workspace', {
-        library: ['read'],
         workflows: ['run', 'deploy', 'read'],
         variables: ['read'],
         runs: ['read'],
@@ -114,7 +119,7 @@ describe('describing grants', () => {
   it('says how many permissions are selected', () => {
     expect(describeGrantCount('workspace', { workflows: ['read'] })).toBe('1 permission selected')
     expect(describeGrantCount('project', presetPermissions('project', 'deploy-run'))).toBe(
-      '8 permissions selected',
+      '7 permissions selected',
     )
   })
 

@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { getOrigin } from '../../lib/utils'
 import { Button } from '../ui/button'
 import { CodeEditor } from '../ui/code-editor'
-import { MethodBadge, ScopeBadge } from './playground-badges'
+import { MethodBadge, PermissionBadge } from './playground-badges'
 import type { EndpointDef } from '../../lib/playground-endpoints'
 import type { ResponseData } from './response-panel'
 
@@ -105,7 +105,10 @@ export function RequestPanel({
         <MethodBadge method={endpoint.method} />
         <code className="min-w-0 truncate text-xs text-foreground">{resolvedPath()}</code>
         <div className="ml-auto flex items-center gap-2">
-          <ScopeBadge scope={endpoint.scope} />
+          <PermissionBadge
+            permission={endpoint.permission}
+            belowPermission={endpoint.belowPermission}
+          />
           <Button
             size="sm"
             onClick={sendRequest}

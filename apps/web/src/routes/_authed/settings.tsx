@@ -2,7 +2,6 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useOrgStore } from '../../stores/org-store'
 import { OrgNameEditor } from '../../components/org/org-name-editor'
 import { ProjectsList } from '../../components/org/projects-list'
-import { ApiKeysSection } from '../../components/org/api-keys-section'
 import { useShallow } from 'zustand/react/shallow'
 import { RequireOrg } from '../../wrappers/require-org'
 import { PageHeader } from '../../components/ui/page-header'
@@ -41,7 +40,6 @@ function SettingsContent() {
       )}
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <ProjectsList projects={projects} loading={projectsLoading} />
-        <ApiKeysSection />
       </div>
     </div>
   )

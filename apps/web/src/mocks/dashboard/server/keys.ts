@@ -135,13 +135,13 @@ export const revokeOrgKey = mutation((ctx, orgSlug: string, keyId: string): void
 )
 
 const EXPIRY_DAYS = { '30': 30, '90': 90, '365': 365, never: null } as const
-const SECRET_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789'
+const SECRET_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-'
 
-function secretFor(level: NewKeyInput['level']): string {
-  const code = { organization: 'o1', project: 'p1', workspace: 'w1' }[level]
-  const bytes = crypto.getRandomValues(new Uint8Array(32))
+/** The API's shape: `ask_` and forty characters, whatever the level. */
+function secretFor(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(40))
   const tail = [...bytes].map((b) => SECRET_CHARS[b % SECRET_CHARS.length]).join('')
-  return `ask_${code}_${tail}`
+  return `ask_${tail}`
 }
 
 /**
@@ -160,7 +160,7 @@ export const createKey = mutation((ctx, orgSlug: string, input: NewKeyInput): Cr
   if (outside.length > 0) {
     throw invalidError(`Not available on this kind of key: ${outside.join(', ')}`, 'permissions')
   }
-  const secret = secretFor(input.level)
+  const secret = secretFor()
   const days = EXPIRY_DAYS[input.expires]
   const now = new Date()
   const row: KeyRow = {
@@ -170,7 +170,7 @@ export const createKey = mutation((ctx, orgSlug: string, input: NewKeyInput): Cr
     projectId: at.level === 'organization' ? null : at.project.id,
     workspaceId: at.level === 'workspace' ? at.workspace.id : null,
     name,
-    prefix: `${secret.slice(0, 6)}…${secret.slice(-4)}`,
+    prefix: `${secret.slice(0, 8)}…${secret.slice(-4)}`,
     permissions: input.permissions,
     createdBy: ctx.userId,
     createdAt: now.toISOString(),

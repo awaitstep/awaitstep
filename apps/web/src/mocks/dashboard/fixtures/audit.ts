@@ -38,7 +38,7 @@ const BOARD: { minutes: number; event: Event }[] = [
       actor: 'CI deploys',
       action: 'deployed',
       target: 'Lead enrichment v12',
-      detail: 'Project API key ask_p1…a71d',
+      detail: 'Project API key ask_Kq3VtR8m…a71d',
       ...at.sales,
     },
   },
@@ -105,7 +105,7 @@ const OLDER: Event[] = [
     actor: 'CI deploys',
     action: 'deployed',
     target: 'Lead enrichment v11',
-    detail: 'Project API key ask_p1…a71d',
+    detail: 'Project API key ask_Kq3VtR8m…a71d',
     ...at.sales,
   },
   {

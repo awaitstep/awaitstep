@@ -7,6 +7,8 @@ import type {
   WorkspaceCapability,
   WorkspaceColour,
   WorkspaceRole,
+  KeyLevel,
+  KeyPermissions,
 } from '@awaitstep/ir'
 import {
   request,
@@ -289,6 +291,49 @@ function query(params: object): string {
   return qs ? `?${qs}` : ''
 }
 
+/** A key as `/api-keys` lists it (B3): its level, grid and where it reaches; never the secret. */
+export interface ApiKeyRow {
+  id: string
+  level: KeyLevel
+  name: string
+  keyPrefix: string
+  keySuffix: string | null
+  permissions: KeyPermissions
+  createdBy: string
+  createdByName: string | null
+  createdAt: string
+  lastUsedAt: string | null
+  expiresAt: string | null
+  projectId: string | null
+  workspaceId: string | null
+  workspace: { id: string; slug: string; name: string; colour: string } | null
+}
+
+/** One page of a level's key list; `nextCursor` until the last. */
+export interface ApiKeyPage {
+  data: ApiKeyRow[]
+  nextCursor: string | null
+}
+
+export interface ApiProjectKeys extends ApiKeyPage {
+  workspaceCounts: {
+    workspace: { id: string; slug: string; name: string; colour: string }
+    count: number
+  }[]
+}
+
+export interface ApiWorkspaceKeys {
+  own: ApiKeyRow[]
+  inherited: ApiKeyRow[]
+}
+
+/** Where a key call is addressed: the level's slugs. */
+export interface KeySlugs {
+  org: string
+  project?: string
+  workspace?: string
+}
+
 export const dashboardApi = {
   getScope(slugs: { org: string; project?: string; workspace?: string }): Promise<ApiScope> {
     return request(`/scope${query(slugs)}`)
@@ -426,6 +471,30 @@ export const dashboardApi = {
 
   cancelInvite(org: string, id: string): Promise<{ ok: true }> {
     return request(`/invitations/${id}${query({ org })}`, { method: 'DELETE' })
+  },
+
+  listOrgKeys(org: string, cursor?: string): Promise<ApiKeyPage> {
+    return request(`/api-keys${query({ org, cursor })}`)
+  },
+
+  listProjectKeys(slugs: ProjectSlugs, cursor?: string): Promise<ApiProjectKeys> {
+    return request(`/api-keys${query({ ...slugs, cursor })}`)
+  },
+
+  listWorkspaceKeys(slugs: WorkspaceSlugs): Promise<ApiWorkspaceKeys> {
+    return request(`/api-keys${query(slugs)}`)
+  },
+
+  /** The secret comes back once, as `key`. */
+  createKey(
+    slugs: KeySlugs,
+    data: { name: string; level: KeyLevel; permissions: KeyPermissions; expiresAt: string | null },
+  ): Promise<ApiKeyRow & { key: string }> {
+    return request(`/api-keys${query(slugs)}`, { method: 'POST', body: JSON.stringify(data) })
+  },
+
+  revokeKey(slugs: KeySlugs, id: string): Promise<ApiKeyRow> {
+    return request(`/api-keys/${id}${query(slugs)}`, { method: 'DELETE' })
   },
 
   getInvite(token: string): Promise<ApiInviteView> {
