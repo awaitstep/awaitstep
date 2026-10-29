@@ -10,12 +10,93 @@
 // - Viewers read and run; they never edit, deploy or share.
 // - A workspace nobody gave you is not found, never "forbidden".
 //
-// Until B2 adds project and workspace roles, the org role decides all three
-// levels (`rolesFromOrgRole`).
+// `resolveRoles` is the one statement of that table in code; the database
+// adapter renders the same table as SQL (`RoleFields`) and a test holds the
+// two to each other.
 
 export type OrgRole = 'owner' | 'admin' | 'member'
 export type ProjectRole = 'admin' | 'member'
 export type WorkspaceRole = 'admin' | 'editor' | 'viewer'
+
+/** What the membership rows say about one person at one workspace. */
+export interface RoleGrants {
+  /** Null when they are not in the organization. */
+  orgRole: OrgRole | null
+  /** Their `project_members` row, if any. */
+  projectGrant: ProjectRole | null
+  /** Their `workspace_members` row, if any. */
+  workspaceGrant: WorkspaceRole | null
+}
+
+export interface ResolvedRoles {
+  orgRole: OrgRole | null
+  /** Org owners and admins count as project admins; null for someone with no project role. */
+  projectRole: ProjectRole | null
+  /**
+   * The workspace role the project alone gives (admin → Admin, member →
+   * Editor), before any workspace grant. A role equal to it is inherited.
+   */
+  inheritedWorkspaceRole: WorkspaceRole | null
+  /** Their effective role in the workspace; null means it is hidden from them. */
+  workspaceRole: WorkspaceRole | null
+}
+
+const WORKSPACE_ROLE_RANK: Record<WorkspaceRole, number> = { viewer: 0, editor: 1, admin: 2 }
+
+/** Whether `role` gives more than `than`. */
+export function roleAbove(role: WorkspaceRole, than: WorkspaceRole): boolean {
+  return WORKSPACE_ROLE_RANK[role] > WORKSPACE_ROLE_RANK[than]
+}
+
+/**
+ * Whether a workspace grant of `role` does anything for someone the project
+ * already gives `inherited`: only a higher role does. A grant at or below is
+ * refused, since it would do nothing now and quietly keep them in later.
+ */
+export function grantCounts(role: WorkspaceRole, inherited: WorkspaceRole | null): boolean {
+  return inherited === null || roleAbove(role, inherited)
+}
+
+/** Effective project role: org owners and admins are admins of every project. */
+export function projectRoleOf(
+  orgRole: OrgRole | null,
+  projectGrant: ProjectRole | null,
+): ProjectRole | null {
+  if (orgRole === null) return null
+  if (isOrgAdmin(orgRole)) return 'admin'
+  return projectGrant
+}
+
+/** The workspace role a project role alone gives. */
+export function inheritedWorkspaceRole(projectRole: ProjectRole | null): WorkspaceRole | null {
+  if (projectRole === 'admin') return 'admin'
+  return projectRole === 'member' ? 'editor' : null
+}
+
+export function resolveRoles(grants: RoleGrants): ResolvedRoles {
+  const projectRole = projectRoleOf(grants.orgRole, grants.projectGrant)
+  const inherited = inheritedWorkspaceRole(projectRole)
+  let workspaceRole: WorkspaceRole | null
+  if (grants.orgRole === null) workspaceRole = null
+  else if (inherited === null) workspaceRole = grants.workspaceGrant
+  else if (grants.workspaceGrant && roleAbove(grants.workspaceGrant, inherited)) {
+    workspaceRole = grants.workspaceGrant
+  } else workspaceRole = inherited
+  return { orgRole: grants.orgRole, projectRole, inheritedWorkspaceRole: inherited, workspaceRole }
+}
+
+/**
+ * Whether the project shows up for them at all: through the org, a project
+ * role, or a grant in any one of its workspaces.
+ */
+export function canSeeProject(
+  orgRole: OrgRole | null,
+  projectGrant: ProjectRole | null,
+  hasWorkspaceGrant: boolean,
+): boolean {
+  if (projectRoleOf(orgRole, projectGrant) !== null) return true
+  return orgRole !== null && hasWorkspaceGrant
+}
 
 /** Whether the viewer may do something here, and why not when they may not. */
 export interface Allowed {
@@ -71,20 +152,6 @@ export const ACCESS_REASONS = {
 
 export function isOrgAdmin(role: OrgRole | null | undefined): boolean {
   return role === 'owner' || role === 'admin'
-}
-
-/**
- * The project and workspace roles an org role alone gives, before any
- * project or workspace grant exists (B1): owners and admins run everything,
- * every other member builds everywhere.
- */
-export function rolesFromOrgRole(orgRole: OrgRole): {
-  projectRole: ProjectRole
-  workspaceRole: WorkspaceRole
-} {
-  return isOrgAdmin(orgRole)
-    ? { projectRole: 'admin', workspaceRole: 'admin' }
-    : { projectRole: 'member', workspaceRole: 'editor' }
 }
 
 /** `projectsLeft`: every project still in the org, seen or not; deleting waits for them. */

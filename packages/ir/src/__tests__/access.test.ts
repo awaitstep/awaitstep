@@ -1,19 +1,118 @@
 import { describe, expect, it } from 'vitest'
 import {
   ACCESS_REASONS,
+  canSeeProject,
+  grantCounts,
   orgCapabilities,
   projectCapabilities,
-  rolesFromOrgRole,
+  resolveRoles,
+  roleAbove,
   workspaceCapabilities,
+  type OrgRole,
+  type ProjectRole,
+  type WorkspaceRole,
 } from '../access.js'
 
 const facts = { ownLock: false, lockedByProject: null, isLastWorkspace: false, sharedInUse: false }
 
-describe('rolesFromOrgRole', () => {
-  it('makes owners and admins run every project and workspace, and members build in all', () => {
-    expect(rolesFromOrgRole('owner')).toEqual({ projectRole: 'admin', workspaceRole: 'admin' })
-    expect(rolesFromOrgRole('admin')).toEqual({ projectRole: 'admin', workspaceRole: 'admin' })
-    expect(rolesFromOrgRole('member')).toEqual({ projectRole: 'member', workspaceRole: 'editor' })
+const ORG_ROLES: (OrgRole | null)[] = ['owner', 'admin', 'member', null]
+const PROJECT_GRANTS: (ProjectRole | null)[] = ['admin', 'member', null]
+const WORKSPACE_GRANTS: (WorkspaceRole | null)[] = ['admin', 'editor', 'viewer', null]
+
+describe('resolveRoles', () => {
+  it('makes org owners and admins admins of every project and workspace', () => {
+    for (const orgRole of ['owner', 'admin'] as const) {
+      for (const projectGrant of PROJECT_GRANTS) {
+        for (const workspaceGrant of WORKSPACE_GRANTS) {
+          expect(resolveRoles({ orgRole, projectGrant, workspaceGrant })).toEqual({
+            orgRole,
+            projectRole: 'admin',
+            inheritedWorkspaceRole: 'admin',
+            workspaceRole: 'admin',
+          })
+        }
+      }
+    }
+  })
+
+  it('gives a project admin every workspace as Admin', () => {
+    expect(
+      resolveRoles({ orgRole: 'member', projectGrant: 'admin', workspaceGrant: 'viewer' }),
+    ).toEqual({
+      orgRole: 'member',
+      projectRole: 'admin',
+      inheritedWorkspaceRole: 'admin',
+      workspaceRole: 'admin',
+    })
+  })
+
+  it('gives a project member every workspace as Editor, raised to Admin by a grant', () => {
+    const member = { orgRole: 'member' as const, projectGrant: 'member' as const }
+    expect(resolveRoles({ ...member, workspaceGrant: null }).workspaceRole).toBe('editor')
+    expect(resolveRoles({ ...member, workspaceGrant: 'viewer' }).workspaceRole).toBe('editor')
+    expect(resolveRoles({ ...member, workspaceGrant: 'editor' }).workspaceRole).toBe('editor')
+    expect(resolveRoles({ ...member, workspaceGrant: 'admin' })).toEqual({
+      orgRole: 'member',
+      projectRole: 'member',
+      inheritedWorkspaceRole: 'editor',
+      workspaceRole: 'admin',
+    })
+  })
+
+  it('lets a plain member in only where a workspace grant says, and hides the rest', () => {
+    const plain = { orgRole: 'member' as const, projectGrant: null }
+    expect(resolveRoles({ ...plain, workspaceGrant: 'viewer' })).toEqual({
+      orgRole: 'member',
+      projectRole: null,
+      inheritedWorkspaceRole: null,
+      workspaceRole: 'viewer',
+    })
+    expect(resolveRoles({ ...plain, workspaceGrant: null }).workspaceRole).toBeNull()
+  })
+
+  it('hides everything from someone outside the org, whatever rows they left behind', () => {
+    for (const projectGrant of PROJECT_GRANTS) {
+      for (const workspaceGrant of WORKSPACE_GRANTS) {
+        expect(resolveRoles({ orgRole: null, projectGrant, workspaceGrant })).toEqual({
+          orgRole: null,
+          projectRole: null,
+          inheritedWorkspaceRole: null,
+          workspaceRole: null,
+        })
+      }
+    }
+  })
+
+  it('answers every combination with a role no lower than what the project gives', () => {
+    for (const orgRole of ORG_ROLES) {
+      for (const projectGrant of PROJECT_GRANTS) {
+        for (const workspaceGrant of WORKSPACE_GRANTS) {
+          const roles = resolveRoles({ orgRole, projectGrant, workspaceGrant })
+          if (roles.inheritedWorkspaceRole && roles.workspaceRole) {
+            expect(roleAbove(roles.inheritedWorkspaceRole, roles.workspaceRole)).toBe(false)
+          }
+        }
+      }
+    }
+  })
+})
+
+describe('canSeeProject', () => {
+  it('shows a project through the org, a project role, or any workspace grant in it', () => {
+    expect(canSeeProject('admin', null, false)).toBe(true)
+    expect(canSeeProject('member', 'member', false)).toBe(true)
+    expect(canSeeProject('member', null, true)).toBe(true)
+    expect(canSeeProject('member', null, false)).toBe(false)
+    expect(canSeeProject(null, 'admin', true)).toBe(false)
+  })
+})
+
+describe('grantCounts', () => {
+  it('accepts a grant only above what the project already gives', () => {
+    expect(grantCounts('viewer', null)).toBe(true)
+    expect(grantCounts('editor', 'editor')).toBe(false)
+    expect(grantCounts('admin', 'editor')).toBe(true)
+    expect(grantCounts('admin', 'admin')).toBe(false)
   })
 })
 
