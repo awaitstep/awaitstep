@@ -150,7 +150,16 @@ export function projectScope(db: MockDb, ctx: MockContext, row: ProjectRow): Pro
   return {
     project: projectRecord(db, ctx, row),
     viewerRole,
-    viewerCan: projectCapabilities(viewerRole, row.lock !== null, orgRoleOf(db, ctx, row.orgId)),
+    viewerCan: projectCapabilities(
+      viewerRole,
+      {
+        ownLock: row.lock !== null,
+        lockedWorkspaces: db.workspaces
+          .filter((w) => w.projectId === row.id && w.lock !== null)
+          .map((w) => w.name),
+      },
+      orgRoleOf(db, ctx, row.orgId),
+    ),
   }
 }
 

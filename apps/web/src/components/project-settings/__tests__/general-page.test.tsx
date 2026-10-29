@@ -7,6 +7,7 @@ import {
   renderWithDashboardData,
   resetDashboardData,
 } from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
+import type * as LockHooks from '../../../data/dashboard/locks'
 import type * as WorkspaceHooks from '../../../data/dashboard/workspaces'
 import { GeneralPage } from '../general-page'
 
@@ -26,12 +27,28 @@ vi.mock('../../../data/dashboard/workspaces', async (importOriginal) => {
   }
 })
 
+// Stands in for the lock call when a test needs it refused or kept waiting.
+const lockCall: { send: ((on: boolean) => Promise<void>) | null } = { send: null }
+vi.mock('../../../data/dashboard/locks', async (importOriginal) => {
+  const real = await importOriginal<typeof LockHooks>()
+  const { useMutation } = await import('@tanstack/react-query')
+  return {
+    ...real,
+    useSetLock: (target: Parameters<typeof real.useSetLock>[0]) => {
+      const stand = useMutation({ mutationFn: (on: boolean) => lockCall.send!(on) })
+      const actual = real.useSetLock(target)
+      return lockCall.send ? stand : actual
+    },
+  }
+})
+
 const p101 = { org: 'acme', project: 'project-101' }
 
 beforeEach(() => {
   resetDashboardData(new Date())
   goTo.mockReset()
   hold.workspaces = false
+  lockCall.send = null
 })
 
 const topBar = () => screen.getByRole('banner', { name: 'Top bar' })
@@ -148,6 +165,29 @@ describe('project General', () => {
     expect(await within(dialog).findByRole('link', { name: 'New organization' })).toHaveAttribute(
       'href',
       '/choose-org?new=org',
+    )
+  })
+
+  it('says why a lock change was refused, where the lock is described', async () => {
+    lockCall.send = () => Promise.reject(new Error('Something changed meanwhile'))
+    await renderPage()
+    await userEvent.click(screen.getByRole('switch', { name: /Deletion lock/ }))
+    expect(await screen.findByText('Something changed meanwhile')).toBeVisible()
+    // The lock stays as it was.
+    expect(screen.getByRole('button', { name: 'Delete project' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+  })
+
+  it('holds the switch while a lock change is on its way', async () => {
+    lockCall.send = () => new Promise<never>(() => {})
+    await renderPage()
+    await userEvent.click(screen.getByRole('switch', { name: /Deletion lock/ }))
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: /Deletion lock/ })).toHaveAccessibleDescription(
+        /Saving…/,
+      ),
     )
   })
 

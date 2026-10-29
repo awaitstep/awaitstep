@@ -146,7 +146,13 @@ function GeneralSettings({ slugs, scope }: { slugs: ProjectSlugs; scope: Project
       ? undefined
       : 'Counting what would be deleted…'
   const moveReason = can.move.allowed ? undefined : can.move.reason
-  const lockReason = can.toggleLock.allowed ? undefined : can.toggleLock.reason
+  // A change in flight holds the switch; a refused one says why where the state is described.
+  const lockReason = setLock.isPending
+    ? 'Saving…'
+    : can.toggleLock.allowed
+      ? undefined
+      : can.toggleLock.reason
+  const lockDescription = setLock.error?.message ?? lockText(project.name, lock !== null)
   const deleteSummary = `Deletes ${plural(names.length, 'workspace')}, ${plural(workflows, 'workflow')}, their run history and every project key. Deployed workers keep running on Cloudflare until you remove them.`
   const deleteWarning = `This removes ${listNames(names)}, ${plural(workflows, 'workflow')} and all their history. It can’t be undone.`
   const deleteDescription = remove.error?.message ?? deleteWarning
@@ -198,8 +204,8 @@ function GeneralSettings({ slugs, scope }: { slugs: ProjectSlugs; scope: Project
           <LockSwitch
             locked={lock !== null}
             onChange={handleLockChange}
-            description={lockText(project.name, lock !== null)}
-            setBy={lockSetBy}
+            description={lockDescription}
+            setBy={setLock.error ? undefined : lockSetBy}
             disabledReason={lockReason}
           />
           <DangerRow

@@ -120,7 +120,13 @@ export function GeneralTab({ slugs, scope, projectName }: GeneralTabProps) {
   const lockFrom = inherited
     ? { name: inherited.fromName, href: projectSettingsPath(slugs, 'general') }
     : undefined
-  const lockReason = can.toggleLock.allowed ? undefined : can.toggleLock.reason
+  // A change in flight holds the switch; a refused one says why where the state is described.
+  const lockReason = setLock.isPending
+    ? 'Saving…'
+    : can.toggleLock.allowed
+      ? undefined
+      : can.toggleLock.reason
+  const lockDescription = setLock.error?.message ?? lockText(workspace, locked, projectName)
   const moveReason = can.manageSettings.allowed ? undefined : can.manageSettings.reason
   const deleteReason = can.delete.allowed ? undefined : can.delete.reason
   const { workflows, functions } = workspace.counts
@@ -159,8 +165,8 @@ export function GeneralTab({ slugs, scope, projectName }: GeneralTabProps) {
         <LockSwitch
           locked={locked}
           onChange={handleLockChange}
-          description={lockText(workspace, locked, projectName)}
-          setBy={lockSetBy}
+          description={lockDescription}
+          setBy={setLock.error ? undefined : lockSetBy}
           inheritedFrom={lockFrom}
           disabledReason={lockReason}
         />

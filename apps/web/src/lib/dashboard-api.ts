@@ -425,6 +425,13 @@ export const dashboardApi = {
     return request(`/projects/${id}${query({ org })}`, { method: 'DELETE' })
   },
 
+  setProjectLock(org: string, id: string, locked: boolean): Promise<{ lock: ApiLock | null }> {
+    return request(`/projects/${id}/lock${query({ org })}`, {
+      method: 'PUT',
+      body: JSON.stringify({ locked }),
+    })
+  },
+
   listWorkspaces(slugs: ProjectSlugs): Promise<{ data: ApiWorkspace[] }> {
     return request(`/workspaces${query(slugs)}`)
   },
@@ -625,6 +632,10 @@ export const dashboardApi = {
 
   deleteWorkspace(id: string): Promise<{ ok: true }> {
     return request(`/workspaces/${id}`, { method: 'DELETE' })
+  },
+
+  setWorkspaceLock(id: string, locked: boolean): Promise<{ lock: ApiLock | null }> {
+    return request(`/workspaces/${id}/lock`, { method: 'PUT', body: JSON.stringify({ locked }) })
   },
 
   moveWorkflows(

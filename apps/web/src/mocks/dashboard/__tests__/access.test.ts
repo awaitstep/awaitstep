@@ -109,11 +109,17 @@ describe('capabilities', () => {
   })
 
   it('keeps project settings to project admins and blocks delete while locked', () => {
-    expect(projectCapabilities('member', false).manageSettings).toEqual({
+    const open = { ownLock: false, lockedWorkspaces: [] }
+    expect(projectCapabilities('member', open).manageSettings).toEqual({
       allowed: false,
       reason: REASONS.projectAdmins,
     })
-    expect(projectCapabilities('admin', true).delete.reason).toBe(REASONS.lockFirst)
-    expect(projectCapabilities('admin', false).delete.allowed).toBe(true)
+    expect(projectCapabilities('admin', { ...open, ownLock: true }).delete.reason).toBe(
+      REASONS.lockFirst,
+    )
+    expect(
+      projectCapabilities('admin', { ...open, lockedWorkspaces: ['Sales'] }).delete.reason,
+    ).toBe('Sales is locked')
+    expect(projectCapabilities('admin', open).delete.allowed).toBe(true)
   })
 })
