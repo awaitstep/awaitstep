@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { encodeCursor, decodeCursor, clampLimit, paginateResults } from '../pagination.js'
+import { encodeCursor, decodeCursor, clampLimit, isCursor, paginateResults } from '../pagination.js'
 
 describe('encodeCursor / decodeCursor', () => {
   it('round-trips id and timestamp', () => {
@@ -34,6 +34,27 @@ describe('encodeCursor / decodeCursor', () => {
 
   it('throws on invalid cursor (no underscore)', () => {
     expect(() => decodeCursor('nounderscore')).toThrow('Invalid cursor')
+  })
+})
+
+describe('isCursor', () => {
+  it('accepts what encodeCursor makes, with or without milliseconds', () => {
+    expect(isCursor(encodeCursor('a_b', '2026-10-29T10:00:00.000Z'))).toBe(true)
+    expect(isCursor('wf-1_2026-10-29T10:00:00Z')).toBe(true)
+  })
+
+  it('refuses garbage and instants the database would refuse', () => {
+    for (const bad of [
+      'garbage',
+      'x_2026-99-99',
+      'x_2026-13-01T00:00:00.000Z',
+      'x_2026-02-31T00:00:00.000Z',
+      'x_2026-01-01T24:00:00.000Z',
+      'x_2026-10-29T10:00:00.000+01:00',
+      '_2026-10-29T10:00:00.000Z',
+    ]) {
+      expect(isCursor(bad), bad).toBe(false)
+    }
   })
 })
 

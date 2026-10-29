@@ -110,6 +110,7 @@ export type { PaginationParams, PaginatedResult } from './pagination.js'
 export {
   encodeCursor,
   decodeCursor,
+  isCursor,
   clampLimit,
   paginateResults,
   DEFAULT_LIMIT,
