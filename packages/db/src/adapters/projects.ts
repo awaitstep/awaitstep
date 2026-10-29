@@ -1,4 +1,4 @@
-import { eq, desc, and, or, lt, aliasedTable } from 'drizzle-orm'
+import { eq, desc, and, or, lt, sql, aliasedTable } from 'drizzle-orm'
 import type {
   OrgMemberSummary,
   Project,
@@ -33,6 +33,8 @@ export class ProjectsAdapter {
   /**
    * A project is never without a workspace: its Default one is written in
    * the same unit of work (`atomically`), so a failure leaves neither row.
+   * Its creator becomes its admin in the same unit, unless they run the
+   * organization and need no row.
    */
   async create(data: {
     id: string
@@ -68,9 +70,33 @@ export class ProjectsAdapter {
       createdAt: now,
       updatedAt: now,
     }
+    const pm = this.t.projectMembers
+    const m = aliasedTable(this.t.member, 'creator_member')
     await atomically(this.db, (tx) => [
       tx.insert(this.table).values(project),
       tx.insert(this.t.workspaces).values(workspace),
+      ...(data.createdBy
+        ? [
+            tx.insert(pm).select(
+              tx
+                .select({
+                  projectId: sql`${data.id}`,
+                  userId: m.userId,
+                  role: sql`'admin'`,
+                  createdBy: sql`${data.createdBy}`,
+                  createdAt: sql`${now}`,
+                })
+                .from(m)
+                .where(
+                  and(
+                    eq(m.organizationId, data.organizationId),
+                    eq(m.userId, data.createdBy),
+                    sql`${m.role} not in ('owner', 'admin')`,
+                  ),
+                ),
+            ),
+          ]
+        : []),
     ])
     return { project, workspace }
   }
@@ -80,15 +106,36 @@ export class ProjectsAdapter {
     return rows[0] ?? null
   }
 
-  /** Each project with its workspaces, health and people: what a project card shows. */
+  /** How many projects the organization still has: deleting it waits for them. */
+  async countByOrganization(organizationId: string): Promise<number> {
+    const rows = await this.db
+      .select({ n: sql<number>`count(*)`.mapWith(Number) })
+      .from(this.table)
+      .where(eq(this.table.organizationId, organizationId))
+    return rows[0]?.n ?? 0
+  }
+
+  /**
+   * Each project the viewer can open, with its workspaces, health and
+   * people as the viewer may see them: what a project card shows.
+   */
   async listByOrganization(
     organizationId: string,
+    userId: string,
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<ProjectOverview>> {
     const p = aliasedTable(this.table, 'p')
     const locker = aliasedTable(this.t.user, 'locker')
+    const pm = aliasedTable(this.t.projectMembers, 'vpm')
+    const viewer = { userId, organizationId: p.organizationId }
     const limit = clampLimit(pagination?.limit)
-    const conditions = [eq(p.organizationId, organizationId)]
+    const conditions = [
+      eq(p.organizationId, organizationId),
+      this.fields.roles.projectVisible(userId, {
+        organizationId: p.organizationId,
+        projectId: p.id,
+      }),
+    ]
     if (pagination?.cursor) {
       const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
       conditions.push(
@@ -98,13 +145,16 @@ export class ProjectsAdapter {
     const rows = await this.db
       .select({
         project: p,
-        workspaces: this.fields.workspaceChips(p.id),
-        health: this.fields.projectHealth(p.id),
+        workspaces: this.fields.workspaceChips(p.id, viewer),
+        health: this.fields.projectHealth(p.id, viewer),
         lockedByName: locker.name,
-        members: this.fields.members(p.organizationId),
+        members: this.fields.projectPeople(p.id, viewer),
+        orgRole: this.fields.roles.orgRoleOf(userId, p.organizationId),
+        projectGrant: pm.role,
       })
       .from(p)
       .leftJoin(locker, eq(locker.id, p.lockedBy))
+      .leftJoin(pm, and(eq(pm.projectId, p.id), eq(pm.userId, userId)))
       .where(and(...conditions))
       .orderBy(desc(p.createdAt), desc(p.id))
       .limit(limit + 1)
@@ -115,12 +165,15 @@ export class ProjectsAdapter {
         health: ProjectOverview['health']
         lockedByName: string | null
         members: unknown
+        orgRole: string | null
+        projectGrant: ProjectOverview['viewer']['projectGrant']
       }) => ({
         ...row.project,
         workspaces: readJsonArray<WorkspaceChip>(row.workspaces),
         health: row.health,
         lockedByName: row.lockedByName,
         members: readJsonArray<OrgMemberSummary>(row.members),
+        viewer: { orgRole: row.orgRole, projectGrant: row.projectGrant, workspaceGrant: null },
       }),
     )
     return paginateResults(overviews, limit, (r) => r.createdAt)

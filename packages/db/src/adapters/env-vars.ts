@@ -1,6 +1,8 @@
-import { eq, desc, and, isNull, inArray, or, lt } from 'drizzle-orm'
+import { eq, desc, and, isNull, inArray, or, lt, sql, aliasedTable, type SQL } from 'drizzle-orm'
 import type { EnvVar } from '../types.js'
 import { insertWhere } from './insert-where.js'
+import { aliasedFrom } from './json-array.js'
+import type { RoleFields } from './role-fields.js'
 import type { TokenCrypto } from '../crypto.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
@@ -14,7 +16,14 @@ export class EnvVarsAdapter {
     private table: AnyTable,
     private crypto?: TokenCrypto,
     private projectsTable?: AnyTable,
+    private roles?: RoleFields,
   ) {}
+
+  /** "The viewer can open the project": a project hidden from them lists nothing. */
+  private projectVisibleTo(visibleTo: string, projectId: string): SQL {
+    const vp = aliasedTable(this.projectsTable, 'vp')
+    return sql`exists (select 1 from ${aliasedFrom(vp)} where ${vp.id} = ${projectId} and ${this.roles!.projectVisible(visibleTo, { organizationId: vp.organizationId, projectId: vp.id })})`
+  }
 
   async create(data: {
     id: string
@@ -40,7 +49,8 @@ export class EnvVarsAdapter {
       updatedAt: now,
     }
     // A project variable is written only if the project is the
-    // organization's — checked by the insert itself.
+    // organization's and one its author can open (B2) — checked by the
+    // insert itself.
     if (data.projectId && this.projectsTable) {
       const p = this.projectsTable
       const inserted = await insertWhere<EnvVar>(
@@ -48,7 +58,11 @@ export class EnvVarsAdapter {
         this.table,
         row,
         p,
-        and(eq(p.id, data.projectId), eq(p.organizationId, data.organizationId))!,
+        and(
+          eq(p.id, data.projectId),
+          eq(p.organizationId, data.organizationId),
+          this.roles ? this.projectVisibleTo(data.createdBy, data.projectId) : undefined,
+        )!,
       )
       if (!inserted) return null
     } else {
@@ -95,16 +109,21 @@ export class EnvVarsAdapter {
     return paginateResults(rows, limit, (r) => r.createdAt)
   }
 
+  /** With `visibleTo`, only when that person can open the project (B2: a hidden project lists nothing). */
   async listByProject(
     organizationId: string,
     projectId: string,
     pagination?: PaginationParams,
+    visibleTo?: string,
   ): Promise<PaginatedResult<EnvVar>> {
     const limit = clampLimit(pagination?.limit)
     const conditions = [
       eq(this.table.organizationId, organizationId),
       eq(this.table.projectId, projectId),
     ]
+    if (visibleTo !== undefined && this.roles && this.projectsTable) {
+      conditions.push(this.projectVisibleTo(visibleTo, projectId))
+    }
     if (pagination?.cursor) {
       const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
       conditions.push(

@@ -336,7 +336,8 @@ describe.each([
       const byId = await h.adapter.getProjectIfMember('u-ama', { id: 'p-101' })
       expect(byId!.project.slug).toBe('project-101')
       expect(byId!.workspaceId).toBeNull()
-      expect(byId!.role).toBe('owner')
+      expect(byId!.orgRole).toBe('owner')
+      expect(byId!.projectGrant).toBeNull()
 
       const bySlugs = await h.adapter.getProjectIfMember(
         'u-ama',
@@ -361,9 +362,11 @@ describe.each([
 
     it('finds a workspace by id or slugs for a member, and within a held project', async () => {
       const ids = { workspaceId: 'ws-sales', projectId: 'p-101', organizationId: 'org-acme' }
+      const rows = { projectGrant: null, workspaceGrant: null }
       expect(await h.adapter.getWorkspaceIfMember('u-ama', { id: 'ws-sales' })).toEqual({
         ...ids,
-        role: 'owner',
+        ...rows,
+        orgRole: 'owner',
       })
       expect(
         await h.adapter.getWorkspaceIfMember('u-ben', {
@@ -371,18 +374,19 @@ describe.each([
           project: 'project-101',
           workspace: 'sales',
         }),
-      ).toEqual({ ...ids, role: 'admin' })
+      ).toEqual({ ...ids, ...rows, orgRole: 'admin' })
       expect(await h.adapter.getWorkspaceIfMember('u-cleo', { id: 'ws-sales' })).toBeNull()
 
       expect(await h.adapter.getWorkspaceInProject('p-101', { slug: 'sales' })).toEqual(ids)
       expect(await h.adapter.getWorkspaceInProject('p-202', { id: 'ws-sales' })).toBeNull()
     })
 
-    it('lists the orgs a user is in with their counts', async () => {
+    it('lists the orgs a user is in with the projects they can open counted', async () => {
+      // Ama is a plain member of Globex with no grant there: its one project is hidden.
       const orgs = await h.adapter.listOrganizationsForMember('u-ama')
       expect(orgs.map((o) => [o.slug, o.viewerRole, o.projectCount, o.memberCount])).toEqual([
         ['acme', 'owner', 2, 2],
-        ['globex', 'member', 1, 2],
+        ['globex', 'member', 0, 2],
       ])
     })
   })
@@ -437,7 +441,7 @@ describe.each([
     })
 
     it('lists projects with workspaces, health and members', async () => {
-      const { data } = await h.adapter.listProjectsByOrganization('org-acme')
+      const { data } = await h.adapter.listProjectsByOrganization('org-acme', 'u-ama')
       const p101 = data.find((p) => p.id === 'p-101')!
       expect(p101.workspaces.map((w) => w.slug)).toEqual(['sales', 'ops'])
       expect(p101.health).toEqual({
@@ -447,6 +451,7 @@ describe.each([
         lastRunAt: '2026-10-28T07:00:00.000Z',
       })
       expect(p101.members.map((m) => m.id)).toEqual(['u-ama', 'u-ben'])
+      expect(p101.viewer).toEqual({ orgRole: 'owner', projectGrant: null, workspaceGrant: null })
       const p202 = data.find((p) => p.id === 'p-202')!
       expect(p202.health).toEqual({
         workflows: 1,
@@ -459,7 +464,7 @@ describe.each([
 
   describe('workspaces', () => {
     it('lists a project’s workspaces oldest first with counts and people', async () => {
-      const list = await h.adapter.listWorkspacesByProject('p-101')
+      const list = await h.adapter.listWorkspacesByProject('p-101', 'u-ama')
       expect(list.map((w) => w.slug)).toEqual(['sales', 'ops'])
       expect(list[0]).toMatchObject({
         createdByName: 'Ama Mensah',
@@ -476,7 +481,11 @@ describe.each([
         failing: 0,
         lastRunAt: null,
       })
-      expect(list[1]!.members.map((m) => m.id)).toEqual(['u-ama', 'u-ben'])
+      expect(list[1]!.members.map((m) => [m.id, m.orgRole, m.lastActiveAt])).toEqual([
+        ['u-ama', 'owner', null],
+        ['u-ben', 'admin', null],
+      ])
+      expect(list[1]!.viewer.orgRole).toBe('owner')
     })
 
     it('creates, updates and reads a workspace', async () => {
@@ -678,7 +687,7 @@ describe.each([
     })
 
     it('lists the workflows whose latest run failed across the org', async () => {
-      const failing = await h.adapter.listFailingWorkflows('org-acme')
+      const failing = await h.adapter.listFailingWorkflows('org-acme', 'u-ama')
       expect(failing.map((f) => [f.workflow.id, f.workspace.slug, f.run.id])).toEqual([
         ['wf-202', 'default', 'r-7'],
         ['wf-sync', 'sales', 'r-5'],
@@ -687,7 +696,9 @@ describe.each([
         project: { slug: 'project-101', name: 'Project 101' },
         workspace: { colour: 'blue' },
       })
-      expect(await h.adapter.listFailingWorkflows('org-globex')).toEqual([])
+      expect(await h.adapter.listFailingWorkflows('org-globex', 'u-cleo')).toEqual([])
+      // A plain member with no grant in Globex sees nothing failing there either.
+      expect(await h.adapter.listFailingWorkflows('org-globex', 'u-ama')).toEqual([])
     })
   })
 

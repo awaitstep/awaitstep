@@ -50,6 +50,27 @@ import type {
   WorkspaceRunPage,
   FailingWorkflow,
   MemberRole,
+  ProjectAccess,
+  WorkspaceAccess,
+  WorkflowAccess,
+  WorkspaceGrant,
+  WorkspaceGrantData,
+  WorkspaceMember,
+  WorkspacePersonRow,
+  ProjectMemberRow,
+  OrgMemberRow,
+  PersonAccessRows,
+  AccessGrantData,
+  InOrgCheck,
+  GrantRows,
+  CreateInvitationData,
+  InvitationChecks,
+  InvitationRow,
+  InvitationView,
+  PendingInvitationRow,
+  AcceptInvitationData,
+  AccessRequestRow,
+  AccessRequestDecision,
 } from '../types.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
@@ -58,7 +79,11 @@ import { is } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { type Dialect, jsonArrayOfValues, readJsonArray } from './json-array.js'
 import { TERMINAL_RUN_STATUSES, type OverviewTables } from './overview-fields.js'
+import { RoleFields } from './role-fields.js'
 import { ScopeAdapter } from './scope.js'
+import { AccessAdapter } from './access.js'
+import { InvitationsAdapter } from './invitations.js'
+import { AccessRequestsAdapter } from './access-requests.js'
 import { WorkspacesAdapter } from './workspaces.js'
 import { WorkspaceRunsAdapter } from './workspace-runs.js'
 import { WorkflowsAdapter } from './workflows.js'
@@ -93,6 +118,12 @@ export interface SchemaRef {
   member?: unknown
   organization?: unknown
   user?: unknown
+  session?: unknown
+  invitation?: unknown
+  projectMembers?: unknown
+  workspaceMembers?: unknown
+  invitationPlaces?: unknown
+  accessRequests?: unknown
 }
 
 export interface DrizzleAdapterOptions {
@@ -127,10 +158,14 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _installedNodes: InstalledNodesAdapter
   private _deploymentConfigs: DeploymentConfigsAdapter
   private _scope: ScopeAdapter
+  private _access: AccessAdapter
+  private _invitations: InvitationsAdapter
+  private _accessRequests: AccessRequestsAdapter
   private _workspaces: WorkspacesAdapter
   private _workspaceRuns: WorkspaceRunsAdapter
   private _dialect: Dialect
   private _crypto?: TokenCrypto
+  private _tables: OverviewTables
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(db: any, schema: SchemaRef, options?: DrizzleAdapterOptions) {
@@ -144,14 +179,36 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       organization: schema.organization,
       member: schema.member,
       user: schema.user,
+      session: schema.session,
       projects: schema.projects,
       workspaces: schema.workspaces,
+      projectMembers: schema.projectMembers,
+      workspaceMembers: schema.workspaceMembers,
       workflows: schema.workflows,
       workflowRuns: schema.workflowRuns,
       deployments: schema.deployments,
       workflowVersions: schema.workflowVersions,
     }
+    this._tables = tables
+    // The role SQL for the adapters that only filter by it (keys, variables).
+    const roles =
+      schema.projectMembers && schema.workspaceMembers ? new RoleFields(tables) : undefined
     this._scope = new ScopeAdapter(db, tables, this._dialect)
+    this._access = new AccessAdapter(
+      db,
+      { ...tables, invitation: schema.invitation, invitationPlaces: schema.invitationPlaces },
+      this._dialect,
+    )
+    this._invitations = new InvitationsAdapter(
+      db,
+      { ...tables, invitation: schema.invitation, invitationPlaces: schema.invitationPlaces },
+      this._dialect,
+    )
+    this._accessRequests = new AccessRequestsAdapter(
+      db,
+      { ...tables, accessRequests: schema.accessRequests },
+      this._dialect,
+    )
     this._workspaces = new WorkspacesAdapter(db, tables, this._dialect)
     this._workspaceRuns = new WorkspaceRunsAdapter(db, tables)
     this._workflows = new WorkflowsAdapter(db, schema.workflows, schema.workspaces)
@@ -167,8 +224,27 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     this._workflowFiles = new WorkflowFilesAdapter(db, schema.workflowFiles)
     this._testSessions = new TestSessionsAdapter(db, schema.testSessions, schema.workflows)
     this._deployments = new DeploymentsAdapter(db, schema.deployments)
-    this._apiKeys = new ApiKeysAdapter(db, schema.apiKeys, schema.projects, schema.member)
-    this._envVars = new EnvVarsAdapter(db, schema.envVars, options?.tokenCrypto, schema.projects)
+    this._apiKeys = new ApiKeysAdapter(
+      db,
+      schema.apiKeys,
+      schema.projects,
+      schema.member,
+      schema.projectMembers && schema.workspaceMembers
+        ? {
+            projectMembers: schema.projectMembers,
+            workspaceMembers: schema.workspaceMembers,
+            workspaces: schema.workspaces,
+          }
+        : undefined,
+      roles,
+    )
+    this._envVars = new EnvVarsAdapter(
+      db,
+      schema.envVars,
+      options?.tokenCrypto,
+      schema.projects,
+      roles,
+    )
     this._projects = new ProjectsAdapter(db, tables, this._dialect)
     this._installedNodes = new InstalledNodesAdapter(db, schema.installedNodes)
     this._deploymentConfigs = new DeploymentConfigsAdapter(db, schema.deploymentConfigs)
@@ -197,14 +273,14 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     userId: string,
     ref: ProjectRef,
     workspace?: WorkspaceInProjectRef,
-  ): Promise<({ project: Project; workspaceId: string | null } & MemberRole) | null> {
+  ): Promise<ProjectAccess | null> {
     return this._scope.getProjectIfMember(userId, ref, workspace)
   }
-  getWorkspaceIfMember(
-    userId: string,
-    ref: WorkspaceRef,
-  ): Promise<(WorkspaceIds & MemberRole) | null> {
+  getWorkspaceIfMember(userId: string, ref: WorkspaceRef): Promise<WorkspaceAccess | null> {
     return this._scope.getWorkspaceIfMember(userId, ref)
+  }
+  getWorkflowForUser(userId: string, workflowId: string): Promise<WorkflowAccess | null> {
+    return this._scope.getWorkflowForUser(userId, workflowId)
   }
   getWorkspaceInProject(
     projectId: string,
@@ -215,8 +291,8 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   listOrganizationsForMember(userId: string): Promise<OrgOverview[]> {
     return this._scope.listOrganizationsForMember(userId)
   }
-  getScopeBySlugs(userId: string, slugs: ScopeSlugs): Promise<ScopeRows | null> {
-    return this._scope.getScopeBySlugs(userId, slugs)
+  getScopeBySlugs(userId: string, slugs: ScopeSlugs, now?: Date): Promise<ScopeRows | null> {
+    return this._scope.getScopeBySlugs(userId, slugs, now)
   }
 
   // Projects
@@ -234,11 +310,23 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   getProjectById(id: string): Promise<Project | null> {
     return this._projects.getById(id)
   }
+  countProjectsInOrganization(organizationId: string): Promise<number> {
+    return this._projects.countByOrganization(organizationId)
+  }
   listProjectsByOrganization(
     organizationId: string,
+    userId: string,
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<ProjectOverview>> {
-    return this._projects.listByOrganization(organizationId, pagination)
+    return this._projects.listByOrganization(organizationId, userId, pagination)
+  }
+  moveProjectToOrganization(
+    projectId: string,
+    fromOrganizationId: string,
+    toOrganizationId: string,
+    moverId: string,
+  ): Promise<void> {
+    return this._access.moveProject(projectId, fromOrganizationId, toOrganizationId, moverId)
   }
   updateProject(
     id: string,
@@ -252,11 +340,14 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
 
   // Workspaces
-  listWorkspacesByProject(projectId: string): Promise<WorkspaceOverview[]> {
-    return this._workspaces.listByProject(projectId)
+  listWorkspacesByProject(projectId: string, userId: string): Promise<WorkspaceOverview[]> {
+    return this._workspaces.listByProject(projectId, userId)
   }
-  createWorkspace(data: CreateWorkspaceData): Promise<Workspace | null> {
-    return this._workspaces.create(data)
+  createWorkspace(
+    data: CreateWorkspaceData,
+    members?: { userId: string; role: WorkspaceGrant }[],
+  ): Promise<Workspace | null> {
+    return this._workspaces.create(data, members)
   }
   getWorkspaceById(id: string): Promise<Workspace | null> {
     return this._workspaces.getById(id)
@@ -277,8 +368,130 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   listWorkspaceRuns(workspaceId: string, filter: WorkspaceRunFilter): Promise<WorkspaceRunPage> {
     return this._workspaceRuns.listByWorkspace(workspaceId, filter)
   }
-  listFailingWorkflows(organizationId: string): Promise<FailingWorkflow[]> {
-    return this._workspaceRuns.listFailing(organizationId)
+  listFailingWorkflows(organizationId: string, viewerId: string): Promise<FailingWorkflow[]> {
+    return this._workspaceRuns.listFailing(organizationId, viewerId)
+  }
+
+  // Access: people, grants, the access editor
+  listOrgMembers(organizationId: string, viewerId: string): Promise<OrgMemberRow[]> {
+    return this._access.listOrgMembers(organizationId, viewerId)
+  }
+  getPersonAccess(organizationId: string, userId: string): Promise<PersonAccessRows | null> {
+    return this._access.getPersonAccess(organizationId, userId)
+  }
+  checkInOrganization(
+    organizationId: string,
+    refs: { userId?: string; userIds?: string[]; projectIds?: string[]; workspaceIds?: string[] },
+  ): Promise<InOrgCheck> {
+    return this._access.checkInOrganization(organizationId, refs)
+  }
+  setOrgRole(organizationId: string, userId: string, role: string): Promise<boolean> {
+    return this._access.setOrgRole(organizationId, userId, role)
+  }
+  saveAccess(
+    organizationId: string,
+    userId: string,
+    grant: AccessGrantData,
+    createdBy: string,
+    caller: { callerIsOwner: boolean },
+  ): Promise<void> {
+    return this._access.saveAccess(organizationId, userId, grant, createdBy, caller)
+  }
+  removeOrgMember(
+    organizationId: string,
+    userId: string,
+    caller: { callerIsOwner: boolean },
+  ): Promise<void> {
+    return this._access.removeMember(organizationId, userId, caller)
+  }
+  listWorkspacePeople(workspaceId: string): Promise<WorkspacePersonRow[]> {
+    return this._access.listWorkspacePeople(workspaceId)
+  }
+  listProjectMembers(projectId: string, viewerId: string): Promise<ProjectMemberRow[]> {
+    return this._access.listProjectMembers(projectId, viewerId)
+  }
+  getGrantRows(workspaceId: string, userId: string): Promise<GrantRows | null> {
+    return this._access.grantRowsOf(workspaceId, userId)
+  }
+  addWorkspaceMember(data: WorkspaceGrantData): Promise<WorkspaceMember | null> {
+    return this._access.addWorkspaceMember(data)
+  }
+  setWorkspaceGrant(
+    workspaceId: string,
+    userId: string,
+    role: WorkspaceGrant,
+  ): Promise<WorkspaceMember | null> {
+    return this._access.setWorkspaceGrant(workspaceId, userId, role)
+  }
+  removeWorkspaceGrant(workspaceId: string, userId: string): Promise<boolean> {
+    return this._access.removeWorkspaceGrant(workspaceId, userId)
+  }
+  getOrgRole(organizationId: string, userId: string): Promise<string | null> {
+    return this._access.orgRoleOf(organizationId, userId)
+  }
+
+  // Invitations
+  invitationChecks(
+    organizationId: string,
+    refs: { projectIds: string[]; workspaceIds: string[]; emails: string[]; now: string },
+  ): Promise<InvitationChecks> {
+    return this._invitations.checks(organizationId, refs)
+  }
+  createInvitations(invitations: CreateInvitationData[]): Promise<void> {
+    return this._invitations.create(invitations)
+  }
+  listInvitations(organizationId: string, viewerId: string, now: string): Promise<InvitationRow[]> {
+    return this._invitations.listByOrganization(organizationId, viewerId, now)
+  }
+  getInvitation(id: string): Promise<InvitationView | null> {
+    return this._invitations.getView(id)
+  }
+  acceptInvitation(data: AcceptInvitationData): Promise<void> {
+    return this._invitations.accept(data)
+  }
+  setInvitationStatus(id: string, from: string, to: string): Promise<boolean> {
+    return this._invitations.setStatus(id, from, to)
+  }
+  cancelInvitation(id: string, organizationId: string): Promise<boolean> {
+    return this._invitations.cancel(id, organizationId)
+  }
+  resendInvitation(id: string, expiresAt: string, unlessExpiresAfter: string): Promise<boolean> {
+    return this._invitations.resend(id, expiresAt, unlessExpiresAfter)
+  }
+  askForNewInvitation(id: string, at: string): Promise<boolean> {
+    return this._invitations.askAgain(id, at)
+  }
+  listInvitationsForEmail(email: string, now: string): Promise<PendingInvitationRow[]> {
+    return this._invitations.listForEmail(email, now)
+  }
+
+  // Access requests
+  getOwnAccessRequest(workspaceId: string, userId: string): Promise<AccessRequestRow | null> {
+    return this._accessRequests.getOwnPending(workspaceId, userId)
+  }
+  createAccessRequest(data: {
+    id: string
+    workspaceId: string
+    userId: string
+    now: string
+  }): Promise<{ request: AccessRequestRow; created: boolean } | null> {
+    return this._accessRequests.create(data)
+  }
+  getAccessRequestForDecision(
+    id: string,
+    deciderId: string,
+  ): Promise<AccessRequestDecision | null> {
+    return this._accessRequests.getForDecision(id, deciderId)
+  }
+  decideAccessRequest(data: {
+    id: string
+    status: 'approved' | 'declined'
+    decidedBy: string
+    now: string
+    alreadyEditing: boolean
+    grant: { workspaceId: string; userId: string } | null
+  }): Promise<void> {
+    return this._accessRequests.decide(data)
   }
 
   // Workflows
@@ -327,6 +540,11 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
 
     const conditions = [eq(w.projectId, projectId)]
     if (filter?.workspaceId) conditions.push(eq(w.workspaceId, filter.workspaceId))
+    else if (filter?.visibleTo) {
+      conditions.push(
+        this._roles().workflowVisible(filter.visibleTo, sql.raw('"workflows"."workspace_id"')),
+      )
+    }
     if (filter?.kind) conditions.push(eq(w.kind, filter.kind))
     if (pagination?.cursor) {
       const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
@@ -607,9 +825,15 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     return this._testSessions.markRuntimeAbandoned(runtime, error)
   }
 
+  /** The role table over this adapter's tables, for listings keyed on workflows. */
+  private _roles(): RoleFields {
+    return new RoleFields(this._tables)
+  }
+
   async listRecentRunsByProject(
     projectId: string,
     pagination?: PaginationParams,
+    visibleTo?: string,
   ): Promise<PaginatedResult<WorkflowRun>> {
     const limit = clampLimit(pagination?.limit)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -618,6 +842,11 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     const r = this._schema.workflowRuns as any
 
     const conditions = [eq(w.projectId, projectId)]
+    if (visibleTo) {
+      conditions.push(
+        this._roles().workflowVisible(visibleTo, sql.raw('"workflows"."workspace_id"')),
+      )
+    }
     if (pagination?.cursor) {
       const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
       conditions.push(
@@ -688,6 +917,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   async listRecentDeploymentsByProject(
     projectId: string,
     pagination?: PaginationParams,
+    visibleTo?: string,
   ): Promise<PaginatedResult<Deployment>> {
     const limit = clampLimit(pagination?.limit)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -696,6 +926,11 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     const d = this._schema.deployments as any
 
     const conditions = [eq(w.projectId, projectId)]
+    if (visibleTo) {
+      conditions.push(
+        this._roles().workflowVisible(visibleTo, sql.raw('"workflows"."workspace_id"')),
+      )
+    }
     if (pagination?.cursor) {
       const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
       conditions.push(
@@ -775,14 +1010,16 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     organizationId: string,
     projectId: string,
     pagination?: PaginationParams,
+    visibleTo?: string,
   ): Promise<PaginatedResult<ApiKeyListItem>> {
-    return this._apiKeys.listByProject(organizationId, projectId, pagination)
+    return this._apiKeys.listByProject(organizationId, projectId, pagination, visibleTo)
   }
   listApiKeysByOrganization(
     organizationId: string,
     pagination?: PaginationParams,
+    visibleTo?: string,
   ): Promise<PaginatedResult<ApiKeyListItem>> {
-    return this._apiKeys.listByOrganization(organizationId, pagination)
+    return this._apiKeys.listByOrganization(organizationId, pagination, visibleTo)
   }
   updateApiKeyLastUsed(id: string, lastUsedAt: string): Promise<void> {
     return this._apiKeys.updateLastUsed(id, lastUsedAt)
@@ -816,8 +1053,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     organizationId: string,
     projectId: string,
     pagination?: PaginationParams,
+    visibleTo?: string,
   ): Promise<PaginatedResult<EnvVar>> {
-    return this._envVars.listByProject(organizationId, projectId, pagination)
+    return this._envVars.listByProject(organizationId, projectId, pagination, visibleTo)
   }
   updateEnvVar(
     id: string,

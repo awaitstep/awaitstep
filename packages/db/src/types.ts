@@ -13,6 +13,13 @@ import type { installedNodes } from './schema/sqlite/installed-nodes.js'
 import type { deploymentConfigs } from './schema/sqlite/deployment-configs.js'
 import type { workflowFiles } from './schema/sqlite/workflow-files.js'
 import type { testSessions } from './schema/sqlite/test-sessions.js'
+import type { invitation } from './schema/sqlite/auth.js'
+import type {
+  projectMembers,
+  workspaceMembers,
+  invitationPlaces,
+  accessRequests,
+} from './schema/sqlite/access.js'
 
 /**
  * `workspaceId` is always set: the migration filled it and the adapter never
@@ -193,6 +200,10 @@ export type ApiKeyAuth = ApiKey & {
   createdByIsMember: boolean
   /** The creator's role in that organization: a key acts with the standing of whoever minted it. */
   createdByRole: string | null
+  /** For a project key: the creator's `project_members` row there, if any. */
+  createdByProjectGrant: ProjectGrant | null
+  /** For a project key: whether the creator holds a grant in any of its workspaces. */
+  createdByHasWorkspaceGrant: boolean
   parentKeyLive: boolean
 }
 /** A listed key with its project's name joined in — null on org-level keys. */
@@ -237,6 +248,7 @@ export interface OrgOverview {
   createdAt: string
   /** The caller's role in it. */
   viewerRole: string
+  /** Projects the caller can open. */
   projectCount: number
   memberCount: number
 }
@@ -258,12 +270,15 @@ export interface ProjectHealth {
 }
 
 export interface ProjectOverview extends Project {
-  /** Oldest first: the order the switcher shows. */
+  /** Oldest first: the workspaces the viewer can open. */
   workspaces: WorkspaceChip[]
+  /** Over the workspaces the viewer can open: a hidden one adds nothing. */
   health: ProjectHealth
   lockedByName: string | null
-  /** Who can open it — every member of the organization until B2 adds roles. */
+  /** Who can open a workspace the viewer can open, with their org role. */
   members: OrgMemberSummary[]
+  /** The viewer's own rows here. */
+  viewer: GrantRows
 }
 
 export interface WorkspaceCounts {
@@ -284,7 +299,10 @@ export interface WorkspaceOverview extends Workspace {
   projectLockedAt: string | null
   /** Workspaces in the project, this one included: 1 means it is the last. */
   siblings: number
-  members: OrgMemberSummary[]
+  /** Everyone who can open it, with the rows their role comes from. */
+  members: WorkspacePersonRow[]
+  /** The viewer's own rows here. */
+  viewer: GrantRows
 }
 
 export interface ScopeRows {
@@ -353,4 +371,212 @@ export interface FailingWorkflow {
   project: { slug: string; name: string }
   workspace: { slug: string; name: string; colour: string }
   run: WorkflowRun
+}
+
+// Access below the organization (B2): the membership rows one person's
+// standing comes from, and what the people pages read. The role table that
+// turns rows into roles is `resolveRoles` in @awaitstep/ir; the adapters
+// render the same table as SQL (`RoleFields`) to hide what someone may not
+// open, and hand the rows up so the API resolves the roles it answers with.
+
+export type ProjectMember = InferSelectModel<typeof projectMembers>
+export type WorkspaceMember = InferSelectModel<typeof workspaceMembers>
+export type InvitationPlace = InferSelectModel<typeof invitationPlaces>
+export type AccessRequest = InferSelectModel<typeof accessRequests>
+export type Invitation = InferSelectModel<typeof invitation>
+
+export type ProjectGrant = ProjectMember['role']
+export type WorkspaceGrant = WorkspaceMember['role']
+
+/** The rows behind one person's standing at one place; null where there is no row. */
+export interface GrantRows {
+  /** As better-auth stores it (`owner`, `admin`, `member`); null outside the organization. */
+  orgRole: string | null
+  projectGrant: ProjectGrant | null
+  workspaceGrant: WorkspaceGrant | null
+}
+
+/** A project the caller can open, with their rows there; `workspaceId` when one was asked for. */
+export interface ProjectAccess extends GrantRows {
+  project: Project
+  workspaceId: string | null
+}
+
+export interface WorkspaceAccess extends GrantRows, WorkspaceIds {}
+
+/** A workflow the caller can open, with their rows in its workspace. */
+export interface WorkflowAccess extends GrantRows {
+  workflow: Workflow
+  organizationId: string
+}
+
+/** Someone who can open a workspace, with the rows their role there comes from. */
+export interface WorkspacePersonRow extends GrantRows {
+  id: string
+  name: string
+  email: string
+  image: string | null
+  /** Their latest session's activity, or null. */
+  lastActiveAt: string | null
+}
+
+/** One row of Project settings → Members: everyone who can open any of its workspaces. */
+export interface ProjectMemberRow {
+  id: string
+  name: string
+  email: string
+  image: string | null
+  orgRole: string
+  projectGrant: ProjectGrant | null
+  /** Their grants in the project's workspaces the viewer can open. */
+  workspaces: (WorkspaceChip & { role: WorkspaceGrant })[]
+}
+
+/** One place an org member can work, for the Members page's "Has access to". */
+export interface OrgMemberPlace {
+  projectId: string
+  projectName: string
+  workspaceCount: number
+  /** Null for a project-wide role. */
+  workspaceId: string | null
+  workspaceName: string | null
+  role: string
+}
+
+export interface OrgMemberRow {
+  id: string
+  name: string
+  email: string
+  image: string | null
+  role: string
+  joinedAt: string
+  /** Only in projects the viewer can open. */
+  places: OrgMemberPlace[]
+}
+
+/** What the access editor loads: the person, every project with its workspaces, and their rows. */
+export interface PersonAccessRows {
+  person: { id: string; name: string; email: string; image: string | null }
+  role: string
+  joinedAt: string
+  projects: { id: string; name: string; workspaces: WorkspaceChip[] }[]
+  projectGrants: { projectId: string; role: ProjectGrant }[]
+  workspaceGrants: { workspaceId: string; role: WorkspaceGrant }[]
+}
+
+/** What saving the access editor writes: the org role and the rows that replace theirs. */
+export interface AccessGrantData {
+  orgRole: string
+  projects: { projectId: string; role: ProjectGrant }[]
+  workspaces: { workspaceId: string; role: WorkspaceGrant }[]
+}
+
+/**
+ * One read before a write that names ids: how many of the named projects,
+ * workspaces and people are the organization's, and the role of one person
+ * in it (null when no `userId` was asked about, or they are not a member).
+ */
+export interface InOrgCheck {
+  role: string | null
+  users: number
+  projects: number
+  workspaces: number
+}
+
+export interface WorkspaceGrantData {
+  workspaceId: string
+  userId: string
+  role: WorkspaceGrant
+  createdBy: string
+}
+
+export interface InvitationPlaceRow {
+  projectId: string
+  projectName: string
+  projectSlug: string
+  workspaceId: string | null
+  workspaceName: string | null
+  workspaceSlug: string | null
+  role: string
+}
+
+/** A pending invitation as Org Members lists it. */
+export interface InvitationRow {
+  id: string
+  email: string
+  role: string
+  status: string
+  expiresAt: string
+  createdAt: string
+  askedForNewAt: string | null
+  inviter: { id: string; name: string }
+  /** Only places in projects the viewer can open. */
+  places: InvitationPlaceRow[]
+}
+
+/** An invitation as the invite page reads it: the row, its organization and inviter, every place. */
+export interface InvitationView {
+  invitation: Invitation
+  org: { id: string; slug: string; name: string; logo: string | null }
+  inviter: { id: string; name: string; email: string; image: string | null }
+  places: InvitationPlaceRow[]
+}
+
+export interface CreateInvitationData {
+  id: string
+  organizationId: string
+  email: string
+  role: string
+  inviterId: string
+  expiresAt: string
+  places: { id: string; projectId: string; workspaceId: string | null; role: string }[]
+}
+
+/**
+ * One read before inviting: how many of the places' projects and workspaces
+ * are the organization's, and which of the addresses are already members or
+ * already have an open invitation (lowercased).
+ */
+export interface InvitationChecks {
+  projects: number
+  workspaces: number
+  members: string[]
+  pending: string[]
+}
+
+/** An invitation waiting for the session's address, for Choose an organization. */
+export interface PendingInvitationRow {
+  id: string
+  org: { slug: string; name: string; logo: string | null }
+  inviterName: string
+  role: string
+  expiresAt: string
+}
+
+export interface AcceptInvitationData {
+  invitationId: string
+  userId: string
+  /** The member row's id, should one need creating. */
+  memberId: string
+  now: string
+}
+
+/** A Viewer's edit-access request with its two people named. */
+export interface AccessRequestRow {
+  id: string
+  workspaceId: string
+  from: { id: string; name: string }
+  to: { id: string; name: string }
+  status: AccessRequest['status']
+  alreadyEditing: boolean
+  createdAt: string
+}
+
+/** A request as the person it was sent to decides it: with where it is and the asker's standing now. */
+export interface AccessRequestDecision {
+  request: AccessRequest
+  workspace: { id: string; name: string; projectId: string; organizationId: string }
+  asker: GrantRows & { name: string }
+  /** The rows of whoever is deciding, in the same workspace: whether they may. */
+  decider: GrantRows
 }

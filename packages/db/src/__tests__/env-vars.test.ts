@@ -9,7 +9,14 @@ const now = '2026-10-20T00:00:00.000Z'
 function createTestDb() {
   const sqlite = new Database(':memory:')
   sqlite.exec(`
+    CREATE TABLE member (
+      id text PRIMARY KEY, userId text NOT NULL, organizationId text NOT NULL,
+      role text NOT NULL, createdAt text NOT NULL
+    );
     CREATE TABLE projects (id text PRIMARY KEY, organization_id text NOT NULL, name text NOT NULL, created_at text NOT NULL, updated_at text NOT NULL);
+    CREATE TABLE workspaces (id text PRIMARY KEY, project_id text NOT NULL, name text NOT NULL, slug text NOT NULL, created_at text NOT NULL, updated_at text NOT NULL);
+    CREATE TABLE project_members (project_id text NOT NULL, user_id text NOT NULL, role text NOT NULL, created_by text, created_at text NOT NULL, PRIMARY KEY (project_id, user_id));
+    CREATE TABLE workspace_members (workspace_id text NOT NULL, user_id text NOT NULL, role text NOT NULL, created_by text, created_at text NOT NULL, PRIMARY KEY (workspace_id, user_id));
     CREATE TABLE env_vars (
       id text PRIMARY KEY, organization_id text NOT NULL, project_id text,
       created_by text NOT NULL, name text NOT NULL, value text NOT NULL,
@@ -19,6 +26,8 @@ function createTestDb() {
     INSERT INTO projects VALUES ('p-1', 'org-1', 'One', '${now}', '${now}');
     INSERT INTO projects VALUES ('p-2', 'org-1', 'Two', '${now}', '${now}');
     INSERT INTO projects VALUES ('p-9', 'org-9', 'Elsewhere', '${now}', '${now}');
+    -- A project variable is written by someone who can open the project (B2): u-1 runs org-1.
+    INSERT INTO member VALUES ('m-1', 'u-1', 'org-1', 'owner', '${now}');
   `)
   const adapter = new DrizzleDatabaseAdapter(drizzle(sqlite), sqliteSchema)
   return { adapter, sqlite }

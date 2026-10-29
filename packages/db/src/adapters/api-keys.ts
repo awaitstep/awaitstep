@@ -1,8 +1,10 @@
 import { eq, desc, isNull, and, or, lt, inArray, sql, aliasedTable, type SQL } from 'drizzle-orm'
 import type { ApiKey, ApiKeyAuth, ApiKeyListItem } from '../types.js'
 import { insertWhere } from './insert-where.js'
+import { aliasedFrom } from './json-array.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
+import type { RoleFields } from './role-fields.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -13,6 +15,12 @@ export class ApiKeysAdapter {
     private table: AnyTable,
     private projectsTable: AnyTable,
     private memberTable?: AnyTable,
+    private accessTables?: {
+      projectMembers: AnyTable
+      workspaceMembers: AnyTable
+      workspaces: AnyTable
+    },
+    private roles?: RoleFields,
   ) {}
 
   /**
@@ -69,15 +77,27 @@ export class ApiKeysAdapter {
       await this.db.insert(this.table).values(row)
       return row
     }
+    // A project key is minted only in a project of the organization that
+    // its creator can open (B2): a hidden project is not found.
     const p = this.projectsTable
     const inserted = await insertWhere<ApiKey>(
       this.db,
       this.table,
       row,
       p,
-      and(eq(p.id, data.projectId), eq(p.organizationId, data.organizationId))!,
+      and(
+        eq(p.id, data.projectId),
+        eq(p.organizationId, data.organizationId),
+        this.roles ? this.projectVisibleTo(data.createdBy, data.projectId) : undefined,
+      )!,
     )
     return inserted ? row : null
+  }
+
+  /** "The person can open the project": its own aliased lookup, bound by id, with no outer reference. */
+  private projectVisibleTo(who: string, projectId: string): SQL {
+    const vp = aliasedTable(this.projectsTable, 'vp')
+    return sql`exists (select 1 from ${aliasedFrom(vp)} where ${vp.id} = ${projectId} and ${this.roles!.projectVisible(who, { organizationId: vp.organizationId, projectId: vp.id })})`
   }
 
   async getById(id: string): Promise<ApiKey | null> {
@@ -102,6 +122,10 @@ export class ApiKeysAdapter {
     const m = this.memberTable
     const parent = aliasedTable(k, 'parent_key')
     const orgExpr = sql`coalesce(${k.organizationId}, ${p.organizationId})`
+    const a = this.accessTables
+    const pm = a ? aliasedTable(a.projectMembers, 'creator_pm') : null
+    const wm = a ? aliasedTable(a.workspaceMembers, 'creator_wm') : null
+    const ws = a ? aliasedTable(a.workspaces, 'creator_ws') : null
 
     let query = this.db
       .select({
@@ -111,12 +135,24 @@ export class ApiKeysAdapter {
         parentRevokedAt: parent.revokedAt,
         parentExpiresAt: parent.expiresAt,
         ...(m ? { memberId: m.id, memberRole: m.role } : {}),
+        ...(pm ? { creatorProjectGrant: pm.role } : {}),
+        ...(wm && ws
+          ? {
+              creatorHasWorkspaceGrant:
+                sql<boolean>`exists (select 1 from ${aliasedFrom(wm)} inner join ${aliasedFrom(ws)} on ${ws.id} = ${wm.workspaceId} where ${ws.projectId} = ${k.projectId} and ${wm.userId} = ${k.createdBy})`.mapWith(
+                  Boolean,
+                ),
+            }
+          : {}),
       })
       .from(k)
       .leftJoin(p, eq(k.projectId, p.id))
       .leftJoin(parent, eq(k.parentKeyId, parent.id))
     if (m) {
       query = query.leftJoin(m, and(eq(m.userId, k.createdBy), eq(m.organizationId, orgExpr)))
+    }
+    if (pm) {
+      query = query.leftJoin(pm, and(eq(pm.userId, k.createdBy), eq(pm.projectId, k.projectId)))
     }
     const rows = await query.where(and(eq(k.keyHash, keyHash), isNull(k.revokedAt))).limit(1)
 
@@ -132,6 +168,8 @@ export class ApiKeysAdapter {
       resolvedOrganizationId: row.key.organizationId ?? row.projectOrganizationId ?? null,
       createdByIsMember: m ? row.memberId != null : true,
       createdByRole: m ? (row.memberRole ?? null) : null,
+      createdByProjectGrant: pm ? (row.creatorProjectGrant ?? null) : null,
+      createdByHasWorkspaceGrant: wm ? Boolean(row.creatorHasWorkspaceGrant) : false,
       parentKeyLive: parentLive,
     }
   }
@@ -145,11 +183,30 @@ export class ApiKeysAdapter {
   async listByOrganization(
     organizationId: string,
     pagination?: PaginationParams,
+    visibleTo?: string,
   ): Promise<PaginatedResult<ApiKeyListItem>> {
     const k = this.table
     const p = this.projectsTable
     const limit = clampLimit(pagination?.limit)
     const conditions = [this.ownedByOrg(organizationId), isNull(k.revokedAt)]
+    // With a viewer, project keys of projects they cannot open are left out
+    // (B2): a hidden project is never named. Organization keys always show.
+    if (visibleTo !== undefined && this.roles) {
+      const vp = aliasedTable(this.projectsTable, 'vp')
+      const visibleProjects = this.db
+        .select({ id: vp.id })
+        .from(vp)
+        .where(
+          and(
+            eq(vp.organizationId, organizationId),
+            this.roles.projectVisible(visibleTo, {
+              organizationId: vp.organizationId,
+              projectId: vp.id,
+            }),
+          ),
+        )
+      conditions.push(or(isNull(k.projectId), inArray(k.projectId, visibleProjects))!)
+    }
     if (pagination?.cursor) {
       const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
       conditions.push(
@@ -180,6 +237,7 @@ export class ApiKeysAdapter {
     organizationId: string,
     projectId: string,
     pagination?: PaginationParams,
+    visibleTo?: string,
   ): Promise<PaginatedResult<ApiKeyListItem>> {
     const k = this.table
     const p = this.projectsTable
@@ -189,6 +247,10 @@ export class ApiKeysAdapter {
       eq(p.organizationId, organizationId),
       isNull(k.revokedAt),
     ]
+    // Only when that person can open the project (B2): a hidden project lists nothing.
+    if (visibleTo !== undefined && this.roles) {
+      conditions.push(this.projectVisibleTo(visibleTo, projectId))
+    }
     if (pagination?.cursor) {
       const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
       conditions.push(

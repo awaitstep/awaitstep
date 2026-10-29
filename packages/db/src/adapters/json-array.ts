@@ -28,12 +28,33 @@ export function jsonArrayOf(
   )
 }
 
+/**
+ * A list of ids as one bound JSON parameter unpacked in SQL — `x in
+ * ${idList(dialect, ids)}` — so a long list never meets D1's cap of 100
+ * parameters per statement. An empty list matches nothing.
+ */
+export function idList(dialect: Dialect, ids: string[]): SQL {
+  const json = JSON.stringify(ids)
+  return dialect === 'pg'
+    ? sql`(select json_array_elements_text(${json}::json))`
+    : sql`(select value from json_each(${json}))`
+}
+
 /** As `jsonArrayOf`, for a list of scalars: the last run statuses of a workflow. */
 export function jsonArrayOfValues(dialect: Dialect, value: SQL, orderBy?: SQL): SQL {
   const ordered = orderBy ? sql`${value} order by ${orderBy}` : value
   return dialect === 'pg'
     ? sql`coalesce(json_agg(${ordered}), '[]'::json)`
     : sql`json_group_array(${ordered})`
+}
+
+/**
+ * A JSON aggregate nested inside another: sqlite's `json_object` would embed
+ * the inner text as a string unless it is marked as JSON; pg's `json_agg`
+ * already yields json.
+ */
+export function nestedJson(dialect: Dialect, value: SQL): SQL {
+  return dialect === 'pg' ? value : sql`json(${value})`
 }
 
 /** The aggregate as the driver returns it: text on sqlite, parsed JSON on pg. */

@@ -1,16 +1,12 @@
 import { sql, aliasedTable, type SQL } from 'drizzle-orm'
 import { aliasedFrom, type Dialect, jsonArrayOf } from './json-array.js'
+import { RoleFields, type AccessTables } from './role-fields.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
 
 /** The tables the dashboard's overviews read across. */
-export interface OverviewTables {
-  organization: AnyTable
-  member: AnyTable
-  user: AnyTable
-  projects: AnyTable
-  workspaces: AnyTable
+export interface OverviewTables extends AccessTables {
   workflows: AnyTable
   workflowRuns: AnyTable
   deployments: AnyTable
@@ -22,6 +18,13 @@ export const FAILED_RUN_STATUSES = ['errored', 'terminated'] as const
 export const TERMINAL_RUN_STATUSES = ['complete', ...FAILED_RUN_STATUSES] as const
 
 const FAILED_LIST = sql.raw(FAILED_RUN_STATUSES.map((s) => `'${s}'`).join(', '))
+const ORG_ADMINS = sql.raw(`('owner', 'admin')`)
+
+/** Whose view a list or count is cut to: hidden workspaces add nothing for them. */
+export interface Viewer {
+  userId: string
+  organizationId: SQL | unknown
+}
 
 /**
  * The scalar subqueries that decorate an org, project or workspace row with
@@ -30,10 +33,14 @@ const FAILED_LIST = sql.raw(FAILED_RUN_STATUSES.map((s) => `'${s}'`).join(', '))
  * table when the table is an alias, and these are correlated subqueries.
  */
 export class OverviewFields {
+  readonly roles: RoleFields
+
   constructor(
     private t: OverviewTables,
     private dialect: Dialect,
-  ) {}
+  ) {
+    this.roles = new RoleFields(t)
+  }
 
   /** The organization's members with their roles, by name. */
   members(organizationId: SQL | unknown): SQL {
@@ -45,6 +52,56 @@ export class OverviewFields {
       sql`${u.name}, ${u.id}`,
     )
     return sql`(select ${list} from ${aliasedFrom(m)} inner join ${aliasedFrom(u)} on ${u.id} = ${m.userId} where ${m.organizationId} = ${organizationId})`
+  }
+
+  /**
+   * Who can open a workspace of the project that the viewer can open: org
+   * owners and admins, the project's members, and people granted one of
+   * those workspaces — with their org role, by name.
+   */
+  projectPeople(projectId: SQL | unknown, viewer: Viewer): SQL {
+    const m = aliasedTable(this.t.member, 'pm_m')
+    const u = aliasedTable(this.t.user, 'pm_u')
+    const wm = aliasedTable(this.t.workspaceMembers, 'pm_wm')
+    const w = aliasedTable(this.t.workspaces, 'pm_w')
+    const list = jsonArrayOf(
+      this.dialect,
+      { id: u.id, name: u.name, email: u.email, image: u.image, role: m.role },
+      sql`${u.name}, ${u.id}`,
+    )
+    const inVisibleWorkspace = sql`exists (select 1 from ${aliasedFrom(wm)} inner join ${aliasedFrom(w)} on ${w.id} = ${wm.workspaceId} where ${w.projectId} = ${projectId} and ${wm.userId} = ${u.id} and ${this.roles.workspaceRoleOf(viewer.userId, { organizationId: viewer.organizationId, projectId, workspaceId: w.id })} is not null)`
+    return sql`(select ${list} from ${aliasedFrom(m)} inner join ${aliasedFrom(u)} on ${u.id} = ${m.userId} where ${m.organizationId} = ${viewer.organizationId} and (${m.role} in ${ORG_ADMINS} or ${this.roles.projectGrantOf(u.id, projectId)} is not null or ${inVisibleWorkspace}))`
+  }
+
+  /**
+   * Everyone who can open the workspace, with the rows their role comes from
+   * and when they were last active, by name.
+   */
+  workspacePeople(
+    workspaceId: SQL | unknown,
+    projectId: SQL | unknown,
+    organizationId: SQL | unknown,
+  ): SQL {
+    const m = aliasedTable(this.t.member, 'wp_m')
+    const u = aliasedTable(this.t.user, 'wp_u')
+    const s = aliasedTable(this.t.session, 'wp_s')
+    const projectGrant = this.roles.projectGrantOf(u.id, projectId)
+    const workspaceGrant = this.roles.workspaceGrantOf(u.id, workspaceId)
+    const list = jsonArrayOf(
+      this.dialect,
+      {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        image: u.image,
+        orgRole: m.role,
+        projectGrant,
+        workspaceGrant,
+        lastActiveAt: sql`(select max(${s.updatedAt}) from ${aliasedFrom(s)} where ${s.userId} = ${u.id})`,
+      },
+      sql`${u.name}, ${u.id}`,
+    )
+    return sql`(select ${list} from ${aliasedFrom(m)} inner join ${aliasedFrom(u)} on ${u.id} = ${m.userId} where ${m.organizationId} = ${organizationId} and (${m.role} in ${ORG_ADMINS} or ${projectGrant} is not null or ${workspaceGrant} is not null))`
   }
 
   projectCount(organizationId: SQL | unknown): SQL<number> {
@@ -61,15 +118,18 @@ export class OverviewFields {
     )
   }
 
-  /** A project's workspaces as chips, oldest first. */
-  workspaceChips(projectId: SQL | unknown): SQL {
+  /** A project's workspaces as chips, oldest first; only the viewer's when one is given. */
+  workspaceChips(projectId: SQL | unknown, viewer?: Viewer): SQL {
     const w = aliasedTable(this.t.workspaces, 'cw')
     const list = jsonArrayOf(
       this.dialect,
       { id: w.id, slug: w.slug, name: w.name, colour: w.colour },
       sql`${w.createdAt}, ${w.id}`,
     )
-    return sql`(select ${list} from ${aliasedFrom(w)} where ${w.projectId} = ${projectId})`
+    const visible = viewer
+      ? sql` and ${this.roles.workspaceRoleOf(viewer.userId, { organizationId: viewer.organizationId, projectId, workspaceId: w.id })} is not null`
+      : sql``
+    return sql`(select ${list} from ${aliasedFrom(w)} where ${w.projectId} = ${projectId}${visible})`
   }
 
   workspaceCount(projectId: SQL | unknown): SQL<number> {
@@ -79,10 +139,15 @@ export class OverviewFields {
     )
   }
 
-  projectHealth(projectId: SQL | unknown) {
+  /** The project's health over the workspaces the viewer can open. */
+  projectHealth(projectId: SQL | unknown, viewer?: Viewer) {
     const wf = aliasedTable(this.t.workflows, 'hw')
     const r = aliasedTable(this.t.workflowRuns, 'hr')
-    const inProject = sql`${wf.projectId} = ${projectId}`
+    const hv = aliasedTable(this.t.workspaces, 'hv')
+    const visible = viewer
+      ? sql` and exists (select 1 from ${aliasedFrom(hv)} where ${hv.id} = ${wf.workspaceId} and ${this.roles.workspaceRoleOf(viewer.userId, { organizationId: viewer.organizationId, projectId, workspaceId: hv.id })} is not null)`
+      : sql``
+    const inProject = sql`${wf.projectId} = ${projectId}${visible}`
     return {
       workflows: this.countWorkflows(wf, sql`${inProject} and ${wf.kind} = 'workflow'`),
       deployed: this.countWorkflows(

@@ -15,6 +15,9 @@ function createTestDb() {
       role text NOT NULL, createdAt text NOT NULL
     );
     CREATE TABLE projects (id text PRIMARY KEY, organization_id text NOT NULL, name text NOT NULL, created_at text NOT NULL, updated_at text NOT NULL);
+    CREATE TABLE workspaces (id text PRIMARY KEY, project_id text NOT NULL, name text NOT NULL, slug text NOT NULL, created_at text NOT NULL, updated_at text NOT NULL);
+    CREATE TABLE project_members (project_id text NOT NULL, user_id text NOT NULL, role text NOT NULL, created_by text, created_at text NOT NULL, PRIMARY KEY (project_id, user_id));
+    CREATE TABLE workspace_members (workspace_id text NOT NULL, user_id text NOT NULL, role text NOT NULL, created_by text, created_at text NOT NULL, PRIMARY KEY (workspace_id, user_id));
     CREATE TABLE api_keys (
       id text PRIMARY KEY, project_id text, organization_id text,
       parent_key_id text REFERENCES api_keys(id) ON DELETE CASCADE,
@@ -28,6 +31,8 @@ function createTestDb() {
     INSERT INTO member VALUES ('m-1', 'u-1', 'org-1', 'owner', '${now}');
     INSERT INTO projects VALUES ('p-1', 'org-1', 'One', '${now}', '${now}');
     INSERT INTO projects VALUES ('p-2', 'org-2', 'Two', '${now}', '${now}');
+    INSERT INTO workspaces VALUES ('ws-1', 'p-1', 'Default', 'default', '${now}', '${now}');
+    INSERT INTO project_members VALUES ('p-1', 'u-1', 'admin', NULL, '${now}');
   `)
   const adapter = new DrizzleDatabaseAdapter(drizzle(sqlite), sqliteSchema)
   return { adapter, sqlite }
@@ -127,8 +132,9 @@ describe('ApiKeysAdapter', () => {
     expect(ghost?.createdByIsMember).toBe(false)
     expect(ghost?.createdByRole).toBeNull()
 
-    db.sqlite.prepare(`DELETE FROM member WHERE userId = 'u-1'`).run()
+    // Minted while a member (a key is minted only in a project its creator can open), then they leave.
     await db.adapter.createApiKey(keyData({ id: 'k-l', organizationId: 'org-1', projectId: 'p-1' }))
+    db.sqlite.prepare(`DELETE FROM member WHERE userId = 'u-1'`).run()
     const left = await db.adapter.getApiKeyAuthByHash('hash-k-l')
     expect(left?.createdByIsMember).toBe(false)
   })

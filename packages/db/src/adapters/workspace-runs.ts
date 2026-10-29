@@ -8,6 +8,7 @@ import type {
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 import { aliasedFrom } from './json-array.js'
 import { FAILED_RUN_STATUSES, type OverviewTables } from './overview-fields.js'
+import { RoleFields } from './role-fields.js'
 
 const FAILED_LIST = sql.raw(FAILED_RUN_STATUSES.map((s) => `'${s}'`).join(', '))
 const FAILING_NOW_LIMIT = 50
@@ -158,8 +159,12 @@ export class WorkspaceRunsAdapter {
     }
   }
 
-  /** Workflows whose latest run failed, across the organization, most recent failure first. */
-  async listFailing(organizationId: string): Promise<FailingWorkflow[]> {
+  /**
+   * Workflows whose latest run failed, across the organization's workspaces
+   * the viewer can open, most recent failure first.
+   */
+  async listFailing(organizationId: string, viewerId: string): Promise<FailingWorkflow[]> {
+    const roles = new RoleFields(this.t)
     const wf = aliasedTable(this.t.workflows, 'fw')
     const w = aliasedTable(this.t.workspaces, 'fs')
     const p = aliasedTable(this.t.projects, 'fp')
@@ -177,7 +182,13 @@ export class WorkspaceRunsAdapter {
       .innerJoin(w, eq(w.id, wf.workspaceId))
       .innerJoin(p, eq(p.id, wf.projectId))
       .innerJoin(r, eq(r.id, latestRunId))
-      .where(and(eq(p.organizationId, organizationId), inArray(r.status, [...FAILED_RUN_STATUSES])))
+      .where(
+        and(
+          eq(p.organizationId, organizationId),
+          inArray(r.status, [...FAILED_RUN_STATUSES]),
+          sql`${roles.workspaceRoleOf(viewerId, { organizationId: p.organizationId, projectId: p.id, workspaceId: w.id })} is not null`,
+        ),
+      )
       .orderBy(desc(r.createdAt), desc(r.id))
       .limit(FAILING_NOW_LIMIT)
   }

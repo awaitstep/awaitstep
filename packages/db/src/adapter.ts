@@ -43,6 +43,27 @@ import type {
   WorkspaceRunPage,
   FailingWorkflow,
   MemberRole,
+  ProjectAccess,
+  WorkspaceAccess,
+  WorkflowAccess,
+  WorkspaceGrant,
+  WorkspaceGrantData,
+  WorkspaceMember,
+  WorkspacePersonRow,
+  ProjectMemberRow,
+  OrgMemberRow,
+  PersonAccessRows,
+  AccessGrantData,
+  InOrgCheck,
+  GrantRows,
+  CreateInvitationData,
+  InvitationChecks,
+  InvitationRow,
+  InvitationView,
+  PendingInvitationRow,
+  AcceptInvitationData,
+  AccessRequestRow,
+  AccessRequestDecision,
 } from './types.js'
 import type { PaginationParams, PaginatedResult } from './pagination.js'
 
@@ -60,6 +81,8 @@ export interface WorkflowWithStatus extends Workflow {
 export interface WorkflowListFilter {
   workspaceId?: string
   kind?: 'workflow' | 'script'
+  /** Without a workspace: only workflows in workspaces this person can open. */
+  visibleTo?: string
 }
 
 export interface WorkflowEnvVar {
@@ -81,21 +104,24 @@ export interface DatabaseAdapter {
     userId: string,
     ref: { id: string } | { slug: string },
   ): Promise<({ id: string; slug: string } & MemberRole) | null>
-  /** With `workspace`, null unless that workspace is the project's too. */
+  /**
+   * The project if the caller can open it, with their membership rows; with
+   * `workspace`, null unless that workspace is the project's and theirs to open.
+   */
   getProjectIfMember(
     userId: string,
     ref: ProjectRef,
     workspace?: WorkspaceInProjectRef,
-  ): Promise<({ project: Project; workspaceId: string | null } & MemberRole) | null>
-  getWorkspaceIfMember(
-    userId: string,
-    ref: WorkspaceRef,
-  ): Promise<(WorkspaceIds & MemberRole) | null>
-  /** For a caller that already holds the project (an API key): no membership read. */
+  ): Promise<ProjectAccess | null>
+  getWorkspaceIfMember(userId: string, ref: WorkspaceRef): Promise<WorkspaceAccess | null>
+  /** A workspace of a project, by id or slug, with no visibility check (a key's project pin). */
   getWorkspaceInProject(projectId: string, ref: WorkspaceInProjectRef): Promise<WorkspaceIds | null>
+  /** The workflow with the caller's rows in its workspace, if they can open that workspace. */
+  getWorkflowForUser(userId: string, workflowId: string): Promise<WorkflowAccess | null>
   listOrganizationsForMember(userId: string): Promise<OrgOverview[]>
   /** What `/{org}/{project}/{workspace}` names, with each level's counts and lists. */
-  getScopeBySlugs(userId: string, slugs: ScopeSlugs): Promise<ScopeRows | null>
+  /** `now` is the clock for the 24-hour run counts. */
+  getScopeBySlugs(userId: string, slugs: ScopeSlugs, now?: Date): Promise<ScopeRows | null>
 
   // Projects
   /** Creates the project and its Default workspace together: both rows, or neither. */
@@ -109,10 +135,27 @@ export interface DatabaseAdapter {
     createdBy?: string | null
   }): Promise<{ project: Project; workspace: Workspace }>
   getProjectById(id: string): Promise<Project | null>
+  /** Every project in the organization, seen or not: deleting the organization waits for them. */
+  countProjectsInOrganization(organizationId: string): Promise<number>
+  /** The projects the user can open, with workspaces, health and people as they may see them. */
   listProjectsByOrganization(
     organizationId: string,
+    userId: string,
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<ProjectOverview>>
+  /**
+   * Moves the project, as one unit, if the mover runs the target organization
+   * (checked in the statement): open invitations' places into it and grants
+   * held by people outside the target go. Nothing says whether it moved —
+   * `getProjectById` afterwards does — and a slug the target already uses
+   * surfaces as `isUniqueViolation`.
+   */
+  moveProjectToOrganization(
+    projectId: string,
+    fromOrganizationId: string,
+    toOrganizationId: string,
+    moverId: string,
+  ): Promise<void>
   /** Updates only within the organization — null when no such row there. */
   updateProject(
     id: string,
@@ -123,9 +166,17 @@ export interface DatabaseAdapter {
   deleteProject(id: string, organizationId: string): Promise<boolean>
 
   // Workspaces
-  listWorkspacesByProject(projectId: string): Promise<WorkspaceOverview[]>
-  /** Null when the slug is taken in the project (checked in the statement). */
-  createWorkspace(data: CreateWorkspaceData): Promise<Workspace | null>
+  /** The project's workspaces the user can open, with counts and people. */
+  listWorkspacesByProject(projectId: string, userId: string): Promise<WorkspaceOverview[]>
+  /**
+   * Null when the slug is taken in the project (checked in the statement).
+   * With `members`, they are written in the same unit; the caller checked
+   * they are in the organization.
+   */
+  createWorkspace(
+    data: CreateWorkspaceData,
+    members?: { userId: string; role: WorkspaceGrant }[],
+  ): Promise<Workspace | null>
   getWorkspaceById(id: string): Promise<Workspace | null>
   /** Null when gone, or when a given slug is a sibling's. */
   updateWorkspace(id: string, data: UpdateWorkspaceData): Promise<Workspace | null>
@@ -138,7 +189,107 @@ export interface DatabaseAdapter {
     workflowIds: string[],
   ): Promise<string[]>
   listWorkspaceRuns(workspaceId: string, filter: WorkspaceRunFilter): Promise<WorkspaceRunPage>
-  listFailingWorkflows(organizationId: string): Promise<FailingWorkflow[]>
+  /** Across the organization's workspaces the viewer can open. */
+  listFailingWorkflows(organizationId: string, viewerId: string): Promise<FailingWorkflow[]>
+
+  // Access: people, grants and the access editor (B2). Reads are one
+  // statement; a refusal is the statement's own WHERE matching nothing.
+  /** Everyone in the organization and, for plain members, where they can work (in the viewer's projects). */
+  listOrgMembers(organizationId: string, viewerId: string): Promise<OrgMemberRow[]>
+  getPersonAccess(organizationId: string, userId: string): Promise<PersonAccessRows | null>
+  /** One read of every check a write needs: which ids are the organization's, and one person's role in it. */
+  checkInOrganization(
+    organizationId: string,
+    refs: { userId?: string; userIds?: string[]; projectIds?: string[]; workspaceIds?: string[] },
+  ): Promise<InOrgCheck>
+  /** False when no such member, or they are the only owner and `role` is not owner. */
+  setOrgRole(organizationId: string, userId: string, role: string): Promise<boolean>
+  /**
+   * The org role and every project and workspace row of theirs in the
+   * organization, replaced as one unit. A role change that would leave the
+   * organization without an owner is refused and then nothing changes;
+   * `getOrgRole` afterwards says whether it took.
+   */
+  saveAccess(
+    organizationId: string,
+    userId: string,
+    grant: AccessGrantData,
+    createdBy: string,
+    caller: { callerIsOwner: boolean },
+  ): Promise<void>
+  /**
+   * Removes them from the organization with every row of theirs and the
+   * invitations they sent, as one unit — unless they are its only owner, or
+   * an owner and the caller is not, when nothing changes (`getOrgRole`
+   * afterwards says).
+   */
+  removeOrgMember(
+    organizationId: string,
+    userId: string,
+    caller: { callerIsOwner: boolean },
+  ): Promise<void>
+  listWorkspacePeople(workspaceId: string): Promise<WorkspacePersonRow[]>
+  listProjectMembers(projectId: string, viewerId: string): Promise<ProjectMemberRow[]>
+  /** The rows behind one person's standing in a workspace; null for an unknown workspace. */
+  getGrantRows(workspaceId: string, userId: string): Promise<GrantRows | null>
+  /** Null when they are outside the org, already in, or the role is at or below what the project gives. */
+  addWorkspaceMember(data: WorkspaceGrantData): Promise<WorkspaceMember | null>
+  /** Null when there is no grant, or the role is at or below what the project gives. */
+  setWorkspaceGrant(
+    workspaceId: string,
+    userId: string,
+    role: WorkspaceGrant,
+  ): Promise<WorkspaceMember | null>
+  removeWorkspaceGrant(workspaceId: string, userId: string): Promise<boolean>
+  getOrgRole(organizationId: string, userId: string): Promise<string | null>
+
+  // Invitations (storage is better-auth's table; the lifecycle is this API's)
+  /** One read of every check inviting needs: which ids are the organization's, which addresses are taken. */
+  invitationChecks(
+    organizationId: string,
+    refs: { projectIds: string[]; workspaceIds: string[]; emails: string[]; now: string },
+  ): Promise<InvitationChecks>
+  createInvitations(invitations: CreateInvitationData[]): Promise<void>
+  /** Open, unexpired ones, with places in the projects the viewer can open. */
+  listInvitations(organizationId: string, viewerId: string, now: string): Promise<InvitationRow[]>
+  getInvitation(id: string): Promise<InvitationView | null>
+  /**
+   * The member row if absent, the places as grants, the status — one unit,
+   * all of it conditional on the invitation being open and unexpired now.
+   */
+  acceptInvitation(data: AcceptInvitationData): Promise<void>
+  setInvitationStatus(id: string, from: string, to: string): Promise<boolean>
+  /** Cancels an open or declined invitation of the organization; false when there is none to cancel. */
+  cancelInvitation(id: string, organizationId: string): Promise<boolean>
+  /** False when not pending, or sent more recently than `unlessExpiresAfter` allows. */
+  resendInvitation(id: string, expiresAt: string, unlessExpiresAfter: string): Promise<boolean>
+  /** False when they already asked. */
+  askForNewInvitation(id: string, at: string): Promise<boolean>
+  listInvitationsForEmail(email: string, now: string): Promise<PendingInvitationRow[]>
+
+  // Access requests (a Viewer's "Ask for edit access")
+  getOwnAccessRequest(workspaceId: string, userId: string): Promise<AccessRequestRow | null>
+  /**
+   * The person's open request here, made now (`created`) or found (the
+   * guard is in the insert); addressed to the workspace's first admin by
+   * name. Null when there is no one to ask and nothing open.
+   */
+  createAccessRequest(data: {
+    id: string
+    workspaceId: string
+    userId: string
+    now: string
+  }): Promise<{ request: AccessRequestRow; created: boolean } | null>
+  /** The request with the asker's rows and the decider's own, in one read. */
+  getAccessRequestForDecision(id: string, deciderId: string): Promise<AccessRequestDecision | null>
+  decideAccessRequest(data: {
+    id: string
+    status: 'approved' | 'declined'
+    decidedBy: string
+    now: string
+    alreadyEditing: boolean
+    grant: { workspaceId: string; userId: string } | null
+  }): Promise<void>
 
   // Workflows
   /**
@@ -230,9 +381,11 @@ export interface DatabaseAdapter {
     id: string,
     data: { status?: string; output?: string; error?: string; updatedAt?: string },
   ): Promise<WorkflowRun>
+  /** With `visibleTo`, only runs of workflows in workspaces that person can open. */
   listRecentRunsByProject(
     projectId: string,
     pagination?: PaginationParams,
+    visibleTo?: string,
   ): Promise<PaginatedResult<WorkflowRun>>
   listActiveRunsForSync(limit?: number): Promise<ActiveRunForSync[]>
   getRunForSync(runId: string, workflowId: string): Promise<ActiveRunForSync | null>
@@ -334,9 +487,11 @@ export interface DatabaseAdapter {
     workflowId: string,
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<Deployment>>
+  /** With `visibleTo`, only deployments of workflows in workspaces that person can open. */
   listRecentDeploymentsByProject(
     projectId: string,
     pagination?: PaginationParams,
+    visibleTo?: string,
   ): Promise<PaginatedResult<Deployment>>
   deleteDeploymentsByWorkflow(workflowId: string): Promise<void>
 
@@ -375,16 +530,18 @@ export interface DatabaseAdapter {
    * is still a member there — one read.
    */
   getApiKeyAuthByHash(keyHash: string): Promise<ApiKeyAuth | null>
-  /** One project's live keys; a foreign organization's project matches nothing. */
+  /** One project's live keys; a foreign organization's project, or one hidden from `visibleTo`, matches nothing. */
   listApiKeysByProject(
     organizationId: string,
     projectId: string,
     pagination?: PaginationParams,
+    visibleTo?: string,
   ): Promise<PaginatedResult<ApiKeyListItem>>
-  /** The organization's live keys, both levels, with project names joined in. */
+  /** The organization's live keys, both levels, with project names joined in; project keys of projects hidden from `visibleTo` are left out. */
   listApiKeysByOrganization(
     organizationId: string,
     pagination?: PaginationParams,
+    visibleTo?: string,
   ): Promise<PaginatedResult<ApiKeyListItem>>
   updateApiKeyLastUsed(id: string, lastUsedAt: string): Promise<void>
   /** Revokes within the organization — the key's own, or its project's. */
@@ -405,10 +562,12 @@ export interface DatabaseAdapter {
     organizationId: string,
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<EnvVar>>
+  /** One project's variables; a project hidden from `visibleTo` lists nothing. */
   listEnvVarsByProject(
     organizationId: string,
     projectId: string,
     pagination?: PaginationParams,
+    visibleTo?: string,
   ): Promise<PaginatedResult<EnvVar>>
   /**
    * Updates one statement-scoped row: the organization always, the project
