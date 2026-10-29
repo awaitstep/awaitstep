@@ -16,6 +16,7 @@ export const envVars = sqliteTable(
     id: text('id').primaryKey(),
     organizationId: text('organization_id').notNull(),
     projectId: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
     createdBy: text('created_by').notNull(),
     name: text('name').notNull(),
     value: text('value').notNull(),
@@ -24,9 +25,18 @@ export const envVars = sqliteTable(
     updatedAt: text('updated_at').notNull(),
   },
   (table) => [
-    uniqueIndex('idx_env_vars_org_name').on(table.organizationId, table.projectId, table.name),
+    uniqueIndex('idx_env_vars_organization_name')
+      .on(table.organizationId, table.name)
+      .where(sql`project_id is null`),
+    uniqueIndex('idx_env_vars_project_name')
+      .on(table.projectId, table.name)
+      .where(sql`project_id is not null and workspace_id is null`),
+    uniqueIndex('idx_env_vars_workspace_name')
+      .on(table.workspaceId, table.name)
+      .where(sql`workspace_id is not null`),
     index('idx_env_vars_org_id').on(table.organizationId),
     index('idx_env_vars_project_id').on(table.projectId),
+    index('idx_env_vars_workspace_id').on(table.workspaceId),
   ],
 )
 

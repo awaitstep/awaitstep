@@ -134,6 +134,13 @@
       "when": 1793266822189,
       "tag": "0018_key_levels",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793292405641,
+      "tag": "0019_variable_levels",
+      "breakpoints": true
     }
   ]
 }
