@@ -71,8 +71,11 @@ List all workflows in the active project.
 | `kind`                      | query | no       | `workflow` or `script` |
 
 Each row carries `workspaceId`, `deployedVersion` (the version number the
-latest deployment put live, or null) and `recentRunStatuses` (the last ten
-finished runs, newest first).
+latest deployment put live, or null), `recentRunStatuses` (the last ten
+finished runs, newest first) and `sharing` (`{ sharedAt, sharedBy: { id, name } }`
+while it is shared to the project, else null). Workflow rows, here and on
+`GET /workflows/:id`, also carry the raw `sharedBy` (a user id) and `sharedAt`
+columns.
 
 **Permission:** `workflows:read`
 
@@ -80,6 +83,9 @@ finished runs, newest first).
 | -------- | ----- | -------- | ---------------------------------- |
 | `cursor` | query | no       | Pagination cursor                  |
 | `limit`  | query | no       | Items per page (1–100, default 50) |
+
+A `cursor` is the `nextCursor` of the previous page; anything else (or one
+naming an impossible time) answers `422` on every paginated list.
 
 ### `GET /workflows/:id`
 
@@ -155,7 +161,8 @@ Update a workflow's name, description, environment variables, trigger code, depe
 
 ### `PATCH /workflows/:id/move`
 
-The workflow lands in the target project's oldest workspace.
+The workflow lands in the target project's oldest workspace. A share to
+the old project does not follow it: it arrives unshared.
 
 Move a workflow to another project within the same organization. Returns
 `warnings` naming any `{{global.env.X}}` reference the destination cannot
@@ -174,6 +181,37 @@ key answers `403`.
   "targetProjectId": "project-id"
 }
 ```
+
+### `PUT /workflows/:id/share`
+
+Share a workflow or function to its project, or stop. A shared item is
+listed to everyone in the project — `GET /projects/:id/shared` and the
+other workspaces' `GET /workspaces/:id/shared` — and is what a Call
+Workflow step will pick from. Sharing shows **what it is, not the item**:
+its name, kind, deployed version, workspace and who shared it. Someone
+who cannot open its workspace still cannot read its graph, code, variables
+or runs (`GET /workflows/:id` stays `404` for them).
+
+The caller needs `share` in the workflow's own workspace (its admins and
+editors; a viewer answers `403` "Only Editors can share"). Sharing one
+already shared keeps who shared it and when; unsharing one that isn't is a
+no-op. Moving it to another workspace in the project keeps the share. The
+write holds to the workspace the caller was judged on: if the workflow moves
+while the request is in flight it answers `409` "Something changed meanwhile.
+Reload and try again" and changes nothing.
+
+**Permission:** `workflows:write`
+
+| Param | In   | Required | Description |
+| ----- | ---- | -------- | ----------- |
+| `id`  | path | yes      | Workflow ID |
+
+```json
+{ "shared": true }
+```
+
+Response: `{ "sharing": { "sharedAt": "2026-10-29T10:00:00.000Z", "sharedBy": { "id": "usr_...", "name": "Ama Mensah" } } }`,
+or `{ "sharing": null }` when off.
 
 ### `DELETE /workflows/:id`
 
@@ -364,6 +402,44 @@ variables inside are still edited and deleted as their own permissions allow.
 Response: `{ "lock": { "setBy": { "id": "usr_...", "name": "Ama Mensah" }, "setAt": "2026-10-29T10:00:00.000Z" } }`,
 or `{ "lock": null }` when off.
 
+### `GET /projects/:id/shared`
+
+Session only (an API key answers `403`). The project's Shared library:
+every workflow and function shared to the project, newest share first.
+Anyone who can open the project reads it, including items whose workspace
+they cannot open — the item's name and its workspace's name and colour are
+published to the project; nothing else about that workspace is.
+
+| Param    | In    | Required | Description                        |
+| -------- | ----- | -------- | ---------------------------------- |
+| `id`     | path  | yes      | Project ID                         |
+| `kind`   | query | no       | `workflow` or `script`             |
+| `cursor` | query | no       | Pagination cursor                  |
+| `limit`  | query | no       | Items per page (1–100, default 50) |
+
+Each item:
+
+```json
+{
+  "id": "wf_...",
+  "name": "Provision account",
+  "kind": "workflow",
+  "version": 7,
+  "sharedAt": "2026-10-29T10:00:00.000Z",
+  "sharedBy": { "id": "usr_...", "name": "Lena Vogel" },
+  "from": { "id": "ws_...", "slug": "it", "name": "IT", "colour": "blue" },
+  "usedBy": [],
+  "canOpen": false,
+  "unshare": { "allowed": false, "reason": "Only people in IT can unshare it" }
+}
+```
+
+`version` is the deployed version (null for a draft). `canOpen` is whether
+the caller can open `from` (and so the item). `unshare` is whether they may
+unshare it with `PUT /workflows/:id/share`: they need `share` in `from`.
+`usedBy` (the workspaces that call it) stays empty until the Call Workflow
+step records its callers; until then nothing blocks unsharing.
+
 ### `POST /projects/:id/move`
 
 Session only. Move the project to another organization the caller also runs
@@ -408,8 +484,8 @@ project and workspace), needs the matching scope as well, and stops working
 ### `GET /workspaces`
 
 The project's workspaces the caller can open, oldest first, each with
-`counts` (workflows, deployed, functions, runs in the last 24 hours, failing,
-last run), `createdBy`, `lock`, `inheritedLock`, `members` (sessions only; a
+`counts` (workflows, deployed, functions, `sharedOut` — shared to the
+project, runs in the last 24 hours, failing, last run), `createdBy`, `lock`, `inheritedLock`, `members` (sessions only; a
 key gets an empty list), `viewerRole` and `viewerCan`. Each member carries
 their effective `role`, `inherited` (it comes from the project or org, not a
 grant here), `projectRole` (what the project alone gives), `orgRole` for
@@ -484,6 +560,19 @@ lock on or off (its admins and editors; a viewer answers `403`). While the
 project is locked its lock covers every workspace in it and this answers
 `409` "Locked by Project 101", on and off. Same body and response as
 `PUT /projects/:id/lock`.
+
+### `GET /workspaces/:id/shared`
+
+What the project's **other** workspaces shared ("Shared with Sales"),
+newest share first; the workspace's own shared items are not listed. Same
+items, query and pagination as `GET /projects/:id/shared`, except `unshare`
+is always `{ "allowed": false, "reason": "Unshare it from its own workspace" }`:
+the list is read-only here. A workspace key gets `canOpen: false` on every
+row: it opens only its own workspace, which this list leaves out. Project
+and workspace keys with `workflows:read` read this metadata of other
+workspaces' items by design: it is what the project publishes.
+
+**Permission:** `workflows:read`
 
 ### `POST /workspaces/:id/move-workflows`
 

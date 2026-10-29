@@ -166,13 +166,27 @@ Update a workflow's name, description, environment variables, trigger code, depe
 
 ### <span class="api-method patch">PATCH</span> <span class="api-endpoint">/workflows/:id/move</span> <span class="api-scope">session only</span>
 
-Move a workflow to another project within the same organization.
+Move a workflow to another project within the same organization. A share to the old project does not follow it.
 
 **Request body:**
 
 ```json
 { "targetProjectId": "project-id" }
 ```
+
+---
+
+### <span class="api-method put">PUT</span> <span class="api-endpoint">/workflows/:id/share</span> <span class="api-scope">workflows:write</span>
+
+Share a workflow or function to its project, or stop. A shared item is listed to everyone in the project and is what a Call Workflow step picks from. Sharing shows what it is — its name, kind, deployed version, workspace and who shared it — not the item: someone who can't open its workspace still can't read its graph, code, variables or runs. Needs an admin or editor of the workflow's own workspace; a viewer answers `403`.
+
+**Request body:**
+
+```json
+{ "shared": true }
+```
+
+Answers `{ "sharing": { "sharedAt": "...", "sharedBy": { "id": "usr_...", "name": "Ama Mensah" } } }`, or `{ "sharing": null }` when off. Sharing again keeps who shared it and when. If the workflow moves to another workspace while the request is in flight, it answers `409` and changes nothing. `GET /workflows` rows carry the same `sharing` field; workflow rows also carry the raw `sharedBy` (user id) and `sharedAt` columns.
 
 ---
 
@@ -261,6 +275,18 @@ Turn the project's deletion lock on or off (project admins). While it is on, the
 ```
 
 Answers `{ "lock": { "setBy": { "id": "usr_...", "name": "Ama Mensah" }, "setAt": "..." } }`, or `{ "lock": null }` when off. Turning on a lock that is already on keeps who set it and when. The lock guards the project and its workspaces themselves, not what is in them: workflows, keys and variables inside are still edited and deleted as their own permissions allow.
+
+---
+
+### <span class="api-method get">GET</span> <span class="api-endpoint">/projects/:id/shared</span> <span class="api-scope">session only</span>
+
+The project's Shared library: every workflow and function shared to it, newest share first, with `kind`, `cursor` and `limit` query parameters. Each item has `id`, `name`, `kind`, `version` (deployed, or null), `sharedAt`, `sharedBy`, `from` (its workspace: `id`, `slug`, `name`, `colour`), `usedBy`, `canOpen` (whether you can open `from`) and `unshare` (whether you may unshare it, and why not). Items from workspaces you can't open are listed too, by name only.
+
+---
+
+### <span class="api-method get">GET</span> <span class="api-endpoint">/workspaces/:id/shared</span> <span class="api-scope">workflows:read</span>
+
+What the project's other workspaces shared, read-only here: the same items as `GET /projects/:id/shared`, without the workspace's own. `unshare` is always refused here ("Unshare it from its own workspace"), and a workspace key gets `canOpen: false` on every row (it opens only its own workspace).
 
 ---
 
