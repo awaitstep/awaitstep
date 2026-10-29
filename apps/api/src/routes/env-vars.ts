@@ -131,7 +131,9 @@ envVars.patch('/:id', zValidator('json', updateEnvVarSchema), async (c) => {
   const restriction = varRestriction(c)
   const scope =
     restriction === undefined ? { organizationId } : { organizationId, projectId: restriction }
-  const updated = await db.updateEnvVar(id, scope, body)
+  // A project variable is written only by someone who can open its project
+  // (a key: its creator) — a hidden project's answers like a missing one.
+  const updated = await db.updateEnvVar(id, scope, body, c.get('userId'))
   if (!updated) {
     // One read, only on this error path: tell the secret-reveal refusal from
     // a plain miss, so the caller learns what to do instead of chasing a 404.
@@ -166,7 +168,7 @@ envVars.delete('/:id', async (c) => {
   const restriction = varRestriction(c)
   const scope =
     restriction === undefined ? { organizationId } : { organizationId, projectId: restriction }
-  const deleted = await db.deleteEnvVar(id, scope)
+  const deleted = await db.deleteEnvVar(id, scope, c.get('userId'))
   if (!deleted) return c.json({ error: 'Not found' }, 404)
   return c.json({ ok: true })
 })

@@ -20,9 +20,20 @@ export class EnvVarsAdapter {
   ) {}
 
   /** "The viewer can open the project": a project hidden from them lists nothing. */
-  private projectVisibleTo(visibleTo: string, projectId: string): SQL {
+  private projectVisibleTo(visibleTo: string, projectId: string | SQL): SQL {
     const vp = aliasedTable(this.projectsTable, 'vp')
     return sql`exists (select 1 from ${aliasedFrom(vp)} where ${vp.id} = ${projectId} and ${this.roles!.projectVisible(visibleTo, { organizationId: vp.organizationId, projectId: vp.id })})`
+  }
+
+  /**
+   * For a write by id: the row is org-wide, or its project is one the caller
+   * can open — a hidden project's variable answers like a missing one. The
+   * row's own column is spelled out: the table being written is not aliased.
+   */
+  private rowProjectVisibleTo(visibleTo: string | undefined): SQL | undefined {
+    if (visibleTo === undefined || !this.roles || !this.projectsTable) return undefined
+    const column = sql`${this.table}.${sql.identifier(this.table.projectId.name)}`
+    return or(isNull(this.table.projectId), this.projectVisibleTo(visibleTo, column))
   }
 
   async create(data: {
@@ -206,8 +217,9 @@ export class EnvVarsAdapter {
   }
 
   /**
-   * One statement: the ownership check — organization, and the project when
-   * the caller is pinned to one — rides in the WHERE instead of a prior read.
+   * One statement: the ownership check — organization, the project when the
+   * caller is pinned to one, and (with `visibleTo`) that the row's project
+   * is one they can open — rides in the WHERE instead of a prior read.
    * `scope.projectId` of `null` restricts to org-wide rows; leaving it out
    * means any row of the organization.
    */
@@ -215,6 +227,7 @@ export class EnvVarsAdapter {
     id: string,
     scope: { organizationId: string; projectId?: string | null },
     data: { name?: string; value?: string; isSecret?: boolean },
+    visibleTo?: string,
   ): Promise<EnvVar | null> {
     const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() }
     if (data.name !== undefined) updates.name = data.name
@@ -223,7 +236,11 @@ export class EnvVarsAdapter {
     }
     if (data.isSecret !== undefined) updates.isSecret = data.isSecret
 
-    const conditions = [eq(this.table.id, id), eq(this.table.organizationId, scope.organizationId)]
+    const conditions = [
+      eq(this.table.id, id),
+      eq(this.table.organizationId, scope.organizationId),
+      this.rowProjectVisibleTo(visibleTo),
+    ]
     if (scope.projectId !== undefined) {
       conditions.push(
         scope.projectId === null
@@ -253,8 +270,13 @@ export class EnvVarsAdapter {
   async delete(
     id: string,
     scope: { organizationId: string; projectId?: string | null },
+    visibleTo?: string,
   ): Promise<boolean> {
-    const conditions = [eq(this.table.id, id), eq(this.table.organizationId, scope.organizationId)]
+    const conditions = [
+      eq(this.table.id, id),
+      eq(this.table.organizationId, scope.organizationId),
+      this.rowProjectVisibleTo(visibleTo),
+    ]
     if (scope.projectId !== undefined) {
       conditions.push(
         scope.projectId === null

@@ -394,6 +394,38 @@ describe('API keys act with their creator’s standing', () => {
     }
   })
 
+  it('changes or removes a project’s variables only for someone who can open it', async () => {
+    const set = await h.app.request(
+      '/api/env-vars?org=acme',
+      h.as('u-ama', h.json({ projectId: 'p-202', name: 'HIDDEN', value: 'x', isSecret: false })),
+    )
+    expect(set.status).toBe(201)
+    const id = (await set.json()).id
+    // Gus is in the organization but can open Project 202 by no route: by
+    // id, its variable answers like a missing one (it once answered 200).
+    const patch = await h.app.request(
+      `/api/env-vars/${id}?org=acme`,
+      h.as('u-gus', h.json({ value: 'y' }, 'PATCH')),
+    )
+    expect(patch.status).toBe(404)
+    expect(
+      (await h.app.request(`/api/env-vars/${id}?org=acme`, h.as('u-gus', { method: 'DELETE' })))
+        .status,
+    ).toBe(404)
+    expect(
+      (
+        await h.app.request(
+          `/api/env-vars/${id}?org=acme`,
+          h.as('u-ama', h.json({ value: 'z' }, 'PATCH')),
+        )
+      ).status,
+    ).toBe(200)
+    expect(
+      (await h.app.request(`/api/env-vars/${id}?org=acme`, h.as('u-ama', { method: 'DELETE' })))
+        .status,
+    ).toBe(200)
+  })
+
   it('never names a hidden project through the organization’s key list, nor mints or sets anything in one', async () => {
     const asAma = (body: unknown) => h.as('u-ama', h.json(body))
     expect(

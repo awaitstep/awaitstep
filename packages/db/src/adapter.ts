@@ -571,19 +571,22 @@ export interface DatabaseAdapter {
   ): Promise<PaginatedResult<EnvVar>>
   /**
    * Updates one statement-scoped row: the organization always, the project
-   * when given (`null` = org-wide rows only). Null when no row matches — or
-   * when the update would make a stored secret readable (isSecret flipped
-   * false with no replacement value).
+   * when given (`null` = org-wide rows only), and with `visibleTo` only a
+   * row that is org-wide or in a project that person can open. Null when no
+   * row matches — or when the update would make a stored secret readable
+   * (isSecret flipped false with no replacement value).
    */
   updateEnvVar(
     id: string,
     scope: { organizationId: string; projectId?: string | null },
     data: { name?: string; value?: string; isSecret?: boolean },
+    visibleTo?: string,
   ): Promise<EnvVar | null>
-  /** Deletes within the scope — false when no row matched. */
+  /** Deletes within the scope (and, with `visibleTo`, what they can open) — false when no row matched. */
   deleteEnvVar(
     id: string,
     scope: { organizationId: string; projectId?: string | null },
+    visibleTo?: string,
   ): Promise<boolean>
   getWorkflowEnvVars(workflowId: string): Promise<WorkflowEnvVar[]>
   setWorkflowEnvVars(workflowId: string, vars: WorkflowEnvVar[]): Promise<void>

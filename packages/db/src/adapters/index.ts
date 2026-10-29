@@ -1061,14 +1061,16 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     id: string,
     scope: { organizationId: string; projectId?: string | null },
     data: { name?: string; value?: string; isSecret?: boolean },
+    visibleTo?: string,
   ): Promise<EnvVar | null> {
-    return this._envVars.update(id, scope, data)
+    return this._envVars.update(id, scope, data, visibleTo)
   }
   deleteEnvVar(
     id: string,
     scope: { organizationId: string; projectId?: string | null },
+    visibleTo?: string,
   ): Promise<boolean> {
-    return this._envVars.delete(id, scope)
+    return this._envVars.delete(id, scope, visibleTo)
   }
 
   async getWorkflowEnvVars(workflowId: string): Promise<WorkflowEnvVar[]> {
