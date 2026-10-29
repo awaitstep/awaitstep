@@ -14,7 +14,7 @@ import {
 import { inheritedWorkspaceRole, workspaceCapabilities } from '@awaitstep/ir'
 import { unresolvableEnvRefs } from '../lib/env-resolve.js'
 import { rolesOf } from '../lib/scope-records.js'
-import { apiKeyProjectPin } from '../middleware/auth.js'
+import { apiKeyProjectPin, apiKeyWorkspacePin } from '../middleware/auth.js'
 import type { AppEnv } from '../types.js'
 
 const NO_FACTS = {
@@ -176,6 +176,12 @@ workflows.post('/', zValidator('json', createSchema), async (c) => {
   const userId = c.get('userId')
   const body = c.req.valid('json')
 
+  // A workspace key builds in its workspace only; another named in the body
+  // is as hidden to it as one its creator cannot open.
+  const workspacePin = apiKeyWorkspacePin(c)
+  if (workspacePin !== null && body.workspaceId && body.workspaceId !== workspacePin) {
+    return c.json({ error: 'Workspace not found' }, 404)
+  }
   // Building needs an Editor in the target workspace. One named in the query
   // was resolved with the caller's role; one named in the body is read here;
   // none means the project's oldest, which the project role alone decides.

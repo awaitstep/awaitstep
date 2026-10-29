@@ -281,18 +281,22 @@ export type ResolveTestSessionResult =
  * Loads a live session for its owner, stopping it first if it has expired —
  * a request that arrives after the cut-off is the earliest the system knows,
  * and it should not be served by a worker that is no longer accounted for.
+ * With `workspaceId` (a workspace key's pin, or a workspace the request
+ * names) a session elsewhere in the project is not found.
  */
 export async function resolveTestSession(
   deps: TestSessionDeps,
   id: string,
   userId: string,
   projectId: string,
+  workspaceId?: string,
 ): Promise<ResolveTestSessionResult> {
   const found = await deps.db.getOwnedTestSession(
     id,
     userId,
     projectId,
     testSessionCutoffs(deps.limits),
+    workspaceId,
   )
   if (!found) return { ok: false, status: 404, error: 'Not found' }
 

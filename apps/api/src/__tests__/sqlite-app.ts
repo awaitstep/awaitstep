@@ -4,6 +4,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { DrizzleDatabaseAdapter, schema } from '@awaitstep/db'
 import { createApp } from '../app.js'
+import { hashApiKey } from '../lib/api-key-hash.js'
 import type { Auth } from '../auth/config.js'
 import type { AppEmails, InvitationEmail, InviteRequestEmail } from '../types.js'
 
@@ -115,6 +116,40 @@ export function createSqliteApp(options: { enableLocalDev?: boolean } = {}) {
       await db
         .insert(sqliteSchema.workspaceMembers)
         .values({ workspaceId, userId, role, createdBy: null, createdAt: T0 })
+    },
+    /**
+     * A key minted at a level, with the grid it carries (`permissions`) and
+     * the secret it answers to (`ask_<id>`). Returns the request init to call as it.
+     */
+    async key(
+      id: string,
+      createdBy: string,
+      at:
+        | { level: 'organization' }
+        | { level: 'project'; projectId: string }
+        | { level: 'workspace'; projectId: string; workspaceId: string },
+      permissions: Record<string, string[]>,
+    ) {
+      const raw = `ask_${id}`
+      await db.insert(sqliteSchema.apiKeys).values({
+        id,
+        organizationId: at.level === 'organization' ? 'org-acme' : null,
+        projectId: at.level === 'organization' ? null : at.projectId,
+        workspaceId: at.level === 'workspace' ? at.workspaceId : null,
+        parentKeyId: null,
+        createdBy,
+        name: id,
+        keyHash: await hashApiKey(raw),
+        keyPrefix: raw.slice(0, 8),
+        keySuffix: raw.slice(-4),
+        scopes: '["read"]',
+        permissions: JSON.stringify(permissions),
+        expiresAt: null,
+        lastUsedAt: null,
+        revokedAt: null,
+        createdAt: T0,
+      })
+      return { headers: { Authorization: `Bearer ${raw}`, 'Content-Type': 'application/json' } }
     },
     async workflow(id: string, projectId: string, workspaceId: string, name: string) {
       await db.insert(sqliteSchema.workflows).values({

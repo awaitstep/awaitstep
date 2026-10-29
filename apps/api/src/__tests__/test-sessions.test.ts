@@ -1,14 +1,18 @@
 import { describe, it, expect, beforeEach } from 'vitest'
+import { presetPermissions } from '@awaitstep/ir'
 import {
   createTestApp,
   resetStore,
   mockDb,
   FakeTestSessionRunner,
   TEST_USER_ID,
+  TEST_ORG_ID,
   TEST_PROJECT_ID,
+  TEST_WORKSPACE_ID,
 } from './helpers.js'
 import { reapTestSessions, resolveTestSession } from '../lib/test-sessions.js'
 import { resolveTestSessionLimits, testSessionCutoffs } from '../lib/test-session-policy.js'
+import { hashApiKey } from '../lib/api-key-hash.js'
 import { BundleEscapeError } from '@awaitstep/provider-cloudflare'
 
 const validIR = {
@@ -263,6 +267,71 @@ describe('test session routes', () => {
       expect((await found.json()) as { session: { status: string } }).toMatchObject({
         session: { status: 'running' },
       })
+    })
+  })
+
+  describe('a workspace key', () => {
+    const OTHER_KEY = 'ask_test-sessions-other-ws'
+    const OWN_KEY = 'ask_test-sessions-own-ws'
+    const asKey = (key: string, init?: RequestInit): RequestInit => ({
+      ...init,
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    })
+    async function pinnedKey(id: string, secret: string, workspaceId: string) {
+      await mockDb.createApiKey({
+        id,
+        level: 'workspace',
+        organizationId: TEST_ORG_ID,
+        projectId: TEST_PROJECT_ID,
+        workspaceId,
+        createdBy: TEST_USER_ID,
+        name: id,
+        keyHash: await hashApiKey(secret),
+        keyPrefix: secret.slice(0, 8),
+        scopes: '["read","deploy"]',
+        permissions: JSON.stringify(presetPermissions('workspace', 'full')),
+      })
+    }
+
+    it('cannot trigger, stream or stop a session in another workspace', async () => {
+      // The session routes resolve by session id, so the pin has to be in
+      // that read too: wf-1 sits in the default workspace, the key elsewhere.
+      const { session } = (await (await start(app)).json()) as { session: { id: string } }
+      await mockDb.createWorkspace(
+        { id: 'ws-other', projectId: TEST_PROJECT_ID, name: 'Other', slug: 'other' },
+        [],
+      )
+      await pinnedKey('key-other', OTHER_KEY, 'ws-other')
+      await pinnedKey('key-own', OWN_KEY, TEST_WORKSPACE_ID)
+
+      const trigger = await app.request(
+        `/api/test-sessions/${session.id}/trigger`,
+        asKey(OTHER_KEY, { method: 'POST', body: '{}' }),
+      )
+      expect(trigger.status).toBe(404)
+      const stream = await app.request(`/api/test-sessions/${session.id}/stream`, asKey(OTHER_KEY))
+      expect(stream.status).toBe(404)
+      const stop = await app.request(
+        `/api/test-sessions/${session.id}`,
+        asKey(OTHER_KEY, { method: 'DELETE' }),
+      )
+      expect(stop.status).toBe(404)
+      expect(runner.triggers).toHaveLength(0)
+      expect(runner.stopped).toHaveLength(0)
+
+      // Pinned to the session's own workspace, the same calls go through.
+      const own = await app.request(
+        `/api/test-sessions/${session.id}/trigger`,
+        asKey(OWN_KEY, { method: 'POST', body: '{}' }),
+      )
+      expect(own.status).toBe(200)
+      expect(runner.triggers).toHaveLength(1)
+      const stopped = await app.request(
+        `/api/test-sessions/${session.id}`,
+        asKey(OWN_KEY, { method: 'DELETE' }),
+      )
+      expect(stopped.status).toBe(200)
+      expect(runner.stopped).toEqual([session.id])
     })
   })
 

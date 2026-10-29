@@ -1,6 +1,6 @@
 import { createMiddleware } from 'hono/factory'
 import type { AppEnv } from '../types.js'
-import { apiKeyProjectPin } from './auth.js'
+import { apiKeyProjectPin, apiKeyWorkspacePin } from './auth.js'
 import { applyGrantRows } from './access.js'
 
 /**
@@ -17,9 +17,14 @@ export const requireWorkflowAccess = createMiddleware<AppEnv>(async (c, next) =>
   if (!found || found.workflow.projectId !== c.get('projectId')) {
     return c.json({ error: 'Not found' }, 404)
   }
-  // requireProject already pinned a key to its project; the equality above holds it.
+  // requireProject already pinned a key to its project; the equality above
+  // holds it. A workspace key reaches its workspace's workflows only.
   const pin = apiKeyProjectPin(c)
   if (pin !== null && found.workflow.projectId !== pin) return c.json({ error: 'Not found' }, 404)
+  const workspacePin = apiKeyWorkspacePin(c)
+  if (workspacePin !== null && found.workflow.workspaceId !== workspacePin) {
+    return c.json({ error: 'Not found' }, 404)
+  }
 
   c.set('workflow', found.workflow)
   c.set('workspaceId', found.workflow.workspaceId)

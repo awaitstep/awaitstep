@@ -5,6 +5,7 @@ import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import { isUniqueViolation } from '@awaitstep/db'
 import { ACCESS_REASONS, isOrgAdmin } from '@awaitstep/ir'
+import { isSession } from '../middleware/auth.js'
 import { FOR_KEY, FOR_SESSION, projectRecord } from '../lib/scope-records.js'
 import { parseOrgRole } from '../lib/org-role.js'
 import { projectSlugSchema } from '../lib/slugs.js'
@@ -34,7 +35,7 @@ projects.get('/', zValidator('query', paginationQuerySchema), async (c) => {
     cursor,
     limit,
   })
-  const audience = c.get('apiKeyScopes') === null ? FOR_SESSION : FOR_KEY
+  const audience = isSession(c) ? FOR_SESSION : FOR_KEY
   return c.json({
     ...result,
     data: result.data.map((row) => projectRecord(row, audience)),

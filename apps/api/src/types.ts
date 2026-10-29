@@ -1,12 +1,26 @@
-import type { DatabaseAdapter, Workflow, Connection } from '@awaitstep/db'
+import type { DatabaseAdapter, Workflow, Connection, WorkspaceChip } from '@awaitstep/db'
 import type { Budget } from './middleware/rate-limit.js'
 import type { WranglerDeployer } from '@awaitstep/provider-cloudflare'
 import type { TestSessionRunner } from '@awaitstep/codegen'
 import type { TestSessionLimits } from './lib/test-session-policy.js'
-import type { ApiKeyScope } from './middleware/auth.js'
 import type { AppNodeRegistry } from './lib/node-registry.js'
 import type { RemoteNodeRegistry } from './lib/remote-node-registry.js'
-import type { OrgRole, ProjectRole, WorkspaceRole } from '@awaitstep/ir'
+import type { KeyLevel, KeyPermissions, OrgRole, ProjectRole, WorkspaceRole } from '@awaitstep/ir'
+
+/**
+ * The calling API key, as auth resolved it (B3): its level, the grid it
+ * carries and, for a workspace key, the workspace it is pinned to. Null for
+ * a session.
+ */
+export interface ApiKeyContext {
+  id: string
+  level: KeyLevel
+  permissions: KeyPermissions
+  /** The project a project or workspace key is pinned to; null for an organization key. */
+  projectId: string | null
+  workspaceId: string | null
+  expiresAt: string | null
+}
 
 /** An invitation email: where the link goes and what the card says. */
 export interface InvitationEmail {
@@ -46,6 +60,8 @@ export interface AppEnv {
     projectId: string
     /** Set by requireProject when the request names a workspace, and by requireWorkspace. */
     workspaceId: string | undefined
+    /** The named workspace as the dashboard draws it, from the same read; set by requireProject only. */
+    workspace: WorkspaceChip | undefined
     /**
      * The caller's role in the organization, from the same read that
      * resolved the scope. For an API key it is the creator's: a key acts with
@@ -66,11 +82,13 @@ export interface AppEnv {
     requestId: string
     /** The caller's address, resolved once per request — the rate limiters' key. */
     clientIp: string | undefined
-    /** The calling key — recorded as the parent of any key it mints. Null for sessions. */
-    apiKeyId: string | null
-    apiKeyScopes: ApiKeyScope[] | null
-    /** The key's own expiry — the ceiling for any key it mints. Null for sessions. */
-    apiKeyExpiresAt: string | null
+    apiKey: ApiKeyContext | null
+    /**
+     * Set by the permission mapping a route carries once it has judged the
+     * key; the catch-all registered after every mapping refuses a key whose
+     * request none marked, so a route is session-only until mapped.
+     */
+    keyPermissionChecked: boolean | undefined
     nodeRegistry: AppNodeRegistry
     remoteNodeRegistry: RemoteNodeRegistry | undefined
     appName: string | undefined

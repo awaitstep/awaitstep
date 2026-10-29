@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
-import { apiKeyProjectPin } from '../middleware/auth.js'
+import { apiKeyProjectPin, isSession } from '../middleware/auth.js'
 import type { AppEnv } from '../types.js'
 
 const envVarNamePattern = /^[A-Z][A-Z0-9_]*$/
@@ -48,7 +48,7 @@ const listEnvVarsQuerySchema = z
  * rows only). Matches the adapter's scope semantics one to one.
  */
 function varRestriction(c: Context<AppEnv>): string | null | undefined {
-  if (c.get('apiKeyScopes') === null) return undefined
+  if (isSession(c)) return undefined
   return apiKeyProjectPin(c)
 }
 

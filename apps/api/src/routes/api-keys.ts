@@ -1,105 +1,206 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
+import {
+  KEY_LEVELS,
+  countGrants,
+  grantsOutsideLevel,
+  keyLevelOf,
+  keyScopesOf,
+  normalisePermissions,
+  orgCapabilities,
+  parseKeyPermissions,
+  projectCapabilities,
+  workspaceCapabilities,
+  type Allowed,
+  type KeyLevel,
+} from '@awaitstep/ir'
+import type { ApiKey, ApiKeyListItem, ApiKeyTarget, CreateApiKeyData } from '@awaitstep/db'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import { hashApiKey } from '../lib/api-key-hash.js'
 import type { AppEnv } from '../types.js'
 
-const VALID_SCOPES = ['read', 'write', 'deploy'] as const
+// API keys at three levels (B3). Session-only, addressed at the level they
+// manage — `?org=`, `&project=`, `&workspace=` — which the router resolved
+// with the caller's roles: an organization key is minted, listed and
+// revoked by the org's owners and admins; a project key by its project's
+// admins; a workspace key by that workspace's admins. Anyone who can open a
+// project or workspace sees its keys (never the secret).
+
+const SECRET_LENGTH = 40
+const PREFIX_LENGTH = 8
+const SUFFIX_LENGTH = 4
 
 const createApiKeySchema = z.object({
-  name: z.string().min(1).max(255),
-  /** With a projectId the key is project-level; without, organization-level. */
-  projectId: z.string().min(1).optional(),
-  scopes: z.array(z.enum(VALID_SCOPES)).min(1),
-  expiresAt: z.string().datetime().nullable().optional(),
+  name: z.string().trim().min(1).max(255),
+  level: z.enum(KEY_LEVELS as [KeyLevel, ...KeyLevel[]]),
+  /** The grid: `{ "<resource>": ["<action>", …] }`, cells the level offers. */
+  permissions: z.record(z.string(), z.array(z.string())),
+  // A key minted already expired would answer 401 to its first call.
+  expiresAt: z
+    .string()
+    .datetime()
+    .refine((value) => Date.parse(value) > Date.now(), 'expiresAt must be in the future')
+    .nullable()
+    .optional(),
 })
+
+const NO_FACTS = {
+  ownLock: false,
+  lockedByProject: null,
+  isLastWorkspace: false,
+  sharedInUse: false,
+}
+
+/** The level the request is addressed at, from what the router resolved. */
+function addressedLevel(c: Context<AppEnv>): KeyLevel {
+  if (c.get('workspaceId')) return 'workspace'
+  return (c.get('projectId') as string | undefined) ? 'project' : 'organization'
+}
+
+/** Whether the caller manages keys at the addressed level, with the dashboard's reason. */
+function canManageKeys(c: Context<AppEnv>, level: KeyLevel): Allowed {
+  const orgRole = c.get('orgRole')
+  if (level === 'organization') {
+    return orgRole ? orgCapabilities(orgRole).manageSettings : { allowed: false }
+  }
+  if (level === 'project') {
+    return projectCapabilities(c.get('projectRole'), false, orgRole).manageKeys
+  }
+  const role = c.get('workspaceRole')
+  return role ? workspaceCapabilities(role, NO_FACTS).manageKeys : { allowed: false }
+}
+
+function targetOf(c: Context<AppEnv>, level: KeyLevel): ApiKeyTarget {
+  if (level === 'workspace') return { level, workspaceId: c.get('workspaceId')! }
+  if (level === 'project') return { level, projectId: c.get('projectId') }
+  return { level, organizationId: c.get('organizationId') }
+}
+
+/** A key as the keys pages read it: no hash, the grid as an object, its level. */
+function keyRecord(key: ApiKey | ApiKeyListItem) {
+  const { keyHash: _, scopes: __, permissions, ...rest } = key
+  return {
+    ...rest,
+    level: keyLevelOf(key),
+    permissions: parseKeyPermissions(permissions) ?? {},
+  }
+}
 
 export const apiKeys = new Hono<AppEnv>()
 
-const listApiKeysQuerySchema = z
-  .object({ projectId: z.string().optional() })
-  .merge(paginationQuerySchema)
-
-apiKeys.get('/', zValidator('query', listApiKeysQuerySchema), async (c) => {
+/**
+ * The keys of the addressed level: `?org=` the organization's own (owners
+ * and admins), `&project=` the project's own with a count per workspace the
+ * caller can open, `&workspace=` the workspace's own and the project keys
+ * that reach it.
+ */
+apiKeys.get('/', zValidator('query', paginationQuerySchema), async (c) => {
   const db = c.get('db')
-  const organizationId = c.get('organizationId')
-  const { projectId, cursor, limit } = c.req.valid('query')
-  // A project the caller cannot open (B2) is never named: its list is empty,
-  // and the organization's list leaves its keys out — in the statement.
-  const result = projectId
-    ? await db.listApiKeysByProject(organizationId, projectId, { cursor, limit }, c.get('userId'))
-    : await db.listApiKeysByOrganization(organizationId, { cursor, limit }, c.get('userId'))
-  return c.json({
-    data: result.data.map(({ keyHash: _, ...key }) => key),
-    nextCursor: result.nextCursor,
-  })
+  const level = addressedLevel(c)
+  const { cursor, limit } = c.req.valid('query')
+  if (level === 'organization') {
+    const can = canManageKeys(c, level)
+    if (!can.allowed) return c.json({ error: can.reason ?? 'Forbidden' }, 403)
+    const result = await db.listApiKeysByOrganization(c.get('organizationId'), { cursor, limit })
+    return c.json({ data: result.data.map(keyRecord), nextCursor: result.nextCursor })
+  }
+  if (level === 'project') {
+    const projectId = c.get('projectId')
+    const [result, workspaceCounts] = await Promise.all([
+      db.listApiKeysByProject(
+        c.get('organizationId'),
+        projectId,
+        { cursor, limit },
+        c.get('userId'),
+      ),
+      db.countApiKeysByWorkspace(projectId, c.get('userId')),
+    ])
+    return c.json({
+      data: result.data.map(keyRecord),
+      nextCursor: result.nextCursor,
+      workspaceCounts,
+    })
+  }
+  const rows = await db.listApiKeysByWorkspace(c.get('workspaceId')!, new Date().toISOString())
+  return c.json({ own: rows.own.map(keyRecord), inherited: rows.inherited.map(keyRecord) })
 })
 
+/**
+ * Mint a key at the addressed level, with the grid the level offers; the
+ * secret is returned once, here, and never again.
+ */
 apiKeys.post('/', zValidator('json', createApiKeySchema), async (c) => {
   const db = c.get('db')
-  const organizationId = c.get('organizationId')
-  const userId = c.get('userId')
+  const level = addressedLevel(c)
   const body = c.req.valid('json')
-
-  // A key never mints past itself: not its own level (one leaked key must not
-  // be self-replicating), not scopes it does not hold, not a longer life.
-  const callerScopes = c.get('apiKeyScopes')
-  let expiresAt = body.expiresAt ?? null
-  if (callerScopes !== null) {
-    if (!body.projectId) {
-      return c.json({ error: 'An API key cannot create organization-level keys' }, 403)
-    }
-    const escalated = body.scopes.filter((s) => !callerScopes.includes(s))
-    if (escalated.length > 0) {
-      return c.json(
-        { error: `A key cannot grant scopes it does not hold: ${escalated.join(', ')}` },
-        403,
-      )
-    }
-    const callerExpiresAt = c.get('apiKeyExpiresAt')
-    // As instants: ISO strings of one moment can differ (`…00Z` vs `…00.000Z`)
-    // and sort the wrong way round.
-    if (callerExpiresAt && (!expiresAt || Date.parse(expiresAt) > Date.parse(callerExpiresAt))) {
-      expiresAt = callerExpiresAt
-    }
+  if (body.level !== level) {
+    return c.json(
+      { error: `Address the ${body.level} the key is for (?org=, &project=, &workspace=)` },
+      400,
+    )
   }
+  const can = canManageKeys(c, level)
+  if (!can.allowed) return c.json({ error: can.reason ?? 'Forbidden' }, 403)
 
-  const rawKey = `ask_${nanoid(40)}`
-  const keyHash = await hashApiKey(rawKey)
-  const keyPrefix = rawKey.slice(0, 8)
+  const invalid = (message: string) =>
+    c.json({ error: 'Validation failed', details: [{ path: 'permissions', message }] }, 422)
+  const permissions = parseKeyPermissions(body.permissions)
+  if (!permissions) return invalid('Unknown resource or action')
+  const outside = grantsOutsideLevel(level, permissions)
+  if (outside.length > 0) {
+    return invalid(`Not available on this kind of key: ${outside.join(', ')}`)
+  }
+  const grid = normalisePermissions(level, permissions)
+  if (countGrants(level, grid) === 0) return invalid('Pick at least one permission')
 
-  // The adapter validates the project belongs to the organization and stores
-  // exactly one level, in one call.
-  const apiKey = await db.createApiKey({
+  const rawKey = `ask_${nanoid(SECRET_LENGTH)}`
+  const common = {
     id: nanoid(),
-    organizationId,
-    projectId: body.projectId ?? null,
-    parentKeyId: c.get('apiKeyId'),
-    createdBy: userId,
+    createdBy: c.get('userId'),
     name: body.name,
-    keyHash,
-    keyPrefix,
-    scopes: JSON.stringify(body.scopes),
-    expiresAt,
-  })
-  if (!apiKey) {
-    return c.json({ error: 'Project not found' }, 404)
+    keyHash: await hashApiKey(rawKey),
+    keyPrefix: rawKey.slice(0, PREFIX_LENGTH),
+    keySuffix: rawKey.slice(-SUFFIX_LENGTH),
+    permissions: JSON.stringify(grid),
+    scopes: JSON.stringify(keyScopesOf(level, grid)),
+    expiresAt: body.expiresAt ?? null,
   }
-
-  const { keyHash: _, ...safeKey } = apiKey
-  return c.json({ ...safeKey, key: rawKey }, 201)
+  const organizationId = c.get('organizationId')
+  const data: CreateApiKeyData =
+    level === 'organization'
+      ? { ...common, level, organizationId }
+      : level === 'project'
+        ? { ...common, level, organizationId, projectId: c.get('projectId') }
+        : {
+            ...common,
+            level,
+            organizationId,
+            projectId: c.get('projectId'),
+            workspaceId: c.get('workspaceId')!,
+          }
+  // The insert itself checks the place is the organization's and the
+  // creator can open it. The answer is the listed shape — the workspace
+  // chip and the creator's name come from the scope read and the session,
+  // so the reveal says "Only Sales", not "Only ." — plus the secret, once.
+  const apiKey = await db.createApiKey(data)
+  if (!apiKey) return c.json({ error: 'Not found' }, 404)
+  const listed: ApiKeyListItem = {
+    ...apiKey,
+    projectName: null,
+    createdByName: c.get('user')?.name ?? null,
+    workspace: level === 'workspace' ? (c.get('workspace') ?? null) : null,
+  }
+  return c.json({ ...keyRecord(listed), key: rawKey }, 201)
 })
 
+/** Revoke a key of the addressed level — the statement holds it to that level's place. */
 apiKeys.delete('/:id', async (c) => {
-  const db = c.get('db')
-  const organizationId = c.get('organizationId')
-  const id = c.req.param('id')
-
-  const revoked = await db.revokeApiKey(id, organizationId)
+  const level = addressedLevel(c)
+  const can = canManageKeys(c, level)
+  if (!can.allowed) return c.json({ error: can.reason ?? 'Forbidden' }, 403)
+  const revoked = await c.get('db').revokeApiKey(c.req.param('id'), targetOf(c, level))
   if (!revoked) return c.json({ error: 'Not found' }, 404)
-
-  const { keyHash: _, ...safeKey } = revoked
-  return c.json(safeKey)
+  return c.json(keyRecord(revoked))
 })

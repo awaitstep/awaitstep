@@ -3,7 +3,7 @@ import type { Context } from 'hono'
 import type { ProjectRef, WorkspaceInProjectRef } from '@awaitstep/db'
 import { parseOrgRole } from '../lib/org-role.js'
 import type { AppEnv } from '../types.js'
-import { apiKeyProjectPin } from './auth.js'
+import { apiKeyProjectPin, apiKeyWorkspacePin, isSession } from './auth.js'
 import { applyGrantRows } from './access.js'
 
 // Scope is read off the query string, by id (`organizationId`, `projectId`,
@@ -13,7 +13,9 @@ import { applyGrantRows } from './access.js'
 // membership rows and whether they may open the place, and a row they may
 // not open answers exactly like one that does not exist. For an API key the
 // caller is the key's creator, whose standing the key acts with; the key's
-// project pin is checked against what was found.
+// project pin — and a workspace key's workspace pin — is checked against
+// what was found, and a workspace key naming another workspace is told
+// "not found", as for a workspace its creator cannot open.
 
 const ORG_KEY_ON_PROJECT = 'An organization-level API key cannot access project resources'
 
@@ -31,7 +33,7 @@ function workspaceParam(c: Context<AppEnv>): WorkspaceInProjectRef | undefined {
 // membership-checked; `optional` only decides whether naming none is allowed.
 function organizationContext(options: { optional: boolean }) {
   return createMiddleware<AppEnv>(async (c, next) => {
-    if (c.get('apiKeyScopes') !== null) return next()
+    if (!isSession(c)) return next()
 
     const id = c.req.query('organizationId')
     const slug = c.req.query('org')
@@ -61,16 +63,25 @@ export const resolveOptionalOrganization = organizationContext({ optional: true 
 /** The project a request names in its query, with the caller's roles there. */
 export const requireProject = createMiddleware<AppEnv>(async (c, next) => {
   const db = c.get('db')
-  const workspace = workspaceParam(c)
+  let workspace = workspaceParam(c)
   const pin = apiKeyProjectPin(c)
+  const workspacePin = apiKeyWorkspacePin(c)
 
   let ref: ProjectRef
-  if (c.get('apiKeyScopes') !== null) {
+  if (!isSession(c)) {
     // A project key already carries its project. An organization-level key
     // carries none — and gets none here: org management and project work
     // never share a key.
     if (pin === null) return c.json({ error: ORG_KEY_ON_PROJECT }, 403)
     ref = { id: pin }
+    // A workspace key names its workspace or none; another by id is not found
+    // here, one by slug below, once the read says which workspace that is.
+    if (workspacePin !== null) {
+      if (workspace && 'id' in workspace && workspace.id !== workspacePin) {
+        return c.json({ error: 'Not found' }, 404)
+      }
+      workspace ??= { id: workspacePin }
+    }
   } else {
     const projectId = c.req.query('projectId')
     const org = c.req.query('org')
@@ -83,14 +94,17 @@ export const requireProject = createMiddleware<AppEnv>(async (c, next) => {
   }
 
   const found = await db.getProjectIfMember(c.get('userId'), ref, workspace)
-  if (!found) {
+  if (!found || (workspacePin !== null && found.workspace?.id !== workspacePin)) {
     return c.json({ error: 'Not found' }, 404)
   }
 
   c.set('projectId', found.project.id)
   c.set('organizationId', found.project.organizationId)
-  if (found.workspaceId) c.set('workspaceId', found.workspaceId)
-  applyGrantRows(c, found, found.workspaceId !== null)
+  if (found.workspace) {
+    c.set('workspaceId', found.workspace.id)
+    c.set('workspace', found.workspace)
+  }
+  applyGrantRows(c, found, found.workspace !== null)
   await next()
 })
 
@@ -107,7 +121,7 @@ export const requireProjectParam = createMiddleware<AppEnv>(async (c, next) => {
   const found = await c.get('db').getProjectIfMember(c.get('userId'), { id })
   if (!found) return c.json({ error: 'Not found' }, 404)
   // An organization-level key reaches the projects of its own organization only.
-  if (c.get('apiKeyScopes') !== null && found.project.organizationId !== c.get('organizationId')) {
+  if (!isSession(c) && found.project.organizationId !== c.get('organizationId')) {
     return c.json({ error: 'Not found' }, 404)
   }
 
@@ -122,12 +136,17 @@ export const requireWorkspace = createMiddleware<AppEnv>(async (c, next) => {
   const id = c.req.param('id') ?? c.req.param('workspaceId')
   if (!id) return c.json({ error: 'Not found' }, 404)
   const pin = apiKeyProjectPin(c)
-  if (c.get('apiKeyScopes') !== null && pin === null) {
+  const workspacePin = apiKeyWorkspacePin(c)
+  if (!isSession(c) && pin === null) {
     return c.json({ error: ORG_KEY_ON_PROJECT }, 403)
   }
 
   const found = await c.get('db').getWorkspaceIfMember(c.get('userId'), { id })
-  if (!found || (pin !== null && found.projectId !== pin)) {
+  if (
+    !found ||
+    (pin !== null && found.projectId !== pin) ||
+    (workspacePin !== null && found.workspaceId !== workspacePin)
+  ) {
     return c.json({ error: 'Not found' }, 404)
   }
 

@@ -2,19 +2,20 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import {
   ACCESS_REASONS,
   canSeeProject,
+  presetPermissions,
   resolveRoles,
   type OrgRole,
   type ProjectRole,
   type WorkspaceRole,
 } from '@awaitstep/ir'
 import { createSqliteApp, seedAcme, type SqliteApp } from './sqlite-app.js'
-import { hashApiKey } from '../lib/api-key-hash.js'
 import { rolesOf } from '../lib/scope-records.js'
 
 // Roles below the organization, through the real API on a real database:
 // the SQL role table against the one in @awaitstep/ir, what is hidden, and
 // what each role is refused.
 
+const T1 = '2026-10-28T00:00:00.000Z'
 const ORG_ROLES: (OrgRole | null)[] = ['owner', 'admin', 'member', null]
 const PROJECT_GRANTS: (ProjectRole | null)[] = ['admin', 'member', null]
 const WORKSPACE_GRANTS: (WorkspaceRole | null)[] = ['admin', 'editor', 'viewer', null]
@@ -320,24 +321,21 @@ describe('API keys act with their creator’s standing', () => {
     await seedAcme(h)
   })
 
-  async function key(
-    id: string,
-    createdBy: string,
-    projectId: string | null,
-    scopes = ['read', 'write', 'deploy'],
-  ) {
-    const raw = `ask_${id}`
-    await h.adapter.createApiKey({
-      id,
-      organizationId: 'org-acme',
-      projectId,
-      createdBy,
-      name: id,
-      keyHash: await hashApiKey(raw),
-      keyPrefix: raw.slice(0, 8),
-      scopes: JSON.stringify(scopes),
-    })
-    return { headers: { Authorization: `Bearer ${raw}`, 'Content-Type': 'application/json' } }
+  // A key with Full access at its level: what it may do is then its creator's standing alone.
+  function key(id: string, createdBy: string, projectId: string | null) {
+    return projectId
+      ? h.seed.key(
+          id,
+          createdBy,
+          { level: 'project', projectId },
+          presetPermissions('project', 'full'),
+        )
+      : h.seed.key(
+          id,
+          createdBy,
+          { level: 'organization' },
+          presetPermissions('organization', 'full'),
+        )
   }
 
   it('lets a project member’s key build but not manage, and stops when they lose the project', async () => {
@@ -373,8 +371,11 @@ describe('API keys act with their creator’s standing', () => {
 
   it('lists a project’s keys and variables only to someone who can open it', async () => {
     const minted = await h.app.request(
-      '/api/api-keys?org=acme',
-      h.as('u-ama', h.json({ name: 'Project key', projectId: 'p-101', scopes: ['read'] })),
+      '/api/api-keys?org=acme&project=project-101',
+      h.as(
+        'u-ama',
+        h.json({ name: 'Project key', level: 'project', permissions: { workflows: ['read'] } }),
+      ),
     )
     expect(minted.status).toBe(201)
     const set = await h.app.request(
@@ -382,16 +383,24 @@ describe('API keys act with their creator’s standing', () => {
       h.as('u-ama', h.json({ projectId: 'p-101', name: 'API_URL', value: 'x', isSecret: false })),
     )
     expect(set.status).toBe(201)
-    for (const path of [
-      '/api/api-keys?org=acme&projectId=p-101',
-      '/api/env-vars?org=acme&projectId=p-101',
-    ]) {
-      const asEve = await (await h.app.request(path, h.as('u-eve'))).json()
-      expect(asEve.data, path).toHaveLength(1)
-      // Fay is in the organization but can open no project: the project lists nothing to her.
-      const asFay = await (await h.app.request(path, h.as('u-fay'))).json()
-      expect(asFay.data, path).toEqual([])
-    }
+    // Eve can open Project 101 (a Viewer in Sales); Fay, in the organization, can open no project.
+    const keysForEve = await h.app.request(
+      '/api/api-keys?org=acme&project=project-101',
+      h.as('u-eve'),
+    )
+    expect(keysForEve.status).toBe(200)
+    expect((await keysForEve.json()).data).toHaveLength(1)
+    expect(
+      (await h.app.request('/api/api-keys?org=acme&project=project-101', h.as('u-fay'))).status,
+    ).toBe(404)
+    const varsForEve = await (
+      await h.app.request('/api/env-vars?org=acme&projectId=p-101', h.as('u-eve'))
+    ).json()
+    expect(varsForEve.data).toHaveLength(1)
+    const varsForFay = await (
+      await h.app.request('/api/env-vars?org=acme&projectId=p-101', h.as('u-fay'))
+    ).json()
+    expect(varsForFay.data).toEqual([])
   })
 
   it('changes or removes a project’s variables only for someone who can open it', async () => {
@@ -426,27 +435,28 @@ describe('API keys act with their creator’s standing', () => {
     ).toBe(200)
   })
 
-  it('never names a hidden project through the organization’s key list, nor mints or sets anything in one', async () => {
+  it('never names a hidden project’s keys, nor mints or sets anything in one', async () => {
     const asAma = (body: unknown) => h.as('u-ama', h.json(body))
-    expect(
-      (await h.app.request('/api/api-keys?org=acme', asAma({ name: 'Org key', scopes: ['read'] })))
-        .status,
-    ).toBe(201)
-    expect(
-      (
-        await h.app.request(
-          '/api/api-keys?org=acme',
-          asAma({ name: 'P202 key', projectId: 'p-202', scopes: ['read'] }),
-        )
-      ).status,
-    ).toBe(201)
-    const forEve = await (await h.app.request('/api/api-keys?org=acme', h.as('u-eve'))).json()
-    expect(forEve.data.map((k: { projectId: string | null }) => k.projectId)).toEqual([null])
-    const forAma = await (await h.app.request('/api/api-keys?org=acme', h.as('u-ama'))).json()
-    expect(forAma.data).toHaveLength(2)
-    const mint = await h.app.request(
+    const orgKey = await h.app.request(
       '/api/api-keys?org=acme',
-      h.as('u-eve', h.json({ name: 'x', projectId: 'p-202', scopes: ['read'] })),
+      asAma({ name: 'Org key', level: 'organization', permissions: { projects: ['read'] } }),
+    )
+    expect(orgKey.status).toBe(201)
+    const p202Key = await h.app.request(
+      '/api/api-keys?org=acme&project=project-202',
+      asAma({ name: 'P202 key', level: 'project', permissions: { workflows: ['read'] } }),
+    )
+    expect(p202Key.status).toBe(201)
+    // The organization's keys are its owners' and admins' to see; a hidden project's are nobody else's.
+    expect((await h.app.request('/api/api-keys?org=acme', h.as('u-eve'))).status).toBe(403)
+    expect(
+      (await h.app.request('/api/api-keys?org=acme&project=project-202', h.as('u-eve'))).status,
+    ).toBe(404)
+    const forAma = await (await h.app.request('/api/api-keys?org=acme', h.as('u-ama'))).json()
+    expect(forAma.data.map((k: { name: string }) => k.name)).toEqual(['Org key'])
+    const mint = await h.app.request(
+      '/api/api-keys?org=acme&project=project-202',
+      h.as('u-eve', h.json({ name: 'x', level: 'project', permissions: { workflows: ['read'] } })),
     )
     expect(mint.status).toBe(404)
     const set = await h.app.request(
@@ -454,6 +464,340 @@ describe('API keys act with their creator’s standing', () => {
       h.as('u-eve', h.json({ projectId: 'p-202', name: 'X', value: 'x', isSecret: false })),
     )
     expect(set.status).toBe(404)
+  })
+
+  describe('keys at three levels', () => {
+    const full = (level: 'organization' | 'project' | 'workspace') =>
+      presetPermissions(level, 'full')
+    const mint = (as: string, query: string, body: unknown) =>
+      h.app.request(`/api/api-keys?${query}`, h.as(as, h.json(body)))
+
+    it('are minted by whoever manages the level, with a grid the level offers', async () => {
+      // The organization: owners and admins.
+      const orgByMember = await mint('u-dan', 'org=acme', {
+        name: 'x',
+        level: 'organization',
+        permissions: full('organization'),
+      })
+      expect(orgByMember.status).toBe(403)
+      expect((await orgByMember.json()).error).toBe(ACCESS_REASONS.orgAdmins)
+      const orgKey = await mint('u-ben', 'org=acme', {
+        name: 'Org',
+        level: 'organization',
+        permissions: full('organization'),
+      })
+      expect(orgKey.status).toBe(201)
+      const minted = await orgKey.json()
+      expect(minted.key).toMatch(/^ask_[A-Za-z0-9_-]{40}$/)
+      expect(minted).toMatchObject({
+        level: 'organization',
+        keyPrefix: minted.key.slice(0, 8),
+        keySuffix: minted.key.slice(-4),
+        permissions: full('organization'),
+      })
+      expect(minted.keyHash).toBeUndefined()
+      // A project: its admins. Dan is a member of Project 101.
+      const body = { name: 'CI', level: 'project', permissions: full('project') }
+      const byMember = await mint('u-dan', 'org=acme&project=project-101', body)
+      expect(byMember.status).toBe(403)
+      expect((await byMember.json()).error).toBe(ACCESS_REASONS.projectAdmins)
+      await h.adapter.saveAccess(
+        'org-acme',
+        'u-dan',
+        { orgRole: 'member', projects: [{ projectId: 'p-101', role: 'admin' }], workspaces: [] },
+        'u-ama',
+        { callerIsOwner: true },
+      )
+      expect((await mint('u-dan', 'org=acme&project=project-101', body)).status).toBe(201)
+      // A workspace: its admins. Eve is a Viewer in Sales, Gus an Editor in Ops.
+      const wsBody = { name: 'Sales CI', level: 'workspace', permissions: full('workspace') }
+      const byViewer = await mint('u-eve', 'org=acme&project=project-101&workspace=sales', wsBody)
+      expect(byViewer.status).toBe(403)
+      expect((await byViewer.json()).error).toBe(ACCESS_REASONS.workspaceAdmins)
+      expect(
+        (await mint('u-gus', 'org=acme&project=project-101&workspace=ops', wsBody)).status,
+      ).toBe(403)
+      await h.adapter.setWorkspaceGrant('ws-sales', 'u-eve', 'admin')
+      const wsKey = await mint('u-eve', 'org=acme&project=project-101&workspace=sales', wsBody)
+      expect(wsKey.status).toBe(201)
+      // The listed shape, so the reveal can say "Only Sales" and who minted it.
+      expect(await wsKey.json()).toMatchObject({
+        level: 'workspace',
+        workspaceId: 'ws-sales',
+        projectId: 'p-101',
+        createdByName: 'Eve Park',
+        workspace: { id: 'ws-sales', slug: 'sales', name: 'Sales', colour: 'green' },
+      })
+      // The grid must be the level's, non-empty, and the body's level the address's.
+      const outside = await mint('u-ben', 'org=acme', {
+        name: 'x',
+        level: 'organization',
+        permissions: { workflows: ['deploy'] },
+      })
+      expect(outside.status).toBe(422)
+      expect((await outside.json()).details[0].message).toMatch(/workflows: deploy/)
+      expect(
+        (await mint('u-ben', 'org=acme', { name: 'x', level: 'organization', permissions: {} }))
+          .status,
+      ).toBe(422)
+      expect(
+        (
+          await mint('u-ben', 'org=acme', {
+            name: 'x',
+            level: 'organization',
+            permissions: { projects: ['fly'] },
+          })
+        ).status,
+      ).toBe(422)
+      expect(
+        (
+          await mint('u-ben', 'org=acme', {
+            name: 'x',
+            level: 'project',
+            permissions: full('project'),
+          })
+        ).status,
+      ).toBe(400)
+    })
+
+    it('lists each level to those who can open it, and revokes at the level only', async () => {
+      await h.seed.key('k-org', 'u-ama', { level: 'organization' }, full('organization'))
+      await h.seed.key('k-proj', 'u-ama', { level: 'project', projectId: 'p-101' }, full('project'))
+      await h.seed.key(
+        'k-sales',
+        'u-ama',
+        { level: 'workspace', projectId: 'p-101', workspaceId: 'ws-sales' },
+        full('workspace'),
+      )
+      await h.seed.key(
+        'k-ops',
+        'u-ama',
+        { level: 'workspace', projectId: 'p-101', workspaceId: 'ws-ops' },
+        full('workspace'),
+      )
+      expect((await h.app.request('/api/api-keys?org=acme', h.as('u-dan'))).status).toBe(403)
+      const org = await (await h.app.request('/api/api-keys?org=acme', h.as('u-ben'))).json()
+      expect(org.data.map((k: { id: string; level: string }) => [k.id, k.level])).toEqual([
+        ['k-org', 'organization'],
+      ])
+      // Eve opens Sales only: the project's keys, and Sales's count — never Ops's.
+      const project = await (
+        await h.app.request('/api/api-keys?org=acme&project=project-101', h.as('u-eve'))
+      ).json()
+      expect(project.data.map((k: { id: string }) => k.id)).toEqual(['k-proj'])
+      expect(project.workspaceCounts).toEqual([
+        { workspace: { id: 'ws-sales', slug: 'sales', name: 'Sales', colour: 'green' }, count: 1 },
+      ])
+      const sales = await (
+        await h.app.request(
+          '/api/api-keys?org=acme&project=project-101&workspace=sales',
+          h.as('u-eve'),
+        )
+      ).json()
+      expect(sales.own.map((k: { id: string }) => k.id)).toEqual(['k-sales'])
+      expect(sales.inherited.map((k: { id: string }) => k.id)).toEqual(['k-proj'])
+      expect(
+        (
+          await h.app.request(
+            '/api/api-keys?org=acme&project=project-101&workspace=ops',
+            h.as('u-eve'),
+          )
+        ).status,
+      ).toBe(404)
+      // Revoking: the level's managers, at the level's address.
+      await h.adapter.setWorkspaceGrant('ws-sales', 'u-eve', 'admin')
+      expect(
+        (
+          await h.app.request(
+            '/api/api-keys/k-proj?org=acme&project=project-101',
+            h.as('u-eve', { method: 'DELETE' }),
+          )
+        ).status,
+      ).toBe(403)
+      expect(
+        (
+          await h.app.request(
+            '/api/api-keys/k-proj?org=acme&project=project-101&workspace=sales',
+            h.as('u-eve', { method: 'DELETE' }),
+          )
+        ).status,
+      ).toBe(404)
+      expect(
+        (
+          await h.app.request(
+            '/api/api-keys/k-sales?org=acme&project=project-101&workspace=sales',
+            h.as('u-eve', { method: 'DELETE' }),
+          )
+        ).status,
+      ).toBe(200)
+      expect(
+        (await h.app.request('/api/api-keys/k-org?org=acme', h.as('u-dan', { method: 'DELETE' })))
+          .status,
+      ).toBe(403)
+      expect(
+        (await h.app.request('/api/api-keys/k-org?org=acme', h.as('u-ama', { method: 'DELETE' })))
+          .status,
+      ).toBe(200)
+      expect(
+        (await h.app.request('/api/api-keys/k-org?org=acme', h.as('u-ama', { method: 'DELETE' })))
+          .status,
+      ).toBe(404)
+    })
+
+    it('reads people with members:read at the key’s own level only', async () => {
+      const grid = { members: ['read'] }
+      const asOrg = await h.seed.key('k-org-m', 'u-ama', { level: 'organization' }, grid)
+      expect((await h.app.request('/api/members', asOrg)).status).toBe(200)
+      // A project's people are a project route: not an organization key's,
+      // whatever its grid — the level rule, not the cell, answers.
+      const onProject = await h.app.request('/api/members?project=project-101', asOrg)
+      expect(onProject.status).toBe(403)
+      expect((await onProject.json()).error).toMatch(/organization-level API key cannot access/)
+      expect((await h.app.request('/api/workspaces/ws-sales/members', asOrg)).status).toBe(403)
+      const asProject = await h.seed.key(
+        'k-proj-m',
+        'u-ama',
+        { level: 'project', projectId: 'p-101' },
+        grid,
+      )
+      expect((await h.app.request('/api/members', asProject)).status).toBe(200)
+      expect((await h.app.request('/api/workspaces/ws-sales/members', asProject)).status).toBe(200)
+      // A workspace key holds no members cell; the refusal names the key
+      // (it once said "project-scoped … cannot manage organization resources").
+      const asSales = await h.seed.key(
+        'k-sales-m',
+        'u-ama',
+        { level: 'workspace', projectId: 'p-101', workspaceId: 'ws-sales' },
+        full('workspace'),
+      )
+      const refused = await h.app.request('/api/members', asSales)
+      expect(refused.status).toBe(403)
+      expect((await refused.json()).error).toBe('A workspace-level API key cannot read members')
+      const refusedToo = await h.app.request('/api/workspaces/ws-sales/members', asSales)
+      expect((await refusedToo.json()).error).toBe('A workspace-level API key cannot read members')
+    })
+
+    it('stops a workspace key when its creator can no longer open that workspace', async () => {
+      // Eve is a Viewer in Sales through a workspace grant alone; an Ops
+      // grant keeps her in the project after Sales is taken away.
+      await h.seed.workspaceGrant('ws-ops', 'u-eve', 'viewer')
+      const asEve = await h.seed.key(
+        'k-eve-sales',
+        'u-eve',
+        { level: 'workspace', projectId: 'p-101', workspaceId: 'ws-sales' },
+        full('workspace'),
+      )
+      expect((await h.app.request('/api/connections', asEve)).status).toBe(200)
+      expect((await h.app.request('/api/workflows/wf-sales', asEve)).status).toBe(200)
+      await h.adapter.removeWorkspaceGrant('ws-sales', 'u-eve')
+      // Not only the workspace's own routes: the organization reads it held
+      // through its cells (connections, nodes, variables) close with it.
+      const closed = await h.app.request('/api/connections', asEve)
+      expect(closed.status).toBe(401)
+      expect((await closed.json()).error).toMatch(/creator can no longer access this workspace/)
+      expect((await h.app.request('/api/workflows/wf-sales', asEve)).status).toBe(401)
+    })
+
+    it('pins a workspace key to its workspace', async () => {
+      const asSales = await h.seed.key(
+        'k-sales',
+        'u-ama',
+        { level: 'workspace', projectId: 'p-101', workspaceId: 'ws-sales' },
+        full('workspace'),
+      )
+      const list = await (await h.app.request('/api/workflows', asSales)).json()
+      expect(list.data.map((w: { id: string }) => w.id)).toEqual(['wf-sales'])
+      expect((await h.app.request('/api/workflows?workspace=ops', asSales)).status).toBe(404)
+      expect((await h.app.request('/api/workflows?workspaceId=ws-ops', asSales)).status).toBe(404)
+      expect((await h.app.request('/api/workflows/wf-ops', asSales)).status).toBe(404)
+      expect((await h.app.request('/api/workflows/wf-sales', asSales)).status).toBe(200)
+      // The deploy-config preview is addressed by a workflow too (it was the
+      // one workflow route without the ownership read).
+      const preview = { ...asSales, method: 'POST', body: '{}' }
+      expect(
+        (await h.app.request('/api/workflows/wf-ops/deploy-config-preview', preview)).status,
+      ).toBe(404)
+      expect(
+        (await h.app.request('/api/workflows/wf-sales/deploy-config-preview', preview)).status,
+      ).not.toBe(404)
+      const created = await h.app.request('/api/workflows', {
+        ...asSales,
+        method: 'POST',
+        body: JSON.stringify({ name: 'From the key' }),
+      })
+      expect(created.status).toBe(201)
+      expect((await created.json()).workspaceId).toBe('ws-sales')
+      expect(
+        (
+          await h.app.request('/api/workflows', {
+            ...asSales,
+            method: 'POST',
+            body: JSON.stringify({ name: 'x', workspaceId: 'ws-ops' }),
+          })
+        ).status,
+      ).toBe(404)
+      const move = await h.app.request('/api/workspaces/ws-sales/move-workflows', {
+        ...asSales,
+        method: 'POST',
+        body: JSON.stringify({ workflowIds: ['wf-sales'], targetWorkspaceId: 'ws-ops' }),
+      })
+      expect(move.status).toBe(403)
+      expect((await move.json()).error).toMatch(/workspace-level API key cannot manage workspaces/)
+      expect(
+        (
+          await h.app.request('/api/workspaces/ws-sales', {
+            ...asSales,
+            method: 'PATCH',
+            body: JSON.stringify({ name: 'x' }),
+          })
+        ).status,
+      ).toBe(403)
+      expect((await h.app.request('/api/env-vars', asSales)).status).toBe(200)
+      const setVar = await h.app.request('/api/env-vars', {
+        ...asSales,
+        method: 'POST',
+        body: JSON.stringify({ projectId: 'p-101', name: 'X', value: 'x' }),
+      })
+      expect(setVar.status).toBe(403)
+      expect((await setVar.json()).error).toBe('API key lacks permission: variables:write')
+      // The project-wide lists are cut to the pin: a deployment and a run in
+      // each workspace, and only Sales comes back.
+      await h.db.insert(h.schema.deployments).values([
+        { id: 'd-sales', workflowId: 'wf-sales', serviceName: 'sales', createdAt: T1 },
+        { id: 'd-ops', workflowId: 'wf-ops', serviceName: 'ops', createdAt: T1 },
+      ])
+      const run = (id: string, workflowId: string) => ({
+        id,
+        workflowId,
+        versionId: null,
+        connectionId: null,
+        instanceId: id,
+        status: 'complete',
+        createdAt: T1,
+        updatedAt: T1,
+      })
+      await h.db
+        .insert(h.schema.workflowRuns)
+        .values([run('r-sales', 'wf-sales'), run('r-ops', 'wf-ops')])
+      const deployments = await (await h.app.request('/api/deployments', asSales)).json()
+      expect(deployments.data.map((d: { id: string }) => d.id)).toEqual(['d-sales'])
+      const runs = await (await h.app.request('/api/runs', asSales)).json()
+      expect(runs.data.map((r: { id: string }) => r.id)).toEqual(['r-sales'])
+      // A Viewer's workspace key keeps the Viewer's floor, whatever its grid.
+      const asViewer = await h.seed.key(
+        'k-eve',
+        'u-eve',
+        { level: 'workspace', projectId: 'p-101', workspaceId: 'ws-sales' },
+        full('workspace'),
+      )
+      const edit = await h.app.request('/api/workflows/wf-sales', {
+        ...asViewer,
+        method: 'PATCH',
+        body: JSON.stringify({ name: 'x' }),
+      })
+      expect(edit.status).toBe(403)
+      expect((await edit.json()).error).toBe(ACCESS_REASONS.needsEditor)
+    })
   })
 
   it('lets a key create a workspace but not choose its people', async () => {

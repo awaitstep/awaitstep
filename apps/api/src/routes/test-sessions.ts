@@ -157,6 +157,7 @@ testSessions.post(
       c.req.param('sessionId'),
       c.get('userId'),
       c.get('projectId'),
+      c.get('workspaceId'),
     )
     if (!resolved.ok) return c.json({ error: resolved.error }, resolved.status as 404)
 
@@ -199,6 +200,7 @@ testSessions.get(
       c.req.param('sessionId'),
       c.get('userId'),
       c.get('projectId'),
+      c.get('workspaceId'),
     )
     if (!resolved.ok) return c.json({ error: resolved.error }, resolved.status as 404)
 
@@ -280,6 +282,7 @@ testSessions.delete('/test-sessions/:sessionId', async (c) => {
     userId,
     c.get('projectId'),
     testSessionCutoffs(context.limits),
+    c.get('workspaceId'),
   )
   if (!found) return c.json({ error: 'Not found' }, 404)
 

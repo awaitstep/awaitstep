@@ -11,6 +11,7 @@ import {
   TEST_PROJECT_SLUG,
   TEST_WORKSPACE_ID,
 } from './helpers.js'
+import { presetPermissions } from '@awaitstep/ir'
 import { hashApiKey } from '../lib/api-key-hash.js'
 
 const byId = (path: string) =>
@@ -360,6 +361,7 @@ describe('workspace routes', () => {
     beforeEach(async () => {
       await mockDb.createApiKey({
         id: 'k-p',
+        level: 'project',
         organizationId: TEST_ORG_ID,
         projectId: TEST_PROJECT_ID,
         createdBy: TEST_USER_ID,
@@ -367,16 +369,18 @@ describe('workspace routes', () => {
         keyHash: await hashApiKey(PROJECT_KEY),
         keyPrefix: PROJECT_KEY.slice(0, 8),
         scopes: '["read","write"]',
+        permissions: JSON.stringify(presetPermissions('project', 'full')),
       })
       await mockDb.createApiKey({
         id: 'k-o',
+        level: 'organization',
         organizationId: TEST_ORG_ID,
-        projectId: null,
         createdBy: TEST_USER_ID,
         name: 'org',
         keyHash: await hashApiKey(ORG_KEY),
         keyPrefix: ORG_KEY.slice(0, 8),
         scopes: '["read","write"]',
+        permissions: JSON.stringify(presetPermissions('organization', 'full')),
       })
     })
 
@@ -413,7 +417,10 @@ describe('workspace routes', () => {
       const headers = { Authorization: `Bearer ${PROJECT_KEY}` }
       const { data } = await (await app.request('/api/workspaces', { headers })).json()
       expect(data[0].members).toEqual([])
-      const projects = await (await app.request('/api/projects', { headers })).json()
+      // The organization's projects are an organization key's to list (B3).
+      const projects = await (
+        await app.request('/api/projects', { headers: { Authorization: `Bearer ${ORG_KEY}` } })
+      ).json()
       expect(projects.data[0].members).toEqual([])
       // A session sees it.
       const mine = await (await app.request(byId('/api/workspaces'))).json()

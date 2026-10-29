@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid'
 import { ACCESS_REASONS, WORKSPACE_COLOURS, slugify, workspaceCapabilities } from '@awaitstep/ir'
 import { isUniqueViolation } from '@awaitstep/db'
 import { zValidator } from '../lib/validation.js'
+import { isSession } from '../middleware/auth.js'
 import { FOR_KEY, FOR_SESSION, rolesOf, workspaceRecord } from '../lib/scope-records.js'
 import { workspaceSlugSchema } from '../lib/slugs.js'
 import type { AppEnv } from '../types.js'
@@ -42,7 +43,7 @@ const SLUG_TAKEN = 'Another workspace in this project already uses that URL'
 
 workspaces.get('/', async (c) => {
   const rows = await c.get('db').listWorkspacesByProject(c.get('projectId'), c.get('userId'))
-  const audience = c.get('apiKeyScopes') === null ? FOR_SESSION : FOR_KEY
+  const audience = isSession(c) ? FOR_SESSION : FOR_KEY
   return c.json({ data: rows.map((row) => workspaceRecord(row, audience)) })
 })
 
@@ -68,7 +69,7 @@ workspaces.post('/', zValidator('json', createWorkspaceSchema), async (c) => {
   const db = c.get('db')
   const members = [...new Map((body.members ?? []).map((m) => [m.userId, m])).values()]
   // Who can get in is a person's decision: a key creates the workspace, not its roster.
-  if (members.length > 0 && c.get('apiKeyScopes') !== null) {
+  if (members.length > 0 && !isSession(c)) {
     return c.json({ error: 'An API key cannot add people to a workspace' }, 403)
   }
   if (members.length > 0) {

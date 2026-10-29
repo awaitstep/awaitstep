@@ -1,7 +1,6 @@
 import { createMiddleware } from 'hono/factory'
 import type { Context } from 'hono'
-import { z } from 'zod'
-import { canSeeProject } from '@awaitstep/ir'
+import { canSeeProject, keyLevelOf, parseKeyPermissions } from '@awaitstep/ir'
 import type { AppEnv } from '../types.js'
 import type { Auth } from '../auth/config.js'
 import { hashApiKey } from '../lib/api-key-hash.js'
@@ -10,10 +9,6 @@ import { createLogger } from '../lib/logger.js'
 import { parseOrgRole } from '../lib/org-role.js'
 
 const log = createLogger('auth')
-
-export type ApiKeyScope = 'read' | 'write' | 'deploy'
-
-const scopesSchema = z.array(z.enum(['read', 'write', 'deploy']))
 
 export function createAuthMiddleware(auth: Auth) {
   return createMiddleware<AppEnv>(async (c, next) => {
@@ -35,17 +30,11 @@ export function createAuthMiddleware(auth: Auth) {
         return c.json({ error: 'API key expired' }, 401)
       }
 
-      let rawScopes: unknown
-      try {
-        rawScopes = JSON.parse(apiKey.scopes)
-      } catch {
-        return c.json({ error: 'Invalid API key scopes' }, 401)
+      // The grid the key was minted with (B3); a row that is not one grants nothing.
+      const permissions = parseKeyPermissions(apiKey.permissions)
+      if (!permissions) {
+        return c.json({ error: 'Invalid API key permissions' }, 401)
       }
-      const parsed = scopesSchema.safeParse(rawScopes)
-      if (!parsed.success) {
-        return c.json({ error: 'Invalid API key scopes' }, 401)
-      }
-      const scopes = parsed.data
 
       if (!apiKey.resolvedOrganizationId) {
         // A project key whose project is gone, or a malformed row.
@@ -80,6 +69,11 @@ export function createAuthMiddleware(auth: Auth) {
       ) {
         return c.json({ error: 'The API key’s creator can no longer access this project' }, 401)
       }
+      // A workspace key the same: its creator must still open that workspace,
+      // or the organization's reads it holds through its own cells stay open.
+      if (apiKey.workspaceId && !apiKey.createdByCanOpenWorkspace) {
+        return c.json({ error: 'The API key’s creator can no longer access this workspace' }, 401)
+      }
 
       c.set('userId', apiKey.createdBy)
       c.set('organizationId', apiKey.resolvedOrganizationId)
@@ -90,15 +84,21 @@ export function createAuthMiddleware(auth: Auth) {
       c.set('projectRole', null)
       c.set('workspaceRole', null)
       // An organization-level key has no project: project-scoped routes
-      // refuse it in requireProject.
+      // refuse it in requireProject. A workspace key's workspace is applied
+      // there too, as the pin every project-scoped read is cut to.
       if (apiKey.projectId) {
         c.set('projectId', apiKey.projectId)
       }
       c.set('user', null)
       c.set('session', null)
-      c.set('apiKeyId', apiKey.id)
-      c.set('apiKeyScopes', scopes)
-      c.set('apiKeyExpiresAt', apiKey.expiresAt)
+      c.set('apiKey', {
+        id: apiKey.id,
+        level: keyLevelOf(apiKey),
+        permissions,
+        projectId: apiKey.projectId,
+        workspaceId: apiKey.workspaceId,
+        expiresAt: apiKey.expiresAt,
+      })
 
       db.updateApiKeyLastUsed(apiKey.id, new Date().toISOString()).catch((err) => {
         log.error('Failed to update API key lastUsedAt', {
@@ -126,51 +126,34 @@ export function createAuthMiddleware(auth: Auth) {
     c.set('orgRole', null)
     c.set('projectRole', null)
     c.set('workspaceRole', null)
-    c.set('apiKeyId', null)
-    c.set('apiKeyScopes', null)
-    c.set('apiKeyExpiresAt', null)
+    c.set('apiKey', null)
 
     await next()
   })
 }
 
-/**
- * The project an API key is pinned to — null for a session, and for a key
- * that carries no project. Derived from what the auth middleware already set
- * (a key's `projectId` lands in context before any route runs), so no auth
- * path can forget to keep a second value in sync.
- */
-export function apiKeyProjectPin(c: Context<AppEnv>): string | null {
-  if (c.get('apiKeyScopes') === null) return null
-  return (c.get('projectId') as string | undefined) ?? null
+/** Whether the caller is a person (a session), not a key. */
+export function isSession(c: Context<AppEnv>): boolean {
+  return c.get('apiKey') === null
 }
 
 /**
- * Org-level resources — connections, projects, installed nodes — are managed
- * by sessions and organization-level keys. A key pinned to one project is
- * refused: every project in the organization depends on these resources.
+ * The project an API key is pinned to — null for a session, and for a key
+ * that carries no project. Read off the key itself, not off the context's
+ * `projectId`: a project item route sets that for an organization key too
+ * (`requireProjectParam`), and a pin must never appear by that route.
  */
-export const requireOrgLevelAuth = createMiddleware<AppEnv>(async (c, next) => {
-  if (apiKeyProjectPin(c) !== null) {
-    return c.json({ error: 'A project-scoped API key cannot manage organization resources' }, 403)
-  }
-  return next()
-})
+export function apiKeyProjectPin(c: Context<AppEnv>): string | null {
+  return c.get('apiKey')?.projectId ?? null
+}
 
-export function requireScope(scope: ApiKeyScope) {
-  return createMiddleware<AppEnv>(async (c, next) => {
-    const scopes = c.get('apiKeyScopes')
-    // Session-based auth (no scopes) — full access
-    if (scopes === null) return next()
-    if (!scopes.includes(scope)) {
-      return c.json({ error: `API key missing required scope: ${scope}` }, 403)
-    }
-    return next()
-  })
+/** The workspace a workspace key is pinned to — null for a session and for the other levels. */
+export function apiKeyWorkspacePin(c: Context<AppEnv>): string | null {
+  return c.get('apiKey')?.workspaceId ?? null
 }
 
 export const requireSessionAuth = createMiddleware<AppEnv>(async (c, next) => {
-  if (c.get('apiKeyScopes') !== null) {
+  if (!isSession(c)) {
     return c.json({ error: 'This endpoint requires session authentication' }, 403)
   }
   return next()

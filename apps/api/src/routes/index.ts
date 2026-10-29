@@ -1,15 +1,15 @@
 import { Hono } from 'hono'
-import { createMiddleware } from 'hono/factory'
+import type { KeyAction, KeyResource } from '@awaitstep/ir'
 import type { AppEnv } from '../types.js'
 import type { Auth } from '../auth/config.js'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
+import { apiKeyProjectPin, createAuthMiddleware, requireSessionAuth } from '../middleware/auth.js'
 import {
-  createAuthMiddleware,
-  requireOrgLevelAuth,
-  requireScope,
-  requireSessionAuth,
-} from '../middleware/auth.js'
+  requireKeyMapped,
+  requireKeyPermission,
+  type KeyCell,
+} from '../middleware/key-permissions.js'
 import {
   requireProject,
   requireProjectParam,
@@ -63,7 +63,6 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.use('/connections/*', requireOrganization)
   router.use('/env-vars/*', requireOrganization)
   router.use('/projects', requireOrganization)
-  router.use('/api-keys/*', requireOrganization)
   router.use('/marketplace/*', requireOrganization)
   router.use('/failing', requireOrganization)
   // Failing runs across the organization answer for a person; a key is pinned narrower.
@@ -72,11 +71,15 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   // caller's roles. `/x/*` matches `/x` too, so one registration covers both.
   router.use('/projects/:id/*', requireProjectParam)
 
-  // People, invitations and requests answer for a person: session only.
-  // `/members` reads a project's members with `&project=`, else the org's.
-  router.use('/members/*', requireSessionAuth)
+  // People, invitations and requests answer for a person: session only —
+  // except the two people lists, which a key holding `members:read` may
+  // read: an organization key the organization's (`/members?org=`), a
+  // project key its project's (`/members` reads the project's with
+  // `&project=` or a project key's pin, else the org's); a workspace key
+  // holds no `members` cell and is refused.
+  router.use('/members/:userId/*', requireSessionAuth)
   router.use('/members', async (c, next) =>
-    c.req.query('project') || c.req.query('projectId')
+    c.req.query('project') || c.req.query('projectId') || apiKeyProjectPin(c) !== null
       ? requireProject(c, next)
       : requireOrganization(c, next),
   )
@@ -87,9 +90,22 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.delete('/invitations/:id', requireOrganization)
   router.use('/me/*', requireSessionAuth)
   router.use('/access-requests/*', requireSessionAuth)
-  router.use('/workspaces/:id/members/*', requireSessionAuth)
+  router.post('/workspaces/:id/members', requireSessionAuth)
+  router.patch('/workspaces/:id/members/:userId', requireSessionAuth)
+  router.delete('/workspaces/:id/members/:userId', requireSessionAuth)
   router.use('/workspaces/:id/access-request', requireSessionAuth)
   router.use('/workspaces/:id/access-requests', requireSessionAuth)
+  // API key management is a person's (D-B3-5): listing, minting and revoking
+  // keys take a session, addressed at the level they manage — `?org=`,
+  // `&project=`, `&workspace=` — with that level's one scope read. A
+  // workspace named without its project is a project address with the
+  // project missing (400), never the organization's keys.
+  router.use('/api-keys/*', requireSessionAuth)
+  router.use('/api-keys/*', async (c, next) =>
+    ['project', 'projectId', 'workspace', 'workspaceId'].some((param) => c.req.query(param))
+      ? requireProject(c, next)
+      : requireOrganization(c, next),
+  )
   // The node palette also loads before an organization is chosen: without
   // one it gets the public registry, with one the organization's installs —
   // membership checked either way, never an arbitrary id.
@@ -142,6 +158,10 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.use('/workflows/:workflowId/files/*', requireWorkflowAccess)
   router.use('/workflows/:workflowId/deploy', requireWorkflowAccess)
   router.use('/workflows/:workflowId/deploy-config/*', requireWorkflowAccess)
+  // The preview reads nothing of the workflow yet, but it is addressed by
+  // one: a hidden workflow — another workspace's, for a workspace key — is
+  // not found here as everywhere else.
+  router.use('/workflows/:workflowId/deploy-config-preview', requireWorkflowAccess)
   router.use('/workflows/:workflowId/deploy-stream', requireWorkflowAccess)
   router.use('/workflows/:workflowId/trigger', requireWorkflowAccess)
   router.use('/workflows/:workflowId/takedown', requireWorkflowAccess)
@@ -187,86 +207,111 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
     return requireConnectionAccess(c, next)
   })
 
-  // Scope enforcement for API key auth
-  // All authenticated routes require at least 'read' scope
-  router.use('*', requireScope('read'))
-
-  // Write operations require 'write' scope
-  router.post('/workflows/:workflowId/versions', requireScope('write'))
-  router.patch('/workflows/:workflowId/versions/:versionId', requireScope('write'))
-  router.post('/workflows/:workflowId/versions/:versionId/revert', requireScope('write'))
-  router.delete('/workflows/:workflowId/versions/:versionId', requireScope('write'))
-  router.put('/workflows/:workflowId/files/*', requireScope('write'))
-  router.delete('/workflows/:workflowId/files/*', requireScope('write'))
-  router.post('/workflows/:workflowId/project/convert-handlers', requireScope('write'))
-  router.post('/workflows/:workflowId/test-sessions', requireScope('write'))
-  router.post('/test-sessions/:sessionId/trigger', requireScope('write'))
-  router.delete('/test-sessions/:sessionId', requireScope('write'))
-  router.post('/workflows', requireScope('write'))
-  router.patch('/workflows/:id', requireScope('write'))
-  router.patch('/workflows/:id/move', requireScope('write'))
-  router.delete('/workflows/:id', requireScope('write'))
-  router.post('/workspaces', requireScope('write'))
-  router.patch('/workspaces/:id', requireScope('write'))
-  router.delete('/workspaces/:id', requireScope('write'))
-  router.post('/workspaces/:id/move-workflows', requireScope('write'))
-  router.post('/projects/:id/move', requireScope('write'))
-  router.post('/connections', requireScope('write'))
-  router.patch('/connections/:id', requireScope('write'))
-  router.delete('/connections/:id', requireScope('write'))
-
-  // Project mutations require 'write' scope
-  router.post('/projects', requireScope('write'))
-  router.patch('/projects/:id', requireScope('write'))
-  router.delete('/projects/:id', requireScope('write'))
-
-  // Deploy operations require 'deploy' scope
-  router.post('/workflows/:workflowId/deploy', requireScope('deploy'))
-  router.post('/workflows/:workflowId/deploy-stream', requireScope('deploy'))
-  router.post('/workflows/:workflowId/trigger', requireScope('deploy'))
-  router.post('/workflows/:workflowId/takedown', requireScope('deploy'))
-
-  // Run lifecycle control requires 'deploy' scope
-  router.post('/workflows/:workflowId/runs/:runId/pause', requireScope('deploy'))
-  router.post('/workflows/:workflowId/runs/:runId/resume', requireScope('deploy'))
-  router.post('/workflows/:workflowId/runs/:runId/terminate', requireScope('deploy'))
-
-  // Marketplace write operations require 'write' scope
-  router.post('/marketplace/install', requireScope('write'))
-  router.post('/marketplace/uninstall', requireScope('write'))
-  router.post('/marketplace/update', requireScope('write'))
-
-  // Env var write operations require 'write' scope
-  router.post('/env-vars', requireScope('write'))
-  router.patch('/env-vars/:id', requireScope('write'))
-  router.delete('/env-vars/:id', requireScope('write'))
-
-  // Org-level mutations are closed to project-scoped API keys: a project key
-  // must not rewrite the connections, projects or installed nodes every other
-  // project depends on. Env vars are handled in their routes instead — a
-  // project key may still manage its own project's variables.
-  router.post('/connections', requireOrgLevelAuth)
-  router.patch('/connections/:id', requireOrgLevelAuth)
-  router.delete('/connections/:id', requireOrgLevelAuth)
-  router.post('/projects', requireOrgLevelAuth)
-  router.patch('/projects/:id', requireOrgLevelAuth)
-  router.delete('/projects/:id', requireOrgLevelAuth)
-  router.post('/projects/:id/move', requireSessionAuth)
-  router.post('/marketplace/install', requireOrgLevelAuth)
-  router.post('/marketplace/uninstall', requireOrgLevelAuth)
-  router.post('/marketplace/update', requireOrgLevelAuth)
-
-  // API key management is session-only, with one exemption: POST /api-keys
-  // also accepts an organization-level key, which may mint project keys (the
-  // handler refuses minting past the caller: level, scopes, expiry). A
-  // catch-all, so a route added here later is closed by default.
-  const apiKeysGuard = createMiddleware<AppEnv>(async (c, next) => {
-    const isCreate = c.req.method === 'POST' && /\/api-keys\/?$/.test(c.req.path)
-    if (isCreate) return requireOrgLevelAuth(c, next)
-    return requireSessionAuth(c, next)
+  // What each route needs of an API key (B3): one cell of the catalog in
+  // @awaitstep/ir, judged by requireKeyPermission; sessions pass. A route
+  // with no mapping is closed to keys by the catch-all registered after the
+  // last mapping (below the local-dev block). Reads of the organization's
+  // connections, nodes and variables are open to project and workspace keys
+  // through their own cells: they deploy with and resolve against them.
+  const key = (
+    resource: KeyResource,
+    action: KeyAction,
+    below?: Partial<Record<'project' | 'workspace', KeyCell>>,
+  ) => requireKeyPermission(resource, action, below)
+  const buildReads: KeyCell = ['workflows', 'read']
+  const belowReads = { project: buildReads, workspace: buildReads }
+  const variables = (action: KeyAction) => ({
+    project: ['variables', action] as KeyCell,
+    workspace: ['variables', action] as KeyCell,
   })
-  router.use('/api-keys/*', apiKeysGuard)
-  router.post('/api-keys', requireScope('write'))
+
+  // Organization level. Only routes that exist are mapped: a mapping with no
+  // handler behind it would claim a route the API does not have (the sweep
+  // in route-guards.test.ts checks).
+  router.get('/projects', key('projects', 'read'))
+  router.post('/projects', key('projects', 'write'))
+  router.patch('/projects/:id', key('projects', 'write'))
+  router.delete('/projects/:id', key('projects', 'delete'))
+  router.post('/projects/:id/move', requireSessionAuth)
+  router.get('/connections', key('connections', 'read', belowReads))
+  // Asks Cloudflare whether a token is valid; writes nothing.
+  router.post('/connections/verify-token', key('connections', 'read', belowReads))
+  router.post('/connections', key('connections', 'write'))
+  router.patch('/connections/:id', key('connections', 'write'))
+  router.delete('/connections/:id', key('connections', 'delete'))
+  router.get('/nodes/*', key('resources', 'read', belowReads))
+  router.get('/marketplace/*', key('resources', 'read', belowReads))
+  router.post('/marketplace/install', key('resources', 'write'))
+  router.post('/marketplace/update', key('resources', 'write'))
+  router.post('/marketplace/uninstall', key('resources', 'delete'))
+  router.get('/env-vars', key('resources', 'read', variables('read')))
+  router.post('/env-vars', key('resources', 'write', variables('write')))
+  router.patch('/env-vars/:id', key('resources', 'write', variables('write')))
+  router.delete('/env-vars/:id', key('resources', 'delete', variables('delete')))
+  router.get('/members', key('members', 'read'))
+  router.get('/workspaces/:id/members', key('members', 'read'))
+
+  // Project level: workspaces (a workspace key holds no such cell)
+  router.get('/workspaces', key('workspaces', 'read'))
+  router.get('/workspaces/:id', key('workspaces', 'read'))
+  router.post('/workspaces', key('workspaces', 'write'))
+  router.patch('/workspaces/:id', key('workspaces', 'write'))
+  router.post('/workspaces/:id/move-workflows', key('workspaces', 'write'))
+  router.delete('/workspaces/:id', key('workspaces', 'delete'))
+
+  // Project and workspace level: workflows and runs
+  for (const path of [
+    '/workflows',
+    '/workflows/:id',
+    '/workflows/:id/full',
+    '/workflows/:workflowId/versions',
+    '/workflows/:workflowId/versions/:versionId',
+    '/workflows/:workflowId/source',
+    '/workflows/:workflowId/project',
+    '/workflows/:workflowId/project/convert-handlers',
+    '/workflows/:workflowId/files/*',
+    '/workflows/:workflowId/deploy-config/:connectionId',
+    '/workflows/:workflowId/test-sessions',
+    '/test-sessions/:sessionId/stream',
+  ]) {
+    router.get(path, key('workflows', 'read'))
+  }
+  // Checks and previews: read-only by design, whatever their method.
+  router.post('/workflows/:workflowId/source/check', key('workflows', 'read'))
+  router.post('/workflows/:workflowId/deploy-config-preview', key('workflows', 'read'))
+  router.post('/workflows', key('workflows', 'write'))
+  router.patch('/workflows/:id', key('workflows', 'write'))
+  // A move crosses projects: never a key's (the handler says so for the old clients too).
+  router.patch('/workflows/:id/move', requireSessionAuth)
+  router.post('/workflows/:workflowId/versions', key('workflows', 'write'))
+  router.patch('/workflows/:workflowId/versions/:versionId', key('workflows', 'write'))
+  router.post('/workflows/:workflowId/versions/:versionId/revert', key('workflows', 'write'))
+  router.put('/workflows/:workflowId/files/*', key('workflows', 'write'))
+  router.post('/workflows/:workflowId/project/convert-handlers', key('workflows', 'write'))
+  router.post('/workflows/:workflowId/test-sessions', key('workflows', 'write'))
+  router.delete('/workflows/:id', key('workflows', 'delete'))
+  router.delete('/workflows/:workflowId/versions/:versionId', key('workflows', 'delete'))
+  router.delete('/workflows/:workflowId/files/*', key('workflows', 'delete'))
+  router.post('/workflows/:workflowId/deploy', key('workflows', 'deploy'))
+  router.post('/workflows/:workflowId/deploy-stream', key('workflows', 'deploy'))
+  router.post('/workflows/:workflowId/takedown', key('workflows', 'deploy'))
+  router.post('/workflows/:workflowId/trigger', key('workflows', 'run'))
+  router.post('/workflows/:workflowId/runs/:runId/pause', key('workflows', 'run'))
+  router.post('/workflows/:workflowId/runs/:runId/resume', key('workflows', 'run'))
+  router.post('/workflows/:workflowId/runs/:runId/terminate', key('workflows', 'run'))
+  router.post('/test-sessions/:sessionId/trigger', key('workflows', 'run'))
+  router.delete('/test-sessions/:sessionId', key('workflows', 'run'))
+  for (const path of [
+    '/runs',
+    '/deployments',
+    '/workflows/:workflowId/runs',
+    '/workflows/:workflowId/runs/:runId',
+    '/workflows/:workflowId/runs/:runId/steps',
+    '/workflows/:workflowId/runs/:runId/stream',
+    '/workflows/:workflowId/deployments',
+  ]) {
+    router.get(path, key('runs', 'read'))
+  }
 
   // Stricter rate limits for sensitive endpoints (per user). Registered after
   // every scope and level check: a request those refuse must not spend its
@@ -330,22 +375,28 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
     // control — not something a read key does. Its own budget for starts
     // (spawning a process on the host), the write budget for stop and
     // trigger: sharing the deploy limiter let a few local triggers block
-    // real deploys. Scope first, so a refused call spends nothing.
+    // real deploys. The key's cell first, so a refused call spends nothing.
     const localDevStartLimit = createRateLimiter({
       windowMs: 60_000,
       max: 10,
       keyGenerator: userKey,
     })
     for (const action of ['start', 'stop', 'trigger']) {
-      router.post(`/workflows/:workflowId/local-dev/${action}`, requireScope('deploy'))
+      router.post(`/workflows/:workflowId/local-dev/${action}`, key('workflows', 'run'))
     }
+    router.get('/workflows/:workflowId/local-dev/*', key('workflows', 'read'))
     router.post('/workflows/:workflowId/local-dev/start', localDevStartLimit)
     router.post('/workflows/:workflowId/local-dev/stop', writeLimit)
     router.post('/workflows/:workflowId/local-dev/trigger', writeLimit)
-    router.route('/workflows', localDev)
   }
 
+  // After the last mapping and before the first handler: a key on a route
+  // none judged is refused — the local-dev handlers included, so one added
+  // there without a mapping is session-only like any other.
+  router.use('*', requireKeyMapped)
+
   // Routes
+  if (options?.enableLocalDev) router.route('/workflows', localDev)
   router.route('/workflows', workflows)
   router.route('/workflows', versions)
   router.route('/workflows', source)
@@ -378,6 +429,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
       projectId,
       { cursor, limit },
       c.get('userId'),
+      c.get('workspaceId'),
     )
     return c.json(result)
   })
