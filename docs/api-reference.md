@@ -334,13 +334,35 @@ Update a project.
 
 ### `DELETE /projects/:id`
 
-Delete a project.
+Delete a project with its workspaces and workflows. Refused with `409` and
+nothing deleted while the project is locked ("Turn off the deletion lock
+first") or while a workspace in it is locked on its own ("Sales is locked";
+"2 workspaces in it are locked").
 
 **Permission:** `projects:delete`
 
 | Param | In   | Required | Description |
 | ----- | ---- | -------- | ----------- |
 | `id`  | path | yes      | Project ID  |
+
+### `PUT /projects/:id/lock`
+
+Session only (an API key answers `403`, whatever it holds): a key that may
+delete must not be able to lift the lock first. Turns the project's
+deletion lock on or off (project admins: org owners and admins, or a
+`project_members` row with `admin`). While it is on, the project cannot be
+deleted or moved to another organization, and none of its workspaces can be
+deleted. Turning on a lock that is already on keeps who set it and when;
+turning off one that is off is a no-op. The lock guards the project and its
+workspaces themselves, not what is in them: workflows, versions, keys and
+variables inside are still edited and deleted as their own permissions allow.
+
+```json
+{ "locked": true }
+```
+
+Response: `{ "lock": { "setBy": { "id": "usr_...", "name": "Ama Mensah" }, "setAt": "2026-10-29T10:00:00.000Z" } }`,
+or `{ "lock": null }` when off.
 
 ### `POST /projects/:id/move`
 
@@ -350,7 +372,9 @@ workflows, keys and variables (its own and its workspaces') go with it. People w
 organization lose their rows in it; the rest keep theirs; open invitations
 lose their places in it. Moving a project to the organization it is in
 answers `400`; a slug another project in the target already uses answers
-`409` and moves nothing.
+`409` and moves nothing; so does a locked project ("Turn off the deletion lock
+first") — a move takes it out of the organization. A workspace's own lock
+does not hold the project.
 
 ```json
 { "organizationId": "org_..." }
@@ -446,10 +470,20 @@ uses answers `409`.
 ### `DELETE /workspaces/:id`
 
 Delete the workspace with the workflows in it (workspace admins). Deployed
-Workers keep running on Cloudflare. A project's last workspace cannot be
-deleted: `409`.
+Workers keep running on Cloudflare. Refused with `409` and nothing deleted
+when the workspace is locked ("Turn off the deletion lock first"), its
+project is locked ("Locked by Project 101"), or it is the project's last
+workspace.
 
 **Permission:** `workspaces:delete`
+
+### `PUT /workspaces/:id/lock`
+
+Session only (an API key answers `403`). Turns the workspace's own deletion
+lock on or off (its admins and editors; a viewer answers `403`). While the
+project is locked its lock covers every workspace in it and this answers
+`409` "Locked by Project 101", on and off. Same body and response as
+`PUT /projects/:id/lock`.
 
 ### `POST /workspaces/:id/move-workflows`
 

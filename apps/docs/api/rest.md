@@ -17,10 +17,12 @@ title: REST API
 .api-method.get { background: #dbeafe; color: #1d4ed8; }
 .api-method.post { background: #dcfce7; color: #166534; }
 .api-method.patch { background: #fef3c7; color: #92400e; }
+.api-method.put { background: #ede9fe; color: #5b21b6; }
 .api-method.delete { background: #fee2e2; color: #991b1b; }
 .dark .api-method.get { background: #1e3a5f; color: #93c5fd; }
 .dark .api-method.post { background: #14532d; color: #86efac; }
 .dark .api-method.patch { background: #422006; color: #fcd34d; }
+.dark .api-method.put { background: #2e1065; color: #c4b5fd; }
 .dark .api-method.delete { background: #450a0a; color: #fca5a5; }
 .api-endpoint {
   font-family: var(--vp-font-family-mono);
@@ -244,7 +246,21 @@ Update a project's name or description.
 
 ### <span class="api-method delete">DELETE</span> <span class="api-endpoint">/projects/:id</span> <span class="api-scope">projects:delete</span>
 
-Delete a project.
+Delete a project with its workspaces and workflows. While the project, or a workspace in it, has its deletion lock on, this answers `409` and deletes nothing.
+
+---
+
+### <span class="api-method put">PUT</span> <span class="api-endpoint">/projects/:id/lock</span> <span class="api-scope">session only</span>
+
+Turn the project's deletion lock on or off (project admins). While it is on, the project cannot be deleted or moved to another organization, and none of its workspaces can be deleted. An API key cannot change a lock, whatever it holds: a key that may delete must not be able to lift the lock first. A workspace has its own lock at `PUT /workspaces/:id/lock` (its admins and editors), refused with `409` while the project is locked.
+
+**Request body:**
+
+```json
+{ "locked": true }
+```
+
+Answers `{ "lock": { "setBy": { "id": "usr_...", "name": "Ama Mensah" }, "setAt": "..." } }`, or `{ "lock": null }` when off. Turning on a lock that is already on keeps who set it and when. The lock guards the project and its workspaces themselves, not what is in them: workflows, keys and variables inside are still edited and deleted as their own permissions allow.
 
 ---
 
