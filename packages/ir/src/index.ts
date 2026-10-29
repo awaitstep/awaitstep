@@ -206,6 +206,30 @@ export {
 } from './slugs.js'
 export { WORKSPACE_COLOURS, isWorkspaceColour, type WorkspaceColour } from './workspaces.js'
 export {
+  KEY_ACTIONS,
+  KEY_CATALOG,
+  KEY_LEVELS,
+  KEY_PRESETS,
+  countGrants,
+  grantsOutsideLevel,
+  hasGrant,
+  keyLevelOf,
+  keyMay,
+  keyScopesOf,
+  matchPreset,
+  normalisePermissions,
+  parseKeyPermissions,
+  presetPermissions,
+  resourceAtLevel,
+  toggleGrant,
+  type KeyAction,
+  type KeyCatalogEntry,
+  type KeyLevel,
+  type KeyPermissions,
+  type KeyPreset,
+  type KeyResource,
+} from './key-permissions.js'
+export {
   ACCESS_REASONS,
   isOrgAdmin,
   roleAbove,
