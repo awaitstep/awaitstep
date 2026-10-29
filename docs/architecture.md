@@ -193,39 +193,40 @@ The compilation pipeline transforms canvas state through IR, code generation, tr
 
 Key routes are listed below. See [api-reference.md](api-reference.md) for the complete API reference including request/response schemas.
 
-| Endpoint                                            | Purpose                     |
-| --------------------------------------------------- | --------------------------- |
-| `POST /api/workflows`                               | Create workflow             |
-| `GET /api/workflows`                                | List user workflows         |
-| `GET /api/workflows/:id`                            | Fetch workflow              |
-| `GET /api/workflows/:id/full`                       | Workflow + version + deploy |
-| `PATCH /api/workflows/:id`                          | Update workflow             |
-| `PATCH /api/workflows/:id/move`                     | Move to another project     |
-| `DELETE /api/workflows/:id`                         | Delete workflow             |
-| `GET/POST/PATCH/DELETE /api/workflows/:id/versions` | Version CRUD + lock         |
-| `POST /api/workflows/:id/versions/:vid/revert`      | Revert to version           |
-| `POST /api/workflows/:id/deploy`                    | Deploy to provider          |
-| `POST /api/workflows/:id/deploy-stream`             | Deploy with SSE progress    |
-| `POST /api/workflows/:id/takedown`                  | Remove deployment           |
-| `GET /api/workflows/:id/deployments`                | Deployment history          |
-| `GET /api/deployments`                              | List all deployments        |
-| `POST /api/workflows/:id/trigger`                   | Trigger workflow run        |
-| `GET /api/workflows/:id/runs`                       | List runs                   |
-| `GET /api/workflows/:wid/runs/:rid`                 | Run status                  |
-| `POST /api/workflows/:wid/runs/:rid/pause`          | Pause run                   |
-| `POST /api/workflows/:wid/runs/:rid/resume`         | Resume run                  |
-| `POST /api/workflows/:wid/runs/:rid/terminate`      | Terminate run               |
-| `GET /api/runs`                                     | List all runs               |
-| `GET/POST/PATCH/DELETE /api/projects`               | Project CRUD                |
-| `GET/POST/PATCH/DELETE /api/connections`            | Connection CRUD             |
-| `POST /api/connections/verify-token`                | Verify credentials          |
-| `GET/POST/PATCH/DELETE /api/env-vars`               | Env var CRUD                |
-| `GET/POST /api/api-keys`                            | Generate / list API keys    |
-| `DELETE /api/api-keys/:id`                          | Revoke API key              |
-| `GET /api/nodes`                                    | Custom node definitions     |
-| `GET /api/nodes/templates`                          | Node templates              |
-| `GET /api/resources/...`                            | KV, D1, R2 resources        |
-| `GET/POST /api/marketplace/...`                     | Marketplace browse/install  |
+| Endpoint                                            | Purpose                                  |
+| --------------------------------------------------- | ---------------------------------------- |
+| `POST /api/workflows`                               | Create workflow                          |
+| `GET /api/workflows`                                | List user workflows                      |
+| `GET /api/workflows/:id`                            | Fetch workflow                           |
+| `GET /api/workflows/:id/full`                       | Workflow + version + deploy              |
+| `PATCH /api/workflows/:id`                          | Update workflow                          |
+| `PATCH /api/workflows/:id/move`                     | Move to another project                  |
+| `DELETE /api/workflows/:id`                         | Delete workflow                          |
+| `GET/POST/PATCH/DELETE /api/workflows/:id/versions` | Version CRUD + lock                      |
+| `POST /api/workflows/:id/versions/:vid/revert`      | Revert to version                        |
+| `POST /api/workflows/:id/deploy`                    | Deploy to provider                       |
+| `POST /api/workflows/:id/deploy-stream`             | Deploy with SSE progress                 |
+| `POST /api/workflows/:id/takedown`                  | Remove deployment                        |
+| `GET /api/workflows/:id/deployments`                | Deployment history                       |
+| `GET /api/deployments`                              | List all deployments                     |
+| `POST /api/workflows/:id/trigger`                   | Trigger workflow run                     |
+| `GET /api/workflows/:id/runs`                       | List runs                                |
+| `GET /api/workflows/:wid/runs/:rid`                 | Run status                               |
+| `POST /api/workflows/:wid/runs/:rid/pause`          | Pause run                                |
+| `POST /api/workflows/:wid/runs/:rid/resume`         | Resume run                               |
+| `POST /api/workflows/:wid/runs/:rid/terminate`      | Terminate run                            |
+| `GET /api/runs`                                     | List all runs                            |
+| `GET/POST/PATCH/DELETE /api/projects`               | Project CRUD                             |
+| `GET/POST/PATCH/DELETE /api/connections`            | Connection CRUD                          |
+| `POST /api/connections/verify-token`                | Verify credentials                       |
+| `GET/POST/PATCH/DELETE /api/env-vars`               | Variables at a level                     |
+| `GET /api/env-vars/resolved`                        | A project's or workspace's resolved view |
+| `GET/POST /api/api-keys`                            | Generate / list API keys                 |
+| `DELETE /api/api-keys/:id`                          | Revoke API key                           |
+| `GET /api/nodes`                                    | Custom node definitions                  |
+| `GET /api/nodes/templates`                          | Node templates                           |
+| `GET /api/resources/...`                            | KV, D1, R2 resources                     |
+| `GET/POST /api/marketplace/...`                     | Marketplace browse/install               |
 
 ## Database Schema
 

@@ -8,11 +8,11 @@ An API key is minted at one **level** and carries a **grid** of permissions — 
 | ------------ | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | organization | the organization's settings, never a workflow                                 | `projects` (read, write, delete) · `members` (read) · `connections` (read, write, delete) · `resources` (read, write, delete: nodes, the marketplace and org-wide variables) |
 | project      | everything in one project, every workspace of it, ones created later included | `workspaces` (read, write, delete) · `workflows` (read, write, delete, deploy, run) · `runs` (read) · `variables` (read, write, delete) · `members` (read)                   |
-| workspace    | one workspace of a project                                                    | `workflows` (read, write, delete, deploy, run) · `runs` (read) · `variables` (read)                                                                                          |
+| workspace    | one workspace of a project                                                    | `workflows` (read, write, delete, deploy, run) · `runs` (read) · `variables` (read, write, delete)                                                                           |
 
-Every endpoint below names the cell it needs as **Permission:** `resource:action`; a key without it answers `403 API key lacks permission: resource:action`. A key of a level the resource is not offered at is refused for its level (`403`): an organization key never reaches a project route, a project or workspace key never manages organization resources. Project and workspace keys may still read the connections, nodes and org-wide variables their workflows deploy with and resolve against, through their own `workflows:read` and `variables:read` cells. A workspace key is pinned to its workspace: every list is cut to it, a workflow elsewhere is not found, and naming another workspace is `404`.
+Every endpoint below names the cell it needs as **Permission:** `resource:action`; a key without it answers `403 API key lacks permission: resource:action`. A key of a level the resource is not offered at is refused for its level (`403`): an organization key never reaches a project route, a project or workspace key never manages organization resources. Project and workspace keys may still read the connections and nodes their workflows deploy with through their own `workflows:read` cell, and what their workflows resolve against through `GET /env-vars/resolved` with `variables:read`. A workspace key is pinned to its workspace: every list is cut to it, a workflow elsewhere is not found, and naming another workspace is `404`.
 
-A key acts with the standing of whoever minted it: a key minted by a Viewer cannot edit workflows, whatever its grid (variables get their own roles in B4 — until then anyone who can open a project may set its variables); a key stops working (`401`) when its creator leaves the organization or can no longer open the key's project or workspace. Keys never manage keys: listing, minting and revoking them take a session (see the end of this document).
+A key acts with the standing of whoever minted it: a key minted by a Viewer cannot edit workflows, and a key minted by someone who does not manage a level cannot set its variables, whatever its grid; a key stops working (`401`) when its creator leaves the organization or can no longer open the key's project or workspace. Keys never manage keys: listing, minting and revoking them take a session (see the end of this document).
 
 Base URL: `https://app.awaitstep.dev/api` (cloud) or `http://localhost:8080/api` (self-hosted, adjust to match your instance URL)
 
@@ -20,7 +20,7 @@ Base URL: `https://app.awaitstep.dev/api` (cloud) or `http://localhost:8080/api`
 
 Project-scoped routes take the project as `?projectId=<id>`, or as the slugs the dashboard's URLs carry: `?org=<org slug>&project=<project slug>`. Either way the project and your membership are resolved in one read; a project you are not a member of answers `404`, exactly like one that does not exist. Organization-scoped routes take `?organizationId=<id>` or `?org=<slug>`.
 
-A workspace can be named on any project-scoped route with `?workspaceId=<id>` or `?workspace=<slug>`. It must be the project's; otherwise `404`. API keys carry their project, so they omit the project parameters and may still name a workspace; a workspace key names only its own, or none.
+A workspace can be named on any project-scoped route with `?workspaceId=<id>` or `?workspace=<slug>`. It must be the project's; otherwise `404`. API keys carry their project, so they omit the project parameters and may still name a workspace; a workspace key names only its own, or none. A key that does name a project — by id or slug — names its own, or answers `404`: it is never answered from its own project for a request that asked for another. An empty parameter counts as none.
 
 ## Rate Limits
 
@@ -346,7 +346,7 @@ Delete a project.
 
 Session only. Move the project to another organization the caller also runs
 (owner or admin of both: `403` otherwise), as one unit. Its workspaces,
-workflows, keys and variables go with it. People who are not in the target
+workflows, keys and variables (its own and its workspaces') go with it. People who are not in the target
 organization lose their rows in it; the rest keep theirs; open invitations
 lose their places in it. Moving a project to the organization it is in
 answers `400`; a slug another project in the target already uses answers
@@ -375,7 +375,7 @@ exists.
 project member is an editor everywhere (a workspace grant can raise that to
 admin), and a workspace grant alone gives its own role. A viewer reads and
 runs; building, deploying and sharing need an editor; managing the
-workspace, its members and keys needs an admin (variables follow in B4). Every refusal is
+workspace, its members, keys and variables needs an admin. Every refusal is
 `403` with the same reason the dashboard shows on the disabled action. A key
 acts with the standing of whoever minted it (its creator's roles in the
 project and workspace), needs the matching scope as well, and stops working
@@ -1382,27 +1382,82 @@ Delete a connection.
 
 ## Environment Variables
 
-A project-scoped API key manages only its own project's variables: creating,
-updating or deleting an org-wide variable or another project's answers `403`
-(create) or `404` (update/delete), and listing another project's variables
-answers `404`. Org-wide variables stay readable to keys — they resolve into
-the key's project at deploy time.
+A variable is set at one of three **levels** — the organization, a project, or
+one workspace — and a workflow's `{{global.env.NAME}}` references resolve
+against its own workspace, then its project, then the organization: the
+closest level wins. Every call is **addressed at a level** in the query, as
+`/api-keys`: `?org=` the organization's own variables, `&project=` (or
+`?projectId=`) a project's own, `&workspace=` (or `&workspaceId=`) a
+workspace's own. For a key, its pin is its address: a project key's calls land
+at its project (`&workspace=` names one of its workspaces), a workspace key's
+at its workspace. A body naming a project or workspace is `400`.
+
+**Who may.** Anyone who can open the level reads its variables. Setting,
+editing and deleting them is for whoever manages the level — org owners and
+admins at the organization, project admins at a project, that workspace's
+admins at a workspace — and a refusal is `403` with the dashboard's reason
+("Only project admins and org owners can do this", "Only this workspace's
+admins can do this"). A level the caller cannot open is `404`. A key acts with
+its creator's standing here as everywhere. Masking hides a value from readers,
+not from workflows: anyone who may deploy or run a workflow in a workspace
+(an Editor) uses every secret that workspace resolves, and a workspace's
+admins may override a project's or the organization's value for their
+workspace alone.
+
+**One name per level.** A name already set at the addressed level answers
+`409` (`"NAME is already set here. Edit it instead"`, with `details[0].path:
+"name"`); the same name at another level is another variable. Names match
+`^[A-Z][A-Z0-9_]*$`. Secret values are masked as `••••••••` in every read.
 
 ### `GET /env-vars`
 
-List all global environment variables. Secret values are masked as `••••••••`.
-With `?projectId=`, that project's variables — a project the caller cannot
-open (B2) lists nothing.
+The addressed level's own rows, newest first, paginated. An organization's
+rows carry `overriddenIn`: how many projects the caller can open set the same
+name themselves, in the project or one of its workspaces.
 
 **Permission:** `resources:read` (organization keys) · `variables:read` (project and workspace keys)
 
+```json
+{
+  "data": [
+    {
+      "id": "env_...",
+      "level": "organization",
+      "organizationId": "org_...",
+      "projectId": null,
+      "workspaceId": null,
+      "name": "REGION",
+      "value": "eu",
+      "isSecret": false,
+      "overriddenIn": 1,
+      "createdBy": "usr_...",
+      "createdAt": "…",
+      "updatedAt": "…"
+    }
+  ],
+  "nextCursor": null
+}
+```
+
+### `GET /env-vars/resolved`
+
+The level's resolved view, not paginated. Addressed at a **project**
+(`&project=`): each name once, the project's own value over the org's, with
+`setAt` (`{ level, id, name }`) and `overriddenIn` — the workspaces the caller
+can open that set their own value, as `{ id, slug, name, colour }` chips; the
+project's own rows first, then the org's, by name. Addressed at a
+**workspace** (`&workspace=`): each name once, the closest level winning, with
+`source` (`{ level, id, name }`) and `overrides` (`"project"`,
+`"organization"` or `null`); the workspace's rows first, then the project's,
+then the org's. Addressed at the organization alone: `400`.
+
+**Permission:** `resources:read` (organization keys — which can address no project: `400` with no address, `403` naming one) · `variables:read` (project and workspace keys)
+
 ### `POST /env-vars`
 
-Create a global environment variable. Name must match `^[A-Z][A-Z0-9_]*$`.
-With `projectId`, a project variable — in a project the caller can open
-(`404` otherwise).
+Set a variable at the addressed level.
 
-**Permission:** `resources:write` (organization keys) · `variables:write` (project keys; a workspace key reads only)
+**Permission:** `resources:write` (organization keys) · `variables:write` (project and workspace keys)
 
 ```json
 {
@@ -1412,13 +1467,19 @@ With `projectId`, a project variable — in a project the caller can open
 }
 ```
 
+Answers `201` with the row and its `level`; `409` when the name is already
+set at that level; `404` when the level cannot be opened.
+
 ### `PATCH /env-vars/:id`
 
-Update an environment variable's name, value, or secret flag. Making a secret
-variable non-secret requires a new `value` in the same request — a stored
-secret never becomes readable — otherwise the request answers `422`.
+Update a variable's name, value, or secret flag. The row must sit at the
+addressed level: an org-wide row addressed at a project, or a workspace's row
+addressed at its project, is `404`. Making a secret variable non-secret
+requires a new `value` in the same request — a stored secret never becomes
+readable — otherwise the request answers `422` (`details[0].path: "value"`).
+A rename into a name already set at the level is `409`.
 
-**Permission:** `resources:write` (organization keys) · `variables:write` (project keys; a workspace key reads only)
+**Permission:** `resources:write` (organization keys) · `variables:write` (project and workspace keys)
 
 | Param | In   | Required | Description             |
 | ----- | ---- | -------- | ----------------------- |
@@ -1432,9 +1493,9 @@ secret never becomes readable — otherwise the request answers `422`.
 
 ### `DELETE /env-vars/:id`
 
-Delete an environment variable.
+Delete a variable at the addressed level (`404` when it is not there).
 
-**Permission:** `resources:delete` (organization keys) · `variables:delete` (project keys; a workspace key reads only)
+**Permission:** `resources:delete` (organization keys) · `variables:delete` (project and workspace keys)
 
 | Param | In   | Required | Description             |
 | ----- | ---- | -------- | ----------------------- |

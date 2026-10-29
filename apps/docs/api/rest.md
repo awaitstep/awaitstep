@@ -43,13 +43,13 @@ title: REST API
 
 All endpoints require authentication via API key (`Authorization: Bearer ask_...`) or session cookie.
 
-An API key is minted at one **level** — the organization, a project, or one workspace — and carries a **grid** of permissions from that level's catalog: the resources it may touch and the actions (`read`, `write`, `delete`, `deploy`, `run`) it may take on them. Every endpoint below names the cell it needs as <span class="api-scope">resource:action</span>; a key without it answers `403`. An organization key never reaches a project route, and a project or workspace key never manages organization resources, whatever its grid. Where a project or workspace key reaches an organization resource through its own grid (the connections, nodes and variables its workflows deploy with), the second badge is its cell. A workspace key is pinned to its workspace: every list is cut to it and anything elsewhere in the project is not found.
+An API key is minted at one **level** — the organization, a project, or one workspace — and carries a **grid** of permissions from that level's catalog: the resources it may touch and the actions (`read`, `write`, `delete`, `deploy`, `run`) it may take on them. Every endpoint below names the cell it needs as <span class="api-scope">resource:action</span>; a key without it answers `403`. An organization key never reaches a project route, and a project or workspace key never manages organization resources, whatever its grid. Where a project or workspace key reaches an organization resource through its own grid (the connections and nodes its workflows deploy with, the variables they resolve against), the second badge is its cell. A workspace key is pinned to its workspace: every list is cut to it and anything elsewhere in the project is not found.
 
 | Level        | Reaches                                       | Resources                                                                                             |
 | ------------ | --------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | organization | the organization's settings, never a workflow | `projects`, `members` (read), `connections`, `resources` (nodes, the marketplace, org-wide variables) |
 | project      | everything in one project, every workspace    | `workspaces`, `workflows`, `runs` (read), `variables`, `members` (read)                               |
-| workspace    | one workspace of a project                    | `workflows`, `runs` (read), `variables` (read)                                                        |
+| workspace    | one workspace of a project                    | `workflows`, `runs` (read), `variables`                                                               |
 
 A key acts with the standing of whoever minted it — a key minted by a Viewer cannot edit workflows — and stops working (`401`) when its creator leaves the organization or can no longer open the key's project or workspace.
 
@@ -479,15 +479,23 @@ Delete a connection.
 
 ## Environment Variables
 
+A variable is set at one of three **levels** — the organization, a project, or one workspace — and a workflow's `{{global.env.NAME}}` references resolve against its own workspace, then its project, then the organization: the closest level wins. Every call is addressed at a level in the query, as keys are: `?org=` the organization's own, `&project=` a project's own, `&workspace=` a workspace's own. A key's pin is its address. Anyone who can open the level reads its variables; setting, editing and deleting them is for whoever manages the level (org owners and admins, project admins, that workspace's admins). A name already set at the level answers `409`; secret values are masked in every read.
+
 ### <span class="api-method get">GET</span> <span class="api-endpoint">/env-vars</span> <span class="api-scope">resources:read</span> <span class="api-scope">variables:read</span>
 
-List all global environment variables. Secret values are masked.
+The addressed level's own variables, paginated. The organization's carry `overriddenIn`: how many projects the caller can open set the name themselves.
+
+---
+
+### <span class="api-method get">GET</span> <span class="api-endpoint">/env-vars/resolved</span> <span class="api-scope">resources:read</span> <span class="api-scope">variables:read</span>
+
+A project's or a workspace's resolved view: each name once with where its value is set (`setAt` / `source`), what it overrides, and which workspaces override it. Addressed at the organization alone: `400`.
 
 ---
 
 ### <span class="api-method post">POST</span> <span class="api-endpoint">/env-vars</span> <span class="api-scope">resources:write</span> <span class="api-scope">variables:write</span>
 
-Create a global environment variable. Name must match `^[A-Z][A-Z0-9_]*$`.
+Set a variable at the addressed level. Name must match `^[A-Z][A-Z0-9_]*$`.
 
 **Request body:**
 
@@ -499,13 +507,13 @@ Create a global environment variable. Name must match `^[A-Z][A-Z0-9_]*$`.
 
 ### <span class="api-method patch">PATCH</span> <span class="api-endpoint">/env-vars/:id</span> <span class="api-scope">resources:write</span> <span class="api-scope">variables:write</span>
 
-Update an environment variable's name, value, or secret flag.
+Update a variable's name, value, or secret flag, where it is addressed. Un-hiding a secret needs a new `value` (`422` otherwise).
 
 ---
 
 ### <span class="api-method delete">DELETE</span> <span class="api-endpoint">/env-vars/:id</span> <span class="api-scope">resources:delete</span> <span class="api-scope">variables:delete</span>
 
-Delete an environment variable.
+Delete a variable at the addressed level.
 
 ---
 
