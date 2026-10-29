@@ -13,6 +13,8 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createElement } from 'react'
 import { MagicLinkEmail } from '../src/templates/magic-link.js'
+import { InvitationEmail } from '../src/templates/invitation.js'
+import { InviteRequestEmail } from '../src/templates/invite-request.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const outDir = resolve(__dirname, '../src/templates/__generated__')
@@ -43,6 +45,34 @@ await renderTemplate(
   },
   'magic-link',
   'MAGIC_LINK',
+)
+
+await renderTemplate(
+  InvitationEmail as never,
+  {
+    url: '__INVITE_URL__',
+    orgName: '__ORG_NAME__',
+    inviterName: '__INVITER_NAME__',
+    placeLine: '__PLACE_LINE__',
+    expiresLine: '__EXPIRES_LINE__',
+    appName: '__APP_NAME__',
+    appUrl: '__APP_URL__',
+  },
+  'invitation',
+  'INVITATION',
+)
+
+await renderTemplate(
+  InviteRequestEmail as never,
+  {
+    url: '__MEMBERS_URL__',
+    orgName: '__ORG_NAME__',
+    askerEmail: '__ASKER_EMAIL__',
+    appName: '__APP_NAME__',
+    appUrl: '__APP_URL__',
+  },
+  'invite-request',
+  'INVITE_REQUEST',
 )
 
 console.log('[prerender] done')
