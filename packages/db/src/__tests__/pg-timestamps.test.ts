@@ -26,12 +26,14 @@ async function createPgDb() {
 function keyData(id: string, overrides: { parentKeyId?: string; expiresAt?: string } = {}) {
   return {
     id,
+    level: 'organization' as const,
     organizationId: 'org-1',
     createdBy: 'u-1',
     name: id,
     keyHash: `hash-${id}`,
     keyPrefix: 'ask_test',
     scopes: '["read"]',
+    permissions: '{"projects":["read"]}',
     ...overrides,
   }
 }

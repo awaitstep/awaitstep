@@ -231,11 +231,13 @@ export class WorkspacesAdapter {
   async deleteUnlessLast(id: string): Promise<boolean> {
     const w = this.t.workspaces
     const sibling = aliasedTable(this.t.workspaces, 'sibling')
-    // The table being deleted from is not aliased, so the outer reference is spelled out.
-    const others = sql`(select count(*) from ${aliasedFrom(sibling)} where ${sibling.projectId} = ${sql.raw('"workspaces"."project_id"')})`
+    const self = aliasedTable(this.t.workspaces, 'self')
+    // "Not the project's last workspace", by its own aliased lookup bound to the id.
+    const deletable = sql`exists (select 1 from ${aliasedFrom(self)} where ${self.id} = ${id} and (select count(*) from ${aliasedFrom(sibling)} where ${sibling.projectId} = ${self.projectId}) > 1)`
+    // Its keys go with it by the column's cascade, on both dialects.
     const rows = await this.db
       .delete(w)
-      .where(and(eq(w.id, id), sql`${others} > 1`))
+      .where(and(eq(w.id, id), deletable))
       .returning({ id: w.id })
     return rows.length > 0
   }

@@ -335,23 +335,29 @@ describe.each([
     it('finds a project by id or slugs, optionally with a workspace of its own', async () => {
       const byId = await h.adapter.getProjectIfMember('u-ama', { id: 'p-101' })
       expect(byId!.project.slug).toBe('project-101')
-      expect(byId!.workspaceId).toBeNull()
+      expect(byId!.workspace).toBeNull()
       expect(byId!.orgRole).toBe('owner')
       expect(byId!.projectGrant).toBeNull()
 
+      // The workspace comes back as the dashboard draws it, from the same read.
       const bySlugs = await h.adapter.getProjectIfMember(
         'u-ama',
         { org: 'acme', slug: 'project-101' },
         { slug: 'ops' },
       )
-      expect(bySlugs!.workspaceId).toBe('ws-ops')
+      expect(bySlugs!.workspace).toEqual({
+        id: 'ws-ops',
+        slug: 'ops',
+        name: 'Ops',
+        colour: 'amber',
+      })
 
       const byWorkspaceId = await h.adapter.getProjectIfMember(
         'u-ama',
         { id: 'p-101' },
         { id: 'ws-sales' },
       )
-      expect(byWorkspaceId!.workspaceId).toBe('ws-sales')
+      expect(byWorkspaceId!.workspace?.id).toBe('ws-sales')
 
       // Another project's workspace, or no membership: nothing at all.
       expect(

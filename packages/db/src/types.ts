@@ -204,10 +204,55 @@ export type ApiKeyAuth = ApiKey & {
   createdByProjectGrant: ProjectGrant | null
   /** For a project key: whether the creator holds a grant in any of its workspaces. */
   createdByHasWorkspaceGrant: boolean
+  /** For a workspace key: whether the creator can still open that workspace; true for the other levels. */
+  createdByCanOpenWorkspace: boolean
   parentKeyLive: boolean
 }
-/** A listed key with its project's name joined in — null on org-level keys. */
-export type ApiKeyListItem = ApiKey & { projectName: string | null }
+/** A listed key: its project's name (null on organization keys), who minted it, and its workspace (workspace keys). */
+export type ApiKeyListItem = ApiKey & {
+  projectName: string | null
+  createdByName: string | null
+  workspace: WorkspaceChip | null
+}
+
+/** What a key is minted as (B3): its level, where, and the grid it carries. */
+export type CreateApiKeyData = {
+  id: string
+  createdBy: string
+  name: string
+  keyHash: string
+  keyPrefix: string
+  /** The secret's last four characters, for the "ask_p1…a71d" display. */
+  keySuffix?: string | null
+  /** The grid as JSON, from @awaitstep/ir's catalog for the level. */
+  permissions: string
+  /** The coarse scopes the grid amounts to, for the column older keys were checked by. */
+  scopes: string
+  expiresAt?: string | null
+  parentKeyId?: string | null
+} & (
+  | { level: 'organization'; organizationId: string }
+  | { level: 'project'; organizationId: string; projectId: string }
+  | { level: 'workspace'; organizationId: string; projectId: string; workspaceId: string }
+)
+
+/** Where a key is revoked from: its own level's place. */
+export type ApiKeyTarget =
+  | { level: 'organization'; organizationId: string }
+  | { level: 'project'; projectId: string }
+  | { level: 'workspace'; workspaceId: string }
+
+/** The "Workspace keys" card on a project's keys page: unrevoked keys per workspace. */
+export interface WorkspaceKeyCount {
+  workspace: WorkspaceChip
+  count: number
+}
+
+/** Workspace settings → API keys: the workspace's own keys and the project keys that reach it. */
+export interface WorkspaceKeysRows {
+  own: ApiKeyListItem[]
+  inherited: ApiKeyListItem[]
+}
 export type EnvVar = InferSelectModel<typeof envVars>
 export type Project = InferSelectModel<typeof projects>
 export type Workspace = InferSelectModel<typeof workspaces>
@@ -396,10 +441,10 @@ export interface GrantRows {
   workspaceGrant: WorkspaceGrant | null
 }
 
-/** A project the caller can open, with their rows there; `workspaceId` when one was asked for. */
+/** A project the caller can open, with their rows there; `workspace` when one was asked for. */
 export interface ProjectAccess extends GrantRows {
   project: Project
-  workspaceId: string | null
+  workspace: WorkspaceChip | null
 }
 
 export interface WorkspaceAccess extends GrantRows, WorkspaceIds {}

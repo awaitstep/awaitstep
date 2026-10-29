@@ -27,6 +27,10 @@ import type {
   ReserveTestSessionLimits,
   ApiKeyAuth,
   ApiKeyListItem,
+  ApiKeyTarget,
+  CreateApiKeyData,
+  WorkspaceKeyCount,
+  WorkspaceKeysRows,
   Workspace,
   WorkspaceOverview,
   WorkspaceIds,
@@ -428,12 +432,13 @@ export interface DatabaseAdapter {
     port: number,
     cutoffs: TestSessionCutoffs,
   ): Promise<TestSession | null>
-  /** Session + workflow + expiry, scoped to its owner and project in one statement. */
+  /** Session + workflow + expiry, scoped to its owner, project and (when given) workspace in one statement. */
   getOwnedTestSession(
     id: string,
     userId: string,
     projectId: string,
     cutoffs: TestSessionCutoffs,
+    workspaceId?: string,
   ): Promise<OwnedTestSession | null>
   /** The user's newest live session for a workflow — never an expired one. */
   getLiveTestSessionForWorkflow(
@@ -487,11 +492,12 @@ export interface DatabaseAdapter {
     workflowId: string,
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<Deployment>>
-  /** With `visibleTo`, only deployments of workflows in workspaces that person can open. */
+  /** Across the project's workflows `visibleTo` can open, or one workspace's with `workspaceId`. */
   listRecentDeploymentsByProject(
     projectId: string,
     pagination?: PaginationParams,
     visibleTo?: string,
+    workspaceId?: string,
   ): Promise<PaginatedResult<Deployment>>
   deleteDeploymentsByWorkflow(workflowId: string): Promise<void>
 
@@ -508,44 +514,36 @@ export interface DatabaseAdapter {
   listDeploymentConfigsByWorkflow(workflowId: string): Promise<DeploymentConfig[]>
   deleteDeploymentConfig(workflowId: string, connectionId: string): Promise<void>
 
-  // API Keys — exactly one of projectId / organizationId is stored per key
-  // (schema CHECK): with projectId the key is project-level and must belong
-  // to organizationId, without it the key is organization-level.
-  /** Null when the project is not the organization's. */
-  createApiKey(data: {
-    id: string
-    organizationId: string
-    projectId?: string | null
-    parentKeyId?: string | null
-    createdBy: string
-    name: string
-    keyHash: string
-    keyPrefix: string
-    scopes: string
-    expiresAt?: string | null
-  }): Promise<ApiKey | null>
+  // API keys (B3): one level each — organization, project or workspace — with
+  // a grid of permissions; every list is one statement at its level.
+  /** Null when the project or workspace is not where the key says, or its creator cannot open it. */
+  createApiKey(data: CreateApiKeyData): Promise<ApiKey | null>
   getApiKeyById(id: string): Promise<ApiKey | null>
   /**
-   * The key, its organization (own or its project's) and whether its creator
-   * is still a member there — one read.
+   * The key, its organization (own or its project's), whether its creator is
+   * still a member there and can still open the key's project and workspace
+   * — one read.
    */
   getApiKeyAuthByHash(keyHash: string): Promise<ApiKeyAuth | null>
-  /** One project's live keys; a foreign organization's project, or one hidden from `visibleTo`, matches nothing. */
+  /** One project's own keys; a foreign organization's project, or one hidden from `visibleTo`, matches nothing. */
   listApiKeysByProject(
     organizationId: string,
     projectId: string,
     pagination?: PaginationParams,
     visibleTo?: string,
   ): Promise<PaginatedResult<ApiKeyListItem>>
-  /** The organization's live keys, both levels, with project names joined in; project keys of projects hidden from `visibleTo` are left out. */
+  /** The organization's own (organization-level) unrevoked keys. */
   listApiKeysByOrganization(
     organizationId: string,
     pagination?: PaginationParams,
-    visibleTo?: string,
   ): Promise<PaginatedResult<ApiKeyListItem>>
+  /** Unrevoked keys per workspace of the project (expired included, as its own list is), for the workspaces the viewer can open. */
+  countApiKeysByWorkspace(projectId: string, viewerId: string): Promise<WorkspaceKeyCount[]>
+  /** A workspace's own unrevoked keys and the unrevoked, unexpired project keys that reach it. */
+  listApiKeysByWorkspace(workspaceId: string, now: string): Promise<WorkspaceKeysRows>
   updateApiKeyLastUsed(id: string, lastUsedAt: string): Promise<void>
-  /** Revokes within the organization — the key's own, or its project's. */
-  revokeApiKey(id: string, organizationId: string): Promise<ApiKey | null>
+  /** Revokes a key at its own level's place; null when no such live key there. */
+  revokeApiKey(id: string, target: ApiKeyTarget): Promise<ApiKey | null>
 
   // Environment Variables
   createEnvVar(data: {

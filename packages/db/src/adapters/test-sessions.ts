@@ -177,15 +177,16 @@ export class TestSessionsAdapter {
 
   /**
    * One session plus its workflow and whether it has expired, scoped to its
-   * owner and the caller's project in the same statement — a missing row,
-   * someone else's session and a session in another project are all the same
-   * answer.
+   * owner, the caller's project and — when the request is cut to one — the
+   * workflow's workspace, in the same statement: a missing row, someone
+   * else's session and a session elsewhere are all the same answer.
    */
   async getOwned(
     id: string,
     userId: string,
     projectId: string,
     cutoffs: TestSessionCutoffs,
+    workspaceId?: string,
   ): Promise<OwnedTestSession | null> {
     const rows = await this.db
       .select({
@@ -200,6 +201,7 @@ export class TestSessionsAdapter {
           eq(this.table.id, id),
           eq(this.table.userId, userId),
           eq(this.workflows.projectId, projectId),
+          workspaceId ? eq(this.workflows.workspaceId, workspaceId) : undefined,
         ),
       )
       .limit(1)

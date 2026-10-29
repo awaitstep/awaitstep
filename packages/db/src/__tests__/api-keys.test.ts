@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { DrizzleDatabaseAdapter } from '../adapters/index.js'
+import type { CreateApiKeyData } from '../types.js'
 import * as sqliteSchema from '../schema/sqlite/index.js'
 
 const now = '2026-10-25T00:00:00.000Z'
@@ -15,23 +16,26 @@ function createTestDb() {
       role text NOT NULL, createdAt text NOT NULL
     );
     CREATE TABLE projects (id text PRIMARY KEY, organization_id text NOT NULL, name text NOT NULL, created_at text NOT NULL, updated_at text NOT NULL);
-    CREATE TABLE workspaces (id text PRIMARY KEY, project_id text NOT NULL, name text NOT NULL, slug text NOT NULL, created_at text NOT NULL, updated_at text NOT NULL);
+    CREATE TABLE workspaces (id text PRIMARY KEY, project_id text NOT NULL, name text NOT NULL, slug text NOT NULL, colour text NOT NULL DEFAULT 'green', created_at text NOT NULL, updated_at text NOT NULL);
     CREATE TABLE project_members (project_id text NOT NULL, user_id text NOT NULL, role text NOT NULL, created_by text, created_at text NOT NULL, PRIMARY KEY (project_id, user_id));
     CREATE TABLE workspace_members (workspace_id text NOT NULL, user_id text NOT NULL, role text NOT NULL, created_by text, created_at text NOT NULL, PRIMARY KEY (workspace_id, user_id));
+    CREATE TABLE user (id text PRIMARY KEY, name text NOT NULL, email text NOT NULL);
     CREATE TABLE api_keys (
-      id text PRIMARY KEY, project_id text, organization_id text,
+      id text PRIMARY KEY, project_id text, organization_id text, workspace_id text,
       parent_key_id text REFERENCES api_keys(id) ON DELETE CASCADE,
       created_by text NOT NULL, name text NOT NULL,
-      key_hash text NOT NULL UNIQUE, key_prefix text NOT NULL, scopes text NOT NULL,
+      key_hash text NOT NULL UNIQUE, key_prefix text NOT NULL, key_suffix text, scopes text NOT NULL,
+      permissions text NOT NULL DEFAULT '{}',
       expires_at text, last_used_at text, revoked_at text, created_at text NOT NULL,
       CONSTRAINT api_keys_one_level CHECK((project_id IS NULL) <> (organization_id IS NULL))
     );
     INSERT INTO organization VALUES ('org-1', 'One', '${now}');
     INSERT INTO organization VALUES ('org-2', 'Two', '${now}');
     INSERT INTO member VALUES ('m-1', 'u-1', 'org-1', 'owner', '${now}');
+    INSERT INTO user VALUES ('u-1', 'User One', 'u1@one.test');
     INSERT INTO projects VALUES ('p-1', 'org-1', 'One', '${now}', '${now}');
     INSERT INTO projects VALUES ('p-2', 'org-2', 'Two', '${now}', '${now}');
-    INSERT INTO workspaces VALUES ('ws-1', 'p-1', 'Default', 'default', '${now}', '${now}');
+    INSERT INTO workspaces VALUES ('ws-1', 'p-1', 'Default', 'default', 'green', '${now}', '${now}');
     INSERT INTO project_members VALUES ('p-1', 'u-1', 'admin', NULL, '${now}');
   `)
   const adapter = new DrizzleDatabaseAdapter(drizzle(sqlite), sqliteSchema)
@@ -45,15 +49,18 @@ function keyData(overrides: {
   parentKeyId?: string | null
   createdBy?: string
   expiresAt?: string | null
-}) {
-  return {
+}): CreateApiKeyData {
+  const { projectId, ...rest } = overrides
+  const base = {
     createdBy: 'u-1',
     name: overrides.id,
     keyHash: `hash-${overrides.id}`,
     keyPrefix: 'ask_test',
     scopes: '["read"]',
-    ...overrides,
+    permissions: projectId ? '{"workflows":["read"]}' : '{"projects":["read"]}',
+    ...rest,
   }
+  return projectId ? { ...base, level: 'project', projectId } : { ...base, level: 'organization' }
 }
 
 describe('ApiKeysAdapter', () => {
@@ -124,6 +131,41 @@ describe('ApiKeysAdapter', () => {
     expect(viaOrg?.createdByIsMember).toBe(true)
   })
 
+  it('reports whether a workspace key’s creator can still open its workspace', async () => {
+    db.sqlite.exec(`
+      INSERT INTO member VALUES ('m-2', 'u-2', 'org-1', 'member', '${now}');
+      INSERT INTO user VALUES ('u-2', 'User Two', 'u2@one.test');
+      INSERT INTO workspace_members VALUES ('ws-1', 'u-2', 'editor', NULL, '${now}');
+    `)
+    const key = await db.adapter.createApiKey({
+      level: 'workspace',
+      organizationId: 'org-1',
+      projectId: 'p-1',
+      workspaceId: 'ws-1',
+      id: 'k-w',
+      createdBy: 'u-2',
+      name: 'k-w',
+      keyHash: 'hash-k-w',
+      keyPrefix: 'ask_test',
+      scopes: '["read"]',
+      permissions: '{"workflows":["read"]}',
+    })
+    expect(key?.workspaceId).toBe('ws-1')
+    expect((await db.adapter.getApiKeyAuthByHash('hash-k-w'))?.createdByCanOpenWorkspace).toBe(true)
+    // They keep the project through a grant elsewhere, but not this workspace.
+    db.sqlite.exec(`
+      DELETE FROM workspace_members WHERE user_id = 'u-2';
+      INSERT INTO workspaces VALUES ('ws-2', 'p-1', 'Other', 'other', 'blue', '${now}', '${now}');
+      INSERT INTO workspace_members VALUES ('ws-2', 'u-2', 'viewer', NULL, '${now}');
+    `)
+    expect((await db.adapter.getApiKeyAuthByHash('hash-k-w'))?.createdByCanOpenWorkspace).toBe(
+      false,
+    )
+    // Keys at the other levels have no workspace to lose.
+    await db.adapter.createApiKey(keyData({ id: 'k-p', organizationId: 'org-1', projectId: 'p-1' }))
+    expect((await db.adapter.getApiKeyAuthByHash('hash-k-p'))?.createdByCanOpenWorkspace).toBe(true)
+  })
+
   it('reports a creator who left the organization', async () => {
     await db.adapter.createApiKey(
       keyData({ id: 'k-g', organizationId: 'org-1', createdBy: 'departed' }),
@@ -141,7 +183,7 @@ describe('ApiKeysAdapter', () => {
 
   it('hides a revoked key from auth', async () => {
     await db.adapter.createApiKey(keyData({ id: 'k-o', organizationId: 'org-1' }))
-    await db.adapter.revokeApiKey('k-o', 'org-1')
+    await db.adapter.revokeApiKey('k-o', { level: 'organization', organizationId: 'org-1' })
     expect(await db.adapter.getApiKeyAuthByHash('hash-k-o')).toBeNull()
   })
 
@@ -152,7 +194,7 @@ describe('ApiKeysAdapter', () => {
     )
     expect((await db.adapter.getApiKeyAuthByHash('hash-k-child'))?.parentKeyLive).toBe(true)
 
-    await db.adapter.revokeApiKey('k-o', 'org-1')
+    await db.adapter.revokeApiKey('k-o', { level: 'organization', organizationId: 'org-1' })
     expect((await db.adapter.getApiKeyAuthByHash('hash-k-child'))?.parentKeyLive).toBe(false)
   })
 
@@ -173,43 +215,39 @@ describe('ApiKeysAdapter', () => {
 
   it('revokes only within the organization', async () => {
     await db.adapter.createApiKey(keyData({ id: 'k-p', organizationId: 'org-1', projectId: 'p-1' }))
-    expect(await db.adapter.revokeApiKey('k-p', 'org-2')).toBeNull()
+    expect(await db.adapter.revokeApiKey('k-p', { level: 'project', projectId: 'p-2' })).toBeNull()
+    expect(
+      await db.adapter.revokeApiKey('k-p', { level: 'organization', organizationId: 'org-1' }),
+    ).toBeNull()
     expect((await db.adapter.getApiKeyById('k-p'))?.revokedAt).toBeNull()
 
-    const revoked = await db.adapter.revokeApiKey('k-p', 'org-1')
+    const revoked = await db.adapter.revokeApiKey('k-p', { level: 'project', projectId: 'p-1' })
     expect(revoked?.revokedAt).not.toBeNull()
   })
 
-  it('lists live keys with project names and scopes the project list by org', async () => {
+  it('lists each level’s own live keys, with the creator’s name, and nothing of another organization', async () => {
     await db.adapter.createApiKey(keyData({ id: 'k-p', organizationId: 'org-1', projectId: 'p-1' }))
     await db.adapter.createApiKey(keyData({ id: 'k-o', organizationId: 'org-1' }))
     await db.adapter.createApiKey(
       keyData({ id: 'k-dead', organizationId: 'org-1', projectId: 'p-1' }),
     )
-    await db.adapter.revokeApiKey('k-dead', 'org-1')
+    await db.adapter.revokeApiKey('k-dead', { level: 'project', projectId: 'p-1' })
+    await db.adapter.createApiKey(keyData({ id: 'k-other-o', organizationId: 'org-2' }))
 
     const orgList = await db.adapter.listApiKeysByOrganization('org-1')
-    expect(orgList.data.map((k) => k.id).sort()).toEqual(['k-o', 'k-p'])
-    expect(orgList.data.find((k) => k.id === 'k-p')?.projectName).toBe('One')
-    expect(orgList.data.find((k) => k.id === 'k-o')?.projectName).toBeNull()
+    expect(orgList.data.map((k) => k.id)).toEqual(['k-o'])
+    expect(orgList.data[0]).toMatchObject({
+      projectName: null,
+      createdByName: 'User One',
+      workspace: null,
+    })
 
     const projectList = await db.adapter.listApiKeysByProject('org-1', 'p-1')
     expect(projectList.data.map((k) => k.id)).toEqual(['k-p'])
+    expect(projectList.data[0]?.projectName).toBe('One')
 
     // A project id from another organization matches nothing.
     const foreign = await db.adapter.listApiKeysByProject('org-1', 'p-2')
     expect(foreign.data).toEqual([])
-  })
-
-  it('lists both key levels of one organization and nothing of another', async () => {
-    await db.adapter.createApiKey(keyData({ id: 'k-p', organizationId: 'org-1', projectId: 'p-1' }))
-    await db.adapter.createApiKey(keyData({ id: 'k-o', organizationId: 'org-1' }))
-    await db.adapter.createApiKey(
-      keyData({ id: 'k-other-p', organizationId: 'org-2', projectId: 'p-2' }),
-    )
-    await db.adapter.createApiKey(keyData({ id: 'k-other-o', organizationId: 'org-2' }))
-
-    const listed = await db.adapter.listApiKeysByOrganization('org-1')
-    expect(listed.data.map((k) => k.id).sort()).toEqual(['k-o', 'k-p'])
   })
 })

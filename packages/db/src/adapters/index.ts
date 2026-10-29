@@ -29,6 +29,10 @@ import type {
   ApiKey,
   ApiKeyAuth,
   ApiKeyListItem,
+  ApiKeyTarget,
+  CreateApiKeyData,
+  WorkspaceKeyCount,
+  WorkspaceKeysRows,
   EnvVar,
   Project,
   ProjectOverview,
@@ -226,16 +230,15 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     this._deployments = new DeploymentsAdapter(db, schema.deployments)
     this._apiKeys = new ApiKeysAdapter(
       db,
-      schema.apiKeys,
-      schema.projects,
-      schema.member,
-      schema.projectMembers && schema.workspaceMembers
-        ? {
-            projectMembers: schema.projectMembers,
-            workspaceMembers: schema.workspaceMembers,
-            workspaces: schema.workspaces,
-          }
-        : undefined,
+      {
+        apiKeys: schema.apiKeys,
+        projects: schema.projects,
+        workspaces: schema.workspaces,
+        user: schema.user,
+        member: schema.member,
+        projectMembers: schema.projectMembers,
+        workspaceMembers: schema.workspaceMembers,
+      },
       roles,
     )
     this._envVars = new EnvVarsAdapter(
@@ -781,8 +784,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     userId: string,
     projectId: string,
     cutoffs: TestSessionCutoffs,
+    workspaceId?: string,
   ): Promise<OwnedTestSession | null> {
-    return this._testSessions.getOwned(id, userId, projectId, cutoffs)
+    return this._testSessions.getOwned(id, userId, projectId, cutoffs, workspaceId)
   }
   getLiveTestSessionForWorkflow(
     workflowId: string,
@@ -918,6 +922,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     projectId: string,
     pagination?: PaginationParams,
     visibleTo?: string,
+    workspaceId?: string,
   ): Promise<PaginatedResult<Deployment>> {
     const limit = clampLimit(pagination?.limit)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -926,6 +931,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     const d = this._schema.deployments as any
 
     const conditions = [eq(w.projectId, projectId)]
+    if (workspaceId) conditions.push(eq(w.workspaceId, workspaceId))
     if (visibleTo) {
       conditions.push(
         this._roles().workflowVisible(visibleTo, sql.raw('"workflows"."workspace_id"')),
@@ -986,18 +992,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
 
   // API Keys
-  createApiKey(data: {
-    id: string
-    organizationId: string
-    projectId?: string | null
-    parentKeyId?: string | null
-    createdBy: string
-    name: string
-    keyHash: string
-    keyPrefix: string
-    scopes: string
-    expiresAt?: string | null
-  }): Promise<ApiKey | null> {
+  createApiKey(data: CreateApiKeyData): Promise<ApiKey | null> {
     return this._apiKeys.create(data)
   }
   getApiKeyById(id: string): Promise<ApiKey | null> {
@@ -1017,15 +1012,20 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   listApiKeysByOrganization(
     organizationId: string,
     pagination?: PaginationParams,
-    visibleTo?: string,
   ): Promise<PaginatedResult<ApiKeyListItem>> {
-    return this._apiKeys.listByOrganization(organizationId, pagination, visibleTo)
+    return this._apiKeys.listByOrganization(organizationId, pagination)
+  }
+  countApiKeysByWorkspace(projectId: string, viewerId: string): Promise<WorkspaceKeyCount[]> {
+    return this._apiKeys.countByWorkspace(projectId, viewerId)
+  }
+  listApiKeysByWorkspace(workspaceId: string, now: string): Promise<WorkspaceKeysRows> {
+    return this._apiKeys.listByWorkspace(workspaceId, now)
   }
   updateApiKeyLastUsed(id: string, lastUsedAt: string): Promise<void> {
     return this._apiKeys.updateLastUsed(id, lastUsedAt)
   }
-  revokeApiKey(id: string, organizationId: string): Promise<ApiKey | null> {
-    return this._apiKeys.revoke(id, organizationId)
+  revokeApiKey(id: string, target: ApiKeyTarget): Promise<ApiKey | null> {
+    return this._apiKeys.revoke(id, target)
   }
 
   // Env Vars

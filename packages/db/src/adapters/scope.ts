@@ -60,8 +60,8 @@ export class ScopeAdapter {
 
   /**
    * The project, by id or slugs, if the caller can open it — and, when
-   * `workspace` is given, that workspace's id if it is the project's and the
-   * caller can open it, or null for the whole thing.
+   * `workspace` is given, that workspace (as the dashboard names it) if it is
+   * the project's and the caller can open it, or null for the whole thing.
    */
   async getProjectIfMember(
     userId: string,
@@ -79,6 +79,9 @@ export class ScopeAdapter {
       .select({
         project: p,
         workspaceId: w.id,
+        workspaceSlug: w.slug,
+        workspaceName: w.name,
+        workspaceColour: w.colour,
         orgRole: me.role,
         projectGrant: pm.role,
         workspaceGrant: wm.role,
@@ -118,7 +121,15 @@ export class ScopeAdapter {
     if (workspace !== undefined && row.workspaceId === null) return null
     return {
       project: row.project as Project,
-      workspaceId: row.workspaceId,
+      workspace:
+        row.workspaceId === null
+          ? null
+          : {
+              id: row.workspaceId,
+              slug: row.workspaceSlug,
+              name: row.workspaceName,
+              colour: row.workspaceColour,
+            },
       orgRole: row.orgRole,
       projectGrant: row.projectGrant,
       workspaceGrant: row.workspaceGrant,
