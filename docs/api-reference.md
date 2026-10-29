@@ -269,9 +269,15 @@ it as `defaultWorkspace`. Listed projects carry what the dashboard shows:
 deployed and failing counts, last run), `lock`, `members` (sessions only; a
 key gets an empty list) and the caller's `viewerRole` and `viewerCan`.
 
-Renaming (`PATCH`, which also takes `slug`) and deleting a project is for the
-organization's owners and admins; any member may create one. A key acts
-with the standing of whoever minted it, so a member's key is refused too.
+Who sees a project: the organization's owners and admins, its project
+members, and anyone with a role in one of its workspaces. Everyone else gets
+`404` on it, and its counts and lists leave it out. Renaming (`PATCH`, which
+also takes `slug`) and deleting a project is for its admins (org owners and
+admins, or a `project_members` row with `admin`); any member may create one,
+and becomes its admin unless they run the organization. A key acts with the
+standing of whoever minted it, so a member's key is refused too. Item routes
+(`/projects/:id`, `/projects/:id/move`) need no `org` parameter: the project
+carries its organization.
 
 Slugs are lowercase letters, digits and inner hyphens, up to 100 characters,
 and may not be a page the dashboard already serves at that level
@@ -280,7 +286,10 @@ and may not be a page the dashboard already serves at that level
 
 ### `GET /projects`
 
-List all projects in the active organization.
+The projects in the organization the caller can open, each with the
+workspaces, health and people the caller may see. `viewerRole` is `admin`,
+`member`, or `null` for someone who reaches the project through a workspace
+grant alone.
 
 **Scope:** `read`
 
@@ -325,23 +334,54 @@ Delete a project.
 | ----- | ---- | -------- | ----------- |
 | `id`  | path | yes      | Project ID  |
 
+### `POST /projects/:id/move`
+
+Session only. Move the project to another organization the caller also runs
+(owner or admin of both: `403` otherwise), as one unit. Its workspaces,
+workflows, keys and variables go with it. People who are not in the target
+organization lose their rows in it; the rest keep theirs; open invitations
+lose their places in it. Moving a project to the organization it is in
+answers `400`; a slug another project in the target already uses answers
+`409` and moves nothing.
+
+```json
+{ "organizationId": "org_..." }
+```
+
 ---
 
 ## Workspaces
 
 A workspace is a room inside a project: workflows and functions live in
 exactly one. Workspace routes take a project key or a session; an
-organization-level key answers `403`. Until roles arrive, creating, renaming
-and deleting workspaces and moving workflows between them is for the
-organization's owners and admins (`403` otherwise). A key acts with the
-standing of whoever minted it, and needs the `write` scope as well.
+organization-level key answers `403`.
+
+**Who sees a workspace.** Org owners and admins and the project's admins and
+members open every workspace in the project; anyone else opens only the
+workspaces they hold a role in. A workspace the caller may not open is `404`
+on every route, and never appears in a list or a count: nothing says it
+exists.
+
+**Roles.** In a workspace the caller is an `admin`, an `editor` or a
+`viewer`: org owners/admins and project admins are admins everywhere, a
+project member is an editor everywhere (a workspace grant can raise that to
+admin), and a workspace grant alone gives its own role. A viewer reads and
+runs; building, deploying and sharing need an editor; managing the
+workspace, its members, keys and variables needs an admin. Every refusal is
+`403` with the same reason the dashboard shows on the disabled action. A key
+acts with the standing of whoever minted it (its creator's roles in the
+project and workspace), needs the matching scope as well, and stops working
+(`401`) once its creator can no longer open the project.
 
 ### `GET /workspaces`
 
-The project's workspaces, oldest first, each with `counts` (workflows,
-deployed, functions, runs in the last 24 hours, failing, last run),
-`createdBy`, `lock`, `inheritedLock`, `members` (sessions only; a key gets
-an empty list), `viewerRole` and `viewerCan`.
+The project's workspaces the caller can open, oldest first, each with
+`counts` (workflows, deployed, functions, runs in the last 24 hours, failing,
+last run), `createdBy`, `lock`, `inheritedLock`, `members` (sessions only; a
+key gets an empty list), `viewerRole` and `viewerCan`. Each member carries
+their effective `role`, `inherited` (it comes from the project or org, not a
+grant here), `projectRole` (what the project alone gives), `orgRole` for
+owners and admins, and `lastActiveAt`.
 
 **Scope:** `read`
 
@@ -351,9 +391,15 @@ an empty list), `viewerRole` and `viewerCan`.
 
 ### `POST /workspaces`
 
-Create a workspace. `slug` defaults to the name, slugified; `colour` is one of
-`green`, `blue`, `amber`, `purple`, `rose`. A slug another workspace in the
-project uses answers `409`; a reserved one (`settings`) `422`.
+Create a workspace (project admins). `slug` defaults to the name, slugified;
+`colour` is one of `green`, `blue`, `amber`, `purple`, `rose`. `members`
+("who can get in") gives people already in the organization a role here,
+written with the workspace as one unit; someone outside the organization
+answers `409` and nothing is written; a row that counts no higher than what
+the project already gives the person is skipped. A key creates the
+workspace but not its roster (`members` from a key → `403`). A slug another
+workspace in the project uses answers `409`; a reserved one (`settings`)
+`422`.
 
 **Scope:** `write`
 
@@ -362,7 +408,8 @@ project uses answers `409`; a reserved one (`settings`) `422`.
   "name": "Sales",
   "slug": "sales",
   "description": "",
-  "colour": "blue"
+  "colour": "blue",
+  "members": [{ "userId": "usr_...", "role": "editor" }]
 }
 ```
 
@@ -374,7 +421,8 @@ One workspace, as stored.
 
 ### `PATCH /workspaces/:id`
 
-Rename, re-slug, describe or recolour. A slug a sibling uses answers `409`.
+Rename, re-slug, describe or recolour (workspace admins). A slug a sibling
+uses answers `409`.
 
 **Scope:** `write`
 
@@ -389,16 +437,19 @@ Rename, re-slug, describe or recolour. A slug a sibling uses answers `409`.
 
 ### `DELETE /workspaces/:id`
 
-Delete the workspace with the workflows in it. Deployed Workers keep running
-on Cloudflare. A project's last workspace cannot be deleted: `409`.
+Delete the workspace with the workflows in it (workspace admins). Deployed
+Workers keep running on Cloudflare. A project's last workspace cannot be
+deleted: `409`.
 
 **Scope:** `write`
 
 ### `POST /workspaces/:id/move-workflows`
 
-Move workflows from this workspace to another one in the same project. A
-target that is not this project's answers `404`; workflow ids that are not
-in this workspace move nothing, and `moved` lists the ids that did.
+Move workflows from this workspace to another one in the same project
+(workspace admins). A target that is not this project's, or that the caller
+cannot open, answers `404`; one the caller cannot build in (a Viewer there)
+answers `403`; workflow ids that are not in this workspace move nothing, and
+`moved` lists the ids that did.
 
 **Scope:** `write`
 
@@ -433,8 +484,174 @@ caller's `role`, `projectCount`, `memberCount` and `viewerCan`.
 ### `GET /failing`
 
 Session only. Workflows and functions whose latest run failed, across the
-organization (`?org=` or `?organizationId=`), most recent failure first, with
-the run and where each lives.
+organization's workspaces the caller can open (`?org=` or
+`?organizationId=`), most recent failure first, with the run and where each
+lives.
+
+---
+
+## Members and access
+
+Who can work where, below the organization. Session only: every answer here
+names people. Org owners and admins run the access editor and remove people;
+a workspace's admins manage its own grants. A grant at or below what the
+project already gives someone is refused (`409`), since it would do nothing
+now and quietly keep them in later.
+
+### `GET /members`
+
+With `?org=`: everyone in the organization, each with `role`, `joinedAt` and
+`places` (where a plain member can work: a project-wide role, or a role in
+one workspace, in projects the caller can open — naming and counting only
+the workspaces the caller can open, and never a workspace in a project the
+person holds project-wide; empty for owners and admins).
+With `&project=<slug>`: the project's members in two groups, `wholeProject`
+(owners, org admins, project admins and members, with how they reach every
+workspace) and `workspacesOnly` (people with grants in workspaces the caller
+can open, with those workspaces and roles).
+
+### `GET /members/:userId/access`
+
+The access editor's data (org owners and admins): the person, `orgRole`,
+every project in the organization with its workspaces, and their
+`projectRoles` and `workspaceRoles` keyed by id.
+
+### `PUT /members/:userId/access`
+
+Save the editor: the org role and every project and workspace row of theirs
+in the organization, replaced as one unit. Owners alone make or change
+owners (`403`); the organization always keeps one owner (`409`, and then
+nothing changes); an id outside the organization answers `404` and writes
+nothing. A project or workspace named twice counts once, its last role
+winning; a workspace row that counts no higher than what the project gives
+the person is skipped. An org-wide role (`owner`, `admin`) drops the rows.
+
+```json
+{
+  "orgRole": "member",
+  "projects": [{ "projectId": "proj_...", "role": "member" }],
+  "workspaces": [{ "workspaceId": "ws_...", "role": "admin" }]
+}
+```
+
+### `DELETE /members/:userId`
+
+Remove from the organization, with every row of theirs in it. Owners alone
+remove an owner (`403`); the only owner cannot be removed (`409`).
+
+### `GET /workspaces/:id/members`
+
+Everyone who can open the workspace, with their effective `role`,
+`inherited`, `projectRole`, `orgRole` and `lastActiveAt`.
+
+### `POST /workspaces/:id/members`
+
+Give someone in the organization a role here (`admin`, `editor` or
+`viewer`). `409` with the reason when they are not in the organization, are
+already in, or the role is at or below what the project gives them.
+
+```json
+{ "userId": "usr_...", "role": "editor" }
+```
+
+### `PATCH /workspaces/:id/members/:userId`
+
+Change their grant's role; `409` when the new role would not count.
+
+### `DELETE /workspaces/:id/members/:userId`
+
+Remove their grant here. What the project gives them stays.
+
+### `GET /workspaces/:id/access-request`
+
+The caller's open "Ask for edit access" request in this workspace, or
+`null`.
+
+### `POST /workspaces/:id/access-requests`
+
+A Viewer asks for edit access. Addressed to the workspace's first admin by
+name (`201`); asking again answers the open request (`200`); an editor has
+nothing to ask for (`400`); a workspace nobody else runs answers `409`.
+
+### `POST /access-requests/:id/approve` · `POST /access-requests/:id/decline`
+
+Answer a request (anyone who may manage the workspace's members; a request
+in a workspace the caller cannot open is not found, before its state is
+told). Approving makes the asker an editor in the same unit — only while
+they are still a Viewer there, so someone raised to Admin meanwhile keeps
+it — or records `alreadyEditing` when they were raised meanwhile; `409` when
+the request was already answered or the asker has since lost the workspace.
+
+---
+
+## Invitations
+
+Invitations into an organization. Session only. The collection is addressed
+by `?org=` and is for owners and admins; an invitation is addressed by its
+id, which is the token in the emailed link, and answered by the session
+whose email it names. An invitation expires 7 days after it is sent or
+resent. better-auth's own member and invitation endpoints are closed: this
+is the one path.
+
+### `GET /invitations`
+
+Owners and admins (`?org=`; an invitation's id is its link): open, unexpired
+invitations, newest first, with `places`, `sentAt`, `expiresAt`, `invitedBy` and `askedForNewAt`.
+
+### `POST /invitations`
+
+Invite people: one invitation per address (up to twenty a request), each
+emailed. `places` apply to `member` invites only: a project-wide place takes
+a project role, a workspace place a workspace role, no place twice, and no
+workspace place a project-wide place in the body already covers at that
+level or above (`422` otherwise). An address already in the organization,
+or already invited, answers `409` naming it. A person may send a hundred
+invitation emails an hour, resends included (`429` past that).
+
+```json
+{
+  "emails": ["sam@example.com"],
+  "role": "member",
+  "places": [{ "projectId": "proj_...", "workspaceId": "ws_...", "role": "editor" }]
+}
+```
+
+### `GET /invitations/:id`
+
+The invite page's state for the session that opened it: `open`,
+`declined`, `wrong-account` (another address is signed in, or the session's
+address is not verified: the card without its place, the inviter's address
+or any action), `expired` (with `askedForNew`), or `gone` (accepted,
+cancelled or unknown).
+
+### `POST /invitations/:id/accept`
+
+Join the organization with the invite's role and places, as one unit;
+answers where to land (`{ org, project?, workspace? }` slugs). `403` for
+the wrong account, `410` once expired, `409` while declined.
+
+### `POST /invitations/:id/decline` · `POST /invitations/:id/undo-decline`
+
+Decline, and take it back while the invite has not expired.
+
+### `POST /invitations/:id/ask-again`
+
+After it expired: ask the inviter for a new one, once. The inviter gets an
+email; `asked` says whether this call was the first.
+
+### `POST /invitations/:id/resend` · `DELETE /invitations/:id`
+
+Owners and admins (`?org=`): a fresh week and the email again — once per
+ten minutes per invitation (`429` sooner) — or cancel. Cancelling an open or
+declined invitation makes its link stop working; one already accepted or
+cancelled answers `409`, one not in the organization `404`. Someone removed
+from the organization, or no longer an owner or admin of it, has the
+invitations they sent cancelled.
+
+### `GET /me/invitations`
+
+The open invitations waiting for the session's address, for Choose an
+organization — none for a session whose address is not verified.
 
 ---
 
@@ -1161,12 +1378,16 @@ the key's project at deploy time.
 ### `GET /env-vars`
 
 List all global environment variables. Secret values are masked as `••••••••`.
+With `?projectId=`, that project's variables — a project the caller cannot
+open (B2) lists nothing.
 
 **Scope:** `read`
 
 ### `POST /env-vars`
 
 Create a global environment variable. Name must match `^[A-Z][A-Z0-9_]*$`.
+With `projectId`, a project variable — in a project the caller can open
+(`404` otherwise).
 
 **Scope:** `write`
 
@@ -1508,15 +1729,17 @@ List the organization's live API keys — revoked keys are never returned. Each
 project-level key carries its project's name as `projectName` (null on
 organization-level keys).
 
-| Param       | In    | Required | Description                                                 |
-| ----------- | ----- | -------- | ----------------------------------------------------------- |
-| `projectId` | query | no       | List only this project's keys (must be in the organization) |
-| `cursor`    | query | no       | Pagination cursor                                           |
-| `limit`     | query | no       | Items per page (1–100, default 50)                          |
+| Param       | In    | Required | Description                                                                                                                                                                                             |
+| ----------- | ----- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `projectId` | query | no       | List only this project's keys (must be in the organization and open to the caller; a hidden one lists nothing). Without it, the organization's keys — project keys only of projects the caller can open |
+| `cursor`    | query | no       | Pagination cursor                                                                                                                                                                                       |
+| `limit`     | query | no       | Items per page (1–100, default 50)                                                                                                                                                                      |
 
 ### `POST /api-keys`
 
 Create a new API key. The full key is returned only once in the response.
+A project key is minted only in a project the caller can open (`404`
+otherwise).
 
 A key is **project-level or organization-level, never both**: with `projectId`
 it works that project's workflows and variables; without, it manages
