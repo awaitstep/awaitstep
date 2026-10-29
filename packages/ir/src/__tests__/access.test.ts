@@ -6,6 +6,7 @@ import {
   orgCapabilities,
   projectCapabilities,
   resolveRoles,
+  UNLOCKED_PROJECT,
   roleAbove,
   workspaceCapabilities,
   type OrgRole,
@@ -131,12 +132,30 @@ describe('orgCapabilities', () => {
 
 describe('projectCapabilities', () => {
   it('reserves management for admins, moves for org admins, and both behind the lock', () => {
-    expect(projectCapabilities('member', false).createWorkspace.reason).toBe(
+    const locked = { ...UNLOCKED_PROJECT, ownLock: true }
+    expect(projectCapabilities('member', UNLOCKED_PROJECT).createWorkspace.reason).toBe(
       ACCESS_REASONS.projectAdmins,
     )
-    expect(projectCapabilities('admin', true).delete.reason).toBe(ACCESS_REASONS.lockFirst)
-    expect(projectCapabilities('admin', false, 'member').move.reason).toBe(ACCESS_REASONS.orgAdmins)
-    expect(projectCapabilities('admin', false, 'owner').move.allowed).toBe(true)
+    expect(projectCapabilities('admin', locked).delete.reason).toBe(ACCESS_REASONS.lockFirst)
+    expect(projectCapabilities('admin', UNLOCKED_PROJECT, 'member').move.reason).toBe(
+      ACCESS_REASONS.orgAdmins,
+    )
+    expect(projectCapabilities('admin', UNLOCKED_PROJECT, 'owner').move.allowed).toBe(true)
+    expect(projectCapabilities('admin', locked, 'owner').move.reason).toBe(ACCESS_REASONS.lockFirst)
+  })
+
+  it('keeps a project with locked workspaces from being deleted, naming one or counting several', () => {
+    const one = { ownLock: false, lockedWorkspaces: ['Sales'] }
+    const two = { ownLock: false, lockedWorkspaces: ['Sales', 'IT'] }
+    expect(projectCapabilities('admin', one).delete.reason).toBe('Sales is locked')
+    expect(projectCapabilities('admin', two).delete.reason).toBe('2 workspaces in it are locked')
+    // The project's own lock is named first; a member hears about the role, not the locks.
+    expect(projectCapabilities('admin', { ...two, ownLock: true }).delete.reason).toBe(
+      ACCESS_REASONS.lockFirst,
+    )
+    expect(projectCapabilities('member', two).delete.reason).toBe(ACCESS_REASONS.projectAdmins)
+    // A workspace's lock does not keep the project in its org.
+    expect(projectCapabilities('admin', two, 'owner').move.allowed).toBe(true)
   })
 })
 

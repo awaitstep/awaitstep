@@ -151,6 +151,8 @@ export const ACCESS_REASONS = {
   lastWorkspace: 'A project’s last workspace can’t be deleted',
   sharedInUse: 'Other workspaces call its shared workflows. Unshare them first',
   lockedBy: (name: string) => `Locked by ${name}`,
+  workspacesLocked: (names: string[]) =>
+    names.length === 1 ? `${names[0]} is locked` : `${names.length} workspaces in it are locked`,
 } as const
 
 export function isOrgAdmin(role: OrgRole | null | undefined): boolean {
@@ -172,13 +174,22 @@ export function orgCapabilities(role: OrgRole, projectsLeft = 0): Capabilities<O
   }
 }
 
+export interface ProjectFacts {
+  ownLock: boolean
+  /** Names of the project's workspaces locked on their own; deleting the project waits for them. */
+  lockedWorkspaces: string[]
+}
+
+export const UNLOCKED_PROJECT: ProjectFacts = { ownLock: false, lockedWorkspaces: [] }
+
 export function projectCapabilities(
   role: ProjectRole | null,
-  locked: boolean,
+  facts: ProjectFacts,
   orgRole: OrgRole | null = null,
 ): Capabilities<ProjectCapability> {
   const admin = role === 'admin' ? YES : no(ACCESS_REASONS.projectAdmins)
   const orgAdmin = isOrgAdmin(orgRole)
+  const locked = facts.ownLock
   return {
     manageSettings: admin,
     createWorkspace: admin,
@@ -186,7 +197,14 @@ export function projectCapabilities(
     manageKeys: admin,
     manageVariables: admin,
     toggleLock: admin,
-    delete: !admin.allowed ? admin : locked ? no(ACCESS_REASONS.lockFirst) : YES,
+    // A workspace's own lock would be lifted by the project's delete, so it waits for them too.
+    delete: !admin.allowed
+      ? admin
+      : locked
+        ? no(ACCESS_REASONS.lockFirst)
+        : facts.lockedWorkspaces.length > 0
+          ? no(ACCESS_REASONS.workspacesLocked(facts.lockedWorkspaces))
+          : YES,
     // A project admin can't take the project out of an org they don't run, and the
     // deletion lock keeps it where it is: a move removes it from the org.
     move: !orgAdmin ? no(ACCESS_REASONS.orgAdmins) : locked ? no(ACCESS_REASONS.lockFirst) : YES,

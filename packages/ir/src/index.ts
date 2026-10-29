@@ -246,6 +246,7 @@ export {
   canSeeProject,
   orgCapabilities,
   projectCapabilities,
+  UNLOCKED_PROJECT,
   workspaceCapabilities,
   type OrgRole,
   type ProjectRole,
@@ -258,5 +259,6 @@ export {
   type OrgCapability,
   type ProjectCapability,
   type WorkspaceCapability,
+  type ProjectFacts,
   type WorkspaceFacts,
 } from './access.js'
