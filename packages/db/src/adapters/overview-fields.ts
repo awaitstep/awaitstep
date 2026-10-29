@@ -197,6 +197,7 @@ export class OverviewFields {
         sql`${inWorkspace} and ${wf.kind} = 'workflow' and ${this.latestDeployStatus(wf)} = 'success'`,
       ),
       functions: this.countWorkflows(wf, sql`${inWorkspace} and ${wf.kind} = 'script'`),
+      sharedOut: this.countWorkflows(wf, sql`${inWorkspace} and ${wf.sharedAt} is not null`),
       failing: this.countWorkflows(
         wf,
         sql`${inWorkspace} and ${this.latestRunStatus(wf)} in (${FAILED_LIST})`,

@@ -44,7 +44,7 @@ function createTestDb() {
   const sqlite = new Database(':memory:')
   sqlite.pragma('foreign_keys = ON')
   sqlite.exec(`
-    CREATE TABLE workflows (id text PRIMARY KEY, project_id text NOT NULL, workspace_id text, name text NOT NULL, kind text NOT NULL DEFAULT 'workflow', description text, trigger_code text, dependencies text, env_vars text, deploy_config text, current_version_id text, created_by text, created_at text NOT NULL, updated_at text NOT NULL);
+    CREATE TABLE workflows (id text PRIMARY KEY, project_id text NOT NULL, workspace_id text, name text NOT NULL, kind text NOT NULL DEFAULT 'workflow', description text, trigger_code text, dependencies text, env_vars text, deploy_config text, current_version_id text, created_by text, shared_by text, shared_at text, created_at text NOT NULL, updated_at text NOT NULL);
     CREATE TABLE workflow_versions (id text PRIMARY KEY, workflow_id text NOT NULL, version integer NOT NULL, ir text NOT NULL, created_at text NOT NULL);
     INSERT INTO workflows (id, project_id, name, created_at, updated_at) VALUES ('wf-1', 'p-1', 'One', '${T0}', '${T0}');
     INSERT INTO workflows (id, project_id, name, created_at, updated_at) VALUES ('wf-2', 'p-1', 'Two', '${T0}', '${T0}');

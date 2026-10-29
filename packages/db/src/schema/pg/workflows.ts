@@ -25,6 +25,9 @@ export const workflows = pgTable(
     triggerCode: text('trigger_code'),
     dependencies: text('dependencies'),
     deployConfig: text('deploy_config'),
+    // Shared to the project: both set, or both null (as a lock). No FK, as `locked_by`.
+    sharedBy: text('shared_by'),
+    sharedAt: isoTimestamp('shared_at'),
     createdAt: isoTimestamp('created_at')
       .notNull()
       .default(sql`now()`),

@@ -23,6 +23,9 @@ export const workflows = sqliteTable(
     triggerCode: text('trigger_code'),
     dependencies: text('dependencies'),
     deployConfig: text('deploy_config'),
+    // Shared to the project: both set, or both null (as a lock). No FK, as `locked_by`.
+    sharedBy: text('shared_by'),
+    sharedAt: text('shared_at'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },

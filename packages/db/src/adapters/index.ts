@@ -1,4 +1,4 @@
-import { eq, and, desc, or, lt, sql } from 'drizzle-orm'
+import { eq, and, desc, or, lt, sql, aliasedTable } from 'drizzle-orm'
 import type {
   DatabaseAdapter,
   WorkflowEnvVar,
@@ -43,6 +43,9 @@ import type {
   ProjectLocks,
   WorkspaceLocks,
   LockRow,
+  SharingRow,
+  SharedWorkflowRow,
+  SharedWorkflowFilter,
   ProjectRef,
   InstalledNode,
   CreateVersionData,
@@ -88,7 +91,13 @@ import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 import type { TokenCrypto } from '../crypto.js'
 import { is } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
-import { type Dialect, jsonArrayOfValues, readJsonArray } from './json-array.js'
+import {
+  type Dialect,
+  aliasedFrom,
+  fieldOf,
+  jsonArrayOfValues,
+  readJsonArray,
+} from './json-array.js'
 import { TERMINAL_RUN_STATUSES, type OverviewTables } from './overview-fields.js'
 import { RoleFields } from './role-fields.js'
 import { ScopeAdapter } from './scope.js'
@@ -98,6 +107,7 @@ import { AccessRequestsAdapter } from './access-requests.js'
 import { WorkspacesAdapter } from './workspaces.js'
 import { WorkspaceRunsAdapter } from './workspace-runs.js'
 import { WorkflowsAdapter } from './workflows.js'
+import { SharedWorkflowsAdapter } from './shared-workflows.js'
 import { VersionsAdapter } from './versions.js'
 import { ConnectionsAdapter } from './connections.js'
 import { RunsAdapter } from './runs.js'
@@ -156,6 +166,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _db: any
   private _schema: SchemaRef
   private _workflows: WorkflowsAdapter
+  private _shared: SharedWorkflowsAdapter
   private _versions: VersionsAdapter
   private _connections: ConnectionsAdapter
   private _runs: RunsAdapter
@@ -228,6 +239,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     this._workspaces = new WorkspacesAdapter(db, tables, this._dialect)
     this._workspaceRuns = new WorkspaceRunsAdapter(db, tables)
     this._workflows = new WorkflowsAdapter(db, schema.workflows, schema.workspaces)
+    this._shared = new SharedWorkflowsAdapter(db, tables, this._dialect)
     this._versions = new VersionsAdapter(db, schema.workflowVersions)
     this._connections = new ConnectionsAdapter(db, schema.connections, options?.tokenCrypto)
     this._runs = new RunsAdapter(db, schema.workflowRuns, schema.workflows, schema.deployments)
@@ -567,6 +579,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     const r = this._schema.workflowRuns as any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const v = this._schema.workflowVersions as any
+    const u = aliasedTable(this._tables.user, 'sharer')
+    const m = aliasedTable(this._tables.member, 'sharer_member')
+    const p = aliasedTable(this._tables.projects, 'sharer_project')
 
     // Drizzle's sql template does not qualify column references with table names,
     // so correlated subqueries must use sql.raw() for the outer table's columns
@@ -604,6 +619,14 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         triggerCode: w.triggerCode,
         dependencies: w.dependencies,
         deployConfig: w.deployConfig,
+        sharedBy: w.sharedBy,
+        sharedAt: w.sharedAt,
+        // The sharer's name while they are in the workflow's organization.
+        sharedByName: fieldOf(
+          sql<
+            string | null
+          >`(SELECT ${u.name} FROM ${aliasedFrom(u)} WHERE ${u.id} = ${sql.raw('"workflows"."shared_by"')} AND EXISTS (SELECT 1 FROM ${aliasedFrom(m)} INNER JOIN ${aliasedFrom(p)} ON ${p.organizationId} = ${m.organizationId} WHERE ${p.id} = ${sql.raw('"workflows"."project_id"')} AND ${m.userId} = ${u.id}))`,
+        ).as('shared_by_name'),
         createdAt: w.createdAt,
         updatedAt: w.updatedAt,
         deployedVersion: sql<
@@ -668,6 +691,20 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
   moveWorkflowToProject(id: string, targetProjectId: string): Promise<Workflow | null> {
     return this._workflows.moveToProject(id, targetProjectId)
+  }
+  setWorkflowShared(
+    id: string,
+    workspaceId: string,
+    userId: string,
+    shared: boolean,
+  ): Promise<SharingRow | null> {
+    return this._shared.setShared(id, workspaceId, userId, shared)
+  }
+  listSharedWorkflows(
+    filter: SharedWorkflowFilter,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<SharedWorkflowRow>> {
+    return this._shared.list(filter, pagination)
   }
 
   // Versions

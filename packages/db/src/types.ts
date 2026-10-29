@@ -372,6 +372,40 @@ export interface LockRow {
   lockedByName: string | null
 }
 
+/** A workflow's share to its project as a write left it; the sharer's name while they are in the org. */
+export interface SharingRow {
+  sharedBy: string | null
+  sharedAt: string | null
+  sharedByName: string | null
+}
+
+/**
+ * A workflow or function shared to its project, as anyone in the project
+ * lists it: what it is and where it lives, never its code. `viewerRole` is
+ * the viewer's role in the owning workspace, null when they cannot open it.
+ */
+export interface SharedWorkflowRow {
+  id: string
+  name: string
+  kind: 'workflow' | 'script'
+  deployedVersion: number | null
+  sharedAt: string
+  sharedBy: string
+  sharedByName: string | null
+  from: { id: string; slug: string; name: string; colour: string }
+  viewerRole: WorkspaceGrant | null
+}
+
+/** Which shared items a list reads: the project's, optionally leaving out one workspace's own. */
+export interface SharedWorkflowFilter {
+  projectId: string
+  organizationId: string
+  viewer: string
+  /** "Shared with Sales": every workspace's but this one's. */
+  exceptWorkspaceId?: string
+  kind?: 'workflow' | 'script'
+}
+
 /** What stands in the way of deleting a project. */
 export interface ProjectLocks {
   ownLock: boolean
@@ -390,6 +424,8 @@ export interface WorkspaceCounts {
   workflows: number
   deployed: number
   functions: number
+  /** Its workflows and functions shared to the project. */
+  sharedOut: number
   runs24h: number
   failing: number
   lastRunAt: string | null

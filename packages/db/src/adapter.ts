@@ -45,6 +45,9 @@ import type {
   ProjectLocks,
   WorkspaceLocks,
   LockRow,
+  SharingRow,
+  SharedWorkflowRow,
+  SharedWorkflowFilter,
   OrgOverview,
   ScopeRows,
   ScopeSlugs,
@@ -83,6 +86,8 @@ export interface WorkflowWithStatus extends Workflow {
   deployVersionId: string | null
   /** The version number the latest deployment put live, null for drafts. */
   deployedVersion: number | null
+  /** Who shared it to the project, while they are in its organization. */
+  sharedByName: string | null
   lastRunStatus: string | null
   lastRunAt: string | null
   /** The statuses of the last ten finished runs, newest first. */
@@ -370,6 +375,22 @@ export interface DatabaseAdapter {
   deleteWorkflow(id: string): Promise<void>
   /** Into the target project's oldest workspace, in one statement; null when nothing moved. */
   moveWorkflowToProject(id: string, targetProjectId: string): Promise<Workflow | null>
+  /**
+   * Shares it to its project or stops, while it is still in `workspaceId` (the
+   * one the caller was judged on); sharing again keeps the first sharer. Null
+   * when it is gone or has moved.
+   */
+  setWorkflowShared(
+    id: string,
+    workspaceId: string,
+    userId: string,
+    shared: boolean,
+  ): Promise<SharingRow | null>
+  /** A project's shared workflows and functions, newest share first, in one statement. */
+  listSharedWorkflows(
+    filter: SharedWorkflowFilter,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<SharedWorkflowRow>>
 
   // Workflow Versions
   createVersion(data: CreateVersionData): Promise<WorkflowVersion>

@@ -226,6 +226,8 @@ export const workflows = sqliteTable(
     triggerCode: text('trigger_code'),
     dependencies: text('dependencies'),
     deployConfig: text('deploy_config'),
+    sharedBy: text('shared_by'),
+    sharedAt: text('shared_at'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },

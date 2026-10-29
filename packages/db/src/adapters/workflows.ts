@@ -119,7 +119,7 @@ export class WorkflowsAdapter {
 
   /**
    * Moves the workflow to another project and into that project's oldest
-   * workspace, in one statement: a workflow left pointing at a workspace of
+   * workspace, in one statement, leaving its share behind: a workflow left pointing at a workspace of
    * its old project would be read, counted and cascade-deleted there. Null
    * when the target has no workspace (every project has one) or the
    * workflow is gone.
@@ -129,7 +129,14 @@ export class WorkflowsAdapter {
     const oldest = sql`(select ${home.id} from ${aliasedFrom(home)} where ${home.projectId} = ${targetProjectId} order by ${home.createdAt}, ${home.id} limit 1)`
     const rows = await this.db
       .update(this.table)
-      .set({ projectId: targetProjectId, workspaceId: oldest, updatedAt: new Date().toISOString() })
+      .set({
+        projectId: targetProjectId,
+        workspaceId: oldest,
+        // A share is to one project: it does not follow the workflow out.
+        sharedBy: null,
+        sharedAt: null,
+        updatedAt: new Date().toISOString(),
+      })
       .where(
         and(
           eq(this.table.id, id),

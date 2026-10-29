@@ -230,6 +230,8 @@ export const workflows = pgTable(
     triggerCode: text('trigger_code'),
     dependencies: text('dependencies'),
     deployConfig: text('deploy_config'),
+    sharedBy: text('shared_by'),
+    sharedAt: timestamp('shared_at', { mode: 'string' }),
     createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { mode: 'string' }).notNull().defaultNow(),
   },
