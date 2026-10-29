@@ -34,6 +34,10 @@ import type {
   WorkspaceKeyCount,
   WorkspaceKeysRows,
   EnvVar,
+  OrgEnvVar,
+  ResolvedProjectVariable,
+  ResolvedWorkspaceVariable,
+  VariablePlace,
   Project,
   ProjectOverview,
   ProjectRef,
@@ -200,7 +204,12 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     this._scope = new ScopeAdapter(db, tables, this._dialect)
     this._access = new AccessAdapter(
       db,
-      { ...tables, invitation: schema.invitation, invitationPlaces: schema.invitationPlaces },
+      {
+        ...tables,
+        invitation: schema.invitation,
+        invitationPlaces: schema.invitationPlaces,
+        envVars: schema.envVars,
+      },
       this._dialect,
     )
     this._invitations = new InvitationsAdapter(
@@ -243,9 +252,14 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     )
     this._envVars = new EnvVarsAdapter(
       db,
-      schema.envVars,
+      {
+        envVars: schema.envVars,
+        projects: schema.projects,
+        workspaces: schema.workspaces,
+        organization: schema.organization,
+      },
+      this._dialect,
       options?.tokenCrypto,
-      schema.projects,
       roles,
     )
     this._projects = new ProjectsAdapter(db, tables, this._dialect)
@@ -1031,8 +1045,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   // Env Vars
   createEnvVar(data: {
     id: string
-    organizationId: string
-    projectId?: string | null
+    place: VariablePlace
     createdBy: string
     name: string
     value: string
@@ -1040,42 +1053,63 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }): Promise<EnvVar | null> {
     return this._envVars.create(data)
   }
-  getEnvVarById(id: string): Promise<EnvVar | null> {
-    return this._envVars.getById(id)
-  }
   listEnvVarsByOrganization(
     organizationId: string,
     pagination?: PaginationParams,
-  ): Promise<PaginatedResult<EnvVar>> {
-    return this._envVars.listByOrganization(organizationId, pagination)
+    visibleTo?: string,
+  ): Promise<PaginatedResult<OrgEnvVar>> {
+    return this._envVars.listByOrganization(organizationId, pagination, visibleTo)
   }
   listEnvVarsByProject(
     organizationId: string,
     projectId: string,
     pagination?: PaginationParams,
-    visibleTo?: string,
   ): Promise<PaginatedResult<EnvVar>> {
-    return this._envVars.listByProject(organizationId, projectId, pagination, visibleTo)
+    return this._envVars.listByProject(organizationId, projectId, pagination)
+  }
+  listEnvVarsByWorkspace(
+    organizationId: string,
+    projectId: string,
+    workspaceId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<EnvVar>> {
+    return this._envVars.listByWorkspace(organizationId, projectId, workspaceId, pagination)
+  }
+  listResolvedVariablesForProject(
+    organizationId: string,
+    projectId: string,
+    visibleTo?: string,
+  ): Promise<ResolvedProjectVariable[]> {
+    return this._envVars.listResolvedForProject(organizationId, projectId, visibleTo)
+  }
+  listResolvedVariablesForWorkspace(
+    organizationId: string,
+    projectId: string,
+    workspaceId: string,
+  ): Promise<ResolvedWorkspaceVariable[]> {
+    return this._envVars.listResolvedForWorkspace(organizationId, projectId, workspaceId)
   }
   updateEnvVar(
     id: string,
-    scope: { organizationId: string; projectId?: string | null },
+    place: VariablePlace,
     data: { name?: string; value?: string; isSecret?: boolean },
-    visibleTo?: string,
   ): Promise<EnvVar | null> {
-    return this._envVars.update(id, scope, data, visibleTo)
+    return this._envVars.update(id, place, data)
   }
-  deleteEnvVar(
-    id: string,
-    scope: { organizationId: string; projectId?: string | null },
-    visibleTo?: string,
-  ): Promise<boolean> {
-    return this._envVars.delete(id, scope, visibleTo)
+  deleteEnvVar(id: string, place: VariablePlace): Promise<boolean> {
+    return this._envVars.delete(id, place)
+  }
+  isSecretVariableAt(id: string, place: VariablePlace): Promise<boolean> {
+    return this._envVars.isSecretAt(id, place)
   }
 
   async getWorkflowEnvVars(workflowId: string): Promise<WorkflowEnvVar[]> {
     const workflow = await this._workflows.getById(workflowId)
-    if (!workflow?.envVars) return []
+    return workflow ? this.decodeWorkflowEnvVars(workflow) : []
+  }
+
+  async decodeWorkflowEnvVars(workflow: Workflow): Promise<WorkflowEnvVar[]> {
+    if (!workflow.envVars) return []
     try {
       const vars = JSON.parse(workflow.envVars) as WorkflowEnvVar[]
       if (!this._crypto) return vars
@@ -1111,8 +1145,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     organizationId: string,
     names: readonly string[],
     projectId?: string | null,
+    workspaceId?: string | null,
   ): Promise<EnvVar[]> {
-    return this._envVars.findByNames(organizationId, names, projectId)
+    return this._envVars.findByNames(organizationId, names, projectId, workspaceId)
   }
 
   // Installed Nodes (Marketplace)

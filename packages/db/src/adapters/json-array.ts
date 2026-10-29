@@ -57,6 +57,17 @@ export function nestedJson(dialect: Dialect, value: SQL): SQL {
   return dialect === 'pg' ? value : sql`json(${value})`
 }
 
+/**
+ * A select field that names columns of other aliases (a correlated
+ * subquery): in a statement with no joins drizzle rewrites every column
+ * chunk at the top level of a field to its bare name, as if it were the one
+ * table's, so `"ov"."name" = "v"."name"` would reach the driver as
+ * `"name" = "name"`. Nesting the expression once keeps its qualifiers.
+ */
+export function fieldOf<T>(expr: SQL<T>): SQL<T> {
+  return sql`${expr}` as SQL<T>
+}
+
 /** The aggregate as the driver returns it: text on sqlite, parsed JSON on pg. */
 export function readJsonArray<T>(value: unknown): T[] {
   if (value == null) return []

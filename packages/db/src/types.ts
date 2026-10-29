@@ -254,6 +254,43 @@ export interface WorkspaceKeysRows {
   inherited: ApiKeyListItem[]
 }
 export type EnvVar = InferSelectModel<typeof envVars>
+
+// Variables at three levels (B4). A row's level is read off its columns:
+// `workspaceId` → workspace, `projectId` → project, else the organization.
+
+export type VariableLevel = 'organization' | 'project' | 'workspace'
+
+/** Where a variable is set or addressed: the level and the ids a statement pins to. */
+export type VariablePlace =
+  | { level: 'organization'; organizationId: string }
+  | { level: 'project'; organizationId: string; projectId: string }
+  | { level: 'workspace'; organizationId: string; projectId: string; workspaceId: string }
+
+/** An org-wide variable with how many projects (the viewer can open) set their own value. */
+export type OrgEnvVar = EnvVar & { overriddenIn: number }
+
+/** The place a resolved value comes from; `name` is null in a schema without the org table. */
+export interface VariableSource {
+  level: VariableLevel
+  id: string
+  name: string | null
+}
+
+/** Project settings → Variables: each name once, the project's value over the org's. */
+export type ResolvedProjectVariable = EnvVar & {
+  level: 'organization' | 'project'
+  setAt: VariableSource
+  /** The workspaces the viewer can open that set their own value. */
+  overriddenIn: WorkspaceChip[]
+}
+
+/** Workspace settings → Variables: each name once, the closest level winning. */
+export type ResolvedWorkspaceVariable = EnvVar & {
+  level: VariableLevel
+  source: VariableSource
+  /** The level whose value this one replaces, when it replaces one. */
+  overrides: 'project' | 'organization' | null
+}
 export type Project = InferSelectModel<typeof projects>
 export type Workspace = InferSelectModel<typeof workspaces>
 export type InstalledNode = InferSelectModel<typeof installedNodes>

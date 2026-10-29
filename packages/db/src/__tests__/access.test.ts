@@ -1467,8 +1467,7 @@ describe.each([
     })
     await h.adapter.createEnvVar({
       id: 'v-101',
-      organizationId: 'org-acme',
-      projectId: 'p-101',
+      place: { level: 'project', organizationId: 'org-acme', projectId: 'p-101' },
       createdBy: 'u-ama',
       name: 'API_URL',
       value: 'x',
@@ -1480,12 +1479,9 @@ describe.each([
     expect(
       (await h.adapter.listApiKeysByProject('org-acme', 'p-101', undefined, 'u-fay')).data,
     ).toEqual([])
-    expect(
-      (await h.adapter.listEnvVarsByProject('org-acme', 'p-101', undefined, 'u-eve')).data,
-    ).toHaveLength(1)
-    expect(
-      (await h.adapter.listEnvVarsByProject('org-acme', 'p-101', undefined, 'u-fay')).data,
-    ).toEqual([])
+    // Variables are addressed at their level (B4): the scope read that resolves
+    // the address is what hides a project; the list itself is the project's own.
+    expect((await h.adapter.listEnvVarsByProject('org-acme', 'p-101')).data).toHaveLength(1)
     // The organization's list names a project key only to someone who can open its project; org keys always.
     await h.adapter.createApiKey({
       level: 'organization' as const,
@@ -1519,8 +1515,7 @@ describe.each([
     expect(
       await h.adapter.createEnvVar({
         id: 'v-hidden',
-        organizationId: 'org-acme',
-        projectId: 'p-202',
+        place: { level: 'project', organizationId: 'org-acme', projectId: 'p-202' },
         createdBy: 'u-eve',
         name: 'X',
         value: 'x',

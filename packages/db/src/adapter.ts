@@ -31,6 +31,10 @@ import type {
   CreateApiKeyData,
   WorkspaceKeyCount,
   WorkspaceKeysRows,
+  OrgEnvVar,
+  ResolvedProjectVariable,
+  ResolvedWorkspaceVariable,
+  VariablePlace,
   Workspace,
   WorkspaceOverview,
   WorkspaceIds,
@@ -545,59 +549,84 @@ export interface DatabaseAdapter {
   /** Revokes a key at its own level's place; null when no such live key there. */
   revokeApiKey(id: string, target: ApiKeyTarget): Promise<ApiKey | null>
 
-  // Environment Variables
+  // Environment Variables (B4): one row per level, pinned to its place
+  /**
+   * Writes a variable at `place`: org-wide as is; a project's or a
+   * workspace's only when the place is the organization's and the author can
+   * open it (checked by the insert). Null when that check failed; a name
+   * already set at the place surfaces as `isUniqueViolation`.
+   */
   createEnvVar(data: {
     id: string
-    organizationId: string
-    projectId?: string | null
+    place: VariablePlace
     createdBy: string
     name: string
     value: string
     isSecret: boolean
   }): Promise<EnvVar | null>
-  getEnvVarById(id: string): Promise<EnvVar | null>
+  /** The organization's own rows, each with how many projects `visibleTo` can open set the name themselves. */
   listEnvVarsByOrganization(
     organizationId: string,
     pagination?: PaginationParams,
-  ): Promise<PaginatedResult<EnvVar>>
-  /** One project's variables; a project hidden from `visibleTo` lists nothing. */
+    visibleTo?: string,
+  ): Promise<PaginatedResult<OrgEnvVar>>
+  /** The project's own rows, not its workspaces'. */
   listEnvVarsByProject(
     organizationId: string,
     projectId: string,
     pagination?: PaginationParams,
-    visibleTo?: string,
   ): Promise<PaginatedResult<EnvVar>>
+  listEnvVarsByWorkspace(
+    organizationId: string,
+    projectId: string,
+    workspaceId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<EnvVar>>
+  /** Each name once as the project resolves it (project over org), with where it is set and the viewer's workspaces that override it. */
+  listResolvedVariablesForProject(
+    organizationId: string,
+    projectId: string,
+    visibleTo?: string,
+  ): Promise<ResolvedProjectVariable[]>
+  /** Each name once as the workspace resolves it (workspace › project › org), with its source and what it overrides. */
+  listResolvedVariablesForWorkspace(
+    organizationId: string,
+    projectId: string,
+    workspaceId: string,
+  ): Promise<ResolvedWorkspaceVariable[]>
   /**
-   * Updates one statement-scoped row: the organization always, the project
-   * when given (`null` = org-wide rows only), and with `visibleTo` only a
-   * row that is org-wide or in a project that person can open. Null when no
-   * row matches — or when the update would make a stored secret readable
-   * (isSecret flipped false with no replacement value).
+   * Updates the row only where it is addressed (`place`): a row of another
+   * level answers like a missing one. Null when no row matches — or when the
+   * update would make a stored secret readable (isSecret flipped false with
+   * no replacement value).
    */
   updateEnvVar(
     id: string,
-    scope: { organizationId: string; projectId?: string | null },
+    place: VariablePlace,
     data: { name?: string; value?: string; isSecret?: boolean },
-    visibleTo?: string,
   ): Promise<EnvVar | null>
-  /** Deletes within the scope (and, with `visibleTo`, what they can open) — false when no row matched. */
-  deleteEnvVar(
-    id: string,
-    scope: { organizationId: string; projectId?: string | null },
-    visibleTo?: string,
-  ): Promise<boolean>
+  /** Deletes the row where it is addressed — false when no row matched there. */
+  deleteEnvVar(id: string, place: VariablePlace): Promise<boolean>
+  /** Whether the row at the addressed place is a secret — the un-hide refusal's one check. */
+  isSecretVariableAt(id: string, place: VariablePlace): Promise<boolean>
   getWorkflowEnvVars(workflowId: string): Promise<WorkflowEnvVar[]>
+  /** A workflow row's own variables, decoded; `getWorkflowEnvVars` reads the row first. */
+  decodeWorkflowEnvVars(workflow: Workflow): Promise<WorkflowEnvVar[]>
   setWorkflowEnvVars(workflowId: string, vars: WorkflowEnvVar[]): Promise<void>
   /**
-   * Variables matching any of `names`, from the project and the org, in one
-   * query. Resolving a `{{global.env.X}}` reference to a value is the
-   * caller's job: the form of a reference is defined in `@awaitstep/ir`,
-   * which this package is standalone from.
+   * One row per name — the closest level's (workspace › project › org),
+   * chosen in the statement — for the names set at the workspace, its
+   * project or the org. Without a workspace, project and org; without a
+   * project, the org alone (a workspace without its project is ignored).
+   * Resolving a `{{global.env.X}}` reference to a
+   * value is the caller's job: the form of a reference is defined in
+   * `@awaitstep/ir`, which this package is standalone from.
    */
   findEnvVarsByNames(
     organizationId: string,
     names: readonly string[],
     projectId?: string | null,
+    workspaceId?: string | null,
   ): Promise<EnvVar[]>
 
   // Installed Nodes (Marketplace)

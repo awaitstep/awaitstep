@@ -1,240 +1,532 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+
+// PGlite migrates a fresh database per test; under a parallel `pnpm test` that
+// runs past vitest's 5s default.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 })
+import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
-import { drizzle } from 'drizzle-orm/better-sqlite3'
+import { PGlite } from '@electric-sql/pglite'
+import { drizzle as drizzleSqlite } from 'drizzle-orm/better-sqlite3'
+import { migrate as migrateSqlite } from 'drizzle-orm/better-sqlite3/migrator'
+import { drizzle as drizzlePg } from 'drizzle-orm/pglite'
+import { migrate as migratePg } from 'drizzle-orm/pglite/migrator'
+import { eq, type Logger } from 'drizzle-orm'
 import { DrizzleDatabaseAdapter } from '../adapters/index.js'
 import * as sqliteSchema from '../schema/sqlite/index.js'
+import * as pgSchema from '../schema/pg/index.js'
+import { isUniqueViolation } from '../db-errors.js'
+import type { VariablePlace } from '../types.js'
 
-const now = '2026-10-20T00:00:00.000Z'
+// Variables at three levels (B4), on both dialects: where a row may be
+// written, what each level's list shows, how a project and a workspace
+// resolve each name, and that a write by id stays at the place it is
+// addressed at.
 
-function createTestDb() {
+const SQLITE_FOLDER = fileURLToPath(new URL('../../drizzle/sqlite', import.meta.url))
+const PG_FOLDER = fileURLToPath(new URL('../../drizzle/pg', import.meta.url))
+
+const T0 = '2026-10-20T00:00:00.000Z'
+
+interface Harness {
+  adapter: DrizzleDatabaseAdapter
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  schema: any
+  statements: { n: number }
+}
+
+function countingLogger(statements: { n: number }): Logger {
+  return {
+    logQuery() {
+      statements.n += 1
+    },
+  }
+}
+
+async function sqliteHarness(): Promise<Harness> {
   const sqlite = new Database(':memory:')
-  sqlite.exec(`
-    CREATE TABLE member (
-      id text PRIMARY KEY, userId text NOT NULL, organizationId text NOT NULL,
-      role text NOT NULL, createdAt text NOT NULL
-    );
-    CREATE TABLE projects (id text PRIMARY KEY, organization_id text NOT NULL, name text NOT NULL, created_at text NOT NULL, updated_at text NOT NULL);
-    CREATE TABLE workspaces (id text PRIMARY KEY, project_id text NOT NULL, name text NOT NULL, slug text NOT NULL, created_at text NOT NULL, updated_at text NOT NULL);
-    CREATE TABLE project_members (project_id text NOT NULL, user_id text NOT NULL, role text NOT NULL, created_by text, created_at text NOT NULL, PRIMARY KEY (project_id, user_id));
-    CREATE TABLE workspace_members (workspace_id text NOT NULL, user_id text NOT NULL, role text NOT NULL, created_by text, created_at text NOT NULL, PRIMARY KEY (workspace_id, user_id));
-    CREATE TABLE env_vars (
-      id text PRIMARY KEY, organization_id text NOT NULL, project_id text,
-      created_by text NOT NULL, name text NOT NULL, value text NOT NULL,
-      is_secret integer NOT NULL DEFAULT 0,
-      created_at text NOT NULL, updated_at text NOT NULL
-    );
-    INSERT INTO projects VALUES ('p-1', 'org-1', 'One', '${now}', '${now}');
-    INSERT INTO projects VALUES ('p-2', 'org-1', 'Two', '${now}', '${now}');
-    INSERT INTO projects VALUES ('p-9', 'org-9', 'Elsewhere', '${now}', '${now}');
-    -- A project variable is written by someone who can open the project (B2): u-1 runs org-1.
-    INSERT INTO member VALUES ('m-1', 'u-1', 'org-1', 'owner', '${now}');
-  `)
-  const adapter = new DrizzleDatabaseAdapter(drizzle(sqlite), sqliteSchema)
-  return { adapter, sqlite }
+  sqlite.pragma('foreign_keys = ON')
+  const statements = { n: 0 }
+  const db = drizzleSqlite(sqlite, { schema: sqliteSchema, logger: countingLogger(statements) })
+  migrateSqlite(db, { migrationsFolder: SQLITE_FOLDER })
+  return {
+    adapter: new DrizzleDatabaseAdapter(db, sqliteSchema, { dialect: 'sqlite' }),
+    db,
+    schema: sqliteSchema,
+    statements,
+  }
 }
 
-function insert(
-  sqlite: Database.Database,
-  row: {
-    id: string
-    org?: string
-    project?: string | null
-    name: string
-    value: string
-    secret?: boolean
-  },
-) {
-  sqlite
-    .prepare(
-      `INSERT INTO env_vars (id, organization_id, project_id, created_by, name, value, is_secret, created_at, updated_at)
-       VALUES (?, ?, ?, 'u-1', ?, ?, ?, '${now}', '${now}')`,
-    )
-    .run(row.id, row.org ?? 'org-1', row.project ?? null, row.name, row.value, row.secret ? 1 : 0)
+async function pgHarness(): Promise<Harness> {
+  const client = new PGlite()
+  const statements = { n: 0 }
+  const db = drizzlePg(client, { schema: pgSchema, logger: countingLogger(statements) })
+  await migratePg(db, { migrationsFolder: PG_FOLDER })
+  return {
+    adapter: new DrizzleDatabaseAdapter(db, pgSchema, { dialect: 'pg' }),
+    db,
+    schema: pgSchema,
+    statements,
+  }
 }
 
-describe('createEnvVar', () => {
-  let db: ReturnType<typeof createTestDb>
-
-  beforeEach(() => {
-    db = createTestDb()
+// Acme: Ama owns it; Dan is a project member of Project 101; Eve holds a
+// Viewer grant in Sales only; Gus an Editor grant in Ops only; Fay is a
+// plain member with no grants. Project 101 has Sales and Ops; Project 202
+// has Default. Globex is another organization with its own project.
+async function seed(h: Harness) {
+  const s = h.schema
+  const at = { createdAt: T0, updatedAt: T0 }
+  const person = (id: string, name: string) => ({
+    id,
+    name,
+    email: `${id}@acme.test`,
+    emailVerified: true,
+    ...at,
   })
-
-  const data = (projectId: string | null) => ({
-    id: 'e-new',
-    organizationId: 'org-1',
+  await h.db
+    .insert(s.user)
+    .values([
+      person('u-ama', 'Ama'),
+      person('u-dan', 'Dan'),
+      person('u-eve', 'Eve'),
+      person('u-fay', 'Fay'),
+      person('u-gus', 'Gus'),
+      person('u-cleo', 'Cleo'),
+    ])
+  await h.db.insert(s.organization).values([
+    { id: 'org-acme', name: 'Acme', slug: 'acme', createdAt: T0 },
+    { id: 'org-globex', name: 'Globex', slug: 'globex', createdAt: T0 },
+  ])
+  const member = (id: string, userId: string, organizationId: string, role: string) => ({
+    id,
+    userId,
+    organizationId,
+    role,
+    createdAt: T0,
+  })
+  await h.db
+    .insert(s.member)
+    .values([
+      member('m-1', 'u-ama', 'org-acme', 'owner'),
+      member('m-3', 'u-dan', 'org-acme', 'member'),
+      member('m-4', 'u-eve', 'org-acme', 'member'),
+      member('m-5', 'u-fay', 'org-acme', 'member'),
+      member('m-6', 'u-gus', 'org-acme', 'member'),
+      member('m-7', 'u-cleo', 'org-globex', 'owner'),
+      member('m-8', 'u-ama', 'org-globex', 'admin'),
+    ])
+  await h.db.insert(s.projects).values([
+    { id: 'p-101', organizationId: 'org-acme', name: 'Project 101', slug: 'project-101', ...at },
+    { id: 'p-202', organizationId: 'org-acme', name: 'Project 202', slug: 'project-202', ...at },
+    { id: 'p-g', organizationId: 'org-globex', name: 'Globex app', slug: 'app', ...at },
+  ])
+  const ws = (id: string, projectId: string, name: string, slug: string, colour: string) => ({
+    id,
     projectId,
-    createdBy: 'u-1',
-    name: 'TOKEN',
-    value: 'v',
-    isSecret: true,
+    name,
+    slug,
+    colour,
+    createdBy: 'u-ama',
+    ...at,
+  })
+  await h.db
+    .insert(s.workspaces)
+    .values([
+      ws('ws-sales', 'p-101', 'Sales', 'sales', 'blue'),
+      ws('ws-ops', 'p-101', 'Ops', 'ops', 'green'),
+      ws('ws-202', 'p-202', 'Default', 'default', 'green'),
+      ws('ws-g', 'p-g', 'Default', 'default', 'green'),
+    ])
+  await h.db
+    .insert(s.projectMembers)
+    .values([
+      { projectId: 'p-101', userId: 'u-dan', role: 'member', createdBy: 'u-ama', createdAt: T0 },
+    ])
+  await h.db.insert(s.workspaceMembers).values([
+    { workspaceId: 'ws-sales', userId: 'u-eve', role: 'viewer', createdBy: 'u-ama', createdAt: T0 },
+    { workspaceId: 'ws-ops', userId: 'u-gus', role: 'editor', createdBy: 'u-ama', createdAt: T0 },
+  ])
+}
+
+const ORG: VariablePlace = { level: 'organization', organizationId: 'org-acme' }
+const P101: VariablePlace = { level: 'project', organizationId: 'org-acme', projectId: 'p-101' }
+const P202: VariablePlace = { level: 'project', organizationId: 'org-acme', projectId: 'p-202' }
+const SALES: VariablePlace = {
+  level: 'workspace',
+  organizationId: 'org-acme',
+  projectId: 'p-101',
+  workspaceId: 'ws-sales',
+}
+const OPS: VariablePlace = {
+  level: 'workspace',
+  organizationId: 'org-acme',
+  projectId: 'p-101',
+  workspaceId: 'ws-ops',
+}
+
+/** A row as stored, read off the table: the adapter offers no unscoped read by id. */
+async function rowOf(h: Harness, id: string): Promise<{ isSecret: boolean } | null> {
+  const rows = await h.db
+    .select({ isSecret: h.schema.envVars.isSecret })
+    .from(h.schema.envVars)
+    .where(eq(h.schema.envVars.id, id))
+  return rows[0] ?? null
+}
+
+let next = 0
+function variable(place: VariablePlace, name: string, value: string, isSecret = false) {
+  next += 1
+  return { id: `v-${next}`, place, createdBy: 'u-ama', name, value, isSecret }
+}
+
+/** REGION at the org, overridden in Project 202 and in Sales; API_URL in Project 101; TOKEN (secret) in Ops. */
+async function seedVariables(h: Harness) {
+  await h.adapter.createEnvVar(variable(ORG, 'REGION', 'eu'))
+  await h.adapter.createEnvVar(variable(ORG, 'LOG_LEVEL', 'info'))
+  await h.adapter.createEnvVar(variable(P101, 'API_URL', 'https://101.test'))
+  await h.adapter.createEnvVar(variable(P202, 'REGION', 'us'))
+  await h.adapter.createEnvVar(variable(SALES, 'REGION', 'apac'))
+  await h.adapter.createEnvVar(variable(OPS, 'TOKEN', 'hidden', true))
+}
+
+describe.each([
+  ['sqlite', sqliteHarness],
+  ['pg', pgHarness],
+])('variables on %s', (_dialect, create) => {
+  let h: Harness
+
+  beforeEach(async () => {
+    h = await create()
+    await seed(h)
   })
 
-  it('writes a project variable when the project is the organization’s', async () => {
-    expect(await db.adapter.createEnvVar(data('p-1'))).toMatchObject({ projectId: 'p-1' })
-    const stored = db.sqlite.prepare('SELECT project_id, is_secret FROM env_vars').get()
-    expect(stored).toEqual({ project_id: 'p-1', is_secret: 1 })
+  describe('writing at a place', () => {
+    it('writes at each level, with the ids of the place on the row', async () => {
+      expect(await h.adapter.createEnvVar(variable(ORG, 'A', '1'))).toMatchObject({
+        organizationId: 'org-acme',
+        projectId: null,
+        workspaceId: null,
+      })
+      expect(await h.adapter.createEnvVar(variable(P101, 'A', '2'))).toMatchObject({
+        projectId: 'p-101',
+        workspaceId: null,
+      })
+      expect(await h.adapter.createEnvVar(variable(SALES, 'A', '3'))).toMatchObject({
+        projectId: 'p-101',
+        workspaceId: 'ws-sales',
+      })
+    })
+
+    it('writes nothing where the place is not the organization’s, or not the project’s', async () => {
+      const elsewhere: VariablePlace = {
+        level: 'project',
+        organizationId: 'org-acme',
+        projectId: 'p-g',
+      }
+      expect(await h.adapter.createEnvVar(variable(elsewhere, 'A', '1'))).toBeNull()
+      const wrongProject: VariablePlace = {
+        level: 'workspace',
+        organizationId: 'org-acme',
+        projectId: 'p-202',
+        workspaceId: 'ws-sales',
+      }
+      expect(await h.adapter.createEnvVar(variable(wrongProject, 'A', '1'))).toBeNull()
+      expect(await rowOf(h, 'v-1')).toBeNull()
+    })
+
+    it('writes nothing where the author cannot open the place', async () => {
+      // Gus opens Ops only; Fay opens no project.
+      const asGus = { ...variable(SALES, 'A', '1'), createdBy: 'u-gus' }
+      expect(await h.adapter.createEnvVar(asGus)).toBeNull()
+      const asFay = { ...variable(P101, 'A', '1'), createdBy: 'u-fay' }
+      expect(await h.adapter.createEnvVar(asFay)).toBeNull()
+      const gusInOps = { ...variable(OPS, 'A', '1'), createdBy: 'u-gus' }
+      expect(await h.adapter.createEnvVar(gusInOps)).not.toBeNull()
+    })
+
+    it('allows one name per level, and the same name at different levels', async () => {
+      await h.adapter.createEnvVar(variable(ORG, 'REGION', 'eu'))
+      await h.adapter.createEnvVar(variable(P101, 'REGION', 'us'))
+      await h.adapter.createEnvVar(variable(SALES, 'REGION', 'apac'))
+      for (const place of [ORG, P101, SALES]) {
+        const error = await h.adapter.createEnvVar(variable(place, 'REGION', 'again')).then(
+          () => null,
+          (e: unknown) => e,
+        )
+        expect(isUniqueViolation(error), `duplicate at ${place.level}`).toBe(true)
+      }
+      // Another workspace of the same project is another place.
+      expect(await h.adapter.createEnvVar(variable(OPS, 'REGION', 'us-east'))).not.toBeNull()
+    })
   })
 
-  it('writes nothing for another organization’s project', async () => {
-    expect(await db.adapter.createEnvVar(data('p-9'))).toBeNull()
-    expect(db.sqlite.prepare('SELECT count(*) AS n FROM env_vars').get()).toEqual({ n: 0 })
+  describe('each level’s own list', () => {
+    beforeEach(() => seedVariables(h))
+
+    it('lists the organization’s rows with how many projects the viewer can open set the name', async () => {
+      const forAma = await h.adapter.listEnvVarsByOrganization('org-acme', undefined, 'u-ama')
+      expect(Object.fromEntries(forAma.data.map((v) => [v.name, v.overriddenIn]))).toEqual({
+        REGION: 2,
+        LOG_LEVEL: 0,
+      })
+      // Eve opens Project 101 (through Sales), not Project 202; Fay opens nothing.
+      const forEve = await h.adapter.listEnvVarsByOrganization('org-acme', undefined, 'u-eve')
+      expect(forEve.data.find((v) => v.name === 'REGION')!.overriddenIn).toBe(1)
+      const forFay = await h.adapter.listEnvVarsByOrganization('org-acme', undefined, 'u-fay')
+      expect(forFay.data.find((v) => v.name === 'REGION')!.overriddenIn).toBe(0)
+    })
+
+    it('counts an override in a workspace only for someone who can open that workspace', async () => {
+      // LOG_LEVEL is overridden in Ops alone: Gus (Ops) sees the project
+      // count it, Eve (Sales) does not — exactly the chips each gets on the
+      // project's page.
+      await h.adapter.createEnvVar(variable(OPS, 'LOG_LEVEL', 'debug'))
+      const count = async (who: string) =>
+        (await h.adapter.listEnvVarsByOrganization('org-acme', undefined, who)).data.find(
+          (v) => v.name === 'LOG_LEVEL',
+        )!.overriddenIn
+      expect(await count('u-gus')).toBe(1)
+      expect(await count('u-eve')).toBe(0)
+      expect(await count('u-ama')).toBe(1)
+      await h.adapter.createEnvVar(variable(P101, 'LOG_LEVEL', 'warn'))
+      expect(await count('u-eve')).toBe(1)
+    })
+
+    it('lists a project’s own rows, not its workspaces’, and a workspace’s own', async () => {
+      const project = await h.adapter.listEnvVarsByProject('org-acme', 'p-101')
+      expect(project.data.map((v) => v.name)).toEqual(['API_URL'])
+      const sales = await h.adapter.listEnvVarsByWorkspace('org-acme', 'p-101', 'ws-sales')
+      expect(sales.data.map((v) => [v.name, v.value])).toEqual([['REGION', 'apac']])
+      const ops = await h.adapter.listEnvVarsByWorkspace('org-acme', 'p-101', 'ws-ops')
+      expect(ops.data.map((v) => [v.name, v.isSecret])).toEqual([['TOKEN', true]])
+    })
   })
 
-  it('writes an organization variable without a project check', async () => {
-    expect(await db.adapter.createEnvVar(data(null))).toMatchObject({ projectId: null })
-  })
-})
+  describe('resolved for a project', () => {
+    beforeEach(() => seedVariables(h))
 
-describe('findEnvVarsByNames', () => {
-  let db: ReturnType<typeof createTestDb>
+    it('answers each name once, the project’s own first, with where it is set', async () => {
+      h.statements.n = 0
+      const rows = await h.adapter.listResolvedVariablesForProject('org-acme', 'p-101', 'u-ama')
+      expect(h.statements.n).toBe(1)
+      expect(
+        rows.map((v) => [
+          v.name,
+          v.value,
+          v.level,
+          v.setAt.name,
+          v.overriddenIn.map((w) => w.slug),
+        ]),
+      ).toEqual([
+        ['API_URL', 'https://101.test', 'project', 'Project 101', []],
+        ['LOG_LEVEL', 'info', 'organization', 'Acme', []],
+        ['REGION', 'eu', 'organization', 'Acme', ['sales']],
+      ])
+      expect(rows[2]!.overriddenIn[0]).toEqual({
+        id: 'ws-sales',
+        slug: 'sales',
+        name: 'Sales',
+        colour: 'blue',
+      })
+      expect(rows[2]!.setAt).toEqual({ level: 'organization', id: 'org-acme', name: 'Acme' })
+    })
 
-  beforeEach(() => {
-    db = createTestDb()
-  })
+    it('hides an org value the project sets itself', async () => {
+      const rows = await h.adapter.listResolvedVariablesForProject('org-acme', 'p-202', 'u-ama')
+      expect(rows.map((v) => [v.name, v.value, v.level])).toEqual([
+        ['REGION', 'us', 'project'],
+        ['LOG_LEVEL', 'info', 'organization'],
+      ])
+    })
 
-  it('finds project and org variables in one call', async () => {
-    // Both scopes matter: a reference resolves against either, and the
-    // caller decides which wins.
-    insert(db.sqlite, { id: 'e-1', project: 'p-1', name: 'API_URL', value: 'project' })
-    insert(db.sqlite, { id: 'e-2', project: null, name: 'SHARED', value: 'org' })
-
-    const found = await db.adapter.findEnvVarsByNames('org-1', ['API_URL', 'SHARED'], 'p-1')
-
-    expect(found.map((v) => v.name).sort()).toEqual(['API_URL', 'SHARED'])
-  })
-
-  it('returns both scopes for one name, so the caller can prefer the project', async () => {
-    insert(db.sqlite, { id: 'e-1', project: 'p-1', name: 'API_URL', value: 'project' })
-    insert(db.sqlite, { id: 'e-2', project: null, name: 'API_URL', value: 'org' })
-
-    const found = await db.adapter.findEnvVarsByNames('org-1', ['API_URL'], 'p-1')
-
-    expect(found.map((v) => v.value).sort()).toEqual(['org', 'project'])
-  })
-
-  it('ignores another project in the same organization', async () => {
-    insert(db.sqlite, { id: 'e-1', project: 'p-2', name: 'API_URL', value: 'other project' })
-
-    expect(await db.adapter.findEnvVarsByNames('org-1', ['API_URL'], 'p-1')).toEqual([])
-  })
-
-  it('ignores another organization', async () => {
-    insert(db.sqlite, { id: 'e-1', org: 'org-2', project: null, name: 'API_URL', value: 'theirs' })
-
-    expect(await db.adapter.findEnvVarsByNames('org-1', ['API_URL'], 'p-1')).toEqual([])
-  })
-
-  it('returns only the names asked for', async () => {
-    insert(db.sqlite, { id: 'e-1', project: 'p-1', name: 'API_URL', value: 'a' })
-    insert(db.sqlite, { id: 'e-2', project: 'p-1', name: 'OTHER', value: 'b' })
-
-    const found = await db.adapter.findEnvVarsByNames('org-1', ['API_URL'], 'p-1')
-
-    expect(found.map((v) => v.name)).toEqual(['API_URL'])
+    it('lists only the overriding workspaces the viewer can open', async () => {
+      // Gus opens Ops only: Sales's override is not his to see.
+      const forGus = await h.adapter.listResolvedVariablesForProject('org-acme', 'p-101', 'u-gus')
+      expect(forGus.find((v) => v.name === 'REGION')!.overriddenIn).toEqual([])
+      const forEve = await h.adapter.listResolvedVariablesForProject('org-acme', 'p-101', 'u-eve')
+      expect(forEve.find((v) => v.name === 'REGION')!.overriddenIn.map((w) => w.id)).toEqual([
+        'ws-sales',
+      ])
+    })
   })
 
-  it('looks only at org scope when there is no project', async () => {
-    insert(db.sqlite, { id: 'e-1', project: 'p-1', name: 'API_URL', value: 'project' })
-    insert(db.sqlite, { id: 'e-2', project: null, name: 'API_URL', value: 'org' })
+  describe('resolved for a workspace', () => {
+    beforeEach(() => seedVariables(h))
 
-    const found = await db.adapter.findEnvVarsByNames('org-1', ['API_URL'], null)
+    it('answers each name once, the closest level winning, closest first', async () => {
+      h.statements.n = 0
+      const sales = await h.adapter.listResolvedVariablesForWorkspace(
+        'org-acme',
+        'p-101',
+        'ws-sales',
+      )
+      expect(h.statements.n).toBe(1)
+      expect(
+        sales.map((v) => [v.name, v.value, v.source.level, v.source.name, v.overrides]),
+      ).toEqual([
+        ['REGION', 'apac', 'workspace', 'Sales', 'organization'],
+        ['API_URL', 'https://101.test', 'project', 'Project 101', null],
+        ['LOG_LEVEL', 'info', 'organization', 'Acme', null],
+      ])
+      expect(sales[0]!.source).toEqual({ level: 'workspace', id: 'ws-sales', name: 'Sales' })
+      expect(sales[0]!.isSecret).toBe(false)
+    })
 
-    expect(found.map((v) => v.value)).toEqual(['org'])
+    it('never shows another workspace’s rows, and names what a project value replaces', async () => {
+      await h.adapter.createEnvVar(variable(P101, 'LOG_LEVEL', 'debug'))
+      const ops = await h.adapter.listResolvedVariablesForWorkspace('org-acme', 'p-101', 'ws-ops')
+      expect(ops.map((v) => [v.name, v.value, v.source.level, v.overrides, v.isSecret])).toEqual([
+        ['TOKEN', 'hidden', 'workspace', null, true],
+        ['API_URL', 'https://101.test', 'project', null, false],
+        ['LOG_LEVEL', 'debug', 'project', 'organization', false],
+        ['REGION', 'eu', 'organization', null, false],
+      ])
+    })
   })
 
-  it('asks nothing of the database for an empty name list', async () => {
-    // A workflow with no references must not produce a query at all, let
-    // alone one with an empty IN clause.
-    insert(db.sqlite, { id: 'e-1', project: 'p-1', name: 'API_URL', value: 'a' })
+  describe('resolving references', () => {
+    beforeEach(() => seedVariables(h))
 
-    expect(await db.adapter.findEnvVarsByNames('org-1', [], 'p-1')).toEqual([])
-  })
-})
+    it('answers one row per name, the closest level’s', async () => {
+      const inSales = await h.adapter.findEnvVarsByNames(
+        'org-acme',
+        ['REGION', 'API_URL', 'LOG_LEVEL', 'MISSING'],
+        'p-101',
+        'ws-sales',
+      )
+      expect(Object.fromEntries(inSales.map((v) => [v.name, v.value]))).toEqual({
+        REGION: 'apac',
+        API_URL: 'https://101.test',
+        LOG_LEVEL: 'info',
+      })
+      const inOps = await h.adapter.findEnvVarsByNames(
+        'org-acme',
+        ['REGION', 'TOKEN'],
+        'p-101',
+        'ws-ops',
+      )
+      expect(Object.fromEntries(inOps.map((v) => [v.name, v.value]))).toEqual({
+        REGION: 'eu',
+        TOKEN: 'hidden',
+      })
+      expect(inOps.find((v) => v.name === 'TOKEN')!.isSecret).toBe(true)
+    })
 
-describe('scoped update and delete', () => {
-  let db: ReturnType<typeof createTestDb>
+    it('without a workspace reads the project and the org; without a project, the org alone', async () => {
+      const project = await h.adapter.findEnvVarsByNames('org-acme', ['REGION', 'TOKEN'], 'p-101')
+      expect(Object.fromEntries(project.map((v) => [v.name, v.value]))).toEqual({ REGION: 'eu' })
+      const other = await h.adapter.findEnvVarsByNames('org-acme', ['REGION'], 'p-202')
+      expect(other.map((v) => v.value)).toEqual(['us'])
+      const org = await h.adapter.findEnvVarsByNames('org-acme', ['REGION', 'API_URL'], null)
+      expect(org.map((v) => [v.name, v.value])).toEqual([['REGION', 'eu']])
+      expect(await h.adapter.findEnvVarsByNames('org-globex', ['REGION'], null)).toEqual([])
+      expect(await h.adapter.findEnvVarsByNames('org-acme', [], 'p-101', 'ws-sales')).toEqual([])
+    })
 
-  beforeEach(() => {
-    db = createTestDb()
-  })
+    it('reads a workspace’s rows only with their own project', async () => {
+      // A workspace named with another project is no place: its rows stay
+      // out of every read, even if a workflow row ever disagreed with itself.
+      const wrong = await h.adapter.findEnvVarsByNames('org-acme', ['REGION'], 'p-202', 'ws-sales')
+      expect(wrong.map((v) => v.value)).toEqual(['us'])
+      const resolved = await h.adapter.listResolvedVariablesForWorkspace(
+        'org-acme',
+        'p-202',
+        'ws-sales',
+      )
+      expect(resolved.map((v) => [v.name, v.source.level])).toEqual([
+        ['REGION', 'project'],
+        ['LOG_LEVEL', 'organization'],
+      ])
+      expect(
+        (await h.adapter.listEnvVarsByWorkspace('org-acme', 'p-202', 'ws-sales')).data,
+      ).toEqual([])
+    })
 
-  it('updates only rows inside the scope', async () => {
-    insert(db.sqlite, { id: 'e-1', project: 'p-1', name: 'API_URL', value: 'before' })
-
-    const wrongProject = await db.adapter.updateEnvVar(
-      'e-1',
-      { organizationId: 'org-1', projectId: 'p-2' },
-      { value: 'hijacked' },
-    )
-    expect(wrongProject).toBeNull()
-
-    const wrongOrg = await db.adapter.updateEnvVar(
-      'e-1',
-      { organizationId: 'org-2' },
-      { value: 'hijacked' },
-    )
-    expect(wrongOrg).toBeNull()
-    expect((await db.adapter.getEnvVarById('e-1'))?.value).toBe('before')
-
-    const updated = await db.adapter.updateEnvVar(
-      'e-1',
-      { organizationId: 'org-1', projectId: 'p-1' },
-      { value: 'after' },
-    )
-    expect(updated?.value).toBe('after')
-  })
-
-  it('a null project scope touches only org-wide rows', async () => {
-    insert(db.sqlite, { id: 'e-org', project: null, name: 'ORG_WIDE', value: 'org' })
-    insert(db.sqlite, { id: 'e-proj', project: 'p-1', name: 'PROJ', value: 'proj' })
-
-    const orgWide = await db.adapter.updateEnvVar(
-      'e-org',
-      { organizationId: 'org-1', projectId: null },
-      { value: 'changed' },
-    )
-    expect(orgWide?.value).toBe('changed')
-
-    const projectRow = await db.adapter.updateEnvVar(
-      'e-proj',
-      { organizationId: 'org-1', projectId: null },
-      { value: 'changed' },
-    )
-    expect(projectRow).toBeNull()
-  })
-
-  it('never turns a stored secret readable by flipping the flag', async () => {
-    insert(db.sqlite, { id: 'e-s', project: null, name: 'SECRET', value: 'hidden', secret: true })
-
-    const flipped = await db.adapter.updateEnvVar(
-      'e-s',
-      { organizationId: 'org-1' },
-      { isSecret: false },
-    )
-    expect(flipped).toBeNull()
-    expect((await db.adapter.getEnvVarById('e-s'))?.isSecret).toBe(true)
-
-    const replaced = await db.adapter.updateEnvVar(
-      'e-s',
-      { organizationId: 'org-1' },
-      { isSecret: false, value: 'public' },
-    )
-    expect(replaced?.isSecret).toBe(false)
-    expect(replaced?.value).toBe('public')
+    it('takes any number of names as one bound list', async () => {
+      // D1 allows 100 parameters per statement; a workflow with more
+      // references than that must still resolve in one query.
+      const names = Array.from({ length: 150 }, (_, i) => `NAME_${i}`)
+      const found = await h.adapter.findEnvVarsByNames(
+        'org-acme',
+        [...names, 'REGION'],
+        'p-101',
+        'ws-sales',
+      )
+      expect(found.map((v) => v.value)).toEqual(['apac'])
+    })
   })
 
-  it('deletes within the scope and reports whether a row went', async () => {
-    insert(db.sqlite, { id: 'e-1', project: 'p-1', name: 'API_URL', value: 'a' })
+  describe('writes by id, pinned to the place', () => {
+    beforeEach(() => seedVariables(h))
 
-    expect(
-      await db.adapter.deleteEnvVar('e-1', { organizationId: 'org-1', projectId: 'p-2' }),
-    ).toBe(false)
-    expect(await db.adapter.deleteEnvVar('e-1', { organizationId: 'org-2' })).toBe(false)
-    expect(await db.adapter.getEnvVarById('e-1')).not.toBeNull()
+    it('updates and deletes a row only where it is addressed', async () => {
+      const orgRegion = (await h.adapter.listEnvVarsByOrganization('org-acme')).data.find(
+        (v) => v.name === 'REGION',
+      )!
+      expect(await h.adapter.updateEnvVar(orgRegion.id, P101, { value: 'x' })).toBeNull()
+      expect(await h.adapter.updateEnvVar(orgRegion.id, SALES, { value: 'x' })).toBeNull()
+      expect(await h.adapter.deleteEnvVar(orgRegion.id, P101)).toBe(false)
+      expect((await h.adapter.updateEnvVar(orgRegion.id, ORG, { value: 'eu-west' }))?.value).toBe(
+        'eu-west',
+      )
 
-    expect(
-      await db.adapter.deleteEnvVar('e-1', { organizationId: 'org-1', projectId: 'p-1' }),
-    ).toBe(true)
-    expect(await db.adapter.getEnvVarById('e-1')).toBeNull()
+      const salesRegion = (await h.adapter.listEnvVarsByWorkspace('org-acme', 'p-101', 'ws-sales'))
+        .data[0]!
+      expect(await h.adapter.updateEnvVar(salesRegion.id, P101, { value: 'x' })).toBeNull()
+      expect(await h.adapter.updateEnvVar(salesRegion.id, OPS, { value: 'x' })).toBeNull()
+      expect(await h.adapter.deleteEnvVar(salesRegion.id, ORG)).toBe(false)
+      expect(await h.adapter.deleteEnvVar(salesRegion.id, SALES)).toBe(true)
+      expect(await rowOf(h, salesRegion.id)).toBeNull()
+
+      const elsewhere: VariablePlace = { level: 'organization', organizationId: 'org-globex' }
+      expect(await h.adapter.updateEnvVar(orgRegion.id, elsewhere, { value: 'x' })).toBeNull()
+    })
+
+    it('never turns a stored secret readable by flipping the flag', async () => {
+      const token = (await h.adapter.listEnvVarsByWorkspace('org-acme', 'p-101', 'ws-ops')).data[0]!
+      expect(await h.adapter.updateEnvVar(token.id, OPS, { isSecret: false })).toBeNull()
+      expect((await rowOf(h, token.id))?.isSecret).toBe(true)
+      // The refusal is told from a miss where the row is addressed, and only there.
+      expect(await h.adapter.isSecretVariableAt(token.id, OPS)).toBe(true)
+      expect(await h.adapter.isSecretVariableAt(token.id, SALES)).toBe(false)
+      expect(await h.adapter.isSecretVariableAt(token.id, P101)).toBe(false)
+      const replaced = await h.adapter.updateEnvVar(token.id, OPS, {
+        isSecret: false,
+        value: 'public',
+      })
+      expect(replaced).toMatchObject({ isSecret: false, value: 'public' })
+    })
+  })
+
+  describe('with the rest of the model', () => {
+    beforeEach(() => seedVariables(h))
+
+    it('a project’s and its workspaces’ variables move with it to another organization', async () => {
+      // Ama runs Globex too (admin), so she may move Project 101 there.
+      await h.adapter.moveProjectToOrganization('p-101', 'org-acme', 'org-globex', 'u-ama')
+      expect((await h.adapter.listEnvVarsByProject('org-globex', 'p-101')).data).toHaveLength(1)
+      expect(
+        (await h.adapter.listEnvVarsByWorkspace('org-globex', 'p-101', 'ws-sales')).data,
+      ).toHaveLength(1)
+      expect((await h.adapter.listEnvVarsByProject('org-acme', 'p-101')).data).toEqual([])
+      // Its workflows now resolve against Globex's org values, not Acme's.
+      const found = await h.adapter.findEnvVarsByNames(
+        'org-globex',
+        ['REGION', 'API_URL'],
+        'p-101',
+        'ws-ops',
+      )
+      expect(Object.fromEntries(found.map((v) => [v.name, v.value]))).toEqual({
+        API_URL: 'https://101.test',
+      })
+    })
+
+    it('a workspace’s variables go with the workspace', async () => {
+      expect(await h.adapter.deleteWorkspaceUnlessLast('ws-sales')).toBe(true)
+      const rows = await h.adapter.listResolvedVariablesForProject('org-acme', 'p-101', 'u-ama')
+      expect(rows.find((v) => v.name === 'REGION')!.overriddenIn).toEqual([])
+    })
   })
 })
