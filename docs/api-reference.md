@@ -4,11 +4,11 @@ All endpoints require authentication via API key (`Authorization: Bearer ask_...
 
 An API key is minted at one **level** and carries a **grid** of permissions — the resources it may touch and the actions it may take on them — from the catalog of that level (the Create key dialog shows the same grid):
 
-| Level        | Reaches                                                                       | Resources (actions)                                                                                                                                                          |
-| ------------ | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| organization | the organization's settings, never a workflow                                 | `projects` (read, write, delete) · `members` (read) · `connections` (read, write, delete) · `resources` (read, write, delete: nodes, the marketplace and org-wide variables) |
-| project      | everything in one project, every workspace of it, ones created later included | `workspaces` (read, write, delete) · `workflows` (read, write, delete, deploy, run) · `runs` (read) · `variables` (read, write, delete) · `members` (read)                   |
-| workspace    | one workspace of a project                                                    | `workflows` (read, write, delete, deploy, run) · `runs` (read) · `variables` (read, write, delete)                                                                           |
+| Level        | Reaches                                                                       | Resources (actions)                                                                                                                                                                           |
+| ------------ | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| organization | the organization's settings, never a workflow                                 | `projects` (read, write, delete) · `members` (read) · `connections` (read, write, delete) · `resources` (read, write, delete: nodes, the marketplace and org-wide variables) · `audit` (read) |
+| project      | everything in one project, every workspace of it, ones created later included | `workspaces` (read, write, delete) · `workflows` (read, write, delete, deploy, run) · `runs` (read) · `variables` (read, write, delete) · `members` (read)                                    |
+| workspace    | one workspace of a project                                                    | `workflows` (read, write, delete, deploy, run) · `runs` (read) · `variables` (read, write, delete)                                                                                            |
 
 Every endpoint below names the cell it needs as **Permission:** `resource:action`; a key without it answers `403 API key lacks permission: resource:action`. A key of a level the resource is not offered at is refused for its level (`403`): an organization key never reaches a project route, a project or workspace key never manages organization resources. Project and workspace keys may still read the connections and nodes their workflows deploy with through their own `workflows:read` cell, and what their workflows resolve against through `GET /env-vars/resolved` with `variables:read`. A workspace key is pinned to its workspace: every list is cut to it, a workflow elsewhere is not found, and naming another workspace is `404`.
 
@@ -1474,6 +1474,18 @@ Returns:
 }
 ```
 
+**Lockout.** Checks that didn't pass are counted per person over the last
+hour; checks still in flight count too, and a valid token never clears the
+count. A key's checks count against every key its creator minted, but never
+against the creator's own dashboard checks. Three are free; the fourth starts a
+30-second wait, and each further failure doubles it, up to 5 minutes, counted
+from the last failure. Inside the wait the check answers `429` with a
+`Retry-After` header (seconds) and
+`{ "error": "Too many failed token checks. Try again in 20 s." }`, and nothing
+reaches Cloudflare. A valid token resets the count. Each failure, and each
+wait it starts, is an audit-log event (`connection.verify.failed`,
+`connection.verify.locked`).
+
 ### `PATCH /connections/:id`
 
 Update a connection's name or credentials.
@@ -1817,6 +1829,83 @@ Update an installed node to a newer version.
 ```
 
 `version` is optional — defaults to the latest available version.
+
+---
+
+## Audit log
+
+Who changed what in an organization, newest first, kept for **90 days**.
+Each sensitive operation writes one event after it succeeds (a refused or
+failed request writes none, except the deletions the deletion lock blocked
+and failed token checks). An event's words are written when it happens:
+renaming or deleting what it names later does not change it. Variable
+values, credentials and key secrets are never recorded. Deleting the
+organization leaves its events to the 90-day purge.
+
+### `GET /audit-events`
+
+Organization-scoped (`?org=<slug>` or `?organizationId=<id>`). Org owners
+and admins only (`403` for anyone else); an API key reads it as its
+creator, who must still be one.
+
+**Permission:** `audit:read` (organization keys only; project and workspace keys are refused for their level)
+
+| Param    | In    | Required | Description                                                                                                                                   |
+| -------- | ----- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `level`  | query | no       | `organization`, `project` or `workspace`                                                                                                      |
+| `period` | query | no       | `24h`, `7d` (default), `30d` or `90d`                                                                                                         |
+| `search` | query | no       | Up to 200 characters; matches the actor, action and target, ignoring case (ASCII letters only on SQLite and D1). `%` and `_` match themselves |
+| `cursor` | query | no       | From the previous page's `nextCursor`                                                                                                         |
+| `limit`  | query | no       | 1–100, default 50                                                                                                                             |
+
+Response:
+
+```json
+{
+  "data": [
+    {
+      "id": "Vn3…",
+      "at": "2026-10-30T09:12:44.120Z",
+      "kind": "danger",
+      "event": "workspace.delete.blocked",
+      "actor": "Tom Becker",
+      "actorType": "user",
+      "actorId": "usr_…",
+      "actorEmail": "tom@acme.test",
+      "action": "tried to delete the workspace",
+      "target": "IT",
+      "detail": "Blocked by the deletion lock · Dashboard · 81.2.69.x",
+      "ip": "81.2.69.x",
+      "scope": { "level": "project", "name": "Project 101" }
+    }
+  ],
+  "nextCursor": null,
+  "total": 1
+}
+```
+
+`total` counts every event the filter matches, on every page. `actor` is a
+person's name, or a key's name when `actorType` is `key` (its detail then
+says which key: `Project API key ask_Kq3V…a71d`). Names are their owners' to
+choose, so `actorId` (a user or key id) and `actorEmail` (a person's address
+when they acted, null for a key) say who it was. Names and other chosen text
+are kept without control or direction-override characters, at most 200
+characters. `ip` is the caller's
+address cut to its `/24` (IPv4, `81.2.69.x`) or `/48` (IPv6) — the full
+address is never stored. `scope` names the place as it is now
+(`"Deleted project"` once it is gone); `colour` is set for workspace events.
+
+| Kind     | Events                                                                                                                                                                                                                                                                                                  |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `danger` | `project.delete`, `project.delete.blocked`, `project.move.out`, `project.move.in` (a move is logged in both organizations), `project.move.blocked`, `workspace.delete`, `workspace.delete.blocked`, `workflow.delete`, `workflow.takedown`, `version.delete`                                            |
+| `key`    | `api_key.create`, `api_key.revoke`, `connection.create`, `connection.update`, `connection.delete`, `variable.create`, `variable.update`, `variable.delete`                                                                                                                                              |
+| `access` | `member.join`, `organization.update`, `workflow.move`, `invitation.create`, `invitation.cancel`, `member.access`, `member.remove`, `workspace_member.add`, `workspace_member.role`, `workspace_member.remove`, `access_request.approve`, `access_request.decline`, `workflow.share`, `workflow.unshare` |
+| `deploy` | `workflow.deploy`, `version.revert`, `node.install`, `node.update`, `node.uninstall`                                                                                                                                                                                                                    |
+| `lock`   | `project.lock`, `project.unlock`, `workspace.lock`, `workspace.unlock` (only when the lock actually changes)                                                                                                                                                                                            |
+| `auth`   | `signin` (once in each organization the person belongs to), `connection.verify.failed`, `connection.verify.locked`                                                                                                                                                                                      |
+
+Not recorded: creating or editing projects, workspaces and workflows, file
+and graph edits, runs, test sessions, reads, and refused requests.
 
 ---
 

@@ -47,11 +47,11 @@ All endpoints require authentication via API key (`Authorization: Bearer ask_...
 
 An API key is minted at one **level** — the organization, a project, or one workspace — and carries a **grid** of permissions from that level's catalog: the resources it may touch and the actions (`read`, `write`, `delete`, `deploy`, `run`) it may take on them. Every endpoint below names the cell it needs as <span class="api-scope">resource:action</span>; a key without it answers `403`. An organization key never reaches a project route, and a project or workspace key never manages organization resources, whatever its grid. Where a project or workspace key reaches an organization resource through its own grid (the connections and nodes its workflows deploy with, the variables they resolve against), the second badge is its cell. A workspace key is pinned to its workspace: every list is cut to it and anything elsewhere in the project is not found.
 
-| Level        | Reaches                                       | Resources                                                                                             |
-| ------------ | --------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| organization | the organization's settings, never a workflow | `projects`, `members` (read), `connections`, `resources` (nodes, the marketplace, org-wide variables) |
-| project      | everything in one project, every workspace    | `workspaces`, `workflows`, `runs` (read), `variables`, `members` (read)                               |
-| workspace    | one workspace of a project                    | `workflows`, `runs` (read), `variables`                                                               |
+| Level        | Reaches                                       | Resources                                                                                                             |
+| ------------ | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| organization | the organization's settings, never a workflow | `projects`, `members` (read), `connections`, `resources` (nodes, the marketplace, org-wide variables), `audit` (read) |
+| project      | everything in one project, every workspace    | `workspaces`, `workflows`, `runs` (read), `variables`, `members` (read)                                               |
+| workspace    | one workspace of a project                    | `workflows`, `runs` (read), `variables`                                                                               |
 
 A key acts with the standing of whoever minted it — a key minted by a Viewer cannot edit workflows — and stops working (`401`) when its creator leaves the organization or can no longer open the key's project or workspace.
 
@@ -505,6 +505,8 @@ Verify provider credentials before saving.
 }
 ```
 
+Failed checks lock per person: three are free in an hour, then each failure waits 30 seconds, doubling up to 5 minutes, and a valid token doesn't clear the count. A key's checks count against all keys its creator minted, never the creator's own dashboard. While locked the check answers `429` with a `Retry-After` header and nothing reaches Cloudflare.
+
 ---
 
 ### <span class="api-method patch">PATCH</span> <span class="api-endpoint">/connections/:id</span> <span class="api-scope">connections:write</span>
@@ -633,6 +635,42 @@ Update an installed node to a newer version.
 
 ```json
 { "nodeId": "stripe", "version": "1.1.0" }
+```
+
+---
+
+## Audit Log
+
+### <span class="api-method get">GET</span> <span class="api-endpoint">/audit-events</span> <span class="api-scope">audit:read</span>
+
+Who changed what in the organization, newest first, kept for 90 days: deletions (and deletions the deletion lock blocked), API keys, connections, variables, access changes, shares, deletion locks, deploys, marketplace installs, sign-ins and failed token checks. Org owners and admins only; an organization key reads it as its creator. Values, credentials and key secrets are never recorded, and addresses are kept cut to `81.2.69.x`.
+
+**Query:** `org` (or `organizationId`), `level` (`organization`, `project`, `workspace`), `period` (`24h`, `7d` default, `30d`, `90d`), `search` (actor, action or target), `cursor`, `limit`.
+
+**Response:**
+
+```json
+{
+  "data": [
+    {
+      "id": "Vn3…",
+      "at": "2026-10-30T09:12:44.120Z",
+      "kind": "danger",
+      "event": "workspace.delete.blocked",
+      "actor": "Tom Becker",
+      "actorType": "user",
+      "actorId": "usr_…",
+      "actorEmail": "tom@acme.test",
+      "action": "tried to delete the workspace",
+      "target": "IT",
+      "detail": "Blocked by the deletion lock · Dashboard · 81.2.69.x",
+      "ip": "81.2.69.x",
+      "scope": { "level": "project", "name": "Project 101" }
+    }
+  ],
+  "nextCursor": null,
+  "total": 1
+}
 ```
 
 ---
