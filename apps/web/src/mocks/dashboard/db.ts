@@ -152,6 +152,8 @@ export interface NotificationReadRow {
 export interface ReleaseVisitRow {
   userId: string
   at: string
+  /** The notes that visit showed. */
+  seenIds: string[]
 }
 
 /** An API key at any level; `projectId` / `workspaceId` say what it reaches. */
@@ -301,7 +303,7 @@ export interface MockDb {
 
 // Bump when the tables or the seed change, so a tab's saved copy is reseeded
 // instead of read with missing tables.
-const DB_VERSION = 11
+const DB_VERSION = 13
 const STORAGE_KEY = 'awaitstep:dashboard-mock-db'
 
 let current: MockDb | null = null

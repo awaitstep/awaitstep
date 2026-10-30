@@ -42,7 +42,7 @@ interface WhatsNewSheetProps {
 export function WhatsNewSheet({ org, onClose }: WhatsNewSheetProps) {
   const releases = useReleases(org)
   const [show, setShow] = useState<ReleaseShow>('all')
-  useRecordReleasesVisit(releases.data !== undefined)
+  useRecordReleasesVisit(releases.data?.releases.map((release) => release.id))
 
   function handleOpenChange(open: boolean) {
     if (!open) onClose()

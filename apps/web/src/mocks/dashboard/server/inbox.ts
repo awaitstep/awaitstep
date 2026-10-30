@@ -1,11 +1,7 @@
-import {
-  orgPath,
-  orgSettingsPath,
-  projectSettingsPath,
-  workspacePath,
-} from '../../../lib/dashboard-paths'
-import type { InboxNotification, Release, ReleaseFeed } from '../../../types/dashboard/inbox'
-import { RELEASES, type ReleaseFixture } from '../fixtures/inbox'
+import { RELEASE_NOTES } from '../../../content/releases'
+import { orgSettingsPath, projectSettingsPath, workspacePath } from '../../../lib/dashboard-paths'
+import { releaseFeed } from '../../../lib/release-feed'
+import type { InboxNotification, ReleaseFeed } from '../../../types/dashboard/inbox'
 import {
   getDb,
   type EditRequestRow,
@@ -52,6 +48,14 @@ function hrefOf(db: MockDb, org: OrgRow, to: NotificationTarget): string | null 
   return workspacePath({ org: org.slug, project: project.slug, workspace: workspace.slug }, to.page)
 }
 
+/** The API's event for a sample row's kind. */
+const SAMPLE_EVENT: Record<NotificationRow['kind'], string> = {
+  failure: 'run.failed',
+  expiry: 'api_key.expiring',
+  people: 'invitation.accept',
+  deploy: 'workflow.deploy.shared',
+}
+
 function isRead(db: MockDb, ctx: MockContext, id: string): boolean {
   return db.notificationReads.some((r) => r.userId === ctx.userId && r.notificationId === id)
 }
@@ -68,11 +72,13 @@ function sampleRecord(
   return {
     id: row.id,
     kind: row.kind,
+    event: SAMPLE_EVENT[row.kind],
     title: row.title,
     where,
     at: row.at,
     read: isRead(db, ctx, row.id),
     needsAction: row.needsAction,
+    count: 1,
     link: row.link && href ? { label: row.link.label, href } : undefined,
   }
 }
@@ -97,13 +103,16 @@ function requestRecord(
   return {
     id: row.id,
     kind: 'request',
+    event: 'access_request.create',
     title: `${asker} asked for edit access to ${workspace.name}`,
     where: `${project.name} · ${workspace.name}`,
     at: row.at,
     // A decided request has been dealt with.
     read: !pending || isRead(db, ctx, row.id),
     needsAction: pending,
-    request: { status: row.status, outcome: pending ? undefined : outcome },
+    count: 1,
+    // A request row is the request: the same id answers it.
+    request: { id: row.id, status: row.status, outcome: pending ? undefined : outcome },
   }
 }
 
@@ -208,42 +217,23 @@ export const decideEditRequest = mutation(
   },
 )
 
-function releaseRecord(org: string, release: ReleaseFixture, lastVisit: string | null): Release {
-  const page = release.link.page
-  return {
-    id: release.id,
-    tag: release.tag,
-    date: release.date,
-    title: release.title,
-    body: release.body,
-    link: {
-      label: release.link.label,
-      href: typeof page === 'string' ? orgPath(org, page) : orgSettingsPath(org, page.settings),
-    },
-    // Both are full times: a release later on the day of a visit is still new.
-    fresh: lastVisit === null || release.date > lastVisit,
-  }
-}
-
 /** What's new: every release, "New to you" since the viewer's last visit. Links stay in this org. */
 export const listReleases = endpoint((ctx, orgSlug: string): ReleaseFeed => {
   const db = getDb()
   const { org } = requireScope(db, ctx, { org: orgSlug })
-  const lastVisit = db.releaseVisits.find((v) => v.userId === ctx.userId)?.at ?? null
-  return {
-    releases: rows(
-      ctx,
-      RELEASES.map((r) => releaseRecord(org.slug, r, lastVisit)),
-    ),
-    lastVisit,
-  }
+  const visit = db.releaseVisits.find((v) => v.userId === ctx.userId)
+  const feed = releaseFeed(org.slug, RELEASE_NOTES, {
+    lastVisit: visit?.at ?? null,
+    seen: visit?.seenIds ?? [],
+  })
+  return { ...feed, releases: rows(ctx, feed.releases) }
 })
 
 /** Closing What's new: what's there now is no longer new to them. */
-export const markReleasesSeen = mutation((ctx): void => {
+export const markReleasesSeen = mutation((ctx, seenIds: string[]): void => {
   const db = getDb()
   const visit = db.releaseVisits.find((v) => v.userId === ctx.userId)
   const at = new Date().toISOString()
-  if (visit) visit.at = at
-  else db.releaseVisits.push({ userId: ctx.userId, at })
+  if (visit) Object.assign(visit, { at, seenIds })
+  else db.releaseVisits.push({ userId: ctx.userId, at, seenIds })
 })

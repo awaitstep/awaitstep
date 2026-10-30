@@ -10,6 +10,8 @@ function minutesAgo(minutes: number): string {
 export const FAILURE: InboxNotification = {
   id: 'fail',
   kind: 'failure',
+  event: 'run.failed',
+  count: 3,
   title: 'Lead enrichment failed 3 times in the last hour, at step "Fetch company"',
   where: 'Project 101 · Sales',
   at: minutesAgo(5),
@@ -21,31 +23,39 @@ export const FAILURE: InboxNotification = {
 export const REQUEST: InboxNotification = {
   id: 'req',
   kind: 'request',
+  event: 'access_request.create',
+  count: 1,
   title: 'Daniel Kim asked for edit access to Sales',
   where: 'Project 101 · Sales',
   at: minutesAgo(40),
   read: false,
   needsAction: true,
-  request: { status: 'pending' },
+  request: { id: 'req_daniel', status: 'pending' },
 }
 
 export const APPROVED: InboxNotification = {
   ...REQUEST,
   read: true,
   needsAction: false,
-  request: { status: 'approved', outcome: 'Approved. Daniel is now an Editor in Sales.' },
+  request: {
+    id: 'req_daniel',
+    status: 'approved',
+    outcome: 'Approved. Daniel is now an Editor in Sales.',
+  },
 }
 
 export const DECLINED: InboxNotification = {
   ...REQUEST,
   read: true,
   needsAction: false,
-  request: { status: 'declined', outcome: 'Declined. Daniel was told.' },
+  request: { id: 'req_daniel', status: 'declined', outcome: 'Declined. Daniel was told.' },
 }
 
 export const JOINED: InboxNotification = {
   id: 'joined',
   kind: 'people',
+  event: 'invitation.accept',
+  count: 1,
   title: 'sam@acme.test accepted your invite',
   where: 'Acme Inc',
   at: minutesAgo(2 * 24 * 60),

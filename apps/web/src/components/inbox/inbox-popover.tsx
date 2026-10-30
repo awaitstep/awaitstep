@@ -13,7 +13,7 @@ import { ListCard } from '../ui/list-card'
 import { SegmentedFilter, type FilterOption } from '../ui/segmented-filter'
 import { ShellLink } from '../ui/shell-link'
 import { LoadedQuery } from '../workspaces/loaded-query'
-import { filterInbox, inboxCounts, type InboxShow } from './inbox-filter'
+import { filterInbox, type InboxShow } from './inbox-filter'
 import { NotificationRow } from './parts/notification-row'
 
 interface InboxPopoverProps {
@@ -46,9 +46,12 @@ export function InboxPopover({ org, onClose }: InboxPopoverProps) {
     markAll.mutate()
   }
 
+  // Rows keep their place by the notification's id; the decision goes to its request.
   function answer(id: string, decision: 'approve' | 'decline') {
+    const request = notifications.data?.list.find((n) => n.id === id)?.request
+    if (!request) return
     setAnswered((ids) => new Set(ids).add(id))
-    decide.mutate({ id, decision })
+    decide.mutate({ id: request.id, decision })
   }
 
   function handleApprove(id: string) {
@@ -59,8 +62,7 @@ export function InboxPopover({ org, onClose }: InboxPopoverProps) {
     answer(id, 'decline')
   }
 
-  const list = notifications.data ?? []
-  const counts = inboxCounts(list)
+  const counts = notifications.data?.counts ?? { all: 0, unread: 0, action: 0 }
   const options: FilterOption<InboxShow>[] = [
     { id: 'all', label: 'All', count: counts.all },
     { id: 'unread', label: 'Unread', count: counts.unread },
@@ -125,7 +127,7 @@ export function InboxPopover({ org, onClose }: InboxPopoverProps) {
                     </span>
                   }
                 >
-                  {filterInbox(data, show, answered).map((notification) => (
+                  {filterInbox(data.list, show, answered).map((notification) => (
                     <NotificationRow
                       key={notification.id}
                       notification={notification}

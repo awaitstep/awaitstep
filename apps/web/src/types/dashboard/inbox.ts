@@ -1,26 +1,24 @@
-// Dashboard types for the Inbox and What's new. Web-only until B8 moves them.
+import type {
+  InboxCounts,
+  InboxNotification as ApiInboxNotification,
+  NotificationKind,
+} from '@awaitstep/ir'
 
-/** Sets the row's icon and tint. */
-export type NotificationKind = 'failure' | 'request' | 'expiry' | 'people' | 'deploy'
+// Dashboard types for the Inbox and What's new. A notification is the API's
+// (`@awaitstep/ir`), its link resolved to a path in this org; releases are
+// the web app's own (`content/releases.ts`).
 
-export interface InboxNotification {
-  id: string
-  kind: NotificationKind
-  title: string
-  /** "Project 101 · Sales". */
-  where: string
-  at: string
-  read: boolean
-  /** Shown under "Needs action". */
-  needsAction: boolean
+export type { InboxCounts, NotificationKind }
+
+export type InboxNotification = Omit<ApiInboxNotification, 'link'> & {
   /** "See runs" → the runs page. */
   link?: { label: string; href: string }
-  /** An edit-access request someone can approve or decline from the inbox. */
-  request?: {
-    status: 'pending' | 'approved' | 'declined'
-    /** Once decided: "Approved. Daniel is now an Editor in Sales." */
-    outcome?: string
-  }
+}
+
+/** The Inbox as a hook gives it: the newest rows and the pills' counts over every row. */
+export interface InboxList {
+  list: InboxNotification[]
+  counts: InboxCounts
 }
 
 export type ReleaseTag = 'new' | 'improved' | 'fixed'

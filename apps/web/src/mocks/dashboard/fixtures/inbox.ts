@@ -1,5 +1,3 @@
-import type { OrgPage, OrgSettingsPage } from '../../../lib/dashboard-paths'
-import type { ReleaseTag } from '../../../types/dashboard/inbox'
 import type { EditRequestRow, NotificationReadRow, NotificationRow, ReleaseVisitRow } from '../db'
 import { daysAgo, minutesAgo } from './clock'
 import { ACME } from './orgs'
@@ -9,7 +7,7 @@ import { IT, SALES } from './workspaces'
 
 // `Notifications`: Ama's six. The board's request is from Daniel, already an
 // Editor in Sales, so it comes from Priya, its only Viewer (D-P8-3).
-// `WhatsNew`: five releases; Ama last looked on 20 Oct.
+// `WhatsNew`: the real notes (`content/releases.ts`); Ama last looked on 29 Oct at noon.
 
 export const PRIYA_REQUEST = 'req_priya_sales'
 
@@ -102,57 +100,11 @@ export const NOTIFICATION_READS: NotificationReadRow[] = [
   'ntf_deploy',
 ].map((notificationId) => ({ userId: AMA, notificationId }))
 
-export const RELEASE_VISITS: ReleaseVisitRow[] = [{ userId: AMA, at: '2026-10-20T09:00:00.000Z' }]
-
-export interface ReleaseFixture {
-  id: string
-  tag: ReleaseTag
-  date: string
-  title: string
-  body: string
-  link: { label: string; page: OrgPage | { settings: OrgSettingsPage } }
-}
-
-/** The product's release notes: the same for everyone, newest first. */
-export const RELEASES: ReleaseFixture[] = [
+/** Ama last looked on 29 Oct at noon: the four notes from before then. */
+export const RELEASE_VISITS: ReleaseVisitRow[] = [
   {
-    id: 'rel_workspaces',
-    tag: 'new',
-    date: '2026-10-24T12:00:00.000Z',
-    title: 'Workspaces inside projects',
-    body: 'Give each team its own workspace with separate people, keys and workflows. Anything set at the project level still reaches every workspace.',
-    link: { label: 'See your projects', page: 'projects' },
-  },
-  {
-    id: 'rel_keys',
-    tag: 'new',
-    date: '2026-10-24T12:00:00.000Z',
-    title: 'API keys at org, project and workspace level',
-    body: 'Pick what a key reaches and exactly which actions it can take. The key is shown once when you create it.',
-    link: { label: 'Manage API keys', page: { settings: 'api-keys' } },
-  },
-  {
-    id: 'rel_resources',
-    tag: 'improved',
-    date: '2026-10-17T12:00:00.000Z',
-    title: 'Install marketplace nodes from Resources',
-    body: 'Browse the marketplace and install nodes for the whole org in one place. Workflows keep the version they were built with.',
-    link: { label: 'Open Resources', page: 'resources' },
-  },
-  {
-    id: 'rel_lock',
-    tag: 'new',
-    date: '2026-10-12T12:00:00.000Z',
-    title: 'Deletion lock for projects',
-    body: 'Turn it on to stop a project and its workspaces from being deleted by mistake.',
-    link: { label: 'See your projects', page: 'projects' },
-  },
-  {
-    id: 'rel_audit',
-    tag: 'fixed',
-    date: '2026-10-09T12:00:00.000Z',
-    title: 'Audit log export includes the API key used',
-    body: 'CSV exports now name the key prefix for every action taken through the API.',
-    link: { label: 'Open audit log', page: 'audit' },
+    userId: AMA,
+    at: '2026-10-29T12:00:00.000Z',
+    seenIds: ['rel_lock', 'rel_variables', 'rel_keys', 'rel_workspaces'],
   },
 ]

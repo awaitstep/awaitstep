@@ -6,7 +6,7 @@ import { useViewer } from '../../data/dashboard/session'
 import { useScope } from '../../data/dashboard/workspaces'
 import { chooseOrgPath, orgPath, projectPath, withOverlay } from '../../lib/dashboard-paths'
 import { useThemeStore } from '../../stores/theme-store'
-import type { InboxNotification, ReleaseFeed } from '../../types/dashboard/inbox'
+import type { ReleaseFeed } from '../../types/dashboard/inbox'
 import type { NotFound, ScopeLookup, ScopeSlugs } from '../../types/dashboard/scope'
 import { LoadError } from '../ui/load-error'
 import { NotFoundView } from '../ui/not-found-view'
@@ -18,10 +18,6 @@ import type { DashboardSearch } from './dashboard-providers'
 import { DashboardFrame, type FrameScope } from './dashboard-frame'
 import type { LastProject, RailOverlays } from './nav-model'
 import { recentProjects } from './scope-memory'
-
-function countUnread(list: InboxNotification[] | undefined): number {
-  return list?.filter((n) => !n.read).length ?? 0
-}
 
 function countFresh(feed: ReleaseFeed | undefined): number {
   return feed?.releases.filter((r) => r.fresh).length ?? 0
@@ -107,7 +103,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   const overlays: RailOverlays = {
     here: href,
-    unread: countUnread(notifications.data),
+    unread: notifications.data?.counts.unread ?? 0,
     freshReleases: countFresh(releases.data),
   }
   const found = scope.data?.found === true

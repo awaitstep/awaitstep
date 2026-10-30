@@ -300,7 +300,7 @@ describe('URL parsing for the dummy session', () => {
     const ask = renderHook(() => useRequestEditAccess(sales), { wrapper: as('usr_priya') })
     await act(() => ask.result.current.mutateAsync())
     await waitFor(() =>
-      expect(inbox.result.current.data!.some((n) => n.kind === 'request')).toBe(true),
+      expect(inbox.result.current.data!.list.some((n) => n.kind === 'request')).toBe(true),
     )
   })
 

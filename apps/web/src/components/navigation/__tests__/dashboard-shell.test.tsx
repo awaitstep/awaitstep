@@ -69,7 +69,7 @@ vi.mock('../../../data/dashboard/workspaces', () => ({
 }))
 
 vi.mock('../../../data/dashboard/inbox', () => ({
-  useNotifications: () => ({ data: [{ read: false }, { read: false }, { read: true }] }),
+  useNotifications: () => ({ data: { list: [], counts: { all: 3, unread: 2, action: 0 } } }),
   useReleases: () => ({ data: { releases: [{ fresh: true }], lastVisit: null } }),
 }))
 

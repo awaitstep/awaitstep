@@ -11,6 +11,8 @@ import { sinceLastVisit } from '../whats-new-sheet'
 
 beforeEach(() => resetDashboardData(new Date()))
 
+/** Ama's last What's new visit in the seed. */
+const SEEDED_VISIT = '2026-10-29T12:00:00.000Z'
 const amaVisit = () => dashboardDb().releaseVisits.find((v) => v.userId === 'usr_ama')!.at
 const inbox = () => screen.getByRole('dialog', { name: 'Notifications' })
 const rows = () => within(inbox()).getAllByRole('listitem')
@@ -121,12 +123,12 @@ describe('Inbox', () => {
 })
 
 describe('What’s new', () => {
-  it('reads as WhatsNew: five notes, two new to Ama since 20 Oct', async () => {
+  it('reads as WhatsNew: the app’s eight notes, four new to Ama since 29 Oct', async () => {
     renderOverlay('whats-new')
     const sheet = await screen.findByRole('dialog', { name: 'What’s new' })
-    expect(await within(sheet).findAllByRole('article')).toHaveLength(5)
-    expect(sheet).toHaveTextContent('2 updates since your last visit on 20 Oct')
-    expect(within(sheet).getAllByText('New to you')).toHaveLength(2)
+    expect(await within(sheet).findAllByRole('article')).toHaveLength(8)
+    expect(sheet).toHaveTextContent('4 updates since your last visit on 29 Oct')
+    expect(within(sheet).getAllByText('New to you')).toHaveLength(4)
     await userEvent.click(
       within(within(sheet).getByRole('group', { name: 'Show' })).getByRole('button', {
         name: 'Fixed',
@@ -146,7 +148,7 @@ describe('What’s new', () => {
     expect(onClose).toHaveBeenCalled()
     // The shell drops ?open=, which closes it.
     rerender(<DashboardOverlays org="acme" open={undefined} onClose={onClose} />)
-    await waitFor(() => expect(amaVisit() > '2026-10-21').toBe(true))
+    await waitFor(() => expect(amaVisit()).not.toBe(SEEDED_VISIT))
   })
 
   it('records the visit when it closes by navigating away, without Got it', async () => {
@@ -156,7 +158,7 @@ describe('What’s new', () => {
     await within(await screen.findByRole('dialog', { name: 'What’s new' })).findAllByRole('article')
     // A note's link, or Back: ?open= goes without any of the sheet's own buttons.
     rerender(<DashboardOverlays org="acme" open={undefined} onClose={vi.fn()} />)
-    await waitFor(() => expect(amaVisit() > '2026-10-21').toBe(true))
+    await waitFor(() => expect(amaVisit()).not.toBe(SEEDED_VISIT))
   })
 
   it('doesn’t record a visit when the notes never loaded', async () => {
@@ -167,9 +169,7 @@ describe('What’s new', () => {
     const sheet = await screen.findByRole('dialog', { name: 'What’s new' })
     await within(sheet).findByText(/We couldn’t load/)
     await userEvent.click(within(sheet).getByRole('button', { name: 'Got it' }))
-    expect(dashboardDb().releaseVisits.find((v) => v.userId === 'usr_ama')!.at).toBe(
-      '2026-10-20T09:00:00.000Z',
-    )
+    expect(dashboardDb().releaseVisits.find((v) => v.userId === 'usr_ama')!.at).toBe(SEEDED_VISIT)
   })
 })
 

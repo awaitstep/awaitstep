@@ -12,6 +12,8 @@ import type {
   ScopeLevel,
   AuditFilter,
   AuditPage,
+  InboxPage,
+  ReleaseVisit,
 } from '@awaitstep/ir'
 import {
   request,
@@ -700,6 +702,39 @@ export const dashboardApi = {
   /** `GET /audit-events`: one page of the organization's log, newest first (B7). */
   listAuditEvents(org: string, filter: AuditFilter = {}): Promise<AuditPage> {
     return request(`/audit-events${query({ org, ...filter })}`)
+  },
+
+  /** `GET /notifications`: the person's Inbox in the org, newest first, with its counts (B8). */
+  listNotifications(org: string): Promise<InboxPage> {
+    return request(`/notifications${query({ org })}`)
+  },
+
+  markNotificationRead(org: string, id: string): Promise<{ ok: true }> {
+    return request(`/notifications/${encodeURIComponent(id)}/read${query({ org })}`, {
+      method: 'POST',
+    })
+  },
+
+  markAllNotificationsRead(org: string): Promise<{ updated: number }> {
+    return request(`/notifications/read-all${query({ org })}`, { method: 'POST' })
+  },
+
+  /** Approve or decline an edit-access request, by the request's id (B2). */
+  decideAccessRequest(
+    id: string,
+    decision: 'approve' | 'decline',
+  ): Promise<{ ok: true; alreadyEditing: boolean }> {
+    return request(`/access-requests/${encodeURIComponent(id)}/${decision}`, { method: 'POST' })
+  },
+
+  /** When the person last closed What's new (B8). */
+  getReleaseVisit(): Promise<ReleaseVisit> {
+    return request('/releases/visit')
+  },
+
+  /** Closing What's new: the ids of the notes it showed. */
+  recordReleaseVisit(seen: string[]): Promise<ReleaseVisit> {
+    return request('/releases/visit', { method: 'PUT', body: JSON.stringify({ seen }) })
   },
 
   listSharedWith(

@@ -38,7 +38,7 @@ describe('notifications', () => {
       'Project 101 · IT',
     ])
     expect(list[0]!.link).toEqual({ label: 'See runs', href: '/acme/project-101/sales/runs' })
-    expect(list[1]!.request).toEqual({ status: 'pending', outcome: undefined })
+    expect(list[1]!.request).toEqual({ id: PRIYA_REQUEST, status: 'pending', outcome: undefined })
   })
 
   it('builds links from today’s slugs, so a rename doesn’t break them', async () => {
@@ -82,7 +82,11 @@ describe('edit requests in the inbox', () => {
   it('declining tells her, and she may ask again', async () => {
     await inbox.decideEditRequest(ama, 'acme', PRIYA_REQUEST, 'decline')
     const row = (await inbox.listNotifications(ama, 'acme')).find((n) => n.id === PRIYA_REQUEST)!
-    expect(row.request).toEqual({ status: 'declined', outcome: 'Declined. Priya was told.' })
+    expect(row.request).toEqual({
+      id: PRIYA_REQUEST,
+      status: 'declined',
+      outcome: 'Declined. Priya was told.',
+    })
     expect(await requests.getEditRequest(as(PRIYA), sales)).toBeNull()
     const again = await requests.requestEditAccess(as(PRIYA), sales)
     expect(again.to.name).toBe('Ama Mensah')
@@ -136,33 +140,43 @@ describe('edit requests in the inbox', () => {
 })
 
 describe('releases', () => {
-  it('lists five, the two since Ama’s last visit on 20 Oct new to her', async () => {
+  it('lists the app’s notes, the four since Ama’s last visit on 29 Oct new to her', async () => {
     const feed = await inbox.listReleases(ama, 'acme')
-    expect(feed.lastVisit).toBe('2026-10-20T09:00:00.000Z')
-    expect(feed.releases.map((r) => [r.title, r.fresh])).toEqual([
-      ['Workspaces inside projects', true],
-      ['API keys at org, project and workspace level', true],
-      ['Install marketplace nodes from Resources', false],
-      ['Deletion lock for projects', false],
-      ['Audit log export includes the API key used', false],
+    expect(feed.lastVisit).toBe('2026-10-29T12:00:00.000Z')
+    expect(feed.releases.map((r) => [r.id, r.fresh])).toEqual([
+      ['rel_inbox', true],
+      ['rel_audit', true],
+      ['rel_d1_saves', true],
+      ['rel_sharing', true],
+      ['rel_lock', false],
+      ['rel_variables', false],
+      ['rel_keys', false],
+      ['rel_workspaces', false],
     ])
-    expect(feed.releases[1]!.link.href).toBe('/acme/settings/api-keys')
+    expect(feed.releases.find((r) => r.id === 'rel_keys')!.link.href).toBe(
+      '/acme/settings/api-keys',
+    )
   })
 
-  it('counts a release from later on the day of a visit as new', async () => {
-    getDb().releaseVisits[0]!.at = '2026-10-24T08:00:00.000Z'
+  it('counts a note not yet seen as new, whatever its date', async () => {
+    // An upgrade after her visit brought an old-dated note she never saw.
+    getDb().releaseVisits[0]!.at = '2026-11-10T10:00:00.000Z'
+    getDb().releaseVisits[0]!.seenIds = ['rel_inbox', 'rel_audit', 'rel_d1_saves', 'rel_sharing']
     const feed = await inbox.listReleases(ama, 'acme')
     expect(feed.releases.filter((r) => r.fresh).map((r) => r.id)).toEqual([
-      'rel_workspaces',
+      'rel_lock',
+      'rel_variables',
       'rel_keys',
+      'rel_workspaces',
     ])
   })
 
   it('treats everything as new for someone who never looked, until they close it', async () => {
     const daniel = as(DANIEL)
     expect((await inbox.listReleases(daniel, 'acme')).releases.every((r) => r.fresh)).toBe(true)
-    await inbox.markReleasesSeen(daniel)
+    const shown = (await inbox.listReleases(daniel, 'acme')).releases.map((r) => r.id)
+    await inbox.markReleasesSeen(daniel, shown)
     expect((await inbox.listReleases(daniel, 'acme')).releases.some((r) => r.fresh)).toBe(false)
-    expect((await inbox.listReleases(ama, 'acme')).releases.filter((r) => r.fresh)).toHaveLength(2)
+    expect((await inbox.listReleases(ama, 'acme')).releases.filter((r) => r.fresh)).toHaveLength(4)
   })
 })

@@ -5,6 +5,8 @@ import { filterInbox, filterReleases, inboxCounts } from '../inbox-filter'
 const note = (id: string, read: boolean, needsAction: boolean): InboxNotification => ({
   id,
   kind: 'failure',
+  event: 'run.failed',
+  count: 1,
   title: id,
   where: 'Acme Inc',
   at: '2026-10-27T09:00:00.000Z',
