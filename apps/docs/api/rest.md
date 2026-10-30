@@ -675,6 +675,56 @@ Who changed what in the organization, newest first, kept for 90 days: deletions 
 
 ---
 
+## Inbox <span class="api-scope">session only</span>
+
+A person's own notifications in one organization (`?org=<slug>`), newest first, kept for 30 days. No key reads or marks them.
+
+### <span class="api-method get">GET</span> <span class="api-endpoint">/notifications</span>
+
+At most 100 rows, with the counts over every row: `all`, `unread`, `action` (needs action). Edit-access requests (to the admin asked, also emailed), the answer to your request, invites accepted, declined or asked about again (to the inviter), failing workflows (to the creator and the workspace's admins, emailed at most once an hour; repeats in the hour fold into one row with a `count`), API keys about to expire (to the creator, 7 days and 1 day before), and deploys of a shared workflow (to admins of the project's other workspaces, folded per workflow per hour). At most 20 notification emails reach one person an hour. Nobody is told about their own action.
+
+**Response:**
+
+```json
+{
+  "data": [
+    {
+      "id": "ntf_…",
+      "kind": "request",
+      "event": "access_request.create",
+      "title": "Eve Park asked for edit access to Sales",
+      "where": "Project 101 · Sales",
+      "at": "2026-10-30T09:12:44.120Z",
+      "read": false,
+      "needsAction": true,
+      "count": 1,
+      "request": { "id": "req_…", "status": "pending" }
+    }
+  ],
+  "counts": { "all": 1, "unread": 1, "action": 1 }
+}
+```
+
+---
+
+### <span class="api-method post">POST</span> <span class="api-endpoint">/notifications/:id/read</span>
+
+Marks one of your rows read. Someone else's, or one in another organization, is `404`.
+
+---
+
+### <span class="api-method post">POST</span> <span class="api-endpoint">/notifications/read-all</span>
+
+Marks all your unread rows in the organization read: `{ "updated": 3 }`.
+
+---
+
+### <span class="api-method get">GET</span> <span class="api-endpoint">/releases/visit</span>
+
+When you last closed What's new and the notes it showed: `{ "lastVisit": "…", "seen": ["rel_…"] }` (`null` and `[]` if never). `PUT` with `{ "seen": [ids] }` records now and those ids; a note stays "New to you" until its id is seen.
+
+---
+
 ## API Keys <span class="api-scope">session only</span>
 
 Keys never manage keys: these endpoints take a session, addressed at the level they manage — `?org=<slug>` the organization's keys (owners and admins), `?org=&project=<slug>` a project's (its admins), `?org=&project=&workspace=<slug>` a workspace's (its admins). A workspace named without its project is `400`.

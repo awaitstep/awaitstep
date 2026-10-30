@@ -706,8 +706,10 @@ The caller's open "Ask for edit access" request in this workspace, or
 ### `POST /workspaces/:id/access-requests`
 
 A Viewer asks for edit access. Addressed to the workspace's first admin by
-name (`201`); asking again answers the open request (`200`); an editor has
-nothing to ask for (`400`); a workspace nobody else runs answers `409`.
+name (`201`), who is told in their Inbox and by email; asking again answers
+the open request (`200`) and puts it back in the admin's Inbox if its row is
+gone (emailed again only then); an editor has nothing to ask for (`400`); a
+workspace nobody else runs answers `409`.
 
 ### `POST /access-requests/:id/approve` · `POST /access-requests/:id/decline`
 
@@ -716,7 +718,9 @@ in a workspace the caller cannot open is not found, before its state is
 told). Approving makes the asker an editor in the same unit — only while
 they are still a Viewer there, so someone raised to Admin meanwhile keeps
 it — or records `alreadyEditing` when they were raised meanwhile; `409` when
-the request was already answered or the asker has since lost the workspace.
+the request was already answered (including by another answer sent at the
+same moment) or the asker has since lost the workspace. The asker is told in
+their Inbox.
 
 ---
 
@@ -764,16 +768,19 @@ cancelled or unknown).
 
 Join the organization with the invite's role and places, as one unit;
 answers where to land (`{ org, project?, workspace? }` slugs). `403` for
-the wrong account, `410` once expired, `409` while declined.
+the wrong account, `410` once expired, `409` while declined. The inviter is
+told in their Inbox.
 
 ### `POST /invitations/:id/decline` · `POST /invitations/:id/undo-decline`
 
-Decline, and take it back while the invite has not expired.
+Decline, and take it back while the invite has not expired. A decline is
+in the inviter's Inbox until it is undone.
 
 ### `POST /invitations/:id/ask-again`
 
 After it expired: ask the inviter for a new one, once. The inviter gets an
-email; `asked` says whether this call was the first.
+email and an Inbox row that waits on them until they resend or cancel the
+invite; `asked` says whether this call was the first.
 
 ### `POST /invitations/:id/resend` · `DELETE /invitations/:id`
 
@@ -1944,3 +1951,91 @@ by an organization key keep their `parentKeyId` and still stop working
 
 Revoke a key of the addressed level, by whoever manages it there (as for
 `POST`); a key of another level at that address is `404`.
+
+### Inbox and What's new
+
+A person's own (B8): no key reads or marks them. The Inbox is per
+organization (`?org=`); the What's new visit is per person.
+
+#### `GET /notifications`
+
+The caller's notifications in the organization, newest first (by when they
+last happened), at most 100, with the Show pills' counts over every row:
+`all`, `unread`, `action` (needs action). Rows about a workspace or project
+the caller can no longer open are left out; a deleted place reads as
+"Deleted project" / "Deleted workspace". Kept for 30 days.
+
+Who is told what — never about their own action:
+
+| `event`                  | `kind`    | Sent to                                                                 | Needs action           |
+| ------------------------ | --------- | ----------------------------------------------------------------------- | ---------------------- |
+| `access_request.create`  | `request` | the admin the request is addressed to (also emailed)                    | while `pending` (live) |
+| `access_request.approve` | `people`  | the asker                                                               | no                     |
+| `access_request.decline` | `people`  | the asker                                                               | no                     |
+| `invitation.accept`      | `people`  | the inviter                                                             | no                     |
+| `invitation.decline`     | `people`  | the inviter; Undo removes it                                            | no                     |
+| `invitation.ask_again`   | `people`  | the inviter; Resend or cancelling the invite removes it                 | yes                    |
+| `run.failed`             | `failure` | the workflow's creator and the workspace's admins (emailed once a hour) | yes                    |
+| `api_key.expiring`       | `expiry`  | the key's creator, 7 days and 1 day before it expires                   | yes                    |
+| `workflow.deploy.shared` | `deploy`  | admins of the project's other workspaces, for a shared workflow         | no                     |
+
+Failures of one workflow, and deploys of one shared workflow, fold into one
+row per clock hour: `count` goes up, the row moves to the top and is unread
+again. Notification emails are capped at 20 per person an hour; past that
+the Inbox alone tells them. Rows untouched for 30 days are deleted — except
+a pending request's (kept until answered) and an ask about a pending invite
+that expired less than 30 days ago. A request row's `request`
+carries its id (answer it with `POST /access-requests/:id/approve|decline`),
+its status now, and once answered an `outcome` sentence; an answered request
+reads as read. `link.to` names where the row leads by slug — `workspace`
+(`page`: `workflows` or `runs`), `workspace-settings` (`tab: keys`),
+`project-settings` (`page`: `api-keys` or `shared`) or `org-settings`
+(`page`: `members` or `api-keys`).
+
+```json
+{
+  "data": [
+    {
+      "id": "ntf_…_usr_…",
+      "kind": "failure",
+      "event": "run.failed",
+      "title": "Lead enrichment failed 3 times in the last hour, at step “Fetch company”",
+      "where": "Project 101 · Sales",
+      "at": "2026-10-30T09:12:44.120Z",
+      "read": false,
+      "needsAction": true,
+      "count": 3,
+      "link": {
+        "label": "See runs",
+        "to": {
+          "kind": "workspace",
+          "project": "project-101",
+          "workspace": "sales",
+          "page": "runs"
+        }
+      }
+    }
+  ],
+  "counts": { "all": 6, "unread": 3, "action": 4 }
+}
+```
+
+#### `POST /notifications/:id/read`
+
+Marks one of the caller's rows in the organization read: `{ "ok": true }`;
+someone else's id, or one in another organization, is `404`.
+
+#### `POST /notifications/read-all`
+
+Marks every unread row of the caller's in the organization read:
+`{ "updated": 3 }`. `updated` counts the rows marked now, which can include
+answered requests the list already showed as read.
+
+#### `GET /releases/visit` · `PUT /releases/visit`
+
+When the caller last closed What's new and which notes it showed them —
+`{ "lastVisit": "2026-10-29T12:00:00.000Z", "seen": ["rel_audit", …] }`, or
+`{ "lastVisit": null, "seen": [] }` if never. `PUT` with `{ "seen": [ids] }`
+(at most 500, each ≤ 100 characters; `422` otherwise) records now and those
+ids. A note is "New to you" until its id is seen, whatever its date: notes
+ship with the web app, and reach people when their build does.
