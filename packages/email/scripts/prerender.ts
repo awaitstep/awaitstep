@@ -15,6 +15,8 @@ import { createElement } from 'react'
 import { MagicLinkEmail } from '../src/templates/magic-link.js'
 import { InvitationEmail } from '../src/templates/invitation.js'
 import { InviteRequestEmail } from '../src/templates/invite-request.js'
+import { AccessRequestEmail } from '../src/templates/access-request.js'
+import { RunFailedEmail } from '../src/templates/run-failed.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const outDir = resolve(__dirname, '../src/templates/__generated__')
@@ -73,6 +75,34 @@ await renderTemplate(
   },
   'invite-request',
   'INVITE_REQUEST',
+)
+
+await renderTemplate(
+  AccessRequestEmail as never,
+  {
+    url: '__INBOX_URL__',
+    askerName: '__ASKER_NAME__',
+    workspaceName: '__WORKSPACE_NAME__',
+    projectName: '__PROJECT_NAME__',
+    appName: '__APP_NAME__',
+    appUrl: '__APP_URL__',
+  },
+  'access-request',
+  'ACCESS_REQUEST',
+)
+
+await renderTemplate(
+  RunFailedEmail as never,
+  {
+    url: '__RUNS_URL__',
+    workflowName: '__WORKFLOW_NAME__',
+    stepLine: '__STEP_LINE__',
+    placeName: '__PLACE_NAME__',
+    appName: '__APP_NAME__',
+    appUrl: '__APP_URL__',
+  },
+  'run-failed',
+  'RUN_FAILED',
 )
 
 console.log('[prerender] done')

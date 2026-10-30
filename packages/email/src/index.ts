@@ -1,6 +1,8 @@
 import { MAGIC_LINK_HTML } from './templates/__generated__/magic-link.js'
 import { INVITATION_HTML } from './templates/__generated__/invitation.js'
 import { INVITE_REQUEST_HTML } from './templates/__generated__/invite-request.js'
+import { ACCESS_REQUEST_HTML } from './templates/__generated__/access-request.js'
+import { RUN_FAILED_HTML } from './templates/__generated__/run-failed.js'
 
 function escapeHtml(s: string): string {
   return s
@@ -9,6 +11,36 @@ function escapeHtml(s: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
+}
+
+// Controls (CR/LF included) and direction overrides: never in a name a mail shows.
+// eslint-disable-next-line no-control-regex -- matching control characters is the point
+const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g
+
+/** Longest a typed value may run in a subject line. */
+const SUBJECT_TEXT_MAX = 200
+
+/**
+ * Text someone typed, fit for a subject line: no controls or direction
+ * overrides (a CR/LF or RLO from a name never reaches a header), capped.
+ */
+export function subjectText(text: string): string {
+  return text.replace(UNSAFE_TEXT, '').slice(0, SUBJECT_TEXT_MAX)
+}
+
+/**
+ * The template with each `__TOKEN__` replaced by its value, cleaned of
+ * controls and direction overrides and HTML-escaped, in
+ * one pass: a value is never read again, so a name holding `__APP_URL__`
+ * stays as typed, and a replacement given as a function is taken literally
+ * (a string one would read `$&`, `` $` `` and `$'` in a name as patterns).
+ */
+function fill(template: string, values: Record<string, string>): string {
+  return template.replace(/__[A-Z_]+__/g, (token) =>
+    Object.prototype.hasOwnProperty.call(values, token)
+      ? escapeHtml(values[token]!.replace(UNSAFE_TEXT, ''))
+      : token,
+  )
 }
 
 function htmlToPlainText(html: string): string {
@@ -36,9 +68,11 @@ export async function renderMagicLinkEmail(props: {
 }) {
   const appName = props.appName ?? 'AwaitStep'
   const appUrl = props.appUrl ?? ''
-  const html = MAGIC_LINK_HTML.replaceAll('__MAGIC_LINK_URL__', escapeHtml(props.url))
-    .replaceAll('__APP_NAME__', escapeHtml(appName))
-    .replaceAll('__APP_URL__', escapeHtml(appUrl))
+  const html = fill(MAGIC_LINK_HTML, {
+    __MAGIC_LINK_URL__: props.url,
+    __APP_NAME__: appName,
+    __APP_URL__: appUrl,
+  })
   return { html, text: htmlToPlainText(html) }
 }
 
@@ -65,13 +99,15 @@ export async function renderInvitationEmail(props: {
   const expiresLine = Number.isNaN(expires.getTime())
     ? 'The link expires in 7 days.'
     : `The link expires on ${expires.toISOString().slice(0, 10)}.`
-  const html = INVITATION_HTML.replaceAll('__INVITE_URL__', escapeHtml(props.url))
-    .replaceAll('__ORG_NAME__', escapeHtml(props.orgName))
-    .replaceAll('__INVITER_NAME__', escapeHtml(props.inviterName))
-    .replaceAll('__PLACE_LINE__', escapeHtml(placeLine(props.role, props.place)))
-    .replaceAll('__EXPIRES_LINE__', escapeHtml(expiresLine))
-    .replaceAll('__APP_NAME__', escapeHtml(appName))
-    .replaceAll('__APP_URL__', escapeHtml(appUrl))
+  const html = fill(INVITATION_HTML, {
+    __INVITE_URL__: props.url,
+    __ORG_NAME__: props.orgName,
+    __INVITER_NAME__: props.inviterName,
+    __PLACE_LINE__: placeLine(props.role, props.place),
+    __EXPIRES_LINE__: expiresLine,
+    __APP_NAME__: appName,
+    __APP_URL__: appUrl,
+  })
   return { html, text: htmlToPlainText(html) }
 }
 
@@ -84,10 +120,57 @@ export async function renderInviteRequestEmail(props: {
 }) {
   const appName = props.appName ?? 'AwaitStep'
   const appUrl = props.appUrl ?? ''
-  const html = INVITE_REQUEST_HTML.replaceAll('__MEMBERS_URL__', escapeHtml(props.url))
-    .replaceAll('__ORG_NAME__', escapeHtml(props.orgName))
-    .replaceAll('__ASKER_EMAIL__', escapeHtml(props.askerEmail))
-    .replaceAll('__APP_NAME__', escapeHtml(appName))
-    .replaceAll('__APP_URL__', escapeHtml(appUrl))
+  const html = fill(INVITE_REQUEST_HTML, {
+    __MEMBERS_URL__: props.url,
+    __ORG_NAME__: props.orgName,
+    __ASKER_EMAIL__: props.askerEmail,
+    __APP_NAME__: appName,
+    __APP_URL__: appUrl,
+  })
+  return { html, text: htmlToPlainText(html) }
+}
+
+export async function renderAccessRequestEmail(props: {
+  url: string
+  askerName: string
+  workspaceName: string
+  projectName: string
+  appName?: string
+  appUrl?: string
+}) {
+  const appName = props.appName ?? 'AwaitStep'
+  const appUrl = props.appUrl ?? ''
+  const html = fill(ACCESS_REQUEST_HTML, {
+    __INBOX_URL__: props.url,
+    __ASKER_NAME__: props.askerName,
+    __WORKSPACE_NAME__: props.workspaceName,
+    __PROJECT_NAME__: props.projectName,
+    __APP_NAME__: appName,
+    __APP_URL__: appUrl,
+  })
+  return { html, text: htmlToPlainText(html) }
+}
+
+export async function renderRunFailedEmail(props: {
+  url: string
+  workflowName: string
+  /** The step it failed at, when known. */
+  stepName: string | null
+  /** "Project 101 · Sales". */
+  placeName: string
+  appName?: string
+  appUrl?: string
+}) {
+  const appName = props.appName ?? 'AwaitStep'
+  const appUrl = props.appUrl ?? ''
+  const stepLine = props.stepName ? `at step “${props.stepName}”` : 'before finishing'
+  const html = fill(RUN_FAILED_HTML, {
+    __RUNS_URL__: props.url,
+    __WORKFLOW_NAME__: props.workflowName,
+    __STEP_LINE__: stepLine,
+    __PLACE_NAME__: props.placeName,
+    __APP_NAME__: appName,
+    __APP_URL__: appUrl,
+  })
   return { html, text: htmlToPlainText(html) }
 }
