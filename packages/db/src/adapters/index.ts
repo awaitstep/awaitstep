@@ -52,6 +52,11 @@ import type {
   SignInAuditInsert,
   AuditListFilter,
   AuditEventPage,
+  ExpiringKeysCheck,
+  NotificationInsert,
+  NotificationList,
+  NotifiedRecipient,
+  ReleaseVisitRow,
   FailureCount,
   ProjectRef,
   InstalledNode,
@@ -115,6 +120,7 @@ import { WorkspaceRunsAdapter } from './workspace-runs.js'
 import { WorkflowsAdapter } from './workflows.js'
 import { SharedWorkflowsAdapter } from './shared-workflows.js'
 import { AuditAdapter } from './audit.js'
+import { NotificationsAdapter } from './notifications.js'
 import { VersionsAdapter } from './versions.js'
 import { ConnectionsAdapter } from './connections.js'
 import { RunsAdapter } from './runs.js'
@@ -153,6 +159,8 @@ export interface SchemaRef {
   invitationPlaces?: unknown
   accessRequests?: unknown
   auditEvents?: unknown
+  notifications?: unknown
+  releaseVisits?: unknown
 }
 
 export interface DrizzleAdapterOptions {
@@ -176,6 +184,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _workflows: WorkflowsAdapter
   private _shared: SharedWorkflowsAdapter
   private _audit: AuditAdapter
+  private _notifications: NotificationsAdapter
   private _versions: VersionsAdapter
   private _connections: ConnectionsAdapter
   private _runs: RunsAdapter
@@ -261,9 +270,25 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       },
       this._dialect,
     )
+    this._notifications = new NotificationsAdapter(
+      db,
+      {
+        ...tables,
+        notifications: schema.notifications,
+        releaseVisits: schema.releaseVisits,
+        accessRequests: schema.accessRequests,
+        apiKeys: schema.apiKeys,
+        invitation: schema.invitation,
+      },
+      this._dialect,
+    )
     this._versions = new VersionsAdapter(db, schema.workflowVersions)
     this._connections = new ConnectionsAdapter(db, schema.connections, options?.tokenCrypto)
-    this._runs = new RunsAdapter(db, schema.workflowRuns, schema.workflows, schema.deployments)
+    this._runs = new RunsAdapter(db, schema.workflowRuns, schema.workflows, schema.deployments, {
+      projects: schema.projects,
+      workspaces: schema.workspaces,
+      organization: schema.organization,
+    })
     this._runSteps = new RunStepsAdapter(
       db,
       schema.workflowRunSteps,
@@ -570,7 +595,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     now: string
     alreadyEditing: boolean
     grant: { workspaceId: string; userId: string } | null
-  }): Promise<void> {
+  }): Promise<boolean> {
     return this._accessRequests.decide(data)
   }
 
@@ -762,6 +787,44 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     return this._audit.purge(before)
   }
 
+  // Inbox
+  notify(entry: NotificationInsert): Promise<NotifiedRecipient[]> {
+    return this._notifications.notify(entry)
+  }
+  clearNotifications(organizationId: string, groupKey: string): Promise<void> {
+    return this._notifications.clear(organizationId, groupKey)
+  }
+  notifyExpiringKeys(check: ExpiringKeysCheck): Promise<number> {
+    return this._notifications.notifyExpiringKeys(check)
+  }
+  listNotifications(
+    organizationId: string,
+    userId: string,
+    limit: number,
+  ): Promise<NotificationList> {
+    return this._notifications.list(organizationId, userId, limit)
+  }
+  markNotificationRead(
+    organizationId: string,
+    userId: string,
+    id: string,
+    now: string,
+  ): Promise<boolean> {
+    return this._notifications.markRead(organizationId, userId, id, now)
+  }
+  markAllNotificationsRead(organizationId: string, userId: string, now: string): Promise<number> {
+    return this._notifications.markAllRead(organizationId, userId, now)
+  }
+  purgeNotifications(before: string): Promise<number> {
+    return this._notifications.purge(before)
+  }
+  getReleaseVisit(userId: string): Promise<ReleaseVisitRow | null> {
+    return this._notifications.getReleaseVisit(userId)
+  }
+  setReleaseVisit(userId: string, at: string, seenIds: string[]): Promise<ReleaseVisitRow> {
+    return this._notifications.setReleaseVisit(userId, at, seenIds)
+  }
+
   // Versions
   createVersion(data: CreateVersionData): Promise<WorkflowVersion> {
     return this._versions.create(data)
@@ -841,6 +904,13 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     data: { status?: string; output?: string; error?: string },
   ): Promise<WorkflowRun> {
     return this._runs.update(id, data)
+  }
+  updateRunFromStatus(
+    id: string,
+    fromStatus: string,
+    data: { status: string; output?: string; error?: string; updatedAt?: string },
+  ): Promise<boolean> {
+    return this._runs.updateFromStatus(id, fromStatus, data)
   }
   listActiveRunsForSync(limit?: number): Promise<ActiveRunForSync[]> {
     return this._runs.listActiveForSync(limit)

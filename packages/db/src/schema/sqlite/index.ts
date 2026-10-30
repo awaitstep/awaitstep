@@ -15,3 +15,4 @@ export { projectMembers, workspaceMembers, invitationPlaces, accessRequests } fr
 export { installedNodes } from './installed-nodes.js'
 export { deploymentConfigs } from './deployment-configs.js'
 export { auditEvents } from './audit.js'
+export { notifications, releaseVisits } from './notifications.js'

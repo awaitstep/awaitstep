@@ -15,7 +15,41 @@ export class RunsAdapter {
     private table: AnyTable,
     private workflowsTable?: AnyTable,
     private deploymentsTable?: AnyTable,
+    private placeTables?: { projects: AnyTable; workspaces: AnyTable; organization: AnyTable },
   ) {}
+
+  /** The sync rows' select list and joins: the run, its workflow's name and place, its snapshot. */
+  private syncQuery() {
+    const runs = this.table
+    const workflows = this.workflowsTable
+    const deployments = this.deploymentsTable
+    const place = this.placeTables
+    if (!workflows || !deployments || !place) {
+      throw new Error('RunsAdapter needs workflows, deployments and place tables for sync queries')
+    }
+    const { projects: p, workspaces: w, organization: o } = place
+    return this.db
+      .select({
+        run: runs,
+        workflowName: workflows.name,
+        configSnapshot: latestDeploymentSnapshot(deployments, runs),
+        place: {
+          organizationId: p.organizationId,
+          orgSlug: o.slug,
+          projectId: p.id,
+          projectSlug: p.slug,
+          projectName: p.name,
+          workspaceId: w.id,
+          workspaceSlug: w.slug,
+          workspaceName: w.name,
+        },
+      })
+      .from(runs)
+      .innerJoin(workflows, eq(runs.workflowId, workflows.id))
+      .leftJoin(p, eq(p.id, workflows.projectId))
+      .leftJoin(o, eq(o.id, p.organizationId))
+      .leftJoin(w, and(eq(w.id, workflows.workspaceId), eq(w.projectId, p.id)))
+  }
 
   async create(data: {
     id: string
@@ -78,19 +112,9 @@ export class RunsAdapter {
    * code), all in one query per the no-sequential-awaits rule.
    */
   async listActiveForSync(limit = 200): Promise<ActiveRunForSync[]> {
-    const runs = this.table
-    const workflows = this.workflowsTable
-    const deployments = this.deploymentsTable
-    if (!workflows || !deployments) {
-      throw new Error('RunsAdapter needs workflows and deployments tables for sync queries')
-    }
-    const snapshotExpr = latestDeploymentSnapshot(deployments, runs)
-    const rows = await this.db
-      .select({ run: runs, workflowName: workflows.name, configSnapshot: snapshotExpr })
-      .from(runs)
-      .innerJoin(workflows, eq(runs.workflowId, workflows.id))
-      .where(notInArray(runs.status, TERMINAL_RUN_STATUSES))
-      .orderBy(desc(runs.createdAt))
+    const rows = await this.syncQuery()
+      .where(notInArray(this.table.status, TERMINAL_RUN_STATUSES))
+      .orderBy(desc(this.table.createdAt))
       .limit(limit)
     return rows as ActiveRunForSync[]
   }
@@ -101,21 +125,8 @@ export class RunsAdapter {
    * query: a run from another workflow reads as null.
    */
   async getForSync(runId: string, workflowId: string): Promise<ActiveRunForSync | null> {
-    const runs = this.table
-    const workflows = this.workflowsTable
-    const deployments = this.deploymentsTable
-    if (!workflows || !deployments) {
-      throw new Error('RunsAdapter needs workflows and deployments tables for sync queries')
-    }
-    const rows = await this.db
-      .select({
-        run: runs,
-        workflowName: workflows.name,
-        configSnapshot: latestDeploymentSnapshot(deployments, runs),
-      })
-      .from(runs)
-      .innerJoin(workflows, eq(runs.workflowId, workflows.id))
-      .where(and(eq(runs.id, runId), eq(runs.workflowId, workflowId)))
+    const rows = await this.syncQuery()
+      .where(and(eq(this.table.id, runId), eq(this.table.workflowId, workflowId)))
       .limit(1)
     return (rows[0] as ActiveRunForSync | undefined) ?? null
   }
@@ -129,5 +140,24 @@ export class RunsAdapter {
     const updated = await this.getById(id)
     if (!updated) throw new Error(`WorkflowRun ${id} not found`)
     return updated
+  }
+
+  /**
+   * Writes `data` only while the run is still in `fromStatus` — one guarded
+   * statement — and says whether it did: of two syncs seeing the same
+   * change, one moves the run and the other learns it was beaten.
+   */
+  async updateFromStatus(
+    id: string,
+    fromStatus: string,
+    data: { status: string; output?: string; error?: string; updatedAt?: string },
+  ): Promise<boolean> {
+    const updates = { ...data, updatedAt: data.updatedAt ?? new Date().toISOString() }
+    const rows = await this.db
+      .update(this.table)
+      .set(updates)
+      .where(and(eq(this.table.id, id), eq(this.table.status, fromStatus)))
+      .returning({ id: this.table.id })
+    return rows.length > 0
   }
 }

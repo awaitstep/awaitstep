@@ -1211,14 +1211,27 @@ describe.each([
         projectGrant: null,
         workspaceGrant: null,
       })
-      await h.adapter.decideAccessRequest({
-        id: 'req-1',
-        status: 'approved',
-        decidedBy: 'u-ama',
-        now: NOW,
-        alreadyEditing: false,
-        grant: { workspaceId: 'ws-sales', userId: 'u-eve' },
-      })
+      expect(
+        await h.adapter.decideAccessRequest({
+          id: 'req-1',
+          status: 'approved',
+          decidedBy: 'u-ama',
+          now: NOW,
+          alreadyEditing: false,
+          grant: { workspaceId: 'ws-sales', userId: 'u-eve' },
+        }),
+      ).toBe(true)
+      // A second answer, sent at the same time, finds it decided and changes nothing.
+      expect(
+        await h.adapter.decideAccessRequest({
+          id: 'req-1',
+          status: 'declined',
+          decidedBy: 'u-ben',
+          now: NOW,
+          alreadyEditing: false,
+          grant: null,
+        }),
+      ).toBe(false)
       expect(await h.adapter.getWorkspaceIfMember('u-eve', { id: 'ws-sales' })).toMatchObject({
         workspaceGrant: 'editor',
       })

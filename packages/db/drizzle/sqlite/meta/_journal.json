@@ -162,6 +162,13 @@
       "when": 1793341675564,
       "tag": "0022_audit_events",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1793386335331,
+      "tag": "0023_notifications",
+      "breakpoints": true
     }
   ]
 }

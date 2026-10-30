@@ -186,6 +186,17 @@ export interface ActiveRunForSync {
   run: WorkflowRun
   workflowName: string
   configSnapshot: string | null
+  /** Where the workflow lives, for the Inbox when a run fails. Null parts where none is set. */
+  place: {
+    organizationId: string | null
+    orgSlug: string | null
+    projectId: string | null
+    projectSlug: string | null
+    projectName: string | null
+    workspaceId: string | null
+    workspaceSlug: string | null
+    workspaceName: string | null
+  }
 }
 export type Deployment = InferSelectModel<typeof deployments>
 export type ApiKey = InferSelectModel<typeof apiKeys>
@@ -828,4 +839,101 @@ export interface AccessRequestDecision {
   asker: GrantRows & { name: string }
   /** The rows of whoever is deciding, in the same workspace: whether they may. */
   decider: GrantRows
+}
+
+// Inbox (B8)
+
+export type NotificationKindValue = 'failure' | 'request' | 'expiry' | 'people' | 'deploy'
+
+/**
+ * Who a notification goes to, before the organization filter: only people
+ * in its organization who can still see its place receive it.
+ */
+export type NotificationRecipients =
+  | { users: string[] }
+  /** The workflow's creator and its workspace's admins (explicit grants). */
+  | { workflowWatchers: { workflowId: string } }
+  /** Admins (explicit grants) of the project's workspaces other than this one. */
+  | { otherWorkspaceAdmins: { projectId: string; workspaceId: string } }
+
+export interface NotificationInsert {
+  /** Each row's id is `<idPrefix>_<recipient id>`. */
+  idPrefix: string
+  organizationId: string
+  kind: NotificationKindValue
+  event: string
+  needsAction: boolean
+  /** Repeats with the same key (per person) fold into one row. */
+  groupKey: string
+  projectId: string | null
+  workspaceId: string | null
+  accessRequestId?: string | null
+  /** Facts the sentence is written from. Never a secret value. */
+  meta: Record<string, unknown>
+  recipients: NotificationRecipients
+  /** The person who acted: never told about it. */
+  excludeUserId?: string | null
+  /** A repeat leaves the row (`keep`) or counts it again, unread (`fold`). */
+  onRepeat: 'keep' | 'fold'
+  now: string
+}
+
+/** A person a write reached; `count` 1 means the row is new in its group. */
+export interface NotifiedRecipient {
+  userId: string
+  email: string
+  name: string
+  /** The organization's slug, for links in the email. */
+  orgSlug: string
+  count: number
+}
+
+export interface ExpiringKeysCheck {
+  /** Each row's id is `<idPrefix>_<key id>_<7d|1d>`. */
+  idPrefix: string
+  event: string
+  kind: NotificationKindValue
+  needsAction: boolean
+  now: string
+  /** Keys expiring before this are warned once. */
+  warnBefore: string
+  /** …and once more before this. */
+  lastWarnBefore: string
+}
+
+/** A notification as the Inbox reads it, before it is put in words. */
+export interface NotificationListRow {
+  id: string
+  event: string
+  count: number
+  meta: Record<string, unknown>
+  at: string
+  read: boolean
+  needsAction: boolean
+  place: {
+    level: 'organization' | 'project' | 'workspace'
+    orgName: string
+    projectSlug: string | null
+    projectName: string | null
+    workspaceSlug: string | null
+    workspaceName: string | null
+  }
+  request: {
+    id: string
+    status: 'pending' | 'approved' | 'declined'
+    asker: string
+    /** Approved when they could already edit: nothing was granted. */
+    alreadyEditing: boolean
+  } | null
+}
+
+export interface NotificationList {
+  rows: NotificationListRow[]
+  counts: { all: number; unread: number; action: number }
+}
+
+/** When someone last closed What's new, and the notes it showed them. */
+export interface ReleaseVisitRow {
+  seenAt: string
+  seenIds: string[]
 }

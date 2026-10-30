@@ -83,6 +83,11 @@ import type {
   SignInAuditInsert,
   AuditListFilter,
   AuditEventPage,
+  ExpiringKeysCheck,
+  NotificationInsert,
+  NotificationList,
+  NotifiedRecipient,
+  ReleaseVisitRow,
   FailureCount,
 } from './types.js'
 import type { PaginationParams, PaginatedResult } from './pagination.js'
@@ -346,6 +351,7 @@ export interface DatabaseAdapter {
   }): Promise<{ request: AccessRequestRow; created: boolean } | null>
   /** The request with the asker's rows and the decider's own, in one read. */
   getAccessRequestForDecision(id: string, deciderId: string): Promise<AccessRequestDecision | null>
+  /** Answers a pending request (and grants, when approving); whether this call decided it. */
   decideAccessRequest(data: {
     id: string
     status: 'approved' | 'declined'
@@ -353,7 +359,7 @@ export interface DatabaseAdapter {
     now: string
     alreadyEditing: boolean
     grant: { workspaceId: string; userId: string } | null
-  }): Promise<void>
+  }): Promise<boolean>
 
   // Workflows
   /**
@@ -431,6 +437,36 @@ export interface DatabaseAdapter {
   /** Deletes rows older than `before`; how many went. */
   purgeAuditEvents(before: string): Promise<number>
 
+  // Inbox (B8)
+  /**
+   * One row per recipient in one statement — those in the organization who
+   * can see the place, minus the actor; a repeat is kept or folded. Answers
+   * who was written to, with address and name, `count` 1 for a new row.
+   */
+  notify(entry: NotificationInsert): Promise<NotifiedRecipient[]>
+  /** Deletes a group's rows in the organization (an answered ask, an undone decline). */
+  clearNotifications(organizationId: string, groupKey: string): Promise<void>
+  /** Warns live keys' creators before expiry, once per threshold, in one statement; rows written. */
+  notifyExpiringKeys(check: ExpiringKeysCheck): Promise<number>
+  /** A person's Inbox in an organization, newest first, with the pills' counts — one statement. */
+  listNotifications(
+    organizationId: string,
+    userId: string,
+    limit: number,
+  ): Promise<NotificationList>
+  /** False when the row isn't the person's in this organization. */
+  markNotificationRead(
+    organizationId: string,
+    userId: string,
+    id: string,
+    now: string,
+  ): Promise<boolean>
+  markAllNotificationsRead(organizationId: string, userId: string, now: string): Promise<number>
+  /** Deletes rows last touched before `before`; how many went. */
+  purgeNotifications(before: string): Promise<number>
+  getReleaseVisit(userId: string): Promise<ReleaseVisitRow | null>
+  setReleaseVisit(userId: string, at: string, seenIds: string[]): Promise<ReleaseVisitRow>
+
   // Workflow Versions
   createVersion(data: CreateVersionData): Promise<WorkflowVersion>
   getWorkflowVersionById(id: string): Promise<WorkflowVersion | null>
@@ -481,6 +517,12 @@ export interface DatabaseAdapter {
     id: string,
     data: { status?: string; output?: string; error?: string; updatedAt?: string },
   ): Promise<WorkflowRun>
+  /** Writes `data` only while the run is in `fromStatus`; whether it did — one statement. */
+  updateRunFromStatus(
+    id: string,
+    fromStatus: string,
+    data: { status: string; output?: string; error?: string; updatedAt?: string },
+  ): Promise<boolean>
   /** With `visibleTo`, only runs of workflows in workspaces that person can open. */
   listRecentRunsByProject(
     projectId: string,

@@ -11,7 +11,13 @@ function createTestDb() {
   const sqlite = new Database(':memory:')
   sqlite.pragma('foreign_keys = ON')
   sqlite.exec(`
-    CREATE TABLE workflows (id text PRIMARY KEY, project_id text NOT NULL, name text NOT NULL, kind text NOT NULL DEFAULT 'workflow', description text, trigger_code text, current_version_id text, created_by text, created_at text NOT NULL, updated_at text NOT NULL, position integer, archived_at text, deleted_at text);
+    CREATE TABLE organization (id text PRIMARY KEY, name text NOT NULL, slug text NOT NULL);
+    CREATE TABLE projects (id text PRIMARY KEY, organization_id text NOT NULL, name text NOT NULL, slug text NOT NULL);
+    CREATE TABLE workspaces (id text PRIMARY KEY, project_id text NOT NULL, name text NOT NULL, slug text NOT NULL);
+    INSERT INTO organization VALUES ('org-1', 'Acme', 'acme');
+    INSERT INTO projects VALUES ('p-1', 'org-1', 'Project 101', 'project-101');
+    INSERT INTO workspaces VALUES ('ws-1', 'p-1', 'Sales', 'sales');
+    CREATE TABLE workflows (id text PRIMARY KEY, project_id text NOT NULL, workspace_id text, name text NOT NULL, kind text NOT NULL DEFAULT 'workflow', description text, trigger_code text, current_version_id text, created_by text, created_at text NOT NULL, updated_at text NOT NULL, position integer, archived_at text, deleted_at text);
     CREATE TABLE workflow_runs (id text PRIMARY KEY, workflow_id text NOT NULL REFERENCES workflows(id) ON DELETE CASCADE, version_id text, connection_id text, instance_id text NOT NULL, status text NOT NULL DEFAULT 'queued', output text, error text, created_at text NOT NULL, updated_at text NOT NULL);
     CREATE TABLE deployments (id text PRIMARY KEY, workflow_id text NOT NULL, version_id text NOT NULL, connection_id text, service_name text NOT NULL, service_url text, status text NOT NULL, error text, created_at text NOT NULL, config_snapshot text);
     CREATE TABLE workflow_run_steps (
@@ -34,7 +40,7 @@ function createTestDb() {
 function seedRun(sqlite: Database.Database, runId: string, status = 'running') {
   sqlite
     .prepare(
-      `INSERT INTO workflows (id, project_id, name, created_at, updated_at) VALUES ('wf-1', 'p-1', 'My Flow', ?, ?)
+      `INSERT INTO workflows (id, project_id, workspace_id, name, created_at, updated_at) VALUES ('wf-1', 'p-1', 'ws-1', 'My Flow', ?, ?)
        ON CONFLICT (id) DO NOTHING`,
     )
     .run(now, now)
@@ -138,6 +144,7 @@ describe('listActiveRunsForSync', () => {
     expect(active).toHaveLength(1)
     expect(active[0]!.run.id).toBe('run-1')
     expect(active[0]!.workflowName).toBe('My Flow')
+    expect(active[0]!.place).toMatchObject({ organizationId: 'org-1', workspaceSlug: 'sales' })
     // Latest SUCCESSFUL deployment of the run's version wins.
     expect(active[0]!.configSnapshot).toBe('{"stepManifest":{"steps":[]}}')
   })
@@ -164,7 +171,35 @@ describe('getRunForSync', () => {
     const entry = await adapter.getRunForSync('run-1', 'wf-1')
     expect(entry?.run.id).toBe('run-1')
     expect(entry?.workflowName).toBe('My Flow')
+    expect(entry?.place).toEqual({
+      organizationId: 'org-1',
+      orgSlug: 'acme',
+      projectId: 'p-1',
+      projectSlug: 'project-101',
+      projectName: 'Project 101',
+      workspaceId: 'ws-1',
+      workspaceSlug: 'sales',
+      workspaceName: 'Sales',
+    })
     expect(await adapter.getRunForSync('run-1', 'other-wf')).toBeNull()
+  })
+})
+
+describe('updateRunFromStatus', () => {
+  it('moves the run only from the status it was read in, and says whether it did', async () => {
+    const { adapter, sqlite } = createTestDb()
+    seedRun(sqlite, 'run-1', 'running')
+    expect(
+      await adapter.updateRunFromStatus('run-1', 'running', { status: 'errored', error: '"boom"' }),
+    ).toBe(true)
+    // A second sync that read it as running is beaten: nothing changes.
+    expect(
+      await adapter.updateRunFromStatus('run-1', 'running', { status: 'complete', output: '1' }),
+    ).toBe(false)
+    const row = sqlite
+      .prepare('SELECT status, error, output FROM workflow_runs WHERE id = ?')
+      .get('run-1')
+    expect(row).toEqual({ status: 'errored', error: '"boom"', output: null })
   })
 })
 

@@ -1,6 +1,6 @@
 import { and, eq, sql, aliasedTable } from 'drizzle-orm'
 import type { AccessRequest, AccessRequestDecision, AccessRequestRow } from '../types.js'
-import { atomically } from './atomic.js'
+import { atomicallyReturning } from './atomic.js'
 import { boundFields } from './insert-where.js'
 import { aliasedFrom } from './json-array.js'
 import { OverviewFields, type OverviewTables } from './overview-fields.js'
@@ -159,6 +159,7 @@ export class AccessRequestsAdapter {
    * the workspace in the same unit — if this decision approved it and they
    * are still a Viewer there: someone raised or removed meanwhile is left
    * as they are, so an approval never lowers an Admin or re-adds someone.
+   * Whether this call decided it: of two answers at once, one lands.
    */
   async decide(data: {
     id: string
@@ -167,7 +168,7 @@ export class AccessRequestsAdapter {
     now: string
     alreadyEditing: boolean
     grant: { workspaceId: string; userId: string } | null
-  }): Promise<void> {
+  }): Promise<boolean> {
     const wm = this.t.workspaceMembers
     const r = aliasedTable(this.table, 'dr')
     const w = aliasedTable(this.t.workspaces, 'dw')
@@ -177,7 +178,7 @@ export class AccessRequestsAdapter {
     const stillViewer = grant
       ? sql`${roles.workspaceRoleOf(grant.userId, { organizationId: p.organizationId, projectId: p.id, workspaceId: w.id })} = 'viewer'`
       : sql``
-    await atomically(this.db, (tx) => [
+    const [decided] = await atomicallyReturning<{ id: string }>(this.db, (tx) => [
       tx
         .update(this.table)
         .set({
@@ -186,7 +187,8 @@ export class AccessRequestsAdapter {
           decidedAt: data.now,
           decidedBy: data.decidedBy,
         })
-        .where(and(eq(this.table.id, data.id), eq(this.table.status, 'pending'))),
+        .where(and(eq(this.table.id, data.id), eq(this.table.status, 'pending')))
+        .returning({ id: this.table.id }),
       ...(grant
         ? [
             tx
@@ -221,9 +223,11 @@ export class AccessRequestsAdapter {
                 target: [wm.workspaceId, wm.userId],
                 set: { role: 'editor' },
                 setWhere: eq(wm.role, 'viewer'),
-              }),
+              })
+              .returning({ id: wm.userId }),
           ]
         : []),
     ])
+    return (decided?.length ?? 0) > 0
   }
 }
