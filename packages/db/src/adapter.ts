@@ -62,7 +62,6 @@ import type {
   WorkflowAccess,
   WorkspaceGrant,
   WorkspaceGrantData,
-  WorkspaceMember,
   WorkspacePersonRow,
   ProjectMemberRow,
   OrgMemberRow,
@@ -78,6 +77,13 @@ import type {
   AcceptInvitationData,
   AccessRequestRow,
   AccessRequestDecision,
+  AuditEventInsert,
+  NamedWorkspaceMember,
+  ProjectMoveOutcome,
+  SignInAuditInsert,
+  AuditListFilter,
+  AuditEventPage,
+  FailureCount,
 } from './types.js'
 import type { PaginationParams, PaginatedResult } from './pagination.js'
 
@@ -162,16 +168,23 @@ export interface DatabaseAdapter {
   /**
    * Moves the project, as one unit, if the mover runs the target organization
    * and the project is not locked (both checked in the statement): open invitations' places into it and grants
-   * held by people outside the target go. Nothing says whether it moved —
-   * `getProjectById` afterwards does — and a slug the target already uses
+   * held by people outside the target go. Answers the `updated_at` stamp a
+   * move writes; `getProjectMoveOutcome` afterwards says whether it moved,
+   * and the stamp whether this call is what moved it — and a slug the target already uses
    * surfaces as `isUniqueViolation`.
    */
+  /** Where a move left the project, with both organizations' names — one statement. */
+  getProjectMoveOutcome(
+    id: string,
+    fromOrganizationId: string,
+    toOrganizationId: string,
+  ): Promise<ProjectMoveOutcome | null>
   moveProjectToOrganization(
     projectId: string,
     fromOrganizationId: string,
     toOrganizationId: string,
     moverId: string,
-  ): Promise<void>
+  ): Promise<string>
   /** Updates only within the organization — null when no such row there. */
   updateProject(
     id: string,
@@ -188,8 +201,8 @@ export interface DatabaseAdapter {
   getProjectLocks(id: string, organizationId: string): Promise<ProjectLocks | null>
   /**
    * Turns the project's deletion lock on or off. Turning on a lock that is
-   * on keeps who set it and when. Null when no such project in the
-   * organization.
+   * on keeps who set it and when; `changed` says whether it was flipped.
+   * Null when no such project in the organization.
    */
   setProjectLock(
     id: string,
@@ -226,12 +239,12 @@ export interface DatabaseAdapter {
    * project is locked (the project's lock decides for every workspace in it).
    */
   setWorkspaceLock(id: string, userId: string, locked: boolean): Promise<LockRow | null>
-  /** The ids that moved; a target outside the source's project moves none. */
+  /** The workflows that moved, by id and name; a target outside the source's project moves none. */
   moveWorkflowsToWorkspace(
     fromWorkspaceId: string,
     toWorkspaceId: string,
     workflowIds: string[],
-  ): Promise<string[]>
+  ): Promise<{ id: string; name: string }[]>
   listWorkspaceRuns(workspaceId: string, filter: WorkspaceRunFilter): Promise<WorkspaceRunPage>
   /** Across the organization's workspaces the viewer can open. */
   listFailingWorkflows(organizationId: string, viewerId: string): Promise<FailingWorkflow[]>
@@ -277,14 +290,21 @@ export interface DatabaseAdapter {
   /** The rows behind one person's standing in a workspace; null for an unknown workspace. */
   getGrantRows(workspaceId: string, userId: string): Promise<GrantRows | null>
   /** Null when they are outside the org, already in, or the role is at or below what the project gives. */
-  addWorkspaceMember(data: WorkspaceGrantData): Promise<WorkspaceMember | null>
-  /** Null when there is no grant, or the role is at or below what the project gives. */
+  addWorkspaceMember(data: WorkspaceGrantData): Promise<NamedWorkspaceMember | null>
+  /**
+   * Null when there is no grant, or the role is at or below what the project
+   * gives. `changed` is false when it already had that role.
+   */
   setWorkspaceGrant(
     workspaceId: string,
     userId: string,
     role: WorkspaceGrant,
-  ): Promise<WorkspaceMember | null>
-  removeWorkspaceGrant(workspaceId: string, userId: string): Promise<boolean>
+  ): Promise<(NamedWorkspaceMember & { changed: boolean }) | null>
+  /** The removed grant's role and the person's name; null when there was none. */
+  removeWorkspaceGrant(
+    workspaceId: string,
+    userId: string,
+  ): Promise<{ role: string; personName: string | null } | null>
   getOrgRole(organizationId: string, userId: string): Promise<string | null>
 
   // Invitations (storage is better-auth's table; the lifecycle is this API's)
@@ -303,8 +323,8 @@ export interface DatabaseAdapter {
    */
   acceptInvitation(data: AcceptInvitationData): Promise<void>
   setInvitationStatus(id: string, from: string, to: string): Promise<boolean>
-  /** Cancels an open or declined invitation of the organization; false when there is none to cancel. */
-  cancelInvitation(id: string, organizationId: string): Promise<boolean>
+  /** Cancels an open or declined invitation of the organization: its address, or null when there is none to cancel. */
+  cancelInvitation(id: string, organizationId: string): Promise<string | null>
   /** False when not pending, or sent more recently than `unlessExpiresAfter` allows. */
   resendInvitation(id: string, expiresAt: string, unlessExpiresAfter: string): Promise<boolean>
   /** False when they already asked. */
@@ -392,6 +412,25 @@ export interface DatabaseAdapter {
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<SharedWorkflowRow>>
 
+  // Audit log (B7)
+  insertAuditEvents(rows: AuditEventInsert[]): Promise<void>
+  /** A sign-in, one row per organization the person is in, in one statement. */
+  insertSignInAuditEvents(entry: SignInAuditInsert): Promise<void>
+  /** A page of an organization's log, newest first, with the matching total — one statement. */
+  listAuditEvents(filter: AuditListFilter, pagination?: PaginationParams): Promise<AuditEventPage>
+  /**
+   * Writes `attempt` and counts the actor's other attempts since `since` —
+   * only `ofType`'s when given — in one statement (the lockout's reservation).
+   */
+  reserveAuditAttempt(
+    attempt: AuditEventInsert,
+    since: string,
+    ofType?: AuditEventInsert['actorType'],
+  ): Promise<FailureCount>
+  deleteAuditEvent(id: string): Promise<void>
+  /** Deletes rows older than `before`; how many went. */
+  purgeAuditEvents(before: string): Promise<number>
+
   // Workflow Versions
   createVersion(data: CreateVersionData): Promise<WorkflowVersion>
   getWorkflowVersionById(id: string): Promise<WorkflowVersion | null>
@@ -421,7 +460,8 @@ export interface DatabaseAdapter {
     id: string,
     data: { name?: string; credentials?: string },
   ): Promise<Connection | null>
-  deleteConnection(id: string): Promise<void>
+  /** Whether a row went: false when it was already gone. */
+  deleteConnection(id: string): Promise<boolean>
 
   // Workflow Runs
   createRun(data: {
@@ -658,7 +698,8 @@ export interface DatabaseAdapter {
     data: { name?: string; value?: string; isSecret?: boolean },
   ): Promise<EnvVar | null>
   /** Deletes the row where it is addressed — false when no row matched there. */
-  deleteEnvVar(id: string, place: VariablePlace): Promise<boolean>
+  /** The deleted variable's name; null when none at that place. */
+  deleteEnvVar(id: string, place: VariablePlace): Promise<string | null>
   /** Whether the row at the addressed place is a secret — the un-hide refusal's one check. */
   isSecretVariableAt(id: string, place: VariablePlace): Promise<boolean>
   getWorkflowEnvVars(workflowId: string): Promise<WorkflowEnvVar[]>

@@ -562,13 +562,13 @@ export class EnvVarsAdapter {
     return rows.length > 0
   }
 
-  /** Deletes the row where it is addressed — false when no row matched there. */
-  async delete(id: string, place: VariablePlace): Promise<boolean> {
+  /** Deletes the row where it is addressed; its name, or null when no row matched there. */
+  async delete(id: string, place: VariablePlace): Promise<string | null> {
     const rows = await this.db
       .delete(this.table)
       .where(and(eq(this.table.id, id), this.atPlace(this.table, place)))
-      .returning({ id: this.table.id })
-    return rows.length > 0
+      .returning({ name: this.table.name })
+    return rows[0]?.name ?? null
   }
 
   private async tryDecrypt(value: string): Promise<string> {

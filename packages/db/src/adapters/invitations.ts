@@ -9,6 +9,7 @@ import type {
   InvitationView,
   PendingInvitationRow,
 } from '../types.js'
+import { chunked } from './statement-params.js'
 import { atomically } from './atomic.js'
 import { boundFields } from './insert-where.js'
 import {
@@ -386,10 +387,11 @@ export class InvitationsAdapter {
 
   /**
    * Cancels an open or declined invitation of the organization: the row
-   * stays as `canceled`, the link stops working. False when there is no
-   * such invitation in the organization or it is not in either state.
+   * stays as `canceled`, the link stops working. Answers its address; null
+   * when there is no such invitation in the organization or it is not in
+   * either state.
    */
-  async cancel(id: string, organizationId: string): Promise<boolean> {
+  async cancel(id: string, organizationId: string): Promise<string | null> {
     const rows = await this.db
       .update(this.inv)
       .set({ status: 'canceled' })
@@ -400,8 +402,8 @@ export class InvitationsAdapter {
           inArray(this.inv.status, ['pending', 'rejected']),
         ),
       )
-      .returning({ id: this.inv.id })
-    return rows.length > 0
+      .returning({ email: this.inv.email })
+    return rows[0]?.email ?? null
   }
 
   /** Moves an invitation from one status to another; false when it was not in `from`. */
@@ -474,10 +476,4 @@ export class InvitationsAdapter {
       role: row.role ?? 'member',
     }))
   }
-}
-
-function chunked<T>(items: T[], size: number): T[][] {
-  const out: T[][] = []
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size))
-  return out
 }

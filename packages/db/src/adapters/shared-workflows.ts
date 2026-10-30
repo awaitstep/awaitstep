@@ -1,9 +1,22 @@
-import { and, desc, eq, isNotNull, lt, ne, or, sql, aliasedTable, getTableName } from 'drizzle-orm'
+import {
+  and,
+  desc,
+  eq,
+  isNotNull,
+  isNull,
+  lt,
+  ne,
+  or,
+  sql,
+  aliasedTable,
+  getTableName,
+} from 'drizzle-orm'
 import type { SharedWorkflowFilter, SharedWorkflowRow, SharingRow } from '../types.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 import type { Dialect } from './json-array.js'
 import { OverviewFields, type OverviewTables } from './overview-fields.js'
+import { writeChanging } from './projects.js'
 
 /**
  * Sharing a workflow or function to its project (B6): the switch, and the
@@ -41,12 +54,19 @@ export class SharedWorkflowsAdapter {
           sharedAt: sql`coalesce(${wf.sharedAt}, ${new Date().toISOString()})`,
         }
       : { sharedBy: null, sharedAt: null }
-    const rows = await this.db
-      .update(wf)
-      .set(values)
-      .where(and(eq(wf.id, id), eq(wf.workspaceId, workspaceId)))
-      .returning(this.sharingReturning())
-    return (rows[0] as SharingRow | undefined) ?? null
+    return writeChanging<Omit<SharingRow, 'changed'>>((match) =>
+      this.db
+        .update(wf)
+        .set(values)
+        .where(
+          and(
+            eq(wf.id, id),
+            eq(wf.workspaceId, workspaceId),
+            shared === (match === 'already') ? isNotNull(wf.sharedAt) : isNull(wf.sharedAt),
+          ),
+        )
+        .returning(this.sharingReturning()),
+    )
   }
 
   /**

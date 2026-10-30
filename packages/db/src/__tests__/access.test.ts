@@ -469,9 +469,10 @@ describe.each([
           projectIds: ['p-101', 'p-g', 'nope'],
           workspaceIds: ['ws-202', 'ws-g'],
         }),
-      ).toEqual({ role: 'member', users: 1, projects: 1, workspaces: 1 })
+      ).toEqual({ role: 'member', name: 'Dan Kim', users: 1, projects: 1, workspaces: 1 })
       expect(await h.adapter.checkInOrganization('org-acme', { userId: 'u-cleo' })).toEqual({
         role: null,
+        name: 'Cleo Park',
         users: 0,
         projects: 0,
         workspaces: 0,
@@ -606,7 +607,7 @@ describe.each([
           workspaceIds: ['ws-sales', ...many],
           userIds: many,
         }),
-      ).toEqual({ role: null, users: 0, projects: 1, workspaces: 1 })
+      ).toEqual({ role: null, name: null, users: 0, projects: 1, workspaces: 1 })
     })
 
     it('removes someone from the organization with every row of theirs in it, as one unit', async () => {
@@ -635,7 +636,12 @@ describe.each([
         role: 'viewer',
         createdBy: 'u-ama',
       })
-      expect(fay).toMatchObject({ workspaceId: 'ws-sales', userId: 'u-fay', role: 'viewer' })
+      expect(fay).toMatchObject({
+        workspaceId: 'ws-sales',
+        userId: 'u-fay',
+        role: 'viewer',
+        personName: 'Fay Lund',
+      })
       // Already in.
       expect(
         await h.adapter.addWorkspaceMember({
@@ -687,6 +693,13 @@ describe.each([
     it('changes a grant only to a role that counts, and removes one', async () => {
       expect(await h.adapter.setWorkspaceGrant('ws-sales', 'u-eve', 'editor')).toMatchObject({
         role: 'editor',
+        personName: 'Eve Park',
+        changed: true,
+      })
+      // The same role again is no change (B7 logs real changes only).
+      expect(await h.adapter.setWorkspaceGrant('ws-sales', 'u-eve', 'editor')).toMatchObject({
+        role: 'editor',
+        changed: false,
       })
       await h.adapter.addWorkspaceMember({
         workspaceId: 'ws-sales',
@@ -696,8 +709,11 @@ describe.each([
       })
       expect(await h.adapter.setWorkspaceGrant('ws-sales', 'u-dan', 'editor')).toBeNull()
       expect(await h.adapter.setWorkspaceGrant('ws-sales', 'u-fay', 'editor')).toBeNull()
-      expect(await h.adapter.removeWorkspaceGrant('ws-sales', 'u-eve')).toBe(true)
-      expect(await h.adapter.removeWorkspaceGrant('ws-sales', 'u-eve')).toBe(false)
+      expect(await h.adapter.removeWorkspaceGrant('ws-sales', 'u-eve')).toEqual({
+        role: 'editor',
+        personName: 'Eve Park',
+      })
+      expect(await h.adapter.removeWorkspaceGrant('ws-sales', 'u-eve')).toBeNull()
       expect(await h.adapter.getWorkspaceIfMember('u-eve', { id: 'ws-sales' })).toBeNull()
     })
   })
@@ -1005,7 +1021,7 @@ describe.each([
         now: NOW,
       })
       expect(await h.memberRows('u-hal')).toEqual([])
-      expect(await h.adapter.cancelInvitation('inv-gone', 'org-acme')).toBe(true)
+      expect(await h.adapter.cancelInvitation('inv-gone', 'org-acme')).toEqual(expect.any(String))
       await h.adapter.acceptInvitation({
         invitationId: 'inv-gone',
         userId: 'u-hal',
@@ -1067,14 +1083,14 @@ describe.each([
       const after = (await h.adapter.getInvitation('inv-1'))!.invitation
       expect(after.expiresAt).toBe('2026-11-11T00:00:00.000Z')
       expect(after.askedForNewAt).toBeNull()
-      expect(await h.adapter.cancelInvitation('inv-1', 'org-globex')).toBe(false)
-      expect(await h.adapter.cancelInvitation('inv-1', 'org-acme')).toBe(true)
-      expect(await h.adapter.cancelInvitation('inv-1', 'org-acme')).toBe(false)
+      expect(await h.adapter.cancelInvitation('inv-1', 'org-globex')).toBeNull()
+      expect(await h.adapter.cancelInvitation('inv-1', 'org-acme')).toEqual(expect.any(String))
+      expect(await h.adapter.cancelInvitation('inv-1', 'org-acme')).toBeNull()
       expect(await h.adapter.resendInvitation('inv-1', LATER, LATER)).toBe(false)
       // A declined one can be cancelled too: it stops waiting for an undo.
       await h.adapter.createInvitations([invite('inv-2', 'new@example.test', [])])
       expect(await h.adapter.setInvitationStatus('inv-2', 'pending', 'rejected')).toBe(true)
-      expect(await h.adapter.cancelInvitation('inv-2', 'org-acme')).toBe(true)
+      expect(await h.adapter.cancelInvitation('inv-2', 'org-acme')).toEqual(expect.any(String))
     })
 
     it('writes many invitations at once, a few rows per statement', async () => {

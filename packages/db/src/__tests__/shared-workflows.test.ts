@@ -49,22 +49,24 @@ describe.each([
   describe('setWorkflowShared', () => {
     it('shares with the sharer’s name, and sharing again keeps the first sharer and time', async () => {
       const first = await h.adapter.setWorkflowShared('wf-enrich', 'ws-sales', 'u-ama', true)
-      expect(first).toMatchObject({ sharedBy: 'u-ama', sharedByName: 'Ama Mensah' })
+      expect(first).toMatchObject({ sharedBy: 'u-ama', sharedByName: 'Ama Mensah', changed: true })
       expect(first!.sharedAt).not.toBeNull()
 
       const again = await h.adapter.setWorkflowShared('wf-enrich', 'ws-sales', 'u-ben', true)
-      expect(again).toEqual(first)
+      expect(again).toEqual({ ...first, changed: false })
     })
 
     it('unshares, and unsharing again is a no-op', async () => {
       await h.adapter.setWorkflowShared('wf-enrich', 'ws-sales', 'u-ama', true)
       const off = { sharedBy: null, sharedAt: null, sharedByName: null }
-      expect(await h.adapter.setWorkflowShared('wf-enrich', 'ws-sales', 'u-ama', false)).toEqual(
-        off,
-      )
-      expect(await h.adapter.setWorkflowShared('wf-enrich', 'ws-sales', 'u-ama', false)).toEqual(
-        off,
-      )
+      expect(await h.adapter.setWorkflowShared('wf-enrich', 'ws-sales', 'u-ama', false)).toEqual({
+        ...off,
+        changed: true,
+      })
+      expect(await h.adapter.setWorkflowShared('wf-enrich', 'ws-sales', 'u-ama', false)).toEqual({
+        ...off,
+        changed: false,
+      })
     })
 
     it('changes nothing once the workflow has left the workspace the caller was judged on', async () => {
@@ -223,7 +225,7 @@ describe.each([
 
     it('keeps the share when the workflow moves to another workspace in the project', async () => {
       expect(await h.adapter.moveWorkflowsToWorkspace('ws-sales', 'ws-ops', ['wf-enrich'])).toEqual(
-        ['wf-enrich'],
+        [{ id: 'wf-enrich', name: 'Lead enrichment' }],
       )
       const page = await h.adapter.listSharedWorkflows({ ...ACME, viewer: 'u-ama' })
       expect(page.data.map((r) => [r.id, r.from.slug])).toEqual([['wf-enrich', 'ops']])

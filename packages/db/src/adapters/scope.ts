@@ -149,6 +149,8 @@ export class ScopeAdapter {
         workspaceId: w.id,
         projectId: p.id,
         organizationId: p.organizationId,
+        workspaceName: w.name,
+        projectName: p.name,
         orgRole: me.role,
         projectGrant: pm.role,
         workspaceGrant: wm.role,

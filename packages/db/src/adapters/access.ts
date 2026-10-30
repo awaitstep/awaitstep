@@ -1,4 +1,16 @@
-import { and, asc, eq, inArray, isNull, notInArray, sql, aliasedTable, type SQL } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  eq,
+  getTableColumns,
+  inArray,
+  isNull,
+  ne,
+  notInArray,
+  sql,
+  aliasedTable,
+  type SQL,
+} from 'drizzle-orm'
 import type {
   AccessGrantData,
   GrantRows,
@@ -11,9 +23,10 @@ import type {
   WorkspaceChip,
   WorkspaceGrant,
   WorkspaceGrantData,
-  WorkspaceMember,
+  NamedWorkspaceMember,
   WorkspacePersonRow,
 } from '../types.js'
+import { writeChanging } from './projects.js'
 import { atomically } from './atomic.js'
 import { boundFields } from './insert-where.js'
 import {
@@ -237,6 +250,7 @@ export class AccessAdapter {
     const rows = await this.db
       .select({
         role,
+        name: refs.userId ? this.personName(refs.userId) : sql<string | null>`null`,
         users: users.mapWith(Number),
         projects: projects.mapWith(Number),
         workspaces: workspaces.mapWith(Number),
@@ -244,7 +258,13 @@ export class AccessAdapter {
       .from(o)
       .where(eq(o.id, organizationId))
       .limit(1)
-    return rows[0] ?? { role: null, users: 0, projects: 0, workspaces: 0 }
+    return rows[0] ?? { role: null, name: null, users: 0, projects: 0, workspaces: 0 }
+  }
+
+  /** The person's name by a bound id: safe in a RETURNING list, where columns render bare. */
+  private personName(userId: string): SQL<string | null> {
+    const u = aliasedTable(this.t.user, 'pn')
+    return sql<string | null>`(select ${u.name} from ${aliasedFrom(u)} where ${u.id} = ${userId})`
   }
 
   /**
@@ -547,7 +567,7 @@ export class AccessAdapter {
    * condition is in the statement: null when any failed, and `grantRowsOf`
    * says which.
    */
-  async addWorkspaceMember(data: WorkspaceGrantData): Promise<WorkspaceMember | null> {
+  async addWorkspaceMember(data: WorkspaceGrantData): Promise<NamedWorkspaceMember | null> {
     const wm = this.t.workspaceMembers
     const w = aliasedTable(this.t.workspaces, 'w')
     const p = aliasedTable(this.t.projects, 'p')
@@ -577,16 +597,19 @@ export class AccessAdapter {
             ),
           ),
       )
-      .returning()
-    return (rows[0] as WorkspaceMember | undefined) ?? null
+      .returning({ ...getTableColumns(wm), personName: this.personName(data.userId) })
+    return (rows[0] as NamedWorkspaceMember | undefined) ?? null
   }
 
-  /** Changes a grant's role, if the new one counts above what the project gives. Null otherwise. */
+  /**
+   * Changes a grant's role, if the new one counts above what the project
+   * gives. Null otherwise. `changed` is false when it already had that role.
+   */
   async setWorkspaceGrant(
     workspaceId: string,
     userId: string,
     role: WorkspaceGrant,
-  ): Promise<WorkspaceMember | null> {
+  ): Promise<(NamedWorkspaceMember & { changed: boolean }) | null> {
     const wm = this.t.workspaceMembers
     const w = aliasedTable(this.t.workspaces, 'sw')
     const p = aliasedTable(this.t.projects, 'sp')
@@ -597,27 +620,33 @@ export class AccessAdapter {
       roles.orgRoleOf(userId, organizationId),
       roles.projectGrantOf(userId, projectId),
     )
-    const rows = await this.db
-      .update(wm)
-      .set({ role })
-      .where(
-        and(
-          eq(wm.workspaceId, workspaceId),
-          eq(wm.userId, userId),
-          sql`${roles.rank(role)} > ${roles.rank(inherited)}`,
-        ),
-      )
-      .returning()
-    return (rows[0] as WorkspaceMember | undefined) ?? null
+    return writeChanging<NamedWorkspaceMember>((match) =>
+      this.db
+        .update(wm)
+        .set({ role })
+        .where(
+          and(
+            eq(wm.workspaceId, workspaceId),
+            eq(wm.userId, userId),
+            sql`${roles.rank(role)} > ${roles.rank(inherited)}`,
+            match === 'changing' ? ne(wm.role, role) : eq(wm.role, role),
+          ),
+        )
+        .returning({ ...getTableColumns(wm), personName: this.personName(userId) }),
+    )
   }
 
-  async removeWorkspaceGrant(workspaceId: string, userId: string): Promise<boolean> {
+  /** The removed grant with the person's name; null when there was none. */
+  async removeWorkspaceGrant(
+    workspaceId: string,
+    userId: string,
+  ): Promise<{ role: string; personName: string | null } | null> {
     const wm = this.t.workspaceMembers
     const rows = await this.db
       .delete(wm)
       .where(and(eq(wm.workspaceId, workspaceId), eq(wm.userId, userId)))
-      .returning({ userId: wm.userId })
-    return rows.length > 0
+      .returning({ role: wm.role, personName: this.personName(userId) })
+    return rows[0] ?? null
   }
 
   /**
@@ -636,7 +665,8 @@ export class AccessAdapter {
     fromOrganizationId: string,
     toOrganizationId: string,
     moverId: string,
-  ): Promise<void> {
+  ): Promise<string> {
+    const movedAt = new Date().toISOString()
     const p = this.t.projects
     const pm = this.t.projectMembers
     const wm = this.t.workspaceMembers
@@ -657,7 +687,7 @@ export class AccessAdapter {
     await atomically(this.db, (tx) => [
       tx
         .update(p)
-        .set({ organizationId: toOrganizationId, updatedAt: new Date().toISOString() })
+        .set({ organizationId: toOrganizationId, updatedAt: movedAt })
         .where(
           and(
             eq(p.id, projectId),
@@ -688,6 +718,7 @@ export class AccessAdapter {
           ),
         ),
     ])
+    return movedAt
   }
 
   /** Whether the user holds any role in the organization (for the mover's standing in the target). */

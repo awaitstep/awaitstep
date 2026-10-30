@@ -467,7 +467,7 @@ describe.each([
       )!
       expect(await h.adapter.updateEnvVar(orgRegion.id, P101, { value: 'x' })).toBeNull()
       expect(await h.adapter.updateEnvVar(orgRegion.id, SALES, { value: 'x' })).toBeNull()
-      expect(await h.adapter.deleteEnvVar(orgRegion.id, P101)).toBe(false)
+      expect(await h.adapter.deleteEnvVar(orgRegion.id, P101)).toBeNull()
       expect((await h.adapter.updateEnvVar(orgRegion.id, ORG, { value: 'eu-west' }))?.value).toBe(
         'eu-west',
       )
@@ -476,8 +476,8 @@ describe.each([
         .data[0]!
       expect(await h.adapter.updateEnvVar(salesRegion.id, P101, { value: 'x' })).toBeNull()
       expect(await h.adapter.updateEnvVar(salesRegion.id, OPS, { value: 'x' })).toBeNull()
-      expect(await h.adapter.deleteEnvVar(salesRegion.id, ORG)).toBe(false)
-      expect(await h.adapter.deleteEnvVar(salesRegion.id, SALES)).toBe(true)
+      expect(await h.adapter.deleteEnvVar(salesRegion.id, ORG)).toBeNull()
+      expect(await h.adapter.deleteEnvVar(salesRegion.id, SALES)).toBe(salesRegion.name)
       expect(await rowOf(h, salesRegion.id)).toBeNull()
 
       const elsewhere: VariablePlace = { level: 'organization', organizationId: 'org-globex' }

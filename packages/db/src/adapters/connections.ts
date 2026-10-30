@@ -108,7 +108,12 @@ export class ConnectionsAdapter {
     return this.getById(id)
   }
 
-  async delete(id: string): Promise<void> {
-    await this.db.delete(this.table).where(eq(this.table.id, id))
+  /** Whether a row went: false when it was already gone. */
+  async delete(id: string): Promise<boolean> {
+    const rows = await this.db
+      .delete(this.table)
+      .where(eq(this.table.id, id))
+      .returning({ id: this.table.id })
+    return rows.length > 0
   }
 }

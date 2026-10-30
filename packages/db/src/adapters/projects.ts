@@ -8,11 +8,13 @@ import {
   aliasedTable,
   getTableName,
   isNull,
+  isNotNull,
   notExists,
   type SQL,
 } from 'drizzle-orm'
 import type {
   LockRow,
+  ProjectMoveOutcome,
   OrgMemberSummary,
   Project,
   ProjectLocks,
@@ -23,7 +25,7 @@ import type {
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 import { atomically } from './atomic.js'
-import { readJsonArray, type Dialect } from './json-array.js'
+import { aliasedFrom, readJsonArray, type Dialect } from './json-array.js'
 import { OverviewFields, type OverviewTables } from './overview-fields.js'
 import { holdingProjectRow } from './project-row.js'
 
@@ -118,6 +120,32 @@ export class ProjectsAdapter {
 
   async getById(id: string): Promise<Project | null> {
     const rows = await this.db.select().from(this.table).where(eq(this.table.id, id)).limit(1)
+    return rows[0] ?? null
+  }
+
+  /**
+   * Where a move left the project, with both organizations' names for the
+   * audit log — one statement. Null when the project is gone.
+   */
+  async getMoveOutcome(
+    id: string,
+    fromId: string,
+    toId: string,
+  ): Promise<ProjectMoveOutcome | null> {
+    const o = aliasedTable(this.t.organization, 'mo')
+    const name = (orgId: string) =>
+      sql<string | null>`(select ${o.name} from ${aliasedFrom(o)} where ${o.id} = ${orgId})`
+    const rows = await this.db
+      .select({
+        organizationId: this.table.organizationId,
+        lockedAt: this.table.lockedAt,
+        updatedAt: this.table.updatedAt,
+        fromName: name(fromId),
+        toName: name(toId),
+      })
+      .from(this.table)
+      .where(eq(this.table.id, id))
+      .limit(1)
     return rows[0] ?? null
   }
 
@@ -275,13 +303,50 @@ export class ProjectsAdapter {
     userId: string,
     locked: boolean,
   ): Promise<LockRow | null> {
-    const rows = await this.db
-      .update(this.table)
-      .set(lockValues(this.table, userId, locked))
-      .where(and(eq(this.table.id, id), eq(this.table.organizationId, organizationId)))
-      .returning(lockReturning(this.table, this.t.user, this.fields, organizationId))
-    return rows[0] ?? null
+    return writeChanging<Omit<LockRow, 'changed'>>((match) =>
+      this.db
+        .update(this.table)
+        .set(lockValues(this.table, userId, locked))
+        .where(
+          and(
+            eq(this.table.id, id),
+            eq(this.table.organizationId, organizationId),
+            lockState(this.table, locked, match),
+          ),
+        )
+        .returning(lockReturning(this.table, this.t.user, this.fields, organizationId)),
+    )
   }
+}
+
+/** How a switch write matches its row: only while it still needs the change, or only once it is already so. */
+export type SwitchMatch = 'changing' | 'already'
+
+/** Matches a row by its lock's state: not yet `locked` (`changing`), or already (`already`). */
+export function lockState(table: AnyTable, locked: boolean, match: SwitchMatch): SQL {
+  const isOn = isNotNull(table.lockedAt)
+  const isOff = isNull(table.lockedAt)
+  return locked === (match === 'already') ? isOn : isOff
+}
+
+/**
+ * Runs a switch write so it says whether it changed anything: first only
+ * where the switch still needs the change; when that matches nothing, only
+ * where it is already so — a write that changes nothing and reads the row
+ * back. Neither can undo the other's flip, so the log's last word is the
+ * row's state. When neither matches, someone flipped it in between: the pair
+ * runs once more, and then nothing matching means gone or refused.
+ */
+export async function writeChanging<T>(
+  write: (match: SwitchMatch) => Promise<T[]>,
+): Promise<(T & { changed: boolean }) | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const [changed] = await write('changing')
+    if (changed) return { ...changed, changed: true }
+    const [already] = await write('already')
+    if (already) return { ...already, changed: false }
+  }
+  return null
 }
 
 /**

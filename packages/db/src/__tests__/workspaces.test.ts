@@ -3,8 +3,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 // PGlite migrates a fresh database per test; under a parallel `pnpm test` that
 // runs past vitest's 5s default.
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 })
-import { sql } from 'drizzle-orm'
-import { lockReturning } from '../adapters/projects.js'
+import { and, eq, sql } from 'drizzle-orm'
+import { lockReturning, lockState, lockValues } from '../adapters/projects.js'
 import { OverviewFields } from '../adapters/overview-fields.js'
 import { decodeCursor, encodeCursor } from '../pagination.js'
 import { isUniqueViolation } from '../db-errors.js'
@@ -180,8 +180,10 @@ describe.each([
     it('finds a workspace by id or slugs for a member, and within a held project', async () => {
       const ids = { workspaceId: 'ws-sales', projectId: 'p-101', organizationId: 'org-acme' }
       const rows = { projectGrant: null, workspaceGrant: null }
+      const names = { workspaceName: 'Sales', projectName: 'Project 101' }
       expect(await h.adapter.getWorkspaceIfMember('u-ama', { id: 'ws-sales' })).toEqual({
         ...ids,
+        ...names,
         ...rows,
         orgRole: 'owner',
       })
@@ -191,7 +193,7 @@ describe.each([
           project: 'project-101',
           workspace: 'sales',
         }),
-      ).toEqual({ ...ids, ...rows, orgRole: 'admin' })
+      ).toEqual({ ...ids, ...names, ...rows, orgRole: 'admin' })
       expect(await h.adapter.getWorkspaceIfMember('u-cleo', { id: 'ws-sales' })).toBeNull()
 
       expect(await h.adapter.getWorkspaceInProject('p-101', { slug: 'sales' })).toEqual(ids)
@@ -368,7 +370,7 @@ describe.each([
         'wf-202',
         'nope',
       ])
-      expect(moved).toEqual(['wf-enrich'])
+      expect(moved).toEqual([{ id: 'wf-enrich', name: 'Lead enrichment' }])
       expect(await h.count('workflows', "workspace_id = 'ws-ops'")).toBe(1)
 
       // A target in another project moves nothing.
@@ -383,14 +385,18 @@ describe.each([
   describe('deletion locks', () => {
     it('sets a project lock with its setter’s name, keeps the first setter, and clears it', async () => {
       const on = await h.adapter.setProjectLock('p-101', 'org-acme', 'u-ama', true)
-      expect(on).toMatchObject({ lockedBy: 'u-ama', lockedByName: 'Ama Mensah' })
+      expect(on).toMatchObject({ lockedBy: 'u-ama', lockedByName: 'Ama Mensah', changed: true })
       expect(on!.lockedAt).toEqual(expect.any(String))
       const again = await h.adapter.setProjectLock('p-101', 'org-acme', 'u-ben', true)
-      expect(again).toEqual(on)
+      expect(again).toEqual({ ...on, changed: false })
+      const off = { lockedBy: null, lockedAt: null, lockedByName: null }
       expect(await h.adapter.setProjectLock('p-101', 'org-acme', 'u-ben', false)).toEqual({
-        lockedBy: null,
-        lockedAt: null,
-        lockedByName: null,
+        ...off,
+        changed: true,
+      })
+      expect(await h.adapter.setProjectLock('p-101', 'org-acme', 'u-ben', false)).toEqual({
+        ...off,
+        changed: false,
       })
       // Another org's id is not found.
       expect(await h.adapter.setProjectLock('p-g', 'org-acme', 'u-ama', true)).toBeNull()
@@ -467,6 +473,36 @@ describe.each([
       })
       expect(scope!.project).toMatchObject({ lockedBy: 'u-ben', lockedByName: 'Ben Okoro' })
       expect(scope!.workspace!.projectLockedAt).toEqual(scope!.project!.lockedAt)
+    })
+
+    it('never lets the no-change write undo an opposite flip that landed in between', async () => {
+      await h.adapter.setProjectLock('p-101', 'org-acme', 'u-ama', true)
+      // "Already off?" against a locked row matches nothing and changes nothing.
+      const p = h.schema.projects
+      const touched = await h.db
+        .update(p)
+        .set(lockValues(p, 'u-ben', false))
+        .where(and(eq(p.id, 'p-101'), lockState(p, false, 'already')))
+        .returning({ id: p.id })
+      expect(touched).toEqual([])
+      expect(await h.count('projects', "id = 'p-101' and locked_at is not null")).toBe(1)
+    })
+
+    it('says whether a workspace lock write changed it (B7 logs real changes only)', async () => {
+      expect(await h.adapter.setWorkspaceLock('ws-sales', 'u-ama', true)).toMatchObject({
+        changed: true,
+      })
+      expect(await h.adapter.setWorkspaceLock('ws-sales', 'u-ben', true)).toMatchObject({
+        lockedBy: 'u-ama',
+        changed: false,
+      })
+      expect(await h.adapter.setWorkspaceLock('ws-sales', 'u-ben', false)).toMatchObject({
+        lockedAt: null,
+        changed: true,
+      })
+      expect(await h.adapter.setWorkspaceLock('ws-sales', 'u-ben', false)).toMatchObject({
+        changed: false,
+      })
     })
 
     it('refuses a workspace lock change while its project is locked', async () => {

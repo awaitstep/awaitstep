@@ -365,18 +365,27 @@ export interface ProjectOverview extends Project {
   viewer: GrantRows
 }
 
-/** A project's or workspace's deletion lock as a write left it: all null when off. */
+/**
+ * A project's or workspace's deletion lock as a write left it: all null when
+ * off. `changed` is false when the lock was already in the asked-for state,
+ * so the audit log records real changes only.
+ */
 export interface LockRow {
   lockedBy: string | null
   lockedAt: string | null
   lockedByName: string | null
+  changed: boolean
 }
 
-/** A workflow's share to its project as a write left it; the sharer's name while they are in the org. */
+/**
+ * A workflow's share to its project as a write left it; the sharer's name
+ * while they are in the org. `changed` as on `LockRow`.
+ */
 export interface SharingRow {
   sharedBy: string | null
   sharedAt: string | null
   sharedByName: string | null
+  changed: boolean
 }
 
 /**
@@ -404,6 +413,96 @@ export interface SharedWorkflowFilter {
   /** "Shared with Sales": every workspace's but this one's. */
   exceptWorkspaceId?: string
   kind?: 'workflow' | 'script'
+}
+
+/** One audit-log row as the API writes it: the words already rendered, the facts as JSON. */
+export interface AuditEventInsert {
+  id: string
+  organizationId: string
+  projectId: string | null
+  workspaceId: string | null
+  level: 'organization' | 'project' | 'workspace'
+  kind: 'danger' | 'key' | 'access' | 'deploy' | 'auth' | 'lock'
+  event: string
+  actorType: 'user' | 'key'
+  actorId: string
+  actorName: string
+  /** The person's address when they acted; null for a key. */
+  actorEmail: string | null
+  action: string
+  target: string
+  detail: string
+  meta: string
+  ip: string | null
+  createdAt: string
+}
+
+/** A sign-in, written once for every organization the person is in. */
+export interface SignInAuditInsert {
+  /** Makes each row's id: `<idPrefix>_<organization id>`. */
+  idPrefix: string
+  userId: string
+  event: string
+  action: string
+  detail: string
+  ip: string | null
+  createdAt: string
+}
+
+/** An audit-log row as the log lists it, its scope named from what exists now. */
+export interface AuditEventRow {
+  id: string
+  at: string
+  kind: AuditEventInsert['kind']
+  event: string
+  actor: string
+  actorType: AuditEventInsert['actorType']
+  /** Who acted, by id and (for a person) address: the name is theirs to choose. */
+  actorId: string
+  actorEmail: string | null
+  action: string
+  target: string
+  detail: string
+  ip: string | null
+  scope: {
+    level: AuditEventInsert['level']
+    name: string
+    colour: string | null
+  }
+}
+
+export interface AuditListFilter {
+  organizationId: string
+  level?: AuditEventInsert['level']
+  /** Only events at or after this instant. */
+  since: string
+  /** Matches the actor, the action and the target, ignoring case. */
+  search?: string
+  /** Events never listed (markers). */
+  hiddenEvents: readonly string[]
+}
+
+/** An audit page with the number of events the filter matches across every page. */
+export interface AuditEventPage {
+  data: AuditEventRow[]
+  nextCursor: string | null
+  total: number
+}
+
+/** The actor's other open attempts inside the window. */
+export interface FailureCount {
+  failures: number
+  lastFailureAt: string | null
+}
+
+/** Where a project move left the project, and the two organizations' names. */
+export interface ProjectMoveOutcome {
+  organizationId: string
+  lockedAt: string | null
+  /** Equals the stamp `moveProjectToOrganization` answered when that call moved it. */
+  updatedAt: string
+  fromName: string | null
+  toName: string | null
 }
 
 /** What stands in the way of deleting a project. */
@@ -529,6 +628,9 @@ export type Invitation = InferSelectModel<typeof invitation>
 export type ProjectGrant = ProjectMember['role']
 export type WorkspaceGrant = WorkspaceMember['role']
 
+/** A workspace grant as a write left it, with the person's name for the audit log (B7). */
+export type NamedWorkspaceMember = WorkspaceMember & { personName: string | null }
+
 /** The rows behind one person's standing at one place; null where there is no row. */
 export interface GrantRows {
   /** As better-auth stores it (`owner`, `admin`, `member`); null outside the organization. */
@@ -543,7 +645,11 @@ export interface ProjectAccess extends GrantRows {
   workspace: WorkspaceChip | null
 }
 
-export interface WorkspaceAccess extends GrantRows, WorkspaceIds {}
+export interface WorkspaceAccess extends GrantRows, WorkspaceIds {
+  /** The names the audit log records (B7), from the same read. */
+  workspaceName: string
+  projectName: string
+}
 
 /** A workflow the caller can open, with their rows in its workspace. */
 export interface WorkflowAccess extends GrantRows {
@@ -619,6 +725,8 @@ export interface AccessGrantData {
  */
 export interface InOrgCheck {
   role: string | null
+  /** The `userId` person's name, for the audit log (B7); null when none was asked or found. */
+  name: string | null
   users: number
   projects: number
   workspaces: number

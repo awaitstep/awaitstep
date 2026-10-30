@@ -25,7 +25,7 @@ import { boundFields, insertWhere } from './insert-where.js'
 import { aliasedFrom, type Dialect } from './json-array.js'
 import { OverviewFields, type OverviewTables } from './overview-fields.js'
 import { readPeople } from './people.js'
-import { lockReturning, lockValues } from './projects.js'
+import { lockReturning, lockState, lockValues, writeChanging } from './projects.js'
 import { holdingProjectRow } from './project-row.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -331,20 +331,23 @@ export class WorkspacesAdapter {
    */
   async setLock(id: string, userId: string, locked: boolean): Promise<LockRow | null> {
     const w = this.t.workspaces
-    const rows = await holdingProjectRow<LockRow[]>(
-      this.db,
-      this.dialect,
-      this.t.projects,
-      this.projectOf(id),
-      'share',
-      (db) =>
-        db
-          .update(w)
-          .set(lockValues(w, userId, locked))
-          .where(and(eq(w.id, id), notExists(this.projectLocked(id))))
-          .returning(lockReturning(w, this.t.user, this.fields, this.organizationOf(id))),
+    return writeChanging<Omit<LockRow, 'changed'>>((match) =>
+      holdingProjectRow<Omit<LockRow, 'changed'>[]>(
+        this.db,
+        this.dialect,
+        this.t.projects,
+        this.projectOf(id),
+        'share',
+        (db) =>
+          db
+            .update(w)
+            .set(lockValues(w, userId, locked))
+            .where(
+              and(eq(w.id, id), notExists(this.projectLocked(id)), lockState(w, locked, match)),
+            )
+            .returning(lockReturning(w, this.t.user, this.fields, this.organizationOf(id))),
+      ),
     )
-    return rows[0] ?? null
   }
 
   /**
@@ -356,7 +359,7 @@ export class WorkspacesAdapter {
     fromWorkspaceId: string,
     toWorkspaceId: string,
     workflowIds: string[],
-  ): Promise<string[]> {
+  ): Promise<{ id: string; name: string }[]> {
     if (workflowIds.length === 0) return []
     const wf = this.t.workflows
     const source = aliasedTable(this.t.workspaces, 'source')
@@ -366,7 +369,7 @@ export class WorkspacesAdapter {
       .update(wf)
       .set({ workspaceId: toWorkspaceId, updatedAt: new Date().toISOString() })
       .where(and(inArray(wf.id, workflowIds), eq(wf.workspaceId, fromWorkspaceId), sameProject))
-      .returning({ id: wf.id })
-    return rows.map((row: { id: string }) => row.id)
+      .returning({ id: wf.id, name: wf.name })
+    return rows
   }
 }

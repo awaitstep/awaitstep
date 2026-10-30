@@ -46,6 +46,13 @@ import type {
   SharingRow,
   SharedWorkflowRow,
   SharedWorkflowFilter,
+  AuditEventInsert,
+  NamedWorkspaceMember,
+  ProjectMoveOutcome,
+  SignInAuditInsert,
+  AuditListFilter,
+  AuditEventPage,
+  FailureCount,
   ProjectRef,
   InstalledNode,
   CreateVersionData,
@@ -69,7 +76,6 @@ import type {
   WorkflowAccess,
   WorkspaceGrant,
   WorkspaceGrantData,
-  WorkspaceMember,
   WorkspacePersonRow,
   ProjectMemberRow,
   OrgMemberRow,
@@ -108,6 +114,7 @@ import { WorkspacesAdapter } from './workspaces.js'
 import { WorkspaceRunsAdapter } from './workspace-runs.js'
 import { WorkflowsAdapter } from './workflows.js'
 import { SharedWorkflowsAdapter } from './shared-workflows.js'
+import { AuditAdapter } from './audit.js'
 import { VersionsAdapter } from './versions.js'
 import { ConnectionsAdapter } from './connections.js'
 import { RunsAdapter } from './runs.js'
@@ -145,6 +152,7 @@ export interface SchemaRef {
   workspaceMembers?: unknown
   invitationPlaces?: unknown
   accessRequests?: unknown
+  auditEvents?: unknown
 }
 
 export interface DrizzleAdapterOptions {
@@ -167,6 +175,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _schema: SchemaRef
   private _workflows: WorkflowsAdapter
   private _shared: SharedWorkflowsAdapter
+  private _audit: AuditAdapter
   private _versions: VersionsAdapter
   private _connections: ConnectionsAdapter
   private _runs: RunsAdapter
@@ -240,6 +249,18 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     this._workspaceRuns = new WorkspaceRunsAdapter(db, tables)
     this._workflows = new WorkflowsAdapter(db, schema.workflows, schema.workspaces)
     this._shared = new SharedWorkflowsAdapter(db, tables, this._dialect)
+    this._audit = new AuditAdapter(
+      db,
+      {
+        auditEvents: schema.auditEvents,
+        organization: schema.organization,
+        member: schema.member,
+        user: schema.user,
+        projects: schema.projects,
+        workspaces: schema.workspaces,
+      },
+      this._dialect,
+    )
     this._versions = new VersionsAdapter(db, schema.workflowVersions)
     this._connections = new ConnectionsAdapter(db, schema.connections, options?.tokenCrypto)
     this._runs = new RunsAdapter(db, schema.workflowRuns, schema.workflows, schema.deployments)
@@ -339,6 +360,13 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }): Promise<{ project: Project; workspace: Workspace }> {
     return this._projects.create(data)
   }
+  getProjectMoveOutcome(
+    id: string,
+    fromOrganizationId: string,
+    toOrganizationId: string,
+  ): Promise<ProjectMoveOutcome | null> {
+    return this._projects.getMoveOutcome(id, fromOrganizationId, toOrganizationId)
+  }
   getProjectById(id: string): Promise<Project | null> {
     return this._projects.getById(id)
   }
@@ -357,7 +385,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     fromOrganizationId: string,
     toOrganizationId: string,
     moverId: string,
-  ): Promise<void> {
+  ): Promise<string> {
     return this._access.moveProject(projectId, fromOrganizationId, toOrganizationId, moverId)
   }
   updateProject(
@@ -411,7 +439,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     fromWorkspaceId: string,
     toWorkspaceId: string,
     workflowIds: string[],
-  ): Promise<string[]> {
+  ): Promise<{ id: string; name: string }[]> {
     return this._workspaces.moveWorkflows(fromWorkspaceId, toWorkspaceId, workflowIds)
   }
   listWorkspaceRuns(workspaceId: string, filter: WorkspaceRunFilter): Promise<WorkspaceRunPage> {
@@ -462,17 +490,20 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   getGrantRows(workspaceId: string, userId: string): Promise<GrantRows | null> {
     return this._access.grantRowsOf(workspaceId, userId)
   }
-  addWorkspaceMember(data: WorkspaceGrantData): Promise<WorkspaceMember | null> {
+  addWorkspaceMember(data: WorkspaceGrantData): Promise<NamedWorkspaceMember | null> {
     return this._access.addWorkspaceMember(data)
   }
   setWorkspaceGrant(
     workspaceId: string,
     userId: string,
     role: WorkspaceGrant,
-  ): Promise<WorkspaceMember | null> {
+  ): Promise<(NamedWorkspaceMember & { changed: boolean }) | null> {
     return this._access.setWorkspaceGrant(workspaceId, userId, role)
   }
-  removeWorkspaceGrant(workspaceId: string, userId: string): Promise<boolean> {
+  removeWorkspaceGrant(
+    workspaceId: string,
+    userId: string,
+  ): Promise<{ role: string; personName: string | null } | null> {
     return this._access.removeWorkspaceGrant(workspaceId, userId)
   }
   getOrgRole(organizationId: string, userId: string): Promise<string | null> {
@@ -501,7 +532,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   setInvitationStatus(id: string, from: string, to: string): Promise<boolean> {
     return this._invitations.setStatus(id, from, to)
   }
-  cancelInvitation(id: string, organizationId: string): Promise<boolean> {
+  cancelInvitation(id: string, organizationId: string): Promise<string | null> {
     return this._invitations.cancel(id, organizationId)
   }
   resendInvitation(id: string, expiresAt: string, unlessExpiresAfter: string): Promise<boolean> {
@@ -707,6 +738,30 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     return this._shared.list(filter, pagination)
   }
 
+  // Audit log
+  insertAuditEvents(rows: AuditEventInsert[]): Promise<void> {
+    return this._audit.insert(rows)
+  }
+  insertSignInAuditEvents(entry: SignInAuditInsert): Promise<void> {
+    return this._audit.insertSignIn(entry)
+  }
+  listAuditEvents(filter: AuditListFilter, pagination?: PaginationParams): Promise<AuditEventPage> {
+    return this._audit.list(filter, pagination)
+  }
+  reserveAuditAttempt(
+    attempt: AuditEventInsert,
+    since: string,
+    ofType?: AuditEventInsert['actorType'],
+  ): Promise<FailureCount> {
+    return this._audit.reserveAttempt(attempt, since, ofType)
+  }
+  deleteAuditEvent(id: string): Promise<void> {
+    return this._audit.deleteOne(id)
+  }
+  purgeAuditEvents(before: string): Promise<number> {
+    return this._audit.purge(before)
+  }
+
   // Versions
   createVersion(data: CreateVersionData): Promise<WorkflowVersion> {
     return this._versions.create(data)
@@ -757,7 +812,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   ): Promise<Connection | null> {
     return this._connections.update(id, data)
   }
-  deleteConnection(id: string): Promise<void> {
+  deleteConnection(id: string): Promise<boolean> {
     return this._connections.delete(id)
   }
 
@@ -1153,7 +1208,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   ): Promise<EnvVar | null> {
     return this._envVars.update(id, place, data)
   }
-  deleteEnvVar(id: string, place: VariablePlace): Promise<boolean> {
+  deleteEnvVar(id: string, place: VariablePlace): Promise<string | null> {
     return this._envVars.delete(id, place)
   }
   isSecretVariableAt(id: string, place: VariablePlace): Promise<boolean> {
