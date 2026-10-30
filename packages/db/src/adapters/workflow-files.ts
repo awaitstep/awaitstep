@@ -1,5 +1,7 @@
 import { eq, and, asc, sql } from 'drizzle-orm'
 import type { UpsertWorkflowFileData, WorkflowFile, WorkflowFileSummary } from '../types.js'
+import { atomicallyReturning } from './atomic.js'
+import { chunked, rowsPerInsert } from './statement-params.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -50,37 +52,49 @@ export class WorkflowFilesAdapter {
   }
 
   /**
-   * Create-or-replace on the (workflowId, path) identity, one statement for
-   * the whole batch: stored ids and createdAt survive conflicts, everything
-   * else is the incoming write.
+   * Create-or-replace on the (workflowId, path) identity, as one unit: stored
+   * ids and createdAt survive conflicts, everything else is the incoming
+   * write. A few rows per statement — D1 binds at most 100 parameters.
    */
   async upsertMany(rows: UpsertWorkflowFileData[]): Promise<WorkflowFile[]> {
     if (rows.length === 0) return []
+    const results = await atomicallyReturning<WorkflowFile>(this.db, (tx) =>
+      this.upsertStatements(tx, rows),
+    )
+    return results.flat()
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private upsertStatements(tx: any, rows: UpsertWorkflowFileData[]) {
     const now = new Date().toISOString()
-    return this.db
-      .insert(this.table)
-      .values(
-        rows.map((data) => ({
-          id: data.id,
-          workflowId: data.workflowId,
-          path: data.path,
-          source: data.source,
-          hash: data.hash,
-          size: data.size,
-          createdAt: now,
-          updatedAt: now,
-        })),
-      )
-      .onConflictDoUpdate({
-        target: [this.table.workflowId, this.table.path],
-        set: {
-          source: sql`excluded.source`,
-          hash: sql`excluded.hash`,
-          size: sql`excluded.size`,
-          updatedAt: sql`excluded.updated_at`,
-        },
-      })
-      .returning()
+    // One row per path, the last one winning: a path twice in one statement
+    // is an error on Postgres, and across chunks it would come back twice.
+    const byPath = new Map(rows.map((data) => [`${data.workflowId}\u0000${data.path}`, data]))
+    const values = [...byPath.values()].map((data) => ({
+      id: data.id,
+      workflowId: data.workflowId,
+      path: data.path,
+      source: data.source,
+      hash: data.hash,
+      size: data.size,
+      createdAt: now,
+      updatedAt: now,
+    }))
+    return chunked(values, rowsPerInsert(this.table)).map((some) =>
+      tx
+        .insert(this.table)
+        .values(some)
+        .onConflictDoUpdate({
+          target: [this.table.workflowId, this.table.path],
+          set: {
+            source: sql`excluded.source`,
+            hash: sql`excluded.hash`,
+            size: sql`excluded.size`,
+            updatedAt: sql`excluded.updated_at`,
+          },
+        })
+        .returning(),
+    )
   }
 
   async upsert(data: UpsertWorkflowFileData): Promise<WorkflowFile> {
@@ -141,10 +155,21 @@ export class WorkflowFilesAdapter {
     return rows[0] ?? null
   }
 
-  /** Makes `rows` the workflow's entire file set (a version revert). */
+  /**
+   * Makes `rows` the workflow's entire file set (a version revert), as one
+   * unit: a failed write never leaves the workflow with its files deleted.
+   */
   async replaceAll(workflowId: string, rows: UpsertWorkflowFileData[]): Promise<WorkflowFile[]> {
-    await this.db.delete(this.table).where(eq(this.table.workflowId, workflowId))
-    return this.upsertMany(rows)
+    const [, ...written] = await atomicallyReturning<WorkflowFile>(this.db, (tx) => [
+      // Every statement of the unit returns rows, so the delete names what it
+      // removed too; its ids are dropped.
+      tx
+        .delete(this.table)
+        .where(eq(this.table.workflowId, workflowId))
+        .returning({ id: this.table.id }),
+      ...(rows.length > 0 ? this.upsertStatements(tx, rows) : []),
+    ])
+    return written.flat()
   }
 
   /**

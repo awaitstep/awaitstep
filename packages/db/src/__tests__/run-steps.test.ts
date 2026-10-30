@@ -22,8 +22,13 @@ function createTestDb() {
     );
     CREATE UNIQUE INDEX idx_workflow_run_steps_identity ON workflow_run_steps (run_id, step_name, kind, step_index);
   `)
-  const adapter = new DrizzleDatabaseAdapter(drizzle(sqlite), sqliteSchema)
-  return { adapter, sqlite }
+  // Bound parameters per statement, to hold every write under D1's cap of 100.
+  const params: number[] = []
+  const adapter = new DrizzleDatabaseAdapter(
+    drizzle(sqlite, { logger: { logQuery: (_query, bound) => params.push(bound.length) } }),
+    sqliteSchema,
+  )
+  return { adapter, sqlite, params }
 }
 
 function seedRun(sqlite: Database.Database, runId: string, status = 'running') {
@@ -160,5 +165,34 @@ describe('getRunForSync', () => {
     expect(entry?.run.id).toBe('run-1')
     expect(entry?.workflowName).toBe('My Flow')
     expect(await adapter.getRunForSync('run-1', 'other-wf')).toBeNull()
+  })
+})
+
+describe('many steps (D1 binds at most 100 parameters per statement)', () => {
+  it('upserts 40 steps in statements of at most 100 parameters', async () => {
+    const db = createTestDb()
+    seedRun(db.sqlite, 'r-many')
+    db.params.length = 0
+    await db.adapter.upsertRunSteps(
+      'r-many',
+      Array.from({ length: 40 }, (_, i) => ({
+        id: `s-${i}`,
+        stepName: `step ${i}`,
+        kind: 'do',
+        stepIndex: 1,
+        status: 'complete',
+        attemptCount: 1,
+      })),
+    )
+    expect(Math.max(...db.params)).toBeLessThanOrEqual(100)
+    expect(
+      (
+        db.sqlite
+          .prepare("SELECT count(*) AS n FROM workflow_run_steps WHERE run_id = 'r-many'")
+          .get() as {
+          n: number
+        }
+      ).n,
+    ).toBe(40)
   })
 })

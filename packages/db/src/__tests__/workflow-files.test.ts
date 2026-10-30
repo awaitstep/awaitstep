@@ -21,8 +21,13 @@ function createTestDb() {
     INSERT INTO workflows (id, project_id, name, created_at, updated_at) VALUES ('wf-1', 'p-1', 'One', '${now}', '${now}');
     INSERT INTO workflows (id, project_id, name, created_at, updated_at) VALUES ('wf-2', 'p-1', 'Two', '${now}', '${now}');
   `)
-  const adapter = new DrizzleDatabaseAdapter(drizzle(sqlite), sqliteSchema)
-  return { adapter, sqlite }
+  // Bound parameters per statement, to hold every write under D1's cap of 100.
+  const params: number[] = []
+  const adapter = new DrizzleDatabaseAdapter(
+    drizzle(sqlite, { logger: { logQuery: (_query, bound) => params.push(bound.length) } }),
+    sqliteSchema,
+  )
+  return { adapter, sqlite, params }
 }
 
 function row(overrides: Partial<UpsertWorkflowFileData> = {}): UpsertWorkflowFileData {
@@ -136,5 +141,45 @@ describe('workflow files adapter', () => {
     await db.adapter.upsertWorkflowFile(row())
     db.sqlite.prepare(`DELETE FROM workflows WHERE id = 'wf-1'`).run()
     expect(await db.adapter.listWorkflowFiles('wf-1')).toEqual([])
+  })
+
+  describe('many files (D1 binds at most 100 parameters per statement)', () => {
+    const many = (n: number, prefix = 'f') =>
+      Array.from({ length: n }, (_, i) =>
+        row({ id: `${prefix}-${i}`, path: `lib/${prefix}-${i}.ts`, hash: `h${i}` }),
+      )
+
+    it('upserts 40 files in statements of at most 100 parameters, returning every row', async () => {
+      db.params.length = 0
+      const written = await db.adapter.upsertWorkflowFiles(many(40))
+      expect(written).toHaveLength(40)
+      expect(Math.max(...db.params)).toBeLessThanOrEqual(100)
+      expect(
+        (db.sqlite.prepare('SELECT count(*) AS n FROM workflow_files').get() as { n: number }).n,
+      ).toBe(40)
+    })
+
+    it('replaces the whole set of 40 as one unit, and keeps the old set when a write fails', async () => {
+      await db.adapter.upsertWorkflowFiles(many(3, 'old'))
+      db.params.length = 0
+      const written = await db.adapter.replaceWorkflowFiles('wf-1', many(40))
+      expect(written).toHaveLength(40)
+      expect(Math.max(...db.params)).toBeLessThanOrEqual(100)
+
+      const broken = [
+        ...many(20, 'new'),
+        row({ id: 'bad', path: 'lib/bad.ts', workflowId: 'nope' }),
+      ]
+      await expect(db.adapter.replaceWorkflowFiles('wf-1', broken)).rejects.toThrow()
+      expect(
+        (
+          db.sqlite
+            .prepare("SELECT count(*) AS n FROM workflow_files WHERE id LIKE 'f-%'")
+            .get() as {
+            n: number
+          }
+        ).n,
+      ).toBe(40)
+    })
   })
 })

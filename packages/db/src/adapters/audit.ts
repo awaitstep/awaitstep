@@ -24,7 +24,7 @@ import type { PaginationParams } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 import { atomically } from './atomic.js'
 import { aliasedFrom, type Dialect } from './json-array.js'
-import { chunked, rowsPerStatement } from './statement-params.js'
+import { chunked, rowsPerInsert } from './statement-params.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -80,7 +80,7 @@ export class AuditAdapter {
   /** Writes the rows as one unit, a few per statement: each binds every column (D1's cap). */
   async insert(rows: AuditEventInsert[]): Promise<void> {
     if (rows.length === 0) return
-    const perStatement = rowsPerStatement(Object.keys(rows[0]!).length)
+    const perStatement = rowsPerInsert(this.t.auditEvents)
     await atomically(this.db, (tx) =>
       chunked(rows, perStatement).map((some) => tx.insert(this.t.auditEvents).values(some)),
     )

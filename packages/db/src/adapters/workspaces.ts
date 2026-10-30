@@ -1,15 +1,4 @@
-import {
-  and,
-  asc,
-  eq,
-  inArray,
-  isNull,
-  ne,
-  notExists,
-  sql,
-  aliasedTable,
-  type SQL,
-} from 'drizzle-orm'
+import { and, asc, eq, isNull, ne, notExists, sql, aliasedTable, type SQL } from 'drizzle-orm'
 import type {
   CreateWorkspaceData,
   LockRow,
@@ -22,7 +11,7 @@ import type {
 } from '../types.js'
 import { atomically } from './atomic.js'
 import { boundFields, insertWhere } from './insert-where.js'
-import { aliasedFrom, type Dialect } from './json-array.js'
+import { aliasedFrom, idList, type Dialect } from './json-array.js'
 import { OverviewFields, type OverviewTables } from './overview-fields.js'
 import { readPeople } from './people.js'
 import { lockReturning, lockState, lockValues, writeChanging } from './projects.js'
@@ -368,7 +357,14 @@ export class WorkspacesAdapter {
     const rows = await this.db
       .update(wf)
       .set({ workspaceId: toWorkspaceId, updatedAt: new Date().toISOString() })
-      .where(and(inArray(wf.id, workflowIds), eq(wf.workspaceId, fromWorkspaceId), sameProject))
+      .where(
+        and(
+          // One bound list, however many ids: D1 binds at most 100 parameters.
+          sql`${wf.id} in ${idList(this.dialect, workflowIds)}`,
+          eq(wf.workspaceId, fromWorkspaceId),
+          sameProject,
+        ),
+      )
       .returning({ id: wf.id, name: wf.name })
     return rows
   }

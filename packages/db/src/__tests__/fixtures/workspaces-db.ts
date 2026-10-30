@@ -5,6 +5,9 @@ import { drizzle as drizzleSqlite } from 'drizzle-orm/better-sqlite3'
 import { migrate as migrateSqlite } from 'drizzle-orm/better-sqlite3/migrator'
 import { drizzle as drizzlePg } from 'drizzle-orm/pglite'
 import { migrate as migratePg } from 'drizzle-orm/pglite/migrator'
+import { migrate as migrateD1 } from 'drizzle-orm/d1/migrator'
+import { Miniflare } from 'miniflare'
+import { createD1DrizzleDb } from '../../d1.js'
 import { DrizzleDatabaseAdapter } from '../../adapters/index.js'
 import * as sqliteSchema from '../../schema/sqlite/index.js'
 import * as pgSchema from '../../schema/pg/index.js'
@@ -57,6 +60,29 @@ export async function pgHarness(): Promise<Harness> {
       )
       return Number(result.rows[0]!.n)
     },
+  }
+}
+
+/**
+ * A real D1 (workerd through Miniflare), migrated: the one driver with D1's
+ * limits — at most 100 bound parameters per statement, `batch` for units.
+ */
+export async function d1Harness(): Promise<Harness & { dispose(): Promise<void> }> {
+  const mf = new Miniflare({ modules: true, script: 'export default {}', d1Databases: ['DB'] })
+  const binding = await mf.getD1Database('DB')
+  const db = createD1DrizzleDb(binding)
+  await migrateD1(db, { migrationsFolder: SQLITE_FOLDER })
+  return {
+    adapter: new DrizzleDatabaseAdapter(db, sqliteSchema, { dialect: 'sqlite' }),
+    db,
+    schema: sqliteSchema,
+    count: async (table, where = '1=1') =>
+      (
+        (await binding.prepare(`SELECT count(*) AS n FROM ${table} WHERE ${where}`).first()) as {
+          n: number
+        }
+      ).n,
+    dispose: () => mf.dispose(),
   }
 }
 

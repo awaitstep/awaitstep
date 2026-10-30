@@ -1,6 +1,8 @@
 import { eq, and, asc, sql } from 'drizzle-orm'
 import type { RunStepsResult, UpsertRunStepData } from '../types.js'
 import { latestDeploymentSnapshot } from './deployment-snapshot.js'
+import { atomically } from './atomic.js'
+import { chunked, rowsPerInsert } from './statement-params.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -36,21 +38,26 @@ export class RunStepsAdapter {
       createdAt: now,
       updatedAt: now,
     }))
-    await this.db
-      .insert(this.table)
-      .values(rows)
-      .onConflictDoUpdate({
-        target: [this.table.runId, this.table.stepName, this.table.kind, this.table.stepIndex],
-        set: {
-          nodeId: sql`excluded.node_id`,
-          status: sql`excluded.status`,
-          attemptCount: sql`excluded.attempt_count`,
-          error: sql`excluded.error`,
-          startedAt: sql`excluded.started_at`,
-          endedAt: sql`excluded.ended_at`,
-          updatedAt: sql`excluded.updated_at`,
-        },
-      })
+    // A few rows per statement (D1 binds at most 100 parameters), as one unit.
+    await atomically(this.db, (tx) =>
+      chunked(rows, rowsPerInsert(this.table)).map((some) =>
+        tx
+          .insert(this.table)
+          .values(some)
+          .onConflictDoUpdate({
+            target: [this.table.runId, this.table.stepName, this.table.kind, this.table.stepIndex],
+            set: {
+              nodeId: sql`excluded.node_id`,
+              status: sql`excluded.status`,
+              attemptCount: sql`excluded.attempt_count`,
+              error: sql`excluded.error`,
+              startedAt: sql`excluded.started_at`,
+              endedAt: sql`excluded.ended_at`,
+              updatedAt: sql`excluded.updated_at`,
+            },
+          }),
+      ),
+    )
   }
 
   /**
