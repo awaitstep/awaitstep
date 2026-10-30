@@ -235,6 +235,23 @@ export const endpoints: EndpointDef[] = [
     hasBody: false,
   },
 
+  // Audit log (organization keys only)
+  {
+    id: 'list-audit-events',
+    group: 'Audit log',
+    method: 'GET',
+    path: '/api/audit-events',
+    label: 'List audit events',
+    permission: 'audit:read',
+    params: [
+      { name: 'level', in: 'query', required: false },
+      { name: 'period', in: 'query', required: false },
+      { name: 'search', in: 'query', required: false },
+      ...paginationParams,
+    ],
+    hasBody: false,
+  },
+
   // Versions
   {
     id: 'list-versions',

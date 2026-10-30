@@ -8,7 +8,43 @@ import { IT, SALES, SUPPORT } from './workspaces'
 // the longer periods have pages to step through. Fixed samples: nothing the
 // session does on the dummy data is recorded (D-P7-6).
 
-type Event = Omit<AuditRow, 'id' | 'orgId' | 'at'>
+type Event = Omit<
+  AuditRow,
+  'id' | 'orgId' | 'at' | 'event' | 'actorType' | 'actorId' | 'actorEmail' | 'ip'
+>
+
+// The API's code for each sample, by its action. "failed to sign in as" has
+// no API counterpart: there are no passwords to fail (D-B7-5).
+const EVENT_OF: Record<string, string> = {
+  'tried to delete the workspace': 'workspace.delete.blocked',
+  deployed: 'workflow.deploy',
+  'created the API key': 'api_key.create',
+  'revoked the API key': 'api_key.revoke',
+  'added Daniel Kim to': 'workspace_member.add',
+  invited: 'invitation.create',
+  'failed to sign in as': 'signin.failed',
+  'turned on the deletion lock for': 'project.lock',
+  'signed in to': 'signin',
+  'changed Priya Shah’s role in': 'workspace_member.role',
+  'made Tom Becker a project admin of': 'member.access',
+  'deleted the workflow': 'workflow.delete',
+}
+
+const KEY_ACTORS = new Set(['CI deploys'])
+
+/** The sample's code, whether a key did it, and the masked address its detail names. */
+function filled(event: Event): Omit<AuditRow, 'id' | 'orgId' | 'at'> {
+  const isKey = KEY_ACTORS.has(event.actor)
+  const handle = event.actor.split(' ')[0]!.toLowerCase()
+  return {
+    ...event,
+    event: EVENT_OF[event.action] ?? 'unknown',
+    actorType: isKey ? 'key' : 'user',
+    actorId: isKey ? 'key_ci_deploys' : `usr_${handle}`,
+    actorEmail: isKey || event.actor === 'Unknown' ? null : `${handle}@acme.test`,
+    ip: /\b\d+\.\d+\.\d+\.x\b/.exec(event.detail)?.[0] ?? null,
+  }
+}
 
 const at = {
   org: { level: 'organization', projectId: null, workspaceId: null },
@@ -190,13 +226,13 @@ export function seedAudit(now: Date): AuditRow[] {
     id: `aud_board_${i + 1}`,
     orgId: ACME,
     at: minutesAgo(now, minutes),
-    ...event,
+    ...filled(event),
   }))
   const older = Array.from({ length: OLDER_COUNT }, (_, i) => ({
     id: `aud_older_${i + 1}`,
     orgId: ACME,
     at: daysAgo(now, 8 + i * 1.9),
-    ...OLDER[i % OLDER.length]!,
+    ...filled(OLDER[i % OLDER.length]!),
   }))
   return [...board, ...older]
 }

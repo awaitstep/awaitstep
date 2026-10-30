@@ -42,7 +42,10 @@ export function AuditRow({ event }: AuditRowProps) {
           <strong className="font-semibold">{event.actor}</strong> {event.action}{' '}
           <strong className="font-semibold">{event.target}</strong>
         </p>
-        <span className="text-2xs text-muted-foreground">{event.detail}</span>
+        {/* The name is the person's to choose; the address says who it was. */}
+        <span className="text-2xs text-muted-foreground">
+          {[event.actorEmail, event.detail].filter(Boolean).join(' · ')}
+        </span>
       </div>
       <AuditScope scope={event.scope} />
       <time dateTime={event.at} className="w-24 text-right text-2xs text-muted-foreground">

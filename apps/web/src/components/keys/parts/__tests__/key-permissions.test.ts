@@ -33,6 +33,16 @@ describe('key permission catalog', () => {
     expect(KEY_PRESETS.organization).not.toContain('deploy-run')
   })
 
+  it('offers the audit log read-only to organization keys only (B7)', () => {
+    expect(KEY_CATALOG.organization.find((r) => r.id === 'audit')).toMatchObject({
+      label: 'Audit log',
+      hint: 'Who changed what, read only',
+      actions: ['read'],
+    })
+    expect(KEY_CATALOG.project.some((r) => r.id === 'audit')).toBe(false)
+    expect(KEY_CATALOG.workspace.some((r) => r.id === 'audit')).toBe(false)
+  })
+
   it('gives every row a label and a hint', () => {
     for (const level of LEVELS) {
       for (const resource of KEY_CATALOG[level]) {
@@ -68,6 +78,7 @@ describe('presets', () => {
       members: ['read'],
       connections: ['read', 'write', 'delete'],
       resources: ['read', 'write', 'delete'],
+      audit: ['read'],
     })
   })
 

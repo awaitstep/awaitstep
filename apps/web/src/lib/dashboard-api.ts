@@ -10,6 +10,8 @@ import type {
   KeyLevel,
   KeyPermissions,
   ScopeLevel,
+  AuditFilter,
+  AuditPage,
 } from '@awaitstep/ir'
 import {
   request,
@@ -693,6 +695,11 @@ export const dashboardApi = {
     filter: { cursor?: string; limit?: number } = {},
   ): Promise<PaginatedResponse<ApiSharedItem>> {
     return request(`/projects/${projectId}/shared${query({ org, ...filter })}`)
+  },
+
+  /** `GET /audit-events`: one page of the organization's log, newest first (B7). */
+  listAuditEvents(org: string, filter: AuditFilter = {}): Promise<AuditPage> {
+    return request(`/audit-events${query({ org, ...filter })}`)
   },
 
   listSharedWith(

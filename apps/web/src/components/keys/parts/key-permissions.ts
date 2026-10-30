@@ -50,6 +50,7 @@ const RESOURCE_LABEL: Record<KeyResource, string> = {
   workflows: 'Workflows & functions',
   runs: 'Runs',
   variables: 'Variables',
+  audit: 'Audit log',
 }
 
 const RESOURCE_HINT: Record<KeyLevel, Partial<Record<KeyResource, string>>> = {
@@ -58,6 +59,7 @@ const RESOURCE_HINT: Record<KeyLevel, Partial<Record<KeyResource, string>>> = {
     members: 'Who is in the organization',
     connections: 'Cloudflare accounts',
     resources: 'Org nodes and variables',
+    audit: 'Who changed what, read only',
   },
   project: {
     workspaces: 'Create, rename, delete',

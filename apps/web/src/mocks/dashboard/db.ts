@@ -1,6 +1,6 @@
 import type { WorkspaceColour } from '../../components/ui/workspace-colour'
 import type { SessionDevice, SignInProvider } from '../../types/dashboard/account'
-import type { AuditKind, AuditLevel } from '../../types/dashboard/audit'
+import type { AuditActorType, AuditKind, AuditLevel } from '../../types/dashboard/audit'
 import type { KeyLevel, KeyPermissions } from '../../types/dashboard/api-keys'
 import type { NotificationKind } from '../../types/dashboard/inbox'
 import type { FunctionTraffic, ItemKind } from '../../types/dashboard/items'
@@ -231,10 +231,16 @@ export interface AuditRow {
   orgId: string
   at: string
   kind: AuditKind
+  /** The API's event code: `workspace.delete.blocked`. */
+  event: string
   actor: string
+  actorType: AuditActorType
+  actorId: string
+  actorEmail: string | null
   action: string
   target: string
   detail: string
+  ip: string | null
   level: AuditLevel
   projectId: string | null
   workspaceId: string | null
@@ -295,7 +301,7 @@ export interface MockDb {
 
 // Bump when the tables or the seed change, so a tab's saved copy is reseeded
 // instead of read with missing tables.
-const DB_VERSION = 9
+const DB_VERSION = 11
 const STORAGE_KEY = 'awaitstep:dashboard-mock-db'
 
 let current: MockDb | null = null

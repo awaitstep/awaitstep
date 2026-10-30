@@ -1,9 +1,5 @@
-import type {
-  AuditEvent,
-  AuditFilter,
-  AuditPage,
-  AuditPeriod,
-} from '../../../types/dashboard/audit'
+import { AUDIT_PERIOD_MS } from '@awaitstep/ir'
+import type { AuditEvent, AuditFilter, AuditPage } from '../../../types/dashboard/audit'
 import type { AuditRow, MockDb } from '../db'
 import { endpoint, rows } from '../scenario'
 import { managedOrg } from './levels'
@@ -11,14 +7,6 @@ import { pageOf } from './paging'
 
 // The org audit log: fixed sample events (recording them is B7). Org owners
 // and admins only (D-P7-7).
-
-const DAY_MS = 24 * 60 * 60 * 1000
-const PERIOD_MS: Record<AuditPeriod, number> = {
-  '24h': DAY_MS,
-  '7d': 7 * DAY_MS,
-  '30d': 30 * DAY_MS,
-  '90d': 90 * DAY_MS,
-}
 
 function scopeOf(db: MockDb, orgName: string, row: AuditRow): AuditEvent['scope'] {
   if (row.level === 'organization') return { level: row.level, name: orgName }
@@ -38,7 +26,12 @@ function eventRecord(db: MockDb, orgName: string, row: AuditRow): AuditEvent {
     id: row.id,
     at: row.at,
     kind: row.kind,
+    event: row.event,
     actor: row.actor,
+    actorType: row.actorType,
+    actorId: row.actorId,
+    actorEmail: row.actorEmail,
+    ip: row.ip,
     action: row.action,
     target: row.target,
     detail: row.detail,
@@ -54,7 +47,7 @@ function matches(row: AuditRow, search: string): boolean {
 export const listAuditEvents = endpoint(
   (ctx, orgSlug: string, filter: AuditFilter = {}): AuditPage => {
     const { db, org } = managedOrg(ctx, orgSlug)
-    const since = new Date(Date.now() - PERIOD_MS[filter.period ?? '7d']).toISOString()
+    const since = new Date(Date.now() - AUDIT_PERIOD_MS[filter.period ?? '7d']).toISOString()
     const search = filter.search?.trim().toLowerCase()
     const matching = rows(
       ctx,

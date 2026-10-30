@@ -1,7 +1,19 @@
 import { datedCsvName, toCsv } from '../../lib/csv'
 import type { AuditEvent, AuditLevel } from '../../types/dashboard/audit'
 
-const HEADER = ['Time', 'Person', 'Action', 'Target', 'Details', 'Level', 'Where']
+const HEADER = [
+  'Time',
+  'Person',
+  'Action',
+  'Target',
+  'Details',
+  'Level',
+  'Where',
+  'Event',
+  'IP',
+  'Actor ID',
+  'Email',
+]
 
 export const AUDIT_LEVEL_LABEL: Record<AuditLevel, string> = {
   organization: 'Organization',
@@ -21,6 +33,10 @@ export function auditToCsv(events: AuditEvent[]): string {
       event.detail,
       AUDIT_LEVEL_LABEL[event.scope.level],
       event.scope.name,
+      event.event,
+      event.ip ?? '',
+      event.actorId,
+      event.actorEmail ?? '',
     ]),
   )
 }

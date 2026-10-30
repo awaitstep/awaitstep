@@ -20,7 +20,19 @@ describe('AuditRow', () => {
     expect(row).toHaveTextContent('Tom Becker tried to delete the workspace IT')
     const bold = row.querySelectorAll('strong')
     expect([...bold].map((node) => node.textContent)).toEqual(['Tom Becker', 'IT'])
-    expect(within(row).getByText('Blocked by the deletion lock · 81.2.69.x')).toBeVisible()
+    expect(
+      within(row).getByText('tom@acme.test · Blocked by the deletion lock · 81.2.69.x'),
+    ).toBeVisible()
+  })
+
+  it('says who a person was by address', () => {
+    expect(renderEvent('blocked-delete')).toHaveTextContent('tom@acme.test')
+  })
+
+  it('shows a key by its name alone', () => {
+    expect(
+      within(renderEvent('deploy')).getByText('Project API key ask_Kq3VtR8m…a71d'),
+    ).toBeVisible()
   })
 
   it('names the scope it happened in', () => {
