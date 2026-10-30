@@ -1,4 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+
+// PGlite migrates a fresh database per test; under a parallel `pnpm test` that
+// runs past vitest's 5s default.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 })
 import { fileURLToPath } from 'node:url'
 import { PGlite } from '@electric-sql/pglite'
 import { drizzle } from 'drizzle-orm/pglite'
