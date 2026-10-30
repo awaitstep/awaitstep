@@ -21,6 +21,7 @@ import type {
   WorkspaceOverview,
   ProjectOverview,
   WorkspaceRunRow,
+  AuditEventInsert,
 } from '@awaitstep/db'
 import type {
   GeneratedBundle,
@@ -47,6 +48,7 @@ const store = {
   workspaces: new Map<string, Workspace>(),
   installedNodes: new Map<string, InstalledNode>(),
   envVars: new Map<string, EnvVar>(),
+  auditEvents: [] as AuditEventInsert[],
 }
 
 export function resetStore() {
@@ -66,6 +68,7 @@ export function resetStore() {
   testOrgRole = 'owner'
   seedTestProject()
   store.envVars.clear()
+  store.auditEvents.length = 0
 }
 
 function now() {
@@ -263,6 +266,8 @@ const mockDb: DatabaseAdapter = {
       workspaceId: w.id,
       projectId: w.projectId,
       organizationId: project.organizationId,
+      workspaceName: w.name,
+      projectName: project.name,
       ...testGrantRows(),
     }
   },
@@ -450,12 +455,12 @@ const mockDb: DatabaseAdapter = {
     const from = store.workspaces.get(fromWorkspaceId)
     const to = store.workspaces.get(toWorkspaceId)
     if (!from || !to || from.projectId !== to.projectId) return []
-    const moved: string[] = []
+    const moved: { id: string; name: string }[] = []
     for (const id of workflowIds) {
       const wf = store.workflows.get(id)
       if (!wf || wf.workspaceId !== fromWorkspaceId) continue
       store.workflows.set(id, { ...wf, workspaceId: toWorkspaceId, updatedAt: now() })
-      moved.push(id)
+      moved.push({ id, name: wf.name })
     }
     return moved
   },
@@ -660,6 +665,25 @@ const mockDb: DatabaseAdapter = {
     store.workflows.set(id, moved)
     return moved
   },
+  // The audit log runs through the real database in audit.test.ts; the fake
+  // keeps what was written so a route test can look.
+  async insertAuditEvents(rows) {
+    store.auditEvents.push(...rows)
+  },
+  async insertSignInAuditEvents() {},
+  async listAuditEvents() {
+    return notMocked('listAuditEvents')
+  },
+  async reserveAuditAttempt() {
+    return notMocked('reserveAuditAttempt')
+  },
+  async deleteAuditEvent() {},
+  async purgeAuditEvents() {
+    return 0
+  },
+  async getProjectMoveOutcome() {
+    return notMocked('getProjectMoveOutcome')
+  },
   // Sharing runs through the real database in sharing.test.ts; these keep the fake whole.
   async setWorkflowShared(id, workspaceId, userId, shared) {
     const wf = store.workflows.get(id)
@@ -667,7 +691,7 @@ const mockDb: DatabaseAdapter = {
     const sharedAt = shared ? (wf.sharedAt ?? now()) : null
     const sharedBy = shared ? (wf.sharedBy ?? userId) : null
     store.workflows.set(id, { ...wf, sharedBy, sharedAt })
-    return { sharedBy, sharedAt, sharedByName: null }
+    return { sharedBy, sharedAt, sharedByName: null, changed: (wf.sharedAt === null) === shared }
   },
   async listSharedWorkflows() {
     return { data: [], nextCursor: null }
@@ -745,7 +769,7 @@ const mockDb: DatabaseAdapter = {
     return updated
   },
   async deleteConnection(id) {
-    store.connections.delete(id)
+    return store.connections.delete(id)
   },
 
   // Runs
@@ -1382,8 +1406,9 @@ const mockDb: DatabaseAdapter = {
   },
   async deleteEnvVar(id, place) {
     const v = store.envVars.get(id)
-    if (!v || !envVarAtPlace(v, place)) return false
-    return store.envVars.delete(id)
+    if (!v || !envVarAtPlace(v, place)) return null
+    store.envVars.delete(id)
+    return v.name
   },
   async getWorkflowEnvVars(workflowId) {
     const workflow = store.workflows.get(workflowId)
@@ -1592,4 +1617,9 @@ export function createTestApp(options?: {
     ...(options?.clientIpPolicy && { clientIpPolicy: options.clientIpPolicy }),
     ...(options?.logger && { logger: options.logger }),
   })
+}
+
+/** What the routes recorded in the fake's audit log, oldest first. */
+export function recordedAuditEvents(): readonly AuditEventInsert[] {
+  return store.auditEvents
 }

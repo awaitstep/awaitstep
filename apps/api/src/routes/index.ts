@@ -31,6 +31,7 @@ import { versions } from './versions.js'
 import { source } from './source.js'
 import { projectFiles } from './project-files.js'
 import { createConnectionRoutes } from './connections.js'
+import { audit } from './audit.js'
 import { deploy } from './deploy.js'
 import { runs } from './runs.js'
 import { apiKeys } from './api-keys.js'
@@ -73,6 +74,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   )
   router.use('/projects', requireOrganization)
   router.use('/marketplace/*', requireOrganization)
+  router.use('/audit-events', requireOrganization)
   router.use('/failing', requireOrganization)
   // Failing runs across the organization answer for a person; a key is pinned narrower.
   router.use('/failing', requireSessionAuth)
@@ -158,6 +160,9 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.post('/invitations', requireOrgCan('manageSettings'))
   router.post('/invitations/:id/resend', requireOrgCan('manageSettings'))
   router.delete('/invitations/:id', requireOrgCan('manageSettings'))
+  // The audit log is the organization's owners' and admins' (D-P7-7); a key
+  // reads it as its creator, who must still be one.
+  router.get('/audit-events', requireOrgCan('manageSettings'))
   // Variables are set by whoever manages the addressed level (B4): org
   // owners and admins, project admins, workspace admins. A key acts with its
   // creator's standing here as everywhere.
@@ -278,6 +283,8 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.patch('/env-vars/:id', key('resources', 'write', variables('write')))
   router.delete('/env-vars/:id', key('resources', 'delete', variables('delete')))
   router.get('/members', key('members', 'read'))
+  // Organization keys only: the audit log is no project's (B7).
+  router.get('/audit-events', key('audit', 'read'))
   router.get('/workspaces/:id/members', key('members', 'read'))
 
   // Project level: workspaces (a workspace key holds no such cell)
@@ -456,6 +463,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.route('/', scope)
   router.route('/nodes', nodes)
   router.route('/marketplace', marketplace)
+  router.route('/audit-events', audit)
 
   // Global deployments list (across all project's workflows)
   router.get('/deployments', zValidator('query', paginationQuerySchema), async (c) => {

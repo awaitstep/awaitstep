@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { ACCESS_REASONS, grantCounts, inheritedWorkspaceRole } from '@awaitstep/ir'
 import type { GrantRows } from '@awaitstep/db'
@@ -6,6 +6,7 @@ import { zValidator } from '../lib/validation.js'
 import { parseOrgRole } from '../lib/org-role.js'
 import { orgMemberRecord, personAccessRecord, projectMembersRecord } from '../lib/access-records.js'
 import { rolesOf, workspacePersonRecord } from '../lib/scope-records.js'
+import { recordAudit } from '../lib/audit.js'
 import type { AppEnv } from '../types.js'
 
 const projectRoleSchema = z.enum(['admin', 'member'])
@@ -95,8 +96,25 @@ members.put('/:userId/access', zValidator('json', accessGrantSchema), async (c) 
         : c.json({ error: KEEP_AN_OWNER }, 409)
     }
   }
+  await recordAudit(c, {
+    event: 'member.access',
+    facts: {
+      name: check.name ?? userId,
+      fromRole: parseOrgRole(check.role),
+      role: grant.orgRole,
+      summary: placesSummary(rows.projects.length, rows.workspaces.length),
+    },
+  })
   return c.json({ ok: true })
 })
+
+function placesSummary(projects: number, workspaces: number): string | undefined {
+  const parts = [
+    projects > 0 ? `${projects} project${projects === 1 ? '' : 's'}` : null,
+    workspaces > 0 ? `${workspaces} workspace${workspaces === 1 ? '' : 's'}` : null,
+  ].filter((part): part is string => part !== null)
+  return parts.length > 0 ? parts.join(', ') : undefined
+}
 
 /** Remove from the organization, with every row of theirs in it, as one unit. */
 members.delete('/:userId', async (c) => {
@@ -104,9 +122,9 @@ members.delete('/:userId', async (c) => {
   const organizationId = c.get('organizationId')
   const userId = c.req.param('userId')
 
-  const current = await db.getOrgRole(organizationId, userId)
-  if (current === null) return c.json({ error: 'Not found' }, 404)
-  const isOwner = parseOrgRole(current) === 'owner'
+  const current = await db.checkInOrganization(organizationId, { userId })
+  if (current.role === null) return c.json({ error: 'Not found' }, 404)
+  const isOwner = parseOrgRole(current.role) === 'owner'
   const callerIsOwner = c.get('orgRole') === 'owner'
   if (isOwner && !callerIsOwner) return c.json({ error: OWNERS_ONLY }, 403)
   await db.removeOrgMember(organizationId, userId, { callerIsOwner })
@@ -120,8 +138,18 @@ members.delete('/:userId', async (c) => {
         : c.json({ error: KEEP_AN_OWNER }, 409)
     }
   }
+  await recordAudit(c, { event: 'member.remove', facts: { name: current.name ?? userId } })
   return c.json({ ok: true })
 })
+
+/** Where a workspace grant event is recorded: the workspace, by the name the scope read found. */
+function workspaceAudit(c: Context<AppEnv>) {
+  return {
+    projectId: c.get('projectId'),
+    workspaceId: c.get('workspaceId')!,
+    name: c.get('workspaceName') ?? c.get('workspaceId')!,
+  }
+}
 
 /** A workspace's own grants, under `/workspaces/:id/members` (the router's requireWorkspace). */
 export const workspaceMembers = new Hono<AppEnv>()
@@ -154,7 +182,16 @@ workspaceMembers.post(
       role,
       createdBy: c.get('userId'),
     })
-    if (added) return c.json(added, 201)
+    if (added) {
+      const { personName, ...member } = added
+      const { name, ...at } = workspaceAudit(c)
+      await recordAudit(c, {
+        event: 'workspace_member.add',
+        facts: { name, person: personName ?? userId, role },
+        ...at,
+      })
+      return c.json(member, 201)
+    }
     // The statement refused; one read says why.
     const rows = await db.getGrantRows(workspaceId, userId)
     return c.json({ error: refusal(rows, role, 'the organization') }, 409)
@@ -170,7 +207,18 @@ workspaceMembers.patch(
     const userId = c.req.param('userId')
     const { role } = c.req.valid('json')
     const updated = await db.setWorkspaceGrant(workspaceId, userId, role)
-    if (updated) return c.json(updated)
+    if (updated) {
+      const { personName, changed, ...member } = updated
+      if (changed) {
+        const { name, ...at } = workspaceAudit(c)
+        await recordAudit(c, {
+          event: 'workspace_member.role',
+          facts: { name, person: personName ?? userId, role },
+          ...at,
+        })
+      }
+      return c.json(member)
+    }
     const rows = await db.getGrantRows(workspaceId, userId)
     if (!rows?.workspaceGrant) return c.json({ error: 'Not found' }, 404)
     const inherited = inheritedWorkspaceRole(rolesOf(rows).projectRole)
@@ -179,9 +227,14 @@ workspaceMembers.patch(
 )
 
 workspaceMembers.delete('/:userId', async (c) => {
-  const removed = await c
-    .get('db')
-    .removeWorkspaceGrant(c.get('workspaceId')!, c.req.param('userId'))
+  const userId = c.req.param('userId')
+  const removed = await c.get('db').removeWorkspaceGrant(c.get('workspaceId')!, userId)
   if (!removed) return c.json({ error: 'Not found' }, 404)
+  const { name, ...at } = workspaceAudit(c)
+  await recordAudit(c, {
+    event: 'workspace_member.remove',
+    facts: { name, person: removed.personName ?? userId, fromRole: removed.role },
+    ...at,
+  })
   return c.json({ ok: true })
 })

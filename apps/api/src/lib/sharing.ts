@@ -39,7 +39,7 @@ export interface SharedItemRecord extends SharingRecord {
   unshare: Allowed
 }
 
-export function sharingRecord(row: SharingRow): SharingRecord | null {
+export function sharingRecord(row: Omit<SharingRow, 'changed'>): SharingRecord | null {
   // On is `shared_at`; the sharer may be unknown (left the org), never the share.
   if (!row.sharedAt) return null
   return { sharedAt: row.sharedAt, sharedBy: personOf(row.sharedBy, row.sharedByName) }

@@ -93,6 +93,8 @@ export function createAuthMiddleware(auth: Auth) {
       c.set('session', null)
       c.set('apiKey', {
         id: apiKey.id,
+        name: apiKey.name,
+        display: `${apiKey.keyPrefix}…${apiKey.keySuffix ?? ''}`,
         level: keyLevelOf(apiKey),
         permissions,
         projectId: apiKey.projectId,

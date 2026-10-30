@@ -12,6 +12,7 @@ import {
   invitationRecord,
   pendingInviteRecord,
 } from '../lib/access-records.js'
+import { recordAudit } from '../lib/audit.js'
 import type { AppEnv } from '../types.js'
 
 export const INVITE_DAYS = 7
@@ -160,6 +161,13 @@ invitations.post('/', zValidator('json', sendSchema), async (c) => {
     places: places.map((place) => ({ id: nanoid(), ...place })),
   }))
   await db.createInvitations(created)
+  await recordAudit(
+    c,
+    ...created.map((invitation) => ({
+      event: 'invitation.create' as const,
+      facts: { name: invitation.email, role: invitation.role },
+    })),
+  )
 
   // The email names the org, the inviter and the first place, so one read
   // of the first invitation gives every card its words.
@@ -224,6 +232,12 @@ invitations.post('/:id/accept', async (c) => {
   await accept().catch((error: unknown) => {
     if (!isUniqueViolation(error)) throw error
     return accept()
+  })
+  // Joining is the step a leaked invite link would be used for.
+  await recordAudit(c, {
+    event: 'member.join',
+    facts: { name: view.org.name, role: view.invitation.role ?? undefined },
+    organizationId: view.invitation.organizationId,
   })
   return c.json(inviteLanding(view))
 })
@@ -323,7 +337,11 @@ invitations.delete('/:id', async (c) => {
   const db = c.get('db')
   const id = c.req.param('id')
   const organizationId = c.get('organizationId')
-  if (await db.cancelInvitation(id, organizationId)) return c.json({ ok: true })
+  const email = await db.cancelInvitation(id, organizationId)
+  if (email) {
+    await recordAudit(c, { event: 'invitation.cancel', facts: { name: email } })
+    return c.json({ ok: true })
+  }
   const view = await db.getInvitation(id)
   if (!view || view.invitation.organizationId !== organizationId) {
     return c.json({ error: 'Not found' }, 404)

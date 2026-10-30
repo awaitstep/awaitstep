@@ -10,6 +10,7 @@ import { FOR_KEY, FOR_SESSION, projectRecord } from '../lib/scope-records.js'
 import { CHANGED_MEANWHILE, lockBodySchema, lockResponse } from '../lib/locks.js'
 import { sharedItemRecord, sharedListQuerySchema } from '../lib/sharing.js'
 import { parseOrgRole } from '../lib/org-role.js'
+import { recordAudit } from '../lib/audit.js'
 import { projectSlugSchema } from '../lib/slugs.js'
 import type { AppEnv } from '../types.js'
 
@@ -89,25 +90,38 @@ projects.delete('/:id', async (c) => {
   const organizationId = c.get('organizationId')
   const id = c.req.param('id')
 
+  const name = c.get('projectName') ?? id
   // The locks are checked in the statement; only a refusal reads why.
-  if (await db.deleteProject(id, organizationId)) return c.json({ ok: true })
+  if (await db.deleteProject(id, organizationId)) {
+    // Recorded at the organization: the project it would name is gone.
+    await recordAudit(c, { event: 'project.delete', facts: { name } })
+    return c.json({ ok: true })
+  }
   const locks = await db.getProjectLocks(id, organizationId)
   if (!locks) return c.json({ error: 'Not found' }, 404)
   const can = projectCapabilities(c.get('projectRole'), locks, c.get('orgRole')).delete
-  return c.json({ error: can.reason ?? CHANGED_MEANWHILE }, 409)
+  const reason = can.reason ?? CHANGED_MEANWHILE
+  await recordAudit(c, {
+    event: 'project.delete.blocked',
+    facts: { name, reason },
+    projectId: id,
+  })
+  return c.json({ error: reason }, 409)
 })
 
 /** Turns the project's deletion lock on or off; on again keeps who set it and when. */
 projects.put('/:id/lock', zValidator('json', lockBodySchema), async (c) => {
-  const row = await c
-    .get('db')
-    .setProjectLock(
-      c.req.param('id'),
-      c.get('organizationId'),
-      c.get('userId'),
-      c.req.valid('json').locked,
-    )
+  const id = c.req.param('id')
+  const { locked } = c.req.valid('json')
+  const row = await c.get('db').setProjectLock(id, c.get('organizationId'), c.get('userId'), locked)
   if (!row) return c.json({ error: 'Not found' }, 404)
+  if (row.changed) {
+    await recordAudit(c, {
+      event: locked ? 'project.lock' : 'project.unlock',
+      facts: { name: c.get('projectName') ?? id },
+      projectId: id,
+    })
+  }
   return c.json(lockResponse(row))
 })
 
@@ -147,15 +161,39 @@ projects.post(
     // One unit, the caller's standing in the target checked in its
     // statement; the project's row then says whether it moved, and only a
     // refusal costs a read to say why.
+    let movedAt: string
     try {
-      await db.moveProjectToOrganization(id, from, to, userId)
+      movedAt = await db.moveProjectToOrganization(id, from, to, userId)
     } catch (error) {
       if (isUniqueViolation(error)) return c.json({ error: SLUG_TAKEN_THERE }, 409)
       throw error
     }
-    const project = await db.getProjectById(id)
-    if (project?.organizationId === to) return c.json({ ok: true })
-    if (project?.lockedAt) return c.json({ error: ACCESS_REASONS.lockFirst }, 409)
+    const outcome = await db.getProjectMoveOutcome(id, from, to)
+    const name = c.get('projectName') ?? id
+    if (outcome?.organizationId === to) {
+      // A concurrent move of the same project got there first: it records.
+      if (outcome.updatedAt !== movedAt) return c.json({ ok: true })
+      // Both organizations' logs keep it: the one it left, and the one it joined.
+      await recordAudit(
+        c,
+        { event: 'project.move.out', facts: { name, otherOrg: outcome.toName ?? undefined } },
+        {
+          event: 'project.move.in',
+          facts: { name, otherOrg: outcome.fromName ?? undefined },
+          organizationId: to,
+          projectId: id,
+        },
+      )
+      return c.json({ ok: true })
+    }
+    if (outcome?.lockedAt) {
+      await recordAudit(c, {
+        event: 'project.move.blocked',
+        facts: { name, reason: ACCESS_REASONS.lockFirst },
+        projectId: id,
+      })
+      return c.json({ error: ACCESS_REASONS.lockFirst }, 409)
+    }
     const targetRole = await db.getOrgRole(to, userId)
     if (targetRole === null || !isOrgAdmin(parseOrgRole(targetRole))) {
       return c.json({ error: ACCESS_REASONS.orgAdmins }, 403)

@@ -1,3 +1,4 @@
+import { recordOrganizationUpdate, recordSignIn, startAuditPurgeLoop } from '../lib/audit.js'
 import { serve } from '@hono/node-server'
 import { getConnInfo } from '@hono/node-server/conninfo'
 import { resolve, dirname } from 'node:path'
@@ -142,6 +143,8 @@ async function start() {
       const left = await db.countProjectsInOrganization(organizationId)
       return left > 0 ? ACCESS_REASONS.projectsLeft(left) : null
     },
+    onSessionCreated: (session) => recordSignIn(db, session),
+    onOrganizationUpdated: (data) => recordOrganizationUpdate(db, data),
     // Through drizzle, not the raw handle. Better-auth's own dialects map a
     // field to a column of the same name, and the postgres schema names
     // columns `email_verified`, `expires_at`, `user_id` — so every insert it
@@ -234,6 +237,7 @@ async function start() {
   // Background reconciliation: run status + per-step telemetry sync off the
   // request path (API run reads are pure DB queries).
   const stopRunSync = startRunSyncLoop(db, 5000)
+  const stopAuditPurge = startAuditPurgeLoop(db)
   // Disposable workers cost nothing here, but they still hold ports and
   // directories; the same loop keeps them from outliving their window.
   const stopTestSessionReaper = startTestSessionReaper(
@@ -275,6 +279,7 @@ async function start() {
 
   const shutdown = () => {
     stopRunSync()
+    stopAuditPurge()
     stopTestSessionReaper()
     // Claims only describe this process's in-flight starts.
     releaseClaimedPorts()

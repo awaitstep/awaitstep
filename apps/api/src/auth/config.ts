@@ -3,6 +3,7 @@ import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { magicLink, organization } from 'better-auth/plugins'
 import { CLIENT_IP_HEADER } from '../lib/client-ip.js'
 import { orgSlugProblem } from '../lib/slugs.js'
+import { stripUnsafeText } from '@awaitstep/ir'
 
 export interface AuthOptions {
   baseURL: string
@@ -23,6 +24,25 @@ export interface AuthOptions {
    * or null. Read by the deletion hook; without it any owner may delete.
    */
   deleteOrganizationProblem?: (organizationId: string) => Promise<string | null>
+  /** Called once a session is created — a sign-in — for the audit log (B7). */
+  onSessionCreated?: (session: {
+    id: string
+    userId: string
+    ipAddress?: string | null
+  }) => Promise<void>
+  /** Called once an owner or admin changed the organization's name or URL, for the audit log. */
+  onOrganizationUpdated?: (data: {
+    organization: { id: string; name: string; slug: string }
+    user: { id: string; name: string; email: string }
+  }) => Promise<void>
+}
+
+/** Longest name a person may choose. */
+export const MAX_PERSON_NAME = 255
+
+/** A person's name as stored: no controls or direction overrides, trimmed. */
+function personName(name: string): string {
+  return stripUnsafeText(name).trim()
 }
 
 function refuseBadOrgSlug(slug: unknown): void {
@@ -84,6 +104,10 @@ export function createAuth(options: AuthOptions) {
           beforeUpdateOrganization: async ({ organization }) => {
             if (organization.slug !== undefined) refuseBadOrgSlug(organization.slug)
           },
+          afterUpdateOrganization: async ({ organization, user }) => {
+            if (!organization) return
+            await options.onOrganizationUpdated?.({ organization, user })
+          },
           beforeDeleteOrganization: async ({ organization }) => {
             const problem = await options.deleteOrganizationProblem?.(organization.id)
             if (problem) throw new APIError('CONFLICT', { message: problem })
@@ -104,6 +128,36 @@ export function createAuth(options: AuthOptions) {
     },
     user: {
       deleteUser: { enabled: true },
+    },
+    databaseHooks: {
+      // Every name lands in the audit log and in front of other people: it
+      // carries no controls or direction overrides, and has a length.
+      user: {
+        create: {
+          before: async (user) => ({
+            data: { ...user, name: personName(user.name ?? '').slice(0, MAX_PERSON_NAME) },
+          }),
+        },
+        update: {
+          before: async (user) => {
+            if (typeof user.name !== 'string') return { data: user }
+            const name = personName(user.name)
+            if (name.length > MAX_PERSON_NAME) {
+              throw new APIError('BAD_REQUEST', {
+                message: `Names are at most ${MAX_PERSON_NAME} characters`,
+              })
+            }
+            return { data: { ...user, name } }
+          },
+        },
+      },
+      session: {
+        create: {
+          after: async (session) => {
+            await options.onSessionCreated?.(session)
+          },
+        },
+      },
     },
     // The address the app resolved under its trust policy, set on every
     // request in app.ts — never a forwarding header a client could choose.

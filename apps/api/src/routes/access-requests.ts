@@ -4,6 +4,7 @@ import { workspaceCapabilities } from '@awaitstep/ir'
 import { isUniqueViolation } from '@awaitstep/db'
 import { accessRequestRecord } from '../lib/access-records.js'
 import { rolesOf } from '../lib/scope-records.js'
+import { recordAudit } from '../lib/audit.js'
 import type { AppEnv } from '../types.js'
 
 // A Viewer's "Ask for edit access" (session-only, the router). Asking and
@@ -79,6 +80,17 @@ for (const decision of ['approve', 'decline'] as const) {
         decision === 'approve' && !alreadyEditing
           ? { workspaceId: found.workspace.id, userId: found.request.userId }
           : null,
+    })
+    await recordAudit(c, {
+      event: decision === 'approve' ? 'access_request.approve' : 'access_request.decline',
+      facts: {
+        name: found.workspace.name,
+        person: found.asker.name,
+        role: decision === 'approve' && !alreadyEditing ? 'editor' : undefined,
+      },
+      organizationId: found.workspace.organizationId,
+      projectId: found.workspace.projectId,
+      workspaceId: found.workspace.id,
     })
     return c.json({ ok: true, alreadyEditing })
   })

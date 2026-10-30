@@ -111,9 +111,11 @@ export const requireProject = createMiddleware<AppEnv>(async (c, next) => {
 
   c.set('projectId', found.project.id)
   c.set('organizationId', found.project.organizationId)
+  c.set('projectName', found.project.name)
   if (found.workspace) {
     c.set('workspaceId', found.workspace.id)
     c.set('workspace', found.workspace)
+    c.set('workspaceName', found.workspace.name)
   }
   applyGrantRows(c, found, found.workspace !== null)
   await next()
@@ -138,6 +140,7 @@ export const requireProjectParam = createMiddleware<AppEnv>(async (c, next) => {
 
   c.set('projectId', found.project.id)
   c.set('organizationId', found.project.organizationId)
+  c.set('projectName', found.project.name)
   applyGrantRows(c, found, false)
   await next()
 })
@@ -164,6 +167,8 @@ export const requireWorkspace = createMiddleware<AppEnv>(async (c, next) => {
   c.set('workspaceId', found.workspaceId)
   c.set('projectId', found.projectId)
   c.set('organizationId', found.organizationId)
+  c.set('projectName', found.projectName)
+  c.set('workspaceName', found.workspaceName)
   applyGrantRows(c, found, true)
   await next()
 })

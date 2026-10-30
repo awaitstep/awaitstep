@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
+import { recordAudit } from '../lib/audit.js'
 import type { AppEnv } from '../types.js'
 
 const nodeIdSchema = z
@@ -113,6 +114,10 @@ marketplace.post('/install', zValidator('json', installSchema), async (c) => {
     bundle: JSON.stringify(bundle),
     installedBy: userId,
   })
+  await recordAudit(c, {
+    event: 'node.install',
+    facts: { name: nodeEntry.name, version: targetVersion },
+  })
 
   return c.json(installed, 201)
 })
@@ -126,6 +131,10 @@ marketplace.post('/uninstall', zValidator('json', uninstallSchema), async (c) =>
   if (!existing) return c.json({ error: 'Node not installed' }, 404)
 
   await db.uninstallNode(organizationId, nodeId)
+  await recordAudit(c, {
+    event: 'node.uninstall',
+    facts: { name: installedNodeName(existing.bundle) ?? nodeId, version: existing.version },
+  })
   return c.json({ ok: true })
 })
 
@@ -159,6 +168,20 @@ marketplace.post('/update', zValidator('json', updateSchema), async (c) => {
     version: targetVersion,
     bundle: JSON.stringify(bundle),
   })
+  await recordAudit(c, {
+    event: 'node.update',
+    facts: { name: nodeEntry.name, fromVersion: existing.version, version: targetVersion },
+  })
 
   return c.json(updated)
 })
+
+/** The installed bundle's node name, for the audit log; null when it does not parse. */
+function installedNodeName(bundle: string): string | null {
+  try {
+    const name = (JSON.parse(bundle) as { definition?: { name?: unknown } }).definition?.name
+    return typeof name === 'string' ? name : null
+  } catch {
+    return null
+  }
+}

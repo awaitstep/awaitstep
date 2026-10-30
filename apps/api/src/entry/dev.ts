@@ -1,3 +1,4 @@
+import { recordOrganizationUpdate, recordSignIn, startAuditPurgeLoop } from '../lib/audit.js'
 import { serve } from '@hono/node-server'
 import { getConnInfo } from '@hono/node-server/conninfo'
 import { resolve, dirname } from 'node:path'
@@ -81,6 +82,8 @@ async function start() {
       const left = await db.countProjectsInOrganization(organizationId)
       return left > 0 ? ACCESS_REASONS.projectsLeft(left) : null
     },
+    onSessionCreated: (session) => recordSignIn(db, session),
+    onOrganizationUpdated: (data) => recordOrganizationUpdate(db, data),
     rateLimit: !isDev,
     database: sqlite,
     trustedOrigins: [...new Set([baseURL, ...corsOrigins])],
@@ -161,6 +164,7 @@ async function start() {
   // Background reconciliation: run status + per-step telemetry sync off the
   // request path, same as the production serve entry.
   const stopRunSync = startRunSyncLoop(db, 5000)
+  const stopAuditPurge = startAuditPurgeLoop(db)
   // The dev entry reaps too: without it a session started here outlives its
   // window, keeps its port, and holds the developer's own concurrency slot.
   const stopTestSessionReaper = startTestSessionReaper(
@@ -175,6 +179,7 @@ async function start() {
   // Clean up local dev sessions on shutdown
   const stopBackground = () => {
     stopRunSync()
+    stopAuditPurge()
     stopTestSessionReaper()
     releaseClaimedPorts()
   }

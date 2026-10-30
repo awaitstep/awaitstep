@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import type { RemoteNodeRegistry } from '../lib/remote-node-registry.js'
 import type { NodeBundle, NodeDefinition } from '@awaitstep/ir'
-import { createTestApp, resetStore, TEST_ORG_ID } from './helpers.js'
+import { createTestApp, recordedAuditEvents, resetStore, TEST_ORG_ID } from './helpers.js'
 
 const testDefinition: NodeDefinition = {
   id: 'test_node',
@@ -211,6 +211,49 @@ describe('marketplace', () => {
       const body = await res.json()
       expect(body.nodes[0].installed).toBe(true)
       expect(body.nodes[0].installedVersion).toBe('1.0.0')
+    })
+  })
+
+  describe('the audit log (B7)', () => {
+    const post = (path: string, body: unknown) =>
+      app.request(url(path), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+
+    it('records an install, an update and a removal with their versions', async () => {
+      const newer: RemoteNodeRegistry = {
+        async getIndex() {
+          const index = await mockRegistry.getIndex()
+          const node = index.nodes[0]!
+          return {
+            ...index,
+            nodes: [
+              {
+                ...node,
+                latest: '1.1.0',
+                versions: [...node.versions, { ...node.versions[0]!, version: '1.1.0' }],
+              },
+            ],
+          }
+        },
+        getNodeBundle: mockRegistry.getNodeBundle,
+      }
+      app = createTestApp({ remoteNodeRegistry: newer })
+      expect((await post('/install', { nodeId: 'test_node', version: '1.0.0' })).status).toBe(201)
+      expect((await post('/update', { nodeId: 'test_node' })).status).toBe(200)
+      expect((await post('/uninstall', { nodeId: 'test_node' })).status).toBe(200)
+      expect(recordedAuditEvents().map((e) => [e.event, e.action, e.target, e.detail])).toEqual([
+        ['node.install', 'installed the node', 'Test Node', 'v1.0.0 · Dashboard'],
+        ['node.update', 'updated the node', 'Test Node', 'v1.0.0 → v1.1.0 · Dashboard'],
+        ['node.uninstall', 'removed the node', 'Test Node', 'v1.1.0 · Dashboard'],
+      ])
+    })
+
+    it('records nothing when the install is refused', async () => {
+      await post('/install', { nodeId: 'nonexistent' })
+      expect(recordedAuditEvents()).toEqual([])
     })
   })
 })

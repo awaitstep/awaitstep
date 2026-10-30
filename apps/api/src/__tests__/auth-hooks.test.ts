@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
+import { eq } from 'drizzle-orm'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { createAuth } from '../auth/config.js'
+import { recordOrganizationUpdate, recordSignIn } from '../lib/audit.js'
 import { createSqliteApp, type SqliteApp } from './sqlite-app.js'
 
 // better-auth itself, on the harness's real database: the organization
@@ -16,6 +18,8 @@ function authOn(h: SqliteApp, onMagicLink?: (token: string) => void) {
     secret: 'x'.repeat(40),
     database: drizzleAdapter(h.db, { provider: 'sqlite', schema: h.schema }),
     rateLimit: false,
+    onSessionCreated: (session) => recordSignIn(h.adapter, session),
+    onOrganizationUpdated: (data) => recordOrganizationUpdate(h.adapter, data),
     ...(onMagicLink && { sendMagicLink: async ({ token }) => onMagicLink(token) }),
   })
 }
@@ -105,5 +109,71 @@ describe('better-auth organization hooks', () => {
     // The organization is untouched, and the session was a real one.
     expect(await h.adapter.getOrgRole('org-1', 'u-owner')).toBe('owner')
     expect(await h.adapter.getOrgRole('org-1', 'u-ben')).toBe('member')
+  })
+})
+
+describe('the sign-in hook (B7)', () => {
+  it('records a sign-in in the audit log of the person’s organization', async () => {
+    const h = createSqliteApp()
+    await h.seed.person('u-ama', 'Ama Mensah', 'ama@acme.test')
+    await h.seed.org('org-acme', 'Acme', 'acme')
+    await h.seed.member('u-ama', 'org-acme', 'owner')
+    await signIn(h, 'ama@acme.test')
+    const page = await h.adapter.listAuditEvents({
+      organizationId: 'org-acme',
+      since: '2000-01-01T00:00:00.000Z',
+      hiddenEvents: [],
+    })
+    expect(page.data).toEqual([
+      expect.objectContaining({ event: 'signin', actor: 'Ama Mensah', target: 'Acme' }),
+    ])
+  })
+})
+
+describe('names and organization changes (B7 security review)', () => {
+  async function seeded() {
+    const h = createSqliteApp()
+    await h.seed.person('u-ama', 'Ama Mensah', 'ama@acme.test')
+    await h.seed.org('org-acme', 'Acme', 'acme')
+    await h.seed.member('u-ama', 'org-acme', 'owner')
+    return { h, ...(await signIn(h, 'ama@acme.test')) }
+  }
+
+  it('refuses a name past 255 characters and strips direction overrides from one', async () => {
+    const { h, auth, cookie } = await seeded()
+    const long = await auth.handler(post('/update-user', { name: 'x'.repeat(256) }, cookie))
+    expect(long.status).toBe(400)
+    const sneaky = await auth.handler(
+      post('/update-user', { name: 'Ama\u202E Mensah\u0000' }, cookie),
+    )
+    expect(sneaky.status).toBe(200)
+    const [person] = await h.db
+      .select({ name: h.schema.user.name })
+      .from(h.schema.user)
+      .where(eq(h.schema.user.id, 'u-ama'))
+    expect(person!.name).toBe('Ama Mensah')
+  })
+
+  it('records an organization’s new name in its audit log', async () => {
+    const { h, auth, cookie } = await seeded()
+    const res = await auth.handler(
+      post(
+        '/organization/update',
+        { organizationId: 'org-acme', data: { name: 'Acme Corp' } },
+        cookie,
+      ),
+    )
+    expect(res.status).toBe(200)
+    const page = await h.adapter.listAuditEvents({
+      organizationId: 'org-acme',
+      since: '2000-01-01T00:00:00.000Z',
+      hiddenEvents: [],
+    })
+    expect(page.data.find((e) => e.event === 'organization.update')).toMatchObject({
+      actorId: 'u-ama',
+      action: 'changed the settings of',
+      target: 'Acme Corp',
+      detail: 'URL: acme · Dashboard',
+    })
   })
 })

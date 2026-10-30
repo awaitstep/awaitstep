@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
@@ -10,6 +10,7 @@ import {
   stripProjectOwnedRuntime,
 } from '../lib/runtime-fold.js'
 import { snapshotFilesOf, toWorkflowFileRows } from '../lib/project-files.js'
+import { recordAudit, type AuditRecord } from '../lib/audit.js'
 import type { AppEnv } from '../types.js'
 
 // `ir` is validated by migrateArtifact + validateArtifact in the handler —
@@ -53,6 +54,21 @@ function sortKeysDeep(value: unknown): unknown {
     return out
   }
   return value
+}
+
+/** Where a version event is recorded: the workflow's workspace, under its name. */
+function workflowAudit(
+  c: Context<AppEnv>,
+  workflowId: string,
+): Omit<AuditRecord, 'event'> & {
+  facts: { name: string }
+} {
+  const workflow = c.get('workflow')
+  return {
+    facts: { name: workflow?.name ?? workflowId },
+    projectId: workflow?.projectId ?? c.get('projectId'),
+    workspaceId: workflow?.workspaceId ?? c.get('workspaceId'),
+  }
 }
 
 export const versions = new Hono<AppEnv>()
@@ -201,6 +217,12 @@ versions.post('/:workflowId/versions/:versionId/revert', async (c) => {
   ])
 
   await db.updateWorkflow(workflowId, { currentVersionId: newVersion.id })
+  const audited = workflowAudit(c, workflowId)
+  await recordAudit(c, {
+    event: 'version.revert',
+    ...audited,
+    facts: { ...audited.facts, version: targetVersion.version },
+  })
 
   return c.json(newVersion, 201)
 })
@@ -231,5 +253,11 @@ versions.delete('/:workflowId/versions/:versionId', async (c) => {
   }
 
   await db.deleteVersion(versionId)
+  const audited = workflowAudit(c, workflowId)
+  await recordAudit(c, {
+    event: 'version.delete',
+    ...audited,
+    facts: { ...audited.facts, version: version.version },
+  })
   return c.json({ ok: true })
 })

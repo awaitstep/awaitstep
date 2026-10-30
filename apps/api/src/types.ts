@@ -14,6 +14,9 @@ import type { KeyLevel, KeyPermissions, OrgRole, ProjectRole, WorkspaceRole } fr
  */
 export interface ApiKeyContext {
   id: string
+  /** The key's name and its "ask_p1…a71d" form, for the audit log (B7). */
+  name: string
+  display: string
   level: KeyLevel
   permissions: KeyPermissions
   /** The project a project or workspace key is pinned to; null for an organization key. */
@@ -62,6 +65,9 @@ export interface AppEnv {
     workspaceId: string | undefined
     /** The named workspace as the dashboard draws it, from the same read; set by requireProject only. */
     workspace: WorkspaceChip | undefined
+    /** The names of the project and workspace the scope middleware resolved, for the audit log. */
+    projectName: string | undefined
+    workspaceName: string | undefined
     /**
      * The caller's role in the organization, from the same read that
      * resolved the scope. For an API key it is the creator's: a key acts with

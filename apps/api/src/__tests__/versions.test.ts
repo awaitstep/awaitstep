@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { createTestApp, resetStore, TEST_USER_ID, TEST_PROJECT_ID, mockDb } from './helpers.js'
+import {
+  createTestApp,
+  recordedAuditEvents,
+  resetStore,
+  TEST_USER_ID,
+  TEST_PROJECT_ID,
+  mockDb,
+} from './helpers.js'
 
 const validIR = {
   metadata: {
@@ -165,6 +172,52 @@ describe('version routes', () => {
 
       const res = await app.request(url('/api/workflows/wf-1/versions/v-1'))
       expect(res.status).toBe(404)
+    })
+  })
+
+  describe('the audit log (B7)', () => {
+    it('records a revert and a version deletion with the version number', async () => {
+      const v1 = await mockDb.createVersion({
+        id: 'v-1',
+        workflowId: 'wf-1',
+        ir: JSON.stringify(validIR),
+      })
+      const v2 = await mockDb.createVersion({
+        id: 'v-2',
+        workflowId: 'wf-1',
+        ir: JSON.stringify(modifiedIR),
+      })
+      await mockDb.updateWorkflow('wf-1', { currentVersionId: v2.id })
+
+      const reverted = await app.request(url(`/api/workflows/wf-1/versions/${v1.id}/revert`), {
+        method: 'POST',
+      })
+      expect(reverted.status).toBe(201)
+      const deleted = await app.request(url(`/api/workflows/wf-1/versions/${v2.id}`), {
+        method: 'DELETE',
+      })
+      expect(deleted.status).toBe(200)
+
+      expect(
+        recordedAuditEvents().map((e) => [e.event, e.kind, e.target, e.detail, e.level]),
+      ).toEqual([
+        ['version.revert', 'deploy', 'Test', `To v${v1.version} · Dashboard`, 'workspace'],
+        ['version.delete', 'danger', `Test v${v2.version}`, 'Dashboard', 'workspace'],
+      ])
+    })
+
+    it('records nothing for a refused deletion', async () => {
+      const v1 = await mockDb.createVersion({
+        id: 'v-1',
+        workflowId: 'wf-1',
+        ir: JSON.stringify(validIR),
+      })
+      await mockDb.updateWorkflow('wf-1', { currentVersionId: v1.id })
+      const res = await app.request(url(`/api/workflows/wf-1/versions/${v1.id}`), {
+        method: 'DELETE',
+      })
+      expect(res.status).toBe(400)
+      expect(recordedAuditEvents()).toEqual([])
     })
   })
 })

@@ -6,6 +6,7 @@ import { isUniqueViolation, type EnvVar, type VariablePlace } from '@awaitstep/d
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import { addressedLevel } from '../middleware/level.js'
+import { recordAudit, type AuditRecord } from '../lib/audit.js'
 import type { AppEnv } from '../types.js'
 
 // Variables at three levels (B4), addressed at the level they are set at —
@@ -57,6 +58,15 @@ function placeOf(c: Context<AppEnv>): VariablePlace {
     organizationId,
     projectId: c.get('projectId'),
     workspaceId: c.get('workspaceId')!,
+  }
+}
+
+/** Where a variable event is recorded: the level it is set at. */
+function auditPlace(place: VariablePlace): Pick<AuditRecord, 'projectId' | 'workspaceId'> {
+  if (place.level === 'organization') return {}
+  return {
+    projectId: place.projectId,
+    workspaceId: place.level === 'workspace' ? place.workspaceId : null,
   }
 }
 
@@ -144,6 +154,11 @@ envVars.post('/', zValidator('json', createEnvVarSchema), async (c) => {
       isSecret: body.isSecret,
     })
     if (!envVar) return c.json({ error: 'Not found' }, 404)
+    await recordAudit(c, {
+      event: 'variable.create',
+      facts: { name: body.name, secret: body.isSecret },
+      ...auditPlace(place),
+    })
     return c.json(record(envVar), 201)
   } catch (error) {
     if (isUniqueViolation(error)) return c.json(alreadySet(body.name), 409)
@@ -174,6 +189,11 @@ envVars.patch('/:id', zValidator('json', updateEnvVarSchema), async (c) => {
       }
       return c.json({ error: 'Not found' }, 404)
     }
+    await recordAudit(c, {
+      event: 'variable.update',
+      facts: { name: updated.name, change: variableChange(body), secret: updated.isSecret },
+      ...auditPlace(place),
+    })
     return c.json(record(updated))
   } catch (error) {
     if (isUniqueViolation(error) && body.name) return c.json(alreadySet(body.name), 409)
@@ -182,7 +202,19 @@ envVars.patch('/:id', zValidator('json', updateEnvVarSchema), async (c) => {
 })
 
 envVars.delete('/:id', async (c) => {
-  const deleted = await c.get('db').deleteEnvVar(c.req.param('id'), placeOf(c))
-  if (!deleted) return c.json({ error: 'Not found' }, 404)
+  const place = placeOf(c)
+  const name = await c.get('db').deleteEnvVar(c.req.param('id'), place)
+  if (!name) return c.json({ error: 'Not found' }, 404)
+  await recordAudit(c, { event: 'variable.delete', facts: { name }, ...auditPlace(place) })
   return c.json({ ok: true })
 })
+
+/** What an edit changed, in words — never the value. */
+function variableChange(body: z.infer<typeof updateEnvVarSchema>): string | undefined {
+  const parts = [
+    body.name !== undefined ? 'Renamed' : null,
+    body.value !== undefined ? 'Value changed' : null,
+    body.isSecret === true ? 'Now secret' : body.isSecret === false ? 'No longer secret' : null,
+  ].filter((part): part is string => part !== null)
+  return parts.length > 0 ? parts.join(', ') : undefined
+}

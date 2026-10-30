@@ -1,3 +1,4 @@
+import { purgeExpiredAuditEvents, recordOrganizationUpdate, recordSignIn } from '../lib/audit.js'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { createD1DatabaseAdapter, createD1DrizzleDb, sqliteSchema } from '@awaitstep/db/d1'
 import { createApp, createAuth } from '../index.js'
@@ -87,6 +88,8 @@ async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof cr
       const left = await db.countProjectsInOrganization(organizationId)
       return left > 0 ? ACCESS_REASONS.projectsLeft(left) : null
     },
+    onSessionCreated: (session) => recordSignIn(db, session),
+    onOrganizationUpdated: (data) => recordOrganizationUpdate(db, data),
     database: drizzleAdapter(drizzleDb, { provider: 'sqlite', schema: sqliteSchema }),
     trustedOrigins: [baseURL, ...(env.CORS_ORIGIN ? [env.CORS_ORIGIN] : [])],
     sendMagicLink,
@@ -176,6 +179,7 @@ export default {
     ctx.waitUntil(
       Promise.allSettled([
         syncActiveRuns(db),
+        purgeExpiredAuditEvents(db),
         reapTestSessions({
           db,
           runner: new SandboxTestSessionRunner(

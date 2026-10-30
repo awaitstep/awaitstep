@@ -9,6 +9,7 @@ import type { ProviderConfig, GeneratedBundle, DeployResult } from '@awaitstep/c
 import type { AppEnv } from '../types.js'
 import { resolveProvider } from '../lib/provider-resolver.js'
 import { prepareDeploy, isDeployError } from '../lib/deploy-prepare.js'
+import { recordAudit } from '../lib/audit.js'
 
 const deploySchema = z.object({
   connectionId: z.string().min(1),
@@ -87,6 +88,16 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
       provider: prepared.connectionProvider,
       config: configSnapshot,
       updatedBy: c.get('userId'),
+    })
+    await recordAudit(c, {
+      event: 'workflow.deploy',
+      facts: {
+        name: workflow.name,
+        version: prepared.versionNumber,
+        provider: prepared.connectionName,
+      },
+      projectId: workflow.projectId,
+      workspaceId: workflow.workspaceId,
     })
   }
 
@@ -182,6 +193,16 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
         provider: prepared.connectionProvider,
         config: configSnapshot,
         updatedBy: c.get('userId'),
+      })
+      await recordAudit(c, {
+        event: 'workflow.deploy',
+        facts: {
+          name: workflow.name,
+          version: prepared.versionNumber,
+          provider: prepared.connectionName,
+        },
+        projectId: workflow.projectId,
+        workspaceId: workflow.workspaceId,
       })
     }
 
@@ -339,6 +360,12 @@ deploy.post(
     if (result.success) {
       await db.deleteDeploymentsByWorkflow(workflow.id)
       await db.updateWorkflow(workflow.id, { currentVersionId: null })
+      await recordAudit(c, {
+        event: 'workflow.takedown',
+        facts: { name: workflow.name },
+        projectId: workflow.projectId,
+        workspaceId: workflow.workspaceId,
+      })
     }
 
     return c.json(result, result.success ? 200 : 500)

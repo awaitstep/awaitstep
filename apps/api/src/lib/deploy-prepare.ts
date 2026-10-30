@@ -12,7 +12,9 @@ export interface DeployContext {
   providerConfig: ProviderConfig
   ir: ArtifactIR
   versionId: string
+  versionNumber: number
   connectionId: string
+  connectionName: string
   resolvedDeploymentConfig: unknown
   connectionProvider: string
 }
@@ -137,7 +139,9 @@ export async function prepareDeploy(
     providerConfig,
     ir: prepared.ir,
     versionId: prepared.versionId,
+    versionNumber: prepared.versionNumber,
     connectionId,
+    connectionName: connection.name,
     resolvedDeploymentConfig: resolvedConfig.config,
     connectionProvider: connection.provider,
   }

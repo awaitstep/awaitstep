@@ -26,6 +26,7 @@ const NO_FACTS = {
 import { stopWorkflowTestSessions } from '../lib/test-sessions.js'
 import { shareBodySchema, shareResponse, sharingRecord } from '../lib/sharing.js'
 import { CHANGED_MEANWHILE } from '../lib/locks.js'
+import { recordAudit } from '../lib/audit.js'
 
 const createSchema = z.object({
   name: z.string().min(1).max(255),
@@ -265,15 +266,19 @@ workflows.patch('/:id', zValidator('json', updateSchema), async (c) => {
  */
 workflows.put('/:id/share', zValidator('json', shareBodySchema), async (c) => {
   const workflow = c.get('workflow')!
+  const { shared } = c.req.valid('json')
   const row = await c
     .get('db')
-    .setWorkflowShared(
-      workflow.id,
-      workflow.workspaceId,
-      c.get('userId'),
-      c.req.valid('json').shared,
-    )
+    .setWorkflowShared(workflow.id, workflow.workspaceId, c.get('userId'), shared)
   if (!row) return c.json({ error: CHANGED_MEANWHILE }, 409)
+  if (row.changed) {
+    await recordAudit(c, {
+      event: shared ? 'workflow.share' : 'workflow.unshare',
+      facts: { name: workflow.name },
+      projectId: workflow.projectId,
+      workspaceId: workflow.workspaceId,
+    })
+  }
   return c.json(shareResponse(row))
 })
 
@@ -322,6 +327,13 @@ workflows.patch(
     // left in a workspace of its old project would be read and deleted there.
     const updated = await db.moveWorkflowToProject(workflow.id, targetProjectId)
     if (!updated) return c.json({ error: 'Not found' }, 404)
+    // Moving decides who can open and deploy it: recorded where it came from.
+    await recordAudit(c, {
+      event: 'workflow.move',
+      facts: { name: workflow.name, place: target.project.name },
+      projectId: workflow.projectId,
+      workspaceId: workflow.workspaceId,
+    })
 
     return c.json({
       workflow: maskWorkflowSecrets(updated),
@@ -349,5 +361,12 @@ workflows.delete('/:id', async (c) => {
   }
 
   await db.deleteWorkflow(workflowId)
+  const workflow = c.get('workflow')
+  await recordAudit(c, {
+    event: 'workflow.delete',
+    facts: { name: workflow?.name ?? workflowId },
+    projectId: workflow?.projectId ?? c.get('projectId'),
+    workspaceId: workflow?.workspaceId ?? c.get('workspaceId'),
+  })
   return c.json({ ok: true })
 })

@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid'
 import {
   KEY_LEVELS,
   countGrants,
+  describeKeyGrid,
   grantsOutsideLevel,
   keyLevelOf,
   keyScopesOf,
@@ -16,6 +17,7 @@ import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import { hashApiKey } from '../lib/api-key-hash.js'
 import { addressedLevel, levelCan } from '../middleware/level.js'
+import { recordAudit, type AuditRecord } from '../lib/audit.js'
 import type { AppEnv } from '../types.js'
 
 // API keys at three levels (B3). Session-only, addressed at the level they
@@ -56,6 +58,18 @@ function keyRecord(key: ApiKey | ApiKeyListItem) {
     ...rest,
     level: keyLevelOf(key),
     permissions: parseKeyPermissions(permissions) ?? {},
+  }
+}
+
+/** Where a key event is recorded: the level the key belongs to. */
+function auditPlace(
+  c: Context<AppEnv>,
+  level: KeyLevel,
+): Pick<AuditRecord, 'projectId' | 'workspaceId'> {
+  if (level === 'organization') return {}
+  return {
+    projectId: c.get('projectId'),
+    workspaceId: level === 'workspace' ? c.get('workspaceId') : null,
   }
 }
 
@@ -157,6 +171,11 @@ apiKeys.post('/', zValidator('json', createApiKeySchema), async (c) => {
   // so the reveal says "Only Sales", not "Only ." — plus the secret, once.
   const apiKey = await db.createApiKey(data)
   if (!apiKey) return c.json({ error: 'Not found' }, 404)
+  await recordAudit(c, {
+    event: 'api_key.create',
+    facts: { name: body.name, summary: describeKeyGrid(grid) },
+    ...auditPlace(c, level),
+  })
   const listed: ApiKeyListItem = {
     ...apiKey,
     projectName: null,
@@ -173,5 +192,10 @@ apiKeys.delete('/:id', async (c) => {
   if (!can.allowed) return c.json({ error: can.reason ?? 'Forbidden' }, 403)
   const revoked = await c.get('db').revokeApiKey(c.req.param('id'), targetOf(c, level))
   if (!revoked) return c.json({ error: 'Not found' }, 404)
+  await recordAudit(c, {
+    event: 'api_key.revoke',
+    facts: { name: revoked.name },
+    ...auditPlace(c, level),
+  })
   return c.json(keyRecord(revoked))
 })

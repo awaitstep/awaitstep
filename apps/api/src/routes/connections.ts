@@ -1,10 +1,12 @@
-import { Hono, type Context } from 'hono'
+import { Hono } from 'hono'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import type { AppEnv } from '../types.js'
 import { createLogger } from '../lib/logger.js'
+import { recordAudit } from '../lib/audit.js'
+import { abandonVerifyGate, closeVerifyGate, openVerifyGate } from '../lib/verify-lockout.js'
 
 const createConnectionSchema = z.object({
   provider: z.string().min(1).max(100),
@@ -36,6 +38,10 @@ export function createConnectionRoutes() {
       credentials: JSON.stringify(body.credentials),
       name: body.name,
     })
+    await recordAudit(c, {
+      event: 'connection.create',
+      facts: { name: body.name, provider: body.provider },
+    })
     return c.json(redactCredentials(conn), 201)
   })
 
@@ -50,12 +56,22 @@ export function createConnectionRoutes() {
     ),
     async (c) => {
       const { provider, credentials } = c.req.valid('json')
-
-      if (provider === 'cloudflare') {
-        return verifyCloudflareCredentials(c, credentials)
+      if (provider !== 'cloudflare') {
+        return c.json({ error: `Unsupported provider: ${provider}` }, 400)
       }
 
-      return c.json({ error: `Unsupported provider: ${provider}` }, 400)
+      // Locked callers are refused before anything reaches Cloudflare (SA-12).
+      const gate = await openVerifyGate(c, 'Cloudflare')
+      if (gate instanceof Response) return gate
+      let result: VerifyResult
+      try {
+        result = await verifyCloudflareCredentials(credentials)
+      } catch (error) {
+        await abandonVerifyGate(c, gate)
+        throw error
+      }
+      await closeVerifyGate(c, gate, 'Cloudflare', result.valid)
+      return c.json(result)
     },
   )
 
@@ -79,23 +95,47 @@ export function createConnectionRoutes() {
 
       const conn = await db.updateConnection(id, updates)
       if (!conn) return c.json({ error: 'Not found' }, 404)
+      const before = c.get('connection')
+      const change = [
+        body.name && before && body.name !== before.name ? `Renamed from ${before.name}` : null,
+        body.credentials ? 'Credentials changed' : null,
+      ].filter((part): part is string => part !== null)
+      if (change.length > 0) {
+        await recordAudit(c, {
+          event: 'connection.update',
+          facts: { name: conn.name, change: change.join(', ') },
+        })
+      }
       return c.json(redactCredentials(conn))
     },
   )
 
   connections.delete('/:id', async (c) => {
     const db = c.get('db')
-    await db.deleteConnection(c.req.param('id'))
+    // A delete that found the row already gone (a concurrent one) records nothing.
+    if (await db.deleteConnection(c.req.param('id'))) {
+      await recordAudit(c, {
+        event: 'connection.delete',
+        facts: { name: c.get('connection')?.name ?? c.req.param('id') },
+      })
+    }
     return c.json({ ok: true })
   })
 
   return connections
 }
 
-async function verifyCloudflareCredentials(c: Context, credentials: Record<string, string>) {
+interface VerifyResult {
+  valid: boolean
+  accounts: { id: string; name: string }[]
+}
+
+async function verifyCloudflareCredentials(
+  credentials: Record<string, string>,
+): Promise<VerifyResult> {
   const apiToken = credentials.apiToken
   if (!apiToken) {
-    return c.json({ valid: false, accounts: [] }, 200)
+    return { valid: false, accounts: [] }
   }
 
   const CF_BASE = 'https://api.cloudflare.com/client/v4'
@@ -103,23 +143,23 @@ async function verifyCloudflareCredentials(c: Context, credentials: Record<strin
 
   const verifyRes = await fetch(`${CF_BASE}/user/tokens/verify`, { headers })
   if (!verifyRes.ok) {
-    return c.json({ valid: false, accounts: [] }, 200)
+    return { valid: false, accounts: [] }
   }
   const verify = (await verifyRes.json()) as { result: { status: string } }
   if (verify.result?.status !== 'active') {
-    return c.json({ valid: false, accounts: [] }, 200)
+    return { valid: false, accounts: [] }
   }
 
   const accountsRes = await fetch(`${CF_BASE}/accounts?per_page=50`, { headers })
   if (!accountsRes.ok) {
-    return c.json({ valid: true, accounts: [] }, 200)
+    return { valid: true, accounts: [] }
   }
   const accountsData = (await accountsRes.json()) as { result: { id: string; name: string }[] }
 
-  return c.json({
+  return {
     valid: true,
     accounts: (accountsData.result ?? []).map((a) => ({ id: a.id, name: a.name })),
-  })
+  }
 }
 
 const SAFE_CREDENTIAL_FIELDS = new Set([

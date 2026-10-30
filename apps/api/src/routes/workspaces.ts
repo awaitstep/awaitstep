@@ -9,6 +9,7 @@ import { CHANGED_MEANWHILE, lockBodySchema, lockResponse } from '../lib/locks.js
 import { sharedItemRecord, sharedListQuerySchema } from '../lib/sharing.js'
 import { FOR_KEY, FOR_SESSION, rolesOf, workspaceRecord } from '../lib/scope-records.js'
 import { workspaceSlugSchema } from '../lib/slugs.js'
+import { recordAudit } from '../lib/audit.js'
 import type { AppEnv } from '../types.js'
 
 const colourSchema = z.enum(WORKSPACE_COLOURS)
@@ -133,13 +134,24 @@ workspaces.patch('/:id', zValidator('json', updateWorkspaceSchema), async (c) =>
 workspaces.delete('/:id', async (c) => {
   const db = c.get('db')
   const id = c.get('workspaceId')!
+  // Recorded at the project: the workspace it would name is gone or stays as it was.
+  const audited = { facts: { name: c.get('workspaceName') ?? id }, projectId: c.get('projectId') }
   // Locks and "not the last" are checked in the statement; only a refusal reads why.
-  if (await db.deleteWorkspaceUnlessBlocked(id)) return c.json({ ok: true })
+  if (await db.deleteWorkspaceUnlessBlocked(id)) {
+    await recordAudit(c, { event: 'workspace.delete', ...audited })
+    return c.json({ ok: true })
+  }
   const locks = await db.getWorkspaceLocks(id)
   if (!locks) return c.json({ error: 'Not found' }, 404)
   // Nothing calls across workspaces until the Call Workflow node links callers (D-B6-3).
   const can = workspaceCapabilities(c.get('workspaceRole')!, { ...locks, sharedInUse: false })
-  return c.json({ error: can.delete.reason ?? CHANGED_MEANWHILE }, 409)
+  const reason = can.delete.reason ?? CHANGED_MEANWHILE
+  await recordAudit(c, {
+    event: 'workspace.delete.blocked',
+    ...audited,
+    facts: { ...audited.facts, reason },
+  })
+  return c.json({ error: reason }, 409)
 })
 
 /** "Shared with Sales": what the project's other workspaces shared, read-only here. */
@@ -170,8 +182,19 @@ workspaces.get('/:id/shared', zValidator('query', sharedListQuerySchema), async 
 workspaces.put('/:id/lock', zValidator('json', lockBodySchema), async (c) => {
   const db = c.get('db')
   const id = c.get('workspaceId')!
-  const row = await db.setWorkspaceLock(id, c.get('userId'), c.req.valid('json').locked)
-  if (row) return c.json(lockResponse(row))
+  const { locked } = c.req.valid('json')
+  const row = await db.setWorkspaceLock(id, c.get('userId'), locked)
+  if (row) {
+    if (row.changed) {
+      await recordAudit(c, {
+        event: locked ? 'workspace.lock' : 'workspace.unlock',
+        facts: { name: c.get('workspaceName') ?? id },
+        projectId: c.get('projectId'),
+        workspaceId: id,
+      })
+    }
+    return c.json(lockResponse(row))
+  }
   const locks = await db.getWorkspaceLocks(id)
   if (!locks) return c.json({ error: 'Not found' }, 404)
   const reason = locks.lockedByProject
@@ -208,5 +231,14 @@ workspaces.post('/:id/move-workflows', zValidator('json', moveWorkflowsSchema), 
   }).edit
   if (!can.allowed) return c.json({ error: can.reason }, 403)
   const moved = await db.moveWorkflowsToWorkspace(workspaceId, targetWorkspaceId, workflowIds)
-  return c.json({ moved })
+  await recordAudit(
+    c,
+    ...moved.map((workflow) => ({
+      event: 'workflow.move' as const,
+      facts: { name: workflow.name, place: target.workspaceName },
+      projectId: c.get('projectId'),
+      workspaceId,
+    })),
+  )
+  return c.json({ moved: moved.map((workflow) => workflow.id) })
 })

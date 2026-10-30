@@ -28,6 +28,8 @@ export interface WorkflowContext {
   bundle: GeneratedBundle
   ir: ArtifactIR
   versionId: string
+  /** The version's number, for the audit log's "Lead enrichment v12". */
+  versionNumber: number
   nodeRegistry: AppNodeRegistry
   envVars?: Record<string, { value: string; isSecret: boolean }>
   dependencies?: Record<string, string>
@@ -377,6 +379,7 @@ export async function prepareWorkflow(
     bundle,
     ir,
     versionId,
+    versionNumber: version.version,
     nodeRegistry,
     envVars: envResult.envVars,
     dependencies,
