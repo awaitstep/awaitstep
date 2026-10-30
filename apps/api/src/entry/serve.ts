@@ -1,4 +1,5 @@
-import { recordOrganizationUpdate, recordSignIn, startAuditPurgeLoop } from '../lib/audit.js'
+import { recordOrganizationUpdate, recordSignIn } from '../lib/audit.js'
+import { startMaintenanceLoop } from '../lib/maintenance.js'
 import { serve } from '@hono/node-server'
 import { getConnInfo } from '@hono/node-server/conninfo'
 import { resolve, dirname } from 'node:path'
@@ -236,8 +237,8 @@ async function start() {
 
   // Background reconciliation: run status + per-step telemetry sync off the
   // request path (API run reads are pure DB queries).
-  const stopRunSync = startRunSyncLoop(db, 5000)
-  const stopAuditPurge = startAuditPurgeLoop(db)
+  const stopRunSync = startRunSyncLoop(db, 5000, { emails })
+  const stopMaintenance = startMaintenanceLoop(db)
   // Disposable workers cost nothing here, but they still hold ports and
   // directories; the same loop keeps them from outliving their window.
   const stopTestSessionReaper = startTestSessionReaper(
@@ -279,7 +280,7 @@ async function start() {
 
   const shutdown = () => {
     stopRunSync()
-    stopAuditPurge()
+    stopMaintenance()
     stopTestSessionReaper()
     // Claims only describe this process's in-flight starts.
     releaseClaimedPorts()

@@ -92,7 +92,7 @@ runs.get('/:workflowId/runs/:runId/stream', async (c) => {
     while (open && Date.now() - startedAt < STREAM_MAX_MS) {
       let detail: WorkflowRunDetail | null
       try {
-        detail = await syncRunById(db, runId, workflow.id)
+        detail = await syncRunById(db, runId, workflow.id, { emails: c.get('emails') })
       } catch (err) {
         await send('error', { message: err instanceof Error ? err.message : String(err) })
         return

@@ -5,6 +5,7 @@ import {
   createTestApp,
   mockDb,
   resetStore,
+  sentNotifications,
   TEST_ORG_ID,
   TEST_PROJECT_ID,
   TEST_USER_ID,
@@ -125,6 +126,46 @@ describe('syncActiveRuns', () => {
     expect(steps).toHaveLength(1)
     expect(steps[0]!.status).toBe('complete')
     expect(steps[0]!.attemptCount).toBe(2)
+  })
+
+  it('tells the workflow’s watchers when a run moves to errored, folding by the hour', async () => {
+    await seedActiveRun()
+    await syncActiveRuns(mockDb, {
+      provider: stubProvider({
+        status: 'errored',
+        steps: [
+          { name: 'step-1', kind: 'do', index: 1, status: 'complete', attemptCount: 1 },
+          { name: 'work [0]', kind: 'do', index: 1, status: 'errored', attemptCount: 3 },
+        ],
+      }),
+    })
+    expect(sentNotifications()).toHaveLength(1)
+    expect(sentNotifications()[0]).toMatchObject({
+      event: 'run.failed',
+      kind: 'failure',
+      needsAction: true,
+      organizationId: TEST_ORG_ID,
+      projectId: TEST_PROJECT_ID,
+      meta: { workflow: 'My Flow', step: 'work [0]' },
+      recipients: { workflowWatchers: { workflowId: 'wf-1' } },
+      onRepeat: 'fold',
+    })
+    expect(sentNotifications()[0]!.groupKey).toMatch(/^run\.failed:wf-1:\d{4}-\d{2}-\d{2}T\d{2}$/)
+  })
+
+  it('tells nobody when another sync moved the run first', async () => {
+    await seedActiveRun()
+    const beaten = vi.spyOn(mockDb, 'updateRunFromStatus').mockResolvedValueOnce(false)
+    await syncActiveRuns(mockDb, { provider: stubProvider({ status: 'errored' }) })
+    beaten.mockRestore()
+    expect(sentNotifications()).toEqual([])
+  })
+
+  it('tells nobody of a run a person terminated', async () => {
+    await seedActiveRun()
+    await syncActiveRuns(mockDb, { provider: stubProvider({ status: 'terminated' }) })
+    expect((await mockDb.getWorkflowRunById('run-1'))!.status).toBe('terminated')
+    expect(sentNotifications()).toEqual([])
   })
 
   it('is a no-op for providers without getRunDetail', async () => {

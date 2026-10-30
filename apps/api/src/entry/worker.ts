@@ -1,4 +1,5 @@
-import { purgeExpiredAuditEvents, recordOrganizationUpdate, recordSignIn } from '../lib/audit.js'
+import { recordOrganizationUpdate, recordSignIn } from '../lib/audit.js'
+import { runMaintenance } from '../lib/maintenance.js'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { createD1DatabaseAdapter, createD1DrizzleDb, sqliteSchema } from '@awaitstep/db/d1'
 import { createApp, createAuth } from '../index.js'
@@ -47,20 +48,18 @@ export interface Env {
 
 let cached: { env: Env; baseURL: string; app: ReturnType<typeof createApp> } | null = null
 
-async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof createApp>> {
-  const logger = createLogger('app')
+/** The first tick of an hour (the cron fires every minute). */
+function isTopOfHour(scheduledTime: number): boolean {
+  return new Date(scheduledTime).getUTCMinutes() === 0
+}
 
-  if (!env.TOKEN_ENCRYPTION_KEY) {
-    throw new Error('TOKEN_ENCRYPTION_KEY secret is required')
-  }
-  if (!env.BETTER_AUTH_SECRET) {
-    throw new Error('BETTER_AUTH_SECRET secret is required')
-  }
+/** The web origin links are built on when no request supplies one (the cron). */
+function cronWebOrigin(env: Env): string | undefined {
+  return env.WEB_URL ?? env.CORS_ORIGIN ?? env.BETTER_AUTH_URL
+}
 
-  const tokenCrypto = await createTokenCrypto(env.TOKEN_ENCRYPTION_KEY)
-  const drizzleDb = createD1DrizzleDb(env.DB)
-  const db = createD1DatabaseAdapter(env.DB, { tokenCrypto })
-
+/** The app's mail for this deployment: Resend when a key is set, else logged. */
+function workerEmails(env: Env, baseURL: string, logger: ReturnType<typeof createLogger>) {
   let emailService: EmailService | null = null
   let sendMagicLink:
     ((data: { email: string; url: string; token: string }) => Promise<void>) | undefined
@@ -80,6 +79,24 @@ async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof cr
     logLinks: env.LOG_EMAIL_LINKS === '1',
     log: (message) => logger.warn(message),
   })
+  return { emails, sendMagicLink }
+}
+
+async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof createApp>> {
+  const logger = createLogger('app')
+
+  if (!env.TOKEN_ENCRYPTION_KEY) {
+    throw new Error('TOKEN_ENCRYPTION_KEY secret is required')
+  }
+  if (!env.BETTER_AUTH_SECRET) {
+    throw new Error('BETTER_AUTH_SECRET secret is required')
+  }
+
+  const tokenCrypto = await createTokenCrypto(env.TOKEN_ENCRYPTION_KEY)
+  const drizzleDb = createD1DrizzleDb(env.DB)
+  const db = createD1DatabaseAdapter(env.DB, { tokenCrypto })
+
+  const { emails, sendMagicLink } = workerEmails(env, baseURL, logger)
 
   const auth = createAuth({
     baseURL,
@@ -161,11 +178,7 @@ export default {
 
   // Cron-driven counterpart of serve.ts's interval loop: reconciles run
   // status and per-step telemetry so API reads stay pure DB queries.
-  async scheduled(
-    _controller: ScheduledController,
-    env: Env,
-    ctx: ExecutionContext,
-  ): Promise<void> {
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     const tokenCrypto = await createTokenCrypto(env.TOKEN_ENCRYPTION_KEY)
     const db = createD1DatabaseAdapter(env.DB, { tokenCrypto })
     // Nothing in a Worker survives between requests, so the cron is where
@@ -178,8 +191,15 @@ export default {
     // one's waitUntil partway through, leaving sessions unreaped.
     ctx.waitUntil(
       Promise.allSettled([
-        syncActiveRuns(db),
-        purgeExpiredAuditEvents(db),
+        // No request here, so no origin to fall back on: without a configured
+        // web origin the links would be relative, and failures go to the Inbox only.
+        syncActiveRuns(db, {
+          emails: cronWebOrigin(env)
+            ? workerEmails(env, cronWebOrigin(env)!, createLogger('cron')).emails
+            : undefined,
+        }),
+        // The cron runs every minute; the purges and the expiry check need an hour.
+        isTopOfHour(controller.scheduledTime) ? runMaintenance(db) : Promise.resolve(),
         reapTestSessions({
           db,
           runner: new SandboxTestSessionRunner(

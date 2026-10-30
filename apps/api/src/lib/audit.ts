@@ -148,19 +148,6 @@ export async function purgeExpiredAuditEvents(
   return db.purgeAuditEvents(new Date(now.getTime() - AUDIT_RETENTION_MS).toISOString())
 }
 
-/** Hourly purge for long-lived Node processes (the Worker's cron runs it there). */
-export function startAuditPurgeLoop(db: DatabaseAdapter, intervalMs = 60 * 60 * 1000): () => void {
-  const tick = () => {
-    purgeExpiredAuditEvents(db).catch((err) => {
-      log.error('Audit purge failed', { error: err instanceof Error ? err.message : String(err) })
-    })
-  }
-  tick()
-  const timer = setInterval(tick, intervalMs)
-  if (typeof timer.unref === 'function') timer.unref()
-  return () => clearInterval(timer)
-}
-
 /**
  * An organization's name or URL changed through better-auth — recorded from
  * its hook, which has no request: no address, and never fails the change.

@@ -1,10 +1,11 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { nanoid } from 'nanoid'
 import { workspaceCapabilities } from '@awaitstep/ir'
-import { isUniqueViolation } from '@awaitstep/db'
+import { isUniqueViolation, type AccessRequestRow } from '@awaitstep/db'
 import { accessRequestRecord } from '../lib/access-records.js'
 import { rolesOf } from '../lib/scope-records.js'
 import { recordAudit } from '../lib/audit.js'
+import { emailEach, noticeGroup, notify } from '../lib/notify.js'
 import type { AppEnv } from '../types.js'
 
 // A Viewer's "Ask for edit access" (session-only, the router). Asking and
@@ -37,8 +38,40 @@ workspaceAccessRequests.post('/access-requests', async (c) => {
     return open ? { request: open, created: false } : null
   })
   if (!result) return c.json({ error: 'No one in this workspace can grant edit access' }, 409)
+  // Asking again re-sends a notice that's gone (purged, or a write that
+  // failed): the row is kept while it exists, and only a new row is emailed.
+  await tellAddressee(c, result.request)
   return c.json(accessRequestRecord(result.request), result.created ? 201 : 200)
 })
+
+/** A new request reaches the admin it is addressed to: in the Inbox and by email. */
+async function tellAddressee(c: Context<AppEnv>, request: AccessRequestRow): Promise<void> {
+  const workspaceName = c.get('workspaceName') ?? ''
+  // The asker is the session's person; a name left empty reads as the address.
+  const user = c.get('user')
+  const asker = user?.name || user?.email || request.from.name
+  const reached = await notify(c, {
+    event: 'access_request.create',
+    organizationId: c.get('organizationId'),
+    projectId: c.get('projectId'),
+    workspaceId: request.workspaceId,
+    accessRequestId: request.id,
+    groupKey: noticeGroup.accessRequest(request.id),
+    meta: { person: asker, workspace: workspaceName },
+    recipients: { users: [request.to.id] },
+  })
+  const emails = c.get('emails')
+  if (!emails) return
+  await emailEach(reached, (to) =>
+    emails.sendAccessRequest({
+      to: to.email,
+      url: emails.inboxUrl(to.orgSlug),
+      askerName: asker,
+      workspaceName,
+      projectName: c.get('projectName') ?? '',
+    }),
+  )
+}
 
 export const accessRequests = new Hono<AppEnv>()
 
@@ -70,7 +103,7 @@ for (const decision of ['approve', 'decline'] as const) {
       return c.json({ error: `${found.asker.name} is no longer in ${found.workspace.name}` }, 409)
     }
     const alreadyEditing = decision === 'approve' && askerRole !== 'viewer'
-    await db.decideAccessRequest({
+    const decided = await db.decideAccessRequest({
       id: found.request.id,
       status: decision === 'approve' ? 'approved' : 'declined',
       decidedBy: c.get('userId'),
@@ -81,6 +114,8 @@ for (const decision of ['approve', 'decline'] as const) {
           ? { workspaceId: found.workspace.id, userId: found.request.userId }
           : null,
     })
+    // Another answer landed first: it is recorded, and told, by that call.
+    if (!decided) return c.json({ error: 'Already answered' }, 409)
     await recordAudit(c, {
       event: decision === 'approve' ? 'access_request.approve' : 'access_request.decline',
       facts: {
@@ -91,6 +126,19 @@ for (const decision of ['approve', 'decline'] as const) {
       organizationId: found.workspace.organizationId,
       projectId: found.workspace.projectId,
       workspaceId: found.workspace.id,
+    })
+    await notify(c, {
+      event: decision === 'approve' ? 'access_request.approve' : 'access_request.decline',
+      organizationId: found.workspace.organizationId,
+      projectId: found.workspace.projectId,
+      workspaceId: found.workspace.id,
+      groupKey: noticeGroup.requestDecided(found.request.id),
+      meta: {
+        person: c.get('user')?.name || c.get('user')?.email,
+        workspace: found.workspace.name,
+        ...(alreadyEditing && { alreadyEditing }),
+      },
+      recipients: { users: [found.request.userId] },
     })
     return c.json({ ok: true, alreadyEditing })
   })

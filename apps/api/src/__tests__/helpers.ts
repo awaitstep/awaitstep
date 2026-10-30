@@ -22,6 +22,7 @@ import type {
   ProjectOverview,
   WorkspaceRunRow,
   AuditEventInsert,
+  NotificationInsert,
 } from '@awaitstep/db'
 import type {
   GeneratedBundle,
@@ -49,6 +50,7 @@ const store = {
   installedNodes: new Map<string, InstalledNode>(),
   envVars: new Map<string, EnvVar>(),
   auditEvents: [] as AuditEventInsert[],
+  notifications: [] as NotificationInsert[],
 }
 
 export function resetStore() {
@@ -69,6 +71,24 @@ export function resetStore() {
   seedTestProject()
   store.envVars.clear()
   store.auditEvents.length = 0
+  store.notifications.length = 0
+}
+
+/** A workflow's place as the sync read gives it. */
+function syncPlace(workflowId: string) {
+  const wf = store.workflows.get(workflowId)
+  const project = wf ? store.projects.get(wf.projectId) : undefined
+  const workspace = wf?.workspaceId ? store.workspaces.get(wf.workspaceId) : undefined
+  return {
+    organizationId: project?.organizationId ?? null,
+    orgSlug: project ? 'test-org' : null,
+    projectId: project?.id ?? null,
+    projectSlug: project?.slug ?? null,
+    projectName: project?.name ?? null,
+    workspaceId: workspace?.id ?? null,
+    workspaceSlug: workspace?.slug ?? null,
+    workspaceName: workspace?.name ?? null,
+  }
 }
 
 function now() {
@@ -681,6 +701,34 @@ const mockDb: DatabaseAdapter = {
   async purgeAuditEvents() {
     return 0
   },
+  // The Inbox runs through the real database (notifications.test.ts); the
+  // fake keeps what was sent so a route test can look.
+  async notify(entry) {
+    store.notifications.push(entry)
+    return []
+  },
+  async clearNotifications() {},
+  async notifyExpiringKeys() {
+    return 0
+  },
+  async listNotifications() {
+    return notMocked('listNotifications')
+  },
+  async markNotificationRead() {
+    return notMocked('markNotificationRead')
+  },
+  async markAllNotificationsRead() {
+    return notMocked('markAllNotificationsRead')
+  },
+  async purgeNotifications() {
+    return 0
+  },
+  async getReleaseVisit() {
+    return notMocked('getReleaseVisit')
+  },
+  async setReleaseVisit() {
+    return notMocked('setReleaseVisit')
+  },
   async getProjectMoveOutcome() {
     return notMocked('getProjectMoveOutcome')
   },
@@ -800,6 +848,12 @@ const mockDb: DatabaseAdapter = {
     store.runs.set(id, updated)
     return updated
   },
+  async updateRunFromStatus(id, fromStatus, data) {
+    const r = store.runs.get(id)
+    if (!r || r.status !== fromStatus) return false
+    store.runs.set(id, { ...r, ...data, updatedAt: data.updatedAt ?? now() })
+    return true
+  },
   async listRecentRunsByProject(projectId) {
     const wfIds = new Set(
       [...store.workflows.values()].filter((w) => w.projectId === projectId).map((w) => w.id),
@@ -826,6 +880,7 @@ const mockDb: DatabaseAdapter = {
           run,
           workflowName: store.workflows.get(run.workflowId)?.name ?? '',
           configSnapshot: deployment?.configSnapshot ?? null,
+          place: syncPlace(run.workflowId),
         }
       })
   },
@@ -839,6 +894,7 @@ const mockDb: DatabaseAdapter = {
         run,
         workflowName: store.workflows.get(run.workflowId)?.name ?? '',
         configSnapshot: null,
+        place: syncPlace(run.workflowId),
       }
     )
   },
@@ -1617,6 +1673,11 @@ export function createTestApp(options?: {
     ...(options?.clientIpPolicy && { clientIpPolicy: options.clientIpPolicy }),
     ...(options?.logger && { logger: options.logger }),
   })
+}
+
+/** What the routes sent to the fake's Inbox, oldest first. */
+export function sentNotifications(): readonly NotificationInsert[] {
+  return store.notifications
 }
 
 /** What the routes recorded in the fake's audit log, oldest first. */

@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
@@ -6,10 +6,13 @@ import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import { workerName } from '@awaitstep/provider-cloudflare'
 import type { ProviderConfig, GeneratedBundle, DeployResult } from '@awaitstep/codegen'
+import type { Workflow } from '@awaitstep/db'
 import type { AppEnv } from '../types.js'
 import { resolveProvider } from '../lib/provider-resolver.js'
 import { prepareDeploy, isDeployError } from '../lib/deploy-prepare.js'
-import { recordAudit } from '../lib/audit.js'
+import { auditActor, recordAudit } from '../lib/audit.js'
+import { sharedDeployGroupKey } from '@awaitstep/ir'
+import { notify } from '../lib/notify.js'
 
 const deploySchema = z.object({
   connectionId: z.string().min(1),
@@ -30,6 +33,31 @@ const triggerSchema = z.object({
 })
 
 export const deploy = new Hono<AppEnv>()
+
+/**
+ * A workflow shared to its project runs in every workspace of it: a new
+ * deploy reaches the admins of the others. Filed at the project — they can't
+ * open the workspace it lives in.
+ */
+async function tellSharedDeploy(
+  c: Context<AppEnv>,
+  workflow: Workflow,
+  version: number,
+): Promise<void> {
+  if (!workflow.sharedAt || !workflow.workspaceId) return
+  await notify(c, {
+    event: 'workflow.deploy.shared',
+    organizationId: c.get('organizationId'),
+    projectId: workflow.projectId,
+    // One row a workflow an hour: a loop of deploys counts up instead of burying the Inbox.
+    groupKey: sharedDeployGroupKey(workflow.id, new Date()),
+    onRepeat: 'fold',
+    meta: { person: auditActor(c).actor.actorName, workflow: workflow.name, version },
+    recipients: {
+      otherWorkspaceAdmins: { projectId: workflow.projectId, workspaceId: workflow.workspaceId },
+    },
+  })
+}
 
 deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) => {
   const db = c.get('db')
@@ -99,6 +127,7 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
       projectId: workflow.projectId,
       workspaceId: workflow.workspaceId,
     })
+    await tellSharedDeploy(c, workflow, prepared.versionNumber)
   }
 
   return c.json(result, result.success ? 200 : 500)
@@ -204,6 +233,7 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
         projectId: workflow.projectId,
         workspaceId: workflow.workspaceId,
       })
+      await tellSharedDeploy(c, workflow, prepared.versionNumber)
     }
 
     await stream.writeSSE({

@@ -2,6 +2,9 @@ import { nanoid } from 'nanoid'
 import { resolveStepNode } from '@awaitstep/codegen'
 import type { ProviderConfig, WorkflowProvider, WorkflowRunDetail } from '@awaitstep/codegen'
 import type { ActiveRunForSync, DatabaseAdapter, UpsertRunStepData } from '@awaitstep/db'
+import { runFailureGroupKey } from '@awaitstep/ir'
+import type { AppEmails } from '../types.js'
+import { emailEach, sendNotice } from './notify.js'
 import { resolveProvider } from './provider-resolver.js'
 import { parseStepManifest } from './step-manifest.js'
 import { createLogger } from './logger.js'
@@ -11,6 +14,8 @@ const log = createLogger('run-sync')
 export interface RunSyncOptions {
   provider?: WorkflowProvider
   limit?: number
+  /** Emails a failing workflow's watchers; without it the Inbox alone is told. */
+  emails?: AppEmails
 }
 
 /**
@@ -43,12 +48,14 @@ export async function syncActiveRuns(db: DatabaseAdapter, options?: RunSyncOptio
       const credentials = JSON.parse(connection.credentials) as Record<string, string>
       await Promise.all(
         group.map((entry) =>
-          syncRun(db, provider, connection.provider, credentials, entry).catch((err) => {
-            log.warn('Run sync failed', {
-              runId: entry.run.id,
-              error: err instanceof Error ? err.message : String(err),
-            })
-          }),
+          syncRun(db, provider, connection.provider, credentials, entry, options?.emails).catch(
+            (err) => {
+              log.warn('Run sync failed', {
+                runId: entry.run.id,
+                error: err instanceof Error ? err.message : String(err),
+              })
+            },
+          ),
         ),
       )
     } catch (err) {
@@ -78,7 +85,7 @@ export async function syncRunById(
   const connection = await db.getProviderConnectionById(entry.run.connectionId)
   if (!connection) return null
   const credentials = JSON.parse(connection.credentials) as Record<string, string>
-  return syncRun(db, provider, connection.provider, credentials, entry)
+  return syncRun(db, provider, connection.provider, credentials, entry, options?.emails)
 }
 
 async function syncRun(
@@ -87,6 +94,7 @@ async function syncRun(
   providerName: string,
   credentials: Record<string, string>,
   entry: ActiveRunForSync,
+  emails?: AppEmails,
 ): Promise<WorkflowRunDetail> {
   const { run, workflowName } = entry
   const config: ProviderConfig = {
@@ -103,7 +111,15 @@ async function syncRun(
   }
   if (detail.error) updates.error = JSON.stringify(detail.error)
   if (detail.endedAt) updates.updatedAt = detail.endedAt
-  if (Object.keys(updates).length > 0) {
+  if (updates.status) {
+    // Moved only from the status this sync read: of two syncs seeing the
+    // same change (the tick and a live stream), one moves it and tells.
+    const moved = await db.updateRunFromStatus(run.id, run.status, {
+      ...updates,
+      status: updates.status,
+    })
+    if (moved && updates.status === 'errored') await tellRunFailed(db, entry, detail, emails)
+  } else if (Object.keys(updates).length > 0) {
     await db.updateRun(run.id, updates)
   }
 
@@ -123,6 +139,61 @@ async function syncRun(
   }))
   await db.upsertRunSteps(run.id, rows)
   return detail
+}
+
+/** The step a failed run stopped at: the last one that errored. */
+function failedStep(detail: WorkflowRunDetail): string | null {
+  const errored = detail.steps.filter((step) => step.status === 'errored')
+  return errored[errored.length - 1]?.name ?? null
+}
+
+/**
+ * A run failed: its workflow's creator and its workspace's admins hear of it,
+ * failures of one workflow folding into one row an hour. Only a new row is
+ * emailed, so a flapping workflow mails each person at most once an hour.
+ */
+async function tellRunFailed(
+  db: DatabaseAdapter,
+  entry: ActiveRunForSync,
+  detail: WorkflowRunDetail,
+  emails: AppEmails | undefined,
+): Promise<void> {
+  const { place } = entry
+  if (!place.organizationId) return
+  const step = failedStep(detail)
+  const now = new Date()
+  const reached = await sendNotice(
+    db,
+    {
+      event: 'run.failed',
+      organizationId: place.organizationId,
+      projectId: place.projectId,
+      workspaceId: place.workspaceId,
+      groupKey: runFailureGroupKey(entry.run.workflowId, now),
+      meta: { workflow: entry.workflowName, ...(step && { step }) },
+      recipients: { workflowWatchers: { workflowId: entry.run.workflowId } },
+      onRepeat: 'fold',
+    },
+    now,
+  )
+  if (!emails || !place.orgSlug || !place.projectSlug || !place.workspaceSlug) return
+  const url = emails.runsUrl({
+    org: place.orgSlug,
+    project: place.projectSlug,
+    workspace: place.workspaceSlug,
+  })
+  const placeName = [place.projectName, place.workspaceName].filter(Boolean).join(' · ')
+  await emailEach(
+    reached.filter((to) => to.count === 1),
+    (to) =>
+      emails.sendRunFailed({
+        to: to.email,
+        url,
+        workflowName: entry.workflowName,
+        stepName: step,
+        placeName,
+      }),
+  )
 }
 
 /**

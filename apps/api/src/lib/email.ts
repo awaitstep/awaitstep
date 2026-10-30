@@ -1,10 +1,19 @@
 import { Resend } from 'resend'
 import {
+  renderAccessRequestEmail,
   renderInvitationEmail,
   renderInviteRequestEmail,
   renderMagicLinkEmail,
+  renderRunFailedEmail,
+  subjectText,
 } from '@awaitstep/email'
-import type { AppEmails, InvitationEmail, InviteRequestEmail } from '../types.js'
+import type {
+  AccessRequestEmail,
+  AppEmails,
+  InvitationEmail,
+  InviteRequestEmail,
+  RunFailedEmail,
+} from '../types.js'
 
 interface EmailServiceOptions {
   apiKey: string
@@ -36,7 +45,7 @@ export function createEmailService(options: EmailServiceOptions) {
       await resend.emails.send({
         from,
         to: data.to,
-        subject: `${data.inviterName} invited you to ${data.orgName}`,
+        subject: subjectText(`${data.inviterName} invited you to ${data.orgName}`),
         html,
         text,
       })
@@ -47,7 +56,29 @@ export function createEmailService(options: EmailServiceOptions) {
       await resend.emails.send({
         from,
         to: data.to,
-        subject: `${data.askerEmail} asked for a new invite to ${data.orgName}`,
+        subject: subjectText(`${data.askerEmail} asked for a new invite to ${data.orgName}`),
+        html,
+        text,
+      })
+    },
+
+    async sendAccessRequest(data: AccessRequestEmail) {
+      const { html, text } = await renderAccessRequestEmail({ ...data, appName, appUrl })
+      await resend.emails.send({
+        from,
+        to: data.to,
+        subject: subjectText(`${data.askerName} asked for edit access to ${data.workspaceName}`),
+        html,
+        text,
+      })
+    },
+
+    async sendRunFailed(data: RunFailedEmail) {
+      const { html, text } = await renderRunFailedEmail({ ...data, appName, appUrl })
+      await resend.emails.send({
+        from,
+        to: data.to,
+        subject: subjectText(`${data.workflowName} failed`),
         html,
         text,
       })
@@ -74,6 +105,9 @@ export function createAppEmails(options: {
   return {
     inviteUrl: (id) => `${base}/invite/${encodeURIComponent(id)}`,
     membersUrl: (orgSlug) => `${base}/${encodeURIComponent(orgSlug)}/settings/members`,
+    inboxUrl: (orgSlug) => `${base}/${encodeURIComponent(orgSlug)}/inbox`,
+    runsUrl: (slugs) =>
+      `${base}/${[slugs.org, slugs.project, slugs.workspace].map(encodeURIComponent).join('/')}/runs`,
     async sendInvitation(data) {
       if (options.service) return options.service.sendInvitation(data)
       options.log(
@@ -89,6 +123,17 @@ export function createAppEmails(options: {
           ? `${data.askerEmail} asked ${data.to} for a new invite to ${data.orgName}: ${data.url}`
           : `${data.askerEmail} asked ${data.to} for a new invite to ${data.orgName}: not sent, no email service`,
       )
+    },
+    // Neither carries a secret, so without a mail service the note is logged whole.
+    async sendAccessRequest(data) {
+      if (options.service) return options.service.sendAccessRequest(data)
+      options.log(
+        `${data.askerName} asked ${data.to} for edit access to ${data.workspaceName}: ${data.url} (no email service)`,
+      )
+    },
+    async sendRunFailed(data) {
+      if (options.service) return options.service.sendRunFailed(data)
+      options.log(`${data.workflowName} failed; told ${data.to}: ${data.url} (no email service)`)
     },
   }
 }

@@ -5,6 +5,7 @@ import {
   mockDb,
   recordedAuditEvents,
   resetStore,
+  sentNotifications,
   TEST_ORG_ID,
   TEST_PROJECT_ID,
   TEST_USER_ID,
@@ -128,5 +129,41 @@ describe('deploys in the audit log', () => {
     outcome.success = false
     await post(app, '/takedown', { connectionId: 'conn-1' })
     expect(recordedAuditEvents()).toHaveLength(1)
+  })
+
+  it('tells the project’s other workspaces of a shared workflow’s deploy, filed at the project', async () => {
+    const wf = (await mockDb.getWorkflowById('wf-1'))!
+    await mockDb.setWorkflowShared('wf-1', wf.workspaceId!, TEST_USER_ID, true)
+    await post(app, '/deploy', { connectionId: 'conn-1' })
+    expect(sentNotifications()).toHaveLength(1)
+    expect(sentNotifications()[0]).toMatchObject({
+      event: 'workflow.deploy.shared',
+      kind: 'deploy',
+      needsAction: false,
+      organizationId: TEST_ORG_ID,
+      projectId: TEST_PROJECT_ID,
+      workspaceId: null,
+      meta: { workflow: 'Lead enrichment', version: 1 },
+      recipients: {
+        otherWorkspaceAdmins: { projectId: TEST_PROJECT_ID, workspaceId: wf.workspaceId },
+      },
+      excludeUserId: TEST_USER_ID,
+      onRepeat: 'fold',
+    })
+    // One row a workflow an hour: a second deploy folds into it.
+    await post(app, '/deploy', { connectionId: 'conn-1' })
+    expect(sentNotifications()[1]!.groupKey).toBe(sentNotifications()[0]!.groupKey)
+    expect(sentNotifications()[0]!.groupKey).toMatch(
+      /^workflow\.deploy\.shared:wf-1:\d{4}-\d{2}-\d{2}T\d{2}$/,
+    )
+  })
+
+  it('tells nobody of a deploy of an unshared workflow, or one that failed', async () => {
+    await post(app, '/deploy', { connectionId: 'conn-1' })
+    const wf = (await mockDb.getWorkflowById('wf-1'))!
+    await mockDb.setWorkflowShared('wf-1', wf.workspaceId!, TEST_USER_ID, true)
+    outcome.success = false
+    await post(app, '/deploy', { connectionId: 'conn-1' })
+    expect(sentNotifications()).toEqual([])
   })
 })

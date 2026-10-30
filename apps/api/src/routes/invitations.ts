@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { grantCounts, inheritedWorkspaceRole } from '@awaitstep/ir'
-import { isUniqueViolation } from '@awaitstep/db'
+import { isUniqueViolation, type InvitationView } from '@awaitstep/db'
 import { zValidator } from '../lib/validation.js'
 import {
   describePlace,
@@ -13,6 +13,7 @@ import {
   pendingInviteRecord,
 } from '../lib/access-records.js'
 import { recordAudit } from '../lib/audit.js'
+import { clearNotice, noticeGroup, notify } from '../lib/notify.js'
 import type { AppEnv } from '../types.js'
 
 export const INVITE_DAYS = 7
@@ -194,6 +195,34 @@ invitations.post('/', zValidator('json', sendSchema), async (c) => {
   return c.json({ data: created.map((i) => ({ id: i.id, email: i.email })) }, 201)
 })
 
+/** The inviter hears how their invite was answered, in the invite's organization. */
+function tellInviter(
+  c: Context<AppEnv>,
+  view: InvitationView,
+  event: 'invitation.accept' | 'invitation.decline' | 'invitation.ask_again',
+) {
+  return notify(c, {
+    event,
+    organizationId: view.invitation.organizationId,
+    groupKey: noticeGroup.invitation(event, view.invitation.id),
+    meta: { email: view.invitation.email, person: c.get('user')?.name || undefined },
+    recipients: { users: [view.inviter.id] },
+  })
+}
+
+/** Takes back what an answer told the inviter: an undone decline, an answered ask. */
+function clearInviterNotice(
+  c: Context<AppEnv>,
+  view: InvitationView,
+  event: 'invitation.decline' | 'invitation.ask_again',
+) {
+  return clearNotice(
+    c.get('db'),
+    view.invitation.organizationId,
+    noticeGroup.invitation(event, view.invitation.id),
+  )
+}
+
 /** The invite page: which state it is in for the session that opened it. */
 invitations.get('/:id', async (c) => {
   const view = await c.get('db').getInvitation(c.req.param('id'))
@@ -239,6 +268,7 @@ invitations.post('/:id/accept', async (c) => {
     facts: { name: view.org.name, role: view.invitation.role ?? undefined },
     organizationId: view.invitation.organizationId,
   })
+  await tellInviter(c, view, 'invitation.accept')
   return c.json(inviteLanding(view))
 })
 
@@ -250,8 +280,12 @@ invitations.post('/:id/decline', async (c) => {
     return c.json({ error: `This invite is for ${state.invite.email}` }, 403)
   }
   if (state.state === 'expired') return c.json({ error: 'This invite has expired' }, 410)
-  if (state.state === 'open')
-    await c.get('db').setInvitationStatus(view.invitation.id, 'pending', 'rejected')
+  if (
+    state.state === 'open' &&
+    (await c.get('db').setInvitationStatus(view.invitation.id, 'pending', 'rejected'))
+  ) {
+    await tellInviter(c, view, 'invitation.decline')
+  }
   return c.json({ ok: true })
 })
 
@@ -263,8 +297,12 @@ invitations.post('/:id/undo-decline', async (c) => {
     return c.json({ error: `This invite is for ${state.invite.email}` }, 403)
   }
   if (state.state === 'expired') return c.json({ error: 'This invite has expired' }, 410)
-  if (state.state === 'declined')
-    await c.get('db').setInvitationStatus(view.invitation.id, 'rejected', 'pending')
+  if (
+    state.state === 'declined' &&
+    (await c.get('db').setInvitationStatus(view.invitation.id, 'rejected', 'pending'))
+  ) {
+    await clearInviterNotice(c, view, 'invitation.decline')
+  }
   return c.json({ ok: true })
 })
 
@@ -278,6 +316,7 @@ invitations.post('/:id/ask-again', async (c) => {
   }
   if (state.state !== 'expired') return c.json({ error: 'This invite is still open' }, 409)
   const asked = await c.get('db').askForNewInvitation(view.invitation.id, new Date().toISOString())
+  if (asked) await tellInviter(c, view, 'invitation.ask_again')
   const emails = c.get('emails')
   if (asked && emails) {
     await emails.sendInviteRequest({
@@ -313,6 +352,8 @@ invitations.post('/:id/resend', async (c) => {
     }
     return c.json({ error: 'This invite is no longer open' }, 409)
   }
+  // Resending answers "asked for a new invite".
+  await clearInviterNotice(c, view, 'invitation.ask_again')
   const emails = c.get('emails')
   if (emails) {
     await emails.sendInvitation({
@@ -340,6 +381,8 @@ invitations.delete('/:id', async (c) => {
   const email = await db.cancelInvitation(id, organizationId)
   if (email) {
     await recordAudit(c, { event: 'invitation.cancel', facts: { name: email } })
+    // A cancelled invite has nothing left to ask about.
+    await clearNotice(db, organizationId, noticeGroup.invitation('invitation.ask_again', id))
     return c.json({ ok: true })
   }
   const view = await db.getInvitation(id)

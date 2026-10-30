@@ -1,4 +1,5 @@
-import { recordOrganizationUpdate, recordSignIn, startAuditPurgeLoop } from '../lib/audit.js'
+import { recordOrganizationUpdate, recordSignIn } from '../lib/audit.js'
+import { startMaintenanceLoop } from '../lib/maintenance.js'
 import { serve } from '@hono/node-server'
 import { getConnInfo } from '@hono/node-server/conninfo'
 import { resolve, dirname } from 'node:path'
@@ -163,8 +164,8 @@ async function start() {
 
   // Background reconciliation: run status + per-step telemetry sync off the
   // request path, same as the production serve entry.
-  const stopRunSync = startRunSyncLoop(db, 5000)
-  const stopAuditPurge = startAuditPurgeLoop(db)
+  const stopRunSync = startRunSyncLoop(db, 5000, { emails })
+  const stopMaintenance = startMaintenanceLoop(db)
   // The dev entry reaps too: without it a session started here outlives its
   // window, keeps its port, and holds the developer's own concurrency slot.
   const stopTestSessionReaper = startTestSessionReaper(
@@ -179,7 +180,7 @@ async function start() {
   // Clean up local dev sessions on shutdown
   const stopBackground = () => {
     stopRunSync()
-    stopAuditPurge()
+    stopMaintenance()
     stopTestSessionReaper()
     releaseClaimedPorts()
   }

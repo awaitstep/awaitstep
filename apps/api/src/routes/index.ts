@@ -32,6 +32,8 @@ import { source } from './source.js'
 import { projectFiles } from './project-files.js'
 import { createConnectionRoutes } from './connections.js'
 import { audit } from './audit.js'
+import { notifications } from './notifications.js'
+import { releases } from './releases.js'
 import { deploy } from './deploy.js'
 import { runs } from './runs.js'
 import { apiKeys } from './api-keys.js'
@@ -100,6 +102,10 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.post('/invitations/:id/resend', requireOrganization)
   router.delete('/invitations/:id', requireOrganization)
   router.use('/me/*', requireSessionAuth)
+  // The Inbox and What's new are a person's (B8): no key reads or marks them.
+  router.use('/notifications/*', requireSessionAuth)
+  router.use('/notifications/*', requireOrganization)
+  router.use('/releases/*', requireSessionAuth)
   router.use('/access-requests/*', requireSessionAuth)
   router.post('/workspaces/:id/members', requireSessionAuth)
   router.patch('/workspaces/:id/members/:userId', requireSessionAuth)
@@ -384,6 +390,9 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.post('/invitations', inviteLimit)
   router.post('/invitations/:id/resend', inviteLimit)
   router.post('/invitations/:id/ask-again', inviteLimit)
+  // Each decline (again after an Undo) puts a fresh row in the inviter's Inbox.
+  router.post('/invitations/:id/decline', inviteLimit)
+  router.post('/invitations/:id/undo-decline', inviteLimit)
   router.post('/workspaces/:id/access-requests', writeLimit)
   router.post('/access-requests/:id/approve', writeLimit)
   router.post('/access-requests/:id/decline', writeLimit)
@@ -464,6 +473,8 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.route('/nodes', nodes)
   router.route('/marketplace', marketplace)
   router.route('/audit-events', audit)
+  router.route('/notifications', notifications)
+  router.route('/releases', releases)
 
   // Global deployments list (across all project's workflows)
   router.get('/deployments', zValidator('query', paginationQuerySchema), async (c) => {

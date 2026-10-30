@@ -18,6 +18,14 @@ describe('app', () => {
     expect(body.status).toBe('ok')
   })
 
+  it('lets a cross-origin page send PUT (locks, shares, the What’s new visit)', async () => {
+    const res = await app.request('/api/releases/visit', {
+      method: 'OPTIONS',
+      headers: { Origin: 'http://web.test', 'Access-Control-Request-Method': 'PUT' },
+    })
+    expect(res.headers.get('Access-Control-Allow-Methods')).toContain('PUT')
+  })
+
   it('returns 404 for nonexistent workflow', async () => {
     const res = await app.request(`/api/workflows/nonexistent?projectId=${TEST_PROJECT_ID}`, {
       method: 'PATCH',

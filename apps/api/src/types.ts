@@ -45,14 +45,39 @@ export interface InviteRequestEmail {
   askerEmail: string
 }
 
+/** To a workspace admin: a Viewer asked them for edit access (B8). */
+export interface AccessRequestEmail {
+  to: string
+  url: string
+  askerName: string
+  workspaceName: string
+  projectName: string
+}
+
+/** To a workflow's watchers: a run failed, the first time in its hour (B8). */
+export interface RunFailedEmail {
+  to: string
+  url: string
+  workflowName: string
+  stepName: string | null
+  /** "Project 101 · Sales". */
+  placeName: string
+}
+
 /** How the app sends mail; the entry points decide with what, and may log instead. */
 export interface AppEmails {
   /** The web page for an invitation, from its id. */
   inviteUrl(invitationId: string): string
   /** The org's Members page, for the inviter. */
   membersUrl(orgSlug: string): string
+  /** The org's Inbox. */
+  inboxUrl(orgSlug: string): string
+  /** A workspace's Runs page. */
+  runsUrl(slugs: { org: string; project: string; workspace: string }): string
   sendInvitation(data: InvitationEmail): Promise<void>
   sendInviteRequest(data: InviteRequestEmail): Promise<void>
+  sendAccessRequest(data: AccessRequestEmail): Promise<void>
+  sendRunFailed(data: RunFailedEmail): Promise<void>
 }
 
 export interface AppEnv {

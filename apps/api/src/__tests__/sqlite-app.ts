@@ -6,7 +6,13 @@ import { DrizzleDatabaseAdapter, schema } from '@awaitstep/db'
 import { createApp } from '../app.js'
 import { hashApiKey } from '../lib/api-key-hash.js'
 import type { Auth } from '../auth/config.js'
-import type { AppEmails, InvitationEmail, InviteRequestEmail } from '../types.js'
+import type {
+  AccessRequestEmail,
+  AppEmails,
+  InvitationEmail,
+  InviteRequestEmail,
+  RunFailedEmail,
+} from '../types.js'
 
 // The app on a real, migrated SQLite database, for the routes whose answers
 // are the adapter's SQL (people, roles, invitations, requests): the mock in
@@ -56,15 +62,28 @@ export function createSqliteApp(options: { enableLocalDev?: boolean } = {}) {
     },
   } as unknown as Auth
 
-  const sent = { invitations: [] as InvitationEmail[], requests: [] as InviteRequestEmail[] }
+  const sent = {
+    invitations: [] as InvitationEmail[],
+    requests: [] as InviteRequestEmail[],
+    accessRequests: [] as AccessRequestEmail[],
+    runFailures: [] as RunFailedEmail[],
+  }
   const emails: AppEmails = {
     inviteUrl: (id) => `http://web.test/invite/${id}`,
     membersUrl: (slug) => `http://web.test/${slug}/settings/members`,
+    inboxUrl: (slug) => `http://web.test/${slug}/inbox`,
+    runsUrl: (s) => `http://web.test/${s.org}/${s.project}/${s.workspace}/runs`,
     async sendInvitation(data) {
       sent.invitations.push(data)
     },
     async sendInviteRequest(data) {
       sent.requests.push(data)
+    },
+    async sendAccessRequest(data) {
+      sent.accessRequests.push(data)
+    },
+    async sendRunFailed(data) {
+      sent.runFailures.push(data)
     },
   }
 
@@ -174,7 +193,7 @@ export function createSqliteApp(options: { enableLocalDev?: boolean } = {}) {
 
   const json = (body: unknown, method = 'POST') => ({ method, body: JSON.stringify(body) })
 
-  return { app, adapter, db, schema: sqliteSchema, sqlite, seed, as, json, sent }
+  return { app, adapter, db, schema: sqliteSchema, sqlite, seed, as, json, sent, emails, people }
 }
 
 export type SqliteApp = ReturnType<typeof createSqliteApp>
