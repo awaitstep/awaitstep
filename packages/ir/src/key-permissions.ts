@@ -20,6 +20,7 @@ export type KeyResource =
   | 'workflows'
   | 'runs'
   | 'variables'
+  | 'audit'
 
 /** The actions a key may take, per resource. A missing resource grants nothing. */
 export type KeyPermissions = Partial<Record<KeyResource, KeyAction[]>>
@@ -42,8 +43,8 @@ const READ_WRITE_DELETE = ['read', 'write', 'delete'] as const
 /**
  * The cells each level offers — only those the API backs today. Members
  * are read-only for keys (people are a person's decision); a workspace key
- * sets its own workspace's variables (B4); audit (B7) and the library (W2)
- * return with their routes.
+ * sets its own workspace's variables (B4); an organization key may read
+ * the audit log (B7); the library (W2) returns with its routes.
  */
 export const KEY_CATALOG: Record<KeyLevel, readonly KeyCatalogEntry[]> = {
   organization: [
@@ -51,6 +52,7 @@ export const KEY_CATALOG: Record<KeyLevel, readonly KeyCatalogEntry[]> = {
     { id: 'members', actions: READ_ONLY },
     { id: 'connections', actions: READ_WRITE_DELETE },
     { id: 'resources', actions: READ_WRITE_DELETE },
+    { id: 'audit', actions: READ_ONLY },
   ],
   project: [
     { id: 'workspaces', actions: READ_WRITE_DELETE },
@@ -193,6 +195,7 @@ const RESOURCES = new Set<string>([
   'workflows',
   'runs',
   'variables',
+  'audit',
 ])
 const ACTIONS = new Set<string>(KEY_ACTIONS)
 

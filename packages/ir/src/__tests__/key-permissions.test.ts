@@ -46,6 +46,15 @@ describe('the key catalog', () => {
       'delete',
     ])
   })
+
+  it('offers the audit log read-only, and only to organization keys (B7)', () => {
+    expect(KEY_CATALOG.organization.find((r) => r.id === 'audit')!.actions).toEqual(['read'])
+    expect(resourceAtLevel('project', 'audit')).toBe(false)
+    expect(resourceAtLevel('workspace', 'audit')).toBe(false)
+    expect(keyMay('organization', { audit: ['read'] }, 'audit', 'read')).toBe(true)
+    expect(keyMay('organization', { audit: ['read', 'write'] }, 'audit', 'write')).toBe(false)
+    expect(parseKeyPermissions('{"audit":["read"]}')).toEqual({ audit: ['read'] })
+  })
 })
 
 describe('presets', () => {
@@ -81,6 +90,7 @@ describe('presets', () => {
       members: ['read'],
       connections: ['read', 'write', 'delete'],
       resources: ['read', 'write', 'delete'],
+      audit: ['read'],
     })
   })
 
