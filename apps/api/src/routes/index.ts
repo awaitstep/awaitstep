@@ -232,6 +232,12 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
     router.post(path, requireWorkspaceCan('run'))
   }
 
+  // Connections are the organization's settings: changing them is an owner's
+  // or admin's (D-B9-7); a key manages what its creator may.
+  router.post('/connections', requireOrgCan('manageSettings'))
+  router.patch('/connections/:id', requireOrgCan('manageSettings'))
+  router.delete('/connections/:id', requireOrgCan('manageSettings'))
+
   // Ownership — connection routes (skip non-ID sub-routes)
   router.use('/connections/:id', async (c, next) => {
     if (c.req.param('id') === 'verify-token') return next()
@@ -272,6 +278,8 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   // there) and organization keys never touch workflows: the project's shared
   // library is a person's read. A workspace's "Shared with" list is a key's.
   router.get('/projects/:id/shared', requireSessionAuth)
+  // The empty-project page's counts: a person's dashboard read (B9).
+  router.get('/projects/:id/setup', requireSessionAuth)
   router.get('/connections', key('connections', 'read', belowReads))
   // Asks Cloudflare whether a token is valid; writes nothing.
   router.post('/connections/verify-token', key('connections', 'read', belowReads))
@@ -406,6 +414,10 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.patch('/env-vars/:id', writeLimit)
   router.delete('/env-vars/:id', writeLimit)
   router.use('/connections/verify-token', verifyLimit)
+  // Every create, and an edit that replaces the token, asks Cloudflare: the verify budget.
+  router.post('/connections', verifyLimit)
+  router.patch('/connections/:id', verifyLimit)
+  router.delete('/connections/:id', writeLimit)
   router.use('/workflows/:workflowId/deploy', deployLimit)
   router.use('/workflows/:workflowId/deploy-stream', deployLimit)
   router.use('/workflows/:workflowId/trigger', writeLimit)

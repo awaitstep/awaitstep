@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { afterEach, describe, it, expect, beforeEach, vi } from 'vitest'
+import { stubCloudflare } from './fixtures/cloudflare.js'
 import { createTestApp, resetStore, TEST_USER_ID, TEST_ORG_ID, mockDb } from './helpers.js'
 
 function url(path: string) {
@@ -11,6 +12,11 @@ describe('connection routes', () => {
   beforeEach(() => {
     resetStore()
     app = createTestApp()
+    stubCloudflare({ accounts: [{ id: '0123456789abcdef0123456789abcdef', name: 'Acme' }] })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   describe('POST /api/connections', () => {
@@ -20,7 +26,10 @@ describe('connection routes', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           provider: 'cloudflare',
-          credentials: { accountId: 'cf-123', apiToken: 'super-secret-token' },
+          credentials: {
+            accountId: '0123456789abcdef0123456789abcdef',
+            apiToken: 'super-secret-token',
+          },
           name: 'My CF Account',
         }),
       })
@@ -28,7 +37,7 @@ describe('connection routes', () => {
       const body = await res.json()
       expect(body.name).toBe('My CF Account')
       expect(body.provider).toBe('cloudflare')
-      expect(body.credentials.accountId).toBe('cf-123')
+      expect(body.credentials.accountId).toBe('0123456789abcdef0123456789abcdef')
       expect(body.credentials.apiToken).toBe('***')
     })
 

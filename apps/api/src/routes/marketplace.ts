@@ -48,20 +48,47 @@ marketplace.get('/', async (c) => {
   const organizationId = c.get('organizationId')
   const db = c.get('db')
 
-  const [index, installedResult] = await Promise.all([
+  // The org's installs and how many workflows use each come from one statement.
+  const [index, installed] = await Promise.all([
     remoteRegistry.getIndex(),
-    db.listInstalledNodes(organizationId, { limit: 100 }),
+    db.listNodeUsage(organizationId),
   ])
+  const installedById = new Map(installed.map((n) => [n.nodeId, n]))
 
-  const installedMap = new Map(installedResult.data.map((n) => [n.nodeId, n.version]))
+  const nodes = index.nodes.map((node) => {
+    const own = installedById.get(node.id)
+    return {
+      ...node,
+      installed: own !== undefined,
+      installedVersion: own?.version ?? null,
+      // Workflows using it in their current version; null when not installed.
+      usage: own?.usage ?? null,
+      inRegistry: true,
+    }
+  })
 
-  const nodes = index.nodes.map((node) => ({
-    ...node,
-    installed: installedMap.has(node.id),
-    installedVersion: installedMap.get(node.id) ?? null,
-  }))
+  // Installed but no longer in the registry: listed from its bundle so it can still be removed.
+  const listed = new Set(index.nodes.map((node) => node.id))
+  const orphans = installed
+    .filter((own) => !listed.has(own.nodeId))
+    .map((own) => ({
+      id: own.nodeId,
+      name: own.name ?? own.nodeId,
+      description: own.description ?? '',
+      category: own.category ?? 'Other',
+      tags: [],
+      author: '',
+      license: '',
+      providers: [],
+      latest: own.version,
+      versions: [],
+      installed: true,
+      installedVersion: own.version,
+      usage: own.usage,
+      inRegistry: false,
+    }))
 
-  return c.json({ nodes })
+  return c.json({ nodes: [...nodes, ...orphans] })
 })
 
 marketplace.get('/:nodeId', async (c) => {

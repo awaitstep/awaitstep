@@ -3,6 +3,7 @@ import type {
   Workflow,
   WorkflowVersion,
   Connection,
+  ConnectionListRow,
   WorkflowRun,
   WorkflowRunStep,
   WorkflowFile,
@@ -694,8 +695,10 @@ const mockDb: DatabaseAdapter = {
   async listAuditEvents() {
     return notMocked('listAuditEvents')
   },
+  // The lockout itself runs through the real database (audit.test.ts); here
+  // every check is the caller's first.
   async reserveAuditAttempt() {
-    return notMocked('reserveAuditAttempt')
+    return { failures: 0, lastFailureAt: null }
   },
   async deleteAuditEvent() {},
   async purgeAuditEvents() {
@@ -708,6 +711,7 @@ const mockDb: DatabaseAdapter = {
     return []
   },
   async clearNotifications() {},
+  async clearNotificationsByPrefix() {},
   async notifyExpiringKeys() {
     return 0
   },
@@ -794,14 +798,37 @@ const mockDb: DatabaseAdapter = {
     store.versions.delete(id)
   },
 
-  // Connections
+  // Connections — coverage, the dashboard list and token checks run through
+  // the real database (connections-api.test.ts); these keep the fake whole.
   async createConnection(data) {
-    const c: Connection = { ...data, createdAt: now(), updatedAt: now() }
+    const { projectIds: _projectIds, token, visibleTo: _visibleTo, ...row } = data
+    const c: Connection = {
+      ...row,
+      allProjects: data.allProjects ?? true,
+      tokenStatus: token?.status ?? 'unchecked',
+      tokenExpiresAt: token?.expiresAt ?? null,
+      tokenCheckedAt: token?.checkedAt ?? null,
+      createdAt: now(),
+      updatedAt: now(),
+    }
     store.connections.set(c.id, c)
-    return c
+    return listedConnection(c)
   },
   async getProviderConnectionById(id) {
     return store.connections.get(id) ?? null
+  },
+  async getConnectionDeployedWith(id, organizationId, workflowId) {
+    const connection = store.connections.get(id)
+    if (!connection || connection.organizationId !== organizationId) return null
+    const deployed = [...store.deployments.values()].some(
+      (d) => d.workflowId === workflowId && d.connectionId === id && d.status === 'success',
+    )
+    return deployed ? connection : null
+  },
+  async getConnectionForProject(id, organizationId) {
+    const connection = store.connections.get(id)
+    if (!connection || connection.organizationId !== organizationId) return null
+    return { connection, covered: true }
   },
   async listConnectionsByOrganization(organizationId) {
     return {
@@ -809,12 +836,48 @@ const mockDb: DatabaseAdapter = {
       nextCursor: null,
     }
   },
+  async listConnections(organizationId) {
+    return {
+      data: [...store.connections.values()]
+        .filter((c) => c.organizationId === organizationId)
+        .map(listedConnection),
+      nextCursor: null,
+    }
+  },
   async updateConnection(id, data) {
     const c = store.connections.get(id)
-    if (!c) return null
-    const updated = { ...c, ...data, updatedAt: now() }
+    if (!c || c.organizationId !== data.organizationId) return null
+    const {
+      projectIds: _projectIds,
+      organizationId: _organizationId,
+      visibleTo: _visibleTo,
+      token,
+      ...rest
+    } = data
+    const updated = {
+      ...c,
+      ...rest,
+      ...(token && {
+        tokenStatus: token.status,
+        tokenExpiresAt: token.expiresAt,
+        tokenCheckedAt: token.checkedAt,
+      }),
+      updatedAt: now(),
+    }
     store.connections.set(id, updated)
-    return updated
+    return listedConnection(updated)
+  },
+  async connectionsDueForTokenCheck() {
+    return []
+  },
+  async recordConnectionTokenCheck() {
+    return notMocked('recordConnectionTokenCheck')
+  },
+  async notifyExpiringConnections() {
+    return 0
+  },
+  async getProjectSetup() {
+    return notMocked('getProjectSetup')
   },
   async deleteConnection(id) {
     return store.connections.delete(id)
@@ -1508,6 +1571,18 @@ const mockDb: DatabaseAdapter = {
   async uninstallNode(organizationId, nodeId) {
     store.installedNodes.delete(`${organizationId}:${nodeId}`)
   },
+  async listNodeUsage(organizationId) {
+    return [...store.installedNodes.values()]
+      .filter((n) => n.organizationId === organizationId)
+      .map((n) => ({
+        nodeId: n.nodeId,
+        version: n.version,
+        name: null,
+        category: null,
+        description: null,
+        usage: 0,
+      }))
+  },
   async listInstalledNodes(organizationId) {
     return {
       data: [...store.installedNodes.values()].filter((n) => n.organizationId === organizationId),
@@ -1525,6 +1600,17 @@ const mockDb: DatabaseAdapter = {
     store.installedNodes.set(key, updated)
     return updated
   },
+}
+
+/** A stored connection as the list shows it: the fake keeps no names, projects or deployments. */
+function listedConnection(c: Connection): ConnectionListRow {
+  return {
+    ...c,
+    createdByName: null,
+    projects: [],
+    hiddenProjects: 0,
+    deployments: { count: 0, lastAt: null },
+  }
 }
 
 let lastAuthRequest: Request | null = null

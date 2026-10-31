@@ -49,6 +49,8 @@ function sessionOnly(method: string, path: string): boolean {
   if (path === '/api/projects/:id/lock' || path === '/api/workspaces/:id/lock') return true
   // Under a project item (project keys refused) and no organization key holds workflows (B6).
   if (path === '/api/projects/:id/shared') return true
+  // The empty-project page's counts are a person's dashboard read (B9).
+  if (path === '/api/projects/:id/setup') return true
   return path === '/api/projects/:id/move' || path === '/api/workflows/:id/move'
 }
 
@@ -309,5 +311,7 @@ describe('mutation route guards', () => {
       }
     }
     expect(wrong).toEqual([])
-  })
+    // Every route × three key levels, each on a fresh store: ~2 s alone, past
+    // vitest's 5 s default when the whole repo's suites run at once.
+  }, 30_000)
 })

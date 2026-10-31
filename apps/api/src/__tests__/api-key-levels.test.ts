@@ -10,6 +10,7 @@ import {
   TEST_WORKSPACE_ID,
 } from './helpers.js'
 import { hashApiKey } from '../lib/api-key-hash.js'
+import { stubCloudflare } from './fixtures/cloudflare.js'
 
 // Keys at three levels (B3): what each level reaches, and what a key's grid
 // lets it do there. Project and workspace keys never manage organization
@@ -476,6 +477,7 @@ describe('organization-level API keys', () => {
   })
 
   it('manages org resources', async () => {
+    stubCloudflare()
     const project = await app.request(
       '/api/projects',
       asOrgKey({ method: 'POST', body: JSON.stringify({ name: 'From key', slug: 'from-key' }) }),
@@ -485,10 +487,15 @@ describe('organization-level API keys', () => {
       '/api/connections',
       asOrgKey({
         method: 'POST',
-        body: JSON.stringify({ provider: 'cloudflare', credentials: { a: 'b' }, name: 'c' }),
+        body: JSON.stringify({
+          provider: 'cloudflare',
+          credentials: { accountId: '0123456789abcdef0123456789abcdef', apiToken: 'tok' },
+          name: 'c',
+        }),
       }),
     )
     expect(connection.status).toBe(201)
+    vi.unstubAllGlobals()
   })
 
   it('is refused on project and workflow routes, reads included', async () => {

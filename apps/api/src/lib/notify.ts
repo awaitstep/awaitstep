@@ -37,6 +37,14 @@ export const noticeGroup = {
   accessRequest: (requestId: string) => `access_request:${requestId}`,
   requestDecided: (requestId: string) => `access_request.decided:${requestId}`,
   invitation: (event: NotificationEvent, invitationId: string) => `${event}:${invitationId}`,
+  /** One per time a check finds the token dead: a token revived and dead again warns again. */
+  tokenInvalid: (connectionId: string, checkedAt: string) =>
+    `connection.token_invalid:${connectionId}:${checkedAt}`,
+  /** Every token warning about one connection, whatever its expiry or check time. */
+  connectionTokens: (connectionId: string) => [
+    `connection.token_expiring:${connectionId}:`,
+    `connection.token_invalid:${connectionId}:`,
+  ],
 }
 
 /** Typed names, cleaned and capped as the audit log keeps them; other facts as they are. */
@@ -108,6 +116,26 @@ export async function clearNotice(
 }
 
 /**
+ * Takes back a connection's token warnings once they no longer hold — its
+ * token replaced, or the connection gone — so they stop waiting on anyone.
+ * A failure is logged only.
+ */
+export async function clearConnectionNotices(
+  db: DatabaseAdapter,
+  organizationId: string,
+  connectionId: string,
+): Promise<void> {
+  try {
+    await db.clearNotificationsByPrefix(organizationId, noticeGroup.connectionTokens(connectionId))
+  } catch (err) {
+    log.error('Failed to clear connection notifications', {
+      connectionId,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
+}
+
+/**
  * How many notification emails one person gets an hour, across every
  * workflow and request: past it, the Inbox alone tells them. Per process (an
  * isolate on Workers), as the invitation email budget: a brake on floods,
@@ -152,6 +180,24 @@ export function notifyExpiringKeys(db: DatabaseAdapter, now = new Date()): Promi
   return db.notifyExpiringKeys({
     idPrefix: 'ntf_exp',
     event: 'api_key.expiring',
+    kind,
+    needsAction,
+    now: now.toISOString(),
+    warnBefore: new Date(at + KEY_EXPIRY_WARNING_MS).toISOString(),
+    lastWarnBefore: new Date(at + KEY_EXPIRY_LAST_WARNING_MS).toISOString(),
+  })
+}
+
+/**
+ * Warns whoever can replace a Cloudflare token — its connection's creator and
+ * the organization's owners and admins — a week and a day before it expires.
+ */
+export function notifyExpiringConnections(db: DatabaseAdapter, now = new Date()): Promise<number> {
+  const { kind, needsAction } = notificationKindOf('connection.token_expiring')
+  const at = now.getTime()
+  return db.notifyExpiringConnections({
+    idPrefix: 'ntf_tok',
+    event: 'connection.token_expiring',
     kind,
     needsAction,
     now: now.toISOString(),

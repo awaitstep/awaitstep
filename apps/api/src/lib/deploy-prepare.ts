@@ -6,6 +6,9 @@ import type { AppNodeRegistry } from './node-registry.js'
 import { prepareWorkflow, isPrepareError } from './workflow-prepare.js'
 import { resolveProvider } from './provider-resolver.js'
 
+export const CONNECTION_NOT_SERVING =
+  'This Cloudflare account isn’t available to this project. Add the project to it in Settings › Connections.'
+
 export interface DeployContext {
   adapter: WorkflowProvider
   bundle: GeneratedBundle
@@ -51,11 +54,16 @@ export async function prepareDeploy(
     }
   }
 
-  // Connection (org filter in SQL)
-  const connection = await db.getProviderConnectionById(connectionId, organizationId)
-  if (!connection) {
+  // Connection, with whether it serves the workflow's project (org filter in SQL).
+  // Only new deploys are held to the list: takedown and run controls are not.
+  const found = await db.getConnectionForProject(connectionId, organizationId, projectId)
+  if (!found) {
     return { error: 'Connection not found', status: 404 }
   }
+  if (!found.covered) {
+    return { error: CONNECTION_NOT_SERVING, status: 403 }
+  }
+  const connection = found.connection
 
   // Version lock check. The row is handed to the prepare below rather than
   // read twice — the lock and the IR are two questions about one row.

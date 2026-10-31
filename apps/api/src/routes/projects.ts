@@ -4,7 +4,7 @@ import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import { isUniqueViolation } from '@awaitstep/db'
-import { ACCESS_REASONS, isOrgAdmin, projectCapabilities } from '@awaitstep/ir'
+import { ACCESS_REASONS, isOrgAdmin, projectCapabilities, type ProjectSetup } from '@awaitstep/ir'
 import { isSession } from '../middleware/auth.js'
 import { FOR_KEY, FOR_SESSION, projectRecord } from '../lib/scope-records.js'
 import { CHANGED_MEANWHILE, lockBodySchema, lockResponse } from '../lib/locks.js'
@@ -138,6 +138,15 @@ projects.get('/:id/shared', zValidator('query', sharedListQuerySchema), async (c
     { cursor, limit },
   )
   return c.json({ ...page, data: page.data.map((row) => sharedItemRecord(row, 'project')) })
+})
+
+/** The empty-project page's counts: Cloudflare, variables, keys (B9). */
+projects.get('/:id/setup', async (c) => {
+  const setup = await c
+    .get('db')
+    .getProjectSetup(c.get('organizationId'), c.get('projectId'), new Date().toISOString())
+  if (!setup) return c.json({ error: 'Not found' }, 404)
+  return c.json(setup satisfies ProjectSetup)
 })
 
 const SLUG_TAKEN_THERE = 'Another project in that organization already uses this URL'

@@ -318,11 +318,15 @@ deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c)
 
   if (!workflow.currentVersionId) return c.json({ error: 'No version deployed' }, 400)
 
+  // Only a connection this workflow was deployed with: the Cloudflare workflow is
+  // found by name, so any other account could hold another project's of that name.
   const [connection, storedDeployConfig] = await Promise.all([
-    db.getProviderConnectionById(body.connectionId, organizationId),
+    db.getConnectionDeployedWith(body.connectionId, organizationId, workflow.id),
     db.getDeploymentConfig(workflow.id, body.connectionId),
   ])
-  if (!connection) return c.json({ error: 'Connection not found' }, 404)
+  if (!connection) {
+    return c.json({ error: 'This workflow isn’t deployed with that connection' }, 404)
+  }
 
   const adapter = resolveProvider(undefined, {
     templateResolver: c.get('nodeRegistry')?.templateResolver,

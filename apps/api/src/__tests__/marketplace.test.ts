@@ -1,7 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import type { RemoteNodeRegistry } from '../lib/remote-node-registry.js'
 import type { NodeBundle, NodeDefinition } from '@awaitstep/ir'
-import { createTestApp, recordedAuditEvents, resetStore, TEST_ORG_ID } from './helpers.js'
+import {
+  createTestApp,
+  mockDb,
+  recordedAuditEvents,
+  resetStore,
+  TEST_ORG_ID,
+  TEST_USER_ID,
+} from './helpers.js'
 
 const testDefinition: NodeDefinition = {
   id: 'test_node',
@@ -76,6 +83,8 @@ describe('marketplace', () => {
       expect(body.nodes[0].id).toBe('test_node')
       expect(body.nodes[0].installed).toBe(false)
       expect(body.nodes[0].installedVersion).toBeNull()
+      // Only an installed node has a usage count.
+      expect(body.nodes[0].usage).toBeNull()
     })
 
     it('returns 503 when registry is not configured', async () => {
@@ -211,6 +220,26 @@ describe('marketplace', () => {
       const body = await res.json()
       expect(body.nodes[0].installed).toBe(true)
       expect(body.nodes[0].installedVersion).toBe('1.0.0')
+      expect(body.nodes[0].usage).toBe(0)
+      expect(body.nodes[0].inRegistry).toBe(true)
+    })
+
+    it('still lists an installed node the registry no longer has, so it can be removed', async () => {
+      await mockDb.installNode({
+        id: 'inst-gone',
+        organizationId: TEST_ORG_ID,
+        nodeId: 'gone_node',
+        version: '0.9.0',
+        bundle: '{}',
+        installedBy: TEST_USER_ID,
+      })
+      const body = await (await app.request(url(''))).json()
+      expect(body.nodes.find((n: { id: string }) => n.id === 'gone_node')).toMatchObject({
+        installed: true,
+        installedVersion: '0.9.0',
+        latest: '0.9.0',
+        inRegistry: false,
+      })
     })
   })
 

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { stubCloudflare } from './fixtures/cloudflare.js'
 import { and, eq } from 'drizzle-orm'
 import { presetPermissions, type AuditEvent } from '@awaitstep/ir'
 import { recordSignIn, purgeExpiredAuditEvents } from '../lib/audit.js'
@@ -15,6 +16,9 @@ describe('audit log', () => {
   beforeEach(async () => {
     h = createSqliteApp()
     await seedAcme(h)
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   const call = (who: string, path: string, init: RequestInit = {}) =>
@@ -162,17 +166,27 @@ describe('audit log', () => {
     })
 
     it('records connections and variables, never their secrets', async () => {
+      stubCloudflare()
       const conn = await send('u-ama', '/connections?org=acme', {
         provider: 'cloudflare',
         name: 'Prod',
-        credentials: { apiToken: 'cf-secret-token-123', accountId: 'acc' },
+        credentials: {
+          apiToken: 'cf-secret-token-123',
+          accountId: '0123456789abcdef0123456789abcdef',
+        },
       })
       expect(conn.status).toBe(201)
       const { id: connectionId } = await conn.json()
       await send(
         'u-ama',
         `/connections/${connectionId}?org=acme`,
-        { name: 'Production', credentials: { apiToken: 'cf-secret-token-456', accountId: 'acc' } },
+        {
+          name: 'Production',
+          credentials: {
+            apiToken: 'cf-secret-token-456',
+            accountId: '0123456789abcdef0123456789abcdef',
+          },
+        },
         'PATCH',
       )
       await call('u-ama', `/connections/${connectionId}?org=acme`, { method: 'DELETE' })
@@ -203,10 +217,11 @@ describe('audit log', () => {
     })
 
     it('records a connection deleted twice at once only once', async () => {
+      stubCloudflare()
       const conn = await send('u-ama', '/connections?org=acme', {
         provider: 'cloudflare',
         name: 'Prod',
-        credentials: { apiToken: 't', accountId: 'acc' },
+        credentials: { apiToken: 't', accountId: '0123456789abcdef0123456789abcdef' },
       })
       const { id } = await conn.json()
       await Promise.all([
@@ -529,7 +544,9 @@ describe('audit log', () => {
               JSON.stringify({ result: { status: tokenValid ? 'active' : 'disabled' } }),
             )
           }
-          return new Response(JSON.stringify({ result: [{ id: 'acc', name: 'Acme' }] }))
+          return new Response(
+            JSON.stringify({ result: [{ id: '0123456789abcdef0123456789abcdef', name: 'Acme' }] }),
+          )
         }),
       )
     })
@@ -642,7 +659,8 @@ describe('audit log', () => {
           throw new Error('network down')
         }),
       )
-      for (let i = 0; i < 5; i++) expect((await check()).status).toBe(500)
+      // Cloudflare never answered: 502, and no attempt is left counting.
+      for (let i = 0; i < 5; i++) expect((await check()).status).toBe(502)
       expect(
         h.sqlite
           .prepare(
@@ -650,6 +668,20 @@ describe('audit log', () => {
           )
           .get(),
       ).toEqual({ n: 0 })
+    })
+
+    it('counts a refused token on create against the same lockout', async () => {
+      const create = () =>
+        send('u-ben', '/connections?org=acme', {
+          provider: 'cloudflare',
+          name: 'Prod',
+          credentials: { apiToken: 'tok', accountId: '0123456789abcdef0123456789abcdef' },
+        })
+      for (let i = 0; i < 2; i++) expect((await create()).status).toBe(400)
+      for (let i = 0; i < 2; i++) expect((await check()).status).toBe(200)
+      expect((await create()).status).toBe(429)
+      expect((await check()).status).toBe(429)
+      expect(h.sqlite.prepare('SELECT count(*) AS n FROM connections').get()).toEqual({ n: 0 })
     })
 
     it('forgets failures older than an hour', async () => {
