@@ -63,7 +63,7 @@ async function start() {
   const resendApiKey = process.env['RESEND_API_KEY']
   const appName = process.env['APP_NAME']
   // The web app's origin, for invite links: the first CORS origin is the Vite dev server.
-  const webUrl = process.env['WEB_URL'] ?? corsOrigins[0] ?? baseURL
+  const webUrl = (process.env['WEB_URL'] || corsOrigins[0]) ?? baseURL
   let emailService: EmailService | null = null
   let sendMagicLink:
     ((data: { email: string; url: string; token: string }) => Promise<void>) | undefined
@@ -72,7 +72,7 @@ async function start() {
       apiKey: resendApiKey,
       fromAddress: process.env['RESEND_FROM_EMAIL'],
       appName,
-      appUrl: baseURL,
+      appUrl: webUrl,
     })
     const service = emailService
     sendMagicLink = (data) => service.sendMagicLink(data)

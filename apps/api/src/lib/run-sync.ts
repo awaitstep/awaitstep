@@ -192,6 +192,8 @@ async function tellRunFailed(
         workflowName: entry.workflowName,
         stepName: step,
         placeName,
+        projectName: place.projectName || undefined,
+        workspaceName: place.workspaceName || undefined,
       }),
   )
 }

@@ -97,7 +97,7 @@ async function start() {
   // Where the web app is: invite links point there. One origin in the
   // reference deployment (the proxy in front serves both), so the API's own
   // URL is the default.
-  const webUrl = process.env['WEB_URL'] ?? baseURL
+  const webUrl = process.env['WEB_URL'] || baseURL
   const logLinks = process.env['LOG_EMAIL_LINKS'] === '1'
   let emailService: EmailService | null = null
   let sendMagicLink:
@@ -107,7 +107,7 @@ async function start() {
       apiKey: resendApiKey,
       fromAddress: process.env['RESEND_FROM_EMAIL'],
       appName,
-      appUrl: baseURL,
+      appUrl: webUrl,
     })
     const service = emailService
     sendMagicLink = (data) => service.sendMagicLink(data)

@@ -61,6 +61,7 @@ function cronWebOrigin(env: Env): string | undefined {
 
 /** The app's mail for this deployment: Resend when a key is set, else logged. */
 function workerEmails(env: Env, baseURL: string, logger: ReturnType<typeof createLogger>) {
+  const webUrl = env.WEB_URL || env.CORS_ORIGIN || baseURL
   let emailService: EmailService | null = null
   let sendMagicLink:
     ((data: { email: string; url: string; token: string }) => Promise<void>) | undefined
@@ -69,13 +70,13 @@ function workerEmails(env: Env, baseURL: string, logger: ReturnType<typeof creat
       apiKey: env.RESEND_API_KEY,
       fromAddress: env.RESEND_FROM_EMAIL,
       appName: env.APP_NAME,
-      appUrl: baseURL,
+      appUrl: webUrl,
     })
     const service = emailService
     sendMagicLink = (data) => service.sendMagicLink(data)
   }
   const emails = createAppEmails({
-    webUrl: env.WEB_URL ?? env.CORS_ORIGIN ?? baseURL,
+    webUrl,
     service: emailService,
     logLinks: env.LOG_EMAIL_LINKS === '1',
     log: (message) => logger.warn(message),

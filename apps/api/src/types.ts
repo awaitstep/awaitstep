@@ -69,6 +69,8 @@ export interface RunFailedEmail {
   stepName: string | null
   /** "Project 101 · Sales". */
   placeName: string
+  projectName?: string
+  workspaceName?: string
 }
 
 /** How the app sends mail; the entry points decide with what, and may log instead. */

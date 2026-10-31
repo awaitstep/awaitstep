@@ -30,7 +30,12 @@ export function createEmailService(options: EmailServiceOptions) {
 
   return {
     async sendMagicLink(data: { email: string; url: string }) {
-      const { html, text } = await renderMagicLinkEmail({ url: data.url, appName, appUrl })
+      const { html, text } = await renderMagicLinkEmail({
+        url: data.url,
+        to: data.email,
+        appName,
+        appUrl,
+      })
       await resend.emails.send({
         from,
         to: data.email,
@@ -63,7 +68,12 @@ export function createEmailService(options: EmailServiceOptions) {
     },
 
     async sendAccessRequest(data: AccessRequestEmail) {
-      const { html, text } = await renderAccessRequestEmail({ ...data, appName, appUrl })
+      const { html, text } = await renderAccessRequestEmail({
+        ...data,
+        kind: 'edit',
+        appName,
+        appUrl,
+      })
       await resend.emails.send({
         from,
         to: data.to,
