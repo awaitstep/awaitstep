@@ -9,7 +9,8 @@ describe('renderAccessRequestEmail', () => {
       workspaceName: 'Sales',
       projectName: 'Project 101',
     })
-    expect(text).toContain('Priya Shah can view Sales in Project 101')
+    expect(text).toContain('Priya Shah is asking to join Sales')
+    expect(text).toContain('Workspace Sales in Project 101')
     expect(html).toContain('href="https://app.test/acme/inbox"')
     expect(html).not.toMatch(/__[A-Z_]+__/)
   })
