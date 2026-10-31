@@ -327,3 +327,18 @@ export {
   type ConnectionTokenStatus,
   type ProjectSetup,
 } from './connections.js'
+export {
+  ONLY_WAY_IN,
+  SIGN_IN_PROVIDERS,
+  canDisconnect,
+  deleteBlockedReason,
+  describeUserAgent,
+  type AccountExport,
+  type AccountProviders,
+  type AccountSession,
+  type ApiAccount,
+  type ApiAccountOrg,
+  type SessionDevice,
+  type SignInMethod,
+  type SignInProvider,
+} from './account.js'

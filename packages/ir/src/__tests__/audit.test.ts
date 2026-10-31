@@ -101,14 +101,53 @@ describe('renderAuditEvent', () => {
     expect(renderAuditEvent('workflow.delete', { name: 'Old onboarding' }).detail).toBe('')
   })
 
+  // The person's own account events read "… their account" whatever the name.
+  const ACCOUNT_EVENTS: readonly AuditEventCode[] = [
+    'account.method_connect',
+    'account.method_disconnect',
+    'session.revoke',
+    'account.export',
+    'account.delete',
+  ]
+
   it.each(Object.keys(AUDIT_EVENTS) as AuditEventCode[])(
     '%s renders a non-empty action and target',
     (code) => {
       const row = renderAuditEvent(code, { name: 'Target' })
       expect(row.action.length).toBeGreaterThan(0)
-      expect(row.target).toContain('Target')
+      expect(row.target).toContain(ACCOUNT_EVENTS.includes(code) ? 'their account' : 'Target')
     },
   )
+
+  it('reads account events as the person’s own', () => {
+    expect(renderAuditEvent('account.method_connect', { name: '', provider: 'github' })).toEqual({
+      kind: 'auth',
+      action: 'connected GitHub to',
+      target: 'their account',
+      detail: '',
+    })
+    expect(
+      renderAuditEvent('account.method_disconnect', { name: '', provider: 'google' }).action,
+    ).toBe('disconnected Google from')
+    expect(renderAuditEvent('session.revoke', { name: '', count: 1 }).action).toBe(
+      'signed out a session of',
+    )
+    expect(renderAuditEvent('session.revoke', { name: '', count: 3 }).action).toBe(
+      'signed out 3 sessions of',
+    )
+    expect(renderAuditEvent('account.delete', { name: '' }).kind).toBe('danger')
+    expect(renderAuditEvent('member.leave', { name: 'Bolt Labs' })).toMatchObject({
+      kind: 'access',
+      action: 'left',
+      target: 'Bolt Labs',
+    })
+  })
+
+  it('never names an unknown provider', () => {
+    expect(renderAuditEvent('account.method_connect', { name: '', provider: 'x' }).action).toBe(
+      'connected a sign-in method to',
+    )
+  })
 
   it('knows its own codes and nothing else', () => {
     expect(isAuditEventCode('workspace.delete')).toBe(true)

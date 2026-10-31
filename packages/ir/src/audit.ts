@@ -108,6 +108,8 @@ export interface AuditFacts {
   secret?: boolean
   failures?: number
   lockedForSeconds?: number
+  /** How many things one event covers: sessions signed out. */
+  count?: number
 }
 
 interface AuditEntry {
@@ -118,6 +120,14 @@ interface AuditEntry {
 }
 
 const fixed = (text: string) => () => text
+
+const theirAccount = () => 'their account'
+
+const PROVIDER_LABEL: Record<string, string> = { github: 'GitHub', google: 'Google' }
+
+function providerLabel(provider: string | undefined): string {
+  return (provider && PROVIDER_LABEL[provider]) ?? 'a sign-in method'
+}
 const roleLabel = (role: string) => role.charAt(0).toUpperCase() + role.slice(1)
 // A refusal reads as what stopped it: "Turn off the deletion lock first"
 // is advice to the person refused, not what happened.
@@ -237,6 +247,7 @@ export const AUDIT_EVENTS = {
     action: (f) => `declined ${possessive(f.person)} request for`,
   },
   'member.join': { kind: 'access', action: fixed('joined'), detail: roleDetail },
+  'member.leave': { kind: 'access', action: fixed('left') },
   'workflow.move': {
     kind: 'access',
     action: fixed('moved'),
@@ -286,6 +297,25 @@ export const AUDIT_EVENTS = {
   'workspace.unlock': { kind: 'lock', action: fixed('turned off the deletion lock for') },
 
   signin: { kind: 'auth', action: fixed('signed in to') },
+  // The person's own account, in the log of every organization they are in.
+  'account.method_connect': {
+    kind: 'auth',
+    action: (f) => `connected ${providerLabel(f.provider)} to`,
+    target: theirAccount,
+  },
+  'account.method_disconnect': {
+    kind: 'auth',
+    action: (f) => `disconnected ${providerLabel(f.provider)} from`,
+    target: theirAccount,
+  },
+  'session.revoke': {
+    kind: 'auth',
+    action: (f) =>
+      `signed out ${f.count === undefined || f.count === 1 ? 'a session' : `${f.count} sessions`} of`,
+    target: theirAccount,
+  },
+  'account.export': { kind: 'auth', action: fixed('downloaded the data of'), target: theirAccount },
+  'account.delete': { kind: 'danger', action: fixed('deleted'), target: theirAccount },
   'connection.verify.failed': {
     kind: 'auth',
     action: fixed('failed a token check for'),
