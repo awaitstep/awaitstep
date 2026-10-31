@@ -631,7 +631,16 @@ caller may not open reads as not found.
 ### `GET /orgs`
 
 Session only. The organizations the session is a member of, with the
-caller's `role`, `projectCount`, `memberCount` and `viewerCan`.
+caller's `role`, `projectCount`, `memberCount` and `viewerCan`, plus what
+`/dashboard`'s org cards show:
+
+- `grants`: the caller's own roles there, oldest first —
+  `projects: [{ name, role }]` (project-wide) and
+  `workspaces: [{ name, projectName, role }]` (single workspaces). Empty for
+  owners and admins, whose role covers everything.
+- `health`: `{ failing, lastRunAt }` over the workflows in workspaces the
+  caller can open — workflows whose latest run failed, and the last run's
+  time (`null` with no runs).
 
 ### `GET /failing`
 
@@ -814,8 +823,12 @@ invitations they sent cancelled.
 
 ### `GET /me/invitations`
 
-The open invitations waiting for the session's address, for Choose an
-organization — none for a session whose address is not verified.
+The open invitations waiting for the session's address, for `/dashboard`'s
+"Waiting for you" — none for a session whose address is not verified. Each
+has `token`, `org` (`name`, `slug`, `logo`), `invitedBy` (a name), `orgRole`,
+`expiresAt` and `place`: where it leads first, as the invite page names it
+(`{ kind: 'workspace', name, projectName, role }` or
+`{ kind: 'project', name, role }`; `null` for an owner or admin invite).
 
 ---
 
