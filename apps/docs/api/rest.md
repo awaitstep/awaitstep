@@ -278,6 +278,12 @@ Answers `{ "lock": { "setBy": { "id": "usr_...", "name": "Ama Mensah" }, "setAt"
 
 ---
 
+### <span class="api-method get">GET</span> <span class="api-endpoint">/projects/:id/setup</span> <span class="api-scope">session only</span>
+
+What the project has set up, for its empty pages: `cloudflareConnected` (a connection serves it and its token works), `orgVariables` (organization variables it inherits), `projectVariables` and `projectKeys` (live project-level keys).
+
+---
+
 ### <span class="api-method get">GET</span> <span class="api-endpoint">/projects/:id/shared</span> <span class="api-scope">session only</span>
 
 The project's Shared library: every workflow and function shared to it, newest share first, with `kind`, `cursor` and `limit` query parameters. Each item has `id`, `name`, `kind`, `version` (deployed, or null), `sharedAt`, `sharedBy`, `from` (its workspace: `id`, `slug`, `name`, `colour`), `usedBy`, `canOpen` (whether you can open `from`) and `unshare` (whether you may unshare it, and why not). Items from workspaces you can't open are listed too, by name only.
@@ -385,7 +391,7 @@ UPDATING_WORKFLOW → COMPLETED
 
 ### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/trigger</span> <span class="api-scope">workflows:run</span>
 
-Trigger an execution of a deployed workflow. Params payload is capped at 100 KB.
+Trigger an execution of a deployed workflow. Params payload is capped at 100 KB. `connectionId` must be a connection the workflow has a successful deployment with (`404` otherwise).
 
 ::: warning Functions only
 This endpoint is for `kind: "workflow"` only. Calling it on a function (`kind: "script"`) returns 400 — functions have no instance lifecycle. Invoke the deployed Worker URL directly via HTTP POST instead. See [Functions → Invocation](#invocation).
@@ -464,15 +470,17 @@ Terminate a running or paused workflow instance.
 
 ## Connections
 
+A connection is a Cloudflare account the organization deploys to. It serves every project (`allProjects`, the default) or only those on its list, and a new deploy with one that doesn't serve the workflow's project answers `403`; takedown, triggers and run controls are not held to the list. Creating, editing and deleting need an organization owner or admin (a key acts with its creator's standing). Creating one, and replacing its token, check the token with Cloudflare first; once a day every token is checked again, and the people who can replace it hear about one expiring (a week and a day ahead) or no longer working in their Inbox.
+
 ### <span class="api-method get">GET</span> <span class="api-endpoint">/connections</span> <span class="api-scope">connections:read</span> <span class="api-scope">workflows:read</span>
 
-List all connections. Credential values are redacted in the response.
+List the organization's connections, newest first. Secrets read `***`. Each has `createdByName`, `accountSuffix`, `allProjects`, `projects` (the ones you can open: `id`, `name`, `slug`), `hiddenProjects` (how many others), `tokenStatus` (`active`, `invalid`, or `unchecked` until the first check), `tokenExpiresAt`, `tokenCheckedAt` and `deployments` (`count` and `lastAt` of successful deploys). `?projectId=` or `?project=<slug>` keeps those serving that project.
 
 ---
 
 ### <span class="api-method post">POST</span> <span class="api-endpoint">/connections</span> <span class="api-scope">connections:write</span>
 
-Create a new provider connection.
+Check the token with Cloudflare, then create the connection.
 
 **Request body:**
 
@@ -480,15 +488,19 @@ Create a new provider connection.
 {
   "provider": "cloudflare",
   "credentials": { "apiToken": "...", "accountId": "..." },
-  "name": "My Connection"
+  "name": "My Connection",
+  "allProjects": false,
+  "projectIds": ["prj_1"]
 }
 ```
+
+A token Cloudflare refuses is `400` with `"field": "token"`; one that can't reach the account is `400` with `"field": "accountId"`; a project that isn't the organization's is `400` with `"field": "projects"`; Cloudflare unreachable is `502`. Nothing is stored on any of them. Account-owned tokens are verified at their account. `credentials.accountId` must be 32 hex digits.
 
 ---
 
 ### <span class="api-method post">POST</span> <span class="api-endpoint">/connections/verify-token</span> <span class="api-scope">connections:read</span> <span class="api-scope">workflows:read</span>
 
-Verify provider credentials before saving.
+Ask Cloudflare whether a token works and which accounts it reaches.
 
 **Request body:**
 
@@ -501,17 +513,18 @@ Verify provider credentials before saving.
 ```json
 {
   "valid": true,
-  "accounts": [{ "id": "abc123", "name": "My Account" }]
+  "accounts": [{ "id": "abc123", "name": "My Account" }],
+  "expiresAt": null
 }
 ```
 
-Failed checks lock per person: three are free in an hour, then each failure waits 30 seconds, doubling up to 5 minutes, and a valid token doesn't clear the count. A key's checks count against all keys its creator minted, never the creator's own dashboard. While locked the check answers `429` with a `Retry-After` header and nothing reaches Cloudflare.
+Failed checks lock per person — this route, creating a connection and replacing a token alike: three are free in an hour, then each failure waits 30 seconds, doubling up to 5 minutes, and a valid token doesn't clear the count. A key's checks count against all keys its creator minted, never the creator's own dashboard. While locked the check answers `429` with a `Retry-After` header and nothing reaches Cloudflare.
 
 ---
 
 ### <span class="api-method patch">PATCH</span> <span class="api-endpoint">/connections/:id</span> <span class="api-scope">connections:write</span>
 
-Update a connection's name or credentials.
+Rename a connection (`name`), replace its token (`credentials: { "apiToken" }`, merged into what is stored and checked as on create), or change its projects (`allProjects`, `projectIds`: a new list replaces the old).
 
 ---
 
@@ -585,7 +598,7 @@ Get a single node definition.
 
 ### <span class="api-method get">GET</span> <span class="api-endpoint">/marketplace</span> <span class="api-scope">resources:read</span> <span class="api-scope">workflows:read</span>
 
-Get the full marketplace catalog with installation status for the current organization.
+Get the full marketplace catalog with installation status for the current organization. Each node carries `installed`, `installedVersion` and `usage`: how many of the organization's workflows use it in their current version (`null` when not installed), and `inRegistry`: a node still installed that the registry no longer lists is included with `inRegistry: false` so it can be removed.
 
 ---
 

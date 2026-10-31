@@ -402,6 +402,27 @@ variables inside are still edited and deleted as their own permissions allow.
 Response: `{ "lock": { "setBy": { "id": "usr_...", "name": "Ama Mensah" }, "setAt": "2026-10-29T10:00:00.000Z" } }`,
 or `{ "lock": null }` when off.
 
+### `GET /projects/:id/setup`
+
+Session only (an API key answers `403`). What the project has set up, for its
+empty pages: one statement.
+
+| Param | In   | Required | Description |
+| ----- | ---- | -------- | ----------- |
+| `id`  | path | yes      | Project ID  |
+
+```json
+{ "cloudflareConnected": true, "orgVariables": 2, "projectVariables": 1, "projectKeys": 0 }
+```
+
+- `cloudflareConnected`: a Cloudflare connection serves the project (every
+  project, or it is on the list) and its token isn't `invalid` or past its expiry.
+- `orgVariables`: organization variables the project inherits — those it doesn't
+  set itself. `projectVariables`: variables set at the project.
+- `projectKeys`: project-level keys not revoked and not expired.
+
+A project the caller can't open answers `404`.
+
 ### `GET /projects/:id/shared`
 
 Session only (an API key answers `403`). The project's Shared library:
@@ -1283,6 +1304,9 @@ UPDATING_WORKFLOW → COMPLETED
 ### `POST /workflows/:workflowId/trigger`
 
 Trigger an execution of a deployed workflow. Params payload is capped at 100KB.
+`connectionId` must be a connection this workflow has a successful deployment
+with; any other answers `404`
+`{ "error": "This workflow isn’t deployed with that connection" }`.
 
 **Permission:** `workflows:run`
 
@@ -1430,38 +1454,122 @@ Terminate a running or paused workflow instance.
 
 ## Connections
 
-Connection mutations (create, update, delete) are organization-level: a
-project-scoped API key answers `403`. Reads stay available to keys — a deploy
-needs its connection.
+A connection is a Cloudflare account the organization deploys to: its
+credentials (encrypted at rest; secrets never returned), **which projects may
+deploy with it**, and its **token's health** as Cloudflare last reported it.
+
+- **Who may change them.** Create, update and delete need an organization
+  **owner or admin** (`403` otherwise); a key acts with its creator's standing.
+  Any member reads the list. Mutations are organization-level: a
+  project-scoped API key answers `403`. Reads stay available to keys — a deploy
+  needs its connection.
+- **Projects.** A connection serves every project (`allProjects: true`, the
+  default and what connections made before B9 read as), or only the projects on
+  its list. `POST /workflows/:workflowId/deploy` (and `/deploy-stream`) refuse a
+  connection that doesn't serve the workflow's project with `403`
+  `{ "error": "This Cloudflare account isn’t available to this project. …" }`.
+  Taking a deployment down, triggering runs and pausing, resuming or
+  terminating them are not held to the list — but a trigger must name a
+  connection the workflow was deployed with.
+- **Token checks.** Creating a connection, and replacing its token, ask
+  Cloudflare first (`/user/tokens/verify`, then `/accounts`) through the same
+  lockout as `verify-token` below. A token Cloudflare refuses is `400`
+  `{ "error": "…", "field": "token" }`; one that can't reach the account named is
+  `400` with `"field": "accountId"` (asked directly with `GET /accounts/:id`;
+  skipped when Cloudflare doesn't answer); account-owned tokens, which
+  `/user/tokens/verify` refuses, are verified at `/accounts/:id/tokens/verify`;
+  Cloudflare unreachable is `502` and stores nothing. The token's expiry
+  (`expires_on`) is stored with the check. Once a day each Cloudflare
+  connection's token is checked again (at most 20 per hourly tick, oldest first,
+  organizations taking turns):
+  a token revoked or rolled in Cloudflare reads `invalid`; an outage changes
+  nothing.
+- **Inbox.** Whoever can replace a token — the connection's creator and the
+  organization's owners and admins — get `connection.token_expiring` a week and
+  a day before it expires, and `connection.token_invalid` when a check finds it
+  dead (see [Notifications](#notifications)). Replacing the token or deleting the
+  connection takes those rows back.
 
 ### `GET /connections`
 
-List all connections. Credential values are redacted in the response.
+List the organization's connections, newest first.
 
 **Permission:** `connections:read` (project and workspace keys: `workflows:read`)
 
-| Param    | In    | Required | Description                        |
-| -------- | ----- | -------- | ---------------------------------- |
-| `cursor` | query | no       | Pagination cursor                  |
-| `limit`  | query | no       | Items per page (1–100, default 50) |
+| Param       | In    | Required | Description                                     |
+| ----------- | ----- | -------- | ----------------------------------------------- |
+| `cursor`    | query | no       | Pagination cursor                               |
+| `limit`     | query | no       | Items per page (1–100, default 50)              |
+| `projectId` | query | no       | Only connections serving this project (by id)   |
+| `project`   | query | no       | Only connections serving this project (by slug) |
+
+A project that isn't the organization's (or a slug nobody uses) lists nothing.
+
+```json
+{
+  "data": [
+    {
+      "id": "conn_1",
+      "organizationId": "org_1",
+      "provider": "cloudflare",
+      "name": "Acme production",
+      "credentials": { "accountId": "0123…7f2a", "apiToken": "***" },
+      "createdBy": "usr_1",
+      "createdByName": "Ama Mensah",
+      "accountSuffix": "7f2a",
+      "allProjects": false,
+      "projects": [{ "id": "prj_1", "name": "Project 101", "slug": "project-101" }],
+      "hiddenProjects": 1,
+      "tokenStatus": "active",
+      "tokenExpiresAt": "2026-12-01T00:00:00.000Z",
+      "tokenCheckedAt": "2026-10-31T09:00:00.000Z",
+      "deployments": { "count": 18, "lastAt": "2026-10-30T11:00:00.000Z" },
+      "createdAt": "2026-10-01T00:00:00.000Z",
+      "updatedAt": "2026-10-31T09:00:00.000Z"
+    }
+  ],
+  "nextCursor": null
+}
+```
+
+- `projects` names only the projects the reader can open — a person's, or an
+  organization key's creator's as they stand now; a project or workspace key:
+  its own project. `hiddenProjects` counts the rest. Empty when `allProjects`.
+  The `projectId`/`project` filter likewise matches only a project the reader
+  can open.
+- `tokenStatus`: `active`, `invalid`, or `unchecked` (never checked yet: made
+  before B9; filled in within a day). `tokenExpiresAt` is null for a token
+  without expiry, or one not checked yet.
+- `deployments` counts successful deployments made with it.
 
 ### `POST /connections`
 
-Create a new provider connection.
+Check the token with Cloudflare, then create the connection. Answers `201` with
+the row as the list shows it.
 
-**Permission:** `connections:write`
+**Permission:** `connections:write` — organization owners and admins
 
 ```json
 {
   "provider": "cloudflare",
   "credentials": { "apiToken": "...", "accountId": "..." },
-  "name": "My Connection"
+  "name": "My Connection",
+  "allProjects": false,
+  "projectIds": ["prj_1"]
 }
 ```
 
+`projectIds` alone narrows the connection to those projects; leave both out
+for every project. A project id that isn't the organization's is `400`
+`{ "field": "projects" }`. `provider` must be one this instance has
+(`cloudflare`); `credentials.accountId` must be 32 hex digits (`400`
+`{ "field": "accountId" }` otherwise, before Cloudflare is asked). Limited to
+10 per minute per person, as `verify-token`.
+
 ### `POST /connections/verify-token`
 
-Verify provider credentials before saving. Currently supports the `cloudflare` provider.
+Ask Cloudflare whether a token works and which accounts it reaches, before
+saving. Currently supports the `cloudflare` provider.
 
 **Permission:** `connections:read` (project and workspace keys: `workflows:read`)
 
@@ -1477,27 +1585,34 @@ Returns:
 ```json
 {
   "valid": true,
-  "accounts": [{ "id": "abc123", "name": "My Account" }]
+  "accounts": [{ "id": "abc123", "name": "My Account" }],
+  "expiresAt": "2026-12-01T00:00:00.000Z"
 }
 ```
 
+A refused token is `{ "valid": false, "accounts": [], "expiresAt": null }`;
+Cloudflare unreachable is `502`. `accounts` lists the first 50. An
+`accountId` in `credentials` is only used to verify an account-owned token at
+that account; it never refuses the check.
+
 **Lockout.** Checks that didn't pass are counted per person over the last
-hour; checks still in flight count too, and a valid token never clears the
-count. A key's checks count against every key its creator minted, but never
-against the creator's own dashboard checks. Three are free; the fourth starts a
-30-second wait, and each further failure doubles it, up to 5 minutes, counted
-from the last failure. Inside the wait the check answers `429` with a
-`Retry-After` header (seconds) and
+hour — `verify-token`, `POST /connections` and token replacements alike;
+checks still in flight count too. A valid token withdraws only its own check:
+it never clears the count. A key's checks count against every key its creator
+minted, but never against the creator's own dashboard checks. Three are free;
+the fourth starts a 30-second wait, and each further failure doubles it, up to
+5 minutes, counted from the last failure. Inside the wait the check answers
+`429` with a `Retry-After` header (seconds) and
 `{ "error": "Too many failed token checks. Try again in 20 s." }`, and nothing
-reaches Cloudflare. A valid token resets the count. Each failure, and each
-wait it starts, is an audit-log event (`connection.verify.failed`,
-`connection.verify.locked`).
+reaches Cloudflare. Each failure, and each wait it starts, is an audit-log event
+(`connection.verify.failed`, `connection.verify.locked`).
 
 ### `PATCH /connections/:id`
 
-Update a connection's name or credentials.
+Rename a connection, replace its token, or change its projects. Answers the
+row as the list shows it.
 
-**Permission:** `connections:write`
+**Permission:** `connections:write` — organization owners and admins
 
 | Param | In   | Required | Description   |
 | ----- | ---- | -------- | ------------- |
@@ -1506,15 +1621,24 @@ Update a connection's name or credentials.
 ```json
 {
   "name": "Updated Name",
-  "credentials": { "apiToken": "new-token" }
+  "credentials": { "apiToken": "new-token" },
+  "allProjects": false,
+  "projectIds": ["prj_1", "prj_2"]
 }
 ```
 
+`credentials` is **merged** into what is stored: `{ "apiToken" }` alone keeps
+the account. New credentials are checked with Cloudflare first (as on create);
+a refused token leaves the stored one untouched. A new project list replaces
+the old one; `{ "allProjects": true }` clears it. Limited to 10 per minute per
+person (it may ask Cloudflare). Audited as
+`connection.update` ("Renamed from …", "Credentials changed", "Projects changed").
+
 ### `DELETE /connections/:id`
 
-Delete a connection.
+Delete a connection. Deployments and runs made with it keep their history.
 
-**Permission:** `connections:delete`
+**Permission:** `connections:delete` — organization owners and admins
 
 | Param | In   | Required | Description   |
 | ----- | ---- | -------- | ------------- |
@@ -1774,6 +1898,16 @@ Get the full marketplace catalog with installation status for the current organi
 
 **Permission:** `resources:read` (project and workspace keys: `workflows:read`)
 
+Each entry is the registry's (`id`, `name`, `description`, `category`, `tags`,
+`author`, `latest`, `versions`, …) plus `installed`, `installedVersion` and
+`usage`: how many of the organization's workflows use the node in their
+current version (`null` when not installed; drafts saved after the current
+version don't count), and `inRegistry`. A node still installed that the registry
+no longer lists comes last with `inRegistry: false`, its name, category and
+description from its installed bundle, and `latest` = its installed version, so
+it can still be uninstalled. `503` when the instance has no node registry
+configured.
+
 ### `GET /marketplace/:nodeId`
 
 Get details for a specific marketplace node, including available versions and installation status.
@@ -1967,17 +2101,19 @@ the caller can no longer open are left out; a deleted place reads as
 
 Who is told what — never about their own action:
 
-| `event`                  | `kind`    | Sent to                                                                 | Needs action           |
-| ------------------------ | --------- | ----------------------------------------------------------------------- | ---------------------- |
-| `access_request.create`  | `request` | the admin the request is addressed to (also emailed)                    | while `pending` (live) |
-| `access_request.approve` | `people`  | the asker                                                               | no                     |
-| `access_request.decline` | `people`  | the asker                                                               | no                     |
-| `invitation.accept`      | `people`  | the inviter                                                             | no                     |
-| `invitation.decline`     | `people`  | the inviter; Undo removes it                                            | no                     |
-| `invitation.ask_again`   | `people`  | the inviter; Resend or cancelling the invite removes it                 | yes                    |
-| `run.failed`             | `failure` | the workflow's creator and the workspace's admins (emailed once a hour) | yes                    |
-| `api_key.expiring`       | `expiry`  | the key's creator, 7 days and 1 day before it expires                   | yes                    |
-| `workflow.deploy.shared` | `deploy`  | admins of the project's other workspaces, for a shared workflow         | no                     |
+| `event`                     | `kind`    | Sent to                                                                                                                                                | Needs action           |
+| --------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- |
+| `access_request.create`     | `request` | the admin the request is addressed to (also emailed)                                                                                                   | while `pending` (live) |
+| `access_request.approve`    | `people`  | the asker                                                                                                                                              | no                     |
+| `access_request.decline`    | `people`  | the asker                                                                                                                                              | no                     |
+| `invitation.accept`         | `people`  | the inviter                                                                                                                                            | no                     |
+| `invitation.decline`        | `people`  | the inviter; Undo removes it                                                                                                                           | no                     |
+| `invitation.ask_again`      | `people`  | the inviter; Resend or cancelling the invite removes it                                                                                                | yes                    |
+| `run.failed`                | `failure` | the workflow's creator and the workspace's admins (emailed once a hour)                                                                                | yes                    |
+| `api_key.expiring`          | `expiry`  | the key's creator, 7 days and 1 day before it expires                                                                                                  | yes                    |
+| `connection.token_expiring` | `expiry`  | a Cloudflare connection's creator and the org's owners and admins, 7 days and 1 day before its token expires (again for a replaced token's new expiry) | yes                    |
+| `connection.token_invalid`  | `expiry`  | the same people, when the daily check finds the token no longer works (once each time it is found so)                                                  | yes                    |
+| `workflow.deploy.shared`    | `deploy`  | admins of the project's other workspaces, for a shared workflow                                                                                        | no                     |
 
 Failures of one workflow, and deploys of one shared workflow, fold into one
 row per clock hour: `count` goes up, the row moves to the top and is unread
