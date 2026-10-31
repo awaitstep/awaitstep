@@ -325,6 +325,8 @@ const mockDb: DatabaseAdapter = {
         viewerRole: testOrgRole,
         projectCount: store.projects.size,
         memberCount: 1,
+        grants: { projects: [], workspaces: [] },
+        health: { failing: 0, lastRunAt: null },
       },
     ]
   },

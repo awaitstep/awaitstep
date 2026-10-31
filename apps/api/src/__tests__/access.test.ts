@@ -167,6 +167,15 @@ describe('hidden workspaces and projects', () => {
     expect(
       (await (await h.app.request('/api/runs?projectId=p-101', h.as('u-eve'))).json()).data,
     ).toEqual([])
+    // The org card on /dashboard: Ops failing counts for Gus, not for Eve, who only opens Sales.
+    const [eve] = (await (await h.app.request('/api/orgs', h.as('u-eve'))).json()).data
+    expect(eve.grants).toEqual({
+      projects: [],
+      workspaces: [{ name: 'Sales', projectName: 'Project 101', role: 'viewer' }],
+    })
+    expect(eve.health).toEqual({ failing: 0, lastRunAt: null })
+    const [gus] = (await (await h.app.request('/api/orgs', h.as('u-gus'))).json()).data
+    expect(gus.health).toEqual({ failing: 1, lastRunAt: '2026-10-28T00:00:00.000Z' })
   })
 })
 

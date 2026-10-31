@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { zValidator } from '../lib/validation.js'
-import { orgRecord, toScopeResponse } from '../lib/scope-records.js'
+import { orgListingRecord, toScopeResponse } from '../lib/scope-records.js'
 import type { AppEnv } from '../types.js'
 
 const scopeQuerySchema = z.object({
@@ -26,7 +26,7 @@ scope.get('/scope', zValidator('query', scopeQuerySchema), async (c) => {
 
 scope.get('/orgs', async (c) => {
   const rows = await c.get('db').listOrganizationsForMember(c.get('userId'))
-  return c.json({ data: rows.map(orgRecord) })
+  return c.json({ data: rows.map(orgListingRecord) })
 })
 
 /** Org home's "Failing now": behind requireOrganization (`?org=` or `?organizationId=`) and session-only. */

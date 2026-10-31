@@ -15,6 +15,7 @@ import type {
   GrantRows,
   OrgMemberSummary,
   OrgOverview,
+  OrgListing,
   ProjectOverview,
   ScopeRows,
   ScopeSlugs,
@@ -70,6 +71,17 @@ export interface OrgRecord {
   projectCount: number
   memberCount: number
   viewerCan: Capabilities<OrgCapability>
+}
+
+/** One org on the caller's list (`GET /orgs`): the record plus their own grants and its health. */
+export interface OrgListingRecord extends OrgRecord {
+  /** Their project-wide and single-workspace roles there, oldest first; empty for an owner or admin. */
+  grants: {
+    projects: { name: string; role: ProjectRole }[]
+    workspaces: { name: string; projectName: string; role: WorkspaceRole }[]
+  }
+  /** Over the workspaces they can open: failing workflows and the last run. */
+  health: { failing: number; lastRunAt: string | null }
 }
 
 export interface OrgScopeRecord extends OrgRecord {
@@ -177,6 +189,17 @@ export function orgRecord(row: OrgOverview): OrgRecord {
     projectCount: row.projectCount,
     memberCount: row.memberCount,
     viewerCan: orgCapabilities(role, row.projectCount),
+  }
+}
+
+export function orgListingRecord(row: OrgListing): OrgListingRecord {
+  return {
+    ...orgRecord(row),
+    grants: {
+      projects: row.grants.projects.map((g) => ({ ...g, role: g.role as ProjectRole })),
+      workspaces: row.grants.workspaces.map((g) => ({ ...g, role: g.role as WorkspaceRole })),
+    },
+    health: row.health,
   }
 }
 

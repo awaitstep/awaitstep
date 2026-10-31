@@ -187,18 +187,22 @@ export type InviteViewRecord =
   | { state: 'expired'; invite: InviteDetailsRecord; askedForNew: boolean }
   | { state: 'gone' }
 
+/** The place an invite leads first; null when it has none (an owner or admin invite). */
+function firstPlace(places: InvitationPlaceRow[]): InvitePlaceRecord | null {
+  const first = places[0]
+  if (!first) return null
+  return first.workspaceId && first.workspaceName
+    ? {
+        kind: 'workspace',
+        name: first.workspaceName,
+        projectName: first.projectName,
+        role: first.role as WorkspaceRole,
+      }
+    : { kind: 'project', name: first.projectName, role: first.role as ProjectRole }
+}
+
 export function inviteDetails(view: InvitationView): InviteDetailsRecord {
-  const first = view.places[0]
-  const place: InvitePlaceRecord | null = !first
-    ? null
-    : first.workspaceId && first.workspaceName
-      ? {
-          kind: 'workspace',
-          name: first.workspaceName,
-          projectName: first.projectName,
-          role: first.role as WorkspaceRole,
-        }
-      : { kind: 'project', name: first.projectName, role: first.role as ProjectRole }
+  const place = firstPlace(view.places)
   return {
     token: view.invitation.id,
     org: { name: view.org.name, slug: view.org.slug, logo: view.org.logo },
@@ -263,12 +267,14 @@ export function inviteLanding(view: InvitationView): {
   return { org: view.org.slug, project: first.projectSlug }
 }
 
-/** An invite waiting for the viewer, for Choose an organization. */
+/** An invite waiting for the viewer, for /dashboard's "Waiting for you". */
 export interface PendingInviteRecord {
   token: string
   org: { name: string; slug: string; logo: string | null }
   invitedBy: string
   orgRole: OrgRole
+  /** Where it leads first, as the invite page names it; null for an owner or admin invite. */
+  place: InvitePlaceRecord | null
   expiresAt: string
 }
 
@@ -278,6 +284,7 @@ export function pendingInviteRecord(row: PendingInvitationRow): PendingInviteRec
     org: row.org,
     invitedBy: row.inviterName,
     orgRole: parseOrgRole(row.role),
+    place: firstPlace(row.places),
     expiresAt: row.expiresAt,
   }
 }

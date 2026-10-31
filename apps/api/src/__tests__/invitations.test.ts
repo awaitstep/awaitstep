@@ -371,6 +371,7 @@ describe('/api/invitations', () => {
           org: { name: 'Acme', slug: 'acme', logo: null },
           invitedBy: 'Ama Mensah',
           orgRole: 'member',
+          place: { kind: 'workspace', name: 'Sales', projectName: 'Project 101', role: 'editor' },
           expiresAt: expect.any(String),
         },
       ])

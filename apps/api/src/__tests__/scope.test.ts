@@ -147,6 +147,8 @@ describe('GET /api/orgs', () => {
       role: 'owner',
       projectCount: 1,
       memberCount: 1,
+      grants: { projects: [], workspaces: [] },
+      health: { failing: 0, lastRunAt: null },
     })
     expect(data[0].viewerCan.createProject.allowed).toBe(true)
   })
