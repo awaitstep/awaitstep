@@ -2,7 +2,7 @@ import { Navigate } from '@tanstack/react-router'
 import { useOrgStore } from '../../stores/org-store'
 import {
   accountPath,
-  chooseOrgPath,
+  dashboardPath,
   orgPath,
   orgSettingsPath,
   projectPath,
@@ -29,11 +29,11 @@ export interface LegacyAccountPage {
 export type LegacyPage = WorkspacePage | LegacySettingsPage | LegacyAccountPage | null
 
 /**
- * Where an old URL (`/dashboard`, `/workflows`, `/runs`, `/connections`, `/account`) now goes: the
+ * Where an old URL (`/workflows`, `/runs`, `/connections`, `/account`) now goes: the
  * organization opened last that the session can still open (else the
  * active one), its most recent project and workspace, on the page that
  * replaced the old one. With nothing remembered, the org home; with no org
- * at all, Choose an organization. Rendered on the client only: the memory is
+ * at all, /dashboard. Rendered on the client only: the memory is
  * in localStorage, and it also remembers dummy visits and other accounts'
  * orgs, which is why it is checked against the session's.
  */
@@ -48,7 +48,7 @@ export function legacyTarget(
   fallbackOrg: string | null,
 ): string {
   const org = memory.orgs.find((slug) => sessionOrgs.includes(slug)) ?? fallbackOrg
-  if (!org) return chooseOrgPath()
+  if (!org) return dashboardPath()
   if (page !== null && typeof page === 'object' && 'account' in page) {
     return accountPath(org, page.account)
   }

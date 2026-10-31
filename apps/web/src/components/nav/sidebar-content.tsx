@@ -302,7 +302,7 @@ export function SidebarContent({ inDrawer = false, onNavigate }: SidebarContentP
 
         <div className="flex flex-col gap-0.5 border-t border-sidebar-border p-2">
           <SidebarNavLink
-            to="/choose-org"
+            to="/dashboard"
             label="Try the new dashboard"
             icon={Sparkles}
             collapseAware={collapseAware}

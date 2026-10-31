@@ -1,5 +1,5 @@
 import { Check, Clock, Mail, PenLine } from 'lucide-react'
-import { chooseOrgPath } from '../../lib/dashboard-paths'
+import { dashboardPath } from '../../lib/dashboard-paths'
 import type { InviteDetails } from '../../types/dashboard/invites'
 import { AuthCard, FactList, type Fact } from '../ui/auth-card'
 import { PersonAvatar } from '../ui/avatar-stack'
@@ -147,7 +147,7 @@ export function DeclinedInvite({ invite, busy, error, onUndo }: DeclinedInvitePr
             Undo
           </Button>
           <Button asChild variant="outline">
-            <ShellLink href={chooseOrgPath()}>Go to your organizations</ShellLink>
+            <ShellLink href={dashboardPath()}>Go to your organizations</ShellLink>
           </Button>
         </>
       }
@@ -182,7 +182,7 @@ export function WrongAccountInvite({ invite, viewerEmail, onSwitchAccount }: Wro
             Sign in as {invite.email}
           </Button>
           <Button asChild variant="outline">
-            <ShellLink href={chooseOrgPath()}>Not now</ShellLink>
+            <ShellLink href={dashboardPath()}>Not now</ShellLink>
           </Button>
         </>
       }
@@ -289,7 +289,7 @@ export function GoneInvite() {
       lead="It was accepted, cancelled or replaced. Ask whoever sent it for a new one."
       actions={
         <Button asChild variant="outline">
-          <ShellLink href={chooseOrgPath()}>Go to your organizations</ShellLink>
+          <ShellLink href={dashboardPath()}>Go to your organizations</ShellLink>
         </Button>
       }
     />

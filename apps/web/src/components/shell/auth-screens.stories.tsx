@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { CalendarX, Mail, Pencil, Plus } from 'lucide-react'
+import { CalendarX, Mail, Pencil } from 'lucide-react'
 import { GitHubIcon, GoogleIcon } from '../icons/provider-icons'
 import { AuthCard, FactList } from '../ui/auth-card'
 import { Avatar } from '../ui/avatar'
@@ -8,15 +8,15 @@ import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { FormField } from '../ui/form-field'
 import { Input } from '../ui/input'
-import { ListCard, ListRow } from '../ui/list-card'
 import { RequestAction } from '../ui/request-action'
 import { ShellLink } from '../ui/shell-link'
 import { Tile } from '../ui/tile'
 import { WORKSPACE_TILE_CLASS } from '../ui/workspace-colour'
 import { AuthLayout } from './auth-layout'
-import { AUTH_FOOTER_LINKS, CHOOSE_ORGS } from './__tests__/fixtures/auth'
+import { AUTH_FOOTER_LINKS } from './__tests__/fixtures/auth'
 
-// SignIn, AcceptInvite, InviteWrongAccount, InviteExpired and ChooseOrg. Each
+// SignIn, AcceptInvite, InviteWrongAccount and InviteExpired (ChooseOrg became
+// /dashboard, whose stories are under Orgs/Dashboard). Each
 // board is one AuthCard, so these are the per-component stories, not
 // composites. P9 wires sign-in to the real auth calls.
 const meta = {
@@ -136,7 +136,7 @@ function AcceptInviteDemo({ initiallyDeclined = false }: { initiallyDeclined?: b
               Undo
             </Button>
             <Button asChild variant="ghost" size="lg">
-              <ShellLink href="/choose-org">Go to your organizations</ShellLink>
+              <ShellLink href="/dashboard">Go to your organizations</ShellLink>
             </Button>
           </>
         }
@@ -218,7 +218,7 @@ export const InviteWrongAccount: Story = {
             <ShellLink href="/sign-in">Sign in as sam@acme.test</ShellLink>
           </Button>
           <Button asChild variant="outline" size="lg">
-            <ShellLink href="/choose-org">Not now</ShellLink>
+            <ShellLink href="/dashboard">Not now</ShellLink>
           </Button>
         </>
       }
@@ -306,40 +306,3 @@ function InviteExpiredDemo() {
 }
 
 export const InviteExpired: Story = { render: () => <InviteExpiredDemo /> }
-
-export const ChooseOrg: Story = {
-  render: () => (
-    <AuthCard
-      width="lg"
-      title="Choose an organization"
-      lead="Signed in as daniel@acme.test. Next time we'll open the last one you used."
-      actions={
-        <>
-          <Button asChild variant="outline">
-            <ShellLink href="/new-org">
-              <Plus aria-hidden="true" />
-              Create an organization
-            </ShellLink>
-          </Button>
-          <span className="flex-1" />
-          <Button asChild variant="ghost">
-            <ShellLink href="/sign-in">Sign out</ShellLink>
-          </Button>
-        </>
-      }
-    >
-      <ListCard label="Your organizations">
-        {CHOOSE_ORGS.map((org) => (
-          <ListRow
-            key={org.slug}
-            leading={<OrgTile initial={org.name[0]} />}
-            title={org.name}
-            href={org.href}
-            description={org.meta}
-            trailing={org.badge && <Badge variant="neutral">{org.badge}</Badge>}
-          />
-        ))}
-      </ListCard>
-    </AuthCard>
-  ),
-}

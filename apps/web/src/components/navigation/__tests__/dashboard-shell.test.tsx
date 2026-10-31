@@ -282,9 +282,9 @@ describe('DashboardShell', () => {
     state.pathname = '/nope/projects'
     settle({ found: false, notFound: { kind: 'organization', slug: 'nope', parent: null } })
     renderShell()
-    expect(screen.getByRole('link', { name: 'Choose an organization' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Go to your organizations' })).toHaveAttribute(
       'href',
-      '/choose-org',
+      '/dashboard',
     )
   })
 

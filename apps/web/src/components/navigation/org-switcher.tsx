@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react'
 import { Plus, Settings } from 'lucide-react'
 import { useOrgs, useSwitchOrg } from '../../data/dashboard/session'
-import { chooseOrgPath, orgPath, orgSettingsPath } from '../../lib/dashboard-paths'
+import { dashboardPath, orgPath, orgSettingsPath, withNewDialog } from '../../lib/dashboard-paths'
 import { ScopeSwitcher, type ScopeAction } from '../shell/scope-switcher'
 import { useGoTo } from './router-shell-link'
 import { orgDetail } from './switcher-details'
@@ -26,8 +26,8 @@ export function OrgSwitcher({ trigger, current, side = 'right' }: OrgSwitcherPro
 
   function handleSelect(slug: string) {
     if (slug === current.slug) return
-    // Not awaited: opening the org only records it as the last one (what
-    // /choose-org opens next). The org page resolves its own scope from the
+    // Not awaited: opening the org only records it as the last one (first on
+    // /dashboard next time). The org page resolves its own scope from the
     // URL, so a failure there — say, you were just removed — shows as its
     // "We can't find that organization", not as a stuck switcher.
     switchOrg.mutate(slug)
@@ -35,8 +35,8 @@ export function OrgSwitcher({ trigger, current, side = 'right' }: OrgSwitcherPro
   }
 
   function handleAction(id: string) {
-    // New organization opens its dialog on /choose-org once P9 builds it.
-    goTo(id === 'new' ? `${chooseOrgPath()}?new=org` : orgSettingsPath(current.slug))
+    // New organization opens its dialog on /dashboard.
+    goTo(id === 'new' ? withNewDialog(dashboardPath(), 'org') : orgSettingsPath(current.slug))
   }
 
   return (

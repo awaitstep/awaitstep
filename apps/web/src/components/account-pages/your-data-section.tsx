@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Trash2 } from 'lucide-react'
 import { useDeleteAccount, useExportAccount } from '../../data/dashboard/account'
-import { chooseOrgPath } from '../../lib/dashboard-paths'
+import { dashboardPath } from '../../lib/dashboard-paths'
 import { downloadJsonFile } from '../../lib/download-file'
 import type { Account } from '../../types/dashboard/account'
 import { BlockedAction } from '../ui/blocked-action'
@@ -42,7 +42,7 @@ export function YourDataSection({ account, currentOrg }: YourDataSectionProps) {
 
   function handleDelete() {
     // The dialog holds Delete until the email is typed, so what was typed is the email.
-    remove.mutate(email, { onSuccess: () => goTo(chooseOrgPath()) })
+    remove.mutate(email, { onSuccess: () => goTo(dashboardPath()) })
   }
 
   return (

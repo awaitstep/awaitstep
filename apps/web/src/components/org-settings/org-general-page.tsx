@@ -2,7 +2,7 @@ import { useRef, useState, type ChangeEvent, type SubmitEvent } from 'react'
 import { Trash2 } from 'lucide-react'
 import { errorFieldOf } from '../../data/dashboard/errors'
 import { useDeleteOrg, useUpdateOrg } from '../../data/dashboard/org-settings'
-import { chooseOrgPath, orgSettingsPath } from '../../lib/dashboard-paths'
+import { dashboardPath, orgSettingsPath } from '../../lib/dashboard-paths'
 import { readImageAsDataUrl } from '../../lib/read-file'
 import type { OrgScope } from '../../types/dashboard/scope'
 import { BlockedAction } from '../ui/blocked-action'
@@ -115,7 +115,7 @@ function OrgGeneral({ slug, scope }: { slug: string; scope: OrgScope }) {
   }
 
   function handleDelete() {
-    remove.mutate(undefined, { onSuccess: () => goTo(chooseOrgPath()) })
+    remove.mutate(undefined, { onSuccess: () => goTo(dashboardPath()) })
   }
 
   // Each error sits under the field it names; the rest under the name.

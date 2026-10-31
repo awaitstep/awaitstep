@@ -4,7 +4,7 @@ import { useNotifications, useReleases } from '../../data/dashboard/inbox'
 import { useProjects } from '../../data/dashboard/projects'
 import { useViewer } from '../../data/dashboard/session'
 import { useScope } from '../../data/dashboard/workspaces'
-import { chooseOrgPath, orgPath, projectPath, withOverlay } from '../../lib/dashboard-paths'
+import { dashboardPath, orgPath, projectPath, withOverlay } from '../../lib/dashboard-paths'
 import { useThemeStore } from '../../stores/theme-store'
 import type { ReleaseFeed } from '../../types/dashboard/inbox'
 import type { NotFound, ScopeLookup, ScopeSlugs } from '../../types/dashboard/scope'
@@ -165,7 +165,7 @@ export function ScopeNotFound({ notFound, slugs, path }: ScopeNotFoundProps) {
   const backToProjects = { label: 'Back to projects', href: orgPath(slugs.org) }
   const links =
     notFound.kind === 'organization'
-      ? { primary: { label: 'Choose an organization', href: chooseOrgPath() } }
+      ? { primary: { label: 'Go to your organizations', href: dashboardPath() } }
       : notFound.kind === 'workspace' && notFound.parent
         ? {
             primary: {

@@ -10,7 +10,7 @@ import { InvitePage } from '../components/invites/invite-page'
 export const Route = createFileRoute('/invite/$token')({
   ssr: false,
   validateSearch: validateDashboardSearch,
-  // Keeps the dummy session (?as=, ?mock=) between choose-org and invites, as $org does.
+  // Keeps the dummy session (?as=, ?mock=) between /dashboard and invites, as $org does.
   search: { middlewares: [retainSearchParams([...DASHBOARD_SEARCH_KEYS])] },
   head: () => ({ meta: [{ title: 'Invitation · AwaitStep' }] }),
   component: InviteRoute,

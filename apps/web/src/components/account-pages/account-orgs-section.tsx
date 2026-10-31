@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLeaveOrg } from '../../data/dashboard/account'
-import { chooseOrgPath, orgSettingsPath } from '../../lib/dashboard-paths'
+import { dashboardPath, orgSettingsPath } from '../../lib/dashboard-paths'
 import type { AccountOrg } from '../../types/dashboard/account'
 import { Button } from '../ui/button'
 import { ConfirmDialog } from '../ui/confirm-dialog'
@@ -12,7 +12,7 @@ import { useGoTo } from '../navigation/router-shell-link'
 import { orgMeta } from './account-format'
 
 interface AccountOrgsSectionProps {
-  /** The org in the URL: leaving it lands on Choose an organization. */
+  /** The org in the URL: leaving it lands on /dashboard. */
   currentOrg: string
   orgs: AccountOrg[]
 }
@@ -38,7 +38,7 @@ export function AccountOrgsSection({ currentOrg, orgs }: AccountOrgsSectionProps
     leave.mutate(leaving, {
       onSuccess: () => {
         setLeaving(null)
-        if (slug === currentOrg) goTo(chooseOrgPath())
+        if (slug === currentOrg) goTo(dashboardPath())
       },
     })
   }

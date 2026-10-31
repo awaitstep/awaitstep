@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   accessEditorPath,
   accountPath,
-  chooseOrgPath,
+  dashboardPath,
   invitePath,
   itemPath,
   isReservedSlug,
@@ -43,7 +43,7 @@ describe('dashboard paths', () => {
       '/a%2Fb/p/w%3Fx/runs',
     )
     expect(invitePath('tok/en')).toBe('/invite/tok%2Fen')
-    expect(chooseOrgPath()).toBe('/choose-org')
+    expect(dashboardPath()).toBe('/dashboard')
     expect(accountPath('acme')).toBe('/acme/account/profile')
     expect(accountPath('acme', 'sessions')).toBe('/acme/account/sessions')
   })

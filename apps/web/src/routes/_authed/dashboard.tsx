@@ -1,13 +1,33 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { LegacyRedirect } from '../../components/navigation/legacy-redirect'
+import { createFileRoute, retainSearchParams } from '@tanstack/react-router'
+import { DashboardPage } from '../../components/orgs/dashboard-page'
+import {
+  DASHBOARD_SEARCH_KEYS,
+  DashboardProviders,
+  validateDashboardSearch,
+} from '../../components/navigation/dashboard-providers'
 
-// The old dashboard: its stats, workflow list and recent runs live on the
-// workspace Overview now, and projects on the org home.
+// Where sign-in lands when nothing sent you there (17a/17b): every
+// organization you're in. Client-only, like the rest of the new dashboard.
 export const Route = createFileRoute('/_authed/dashboard')({
   ssr: false,
-  component: DashboardRedirect,
+  validateSearch: validateDashboardSearch,
+  // Keeps the dummy session (?as=, ?mock=) between /dashboard and invites, as $org does.
+  search: { middlewares: [retainSearchParams([...DASHBOARD_SEARCH_KEYS])] },
+  head: () => ({ meta: [{ title: 'Your organizations · AwaitStep' }] }),
+  component: DashboardRoute,
 })
 
-function DashboardRedirect() {
-  return <LegacyRedirect page={null} />
+function DashboardRoute() {
+  const search = Route.useSearch()
+  const navigate = Route.useNavigate()
+
+  function handleCloseDialog() {
+    void navigate({ search: (prev) => ({ ...prev, new: undefined }), replace: true })
+  }
+
+  return (
+    <DashboardProviders search={search}>
+      <DashboardPage dialog={search.new} onCloseDialog={handleCloseDialog} />
+    </DashboardProviders>
+  )
 }

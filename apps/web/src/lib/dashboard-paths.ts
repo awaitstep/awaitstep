@@ -177,8 +177,9 @@ export function itemPath(
   return query ? `${path}?${query}` : path
 }
 
-export function chooseOrgPath(): string {
-  return '/choose-org'
+/** `/dashboard`: every organization you're in, invites waiting for you, Create an organization. */
+export function dashboardPath(): string {
+  return '/dashboard'
 }
 
 export function invitePath(token: string): string {

@@ -138,7 +138,7 @@ describe('OrgSwitcher', () => {
     expect(lastNavigation()).toMatchObject({ to: '/acme/settings/general' })
     await open('Acme Inc')
     await userEvent.click(screen.getByRole('button', { name: 'New organization' }))
-    expect(lastNavigation()).toMatchObject({ to: '/choose-org', search: { new: 'org' } })
+    expect(lastNavigation()).toMatchObject({ to: '/dashboard', search: { new: 'org' } })
   })
 })
 

@@ -19,14 +19,14 @@ describe('legacyTarget', () => {
     )
   })
 
-  it('falls back a level at a time: the project, the org home, Choose an organization', () => {
+  it('falls back a level at a time: the project, the org home, /dashboard', () => {
     expect(legacyTarget('runs', memory(['acme'], ['p']), mine, null)).toBe('/acme/p')
     expect(legacyTarget('runs', memory(['acme']), mine, null)).toBe('/acme/projects')
     expect(legacyTarget(null, memory(['acme'], ['p'], ['sales']), mine, null)).toBe(
       '/acme/projects',
     )
     expect(legacyTarget('runs', memory([]), mine, 'active-org')).toBe('/active-org/projects')
-    expect(legacyTarget('runs', memory([]), [], null)).toBe('/choose-org')
+    expect(legacyTarget('runs', memory([]), [], null)).toBe('/dashboard')
   })
 
   it('skips remembered orgs the session cannot open: dummy visits, other accounts', () => {
@@ -45,13 +45,13 @@ describe('legacyTarget', () => {
     expect(
       legacyTarget({ settings: 'connections', newDialog: 'connection' }, memory([]), mine, 'acme'),
     ).toBe('/acme/settings/connections?new=connection')
-    expect(legacyTarget({ settings: 'connections' }, memory([]), [], null)).toBe('/choose-org')
+    expect(legacyTarget({ settings: 'connections' }, memory([]), [], null)).toBe('/dashboard')
   })
 
   it('sends the old Account page to Your account in the last org opened', () => {
     expect(legacyTarget({ account: 'profile' }, memory(['acme'], ['p']), mine, null)).toBe(
       '/acme/account/profile',
     )
-    expect(legacyTarget({ account: 'profile' }, memory([]), [], null)).toBe('/choose-org')
+    expect(legacyTarget({ account: 'profile' }, memory([]), [], null)).toBe('/dashboard')
   })
 })

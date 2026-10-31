@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Route as ChooseOrgRoute } from '../../../routes/_authed/choose-org'
+import { Route as DashboardRoute } from '../../../routes/_authed/dashboard'
 import { Route as InviteRoute } from '../../../routes/invite.$token'
 
 type Middleware = (ctx: {
@@ -18,9 +18,9 @@ function nextSearch(route: { options: { search?: { middlewares?: unknown[] } } }
   )
 }
 
-describe('choose-org and invite links keep the dummy session', () => {
+describe('/dashboard and invite links keep the dummy session', () => {
   it('carry ?as= and ?mock= over, as the org pages do', () => {
-    expect(nextSearch(ChooseOrgRoute)).toMatchObject({ as: 'daniel', mock: 'empty' })
+    expect(nextSearch(DashboardRoute)).toMatchObject({ as: 'daniel', mock: 'empty' })
     expect(nextSearch(InviteRoute)).toMatchObject({ as: 'daniel', mock: 'empty' })
   })
 })

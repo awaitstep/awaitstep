@@ -96,7 +96,7 @@ describe('other invite states', () => {
     expect(screen.getByText('Doesn’t match')).toBeVisible()
     await userEvent.click(screen.getByRole('button', { name: 'Sign in as sam@acme.test' }))
     expect(signOut).toHaveBeenCalledWith('/invite/inv_sam')
-    expect(screen.getByRole('link', { name: 'Not now' })).toHaveAttribute('href', '/choose-org')
+    expect(screen.getByRole('link', { name: 'Not now' })).toHaveAttribute('href', '/dashboard')
   })
 
   it('reads as InviteExpired, and asks for a new one once', async () => {
@@ -119,7 +119,7 @@ describe('other invite states', () => {
     ).toBeVisible()
     expect(screen.getByRole('link', { name: 'Go to your organizations' })).toHaveAttribute(
       'href',
-      '/choose-org',
+      '/dashboard',
     )
   })
 

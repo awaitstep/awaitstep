@@ -1,11 +1,11 @@
-import { createFileRoute, Outlet, redirect, useMatches } from '@tanstack/react-router'
+import { createFileRoute, Navigate, Outlet, redirect, useMatches } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequestHeader, setCookie } from '@tanstack/react-start/server'
 import { safeRedirectPath } from '../lib/auth-redirect'
 import { apiFetch } from '../lib/cf-context'
-import { isChromelessRoute } from '../lib/shell-routes'
+import { isChromelessRoute, sendsToDashboard } from '../lib/shell-routes'
 import { useAuthStore, type SessionData } from '../stores/auth-store'
-import { type Organization } from '../stores/org-store'
+import { type Organization, useOrgStore } from '../stores/org-store'
 import OrgWrapper from '../wrappers/org'
 import { AppSidebar } from '../components/nav/app-sidebar'
 import { MobileSidebar } from '../components/nav/mobile-sidebar'
@@ -64,8 +64,15 @@ export const Route = createFileRoute('/_authed')({
 function AuthedLayout() {
   const loaderData = Route.useLoaderData()
   const matches = useMatches()
+  // An org created on /dashboard joins the store; the loader's list is up to 5 minutes old.
+  const addedOrgs = useOrgStore((s) => s.organizations.length)
 
   useAuthStore.getState().setSession(loaderData.sessionData)
+
+  // The old pages need an organization: with none, /dashboard offers to make one (D-DB-7).
+  if (sendsToDashboard(loaderData.organizations.length, addedOrgs, matches)) {
+    return <Navigate to="/dashboard" replace />
+  }
 
   if (isChromelessRoute(matches)) {
     return (

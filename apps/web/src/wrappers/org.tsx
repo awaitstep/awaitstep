@@ -37,14 +37,13 @@ export default function OrgWrapper({ organizations }: OrgWrapperProps) {
     })),
   )
 
-  const hasOrgs = organizations.length > 0
-  const showOrgDialog = orgDialogOpen || !hasOrgs
-
+  // With no organization the layout sends you to /dashboard, which creates one;
+  // this dialog is the old switcher's "New organization" only.
   return (
     <>
       <ProjectsWrapper />
       <ConnectionsWrapper />
-      {showOrgDialog && <OrgDialog hasOrgs={hasOrgs} />}
+      {orgDialogOpen && <OrgDialog hasOrgs />}
       {projectDialogOpen && <ProjectDialog />}
     </>
   )

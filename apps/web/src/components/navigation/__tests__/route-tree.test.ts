@@ -9,7 +9,7 @@ import {
   RESERVED_SLUGS,
   WORKSPACE_PAGES,
   accountPath,
-  chooseOrgPath,
+  dashboardPath,
   invitePath,
   orgPath,
   orgSettingsPath,
@@ -51,7 +51,7 @@ describe('dashboard route tree', () => {
     expect(leafRoute('/acme/project-101/settings')).toBe('/_authed/$org/$project/settings/')
     expect(leafRoute('/acme/project-101/sales')).toBe('/_authed/$org/$project/$workspace/')
     expect(leafRoute('/acme/account')).toBe('/_authed/$org/account/')
-    expect(leafRoute(chooseOrgPath())).toBe('/_authed/choose-org')
+    expect(leafRoute(dashboardPath())).toBe('/_authed/dashboard')
     expect(leafRoute(invitePath('abc'))).toBe('/invite/$token')
   })
 
@@ -119,8 +119,8 @@ describe('dashboard search params', () => {
     return createRouter({ routeTree, history: createMemoryHistory({ initialEntries: [path] }) })
   }
 
-  it('keeps ?mock and ?as when /choose-org sends you into an org', () => {
-    const location = routerAt('/choose-org?as=priya&mock=viewer').buildLocation({
+  it('keeps ?mock and ?as when /dashboard sends you into an org', () => {
+    const location = routerAt('/dashboard?as=priya&mock=viewer').buildLocation({
       to: '/$org/projects',
       params: { org: 'acme' },
     })

@@ -164,7 +164,7 @@ describe('project General', () => {
     const dialog = screen.getByRole('dialog', { name: 'Move Project 101' })
     expect(await within(dialog).findByRole('link', { name: 'New organization' })).toHaveAttribute(
       'href',
-      '/choose-org?new=org',
+      '/dashboard?new=org',
     )
   })
 

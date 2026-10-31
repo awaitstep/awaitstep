@@ -3,7 +3,7 @@ import { ArrowRight } from 'lucide-react'
 import { useMoveProject } from '../../data/dashboard/projects'
 import { useOrgs } from '../../data/dashboard/session'
 import {
-  chooseOrgPath,
+  dashboardPath,
   projectSettingsPath,
   withNewDialog,
   type ProjectSlugs,
@@ -80,7 +80,7 @@ export function MoveProjectDialog({ slugs, projectName, onClose }: MoveProjectDi
           {projectName} to.
         </p>
         <ShellLink
-          href={withNewDialog(chooseOrgPath(), 'org')}
+          href={withNewDialog(dashboardPath(), 'org')}
           className={buttonVariants({ variant: 'outline', size: 'sm', className: 'self-start' })}
         >
           New organization

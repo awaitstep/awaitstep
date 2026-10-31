@@ -151,11 +151,11 @@ describe('Organizations', () => {
     expect(goTo).not.toHaveBeenCalled()
   })
 
-  it('lands on Choose an organization after leaving the org in the URL', async () => {
+  it('lands on /dashboard after leaving the org in the URL', async () => {
     renderWithDashboardData(<ProfilePage org="bolt-labs" />)
     await userEvent.click(await screen.findByRole('button', { name: 'Leave Bolt Labs' }))
     await userEvent.click(screen.getByRole('button', { name: 'Leave organization' }))
-    await waitFor(() => expect(goTo).toHaveBeenCalledWith('/choose-org'))
+    await waitFor(() => expect(goTo).toHaveBeenCalledWith('/dashboard'))
   })
 })
 
@@ -178,7 +178,7 @@ describe('Your data', () => {
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
 
-  it('deletes Priya’s account once she types her email, and lands on Choose an organization', async () => {
+  it('deletes Priya’s account once she types her email, and lands on /dashboard', async () => {
     renderProfile(PRIYA)
     await userEvent.click(await screen.findByRole('button', { name: 'Delete account' }))
     const dialog = within(screen.getByRole('alertdialog', { name: 'Delete your account?' }))
@@ -186,7 +186,7 @@ describe('Your data', () => {
     expect(confirm).toBeDisabled()
     await userEvent.type(dialog.getByRole('textbox'), 'priya@acme.test')
     await userEvent.click(confirm)
-    await waitFor(() => expect(goTo).toHaveBeenCalledWith('/choose-org'))
+    await waitFor(() => expect(goTo).toHaveBeenCalledWith('/dashboard'))
     expect(dashboardDb().orgMembers.some((m) => m.userId === PRIYA)).toBe(false)
   })
 })
