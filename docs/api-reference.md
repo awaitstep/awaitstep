@@ -2036,14 +2036,14 @@ address cut to its `/24` (IPv4, `81.2.69.x`) or `/48` (IPv6) — the full
 address is never stored. `scope` names the place as it is now
 (`"Deleted project"` once it is gone); `colour` is set for workspace events.
 
-| Kind     | Events                                                                                                                                                                                                                                                                                                  |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `danger` | `project.delete`, `project.delete.blocked`, `project.move.out`, `project.move.in` (a move is logged in both organizations), `project.move.blocked`, `workspace.delete`, `workspace.delete.blocked`, `workflow.delete`, `workflow.takedown`, `version.delete`                                            |
-| `key`    | `api_key.create`, `api_key.revoke`, `connection.create`, `connection.update`, `connection.delete`, `variable.create`, `variable.update`, `variable.delete`                                                                                                                                              |
-| `access` | `member.join`, `organization.update`, `workflow.move`, `invitation.create`, `invitation.cancel`, `member.access`, `member.remove`, `workspace_member.add`, `workspace_member.role`, `workspace_member.remove`, `access_request.approve`, `access_request.decline`, `workflow.share`, `workflow.unshare` |
-| `deploy` | `workflow.deploy`, `version.revert`, `node.install`, `node.update`, `node.uninstall`                                                                                                                                                                                                                    |
-| `lock`   | `project.lock`, `project.unlock`, `workspace.lock`, `workspace.unlock` (only when the lock actually changes)                                                                                                                                                                                            |
-| `auth`   | `signin` (once in each organization the person belongs to), `connection.verify.failed`, `connection.verify.locked`                                                                                                                                                                                      |
+| Kind     | Events                                                                                                                                                                                                                                                                                                                               |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `danger` | `project.delete`, `project.delete.blocked`, `project.move.out`, `project.move.in` (a move is logged in both organizations), `project.move.blocked`, `workspace.delete`, `workspace.delete.blocked`, `workflow.delete`, `workflow.takedown`, `version.delete`, `account.delete` (in each organization the person was in, just before) |
+| `key`    | `api_key.create`, `api_key.revoke`, `connection.create`, `connection.update`, `connection.delete`, `variable.create`, `variable.update`, `variable.delete`                                                                                                                                                                           |
+| `access` | `member.join`, `organization.update`, `workflow.move`, `invitation.create`, `invitation.cancel`, `member.access`, `member.remove`, `workspace_member.add`, `workspace_member.role`, `workspace_member.remove`, `access_request.approve`, `access_request.decline`, `workflow.share`, `workflow.unshare`, `member.leave`              |
+| `deploy` | `workflow.deploy`, `version.revert`, `node.install`, `node.update`, `node.uninstall`                                                                                                                                                                                                                                                 |
+| `lock`   | `project.lock`, `project.unlock`, `workspace.lock`, `workspace.unlock` (only when the lock actually changes)                                                                                                                                                                                                                         |
+| `auth`   | `signin`, `account.method_connect`, `account.method_disconnect`, `session.revoke`, `account.export` (each once in every organization the person belongs to), `connection.verify.failed`, `connection.verify.locked`                                                                                                                  |
 
 Not recorded: creating or editing projects, workspaces and workflows, file
 and graph edits, runs, test sessions, reads, and refused requests.
@@ -2085,6 +2085,130 @@ by an organization key keep their `parentKeyId` and still stop working
 
 Revoke a key of the addressed level, by whoever manages it there (as for
 `POST`); a key of another level at that address is `404`.
+
+### Your account
+
+The person's own rows, the same in every organization (B10): no `?org=`, and
+no key reads or changes them (`403`).
+
+#### `GET /account`
+
+```json
+{
+  "person": {
+    "id": "usr_…",
+    "name": "Ama Mensah",
+    "email": "ama@acme.test",
+    "image": null,
+    "emailVerified": true
+  },
+  "orgs": [
+    {
+      "id": "org_…",
+      "slug": "acme",
+      "name": "Acme Inc",
+      "logo": null,
+      "role": "owner",
+      "projectCount": 3,
+      "onlyOwner": true
+    }
+  ],
+  "deleteBlockedReason": "You're the only owner of Acme Inc",
+  "signInMethods": [
+    {
+      "provider": "github",
+      "connected": true,
+      "connectedAt": "2026-09-02T10:00:00.000Z",
+      "accountId": "acc_…"
+    },
+    { "provider": "google", "connected": false, "connectedAt": null, "accountId": null },
+    { "provider": "email", "connected": true, "connectedAt": null, "accountId": null }
+  ],
+  "providers": { "github": true, "google": true, "emailLink": true }
+}
+```
+
+`projectCount` counts the projects the person can open. `onlyOwner` is true
+where nobody else owns the organization; `deleteBlockedReason` names every
+such organization. `signInMethods` lists the providers the instance turns on
+(and any still linked after it turned one off), then the email link when the
+instance sends magic links. `providers` is what the instance turns on.
+
+#### `POST /account/orgs/:orgId/leave`
+
+Leave an organization, with the person's project and workspace roles in it,
+as one unit; recorded there as `member.leave`. The only owner gets `409`
+("Make someone else an owner first"); an organization the person is not in
+is `404`. better-auth's `/organization/leave` stays closed.
+
+#### `GET /account/sessions`
+
+The person's unexpired sessions, the one making the call first, then by last
+activity. Sessions are named by id — never by their token:
+
+```json
+{
+  "data": [
+    {
+      "id": "ses_…",
+      "device": "Chrome on macOS",
+      "kind": "desktop",
+      "ip": "81.2.69.x",
+      "signedInAt": "…",
+      "activeAt": "…",
+      "current": true
+    }
+  ]
+}
+```
+
+`kind` is `desktop`, `phone` or `terminal` (curl, scripts); `ip` is masked
+as in the audit log, `null` when none was known.
+
+#### `DELETE /account/sessions/:id` · `DELETE /account/sessions?scope=others`
+
+Sign out one other session, or every other one (`{ "count": 2 }`); each is
+recorded as `session.revoke`. The session making the call is `400` (sign out
+instead); someone else's id is `404`; `DELETE /account/sessions` without
+`scope=others` is `400`.
+
+#### `POST /account/export`
+
+Download JSON: the person's own rows — `profile` (`name`, `email`, `photo`
+as a boolean), `signInMethods`, `sessions`, and `memberships` with each
+organization's `role`, project roles (`projects`) and workspace roles
+(`workspaces`). Nothing the organizations own (workflows, runs, connections,
+other people). Recorded as `account.export`; 10 an hour. A `POST` so that a
+cross-site link can't write audit rows (the CSRF check covers it).
+
+#### Through better-auth (`/api/auth/*`)
+
+- **Name and photo**: `POST /api/auth/update-user` with `name` and/or
+  `image`. A photo is a PNG, JPEG, WebP or GIF data URL of at most 512 KB
+  (the dashboard shrinks a pick of up to 2 MB to 256 px first), or `null`;
+  anything else is `400`. Org logos (`/organization/update`) are PNG, JPEG,
+  SVG or WebP up to 200 KB.
+- **The email address never changes**: `update-user` refuses `email`, and
+  `/change-email` is off.
+- **Providers**: Google and GitHub join the account only with its own,
+  verified address — at sign-in, and through `POST /api/auth/link-social`.
+  Another address is refused, and the browser goes to `errorCallbackURL` with
+  `?error=email_does_not_match` (or `account_already_linked_to_different_user`).
+  `POST /api/auth/unlink-account` takes the `accountId` from `GET /account` and
+  needs a sign-in within the last day (`403` `SESSION_NOT_FRESH` otherwise).
+  The last way in that works may go only while the instance sends email
+  links; a provider the instance turned off doesn't count as one. Otherwise it
+  is `400` ("Your only way to sign in…"), and the way out is deleting the
+  account. Connects and disconnects are recorded.
+- **Delete account**: `POST /api/auth/delete-user`, on a session signed in
+  within the last day (`400` `SESSION_EXPIRED` otherwise). The only owner of
+  an organization gets `409` with the reason. Memberships, grants, sessions
+  and providers go with the person; rows they created stay, without a name.
+- **Closed** (`403`): `/list-sessions`, `/revoke-session`, `/revoke-sessions`,
+  `/revoke-other-sessions`, `/update-session` (they deal in session tokens — use
+  `/api/account/sessions`), `/get-access-token`, `/refresh-token`,
+  `/account-info` (they hand out the person's GitHub or Google tokens) and
+  `/delete-user/callback`. `/get-session` answers without the session's `token`.
 
 ### Inbox and What's new
 

@@ -738,6 +738,46 @@ When you last closed What's new and the notes it showed: `{ "lastVisit": "…", 
 
 ---
 
+## Your account <span class="api-scope">session only</span>
+
+The person's own rows, the same in every organization: no `?org=`, and no key reads or changes them.
+
+### <span class="api-method get">GET</span> <span class="api-endpoint">/account</span>
+
+The person (`name`, `email`, `image`, `emailVerified`), their organizations (`role`, `projectCount` they can open, `onlyOwner`), `deleteBlockedReason` (the organizations they own alone, or `null`), `signInMethods` (the providers the instance turns on, each with `connected`, `connectedAt` and the `accountId` to disconnect it, then the email link when the instance sends them) and `providers` (what the instance turns on).
+
+---
+
+### <span class="api-method post">POST</span> <span class="api-endpoint">/account/orgs/:orgId/leave</span>
+
+Leave an organization with your project and workspace roles in it. The only owner gets `409`; an organization you are not in is `404`.
+
+---
+
+### <span class="api-method get">GET</span> <span class="api-endpoint">/account/sessions</span>
+
+Your unexpired sessions by id (never their tokens), this one first: `device` ("Chrome on macOS"), `kind` (`desktop`, `phone`, `terminal`), masked `ip`, `signedInAt`, `activeAt`, `current`.
+
+---
+
+### <span class="api-method delete">DELETE</span> <span class="api-endpoint">/account/sessions/:id</span>
+
+Sign out another session. This one is `400` (sign out instead); someone else's is `404`. `DELETE /account/sessions?scope=others` signs out every other one: `{ "count": 2 }`.
+
+---
+
+### <span class="api-method post">POST</span> <span class="api-endpoint">/account/export</span>
+
+Your own rows as JSON: profile, sign-in methods, sessions, memberships with their project and workspace roles. Nothing your organizations own. 10 an hour.
+
+---
+
+### Through better-auth
+
+Name and photo: `POST /api/auth/update-user` (a PNG, JPEG, WebP or GIF data URL up to 512 KB, or `null`). The email address never changes. Google and GitHub join only with the account's own verified address; `POST /api/auth/unlink-account` takes the `accountId` above and needs a sign-in from the last day (`403` otherwise); the last way in that works (a provider the instance still turns on) may go only while the instance sends email links. `POST /api/auth/delete-user` needs a sign-in from the last day and refuses the only owner of an organization (`409`). better-auth's session routes (`/list-sessions`, `/revoke-*`, `/update-session`) and provider-token reads (`/get-access-token`, `/refresh-token`, `/account-info`) are closed: use `/account/sessions`. `/get-session` answers without the session's token.
+
+---
+
 ## API Keys <span class="api-scope">session only</span>
 
 Keys never manage keys: these endpoints take a session, addressed at the level they manage — `?org=<slug>` the organization's keys (owners and admins), `?org=&project=<slug>` a project's (its admins), `?org=&project=&workspace=<slug>` a workspace's (its admins). A workspace named without its project is `400`.
