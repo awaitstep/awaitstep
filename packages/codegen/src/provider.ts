@@ -18,6 +18,34 @@ export interface CredentialsCheckResult {
 }
 
 /**
+ * What a provider says about a set of credentials. `unknown` = the provider
+ * couldn't be asked (outage, timeout); callers keep what they knew before.
+ */
+export interface CredentialsInspection {
+  status: 'active' | 'invalid' | 'unknown'
+  /** When the credentials stop working (ISO); null when they don't expire or it isn't known. */
+  expiresAt: string | null
+  /** Accounts the credentials reach (only when asked to list them); empty when not listed. */
+  accounts: { id: string; name: string }[]
+  /** Whether they reach the account the credentials name; null when none is named or it isn't known. */
+  accountReachable: boolean | null
+}
+
+export interface InspectOptions {
+  /** List the accounts the credentials reach (a picker needs them). Default false. */
+  listAccounts?: boolean
+  /** Ask whether the named account is reachable. Default true. */
+  checkAccount?: boolean
+  /**
+   * When the main check refused the credentials and a fallback couldn't be
+   * answered, read them as invalid rather than unknown — for checks that
+   * gate a person's guesses, so an unanswerable fallback can't stand in for
+   * a refusal. Default false.
+   */
+  settleRefusals?: boolean
+}
+
+/**
  * The outcome of splitting a provider's annotated entry-handler source into
  * handler modules: the modules, plus whatever the annotations declared that
  * modules cannot carry (schedules, per-queue settings — provider-shaped)
@@ -46,6 +74,15 @@ export interface WorkflowProvider {
   validate(ir: ArtifactIR): Result<void, ValidationError[]>
 
   verifyCredentials(config: ProviderConfig): Promise<CredentialsCheckResult>
+
+  /**
+   * Status, expiry and reachable accounts of raw credentials, before any
+   * connection exists. Absent = the provider has no way to tell.
+   */
+  inspectCredentials?(
+    credentials: Record<string, string>,
+    options?: InspectOptions,
+  ): Promise<CredentialsInspection>
 
   /**
    * Generate the deploy artifact for either a workflow or a script. Implementers

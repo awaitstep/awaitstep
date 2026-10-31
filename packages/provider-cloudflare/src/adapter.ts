@@ -21,6 +21,8 @@ import type {
   WorkflowProvider,
   LocalDevProvider,
   CredentialsCheckResult,
+  CredentialsInspection,
+  InspectOptions,
   GeneratedBundle,
   DeployResult,
   ProviderConfig,
@@ -37,6 +39,7 @@ import { sanitizedWorkflowName } from './naming.js'
 import { mapCFStatus } from './status-map.js'
 import { toRunDetail } from './run-detail.js'
 import { CloudflareAPI } from './api.js'
+import { checkCloudflareToken } from './token-check.js'
 import { WRANGLER_BASE_CONFIG } from './wrangler-config.js'
 import {
   detectBindings,
@@ -170,6 +173,13 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     } catch {
       return { valid: false, error: 'Failed to verify API token with Cloudflare' }
     }
+  }
+
+  inspectCredentials(
+    credentials: Record<string, string>,
+    options?: InspectOptions,
+  ): Promise<CredentialsInspection> {
+    return checkCloudflareToken(credentials.apiToken ?? '', credentials.accountId, options)
   }
 
   convertHandlers(source: string, target: 'workflow' | 'script'): HandlerConversionResult {

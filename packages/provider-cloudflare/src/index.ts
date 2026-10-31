@@ -37,6 +37,7 @@ export { mapCFStatus } from './status-map.js'
 export { mapInstanceSteps, toRunDetail } from './run-detail.js'
 export type { DeployStage, DeployProgress, OnDeployProgress } from './adapter.js'
 export { CloudflareAPI } from './api.js'
+export { checkCloudflareToken } from './token-check.js'
 export type {
   CFApiConfig,
   CFInstanceStatus,

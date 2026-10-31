@@ -30,6 +30,8 @@ export { DIAGNOSTIC_SOURCES } from './types.js'
 export type {
   WorkflowProvider,
   CredentialsCheckResult,
+  CredentialsInspection,
+  InspectOptions,
   HandlerConversionResult,
   LocalDevProvider,
 } from './provider.js'
