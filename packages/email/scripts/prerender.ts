@@ -17,6 +17,9 @@ import { InvitationEmail } from '../src/templates/invitation.js'
 import { InviteRequestEmail } from '../src/templates/invite-request.js'
 import { AccessRequestEmail } from '../src/templates/access-request.js'
 import { RunFailedEmail } from '../src/templates/run-failed.js'
+import { KeyExpiringEmail } from '../src/templates/key-expiring.js'
+import { NewSignInEmail } from '../src/templates/new-sign-in.js'
+import { WelcomeEmail } from '../src/templates/welcome.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const outDir = resolve(__dirname, '../src/templates/__generated__')
@@ -38,12 +41,15 @@ async function renderTemplate<P extends Record<string, string>>(
   console.log(`[prerender] wrote ${outName}.ts (${html.length} bytes)`)
 }
 
+const common = { appName: '__APP_NAME__', appUrl: '__APP_URL__', footerNote: '__FOOTER_NOTE__' }
+
 await renderTemplate(
   MagicLinkEmail as never,
   {
     url: '__MAGIC_LINK_URL__',
-    appName: '__APP_NAME__',
-    appUrl: '__APP_URL__',
+    leadHtml: '__LEAD_HTML__',
+    rowsHtml: '__ROWS_HTML__',
+    ...common,
   },
   'magic-link',
   'MAGIC_LINK',
@@ -55,10 +61,11 @@ await renderTemplate(
     url: '__INVITE_URL__',
     orgName: '__ORG_NAME__',
     inviterName: '__INVITER_NAME__',
-    placeLine: '__PLACE_LINE__',
-    expiresLine: '__EXPIRES_LINE__',
-    appName: '__APP_NAME__',
-    appUrl: '__APP_URL__',
+    inviterInitials: '__INVITER_INITIALS__',
+    rowsHtml: '__ROWS_HTML__',
+    previewLine: '__PREVIEW_LINE__',
+    noteLine: '__NOTE_LINE__',
+    ...common,
   },
   'invitation',
   'INVITATION',
@@ -70,8 +77,7 @@ await renderTemplate(
     url: '__MEMBERS_URL__',
     orgName: '__ORG_NAME__',
     askerEmail: '__ASKER_EMAIL__',
-    appName: '__APP_NAME__',
-    appUrl: '__APP_URL__',
+    ...common,
   },
   'invite-request',
   'INVITE_REQUEST',
@@ -80,29 +86,84 @@ await renderTemplate(
 await renderTemplate(
   AccessRequestEmail as never,
   {
-    url: '__INBOX_URL__',
-    askerName: '__ASKER_NAME__',
-    workspaceName: '__WORKSPACE_NAME__',
-    projectName: '__PROJECT_NAME__',
-    appName: '__APP_NAME__',
-    appUrl: '__APP_URL__',
+    approveUrl: '__APPROVE_URL__',
+    declineUrl: '__DECLINE_URL__',
+    headline: '__HEADLINE__',
+    leadLine: '__LEAD_LINE__',
+    rowsHtml: '__ROWS_HTML__',
+    noteHtml: '__NOTE_HTML__',
+    previewLine: '__PREVIEW_LINE__',
+    ...common,
   },
   'access-request',
   'ACCESS_REQUEST',
 )
 
+// The state's color is a class and a fixed style, so each state is its own template.
+for (const [tone, outName, constName] of [
+  ['danger', 'run-failed', 'RUN_FAILED'],
+  ['ok', 'run-recovered', 'RUN_RECOVERED'],
+] as const) {
+  await renderTemplate(
+    RunFailedEmail as never,
+    {
+      url: '__RUNS_URL__',
+      headline: '__HEADLINE__',
+      statusLabel: '__STATUS_LABEL__',
+      tone,
+      leadLine: '__LEAD_LINE__',
+      runsHtml: '__RUNS_HTML__',
+      rowsHtml: '__ROWS_HTML__',
+      openWorkflowHtml: '__OPEN_WORKFLOW_HTML__',
+      noteLine: '__NOTE_LINE__',
+      previewLine: '__PREVIEW_LINE__',
+      ...common,
+    },
+    outName,
+    constName,
+  )
+}
+
 await renderTemplate(
-  RunFailedEmail as never,
+  KeyExpiringEmail as never,
   {
-    url: '__RUNS_URL__',
-    workflowName: '__WORKFLOW_NAME__',
-    stepLine: '__STEP_LINE__',
-    placeName: '__PLACE_NAME__',
-    appName: '__APP_NAME__',
-    appUrl: '__APP_URL__',
+    url: '__CREATE_URL__',
+    statusLabel: '__STATUS_LABEL__',
+    headline: '__HEADLINE__',
+    leadLine: '__LEAD_LINE__',
+    rowsHtml: '__ROWS_HTML__',
+    reviewHtml: '__REVIEW_HTML__',
+    previewLine: '__PREVIEW_LINE__',
+    ...common,
   },
-  'run-failed',
-  'RUN_FAILED',
+  'key-expiring',
+  'KEY_EXPIRING',
+)
+
+await renderTemplate(
+  NewSignInEmail as never,
+  {
+    url: '__SESSIONS_URL__',
+    rowsHtml: '__ROWS_HTML__',
+    previewLine: '__PREVIEW_LINE__',
+    ...common,
+  },
+  'new-sign-in',
+  'NEW_SIGN_IN',
+)
+
+await renderTemplate(
+  WelcomeEmail as never,
+  {
+    headline: '__HEADLINE__',
+    leadHtml: '__LEAD_HTML__',
+    connectUrl: '__CONNECT_URL__',
+    templatesUrl: '__TEMPLATES_URL__',
+    openUrl: '__OPEN_URL__',
+    ...common,
+  },
+  'welcome',
+  'WELCOME',
 )
 
 console.log('[prerender] done')

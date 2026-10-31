@@ -1,44 +1,56 @@
-import { Heading, Link, Section, Text } from 'react-email'
-import Layout from '../layout.js'
+import Layout, { Footer } from '../layout.js'
+import {
+  Actions,
+  Headline,
+  Kicker,
+  Lead,
+  Note,
+  PrimaryButton,
+  Raw,
+  TextLink,
+} from '../components.js'
 
 interface AccessRequestEmailProps {
-  url: string
-  askerName: string
-  workspaceName: string
-  projectName: string
-  appName?: string
+  approveUrl: string
+  declineUrl: string
+  headline: string
+  leadLine: string
+  rowsHtml: string
+  /** "Want to give a different role? …", markup built by the renderer; empty when there is no edit link. */
+  noteHtml: string
+  previewLine: string
+  footerNote: string
   appUrl?: string
 }
 
-/** To a workspace admin: a Viewer asked them for edit access. */
+/** T3 — someone asked a workspace manager for access. */
 export function AccessRequestEmail({
-  url,
-  askerName,
-  workspaceName,
-  projectName,
-  appName = 'AwaitStep',
+  approveUrl,
+  declineUrl,
+  headline,
+  leadLine,
+  rowsHtml,
+  noteHtml,
+  previewLine,
+  footerNote,
   appUrl,
 }: AccessRequestEmailProps) {
   return (
-    <Layout preview={`${askerName} asked for edit access to ${workspaceName}`} appUrl={appUrl}>
-      <Heading as="h2" className="text-gray-900 text-xl font-semibold mt-0 mb-2">
-        {askerName} asked for edit access
-      </Heading>
-      <Text className="leading-normal text-base mb-6 mt-0">
-        {askerName} can view {workspaceName} in {projectName} and asked you to let them edit.
-        Approve or decline from your Inbox in {appName}.
-      </Text>
-      <Section className="text-center mb-6">
-        <Link
-          className="bg-brand text-white text-sm font-medium px-8 py-3 rounded-lg no-underline inline-block"
-          href={url}
-        >
-          Open your Inbox
-        </Link>
-      </Section>
-      <Text className="text-xs text-gray-500 mt-0 mb-0">
-        You get this because you are an admin of {workspaceName}.
-      </Text>
+    <Layout
+      preview={previewLine}
+      appUrl={appUrl}
+      label="Needs your decision"
+      footer={<Footer note={footerNote} variant="settings" appUrl={appUrl} />}
+    >
+      <Kicker>Access request</Kicker>
+      <Headline>{headline}</Headline>
+      <Lead>{leadLine}</Lead>
+      <Raw html={rowsHtml} />
+      <Actions
+        primary={<PrimaryButton href={approveUrl}>Approve</PrimaryButton>}
+        secondary={<TextLink href={declineUrl}>Decline</TextLink>}
+      />
+      <Note html={noteHtml} />
     </Layout>
   )
 }

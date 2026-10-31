@@ -1,43 +1,38 @@
-import { Heading, Link, Section, Text } from 'react-email'
-import Layout from '../layout.js'
+import Layout, { Footer } from '../layout.js'
+import { Actions, Headline, Lead, Note, PrimaryButton } from '../components.js'
 
 interface InviteRequestEmailProps {
   url: string
   orgName: string
   askerEmail: string
+  footerNote: string
   appName?: string
   appUrl?: string
 }
 
-/** To an inviter: the person they invited found the invite expired and asked for a new one. */
+/** To an inviter: someone whose invite expired asked for a new one. */
 export function InviteRequestEmail({
   url,
   orgName,
   askerEmail,
+  footerNote,
   appName = 'AwaitStep',
   appUrl,
 }: InviteRequestEmailProps) {
   return (
-    <Layout preview={`${askerEmail} asked for a new invite to ${orgName}`} appUrl={appUrl}>
-      <Heading as="h2" className="text-gray-900 text-xl font-semibold mt-0 mb-2">
-        {askerEmail} asked for a new invite
-      </Heading>
-      <Text className="leading-normal text-base mb-6 mt-0">
-        The invite you sent to {askerEmail} for {orgName} expired before they could accept it.
-        Resend it from Members in {appName} and they get a fresh link.
-      </Text>
-      <Section className="text-center mb-6">
-        <Link
-          className="bg-brand text-white text-sm font-medium px-8 py-3 rounded-lg no-underline inline-block"
-          href={url}
-        >
-          Open Members
-        </Link>
-      </Section>
-      <Text className="text-xs text-gray-500 mt-0 mb-0">
-        You get this once per invite. If you&apos;d rather not invite them again, there is nothing
-        to do.
-      </Text>
+    <Layout
+      preview={`${askerEmail} asked for a new invite to ${orgName}`}
+      appUrl={appUrl}
+      label="Needs your decision"
+      footer={<Footer note={footerNote} variant="settings" appUrl={appUrl} />}
+    >
+      <Headline>{askerEmail} asked for a new invite</Headline>
+      <Lead>
+        Their invite to {orgName} expired before they could accept it. Send a new one from Members
+        in {appName} if you want them to join.
+      </Lead>
+      <Actions primary={<PrimaryButton href={url}>Open Members</PrimaryButton>} />
+      <Note>Nothing happens until you send a new invite.</Note>
     </Layout>
   )
 }

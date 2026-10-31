@@ -1,32 +1,59 @@
-import { Heading, Link, Section, Text } from 'react-email'
-import Layout from '../layout.js'
+import Layout, { Footer } from '../layout.js'
+import { Actions, Headline, Lead, Note, PrimaryButton, Raw } from '../components.js'
+import { LIGHT, MONO } from '../theme.js'
 
 interface MagicLinkEmailProps {
   url: string
+  /** "Use the button below to sign in as …", markup built by the renderer. */
+  leadHtml: string
+  /** Device, place and time of the request, markup built by the renderer; may be empty. */
+  rowsHtml: string
+  footerNote: string
   appName?: string
   appUrl?: string
 }
 
-export function MagicLinkEmail({ url, appName = 'AwaitStep', appUrl }: MagicLinkEmailProps) {
+/** T1 — the sign-in link. */
+export function MagicLinkEmail({
+  url,
+  leadHtml,
+  rowsHtml,
+  footerNote,
+  appName = 'AwaitStep',
+  appUrl,
+}: MagicLinkEmailProps) {
   return (
-    <Layout preview={`Sign in to ${appName}`} appUrl={appUrl}>
-      <Heading as="h2" className="text-gray-900 text-xl font-semibold mt-0 mb-2">
-        Sign in to {appName}
-      </Heading>
-      <Text className="leading-normal text-base mb-6 mt-0">
-        Click the button below to sign in to your account. This link expires in 5 minutes.
-      </Text>
-      <Section className="text-center mb-6">
-        <Link
-          className="bg-brand text-white text-sm font-medium px-8 py-3 rounded-lg no-underline inline-block"
-          href={url}
-        >
-          Sign in to your account
-        </Link>
-      </Section>
-      <Text className="text-xs text-gray-500 mt-0 mb-0">
-        If you didn&apos;t request this link, you can safely ignore this email.
-      </Text>
+    <Layout
+      preview="This link works once and expires in 5 minutes."
+      appUrl={appUrl}
+      footer={<Footer note={footerNote} variant="security" appUrl={appUrl} />}
+    >
+      <Headline>Sign in to {appName}</Headline>
+      <Lead html={leadHtml} />
+      <Actions primary={<PrimaryButton href={url}>Sign in to {appName}</PrimaryButton>} />
+      <p
+        className="ae-faint"
+        style={{ margin: '30px 0 10px', fontSize: 13, lineHeight: 1.62, color: LIGHT.faint }}
+      >
+        Button not working? Paste this link into your browser:
+      </p>
+      <p
+        className="ae-faint"
+        style={{
+          margin: '0 0 26px',
+          fontFamily: MONO,
+          fontSize: 13,
+          lineHeight: 1.7,
+          color: LIGHT.faint,
+          wordBreak: 'break-all',
+        }}
+      >
+        {url}
+      </p>
+      <Raw html={rowsHtml} />
+      <Note>
+        If you didn&apos;t ask for this, ignore this email. Nobody can sign in without this link.
+      </Note>
     </Layout>
   )
 }

@@ -1,46 +1,55 @@
-import { Heading, Link, Section, Text } from 'react-email'
-import Layout from '../layout.js'
+import Layout, { Footer } from '../layout.js'
+import { Actions, Headline, Lead, Note, PrimaryButton, Raw, Status } from '../components.js'
 
 interface RunFailedEmailProps {
   url: string
-  workflowName: string
-  /** "at step “Fetch company”", or empty when no step is known. */
-  stepLine: string
-  placeName: string
-  appName?: string
+  headline: string
+  statusLabel: string
+  /** `danger` while it fails, `ok` once it recovers. */
+  tone: 'danger' | 'ok'
+  leadLine: string
+  /** The strip of recent runs, markup built by the renderer; empty when not known. */
+  runsHtml: string
+  rowsHtml: string
+  openWorkflowHtml: string
+  noteLine: string
+  previewLine: string
+  footerNote: string
   appUrl?: string
 }
 
-/** To a workflow's creator and its workspace's admins: a run failed. */
+/** T4 — a workflow keeps failing at one step, or has recovered. */
 export function RunFailedEmail({
   url,
-  workflowName,
-  stepLine,
-  placeName,
-  appName = 'AwaitStep',
+  headline,
+  statusLabel,
+  tone,
+  leadLine,
+  runsHtml,
+  rowsHtml,
+  openWorkflowHtml,
+  noteLine,
+  previewLine,
+  footerNote,
   appUrl,
 }: RunFailedEmailProps) {
   return (
-    <Layout preview={`${workflowName} failed`} appUrl={appUrl}>
-      <Heading as="h2" className="text-gray-900 text-xl font-semibold mt-0 mb-2">
-        {workflowName} failed
-      </Heading>
-      <Text className="leading-normal text-base mb-6 mt-0">
-        A run of {workflowName} in {placeName} failed {stepLine}. Its runs in {appName} show the
-        error.
-      </Text>
-      <Section className="text-center mb-6">
-        <Link
-          className="bg-brand text-white text-sm font-medium px-8 py-3 rounded-lg no-underline inline-block"
-          href={url}
-        >
-          See runs
-        </Link>
-      </Section>
-      <Text className="text-xs text-gray-500 mt-0 mb-0">
-        You get at most one of these an hour per workflow; further failures in the hour are counted
-        in your Inbox.
-      </Text>
+    <Layout
+      preview={previewLine}
+      appUrl={appUrl}
+      label="Alert"
+      footer={<Footer note={footerNote} variant="settings" appUrl={appUrl} />}
+    >
+      <Status tone={tone}>{statusLabel}</Status>
+      <Headline>{headline}</Headline>
+      <Lead>{leadLine}</Lead>
+      <Raw html={runsHtml} />
+      <Raw html={rowsHtml} />
+      <Actions
+        primary={<PrimaryButton href={url}>See runs</PrimaryButton>}
+        secondaryHtml={openWorkflowHtml}
+      />
+      <Note>{noteLine}</Note>
     </Layout>
   )
 }
