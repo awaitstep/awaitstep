@@ -28,7 +28,7 @@ export function SectionHeader({
     <div
       className={cn(
         'flex flex-wrap items-baseline gap-x-2.5 gap-y-1',
-        direction === 'column' && 'flex-col',
+        direction === 'column' && 'flex-col gap-y-0',
       )}
     >
       <Heading id={id} className="text-base font-semibold text-foreground">

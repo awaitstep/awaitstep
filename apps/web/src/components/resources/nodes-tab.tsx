@@ -124,7 +124,7 @@ export function NodesTab({ org, nodes, canManage, reason }: NodesTabProps) {
       )}
       <div className="flex flex-wrap items-center gap-2.5">
         <SegmentedFilter label="Show" options={showOptions} value={show} onChange={setShow} />
-        <div className="min-w-[220px] flex-1">
+        <div className="w-full sm:w-96">
           <SearchField
             label="Search nodes"
             placeholder="Search nodes"
