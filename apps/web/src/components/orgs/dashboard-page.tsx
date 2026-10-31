@@ -43,7 +43,8 @@ function YourOrgs({ orgs, lastUsed }: { orgs: OrgListing[]; lastUsed: string | n
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex-1">
           <SectionHeader
-            title="Your organisations"
+            id={headingId}
+            title="Your organizations"
             direction="column"
             caption={`${plural(orgs.length)} · most recently opened first`}
           />

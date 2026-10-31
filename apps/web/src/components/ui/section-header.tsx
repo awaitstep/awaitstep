@@ -4,6 +4,8 @@ import { cn } from '../../lib/utils'
 
 interface SectionHeaderProps {
   title: string
+  /** Id for the heading, so a wrapping section can name itself with `aria-labelledby`. */
+  id?: string
   /** One line beside the title, e.g. "From other workspaces in Project 101". */
   caption?: ReactNode
   /** A button or link at the right end. */
@@ -16,6 +18,7 @@ interface SectionHeaderProps {
 /** Title row above a list, table or card group within a page. */
 export function SectionHeader({
   title,
+  id,
   caption,
   action,
   as: Heading = 'h2',
@@ -28,7 +31,9 @@ export function SectionHeader({
         direction === 'column' && 'flex-col',
       )}
     >
-      <Heading className="text-base font-semibold text-foreground">{title}</Heading>
+      <Heading id={id} className="text-base font-semibold text-foreground">
+        {title}
+      </Heading>
       {hasContent(caption) && <span className="text-xs text-muted-foreground">{caption}</span>}
       {hasContent(action) && <div className="ml-auto self-center">{action}</div>}
     </div>
