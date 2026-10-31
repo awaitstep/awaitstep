@@ -318,3 +318,12 @@ export {
   type NotificationTarget,
   type ReleaseVisit,
 } from './inbox.js'
+export {
+  TOKEN_CHECKS_PER_TICK,
+  TOKEN_RECHECK_MS,
+  connectionServes,
+  tokenUsable,
+  type ConnectionSummary,
+  type ConnectionTokenStatus,
+  type ProjectSetup,
+} from './connections.js'

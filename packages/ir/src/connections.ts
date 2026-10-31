@@ -1,0 +1,71 @@
+// Cloudflare connections (B9): which projects an account serves and whether
+// its token still works, as the API answers them.
+
+/** `unchecked` until the first check: created before B9, or never reachable. */
+export type ConnectionTokenStatus = 'active' | 'invalid' | 'unchecked'
+
+/** A token is re-checked once a day, a bounded number per maintenance tick. */
+export const TOKEN_RECHECK_MS = 24 * 60 * 60 * 1000
+export const TOKEN_CHECKS_PER_TICK = 20
+
+/** A connection as `GET /connections` lists it. */
+export interface ConnectionSummary {
+  id: string
+  organizationId: string
+  provider: string
+  name: string
+  /** Redacted: account fields keep their values, secrets read `***`. */
+  credentials: Record<string, string> | string
+  createdBy: string
+  /** Null when the person has been removed from the instance. */
+  createdByName: string | null
+  /** Last four characters of the account id. */
+  accountSuffix: string | null
+  /** Serves every project, including ones created later. */
+  allProjects: boolean
+  /** The projects it serves that the caller can see (empty when `allProjects`). */
+  projects: { id: string; name: string; slug: string }[]
+  /** Projects it serves that the caller can't see. */
+  hiddenProjects: number
+  tokenStatus: ConnectionTokenStatus
+  /** Null: no expiry, or not known yet. */
+  tokenExpiresAt: string | null
+  tokenCheckedAt: string | null
+  deployments: { count: number; lastAt: string | null }
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * Whether a listed connection serves the project — what `POST /deploy`
+ * holds a new deploy to. Read from the list a person can see: a project
+ * they are deploying in is one they can see, so it is named when served.
+ */
+export function connectionServes(
+  connection: Pick<ConnectionSummary, 'allProjects' | 'projects'>,
+  projectId: string,
+): boolean {
+  return connection.allProjects || connection.projects.some((p) => p.id === projectId)
+}
+
+/** Whether deploys with a token of this status and expiry can still work at `now`. */
+export function tokenUsable(
+  status: ConnectionTokenStatus,
+  expiresAt: string | null,
+  now: Date,
+): boolean {
+  if (status === 'invalid') return false
+  return expiresAt === null || new Date(expiresAt).getTime() > now.getTime()
+}
+
+/** What a project has set up, for its empty pages (`GET /projects/:project/setup`). */
+export interface ProjectSetup {
+  /** A Cloudflare account this project may deploy with, whose token works and hasn't expired. */
+  cloudflareConnected: boolean
+  /** Org variables the project inherits: those it doesn't set itself. */
+  orgVariables: number
+  /** Variables the project sets itself. */
+  projectVariables: number
+  /** Live keys scoped to the project, which reach every workspace in it. */
+  projectKeys: number
+}

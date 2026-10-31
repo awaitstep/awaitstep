@@ -261,6 +261,42 @@ describe('renderNotification', () => {
   })
 })
 
+describe('Cloudflare tokens', () => {
+  const token = (event: string, expiresAt?: string) =>
+    renderNotification(
+      record({ event, meta: { connection: 'Marketing sandbox', expiresAt }, place: IN_ORG }),
+      NOW,
+    )
+
+  it('counts down to a token’s expiry and says what stops', () => {
+    expect(token('connection.token_expiring', '2026-11-05T13:00:00.000Z').title).toBe(
+      'Cloudflare token for Marketing sandbox expires in 6 days. Deploys to it will stop.',
+    )
+    expect(token('connection.token_expiring', '2026-10-29T13:00:00.000Z').title).toBe(
+      'Cloudflare token for Marketing sandbox has expired. Deploys to it have stopped.',
+    )
+  })
+
+  it('says when a token no longer works', () => {
+    expect(token('connection.token_invalid').title).toBe(
+      'Cloudflare token for Marketing sandbox no longer works. Deploys to it will fail.',
+    )
+  })
+
+  it('files both at the org and links to Connections', () => {
+    for (const event of ['connection.token_expiring', 'connection.token_invalid']) {
+      const rendered = token(event, '2026-11-05T13:00:00.000Z')
+      expect(rendered.kind).toBe('expiry')
+      expect(rendered.needsAction).toBe(true)
+      expect(rendered.where).toBe('Acme Inc · Connections')
+      expect(rendered.link).toEqual({
+        label: 'Replace token',
+        to: { kind: 'org-settings', page: 'connections' },
+      })
+    }
+  })
+})
+
 describe('the catalog', () => {
   it('stores needs-action for failures, expiring keys, requests and asks only', () => {
     const waiting = (Object.keys(NOTIFICATION_EVENTS) as NotificationEvent[]).filter(
@@ -269,6 +305,8 @@ describe('the catalog', () => {
     expect(waiting.sort()).toEqual([
       'access_request.create',
       'api_key.expiring',
+      'connection.token_expiring',
+      'connection.token_invalid',
       'invitation.ask_again',
       'run.failed',
     ])

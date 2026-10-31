@@ -25,7 +25,9 @@ export interface NotificationMeta {
   version?: number
   /** An API key's name. */
   name?: string
-  /** When an API key expires (ISO). */
+  /** A Cloudflare connection's name. */
+  connection?: string
+  /** When an API key or a connection's token expires (ISO). */
   expiresAt?: string
   /** An approval that granted nothing (`access_request.approve`): they could already edit. */
   alreadyEditing?: boolean
@@ -36,7 +38,7 @@ export type NotificationTarget =
   | { kind: 'workspace'; project: string; workspace: string; page: 'workflows' | 'runs' }
   | { kind: 'workspace-settings'; project: string; workspace: string; tab: 'keys' }
   | { kind: 'project-settings'; project: string; page: 'api-keys' | 'shared' }
-  | { kind: 'org-settings'; page: 'members' | 'api-keys' }
+  | { kind: 'org-settings'; page: 'members' | 'api-keys' | 'connections' }
 
 /** A notification as the database reads it, before it is put in words. */
 export interface NotificationRecord {
@@ -48,7 +50,7 @@ export interface NotificationRecord {
   at: string
   /** Read, or an edit request already answered. */
   read: boolean
-  /** Waiting on the person: an open request, a failure, an expiring key, an ask. */
+  /** Waiting on the person: an open request, a failure, an expiring key or token, an ask. */
   needsAction: boolean
   place: {
     level: 'organization' | 'project' | 'workspace'
@@ -118,7 +120,7 @@ export const NOTIFICATION_RETENTION_DAYS = 30
 export const NOTIFICATION_RETENTION_MS = NOTIFICATION_RETENTION_DAYS * DAY_MS
 /** Rows the Inbox lists; the counts still cover every row. */
 export const INBOX_LIMIT = 100
-/** An expiring key is warned about this long before, and again a day before. */
+/** An expiring key or token is warned about this long before, and again a day before. */
 export const KEY_EXPIRY_WARNING_MS = 7 * DAY_MS
 export const KEY_EXPIRY_LAST_WARNING_MS = DAY_MS
 /** Longest name a notification keeps from what someone typed. */
@@ -155,6 +157,11 @@ function workspaceLink(label: string, page: 'workflows' | 'runs') {
         }
       : undefined
 }
+
+const connectionsLink = () => ({
+  label: 'Replace token',
+  to: { kind: 'org-settings' as const, page: 'connections' as const },
+})
 
 const membersLink = () => ({
   label: 'See members',
@@ -256,6 +263,26 @@ export const NOTIFICATION_EVENTS = {
     title: (meta, _record, now) =>
       `API key “${meta.name ?? 'Unnamed'}” ${expiresIn(meta.expiresAt, now)}`,
     link: keyLink,
+  },
+  'connection.token_expiring': {
+    kind: 'expiry',
+    needsAction: true,
+    title: (meta, _record, now) => {
+      const when = expiresIn(meta.expiresAt, now)
+      const then =
+        when === 'has expired' ? 'Deploys to it have stopped.' : 'Deploys to it will stop.'
+      return `Cloudflare token for ${meta.connection ?? 'a connection'} ${when}. ${then}`
+    },
+    link: connectionsLink,
+    whereDetail: 'Connections',
+  },
+  'connection.token_invalid': {
+    kind: 'expiry',
+    needsAction: true,
+    title: (meta) =>
+      `Cloudflare token for ${meta.connection ?? 'a connection'} no longer works. Deploys to it will fail.`,
+    link: connectionsLink,
+    whereDetail: 'Connections',
   },
   'workflow.deploy.shared': {
     kind: 'deploy',
