@@ -33,9 +33,7 @@ describe('SignInPage', () => {
     expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeVisible()
     expect(screen.getByText('or')).toBeVisible()
     expect(screen.getByRole('textbox', { name: /Work email/ })).toBeVisible()
-    expect(
-      screen.getByText('No password needed. New here? Signing in creates your account.'),
-    ).toBeVisible()
+    expect(screen.getByText('New here? Signing in creates your account.')).toBeVisible()
   })
 
   it('signs in with GitHub and Google as before, back to the saved page', async () => {

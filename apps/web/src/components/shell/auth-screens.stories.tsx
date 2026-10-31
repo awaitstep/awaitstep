@@ -105,8 +105,8 @@ function SignInDemo({ initiallySent = false }: { initiallySent?: boolean }) {
       <Button size="lg" onClick={handleSend}>
         Email me a sign-in link
       </Button>
-      <p className="text-2xs leading-relaxed text-muted-foreground">
-        No password needed. New here? Signing in creates your account.
+      <p className="text-2xs leading-relaxed text-center text-muted-foreground">
+        New here? Signing in creates your account.
       </p>
     </AuthCard>
   )

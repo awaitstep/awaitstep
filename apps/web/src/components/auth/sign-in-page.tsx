@@ -145,8 +145,8 @@ export function SignInPage({ redirectPath, authMethods }: SignInPageProps) {
             <Button type="submit" disabled={loading || !email} className="w-full">
               {loading ? 'Sending…' : 'Email me a sign-in link'}
             </Button>
-            <p className="text-2xs text-muted-foreground">
-              No password needed. New here? Signing in creates your account.
+            <p className="text-2xs text-center text-muted-foreground">
+              New here? Signing in creates your account.
             </p>
           </form>
         )}
