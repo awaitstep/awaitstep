@@ -6,7 +6,7 @@ import { AMA, PEOPLE } from './people'
 // else is signed in on one device with the email link only.
 
 export function seedSignInMethods(now: Date): SignInMethodRow[] {
-  return [{ userId: AMA, provider: 'github', account: 'ama-mensah', connectedAt: daysAgo(now, 56) }]
+  return [{ userId: AMA, provider: 'github', connectedAt: daysAgo(now, 56) }]
 }
 
 export function seedSessions(now: Date): SessionRow[] {

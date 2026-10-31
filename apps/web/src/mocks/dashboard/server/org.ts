@@ -26,6 +26,7 @@ import {
 import { orgRecord, orgScope, personById } from './records'
 import { askedNoticeId } from './invites'
 import { assertImage } from './images'
+import { IMAGE_MAX_BYTES } from '../../../lib/read-file'
 import { managedOrg } from './levels'
 import { assertNotReserved, newId, requireScope, slugFrom } from './resolve'
 
@@ -431,7 +432,7 @@ export const updateOrg = mutation((ctx, orgSlug: string, update: OrgUpdate): Org
   if (slug && db.orgs.some((o) => o.slug === slug && o.id !== org.id)) {
     throw conflictError('Another organization already uses that URL', 'slug')
   }
-  if (update.logo) assertImage(update.logo, LOGO_TYPES, 'logo')
+  if (update.logo) assertImage(update.logo, LOGO_TYPES, 'logo', IMAGE_MAX_BYTES)
   if (name) org.name = name
   if (slug) org.slug = slug
   if (update.logo !== undefined) org.logo = update.logo

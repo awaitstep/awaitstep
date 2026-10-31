@@ -16,6 +16,9 @@ import type {
   ReleaseVisit,
   ConnectionSummary,
   ProjectSetup,
+  AccountExport,
+  AccountSession,
+  ApiAccount,
 } from '@awaitstep/ir'
 import {
   request,
@@ -839,5 +842,31 @@ export const dashboardApi = {
 
   listRuns(slugs: WorkspaceSlugs, filter: ApiRunFilter): Promise<ApiRunPage> {
     return request(`/runs${query({ ...slugs, ...filter })}`)
+  },
+
+  /** Your account (B10): the person, their orgs and their ways in — the same in every org. */
+  getAccount(): Promise<ApiAccount> {
+    return request('/account')
+  },
+
+  /** Their project and workspace roles there go too; the only owner gets a `409`. */
+  leaveOrg(orgId: string): Promise<{ ok: true }> {
+    return request(`/account/orgs/${orgId}/leave`, { method: 'POST' })
+  },
+
+  listAccountSessions(): Promise<{ data: AccountSession[] }> {
+    return request('/account/sessions')
+  },
+
+  revokeAccountSession(sessionId: string): Promise<{ ok: true }> {
+    return request(`/account/sessions/${sessionId}`, { method: 'DELETE' })
+  },
+
+  revokeOtherAccountSessions(): Promise<{ count: number }> {
+    return request('/account/sessions?scope=others', { method: 'DELETE' })
+  },
+
+  exportAccount(): Promise<AccountExport> {
+    return request('/account/export', { method: 'POST' })
   },
 }

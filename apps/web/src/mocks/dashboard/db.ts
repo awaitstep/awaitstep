@@ -248,18 +248,10 @@ export interface AuditRow {
   workspaceId: string | null
 }
 
-/** A new address waiting for its confirmation link; the person's email stays until then. */
-export interface PendingEmailRow {
-  userId: string
-  email: string
-  sentAt: string
-}
-
 /** A GitHub or Google account linked for sign-in. The email link needs no row: it's always on. */
 export interface SignInMethodRow {
   userId: string
   provider: SignInProvider
-  account: string
   connectedAt: string
 }
 
@@ -296,14 +288,13 @@ export interface MockDb {
   notifications: NotificationRow[]
   notificationReads: NotificationReadRow[]
   releaseVisits: ReleaseVisitRow[]
-  pendingEmails: PendingEmailRow[]
   signInMethods: SignInMethodRow[]
   sessions: SessionRow[]
 }
 
 // Bump when the tables or the seed change, so a tab's saved copy is reseeded
 // instead of read with missing tables.
-const DB_VERSION = 13
+const DB_VERSION = 14
 const STORAGE_KEY = 'awaitstep:dashboard-mock-db'
 
 let current: MockDb | null = null

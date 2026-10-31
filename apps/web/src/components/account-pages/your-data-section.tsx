@@ -41,6 +41,7 @@ export function YourDataSection({ account, currentOrg }: YourDataSectionProps) {
   }
 
   function handleDelete() {
+    // The dialog holds Delete until the email is typed, so what was typed is the email.
     remove.mutate(email, { onSuccess: () => goTo(chooseOrgPath()) })
   }
 

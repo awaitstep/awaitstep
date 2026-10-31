@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ApiError } from '../../lib/api-client'
+import { authError } from './errors'
 import { authClient } from '../../lib/auth-client'
 import { dashboardApi } from '../../lib/dashboard-api'
 import { mockServer } from '../../mocks/dashboard/server'
@@ -244,15 +244,9 @@ export function useRemoveConnection(org: string) {
   })
 }
 
-/** A refusal from better-auth, as the pages read every other one. */
-function authError(
-  error: { message?: string; status?: number } | null,
-  fallback: string,
-): ApiError {
-  const message = error?.message ?? fallback
-  // The slug hook's refusals name the URL; the page puts those under the URL field.
-  const field = /slug|url/i.test(message) ? 'slug' : undefined
-  return new ApiError(message, error?.status ?? 400, { field })
+/** A refusal from better-auth; the slug hook's name the URL, so they go under the URL field. */
+function orgAuthError(error: { message?: string; status?: number } | null, fallback: string) {
+  return authError(error, fallback, /slug|url/i.test(error?.message ?? '') ? 'slug' : undefined)
 }
 
 /**
@@ -281,7 +275,7 @@ export function useUpdateOrg(org: string) {
           ...(update.logo !== undefined && { logo: update.logo ?? '' }),
         },
       })
-      if (res.error) throw authError(res.error, 'Could not save the organization')
+      if (res.error) throw orgAuthError(res.error, 'Could not save the organization')
       return {
         ...current,
         name: name || current.name,
@@ -306,7 +300,7 @@ export function useDeleteOrg(org: string) {
       if (source !== 'api') return mockServer.org.deleteOrg(ctx, org)
       if (!current) throw new Error('The organization has not loaded yet')
       const res = await authClient.organization.delete({ organizationId: current.id })
-      if (res.error) throw authError(res.error, 'Could not delete the organization')
+      if (res.error) throw orgAuthError(res.error, 'Could not delete the organization')
     },
     onSuccess: () => invalidateAll(client, [['dash']], { org }),
   })

@@ -47,4 +47,11 @@ describe('legacyTarget', () => {
     ).toBe('/acme/settings/connections?new=connection')
     expect(legacyTarget({ settings: 'connections' }, memory([]), [], null)).toBe('/choose-org')
   })
+
+  it('sends the old Account page to Your account in the last org opened', () => {
+    expect(legacyTarget({ account: 'profile' }, memory(['acme'], ['p']), mine, null)).toBe(
+      '/acme/account/profile',
+    )
+    expect(legacyTarget({ account: 'profile' }, memory([]), [], null)).toBe('/choose-org')
+  })
 })

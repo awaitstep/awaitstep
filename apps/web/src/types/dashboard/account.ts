@@ -1,7 +1,19 @@
-// Dashboard types for "Your account": the same in every org (P10). Web-only
-// until B10 moves them next to better-auth.
+// Dashboard types for "Your account": the same in every org. The API's
+// shapes live in @awaitstep/ir (B10); these add what the pages draw.
 
-import type { OrgRole, Person } from './session'
+import type { OrgRole } from '@awaitstep/ir'
+import type { Person } from './session'
+
+export type {
+  AccountExport,
+  AccountProviders,
+  AccountSession,
+  SessionDevice,
+  SignInMethod,
+  SignInProvider,
+} from '@awaitstep/ir'
+
+import type { AccountProviders, SignInMethod } from '@awaitstep/ir'
 
 /** An org on the Profile page's Organizations list. */
 export interface AccountOrg {
@@ -18,8 +30,8 @@ export interface AccountOrg {
 
 export interface Account {
   person: Person
-  /** A new address waiting for its confirmation link; the email stays until then. */
-  pendingEmail: string | null
+  /** The address is confirmed (an email link, or a provider that says so). */
+  emailVerified: boolean
   orgs: AccountOrg[]
   /** Why Delete account is off (the orgs the viewer is the only owner of), or null. */
   deleteBlockedReason: string | null
@@ -31,34 +43,11 @@ export interface ProfileUpdate {
   image?: string | null
 }
 
-export type SignInProvider = 'github' | 'google'
-
-export interface SignInMethod {
-  provider: SignInProvider | 'email'
-  /** The linked account ("ama-mensah"), or null while not connected. Email is always on. */
-  account: string | null
-  connectedAt: string | null
-}
-
-export type SessionDevice = 'desktop' | 'phone' | 'terminal'
-
-export interface AccountSession {
-  id: string
-  /** "Chrome on macOS". */
-  device: string
-  kind: SessionDevice
-  /** Masked: "81.2.69.x". */
-  ip: string
-  signedInAt: string
-  activeAt: string
-  current: boolean
-}
-
-/** Download JSON's content: everything the account holds. */
-export interface AccountExport {
-  exportedAt: string
-  profile: { name: string; email: string; pendingEmail: string | null; photo: boolean }
-  signInMethods: SignInMethod[]
-  sessions: AccountSession[]
-  memberships: { organization: string; role: OrgRole }[]
+/** Sessions and sign-in → Sign-in methods. */
+export interface SignInMethods {
+  methods: SignInMethod[]
+  /** What the instance turns on: with email links the last provider may go. */
+  providers: AccountProviders
+  /** The account's address: Google and GitHub join it only with this one. */
+  email: string
 }

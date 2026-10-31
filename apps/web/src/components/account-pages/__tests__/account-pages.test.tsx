@@ -73,13 +73,13 @@ describe('Profile', () => {
     await waitFor(() => expect(ama().image).toBeNull())
   })
 
-  it('turns away a photo over 200 KB without sending it', async () => {
+  it('turns away a photo over 2 MB without sending it', async () => {
     const spy = vi.spyOn(dashboardServer.account, 'updateProfile')
     renderProfile()
     await screen.findByLabelText('Full name')
-    const big = new File([new Uint8Array(201 * 1024)], 'big.png', { type: 'image/png' })
+    const big = new File([new Uint8Array(2 * 1024 * 1024 + 1)], 'big.png', { type: 'image/png' })
     fireEvent.change(screen.getByTestId('photo-input'), { target: { files: [big] } })
-    expect(await screen.findByRole('alert')).toHaveTextContent('Pick an image under 200 KB')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Pick an image under 2 MB')
     expect(spy).not.toHaveBeenCalled()
     spy.mockRestore()
   })
@@ -97,25 +97,32 @@ describe('Profile', () => {
     spy.mockRestore()
   })
 
-  it('records a new email, keeps the old one, and says so after a reload', async () => {
+  it('reads Saved after saving a name typed with a direction override, as the server keeps it', async () => {
     renderProfile()
-    await userEvent.click(await screen.findByRole('button', { name: 'Change email' }))
-    await userEvent.type(screen.getByLabelText('New email'), 'daniel@acme.test')
-    await userEvent.click(screen.getByRole('button', { name: 'Send confirmation' }))
-    expect(await screen.findByText('Another account uses that email')).toBeVisible()
-    await userEvent.clear(screen.getByLabelText('New email'))
-    await userEvent.type(screen.getByLabelText('New email'), 'ama@mensah.test')
-    await userEvent.click(screen.getByRole('button', { name: 'Send confirmation' }))
-    const sent = 'Confirmation sent. Your email stays ama@acme.test until you click the link.'
-    expect(await screen.findByText(sent)).toHaveAttribute('role', 'status')
-    expect(screen.queryByLabelText('New email')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Email')).toHaveValue('ama@acme.test')
+    const input = await screen.findByLabelText('Full name')
+    await userEvent.type(input, ' K.\u202e')
+    await userEvent.click(topBar().getByRole('button', { name: 'Save changes' }))
+    expect(await topBar().findByRole('button', { name: 'Saved' })).toBeDisabled()
+    expect(ama().name).toBe('Ama Mensah K.')
   })
 
-  it('keeps the pending email line on a fresh load', async () => {
-    dashboardDb().pendingEmails.push({ userId: AMA, email: 'a@b.test', sentAt: '' })
+  it('says Verified only for a confirmed address', async () => {
+    const real = dashboardServer.account.getAccount
+    const spy = vi
+      .spyOn(dashboardServer.account, 'getAccount')
+      .mockImplementation(async (ctx) => ({ ...(await real(ctx)), emailVerified: false }))
     renderProfile()
-    expect(await screen.findByText(/^Confirmation sent\./)).toBeVisible()
+    expect(await screen.findByLabelText('Email')).toHaveValue('ama@acme.test')
+    expect(screen.queryByText('Verified')).not.toBeInTheDocument()
+    spy.mockRestore()
+  })
+
+  it('shows the email as the account, with no way to change it', async () => {
+    renderProfile()
+    expect(await screen.findByLabelText('Email')).toHaveValue('ama@acme.test')
+    expect(screen.getByLabelText('Email')).toHaveAttribute('readonly')
+    expect(screen.queryByRole('button', { name: 'Change email' })).not.toBeInTheDocument()
+    expect(screen.getByText(/Google and GitHub connect to this address only/)).toBeVisible()
   })
 })
 
@@ -207,15 +214,15 @@ describe('Profile states', () => {
   })
 })
 
-function renderSessions() {
-  renderWithDashboardData(<SessionsPage org="acme" />)
+function renderSessions(linkError?: string) {
+  renderWithDashboardData(<SessionsPage org="acme" linkError={linkError} />)
 }
 
 describe('Sessions and sign-in', () => {
   it('reads as AccountSessions: GitHub connected, Google not, the email link always on', async () => {
     renderSessions()
     const list = within(await screen.findByRole('list', { name: 'Sign-in methods' }))
-    expect(list.getByText(/^ama-mensah · connected/)).toBeVisible()
+    expect(list.getByText(/^Connected \d+ \w+$/)).toBeVisible()
     expect(list.getByText('Connected')).toBeVisible()
     expect(list.getByRole('button', { name: 'Connect Google' })).toBeVisible()
     expect(list.getByText('Always on')).toBeVisible()
@@ -223,6 +230,38 @@ describe('Sessions and sign-in', () => {
       'aria-current',
       'page',
     )
+  })
+
+  it('says Google and GitHub join only the account’s own address', async () => {
+    renderSessions()
+    expect(
+      await screen.findByText(/connect only with an account that uses ama@acme\.test/),
+    ).toBeVisible()
+  })
+
+  it('says why a Connect came back refused', async () => {
+    renderSessions('email_does_not_match')
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'That account uses another email. Google and GitHub connect only with an account that uses ama@acme.test.',
+    )
+  })
+
+  it('keeps the last way in without email links, pointing at deleting the account', async () => {
+    const real = dashboardServer.account.listSignInMethods
+    const spy = vi
+      .spyOn(dashboardServer.account, 'listSignInMethods')
+      .mockImplementation(async (ctx) => ({
+        ...(await real(ctx)),
+        providers: { github: true, google: true, emailLink: false },
+      }))
+    renderSessions()
+    expect(await screen.findByRole('button', { name: 'Disconnect GitHub' })).toBeDisabled()
+    expect(screen.getByText(/Your only way to sign in/)).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Your data' })).toHaveAttribute(
+      'href',
+      '/acme/account/profile',
+    )
+    spy.mockRestore()
   })
 
   it('disconnects GitHub and connects it again', async () => {

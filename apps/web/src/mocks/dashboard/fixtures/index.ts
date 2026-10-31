@@ -37,7 +37,6 @@ export function seedDb(now: Date): MockDb {
     notifications: seedNotifications(now),
     notificationReads: NOTIFICATION_READS,
     releaseVisits: RELEASE_VISITS,
-    pendingEmails: [],
     signInMethods: seedSignInMethods(now),
     sessions: seedSessions(now),
   })

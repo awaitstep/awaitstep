@@ -1,8 +1,9 @@
 import { useId, useRef, useState, type ChangeEvent, type SubmitEvent } from 'react'
 import { Check } from 'lucide-react'
-import { useRequestEmailChange, useUpdateProfile } from '../../data/dashboard/account'
+import { stripUnsafeText } from '@awaitstep/ir'
+import { useUpdateProfile } from '../../data/dashboard/account'
 import { errorFieldOf } from '../../data/dashboard/errors'
-import { readImageAsDataUrl } from '../../lib/read-file'
+import { readPhotoAsDataUrl } from '../../lib/read-file'
 import type { Account } from '../../types/dashboard/account'
 import { PersonAvatar } from '../ui/avatar-stack'
 import { Badge } from '../ui/badge'
@@ -20,7 +21,8 @@ export function AboutYouSection({ account }: { account: Account }) {
   const person = account.person
   const saveName = useUpdateProfile()
   const [name, setName] = useState(person.name)
-  const trimmed = name.trim()
+  // As the server keeps it (no controls or direction overrides), so a saved name reads Saved.
+  const trimmed = stripUnsafeText(name).trim()
   const changed = trimmed !== person.name
   const canSave = changed && trimmed !== ''
 
@@ -96,7 +98,7 @@ function PhotoRow({ account }: { account: Account }) {
     setPickError(null)
     setReading(true)
     try {
-      savePhoto.mutate({ image: await readImageAsDataUrl(file) })
+      savePhoto.mutate({ image: await readPhotoAsDataUrl(file) })
     } catch (failure) {
       setPickError(failure instanceof Error ? failure.message : 'We couldn’t read that file')
     } finally {
@@ -135,7 +137,7 @@ function PhotoRow({ account }: { account: Account }) {
           <input
             ref={fileRef}
             type="file"
-            accept="image/png,image/jpeg"
+            accept="image/png,image/jpeg,image/webp,image/gif"
             className="sr-only"
             tabIndex={-1}
             aria-hidden="true"
@@ -144,7 +146,8 @@ function PhotoRow({ account }: { account: Account }) {
           />
         </div>
         <span id={hintId} className="text-2xs text-muted-foreground">
-          PNG or JPG, at least 128 × 128 px. Shown when your GitHub or Google photo isn’t used.
+          PNG, JPG, WebP or GIF up to 2 MB, at least 128 × 128 px. Shown when your GitHub or Google
+          photo isn’t used.
         </span>
         {error && (
           <span role="alert" className="text-2xs text-status-error">
@@ -156,49 +159,27 @@ function PhotoRow({ account }: { account: Account }) {
   )
 }
 
+/** The address is the account (B10): it signs in with an email link and receives invites, and never changes. */
 function EmailField({ account }: { account: Account }) {
   const email = account.person.email
-  const change = useRequestEmailChange()
-  const [open, setOpen] = useState(false)
-  const [next, setNext] = useState('')
   const inputId = useId()
   const statusId = useId()
   const hintId = useId()
-
-  function handleOpen() {
-    change.reset()
-    setOpen(true)
-  }
-
-  function handleCancel() {
-    setOpen(false)
-    setNext('')
-  }
-
-  function handleNext(event: ChangeEvent<HTMLInputElement>) {
-    change.reset()
-    setNext(event.target.value)
-  }
-
-  function handleSend(event: SubmitEvent) {
-    event.preventDefault()
-    change.mutate(next, { onSuccess: handleCancel })
-  }
 
   return (
     <div className="flex flex-col gap-2">
       <label htmlFor={inputId} className="text-sm font-medium text-foreground">
         Email
       </label>
-      <div className="flex flex-wrap items-center gap-2.5">
-        <div className="relative flex min-w-[220px] flex-1">
-          <Input
-            id={inputId}
-            value={email}
-            readOnly
-            aria-describedby={`${statusId} ${hintId}`}
-            className="pr-24 text-muted-foreground"
-          />
+      <div className="relative flex min-w-[220px]">
+        <Input
+          id={inputId}
+          value={email}
+          readOnly
+          aria-describedby={account.emailVerified ? `${statusId} ${hintId}` : hintId}
+          className="pr-24 text-muted-foreground"
+        />
+        {account.emailVerified && (
           <Badge
             id={statusId}
             variant="success"
@@ -207,44 +188,12 @@ function EmailField({ account }: { account: Account }) {
             <Check className="size-3" aria-hidden="true" />
             Verified
           </Badge>
-        </div>
-        <Button type="button" variant="outline" size="sm" onClick={handleOpen}>
-          Change email
-        </Button>
+        )}
       </div>
       <span id={hintId} className="text-2xs text-muted-foreground">
-        Used to sign in with an email link and to receive invites. A change takes effect once you
-        confirm it from the new address.
+        Used to sign in with an email link and to receive invites. Google and GitHub connect to this
+        address only.
       </span>
-      {open && (
-        <form
-          onSubmit={handleSend}
-          className="flex flex-wrap items-end gap-2.5 rounded-xl border border-border p-3.5"
-        >
-          <div className="min-w-[220px] flex-1">
-            <FormField label="New email" error={change.error?.message}>
-              <Input
-                type="email"
-                placeholder="you@company.com"
-                value={next}
-                onChange={handleNext}
-                autoFocus
-              />
-            </FormField>
-          </div>
-          <Button type="submit" size="sm" disabled={change.isPending || next.trim() === ''}>
-            Send confirmation
-          </Button>
-          <Button type="button" variant="ghost" size="sm" onClick={handleCancel}>
-            Cancel
-          </Button>
-        </form>
-      )}
-      {account.pendingEmail && (
-        <p role="status" className="text-sm text-status-success">
-          Confirmation sent. Your email stays {email} until you click the link.
-        </p>
-      )}
     </div>
   )
 }

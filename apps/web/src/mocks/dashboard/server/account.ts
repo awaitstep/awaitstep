@@ -1,3 +1,4 @@
+import { ONLY_WAY_IN, SIGN_IN_PROVIDERS, canDisconnect } from '@awaitstep/ir'
 import type {
   Account,
   AccountExport,
@@ -5,6 +6,7 @@ import type {
   AccountSession,
   ProfileUpdate,
   SignInMethod,
+  SignInMethods,
   SignInProvider,
 } from '../../../types/dashboard/account'
 import { getDb, type MockDb, type OrgRow } from '../db'
@@ -25,11 +27,13 @@ import { orgRecord, personById } from './records'
 import { requireScope } from './resolve'
 
 // Your account (P10): the profile, memberships, sign-in methods and sessions
-// of whoever the dummy session is. Thin until B10 wires better-auth.
+// of whoever the dummy session is. The dummy instance turns on GitHub, Google
+// and email links, as the board draws; the API source asks better-auth (B10).
 
-const PHOTO_TYPES = ['image/png', 'image/jpeg']
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const PROVIDERS: SignInProvider[] = ['github', 'google']
+const PHOTO_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
+/** The stored photo, as the API keeps it; the picker shrinks a pick first. */
+const PHOTO_MAX_STORED = 512 * 1024
+const PROVIDERS = { github: true, google: true, emailLink: true }
 
 function orgsOf(db: MockDb, userId: string): OrgRow[] {
   return db.orgMembers
@@ -65,7 +69,7 @@ export const getAccount = endpoint((ctx): Account => {
   const orgs = rows(ctx, orgsOf(db, ctx.userId))
   return {
     person: personById(db, ctx.userId),
-    pendingEmail: db.pendingEmails.find((p) => p.userId === ctx.userId)?.email ?? null,
+    emailVerified: true,
     orgs: orgs.map((o) => accountOrg(db, ctx, o)),
     deleteBlockedReason: deleteBlockedReason(db, ctx.userId, orgs),
   }
@@ -77,32 +81,12 @@ export const updateProfile = mutation((ctx, update: ProfileUpdate): void => {
   const person = personById(db, ctx.userId)
   const name = update.name?.trim()
   if (name === '') throw invalidError('Your name can’t be empty', 'name')
-  if (update.image) assertImage(update.image, PHOTO_TYPES, 'image')
+  if (update.image) assertImage(update.image, PHOTO_TYPES, 'image', PHOTO_MAX_STORED)
   if (name) {
     person.name = name
     person.initials = initialsOf(name)
   }
   if (update.image !== undefined) person.image = update.image
-})
-
-/**
- * Change email: records the new address and "sends" the confirmation. The
- * email itself only changes once that link is opened (B10).
- */
-export const requestEmailChange = mutation((ctx, input: string): string => {
-  const db = getDb()
-  const person = personById(db, ctx.userId)
-  const email = input.trim().toLowerCase()
-  if (!EMAIL.test(email)) throw invalidError('Enter an email address', 'email')
-  if (email === person.email.toLowerCase()) {
-    throw invalidError('That’s already your email', 'email')
-  }
-  if (db.people.some((p) => p.id !== person.id && p.email.toLowerCase() === email)) {
-    throw conflictError('Another account uses that email', 'email')
-  }
-  db.pendingEmails = db.pendingEmails.filter((p) => p.userId !== person.id)
-  db.pendingEmails.push({ userId: person.id, email, sentAt: new Date().toISOString() })
-  return email
 })
 
 /** Leave an organization: your project and workspace roles in it go too. */
@@ -116,12 +100,16 @@ export const leaveOrg = mutation((ctx, orgSlug: string): void => {
 })
 
 function signInMethods(db: MockDb, userId: string): SignInMethod[] {
-  const person = personById(db, userId)
-  const linked = PROVIDERS.map((provider): SignInMethod => {
+  const linked = SIGN_IN_PROVIDERS.map((provider): SignInMethod => {
     const row = db.signInMethods.find((m) => m.userId === userId && m.provider === provider)
-    return { provider, account: row?.account ?? null, connectedAt: row?.connectedAt ?? null }
+    return {
+      provider,
+      connected: row !== undefined,
+      connectedAt: row?.connectedAt ?? null,
+      accountId: row ? `${userId}_${provider}` : null,
+    }
   })
-  return [...linked, { provider: 'email', account: person.email, connectedAt: null }]
+  return [...linked, { provider: 'email', connected: true, connectedAt: null, accountId: null }]
 }
 
 function sessionsOf(db: MockDb, userId: string): AccountSession[] {
@@ -131,27 +119,26 @@ function sessionsOf(db: MockDb, userId: string): AccountSession[] {
     .map(({ userId: _owner, ...session }) => session)
 }
 
-/** GitHub, Google and the email link; the instance's own list is B10. */
-export const listSignInMethods = endpoint((ctx): SignInMethod[] =>
-  signInMethods(getDb(), ctx.userId),
-)
+/** GitHub, Google and the email link. */
+export const listSignInMethods = endpoint((ctx): SignInMethods => ({
+  methods: signInMethods(getDb(), ctx.userId),
+  providers: PROVIDERS,
+  email: personById(getDb(), ctx.userId).email,
+}))
 
-/** Connect links the provider's account; the email link is always on, so any can go. */
+/** Connect links the provider's account; the last one goes only while the email link signs in. */
 export const setSignInMethod = mutation(
   (ctx, provider: SignInProvider, connected: boolean): void => {
     const db = getDb()
     const person = personById(db, ctx.userId)
+    if (!connected && !canDisconnect(signInMethods(db, person.id), provider, PROVIDERS)) {
+      throw conflictError(ONLY_WAY_IN)
+    }
     db.signInMethods = db.signInMethods.filter(
       (m) => !(m.userId === person.id && m.provider === provider),
     )
     if (!connected) return
-    db.signInMethods.push({
-      userId: person.id,
-      provider,
-      account:
-        provider === 'google' ? person.email : person.name.toLowerCase().replace(/\s+/g, '-'),
-      connectedAt: new Date().toISOString(),
-    })
+    db.signInMethods.push({ userId: person.id, provider, connectedAt: new Date().toISOString() })
   },
 )
 
@@ -182,7 +169,6 @@ export const exportAccount = endpoint((ctx): AccountExport => {
     profile: {
       name: person.name,
       email: person.email,
-      pendingEmail: db.pendingEmails.find((p) => p.userId === person.id)?.email ?? null,
       photo: person.image !== null,
     },
     signInMethods: signInMethods(db, person.id),
@@ -192,6 +178,8 @@ export const exportAccount = endpoint((ctx): AccountExport => {
       .map((m) => ({
         organization: db.orgs.find((o) => o.id === m.orgId)?.name ?? m.orgId,
         role: m.role,
+        projects: [],
+        workspaces: [],
       })),
   }
 })
@@ -211,7 +199,6 @@ export const deleteAccount = mutation((ctx, confirmEmail: string): void => {
   }
   for (const org of orgsOf(db, person.id)) dropGrants(db, org, person.id)
   db.orgMembers = db.orgMembers.filter((m) => m.userId !== person.id)
-  db.pendingEmails = db.pendingEmails.filter((p) => p.userId !== person.id)
   db.signInMethods = db.signInMethods.filter((m) => m.userId !== person.id)
   db.sessions = db.sessions.filter((s) => s.userId !== person.id || s.current)
 })

@@ -34,21 +34,25 @@ describe('the profile', () => {
     expect(await session.getViewer(ama)).toMatchObject({ name: 'Ama K. Mensah', initials: 'AK' })
   })
 
-  it('refuses an empty name and an image over 200 KB', async () => {
+  it('refuses an empty name and a stored photo over 512 KB, as the API does', async () => {
     await expect(account.updateProfile(ama, { name: '  ' })).rejects.toMatchObject({
       status: 422,
       field: 'name',
     })
-    const big = `data:image/png;base64,${'a'.repeat(300 * 1024)}`
+    const big = `data:image/png;base64,${'a'.repeat(720 * 1024)}`
     await expect(account.updateProfile(ama, { image: big })).rejects.toMatchObject({
       field: 'image',
     })
   })
 
-  it('refuses a file that isn’t a PNG or JPG, and so does the org logo with its own list', async () => {
+  it('refuses a file that isn’t an image the picker offers, and so does the org logo with its own list', async () => {
     await expect(
       account.updateProfile(ama, { image: 'data:application/pdf;base64,AAAA' }),
-    ).rejects.toMatchObject({ status: 422, field: 'image', message: 'Pick a PNG or JPG image' })
+    ).rejects.toMatchObject({
+      status: 422,
+      field: 'image',
+      message: 'Pick a PNG, JPG, WebP or GIF image',
+    })
     await expect(
       org.updateOrg(ama, 'acme', { logo: 'data:text/html;base64,AAAA' }),
     ).rejects.toMatchObject({ field: 'logo', message: 'Pick a PNG, JPG, SVG or WebP image' })
@@ -75,25 +79,6 @@ describe('the profile', () => {
   it('keeps an uploaded photo on the person, so every avatar shows it', async () => {
     await account.updateProfile(ama, { image: 'data:image/png;base64,AAAA' })
     expect(getDb().people.find((p) => p.id === AMA)!.image).toBe('data:image/png;base64,AAAA')
-  })
-})
-
-describe('changing email', () => {
-  it('records the new address and leaves the email as it is', async () => {
-    await account.requestEmailChange(ama, ' Ama@Mensah.test ')
-    const view = await account.getAccount(ama)
-    expect(view.pendingEmail).toBe('ama@mensah.test')
-    expect(view.person.email).toBe('ama@acme.test')
-  })
-
-  it('refuses a non-address, the current one, and another person’s', async () => {
-    await expect(account.requestEmailChange(ama, 'nope')).rejects.toMatchObject({ status: 422 })
-    await expect(account.requestEmailChange(ama, 'AMA@acme.test')).rejects.toMatchObject({
-      status: 422,
-    })
-    await expect(account.requestEmailChange(ama, 'daniel@acme.test')).rejects.toMatchObject({
-      status: 409,
-    })
   })
 })
 
@@ -138,19 +123,31 @@ describe('deleting the account', () => {
 
 describe('sign-in methods', () => {
   it('lists GitHub connected, Google not, and the email link', async () => {
-    expect(await account.listSignInMethods(ama)).toEqual([
-      { provider: 'github', account: 'ama-mensah', connectedAt: expect.any(String) },
-      { provider: 'google', account: null, connectedAt: null },
-      { provider: 'email', account: 'ama@acme.test', connectedAt: null },
-    ])
+    expect(await account.listSignInMethods(ama)).toEqual({
+      methods: [
+        {
+          provider: 'github',
+          connected: true,
+          connectedAt: expect.any(String),
+          accountId: expect.any(String),
+        },
+        { provider: 'google', connected: false, connectedAt: null, accountId: null },
+        { provider: 'email', connected: true, connectedAt: null, accountId: null },
+      ],
+      providers: { github: true, google: true, emailLink: true },
+      email: 'ama@acme.test',
+    })
   })
 
-  it('disconnects and connects again', async () => {
+  it('disconnects and connects again, the last one too while the email link signs in', async () => {
     await account.setSignInMethod(ama, 'github', false)
     await account.setSignInMethod(ama, 'google', true)
-    const [github, google] = await account.listSignInMethods(ama)
-    expect(github!.account).toBeNull()
-    expect(google!.account).toBe('ama@acme.test')
+    const { methods } = await account.listSignInMethods(ama)
+    expect(methods.map((m) => [m.provider, m.connected])).toEqual([
+      ['github', false],
+      ['google', true],
+      ['email', true],
+    ])
   })
 })
 
@@ -190,14 +187,13 @@ describe('export', () => {
     expect(data.profile).toEqual({
       name: 'Ama Mensah',
       email: 'ama@acme.test',
-      pendingEmail: null,
       photo: false,
     })
     expect(data.signInMethods).toHaveLength(3)
     expect(data.sessions).toHaveLength(4)
     expect(data.memberships).toEqual([
-      { organization: 'Acme Inc', role: 'owner' },
-      { organization: 'Bolt Labs', role: 'admin' },
+      { organization: 'Acme Inc', role: 'owner', projects: [], workspaces: [] },
+      { organization: 'Bolt Labs', role: 'admin', projects: [], workspaces: [] },
     ])
   })
 })

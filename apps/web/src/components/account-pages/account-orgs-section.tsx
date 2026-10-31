@@ -35,7 +35,7 @@ export function AccountOrgsSection({ currentOrg, orgs }: AccountOrgsSectionProps
   function handleLeave() {
     if (!leaving) return
     const slug = leaving.slug
-    leave.mutate(slug, {
+    leave.mutate(leaving, {
       onSuccess: () => {
         setLeaving(null)
         if (slug === currentOrg) goTo(chooseOrgPath())

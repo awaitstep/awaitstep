@@ -58,24 +58,32 @@ describe('sessions', () => {
 })
 
 describe('methodDetail', () => {
-  it('names the linked account and the day it was connected', () => {
-    expect(
-      methodDetail(
-        { provider: 'github', account: 'ama-mensah', connectedAt: '2026-09-02T10:00:00Z' },
-        NOW,
-      ),
-    ).toBe('ama-mensah · connected 2 Sep')
-    expect(
-      methodDetail({ provider: 'google', account: 'ama@acme.test', connectedAt: hoursAgo(0) }, NOW),
-    ).toBe('ama@acme.test · connected just now')
+  const EMAIL = 'ama@acme.test'
+  const linked = (provider: 'github' | 'google', connectedAt: string) => ({
+    provider,
+    connected: true,
+    connectedAt,
+    accountId: `a-${provider}`,
+  })
+
+  it('says the day it was connected', () => {
+    expect(methodDetail(linked('github', '2026-09-02T10:00:00Z'), EMAIL, NOW)).toBe(
+      'Connected 2 Sep',
+    )
+    expect(methodDetail(linked('google', hoursAgo(0)), EMAIL, NOW)).toBe('Connected just now')
   })
 
   it('says what connecting does, and where the email link goes', () => {
-    expect(methodDetail({ provider: 'google', account: null, connectedAt: null }, NOW)).toBe(
+    const none = { connected: false, connectedAt: null, accountId: null }
+    expect(methodDetail({ provider: 'google', ...none }, EMAIL, NOW)).toBe(
       'Sign in with your Google account',
     )
     expect(
-      methodDetail({ provider: 'email', account: 'ama@acme.test', connectedAt: null }, NOW),
+      methodDetail(
+        { provider: 'email', connected: true, connectedAt: null, accountId: null },
+        EMAIL,
+        NOW,
+      ),
     ).toBe('A one-time link sent to ama@acme.test')
   })
 })

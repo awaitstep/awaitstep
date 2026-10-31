@@ -15,3 +15,19 @@ export function errorFieldOf(error: unknown): string | undefined {
   if (error instanceof ApiError) return error.field
   return error instanceof MockApiError ? error.field : undefined
 }
+
+/** A refusal from better-auth's client, as the pages read every other one. */
+export function authError(
+  error: { message?: string; error?: string; status?: number; code?: string } | null,
+  fallback: string,
+  field?: string,
+): ApiError {
+  // better-auth answers `message`; the API in front of it (the body limit) answers `error`.
+  const message = error?.message ?? error?.error ?? fallback
+  return new ApiError(message, error?.status ?? 400, { field })
+}
+
+/** better-auth's answer when an action needs a sign-in from the last day. */
+export function needsFreshSignIn(error: { code?: string } | null): boolean {
+  return error?.code === 'SESSION_NOT_FRESH' || error?.code === 'SESSION_EXPIRED'
+}

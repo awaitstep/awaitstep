@@ -18,9 +18,10 @@ export function orgMeta(org: AccountOrg): string {
   return parts.join(' · ')
 }
 
-/** "81.2.69.x · signed in 3 days ago". */
+/** "81.2.69.x · signed in 3 days ago"; "Signed in 3 days ago" when no address was known. */
 export function sessionDetail(session: AccountSession, now: Date = new Date()): string {
-  return `${session.ip} · signed in ${inSentence(timeAgoOrDay(session.signedInAt, now))}`
+  const when = inSentence(timeAgoOrDay(session.signedInAt, now))
+  return session.ip ? `${session.ip} · signed in ${when}` : `Signed in ${when}`
 }
 
 /** "Active now" for this device, else "Active 2h ago". */
@@ -35,15 +36,15 @@ export const PROVIDER_LABEL: Record<SignInMethod['provider'], string> = {
   email: 'Email link',
 }
 
-/** The line under a sign-in method: the linked account, or what connecting does. */
-export function methodDetail(method: SignInMethod, now: Date = new Date()): string {
-  if (method.provider === 'email') return `A one-time link sent to ${method.account}`
-  if (!method.account || !method.connectedAt) {
+/** The line under a sign-in method: when it was connected, or what connecting does. */
+export function methodDetail(method: SignInMethod, email: string, now: Date = new Date()): string {
+  if (method.provider === 'email') return `A one-time link sent to ${email}`
+  if (!method.connected || !method.connectedAt) {
     return `Sign in with your ${PROVIDER_LABEL[method.provider]} account`
   }
   const at = new Date(method.connectedAt)
   const when = now.getTime() - at.getTime() < DAY_MS ? timeAgoOrDay(at, now) : format(at, 'd MMM')
-  return `${method.account} · connected ${when}`
+  return `Connected ${when}`
 }
 
 /** Download JSON's file name: `awaitstep-account-2026-10-28.json`. */
