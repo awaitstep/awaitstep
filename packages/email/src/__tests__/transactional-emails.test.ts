@@ -64,6 +64,8 @@ describe('T2 invitation', () => {
     expect(text).toContain('Workspace Sales in Project 101')
     expect(text).toContain('Your role Editor · build, run and deploy workflows')
     expect(text).toContain('Invited email daniel@acme.test')
+    expect(text.split('daniel@acme.test')).toHaveLength(3) // the row and the footer, not the note
+    expect(text).toContain('Sign in with the invited address to accept it.')
     expect(text).toContain('This invite expires on 1 Nov 2030.')
     expect(text).toContain(
       'Sent to daniel@acme.test because Ama Mensah invited this address to Acme Inc.',

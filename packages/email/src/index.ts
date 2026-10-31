@@ -218,7 +218,7 @@ export async function renderInvitationEmail(props: {
     __INVITER_INITIALS__: initials(props.inviterName),
     __ROWS_HTML__: detailRows(rows),
     __PREVIEW_LINE__: `You’ll join ${props.place ?? placeLine(props.role, null)}. ${expires}`,
-    __NOTE_LINE__: `${scope}${expires}${props.to ? ` Sign in with ${props.to} to accept it.` : ''}`,
+    __NOTE_LINE__: `${scope}${expires}${props.to ? ' Sign in with the invited address to accept it.' : ''}`,
     __FOOTER_NOTE__: sentTo(
       props.to,
       `${props.inviterName} invited this address to ${props.orgName}.`,
