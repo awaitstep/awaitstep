@@ -13,7 +13,8 @@ interface SignInContext {
 
 const getSignInContext = createServerFn({ method: 'GET' }).handler(
   async (): Promise<SignInContext> => {
-    const redirectPath = getCookie('auth_redirect') ?? null
+    // The cookie is readable and writable by script: only an app path is followed.
+    const redirectPath = safeRedirectPath(getCookie('auth_redirect')) ?? null
 
     const authMethods = {
       github: process.env['GITHUB_ENABLED'] === 'true' || !!process.env['GITHUB_CLIENT_ID'],

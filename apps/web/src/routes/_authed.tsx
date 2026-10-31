@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect, useMatches } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequestHeader, setCookie } from '@tanstack/react-start/server'
+import { safeRedirectPath } from '../lib/auth-redirect'
 import { apiFetch } from '../lib/cf-context'
 import { isChromelessRoute } from '../lib/shell-routes'
 import { useAuthStore, type SessionData } from '../stores/auth-store'
@@ -36,7 +37,8 @@ const getAuthData = createServerFn({ method: 'GET' }).handler(
 )
 
 const saveRedirectPath = createServerFn({ method: 'POST' })
-  .validator((data: string) => data)
+  // Only an app path is ever saved, whoever calls this.
+  .validator((data: string) => safeRedirectPath(data) ?? '/dashboard')
   .handler(async ({ data: path }) => {
     setCookie('auth_redirect', path, {
       path: '/',
