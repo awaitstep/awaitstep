@@ -185,6 +185,60 @@ export class OverviewFields {
     }
   }
 
+  /**
+   * As `projectHealth`, over the whole organization: failing workflows and
+   * the last run, across the workspaces the viewer can open there.
+   */
+  orgHealth(viewer: Viewer) {
+    const wf = aliasedTable(this.t.workflows, 'ow')
+    const r = aliasedTable(this.t.workflowRuns, 'orr')
+    const p = aliasedTable(this.t.projects, 'op')
+    const inOrg = sql`${wf.projectId} in (select ${p.id} from ${aliasedFrom(p)} where ${p.organizationId} = ${viewer.organizationId}) and ${this.roles.workflowVisible(viewer.userId, wf.workspaceId)}`
+    return {
+      failing: this.countWorkflows(
+        wf,
+        sql`${inOrg} and ${this.latestRunStatus(wf)} in (${FAILED_LIST})`,
+      ),
+      lastRunAt: this.lastRunAt(r, wf, inOrg),
+    }
+  }
+
+  /**
+   * The viewer's own grants in the organization, oldest first: project-wide
+   * roles, and single workspaces with the role they work as there (a project
+   * member's Viewer grant still works as Editor). `applies` is false for an
+   * org owner or admin, whose role already covers everything.
+   */
+  orgGrants(viewer: Viewer, applies: SQL) {
+    const pm = aliasedTable(this.t.projectMembers, 'gpm')
+    const gp = aliasedTable(this.t.projects, 'gp')
+    const wm = aliasedTable(this.t.workspaceMembers, 'gwm')
+    const gw = aliasedTable(this.t.workspaces, 'gw')
+    const wp = aliasedTable(this.t.projects, 'gwp')
+    const projects = jsonArrayOf(
+      this.dialect,
+      { name: gp.name, role: pm.role },
+      sql`${pm.createdAt}, ${gp.name}`,
+    )
+    const workspaces = jsonArrayOf(
+      this.dialect,
+      {
+        name: gw.name,
+        projectName: wp.name,
+        role: this.roles.workspaceRoleOf(viewer.userId, {
+          organizationId: viewer.organizationId,
+          projectId: wp.id,
+          workspaceId: gw.id,
+        }),
+      },
+      sql`${wm.createdAt}, ${gw.name}`,
+    )
+    return {
+      projects: sql`(select ${projects} from ${aliasedFrom(pm)} inner join ${aliasedFrom(gp)} on ${gp.id} = ${pm.projectId} where ${applies} and ${pm.userId} = ${viewer.userId} and ${gp.organizationId} = ${viewer.organizationId})`,
+      workspaces: sql`(select ${workspaces} from ${aliasedFrom(wm)} inner join ${aliasedFrom(gw)} on ${gw.id} = ${wm.workspaceId} inner join ${aliasedFrom(wp)} on ${wp.id} = ${gw.projectId} where ${applies} and ${wm.userId} = ${viewer.userId} and ${wp.organizationId} = ${viewer.organizationId})`,
+    }
+  }
+
   /** `since` bounds the 24-hour run count; the caller computes it once per statement. */
   workspaceCounts(workspaceId: SQL | unknown, since: string) {
     const wf = aliasedTable(this.t.workflows, 'kw')

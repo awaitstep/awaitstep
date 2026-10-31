@@ -57,7 +57,7 @@ import type {
   SharingRow,
   SharedWorkflowRow,
   SharedWorkflowFilter,
-  OrgOverview,
+  OrgListing,
   ScopeRows,
   ScopeSlugs,
   CreateWorkspaceData,
@@ -157,7 +157,7 @@ export interface DatabaseAdapter {
   getWorkspaceInProject(projectId: string, ref: WorkspaceInProjectRef): Promise<WorkspaceIds | null>
   /** The workflow with the caller's rows in its workspace, if they can open that workspace. */
   getWorkflowForUser(userId: string, workflowId: string): Promise<WorkflowAccess | null>
-  listOrganizationsForMember(userId: string): Promise<OrgOverview[]>
+  listOrganizationsForMember(userId: string): Promise<OrgListing[]>
   /** What `/{org}/{project}/{workspace}` names, with each level's counts and lists. */
   /** `now` is the clock for the 24-hour run counts. */
   getScopeBySlugs(userId: string, slugs: ScopeSlugs, now?: Date): Promise<ScopeRows | null>

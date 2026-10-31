@@ -65,6 +65,8 @@ export type {
   FailureCount,
   ProjectHealth,
   OrgOverview,
+  OrgGrants,
+  OrgListing,
   OrgMemberSummary,
   ScopeRows,
   ScopeSlugs,

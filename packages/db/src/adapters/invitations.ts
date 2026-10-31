@@ -447,7 +447,7 @@ export class InvitationsAdapter {
     return rows.length > 0
   }
 
-  /** Open, unexpired invitations to an address, with the organization and inviter named. */
+  /** Open, unexpired invitations to an address, with the organization, inviter and places named. */
   async listForEmail(email: string, now: string): Promise<PendingInvitationRow[]> {
     const i = aliasedTable(this.inv, 'i')
     const o = aliasedTable(this.t.organization, 'o')
@@ -459,6 +459,7 @@ export class InvitationsAdapter {
         inviterName: u.name,
         role: i.role,
         expiresAt: i.expiresAt,
+        places: this.places(i.id),
       })
       .from(i)
       .innerJoin(o, eq(o.id, i.organizationId))
@@ -471,9 +472,12 @@ export class InvitationsAdapter {
         ),
       )
       .orderBy(sql`${i.createdAt} desc`, asc(i.id))
-    return rows.map((row: PendingInvitationRow & { role: string | null }) => ({
-      ...row,
-      role: row.role ?? 'member',
-    }))
+    return rows.map(
+      (row: Omit<PendingInvitationRow, 'places'> & { role: string | null; places: unknown }) => ({
+        ...row,
+        role: row.role ?? 'member',
+        places: readJsonArray<InvitationPlaceRow>(row.places),
+      }),
+    )
   }
 }

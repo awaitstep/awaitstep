@@ -79,7 +79,7 @@ import type {
   WorkspaceIds,
   WorkspaceRef,
   WorkspaceInProjectRef,
-  OrgOverview,
+  OrgListing,
   ScopeRows,
   ScopeSlugs,
   CreateWorkspaceData,
@@ -416,7 +416,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   ): Promise<WorkspaceIds | null> {
     return this._scope.getWorkspaceInProject(projectId, ref)
   }
-  listOrganizationsForMember(userId: string): Promise<OrgOverview[]> {
+  listOrganizationsForMember(userId: string): Promise<OrgListing[]> {
     return this._scope.listOrganizationsForMember(userId)
   }
   getScopeBySlugs(userId: string, slugs: ScopeSlugs, now?: Date): Promise<ScopeRows | null> {

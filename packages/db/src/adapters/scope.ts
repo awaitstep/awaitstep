@@ -1,9 +1,10 @@
-import { and, asc, eq, isNotNull, aliasedTable } from 'drizzle-orm'
+import { and, asc, eq, isNotNull, aliasedTable, sql } from 'drizzle-orm'
 import type {
   GrantRows,
   MemberRole,
   OrgMemberSummary,
-  OrgOverview,
+  OrgListing,
+  OrgGrants,
   Project,
   ProjectAccess,
   ProjectRef,
@@ -231,11 +232,13 @@ export class ScopeAdapter {
     }
   }
 
-  /** The caller's organizations with their counts, by name. */
-  async listOrganizationsForMember(userId: string): Promise<OrgOverview[]> {
+  /** The caller's organizations with their counts, their own grants and health, by name. */
+  async listOrganizationsForMember(userId: string): Promise<OrgListing[]> {
     const o = aliasedTable(this.t.organization, 'o')
     const me = aliasedTable(this.t.member, 'me')
-    return this.db
+    const viewer = { userId, organizationId: o.id }
+    const grants = this.fields.orgGrants(viewer, sql`${me.role} not in ('owner', 'admin')`)
+    const rows = await this.db
       .select({
         id: o.id,
         slug: o.slug,
@@ -245,10 +248,26 @@ export class ScopeAdapter {
         viewerRole: me.role,
         projectCount: this.fields.roles.visibleProjectCount(userId, o.id),
         memberCount: this.fields.memberCount(o.id),
+        projectGrants: grants.projects,
+        workspaceGrants: grants.workspaces,
+        health: this.fields.orgHealth(viewer),
       })
       .from(o)
       .innerJoin(me, and(eq(me.organizationId, o.id), eq(me.userId, userId)))
       .orderBy(asc(o.name), asc(o.id))
+    return rows.map(
+      ({
+        projectGrants,
+        workspaceGrants,
+        ...row
+      }: Omit<OrgListing, 'grants'> & { projectGrants: unknown; workspaceGrants: unknown }) => ({
+        ...row,
+        grants: {
+          projects: readJsonArray<OrgGrants['projects'][number]>(projectGrants),
+          workspaces: readJsonArray<OrgGrants['workspaces'][number]>(workspaceGrants),
+        },
+      }),
+    )
   }
 
   /**

@@ -438,6 +438,19 @@ export interface OrgOverview {
   memberCount: number
 }
 
+/** The caller's own grants in an organization, oldest first; empty for an owner or admin. */
+export interface OrgGrants {
+  projects: { name: string; role: string }[]
+  workspaces: { name: string; projectName: string; role: string }[]
+}
+
+/** An organization on the caller's list: its overview plus their grants and its health. */
+export interface OrgListing extends OrgOverview {
+  grants: OrgGrants
+  /** Over the workspaces the caller can open: failing workflows and the last run. */
+  health: { failing: number; lastRunAt: string | null }
+}
+
 export interface WorkspaceChip {
   id: string
   slug: string
@@ -905,13 +918,15 @@ export interface InvitationChecks {
   pending: string[]
 }
 
-/** An invitation waiting for the session's address, for Choose an organization. */
+/** An invitation waiting for the session's address, for /dashboard's "Waiting for you". */
 export interface PendingInvitationRow {
   id: string
   org: { slug: string; name: string; logo: string | null }
   inviterName: string
   role: string
   expiresAt: string
+  /** Where it leads, first one first, as the invite page names them. */
+  places: InvitationPlaceRow[]
 }
 
 export interface AcceptInvitationData {

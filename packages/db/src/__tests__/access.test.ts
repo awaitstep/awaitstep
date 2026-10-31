@@ -278,6 +278,66 @@ describe.each([
       expect(orgs.map((o) => o.projectCount)).toEqual([0])
     })
 
+    it('lists each org with the caller’s own grants and the health of what they can open', async () => {
+      const run = (id: string, workflowId: string, status: string, createdAt: string) => ({
+        id,
+        workflowId,
+        versionId: null,
+        connectionId: null,
+        instanceId: id,
+        status,
+        createdAt,
+        updatedAt: createdAt,
+      })
+      await h.db
+        .insert(h.schema.workflowRuns)
+        .values([
+          run('r-sales', 'wf-sales', 'complete', '2026-10-28T05:00:00.000Z'),
+          run('r-ops', 'wf-ops', 'errored', '2026-10-28T09:00:00.000Z'),
+        ])
+
+      h.statements.n = 0
+      const eve = await h.adapter.listOrganizationsForMember('u-eve')
+      expect(h.statements.n).toBe(1)
+      // Ops failed, but Eve only opens Sales: her Acme reads all passing.
+      expect(eve).toMatchObject([
+        {
+          slug: 'acme',
+          grants: {
+            projects: [],
+            workspaces: [{ name: 'Sales', projectName: 'Project 101', role: 'viewer' }],
+          },
+          health: { failing: 0, lastRunAt: '2026-10-28T05:00:00.000Z' },
+        },
+      ])
+
+      // Dan's own Viewer grant in Sales sits under his project membership: he works there as Editor.
+      await h.db.insert(h.schema.workspaceMembers).values({
+        workspaceId: 'ws-sales',
+        userId: 'u-dan',
+        role: 'viewer',
+        createdBy: 'u-ama',
+        createdAt: T0,
+      })
+      const [dan] = await h.adapter.listOrganizationsForMember('u-dan')
+      expect(dan!.grants).toEqual({
+        projects: [{ name: 'Project 101', role: 'member' }],
+        workspaces: [{ name: 'Sales', projectName: 'Project 101', role: 'editor' }],
+      })
+      expect(dan!.health).toEqual({ failing: 1, lastRunAt: '2026-10-28T09:00:00.000Z' })
+
+      // Owners and admins: no grants listed, everything counted. No runs at all reads null.
+      const ama = await h.adapter.listOrganizationsForMember('u-ama')
+      expect(ama.map((o) => [o.slug, o.grants, o.health])).toEqual([
+        [
+          'acme',
+          { projects: [], workspaces: [] },
+          { failing: 1, lastRunAt: '2026-10-28T09:00:00.000Z' },
+        ],
+        ['globex', { projects: [], workspaces: [] }, { failing: 0, lastRunAt: null }],
+      ])
+    })
+
     it('finds a workflow with the caller’s rows only through a workspace they can open', async () => {
       const sales = await h.adapter.getWorkflowForUser('u-eve', 'wf-sales')
       expect(sales).toMatchObject({
@@ -1118,7 +1178,9 @@ describe.each([
 
     it('lists the open invitations waiting for an address', async () => {
       await h.adapter.createInvitations([
-        invite('inv-1', 'HAL@example.test', []),
+        invite('inv-1', 'HAL@example.test', [
+          { id: 'ip-1', projectId: 'p-101', workspaceId: 'ws-sales', role: 'editor' },
+        ]),
         {
           ...invite('inv-2', 'hal@example.test', []),
           organizationId: 'org-globex',
@@ -1129,6 +1191,15 @@ describe.each([
       const mine = await h.adapter.listInvitationsForEmail('hal@Example.test', NOW)
       expect(mine.map((i) => [i.id, i.org.slug, i.inviterName, i.role])).toEqual([
         ['inv-1', 'acme', 'Ama Mensah', 'member'],
+      ])
+      // The invitee isn't in the org yet: the place is named all the same, as on the invite page.
+      expect(mine[0]!.places).toMatchObject([
+        {
+          projectName: 'Project 101',
+          workspaceName: 'Sales',
+          workspaceSlug: 'sales',
+          role: 'editor',
+        },
       ])
       expect(await h.adapter.listInvitationsForEmail('nobody@example.test', NOW)).toEqual([])
     })
