@@ -32,7 +32,11 @@ export function SignInMethodsSection({ org, linkError }: { org: string; linkErro
   const methods = useSignInMethods()
   return (
     <section className="settings-width flex flex-col gap-3">
-      <SectionHeader title="Sign-in methods" caption="Any of these opens the same account" />
+      <SectionHeader
+        title="Sign-in methods"
+        direction="column"
+        caption="Any of these opens the same account"
+      />
       <LoadedQuery query={methods} what="sign-in methods">
         {(data) => (
           <>

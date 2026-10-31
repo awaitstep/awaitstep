@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { hasContent } from './has-content'
+import { cn } from '../../lib/utils'
 
 interface SectionHeaderProps {
   title: string
@@ -9,12 +10,24 @@ interface SectionHeaderProps {
   action?: ReactNode
   /** Heading level; sections inside a section use `h3`. */
   as?: 'h2' | 'h3'
+  direction?: 'row' | 'column'
 }
 
 /** Title row above a list, table or card group within a page. */
-export function SectionHeader({ title, caption, action, as: Heading = 'h2' }: SectionHeaderProps) {
+export function SectionHeader({
+  title,
+  caption,
+  action,
+  as: Heading = 'h2',
+  direction = 'row',
+}: SectionHeaderProps) {
   return (
-    <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+    <div
+      className={cn(
+        'flex flex-wrap items-baseline gap-x-2.5 gap-y-1',
+        direction === 'column' && 'flex-col',
+      )}
+    >
       <Heading className="text-base font-semibold text-foreground">{title}</Heading>
       {hasContent(caption) && <span className="text-xs text-muted-foreground">{caption}</span>}
       {hasContent(action) && <div className="ml-auto self-center">{action}</div>}
