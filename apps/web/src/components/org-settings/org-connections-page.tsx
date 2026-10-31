@@ -67,19 +67,23 @@ export function OrgConnectionsPage({ org, connectOpen, onConnectChange }: OrgCon
     return connection.projects === 'all' ? [] : connection.projects.map((p) => p.id)
   }
 
+  // A chip change sends the whole list read from the cache: a second one before
+  // the first lands would send a list without it, so it waits.
+  function changeProjects(connection: Connection, projects: string[]) {
+    if (update.isPending) return
+    update.mutate({ connectionId: connection.id, update: { projects } })
+  }
+
   function actionsFor(connection: Connection) {
     if (!canManage) return undefined
     return {
       onAddProject: (projectId: string) =>
-        update.mutate({
-          connectionId: connection.id,
-          update: { projects: [...projectIds(connection), projectId] },
-        }),
+        changeProjects(connection, [...projectIds(connection), projectId]),
       onRemoveProject: (projectId: string) =>
-        update.mutate({
-          connectionId: connection.id,
-          update: { projects: projectIds(connection).filter((id) => id !== projectId) },
-        }),
+        changeProjects(
+          connection,
+          projectIds(connection).filter((id) => id !== projectId),
+        ),
       onReplaceToken: () => open('token', connection),
       onRename: () => open('rename', connection),
       onRemove: () => open('remove', connection),

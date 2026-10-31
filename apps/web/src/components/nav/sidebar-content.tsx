@@ -4,7 +4,6 @@ import * as Popover from '@radix-ui/react-popover'
 import {
   Activity,
   BookOpen,
-  Cable,
   ExternalLink,
   LayoutDashboard,
   LogOut,
@@ -33,7 +32,6 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   '/dashboard': LayoutDashboard,
   '/workflows': Workflow,
   '/runs': Activity,
-  '/connections': Cable,
 }
 
 interface SidebarContentProps {

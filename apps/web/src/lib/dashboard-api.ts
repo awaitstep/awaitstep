@@ -14,6 +14,8 @@ import type {
   AuditPage,
   InboxPage,
   ReleaseVisit,
+  ConnectionSummary,
+  ProjectSetup,
 } from '@awaitstep/ir'
 import {
   request,
@@ -317,6 +319,28 @@ function query(params: object): string {
   return qs ? `?${qs}` : ''
 }
 
+/** A marketplace node as `GET /marketplace` lists it (B9), installed or not. */
+export interface ApiMarketplaceNode {
+  id: string
+  name: string
+  description: string
+  category: string
+  author: string
+  latest: string
+  installed: boolean
+  installedVersion: string | null
+  /** Workflows using it in their current version; null when not installed. */
+  usage: number | null
+  /** False for an installed node the registry no longer lists: it can only be removed. */
+  inRegistry: boolean
+}
+
+/** Where a connection is used, as `POST`/`PATCH /connections` take it. */
+export interface ApiConnectionProjects {
+  allProjects?: boolean
+  projectIds?: string[]
+}
+
 /** A key as `/api-keys` lists it (B3): its level, grid and where it reaches; never the secret. */
 export interface ApiKeyRow {
   id: string
@@ -618,6 +642,67 @@ export const dashboardApi = {
 
   deleteVariable(slugs: KeySlugs, id: string): Promise<{ ok: true }> {
     return request(`/env-vars/${id}${query(slugs)}`, { method: 'DELETE' })
+  },
+
+  // Connections and the marketplace (B9): organization settings, `?org=`.
+  listConnections(org: string, cursor?: string): Promise<PaginatedResponse<ConnectionSummary>> {
+    return request(`/connections${query({ org, cursor })}`)
+  },
+
+  /** Checks the token with Cloudflare first: a refusal is a `400` on `token` or `accountId`. */
+  createConnection(
+    org: string,
+    data: { name: string; accountId: string; apiToken: string } & ApiConnectionProjects,
+  ): Promise<ConnectionSummary> {
+    const { accountId, apiToken, ...rest } = data
+    return request(`/connections${query({ org })}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        provider: 'cloudflare',
+        credentials: { accountId, apiToken },
+        ...rest,
+      }),
+    })
+  },
+
+  /** `apiToken` replaces the token and keeps the account, checked as on create. */
+  updateConnection(
+    org: string,
+    id: string,
+    data: { name?: string; apiToken?: string } & ApiConnectionProjects,
+  ): Promise<ConnectionSummary> {
+    const { apiToken, ...rest } = data
+    return request(`/connections/${id}${query({ org })}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        ...rest,
+        ...(apiToken !== undefined && { credentials: { apiToken } }),
+      }),
+    })
+  },
+
+  deleteConnection(org: string, id: string): Promise<{ ok: true }> {
+    return request(`/connections/${id}${query({ org })}`, { method: 'DELETE' })
+  },
+
+  listMarketplace(org: string): Promise<{ nodes: ApiMarketplaceNode[] }> {
+    return request(`/marketplace${query({ org })}`)
+  },
+
+  changeNode(
+    org: string,
+    change: 'install' | 'uninstall' | 'update',
+    nodeId: string,
+  ): Promise<unknown> {
+    return request(`/marketplace/${change}${query({ org })}`, {
+      method: 'POST',
+      body: JSON.stringify({ nodeId }),
+    })
+  },
+
+  /** The empty-project page's counts, by the project's id (B9). */
+  getProjectSetup(org: string, projectId: string): Promise<ProjectSetup> {
+    return request(`/projects/${projectId}/setup${query({ org })}`)
   },
 
   getInvite(token: string): Promise<ApiInviteView> {

@@ -1,18 +1,19 @@
 import { useState } from 'react'
 import { plural } from '../../lib/plural'
 import { useInstallNode, useUninstallNode, useUpdateNode } from '../../data/dashboard/resources'
-import { NODE_CATEGORIES, type OrgNode } from '../../types/dashboard/resources'
+import type { OrgNode } from '../../types/dashboard/resources'
 import { Banner } from '../ui/banner'
 import { ConfirmDialog } from '../ui/confirm-dialog'
 import { SearchField } from '../ui/search-field'
 import { SegmentedFilter, type FilterOption } from '../ui/segmented-filter'
 import { CatalogNodeCard } from './parts/catalog-node-card'
-import { filterNodes, showCounts, type NodeCategory, type NodeShow } from './node-filter'
-
-const CATEGORY_OPTIONS: FilterOption<NodeCategory>[] = [
-  { id: 'All', label: 'All' },
-  ...NODE_CATEGORIES.map((c) => ({ id: c, label: c })),
-]
+import {
+  filterNodes,
+  nodeCategories,
+  showCounts,
+  type NodeCategory,
+  type NodeShow,
+} from './node-filter'
 
 interface NodesTabProps {
   org: { slug: string; name: string }
@@ -34,6 +35,10 @@ export function NodesTab({ org, nodes, canManage, reason }: NodesTabProps) {
   const [confirming, setConfirming] = useState<OrgNode | null>(null)
 
   const counts = showCounts(nodes)
+  const categoryOptions: FilterOption<NodeCategory>[] = [
+    { id: 'All', label: 'All' },
+    ...nodeCategories(nodes).map((c) => ({ id: c, label: c })),
+  ]
   const { installed, available } = filterNodes(nodes, { show, category, search })
   const changing = [install, uninstall, update].find((m) => m.isPending)
   // One change at a time: a second one would replace the first's progress and error.
@@ -129,7 +134,7 @@ export function NodesTab({ org, nodes, canManage, reason }: NodesTabProps) {
         </div>
         <SegmentedFilter
           label="Category"
-          options={CATEGORY_OPTIONS}
+          options={categoryOptions}
           value={category}
           onChange={setCategory}
         />

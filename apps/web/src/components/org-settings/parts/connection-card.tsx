@@ -31,12 +31,24 @@ interface ConnectionCardProps {
   now?: Date
 }
 
-function tokenStatus(connection: Connection, now: Date) {
-  if (!connection.tokenExpiresAt) return { text: 'Token valid', variant: 'success' as const }
-  const expiry = expiryLabel(connection.tokenExpiresAt, now)
-  if (expiry.text === 'Expired') return { text: 'Token expired', variant: 'error' as const }
-  const when = expiry.text.replace(/^In /, 'in ').replace(/^Today$/, 'today')
-  return { text: `Token expires ${when}`, variant: 'warning' as const }
+/** The token badge, and whether the card asks for a new token. */
+export function tokenStatus(connection: Connection, now: Date) {
+  if (connection.tokenStatus === 'invalid') {
+    return { text: 'Token no longer works', variant: 'error' as const, needsToken: true }
+  }
+  if (connection.tokenExpiresAt) {
+    const expiry = expiryLabel(connection.tokenExpiresAt, now)
+    if (expiry.text === 'Expired') {
+      return { text: 'Token expired', variant: 'error' as const, needsToken: true }
+    }
+    const when = expiry.text.replace(/^In /, 'in ').replace(/^Today$/, 'today')
+    return { text: `Token expires ${when}`, variant: 'warning' as const, needsToken: true }
+  }
+  // Older than the first check (B9): Cloudflare is asked within a day.
+  if (connection.tokenStatus === 'unchecked') {
+    return { text: 'Token not checked yet', variant: 'neutral' as const, needsToken: false }
+  }
+  return { text: 'Token valid', variant: 'success' as const, needsToken: false }
 }
 
 /** One Cloudflare account on org Connections (`OrgConnections`). */
@@ -48,7 +60,7 @@ export function ConnectionCard({
 }: ConnectionCardProps) {
   const [adding, setAdding] = useState(false)
   const status = tokenStatus(connection, now)
-  const needsToken = status.variant !== 'success'
+  const needsToken = status.needsToken
   const deployments = connection.deployments
   const deploymentsLine =
     deployments.count === 0 || !deployments.lastAt
@@ -127,6 +139,16 @@ export function ConnectionCard({
             </Badge>
           ))
         )}
+        {connection.projects !== 'all' && connection.hiddenProjects > 0 && (
+          <Badge variant="neutral" className="font-normal">
+            {plural(connection.hiddenProjects, 'other project')}
+          </Badge>
+        )}
+        {connection.projects !== 'all' &&
+          connection.projects.length === 0 &&
+          connection.hiddenProjects === 0 && (
+            <span className="text-2xs text-muted-foreground">No projects</span>
+          )}
         {actions && connection.projects !== 'all' && addable.length > 0 && (
           <ScopeSwitcher
             open={adding}

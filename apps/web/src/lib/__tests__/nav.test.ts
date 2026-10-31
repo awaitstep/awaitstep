@@ -36,8 +36,8 @@ describe('isNavItemActive', () => {
     expect(isNavItemActive(routeIds, '/runs')).toBe(true)
   })
 
-  it('matches connections exactly, and knows no env-vars page any more (B4)', () => {
-    expect(isNavItemActive(['/_authed/connections'], '/connections')).toBe(true)
+  it('knows no Connections (B9) or env-vars (B4) page any more', () => {
+    expect(isNavItemActive(['/_authed/connections'], '/connections')).toBe(false)
     expect(isNavItemActive(['/_authed/connections'], '/env-vars')).toBe(false)
     expect(isNavItemActive(['/_authed/env-vars'], '/env-vars')).toBe(false)
   })

@@ -9,11 +9,19 @@ interface LoadedQueryProps<T> {
   what: string
   /** The tab opens with a filter bar: its placeholder leads the skeleton. */
   filters?: boolean
+  /** What a failure says, when it can say more than "took too long". */
+  errorDetail?: (error: unknown) => string | undefined
   children: (data: T) => ReactNode
 }
 
 /** A list's error card, its skeleton, or the list: for tabs that each load their own query. */
-export function LoadedQuery<T>({ query, what, filters, children }: LoadedQueryProps<T>) {
+export function LoadedQuery<T>({
+  query,
+  what,
+  filters,
+  errorDetail,
+  children,
+}: LoadedQueryProps<T>) {
   function handleRetry() {
     void query.refetch()
   }
@@ -25,6 +33,7 @@ export function LoadedQuery<T>({ query, what, filters, children }: LoadedQueryPr
         error={query.error}
         onRetry={handleRetry}
         retrying={query.isFetching}
+        detail={errorDetail?.(query.error)}
       />
     )
   }

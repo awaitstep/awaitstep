@@ -9,13 +9,21 @@ interface WorkspaceLoadErrorProps {
   error: unknown
   onRetry: () => void
   retrying: boolean
+  /** What went wrong, when the failure says more than "took too long". */
+  detail?: string
 }
 
 /**
  * The `LoadError` board: the error card (counting tries) and the note that
  * deployed workflows keep running. No status page link: there is none (D-P2-10).
  */
-export function WorkspaceLoadError({ what, error, onRetry, retrying }: WorkspaceLoadErrorProps) {
+export function WorkspaceLoadError({
+  what,
+  error,
+  onRetry,
+  retrying,
+  detail: known,
+}: WorkspaceLoadErrorProps) {
   const [attempts, setAttempts] = useState(0)
 
   function handleRetry() {
@@ -24,9 +32,10 @@ export function WorkspaceLoadError({ what, error, onRetry, retrying }: Workspace
   }
 
   const detail =
-    attempts === 0
+    known ??
+    (attempts === 0
       ? 'The server took too long to answer. Nothing was changed. Try again in a moment.'
-      : `Still not answering after ${attempts + 1} tries. Try again in a minute.`
+      : `Still not answering after ${attempts + 1} tries. Try again in a minute.`)
 
   return (
     <>

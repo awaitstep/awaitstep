@@ -5,11 +5,11 @@ export interface NavItem {
   label: string
 }
 
-export const NAV_ITEMS: readonly NavItem[] = [{ to: '/connections', label: 'Connections' }]
+// Connections, the last old page here, moved to Org Settings in B9.
+export const NAV_ITEMS: readonly NavItem[] = []
 
 const EXACT_ROUTE_IDS: Record<string, string> = {
   '/dashboard': '/_authed/dashboard',
-  '/connections': '/_authed/connections',
   '/api-playground': '/_authed/api-playground',
   '/settings': '/_authed/settings',
   '/account': '/_authed/account',

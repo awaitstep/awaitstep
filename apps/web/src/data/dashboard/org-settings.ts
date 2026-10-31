@@ -5,6 +5,7 @@ import { dashboardApi } from '../../lib/dashboard-api'
 import { mockServer } from '../../mocks/dashboard/server'
 import type { AccessGrant } from '../../types/dashboard/access'
 import type {
+  Connection,
   Invitation,
   NewConnectionInput,
   NewInvitesInput,
@@ -14,7 +15,9 @@ import type {
 } from '../../types/dashboard/org-settings'
 import type { OrgSummary } from '../../types/dashboard/session'
 import { toInvitation, toOrgMember, toPersonAccess } from './api/access'
-import { dashKeys, invalidateAll, withMockContext } from './keys'
+import { toConnection, toProjectsBody } from './api/connections'
+import { allPages } from './api/pages'
+import { dashKeys, invalidateAll } from './keys'
 import { useMockContext } from './scenario-context'
 import { useDashKey, useDataSource } from './source'
 import { useScope } from './workspaces'
@@ -144,58 +147,99 @@ export function useCancelInvite(org: string) {
   })
 }
 
+/** Org Settings → Connections: the org's Cloudflare accounts. */
 export function useConnections(org: string) {
+  const source = useDataSource()
   const ctx = useMockContext()
+  const key = useDashKey()
   return useQuery({
-    queryKey: withMockContext(dashKeys.connections(org), ctx),
-    queryFn: () => mockServer.org.listConnections(ctx, org),
+    queryKey: key(dashKeys.connections(org)),
+    queryFn: (): Promise<Connection[]> =>
+      source === 'api'
+        ? allPages((cursor) => dashboardApi.listConnections(org, cursor)).then((res) =>
+            res.data.map(toConnection),
+          )
+        : mockServer.org.listConnections(ctx, org),
   })
 }
 
-/** Connections change the cards and the "Cloudflare connected" setup step. */
+/**
+ * Connections change the cards, the "Cloudflare connected" setup step, and
+ * the old pages' list (`queries.connections`, behind the deploy page and the
+ * canvas dialogs) — always mounted, so a change here reaches it without a reload.
+ */
 function connectionKeys(org: string) {
-  return [dashKeys.connections(org), dashKeys.inOrg('setup', org)]
+  return [dashKeys.connections(org), dashKeys.inOrg('setup', org), LEGACY_CONNECTIONS]
 }
 
+/** `queries.connections.list`'s key prefix: every org's, as the old pages key by org id. */
+const LEGACY_CONNECTIONS = ['connections']
+
+/** Connect Cloudflare: on the API the token is checked with Cloudflare before anything is stored. */
 export function useConnect(org: string) {
+  const source = useDataSource()
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (input: NewConnectionInput) => mockServer.org.connect(ctx, org, input),
+    mutationFn: async (input: NewConnectionInput) => {
+      if (source !== 'api') return mockServer.org.connect(ctx, org, input)
+      await dashboardApi.createConnection(org, {
+        name: input.name.trim(),
+        accountId: input.accountId.trim(),
+        apiToken: input.token.trim(),
+        ...toProjectsBody(input.projects),
+      })
+    },
     onSuccess: () => invalidateAll(client, connectionKeys(org)),
   })
 }
 
 export function useReplaceToken(org: string) {
+  const source = useDataSource()
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
-    mutationFn: ({ connectionId, token }: { connectionId: string; token: string }) =>
-      mockServer.org.replaceToken(ctx, org, connectionId, token),
+    mutationFn: async ({ connectionId, token }: { connectionId: string; token: string }) => {
+      if (source !== 'api') return mockServer.org.replaceToken(ctx, org, connectionId, token)
+      await dashboardApi.updateConnection(org, connectionId, { apiToken: token.trim() })
+    },
     onSuccess: () => invalidateAll(client, connectionKeys(org)),
   })
 }
 
 export function useUpdateConnection(org: string) {
+  const source = useDataSource()
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       connectionId,
       update,
     }: {
       connectionId: string
       update: { name?: string; projects?: 'all' | string[] }
-    }) => mockServer.org.updateConnection(ctx, org, connectionId, update),
+    }) => {
+      if (source !== 'api') {
+        return mockServer.org.updateConnection(ctx, org, connectionId, update)
+      }
+      await dashboardApi.updateConnection(org, connectionId, {
+        ...(update.name !== undefined && { name: update.name.trim() }),
+        ...(update.projects !== undefined && toProjectsBody(update.projects)),
+      })
+    },
     onSuccess: () => invalidateAll(client, connectionKeys(org)),
   })
 }
 
 export function useRemoveConnection(org: string) {
+  const source = useDataSource()
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (connectionId: string) => mockServer.org.removeConnection(ctx, org, connectionId),
+    mutationFn: async (connectionId: string) => {
+      if (source !== 'api') return mockServer.org.removeConnection(ctx, org, connectionId)
+      await dashboardApi.deleteConnection(org, connectionId)
+    },
     onSuccess: () => invalidateAll(client, connectionKeys(org)),
   })
 }

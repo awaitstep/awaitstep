@@ -1,3 +1,4 @@
+import type { ConnectionTokenStatus } from '@awaitstep/ir'
 import type { AccessDraft, AccessProject } from './access'
 import type { ProjectRole } from './projects'
 import type { OrgRole, Person } from './session'
@@ -57,10 +58,14 @@ export interface Connection {
   /** The account ID's last four characters: "7f2a". */
   accountSuffix: string
   addedBy: { id: string; name: string }
+  /** What Cloudflare last said: `unchecked` until the first check (a connection older than B9). */
+  tokenStatus: ConnectionTokenStatus
   /** When the token stops working; null for no expiry. */
   tokenExpiresAt: string | null
-  /** `all`: every project, including new ones. */
+  /** `all`: every project, including new ones. Only the projects the viewer can see are named. */
   projects: 'all' | { id: string; name: string }[]
+  /** Projects on its list the viewer can't see (only an org owner or admin sees them all). */
+  hiddenProjects: number
   deployments: { count: number; lastAt: string | null }
 }
 

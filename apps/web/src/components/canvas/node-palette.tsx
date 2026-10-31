@@ -5,7 +5,8 @@ import * as Tooltip from '@radix-ui/react-tooltip'
 import { cn } from '../../lib/utils'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { getNodeVisuals } from '../../lib/node-icon-map'
-import { MarketplaceDialog } from '../marketplace/marketplace-dialog'
+import { orgPath } from '../../lib/dashboard-paths'
+import { useOrgStore } from '../../stores/org-store'
 import { groupByCategory, filterNodes, getSuperCategoryMeta } from '../../lib/node-categories'
 import { useWorkflowStore } from '../../stores/workflow-store'
 
@@ -36,11 +37,14 @@ interface NodePaletteProps {
 
 export function NodePalette({ onAddNode }: NodePaletteProps) {
   const [open, setOpen] = useState(false)
-  const [marketplaceOpen, setMarketplaceOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const { registry } = useNodeRegistry()
   const definitions = registry.getAll()
   const kind = useWorkflowStore((s) => s.kind)
+  // Nodes are installed on Resources › Nodes (B9); the palette picks them up when this tab regains focus.
+  const orgSlug = useOrgStore(
+    (s) => s.organizations.find((o) => o.id === s.activeOrganizationId)?.slug,
+  )
 
   const filteredGrouped = useMemo(() => {
     const compatibleDefs =
@@ -192,19 +196,21 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
             Drag a node onto the canvas or click to add it.
           </div>
 
-          <div className="border-t border-border px-1.5 py-1.5">
-            <button
-              onClick={() => setMarketplaceOpen(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-lg px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
-            >
-              <Store className="h-3.5 w-3.5" />
-              Browse Marketplace
-            </button>
-          </div>
+          {orgSlug && (
+            <div className="border-t border-border px-1.5 py-1.5">
+              <a
+                href={`${orgPath(orgSlug, 'resources')}?tab=nodes`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex w-full items-center justify-center gap-2 rounded-lg px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+              >
+                <Store className="h-3.5 w-3.5" aria-hidden="true" />
+                Browse Marketplace
+              </a>
+            </div>
+          )}
         </div>
       )}
-
-      {marketplaceOpen && <MarketplaceDialog onOpenChange={setMarketplaceOpen} />}
     </div>
   )
 }

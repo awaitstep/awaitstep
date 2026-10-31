@@ -17,6 +17,9 @@ const TOKEN_PERMISSIONS = [
   'Account · Account Settings · Read',
 ]
 
+/** Errors shown under their own field; any other is shown under the form. */
+const FIELD_ERRORS = new Set(['name', 'accountId', 'token'])
+
 const CLOUDFLARE_TOKENS_URL = 'https://dash.cloudflare.com/profile/api-tokens'
 
 interface ConnectCloudflareDialogProps {
@@ -24,7 +27,11 @@ interface ConnectCloudflareDialogProps {
   onClose: () => void
 }
 
-/** "Connect a Cloudflare account" (`ConnectCloudflare`). No token check on dummy data (D-P5-5). */
+/**
+ * "Connect a Cloudflare account" (`ConnectCloudflare`). On the API the token
+ * is checked with Cloudflare before anything is stored (B9); dummy data checks
+ * only the form's own rules (D-P5-5).
+ */
 export function ConnectCloudflareDialog({ org, onClose }: ConnectCloudflareDialogProps) {
   const formId = useId()
   const connect = useConnect(org.slug)
@@ -57,6 +64,9 @@ export function ConnectCloudflareDialog({ org, onClose }: ConnectCloudflareDialo
 
   const field = errorFieldOf(connect.error)
   const errorOn = (name: string) => (field === name ? connect.error?.message : undefined)
+  // Cloudflare unreachable, a lockout, a project list the org no longer has: under the form.
+  const formError =
+    connect.error && !FIELD_ERRORS.has(field ?? '') ? connect.error.message : undefined
   const countText = `${picks.length} of ${pickerProjects.length} projects selected`
 
   return (
@@ -77,7 +87,7 @@ export function ConnectCloudflareDialog({ org, onClose }: ConnectCloudflareDialo
             Cancel
           </Button>
           <Button type="submit" form={formId} disabled={connect.isPending}>
-            Check token and connect
+            {connect.isPending ? 'Checking token…' : 'Check token and connect'}
           </Button>
         </>
       }
@@ -165,6 +175,11 @@ export function ConnectCloudflareDialog({ org, onClose }: ConnectCloudflareDialo
             </>
           )}
         </FieldGroup>
+        {formError && (
+          <p role="alert" className="text-xs text-status-error">
+            {formError}
+          </p>
+        )}
       </form>
     </ModalDialog>
   )

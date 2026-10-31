@@ -26,7 +26,9 @@ const PRODUCTION: Connection = {
   name: 'Acme production',
   accountSuffix: '7f2a',
   addedBy: { id: 'u1', name: 'Ama Mensah' },
+  tokenStatus: 'active',
   tokenExpiresAt: null,
+  hiddenProjects: 0,
   projects: [
     { id: 'p1', name: 'Project 101' },
     { id: 'p2', name: 'Internal Tools' },
@@ -76,6 +78,40 @@ export const AllProjects: Story = {
       connection={{ ...PRODUCTION, projects: 'all', deployments: { count: 0, lastAt: null } }}
       addable={[]}
       actions={ACTIONS}
+      now={NOW}
+    />
+  ),
+}
+
+export const TokenStates: Story = {
+  render: () => (
+    <>
+      <ConnectionCard
+        connection={{ ...PRODUCTION, name: 'Revoked in Cloudflare', tokenStatus: 'invalid' }}
+        addable={[]}
+        actions={ACTIONS}
+        now={NOW}
+      />
+      <ConnectionCard
+        connection={{ ...PRODUCTION, name: 'Added before checks', tokenStatus: 'unchecked' }}
+        addable={[]}
+        actions={ACTIONS}
+        now={NOW}
+      />
+    </>
+  ),
+}
+
+/** A member who can't see every project on the list: the rest are counted. */
+export const HiddenProjects: Story = {
+  render: () => (
+    <ConnectionCard
+      connection={{
+        ...PRODUCTION,
+        projects: [{ id: 'p1', name: 'Project 101' }],
+        hiddenProjects: 2,
+      }}
+      addable={[]}
       now={NOW}
     />
   ),

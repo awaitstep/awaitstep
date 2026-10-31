@@ -47,6 +47,13 @@ export function NodeRegistryProvider({ children }: { children: ReactNode }) {
     fetchNodes()
   }, [fetchNodes])
 
+  // Nodes are installed on Resources › Nodes, in another tab: the palette
+  // reads them again when the editor's tab comes back.
+  useEffect(() => {
+    window.addEventListener('focus', fetchNodes)
+    return () => window.removeEventListener('focus', fetchNodes)
+  }, [fetchNodes])
+
   return (
     <NodeRegistryContext.Provider value={{ registry, refresh: fetchNodes }}>
       {children}

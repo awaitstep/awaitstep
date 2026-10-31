@@ -1,9 +1,15 @@
-import type { NODE_CATEGORIES, OrgNode } from '../../types/dashboard/resources'
+import type { OrgNode } from '../../types/dashboard/resources'
 
 /** The Show pills: everything, what's installed, or what the marketplace still offers. */
 export type NodeShow = 'all' | 'installed' | 'available'
 
-export type NodeCategory = 'All' | (typeof NODE_CATEGORIES)[number]
+/** `All`, or one of the categories the catalog has. */
+export type NodeCategory = string
+
+/** The category pills: the ones the catalog's nodes carry, A to Z (the registry's own list). */
+export function nodeCategories(nodes: OrgNode[]): string[] {
+  return [...new Set(nodes.map((n) => n.category))].sort((a, b) => a.localeCompare(b))
+}
 
 export interface NodeFilter {
   show: NodeShow

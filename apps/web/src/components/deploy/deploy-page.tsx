@@ -15,7 +15,8 @@ import {
 import { Button } from '../ui/button'
 import { EmptyState } from '../ui/empty-state'
 import { api } from '../../lib/api-client'
-import { useOrgReady } from '../../stores/org-store'
+import { connectionServes } from '@awaitstep/ir'
+import { useOrgReady, useOrgStore } from '../../stores/org-store'
 import { useConnectionsStore } from '../../stores/connections-store'
 import { useDeployStream, type DeployProgress } from '../../hooks/use-deploy-stream'
 import { DeploymentConfigForm } from './deployment-config-form'
@@ -41,7 +42,11 @@ interface DeployPageProps {
 
 export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
   const ready = useOrgReady()
-  const connections = useConnectionsStore((s) => s.connections)
+  const allConnections = useConnectionsStore((s) => s.connections)
+  // The deploy route sits under RequireProject: the active project is the workflow's.
+  const projectId = useOrgStore((s) => s.activeProjectId)
+  // Only accounts that serve this project: the API refuses a deploy with any other (B9).
+  const connections = allConnections.filter((c) => projectId && connectionServes(c, projectId))
   const [step, setStep] = useState<StepKey>('connection')
   const [connectionId, setConnectionId] = useState('')
   const [localConfig, setLocalConfig] = useState<Record<string, unknown> | null>(null)
@@ -114,7 +119,11 @@ export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
       <EmptyState
         icon={Cable}
         title="No connections"
-        description="Add a Cloudflare connection to deploy your workflow."
+        description={
+          allConnections.length > 0
+            ? 'No Cloudflare account serves this project yet. Add the project to one in Settings › Connections.'
+            : 'Add a Cloudflare connection to deploy your workflow.'
+        }
         action={
           <Link to="/connections" search={{ new: true }}>
             <Button variant="outline" size="sm">

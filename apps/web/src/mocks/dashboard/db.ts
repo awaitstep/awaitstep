@@ -223,7 +223,7 @@ export interface NodeRow {
   /** Null while not installed; custom nodes are always installed. */
   installedVersion: string | null
   latestVersion: string
-  /** Workflows using it (fixed sample numbers until B9). */
+  /** Workflows using it: fixed sample numbers (the API counts current versions, B9). */
   usage: number
 }
 

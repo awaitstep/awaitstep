@@ -1,3 +1,4 @@
+import type { ConnectionSummary as ApiConnectionSummary } from '@awaitstep/ir'
 import type { SourceDiagnostic } from '@awaitstep/codegen'
 import type {
   GeneratedFile,
@@ -32,7 +33,10 @@ function withPagination(path: string, opts?: PaginationOptions): string {
 
 interface ErrorBody {
   message: string
-  /** The form field a validation failure points at: the first issue's path. */
+  /**
+   * The form field the error points at: a validation failure's first issue
+   * path, or the `field` a route names itself ("token", "emails").
+   */
   field?: string
 }
 
@@ -43,12 +47,13 @@ async function readErrorBody(res: Response): Promise<ErrorBody> {
     const json = JSON.parse(text) as {
       error?: string
       message?: string
+      field?: string
       details?: { path?: string; message?: string }[]
     }
     const issue = json.details?.[0]
     return {
       message: issue?.message ?? json.error ?? json.message ?? text,
-      field: issue?.path || undefined,
+      field: issue?.path || json.field || undefined,
     }
   } catch {
     return { message: text }
@@ -368,12 +373,9 @@ export interface RunStepsResponse {
   coalescedInto: Record<string, string>
 }
 
-export interface ConnectionSummary {
-  id: string
-  name: string
-  provider: string
+/** A connection as `GET /connections` lists it, its account fields readable (secrets read `***`). */
+export type ConnectionSummary = Omit<ApiConnectionSummary, 'credentials'> & {
   credentials: Record<string, string>
-  createdAt: string
 }
 
 export interface ApiKeySummary {
@@ -573,17 +575,6 @@ export const api = {
     return request(withOrg('/connections'), { method: 'POST', body: JSON.stringify(data) })
   },
 
-  updateConnection(
-    id: string,
-    data: { name?: string; credentials?: Record<string, string> },
-  ): Promise<ConnectionSummary> {
-    return request(withOrg(`/connections/${id}`), { method: 'PATCH', body: JSON.stringify(data) })
-  },
-
-  deleteConnection(id: string): Promise<void> {
-    return request(withOrg(`/connections/${id}`), { method: 'DELETE' })
-  },
-
   getDeployConfig(
     workflowId: string,
     connectionId: string,
@@ -749,41 +740,6 @@ export const api = {
     return request(withOrg(`/api-keys/${id}`), { method: 'DELETE' })
   },
 
-  // Marketplace (org-scoped)
-
-  browseMarketplace(): Promise<MarketplaceBrowseResponse> {
-    return request(withOrg('/marketplace'))
-  },
-
-  getMarketplaceNode(nodeId: string): Promise<MarketplaceNodeDetail> {
-    return request(withOrg(`/marketplace/${nodeId}`))
-  },
-
-  installNode(nodeId: string, version?: string): Promise<InstalledNodeSummary> {
-    return request(withOrg('/marketplace/install'), {
-      method: 'POST',
-      body: JSON.stringify({ nodeId, version }),
-    })
-  },
-
-  uninstallNode(nodeId: string): Promise<void> {
-    return request(withOrg('/marketplace/uninstall'), {
-      method: 'POST',
-      body: JSON.stringify({ nodeId }),
-    })
-  },
-
-  updateNode(nodeId: string, version?: string): Promise<InstalledNodeSummary> {
-    return request(withOrg('/marketplace/update'), {
-      method: 'POST',
-      body: JSON.stringify({ nodeId, version }),
-    })
-  },
-
-  listInstalledNodes(opts?: PaginationOptions): Promise<PaginatedResponse<InstalledNodeSummary>> {
-    return request(withPagination(withOrg('/marketplace/installed'), opts))
-  },
-
   // Projects (org-scoped)
 
   listProjects(opts?: PaginationOptions): Promise<PaginatedResponse<ProjectSummary>> {
@@ -817,38 +773,5 @@ export interface ProjectSummary {
   slug: string
   description?: string | null
   createdAt: string
-  updatedAt: string
-}
-
-export interface MarketplaceNodeEntry {
-  id: string
-  name: string
-  description: string
-  category: string
-  tags: string[]
-  icon?: string
-  author: string
-  license: string
-  providers: string[]
-  latest: string
-  versions: { version: string; publishedAt: string; deprecated?: boolean }[]
-  installed: boolean
-  installedVersion: string | null
-}
-
-export interface MarketplaceBrowseResponse {
-  nodes: MarketplaceNodeEntry[]
-}
-
-export type MarketplaceNodeDetail = MarketplaceNodeEntry
-
-export interface InstalledNodeSummary {
-  id: string
-  organizationId: string
-  nodeId: string
-  version: string
-  bundle: string
-  installedBy: string
-  installedAt: string
   updatedAt: string
 }

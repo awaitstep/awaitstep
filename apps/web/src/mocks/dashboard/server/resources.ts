@@ -13,7 +13,7 @@ import { personById } from './records'
 import { requireScope } from './resolve'
 
 // The org's node catalog (Resources → Nodes). Thin: install, uninstall and
-// update flip the row; real installs and versions are B9.
+// update flip the row; real installs and versions are the API's marketplace (B9).
 
 function nodeRecord(db: MockDb, row: NodeRow): OrgNode {
   const installed = row.installedVersion !== null

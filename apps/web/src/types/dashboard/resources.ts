@@ -1,5 +1,5 @@
-// Dashboard types for the org's Resources page. Web-only until B9 wires the
-// existing marketplace and custom-node APIs.
+// Dashboard types for the org's Resources page. On the API (B9) the catalog is
+// the marketplace's; org-built (custom) nodes exist on dummy data only.
 
 /** Where a node comes from: the public marketplace, or built by the org. */
 export type NodeSource = 'marketplace' | 'custom'
@@ -8,7 +8,7 @@ export type NodeSource = 'marketplace' | 'custom'
 export interface OrgNode {
   id: string
   name: string
-  /** "AI", "Data", "Messaging", "Payments", "Utilities". */
+  /** The registry's category: "AI", "Data", "Messaging", "Payments"… */
   category: string
   description: string
   /** The installed version, or the latest when not installed: "2.3.0", "4". */
@@ -24,6 +24,3 @@ export interface OrgNode {
   latestVersion: string
   updateAvailable: boolean
 }
-
-/** The category pills on Resources, in the board's order. */
-export const NODE_CATEGORIES = ['AI', 'Data', 'Messaging', 'Payments', 'Utilities'] as const

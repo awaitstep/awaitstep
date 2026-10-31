@@ -96,15 +96,6 @@ export const queries = {
         ...infiniteDefaults,
       }),
   },
-
-  installedNodes: {
-    list: (orgId: string) =>
-      infiniteQueryOptions({
-        queryKey: ['installed-nodes', orgId] as const,
-        queryFn: ({ pageParam }) => api.listInstalledNodes({ cursor: pageParam }),
-        ...infiniteDefaults,
-      }),
-  },
 }
 
 /** Flatten all pages from an infinite query into a single array */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ACME_CRM, ANTHROPIC, RESEND, SLACK } from '../parts/__tests__/fixtures/nodes'
-import { filterNodes, showCounts } from '../node-filter'
+import { filterNodes, nodeCategories, showCounts } from '../node-filter'
 
 const NODES = [ACME_CRM, SLACK, RESEND, ANTHROPIC]
 const ALL = { show: 'all', category: 'All', search: '' } as const
@@ -31,5 +31,16 @@ describe('node filter', () => {
     const found = filterNodes(NODES, { ...ALL, search: '  SLA ' })
     expect(names(found.installed)).toEqual(['Slack'])
     expect(names(found.available)).toEqual([])
+  })
+
+  it('offers the categories the catalog has, A to Z, each once', () => {
+    expect(nodeCategories(NODES)).toEqual(
+      [...new Set(NODES.map((n) => n.category))].sort((a, b) => a.localeCompare(b)),
+    )
+    expect(nodeCategories([{ ...SLACK, category: 'CRM' }, SLACK, ANTHROPIC])).toEqual([
+      'AI',
+      'CRM',
+      'Messaging',
+    ])
   })
 })

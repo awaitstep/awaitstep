@@ -14,6 +14,7 @@ import { LoadedQuery } from '../workspaces/loaded-query'
 import type { VariableRequest } from '../variables/variable-requests'
 import { CustomNodeDialog } from './custom-node-dialog'
 import { NodesTab } from './nodes-tab'
+import { ApiError } from '../../lib/api-client'
 import { OrgVariablesTab } from './org-variables-tab'
 
 export const RESOURCES_TABS = ['nodes', 'variables'] as const
@@ -64,6 +65,13 @@ export function ResourcesPage({
 
   const installedCount = nodes.data?.filter((n) => n.installed).length
 
+  function registryDetail(error: unknown) {
+    // `503`: this instance has no node registry, or can't reach it.
+    return error instanceof ApiError && error.status === 503
+      ? 'This instance can’t reach the node registry. Nodes already installed keep working in the editor.'
+      : undefined
+  }
+
   return (
     <>
       {can.allowed && (
@@ -101,7 +109,7 @@ export function ResourcesPage({
             }
           />
           <TabsContent value="nodes" className="flex flex-col gap-6 pt-0">
-            <LoadedQuery query={nodes} what="nodes" filters>
+            <LoadedQuery query={nodes} what="nodes" filters errorDetail={registryDetail}>
               {(data) => (
                 <NodesTab
                   // Filters belong to one org: switching org starts afresh.

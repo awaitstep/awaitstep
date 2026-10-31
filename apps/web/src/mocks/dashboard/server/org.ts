@@ -331,6 +331,8 @@ function connectionRecord(
     name: row.name,
     accountSuffix: row.accountId.slice(-4),
     addedBy: { id: row.addedBy, name: personById(db, row.addedBy).name },
+    // Dummy tokens are never checked (D-P5-5): a stored one reads as working.
+    tokenStatus: 'active',
     tokenExpiresAt: row.tokenExpiresAt,
     projects:
       row.projects === 'all'
@@ -339,6 +341,8 @@ function connectionRecord(
             .map((id) => db.projects.find((p) => p.id === id))
             .filter((p): p is NonNullable<typeof p> => p !== undefined && visible.has(p.id))
             .map((p) => ({ id: p.id, name: p.name })),
+    hiddenProjects:
+      row.projects === 'all' ? 0 : row.projects.filter((id) => !visible.has(id)).length,
     deployments: { count: row.deployments, lastAt: row.lastDeployAt },
   }
 }
