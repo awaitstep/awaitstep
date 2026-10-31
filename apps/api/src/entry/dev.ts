@@ -1,4 +1,4 @@
-import { recordOrganizationUpdate, recordSignIn } from '../lib/audit.js'
+import { recordAccountEvent, recordOrganizationUpdate, recordSignIn } from '../lib/audit.js'
 import { startMaintenanceLoop } from '../lib/maintenance.js'
 import { serve } from '@hono/node-server'
 import { getConnInfo } from '@hono/node-server/conninfo'
@@ -9,13 +9,14 @@ import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { DrizzleDatabaseAdapter, schema } from '@awaitstep/db'
 import { createApp, createAuth } from '../index.js'
+import { accountProvidersOf, type AuthOptions } from '../auth/config.js'
 import { cleanupLocalDevSessions } from '../routes/local-dev.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
 import { createLogger } from '../lib/logger.js'
 import { clientIpPolicyFromEnv } from '../lib/client-ip.js'
 import { loadNodeRegistry } from '../lib/node-registry-fs.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
-import { ACCESS_REASONS } from '@awaitstep/ir'
+import { ACCESS_REASONS, deleteBlockedReason } from '@awaitstep/ir'
 import { createAppEmails, createEmailService, type EmailService } from '../lib/email.js'
 import { startRunSyncLoop } from '../lib/run-sync.js'
 import { NodeWranglerDeployer, NodeTestSessionRunner } from '@awaitstep/provider-cloudflare'
@@ -76,7 +77,7 @@ async function start() {
     const service = emailService
     sendMagicLink = (data) => service.sendMagicLink(data)
   }
-  const auth = createAuth({
+  const authOptions: AuthOptions = {
     baseURL,
     secret: authSecret ?? crypto.randomUUID(),
     deleteOrganizationProblem: async (organizationId) => {
@@ -85,6 +86,8 @@ async function start() {
     },
     onSessionCreated: (session) => recordSignIn(db, session),
     onOrganizationUpdated: (data) => recordOrganizationUpdate(db, data),
+    deleteUserProblem: async (userId) => deleteBlockedReason(await db.soleOwnedOrgNames(userId)),
+    onAccountEvent: (event) => recordAccountEvent(db, event),
     rateLimit: !isDev,
     database: sqlite,
     trustedOrigins: [...new Set([baseURL, ...corsOrigins])],
@@ -101,7 +104,8 @@ async function start() {
           clientSecret: process.env['GOOGLE_CLIENT_SECRET']!,
         }
       : undefined,
-  })
+  }
+  const auth = createAuth(authOptions)
 
   const betterStackToken = process.env['BETTERSTACK_SOURCE_TOKEN']
   const betterStackEndpoint = process.env['BETTERSTACK_ENDPOINT']
@@ -137,6 +141,7 @@ async function start() {
   })
 
   const app = createApp({
+    accountProviders: accountProvidersOf(authOptions),
     db,
     auth,
     logger,

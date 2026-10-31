@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { eq } from 'drizzle-orm'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { createAuth } from '../auth/config.js'
-import { recordOrganizationUpdate, recordSignIn } from '../lib/audit.js'
+import { handleOAuthUserInfo, linkOAuthAccount } from 'better-auth/oauth2'
+import { createAuth, type AuthOptions } from '../auth/config.js'
+import { deleteBlockedReason } from '@awaitstep/ir'
+import { recordAccountEvent, recordOrganizationUpdate, recordSignIn } from '../lib/audit.js'
 import { createSqliteApp, type SqliteApp } from './sqlite-app.js'
 
 // better-auth itself, on the harness's real database: the organization
@@ -12,7 +14,11 @@ import { createSqliteApp, type SqliteApp } from './sqlite-app.js'
 
 const BASE = 'http://localhost:8080'
 
-function authOn(h: SqliteApp, onMagicLink?: (token: string) => void) {
+function authOn(
+  h: SqliteApp,
+  onMagicLink?: (token: string) => void,
+  extra: Partial<AuthOptions> = {},
+) {
   return createAuth({
     baseURL: BASE,
     secret: 'x'.repeat(40),
@@ -20,7 +26,11 @@ function authOn(h: SqliteApp, onMagicLink?: (token: string) => void) {
     rateLimit: false,
     onSessionCreated: (session) => recordSignIn(h.adapter, session),
     onOrganizationUpdated: (data) => recordOrganizationUpdate(h.adapter, data),
+    deleteUserProblem: async (userId) =>
+      deleteBlockedReason(await h.adapter.soleOwnedOrgNames(userId)),
+    onAccountEvent: (event) => recordAccountEvent(h.adapter, event),
     ...(onMagicLink && { sendMagicLink: async ({ token }) => onMagicLink(token) }),
+    ...extra,
   })
 }
 
@@ -174,6 +184,317 @@ describe('names and organization changes (B7 security review)', () => {
       action: 'changed the settings of',
       target: 'Acme Corp',
       detail: 'URL: acme · Dashboard',
+    })
+  })
+})
+
+describe('your account (B10)', () => {
+  async function seeded() {
+    const h = createSqliteApp()
+    await h.seed.person('u-ama', 'Ama Mensah', 'ama@acme.test')
+    await h.seed.person('u-ben', 'Ben Okoro', 'ben@acme.test')
+    await h.seed.org('org-acme', 'Acme', 'acme')
+    await h.seed.member('u-ama', 'org-acme', 'owner')
+    await h.seed.member('u-ben', 'org-acme', 'admin')
+    return h
+  }
+
+  const events = (h: SqliteApp, organizationId = 'org-acme') =>
+    h.sqlite
+      .prepare(
+        "SELECT event, action, actor_id AS actorId FROM audit_events WHERE organization_id = ? AND event <> 'signin' ORDER BY created_at",
+      )
+      .all(organizationId) as { event: string; action: string; actorId: string }[]
+
+  async function linkGithub(h: SqliteApp, userId: string) {
+    await h.db.insert(h.schema.account).values({
+      id: `a-gh-${userId}`,
+      accountId: `gh-${userId}`,
+      providerId: 'github',
+      userId,
+      createdAt: '2026-10-21T00:00:00.000Z',
+      updatedAt: '2026-10-21T00:00:00.000Z',
+    })
+  }
+
+  describe('delete account', () => {
+    it('refuses the only owner of an organization, even on better-auth’s own path', async () => {
+      const h = await seeded()
+      const { auth, cookie } = await signIn(h, 'ama@acme.test')
+      const res = await auth.handler(post('/delete-user', {}, cookie))
+      expect(res.status).toBe(409)
+      expect((await res.json()).message).toBe("You're the only owner of Acme")
+      expect(await h.adapter.getOrgRole('org-acme', 'u-ama')).toBe('owner')
+      expect(events(h)).toEqual([])
+    })
+
+    it('deletes someone who owns nothing alone, records it first and drops their memberships', async () => {
+      const h = await seeded()
+      const { auth, cookie } = await signIn(h, 'ben@acme.test')
+      const res = await auth.handler(post('/delete-user', {}, cookie))
+      expect(res.status).toBe(200)
+      expect(await h.adapter.getOrgRole('org-acme', 'u-ben')).toBeNull()
+      expect(events(h)).toEqual([{ event: 'account.delete', action: 'deleted', actorId: 'u-ben' }])
+    })
+
+    it('records a deletion as the deletion, not as its providers going', async () => {
+      const h = await seeded()
+      await linkGithub(h, 'u-ben')
+      const { auth, cookie } = await signIn(h, 'ben@acme.test')
+      expect((await auth.handler(post('/delete-user', {}, cookie))).status).toBe(200)
+      expect(events(h).map((e) => e.event)).toEqual(['account.delete'])
+    })
+
+    it('asks for a fresh sign-in when the session is older than a day', async () => {
+      const h = await seeded()
+      const { auth, cookie } = await signIn(h, 'ben@acme.test')
+      h.sqlite.prepare("UPDATE session SET createdAt = '2026-01-01T00:00:00.000Z'").run()
+      const res = await auth.handler(post('/delete-user', {}, cookie))
+      expect(res.status).toBe(400)
+      expect(await h.adapter.getOrgRole('org-acme', 'u-ben')).toBe('admin')
+    })
+
+    it('closes the deletion callback: nothing mails a deletion link', async () => {
+      const h = await seeded()
+      const res = await authOn(h).handler(
+        new Request(`${BASE}/api/auth/delete-user/callback?token=x`),
+      )
+      expect(res.status).toBe(403)
+    })
+  })
+
+  describe('profile', () => {
+    it('stores an uploaded photo and refuses anything that isn’t a small image', async () => {
+      const h = await seeded()
+      const { auth, cookie } = await signIn(h, 'ama@acme.test')
+      const update = (image: unknown) => auth.handler(post('/update-user', { image }, cookie))
+      expect((await update('data:image/webp;base64,UklGRg==')).status).toBe(200)
+      expect((await update('https://example.test/a.png')).status).toBe(400)
+      expect((await update('data:text/html;base64,PGgxPg==')).status).toBe(400)
+      // An SVG may be a logo, never a photo.
+      expect((await update('data:image/svg+xml;base64,PHN2Zz4=')).status).toBe(400)
+      const big = `data:image/png;base64,${'A'.repeat(Math.ceil((512 * 1024 * 4) / 3) + 8)}`
+      const tooBig = await update(big)
+      expect(tooBig.status).toBe(400)
+      expect((await tooBig.json()).message).toMatch(/512 KB/)
+      expect((await update(null)).status).toBe(200)
+    })
+
+    it('refuses a name that isn’t text, or is empty once cleaned', async () => {
+      const h = await seeded()
+      const { auth, cookie } = await signIn(h, 'ama@acme.test')
+      for (const name of [null, {}, ['x'], 42, '  ', '\u202e']) {
+        const res = await auth.handler(post('/update-user', { name }, cookie))
+        expect(res.status, JSON.stringify(name)).toBe(400)
+      }
+      expect((await h.adapter.getAccount('u-ama'))?.person.name).toBe('Ama Mensah')
+    })
+
+    it('never changes an email address, through any path', async () => {
+      const h = await seeded()
+      const { auth, cookie } = await signIn(h, 'ama@acme.test')
+      expect((await auth.handler(post('/update-user', { email: 'x@y.test' }, cookie))).status).toBe(
+        400,
+      )
+      const change = await auth.handler(post('/change-email', { newEmail: 'x@y.test' }, cookie))
+      expect(change.status).toBeGreaterThanOrEqual(400)
+      const context = await auth.$context
+      await expect(
+        context.internalAdapter.updateUser('u-ama', { email: 'x@y.test' }),
+      ).rejects.toThrow(/can't be changed/)
+      expect(await h.adapter.getAccount('u-ama')).toMatchObject({
+        person: { email: 'ama@acme.test' },
+      })
+    })
+
+    it('checks an organization logo as it checks a photo', async () => {
+      const h = await seeded()
+      await expect(
+        authOn(h).api.createOrganization({
+          body: { name: 'Logo', slug: 'logo', userId: 'u-ama', logo: 'https://example.test/x.png' },
+        }),
+      ).rejects.toThrow(/PNG, JPEG, SVG or WebP/)
+      const big = `data:image/png;base64,${'A'.repeat(Math.ceil((200 * 1024 * 4) / 3) + 8)}`
+      await expect(
+        authOn(h).api.createOrganization({
+          body: { name: 'Logo', slug: 'logo', userId: 'u-ama', logo: big },
+        }),
+      ).rejects.toThrow(/200 KB/)
+      const svg = await authOn(h).api.createOrganization({
+        body: {
+          name: 'Svg',
+          slug: 'svg',
+          userId: 'u-ama',
+          logo: 'data:image/svg+xml;base64,PHN2Zz4=',
+        },
+      })
+      expect(svg?.slug).toBe('svg')
+    })
+  })
+
+  describe('sessions', () => {
+    it('answers the session without its bearer token', async () => {
+      const h = await seeded()
+      const { auth, cookie } = await signIn(h, 'ama@acme.test')
+      const res = await auth.handler(
+        new Request(`${BASE}/api/auth/get-session`, { headers: { cookie } }),
+      )
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.session.id).toEqual(expect.any(String))
+      expect(body.session).not.toHaveProperty('token')
+      expect(body.user.email).toBe('ama@acme.test')
+      const info = await auth.handler(
+        new Request(`${BASE}/api/auth/account-info?accountId=x`, { headers: { cookie } }),
+      )
+      expect(info.status).toBe(403)
+    })
+
+    it('closes better-auth’s session routes, which deal in bearer tokens', async () => {
+      const h = await seeded()
+      const { auth, cookie } = await signIn(h, 'ama@acme.test')
+      const list = await auth.handler(
+        new Request(`${BASE}/api/auth/list-sessions`, { headers: { cookie } }),
+      )
+      expect(list.status).toBe(403)
+      expect((await list.json()).message).toMatch(/\/api\/account/)
+      for (const path of [
+        '/revoke-session',
+        '/revoke-sessions',
+        '/revoke-other-sessions',
+        '/update-session',
+        '/get-access-token',
+        '/refresh-token',
+      ]) {
+        const res = await auth.handler(post(path, { token: 'x' }, cookie))
+        expect(res.status, path).toBe(403)
+      }
+    })
+  })
+
+  describe('sign-in methods', () => {
+    const google = (email: string, emailVerified: boolean) => ({
+      userInfo: { id: 'g-123', email, emailVerified, name: 'Ama' },
+      account: { providerId: 'google', accountId: 'g-123' },
+      profile: {},
+    })
+
+    it('joins Google from Connect only with the account’s own verified address', async () => {
+      const h = await seeded()
+      const c = { context: await authOn(h).$context }
+      const link = { userId: 'u-ama', email: 'ama@acme.test' }
+      const other = await linkOAuthAccount(c as never, { link, ...google('ama@other.test', true) })
+      expect(other).toMatchObject({
+        linked: false,
+        error: { code: expect.stringMatching(/email/i) },
+      })
+      const unverified = await linkOAuthAccount(c as never, {
+        link,
+        ...google('ama@acme.test', false),
+      })
+      expect(unverified).toMatchObject({ linked: false })
+      expect((await h.adapter.getAccount('u-ama'))?.providers).toEqual([])
+      const same = await linkOAuthAccount(c as never, { link, ...google('AMA@acme.test', true) })
+      expect(same).toMatchObject({ linked: true })
+      expect((await h.adapter.getAccount('u-ama'))?.providers.map((p) => p.providerId)).toEqual([
+        'google',
+      ])
+    })
+
+    it('joins Google at sign-in to the account with that verified address, never an unverified one', async () => {
+      const h = await seeded()
+      const c = { context: await authOn(h).$context }
+      const refused = await handleOAuthUserInfo(c as never, {
+        ...google('ama@acme.test', false),
+        callbackURL: '/',
+      })
+      expect(refused).toMatchObject({ error: 'account not linked' })
+      const signedIn = await handleOAuthUserInfo(c as never, {
+        ...google('ama@acme.test', true),
+        callbackURL: '/',
+      })
+      expect(signedIn.data?.user.id).toBe('u-ama')
+      expect((await h.adapter.getAccount('u-ama'))?.providers.map((p) => p.providerId)).toEqual([
+        'google',
+      ])
+    })
+
+    it('asks for a fresh sign-in before a disconnect, as before a delete', async () => {
+      const h = await seeded()
+      await linkGithub(h, 'u-ama')
+      const { auth, cookie } = await signIn(h, 'ama@acme.test')
+      h.sqlite.prepare("UPDATE session SET createdAt = '2026-01-01T00:00:00.000Z'").run()
+      const res = await auth.handler(post('/unlink-account', { accountId: 'a-gh-u-ama' }, cookie))
+      expect(res.status).toBe(403)
+      expect((await res.json()).code).toBe('SESSION_NOT_FRESH')
+    })
+
+    it('never counts a provider the instance turned off as the way in that stays', async () => {
+      const h = await seeded()
+      await linkGithub(h, 'u-ama')
+      await h.db.insert(h.schema.account).values({
+        id: 'a-go-u-ama',
+        accountId: 'go-u-ama',
+        providerId: 'google',
+        userId: 'u-ama',
+        createdAt: '2026-10-21T00:00:00.000Z',
+        updatedAt: '2026-10-21T00:00:00.000Z',
+      })
+      const { cookie } = await signIn(h, 'ama@acme.test')
+      // No email links, GitHub turned off: Google is the only way in that works.
+      const googleOnly = authOn(h, undefined, { google: { clientId: 'g', clientSecret: 's' } })
+      const res = await googleOnly.handler(
+        post('/unlink-account', { accountId: 'a-go-u-ama' }, cookie),
+      )
+      expect(res.status).toBe(400)
+      expect((await res.json()).message).toMatch(/only way to sign in/)
+      // The turned-off GitHub may go: Google still signs in.
+      const gh = await googleOnly.handler(
+        post('/unlink-account', { accountId: 'a-gh-u-ama' }, cookie),
+      )
+      expect(gh.status).toBe(200)
+    })
+
+    it('lets the last provider go while email links sign in, and audits it', async () => {
+      const h = await seeded()
+      await linkGithub(h, 'u-ama')
+      const { auth, cookie } = await signIn(h, 'ama@acme.test')
+      const res = await auth.handler(post('/unlink-account', { accountId: 'a-gh-u-ama' }, cookie))
+      expect(res.status).toBe(200)
+      expect(await h.adapter.getAccount('u-ama')).toMatchObject({ providers: [] })
+      expect(events(h)).toEqual([
+        {
+          event: 'account.method_disconnect',
+          action: 'disconnected GitHub from',
+          actorId: 'u-ama',
+        },
+      ])
+    })
+
+    it('keeps the last provider when the instance sends no email links', async () => {
+      const h = await seeded()
+      await linkGithub(h, 'u-ama')
+      const { cookie } = await signIn(h, 'ama@acme.test')
+      const withoutLinks = authOn(h)
+      const res = await withoutLinks.handler(
+        post('/unlink-account', { accountId: 'a-gh-u-ama' }, cookie),
+      )
+      expect(res.status).toBe(400)
+      expect((await h.adapter.getAccount('u-ama'))?.providers).toHaveLength(1)
+      expect(events(h)).toEqual([])
+    })
+
+    it('audits a provider joining an account', async () => {
+      const h = await seeded()
+      const context = await authOn(h).$context
+      await context.internalAdapter.linkAccount({
+        userId: 'u-ama',
+        providerId: 'google',
+        accountId: 'g-1',
+      })
+      expect(events(h)).toEqual([
+        { event: 'account.method_connect', action: 'connected Google to', actorId: 'u-ama' },
+      ])
     })
   })
 })

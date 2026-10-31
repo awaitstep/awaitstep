@@ -5,7 +5,14 @@ import type { TestSessionRunner } from '@awaitstep/codegen'
 import type { TestSessionLimits } from './lib/test-session-policy.js'
 import type { AppNodeRegistry } from './lib/node-registry.js'
 import type { RemoteNodeRegistry } from './lib/remote-node-registry.js'
-import type { KeyLevel, KeyPermissions, OrgRole, ProjectRole, WorkspaceRole } from '@awaitstep/ir'
+import type {
+  AccountProviders,
+  KeyLevel,
+  KeyPermissions,
+  OrgRole,
+  ProjectRole,
+  WorkspaceRole,
+} from '@awaitstep/ir'
 
 /**
  * The calling API key, as auth resolved it (B3): its level, the grid it
@@ -123,6 +130,8 @@ export interface AppEnv {
     nodeRegistry: AppNodeRegistry
     remoteNodeRegistry: RemoteNodeRegistry | undefined
     appName: string | undefined
+    /** Which ways in the instance turns on, for Your account (B10). */
+    accountProviders: AccountProviders | undefined
     deployer: WranglerDeployer | undefined
     testSessionRunner: TestSessionRunner | undefined
     testSessionLimits: TestSessionLimits

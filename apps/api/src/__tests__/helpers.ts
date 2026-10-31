@@ -23,6 +23,7 @@ import type {
   ProjectOverview,
   WorkspaceRunRow,
   AuditEventInsert,
+  PersonAuditInsert,
   NotificationInsert,
 } from '@awaitstep/db'
 import type {
@@ -51,6 +52,7 @@ const store = {
   installedNodes: new Map<string, InstalledNode>(),
   envVars: new Map<string, EnvVar>(),
   auditEvents: [] as AuditEventInsert[],
+  personAuditEvents: [] as PersonAuditInsert[],
   notifications: [] as NotificationInsert[],
 }
 
@@ -72,6 +74,7 @@ export function resetStore() {
   seedTestProject()
   store.envVars.clear()
   store.auditEvents.length = 0
+  store.personAuditEvents.length = 0
   store.notifications.length = 0
 }
 
@@ -248,7 +251,7 @@ const mockDb: DatabaseAdapter = {
   },
   async getOrganizationIfMember(userId, ref) {
     if (!memberOfTestOrg(userId) || !isTestOrg(ref)) return null
-    return { id: TEST_ORG_ID, slug: TEST_ORG_SLUG, role: testOrgRole }
+    return { id: TEST_ORG_ID, slug: TEST_ORG_SLUG, name: 'Test Org', role: testOrgRole }
   },
   async getProjectIfMember(userId, ref, workspace) {
     const project =
@@ -691,7 +694,29 @@ const mockDb: DatabaseAdapter = {
   async insertAuditEvents(rows) {
     store.auditEvents.push(...rows)
   },
-  async insertSignInAuditEvents() {},
+  async insertPersonAuditEvents(entry) {
+    store.personAuditEvents.push(entry)
+  },
+  // Your account (B10) runs through the real database in packages/db; a
+  // route test spies on the read it needs.
+  async getAccount() {
+    return notMocked('getAccount')
+  },
+  async soleOwnedOrgNames() {
+    return []
+  },
+  async listAccountSessions() {
+    return notMocked('listAccountSessions')
+  },
+  async revokeAccountSession() {
+    return notMocked('revokeAccountSession')
+  },
+  async revokeOtherAccountSessions() {
+    return notMocked('revokeOtherAccountSessions')
+  },
+  async exportAccount() {
+    return notMocked('exportAccount')
+  },
   async listAuditEvents() {
     return notMocked('listAuditEvents')
   },
@@ -1764,6 +1789,11 @@ export function createTestApp(options?: {
 /** What the routes sent to the fake's Inbox, oldest first. */
 export function sentNotifications(): readonly NotificationInsert[] {
   return store.notifications
+}
+
+/** The person-wide events (sign-ins, account changes) the routes wrote, oldest first. */
+export function recordedPersonAuditEvents(): readonly PersonAuditInsert[] {
+  return store.personAuditEvents
 }
 
 /** What the routes recorded in the fake's audit log, oldest first. */

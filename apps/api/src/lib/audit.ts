@@ -12,6 +12,7 @@ import {
 } from '@awaitstep/ir'
 import type { AuditEventInsert, DatabaseAdapter } from '@awaitstep/db'
 import type { AppEnv } from '../types.js'
+import type { AccountEvent } from '../auth/config.js'
 import { createLogger } from './logger.js'
 
 const log = createLogger('audit')
@@ -124,7 +125,7 @@ export async function recordSignIn(
   const ip = maskIp(session.ipAddress)
   const rendered = renderAuditEvent('signin', { name: '' }, { ip })
   try {
-    await db.insertSignInAuditEvents({
+    await db.insertPersonAuditEvents({
       idPrefix: `signin_${session.id}`,
       userId: session.userId,
       event: 'signin',
@@ -185,6 +186,66 @@ export async function recordOrganizationUpdate(
     ])
   } catch (err) {
     log.error('Failed to record an organization update', {
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
+}
+
+/**
+ * A change to the person's own account, in the log of every organization
+ * they are in — called from better-auth's hooks, so it never fails the
+ * change. Deletion is recorded just before, while the memberships remain.
+ */
+export async function recordAccountEvent(db: DatabaseAdapter, event: AccountEvent): Promise<void> {
+  const facts = { name: '', provider: event.provider }
+  const ip = maskIp(event.ip)
+  const rendered = renderAuditEvent(event.event, facts, { via: 'Dashboard', ip })
+  try {
+    await db.insertPersonAuditEvents({
+      idPrefix: `${event.event}_${nanoid()}`,
+      userId: event.userId,
+      event: event.event,
+      kind: rendered.kind,
+      action: rendered.action,
+      target: rendered.target,
+      detail: rendered.detail,
+      meta: JSON.stringify(event.provider ? { provider: event.provider } : {}),
+      ip,
+      createdAt: new Date().toISOString(),
+    })
+  } catch (err) {
+    log.error('Failed to record an account change', {
+      event: event.event,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
+}
+
+/** A request's own account event (sessions signed out, a download), in each of the person's orgs. */
+export async function recordPersonAudit(
+  c: Context<AppEnv>,
+  event: 'session.revoke' | 'account.export',
+  facts: AuditFacts,
+): Promise<void> {
+  const ip = maskIp(c.get('clientIp'))
+  const rendered = renderAuditEvent(event, facts, { via: 'Dashboard', ip })
+  try {
+    await c.get('db').insertPersonAuditEvents({
+      idPrefix: `${event}_${nanoid()}`,
+      userId: c.get('userId'),
+      event,
+      kind: rendered.kind,
+      action: rendered.action,
+      target: rendered.target,
+      detail: rendered.detail,
+      meta: JSON.stringify(facts),
+      ip,
+      createdAt: new Date().toISOString(),
+    })
+  } catch (err) {
+    log.error('Failed to record an account change', {
+      event,
+      requestId: c.get('requestId'),
       error: err instanceof Error ? err.message : String(err),
     })
   }

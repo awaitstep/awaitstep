@@ -13,6 +13,7 @@ import type { AppNodeRegistry } from './lib/node-registry.js'
 import type { RemoteNodeRegistry } from './lib/remote-node-registry.js'
 import type { WranglerDeployer } from '@awaitstep/provider-cloudflare'
 import type { TestSessionRunner } from '@awaitstep/codegen'
+import type { AccountProviders } from '@awaitstep/ir'
 import type { TestSessionLimits } from './lib/test-session-policy.js'
 import { createLogger } from './lib/logger.js'
 import { createRouter } from './routes/index.js'
@@ -62,6 +63,8 @@ export interface AppDeps {
    * one when there is no mail service, as they do for magic links.
    */
   emails?: AppEmails
+  /** Which ways in the instance turns on (`accountProvidersOf` the auth options). */
+  accountProviders?: AccountProviders
 }
 
 export function createApp(deps: AppDeps) {
@@ -162,6 +165,7 @@ export function createApp(deps: AppDeps) {
     if (deps.nodeRegistry) c.set('nodeRegistry', deps.nodeRegistry)
     if (deps.remoteNodeRegistry) c.set('remoteNodeRegistry', deps.remoteNodeRegistry)
     if (deps.appName) c.set('appName', deps.appName)
+    c.set('accountProviders', deps.accountProviders)
     if (deps.deployer) c.set('deployer', deps.deployer)
     if (deps.testSessionRunner) c.set('testSessionRunner', deps.testSessionRunner)
     c.set('testSessionLimits', resolvedTestSessionLimits)

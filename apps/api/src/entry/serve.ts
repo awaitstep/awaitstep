@@ -1,4 +1,4 @@
-import { recordOrganizationUpdate, recordSignIn } from '../lib/audit.js'
+import { recordAccountEvent, recordOrganizationUpdate, recordSignIn } from '../lib/audit.js'
 import { startMaintenanceLoop } from '../lib/maintenance.js'
 import { serve } from '@hono/node-server'
 import { getConnInfo } from '@hono/node-server/conninfo'
@@ -9,6 +9,7 @@ import { randomBytes } from 'node:crypto'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { DrizzleDatabaseAdapter, schema } from '@awaitstep/db'
 import { createApp, createAuth } from '../index.js'
+import { accountProvidersOf, type AuthOptions } from '../auth/config.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
 import { createLogger } from '../lib/logger.js'
 import {
@@ -20,7 +21,7 @@ import {
 } from '../lib/client-ip.js'
 import { loadNodeRegistry } from '../lib/node-registry-fs.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
-import { ACCESS_REASONS } from '@awaitstep/ir'
+import { ACCESS_REASONS, deleteBlockedReason } from '@awaitstep/ir'
 import { createAppEmails, createEmailService, type EmailService } from '../lib/email.js'
 import { startRunSyncLoop } from '../lib/run-sync.js'
 import {
@@ -137,7 +138,7 @@ async function start() {
     log: (message) => logger.warn(message),
   })
 
-  const auth = createAuth({
+  const authOptions: AuthOptions = {
     baseURL,
     secret: authSecret,
     deleteOrganizationProblem: async (organizationId) => {
@@ -146,6 +147,8 @@ async function start() {
     },
     onSessionCreated: (session) => recordSignIn(db, session),
     onOrganizationUpdated: (data) => recordOrganizationUpdate(db, data),
+    deleteUserProblem: async (userId) => deleteBlockedReason(await db.soleOwnedOrgNames(userId)),
+    onAccountEvent: (event) => recordAccountEvent(db, event),
     // Through drizzle, not the raw handle. Better-auth's own dialects map a
     // field to a column of the same name, and the postgres schema names
     // columns `email_verified`, `expires_at`, `user_id` — so every insert it
@@ -168,7 +171,8 @@ async function start() {
           clientSecret: process.env['GOOGLE_CLIENT_SECRET']!,
         }
       : undefined,
-  })
+  }
+  const auth = createAuth(authOptions)
 
   const registryPath = resolve(__appRoot, 'nodes/registry.json')
   let nodeRegistry
@@ -204,6 +208,7 @@ async function start() {
   const webHopPolicy = compileClientIpPolicy(externalProxy)
 
   const apiApp = createApp({
+    accountProviders: accountProvidersOf(authOptions),
     db,
     auth,
     logger,

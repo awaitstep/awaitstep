@@ -1,13 +1,14 @@
-import { recordOrganizationUpdate, recordSignIn } from '../lib/audit.js'
+import { recordAccountEvent, recordOrganizationUpdate, recordSignIn } from '../lib/audit.js'
 import { runMaintenance } from '../lib/maintenance.js'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { createD1DatabaseAdapter, createD1DrizzleDb, sqliteSchema } from '@awaitstep/db/d1'
 import { createApp, createAuth } from '../index.js'
+import { accountProvidersOf, type AuthOptions } from '../auth/config.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
 import { createLogger } from '../lib/logger.js'
 import { buildNodeRegistry, type RegistryFile } from '../lib/node-registry.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
-import { ACCESS_REASONS } from '@awaitstep/ir'
+import { ACCESS_REASONS, deleteBlockedReason } from '@awaitstep/ir'
 import { createAppEmails, createEmailService, type EmailService } from '../lib/email.js'
 import { syncActiveRuns } from '../lib/run-sync.js'
 import { SandboxWranglerDeployer, SandboxTestSessionRunner } from '@awaitstep/provider-cloudflare'
@@ -98,7 +99,7 @@ async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof cr
 
   const { emails, sendMagicLink } = workerEmails(env, baseURL, logger)
 
-  const auth = createAuth({
+  const authOptions: AuthOptions = {
     baseURL,
     secret: env.BETTER_AUTH_SECRET,
     deleteOrganizationProblem: async (organizationId) => {
@@ -107,6 +108,8 @@ async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof cr
     },
     onSessionCreated: (session) => recordSignIn(db, session),
     onOrganizationUpdated: (data) => recordOrganizationUpdate(db, data),
+    deleteUserProblem: async (userId) => deleteBlockedReason(await db.soleOwnedOrgNames(userId)),
+    onAccountEvent: (event) => recordAccountEvent(db, event),
     database: drizzleAdapter(drizzleDb, { provider: 'sqlite', schema: sqliteSchema }),
     trustedOrigins: [baseURL, ...(env.CORS_ORIGIN ? [env.CORS_ORIGIN] : [])],
     sendMagicLink,
@@ -116,7 +119,8 @@ async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof cr
     google: env.GOOGLE_CLIENT_ID
       ? { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET! }
       : undefined,
-  })
+  }
+  const auth = createAuth(authOptions)
 
   const nodeRegistry = buildNodeRegistry(registryData as unknown as RegistryFile)
   const registryUrl = env.REGISTRY_URL ?? DEFAULT_REGISTRY_URL
@@ -138,6 +142,7 @@ async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof cr
   const sessionSleepAfter = containerSleepAfter(resolveTestSessionLimits(testSessionLimits))
 
   return createApp({
+    accountProviders: accountProvidersOf(authOptions),
     db,
     auth,
     logger,

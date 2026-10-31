@@ -127,16 +127,14 @@ members.delete('/:userId', async (c) => {
   const isOwner = parseOrgRole(current.role) === 'owner'
   const callerIsOwner = c.get('orgRole') === 'owner'
   if (isOwner && !callerIsOwner) return c.json({ error: OWNERS_ONLY }, 403)
-  await db.removeOrgMember(organizationId, userId, { callerIsOwner })
-  // The refusals the unit makes — the only owner, or an owner met by an
-  // admin — are read back only when they could have happened.
-  if (!callerIsOwner || isOwner) {
+  // The unit refuses the only owner, or an owner met by an admin, in its
+  // WHERE; which one is read back only when it did not remove them.
+  if (!(await db.removeOrgMember(organizationId, userId, { callerIsOwner }))) {
     const after = await db.getOrgRole(organizationId, userId)
-    if (after !== null) {
-      return parseOrgRole(after) === 'owner' && !callerIsOwner
-        ? c.json({ error: OWNERS_ONLY }, 403)
-        : c.json({ error: KEEP_AN_OWNER }, 409)
-    }
+    if (after === null) return c.json({ error: 'Not found' }, 404)
+    return parseOrgRole(after) === 'owner' && !callerIsOwner
+      ? c.json({ error: OWNERS_ONLY }, 403)
+      : c.json({ error: KEEP_AN_OWNER }, 409)
   }
   await recordAudit(c, { event: 'member.remove', facts: { name: current.name ?? userId } })
   return c.json({ ok: true })

@@ -42,6 +42,8 @@ function sessionOnly(method: string, path: string): boolean {
   if (/^\/api\/(members\/:userId|invitations|me\/|access-requests|api-keys)/.test(path)) return true
   // A person's Inbox and What's new visit (B8).
   if (/^\/api\/(notifications|releases)/.test(path)) return true
+  // Your account: the person's own rows (B10).
+  if (/^\/api\/account(\/|$)/.test(path)) return true
   if (path === '/api/scope' || path === '/api/orgs' || path === '/api/failing') return true
   if (/^\/api\/workspaces\/:id\/access-request/.test(path)) return true
   if (/^\/api\/workspaces\/:id\/members/.test(path)) return method !== 'GET'
@@ -232,6 +234,7 @@ describe('mutation route guards', () => {
       !path.startsWith('/api/access-requests') &&
       !path.startsWith('/api/notifications') &&
       !path.startsWith('/api/releases') &&
+      !path.startsWith('/api/account') &&
       !path.startsWith('/api/projects/:id/move') &&
       !path.startsWith('/api/projects/:id/lock')
     expect(await refusals(ORG_READ_KEY, orgLevel, /lacks permission/)).toEqual([])

@@ -3,7 +3,7 @@ import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { DrizzleDatabaseAdapter, schema } from '@awaitstep/db'
-import { createApp } from '../app.js'
+import { createApp, type AppDeps } from '../app.js'
 import { hashApiKey } from '../lib/api-key-hash.js'
 import type { Auth } from '../auth/config.js'
 import type {
@@ -30,7 +30,9 @@ export interface TestPerson {
 
 const sqliteSchema = schema.sqlite
 
-export function createSqliteApp(options: { enableLocalDev?: boolean } = {}) {
+export function createSqliteApp(
+  options: Pick<AppDeps, 'enableLocalDev' | 'accountProviders'> = {},
+) {
   const sqlite = new Database(':memory:')
   sqlite.pragma('foreign_keys = ON')
   const db = drizzle(sqlite, { schema: sqliteSchema })

@@ -49,6 +49,7 @@ import { members, workspaceMembers } from './members.js'
 import { invitations, myInvitations } from './invitations.js'
 import { accessRequests, workspaceAccessRequests } from './access-requests.js'
 import { runsQuerySchema, workspaceRunFilter } from './runs-query.js'
+import { account } from './account.js'
 
 export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean }) {
   const router = new Hono<AppEnv>()
@@ -140,6 +141,8 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   // The dashboard's own reads answer for a person: session only.
   router.use('/scope', requireSessionAuth)
   router.use('/orgs', requireSessionAuth)
+  // Your account (B10) is the person's alone: no key reads or changes it.
+  router.use('/account/*', requireSessionAuth)
 
   // What each role may do, from the capability tables in @awaitstep/ir —
   // the same answer the dashboard's disabled buttons give. After the scope
@@ -375,6 +378,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   const deployLimit = createRateLimiter({ windowMs: 60_000, max: 10, keyGenerator: userKey })
   const apiKeyCreateLimit = createRateLimiter({ windowMs: 60_000, max: 5, keyGenerator: userKey })
   const marketplaceLimit = createRateLimiter({ windowMs: 60_000, max: 10, keyGenerator: userKey })
+  const exportLimit = createRateLimiter({ windowMs: 60 * 60_000, max: 10, keyGenerator: userKey })
   // Every invitation sends an email to whatever address it names: requests
   // are limited here, and the emails themselves are budgeted per person in
   // the route (one request may name twenty addresses).
@@ -385,6 +389,10 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
     await next()
   })
 
+  router.post('/account/orgs/:orgId/leave', writeLimit)
+  router.delete('/account/sessions', writeLimit)
+  router.delete('/account/sessions/:id', writeLimit)
+  router.post('/account/export', exportLimit)
   router.post('/projects', writeLimit)
   router.patch('/projects/:id', writeLimit)
   router.delete('/projects/:id', writeLimit)
@@ -487,6 +495,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.route('/audit-events', audit)
   router.route('/notifications', notifications)
   router.route('/releases', releases)
+  router.route('/account', account)
 
   // Global deployments list (across all project's workflows)
   router.get('/deployments', zValidator('query', paginationQuerySchema), async (c) => {
