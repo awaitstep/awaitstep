@@ -133,13 +133,15 @@ describe('asking for a new invite', () => {
 })
 
 describe('my invites', () => {
-  it('lists Daniel’s open ones only, for Choose an organization', async () => {
+  it('lists Daniel’s open ones only, with where each leads, for Waiting for you', async () => {
     expect(await invites.listMyInvites(daniel)).toEqual([
       {
         token: 'inv_globex_daniel',
         org: { name: 'Globex', initial: 'G' },
         invitedBy: 'Lena Ortiz',
         orgRole: 'member',
+        place: { kind: 'workspace', name: 'Default', projectName: 'Globex Ops', role: 'editor' },
+        expiresAt: expect.any(String),
       },
     ])
     expect(await invites.listMyInvites(as(AMA))).toEqual([])

@@ -1,7 +1,7 @@
 import type { Lock, LockState } from '../../../types/dashboard/locks'
 import type { Project } from '../../../types/dashboard/projects'
 import type { OrgScope, ProjectScope, WorkspaceScope } from '../../../types/dashboard/scope'
-import type { OrgSummary, Person } from '../../../types/dashboard/session'
+import type { OrgListing, OrgSummary, Person } from '../../../types/dashboard/session'
 import type { Workspace } from '../../../types/dashboard/workspaces'
 import {
   canSeeProject,
@@ -135,6 +135,48 @@ export function projectRecord(db: MockDb, ctx: MockContext, row: ProjectRow): Pr
     workspaces: workspaces.map((w) => ({ id: w.id, slug: w.slug, name: w.name, colour: w.colour })),
     people: [...people.values()],
     lock: { own: lockRecord(db, row.lock), inherited: null },
+    health,
+  }
+}
+
+/** The org on the viewer's list: its summary, their own grants, and the health of what they open. */
+export function orgListingRecord(db: MockDb, ctx: MockContext, row: OrgRow): OrgListing {
+  const summary = orgRecord(db, ctx, row)
+  const projects = db.projects.filter((p) => p.orgId === row.id)
+  const admin = summary.role === 'owner' || summary.role === 'admin'
+  const health = { failing: 0, lastRunAt: null as string | null }
+  for (const project of projects.filter((p) => canSeeProject(db, ctx, p))) {
+    const own = projectRecord(db, ctx, project).health
+    health.failing += own.failing
+    if (own.lastRunAt && (!health.lastRunAt || own.lastRunAt > health.lastRunAt)) {
+      health.lastRunAt = own.lastRunAt
+    }
+  }
+  return {
+    ...summary,
+    grants: {
+      projects: admin
+        ? []
+        : db.projectMembers
+            .filter((m) => m.userId === ctx.userId)
+            .flatMap((m) => {
+              const project = projects.find((p) => p.id === m.projectId)
+              return project ? [{ name: project.name, role: m.role }] : []
+            }),
+      workspaces: admin
+        ? []
+        : db.workspaceMembers
+            .filter((m) => m.userId === ctx.userId)
+            .flatMap((m) => {
+              const workspace = db.workspaces.find((w) => w.id === m.workspaceId)
+              const project = workspace && projects.find((p) => p.id === workspace.projectId)
+              // The role they work as there, as the API reads it.
+              const role = workspace && project && workspaceRoleOf(db, ctx, project, workspace)
+              return workspace && project && role
+                ? [{ name: workspace.name, projectName: project.name, role }]
+                : []
+            }),
+    },
     health,
   }
 }

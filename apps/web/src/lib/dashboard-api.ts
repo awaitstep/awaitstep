@@ -132,6 +132,7 @@ export interface ApiPendingInvite {
   org: { name: string; slug: string; logo: string | null }
   invitedBy: string
   orgRole: OrgRole
+  place: ApiInviteDetails['place']
   expiresAt: string
 }
 
@@ -159,6 +160,15 @@ export interface ApiOrg {
   projectCount: number
   memberCount: number
   viewerCan: ApiCapabilities<OrgCapability>
+}
+
+/** One org on the session's list (`GET /orgs`): its own grants and health beside the record. */
+export interface ApiOrgListing extends ApiOrg {
+  grants: {
+    projects: { name: string; role: ProjectRole }[]
+    workspaces: { name: string; projectName: string; role: WorkspaceRole }[]
+  }
+  health: { failing: number; lastRunAt: string | null }
 }
 
 export interface ApiWorkspaceChip {
@@ -440,7 +450,7 @@ export const dashboardApi = {
     return request(`/scope${query(slugs)}`)
   },
 
-  listOrgs(): Promise<{ data: ApiOrg[] }> {
+  listOrgs(): Promise<{ data: ApiOrgListing[] }> {
     return request('/orgs')
   },
 

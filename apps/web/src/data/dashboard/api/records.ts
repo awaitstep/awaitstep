@@ -1,6 +1,7 @@
 import type {
   ApiLock,
   ApiOrg,
+  ApiOrgListing,
   ApiProject,
   ApiProjectRow,
   ApiScope,
@@ -12,7 +13,7 @@ import { initialOf, initialsOf } from '../../../lib/initials'
 import type { LockState } from '../../../types/dashboard/locks'
 import type { Project } from '../../../types/dashboard/projects'
 import type { ScopeLookup } from '../../../types/dashboard/scope'
-import type { OrgSummary, Person } from '../../../types/dashboard/session'
+import type { OrgListing, OrgSummary, Person } from '../../../types/dashboard/session'
 import type { Workspace, WorkspacePerson } from '../../../types/dashboard/workspaces'
 import { toWorkspacePerson } from './access'
 
@@ -35,7 +36,7 @@ export function toPerson(member: {
   }
 }
 
-export function toOrgSummary(org: ApiOrg): OrgSummary {
+export function toOrgSummary(org: ApiOrg, lastOpenedAt: string | null = null): OrgSummary {
   return {
     id: org.id,
     slug: org.slug,
@@ -46,9 +47,14 @@ export function toOrgSummary(org: ApiOrg): OrgSummary {
     role: org.role,
     projectCount: org.projectCount,
     memberCount: org.memberCount,
-    // Not tracked by the API; the dashboard remembers the last org itself.
-    lastOpenedAt: null,
+    // Not tracked by the API: this browser remembers when it opened each org.
+    lastOpenedAt,
   }
+}
+
+/** An org on the session's list, with when this browser last opened it (D-DB-1). */
+export function toOrgListing(org: ApiOrgListing, lastOpenedAt: string | null): OrgListing {
+  return { ...toOrgSummary(org, lastOpenedAt), grants: org.grants, health: org.health }
 }
 
 function lockState(

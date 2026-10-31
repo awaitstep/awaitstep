@@ -69,7 +69,7 @@ export function useUpdateProfile() {
 
 /**
  * Leave an organization. Leaving the one in the URL marks its pages stale
- * without refetching them, since the page leaves for Choose an organization.
+ * without refetching them, since the page leaves for /dashboard.
  */
 export function useLeaveOrg(currentOrg: string) {
   const source = useDataSource()

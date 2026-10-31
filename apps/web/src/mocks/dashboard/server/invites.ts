@@ -217,7 +217,7 @@ export const askForNewInvite = mutation((ctx, token: string): void => {
   })
 })
 
-/** Invites waiting for the viewer, for Choose an organization. */
+/** Invites waiting for the viewer, for /dashboard's "Waiting for you". */
 export const listMyInvites = endpoint((ctx): PendingInvite[] => {
   const db = getDb()
   const email = viewerEmail(db, ctx)
@@ -230,6 +230,8 @@ export const listMyInvites = endpoint((ctx): PendingInvite[] => {
         org: { name: org.name, initial: org.name.charAt(0).toUpperCase() },
         invitedBy: personById(db, row.invitedBy).name,
         orgRole: row.role,
+        place: firstPlace(db, row),
+        expiresAt: expiresAt(row),
       }
     })
 })

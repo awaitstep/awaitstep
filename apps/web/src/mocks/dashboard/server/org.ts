@@ -439,6 +439,29 @@ export const updateOrg = mutation((ctx, orgSlug: string, update: OrgUpdate): Org
   return orgRecord(db, ctx, org)
 })
 
+/** Creates an organization with the viewer as its owner (/dashboard's Create an organization). */
+export const createOrg = mutation((ctx, name: string): OrgSummary => {
+  const db = getDb()
+  const trimmed = name.trim()
+  if (!trimmed) throw invalidError('The organization needs a name', 'name')
+  const slug = slugFrom(trimmed, 'name', 'name')
+  assertNotReserved('org', slug)
+  if (db.orgs.some((o) => o.slug === slug)) {
+    throw conflictError('Another organization already uses that URL', 'slug')
+  }
+  const now = new Date().toISOString()
+  const org: OrgRow = { id: newId('org'), slug, name: trimmed, createdAt: now, logo: null }
+  db.orgs.push(org)
+  db.orgMembers.push({
+    orgId: org.id,
+    userId: ctx.userId,
+    role: 'owner',
+    joinedAt: now,
+    lastOpenedAt: now,
+  })
+  return orgRecord(db, ctx, org)
+})
+
 /** Deletes an org with no projects left (owners only). */
 export const deleteOrg = mutation((ctx, orgSlug: string): void => {
   const { db, org } = orgOf(ctx, orgSlug)

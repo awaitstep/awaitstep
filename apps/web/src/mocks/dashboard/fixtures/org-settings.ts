@@ -6,7 +6,7 @@ import { INTERNAL, MARKETING, P101 } from './projects'
 import { IT } from './workspaces'
 
 // `OrgMembers` (one pending invite) and `OrgConnections` (two accounts).
-// P9's invite boards: Daniel's open Globex invite (`AcceptInvite`, `ChooseOrg`),
+// P9's invite boards: Daniel's open Globex invite (`AcceptInvite`, `Dashboard`),
 // his expired Bolt Labs one (`InviteExpired`), and Sam's opened by anyone else
 // (`InviteWrongAccount`).
 

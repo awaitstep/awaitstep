@@ -1,7 +1,7 @@
 // Dashboard types for the signed-in person and their organizations. Web-only
 // until the backend phase moves them into their package (W1 brief, §D).
 
-import type { OrgRole } from '@awaitstep/ir'
+import type { OrgRole, ProjectRole, WorkspaceRole } from '@awaitstep/ir'
 
 export type { OrgRole } from '@awaitstep/ir'
 
@@ -29,5 +29,19 @@ export interface OrgSummary {
   role: OrgRole
   projectCount: number
   memberCount: number
+  /** When this browser (or the dummy session) last opened it; null when it never did. */
   lastOpenedAt: string | null
+}
+
+/** An org on your list (`useOrgs`): the summary plus what /dashboard's card shows. */
+export interface OrgListing extends OrgSummary {
+  /** Your own roles there, oldest first; empty for an owner or admin, who see everything. */
+  grants: OrgGrants
+  /** Over the workspaces you can open: "1 failing · 5m ago", "All passing · 1d ago". */
+  health: { failing: number; lastRunAt: string | null }
+}
+
+export interface OrgGrants {
+  projects: { name: string; role: ProjectRole }[]
+  workspaces: { name: string; projectName: string; role: WorkspaceRole }[]
 }

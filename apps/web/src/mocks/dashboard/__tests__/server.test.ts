@@ -50,6 +50,12 @@ describe('seed', () => {
       ['Acme Inc', 'member'],
       ['Daniel’s sandbox', 'owner'],
     ])
+    // The /dashboard card: Daniel's own Sales grant in Acme; nothing listed where he owns.
+    expect(orgs[0]!.grants.workspaces).toEqual([
+      { name: 'Sales', projectName: 'Project 101', role: 'editor' },
+    ])
+    expect(orgs[1]!.grants).toEqual({ projects: [], workspaces: [] })
+    expect(orgs[0]!.health).toEqual({ failing: expect.any(Number), lastRunAt: expect.any(String) })
     expect((await session.getViewer(as(DANIEL))).lastOrgSlug).toBe('acme')
     await session.openOrg(as(DANIEL), 'daniels-sandbox')
     expect((await session.getViewer(as(DANIEL))).lastOrgSlug).toBe('daniels-sandbox')

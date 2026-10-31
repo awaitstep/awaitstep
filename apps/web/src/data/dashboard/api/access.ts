@@ -151,6 +151,8 @@ export function toPendingInvite(row: ApiPendingInvite): PendingInvite {
     org: { name: row.org.name, initial: initialOf(row.org.name) },
     invitedBy: row.invitedBy,
     orgRole: row.orgRole,
+    place: row.place,
+    expiresAt: row.expiresAt,
   }
 }
 

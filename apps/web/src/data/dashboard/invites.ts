@@ -23,7 +23,7 @@ export function useInvite(token: string) {
   })
 }
 
-/** Invites waiting for the viewer, on Choose an organization. */
+/** Invites waiting for the viewer, on /dashboard's "Waiting for you". */
 export function useMyInvites() {
   const source = useDataSource()
   const ctx = useMockContext()

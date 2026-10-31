@@ -147,13 +147,20 @@ describe('toInviteView', () => {
     expect(toInviteView({ state: 'gone' })).toEqual({ state: 'gone' })
   })
 
-  it('shapes a pending invite for Choose an organization', () => {
+  it('shapes a pending invite for Waiting for you, with where it leads and when it expires', () => {
+    const place = {
+      kind: 'workspace' as const,
+      name: 'Platform',
+      projectName: 'Core',
+      role: 'editor' as const,
+    }
     expect(
       toPendingInvite({
         token: 'inv-1',
         org: { name: 'Globex', slug: 'globex', logo: null },
         invitedBy: 'Lena Ortiz',
         orgRole: 'member',
+        place,
         expiresAt: '2026-11-04T00:00:00.000Z',
       }),
     ).toEqual({
@@ -161,6 +168,8 @@ describe('toInviteView', () => {
       org: { name: 'Globex', initial: 'G' },
       invitedBy: 'Lena Ortiz',
       orgRole: 'member',
+      place,
+      expiresAt: '2026-11-04T00:00:00.000Z',
     })
   })
 })

@@ -38,10 +38,13 @@ export interface AcceptedInvite {
   workspace?: string
 }
 
-/** An invite waiting for the viewer, for Choose an organization. */
+/** An invite waiting for the viewer, for /dashboard's "Waiting for you". */
 export interface PendingInvite {
   token: string
   org: { name: string; initial: string }
   invitedBy: string
   orgRole: OrgRole
+  /** Where it leads first; null for an owner or admin invite. */
+  place: InvitePlace | null
+  expiresAt: string
 }

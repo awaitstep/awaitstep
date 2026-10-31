@@ -8,6 +8,7 @@ import type {
 } from '../../../../lib/dashboard-api'
 import {
   projectFromRow,
+  toOrgListing,
   toOrgSummary,
   toPerson,
   toProject,
@@ -136,6 +137,22 @@ describe('toPerson', () => {
 describe('toOrgSummary', () => {
   it('adds the tile initial and leaves the last-opened time to the dashboard', () => {
     expect(toOrgSummary(org)).toMatchObject({ initial: 'A', role: 'owner', lastOpenedAt: null })
+  })
+})
+
+describe('toOrgListing', () => {
+  it('keeps the grants and health and takes the time this browser opened it', () => {
+    const grants = {
+      projects: [],
+      workspaces: [{ name: 'Sales', projectName: 'Project 101', role: 'editor' as const }],
+    }
+    const health = { failing: 1, lastRunAt: '2026-10-31T10:00:00.000Z' }
+    expect(toOrgListing({ ...org, grants, health }, '2026-10-31T09:00:00.000Z')).toMatchObject({
+      initial: 'A',
+      lastOpenedAt: '2026-10-31T09:00:00.000Z',
+      grants,
+      health,
+    })
   })
 })
 

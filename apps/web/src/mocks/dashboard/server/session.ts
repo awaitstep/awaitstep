@@ -1,7 +1,7 @@
-import type { OrgSummary, Viewer } from '../../../types/dashboard/session'
+import type { OrgListing, OrgSummary, Viewer } from '../../../types/dashboard/session'
 import { getDb } from '../db'
 import { frameEndpoint, mutation, notFoundError } from '../scenario'
-import { orgRecord, personById } from './records'
+import { orgListingRecord, orgRecord, personById } from './records'
 import { requireScope } from './resolve'
 
 export const getViewer = frameEndpoint((ctx): Viewer => {
@@ -16,13 +16,13 @@ export const getViewer = frameEndpoint((ctx): Viewer => {
 })
 
 /** The viewer's organizations (frame data: no scenario empties or fails it). */
-export const listOrgs = frameEndpoint((ctx): OrgSummary[] => {
+export const listOrgs = frameEndpoint((ctx): OrgListing[] => {
   const db = getDb()
   return db.orgMembers
     .filter((m) => m.userId === ctx.userId)
     .map((m) => db.orgs.find((o) => o.id === m.orgId))
     .filter((o) => o !== undefined)
-    .map((o) => orgRecord(db, ctx, o))
+    .map((o) => orgListingRecord(db, ctx, o))
 })
 
 /** Records the org as last opened, so the next sign-in lands there. */
