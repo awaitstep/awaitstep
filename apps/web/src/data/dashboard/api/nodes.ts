@@ -9,6 +9,7 @@ export function toOrgNode(node: ApiMarketplaceNode): OrgNode {
   return {
     id: node.id,
     name: node.name,
+    ...(node.icon && { icon: node.icon }),
     category: node.category,
     description: node.description,
     version,

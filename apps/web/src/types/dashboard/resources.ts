@@ -8,6 +8,8 @@ export type NodeSource = 'marketplace' | 'custom'
 export interface OrgNode {
   id: string
   name: string
+  /** The registry's logo (an SVG URL); absent for custom nodes and ones it doesn't list. */
+  icon?: string
   /** The registry's category: "AI", "Data", "Messaging", "Payments"… */
   category: string
   description: string

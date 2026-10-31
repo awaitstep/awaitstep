@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CatalogNodeCard } from '../catalog-node-card'
 import { ACME_CRM, ANTHROPIC, RESEND, SLACK } from './fixtures/nodes'
@@ -81,5 +81,23 @@ describe('CatalogNodeCard updates and read-only', () => {
       expect(button).toBeDisabled()
       expect(button).not.toHaveAttribute('aria-busy')
     }
+  })
+
+  it('shows the registry logo first, and the name’s initials without one or when it fails', () => {
+    const icon = 'https://registry.test/nodes/slack/icon.svg'
+    const { container, unmount } = render(
+      <CatalogNodeCard node={{ ...SLACK, icon }} orgName="Acme Inc" />,
+    )
+    const logo = container.querySelector('img')
+    expect(logo).toHaveAttribute('src', icon)
+    expect(logo).toHaveAttribute('alt', '')
+    fireEvent.error(logo!)
+    expect(container.querySelector('img')).toBeNull()
+    expect(container).toHaveTextContent('SL')
+    unmount()
+
+    const custom = render(<CatalogNodeCard node={ACME_CRM} orgName="Acme Inc" />)
+    expect(custom.container.querySelector('img')).toBeNull()
+    expect(custom.container.querySelector('[aria-hidden="true"]')).toHaveTextContent('AC')
   })
 })

@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { ArrowUpCircle, Download, Loader2 } from 'lucide-react'
+import { initialsOf } from '../../../lib/initials'
 import { Badge } from '../../ui/badge'
 import { Button } from '../../ui/button'
 import { Tile } from '../../ui/tile'
@@ -25,6 +27,19 @@ interface CatalogNodeCardProps {
   busy?: boolean
   /** Another node's change is in flight: wait for it. */
   disabled?: boolean
+}
+
+/** The node's logo from the registry, or its initials when it has none or it fails to load. */
+function NodeMark({ name, icon }: { name: string; icon?: string }) {
+  const [failed, setFailed] = useState(false)
+
+  function handleError() {
+    setFailed(true)
+  }
+
+  if (!icon || failed) return <>{initialsOf(name)}</>
+  // The registry's logos are one-colour SVGs, drawn dark: inverted on the dark theme, as on the canvas.
+  return <img src={icon} alt="" className="size-5 dark:invert" onError={handleError} />
 }
 
 function describeVersion(node: OrgNode): string {
@@ -73,7 +88,7 @@ export function CatalogNodeCard({
     >
       <div className="flex items-center gap-3">
         <Tile tone={custom ? 'info' : (CATEGORY_TONE[node.category] ?? 'neutral')}>
-          {node.name.charAt(0)}
+          <NodeMark name={node.name} icon={node.icon} />
         </Tile>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <h3 className="truncate text-sm font-semibold text-foreground">{node.name}</h3>

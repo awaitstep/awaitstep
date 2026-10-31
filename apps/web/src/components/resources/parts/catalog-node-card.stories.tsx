@@ -46,3 +46,23 @@ export const Available: Story = {
 export const Busy: Story = {
   render: () => <CatalogNodeCard node={ANTHROPIC} orgName="Acme Inc" onInstall={noop} busy />,
 }
+
+/** The registry's logo first; a broken one falls back to the initials, as custom nodes show. */
+export const WithLogo: Story = {
+  render: () => (
+    <>
+      <CatalogNodeCard
+        node={{
+          ...ANTHROPIC,
+          icon: 'https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/anthropic/icon.svg',
+        }}
+        orgName="Acme Inc"
+        onInstall={noop}
+      />
+      <CatalogNodeCard
+        node={{ ...SLACK, icon: 'https://registry.invalid/slack.svg' }}
+        orgName="Acme Inc"
+      />
+    </>
+  ),
+}

@@ -336,6 +336,8 @@ function query(params: object): string {
 export interface ApiMarketplaceNode {
   id: string
   name: string
+  /** The registry's logo URL; absent for a node the registry no longer lists. */
+  icon?: string
   description: string
   category: string
   author: string
