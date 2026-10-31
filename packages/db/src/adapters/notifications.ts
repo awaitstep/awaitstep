@@ -21,7 +21,7 @@ import type {
   ReleaseVisitRow,
 } from '../types.js'
 import { boundFields } from './insert-where.js'
-import { aliasedFrom, fieldOf, idList, type Dialect } from './json-array.js'
+import { aliasedFrom, fieldOf, idList, isoText, type Dialect } from './json-array.js'
 import type { OverviewTables } from './overview-fields.js'
 import { RoleFields } from './role-fields.js'
 
@@ -271,7 +271,7 @@ export class NotificationsAdapter {
     const threshold = sql`(case when ${last} then '1d' else '7d' end)`
     const meta =
       this.dialect === 'pg'
-        ? sql`json_build_object('name', ${k.name}, 'expiresAt', to_char(${k.expiresAt}, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))::text`
+        ? sql`json_build_object('name', ${k.name}, 'expiresAt', ${isoText(this.dialect, k.expiresAt)})::text`
         : sql`json_object('name', ${k.name}, 'expiresAt', ${k.expiresAt})`
     const row = {
       id: '',

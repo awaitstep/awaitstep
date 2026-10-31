@@ -46,11 +46,11 @@ export class ScopeAdapter {
   async getOrganizationIfMember(
     userId: string,
     ref: { id: string } | { slug: string },
-  ): Promise<({ id: string; slug: string } & MemberRole) | null> {
+  ): Promise<({ id: string; slug: string; name: string } & MemberRole) | null> {
     const o = aliasedTable(this.t.organization, 'o')
     const me = aliasedTable(this.t.member, 'me')
     const rows = await this.db
-      .select({ id: o.id, slug: o.slug, role: me.role })
+      .select({ id: o.id, slug: o.slug, name: o.name, role: me.role })
       .from(o)
       .innerJoin(me, and(eq(me.organizationId, o.id), eq(me.userId, userId)))
       .where('id' in ref ? eq(o.id, ref.id) : eq(o.slug, ref.slug))

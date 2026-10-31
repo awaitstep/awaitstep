@@ -540,14 +540,23 @@ export interface AuditEventInsert {
   createdAt: string
 }
 
-/** A sign-in, written once for every organization the person is in. */
-export interface SignInAuditInsert {
+/**
+ * An event about the person themselves — a sign-in, a session signed out —
+ * written once in each organization they are in.
+ */
+export interface PersonAuditInsert {
   /** Makes each row's id: `<idPrefix>_<organization id>`. */
   idPrefix: string
   userId: string
   event: string
+  /** Defaults to `auth`. */
+  kind?: string
   action: string
+  /** The row's target; each organization's own name when omitted. */
+  target?: string
   detail: string
+  /** The facts as JSON; `{}` when omitted. */
+  meta?: string
   ip: string | null
   createdAt: string
 }
@@ -1030,4 +1039,45 @@ export interface NotificationList {
 export interface ReleaseVisitRow {
   seenAt: string
   seenIds: string[]
+}
+
+/** "Your account" (B10): the person, their organizations and their linked providers, in one row. */
+export interface AccountRow {
+  person: { id: string; name: string; email: string; image: string | null; emailVerified: boolean }
+  orgs: {
+    id: string
+    slug: string
+    name: string
+    logo: string | null
+    role: string
+    projectCount: number
+    onlyOwner: boolean
+  }[]
+  /** Each linked provider (`github`, `google`) and when it was linked. */
+  providers: { id: string; providerId: string; connectedAt: string }[]
+}
+
+/** A session as the Sessions page lists it, before its user agent and address are read. */
+export interface AccountSessionRow {
+  id: string
+  userAgent: string | null
+  ipAddress: string | null
+  createdAt: string
+  updatedAt: string
+  current: boolean
+}
+
+/** Download JSON's rows: the person's own, nothing their organizations own. */
+export interface AccountExportRow {
+  name: string
+  email: string
+  photo: boolean
+  providers: { id: string; providerId: string; connectedAt: string }[]
+  sessions: AccountSessionRow[]
+  memberships: {
+    organization: string
+    role: string
+    projects: { name: string; role: string }[]
+    workspaces: { project: string; name: string; role: string }[]
+  }[]
 }

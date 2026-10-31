@@ -89,3 +89,21 @@ export function aliasedFrom(table: any): SQL {
 }
 
 const ORIGINAL_NAME = Symbol.for('drizzle:OriginalName')
+
+/**
+ * A timestamp column as ISO 8601 UTC text inside a JSON object: pg's
+ * `timestamp` would embed as `2026-10-28T12:00:00` with no zone; sqlite
+ * already stores the ISO string.
+ */
+export function isoText(dialect: Dialect, column: unknown): SQL<string> {
+  return dialect === 'pg'
+    ? sql<string>`to_char(${column}, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`
+    : sql<string>`${column}`
+}
+
+/** A condition as a JSON boolean inside a JSON object: sqlite would embed 0 or 1. */
+export function jsonBool(dialect: Dialect, condition: SQL): SQL<boolean> {
+  return dialect === 'pg'
+    ? sql<boolean>`(${condition})`
+    : sql<boolean>`json(case when ${condition} then 'true' else 'false' end)`
+}

@@ -58,7 +58,10 @@ import type {
   AuditEventInsert,
   NamedWorkspaceMember,
   ProjectMoveOutcome,
-  SignInAuditInsert,
+  PersonAuditInsert,
+  AccountRow,
+  AccountSessionRow,
+  AccountExportRow,
   AuditListFilter,
   AuditEventPage,
   ExpiringKeysCheck,
@@ -142,6 +145,7 @@ import { EnvVarsAdapter } from './env-vars.js'
 import { ProjectsAdapter } from './projects.js'
 import { InstalledNodesAdapter } from './installed-nodes.js'
 import { DeploymentConfigsAdapter } from './deployment-configs.js'
+import { AccountAdapter } from './account.js'
 
 export interface SchemaRef {
   workflows: unknown
@@ -163,6 +167,7 @@ export interface SchemaRef {
   organization?: unknown
   user?: unknown
   session?: unknown
+  account?: unknown
   invitation?: unknown
   projectMembers?: unknown
   workspaceMembers?: unknown
@@ -207,6 +212,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _projects: ProjectsAdapter
   private _installedNodes: InstalledNodesAdapter
   private _deploymentConfigs: DeploymentConfigsAdapter
+  private _account?: AccountAdapter
   private _scope: ScopeAdapter
   private _access: AccessAdapter
   private _invitations: InvitationsAdapter
@@ -362,6 +368,14 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       this._dialect,
     )
     this._deploymentConfigs = new DeploymentConfigsAdapter(db, schema.deploymentConfigs)
+    if (roles) {
+      this._account = new AccountAdapter(
+        db,
+        { ...tables, account: schema.account },
+        this._dialect,
+        roles,
+      )
+    }
   }
 
   // Membership
@@ -380,7 +394,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   getOrganizationIfMember(
     userId: string,
     ref: { id: string } | { slug: string },
-  ): Promise<({ id: string; slug: string } & MemberRole) | null> {
+  ): Promise<({ id: string; slug: string; name: string } & MemberRole) | null> {
     return this._scope.getOrganizationIfMember(userId, ref)
   }
   getProjectIfMember(
@@ -539,7 +553,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     organizationId: string,
     userId: string,
     caller: { callerIsOwner: boolean },
-  ): Promise<void> {
+  ): Promise<boolean> {
     return this._access.removeMember(organizationId, userId, caller)
   }
   listWorkspacePeople(workspaceId: string): Promise<WorkspacePersonRow[]> {
@@ -803,8 +817,49 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   insertAuditEvents(rows: AuditEventInsert[]): Promise<void> {
     return this._audit.insert(rows)
   }
-  insertSignInAuditEvents(entry: SignInAuditInsert): Promise<void> {
-    return this._audit.insertSignIn(entry)
+  private get account(): AccountAdapter {
+    if (!this._account) throw new Error('The account reads need the access tables')
+    return this._account
+  }
+
+  getAccount(userId: string): Promise<AccountRow | null> {
+    return this.account.getAccount(userId)
+  }
+
+  soleOwnedOrgNames(userId: string): Promise<string[]> {
+    return this.account.soleOwnedOrgNames(userId)
+  }
+
+  listAccountSessions(
+    userId: string,
+    currentSessionId: string,
+    now = new Date(),
+  ): Promise<AccountSessionRow[]> {
+    return this.account.listSessions(userId, currentSessionId, now)
+  }
+
+  revokeAccountSession(
+    userId: string,
+    sessionId: string,
+    currentSessionId: string,
+  ): Promise<boolean> {
+    return this.account.revokeSession(userId, sessionId, currentSessionId)
+  }
+
+  revokeOtherAccountSessions(userId: string, currentSessionId: string): Promise<number> {
+    return this.account.revokeOtherSessions(userId, currentSessionId)
+  }
+
+  exportAccount(
+    userId: string,
+    currentSessionId: string,
+    now = new Date(),
+  ): Promise<AccountExportRow | null> {
+    return this.account.exportAccount(userId, currentSessionId, now)
+  }
+
+  insertPersonAuditEvents(entry: PersonAuditInsert): Promise<void> {
+    return this._audit.insertForPerson(entry)
   }
   listAuditEvents(filter: AuditListFilter, pagination?: PaginationParams): Promise<AuditEventPage> {
     return this._audit.list(filter, pagination)

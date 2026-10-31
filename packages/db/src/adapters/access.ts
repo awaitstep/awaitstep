@@ -27,7 +27,7 @@ import type {
   WorkspacePersonRow,
 } from '../types.js'
 import { writeChanging } from './projects.js'
-import { atomically } from './atomic.js'
+import { atomically, atomicallyReturning } from './atomic.js'
 import { boundFields } from './insert-where.js'
 import {
   aliasedFrom,
@@ -424,17 +424,18 @@ export class AccessAdapter {
    * row of theirs in it, and cancels the invitations they sent, as one unit
    * — unless they are its only owner, or an owner and the caller is not,
    * when nothing changes (the checks are in the statement; the other
-   * statements are conditional on the member row being gone). `orgRoleOf`
-   * afterwards says whether they are still there.
+   * statements are conditional on the member row being gone). Answers
+   * whether this call removed the member row: false when it was refused or
+   * the row was already gone (`orgRoleOf` afterwards says which).
    */
-  async removeMember(organizationId: string, userId: string, caller: Caller): Promise<void> {
+  async removeMember(organizationId: string, userId: string, caller: Caller): Promise<boolean> {
     const m = this.t.member
     const pm = this.t.projectMembers
     const wm = this.t.workspaceMembers
     const inv = this.t.invitation as typeof m
     const still = aliasedTable(this.t.member, 'still')
     const gone = sql`not exists (select 1 from ${aliasedFrom(still)} where ${still.organizationId} = ${organizationId} and ${still.userId} = ${userId})`
-    await atomically(this.db, (tx) => [
+    const [removed] = await atomicallyReturning<{ id: string }>(this.db, (tx) => [
       tx
         .delete(m)
         .where(
@@ -444,7 +445,8 @@ export class AccessAdapter {
             caller.callerIsOwner ? undefined : sql`${m.role} <> 'owner'`,
             sql`(${m.role} <> 'owner' or ${this.anotherOwner(organizationId, userId)})`,
           ),
-        ),
+        )
+        .returning({ id: m.id }),
       tx
         .update(inv)
         .set({ status: 'canceled' })
@@ -455,7 +457,8 @@ export class AccessAdapter {
             inArray(inv.status, ['pending', 'rejected']),
             gone,
           ),
-        ),
+        )
+        .returning({ id: inv.id }),
       tx
         .delete(pm)
         .where(
@@ -464,7 +467,8 @@ export class AccessAdapter {
             sql`${pm.projectId} in ${this.orgProjects(organizationId)}`,
             gone,
           ),
-        ),
+        )
+        .returning({ userId: pm.userId }),
       tx
         .delete(wm)
         .where(
@@ -473,8 +477,10 @@ export class AccessAdapter {
             sql`${wm.workspaceId} in ${this.orgWorkspaces(organizationId)}`,
             gone,
           ),
-        ),
+        )
+        .returning({ userId: wm.userId }),
     ])
+    return (removed?.length ?? 0) > 0
   }
 
   /** Everyone who can open the workspace, with the rows their role comes from, by name. */

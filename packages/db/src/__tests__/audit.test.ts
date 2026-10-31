@@ -184,7 +184,7 @@ describe.each([
   })
 
   it('writes a sign-in once for every organization the person is in', async () => {
-    await h.adapter.insertSignInAuditEvents({
+    await h.adapter.insertPersonAuditEvents({
       idPrefix: 'sig_sess1',
       userId: 'u-ama',
       event: 'signin',
@@ -211,12 +211,31 @@ describe.each([
     expect(await h.count('audit_events')).toBe(2)
   })
 
+  it('writes a person event with its own target, kind and facts in each of their organizations', async () => {
+    await h.adapter.insertPersonAuditEvents({
+      idPrefix: 'conn_1',
+      userId: 'u-ama',
+      event: 'account.method_connect',
+      action: 'connected GitHub to',
+      target: 'their account',
+      detail: 'Dashboard',
+      ip: null,
+      createdAt: '2026-10-28T07:00:00.000Z',
+    })
+    for (const organizationId of ['org-acme', 'org-globex']) {
+      const page = await h.adapter.listAuditEvents(filter({ organizationId }))
+      expect(page.data.map((e) => [e.event, e.kind, e.target])).toEqual([
+        ['account.method_connect', 'auth', 'their account'],
+      ])
+    }
+  })
+
   it('keeps at most 200 characters of a sign-in’s chosen name', async () => {
     await h.db
       .update(h.schema.user)
       .set({ name: 'x'.repeat(5000) })
       .where(eq(h.schema.user.id, 'u-ben'))
-    await h.adapter.insertSignInAuditEvents({
+    await h.adapter.insertPersonAuditEvents({
       idPrefix: 'sig_long',
       userId: 'u-ben',
       event: 'signin',

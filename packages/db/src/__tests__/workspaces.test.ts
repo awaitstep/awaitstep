@@ -133,11 +133,13 @@ describe.each([
       expect(await h.adapter.getOrganizationIfMember('u-ama', { slug: 'acme' })).toEqual({
         id: 'org-acme',
         slug: 'acme',
+        name: 'Acme',
         role: 'owner',
       })
       expect(await h.adapter.getOrganizationIfMember('u-ama', { id: 'org-globex' })).toEqual({
         id: 'org-globex',
         slug: 'globex',
+        name: 'Globex',
         role: 'member',
       })
       expect(await h.adapter.getOrganizationIfMember('u-cleo', { slug: 'acme' })).toBeNull()

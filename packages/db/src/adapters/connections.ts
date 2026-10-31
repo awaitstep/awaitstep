@@ -19,6 +19,7 @@ import {
   aliasedFrom,
   fieldOf,
   idList,
+  isoText,
   jsonArrayOf,
   readJsonArray,
   type Dialect,
@@ -560,10 +561,7 @@ export class ConnectionsAdapter {
     const n = this.t.notifications
     const c = aliasedTable(this.table, 'nec')
     const m = aliasedTable(this.t.member, 'nem')
-    const expiresText =
-      this.dialect === 'pg'
-        ? sql`to_char(${c.tokenExpiresAt}, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`
-        : sql`${c.tokenExpiresAt}`
+    const expiresText = isoText(this.dialect, c.tokenExpiresAt)
     const threshold = sql`(case when ${c.tokenExpiresAt} <= ${check.lastWarnBefore} then '1d' else '7d' end)`
     const meta =
       this.dialect === 'pg'

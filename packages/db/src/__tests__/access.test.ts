@@ -481,7 +481,9 @@ describe.each([
 
     it('never leaves the organization without an owner', async () => {
       expect(await h.adapter.setOrgRole('org-acme', 'u-ama', 'admin')).toBe(false)
-      await h.adapter.removeOrgMember('org-acme', 'u-ama', { callerIsOwner: true })
+      expect(await h.adapter.removeOrgMember('org-acme', 'u-ama', { callerIsOwner: true })).toBe(
+        false,
+      )
       expect(await h.adapter.getOrgRole('org-acme', 'u-ama')).toBe('owner')
       expect(await h.adapter.setOrgRole('org-acme', 'u-ben', 'owner')).toBe(true)
       expect(await h.adapter.setOrgRole('org-acme', 'u-ama', 'admin')).toBe(true)
@@ -554,12 +556,20 @@ describe.each([
       const demote = { orgRole: 'admin', projects: [], workspaces: [] }
       await h.adapter.saveAccess('org-acme', 'u-ama', demote, 'u-dan', { callerIsOwner: false })
       expect(await h.adapter.getOrgRole('org-acme', 'u-ama')).toBe('owner')
-      await h.adapter.removeOrgMember('org-acme', 'u-ama', { callerIsOwner: false })
+      expect(await h.adapter.removeOrgMember('org-acme', 'u-ama', { callerIsOwner: false })).toBe(
+        false,
+      )
       expect(await h.adapter.getOrgRole('org-acme', 'u-ama')).toBe('owner')
       await h.adapter.saveAccess('org-acme', 'u-ama', demote, 'u-ben', { callerIsOwner: true })
       expect(await h.adapter.getOrgRole('org-acme', 'u-ama')).toBe('admin')
-      await h.adapter.removeOrgMember('org-acme', 'u-ama', { callerIsOwner: true })
+      expect(await h.adapter.removeOrgMember('org-acme', 'u-ama', { callerIsOwner: true })).toBe(
+        true,
+      )
       expect(await h.adapter.getOrgRole('org-acme', 'u-ama')).toBeNull()
+      // Already gone: nothing removed this time.
+      expect(await h.adapter.removeOrgMember('org-acme', 'u-ama', { callerIsOwner: true })).toBe(
+        false,
+      )
     })
 
     it('cancels the invitations someone sent when they stop running the organization', async () => {

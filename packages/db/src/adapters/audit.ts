@@ -18,7 +18,7 @@ import type {
   AuditEventRow,
   AuditListFilter,
   FailureCount,
-  SignInAuditInsert,
+  PersonAuditInsert,
 } from '../types.js'
 import type { PaginationParams } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
@@ -90,7 +90,7 @@ export class AuditAdapter {
    * One row per organization the person belongs to, in one statement; the
    * target is each org's name, the actor the person's name.
    */
-  async insertSignIn(entry: SignInAuditInsert): Promise<void> {
+  async insertForPerson(entry: PersonAuditInsert): Promise<void> {
     const m = this.t.member
     const o = this.t.organization
     const u = this.t.user
@@ -102,7 +102,7 @@ export class AuditAdapter {
           projectId: sql<null>`null`.as('project_id'),
           workspaceId: sql<null>`null`.as('workspace_id'),
           level: sql<string>`'organization'`.as('level'),
-          kind: sql<string>`'auth'`.as('kind'),
+          kind: sql<string>`${entry.kind ?? 'auth'}`.as('kind'),
           event: sql<string>`${entry.event}`.as('event'),
           actorType: sql<string>`'user'`.as('actor_type'),
           actorId: sql<string>`${entry.userId}`.as('actor_id'),
@@ -112,9 +112,9 @@ export class AuditAdapter {
           ),
           actorEmail: u.email,
           action: sql<string>`${entry.action}`.as('action'),
-          target: o.name,
+          target: entry.target === undefined ? o.name : sql<string>`${entry.target}`.as('target'),
           detail: sql<string>`${entry.detail}`.as('detail'),
-          meta: sql<string>`'{}'`.as('meta'),
+          meta: sql<string>`${entry.meta ?? '{}'}`.as('meta'),
           ip: sql<string | null>`${entry.ip}`.as('ip'),
           createdAt: sql<string>`${entry.createdAt}`.as('created_at'),
         })

@@ -89,7 +89,10 @@ import type {
   AuditEventInsert,
   NamedWorkspaceMember,
   ProjectMoveOutcome,
-  SignInAuditInsert,
+  PersonAuditInsert,
+  AccountRow,
+  AccountSessionRow,
+  AccountExportRow,
   AuditListFilter,
   AuditEventPage,
   ExpiringKeysCheck,
@@ -139,7 +142,7 @@ export interface DatabaseAdapter {
   getOrganizationIfMember(
     userId: string,
     ref: { id: string } | { slug: string },
-  ): Promise<({ id: string; slug: string } & MemberRole) | null>
+  ): Promise<({ id: string; slug: string; name: string } & MemberRole) | null>
   /**
    * The project if the caller can open it, with their membership rows; with
    * `workspace`, null unless that workspace is the project's and theirs to open.
@@ -291,14 +294,14 @@ export interface DatabaseAdapter {
   /**
    * Removes them from the organization with every row of theirs and the
    * invitations they sent, as one unit — unless they are its only owner, or
-   * an owner and the caller is not, when nothing changes (`getOrgRole`
-   * afterwards says).
+   * an owner and the caller is not, when nothing changes. Answers whether
+   * this call removed them; on false, `getOrgRole` says why.
    */
   removeOrgMember(
     organizationId: string,
     userId: string,
     caller: { callerIsOwner: boolean },
-  ): Promise<void>
+  ): Promise<boolean>
   listWorkspacePeople(workspaceId: string): Promise<WorkspacePersonRow[]>
   listProjectMembers(projectId: string, viewerId: string): Promise<ProjectMemberRow[]>
   /** The rows behind one person's standing in a workspace; null for an unknown workspace. */
@@ -427,10 +430,36 @@ export interface DatabaseAdapter {
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<SharedWorkflowRow>>
 
+  // Your account (B10): the person's own rows, across every organization
+  /** The Profile page: the person, their organizations (role, visible projects, only owner) and linked providers. */
+  getAccount(userId: string): Promise<AccountRow | null>
+  /** The organizations the person is the only owner of, by name — what blocks deleting the account. */
+  soleOwnedOrgNames(userId: string): Promise<string[]>
+  /** Unexpired sessions, the current one first. */
+  listAccountSessions(
+    userId: string,
+    currentSessionId: string,
+    now?: Date,
+  ): Promise<AccountSessionRow[]>
+  /** Signs out one of the person's other sessions; false when none matches. */
+  revokeAccountSession(
+    userId: string,
+    sessionId: string,
+    currentSessionId: string,
+  ): Promise<boolean>
+  /** Signs out every other session of the person; how many went. */
+  revokeOtherAccountSessions(userId: string, currentSessionId: string): Promise<number>
+  /** Download JSON's rows: profile, linked providers, unexpired sessions and memberships with their grants. */
+  exportAccount(
+    userId: string,
+    currentSessionId: string,
+    now?: Date,
+  ): Promise<AccountExportRow | null>
+
   // Audit log (B7)
   insertAuditEvents(rows: AuditEventInsert[]): Promise<void>
-  /** A sign-in, one row per organization the person is in, in one statement. */
-  insertSignInAuditEvents(entry: SignInAuditInsert): Promise<void>
+  /** An event about the person (a sign-in, B10 account events), one row per organization they are in, in one statement. */
+  insertPersonAuditEvents(entry: PersonAuditInsert): Promise<void>
   /** A page of an organization's log, newest first, with the matching total — one statement. */
   listAuditEvents(filter: AuditListFilter, pagination?: PaginationParams): Promise<AuditEventPage>
   /**
