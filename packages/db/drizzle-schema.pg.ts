@@ -273,12 +273,35 @@ export const connections = pgTable(
     provider: text('provider').notNull(),
     name: text('name').notNull(),
     credentials: text('credentials').notNull(),
+    // B9: an account serves every project unless narrowed to the rows in
+    // connection_projects; the token's health as Cloudflare last told it.
+    allProjects: boolean('all_projects').notNull().default(true),
+    tokenStatus: text('token_status').notNull().default('unchecked'),
+    tokenExpiresAt: timestamp('token_expires_at', { mode: 'string' }),
+    tokenCheckedAt: timestamp('token_checked_at', { mode: 'string' }),
     createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { mode: 'string' }).notNull().defaultNow(),
   },
   (table) => [
     index('idx_connections_org_id').on(table.organizationId),
     index('idx_connections_created_by').on(table.createdBy),
+    index('idx_connections_token_checked').on(table.tokenCheckedAt),
+  ],
+)
+
+export const connectionProjects = pgTable(
+  'connection_projects',
+  {
+    connectionId: text('connection_id')
+      .notNull()
+      .references(() => connections.id, { onDelete: 'cascade' }),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.connectionId, table.projectId] }),
+    index('idx_connection_projects_project').on(table.projectId),
   ],
 )
 

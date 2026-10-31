@@ -1,4 +1,16 @@
-import { aliasedTable, and, desc, eq, inArray, isNull, lt, ne, sql, type SQL } from 'drizzle-orm'
+import {
+  aliasedTable,
+  and,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  lt,
+  ne,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm'
 import type {
   ExpiringKeysCheck,
   NotificationInsert,
@@ -22,6 +34,7 @@ export interface NotificationTables extends OverviewTables {
   accessRequests: AnyTable
   apiKeys: AnyTable
   invitation: AnyTable
+  connections: AnyTable
 }
 
 const PURGE_BATCH = 1000
@@ -89,6 +102,12 @@ export class NotificationsAdapter {
       const wm = aliasedTable(this.t.workspaceMembers, 'ncm')
       const id = recipients.workflowWatchers.workflowId
       return sql`(select ${wf.createdBy} from ${aliasedFrom(wf)} where ${wf.id} = ${id} union select ${wm.userId} from ${aliasedFrom(wm)} inner join ${aliasedFrom(wf)} on ${wf.workspaceId} = ${wm.workspaceId} where ${wf.id} = ${id} and ${wm.role} = 'admin')`
+    }
+    if ('connectionKeepers' in recipients) {
+      const c = aliasedTable(this.t.connections, 'nck')
+      const om = aliasedTable(this.t.member, 'nco')
+      const id = recipients.connectionKeepers.connectionId
+      return sql`(select ${c.createdBy} from ${aliasedFrom(c)} where ${c.id} = ${id} union select ${om.userId} from ${aliasedFrom(om)} inner join ${aliasedFrom(c)} on ${c.organizationId} = ${om.organizationId} where ${c.id} = ${id} and ${om.role} in ('owner', 'admin'))`
     }
     const { projectId, workspaceId } = recipients.otherWorkspaceAdmins
     const wm = aliasedTable(this.t.workspaceMembers, 'ncm')
@@ -211,6 +230,29 @@ export class NotificationsAdapter {
     await this.db
       .delete(n)
       .where(and(eq(n.organizationId, organizationId), eq(n.groupKey, groupKey)))
+  }
+
+  /**
+   * Deletes the organization's rows whose group key starts with any of the
+   * prefixes: every warning about one connection's token, whatever its
+   * expiry or check time. Compared with `substr`, not `like`, so `_` and `%`
+   * in an id are plain characters.
+   */
+  async clearByPrefix(organizationId: string, prefixes: string[]): Promise<void> {
+    if (prefixes.length === 0) return
+    const n = this.t.notifications
+    await this.db
+      .delete(n)
+      .where(
+        and(
+          eq(n.organizationId, organizationId),
+          or(
+            ...prefixes.map(
+              (prefix) => sql`substr(${n.groupKey}, 1, ${prefix.length}) = ${prefix}`,
+            ),
+          ),
+        ),
+      )
   }
 
   /**

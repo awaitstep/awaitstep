@@ -9,6 +9,15 @@ import type {
   Workflow,
   WorkflowVersion,
   Connection,
+  ConnectionCoverage,
+  ConnectionListOptions,
+  ConnectionListRow,
+  ConnectionTokenCheck,
+  ConnectionUpdate,
+  ConnectionWrite,
+  ExpiringConnectionsCheck,
+  NodeUsage,
+  ProjectSetupCounts,
   WorkflowRun,
   RunStepsResult,
   UpsertRunStepData,
@@ -138,6 +147,7 @@ export interface SchemaRef {
   workflows: unknown
   workflowVersions: unknown
   connections: unknown
+  connectionProjects?: unknown
   workflowRuns: unknown
   workflowRunSteps: unknown
   workflowFiles: unknown
@@ -279,11 +289,28 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         accessRequests: schema.accessRequests,
         apiKeys: schema.apiKeys,
         invitation: schema.invitation,
+        connections: schema.connections,
       },
       this._dialect,
     )
     this._versions = new VersionsAdapter(db, schema.workflowVersions)
-    this._connections = new ConnectionsAdapter(db, schema.connections, options?.tokenCrypto)
+    this._connections = new ConnectionsAdapter(
+      db,
+      {
+        connections: schema.connections,
+        connectionProjects: schema.connectionProjects,
+        projects: schema.projects,
+        deployments: schema.deployments,
+        member: schema.member,
+        user: schema.user,
+        notifications: schema.notifications,
+        envVars: schema.envVars,
+        apiKeys: schema.apiKeys,
+      },
+      this._dialect,
+      options?.tokenCrypto,
+      roles,
+    )
     this._runs = new RunsAdapter(db, schema.workflowRuns, schema.workflows, schema.deployments, {
       projects: schema.projects,
       workspaces: schema.workspaces,
@@ -324,7 +351,16 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       roles,
     )
     this._projects = new ProjectsAdapter(db, tables, this._dialect)
-    this._installedNodes = new InstalledNodesAdapter(db, schema.installedNodes)
+    this._installedNodes = new InstalledNodesAdapter(
+      db,
+      schema.installedNodes,
+      {
+        workflows: schema.workflows,
+        workflowVersions: schema.workflowVersions,
+        projects: schema.projects,
+      },
+      this._dialect,
+    )
     this._deploymentConfigs = new DeploymentConfigsAdapter(db, schema.deploymentConfigs)
   }
 
@@ -791,6 +827,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   notify(entry: NotificationInsert): Promise<NotifiedRecipient[]> {
     return this._notifications.notify(entry)
   }
+  clearNotificationsByPrefix(organizationId: string, prefixes: string[]): Promise<void> {
+    return this._notifications.clearByPrefix(organizationId, prefixes)
+  }
   clearNotifications(organizationId: string, groupKey: string): Promise<void> {
     return this._notifications.clear(organizationId, groupKey)
   }
@@ -850,30 +889,66 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
 
   // Connections
-  createConnection(data: {
-    id: string
-    organizationId: string
-    createdBy: string
-    provider: string
-    credentials: string
-    name: string
-  }): Promise<Connection> {
+  createConnection(
+    data: ConnectionWrite & { id: string; createdBy: string },
+  ): Promise<ConnectionListRow | null> {
     return this._connections.create(data)
   }
   getProviderConnectionById(id: string, organizationId?: string): Promise<Connection | null> {
     return this._connections.getById(id, organizationId)
   }
+  getConnectionForProject(
+    id: string,
+    organizationId: string,
+    projectId: string,
+  ): Promise<ConnectionCoverage | null> {
+    return this._connections.getForProject(id, organizationId, projectId)
+  }
+  getConnectionDeployedWith(
+    id: string,
+    organizationId: string,
+    workflowId: string,
+  ): Promise<Connection | null> {
+    return this._connections.getDeployedWith(id, organizationId, workflowId)
+  }
   listConnectionsByOrganization(
     organizationId: string,
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<Connection>> {
-    return this._connections.listByOrganization(organizationId, pagination)
+    return this._connections.list(organizationId, { ...pagination, visibleTo: 'all' })
   }
-  updateConnection(
-    id: string,
-    data: { name?: string; credentials?: string },
-  ): Promise<Connection | null> {
+  listConnections(
+    organizationId: string,
+    options?: ConnectionListOptions,
+  ): Promise<PaginatedResult<ConnectionListRow>> {
+    return this._connections.list(organizationId, options)
+  }
+  updateConnection(id: string, data: ConnectionUpdate): Promise<ConnectionListRow | null> {
     return this._connections.update(id, data)
+  }
+  connectionsDueForTokenCheck(
+    provider: string,
+    before: string,
+    limit: number,
+  ): Promise<Connection[]> {
+    return this._connections.dueForCheck(provider, before, limit)
+  }
+  recordConnectionTokenCheck(
+    id: string,
+    readCheckedAt: string | null,
+    check: ConnectionTokenCheck,
+  ): Promise<{ organizationId: string } | null> {
+    return this._connections.recordTokenCheck(id, readCheckedAt, check)
+  }
+  notifyExpiringConnections(check: ExpiringConnectionsCheck): Promise<number> {
+    return this._connections.notifyExpiring(check)
+  }
+  getProjectSetup(
+    organizationId: string,
+    projectId: string,
+    now: string,
+  ): Promise<ProjectSetupCounts | null> {
+    return this._connections.projectSetup(organizationId, projectId, now)
   }
   deleteConnection(id: string): Promise<boolean> {
     return this._connections.delete(id)
@@ -1345,6 +1420,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
   uninstallNode(organizationId: string, nodeId: string): Promise<void> {
     return this._installedNodes.uninstall(organizationId, nodeId)
+  }
+  listNodeUsage(organizationId: string): Promise<NodeUsage[]> {
+    return this._installedNodes.usage(organizationId)
   }
   listInstalledNodes(
     organizationId: string,

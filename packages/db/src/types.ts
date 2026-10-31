@@ -144,6 +144,98 @@ export interface UpdateVersionData {
   locked?: number
 }
 export type Connection = InferSelectModel<typeof connections>
+
+/** How many of an organization's workflows use an installed node in their current version. */
+export interface NodeUsage {
+  nodeId: string
+  /** The installed version. */
+  version: string
+  /** The installed bundle's own name, category and description (null when it carries none). */
+  name: string | null
+  category: string | null
+  description: string | null
+  usage: number
+}
+
+/** What a project has set up, for its empty pages. */
+export interface ProjectSetupCounts {
+  cloudflareConnected: boolean
+  orgVariables: number
+  projectVariables: number
+  projectKeys: number
+}
+
+/** A token check as stored on a connection. */
+export interface ConnectionTokenCheck {
+  status: 'active' | 'invalid' | 'unchecked'
+  expiresAt: string | null
+  checkedAt: string | null
+}
+
+/** A new connection: what it is, and which projects it serves (every one unless narrowed). */
+export interface ConnectionWrite {
+  organizationId: string
+  provider: string
+  name: string
+  /** Plain JSON; encrypted on the way in. */
+  credentials: string
+  /** Default true: serves every project, including ones created later. */
+  allProjects?: boolean
+  /** The organization's projects it serves when `allProjects` is false. */
+  projectIds?: string[]
+  token?: ConnectionTokenCheck
+  /** Who reads the row the write answers with (see `ConnectionListOptions.visibleTo`). */
+  visibleTo?: ConnectionListOptions['visibleTo']
+}
+
+/** A change to a connection: what is given changes; a project list replaces the old one. */
+export interface ConnectionUpdate {
+  organizationId: string
+  name?: string
+  /** Plain JSON; encrypted on the way in. */
+  credentials?: string
+  allProjects?: boolean
+  projectIds?: string[]
+  token?: ConnectionTokenCheck
+  visibleTo?: ConnectionListOptions['visibleTo']
+}
+
+export interface ConnectionListOptions {
+  cursor?: string | null
+  limit?: number
+  /** Only this connection: the row a write just made, in the list's shape. */
+  id?: string
+  /** Only connections serving this project of the organization, by id or slug. */
+  project?: { id: string } | { slug: string }
+  /** Who reads the project names: a person sees the projects they can open, a project-level key its own. */
+  visibleTo?: 'all' | { userId: string } | { projectId: string }
+}
+
+/** A connection as the dashboard lists it (credentials decrypted; the route redacts them). */
+export interface ConnectionListRow extends Connection {
+  createdByName: string | null
+  allProjects: boolean
+  projects: { id: string; name: string; slug: string }[]
+  hiddenProjects: number
+  deployments: { count: number; lastAt: string | null }
+}
+
+export interface ConnectionCoverage {
+  connection: Connection
+  /** Whether it serves the project asked about. */
+  covered: boolean
+}
+
+export interface ExpiringConnectionsCheck {
+  /** Each row's id is `<idPrefix>_<connection id>_<user id>_<expiry>_<7d|1d>`. */
+  idPrefix: string
+  event: string
+  kind: NotificationKindValue
+  needsAction: boolean
+  now: string
+  warnBefore: string
+  lastWarnBefore: string
+}
 export type WorkflowRun = InferSelectModel<typeof workflowRuns>
 export type WorkflowRunStep = InferSelectModel<typeof workflowRunSteps>
 
@@ -855,6 +947,8 @@ export type NotificationRecipients =
   | { workflowWatchers: { workflowId: string } }
   /** Admins (explicit grants) of the project's workspaces other than this one. */
   | { otherWorkspaceAdmins: { projectId: string; workspaceId: string } }
+  /** Whoever can replace the connection's token: its creator and the org's owners and admins. */
+  | { connectionKeepers: { connectionId: string } }
 
 export interface NotificationInsert {
   /** Each row's id is `<idPrefix>_<recipient id>`. */

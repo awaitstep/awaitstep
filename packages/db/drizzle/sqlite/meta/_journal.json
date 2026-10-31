@@ -169,6 +169,13 @@
       "when": 1793386335331,
       "tag": "0023_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1793401159426,
+      "tag": "0024_connection_projects",
+      "breakpoints": true
     }
   ]
 }

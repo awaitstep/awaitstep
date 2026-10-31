@@ -2,6 +2,15 @@ import type {
   Workflow,
   WorkflowVersion,
   Connection,
+  ConnectionCoverage,
+  ConnectionListOptions,
+  ConnectionListRow,
+  ConnectionTokenCheck,
+  ConnectionUpdate,
+  ConnectionWrite,
+  ExpiringConnectionsCheck,
+  NodeUsage,
+  ProjectSetupCounts,
   WorkflowRun,
   RunStepsResult,
   UpsertRunStepData,
@@ -446,6 +455,8 @@ export interface DatabaseAdapter {
   notify(entry: NotificationInsert): Promise<NotifiedRecipient[]>
   /** Deletes a group's rows in the organization (an answered ask, an undone decline). */
   clearNotifications(organizationId: string, groupKey: string): Promise<void>
+  /** Deletes the organization's rows whose group key starts with one of `prefixes`. */
+  clearNotificationsByPrefix(organizationId: string, prefixes: string[]): Promise<void>
   /** Warns live keys' creators before expiry, once per threshold, in one statement; rows written. */
   notifyExpiringKeys(check: ExpiringKeysCheck): Promise<number>
   /** A person's Inbox in an organization, newest first, with the pills' counts — one statement. */
@@ -479,23 +490,60 @@ export interface DatabaseAdapter {
   deleteVersion(id: string): Promise<void>
 
   // Connections
-  createConnection(data: {
-    id: string
-    organizationId: string
-    createdBy: string
-    provider: string
-    credentials: string
-    name: string
-  }): Promise<Connection>
+  /**
+   * Writes and answers the row as the list shows it. Null when a project id
+   * isn't the organization's: then nothing is written.
+   */
+  createConnection(
+    data: ConnectionWrite & { id: string; createdBy: string },
+  ): Promise<ConnectionListRow | null>
   getProviderConnectionById(id: string, organizationId?: string): Promise<Connection | null>
+  /** The organization's connection with whether it serves the project, in one read. */
+  getConnectionForProject(
+    id: string,
+    organizationId: string,
+    projectId: string,
+  ): Promise<ConnectionCoverage | null>
+  /** The org's connection, only if the workflow has a successful deployment made with it. */
+  getConnectionDeployedWith(
+    id: string,
+    organizationId: string,
+    workflowId: string,
+  ): Promise<Connection | null>
   listConnectionsByOrganization(
     organizationId: string,
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<Connection>>
-  updateConnection(
+  /** The dashboard's list: who added each, the projects it serves, its deployments. */
+  listConnections(
+    organizationId: string,
+    options?: ConnectionListOptions,
+  ): Promise<PaginatedResult<ConnectionListRow>>
+  /**
+   * Answers the row as the list shows it; null when nothing was written —
+   * the row isn't the organization's, or a project id isn't.
+   */
+  updateConnection(id: string, data: ConnectionUpdate): Promise<ConnectionListRow | null>
+  /** Connections whose token was never checked or last checked before `before`, oldest first. */
+  connectionsDueForTokenCheck(
+    provider: string,
+    before: string,
+    limit: number,
+  ): Promise<Connection[]>
+  /** Stores a check unless the row was re-checked since it was read; null when skipped. */
+  recordConnectionTokenCheck(
     id: string,
-    data: { name?: string; credentials?: string },
-  ): Promise<Connection | null>
+    readCheckedAt: string | null,
+    check: ConnectionTokenCheck,
+  ): Promise<{ organizationId: string } | null>
+  /** Warns creators and org owners/admins of tokens about to expire; rows written. */
+  notifyExpiringConnections(check: ExpiringConnectionsCheck): Promise<number>
+  /** A project's setup counts, or null when it isn't the organization's. */
+  getProjectSetup(
+    organizationId: string,
+    projectId: string,
+    now: string,
+  ): Promise<ProjectSetupCounts | null>
   /** Whether a row went: false when it was already gone. */
   deleteConnection(id: string): Promise<boolean>
 
@@ -774,6 +822,8 @@ export interface DatabaseAdapter {
     installedBy: string
   }): Promise<InstalledNode>
   uninstallNode(organizationId: string, nodeId: string): Promise<void>
+  /** Each installed node, its version, and how many workflows use it in their current version. */
+  listNodeUsage(organizationId: string): Promise<NodeUsage[]>
   listInstalledNodes(
     organizationId: string,
     pagination?: PaginationParams,
