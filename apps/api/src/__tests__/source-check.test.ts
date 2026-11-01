@@ -244,6 +244,7 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
           name: 'SHARED_TOKEN',
           value: 'super-secret-value',
           isSecret: true,
+          allPlaces: true,
           createdBy: TEST_USER_ID,
           createdAt: '2026-01-01T00:00:00Z',
           updatedAt: '2026-01-01T00:00:00Z',

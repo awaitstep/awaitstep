@@ -51,6 +51,8 @@ const store = {
   workspaces: new Map<string, Workspace>(),
   installedNodes: new Map<string, InstalledNode>(),
   envVars: new Map<string, EnvVar>(),
+  // Which workspaces (a project's variable) or projects (an organization's) a listed variable reaches.
+  envVarReach: new Map<string, Set<string>>(),
   auditEvents: [] as AuditEventInsert[],
   personAuditEvents: [] as PersonAuditInsert[],
   notifications: [] as NotificationInsert[],
@@ -73,6 +75,7 @@ export function resetStore() {
   testOrgRole = 'owner'
   seedTestProject()
   store.envVars.clear()
+  store.envVarReach.clear()
   store.auditEvents.length = 0
   store.personAuditEvents.length = 0
   store.notifications.length = 0
@@ -133,6 +136,40 @@ function envVarAtPlace(v: EnvVar, place: VariablePlace): boolean {
   if (place.level === 'organization') return v.projectId === null
   if (place.level === 'project') return v.projectId === place.projectId && v.workspaceId === null
   return v.workspaceId === place.workspaceId
+}
+
+/** Whether a project's variable reaches the workspace, or an organization's the project. */
+function envVarReaches(v: EnvVar, projectId: string | null, workspaceId?: string | null): boolean {
+  if (v.allPlaces) return true
+  const listed = store.envVarReach.get(v.id)
+  if (v.workspaceId !== null) return true
+  if (v.projectId === null) return !!projectId && !!listed?.has(projectId)
+  return !workspaceId || !!listed?.has(workspaceId)
+}
+
+/** The adapter's `reach` for a row: the listed places that set no value of their own, and the ones that do. */
+function envVarReach(v: EnvVar) {
+  const rows = [...store.envVars.values()]
+  const listed = [...(store.envVarReach.get(v.id) ?? [])]
+  const own = (placeId: string) =>
+    rows.some((o) =>
+      v.projectId === null
+        ? o.projectId === placeId && o.workspaceId === null && o.name === v.name
+        : o.workspaceId === placeId && o.name === v.name,
+    )
+  const named = (placeId: string) => {
+    const p = v.projectId === null ? store.projects.get(placeId) : store.workspaces.get(placeId)
+    return p ? { id: p.id, slug: p.slug, name: p.name } : null
+  }
+  const everyPlace =
+    v.projectId === null
+      ? [...store.projects.values()].filter((p) => p.organizationId === v.organizationId)
+      : [...store.workspaces.values()].filter((w) => w.projectId === v.projectId)
+  return {
+    all: v.allPlaces,
+    places: listed.filter((id) => !own(id)).flatMap((id) => named(id) ?? []),
+    blocked: everyPlace.filter((p) => own(p.id)).map((p) => p.id),
+  }
 }
 
 function envVarLevel(v: EnvVar): 'organization' | 'project' | 'workspace' {
@@ -1485,6 +1522,7 @@ const mockDb: DatabaseAdapter = {
       name: data.name,
       value: data.value,
       isSecret: data.isSecret,
+      allPlaces: data.allPlaces ?? true,
       createdAt: now(),
       updatedAt: now(),
     }
@@ -1504,6 +1542,7 @@ const mockDb: DatabaseAdapter = {
           overriddenIn: new Set(
             rows.filter((o) => o.projectId !== null && o.name === v.name).map((o) => o.projectId),
           ).size,
+          reach: envVarReach(v),
         })),
       nextCursor: null,
     }
@@ -1534,7 +1573,9 @@ const mockDb: DatabaseAdapter = {
     const rows = [...store.envVars.values()].filter((v) => v.organizationId === organizationId)
     const own = rows.filter((v) => v.projectId === projectId && v.workspaceId === null)
     const ownNames = new Set(own.map((v) => v.name))
-    const org = rows.filter((v) => v.projectId === null && !ownNames.has(v.name))
+    const org = rows.filter(
+      (v) => v.projectId === null && !ownNames.has(v.name) && envVarReaches(v, projectId),
+    )
     const byName = (a: EnvVar, b: EnvVar) => a.name.localeCompare(b.name)
     return [...own.sort(byName), ...org.sort(byName)].map((v) => {
       const level = envVarLevel(v) as 'organization' | 'project'
@@ -1543,6 +1584,7 @@ const mockDb: DatabaseAdapter = {
         ...v,
         level,
         setAt: { level, id: v.projectId ?? v.organizationId, name: null },
+        reach: level === 'project' ? envVarReach(v) : null,
         overriddenIn: overriding.flatMap((o) => {
           const w = store.workspaces.get(o.workspaceId!)
           return w && w.projectId === projectId
@@ -1558,8 +1600,10 @@ const mockDb: DatabaseAdapter = {
         (v) =>
           v.organizationId === organizationId &&
           (v.workspaceId === workspaceId ||
-            (v.projectId === projectId && v.workspaceId === null) ||
-            v.projectId === null),
+            (v.projectId === projectId &&
+              v.workspaceId === null &&
+              envVarReaches(v, projectId, workspaceId)) ||
+            (v.projectId === null && envVarReaches(v, projectId))),
       )
       .sort((a, b) => envVarRank(a) - envVarRank(b) || a.name.localeCompare(b.name))
     const seen = new Set<string>()
@@ -1596,10 +1640,57 @@ const mockDb: DatabaseAdapter = {
     store.envVars.set(id, updated)
     return updated
   },
+  async createEnvVarWithReach(data, placeIds) {
+    const ids = [...new Set(placeIds)]
+    const { place } = data
+    if (place.level === 'workspace') return { failure: 'missing' }
+    const belongs = (placeId: string) =>
+      place.level === 'project'
+        ? store.workspaces.get(placeId)?.projectId === place.projectId
+        : store.projects.get(placeId)?.organizationId === place.organizationId
+    if (!ids.every(belongs)) return { failure: 'unknown' }
+    const own = (placeId: string) =>
+      [...store.envVars.values()].some((o) =>
+        place.level === 'project'
+          ? o.workspaceId === placeId && o.name === data.name
+          : o.projectId === placeId && o.workspaceId === null && o.name === data.name,
+      )
+    const reached = ids.filter((placeId) => !own(placeId))
+    if (reached.length === 0) return { failure: 'taken' }
+    const row = await mockDb.createEnvVar({ ...data, allPlaces: false })
+    if (!row) return { failure: 'missing' }
+    store.envVarReach.set(row.id, new Set(reached))
+    return { row, reached: reached.sort() }
+  },
+  async updateEnvVarWithReach(id, place, data, placeIds) {
+    const v = store.envVars.get(id)
+    if (!v || place.level === 'workspace' || !envVarAtPlace(v, place)) return { failure: 'missing' }
+    const ids = [...new Set(placeIds)]
+    const belongs = (placeId: string) =>
+      place.level === 'project'
+        ? store.workspaces.get(placeId)?.projectId === place.projectId
+        : store.projects.get(placeId)?.organizationId === place.organizationId
+    if (!ids.every(belongs)) return { failure: 'unknown' }
+    if (v.allPlaces) return { failure: 'narrowing' }
+    const row = await mockDb.updateEnvVar(id, place, data)
+    if (!row) return { failure: 'missing' }
+    const listed = store.envVarReach.get(id) ?? new Set<string>()
+    for (const placeId of ids) {
+      const taken = [...store.envVars.values()].some((o) =>
+        place.level === 'project'
+          ? o.workspaceId === placeId && o.name === row.name
+          : o.projectId === placeId && o.workspaceId === null && o.name === row.name,
+      )
+      if (!taken) listed.add(placeId)
+    }
+    store.envVarReach.set(id, listed)
+    return { row, reached: ids.filter((p) => listed.has(p)).sort() }
+  },
   async deleteEnvVar(id, place) {
     const v = store.envVars.get(id)
     if (!v || !envVarAtPlace(v, place)) return null
     store.envVars.delete(id)
+    store.envVarReach.delete(id)
     return v.name
   },
   async getWorkflowEnvVars(workflowId) {
@@ -1622,8 +1713,11 @@ const mockDb: DatabaseAdapter = {
         (v) =>
           v.organizationId === organizationId &&
           wanted.has(v.name) &&
-          (v.projectId === null ||
-            (!!projectId && v.projectId === projectId && v.workspaceId === null) ||
+          ((v.projectId === null && (projectId ? envVarReaches(v, projectId) : v.allPlaces)) ||
+            (!!projectId &&
+              v.projectId === projectId &&
+              v.workspaceId === null &&
+              envVarReaches(v, projectId, workspaceId)) ||
             (!!workspaceId && v.workspaceId === workspaceId)),
       )
       .sort((a, b) => envVarRank(a) - envVarRank(b))

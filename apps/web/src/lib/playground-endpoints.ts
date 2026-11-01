@@ -821,7 +821,11 @@ export const endpoints: EndpointDef[] = [
       { name: 'workspace', in: 'query', required: false },
     ],
     hasBody: true,
-    bodyExample: JSON.stringify({ name: 'MY_VAR', value: 'my-value', isSecret: false }, null, 2),
+    bodyExample: JSON.stringify(
+      { name: 'MY_VAR', value: 'my-value', isSecret: false, reach: { ids: ['WORKSPACE_ID'] } },
+      null,
+      2,
+    ),
   },
   {
     id: 'update-env-var',
@@ -837,7 +841,7 @@ export const endpoints: EndpointDef[] = [
       { name: 'workspace', in: 'query', required: false },
     ],
     hasBody: true,
-    bodyExample: JSON.stringify({ value: 'new-value' }, null, 2),
+    bodyExample: JSON.stringify({ value: 'new-value', reach: { all: true } }, null, 2),
   },
   {
     id: 'delete-env-var',
