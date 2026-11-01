@@ -13,7 +13,7 @@ export function NoOrgState({ email }: { email: string }) {
       </Tile>
       <h2 className="text-lg font-semibold text-foreground">You’re not in an organization yet</h2>
       <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
-        Create one to start building, or ask a teammate to invite {email}. Invites you get show up
+        Create one to start building, or ask a teammate to invite {email}. Invites you get appear
         here.
       </p>
       <Button asChild size="lg">

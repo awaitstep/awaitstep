@@ -236,7 +236,7 @@ export function SignInPage({ redirectPath, authMethods, errorCode }: SignInPageP
         )}
         {!hasOAuth && !authMethods.magicLink && (
           <p className="text-sm text-muted-foreground">
-            No sign-in methods are turned on. Check this instance’s environment variables.
+            No sign-in methods are enabled. Check your instance’s environment variables.
           </p>
         )}
       </AuthCard>

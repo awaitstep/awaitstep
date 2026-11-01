@@ -19,10 +19,7 @@ export function OrgSettingsIntro({ org, section }: OrgSettingsIntroProps) {
   ]
   return (
     <div className="flex flex-col gap-6">
-      <PageIntro
-        title="Settings"
-        description={`Who is in ${org.name}, and how the organization itself is set up.`}
-      />
+      <PageIntro title="Settings" description="Your organization’s details and members." />
       <LinkTabs label="Settings sections" tabs={tabs} activeKey={section} />
     </div>
   )

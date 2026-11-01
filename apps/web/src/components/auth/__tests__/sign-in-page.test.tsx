@@ -115,7 +115,7 @@ describe('SignInPage', () => {
         authMethods={{ github: false, google: false, magicLink: false }}
       />,
     )
-    expect(screen.getByText(/No sign-in methods are turned on/)).toBeVisible()
+    expect(screen.getByText(/No sign-in methods are enabled/)).toBeVisible()
   })
 
   it('says a refused sign-in’s reason under the form and in the toast', async () => {
@@ -174,7 +174,9 @@ describe('SignInPage', () => {
         <SignInPage redirectPath={null} authMethods={ALL} errorCode={code} />,
       )
       expect(screen.getByRole('alert')).toHaveTextContent('That sign-in link has expired')
-      expect(screen.getByRole('alert')).toHaveTextContent('Links last 5 minutes and work only once')
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Sign-in links expire after 5 minutes and work once',
+      )
       expect(screen.getByRole('button', { name: 'Email me a sign-in link' })).toBeVisible()
       unmount()
     }

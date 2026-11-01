@@ -151,7 +151,7 @@ export function VariableDialog({ org, mode, targets, startTarget, onClose }: Var
         : `Override ${mode.name} in ${target?.name ?? ''}`
   const description =
     mode.kind === 'override'
-      ? 'A value here wins over the inherited one.'
+      ? 'This value replaces the inherited one here.'
       : 'A value your workflows read at run time.'
   const keepsSecret = mode.kind === 'edit' && mode.isSecret
   const valueHint = keepsSecret ? 'Leave empty to keep the current value.' : undefined
@@ -178,7 +178,7 @@ export function VariableDialog({ org, mode, targets, startTarget, onClose }: Var
       Delete variable
     </Button>
   )
-  const levelHint = `A narrower level wins: ${narrowest?.name ?? 'a workspace'} would override the levels above it.`
+  const levelHint = `The narrower level applies: ${narrowest?.name ?? 'a workspace'} would replace the levels above it.`
 
   return (
     <>
@@ -234,7 +234,7 @@ export function VariableDialog({ org, mode, targets, startTarget, onClose }: Var
             checked={isSecret}
             onChange={setIsSecret}
             title="Secret"
-            description="Hidden after saving; workflows can still read it"
+            description="Hidden after you save. Workflows can still read it."
           />
           <FormField label="Applies to" hint={levelHint}>
             <Select

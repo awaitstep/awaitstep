@@ -41,7 +41,7 @@ export function problemCopy(problem: SignInProblem, emailAvailable: boolean): Pr
     case 'expired':
       return {
         title: 'That sign-in link has expired',
-        body: 'Links last 5 minutes and work only once. Ask for a new one below — we’ll send it to the same address.',
+        body: 'Sign-in links expire after 5 minutes and work once. Request a new one below and we’ll send it to the same address.',
       }
     case 'rate':
       return {

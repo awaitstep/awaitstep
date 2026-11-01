@@ -146,7 +146,7 @@ export function OrgKeysPage({ org, createOpen, onCloseCreate }: OrgKeysPageProps
       <PageBody>
         <PageIntro
           title="Organization API keys"
-          description={`For automating ${scope.org.name} itself. To deploy or run workflows, create a project or workspace key instead.`}
+          description="Organization keys manage the organization through the API."
         />
         <KeyLevelCards current="organization" links={links} />
         {revoke.error && !revoking && <Banner tone="warn">{revoke.error.message}</Banner>}

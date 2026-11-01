@@ -176,10 +176,7 @@ export function OrgConnectionsPage({ org, connectOpen, onConnectChange }: OrgCon
         </TopBarContent>
       )}
       <PageBody>
-        <PageIntro
-          title="Connections"
-          description="Cloudflare accounts AwaitStep deploys to. Pick which projects may use each one."
-        />
+        <PageIntro title="Connections" description="Providers you deploy to, eg. Cloudflare" />
         {updateError && <Banner tone="warn">{updateError}</Banner>}
         {body}
         <p className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -194,7 +191,7 @@ export function OrgConnectionsPage({ org, connectOpen, onConnectChange }: OrgCon
       {overlay?.kind === 'rename' && (
         <TextFieldDialog
           title={`Rename ${overlay.connection.name}`}
-          description="Only the name you see here changes."
+          description="Renames the connection in AwaitStep only. Your Cloudflare account is unchanged."
           leading={
             <Tile tone="info" size="lg">
               <Pencil />
@@ -212,14 +209,14 @@ export function OrgConnectionsPage({ org, connectOpen, onConnectChange }: OrgCon
       {overlay?.kind === 'token' && (
         <TextFieldDialog
           title={`Replace the token for ${overlay.connection.name}`}
-          description="Paste a new token for the same account. The old one stops being used."
+          description="Paste a new token for this account. It replaces the old one."
           leading={
             <Tile tone="warn" size="lg">
               <KeyRound />
             </Tile>
           }
           label="API token"
-          hint="Stored encrypted. Never shown again after you save."
+          hint="Encrypted when saved. You won’t see it again."
           submitLabel="Replace token"
           error={replace.error?.message}
           pending={replace.isPending}

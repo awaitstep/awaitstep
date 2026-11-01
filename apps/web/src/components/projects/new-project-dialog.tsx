@@ -64,7 +64,7 @@ export function NewProjectDialog({ open, onOpenChange, org, then }: NewProjectDi
         </Tile>
       }
       title="Create a project"
-      description={`A home for related workflows, in ${org.name}.`}
+      description="Group related workflows and workspaces."
       actions={
         <>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

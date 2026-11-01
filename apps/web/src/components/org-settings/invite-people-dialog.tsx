@@ -139,7 +139,7 @@ export function InvitePeopleDialog({ org, onClose }: InvitePeopleDialogProps) {
       <div className="flex flex-col gap-5">
         <FormField
           label="Email addresses"
-          hint="Separate with commas or paste a list."
+          hint="Separate addresses with commas."
           error={emailError}
         >
           <ChipInput
@@ -153,7 +153,7 @@ export function InvitePeopleDialog({ org, onClose }: InvitePeopleDialogProps) {
         </FormField>
         <FormField
           label={`Role in ${org.name}`}
-          hint="Admins see every project; members only what you pick below."
+          hint="Admins can open every project. Members can open only what you pick below."
         >
           <Select value={role} onValueChange={handleRole} options={ROLE_OPTIONS} />
         </FormField>
@@ -173,7 +173,7 @@ export function InvitePeopleDialog({ org, onClose }: InvitePeopleDialogProps) {
               onRoleChange={handleRoleChange}
             />
             <p className="text-2xs text-muted-foreground">
-              Pick a whole project or single workspaces. Picking a project covers its workspaces.
+              Choose whole projects or individual workspaces. A project includes all its workspaces.
             </p>
           </div>
         ) : (

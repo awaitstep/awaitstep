@@ -96,7 +96,7 @@ export function ResourcesPage({
         <Tabs value={tab} onValueChange={handleTabChange} className="flex flex-col gap-6">
           <PageIntro
             title="Resources"
-            description={`Building blocks every project in ${orgRef.name} can use. Projects and workspaces add their own on top.`}
+            description="Nodes and variables available to every project."
             aside={
               <PillTabsList>
                 <PillTab value="nodes" count={installedCount}>

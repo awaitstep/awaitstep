@@ -58,7 +58,7 @@ export function AccessEditorPanel({
         open
         onOpenChange={handleOpenChange}
         title="Add people"
-        description={`Pick someone in ${org.name}, then choose where they can work.`}
+        description={`Choose a person, then set what they can open.`}
         actions={
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel

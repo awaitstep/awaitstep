@@ -87,7 +87,7 @@ export function OrgDialog({ hasOrgs }: OrgDialogProps) {
           onInteractOutside={handleInteractOutside}
           className="fixed left-1/2 top-1/2 z-50 w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg"
         >
-          <Dialog.Title className="text-base font-semibold">New Organization</Dialog.Title>
+          <Dialog.Title className="text-base font-semibold">New organization</Dialog.Title>
           <Dialog.Description className="mt-1 text-sm text-muted-foreground">
             Create a new organization for your team.
           </Dialog.Description>

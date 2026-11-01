@@ -69,7 +69,7 @@ function YourOrgs({ orgs, lastUsed }: { orgs: OrgListing[]; lastUsed: string | n
             icon={Plus}
             tone="ok"
             title="Create an organization"
-            description="For a new company or a side project. You’ll be its owner."
+            description="For a new company or a side project."
             variant="dashed"
           />
         </li>

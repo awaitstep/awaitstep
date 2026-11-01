@@ -87,7 +87,7 @@ export function OrgVariablesTab({
     <>
       <OverviewCard
         title={org.name}
-        caption="Reach every project unless a project or workspace sets its own value"
+        caption="Used by every project unless a project or workspace overrides them."
       >
         <DataTable
           caption={`Variables in ${org.name}`}

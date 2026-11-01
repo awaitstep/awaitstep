@@ -8,9 +8,7 @@ describe('OrgSettingsIntro', () => {
   it('titles the page Settings and lists its sections as tabs, General first', () => {
     render(<OrgSettingsIntro org={ORG} section="members" />)
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument()
-    expect(
-      screen.getByText('Who is in Acme Inc, and how the organization itself is set up.'),
-    ).toBeInTheDocument()
+    expect(screen.getByText('Your organization’s details and members.')).toBeInTheDocument()
     const tabs = within(screen.getByRole('navigation', { name: 'Settings sections' })).getAllByRole(
       'link',
     )

@@ -181,7 +181,7 @@ function OrgGeneral({ slug, scope }: { slug: string; scope: OrgScope }) {
           </FormField>
           <FormField
             label="URL"
-            hint="Changing it breaks bookmarked links to every project."
+            hint="Changing it breaks existing links to this organization’s projects."
             error={slugError}
           >
             <InputGroup prefix="awaitstep.dev/">
@@ -198,7 +198,7 @@ function OrgGeneral({ slug, scope }: { slug: string; scope: OrgScope }) {
             icon={<Trash2 aria-hidden="true" />}
             tone="danger"
             title={`Delete ${org.name}`}
-            description="Owners only. Delete or move its projects first; locked projects block this. Deployed workers keep running on Cloudflare."
+            description="Only owners can delete an organization. Delete or move every project first, after turning off any deletion locks. Deployed workers keep running on Cloudflare."
             action={
               <BlockedAction reason={deleteReason}>
                 <Button

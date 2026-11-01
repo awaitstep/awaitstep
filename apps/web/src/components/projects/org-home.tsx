@@ -85,7 +85,7 @@ export function OrgHome({
       <PageBody>
         <PageIntro
           title="Projects"
-          description={`Everything in ${org.name}. Open a project to work in one of its workspaces.`}
+          description="Open a project to work in its workspaces."
           aside={
             <>
               <span className="hidden flex-wrap gap-2.5 md:flex">
@@ -148,7 +148,7 @@ export function OrgHome({
                 icon={Plus}
                 tone="ok"
                 title="New project"
-                description="Starts with a Default workspace. Add more when teams need their own space."
+                description="Comes with a Default workspace. Add more as teams need them."
                 variant="dashed"
               />
             </li>

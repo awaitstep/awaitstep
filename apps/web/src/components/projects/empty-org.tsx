@@ -102,7 +102,7 @@ export function EmptyOrg({ org }: EmptyOrgProps) {
               icon={FolderPlus}
               tone="ok"
               title="Create a project"
-              description="Where your workflows will live"
+              description="Holds your workspaces and workflows"
               corner="Step 1"
               highlighted
             />
@@ -113,7 +113,7 @@ export function EmptyOrg({ org }: EmptyOrgProps) {
               icon={Plug}
               tone="warn"
               title="Connect Cloudflare"
-              description="Needed to deploy. You can build first"
+              description="Required to deploy. You can build without it."
               corner="Step 2"
             />
           </li>
@@ -123,7 +123,7 @@ export function EmptyOrg({ org }: EmptyOrgProps) {
               icon={Users}
               tone="info"
               title="Invite your team"
-              description="Choose which projects each person sees"
+              description="Control which projects each person can open."
               corner="Optional"
             />
           </li>

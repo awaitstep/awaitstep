@@ -135,7 +135,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
       </div>
       <h2 className="mt-4 text-lg font-semibold text-foreground">Welcome to AwaitStep</h2>
       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-        Build and deploy durable workflows in minutes.
+        Build durable workflows visually and deploy them to Cloudflare.
       </p>
 
       <div className="mt-5 space-y-2.5 text-left">
@@ -166,10 +166,8 @@ function SelectProviderStep({ onSelect }: { onSelect: (provider: ProviderDefinit
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-foreground">Select a Provider</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Choose where you'd like to deploy your workflows.
-      </p>
+      <h2 className="text-lg font-semibold text-foreground">Select a provider</h2>
+      <p className="mt-1 text-sm text-muted-foreground">Choose where to deploy your workflows.</p>
 
       <div className="mt-4 space-y-2">
         {providers.map((provider) => (
@@ -371,10 +369,8 @@ function ReadyStep({
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md bg-status-success/10">
         <CheckCircle2 className="h-6 w-6 text-status-success" />
       </div>
-      <h2 className="mt-4 text-base font-semibold text-foreground">You're all set!</h2>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Your account is connected and ready to go.
-      </p>
+      <h2 className="mt-4 text-base font-semibold text-foreground">You’re all set!</h2>
+      <p className="mt-2 text-sm text-muted-foreground">Your account is connected.</p>
 
       <div className="mt-6 space-y-2">
         <div className="flex items-center gap-3 rounded-lg bg-muted/40 p-3">

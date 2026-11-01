@@ -175,7 +175,7 @@ export function NodesTab({ org, nodes, canManage, reason }: NodesTabProps) {
           open
           onOpenChange={handleConfirmOpenChange}
           title={`Uninstall ${confirming.name}?`}
-          description={`Used in ${plural(confirming.usage ?? 0, 'workflow')}. They keep running on their deployed version, but their next deploy fails until the node is reinstalled or removed from them.`}
+          description={`Used in ${plural(confirming.usage ?? 0, 'workflow')}. Deployed versions keep running, but the next deploy fails until you reinstall the node or remove it from those workflows.`}
           cancelLabel="Keep installed"
           confirmLabel="Uninstall anyway"
           variant="destructive"

@@ -25,10 +25,10 @@ interface RecentActivityProps {
 export function RecentActivity({ org, items }: RecentActivityProps) {
   return (
     <section aria-label="Recent activity" className="flex flex-col gap-3">
-      <SectionHeader title="Recent activity" caption="Across every project" />
+      <SectionHeader title="Recent activity" caption="All projects" />
       <ListCard
         label="Recent activity"
-        empty="Nothing yet. Deploys, failures and shares show up here."
+        empty="Nothing yet. Deploys, failures and shares appear here."
       >
         {items.map((item) => {
           const look = KIND_LOOK[item.kind]

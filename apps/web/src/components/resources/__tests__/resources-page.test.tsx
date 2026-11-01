@@ -126,7 +126,7 @@ describe('Resources › Nodes', () => {
     await userEvent.click(within(card('Slack')).getByRole('button', { name: 'Uninstall' }))
     const dialog = screen.getByRole('alertdialog', { name: 'Uninstall Slack?' })
     expect(dialog).toHaveTextContent(
-      'Used in 6 workflows. They keep running on their deployed version, but their next deploy fails',
+      'Used in 6 workflows. Deployed versions keep running, but the next deploy fails',
     )
     await userEvent.click(within(dialog).getByRole('button', { name: 'Keep installed' }))
     expect(within(section('Installed')).getByRole('article', { name: 'Slack' })).toBeVisible()

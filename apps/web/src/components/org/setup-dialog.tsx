@@ -97,7 +97,7 @@ export function SetupDialog({ open }: { open: boolean }) {
                 id="project-name"
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
-                placeholder="My Project"
+                placeholder="My project"
               />
               <p className="text-xs text-muted-foreground/60">
                 A project groups your workflows together. You can create more later.

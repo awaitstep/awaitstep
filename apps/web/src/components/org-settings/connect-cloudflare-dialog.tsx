@@ -80,7 +80,7 @@ export function ConnectCloudflareDialog({ org, onClose }: ConnectCloudflareDialo
         </Tile>
       }
       title="Connect a Cloudflare account"
-      description="AwaitStep deploys your workflows to it."
+      description="AwaitStep deploys your workflows to this account."
       actions={
         <>
           <Button type="button" variant="outline" onClick={onClose}>
@@ -135,7 +135,7 @@ export function ConnectCloudflareDialog({ org, onClose }: ConnectCloudflareDialo
         </FormField>
         <FormField
           label="API token"
-          hint="Stored encrypted. Never shown again after you save."
+          hint="Encrypted when saved. You won’t see it again."
           error={errorOn('token')}
         >
           <Input

@@ -93,7 +93,7 @@ export function ProjectDialog() {
           <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="mt-4 space-y-4">
             <div>
               <Label className="text-xs">Project name</Label>
-              <Input {...register('name')} placeholder="My Project" className="mt-1" autoFocus />
+              <Input {...register('name')} placeholder="My project" className="mt-1" autoFocus />
               {errors.name && (
                 <p className="mt-1 text-xs text-destructive">{errors.name.message}</p>
               )}
@@ -104,7 +104,7 @@ export function ProjectDialog() {
               </Label>
               <Textarea
                 {...register('description')}
-                placeholder="What's this project for?"
+                placeholder="What’s this project for?"
                 className="mt-1 min-h-[60px]"
               />
               {errors.description && (
