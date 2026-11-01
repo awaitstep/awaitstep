@@ -40,7 +40,10 @@ describe('client address', () => {
     for (let i = 0; i < 200; i++) {
       expect((await hit('203.0.113.50', i)).status, `request ${i}`).not.toBe(429)
     }
-    expect((await hit('203.0.113.50', 999)).status).toBe(429)
+    const refused = await hit('203.0.113.50', 999)
+    expect(refused.status).toBe(429)
+    // JSON with a reason, like every other refusal.
+    expect(await refused.json()).toEqual({ error: 'Too many requests. Try again within a minute.' })
     // Another client is another bucket.
     expect((await hit('203.0.113.51', 0)).status).not.toBe(429)
   })

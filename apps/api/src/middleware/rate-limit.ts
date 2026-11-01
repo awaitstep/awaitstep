@@ -3,6 +3,20 @@ import type { Context } from 'hono'
 import type { AppEnv } from '../types.js'
 import { rateLimitKey } from '../lib/client-ip.js'
 
+/** How long a window is, in words: "a minute", "15 minutes", "an hour". */
+function windowWords(windowMs: number): string {
+  const minutes = Math.max(1, Math.round(windowMs / 60_000))
+  if (minutes === 1) return 'a minute'
+  if (minutes < 60) return `${minutes} minutes`
+  const hours = Math.round(minutes / 60)
+  return hours === 1 ? 'an hour' : `${hours} hours`
+}
+
+/** A limiter's refusal: the window it counts, so the page can say when to try again. */
+export function tooManyRequests(windowMs: number): string {
+  return `Too many requests. Try again within ${windowWords(windowMs)}.`
+}
+
 /**
  * Per-instance, in-memory counters: they reset on restart and are not shared
  * between processes. That holds on the single-process Node deployment; on
@@ -18,6 +32,8 @@ export function createRateLimiter(config: {
   return rateLimiter<AppEnv>({
     windowMs: config.windowMs,
     limit: config.max,
+    // JSON like every other refusal, with a reason the page can show as it is.
+    message: { error: tooManyRequests(config.windowMs) },
     keyGenerator: config.keyGenerator ?? ((c) => rateLimitKey(c.get('clientIp'))),
   })
 }

@@ -14,7 +14,7 @@ import {
 // Deploys and takedowns in the audit log (B7). The provider is real except
 // for the calls that would reach Cloudflare: credentials, deploy, destroy.
 
-const outcome = { success: true }
+const outcome = { success: true, throws: false }
 
 vi.mock('../lib/provider-resolver.js', async (importOriginal) => {
   const actual = await importOriginal<typeof ProviderResolver>()
@@ -31,11 +31,13 @@ vi.mock('../lib/provider-resolver.js', async (importOriginal) => {
             property === 'destroy'
           ) {
             return () =>
-              Promise.resolve({
-                success: outcome.success,
-                deploymentId: 'awaitstep-wf-1',
-                ...(outcome.success ? {} : { error: 'boom' }),
-              })
+              outcome.throws
+                ? Promise.reject(new Error('wrangler failed in /srv/build/acct-123/worker.js'))
+                : Promise.resolve({
+                    success: outcome.success,
+                    deploymentId: 'awaitstep-wf-1',
+                    ...(outcome.success ? {} : { error: 'boom' }),
+                  })
           }
           const value = Reflect.get(target, property, receiver)
           return typeof value === 'function' ? value.bind(target) : value
@@ -81,6 +83,7 @@ describe('deploys in the audit log', () => {
   beforeEach(async () => {
     resetStore()
     outcome.success = true
+    outcome.throws = false
     app = createTestApp()
     await mockDb.createWorkflow({
       id: 'wf-1',
@@ -113,6 +116,15 @@ describe('deploys in the audit log', () => {
       ['workflow.deploy', 'deploy', 'Lead enrichment v1', 'Production · Dashboard'],
     ])
     expect(JSON.stringify(recordedAuditEvents())).not.toContain('token')
+  })
+
+  it('answers a provider crash with a generic reason, never its text', async () => {
+    outcome.throws = true
+    const stream = await post(app, '/deploy-stream', { connectionId: 'conn-1' })
+    const body = await stream.text()
+    expect(body).toContain('The deploy failed unexpectedly.')
+    expect(body).not.toContain('/srv/build')
+    expect(body).not.toContain('wrangler failed')
   })
 
   it('records nothing for a deploy that failed', async () => {

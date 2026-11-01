@@ -13,6 +13,16 @@ import { prepareDeploy, isDeployError } from '../lib/deploy-prepare.js'
 import { auditActor, recordAudit } from '../lib/audit.js'
 import { sharedDeployGroupKey } from '@awaitstep/ir'
 import { notify } from '../lib/notify.js'
+import { createLogger } from '../lib/logger.js'
+
+const log = createLogger('deploy')
+
+/** What a deploy that crashed inside the provider says: no internals, an id to look it up by. */
+export function unexpectedDeployFailure(requestId: string | undefined): string {
+  return requestId
+    ? `The deploy failed unexpectedly. Error ID ${requestId}.`
+    : 'The deploy failed unexpectedly.'
+}
 
 const deploySchema = z.object({
   connectionId: z.string().min(1),
@@ -196,9 +206,14 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
     } catch (err) {
       // Adapter contract is to return DeployResult; an uncaught exception is
       // a provider bug. Without this catch the SSE stream would close silently
-      // and the client would see no failure event.
-      const message = err instanceof Error ? err.message : String(err)
-      result = { success: false, deploymentId: '', error: message }
+      // and the client would see no failure event. Its text (bundler output,
+      // paths, upstream errors) goes to the log; the stream and the deployment
+      // row get a generic reason with the request id to find it.
+      const requestId = c.get('requestId')
+      // The error itself as the data, so the log keeps its stack (the logger
+      // serialises a top-level Error only); the ids go in the message.
+      log.error(`Provider deploy threw (request ${requestId ?? '-'}, workflow ${workflow.id})`, err)
+      result = { success: false, deploymentId: '', error: unexpectedDeployFailure(requestId) }
     }
 
     await db.createDeployment({
