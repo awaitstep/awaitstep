@@ -4,6 +4,7 @@ import { getCookie, getRequestHeader, deleteCookie } from '@tanstack/react-start
 import { apiFetch } from '../lib/cf-context'
 import { safeRedirectPath } from '../lib/auth-redirect'
 import { SignInPage, type AuthMethods } from '../components/auth/sign-in-page'
+import { cleanErrorCode } from '../components/auth/sign-in-problem'
 
 interface SignInContext {
   authenticated: boolean
@@ -45,8 +46,12 @@ const getSignInContext = createServerFn({ method: 'GET' }).handler(
 export const Route = createFileRoute('/sign-in')({
   head: () => ({ meta: [{ title: 'Sign In | AwaitStep' }] }),
   // ?redirect= (an app path, e.g. back to an invite after switching account) wins over the cookie.
-  validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
+  // ?error= is where a failed GitHub, Google or email-link sign-in comes back.
+  validateSearch: (search: Record<string, unknown>): { redirect?: string; error?: string } => ({
     redirect: safeRedirectPath(search['redirect']),
+    ...(cleanErrorCode(search['error']) !== undefined && {
+      error: cleanErrorCode(search['error']),
+    }),
   }),
   beforeLoad: async ({ search }) => {
     const context = await getSignInContext()
@@ -61,5 +66,6 @@ export const Route = createFileRoute('/sign-in')({
 
 function SignInRoute() {
   const { redirectPath, authMethods } = Route.useRouteContext()
-  return <SignInPage redirectPath={redirectPath} authMethods={authMethods} />
+  const { error } = Route.useSearch()
+  return <SignInPage redirectPath={redirectPath} authMethods={authMethods} errorCode={error} />
 }

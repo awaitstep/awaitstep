@@ -8,6 +8,11 @@ export function safeRedirectPath(value: unknown): string | undefined {
   return value
 }
 
+/** Whether `path` is an invite page (`/invite/<token>`, query allowed): signing in there is to accept it. */
+export function isInvitePath(path: string | null | undefined): boolean {
+  return typeof path === 'string' && /^\/invite\/[^/?#]+(?:[?#].*)?$/.test(path)
+}
+
 /** The sign-in page, coming back to `returnTo` afterwards. */
 export function signInPath(returnTo?: string): string {
   const back = safeRedirectPath(returnTo)

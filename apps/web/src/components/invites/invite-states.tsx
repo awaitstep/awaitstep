@@ -29,9 +29,6 @@ function EmailTile({ email }: { email: string }) {
   )
 }
 
-// D-P9-8: in W1 the dummy session is chosen by ?as=, not by signing in.
-const SWITCH_NOTE = 'On sample data, add ?as=<name> to the address to open it as someone else.'
-
 interface OpenInviteProps {
   invite: InviteDetails
   viewerEmail: string
@@ -211,7 +208,7 @@ export function WrongAccountInvite({ invite, viewerEmail, onSwitchAccount }: Wro
       />
       <p className="text-xs leading-relaxed text-muted-foreground">
         Sign in as {invite.email} to accept it. If you can’t use that address, ask{' '}
-        {invite.invitedBy.name} to invite this one instead. {SWITCH_NOTE}
+        {invite.invitedBy.name} to invite this one instead.
       </p>
     </AuthCard>
   )
