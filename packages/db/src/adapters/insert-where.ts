@@ -20,11 +20,23 @@ export async function insertWhere<T>(
   from: AnyTable,
   condition: SQL,
 ): Promise<T | null> {
-  const rows = await db
+  const rows = await insertWhereQuery(db, table, row, from, condition)
+  return (rows[0] as T | undefined) ?? null
+}
+
+/** `insertWhere`'s statement, not yet run: for a batch that must write several statements atomically. */
+export function insertWhereQuery(
+  db: AnyTable,
+  table: AnyTable,
+  row: Record<string, unknown>,
+  from: AnyTable,
+  condition: SQL,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- drizzle's pending insert, run by `await` or a batch
+): any {
+  return db
     .insert(table)
     .select(db.select(boundFields(table, row)).from(from).where(condition))
     .returning()
-  return (rows[0] as T | undefined) ?? null
 }
 
 /**

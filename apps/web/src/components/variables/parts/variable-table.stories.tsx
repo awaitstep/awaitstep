@@ -21,6 +21,7 @@ const VARIABLES: ResolvedVariable[] = [
     isSecret: true,
     setAt: { level: 'project', name: 'Project 101' },
     overriddenIn: [],
+    reach: null,
   },
   {
     id: 'v_crm_base_url',
@@ -29,6 +30,7 @@ const VARIABLES: ResolvedVariable[] = [
     isSecret: false,
     setAt: { level: 'project', name: 'Project 101' },
     overriddenIn: [SALES],
+    reach: null,
   },
   {
     id: 'v_region',
@@ -37,6 +39,7 @@ const VARIABLES: ResolvedVariable[] = [
     isSecret: false,
     setAt: { level: 'organization', name: 'Acme Inc' },
     overriddenIn: [],
+    reach: null,
   },
 ]
 

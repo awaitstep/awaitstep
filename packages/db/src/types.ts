@@ -464,8 +464,30 @@ export type VariablePlace =
   | { level: 'project'; organizationId: string; projectId: string }
   | { level: 'workspace'; organizationId: string; projectId: string; workspaceId: string }
 
+/** A workspace (on a project's variable) or a project (on an organization's) a variable can reach. */
+export interface VariableReachPlace {
+  id: string
+  slug: string
+  name: string
+}
+
+/**
+ * Where a project's or an organization's variable applies: every workspace
+ * (project) or project (organization), or only the listed ones. `blocked`
+ * holds the ids of places that set their own value of the name, which the
+ * variable can never reach or be extended to.
+ */
+export interface VariableReach {
+  all: boolean
+  places: VariableReachPlace[]
+  blocked: string[]
+}
+
+/** What a write asks for: every place, or exactly these (never fewer than before). */
+export type VariableReachInput = { all: true } | { all: false; ids: string[] }
+
 /** An org-wide variable with how many projects (the viewer can open) set their own value. */
-export type OrgEnvVar = EnvVar & { overriddenIn: number }
+export type OrgEnvVar = EnvVar & { overriddenIn: number; reach: VariableReach }
 
 /** The place a resolved value comes from; `name` is null in a schema without the org table. */
 export interface VariableSource {
@@ -480,6 +502,8 @@ export type ResolvedProjectVariable = EnvVar & {
   setAt: VariableSource
   /** The workspaces the viewer can open that set their own value. */
   overriddenIn: WorkspaceChip[]
+  /** Where the project's own variable applies; null on an inherited organization one. */
+  reach: VariableReach | null
 }
 
 /** Workspace settings → Variables: each name once, the closest level winning. */

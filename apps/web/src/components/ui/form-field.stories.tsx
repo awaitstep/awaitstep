@@ -32,10 +32,7 @@ export const Plain: Story = {
 
 export const WithHint: Story = {
   render: () => (
-    <FormField
-      label="Name"
-      hint="Letters, numbers and underscores. Workflows read it as global.env.STRIPE_KEY."
-    >
+    <FormField label="Name" hint="Letters, numbers and underscores, eg. STRIPE_KEY.">
       <Input defaultValue="STRIPE_KEY" />
     </FormField>
   ),

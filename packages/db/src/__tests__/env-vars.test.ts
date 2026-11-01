@@ -500,6 +500,199 @@ describe.each([
     })
   })
 
+  describe('reach: where a project’s or an organization’s variable applies', () => {
+    const names = (rows: { name: string }[]) => rows.map((r) => r.name).sort()
+    const withReach = (place: VariablePlace, name: string, ids: string[]) =>
+      h.adapter.createEnvVarWithReach(variable(place, name, 'v'), ids)
+    const read = (name: string, project: string, ws?: string) =>
+      h.adapter.findEnvVarsByNames('org-acme', [name], project, ws)
+
+    it('reaches every workspace and project by default, as before', async () => {
+      await h.adapter.createEnvVar(variable(ORG, 'REGION', 'eu'))
+      await h.adapter.createEnvVar(variable(P101, 'API_URL', 'u'))
+      for (const ws of ['ws-sales', 'ws-ops']) {
+        const found = await h.adapter.findEnvVarsByNames(
+          'org-acme',
+          ['REGION', 'API_URL'],
+          'p-101',
+          ws,
+        )
+        expect(names(found)).toEqual(['API_URL', 'REGION'])
+      }
+    })
+
+    it('a project variable listed for Sales is read by Sales, not by Ops', async () => {
+      expect(await withReach(P101, 'API_URL', ['ws-sales'])).toMatchObject({
+        reached: ['ws-sales'],
+      })
+      expect(await read('API_URL', 'p-101', 'ws-sales')).toHaveLength(1)
+      expect(await read('API_URL', 'p-101', 'ws-ops')).toHaveLength(0)
+      const resolved = await h.adapter.listResolvedVariablesForWorkspace(
+        'org-acme',
+        'p-101',
+        'ws-ops',
+      )
+      expect(resolved.map((v) => v.name)).not.toContain('API_URL')
+      const project = await h.adapter.listResolvedVariablesForProject('org-acme', 'p-101', 'u-ama')
+      expect(project.find((v) => v.name === 'API_URL')!.reach).toMatchObject({
+        all: false,
+        places: [{ id: 'ws-sales', name: 'Sales' }],
+        blocked: [],
+      })
+    })
+
+    it('an organization variable listed for Project 101 is not read, or shown, in Project 202', async () => {
+      expect(await withReach(ORG, 'REGION', ['p-101'])).toMatchObject({ reached: ['p-101'] })
+      expect(await read('REGION', 'p-101', 'ws-ops')).toHaveLength(1)
+      expect(await read('REGION', 'p-202', 'ws-202')).toHaveLength(0)
+      expect(await h.adapter.findEnvVarsByNames('org-acme', ['REGION'])).toEqual([])
+      const shown = await h.adapter.listResolvedVariablesForProject('org-acme', 'p-202', 'u-ama')
+      expect(shown.map((v) => v.name)).not.toContain('REGION')
+      expect((await h.adapter.getProjectSetup('org-acme', 'p-202', T0))!.orgVariables).toBe(0)
+    })
+
+    it('leaves out a place with its own value and blocks it in the list', async () => {
+      await h.adapter.createEnvVar(variable(SALES, 'API_URL', 'own'))
+      expect(await withReach(P101, 'API_URL', ['ws-sales', 'ws-ops'])).toMatchObject({
+        reached: ['ws-ops'],
+      })
+      const project = await h.adapter.listResolvedVariablesForProject('org-acme', 'p-101', 'u-ama')
+      expect(project.find((v) => v.name === 'API_URL')!.reach).toMatchObject({
+        places: [{ id: 'ws-ops' }],
+        blocked: ['ws-sales'],
+      })
+    })
+
+    it('writes nothing when every place has its own value, or an id is not the level’s place', async () => {
+      await h.adapter.createEnvVar(variable(SALES, 'API_URL', 'own'))
+      expect(await withReach(P101, 'API_URL', ['ws-sales'])).toEqual({ failure: 'taken' })
+      // Another project's workspace, and an id that does not exist.
+      expect(await withReach(P101, 'B', ['ws-ops', 'ws-202'])).toEqual({ failure: 'unknown' })
+      expect(await withReach(P101, 'C', ['nope'])).toEqual({ failure: 'unknown' })
+      expect(await withReach(ORG, 'D', ['p-g'])).toEqual({ failure: 'unknown' })
+      expect((await h.adapter.listEnvVarsByProject('org-acme', 'p-101')).data).toEqual([])
+      expect((await h.adapter.listEnvVarsByOrganization('org-acme')).data).toEqual([])
+    })
+
+    it('writes nothing for an author who cannot open the project, and a taken name stays a unique violation', async () => {
+      const outsider = { ...variable(P101, 'A', '1'), createdBy: 'u-cleo' }
+      expect(await h.adapter.createEnvVarWithReach(outsider, ['ws-sales'])).toEqual({
+        failure: 'missing',
+      })
+      await withReach(P101, 'API_URL', ['ws-sales'])
+      await expect(withReach(P101, 'API_URL', ['ws-ops'])).rejects.toSatisfy(isUniqueViolation)
+      expect((await h.adapter.listEnvVarsByProject('org-acme', 'p-101')).data).toHaveLength(1)
+    })
+
+    it('a workspace that later sets its own value drops out of the listed places', async () => {
+      await withReach(P101, 'API_URL', ['ws-sales', 'ws-ops'])
+      await h.adapter.createEnvVar(variable(SALES, 'API_URL', 'own'))
+      const project = await h.adapter.listResolvedVariablesForProject('org-acme', 'p-101', 'u-ama')
+      expect(project.find((v) => v.name === 'API_URL')!.reach).toMatchObject({
+        places: [{ id: 'ws-ops' }],
+        blocked: ['ws-sales'],
+      })
+    })
+
+    it('only widens: adds places with the edit, then everywhere, and never narrows', async () => {
+      const listed = (await withReach(P101, 'B', ['ws-sales'])) as { row: { id: string } }
+      const added = await h.adapter.updateEnvVarWithReach(listed.row.id, P101, { value: 'v2' }, [
+        'ws-sales',
+        'ws-ops',
+      ])
+      expect(added).toMatchObject({ row: { value: 'v2' }, reached: ['ws-ops', 'ws-sales'] })
+      expect(await read('B', 'p-101', 'ws-ops')).toHaveLength(1)
+      expect(await h.adapter.updateEnvVar(listed.row.id, P101, { allPlaces: true })).toMatchObject({
+        allPlaces: true,
+      })
+      const widened = await h.adapter.listResolvedVariablesForProject('org-acme', 'p-101', 'u-ama')
+      expect(widened.find((v) => v.name === 'B')!.reach).toEqual({
+        all: true,
+        places: [],
+        blocked: [],
+      })
+      // Now it applies everywhere: a list would narrow it, and the value stays as it was.
+      expect(
+        await h.adapter.updateEnvVarWithReach(listed.row.id, P101, { value: 'v3' }, ['ws-sales']),
+      ).toEqual({ failure: 'narrowing' })
+      expect((await read('B', 'p-101', 'ws-ops'))[0]!.value).toBe('v2')
+    })
+
+    it('refuses an edit’s list that names a place of another project, writing nothing', async () => {
+      const listed = (await withReach(P101, 'B', ['ws-sales'])) as { row: { id: string } }
+      expect(
+        await h.adapter.updateEnvVarWithReach(listed.row.id, P101, { value: 'v2' }, ['ws-202']),
+      ).toEqual({ failure: 'unknown' })
+      expect((await read('B', 'p-101', 'ws-sales'))[0]!.value).toBe('v')
+    })
+
+    it('a refused edit lists no places: an unknown id, or un-hiding a secret without a value', async () => {
+      const secret = (await h.adapter.createEnvVarWithReach(variable(P101, 'TOKEN', 'v', true), [
+        'ws-sales',
+      ])) as { row: { id: string } }
+      const id = secret.row.id
+      expect(
+        await h.adapter.updateEnvVarWithReach(id, P101, { value: 'x' }, ['ws-ops', 'nope']),
+      ).toEqual({ failure: 'unknown' })
+      expect(
+        await h.adapter.updateEnvVarWithReach(id, P101, { isSecret: false }, ['ws-ops']),
+      ).toEqual({ failure: 'missing' })
+      expect(await read('TOKEN', 'p-101', 'ws-ops')).toHaveLength(0)
+    })
+
+    it('is addressed only where the row lives: other level, other place, a workspace row', async () => {
+      const row = (await withReach(P101, 'A', ['ws-sales'])) as { row: { id: string } }
+      expect(
+        await h.adapter.updateEnvVarWithReach(row.row.id, P202, { value: 'x' }, ['ws-202']),
+      ).toEqual({ failure: 'missing' })
+      expect(
+        await h.adapter.updateEnvVarWithReach(row.row.id, ORG, { value: 'x' }, ['p-101']),
+      ).toEqual({
+        failure: 'missing',
+      })
+      const own = await h.adapter.createEnvVar(variable(SALES, 'B', '1'))
+      expect(
+        await h.adapter.updateEnvVarWithReach(own!.id, SALES, { value: 'x' }, ['ws-sales']),
+      ).toEqual({
+        failure: 'missing',
+      })
+    })
+
+    it('without a workspace, a project variable limited to some workspaces does not count', async () => {
+      await withReach(P101, 'LIMITED', ['ws-sales'])
+      await h.adapter.createEnvVar(variable(P101, 'EVERYWHERE', 'v'))
+      const found = await h.adapter.findEnvVarsByNames(
+        'org-acme',
+        ['LIMITED', 'EVERYWHERE'],
+        'p-101',
+      )
+      expect(names(found)).toEqual(['EVERYWHERE'])
+    })
+
+    it('shows a viewer only the places they can open', async () => {
+      // Eve can open Sales only; Ops and Project 202 are hidden from her.
+      await withReach(P101, 'API_URL', ['ws-sales', 'ws-ops'])
+      await withReach(ORG, 'REGION', ['p-101', 'p-202'])
+      await h.adapter.createEnvVar(variable(OPS, 'SECOND', '1'))
+      await h.adapter.createEnvVar(variable(P101, 'SECOND', '1'))
+      const project = await h.adapter.listResolvedVariablesForProject('org-acme', 'p-101', 'u-eve')
+      expect(project.find((v) => v.name === 'API_URL')!.reach!.places.map((p) => p.id)).toEqual([
+        'ws-sales',
+      ])
+      expect(project.find((v) => v.name === 'SECOND')!.reach!.blocked).toEqual([])
+      const org = await h.adapter.listEnvVarsByOrganization('org-acme', undefined, 'u-eve')
+      const region = org.data.find((v) => v.name === 'REGION')!
+      expect(region.reach.places.map((p) => p.id)).toEqual(['p-101'])
+    })
+
+    it('moving a project drops it from the old organization’s lists', async () => {
+      await withReach(ORG, 'REGION', ['p-101'])
+      await h.adapter.moveProjectToOrganization('p-101', 'org-acme', 'org-globex', 'u-ama')
+      const org = await h.adapter.listEnvVarsByOrganization('org-acme')
+      expect(org.data[0]!.reach.places).toEqual([])
+    })
+  })
+
   describe('with the rest of the model', () => {
     beforeEach(() => seedVariables(h))
 

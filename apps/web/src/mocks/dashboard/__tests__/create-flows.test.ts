@@ -97,6 +97,26 @@ describe('set variable', () => {
     })
   })
 
+  it('limits a project variable to the listed workspaces, which alone resolve it', async () => {
+    const salesId = getDb().workspaces.find((w) => w.slug === 'sales')!.id
+    await variables.setVariable(ama, 'acme', {
+      scope: project,
+      name: 'LIMITED',
+      value: 'v',
+      isSecret: false,
+      mode: 'create',
+      reach: { ids: [salesId] },
+    })
+    const listed = (await variables.listProjectVariables(ama, 'acme', 'project-101')).find(
+      (v) => v.name === 'LIMITED',
+    )
+    expect(listed!.reach).toMatchObject({ all: false, places: [{ id: salesId }] })
+    const names = async (workspace: string) =>
+      (await variables.listWorkspaceVariables(ama, { ...sales, workspace })).map((v) => v.name)
+    expect(await names('sales')).toContain('LIMITED')
+    expect(await names('it')).not.toContain('LIMITED')
+  })
+
   it('keeps a secret when edited with an empty value', async () => {
     await variables.setVariable(ama, 'acme', {
       scope: project,

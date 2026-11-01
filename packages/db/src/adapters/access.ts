@@ -52,6 +52,7 @@ export interface AccessAdapterTables extends OverviewTables {
   invitationPlaces: unknown
   /** A project's variables carry its organization; a move re-homes them (B4). */
   envVars: unknown
+  envVarProjects?: unknown
   /** A project's own accounts move with it; the old organization's shared ones stay behind. */
   connections?: unknown
   connectionProjects?: unknown
@@ -862,6 +863,14 @@ export class AccessAdapter {
         .update(ev)
         .set({ organizationId: toOrganizationId })
         .where(and(eq(ev.projectId, projectId), moved)),
+      // The old organization's variables that listed the project no longer reach it.
+      ...(this.t.envVarProjects
+        ? [
+            tx
+              .delete(this.t.envVarProjects as typeof pm)
+              .where(and(eq((this.t.envVarProjects as typeof pm).projectId, projectId), moved)),
+          ]
+        : []),
       ...this.moveConnections(tx, projectId, toOrganizationId, moved, projectWorkspaces),
       tx
         .delete(pm)

@@ -4,6 +4,7 @@ import type {
   OrgVariable,
   ResolvedVariable,
   VariableInput,
+  VariableReach,
   VariableScope,
   WorkspaceVariable,
 } from '../../../types/dashboard/variables'
@@ -36,7 +37,7 @@ export const listProjectVariables = endpoint(
     const workspaces = visibleWorkspaces(db, ctx, project!)
     const resolved = new Map<string, { row: VariableRow; setAtName: string }>()
     for (const row of db.variables.filter(
-      (v) => v.level === 'organization' && v.scopeId === org.id,
+      (v) => v.level === 'organization' && v.scopeId === org.id && reaches(v, project!.id),
     )) {
       resolved.set(row.name, { row, setAtName: org.name })
     }
@@ -56,6 +57,7 @@ export const listProjectVariables = endpoint(
         value: row.isSecret ? null : row.value,
         isSecret: row.isSecret,
         setAt: { level: row.level as 'organization' | 'project', name: setAtName },
+        reach: row.level === 'project' ? reachOf(row) : null,
         overriddenIn: workspaces
           .filter((w) =>
             db.variables.some(
@@ -84,8 +86,18 @@ export const listWorkspaceVariables = endpoint(
     // One pass: each name's values, closest level first.
     const byName = new Map<string, { level: (typeof levels)[number]; row: VariableRow }[]>()
     for (const level of levels) {
+      // A project's value reaches the workspace, and an org's the project, only when listed (or for every one).
+      const placeId =
+        level.level === 'project'
+          ? workspace!.id
+          : level.level === 'organization'
+            ? project!.id
+            : null
       for (const row of db.variables.filter(
-        (v) => v.level === level.level && v.scopeId === level.id,
+        (v) =>
+          v.level === level.level &&
+          v.scopeId === level.id &&
+          (placeId === null || reaches(v, placeId)),
       )) {
         byName.set(row.name, [...(byName.get(row.name) ?? []), { level, row }])
       }
@@ -130,9 +142,38 @@ export const listOrgVariables = endpoint((ctx, orgSlug: string): OrgVariable[] =
       value: row.isSecret ? null : row.value,
       isSecret: row.isSecret,
       overriddenIn: projects.filter((p) => setsOwn(p.id, row.name)).length,
+      reach: reachOf(row),
     }))
   return rows(ctx, list)
 })
+
+/** Whether a project's or org's row applies to the workspace/project: for every one, or listed. */
+function reaches(row: VariableRow, placeId: string): boolean {
+  return row.reachIds === undefined || row.reachIds.includes(placeId)
+}
+
+/** Where a project's or org's row applies, from the places that set their own value of the name. */
+function reachOf(row: VariableRow): VariableReach {
+  const db = getDb()
+  const isProjectRow = row.level === 'project'
+  const own = (placeId: string) =>
+    db.variables.some((v) =>
+      isProjectRow
+        ? v.level === 'workspace' && v.scopeId === placeId && v.name === row.name
+        : v.level === 'project' && v.scopeId === placeId && v.name === row.name,
+    )
+  const candidates = isProjectRow
+    ? db.workspaces.filter((w) => w.projectId === row.scopeId)
+    : db.projects.filter((p) => p.orgId === row.scopeId)
+  const listed = new Set(row.reachIds ?? [])
+  return {
+    all: row.reachIds === undefined,
+    places: candidates
+      .filter((c) => listed.has(c.id) && !own(c.id))
+      .map((c) => ({ id: c.id, slug: c.slug, name: c.name })),
+    blocked: candidates.filter((c) => own(c.id)).map((c) => c.id),
+  }
+}
 
 /** A row's id: the dummy keeps no ids, so one is read off where the row is set. */
 function variableId(row: VariableRow): string {
@@ -173,17 +214,32 @@ export const setVariable = mutation((ctx, orgSlug: string, input: VariableInput)
     if (input.value === '' && !keeps) throw invalidError('Give it a value', 'value')
     if (!keeps) existing.value = input.value
     existing.isSecret = input.isSecret
+    widenReach(existing, input, false)
     return
   }
   if (input.value === '') throw invalidError('Give it a value', 'value')
-  db.variables.push({
+  const created: VariableRow = {
     level: input.scope.level,
     scopeId: target.id,
     name,
     value: input.value,
     isSecret: input.isSecret,
-  })
+  }
+  widenReach(created, input, true)
+  db.variables.push(created)
 })
+
+/** Applies the input's `reach`: everywhere, or the listed places (added to those a row already had). */
+function widenReach(row: VariableRow, input: VariableInput, isNew: boolean): void {
+  if (!input.reach || row.level === 'workspace') return
+  if ('all' in input.reach) {
+    delete row.reachIds
+  } else if (isNew) {
+    row.reachIds = [...new Set(input.reach.ids)]
+  } else if (row.reachIds !== undefined) {
+    row.reachIds = [...new Set([...row.reachIds, ...input.reach.ids])]
+  }
+}
 
 export const deleteVariable = mutation(
   (ctx, orgSlug: string, scope: VariableScope, name: string): void => {

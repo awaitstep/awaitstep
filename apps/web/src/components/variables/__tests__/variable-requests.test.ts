@@ -19,6 +19,7 @@ const resolved = (
   isSecret,
   setAt: { level, name: level === 'project' ? 'Project 101' : 'Acme Inc' },
   overriddenIn: [],
+  reach: level === 'project' ? { all: true, places: [], blocked: [] } : null,
 })
 
 const inWorkspace = (
@@ -56,6 +57,7 @@ describe('projectDialogMode', () => {
       name: 'SLACK_TOKEN',
       value: null,
       isSecret: true,
+      reach: { all: true, places: [], blocked: [] },
     })
     expect(projectDialogMode({ kind: 'variable', name: 'REGION' }, list)).toMatchObject({
       kind: 'override',
@@ -83,8 +85,22 @@ describe('workspaceDialogMode', () => {
 
 describe('orgDialogMode', () => {
   const ORG = [
-    { id: 'org:REGION', name: 'REGION', value: 'eu', isSecret: false, overriddenIn: 1 },
-    { id: 'org:SENTRY_DSN', name: 'SENTRY_DSN', value: null, isSecret: true, overriddenIn: 0 },
+    {
+      id: 'org:REGION',
+      name: 'REGION',
+      value: 'eu',
+      isSecret: false,
+      overriddenIn: 1,
+      reach: { all: true, places: [], blocked: [] },
+    },
+    {
+      id: 'org:SENTRY_DSN',
+      name: 'SENTRY_DSN',
+      value: null,
+      isSecret: true,
+      overriddenIn: 0,
+      reach: { all: true, places: [], blocked: [] },
+    },
   ]
 
   it('edits the org’s own variables, a secret starting empty', () => {
@@ -94,6 +110,7 @@ describe('orgDialogMode', () => {
       name: 'REGION',
       value: 'eu',
       isSecret: false,
+      reach: { all: true, places: [], blocked: [] },
     })
     expect(orgDialogMode({ kind: 'variable', name: 'SENTRY_DSN' }, ORG)).toMatchObject({
       kind: 'edit',

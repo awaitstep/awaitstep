@@ -1936,11 +1936,30 @@ workspace alone.
 "name"`); the same name at another level is another variable. Names match
 `^[A-Z][A-Z0-9_]*$`. Secret values are masked as `••••••••` in every read.
 
+**Where a project's or organization's variable applies (`reach`).** A project's
+variable reaches every workspace of the project, an organization's every
+project of the organization — unless it was set for a list. A body `reach` is
+`{ "all": true }` or `{ "ids": [...] }` (workspace ids at a project,
+project ids at the organization; 1–50 ids, else `422`); at a workspace it is
+`400`. A place that sets its own value of the same name is never reached and
+is skipped (named in `skipped`). An id that is not one of the level's own
+places is `404`, and nothing is written. Reach only grows: a list can be added
+to, or widened to `all`, never narrowed (`422`, and nothing in the request —
+not the value either — is saved). A list is saved together with the variable or
+not at all.
+
+`reach` limits where a value is **delivered** (deploys, runs, the workspace's
+resolved list), not who can read it: anyone who can open the project still reads
+a non-secret project variable from the project's own list, whichever workspaces
+it reaches. Secrets stay masked.
+
 ### `GET /env-vars`
 
 The addressed level's own rows, newest first, paginated. An organization's
 rows carry `overriddenIn`: how many projects the caller can open set the same
-name themselves, in the project or one of its workspaces.
+name themselves, in the project or one of its workspaces, and `reach`:
+`{ all, places: [{ id, slug, name }], blocked: [ids] }` — the projects it is
+listed for (when `all` is false) and the projects that set their own value.
 
 **Permission:** `resources:read` (organization keys) · `variables:read` (project and workspace keys)
 
@@ -1957,6 +1976,7 @@ name themselves, in the project or one of its workspaces.
       "value": "eu",
       "isSecret": false,
       "overriddenIn": 1,
+      "reach": { "all": true, "places": [], "blocked": [] },
       "createdBy": "usr_...",
       "createdAt": "…",
       "updatedAt": "…"
@@ -1972,7 +1992,10 @@ The level's resolved view, not paginated. Addressed at a **project**
 (`&project=`): each name once, the project's own value over the org's, with
 `setAt` (`{ level, id, name }`) and `overriddenIn` — the workspaces the caller
 can open that set their own value, as `{ id, slug, name, colour }` chips; the
-project's own rows first, then the org's, by name. Addressed at a
+project's own rows first, then the org's, by name. The project's own rows
+carry `reach` (`{ all, places, blocked }` over its workspaces; `null` on an
+inherited organization row), and an organization row the project is not
+listed for is not shown. Addressed at a
 **workspace** (`&workspace=`): each name once, the closest level winning, with
 `source` (`{ level, id, name }`) and `overrides` (`"project"`,
 `"organization"` or `null`); the workspace's rows first, then the project's,
@@ -1990,12 +2013,16 @@ Set a variable at the addressed level.
 {
   "name": "MY_VAR",
   "value": "my-value",
-  "isSecret": false
+  "isSecret": false,
+  "reach": { "ids": ["ws_..."] }
 }
 ```
 
-Answers `201` with the row and its `level`; `409` when the name is already
-set at that level; `404` when the level cannot be opened.
+`reach` is optional (default: every place). Answers `201` with the row, its
+`level` and `skipped` — the listed ids it does not reach because they set
+their own value; `409` when the name is already
+set at that level, or when every listed place was skipped (nothing is saved,
+`skipped` names them); `404` when the level cannot be opened.
 
 ### `PATCH /env-vars/:id`
 
@@ -2004,7 +2031,10 @@ addressed level: an org-wide row addressed at a project, or a workspace's row
 addressed at its project, is `404`. Making a secret variable non-secret
 requires a new `value` in the same request — a stored secret never becomes
 readable — otherwise the request answers `422` (`details[0].path: "value"`).
-A rename into a name already set at the level is `409`.
+A rename into a name already set at the level is `409`. A `reach` widens where
+it applies (see above) and the answer carries `skipped`; it is `422` when it
+would narrow a variable that applies everywhere. The new value applies to every
+place the variable reaches, in this one request.
 
 **Permission:** `resources:write` (organization keys) · `variables:write` (project and workspace keys)
 
@@ -2014,7 +2044,8 @@ A rename into a name already set at the level is `409`.
 
 ```json
 {
-  "value": "new-value"
+  "value": "new-value",
+  "reach": { "ids": ["ws_..."] }
 }
 ```
 

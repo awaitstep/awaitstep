@@ -6,6 +6,7 @@ import type {
 } from '../../../../lib/dashboard-api'
 import {
   blankValueError,
+  savedLine,
   toOrgVariable,
   toResolvedVariable,
   toUpdateBody,
@@ -32,6 +33,7 @@ describe('variable rows → records', () => {
       value: '••••••••',
       isSecret: true,
       overriddenIn: 2,
+      reach: { all: false, places: [{ id: 'p_1', slug: 'site', name: 'Site' }], blocked: ['p_2'] },
     }
     expect(toOrgVariable(row)).toEqual({
       id: 'v_1',
@@ -39,6 +41,7 @@ describe('variable rows → records', () => {
       value: null,
       isSecret: true,
       overriddenIn: 2,
+      reach: { all: false, places: [{ id: 'p_1', slug: 'site', name: 'Site' }], blocked: ['p_2'] },
     })
   })
 
@@ -52,6 +55,7 @@ describe('variable rows → records', () => {
       isSecret: false,
       setAt: { level: 'organization', id: 'org_1', name: 'Acme' },
       overriddenIn: [{ id: 'ws_sales', slug: 'sales', name: 'Sales', colour: 'blue' }],
+      reach: null,
     }
     expect(toResolvedVariable(row)).toEqual({
       id: 'v_2',
@@ -60,6 +64,7 @@ describe('variable rows → records', () => {
       isSecret: false,
       setAt: { level: 'organization', name: 'Acme' },
       overriddenIn: [{ id: 'ws_sales', slug: 'sales', name: 'Sales', colour: 'blue' }],
+      reach: null,
     })
   })
 
@@ -132,5 +137,13 @@ describe('variable rows → records', () => {
       'Give it a value',
     )
     expect(blankValueError({ ...edit, value: 'x', isSecret: false })).toBeNull()
+  })
+})
+
+describe('savedLine', () => {
+  it('says plainly when places were left out', () => {
+    expect(savedLine(0)).toBe('Variable saved')
+    expect(savedLine(1)).toBe('Variable saved. 1 place left out: they set their own value')
+    expect(savedLine(3)).toBe('Variable saved. 3 places left out: they set their own value')
   })
 })

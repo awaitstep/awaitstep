@@ -3,6 +3,7 @@ import type {
   ResolvedVariable,
   WorkspaceVariable,
 } from '../../types/dashboard/variables'
+import type { VariableReach } from '../../types/dashboard/variables'
 import type { VariableDialogMode } from './variable-dialog'
 
 /** Which variable dialog the URL asks for: `?new=variable`, `?variable=NAME`. */
@@ -22,6 +23,8 @@ interface ListedVariable {
   name: string
   value: string | null
   isSecret: boolean
+  /** Where it applies, on a project's or org's own variable. */
+  reach?: VariableReach | null
 }
 
 /**
@@ -47,6 +50,7 @@ function dialogModeFor<V extends ListedVariable>(
     name: variable.name,
     value: variable.value,
     isSecret: variable.isSecret,
+    reach: variable.reach ?? null,
   }
 }
 
