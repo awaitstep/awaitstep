@@ -30,7 +30,18 @@ export const RESERVED_SLUGS = {
     'sign-in',
     'workflows',
   ],
-  project: ['projects', 'resources', 'audit', 'inbox', 'whats-new', 'settings', 'account', 'items'],
+  project: [
+    'projects',
+    'resources',
+    'audit',
+    'connections',
+    'api-keys',
+    'inbox',
+    'whats-new',
+    'settings',
+    'account',
+    'items',
+  ],
   workspace: ['settings'],
 } as const satisfies Record<SlugLevel, readonly string[]>
 
