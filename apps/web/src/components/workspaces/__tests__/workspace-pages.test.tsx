@@ -152,10 +152,15 @@ describe('a new project', () => {
     // Acme's accounts list their projects, and none lists Billing yet.
     expect(screen.getByRole('link', { name: /Connect Cloudflare/ })).toHaveAttribute(
       'href',
-      '/acme/settings/connections?new=connection',
+      '/acme/connections?new=connection',
     )
     expect(screen.getByText('3 inherited from Acme Inc')).toBeInTheDocument()
     expect(screen.getByText('Only you so far')).toBeInTheDocument()
+    // Teammates join the project from its own Members page, Add people open.
+    expect(screen.getByRole('link', { name: /Invite teammates/ })).toHaveAttribute(
+      'href',
+      '/acme/billing/settings/members?access=add',
+    )
     expect(screen.getByRole('link', { name: 'Add a workspace' })).toHaveAttribute(
       'href',
       '/acme/billing/settings/workspaces?new=workspace',

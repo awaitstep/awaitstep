@@ -13,7 +13,9 @@ import { FieldGroup, FormField } from '../ui/form-field'
 import { Input } from '../ui/input'
 import { InputGroup } from '../ui/input-group'
 import { FormCard } from '../ui/form-card'
-import { PageBody, PageIntro } from '../shell/page-intro'
+import { ClearableMark } from '../ui/clearable-mark'
+import { PageBody } from '../shell/page-intro'
+import { OrgSettingsIntro } from './org-settings-intro'
 import { OrgMark } from '../shell/org-mark'
 import { useGoTo } from '../navigation/router-shell-link'
 import { TopBarContent } from '../navigation/top-bar-slot'
@@ -124,7 +126,6 @@ function OrgGeneral({ slug, scope }: { slug: string; scope: OrgScope }) {
   const slugError = field === 'slug' ? error : undefined
   const logoError = pickError ?? (field === 'logo' ? error : undefined)
   const nameError = field === 'slug' || field === 'logo' ? undefined : error
-  const canClearLogo = !readOnly && logo !== null
   const deleteReason = can.delete.allowed ? undefined : can.delete.reason
   const deleteDescription =
     remove.error?.message ??
@@ -140,13 +141,21 @@ function OrgGeneral({ slug, scope }: { slug: string; scope: OrgScope }) {
         </TopBarContent>
       )}
       <PageBody>
-        <PageIntro title="General" description={`${org.name}’s name, address and logo.`} />
+        <OrgSettingsIntro org={org} section="general" />
         <FormCard id={FORM_ID} onSubmit={handleSubmit}>
           <FieldGroup legend="Logo" error={logoError}>
             <span className="flex flex-wrap items-center gap-3">
-              <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary text-lg font-semibold text-primary-foreground">
-                <OrgMark initial={org.initial} logo={logo} />
-              </span>
+              <ClearableMark
+                // Absent can be null or undefined: only a real image has a ×.
+                hasImage={Boolean(logo)}
+                onClear={handleUseInitial}
+                clearLabel="Remove logo"
+                disabled={readOnly}
+              >
+                <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary text-lg font-semibold text-primary-foreground">
+                  <OrgMark initial={org.initial} logo={logo} />
+                </span>
+              </ClearableMark>
               <Button
                 type="button"
                 variant="outline"
@@ -155,15 +164,6 @@ function OrgGeneral({ slug, scope }: { slug: string; scope: OrgScope }) {
                 disabled={readOnly}
               >
                 Upload
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleUseInitial}
-                disabled={!canClearLogo}
-              >
-                Use initial
               </Button>
               <input
                 ref={fileRef}

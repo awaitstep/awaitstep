@@ -15,6 +15,8 @@ const dialogContentVariants = cva(
         sm: 'w-[400px]',
         md: 'w-[480px]',
         lg: 'w-[560px]',
+        // Side-by-side choice cards plus a wide table (`CreateKey`, 720px).
+        xl: 'w-[720px]',
       },
       // `padded` is the original bare dialog. `sectioned` is the dashboard's
       // header / scrolling body / footer layout built from overlay-parts.

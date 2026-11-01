@@ -1,7 +1,12 @@
 import { Plus } from 'lucide-react'
 import { useProjectMembers } from '../../data/dashboard/members'
 import { useViewer } from '../../data/dashboard/session'
-import { accessEditorPath, type ProjectSlugs } from '../../lib/dashboard-paths'
+import {
+  accessEditorPath,
+  projectMembersAddPath,
+  type ProjectSlugs,
+} from '../../lib/dashboard-paths'
+import { AccessEditorPanel } from '../org-settings/access-editor-panel'
 import type { ProjectMembers, ProjectWideRole } from '../../types/dashboard/access'
 import type { Person } from '../../types/dashboard/session'
 import type { WorkspaceRole } from '../../types/dashboard/workspaces'
@@ -36,6 +41,9 @@ const WORKSPACE_ROLE_LABEL: Record<WorkspaceRole, string> = {
 
 interface MembersPageProps {
   slugs: ProjectSlugs
+  /** Add people is open (`?access=add`): the access editor, set to add someone to this project. */
+  adding?: boolean
+  onCloseAdd?: () => void
 }
 
 function PersonCell({ person, you }: { person: Person; you: boolean }) {
@@ -54,19 +62,24 @@ function PersonCell({ person, you }: { person: Person; you: boolean }) {
 }
 
 /** `/{org}/{project}/settings/members` (`ProjectMembers`): who opens every workspace, and who opens some. */
-export function MembersPage({ slugs }: MembersPageProps) {
+export function MembersPage({ slugs, adding = false, onCloseAdd }: MembersPageProps) {
   const scope = useProjectScope(slugs)
   const members = useProjectMembers(slugs.org, slugs.project)
   const viewer = useViewer()
 
   if (!scope) return null
   const project = scope.project.project
-  // Both links open the org's access editor (P5), which org owners and admins run.
+  // Add people opens the access editor (P5) here, set to this project; Edit access opens it in org
+  // Settings. Org owners and admins run it.
   const canManage = scope.org.viewerCan.manageSettings.allowed
   const viewerId = viewer.data?.id
 
   function handleRetry() {
     void members.refetch()
+  }
+
+  function handleCloseAdd() {
+    onCloseAdd?.()
   }
 
   // Org owners and admins get their access from the org, so it is edited there, not per project.
@@ -187,10 +200,7 @@ export function MembersPage({ slugs }: MembersPageProps) {
     <>
       {canManage && (
         <TopBarContent>
-          <ShellLink
-            href={accessEditorPath(slugs.org, { addTo: slugs.project })}
-            className={buttonVariants({ size: 'sm' })}
-          >
+          <ShellLink href={projectMembersAddPath(slugs)} className={buttonVariants({ size: 'sm' })}>
             <Plus aria-hidden="true" />
             Add people
           </ShellLink>
@@ -203,6 +213,15 @@ export function MembersPage({ slugs }: MembersPageProps) {
         />
         {body}
       </PageBody>
+      {canManage && adding && (
+        <AccessEditorPanel
+          org={{ slug: slugs.org, name: scope.org.org.name }}
+          userId={null}
+          addToProject={slugs.project}
+          viewerIsOwner={scope.org.viewerRole === 'owner'}
+          onClose={handleCloseAdd}
+        />
+      )}
     </>
   )
 }

@@ -23,7 +23,7 @@ export interface OverlayProps {
 }
 
 interface ModalDialogProps extends OverlayProps {
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg' | 'xl'
 }
 
 /**

@@ -10,7 +10,15 @@ export const Route = createFileRoute('/_authed/$org/$project/settings/members')(
   component: ProjectMembersPage,
 })
 
+/** `?access=add` opens Add people on the page, set to this project. */
 function ProjectMembersPage() {
   const slugs = Route.useParams()
-  return <MembersPage slugs={slugs} />
+  const search = Route.useSearch()
+  const navigate = Route.useNavigate()
+
+  function handleCloseAdd() {
+    void navigate({ search: (prev) => ({ ...prev, access: undefined }), replace: true })
+  }
+
+  return <MembersPage slugs={slugs} adding={search.access === 'add'} onCloseAdd={handleCloseAdd} />
 }

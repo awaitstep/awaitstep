@@ -93,7 +93,20 @@ describe('project Members', () => {
       within(screen.getByRole('banner', { name: 'Top bar' })).getByRole('link', {
         name: 'Add people',
       }),
-    ).toHaveAttribute('href', '/acme/settings/members?access=add&project=project-101')
+    ).toHaveAttribute('href', '/acme/project-101/settings/members?access=add')
+  })
+
+  it('opens Add people on the project page itself, set to this project', async () => {
+    renderWithDashboardData(<MembersPage slugs={p101} adding onCloseAdd={() => {}} />)
+    expect(await screen.findByRole('dialog', { name: 'Add people' })).toBeInTheDocument()
+  })
+
+  it('never opens Add people for someone who may not run it', async () => {
+    renderWithDashboardData(<MembersPage slugs={p101} adding onCloseAdd={() => {}} />, {
+      userId: 'usr_tom',
+    })
+    await screen.findByRole('table', { name: /every workspace/ })
+    expect(screen.queryByRole('dialog', { name: 'Add people' })).not.toBeInTheDocument()
   })
 
   it('offers the org’s access editor only to org owners and admins, not project admins', async () => {

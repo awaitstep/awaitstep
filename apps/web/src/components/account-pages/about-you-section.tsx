@@ -13,6 +13,7 @@ import { FormField } from '../ui/form-field'
 import { Input } from '../ui/input'
 import { SectionHeader } from '../ui/section-header'
 import { TopBarContent } from '../navigation/top-bar-slot'
+import { ClearableMark } from '../ui/clearable-mark'
 
 const FORM_ID = 'account-profile'
 
@@ -116,7 +117,14 @@ function PhotoRow({ account }: { account: Account }) {
 
   return (
     <div className="flex flex-wrap items-center gap-4">
-      <PersonAvatar person={person} className="size-16 text-xl" />
+      <ClearableMark
+        hasImage={Boolean(person.image)}
+        onClear={handleRemove}
+        clearLabel="Remove photo"
+        disabled={busy}
+      >
+        <PersonAvatar person={person} className="size-16 text-xl" />
+      </ClearableMark>
       <div className="flex flex-col gap-1.5">
         <div className="flex flex-wrap gap-2">
           <Button
@@ -129,11 +137,6 @@ function PhotoRow({ account }: { account: Account }) {
           >
             Upload photo
           </Button>
-          {person.image && (
-            <Button type="button" variant="ghost" size="sm" onClick={handleRemove} disabled={busy}>
-              Remove photo
-            </Button>
-          )}
           <input
             ref={fileRef}
             type="file"

@@ -73,7 +73,8 @@ export function RadioCardGroup<Value extends string>({
           disabled && 'cursor-not-allowed opacity-60',
         )}
       >
-        <span className="flex items-center gap-2.5">
+        {/* The radio lines up with the title's first line, should it wrap. */}
+        <span className={cn('flex gap-2.5', grid ? 'items-start' : 'items-center')}>
           <input
             type="radio"
             name={name}
@@ -83,7 +84,7 @@ export function RadioCardGroup<Value extends string>({
             onChange={() => onChange(option.value)}
             aria-labelledby={titleId}
             aria-describedby={hasDescription ? descriptionId : undefined}
-            className={cn(CONTROL_CLASS, grid && 'mt-0')}
+            className={cn(CONTROL_CLASS, grid && 'mt-1')}
           />
           {grid && option.leading}
           {grid && (

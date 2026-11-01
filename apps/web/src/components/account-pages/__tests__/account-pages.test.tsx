@@ -71,6 +71,8 @@ describe('Profile', () => {
     await waitFor(() => expect(container.querySelector('img')).toHaveAttribute('src', ama().image))
     await userEvent.click(screen.getByRole('button', { name: 'Remove photo' }))
     await waitFor(() => expect(ama().image).toBeNull())
+    // Back to the initials: nothing to clear, so the × on the avatar goes.
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Remove photo' })).toBeNull())
   })
 
   it('turns away a photo over 2 MB without sending it', async () => {

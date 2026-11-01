@@ -229,7 +229,8 @@ export function CreateKeyDialog({
       <ModalDialog
         open
         onOpenChange={handleOpenChange}
-        size="lg"
+        // The board's 720px: room for three reach cards side by side.
+        size="xl"
         leading={
           <Tile tone="warn" size="lg">
             <KeyRound />

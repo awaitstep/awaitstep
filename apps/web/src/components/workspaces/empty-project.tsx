@@ -2,7 +2,8 @@ import { Check, Code, Plus, Upload, Workflow } from 'lucide-react'
 import { useCreateItem } from '../../data/dashboard/items'
 import { useProjectSetup } from '../../data/dashboard/setup'
 import {
-  orgSettingsPath,
+  orgPath,
+  projectMembersAddPath,
   projectSettingsPath,
   workspacePath,
   withNewDialog,
@@ -97,7 +98,7 @@ export function EmptyProject({
         {
           label: setup.data.cloudflareConnected ? 'Cloudflare connected' : 'Connect Cloudflare',
           done: setup.data.cloudflareConnected,
-          href: withNewDialog(orgSettingsPath(slugs.org, 'connections'), 'connection'),
+          href: withNewDialog(orgPath(slugs.org, 'connections'), 'connection'),
         },
         {
           label: 'Add project variables',
@@ -111,7 +112,8 @@ export function EmptyProject({
         {
           label: 'Invite teammates',
           done: others > 0,
-          href: withNewDialog(orgSettingsPath(slugs.org, 'members'), 'invite'),
+          // Into this project's Members, Add people open: not org Settings.
+          href: projectMembersAddPath(slugs),
           caption: 'Only you so far',
         },
       ]
