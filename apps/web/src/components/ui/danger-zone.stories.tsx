@@ -8,6 +8,7 @@ import { LockSwitch } from './lock-switch'
 import { ShellLink } from './shell-link'
 import { Switch } from './switch'
 import { LOCK_SET_BY } from './__tests__/fixtures/access'
+import { MOVE_PROJECT_COPY } from '../project-settings/move-project-copy'
 
 // The foot of ProjectGeneral and of Access › General, plus the switch they share.
 const meta = {
@@ -43,7 +44,7 @@ function ProjectDangerZone({ initiallyLocked }: { initiallyLocked: boolean }) {
       <DangerRow
         icon={<ArrowRight aria-hidden="true" />}
         title="Move to another organization"
-        description="Its workspaces, workflows and project keys go with it. Connections stay behind and must be reconnected."
+        description={MOVE_PROJECT_COPY}
         action={
           <Button variant="outline" size="sm">
             Move project
@@ -82,12 +83,12 @@ export const WorkspaceInheritedLock: Story = {
         locked
         onChange={() => {}}
         inheritedFrom={{ name: 'Project 101', href: '/acme/project-101/settings' }}
-        description="On, because Project 101 is locked, and that covers every workspace in it. A workspace can also be locked on its own while the project isn't: its admins and editors can do that here."
+        description="On because Project 101 is locked, which covers every workspace in it. Manage the lock in the project."
       />
       <DangerRow
         icon={<ArrowRight aria-hidden="true" />}
         title="Move workflows out"
-        description="Send some or all of Sales's workflows and functions to another workspace in Project 101."
+        description="Move workflows and functions to another workspace in Project 101."
         action={
           <ShellLink
             href="/acme/project-101/sales/move"

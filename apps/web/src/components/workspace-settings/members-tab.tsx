@@ -171,7 +171,7 @@ export function MembersTab({ slugs, scope, org, projectName, people }: MembersTa
         kind="own"
         scopeLabel={`Only in ${workspace.name}`}
         colour={workspace.colour}
-        hint={`Roles given in ${workspace.name} itself`}
+        hint="Access granted in this workspace"
       >
         <ListCard framed={false} label={`Only in ${workspace.name}`} empty="Nobody yet.">
           {own.map((person) => (

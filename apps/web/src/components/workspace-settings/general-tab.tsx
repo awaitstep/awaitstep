@@ -45,7 +45,7 @@ function valuesOf(workspace: Workspace): FormValues {
 
 function lockText(workspace: Workspace, on: boolean, projectName: string): string {
   if (workspace.lock.inherited) {
-    return `On, because ${projectName} is locked, and that covers every workspace in it. A workspace can also be locked on its own while the project isn’t: its admins and editors can do that here.`
+    return `On because ${projectName} is locked, which covers every workspace in it. Manage the lock in the project.`
   }
   return on
     ? `On. ${workspace.name} can’t be deleted until its admins or editors turn this off.`
@@ -173,7 +173,7 @@ export function GeneralTab({ slugs, scope, projectName }: GeneralTabProps) {
         <DangerRow
           icon={<ArrowRightLeft aria-hidden="true" />}
           title="Move workflows out"
-          description={`Send some or all of ${workspace.name}’s workflows and functions to another workspace in ${projectName}.`}
+          description={`Move workflows and functions to another workspace in ${projectName}.`}
           action={
             <BlockedAction reason={moveReason}>
               <Button type="button" variant="outline" size="sm" onClick={handleOpenMove}>

@@ -92,7 +92,7 @@ describe('AccessTree', () => {
     ).not.toBeInTheDocument()
     expect(
       screen.getByText(
-        /Admins open every project and workspace, so per-project roles are not needed/,
+        /Admins open every project and workspace, so per-project roles aren’t needed/,
       ),
     ).toBeVisible()
     expect(places()).toEqual(['Every project and workspace in Acme Inc'])

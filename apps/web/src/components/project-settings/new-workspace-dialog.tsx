@@ -148,7 +148,7 @@ export function NewWorkspaceDialog({
         </span>
       }
       title="Create a workspace"
-      description={`A separate space in ${projectName} with its own people, keys and workflows.`}
+      description="A separate space with its own people, keys and workflows."
       actions={
         <>
           <Button type="button" variant="outline" onClick={handleCancel}>

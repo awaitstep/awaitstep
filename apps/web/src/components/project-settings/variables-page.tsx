@@ -16,6 +16,7 @@ import { VariableTable } from '../variables/parts/variable-table'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
 import { OverviewCard } from '../workspaces/parts/overview-card'
 import { useProjectScope } from './use-project-scope'
+import { VARIABLE_PRECEDENCE_COPY } from '../variables/precedence-copy'
 import { VariableDialogHost } from '../variables/variable-dialog-host'
 import { projectDialogMode, type VariableRequest } from '../variables/variable-requests'
 
@@ -70,10 +71,7 @@ export function VariablesPage({ slugs, request, onCloseDialog }: VariablesPagePr
     )
   } else {
     body = (
-      <OverviewCard
-        title={`Resolved for ${project.name}`}
-        caption="A workspace value wins over the project’s; the project’s wins over the org’s"
-      >
+      <OverviewCard title={`Resolved for ${project.name}`} caption={VARIABLE_PRECEDENCE_COPY}>
         <VariableTable
           caption={`Variables in ${project.name}`}
           variables={variables.data}
@@ -99,10 +97,7 @@ export function VariablesPage({ slugs, request, onCloseDialog }: VariablesPagePr
         </TopBarContent>
       )}
       <PageBody>
-        <PageIntro
-          title="Variables"
-          description={`Values every workspace in ${project.name} gets. Override an org value here, or override a project value inside one workspace.`}
-        />
+        <PageIntro title="Variables" description="Shared by every workspace in this project." />
         {body}
       </PageBody>
       {canManage && mode && (

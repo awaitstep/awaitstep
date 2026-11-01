@@ -7,7 +7,7 @@ const PLACE_ROLE: Record<string, { label: string; detail: string }> = {
   'workspace:editor': { label: 'Editor', detail: 'Build, run and deploy workflows' },
   'workspace:admin': {
     label: 'Workspace admin',
-    detail: 'Build, deploy, and manage people and keys',
+    detail: 'Build, deploy and manage people and keys',
   },
   'project:member': { label: 'Project member', detail: 'Work in every workspace in it' },
   'project:admin': { label: 'Project admin', detail: 'Run the project and every workspace in it' },

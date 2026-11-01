@@ -116,7 +116,7 @@ export function AccessTree({
         <p className="flex items-center gap-2.5 rounded-xl border border-dashed border-inherited-border px-4 py-3.5 text-xs text-muted-foreground">
           <ShieldCheck className="size-4 shrink-0" aria-hidden="true" />
           {value.orgRole === 'owner' ? 'Owners' : 'Admins'} open every project and workspace, so
-          per-project roles are not needed.
+          per-project roles aren’t needed.
         </p>
       ) : (
         <section aria-labelledby={projectsHeadingId} className="flex flex-col gap-3">

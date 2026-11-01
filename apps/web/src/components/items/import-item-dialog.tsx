@@ -14,16 +14,10 @@ interface ImportItemDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   slugs: WorkspaceSlugs
-  workspaceName: string
 }
 
 /** Import: an exported workflow file becomes a draft in this workspace (D-P2-2). */
-export function ImportItemDialog({
-  open,
-  onOpenChange,
-  slugs,
-  workspaceName,
-}: ImportItemDialogProps) {
+export function ImportItemDialog({ open, onOpenChange, slugs }: ImportItemDialogProps) {
   const formId = useId()
   const importItem = useImportItem(slugs)
   const [file, setFile] = useState<File | null>(null)
@@ -79,7 +73,7 @@ export function ImportItemDialog({
         </Tile>
       }
       title="Import a workflow"
-      description={`Bring in a workflow file you exported. It arrives in ${workspaceName} as a draft.`}
+      description="Import an exported workflow. It’s added as a draft."
       actions={actions}
     >
       {importedFunction ? (

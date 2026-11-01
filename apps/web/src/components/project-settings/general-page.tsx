@@ -22,6 +22,7 @@ import { FormCard } from '../ui/form-card'
 import { PageBody, PageIntro } from '../shell/page-intro'
 import { useGoTo } from '../navigation/router-shell-link'
 import { TopBarContent } from '../navigation/top-bar-slot'
+import { MOVE_PROJECT_COPY } from './move-project-copy'
 import { MoveProjectDialog } from './move-project-dialog'
 import { useProjectScope } from './use-project-scope'
 
@@ -167,10 +168,7 @@ function GeneralSettings({ slugs, scope }: { slugs: ProjectSlugs; scope: Project
         </TopBarContent>
       )}
       <PageBody>
-        <PageIntro
-          title="General"
-          description={`${project.name}’s name and address, and the actions that can’t be undone.`}
-        />
+        <PageIntro title="General" description="Name, URL and destructive actions." />
         <FormCard id={FORM_ID} onSubmit={handleSubmit}>
           <FormField label="Project name" error={nameError}>
             <Input
@@ -181,7 +179,7 @@ function GeneralSettings({ slugs, scope }: { slugs: ProjectSlugs; scope: Project
           </FormField>
           <FormField
             label="URL"
-            hint="Changing it breaks bookmarked links to this project."
+            hint="Changing it breaks existing links to this project."
             error={slugError}
           >
             <InputGroup prefix={`awaitstep.dev/${slugs.org}/`}>
@@ -211,7 +209,7 @@ function GeneralSettings({ slugs, scope }: { slugs: ProjectSlugs; scope: Project
           <DangerRow
             icon={<ArrowRight aria-hidden="true" />}
             title="Move to another organization"
-            description="Its workspaces, workflows and project keys go with it. Connections stay behind and must be reconnected."
+            description={MOVE_PROJECT_COPY}
             action={
               <BlockedAction reason={moveReason}>
                 <Button type="button" variant="outline" size="sm" onClick={handleOpenMove}>

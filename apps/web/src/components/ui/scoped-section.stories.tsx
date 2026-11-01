@@ -58,7 +58,7 @@ export const OwnTable: Story = {
       kind="own"
       scopeLabel="Only in Sales"
       colour="green"
-      hint="Reach Sales and nothing else"
+      hint="Work in this workspace"
     >
       <KeyTable keys={SALES_KEYS} />
     </ScopedSection>
@@ -70,7 +70,7 @@ export const InheritedTable: Story = {
     <ScopedSection
       kind="inherited"
       scopeLabel="From Project 101"
-      hint="Project keys reach every workspace"
+      hint="Work in every workspace in the project"
       manage={MANAGE}
     >
       <KeyTable keys={PROJECT_KEYS} inherited />
@@ -83,7 +83,7 @@ export const InheritedEmpty: Story = {
     <ScopedSection
       kind="inherited"
       scopeLabel="From Project 101"
-      hint="Project keys reach every workspace"
+      hint="Work in every workspace in the project"
       manage={MANAGE}
     >
       <KeyTable keys={[]} inherited />

@@ -8,6 +8,7 @@ import {
 } from '../../lib/dashboard-paths'
 import { cn } from '../../lib/utils'
 import { timeAgoOrDay } from '../../lib/time'
+import { plural } from '../../lib/plural'
 import type { SharedItem, WorkspaceItem } from '../../types/dashboard/items'
 import type { WorkspaceRun } from '../../types/dashboard/runs'
 import type { Workspace, WorkspacePerson } from '../../types/dashboard/workspaces'
@@ -151,7 +152,7 @@ export function WorkspaceOverview({
                 Nothing has run yet
               </span>
               <span className="text-[12.5px] text-muted-foreground">
-                Deploy a workflow and its runs show up here within seconds.
+                Deploy a workflow and its runs appear here.
               </span>
             </span>
             <ShellLink
@@ -227,12 +228,14 @@ export function WorkspaceOverview({
           <OverviewEmpty
             icon={Play}
             title="No runs yet"
-            body={`A run lands here the moment something triggers a workflow — a webhook, a schedule, or you pressing Run. Nothing is deployed in ${workspace.name} yet.`}
+            body={
+              'Runs appear here once a webhook, a schedule or Run triggers a workflow. Nothing is deployed yet.'
+            }
             action={{ label: 'Deploy a workflow', href: workflowsHref }}
           />
         ) : (
           <DataTable
-            caption={`Recent runs in ${workspace.name}`}
+            caption="Recent runs"
             columns={columns}
             rows={recentRuns}
             getRowKey={(run) => run.id}
@@ -246,7 +249,7 @@ export function WorkspaceOverview({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <OverviewCard
           title="People"
-          caption={`${people.length} can open ${workspace.name}`}
+          caption={plural(people.length, 'person', 'people')}
           action={
             <ShellLink
               href={workspaceSettingsPath(slugs, 'members')}
@@ -288,7 +291,7 @@ export function WorkspaceOverview({
             <OverviewEmpty
               icon={Share2}
               title="Nothing shared yet"
-              body={`Publish a workflow so the other workspaces in ${projectName} can call it, or pull one in from the project library.`}
+              body={`Share a workflow so other workspaces in ${projectName} can call it.`}
               action={{ label: 'Open the library', href: libraryHref }}
             />
           ) : (

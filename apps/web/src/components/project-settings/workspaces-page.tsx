@@ -38,7 +38,7 @@ interface WorkspacesPageProps {
 
 function PoolSkeleton() {
   return (
-    <LoadingRegion label="Loading the project pool">
+    <LoadingRegion label="Loading the project-wide items">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {Array.from({ length: 3 }, (_, i) => (
           <Bone key={i} className="h-40 rounded-2xl" />
@@ -145,7 +145,7 @@ export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: Workspaces
             icon={Plus}
             tone="ok"
             title="New workspace"
-            description="Give another team its own people, keys and workflows"
+            description="Give a team its own space."
             variant="dashed"
           />
         )}
@@ -158,7 +158,7 @@ export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: Workspaces
   if (failed) {
     poolBody = (
       <WorkspaceLoadError
-        what="the project pool"
+        what="the project-wide items"
         error={failed.error}
         onRetry={handleRetry}
         retrying={pool.some((query) => query.isFetching)}
@@ -179,7 +179,7 @@ export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: Workspaces
           tone="info"
           title="Members & keys"
           count={admins.length}
-          caption="admins open every workspace"
+          caption="admins can open every workspace"
         >
           <span className="flex items-center gap-2.5">
             <AvatarStack people={admins} />
@@ -252,16 +252,13 @@ export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: Workspaces
           <>
             <PageIntro
               title="Workspaces"
-              description="Each workspace keeps a team’s workflows, people and keys apart. Anything in the project pool below is available in every workspace."
+              description="Workspaces keep each team’s workflows, people and keys separate."
             />
             {workspaceGrid}
           </>
         )}
         <section className="flex flex-col gap-3.5">
-          <SectionHeader
-            title="Project pool"
-            caption={`Inherited by every workspace in ${project.name}. A workspace can add its own on top, never remove these.`}
-          />
+          <SectionHeader title="Project-wide" caption="Every workspace inherits these." />
           {poolBody}
         </section>
       </PageBody>

@@ -17,7 +17,7 @@ describe('Library page', () => {
     renderWithDashboardData(<LibraryPage slugs={sales} />)
     expect(await screen.findByRole('heading', { name: 'In Sales' })).toBeVisible()
     expect(screen.getByRole('heading', { name: 'From Project 101' })).toBeVisible()
-    expect(screen.getByText(/No modules or resources in Sales yet/)).toBeInTheDocument()
+    expect(screen.getByText(/No modules or custom nodes in Sales yet/)).toBeInTheDocument()
   })
 
   it('explains New module and New resource instead of a dead button', async () => {

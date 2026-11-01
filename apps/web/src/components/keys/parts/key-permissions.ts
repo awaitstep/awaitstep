@@ -117,13 +117,13 @@ interface ReachNames {
   workspace: string
 }
 
-/** The sentence under the grid saying what a key at `level` can and can't reach. */
+/** The sentence under the grid saying what a key at `level` can and can’t do. */
 export function describeReach(level: KeyLevel, names: ReachNames): string {
   switch (level) {
     case 'organization':
       return 'Organization keys can never read, change, deploy or run workflows, even with Full access.'
     case 'project':
-      return `Reaches every workspace in ${names.project}, including ones created later. For one team only, pick One workspace.`
+      return `Works in every workspace in ${names.project}, including ones created later. For one team only, pick One workspace.`
     case 'workspace':
       return `Only ${names.workspace}. Shared workflows from other workspaces can be called but not changed.`
   }

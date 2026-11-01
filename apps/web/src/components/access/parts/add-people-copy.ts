@@ -39,7 +39,7 @@ export interface AddPeopleContext {
 export function summaryText(picks: Pick[], ctx: AddPeopleContext): string {
   if (picks.length === 0) {
     return ctx.kind === 'project'
-      ? `Pick someone above. Anyone you add can open only what you choose here — nothing else in ${ctx.orgName} changes.`
+      ? 'Pick someone above. Anyone you add can open only what you choose here. Their other access doesn’t change.'
       : 'Pick someone above. Adding a person here never changes what they can see in other workspaces.'
   }
   const n = picks.length
@@ -54,7 +54,7 @@ export function summaryText(picks: Pick[], ctx: AddPeopleContext): string {
   const newcomers = picks.filter((p) => p.kind === 'email')
   if (newcomers.length > 0) {
     bits.push(
-      `${andList(newcomers.map(pickName))} ${newcomers.length === 1 ? 'is' : 'are'} new to ${ctx.orgName} — they join as a Member once the invite is accepted, and get nothing beyond this.`,
+      `${andList(newcomers.map(pickName))} ${newcomers.length === 1 ? 'is' : 'are'} new to ${ctx.orgName} and ${newcomers.length === 1 ? 'joins' : 'join'} as a Member once the invite is accepted, with nothing beyond this.`,
     )
   }
   return bits.join(' ')

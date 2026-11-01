@@ -108,7 +108,7 @@ describe('LoadError', () => {
     vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'))
     renderError()
     await user.click(screen.getByRole('button', { name: 'Copy error ID req_7f2a91c4' }))
-    expect(screen.getByRole('status')).toHaveTextContent("Couldn't copy.")
+    expect(screen.getByRole('status')).toHaveTextContent('Couldn’t copy.')
   })
 })
 

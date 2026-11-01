@@ -337,7 +337,7 @@ describe('workspace settings › API keys', () => {
     await renderPage({ tab: 'keys' })
     const own = await screen.findByRole('table', { name: 'Keys for Sales only' })
     expect(own).toHaveTextContent('CRM webhook')
-    const inherited = screen.getByRole('table', { name: 'Project keys that reach Sales' })
+    const inherited = screen.getByRole('table', { name: 'Inherited from the project' })
     expect(inherited).toHaveTextContent('CI deploys')
     expect(within(inherited).getAllByText('Inherited').length).toBeGreaterThan(0)
     expect(within(inherited).queryByRole('button', { name: 'Revoke' })).not.toBeInTheDocument()
@@ -352,7 +352,7 @@ describe('workspace settings › API keys', () => {
     const own = await screen.findByRole('table', { name: 'Keys for Sales only' })
     await userEvent.click(within(own).getByRole('button', { name: 'Revoke' }))
     const dialog = screen.getByRole('alertdialog', { name: 'Revoke CRM webhook?' })
-    expect(dialog).toHaveTextContent('stops reaching Sales immediately')
+    expect(dialog).toHaveTextContent('stops working in Sales immediately')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Revoke key' }))
     await waitFor(() => expect(screen.queryByText('CRM webhook')).not.toBeInTheDocument())
   })
@@ -368,6 +368,10 @@ describe('workspace settings › Variables', () => {
     )
     expect(rows[1]).toHaveTextContent(/SLACK_TOKEN.*••••••••.*Project 101.*Secret/)
     expect(rows[2]).toHaveTextContent(/REGION.*eu.*Acme Inc/)
-    expect(screen.getByText('The closest level wins: Sales › Project 101 › Acme Inc')).toBeVisible()
+    expect(
+      screen.getByText(
+        'Workspace values override project values, which override organization values.',
+      ),
+    ).toBeVisible()
   })
 })

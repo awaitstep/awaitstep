@@ -29,7 +29,7 @@ interface KeysTabProps {
   onCloseCreate: () => void
 }
 
-/** Workspace settings → API keys (`Access`): its own keys, then the project keys that reach it. */
+/** Workspace settings → API keys (`Access`): its own keys, then the project keys that work in it. */
 export function KeysTab({
   slugs,
   scope,
@@ -66,7 +66,7 @@ export function KeysTab({
   const revokeBody =
     revoking &&
     (revoke.error?.message ??
-      `Anything using ${revoking.prefix} stops reaching ${workspace.name} immediately (last used: ${lastUsedLabel(revoking.lastUsedAt).toLowerCase()}). This can’t be undone.`)
+      `Anything using ${revoking.prefix} stops working in ${workspace.name} immediately (last used: ${lastUsedLabel(revoking.lastUsedAt).toLowerCase()}). This can’t be undone.`)
 
   return (
     <>
@@ -86,7 +86,7 @@ export function KeysTab({
         kind="own"
         scopeLabel={`Only in ${workspace.name}`}
         colour={workspace.colour}
-        hint={`Reach ${workspace.name} and nothing else`}
+        hint="Work in this workspace"
       >
         <KeyTable
           caption={`Keys for ${workspace.name} only`}
@@ -100,14 +100,14 @@ export function KeysTab({
       <ScopedSection
         kind="inherited"
         scopeLabel={`From ${projectName}`}
-        hint="Project keys reach every workspace"
+        hint="Work in every workspace in the project"
         manage={{
           label: 'Manage in the project',
           href: projectPagePath(slugs, 'api-keys'),
         }}
       >
         <KeyTable
-          caption={`Project keys that reach ${workspace.name}`}
+          caption="Inherited from the project"
           keys={keys.inherited}
           inherited
           empty={`${projectName} has no project keys.`}

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Download } from 'lucide-react'
 import { useRunsExport, useWorkspaceRuns } from '../../data/dashboard/runs'
+import { EXPORT_FAILED_COPY } from '../../lib/csv'
 import { downloadTextFile } from '../../lib/download-file'
 import { itemPath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
 import { timeAgoOrDay } from '../../lib/time'
@@ -258,11 +259,11 @@ export function RunsPage({ slugs }: RunsPageProps) {
       <PageBody>
         <PageIntro
           title="Runs"
-          description={`Every run of ${workspace.name}’s workflows and functions. Runs of shared workflows show in the workspace that owns them.`}
+          description="Runs of this workspace’s workflows and functions. Runs of shared workflows appear in the workspace that owns them."
         />
         {exportFailed && (
           <p role="alert" className="text-xs text-status-error">
-            The export didn’t finish. Nothing was downloaded. Try again in a moment.
+            {EXPORT_FAILED_COPY}
           </p>
         )}
         {body}

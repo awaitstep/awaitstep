@@ -276,7 +276,7 @@ export function CreateKeyDialog({
               </FormField>
             </div>
             <RadioCardGroup
-              legend="What it reaches"
+              legend="Where it works"
               layout="grid"
               value={level}
               onChange={handleLevel}

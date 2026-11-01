@@ -22,22 +22,22 @@ const priya = person('priya', 'Priya Shah')
 describe('peopleSentence', () => {
   it('names the viewer first, as you', () => {
     expect(peopleSentence([ama, me], 'me', 'Default')).toBe(
-      '2 can open Default — you and Ama Mensah',
+      '2 can open Default: you and Ama Mensah',
     )
   })
 
   it('names up to four people, then says how many more', () => {
     expect(peopleSentence([me, ama, tom, dan], 'me', 'Sales')).toBe(
-      '4 can open Sales — you, Ama Mensah, Tom Becker and Daniel Kim',
+      '4 can open Sales: you, Ama Mensah, Tom Becker and Daniel Kim',
     )
     expect(peopleSentence([me, ama, tom, dan, priya], 'me', 'Sales')).toBe(
-      '5 can open Sales — you, Ama Mensah, Tom Becker and 2 more',
+      '5 can open Sales: you, Ama Mensah, Tom Becker and 2 more',
     )
   })
 
   it('falls back to the email for someone without a name', () => {
     expect(peopleSentence([person('x', '', 'x@acme.test')], 'me', 'Ops')).toBe(
-      '1 can open Ops — x@acme.test',
+      '1 can open Ops: x@acme.test',
     )
   })
 })

@@ -78,7 +78,7 @@ export function WorkspaceSettingsPage({
         </span>
         <PageIntro
           title="Workspace settings"
-          description={`${workspace.name}’s details, and who and what can reach it. Anything from ${projectName} shows alongside what only ${workspace.name} has.`}
+          description="Details, people, keys and variables for this workspace."
         />
       </div>
       <Tabs value={tab} onValueChange={handleTabChange} className="flex flex-col gap-6">
@@ -140,7 +140,6 @@ export function WorkspaceSettingsPage({
                 onCloseDialog={onCloseDialog}
                 scope={scope.workspace}
                 projectName={projectName}
-                orgName={org.name}
                 variables={data}
               />
             )}

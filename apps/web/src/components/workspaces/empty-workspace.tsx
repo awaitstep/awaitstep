@@ -61,12 +61,12 @@ export function EmptyWorkspace({
         tone="welcome"
         headingLevel={1}
         title={`Nothing in ${workspaceName} yet`}
-        description={`Only people with access to ${workspaceName} will see what you build here. Share it later if another workspace should call it.`}
+        description={`What you build here is visible only to people with access to ${workspaceName}. Share it later for other workspaces to use.`}
         actions={heroActions}
       />
       <SectionHeader
         title={`Already available in ${workspaceName}`}
-        caption="You’re not starting from scratch"
+        caption="Project defaults and what other workspaces share"
       />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <AvailableCard

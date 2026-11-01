@@ -48,7 +48,7 @@ describe('SecretReveal', () => {
     const onCopied = renderReveal()
     await user.click(screen.getByRole('button', { name: 'Copy' }))
     expect(screen.getByRole('status')).toHaveTextContent(
-      "Couldn't copy. Select the key and copy it yourself.",
+      'Couldn’t copy. Select the key and copy it yourself.',
     )
     expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument()
     expect(onCopied).not.toHaveBeenCalled()

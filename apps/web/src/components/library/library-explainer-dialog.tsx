@@ -62,7 +62,7 @@ export function LibraryExplainerDialog({ kind, title, onClose }: LibraryExplaine
     >
       <p className="text-sm leading-relaxed text-foreground/90">{shown.body}</p>
       <p className="text-xs text-muted-foreground">
-        Creating them arrives with modules.{' '}
+        Creating them is coming soon with project modules.{' '}
         <a href={DOCS_URL} target="_blank" rel="noreferrer" className="underline">
           Read about modules in the docs ↗
         </a>

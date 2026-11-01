@@ -79,7 +79,7 @@ export function AddWorkspacePeopleDialog({
   return (
     <AddPeopleDialog
       title={`Add people to ${workspaceName}`}
-      description={`Pick people from ${projectName} or the wider organization, or invite someone new.`}
+      description={`Add people from this project or the organization, or invite someone new.`}
       searchLabel={`Search ${projectName} and ${org.name}, or type an email`}
       pool={pool}
       canInvite

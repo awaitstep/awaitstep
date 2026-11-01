@@ -131,7 +131,7 @@ export function KeysPage({ slugs, createOpen, onCloseCreate }: KeysPageProps) {
             <span className="flex min-w-[220px] flex-1 flex-col gap-0.5">
               <h2 className="text-sm font-semibold text-foreground">Workspace keys</h2>
               <span className="text-xs text-muted-foreground">
-                Keys that reach one workspace only live in that workspace’s settings
+                Workspace keys are managed in each workspace’s settings
               </span>
             </span>
             <ul className="flex flex-wrap gap-2">
@@ -170,7 +170,7 @@ export function KeysPage({ slugs, createOpen, onCloseCreate }: KeysPageProps) {
       <PageBody>
         <PageIntro
           title="Project API keys"
-          description={`Keys that reach every workspace in ${project.name}. Give each key only the permissions it needs.`}
+          description="Keys that work across every workspace in this project."
         />
         <KeyLevelCards current="project" links={links} />
         {body}

@@ -104,7 +104,7 @@ export function LoadError({
             className={copyStatus === 'failed' ? 'basis-full text-status-error' : 'sr-only'}
           >
             {copied && 'Copied'}
-            {copyStatus === 'failed' && "Couldn't copy. Select the ID and copy it yourself."}
+            {copyStatus === 'failed' && 'Couldn’t copy. Select the ID and copy it yourself.'}
           </span>
         </div>
       )}

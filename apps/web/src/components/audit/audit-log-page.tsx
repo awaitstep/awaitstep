@@ -4,6 +4,7 @@ import { useAuditExport, useAuditLog } from '../../data/dashboard/audit'
 import { useOrgMembers } from '../../data/dashboard/org-settings'
 import { useDebouncedValue } from '../../hooks/use-debounced-value'
 import { orgPath } from '../../lib/dashboard-paths'
+import { EXPORT_FAILED_COPY } from '../../lib/csv'
 import { downloadTextFile } from '../../lib/download-file'
 import type { AuditLevel, AuditPeriod } from '../../types/dashboard/audit'
 import { Button } from '../ui/button'
@@ -124,12 +125,7 @@ function AuditLog({ org }: AuditLogPageProps) {
     }
   }
 
-  const intro = (
-    <PageIntro
-      title="Audit log"
-      description={`Who changed what, anywhere in ${orgName} - last 90 days`}
-    />
-  )
+  const intro = <PageIntro title="Audit log" description="Every change in the last 90 days." />
 
   if (!canSee) {
     const givers = members.data?.filter((m) => m.role === 'owner' || m.role === 'admin')
@@ -242,7 +238,7 @@ function AuditLog({ org }: AuditLogPageProps) {
         {intro}
         {exportFailed && (
           <p role="alert" className="text-xs text-status-error">
-            The export didn’t finish. Nothing was downloaded. Try again in a moment.
+            {EXPORT_FAILED_COPY}
           </p>
         )}
         {body}

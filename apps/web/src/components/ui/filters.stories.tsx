@@ -93,7 +93,7 @@ export const AccessTabs: Story = {
       </TabsList>
       <TabsContent value="general">Name, colour and the deletion lock.</TabsContent>
       <TabsContent value="members">Only in Sales, then From Project 101.</TabsContent>
-      <TabsContent value="keys">Workspace keys, then project keys that reach Sales.</TabsContent>
+      <TabsContent value="keys">Workspace keys, then project keys that work in Sales.</TabsContent>
       <TabsContent value="variables">Sales variables, then inherited ones.</TabsContent>
     </Tabs>
   ),

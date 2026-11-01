@@ -161,7 +161,7 @@ export function EmptyProject({
               icon={Code}
               tone="info"
               title="New function"
-              description="A plain request handler, no steps"
+              description="A request handler without steps"
               cta="Create function"
             />
             <ActionCard
@@ -198,7 +198,7 @@ export function EmptyProject({
           <h2 className="text-base font-semibold">More than one team here?</h2>
           <p className="text-sm leading-relaxed text-muted-foreground">
             Give each team its own workspace, with separate people, keys and workflows. Anything set
-            for the whole project still reaches every workspace.
+            for the whole project still applies to every workspace.
           </p>
           <span className="flex flex-wrap gap-2.5" aria-hidden="true">
             <span className="flex items-center gap-2 rounded-[10px] bg-muted px-3 py-2 text-xs">

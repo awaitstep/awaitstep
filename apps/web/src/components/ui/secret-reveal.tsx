@@ -5,7 +5,7 @@ import { Button } from './button'
 import { hasContent } from './has-content'
 import { useCopyStatus } from './use-copy-status'
 
-const COPY_FAILED = "Couldn't copy. Select the key and copy it yourself."
+const COPY_FAILED = 'Couldn’t copy. Select the key and copy it yourself.'
 
 interface SecretRevealProps {
   /** "Your API key". */

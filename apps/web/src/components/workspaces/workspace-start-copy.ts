@@ -7,7 +7,7 @@ import type { Person } from '../../types/dashboard/session'
 
 const NAMED = 3
 
-/** "2 can open Default — you and Frank Owusu": the viewer first, as "you"; past three names, "and 2 more". */
+/** "2 can open Default: you and Frank Owusu": the viewer first, as "you"; past three names, "and 2 more". */
 export function peopleSentence(
   people: Person[],
   viewerId: string | undefined,
@@ -24,7 +24,7 @@ export function peopleSentence(
   const parts = rest > 0 ? [...shown, `${rest} more`] : shown
   const list =
     parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`
-  return `${lead} — ${list}`
+  return `${lead}: ${list}`
 }
 
 /** "Acme production, inherited from Project 101"; null when nothing deploys the project yet. */

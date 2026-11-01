@@ -80,7 +80,5 @@ export const Empty: Story = {
 }
 
 export const Inherited: Story = {
-  render: () => (
-    <KeyTable caption="Project keys that reach Sales" keys={KEYS} inherited now={NOW} />
-  ),
+  render: () => <KeyTable caption="Inherited from the project" keys={KEYS} inherited now={NOW} />,
 }

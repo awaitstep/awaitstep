@@ -15,6 +15,7 @@ import { Select } from '../ui/select'
 import { ShellLink } from '../ui/shell-link'
 import { Tile } from '../ui/tile'
 import { useGoTo } from '../navigation/router-shell-link'
+import { MOVE_PROJECT_COPY } from './move-project-copy'
 
 interface MoveProjectDialogProps {
   slugs: ProjectSlugs
@@ -110,7 +111,7 @@ export function MoveProjectDialog({ slugs, projectName, onClose }: MoveProjectDi
         </Tile>
       }
       title={`Move ${projectName}`}
-      description="Its workspaces, workflows and project keys go with it. Connections stay behind and must be reconnected."
+      description={MOVE_PROJECT_COPY}
       actions={actions}
     >
       {body}

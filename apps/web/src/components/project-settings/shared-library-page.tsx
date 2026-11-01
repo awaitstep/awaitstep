@@ -165,7 +165,7 @@ export function SharedLibraryPage({ slugs }: SharedLibraryPageProps) {
         {unshare.error && <Banner tone="warn">{unshare.error.message}</Banner>}
         <OverviewCard
           title="Shared by workspaces"
-          caption="Unshare is blocked while another workspace uses the item"
+          caption="Workflows and functions that workspaces have shared."
         >
           <DataTable
             caption={`Items shared by workspaces in ${project.name}`}
@@ -177,12 +177,9 @@ export function SharedLibraryPage({ slugs }: SharedLibraryPageProps) {
             framed={false}
           />
         </OverviewCard>
-        <OverviewCard
-          title={`Owned by ${project.name}`}
-          caption="Shared with every workspace by definition"
-        >
+        <OverviewCard title={`Owned by ${project.name}`} caption="Available to every workspace.">
           <p className="px-5 py-8 text-center text-xs text-muted-foreground">
-            Project modules arrive with modules, coming soon.
+            Project modules are coming soon.
           </p>
         </OverviewCard>
       </>
@@ -202,7 +199,7 @@ export function SharedLibraryPage({ slugs }: SharedLibraryPageProps) {
       <PageBody>
         <PageIntro
           title="Shared library"
-          description={`Everything any workspace in ${project.name} can use: items workspaces shared, and the project’s own.`}
+          description={'Workflows and functions every workspace in this project can use.'}
         />
         {body}
       </PageBody>

@@ -67,17 +67,17 @@ export function LibraryPage({ slugs }: LibraryPageProps) {
       <>
         <OverviewCard
           title={`In ${workspace.name}`}
-          caption="Modules are bundled into the workflows that import them; resources are nodes you write"
+          caption="Modules bundle into the workflows that import them. Custom nodes work the same way."
         >
           <p className="px-5 py-8 text-center text-xs text-muted-foreground">
-            No modules or resources in {workspace.name} yet. They arrive with modules, coming soon.
+            No modules or custom nodes in {workspace.name} yet. Project modules are coming soon.
           </p>
         </OverviewCard>
         <section className="overflow-hidden rounded-2xl border border-dashed border-border">
           <div className="flex flex-wrap items-center gap-2.5 border-b border-border px-5 py-4">
             <h2 className="text-sm font-semibold text-foreground">From {projectName}</h2>
             <span className="flex-1 text-xs text-muted-foreground">
-              Read-only here; their owners publish new versions
+              Read-only here; their owners share new versions
             </span>
           </div>
           <p className="px-5 py-8 text-center text-xs text-muted-foreground">
@@ -104,7 +104,7 @@ export function LibraryPage({ slugs }: LibraryPageProps) {
       <PageBody>
         <PageIntro
           title="Library"
-          description={`Code and nodes ${workspace.name} builds with: its own, plus what the project shares.`}
+          description="Modules and custom nodes for this workspace, plus those shared by the project."
         />
         {body}
       </PageBody>

@@ -62,7 +62,7 @@ function LevelDemo() {
   const [value, setValue] = useState<KeyLevel>('project')
   return (
     <RadioCardGroup
-      legend="What it reaches"
+      legend="Where it works"
       layout="grid"
       value={value}
       onChange={setValue}

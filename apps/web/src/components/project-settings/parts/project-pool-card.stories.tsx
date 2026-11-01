@@ -35,7 +35,7 @@ export const ProjectPool: Story = {
         tone="info"
         title="Members & keys"
         count={2}
-        caption="admins open every workspace"
+        caption="admins can open every workspace"
       >
         <span className="flex items-center gap-2.5">
           <AvatarStack people={ADMINS} />

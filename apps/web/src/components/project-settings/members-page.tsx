@@ -172,7 +172,7 @@ export function MembersPage({ slugs, adding = false, onCloseAdd }: MembersPagePr
   } else {
     body = (
       <>
-        <OverviewCard title="Whole project" caption={`Can open every workspace in ${project.name}`}>
+        <OverviewCard title="Whole project" caption="Can open every workspace">
           <DataTable
             caption={`People who can open every workspace in ${project.name}`}
             columns={wholeColumns}
@@ -210,7 +210,7 @@ export function MembersPage({ slugs, adding = false, onCloseAdd }: MembersPagePr
       <PageBody>
         <PageIntro
           title="Members"
-          description={`Who can get into ${project.name}, and which workspaces each person can open.`}
+          description="People in this project and the workspaces they can open."
         />
         {body}
       </PageBody>

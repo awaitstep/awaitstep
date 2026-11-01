@@ -84,12 +84,12 @@ describe('project Workspaces page', () => {
     expect(names[0]).toBe('/acme/project-101/it/overview')
   })
 
-  it('counts the project pool from its lists', async () => {
+  it('counts the project-wide from its lists', async () => {
     renderPage()
-    await screen.findByText('admins open every workspace')
+    await screen.findByText('admins can open every workspace')
     const members = poolCard('Members & keys')
     expect(members).toHaveAttribute('href', '/acme/project-101/members')
-    expect(members).toHaveTextContent('2admins open every workspace')
+    expect(members).toHaveTextContent('2admins can open every workspace')
     expect(members).toHaveTextContent('3 project keys')
     const variables = poolCard('Variables')
     expect(variables).toHaveTextContent('5')

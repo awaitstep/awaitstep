@@ -168,7 +168,7 @@ export function FunctionsPage({ slugs }: FunctionsPageProps) {
       <PageBody>
         <PageIntro
           title="Functions"
-          description={`Request handlers in ${workspace.name}. Only people with access to ${workspace.name} see these.`}
+          description="Request handlers in this workspace."
           action={phoneNew}
         />
         {body}

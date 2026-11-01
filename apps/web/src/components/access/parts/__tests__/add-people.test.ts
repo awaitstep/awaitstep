@@ -129,13 +129,13 @@ describe('summaryText', () => {
   it('says nothing changes elsewhere before anyone is picked', () => {
     expect(summaryText([], workspaceCtx)).toMatch(/never changes what they can see/)
     expect(summaryText([], { ...workspaceCtx, kind: 'project' })).toMatch(
-      /nothing else in Acme Inc changes/,
+      /Anyone you add can open only what you choose here/,
     )
   })
 
   it('names the role and place, who joins the project, and who is new', () => {
     expect(summaryText([pickPriya, pickSam, pickJo], workspaceCtx)).toBe(
-      '3 people get Editor in Sales. Sam isn’t in Project 101 yet, so this brings them in with Sales only. jo@new.test is new to Acme Inc — they join as a Member once the invite is accepted, and get nothing beyond this.',
+      '3 people get Editor in Sales. Sam isn’t in Project 101 yet, so this brings them in with Sales only. jo@new.test is new to Acme Inc and joins as a Member once the invite is accepted, with nothing beyond this.',
     )
   })
 

@@ -110,7 +110,7 @@ export function MoveWorkflowsDialog({
         ) : (
           <FormField
             label="Move to"
-            hint={`Only workspaces in ${projectName}. Moving to another project is done from the workflow.`}
+            hint={`Lists workspaces in ${projectName}. To move to another project, do it from the workflow.`}
             error={move.error?.message}
           >
             <Select

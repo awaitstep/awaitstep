@@ -26,7 +26,7 @@ describe('project Shared library', () => {
     expect(provision).toHaveTextContent('Called by Sales, Support')
     expect(provision).toHaveTextContent('Shared 28 Sep by Lena')
     expect(rowOf('Lead enrichment')).toHaveTextContent('Shared 3 Oct by Ama')
-    expect(screen.getByText('Project modules arrive with modules, coming soon.')).toBeVisible()
+    expect(screen.getByText('Project modules are coming soon.')).toBeVisible()
   })
 
   it('blocks Unshare while others call the item, with the reason', async () => {

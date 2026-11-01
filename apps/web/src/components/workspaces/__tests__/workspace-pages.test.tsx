@@ -24,7 +24,7 @@ describe('workspace Overview', () => {
   it('reads as WsOverview: intro, tiles, needs attention, recent runs, people, shared', async () => {
     renderWithDashboardData(<WorkspaceOverviewPage slugs={sales} />)
     expect(await screen.findByRole('heading', { level: 1, name: 'Sales' })).toBeVisible()
-    expect(screen.getByText(/4 people can open this workspace/)).toBeInTheDocument()
+    expect(screen.getByText(/4 people can open this workspace/)).toBeVisible()
 
     await screen.findByRole('heading', { name: 'Needs attention' })
     expect(screen.getByRole('link', { name: '4 Workflows' })).toHaveAttribute(
@@ -63,7 +63,7 @@ describe('workspace Overview', () => {
     )
 
     const people = card('People')
-    expect(within(people).getByText('4 can open Sales')).toBeInTheDocument()
+    expect(within(people).getByText('4 people')).toBeInTheDocument()
     const roleOf = (name: string) =>
       within(people).getByText(name).closest('li')!.lastElementChild!.textContent
     expect(roleOf('Ama Mensah')).toBe('Project admin')
@@ -156,7 +156,7 @@ describe('an empty workspace', () => {
     const about = screen.getByRole('list', { name: 'About Support' })
     const row = (label: string) => within(about).getByText(label).closest('li')!
     await waitFor(() =>
-      expect(row('People')).toHaveTextContent('2 can open Support — you and Tom Becker'),
+      expect(row('People')).toHaveTextContent('2 can open Support: you and Tom Becker'),
     )
     expect(within(row('People')).getByRole('link', { name: 'Manage' })).toHaveAttribute(
       'href',
@@ -261,9 +261,9 @@ describe('a new project’s Workspaces page, /{org}/{project}/workspaces', () =>
       />,
     )
     expect(await screen.findByRole('heading', { level: 1, name: 'Billing is ready' })).toBeVisible()
-    // Merged into the Workspaces page: the welcome takes the cards' place, the project pool stays.
+    // Merged into the Workspaces page: the welcome takes the cards' place, the project-wide stays.
     expect(screen.queryByRole('heading', { level: 1, name: 'Workspaces' })).toBeNull()
-    expect(screen.getByRole('heading', { name: 'Project pool' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Project-wide' })).toBeVisible()
     // The project's page: no workspace is open, so it never says "you're in" one.
     expect(screen.queryByText(/You’re in/)).toBeNull()
     expect(
@@ -348,7 +348,7 @@ describe('an established project’s own page', () => {
     expect(screen.queryByRole('heading', { name: /is ready/ })).toBeNull()
   })
 
-  it('is Project home: its workspaces and the project pool, not a redirect', async () => {
+  it('is Project home: its workspaces and the project-wide, not a redirect', async () => {
     renderWithDashboardData(
       <WorkspacesPage
         slugs={{ org: 'acme', project: 'project-101' }}

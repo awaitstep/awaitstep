@@ -60,7 +60,7 @@ function BlankCard({ slugs }: { slugs: WorkspaceSlugs }) {
       <StartCardBody
         icon={Plus}
         title="Start from blank"
-        body="An empty canvas with a webhook trigger already wired, ready for your first step."
+        body="An empty canvas with a webhook trigger already connected."
         cta="New workflow →"
       />
     </button>

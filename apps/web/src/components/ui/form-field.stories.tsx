@@ -75,7 +75,7 @@ export const WithSuccess: Story = {
 
 export const UrlPrefix: Story = {
   render: () => (
-    <FormField label="URL" hint="Changing it breaks bookmarked links to this project.">
+    <FormField label="URL" hint="Changing it breaks existing links to this project.">
       <InputGroup prefix="awaitstep.dev/acme/">
         <Input defaultValue="project-101" />
       </InputGroup>

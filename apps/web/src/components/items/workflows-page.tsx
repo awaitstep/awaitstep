@@ -140,7 +140,6 @@ export function WorkflowsPage({ slugs, dialog, onCloseDialog }: WorkflowsPagePro
         <SharedWithSection
           org={slugs.org}
           workspaceName={workspace.name}
-          projectName={projectName}
           items={shared.data ?? []}
         />
       </>
@@ -149,15 +148,10 @@ export function WorkflowsPage({ slugs, dialog, onCloseDialog }: WorkflowsPagePro
 
   const description = readOnly
     ? 'You can open workflows and read their runs. Building, deploying and sharing need an Editor.'
-    : `Only people with access to ${workspace.name} see these. Share one to let other workspaces call it.`
+    : `Only people with access to this workspace see these. Share one to let other workspaces call it.`
 
   const importDialog = dialog === 'import' && !readOnly && (
-    <ImportItemDialog
-      open
-      onOpenChange={handleDialogChange}
-      slugs={slugs}
-      workspaceName={workspace.name}
-    />
+    <ImportItemDialog open onOpenChange={handleDialogChange} slugs={slugs} />
   )
 
   if (emptyView && !failed) {

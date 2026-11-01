@@ -185,7 +185,7 @@ export function PeoplePicker({
                 Invite {invite}
               </span>{' '}
               <span className="text-2xs text-muted-foreground">
-                Not in {orgName} yet — they get an email invite
+                Not in {orgName} yet. They’ll get an email invite.
               </span>
             </span>
           </button>

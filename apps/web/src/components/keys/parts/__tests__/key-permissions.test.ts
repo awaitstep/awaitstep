@@ -140,10 +140,10 @@ describe('describing grants', () => {
     ).toEqual(['Workflows & functions: read · deploy · run', 'Runs: read'])
   })
 
-  it('says what each level reaches', () => {
+  it('says where each level works', () => {
     const names = { project: 'Project 101', workspace: 'Sales' }
     expect(describeReach('organization', names)).toMatch(/never read, change, deploy or run/)
-    expect(describeReach('project', names)).toMatch(/^Reaches every workspace in Project 101/)
+    expect(describeReach('project', names)).toMatch(/^Works in every workspace in Project 101/)
     expect(describeReach('workspace', names)).toMatch(/^Only Sales\./)
   })
 })
