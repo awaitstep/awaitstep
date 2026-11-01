@@ -191,6 +191,8 @@ export interface ConnectionWrite {
 /** A change to a connection: what is given changes; a project list replaces the old one. */
 export interface ConnectionUpdate {
   organizationId: string
+  /** Only when the connection is this project's own: a project admin replacing its token. */
+  ownedBy?: string
   name?: string
   /** Plain JSON; encrypted on the way in. */
   credentials?: string
@@ -222,8 +224,101 @@ export interface ConnectionListRow extends Connection {
 
 export interface ConnectionCoverage {
   connection: Connection
-  /** Whether it serves the project asked about. */
+  /** Whether it is one of the project's accounts (added or owned, and still serving it). */
   covered: boolean
+}
+
+/** One of a project's accounts as its Connections page lists it; credentials decrypted. */
+export interface ProjectConnectionRow {
+  id: string
+  provider: string
+  name: string
+  credentials: string
+  createdByName: string | null
+  scope: 'shared' | 'project'
+  tokenStatus: string
+  tokenExpiresAt: string | null
+  isDefault: boolean
+  available: boolean
+  deployments: { count: number; lastAt: string | null }
+  deployedFrom: string[]
+  addedAt: string
+}
+
+export interface ProjectWorkspaceConnectionRow {
+  workspaceId: string
+  name: string
+  connectionId: string | null
+  connectionName: string | null
+  source: 'override' | 'default' | 'none'
+  lastDeployAt: string | null
+}
+
+export interface ProjectConnectionsRows {
+  connections: ProjectConnectionRow[]
+  workspaces: ProjectWorkspaceConnectionRow[]
+}
+
+/** An organization account as a project's Add connection lists it; credentials decrypted. */
+export interface AvailableConnectionRow {
+  id: string
+  provider: string
+  name: string
+  credentials: string
+  tokenStatus: string
+  tokenExpiresAt: string | null
+  state: 'added' | 'available' | 'restricted'
+  restrictedTo: string[]
+}
+
+/** An account Deploy offers; `chosen` marks the workspace's, else the project's, default. */
+export interface DeployTargetRow {
+  id: string
+  provider: string
+  name: string
+  credentials: string
+  scope: 'shared' | 'project'
+  tokenStatus: string
+  tokenExpiresAt: string | null
+  chosen: boolean
+}
+
+/** A new account connected from a project: always its own (accounts for the whole org are added on the org's page). */
+export interface ProjectConnectionCreate {
+  id: string
+  projectId: string
+  organizationId: string
+  createdBy: string
+  provider: string
+  name: string
+  /** Plain JSON; encrypted on the way in. */
+  credentials: string
+  token?: ConnectionTokenCheck
+  makeDefault: boolean
+}
+
+export interface ProjectConnectionRemoval {
+  name: string
+  owned: boolean
+  wasDefault: boolean
+  /** Workspaces that deployed to it and now follow the project default. */
+  workspacesCleared: number
+  /**
+   * An owned account workflows are still deployed with is kept: their names.
+   * Empty when it was removed.
+   */
+  blockedBy: string[]
+  /** As `blockedBy`, workflows in other projects (moved since): counted, never named. */
+  blockedElsewhere: number
+}
+
+/** What a workspace's account change found: null fields name what refused it. */
+export interface WorkspaceConnectionChange {
+  /** Null: the workspace isn't the project's. */
+  workspaceName: string | null
+  /** Null when clearing, or when the account isn't one of the project's. */
+  connectionName: string | null
+  changed: boolean
 }
 
 export interface ExpiringConnectionsCheck {

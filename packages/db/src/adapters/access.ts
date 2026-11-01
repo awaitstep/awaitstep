@@ -10,6 +10,7 @@ import {
   sql,
   aliasedTable,
   type SQL,
+  type SQLWrapper,
 } from 'drizzle-orm'
 import type {
   AccessGrantData,
@@ -51,6 +52,11 @@ export interface AccessAdapterTables extends OverviewTables {
   invitationPlaces: unknown
   /** A project's variables carry its organization; a move re-homes them (B4). */
   envVars: unknown
+  /** A project's own accounts move with it; the old organization's shared ones stay behind. */
+  connections?: unknown
+  connectionProjects?: unknown
+  projectConnections?: unknown
+  workspaceConnections?: unknown
 }
 
 /** The caller's own standing, for the rules a statement enforces about owners. */
@@ -803,7 +809,10 @@ export class AccessAdapter {
    * or admin there, or the project is not the source's), the places of
    * open invitations into it go (they named a project of the old
    * organization), and so do the grants of people who are not in the
-   * target organization; the rest follow. Every delete is conditional on
+   * target organization; the rest follow. Its own Cloudflare accounts move
+   * with it; the old organization's shared accounts — added to it, set for
+   * one of its workspaces, or serving it by name — stay behind, so its
+   * deploys never reach an account of an organization it left. Every delete is conditional on
    * the project now being the target's. A slug the target already uses
    * surfaces as `isUniqueViolation`, and then nothing moved. The project's
    * row afterwards says whether it moved.
@@ -853,6 +862,7 @@ export class AccessAdapter {
         .update(ev)
         .set({ organizationId: toOrganizationId })
         .where(and(eq(ev.projectId, projectId), moved)),
+      ...this.moveConnections(tx, projectId, toOrganizationId, moved, projectWorkspaces),
       tx
         .delete(pm)
         .where(and(eq(pm.projectId, projectId), moved, notInArray(pm.userId, targetMembers))),
@@ -867,6 +877,49 @@ export class AccessAdapter {
         ),
     ])
     return movedAt
+  }
+
+  /** The statements of a move that re-home the project's accounts (none without those tables). */
+  private moveConnections(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- drizzle's transaction handle, as in `atomically`
+    tx: any,
+    projectId: string,
+    to: string,
+    moved: SQL,
+    projectWorkspaces: SQLWrapper,
+  ) {
+    const { connections, connectionProjects, projectConnections, workspaceConnections } = this.t
+    if (!connections || !connectionProjects || !projectConnections || !workspaceConnections) {
+      return []
+    }
+    const c = connections as typeof this.t.projects
+    const cp = connectionProjects as typeof this.t.projects
+    const pc = projectConnections as typeof this.t.projects
+    const wc = workspaceConnections as typeof this.t.projects
+    const owned = aliasedTable(c, 'mco')
+    const ownedIds = this.db
+      .select({ id: owned.id })
+      .from(owned)
+      .where(eq(owned.projectId, projectId))
+    return [
+      tx
+        .update(c)
+        .set({ organizationId: to })
+        .where(and(eq(c.projectId, projectId), moved)),
+      tx
+        .delete(pc)
+        .where(and(eq(pc.projectId, projectId), moved, notInArray(pc.connectionId, ownedIds))),
+      tx
+        .delete(wc)
+        .where(
+          and(
+            inArray(wc.workspaceId, projectWorkspaces),
+            moved,
+            notInArray(wc.connectionId, ownedIds),
+          ),
+        ),
+      tx.delete(cp).where(and(eq(cp.projectId, projectId), moved)),
+    ]
   }
 
   /** Whether the user holds any role in the organization (for the mover's standing in the target). */

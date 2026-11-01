@@ -106,8 +106,15 @@ export class NotificationsAdapter {
     if ('connectionKeepers' in recipients) {
       const c = aliasedTable(this.t.connections, 'nck')
       const om = aliasedTable(this.t.member, 'nco')
+      const pm = aliasedTable(this.t.projectMembers, 'ncp')
       const id = recipients.connectionKeepers.connectionId
-      return sql`(select ${c.createdBy} from ${aliasedFrom(c)} where ${c.id} = ${id} union select ${om.userId} from ${aliasedFrom(om)} inner join ${aliasedFrom(c)} on ${c.organizationId} = ${om.organizationId} where ${c.id} = ${id} and ${om.role} in ('owner', 'admin'))`
+      // A project's own account (23a): its creator only while they can still see
+      // the project, and the project's admins, who can replace its token.
+      const creatorSees = this.roles.projectVisible(c.createdBy, {
+        organizationId: c.organizationId,
+        projectId: c.projectId,
+      })
+      return sql`(select ${c.createdBy} from ${aliasedFrom(c)} where ${c.id} = ${id} and (${c.projectId} is null or ${creatorSees}) union select ${om.userId} from ${aliasedFrom(om)} inner join ${aliasedFrom(c)} on ${c.organizationId} = ${om.organizationId} where ${c.id} = ${id} and ${om.role} in ('owner', 'admin') union select ${pm.userId} from ${aliasedFrom(pm)} inner join ${aliasedFrom(c)} on ${c.projectId} = ${pm.projectId} where ${c.id} = ${id} and ${pm.role} = 'admin')`
     }
     const { projectId, workspaceId } = recipients.otherWorkspaceAdmins
     const wm = aliasedTable(this.t.workspaceMembers, 'ncm')

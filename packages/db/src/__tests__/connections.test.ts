@@ -56,6 +56,16 @@ async function addMembers(h: Harness) {
   ])
 }
 
+/**
+ * The project has the account as one of its own (23a), as the migration
+ * added every serving account: a deploy's check then turns on serving alone.
+ */
+async function addToProjects(h: Harness, projectIds = ['p-101', 'p-202'], connectionId = 'c-1') {
+  await h.db
+    .insert(h.schema.projectConnections)
+    .values(projectIds.map((projectId) => ({ projectId, connectionId, createdAt: T0 })))
+}
+
 function expiring(over: Partial<ExpiringConnectionsCheck> = {}): ExpiringConnectionsCheck {
   return {
     idPrefix: 'ntf_tok_a',
@@ -91,6 +101,7 @@ describe.each([
       const created = await h.adapter.createConnection(write())
       expect(created?.allProjects).toBe(true)
       expect(created?.tokenStatus).toBe('unchecked')
+      await addToProjects(h)
       for (const project of ['p-101', 'p-202']) {
         const found = await h.adapter.getConnectionForProject('c-1', 'org-acme', project)
         expect(found?.covered).toBe(true)
@@ -100,6 +111,7 @@ describe.each([
 
     it('serves only the listed projects when narrowed', async () => {
       await h.adapter.createConnection(write({ allProjects: false, projectIds: ['p-101'] }))
+      await addToProjects(h)
       expect((await h.adapter.getConnectionForProject('c-1', 'org-acme', 'p-101'))?.covered).toBe(
         true,
       )
@@ -125,6 +137,20 @@ describe.each([
       expect(await h.count('connection_projects')).toBe(0)
     })
 
+    it('is no project’s account until the project adds it, however widely it serves', async () => {
+      await h.adapter.createConnection(write())
+      expect((await h.adapter.getConnectionForProject('c-1', 'org-acme', 'p-101'))?.covered).toBe(
+        false,
+      )
+      await addToProjects(h, ['p-101'])
+      expect((await h.adapter.getConnectionForProject('c-1', 'org-acme', 'p-101'))?.covered).toBe(
+        true,
+      )
+      expect((await h.adapter.getConnectionForProject('c-1', 'org-acme', 'p-202'))?.covered).toBe(
+        false,
+      )
+    })
+
     it('reads nothing for another organization', async () => {
       await h.adapter.createConnection(write())
       expect(await h.adapter.getConnectionForProject('c-1', 'org-globex', 'p-g')).toBeNull()
@@ -132,6 +158,7 @@ describe.each([
 
     it('replaces the list as one unit, and refuses a foreign project without changing it', async () => {
       await h.adapter.createConnection(write({ allProjects: false, projectIds: ['p-101'] }))
+      await addToProjects(h)
       expect(
         await h.adapter.updateConnection('c-1', {
           organizationId: 'org-acme',
@@ -536,6 +563,52 @@ describe.each([
     })
   })
 
+  describe('a project’s own account (security review 2026-11-01)', () => {
+    // Fay connected it and has since lost the project; Dan is now its project admin.
+    async function ownedByP101(expiresAt: string | null) {
+      await h.db
+        .insert(h.schema.projectMembers)
+        .values({ projectId: 'p-101', userId: 'u-dan', role: 'admin', createdAt: T0 })
+      await h.adapter.createProjectConnection({
+        id: 'c-own',
+        projectId: 'p-101',
+        organizationId: 'org-acme',
+        createdBy: 'u-fay',
+        provider: 'cloudflare',
+        name: 'Checkout staging',
+        credentials: CREDS,
+        token: { status: 'active', expiresAt, checkedAt: NOW },
+        makeDefault: true,
+      })
+    }
+
+    it('warns its project admins and the org’s, not a creator who can’t see the project', async () => {
+      await ownedByP101('2026-11-05T12:00:00.000Z')
+      expect(await h.adapter.notifyExpiringConnections(expiring())).toBe(3)
+      expect(await h.count('notifications', "user_id = 'u-fay'")).toBe(0)
+      expect(await h.count('notifications', "user_id = 'u-dan'")).toBe(1)
+    })
+
+    it('tells the same people of a dead token', async () => {
+      await ownedByP101(null)
+      const written = await h.adapter.notify({
+        idPrefix: 'ntf_inv',
+        organizationId: 'org-acme',
+        kind: 'expiry',
+        event: 'connection.token_invalid',
+        needsAction: true,
+        groupKey: `connection.token_invalid:c-own:${NOW}`,
+        projectId: null,
+        workspaceId: null,
+        meta: { connection: 'Checkout staging' },
+        recipients: { connectionKeepers: { connectionId: 'c-own' } },
+        onRepeat: 'keep',
+        now: NOW,
+      })
+      expect(written.map((r) => r.userId).sort()).toEqual(['u-ama', 'u-ben', 'u-dan'])
+    })
+  })
+
   describe('project setup', () => {
     async function setup(projectId = 'p-101', organizationId = 'org-acme') {
       return h.adapter.getProjectSetup(organizationId, projectId, NOW)
@@ -544,6 +617,7 @@ describe.each([
     it('says connected only with a serving account whose token works and hasn’t expired', async () => {
       expect((await setup())?.cloudflareConnected).toBe(false)
       await h.adapter.createConnection(write({ allProjects: false, projectIds: ['p-202'] }))
+      await addToProjects(h)
       expect((await setup())?.cloudflareConnected).toBe(false)
       await h.adapter.updateConnection('c-1', {
         organizationId: 'org-acme',
@@ -560,6 +634,15 @@ describe.each([
         organizationId: 'org-acme',
         token: { status: 'active', expiresAt: null, checkedAt: NOW },
       })
+      expect((await setup())?.cloudflareConnected).toBe(true)
+    })
+
+    it('says connected only once the project has added the account', async () => {
+      await h.adapter.createConnection(
+        write({ token: { status: 'active', expiresAt: null, checkedAt: NOW } }),
+      )
+      expect((await setup())?.cloudflareConnected).toBe(false)
+      await addToProjects(h, ['p-101'])
       expect((await setup())?.cloudflareConnected).toBe(true)
     })
 

@@ -331,6 +331,15 @@ export {
   type ConnectionSummary,
   type ConnectionTokenStatus,
   type ProjectSetup,
+  PROJECT_CONNECTION_REASONS,
+  type AvailableConnection,
+  type AvailableConnectionState,
+  type DeployConnections,
+  type ProjectConnection,
+  type ProjectConnections,
+  type ProjectConnectionScope,
+  type ProjectWorkspaceConnection,
+  type WorkspaceConnectionSource,
 } from './connections.js'
 export {
   ONLY_WAY_IN,

@@ -25,6 +25,7 @@ import {
   type Dialect,
 } from './json-array.js'
 import type { RoleFields } from './role-fields.js'
+import { isProjectsAccount, servesProject } from './connection-reach.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -32,6 +33,7 @@ type AnyTable = any
 export interface ConnectionTables {
   connections: AnyTable
   connectionProjects: AnyTable
+  projectConnections: AnyTable
   projects: AnyTable
   deployments: AnyTable
   member: AnyTable
@@ -187,15 +189,10 @@ export class ConnectionsAdapter {
     return row
   }
 
-  /** Whether the connection serves the project: every one, or it is listed. */
-  private covers(connectionId: SQL | unknown, projectId: SQL | unknown): SQL {
-    const cp = aliasedTable(this.t.connectionProjects, 'ccv')
-    return sql`(${this.table.allProjects} = ${this.dialect === 'pg' ? sql`true` : sql`1`} or exists (select 1 from ${aliasedFrom(cp)} where ${cp.connectionId} = ${connectionId} and ${cp.projectId} = ${projectId}))`
-  }
-
   /**
-   * The organization's connection with whether it serves the project — one
-   * statement, so a deploy reads the credentials and the coverage together.
+   * The organization's connection with whether it is one of the project's
+   * accounts (added or owned, and still serving it) — one statement, so a
+   * deploy reads the credentials and the check together.
    */
   async getForProject(
     id: string,
@@ -205,7 +202,9 @@ export class ConnectionsAdapter {
     const rows = await this.db
       .select({
         connection: this.table,
-        covered: fieldOf(sql<unknown>`${this.covers(this.table.id, projectId)}`),
+        covered: fieldOf(
+          sql<unknown>`${isProjectsAccount(this.dialect, this.t, this.table, projectId)}`,
+        ),
       })
       .from(this.table)
       .where(and(eq(this.table.id, id), eq(this.table.organizationId, organizationId)))
@@ -215,6 +214,18 @@ export class ConnectionsAdapter {
     const connection = { ...row.connection }
     connection.credentials = await this.tryDecrypt(connection.credentials)
     return { connection, covered: truthy(row.covered) }
+  }
+
+  /** The project's own account (never a shared one), credentials decrypted. */
+  async getOwnedByProject(id: string, projectId: string): Promise<Connection | null> {
+    const rows = await this.db
+      .select()
+      .from(this.table)
+      .where(and(eq(this.table.id, id), eq(this.table.projectId, projectId)))
+      .limit(1)
+    const row = (rows[0] as Connection | undefined) ?? null
+    if (row) row.credentials = await this.tryDecrypt(row.credentials)
+    return row
   }
 
   /**
@@ -274,7 +285,9 @@ export class ConnectionsAdapter {
     const u = aliasedTable(this.t.user, 'clu')
     const visible = this.projectVisibleTo(options.visibleTo, p.id)
     const conditions: (SQL | undefined)[] = [eq(c.organizationId, organizationId)]
+    // A project's own accounts are listed on its page, never the organization's (D-PC-5).
     if (options.id) conditions.push(eq(c.id, options.id))
+    else conditions.push(sql`${c.projectId} is null`)
     if (options.project) {
       const op = aliasedTable(this.t.projects, 'clop')
       // Only a project the reader can see: a hidden one matches nothing, as a
@@ -285,7 +298,10 @@ export class ConnectionsAdapter {
           : sql`${op.slug} = ${options.project.slug}`
       const projectId = sql`(select ${op.id} from ${aliasedFrom(op)} where ${op.organizationId} = ${organizationId} and ${named} and ${this.projectVisibleTo(options.visibleTo, op.id)})`
       // A project not found (another organization's, a wrong slug) matches nothing.
-      conditions.push(sql`${projectId} is not null`, this.covers(c.id, projectId))
+      conditions.push(
+        sql`${projectId} is not null`,
+        servesProject(this.dialect, this.t, c, projectId),
+      )
     }
     if (options.cursor) {
       const { id: cursorId, timestamp } = decodeCursor(options.cursor)
@@ -387,7 +403,11 @@ export class ConnectionsAdapter {
     const projectIds = allProjects === false ? [...new Set(data.projectIds ?? [])] : []
     const { organizationId } = data
     const belongs = this.projectsBelong(organizationId, projectIds)
-    const scope = and(eq(this.table.id, id), eq(this.table.organizationId, organizationId))
+    const scope = and(
+      eq(this.table.id, id),
+      eq(this.table.organizationId, organizationId),
+      data.ownedBy === undefined ? undefined : eq(this.table.projectId, data.ownedBy),
+    )
     const cp = this.t.connectionProjects
     const results = await atomicallyReturning<unknown>(this.db, (tx) => {
       const statements = [
@@ -427,8 +447,8 @@ export class ConnectionsAdapter {
   }
 
   /**
-   * What the project has set up, for its empty pages — one statement: a
-   * Cloudflare account serving it whose token works and hasn't expired, the
+   * What the project has set up, for its empty pages — one statement: one of
+   * its Cloudflare accounts whose token works and hasn't expired, the
    * org variables it inherits (those it doesn't set itself), its own
    * variables and its live keys. Null when the project isn't the organization's.
    */
@@ -439,16 +459,14 @@ export class ConnectionsAdapter {
   ): Promise<ProjectSetupCounts | null> {
     const p = this.t.projects
     const c = aliasedTable(this.table, 'psc')
-    const cp = aliasedTable(this.t.connectionProjects, 'pscp')
     const ov = aliasedTable(this.t.envVars, 'psov')
     const pv = aliasedTable(this.t.envVars, 'pspv')
     const k = aliasedTable(this.t.apiKeys, 'psk')
-    const yes = this.dialect === 'pg' ? sql`true` : sql`1`
     const projectVar = (v: AnyTable) => sql`${v.projectId} = ${p.id} and ${v.workspaceId} is null`
     const rows = (await this.db
       .select({
         cloudflareConnected: fieldOf(
-          sql<unknown>`exists (select 1 from ${aliasedFrom(c)} where ${c.organizationId} = ${p.organizationId} and ${c.provider} = 'cloudflare' and (${c.allProjects} = ${yes} or exists (select 1 from ${aliasedFrom(cp)} where ${cp.connectionId} = ${c.id} and ${cp.projectId} = ${p.id})) and ${c.tokenStatus} <> 'invalid' and (${c.tokenExpiresAt} is null or ${c.tokenExpiresAt} > ${now}))`,
+          sql<unknown>`exists (select 1 from ${aliasedFrom(c)} where ${c.organizationId} = ${p.organizationId} and ${c.provider} = 'cloudflare' and ${isProjectsAccount(this.dialect, this.t, c, p.id)} and ${c.tokenStatus} <> 'invalid' and (${c.tokenExpiresAt} is null or ${c.tokenExpiresAt} > ${now}))`,
         ),
         orgVariables: fieldOf(
           sql<number>`(select count(*) from ${aliasedFrom(ov)} where ${ov.organizationId} = ${p.organizationId} and ${ov.projectId} is null and ${ov.workspaceId} is null and not exists (select 1 from ${aliasedFrom(pv)} where ${projectVar(pv)} and ${pv.name} = ${ov.name}))`.mapWith(
@@ -552,6 +570,17 @@ export class ConnectionsAdapter {
   }
 
   /**
+   * Besides the org's owners and admins: the creator, and for a project's own
+   * account (23a) its project admins — the creator only while they can still
+   * see the project.
+   */
+  private keeperOfOwned(m: AnyTable, c: AnyTable): SQL {
+    if (!this.roles) return eq(m.userId, c.createdBy)
+    const place = { organizationId: c.organizationId, projectId: c.projectId }
+    return sql`((${m.userId} = ${c.createdBy} and (${c.projectId} is null or ${this.roles.projectVisible(m.userId, place)})) or (${c.projectId} is not null and ${this.roles.projectRoleOf(m.userId, place)} = 'admin'))`
+  }
+
+  /**
    * Warns the people who can replace a token before it expires — once inside
    * `warnBefore`, once more inside `lastWarnBefore` — in one statement: the
    * connection's creator and the organization's owners and admins, each
@@ -599,7 +628,7 @@ export class ConnectionsAdapter {
         m,
         and(
           eq(m.organizationId, c.organizationId),
-          or(eq(m.userId, c.createdBy), sql`${m.role} in ${ORG_ADMINS}`),
+          or(sql`${m.role} in ${ORG_ADMINS}`, this.keeperOfOwned(m, c)),
         ),
       )
       .where(

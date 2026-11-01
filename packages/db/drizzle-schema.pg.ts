@@ -279,6 +279,7 @@ export const connections = pgTable(
     tokenStatus: text('token_status').notNull().default('unchecked'),
     tokenExpiresAt: timestamp('token_expires_at', { mode: 'string' }),
     tokenCheckedAt: timestamp('token_checked_at', { mode: 'string' }),
+    projectId: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
     createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { mode: 'string' }).notNull().defaultNow(),
   },
@@ -286,6 +287,7 @@ export const connections = pgTable(
     index('idx_connections_org_id').on(table.organizationId),
     index('idx_connections_created_by').on(table.createdBy),
     index('idx_connections_token_checked').on(table.tokenCheckedAt),
+    index('idx_connections_project_id').on(table.projectId),
   ],
 )
 
@@ -303,6 +305,43 @@ export const connectionProjects = pgTable(
     primaryKey({ columns: [table.connectionId, table.projectId] }),
     index('idx_connection_projects_project').on(table.projectId),
   ],
+)
+
+export const projectConnections = pgTable(
+  'project_connections',
+  {
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    connectionId: text('connection_id')
+      .notNull()
+      .references(() => connections.id, { onDelete: 'cascade' }),
+    isDefault: boolean('is_default').notNull().default(false),
+    createdBy: text('created_by'),
+    createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.connectionId] }),
+    index('idx_project_connections_connection').on(table.connectionId),
+    uniqueIndex('uq_project_connections_default')
+      .on(table.projectId)
+      .where(sql`is_default = true`),
+  ],
+)
+
+export const workspaceConnections = pgTable(
+  'workspace_connections',
+  {
+    workspaceId: text('workspace_id')
+      .primaryKey()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    connectionId: text('connection_id')
+      .notNull()
+      .references(() => connections.id, { onDelete: 'cascade' }),
+    setBy: text('set_by'),
+    setAt: timestamp('set_at', { mode: 'string' }).notNull().defaultNow(),
+  },
+  (table) => [index('idx_workspace_connections_connection').on(table.connectionId)],
 )
 
 export const workflowRuns = pgTable(

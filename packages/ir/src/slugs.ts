@@ -42,7 +42,15 @@ export const RESERVED_SLUGS = {
     'account',
     'items',
   ],
-  workspace: ['workspaces', 'shared', 'members', 'api-keys', 'variables', 'settings'],
+  workspace: [
+    'workspaces',
+    'shared',
+    'members',
+    'connections',
+    'api-keys',
+    'variables',
+    'settings',
+  ],
 } as const satisfies Record<SlugLevel, readonly string[]>
 
 export function isReservedSlug(level: SlugLevel, slug: string): boolean {

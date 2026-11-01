@@ -9,6 +9,12 @@ import type {
   ConnectionUpdate,
   ConnectionWrite,
   ExpiringConnectionsCheck,
+  AvailableConnectionRow,
+  DeployTargetRow,
+  ProjectConnectionCreate,
+  ProjectConnectionRemoval,
+  ProjectConnectionsRows,
+  WorkspaceConnectionChange,
   NodeUsage,
   ProjectSetupCounts,
   WorkflowRun,
@@ -600,6 +606,55 @@ export interface DatabaseAdapter {
   ): Promise<ProjectSetupCounts | null>
   /** Whether a row went: false when it was already gone. */
   deleteConnection(id: string): Promise<boolean>
+  /** The project's own account (never a shared one). */
+  getProjectOwnedConnection(id: string, projectId: string): Promise<Connection | null>
+
+  // A project's accounts (23a–23c)
+  /** Its accounts and workspace rows; `viewer` sees the workspaces they can open. Null: not the org's. */
+  listProjectConnections(
+    projectId: string,
+    organizationId: string,
+    viewer?: string,
+  ): Promise<ProjectConnectionsRows | null>
+  /** The organization's accounts as the project's Add connection lists them. */
+  listAvailableProjectConnections(
+    projectId: string,
+    organizationId: string,
+    viewer?: string,
+  ): Promise<AvailableConnectionRow[]>
+  /** Adds organization accounts that serve the project; the first becomes its default. */
+  addProjectConnections(input: {
+    projectId: string
+    organizationId: string
+    connectionIds: string[]
+    createdBy: string
+  }): Promise<{
+    added: { id: string; name: string }[]
+    alreadyAdded: string[]
+    defaultId: string | null
+  }>
+  /** Connects a new account from the project; null when the project isn't the org's. */
+  createProjectConnection(
+    input: ProjectConnectionCreate,
+  ): Promise<{ id: string; name: string; isDefault: boolean } | null>
+  /** Makes one of the project's accounts its default; its name, or null when it isn't one. */
+  setProjectDefaultConnection(projectId: string, connectionId: string): Promise<string | null>
+  /** Points a workspace at one of the project's accounts, or back to the default. */
+  setWorkspaceConnection(input: {
+    projectId: string
+    workspaceId: string
+    connectionId: string | null
+    setBy: string
+  }): Promise<WorkspaceConnectionChange>
+  /** Takes an account off the project (an owned one is deleted); null when it wasn't one. */
+  removeProjectConnection(
+    projectId: string,
+    connectionId: string,
+  ): Promise<ProjectConnectionRemoval | null>
+  /** The accounts a workflow has a successful deployment with, latest first: what a trigger may name. */
+  listConnectionsDeployedWith(workflowId: string): Promise<{ id: string; name: string }[]>
+  /** The accounts Deploy offers a workflow, the chosen one flagged. */
+  listDeployTargets(projectId: string, workspaceId: string | null): Promise<DeployTargetRow[]>
 
   // Workflow Runs
   createRun(data: {

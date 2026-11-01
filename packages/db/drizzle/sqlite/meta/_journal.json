@@ -183,6 +183,13 @@
       "when": 1793537503676,
       "tag": "0025_reserved_page_slugs",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1793556535596,
+      "tag": "0026_project_connections",
+      "breakpoints": true
     }
   ]
 }

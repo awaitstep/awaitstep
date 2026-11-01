@@ -197,6 +197,28 @@ export const AUDIT_EVENTS = {
     detail: (f) => f.change,
   },
   'connection.delete': { kind: 'key', action: fixed('deleted the connection') },
+  'project_connection.add': { kind: 'key', action: fixed('added the account') },
+  'project_connection.create': {
+    kind: 'key',
+    action: fixed('connected the account'),
+    detail: (f) => f.summary,
+  },
+  'project_connection.update': {
+    kind: 'key',
+    action: fixed('changed the account'),
+    detail: (f) => f.change,
+  },
+  'project_connection.remove': {
+    kind: 'key',
+    action: fixed('removed the account'),
+    detail: (f) => f.change,
+  },
+  'project_connection.default': { kind: 'key', action: fixed('made the default account') },
+  'workspace_connection.set': {
+    kind: 'key',
+    action: fixed('changed where deploys go for'),
+    detail: (f) => f.change,
+  },
   'variable.create': {
     kind: 'key',
     action: fixed('added the variable'),

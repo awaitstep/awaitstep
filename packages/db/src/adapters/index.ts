@@ -16,6 +16,12 @@ import type {
   ConnectionUpdate,
   ConnectionWrite,
   ExpiringConnectionsCheck,
+  AvailableConnectionRow,
+  DeployTargetRow,
+  ProjectConnectionCreate,
+  ProjectConnectionRemoval,
+  ProjectConnectionsRows,
+  WorkspaceConnectionChange,
   NodeUsage,
   ProjectSetupCounts,
   WorkflowRun,
@@ -138,6 +144,7 @@ import { AuditAdapter } from './audit.js'
 import { NotificationsAdapter } from './notifications.js'
 import { VersionsAdapter } from './versions.js'
 import { ConnectionsAdapter } from './connections.js'
+import { ProjectConnectionsAdapter } from './project-connections.js'
 import { RunsAdapter } from './runs.js'
 import { RunStepsAdapter } from './run-steps.js'
 import { WorkflowFilesAdapter } from './workflow-files.js'
@@ -155,6 +162,8 @@ export interface SchemaRef {
   workflowVersions: unknown
   connections: unknown
   connectionProjects?: unknown
+  projectConnections?: unknown
+  workspaceConnections?: unknown
   workflowRuns: unknown
   workflowRunSteps: unknown
   workflowFiles: unknown
@@ -205,6 +214,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _notifications: NotificationsAdapter
   private _versions: VersionsAdapter
   private _connections: ConnectionsAdapter
+  private _projectConnections: ProjectConnectionsAdapter
   private _runs: RunsAdapter
   private _runSteps: RunStepsAdapter
   private _workflowFiles: WorkflowFilesAdapter
@@ -260,6 +270,10 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         invitation: schema.invitation,
         invitationPlaces: schema.invitationPlaces,
         envVars: schema.envVars,
+        connections: schema.connections,
+        connectionProjects: schema.connectionProjects,
+        projectConnections: schema.projectConnections,
+        workspaceConnections: schema.workspaceConnections,
       },
       this._dialect,
     )
@@ -308,6 +322,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       {
         connections: schema.connections,
         connectionProjects: schema.connectionProjects,
+        projectConnections: schema.projectConnections,
         projects: schema.projects,
         deployments: schema.deployments,
         member: schema.member,
@@ -315,6 +330,23 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         notifications: schema.notifications,
         envVars: schema.envVars,
         apiKeys: schema.apiKeys,
+      },
+      this._dialect,
+      options?.tokenCrypto,
+      roles,
+    )
+    this._projectConnections = new ProjectConnectionsAdapter(
+      db,
+      {
+        connections: schema.connections,
+        connectionProjects: schema.connectionProjects,
+        projectConnections: schema.projectConnections,
+        workspaceConnections: schema.workspaceConnections,
+        projects: schema.projects,
+        workspaces: schema.workspaces,
+        workflows: schema.workflows,
+        deployments: schema.deployments,
+        user: schema.user,
       },
       this._dialect,
       options?.tokenCrypto,
@@ -1035,6 +1067,65 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
   deleteConnection(id: string): Promise<boolean> {
     return this._connections.delete(id)
+  }
+  getProjectOwnedConnection(id: string, projectId: string): Promise<Connection | null> {
+    return this._connections.getOwnedByProject(id, projectId)
+  }
+
+  // A project's accounts
+  listProjectConnections(
+    projectId: string,
+    organizationId: string,
+    viewer?: string,
+  ): Promise<ProjectConnectionsRows | null> {
+    return this._projectConnections.list(projectId, organizationId, viewer)
+  }
+  listAvailableProjectConnections(
+    projectId: string,
+    organizationId: string,
+    viewer?: string,
+  ): Promise<AvailableConnectionRow[]> {
+    return this._projectConnections.available(projectId, organizationId, viewer)
+  }
+  addProjectConnections(input: {
+    projectId: string
+    organizationId: string
+    connectionIds: string[]
+    createdBy: string
+  }): Promise<{
+    added: { id: string; name: string }[]
+    alreadyAdded: string[]
+    defaultId: string | null
+  }> {
+    return this._projectConnections.add(input)
+  }
+  createProjectConnection(
+    input: ProjectConnectionCreate,
+  ): Promise<{ id: string; name: string; isDefault: boolean } | null> {
+    return this._projectConnections.create(input)
+  }
+  setProjectDefaultConnection(projectId: string, connectionId: string): Promise<string | null> {
+    return this._projectConnections.setDefault(projectId, connectionId)
+  }
+  setWorkspaceConnection(input: {
+    projectId: string
+    workspaceId: string
+    connectionId: string | null
+    setBy: string
+  }): Promise<WorkspaceConnectionChange> {
+    return this._projectConnections.setWorkspaceConnection(input)
+  }
+  removeProjectConnection(
+    projectId: string,
+    connectionId: string,
+  ): Promise<ProjectConnectionRemoval | null> {
+    return this._projectConnections.remove(projectId, connectionId)
+  }
+  listConnectionsDeployedWith(workflowId: string): Promise<{ id: string; name: string }[]> {
+    return this._projectConnections.deployedWith(workflowId)
+  }
+  listDeployTargets(projectId: string, workspaceId: string | null): Promise<DeployTargetRow[]> {
+    return this._projectConnections.deployTargets(projectId, workspaceId)
   }
 
   // Runs

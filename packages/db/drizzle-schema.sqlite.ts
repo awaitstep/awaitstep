@@ -275,6 +275,7 @@ export const connections = sqliteTable(
     tokenStatus: text('token_status').notNull().default('unchecked'),
     tokenExpiresAt: text('token_expires_at'),
     tokenCheckedAt: text('token_checked_at'),
+    projectId: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },
@@ -282,6 +283,7 @@ export const connections = sqliteTable(
     index('idx_connections_org_id').on(table.organizationId),
     index('idx_connections_created_by').on(table.createdBy),
     index('idx_connections_token_checked').on(table.tokenCheckedAt),
+    index('idx_connections_project_id').on(table.projectId),
   ],
 )
 
@@ -299,6 +301,43 @@ export const connectionProjects = sqliteTable(
     primaryKey({ columns: [table.connectionId, table.projectId] }),
     index('idx_connection_projects_project').on(table.projectId),
   ],
+)
+
+export const projectConnections = sqliteTable(
+  'project_connections',
+  {
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    connectionId: text('connection_id')
+      .notNull()
+      .references(() => connections.id, { onDelete: 'cascade' }),
+    isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
+    createdBy: text('created_by'),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.connectionId] }),
+    index('idx_project_connections_connection').on(table.connectionId),
+    uniqueIndex('uq_project_connections_default')
+      .on(table.projectId)
+      .where(sql`is_default = 1`),
+  ],
+)
+
+export const workspaceConnections = sqliteTable(
+  'workspace_connections',
+  {
+    workspaceId: text('workspace_id')
+      .primaryKey()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    connectionId: text('connection_id')
+      .notNull()
+      .references(() => connections.id, { onDelete: 'cascade' }),
+    setBy: text('set_by'),
+    setAt: text('set_at').notNull(),
+  },
+  (table) => [index('idx_workspace_connections_connection').on(table.connectionId)],
 )
 
 export const workflowRuns = sqliteTable(

@@ -69,3 +69,105 @@ export interface ProjectSetup {
   /** Live keys scoped to the project, which reach every workspace in it. */
   projectKeys: number
 }
+
+/** Who a project's account belongs to: shared by the organization, or the project's own. */
+export type ProjectConnectionScope = 'shared' | 'project'
+
+/** One of the accounts a project deploys to (`GET /projects/:id/connections`, board 23a). */
+export interface ProjectConnection {
+  id: string
+  provider: string
+  name: string
+  /** Last four characters of the account id. */
+  accountSuffix: string | null
+  /** Who connected the account; null when they've been removed from the instance. */
+  createdByName: string | null
+  scope: ProjectConnectionScope
+  tokenStatus: ConnectionTokenStatus
+  tokenExpiresAt: string | null
+  isDefault: boolean
+  /**
+   * False for a shared account an org admin has since restricted to other
+   * projects: it stays listed, but Deploy refuses it until it is available again.
+   */
+  available: boolean
+  /** This project's successful deployments with it. */
+  deployments: { count: number; lastAt: string | null }
+  /** The workspaces whose workflows have deployed with it, by name. */
+  deployedFrom: string[]
+  addedAt: string
+}
+
+/** Where a workspace deploys: its own account, the project default, or nowhere yet. */
+export type WorkspaceConnectionSource = 'override' | 'default' | 'none'
+
+/** A row of *Where each workspace deploys*. */
+export interface ProjectWorkspaceConnection {
+  workspaceId: string
+  name: string
+  /** The account the workspace deploys to; null when it has none. */
+  connectionId: string | null
+  connectionName: string | null
+  source: WorkspaceConnectionSource
+  /** The workspace's latest successful deployment, with any account. */
+  lastDeployAt: string | null
+}
+
+export interface ProjectConnections {
+  connections: ProjectConnection[]
+  workspaces: ProjectWorkspaceConnection[]
+}
+
+/**
+ * An organization account as the project's *Add connection* lists it (23b):
+ * already added, available to add, or restricted to other projects.
+ */
+export type AvailableConnectionState = 'added' | 'available' | 'restricted'
+
+export interface AvailableConnection {
+  id: string
+  provider: string
+  name: string
+  accountSuffix: string | null
+  tokenStatus: ConnectionTokenStatus
+  tokenExpiresAt: string | null
+  state: AvailableConnectionState
+  /** For a restricted account: the projects it serves that the reader can see, by name. */
+  restrictedTo: string[]
+}
+
+/** The accounts Deploy offers for a workflow, with the one already chosen. */
+export interface DeployConnections {
+  connections: Pick<
+    ProjectConnection,
+    'id' | 'provider' | 'name' | 'accountSuffix' | 'scope' | 'tokenStatus' | 'tokenExpiresAt'
+  >[]
+  /** The workflow's workspace's account, else the project default; null when neither is set. */
+  defaultId: string | null
+  /**
+   * The accounts the workflow has a successful deployment with, latest first —
+   * the only ones a trigger may name, whether or not the project still has them.
+   */
+  deployedWith: { id: string; name: string }[]
+}
+
+/** Why a project's connection write was refused, as the API answers it. */
+export const PROJECT_CONNECTION_REASONS = {
+  notProjects:
+    'That account isn’t one of this project’s. Add it on the project’s Connections page.',
+  notAvailable:
+    'That account isn’t available to this project. Ask an org admin to make it available.',
+  ownedOnly:
+    'Only an account this project owns can be changed here. Shared accounts are changed in the organization’s Connections.',
+  stillDeployed: (workflows: string[], elsewhere = 0) => {
+    const total = workflows.length + elsewhere
+    const who =
+      workflows.length === 1 && elsewhere === 0
+        ? `${workflows[0]} is`
+        : workflows.length === 0
+          ? `${total === 1 ? '1 workflow in another project is' : `${total} workflows in other projects are`}`
+          : `${total} workflows are`
+    return `${who} still deployed with this account. Take ${total === 1 ? 'it' : 'them'} down first, or the workers keep running with no way to stop them from here.`
+  },
+  defaultChanged: 'Someone changed the default at the same time. Reload and try again.',
+} as const
