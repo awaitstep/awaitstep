@@ -17,6 +17,8 @@ describe('MobileTabBar', () => {
   it('is the organization navigation with five tabs and the current one marked', () => {
     render(<SampleTabBar activeKey="audit" />)
     const nav = screen.getByRole('navigation', { name: 'Organization' })
+    // styles.css lifts toasts clear of the tab bar by this marker.
+    expect(nav).toHaveAttribute('data-mobile-tab-bar')
     const links = within(nav).getAllByRole('link')
     expect(links.map((link) => link.textContent)).toEqual([
       'Projects',

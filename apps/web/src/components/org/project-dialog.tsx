@@ -8,11 +8,11 @@ import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Textarea } from '../ui/textarea'
 import { Label } from '../ui/label'
+import { defineToast, failureLine } from '../../lib/action-toast'
 import { api } from '../../lib/api-client'
 import { slugify } from '@awaitstep/ir'
 import { useSheetStore } from '../../stores/sheet-store'
 import { useOrgStore } from '../../stores/org-store'
-import { toast } from 'sonner'
 
 const projectSchema = z.object({
   name: z.string().min(1, 'Project name is required').max(255),
@@ -41,6 +41,12 @@ export function ProjectDialog() {
   })
 
   const mutation = useMutation({
+    meta: {
+      toast: defineToast({
+        success: () => (isEdit ? 'Project saved' : 'Project created'),
+        error: () => (isEdit ? 'Couldn’t save the project' : 'Couldn’t create the project'),
+      }),
+    },
     mutationFn: async (values: ProjectFormValues) => {
       if (isEdit) {
         return api.updateProject(editProject.id, {
@@ -59,12 +65,10 @@ export function ProjectDialog() {
         queryKey: ['projects', activeOrganizationId],
       })
       closeProjectDialog()
-      toast.success(isEdit ? 'Project updated' : 'Project created')
     },
     onError: (err) => {
       setError('root', {
-        message:
-          err instanceof Error ? err.message : `Failed to ${isEdit ? 'update' : 'create'} project`,
+        message: failureLine(err, `Couldn’t ${isEdit ? 'save' : 'create'} the project`),
       })
     },
   })

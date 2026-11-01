@@ -54,6 +54,8 @@ export function useSwitchOrg() {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    // Records the org you opened; you navigate there anyway (D-AT-2).
+    meta: { toast: 'silent' },
     mutationFn: (orgSlug: string): Promise<OrgSummary | null> => {
       if (source !== 'api') return mockServer.session.openOrg(ctx, orgSlug)
       rememberOrg(orgSlug)
@@ -76,6 +78,7 @@ export function useCreateOrg() {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'Organization created', error: 'Couldn’t create the organization' } },
     mutationFn: async (name: string): Promise<{ slug: string }> => {
       if (source !== 'api') return mockServer.org.createOrg(ctx, name)
       const trimmed = name.trim()

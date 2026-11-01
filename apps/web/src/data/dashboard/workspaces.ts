@@ -111,6 +111,7 @@ export function useCreateWorkspace(org: string, project: string) {
   const client = useQueryClient()
   const siblings = useWorkspacesQuery(org, project)
   return useMutation({
+    meta: { toast: { success: 'Workspace created', error: 'Couldn’t create the workspace' } },
     mutationFn: async (input: NewWorkspaceInput): Promise<Workspace> => {
       if (source !== 'api') return mockServer.workspaces.createWorkspace(ctx, org, project, input)
       const name = input.name.trim()
@@ -144,6 +145,7 @@ export function useUpdateWorkspace(slugs: Required<ScopeSlugs>) {
   const client = useQueryClient()
   const workspaceId = useWorkspaceId(slugs)
   return useMutation({
+    meta: { toast: { success: 'Workspace saved', error: 'Couldn’t save the workspace' } },
     mutationFn: async (update: WorkspaceUpdate): Promise<Workspace> => {
       if (source !== 'api') return mockServer.workspaces.updateWorkspace(ctx, slugs, update)
       if (!workspaceId) throw new Error('The workspace has not loaded yet')
@@ -165,6 +167,7 @@ export function useDeleteWorkspace(slugs: Required<ScopeSlugs>) {
   const client = useQueryClient()
   const workspaceId = useWorkspaceId(slugs)
   return useMutation({
+    meta: { toast: { success: 'Workspace deleted', error: 'Couldn’t delete the workspace' } },
     mutationFn: async (): Promise<void> => {
       if (source !== 'api') return mockServer.workspaces.deleteWorkspace(ctx, slugs)
       if (!workspaceId) throw new Error('The workspace has not loaded yet')

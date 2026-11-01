@@ -5,6 +5,7 @@ import { Play, Loader2, AlertCircle, Copy, Check } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Button } from '../ui/button'
 import { Select } from '../ui/select'
+import { runAction, failureLine } from '../../lib/action-toast'
 import { api } from '../../lib/api-client'
 import { useConnectionsStore } from '../../stores/connections-store'
 import { copyToClipboard } from '../../lib/utils'
@@ -55,14 +56,22 @@ export function TriggerDialog({
     setTriggering(true)
     setError(null)
 
+    let params: unknown = undefined
     try {
-      let params: unknown = undefined
       const trimmed = paramsJson.trim()
-      if (trimmed && trimmed !== '{}') {
-        params = JSON.parse(trimmed)
-      }
+      if (trimmed && trimmed !== '{}') params = JSON.parse(trimmed)
+    } catch (err) {
+      // The payload is on screen: said here, not as a toast.
+      setError(err instanceof Error ? err.message : 'Invalid JSON')
+      setTriggering(false)
+      return
+    }
 
-      await api.triggerWorkflow(selectedWorkflowId, { connectionId, params })
+    try {
+      await runAction(api.triggerWorkflow(selectedWorkflowId, { connectionId, params }), {
+        success: 'Workflow triggered',
+        error: 'Couldn’t trigger the workflow',
+      })
       queryClient.invalidateQueries({ queryKey: ['workflow-runs', selectedWorkflowId] })
       queryClient.invalidateQueries({ queryKey: ['all-runs'] })
       onClose()
@@ -70,7 +79,7 @@ export function TriggerDialog({
         to: '/runs',
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to trigger workflow')
+      setError(failureLine(err, 'Failed to trigger workflow'))
     } finally {
       setTriggering(false)
     }

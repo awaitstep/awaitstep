@@ -1,11 +1,13 @@
 import { useNavigate } from '@tanstack/react-router'
-import { toast } from 'sonner'
 import { Rocket } from 'lucide-react'
 import type { WorkflowNode, Edge as IREdge } from '@awaitstep/ir'
 import { Button } from '../ui/button'
+import { actionToast, failureLine } from '../../lib/action-toast'
 import { api } from '../../lib/api-client'
 import { fallbackPosition } from '../../lib/hydrate-workflow'
 import { validateWorkflowForPublish } from '../../lib/validate-workflow'
+
+const MAX_LISTED = 3
 
 interface DeployButtonProps {
   workflowId: string
@@ -25,7 +27,9 @@ export function DeployButton({
 
   async function handleDeploy() {
     if (!currentVersionId) {
-      toast.error('No version to deploy. Open the editor and save your workflow first.')
+      actionToast.error('Nothing to deploy yet', {
+        description: 'Open the editor and save your workflow first.',
+      })
       return
     }
     try {
@@ -56,14 +60,23 @@ export function DeployButton({
         kind,
       )
       if (!result.canPublish) {
+        // One summary rather than a toast per issue. This page has no problems
+        // list, so the first few ride along; the editor lists them all.
         const errors = result.issues.filter((i) => i.severity === 'error')
-        for (const issue of errors) {
-          toast.error(issue.nodeName ? `${issue.nodeName}: ${issue.message}` : issue.message)
-        }
+        const shown = errors
+          .slice(0, MAX_LISTED)
+          .map((issue) => (issue.nodeName ? `${issue.nodeName}: ${issue.message}` : issue.message))
+        if (errors.length > MAX_LISTED) shown.push('Open the editor to see the rest.')
+        actionToast.error(
+          errors.length === 1
+            ? 'Fix 1 issue before deploying'
+            : `Fix ${errors.length} issues before deploying`,
+          { description: shown.join(' · ') },
+        )
         return
       }
-    } catch {
-      toast.error('Failed to validate workflow')
+    } catch (err) {
+      actionToast.error(failureLine(err, 'Couldn’t check the workflow'))
       return
     }
     navigate({ to: '/workflows/$workflowId/deploy', params: { workflowId } })

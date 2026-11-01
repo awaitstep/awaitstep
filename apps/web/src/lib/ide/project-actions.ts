@@ -1,4 +1,5 @@
 import { PROJECT_HANDLERS_PATH, handlerEntry } from '@awaitstep/ir'
+import { failureLine } from '../action-toast'
 import { handlerModuleScaffold, type HandlerTarget } from '@awaitstep/provider-cloudflare/codegen'
 import {
   ProjectFileConflictError,
@@ -63,8 +64,9 @@ export interface ProjectFileActions {
 
 type WriteOutcome = ProjectFileSummary | 'conflict' | 'failed'
 
-function errorMessage(err: unknown, fallback: string): string {
-  return err instanceof Error ? err.message : fallback
+/** A failed write's toast: the server's reason, or `line` when it gave none (see `failureLine`). */
+function failed(notify: Notifier, line: string, err: unknown) {
+  notify.error(failureLine(err, line))
 }
 
 /**
@@ -83,6 +85,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     source: string,
     precondition: WritePrecondition,
     offerOverwrite: boolean,
+    verb = 'save',
   ): Promise<WriteOutcome> {
     try {
       return await client.putProjectFile(workflowId, path, source, precondition)
@@ -101,7 +104,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
         })
         return 'conflict'
       }
-      notify.error(errorMessage(err, `Could not save ${basename(path)}`))
+      failed(notify, `Couldn’t ${verb} ${basename(path)}`, err)
       return err instanceof ProjectFileConflictError ? 'conflict' : 'failed'
     }
   }
@@ -118,6 +121,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     if (typeof saved === 'string') return
     getStore().rebaseDraft(path, saved.hash)
     await refresh()
+    notify.success(`Saved ${basename(path)}`)
   }
 
   // 'unchanged' is a draft that matches the file (or a stored file with no
@@ -144,7 +148,10 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
   return {
     async saveFile(path) {
       const ok = (await saveOne(path)) === 'saved'
-      if (ok) await refresh()
+      if (ok) {
+        await refresh()
+        notify.success(`Saved ${basename(path)}`)
+      }
       return ok
     },
 
@@ -169,12 +176,13 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
         (entry
           ? handlerModuleScaffold(entry.kind === 'fetch' ? { kind: 'fetch', target } : entry)
           : '')
-      const created = await write(path, initial, { ifNoneMatch: true }, false)
+      const created = await write(path, initial, { ifNoneMatch: true }, false, 'create')
       // A conflict means someone else created it first: show their file.
       if (created === 'conflict') await refresh()
       if (typeof created === 'string') return false
       await refresh()
       getStore().openFile(path)
+      notify.success(`Created ${basename(path)}`)
       return true
     },
 
@@ -183,15 +191,20 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       const draft = getStore().drafts[from]
       const source = draft?.source ?? base?.source
       if (source === undefined) return false
-      const created = await write(to, source, { ifNoneMatch: true }, false)
+      const created = await write(to, source, { ifNoneMatch: true }, false, 'create')
       if (created === 'conflict') await refresh()
       if (typeof created === 'string') return false
+      let removed = true
       if (base?.hash !== undefined) {
         try {
           await client.deleteProjectFile(workflowId, from, base.hash)
         } catch (err) {
+          removed = false
+          // Half done: the line says which half, the server's reason (if any) why.
+          const reason = failureLine(err, '')
           notify.error(
-            `Created ${basename(to)} but could not remove ${basename(from)}: ${errorMessage(err, 'unknown error')}`,
+            `Created ${basename(to)} but couldn’t remove ${basename(from)}`,
+            reason ? { description: reason } : undefined,
           )
         }
       }
@@ -199,6 +212,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       store.moveFile(from, to)
       store.clearDraft(to)
       await refresh()
+      if (removed) notify.success(`Renamed to ${basename(to)}`)
       return true
     },
 
@@ -207,7 +221,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       try {
         await client.deleteProjectFile(workflowId, path, base?.hash)
       } catch (err) {
-        notify.error(errorMessage(err, `Could not delete ${basename(path)}`))
+        failed(notify, `Couldn’t delete ${basename(path)}`, err)
         if (err instanceof ProjectFileConflictError) await refresh()
         return false
       }
@@ -215,6 +229,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       store.clearDraft(path)
       store.closeFile(path)
       await refresh()
+      notify.success(`Deleted ${basename(path)}`)
       return true
     },
 
@@ -233,7 +248,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       try {
         result = await client.convertHandlers(workflowId, hash)
       } catch (err) {
-        notify.error(errorMessage(err, `${PROJECT_HANDLERS_PATH} could not be converted`))
+        failed(notify, `Couldn’t convert ${PROJECT_HANDLERS_PATH}`, err)
         if (err instanceof ProjectFileConflictError) await refresh()
         return null
       }

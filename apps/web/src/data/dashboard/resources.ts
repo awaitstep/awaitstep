@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { ActionToast } from '../../lib/action-toast'
 import { dashboardApi } from '../../lib/dashboard-api'
 import { mockServer } from '../../mocks/dashboard/server'
 import type { OrgNode } from '../../types/dashboard/resources'
@@ -33,11 +34,18 @@ const API_CHANGE = {
   updateNode: 'update',
 } as const
 
+const NODE_TOAST: Record<NodeChange, ActionToast> = {
+  installNode: { success: 'Node installed', error: 'Couldn’t install the node' },
+  uninstallNode: { success: 'Node uninstalled', error: 'Couldn’t uninstall the node' },
+  updateNode: { success: 'Node updated', error: 'Couldn’t update the node' },
+}
+
 function useNodeChange(org: string, change: NodeChange) {
   const source = useDataSource()
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: NODE_TOAST[change] },
     mutationFn: async (nodeId: string) => {
       if (source !== 'api') return mockServer.resources[change](ctx, org, nodeId)
       await dashboardApi.changeNode(org, API_CHANGE[change], nodeId)

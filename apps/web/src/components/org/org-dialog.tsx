@@ -1,4 +1,5 @@
 import * as Dialog from '@radix-ui/react-dialog'
+import { authError } from '../../data/dashboard/errors'
 import { Loader2, Plus } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -7,11 +8,11 @@ import { z } from 'zod'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
+import { actionToast, failureLine } from '../../lib/action-toast'
 import { authClient } from '../../lib/auth-client'
 import { slugify } from '@awaitstep/ir'
 import { useSheetStore } from '../../stores/sheet-store'
 import { useOrgStore } from '../../stores/org-store'
-import { toast } from 'sonner'
 import { cn } from '../../lib/utils'
 
 const orgSchema = z.object({
@@ -36,33 +37,33 @@ export function OrgDialog({ hasOrgs }: OrgDialogProps) {
 
   const { addOrganization } = useOrgStore()
   const { closeOrgDialog } = useSheetStore()
-  const onCreateSuccess = () => {
-    if (!hasOrgs) {
-      window.location.reload()
-    }
-  }
-
   const mutation = useMutation({
+    meta: {
+      toast: {
+        // Your first organization reloads the app; the toast waits for the new page.
+        success: hasOrgs ? 'Organization created' : null,
+        error: 'Couldn’t create the organization',
+      },
+    },
     mutationFn: async (values: OrgFormValues) => {
       const res = await authClient.organization.create({
         name: values.name.trim(),
         slug: slugify(values.name, 'org'),
       })
-      if (res.error) throw new Error(res.error.message)
+      if (res.error) throw authError(res.error, 'Could not create the organization')
       return res.data
     },
     onSuccess: (newOrg) => {
       addOrganization(newOrg)
       closeOrgDialog()
-      toast.success('Organization created', {
-        onDismiss: onCreateSuccess,
-        onAutoClose: onCreateSuccess,
-        duration: 1000,
-      })
+      if (!hasOrgs) {
+        actionToast.successAfterReload('Organization created')
+        window.location.reload()
+      }
     },
     onError: (err) => {
       setError('root', {
-        message: err instanceof Error ? err.message : 'Failed to create organization',
+        message: failureLine(err, 'Couldn’t create the organization'),
       })
     },
   })

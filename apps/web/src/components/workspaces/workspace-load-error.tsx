@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { errorIdOf } from '../../data/dashboard/errors'
+import { failureLine } from '../../lib/action-toast'
 import { Banner } from '../ui/banner'
 import { LoadError } from '../ui/load-error'
 
@@ -31,11 +32,15 @@ export function WorkspaceLoadError({
     onRetry()
   }
 
+  // A refusal (4xx) says why in the server's words; only a failure (5xx, a
+  // lost connection) is described as the server not answering.
+  const refusal = failureLine(error, '')
   const detail =
     known ??
-    (attempts === 0
-      ? 'The server took too long to answer. Nothing was changed. Try again in a moment.'
-      : `Still not answering after ${attempts + 1} tries. Try again in a minute.`)
+    (refusal ||
+      (attempts === 0
+        ? 'The server took too long to answer. Nothing was changed. Try again in a moment.'
+        : `Still not answering after ${attempts + 1} tries. Try again in a minute.`))
 
   return (
     <>

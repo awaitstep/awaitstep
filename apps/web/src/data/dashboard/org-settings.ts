@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { defineToast } from '../../lib/action-toast'
 import { authError } from './errors'
 import { authClient } from '../../lib/auth-client'
 import { dashboardApi } from '../../lib/dashboard-api'
@@ -23,11 +24,12 @@ import { useDashKey, useDataSource } from './source'
 import { useScope } from './workspaces'
 
 /** Org Settings → Members. */
-export function useOrgMembers(org: string) {
+export function useOrgMembers(org: string, { enabled = true }: { enabled?: boolean } = {}) {
   const source = useDataSource()
   const ctx = useMockContext()
   const key = useDashKey()
   return useQuery({
+    enabled,
     queryKey: key(dashKeys.orgMembers(org)),
     queryFn: (): Promise<OrgMember[]> =>
       source === 'api'
@@ -68,6 +70,7 @@ export function useSaveAccess(org: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'Access saved', error: 'Couldn’t save the access' } },
     mutationFn: async ({ userId, grant }: { userId: string; grant: AccessGrant }) => {
       if (source !== 'api') return mockServer.org.saveAccess(ctx, org, userId, grant)
       await dashboardApi.saveAccess(org, userId, grant)
@@ -81,6 +84,12 @@ export function useRemoveFromOrg(org: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: {
+      toast: {
+        success: 'Removed from the organization',
+        error: 'Couldn’t remove them from the organization',
+      },
+    },
     mutationFn: async (userId: string) => {
       if (source !== 'api') return mockServer.org.removeFromOrg(ctx, org, userId)
       await dashboardApi.removeFromOrg(org, userId)
@@ -110,6 +119,13 @@ export function useSendInvites(org: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: {
+      toast: defineToast<NewInvitesInput>({
+        success: (v) => (v.emails.length === 1 ? 'Invite sent' : `${v.emails.length} invites sent`),
+        error: (v) =>
+          v.emails.length === 1 ? 'Couldn’t send the invite' : 'Couldn’t send the invites',
+      }),
+    },
     mutationFn: async (input: NewInvitesInput): Promise<void> => {
       if (source !== 'api') {
         await mockServer.org.sendInvites(ctx, org, input)
@@ -126,6 +142,7 @@ export function useResendInvite(org: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'Invite sent again', error: 'Couldn’t resend the invite' } },
     mutationFn: async (invitationId: string) => {
       if (source !== 'api') return mockServer.org.resendInvite(ctx, org, invitationId)
       await dashboardApi.resendInvite(org, invitationId)
@@ -139,6 +156,7 @@ export function useCancelInvite(org: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'Invite canceled', error: 'Couldn’t cancel the invite' } },
     mutationFn: async (invitationId: string) => {
       if (source !== 'api') return mockServer.org.cancelInvite(ctx, org, invitationId)
       await dashboardApi.cancelInvite(org, invitationId)
@@ -181,6 +199,7 @@ export function useConnect(org: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'Connection added', error: 'Couldn’t add the connection' } },
     mutationFn: async (input: NewConnectionInput) => {
       if (source !== 'api') return mockServer.org.connect(ctx, org, input)
       await dashboardApi.createConnection(org, {
@@ -199,6 +218,7 @@ export function useReplaceToken(org: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'Token replaced', error: 'Couldn’t replace the token' } },
     mutationFn: async ({ connectionId, token }: { connectionId: string; token: string }) => {
       if (source !== 'api') return mockServer.org.replaceToken(ctx, org, connectionId, token)
       await dashboardApi.updateConnection(org, connectionId, { apiToken: token.trim() })
@@ -212,6 +232,7 @@ export function useUpdateConnection(org: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'Connection saved', error: 'Couldn’t save the connection' } },
     mutationFn: async ({
       connectionId,
       update,
@@ -236,6 +257,7 @@ export function useRemoveConnection(org: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'Connection removed', error: 'Couldn’t remove the connection' } },
     mutationFn: async (connectionId: string) => {
       if (source !== 'api') return mockServer.org.removeConnection(ctx, org, connectionId)
       await dashboardApi.deleteConnection(org, connectionId)
@@ -262,6 +284,7 @@ export function useUpdateOrg(org: string) {
   const scope = useScope({ org })
   const current = scope.data?.found ? scope.data.org.org : null
   return useMutation({
+    meta: { toast: { success: 'Organization saved', error: 'Couldn’t save the organization' } },
     mutationFn: async (update: OrgUpdate): Promise<OrgSummary> => {
       if (source !== 'api') return mockServer.org.updateOrg(ctx, org, update)
       if (!current) throw new Error('The organization has not loaded yet')
@@ -296,6 +319,7 @@ export function useDeleteOrg(org: string) {
   const scope = useScope({ org })
   const current = scope.data?.found ? scope.data.org.org : null
   return useMutation({
+    meta: { toast: { success: 'Organization deleted', error: 'Couldn’t delete the organization' } },
     mutationFn: async (): Promise<void> => {
       if (source !== 'api') return mockServer.org.deleteOrg(ctx, org)
       if (!current) throw new Error('The organization has not loaded yet')

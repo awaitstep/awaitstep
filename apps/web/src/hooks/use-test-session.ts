@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useShallow } from 'zustand/react/shallow'
-import { toast } from 'sonner'
+import { actionToast, failureLine } from '../lib/action-toast'
 import type { ProcessLogEntry } from '@awaitstep/codegen'
 import { api, projectUrl, ApiError } from '../lib/api-client'
 import type { TestSession } from '../lib/api-client'
@@ -36,6 +36,8 @@ export interface TestSessionState {
   /** The session is running code from an older version than the editor shows. */
   stale: boolean
   streamError: string | null
+  /** Why the last start, stop or trigger failed; the toast only says that it did. */
+  actionError: string | null
   start: () => Promise<void>
   stop: () => Promise<void>
   trigger: (payload: unknown) => Promise<void>
@@ -58,6 +60,7 @@ export function useTestSession({ workflowId, versionId }: UseTestSessionOptions)
   const [starting, setStarting] = useState(false)
   const [stopping, setStopping] = useState(false)
   const [triggering, setTriggering] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const { data: session = null } = useQuery({
     queryKey: testSessionKey(workflowId),
@@ -156,10 +159,7 @@ export function useTestSession({ workflowId, versionId }: UseTestSessionOptions)
           attempt += 1
           // Say so: a stream that dies silently leaves the UI claiming the
           // session is healthy while nothing touches it and it gets reaped.
-          setStreamError(
-            sessionId!,
-            err instanceof Error ? err.message : 'Lost the log stream — retrying',
-          )
+          setStreamError(sessionId!, failureLine(err, 'Lost the log stream — retrying'))
           await new Promise((resolve) => setTimeout(resolve, reconnectDelay(attempt)))
         }
       }
@@ -171,14 +171,17 @@ export function useTestSession({ workflowId, versionId }: UseTestSessionOptions)
 
   const start = useCallback(async () => {
     setStarting(true)
+    setActionError(null)
     try {
       const { session: started, reused } = await api.startTestSession(workflowId)
       // A new session starts from nothing; a reused one keeps its cursor, or
       // the server replays every line it has already shown.
       if (!reused) reset(started.id)
       setSession(started)
+      actionToast.success('Test session started')
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : 'Could not start a test session')
+      setActionError(failureLine(err, 'Could not start a test session'))
+      actionToast.error(failureLine(err, 'Couldn’t start the test session'))
     } finally {
       setStarting(false)
     }
@@ -187,16 +190,20 @@ export function useTestSession({ workflowId, versionId }: UseTestSessionOptions)
   const stop = useCallback(async () => {
     if (!sessionId) return
     setStopping(true)
+    setActionError(null)
     try {
       await api.stopTestSession(sessionId)
       setSession(null)
+      actionToast.success('Test session stopped')
     } catch (err) {
       // Not swallowed: a failed stop can leave a container running and
       // billing while the UI claims it is gone.
       if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
         setSession(null)
+        actionToast.success('Test session stopped')
       } else {
-        toast.error(err instanceof ApiError ? err.message : 'Could not stop the test session')
+        setActionError(failureLine(err, 'Could not stop the test session'))
+        actionToast.error(failureLine(err, 'Couldn’t stop the test session'))
         await refetchSession()
       }
     } finally {
@@ -208,16 +215,19 @@ export function useTestSession({ workflowId, versionId }: UseTestSessionOptions)
     async (payload: unknown) => {
       if (!sessionId) return
       setTriggering(true)
+      setActionError(null)
       try {
         const result = await api.triggerTestSession(sessionId, payload, {
           timeoutMs: TRIGGER_TIMEOUT_MS,
         })
         setResult(sessionId, result)
+        actionToast.success('Workflow triggered')
       } catch (err) {
         if (err instanceof ApiError && (err.status === 410 || err.status === 404)) {
           await refetchSession()
         }
-        toast.error(err instanceof Error ? err.message : 'Could not reach the test session')
+        setActionError(failureLine(err, 'Could not reach the test session'))
+        actionToast.error(failureLine(err, 'Couldn’t trigger the workflow'))
       } finally {
         setTriggering(false)
       }
@@ -242,6 +252,7 @@ export function useTestSession({ workflowId, versionId }: UseTestSessionOptions)
     triggering,
     stale: Boolean(session && versionId && session.versionId !== versionId),
     streamError: view.streamError,
+    actionError,
     start,
     stop,
     trigger,

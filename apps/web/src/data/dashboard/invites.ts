@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { ActionToast } from '../../lib/action-toast'
 import { dashboardApi } from '../../lib/dashboard-api'
 import { mockServer } from '../../mocks/dashboard/server'
 import type { AcceptedInvite, InviteView, PendingInvite } from '../../types/dashboard/invites'
@@ -53,6 +54,7 @@ export function useAcceptInvite(token: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'Invite accepted', error: 'Couldn’t accept the invite' } },
     mutationFn: (): Promise<AcceptedInvite> =>
       source === 'api'
         ? dashboardApi.acceptInvite(token).then(toAcceptedInvite)
@@ -85,11 +87,18 @@ const API_ACTION: Record<Answer, 'decline' | 'undo-decline' | 'ask-again'> = {
   askForNewInvite: 'ask-again',
 }
 
+const ANSWER_TOAST: Record<Answer, ActionToast> = {
+  declineInvite: { success: 'Invite declined', error: 'Couldn’t decline the invite' },
+  undoDeclineInvite: { success: 'Decline undone', error: 'Couldn’t undo the decline' },
+  askForNewInvite: { success: 'New invite requested', error: 'Couldn’t ask for a new invite' },
+}
+
 function useInviteAnswer(token: string, answer: Answer) {
   const source = useDataSource()
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: ANSWER_TOAST[answer] },
     mutationFn: async (): Promise<void> => {
       if (source !== 'api') return mockServer.invites[answer](ctx, token)
       await dashboardApi.answerInvite(token, API_ACTION[answer])

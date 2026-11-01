@@ -52,6 +52,7 @@ export function useUpdateProfile() {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'Profile saved', error: 'Couldn’t save your profile' } },
     mutationFn: async (update: ProfileUpdate) => {
       if (source !== 'api') return mockServer.account.updateProfile(ctx, update)
       const res = await authClient.updateUser({
@@ -76,6 +77,9 @@ export function useLeaveOrg(currentOrg: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: {
+      toast: { success: 'You left the organization', error: 'Couldn’t leave the organization' },
+    },
     mutationFn: async (org: { id: string; slug: string }) => {
       if (source !== 'api') return mockServer.account.leaveOrg(ctx, org.slug)
       await dashboardApi.leaveOrg(org.id)
@@ -91,6 +95,7 @@ export function useDeleteAccount(currentOrg: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'Account deleted', error: 'Couldn’t delete your account' } },
     // The confirm dialog holds Delete until the email is typed; the dummy server checks it again.
     mutationFn: async (confirmEmail: string) => {
       if (source !== 'api') return mockServer.account.deleteAccount(ctx, confirmEmail)
@@ -110,6 +115,7 @@ export function useExportAccount() {
   const source = useDataSource()
   const ctx = useMockContext()
   return useMutation({
+    meta: { toast: { success: 'Your data is downloading', error: 'Couldn’t export your data' } },
     mutationFn: (): Promise<AccountExport> =>
       source === 'api' ? dashboardApi.exportAccount() : mockServer.account.exportAccount(ctx),
   })
@@ -139,6 +145,13 @@ export function useConnectProvider() {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    // On the API the browser leaves for the provider; a refusal comes back on this page.
+    meta: {
+      toast: {
+        success: source === 'api' ? null : 'Account connected',
+        error: 'Couldn’t connect the account',
+      },
+    },
     mutationFn: async (provider: SignInProvider) => {
       if (source !== 'api') return mockServer.account.setSignInMethod(ctx, provider, true)
       const here = `${window.location.origin}${window.location.pathname}`
@@ -158,6 +171,7 @@ export function useDisconnectProvider() {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'Account disconnected', error: 'Couldn’t disconnect the account' } },
     mutationFn: async (method: SignInMethod & { provider: SignInProvider }) => {
       if (source !== 'api') return mockServer.account.setSignInMethod(ctx, method.provider, false)
       if (!method.accountId) throw new ApiError('That account is not connected', 400)
@@ -189,6 +203,7 @@ export function useRevokeSession() {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'Session signed out', error: 'Couldn’t sign out that session' } },
     mutationFn: async (sessionId: string) => {
       if (source !== 'api') return mockServer.account.revokeSession(ctx, sessionId)
       await dashboardApi.revokeAccountSession(sessionId)
@@ -202,6 +217,12 @@ export function useRevokeOtherSessions() {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: {
+      toast: {
+        success: 'Other sessions signed out',
+        error: 'Couldn’t sign out the other sessions',
+      },
+    },
     mutationFn: async () => {
       if (source !== 'api') return mockServer.account.revokeOtherSessions(ctx)
       await dashboardApi.revokeOtherAccountSessions()

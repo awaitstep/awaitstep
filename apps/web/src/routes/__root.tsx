@@ -1,9 +1,10 @@
 import { createRootRoute, Outlet, HeadContent, Scripts, Link } from '@tanstack/react-router'
-import { Toaster } from 'sonner'
 import { useEffect, useState } from 'react'
 import { useThemeStore } from '../stores/theme-store'
 import { ThemeScript } from '../components/theme-script'
 import { QueryProvider } from '../lib/query-provider'
+import { showCarriedToast } from '../lib/action-toast'
+import { Toaster } from '../components/ui/toaster'
 import '../styles.css'
 
 export const Route = createRootRoute({
@@ -28,8 +29,12 @@ function ClientToaster() {
   const [mounted, setMounted] = useState(false)
   const theme = useThemeStore((s) => s.theme)
   useEffect(() => setMounted(true), [])
+  // After the Toaster has mounted: a toast an action left for this page (signing out reloads).
+  useEffect(() => {
+    if (mounted) showCarriedToast()
+  }, [mounted])
   if (!mounted) return null
-  return <Toaster theme={theme === 'light' ? 'light' : 'dark'} position="top-center" richColors />
+  return <Toaster theme={theme === 'light' ? 'light' : 'dark'} />
 }
 
 function NotFound() {

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import type { HandlerTarget } from '@awaitstep/provider-cloudflare/codegen'
+import { actionToast } from '../lib/action-toast'
 import { api, type SourceFile } from '../lib/api-client'
 import { createProjectFileActions, type ProjectFileActions } from '../lib/ide/project-actions'
 import { useIdeStore } from '../stores/ide-store'
@@ -45,7 +45,7 @@ export function useProjectFiles({
         workflowId,
         target,
         client: api,
-        notify: toast,
+        notify: actionToast,
         getBaseline: () => baseline,
         getStore: useIdeStore.getState,
         refresh,

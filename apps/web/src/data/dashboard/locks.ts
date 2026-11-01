@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { defineToast } from '../../lib/action-toast'
 import { dashboardApi } from '../../lib/dashboard-api'
 import { mockServer } from '../../mocks/dashboard/server'
 import type { LockTarget } from '../../types/dashboard/locks'
@@ -21,6 +22,13 @@ export function useSetLock(target: LockTarget) {
   const found = scope.data?.found ? scope.data : null
   const id = level === 'project' ? found?.project?.project.id : found?.workspace?.workspace.id
   return useMutation({
+    meta: {
+      toast: defineToast<boolean>({
+        success: (on) =>
+          `${target.level === 'project' ? 'Project' : 'Workspace'} ${on ? 'locked' : 'unlocked'}`,
+        error: (on) => `Couldn’t ${on ? 'lock' : 'unlock'} the ${target.level}`,
+      }),
+    },
     mutationFn: async (on: boolean): Promise<void> => {
       if (source !== 'api') {
         await mockServer.locks.setLock(ctx, target, on)

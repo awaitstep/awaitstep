@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { actionToast, LONG_TOAST_MS, failureLine } from '../../lib/action-toast'
 import {
   ChevronDown,
   ChevronRight,
@@ -176,8 +176,8 @@ export function BindingsPanel() {
         queryClient.invalidateQueries({ queryKey: ['workflow-full', workflowId] }),
         queryClient.invalidateQueries({ queryKey: ['workflow-source', workflowId] }),
       ])
-      toast.success(`Consumer for ${queue} added in ${created}`, {
-        ...(notices.length > 0 && { description: notices.join(' '), duration: 15_000 }),
+      actionToast.success(`Consumer for ${queue} added in ${created}`, {
+        ...(notices.length > 0 && { description: notices.join(' ') }),
         action: {
           label: 'Open in Code',
           onClick: () => {
@@ -195,15 +195,14 @@ export function BindingsPanel() {
           queryClient.invalidateQueries({ queryKey: ['deploy-config', workflowId] }),
         ])
       }
-      const detail =
+      const reason =
         err instanceof ProjectFileConflictError
           ? `The consumer for ${queue} changed while it was being added. Open Code to see the latest handlers.`
-          : err instanceof Error
-            ? err.message
-            : 'Could not add the consumer'
-      toast.error(`Could not add the consumer for ${queue}`, {
-        description: [...notices, detail].join(' '),
-        ...(notices.length > 0 && { duration: 15_000 }),
+          : failureLine(err, `Couldn’t add the consumer for ${queue}`)
+      // What the conversion already did rides as the description, with the
+      // long time when there are notices to act on.
+      actionToast.error(reason, {
+        ...(notices.length > 0 && { description: notices.join(' '), duration: LONG_TOAST_MS }),
       })
     }
   }

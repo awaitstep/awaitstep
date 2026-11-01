@@ -18,6 +18,7 @@ import {
 import { Button } from '../ui/button'
 import { api } from '../../lib/api-client'
 import { useSheetStore } from '../../stores/sheet-store'
+import { RUN_ACTION_TOAST } from './run-actions'
 import { RunStatusBadge } from './run-status-badge'
 import { formatDate } from '../../lib/time'
 import { copyToClipboard } from '../../lib/utils'
@@ -86,6 +87,7 @@ function RunDetailContent({
   }, [run?.status, queryClient, workflowId])
 
   const actionMutation = useMutation({
+    meta: { toast: RUN_ACTION_TOAST },
     mutationFn: (action: 'pause' | 'resume' | 'terminate') =>
       api.controlWorkflowRun(workflowId, runId, action),
     onSuccess: () => {

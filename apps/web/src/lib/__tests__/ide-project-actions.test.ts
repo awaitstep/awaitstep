@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ProjectFileConflictError, type SourceFile, type WritePrecondition } from '../api-client'
+import {
+  ApiError,
+  ProjectFileConflictError,
+  type SourceFile,
+  type WritePrecondition,
+} from '../api-client'
 import {
   createProjectFileActions,
   type Notifier,
@@ -122,6 +127,8 @@ describe('project file actions', () => {
       ifMatch: 'h-agent',
     })
     expect(useIdeStore.getState().drafts['config/env.ts']?.baseHash).toBe('saved:mine')
+    // Overwriting is a save like any other: it says so.
+    await vi.waitFor(() => expect(notify.success).toHaveBeenCalledWith('Saved env.ts'))
   })
 
   it('starts a new handler entry from its scaffold rather than an empty file', async () => {
@@ -149,6 +156,7 @@ describe('project file actions', () => {
       new ProjectFileConflictError('File already exists', 'h-agent'),
     )
     expect(await actions.createFile('services/taken.ts')).toBe(false)
+    // The server's reason, as it sent it.
     expect(notify.error).toHaveBeenCalledWith('File already exists')
     expect(refresh).toHaveBeenCalledTimes(2)
   })
@@ -242,5 +250,47 @@ describe('project file actions', () => {
     expect(await actions.deleteFile('config/env.ts')).toBe(true)
     expect(client.deleteProjectFile).toHaveBeenCalledWith('wf-1', 'config/env.ts', 'h-env')
     expect(useIdeStore.getState()).toMatchObject({ openPaths: [], drafts: {} })
+  })
+
+  it('says each finished write in a general toast', async () => {
+    useIdeStore.getState().setDraft('config/env.ts', 'edited env', 'h-env')
+    const { notify, actions } = setup()
+    await actions.saveFile('config/env.ts')
+    await actions.createFile('services/new.ts')
+    await actions.renameFile('config/other.ts', 'config/renamed.ts')
+    await actions.deleteFile('config/env.ts')
+    expect(notify.success.mock.calls.map((c) => c[0])).toEqual([
+      'Saved env.ts',
+      'Created new.ts',
+      'Renamed to renamed.ts',
+      'Deleted env.ts',
+    ])
+  })
+
+  it('says a refusal’s reason, and its own line for a server failure', async () => {
+    const { client, notify, actions } = setup()
+    client.deleteProjectFile.mockRejectedValueOnce(new ApiError('This workspace is locked', 423))
+    expect(await actions.deleteFile('config/env.ts')).toBe(false)
+    expect(notify.error).toHaveBeenLastCalledWith('This workspace is locked')
+    client.deleteProjectFile.mockRejectedValueOnce(new ApiError('Internal server error', 500))
+    expect(await actions.deleteFile('config/env.ts')).toBe(false)
+    expect(notify.error).toHaveBeenLastCalledWith('Couldn’t delete env.ts')
+  })
+
+  it('does not call a rename done when the old file stayed behind', async () => {
+    const { client, notify, actions } = setup()
+    client.deleteProjectFile.mockRejectedValueOnce(new ApiError('This workspace is locked', 423))
+    expect(await actions.renameFile('config/other.ts', 'config/renamed.ts')).toBe(true)
+    expect(notify.error).toHaveBeenCalledWith('Created renamed.ts but couldn’t remove other.ts', {
+      description: 'This workspace is locked',
+    })
+    expect(notify.success).not.toHaveBeenCalled()
+
+    client.deleteProjectFile.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    await actions.renameFile('config/env.ts', 'config/again.ts')
+    expect(notify.error).toHaveBeenLastCalledWith(
+      'Created again.ts but couldn’t remove env.ts',
+      undefined,
+    )
   })
 })

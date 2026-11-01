@@ -34,15 +34,21 @@ function withPagination(path: string, opts?: PaginationOptions): string {
 interface ErrorBody {
   message: string
   /**
+   * The API answered JSON with a reason (`error`, `message` or `details`). An
+   * HTML page from a proxy or a bare status has none: its text is never shown.
+   */
+  hasReason: boolean
+  /**
    * The form field the error points at: a validation failure's first issue
    * path, or the `field` a route names itself ("token", "emails").
    */
   field?: string
 }
 
-/** The human-readable error an API response carries, falling back to its body or status. */
+/** The human-readable error an API response carries, or a plain status line when it has none. */
 async function readErrorBody(res: Response): Promise<ErrorBody> {
-  const text = await res.text().catch(() => res.statusText)
+  const bare = { message: `Request failed (${res.status})`, hasReason: false }
+  const text = await res.text().catch(() => '')
   try {
     const json = JSON.parse(text) as {
       error?: string
@@ -51,12 +57,11 @@ async function readErrorBody(res: Response): Promise<ErrorBody> {
       details?: { path?: string; message?: string }[]
     }
     const issue = json.details?.[0]
-    return {
-      message: issue?.message ?? json.error ?? json.message ?? text,
-      field: issue?.path || json.field || undefined,
-    }
+    const reason = issue?.message ?? json.error ?? json.message
+    if (typeof reason !== 'string' || !reason.trim()) return bare
+    return { message: reason, hasReason: true, field: issue?.path || json.field || undefined }
   } catch {
-    return { message: text }
+    return bare
   }
 }
 
@@ -66,16 +71,19 @@ export class ApiError extends Error {
   readonly requestId: string | undefined
   /** The form field the error belongs to, when the server named one. */
   readonly field: string | undefined
+  /** False when the response carried no reason (a proxy's page, an empty body): show a general line. */
+  readonly hasReason: boolean
 
   constructor(
     message: string,
     readonly status: number,
-    extra: { requestId?: string; field?: string } = {},
+    extra: { requestId?: string; field?: string; hasReason?: boolean } = {},
   ) {
     super(message)
     this.name = 'ApiError'
     this.requestId = extra.requestId
     this.field = extra.field
+    this.hasReason = extra.hasReason ?? true
   }
 }
 
@@ -90,10 +98,11 @@ export async function request<T>(path: string, options?: RequestInit): Promise<T
   })
 
   if (!res.ok) {
-    const { message, field } = await readErrorBody(res)
+    const { message, field, hasReason } = await readErrorBody(res)
     throw new ApiError(message, res.status, {
       requestId: res.headers.get('x-request-id') ?? undefined,
       field,
+      hasReason,
     })
   }
 
@@ -300,6 +309,9 @@ export type WritePrecondition = { ifMatch: string } | { ifNoneMatch: true }
  * it was read, or already exists (`currentHash` is what is stored now).
  */
 export class ProjectFileConflictError extends Error {
+  /** A refusal: its message is the server's reason. */
+  readonly status = 409
+
   constructor(
     message: string,
     readonly currentHash: string | null,
@@ -326,7 +338,8 @@ async function projectFileRequest<T>(path: string, options: RequestInit): Promis
     throw new ProjectFileConflictError(body.error ?? 'Conflict', body.currentHash ?? null)
   }
   if (!res.ok) {
-    throw new ApiError((await readErrorBody(res)).message, res.status)
+    const { message, hasReason } = await readErrorBody(res)
+    throw new ApiError(message, res.status, { hasReason })
   }
   if (res.status === 204) return undefined as T
   return res.json()

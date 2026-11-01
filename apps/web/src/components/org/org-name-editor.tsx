@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
+import { failureLine } from '../../lib/action-toast'
+import { authError } from '../../data/dashboard/errors'
 import { useMutation } from '@tanstack/react-query'
 import { authClient } from '../../lib/auth-client'
 import { useOrgStore, type Organization } from '../../stores/org-store'
-import { toast } from 'sonner'
 
 export function OrgNameEditor({ org }: { org: Organization }) {
   const [editing, setEditing] = useState(false)
@@ -19,15 +20,15 @@ export function OrgNameEditor({ org }: { org: Organization }) {
   }, [editing])
 
   const mutation = useMutation({
+    meta: { toast: { success: 'Organization saved', error: 'Couldn’t save the organization' } },
     mutationFn: async (name: string) => {
       const res = await authClient.organization.update({ organizationId: org.id, data: { name } })
-      if (res.error) throw new Error(res.error.message)
+      if (res.error) throw authError(res.error, 'Could not rename the organization')
     },
     onSuccess: (_data, name) => {
       setOrgs(orgs.map((o) => (o.id === org.id ? { ...o, name } : o)))
-      toast.success('Organization updated')
     },
-    onError: (err) => toast.error(err.message),
+    onError: () => setValue(org.name),
   })
 
   function save() {
@@ -38,6 +39,12 @@ export function OrgNameEditor({ org }: { org: Organization }) {
       return
     }
     mutation.mutate(trimmed)
+  }
+
+  // A new edit starts without the last attempt's failure.
+  function handleStartEditing() {
+    mutation.reset()
+    setEditing(true)
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -66,12 +73,17 @@ export function OrgNameEditor({ org }: { org: Organization }) {
   return (
     <div className="mt-6">
       <p
-        onClick={() => setEditing(true)}
+        onClick={handleStartEditing}
         className="cursor-text rounded-md px-2 py-1 text-lg font-semibold tracking-tight transition-colors hover:bg-muted/40"
         title="Click to rename"
       >
         {org.name}
       </p>
+      {mutation.error && (
+        <p role="alert" className="px-2 text-xs text-destructive">
+          {failureLine(mutation.error, 'Couldn’t save the organization')}
+        </p>
+      )}
     </div>
   )
 }

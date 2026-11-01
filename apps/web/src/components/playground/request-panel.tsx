@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Loader2, Send } from 'lucide-react'
-import { toast } from 'sonner'
+import { actionToast, failureLine } from '../../lib/action-toast'
 import { getOrigin } from '../../lib/utils'
 import { Button } from '../ui/button'
 import { CodeEditor } from '../ui/code-editor'
@@ -92,7 +92,9 @@ export function RequestPanel({
         headers: responseHeaders,
       })
     } catch (err) {
-      toast.error(`Network error: ${err instanceof Error ? err.message : 'Request failed'}`)
+      // The response pane answers a request that went through; this one never
+      // reached the server.
+      actionToast.error(failureLine(err, 'Couldn’t send the request'))
     } finally {
       setLoading(false)
       onLoadingChange(false)

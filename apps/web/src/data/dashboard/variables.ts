@@ -86,6 +86,7 @@ export function useSetVariable(org: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'Variable saved', error: 'Couldn’t save the variable' } },
     mutationFn: async (input: VariableInput): Promise<void> => {
       if (source !== 'api') return mockServer.variables.setVariable(ctx, org, input)
       const slugs = variableSlugs(org, input.scope)
@@ -111,6 +112,7 @@ export function useDeleteVariable(org: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'Variable deleted', error: 'Couldn’t delete the variable' } },
     mutationFn: async ({
       scope,
       name,

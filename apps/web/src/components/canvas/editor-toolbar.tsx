@@ -40,7 +40,7 @@ export interface EditorToolbarProps {
   onSave: () => void
   isSaving: boolean
   lastSavedAt?: Date | null
-  autoSaveError?: string | null
+  saveError?: string | null
   onDeploy: () => void
   onTest: () => void
   onTestLocally?: () => void
@@ -56,12 +56,12 @@ function SaveStatusIndicator({
   isDirty,
   isSaving,
   lastSavedAt,
-  autoSaveError,
+  saveError,
 }: {
   isDirty: boolean
   isSaving: boolean
   lastSavedAt: Date | null
-  autoSaveError: string | null
+  saveError: string | null
 }) {
   if (isSaving) {
     return (
@@ -74,14 +74,11 @@ function SaveStatusIndicator({
       </span>
     )
   }
-  if (autoSaveError && isDirty) {
+  if (saveError && isDirty) {
     return (
-      <span
-        className="inline-flex items-center gap-1 text-xs text-destructive"
-        title={autoSaveError}
-      >
+      <span className="inline-flex items-center gap-1 text-xs text-destructive" title={saveError}>
         <AlertCircle className="h-3 w-3" />
-        <span className="hidden sm:inline">Couldn&apos;t auto-save</span>
+        <span className="hidden sm:inline">Couldn&apos;t save</span>
       </span>
     )
   }
@@ -126,7 +123,7 @@ export function EditorToolbar({
   onSave,
   isSaving,
   lastSavedAt,
-  autoSaveError,
+  saveError,
   onDeploy,
   onTest,
   onTestLocally,
@@ -177,7 +174,7 @@ export function EditorToolbar({
         isDirty={isDirty}
         isSaving={isSaving}
         lastSavedAt={lastSavedAt ?? null}
-        autoSaveError={autoSaveError ?? null}
+        saveError={saveError ?? null}
       />
     </WorkflowTitle>
   )

@@ -1,7 +1,7 @@
 import { useBlocker } from '@tanstack/react-router'
 import { lazy, Suspense, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { actionToast } from '../../lib/action-toast'
 import { NodePalette } from './node-palette'
 import { TemplatePicker } from './template-picker'
 import { ClientOnly } from './client-only'
@@ -104,7 +104,7 @@ export function CanvasView({
   })
 
   useEffect(() => {
-    if (workflowError) toast.error('Failed to load workflow')
+    if (workflowError) actionToast.error('Failed to load workflow')
   }, [workflowError])
 
   // Derive state from query data
@@ -147,7 +147,7 @@ export function CanvasView({
   }, [workflowId, isNew, kindParam, fullData, setWorkflowId, isReadOnly, currentVersion])
 
   // Persistence (save + deploy)
-  const { handleSave, saveNow, handleDeploy, saveSilent, isSaving, lastSavedAt, autoSaveError } =
+  const { handleSave, saveNow, handleDeploy, saveSilent, isSaving, lastSavedAt, saveError } =
     useWorkflowPersistence({
       workflowId,
       isNew,
@@ -233,7 +233,7 @@ export function CanvasView({
                 onSave={handleSave}
                 isSaving={isSaving}
                 lastSavedAt={lastSavedAt}
-                autoSaveError={autoSaveError}
+                saveError={saveError}
                 onDeploy={handleDeploy}
                 onTest={() => runSimulation()}
                 onTestLocally={localDevEnabled ? () => setShowLocalTest((v) => !v) : undefined}

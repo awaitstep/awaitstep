@@ -18,6 +18,7 @@ export function RunPanel({ session: state }: { session: TestSessionState }) {
     triggering,
     stale,
     streamError,
+    actionError,
     lastResult,
     payload,
     setPayload,
@@ -75,6 +76,11 @@ export function RunPanel({ session: state }: { session: TestSessionState }) {
           {sessionSummary(session, { stale, streamError })}
         </span>
       </div>
+      {actionError && (
+        <p role="alert" className="text-[11px] text-destructive">
+          {actionError}
+        </p>
+      )}
 
       <div className="flex min-h-0 flex-1 flex-col gap-2">
         <label htmlFor="trigger-payload" className="text-[11px] text-muted-foreground/70">

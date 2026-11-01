@@ -22,11 +22,18 @@ export function EditableName({
   }, [editing])
 
   const mutation = useMutation({
+    meta: {
+      toast: {
+        success: 'Workflow renamed',
+        error: 'Couldn’t rename the workflow',
+      },
+    },
     mutationFn: (name: string) => api.updateWorkflow(workflowId, { name }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflow', workflowId] })
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
     },
+    onError: () => setValue(initialValue),
   })
 
   const save = () => {
@@ -91,12 +98,19 @@ export function EditableDescription({
   }, [editing])
 
   const mutation = useMutation({
+    meta: {
+      toast: {
+        success: 'Description saved',
+        error: 'Couldn’t save the description',
+      },
+    },
     mutationFn: (description: string) =>
       api.updateWorkflow(workflowId, { description: description || undefined }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflow', workflowId] })
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
     },
+    onError: () => setValue(initialValue),
   })
 
   const save = () => {

@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { toast } from 'sonner'
+import { actionToast, failureLine } from '../lib/action-toast'
 import { useWorkflowStore } from '../stores/workflow-store'
 import { validateWorkflowForPublish } from '../lib/validate-workflow'
 import { buildIRFromState } from '../lib/build-ir'
@@ -24,7 +24,7 @@ export function useWorkflowPersistence(opts: {
   const navigate = useNavigate()
   const { markClean, setWorkflowId, runValidation } = useWorkflowStore()
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
-  const [autoSaveError, setAutoSaveError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [isAutoSaving, setIsAutoSaving] = useState(false)
 
   const performSave = useCallback(async (): Promise<WorkflowSummary | null> => {
@@ -71,7 +71,7 @@ export function useWorkflowPersistence(opts: {
     (created: WorkflowSummary | null) => {
       markClean()
       setLastSavedAt(new Date())
-      setAutoSaveError(null)
+      setSaveError(null)
       queryClient.invalidateQueries({ queryKey: ['workflow-full', workflowId] })
       queryClient.invalidateQueries({ queryKey: ['workflow-source', workflowId] })
       if (created) {
@@ -86,20 +86,20 @@ export function useWorkflowPersistence(opts: {
   )
 
   const saveMutation = useMutation({
+    // The toolbar's save status keeps the reason too, but only on hover and
+    // only from a wide screen, so the toast carries it as well.
+    meta: {
+      toast: { success: 'Workflow saved', error: 'Couldn’t save the workflow' },
+    },
     mutationFn: performSave,
-    onSuccess: (created) => {
-      onSaveSuccess(created)
-      toast.success('Workflow saved')
-    },
-    onError: (err) => {
-      toast.error(err instanceof Error ? err.message : 'Failed to save workflow')
-    },
+    onSuccess: onSaveSuccess,
+    onError: (err) => setSaveError(failureLine(err, 'Failed to save workflow')),
   })
 
   /**
    * Saves and reports whether it worked, for callers that do something next
    * — switching surface, say. Both failure paths have already told the user
-   * why (the validation panel, or the mutation's error toast), so the
+   * why (the validation panel, or the save toast and status), so the
    * boolean is only about whether to carry on.
    */
   const saveNow = useCallback(async (): Promise<boolean> => {
@@ -120,7 +120,7 @@ export function useWorkflowPersistence(opts: {
       // them on the canvas — one toast points there instead of N toasts.
       useWorkflowStore.setState({ validationResult: result, simulationResult: null })
       const errorCount = result.issues.filter((i) => i.severity === 'error').length
-      toast.error(
+      actionToast.error(
         errorCount === 1 ? 'Fix 1 issue before saving' : `Fix ${errorCount} issues before saving`,
       )
       return false
@@ -156,7 +156,7 @@ export function useWorkflowPersistence(opts: {
       onSaveSuccess(created)
       return 'saved'
     } catch (err) {
-      setAutoSaveError(err instanceof Error ? err.message : 'Failed to save workflow')
+      setSaveError(failureLine(err, 'Failed to save workflow'))
       return 'failed'
     } finally {
       setIsAutoSaving(false)
@@ -169,7 +169,7 @@ export function useWorkflowPersistence(opts: {
     const result = runValidation(nodeRegistry ?? undefined)
     if (!result.canPublish) {
       const errorCount = result.issues.filter((i) => i.severity === 'error').length
-      toast.error(
+      actionToast.error(
         errorCount === 1
           ? 'Fix 1 issue before deploying'
           : `Fix ${errorCount} issues before deploying`,
@@ -180,7 +180,7 @@ export function useWorkflowPersistence(opts: {
       try {
         await saveMutation.mutateAsync()
       } catch {
-        toast.error('Failed to save before deploy')
+        // The save already said it failed: one toast, not two.
         return
       }
     }
@@ -195,6 +195,6 @@ export function useWorkflowPersistence(opts: {
     saveSilent,
     isSaving: saveMutation.isPending || isAutoSaving,
     lastSavedAt,
-    autoSaveError,
+    saveError,
   }
 }

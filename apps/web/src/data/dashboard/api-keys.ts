@@ -43,6 +43,7 @@ export function useRevokeProjectKey(org: string, project: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'Key revoked', error: 'Couldn’t revoke the key' } },
     mutationFn: async (keyId: string): Promise<void> => {
       if (source !== 'api') return mockServer.keys.revokeProjectKey(ctx, org, project, keyId)
       await dashboardApi.revokeKey({ org, project }, keyId)
@@ -75,6 +76,7 @@ export function useRevokeWorkspaceKey(slugs: Required<ScopeSlugs>) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'Key revoked', error: 'Couldn’t revoke the key' } },
     mutationFn: async (keyId: string): Promise<void> => {
       if (source !== 'api') return mockServer.keys.revokeWorkspaceKey(ctx, slugs, keyId)
       await dashboardApi.revokeKey(slugs, keyId)
@@ -84,11 +86,13 @@ export function useRevokeWorkspaceKey(slugs: Required<ScopeSlugs>) {
 }
 
 /** Org Settings → API keys (owners and admins). */
-export function useOrgKeys(org: string) {
+/** `enabled: false` for someone who may not see them: the API refuses them (403). */
+export function useOrgKeys(org: string, { enabled = true }: { enabled?: boolean } = {}) {
   const source = useDataSource()
   const ctx = useMockContext()
   const key = useDashKey()
   return useQuery({
+    enabled,
     queryKey: key(dashKeys.orgKeys(org)),
     queryFn: (): Promise<ApiKey[]> =>
       source === 'api'
@@ -104,6 +108,7 @@ export function useRevokeOrgKey(org: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'Key revoked', error: 'Couldn’t revoke the key' } },
     mutationFn: async (keyId: string): Promise<void> => {
       if (source !== 'api') return mockServer.keys.revokeOrgKey(ctx, org, keyId)
       await dashboardApi.revokeKey({ org }, keyId)
@@ -118,6 +123,7 @@ export function useCreateKey(org: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'Key created', error: 'Couldn’t create the key' } },
     mutationFn: async (input: NewKeyInput): Promise<CreatedKey> => {
       if (source !== 'api') return mockServer.keys.createKey(ctx, org, input)
       const { slugs, body } = toCreateKeyRequest(org, input)

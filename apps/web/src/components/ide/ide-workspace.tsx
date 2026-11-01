@@ -3,8 +3,8 @@ import { Link, useBlocker } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import type { Layout, LayoutChangedMeta } from 'react-resizable-panels'
-import { toast } from 'sonner'
 import { useShallow } from 'zustand/react/shallow'
+import { actionToast, LONG_TOAST_MS, failureLine } from '../../lib/action-toast'
 import type { IdeCommandActions } from '../../lib/ide/commands'
 import { dirtyPaths, overlayDrafts } from '../../lib/ide/drafts'
 import { fileEditability, workspaceEditability } from '../../lib/ide/editability'
@@ -246,7 +246,9 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   // its own notice, so the source query's 400 is not an error worth toasting.
   const loadError = fullQuery.error ?? (fullData?.version ? sourceQuery.error : null)
   useEffect(() => {
-    if (loadError) toast.error(loadError.message || 'Failed to load the workflow source')
+    if (loadError) {
+      actionToast.error(failureLine(loadError, 'Couldn’t load the workflow source'))
+    }
   }, [loadError])
 
   const hasUnsaved = dirty.size > 0
@@ -290,7 +292,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     () => ({
       save: () => {
         if (!canEdit) {
-          if (readOnlyMessage) toast.info(readOnlyMessage)
+          if (readOnlyMessage) actionToast.info(readOnlyMessage)
           return
         }
         const path = useIdeStore.getState().activePath
@@ -301,7 +303,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       },
       discardChanges: () => {
         clearDrafts()
-        toast.info('Unsaved changes discarded')
+        actionToast.info('Unsaved changes discarded')
       },
       newFile: () => showDialog('newFile'),
       renameFile: () => {
@@ -336,8 +338,8 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         const path = useIdeStore.getState().activePath
         if (!path) return
         copyToClipboard(path)
-          .then(() => toast.success('Path copied'))
-          .catch(() => toast.error('Could not copy the path'))
+          .then(() => actionToast.success('Path copied'))
+          .catch(() => actionToast.error('Couldn’t copy the path'))
       },
       toggleExplorer,
       toggleDock,
@@ -412,9 +414,10 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       if (!result || result.deploymentConfigUpdated) return
       const facts = describeHandlerDeclarations(result.declarations)
       if (facts.length > 0) {
-        toast.info(`Declare in the deployment config before deploying: ${facts.join('; ')}`, {
+        // Instructions to act on: as long as a toast with an action.
+        actionToast.info(`Declare in the deployment config before deploying: ${facts.join('; ')}`, {
           description: 'There is no stored deployment config yet to carry them.',
-          duration: 15_000,
+          duration: LONG_TOAST_MS,
         })
       }
     })

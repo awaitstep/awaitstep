@@ -1,7 +1,22 @@
 import { Pause, Play, Square } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '../ui/button'
+import { defineToast } from '../../lib/action-toast'
 import { api } from '../../lib/api-client'
+
+type RunAction = 'pause' | 'resume' | 'terminate'
+
+const DONE: Record<RunAction, string> = {
+  pause: 'Run paused',
+  resume: 'Run resumed',
+  terminate: 'Run terminated',
+}
+
+/** What pausing, resuming and terminating a run say; the run sheet uses it too. */
+export const RUN_ACTION_TOAST = defineToast<RunAction>({
+  success: (action) => DONE[action],
+  error: (action) => `Couldn’t ${action} the run`,
+})
 
 interface RunActionsProps {
   workflowId: string
@@ -13,8 +28,8 @@ export function RunActions({ workflowId, runId, status }: RunActionsProps) {
   const queryClient = useQueryClient()
 
   const actionMutation = useMutation({
-    mutationFn: (action: 'pause' | 'resume' | 'terminate') =>
-      api.controlWorkflowRun(workflowId, runId, action),
+    meta: { toast: RUN_ACTION_TOAST },
+    mutationFn: (action: RunAction) => api.controlWorkflowRun(workflowId, runId, action),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflow-run', workflowId, runId] })
       queryClient.invalidateQueries({ queryKey: ['workflow-runs', workflowId] })

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { authError } from '../../data/dashboard/errors'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Building2, FolderKanban, Loader2, ArrowRight } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -6,6 +7,7 @@ import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { authClient } from '../../lib/auth-client'
+import { actionToast, failureLine } from '../../lib/action-toast'
 import { api } from '../../lib/api-client'
 import { slugify } from '@awaitstep/ir'
 import { useOrgStore } from '../../stores/org-store'
@@ -34,7 +36,7 @@ export function SetupDialog({ open }: { open: boolean }) {
       })
 
       if (orgResult.error) {
-        throw new Error(orgResult.error.message ?? 'Failed to create organization')
+        throw authError(orgResult.error, 'Failed to create organization')
       }
 
       const org = orgResult.data
@@ -48,9 +50,11 @@ export function SetupDialog({ open }: { open: boolean }) {
 
       // ProjectsProvider will pick up the new project via this invalidation
       queryClient.invalidateQueries({ queryKey: ['projects', org.id] })
+      actionToast.success('Organization and project created')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      setError(failureLine(err, 'Something went wrong'))
       setLoading(false)
+      actionToast.error(failureLine(err, 'Couldn’t finish setting up'))
     }
   }
 

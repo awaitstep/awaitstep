@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { defineToast } from '../../lib/action-toast'
 import { useEffect } from 'react'
 import { RELEASE_NOTES } from '../../content/releases'
 import { dashboardApi } from '../../lib/dashboard-api'
@@ -44,6 +45,8 @@ export function useMarkNotificationRead(org: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    // Following a notification's link marks it read; its dot going is the answer.
+    meta: { toast: { success: null, error: 'Couldn’t mark it as read' } },
     mutationFn: async (id: string) => {
       if (source === 'api') await dashboardApi.markNotificationRead(org, id)
       else await mockServer.inbox.markNotificationRead(ctx, org, id)
@@ -57,6 +60,7 @@ export function useMarkAllNotificationsRead(org: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'All marked as read', error: 'Couldn’t mark everything as read' } },
     mutationFn: async () => {
       if (source === 'api') await dashboardApi.markAllNotificationsRead(org)
       else await mockServer.inbox.markAllNotificationsRead(ctx, org)
@@ -74,6 +78,12 @@ export function useDecideEditRequest(org: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: {
+      toast: defineToast<{ id: string; decision: 'approve' | 'decline' }>({
+        success: (v) => (v.decision === 'approve' ? 'Request approved' : 'Request declined'),
+        error: (v) => `Couldn’t ${v.decision} the request`,
+      }),
+    },
     mutationFn: async ({ id, decision }: { id: string; decision: 'approve' | 'decline' }) => {
       if (source === 'api') await dashboardApi.decideAccessRequest(id, decision)
       else await mockServer.inbox.decideEditRequest(ctx, org, id, decision)
@@ -113,6 +123,8 @@ function useMarkReleasesSeen() {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    // Recorded when What's new closes, not clicked (D-AT-2).
+    meta: { toast: 'silent' },
     mutationFn: async (seen: string[]) => {
       if (source === 'api') await dashboardApi.recordReleaseVisit(seen)
       else await mockServer.inbox.markReleasesSeen(ctx, seen)

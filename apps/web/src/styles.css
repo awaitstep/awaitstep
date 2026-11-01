@@ -172,6 +172,21 @@ html.dark {
   --workspace-purple-foreground: oklch(0.917 0.05 305);
   --workspace-rose: oklch(0.385 0.093 4);
   --workspace-rose-foreground: oklch(0.926 0.041 359);
+  /* Toasts (board Toasts): one step above the page, the state on border, icon and title. */
+  --toast-surface: #15171b;
+  --toast-muted: #9aa0a8;
+  --toast-faint: #8a8f98;
+  --toast-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);
+  --toast-success: #7be0b5;
+  --toast-success-line: #2d6b51;
+  --toast-error: #f2a3a5;
+  --toast-error-line: #7a3034;
+  --toast-warning: #f5c88a;
+  --toast-warning-line: #6e4e24;
+  --toast-info: #a9b8ff;
+  --toast-info-line: #39427f;
+  --toast-neutral: #9aa0a8;
+  --toast-neutral-line: #2a2d33;
 }
 
 /* Light */
@@ -229,6 +244,21 @@ html.light {
   --workspace-purple-foreground: oklch(0.366 0.11 307);
   --workspace-rose: oklch(0.91 0.04 2);
   --workspace-rose-foreground: oklch(0.385 0.093 4);
+  /* Toasts (board ToastsLight). */
+  --toast-surface: #ffffff;
+  --toast-muted: #5e6168;
+  --toast-faint: #52555b;
+  --toast-shadow: 0 4px 16px rgba(16, 24, 40, 0.1);
+  --toast-success: #007a46;
+  --toast-success-line: #9fd8be;
+  --toast-error: #b3262c;
+  --toast-error-line: #f1cbcd;
+  --toast-warning: #8a5a00;
+  --toast-warning-line: #edd6a8;
+  --toast-info: #2f45a6;
+  --toast-info-line: #c6d0f4;
+  --toast-neutral: #52555b;
+  --toast-neutral-line: #dfe1e5;
 }
 
 @layer base {
@@ -254,13 +284,13 @@ html.light {
 /* How wide dashboard page content gets on wide screens, left-aligned in the
    main column. PageBody uses it; change the width here and nowhere else. */
 :root {
-  /* "screen-3xl": one step past Tailwind's 2xl (96rem), 1920px. */
-  --page-max-width: 120rem;
+  --page-max-width: 74rem;
 }
 
 @utility page-width {
   width: 100%;
   max-width: var(--page-max-width);
+  margin: 0 auto;
 }
 
 /* How wide settings cards get (forms, the Danger zone, connection cards): their
@@ -302,4 +332,162 @@ html.light {
 .react-flow__edge.selected .react-flow__edge-path {
   stroke: var(--primary) !important;
   stroke-width: 2.5 !important;
+}
+
+/* Toasts — the `Toasts` boards. Sonner runs unstyled; the Toaster
+   (components/ui/toaster.tsx) gives each toast `.action-toast` and Sonner
+   marks its parts with data attributes. The selectors start at the toaster so
+   they outrank the rules Sonner injects at runtime. */
+[data-sonner-toaster][data-sonner-theme] .action-toast[data-sonner-toast] {
+  --toast-tone: var(--toast-neutral);
+  --toast-tone-line: var(--toast-neutral-line);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  column-gap: 12px;
+  width: var(--width);
+  box-sizing: border-box;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--toast-tone-line);
+  background: var(--toast-surface);
+  box-shadow: var(--toast-shadow);
+  font-family: var(--app-font-sans);
+  color: var(--toast-muted);
+}
+[data-sonner-toaster][data-sonner-theme] .action-toast[data-type='success'] {
+  --toast-tone: var(--toast-success);
+  --toast-tone-line: var(--toast-success-line);
+}
+[data-sonner-toaster][data-sonner-theme] .action-toast[data-type='error'] {
+  --toast-tone: var(--toast-error);
+  --toast-tone-line: var(--toast-error-line);
+}
+[data-sonner-toaster][data-sonner-theme] .action-toast[data-type='warning'] {
+  --toast-tone: var(--toast-warning);
+  --toast-tone-line: var(--toast-warning-line);
+}
+[data-sonner-toaster][data-sonner-theme] .action-toast[data-type='info'] {
+  --toast-tone: var(--toast-info);
+  --toast-tone-line: var(--toast-info-line);
+}
+[data-sonner-toaster][data-sonner-theme] .action-toast [data-icon] {
+  display: flex;
+  flex-shrink: 0;
+  position: relative;
+  width: 16px;
+  height: 16px;
+  margin: 1px 0 0;
+  color: var(--toast-tone);
+}
+/* The text takes the rest of the row, so actions wrap underneath it. */
+[data-sonner-toaster][data-sonner-theme] .action-toast [data-content] {
+  flex: 1 1 calc(100% - 28px);
+  min-width: 0;
+  padding-right: 30px;
+}
+[data-sonner-toaster][data-sonner-theme] .action-toast [data-title] {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--toast-tone);
+}
+[data-sonner-toaster][data-sonner-theme] .action-toast [data-description] {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--toast-muted);
+}
+[data-sonner-toaster][data-sonner-theme] .action-toast [data-button] {
+  height: 28px;
+  margin-top: 11px;
+  border-radius: 7px;
+  background: transparent;
+  font: 600 12.5px var(--app-font-sans);
+  cursor: pointer;
+}
+/* The action: bordered in the state colour, under the text. */
+[data-sonner-toaster][data-sonner-theme] .action-toast [data-button][data-action] {
+  order: 1;
+  margin-left: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--toast-tone-line);
+  color: var(--toast-tone);
+}
+/* A second action is always the quiet one. */
+[data-sonner-toaster][data-sonner-theme] .action-toast [data-button][data-cancel] {
+  order: 2;
+  margin-left: -4px;
+  padding: 0 10px;
+  border: 0;
+  color: var(--toast-faint);
+}
+/* Close: a 13 px glyph in a 22 px target, top right; on hover and focus, always on touch. */
+[data-sonner-toaster][data-sonner-theme] [data-sonner-toast].action-toast [data-close-button] {
+  position: absolute;
+  top: 14px;
+  right: 12px;
+  left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--toast-faint);
+  transform: none;
+  opacity: 0;
+  cursor: pointer;
+}
+[data-sonner-toaster][data-sonner-theme] [data-sonner-toast].action-toast:hover [data-close-button],
+[data-sonner-toaster][data-sonner-theme]
+  [data-sonner-toast].action-toast:focus-within
+  [data-close-button] {
+  opacity: 1;
+}
+/* Sonner's own dark hover (a grey square) outranks a plain rule: match it. */
+[data-sonner-toaster][data-sonner-theme]
+  [data-sonner-toast].action-toast
+  [data-close-button]:hover {
+  background: transparent;
+  border-color: transparent;
+  color: var(--toast-tone);
+}
+@media (hover: none) {
+  [data-sonner-toaster][data-sonner-theme] [data-sonner-toast].action-toast [data-close-button] {
+    opacity: 1;
+  }
+}
+/* Collapsed, each toast behind sits back 4% from the bottom right (Sonner's own
+   step is 5%, from the centre) and shows only its edge: Sonner hides a back
+   toast's content for styled toasts only. */
+[data-sonner-toaster] [data-sonner-toast].action-toast[data-expanded='false'][data-front='false'] {
+  --scale: var(--toasts-before) * 0.04 + 1;
+  transform-origin: bottom right;
+  overflow: hidden;
+}
+[data-sonner-toaster]
+  [data-sonner-toast].action-toast[data-expanded='false'][data-front='false']
+  > * {
+  opacity: 0;
+}
+[data-sonner-toaster][data-sonner-theme] [data-sonner-toast].action-toast:focus-visible {
+  box-shadow:
+    var(--toast-shadow),
+    0 0 0 2px var(--ring);
+}
+/* Phone: full width inside the 16 px gutters (the base rule outranks Sonner's own). */
+@media (max-width: 600px) {
+  [data-sonner-toaster][data-sonner-theme] .action-toast[data-sonner-toast] {
+    width: calc(100% - var(--mobile-offset-left) * 2);
+  }
+}
+/* Below `md` the dashboard has a tab bar at the bottom: toasts sit 16 px above it. */
+@media (width < 48rem) {
+  body:has([data-mobile-tab-bar]) [data-sonner-toaster][data-y-position='bottom'] {
+    bottom: calc(3.5rem + 1px + env(safe-area-inset-bottom) + 16px) !important;
+  }
 }

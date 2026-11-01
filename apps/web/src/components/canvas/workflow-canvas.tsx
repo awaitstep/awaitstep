@@ -9,7 +9,7 @@ import {
   type NodeTypes,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { toast } from 'sonner'
+import { actionToast } from '../../lib/action-toast'
 import type { NodeType } from '@awaitstep/ir'
 import { useWorkflowStore, type FlowNode } from '../../stores/workflow-store'
 import { redoWithFeedback, undoWithFeedback } from './time-travel'
@@ -63,7 +63,8 @@ export function WorkflowCanvas() {
         if (currentNode) {
           const errors = validateNode(currentNode.data.irNode)
           if (errors.length > 0) {
-            toast.error(errors[0])
+            // The step's form marks no field, so the reason rides as the description (D-AT-4).
+            actionToast.error('Fix this step before leaving it', { description: errors[0] })
             return
           }
         }
@@ -151,11 +152,12 @@ export function WorkflowCanvas() {
         if (action === 'duplicate') {
           if (!readOnly) {
             const newIds = duplicateNodes(ids)
-            if (newIds.length > 1) toast.success(`Duplicated ${newIds.length} nodes`)
+            if (newIds.length > 1) actionToast.success(`Duplicated ${newIds.length} nodes`)
           }
         } else if (action === 'copy') {
           void copyNodesToClipboard(ids).then((ok) => {
-            if (ok) toast.success(ids.length === 1 ? 'Node copied' : `${ids.length} nodes copied`)
+            if (ok)
+              actionToast.success(ids.length === 1 ? 'Node copied' : `${ids.length} nodes copied`)
           })
         } else if (action === 'delete') {
           if (!readOnly) {
@@ -166,7 +168,9 @@ export function WorkflowCanvas() {
         if (!readOnly) {
           void pasteNodesFromClipboard(contextMenu.flowPosition).then((newIds) => {
             if (newIds.length > 0) {
-              toast.success(newIds.length === 1 ? 'Node pasted' : `${newIds.length} nodes pasted`)
+              actionToast.success(
+                newIds.length === 1 ? 'Node pasted' : `${newIds.length} nodes pasted`,
+              )
             }
           })
         }
@@ -221,14 +225,15 @@ export function WorkflowCanvas() {
         if (readOnly) return
         const newIds = duplicateNodes(ids)
         if (newIds.length > 1) {
-          toast.success(`Duplicated ${newIds.length} nodes`)
+          actionToast.success(`Duplicated ${newIds.length} nodes`)
         }
       } else if (key === 'c') {
         const ids = getActiveSelection()
         if (ids.length === 0) return
         e.preventDefault()
         void copyNodesToClipboard(ids).then((ok) => {
-          if (ok) toast.success(ids.length === 1 ? 'Node copied' : `${ids.length} nodes copied`)
+          if (ok)
+            actionToast.success(ids.length === 1 ? 'Node copied' : `${ids.length} nodes copied`)
         })
       } else if (key === 'v') {
         if (readOnly) return
@@ -236,7 +241,9 @@ export function WorkflowCanvas() {
         const center = getViewportCenter()
         void pasteNodesFromClipboard(center).then((newIds) => {
           if (newIds.length > 0) {
-            toast.success(newIds.length === 1 ? 'Node pasted' : `${newIds.length} nodes pasted`)
+            actionToast.success(
+              newIds.length === 1 ? 'Node pasted' : `${newIds.length} nodes pasted`,
+            )
           }
         })
       }

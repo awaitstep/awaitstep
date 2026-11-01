@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { failureLine } from '../../lib/action-toast'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, FolderKanban, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '../ui/button'
@@ -7,7 +8,6 @@ import { api } from '../../lib/api-client'
 import { useOrgStore, type Project } from '../../stores/org-store'
 import { useSheetStore } from '../../stores/sheet-store'
 import { LoadMoreButton } from '../ui/load-more-button'
-import { toast } from 'sonner'
 
 function ProjectSkeleton() {
   return (
@@ -34,17 +34,22 @@ export function ProjectsList({ projects, loading }: { projects: Project[]; loadi
   const queryClient = useQueryClient()
 
   const deleteMutation = useMutation({
+    meta: { toast: { success: 'Project deleted', error: 'Couldn’t delete the project' } },
     mutationFn: (id: string) => api.deleteProject(id),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ['projects', useOrgStore.getState().activeOrganizationId],
       })
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
-      toast.success('Project deleted')
       setDeleteTarget(null)
     },
-    onError: (err) => toast.error(err.message),
   })
+
+  // A new target starts without the last one's failure.
+  function handleAskDelete(project: Project) {
+    deleteMutation.reset()
+    setDeleteTarget(project)
+  }
 
   function handleConfirmDelete() {
     if (deleteTarget) deleteMutation.mutate(deleteTarget.id)
@@ -112,7 +117,7 @@ export function ProjectsList({ projects, loading }: { projects: Project[]; loadi
                     variant="ghost"
                     size="sm"
                     className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                    onClick={() => setDeleteTarget(project)}
+                    onClick={() => handleAskDelete(project)}
                   >
                     <Trash2 size={12} />
                   </Button>
@@ -132,7 +137,16 @@ export function ProjectsList({ projects, loading }: { projects: Project[]; loadi
         open={!!deleteTarget}
         onOpenChange={handleDeleteOpenChange}
         title="Delete project"
-        description={`This will permanently delete "${deleteTarget?.name}" and all its workflows. This cannot be undone.`}
+        description={
+          <>
+            {`This will permanently delete "${deleteTarget?.name}" and all its workflows. This cannot be undone.`}
+            {deleteMutation.error && (
+              <span role="alert" className="mt-2 block text-destructive">
+                {failureLine(deleteMutation.error, 'Couldn’t delete the project')}
+              </span>
+            )}
+          </>
+        }
         confirmLabel="Delete project"
         variant="destructive"
         loading={deleteMutation.isPending}

@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { defineToast } from '../../lib/action-toast'
 import { Hash, MoreVertical, Lock, Unlock, Rocket, RotateCcw, Eye, Trash2 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -18,6 +18,22 @@ import {
 } from '../../lib/api-client'
 import { timeAgo } from '../../lib/time'
 import { LoadMoreButton } from '../ui/load-more-button'
+
+/**
+ * Why the latest of these actions failed, while it is the latest; the toast
+ * only says that it did. A later action that works clears it.
+ */
+export function latestFailure(
+  actions: readonly { submittedAt: number; error: Error | null }[],
+): Error | null {
+  const latest = actions
+    .filter((a) => a.submittedAt > 0)
+    .reduce<(typeof actions)[number] | null>(
+      (last, a) => (!last || a.submittedAt > last.submittedAt ? a : last),
+      null,
+    )
+  return latest?.error ?? null
+}
 
 interface VersionListProps {
   workflowId: string
@@ -44,37 +60,46 @@ export function VersionList({
   const navigate = useNavigate()
 
   const lockVersionMutation = useMutation({
+    meta: {
+      toast: defineToast<{ versionId: string; locked: boolean }>({
+        success: (v) => (v.locked ? 'Version locked' : 'Version unlocked'),
+        error: (v) => `Couldn’t ${v.locked ? 'lock' : 'unlock'} the version`,
+      }),
+    },
     mutationFn: ({ versionId, locked }: { versionId: string; locked: boolean }) =>
       api.lockVersion(workflowId, versionId, locked),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['versions', workflowId] })
     },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : 'Failed to update version lock'),
   })
 
   const revertMutation = useMutation({
+    meta: { toast: { success: 'Reverted to a new version', error: 'Couldn’t revert the version' } },
     mutationFn: (versionId: string) => api.revertToVersion(workflowId, versionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['versions', workflowId] })
       queryClient.invalidateQueries({ queryKey: ['workflow', workflowId] })
-      toast.success('Reverted successfully — new version created')
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to revert'),
   })
 
   const deleteVersionMutation = useMutation({
+    meta: { toast: { success: 'Version deleted', error: 'Couldn’t delete the version' } },
     mutationFn: (versionId: string) => api.deleteVersion(workflowId, versionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['versions', workflowId] })
-      toast.success('Version deleted')
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to delete version'),
   })
+
+  const failure = latestFailure([lockVersionMutation, revertMutation, deleteVersionMutation])
 
   return (
     <section>
       <h2 className="text-sm font-semibold text-foreground/70">Versions</h2>
+      {failure && (
+        <p role="alert" className="mt-1 text-xs text-destructive">
+          {failure.message}
+        </p>
+      )}
       {versions.length > 0 ? (
         <div className="mt-3 rounded-md border border-border">
           {versions.map((v, i) => {

@@ -208,6 +208,8 @@ function ConfigureCredentialsStep({
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const verifyMutation = useMutation({
+    // Runs by itself as the token is typed; the step shows the outcome in place (D-AT-2).
+    meta: { toast: 'silent' },
     mutationFn: () => api.verifyCredentials(provider.id, credentials),
     onSuccess: (data) => {
       if (!data.valid) {
@@ -230,6 +232,12 @@ function ConfigureCredentialsStep({
   })
 
   const createMutation = useMutation({
+    meta: {
+      toast: {
+        success: 'Connection added',
+        error: 'Couldn’t add the connection',
+      },
+    },
     mutationFn: () =>
       api.createConnection({
         name: accounts[0]?.name ?? provider.name,

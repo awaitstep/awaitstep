@@ -53,6 +53,7 @@ export function MobileTabBar({ items, activeKey }: MobileTabBarProps) {
   return (
     <nav
       aria-label="Organization"
+      data-mobile-tab-bar
       className="fixed inset-x-0 bottom-0 z-40 flex border-t border-sidebar-border bg-sidebar pb-[env(safe-area-inset-bottom)]"
     >
       {items.map(({ key, ...item }) => (

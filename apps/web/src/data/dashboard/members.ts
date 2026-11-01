@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { defineToast } from '../../lib/action-toast'
 import { dashboardApi } from '../../lib/dashboard-api'
 import { mockServer } from '../../mocks/dashboard/server'
 import type { ProjectMembers } from '../../types/dashboard/access'
@@ -61,6 +62,7 @@ export function useAddWorkspaceMember(slugs: WorkspaceSlugs) {
   const client = useQueryClient()
   const workspaceId = useWorkspaceId(slugs)
   return useMutation({
+    meta: { toast: { success: 'Member added', error: 'Couldn’t add the member' } },
     mutationFn: async ({ userId, role }: { userId: string; role: WorkspaceRole }) => {
       if (source !== 'api') return mockServer.members.addWorkspaceMember(ctx, slugs, userId, role)
       if (!workspaceId) throw new Error('The workspace has not loaded yet')
@@ -77,6 +79,7 @@ export function useSetWorkspaceRole(slugs: WorkspaceSlugs) {
   const client = useQueryClient()
   const workspaceId = useWorkspaceId(slugs)
   return useMutation({
+    meta: { toast: { success: 'Role changed', error: 'Couldn’t change the role' } },
     mutationFn: async ({ userId, role }: { userId: string; role: WorkspaceRole }) => {
       if (source !== 'api') return mockServer.members.setWorkspaceRole(ctx, slugs, userId, role)
       if (!workspaceId) throw new Error('The workspace has not loaded yet')
@@ -97,6 +100,12 @@ export function useRemoveWorkspaceMember(slugs: WorkspaceSlugs) {
   const client = useQueryClient()
   const workspaceId = useWorkspaceId(slugs)
   return useMutation({
+    meta: {
+      toast: defineToast<{ userId: string; leaving: boolean }>({
+        success: (v) => (v.leaving ? 'You left the workspace' : 'Member removed'),
+        error: (v) => (v.leaving ? 'Couldn’t leave the workspace' : 'Couldn’t remove the member'),
+      }),
+    },
     mutationFn: async ({ userId }: { userId: string; leaving: boolean }) => {
       if (source !== 'api') return mockServer.members.removeWorkspaceMember(ctx, slugs, userId)
       if (!workspaceId) throw new Error('The workspace has not loaded yet')

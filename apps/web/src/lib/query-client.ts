@@ -1,7 +1,14 @@
-import { QueryClient, defaultShouldDehydrateQuery, isServer } from '@tanstack/react-query'
+import {
+  MutationCache,
+  QueryClient,
+  defaultShouldDehydrateQuery,
+  isServer,
+} from '@tanstack/react-query'
+import { mutationToastHandlers } from './action-toast'
 
-function makeQueryClient() {
+export function makeQueryClient() {
   return new QueryClient({
+    mutationCache: new MutationCache(mutationToastHandlers),
     defaultOptions: {
       queries: {
         staleTime: 30_000,

@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
-import { projectUrl } from '../lib/api-client'
+import { actionToast, failureLine } from '../lib/action-toast'
+import { ApiError, projectUrl } from '../lib/api-client'
 import { readSseStream } from '../lib/sse-stream'
 import { usePollingStore } from '../stores/polling-store'
 
@@ -25,6 +25,9 @@ interface UseDeployStreamOptions {
   workflowId: string
   versionId?: string
 }
+
+// For a failure that brings no reason of its own (a 5xx, a lost connection).
+const DEPLOY_FAILED = 'Couldn’t deploy the workflow'
 
 export function useDeployStream({ workflowId, versionId }: UseDeployStreamOptions) {
   const queryClient = useQueryClient()
@@ -61,7 +64,10 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
 
         if (!response.ok) {
           const body = await response.json().catch(() => null)
-          throw new Error(body?.error ?? `Deploy request failed: ${response.status}`)
+          throw new ApiError(
+            body?.error ?? `Deploy request failed: ${response.status}`,
+            response.status,
+          )
         }
 
         // `settled` keeps the original control flow: a stage failure or a
@@ -76,7 +82,7 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
             if (data.stage === 'FAILED') {
               setError(data.message)
               setState('error')
-              toast.error('Deployment failed', { description: data.message })
+              actionToast.error(data.message || DEPLOY_FAILED)
               settled = true
               return false
             }
@@ -89,12 +95,12 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
               invalidateDeployQueries()
               usePollingStore.getState().start('all-deployments')
               setTimeout(() => usePollingStore.getState().stop('all-deployments'), 30_000)
-              toast.success('Deployed successfully')
+              actionToast.success('Workflow deployed')
             } else {
               const msg = data.error ?? 'Deploy failed'
               setError(msg)
               setState('error')
-              toast.error('Deployment failed', { description: msg })
+              actionToast.error(msg)
             }
             settled = true
             return false
@@ -106,12 +112,12 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
         // Stream ended without result event — treat as success
         setState('success')
         invalidateDeployQueries()
-        toast.success('Deployed successfully')
+        actionToast.success('Workflow deployed')
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Unknown error'
+        const msg = failureLine(err, DEPLOY_FAILED)
         setError(msg)
         setState('error')
-        toast.error('Deployment failed', { description: msg })
+        actionToast.error(msg)
       }
     },
     [workflowId, versionId, queryClient],

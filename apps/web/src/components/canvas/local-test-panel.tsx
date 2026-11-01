@@ -14,6 +14,7 @@ export function LocalTestPanel({ workflowId, onClose }: LocalTestPanelProps) {
     state,
     info,
     error,
+    triggerError,
     triggerResult,
     instanceId,
     instanceStatus,
@@ -115,6 +116,11 @@ export function LocalTestPanel({ workflowId, onClose }: LocalTestPanelProps) {
                   placeholder="{}"
                 />
                 {inputError && <p className="text-xs text-status-error">{inputError}</p>}
+                {!inputError && triggerError && (
+                  <p role="alert" className="text-xs text-status-error">
+                    {triggerError}
+                  </p>
+                )}
                 <div className="flex gap-2">
                   <Button
                     size="sm"

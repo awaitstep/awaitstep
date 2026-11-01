@@ -35,6 +35,7 @@ export function useRequestEditAccess(slugs: WorkspaceSlugs) {
   const client = useQueryClient()
   const workspaceId = useWorkspaceId(slugs)
   return useMutation({
+    meta: { toast: { success: 'Edit access requested', error: 'Couldn’t request edit access' } },
     mutationFn: async (): Promise<EditRequest> => {
       if (source !== 'api') return mockServer.requests.requestEditAccess(ctx, slugs)
       if (!workspaceId) throw new Error('The workspace has not loaded yet')

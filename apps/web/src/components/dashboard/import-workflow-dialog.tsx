@@ -7,8 +7,8 @@ import { validateArtifact, SCRIPT_INCOMPATIBLE_NODE_TYPES } from '@awaitstep/ir'
 import type { ArtifactIR } from '@awaitstep/ir'
 import { Button } from '../ui/button'
 import { CodeEditor } from '../ui/code-editor'
+import { defineToast, failureLine } from '../../lib/action-toast'
 import { api } from '../../lib/api-client'
-import { toast } from 'sonner'
 
 type InputMode = 'paste' | 'file'
 type IRKind = 'workflow' | 'script'
@@ -150,6 +150,15 @@ export function ImportWorkflowDialog({ onClose }: { onClose: () => void }) {
   const kindChangeBlocked = incompatible.length > 0
 
   const importMutation = useMutation({
+    meta: {
+      toast: defineToast({
+        success: () => (selectedKind === 'script' ? 'Function imported' : 'Workflow imported'),
+        error: () =>
+          selectedKind === 'script'
+            ? 'Couldn’t import the function'
+            : 'Couldn’t import the workflow',
+      }),
+    },
     mutationFn: async () => {
       if (!validIR) throw new Error('No valid IR')
       const transformed = transformIR(validIR, selectedKind)
@@ -162,19 +171,12 @@ export function ImportWorkflowDialog({ onClose }: { onClose: () => void }) {
       return workflow
     },
     onSuccess: (workflow) => {
-      const isScript = selectedKind === 'script'
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
       navigate({
         to: '/workflows/$workflowId/editor',
         params: { workflowId: workflow.id },
         search: { view: 'canvas' },
-      }).finally(() => {
-        toast.success(isScript ? 'Function imported' : 'Workflow imported')
-        onClose()
-      })
-    },
-    onError: (err) => {
-      toast.error(err instanceof Error ? err.message : 'Failed to import')
+      }).finally(onClose)
     },
   })
 
@@ -359,6 +361,12 @@ export function ImportWorkflowDialog({ onClose }: { onClose: () => void }) {
                 </div>
               )}
             </div>
+          )}
+
+          {importMutation.error && (
+            <p role="alert" className="mt-4 text-xs text-destructive">
+              {failureLine(importMutation.error, 'Couldn’t import it')}
+            </p>
           )}
 
           {/* Actions */}

@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { runAction, failureLine } from '../lib/action-toast'
 import { api } from '../lib/api-client'
 
 export type LocalDevState = 'idle' | 'starting' | 'running' | 'stopping' | 'error'
@@ -48,7 +48,10 @@ export function useLocalDev(workflowId: string) {
     setTriggerResult(null)
     setInstanceId(null)
     try {
-      const result = await api.startLocalDev(workflowId)
+      const result = await runAction(api.startLocalDev(workflowId), {
+        success: 'Local dev server started',
+        error: 'Couldn’t start the local dev server',
+      })
       const isLocal =
         window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       const url = isLocal
@@ -56,12 +59,9 @@ export function useLocalDev(workflowId: string) {
         : `${window.location.origin}/local-dev/`
       setInfo({ port: result.port, url })
       setState('running')
-      toast.success('Local dev server started', { description: url })
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to start'
-      setError(msg)
+      setError(failureLine(err, 'Failed to start'))
       setState('error')
-      toast.error('Failed to start local dev', { description: msg })
     }
   }, [workflowId])
 
@@ -69,14 +69,16 @@ export function useLocalDev(workflowId: string) {
   const stop = useCallback(async () => {
     setState('stopping')
     try {
-      await api.stopLocalDev(workflowId)
+      await runAction(api.stopLocalDev(workflowId), {
+        success: 'Local dev server stopped',
+        error: 'Couldn’t stop the local dev server',
+      })
       setInfo(null)
       setState('idle')
       setTriggerResult(null)
       setInstanceId(null)
-      toast.success('Local dev server stopped')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to stop'
+      const msg = failureLine(err, 'Failed to stop')
       setError(msg)
       setState('error')
     }
@@ -84,18 +86,21 @@ export function useLocalDev(workflowId: string) {
 
   // ── Trigger ────────────────────────────────────────
   const triggerMutation = useMutation({
+    meta: { toast: { success: 'Workflow triggered', error: 'Couldn’t trigger the workflow' } },
     mutationFn: (params?: unknown) => api.triggerLocalDev(workflowId, params),
     onSuccess: (result) => {
       setTriggerResult(result)
       const id = (result as { instanceId?: string })?.instanceId
       if (id) setInstanceId(id)
     },
-    onError: (err) => {
-      toast.error('Trigger failed', {
-        description: err instanceof Error ? err.message : 'Failed to trigger',
-      })
-    },
   })
+
+  // A fresh server starts without the last one's trigger failure.
+  const { reset: resetTrigger } = triggerMutation
+  const startFresh = useCallback(() => {
+    resetTrigger()
+    return start()
+  }, [resetTrigger, start])
 
   return {
     state,
@@ -105,9 +110,12 @@ export function useLocalDev(workflowId: string) {
     instanceId,
     instanceStatus,
     isTriggering: triggerMutation.isPending,
+    triggerError: triggerMutation.error
+      ? failureLine(triggerMutation.error, 'Failed to trigger')
+      : null,
     logs,
-    start,
+    start: startFresh,
     stop,
-    trigger: triggerMutation.mutateAsync,
+    trigger: triggerMutation.mutate,
   }
 }

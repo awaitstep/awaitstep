@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react'
-import { toast } from 'sonner'
+import { actionToast } from '../../lib/action-toast'
 import { X, Trash2, Info, Plus } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -111,7 +111,8 @@ export function NodeConfigPanel() {
     if (!irNode) return
     const errors = validateNode(irNode)
     if (errors.length > 0) {
-      toast.error(errors[0])
+      // The form marks no field, so the reason rides as the description (D-AT-4).
+      actionToast.error('Fix this step before leaving it', { description: errors[0] })
       return
     }
     selectNode(null)

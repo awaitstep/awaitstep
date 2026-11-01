@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { defineToast } from '../../lib/action-toast'
 import { dashboardApi } from '../../lib/dashboard-api'
 import { mockServer } from '../../mocks/dashboard/server'
 import type {
@@ -121,6 +122,12 @@ export function useSetShared(slugs: WorkspaceSlugs) {
   const write = useShareWrite()
   const client = useQueryClient()
   return useMutation({
+    meta: {
+      toast: defineToast<{ itemId: string; shared: boolean }>({
+        success: (v) => (v.shared ? 'Shared to the project' : 'No longer shared'),
+        error: (v) => (v.shared ? 'Couldn’t share it' : 'Couldn’t stop sharing it'),
+      }),
+    },
     mutationFn: ({ itemId, shared }: { itemId: string; shared: boolean }) =>
       write(slugs, itemId, shared),
     onSuccess: () => invalidateAll(client, itemKeys(slugs)),
@@ -132,11 +139,17 @@ export function useUnshareItem(org: string, project: string) {
   const write = useShareWrite()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'No longer shared', error: 'Couldn’t stop sharing it' } },
     mutationFn: ({ workspace, itemId }: { workspace: string; itemId: string }) =>
       write({ org, project, workspace }, itemId, false),
     onSuccess: (_result, { workspace }) =>
       invalidateAll(client, itemKeys({ org, project, workspace })),
   })
+}
+
+function movedLine(moved: number): string {
+  if (moved === 0) return 'No workflows moved'
+  return moved === 1 ? 'Workflow moved' : `${moved} workflows moved`
 }
 
 /** Move workflows: sends items (and their runs) to another workspace in the project. */
@@ -148,6 +161,12 @@ export function useMoveWorkflows(slugs: WorkspaceSlugs) {
   // The dialog that moves lists the project's workspaces, so the target's id is at hand.
   const workspaces = useWorkspaces(slugs.org, slugs.project, { enabled: source === 'api' })
   return useMutation({
+    meta: {
+      toast: defineToast<MoveItemsInput, { moved: number }>({
+        success: (_, data) => movedLine(data.moved),
+        error: 'Couldn’t move the workflows',
+      }),
+    },
     mutationFn: async (input: MoveItemsInput): Promise<{ moved: number }> => {
       if (source !== 'api') return mockServer.items.moveItems(ctx, slugs, input)
       const target = workspaces.data?.find((w) => w.slug === input.to)
@@ -169,6 +188,12 @@ export function useCreateItem(slugs: WorkspaceSlugs) {
   const client = useQueryClient()
   const share = useShareCapability(slugs)
   return useMutation({
+    meta: {
+      toast: defineToast<NewItemInput>({
+        success: (v) => (v.kind === 'script' ? 'Function created' : 'Workflow created'),
+        error: (v) => `Couldn’t create the ${v.kind === 'script' ? 'function' : 'workflow'}`,
+      }),
+    },
     mutationFn: (input: NewItemInput): Promise<WorkspaceItem> =>
       source === 'api'
         ? dashboardApi
@@ -201,6 +226,7 @@ export function useImportItem(slugs: WorkspaceSlugs) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
+    meta: { toast: { success: 'Workflow imported', error: 'Couldn’t import the workflow' } },
     mutationFn: (input: ImportItemInput) => mockServer.items.importItem(ctx, slugs, input),
     onSuccess: () => invalidateAll(client, itemKeys(slugs)),
   })

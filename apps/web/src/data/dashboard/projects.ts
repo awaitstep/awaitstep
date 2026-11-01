@@ -66,6 +66,7 @@ export function useCreateProject(org: string) {
   const client = useQueryClient()
   const projects = useProjectsQuery(org)
   return useMutation({
+    meta: { toast: { success: 'Project created', error: 'Couldn’t create the project' } },
     mutationFn: async (
       input: NewProjectInput,
     ): Promise<{ project: Project; workspace: Workspace }> => {
@@ -103,6 +104,7 @@ export function useUpdateProject(org: string, project: string) {
   const client = useQueryClient()
   const projectId = useProjectId(org, project)
   return useMutation({
+    meta: { toast: { success: 'Project saved', error: 'Couldn’t save the project' } },
     mutationFn: async (update: ProjectUpdate): Promise<Project> => {
       if (source !== 'api') return mockServer.projects.updateProject(ctx, org, project, update)
       if (!projectId) throw new Error('The project has not loaded yet')
@@ -128,6 +130,7 @@ export function useDeleteProject(org: string, project: string) {
   const client = useQueryClient()
   const projectId = useProjectId(org, project)
   return useMutation({
+    meta: { toast: { success: 'Project deleted', error: 'Couldn’t delete the project' } },
     mutationFn: async (): Promise<void> => {
       if (source !== 'api') return mockServer.projects.deleteProject(ctx, org, project)
       if (!projectId) throw new Error('The project has not loaded yet')
@@ -155,6 +158,7 @@ export function useMoveProject(org: string, project: string) {
   const projectId = useProjectId(org, project)
   const orgs = useOrgs()
   return useMutation({
+    meta: { toast: { success: 'Project moved', error: 'Couldn’t move the project' } },
     mutationFn: async (toOrg: string): Promise<{ org: string; project: string }> => {
       if (source !== 'api') return mockServer.projects.moveProject(ctx, org, project, toOrg)
       const target = orgs.data?.find((o) => o.slug === toOrg)
