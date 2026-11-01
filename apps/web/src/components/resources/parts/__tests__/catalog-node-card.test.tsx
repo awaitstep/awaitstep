@@ -5,11 +5,11 @@ import { CatalogNodeCard } from '../catalog-node-card'
 import { ACME_CRM, ANTHROPIC, RESEND, SLACK } from './fixtures/nodes'
 
 describe('CatalogNodeCard', () => {
-  it('is an article named by the node, with its version, source and usage', () => {
+  it('is an article named by the node, with its version and usage, and no source badge', () => {
     render(<CatalogNodeCard node={SLACK} orgName="Acme Inc" />)
     const card = screen.getByRole('article', { name: 'Slack' })
     expect(card).toHaveTextContent('Messaging · v2.3.0')
-    expect(card).toHaveTextContent('Marketplace')
+    expect(card).not.toHaveTextContent('Marketplace')
     expect(card).toHaveTextContent('Used in 6 workflows')
     expect(screen.getByText('Update available')).toBeVisible()
   })
@@ -26,7 +26,7 @@ describe('CatalogNodeCard', () => {
   it('offers no uninstall for a custom node and names its author', () => {
     render(<CatalogNodeCard node={ACME_CRM} orgName="Acme Inc" onUninstall={vi.fn()} />)
     expect(screen.getByText('Data · v4 · by Tom Becker')).toBeVisible()
-    expect(screen.getByText('Custom')).toBeVisible()
+    expect(screen.queryByText('Custom')).not.toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
