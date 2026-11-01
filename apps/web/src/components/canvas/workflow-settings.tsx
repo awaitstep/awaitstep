@@ -8,6 +8,7 @@ import { useWorkflowStore } from '../../stores/workflow-store'
 import type { WorkflowEnvVar } from '../../stores/workflow-store'
 import { useShallow } from 'zustand/react/shallow'
 import { splitSecretName } from '../../lib/env-var-parser'
+import { Textarea } from '../ui/textarea'
 
 export function WorkflowSettings() {
   const { metadata, workflowEnvVars } = useWorkflowStore(
@@ -78,7 +79,7 @@ export function WorkflowSettings() {
             <Input value={metadata.name} onChange={(e) => setMetadata({ name: e.target.value })} />
           </Field>
           <Field label="Description">
-            <Input
+            <Textarea
               value={metadata.description ?? ''}
               onChange={(e) => setMetadata({ description: e.target.value || '' })}
               placeholder="Optional description"
