@@ -250,7 +250,7 @@ export class AccessAdapter {
     const rows = await this.db
       .select({
         role,
-        name: refs.userId ? this.personName(refs.userId) : sql<string | null>`null`,
+        name: refs.userId ? this.personLabel(refs.userId) : sql<string | null>`null`,
         users: users.mapWith(Number),
         projects: projects.mapWith(Number),
         workspaces: workspaces.mapWith(Number),
@@ -261,10 +261,16 @@ export class AccessAdapter {
     return rows[0] ?? { role: null, name: null, users: 0, projects: 0, workspaces: 0 }
   }
 
-  /** The person's name by a bound id: safe in a RETURNING list, where columns render bare. */
-  private personName(userId: string): SQL<string | null> {
+  /**
+   * How the audit log names a person, by a bound id: their name, or their
+   * email when the name is blank (an empty name is stored as '', not null).
+   * Safe in a RETURNING list, where columns render bare.
+   */
+  private personLabel(userId: string): SQL<string | null> {
     const u = aliasedTable(this.t.user, 'pn')
-    return sql<string | null>`(select ${u.name} from ${aliasedFrom(u)} where ${u.id} = ${userId})`
+    return sql<
+      string | null
+    >`(select coalesce(nullif(trim(${u.name}), ''), ${u.email}) from ${aliasedFrom(u)} where ${u.id} = ${userId})`
   }
 
   /**
@@ -603,7 +609,7 @@ export class AccessAdapter {
             ),
           ),
       )
-      .returning({ ...getTableColumns(wm), personName: this.personName(data.userId) })
+      .returning({ ...getTableColumns(wm), personName: this.personLabel(data.userId) })
     return (rows[0] as NamedWorkspaceMember | undefined) ?? null
   }
 
@@ -638,7 +644,7 @@ export class AccessAdapter {
             match === 'changing' ? ne(wm.role, role) : eq(wm.role, role),
           ),
         )
-        .returning({ ...getTableColumns(wm), personName: this.personName(userId) }),
+        .returning({ ...getTableColumns(wm), personName: this.personLabel(userId) }),
     )
   }
 
@@ -651,7 +657,7 @@ export class AccessAdapter {
     const rows = await this.db
       .delete(wm)
       .where(and(eq(wm.workspaceId, workspaceId), eq(wm.userId, userId)))
-      .returning({ role: wm.role, personName: this.personName(userId) })
+      .returning({ role: wm.role, personName: this.personLabel(userId) })
     return rows[0] ?? null
   }
 

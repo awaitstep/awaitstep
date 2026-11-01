@@ -272,6 +272,27 @@ describe('audit log', () => {
       ])
     })
 
+    it('names a person without a name by their email, never ""', async () => {
+      // A blank name is stored as '', not null.
+      await h.db.update(h.schema.user).set({ name: '' }).where(eq(h.schema.user.id, 'u-fay'))
+      await send(
+        'u-ben',
+        '/members/u-fay/access?org=acme',
+        { orgRole: 'member', projects: [{ projectId: 'p-202', role: 'admin' }], workspaces: [] },
+        'PUT',
+      )
+      await send('u-ben', '/workspaces/ws-ops/members', { userId: 'u-fay', role: 'viewer' })
+      await call('u-ben', '/workspaces/ws-ops/members/u-fay', { method: 'DELETE' })
+      await call('u-ama', '/members/u-fay?org=acme', { method: 'DELETE' })
+
+      expect((await events()).map((e) => [e.event, e.action, e.target])).toEqual([
+        ['member.remove', 'removed', 'fay@acme.test'],
+        ['workspace_member.remove', 'removed fay@acme.test from', 'Ops'],
+        ['workspace_member.add', 'added fay@acme.test to', 'Ops'],
+        ['member.access', 'changed the access of', 'fay@acme.test'],
+      ])
+    })
+
     it('records someone joining through an invitation, in the inviting organization', async () => {
       const invited = await send('u-ama', '/invitations?org=acme', {
         emails: ['hal@example.test'],

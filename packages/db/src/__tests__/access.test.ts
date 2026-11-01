@@ -788,6 +788,47 @@ describe.each([
     })
   })
 
+  describe('how the audit log names a person', () => {
+    it('falls back to the email when the name is blank', async () => {
+      await h.db.insert(h.schema.user).values({
+        id: 'u-ivy',
+        name: '',
+        email: 'ivy@acme.test',
+        emailVerified: true,
+        createdAt: T0,
+        updatedAt: T0,
+      })
+      await h.db.insert(h.schema.member).values({
+        id: 'm-ivy',
+        userId: 'u-ivy',
+        organizationId: 'org-acme',
+        role: 'member',
+        createdAt: T0,
+      })
+      expect(await h.adapter.checkInOrganization('org-acme', { userId: 'u-ivy' })).toMatchObject({
+        role: 'member',
+        name: 'ivy@acme.test',
+      })
+      const added = await h.adapter.addWorkspaceMember({
+        workspaceId: 'ws-sales',
+        userId: 'u-ivy',
+        role: 'viewer',
+        createdBy: 'u-ama',
+      })
+      expect(added).toMatchObject({ personName: 'ivy@acme.test' })
+      expect(await h.adapter.removeWorkspaceGrant('ws-sales', 'u-ivy')).toEqual({
+        role: 'viewer',
+        personName: 'ivy@acme.test',
+      })
+    })
+
+    it('keeps the name when there is one', async () => {
+      expect(await h.adapter.checkInOrganization('org-acme', { userId: 'u-dan' })).toMatchObject({
+        name: 'Dan Kim',
+      })
+    })
+  })
+
   describe('creating with people', () => {
     it('makes a project’s creator its admin unless they run the organization', async () => {
       await h.adapter.createProject({

@@ -754,6 +754,7 @@ export type ProjectGrant = ProjectMember['role']
 export type WorkspaceGrant = WorkspaceMember['role']
 
 /** A workspace grant as a write left it, with the person's name for the audit log (B7). */
+/** `personName`: the person's name, or their email when the name is blank (for the audit log). */
 export type NamedWorkspaceMember = WorkspaceMember & { personName: string | null }
 
 /** The rows behind one person's standing at one place; null where there is no row. */
@@ -850,7 +851,10 @@ export interface AccessGrantData {
  */
 export interface InOrgCheck {
   role: string | null
-  /** The `userId` person's name, for the audit log (B7); null when none was asked or found. */
+  /**
+   * How the audit log names the `userId` person (B7): their name, or their email
+   * when the name is blank; null when none was asked or found.
+   */
   name: string | null
   users: number
   projects: number

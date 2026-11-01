@@ -317,7 +317,7 @@ export interface DatabaseAdapter {
     userId: string,
     role: WorkspaceGrant,
   ): Promise<(NamedWorkspaceMember & { changed: boolean }) | null>
-  /** The removed grant's role and the person's name; null when there was none. */
+  /** The removed grant's role and the person's name (their email when it is blank); null when there was none. */
   removeWorkspaceGrant(
     workspaceId: string,
     userId: string,
