@@ -124,8 +124,8 @@ export function useSetShared(slugs: WorkspaceSlugs) {
   return useMutation({
     meta: {
       toast: defineToast<{ itemId: string; shared: boolean }>({
-        success: (v) => (v.shared ? 'Shared to the project' : 'No longer shared'),
-        error: (v) => (v.shared ? 'Couldn’t share it' : 'Couldn’t stop sharing it'),
+        success: (v) => (v.shared ? 'Shared to the project' : 'Unshared'),
+        error: (v) => (v.shared ? 'Couldn’t share it' : 'Couldn’t unshare it'),
       }),
     },
     mutationFn: ({ itemId, shared }: { itemId: string; shared: boolean }) =>
@@ -139,7 +139,7 @@ export function useUnshareItem(org: string, project: string) {
   const write = useShareWrite()
   const client = useQueryClient()
   return useMutation({
-    meta: { toast: { success: 'No longer shared', error: 'Couldn’t stop sharing it' } },
+    meta: { toast: { success: 'Unshared', error: 'Couldn’t unshare it' } },
     mutationFn: ({ workspace, itemId }: { workspace: string; itemId: string }) =>
       write({ org, project, workspace }, itemId, false),
     onSuccess: (_result, { workspace }) =>

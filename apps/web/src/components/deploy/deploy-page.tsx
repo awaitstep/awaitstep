@@ -175,9 +175,7 @@ export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
       {step === 'connection' && (
         <div>
           <h2 className="text-base font-medium">Select a connection</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Choose which provider account to deploy this workflow to.
-          </p>
+          <p className="mt-1 text-xs text-muted-foreground">Choose the account to deploy to.</p>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {connections!.map((c) => (
               <button
@@ -252,7 +250,7 @@ export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
         <div>
           <h2 className="text-base font-medium">Review and deploy</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Review the generated platform configuration before deploying.
+            Review the generated configuration before you deploy.
           </p>
 
           {/* Connection summary */}

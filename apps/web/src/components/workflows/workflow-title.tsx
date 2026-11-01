@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { FUNCTION_BADGE_TITLE } from './function-copy'
 
 interface WorkflowTitleProps {
   name: string
@@ -20,7 +21,7 @@ export function WorkflowTitle({ name, kind, version, children }: WorkflowTitlePr
       {kind === 'script' && (
         <span
           className="hidden shrink-0 items-center rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:inline-flex"
-          title="Stateless fetch-only Worker — runs synchronously, no sleeps or waits"
+          title={FUNCTION_BADGE_TITLE}
         >
           Function
         </span>

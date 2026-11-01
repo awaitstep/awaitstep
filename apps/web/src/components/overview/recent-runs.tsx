@@ -4,6 +4,7 @@ import { RunDetailSheet } from '../monitoring/run-detail-sheet'
 import type { RunSummary } from '../../lib/api-client'
 import { useSheetStore } from '../../stores/sheet-store'
 import { timeAgo } from '../../lib/time'
+import { NO_RUNS_MESSAGE } from '../monitoring/no-runs-copy'
 
 interface RecentRunsProps {
   workflowId: string
@@ -49,7 +50,7 @@ export function RecentRuns({ workflowId, runs }: RecentRunsProps) {
         </div>
       ) : (
         <div className="mt-3 rounded-md border border-border px-4 py-6 text-center text-xs text-muted-foreground">
-          No runs yet. Deploy and trigger your workflow to see runs here.
+          {NO_RUNS_MESSAGE}
         </div>
       )}
       <RunDetailSheet />

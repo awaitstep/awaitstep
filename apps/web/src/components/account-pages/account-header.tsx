@@ -11,10 +11,7 @@ interface AccountHeaderProps {
 export function AccountHeader({ org, page }: AccountHeaderProps) {
   return (
     <>
-      <PageIntro
-        title="Your account"
-        description="Yours alone, and the same in every organization you’re in."
-      />
+      <PageIntro title="Your account" description="Applies to you across all organizations." />
       <LinkTabs
         label="Account sections"
         activeKey={page}

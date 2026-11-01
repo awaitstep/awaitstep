@@ -57,6 +57,8 @@ const LazyCanvasPreview = lazy(() =>
 const PREVIEW_FRAME =
   'absolute inset-y-0 right-0 z-20 flex w-[30%] min-w-[20rem] max-w-full flex-col overflow-hidden border-l border-border bg-card shadow-2xl'
 
+const NO_SAVED_VERSION_MESSAGE = 'Save a version on the canvas to see its code here.'
+
 const EMPTY_FILES: ReadonlyMap<string, SourceFile> = new Map()
 
 export function IdeWorkspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
@@ -584,7 +586,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         key={`new:${dialog === 'newFile'}`}
         open={dialog === 'newFile'}
         title="New file"
-        description="Any folder works. Import it from anywhere as #app/<path> (no extension for .ts/.js files)."
+        description="Import it as #app/<path>, without the .ts or .js extension."
         submitLabel="Create"
         existingPaths={existingPaths}
         busy={projectFiles.busy}
@@ -595,7 +597,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         key={`rename:${dialogTarget ?? ''}:${dialog === 'renameFile'}`}
         open={dialog === 'renameFile'}
         title="Rename file"
-        description="Imports pointing at the old path are not rewritten."
+        description="Imports of the old path aren’t updated."
         submitLabel="Rename"
         initialPath={dialogTarget ?? ''}
         existingPaths={renameExisting}
@@ -607,7 +609,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         open={dialog === 'deleteFile'}
         onOpenChange={handleDialogOpenChange}
         title={`Delete ${dialogTarget ? basename(dialogTarget) : 'file'}?`}
-        description={`${dialogTarget ?? 'The file'} will be removed from the project. Code that imports it will fail to build until it is updated.`}
+        description={`Deletes ${dialogTarget ?? 'the file'}. Anything that imports it won’t build until you update it.`}
         confirmLabel="Delete"
         loading={projectFiles.busy}
         onConfirm={handleDelete}
@@ -685,7 +687,7 @@ function UnsavedWorkflowNotice() {
   return (
     <Notice
       title="Save the workflow first"
-      description="The code workspace shows a saved version’s source. Build the first version on the canvas, then come back here."
+      description={NO_SAVED_VERSION_MESSAGE}
       action={
         <Button size="sm" variant="outline" onClick={handleOpenCanvas}>
           Open canvas
@@ -705,7 +707,7 @@ function NoVersionNotice({ workflowId, name }: { workflowId: string; name: strin
   return (
     <Notice
       title={`${name} has no saved version yet`}
-      description="Source is generated from a saved version. Save the workflow on the canvas once and the code workspace will show it."
+      description={NO_SAVED_VERSION_MESSAGE}
       action={
         <Button size="sm" variant="outline" onClick={handleOpenCanvas}>
           Open canvas

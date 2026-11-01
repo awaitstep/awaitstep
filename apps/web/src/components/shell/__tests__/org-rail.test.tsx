@@ -44,7 +44,7 @@ describe('OrgRail', () => {
   it('labels the icon-only org and account buttons', () => {
     render(<SampleRail />)
     expect(
-      screen.getByRole('button', { name: 'Acme Inc — switch organization' }),
+      screen.getByRole('button', { name: 'Acme Inc: switch organization' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Your account' })).toBeInTheDocument()
   })

@@ -77,7 +77,7 @@ export function ValidationPanel() {
         {sortedIssues.length === 0 ? (
           <div className="flex items-center gap-2 px-3 py-3 text-xs text-status-success/80">
             <CheckCircle2 className="h-3.5 w-3.5" />
-            No issues found. Workflow is ready to deploy.
+            No issues found. Ready to deploy.
           </div>
         ) : (
           sortedIssues.map((issue, idx) => {

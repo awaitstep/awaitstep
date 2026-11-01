@@ -6,6 +6,7 @@ import { api } from '../../../lib/api-client'
 import { isChromelessRoute } from '../../../lib/shell-routes'
 import { RequireProject } from '../../../wrappers/require-project'
 import { cn } from '../../../lib/utils'
+import { FUNCTION_BADGE_TITLE } from '../../../components/workflows/function-copy'
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId')({
   component: WorkflowLayout,
@@ -77,7 +78,7 @@ function WorkflowLayoutContent() {
             <Badge
               variant="outline"
               className="uppercase tracking-wide"
-              title="Stateless fetch-only Worker — runs synchronously, no sleeps or waits"
+              title={FUNCTION_BADGE_TITLE}
             >
               Function
             </Badge>

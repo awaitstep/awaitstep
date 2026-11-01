@@ -46,7 +46,8 @@ export function validateNode(node: WorkflowNode): string[] {
     case 'step': {
       const code = String(node.data.code ?? '')
       if (!code.trim()) errors.push('Step code cannot be empty')
-      if (NESTED_STEP_PATTERN.test(code)) errors.push('Nested step calls are not allowed')
+      if (NESTED_STEP_PATTERN.test(code))
+        errors.push('This code calls a step inside a step. Move the inner call into its own node.')
       break
     }
     case 'sleep': {
@@ -174,7 +175,7 @@ export function NodeConfigPanel() {
 
       <div className="flex-1 overflow-y-auto p-4 scrollbar-none">
         <div className="space-y-4">
-          <Field label="Node Name" hint="Max 256 characters">
+          <Field label="Node name" hint="Max 256 characters">
             <Input
               value={irNode.name}
               onChange={(e) => update({ name: e.target.value.slice(0, 256) })}
@@ -189,22 +190,16 @@ export function NodeConfigPanel() {
           {irNode.type === 'branch' ? (
             <BranchFields node={irNode} onUpdate={update} />
           ) : irNode.type === 'parallel' ? (
-            <ForkFields
-              hint="Connect multiple nodes from this output to run them concurrently via Promise.all().
-                Not natively durable — use separate Workflow instances for durable parallelism."
-            />
+            <ForkFields hint="Connect several nodes to this output to run them at the same time. Branches aren’t durable on their own. Use separate Workflow instances for durable parallelism." />
           ) : irNode.type === 'race' ? (
-            <ForkFields
-              hint="Connect multiple nodes — they run concurrently via Promise.race(). The first to
-                complete wins; remaining branches are abandoned."
-            />
+            <ForkFields hint="Connect several nodes to this output to run them at the same time. The first to finish wins, and the other branches are abandoned." />
           ) : irNode.type === 'try_catch' ? (
             <TryCatchFields />
           ) : irNode.type === 'loop' ? (
             <LoopFields node={irNode} onUpdate={update} />
           ) : irNode.type === 'break' ? (
             <>
-              <Field label="Condition" hint="Leave empty for unconditional">
+              <Field label="Condition" hint="Leave blank to always break.">
                 <Input
                   value={String(irNode.data.condition ?? '')}
                   onChange={(e) => updateData('condition', e.target.value)}
@@ -237,8 +232,8 @@ export function NodeConfigPanel() {
             <div className="flex items-start gap-1.5 rounded-lg bg-destructive/10 px-2.5 py-2 text-xs leading-relaxed text-destructive">
               <Info className="mt-0.5 h-3 w-3 shrink-0" />
               <span>
-                Unknown node type: <strong>{irNode.type}</strong>. This node&apos;s definition was
-                not found in the registry — it may have been removed or not installed.
+                Unknown node type: <strong>{irNode.type}</strong>. This node isn’t in the registry.
+                It may have been removed or never installed.
               </span>
             </div>
           )}
@@ -579,12 +574,12 @@ function LoopFields({
 
   return (
     <>
-      <Field label="Loop Type">
+      <Field label="Loop type">
         <Select
           value={loopType}
           onValueChange={(v) => updateField('loopType', v)}
           options={[
-            { value: 'forEach', label: 'For Each' },
+            { value: 'forEach', label: 'For each' },
             { value: 'while', label: 'While' },
             { value: 'times', label: 'Times' },
           ]}
@@ -594,7 +589,7 @@ function LoopFields({
 
       {loopType === 'forEach' && (
         <>
-          <Field label="Collection" hint="Expression resolving to an array">
+          <Field label="Collection" hint="An expression that returns a list">
             <ExpressionEditor
               value={String(node.data.collection ?? '')}
               onChange={(value) => updateField('collection', value)}
@@ -602,7 +597,7 @@ function LoopFields({
               placeholder="{{get_customers.customers}}"
             />
           </Field>
-          <Field label="Item Variable">
+          <Field label="Item variable">
             <Input
               value={String(node.data.itemVar ?? 'item')}
               onChange={(e) => updateField('itemVar', e.target.value)}
@@ -615,7 +610,7 @@ function LoopFields({
       )}
 
       {loopType === 'while' && (
-        <Field label="Condition" hint="Loop while truthy (optional)">
+        <Field label="Condition" hint="Leave blank to loop until a Break.">
           <Input
             value={String(node.data.condition ?? '')}
             onChange={(e) => updateField('condition', e.target.value)}
@@ -627,7 +622,7 @@ function LoopFields({
       )}
 
       {loopType === 'times' && (
-        <Field label="Count" hint="Number of iterations">
+        <Field label="Count" hint="How many times to loop">
           <Input
             type="number"
             value={String(node.data.count ?? 5)}

@@ -97,7 +97,7 @@ export function TemplatePicker({ onDismiss }: { onDismiss: () => void }) {
             <div>
               <div className="text-sm font-medium text-foreground">Start from scratch</div>
               <div className="text-xs text-muted-foreground">
-                Empty canvas — drag nodes from the palette.
+                Empty canvas. Drag nodes from the palette.
               </div>
             </div>
           </button>

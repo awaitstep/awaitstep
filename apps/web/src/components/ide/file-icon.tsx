@@ -3,12 +3,12 @@ import type { GeneratedFileRole } from '@awaitstep/codegen'
 import { cn } from '../../lib/utils'
 
 const ROLE_TITLES: Record<GeneratedFileRole, string> = {
-  entry: 'Entry — the Worker module wrangler uploads first',
-  module: 'Module — code bundled with the entry',
-  handlers: 'Handlers — @fetch / @queue / @scheduled, compiled into the entry',
-  config: 'Config — toolchain configuration',
-  meta: 'Metadata — package manifest',
-  asset: 'Asset — written to the deploy as-is',
+  entry: 'Entry: the Worker module uploaded first',
+  module: 'Module: code bundled with the entry',
+  handlers: 'Handlers: @fetch / @queue / @scheduled, compiled into the entry',
+  config: 'Config: toolchain configuration',
+  meta: 'Metadata: package manifest',
+  asset: 'Asset: written to the deploy as-is',
 }
 
 export function roleTitle(role: GeneratedFileRole): string {

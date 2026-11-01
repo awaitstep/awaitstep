@@ -368,10 +368,5 @@ describe('workspace settings › Variables', () => {
     )
     expect(rows[1]).toHaveTextContent(/SLACK_TOKEN.*••••••••.*Project 101.*Secret/)
     expect(rows[2]).toHaveTextContent(/REGION.*eu.*Acme Inc/)
-    expect(
-      screen.getByText(
-        'Workspace values override project values, which override organization values.',
-      ),
-    ).toBeVisible()
   })
 })

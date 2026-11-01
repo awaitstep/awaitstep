@@ -52,7 +52,7 @@ export function EditorDialogs({
         open={confirmAction === 'switch-template'}
         onOpenChange={handleSwitchTemplateOpenChange}
         title="Switch template?"
-        description="Your current canvas will be replaced. Any unsaved work will be lost."
+        description="This replaces the current canvas. Unsaved changes are lost."
         confirmLabel="Browse templates"
         variant="warning"
         onConfirm={handleSwitchTemplateConfirm}

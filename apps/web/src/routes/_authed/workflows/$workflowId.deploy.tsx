@@ -42,7 +42,7 @@ function DeployRouteContent() {
       />
       <p className="mt-4 text-sm text-muted-foreground">
         {workflow?.kind === 'script'
-          ? 'Deploy as a fetch-only Worker. Invoke via HTTP POST — the response is the function’s return value.'
+          ? 'Deploys as a Worker you call with an HTTP POST. The response is the function’s return value.'
           : 'Configure and deploy to a provider connection.'}
       </p>
       <div className="pt-5">

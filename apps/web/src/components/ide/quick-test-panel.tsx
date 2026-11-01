@@ -9,7 +9,12 @@ import {
   stepModuleVarName,
   type QuickTestField,
 } from '../../lib/ide/quick-test'
-import { refusedResult, runQuickTest, type QuickTestResult } from '../../lib/ide/quick-test-runner'
+import {
+  QUICK_TEST_TIMEOUT_MS,
+  refusedResult,
+  runQuickTest,
+  type QuickTestResult,
+} from '../../lib/ide/quick-test-runner'
 import { quickTestKey, quickTestView, useQuickTestStore } from '../../stores/quick-test-store'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import { Button } from '../ui/button'
@@ -112,7 +117,7 @@ export function QuickTestPanel({ workflowId, activeFile }: QuickTestPanelProps) 
           </Button>
           {refusal === null && (
             <span className="text-[11px] text-muted-foreground/70">
-              In the browser — nothing is deployed.
+              Runs in your browser. Nothing is deployed.
             </span>
           )}
         </div>
@@ -231,14 +236,14 @@ function ResultView({ result, running }: { result: QuickTestResult | null; runni
   if (running && !result) {
     return (
       <p className="p-3 text-xs text-muted-foreground">
-        Running in a Web Worker. It is stopped automatically if it does not finish.
+        Runs in your browser and stops after {QUICK_TEST_TIMEOUT_MS / 1000} seconds.
       </p>
     )
   }
   if (!result) {
     return (
       <p className="p-3 text-xs text-muted-foreground/70">
-        The return value, anything logged, and any error land here.
+        The result, logs and any error appear here.
       </p>
     )
   }

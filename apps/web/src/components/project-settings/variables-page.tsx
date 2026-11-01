@@ -16,7 +16,6 @@ import { VariableTable } from '../variables/parts/variable-table'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
 import { OverviewCard } from '../workspaces/parts/overview-card'
 import { useProjectScope } from './use-project-scope'
-import { VARIABLE_PRECEDENCE_COPY } from '../variables/precedence-copy'
 import { VariableDialogHost } from '../variables/variable-dialog-host'
 import { projectDialogMode, type VariableRequest } from '../variables/variable-requests'
 
@@ -71,7 +70,7 @@ export function VariablesPage({ slugs, request, onCloseDialog }: VariablesPagePr
     )
   } else {
     body = (
-      <OverviewCard title={`Resolved for ${project.name}`} caption={VARIABLE_PRECEDENCE_COPY}>
+      <OverviewCard title={`Resolved for ${project.name}`}>
         <VariableTable
           caption={`Variables in ${project.name}`}
           variables={variables.data}

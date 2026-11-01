@@ -7,6 +7,7 @@ import { Badge } from '../ui/badge'
 import { TriggerButton } from '../dashboard/trigger-button'
 import { WorkflowActionsMenu } from '../dashboard/workflow-actions-menu'
 import { WorkflowStatusBadge } from './workflow-status-badge'
+import { FUNCTION_BADGE_TITLE } from './function-copy'
 
 // Shared column template so the header and rows stay aligned.
 const GRID = 'md:grid md:grid-cols-[minmax(0,1fr)_7rem_8.5rem_8.5rem_5rem] md:items-center md:gap-3'
@@ -61,7 +62,7 @@ export function WorkflowRow({ workflow: wf }: { workflow: WorkflowSummary }) {
             <Badge
               variant="outline"
               className="uppercase tracking-wide"
-              title="Stateless fetch-only Worker — runs synchronously, no sleeps or waits"
+              title={FUNCTION_BADGE_TITLE}
             >
               Function
             </Badge>

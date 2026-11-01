@@ -168,7 +168,7 @@ const ROWS: Record<string, Record<string, Row>> = {
       hook: () => useMarkNotificationRead(org),
       vars: 'n',
       success: null,
-      error: 'Couldn’t mark it as read',
+      error: 'Couldn’t mark the notification as read',
     },
     useMarkAllNotificationsRead: {
       hook: () => useMarkAllNotificationsRead(org),
@@ -220,14 +220,14 @@ const ROWS: Record<string, Record<string, Row>> = {
     'useSetShared (off)': {
       hook: () => useSetShared(sales),
       vars: { itemId: 'i', shared: false },
-      success: 'No longer shared',
-      error: 'Couldn’t stop sharing it',
+      success: 'Unshared',
+      error: 'Couldn’t unshare it',
     },
     useUnshareItem: {
       hook: () => useUnshareItem(org, sales.project),
       vars: { workspace: 'sales', itemId: 'i' },
-      success: 'No longer shared',
-      error: 'Couldn’t stop sharing it',
+      success: 'Unshared',
+      error: 'Couldn’t unshare it',
     },
     'useMoveWorkflows (one)': {
       hook: () => useMoveWorkflows(sales),

@@ -172,7 +172,7 @@ function ProblemsList({
       <DockEmptyState
         icon={CircleAlert}
         title="No problems detected"
-        description="Diagnostics for open files appear here as you type."
+        description="Errors and warnings in open files appear here."
       />
     )
   }

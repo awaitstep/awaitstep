@@ -87,7 +87,7 @@ export function IdeHeader({
         <button
           type="button"
           onClick={handleOpenLatest}
-          title="You are viewing an older version — open the latest"
+          title="You’re viewing an older version. Open the latest."
           className="hidden shrink-0 items-center gap-1 rounded bg-status-warning/10 px-1.5 py-0.5 text-xs font-medium text-status-warning transition-colors hover:bg-status-warning/20 md:inline-flex"
         >
           <History className="h-3 w-3" />

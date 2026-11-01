@@ -51,7 +51,7 @@ export function YourDataSection({ account, currentOrg }: YourDataSectionProps) {
       <div className="flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
         <DataRow
           title="Export your data"
-          description="Your profile, sign-in methods, sessions and memberships, as a JSON file."
+          description="Download your profile, sign-in methods, sessions and memberships as JSON."
           action={
             <>
               <Button

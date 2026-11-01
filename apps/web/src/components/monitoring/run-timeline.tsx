@@ -45,7 +45,7 @@ export function RunTimeline({ steps, run, nodeNames }: RunTimelineProps) {
   if (steps.length === 0) {
     return (
       <p className="text-xs text-muted-foreground/60">
-        No step telemetry yet — steps appear as the provider reports them.
+        No steps yet. They appear as Cloudflare reports them.
       </p>
     )
   }
@@ -90,7 +90,7 @@ function TimelineRowView({
         <Icon className={cn('h-3 w-3 shrink-0', iconClass)} />
         <span
           className="w-40 shrink-0 truncate text-foreground/80"
-          title={row.interrupted ? `${row.label} — interrupted when the run ended` : row.label}
+          title={row.interrupted ? `${row.label}: interrupted when the run ended` : row.label}
         >
           {name}
         </span>

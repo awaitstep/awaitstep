@@ -11,7 +11,6 @@ import { ShellLink } from '../ui/shell-link'
 import { TopBarContent } from '../navigation/top-bar-slot'
 import { WorkspaceVariableTable } from '../variables/parts/workspace-variable-table'
 import { VariableDialogHost } from '../variables/variable-dialog-host'
-import { VARIABLE_PRECEDENCE_COPY } from '../variables/precedence-copy'
 import { workspaceDialogMode, type VariableRequest } from '../variables/variable-requests'
 import { OverviewCard } from '../workspaces/parts/overview-card'
 
@@ -61,7 +60,7 @@ export function VariablesTab({
           </ShellLink>
         </TopBarContent>
       )}
-      <OverviewCard title={`Resolved for ${workspace.name}`} caption={VARIABLE_PRECEDENCE_COPY}>
+      <OverviewCard title={`Resolved for ${workspace.name}`}>
         <WorkspaceVariableTable
           caption={`Variables in ${workspace.name}`}
           variables={variables}

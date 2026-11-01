@@ -123,7 +123,7 @@ export function InboxPopover({ org, onClose }: InboxPopoverProps) {
                       <span className="text-sm font-medium text-foreground">
                         You’re all caught up
                       </span>
-                      New failures, requests and expiring keys show up here.
+                      Failures, requests and expiring keys appear here.
                     </span>
                   }
                 >

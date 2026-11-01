@@ -290,7 +290,7 @@ function FileRow({
   const title = [
     node.path,
     roleTitle(node.role),
-    virtual && 'From the workflow settings — save it to make it a project file',
+    virtual && 'From the workflow settings. Save it to make it a project file',
     dirty && 'Unsaved changes',
   ]
     .filter(Boolean)

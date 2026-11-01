@@ -14,6 +14,7 @@ import { timeAgo, duration } from '../../../lib/time'
 import { LoadingView } from '../../../components/ui/loading-view'
 import { LoadMoreButton } from '../../../components/ui/load-more-button'
 import { ListSkeleton } from '../../../components/ui/skeletons'
+import { NO_RUNS_MESSAGE } from '../../../components/monitoring/no-runs-copy'
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId/runs/')({
   head: () => ({ meta: [{ title: 'Runs | AwaitStep' }] }),
@@ -68,7 +69,7 @@ function RunsListPage() {
       <LoadingView isLoading={isLoading} LoadingPlaceholder={ListSkeleton}>
         {runs.length === 0 ? (
           <div className="mt-6 rounded-md border border-border px-4 py-8 text-center text-sm text-muted-foreground">
-            No runs yet. Trigger the workflow to see execution history.
+            {NO_RUNS_MESSAGE}
           </div>
         ) : (
           <>

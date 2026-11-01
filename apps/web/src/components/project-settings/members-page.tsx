@@ -182,7 +182,7 @@ export function MembersPage({ slugs, adding = false, onCloseAdd }: MembersPagePr
             framed={false}
           />
         </OverviewCard>
-        <OverviewCard title="Workspaces only" caption="Can open only the workspaces listed">
+        <OverviewCard title="Workspaces">
           <DataTable
             caption={`People who can open some workspaces in ${project.name}`}
             columns={onlyColumns}

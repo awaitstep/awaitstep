@@ -35,7 +35,7 @@ export function SignInMethodsSection({ org, linkError }: { org: string; linkErro
       <SectionHeader
         title="Sign-in methods"
         direction="column"
-        caption="Any of these opens the same account"
+        caption="Each method signs in to the same account"
       />
       <LoadedQuery query={methods} what="sign-in methods">
         {(data) => (
@@ -52,7 +52,7 @@ export function SignInMethodsSection({ org, linkError }: { org: string; linkErro
             </ListCard>
             <p className="text-2xs text-muted-foreground">
               Google and GitHub connect only with an account that uses {data.email}. Only the
-              providers your AwaitStep admin turned on are listed.
+              providers your AwaitStep admin enabled are listed.
             </p>
           </>
         )}

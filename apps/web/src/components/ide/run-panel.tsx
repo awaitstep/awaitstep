@@ -108,7 +108,7 @@ export function RunPanel({ session: state }: { session: TestSessionState }) {
       {lastResult && (
         <div className="min-h-0 shrink-0 overflow-auto rounded-md border border-border bg-card p-2">
           <div className="mb-1 text-[11px] text-muted-foreground/70">
-            Response — {lastResult.status}
+            Response: {lastResult.status}
           </div>
           <pre className="whitespace-pre-wrap break-words font-mono text-xs">
             {formatBody(lastResult.body)}

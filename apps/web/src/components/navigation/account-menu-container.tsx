@@ -128,7 +128,7 @@ export function DashboardAccountMenu({
         open={confirmReset}
         onOpenChange={setConfirmReset}
         title="Reset dummy data?"
-        description="Everything you changed in this tab goes back to the sample data: created projects and workspaces, shares, locks. Your real account isn’t touched."
+        description="Resets the sample data to its original state. Your real account isn’t affected."
         confirmLabel="Reset"
         variant="destructive"
         onConfirm={handleReset}

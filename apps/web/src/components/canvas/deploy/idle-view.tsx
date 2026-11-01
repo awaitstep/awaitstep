@@ -78,8 +78,8 @@ export function IdleView({
             onChange={onPreviewUrlsChange}
           />
           <ToggleRow
-            label="workers.dev Route"
-            description="Expose the worker on a workers.dev subdomain."
+            label="workers.dev route"
+            description="Serve the worker from a workers.dev address."
             checked={workersDev}
             onChange={onWorkersDevChange}
           />

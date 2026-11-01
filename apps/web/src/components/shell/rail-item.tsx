@@ -147,7 +147,7 @@ export function RailOrgButton({ name, initial, logo, className, ...props }: Rail
   return (
     <button
       type="button"
-      aria-label={`${name} — switch organization`}
+      aria-label={`${name}: switch organization`}
       className={cn(
         'mb-3 flex size-10 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-primary text-sm font-semibold text-primary-foreground',
         className,

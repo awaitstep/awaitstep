@@ -46,7 +46,7 @@ export function useMarkNotificationRead(org: string) {
   const client = useQueryClient()
   return useMutation({
     // Following a notification's link marks it read; its dot going is the answer.
-    meta: { toast: { success: null, error: 'Couldn’t mark it as read' } },
+    meta: { toast: { success: null, error: 'Couldn’t mark the notification as read' } },
     mutationFn: async (id: string) => {
       if (source === 'api') await dashboardApi.markNotificationRead(org, id)
       else await mockServer.inbox.markNotificationRead(ctx, org, id)

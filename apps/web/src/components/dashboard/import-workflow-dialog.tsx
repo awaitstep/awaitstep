@@ -44,7 +44,7 @@ function parseAndValidate(
   try {
     parsed = JSON.parse(raw)
   } catch {
-    return { ir: null, errors: ['Invalid JSON — check for syntax errors.'] }
+    return { ir: null, errors: ['This file isn’t valid JSON. Check for syntax errors.'] }
   }
 
   const result = validateArtifact(parsed)
