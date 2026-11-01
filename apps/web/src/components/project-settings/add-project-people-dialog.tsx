@@ -155,7 +155,8 @@ export function AddProjectPeopleDialog({
   const [scope, setScope] = useState<Scope>('workspaces')
   const [picked, setPicked] = useState<string[]>(() => (workspaces[0] ? [workspaces[0].id] : []))
   const [workspaceRole, setWorkspaceRole] = useState<WorkspaceRole>('editor')
-  const [projectRole, setProjectRole] = useState<ProjectWideChoice>('admin')
+  // Admin rights are always a deliberate pick: each choice starts on its plainest role.
+  const [projectRole, setProjectRole] = useState<ProjectWideChoice>('member')
 
   const pool = useMemo(
     () => (orgPeople.data ? projectPool({ orgPeople: orgPeople.data, members }) : []),
@@ -176,10 +177,10 @@ export function AddProjectPeopleDialog({
     : WORKSPACE_ROLES.find((r) => r.value === workspaceRole)!.label
   const where = whole ? `the whole of ${projectName}` : workspaceList(workspaces, picked)
 
-  // As the board: each choice starts from its own default role.
+  // Each choice starts again from its plainest role, never an admin one.
   function handleScope(next: Scope) {
     setScope(next)
-    setProjectRole('admin')
+    setProjectRole('member')
     setWorkspaceRole('editor')
   }
 

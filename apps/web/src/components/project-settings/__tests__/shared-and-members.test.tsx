@@ -129,7 +129,9 @@ describe('project Members', () => {
     await userEvent.click(await within(people).findByRole('option', { name: /Jonas/ }))
     await userEvent.click(within(dialog).getByRole('radio', { name: /The whole project/ }))
     expect(within(dialog).queryByRole('group', { name: 'Workspaces' })).not.toBeInTheDocument()
-    await userEvent.click(within(dialog).getByRole('radio', { name: 'Member' }))
+    // Admin rights are a deliberate pick: the whole project starts on Member.
+    expect(within(dialog).getByRole('radio', { name: 'Member' })).toBeChecked()
+    expect(within(dialog).getByRole('radio', { name: 'Project admin' })).not.toBeChecked()
     expect(
       within(dialog).getByText('1 person gets Member in the whole of Project 101.'),
     ).toBeVisible()
