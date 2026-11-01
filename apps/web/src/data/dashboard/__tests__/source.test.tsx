@@ -224,6 +224,7 @@ describe('hooks on the API', () => {
           updatedAt: '2026-10-20T00:00:00.000Z',
           setAt: { level: 'project', id: 'p-1', name: 'Project 101' },
           overriddenIn: [{ id: 'ws-sales', slug: 'sales', name: 'Sales', colour: 'blue' }],
+          reach: { all: true, places: [], blocked: [] },
         },
       ],
     })
@@ -238,6 +239,7 @@ describe('hooks on the API', () => {
         isSecret: true,
         setAt: { level: 'project', name: 'Project 101' },
         overriddenIn: [{ id: 'ws-sales', slug: 'sales', name: 'Sales', colour: 'blue' }],
+        reach: { all: true, places: [], blocked: [] },
       },
     ])
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/env-vars/resolved?org=acme&project=p')

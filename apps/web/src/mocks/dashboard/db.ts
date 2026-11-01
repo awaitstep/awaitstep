@@ -179,6 +179,8 @@ export interface VariableRow {
   name: string
   value: string
   isSecret: boolean
+  /** A project's or org's value listed for some workspaces/projects; absent: every one. */
+  reachIds?: string[]
 }
 
 /** A pending invitation to an org (P9's invite pages accept it). */

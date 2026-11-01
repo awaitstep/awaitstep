@@ -426,6 +426,14 @@ export interface ApiVariableRow {
 /** An org-wide row with how many projects the viewer can open set the name themselves. */
 export interface ApiOrgVariableRow extends ApiVariableRow {
   overriddenIn: number
+  reach: ApiVariableReach
+}
+
+/** Where a project's or org's variable applies; `blocked` are the places with their own value. */
+export interface ApiVariableReach {
+  all: boolean
+  places: { id: string; slug: string; name: string }[]
+  blocked: string[]
 }
 
 export interface ApiVariableSource {
@@ -438,6 +446,7 @@ export interface ApiVariableSource {
 export interface ApiResolvedProjectVariable extends ApiVariableRow {
   setAt: ApiVariableSource
   overriddenIn: { id: string; slug: string; name: string; colour: string }[]
+  reach: ApiVariableReach | null
 }
 
 /** `/env-vars/resolved` at a workspace: each name once, the closest level winning. */
@@ -455,6 +464,8 @@ export interface ApiOrgVariablePage {
   data: ApiOrgVariableRow[]
   nextCursor: string | null
 }
+
+export type ApiVariableReachInput = { all: true } | { ids: string[] }
 
 /** Where a key call is addressed: the level's slugs. */
 export interface KeySlugs {
@@ -693,8 +704,8 @@ export const dashboardApi = {
 
   createVariable(
     slugs: KeySlugs,
-    data: { name: string; value: string; isSecret: boolean },
-  ): Promise<ApiVariableRow> {
+    data: { name: string; value: string; isSecret: boolean; reach?: ApiVariableReachInput },
+  ): Promise<ApiVariableRow & { skipped: string[] }> {
     return request(`/env-vars${query(slugs)}`, { method: 'POST', body: JSON.stringify(data) })
   },
 
@@ -702,8 +713,8 @@ export const dashboardApi = {
   updateVariable(
     slugs: KeySlugs,
     id: string,
-    data: { value?: string; isSecret: boolean },
-  ): Promise<ApiVariableRow> {
+    data: { value?: string; isSecret: boolean; reach?: ApiVariableReachInput },
+  ): Promise<ApiVariableRow & { skipped: string[] }> {
     return request(`/env-vars/${id}${query(slugs)}`, {
       method: 'PATCH',
       body: JSON.stringify(data),

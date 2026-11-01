@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useProjects } from '../../data/dashboard/projects'
 import { plural } from '../../lib/plural'
 import { variableDialogPath } from '../../lib/dashboard-paths'
 import type { OrgVariable } from '../../types/dashboard/variables'
@@ -82,6 +83,13 @@ export function OrgVariablesTab({
   // Built once per org and role, so the table keeps the same columns between renders.
   const columns = useMemo(() => variableColumns(org.slug, canManage), [org.slug, canManage])
   const mode = canManage ? orgDialogMode(request, variables) : null
+  // The projects the variable can be limited to, loaded only once the dialog is open.
+  const projects = useProjects(org.slug, { enabled: mode !== null })
+  const projectOptions = (projects.data ?? []).map((p) => ({
+    id: p.id,
+    slug: p.slug,
+    name: p.name,
+  }))
 
   return (
     <>
@@ -103,8 +111,8 @@ export function OrgVariablesTab({
         <VariableDialog
           org={org.slug}
           mode={mode}
-          targets={[orgVariableTarget(org.name)]}
-          startTarget="org"
+          target={orgVariableTarget(org.name)}
+          places={{ noun: 'project', options: projectOptions }}
           onClose={onCloseDialog}
         />
       )}

@@ -13,6 +13,7 @@ import type {
 import { allPages } from './api/pages'
 import {
   blankValueError,
+  savedLine,
   toOrgVariable,
   toResolvedVariable,
   toUpdateBody,
@@ -86,25 +87,42 @@ export function useSetVariable(org: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
-    meta: { toast: { success: 'Variable saved', error: 'Couldn’t save the variable' } },
-    mutationFn: async (input: VariableInput): Promise<void> => {
-      if (source !== 'api') return mockServer.variables.setVariable(ctx, org, input)
+    meta: {
+      toast: {
+        // Places that set their own value of the name are left out, and said so.
+        success: (_input, data) =>
+          savedLine((data as SavedVariable | undefined)?.skipped.length ?? 0),
+        error: 'Couldn’t save the variable',
+      },
+    },
+    mutationFn: async (input: VariableInput): Promise<SavedVariable> => {
+      if (source !== 'api') {
+        await mockServer.variables.setVariable(ctx, org, input)
+        return { skipped: [] }
+      }
       const slugs = variableSlugs(org, input.scope)
       const blank = blankValueError(input)
       if (blank) throw new ApiError(blank, 422, { field: 'value' })
       if (input.mode === 'edit') {
         if (!input.id) throw new ApiError('This variable is not listed here any more', 404)
-        await dashboardApi.updateVariable(slugs, input.id, toUpdateBody(input))
-        return
+        const updated = await dashboardApi.updateVariable(slugs, input.id, toUpdateBody(input))
+        return { skipped: updated.skipped }
       }
-      await dashboardApi.createVariable(slugs, {
+      const created = await dashboardApi.createVariable(slugs, {
         name: input.name,
         value: input.value,
         isSecret: input.isSecret,
+        ...(input.reach && { reach: input.reach }),
       })
+      return { skipped: created.skipped }
     },
     onSuccess: () => invalidateAll(client, variableKeys(org)),
   })
+}
+
+/** What a save answers: the listed places it left out because they set their own value. */
+interface SavedVariable {
+  skipped: string[]
 }
 
 export function useDeleteVariable(org: string) {

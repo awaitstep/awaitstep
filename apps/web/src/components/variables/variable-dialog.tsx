@@ -1,27 +1,29 @@
 import { useId, useState, type SubmitEvent } from 'react'
-import { Braces, Building2, FolderKanban, Layers, Trash2 } from 'lucide-react'
+import { Braces, Trash2 } from 'lucide-react'
 import { isEnvVarName } from '@awaitstep/ir'
 import { errorFieldOf } from '../../data/dashboard/errors'
 import { ApiError } from '../../lib/api-client'
 import { useDeleteVariable, useSetVariable } from '../../data/dashboard/variables'
-import type { VariableLevel, VariableScope } from '../../types/dashboard/variables'
+import type {
+  VariableLevel,
+  VariableReach,
+  VariableReachInput,
+  VariableScope,
+} from '../../types/dashboard/variables'
 import { Button } from '../ui/button'
 import { CheckboxCard } from '../ui/choice-card'
 import { ConfirmDialog } from '../ui/confirm-dialog'
 import { FormField } from '../ui/form-field'
 import { Input } from '../ui/input'
 import { ModalDialog } from '../ui/modal-dialog'
-import { Select } from '../ui/select'
 import { Tile } from '../ui/tile'
 import { Banner } from '../ui/banner'
+import { ReachPicker, type PlaceChoices } from './parts/reach-picker'
 
-/** A place a variable can be set, as "Applies to" lists it. */
+/** The level a variable is set at: where the dialog saves it. */
 export interface VariableTarget {
   /** `org`, `project`, or `ws:<slug>`. */
   id: string
-  label: string
-  /** Where it reaches, shown under the label. */
-  description: string
   kind: VariableLevel
   scope: VariableScope
   /** Its name, for "Already set in …" and titles. */
@@ -31,25 +33,43 @@ export interface VariableTarget {
 /** What the dialog does: add, change one value, or override an inherited one. */
 export type VariableDialogMode =
   | { kind: 'new' }
-  | { kind: 'edit'; id: string; name: string; value: string | null; isSecret: boolean }
+  | {
+      kind: 'edit'
+      id: string
+      name: string
+      value: string | null
+      isSecret: boolean
+      /** Where it applies now, when it is a project's or org's. */
+      reach?: VariableReach | null
+    }
   | { kind: 'override'; name: string; isSecret: boolean }
+
+/**
+ * What a save sends for "Applies to": nothing for a new variable left at every
+ * place, "everywhere" when an edit widens to it, or the places newly ticked.
+ */
+function reachChoice(
+  widenable: boolean,
+  all: boolean,
+  added: string[],
+  mode: VariableDialogMode['kind'],
+  now: VariableReach | null,
+): VariableReachInput | undefined {
+  if (!widenable) return undefined
+  if (all) return mode === 'edit' && now && !now.all ? { all: true } : undefined
+  return added.length > 0 ? { ids: added } : undefined
+}
 
 const NAME_RULE = 'Use capital letters, numbers and underscores, starting with a letter'
 
 interface VariableDialogProps {
   org: string
   mode: VariableDialogMode
-  /** The places the viewer may set variables (D-P6-7), narrowest last. */
-  targets: VariableTarget[]
-  /** Where the dialog starts: the page's own level. */
-  startTarget: string
+  /** The page's own level, where the variable is saved. Null until it is known: nothing saves. */
+  target: VariableTarget | null
+  /** The workspaces (at a project) or projects (at the org) it can be limited to; none at a workspace. */
+  places?: PlaceChoices
   onClose: () => void
-}
-
-const TARGET_ICONS: Record<VariableLevel, React.ReactNode> = {
-  organization: <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />,
-  project: <FolderKanban className="h-4 w-4 shrink-0 text-muted-foreground" />,
-  workspace: <Layers className="h-4 w-4 shrink-0 text-muted-foreground" />,
 }
 
 /**
@@ -57,7 +77,7 @@ const TARGET_ICONS: Record<VariableLevel, React.ReactNode> = {
  * (`?variable=NAME`, set here) and Override (`?variable=NAME`, inherited), with the name
  * fixed (D-P6-4..6).
  */
-export function VariableDialog({ org, mode, targets, startTarget, onClose }: VariableDialogProps) {
+export function VariableDialog({ org, mode, target, places, onClose }: VariableDialogProps) {
   const formId = useId()
   const save = useSetVariable(org)
   const remove = useDeleteVariable(org)
@@ -67,13 +87,22 @@ export function VariableDialog({ org, mode, targets, startTarget, onClose }: Var
     mode.kind === 'edit' && !mode.isSecret ? (mode.value ?? '') : '',
   )
   const [isSecret, setIsSecret] = useState(mode.kind === 'new' ? false : mode.isSecret)
-  const [targetId, setTargetId] = useState(startTarget)
+  // Where it applies: an edit starts from what the variable reaches now.
+  const reachNow = mode.kind === 'edit' ? (mode.reach ?? null) : null
+  const [reachAll, setReachAll] = useState(reachNow?.all ?? true)
+  const [picked, setPicked] = useState<string[]>([])
   const [deleting, setDeleting] = useState(false)
   // The name as the API and a reference accept it: checked here before a
   // request, so a typo never waits on a round trip.
   const [nameIssue, setNameIssue] = useState<string | undefined>(undefined)
-  // No fallback: a target that isn't listed yet waits, rather than saving somewhere broader.
-  const target = targets.find((t) => t.id === targetId)
+
+  // Only a project's or org's variable has a reach, and one that already applies
+  // everywhere has nothing left to widen.
+  const lockedIds = reachNow && !reachNow.all ? reachNow.places.map((p) => p.id) : []
+  const blockedIds = reachNow?.blocked ?? []
+  const widenable = places !== undefined && mode.kind !== 'override' && reachNow?.all !== true
+  const addedIds = picked.filter((id) => !lockedIds.includes(id))
+  const reachInput = reachChoice(widenable, reachAll, addedIds, mode.kind, reachNow)
 
   function handleOpenChange(open: boolean) {
     if (!open) onClose()
@@ -91,8 +120,13 @@ export function VariableDialog({ org, mode, targets, startTarget, onClose }: Var
     save.reset()
   }
 
-  function handleTarget(next: string) {
-    setTargetId(next)
+  function handleReachAll(next: boolean) {
+    setReachAll(next)
+    save.reset()
+  }
+
+  function handlePicked(next: string[]) {
+    setPicked(next)
     save.reset()
   }
 
@@ -110,6 +144,7 @@ export function VariableDialog({ org, mode, targets, startTarget, onClose }: Var
         value,
         isSecret,
         mode: mode.kind === 'edit' ? 'edit' : 'create',
+        ...(reachInput && { reach: reachInput }),
         ...(mode.kind === 'edit' && { id: mode.id, wasSecret: mode.isSecret }),
       },
       { onSuccess: onClose },
@@ -149,7 +184,6 @@ export function VariableDialog({ org, mode, targets, startTarget, onClose }: Var
   const valueError = field === 'value' ? save.error?.message : undefined
   // Errors that belong to no field (no access, gone meanwhile) go above the form.
   const formError = save.error && !field ? save.error.message : undefined
-  const shownName = name.trim() || 'NAME'
   const title =
     mode.kind === 'new'
       ? 'New variable'
@@ -162,10 +196,10 @@ export function VariableDialog({ org, mode, targets, startTarget, onClose }: Var
       : 'A value your workflows read at run time.'
   const keepsSecret = mode.kind === 'edit' && mode.isSecret
   const valueHint = keepsSecret ? 'Leave empty to keep the current value.' : undefined
-  const levelFixed = mode.kind !== 'new'
   const submitLabel =
     mode.kind === 'new' ? 'Add variable' : mode.kind === 'edit' ? 'Save' : 'Override'
-  const canSubmit = !save.isPending && target !== undefined
+  const needsPlaces = widenable && !reachAll && mode.kind !== 'edit' && addedIds.length === 0
+  const canSubmit = !save.isPending && target !== null && !needsPlaces
   const valueType = isSecret ? 'password' : 'text'
   const deleteBody =
     remove.error?.message ??
@@ -182,11 +216,6 @@ export function VariableDialog({ org, mode, targets, startTarget, onClose }: Var
       Delete variable
     </Button>
   )
-  const levelHint =
-    target?.kind === 'workspace'
-      ? 'Overrides the project’s value, if it has one, for this workspace only.'
-      : 'Workspaces use this value unless they set their own.'
-
   return (
     <>
       <ModalDialog
@@ -216,7 +245,7 @@ export function VariableDialog({ org, mode, targets, startTarget, onClose }: Var
           {formError && <Banner tone="warn">{formError}</Banner>}
           <FormField
             label="Name"
-            hint={`Letters, numbers and underscores. Workflows read it as global.env.${shownName}.`}
+            hint="Letters, numbers and underscores, eg. STRIPE_API_KEY"
             error={nameError}
           >
             <Input
@@ -243,20 +272,16 @@ export function VariableDialog({ org, mode, targets, startTarget, onClose }: Var
             title="Secret"
             description="Hidden after you save. Workflows can still read it."
           />
-          {targets.length > 1 && (
-            <FormField label="Applies to" hint={levelHint}>
-              <Select
-                value={targetId}
-                onValueChange={handleTarget}
-                options={targets.map((t) => ({
-                  value: t.id,
-                  label: t.label,
-                  description: t.description,
-                  icon: TARGET_ICONS[t.kind],
-                }))}
-                disabled={levelFixed}
-              />
-            </FormField>
+          {places && widenable && (
+            <ReachPicker
+              choices={places}
+              all={reachAll}
+              onAllChange={handleReachAll}
+              picked={picked}
+              onPickedChange={handlePicked}
+              locked={lockedIds}
+              blocked={blockedIds}
+            />
           )}
         </form>
       </ModalDialog>

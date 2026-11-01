@@ -1,6 +1,7 @@
 import type { WorkspaceColour } from '@awaitstep/ir'
 import type {
   ApiOrgVariableRow,
+  ApiVariableReach,
   ApiResolvedProjectVariable,
   ApiResolvedWorkspaceVariable,
   ApiVariableRow,
@@ -9,6 +10,8 @@ import type {
   OrgVariable,
   ResolvedVariable,
   VariableInput,
+  VariableReach,
+  VariableReachInput,
   VariableScope,
   WorkspaceVariable,
 } from '../../../types/dashboard/variables'
@@ -23,6 +26,10 @@ function valueOf(row: ApiVariableRow): string | null {
   return row.isSecret || row.value === SECRET_MASK ? null : row.value
 }
 
+function toReach(reach: ApiVariableReach): VariableReach {
+  return { all: reach.all, places: reach.places, blocked: reach.blocked }
+}
+
 export function toOrgVariable(row: ApiOrgVariableRow): OrgVariable {
   return {
     id: row.id,
@@ -30,6 +37,7 @@ export function toOrgVariable(row: ApiOrgVariableRow): OrgVariable {
     value: valueOf(row),
     isSecret: row.isSecret,
     overriddenIn: row.overriddenIn,
+    reach: toReach(row.reach),
   }
 }
 
@@ -44,6 +52,7 @@ export function toResolvedVariable(row: ApiResolvedProjectVariable): ResolvedVar
       name: row.setAt.name ?? '',
     },
     overriddenIn: row.overriddenIn.map((w) => ({ ...w, colour: w.colour as WorkspaceColour })),
+    reach: row.reach ? toReach(row.reach) : null,
   }
 }
 
@@ -77,14 +86,26 @@ export function keepsStoredValue(input: VariableInput): boolean {
  * stored one, so `value` is left out. Any other empty value is the caller's
  * to refuse before the request (`blankValueError`).
  */
-export function toUpdateBody(input: VariableInput): { value?: string; isSecret: boolean } {
-  return keepsStoredValue(input)
+export function toUpdateBody(input: VariableInput): {
+  value?: string
+  isSecret: boolean
+  reach?: VariableReachInput
+} {
+  const body = keepsStoredValue(input)
     ? { isSecret: input.isSecret }
     : { value: input.value, isSecret: input.isSecret }
+  return input.reach ? { ...body, reach: input.reach } : body
 }
 
 /** What an empty value is refused with, on the value field: the dummy server's words. */
 export function blankValueError(input: VariableInput): string | null {
   if (input.value !== '' || keepsStoredValue(input)) return null
   return input.wasSecret ? 'Enter the value to stop hiding it' : 'Give it a value'
+}
+
+/** The toast after a save: places a list left out (they set their own value) are said, not hidden. */
+export function savedLine(skipped: number): string {
+  if (skipped === 0) return 'Variable saved'
+  const places = skipped === 1 ? '1 place' : `${skipped} places`
+  return `Variable saved. ${places} left out: they set their own value`
 }
