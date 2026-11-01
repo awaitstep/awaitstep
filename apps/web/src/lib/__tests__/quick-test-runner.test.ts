@@ -200,6 +200,19 @@ describe('runQuickTest', () => {
     expect(onlySandbox().destroyed).toBe(true)
   })
 
+  it('words the refusal as one sentence with the reason in parentheses', async () => {
+    FakeSandbox.onStart = (sandbox) =>
+      sandbox.callbacks.onUnavailable(
+        'the sandbox didn’t boot; a content security policy may block it',
+      )
+
+    const result = await runQuickTest({ path: 'nodes/a.ts', source: SOURCE, args: ARGS })
+
+    expect(result.error?.message).toBe(
+      'Quick test couldn’t start its sandbox in this browser (the sandbox didn’t boot; a content security policy may block it). Use Run to execute the whole workflow.',
+    )
+  })
+
   it('gives up on a step that never answers, and kills it', async () => {
     // The case this exists for is a `while (true)` in the body: the sandbox
     // has to go, or its worker keeps a core busy for the session.
@@ -213,7 +226,7 @@ describe('runQuickTest', () => {
     })
 
     expect(result.status).toBe('timeout')
-    expect(result.error?.message).toMatch(/did not finish/i)
+    expect(result.error?.message).toMatch(/didn’t finish/i)
     expect(onlySandbox().destroyed).toBe(true)
   })
 

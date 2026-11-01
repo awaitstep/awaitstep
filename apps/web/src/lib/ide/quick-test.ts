@@ -132,12 +132,12 @@ const NON_DEFAULT_EXPORT = /^export\s+(?!default\b)/m
 export function unrunnableReason(js: string): string | null {
   const imports = unresolvableImports(js)
   if (imports.length > 0) {
-    return `Quick test runs this step on its own and does not resolve imports (${imports[0]}). Use Run to execute the whole workflow.`
+    return `Quick test runs this step on its own and doesn’t resolve imports (${imports[0]}). Use Run to execute the whole workflow.`
   }
   if (NON_DEFAULT_EXPORT.test(js)) {
     // Only the default export is rewritten into a binding; anything else is
     // still an `export` statement, which a classic worker will not parse.
-    return 'This file exports more than its default. Quick test runs a single step function — use Run to execute the whole workflow.'
+    return 'This file exports more than its default. Quick test runs a single step function. Use Run to execute the whole workflow.'
   }
   return null
 }
@@ -284,13 +284,13 @@ const __awaitstep_stub = {
     return await fn();
   },
   sleep: async function (label) {
-    __awaitstep_log('info', ['step.sleep(' + __awaitstep_json(label) + ') — skipped in a quick test']);
+    __awaitstep_log('info', ['step.sleep(' + __awaitstep_json(label) + ') skipped in a quick test']);
   },
   sleepUntil: async function (label) {
-    __awaitstep_log('info', ['step.sleepUntil(' + __awaitstep_json(label) + ') — skipped in a quick test']);
+    __awaitstep_log('info', ['step.sleepUntil(' + __awaitstep_json(label) + ') skipped in a quick test']);
   },
   waitForEvent: async function () {
-    throw new Error('step.waitForEvent() needs a running workflow — use Run instead.');
+    throw new Error('step.waitForEvent() needs a running workflow. Use Run instead.');
   },
 };
 `

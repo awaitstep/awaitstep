@@ -105,7 +105,7 @@ export function unsavedDialogCopy(args: {
   if (to === null) {
     return {
       title: 'Unsaved changes',
-      description: `${unsaved} They will be lost if you leave.`,
+      description: `${unsaved} They’ll be lost if you leave.`,
       confirmLabel: 'Leave',
       variant: 'warning',
     }
@@ -118,7 +118,7 @@ export function unsavedDialogCopy(args: {
   if (!canSave) {
     return {
       title: `Open ${label} anyway?`,
-      description: `${unsaved} They will be lost — ${label} opens the last saved version.`,
+      description: `${unsaved} They’ll be lost. ${label} opens the last saved version.`,
       confirmLabel: `Open ${label}`,
       variant: 'warning',
     }

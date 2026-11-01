@@ -136,7 +136,11 @@ export function simulateWorkflow(nodes: FlowNode[], edges: Edge[]): SimulationRe
   const allVisitedNodeIds = new Set<string>()
 
   if (nodes.length === 0) {
-    issues.push({ nodeId: '', nodeName: '', message: 'No nodes in workflow' })
+    issues.push({
+      nodeId: '',
+      nodeName: '',
+      message: 'The workflow is empty. Add a node to start.',
+    })
     return { paths: [], issues, nodesVisited: 0, unreachedNodeIds: [], status: 'has-issues' }
   }
 
@@ -167,7 +171,7 @@ export function simulateWorkflow(nodes: FlowNode[], edges: Edge[]): SimulationRe
       issues.push({
         nodeId,
         nodeName: node.data.irNode.name,
-        message: `Cycle detected at node "${node.data.irNode.name}"`,
+        message: `"${node.data.irNode.name}" loops back on itself. Remove a connection to break the loop.`,
       })
       // Finalize incomplete path
       pathCount++
@@ -211,7 +215,7 @@ export function simulateWorkflow(nodes: FlowNode[], edges: Edge[]): SimulationRe
           issues.push({
             nodeId,
             nodeName: ir.name,
-            message: `Branch "${ir.name}" has no connected targets`,
+            message: `Branch "${ir.name}" has no connections out. Connect it or remove it.`,
           })
         }
         pathCount++
@@ -248,7 +252,7 @@ export function simulateWorkflow(nodes: FlowNode[], edges: Edge[]): SimulationRe
         issues.push({
           nodeId,
           nodeName: ir.name,
-          message: `${ir.type === 'race' ? 'Race' : 'Parallel'} "${ir.name}" has no outgoing edges`,
+          message: `${ir.type === 'race' ? 'Race' : 'Parallel'} "${ir.name}" has no connections out. Connect the nodes to run at the same time.`,
         })
       }
 
@@ -360,7 +364,7 @@ export function simulateWorkflow(nodes: FlowNode[], edges: Edge[]): SimulationRe
     issues.push({
       nodeId: '',
       nodeName: '',
-      message: `Path explosion: exceeded maximum of ${MAX_PATHS} paths`,
+      message: `Too many possible paths (limit ${MAX_PATHS}). Simplify the branches.`,
     })
   }
 
@@ -372,7 +376,7 @@ export function simulateWorkflow(nodes: FlowNode[], edges: Edge[]): SimulationRe
       issues.push({
         nodeId,
         nodeName: node.data.irNode.name,
-        message: `"${node.data.irNode.name}" is not reachable — connect it or remove it`,
+        message: `"${node.data.irNode.name}" isn’t connected to the rest of the workflow. Connect it or remove it.`,
       })
     }
   }

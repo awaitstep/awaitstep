@@ -42,7 +42,12 @@ export function parseEnvString(text: string): ParsedLine[] {
     .map((line) => {
       const eqIdx = line.indexOf('=')
       if (eqIdx === -1) {
-        return { name: line.trim(), value: '', isSecret: false, error: 'Missing = separator' }
+        return {
+          name: line.trim(),
+          value: '',
+          isSecret: false,
+          error: 'Add = between the name and the value.',
+        }
       }
       const rawName = line.slice(0, eqIdx).trim()
       const value = line.slice(eqIdx + 1).trim()
@@ -53,7 +58,7 @@ export function parseEnvString(text: string): ParsedLine[] {
           name: rawName,
           value,
           isSecret,
-          error: 'Name must be uppercase letters, digits, and underscores',
+          error: 'Use uppercase letters, digits and underscores.',
         }
       }
       return { name, value, isSecret, error: undefined }

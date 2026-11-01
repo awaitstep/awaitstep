@@ -46,7 +46,7 @@ export interface CompletionAnalysis {
 }
 
 const RESERVED_DOCS: Record<string, string> = {
-  event: 'The trigger event — payload, timestamp, instanceId.',
+  event: 'The trigger event: payload, timestamp, instanceId.',
   env: 'Environment variables and bindings.',
   trigger: 'Alias for the trigger payload.',
 }

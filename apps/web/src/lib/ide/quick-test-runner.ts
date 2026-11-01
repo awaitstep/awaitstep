@@ -111,7 +111,7 @@ export async function runQuickTest(opts: {
           status: 'timeout',
           result: '',
           error: {
-            message: `The step did not finish within ${Math.round(timeoutMs / 1000)}s and was stopped.`,
+            message: `The step didn’t finish within ${Math.round(timeoutMs / 1000)}s and was stopped.`,
           },
           logs,
           durationMs: since(),
@@ -133,7 +133,7 @@ export async function runQuickTest(opts: {
       function handleUnavailable(message: string) {
         settle(
           refusedResult(
-            `Quick test could not start its sandbox in this browser${message ? ` (${message})` : ''}. Use Run to execute the whole workflow.`,
+            `Quick test couldn’t start its sandbox in this browser${message ? ` (${message})` : ''}. Use Run to execute the whole workflow.`,
           ),
         )
       }
@@ -173,7 +173,7 @@ export async function runQuickTest(opts: {
             if (startedAt > 0) {
               settle(failedResult(message || 'The step failed.', logs, since()))
             } else {
-              settle(refusedResult(message || 'The step could not be loaded.'))
+              settle(refusedResult(message || 'The step couldn’t be loaded.'))
             }
           },
           // The sandbox refusing to start is a browser limitation, never a

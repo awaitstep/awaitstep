@@ -245,7 +245,7 @@ describe('createQuickTestSandbox — the protocol', () => {
 
     vi.advanceTimersByTime(SANDBOX_BOOT_TIMEOUT_MS)
 
-    expect(events).toEqual([expect.stringMatching(/^unavailable:.*did not boot/)])
+    expect(events).toEqual([expect.stringMatching(/^unavailable:.*didn’t boot/)])
   })
 
   it('a ready sandbox never reports the boot timeout', () => {

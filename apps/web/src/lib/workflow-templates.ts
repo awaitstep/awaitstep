@@ -20,22 +20,22 @@ export const templateCategories: TemplateCategory[] = [
   {
     id: 'ecommerce',
     name: 'E-Commerce',
-    description: 'Order processing, payments, and fulfillment',
+    description: 'Order processing, payments and fulfillment',
   },
   {
     id: 'engagement',
     name: 'Customer Engagement',
-    description: 'Onboarding, communications, and retention',
+    description: 'Onboarding, communications and retention',
   },
   {
     id: 'data',
     name: 'Data & Integration',
-    description: 'ETL pipelines, webhooks, and API orchestration',
+    description: 'ETL pipelines, webhooks and API orchestration',
   },
   {
     id: 'operations',
     name: 'Operations',
-    description: 'Approvals, alerting, and internal tooling',
+    description: 'Approvals, alerting and internal tooling',
   },
 ]
 

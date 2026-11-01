@@ -22,7 +22,7 @@ export function workspaceEditability(ctx: WorkspaceContext): Editability {
   if (ctx.historical) {
     return {
       readOnly: true,
-      message: 'Older versions are read-only — open the latest version to edit.',
+      message: 'Older versions are read-only. Open the latest to edit.',
     }
   }
   return EDITABLE
@@ -37,7 +37,7 @@ export function fileEditability(owner: FileOwner, workspace: Editability): Edita
   if (owner === 'generated') {
     return {
       readOnly: true,
-      message: 'Generated from the canvas — put your code in a project file instead.',
+      message: 'Generated from the canvas. Put your code in a project file instead.',
     }
   }
   return workspace

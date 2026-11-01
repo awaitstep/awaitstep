@@ -74,7 +74,10 @@ describe('validateWorkflowForPublish', () => {
     it('errors when no nodes', () => {
       const result = validateWorkflowForPublish(makeMetadata(), [], [])
       expect(result.issues).toContainEqual(
-        expect.objectContaining({ severity: 'error', message: 'No nodes in workflow' }),
+        expect.objectContaining({
+          severity: 'error',
+          message: 'The workflow is empty. Add a node to start.',
+        }),
       )
       expect(result.canPublish).toBe(false)
     })
@@ -84,7 +87,10 @@ describe('validateWorkflowForPublish', () => {
       const edges = [makeEdge('a', 'b'), makeEdge('b', 'a')]
       const result = validateWorkflowForPublish(makeMetadata(), nodes, edges)
       expect(result.issues).toContainEqual(
-        expect.objectContaining({ severity: 'error', message: 'Graph contains a cycle' }),
+        expect.objectContaining({
+          severity: 'error',
+          message: 'The workflow loops back on itself. Remove a connection to break the loop.',
+        }),
       )
     })
 
@@ -93,7 +99,11 @@ describe('validateWorkflowForPublish', () => {
       const edges = [makeEdge('a', 'b')]
       const result = validateWorkflowForPublish(makeMetadata(), nodes, edges)
       expect(result.issues).toContainEqual(
-        expect.objectContaining({ severity: 'error', nodeId: 'c' }),
+        expect.objectContaining({
+          severity: 'error',
+          nodeId: 'c',
+          message: 'Not connected to the rest of the workflow. Connect it or remove it.',
+        }),
       )
       expect(result.canPublish).toBe(false)
     })
@@ -131,7 +141,7 @@ describe('validateWorkflowForPublish', () => {
       expect(result.issues).toContainEqual(
         expect.objectContaining({
           severity: 'error',
-          message: 'Nested step call detected in code body',
+          message: 'This code calls a step inside a step. Move the inner call into its own node.',
         }),
       )
     })
@@ -228,7 +238,7 @@ describe('validateWorkflowForPublish', () => {
       })
       const result = validateWorkflowForPublish(makeMetadata(), [node], [])
       expect(result.issues).toContainEqual(
-        expect.objectContaining({ severity: 'error', message: 'Timestamp is not a valid date' }),
+        expect.objectContaining({ severity: 'error', message: 'Timestamp isn’t a valid date' }),
       )
     })
 
@@ -314,7 +324,10 @@ describe('validateWorkflowForPublish', () => {
       })
       const result = validateWorkflowForPublish(makeMetadata(), [node], [])
       expect(result.issues).toContainEqual(
-        expect.objectContaining({ severity: 'error', message: 'Duplicate branch label: "yes"' }),
+        expect.objectContaining({
+          severity: 'error',
+          message: 'Two branches are labeled "yes". Give each a unique label.',
+        }),
       )
     })
 
@@ -337,7 +350,7 @@ describe('validateWorkflowForPublish', () => {
       expect(result.issues).toContainEqual(
         expect.objectContaining({
           severity: 'error',
-          message: 'Branch "yes" has no connected target',
+          message: 'Branch "yes" has no connection. Connect it or remove the branch.',
         }),
       )
     })
@@ -361,7 +374,10 @@ describe('validateWorkflowForPublish', () => {
       const targets = [makeStepNode('t1'), makeStepNode('t2')]
       const result = validateWorkflowForPublish(makeMetadata(), [node, ...targets], edges)
       expect(result.issues).toContainEqual(
-        expect.objectContaining({ severity: 'warning', message: 'No default/else branch' }),
+        expect.objectContaining({
+          severity: 'warning',
+          message: 'Add a last branch with no condition to cover every other case.',
+        }),
       )
     })
 
@@ -403,7 +419,10 @@ describe('validateWorkflowForPublish', () => {
       })
       const result = validateWorkflowForPublish(makeMetadata(), [node], [])
       expect(result.issues).toContainEqual(
-        expect.objectContaining({ severity: 'error', message: '0 outgoing edges' }),
+        expect.objectContaining({
+          severity: 'error',
+          message: 'Nothing is connected to this node. Connect the nodes to run at the same time.',
+        }),
       )
     })
 
@@ -423,7 +442,10 @@ describe('validateWorkflowForPublish', () => {
         [makeEdge('p1', 't1')],
       )
       expect(result.issues).toContainEqual(
-        expect.objectContaining({ severity: 'warning', message: 'Only 1 outgoing edge' }),
+        expect.objectContaining({
+          severity: 'warning',
+          message: 'Only one node is connected. Connect at least two to run them at the same time.',
+        }),
       )
     })
 
@@ -590,7 +612,7 @@ describe('validateWorkflowForPublish', () => {
       expect(result.issues).toContainEqual(
         expect.objectContaining({
           severity: 'error',
-          message: 'Duplicate environment variable name: "API_KEY"',
+          message: '"API_KEY" is used for more than one environment variable. Rename one.',
         }),
       )
     })
@@ -669,7 +691,7 @@ describe('validateWorkflowForPublish', () => {
         expect.objectContaining({
           severity: 'error',
           nodeId: 'z1',
-          message: expect.stringContaining('requires a durable runtime'),
+          message: expect.stringContaining('needs a durable runtime'),
         }),
       )
     })
@@ -765,7 +787,7 @@ describe('validateWorkflowForPublish', () => {
       const result = validateWorkflowForPublish(makeMetadata(), [callNode('')], [])
       const issue = result.issues.find((i) => i.nodeId === 'call')
       expect(issue).toMatchObject({ severity: 'warning' })
-      expect(issue!.message).toContain('No worker selected')
+      expect(issue!.message).toContain('Select a worker to deploy')
       // Saving an unfinished node has to keep working; deploy is what refuses.
       expect(result.canPublish).toBe(true)
     })

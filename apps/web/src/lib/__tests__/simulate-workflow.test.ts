@@ -37,7 +37,7 @@ describe('simulateWorkflow', () => {
       const result = simulateWorkflow([], [])
       expect(result.paths).toHaveLength(0)
       expect(result.issues).toContainEqual(
-        expect.objectContaining({ message: 'No nodes in workflow' }),
+        expect.objectContaining({ message: 'The workflow is empty. Add a node to start.' }),
       )
       expect(result.status).toBe('has-issues')
     })
@@ -135,7 +135,9 @@ describe('simulateWorkflow', () => {
       })
       const result = simulateWorkflow([branchNode], [])
       expect(result.issues).toContainEqual(
-        expect.objectContaining({ message: 'Branch "Check" has no connected targets' }),
+        expect.objectContaining({
+          message: 'Branch "Check" has no connections out. Connect it or remove it.',
+        }),
       )
       expect(result.paths[0]!.completed).toBe(false)
     })
@@ -173,7 +175,10 @@ describe('simulateWorkflow', () => {
       })
       const result = simulateWorkflow([parallelNode], [])
       expect(result.issues).toContainEqual(
-        expect.objectContaining({ message: 'Parallel "Fan Out" has no outgoing edges' }),
+        expect.objectContaining({
+          message:
+            'Parallel "Fan Out" has no connections out. Connect the nodes to run at the same time.',
+        }),
       )
     })
   })
@@ -234,7 +239,7 @@ describe('simulateWorkflow', () => {
       const edges = [makeEdge('a', 'b'), makeEdge('b', 'a')]
       const result = simulateWorkflow(nodes, edges)
       expect(result.issues).toContainEqual(
-        expect.objectContaining({ message: expect.stringContaining('Cycle detected') }),
+        expect.objectContaining({ message: expect.stringContaining('loops back on itself') }),
       )
       expect(result.paths[0]!.completed).toBe(false)
     })
@@ -248,6 +253,12 @@ describe('simulateWorkflow', () => {
       const edges = [makeEdge('a', 'b')]
       const result = simulateWorkflow(nodes, edges)
       expect(result.unreachedNodeIds).toContain('c')
+      expect(result.issues).toContainEqual(
+        expect.objectContaining({
+          nodeId: 'c',
+          message: '"Step c" isn’t connected to the rest of the workflow. Connect it or remove it.',
+        }),
+      )
     })
   })
 

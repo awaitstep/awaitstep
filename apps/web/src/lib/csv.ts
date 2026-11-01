@@ -18,3 +18,6 @@ export function toCsv(header: string[], rows: (string | number | null)[][]): str
 export function datedCsvName(stem: string, now: Date = new Date()): string {
   return `${stem}-${now.toISOString().slice(0, 10)}.csv`
 }
+
+export const EXPORT_FAILED_COPY =
+  'The export didn’t finish. Nothing was downloaded. Try again in a moment.'

@@ -187,19 +187,29 @@ export function validateWorkflowForPublish(
     const envVarNames = new Set<string>()
     for (const envVar of settings.workflowEnvVars) {
       if (envVar.name && envVarNames.has(envVar.name)) {
-        add('error', null, null, `Duplicate environment variable name: "${envVar.name}"`)
+        add(
+          'error',
+          null,
+          null,
+          `"${envVar.name}" is used for more than one environment variable. Rename one.`,
+        )
       }
       envVarNames.add(envVar.name)
     }
   }
 
   if (nodes.length === 0) {
-    add('error', null, null, 'No nodes in workflow')
+    add('error', null, null, 'The workflow is empty. Add a node to start.')
     return { issues, canPublish: false }
   }
 
   if (hasCycle(nodes, edges)) {
-    add('error', null, null, 'Graph contains a cycle')
+    add(
+      'error',
+      null,
+      null,
+      'The workflow loops back on itself. Remove a connection to break the loop.',
+    )
   }
 
   const unreachable = findUnreachableNodes(nodes, edges)
@@ -209,7 +219,7 @@ export function validateWorkflowForPublish(
       'error',
       nodeId,
       node?.data.irNode.name ?? null,
-      'Node is not reachable from entry — connect it or remove it',
+      'Not connected to the rest of the workflow. Connect it or remove it.',
     )
   }
 
@@ -243,7 +253,7 @@ export function validateWorkflowForPublish(
 
     // Missing node definition check
     if (!BUILTIN_TYPES.has(ir.type) && nodeRegistry && !nodeRegistry.has(ir.type)) {
-      add('error', id, name, `Unknown node type "${ir.type}" — definition not found in registry`)
+      add('error', id, name, `Node type "${ir.type}" isn’t installed.`)
     }
 
     // Script-incompatibility check — scripts run in a fetch handler with no
@@ -255,7 +265,7 @@ export function validateWorkflowForPublish(
         'error',
         id,
         name,
-        `Node type "${ir.type}" requires a durable runtime — scripts only support stateless steps. Use a workflow instead.`,
+        `Node type "${ir.type}" needs a durable runtime, and scripts only support stateless steps. Use a workflow instead.`,
       )
     }
 
@@ -267,7 +277,7 @@ export function validateWorkflowForPublish(
           'error',
           id,
           name,
-          `Node has ${outCount} outgoing edges but only 1 is allowed — use a Branch node to split`,
+          `Only one connection can leave this node. Use a Branch node to split.`,
         )
       }
     }
@@ -278,7 +288,12 @@ export function validateWorkflowForPublish(
         const code = String(ir.data.code ?? '')
         if (!code.trim()) add('error', id, name, 'Step code is empty')
         if (NESTED_STEP_PATTERN.test(code)) {
-          add('error', id, name, 'Nested step call detected in code body')
+          add(
+            'error',
+            id,
+            name,
+            'This code calls a step inside a step. Move the inner call into its own node.',
+          )
         }
         break
       }
@@ -295,7 +310,7 @@ export function validateWorkflowForPublish(
         if (!timestamp.trim()) {
           add('error', id, name, 'Timestamp is empty')
         } else if (isNaN(Date.parse(timestamp))) {
-          add('error', id, name, 'Timestamp is not a valid date')
+          add('error', id, name, 'Timestamp isn’t a valid date')
         }
         break
       }
@@ -312,7 +327,7 @@ export function validateWorkflowForPublish(
         const seen = new Set<string>()
         for (const label of labels) {
           if (seen.has(label)) {
-            add('error', id, name, `Duplicate branch label: "${label}"`)
+            add('error', id, name, `Two branches are labeled "${label}". Give each a unique label.`)
             break
           }
           seen.add(label)
@@ -321,13 +336,18 @@ export function validateWorkflowForPublish(
         const outEdges = edges.filter((e) => e.source === id)
         for (const branch of branches) {
           if (branch.condition.trim() && !outEdges.some((e) => e.label === branch.label)) {
-            add('error', id, name, `Branch "${branch.label}" has no connected target`)
+            add(
+              'error',
+              id,
+              name,
+              `Branch "${branch.label}" has no connection. Connect it or remove the branch.`,
+            )
           }
         }
 
         const lastBranch = branches[branches.length - 1]
         if (lastBranch && lastBranch.condition.trim() !== '') {
-          add('warning', id, name, 'No default/else branch')
+          add('warning', id, name, 'Add a last branch with no condition to cover every other case.')
         }
         break
       }
@@ -335,9 +355,19 @@ export function validateWorkflowForPublish(
       case 'parallel': {
         const outEdges = edges.filter((e) => e.source === id)
         if (outEdges.length === 0) {
-          add('error', id, name, '0 outgoing edges')
+          add(
+            'error',
+            id,
+            name,
+            'Nothing is connected to this node. Connect the nodes to run at the same time.',
+          )
         } else if (outEdges.length === 1) {
-          add('warning', id, name, 'Only 1 outgoing edge')
+          add(
+            'warning',
+            id,
+            name,
+            'Only one node is connected. Connect at least two to run them at the same time.',
+          )
         }
         break
       }
@@ -348,7 +378,7 @@ export function validateWorkflowForPublish(
         // binding from the worker name and cannot do that from nothing.
         const workerName = String(ir.data.workerName ?? '')
         if (!workerName.trim()) {
-          add('warning', id, name, 'No worker selected — deploy will fail')
+          add('warning', id, name, 'Select a worker to deploy.')
         }
         break
       }

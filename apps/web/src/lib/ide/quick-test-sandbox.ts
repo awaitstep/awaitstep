@@ -99,7 +99,7 @@ export function createQuickTestSandbox(
 
   const bootTimer = setTimeout(() => {
     if (ready || destroyed) return
-    callbacks.onUnavailable('the sandbox did not boot — a content security policy may block it')
+    callbacks.onUnavailable('the sandbox didn’t boot; a content security policy may block it')
   }, SANDBOX_BOOT_TIMEOUT_MS)
 
   channel.port1.onmessage = (event: MessageEvent<BootstrapMessage>) => {
@@ -129,15 +129,15 @@ export function createQuickTestSandbox(
       } else if (workerAlive) {
         // A running step failing in a way the browser does not describe:
         // reporting "unavailable" would blame the browser and drop its logs.
-        callbacks.onLoadError('the step stopped with an error the browser did not describe')
+        callbacks.onLoadError('the step stopped with an error the browser didn’t describe')
       } else {
         // No worker ever ran: what an opaque-origin refusal to start a
         // worker looks like.
-        callbacks.onUnavailable('the worker could not start')
+        callbacks.onUnavailable('the worker couldn’t start')
       }
       return
     }
-    callbacks.onUnavailable(message.message ?? 'the sandbox could not start')
+    callbacks.onUnavailable(message.message ?? 'the sandbox couldn’t start')
   }
 
   iframe.addEventListener(
