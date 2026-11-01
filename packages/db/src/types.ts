@@ -655,8 +655,17 @@ export interface WorkspaceCounts {
   lastRunAt: string | null
 }
 
+/** One hour of a workspace's runs: started, finished well, failed. */
+export interface RunHour {
+  runs: number
+  complete: number
+  failed: number
+}
+
 export interface WorkspaceOverview extends Workspace {
   counts: WorkspaceCounts
+  /** The last 24 hours, oldest first. Only the scope lookup reads it. */
+  runsByHour?: RunHour[]
   createdByName: string | null
   lockedByName: string | null
   projectName: string
@@ -756,6 +765,7 @@ export type WorkspaceGrant = WorkspaceMember['role']
 /** A workspace grant as a write left it, with the person's name for the audit log (B7). */
 /** `personName`: the person's name, or their email when the name is blank (for the audit log). */
 export type NamedWorkspaceMember = WorkspaceMember & { personName: string | null }
+export type NamedProjectMember = ProjectMember & { personName: string | null }
 
 /** The rows behind one person's standing at one place; null where there is no row. */
 export interface GrantRows {
@@ -859,6 +869,23 @@ export interface InOrgCheck {
   users: number
   projects: number
   workspaces: number
+}
+
+/** Why a project add was refused (`projectGrantRows`). */
+export interface ProjectGrantRows {
+  orgRole: string | null
+  projectGrant: ProjectGrant | null
+  /** They hold a grant in at least one of the project's workspaces. */
+  workspaceGrants: boolean
+  /** How many of the workspace ids asked about are the project's. */
+  workspacesInProject: number
+}
+
+export interface ProjectGrantData {
+  projectId: string
+  userId: string
+  role: ProjectGrant
+  createdBy: string
 }
 
 export interface WorkspaceGrantData {

@@ -60,7 +60,7 @@ describe('workspace settings › General', () => {
     expect(screen.getByText('From Project 101')).toBeVisible()
     expect(screen.getByRole('link', { name: 'Manage in project' })).toHaveAttribute(
       'href',
-      '/acme/project-101/settings/general',
+      '/acme/project-101/settings',
     )
     expect(screen.getByRole('button', { name: 'Delete Sales' })).toHaveAccessibleDescription(
       'Locked by Project 101',
@@ -174,20 +174,82 @@ describe('workspace settings › Members', () => {
     await waitFor(() => expect(screen.queryByText('Priya Shah')).not.toBeInTheDocument())
   })
 
-  it('adds someone from the org as an Editor', async () => {
+  it('adds two people as Editors through AddToWorkspace, then lists who was added', async () => {
     await renderPage({ tab: 'members' })
-    await userEvent.click(within(topBar()).getByRole('button', { name: 'Add member' }))
-    const dialog = screen.getByRole('dialog', { name: 'Add someone to Sales' })
-    await userEvent.click(within(dialog).getByRole('button', { name: '+ Add person' }))
-    const picker = await screen.findByRole('listbox')
-    expect(within(picker).queryByRole('option', { name: /Daniel Kim/ })).not.toBeInTheDocument()
-    await userEvent.click(within(picker).getByRole('option', { name: /Lena Ortiz/ }))
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Add member' }))
+    await userEvent.click(within(topBar()).getByRole('button', { name: 'Add people' }))
+    const dialog = screen.getByRole('dialog', { name: 'Add people to Sales' })
+    const people = await within(dialog).findByRole('listbox', { name: 'People' })
+    // Daniel already opens Sales: shown, not pickable.
+    expect(await within(people).findByRole('option', { name: /Daniel Kim/ })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    await userEvent.click(within(people).getByRole('option', { name: /Lena Ortiz/ }))
+    expect(within(people).getByRole('option', { name: /Tom Becker/ })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    // Jonas is in Acme but not Project 101: adding him here brings him in.
+    const jonas = within(people).getByRole('option', { name: /Jonas/ })
+    expect(jonas).toHaveTextContent('Joins the project too')
+    await userEvent.click(jonas)
+    expect(within(dialog).getByText('2 selected')).toBeVisible()
+    expect(within(dialog).getByText(/2 people get Editor in Sales\./)).toBeVisible()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add 2 people' }))
+    expect(await within(dialog).findByRole('heading', { name: 'Added 2 people' })).toBeVisible()
+    const added = within(dialog).getByRole('list', { name: 'Who was added' })
+    expect(added).toHaveTextContent(/Lena Ortiz.*Editor in Sales.*Added/)
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Done' }))
     await waitFor(() =>
       expect(screen.getByRole('list', { name: 'Only in Sales' })).toHaveTextContent(
         /Lena Ortiz.*Editor/,
       ),
     )
+  })
+
+  it('adds the rest when one pick is refused, with the backend’s reason on its row', async () => {
+    await renderPage({ tab: 'members' })
+    await userEvent.click(within(topBar()).getByRole('button', { name: 'Add people' }))
+    const dialog = screen.getByRole('dialog', { name: 'Add people to Sales' })
+    const people = await within(dialog).findByRole('listbox', { name: 'People' })
+    await userEvent.click(await within(people).findByRole('option', { name: /Lena Ortiz/ }))
+    await userEvent.click(within(people).getByRole('option', { name: /Jonas/ }))
+    // Lena is given Sales elsewhere while the dialog is open.
+    dashboardDb().workspaceMembers.push({
+      workspaceId: 'ws_sales',
+      userId: 'usr_lena',
+      role: 'viewer',
+    })
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add 2 people' }))
+    const added = await within(dialog).findByRole('list', { name: 'Who was added' })
+    expect(within(dialog).getByRole('heading', { name: 'Added' })).toBeVisible()
+    expect(added).toHaveTextContent(/Lena Ortiz.*Already in Sales.*Not added/)
+    expect(added).toHaveTextContent(/Jonas.*Editor in Sales.*Added/)
+  })
+
+  it('invites a new address into Sales from the picker, listed as Pending', async () => {
+    await renderPage({ tab: 'members' })
+    await userEvent.click(within(topBar()).getByRole('button', { name: 'Add people' }))
+    const dialog = screen.getByRole('dialog', { name: 'Add people to Sales' })
+    const search = within(dialog).getByRole('searchbox', {
+      name: 'Search Project 101 and Acme Inc, or type an email',
+    })
+    await userEvent.type(search, 'sam@newco.test')
+    await userEvent.click(
+      await within(dialog).findByRole('button', { name: /Invite sam@newco\.test/ }),
+    )
+    expect(within(dialog).getByRole('button', { name: 'Remove sam@newco.test' })).toBeVisible()
+    expect(within(dialog).getByText(/sam@newco\.test is new to Acme Inc/)).toBeVisible()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Send invite' }))
+    expect(await within(dialog).findByRole('heading', { name: 'Invite sent' })).toBeVisible()
+    expect(within(dialog).getByRole('list', { name: 'Who was added' })).toHaveTextContent(
+      /sam@newco\.test.*Invite sent · expires in 7 days.*Pending/,
+    )
+    const invite = dashboardDb().invitations.find((i) => i.email === 'sam@newco.test')!
+    expect(invite.role).toBe('member')
+    expect(invite.places).toEqual([
+      { projectId: 'prj_101', workspaceId: 'ws_sales', role: 'editor' },
+    ])
   })
 
   it('offers a project member raised to Admin only Remove, saying what they keep', async () => {
@@ -258,7 +320,7 @@ describe('workspace settings › Members', () => {
     dashboardDb().projectMembers.push({ projectId: 'prj_101', userId: 'usr_priya', role: 'member' })
     await userEvent.click(screen.getByRole('menuitem', { name: 'Make Editor' }))
     expect(await screen.findByText(/already have editor access/)).toBeVisible()
-    await userEvent.click(within(topBar()).getByRole('button', { name: 'Add member' }))
+    await userEvent.click(within(topBar()).getByRole('button', { name: 'Add people' }))
     expect(screen.queryByText(/already have editor access/)).not.toBeInTheDocument()
   })
 
@@ -266,7 +328,7 @@ describe('workspace settings › Members', () => {
     await renderPage({ tab: 'members', userId: PRIYA })
     await screen.findByRole('list', { name: 'Only in Sales' })
     expect(screen.queryByRole('button', { name: /Change role/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Add member' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add people' })).not.toBeInTheDocument()
   })
 })
 

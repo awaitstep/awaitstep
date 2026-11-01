@@ -3,10 +3,12 @@ import { useProjectShared } from '../../data/dashboard/items'
 import { useProjectMembers } from '../../data/dashboard/members'
 import { useProjectSetup } from '../../data/dashboard/setup'
 import { useProjectVariables } from '../../data/dashboard/variables'
-import { useWorkspaces } from '../../data/dashboard/workspaces'
-import { projectSettingsPath, workspacePath, type ProjectSlugs } from '../../lib/dashboard-paths'
+import { useScope, useWorkspaces } from '../../data/dashboard/workspaces'
+import { projectPagePath, workspacePath, type ProjectSlugs } from '../../lib/dashboard-paths'
 import { plural, pluralNoun } from '../../lib/plural'
+import { currentFirst } from '../../lib/current-first'
 import { isNew } from '../../lib/time'
+import type { Workspace } from '../../types/dashboard/workspaces'
 import { ActionCard } from '../ui/action-card'
 import { AvatarStack } from '../ui/avatar-stack'
 import { Badge } from '../ui/badge'
@@ -15,9 +17,9 @@ import { SectionHeader } from '../ui/section-header'
 import { Bone, LoadingRegion } from '../ui/skeletons'
 import { ScopeChip } from '../ui/workspace-dot'
 import { PageBody, PageIntro } from '../shell/page-intro'
-import { pickWorkspace } from '../navigation/land-in-workspace'
-import { recentWorkspaces } from '../navigation/scope-memory'
+import { pickWorkspace, recentWorkspaces } from '../navigation/scope-memory'
 import { TopBarContent } from '../navigation/top-bar-slot'
+import { EmptyProject } from '../workspaces/empty-project'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
 import { WorkspaceCard } from '../workspaces/parts/workspace-card'
 import { NewWorkspaceDialog } from './new-workspace-dialog'
@@ -51,10 +53,28 @@ function MoreChip({ count }: { count: number }) {
   return <Badge className="font-normal text-muted-foreground">+{count}</Badge>
 }
 
-/** `/{org}/{project}/settings/workspaces` (`ProjectOverview`): the workspaces, and what every one inherits. */
+/** A project nothing has been built in yet: its one workspace, with no workflows or functions. */
+export function isNewProject(workspaces: Workspace[]): boolean {
+  if (workspaces.length !== 1) return false
+  const { workflows, functions } = workspaces[0]!.counts
+  return workflows === 0 && functions === 0
+}
+
+/**
+ * `/{org}/{project}/workspaces`, the project's own page (`ProjectOverview`): the
+ * workspaces and what every one inherits. While the project is new it opens
+ * with the welcome (`EmptyProject`) in place of the workspace cards — for
+ * those who run it: they see every workspace, so "new" is true for them,
+ * while someone given one workspace of a bigger project would see only that.
+ */
 export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: WorkspacesPageProps) {
   const scope = useProjectScope(slugs)
   const workspaces = useWorkspaces(slugs.org, slugs.project)
+  const runsProject = scope?.project.viewerCan.createWorkspace.allowed ?? false
+  const only =
+    runsProject && workspaces.data && isNewProject(workspaces.data) ? workspaces.data[0]! : null
+  // The welcome's buttons work in that workspace, as its viewer may.
+  const welcomeScope = useScope({ ...slugs, workspace: only?.slug }).data
   const members = useProjectMembers(slugs.org, slugs.project)
   const setup = useProjectSetup(slugs.org, slugs.project)
   const variables = useProjectVariables(slugs.org, slugs.project)
@@ -110,7 +130,7 @@ export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: Workspaces
   } else {
     workspaceGrid = (
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {workspaces.data.map((workspace) => (
+        {currentFirst(workspaces.data, (workspace) => workspace.slug === here).map((workspace) => (
           <WorkspaceCard
             key={workspace.id}
             workspace={workspace}
@@ -154,7 +174,7 @@ export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: Workspaces
     poolBody = (
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <ProjectPoolCard
-          href={projectSettingsPath(slugs, 'members')}
+          href={projectPagePath(slugs, 'members')}
           icon={Users}
           tone="info"
           title="Members & keys"
@@ -167,7 +187,7 @@ export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: Workspaces
           </span>
         </ProjectPoolCard>
         <ProjectPoolCard
-          href={projectSettingsPath(slugs, 'variables')}
+          href={projectPagePath(slugs, 'variables')}
           icon={Braces}
           tone="warn"
           title="Variables"
@@ -184,7 +204,7 @@ export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: Workspaces
           </span>
         </ProjectPoolCard>
         <ProjectPoolCard
-          href={projectSettingsPath(slugs, 'shared')}
+          href={projectPagePath(slugs, 'shared')}
           icon={Share2}
           tone="ok"
           title="Shared library"
@@ -214,11 +234,29 @@ export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: Workspaces
         </TopBarContent>
       )}
       <PageBody>
-        <PageIntro
-          title="Workspaces"
-          description="Each workspace keeps a team’s workflows, people and keys apart. Anything in the project pool below is available in every workspace."
-        />
-        {workspaceGrid}
+        {only && welcomeScope?.found && welcomeScope.workspace ? (
+          <EmptyProject
+            slugs={{ ...slugs, workspace: only.slug }}
+            org={{ name: org.name }}
+            project={project}
+            workspace={only}
+            readOnly={!welcomeScope.workspace.viewerCan.edit.allowed}
+            canAddWorkspace={canCreate.allowed}
+          />
+        ) : only ? (
+          // The welcome waits for its workspace's scope, never flashing the cards first.
+          <LoadingRegion label="Loading the project">
+            <Bone className="h-64 rounded-2xl" />
+          </LoadingRegion>
+        ) : (
+          <>
+            <PageIntro
+              title="Workspaces"
+              description="Each workspace keeps a team’s workflows, people and keys apart. Anything in the project pool below is available in every workspace."
+            />
+            {workspaceGrid}
+          </>
+        )}
         <section className="flex flex-col gap-3.5">
           <SectionHeader
             title="Project pool"

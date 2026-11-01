@@ -25,10 +25,10 @@ import {
   orgPath,
   withOverlay,
   orgSettingsPath,
-  projectPath,
-  projectSettingsPath,
+  projectWorkspacesPath,
+  projectPagePath,
   workspacePath,
-  type ProjectSettingsPage,
+  type ProjectPage,
   type WorkspacePage,
   type WorkspaceSlugs,
 } from '../../lib/dashboard-paths'
@@ -66,9 +66,14 @@ export type PanelModel =
       page: WorkspacePage
       items: NavItem[]
       activeKey: string
-      projectSettingsHref: string
+      projectHref: string
     }
-  | { mode: 'project-settings'; items: NavItem[]; activeKey: string; backHref: string }
+  | {
+      /** A project's own pages: Workspaces, Shared library, Members, API keys, Variables, Settings. */
+      mode: 'project'
+      items: NavItem[]
+      activeKey: string
+    }
 
 export interface RailModel {
   primary: RailEntry[]
@@ -172,12 +177,12 @@ function workspaceItems(slugs: Required<ScopeSlugs>): NavItem[] {
   ]
 }
 
-function projectSettingsItems(slugs: { org: string; project: string }): NavItem[] {
-  const item = (page: ProjectSettingsPage, icon: LucideIcon): NavItem => ({
+function projectItems(slugs: { org: string; project: string }): NavItem[] {
+  const item = (page: ProjectPage, icon: LucideIcon): NavItem => ({
     key: page,
-    href: projectSettingsPath(slugs, page),
+    href: projectPagePath(slugs, page),
     icon,
-    label: pageLabel({ kind: 'project-settings', page }),
+    label: pageLabel({ kind: 'project', page }),
   })
   return [
     item('workspaces', Layers),
@@ -185,7 +190,7 @@ function projectSettingsItems(slugs: { org: string; project: string }): NavItem[
     item('members', Users),
     item('api-keys', KeyRound),
     item('variables', Braces),
-    item('general', Settings),
+    item('settings', Settings),
   ]
 }
 
@@ -197,16 +202,12 @@ export function panelModel(page: DashboardPage, slugs: ScopeSlugs): PanelModel {
     case 'item':
       // Every org-level page is its own rail item: none opens a second panel.
       return { mode: 'none' }
-    case 'project-settings': {
-      const project = { org: slugs.org, project: slugs.project! }
+    case 'project':
       return {
-        mode: 'project-settings',
-        items: projectSettingsItems(project),
+        mode: 'project',
+        items: projectItems({ org: slugs.org, project: slugs.project! }),
         activeKey: page.page,
-        // The project URL lands in the last workspace.
-        backHref: projectPath(project),
       }
-    }
     case 'workspace': {
       // A workspace page's route always has all three slugs.
       const workspace: WorkspaceSlugs = {
@@ -220,7 +221,7 @@ export function panelModel(page: DashboardPage, slugs: ScopeSlugs): PanelModel {
         page: page.page,
         items: workspaceItems(workspace),
         activeKey: page.page,
-        projectSettingsHref: projectSettingsPath(workspace),
+        projectHref: projectWorkspacesPath(workspace),
       }
     }
   }
@@ -240,13 +241,12 @@ export function breadcrumbs(page: DashboardPage, slugs: ScopeSlugs, names: Scope
     crumbs.push({ label: 'Settings' })
     return crumbs
   }
-  if (page.kind === 'project-settings' || page.kind === 'workspace') {
+  if (page.kind === 'project' || page.kind === 'workspace') {
     crumbs.push({
       label: names.project ?? slugs.project!,
-      href: projectPath({ org: slugs.org, project: slugs.project! }),
+      href: projectWorkspacesPath({ org: slugs.org, project: slugs.project! }),
     })
   }
-  if (page.kind === 'project-settings') crumbs.push({ label: 'Settings' })
   if (page.kind === 'workspace') {
     crumbs.push({
       label: names.workspace ?? slugs.workspace!,

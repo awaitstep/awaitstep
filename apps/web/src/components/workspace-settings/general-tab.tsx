@@ -3,7 +3,7 @@ import { format } from 'date-fns'
 import { ArrowRightLeft, Trash2 } from 'lucide-react'
 import { useSetLock } from '../../data/dashboard/locks'
 import { useDeleteWorkspace, useUpdateWorkspace } from '../../data/dashboard/workspaces'
-import { projectPath, projectSettingsPath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
+import { projectPath, projectPagePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
 import { plural } from '../../lib/plural'
 import type { WorkspaceScope } from '../../types/dashboard/scope'
 import type { Workspace } from '../../types/dashboard/workspaces'
@@ -118,7 +118,7 @@ export function GeneralTab({ slugs, scope, projectName }: GeneralTabProps) {
     ? { name: own.setBy.name, date: format(new Date(own.setAt), 'd MMM') }
     : undefined
   const lockFrom = inherited
-    ? { name: inherited.fromName, href: projectSettingsPath(slugs, 'general') }
+    ? { name: inherited.fromName, href: projectPagePath(slugs, 'settings') }
     : undefined
   // A change in flight holds the switch; a refused one says why where the state is described.
   const lockReason = setLock.isPending

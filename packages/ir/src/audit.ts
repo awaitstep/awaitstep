@@ -223,6 +223,11 @@ export const AUDIT_EVENTS = {
     },
   },
   'member.remove': { kind: 'access', action: fixed('removed') },
+  'project_member.add': {
+    kind: 'access',
+    action: (f) => `added ${f.person ?? 'someone'} to`,
+    detail: roleDetail,
+  },
   'workspace_member.add': {
     kind: 'access',
     action: (f) => `added ${f.person ?? 'someone'} to`,

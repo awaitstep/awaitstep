@@ -12,8 +12,8 @@ export type SlugLevel = 'org' | 'project' | 'workspace'
 /**
  * Slugs a URL segment at each level can't be, because a route already owns
  * that path: the old app's top-level pages at the org level, the org's own
- * pages at the project level, and the project's settings path at the
- * workspace level. The dashboard's path builders assert their page names are
+ * pages at the project level, and the project's own pages
+ * (`/{org}/{project}/workspaces`, `/members`, `/settings`…) at the workspace level. The dashboard's path builders assert their page names are
  * all in here, so a new page can't silently shadow a slug.
  */
 export const RESERVED_SLUGS = {
@@ -42,7 +42,7 @@ export const RESERVED_SLUGS = {
     'account',
     'items',
   ],
-  workspace: ['settings'],
+  workspace: ['workspaces', 'shared', 'members', 'api-keys', 'variables', 'settings'],
 } as const satisfies Record<SlugLevel, readonly string[]>
 
 export function isReservedSlug(level: SlugLevel, slug: string): boolean {

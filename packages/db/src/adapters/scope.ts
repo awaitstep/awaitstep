@@ -8,6 +8,7 @@ import type {
   Project,
   ProjectAccess,
   ProjectRef,
+  RunHour,
   ScopeRows,
   ScopeSlugs,
   Workflow,
@@ -312,6 +313,7 @@ export class ScopeAdapter {
         projectGrant: pm.role,
         workspace: w,
         workspaceCounts: this.fields.workspaceCounts(w.id, since),
+        workspaceRunsByHour: this.fields.runsByHour(w.id, now),
         workspaceMembers: this.fields.workspacePeople(w.id, p.id, o.id),
         workspaceCreatedByName: creator.name,
         workspaceLockedByName: workspaceLocker.name,
@@ -384,6 +386,7 @@ export class ScopeAdapter {
         ? {
             ...row.workspace,
             counts: row.workspaceCounts,
+            runsByHour: readJsonArray<RunHour>(row.workspaceRunsByHour),
             createdByName: row.workspaceCreatedByName,
             lockedByName: row.workspaceLockedByName,
             projectName: project.name,

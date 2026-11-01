@@ -60,7 +60,7 @@ export const ProjectGeneral: Story = {
   render: () => (
     <AppShell
       rail={<SampleRail activeKey="projects" />}
-      panel={<ProjectSettingsPanel active="general" />}
+      panel={<ProjectSettingsPanel active="settings" />}
     >
       <TopBar
         breadcrumbs={[

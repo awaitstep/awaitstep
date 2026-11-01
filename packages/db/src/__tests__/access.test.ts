@@ -760,6 +760,109 @@ describe.each([
       expect(await h.adapter.getGrantRows('nope', 'u-dan')).toBeNull()
     })
 
+    it('adds someone to the whole project once, never an org admin or an outsider', async () => {
+      const add = (userId: string, projectId = 'p-101') =>
+        h.adapter.addProjectMember({ projectId, userId, role: 'member', createdBy: 'u-ama' })
+      expect(await add('u-fay')).toMatchObject({
+        projectId: 'p-101',
+        userId: 'u-fay',
+        role: 'member',
+        createdBy: 'u-ama',
+        personName: 'Fay Lund',
+      })
+      // Already holds a project grant.
+      expect(await add('u-fay')).toBeNull()
+      expect(await add('u-dan')).toBeNull()
+      // Org owners and admins reach every project already.
+      expect(await add('u-ama')).toBeNull()
+      expect(await add('u-ben')).toBeNull()
+      // Another organization's person, or another organization's project.
+      expect(await add('u-cleo')).toBeNull()
+      expect(await add('u-fay', 'p-g')).toBeNull()
+      // Eve holds Sales: a project role over it would quietly keep her in later.
+      expect(await add('u-eve')).toBeNull()
+      expect(await h.adapter.projectGrantRows('p-101', 'u-eve')).toMatchObject({
+        projectGrant: null,
+        workspaceGrants: true,
+      })
+      expect(await h.adapter.projectGrantRows('p-101', 'u-dan')).toEqual({
+        orgRole: 'member',
+        projectGrant: 'member',
+        workspaceGrants: false,
+        workspacesInProject: 0,
+      })
+      expect(await h.adapter.projectGrantRows('p-101', 'u-cleo')).toMatchObject({
+        orgRole: null,
+        projectGrant: null,
+      })
+      expect(await h.adapter.projectGrantRows('nope', 'u-fay')).toBeNull()
+    })
+
+    it('grants one role in several of the project’s workspaces in one statement', async () => {
+      // ws-202 is another project's: naming it writes nothing at all.
+      const foreign = await h.adapter.addWorkspaceGrants({
+        projectId: 'p-101',
+        workspaceIds: ['ws-sales', 'ws-ops', 'ws-202'],
+        userId: 'u-fay',
+        role: 'editor',
+        createdBy: 'u-ama',
+      })
+      expect(foreign).toEqual([])
+      expect(
+        await h.adapter.projectGrantRows('p-101', 'u-fay', [
+          'ws-sales',
+          'ws-ops',
+          'ws-202',
+          'ws-sales',
+        ]),
+      ).toEqual({
+        orgRole: 'member',
+        projectGrant: null,
+        workspaceGrants: false,
+        workspacesInProject: 2,
+      })
+      const before = h.statements.n
+      const added = await h.adapter.addWorkspaceGrants({
+        projectId: 'p-101',
+        workspaceIds: ['ws-sales', 'ws-ops'],
+        userId: 'u-fay',
+        role: 'editor',
+        createdBy: 'u-ama',
+      })
+      expect(h.statements.n - before).toBe(1)
+      expect(added.map((g) => [g.workspaceId, g.workspaceName, g.role]).sort()).toEqual([
+        ['ws-ops', 'Ops', 'editor'],
+        ['ws-sales', 'Sales', 'editor'],
+      ])
+      expect(added[0]!.personName).toBe('Fay Lund')
+      // Eve has Sales already; Ops is new to her.
+      const eve = await h.adapter.addWorkspaceGrants({
+        projectId: 'p-101',
+        workspaceIds: ['ws-sales', 'ws-ops'],
+        userId: 'u-eve',
+        role: 'viewer',
+        createdBy: 'u-ama',
+      })
+      expect(eve.map((g) => g.workspaceId)).toEqual(['ws-ops'])
+      // Dan's project grant gives Editor everywhere: a Viewer grant counts nowhere.
+      const dan = await h.adapter.addWorkspaceGrants({
+        projectId: 'p-101',
+        workspaceIds: ['ws-sales'],
+        userId: 'u-dan',
+        role: 'viewer',
+        createdBy: 'u-ama',
+      })
+      expect(dan).toEqual([])
+      const cleo = await h.adapter.addWorkspaceGrants({
+        projectId: 'p-101',
+        workspaceIds: ['ws-sales'],
+        userId: 'u-cleo',
+        role: 'editor',
+        createdBy: 'u-ama',
+      })
+      expect(cleo).toEqual([])
+    })
+
     it('changes a grant only to a role that counts, and removes one', async () => {
       expect(await h.adapter.setWorkspaceGrant('ws-sales', 'u-eve', 'editor')).toMatchObject({
         role: 'editor',
@@ -1012,6 +1115,19 @@ describe.each([
           now: '2026-12-01T00:00:00.000Z',
         }),
       ).toEqual({ projects: 0, workspaces: 0, members: [], pending: [] })
+    })
+
+    it('counts only the named project’s workspaces for an invite sent from a project', async () => {
+      const checks = (inProject: string) =>
+        h.adapter.invitationChecks('org-acme', {
+          projectIds: [],
+          workspaceIds: ['ws-sales', 'ws-ops', 'ws-202'],
+          emails: [],
+          now: NOW,
+          inProject,
+        })
+      expect((await checks('p-101')).workspaces).toBe(2)
+      expect((await checks('p-202')).workspaces).toBe(1)
     })
 
     it('lists open invitations with places in the viewer’s projects, and one for the page', async () => {

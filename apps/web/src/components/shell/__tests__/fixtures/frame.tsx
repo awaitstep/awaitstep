@@ -113,10 +113,10 @@ export function WorkspacePanel({ active }: { active?: string }) {
       header={<ProjectHeader />}
       footer={
         <PanelItem
-          href={`${PROJECT}/settings/workspaces`}
-          icon={Settings}
-          label="Project settings"
-          active={active === 'psettings'}
+          href={`${PROJECT}/workspaces`}
+          icon={Layers}
+          label="Project"
+          active={active === 'project'}
         />
       }
     >
@@ -135,24 +135,26 @@ export function WorkspacePanel({ active }: { active?: string }) {
   )
 }
 
-const projectSettingsItems = [
-  { key: 'workspaces', href: `${PROJECT}/settings/workspaces`, icon: Layers, label: 'Workspaces' },
-  { key: 'shared', href: `${PROJECT}/settings/shared`, icon: Share2, label: 'Shared library' },
-  { key: 'members', href: `${PROJECT}/settings/members`, icon: Users, label: 'Members' },
-  { key: 'keys', href: `${PROJECT}/settings/api-keys`, icon: KeyRound, label: 'API keys' },
-  { key: 'variables', href: `${PROJECT}/settings/variables`, icon: Braces, label: 'Variables' },
-  { key: 'general', href: `${PROJECT}/settings/general`, icon: Settings, label: 'General' },
+const projectItems = [
+  { key: 'workspaces', href: `${PROJECT}/workspaces`, icon: Layers, label: 'Workspaces' },
+  { key: 'shared', href: `${PROJECT}/shared`, icon: Share2, label: 'Shared library' },
+  { key: 'members', href: `${PROJECT}/members`, icon: Users, label: 'Members' },
+  { key: 'keys', href: `${PROJECT}/api-keys`, icon: KeyRound, label: 'API keys' },
+  { key: 'variables', href: `${PROJECT}/variables`, icon: Braces, label: 'Variables' },
+  { key: 'settings', href: `${PROJECT}/settings`, icon: Settings, label: 'Settings' },
 ]
 
+/** The project's menu: its pages in one list, no heading and no way back to a workspace. */
 export function ProjectSettingsPanel({ active }: { active?: string }) {
   return (
-    <ContextPanel label="Project settings" header={<ProjectHeader />}>
-      <PanelBackLink href={`${WORKSPACE}/workflows`} label="Back to workspace" />
-      <PanelSection title="Project settings">
-        {projectSettingsItems.map(({ key, ...item }) => (
-          <PanelItem key={key} {...item} active={key === active} />
-        ))}
-      </PanelSection>
+    <ContextPanel label="Project" header={<ProjectHeader />}>
+      <div className="pt-3">
+        <PanelSection>
+          {projectItems.map(({ key, ...item }) => (
+            <PanelItem key={key} {...item} active={key === active} />
+          ))}
+        </PanelSection>
+      </div>
     </ContextPanel>
   )
 }

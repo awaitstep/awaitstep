@@ -4,7 +4,7 @@ import { useOrgKeys, useRevokeOrgKey } from '../../data/dashboard/api-keys'
 import { useOrgMembers } from '../../data/dashboard/org-settings'
 import { NoAccessPanel } from '../access/parts/no-access-panel'
 import { useProjects } from '../../data/dashboard/projects'
-import { orgPath, projectSettingsPath, withNewDialog } from '../../lib/dashboard-paths'
+import { orgPath, projectPagePath, withNewDialog } from '../../lib/dashboard-paths'
 import type { ApiKey } from '../../types/dashboard/api-keys'
 import { Banner } from '../ui/banner'
 import { buttonVariants } from '../ui/button'
@@ -75,7 +75,7 @@ export function OrgKeysPage({ org, createOpen, onCloseCreate }: OrgKeysPageProps
   const links = project
     ? {
         project: {
-          href: projectSettingsPath({ org, project }, 'api-keys'),
+          href: projectPagePath({ org, project }, 'api-keys'),
           label: 'Project keys',
         },
       }

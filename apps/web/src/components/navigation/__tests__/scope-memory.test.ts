@@ -5,6 +5,7 @@ import {
   recentProjects,
   recentWorkspaces,
   rememberOrg,
+  rememberProject,
   rememberWorkspace,
 } from '../scope-memory'
 
@@ -102,5 +103,16 @@ describe('scope memory', () => {
     expect(orgOpenedAt('globex', storage)).toBe('2026-10-31T09:00:00.000Z')
     rememberOrg('constructor', storage, new Date(Date.UTC(2026, 9, 31, 10)))
     expect(orgOpenedAt('constructor', storage)).toBe('2026-10-31T10:00:00.000Z')
+  })
+})
+
+describe('rememberProject', () => {
+  it('makes a project the most recent one without touching its workspaces', () => {
+    const storage = memoryStorage()
+    rememberWorkspace('acme', 'project-101', 'sales', storage)
+    rememberProject('acme', 'marketing', storage)
+    expect(recentProjects('acme', storage)).toEqual(['marketing', 'project-101'])
+    expect(recentWorkspaces('acme', 'project-101', storage)).toEqual(['sales'])
+    expect(recentWorkspaces('acme', 'marketing', storage)).toEqual([])
   })
 })

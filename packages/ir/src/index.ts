@@ -210,7 +210,12 @@ export {
   slugify,
   type SlugLevel,
 } from './slugs.js'
-export { WORKSPACE_COLOURS, isWorkspaceColour, type WorkspaceColour } from './workspaces.js'
+export {
+  WORKSPACE_COLOURS,
+  isWorkspaceColour,
+  type RunHour,
+  type WorkspaceColour,
+} from './workspaces.js'
 export {
   KEY_ACTIONS,
   KEY_CATALOG,

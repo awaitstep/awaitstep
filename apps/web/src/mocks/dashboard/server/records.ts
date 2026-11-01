@@ -14,7 +14,7 @@ import {
 } from '../access'
 import type { LockRow, MockDb, OrgRow, ProjectRow, WorkspaceRow } from '../db'
 import { type MockContext, notFoundError } from '../scenario'
-import { callersOf, workspaceCounts } from './item-records'
+import { callersOf, workspaceCounts, workspaceRunsByHour } from './item-records'
 
 // Row → record joins: what the fake API returns for each table.
 
@@ -214,7 +214,7 @@ export function workspaceScope(
   const viewerRole = workspaceRoleOf(db, ctx, project, row)
   if (!viewerRole) throw notFoundError()
   return {
-    workspace: workspaceRecord(db, project, row),
+    workspace: { ...workspaceRecord(db, project, row), runsByHour: workspaceRunsByHour(db, row) },
     viewerRole,
     viewerCan: workspaceCapabilities(viewerRole, {
       ownLock: row.lock !== null,

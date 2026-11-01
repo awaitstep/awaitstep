@@ -94,6 +94,53 @@ describe.each([
       })
     })
 
+    it('counts the workspace runs in each of the last 24 hours, oldest first', async () => {
+      const scope = await h.adapter.getScopeBySlugs(
+        'u-ben',
+        { org: 'acme', project: 'project-101', workspace: 'sales' },
+        NOW,
+      )
+      const hours = scope!.workspace!.runsByHour!
+      expect(hours).toHaveLength(24)
+      const empty = { runs: 0, complete: 0, failed: 0 }
+      // NOW is 12:00: the 01:00 run is 11 hours back, so the 13th bar (index 12).
+      // r-1 is older than a day and r-7 is another project's: neither counts.
+      const expected = Array.from({ length: 24 }, () => empty)
+      expected[12] = { runs: 1, complete: 0, failed: 1 }
+      expected[13] = { runs: 1, complete: 1, failed: 0 }
+      expected[14] = { runs: 1, complete: 1, failed: 0 }
+      expected[17] = { runs: 1, complete: 0, failed: 1 }
+      expected[18] = { runs: 1, complete: 0, failed: 0 }
+      expect(hours.map((hour) => ({ ...hour }))).toEqual(expected)
+      expect(hours.reduce((sum, hour) => sum + hour.runs, 0)).toBe(scope!.workspace!.counts.runs24h)
+    })
+
+    it('puts a run exactly a day back in the oldest bar and a skewed one in the newest, as runs24h counts them', async () => {
+      const at = (ms: number) => new Date(NOW.getTime() + ms).toISOString()
+      const run = (id: string, createdAt: string) => ({
+        id,
+        workflowId: 'wf-enrich',
+        versionId: null,
+        connectionId: null,
+        instanceId: id,
+        status: 'complete',
+        createdAt,
+        updatedAt: createdAt,
+      })
+      await h.db
+        .insert(h.schema.workflowRuns)
+        .values([run('r-edge', at(-24 * 3600 * 1000)), run('r-skew', at(60 * 1000))])
+      const scope = await h.adapter.getScopeBySlugs(
+        'u-ben',
+        { org: 'acme', project: 'project-101', workspace: 'sales' },
+        NOW,
+      )
+      const hours = scope!.workspace!.runsByHour!
+      expect(hours[0]).toEqual({ runs: 1, complete: 1, failed: 0 })
+      expect(hours[23]).toEqual({ runs: 1, complete: 1, failed: 0 })
+      expect(hours.reduce((sum, hour) => sum + hour.runs, 0)).toBe(scope!.workspace!.counts.runs24h)
+    })
+
     it('leaves the deepest level null when its slug matches nothing', async () => {
       const missingWorkspace = await h.adapter.getScopeBySlugs('u-ama', {
         org: 'acme',

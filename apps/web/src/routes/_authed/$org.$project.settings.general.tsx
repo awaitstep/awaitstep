@@ -1,16 +1,12 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
-import { GeneralPage } from '../../components/project-settings/general-page'
+import { createFileRoute, redirect } from '@tanstack/react-router'
+import { projectPagePath } from '../../lib/dashboard-paths'
 
-const page: DashboardPage = { kind: 'project-settings', page: 'general' }
-
+// General is the project's Settings now: old links follow, query kept, slugs encoded.
 export const Route = createFileRoute('/_authed/$org/$project/settings/general')({
-  staticData: { dashboardPage: page },
-  head: () => pageHead(page),
-  component: ProjectGeneralPage,
+  beforeLoad: ({ params, location }) => {
+    throw redirect({
+      href: `${projectPagePath(params, 'settings')}${location.searchStr}`,
+      replace: true,
+    })
+  },
 })
-
-function ProjectGeneralPage() {
-  const slugs = Route.useParams()
-  return <GeneralPage slugs={slugs} />
-}

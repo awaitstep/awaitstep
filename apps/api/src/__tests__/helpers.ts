@@ -354,7 +354,12 @@ const mockDb: DatabaseAdapter = {
     return {
       org,
       project: project && projectOverview(project),
-      workspace: workspace && workspaceOverview(workspace),
+      workspace: workspace && {
+        ...workspaceOverview(workspace),
+        runsByHour: Array.from({ length: 24 }, (_, i) =>
+          i === 23 ? { runs: 2, complete: 1, failed: 1 } : { runs: 0, complete: 0, failed: 0 },
+        ),
+      },
     }
   },
 
@@ -547,6 +552,15 @@ const mockDb: DatabaseAdapter = {
   },
   async addWorkspaceMember() {
     return notMocked('addWorkspaceMember')
+  },
+  async addProjectMember() {
+    return notMocked('addProjectMember')
+  },
+  async addWorkspaceGrants() {
+    return notMocked('addWorkspaceGrants')
+  },
+  async projectGrantRows() {
+    return notMocked('projectGrantRows')
   },
   async setWorkspaceGrant() {
     return notMocked('setWorkspaceGrant')

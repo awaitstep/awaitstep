@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react'
-import { Settings } from 'lucide-react'
+import { Layers } from 'lucide-react'
 import type { Theme } from '../../lib/theme'
 import type { ScopeSlugs } from '../../types/dashboard/scope'
 import type { WorkspaceColour } from '../ui/workspace-colour'
 import { orgPath, withOverlay } from '../../lib/dashboard-paths'
 import { AppShell } from '../shell/app-shell'
-import { ContextPanel, PanelBackLink, PanelScopeButton } from '../shell/context-panel'
+import { ContextPanel, PanelScopeButton } from '../shell/context-panel'
 import { MobileHeader, MobileOrgButton, MobileTabBar } from '../shell/mobile-nav'
 import { OrgRail } from '../shell/org-rail'
 import { PanelItem, PanelSection } from '../shell/panel-item'
@@ -185,9 +185,7 @@ function FramePanel({ panel, scope }: { panel: PanelModel; scope: FrameScope }) 
         <ContextPanel
           label="Project"
           header={<ProjectHeader scope={scope} />}
-          footer={
-            <PanelItem href={panel.projectSettingsHref} icon={Settings} label="Project settings" />
-          }
+          footer={<PanelItem href={panel.projectHref} icon={Layers} label="Project" />}
         >
           <WorkspaceSwitcher
             slugs={panel.slugs}
@@ -205,11 +203,12 @@ function FramePanel({ panel, scope }: { panel: PanelModel; scope: FrameScope }) 
           <NavSection items={panel.items} activeKey={panel.activeKey} />
         </ContextPanel>
       )
-    case 'project-settings':
+    case 'project':
       return (
-        <ContextPanel label="Project settings" header={<ProjectHeader scope={scope} />}>
-          <PanelBackLink href={panel.backHref} label="Back to workspace" />
-          <NavSection title="Project settings" items={panel.items} activeKey={panel.activeKey} />
+        <ContextPanel label="Project" header={<ProjectHeader scope={scope} />}>
+          <div className="pt-3">
+            <NavSection items={panel.items} activeKey={panel.activeKey} />
+          </div>
         </ContextPanel>
       )
   }
@@ -224,7 +223,7 @@ interface FrameMobileHeaderProps {
   onToggleTheme: () => void
 }
 
-/** Below `md`: on workspace pages, back to projects and the project menu; elsewhere the org. */
+/** Below `md`: on project and workspace pages, back to projects and the project menu; elsewhere the org. */
 function FrameMobileHeader({
   panel,
   scope,
@@ -256,7 +255,25 @@ function FrameMobileHeader({
             workspace={scope.workspace!}
             nav={panel.items}
             activeKey={panel.activeKey}
-            projectSettingsHref={panel.projectSettingsHref}
+            projectHref={panel.projectHref}
+          />
+        }
+        account={account}
+      />
+    )
+  }
+  if (panel.mode === 'project') {
+    // The project's own pages (Workspaces … Settings) live in the same sheet on a phone.
+    return (
+      <MobileHeader
+        back={{ label: 'Back to projects', href: orgPath(scope.slugs.org) }}
+        scope={
+          <MobileProjectMenu
+            slugs={{ org: scope.slugs.org, project: scope.slugs.project! }}
+            orgName={scope.org.name}
+            project={scope.project!}
+            nav={panel.items}
+            activeKey={panel.activeKey}
           />
         }
         account={account}

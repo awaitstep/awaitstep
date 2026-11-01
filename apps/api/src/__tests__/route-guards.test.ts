@@ -47,6 +47,13 @@ function sessionOnly(method: string, path: string): boolean {
   if (path === '/api/scope' || path === '/api/orgs' || path === '/api/failing') return true
   if (/^\/api\/workspaces\/:id\/access-request/.test(path)) return true
   if (/^\/api\/workspaces\/:id\/members/.test(path)) return method !== 'GET'
+  // Adding people from a project or workspace answers for a person, like its members' writes.
+  if (
+    /^\/api\/(projects|workspaces)\/:id\/(members|invitations)$/.test(path) &&
+    method === 'POST'
+  ) {
+    return true
+  }
   // A key that may delete must not lift the lock first (D-B5-3).
   if (path === '/api/projects/:id/lock' || path === '/api/workspaces/:id/lock') return true
   // Under a project item (project keys refused) and no organization key holds workflows (B6).
@@ -236,7 +243,9 @@ describe('mutation route guards', () => {
       !path.startsWith('/api/releases') &&
       !path.startsWith('/api/account') &&
       !path.startsWith('/api/projects/:id/move') &&
-      !path.startsWith('/api/projects/:id/lock')
+      !path.startsWith('/api/projects/:id/lock') &&
+      !path.startsWith('/api/projects/:id/members') &&
+      !path.startsWith('/api/projects/:id/invitations')
     expect(await refusals(ORG_READ_KEY, orgLevel, /lacks permission/)).toEqual([])
   })
 

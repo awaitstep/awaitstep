@@ -19,7 +19,7 @@ interface ScopedSectionProps {
   colour?: WorkspaceColour
   /** "Can open Sales and nothing else in Project 101". */
   hint?: ReactNode
-  /** Where an inherited list is managed: "Manage in Project settings". */
+  /** Where an inherited list is managed: "Manage in the project". */
   manage?: { label: string; href: string }
   /** A `ListCard` or `DataTable` with `framed={false}`. */
   children: ReactNode

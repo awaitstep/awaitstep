@@ -2,9 +2,9 @@ import type { WorkspaceColour } from '../../components/ui/workspace-colour'
 import type { LockState } from './locks'
 import type { Person } from './session'
 
-import type { WorkspaceRole } from '@awaitstep/ir'
+import type { RunHour, WorkspaceRole } from '@awaitstep/ir'
 
-export type { WorkspaceRole } from '@awaitstep/ir'
+export type { RunHour, WorkspaceRole } from '@awaitstep/ir'
 
 /** Someone who can open a workspace, with their effective role there. */
 export interface WorkspacePerson {
@@ -38,6 +38,8 @@ export interface Workspace {
   createdBy: { id: string; name: string } | null
   lock: LockState
   counts: WorkspaceCounts
+  /** The last 24 hours' runs, oldest first: only on the workspace a page's URL names. */
+  runsByHour?: RunHour[]
 }
 
 export interface WorkspaceCounts {

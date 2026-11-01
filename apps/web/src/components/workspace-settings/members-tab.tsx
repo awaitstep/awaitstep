@@ -6,7 +6,7 @@ import { useWorkspaces } from '../../data/dashboard/workspaces'
 import {
   orgPath,
   projectPath,
-  projectSettingsPath,
+  projectPagePath,
   type WorkspaceSlugs,
 } from '../../lib/dashboard-paths'
 import { timeAgoOrDay } from '../../lib/time'
@@ -28,7 +28,7 @@ import { ListCard, ListRow } from '../ui/list-card'
 import { ScopedSection } from '../ui/scoped-section'
 import { useGoTo } from '../navigation/router-shell-link'
 import { TopBarContent } from '../navigation/top-bar-slot'
-import { AddMemberDialog } from './add-member-dialog'
+import { AddWorkspacePeopleDialog } from './add-people-dialog'
 import { grantCounts } from '../../lib/workspace-roles'
 import { WORKSPACE_ROLES, WORKSPACE_ROLE_LABEL, inheritedRoleLabel } from './workspace-roles'
 
@@ -155,7 +155,6 @@ export function MembersTab({ slugs, scope, org, projectName, people }: MembersTa
 
   const removeTitle = removing ? `Remove ${removing.person.name} from ${workspace.name}?` : ''
   const removeBody = remove.error?.message ?? (removing && removeText(removing))
-  const exclude = new Set(people.map((p) => p.person.id))
 
   return (
     <>
@@ -163,7 +162,7 @@ export function MembersTab({ slugs, scope, org, projectName, people }: MembersTa
         <TopBarContent>
           <Button type="button" size="sm" onClick={handleAdd}>
             <Plus aria-hidden="true" />
-            Add member
+            Add people
           </Button>
         </TopBarContent>
       )}
@@ -205,8 +204,8 @@ export function MembersTab({ slugs, scope, org, projectName, people }: MembersTa
         scopeLabel={`From ${projectName}`}
         hint="Project members can open every workspace"
         manage={{
-          label: 'Manage in Project settings',
-          href: projectSettingsPath(slugs, 'members'),
+          label: 'Manage in the project',
+          href: projectPagePath(slugs, 'members'),
         }}
       >
         <ListCard framed={false} label={`From ${projectName}`} empty="Nobody from the project.">
@@ -229,11 +228,12 @@ export function MembersTab({ slugs, scope, org, projectName, people }: MembersTa
         </ListCard>
       </ScopedSection>
       {adding && (
-        <AddMemberDialog
+        <AddWorkspacePeopleDialog
           slugs={slugs}
           org={org}
+          projectName={projectName}
           workspaceName={workspace.name}
-          exclude={exclude}
+          people={people}
           onClose={handleCloseAdd}
         />
       )}

@@ -107,7 +107,7 @@ describe('Project menu', () => {
     expect(
       within(dialog).getByRole('link', { name: 'Project Project 101, switch project' }),
     ).toBeInTheDocument()
-    expect(within(dialog).getByRole('link', { name: 'Project settings' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('link', { name: 'Project' })).toBeInTheDocument()
     expect(within(dialog).getByRole('link', { name: 'New' })).toBeInTheDocument()
   })
 
@@ -120,7 +120,7 @@ describe('Project menu', () => {
         workspaces={menuWorkspaces.map((w) => ({ ...w, href: `#${w.key}` }))}
         newWorkspaceHref={newWorkspaceHref}
         nav={workspaceItems.map((item) => ({ ...item, href: `#${item.key}` }))}
-        projectSettingsHref="#settings"
+        projectHref="#settings"
         onClose={onClose}
       />,
     )
@@ -154,7 +154,7 @@ describe('Project menu', () => {
           },
         ]}
         nav={[]}
-        projectSettingsHref="#settings"
+        projectHref="#settings"
         onClose={vi.fn()}
       />,
     )
@@ -170,7 +170,7 @@ describe('Project menu', () => {
         switchControl={<ProjectMenuSwitchButton project={project} onClick={onClick} />}
         workspaces={[]}
         nav={[]}
-        projectSettingsHref="#settings"
+        projectHref="#settings"
         onClose={vi.fn()}
       />,
     )

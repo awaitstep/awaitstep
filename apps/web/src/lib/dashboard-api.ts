@@ -19,7 +19,9 @@ import type {
   AccountExport,
   AccountSession,
   ApiAccount,
+  RunHour,
 } from '@awaitstep/ir'
+import type { ProjectAccessChoice } from '../types/dashboard/access'
 import {
   request,
   type PaginatedResponse,
@@ -32,6 +34,16 @@ import {
 // workflow and run routes with their workspace filters.
 
 export type ApiCapabilities<C extends string> = Record<C, Allowed>
+
+/**
+ * One address in a project's or workspace's invite reply: ids and expiry only for org owners
+ * and admins (who manage invitations); anyone else gets the address alone, sent or already invited.
+ */
+export interface PlaceInviteReply {
+  email: string
+  id?: string
+  expiresAt?: string
+}
 
 export interface ApiMember {
   id: string
@@ -217,6 +229,8 @@ export interface ApiWorkspace {
     failing: number
     lastRunAt: string | null
   }
+  /** On the scope answer only: the last 24 hours' runs, oldest first. */
+  runsByHour?: RunHour[]
   members: ApiWorkspacePerson[]
   viewerRole: WorkspaceRole
   viewerCan: ApiCapabilities<WorkspaceCapability>
@@ -558,6 +572,45 @@ export const dashboardApi = {
     })
   },
 
+  /** 21b: new addresses join the org as Members with a role in this workspace only. */
+  inviteToWorkspace(
+    workspaceId: string,
+    data: { emails: string[]; role: WorkspaceRole },
+  ): Promise<{ data: PlaceInviteReply[] }> {
+    return request(`/workspaces/${workspaceId}/invitations`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  /** 21a: someone already in the org gets the whole project, or one role in some workspaces. */
+  addToProject(
+    projectId: string,
+    data: { userId: string; access: ProjectAccessChoice },
+  ): Promise<{
+    userId: string
+    scope: ProjectAccessChoice['scope']
+    role: string
+    /** The workspaces written (the workspaces scope): those asked for, less any already held. */
+    workspaces?: { id: string; name: string }[]
+  }> {
+    return request(`/projects/${projectId}/members`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  /** 21a: new addresses join the org as Members with this project's access only. */
+  inviteToProject(
+    projectId: string,
+    data: { emails: string[]; access: ProjectAccessChoice },
+  ): Promise<{ data: PlaceInviteReply[] }> {
+    return request(`/projects/${projectId}/invitations`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
   setWorkspaceRole(workspaceId: string, userId: string, role: WorkspaceRole): Promise<unknown> {
     return request(`/workspaces/${workspaceId}/members/${userId}`, {
       method: 'PATCH',
@@ -660,8 +713,13 @@ export const dashboardApi = {
   },
 
   // Connections and the marketplace (B9): organization settings, `?org=`.
-  listConnections(org: string, cursor?: string): Promise<PaginatedResponse<ConnectionSummary>> {
-    return request(`/connections${query({ org, cursor })}`)
+  /** `project` (a slug) narrows the list to the accounts that deploy that project. */
+  listConnections(
+    org: string,
+    cursor?: string,
+    project?: string,
+  ): Promise<PaginatedResponse<ConnectionSummary>> {
+    return request(`/connections${query({ org, cursor, project })}`)
   },
 
   /** Checks the token with Cloudflare first: a refusal is a `400` on `token` or `accountId`. */

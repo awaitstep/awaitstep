@@ -527,8 +527,9 @@ written with the workspace as one unit; someone outside the organization
 answers `409` and nothing is written; a row that counts no higher than what
 the project already gives the person is skipped. A key creates the
 workspace but not its roster (`members` from a key → `403`). A slug another
-workspace in the project uses answers `409`; a reserved one (`settings`)
-`422`.
+workspace in the project uses answers `409`; a reserved one (`workspaces`,
+`shared`, `members`, `api-keys`, `variables`, `settings`: the project's own
+pages) `422`.
 
 **Permission:** `workspaces:write`
 
@@ -620,7 +621,9 @@ Session only. What the dashboard URL `/{org}/{project}/{workspace}` names:
 `{ found: true, org, project?, workspace? }`, each level with its record,
 the caller's role there and `viewerCan`; or `{ found: false, notFound: {
 kind, slug, parent } }` naming the first level that did not match. A slug the
-caller may not open reads as not found.
+caller may not open reads as not found. The workspace record also carries
+`runsByHour`: its runs in each of the 24 hours up to now, oldest first, as
+`{ runs, complete, failed }`.
 
 | Param       | In    | Required | Description                      |
 | ----------- | ----- | -------- | -------------------------------- |
@@ -656,7 +659,9 @@ lives.
 Who can work where, below the organization. Every answer here names people,
 so the writes are session only; the two lists are open to a key holding
 `members:read` at its own level. Org owners and admins run the access editor
-and remove people; a workspace's admins manage its own grants. A grant at or
+and remove people; a project's admins add people to it, and a workspace's
+admins manage its own grants — both may invite new addresses into their own
+place only, as org Members. A grant at or
 below what the project already gives someone is refused (`409`), since it
 would do nothing now and quietly keep them in later.
 
@@ -728,6 +733,63 @@ Change their grant's role; `409` when the new role would not count.
 
 Remove their grant here. What the project gives them stays.
 
+### `POST /workspaces/:id/invitations`
+
+The workspace's admins invite people new to the organization (21b): one
+invitation per address (up to twenty), each emailed, joining as an org
+`member` with this workspace alone, at `role`. The same checks and limits as
+`POST /invitations`: `409` naming an address already in the organization,
+`422` for a malformed one, `429` past the email budget. An address the
+organization has already invited answers `409` for an org owner or admin; for
+anyone else (who can't see the org's invitations) it is skipped as if sent —
+no second invitation, no email — so the answer never tells them who was
+invited. The email budget counts every address sent either way. The
+`invitation.create` audit row sits at this workspace. `201` with
+`{ data: [{ id, email, expiresAt }] }` (the invitations created) for an org
+owner or admin; anyone else gets `{ data: [{ email }] }`, one per address
+sent, the same whether it was new or already invited.
+
+```json
+{ "emails": ["sam@newco.test"], "role": "editor" }
+```
+
+### `POST /projects/:id/members`
+
+The project's admins (and org owners and admins) add someone already in the
+organization (21a), either to the whole project or with one role in some of
+its workspaces. One statement. Naming a workspace that isn't this project's
+answers `404` and writes nothing; a workspace where they already hold a grant,
+or where the project already gives them that much, is skipped. `201` with
+what was written: `{ userId, scope: "project", role }` or
+`{ userId, scope: "workspaces", role, workspaces: [{ id, name }] }`. `409`
+with the reason when nothing was: not in the organization, an org owner or
+admin (who reach every project), already in the project, already working in
+some of its workspaces (the whole project is refused then: change their
+access from the access editor), or the role would not count in any of the
+workspaces named.
+
+```json
+{ "userId": "usr_...", "access": { "scope": "project", "role": "member" } }
+```
+
+```json
+{
+  "userId": "usr_...",
+  "access": { "scope": "workspaces", "workspaceIds": ["ws_..."], "role": "editor" }
+}
+```
+
+### `POST /projects/:id/invitations`
+
+The project's admins invite people new to the organization (21a), as org
+`member`s with the same `access` as `POST /projects/:id/members` — the whole
+project, or the workspaces named, which must all be this project's (`404`
+otherwise). Otherwise as `POST /workspaces/:id/invitations`.
+
+```json
+{ "emails": ["sam@newco.test"], "access": { "scope": "project", "role": "member" } }
+```
+
 ### `GET /workspaces/:id/access-request`
 
 The caller's open "Ask for edit access" request in this workspace, or
@@ -776,7 +838,8 @@ a project role, a workspace place a workspace role, no place twice, and no
 workspace place a project-wide place in the body already covers at that
 level or above (`422` otherwise). An address already in the organization,
 or already invited, answers `409` naming it. A person may send a hundred
-invitation emails an hour, resends included (`429` past that).
+invitation emails an hour, resends included (`429` past that). `201` with
+`{ data: [{ id, email, expiresAt }] }`.
 
 ```json
 {
@@ -2049,14 +2112,14 @@ address cut to its `/24` (IPv4, `81.2.69.x`) or `/48` (IPv6) — the full
 address is never stored. `scope` names the place as it is now
 (`"Deleted project"` once it is gone); `colour` is set for workspace events.
 
-| Kind     | Events                                                                                                                                                                                                                                                                                                                               |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `danger` | `project.delete`, `project.delete.blocked`, `project.move.out`, `project.move.in` (a move is logged in both organizations), `project.move.blocked`, `workspace.delete`, `workspace.delete.blocked`, `workflow.delete`, `workflow.takedown`, `version.delete`, `account.delete` (in each organization the person was in, just before) |
-| `key`    | `api_key.create`, `api_key.revoke`, `connection.create`, `connection.update`, `connection.delete`, `variable.create`, `variable.update`, `variable.delete`                                                                                                                                                                           |
-| `access` | `member.join`, `organization.update`, `workflow.move`, `invitation.create`, `invitation.cancel`, `member.access`, `member.remove`, `workspace_member.add`, `workspace_member.role`, `workspace_member.remove`, `access_request.approve`, `access_request.decline`, `workflow.share`, `workflow.unshare`, `member.leave`              |
-| `deploy` | `workflow.deploy`, `version.revert`, `node.install`, `node.update`, `node.uninstall`                                                                                                                                                                                                                                                 |
-| `lock`   | `project.lock`, `project.unlock`, `workspace.lock`, `workspace.unlock` (only when the lock actually changes)                                                                                                                                                                                                                         |
-| `auth`   | `signin`, `account.method_connect`, `account.method_disconnect`, `session.revoke`, `account.export` (each once in every organization the person belongs to), `connection.verify.failed`, `connection.verify.locked`                                                                                                                  |
+| Kind     | Events                                                                                                                                                                                                                                                                                                                                        |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `danger` | `project.delete`, `project.delete.blocked`, `project.move.out`, `project.move.in` (a move is logged in both organizations), `project.move.blocked`, `workspace.delete`, `workspace.delete.blocked`, `workflow.delete`, `workflow.takedown`, `version.delete`, `account.delete` (in each organization the person was in, just before)          |
+| `key`    | `api_key.create`, `api_key.revoke`, `connection.create`, `connection.update`, `connection.delete`, `variable.create`, `variable.update`, `variable.delete`                                                                                                                                                                                    |
+| `access` | `member.join`, `organization.update`, `workflow.move`, `invitation.create`, `invitation.cancel`, `member.access`, `member.remove`, `project_member.add`, `workspace_member.add`, `workspace_member.role`, `workspace_member.remove`, `access_request.approve`, `access_request.decline`, `workflow.share`, `workflow.unshare`, `member.leave` |
+| `deploy` | `workflow.deploy`, `version.revert`, `node.install`, `node.update`, `node.uninstall`                                                                                                                                                                                                                                                          |
+| `lock`   | `project.lock`, `project.unlock`, `workspace.lock`, `workspace.unlock` (only when the lock actually changes)                                                                                                                                                                                                                                  |
+| `auth`   | `signin`, `account.method_connect`, `account.method_disconnect`, `session.revoke`, `account.export` (each once in every organization the person belongs to), `connection.verify.failed`, `connection.verify.locked`                                                                                                                           |
 
 Not recorded: creating or editing projects, workspaces and workflows, file
 and graph edits, runs, test sessions, reads, and refused requests.

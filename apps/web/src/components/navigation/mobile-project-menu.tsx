@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useWorkspaces } from '../../data/dashboard/workspaces'
-import { workspacePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
+import { workspacePath, type ProjectSlugs } from '../../lib/dashboard-paths'
 import { BottomSheet } from '../ui/bottom-sheet'
 import type { WorkspaceColour } from '../ui/workspace-colour'
 import { MobileScopeButton } from '../shell/mobile-nav'
@@ -13,14 +13,16 @@ import type { NavItem } from './nav-model'
 import { ProjectSwitcher } from './project-switcher'
 
 interface MobileProjectMenuProps {
-  slugs: WorkspaceSlugs
+  slugs: ProjectSlugs & { workspace?: string }
   orgName: string
   project: { name: string; initial: string }
-  workspace: { name: string; initial: string; colour: WorkspaceColour }
-  /** The workspace's pages, as in the desktop panel. */
+  /** The workspace the page is in; none on the project's own pages. */
+  workspace?: { name: string; initial: string; colour: WorkspaceColour }
+  /** The workspace's pages, or the project's own, as in the desktop panel. */
   nav: NavItem[]
   activeKey: string
-  projectSettingsHref: string
+  /** From a workspace, the way to the project's own pages. */
+  projectHref?: string
 }
 
 function countLabel(workflows: number): string {
@@ -29,7 +31,8 @@ function countLabel(workflows: number): string {
 
 /**
  * The phone header's "Project 101 / Sales" button and the project menu it
- * opens: the project's workspaces, this workspace's pages, Project settings.
+ * opens: the project's workspaces, and this workspace's pages with a way to the
+ * project's own; on a project page, the project's pages.
  * Every link closes the sheet.
  */
 export function MobileProjectMenu({
@@ -39,7 +42,7 @@ export function MobileProjectMenu({
   workspace,
   nav,
   activeKey,
-  projectSettingsHref,
+  projectHref,
 }: MobileProjectMenuProps) {
   const [open, setOpen] = useState(false)
   const workspaces = useWorkspaces(slugs.org, slugs.project)
@@ -65,8 +68,12 @@ export function MobileProjectMenu({
       trigger={
         <MobileScopeButton
           project={project.name}
-          workspace={workspace.name}
-          tile={{ initial: workspace.initial, colour: workspace.colour }}
+          workspace={workspace?.name}
+          tile={
+            workspace
+              ? { initial: workspace.initial, colour: workspace.colour }
+              : { initial: project.initial }
+          }
         />
       }
     >
@@ -86,7 +93,8 @@ export function MobileProjectMenu({
         }
         workspaces={tiles}
         nav={nav.map((item) => ({ ...item, active: item.key === activeKey }))}
-        projectSettingsHref={projectSettingsHref}
+        navLabel={workspace ? 'Workspace' : 'Project'}
+        projectHref={projectHref}
         onClose={handleClose}
       />
     </BottomSheet>

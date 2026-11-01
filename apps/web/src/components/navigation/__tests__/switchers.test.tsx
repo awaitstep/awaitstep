@@ -239,7 +239,7 @@ describe('WorkspaceSwitcher', () => {
     await open('Sales')
     await userEvent.click(screen.getByRole('button', { name: 'New workspace' }))
     expect(lastNavigation()).toMatchObject({
-      to: '/acme/project-101/settings/workspaces',
+      to: '/acme/project-101/workspaces',
       search: { new: 'workspace' },
     })
   })

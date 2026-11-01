@@ -7,10 +7,19 @@ import type { ProjectScope, WorkspaceScope } from '../../types/dashboard/scope'
  * resolved them before the page renders (or shown Not found), so this reads
  * the cached scope; null only for the moment before it arrives.
  */
-export function useWorkspaceScope(
-  slugs: WorkspaceSlugs,
-): { orgName: string; project: ProjectScope; workspace: WorkspaceScope } | null {
+export function useWorkspaceScope(slugs: WorkspaceSlugs): {
+  orgName: string
+  /** Org owners and admins: they run the org's settings, connections among them. */
+  orgManager: boolean
+  project: ProjectScope
+  workspace: WorkspaceScope
+} | null {
   const scope = useScope(slugs).data
   if (!scope?.found || !scope.project || !scope.workspace) return null
-  return { orgName: scope.org.org.name, project: scope.project, workspace: scope.workspace }
+  return {
+    orgName: scope.org.org.name,
+    orgManager: scope.org.viewerCan.manageSettings.allowed,
+    project: scope.project,
+    workspace: scope.workspace,
+  }
 }

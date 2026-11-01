@@ -51,7 +51,7 @@ export function WorkflowsPage({ slugs, dialog, onCloseDialog }: WorkflowsPagePro
   const shared = useSharedWithWorkspace(slugs)
   const setShared = useSetShared(slugs)
   const [filter, setFilter] = useState<WorkflowFilter>('all')
-  const emptyView = useEmptyView(slugs, scope?.project.project.workspaces.length ?? 0)
+  const emptyView = useEmptyView(slugs)
 
   if (!scope) return null
   const workspace = scope.workspace.workspace
@@ -164,7 +164,7 @@ export function WorkflowsPage({ slugs, dialog, onCloseDialog }: WorkflowsPagePro
     return (
       <>
         <PageBody>
-          <WorkspaceWelcome view={emptyView} slugs={slugs} {...scope} />
+          <WorkspaceWelcome slugs={slugs} project={scope.project} workspace={scope.workspace} />
         </PageBody>
         {importDialog}
       </>

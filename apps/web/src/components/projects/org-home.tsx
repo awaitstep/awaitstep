@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { Plus } from 'lucide-react'
-import { orgPath, projectPath, workspacePath } from '../../lib/dashboard-paths'
+import { orgPath, projectWorkspacesPath, workspacePath } from '../../lib/dashboard-paths'
+import { currentFirst } from '../../lib/current-first'
 import { timeAgoOrDay } from '../../lib/time'
 import type { ActivityItem } from '../../types/dashboard/activity'
 import type { Project } from '../../types/dashboard/projects'
@@ -127,14 +128,14 @@ export function OrgHome({
           aria-label="Projects"
           className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
         >
-          {shown.map((project) => (
+          {currentFirst(shown, (project) => project.slug === currentProject).map((project) => (
             // min-w-0 at each level: a grid or flex item won't shrink below its
             // content otherwise, and a long card spills into the next column.
             <li key={project.id} className="flex min-w-0">
               <div className="min-w-0 flex-1 [&>a]:h-full">
                 <ProjectCard
                   project={project}
-                  href={projectPath({ org: org.slug, project: project.slug })}
+                  href={projectWorkspacesPath({ org: org.slug, project: project.slug })}
                   current={project.slug === currentProject}
                 />
               </div>

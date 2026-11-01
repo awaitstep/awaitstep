@@ -6,7 +6,7 @@ import {
   projectMembersAddPath,
   type ProjectSlugs,
 } from '../../lib/dashboard-paths'
-import { AccessEditorPanel } from '../org-settings/access-editor-panel'
+import { AddProjectPeopleDialog } from './add-project-people-dialog'
 import type { ProjectMembers, ProjectWideRole } from '../../types/dashboard/access'
 import type { Person } from '../../types/dashboard/session'
 import type { WorkspaceRole } from '../../types/dashboard/workspaces'
@@ -41,7 +41,7 @@ const WORKSPACE_ROLE_LABEL: Record<WorkspaceRole, string> = {
 
 interface MembersPageProps {
   slugs: ProjectSlugs
-  /** Add people is open (`?access=add`): the access editor, set to add someone to this project. */
+  /** Add people is open (`?access=add`): `AddToProject`, for the project's admins. */
   adding?: boolean
   onCloseAdd?: () => void
 }
@@ -61,7 +61,7 @@ function PersonCell({ person, you }: { person: Person; you: boolean }) {
   )
 }
 
-/** `/{org}/{project}/settings/members` (`ProjectMembers`): who opens every workspace, and who opens some. */
+/** `/{org}/{project}/members` (`ProjectMembers`): who opens every workspace, and who opens some. */
 export function MembersPage({ slugs, adding = false, onCloseAdd }: MembersPageProps) {
   const scope = useProjectScope(slugs)
   const members = useProjectMembers(slugs.org, slugs.project)
@@ -69,9 +69,10 @@ export function MembersPage({ slugs, adding = false, onCloseAdd }: MembersPagePr
 
   if (!scope) return null
   const project = scope.project.project
-  // Add people opens the access editor (P5) here, set to this project; Edit access opens it in org
-  // Settings. Org owners and admins run it.
+  // Edit access opens the org's access editor, which org owners and admins run; Add people is
+  // the project's own (`AddToProject`), so its admins add and invite into it too.
   const canManage = scope.org.viewerCan.manageSettings.allowed
+  const canAdd = scope.project.viewerCan.manageMembers.allowed
   const viewerId = viewer.data?.id
 
   function handleRetry() {
@@ -198,7 +199,7 @@ export function MembersPage({ slugs, adding = false, onCloseAdd }: MembersPagePr
 
   return (
     <>
-      {canManage && (
+      {canAdd && (
         <TopBarContent>
           <ShellLink href={projectMembersAddPath(slugs)} className={buttonVariants({ size: 'sm' })}>
             <Plus aria-hidden="true" />
@@ -209,16 +210,18 @@ export function MembersPage({ slugs, adding = false, onCloseAdd }: MembersPagePr
       <PageBody>
         <PageIntro
           title="Members"
-          description={`Who can get into ${project.name}, and which workspaces each person can open. People are invited to ${scope.org.org.name} first, from org Settings → Members.`}
+          description={`Who can get into ${project.name}, and which workspaces each person can open.`}
         />
         {body}
       </PageBody>
-      {canManage && adding && (
-        <AccessEditorPanel
-          org={{ slug: slugs.org, name: scope.org.org.name }}
-          userId={null}
-          addToProject={slugs.project}
-          viewerIsOwner={scope.org.viewerRole === 'owner'}
+      {canAdd && adding && members.data && (
+        <AddProjectPeopleDialog
+          slugs={slugs}
+          orgName={scope.org.org.name}
+          projectName={project.name}
+          workspaces={project.workspaces}
+          members={members.data}
+          canInvite={canAdd}
           onClose={handleCloseAdd}
         />
       )}

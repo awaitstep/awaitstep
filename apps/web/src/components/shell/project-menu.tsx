@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactNode } from 'react'
-import { Check, Plus, Settings, X } from 'lucide-react'
+import { Check, Layers, Plus, X } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { ShellLink } from '../ui/shell-link'
 import { scopeTileColourClass } from '../ui/workspace-colour'
@@ -25,9 +25,12 @@ interface ProjectMenuProps {
   workspaces: ProjectMenuWorkspace[]
   /** Omitted when the viewer can't create workspaces; the New tile is then hidden. */
   newWorkspaceHref?: string
-  /** The current workspace's pages: Overview, Workflows, … Workspace settings. */
+  /** The current workspace's pages (Overview … Workspace settings), or the project's own pages. */
   nav: (PanelItemProps & { key: string })[]
-  projectSettingsHref: string
+  /** What `nav` lists, for its landmark: a workspace's pages or the project's. */
+  navLabel?: 'Workspace' | 'Project'
+  /** In a workspace, a way to the project's own pages; none when `nav` already lists them. */
+  projectHref?: string
   /** Called on Close and on every link, so the sheet doesn't stay up over the page it opened. */
   onClose: () => void
 }
@@ -124,7 +127,8 @@ export function ProjectMenu({
   workspaces,
   newWorkspaceHref,
   nav,
-  projectSettingsHref,
+  navLabel = 'Workspace',
+  projectHref,
   onClose,
 }: ProjectMenuProps) {
   return (
@@ -169,21 +173,18 @@ export function ProjectMenu({
         )}
       </div>
       <nav
-        aria-label="Workspace"
+        aria-label={navLabel}
         className="flex flex-col gap-0.5 border-t border-border px-2.5 py-2"
       >
         {nav.map(({ key, ...item }) => (
           <PanelItem key={key} {...item} onSelect={onClose} />
         ))}
       </nav>
-      <div className="border-t border-border px-2.5 py-2">
-        <PanelItem
-          href={projectSettingsHref}
-          icon={Settings}
-          label="Project settings"
-          onSelect={onClose}
-        />
-      </div>
+      {projectHref && (
+        <div className="border-t border-border px-2.5 py-2">
+          <PanelItem href={projectHref} icon={Layers} label="Project" onSelect={onClose} />
+        </div>
+      )}
     </div>
   )
 }

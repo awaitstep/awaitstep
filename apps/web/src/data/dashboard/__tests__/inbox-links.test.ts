@@ -25,7 +25,7 @@ describe('notificationHref', () => {
         project: 'project-101',
         page: 'shared',
       }),
-    ).toBe('/acme/project-101/settings/shared')
+    ).toBe('/acme/project-101/shared')
     expect(notificationHref('acme', { kind: 'org-settings', page: 'members' })).toBe(
       '/acme/settings/members',
     )

@@ -176,6 +176,13 @@
       "when": 1793401159426,
       "tag": "0024_connection_projects",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1793537503676,
+      "tag": "0025_reserved_page_slugs",
+      "breakpoints": true
     }
   ]
 }

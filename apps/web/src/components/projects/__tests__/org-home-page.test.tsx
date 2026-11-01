@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
+import { rememberWorkspace } from '../../navigation/scope-memory'
 import userEvent from '@testing-library/user-event'
 import type { Project } from '../../../types/dashboard/projects'
 import { OrgHomePage } from '../org-home-page'
@@ -79,6 +80,9 @@ afterEach(() => {
 })
 
 describe('OrgHomePage', () => {
+  // The last project opened is remembered in storage: each test starts with none.
+  beforeEach(() => localStorage.clear())
+
   it('shows skeletons while the page loads', () => {
     state.projects = pending()
     state.failing = pending()
@@ -104,11 +108,23 @@ describe('OrgHomePage', () => {
     )
     const cards = within(screen.getByRole('list', { name: 'Projects' })).getAllByRole('link')
     expect(cards.map((card) => card.getAttribute('href'))).toEqual([
-      '/acme/project-101',
-      '/acme/marketing-site',
+      '/acme/project-101/workspaces',
+      '/acme/marketing-site/workspaces',
       '/acme/projects?new=project',
     ])
     expect(screen.getByRole('region', { name: 'Recent activity' })).toBeVisible()
+  })
+
+  it('puts the project you were last in first', () => {
+    rememberWorkspace('acme', 'marketing-site', 'default')
+    settle()
+    renderPage()
+    const cards = within(screen.getByRole('list', { name: 'Projects' })).getAllByRole('link')
+    expect(cards.map((card) => card.getAttribute('href'))).toEqual([
+      '/acme/marketing-site/workspaces',
+      '/acme/project-101/workspaces',
+      '/acme/projects?new=project',
+    ])
   })
 
   it('lets each card shrink to its column instead of spilling into the next', () => {
@@ -123,7 +139,7 @@ describe('OrgHomePage', () => {
     renderPage()
     await userEvent.type(screen.getByRole('searchbox', { name: 'Search projects' }), 'sales')
     const cards = within(screen.getByRole('list', { name: 'Projects' })).getAllByRole('link')
-    expect(cards.map((card) => card.getAttribute('href'))).toEqual(['/acme/project-101'])
+    expect(cards.map((card) => card.getAttribute('href'))).toEqual(['/acme/project-101/workspaces'])
     await userEvent.clear(screen.getByRole('searchbox', { name: 'Search projects' }))
     await userEvent.type(screen.getByRole('searchbox', { name: 'Search projects' }), 'zzz')
     expect(screen.getByText(/No project or workspace matches/)).toBeVisible()
@@ -153,7 +169,7 @@ describe('OrgHomePage', () => {
 })
 
 describe('New project dialog', () => {
-  it('opens from ?new=project, shows the URL as you type, and lands in the new workspace', async () => {
+  it('opens from ?new=project, shows the URL as you type, and lands on the new project’s Workspaces page', async () => {
     settle()
     createProject.mutate.mockImplementation((_input, { onSuccess }) =>
       onSuccess({ project: { slug: 'billing' }, workspace: { slug: 'default' } }),
@@ -168,7 +184,7 @@ describe('New project dialog', () => {
       expect.anything(),
     )
     expect(navigate).toHaveBeenCalledWith(
-      expect.objectContaining({ to: '/acme/billing/default/overview' }),
+      expect.objectContaining({ to: '/acme/billing/workspaces' }),
     )
   })
 

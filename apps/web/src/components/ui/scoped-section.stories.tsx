@@ -24,7 +24,7 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-const MANAGE = { label: 'Manage in Project settings', href: '/acme/project-101/settings' }
+const MANAGE = { label: 'Manage in the project', href: '/acme/project-101/members' }
 
 export const OwnList: Story = {
   render: () => (

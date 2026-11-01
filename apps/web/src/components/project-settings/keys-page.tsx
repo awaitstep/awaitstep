@@ -4,7 +4,7 @@ import { useProjectKeys, useRevokeProjectKey } from '../../data/dashboard/api-ke
 import { useWorkspaces } from '../../data/dashboard/workspaces'
 import {
   orgPath,
-  projectSettingsPath,
+  projectPagePath,
   withNewDialog,
   workspaceSettingsPath,
   type ProjectSlugs,
@@ -17,8 +17,7 @@ import { ShellLink } from '../ui/shell-link'
 import { ListCardSkeleton, LoadingRegion } from '../ui/skeletons'
 import { ScopeChip } from '../ui/workspace-dot'
 import { PageBody, PageIntro } from '../shell/page-intro'
-import { pickWorkspace } from '../navigation/land-in-workspace'
-import { recentWorkspaces } from '../navigation/scope-memory'
+import { pickWorkspace, recentWorkspaces } from '../navigation/scope-memory'
 import { TopBarContent } from '../navigation/top-bar-slot'
 import { isExpired, lastUsedLabel } from '../keys/parts/key-format'
 import { KeyLevelCards } from '../keys/parts/key-level-cards'
@@ -41,7 +40,7 @@ function revokeText(key: ApiKey): string {
 }
 
 /**
- * `/{org}/{project}/settings/api-keys` (`KeysPage`, project level). New API
+ * `/{org}/{project}/api-keys` (`KeysPage`, project level). New API
  * key opens P6's dialog through `?new=key` (D-P3-4); revoking works here.
  */
 export function KeysPage({ slugs, createOpen, onCloseCreate }: KeysPageProps) {
@@ -160,7 +159,7 @@ export function KeysPage({ slugs, createOpen, onCloseCreate }: KeysPageProps) {
       {canManage && (
         <TopBarContent>
           <ShellLink
-            href={withNewDialog(projectSettingsPath(slugs, 'api-keys'), 'key')}
+            href={withNewDialog(projectPagePath(slugs, 'api-keys'), 'key')}
             className={buttonVariants({ size: 'sm' })}
           >
             <Plus aria-hidden="true" />

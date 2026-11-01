@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { CircleAlert } from 'lucide-react'
+import { CircleAlert, Play, Share2 } from 'lucide-react'
 import {
   itemPath,
   workspacePath,
@@ -12,6 +12,7 @@ import type { SharedItem, WorkspaceItem } from '../../types/dashboard/items'
 import type { WorkspaceRun } from '../../types/dashboard/runs'
 import type { Workspace, WorkspacePerson } from '../../types/dashboard/workspaces'
 import { ITEM_KIND_LABEL } from '../items/item-kind'
+import { Avatar } from '../ui/avatar'
 import { Badge } from '../ui/badge'
 import { DataTable, type DataColumn } from '../ui/data-table'
 import { ShellLink } from '../ui/shell-link'
@@ -27,6 +28,8 @@ import {
   sharedSummary,
 } from './overview-summary'
 import { OverviewCard } from './parts/overview-card'
+import { OverviewEmpty } from './parts/overview-empty'
+import { RunsTile } from './parts/runs-tile'
 
 const ROLE_LABEL = { admin: 'Admin', editor: 'Editor', viewer: 'Viewer' } as const
 
@@ -82,6 +85,7 @@ function recentColumns(org: string): DataColumn<WorkspaceRun>[] {
       id: 'took',
       header: 'Took',
       width: '80px',
+      align: 'right',
       cell: (run) => <span className="text-muted-foreground">{tookLabel(run.durationMs)}</span>,
     },
   ]
@@ -95,6 +99,9 @@ interface WorkspaceOverviewProps {
   failedRuns: WorkspaceRun[]
   people: WorkspacePerson[]
   sharedIn: SharedItem[]
+  projectName: string
+  /** Built, but nothing has run yet (`WsOverview`, Built no runs): the runs tiles become a nudge to deploy. */
+  quiet?: boolean
 }
 
 /** The `WsOverview` board's content: tiles, Needs attention, Recent runs, People and Shared. */
@@ -106,6 +113,8 @@ export function WorkspaceOverview({
   failedRuns,
   people,
   sharedIn,
+  projectName,
+  quiet = false,
 }: WorkspaceOverviewProps) {
   const runsHref = workspacePath(slugs, 'runs')
   // Built once per org, so the table keeps the same columns between renders.
@@ -114,26 +123,71 @@ export function WorkspaceOverview({
   const shared = sharedSummary(items, sharedIn)
   const workflows = items.filter((item) => item.kind === 'workflow').length
   const failingTone = attention.length > 0 ? 'danger' : undefined
+  const workflowsHref = workspacePath(slugs, 'workflows')
+  const libraryHref = workspacePath(slugs, 'library')
+  const nothingShared = shared.out.length === 0 && shared.in.length === 0
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatTile value={workflows} label="Workflows" href={workspacePath(slugs, 'workflows')} />
+      <div
+        className={cn(
+          'grid grid-cols-2 gap-3',
+          quiet ? 'md:grid-cols-[1fr_1fr_2.2fr]' : 'md:grid-cols-[1fr_1fr_2.2fr_1fr]',
+        )}
+      >
+        <StatTile value={workflows} label="Workflows" href={workflowsHref} />
         <StatTile
           value={items.length - workflows}
           label="Functions"
           href={workspacePath(slugs, 'functions')}
         />
-        <StatTile
-          value={workspace.counts.runs24h}
-          label="Runs in the last 24 hours"
-          href={runsHref}
-        />
-        <StatTile value={attention.length} label="Failing now" tone={failingTone} href={runsHref} />
+        {quiet ? (
+          <div className="col-span-2 flex items-center gap-3.5 rounded-xl border border-dashed border-input bg-card px-4 py-3 md:col-span-1">
+            <span className="flex size-[34px] shrink-0 items-center justify-center rounded-[10px] bg-muted text-muted-foreground">
+              <Play className="size-4" aria-hidden="true" />
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-[13.5px] font-semibold text-foreground">
+                Nothing has run yet
+              </span>
+              <span className="text-[12.5px] text-muted-foreground">
+                Deploy a workflow and its runs show up here within seconds.
+              </span>
+            </span>
+            <ShellLink
+              href={workflowsHref}
+              className="text-xs font-medium whitespace-nowrap text-status-success"
+            >
+              Deploy one →
+            </ShellLink>
+          </div>
+        ) : (
+          <>
+            <RunsTile
+              runs={workspace.counts.runs24h}
+              hours={workspace.runsByHour}
+              href={runsHref}
+            />
+            <StatTile
+              value={attention.length}
+              label="Failing now"
+              tone={failingTone}
+              href={runsHref}
+            />
+          </>
+        )}
       </div>
 
       {attention.length > 0 && (
-        <OverviewCard title="Needs attention" caption={`${attention.length} failing`}>
+        <OverviewCard
+          title="Needs attention"
+          caption={`${attention.length} failing`}
+          action={
+            <ShellLink href={runsHref} className="text-xs font-medium text-status-success">
+              See runs
+            </ShellLink>
+          }
+        >
           <ul className="flex flex-col divide-y divide-border">
             {attention.map((entry) => (
               <li key={entry.item.id}>
@@ -165,19 +219,28 @@ export function WorkspaceOverview({
         title="Recent runs"
         action={
           <ShellLink href={runsHref} className="text-xs font-medium text-status-success">
-            All runs →
+            All runs
           </ShellLink>
         }
       >
-        <DataTable
-          caption={`Recent runs in ${workspace.name}`}
-          columns={columns}
-          rows={recentRuns}
-          getRowKey={(run) => run.id}
-          empty="No runs yet."
-          minWidth="720px"
-          framed={false}
-        />
+        {quiet ? (
+          <OverviewEmpty
+            icon={Play}
+            title="No runs yet"
+            body={`A run lands here the moment something triggers a workflow — a webhook, a schedule, or you pressing Run. Nothing is deployed in ${workspace.name} yet.`}
+            action={{ label: 'Deploy a workflow', href: workflowsHref }}
+          />
+        ) : (
+          <DataTable
+            caption={`Recent runs in ${workspace.name}`}
+            columns={columns}
+            rows={recentRuns}
+            getRowKey={(run) => run.id}
+            empty="No runs yet."
+            minWidth="720px"
+            framed={false}
+          />
+        )}
       </OverviewCard>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -193,11 +256,20 @@ export function WorkspaceOverview({
             </ShellLink>
           }
         >
-          <ul className="flex flex-wrap gap-2 px-5 py-4">
+          <ul className="flex flex-col divide-y divide-border">
             {people.map((entry) => (
-              <li key={entry.person.id}>
+              <li key={entry.person.id} className="flex items-center gap-3 px-5 py-2.5">
+                <Avatar
+                  name={entry.person.name}
+                  email={entry.person.email}
+                  src={entry.person.image}
+                  className="size-7 text-2xs"
+                />
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                  {entry.person.name || entry.person.email}
+                </span>
                 <Badge variant="default" className="font-normal">
-                  {entry.person.name} · {personRole(entry)}
+                  {personRole(entry)}
                 </Badge>
               </li>
             ))}
@@ -205,44 +277,50 @@ export function WorkspaceOverview({
         </OverviewCard>
         <OverviewCard
           title="Shared"
-          caption={`${shared.out.length} out · ${shared.in.length} in`}
+          caption={nothingShared ? undefined : `${shared.out.length} out · ${shared.in.length} in`}
           action={
-            <ShellLink
-              href={workspacePath(slugs, 'workflows')}
-              className="text-xs font-medium text-status-success"
-            >
-              See all
+            <ShellLink href={libraryHref} className="text-xs font-medium text-status-success">
+              {nothingShared ? 'Library' : 'See all'}
             </ShellLink>
           }
         >
-          <dl className="flex flex-col gap-2.5 px-5 py-4 text-xs">
-            <div className="flex flex-wrap items-center gap-2">
-              <dt className="w-[70px] text-muted-foreground">Shared out</dt>
-              {shared.out.length === 0 ? (
-                <dd className="text-muted-foreground">Nothing yet</dd>
-              ) : (
-                shared.out.map((item) => (
-                  <dd key={item.id}>
-                    <Badge variant="success">{sharedOutLabel(item)}</Badge>
-                  </dd>
-                ))
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <dt className="w-[70px] text-muted-foreground">Shared in</dt>
-              {shared.in.length === 0 ? (
-                <dd className="text-muted-foreground">Nothing yet</dd>
-              ) : (
-                shared.in.map((item) => (
-                  <dd key={item.id}>
-                    <ScopeChip colour={item.from.colour}>
-                      {item.name} · {item.from.name}
-                    </ScopeChip>
-                  </dd>
-                ))
-              )}
-            </div>
-          </dl>
+          {nothingShared ? (
+            <OverviewEmpty
+              icon={Share2}
+              title="Nothing shared yet"
+              body={`Publish a workflow so the other workspaces in ${projectName} can call it, or pull one in from the project library.`}
+              action={{ label: 'Open the library', href: libraryHref }}
+            />
+          ) : (
+            <dl className="flex flex-col gap-2.5 px-5 py-4 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <dt className="w-[70px] text-muted-foreground">Shared out</dt>
+                {shared.out.length === 0 ? (
+                  <dd className="text-muted-foreground">Nothing yet</dd>
+                ) : (
+                  shared.out.map((item) => (
+                    <dd key={item.id}>
+                      <Badge variant="success">{sharedOutLabel(item)}</Badge>
+                    </dd>
+                  ))
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <dt className="w-[70px] text-muted-foreground">Shared in</dt>
+                {shared.in.length === 0 ? (
+                  <dd className="text-muted-foreground">Nothing yet</dd>
+                ) : (
+                  shared.in.map((item) => (
+                    <dd key={item.id}>
+                      <ScopeChip colour={item.from.colour}>
+                        {item.name} · {item.from.name}
+                      </ScopeChip>
+                    </dd>
+                  ))
+                )}
+              </div>
+            </dl>
+          )}
         </OverviewCard>
       </div>
     </>

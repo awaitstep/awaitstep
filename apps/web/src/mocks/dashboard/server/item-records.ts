@@ -1,13 +1,14 @@
 import type { SharedItem, WorkspaceItem, WorkspaceRef } from '../../../types/dashboard/items'
 import type { RunResult, WorkspaceRun } from '../../../types/dashboard/runs'
 import type { Allowed } from '../../../types/dashboard/scope'
-import type { WorkspaceCounts } from '../../../types/dashboard/workspaces'
+import type { RunHour, WorkspaceCounts } from '../../../types/dashboard/workspaces'
 import type { ItemRow, MockDb, RunRow, WorkspaceRow } from '../db'
 import { notFoundError } from '../scenario'
 
 // Row → record joins for workflows, functions and runs.
 
-const DAY_MS = 24 * 60 * 60 * 1000
+const HOUR_MS = 60 * 60 * 1000
+const DAY_MS = 24 * HOUR_MS
 const RECENT_RUNS = 10
 
 export function workspaceRef(row: WorkspaceRow): WorkspaceRef {
@@ -176,6 +177,22 @@ export function workspaceCounts(db: MockDb, workspace: WorkspaceRow): WorkspaceC
     failing: items.filter((i) => isFailing(db, i)).length,
     lastRunAt,
   }
+}
+
+/** The workspace's runs in each of the last 24 hours, oldest first (the API's `runsByHour`). */
+export function workspaceRunsByHour(db: MockDb, workspace: WorkspaceRow): RunHour[] {
+  const ids = new Set(db.items.filter((i) => i.workspaceId === workspace.id).map((i) => i.id))
+  const now = Date.now()
+  const hours = Array.from({ length: 24 }, (): RunHour => ({ runs: 0, complete: 0, failed: 0 }))
+  for (const run of db.runs) {
+    const ago = Math.floor((now - Date.parse(run.startedAt)) / HOUR_MS)
+    if (!ids.has(run.itemId) || ago < 0 || ago > 23) continue
+    const hour = hours[23 - ago]!
+    hour.runs++
+    if (run.result === 'succeeded') hour.complete++
+    if (run.result === 'failed') hour.failed++
+  }
+  return hours
 }
 
 /**

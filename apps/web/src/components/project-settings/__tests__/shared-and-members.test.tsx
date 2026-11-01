@@ -93,28 +93,74 @@ describe('project Members', () => {
       within(screen.getByRole('banner', { name: 'Top bar' })).getByRole('link', {
         name: 'Add people',
       }),
-    ).toHaveAttribute('href', '/acme/project-101/settings/members?access=add')
+    ).toHaveAttribute('href', '/acme/project-101/members?access=add')
   })
 
-  it('opens Add people on the project page itself, set to this project', async () => {
+  it('adds someone to only the workspaces picked through AddToProject', async () => {
     renderWithDashboardData(<MembersPage slugs={p101} adding onCloseAdd={() => {}} />)
-    expect(await screen.findByRole('dialog', { name: 'Add people' })).toBeInTheDocument()
-  })
-
-  it('never opens Add people for someone who may not run it', async () => {
-    renderWithDashboardData(<MembersPage slugs={p101} adding onCloseAdd={() => {}} />, {
-      userId: 'usr_tom',
+    const dialog = await screen.findByRole('dialog', { name: 'Add people to Project 101' })
+    const people = within(dialog).getByRole('listbox', { name: 'People' })
+    // Tom runs the project already: shown, not pickable.
+    expect(await within(people).findByRole('option', { name: /Tom Becker/ })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    await userEvent.click(within(people).getByRole('option', { name: /Jonas/ }))
+    expect(within(dialog).getByRole('radio', { name: /Only these workspaces/ })).toBeChecked()
+    expect(within(dialog).getByRole('button', { name: 'Sales', pressed: true })).toBeVisible()
+    expect(within(dialog).getByText('1 person gets Editor in Sales.')).toBeVisible()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add 1 person' }))
+    expect(await within(dialog).findByRole('heading', { name: 'Added' })).toBeVisible()
+    const jonas = dashboardDb().people.find((p) => p.name.startsWith('Jonas'))!.id
+    expect(dashboardDb().workspaceMembers).toContainEqual({
+      workspaceId: 'ws_sales',
+      userId: jonas,
+      role: 'editor',
     })
-    await screen.findByRole('table', { name: /every workspace/ })
-    expect(screen.queryByRole('dialog', { name: 'Add people' })).not.toBeInTheDocument()
+    expect(
+      dashboardDb().projectMembers.some((m) => m.userId === jonas && m.projectId === 'prj_101'),
+    ).toBe(false)
   })
 
-  it('offers the org’s access editor only to org owners and admins, not project admins', async () => {
+  it('adds someone to the whole project as a Member', async () => {
+    renderWithDashboardData(<MembersPage slugs={p101} adding onCloseAdd={() => {}} />)
+    const dialog = await screen.findByRole('dialog', { name: 'Add people to Project 101' })
+    const people = within(dialog).getByRole('listbox', { name: 'People' })
+    await userEvent.click(await within(people).findByRole('option', { name: /Jonas/ }))
+    await userEvent.click(within(dialog).getByRole('radio', { name: /The whole project/ }))
+    expect(within(dialog).queryByRole('group', { name: 'Workspaces' })).not.toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Member' }))
+    expect(
+      within(dialog).getByText('1 person gets Member in the whole of Project 101.'),
+    ).toBeVisible()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Add 1 person' }))
+    expect(await within(dialog).findByRole('heading', { name: 'Added' })).toBeVisible()
+    const jonas = dashboardDb().people.find((p) => p.name.startsWith('Jonas'))!.id
+    expect(dashboardDb().projectMembers).toContainEqual({
+      projectId: 'prj_101',
+      userId: jonas,
+      role: 'member',
+    })
+  })
+
+  it('lets a project admin add people, but keeps the org’s access editor to org admins', async () => {
     // Tom is Project 101's admin but a plain member of Acme.
     renderWithDashboardData(<MembersPage slugs={p101} />, { userId: 'usr_tom' })
     await screen.findByRole('table', { name: /every workspace/ })
     expect(screen.queryByRole('link', { name: 'Edit access' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'Add people' })).not.toBeInTheDocument()
+    expect(
+      within(screen.getByRole('banner', { name: 'Top bar' })).getByRole('link', {
+        name: 'Add people',
+      }),
+    ).toHaveAttribute('href', '/acme/project-101/members?access=add')
+  })
+
+  it('never opens Add people for a project member', async () => {
+    renderWithDashboardData(<MembersPage slugs={p101} adding onCloseAdd={() => {}} />, {
+      userId: DANIEL,
+    })
+    await screen.findByRole('table', { name: /every workspace/ })
+    expect(screen.queryByRole('dialog', { name: /Add people/ })).not.toBeInTheDocument()
   })
 
   it('shows a project member the list without editing', async () => {

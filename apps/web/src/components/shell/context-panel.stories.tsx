@@ -34,7 +34,7 @@ export const Workspace: Story = {
 
 export const ProjectSettings: Story = {
   args: unusedArgs,
-  render: () => <ProjectSettingsPanel active="general" />,
+  render: () => <ProjectSettingsPanel active="settings" />,
 }
 
 export const OrgSettings: Story = {

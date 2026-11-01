@@ -1,4 +1,8 @@
-import type { ProjectMembers, ProjectWideRole } from '../../../types/dashboard/access'
+import type {
+  ProjectAccessChoice,
+  ProjectMembers,
+  ProjectWideRole,
+} from '../../../types/dashboard/access'
 import type { ScopeSlugs } from '../../../types/dashboard/scope'
 import type { WorkspaceRole } from '../../../types/dashboard/workspaces'
 import { getDb, type MockDb, type ProjectRow } from '../db'
@@ -8,7 +12,8 @@ import type { Person } from '../../../types/dashboard/session'
 import type { MockContext } from '../scenario'
 import { conflictError, endpoint, forbiddenError, mutation, notFoundError, rows } from '../scenario'
 import { workspaceRef } from './item-records'
-import { personById, visibleWorkspaces, workspaceScope } from './records'
+import { createInvites } from './org'
+import { personById, projectScope, visibleWorkspaces, workspaceScope } from './records'
 import { requireScope } from './resolve'
 
 /**
@@ -132,5 +137,75 @@ export const removeWorkspaceMember = mutation(
       (m) => !(m.workspaceId === workspace.id && m.userId === userId),
     )
     if (db.workspaceMembers.length === before) throw notFoundError()
+  },
+)
+
+/** 21b's invites: new addresses join the org as Members with this workspace only. */
+export const inviteToWorkspace = mutation(
+  (ctx, slugs: WorkspaceSlugs, emails: string[], role: WorkspaceRole): void => {
+    const { db, org, project, workspace } = managedWorkspace(ctx, slugs)
+    createInvites(db, ctx, org, {
+      emails,
+      role: 'member',
+      places: [{ projectId: project.id, workspaceId: workspace.id, role }],
+    })
+  },
+)
+
+/** The project, after checking the viewer may manage its members. */
+function managedProject(ctx: MockContext, orgSlug: string, projectSlug: string) {
+  const db = getDb()
+  const { org, project } = requireScope(db, ctx, { org: orgSlug, project: projectSlug })
+  const can = projectScope(db, ctx, project!).viewerCan.manageMembers
+  if (!can.allowed) throw forbiddenError(can.reason!)
+  return { db, org, project: project! }
+}
+
+/** 21a: someone already in the org gets the whole project, or one role in some of its workspaces. */
+export const addToProject = mutation(
+  (
+    ctx,
+    orgSlug: string,
+    projectSlug: string,
+    userId: string,
+    access: ProjectAccessChoice,
+  ): string[] | undefined => {
+    const { db, org, project } = managedProject(ctx, orgSlug, projectSlug)
+    if (!db.orgMembers.some((m) => m.orgId === org.id && m.userId === userId)) {
+      throw conflictError(`They need to join ${org.name} first`)
+    }
+    if (access.scope === 'project') {
+      if (db.projectMembers.some((m) => m.projectId === project.id && m.userId === userId)) {
+        throw conflictError('Already in this project')
+      }
+      db.projectMembers.push({ projectId: project.id, userId, role: access.role })
+      return undefined
+    }
+    const fresh = access.workspaceIds.filter(
+      (id) =>
+        db.workspaces.some((w) => w.id === id && w.projectId === project.id) &&
+        !db.workspaceMembers.some((m) => m.workspaceId === id && m.userId === userId),
+    )
+    if (fresh.length === 0) throw conflictError('They already have access to those workspaces')
+    db.workspaceMembers.push(
+      ...fresh.map((workspaceId) => ({ workspaceId, userId, role: access.role })),
+    )
+    return fresh.map((id) => db.workspaces.find((w) => w.id === id)!.name)
+  },
+)
+
+/** 21a's invites: new addresses join the org as Members with this project's access only. */
+export const inviteToProject = mutation(
+  (ctx, orgSlug: string, projectSlug: string, emails: string[], access: ProjectAccessChoice) => {
+    const { db, org, project } = managedProject(ctx, orgSlug, projectSlug)
+    const places =
+      access.scope === 'project'
+        ? [{ projectId: project.id, workspaceId: null, role: access.role }]
+        : access.workspaceIds.map((workspaceId) => ({
+            projectId: project.id,
+            workspaceId,
+            role: access.role,
+          }))
+    createInvites(db, ctx, org, { emails, role: 'member', places })
   },
 )

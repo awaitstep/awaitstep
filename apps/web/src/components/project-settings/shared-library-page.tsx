@@ -71,7 +71,7 @@ function ItemCell({ item, org }: { item: SharedItem; org: string }) {
   )
 }
 
-/** `/{org}/{project}/settings/shared` (`ProjectShared`): what workspaces shared, and what the project owns. */
+/** `/{org}/{project}/shared` (`ProjectShared`): what workspaces shared, and what the project owns. */
 export function SharedLibraryPage({ slugs }: SharedLibraryPageProps) {
   const scope = useProjectScope(slugs)
   const shared = useProjectShared(slugs.org, slugs.project)

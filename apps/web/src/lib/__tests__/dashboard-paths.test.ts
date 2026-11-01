@@ -11,7 +11,8 @@ import {
   orgDestinationPath,
   orgSettingsPath,
   projectPath,
-  projectSettingsPath,
+  projectPagePath,
+  projectWorkspacesPath,
   variableDialogPath,
   withOverlay,
   workspacePath,
@@ -39,10 +40,10 @@ describe('dashboard paths', () => {
     expect(orgDestinationPath('acme', 'general')).toBe('/acme/settings/general')
   })
 
-  it('builds project URLs, with settings defaulting to Workspaces', () => {
+  it('builds project URLs: Workspaces is the project’s own page, above its settings', () => {
     expect(projectPath(SALES)).toBe('/acme/project-101')
-    expect(projectSettingsPath(SALES)).toBe('/acme/project-101/settings/workspaces')
-    expect(projectSettingsPath(SALES, 'variables')).toBe('/acme/project-101/settings/variables')
+    expect(projectWorkspacesPath(SALES)).toBe('/acme/project-101/workspaces')
+    expect(projectPagePath(SALES, 'variables')).toBe('/acme/project-101/variables')
   })
 
   it('builds workspace pages, defaulting to Overview', () => {
@@ -97,6 +98,8 @@ describe('reserved slugs', () => {
       expect(isReservedSlug('project', page), page).toBe(true)
     }
     expect(isReservedSlug('workspace', 'settings')).toBe(true)
+    // `/{org}/{project}/workspaces` is the project's page: no workspace can take the slug.
+    expect(isReservedSlug('workspace', 'workspaces')).toBe(true)
     for (const page of ['api-playground', 'choose-org', 'invite', 'sign-in']) {
       expect(isReservedSlug('org', page), page).toBe(true)
     }
@@ -116,10 +119,10 @@ describe('dialog addresses', () => {
   it('opens the variable dialogs on project Variables', () => {
     const p101 = { org: 'acme', project: 'project-101' }
     expect(variableDialogPath(p101, { kind: 'new' })).toBe(
-      '/acme/project-101/settings/variables?new=variable',
+      '/acme/project-101/variables?new=variable',
     )
     expect(variableDialogPath(p101, { kind: 'variable', name: 'SLACK_TOKEN' })).toBe(
-      '/acme/project-101/settings/variables?variable=SLACK_TOKEN',
+      '/acme/project-101/variables?variable=SLACK_TOKEN',
     )
     expect(variableDialogPath({ org: 'acme' }, { kind: 'new' })).toBe(
       '/acme/resources?tab=variables&new=variable',

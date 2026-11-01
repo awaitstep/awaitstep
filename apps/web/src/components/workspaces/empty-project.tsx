@@ -4,7 +4,8 @@ import { useProjectSetup } from '../../data/dashboard/setup'
 import {
   orgPath,
   projectMembersAddPath,
-  projectSettingsPath,
+  projectPagePath,
+  projectWorkspacesPath,
   workspacePath,
   withNewDialog,
   type WorkspaceSlugs,
@@ -71,7 +72,7 @@ interface EmptyProjectProps {
   canAddWorkspace: boolean
 }
 
-/** The `EmptyProject` board: a project's only workspace, still empty. */
+/** The `EmptyProject` board, on the project's own page: nothing built yet in its only workspace. */
 export function EmptyProject({
   slugs,
   org,
@@ -103,7 +104,7 @@ export function EmptyProject({
         {
           label: 'Add project variables',
           done: setup.data.projectVariables > 0,
-          href: projectSettingsPath(slugs, 'variables'),
+          href: projectPagePath(slugs, 'variables'),
           caption:
             setup.data.orgVariables > 0
               ? `${setup.data.orgVariables} inherited from ${org.name}`
@@ -137,8 +138,8 @@ export function EmptyProject({
               )}
             </span>
             <span className="text-sm text-muted-foreground">
-              You’re in its {workspace.name} workspace. Build your first workflow or function to get
-              going.
+              Build your first workflow or function to get going. It goes in {workspace.name}, the
+              project’s only workspace so far.
             </span>
           </span>
         </div>
@@ -197,7 +198,7 @@ export function EmptyProject({
           <h2 className="text-base font-semibold">More than one team here?</h2>
           <p className="text-sm leading-relaxed text-muted-foreground">
             Give each team its own workspace, with separate people, keys and workflows. Anything set
-            in Project settings still reaches every workspace.
+            for the whole project still reaches every workspace.
           </p>
           <span className="flex flex-wrap gap-2.5" aria-hidden="true">
             <span className="flex items-center gap-2 rounded-[10px] bg-muted px-3 py-2 text-xs">
@@ -218,7 +219,7 @@ export function EmptyProject({
           </span>
           {canAddWorkspace && (
             <ShellLink
-              href={`${projectSettingsPath(slugs, 'workspaces')}?new=workspace`}
+              href={`${projectWorkspacesPath(slugs)}?new=workspace`}
               className={cn(
                 buttonVariants({ variant: 'outline', size: 'sm' }),
                 'mt-auto self-start',

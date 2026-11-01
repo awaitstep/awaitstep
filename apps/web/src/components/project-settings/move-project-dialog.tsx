@@ -4,7 +4,7 @@ import { useMoveProject } from '../../data/dashboard/projects'
 import { useOrgs } from '../../data/dashboard/session'
 import {
   dashboardPath,
-  projectSettingsPath,
+  projectPagePath,
   withNewDialog,
   type ProjectSlugs,
 } from '../../lib/dashboard-paths'
@@ -49,7 +49,7 @@ export function MoveProjectDialog({ slugs, projectName, onClose }: MoveProjectDi
   function handleMove() {
     if (!target) return
     move.mutate(target, {
-      onSuccess: (moved) => goTo(projectSettingsPath(moved, 'general')),
+      onSuccess: (moved) => goTo(projectPagePath(moved, 'settings')),
     })
   }
 

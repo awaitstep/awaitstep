@@ -18,7 +18,10 @@ import type {
   OrgMemberPlace,
   OrgMemberRow,
   PersonAccessRows,
+  NamedProjectMember,
   ProjectGrant,
+  ProjectGrantData,
+  ProjectGrantRows,
   ProjectMemberRow,
   WorkspaceChip,
   WorkspaceGrant,
@@ -611,6 +614,139 @@ export class AccessAdapter {
       )
       .returning({ ...getTableColumns(wm), personName: this.personLabel(data.userId) })
     return (rows[0] as NamedWorkspaceMember | undefined) ?? null
+  }
+
+  /**
+   * Gives someone in the organization a project-wide role, if they hold no
+   * project grant yet, no grant in any of its workspaces (the project role
+   * would sit over them and they'd quietly keep the person in when it goes;
+   * those are changed from Edit access), and aren't an org owner or admin
+   * (who already reach every project). Every condition is in the statement:
+   * null when any failed, and `projectGrantRows` says which.
+   */
+  async addProjectMember(data: ProjectGrantData): Promise<NamedProjectMember | null> {
+    const pm = this.t.projectMembers
+    const p = aliasedTable(this.t.projects, 'p')
+    const m = aliasedTable(this.t.member, 'm')
+    const row = {
+      projectId: data.projectId,
+      userId: data.userId,
+      role: data.role,
+      createdBy: data.createdBy,
+      createdAt: new Date().toISOString(),
+    }
+    const rows = await this.db
+      .insert(pm)
+      .select(
+        this.db
+          .select({ ...boundFields(pm, row), projectId: p.id })
+          .from(p)
+          .innerJoin(m, and(eq(m.organizationId, p.organizationId), eq(m.userId, data.userId)))
+          .where(
+            and(
+              eq(p.id, data.projectId),
+              notInArray(m.role, ['owner', 'admin']),
+              sql`${this.fields.roles.projectGrantOf(data.userId, p.id)} is null`,
+              sql`not ${this.fields.roles.hasWorkspaceGrantIn(data.userId, p.id)}`,
+            ),
+          ),
+      )
+      .returning({ ...getTableColumns(pm), personName: this.personLabel(data.userId) })
+    return (rows[0] as NamedProjectMember | undefined) ?? null
+  }
+
+  /**
+   * Gives someone in the organization one role in several of a project's
+   * workspaces, in one statement: only when every id named is the project's
+   * workspace (else nothing), then each one where they hold no grant yet and
+   * the role counts above what the project gives them. The grants written,
+   * with each workspace's name; empty when none.
+   */
+  async addWorkspaceGrants(data: {
+    projectId: string
+    workspaceIds: string[]
+    userId: string
+    role: WorkspaceGrant
+    createdBy: string
+  }): Promise<(NamedWorkspaceMember & { workspaceName: string })[]> {
+    if (data.workspaceIds.length === 0) return []
+    const wm = this.t.workspaceMembers
+    const w = aliasedTable(this.t.workspaces, 'w')
+    const p = aliasedTable(this.t.projects, 'p')
+    const m = aliasedTable(this.t.member, 'm')
+    const named = aliasedTable(this.t.workspaces, 'nw')
+    const all = aliasedTable(this.t.workspaces, 'aw')
+    const ids = [...new Set(data.workspaceIds)]
+    const roles = this.fields.roles
+    const row = {
+      workspaceId: '',
+      userId: data.userId,
+      role: data.role,
+      createdBy: data.createdBy,
+      createdAt: new Date().toISOString(),
+    }
+    const inherited = roles.inheritedWorkspaceRole(m.role, roles.projectGrantOf(data.userId, p.id))
+    const rows = await this.db
+      .insert(wm)
+      .select(
+        this.db
+          .select({ ...boundFields(wm, row), workspaceId: w.id })
+          .from(w)
+          .innerJoin(p, eq(p.id, w.projectId))
+          .innerJoin(m, and(eq(m.organizationId, p.organizationId), eq(m.userId, data.userId)))
+          .where(
+            and(
+              eq(p.id, data.projectId),
+              sql`${w.id} in ${idList(this.dialect, ids)}`,
+              sql`(select count(*) from ${aliasedFrom(all)} where ${all.projectId} = ${p.id} and ${all.id} in ${idList(this.dialect, ids)}) = ${ids.length}`,
+              sql`${roles.workspaceGrantOf(data.userId, w.id)} is null`,
+              sql`${roles.rank(data.role)} > ${roles.rank(inherited)}`,
+            ),
+          ),
+      )
+      .returning({
+        ...getTableColumns(wm),
+        personName: this.personLabel(data.userId),
+        workspaceName: sql<string>`(select ${named.name} from ${aliasedFrom(named)} where ${named.id} = ${wm.workspaceId})`,
+      })
+    return rows as (NamedWorkspaceMember & { workspaceName: string })[]
+  }
+
+  /**
+   * Why a project add was refused: their org role, project grant, whether
+   * they hold any of its workspaces, and how many of `workspaceIds` are the
+   * project's. Null when the project doesn't exist.
+   */
+  async projectGrantRows(
+    projectId: string,
+    userId: string,
+    workspaceIds: string[] = [],
+  ): Promise<ProjectGrantRows | null> {
+    const p = aliasedTable(this.t.projects, 'p')
+    const o = aliasedTable(this.t.organization, 'o')
+    const cw = aliasedTable(this.t.workspaces, 'cw')
+    const ids = [...new Set(workspaceIds)]
+    const roles = this.fields.roles
+    // The join keeps the statement multi-table: drizzle leaves a column bare
+    // in a single-table select, which the subqueries would read as their own.
+    const rows = await this.db
+      .select({
+        orgRole: roles.orgRoleOf(userId, o.id),
+        projectGrant: roles.projectGrantOf(userId, p.id),
+        workspaceGrants:
+          sql<boolean>`case when ${roles.hasWorkspaceGrantIn(userId, p.id)} then 1 else 0 end`.mapWith(
+            (v) => Number(v) === 1,
+          ),
+        workspacesInProject: (ids.length
+          ? sql<number>`(select count(*) from ${aliasedFrom(cw)} where ${cw.projectId} = ${p.id} and ${cw.id} in ${idList(this.dialect, ids)})`
+          : sql<number>`0`
+        ).mapWith(Number),
+      })
+      .from(p)
+      .innerJoin(o, eq(o.id, p.organizationId))
+      .where(eq(p.id, projectId))
+      .limit(1)
+    return rows[0] ?? null
   }
 
   /**

@@ -57,6 +57,9 @@ import type {
   SharedWorkflowFilter,
   AuditEventInsert,
   NamedWorkspaceMember,
+  NamedProjectMember,
+  ProjectGrantData,
+  ProjectGrantRows,
   ProjectMoveOutcome,
   PersonAuditInsert,
   AccountRow,
@@ -568,6 +571,25 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   addWorkspaceMember(data: WorkspaceGrantData): Promise<NamedWorkspaceMember | null> {
     return this._access.addWorkspaceMember(data)
   }
+  addProjectMember(data: ProjectGrantData): Promise<NamedProjectMember | null> {
+    return this._access.addProjectMember(data)
+  }
+  addWorkspaceGrants(data: {
+    projectId: string
+    workspaceIds: string[]
+    userId: string
+    role: WorkspaceGrant
+    createdBy: string
+  }): Promise<(NamedWorkspaceMember & { workspaceName: string })[]> {
+    return this._access.addWorkspaceGrants(data)
+  }
+  projectGrantRows(
+    projectId: string,
+    userId: string,
+    workspaceIds?: string[],
+  ): Promise<ProjectGrantRows | null> {
+    return this._access.projectGrantRows(projectId, userId, workspaceIds)
+  }
   setWorkspaceGrant(
     workspaceId: string,
     userId: string,
@@ -588,7 +610,13 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   // Invitations
   invitationChecks(
     organizationId: string,
-    refs: { projectIds: string[]; workspaceIds: string[]; emails: string[]; now: string },
+    refs: {
+      projectIds: string[]
+      workspaceIds: string[]
+      emails: string[]
+      now: string
+      inProject?: string
+    },
   ): Promise<InvitationChecks> {
     return this._invitations.checks(organizationId, refs)
   }

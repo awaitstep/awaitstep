@@ -183,23 +183,29 @@ describe('DashboardShell', () => {
       'href',
       '/acme/project-101/sales/overview',
     )
-    expect(screen.getByRole('link', { name: 'Project settings' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Project' })).toHaveAttribute(
       'href',
-      '/acme/project-101/settings/workspaces',
+      '/acme/project-101/workspaces',
     )
     expect(screen.getByRole('link', { name: 'Workflows', current: 'page' })).toBeVisible()
   })
 
-  it('opens the project-settings panel with a way back to the workspace', () => {
+  it('opens the project’s menu on a project page: no heading, no way back to a workspace', () => {
     state.params = { org: 'acme', project: 'project-101' }
-    state.page = { kind: 'project-settings', page: 'members' }
+    state.page = { kind: 'project', page: 'members' }
     settle(found('project'))
     renderShell()
-    expect(screen.getByRole('link', { name: 'Back to workspace' })).toHaveAttribute(
+    expect(screen.queryByRole('link', { name: 'Back to workspace' })).toBeNull()
+    expect(screen.queryByText('Project settings')).toBeNull()
+    const menu = screen.getByRole('navigation', { name: 'Project' })
+    expect(within(menu).getByRole('link', { name: 'Members', current: 'page' })).toHaveAttribute(
       'href',
-      '/acme/project-101',
+      '/acme/project-101/members',
     )
-    expect(screen.getByRole('group', { name: 'Project settings' })).toBeVisible()
+    expect(within(menu).getByRole('link', { name: 'Settings' })).toHaveAttribute(
+      'href',
+      '/acme/project-101/settings',
+    )
   })
 
   it('shows org settings without a second panel: its sections are tabs on the page', () => {
@@ -243,7 +249,7 @@ describe('DashboardShell', () => {
     state.page = { kind: 'org', page: 'audit' }
     settle(found('org'))
     renderShell()
-    expect(screen.queryByRole('link', { name: 'Project settings' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Project' })).not.toBeInTheDocument()
     expect(within(rail()).getByRole('link', { name: 'Audit log', current: 'page' })).toBeVisible()
   })
 
@@ -267,7 +273,7 @@ describe('DashboardShell', () => {
       'href',
       '/acme/project-101',
     )
-    expect(screen.queryByRole('link', { name: 'Project settings' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Project' })).not.toBeInTheDocument()
   })
 
   it('offers to choose another org when the org itself is unknown', () => {
@@ -320,6 +326,30 @@ describe('DashboardShell', () => {
     await userEvent.keyboard('{Escape}')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(trigger).toHaveFocus()
+  })
+
+  it('gives a project page on a phone its project menu: every project page, no workspace open', async () => {
+    state.params = { org: 'acme', project: 'project-101' }
+    state.page = { kind: 'project', page: 'workspaces' }
+    settle(found('project'))
+    renderShell()
+    expect(screen.getByRole('link', { name: 'Back to projects' })).toHaveAttribute(
+      'href',
+      '/acme/projects',
+    )
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Project 101. Open the project menu' }),
+    )
+    const sheet = screen.getByRole('dialog', { name: 'Project menu' })
+    const pages = within(within(sheet).getByRole('navigation', { name: 'Project' }))
+    expect(pages.getByRole('link', { name: 'API keys' })).toHaveAttribute(
+      'href',
+      '/acme/project-101/api-keys',
+    )
+    expect(pages.getByRole('link', { name: 'Settings' })).toHaveAttribute(
+      'href',
+      '/acme/project-101/settings',
+    )
   })
 
   it('shows the org in the phone header outside a workspace', () => {

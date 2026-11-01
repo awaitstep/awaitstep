@@ -46,7 +46,7 @@ describe('project API keys', () => {
     )
     expect(within(topBar()).getByRole('link', { name: 'New API key' })).toHaveAttribute(
       'href',
-      '/acme/project-101/settings/api-keys?new=key',
+      '/acme/project-101/api-keys?new=key',
     )
   })
 
@@ -87,7 +87,7 @@ describe('project Variables', () => {
     expect(slack).toHaveTextContent('Secret')
     expect(within(slack).getByRole('link', { name: 'Edit' })).toHaveAttribute(
       'href',
-      '/acme/project-101/settings/variables?variable=SLACK_TOKEN',
+      '/acme/project-101/variables?variable=SLACK_TOKEN',
     )
     expect(
       within(rowWith('CRM_BASE_URL')).getByRole('link', { name: 'Overridden in Sales' }),
@@ -97,11 +97,11 @@ describe('project Variables', () => {
     expect(region).toHaveTextContent('From the org')
     expect(within(region).getByRole('link', { name: 'Override' })).toHaveAttribute(
       'href',
-      '/acme/project-101/settings/variables?variable=REGION',
+      '/acme/project-101/variables?variable=REGION',
     )
     expect(within(topBar()).getByRole('link', { name: 'New variable' })).toHaveAttribute(
       'href',
-      '/acme/project-101/settings/variables?new=variable',
+      '/acme/project-101/variables?new=variable',
     )
   })
 

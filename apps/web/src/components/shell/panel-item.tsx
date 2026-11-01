@@ -91,7 +91,7 @@ export function PanelItem({
 }
 
 interface PanelSectionProps {
-  /** Uppercase caption above the items, such as "Project settings". */
+  /** Uppercase caption above the items, such as "Workspace". */
   title?: string
   children: ReactNode
 }

@@ -93,7 +93,14 @@ export class InvitationsAdapter {
    */
   async checks(
     organizationId: string,
-    refs: { projectIds: string[]; workspaceIds: string[]; emails: string[]; now: string },
+    refs: {
+      projectIds: string[]
+      workspaceIds: string[]
+      emails: string[]
+      now: string
+      /** Counts only the workspaces of this project: an invite sent from a project or workspace. */
+      inProject?: string
+    },
   ): Promise<InvitationChecks> {
     const o = this.t.organization
     const p = aliasedTable(this.t.projects, 'cp')
@@ -110,7 +117,7 @@ export class InvitationsAdapter {
       ? sql<number>`(select count(*) from ${aliasedFrom(p)} where ${p.organizationId} = ${organizationId} and ${p.id} in ${ids(refs.projectIds)})`
       : none
     const workspaces = refs.workspaceIds.length
-      ? sql<number>`(select count(*) from ${aliasedFrom(w)} where ${w.id} in ${ids(refs.workspaceIds)} and ${w.projectId} in (select ${op.id} from ${aliasedFrom(op)} where ${op.organizationId} = ${organizationId}))`
+      ? sql<number>`(select count(*) from ${aliasedFrom(w)} where ${w.id} in ${ids(refs.workspaceIds)} and ${w.projectId} in (select ${op.id} from ${aliasedFrom(op)} where ${op.organizationId} = ${organizationId})${refs.inProject === undefined ? sql`` : sql` and ${w.projectId} = ${refs.inProject}`})`
       : none
     // The address lists are built queries, not templates: a column placed
     // directly in a selected template of this single-table statement renders

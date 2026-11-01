@@ -26,7 +26,7 @@ interface VariablesPageProps {
 }
 
 /**
- * `/{org}/{project}/settings/variables` (`ProjectVariables`). New variable,
+ * `/{org}/{project}/variables` (`ProjectVariables`). New variable,
  * Edit and Override open the variable dialog through the URL (D-P3-4).
  */
 export function VariablesPage({ slugs, request, onCloseDialog }: VariablesPageProps) {

@@ -20,7 +20,7 @@ describe('rail', () => {
     expect(railModel('acme', { kind: 'org-settings', page: 'members' }, QUIET).activeKey).toBe(
       'settings',
     )
-    expect(railModel('acme', { kind: 'project-settings', page: 'general' }, QUIET).activeKey).toBe(
+    expect(railModel('acme', { kind: 'project', page: 'settings' }, QUIET).activeKey).toBe(
       'projects',
     )
     expect(railModel('acme', { kind: 'workspace', page: 'runs' }, QUIET).activeKey).toBe('projects')
@@ -111,22 +111,23 @@ describe('panel', () => {
     ])
     expect(panel.items[1]!.href).toBe('/acme/project-101/sales/workflows')
     expect(panel.activeKey).toBe('workflows')
-    expect(panel.projectSettingsHref).toBe('/acme/project-101/settings/workspaces')
+    expect(panel.projectHref).toBe('/acme/project-101/workspaces')
   })
 
-  it('leads back from project settings to the project, which lands in the last workspace', () => {
-    const panel = panelModel({ kind: 'project-settings', page: 'members' }, PROJECT)
-    if (panel.mode !== 'project-settings') throw new Error(panel.mode)
-    expect(panel.items.map((i) => i.key)).toEqual([
-      'workspaces',
-      'shared',
-      'members',
-      'api-keys',
-      'variables',
-      'general',
+  it('lists the project’s pages in one menu, each straight under the project', () => {
+    const panel = panelModel({ kind: 'project', page: 'members' }, PROJECT)
+    if (panel.mode !== 'project') throw new Error(panel.mode)
+    expect(panel.items.map((i) => [i.label, i.href])).toEqual([
+      ['Workspaces', '/acme/project-101/workspaces'],
+      ['Shared library', '/acme/project-101/shared'],
+      ['Members', '/acme/project-101/members'],
+      ['API keys', '/acme/project-101/api-keys'],
+      ['Variables', '/acme/project-101/variables'],
+      ['Settings', '/acme/project-101/settings'],
     ])
     expect(panel.activeKey).toBe('members')
-    expect(panel.backHref).toBe('/acme/project-101')
+    // No way back to a workspace: Workspaces lists every one.
+    expect(panel).not.toHaveProperty('backHref')
   })
 })
 
@@ -158,19 +159,31 @@ describe('breadcrumbs', () => {
     ])
   })
 
-  it('goes through the project on project settings', () => {
-    expect(breadcrumbs({ kind: 'project-settings', page: 'workspaces' }, PROJECT, NAMES)).toEqual([
+  it('goes through the project to its Workspaces page', () => {
+    expect(breadcrumbs({ kind: 'project', page: 'workspaces' }, PROJECT, NAMES)).toEqual([
       { label: 'Acme Inc', href: '/acme/projects' },
-      { label: 'Project 101', href: '/acme/project-101' },
-      { label: 'Settings' },
+      { label: 'Project 101', href: '/acme/project-101/workspaces' },
       { label: 'Workspaces' },
+    ])
+  })
+
+  it('goes through the project on its other pages, Settings included', () => {
+    expect(breadcrumbs({ kind: 'project', page: 'members' }, PROJECT, NAMES)).toEqual([
+      { label: 'Acme Inc', href: '/acme/projects' },
+      { label: 'Project 101', href: '/acme/project-101/workspaces' },
+      { label: 'Members' },
+    ])
+    expect(breadcrumbs({ kind: 'project', page: 'settings' }, PROJECT, NAMES)).toEqual([
+      { label: 'Acme Inc', href: '/acme/projects' },
+      { label: 'Project 101', href: '/acme/project-101/workspaces' },
+      { label: 'Settings' },
     ])
   })
 
   it('goes through project and workspace on a workspace page', () => {
     expect(breadcrumbs({ kind: 'workspace', page: 'runs' }, SALES, NAMES)).toEqual([
       { label: 'Acme Inc', href: '/acme/projects' },
-      { label: 'Project 101', href: '/acme/project-101' },
+      { label: 'Project 101', href: '/acme/project-101/workspaces' },
       { label: 'Sales', href: '/acme/project-101/sales/overview' },
       { label: 'Runs' },
     ])

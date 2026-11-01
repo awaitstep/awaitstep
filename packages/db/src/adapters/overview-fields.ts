@@ -19,6 +19,7 @@ export const TERMINAL_RUN_STATUSES = ['complete', ...FAILED_RUN_STATUSES] as con
 
 const FAILED_LIST = sql.raw(FAILED_RUN_STATUSES.map((s) => `'${s}'`).join(', '))
 const ORG_ADMINS = sql.raw(`('owner', 'admin')`)
+const HOUR_MS = 60 * 60 * 1000
 
 /** Whose view a list or count is cut to: hidden workspaces add nothing for them. */
 export interface Viewer {
@@ -262,6 +263,36 @@ export class OverviewFields {
         ),
       lastRunAt: this.lastRunAt(r, wf, inWorkspace),
     }
+  }
+
+  /**
+   * The workspace's runs in each of the 24 hours up to `now`, oldest first:
+   * how many started, and how many of those finished well or failed. Every
+   * hour is present, an empty one as zeros. The window is `runs24h`'s
+   * (`since` onwards), so the bars always add up to the tile's count: a run
+   * exactly at `since` goes in the oldest bar, one stamped after `now` (clock
+   * skew) in the newest. One grouped pass over the day's runs.
+   */
+  runsByHour(workspaceId: SQL | unknown, now: Date): SQL {
+    const wf = aliasedTable(this.t.workflows, 'hw')
+    const r = aliasedTable(this.t.workflowRuns, 'hr')
+    const until = now.toISOString()
+    const since = new Date(now.getTime() - 24 * HOUR_MS).toISOString()
+    const pg = this.dialect === 'pg'
+    const hoursAgo = pg
+      ? sql`greatest(0, least(23, floor(extract(epoch from (${until}::timestamp - day.created_at)) / 3600)))`
+      : // julianday is a float day: rounded to the millisecond first, so a run
+        // exactly on the hour isn't 9.999… hours back.
+        sql`max(0, min(23, cast(round((julianday(${until}) - julianday(day.created_at)) * 86400000) as integer) / 3600000))`
+    const day = sql`(select ${r.status} as status, ${r.createdAt} as created_at from ${aliasedFrom(r)} inner join ${aliasedFrom(wf)} on ${wf.id} = ${r.workflowId} where ${wf.workspaceId} = ${workspaceId} and ${r.createdAt} >= ${since}) day`
+    const count = (status: SQL) =>
+      sql`coalesce(sum(case when day.status ${status} then 1 else 0 end), 0)`
+    const hours = sql.raw(
+      `(with recursive h(i) as (select 0 union all select i + 1 from h where i < 23) select i from h) hrs`,
+    )
+    const buckets = sql`(select hrs.i as i, count(day.status) as runs, ${count(sql`= 'complete'`)} as complete, ${count(sql`in (${FAILED_LIST})`)} as failed from ${hours} left join ${day} on ${hoursAgo} = 23 - hrs.i group by hrs.i) b`
+    const row = sql`${sql.raw(pg ? 'json_build_object' : 'json_object')}('runs', b.runs, 'complete', b.complete, 'failed', b.failed)`
+    return sql`(select ${jsonArrayOfValues(this.dialect, row, sql`b.i`)} from ${buckets})`
   }
 
   /** The status of a workflow's latest deployment, or null. */

@@ -1,16 +1,12 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
-import { SharedLibraryPage } from '../../components/project-settings/shared-library-page'
+import { createFileRoute, redirect } from '@tanstack/react-router'
+import { projectPagePath } from '../../lib/dashboard-paths'
 
-const page: DashboardPage = { kind: 'project-settings', page: 'shared' }
-
+// Project pages left `/settings/` for `/{org}/{project}/shared`: old links follow, query kept, slugs encoded.
 export const Route = createFileRoute('/_authed/$org/$project/settings/shared')({
-  staticData: { dashboardPage: page },
-  head: () => pageHead(page),
-  component: ProjectSharedLibraryPage,
+  beforeLoad: ({ params, location }) => {
+    throw redirect({
+      href: `${projectPagePath(params, 'shared')}${location.searchStr}`,
+      replace: true,
+    })
+  },
 })
-
-function ProjectSharedLibraryPage() {
-  const slugs = Route.useParams()
-  return <SharedLibraryPage slugs={slugs} />
-}

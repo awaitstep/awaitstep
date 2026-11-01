@@ -90,7 +90,7 @@ describe('project General', () => {
     await userEvent.clear(field(/URL/))
     await userEvent.type(field(/URL/), 'p-101')
     await userEvent.click(within(topBar()).getByRole('button', { name: 'Save changes' }))
-    await waitFor(() => expect(goTo).toHaveBeenCalledWith('/acme/p-101/settings/general'))
+    await waitFor(() => expect(goTo).toHaveBeenCalledWith('/acme/p-101/settings'))
   })
 
   it('blocks Delete while the lock is on, and deletes after typing the name once it’s off', async () => {
@@ -124,9 +124,7 @@ describe('project General', () => {
     const dialog = screen.getByRole('dialog', { name: 'Move Project 101' })
     await within(dialog).findByText('Bolt Labs')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Move project' }))
-    await waitFor(() =>
-      expect(goTo).toHaveBeenCalledWith('/bolt-labs/project-101/settings/general'),
-    )
+    await waitFor(() => expect(goTo).toHaveBeenCalledWith('/bolt-labs/project-101/settings'))
   })
 
   it('clears a refused move when another org is picked', async () => {

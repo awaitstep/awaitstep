@@ -53,3 +53,25 @@ export interface ProjectMembers {
     workspaces: { workspace: WorkspaceRef; role: WorkspaceRole }[]
   }[]
 }
+
+/** What people added from a project get (21a): one project-wide role, or one role in some workspaces. */
+export type ProjectAccessChoice =
+  | { scope: 'project'; role: ProjectRole }
+  | { scope: 'workspaces'; workspaceIds: string[]; role: WorkspaceRole }
+
+/** Who to add (21a, 21b): people already in the org by id, and new addresses to invite. */
+export interface AddPeopleInput {
+  userIds: string[]
+  emails: string[]
+}
+
+/** How each pick went: added, invited, or refused with the backend's reason. */
+export interface AddPeopleOutcome {
+  /** A user id, or an email for an invite. */
+  key: string
+  result: 'added' | 'invited' | 'failed'
+  /** The refusal's reason when it failed. */
+  error?: string
+  /** The workspaces actually granted, when the server skipped some of those asked for (21a). */
+  workspaces?: string[]
+}

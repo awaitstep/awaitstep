@@ -5,7 +5,7 @@ import { useDeleteProject, useUpdateProject } from '../../data/dashboard/project
 import { errorFieldOf } from '../../data/dashboard/errors'
 import { useSetLock } from '../../data/dashboard/locks'
 import { useWorkspaces } from '../../data/dashboard/workspaces'
-import { orgPath, projectSettingsPath, type ProjectSlugs } from '../../lib/dashboard-paths'
+import { orgPath, projectPagePath, type ProjectSlugs } from '../../lib/dashboard-paths'
 import { listNames } from '../../lib/name-list'
 import { plural } from '../../lib/plural'
 import type { Project } from '../../types/dashboard/projects'
@@ -47,7 +47,7 @@ function valuesOf(project: Project): FormValues {
   return { name: project.name, slug: project.slug, description: project.description ?? '' }
 }
 
-/** `/{org}/{project}/settings/general` (`ProjectGeneral`): name, URL, description, and the danger zone. */
+/** `/{org}/{project}/settings` (`ProjectGeneral`): name, URL, description, and the danger zone. */
 export function GeneralPage({ slugs }: GeneralPageProps) {
   const scope = useProjectScope(slugs)
   if (!scope) return null
@@ -100,7 +100,7 @@ function GeneralSettings({ slugs, scope }: { slugs: ProjectSlugs; scope: Project
       {
         onSuccess: (updated) => {
           if (updated.slug !== slugs.project) {
-            goTo(projectSettingsPath({ org: slugs.org, project: updated.slug }, 'general'))
+            goTo(projectPagePath({ org: slugs.org, project: updated.slug }, 'settings'))
           }
         },
       },

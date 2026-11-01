@@ -92,9 +92,9 @@ export function WorkspaceMobileHeader({ initiallyOpen = false }: { initiallyOpen
           <ProjectMenu
             project={{ name: 'Project 101', tile: { initial: 'P' }, switchHref: '/acme/projects' }}
             workspaces={menuWorkspaces}
-            newWorkspaceHref={`${PROJECT}/settings/workspaces?new=workspace`}
+            newWorkspaceHref={`${PROJECT}/workspaces?new=workspace`}
             nav={workspaceItems.map((item) => ({ ...item, active: item.key === 'workflows' }))}
-            projectSettingsHref={`${PROJECT}/settings/workspaces`}
+            projectHref={`${PROJECT}/workspaces`}
             onClose={handleClose}
           />
         </BottomSheet>

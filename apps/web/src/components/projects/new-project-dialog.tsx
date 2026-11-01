@@ -1,7 +1,7 @@
 import { useId, useState, type SubmitEvent } from 'react'
 import { FolderPlus, Package, ShieldCheck } from 'lucide-react'
 import { useCreateProject } from '../../data/dashboard/projects'
-import { workspacePath } from '../../lib/dashboard-paths'
+import { workspacePath, projectWorkspacesPath } from '../../lib/dashboard-paths'
 import { slugify } from '@awaitstep/ir'
 import { Button } from '../ui/button'
 import { FormField } from '../ui/form-field'
@@ -35,10 +35,11 @@ export function NewProjectDialog({ open, onOpenChange, org, then }: NewProjectDi
       {
         onSuccess: ({ project, workspace }) => {
           const slugs = { org: org.slug, project: project.slug, workspace: workspace.slug }
+          // A new project opens on its own page, where its welcome is; Import goes straight on.
           goTo(
             then === 'import'
               ? `${workspacePath(slugs, 'workflows')}?new=import`
-              : workspacePath(slugs),
+              : projectWorkspacesPath(slugs),
           )
         },
       },

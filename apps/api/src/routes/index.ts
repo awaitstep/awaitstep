@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import type { KeyAction, KeyResource } from '@awaitstep/ir'
+import { createMiddleware } from 'hono/factory'
 import type { AppEnv } from '../types.js'
 import type { Auth } from '../auth/config.js'
 import { zValidator } from '../lib/validation.js'
@@ -47,6 +48,7 @@ import { workspaces } from './workspaces.js'
 import { scope } from './scope.js'
 import { members, workspaceMembers } from './members.js'
 import { invitations, myInvitations } from './invitations.js'
+import { projectPeople, workspaceInvitations } from './place-people.js'
 import { accessRequests, workspaceAccessRequests } from './access-requests.js'
 import { runsQuerySchema, workspaceRunFilter } from './runs-query.js'
 import { account } from './account.js'
@@ -109,6 +111,9 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.use('/releases/*', requireSessionAuth)
   router.use('/access-requests/*', requireSessionAuth)
   router.post('/workspaces/:id/members', requireSessionAuth)
+  router.post('/workspaces/:id/invitations', requireSessionAuth)
+  router.post('/projects/:id/members', requireSessionAuth)
+  router.post('/projects/:id/invitations', requireSessionAuth)
   router.patch('/workspaces/:id/members/:userId', requireSessionAuth)
   router.delete('/workspaces/:id/members/:userId', requireSessionAuth)
   router.use('/workspaces/:id/access-request', requireSessionAuth)
@@ -159,6 +164,11 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.put('/workspaces/:id/lock', requireWorkspaceCan('toggleLock'))
   router.post('/workspaces/:id/move-workflows', requireWorkspaceCan('manageSettings'))
   router.post('/workspaces/:id/members', requireWorkspaceCan('manageMembers'))
+  // Adding people from a project or workspace (21a, 21b): its admins, never
+  // wider than that place; an email becomes an org Member invite with it.
+  router.post('/workspaces/:id/invitations', requireWorkspaceCan('manageMembers'))
+  router.post('/projects/:id/members', requireProjectCan('manageMembers'))
+  router.post('/projects/:id/invitations', requireProjectCan('manageMembers'))
   router.patch('/workspaces/:id/members/:userId', requireWorkspaceCan('manageMembers'))
   router.delete('/workspaces/:id/members/:userId', requireWorkspaceCan('manageMembers'))
   router.get('/members/:userId/access', requireOrgCan('manageSettings'))
@@ -384,10 +394,14 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   // the route (one request may name twenty addresses).
   const inviteLimit = createRateLimiter({ windowMs: 60_000, max: 10, keyGenerator: userKey })
   const emailBudget = createBudget({ windowMs: 60 * 60_000, max: 100 })
-  router.use('/invitations/*', async (c, next) => {
+  // One budget per person wherever an invite is sent from: the org, a project or a workspace.
+  const withEmailBudget = createMiddleware<AppEnv>(async (c, next) => {
     c.set('emailBudget', emailBudget)
     await next()
   })
+  router.use('/invitations/*', withEmailBudget)
+  router.post('/projects/:id/invitations', withEmailBudget)
+  router.post('/workspaces/:id/invitations', withEmailBudget)
 
   router.post('/account/orgs/:orgId/leave', writeLimit)
   router.delete('/account/sessions', writeLimit)
@@ -404,6 +418,9 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.patch('/workspaces/:id/members/:userId', writeLimit)
   router.delete('/workspaces/:id/members/:userId', writeLimit)
   router.post('/invitations', inviteLimit)
+  router.post('/projects/:id/invitations', inviteLimit)
+  router.post('/workspaces/:id/invitations', inviteLimit)
+  router.post('/projects/:id/members', writeLimit)
   router.post('/invitations/:id/resend', inviteLimit)
   router.post('/invitations/:id/ask-again', inviteLimit)
   // Each decline (again after an Undo) puts a fresh row in the inviter's Inbox.
@@ -484,6 +501,8 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.route('/projects', projects)
   router.route('/workspaces', workspaces)
   router.route('/workspaces/:id/members', workspaceMembers)
+  router.route('/workspaces/:id/invitations', workspaceInvitations)
+  router.route('/projects/:id', projectPeople)
   router.route('/workspaces/:id', workspaceAccessRequests)
   router.route('/members', members)
   router.route('/invitations', invitations)

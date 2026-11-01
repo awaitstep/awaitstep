@@ -10,7 +10,7 @@ import {
 } from './fixtures/frame'
 
 describe('ContextPanel modes', () => {
-  it('workspace mode: project and workspace switchers, the workspace items, Project settings pinned last', () => {
+  it('workspace mode: project and workspace switchers, the workspace items, Project pinned last', () => {
     render(<WorkspacePanel active="workflows" />)
     const panel = screen.getByRole('navigation', { name: 'Project' })
     expect(
@@ -30,7 +30,7 @@ describe('ContextPanel modes', () => {
       'Library',
       'Runs',
       'Workspace settings',
-      'Project settings',
+      'Project',
     ])
     expect(within(panel).getByRole('link', { name: 'Workflows' })).toHaveAttribute(
       'aria-current',
@@ -38,16 +38,16 @@ describe('ContextPanel modes', () => {
     )
   })
 
-  it('project-settings mode: back to the workspace, then the settings sections as a captioned group', () => {
-    render(<ProjectSettingsPanel active="general" />)
-    const panel = screen.getByRole('navigation', { name: 'Project settings' })
-    expect(within(panel).getByRole('link', { name: 'Back to workspace' })).toBeInTheDocument()
-    const group = within(panel).getByRole('group', { name: 'Project settings' })
+  it('project mode: the project’s pages in one list, no heading, no way back', () => {
+    render(<ProjectSettingsPanel active="settings" />)
+    const panel = screen.getByRole('navigation', { name: 'Project' })
+    expect(within(panel).queryByRole('link', { name: 'Back to workspace' })).toBeNull()
+    expect(within(panel).queryByText('Project settings')).toBeNull()
     expect(
-      within(group)
+      within(panel)
         .getAllByRole('link')
         .map((link) => link.textContent),
-    ).toEqual(['Workspaces', 'Shared library', 'Members', 'API keys', 'Variables', 'General'])
+    ).toEqual(['Workspaces', 'Shared library', 'Members', 'API keys', 'Variables', 'Settings'])
   })
 
   it('org-settings mode: the org as a plain header, not a switcher', () => {

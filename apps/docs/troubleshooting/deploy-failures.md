@@ -10,7 +10,7 @@ title: Deploy Failures
 
 **Fix:**
 
-1. Set the variable where the workflow can reach it — **Workspace settings → Variables**, **Project settings → Variables** or **Resources → Variables** for the organization (the closest level wins) — or in the workflow's own **Settings → Environment Variables** on the canvas.
+1. Set the variable where the workflow can reach it — **Workspace settings → Variables**, **Project → Variables** or **Resources → Variables** for the organization (the closest level wins) — or in the workflow's own **Settings → Environment Variables** on the canvas.
 2. Add the missing variable with the correct name and value.
 3. Retry the deploy.
 

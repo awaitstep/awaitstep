@@ -181,6 +181,22 @@ export function useConnections(org: string) {
   })
 }
 
+/** The org's Cloudflare accounts that deploy one project: `WsOverview`'s "Deploys to". */
+export function useProjectConnections(org: string, project: string) {
+  const source = useDataSource()
+  const ctx = useMockContext()
+  const key = useDashKey()
+  return useQuery({
+    queryKey: key(dashKeys.projectConnections(org, project)),
+    queryFn: (): Promise<Connection[]> =>
+      source === 'api'
+        ? allPages((cursor) => dashboardApi.listConnections(org, cursor, project)).then((res) =>
+            res.data.map(toConnection),
+          )
+        : mockServer.org.listConnections(ctx, org, project),
+  })
+}
+
 /**
  * Connections change the cards, the "Cloudflare connected" setup step, and
  * the old pages' list (`queries.connections`, behind the deploy page and the

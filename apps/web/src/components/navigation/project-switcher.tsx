@@ -22,7 +22,7 @@ const ACTIONS: ScopeAction[] = [
   { id: 'all', label: 'All projects', icon: LayoutGrid },
 ]
 
-/** Switches project, landing in its most recent workspace; also New project and All projects. */
+/** Switches project, landing on its Workspaces page; also New project and All projects. */
 export function ProjectSwitcher({
   trigger,
   org,

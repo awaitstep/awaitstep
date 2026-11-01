@@ -5,7 +5,7 @@ import {
   ACCOUNT_PAGES,
   ORG_PAGES,
   ORG_SETTINGS_PAGES,
-  PROJECT_SETTINGS_PAGES,
+  PROJECT_PAGES,
   RESERVED_SLUGS,
   WORKSPACE_PAGES,
   accountPath,
@@ -14,7 +14,8 @@ import {
   orgPath,
   orgSettingsPath,
   projectPath,
-  projectSettingsPath,
+  projectPagePath,
+  projectWorkspacesPath,
   workspacePath,
 } from '../../../lib/dashboard-paths'
 
@@ -32,13 +33,15 @@ describe('dashboard route tree', () => {
   const paths = [
     ...ORG_PAGES.map((page) => orgPath('acme', page)),
     ...ORG_SETTINGS_PAGES.map((page) => orgSettingsPath('acme', page)),
-    ...PROJECT_SETTINGS_PAGES.map((page) => projectSettingsPath(SALES, page)),
+    projectWorkspacesPath(SALES),
+    ...PROJECT_PAGES.map((page) => projectPagePath(SALES, page)),
     ...WORKSPACE_PAGES.map((page) => workspacePath(SALES, page)),
     ...ACCOUNT_PAGES.map((page) => accountPath('acme', page)),
   ]
 
   it.each(paths)('has a page route for %s', (path) => {
-    const routeId = leafRoute(path)
+    // `/{org}/{project}/settings` is an index route: its id keeps the trailing slash.
+    const routeId = leafRoute(path)?.replace(/\/$/, '')
     expect(routeId).toBe(
       `/_authed${path.replace('/acme', '/$org').replace('/project-101', '/$project').replace('/sales', '/$workspace')}`,
     )
@@ -81,7 +84,13 @@ describe('dashboard route tree', () => {
     expect(leafRoute('/acme/items/itm_123')).toBe('/_authed/$org/items/$itemId')
   })
 
-  it('lets no workspace be called "settings"', () => {
+  it('lets no workspace take a project page’s name', () => {
+    expect(leafRoute('/acme/project-101/workspaces')).toBe('/_authed/$org/$project/workspaces')
+    expect(leafRoute('/acme/project-101/members')).toBe('/_authed/$org/$project/members')
+    expect(leafRoute('/acme/project-101/settings')).toBe('/_authed/$org/$project/settings/')
+  })
+
+  it('keeps the old Settings → Workspaces URL, which forwards to the project’s page', () => {
     expect(leafRoute('/acme/project-101/settings/workspaces')).toBe(
       '/_authed/$org/$project/settings/workspaces',
     )

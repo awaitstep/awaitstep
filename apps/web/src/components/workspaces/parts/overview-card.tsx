@@ -5,7 +5,7 @@ interface OverviewCardProps {
   title: string
   /** "1 failing", "4 can open Sales". */
   caption?: ReactNode
-  /** A link at the right, e.g. "All runs →". */
+  /** A link at the right, e.g. "All runs". */
   action?: ReactNode
   children: ReactNode
 }

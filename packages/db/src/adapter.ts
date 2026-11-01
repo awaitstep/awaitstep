@@ -88,6 +88,9 @@ import type {
   AccessRequestDecision,
   AuditEventInsert,
   NamedWorkspaceMember,
+  NamedProjectMember,
+  ProjectGrantData,
+  ProjectGrantRows,
   ProjectMoveOutcome,
   PersonAuditInsert,
   AccountRow,
@@ -308,6 +311,22 @@ export interface DatabaseAdapter {
   getGrantRows(workspaceId: string, userId: string): Promise<GrantRows | null>
   /** Null when they are outside the org, already in, or the role is at or below what the project gives. */
   addWorkspaceMember(data: WorkspaceGrantData): Promise<NamedWorkspaceMember | null>
+  /** A project-wide grant for someone in the org without one; null when refused (see `projectGrantRows`). */
+  addProjectMember(data: ProjectGrantData): Promise<NamedProjectMember | null>
+  /** One role in several of the project's workspaces; the grants written, with each workspace's name. */
+  addWorkspaceGrants(data: {
+    projectId: string
+    workspaceIds: string[]
+    userId: string
+    role: WorkspaceGrant
+    createdBy: string
+  }): Promise<(NamedWorkspaceMember & { workspaceName: string })[]>
+  /** Their org role and project grant, to say why a project add was refused. */
+  projectGrantRows(
+    projectId: string,
+    userId: string,
+    workspaceIds?: string[],
+  ): Promise<ProjectGrantRows | null>
   /**
    * Null when there is no grant, or the role is at or below what the project
    * gives. `changed` is false when it already had that role.
@@ -328,7 +347,13 @@ export interface DatabaseAdapter {
   /** One read of every check inviting needs: which ids are the organization's, which addresses are taken. */
   invitationChecks(
     organizationId: string,
-    refs: { projectIds: string[]; workspaceIds: string[]; emails: string[]; now: string },
+    refs: {
+      projectIds: string[]
+      workspaceIds: string[]
+      emails: string[]
+      now: string
+      inProject?: string
+    },
   ): Promise<InvitationChecks>
   createInvitations(invitations: CreateInvitationData[]): Promise<void>
   /** Open, unexpired ones, with places in the projects the viewer can open. */

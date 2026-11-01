@@ -75,11 +75,20 @@ describe('project Workspaces page', () => {
     expect(within(support).getByText('Created today by Ama Mensah')).toBeVisible()
   })
 
+  it('puts the workspace you were last in first', async () => {
+    rememberWorkspace('acme', 'project-101', 'it')
+    renderPage()
+    await screen.findByRole('link', { name: 'IT' })
+    const grid = screen.getByRole('link', { name: 'IT' }).parentElement!
+    const names = [...grid.querySelectorAll(':scope > a')].map((card) => card.getAttribute('href'))
+    expect(names[0]).toBe('/acme/project-101/it/overview')
+  })
+
   it('counts the project pool from its lists', async () => {
     renderPage()
     await screen.findByText('admins open every workspace')
     const members = poolCard('Members & keys')
-    expect(members).toHaveAttribute('href', '/acme/project-101/settings/members')
+    expect(members).toHaveAttribute('href', '/acme/project-101/members')
     expect(members).toHaveTextContent('2admins open every workspace')
     expect(members).toHaveTextContent('3 project keys')
     const variables = poolCard('Variables')

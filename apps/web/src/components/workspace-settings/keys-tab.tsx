@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useRevokeWorkspaceKey } from '../../data/dashboard/api-keys'
 import {
-  projectSettingsPath,
+  projectPagePath,
   workspaceSettingsPath,
   type WorkspaceSlugs,
 } from '../../lib/dashboard-paths'
@@ -102,8 +102,8 @@ export function KeysTab({
         scopeLabel={`From ${projectName}`}
         hint="Project keys reach every workspace"
         manage={{
-          label: 'Manage in Project settings',
-          href: projectSettingsPath(slugs, 'api-keys'),
+          label: 'Manage in the project',
+          href: projectPagePath(slugs, 'api-keys'),
         }}
       >
         <KeyTable

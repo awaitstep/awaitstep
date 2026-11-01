@@ -3,7 +3,7 @@ import { useSharedWithWorkspace } from '../../data/dashboard/items'
 import { useProjectSetup } from '../../data/dashboard/setup'
 import { useWorkspacePeople } from '../../data/dashboard/workspaces'
 import {
-  projectSettingsPath,
+  projectPagePath,
   workspacePath,
   workspaceSettingsPath,
   type WorkspaceSlugs,
@@ -99,7 +99,7 @@ export function EmptyWorkspace({
         <AvailableCard
           // The board links Workflows, which is this page while it's empty; the
           // project's Shared library lists the same items.
-          href={projectSettingsPath(slugs, 'shared')}
+          href={projectPagePath(slugs, 'shared')}
           icon={Share2}
           tone="ok"
           title={`Shared with ${workspaceName}`}

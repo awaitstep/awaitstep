@@ -2,7 +2,7 @@ import type { ReactElement } from 'react'
 import { Layers, Plus } from 'lucide-react'
 import { useWorkspaces } from '../../data/dashboard/workspaces'
 import {
-  projectSettingsPath,
+  projectWorkspacesPath,
   workspacePath,
   type WorkspacePage,
   type WorkspaceSlugs,
@@ -36,7 +36,7 @@ export function WorkspaceSwitcher({ trigger, slugs, projectName, page }: Workspa
   }
 
   function handleAction(id: string) {
-    const manage = projectSettingsPath(slugs, 'workspaces')
+    const manage = projectWorkspacesPath(slugs)
     // `?new=workspace` opens the New workspace dialog once P3 builds it.
     goTo(id === 'new' ? `${manage}?new=workspace` : manage)
   }

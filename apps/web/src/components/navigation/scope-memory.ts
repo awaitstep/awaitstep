@@ -52,6 +52,15 @@ function pushRecent(storage: ScopeStorage | null, key: string, value: string): v
   }
 }
 
+/** Opening any of a project's pages makes it the org's current project (cards, key defaults). */
+export function rememberProject(
+  org: string,
+  project: string,
+  storage: ScopeStorage | null = browserStorage(),
+): void {
+  pushRecent(storage, projectsKey(org), project)
+}
+
 /** Called whenever a workspace page is entered. */
 export function rememberWorkspace(
   org: string,
@@ -61,6 +70,17 @@ export function rememberWorkspace(
 ): void {
   pushRecent(storage, workspacesKey(org, project), workspace)
   pushRecent(storage, projectsKey(org), project)
+}
+
+/**
+ * The workspace a project's pages treat as yours: the most recent one the
+ * viewer can still open, else the first one. With none to open, null.
+ */
+export function pickWorkspace(
+  available: readonly string[],
+  recent: readonly string[],
+): string | null {
+  return recent.find((slug) => available.includes(slug)) ?? available[0] ?? null
 }
 
 /** Workspace slugs entered in this project, most recent first. */

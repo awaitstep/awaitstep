@@ -87,6 +87,15 @@ describe('GET /api/scope', () => {
     expect(body.workspace.viewerCan.delete.reason).toMatch(/last workspace/)
   })
 
+  it('answers the workspace with its last 24 hours of runs, oldest first', async () => {
+    const res = await app.request(
+      `/api/scope?org=${TEST_ORG_SLUG}&project=${TEST_PROJECT_SLUG}&workspace=default`,
+    )
+    const body = await res.json()
+    expect(body.workspace.runsByHour).toHaveLength(24)
+    expect(body.workspace.runsByHour[23]).toEqual({ runs: 2, complete: 1, failed: 1 })
+  })
+
   it('reads a member as a project member and workspace editor', async () => {
     setTestOrgRole('member')
     const body = await (

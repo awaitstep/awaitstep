@@ -25,15 +25,16 @@ export type OrgSettingsPage = (typeof ORG_SETTINGS_PAGES)[number]
  */
 export type OrgDestination = OrgSettingsPage | 'connections' | 'api-keys'
 
-export const PROJECT_SETTINGS_PAGES = [
+/** A project's pages, each straight under it: `/{org}/{project}/{page}`, as its menu lists them. */
+export const PROJECT_PAGES = [
   'workspaces',
   'shared',
   'members',
   'api-keys',
   'variables',
-  'general',
+  'settings',
 ] as const
-export type ProjectSettingsPage = (typeof PROJECT_SETTINGS_PAGES)[number]
+export type ProjectPage = (typeof PROJECT_PAGES)[number]
 
 export const WORKSPACE_PAGES = [
   'overview',
@@ -51,7 +52,7 @@ export type AccountPage = (typeof ACCOUNT_PAGES)[number]
 export type ProjectSlugs = Required<Pick<ScopeSlugs, 'org' | 'project'>>
 export type WorkspaceSlugs = Required<ScopeSlugs>
 
-/** Where a bare workspace URL goes, and where every project card and switcher links. */
+/** Where a bare workspace URL goes, and where every workspace card and switcher links. */
 export const DEFAULT_WORKSPACE_PAGE: WorkspacePage = 'overview'
 
 // A URL segment at each level can't be a page a route already owns. The lists
@@ -80,19 +81,22 @@ export function orgDestinationPath(org: string, page: OrgDestination): string {
 
 /** A project's Members page with Add people open: the access editor, set to add someone to this project. */
 export function projectMembersAddPath(slugs: ProjectSlugs): string {
-  return `${projectSettingsPath(slugs, 'members')}?${new URLSearchParams({ access: 'add' })}`
+  return `${projectPagePath(slugs, 'members')}?${new URLSearchParams({ access: 'add' })}`
 }
 
-/** The project URL itself, which lands in the last workspace. */
+/** The project URL itself, which goes on to its Workspaces page. */
 export function projectPath(slugs: ProjectSlugs): string {
   return `/${segment(slugs.org)}/${segment(slugs.project)}`
 }
 
-export function projectSettingsPath(
-  slugs: ProjectSlugs,
-  page: ProjectSettingsPage = 'workspaces',
-): string {
-  return `${projectPath(slugs)}/settings/${page}`
+/** One of the project's pages: `/{org}/{project}/members`, `/{org}/{project}/settings`. */
+export function projectPagePath(slugs: ProjectSlugs, page: ProjectPage): string {
+  return `${projectPath(slugs)}/${page}`
+}
+
+/** The project's own page: its workspaces and project pool, or the welcome while it's new. */
+export function projectWorkspacesPath(slugs: ProjectSlugs): string {
+  return projectPagePath(slugs, 'workspaces')
 }
 
 export function workspacePath(
@@ -159,7 +163,7 @@ export function variableDialogPath(
     return `${workspacePath(slugs, 'settings')}?${new URLSearchParams({ tab: 'variables', ...query })}`
   }
   if ('project' in slugs) {
-    return `${projectSettingsPath(slugs, 'variables')}?${new URLSearchParams(query)}`
+    return `${projectPagePath(slugs, 'variables')}?${new URLSearchParams(query)}`
   }
   return `${orgPath(slugs.org, 'resources')}?${new URLSearchParams({ tab: 'variables', ...query })}`
 }

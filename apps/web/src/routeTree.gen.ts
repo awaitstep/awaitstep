@@ -21,6 +21,7 @@ import { Route as AuthedDashboardRouteImport } from './routes/_authed/dashboard'
 import { Route as AuthedSettingsRouteImport } from './routes/_authed/settings'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AuthedOrgIndexRouteImport } from './routes/_authed/$org.index'
+import { Route as AuthedOrgProjectRouteImport } from './routes/_authed/$org.$project'
 import { Route as AuthedOrgApiKeysRouteImport } from './routes/_authed/$org.api-keys'
 import { Route as AuthedOrgAuditRouteImport } from './routes/_authed/$org.audit'
 import { Route as AuthedOrgConnectionsRouteImport } from './routes/_authed/$org.connections'
@@ -34,6 +35,11 @@ import { Route as AuthedWorkflowsIndexRouteImport } from './routes/_authed/workf
 import { Route as AuthedWorkflowsWorkflowIdRouteImport } from './routes/_authed/workflows/$workflowId'
 import { Route as AuthedOrgProjectIndexRouteImport } from './routes/_authed/$org.$project.index'
 import { Route as AuthedOrgProjectWorkspaceRouteImport } from './routes/_authed/$org.$project.$workspace'
+import { Route as AuthedOrgProjectApiKeysRouteImport } from './routes/_authed/$org.$project.api-keys'
+import { Route as AuthedOrgProjectMembersRouteImport } from './routes/_authed/$org.$project.members'
+import { Route as AuthedOrgProjectSharedRouteImport } from './routes/_authed/$org.$project.shared'
+import { Route as AuthedOrgProjectVariablesRouteImport } from './routes/_authed/$org.$project.variables'
+import { Route as AuthedOrgProjectWorkspacesRouteImport } from './routes/_authed/$org.$project.workspaces'
 import { Route as AuthedOrgAccountIndexRouteImport } from './routes/_authed/$org.account.index'
 import { Route as AuthedOrgAccountProfileRouteImport } from './routes/_authed/$org.account.profile'
 import { Route as AuthedOrgAccountSessionsRouteImport } from './routes/_authed/$org.account.sessions'
@@ -125,6 +131,11 @@ const AuthedOrgIndexRoute = AuthedOrgIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthedOrgRoute,
 } as any)
+const AuthedOrgProjectRoute = AuthedOrgProjectRouteImport.update({
+  id: '/$project',
+  path: '/$project',
+  getParentRoute: () => AuthedOrgRoute,
+} as any)
 const AuthedOrgApiKeysRoute = AuthedOrgApiKeysRouteImport.update({
   id: '/api-keys',
   path: '/api-keys',
@@ -182,15 +193,42 @@ const AuthedWorkflowsWorkflowIdRoute =
     getParentRoute: () => AuthedRoute,
   } as any)
 const AuthedOrgProjectIndexRoute = AuthedOrgProjectIndexRouteImport.update({
-  id: '/$project/',
-  path: '/$project/',
-  getParentRoute: () => AuthedOrgRoute,
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthedOrgProjectRoute,
 } as any)
 const AuthedOrgProjectWorkspaceRoute =
   AuthedOrgProjectWorkspaceRouteImport.update({
-    id: '/$project/$workspace',
-    path: '/$project/$workspace',
-    getParentRoute: () => AuthedOrgRoute,
+    id: '/$workspace',
+    path: '/$workspace',
+    getParentRoute: () => AuthedOrgProjectRoute,
+  } as any)
+const AuthedOrgProjectApiKeysRoute = AuthedOrgProjectApiKeysRouteImport.update({
+  id: '/api-keys',
+  path: '/api-keys',
+  getParentRoute: () => AuthedOrgProjectRoute,
+} as any)
+const AuthedOrgProjectMembersRoute = AuthedOrgProjectMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => AuthedOrgProjectRoute,
+} as any)
+const AuthedOrgProjectSharedRoute = AuthedOrgProjectSharedRouteImport.update({
+  id: '/shared',
+  path: '/shared',
+  getParentRoute: () => AuthedOrgProjectRoute,
+} as any)
+const AuthedOrgProjectVariablesRoute =
+  AuthedOrgProjectVariablesRouteImport.update({
+    id: '/variables',
+    path: '/variables',
+    getParentRoute: () => AuthedOrgProjectRoute,
+  } as any)
+const AuthedOrgProjectWorkspacesRoute =
+  AuthedOrgProjectWorkspacesRouteImport.update({
+    id: '/workspaces',
+    path: '/workspaces',
+    getParentRoute: () => AuthedOrgProjectRoute,
   } as any)
 const AuthedOrgAccountIndexRoute = AuthedOrgAccountIndexRouteImport.update({
   id: '/account/',
@@ -328,45 +366,45 @@ const AuthedOrgProjectWorkspaceWorkflowsRoute =
   } as any)
 const AuthedOrgProjectSettingsIndexRoute =
   AuthedOrgProjectSettingsIndexRouteImport.update({
-    id: '/$project/settings/',
-    path: '/$project/settings/',
-    getParentRoute: () => AuthedOrgRoute,
+    id: '/settings/',
+    path: '/settings/',
+    getParentRoute: () => AuthedOrgProjectRoute,
   } as any)
 const AuthedOrgProjectSettingsApiKeysRoute =
   AuthedOrgProjectSettingsApiKeysRouteImport.update({
-    id: '/$project/settings/api-keys',
-    path: '/$project/settings/api-keys',
-    getParentRoute: () => AuthedOrgRoute,
+    id: '/settings/api-keys',
+    path: '/settings/api-keys',
+    getParentRoute: () => AuthedOrgProjectRoute,
   } as any)
 const AuthedOrgProjectSettingsGeneralRoute =
   AuthedOrgProjectSettingsGeneralRouteImport.update({
-    id: '/$project/settings/general',
-    path: '/$project/settings/general',
-    getParentRoute: () => AuthedOrgRoute,
+    id: '/settings/general',
+    path: '/settings/general',
+    getParentRoute: () => AuthedOrgProjectRoute,
   } as any)
 const AuthedOrgProjectSettingsMembersRoute =
   AuthedOrgProjectSettingsMembersRouteImport.update({
-    id: '/$project/settings/members',
-    path: '/$project/settings/members',
-    getParentRoute: () => AuthedOrgRoute,
+    id: '/settings/members',
+    path: '/settings/members',
+    getParentRoute: () => AuthedOrgProjectRoute,
   } as any)
 const AuthedOrgProjectSettingsSharedRoute =
   AuthedOrgProjectSettingsSharedRouteImport.update({
-    id: '/$project/settings/shared',
-    path: '/$project/settings/shared',
-    getParentRoute: () => AuthedOrgRoute,
+    id: '/settings/shared',
+    path: '/settings/shared',
+    getParentRoute: () => AuthedOrgProjectRoute,
   } as any)
 const AuthedOrgProjectSettingsVariablesRoute =
   AuthedOrgProjectSettingsVariablesRouteImport.update({
-    id: '/$project/settings/variables',
-    path: '/$project/settings/variables',
-    getParentRoute: () => AuthedOrgRoute,
+    id: '/settings/variables',
+    path: '/settings/variables',
+    getParentRoute: () => AuthedOrgProjectRoute,
   } as any)
 const AuthedOrgProjectSettingsWorkspacesRoute =
   AuthedOrgProjectSettingsWorkspacesRouteImport.update({
-    id: '/$project/settings/workspaces',
-    path: '/$project/settings/workspaces',
-    getParentRoute: () => AuthedOrgRoute,
+    id: '/settings/workspaces',
+    path: '/settings/workspaces',
+    getParentRoute: () => AuthedOrgProjectRoute,
   } as any)
 const AuthedWorkflowsWorkflowIdRunsIndexRoute =
   AuthedWorkflowsWorkflowIdRunsIndexRouteImport.update({
@@ -386,6 +424,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthedDashboardRoute
   '/settings': typeof AuthedSettingsRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/$org/$project': typeof AuthedOrgProjectRouteWithChildren
   '/$org/api-keys': typeof AuthedOrgApiKeysRoute
   '/$org/audit': typeof AuthedOrgAuditRoute
   '/$org/connections': typeof AuthedOrgConnectionsRoute
@@ -399,6 +438,11 @@ export interface FileRoutesByFullPath {
   '/runs/': typeof AuthedRunsIndexRoute
   '/workflows/': typeof AuthedWorkflowsIndexRoute
   '/$org/$project/$workspace': typeof AuthedOrgProjectWorkspaceRouteWithChildren
+  '/$org/$project/api-keys': typeof AuthedOrgProjectApiKeysRoute
+  '/$org/$project/members': typeof AuthedOrgProjectMembersRoute
+  '/$org/$project/shared': typeof AuthedOrgProjectSharedRoute
+  '/$org/$project/variables': typeof AuthedOrgProjectVariablesRoute
+  '/$org/$project/workspaces': typeof AuthedOrgProjectWorkspacesRoute
   '/$org/account/profile': typeof AuthedOrgAccountProfileRoute
   '/$org/account/sessions': typeof AuthedOrgAccountSessionsRoute
   '/$org/items/$itemId': typeof AuthedOrgItemsItemIdRoute
@@ -453,6 +497,11 @@ export interface FileRoutesByTo {
   '/$org': typeof AuthedOrgIndexRoute
   '/runs': typeof AuthedRunsIndexRoute
   '/workflows': typeof AuthedWorkflowsIndexRoute
+  '/$org/$project/api-keys': typeof AuthedOrgProjectApiKeysRoute
+  '/$org/$project/members': typeof AuthedOrgProjectMembersRoute
+  '/$org/$project/shared': typeof AuthedOrgProjectSharedRoute
+  '/$org/$project/variables': typeof AuthedOrgProjectVariablesRoute
+  '/$org/$project/workspaces': typeof AuthedOrgProjectWorkspacesRoute
   '/$org/account/profile': typeof AuthedOrgAccountProfileRoute
   '/$org/account/sessions': typeof AuthedOrgAccountSessionsRoute
   '/$org/items/$itemId': typeof AuthedOrgItemsItemIdRoute
@@ -498,6 +547,7 @@ export interface FileRoutesById {
   '/_authed/dashboard': typeof AuthedDashboardRoute
   '/_authed/settings': typeof AuthedSettingsRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/_authed/$org/$project': typeof AuthedOrgProjectRouteWithChildren
   '/_authed/$org/api-keys': typeof AuthedOrgApiKeysRoute
   '/_authed/$org/audit': typeof AuthedOrgAuditRoute
   '/_authed/$org/connections': typeof AuthedOrgConnectionsRoute
@@ -511,6 +561,11 @@ export interface FileRoutesById {
   '/_authed/runs/': typeof AuthedRunsIndexRoute
   '/_authed/workflows/': typeof AuthedWorkflowsIndexRoute
   '/_authed/$org/$project/$workspace': typeof AuthedOrgProjectWorkspaceRouteWithChildren
+  '/_authed/$org/$project/api-keys': typeof AuthedOrgProjectApiKeysRoute
+  '/_authed/$org/$project/members': typeof AuthedOrgProjectMembersRoute
+  '/_authed/$org/$project/shared': typeof AuthedOrgProjectSharedRoute
+  '/_authed/$org/$project/variables': typeof AuthedOrgProjectVariablesRoute
+  '/_authed/$org/$project/workspaces': typeof AuthedOrgProjectWorkspacesRoute
   '/_authed/$org/account/profile': typeof AuthedOrgAccountProfileRoute
   '/_authed/$org/account/sessions': typeof AuthedOrgAccountSessionsRoute
   '/_authed/$org/items/$itemId': typeof AuthedOrgItemsItemIdRoute
@@ -557,6 +612,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/settings'
     | '/invite/$token'
+    | '/$org/$project'
     | '/$org/api-keys'
     | '/$org/audit'
     | '/$org/connections'
@@ -570,6 +626,11 @@ export interface FileRouteTypes {
     | '/runs/'
     | '/workflows/'
     | '/$org/$project/$workspace'
+    | '/$org/$project/api-keys'
+    | '/$org/$project/members'
+    | '/$org/$project/shared'
+    | '/$org/$project/variables'
+    | '/$org/$project/workspaces'
     | '/$org/account/profile'
     | '/$org/account/sessions'
     | '/$org/items/$itemId'
@@ -624,6 +685,11 @@ export interface FileRouteTypes {
     | '/$org'
     | '/runs'
     | '/workflows'
+    | '/$org/$project/api-keys'
+    | '/$org/$project/members'
+    | '/$org/$project/shared'
+    | '/$org/$project/variables'
+    | '/$org/$project/workspaces'
     | '/$org/account/profile'
     | '/$org/account/sessions'
     | '/$org/items/$itemId'
@@ -668,6 +734,7 @@ export interface FileRouteTypes {
     | '/_authed/dashboard'
     | '/_authed/settings'
     | '/invite/$token'
+    | '/_authed/$org/$project'
     | '/_authed/$org/api-keys'
     | '/_authed/$org/audit'
     | '/_authed/$org/connections'
@@ -681,6 +748,11 @@ export interface FileRouteTypes {
     | '/_authed/runs/'
     | '/_authed/workflows/'
     | '/_authed/$org/$project/$workspace'
+    | '/_authed/$org/$project/api-keys'
+    | '/_authed/$org/$project/members'
+    | '/_authed/$org/$project/shared'
+    | '/_authed/$org/$project/variables'
+    | '/_authed/$org/$project/workspaces'
     | '/_authed/$org/account/profile'
     | '/_authed/$org/account/sessions'
     | '/_authed/$org/items/$itemId'
@@ -808,6 +880,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgIndexRouteImport
       parentRoute: typeof AuthedOrgRoute
     }
+    '/_authed/$org/$project': {
+      id: '/_authed/$org/$project'
+      path: '/$project'
+      fullPath: '/$org/$project'
+      preLoaderRoute: typeof AuthedOrgProjectRouteImport
+      parentRoute: typeof AuthedOrgRoute
+    }
     '/_authed/$org/api-keys': {
       id: '/_authed/$org/api-keys'
       path: '/api-keys'
@@ -887,17 +966,52 @@ declare module '@tanstack/react-router' {
     }
     '/_authed/$org/$project/': {
       id: '/_authed/$org/$project/'
-      path: '/$project'
+      path: '/'
       fullPath: '/$org/$project/'
       preLoaderRoute: typeof AuthedOrgProjectIndexRouteImport
-      parentRoute: typeof AuthedOrgRoute
+      parentRoute: typeof AuthedOrgProjectRoute
     }
     '/_authed/$org/$project/$workspace': {
       id: '/_authed/$org/$project/$workspace'
-      path: '/$project/$workspace'
+      path: '/$workspace'
       fullPath: '/$org/$project/$workspace'
       preLoaderRoute: typeof AuthedOrgProjectWorkspaceRouteImport
-      parentRoute: typeof AuthedOrgRoute
+      parentRoute: typeof AuthedOrgProjectRoute
+    }
+    '/_authed/$org/$project/api-keys': {
+      id: '/_authed/$org/$project/api-keys'
+      path: '/api-keys'
+      fullPath: '/$org/$project/api-keys'
+      preLoaderRoute: typeof AuthedOrgProjectApiKeysRouteImport
+      parentRoute: typeof AuthedOrgProjectRoute
+    }
+    '/_authed/$org/$project/members': {
+      id: '/_authed/$org/$project/members'
+      path: '/members'
+      fullPath: '/$org/$project/members'
+      preLoaderRoute: typeof AuthedOrgProjectMembersRouteImport
+      parentRoute: typeof AuthedOrgProjectRoute
+    }
+    '/_authed/$org/$project/shared': {
+      id: '/_authed/$org/$project/shared'
+      path: '/shared'
+      fullPath: '/$org/$project/shared'
+      preLoaderRoute: typeof AuthedOrgProjectSharedRouteImport
+      parentRoute: typeof AuthedOrgProjectRoute
+    }
+    '/_authed/$org/$project/variables': {
+      id: '/_authed/$org/$project/variables'
+      path: '/variables'
+      fullPath: '/$org/$project/variables'
+      preLoaderRoute: typeof AuthedOrgProjectVariablesRouteImport
+      parentRoute: typeof AuthedOrgProjectRoute
+    }
+    '/_authed/$org/$project/workspaces': {
+      id: '/_authed/$org/$project/workspaces'
+      path: '/workspaces'
+      fullPath: '/$org/$project/workspaces'
+      preLoaderRoute: typeof AuthedOrgProjectWorkspacesRouteImport
+      parentRoute: typeof AuthedOrgProjectRoute
     }
     '/_authed/$org/account/': {
       id: '/_authed/$org/account/'
@@ -1062,52 +1176,52 @@ declare module '@tanstack/react-router' {
     }
     '/_authed/$org/$project/settings/': {
       id: '/_authed/$org/$project/settings/'
-      path: '/$project/settings'
+      path: '/settings'
       fullPath: '/$org/$project/settings/'
       preLoaderRoute: typeof AuthedOrgProjectSettingsIndexRouteImport
-      parentRoute: typeof AuthedOrgRoute
+      parentRoute: typeof AuthedOrgProjectRoute
     }
     '/_authed/$org/$project/settings/api-keys': {
       id: '/_authed/$org/$project/settings/api-keys'
-      path: '/$project/settings/api-keys'
+      path: '/settings/api-keys'
       fullPath: '/$org/$project/settings/api-keys'
       preLoaderRoute: typeof AuthedOrgProjectSettingsApiKeysRouteImport
-      parentRoute: typeof AuthedOrgRoute
+      parentRoute: typeof AuthedOrgProjectRoute
     }
     '/_authed/$org/$project/settings/general': {
       id: '/_authed/$org/$project/settings/general'
-      path: '/$project/settings/general'
+      path: '/settings/general'
       fullPath: '/$org/$project/settings/general'
       preLoaderRoute: typeof AuthedOrgProjectSettingsGeneralRouteImport
-      parentRoute: typeof AuthedOrgRoute
+      parentRoute: typeof AuthedOrgProjectRoute
     }
     '/_authed/$org/$project/settings/members': {
       id: '/_authed/$org/$project/settings/members'
-      path: '/$project/settings/members'
+      path: '/settings/members'
       fullPath: '/$org/$project/settings/members'
       preLoaderRoute: typeof AuthedOrgProjectSettingsMembersRouteImport
-      parentRoute: typeof AuthedOrgRoute
+      parentRoute: typeof AuthedOrgProjectRoute
     }
     '/_authed/$org/$project/settings/shared': {
       id: '/_authed/$org/$project/settings/shared'
-      path: '/$project/settings/shared'
+      path: '/settings/shared'
       fullPath: '/$org/$project/settings/shared'
       preLoaderRoute: typeof AuthedOrgProjectSettingsSharedRouteImport
-      parentRoute: typeof AuthedOrgRoute
+      parentRoute: typeof AuthedOrgProjectRoute
     }
     '/_authed/$org/$project/settings/variables': {
       id: '/_authed/$org/$project/settings/variables'
-      path: '/$project/settings/variables'
+      path: '/settings/variables'
       fullPath: '/$org/$project/settings/variables'
       preLoaderRoute: typeof AuthedOrgProjectSettingsVariablesRouteImport
-      parentRoute: typeof AuthedOrgRoute
+      parentRoute: typeof AuthedOrgProjectRoute
     }
     '/_authed/$org/$project/settings/workspaces': {
       id: '/_authed/$org/$project/settings/workspaces'
-      path: '/$project/settings/workspaces'
+      path: '/settings/workspaces'
       fullPath: '/$org/$project/settings/workspaces'
       preLoaderRoute: typeof AuthedOrgProjectSettingsWorkspacesRouteImport
-      parentRoute: typeof AuthedOrgRoute
+      parentRoute: typeof AuthedOrgProjectRoute
     }
     '/_authed/workflows/$workflowId/runs/': {
       id: '/_authed/workflows/$workflowId/runs/'
@@ -1150,26 +1264,14 @@ const AuthedOrgProjectWorkspaceRouteWithChildren =
     AuthedOrgProjectWorkspaceRouteChildren,
   )
 
-interface AuthedOrgRouteChildren {
-  AuthedOrgApiKeysRoute: typeof AuthedOrgApiKeysRoute
-  AuthedOrgAuditRoute: typeof AuthedOrgAuditRoute
-  AuthedOrgConnectionsRoute: typeof AuthedOrgConnectionsRoute
-  AuthedOrgInboxRoute: typeof AuthedOrgInboxRoute
-  AuthedOrgProjectsRoute: typeof AuthedOrgProjectsRoute
-  AuthedOrgResourcesRoute: typeof AuthedOrgResourcesRoute
-  AuthedOrgWhatsNewRoute: typeof AuthedOrgWhatsNewRoute
-  AuthedOrgIndexRoute: typeof AuthedOrgIndexRoute
+interface AuthedOrgProjectRouteChildren {
   AuthedOrgProjectWorkspaceRoute: typeof AuthedOrgProjectWorkspaceRouteWithChildren
-  AuthedOrgAccountProfileRoute: typeof AuthedOrgAccountProfileRoute
-  AuthedOrgAccountSessionsRoute: typeof AuthedOrgAccountSessionsRoute
-  AuthedOrgItemsItemIdRoute: typeof AuthedOrgItemsItemIdRoute
-  AuthedOrgSettingsApiKeysRoute: typeof AuthedOrgSettingsApiKeysRoute
-  AuthedOrgSettingsConnectionsRoute: typeof AuthedOrgSettingsConnectionsRoute
-  AuthedOrgSettingsGeneralRoute: typeof AuthedOrgSettingsGeneralRoute
-  AuthedOrgSettingsMembersRoute: typeof AuthedOrgSettingsMembersRoute
+  AuthedOrgProjectApiKeysRoute: typeof AuthedOrgProjectApiKeysRoute
+  AuthedOrgProjectMembersRoute: typeof AuthedOrgProjectMembersRoute
+  AuthedOrgProjectSharedRoute: typeof AuthedOrgProjectSharedRoute
+  AuthedOrgProjectVariablesRoute: typeof AuthedOrgProjectVariablesRoute
+  AuthedOrgProjectWorkspacesRoute: typeof AuthedOrgProjectWorkspacesRoute
   AuthedOrgProjectIndexRoute: typeof AuthedOrgProjectIndexRoute
-  AuthedOrgAccountIndexRoute: typeof AuthedOrgAccountIndexRoute
-  AuthedOrgSettingsIndexRoute: typeof AuthedOrgSettingsIndexRoute
   AuthedOrgProjectSettingsApiKeysRoute: typeof AuthedOrgProjectSettingsApiKeysRoute
   AuthedOrgProjectSettingsGeneralRoute: typeof AuthedOrgProjectSettingsGeneralRoute
   AuthedOrgProjectSettingsMembersRoute: typeof AuthedOrgProjectSettingsMembersRoute
@@ -1179,26 +1281,14 @@ interface AuthedOrgRouteChildren {
   AuthedOrgProjectSettingsIndexRoute: typeof AuthedOrgProjectSettingsIndexRoute
 }
 
-const AuthedOrgRouteChildren: AuthedOrgRouteChildren = {
-  AuthedOrgApiKeysRoute: AuthedOrgApiKeysRoute,
-  AuthedOrgAuditRoute: AuthedOrgAuditRoute,
-  AuthedOrgConnectionsRoute: AuthedOrgConnectionsRoute,
-  AuthedOrgInboxRoute: AuthedOrgInboxRoute,
-  AuthedOrgProjectsRoute: AuthedOrgProjectsRoute,
-  AuthedOrgResourcesRoute: AuthedOrgResourcesRoute,
-  AuthedOrgWhatsNewRoute: AuthedOrgWhatsNewRoute,
-  AuthedOrgIndexRoute: AuthedOrgIndexRoute,
+const AuthedOrgProjectRouteChildren: AuthedOrgProjectRouteChildren = {
   AuthedOrgProjectWorkspaceRoute: AuthedOrgProjectWorkspaceRouteWithChildren,
-  AuthedOrgAccountProfileRoute: AuthedOrgAccountProfileRoute,
-  AuthedOrgAccountSessionsRoute: AuthedOrgAccountSessionsRoute,
-  AuthedOrgItemsItemIdRoute: AuthedOrgItemsItemIdRoute,
-  AuthedOrgSettingsApiKeysRoute: AuthedOrgSettingsApiKeysRoute,
-  AuthedOrgSettingsConnectionsRoute: AuthedOrgSettingsConnectionsRoute,
-  AuthedOrgSettingsGeneralRoute: AuthedOrgSettingsGeneralRoute,
-  AuthedOrgSettingsMembersRoute: AuthedOrgSettingsMembersRoute,
+  AuthedOrgProjectApiKeysRoute: AuthedOrgProjectApiKeysRoute,
+  AuthedOrgProjectMembersRoute: AuthedOrgProjectMembersRoute,
+  AuthedOrgProjectSharedRoute: AuthedOrgProjectSharedRoute,
+  AuthedOrgProjectVariablesRoute: AuthedOrgProjectVariablesRoute,
+  AuthedOrgProjectWorkspacesRoute: AuthedOrgProjectWorkspacesRoute,
   AuthedOrgProjectIndexRoute: AuthedOrgProjectIndexRoute,
-  AuthedOrgAccountIndexRoute: AuthedOrgAccountIndexRoute,
-  AuthedOrgSettingsIndexRoute: AuthedOrgSettingsIndexRoute,
   AuthedOrgProjectSettingsApiKeysRoute: AuthedOrgProjectSettingsApiKeysRoute,
   AuthedOrgProjectSettingsGeneralRoute: AuthedOrgProjectSettingsGeneralRoute,
   AuthedOrgProjectSettingsMembersRoute: AuthedOrgProjectSettingsMembersRoute,
@@ -1208,6 +1298,51 @@ const AuthedOrgRouteChildren: AuthedOrgRouteChildren = {
   AuthedOrgProjectSettingsWorkspacesRoute:
     AuthedOrgProjectSettingsWorkspacesRoute,
   AuthedOrgProjectSettingsIndexRoute: AuthedOrgProjectSettingsIndexRoute,
+}
+
+const AuthedOrgProjectRouteWithChildren =
+  AuthedOrgProjectRoute._addFileChildren(AuthedOrgProjectRouteChildren)
+
+interface AuthedOrgRouteChildren {
+  AuthedOrgProjectRoute: typeof AuthedOrgProjectRouteWithChildren
+  AuthedOrgApiKeysRoute: typeof AuthedOrgApiKeysRoute
+  AuthedOrgAuditRoute: typeof AuthedOrgAuditRoute
+  AuthedOrgConnectionsRoute: typeof AuthedOrgConnectionsRoute
+  AuthedOrgInboxRoute: typeof AuthedOrgInboxRoute
+  AuthedOrgProjectsRoute: typeof AuthedOrgProjectsRoute
+  AuthedOrgResourcesRoute: typeof AuthedOrgResourcesRoute
+  AuthedOrgWhatsNewRoute: typeof AuthedOrgWhatsNewRoute
+  AuthedOrgIndexRoute: typeof AuthedOrgIndexRoute
+  AuthedOrgAccountProfileRoute: typeof AuthedOrgAccountProfileRoute
+  AuthedOrgAccountSessionsRoute: typeof AuthedOrgAccountSessionsRoute
+  AuthedOrgItemsItemIdRoute: typeof AuthedOrgItemsItemIdRoute
+  AuthedOrgSettingsApiKeysRoute: typeof AuthedOrgSettingsApiKeysRoute
+  AuthedOrgSettingsConnectionsRoute: typeof AuthedOrgSettingsConnectionsRoute
+  AuthedOrgSettingsGeneralRoute: typeof AuthedOrgSettingsGeneralRoute
+  AuthedOrgSettingsMembersRoute: typeof AuthedOrgSettingsMembersRoute
+  AuthedOrgAccountIndexRoute: typeof AuthedOrgAccountIndexRoute
+  AuthedOrgSettingsIndexRoute: typeof AuthedOrgSettingsIndexRoute
+}
+
+const AuthedOrgRouteChildren: AuthedOrgRouteChildren = {
+  AuthedOrgProjectRoute: AuthedOrgProjectRouteWithChildren,
+  AuthedOrgApiKeysRoute: AuthedOrgApiKeysRoute,
+  AuthedOrgAuditRoute: AuthedOrgAuditRoute,
+  AuthedOrgConnectionsRoute: AuthedOrgConnectionsRoute,
+  AuthedOrgInboxRoute: AuthedOrgInboxRoute,
+  AuthedOrgProjectsRoute: AuthedOrgProjectsRoute,
+  AuthedOrgResourcesRoute: AuthedOrgResourcesRoute,
+  AuthedOrgWhatsNewRoute: AuthedOrgWhatsNewRoute,
+  AuthedOrgIndexRoute: AuthedOrgIndexRoute,
+  AuthedOrgAccountProfileRoute: AuthedOrgAccountProfileRoute,
+  AuthedOrgAccountSessionsRoute: AuthedOrgAccountSessionsRoute,
+  AuthedOrgItemsItemIdRoute: AuthedOrgItemsItemIdRoute,
+  AuthedOrgSettingsApiKeysRoute: AuthedOrgSettingsApiKeysRoute,
+  AuthedOrgSettingsConnectionsRoute: AuthedOrgSettingsConnectionsRoute,
+  AuthedOrgSettingsGeneralRoute: AuthedOrgSettingsGeneralRoute,
+  AuthedOrgSettingsMembersRoute: AuthedOrgSettingsMembersRoute,
+  AuthedOrgAccountIndexRoute: AuthedOrgAccountIndexRoute,
+  AuthedOrgSettingsIndexRoute: AuthedOrgSettingsIndexRoute,
 }
 
 const AuthedOrgRouteWithChildren = AuthedOrgRoute._addFileChildren(

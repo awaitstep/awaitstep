@@ -98,11 +98,12 @@ export function MobileHeader({ back, scope, org, account }: MobileHeaderProps) {
 
 type MobileScopeButtonProps = ComponentProps<'button'> & {
   project: string
-  workspace: string
+  /** None on the project's own pages: the button names the project alone. */
+  workspace?: string
   tile: ScopeTile
 }
 
-/** "Project 101 / Sales" with the workspace tile: opens the project menu sheet. */
+/** "Project 101 / Sales" with the workspace tile (or the project alone): opens the project menu sheet. */
 export function MobileScopeButton({
   project,
   workspace,
@@ -113,7 +114,7 @@ export function MobileScopeButton({
   return (
     <button
       type="button"
-      aria-label={`${project}, ${workspace}. Open the project menu`}
+      aria-label={`${workspace ? `${project}, ${workspace}` : project}. Open the project menu`}
       className={cn(
         'flex min-h-11 min-w-0 items-center gap-2.5 rounded-lg px-2 text-left hover:bg-sidebar-accent/60',
         className,
@@ -130,8 +131,12 @@ export function MobileScopeButton({
         {tile.initial}
       </span>
       <span className="flex min-w-0 flex-col">
-        <span className="truncate text-2xs text-muted-foreground">{project}</span>
-        <span className="truncate text-sm font-semibold text-sidebar-foreground">{workspace}</span>
+        <span className="truncate text-2xs text-muted-foreground">
+          {workspace ? project : 'Project'}
+        </span>
+        <span className="truncate text-sm font-semibold text-sidebar-foreground">
+          {workspace ?? project}
+        </span>
       </span>
       <ChevronDown size={16} aria-hidden="true" className="shrink-0 text-muted-foreground" />
     </button>

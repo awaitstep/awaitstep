@@ -1,33 +1,12 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
-import { VariablesPage } from '../../components/project-settings/variables-page'
-import { variableRequestFrom } from '../../components/variables/variable-requests'
+import { createFileRoute, redirect } from '@tanstack/react-router'
+import { projectPagePath } from '../../lib/dashboard-paths'
 
-const page: DashboardPage = { kind: 'project-settings', page: 'variables' }
-
+// Project pages left `/settings/` for `/{org}/{project}/variables`: old links follow, query kept, slugs encoded.
 export const Route = createFileRoute('/_authed/$org/$project/settings/variables')({
-  staticData: { dashboardPage: page },
-  head: () => pageHead(page),
-  component: ProjectVariablesPage,
-})
-
-function ProjectVariablesPage() {
-  const slugs = Route.useParams()
-  const search = Route.useSearch()
-  const navigate = Route.useNavigate()
-
-  function handleCloseDialog() {
-    void navigate({
-      search: (prev) => ({ ...prev, new: undefined, variable: undefined }),
+  beforeLoad: ({ params, location }) => {
+    throw redirect({
+      href: `${projectPagePath(params, 'variables')}${location.searchStr}`,
       replace: true,
     })
-  }
-
-  return (
-    <VariablesPage
-      slugs={slugs}
-      request={variableRequestFrom(search)}
-      onCloseDialog={handleCloseDialog}
-    />
-  )
-}
+  },
+})

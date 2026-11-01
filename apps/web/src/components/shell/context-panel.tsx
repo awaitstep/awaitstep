@@ -12,7 +12,7 @@ interface ContextPanelProps {
   label: string
   /** The 64px top row: a `PanelScopeButton` or `PanelOrgHeader`. */
   header: ReactNode
-  /** Pinned to the bottom above a divider, e.g. "Project settings". */
+  /** Pinned to the bottom above a divider, e.g. "Project". */
   footer?: ReactNode
   children: ReactNode
 }

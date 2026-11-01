@@ -33,7 +33,7 @@ export const External: Story = {
 
 export const CaptionedSection: Story = {
   render: () => (
-    <PanelSection title="Project settings">
+    <PanelSection title="Workspace">
       <PanelItem href="#" icon={Users} label="Members" />
       <PanelItem href="#" icon={KeyRound} label="API keys" active />
       <PanelItem href="#" icon={Braces} label="Variables" />

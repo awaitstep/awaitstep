@@ -17,6 +17,7 @@ import type {
   OrgOverview,
   OrgListing,
   ProjectOverview,
+  RunHour,
   ScopeRows,
   ScopeSlugs,
   WorkspaceOverview,
@@ -121,6 +122,8 @@ export interface WorkspaceRecord {
   /** The project's lock, which covers this workspace too. */
   inheritedLock: { fromName: string; lock: LockRecord } | null
   counts: WorkspaceOverview['counts']
+  /** The last 24 hours' runs, oldest first: on the scope answer only. */
+  runsByHour?: RunHour[]
   members: WorkspacePersonRecord[]
   viewerRole: WorkspaceRole
   viewerCan: Capabilities<WorkspaceCapability>
@@ -266,6 +269,7 @@ export function workspaceRecord(
     lock,
     inheritedLock,
     counts: row.counts,
+    ...(row.runsByHour && { runsByHour: row.runsByHour }),
     members: audience.withMembers ? row.members.map(workspacePersonRecord) : [],
     viewerRole: workspaceRole,
     viewerCan: workspaceCapabilities(workspaceRole, {

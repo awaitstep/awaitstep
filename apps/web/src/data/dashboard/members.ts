@@ -50,6 +50,8 @@ function memberKeys(slugs: WorkspaceSlugs) {
     // Workspace people live under the workspaces domain.
     dashKeys.inProject('workspaces', slugs.org, slugs.project),
     dashKeys.inProject('members', slugs.org, slugs.project),
+    // Org Members lists each person's places, and the access editor reads them too.
+    dashKeys.orgMembers(slugs.org),
     dashKeys.projects(slugs.org),
     dashKeys.scope(),
   ]

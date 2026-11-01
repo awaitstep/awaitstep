@@ -95,6 +95,7 @@ export function toWorkspace(workspace: ApiWorkspace): Workspace {
     createdBy: workspace.createdBy,
     lock: lockState(workspace.lock, workspace.inheritedLock),
     counts: workspace.counts,
+    ...(workspace.runsByHour && { runsByHour: workspace.runsByHour }),
   }
 }
 

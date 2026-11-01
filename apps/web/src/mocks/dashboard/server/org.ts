@@ -271,38 +271,48 @@ export const listInvitations = endpoint((ctx, orgSlug: string): Invitation[] => 
 export const sendInvites = mutation(
   (ctx, orgSlug: string, input: NewInvitesInput): Invitation[] => {
     const { db, org } = managedOrg(ctx, orgSlug)
-    const emails = [...new Set(input.emails.map((e) => e.trim().toLowerCase()).filter(Boolean))]
-    if (emails.length === 0) throw invalidError('Add at least one email address', 'emails')
-    const bad = emails.find((e) => !EMAIL.test(e))
-    if (bad) throw invalidError(`“${bad}” isn’t an email address`, 'emails')
-    const memberEmails = new Set(
-      db.orgMembers
-        .filter((m) => m.orgId === org.id)
-        .map((m) => personById(db, m.userId).email.toLowerCase()),
-    )
-    const member = emails.find((e) => memberEmails.has(e))
-    if (member) throw conflictError(`${member} is already in ${org.name}`, 'emails')
-    const invited = emails.find((e) =>
-      db.invitations.some((i) => i.orgId === org.id && i.email === e && !i.declined),
-    )
-    if (invited) throw conflictError(`${invited} is already invited`, 'emails')
-    db.invitations = db.invitations.filter(
-      (i) => !(i.orgId === org.id && i.declined && emails.includes(i.email)),
-    )
-    const now = new Date().toISOString()
-    const created = emails.map((email) => ({
-      id: newId('inv'),
-      orgId: org.id,
-      email,
-      role: input.role,
-      places: input.role === 'member' ? input.places : [],
-      sentAt: now,
-      invitedBy: ctx.userId,
-    }))
-    db.invitations.push(...created)
-    return created.map((row) => invitationRecord(db, ctx, row))
+    return createInvites(db, ctx, org, input)
   },
 )
+
+/** One pending invitation per email, after the address checks: whoever may send has been checked. */
+export function createInvites(
+  db: MockDb,
+  ctx: MockContext,
+  org: OrgRow,
+  input: NewInvitesInput,
+): Invitation[] {
+  const emails = [...new Set(input.emails.map((e) => e.trim().toLowerCase()).filter(Boolean))]
+  if (emails.length === 0) throw invalidError('Add at least one email address', 'emails')
+  const bad = emails.find((e) => !EMAIL.test(e))
+  if (bad) throw invalidError(`“${bad}” isn’t an email address`, 'emails')
+  const memberEmails = new Set(
+    db.orgMembers
+      .filter((m) => m.orgId === org.id)
+      .map((m) => personById(db, m.userId).email.toLowerCase()),
+  )
+  const member = emails.find((e) => memberEmails.has(e))
+  if (member) throw conflictError(`${member} is already in ${org.name}`, 'emails')
+  const invited = emails.find((e) =>
+    db.invitations.some((i) => i.orgId === org.id && i.email === e && !i.declined),
+  )
+  if (invited) throw conflictError(`${invited} is already invited`, 'emails')
+  db.invitations = db.invitations.filter(
+    (i) => !(i.orgId === org.id && i.declined && emails.includes(i.email)),
+  )
+  const now = new Date().toISOString()
+  const created = emails.map((email) => ({
+    id: newId('inv'),
+    orgId: org.id,
+    email,
+    role: input.role,
+    places: input.role === 'member' ? input.places : [],
+    sentAt: now,
+    invitedBy: ctx.userId,
+  }))
+  db.invitations.push(...created)
+  return created.map((row) => invitationRecord(db, ctx, row))
+}
 
 export const resendInvite = mutation((ctx, orgSlug: string, invitationId: string): void => {
   const { db, org } = managedOrg(ctx, orgSlug)
@@ -354,15 +364,27 @@ function connectionIn(db: MockDb, org: OrgRow, id: string) {
   return row
 }
 
-export const listConnections = endpoint((ctx, orgSlug: string): Connection[] => {
-  const { db, org } = orgOf(ctx, orgSlug)
-  return rows(
-    ctx,
-    db.connections
-      .filter((c) => c.orgId === org.id)
-      .map((c) => connectionRecord(db, c, visibleProjectIds(db, ctx, org))),
-  )
-})
+/** `projectSlug` keeps the accounts that deploy that project, as the API's `?project=`. */
+export const listConnections = endpoint(
+  (ctx, orgSlug: string, projectSlug?: string): Connection[] => {
+    const { db, org } = orgOf(ctx, orgSlug)
+    const project =
+      projectSlug === undefined
+        ? undefined
+        : db.projects.find((p) => p.orgId === org.id && p.slug === projectSlug)
+    return rows(
+      ctx,
+      db.connections
+        .filter((c) => c.orgId === org.id)
+        .filter(
+          (c) =>
+            projectSlug === undefined ||
+            (project !== undefined && (c.projects === 'all' || c.projects.includes(project.id))),
+        )
+        .map((c) => connectionRecord(db, c, visibleProjectIds(db, ctx, org))),
+    )
+  },
+)
 
 /** Connect Cloudflare. No token check on dummy data (D-P5-5): the form's own rules only. */
 export const connect = mutation((ctx, orgSlug: string, input: NewConnectionInput): Connection => {

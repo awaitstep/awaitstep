@@ -94,7 +94,6 @@ export function CatalogNodeCard({
           <h3 className="truncate text-sm font-semibold text-foreground">{node.name}</h3>
           <span className="truncate text-2xs text-muted-foreground">{describeVersion(node)}</span>
         </div>
-        <Badge variant={custom ? 'info' : 'neutral'}>{custom ? 'Custom' : 'Marketplace'}</Badge>
       </div>
       <p className="text-xs leading-relaxed text-muted-foreground">{node.description}</p>
       {node.updateAvailable && (

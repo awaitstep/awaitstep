@@ -6,7 +6,7 @@ import { ScopedSection } from '../scoped-section'
 import { PROJECT_KEYS, SALES_MEMBERS } from './fixtures/access'
 import { KeyTable, MemberList } from './fixtures/access-rows'
 
-const MANAGE = { label: 'Manage in Project settings', href: '/acme/project-101/settings' }
+const MANAGE = { label: 'Manage in the project', href: '/acme/project-101/settings' }
 
 describe('ScopedSection', () => {
   it('is a region named by its scope label', () => {
@@ -29,9 +29,10 @@ describe('ScopedSection', () => {
     )
     const region = screen.getByRole('region', { name: 'From Project 101' })
     expect(region).toHaveClass('border-dashed')
-    expect(
-      within(region).getByRole('link', { name: 'Manage in Project settings' }),
-    ).toHaveAttribute('href', MANAGE.href)
+    expect(within(region).getByRole('link', { name: 'Manage in the project' })).toHaveAttribute(
+      'href',
+      MANAGE.href,
+    )
     expect(within(region).getByRole('cell', { name: 'Inherited' })).toBeInTheDocument()
     expect(within(region).queryByRole('button', { name: /Revoke/ })).not.toBeInTheDocument()
   })

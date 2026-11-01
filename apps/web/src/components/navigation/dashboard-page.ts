@@ -2,7 +2,7 @@ import type {
   AccountPage,
   OrgPage,
   OrgSettingsPage,
-  ProjectSettingsPage,
+  ProjectPage,
   WorkspacePage,
 } from '../../lib/dashboard-paths'
 
@@ -10,7 +10,8 @@ import type {
 export type DashboardPage =
   | { kind: 'org'; page: OrgPage }
   | { kind: 'org-settings'; page: OrgSettingsPage }
-  | { kind: 'project-settings'; page: ProjectSettingsPage }
+  /** `/{org}/{project}/{page}`: Workspaces (the welcome while it's new), Members, Settings… */
+  | { kind: 'project'; page: ProjectPage }
   | { kind: 'workspace'; page: WorkspacePage }
   | { kind: 'account'; page: AccountPage }
   /** A workflow, function or run of sample data (W1 placeholder until B1). */
@@ -38,13 +39,13 @@ const ORG_SETTINGS_LABEL: Record<OrgSettingsPage, string> = {
   members: 'Members',
 }
 
-const PROJECT_SETTINGS_LABEL: Record<ProjectSettingsPage, string> = {
+const PROJECT_PAGE_LABEL: Record<ProjectPage, string> = {
   workspaces: 'Workspaces',
   shared: 'Shared library',
   members: 'Members',
   'api-keys': 'API keys',
   variables: 'Variables',
-  general: 'General',
+  settings: 'Settings',
 }
 
 const WORKSPACE_PAGE_LABEL: Record<WorkspacePage, string> = {
@@ -67,8 +68,8 @@ export function pageLabel(page: DashboardPage): string {
       return ORG_PAGE_LABEL[page.page]
     case 'org-settings':
       return ORG_SETTINGS_LABEL[page.page]
-    case 'project-settings':
-      return PROJECT_SETTINGS_LABEL[page.page]
+    case 'project':
+      return PROJECT_PAGE_LABEL[page.page]
     case 'workspace':
       return WORKSPACE_PAGE_LABEL[page.page]
     case 'account':
