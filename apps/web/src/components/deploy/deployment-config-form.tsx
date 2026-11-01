@@ -4,6 +4,7 @@ import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Select } from '../ui/select'
 import { Separator } from '../ui/separator'
+import { Textarea } from '../ui/textarea'
 import { cn } from '../../lib/utils'
 import {
   buildDefaults,
@@ -184,8 +185,8 @@ function ConfigField({
     return (
       <div className="space-y-1.5">
         <Label className="text-sm font-medium text-foreground">{label}</Label>
-        <textarea
-          className="flex min-h-[60px] max-w-xs w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        <Textarea
+          className="min-h-[60px] max-w-xs"
           value={(value as string) ?? ''}
           placeholder={field.placeholder}
           onChange={(e) => onChange(e.target.value || undefined)}
