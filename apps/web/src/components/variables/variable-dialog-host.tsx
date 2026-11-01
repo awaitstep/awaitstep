@@ -36,11 +36,7 @@ export function VariableDialogHost({
     workspaceScope?.found === true &&
     (workspaceScope.workspace?.viewerCan.manageVariables.allowed ?? false)
   const workspaces = list.data ?? (workspace ? [workspace] : [])
-  const targets = variableTargets({
-    org: {
-      name: found?.org.org.name ?? '',
-      canManage: found?.org.viewerCan.manageSettings.allowed ?? false,
-    },
+  const allTargets = variableTargets({
     project: { slug: project.slug, name: project.name, canManage: projectManages },
     // A project admin may set any workspace's; a workspace admin only their own.
     workspaces: workspaces.map((w) => ({
@@ -49,6 +45,8 @@ export function VariableDialogHost({
       canManage: projectManages || (w.slug === workspace?.slug && workspaceManages),
     })),
   })
+  // On a workspace page the level is the workspace itself: nothing to choose.
+  const targets = workspace ? allTargets.filter((t) => t.id === `ws:${workspace.slug}`) : allTargets
   const startTarget = workspace ? `ws:${workspace.slug}` : 'project'
 
   return (

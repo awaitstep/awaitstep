@@ -181,8 +181,7 @@ export function OrgConnectionsPage({ org, connectOpen, onConnectChange }: OrgCon
         {body}
         <p className="flex items-center gap-2 text-xs text-muted-foreground">
           <Lock className="size-3.5 shrink-0" aria-hidden="true" />
-          Tokens stay encrypted and are never shown again after you save them. Workflows only see
-          the account they deploy to, never the token.
+          Tokens stay encrypted and are never shown again after you save them.
         </p>
       </PageBody>
       {canManage && connectOpen && (

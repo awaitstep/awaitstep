@@ -78,7 +78,7 @@ export function ConnectionCard({
   return (
     <section
       aria-label={connection.name}
-      className="settings-width flex flex-col gap-4 rounded-2xl border border-border bg-card p-5"
+      className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5"
     >
       <div className="flex flex-wrap items-start gap-3.5">
         <Tile tone="warn" size="md">

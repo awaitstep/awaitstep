@@ -1,5 +1,5 @@
 import * as SelectPrimitive from '@radix-ui/react-select'
-import { ChevronDown } from 'lucide-react'
+import { Check, ChevronDown } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 type TriggerAttributes = Pick<
@@ -7,14 +7,23 @@ type TriggerAttributes = Pick<
   'id' | 'aria-label' | 'aria-describedby' | 'aria-invalid' | 'aria-required' | 'disabled'
 >
 
+export interface SelectOption {
+  value: string
+  label: string
+  /** A second line under the label, and muted beside it in the trigger. */
+  description?: string
+  icon?: React.ReactNode
+}
+
 interface SelectProps extends TriggerAttributes {
   value: string
   onValueChange: (value: string) => void
-  options: { value: string; label: string }[]
+  options: SelectOption[]
   className?: string
 }
 
 export function Select({ value, onValueChange, options, className, ...triggerProps }: SelectProps) {
+  const selected = options.find((opt) => opt.value === value)
   return (
     <SelectPrimitive.Root value={value} onValueChange={onValueChange}>
       <SelectPrimitive.Trigger
@@ -24,7 +33,15 @@ export function Select({ value, onValueChange, options, className, ...triggerPro
           className,
         )}
       >
-        <SelectPrimitive.Value />
+        <SelectPrimitive.Value>
+          {selected?.description ? (
+            <span className="flex min-w-0 items-center gap-2">
+              {selected.icon}
+              <span className="truncate">{selected.label}</span>
+              <span className="truncate text-muted-foreground">{selected.description}</span>
+            </span>
+          ) : undefined}
+        </SelectPrimitive.Value>
         <SelectPrimitive.Icon>
           <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
         </SelectPrimitive.Icon>
@@ -41,9 +58,18 @@ export function Select({ value, onValueChange, options, className, ...triggerPro
               <SelectPrimitive.Item
                 key={opt.value}
                 value={opt.value}
-                className="relative flex cursor-pointer items-center rounded-md px-2.5 py-1.5 text-sm text-foreground outline-none data-[highlighted]:bg-muted/70 data-[highlighted]:text-foreground"
+                className="relative flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm text-foreground outline-none data-[highlighted]:bg-muted/70 data-[highlighted]:text-foreground"
               >
-                <SelectPrimitive.ItemText>{opt.label}</SelectPrimitive.ItemText>
+                {opt.icon}
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <SelectPrimitive.ItemText>{opt.label}</SelectPrimitive.ItemText>
+                  {opt.description && (
+                    <span className="text-xs text-muted-foreground">{opt.description}</span>
+                  )}
+                </span>
+                <SelectPrimitive.ItemIndicator>
+                  <Check className="h-3.5 w-3.5 text-muted-foreground" />
+                </SelectPrimitive.ItemIndicator>
               </SelectPrimitive.Item>
             ))}
           </SelectPrimitive.Viewport>

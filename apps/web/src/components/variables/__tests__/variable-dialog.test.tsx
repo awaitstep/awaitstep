@@ -141,7 +141,7 @@ describe('Edit and Override from workspace settings', () => {
 })
 
 describe('New variable from workspace settings', () => {
-  it('starts at the workspace and sets it there', async () => {
+  it('sets it on the workspace with no level to choose', async () => {
     renderWithDashboardData(
       <WorkspaceSettingsPage
         slugs={{ ...p101, workspace: 'sales' }}
@@ -152,12 +152,8 @@ describe('New variable from workspace settings', () => {
       />,
     )
     const dialog = await screen.findByRole('dialog', { name: 'New variable' })
-    await waitFor(() =>
-      expect(within(dialog).getByRole('combobox', { name: /Applies to/ })).toHaveTextContent(
-        'Sales only',
-      ),
-    )
     await userEvent.type(within(dialog).getByRole('textbox', { name: /Name/ }), 'LEAD_SOURCE')
+    expect(within(dialog).queryByRole('combobox', { name: /Applies to/ })).toBeNull()
     await userEvent.type(within(dialog).getByLabelText('Value'), 'web')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Add variable' }))
     await waitFor(() =>

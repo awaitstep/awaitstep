@@ -1,5 +1,5 @@
 import { useId, useState, type SubmitEvent } from 'react'
-import { Braces, Trash2 } from 'lucide-react'
+import { Braces, Building2, FolderKanban, Layers, Trash2 } from 'lucide-react'
 import { isEnvVarName } from '@awaitstep/ir'
 import { errorFieldOf } from '../../data/dashboard/errors'
 import { ApiError } from '../../lib/api-client'
@@ -20,6 +20,9 @@ export interface VariableTarget {
   /** `org`, `project`, or `ws:<slug>`. */
   id: string
   label: string
+  /** Where it reaches, shown under the label. */
+  description: string
+  kind: VariableLevel
   scope: VariableScope
   /** Its name, for "Already set in …" and titles. */
   name: string
@@ -43,7 +46,11 @@ interface VariableDialogProps {
   onClose: () => void
 }
 
-const LEVEL_ORDER: VariableLevel[] = ['organization', 'project', 'workspace']
+const TARGET_ICONS: Record<VariableLevel, React.ReactNode> = {
+  organization: <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />,
+  project: <FolderKanban className="h-4 w-4 shrink-0 text-muted-foreground" />,
+  workspace: <Layers className="h-4 w-4 shrink-0 text-muted-foreground" />,
+}
 
 /**
  * `NewVariable`: name, value, secret, and where it applies. Also Edit
@@ -158,9 +165,6 @@ export function VariableDialog({ org, mode, targets, startTarget, onClose }: Var
   const levelFixed = mode.kind !== 'new'
   const submitLabel =
     mode.kind === 'new' ? 'Add variable' : mode.kind === 'edit' ? 'Save' : 'Override'
-  const narrowest = [...targets].sort(
-    (a, b) => LEVEL_ORDER.indexOf(b.scope.level) - LEVEL_ORDER.indexOf(a.scope.level),
-  )[0]
   const canSubmit = !save.isPending && target !== undefined
   const valueType = isSecret ? 'password' : 'text'
   const deleteBody =
@@ -178,7 +182,10 @@ export function VariableDialog({ org, mode, targets, startTarget, onClose }: Var
       Delete variable
     </Button>
   )
-  const levelHint = `The narrower level applies: ${narrowest?.name ?? 'a workspace'} would replace the levels above it.`
+  const levelHint =
+    target?.kind === 'workspace'
+      ? 'Overrides the project’s value, if it has one, for this workspace only.'
+      : 'Workspaces use this value unless they set their own.'
 
   return (
     <>
@@ -236,14 +243,21 @@ export function VariableDialog({ org, mode, targets, startTarget, onClose }: Var
             title="Secret"
             description="Hidden after you save. Workflows can still read it."
           />
-          <FormField label="Applies to" hint={levelHint}>
-            <Select
-              value={targetId}
-              onValueChange={handleTarget}
-              options={targets.map((t) => ({ value: t.id, label: t.label }))}
-              disabled={levelFixed}
-            />
-          </FormField>
+          {targets.length > 1 && (
+            <FormField label="Applies to" hint={levelHint}>
+              <Select
+                value={targetId}
+                onValueChange={handleTarget}
+                options={targets.map((t) => ({
+                  value: t.id,
+                  label: t.label,
+                  description: t.description,
+                  icon: TARGET_ICONS[t.kind],
+                }))}
+                disabled={levelFixed}
+              />
+            </FormField>
+          )}
         </form>
       </ModalDialog>
       {deleting && (

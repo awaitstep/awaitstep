@@ -2,21 +2,16 @@ import { describe, expect, it } from 'vitest'
 import { variableTargets } from '../variable-targets'
 
 describe('variableTargets', () => {
-  it('lists org, project and workspaces the viewer may change, broadest first', () => {
+  it('lists the project and workspaces the viewer may change, never the org', () => {
     const targets = variableTargets({
-      org: { name: 'Acme Inc', canManage: true },
       project: { slug: 'p', name: 'Project 101', canManage: true },
       workspaces: [
         { slug: 'sales', name: 'Sales', canManage: true },
         { slug: 'it', name: 'IT', canManage: false },
       ],
     })
-    expect(targets.map((t) => t.label)).toEqual([
-      'Acme Inc · every project',
-      'Project 101 · every workspace',
-      'Sales only',
-    ])
-    expect(targets[2]!.scope).toEqual({ level: 'workspace', project: 'p', workspace: 'sales' })
+    expect(targets.map((t) => t.label)).toEqual(['Project 101', 'Sales'])
+    expect(targets[1]!.scope).toEqual({ level: 'workspace', project: 'p', workspace: 'sales' })
   })
 })
 
@@ -34,7 +29,9 @@ describe('VariableDialog without its starting level listed', () => {
           targets={[
             {
               id: 'org',
-              label: 'Acme Inc · every project',
+              label: 'Acme Inc',
+              description: 'Every project',
+              kind: 'organization',
               name: 'Acme Inc',
               scope: { level: 'organization' },
             },
