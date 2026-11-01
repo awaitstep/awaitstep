@@ -565,12 +565,15 @@ describe('connections on the API', () => {
   })
 
   describe('project setup', () => {
-    it('says connected once a working account serves the project', async () => {
+    it('says connected once the project has a working account that serves it', async () => {
       const setup = async () => (await call('u-ama', '/projects/p-101/setup')).json()
       expect(await setup()).toMatchObject({ cloudflareConnected: false })
       const { id } = await connected({ projectIds: ['p-202'] })
       expect(await setup()).toMatchObject({ cloudflareConnected: false })
       await send('u-ama', `/connections/${id}?org=acme`, { projectIds: ['p-101'] }, 'PATCH')
+      // Serving it isn't enough: the project adds the account (23b).
+      expect(await setup()).toMatchObject({ cloudflareConnected: false })
+      await send('u-ama', '/projects/p-101/connections', { connectionIds: [id] })
       expect(await setup()).toEqual({
         cloudflareConnected: true,
         orgVariables: 0,

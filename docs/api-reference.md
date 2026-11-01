@@ -528,7 +528,7 @@ answers `409` and nothing is written; a row that counts no higher than what
 the project already gives the person is skipped. A key creates the
 workspace but not its roster (`members` from a key → `403`). A slug another
 workspace in the project uses answers `409`; a reserved one (`workspaces`,
-`shared`, `members`, `api-keys`, `variables`, `settings`: the project's own
+`shared`, `members`, `connections`, `api-keys`, `variables`, `settings`: the project's own
 pages) `422`.
 
 **Permission:** `workspaces:write`
@@ -1335,6 +1335,30 @@ List deployments for a specific workflow.
 | ------------ | ---- | -------- | ----------- |
 | `workflowId` | path | yes      | Workflow ID |
 
+### `GET /workflows/:workflowId/deploy-connections`
+
+The accounts Deploy offers the workflow — its project's — and the one already
+chosen: its workspace's own account, else the project default.
+
+**Permission:** `workflows:read`
+
+```json
+{
+  "connections": [
+    {
+      "id": "con_1",
+      "provider": "cloudflare",
+      "name": "Acme production",
+      "accountSuffix": "7f2a",
+      "scope": "shared",
+      "tokenStatus": "active",
+      "tokenExpiresAt": null
+    }
+  ],
+  "defaultId": "con_1"
+}
+```
+
 ### `POST /workflows/:workflowId/deploy`
 
 Deploy a workflow version to a connection. Validates environment variables and credentials before deploying.
@@ -1416,6 +1440,10 @@ Remove a deployment and clear the workflow's active version.
   "connectionId": "connection-id"
 }
 ```
+
+As a trigger, the connection must be one the workflow has a successful
+deployment with: any other answers `404`
+`{ "error": "This workflow isn’t deployed with that connection" }`.
 
 ---
 
@@ -1539,11 +1567,18 @@ deploy with it**, and its **token's health** as Cloudflare last reported it.
   Any member reads the list. Mutations are organization-level: a
   project-scoped API key answers `403`. Reads stay available to keys — a deploy
   needs its connection.
-- **Projects.** A connection serves every project (`allProjects: true`, the
-  default and what connections made before B9 read as), or only the projects on
-  its list. `POST /workflows/:workflowId/deploy` (and `/deploy-stream`) refuse a
-  connection that doesn't serve the workflow's project with `403`
-  `{ "error": "This Cloudflare account isn’t available to this project. …" }`.
+- **Projects.** A connection is available to every project (`allProjects: true`,
+  the default and what connections made before B9 read as), or only to the
+  projects on its list. Availability is what an org admin decides; a project
+  then **adds** the accounts it deploys to, or connects its own (see
+  [Project connections](#project-connections)). `POST /workflows/:workflowId/deploy`
+  (and `/deploy-stream`, `GET /workflows/:workflowId/deploy-config/:connectionId`
+  and the config preview) refuse an account that isn't one of the workflow's
+  project's with `403`
+  `{ "error": "That account isn’t one of this project’s. Add it on the project’s Connections page." }`.
+  An account a project owns is never listed here: `GET /connections` shows the
+  organization's accounts only, and `PATCH`/`DELETE /connections/:id` answer
+  `404` for one (it's managed on the project's page).
   Taking a deployment down, triggering runs and pausing, resuming or
   terminating them are not held to the list — but a trigger must name a
   connection the workflow was deployed with.
@@ -1719,6 +1754,156 @@ Delete a connection. Deployments and runs made with it keep their history.
 | Param | In   | Required | Description   |
 | ----- | ---- | -------- | ------------- |
 | `id`  | path | yes      | Connection ID |
+
+## Project connections
+
+The Cloudflare accounts a project deploys to: organization accounts it has
+**added**, and accounts it **owns** ("This project only" — never listed for the
+organization or usable by another project). One of them is the project's
+**default**; a workspace deploys to the default unless an account is **set for
+that workspace**. Deploy offers only these accounts.
+
+- **Who.** Anyone who can open the project reads them. Adding, connecting,
+  removing and choosing defaults need a **project admin** or an organization
+  owner or admin (`403` `{ "error": "Only project admins and org owners can do this" }`).
+  An account connected from a project is always its own; accounts for the whole
+  organization are connected with `POST /connections` by its owners and admins. Project keys are refused under `/projects/:id`
+  (`403`); an organization key uses its `connections` cells.
+- **Defaults.** The first account a project gets becomes its default; removing
+  the default leaves none, unless one account is left, which becomes it. A
+  project with no default can still deploy by naming an account.
+- **Existing projects.** The 2026-11 migration added every account that served
+  each project, and made its default the account of its latest successful
+  deploy (else its only account).
+- **A project that moves** to another organization takes its own accounts; the
+  old organization's shared accounts stay behind. Deleting a project deletes
+  its own accounts.
+- Audited as `project_connection.add`, `.create`, `.update`, `.remove`,
+  `.default` and `workspace_connection.set`.
+
+### `GET /projects/:id/connections`
+
+The project's accounts and where each workspace deploys.
+
+**Permission:** `connections:read`
+
+```json
+{
+  "connections": [
+    {
+      "id": "con_1",
+      "provider": "cloudflare",
+      "name": "Acme production",
+      "accountSuffix": "7f2a",
+      "createdByName": "Ama Mensah",
+      "scope": "shared",
+      "tokenStatus": "active",
+      "tokenExpiresAt": null,
+      "isDefault": true,
+      "available": true,
+      "deployments": { "count": 18, "lastAt": "2026-11-01T10:00:00.000Z" },
+      "deployedFrom": ["Support"],
+      "addedAt": "2026-11-01T09:00:00.000Z"
+    }
+  ],
+  "workspaces": [
+    {
+      "workspaceId": "ws_1",
+      "name": "Sales",
+      "connectionId": "con_1",
+      "connectionName": "Acme production",
+      "source": "default",
+      "lastDeployAt": null
+    }
+  ]
+}
+```
+
+`scope` is `shared` (an organization account) or `project` (owned).
+`available: false` marks a shared account an org admin has since restricted to
+other projects: it stays listed but Deploy refuses it. `source` is `override`
+(set for the workspace), `default` or `none`. Workspaces are those the reader
+can open.
+
+### `GET /projects/:id/connections/available`
+
+The organization's accounts as _Add connection_ lists them: `state` is
+`added`, `available` or `restricted` (not available to this project);
+`restrictedTo` names the projects a restricted one serves that the reader can
+see.
+
+**Permission:** `connections:read`
+
+### `POST /projects/:id/connections`
+
+Add organization accounts to the project. Only accounts available to it are
+added; ones already added are skipped. `400` when none could be added.
+
+**Permission:** `connections:write` — project admins
+
+```json
+{ "connectionIds": ["con_1", "con_2"] }
+```
+
+Answers `201` `{ "added": [{ "id", "name" }], "defaultId": "con_1" | null }`
+(`defaultId` when the first one became the default).
+
+### `POST /projects/:id/connections/new`
+
+Connect a new Cloudflare account from the project. The token is checked with
+Cloudflare first, as on `POST /connections` (same `400`/`502` answers, same
+10-per-minute limit).
+
+**Permission:** `connections:write` — project admins
+
+```json
+{
+  "name": "Checkout staging",
+  "accountId": "0123456789abcdef0123456789abcdef",
+  "token": "…",
+  "makeDefault": true
+}
+```
+
+The account is always the project's own ("This project only"): an account for
+the whole organization is connected with `POST /connections`. Any other field
+(such as an old `share`) answers `422`. `makeDefault` (default `true`) makes it
+the project's default. Answers `201` `{ "id", "name", "scope": "project", "isDefault" }`.
+
+### `PATCH /projects/:id/connections/:connectionId`
+
+Replace the token of an account the project owns (`{ "token", "accountId"? }`),
+checked with Cloudflare first. A shared account answers `404` — it's changed on
+the organization's page.
+
+**Permission:** `connections:write` — project admins
+
+### `DELETE /projects/:id/connections/:connectionId`
+
+Take an account off the project: an added one leaves the project, an owned one
+is **deleted**. Workspaces set to it follow the project default again.
+Deployed workflows keep running on what they went out with. An owned account a
+workflow is still deployed with is kept: `409` naming the workflow (workflows in
+other projects are only counted) until they're taken down.
+
+**Permission:** `connections:delete` — project admins
+
+Answers `{ "ok": true, "name", "owned", "wasDefault", "workspacesCleared" }`.
+
+### `PUT /projects/:id/default-connection`
+
+`{ "connectionId": "con_1" }` — make one of the project's accounts its
+default. `400` when it isn't one of them.
+
+**Permission:** `connections:write` — project admins
+
+### `PUT /projects/:id/workspaces/:workspaceId/connection`
+
+`{ "connectionId": "con_1" }` sets the workspace's own account;
+`{ "connectionId": null }` puts it back on the project default. `404` for a
+workspace of another project, `400` for an account that isn't the project's.
+
+**Permission:** `connections:write` — project admins
 
 ---
 

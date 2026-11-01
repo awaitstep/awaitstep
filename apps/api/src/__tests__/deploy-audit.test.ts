@@ -134,6 +134,15 @@ describe('deploys in the audit log', () => {
   })
 
   it('records a takedown that succeeded', async () => {
+    // Takedown goes only through an account the workflow went out with.
+    await mockDb.createDeployment({
+      id: 'dep-1',
+      workflowId: 'wf-1',
+      versionId: 'v-1',
+      connectionId: 'conn-1',
+      serviceName: 'svc',
+      status: 'success',
+    })
     expect((await post(app, '/takedown', { connectionId: 'conn-1' })).status).toBe(200)
     expect(recordedAuditEvents().map((e) => [e.event, e.kind, e.action, e.target])).toEqual([
       ['workflow.takedown', 'danger', 'took down', 'Lead enrichment'],

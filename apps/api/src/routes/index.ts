@@ -32,6 +32,7 @@ import { versions } from './versions.js'
 import { source } from './source.js'
 import { projectFiles } from './project-files.js'
 import { createConnectionRoutes } from './connections.js'
+import { projectConnectionRoutes } from './project-connections.js'
 import { audit } from './audit.js'
 import { notifications } from './notifications.js'
 import { releases } from './releases.js'
@@ -169,6 +170,18 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.post('/workspaces/:id/invitations', requireWorkspaceCan('manageMembers'))
   router.post('/projects/:id/members', requireProjectCan('manageMembers'))
   router.post('/projects/:id/invitations', requireProjectCan('manageMembers'))
+  // A project's accounts (23a): its admins and the org's owners and admins
+  // (D-PC-3); anyone who can open the project reads them. Sharing a new one
+  // with the whole organization is refused in the handler for anyone else.
+  router.post('/projects/:id/connections', requireProjectCan('manageSettings'))
+  router.post('/projects/:id/connections/new', requireProjectCan('manageSettings'))
+  router.patch('/projects/:id/connections/:connectionId', requireProjectCan('manageSettings'))
+  router.delete('/projects/:id/connections/:connectionId', requireProjectCan('manageSettings'))
+  router.put('/projects/:id/default-connection', requireProjectCan('manageSettings'))
+  router.put(
+    '/projects/:id/workspaces/:workspaceId/connection',
+    requireProjectCan('manageSettings'),
+  )
   router.patch('/workspaces/:id/members/:userId', requireWorkspaceCan('manageMembers'))
   router.delete('/workspaces/:id/members/:userId', requireWorkspaceCan('manageMembers'))
   router.get('/members/:userId/access', requireOrgCan('manageSettings'))
@@ -200,6 +213,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.use('/workflows/:workflowId/files/*', requireWorkflowAccess)
   router.use('/workflows/:workflowId/deploy', requireWorkflowAccess)
   router.use('/workflows/:workflowId/deploy-config/*', requireWorkflowAccess)
+  router.use('/workflows/:workflowId/deploy-connections', requireWorkflowAccess)
   // The preview reads nothing of the workflow yet, but it is addressed by
   // one: a hidden workflow — another workspace's, for a workspace key — is
   // not found here as everywhere else.
@@ -293,6 +307,15 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.get('/projects/:id/shared', requireSessionAuth)
   // The empty-project page's counts: a person's dashboard read (B9).
   router.get('/projects/:id/setup', requireSessionAuth)
+  // A project's accounts: an organization key with the connections cells.
+  router.get('/projects/:id/connections', key('connections', 'read'))
+  router.get('/projects/:id/connections/available', key('connections', 'read'))
+  router.post('/projects/:id/connections', key('connections', 'write'))
+  router.post('/projects/:id/connections/new', key('connections', 'write'))
+  router.patch('/projects/:id/connections/:connectionId', key('connections', 'write'))
+  router.delete('/projects/:id/connections/:connectionId', key('connections', 'delete'))
+  router.put('/projects/:id/default-connection', key('connections', 'write'))
+  router.put('/projects/:id/workspaces/:workspaceId/connection', key('connections', 'write'))
   router.get('/connections', key('connections', 'read', belowReads))
   // Asks Cloudflare whether a token is valid; writes nothing.
   router.post('/connections/verify-token', key('connections', 'read', belowReads))
@@ -335,6 +358,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
     '/workflows/:workflowId/project/convert-handlers',
     '/workflows/:workflowId/files/*',
     '/workflows/:workflowId/deploy-config/:connectionId',
+    '/workflows/:workflowId/deploy-connections',
     '/workflows/:workflowId/test-sessions',
     '/test-sessions/:sessionId/stream',
   ]) {
@@ -443,6 +467,13 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.post('/connections', verifyLimit)
   router.patch('/connections/:id', verifyLimit)
   router.delete('/connections/:id', writeLimit)
+  // Connecting a new account, or a new token for one the project owns, asks Cloudflare.
+  router.post('/projects/:id/connections/new', verifyLimit)
+  router.patch('/projects/:id/connections/:connectionId', verifyLimit)
+  router.post('/projects/:id/connections', writeLimit)
+  router.delete('/projects/:id/connections/:connectionId', writeLimit)
+  router.put('/projects/:id/default-connection', writeLimit)
+  router.put('/projects/:id/workspaces/:workspaceId/connection', writeLimit)
   router.use('/workflows/:workflowId/deploy', deployLimit)
   router.use('/workflows/:workflowId/deploy-stream', deployLimit)
   router.use('/workflows/:workflowId/trigger', writeLimit)
@@ -503,6 +534,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.route('/workspaces/:id/members', workspaceMembers)
   router.route('/workspaces/:id/invitations', workspaceInvitations)
   router.route('/projects/:id', projectPeople)
+  router.route('/projects/:id', projectConnectionRoutes)
   router.route('/workspaces/:id', workspaceAccessRequests)
   router.route('/members', members)
   router.route('/invitations', invitations)

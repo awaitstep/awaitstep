@@ -1,7 +1,7 @@
 import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
-import type { ConnectionSummary, ConnectionTokenStatus } from '@awaitstep/ir'
+import type { ConnectionSummary } from '@awaitstep/ir'
 import type { ConnectionListOptions, ConnectionListRow, ConnectionTokenCheck } from '@awaitstep/db'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
@@ -10,6 +10,7 @@ import { createLogger } from '../lib/logger.js'
 import { recordAudit } from '../lib/audit.js'
 import { clearConnectionNotices } from '../lib/notify.js'
 import { checkCredentialsGated, parseCredentials, providerNamed } from '../lib/connection-token.js'
+import { BAD_ACCOUNT_ID, badAccountId, parseTokenStatus } from '../lib/connection-fields.js'
 
 const projectsFields = {
   /** Serves every project, including ones created later. */
@@ -49,18 +50,6 @@ function listReader(c: Context<AppEnv>): ConnectionListOptions['visibleTo'] {
   const key = c.get('apiKey')
   if (key?.projectId) return { projectId: key.projectId }
   return { userId: c.get('userId') }
-}
-
-/** A Cloudflare account id: 32 hex digits. Anything else is refused before it is stored or sent. */
-const CLOUDFLARE_ACCOUNT_ID = /^[a-f0-9]{32}$/i
-
-function badAccountId(provider: string, credentials: Record<string, string>): boolean {
-  return provider === 'cloudflare' && !CLOUDFLARE_ACCOUNT_ID.test(credentials.accountId ?? '')
-}
-
-const BAD_ACCOUNT_ID = {
-  error: 'An account ID is 32 letters and digits (0–9, a–f)',
-  field: 'accountId',
 }
 
 /** `allProjects` / `projectIds` as the adapter takes them; a list alone narrows. */
@@ -251,10 +240,6 @@ function connectionSummary(row: ConnectionListRow): ConnectionSummary {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   }
-}
-
-function parseTokenStatus(value: string): ConnectionTokenStatus {
-  return value === 'active' || value === 'invalid' ? value : 'unchecked'
 }
 
 const SAFE_CREDENTIAL_FIELDS = new Set([

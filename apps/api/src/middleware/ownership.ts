@@ -43,6 +43,14 @@ export const requireConnectionAccess = createMiddleware<AppEnv>(async (c, next) 
   if (!connection || connection.organizationId !== organizationId) {
     return c.json({ error: 'Not found' }, 404)
   }
+  // A project's own account is managed on its page (23a), where deleting one
+  // with live workers is refused: the org routes don't reach it.
+  if (connection.projectId) {
+    return c.json(
+      { error: 'This account belongs to a project. Manage it on the project’s Connections page.' },
+      404,
+    )
+  }
 
   c.set('connection', connection)
   await next()

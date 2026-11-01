@@ -845,6 +845,7 @@ const mockDb: DatabaseAdapter = {
     const { projectIds: _projectIds, token, visibleTo: _visibleTo, ...row } = data
     const c: Connection = {
       ...row,
+      projectId: null,
       allProjects: data.allProjects ?? true,
       tokenStatus: token?.status ?? 'unchecked',
       tokenExpiresAt: token?.expiresAt ?? null,
@@ -922,6 +923,37 @@ const mockDb: DatabaseAdapter = {
   },
   async deleteConnection(id) {
     return store.connections.delete(id)
+  },
+  // A project's accounts run through the real database (project-connections.test.ts).
+  async getProjectOwnedConnection() {
+    return notMocked('getProjectOwnedConnection')
+  },
+  async listProjectConnections() {
+    return notMocked('listProjectConnections')
+  },
+  async listAvailableProjectConnections() {
+    return notMocked('listAvailableProjectConnections')
+  },
+  async addProjectConnections() {
+    return notMocked('addProjectConnections')
+  },
+  async createProjectConnection() {
+    return notMocked('createProjectConnection')
+  },
+  async setProjectDefaultConnection() {
+    return notMocked('setProjectDefaultConnection')
+  },
+  async setWorkspaceConnection() {
+    return notMocked('setWorkspaceConnection')
+  },
+  async removeProjectConnection() {
+    return notMocked('removeProjectConnection')
+  },
+  async listConnectionsDeployedWith() {
+    return notMocked('listConnectionsDeployedWith')
+  },
+  async listDeployTargets() {
+    return notMocked('listDeployTargets')
   },
 
   // Runs

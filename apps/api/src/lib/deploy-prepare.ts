@@ -1,13 +1,13 @@
 import type { WorkflowProvider, ProviderConfig, GeneratedBundle } from '@awaitstep/codegen'
-import type { ArtifactIR } from '@awaitstep/ir'
+import { PROJECT_CONNECTION_REASONS, type ArtifactIR } from '@awaitstep/ir'
 import type { DatabaseAdapter, Workflow } from '@awaitstep/db'
 import type { WranglerDeployer } from '@awaitstep/provider-cloudflare'
 import type { AppNodeRegistry } from './node-registry.js'
 import { prepareWorkflow, isPrepareError } from './workflow-prepare.js'
 import { resolveProvider } from './provider-resolver.js'
 
-export const CONNECTION_NOT_SERVING =
-  'This Cloudflare account isn’t available to this project. Add the project to it in Settings › Connections.'
+/** A deploy, a config read or a preview with an account that isn't one of the project's (23a). */
+export const CONNECTION_NOT_SERVING = PROJECT_CONNECTION_REASONS.notProjects
 
 export interface DeployContext {
   adapter: WorkflowProvider
@@ -54,8 +54,9 @@ export async function prepareDeploy(
     }
   }
 
-  // Connection, with whether it serves the workflow's project (org filter in SQL).
-  // Only new deploys are held to the list: takedown and run controls are not.
+  // Connection, with whether it is one of the workflow's project's accounts —
+  // added or owned, and still serving it (org filter in SQL). Only new deploys
+  // are held to the list: takedown and run controls are not.
   const found = await db.getConnectionForProject(connectionId, organizationId, projectId)
   if (!found) {
     return { error: 'Connection not found', status: 404 }

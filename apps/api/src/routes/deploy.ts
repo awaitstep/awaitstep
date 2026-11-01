@@ -9,7 +9,8 @@ import type { ProviderConfig, GeneratedBundle, DeployResult } from '@awaitstep/c
 import type { Workflow } from '@awaitstep/db'
 import type { AppEnv } from '../types.js'
 import { resolveProvider } from '../lib/provider-resolver.js'
-import { prepareDeploy, isDeployError } from '../lib/deploy-prepare.js'
+import { prepareDeploy, isDeployError, CONNECTION_NOT_SERVING } from '../lib/deploy-prepare.js'
+import { deployConnections } from '../lib/connection-fields.js'
 import { auditActor, recordAudit } from '../lib/audit.js'
 import { sharedDeployGroupKey } from '@awaitstep/ir'
 import { notify } from '../lib/notify.js'
@@ -259,6 +260,18 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
   })
 })
 
+/** The accounts Deploy offers this workflow: its project's, its workspace's (else the project's) default chosen. */
+deploy.get('/:workflowId/deploy-connections', async (c) => {
+  const workflow = c.get('workflow')
+  if (!workflow) return c.json({ error: 'Not found' }, 404)
+  const db = c.get('db')
+  const [rows, deployedWith] = await Promise.all([
+    db.listDeployTargets(workflow.projectId, workflow.workspaceId),
+    db.listConnectionsDeployedWith(workflow.id),
+  ])
+  return c.json(deployConnections(rows, deployedWith))
+})
+
 deploy.get('/:workflowId/deploy-config/:connectionId', async (c) => {
   const db = c.get('db')
   const workflow = c.get('workflow')
@@ -266,10 +279,12 @@ deploy.get('/:workflowId/deploy-config/:connectionId', async (c) => {
   const connectionId = c.req.param('connectionId')
   const organizationId = c.get('organizationId')
 
-  const connection = await db.getProviderConnectionById(connectionId, organizationId)
-  if (!connection) {
+  const found = await db.getConnectionForProject(connectionId, organizationId, workflow.projectId)
+  if (!found) {
     return c.json({ error: 'Connection not found' }, 404)
   }
+  if (!found.covered) return c.json({ error: CONNECTION_NOT_SERVING }, 403)
+  const { connection } = found
 
   const adapter = resolveProvider(connection.provider)
   const stored = await db.getDeploymentConfig(workflow.id, connectionId)
@@ -294,10 +309,16 @@ deploy.post(
     const body = c.req.valid('json')
     const db = c.get('db')
 
-    const connection = await db.getProviderConnectionById(body.connectionId, organizationId)
-    if (!connection) {
+    const found = await db.getConnectionForProject(
+      body.connectionId,
+      organizationId,
+      c.get('projectId'),
+    )
+    if (!found) {
       return c.json({ error: 'Connection not found' }, 404)
     }
+    if (!found.covered) return c.json({ error: CONNECTION_NOT_SERVING }, 403)
+    const { connection } = found
 
     const adapter = resolveProvider(connection.provider)
     const preview = adapter.buildDeploymentConfigPreview(body.config)
@@ -393,8 +414,12 @@ deploy.post(
 
     const { connectionId } = c.req.valid('json')
 
-    const connection = await db.getProviderConnectionById(connectionId, organizationId)
-    if (!connection) return c.json({ error: 'Connection not found' }, 404)
+    // Only an account the workflow went out with, as a trigger: with project-owned
+    // accounts (23a) any other id in the org may be another project's (security review L1).
+    const connection = await db.getConnectionDeployedWith(connectionId, organizationId, workflow.id)
+    if (!connection) {
+      return c.json({ error: 'This workflow isn’t deployed with that connection' }, 404)
+    }
 
     const name = workerName(workflow.id)
     const creds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
