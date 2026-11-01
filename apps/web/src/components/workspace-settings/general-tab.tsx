@@ -20,6 +20,7 @@ import { FormCard } from '../ui/form-card'
 import { useGoTo } from '../navigation/router-shell-link'
 import { TopBarContent } from '../navigation/top-bar-slot'
 import { MoveWorkflowsDialog } from './move-workflows-dialog'
+import { Textarea } from '../ui/textarea'
 
 const FORM_ID = 'workspace-general'
 
@@ -153,7 +154,7 @@ export function GeneralTab({ slugs, scope, projectName }: GeneralTabProps) {
           />
         </FormField>
         <FormField label="Description">
-          <Input
+          <Textarea
             value={values.description}
             onChange={(e) => handleChange('description', e.target.value)}
             disabled={readOnly}

@@ -10,6 +10,7 @@ import { ModalDialog } from '../ui/modal-dialog'
 import { Tile } from '../ui/tile'
 import { WorkspaceDot } from '../ui/workspace-dot'
 import { useGoTo } from '../navigation/router-shell-link'
+import { Textarea } from '../ui/textarea'
 
 interface NewProjectDialogProps {
   open: boolean
@@ -90,7 +91,7 @@ export function NewProjectDialog({ open, onOpenChange, org, then }: NewProjectDi
           />
         </FormField>
         <FormField label="Description" optional>
-          <Input
+          <Textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             placeholder="What lives here?"

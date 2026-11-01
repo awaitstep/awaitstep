@@ -25,6 +25,7 @@ import { TopBarContent } from '../navigation/top-bar-slot'
 import { MOVE_PROJECT_COPY } from './move-project-copy'
 import { MoveProjectDialog } from './move-project-dialog'
 import { useProjectScope } from './use-project-scope'
+import { Textarea } from '../ui/textarea'
 
 const FORM_ID = 'project-general'
 
@@ -191,7 +192,7 @@ function GeneralSettings({ slugs, scope }: { slugs: ProjectSlugs; scope: Project
             </InputGroup>
           </FormField>
           <FormField label="Description">
-            <Input
+            <Textarea
               value={values.description}
               onChange={(e) => handleChange('description', e.target.value)}
               disabled={readOnly}

@@ -4,6 +4,7 @@ import { FieldGroup, FormField } from './form-field'
 import { Input } from './input'
 import { InputGroup } from './input-group'
 import { Select } from './select'
+import { Textarea } from './textarea'
 
 // Labelled controls as the settings pages and dialogs lay them out.
 const meta = {
@@ -43,7 +44,7 @@ export const WithHint: Story = {
 export const Optional: Story = {
   render: () => (
     <FormField label="Description" optional>
-      <Input placeholder="What lives here?" />
+      <Textarea placeholder="What lives here?" />
     </FormField>
   ),
 }
