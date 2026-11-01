@@ -9,7 +9,7 @@ const NOTE: ReleaseNote = {
   date: '2026-10-20T15:00:00.000Z',
   title: 'T',
   body: 'B',
-  link: { label: 'Keys', page: { settings: 'api-keys' } },
+  link: { label: 'Keys', page: { settings: 'members' } },
 }
 
 describe('releaseFeed', () => {
@@ -19,10 +19,7 @@ describe('releaseFeed', () => {
       [NOTE, { ...NOTE, id: 'm', link: { label: 'Audit', page: 'audit' } }],
       { lastVisit: null, seen: [] },
     )
-    expect(feed.releases.map((r) => r.link.href)).toEqual([
-      '/acme/settings/api-keys',
-      '/acme/audit',
-    ])
+    expect(feed.releases.map((r) => r.link.href)).toEqual(['/acme/settings/members', '/acme/audit'])
   })
 
   it('marks everything new for someone who never looked', () => {

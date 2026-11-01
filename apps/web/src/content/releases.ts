@@ -73,7 +73,7 @@ export const RELEASE_NOTES: ReleaseNote[] = [
     date: '2026-10-29T08:00:00.000Z',
     title: 'API keys at org, project and workspace level',
     body: 'Pick what a key reaches and exactly which actions it can take. The key is shown once when you create it.',
-    link: { label: 'Manage API keys', page: { settings: 'api-keys' } },
+    link: { label: 'Manage API keys', page: 'api-keys' },
   },
   {
     id: 'rel_workspaces',

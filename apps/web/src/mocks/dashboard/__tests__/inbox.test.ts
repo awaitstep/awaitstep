@@ -153,9 +153,7 @@ describe('releases', () => {
       ['rel_keys', false],
       ['rel_workspaces', false],
     ])
-    expect(feed.releases.find((r) => r.id === 'rel_keys')!.link.href).toBe(
-      '/acme/settings/api-keys',
-    )
+    expect(feed.releases.find((r) => r.id === 'rel_keys')!.link.href).toBe('/acme/api-keys')
   })
 
   it('counts a note not yet seen as new, whatever its date', async () => {

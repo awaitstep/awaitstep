@@ -4,19 +4,19 @@ import {
   accountPath,
   dashboardPath,
   orgPath,
-  orgSettingsPath,
+  orgDestinationPath,
   projectPath,
   withNewDialog,
   workspacePath,
   type AccountPage,
-  type OrgSettingsPage,
+  type OrgDestination,
   type WorkspacePage,
 } from '../../lib/dashboard-paths'
 import { recentOrgs, recentProjects, recentWorkspaces } from './scope-memory'
 
-/** An old org-wide page (`/connections`): its Org Settings page, its "New …" dialog open when asked. */
+/** An old org-wide page (`/connections`): the org page that replaced it, its "New …" dialog open when asked. */
 export interface LegacySettingsPage {
-  settings: OrgSettingsPage
+  settings: OrgDestination
   newDialog?: 'connection'
 }
 
@@ -53,7 +53,7 @@ export function legacyTarget(
     return accountPath(org, page.account)
   }
   if (page !== null && typeof page === 'object') {
-    const path = orgSettingsPath(org, page.settings)
+    const path = orgDestinationPath(org, page.settings)
     return page.newDialog ? withNewDialog(path, page.newDialog) : path
   }
   const project = memory.projectsIn(org)[0]

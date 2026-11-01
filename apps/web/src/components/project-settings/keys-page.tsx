@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react'
 import { useProjectKeys, useRevokeProjectKey } from '../../data/dashboard/api-keys'
 import { useWorkspaces } from '../../data/dashboard/workspaces'
 import {
-  orgSettingsPath,
+  orgPath,
   projectSettingsPath,
   withNewDialog,
   workspaceSettingsPath,
@@ -85,7 +85,7 @@ export function KeysPage({ slugs, createOpen, onCloseCreate }: KeysPageProps) {
   // A failed revoke stays in the dialog, in place of the warning.
   const revokeDescription = revoking && (revoke.error?.message ?? revokeText(revoking))
   const links = {
-    organization: { href: orgSettingsPath(slugs.org, 'api-keys'), label: 'Org keys' },
+    organization: { href: orgPath(slugs.org, 'api-keys'), label: 'Org keys' },
     ...(lastWorkspace && {
       workspace: {
         href: workspaceSettingsPath({ ...slugs, workspace: lastWorkspace }, 'keys'),

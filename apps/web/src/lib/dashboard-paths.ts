@@ -3,11 +3,27 @@ import type { ScopeSlugs } from '../types/dashboard/scope'
 // Every href in the new dashboard is built here, so the URL shape lives in one
 // place: /{org}/{project}/{workspace}/{page}.
 
-export const ORG_PAGES = ['projects', 'resources', 'audit', 'inbox', 'whats-new'] as const
+export const ORG_PAGES = [
+  'projects',
+  'resources',
+  'audit',
+  'connections',
+  'api-keys',
+  'inbox',
+  'whats-new',
+] as const
 export type OrgPage = (typeof ORG_PAGES)[number]
 
-export const ORG_SETTINGS_PAGES = ['general', 'members', 'connections', 'api-keys'] as const
+/** Org Settings' sections, tabs on one page (boards `OrgGeneral`/`OrgMembers`), General first. */
+export const ORG_SETTINGS_PAGES = ['general', 'members'] as const
 export type OrgSettingsPage = (typeof ORG_SETTINGS_PAGES)[number]
+
+/**
+ * Where an org-wide link may point: a Settings section, or Connections and
+ * API keys, which were Settings sections until they got their own rail items.
+ * Inbox links and release notes name these; `orgDestinationPath` resolves them.
+ */
+export type OrgDestination = OrgSettingsPage | 'connections' | 'api-keys'
 
 export const PROJECT_SETTINGS_PAGES = [
   'workspaces',
@@ -51,8 +67,20 @@ export function orgPath(org: string, page: OrgPage = 'projects'): string {
   return `/${segment(org)}/${page}`
 }
 
+/** Org Settings, on General (its first tab) unless another section is named. */
 export function orgSettingsPath(org: string, page: OrgSettingsPage = 'general'): string {
   return `/${segment(org)}/settings/${page}`
+}
+
+export function orgDestinationPath(org: string, page: OrgDestination): string {
+  return page === 'connections' || page === 'api-keys'
+    ? orgPath(org, page)
+    : orgSettingsPath(org, page)
+}
+
+/** A project's Members page with Add people open: the access editor, set to add someone to this project. */
+export function projectMembersAddPath(slugs: ProjectSlugs): string {
+  return `${projectSettingsPath(slugs, 'members')}?${new URLSearchParams({ access: 'add' })}`
 }
 
 /** The project URL itself, which lands in the last workspace. */

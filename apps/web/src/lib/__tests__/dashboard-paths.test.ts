@@ -8,6 +8,7 @@ import {
   isReservedSlug,
   ORG_PAGES,
   orgPath,
+  orgDestinationPath,
   orgSettingsPath,
   projectPath,
   projectSettingsPath,
@@ -23,8 +24,19 @@ describe('dashboard paths', () => {
   it('builds org pages, defaulting to Projects', () => {
     expect(orgPath('acme')).toBe('/acme/projects')
     expect(orgPath('acme', 'whats-new')).toBe('/acme/whats-new')
+    expect(orgPath('acme', 'connections')).toBe('/acme/connections')
+    expect(orgPath('acme', 'api-keys')).toBe('/acme/api-keys')
     expect(orgSettingsPath('acme')).toBe('/acme/settings/general')
-    expect(orgSettingsPath('acme', 'api-keys')).toBe('/acme/settings/api-keys')
+    expect(orgSettingsPath('acme', 'members')).toBe('/acme/settings/members')
+  })
+
+  it('sends a stored org link to where that page lives now', () => {
+    // Inbox links and release notes still name Connections and API keys as
+    // Settings pages; they moved to their own rail items.
+    expect(orgDestinationPath('acme', 'connections')).toBe('/acme/connections')
+    expect(orgDestinationPath('acme', 'api-keys')).toBe('/acme/api-keys')
+    expect(orgDestinationPath('acme', 'members')).toBe('/acme/settings/members')
+    expect(orgDestinationPath('acme', 'general')).toBe('/acme/settings/general')
   })
 
   it('builds project URLs, with settings defaulting to Workspaces', () => {

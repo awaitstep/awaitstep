@@ -30,7 +30,7 @@ interface OrgConnectionsPageProps {
   onConnectChange: (open: boolean) => void
 }
 
-/** `/{org}/settings/connections` (`OrgConnections`): Cloudflare accounts and who may deploy with each. */
+/** `/{org}/connections` (`OrgConnections`, its own rail item): Cloudflare accounts and who may deploy with each. */
 export function OrgConnectionsPage({ org, connectOpen, onConnectChange }: OrgConnectionsPageProps) {
   const scope = useOrgScope(org)
   const connections = useConnections(org)

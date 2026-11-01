@@ -18,7 +18,8 @@ import { DataTable, type DataColumn } from '../ui/data-table'
 import { ListCard, ListRow } from '../ui/list-card'
 import { ShellLink } from '../ui/shell-link'
 import { ListCardSkeleton, LoadingRegion } from '../ui/skeletons'
-import { PageBody, PageIntro } from '../shell/page-intro'
+import { PageBody } from '../shell/page-intro'
+import { OrgSettingsIntro } from './org-settings-intro'
 import { TopBarContent } from '../navigation/top-bar-slot'
 import { ORG_ROLE_LABEL } from '../access/parts/access-draft'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
@@ -234,10 +235,7 @@ export function OrgMembersPage({ org, overlay, onOverlayChange }: OrgMembersPage
         </TopBarContent>
       )}
       <PageBody>
-        <PageIntro
-          title="Members"
-          description={`Everyone in ${scope.org.name} and where they can work. Owners and admins see every project.`}
-        />
+        <OrgSettingsIntro org={orgInfo} section="members" />
         {body}
       </PageBody>
       {canManage && overlay?.kind === 'access' && (

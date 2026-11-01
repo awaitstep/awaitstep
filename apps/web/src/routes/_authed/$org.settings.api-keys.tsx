@@ -1,25 +1,9 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
-import { OrgKeysPage } from '../../components/org-settings/org-keys-page'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
-const page: DashboardPage = { kind: 'org-settings', page: 'api-keys' }
-
+// API keys was an Org Settings section until it got its own rail item (API):
+// old links and bookmarks land on the page, a ?new= dialog still open.
 export const Route = createFileRoute('/_authed/$org/settings/api-keys')({
-  staticData: { dashboardPage: page },
-  head: () => pageHead(page),
-  component: OrgApiKeysPage,
+  beforeLoad: ({ params }) => {
+    throw redirect({ to: '/$org/api-keys', params, search: true, replace: true })
+  },
 })
-
-function OrgApiKeysPage() {
-  const { org } = Route.useParams()
-  const search = Route.useSearch()
-  const navigate = Route.useNavigate()
-
-  function handleCloseDialog() {
-    void navigate({ search: (prev) => ({ ...prev, new: undefined }), replace: true })
-  }
-
-  return (
-    <OrgKeysPage org={org} createOpen={search.new === 'key'} onCloseCreate={handleCloseDialog} />
-  )
-}

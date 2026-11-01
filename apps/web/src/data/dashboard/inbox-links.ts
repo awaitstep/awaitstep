@@ -1,6 +1,6 @@
 import type { InboxNotification as ApiInboxNotification, NotificationTarget } from '@awaitstep/ir'
 import {
-  orgSettingsPath,
+  orgDestinationPath,
   projectSettingsPath,
   workspacePath,
   workspaceSettingsPath,
@@ -17,7 +17,8 @@ export function notificationHref(org: string, to: NotificationTarget): string {
     case 'project-settings':
       return projectSettingsPath({ org, project: to.project }, to.page)
     case 'org-settings':
-      return orgSettingsPath(org, to.page)
+      // Connections and API keys left Settings for their own pages: stored links follow.
+      return orgDestinationPath(org, to.page)
   }
 }
 

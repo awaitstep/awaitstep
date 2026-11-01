@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import { useLocation, useMatches, useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { useNotifications, useReleases } from '../../data/dashboard/inbox'
-import { useProjects } from '../../data/dashboard/projects'
 import { useViewer } from '../../data/dashboard/session'
 import { useScope } from '../../data/dashboard/workspaces'
 import { dashboardPath, orgPath, projectPath, withOverlay } from '../../lib/dashboard-paths'
@@ -16,8 +15,7 @@ import { DashboardOverlays } from '../inbox/dashboard-overlays'
 import type { DashboardPage } from './dashboard-page'
 import type { DashboardSearch } from './dashboard-providers'
 import { DashboardFrame, type FrameScope } from './dashboard-frame'
-import type { LastProject, RailOverlays } from './nav-model'
-import { recentProjects } from './scope-memory'
+import type { RailOverlays } from './nav-model'
 
 function countFresh(feed: ReleaseFeed | undefined): number {
   return feed?.releases.filter((r) => r.fresh).length ?? 0
@@ -57,20 +55,6 @@ function frameScope(slugs: ScopeSlugs, lookup: ScopeLookup | undefined): FrameSc
 }
 
 /**
- * The org's most recent project the viewer can still open, with its name, for
- * org settings' "Back to …". Asks for the project list on that page only.
- */
-function useLastProject(org: string, enabled: boolean): LastProject | null {
-  const projects = useProjects(org, { enabled })
-  const list = projects.data
-  if (!list) return null
-  const match = recentProjects(org)
-    .map((slug) => list.find((project) => project.slug === slug))
-    .find((project) => project !== undefined)
-  return match ? { slug: match.slug, name: match.name } : null
-}
-
-/**
  * The new dashboard's frame around every page, and its one scope gate: it
  * resolves every slug in the URL at once, and shows the page only when the
  * viewer can open all of them. Missing and hidden scopes look the same.
@@ -80,7 +64,6 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const declaredPage = useDashboardPage()
   const scope = useScope(slugs)
   const viewer = useViewer()
-  const last = useLastProject(slugs.org, declaredPage?.kind === 'org-settings')
   const { theme, setTheme } = useThemeStore()
   const { pathname, href } = useLocation()
   const search = useSearch({ strict: false }) as DashboardSearch
@@ -130,7 +113,6 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       scope={frameScope(slugs, scope.data)}
       page={found ? declaredPage : null}
       viewer={viewer.data ?? null}
-      lastProject={last}
       overlays={overlays}
       theme={theme}
       onToggleTheme={handleToggleTheme}

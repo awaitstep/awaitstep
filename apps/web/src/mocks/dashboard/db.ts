@@ -4,7 +4,7 @@ import type { AuditActorType, AuditKind, AuditLevel } from '../../types/dashboar
 import type { KeyLevel, KeyPermissions } from '../../types/dashboard/api-keys'
 import type { NotificationKind } from '../../types/dashboard/inbox'
 import type { FunctionTraffic, ItemKind } from '../../types/dashboard/items'
-import type { OrgSettingsPage, ProjectSettingsPage, WorkspacePage } from '../../lib/dashboard-paths'
+import type { OrgDestination, ProjectSettingsPage, WorkspacePage } from '../../lib/dashboard-paths'
 import type { RunResult, RunTrigger } from '../../types/dashboard/runs'
 import type { ProjectRole } from '../../types/dashboard/projects'
 import type { NodeSource } from '../../types/dashboard/resources'
@@ -123,7 +123,7 @@ export interface EditRequestRow {
 export type NotificationTarget =
   | { kind: 'workspace'; workspaceId: string; page: WorkspacePage }
   | { kind: 'project-settings'; projectId: string; page: ProjectSettingsPage }
-  | { kind: 'org-settings'; page: OrgSettingsPage }
+  | { kind: 'org-settings'; page: OrgDestination }
 
 /** A sample notification (failures, expiring keys, people, deploys); requests come from `editRequests`. */
 export interface NotificationRow {

@@ -21,7 +21,9 @@ import { Route as AuthedDashboardRouteImport } from './routes/_authed/dashboard'
 import { Route as AuthedSettingsRouteImport } from './routes/_authed/settings'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AuthedOrgIndexRouteImport } from './routes/_authed/$org.index'
+import { Route as AuthedOrgApiKeysRouteImport } from './routes/_authed/$org.api-keys'
 import { Route as AuthedOrgAuditRouteImport } from './routes/_authed/$org.audit'
+import { Route as AuthedOrgConnectionsRouteImport } from './routes/_authed/$org.connections'
 import { Route as AuthedOrgInboxRouteImport } from './routes/_authed/$org.inbox'
 import { Route as AuthedOrgProjectsRouteImport } from './routes/_authed/$org.projects'
 import { Route as AuthedOrgResourcesRouteImport } from './routes/_authed/$org.resources'
@@ -123,9 +125,19 @@ const AuthedOrgIndexRoute = AuthedOrgIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthedOrgRoute,
 } as any)
+const AuthedOrgApiKeysRoute = AuthedOrgApiKeysRouteImport.update({
+  id: '/api-keys',
+  path: '/api-keys',
+  getParentRoute: () => AuthedOrgRoute,
+} as any)
 const AuthedOrgAuditRoute = AuthedOrgAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
+  getParentRoute: () => AuthedOrgRoute,
+} as any)
+const AuthedOrgConnectionsRoute = AuthedOrgConnectionsRouteImport.update({
+  id: '/connections',
+  path: '/connections',
   getParentRoute: () => AuthedOrgRoute,
 } as any)
 const AuthedOrgInboxRoute = AuthedOrgInboxRouteImport.update({
@@ -374,7 +386,9 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthedDashboardRoute
   '/settings': typeof AuthedSettingsRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/$org/api-keys': typeof AuthedOrgApiKeysRoute
   '/$org/audit': typeof AuthedOrgAuditRoute
+  '/$org/connections': typeof AuthedOrgConnectionsRoute
   '/$org/inbox': typeof AuthedOrgInboxRoute
   '/$org/projects': typeof AuthedOrgProjectsRoute
   '/$org/resources': typeof AuthedOrgResourcesRoute
@@ -428,7 +442,9 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthedDashboardRoute
   '/settings': typeof AuthedSettingsRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/$org/api-keys': typeof AuthedOrgApiKeysRoute
   '/$org/audit': typeof AuthedOrgAuditRoute
+  '/$org/connections': typeof AuthedOrgConnectionsRoute
   '/$org/inbox': typeof AuthedOrgInboxRoute
   '/$org/projects': typeof AuthedOrgProjectsRoute
   '/$org/resources': typeof AuthedOrgResourcesRoute
@@ -482,7 +498,9 @@ export interface FileRoutesById {
   '/_authed/dashboard': typeof AuthedDashboardRoute
   '/_authed/settings': typeof AuthedSettingsRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/_authed/$org/api-keys': typeof AuthedOrgApiKeysRoute
   '/_authed/$org/audit': typeof AuthedOrgAuditRoute
+  '/_authed/$org/connections': typeof AuthedOrgConnectionsRoute
   '/_authed/$org/inbox': typeof AuthedOrgInboxRoute
   '/_authed/$org/projects': typeof AuthedOrgProjectsRoute
   '/_authed/$org/resources': typeof AuthedOrgResourcesRoute
@@ -539,7 +557,9 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/settings'
     | '/invite/$token'
+    | '/$org/api-keys'
     | '/$org/audit'
+    | '/$org/connections'
     | '/$org/inbox'
     | '/$org/projects'
     | '/$org/resources'
@@ -593,7 +613,9 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/settings'
     | '/invite/$token'
+    | '/$org/api-keys'
     | '/$org/audit'
+    | '/$org/connections'
     | '/$org/inbox'
     | '/$org/projects'
     | '/$org/resources'
@@ -646,7 +668,9 @@ export interface FileRouteTypes {
     | '/_authed/dashboard'
     | '/_authed/settings'
     | '/invite/$token'
+    | '/_authed/$org/api-keys'
     | '/_authed/$org/audit'
+    | '/_authed/$org/connections'
     | '/_authed/$org/inbox'
     | '/_authed/$org/projects'
     | '/_authed/$org/resources'
@@ -784,11 +808,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgIndexRouteImport
       parentRoute: typeof AuthedOrgRoute
     }
+    '/_authed/$org/api-keys': {
+      id: '/_authed/$org/api-keys'
+      path: '/api-keys'
+      fullPath: '/$org/api-keys'
+      preLoaderRoute: typeof AuthedOrgApiKeysRouteImport
+      parentRoute: typeof AuthedOrgRoute
+    }
     '/_authed/$org/audit': {
       id: '/_authed/$org/audit'
       path: '/audit'
       fullPath: '/$org/audit'
       preLoaderRoute: typeof AuthedOrgAuditRouteImport
+      parentRoute: typeof AuthedOrgRoute
+    }
+    '/_authed/$org/connections': {
+      id: '/_authed/$org/connections'
+      path: '/connections'
+      fullPath: '/$org/connections'
+      preLoaderRoute: typeof AuthedOrgConnectionsRouteImport
       parentRoute: typeof AuthedOrgRoute
     }
     '/_authed/$org/inbox': {
@@ -1113,7 +1151,9 @@ const AuthedOrgProjectWorkspaceRouteWithChildren =
   )
 
 interface AuthedOrgRouteChildren {
+  AuthedOrgApiKeysRoute: typeof AuthedOrgApiKeysRoute
   AuthedOrgAuditRoute: typeof AuthedOrgAuditRoute
+  AuthedOrgConnectionsRoute: typeof AuthedOrgConnectionsRoute
   AuthedOrgInboxRoute: typeof AuthedOrgInboxRoute
   AuthedOrgProjectsRoute: typeof AuthedOrgProjectsRoute
   AuthedOrgResourcesRoute: typeof AuthedOrgResourcesRoute
@@ -1140,7 +1180,9 @@ interface AuthedOrgRouteChildren {
 }
 
 const AuthedOrgRouteChildren: AuthedOrgRouteChildren = {
+  AuthedOrgApiKeysRoute: AuthedOrgApiKeysRoute,
   AuthedOrgAuditRoute: AuthedOrgAuditRoute,
+  AuthedOrgConnectionsRoute: AuthedOrgConnectionsRoute,
   AuthedOrgInboxRoute: AuthedOrgInboxRoute,
   AuthedOrgProjectsRoute: AuthedOrgProjectsRoute,
   AuthedOrgResourcesRoute: AuthedOrgResourcesRoute,

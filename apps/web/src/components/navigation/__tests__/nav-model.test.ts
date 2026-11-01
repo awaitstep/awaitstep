@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { ORG_PAGES, ORG_SETTINGS_PAGES } from '../../../lib/dashboard-paths'
 import { pageTitle } from '../dashboard-page'
 import { breadcrumbs, panelModel, railModel, tabBarEntries } from '../nav-model'
 
@@ -12,6 +13,10 @@ const QUIET = { here: '/acme/projects', unread: 0, freshReleases: 0 }
 describe('rail', () => {
   it('marks the org page itself, Settings for org settings, and Projects inside a project', () => {
     expect(railModel('acme', { kind: 'org', page: 'audit' }, QUIET).activeKey).toBe('audit')
+    expect(railModel('acme', { kind: 'org', page: 'connections' }, QUIET).activeKey).toBe(
+      'connections',
+    )
+    expect(railModel('acme', { kind: 'org', page: 'api-keys' }, QUIET).activeKey).toBe('api-keys')
     expect(railModel('acme', { kind: 'org-settings', page: 'members' }, QUIET).activeKey).toBe(
       'settings',
     )
@@ -21,19 +26,21 @@ describe('rail', () => {
     expect(railModel('acme', { kind: 'workspace', page: 'runs' }, QUIET).activeKey).toBe('projects')
   })
 
-  it('links every entry into the org, Inbox and What’s new over the page, API to the old playground and Docs outside', () => {
+  it('links every org destination from the rail (board Sidebar), Settings on General', () => {
     const rail = railModel('acme', { kind: 'org', page: 'projects' }, QUIET)
-    expect(rail.primary.map((e) => e.href)).toEqual([
-      '/acme/projects',
-      '/acme/resources',
-      '/acme/audit',
-      '/acme/settings/general',
+    expect(rail.primary.map((e) => [e.label, e.href])).toEqual([
+      ['Projects', '/acme/projects'],
+      ['Resources', '/acme/resources'],
+      ['Audit log', '/acme/audit'],
+      ['Connections', '/acme/connections'],
+      ['API', '/acme/api-keys'],
+      ['Settings', '/acme/settings/general'],
     ])
-    expect(rail.secondary.map((e) => [e.key, e.href, e.external ?? false])).toEqual([
-      ['whats-new', '/acme/projects?open=whats-new', false],
-      ['inbox', '/acme/projects?open=inbox', false],
-      ['api', '/api-playground', false],
-      ['docs', 'https://docs.awaitstep.dev', true],
+    expect(rail.secondary.map((e) => [e.label, e.href, e.external ?? false])).toEqual([
+      ['What’s new', '/acme/projects?open=whats-new', false],
+      ['Inbox', '/acme/projects?open=inbox', false],
+      ['Playground', '/api-playground', false],
+      ['Docs', 'https://docs.awaitstep.dev', true],
     ])
   })
 
@@ -80,13 +87,19 @@ describe('rail', () => {
 
 describe('panel', () => {
   it('has no panel on any org page — the org home included (Main and EmptyOrg: mode "org")', () => {
-    for (const page of ['projects', 'resources', 'audit', 'inbox', 'whats-new'] as const) {
-      expect(panelModel({ kind: 'org', page }, ORG, null)).toEqual({ mode: 'none' })
+    for (const page of ORG_PAGES) {
+      expect(panelModel({ kind: 'org', page }, ORG)).toEqual({ mode: 'none' })
+    }
+  })
+
+  it('has no panel on Org Settings either: its sections are tabs on the page', () => {
+    for (const page of ORG_SETTINGS_PAGES) {
+      expect(panelModel({ kind: 'org-settings', page }, ORG)).toEqual({ mode: 'none' })
     }
   })
 
   it('lists the workspace’s pages, with Project settings pinned', () => {
-    const panel = panelModel({ kind: 'workspace', page: 'workflows' }, SALES, null)
+    const panel = panelModel({ kind: 'workspace', page: 'workflows' }, SALES)
     if (panel.mode !== 'workspace') throw new Error(panel.mode)
     expect(panel.items.map((i) => i.label)).toEqual([
       'Overview',
@@ -102,7 +115,7 @@ describe('panel', () => {
   })
 
   it('leads back from project settings to the project, which lands in the last workspace', () => {
-    const panel = panelModel({ kind: 'project-settings', page: 'members' }, PROJECT, null)
+    const panel = panelModel({ kind: 'project-settings', page: 'members' }, PROJECT)
     if (panel.mode !== 'project-settings') throw new Error(panel.mode)
     expect(panel.items.map((i) => i.key)).toEqual([
       'workspaces',
@@ -115,22 +128,6 @@ describe('panel', () => {
     expect(panel.activeKey).toBe('members')
     expect(panel.backHref).toBe('/acme/project-101')
   })
-
-  it('leads back from org settings to the last project, or to Projects', () => {
-    const page = { kind: 'org-settings', page: 'connections' } as const
-    const withLast = panelModel(page, ORG, { slug: 'project-101', name: 'Project 101' })
-    if (withLast.mode !== 'org-settings') throw new Error(withLast.mode)
-    expect(withLast.back).toEqual({ href: '/acme/project-101', label: 'Back to Project 101' })
-    expect(withLast.items.map((i) => i.label)).toEqual([
-      'General',
-      'Members',
-      'Connections',
-      'API keys',
-    ])
-    const withoutLast = panelModel(page, ORG, null)
-    if (withoutLast.mode !== 'org-settings') throw new Error(withoutLast.mode)
-    expect(withoutLast.back).toEqual({ href: '/acme/projects', label: 'Back to projects' })
-  })
 })
 
 describe('breadcrumbs', () => {
@@ -141,11 +138,23 @@ describe('breadcrumbs', () => {
     ])
   })
 
-  it('names org settings without a Settings link', () => {
-    expect(breadcrumbs({ kind: 'org-settings', page: 'general' }, ORG, NAMES)).toEqual([
+  it('stops org settings at Settings: its sections are tabs on the page', () => {
+    for (const page of ORG_SETTINGS_PAGES) {
+      expect(breadcrumbs({ kind: 'org-settings', page }, ORG, NAMES)).toEqual([
+        { label: 'Acme Inc', href: '/acme/projects' },
+        { label: 'Settings' },
+      ])
+    }
+  })
+
+  it('names Connections and API as org pages of their own', () => {
+    expect(breadcrumbs({ kind: 'org', page: 'connections' }, ORG, NAMES)).toEqual([
       { label: 'Acme Inc', href: '/acme/projects' },
-      { label: 'Settings' },
-      { label: 'General' },
+      { label: 'Connections' },
+    ])
+    expect(breadcrumbs({ kind: 'org', page: 'api-keys' }, ORG, NAMES)).toEqual([
+      { label: 'Acme Inc', href: '/acme/projects' },
+      { label: 'API' },
     ])
   })
 
@@ -180,7 +189,7 @@ describe('account pages', () => {
 
   it('show the rail with nothing active and no panel', () => {
     expect(railModel('acme', page, QUIET).activeKey).toBe('')
-    expect(panelModel(page, ORG, null)).toEqual({ mode: 'none' })
+    expect(panelModel(page, ORG)).toEqual({ mode: 'none' })
   })
 
   it('start their breadcrumbs at Your account and end on the page', () => {

@@ -5,12 +5,7 @@ import type { ScopeSlugs } from '../../types/dashboard/scope'
 import type { WorkspaceColour } from '../ui/workspace-colour'
 import { orgPath, withOverlay } from '../../lib/dashboard-paths'
 import { AppShell } from '../shell/app-shell'
-import {
-  ContextPanel,
-  PanelBackLink,
-  PanelOrgHeader,
-  PanelScopeButton,
-} from '../shell/context-panel'
+import { ContextPanel, PanelBackLink, PanelScopeButton } from '../shell/context-panel'
 import { MobileHeader, MobileOrgButton, MobileTabBar } from '../shell/mobile-nav'
 import { OrgRail } from '../shell/org-rail'
 import { PanelItem, PanelSection } from '../shell/panel-item'
@@ -29,7 +24,6 @@ import {
   railModel,
   type RailOverlays,
   tabBarEntries,
-  type LastProject,
   type NavItem,
   type PanelModel,
 } from './nav-model'
@@ -53,7 +47,6 @@ interface DashboardFrameProps {
   /** The page being shown; null while landing or on a not-found page (no panel). */
   page: DashboardPage | null
   viewer: FrameViewer | null
-  lastProject: LastProject | null
   /** Where the rail's Inbox and What's new open, and their markers. */
   overlays: RailOverlays
   theme: Theme
@@ -70,7 +63,6 @@ export function DashboardFrame({
   scope,
   page,
   viewer,
-  lastProject,
   overlays,
   theme,
   onToggleTheme,
@@ -78,7 +70,7 @@ export function DashboardFrame({
 }: DashboardFrameProps) {
   const rail = railModel(scope.slugs.org, page ?? { kind: 'org', page: 'projects' }, overlays)
   const whatsNewHref = withOverlay(overlays.here, 'whats-new')
-  const panel = page ? panelModel(page, scope.slugs, lastProject) : { mode: 'none' as const }
+  const panel = page ? panelModel(page, scope.slugs) : { mode: 'none' as const }
   const crumbs = page
     ? breadcrumbs(page, scope.slugs, {
         org: scope.org.name,
@@ -218,26 +210,6 @@ function FramePanel({ panel, scope }: { panel: PanelModel; scope: FrameScope }) 
         <ContextPanel label="Project settings" header={<ProjectHeader scope={scope} />}>
           <PanelBackLink href={panel.backHref} label="Back to workspace" />
           <NavSection title="Project settings" items={panel.items} activeKey={panel.activeKey} />
-        </ContextPanel>
-      )
-    case 'org-settings':
-      return (
-        <ContextPanel
-          label="Organization settings"
-          header={
-            <PanelOrgHeader
-              name={scope.org.name}
-              initial={scope.org.initial}
-              logo={scope.org.logo}
-            />
-          }
-        >
-          <PanelBackLink href={panel.back.href} label={panel.back.label} />
-          <NavSection
-            title="Organization settings"
-            items={panel.items}
-            activeKey={panel.activeKey}
-          />
         </ContextPanel>
       )
   }

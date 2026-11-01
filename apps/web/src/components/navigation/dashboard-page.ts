@@ -26,6 +26,9 @@ const ORG_PAGE_LABEL: Record<OrgPage, string> = {
   projects: 'Projects',
   resources: 'Resources',
   audit: 'Audit log',
+  connections: 'Connections',
+  // The rail and the breadcrumb say "API" (board `KeysPage`, org level).
+  'api-keys': 'API',
   inbox: 'Inbox',
   'whats-new': 'What’s new',
 }
@@ -33,8 +36,6 @@ const ORG_PAGE_LABEL: Record<OrgPage, string> = {
 const ORG_SETTINGS_LABEL: Record<OrgSettingsPage, string> = {
   general: 'General',
   members: 'Members',
-  connections: 'Connections',
-  'api-keys': 'API keys',
 }
 
 const PROJECT_SETTINGS_LABEL: Record<ProjectSettingsPage, string> = {

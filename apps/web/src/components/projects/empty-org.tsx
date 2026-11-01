@@ -109,7 +109,7 @@ export function EmptyOrg({ org }: EmptyOrgProps) {
           </li>
           <li className="flex min-w-0 [&>a]:min-w-0 [&>a]:flex-1">
             <ActionCard
-              href={withNewDialog(orgSettingsPath(org.slug, 'connections'), 'connection')}
+              href={withNewDialog(orgPath(org.slug, 'connections'), 'connection')}
               icon={Plug}
               tone="warn"
               title="Connect Cloudflare"

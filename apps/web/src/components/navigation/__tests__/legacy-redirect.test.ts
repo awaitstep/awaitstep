@@ -40,11 +40,11 @@ describe('legacyTarget', () => {
 
   it('sends an old org-wide page to its Org Settings page, dialog and all', () => {
     expect(legacyTarget({ settings: 'connections' }, memory(['acme'], ['p']), mine, null)).toBe(
-      '/acme/settings/connections',
+      '/acme/connections',
     )
     expect(
       legacyTarget({ settings: 'connections', newDialog: 'connection' }, memory([]), mine, 'acme'),
-    ).toBe('/acme/settings/connections?new=connection')
+    ).toBe('/acme/connections?new=connection')
     expect(legacyTarget({ settings: 'connections' }, memory([]), [], null)).toBe('/dashboard')
   })
 

@@ -28,7 +28,6 @@ import {
   projectPath,
   projectSettingsPath,
   workspacePath,
-  type OrgSettingsPage,
   type ProjectSettingsPage,
   type WorkspacePage,
   type WorkspaceSlugs,
@@ -70,12 +69,6 @@ export type PanelModel =
       projectSettingsHref: string
     }
   | { mode: 'project-settings'; items: NavItem[]; activeKey: string; backHref: string }
-  | {
-      mode: 'org-settings'
-      items: NavItem[]
-      activeKey: string
-      back: { href: string; label: string }
-    }
 
 export interface RailModel {
   primary: RailEntry[]
@@ -120,12 +113,19 @@ export function railModel(org: string, page: DashboardPage, overlays: RailOverla
       { key: 'projects', href: orgPath(org, 'projects'), icon: House, label: 'Projects' },
       { key: 'resources', href: orgPath(org, 'resources'), icon: Box, label: 'Resources' },
       { key: 'audit', href: orgPath(org, 'audit'), icon: Activity, label: 'Audit log' },
+      { key: 'connections', href: orgPath(org, 'connections'), icon: Plug, label: 'Connections' },
+      { key: 'api-keys', href: orgPath(org, 'api-keys'), icon: KeyRound, label: 'API' },
       { key: 'settings', href: orgSettingsPath(org), icon: Settings, label: 'Settings' },
     ],
     secondary: [
       whatsNew,
       inbox,
-      { key: 'api', href: '/api-playground', icon: SquareTerminal, label: 'API' },
+      {
+        key: 'playground',
+        href: '/api-playground',
+        icon: SquareTerminal,
+        label: 'Playground',
+      },
       { key: 'docs', href: DOCS_URL, icon: BookOpen, label: 'Docs', external: true },
     ],
     activeKey: railActiveKey(page),
@@ -189,49 +189,14 @@ function projectSettingsItems(slugs: { org: string; project: string }): NavItem[
   ]
 }
 
-function orgSettingsItems(org: string): NavItem[] {
-  const item = (page: OrgSettingsPage, icon: LucideIcon): NavItem => ({
-    key: page,
-    href: orgSettingsPath(org, page),
-    icon,
-    label: pageLabel({ kind: 'org-settings', page }),
-  })
-  return [
-    item('general', Settings),
-    item('members', Users),
-    item('connections', Plug),
-    item('api-keys', KeyRound),
-  ]
-}
-
-/** The project to offer "Back to …" from org settings: the last one opened, if known. */
-export interface LastProject {
-  slug: string
-  name: string
-}
-
-export function panelModel(
-  page: DashboardPage,
-  slugs: ScopeSlugs,
-  lastProject: LastProject | null,
-): PanelModel {
+export function panelModel(page: DashboardPage, slugs: ScopeSlugs): PanelModel {
   switch (page.kind) {
     case 'org':
+    case 'org-settings':
     case 'account':
     case 'item':
+      // Every org-level page is its own rail item: none opens a second panel.
       return { mode: 'none' }
-    case 'org-settings':
-      return {
-        mode: 'org-settings',
-        items: orgSettingsItems(slugs.org),
-        activeKey: page.page,
-        back: lastProject
-          ? {
-              href: projectPath({ org: slugs.org, project: lastProject.slug }),
-              label: `Back to ${lastProject.name}`,
-            }
-          : { href: orgPath(slugs.org), label: 'Back to projects' },
-      }
     case 'project-settings': {
       const project = { org: slugs.org, project: slugs.project! }
       return {
@@ -270,7 +235,11 @@ export function breadcrumbs(page: DashboardPage, slugs: ScopeSlugs, names: Scope
     return [{ label: 'Your account', href: accountPath(slugs.org) }, { label: pageLabel(page) }]
   }
   const crumbs: Crumb[] = [{ label: names.org, href: orgPath(slugs.org) }]
-  if (page.kind === 'org-settings') crumbs.push({ label: 'Settings' })
+  // Settings' sections are tabs on the page: the crumb stops at Settings.
+  if (page.kind === 'org-settings') {
+    crumbs.push({ label: 'Settings' })
+    return crumbs
+  }
   if (page.kind === 'project-settings' || page.kind === 'workspace') {
     crumbs.push({
       label: names.project ?? slugs.project!,

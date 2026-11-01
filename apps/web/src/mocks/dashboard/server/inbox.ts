@@ -1,5 +1,9 @@
 import { RELEASE_NOTES } from '../../../content/releases'
-import { orgSettingsPath, projectSettingsPath, workspacePath } from '../../../lib/dashboard-paths'
+import {
+  orgDestinationPath,
+  projectSettingsPath,
+  workspacePath,
+} from '../../../lib/dashboard-paths'
 import { releaseFeed } from '../../../lib/release-feed'
 import type { InboxNotification, ReleaseFeed } from '../../../types/dashboard/inbox'
 import {
@@ -37,7 +41,7 @@ function placeOf(db: MockDb, org: OrgRow, projectId: string | null, workspaceId:
 }
 
 function hrefOf(db: MockDb, org: OrgRow, to: NotificationTarget): string | null {
-  if (to.kind === 'org-settings') return orgSettingsPath(org.slug, to.page)
+  if (to.kind === 'org-settings') return orgDestinationPath(org.slug, to.page)
   if (to.kind === 'project-settings') {
     const project = db.projects.find((p) => p.id === to.projectId)
     return project ? projectSettingsPath({ org: org.slug, project: project.slug }, to.page) : null

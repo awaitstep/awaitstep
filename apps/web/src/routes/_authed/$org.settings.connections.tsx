@@ -1,32 +1,9 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
-import { OrgConnectionsPage } from '../../components/org-settings/org-connections-page'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
-const page: DashboardPage = { kind: 'org-settings', page: 'connections' }
-
+// Connections was an Org Settings section until it got its own rail item:
+// old links and bookmarks land on the page, a ?new= dialog still open.
 export const Route = createFileRoute('/_authed/$org/settings/connections')({
-  staticData: { dashboardPage: page },
-  head: () => pageHead(page),
-  component: OrgConnectionsRoute,
+  beforeLoad: ({ params }) => {
+    throw redirect({ to: '/$org/connections', params, search: true, replace: true })
+  },
 })
-
-function OrgConnectionsRoute() {
-  const { org } = Route.useParams()
-  const search = Route.useSearch()
-  const navigate = Route.useNavigate()
-
-  function handleConnectChange(open: boolean) {
-    void navigate({
-      search: (prev) => ({ ...prev, new: open ? 'connection' : undefined }),
-      replace: !open,
-    })
-  }
-
-  return (
-    <OrgConnectionsPage
-      org={org}
-      connectOpen={search.new === 'connection'}
-      onConnectChange={handleConnectChange}
-    />
-  )
-}

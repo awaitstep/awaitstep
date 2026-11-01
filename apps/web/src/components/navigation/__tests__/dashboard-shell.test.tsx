@@ -202,23 +202,16 @@ describe('DashboardShell', () => {
     expect(screen.getByRole('group', { name: 'Project settings' })).toBeVisible()
   })
 
-  it('offers “Back to” the last project from org settings', () => {
-    localStorage.setItem(
-      'awaitstep:dashboard:recent-projects:acme',
-      JSON.stringify(['gone', 'project-101']),
-    )
+  it('shows org settings without a second panel: its sections are tabs on the page', () => {
     state.params = { org: 'acme' }
     state.page = { kind: 'org-settings', page: 'general' }
     settle(found('org'))
     renderShell()
-    expect(screen.getByRole('link', { name: 'Back to Project 101' })).toHaveAttribute(
-      'href',
-      '/acme/project-101',
-    )
-    localStorage.clear()
+    expect(screen.queryByRole('navigation', { name: 'Organization settings' })).toBeNull()
+    expect(projectRequests.every((enabled) => !enabled)).toBe(true)
   })
 
-  it('asks for the project list only on org settings or with the switcher open', () => {
+  it('asks for the project list only with the switcher open', () => {
     state.params = { org: 'acme', project: 'project-101', workspace: 'sales' }
     state.page = { kind: 'workspace', page: 'workflows' }
     settle(found('workspace'))

@@ -31,7 +31,7 @@ describe('project API keys', () => {
     expect(here).toHaveTextContent('Project keys')
     expect(within(levels).getByRole('link', { name: 'Org keys →' })).toHaveAttribute(
       'href',
-      '/acme/settings/api-keys',
+      '/acme/api-keys',
     )
     expect(rowWith('CI deploys')).toHaveTextContent('ask_Kq3VtR8m…a71d')
     expect(rowWith('CI deploys')).toHaveTextContent('Workflows & functions: read · deploy')
