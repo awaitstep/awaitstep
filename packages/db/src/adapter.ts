@@ -854,6 +854,8 @@ export interface DatabaseAdapter {
     name: string
     value: string
     isSecret: boolean
+    /** False when the caller lists the places next (`addEnvVarReach`); default true. */
+    allPlaces?: boolean
   }): Promise<EnvVar | null>
   /** The organization's own rows, each with how many projects `visibleTo` can open set the name themselves. */
   listEnvVarsByOrganization(
@@ -894,8 +896,40 @@ export interface DatabaseAdapter {
   updateEnvVar(
     id: string,
     place: VariablePlace,
-    data: { name?: string; value?: string; isSecret?: boolean },
+    data: { name?: string; value?: string; isSecret?: boolean; allPlaces?: true },
   ): Promise<EnvVar | null>
+  /**
+   * Writes a project's or organization's variable that applies only to the
+   * listed workspaces / projects, with its list, in one atomic batch. Places
+   * that set their own value of the name are left out; nothing is written when
+   * an id is not one of the level's places (`unknown`), the place cannot be
+   * written (`missing`) or every listed place sets its own value (`taken`).
+   * `reached` are the ids the variable now applies to; the rest were skipped.
+   */
+  createEnvVarWithReach(
+    data: {
+      id: string
+      place: VariablePlace
+      createdBy: string
+      name: string
+      value: string
+      isSecret: boolean
+    },
+    placeIds: string[],
+  ): Promise<{ row: EnvVar; reached: string[] } | { failure: 'missing' | 'unknown' | 'taken' }>
+  /**
+   * `updateEnvVar`, and the listed places added to the variable's list, in one
+   * atomic batch. Never narrows: a variable that applies everywhere answers
+   * `narrowing` and nothing is written; an id that is not one of its places
+   * answers `unknown`; no such variable at `place` (or the secret refusal of
+   * `updateEnvVar`) answers `missing`.
+   */
+  updateEnvVarWithReach(
+    id: string,
+    place: VariablePlace,
+    data: { name?: string; value?: string; isSecret?: boolean },
+    placeIds: string[],
+  ): Promise<{ row: EnvVar; reached: string[] } | { failure: 'missing' | 'unknown' | 'narrowing' }>
   /** Deletes the row where it is addressed — false when no row matched there. */
   /** The deleted variable's name; null when none at that place. */
   deleteEnvVar(id: string, place: VariablePlace): Promise<string | null>

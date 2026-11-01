@@ -23,6 +23,9 @@ export const envVars = pgTable(
     name: text('name').notNull(),
     value: text('value').notNull(),
     isSecret: boolean('is_secret').notNull().default(false),
+    // A project's variable reaches every workspace, an organization's every
+    // project, unless narrowed to the rows in env_var_workspaces / env_var_projects.
+    allPlaces: boolean('all_places').notNull().default(true),
     createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { mode: 'string' }).notNull().defaultNow(),
   },
@@ -39,6 +42,41 @@ export const envVars = pgTable(
     index('idx_env_vars_org_id').on(table.organizationId),
     index('idx_env_vars_project_id').on(table.projectId),
     index('idx_env_vars_workspace_id').on(table.workspaceId),
+  ],
+)
+
+// Which workspaces a project's variable reaches, and which projects an
+// organization's reaches, when `all_places` is off. A place with its own
+// row of the same name is skipped by the resolved reads, listed or not.
+export const envVarWorkspaces = pgTable(
+  'env_var_workspaces',
+  {
+    envVarId: text('env_var_id')
+      .notNull()
+      .references(() => envVars.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.envVarId, table.workspaceId] }),
+    index('idx_env_var_workspaces_workspace').on(table.workspaceId),
+  ],
+)
+
+export const envVarProjects = pgTable(
+  'env_var_projects',
+  {
+    envVarId: text('env_var_id')
+      .notNull()
+      .references(() => envVars.id, { onDelete: 'cascade' }),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.envVarId, table.projectId] }),
+    index('idx_env_var_projects_project').on(table.projectId),
   ],
 )
 

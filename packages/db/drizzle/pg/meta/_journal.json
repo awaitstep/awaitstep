@@ -183,6 +183,13 @@
       "when": 1793556537066,
       "tag": "0025_project_connections",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793566921787,
+      "tag": "0026_variable_reach",
+      "breakpoints": true
     }
   ]
 }

@@ -172,6 +172,8 @@ export interface SchemaRef {
   deploymentConfigs: unknown
   apiKeys: unknown
   envVars: unknown
+  envVarWorkspaces: unknown
+  envVarProjects: unknown
   projects: unknown
   workspaces: unknown
   installedNodes: unknown
@@ -270,6 +272,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         invitation: schema.invitation,
         invitationPlaces: schema.invitationPlaces,
         envVars: schema.envVars,
+        envVarProjects: schema.envVarProjects,
         connections: schema.connections,
         connectionProjects: schema.connectionProjects,
         projectConnections: schema.projectConnections,
@@ -329,6 +332,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         user: schema.user,
         notifications: schema.notifications,
         envVars: schema.envVars,
+        envVarProjects: schema.envVarProjects,
         apiKeys: schema.apiKeys,
       },
       this._dialect,
@@ -385,6 +389,8 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         envVars: schema.envVars,
         projects: schema.projects,
         workspaces: schema.workspaces,
+        envVarWorkspaces: schema.envVarWorkspaces,
+        envVarProjects: schema.envVarProjects,
         organization: schema.organization,
       },
       this._dialect,
@@ -1523,9 +1529,23 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   updateEnvVar(
     id: string,
     place: VariablePlace,
-    data: { name?: string; value?: string; isSecret?: boolean },
+    data: { name?: string; value?: string; isSecret?: boolean; allPlaces?: true },
   ): Promise<EnvVar | null> {
     return this._envVars.update(id, place, data)
+  }
+  createEnvVarWithReach(
+    data: Parameters<EnvVarsAdapter['createWithReach']>[0],
+    placeIds: string[],
+  ) {
+    return this._envVars.createWithReach(data, placeIds)
+  }
+  updateEnvVarWithReach(
+    id: string,
+    place: VariablePlace,
+    data: { name?: string; value?: string; isSecret?: boolean },
+    placeIds: string[],
+  ) {
+    return this._envVars.updateWithReach(id, place, data, placeIds)
   }
   deleteEnvVar(id: string, place: VariablePlace): Promise<string | null> {
     return this._envVars.delete(id, place)

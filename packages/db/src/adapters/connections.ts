@@ -25,6 +25,7 @@ import {
   type Dialect,
 } from './json-array.js'
 import type { RoleFields } from './role-fields.js'
+import { reachesProject } from './variable-reach.js'
 import { isProjectsAccount, servesProject } from './connection-reach.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,6 +41,7 @@ export interface ConnectionTables {
   user: AnyTable
   notifications: AnyTable
   envVars: AnyTable
+  envVarProjects: AnyTable
   apiKeys: AnyTable
 }
 
@@ -469,7 +471,7 @@ export class ConnectionsAdapter {
           sql<unknown>`exists (select 1 from ${aliasedFrom(c)} where ${c.organizationId} = ${p.organizationId} and ${c.provider} = 'cloudflare' and ${isProjectsAccount(this.dialect, this.t, c, p.id)} and ${c.tokenStatus} <> 'invalid' and (${c.tokenExpiresAt} is null or ${c.tokenExpiresAt} > ${now}))`,
         ),
         orgVariables: fieldOf(
-          sql<number>`(select count(*) from ${aliasedFrom(ov)} where ${ov.organizationId} = ${p.organizationId} and ${ov.projectId} is null and ${ov.workspaceId} is null and not exists (select 1 from ${aliasedFrom(pv)} where ${projectVar(pv)} and ${pv.name} = ${ov.name}))`.mapWith(
+          sql<number>`(select count(*) from ${aliasedFrom(ov)} where ${ov.organizationId} = ${p.organizationId} and ${ov.projectId} is null and ${ov.workspaceId} is null and ${reachesProject(this.dialect, this.t, ov, p.id)} and not exists (select 1 from ${aliasedFrom(pv)} where ${projectVar(pv)} and ${pv.name} = ${ov.name}))`.mapWith(
             Number,
           ),
         ),
