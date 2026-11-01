@@ -50,14 +50,12 @@ function YourOrgs({ orgs, lastUsed }: { orgs: OrgListing[]; lastUsed: string | n
           />
         </div>
 
-        <div className="w-full sm:w-64">
-          <SearchField
-            label="Find an organization"
-            placeholder="Find an organization"
-            value={query}
-            onChange={setQuery}
-          />
-        </div>
+        <SearchField
+          label="Find an organization"
+          placeholder="Find an organization"
+          value={query}
+          onChange={setQuery}
+        />
       </div>
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {shown.map((org) => (

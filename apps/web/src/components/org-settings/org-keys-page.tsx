@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useOrgKeys, useRevokeOrgKey } from '../../data/dashboard/api-keys'
+import { useOrgMembers } from '../../data/dashboard/org-settings'
+import { NoAccessPanel } from '../access/parts/no-access-panel'
 import { useProjects } from '../../data/dashboard/projects'
-import { orgSettingsPath, projectSettingsPath, withNewDialog } from '../../lib/dashboard-paths'
+import { orgPath, projectSettingsPath, withNewDialog } from '../../lib/dashboard-paths'
 import type { ApiKey } from '../../types/dashboard/api-keys'
 import { Banner } from '../ui/banner'
 import { buttonVariants } from '../ui/button'
@@ -27,10 +29,13 @@ interface OrgKeysPageProps {
   onCloseCreate: () => void
 }
 
-/** `/{org}/settings/api-keys` (`KeysPage` at org level): keys for automating the org itself. */
+/** `/{org}/api-keys` (`KeysPage` at org level, the rail's API): keys for automating the org itself. */
 export function OrgKeysPage({ org, createOpen, onCloseCreate }: OrgKeysPageProps) {
   const scope = useOrgScope(org)
-  const keys = useOrgKeys(org)
+  // Org keys are owners' and admins' (the API refuses anyone else): nobody else asks for them.
+  const canSee = scope?.viewerCan.manageSettings.allowed ?? false
+  const keys = useOrgKeys(org, { enabled: canSee })
+  const members = useOrgMembers(org, { enabled: scope !== null && !canSee })
   const projects = useProjects(org)
   const revoke = useRevokeOrgKey(org)
   const [revoking, setRevoking] = useState<ApiKey | null>(null)
@@ -84,7 +89,18 @@ export function OrgKeysPage({ org, createOpen, onCloseCreate }: OrgKeysPageProps
   const activeCaption = `${active} active`
 
   let body
-  if (keys.isError) {
+  if (!canManage) {
+    body = (
+      <NoAccessPanel
+        title="You can’t see the organization’s API keys"
+        why={`They can change ${scope.org.name}’s projects, members and connections, so they’re kept to owners and admins. Project and workspace keys are made from their own settings.`}
+        orgName={scope.org.name}
+        viewerRole={scope.viewerRole}
+        givers={members.data?.filter((m) => m.role === 'owner' || m.role === 'admin')}
+        backHref={orgPath(org)}
+      />
+    )
+  } else if (keys.isError) {
     body = (
       <WorkspaceLoadError
         what="API keys"
@@ -119,7 +135,7 @@ export function OrgKeysPage({ org, createOpen, onCloseCreate }: OrgKeysPageProps
       {canManage && (
         <TopBarContent>
           <ShellLink
-            href={withNewDialog(orgSettingsPath(org, 'api-keys'), 'key')}
+            href={withNewDialog(orgPath(org, 'api-keys'), 'key')}
             className={buttonVariants({ size: 'sm' })}
           >
             <Plus aria-hidden="true" />

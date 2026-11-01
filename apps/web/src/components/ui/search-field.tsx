@@ -16,7 +16,13 @@ interface SearchFieldProps {
   ref?: Ref<HTMLInputElement>
 }
 
-/** Search box with a leading magnifier and an optional shortcut hint. */
+/**
+ * Search box with a leading magnifier and an optional shortcut hint, the one
+ * size every page uses (board `LayoutRules`, "The search field"): 36 px high,
+ * as wide as its row allows up to 320 px, shrinking to 240 px before the row
+ * wraps, full width on a phone. It sets its own width, so callers place it
+ * without a wrapper, first in the toolbar row.
+ */
 export function SearchField({
   label,
   placeholder,
@@ -40,7 +46,7 @@ export function SearchField({
   }
 
   return (
-    <div className="flex h-9 min-w-0 items-center gap-2 rounded-lg border border-border bg-card px-3 text-muted-foreground focus-within:ring-2 focus-within:ring-ring">
+    <div className="flex h-9 w-full min-w-[min(200px,100%)] sm:max-w-full lg:max-w-[320px] items-center gap-2 rounded-[9px] border border-border bg-card px-3 text-muted-foreground focus-within:ring-2 focus-within:ring-ring max-sm:max-w-none">
       <Search className="size-3.5 shrink-0" aria-hidden="true" />
       <label htmlFor={id} className="sr-only">
         {label}

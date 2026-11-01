@@ -199,20 +199,18 @@ export function RunsPage({ slugs }: RunsPageProps) {
     body = (
       <>
         <div className="flex flex-wrap items-center gap-3">
+          <SearchField
+            label="Search by workflow or run ID"
+            placeholder="Search by workflow or run ID"
+            value={search}
+            onChange={handleSearch}
+          />
           <SegmentedFilter
             label="Result"
             options={options}
             value={result}
             onChange={handleResult}
           />
-          <div className="min-w-[220px] flex-1">
-            <SearchField
-              label="Search by workflow or run ID"
-              placeholder="Search by workflow or run ID"
-              value={search}
-              onChange={handleSearch}
-            />
-          </div>
           <Select
             aria-label="Period"
             value={period}

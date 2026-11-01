@@ -114,4 +114,11 @@ describe('Runs page', () => {
     renderWithDashboardData(<RunsPage slugs={sales} />, { scenario: 'error' })
     expect(await screen.findByRole('heading', { name: 'We couldn’t load runs' })).toBeVisible()
   })
+
+  it('puts the search first in the toolbar, before the result filter and the period', async () => {
+    renderWithDashboardData(<RunsPage slugs={sales} />)
+    const search = await screen.findByRole('searchbox', { name: 'Search by workflow or run ID' })
+    const result = screen.getByRole('group', { name: 'Result' })
+    expect(search.compareDocumentPosition(result) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
 })

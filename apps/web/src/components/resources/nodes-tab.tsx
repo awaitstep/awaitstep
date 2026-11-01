@@ -5,11 +5,12 @@ import type { OrgNode } from '../../types/dashboard/resources'
 import { Banner } from '../ui/banner'
 import { ConfirmDialog } from '../ui/confirm-dialog'
 import { SearchField } from '../ui/search-field'
+import { SearchableSelect } from '../ui/searchable-select'
 import { SegmentedFilter, type FilterOption } from '../ui/segmented-filter'
 import { CatalogNodeCard } from './parts/catalog-node-card'
 import {
   filterNodes,
-  nodeCategories,
+  categoryOptions,
   showCounts,
   type NodeCategory,
   type NodeShow,
@@ -35,10 +36,7 @@ export function NodesTab({ org, nodes, canManage, reason }: NodesTabProps) {
   const [confirming, setConfirming] = useState<OrgNode | null>(null)
 
   const counts = showCounts(nodes)
-  const categoryOptions: FilterOption<NodeCategory>[] = [
-    { id: 'All', label: 'All' },
-    ...nodeCategories(nodes).map((c) => ({ id: c, label: c })),
-  ]
+  const categories = categoryOptions(nodes)
   const { installed, available } = filterNodes(nodes, { show, category, search })
   const changing = [install, uninstall, update].find((m) => m.isPending)
   // One change at a time: a second one would replace the first's progress and error.
@@ -99,7 +97,7 @@ export function NodesTab({ org, nodes, canManage, reason }: NodesTabProps) {
       return <p className="text-sm text-muted-foreground">{filtered ?? emptyText}</p>
     }
     return (
-      <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+      <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {list.map((node) => (
           <CatalogNodeCard
             key={node.id}
@@ -116,27 +114,33 @@ export function NodesTab({ org, nodes, canManage, reason }: NodesTabProps) {
 
   return (
     <>
-      {!canManage && reason && <Banner tone="info">{reason}</Banner>}
+      {!canManage && reason && (
+        <div className="max-w-sm">
+          <Banner tone="warn">{reason}</Banner>
+        </div>
+      )}
       {failed && (
         <p role="alert" className="text-xs text-status-error">
           {failed.message}
         </p>
       )}
       <div className="flex flex-wrap items-center gap-2.5">
+        <SearchField
+          label="Search nodes"
+          placeholder="Search nodes"
+          value={search}
+          onChange={setSearch}
+        />
         <SegmentedFilter label="Show" options={showOptions} value={show} onChange={setShow} />
-        <div className="w-full sm:w-96">
-          <SearchField
-            label="Search nodes"
-            placeholder="Search nodes"
-            value={search}
-            onChange={setSearch}
-          />
-        </div>
-        <SegmentedFilter
+
+        <SearchableSelect
           label="Category"
-          options={categoryOptions}
           value={category}
           onChange={setCategory}
+          options={categories}
+          searchPlaceholder="Search categories"
+          emptyText="No category matches."
+          className="flex-1 sm:flex-none ml-auto"
         />
       </div>
       {installed && (

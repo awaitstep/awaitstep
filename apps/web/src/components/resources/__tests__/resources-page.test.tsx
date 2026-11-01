@@ -80,11 +80,11 @@ describe('Resources › Nodes', () => {
       }),
     )
     expect(screen.queryByRole('region', { name: /Available/ })).not.toBeInTheDocument()
-    await userEvent.click(
-      within(screen.getByRole('group', { name: 'Category' })).getByRole('button', {
-        name: 'Messaging',
-      }),
-    )
+    // Category is a select with a search box: open it, type, pick.
+    await userEvent.click(screen.getByRole('button', { name: 'Category: All' }))
+    await userEvent.type(screen.getByPlaceholderText('Search categories'), 'mess')
+    await userEvent.click(screen.getByRole('option', { name: /Messaging/ }))
+    expect(screen.getByRole('button', { name: 'Category: Messaging' })).toBeInTheDocument()
     expect(
       within(section('Installed'))
         .getAllByRole('article')
@@ -92,6 +92,17 @@ describe('Resources › Nodes', () => {
     ).toEqual(['Slack', 'Resend'])
     await userEvent.type(screen.getByRole('searchbox', { name: 'Search nodes' }), 'zzz')
     expect(within(section('Installed')).getByText('No nodes match “zzz”.')).toBeVisible()
+  })
+
+  it('searches the categories and says when none match', async () => {
+    renderWithDashboardData(<Page />)
+    await screen.findByRole('article', { name: 'Slack' })
+    await userEvent.click(screen.getByRole('button', { name: 'Category: All' }))
+    const options = screen.getAllByRole('option').map((o) => o.textContent)
+    expect(options[0]).toMatch(/^All\d+$/)
+    await userEvent.type(screen.getByPlaceholderText('Search categories'), 'zzz')
+    expect(screen.getByText('No category matches.')).toBeVisible()
+    expect(screen.queryAllByRole('option')).toHaveLength(0)
   })
 
   it('installs a marketplace node for every project', async () => {

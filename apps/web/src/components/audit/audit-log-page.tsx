@@ -1,10 +1,11 @@
-import { useState } from 'react'
-import { Download, ShieldCheck } from 'lucide-react'
+import { useId, useState } from 'react'
+import { Download } from 'lucide-react'
 import { useAuditExport, useAuditLog } from '../../data/dashboard/audit'
+import { useOrgMembers } from '../../data/dashboard/org-settings'
 import { useDebouncedValue } from '../../hooks/use-debounced-value'
+import { orgPath } from '../../lib/dashboard-paths'
 import { downloadTextFile } from '../../lib/download-file'
 import type { AuditLevel, AuditPeriod } from '../../types/dashboard/audit'
-import { Banner } from '../ui/banner'
 import { Button } from '../ui/button'
 import { ListCard } from '../ui/list-card'
 import { Pager } from '../ui/pager'
@@ -16,6 +17,7 @@ import { PageBody, PageIntro } from '../shell/page-intro'
 import { TopBarContent } from '../navigation/top-bar-slot'
 import { useOrgScope } from '../org-settings/use-org-scope'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
+import { NoAccessPanel } from '../access/parts/no-access-panel'
 import { AuditRow } from './parts/audit-row'
 import { AUDIT_LEVEL_LABEL, auditCsvName, auditToCsv } from './audit-csv'
 
@@ -43,7 +45,10 @@ interface AuditLogPageProps {
 // Typing waits this long before it filters, so each keystroke isn't a request.
 const SEARCH_DELAY_MS = 250
 
-/** `/{org}/audit` (`AuditLog`): who changed what, anywhere in the org. Owners and admins only. */
+/**
+ * `/{org}/audit` (`AuditLog`): who changed what, anywhere in the org. Owners
+ * and admins see it; anyone else gets the board's no-access panel.
+ */
 export function AuditLogPage({ org }: AuditLogPageProps) {
   // Filters and pages belong to one org: switching org starts afresh.
   return <AuditLog key={org} org={org} />
@@ -67,6 +72,9 @@ function AuditLog({ org }: AuditLogPageProps) {
   }
   const events = useAuditLog(org, { ...filter, cursor: cursors.at(-1) }, canSee)
   const exportEvents = useAuditExport(org)
+  // Only for the no-access panel: who can give access, by name.
+  const members = useOrgMembers(org, { enabled: scope !== null && !canSee })
+  const periodId = useId()
 
   if (!scope) return null
   const orgName = scope.org.name
@@ -119,17 +127,23 @@ function AuditLog({ org }: AuditLogPageProps) {
   const intro = (
     <PageIntro
       title="Audit log"
-      description={`Who changed what, anywhere in ${orgName}. Sign-ins, keys, access, deploys and deletions are kept for 90 days.`}
+      description={`Who changed what, anywhere in ${orgName} - last 90 days`}
     />
   )
 
   if (!canSee) {
+    const givers = members.data?.filter((m) => m.role === 'owner' || m.role === 'admin')
     return (
       <PageBody>
         {intro}
-        <Banner tone="info" icon={ShieldCheck}>
-          Only org owners and admins can see the audit log.
-        </Banner>
+        <NoAccessPanel
+          title="You can’t see the audit log"
+          why={`It lists sign-ins, API keys and access changes for everyone in ${orgName}, so it’s kept to owners and admins.`}
+          orgName={orgName}
+          viewerRole={scope.viewerRole}
+          givers={givers}
+          backHref={orgPath(org)}
+        />
       </PageBody>
     )
   }
@@ -145,21 +159,21 @@ function AuditLog({ org }: AuditLogPageProps) {
   // The filters stay up when a filtered request fails, so it can be changed or cleared.
   const filters = (
     <div className="flex flex-wrap items-center gap-2.5">
-      <div className="min-w-[260px] flex-1">
-        <SearchField
-          label="Search people, actions, targets"
-          placeholder="Search people, actions, targets"
-          value={search}
-          onChange={handleSearch}
-        />
-      </div>
+      <SearchField
+        label="Search people, actions, targets"
+        placeholder="Search people, actions, targets"
+        value={search}
+        onChange={handleSearch}
+      />
       <SegmentedFilter label="Level" options={LEVEL_OPTIONS} value={level} onChange={handleLevel} />
+
       <Select
+        id={periodId}
         aria-label="Period"
         value={period}
         onValueChange={handlePeriod}
         options={PERIODS}
-        className="w-[160px]"
+        className="w-[160px] bg-card ml-0 sm:ml-auto"
       />
     </div>
   )

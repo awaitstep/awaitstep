@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import {
   DANIEL,
   dashboardDb,
+  dashboardServer,
   renderWithDashboardData,
   resetDashboardData,
 } from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
@@ -63,16 +64,21 @@ describe('org General', () => {
     await waitFor(() => expect(goTo).toHaveBeenCalledWith('/acme-corp/settings/general'))
   })
 
-  it('takes an uploaded logo and goes back to the initial', async () => {
+  it('takes an uploaded logo, and clears it from the × on the logo', async () => {
     renderWithDashboardData(<OrgGeneralPage org="acme" />)
     await screen.findByRole('textbox', { name: /Organization name/ })
+    // No logo, nothing to clear: the × isn't there.
+    expect(screen.queryByRole('button', { name: 'Remove logo' })).toBeNull()
     const file = new File(['png'], 'logo.png', { type: 'image/png' })
     await userEvent.upload(document.querySelector('input[type="file"]') as HTMLInputElement, file)
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Use initial' })).toBeEnabled())
+    expect(await screen.findByRole('button', { name: 'Remove logo' })).toBeEnabled()
     await userEvent.click(within(topBar()).getByRole('button', { name: 'Save changes' }))
     await waitFor(() =>
       expect(dashboardDb().orgs.find((o) => o.id === 'org_acme')!.logo).toMatch(/^data:image\/png/),
     )
+    // The saved page remounts with the logo: clear it from there.
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove logo' }))
+    expect(screen.queryByRole('button', { name: 'Remove logo' })).toBeNull()
   })
 
   it('is read-only for an org member', async () => {
@@ -83,6 +89,24 @@ describe('org General', () => {
 })
 
 describe('org API keys', () => {
+  it('tells a member they can’t see the org keys, and never asks for them', async () => {
+    const list = vi.spyOn(dashboardServer.keys, 'listOrgKeys')
+    renderWithDashboardData(<OrgKeysPage org="acme" createOpen={false} onCloseCreate={noop} />, {
+      userId: DANIEL,
+    })
+    const panel = await screen.findByRole('region', {
+      name: 'You can’t see the organization’s API keys',
+    })
+    expect(panel).toHaveTextContent('kept to owners and admins')
+    expect(
+      await within(panel).findByRole('list', { name: 'Who can give you access' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/couldn’t load/i)).toBeNull()
+    expect(within(topBar()).queryByRole('link', { name: 'New API key' })).toBeNull()
+    expect(list).not.toHaveBeenCalled()
+    list.mockRestore()
+  })
+
   it('lists the org keys at the Org level and revokes one', async () => {
     renderWithDashboardData(<OrgKeysPage org="acme" createOpen={false} onCloseCreate={noop} />)
     await screen.findByText('Terraform')

@@ -109,13 +109,28 @@ describe('Audit log', () => {
     expect(lines[1]).toContain('Ama Mensah,invited,sam@acme.test')
   })
 
-  it('tells members only org owners and admins can see it', async () => {
+  it('shows a member the no-access panel: why, their role, and the owners and admins by name', async () => {
     renderWithDashboardData(<AuditLogPage org="acme" />, { userId: DANIEL })
-    expect(
-      await screen.findByText('Only org owners and admins can see the audit log.'),
-    ).toBeVisible()
-    expect(screen.queryByRole('list')).not.toBeInTheDocument()
+    const panel = await screen.findByRole('region', { name: 'You can’t see the audit log' })
+    expect(panel).toHaveTextContent('kept to owners and admins')
+    expect(panel).toHaveTextContent(/You’re an? (Member|Viewer) of Acme Inc/)
+    const givers = await within(panel).findByRole('list', { name: 'Who can give you access' })
+    const roles = within(givers)
+      .getAllByRole('listitem')
+      .map((row) => row.textContent ?? '')
+    expect(roles.length).toBeGreaterThan(0)
+    for (const row of roles) expect(row).toMatch(/(Owner|Admin)$/)
+    expect(within(panel).getByRole('link', { name: 'Back to projects' })).toHaveAttribute(
+      'href',
+      '/acme/projects',
+    )
+    expect(screen.queryByRole('list', { name: /Audit events/ })).not.toBeInTheDocument()
     expect(within(topBar()).queryByRole('button', { name: 'Export CSV' })).toBeNull()
+  })
+
+  it('labels the period select', async () => {
+    renderWithDashboardData(<AuditLogPage org="acme" />)
+    expect(await screen.findByRole('combobox', { name: 'Period' })).toBeInTheDocument()
   })
 
   it('shows skeletons while loading, and the error card when it fails', async () => {

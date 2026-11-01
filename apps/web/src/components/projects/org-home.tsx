@@ -71,41 +71,36 @@ export function OrgHome({
   return (
     <>
       <TopBarContent>
-        <div className="w-full max-w-sm">
-          <SearchField
-            ref={searchRef}
-            label="Search projects and workspaces"
-            placeholder="Search projects and workspaces"
-            value={query}
-            onChange={setQuery}
-            shortcut={{ hint: '⌘K', keys: 'Meta+K' }}
-          />
-        </div>
+        <SearchField
+          ref={searchRef}
+          label="Search projects and workspaces"
+          placeholder="Search projects and workspaces"
+          value={query}
+          onChange={setQuery}
+          shortcut={{ hint: '⌘K', keys: 'Meta+K' }}
+        />
         {newProjectButton}
       </TopBarContent>
-      <PageBody
-        header={
-          <PageIntro
-            title="Projects"
-            description={`Everything in ${org.name}. Open a project to work in one of its workspaces.`}
-            aside={
-              <>
-                <span className="hidden flex-wrap gap-2.5 md:flex">
-                  <StatTile value={projects.length} label="Projects" />
-                  <StatTile value={deployed} label="Workflows deployed" />
-                  <StatTile
-                    value={failing.length}
-                    label="Failing now"
-                    tone={failing.length > 0 ? 'danger' : undefined}
-                    href={firstFailing ? failingHref(org.slug, firstFailing) : undefined}
-                  />
-                </span>
-                <span className="md:hidden">{newProjectButton}</span>
-              </>
-            }
-          />
-        }
-      >
+      <PageBody>
+        <PageIntro
+          title="Projects"
+          description={`Everything in ${org.name}. Open a project to work in one of its workspaces.`}
+          aside={
+            <>
+              <span className="hidden flex-wrap gap-2.5 md:flex">
+                <StatTile value={projects.length} label="Projects" />
+                <StatTile value={deployed} label="Workflows deployed" />
+                <StatTile
+                  value={failing.length}
+                  label="Failing now"
+                  tone={failing.length > 0 ? 'danger' : undefined}
+                  href={firstFailing ? failingHref(org.slug, firstFailing) : undefined}
+                />
+              </span>
+              <span className="md:hidden">{newProjectButton}</span>
+            </>
+          }
+        />
         <div className="flex flex-col gap-3 md:hidden">
           {firstFailing && (
             <ShellLink
@@ -130,7 +125,7 @@ export function OrgHome({
         </div>
         <ul
           aria-label="Projects"
-          className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5"
+          className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
         >
           {shown.map((project) => (
             // min-w-0 at each level: a grid or flex item won't shrink below its

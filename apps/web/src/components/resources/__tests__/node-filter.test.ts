@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ACME_CRM, ANTHROPIC, RESEND, SLACK } from '../parts/__tests__/fixtures/nodes'
-import { filterNodes, nodeCategories, showCounts } from '../node-filter'
+import { categoryOptions, filterNodes, nodeCategories, showCounts } from '../node-filter'
 
 const NODES = [ACME_CRM, SLACK, RESEND, ANTHROPIC]
 const ALL = { show: 'all', category: 'All', search: '' } as const
@@ -42,5 +42,12 @@ describe('node filter', () => {
       'CRM',
       'Messaging',
     ])
+  })
+
+  it('gives the Category select All first, then each category A to Z with its count', () => {
+    const options = categoryOptions(NODES)
+    expect(options[0]).toEqual({ value: 'All', label: 'All', count: 4 })
+    expect(options.slice(1).map((o) => o.value)).toEqual(nodeCategories(NODES))
+    expect(options.slice(1).reduce((sum, o) => sum + o.count, 0)).toBe(4)
   })
 })

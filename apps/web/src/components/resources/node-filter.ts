@@ -6,9 +6,21 @@ export type NodeShow = 'all' | 'installed' | 'available'
 /** `All`, or one of the categories the catalog has. */
 export type NodeCategory = string
 
-/** The category pills: the ones the catalog's nodes carry, A to Z (the registry's own list). */
+/** The categories the catalog's nodes carry, A to Z (the registry's own list). */
 export function nodeCategories(nodes: OrgNode[]): string[] {
   return [...new Set(nodes.map((n) => n.category))].sort((a, b) => a.localeCompare(b))
+}
+
+/** The Category select's options: All, then each category, with how many nodes are in it. */
+export function categoryOptions(
+  nodes: OrgNode[],
+): { value: NodeCategory; label: string; count: number }[] {
+  const counts = new Map<string, number>()
+  for (const n of nodes) counts.set(n.category, (counts.get(n.category) ?? 0) + 1)
+  return [
+    { value: 'All', label: 'All', count: nodes.length },
+    ...nodeCategories(nodes).map((c) => ({ value: c, label: c, count: counts.get(c) ?? 0 })),
+  ]
 }
 
 export interface NodeFilter {
