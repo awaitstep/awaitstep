@@ -30,6 +30,7 @@ export const PROJECT_PAGES = [
   'workspaces',
   'shared',
   'members',
+  'connections',
   'api-keys',
   'variables',
   'settings',

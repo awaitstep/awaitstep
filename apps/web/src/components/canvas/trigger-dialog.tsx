@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Play, Loader2, AlertCircle, Copy, Check } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
@@ -7,7 +7,7 @@ import { Button } from '../ui/button'
 import { Select } from '../ui/select'
 import { runAction, failureLine } from '../../lib/action-toast'
 import { api } from '../../lib/api-client'
-import { useConnectionsStore } from '../../stores/connections-store'
+import { queries } from '../../lib/queries'
 import { copyToClipboard } from '../../lib/utils'
 
 interface WorkflowOption {
@@ -32,14 +32,23 @@ export function TriggerDialog({
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [selectedWorkflowId, setSelectedWorkflowId] = useState(initialWorkflowId)
-  const [connectionId, setConnectionId] = useState('')
+  const [picked, setPicked] = useState<string | null>(null)
   const [paramsJson, setParamsJson] = useState('{}')
   const [jsonError, setJsonError] = useState<string | null>(null)
   const [triggering, setTriggering] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [curlCopied, setCurlCopied] = useState(false)
 
-  const connections = useConnectionsStore((s) => s.connections)
+  // A trigger may only name an account the workflow went out with (the API holds
+  // it to that), whether or not the project still has it: its latest first.
+  const targets = useQuery(queries.connections.forDeploy(selectedWorkflowId))
+  const connections = targets.data?.deployedWith
+  const connectionId = picked ?? connections?.[0]?.id ?? ''
+
+  function handleWorkflowChange(id: string) {
+    setSelectedWorkflowId(id)
+    setPicked(null)
+  }
 
   const handleParamsChange = useCallback((value: string) => {
     setParamsJson(value)
@@ -117,7 +126,7 @@ export function TriggerDialog({
                 <label className="mb-1 block text-xs text-muted-foreground">Workflow</label>
                 <Select
                   value={selectedWorkflowId}
-                  onValueChange={setSelectedWorkflowId}
+                  onValueChange={handleWorkflowChange}
                   options={workflows.map((w) => ({ value: w.id, label: w.name }))}
                   className="w-full"
                 />
@@ -129,13 +138,15 @@ export function TriggerDialog({
                 <label className="mb-1 block text-xs text-muted-foreground">Connection</label>
                 <Select
                   value={connectionId}
-                  onValueChange={setConnectionId}
+                  onValueChange={setPicked}
                   options={connections.map((c) => ({ value: c.id, label: c.name }))}
                   className="w-full"
                 />
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">No connections available.</p>
+              <p className="text-xs text-muted-foreground">
+                This workflow isn’t deployed yet. Deploy it first.
+              </p>
             )}
 
             <div>

@@ -4,7 +4,7 @@ import { AMA, DANIEL, LENA, TOM } from '../fixtures/people'
 import type { MockContext } from '../scenario'
 import { mockServer } from '../server'
 
-const { org, keys, setup, workspaces } = mockServer
+const { org, keys, setup, workspaces, projectConnections } = mockServer
 const as = (userId: string): MockContext => ({ userId, scenario: 'none' })
 const ama = as(AMA)
 
@@ -112,12 +112,17 @@ describe('connections', () => {
     expect((await setup.getProjectSetup(ama, 'acme', 'project-101')).cloudflareConnected).toBe(
       false,
     )
-    await org.connect(ama, 'acme', {
+    const staging = await org.connect(ama, 'acme', {
       name: 'Staging',
       accountId: '0123456789abcdef0123456789abcdef',
       token: 'cf-token',
       projects: 'all',
     })
+    // Available to the project isn't enough: the project adds it (23b).
+    expect((await setup.getProjectSetup(ama, 'acme', 'project-101')).cloudflareConnected).toBe(
+      false,
+    )
+    await projectConnections.addProjectConnections(ama, 'acme', 'project-101', [staging.id])
     expect((await setup.getProjectSetup(ama, 'acme', 'project-101')).cloudflareConnected).toBe(true)
   })
 
@@ -251,11 +256,12 @@ describe('review round (2026-10-27)', () => {
     expect((await org.listInvitations(ama, 'acme'))[0]!.places).toEqual([])
   })
 
-  it('counts Cloudflare as connected only for a project an account covers, with a live token', async () => {
+  it('counts Cloudflare as connected only for a project with an account whose token is live', async () => {
     expect((await setup.getProjectSetup(ama, 'acme', 'project-101')).cloudflareConnected).toBe(true)
-    getDb().connections.find((c) => c.id === 'conn_production')!.tokenExpiresAt = new Date(
-      Date.now() - 1000,
-    ).toISOString()
+    const expired = new Date(Date.now() - 1000).toISOString()
+    for (const id of ['conn_production', 'conn_checkout']) {
+      getDb().connections.find((c) => c.id === id)!.tokenExpiresAt = expired
+    }
     expect((await setup.getProjectSetup(ama, 'acme', 'project-101')).cloudflareConnected).toBe(
       false,
     )

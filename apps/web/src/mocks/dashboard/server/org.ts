@@ -375,7 +375,8 @@ export const listConnections = endpoint(
     return rows(
       ctx,
       db.connections
-        .filter((c) => c.orgId === org.id)
+        // A project's own accounts are on its page, never the org's (D-PC-5).
+        .filter((c) => c.orgId === org.id && !c.projectId)
         .filter(
           (c) =>
             projectSlug === undefined ||

@@ -36,6 +36,7 @@ import { Route as AuthedWorkflowsWorkflowIdRouteImport } from './routes/_authed/
 import { Route as AuthedOrgProjectIndexRouteImport } from './routes/_authed/$org.$project.index'
 import { Route as AuthedOrgProjectWorkspaceRouteImport } from './routes/_authed/$org.$project.$workspace'
 import { Route as AuthedOrgProjectApiKeysRouteImport } from './routes/_authed/$org.$project.api-keys'
+import { Route as AuthedOrgProjectConnectionsRouteImport } from './routes/_authed/$org.$project.connections'
 import { Route as AuthedOrgProjectMembersRouteImport } from './routes/_authed/$org.$project.members'
 import { Route as AuthedOrgProjectSharedRouteImport } from './routes/_authed/$org.$project.shared'
 import { Route as AuthedOrgProjectVariablesRouteImport } from './routes/_authed/$org.$project.variables'
@@ -208,6 +209,12 @@ const AuthedOrgProjectApiKeysRoute = AuthedOrgProjectApiKeysRouteImport.update({
   path: '/api-keys',
   getParentRoute: () => AuthedOrgProjectRoute,
 } as any)
+const AuthedOrgProjectConnectionsRoute =
+  AuthedOrgProjectConnectionsRouteImport.update({
+    id: '/connections',
+    path: '/connections',
+    getParentRoute: () => AuthedOrgProjectRoute,
+  } as any)
 const AuthedOrgProjectMembersRoute = AuthedOrgProjectMembersRouteImport.update({
   id: '/members',
   path: '/members',
@@ -439,6 +446,7 @@ export interface FileRoutesByFullPath {
   '/workflows/': typeof AuthedWorkflowsIndexRoute
   '/$org/$project/$workspace': typeof AuthedOrgProjectWorkspaceRouteWithChildren
   '/$org/$project/api-keys': typeof AuthedOrgProjectApiKeysRoute
+  '/$org/$project/connections': typeof AuthedOrgProjectConnectionsRoute
   '/$org/$project/members': typeof AuthedOrgProjectMembersRoute
   '/$org/$project/shared': typeof AuthedOrgProjectSharedRoute
   '/$org/$project/variables': typeof AuthedOrgProjectVariablesRoute
@@ -498,6 +506,7 @@ export interface FileRoutesByTo {
   '/runs': typeof AuthedRunsIndexRoute
   '/workflows': typeof AuthedWorkflowsIndexRoute
   '/$org/$project/api-keys': typeof AuthedOrgProjectApiKeysRoute
+  '/$org/$project/connections': typeof AuthedOrgProjectConnectionsRoute
   '/$org/$project/members': typeof AuthedOrgProjectMembersRoute
   '/$org/$project/shared': typeof AuthedOrgProjectSharedRoute
   '/$org/$project/variables': typeof AuthedOrgProjectVariablesRoute
@@ -562,6 +571,7 @@ export interface FileRoutesById {
   '/_authed/workflows/': typeof AuthedWorkflowsIndexRoute
   '/_authed/$org/$project/$workspace': typeof AuthedOrgProjectWorkspaceRouteWithChildren
   '/_authed/$org/$project/api-keys': typeof AuthedOrgProjectApiKeysRoute
+  '/_authed/$org/$project/connections': typeof AuthedOrgProjectConnectionsRoute
   '/_authed/$org/$project/members': typeof AuthedOrgProjectMembersRoute
   '/_authed/$org/$project/shared': typeof AuthedOrgProjectSharedRoute
   '/_authed/$org/$project/variables': typeof AuthedOrgProjectVariablesRoute
@@ -627,6 +637,7 @@ export interface FileRouteTypes {
     | '/workflows/'
     | '/$org/$project/$workspace'
     | '/$org/$project/api-keys'
+    | '/$org/$project/connections'
     | '/$org/$project/members'
     | '/$org/$project/shared'
     | '/$org/$project/variables'
@@ -686,6 +697,7 @@ export interface FileRouteTypes {
     | '/runs'
     | '/workflows'
     | '/$org/$project/api-keys'
+    | '/$org/$project/connections'
     | '/$org/$project/members'
     | '/$org/$project/shared'
     | '/$org/$project/variables'
@@ -749,6 +761,7 @@ export interface FileRouteTypes {
     | '/_authed/workflows/'
     | '/_authed/$org/$project/$workspace'
     | '/_authed/$org/$project/api-keys'
+    | '/_authed/$org/$project/connections'
     | '/_authed/$org/$project/members'
     | '/_authed/$org/$project/shared'
     | '/_authed/$org/$project/variables'
@@ -983,6 +996,13 @@ declare module '@tanstack/react-router' {
       path: '/api-keys'
       fullPath: '/$org/$project/api-keys'
       preLoaderRoute: typeof AuthedOrgProjectApiKeysRouteImport
+      parentRoute: typeof AuthedOrgProjectRoute
+    }
+    '/_authed/$org/$project/connections': {
+      id: '/_authed/$org/$project/connections'
+      path: '/connections'
+      fullPath: '/$org/$project/connections'
+      preLoaderRoute: typeof AuthedOrgProjectConnectionsRouteImport
       parentRoute: typeof AuthedOrgProjectRoute
     }
     '/_authed/$org/$project/members': {
@@ -1267,6 +1287,7 @@ const AuthedOrgProjectWorkspaceRouteWithChildren =
 interface AuthedOrgProjectRouteChildren {
   AuthedOrgProjectWorkspaceRoute: typeof AuthedOrgProjectWorkspaceRouteWithChildren
   AuthedOrgProjectApiKeysRoute: typeof AuthedOrgProjectApiKeysRoute
+  AuthedOrgProjectConnectionsRoute: typeof AuthedOrgProjectConnectionsRoute
   AuthedOrgProjectMembersRoute: typeof AuthedOrgProjectMembersRoute
   AuthedOrgProjectSharedRoute: typeof AuthedOrgProjectSharedRoute
   AuthedOrgProjectVariablesRoute: typeof AuthedOrgProjectVariablesRoute
@@ -1284,6 +1305,7 @@ interface AuthedOrgProjectRouteChildren {
 const AuthedOrgProjectRouteChildren: AuthedOrgProjectRouteChildren = {
   AuthedOrgProjectWorkspaceRoute: AuthedOrgProjectWorkspaceRouteWithChildren,
   AuthedOrgProjectApiKeysRoute: AuthedOrgProjectApiKeysRoute,
+  AuthedOrgProjectConnectionsRoute: AuthedOrgProjectConnectionsRoute,
   AuthedOrgProjectMembersRoute: AuthedOrgProjectMembersRoute,
   AuthedOrgProjectSharedRoute: AuthedOrgProjectSharedRoute,
   AuthedOrgProjectVariablesRoute: AuthedOrgProjectVariablesRoute,

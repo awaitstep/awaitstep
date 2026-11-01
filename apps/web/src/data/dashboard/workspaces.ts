@@ -98,6 +98,8 @@ const workspaceKeys = (org: string, project: string) => [
   dashKeys.inProject('keys', org, project),
   dashKeys.inProject('variables', org, project),
   dashKeys.inProject('members', org, project),
+  // A workspace's row on the project's Connections page, and its override with it.
+  dashKeys.projectConnections(org, project),
 ]
 
 /**

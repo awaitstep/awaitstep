@@ -38,6 +38,12 @@ export const queries = {
   },
 
   connections: {
+    /** Under `DEPLOY_CONNECTIONS`, so a change to a project's accounts refreshes it. */
+    forDeploy: (workflowId: string) =>
+      queryOptions({
+        queryKey: ['deploy-connections', workflowId] as const,
+        queryFn: () => api.getDeployConnections(workflowId),
+      }),
     list: (orgId: string) =>
       infiniteQueryOptions({
         queryKey: ['connections', orgId] as const,

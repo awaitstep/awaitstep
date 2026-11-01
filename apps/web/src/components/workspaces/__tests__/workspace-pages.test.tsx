@@ -165,7 +165,7 @@ describe('an empty workspace', () => {
     await waitFor(() => expect(row('Deploys to')).toHaveTextContent('inherited from Project 101'))
     expect(within(row('Deploys to')).getByRole('link', { name: 'Change' })).toHaveAttribute(
       'href',
-      '/acme/connections',
+      '/acme/project-101/connections',
     )
     expect(row('Shared')).toHaveTextContent('3 shared in · 0 shared out')
     expect(within(row('Shared')).getByRole('link', { name: 'Library' })).toHaveAttribute(
@@ -246,7 +246,7 @@ function CreateBilling({ onCreated }: { onCreated: (slug: string) => void }) {
 }
 
 describe('a new project’s Workspaces page, /{org}/{project}/workspaces', () => {
-  it('reads as EmptyProject: ready, three ways to start, 0 of 3 until an account covers it', async () => {
+  it('reads as EmptyProject: ready, three ways to start, 0 of 3 until it has an account', async () => {
     const created = vi.fn()
     const first = renderWithDashboardData(<CreateBilling onCreated={created} />)
     await userEvent.click(screen.getByRole('button', { name: 'Create Billing' }))
@@ -280,10 +280,10 @@ describe('a new project’s Workspaces page, /{org}/{project}/workspaces', () =>
       'aria-valuetext',
       '0 of 3 done',
     )
-    // Acme's accounts list their projects, and none lists Billing yet.
+    // Billing has no account yet: its own Connections page, Add connection open.
     expect(screen.getByRole('link', { name: /Connect Cloudflare/ })).toHaveAttribute(
       'href',
-      '/acme/connections?new=connection',
+      '/acme/billing/connections?new=connection',
     )
     expect(screen.getByText('3 inherited from Acme Inc')).toBeInTheDocument()
     expect(screen.getByText('Only you so far')).toBeInTheDocument()
@@ -298,13 +298,20 @@ describe('a new project’s Workspaces page, /{org}/{project}/workspaces', () =>
     )
   })
 
-  it('counts Cloudflare as connected once an account covers every project', async () => {
+  it('counts Cloudflare as connected once the project adds an account', async () => {
     dashboardDb().connections.find((c) => c.id === 'conn_production')!.projects = 'all'
     const created = vi.fn()
     const first = renderWithDashboardData(<CreateBilling onCreated={created} />)
     await userEvent.click(screen.getByRole('button', { name: 'Create Billing' }))
     await waitFor(() => expect(created).toHaveBeenCalledWith('billing'))
     first.unmount()
+    // Available to every project, but added by none until the project picks it (23b).
+    const billing = dashboardDb().projects.find((p) => p.slug === 'billing')!
+    dashboardDb().projectConnections.push({
+      projectId: billing.id,
+      connectionId: 'conn_production',
+      isDefault: true,
+    })
 
     renderWithDashboardData(
       <WorkspacesPage

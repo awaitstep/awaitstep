@@ -43,6 +43,7 @@ const PROJECT_PAGE_LABEL: Record<ProjectPage, string> = {
   workspaces: 'Workspaces',
   shared: 'Shared library',
   members: 'Members',
+  connections: 'Connections',
   'api-keys': 'API keys',
   variables: 'Variables',
   settings: 'Settings',

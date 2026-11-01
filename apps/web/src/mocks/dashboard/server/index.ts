@@ -8,6 +8,7 @@ import * as keys from './keys'
 import * as locks from './locks'
 import * as members from './members'
 import * as org from './org'
+import * as projectConnections from './project-connections'
 import * as projects from './projects'
 import * as requests from './requests'
 import * as resources from './resources'
@@ -24,6 +25,7 @@ import * as workspaces from './workspaces'
 export const mockServer = {
   session,
   projects,
+  projectConnections,
   workspaces,
   locks,
   items,

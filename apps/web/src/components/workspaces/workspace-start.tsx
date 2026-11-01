@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
 import { Cloud, Plus, Share2, Users, type LucideIcon } from 'lucide-react'
 import { useCreateItem } from '../../data/dashboard/items'
-import { useProjectConnections } from '../../data/dashboard/org-settings'
+import { useProjectConnections } from '../../data/dashboard/project-connections'
 import { useViewer } from '../../data/dashboard/session'
 import {
-  orgPath,
+  projectPagePath,
   withNewDialog,
   workspacePath,
   workspaceSettingsPath,
@@ -97,7 +97,7 @@ interface WorkspaceStartProps {
   projectName: string
   sharedIn: SharedItem[]
   readOnly: boolean
-  /** Whether the viewer may connect or change Cloudflare accounts (org owners and admins). */
+  /** Whether the viewer may change the project's accounts (project admins, org owners and admins). */
   canManageConnections: boolean
 }
 
@@ -116,17 +116,22 @@ export function WorkspaceStart({
   const viewer = useViewer()
   const connections = useProjectConnections(slugs.org, slugs.project)
   const libraryHref = workspacePath(slugs, 'library')
-  const deploys = connections.data ? deploysSentence(connections.data, projectName) : undefined
+  const deploys = connections.data
+    ? deploysSentence(
+        connections.data.workspaces.find((row) => row.workspaceId === workspace.id),
+        projectName,
+      )
+    : undefined
   const deploysAction = deploys === null ? 'Connect' : 'Change'
   const connectionsHref =
     deploys === null
-      ? withNewDialog(orgPath(slugs.org, 'connections'), 'connection')
-      : orgPath(slugs.org, 'connections')
+      ? withNewDialog(projectPagePath(slugs, 'connections'), 'connection')
+      : projectPagePath(slugs, 'connections')
 
   let deploysLine: ReactNode
   if (connections.isError) deploysLine = 'Couldn’t load the Cloudflare accounts'
   else if (deploys === undefined) deploysLine = <Bone className="h-4 w-48" />
-  else deploysLine = deploys ?? `No Cloudflare account deploys ${projectName} yet`
+  else deploysLine = deploys ?? `No Cloudflare account for ${workspace.name} yet`
 
   return (
     <>

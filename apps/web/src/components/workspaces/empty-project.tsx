@@ -2,7 +2,6 @@ import { Check, Code, Plus, Upload, Workflow } from 'lucide-react'
 import { useCreateItem } from '../../data/dashboard/items'
 import { useProjectSetup } from '../../data/dashboard/setup'
 import {
-  orgPath,
   projectMembersAddPath,
   projectPagePath,
   projectWorkspacesPath,
@@ -99,7 +98,8 @@ export function EmptyProject({
         {
           label: setup.data.cloudflareConnected ? 'Cloudflare connected' : 'Connect Cloudflare',
           done: setup.data.cloudflareConnected,
-          href: withNewDialog(orgPath(slugs.org, 'connections'), 'connection'),
+          // The project's own Connections page: its admins add or connect an account there (23c).
+          href: withNewDialog(projectPagePath(slugs, 'connections'), 'connection'),
         },
         {
           label: 'Add project variables',

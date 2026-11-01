@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SharedItem } from '../../../types/dashboard/items'
-import type { Connection } from '../../../types/dashboard/org-settings'
+import type { ProjectWorkspaceConnection } from '../../../types/dashboard/project-connections'
 import type { Person } from '../../../types/dashboard/session'
 import {
   deploysSentence,
@@ -43,19 +43,30 @@ describe('peopleSentence', () => {
 })
 
 describe('deploysSentence', () => {
-  const conn = (name: string) => ({ name }) as Connection
+  const row = (
+    source: ProjectWorkspaceConnection['source'],
+    connectionName: string | null,
+  ): ProjectWorkspaceConnection => ({
+    workspaceId: 'ws',
+    name: 'Sales',
+    connectionId: connectionName && 'c',
+    connectionName,
+    source,
+    lastDeployAt: null,
+  })
 
   it('names the account and where it comes from', () => {
-    expect(deploysSentence([conn('Acme production')], 'Project 101')).toBe(
+    expect(deploysSentence(row('default', 'Acme production'), 'Project 101')).toBe(
       'Acme production, inherited from Project 101',
     )
-    expect(deploysSentence([conn('Acme production'), conn('Staging')], 'Project 101')).toBe(
-      'Acme production and 1 more, inherited from Project 101',
+    expect(deploysSentence(row('override', 'Checkout staging'), 'Project 101')).toBe(
+      'Checkout staging, set for this workspace',
     )
   })
 
-  it('is null when no account deploys the project', () => {
-    expect(deploysSentence([], 'Project 101')).toBeNull()
+  it('is null when the workspace has nowhere to deploy', () => {
+    expect(deploysSentence(row('none', null), 'Project 101')).toBeNull()
+    expect(deploysSentence(undefined, 'Project 101')).toBeNull()
   })
 })
 

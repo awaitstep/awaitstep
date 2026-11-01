@@ -1,6 +1,6 @@
 import { plural } from '../../lib/plural'
 import type { SharedItem } from '../../types/dashboard/items'
-import type { Connection } from '../../types/dashboard/org-settings'
+import type { ProjectWorkspaceConnection } from '../../types/dashboard/project-connections'
 import type { Person } from '../../types/dashboard/session'
 
 // The sentences on a new workspace's Overview (`WsOverview`, New state).
@@ -27,12 +27,18 @@ export function peopleSentence(
   return `${lead}: ${list}`
 }
 
-/** "Acme production, inherited from Project 101"; null when nothing deploys the project yet. */
-export function deploysSentence(connections: Connection[], projectName: string): string | null {
-  const [first] = connections
-  if (!first) return null
-  const more = connections.length > 1 ? ` and ${connections.length - 1} more` : ''
-  return `${first.name}${more}, inherited from ${projectName}`
+/**
+ * "Acme production, inherited from Project 101", or "…, set for this
+ * workspace"; null when the workspace has nowhere to deploy yet.
+ */
+export function deploysSentence(
+  row: ProjectWorkspaceConnection | undefined,
+  projectName: string,
+): string | null {
+  if (!row?.connectionName || row.source === 'none') return null
+  return row.source === 'override'
+    ? `${row.connectionName}, set for this workspace`
+    : `${row.connectionName}, inherited from ${projectName}`
 }
 
 /** "Nothing shared in or out of this workspace yet", else the counts each way. */

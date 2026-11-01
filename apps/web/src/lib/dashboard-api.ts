@@ -16,6 +16,8 @@ import type {
   ReleaseVisit,
   ConnectionSummary,
   ProjectSetup,
+  AvailableConnection,
+  ProjectConnections,
   AccountExport,
   AccountSession,
   ApiAccount,
@@ -770,6 +772,82 @@ export const dashboardApi = {
     return request(`/marketplace/${change}${query({ org })}`, {
       method: 'POST',
       body: JSON.stringify({ nodeId }),
+    })
+  },
+
+  // A project's accounts (23a–23c), by the project's id.
+  listProjectConnections(org: string, projectId: string): Promise<ProjectConnections> {
+    return request(`/projects/${projectId}/connections${query({ org })}`)
+  },
+
+  listAvailableProjectConnections(
+    org: string,
+    projectId: string,
+  ): Promise<{ data: AvailableConnection[] }> {
+    return request(`/projects/${projectId}/connections/available${query({ org })}`)
+  },
+
+  addProjectConnections(
+    org: string,
+    projectId: string,
+    connectionIds: string[],
+  ): Promise<{ added: { id: string; name: string }[]; defaultId: string | null }> {
+    return request(`/projects/${projectId}/connections${query({ org })}`, {
+      method: 'POST',
+      body: JSON.stringify({ connectionIds }),
+    })
+  },
+
+  /** Checks the token with Cloudflare first: a refusal is a `400` on `token` or `accountId`. */
+  createProjectConnection(
+    org: string,
+    projectId: string,
+    data: { name: string; accountId: string; token: string; makeDefault: boolean },
+  ): Promise<{ id: string; name: string; scope: 'shared' | 'project'; isDefault: boolean }> {
+    return request(`/projects/${projectId}/connections/new${query({ org })}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  replaceProjectConnectionToken(
+    org: string,
+    projectId: string,
+    connectionId: string,
+    token: string,
+  ): Promise<unknown> {
+    return request(`/projects/${projectId}/connections/${connectionId}${query({ org })}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ token }),
+    })
+  },
+
+  removeProjectConnection(org: string, projectId: string, connectionId: string): Promise<unknown> {
+    return request(`/projects/${projectId}/connections/${connectionId}${query({ org })}`, {
+      method: 'DELETE',
+    })
+  },
+
+  setProjectDefaultConnection(
+    org: string,
+    projectId: string,
+    connectionId: string,
+  ): Promise<unknown> {
+    return request(`/projects/${projectId}/default-connection${query({ org })}`, {
+      method: 'PUT',
+      body: JSON.stringify({ connectionId }),
+    })
+  },
+
+  setWorkspaceConnection(
+    org: string,
+    projectId: string,
+    workspaceId: string,
+    connectionId: string | null,
+  ): Promise<unknown> {
+    return request(`/projects/${projectId}/workspaces/${workspaceId}/connection${query({ org })}`, {
+      method: 'PUT',
+      body: JSON.stringify({ connectionId }),
     })
   },
 

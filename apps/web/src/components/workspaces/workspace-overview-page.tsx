@@ -117,7 +117,7 @@ export function WorkspaceOverviewPage({ slugs }: WorkspaceOverviewPageProps) {
         projectName={scope.project.project.name}
         sharedIn={shared.data}
         readOnly={readOnly}
-        canManageConnections={scope.orgManager}
+        canManageConnections={scope.project.viewerCan.manageSettings.allowed}
       />
     ) : (
       <OverviewSkeleton />

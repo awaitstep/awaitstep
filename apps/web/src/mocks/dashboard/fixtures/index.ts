@@ -4,7 +4,12 @@ import { seedAudit } from './audit'
 import { NOTIFICATION_READS, RELEASE_VISITS, seedEditRequests, seedNotifications } from './inbox'
 import { CALLS, seedItems } from './items'
 import { seedKeys } from './keys'
-import { seedConnections, seedInvitations } from './org-settings'
+import {
+  PROJECT_CONNECTIONS,
+  WORKSPACE_CONNECTIONS,
+  seedConnections,
+  seedInvitations,
+} from './org-settings'
 import { seedOrgMembers, seedOrgs } from './orgs'
 import { PEOPLE } from './people'
 import { PROJECT_MEMBERS, seedProjects } from './projects'
@@ -32,6 +37,8 @@ export function seedDb(now: Date): MockDb {
     variables: VARIABLES,
     invitations: seedInvitations(now),
     connections: seedConnections(now),
+    projectConnections: PROJECT_CONNECTIONS,
+    workspaceConnections: WORKSPACE_CONNECTIONS,
     nodes: seedNodes(orgs.map((o) => o.id)),
     audit: seedAudit(now),
     notifications: seedNotifications(now),

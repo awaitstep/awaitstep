@@ -1,9 +1,14 @@
-import type { ConnectionRow, InvitationRow } from '../db'
+import type {
+  ConnectionRow,
+  InvitationRow,
+  ProjectConnectionRow,
+  WorkspaceConnectionRow,
+} from '../db'
 import { daysAgo, minutesAgo } from './clock'
 import { ACME, BOLT, GLOBEX } from './orgs'
-import { AMA, LENA, TOMAS } from './people'
+import { AMA, DANIEL, LENA, TOMAS } from './people'
 import { INTERNAL, MARKETING, P101 } from './projects'
-import { IT } from './workspaces'
+import { IT, SALES } from './workspaces'
 
 // `OrgMembers` (one pending invite) and `OrgConnections` (two accounts).
 // P9's invite boards: Daniel's open Globex invite (`AcceptInvite`, `Dashboard`),
@@ -66,5 +71,29 @@ export function seedConnections(now: Date): ConnectionRow[] {
       deployments: 4,
       lastDeployAt: minutesAgo(now, 180),
     },
+    {
+      id: 'conn_checkout',
+      orgId: ACME,
+      name: 'Checkout staging',
+      accountId: '7d1c0e9a2b4f46a8b3e5c7d9f1a2b84d',
+      addedBy: DANIEL,
+      tokenExpiresAt: null,
+      projects: [P101],
+      deployments: 6,
+      lastDeployAt: minutesAgo(now, 40),
+      projectId: P101,
+    },
   ]
 }
+
+/** `ProjectConnections` (23a): Project 101 deploys to Acme production, and Sales to its own account. */
+export const PROJECT_CONNECTIONS: ProjectConnectionRow[] = [
+  { projectId: P101, connectionId: 'conn_production', isDefault: true },
+  { projectId: P101, connectionId: 'conn_checkout', isDefault: false },
+  { projectId: INTERNAL, connectionId: 'conn_production', isDefault: true },
+  { projectId: MARKETING, connectionId: 'conn_marketing', isDefault: true },
+]
+
+export const WORKSPACE_CONNECTIONS: WorkspaceConnectionRow[] = [
+  { workspaceId: SALES, connectionId: 'conn_checkout' },
+]

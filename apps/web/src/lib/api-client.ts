@@ -1,4 +1,4 @@
-import type { ConnectionSummary as ApiConnectionSummary } from '@awaitstep/ir'
+import type { ConnectionSummary as ApiConnectionSummary, DeployConnections } from '@awaitstep/ir'
 import type { SourceDiagnostic } from '@awaitstep/codegen'
 import type {
   GeneratedFile,
@@ -586,6 +586,11 @@ export const api = {
     credentials: Record<string, string>
   }): Promise<ConnectionSummary> {
     return request(withOrg('/connections'), { method: 'POST', body: JSON.stringify(data) })
+  },
+
+  /** The accounts Deploy offers this workflow (its project's), the one already chosen. */
+  getDeployConnections(workflowId: string): Promise<DeployConnections> {
+    return request(withProject(`/workflows/${workflowId}/deploy-connections`))
   },
 
   getDeployConfig(

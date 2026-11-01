@@ -12,12 +12,12 @@ import {
   ChevronRight,
   Check,
 } from 'lucide-react'
-import { Button } from '../ui/button'
+import { Button, buttonVariants } from '../ui/button'
 import { EmptyState } from '../ui/empty-state'
 import { api } from '../../lib/api-client'
-import { connectionServes } from '@awaitstep/ir'
+import { queries } from '../../lib/queries'
+import { projectPagePath } from '../../lib/dashboard-paths'
 import { useOrgReady, useOrgStore } from '../../stores/org-store'
-import { useConnectionsStore } from '../../stores/connections-store'
 import { useDeployStream, type DeployProgress } from '../../hooks/use-deploy-stream'
 import { DeploymentConfigForm } from './deployment-config-form'
 import { cn } from '../../lib/utils'
@@ -40,15 +40,27 @@ interface DeployPageProps {
   kind?: 'workflow' | 'script'
 }
 
+/** Where the project's Connections page is, from the active org and project (the route sits under RequireProject). */
+function useProjectConnectionsHref(): string | null {
+  return useOrgStore((s) => {
+    const org = s.organizations.find((o) => o.id === s.activeOrganizationId)
+    const project = s.projects.find((p) => p.id === s.activeProjectId)
+    return org && project
+      ? projectPagePath({ org: org.slug, project: project.slug }, 'connections')
+      : null
+  })
+}
+
 export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
   const ready = useOrgReady()
-  const allConnections = useConnectionsStore((s) => s.connections)
-  // The deploy route sits under RequireProject: the active project is the workflow's.
-  const projectId = useOrgStore((s) => s.activeProjectId)
-  // Only accounts that serve this project: the API refuses a deploy with any other (B9).
-  const connections = allConnections.filter((c) => projectId && connectionServes(c, projectId))
+  // Only the project's accounts, with its workspace's (else the project's) default
+  // chosen: the API refuses a deploy with any other (23a).
+  const targets = useQuery({ ...queries.connections.forDeploy(workflowId), enabled: ready })
+  const connectionsHref = useProjectConnectionsHref()
+  const connections = targets.data?.connections
   const [step, setStep] = useState<StepKey>('connection')
-  const [connectionId, setConnectionId] = useState('')
+  const [picked, setPicked] = useState<string | null>(null)
+  const connectionId = picked ?? targets.data?.defaultId ?? ''
   const [localConfig, setLocalConfig] = useState<Record<string, unknown> | null>(null)
 
   const { state, progress, error, result, startDeploy, retry } = useDeployStream({
@@ -67,8 +79,12 @@ export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
   const hasConnections = connections && connections.length > 0
 
   function handleConnectionSelect(id: string) {
-    setConnectionId(id)
+    setPicked(id)
     setLocalConfig(null)
+    setStep('configure')
+  }
+
+  function handleConnectionNext() {
     setStep('configure')
   }
 
@@ -80,6 +96,15 @@ export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
 
   function handleNext() {
     if (step === 'configure') setStep('deploy')
+  }
+
+  function handleRetryTargets() {
+    void targets.refetch()
+  }
+
+  function handleCopyPreview() {
+    if (previewData)
+      void navigator.clipboard.writeText(JSON.stringify(previewData.content, null, 2))
   }
 
   function handleBack() {
@@ -109,7 +134,21 @@ export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
     return <StatusView type="error" error={error} onRetry={retry} workflowId={workflowId} />
   }
 
-  // Connections still loading from store
+  if (targets.isError) {
+    return (
+      <EmptyState
+        icon={XCircle}
+        title="Couldn’t load the accounts"
+        description={targets.error.message}
+        action={
+          <Button variant="outline" size="sm" onClick={handleRetryTargets}>
+            Try again
+          </Button>
+        }
+      />
+    )
+  }
+
   if (!connections) {
     return <DeployPageSkeleton />
   }
@@ -118,18 +157,17 @@ export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
     return (
       <EmptyState
         icon={Cable}
-        title="No connections"
-        description={
-          allConnections.length > 0
-            ? 'No Cloudflare account serves this project yet. Add the project to one in Settings › Connections.'
-            : 'Add a Cloudflare connection to deploy your workflow.'
-        }
+        title="No account connected yet"
+        description="Deploy stays disabled until this project can reach a Cloudflare account. Add one on the project’s Connections page."
         action={
-          <Link to="/connections" search={{ new: true }}>
-            <Button variant="outline" size="sm">
-              Add Connection
-            </Button>
-          </Link>
+          connectionsHref ? (
+            <a
+              href={connectionsHref}
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              Open Connections
+            </a>
+          ) : undefined
         }
       />
     )
@@ -175,7 +213,9 @@ export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
       {step === 'connection' && (
         <div>
           <h2 className="text-base font-medium">Select a connection</h2>
-          <p className="mt-1 text-xs text-muted-foreground">Choose the account to deploy to.</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            The project’s accounts. The one this workspace deploys to is already chosen.
+          </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {connections!.map((c) => (
               <button
@@ -198,14 +238,31 @@ export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
                     <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                       {c.provider === 'cloudflare' ? 'Cloudflare' : c.provider}
                     </span>
+                    {c.id === targets.data?.defaultId && (
+                      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                        Default
+                      </span>
+                    )}
                   </div>
                   <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground/60">
-                    {c.credentials.accountId ?? 'No account ID'}
+                    {c.accountSuffix ? `••••${c.accountSuffix}` : 'No account ID'}
+                    {c.scope === 'project' ? ' · This project only' : ''}
                   </p>
                 </div>
                 <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground/40 transition-colors group-hover:text-foreground" />
               </button>
             ))}
+          </div>
+          <div className="mt-10 flex items-center justify-end border-t border-border pt-6">
+            <Button
+              size="sm"
+              disabled={!connectionId}
+              onClick={handleConnectionNext}
+              className="gap-1.5"
+            >
+              Next
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
           </div>
         </div>
       )}
@@ -259,7 +316,7 @@ export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
             <div>
               <span className="text-sm font-medium">{selectedConnection?.name}</span>
               <span className="ml-2 font-mono text-xs text-muted-foreground">
-                {selectedConnection?.credentials.accountId}
+                {selectedConnection?.accountSuffix && `••••${selectedConnection.accountSuffix}`}
               </span>
             </div>
           </div>
@@ -272,11 +329,7 @@ export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
               </span>
               <button
                 type="button"
-                onClick={() => {
-                  if (previewData) {
-                    navigator.clipboard.writeText(JSON.stringify(previewData.content, null, 2))
-                  }
-                }}
+                onClick={handleCopyPreview}
                 className="text-xs text-muted-foreground hover:text-foreground"
               >
                 Copy

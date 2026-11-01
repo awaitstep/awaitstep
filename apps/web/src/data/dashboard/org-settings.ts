@@ -18,6 +18,7 @@ import type { OrgSummary } from '../../types/dashboard/session'
 import { toInvitation, toOrgMember, toPersonAccess } from './api/access'
 import { toConnection, toProjectsBody } from './api/connections'
 import { allPages } from './api/pages'
+import { DEPLOY_CONNECTIONS } from './project-connections'
 import { dashKeys, invalidateAll } from './keys'
 import { useMockContext } from './scenario-context'
 import { useDashKey, useDataSource } from './source'
@@ -181,29 +182,18 @@ export function useConnections(org: string) {
   })
 }
 
-/** The org's Cloudflare accounts that deploy one project: `WsOverview`'s "Deploys to". */
-export function useProjectConnections(org: string, project: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
-  return useQuery({
-    queryKey: key(dashKeys.projectConnections(org, project)),
-    queryFn: (): Promise<Connection[]> =>
-      source === 'api'
-        ? allPages((cursor) => dashboardApi.listConnections(org, cursor, project)).then((res) =>
-            res.data.map(toConnection),
-          )
-        : mockServer.org.listConnections(ctx, org, project),
-  })
-}
-
 /**
- * Connections change the cards, the "Cloudflare connected" setup step, and
- * the old pages' list (`queries.connections`, behind the deploy page and the
+ * Connections change the cards, each project's accounts (under this key),
+ * the "Cloudflare connected" setup step, Deploy's list, and the old pages' list (`queries.connections`, behind the deploy page and the
  * canvas dialogs) — always mounted, so a change here reaches it without a reload.
  */
 function connectionKeys(org: string) {
-  return [dashKeys.connections(org), dashKeys.inOrg('setup', org), LEGACY_CONNECTIONS]
+  return [
+    dashKeys.connections(org),
+    dashKeys.inOrg('setup', org),
+    LEGACY_CONNECTIONS,
+    DEPLOY_CONNECTIONS,
+  ]
 }
 
 /** `queries.connections.list`'s key prefix: every org's, as the old pages key by org id. */

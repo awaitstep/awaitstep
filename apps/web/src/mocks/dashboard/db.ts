@@ -208,6 +208,21 @@ export interface ConnectionRow {
   projects: 'all' | string[]
   deployments: number
   lastDeployAt: string | null
+  /** Set: the project's own account ("This project only"), never the org's. */
+  projectId?: string | null
+}
+
+/** An account a project deploys to (23a): an org account it added, or its own. */
+export interface ProjectConnectionRow {
+  projectId: string
+  connectionId: string
+  isDefault: boolean
+}
+
+/** A workspace that deploys somewhere other than its project's default. */
+export interface WorkspaceConnectionRow {
+  workspaceId: string
+  connectionId: string
 }
 
 /** A node in an org's catalog: a marketplace node, installed or not, or one the org built. */
@@ -283,6 +298,8 @@ export interface MockDb {
   variables: VariableRow[]
   invitations: InvitationRow[]
   connections: ConnectionRow[]
+  projectConnections: ProjectConnectionRow[]
+  workspaceConnections: WorkspaceConnectionRow[]
   nodes: NodeRow[]
   audit: AuditRow[]
   notifications: NotificationRow[]
@@ -294,7 +311,7 @@ export interface MockDb {
 
 // Bump when the tables or the seed change, so a tab's saved copy is reseeded
 // instead of read with missing tables.
-const DB_VERSION = 14
+const DB_VERSION = 15
 const STORAGE_KEY = 'awaitstep:dashboard-mock-db'
 
 let current: MockDb | null = null

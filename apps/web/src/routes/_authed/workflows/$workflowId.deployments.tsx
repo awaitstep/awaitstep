@@ -1,5 +1,5 @@
 import { createFileRoute, useParams, Link } from '@tanstack/react-router'
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Rocket } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
@@ -43,7 +43,12 @@ function DeploymentsPage() {
   } = useInfiniteQuery({ ...queries.deployments.byWorkflow(workflowId), enabled: ready })
   const deployments = flatPages(deploymentsData)
 
-  const connections = useConnectionsStore((s) => s.connections)
+  const orgConnections = useConnectionsStore((s) => s.connections)
+  // A project's own accounts aren't in the org's list: named from the project's.
+  const { data: projectConnections } = useQuery({
+    ...queries.connections.forDeploy(workflowId),
+    enabled: ready,
+  })
 
   const { data: versions } = useInfiniteQuery({
     ...queries.versions.byWorkflow(workflowId),
@@ -51,7 +56,12 @@ function DeploymentsPage() {
     select: (data) => flatPages(data),
   })
 
-  const connectionMap = new Map(connections.map((c) => [c.id, c]))
+  const connectionMap = new Map(
+    [...orgConnections, ...(projectConnections?.connections ?? [])].map((c) => [
+      c.id,
+      { id: c.id, name: c.name },
+    ]),
+  )
   const versionMap = new Map(versions?.map((v) => [v.id, v]) ?? [])
 
   return (

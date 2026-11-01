@@ -121,6 +121,7 @@ describe('panel', () => {
       ['Workspaces', '/acme/project-101/workspaces'],
       ['Shared library', '/acme/project-101/shared'],
       ['Members', '/acme/project-101/members'],
+      ['Connections', '/acme/project-101/connections'],
       ['API keys', '/acme/project-101/api-keys'],
       ['Variables', '/acme/project-101/variables'],
       ['Settings', '/acme/project-101/settings'],

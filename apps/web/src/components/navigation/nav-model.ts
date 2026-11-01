@@ -188,6 +188,7 @@ function projectItems(slugs: { org: string; project: string }): NavItem[] {
     item('workspaces', Layers),
     item('shared', Share2),
     item('members', Users),
+    item('connections', Plug),
     item('api-keys', KeyRound),
     item('variables', Braces),
     item('settings', Settings),

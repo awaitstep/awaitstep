@@ -59,6 +59,8 @@ export const dashKeys = {
   /** Under `connections(org)`, so a change to any connection refreshes it too. */
   projectConnections: (org: string, project: string) =>
     ['dash', 'connections', org, project] as const,
+  availableConnections: (org: string, project: string) =>
+    ['dash', 'connections', org, project, 'available'] as const,
   orgKeys: (org: string) => ['dash', 'orgKeys', org] as const,
   orgNodes: (org: string) => ['dash', 'orgNodes', org] as const,
   notifications: (org: string) => ['dash', 'notifications', org] as const,

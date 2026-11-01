@@ -32,7 +32,10 @@ interface ConnectionCardProps {
 }
 
 /** The token badge, and whether the card asks for a new token. */
-export function tokenStatus(connection: Connection, now: Date) {
+export function tokenStatus(
+  connection: Pick<Connection, 'tokenStatus' | 'tokenExpiresAt'>,
+  now: Date,
+) {
   if (connection.tokenStatus === 'invalid') {
     return { text: 'Token no longer works', variant: 'error' as const, needsToken: true }
   }

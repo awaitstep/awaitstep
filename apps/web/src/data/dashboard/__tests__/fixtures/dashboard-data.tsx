@@ -15,7 +15,7 @@ import { MockScenarioProvider, type MockScenario } from '../../scenario-context'
 export { resetMockDb as resetDashboardData }
 /** The dummy tables, for asserting what a page's mutation wrote. */
 export { getDb as dashboardDb } from '../../../../mocks/dashboard/db'
-export { AMA, DANIEL, PRIYA } from '../../../../mocks/dashboard/fixtures/people'
+export { AMA, DANIEL, PRIYA, TOM } from '../../../../mocks/dashboard/fixtures/people'
 /** A failure the dummy server can be made to answer with. */
 export { MockApiError } from '../../../../mocks/dashboard/scenario'
 /** The dummy server, for spying on how often a page asks it. */
