@@ -3,6 +3,7 @@ import { defineToast } from '../../lib/action-toast'
 import { authError } from './errors'
 import { authClient } from '../../lib/auth-client'
 import { dashboardApi } from '../../lib/dashboard-api'
+import { readAsDataUrl } from '../../lib/read-file'
 import { mockServer } from '../../mocks/dashboard/server'
 import type { AccessGrant } from '../../types/dashboard/access'
 import type {
@@ -278,10 +279,11 @@ function orgAuthError(error: { message?: string; status?: number } | null, fallb
 }
 
 /**
- * Org Settings → General. On the API the organization is better-auth's:
- * its own update call, whose hook refuses a reserved or taken URL. A new
- * URL leaves every query through the old slug stale rather than refetched
- * (the page follows the new URL).
+ * Org Settings → General. On the API the name and URL are better-auth's:
+ * its own update call, whose hook refuses a reserved or taken URL. The
+ * logo is uploaded first, to its own route. A new URL leaves every query
+ * through the old slug stale rather than refetched (the page follows the
+ * new URL).
  */
 export function useUpdateOrg(org: string) {
   const source = useDataSource()
@@ -291,29 +293,37 @@ export function useUpdateOrg(org: string) {
   const current = scope.data?.found ? scope.data.org.org : null
   return useMutation({
     meta: { toast: { success: 'Organization saved', error: 'Couldn’t save the organization' } },
-    mutationFn: async (update: OrgUpdate): Promise<OrgSummary> => {
-      if (source !== 'api') return mockServer.org.updateOrg(ctx, org, update)
+    mutationFn: async ({ logo, ...update }: OrgUpdate): Promise<OrgSummary> => {
+      if (source !== 'api') {
+        if (logo !== undefined) {
+          await mockServer.org.setLogo(ctx, org, logo && (await readAsDataUrl(logo)))
+        }
+        return mockServer.org.updateOrg(ctx, org, update)
+      }
       if (!current) throw new Error('The organization has not loaded yet')
+      let savedLogo = current.logo
+      if (logo) savedLogo = (await dashboardApi.uploadOrgLogo(current.id, logo)).logo
+      else if (logo === null) savedLogo = (await dashboardApi.removeOrgLogo(current.id)).logo
       const name = update.name?.trim()
-      const res = await authClient.organization.update({
-        organizationId: current.id,
-        data: {
-          ...(name && { name }),
-          ...(update.slug !== undefined && { slug: update.slug }),
-          // No logo is stored as an empty string; the dashboard reads that as none.
-          ...(update.logo !== undefined && { logo: update.logo ?? '' }),
-        },
-      })
-      if (res.error) throw orgAuthError(res.error, 'Could not save the organization')
+      const data = {
+        ...(name && name !== current.name && { name }),
+        ...(update.slug !== undefined && { slug: update.slug }),
+      }
+      if (Object.keys(data).length > 0) {
+        const res = await authClient.organization.update({ organizationId: current.id, data })
+        if (res.error) throw orgAuthError(res.error, 'Could not save the organization')
+      }
       return {
         ...current,
         name: name || current.name,
         slug: update.slug ?? current.slug,
-        logo: update.logo === undefined ? current.logo : update.logo,
+        logo: savedLogo,
       }
     },
-    onSuccess: (updated) =>
-      invalidateAll(client, [['dash']], updated.slug === org ? undefined : { org }),
+    // Settled, not succeeded: a logo saved (and the old one deleted) before
+    // a refused URL must not leave its old path in the caches.
+    onSettled: (updated) =>
+      invalidateAll(client, [['dash']], !updated || updated.slug === org ? undefined : { org }),
   })
 }
 

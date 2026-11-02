@@ -3,7 +3,7 @@ import { Trash2 } from 'lucide-react'
 import { errorFieldOf } from '../../data/dashboard/errors'
 import { useDeleteOrg, useUpdateOrg } from '../../data/dashboard/org-settings'
 import { dashboardPath, orgSettingsPath } from '../../lib/dashboard-paths'
-import { readImageAsDataUrl } from '../../lib/read-file'
+import { readAsDataUrl, readLogo } from '../../lib/read-file'
 import type { OrgScope } from '../../types/dashboard/scope'
 import { BlockedAction } from '../ui/blocked-action'
 import { Button } from '../ui/button'
@@ -22,6 +22,12 @@ import { TopBarContent } from '../navigation/top-bar-slot'
 import { useOrgScope } from './use-org-scope'
 
 const FORM_ID = 'org-general'
+
+/** A picked logo ready to upload, and its preview; `blob: null` removes the logo. */
+interface PickedLogo {
+  blob: Blob | null
+  preview: string | null
+}
 
 interface OrgGeneralPageProps {
   org: string
@@ -50,13 +56,15 @@ function OrgGeneral({ slug, scope }: { slug: string; scope: OrgScope }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState(org.name)
   const [urlSlug, setUrlSlug] = useState(org.slug)
-  const [logo, setLogo] = useState(org.logo)
+  // A logo picked or removed and not saved yet; null while the saved one stands.
+  const [pickedLogo, setPickedLogo] = useState<PickedLogo | null>(null)
   const [deleting, setDeleting] = useState(false)
   // Why the picked file wasn't used (too large, unreadable), before anything is saved.
   const [pickError, setPickError] = useState<string | null>(null)
   const readOnly = !can.manageSettings.allowed
   const trimmed = { name: name.trim(), slug: urlSlug.trim() }
-  const dirty = trimmed.name !== org.name || trimmed.slug !== org.slug || logo !== org.logo
+  const logo = pickedLogo ? pickedLogo.preview : org.logo
+  const dirty = trimmed.name !== org.name || trimmed.slug !== org.slug || pickedLogo !== null
 
   function handleUpload() {
     fileRef.current?.click()
@@ -69,7 +77,8 @@ function OrgGeneral({ slug, scope }: { slug: string; scope: OrgScope }) {
     update.reset()
     setPickError(null)
     try {
-      setLogo(await readImageAsDataUrl(file))
+      const blob = await readLogo(file)
+      setPickedLogo({ blob, preview: await readAsDataUrl(blob) })
     } catch (failure) {
       setPickError(failure instanceof Error ? failure.message : 'We couldn’t read that file')
     }
@@ -78,7 +87,8 @@ function OrgGeneral({ slug, scope }: { slug: string; scope: OrgScope }) {
   function handleUseInitial() {
     update.reset()
     setPickError(null)
-    setLogo(null)
+    // Removing a logo that was never saved is no change.
+    setPickedLogo(org.logo ? { blob: null, preview: null } : null)
   }
 
   function handleName(value: string) {
@@ -96,7 +106,7 @@ function OrgGeneral({ slug, scope }: { slug: string; scope: OrgScope }) {
     update.mutate(
       {
         name: trimmed.name,
-        logo,
+        ...(pickedLogo && { logo: pickedLogo.blob }),
         ...(trimmed.slug !== org.slug && { slug: trimmed.slug }),
       },
       {

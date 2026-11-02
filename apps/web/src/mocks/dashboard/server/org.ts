@@ -26,14 +26,13 @@ import {
 import { orgRecord, orgScope, personById } from './records'
 import { askedNoticeId } from './invites'
 import { assertImage } from './images'
-import { IMAGE_MAX_BYTES } from '../../../lib/read-file'
+import { LOGO_MAX_BYTES } from '../../../lib/read-file'
 import { managedOrg } from './levels'
 import { assertNotReserved, newId, requireScope, slugFrom } from './resolve'
 
 // Org settings: members and their access, invitations, connections, and the
 // org itself. Thin: records and the rules the boards state, nothing more.
 
-const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp']
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const ACCOUNT_ID = /^[0-9a-f]{32}$/i
 
@@ -445,21 +444,28 @@ export const removeConnection = mutation((ctx, orgSlug: string, connectionId: st
   db.connections = db.connections.filter((c) => c.id !== connectionId)
 })
 
-/** Org Settings → General: name, URL, logo. */
-export const updateOrg = mutation((ctx, orgSlug: string, update: OrgUpdate): OrgSummary => {
-  const { db, org } = managedOrg(ctx, orgSlug)
-  const name = update.name?.trim()
-  if (name === '') throw invalidError('The organization needs a name', 'name')
-  const slug = update.slug === undefined ? undefined : slugFrom(update.slug, 'URL', 'slug')
-  if (slug) assertNotReserved('org', slug)
-  if (slug && db.orgs.some((o) => o.slug === slug && o.id !== org.id)) {
-    throw conflictError('Another organization already uses that URL', 'slug')
-  }
-  if (update.logo) assertImage(update.logo, LOGO_TYPES, 'logo', IMAGE_MAX_BYTES)
-  if (name) org.name = name
-  if (slug) org.slug = slug
-  if (update.logo !== undefined) org.logo = update.logo
-  return orgRecord(db, ctx, org)
+/** Org Settings → General: name and URL. */
+export const updateOrg = mutation(
+  (ctx, orgSlug: string, update: Omit<OrgUpdate, 'logo'>): OrgSummary => {
+    const { db, org } = managedOrg(ctx, orgSlug)
+    const name = update.name?.trim()
+    if (name === '') throw invalidError('The organization needs a name', 'name')
+    const slug = update.slug === undefined ? undefined : slugFrom(update.slug, 'URL', 'slug')
+    if (slug) assertNotReserved('org', slug)
+    if (slug && db.orgs.some((o) => o.slug === slug && o.id !== org.id)) {
+      throw conflictError('Another organization already uses that URL', 'slug')
+    }
+    if (name) org.name = name
+    if (slug) org.slug = slug
+    return orgRecord(db, ctx, org)
+  },
+)
+
+/** Org Settings → General: the logo (a data URL of the picked blob), or null for the initial. */
+export const setLogo = mutation((ctx, orgSlug: string, logo: string | null): void => {
+  const { org } = managedOrg(ctx, orgSlug)
+  if (logo) assertImage(logo, 'logo', LOGO_MAX_BYTES)
+  org.logo = logo
 })
 
 /** Creates an organization with the viewer as its owner (/dashboard's Create an organization). */

@@ -40,22 +40,19 @@ describe('the profile', () => {
       field: 'name',
     })
     const big = `data:image/png;base64,${'a'.repeat(720 * 1024)}`
-    await expect(account.updateProfile(ama, { image: big })).rejects.toMatchObject({
-      field: 'image',
-    })
+    await expect(account.setPhoto(ama, big)).rejects.toMatchObject({ field: 'image' })
   })
 
-  it('refuses a file that isn’t an image the picker offers, and so does the org logo with its own list', async () => {
-    await expect(
-      account.updateProfile(ama, { image: 'data:application/pdf;base64,AAAA' }),
-    ).rejects.toMatchObject({
+  it('refuses a file that isn’t a type the API stores, and so does the org logo, SVG included', async () => {
+    await expect(account.setPhoto(ama, 'data:application/pdf;base64,AAAA')).rejects.toMatchObject({
       status: 422,
       field: 'image',
       message: 'Pick a PNG, JPG, WebP or GIF image',
     })
+    // The picker draws an SVG logo to a PNG first; an SVG itself is never stored.
     await expect(
-      org.updateOrg(ama, 'acme', { logo: 'data:text/html;base64,AAAA' }),
-    ).rejects.toMatchObject({ field: 'logo', message: 'Pick a PNG, JPG, SVG or WebP image' })
+      org.setLogo(ama, 'acme', 'data:image/svg+xml;base64,PHN2Zz4='),
+    ).rejects.toMatchObject({ field: 'logo', message: 'Pick a PNG, JPG, WebP or GIF image' })
   })
 
   it('hands out copies: a later rename doesn’t change a record already read', async () => {
@@ -77,8 +74,10 @@ describe('the profile', () => {
   })
 
   it('keeps an uploaded photo on the person, so every avatar shows it', async () => {
-    await account.updateProfile(ama, { image: 'data:image/png;base64,AAAA' })
+    await account.setPhoto(ama, 'data:image/png;base64,AAAA')
     expect(getDb().people.find((p) => p.id === AMA)!.image).toBe('data:image/png;base64,AAAA')
+    await account.setPhoto(ama, null)
+    expect(getDb().people.find((p) => p.id === AMA)!.image).toBeNull()
   })
 })
 

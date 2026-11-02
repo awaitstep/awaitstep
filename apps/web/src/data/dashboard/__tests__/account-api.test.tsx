@@ -24,8 +24,8 @@ import { MockScenarioProvider } from '../scenario-context'
 import { DataSourceProvider, type DataSource } from '../source'
 
 // Your account on the API (B10): `/api/account` for reads, leaving, sessions
-// and the export; better-auth's client for name, photo, providers and
-// deletion — its hooks on the server hold those rules.
+// and the export, and the photo's own upload; better-auth's client for the
+// name, providers and deletion — its hooks on the server hold those rules.
 
 const auth = vi.hoisted(() => ({
   updateUser: vi.fn(),
@@ -164,34 +164,62 @@ describe('profile', () => {
     expect(useAuthStore.getState().user).toMatchObject({ name: 'Ama K.' })
   })
 
-  it('puts a refused photo under the photo, and sends a removal as null', async () => {
-    auth.updateUser.mockResolvedValueOnce({
-      data: null,
-      error: { status: 400, message: 'The photo must be at most 512 KB' },
-    })
+  it('uploads a photo as its own bytes, and removes one with DELETE', async () => {
+    auth.getSession.mockResolvedValue({ data: null, error: null })
+    fetchMock.mockResolvedValueOnce(json({ image: '/api/images/img_1' }))
+    const { result } = renderHook(() => useUpdateProfile(), { wrapper: wrapperFor('api') })
+    const photo = new Blob([new Uint8Array([0x52, 0x49, 0x46, 0x46])], { type: 'image/webp' })
+    await act(() => result.current.mutateAsync({ image: photo }))
+    const [, init] = fetchMock.mock.calls[0]!
+    expect(calls()).toEqual([['PUT', '/api/account/photo']])
+    expect(init.body).toBe(photo)
+    expect(init.headers).toEqual({ 'Content-Type': 'image/webp' })
+    // The photo has its own route: better-auth only takes the name.
+    expect(auth.updateUser).not.toHaveBeenCalled()
+
+    fetchMock.mockResolvedValueOnce(json({ image: null }))
+    await act(() => result.current.mutateAsync({ image: null }))
+    expect(calls()).toEqual([
+      ['PUT', '/api/account/photo'],
+      ['DELETE', '/api/account/photo'],
+    ])
+  })
+
+  it('reads the session again when the photo is refused after the name was saved', async () => {
+    auth.updateUser.mockResolvedValue({ data: { status: true }, error: null })
+    const session = { user: { id: 'u-ama', name: 'Ama K.' }, session: { id: 's-1' } }
+    auth.getSession.mockResolvedValue({ data: session, error: null })
+    fetchMock.mockResolvedValueOnce(json({ error: 'The photo is empty', field: 'image' }, 400))
+    const { result } = renderHook(() => useUpdateProfile(), { wrapper: wrapperFor('api') })
+    await result.current
+      .mutateAsync({ name: 'Ama K.', image: new Blob([], { type: 'image/png' }) })
+      .catch(() => {})
+    expect(useAuthStore.getState().user).toMatchObject({ name: 'Ama K.' })
+  })
+
+  it('puts a refused photo under the photo', async () => {
+    fetchMock.mockResolvedValueOnce(
+      json({ error: 'The photo must be a PNG, JPEG, WebP or GIF image', field: 'image' }, 400),
+    )
     const { result } = renderHook(() => useUpdateProfile(), { wrapper: wrapperFor('api') })
     const failure = await result.current
-      .mutateAsync({ image: 'data:image/png;base64,AAAA' })
+      .mutateAsync({ image: new Blob(['<svg/>'], { type: 'image/png' }) })
       .catch((e: unknown) => e)
-    expect(failure).toMatchObject({ message: 'The photo must be at most 512 KB', status: 400 })
+    expect(failure).toMatchObject({
+      message: 'The photo must be a PNG, JPEG, WebP or GIF image',
+      status: 400,
+    })
     expect(errorFieldOf(failure)).toBe('image')
-    auth.updateUser.mockResolvedValueOnce({ data: { status: true }, error: null })
-    auth.getSession.mockResolvedValue({ data: null, error: null })
-    await act(() => result.current.mutateAsync({ image: null }))
-    expect(auth.updateUser).toHaveBeenLastCalledWith({ image: null })
   })
 })
 
-it('reads a refusal from the API in front of better-auth, which answers `error`', async () => {
-  auth.updateUser.mockResolvedValueOnce({
-    data: null,
-    error: { status: 413, error: 'Request body exceeds 1048576 bytes' },
-  })
+it('reads a photo over the size limit as the API’s 413', async () => {
+  fetchMock.mockResolvedValueOnce(json({ error: 'The photo must be at most 512 KB' }, 413))
   const { result } = renderHook(() => useUpdateProfile(), { wrapper: wrapperFor('api') })
   await expect(
-    result.current.mutateAsync({ image: 'data:image/png;base64,AAAA' }),
+    result.current.mutateAsync({ image: new Blob(['x'], { type: 'image/png' }) }),
   ).rejects.toMatchObject({
-    message: 'Request body exceeds 1048576 bytes',
+    message: 'The photo must be at most 512 KB',
     status: 413,
   })
 })

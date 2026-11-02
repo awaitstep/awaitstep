@@ -79,6 +79,6 @@ export interface NewConnectionInput {
 export interface OrgUpdate {
   name?: string
   slug?: string
-  /** A data URL, or null for the initial. */
-  logo?: string | null
+  /** A picked logo to upload (`readLogo`), or null for the initial. */
+  logo?: Blob | null
 }

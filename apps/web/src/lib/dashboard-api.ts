@@ -1012,6 +1012,28 @@ export const dashboardApi = {
   leaveOrg(orgId: string): Promise<{ ok: true }> {
     return request(`/account/orgs/${orgId}/leave`, { method: 'POST' })
   },
+  /** The photo as the request body (B10); answers its `/api/images/…` path. */
+  uploadPhoto(image: Blob): Promise<{ image: string }> {
+    return request('/account/photo', {
+      method: 'PUT',
+      body: image,
+      headers: { 'Content-Type': image.type },
+    })
+  },
+  removePhoto(): Promise<{ image: null }> {
+    return request('/account/photo', { method: 'DELETE' })
+  },
+  /** The org's logo as the request body; owners and admins only. */
+  uploadOrgLogo(orgId: string, logo: Blob): Promise<{ logo: string }> {
+    return request(`/orgs/${orgId}/logo`, {
+      method: 'PUT',
+      body: logo,
+      headers: { 'Content-Type': logo.type },
+    })
+  },
+  removeOrgLogo(orgId: string): Promise<{ logo: null }> {
+    return request(`/orgs/${orgId}/logo`, { method: 'DELETE' })
+  },
 
   listAccountSessions(): Promise<{ data: AccountSession[] }> {
     return request('/account/sessions')
