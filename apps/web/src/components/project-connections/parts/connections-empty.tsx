@@ -1,4 +1,4 @@
-import { Lock, Plug } from 'lucide-react'
+import { Plug } from 'lucide-react'
 import { Button } from '../../ui/button'
 
 const NUMBER_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine']
@@ -34,7 +34,7 @@ export function ConnectionsEmpty({
       <p className="max-w-[460px] text-xs leading-relaxed text-muted-foreground">
         Workflows in {projectName} can be built and tested, but{' '}
         <b className="font-semibold text-foreground">Deploy stays disabled</b> until this project
-        can reach a Cloudflare account.{already}
+        can reach a provider account.{already}
       </p>
       {(onUseOrgAccount || onConnectNew) && (
         <span className="mt-1 flex flex-wrap justify-center gap-2">
@@ -50,29 +50,6 @@ export function ConnectionsEmpty({
           )}
         </span>
       )}
-      <p className="max-w-[460px] text-xs leading-relaxed text-muted-foreground">
-        A new account needs its Cloudflare account ID and an API token. One you connect here belongs
-        to {projectName} alone.
-      </p>
     </div>
-  )
-}
-
-/** *What needs an org admin* (23c). Request an account comes in a later step (D-PC-7). */
-export function OrgAdminNote({ projectName }: { projectName: string }) {
-  return (
-    <section className="flex flex-wrap items-center gap-4 rounded-xl border border-status-warning/30 bg-card px-5 py-[18px]">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-status-warning">
-        <Lock className="size-4" aria-hidden="true" />
-      </span>
-      <span className="flex min-w-[260px] flex-1 flex-col gap-1">
-        <h2 className="text-sm font-semibold text-foreground">What needs an org admin</h2>
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          A project admin can connect an account for {projectName} and set its default. An account
-          for the whole organization, or one restricted to another project, is an org owner’s or
-          admin’s call, on the organization’s Connections page.
-        </p>
-      </span>
-    </section>
   )
 }

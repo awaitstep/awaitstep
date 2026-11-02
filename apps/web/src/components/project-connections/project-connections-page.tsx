@@ -28,7 +28,7 @@ import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
 import { AddConnectionDialog, type AddTab } from './add-connection-dialog'
 import { ChangeWorkspaceDialog } from './change-workspace-dialog'
 import { AccountRow } from './parts/account-row'
-import { ConnectionsEmpty, OrgAdminNote } from './parts/connections-empty'
+import { ConnectionsEmpty } from './parts/connections-empty'
 import { WorkspaceDeploys } from './parts/workspace-deploys'
 import { accountsCaption, removeText } from './project-connections-copy'
 
@@ -204,9 +204,7 @@ export function ProjectConnectionsPage({
             </div>
           )}
         </OverviewCard>
-        {connections.length === 0 ? (
-          <OrgAdminNote projectName={project.name} />
-        ) : (
+        {connections.length !== 0 && (
           <WorkspaceDeploys workspaces={workspaces} onChange={onChangeWorkspace} />
         )}
       </>
