@@ -203,10 +203,18 @@ export class WorkspacesAdapter {
     return rows[0] ?? null
   }
 
-  /** Null when the row is gone — or, with a `slug`, when a sibling already uses it. */
+  /**
+   * Null when the row is gone — or, with a `slug`, when a sibling already uses it.
+   * A `slugFromName` replaces the slug only while it is still `default` and no
+   * sibling has it; otherwise the slug stays and the rename goes through.
+   */
   async update(id: string, data: UpdateWorkspaceData): Promise<Workspace | null> {
+    const { slugFromName, ...given } = data
+    const fields: Omit<UpdateWorkspaceData, 'slugFromName' | 'slug'> & { slug?: string | SQL } =
+      given
     const w = this.t.workspaces
     const taken = aliasedTable(this.t.workspaces, 'taken')
+    const fromName = aliasedTable(this.t.workspaces, 'from_name')
     const conditions = [eq(w.id, id)]
     if (data.slug !== undefined) {
       // The table being updated is not aliased, so the outer reference is spelled out.
@@ -225,9 +233,12 @@ export class WorkspacesAdapter {
         ),
       )
     }
+    if (slugFromName !== undefined && fields.slug === undefined) {
+      fields.slug = sql`case when ${w.slug} = 'default' and not exists (select 1 from ${aliasedFrom(fromName)} where ${fromName.projectId} = ${w.projectId} and ${fromName.slug} = ${slugFromName} and ${fromName.id} <> ${id}) then ${slugFromName} else ${w.slug} end`
+    }
     const rows = await this.db
       .update(w)
-      .set({ ...data, updatedAt: new Date().toISOString() })
+      .set({ ...fields, updatedAt: new Date().toISOString() })
       .where(and(...conditions))
       .returning()
     return rows[0] ?? null

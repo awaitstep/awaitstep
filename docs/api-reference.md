@@ -554,7 +554,11 @@ One workspace, as stored.
 ### `PATCH /workspaces/:id`
 
 Rename, re-slug, describe or recolour (workspace admins). A slug a sibling
-uses answers `409`.
+uses answers `409`. A workspace whose slug is still `default` takes a new slug
+from its new name when `name` is sent without `slug` (`Sales` → `sales`); if a
+sibling already has that slug, or the name has no letters or digits, the rename
+goes through and the slug stays `default`. Any other workspace keeps its slug
+on rename.
 
 **Permission:** `workspaces:write`
 

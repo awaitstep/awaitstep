@@ -506,7 +506,15 @@ const mockDb: DatabaseAdapter = {
     ) {
       return null
     }
-    const updated = { ...w, ...data, updatedAt: now() }
+    const { slugFromName, ...fields } = data
+    const fromName =
+      slugFromName !== undefined &&
+      data.slug === undefined &&
+      w.slug === 'default' &&
+      !workspacesOf(w.projectId).some((x) => x.slug === slugFromName && x.id !== id)
+        ? { slug: slugFromName }
+        : {}
+    const updated = { ...w, ...fields, ...fromName, updatedAt: now() }
     store.workspaces.set(id, updated)
     return updated
   },
