@@ -1,6 +1,7 @@
 import type { WorkflowNode } from '@awaitstep/ir'
 import { stepLabel, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
 import { generateStepConfig } from './config.js'
+import { isJsonLiteralBody } from './http-body.js'
 
 export function generateHttp(
   node: WorkflowNode,
@@ -14,7 +15,7 @@ export function generateHttp(
     rawHeaders && typeof rawHeaders === 'object' && !Array.isArray(rawHeaders)
       ? (rawHeaders as Record<string, string>)
       : undefined
-  const body = node.data.body as string | undefined
+  const body = node.data.body
   const rawQueryParams = node.data.queryParams
   const queryParams =
     rawQueryParams && typeof rawQueryParams === 'object' && !Array.isArray(rawQueryParams)
@@ -26,15 +27,24 @@ export function generateHttp(
 
   const fetchOptions: string[] = [`method: "${method}"`]
 
-  if (headers && Object.keys(headers).length > 0) {
-    const headerEntries = Object.entries(headers)
-      .map(([k, v]) => `"${k}": ${toJsLiteral(v)}`)
-      .join(', ')
-    fetchOptions.push(`headers: { ${headerEntries} }`)
+  // Off-schema rows can hold a non-string Body (save does not run the strict
+  // schema); those are emitted as before rather than scanned. A non-literal
+  // Body keeps its whitespace: a trailing line comment needs its newline.
+  const bodyExpression = typeof body === 'string' ? body : body ? String(body) : ''
+  const jsonBody = typeof body === 'string' && isJsonLiteralBody(body)
+
+  const headerEntries = Object.entries(headers ?? {}).map(([k, v]) => `"${k}": ${toJsLiteral(v)}`)
+  if (jsonBody && !hasContentType(headers)) {
+    headerEntries.push('"Content-Type": "application/json"')
+  }
+  if (headerEntries.length > 0) {
+    fetchOptions.push(`headers: { ${headerEntries.join(', ')} }`)
   }
 
-  if (body) {
-    fetchOptions.push(`body: ${body}`)
+  if (jsonBody) {
+    fetchOptions.push(`body: JSON.stringify(${bodyExpression.trim()})`)
+  } else if (bodyExpression.trim()) {
+    fetchOptions.push(`body: ${bodyExpression}`)
   }
 
   const hasQueryParams = queryParams && Object.keys(queryParams).length > 0
@@ -82,6 +92,10 @@ export function generateHttp(
   return `const ${ctx.varName(node.id)} = await step.do("${stepLabel(node)}"${configArg}, async () => {
 ${bodyCode}
 });`
+}
+
+function hasContentType(headers: Record<string, string> | undefined): boolean {
+  return Object.keys(headers ?? {}).some((k) => k.toLowerCase() === 'content-type')
 }
 
 function toJsLiteral(value: unknown): string {
