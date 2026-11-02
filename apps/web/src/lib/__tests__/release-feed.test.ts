@@ -37,8 +37,8 @@ describe('releaseFeed', () => {
 
 describe('RELEASE_NOTES', () => {
   it('lists newest first, with unique ids', () => {
-    const dates = RELEASE_NOTES.map((n) => n.date)
-    expect([...dates].sort().reverse()).toEqual(dates)
+    const instants = RELEASE_NOTES.map((n) => Date.parse(n.date))
+    expect([...instants].sort((a, b) => b - a)).toEqual(instants)
     expect(new Set(RELEASE_NOTES.map((n) => n.id)).size).toBe(RELEASE_NOTES.length)
   })
 })

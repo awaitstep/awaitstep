@@ -1,4 +1,3 @@
-import { RELEASE_NOTES } from '../../../content/releases'
 import { orgDestinationPath, projectPagePath, workspacePath } from '../../../lib/dashboard-paths'
 import { releaseFeed } from '../../../lib/release-feed'
 import type { InboxNotification, ReleaseFeed } from '../../../types/dashboard/inbox'
@@ -22,6 +21,7 @@ import {
 import { workspaceRoleOf } from '../access'
 import { personById, workspaceScope } from './records'
 import { requireScope } from './resolve'
+import { SAMPLE_RELEASE_NOTES } from '../fixtures/release-notes'
 
 // The Inbox and What's new. Thin: sample notifications plus a live row per
 // edit request; read marks and the last What's new visit per person (B8).
@@ -222,7 +222,7 @@ export const listReleases = endpoint((ctx, orgSlug: string): ReleaseFeed => {
   const db = getDb()
   const { org } = requireScope(db, ctx, { org: orgSlug })
   const visit = db.releaseVisits.find((v) => v.userId === ctx.userId)
-  const feed = releaseFeed(org.slug, RELEASE_NOTES, {
+  const feed = releaseFeed(org.slug, SAMPLE_RELEASE_NOTES, {
     lastVisit: visit?.at ?? null,
     seen: visit?.seenIds ?? [],
   })

@@ -13,7 +13,8 @@ import { ListCard } from '../ui/list-card'
 import { SegmentedFilter, type FilterOption } from '../ui/segmented-filter'
 import { ShellLink } from '../ui/shell-link'
 import { LoadedQuery } from '../workspaces/loaded-query'
-import { filterInbox, type InboxShow } from './inbox-filter'
+import { filterInbox, inboxEmptyKind, type InboxShow } from './inbox-filter'
+import { InboxEmpty } from './parts/inbox-empty'
 import { NotificationRow } from './parts/notification-row'
 
 interface InboxPopoverProps {
@@ -62,6 +63,10 @@ export function InboxPopover({ org, onClose }: InboxPopoverProps) {
     answer(id, 'decline')
   }
 
+  function handleShowAll() {
+    setShow('all')
+  }
+
   const counts = notifications.data?.counts ?? { all: 0, unread: 0, action: 0 }
   const options: FilterOption<InboxShow>[] = [
     { id: 'all', label: 'All', count: counts.all },
@@ -80,16 +85,18 @@ export function InboxPopover({ org, onClose }: InboxPopoverProps) {
             <DialogPrimitive.Title className="flex-1 text-base font-semibold">
               Notifications
             </DialogPrimitive.Title>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleMarkAll}
-              disabled={counts.unread === 0 || markAll.isPending}
-              className="text-status-success"
-            >
-              Mark all as read
-            </Button>
+            {counts.unread > 0 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleMarkAll}
+                disabled={markAll.isPending}
+                className="text-status-success"
+              >
+                Mark all as read
+              </Button>
+            )}
             <ShellLink
               href={accountPath(org)}
               aria-label="Notification settings"
@@ -104,9 +111,11 @@ export function InboxPopover({ org, onClose }: InboxPopoverProps) {
               <X className="size-4" aria-hidden="true" />
             </DialogPrimitive.Close>
           </div>
-          <div className="px-4 pb-2.5">
-            <SegmentedFilter label="Show" options={options} value={show} onChange={setShow} />
-          </div>
+          {counts.all > 0 && (
+            <div className="px-4 pb-2.5">
+              <SegmentedFilter label="Show" options={options} value={show} onChange={setShow} />
+            </div>
+          )}
           {decide.error && (
             <p role="alert" className="px-4 pb-2 text-xs text-status-error">
               {decide.error.message}
@@ -114,30 +123,32 @@ export function InboxPopover({ org, onClose }: InboxPopoverProps) {
           )}
           <div className="min-h-0 flex-1 overflow-y-auto border-t border-border">
             <LoadedQuery query={notifications} what="notifications">
-              {(data) => (
-                <ListCard
-                  label="Notifications"
-                  framed={false}
-                  empty={
-                    <span className="flex flex-col gap-1.5 py-6">
-                      <span className="text-sm font-medium text-foreground">
-                        You’re all caught up
-                      </span>
-                      Failures, requests and expiring keys appear here.
-                    </span>
-                  }
-                >
-                  {filterInbox(data.list, show, answered).map((notification) => (
-                    <NotificationRow
-                      key={notification.id}
-                      notification={notification}
-                      onRead={handleRead}
-                      onApprove={handleApprove}
-                      onDecline={handleDecline}
+              {(data) => {
+                const list = filterInbox(data.list, show, answered)
+                if (list.length === 0) {
+                  return (
+                    <InboxEmpty
+                      kind={inboxEmptyKind(counts, show)}
+                      total={counts.all}
+                      settingsHref={accountPath(org)}
+                      onShowAll={handleShowAll}
                     />
-                  ))}
-                </ListCard>
-              )}
+                  )
+                }
+                return (
+                  <ListCard label="Notifications" framed={false}>
+                    {list.map((notification) => (
+                      <NotificationRow
+                        key={notification.id}
+                        notification={notification}
+                        onRead={handleRead}
+                        onApprove={handleApprove}
+                        onDecline={handleDecline}
+                      />
+                    ))}
+                  </ListCard>
+                )
+              }}
             </LoadedQuery>
           </div>
           <div className="flex items-center gap-2 border-t border-border bg-card px-4 py-2.5 text-2xs text-muted-foreground">

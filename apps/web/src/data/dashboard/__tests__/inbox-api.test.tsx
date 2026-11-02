@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { InboxNotification as ApiInboxNotification } from '@awaitstep/ir'
-import { RELEASE_NOTES } from '../../../content/releases'
+import { SAMPLE_RELEASE_NOTES } from '../../../mocks/dashboard/fixtures/release-notes'
 import { resetMockDb } from '../../../mocks/dashboard/db'
 import {
   useDecideEditRequest,
@@ -15,6 +15,12 @@ import {
 } from '../inbox'
 import { MockScenarioProvider } from '../scenario-context'
 import { DataSourceProvider, type DataSource } from '../source'
+
+// The app's own notes are the fragments in `release-notes/`; these tests need some.
+vi.mock('../../../content/releases', async () => {
+  const { SAMPLE_RELEASE_NOTES } = await import('../../../mocks/dashboard/fixtures/release-notes')
+  return { RELEASE_NOTES: SAMPLE_RELEASE_NOTES }
+})
 
 // The Inbox and What's new hooks on both sources (B8): the API's
 // `/notifications` and `/releases/visit`, and the dummy server.
@@ -137,7 +143,7 @@ describe('useReleases', () => {
     const { result } = renderHook(() => useReleases('acme'), { wrapper: wrapperFor('api') })
     await waitFor(() => expect(result.current.data).toBeDefined())
     expect(calls()).toEqual([['GET', '/api/releases/visit']])
-    expect(result.current.data!.releases).toHaveLength(RELEASE_NOTES.length)
+    expect(result.current.data!.releases).toHaveLength(SAMPLE_RELEASE_NOTES.length)
     expect(result.current.data!.releases.filter((r) => r.fresh).map((r) => r.id)).toEqual([
       'rel_inbox',
       'rel_audit',

@@ -7,7 +7,7 @@ import { IT, SALES } from './workspaces'
 
 // `Notifications`: Ama's six. The board's request is from Daniel, already an
 // Editor in Sales, so it comes from Priya, its only Viewer (D-P8-3).
-// `WhatsNew`: the real notes (`content/releases.ts`); Ama last looked on 29 Oct at noon.
+// `WhatsNew`: the sample notes (`release-notes.ts`); Ama last looked on 29 Oct at noon.
 
 export const PRIYA_REQUEST = 'req_priya_sales'
 

@@ -82,6 +82,7 @@ export interface RailModel {
 }
 
 export const DOCS_URL = 'https://docs.awaitstep.dev'
+export const RELEASES_URL = 'https://github.com/awaitstep/awaitstep/releases'
 
 /** What the rail's Inbox and What's new need: where they open, and their markers. */
 export interface RailOverlays {
