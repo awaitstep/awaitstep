@@ -17,6 +17,7 @@ import { accountPath } from '../../lib/dashboard-paths'
 import type { Theme } from '../../lib/theme'
 import { ConfirmDialog } from '../ui/confirm-dialog'
 import { AccountMenu, type AccountMenuItem } from '../shell/account-menu'
+import { mockSourceAllowed } from './dashboard-providers'
 import { DOCS_URL } from './nav-model'
 
 interface DashboardAccountMenuProps {
@@ -80,7 +81,7 @@ export function DashboardAccountMenu({
   whatsNewHref,
   theme,
   onToggleTheme,
-  showReset = import.meta.env.DEV,
+  showReset = mockSourceAllowed(import.meta.env.MODE),
 }: DashboardAccountMenuProps) {
   const resetMockData = useResetMockData()
   const [confirmReset, setConfirmReset] = useState(false)
