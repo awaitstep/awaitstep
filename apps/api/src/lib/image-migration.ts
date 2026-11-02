@@ -2,8 +2,8 @@ import type { DatabaseAdapter, ImageInsert, ImageOwner, InlineImageRow } from '@
 import {
   LOGO_RULE,
   PHOTO_RULE,
-  checkImage,
   newImageId,
+  prepareImage,
   type ImageInfo,
   type ImageStore,
 } from '@awaitstep/storage'
@@ -39,14 +39,16 @@ interface Checked {
   info: ImageInfo
 }
 
-/** Whether the inline value can be stored under its owner's rule. The claimed type is ignored. */
+/**
+ * The inline value as it would be stored under its owner's rule — without
+ * its metadata, as an upload is — or null. The claimed type is ignored.
+ */
 function checkInline(row: InlineImageRow): Checked | null {
   const bytes = decodeDataUrl(row.value)
   if (!bytes) return null
-  const check = checkImage(bytes, row.ownerKind === 'user' ? PHOTO_RULE : LOGO_RULE)
-  return check.ok
-    ? { owner: { kind: row.ownerKind, id: row.ownerId }, bytes, info: check.info }
-    : null
+  const image = prepareImage(bytes, row.ownerKind === 'user' ? PHOTO_RULE : LOGO_RULE)
+  if (!image.ok) return null
+  return { owner: { kind: row.ownerKind, id: row.ownerId }, bytes: image.bytes, info: image.info }
 }
 
 /**

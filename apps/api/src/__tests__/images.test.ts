@@ -83,6 +83,43 @@ describe.each(['database', 'bucket'] as const)('images with the %s store', (stor
     expect((await h.app.request(image)).headers.get('content-type')).toBe('image/jpeg')
   })
 
+  it('refuses an image that is damaged once its metadata is stripped, and stores nothing', async () => {
+    const { h } = await setup(store)
+    const webp = fixture('lossy.webp').slice()
+    new DataView(webp.buffer).setUint32(4, 0, true)
+    const res = await upload(h, 'u-ama', '/api/account/photo', webp, 'image/webp')
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({
+      error: 'The photo is damaged and can’t be stored',
+      field: 'image',
+    })
+    expect(imageRows(h)).toEqual([])
+  })
+
+  it.each([
+    ['a JPEG', 'exif.jpg', 'image/jpeg'],
+    ['a PNG', 'exif.png', 'image/png'],
+    ['a WebP', 'exif.webp', 'image/webp'],
+  ])(
+    'serves %s without the location and camera it was uploaded with',
+    async (_what, name, type) => {
+      const { h } = await setup(store)
+      const sent = fixture(name)
+      const { image } = (await (
+        await upload(h, 'u-ama', '/api/account/photo', sent, type)
+      ).json()) as { image: string }
+      const served = new Uint8Array(await (await h.app.request(image)).arrayBuffer())
+      const text = Buffer.from(served).toString('latin1')
+      for (const leak of ['Exif\0', 'SecretCam', '51.5N', 'xmpmeta']) {
+        expect(text).not.toContain(leak)
+      }
+      expect(served.length).toBeLessThan(sent.length)
+      if (type === 'image/jpeg') expect(text).toContain('ICC_PROFILE\0')
+      const stored = h.sqlite.prepare('SELECT bytes_len AS n FROM image').get() as { n: number }
+      expect(stored.n).toBe(served.length)
+    },
+  )
+
   it.each([
     ['an SVG', fixture('logo.svg'), 'image/svg+xml', /must be a PNG, JPEG, WebP or GIF/],
     ['HTML labelled image/png', fixture('page.html'), 'image/png', /must be a PNG, JPEG/],

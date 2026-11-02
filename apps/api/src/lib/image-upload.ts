@@ -1,6 +1,6 @@
 import type { Context } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
-import { checkImage, type ImageInfo, type ImageRule } from '@awaitstep/storage'
+import { prepareImage, type ImageInfo, type ImageRule } from '@awaitstep/storage'
 import type { AppEnv } from '../types.js'
 
 // An upload is the image itself as the request body — `Content-Type:
@@ -23,13 +23,16 @@ export function imageBodyLimit(rule: ImageRule, field: 'image' | 'logo') {
 
 export type ImageUpload = { bytes: Uint8Array; info: ImageInfo } | { problem: string }
 
-/** The request's image, checked from its bytes, or why it can't be stored. */
+/**
+ * The request's image, checked from its bytes and without its metadata
+ * (location, camera, comments), or why it can't be stored.
+ */
 export async function readImageUpload(c: Context<AppEnv>, rule: ImageRule): Promise<ImageUpload> {
   const type = c.req.header('Content-Type') ?? ''
   if (!type.toLowerCase().startsWith('image/')) {
     return { problem: `Send the ${rule.what} as the request body, with an image Content-Type` }
   }
   const bytes = new Uint8Array(await c.req.arrayBuffer())
-  const check = checkImage(bytes, rule, type)
-  return check.ok ? { bytes, info: check.info } : { problem: check.problem }
+  const image = prepareImage(bytes, rule, type)
+  return image.ok ? { bytes: image.bytes, info: image.info } : { problem: image.problem }
 }

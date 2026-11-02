@@ -2,6 +2,9 @@ export type { ImageStore, ImageType } from './image-store.js'
 export { newImageId, isImageId, imagePath, imageIdOfPath } from './image-store.js'
 export type { ImageRule, ImageInfo, ImageCheck } from './image-check.js'
 export { MAX_IMAGE_SIDE, PHOTO_RULE, LOGO_RULE, inspectImage, checkImage } from './image-check.js'
+export { stripImageMetadata } from './image-metadata.js'
+export type { StoredImage } from './stored-image.js'
+export { prepareImage } from './stored-image.js'
 export {
   PROVIDER_IMAGE_HOSTS,
   DEFAULT_REGISTRY_URL,

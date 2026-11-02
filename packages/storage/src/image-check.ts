@@ -58,6 +58,7 @@ const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
 function png(b: Uint8Array): ImageInfo | null {
   // The first chunk is always IHDR: length 13, then width and height.
   if (b.length < 24 || !startsWith(b, PNG) || ascii(b, 12, 4) !== 'IHDR') return null
+  if (be32(b, 8) !== 13) return null
   return { type: 'image/png', width: be32(b, 16), height: be32(b, 20) }
 }
 

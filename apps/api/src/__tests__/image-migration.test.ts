@@ -65,6 +65,22 @@ describe.each(['database', 'bucket'] as const)('moving inline images into the %s
     expect((await h.app.request(logo)).headers.get('content-type')).toBe('image/jpeg')
   })
 
+  it('stores an inline image without its location and camera, as an upload is', async () => {
+    const { h, store } = await setup()
+    const sent = fixture('exif.png')
+    h.sqlite
+      .prepare('UPDATE user SET image = ? WHERE id = ?')
+      .run(dataUrl('image/png', sent), 'u-ama')
+    await migrateInlineImages(h.adapter, store)
+    const served = new Uint8Array(await (await h.app.request(photoOf(h, 'u-ama')!)).arrayBuffer())
+    expect(Buffer.from(served).toString('latin1')).not.toMatch(/Exif|SecretCam|51\.5N|xmpmeta/)
+    expect(served.length).toBeLessThan(sent.length)
+    const stored = h.sqlite
+      .prepare("SELECT bytes_len AS n FROM image WHERE owner_id = 'u-ama'")
+      .get() as { n: number }
+    expect(stored.n).toBe(served.length)
+  })
+
   it('clears what the store refuses and remote URLs, and keeps provider avatars', async () => {
     const { h, store } = await setup()
     await migrateInlineImages(h.adapter, store)

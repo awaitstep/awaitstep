@@ -669,9 +669,13 @@ The bytes decide: the file signature must be PNG, JPEG, WebP or GIF and
 match the `Content-Type`, at most 200 KB and 4096 px on a side. Anything else
 — an SVG, HTML, a body whose signature isn't the type it was sent as, an
 empty body — is `400` with `{ "error", "field": "logo" }`, and nothing is
-stored. A body over 200 KB is `413` before it is read. An SVG logo is drawn
-to a PNG by the dashboard before it is sent. The previous logo's path
-answers `404` from then on. `409` means another upload or removal of the
+stored. A body over 200 KB is `413` before it is read. What is stored is the
+image without its metadata: from a well-formed file, EXIF (with any GPS
+location), XMP, comments and text chunks are dropped. The pixels, the colour
+profile, a GIF's looping and the EXIF orientation (so a rotated photo still
+shows upright) are kept. A file that is damaged once stripped is `400`. An
+SVG logo is drawn to a PNG by the dashboard before it is sent. The previous
+logo's path answers `404` from then on. `409` means another upload or removal of the
 same logo landed first; nothing changed, so send it again. `DELETE` answers
 `{ "logo": null }`.
 
@@ -2479,7 +2483,8 @@ Sets or clears the person's photo. `PUT` takes the image itself as the body,
 as for an organization logo (`PUT /orgs/:orgId/logo`), and answers
 `{ "image": "/api/images/img_…" }`: PNG, JPEG, WebP or GIF by its signature,
 at most 512 KB and 4096 px on a side (the dashboard shrinks a pick of up to
-2 MB to 256 px first). A refusal is `400` with `"field": "image"`; over
+2 MB to 256 px first). Its metadata (location, camera, comments) is dropped
+before it is stored. A refusal is `400` with `"field": "image"`; over
 512 KB is `413`. `DELETE` answers `{ "image": null }`.
 
 #### `GET /account/sessions`
