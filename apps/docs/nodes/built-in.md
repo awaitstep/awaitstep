@@ -271,14 +271,14 @@ Make a durable HTTP API call with configurable retries.
 
 **Config:**
 
-| Field        | Type     | Required | Default | Description                                                              |
-| ------------ | -------- | -------- | ------- | ------------------------------------------------------------------------ |
-| `method`     | `select` | yes      | `GET`   | HTTP method: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`. |
-| `url`        | `string` | yes      | —       | Request URL. Must be a valid URL.                                        |
-| `headers`    | `json`   | no       | —       | JSON object of request headers.                                          |
-| `body`       | `code`   | no       | —       | Request body. Used for POST, PUT, PATCH.                                 |
-| `retryLimit` | `number` | no       | `5`     | Max retry attempts. Min: 0.                                              |
-| `timeout`    | `string` | no       | —       | Request timeout (duration format).                                       |
+| Field        | Type     | Required | Default | Description                                                                                                                                                                                                      |
+| ------------ | -------- | -------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `method`     | `select` | yes      | `GET`   | HTTP method: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`.                                                                                                                                         |
+| `url`        | `string` | yes      | —       | Request URL. Must be a valid URL.                                                                                                                                                                                |
+| `headers`    | `json`   | no       | —       | JSON object of request headers.                                                                                                                                                                                  |
+| `body`       | `code`   | no       | —       | Request body as a JS expression. Used for POST, PUT, PATCH. A single object or array literal (`{ id: 1 }`) is sent as JSON with `Content-Type: application/json`; anything else is passed to `fetch` as written. |
+| `retryLimit` | `number` | no       | `5`     | Max retry attempts. Min: 0.                                                                                                                                                                                      |
+| `timeout`    | `string` | no       | —       | Request timeout (duration format).                                                                                                                                                                               |
 
 **Output:**
 

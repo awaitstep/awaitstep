@@ -266,6 +266,8 @@ const api_call = await step.do('API Call', async () => {
 })
 ```
 
+The Body is a JavaScript expression and is passed to `fetch` as written. The one exception is a Body that is a single object or array literal, such as `{ key: 'value' }`: it is wrapped in `JSON.stringify(...)`, and `Content-Type: application/json` is added unless the node already sets a `Content-Type` header. Any other value that should go as JSON, such as a variable holding an object, still needs `JSON.stringify(...)`.
+
 **Wait for Event** — Pauses until an external event arrives:
 
 ```typescript
