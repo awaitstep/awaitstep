@@ -1,0 +1,14 @@
+---
+# tag:       new | improved | fixed
+# date:      an instant with a zone, e.g. 2026-11-01T12:00:00.000Z (notes with the same date sort by file name)
+# link:      an org page (projects, resources, audit, connections, api-keys, inbox, whats-new)
+#            or settings/general, settings/members
+# The file name (without .md) is the note's id: never rename it once shipped.
+# Only the newest 20 notes are bundled. No quotes around values, no # comments after a value.
+tag: new
+date: 2026-11-01T12:00:00.000Z
+title: Short title people would recognise
+link: projects
+linkLabel: See your projects
+---
+One or two plain sentences on what changed for the person using the dashboard, not the commit log. No Markdown.
