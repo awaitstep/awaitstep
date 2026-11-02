@@ -7,6 +7,7 @@ const create = vi.hoisted(() => ({
   mutate: vi.fn(),
   reset: vi.fn(),
   isPending: false,
+  isSuccess: false,
   error: null as Error | null,
 }))
 const goTo = vi.hoisted(() => vi.fn())
@@ -18,6 +19,8 @@ afterEach(() => {
   create.mutate.mockReset()
   create.reset.mockReset()
   create.error = null
+  create.isPending = false
+  create.isSuccess = false
   goTo.mockReset()
 })
 
@@ -52,5 +55,16 @@ describe('CreateOrgDialog', () => {
     await userEvent.type(screen.getByRole('textbox', { name: /Organization name/ }), '!!')
     expect(create.reset).toHaveBeenCalled()
     expect(screen.getByRole('button', { name: 'Create organization' })).toBeDisabled()
+  })
+
+  it('keeps the button loading after the request succeeds, until the redirect lands', async () => {
+    create.isSuccess = true
+    renderDialog()
+    await userEvent.type(screen.getByRole('textbox', { name: /Organization name/ }), 'Globex')
+    const button = screen.getByRole('button', { name: 'Create organization' })
+    expect(button).toBeDisabled()
+    expect(button).toHaveAttribute('aria-busy', 'true')
+    await userEvent.type(screen.getByRole('textbox', { name: /Organization name/ }), '{Enter}')
+    expect(create.mutate).not.toHaveBeenCalled()
   })
 })

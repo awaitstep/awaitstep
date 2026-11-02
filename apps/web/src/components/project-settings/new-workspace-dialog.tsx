@@ -50,6 +50,7 @@ export function NewWorkspaceDialog({
   const [colour, setColour] = useState<WorkspaceColour>('green')
   const [access, setAccess] = useState<Access>('admins')
   const [picked, setPicked] = useState<Person[]>([])
+  const redirecting = create.isPending || create.isSuccess
   const shownName = name.trim() || 'the workspace'
 
   const options: RadioCardOption<Access>[] = [
@@ -79,6 +80,7 @@ export function NewWorkspaceDialog({
 
   function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
+    if (redirecting) return
     create.mutate(
       {
         name,
@@ -154,7 +156,7 @@ export function NewWorkspaceDialog({
           <Button type="button" variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
-          <Button type="submit" form={formId} disabled={create.isPending}>
+          <Button type="submit" form={formId} loading={redirecting}>
             Create workspace
           </Button>
         </>

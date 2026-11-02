@@ -26,11 +26,12 @@ export function CreateOrgDialog({ open, onOpenChange }: CreateOrgDialogProps) {
   const goTo = useGoTo()
   const [name, setName] = useState('')
   const slug = slugify(name, '')
+  const redirecting = createOrg.isPending || createOrg.isSuccess
   const reserved = slug !== '' && isReservedSlug('org', slug)
 
   function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
-    if (reserved) return
+    if (reserved || redirecting) return
     createOrg.mutate(name, { onSuccess: (org) => goTo(orgPath(org.slug)) })
   }
 
@@ -64,7 +65,7 @@ export function CreateOrgDialog({ open, onOpenChange }: CreateOrgDialogProps) {
           <Button type="button" variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
-          <Button type="submit" form={formId} disabled={createOrg.isPending || !slug || reserved}>
+          <Button type="submit" form={formId} loading={redirecting} disabled={!slug || reserved}>
             Create organization
           </Button>
         </>
