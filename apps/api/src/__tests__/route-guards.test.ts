@@ -27,8 +27,10 @@ const READ_SCOPE_BY_DESIGN = new Map([
   ['POST /api/connections/verify-token', 'asks Cloudflare whether a token is valid'],
 ])
 
-// better-auth owns its namespace and its own session rules; the health check answers everyone.
-const OUT_OF_SCOPE = (path: string) => path.startsWith('/api/auth/') || path === '/api/health'
+// better-auth owns its namespace and its own session rules; the health check
+// answers everyone, and an uploaded image anyone holding its unguessable id.
+const OUT_OF_SCOPE = (path: string) =>
+  path.startsWith('/api/auth/') || path === '/api/health' || path.startsWith('/api/images/')
 
 const READ_KEY = 'ask_route-guards-read'
 const ORG_KEY = 'ask_route-guards-org'
@@ -44,7 +46,9 @@ function sessionOnly(method: string, path: string): boolean {
   if (/^\/api\/(notifications|releases)/.test(path)) return true
   // Your account: the person's own rows (B10).
   if (/^\/api\/account(\/|$)/.test(path)) return true
-  if (path === '/api/scope' || path === '/api/orgs' || path === '/api/failing') return true
+  if (path === '/api/scope' || path === '/api/failing') return true
+  // The org list, and an org's logo: set from the dashboard only.
+  if (/^\/api\/orgs(\/|$)/.test(path)) return true
   if (/^\/api\/workspaces\/:id\/access-request/.test(path)) return true
   if (/^\/api\/workspaces\/:id\/members/.test(path)) return method !== 'GET'
   // Adding people from a project or workspace answers for a person, like its members' writes.
@@ -242,6 +246,7 @@ describe('mutation route guards', () => {
       !path.startsWith('/api/notifications') &&
       !path.startsWith('/api/releases') &&
       !path.startsWith('/api/account') &&
+      !path.startsWith('/api/orgs/') &&
       !path.startsWith('/api/projects/:id/move') &&
       !path.startsWith('/api/projects/:id/lock') &&
       !path.startsWith('/api/projects/:id/members') &&

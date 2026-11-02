@@ -8,3 +8,6 @@ packages/email/src/templates/__generated__
 CHANGELOG.md
 .github/dependabot.yml
 .claude/worktrees
+# Image test fixtures are raw bytes, kept as written
+packages/storage/src/__tests__/fixtures
+apps/api/src/__tests__/fixtures/images

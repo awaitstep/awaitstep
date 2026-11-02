@@ -30,7 +30,6 @@ import { requireScope } from './resolve'
 // of whoever the dummy session is. The dummy instance turns on GitHub, Google
 // and email links, as the board draws; the API source asks better-auth (B10).
 
-const PHOTO_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
 /** The stored photo, as the API keeps it; the picker shrinks a pick first. */
 const PHOTO_MAX_STORED = 512 * 1024
 const PROVIDERS = { github: true, google: true, emailLink: true }
@@ -75,18 +74,23 @@ export const getAccount = endpoint((ctx): Account => {
   }
 })
 
-/** Save changes (the name) and Upload photo: both show wherever the person does. */
-export const updateProfile = mutation((ctx, update: ProfileUpdate): void => {
+/** Save changes: the name shows wherever the person does. */
+export const updateProfile = mutation((ctx, update: Pick<ProfileUpdate, 'name'>): void => {
   const db = getDb()
   const person = personById(db, ctx.userId)
   const name = update.name?.trim()
   if (name === '') throw invalidError('Your name can’t be empty', 'name')
-  if (update.image) assertImage(update.image, PHOTO_TYPES, 'image', PHOTO_MAX_STORED)
   if (name) {
     person.name = name
     person.initials = initialsOf(name)
   }
-  if (update.image !== undefined) person.image = update.image
+})
+
+/** Upload photo (a data URL of the picked blob), or null to remove it. */
+export const setPhoto = mutation((ctx, image: string | null): void => {
+  const person = personById(getDb(), ctx.userId)
+  if (image) assertImage(image, 'image', PHOTO_MAX_STORED)
+  person.image = image
 })
 
 /** Leave an organization: your project and workspace roles in it go too. */

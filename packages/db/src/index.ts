@@ -142,6 +142,11 @@ export type {
   TestSessionExpiry,
   ReserveTestSessionData,
   ReserveTestSessionLimits,
+  ImageInsert,
+  ImageOwner,
+  ImageOwnerKind,
+  InlineImageRow,
+  ServableImage,
 } from './types.js'
 export type {
   DatabaseAdapter,

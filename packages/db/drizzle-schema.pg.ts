@@ -8,6 +8,7 @@ import {
   uniqueIndex,
   check,
   primaryKey,
+  customType,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
@@ -761,3 +762,29 @@ export const releaseVisits = pgTable('release_visits', {
   // The notes that visit showed (ids, as JSON): later ones are new to them.
   seenIds: text('seen_ids').notNull().default('[]'),
 })
+
+const bytea = customType<{ data: Uint8Array; driverData: Uint8Array }>({
+  dataType: () => 'bytea',
+})
+
+// Uploaded photos and logos: whose each is; `data` only for the database store.
+export const images = pgTable(
+  'image',
+  {
+    id: text('id').primaryKey(),
+    ownerKind: text('owner_kind', { enum: ['user', 'org'] }).notNull(),
+    ownerId: text('owner_id').notNull(),
+    contentType: text('content_type').notNull(),
+    bytesLen: integer('bytes_len').notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    createdAt: timestamp('created_at', { mode: 'string' }).notNull(),
+    data: bytea('data'),
+    // Set once the row is claimed for deletion: no owner may point at it after.
+    discardedAt: timestamp('discarded_at', { mode: 'string' }),
+  },
+  (table) => [
+    index('idx_image_owner').on(table.ownerKind, table.ownerId),
+    index('idx_image_created').on(table.createdAt),
+  ],
+)

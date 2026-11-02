@@ -13,11 +13,32 @@ services:
       BETTER_AUTH_SECRET: '${BETTER_AUTH_SECRET}'
       BETTER_AUTH_URL: '${BETTER_AUTH_URL:-http://localhost:8080}'
       # DATABASE_URL: "postgres://user:pass@host:5432/awaitstep"
+      # Photos and logos in a bucket instead of the database (see the minio service below):
+      # IMAGE_STORE: "s3"
+      # S3_ENDPOINT: "http://minio:9000"
+      # S3_BUCKET: "awaitstep"
+      # S3_ACCESS_KEY_ID: "${S3_ACCESS_KEY_ID}"
+      # S3_SECRET_ACCESS_KEY: "${S3_SECRET_ACCESS_KEY}"
       # GITHUB_CLIENT_ID: ""
       # GITHUB_CLIENT_SECRET: ""
       # GOOGLE_CLIENT_ID: ""
       # GOOGLE_CLIENT_SECRET: ""
 
+  # Optional: an S3-compatible bucket for photos and logos. Uncomment with the
+  # S3_* lines above. In the console (:9001), create the `awaitstep` bucket and
+  # an access key limited to it; that key, not the root user, goes in S3_*.
+  # Pin the image to a RELEASE.* tag rather than latest.
+  # minio:
+  #   image: minio/minio:latest
+  #   restart: unless-stopped
+  #   command: server /data --console-address ':9001'
+  #   environment:
+  #     MINIO_ROOT_USER: "${MINIO_ROOT_USER}"
+  #     MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD}"
+  #   volumes:
+  #     - minio-data:/data
+
 volumes:
   awaitstep-data:
     driver: local
+  # minio-data:

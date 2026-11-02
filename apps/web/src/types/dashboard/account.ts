@@ -39,8 +39,8 @@ export interface Account {
 
 export interface ProfileUpdate {
   name?: string
-  /** An uploaded photo (data URL), or null for the initials. */
-  image?: string | null
+  /** A picked photo to upload (`readPhoto`), or null for the initials. */
+  image?: Blob | null
 }
 
 /** Sessions and sign-in → Sign-in methods. */

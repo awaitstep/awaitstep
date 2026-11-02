@@ -14,6 +14,8 @@ import { toAccount, toSignInMethods } from './api/account'
 import { authError, needsFreshSignIn } from './errors'
 import { dashKeys, invalidateAll } from './keys'
 import { useMockContext } from './scenario-context'
+import type { MockContext } from '../../mocks/dashboard/scenario'
+import { readAsDataUrl } from '../../lib/read-file'
 import { useDashKey, useDataSource } from './source'
 
 // Your account: the dummy data, or the API (B10). Name, photo, providers and
@@ -54,18 +56,30 @@ export function useUpdateProfile() {
   return useMutation({
     meta: { toast: { success: 'Profile saved', error: 'Couldn’t save your profile' } },
     mutationFn: async (update: ProfileUpdate) => {
-      if (source !== 'api') return mockServer.account.updateProfile(ctx, update)
-      const res = await authClient.updateUser({
-        ...(update.name !== undefined && { name: update.name }),
-        ...(update.image !== undefined && { image: update.image }),
-      })
-      if (res.error) {
-        throw authError(res.error, 'Could not save your profile', update.name ? 'name' : 'image')
+      if (source !== 'api') return updateMockProfile(ctx, update)
+      try {
+        if (update.name !== undefined) {
+          const res = await authClient.updateUser({ name: update.name })
+          if (res.error) throw authError(res.error, 'Could not save your profile', 'name')
+        }
+        if (update.image) await dashboardApi.uploadPhoto(update.image)
+        else if (update.image === null) await dashboardApi.removePhoto()
+      } finally {
+        // A name saved before a refused photo still shows. A failed re-read
+        // never hides the save's own answer.
+        await refreshSession().catch(() => {})
       }
-      await refreshSession()
     },
-    onSuccess: () => invalidateAll(client, [EVERYTHING]),
+    // Settled, not succeeded: a step may have landed before another failed.
+    onSettled: () => invalidateAll(client, [EVERYTHING]),
   })
+}
+
+async function updateMockProfile(ctx: MockContext, update: ProfileUpdate): Promise<void> {
+  if (update.name !== undefined) await mockServer.account.updateProfile(ctx, { name: update.name })
+  if (update.image !== undefined) {
+    await mockServer.account.setPhoto(ctx, update.image && (await readAsDataUrl(update.image)))
+  }
 }
 
 /**

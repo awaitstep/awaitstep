@@ -3,7 +3,7 @@ import { Check } from 'lucide-react'
 import { stripUnsafeText } from '@awaitstep/ir'
 import { useUpdateProfile } from '../../data/dashboard/account'
 import { errorFieldOf } from '../../data/dashboard/errors'
-import { readPhotoAsDataUrl } from '../../lib/read-file'
+import { readPhoto } from '../../lib/read-file'
 import type { Account } from '../../types/dashboard/account'
 import { PersonAvatar } from '../ui/avatar-stack'
 import { Badge } from '../ui/badge'
@@ -99,7 +99,7 @@ function PhotoRow({ account }: { account: Account }) {
     setPickError(null)
     setReading(true)
     try {
-      savePhoto.mutate({ image: await readPhotoAsDataUrl(file) })
+      savePhoto.mutate({ image: await readPhoto(file) })
     } catch (failure) {
       setPickError(failure instanceof Error ? failure.message : 'We couldn’t read that file')
     } finally {

@@ -1,24 +1,103 @@
-/** The largest logo or photo the dashboard keeps (inline, as a data URL). */
-export const IMAGE_MAX_BYTES = 200 * 1024
-export const IMAGE_TOO_LARGE = 'Pick an image under 200 KB'
+// A picked logo or photo, made ready to upload: the API stores PNG, JPEG,
+// WebP or GIF bytes only, sent as the request body. A photo is shrunk to
+// WebP first; an SVG logo is drawn to a PNG, because an SVG on our own
+// domain could run its scripts when opened directly.
 
-/** A picked file as a data URL, for an uploaded logo or photo kept in the dummy data. */
-export function readAsDataUrl(file: File): Promise<string> {
+/** The image types the API stores. */
+export const STORED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
+
+/** The largest logo the API keeps. */
+export const LOGO_MAX_BYTES = 200 * 1024
+export const LOGO_TOO_LARGE = 'Pick an image under 200 KB'
+export const LOGO_WRONG_TYPE = 'Pick a PNG, JPG, SVG or WebP image'
+
+/** The longest side of a logo drawn from an SVG, in pixels. */
+export const LOGO_SIZE_PX = 256
+
+/** A file or blob as a data URL: the preview shown before it is uploaded. */
+export function readAsDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(String(reader.result))
     reader.onerror = () => reject(reader.error)
-    reader.readAsDataURL(file)
+    reader.readAsDataURL(blob)
   })
 }
 
+function canDraw(): boolean {
+  return typeof document !== 'undefined'
+}
+
+/** The canvas's pixels as `type`, or null where the browser can't encode them. */
+function canvasBlob(
+  canvas: HTMLCanvasElement,
+  type: string,
+  quality?: number,
+): Promise<Blob | null> {
+  return new Promise((resolve) => canvas.toBlob(resolve, type, quality))
+}
+
+/** A canvas `width` × `height` with `draw` on it, or null without a 2D context. */
+function drawn(
+  width: number,
+  height: number,
+  draw: (context: CanvasRenderingContext2D) => void,
+): HTMLCanvasElement | null {
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(width))
+  canvas.height = Math.max(1, Math.round(height))
+  const context = canvas.getContext('2d')
+  if (!context) return null
+  draw(context)
+  return canvas
+}
+
+/** An SVG file as an `<img>`, loaded from a blob: URL that is released once it has loaded. */
+function loadSvg(file: Blob): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const image = new Image()
+    image.onload = () => {
+      URL.revokeObjectURL(url)
+      resolve(image)
+    }
+    image.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('We couldn’t read that SVG'))
+    }
+    image.src = url
+  })
+}
+
+/** An SVG drawn at most `LOGO_SIZE_PX` on its longest side, as a PNG. */
+export async function svgToPng(file: Blob): Promise<Blob> {
+  if (!canDraw()) throw new Error('This browser can’t convert an SVG')
+  const image = await loadSvg(file)
+  // An SVG without its own size draws as a square.
+  const width = image.naturalWidth || LOGO_SIZE_PX
+  const height = image.naturalHeight || LOGO_SIZE_PX
+  const scale = LOGO_SIZE_PX / Math.max(width, height)
+  const canvas = drawn(width * scale, height * scale, (context) =>
+    context.drawImage(image, 0, 0, width * scale, height * scale),
+  )
+  // A browser that taints the canvas for this SVG refuses to export it.
+  const png = canvas && (await canvasBlob(canvas, 'image/png').catch(() => null))
+  if (!png) throw new Error('This browser can’t convert that SVG. Pick a PNG instead.')
+  return png
+}
+
 /**
- * A picked logo or photo as a data URL. Refuses one over `IMAGE_MAX_BYTES`
- * before reading it, so a large file is never encoded only to be turned away.
+ * A picked logo, ready to upload: an SVG drawn to a PNG, any other type
+ * the API stores kept as it is if it fits.
  */
-export function readImageAsDataUrl(file: File): Promise<string> {
-  if (file.size > IMAGE_MAX_BYTES) return Promise.reject(new Error(IMAGE_TOO_LARGE))
-  return readAsDataUrl(file)
+export async function readLogo(file: File): Promise<Blob> {
+  if (!STORED_IMAGE_TYPES.includes(file.type) && file.type !== 'image/svg+xml') {
+    throw new Error(LOGO_WRONG_TYPE)
+  }
+  // A detailed SVG can draw to a PNG over the limit, so the result is checked too.
+  const logo = file.type === 'image/svg+xml' ? await svgToPng(file) : file
+  if (logo.size > LOGO_MAX_BYTES) throw new Error(LOGO_TOO_LARGE)
+  return logo
 }
 
 /** The largest photo a person can pick; it is shrunk before it is saved. */
@@ -28,13 +107,18 @@ export const PHOTO_TOO_LARGE = 'Pick an image under 2 MB'
 /** The longest side of a saved profile photo, in pixels. */
 export const PHOTO_SIZE_PX = 256
 
+/** The largest photo stored (as the API keeps it); a pick the browser can't shrink must fit as it is. */
+export const PHOTO_STORED_MAX_BYTES = 512 * 1024
+export const PHOTO_UNSHRUNK_TOO_LARGE =
+  'This browser can’t shrink that image. Pick one under 512 KB, or a PNG or JPEG.'
+
 /**
- * The image drawn at most `size` px on its longest side, as a WebP data URL:
- * the photo rides along with every session read, so it is kept small. Null
- * where the browser can't decode or draw it (the original is used then).
+ * The image drawn at most `size` px on its longest side, as WebP (or PNG
+ * where the browser has no WebP encoder). Null where the browser can't
+ * decode or draw it.
  */
-async function shrinkImage(file: File, size: number): Promise<string | null> {
-  if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') return null
+async function shrinkImage(file: File, size: number): Promise<Blob | null> {
+  if (typeof createImageBitmap !== 'function' || !canDraw()) return null
   let bitmap: ImageBitmap
   try {
     bitmap = await createImageBitmap(file)
@@ -42,32 +126,26 @@ async function shrinkImage(file: File, size: number): Promise<string | null> {
     return null
   }
   const scale = Math.min(1, size / Math.max(bitmap.width, bitmap.height))
-  const canvas = document.createElement('canvas')
-  canvas.width = Math.max(1, Math.round(bitmap.width * scale))
-  canvas.height = Math.max(1, Math.round(bitmap.height * scale))
-  const context = canvas.getContext('2d')
-  if (!context) return null
-  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+  const canvas = drawn(bitmap.width * scale, bitmap.height * scale, (context) =>
+    context.drawImage(bitmap, 0, 0, bitmap.width * scale, bitmap.height * scale),
+  )
   bitmap.close()
-  const url = canvas.toDataURL('image/webp', 0.9)
-  // A browser without WebP encoding answers PNG, which is still an image.
-  return url.startsWith('data:image/') ? url : null
+  const blob = canvas && (await canvasBlob(canvas, 'image/webp', 0.9))
+  return blob && STORED_IMAGE_TYPES.includes(blob.type) ? blob : null
 }
 
-/** The largest photo stored (as the API keeps it); a pick the browser can't shrink must fit as it is. */
-export const PHOTO_STORED_MAX_BYTES = 512 * 1024
-export const PHOTO_UNSHRUNK_TOO_LARGE =
-  'This browser can’t shrink that image. Pick one under 512 KB, or a PNG or JPEG.'
-
 /**
- * A picked profile photo as a data URL: refused over `PHOTO_MAX_BYTES`
- * before reading, then shrunk to `PHOTO_SIZE_PX` so what is stored is small.
- * Where it can't be shrunk, it is kept as it is only if it fits.
+ * A picked profile photo, ready to upload: refused over `PHOTO_MAX_BYTES`
+ * before reading, then shrunk to `PHOTO_SIZE_PX` so what is stored is
+ * small. Where it can't be shrunk, it is kept as it is only if the API
+ * stores its type and it fits.
  */
-export async function readPhotoAsDataUrl(file: File): Promise<string> {
+export async function readPhoto(file: File): Promise<Blob> {
   if (file.size > PHOTO_MAX_BYTES) throw new Error(PHOTO_TOO_LARGE)
   const shrunk = await shrinkImage(file, PHOTO_SIZE_PX)
   if (shrunk) return shrunk
-  if (file.size > PHOTO_STORED_MAX_BYTES) throw new Error(PHOTO_UNSHRUNK_TOO_LARGE)
-  return readAsDataUrl(file)
+  if (file.size > PHOTO_STORED_MAX_BYTES || !STORED_IMAGE_TYPES.includes(file.type)) {
+    throw new Error(PHOTO_UNSHRUNK_TOO_LARGE)
+  }
+  return file
 }

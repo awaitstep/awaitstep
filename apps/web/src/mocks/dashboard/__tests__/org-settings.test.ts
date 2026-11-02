@@ -143,12 +143,9 @@ describe('connections', () => {
 })
 
 describe('the org itself', () => {
-  it('renames, moves its URL and takes a logo', async () => {
-    const updated = await org.updateOrg(ama, 'acme', {
-      name: 'Acme Corp',
-      slug: 'acme-corp',
-      logo: 'data:image/png;base64,AAAA',
-    })
+  it('takes a logo, renames and moves its URL', async () => {
+    await org.setLogo(ama, 'acme', 'data:image/png;base64,AAAA')
+    const updated = await org.updateOrg(ama, 'acme', { name: 'Acme Corp', slug: 'acme-corp' })
     expect(updated).toMatchObject({
       name: 'Acme Corp',
       slug: 'acme-corp',
@@ -165,7 +162,7 @@ describe('the org itself', () => {
 
   it('refuses a logo over 200 KB', async () => {
     const big = `data:image/png;base64,${'A'.repeat(300 * 1024)}`
-    await expect(org.updateOrg(ama, 'acme', { logo: big })).rejects.toMatchObject({ field: 'logo' })
+    await expect(org.setLogo(ama, 'acme', big)).rejects.toMatchObject({ field: 'logo' })
   })
 
   it('deletes only an empty org, and only for owners', async () => {

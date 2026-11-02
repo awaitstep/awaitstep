@@ -1,0 +1,28 @@
+{
+  "name": "@awaitstep/storage",
+  "version": "1.4.14",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run --passWithNoTests",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src/"
+  },
+  "devDependencies": {
+    "@awaitstep/tsconfig": "workspace:*",
+    "tsup": "8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "aws4fetch": "1.0.20"
+  }
+}

@@ -10,15 +10,19 @@ import {
   type SignInMethod,
 } from '@awaitstep/ir'
 import type { AccountSessionRow } from '@awaitstep/db'
+import { PHOTO_RULE } from '@awaitstep/storage'
 import type { AppEnv } from '../types.js'
 import { parseOrgRole } from '../lib/org-role.js'
 import { recordAudit, recordPersonAudit } from '../lib/audit.js'
+import { imageBodyLimit, readImageUpload } from '../lib/image-upload.js'
+import { IMAGE_RACE, clearOwnerImage, saveOwnerImage } from '../lib/images.js'
 
 // Your account (B10): the person's own rows, the same in every organization.
 // Session only (the router's requireSessionAuth); no organization in the
-// address. Name and photo go through better-auth's update-user, providers
+// address. The name goes through better-auth's update-user, providers
 // through its link/unlink, deletion through its delete-user — each guarded
-// in auth/config.ts.
+// in auth/config.ts. The photo is uploaded here (`PUT /photo`): the hook
+// refuses one through update-user.
 
 const KEEP_AN_OWNER = 'Make someone else an owner first'
 
@@ -137,4 +141,26 @@ account.post('/export', async (c) => {
     sessions: row.sessions.map(sessionOf),
     memberships: row.memberships.map((m) => ({ ...m, role: parseOrgRole(m.role) })),
   })
+})
+
+/** Uploads the profile photo: the image as the body. Answers its path. */
+account.put('/photo', imageBodyLimit(PHOTO_RULE, 'image'), async (c) => {
+  const upload = await readImageUpload(c, PHOTO_RULE)
+  if ('problem' in upload) return c.json({ error: upload.problem, field: 'image' }, 400)
+  const owner = { kind: 'user' as const, id: c.get('userId') }
+  const image = await saveOwnerImage(
+    c.get('db'),
+    c.get('imageStore'),
+    owner,
+    upload.bytes,
+    upload.info,
+  )
+  if (!image) return c.json({ error: IMAGE_RACE }, 409)
+  return c.json({ image })
+})
+
+/** Removes the profile photo: the initials show instead. */
+account.delete('/photo', async (c) => {
+  await clearOwnerImage(c.get('db'), c.get('imageStore'), { kind: 'user', id: c.get('userId') })
+  return c.json({ image: null })
 })

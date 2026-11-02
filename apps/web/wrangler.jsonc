@@ -22,6 +22,7 @@
   //   CF_WEB_CUSTOM_DOMAIN     → routes[0]  (custom_domain: true)
   //   CF_WEB_ROUTE             → routes[0]  (pattern + zone_name)
   //   CF_WEB_ROUTE_ZONE        → routes[0].zone_name  (used with CF_WEB_ROUTE)
+  //   CF_REGISTRY_URL          → vars.REGISTRY_URL  (optional; node icons from that host may load)
 
   // ── Auto-derived from API Worker secrets ──
   //

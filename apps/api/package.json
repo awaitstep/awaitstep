@@ -32,6 +32,7 @@
     "@awaitstep/email": "workspace:*",
     "@awaitstep/ir": "workspace:*",
     "@awaitstep/provider-cloudflare": "workspace:*",
+    "@awaitstep/storage": "workspace:*",
     "@cloudflare/sandbox": "^0.12.7",
     "@hono/node-server": "^1.19.17",
     "@hono/zod-validator": "^0.9.1",

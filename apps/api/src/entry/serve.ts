@@ -12,6 +12,8 @@ import { createApp, createAuth } from '../index.js'
 import { accountProvidersOf, type AuthOptions } from '../auth/config.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
 import { createLogger } from '../lib/logger.js'
+import { imageStoreFromEnv } from '../lib/image-store-env.js'
+import { discardOwnerImages } from '../lib/images.js'
 import {
   clientIpPolicyFromEnv,
   compileClientIpPolicy,
@@ -22,6 +24,7 @@ import {
 import { loadNodeRegistry } from '../lib/node-registry-fs.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
 import { ACCESS_REASONS, deleteBlockedReason } from '@awaitstep/ir'
+import { DEFAULT_REGISTRY_URL, dashboardImgSrc } from '@awaitstep/storage'
 import { createAppEmails, createEmailService, type EmailService } from '../lib/email.js'
 import { startRunSyncLoop } from '../lib/run-sync.js'
 import {
@@ -32,8 +35,6 @@ import {
 import { abandonStaleNodeSessions, startTestSessionReaper } from '../lib/test-sessions.js'
 import { resolveTestSessionLimits } from '../lib/test-session-policy.js'
 import { testSessionLimitsFromEnv } from '../lib/test-session-env.js'
-
-const DEFAULT_REGISTRY_URL = 'https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry'
 
 const __appRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 
@@ -82,6 +83,8 @@ async function start() {
   }
   const tokenCrypto = await createTokenCrypto(tokenEncryptionKey)
   const db = new DrizzleDatabaseAdapter(drizzleDb, dbSchema, { tokenCrypto })
+  const imageStore = imageStoreFromEnv(process.env, db)
+  logger.info(`Image store: ${imageStore.kind}`)
 
   const authSecret = process.env['BETTER_AUTH_SECRET']
   if (!authSecret) {
@@ -149,6 +152,7 @@ async function start() {
     onOrganizationUpdated: (data) => recordOrganizationUpdate(db, data),
     deleteUserProblem: async (userId) => deleteBlockedReason(await db.soleOwnedOrgNames(userId)),
     onAccountEvent: (event) => recordAccountEvent(db, event),
+    onImageOwnerDeleted: (owner) => discardOwnerImages(db, imageStore, owner),
     // Through drizzle, not the raw handle. Better-auth's own dialects map a
     // field to a column of the same name, and the postgres schema names
     // columns `email_verified`, `expires_at`, `user_id` — so every insert it
@@ -222,6 +226,7 @@ async function start() {
     testSessionRunner: testSessionRunner,
     testSessionLimits: testSessionLimits,
     emails,
+    imageStore,
 
     connectionAddress: (c) => getConnInfo(c).remote.address,
     clientIpPolicy: {
@@ -243,7 +248,7 @@ async function start() {
   // Background reconciliation: run status + per-step telemetry sync off the
   // request path (API run reads are pure DB queries).
   const stopRunSync = startRunSyncLoop(db, 5000, { emails })
-  const stopMaintenance = startMaintenanceLoop(db)
+  const stopMaintenance = startMaintenanceLoop(db, imageStore)
   // Disposable workers cost nothing here, but they still hold ports and
   // directories; the same loop keeps them from outliving their window.
   const stopTestSessionReaper = startTestSessionReaper(
@@ -257,6 +262,16 @@ async function start() {
 
   const webApp = new Hono()
   const webClientDir = resolve(__appRoot, 'apps/web/dist/client')
+
+  // Images load only from here, the GitHub and Google avatar hosts and the
+  // node registry (its icons).
+  const imgSrc = dashboardImgSrc(registryUrl)
+  webApp.use('*', async (c, next) => {
+    await next()
+    // A copy: the SSR server's response may hold immutable headers.
+    c.res = new Response(c.res.body, c.res)
+    c.res.headers.set('Content-Security-Policy', imgSrc)
+  })
 
   // Static assets (JS/CSS bundles, favicon, logo, etc.)
   webApp.use('/*', serveStatic({ root: webClientDir }))

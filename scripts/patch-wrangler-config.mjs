@@ -158,6 +158,13 @@ function patchWebConfig(apiWorkerName) {
     config.vars.API_URL = apiUrl
   }
 
+  // The API's node registry: the web's image policy lets its icons load.
+  const webRegistryUrl = env('CF_REGISTRY_URL')
+  if (webRegistryUrl) {
+    config.vars = config.vars || {}
+    config.vars.REGISTRY_URL = webRegistryUrl
+  }
+
   // API service binding name (must match the API worker name)
   if (apiWorkerName && config.services?.[0]) {
     config.services[0].service = apiWorkerName

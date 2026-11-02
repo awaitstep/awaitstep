@@ -110,6 +110,10 @@ import type {
   NotifiedRecipient,
   ReleaseVisitRow,
   FailureCount,
+  ImageInsert,
+  ImageOwner,
+  InlineImageRow,
+  ServableImage,
 } from './types.js'
 import type { PaginationParams, PaginatedResult } from './pagination.js'
 
@@ -977,4 +981,43 @@ export interface DatabaseAdapter {
     nodeId: string,
     data: { version: string; bundle: string },
   ): Promise<InstalledNode>
+
+  // Uploaded images: photos and logos (the `image` table)
+  insertImage(row: ImageInsert): Promise<void>
+  /** Several rows as one unit. */
+  insertImages(rows: ImageInsert[]): Promise<void>
+  /** The database store's write and read of a row's bytes. */
+  setImageData(id: string, data: Uint8Array): Promise<void>
+  getImageData(id: string): Promise<Uint8Array | null>
+  /** The image to serve, while its owner's column still names it; null otherwise. */
+  getImage(id: string): Promise<ServableImage | null>
+  /**
+   * Points the owner's column at the image, as one unit with listing the
+   * owner's other stored images (the caller deletes them). `set` is false
+   * when the owner or the image row is gone, or the row was claimed.
+   */
+  setOwnerImage(owner: ImageOwner, imageId: string): Promise<{ set: boolean; others: string[] }>
+  /** Clears the owner's column; every image the owner had stored, for the caller to delete. */
+  clearOwnerImage(owner: ImageOwner): Promise<string[]>
+  listOwnerImages(owner: ImageOwner): Promise<string[]>
+  /** Rows written before `before` that no owner names, oldest first. */
+  listUnreferencedImages(before: string, limit: number): Promise<string[]>
+  /**
+   * Claims rows no owner names for deletion: none can be pointed at after.
+   * The ids claimed, whose bytes the caller deletes before `deleteImages`.
+   */
+  claimImages(ids: string[], at: string): Promise<string[]>
+  /** Deletes claimed rows. */
+  deleteImages(ids: string[]): Promise<void>
+  /** Which of these ids still have a row. */
+  existingImages(ids: string[]): Promise<string[]>
+  /** Photos and logos still held inline as `data:` URLs. */
+  listInlineImages(limit: number): Promise<InlineImageRow[]>
+  /** Points moved owners at their new images and clears the rest, where they still hold `data:`. */
+  replaceInlineImages(
+    moved: { owner: ImageOwner; imageId: string }[],
+    cleared: ImageOwner[],
+  ): Promise<void>
+  /** Clears photos and logos that are neither stored, inline, nor a provider avatar. */
+  clearRemoteImages(): Promise<void>
 }

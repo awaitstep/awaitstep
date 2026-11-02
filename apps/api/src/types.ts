@@ -2,6 +2,7 @@ import type { DatabaseAdapter, Workflow, Connection, WorkspaceChip } from '@awai
 import type { Budget } from './middleware/rate-limit.js'
 import type { WranglerDeployer } from '@awaitstep/provider-cloudflare'
 import type { TestSessionRunner } from '@awaitstep/codegen'
+import type { ImageStore } from '@awaitstep/storage'
 import type { TestSessionLimits } from './lib/test-session-policy.js'
 import type { AppNodeRegistry } from './lib/node-registry.js'
 import type { RemoteNodeRegistry } from './lib/remote-node-registry.js'
@@ -138,6 +139,8 @@ export interface AppEnv {
     testSessionRunner: TestSessionRunner | undefined
     testSessionLimits: TestSessionLimits
     emails: AppEmails | undefined
+    /** Where uploaded photos' and logos' bytes live, as the entry point chose. */
+    imageStore: ImageStore
     /** The caller's invitation-email budget (set on the invitation routes). */
     emailBudget: Budget | undefined
   }

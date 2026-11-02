@@ -39,6 +39,21 @@ services:
     volumes:
       - awaitstep-data:/app/data
 
+  # Optional: keep photos and logos in a MinIO bucket instead of the
+  # database. Uncomment, then in the MinIO console (port 9001) create the
+  # `awaitstep` bucket and an access key limited to it; put that key (not
+  # the root user) in .env as S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY, with
+  # IMAGE_STORE=s3. Pin the image to a RELEASE.* tag rather than latest.
+  # minio:
+  #   image: minio/minio:latest
+  #   restart: unless-stopped
+  #   command: server /data --console-address ':9001'
+  #   environment:
+  #     MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+  #     MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+  #   volumes:
+  #     - minio-data:/data
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
@@ -72,6 +87,7 @@ configs:
 
 volumes:
   awaitstep-data:
+  # minio-data:
 ```
 
 Caddy routes `/api/*` to the API server and everything else to the web UI.
@@ -93,6 +109,15 @@ BETTER_AUTH_URL=http://localhost:8080
 # Database (SQLite default)
 # PostgreSQL (uncomment and fill in to use)
 # DATABASE_URL=postgresql://user:password@host:5432/awaitstep
+
+# Photos and logos: the database keeps them (default). With the MinIO service:
+# MINIO_ROOT_USER=minio-admin
+# MINIO_ROOT_PASSWORD=a-long-random-password
+# IMAGE_STORE=s3
+# S3_ENDPOINT=http://minio:9000
+# S3_BUCKET=awaitstep
+# S3_ACCESS_KEY_ID=the-bucket-key-from-the-console
+# S3_SECRET_ACCESS_KEY=its-secret
 
 # Auth — configure at least one
 # GITHUB_CLIENT_ID=

@@ -6,6 +6,8 @@ import { createApp, createAuth } from '../index.js'
 import { accountProvidersOf, type AuthOptions } from '../auth/config.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
 import { createLogger } from '../lib/logger.js'
+import { imageStoreFromEnv } from '../lib/image-store-env.js'
+import { discardOwnerImages } from '../lib/images.js'
 import { buildNodeRegistry, type RegistryFile } from '../lib/node-registry.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
 import { ACCESS_REASONS, deleteBlockedReason } from '@awaitstep/ir'
@@ -45,6 +47,23 @@ export interface Env {
   REGISTRY_URL?: string
   SANDBOX_DEPLOY_TIMEOUT?: string
   SANDBOX_SLEEP_AFTER?: string
+  /**
+   * `s3` keeps uploaded photos and logos in R2 through its S3 API (the
+   * cloud's setting); unset, D1 keeps them in the image rows.
+   */
+  IMAGE_STORE?: string
+  /** `https://<account-id>.r2.cloudflarestorage.com` for R2. */
+  S3_ENDPOINT?: string
+  S3_BUCKET?: string
+  S3_ACCESS_KEY_ID?: string
+  S3_SECRET_ACCESS_KEY?: string
+  /** `auto` for R2 (the default). */
+  S3_REGION?: string
+}
+
+/** The image store this deployment's settings ask for. */
+function workerImageStore(env: Env, db: ReturnType<typeof createD1DatabaseAdapter>) {
+  return imageStoreFromEnv(env as unknown as Record<string, string | undefined>, db)
 }
 
 let cached: { env: Env; baseURL: string; app: ReturnType<typeof createApp> } | null = null
@@ -97,6 +116,7 @@ async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof cr
   const tokenCrypto = await createTokenCrypto(env.TOKEN_ENCRYPTION_KEY)
   const drizzleDb = createD1DrizzleDb(env.DB)
   const db = createD1DatabaseAdapter(env.DB, { tokenCrypto })
+  const imageStore = workerImageStore(env, db)
 
   const { emails, sendMagicLink } = workerEmails(env, baseURL, logger)
 
@@ -111,6 +131,7 @@ async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof cr
     onOrganizationUpdated: (data) => recordOrganizationUpdate(db, data),
     deleteUserProblem: async (userId) => deleteBlockedReason(await db.soleOwnedOrgNames(userId)),
     onAccountEvent: (event) => recordAccountEvent(db, event),
+    onImageOwnerDeleted: (owner) => discardOwnerImages(db, imageStore, owner),
     database: drizzleAdapter(drizzleDb, { provider: 'sqlite', schema: sqliteSchema }),
     trustedOrigins: [baseURL, ...(env.CORS_ORIGIN ? [env.CORS_ORIGIN] : [])],
     sendMagicLink,
@@ -161,6 +182,7 @@ async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof cr
     testSessionRunner: testSessionRunnerFor(env, sessionSleepAfter),
     testSessionLimits,
     emails,
+    imageStore,
   })
 }
 
@@ -209,7 +231,9 @@ export default {
             : undefined,
         }),
         // The cron runs every minute; the purges and the expiry check need an hour.
-        isTopOfHour(controller.scheduledTime) ? runMaintenance(db) : Promise.resolve(),
+        isTopOfHour(controller.scheduledTime)
+          ? runMaintenance(db, new Date(), workerImageStore(env, db))
+          : Promise.resolve(),
         reapTestSessions({
           db,
           runner: testSessionRunnerFor(env, sleepAfter),
