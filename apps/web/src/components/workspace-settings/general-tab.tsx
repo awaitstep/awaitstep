@@ -140,7 +140,13 @@ export function GeneralTab({ slugs, scope, projectName }: GeneralTabProps) {
     <>
       {!readOnly && (
         <TopBarContent>
-          <Button type="submit" form={FORM_ID} size="sm" disabled={!dirty || update.isPending}>
+          <Button
+            type="submit"
+            form={FORM_ID}
+            size="sm"
+            loading={update.isPending}
+            disabled={!dirty}
+          >
             Save changes
           </Button>
         </TopBarContent>

@@ -28,9 +28,11 @@ export function NewProjectDialog({ open, onOpenChange, org, then }: NewProjectDi
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const slug = slugify(name, '')
+  const redirecting = createProject.isPending || createProject.isSuccess
 
   function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
+    if (redirecting) return
     createProject.mutate(
       { name, description: description || undefined },
       {
@@ -71,7 +73,7 @@ export function NewProjectDialog({ open, onOpenChange, org, then }: NewProjectDi
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="submit" form={formId} disabled={createProject.isPending}>
+          <Button type="submit" form={formId} loading={redirecting}>
             Create project
           </Button>
         </>

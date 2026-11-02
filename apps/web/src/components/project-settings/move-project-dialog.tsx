@@ -47,8 +47,10 @@ export function MoveProjectDialog({ slugs, projectName, onClose }: MoveProjectDi
     move.reset()
   }
 
+  const redirecting = move.isPending || move.isSuccess
+
   function handleMove() {
-    if (!target) return
+    if (!target || redirecting) return
     move.mutate(target, {
       onSuccess: (moved) => goTo(projectPagePath(moved, 'settings')),
     })
@@ -60,7 +62,7 @@ export function MoveProjectDialog({ slugs, projectName, onClose }: MoveProjectDi
       <Button type="button" variant="outline" onClick={onClose}>
         Cancel
       </Button>
-      <Button type="button" onClick={handleMove} disabled={move.isPending}>
+      <Button type="button" onClick={handleMove} loading={redirecting}>
         Move project
       </Button>
     </>

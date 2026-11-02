@@ -86,7 +86,7 @@ export function ConnectCloudflareDialog({ org, onClose }: ConnectCloudflareDialo
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" form={formId} disabled={connect.isPending}>
+          <Button type="submit" form={formId} loading={connect.isPending}>
             {connect.isPending ? 'Checking token…' : 'Check token and connect'}
           </Button>
         </>

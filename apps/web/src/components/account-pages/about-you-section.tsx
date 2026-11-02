@@ -54,7 +54,8 @@ export function AboutYouSection({ account }: { account: Account }) {
           form={FORM_ID}
           size="sm"
           variant={changed ? 'default' : 'outline'}
-          disabled={!canSave || saveName.isPending}
+          loading={saveName.isPending}
+          disabled={!canSave}
         >
           {changed ? 'Save changes' : 'Saved'}
         </Button>
