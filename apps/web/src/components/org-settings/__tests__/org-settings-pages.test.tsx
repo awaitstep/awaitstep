@@ -13,6 +13,7 @@ import { OrgConnectionsPage } from '../org-connections-page'
 import { OrgGeneralPage } from '../org-general-page'
 import { OrgKeysPage } from '../org-keys-page'
 import { OrgMembersPage, type MembersOverlay } from '../org-members-page'
+import { PNG_SIGNATURE } from '../../../lib/__tests__/fixtures/image-bytes'
 
 const goTo = vi.fn()
 vi.mock('../../navigation/router-shell-link', () => ({ useGoTo: () => goTo }))
@@ -69,7 +70,7 @@ describe('org General', () => {
     await screen.findByRole('textbox', { name: /Organization name/ })
     // No logo, nothing to clear: the × isn't there.
     expect(screen.queryByRole('button', { name: 'Remove logo' })).toBeNull()
-    const file = new File(['png'], 'logo.png', { type: 'image/png' })
+    const file = new File([PNG_SIGNATURE], 'logo.png', { type: 'image/png' })
     await userEvent.upload(document.querySelector('input[type="file"]') as HTMLInputElement, file)
     expect(await screen.findByRole('button', { name: 'Remove logo' })).toBeEnabled()
     await userEvent.click(within(topBar()).getByRole('button', { name: 'Save changes' }))

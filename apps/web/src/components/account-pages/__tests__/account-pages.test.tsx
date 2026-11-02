@@ -12,6 +12,7 @@ import {
 } from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
 import { ProfilePage } from '../profile-page'
 import { SessionsPage } from '../sessions-page'
+import { PNG_SIGNATURE } from '../../../lib/__tests__/fixtures/image-bytes'
 
 const goTo = vi.fn()
 vi.mock('../../navigation/router-shell-link', () => ({ useGoTo: () => goTo }))
@@ -65,7 +66,7 @@ describe('Profile', () => {
   it('uploads a photo and shows it in place of the initials', async () => {
     const { container } = renderProfile()
     await screen.findByLabelText('Full name')
-    const file = new File(['png'], 'me.png', { type: 'image/png' })
+    const file = new File([PNG_SIGNATURE], 'me.png', { type: 'image/png' })
     fireEvent.change(screen.getByTestId('photo-input'), { target: { files: [file] } })
     await waitFor(() => expect(ama().image).toMatch(/^data:image\/png/))
     await waitFor(() => expect(container.querySelector('img')).toHaveAttribute('src', ama().image))

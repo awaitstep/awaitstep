@@ -1,7 +1,9 @@
 // A picked logo or photo, made ready to upload: the API stores PNG, JPEG,
 // WebP or GIF bytes only, sent as the request body. A photo is shrunk to
 // WebP first; an SVG logo is drawn to a PNG, because an SVG on our own
-// domain could run its scripts when opened directly.
+// domain could run its scripts when opened directly. The type sent is the
+// one the file's first bytes say, not its name's: the API refuses a body
+// whose bytes don't match it, and a JPEG saved as `.png` is common.
 
 /** The image types the API stores. */
 export const STORED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
@@ -13,6 +15,24 @@ export const LOGO_WRONG_TYPE = 'Pick a PNG, JPG, SVG or WebP image'
 
 /** The longest side of a logo drawn from an SVG, in pixels. */
 export const LOGO_SIZE_PX = 256
+
+/** The stored type `blob`'s first bytes say it is, or null when they are none of the four. */
+export async function sniffImageType(blob: Blob): Promise<string | null> {
+  const b = new Uint8Array(await blob.slice(0, 12).arrayBuffer())
+  const ascii = (at: number, length: number) => String.fromCharCode(...b.subarray(at, at + length))
+  if (b[0] === 0x89 && ascii(1, 3) === 'PNG') return 'image/png'
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg'
+  if (ascii(0, 4) === 'RIFF' && ascii(8, 4) === 'WEBP') return 'image/webp'
+  if (ascii(0, 6) === 'GIF87a' || ascii(0, 6) === 'GIF89a') return 'image/gif'
+  return null
+}
+
+/** The file's bytes as a blob of the type they really are, or null when that is none of the four. */
+async function asStoredType(file: Blob): Promise<Blob | null> {
+  const type = await sniffImageType(file)
+  if (!type) return null
+  return type === file.type ? file : new Blob([file], { type })
+}
 
 /** A file or blob as a data URL: the preview shown before it is uploaded. */
 export function readAsDataUrl(blob: Blob): Promise<string> {
@@ -87,15 +107,15 @@ export async function svgToPng(file: Blob): Promise<Blob> {
 }
 
 /**
- * A picked logo, ready to upload: an SVG drawn to a PNG, any other type
- * the API stores kept as it is if it fits.
+ * A picked logo, ready to upload: a PNG, JPEG, WebP or GIF (by its bytes)
+ * kept as it is if it fits, labelled with its real type; an SVG drawn to
+ * a PNG; anything else refused.
  */
 export async function readLogo(file: File): Promise<Blob> {
-  if (!STORED_IMAGE_TYPES.includes(file.type) && file.type !== 'image/svg+xml') {
-    throw new Error(LOGO_WRONG_TYPE)
-  }
+  const stored = await asStoredType(file)
+  if (!stored && file.type !== 'image/svg+xml') throw new Error(LOGO_WRONG_TYPE)
   // A detailed SVG can draw to a PNG over the limit, so the result is checked too.
-  const logo = file.type === 'image/svg+xml' ? await svgToPng(file) : file
+  const logo = stored ?? (await svgToPng(file))
   if (logo.size > LOGO_MAX_BYTES) throw new Error(LOGO_TOO_LARGE)
   return logo
 }
@@ -137,15 +157,14 @@ async function shrinkImage(file: File, size: number): Promise<Blob | null> {
 /**
  * A picked profile photo, ready to upload: refused over `PHOTO_MAX_BYTES`
  * before reading, then shrunk to `PHOTO_SIZE_PX` so what is stored is
- * small. Where it can't be shrunk, it is kept as it is only if the API
- * stores its type and it fits.
+ * small. Where it can't be shrunk, it is kept as it is only if its bytes
+ * are a type the API stores (labelled with that type) and it fits.
  */
 export async function readPhoto(file: File): Promise<Blob> {
   if (file.size > PHOTO_MAX_BYTES) throw new Error(PHOTO_TOO_LARGE)
   const shrunk = await shrinkImage(file, PHOTO_SIZE_PX)
   if (shrunk) return shrunk
-  if (file.size > PHOTO_STORED_MAX_BYTES || !STORED_IMAGE_TYPES.includes(file.type)) {
-    throw new Error(PHOTO_UNSHRUNK_TOO_LARGE)
-  }
-  return file
+  const stored = file.size <= PHOTO_STORED_MAX_BYTES ? await asStoredType(file) : null
+  if (!stored) throw new Error(PHOTO_UNSHRUNK_TOO_LARGE)
+  return stored
 }
