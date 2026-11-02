@@ -38,7 +38,10 @@ export interface DashboardSearch {
 export const DASHBOARD_SEARCH_KEYS = ['mock', 'as'] as const
 
 /** Keeps only the dashboard's own params, as strings. */
-export function validateDashboardSearch(search: Record<string, unknown>): DashboardSearch {
+export function validateDashboardSearch(
+  search: Record<string, unknown>,
+  allowMock: boolean = ALLOW_MOCK_SOURCE,
+): DashboardSearch {
   // The router JSON-parses search values, so `?override=1` arrives as 1 and
   // `?variable=true` as true; our links build them as text, so read them back as text.
   const pick = (key: keyof DashboardSearch) => {
@@ -47,8 +50,9 @@ export function validateDashboardSearch(search: Record<string, unknown>): Dashbo
     return typeof value === 'number' || typeof value === 'boolean' ? String(value) : undefined
   }
   return {
-    mock: pick('mock'),
-    as: pick('as'),
+    // Dropped where the dummy source is off, so they are not carried from page to page either.
+    mock: allowMock ? pick('mock') : undefined,
+    as: allowMock ? pick('as') : undefined,
     new: pick('new'),
     then: pick('then'),
     access: pick('access'),
@@ -64,9 +68,26 @@ interface DashboardProvidersProps {
   children: ReactNode
 }
 
-/** The real API, unless the URL asks for a dummy scenario or a sample person. */
-export function dataSourceFor(search: Pick<DashboardSearch, 'mock' | 'as'>): DataSource {
-  return search.mock || search.as ? 'mock' : 'api'
+/**
+ * The dummy source is for `pnpm dev` and tests; a production build only ever shows real data.
+ * Decided by the build mode, not `import.meta.env.DEV`: `vite build` is always `production`,
+ * while DEV follows NODE_ENV, which the root `.env` sets to `development`.
+ */
+export function mockSourceAllowed(mode: string): boolean {
+  return mode !== 'production'
+}
+
+const ALLOW_MOCK_SOURCE = mockSourceAllowed(import.meta.env.MODE)
+
+/**
+ * The real API, unless the URL asks for a dummy scenario or a sample person and
+ * `allowMock` (a dev build). Elsewhere those params are ignored.
+ */
+export function dataSourceFor(
+  search: Pick<DashboardSearch, 'mock' | 'as'>,
+  allowMock: boolean,
+): DataSource {
+  return allowMock && (search.mock || search.as) ? 'mock' : 'api'
 }
 
 /**
@@ -76,7 +97,7 @@ export function dataSourceFor(search: Pick<DashboardSearch, 'mock' | 'as'>): Dat
  * the signed-in user against an empty dummy scope.
  */
 export function DashboardProviders({ search, children }: DashboardProvidersProps) {
-  const source = dataSourceFor(search)
+  const source = dataSourceFor(search, ALLOW_MOCK_SOURCE)
   const userId = useAuthStore((s) => s.user?.id)
   return (
     <DataSourceProvider source={source}>
