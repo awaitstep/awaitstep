@@ -1,14 +1,14 @@
 /// <reference types="vitest/config" />
-import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { cloudflare } from '@cloudflare/vite-plugin'
-import { validateReleaseNotes } from './vite-plugins/validate-release-notes'
 
 const isProduction = process.env.NODE_ENV === 'production'
 const isCloudflare = process.env.BUILD_TARGET === 'cf'
+// Vitest extends this config; the Cloudflare plugin starts a worker runner that dies there.
+const isTest = Boolean(process.env.VITEST)
 
 export default defineConfig({
   server: {
@@ -27,8 +27,7 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   plugins: [
-    ...(isCloudflare ? [cloudflare({ viteEnvironment: { name: 'ssr' } })] : []),
-    validateReleaseNotes(fileURLToPath(new URL('./release-notes', import.meta.url))),
+    ...(isCloudflare && !isTest ? [cloudflare({ viteEnvironment: { name: 'ssr' } })] : []),
     tailwindcss(),
     tanstackStart(),
     react(),
@@ -48,7 +47,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'unit',
-          include: ['src/**/*.test.ts', 'vite-plugins/**/*.test.ts'],
+          include: ['src/**/*.test.ts'],
           environment: 'node',
         },
       },

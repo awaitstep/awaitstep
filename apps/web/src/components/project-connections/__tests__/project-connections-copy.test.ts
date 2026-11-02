@@ -13,15 +13,23 @@ import {
 const NOW = new Date('2026-11-01T12:00:00.000Z')
 
 describe('accountsCaption', () => {
-  it('counts shared and owned accounts as the board words them', () => {
-    const shared = { scope: 'shared' as const }
-    const owned = { scope: 'project' as const }
-    expect(accountsCaption([shared, shared, owned])).toBe(
-      'Two shared with the project, one it owns',
-    )
-    expect(accountsCaption([shared])).toBe('One shared with the project')
+  const shared = { scope: 'shared' as const, available: true }
+  const gone = { scope: 'shared' as const, available: false }
+  const owned = { scope: 'project' as const, available: true }
+
+  it('counts shared and owned accounts, the shared ones as available', () => {
+    expect(accountsCaption([shared, shared, owned])).toBe('Two available, one it owns')
+    expect(accountsCaption([shared])).toBe('One available')
     expect(accountsCaption([owned, owned])).toBe('Two it owns')
     expect(accountsCaption([])).toBe('None yet')
+  })
+
+  it('does not call a shared account available once it was restricted away from the project', () => {
+    expect(accountsCaption([shared, gone, owned])).toBe(
+      'One available, one it owns, one no longer available',
+    )
+    expect(accountsCaption([gone])).toBe('One no longer available')
+    expect(accountsCaption([gone, gone, owned])).toBe('One it owns, two no longer available')
   })
 })
 

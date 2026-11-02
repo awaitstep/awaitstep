@@ -51,7 +51,7 @@ describe('the project’s accounts', () => {
     expect(own).toHaveTextContent('This project only')
     expect(own).toHaveTextContent('Deployed from Sales')
     expect(within(own).getByRole('button', { name: 'Make default' })).toBeEnabled()
-    expect(screen.getByText('One shared with the project, one it owns')).toBeInTheDocument()
+    expect(screen.getByText('One available, one it owns')).toBeInTheDocument()
 
     const table = screen.getByRole('table', { name: 'Where each workspace deploys' })
     const salesRow = within(table).getByText('Sales').closest('[role="row"]') as HTMLElement

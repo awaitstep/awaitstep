@@ -14,16 +14,24 @@ function counted(n: number): string {
   return NUMBER_WORDS[n] ?? String(n)
 }
 
-/** "Two shared with the project, one it owns"; "None yet" with none. */
-export function accountsCaption(connections: Pick<ProjectConnection, 'scope'>[]): string {
+/** "Two available, one it owns, one no longer available"; "None yet" with none. */
+export function accountsCaption(
+  connections: Pick<ProjectConnection, 'scope' | 'available'>[],
+): string {
   if (connections.length === 0) return 'None yet'
-  const shared = connections.filter((c) => c.scope === 'shared').length
-  const owned = connections.length - shared
-  const parts = [
-    shared > 0 && `${counted(shared)} available`,
-    owned > 0 && `${shared > 0 ? counted(owned).toLowerCase() : counted(owned)} it owns`,
-  ].filter((part): part is string => Boolean(part))
-  return parts.join(', ')
+  const shared = connections.filter((c) => c.scope === 'shared')
+  const available = shared.filter((c) => c.available).length
+  const gone = shared.length - available
+  const owned = connections.length - shared.length
+  const counts = [
+    [available, 'available'],
+    [owned, 'it owns'],
+    [gone, 'no longer available'],
+  ] as const
+  return counts
+    .filter(([n]) => n > 0)
+    .map(([n, text], i) => `${i === 0 ? counted(n) : counted(n).toLowerCase()} ${text}`)
+    .join(', ')
 }
 
 /** "Cloudflare account ••••7f2a · added by Ama Mensah". */
