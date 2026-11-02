@@ -40,6 +40,13 @@ env:
 #     CF_GOOGLE_CLIENT_ID           Google OAuth client ID
 #     CF_GOOGLE_CLIENT_SECRET       Google OAuth client secret
 #
+#   Optional — image storage (photos and logos in R2; D1 keeps them without):
+#     CF_IMAGE_STORE                `s3`
+#     CF_S3_ENDPOINT                https://<account-id>.r2.cloudflarestorage.com
+#     CF_S3_BUCKET                  The R2 bucket's name
+#     CF_S3_ACCESS_KEY_ID           An R2 API token's access key (read and write on the bucket)
+#     CF_S3_SECRET_ACCESS_KEY       Its secret
+#
 # GITHUB VARIABLES (Settings → Variables → Actions):
 #
 #   Required:
@@ -181,6 +188,11 @@ jobs:
           set_secret "GITHUB_CLIENT_SECRET" "${{ secrets.CF_GITHUB_CLIENT_SECRET }}"
           set_secret "GOOGLE_CLIENT_ID" "${{ secrets.CF_GOOGLE_CLIENT_ID }}"
           set_secret "GOOGLE_CLIENT_SECRET" "${{ secrets.CF_GOOGLE_CLIENT_SECRET }}"
+          set_secret "IMAGE_STORE" "${{ secrets.CF_IMAGE_STORE }}"
+          set_secret "S3_ENDPOINT" "${{ secrets.CF_S3_ENDPOINT }}"
+          set_secret "S3_BUCKET" "${{ secrets.CF_S3_BUCKET }}"
+          set_secret "S3_ACCESS_KEY_ID" "${{ secrets.CF_S3_ACCESS_KEY_ID }}"
+          set_secret "S3_SECRET_ACCESS_KEY" "${{ secrets.CF_S3_SECRET_ACCESS_KEY }}"
 
       - name: Build and deploy Web Worker
         if: inputs.target == 'all' || inputs.target == 'web' || inputs.target == ''
