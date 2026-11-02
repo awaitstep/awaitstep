@@ -1,9 +1,11 @@
 /// <reference types="vitest/config" />
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { cloudflare } from '@cloudflare/vite-plugin'
+import { validateReleaseNotes } from './vite-plugins/validate-release-notes'
 
 const isProduction = process.env.NODE_ENV === 'production'
 const isCloudflare = process.env.BUILD_TARGET === 'cf'
@@ -26,6 +28,7 @@ export default defineConfig({
   },
   plugins: [
     ...(isCloudflare ? [cloudflare({ viteEnvironment: { name: 'ssr' } })] : []),
+    validateReleaseNotes(fileURLToPath(new URL('./release-notes', import.meta.url))),
     tailwindcss(),
     tanstackStart(),
     react(),
@@ -43,7 +46,11 @@ export default defineConfig({
     projects: [
       {
         extends: true,
-        test: { name: 'unit', include: ['src/**/*.test.ts'], environment: 'node' },
+        test: {
+          name: 'unit',
+          include: ['src/**/*.test.ts', 'vite-plugins/**/*.test.ts'],
+          environment: 'node',
+        },
       },
       {
         extends: true,
