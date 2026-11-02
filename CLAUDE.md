@@ -110,6 +110,14 @@ When review feedback is shared, work through **every** comment in it — in full
 - **Wait for agreement on the refinement before writing code.** Refinement is a separate step from execution; do not roll them into one pass.
 - Acceptance criteria are what the QA notes are written against, so phrase them as things a person can check.
 
+## Release Notes (What's new)
+
+- A user-visible `feat:`/`fix:` adds a fragment in `apps/web/release-notes/<slug>.md` (copy `_template.md.example`), written for people using the dashboard, not the commit log. The file name is the note's id — never rename it once shipped. Only the newest 20 are bundled.
+
+## UI Copy
+
+- Text on the canvas boards is draft wording. Keep a board's structure, states and labels, but write descriptions short and brief (one short sentence a person would say), and never copy a claim the app doesn't back up (a time window, a retention rule, "last checked").
+
 ## QA Notes
 
 - After implementing a feature, append QA notes to `plan/qa-notes.md` — newest section first, dated, one section per feature.
