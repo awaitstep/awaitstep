@@ -3,7 +3,12 @@ import { format } from 'date-fns'
 import { ArrowRightLeft, Trash2 } from 'lucide-react'
 import { useSetLock } from '../../data/dashboard/locks'
 import { useDeleteWorkspace, useUpdateWorkspace } from '../../data/dashboard/workspaces'
-import { projectPath, projectPagePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
+import {
+  projectPath,
+  projectPagePath,
+  workspacePath,
+  type WorkspaceSlugs,
+} from '../../lib/dashboard-paths'
 import { plural } from '../../lib/plural'
 import type { WorkspaceScope } from '../../types/dashboard/scope'
 import type { Workspace } from '../../types/dashboard/workspaces'
@@ -83,7 +88,22 @@ export function GeneralTab({ slugs, scope, projectName }: GeneralTabProps) {
 
   function handleSubmit(event: React.SubmitEvent) {
     event.preventDefault()
-    update.mutate({ name, description: description || null, colour: values.colour })
+    update.mutate(
+      // Only what changed, so saving a colour never renames (and so never re-slugs) the workspace.
+      {
+        ...(name !== saved.name && { name }),
+        ...(description !== saved.description && { description: description || null }),
+        ...(values.colour !== saved.colour && { colour: values.colour }),
+      },
+      // The default workspace's URL follows its new name, so this page's own URL is stale.
+      {
+        onSuccess: (updated) => {
+          if (updated.slug !== slugs.workspace) {
+            goTo(workspacePath({ ...slugs, workspace: updated.slug }, 'settings'))
+          }
+        },
+      },
+    )
   }
 
   function handleLockChange(on: boolean) {

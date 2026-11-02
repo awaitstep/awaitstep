@@ -1,3 +1,4 @@
+import { isReservedSlug, slugify } from '@awaitstep/ir'
 import type { ScopeLookup, ScopeSlugs } from '../../../types/dashboard/scope'
 import type {
   NewWorkspaceInput,
@@ -118,6 +119,12 @@ export const updateWorkspace = mutation(
     }
     if (name) row.name = name
     if (slug) row.slug = slug
+    else if (name && row.slug === 'default') {
+      // The backend's rule: only `default` follows the name, and only onto a free slug.
+      const fromName = slugify(name)
+      const free = !db.workspaces.some((w) => w.projectId === row.projectId && w.slug === fromName)
+      if (fromName && free && !isReservedSlug('workspace', fromName)) row.slug = fromName
+    }
     if (update.description !== undefined) row.description = update.description?.trim() || null
     if (update.colour) row.colour = update.colour
     return workspaceRecord(db, project!, row)
