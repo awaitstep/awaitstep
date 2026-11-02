@@ -237,6 +237,28 @@ describe('your account (B10)', () => {
       expect(events(h)).toEqual([{ event: 'account.delete', action: 'deleted', actorId: 'u-ben' }])
     })
 
+    it('hands the deleted account to the image cleanup, after the deletion', async () => {
+      const h = await seeded()
+      const deleted: { kind: string; id: string; stillThere: boolean }[] = []
+      let token = ''
+      const auth = authOn(h, (t) => (token = t), {
+        onImageOwnerDeleted: async (owner) => {
+          const row = h.sqlite.prepare('SELECT id FROM user WHERE id = ?').get(owner.id)
+          deleted.push({ ...owner, stillThere: Boolean(row) })
+        },
+      })
+      await auth.api.signInMagicLink({ body: { email: 'ben@acme.test' }, headers: new Headers() })
+      const verified = await auth.handler(
+        new Request(`${BASE}/api/auth/magic-link/verify?token=${token}&callbackURL=/`),
+      )
+      const cookie = verified.headers
+        .getSetCookie()
+        .map((c) => c.split(';')[0]!)
+        .join('; ')
+      expect((await auth.handler(post('/delete-user', {}, cookie))).status).toBe(200)
+      expect(deleted).toEqual([{ kind: 'user', id: 'u-ben', stillThere: false }])
+    })
+
     it('records a deletion as the deletion, not as its providers going', async () => {
       const h = await seeded()
       await linkGithub(h, 'u-ben')
@@ -264,20 +286,46 @@ describe('your account (B10)', () => {
   })
 
   describe('profile', () => {
-    it('stores an uploaded photo and refuses anything that isn’t a small image', async () => {
+    it('refuses any photo through update-user, and still clears one', async () => {
       const h = await seeded()
       const { auth, cookie } = await signIn(h, 'ama@acme.test')
       const update = (image: unknown) => auth.handler(post('/update-user', { image }, cookie))
-      expect((await update('data:image/webp;base64,UklGRg==')).status).toBe(200)
-      expect((await update('https://example.test/a.png')).status).toBe(400)
-      expect((await update('data:text/html;base64,PGgxPg==')).status).toBe(400)
-      // An SVG may be a logo, never a photo.
-      expect((await update('data:image/svg+xml;base64,PHN2Zz4=')).status).toBe(400)
-      const big = `data:image/png;base64,${'A'.repeat(Math.ceil((512 * 1024 * 4) / 3) + 8)}`
-      const tooBig = await update(big)
-      expect(tooBig.status).toBe(400)
-      expect((await tooBig.json()).message).toMatch(/512 KB/)
+      for (const image of [
+        'data:image/webp;base64,UklGRg==',
+        'https://evil.example/x.png',
+        '/api/images/img_00000000000000000000000000000000',
+        'https://avatars.githubusercontent.com/u/1',
+      ]) {
+        const res = await update(image)
+        expect(res.status, image).toBe(400)
+        expect((await res.json()).message).toBe('Upload the photo with PUT /api/account/photo')
+      }
+      expect((await h.adapter.getAccount('u-ama'))?.person.image).toBeNull()
       expect((await update(null)).status).toBe(200)
+    })
+
+    it('keeps a GitHub or Google avatar at sign-up and drops any other image', async () => {
+      const h = await seeded()
+      const c = { context: await authOn(h).$context }
+      const signUp = async (id: string, image: string) => {
+        const result = await handleOAuthUserInfo(
+          c as never,
+          {
+            userInfo: { id, email: `${id}@example.test`, emailVerified: true, name: id, image },
+            account: { providerId: 'google', accountId: id },
+            profile: {},
+            callbackURL: '/',
+          } as never,
+        )
+        // Signed up either way: only the image is dropped.
+        expect(result.data?.user.id, id).toEqual(expect.any(String))
+        return result.data!.user.image ?? null
+      }
+      expect(await signUp('g-avatar', 'https://lh3.googleusercontent.com/a/x=s96-c')).toBe(
+        'https://lh3.googleusercontent.com/a/x=s96-c',
+      )
+      expect(await signUp('g-pixel', 'https://evil.example/pixel.png')).toBeNull()
+      expect(await signUp('g-inline', 'data:image/png;base64,iVBORw0KGgo=')).toBeNull()
     })
 
     it('refuses a name that isn’t text, or is empty once cleaned', async () => {
@@ -307,28 +355,44 @@ describe('your account (B10)', () => {
       })
     })
 
-    it('checks an organization logo as it checks a photo', async () => {
+    it('hands a deleted organization to the image cleanup, after the deletion', async () => {
       const h = await seeded()
-      await expect(
-        authOn(h).api.createOrganization({
-          body: { name: 'Logo', slug: 'logo', userId: 'u-ama', logo: 'https://example.test/x.png' },
-        }),
-      ).rejects.toThrow(/PNG, JPEG, SVG or WebP/)
-      const big = `data:image/png;base64,${'A'.repeat(Math.ceil((200 * 1024 * 4) / 3) + 8)}`
-      await expect(
-        authOn(h).api.createOrganization({
-          body: { name: 'Logo', slug: 'logo', userId: 'u-ama', logo: big },
-        }),
-      ).rejects.toThrow(/200 KB/)
-      const svg = await authOn(h).api.createOrganization({
-        body: {
-          name: 'Svg',
-          slug: 'svg',
-          userId: 'u-ama',
-          logo: 'data:image/svg+xml;base64,PHN2Zz4=',
+      const deleted: { kind: string; id: string; stillThere: boolean }[] = []
+      let token = ''
+      const auth = authOn(h, (t) => (token = t), {
+        onImageOwnerDeleted: async (owner) => {
+          const row = h.sqlite.prepare('SELECT id FROM organization WHERE id = ?').get(owner.id)
+          deleted.push({ ...owner, stillThere: Boolean(row) })
         },
       })
-      expect(svg?.slug).toBe('svg')
+      await auth.api.signInMagicLink({ body: { email: 'ama@acme.test' }, headers: new Headers() })
+      const verified = await auth.handler(
+        new Request(`${BASE}/api/auth/magic-link/verify?token=${token}&callbackURL=/`),
+      )
+      const cookie = verified.headers
+        .getSetCookie()
+        .map((c) => c.split(';')[0]!)
+        .join('; ')
+      const res = await auth.handler(
+        post('/organization/delete', { organizationId: 'org-acme' }, cookie),
+      )
+      expect(res.status).toBe(200)
+      expect(deleted).toEqual([{ kind: 'org', id: 'org-acme', stillThere: false }])
+    })
+
+    it('refuses a logo through better-auth: it is uploaded with its own route', async () => {
+      const h = await seeded()
+      for (const logo of ['https://example.test/x.png', 'data:image/svg+xml;base64,PHN2Zz4=']) {
+        await expect(
+          authOn(h).api.createOrganization({
+            body: { name: 'Logo', slug: 'logo', userId: 'u-ama', logo },
+          }),
+        ).rejects.toThrow('Upload the logo with PUT /api/orgs/:orgId/logo')
+      }
+      const plain = await authOn(h).api.createOrganization({
+        body: { name: 'Plain', slug: 'plain', userId: 'u-ama' },
+      })
+      expect(plain?.slug).toBe('plain')
     })
   })
 

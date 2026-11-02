@@ -30,6 +30,8 @@ A workspace can be named on any project-scoped route with `?workspaceId=<id>` or
 | Write operations        | 30 req/min per user |
 | Deploy operations       | 10 req/min per user |
 | Credential verification | 10 req/min per user |
+| Image uploads           | 10 req/min per user |
+| Serving images          | 600 req/min per IP  |
 
 Request bodies are capped at **1 MB** across all API routes. A larger one is
 rejected with `413` and `{ "error": "Request body exceeds 1048576 bytes" }`
@@ -644,6 +646,44 @@ caller's `role`, `projectCount`, `memberCount` and `viewerCan`, plus what
 - `health`: `{ failing, lastRunAt }` over the workflows in workspaces the
   caller can open — workflows whose latest run failed, and the last run's
   time (`null` with no runs).
+
+### `PUT /orgs/:orgId/logo` · `DELETE /orgs/:orgId/logo`
+
+Session only. Sets or clears the organization's logo; the organization's
+owners and admins only (`403` with the reason otherwise, `404` for an
+organization the caller is not in). Recorded as `organization.update`.
+
+`PUT` takes the image itself as the body — `Content-Type: image/png` (or
+`image/jpeg`, `image/webp`, `image/gif`), no JSON or base64 around it:
+
+```bash
+curl -X PUT "$API/api/orgs/$ORG_ID/logo" -H 'Content-Type: image/png' \
+  --data-binary @logo.png -b "$COOKIE"
+```
+
+```json
+{ "logo": "/api/images/img_3f9c…" }
+```
+
+The bytes decide: the file signature must be PNG, JPEG, WebP or GIF and
+match the `Content-Type`, at most 200 KB and 4096 px on a side. Anything else
+— an SVG, HTML, a body whose signature isn't the type it was sent as, an
+empty body — is `400` with `{ "error", "field": "logo" }`, and nothing is
+stored. A body over 200 KB is `413` before it is read. An SVG logo is drawn
+to a PNG by the dashboard before it is sent. The previous logo's path
+answers `404` from then on. `409` means another upload or removal of the
+same logo landed first; nothing changed, so send it again. `DELETE` answers
+`{ "logo": null }`.
+
+### `GET /images/:id`
+
+No session. An uploaded photo or logo, at the path its owner's `image` or
+`logo` holds. The id is 128 random bits, new for every upload. Served with
+the type detected at upload, `X-Content-Type-Options: nosniff`,
+`Cache-Control: public, max-age=31536000, immutable`,
+`Content-Security-Policy: default-src 'none'; sandbox` and
+`Cross-Origin-Resource-Policy: same-site`. An image that was replaced or
+cleared, or whose owner was deleted, is `404`.
 
 ### `GET /failing`
 
@@ -2433,6 +2473,15 @@ as one unit; recorded there as `member.leave`. The only owner gets `409`
 ("Make someone else an owner first"); an organization the person is not in
 is `404`. better-auth's `/organization/leave` stays closed.
 
+#### `PUT /account/photo` · `DELETE /account/photo`
+
+Sets or clears the person's photo. `PUT` takes the image itself as the body,
+as for an organization logo (`PUT /orgs/:orgId/logo`), and answers
+`{ "image": "/api/images/img_…" }`: PNG, JPEG, WebP or GIF by its signature,
+at most 512 KB and 4096 px on a side (the dashboard shrinks a pick of up to
+2 MB to 256 px first). A refusal is `400` with `"field": "image"`; over
+512 KB is `413`. `DELETE` answers `{ "image": null }`.
+
 #### `GET /account/sessions`
 
 The person's unexpired sessions, the one making the call first, then by last
@@ -2475,11 +2524,12 @@ cross-site link can't write audit rows (the CSRF check covers it).
 
 #### Through better-auth (`/api/auth/*`)
 
-- **Name and photo**: `POST /api/auth/update-user` with `name` and/or
-  `image`. A photo is a PNG, JPEG, WebP or GIF data URL of at most 512 KB
-  (the dashboard shrinks a pick of up to 2 MB to 256 px first), or `null`;
-  anything else is `400`. Org logos (`/organization/update`) are PNG, JPEG,
-  SVG or WebP up to 200 KB.
+- **Name**: `POST /api/auth/update-user` with `name`. Its `image` only
+  clears the photo (`null`); any other value is `400` — photos are uploaded
+  with `PUT /account/photo`. The same goes for `logo` on
+  `/organization/create` and `/organization/update`: logos are uploaded with
+  `PUT /orgs/:orgId/logo`. At sign-up, a GitHub or Google avatar URL is kept
+  and any other image is dropped.
 - **The email address never changes**: `update-user` refuses `email`, and
   `/change-email` is off.
 - **Providers**: Google and GitHub join the account only with its own,
@@ -2495,7 +2545,8 @@ cross-site link can't write audit rows (the CSRF check covers it).
 - **Delete account**: `POST /api/auth/delete-user`, on a session signed in
   within the last day (`400` `SESSION_EXPIRED` otherwise). The only owner of
   an organization gets `409` with the reason. Memberships, grants, sessions
-  and providers go with the person; rows they created stay, without a name.
+  and providers go with the person, and their uploaded photo is deleted; rows
+  they created stay, without a name.
 - **Closed** (`403`): `/list-sessions`, `/revoke-session`, `/revoke-sessions`,
   `/revoke-other-sessions`, `/update-session` (they deal in session tokens — use
   `/api/account/sessions`), `/get-access-token`, `/refresh-token`,

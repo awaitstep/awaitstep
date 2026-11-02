@@ -14,9 +14,12 @@ import type { RemoteNodeRegistry } from './lib/remote-node-registry.js'
 import type { WranglerDeployer } from '@awaitstep/provider-cloudflare'
 import type { TestSessionRunner } from '@awaitstep/codegen'
 import type { AccountProviders } from '@awaitstep/ir'
+import type { ImageStore } from '@awaitstep/storage'
 import type { TestSessionLimits } from './lib/test-session-policy.js'
 import { createLogger } from './lib/logger.js'
 import { createRouter } from './routes/index.js'
+import { imageResponseHeaders, images } from './routes/images.js'
+import { databaseImageStore } from './lib/images.js'
 import { resolveTestSessionLimits } from './lib/test-session-policy.js'
 import { MAX_REQUEST_BYTES } from './lib/request-limits.js'
 import {
@@ -65,6 +68,11 @@ export interface AppDeps {
   emails?: AppEmails
   /** Which ways in the instance turns on (`accountProvidersOf` the auth options). */
   accountProviders?: AccountProviders
+  /**
+   * Where uploaded photos' and logos' bytes live. Absent, the database
+   * holds them, in the image rows themselves.
+   */
+  imageStore?: ImageStore
 }
 
 export function createApp(deps: AppDeps) {
@@ -72,6 +80,7 @@ export function createApp(deps: AppDeps) {
   // Resolved once: the overrides come from the environment, and clamping
   // them on every request would be work with one answer.
   const resolvedTestSessionLimits = resolveTestSessionLimits(deps.testSessionLimits)
+  const imageStore = deps.imageStore ?? databaseImageStore(deps.db)
   const app = new Hono<AppEnv>()
 
   // Request ID — unique ID for every request, returned in X-Request-Id header
@@ -97,6 +106,9 @@ export function createApp(deps: AppDeps) {
 
   // Request logger — logs method, path, and status for every request
   app.use('*', honoLogger())
+
+  // A served image's own headers, set after secureHeaders' (see routes/images.ts).
+  app.use('/api/images/*', imageResponseHeaders)
 
   // Security headers — X-Content-Type-Options, X-Frame-Options, HSTS, etc.
   app.use('*', secureHeaders())
@@ -170,8 +182,12 @@ export function createApp(deps: AppDeps) {
     if (deps.testSessionRunner) c.set('testSessionRunner', deps.testSessionRunner)
     c.set('testSessionLimits', resolvedTestSessionLimits)
     c.set('emails', deps.emails)
+    c.set('imageStore', imageStore)
     await next()
   })
+
+  // Uploaded images, before the router: they are served without a session.
+  app.route('/api/images', images)
 
   // Routes (auth + ownership middleware registered inside)
   app.route(

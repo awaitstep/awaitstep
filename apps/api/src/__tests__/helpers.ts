@@ -1767,6 +1767,48 @@ const mockDb: DatabaseAdapter = {
     store.installedNodes.set(key, updated)
     return updated
   },
+
+  // Uploaded images: the routes that store them run on the real database
+  // (sqlite-app.ts). The maintenance jobs find nothing here.
+  async insertImage() {
+    return notMocked('insertImage')
+  },
+  async insertImages() {
+    return notMocked('insertImages')
+  },
+  async setImageData() {
+    return notMocked('setImageData')
+  },
+  async getImageData() {
+    return null
+  },
+  async getImage() {
+    return null
+  },
+  async setOwnerImage() {
+    return notMocked('setOwnerImage')
+  },
+  async clearOwnerImage() {
+    return notMocked('clearOwnerImage')
+  },
+  async listOwnerImages() {
+    return []
+  },
+  async listUnreferencedImages() {
+    return []
+  },
+  async claimImages() {
+    return []
+  },
+  async deleteImages() {},
+  async existingImages() {
+    return []
+  },
+  async listInlineImages() {
+    return []
+  },
+  async replaceInlineImages() {},
+  async clearRemoteImages() {},
 }
 
 /** A stored connection as the list shows it: the fake keeps no names, projects or deployments. */

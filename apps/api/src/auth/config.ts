@@ -3,8 +3,8 @@ import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { magicLink, organization } from 'better-auth/plugins'
 import { CLIENT_IP_HEADER } from '../lib/client-ip.js'
 import { orgSlugProblem } from '../lib/slugs.js'
-import { LOGO_RULE, PHOTO_RULE, uploadedImageProblem, type ImageRule } from '../lib/images.js'
 import { ONLY_WAY_IN, stripUnsafeText, type AccountProviders } from '@awaitstep/ir'
+import { isProviderImageUrl } from '@awaitstep/storage'
 
 export interface AuthOptions {
   baseURL: string
@@ -47,6 +47,11 @@ export interface AuthOptions {
    * reported before it happens, while their memberships still say where.
    */
   onAccountEvent?: (event: AccountEvent) => Promise<void>
+  /**
+   * An account or organization was deleted: its uploaded images go too.
+   * Called after the deletion; a failure is the callee's to log.
+   */
+  onImageOwnerDeleted?: (owner: { kind: 'user' | 'org'; id: string }) => Promise<void>
 }
 
 export interface AccountEvent {
@@ -70,10 +75,17 @@ function refuseBadOrgSlug(slug: unknown): void {
   if (problem) throw new APIError('BAD_REQUEST', { message: problem })
 }
 
-function refuseBadImage(value: unknown, rule: ImageRule): void {
-  const problem = uploadedImageProblem(value, rule)
-  if (problem) throw new APIError('BAD_REQUEST', { message: problem })
+// Photos and logos are uploaded through `PUT /api/account/photo` and
+// `PUT /api/orgs/:orgId/logo`, which check the bytes and store them. Through
+// better-auth an image may only be cleared: any other value — a data URL, a
+// remote URL that could track whoever views it — is refused.
+function refuseImageValue(value: unknown, what: 'photo' | 'logo', route: string): void {
+  if (value === undefined || value === null || value === '') return
+  throw new APIError('BAD_REQUEST', { message: `Upload the ${what} with PUT ${route}` })
 }
+
+const PHOTO_ROUTE = '/api/account/photo'
+const LOGO_ROUTE = '/api/orgs/:orgId/logo'
 
 /** The address app.ts resolved for this request, as better-auth's hooks see it. */
 function requestIp(request: Request | undefined): string | null {
@@ -154,15 +166,11 @@ export function createAuth(options: AuthOptions) {
         organizationHooks: {
           beforeCreateOrganization: async ({ organization }) => {
             refuseBadOrgSlug(organization.slug)
-            if (organization.logo !== undefined) {
-              refuseBadImage(organization.logo, LOGO_RULE)
-            }
+            refuseImageValue(organization.logo, 'logo', LOGO_ROUTE)
           },
           beforeUpdateOrganization: async ({ organization }) => {
             if (organization.slug !== undefined) refuseBadOrgSlug(organization.slug)
-            if (organization.logo !== undefined) {
-              refuseBadImage(organization.logo, LOGO_RULE)
-            }
+            refuseImageValue(organization.logo, 'logo', LOGO_ROUTE)
           },
           afterUpdateOrganization: async ({ organization, user }) => {
             if (!organization) return
@@ -171,6 +179,9 @@ export function createAuth(options: AuthOptions) {
           beforeDeleteOrganization: async ({ organization }) => {
             const problem = await options.deleteOrganizationProblem?.(organization.id)
             if (problem) throw new APIError('CONFLICT', { message: problem })
+          },
+          afterDeleteOrganization: async ({ organization }) => {
+            await options.onImageOwnerDeleted?.({ kind: 'org', id: organization.id })
           },
           beforeCreateInvitation: async () => closed(),
           beforeAcceptInvitation: async () => closed(),
@@ -226,6 +237,9 @@ export function createAuth(options: AuthOptions) {
             ip: requestIp(request),
           })
         },
+        afterDelete: async (user) => {
+          await options.onImageOwnerDeleted?.({ kind: 'user', id: user.id })
+        },
       },
     },
     databaseHooks: {
@@ -233,8 +247,18 @@ export function createAuth(options: AuthOptions) {
       // carries no controls or direction overrides, and has a length.
       user: {
         create: {
+          // The one image a new account may bring is its GitHub or Google
+          // avatar; any other is dropped rather than refused, so a sign-up
+          // never fails over a photo.
           before: async (user) => ({
-            data: { ...user, name: personName(user.name ?? '').slice(0, MAX_PERSON_NAME) },
+            data: {
+              ...user,
+              name: personName(user.name ?? '').slice(0, MAX_PERSON_NAME),
+              image:
+                typeof user.image === 'string' && isProviderImageUrl(user.image)
+                  ? user.image
+                  : null,
+            },
           }),
         },
         update: {
@@ -243,8 +267,8 @@ export function createAuth(options: AuthOptions) {
             if (user.email !== undefined) {
               throw new APIError('BAD_REQUEST', { message: "Email addresses can't be changed" })
             }
-            // Providers' photos are URLs set at sign-up; an update is an upload.
-            if (user.image !== undefined) refuseBadImage(user.image, PHOTO_RULE)
+            // Providers' photos are URLs set at sign-up; an upload has its own route.
+            refuseImageValue(user.image, 'photo', PHOTO_ROUTE)
             if (user.name === undefined) return { data: user }
             if (typeof user.name !== 'string') {
               throw new APIError('BAD_REQUEST', { message: 'A name is text' })

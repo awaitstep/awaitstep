@@ -13,6 +13,8 @@ import { accountProvidersOf, type AuthOptions } from '../auth/config.js'
 import { cleanupLocalDevSessions } from '../routes/local-dev.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
 import { createLogger } from '../lib/logger.js'
+import { imageStoreFromEnv } from '../lib/image-store-env.js'
+import { discardOwnerImages } from '../lib/images.js'
 import { clientIpPolicyFromEnv } from '../lib/client-ip.js'
 import { loadNodeRegistry } from '../lib/node-registry-fs.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
@@ -46,6 +48,7 @@ async function start() {
   }
   const tokenCrypto = await createTokenCrypto(tokenEncryptionKey)
   const db = new DrizzleDatabaseAdapter(drizzleDb, sqliteSchema, { tokenCrypto })
+  const imageStore = imageStoreFromEnv(process.env, db)
 
   const isDev = process.env['NODE_ENV'] !== 'production'
   const authSecret = process.env['BETTER_AUTH_SECRET']
@@ -88,6 +91,7 @@ async function start() {
     onOrganizationUpdated: (data) => recordOrganizationUpdate(db, data),
     deleteUserProblem: async (userId) => deleteBlockedReason(await db.soleOwnedOrgNames(userId)),
     onAccountEvent: (event) => recordAccountEvent(db, event),
+    onImageOwnerDeleted: (owner) => discardOwnerImages(db, imageStore, owner),
     rateLimit: !isDev,
     database: sqlite,
     trustedOrigins: [...new Set([baseURL, ...corsOrigins])],
@@ -115,6 +119,7 @@ async function start() {
       ? { sourceToken: betterStackToken, endpoint: betterStackEndpoint }
       : undefined,
   )
+  logger.info(`Image store: ${imageStore.kind}`)
 
   // Load node registry (built by `pnpm nodes:build`)
   const registryPath = resolve(__dirname, '../../../../nodes/registry.json')
@@ -155,6 +160,7 @@ async function start() {
     testSessionRunner,
     testSessionLimits,
     emails,
+    imageStore,
 
     connectionAddress: (c) => getConnInfo(c).remote.address,
     // The Vite dev server is not a trusted hop: in dev, SSR calls are keyed
@@ -170,7 +176,7 @@ async function start() {
   // Background reconciliation: run status + per-step telemetry sync off the
   // request path, same as the production serve entry.
   const stopRunSync = startRunSyncLoop(db, 5000, { emails })
-  const stopMaintenance = startMaintenanceLoop(db)
+  const stopMaintenance = startMaintenanceLoop(db, imageStore)
   // The dev entry reaps too: without it a session started here outlives its
   // window, keeps its port, and holds the developer's own concurrency slot.
   const stopTestSessionReaper = startTestSessionReaper(

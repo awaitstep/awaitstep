@@ -31,7 +31,7 @@ export interface TestPerson {
 const sqliteSchema = schema.sqlite
 
 export function createSqliteApp(
-  options: Pick<AppDeps, 'enableLocalDev' | 'accountProviders'> = {},
+  options: Pick<AppDeps, 'enableLocalDev' | 'accountProviders' | 'imageStore'> = {},
 ) {
   const sqlite = new Database(':memory:')
   sqlite.pragma('foreign_keys = ON')
