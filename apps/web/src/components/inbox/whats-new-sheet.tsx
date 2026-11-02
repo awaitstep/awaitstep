@@ -8,10 +8,11 @@ import { Button } from '../ui/button'
 import { SegmentedFilter, type FilterOption } from '../ui/segmented-filter'
 import { SidePanel } from '../ui/side-panel'
 import { Tile } from '../ui/tile'
-import { DOCS_URL } from '../navigation/nav-model'
+import { RELEASES_URL } from '../navigation/nav-model'
 import { LoadedQuery } from '../workspaces/loaded-query'
-import { filterReleases, type ReleaseShow } from './inbox-filter'
+import { filterReleases, isUpToDate, releasesView, type ReleaseShow } from './inbox-filter'
 import { ReleaseNote } from './parts/release-note'
+import { NoMatchingNotes, NoReleaseNotes, UpToDateNote } from './parts/whats-new-states'
 
 const SHOW_OPTIONS: FilterOption<ReleaseShow>[] = [
   { id: 'all', label: 'All' },
@@ -23,10 +24,11 @@ const SHOW_OPTIONS: FilterOption<ReleaseShow>[] = [
 /** "2 updates since your last visit on 20 Oct". */
 export function sinceLastVisit(feed: ReleaseFeed | undefined): string {
   if (!feed) return 'What we’ve shipped lately'
+  if (feed.releases.length === 0) return 'Release notes show up here'
   if (!feed.lastVisit) return 'What we’ve shipped lately, all new to you'
   const fresh = feed.releases.filter((r) => r.fresh).length
   const day = format(new Date(feed.lastVisit), 'd MMM')
-  if (fresh === 0) return `Nothing new since your last visit on ${day}`
+  if (fresh === 0) return 'Up to date'
   return `${plural(fresh, 'update')} since your last visit on ${day}`
 }
 
@@ -48,6 +50,10 @@ export function WhatsNewSheet({ org, onClose }: WhatsNewSheetProps) {
     if (!open) onClose()
   }
 
+  function handleShowAll() {
+    setShow('all')
+  }
+
   return (
     <SidePanel
       open
@@ -61,7 +67,7 @@ export function WhatsNewSheet({ org, onClose }: WhatsNewSheetProps) {
       description={sinceLastVisit(releases.data)}
       footerStart={
         <a
-          href={DOCS_URL}
+          href={RELEASES_URL}
           target="_blank"
           rel="noreferrer"
           className="text-sm font-medium text-foreground/80 hover:underline"
@@ -71,23 +77,33 @@ export function WhatsNewSheet({ org, onClose }: WhatsNewSheetProps) {
       }
       actions={
         <Button type="button" onClick={onClose}>
-          Got it
+          {releases.data?.releases.length === 0 ? 'Close' : 'Got it'}
         </Button>
       }
     >
-      <SegmentedFilter label="Show" options={SHOW_OPTIONS} value={show} onChange={setShow} />
       <LoadedQuery query={releases} what="what’s new">
         {(feed) => {
-          const shown = filterReleases(feed.releases, show)
-          if (shown.length === 0) {
-            return <p className="py-6 text-sm text-muted-foreground">Nothing here yet.</p>
-          }
+          const view = releasesView(feed.releases, show)
+          if (view === 'none') return <NoReleaseNotes />
           return (
-            <div className="-mx-6 flex flex-col divide-y divide-border">
-              {shown.map((release) => (
-                <ReleaseNote key={release.id} release={release} />
-              ))}
-            </div>
+            <>
+              <SegmentedFilter
+                label="Show"
+                options={SHOW_OPTIONS}
+                value={show}
+                onChange={setShow}
+              />
+              {show === 'all' && isUpToDate(feed.releases) && <UpToDateNote />}
+              {view === 'nomatch' && show !== 'all' ? (
+                <NoMatchingNotes tag={show} onShowAll={handleShowAll} />
+              ) : (
+                <div className="-mx-6 flex flex-col divide-y divide-border">
+                  {filterReleases(feed.releases, show).map((release) => (
+                    <ReleaseNote key={release.id} release={release} />
+                  ))}
+                </div>
+              )}
+            </>
           )
         }}
       </LoadedQuery>

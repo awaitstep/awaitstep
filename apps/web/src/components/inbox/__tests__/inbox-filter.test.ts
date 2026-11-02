@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { InboxNotification, Release } from '../../../types/dashboard/inbox'
-import { filterInbox, filterReleases, inboxCounts } from '../inbox-filter'
+import {
+  filterInbox,
+  filterReleases,
+  inboxCounts,
+  inboxEmptyKind,
+  isUpToDate,
+  releasesView,
+} from '../inbox-filter'
 
 const note = (id: string, read: boolean, needsAction: boolean): InboxNotification => ({
   id,
@@ -46,5 +53,41 @@ describe('inbox filter', () => {
     const releases = [release('a', 'new'), release('b', 'fixed')]
     expect(filterReleases(releases, 'fixed').map((r) => r.id)).toEqual(['b'])
     expect(filterReleases(releases, 'all')).toHaveLength(2)
+  })
+})
+
+describe('inboxEmptyKind', () => {
+  const counts = (all: number, unread: number, action: number) => ({ all, unread, action })
+
+  it('tells an Inbox nothing ever reached from a filter that matches nothing', () => {
+    expect(inboxEmptyKind(counts(0, 0, 0), 'all')).toBe('none')
+    expect(inboxEmptyKind(counts(0, 0, 0), 'unread')).toBe('none')
+    expect(inboxEmptyKind(counts(0, 0, 0), 'action')).toBe('none')
+    expect(inboxEmptyKind(counts(6, 0, 2), 'unread')).toBe('read')
+    expect(inboxEmptyKind(counts(6, 3, 0), 'action')).toBe('done')
+  })
+
+  it('never says caught up while the counts still hold matches the listed rows left out', () => {
+    // 140 notifications, the newest 100 all read: the list has no unread row, the count says 3.
+    expect(inboxEmptyKind(counts(140, 3, 0), 'unread')).toBe('older')
+    expect(inboxEmptyKind(counts(140, 0, 2), 'action')).toBe('older')
+  })
+})
+
+describe('what the What’s new body shows', () => {
+  const release = (tag: Release['tag'], fresh: boolean) => ({ tag, fresh }) as Release
+
+  it('has no notes at all, a tag with none, or the list', () => {
+    expect(releasesView([], 'all')).toBe('none')
+    expect(releasesView([], 'fixed')).toBe('none')
+    expect(releasesView([release('new', false)], 'fixed')).toBe('nomatch')
+    expect(releasesView([release('new', false)], 'new')).toBe('list')
+    expect(releasesView([release('new', false)], 'all')).toBe('list')
+  })
+
+  it('is up to date only when there are notes and none is new to the viewer', () => {
+    expect(isUpToDate([])).toBe(false)
+    expect(isUpToDate([release('new', true), release('fixed', false)])).toBe(false)
+    expect(isUpToDate([release('new', false)])).toBe(true)
   })
 })
