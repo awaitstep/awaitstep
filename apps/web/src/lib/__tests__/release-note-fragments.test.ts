@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { RELEASE_NOTES } from '../../content/releases'
 import { loadReleaseNotes, parseFragment, RELEASE_NOTES_LIMIT } from '../release-note-fragments'
@@ -144,25 +147,27 @@ describe('loadReleaseNotes', () => {
   })
 })
 
-const FRAGMENT_FILES = import.meta.glob<string>('../../../release-notes/*.md', {
-  query: '?raw',
-  import: 'default',
-  eager: true,
-})
-const TEMPLATE = import.meta.glob<string>('../../../release-notes/_template.md.example', {
-  query: '?raw',
-  import: 'default',
-  eager: true,
-})
+// Read from disk when the test runs, not through `import.meta.glob`: Vitest caches a test
+// module's glob, so an unchanged test file would keep passing after a bad fragment is added.
+const RELEASE_NOTES_DIR = fileURLToPath(new URL('../../../release-notes/', import.meta.url))
+
+function readReleaseNotesDir(keep: (file: string) => boolean): Record<string, string> {
+  return Object.fromEntries(
+    readdirSync(RELEASE_NOTES_DIR)
+      .filter(keep)
+      .map((file) => [file, readFileSync(join(RELEASE_NOTES_DIR, file), 'utf8')]),
+  )
+}
 
 describe('the bundled release notes', () => {
   it('parses every fragment in release-notes/ without leaving one out', () => {
-    const total = Object.keys(FRAGMENT_FILES).length
-    expect(loadReleaseNotes(FRAGMENT_FILES, total)).toHaveLength(total)
+    const files = readReleaseNotesDir((file) => file.endsWith('.md'))
+    const total = Object.keys(files).length
+    expect(loadReleaseNotes(files, total)).toHaveLength(total)
   })
 
   it('keeps the template valid, with a one-sentence body free of authoring notes', () => {
-    const raw = Object.values(TEMPLATE)[0]!
+    const raw = Object.values(readReleaseNotesDir((file) => file === '_template.md.example'))[0]!
     const note = parseFragment('template', raw)
     expect(note.body).not.toMatch(/newest 20|never rename/)
   })
