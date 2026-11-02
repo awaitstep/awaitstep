@@ -66,7 +66,7 @@ describe.each(['database', 'bucket'] as const)('images with the %s store', (stor
     expect(new Uint8Array(await served.arrayBuffer())).toEqual(PNG)
     expect(served.headers.get('content-type')).toBe('image/png')
     expect(served.headers.get('x-content-type-options')).toBe('nosniff')
-    expect(served.headers.get('cache-control')).toBe('public, max-age=31536000, immutable')
+    expect(served.headers.get('cache-control')).toBe('private, max-age=86400')
     expect(served.headers.get('content-security-policy')).toBe("default-src 'none'; sandbox")
     expect(served.headers.get('cross-origin-resource-policy')).toBe('same-site')
 

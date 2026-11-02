@@ -21,7 +21,9 @@ export const imageResponseHeaders = createMiddleware<AppEnv>(async (c, next) => 
   if (c.res.status !== 200) return
   const headers = c.res.headers
   headers.set('X-Content-Type-Options', 'nosniff')
-  headers.set('Cache-Control', 'public, max-age=31536000, immutable')
+  // A day, and in the browser only: a removed photo stops showing within
+  // that, and no shared cache keeps a copy.
+  headers.set('Cache-Control', 'private, max-age=86400')
   // Opened on its own, the image runs nothing and loads nothing.
   headers.set('Content-Security-Policy', "default-src 'none'; sandbox")
   headers.set('Cross-Origin-Resource-Policy', 'same-site')
@@ -29,7 +31,7 @@ export const imageResponseHeaders = createMiddleware<AppEnv>(async (c, next) => 
 
 export const images = new Hono<AppEnv>()
 
-// Pages with many avatars ask for many at once; once cached they ask no more.
+// Pages with many avatars ask for many at once; once cached, not again that day.
 images.use('*', createRateLimiter({ windowMs: 60_000, max: 600 }))
 
 images.get('/:id', async (c) => {

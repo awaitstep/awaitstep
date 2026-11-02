@@ -684,7 +684,8 @@ same logo landed first; nothing changed, so send it again. `DELETE` answers
 No session. An uploaded photo or logo, at the path its owner's `image` or
 `logo` holds. The id is 128 random bits, new for every upload. Served with
 the type detected at upload, `X-Content-Type-Options: nosniff`,
-`Cache-Control: public, max-age=31536000, immutable`,
+`Cache-Control: private, max-age=86400` (a day, in the browser only, so a
+removed image stops showing within it),
 `Content-Security-Policy: default-src 'none'; sandbox` and
 `Cross-Origin-Resource-Policy: same-site`. An image that was replaced or
 cleared, or whose owner was deleted, is `404`.
