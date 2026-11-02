@@ -31,7 +31,7 @@ describe('New variable', () => {
     const dialog = await screen.findByRole('dialog', { name: 'New variable' })
     await userEvent.type(within(dialog).getByRole('textbox', { name: /Name/ }), 'STRIPE_KEY')
     expect(within(dialog).getByRole('textbox', { name: /Name/ })).toHaveAccessibleDescription(
-      /global\.env\.STRIPE_KEY/,
+      /Letters, numbers and underscores/,
     )
     await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Secret' }))
     await userEvent.type(within(dialog).getByLabelText('Value'), 'sk_live_x')
