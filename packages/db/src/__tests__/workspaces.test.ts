@@ -373,6 +373,31 @@ describe.each([
       expect(await h.adapter.updateWorkspace('nope', { name: 'x' })).toBeNull()
     })
 
+    it('re-slugs only a workspace still on `default`, and only to a free slug', async () => {
+      // p-202's lone workspace is the default one.
+      expect(
+        await h.adapter.updateWorkspace('ws-202', { name: 'Billing', slugFromName: 'billing' }),
+      ).toMatchObject({ id: 'ws-202', name: 'Billing', slug: 'billing' })
+      // No longer `default`: a later rename leaves the slug.
+      expect(
+        await h.adapter.updateWorkspace('ws-202', { name: 'Money', slugFromName: 'money' }),
+      ).toMatchObject({ name: 'Money', slug: 'billing' })
+      // A non-default workspace keeps its slug.
+      expect(
+        await h.adapter.updateWorkspace('ws-ops', { name: 'Ops X', slugFromName: 'ops-x' }),
+      ).toMatchObject({ name: 'Ops X', slug: 'ops' })
+      // A sibling holding the slug: the rename goes through, the slug stays.
+      await h.adapter.createWorkspace({
+        id: 'ws-g2',
+        projectId: 'p-g',
+        name: 'Taken',
+        slug: 'taken',
+      })
+      expect(
+        await h.adapter.updateWorkspace('ws-g', { name: 'Taken', slugFromName: 'taken' }),
+      ).toMatchObject({ name: 'Taken', slug: 'default' })
+    })
+
     it('refuses a slug a sibling already uses, on create and on rename', async () => {
       const dup = await h.adapter.createWorkspace({
         id: 'ws-dup',

@@ -830,6 +830,8 @@ export interface CreateWorkspaceData {
 export interface UpdateWorkspaceData {
   name?: string
   slug?: string
+  /** Becomes the slug only while it is `default` and no sibling has it. */
+  slugFromName?: string
   description?: string | null
   colour?: string
 }

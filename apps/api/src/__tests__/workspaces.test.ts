@@ -174,6 +174,76 @@ describe('workspace routes', () => {
       })
     })
 
+    it('moves the default workspace’s slug to the new name, and leaves other slugs alone', async () => {
+      const renamed = await app.request(
+        `/api/workspaces/${TEST_WORKSPACE_ID}`,
+        json({ name: 'Sales' }, 'PATCH'),
+      )
+      expect(await renamed.json()).toMatchObject({
+        id: TEST_WORKSPACE_ID,
+        name: 'Sales',
+        slug: 'sales',
+      })
+      const again = await app.request(
+        `/api/workspaces/${TEST_WORKSPACE_ID}`,
+        json({ name: 'Revenue' }, 'PATCH'),
+      )
+      expect((await again.json()).slug).toBe('sales')
+    })
+
+    it('keeps `default` when the new name’s slug is taken or empty', async () => {
+      await app.request(byId('/api/workspaces'), json({ name: 'Sales' }))
+      const taken = await app.request(
+        `/api/workspaces/${TEST_WORKSPACE_ID}`,
+        json({ name: 'Sales' }, 'PATCH'),
+      )
+      expect(taken.status).toBe(200)
+      expect((await taken.json()).slug).toBe('default')
+      const empty = await app.request(
+        `/api/workspaces/${TEST_WORKSPACE_ID}`,
+        json({ name: '!!!' }, 'PATCH'),
+      )
+      expect(empty.status).toBe(200)
+      expect((await empty.json()).slug).toBe('default')
+    })
+
+    it('keeps `default` when the new name’s slug is a page the router owns', async () => {
+      const res = await app.request(
+        `/api/workspaces/${TEST_WORKSPACE_ID}`,
+        json({ name: 'Settings' }, 'PATCH'),
+      )
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ name: 'Settings', slug: 'default' })
+    })
+
+    it('retries a rename without the derived slug when a racing create took it', async () => {
+      const spy = vi
+        .spyOn(mockDb, 'updateWorkspace')
+        .mockRejectedValueOnce(Object.assign(new Error('duplicate'), { code: '23505' }))
+      const res = await app.request(
+        `/api/workspaces/${TEST_WORKSPACE_ID}`,
+        json({ name: 'Sales' }, 'PATCH'),
+      )
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ name: 'Sales', slug: 'default' })
+      expect(spy).toHaveBeenCalledTimes(2)
+      expect(spy.mock.calls[1]![1]).not.toHaveProperty('slugFromName')
+      spy.mockRestore()
+    })
+
+    it('keeps `default` when only the colour changes, and obeys an explicit slug', async () => {
+      const colour = await app.request(
+        `/api/workspaces/${TEST_WORKSPACE_ID}`,
+        json({ colour: 'rose' }, 'PATCH'),
+      )
+      expect((await colour.json()).slug).toBe('default')
+      const explicit = await app.request(
+        `/api/workspaces/${TEST_WORKSPACE_ID}`,
+        json({ name: 'Sales', slug: 'revenue' }, 'PATCH'),
+      )
+      expect((await explicit.json()).slug).toBe('revenue')
+    })
+
     it('refuses a rename onto a sibling’s slug', async () => {
       await app.request(byId('/api/workspaces'), json({ name: 'Ops' }))
       const res = await app.request(

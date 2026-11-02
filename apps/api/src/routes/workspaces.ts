@@ -114,11 +114,24 @@ workspaces.get('/:id', async (c) => {
 
 workspaces.patch('/:id', zValidator('json', updateWorkspaceSchema), async (c) => {
   const body = c.req.valid('json')
+  // Only the default workspace takes it up; the statement checks that.
+  const fromName = body.name === undefined ? undefined : slugify(body.name)
+  const slugFromName =
+    body.slug === undefined && fromName && workspaceSlugSchema.safeParse(fromName).success
+      ? fromName
+      : undefined
+  const db = c.get('db')
+  const id = c.get('workspaceId')!
+  const description = body.description === undefined ? undefined : body.description?.trim() || null
   try {
-    const updated = await c.get('db').updateWorkspace(c.get('workspaceId')!, {
-      ...body,
-      description: body.description === undefined ? undefined : body.description?.trim() || null,
-    })
+    let updated
+    try {
+      updated = await db.updateWorkspace(id, { ...body, slugFromName, description })
+    } catch (error) {
+      // A create racing past the statement's check takes the derived slug; a rename must not fail on it.
+      if (!(slugFromName && isUniqueViolation(error))) throw error
+      updated = await db.updateWorkspace(id, { ...body, description })
+    }
     if (!updated) {
       // requireWorkspace found the row a moment ago, so a miss is the slug check.
       if (body.slug !== undefined) return c.json({ error: SLUG_TAKEN }, 409)

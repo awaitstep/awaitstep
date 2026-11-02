@@ -82,6 +82,39 @@ describe('workspace settings › General', () => {
     )
   })
 
+  it('goes to the new URL when renaming the default workspace changes its slug', async () => {
+    dashboardDb().workspaces.find((w) => w.id === 'ws_sales')!.slug = 'default'
+    await renderPage({ slugs: { ...sales, workspace: 'default' } })
+    const name = screen.getByRole('textbox', { name: /Name/ })
+    await userEvent.clear(name)
+    await userEvent.type(name, 'Revenue')
+    await userEvent.click(within(topBar()).getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(goTo).toHaveBeenCalledWith('/acme/project-101/revenue/settings'))
+  })
+
+  it('doesn’t rename, so doesn’t re-slug, when only the colour is saved', async () => {
+    dashboardDb().workspaces.find((w) => w.id === 'ws_sales')!.slug = 'default'
+    await renderPage({ slugs: { ...sales, workspace: 'default' } })
+    await userEvent.click(screen.getByRole('radio', { name: 'Rose' }))
+    await userEvent.click(within(topBar()).getByRole('button', { name: 'Save changes' }))
+    await waitFor(() =>
+      expect(dashboardDb().workspaces.find((w) => w.id === 'ws_sales')!.colour).toBe('rose'),
+    )
+    expect(dashboardDb().workspaces.find((w) => w.id === 'ws_sales')!.slug).toBe('default')
+    expect(goTo).not.toHaveBeenCalled()
+  })
+
+  it('stays put when a rename leaves the slug as it was', async () => {
+    await renderPage()
+    const name = screen.getByRole('textbox', { name: /Name/ })
+    await userEvent.type(name, ' Team')
+    await userEvent.click(within(topBar()).getByRole('button', { name: 'Save changes' }))
+    await waitFor(() =>
+      expect(dashboardDb().workspaces.find((w) => w.id === 'ws_sales')!.name).toBe('Sales Team'),
+    )
+    expect(goTo).not.toHaveBeenCalled()
+  })
+
   it('deletes Support after typing its name, landing on the project', async () => {
     unlockProject()
     await renderPage({ slugs: support })
