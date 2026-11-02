@@ -29,6 +29,8 @@ export interface Harness {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   schema: any
   count(table: string, where?: string): Promise<number>
+  /** Every statement run, in order: on Postgres only. */
+  queries?: string[]
 }
 
 export async function sqliteHarness(): Promise<Harness> {
@@ -48,9 +50,11 @@ export async function sqliteHarness(): Promise<Harness> {
 
 export async function pgHarness(): Promise<Harness> {
   const client = new PGlite()
-  const db = drizzlePg(client, { schema: pgSchema })
+  const queries: string[] = []
+  const db = drizzlePg(client, { schema: pgSchema, logger: { logQuery: (q) => queries.push(q) } })
   await migratePg(db, { migrationsFolder: PG_FOLDER })
   return {
+    queries,
     adapter: new DrizzleDatabaseAdapter(db, pgSchema, { dialect: 'pg' }),
     db,
     schema: pgSchema,

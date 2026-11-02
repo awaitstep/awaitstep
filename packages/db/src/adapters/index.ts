@@ -416,11 +416,15 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       this._dialect,
     )
     this._deploymentConfigs = new DeploymentConfigsAdapter(db, schema.deploymentConfigs)
-    this._images = new ImagesAdapter(db, {
-      images: schema.images,
-      user: schema.user,
-      organization: schema.organization,
-    })
+    this._images = new ImagesAdapter(
+      db,
+      {
+        images: schema.images,
+        user: schema.user,
+        organization: schema.organization,
+      },
+      this._dialect,
+    )
     if (roles) {
       this._account = new AccountAdapter(
         db,

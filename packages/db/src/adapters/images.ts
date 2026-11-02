@@ -7,6 +7,7 @@ import type {
   ServableImage,
 } from '../types.js'
 import { atomically, atomicallyReturning } from './atomic.js'
+import type { Dialect } from './json-array.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -29,6 +30,15 @@ function chunks(ids: string[]): string[][] {
   return out
 }
 
+/** Users before organizations: the order owner rows are locked in. */
+const OWNER_KINDS = ['user', 'org'] as const
+
+/** Users before organizations, then by id: the order owner rows are locked in. */
+function ownerOrder(a: ImageOwner, b: ImageOwner): number {
+  if (a.kind !== b.kind) return OWNER_KINDS.indexOf(a.kind) - OWNER_KINDS.indexOf(b.kind)
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+}
+
 /** The provider avatar URLs kept as they are; any other remote URL is cleared. */
 const PROVIDER_URL_PATTERNS = [
   'https://avatars.githubusercontent.com/%',
@@ -46,7 +56,59 @@ export class ImagesAdapter {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private db: any,
     private t: ImageTables,
+    private dialect: Dialect,
   ) {}
+
+  /*
+   * On Postgres the swap and the claim each lock the owner rows they are
+   * about to check, before checking them. Under read committed a statement's
+   * `exists` reads the rows as they were when it began, so without the lock
+   * a swap and a claim running at once could each pass on what the other
+   * was changing: the owner pointed at a row whose bytes then go. With it,
+   * the second waits for the first to commit, and its check (a statement
+   * that starts after the lock) reads what the first wrote. A swap locks
+   * its one owner row; a claim locks every owner row of all its images up
+   * front, users then organizations, each by id — so two claims take their
+   * locks in the same order and can't deadlock. `for no key update`: it
+   * conflicts with itself, but not with the key-share locks that inserts
+   * referencing the user or organization (sessions, members) take. SQLite
+   * and D1 already run one writer at a time, and SQLite has no row locks.
+   */
+
+  /** Locks the owner's row; nothing on SQLite. */
+  private lockOwner(tx: AnyTable, owner: ImageOwner): AnyTable[] {
+    if (this.dialect !== 'pg') return []
+    const { table } = this.ownerColumn(owner.kind)
+    return [
+      tx.select({ id: table.id }).from(table).where(eq(table.id, owner.id)).for('no key update'),
+    ]
+  }
+
+  /**
+   * Locks the rows of every owner of these images, in id order; nothing on
+   * SQLite. Not chunked: only Postgres runs it, which binds far more than
+   * D1's 100 parameters.
+   */
+  private lockOwnersOf(tx: AnyTable, ids: string[]): AnyTable[] {
+    if (this.dialect !== 'pg') return []
+    const i = this.t.images
+    return OWNER_KINDS.map((kind) => {
+      const { table } = this.ownerColumn(kind)
+      const owners = tx
+        .select({ id: i.ownerId })
+        .from(i)
+        .where(and(inArray(i.id, ids), eq(i.ownerKind, kind)))
+      return (
+        tx
+          .select({ id: table.id })
+          .from(table)
+          .where(inArray(table.id, owners))
+          // Byte order, as `ownerOrder` sorts: the database's collation may not be.
+          .orderBy(sql`${table.id} collate "C"`)
+          .for('no key update')
+      )
+    })
+  }
 
   /** The owner's table and the column that holds its image. */
   private ownerColumn(kind: ImageOwnerKind): {
@@ -125,7 +187,8 @@ export class ImagesAdapter {
     const i = this.t.images
     const { table, field } = this.ownerColumn(owner.kind)
     const ownsImage = sql`exists (select 1 from ${i} where ${i.id} = ${imageId} and ${i.ownerKind} = ${owner.kind} and ${i.ownerId} = ${owner.id} and ${i.discardedAt} is null)`
-    const [updated, others] = await atomicallyReturning<{ id: string }>(this.db, (tx) => [
+    const results = await atomicallyReturning<{ id: string }>(this.db, (tx) => [
+      ...this.lockOwner(tx, owner),
       tx
         .update(table)
         .set({ [field]: PATH_PREFIX + imageId })
@@ -136,6 +199,7 @@ export class ImagesAdapter {
         .from(i)
         .where(and(eq(i.ownerKind, owner.kind), eq(i.ownerId, owner.id), ne(i.id, imageId))),
     ])
+    const [updated, others] = results.slice(-2)
     return { set: (updated?.length ?? 0) > 0, others: (others ?? []).map((r) => r.id) }
   }
 
@@ -189,16 +253,22 @@ export class ImagesAdapter {
   async claimImages(ids: string[], at: string): Promise<string[]> {
     if (ids.length === 0) return []
     const i = this.t.images
-    const claimed = await atomicallyReturning<{ id: string }>(this.db, (tx) =>
-      chunks(ids).map((chunk) =>
+    const results = await atomicallyReturning<{ id: string }>(this.db, (tx) => [
+      ...this.lockOwnersOf(tx, ids),
+      ...chunks(ids).map((chunk) =>
         tx
           .update(i)
           .set({ discardedAt: at })
           .where(and(inArray(i.id, chunk), sql`not ${this.referenced()}`))
           .returning({ id: i.id }),
       ),
-    )
-    return claimed.flat().map((r) => r.id)
+    ])
+    // The lock statements come first; their rows are owner ids.
+    const locks = this.dialect === 'pg' ? OWNER_KINDS.length : 0
+    return results
+      .slice(locks)
+      .flat()
+      .map((r) => r.id)
   }
 
   /** Deletes claimed rows (`claimImages`); a database-store row takes its bytes with it. */
@@ -251,12 +321,17 @@ export class ImagesAdapter {
     // A moved owner is pointed only at a row no cleanup has claimed.
     const live = (imageId: string) =>
       sql`exists (select 1 from ${i} where ${i.id} = ${imageId} and ${i.discardedAt} is null)`
-    await atomically(this.db, (tx) => [
-      ...moved.map(({ owner, imageId }) =>
-        this.inlineUpdate(tx, owner, PATH_PREFIX + imageId, live(imageId)),
+    // Each update locks its owner row: users then organizations, by id, the
+    // order a claim locks them in, so a batch and a sweep can't deadlock.
+    const updates = [
+      ...moved.map(({ owner, imageId }) => ({ owner, value: PATH_PREFIX + imageId, imageId })),
+      ...cleared.map((owner) => ({ owner, value: null, imageId: null })),
+    ].sort((a, b) => ownerOrder(a.owner, b.owner))
+    await atomically(this.db, (tx) =>
+      updates.map(({ owner, value, imageId }) =>
+        this.inlineUpdate(tx, owner, value, imageId ? live(imageId) : undefined),
       ),
-      ...cleared.map((owner) => this.inlineUpdate(tx, owner, null)),
-    ])
+    )
   }
 
   private inlineUpdate(tx: AnyTable, owner: ImageOwner, value: string | null, also?: SQL) {

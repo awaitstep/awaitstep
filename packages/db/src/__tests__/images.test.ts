@@ -261,6 +261,15 @@ describe.each([
     expect(await h.adapter.existingImages(ids)).toEqual([])
   })
 
+  it('answers only claimed image ids, whoever owns them', async () => {
+    await h.adapter.insertImage(row('img_user'))
+    await h.adapter.insertImage(row('img_org', { ownerKind: 'org', ownerId: 'org-acme' }))
+    expect((await h.adapter.claimImages(['img_user', 'img_org'], LATE)).sort()).toEqual([
+      'img_org',
+      'img_user',
+    ])
+  })
+
   it('points a moved inline image only at a row no cleanup has claimed', async () => {
     await h.db
       .update(h.schema.user)
@@ -273,5 +282,87 @@ describe.each([
       [],
     )
     expect(await imageOf('u-ama')).toBe('data:image/png;base64,iVBORw0KGgo=')
+  })
+})
+
+// PGlite has one connection, so two writers can't race here (the Docker e2e
+// runs them on a real Postgres). What can be checked is the order: on
+// Postgres each check runs only after the owner rows it reads are locked.
+describe('row locks on pg', () => {
+  let h: Harness
+
+  beforeEach(async () => {
+    h = await pgHarness()
+    await seed(h)
+  })
+
+  function since(start: number): string[] {
+    return h.queries!.slice(start).map((q) => q.toLowerCase())
+  }
+
+  it('the swap locks the owner row before checking the image and pointing at it', async () => {
+    await h.adapter.insertImage(row('img_a'))
+    const start = h.queries!.length
+    await h.adapter.setOwnerImage({ kind: 'user', id: 'u-ama' }, 'img_a')
+    const [lock, swap] = since(start)
+    expect(lock).toMatch(/^select .* from "user" where "user"."id" = \$1 for no key update$/)
+    expect(swap).toMatch(/^update "user" set "image"/)
+  })
+
+  it('the claim locks the owners of its images, users then organizations, before checking', async () => {
+    await h.adapter.insertImage(row('img_a'))
+    const start = h.queries!.length
+    await h.adapter.claimImages(['img_a'], LATE)
+    const [users, orgs, claim] = since(start)
+    expect(users).toMatch(
+      /from "user" where .* order by "user"."id" collate "c" for no key update$/,
+    )
+    expect(orgs).toMatch(/from "organization" where .* for no key update$/)
+    expect(claim).toMatch(/^update "image" set "discarded_at"/)
+  })
+
+  it('a claim over several chunks locks every owner once, up front, before any update', async () => {
+    // Two claims locking chunk by chunk could take the same owners in
+    // opposite orders and deadlock; locking all of them first can't.
+    const ids = Array.from({ length: 150 }, (_, n) => `img_many_${n}`)
+    await h.adapter.insertImages(
+      ids.map((id, n) =>
+        row(
+          id,
+          n % 2
+            ? { ownerId: n < 90 ? 'u-ben' : 'u-ama' }
+            : { ownerKind: 'org', ownerId: 'org-acme' },
+        ),
+      ),
+    )
+    const start = h.queries!.length
+    expect(await h.adapter.claimImages(ids, LATE)).toHaveLength(150)
+    const statements = since(start)
+    expect(statements.map((q) => q.split(' ')[0])).toEqual(['select', 'select', 'update', 'update'])
+    expect(statements[0]).toMatch(/from "user" .* for no key update$/)
+    expect(statements[1]).toMatch(/from "organization" .* for no key update$/)
+  })
+
+  it('the inline migration updates owners in the order a claim locks them', async () => {
+    for (const id of ['u-cleo', 'u-ama']) {
+      await h.db
+        .update(h.schema.user)
+        .set({ image: 'data:image/png;base64,AAAA' })
+        .where(eq(h.schema.user.id, id))
+    }
+    await h.adapter.insertImage(row('img_cleo', { ownerId: 'u-cleo' }))
+    const start = h.queries!.length
+    await h.adapter.replaceInlineImages(
+      [{ owner: { kind: 'user', id: 'u-cleo' }, imageId: 'img_cleo' }],
+      [
+        { kind: 'org', id: 'org-acme' },
+        { kind: 'user', id: 'u-ama' },
+      ],
+    )
+    const targets = since(start).map((q) => /^update "(\w+)"/.exec(q)?.[1])
+    expect(targets).toEqual(['user', 'user', 'organization'])
+    const params = h.queries!.slice(start)
+    expect(params[0]).not.toContain('img_cleo')
+    expect(params[1]).toContain('exists')
   })
 })
