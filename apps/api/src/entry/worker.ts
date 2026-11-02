@@ -158,19 +158,23 @@ async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof cr
     remoteNodeRegistry,
     appName: env.APP_NAME,
     deployer,
-    // A test session's container must outlast the session's idle window, so
-    // the runner asks for its own sleepAfter rather than the deploy's.
-    // Every call takes the session's own window: falling back to the
-    // deploy's five minutes on any call without options reset the container
-    // to sleep long before the session expires.
-    testSessionRunner: new SandboxTestSessionRunner(
-      (id, options) =>
-        getSandbox(env.SANDBOX, id, { sleepAfter: options?.sleepAfter ?? sessionSleepAfter }),
-      { sleepAfter: sessionSleepAfter },
-    ),
+    testSessionRunner: testSessionRunnerFor(env, sessionSleepAfter),
     testSessionLimits,
     emails,
   })
+}
+
+// A test session's container must outlast the session's idle window, so the
+// runner asks for its own sleepAfter rather than the deploy's. Every call takes
+// the session's own window: falling back to the deploy's five minutes on any
+// call without options reset the container to sleep long before the session
+// expired. The request path and the cron reaper both build the runner here so
+// their container lifetimes cannot drift apart.
+function testSessionRunnerFor(env: Env, sleepAfter: string): SandboxTestSessionRunner {
+  return new SandboxTestSessionRunner(
+    (id, options) => getSandbox(env.SANDBOX, id, { sleepAfter: options?.sleepAfter ?? sleepAfter }),
+    { sleepAfter },
+  )
 }
 
 export default {
@@ -208,11 +212,7 @@ export default {
         isTopOfHour(controller.scheduledTime) ? runMaintenance(db) : Promise.resolve(),
         reapTestSessions({
           db,
-          runner: new SandboxTestSessionRunner(
-            (id, options) =>
-              getSandbox(env.SANDBOX, id, { sleepAfter: options?.sleepAfter ?? sleepAfter }),
-            { sleepAfter },
-          ),
+          runner: testSessionRunnerFor(env, sleepAfter),
           limits,
         }),
       ]),
