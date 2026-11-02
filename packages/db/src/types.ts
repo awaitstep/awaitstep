@@ -1246,3 +1246,39 @@ export interface AccountExportRow {
     workspaces: { project: string; name: string; role: string }[]
   }[]
 }
+
+/** Whose an uploaded image is: a person's photo or an organization's logo. */
+export type ImageOwnerKind = 'user' | 'org'
+
+export interface ImageOwner {
+  kind: ImageOwnerKind
+  id: string
+}
+
+/** A new `image` row; `data` only when the database store keeps the bytes. */
+export interface ImageInsert {
+  id: string
+  ownerKind: ImageOwnerKind
+  ownerId: string
+  contentType: string
+  bytesLen: number
+  width: number
+  height: number
+  createdAt: string
+  data?: Uint8Array | null
+}
+
+/** An image its owner still names, as `/api/images/:id` serves it. */
+export interface ServableImage {
+  contentType: string
+  bytesLen: number
+  /** The bytes when the row holds them (the database store), else null. */
+  data: Uint8Array | null
+}
+
+/** A photo or logo still held inline as a `data:` URL. */
+export interface InlineImageRow {
+  ownerKind: ImageOwnerKind
+  ownerId: string
+  value: string
+}

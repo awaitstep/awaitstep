@@ -6,6 +6,7 @@ import {
   index,
   check,
   primaryKey,
+  blob,
   type AnySQLiteColumn,
 } from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
@@ -757,3 +758,25 @@ export const releaseVisits = sqliteTable('release_visits', {
   // The notes that visit showed (ids, as JSON): later ones are new to them.
   seenIds: text('seen_ids').notNull().default('[]'),
 })
+
+// Uploaded photos and logos: whose each is; `data` only for the database store.
+export const images = sqliteTable(
+  'image',
+  {
+    id: text('id').primaryKey(),
+    ownerKind: text('owner_kind', { enum: ['user', 'org'] }).notNull(),
+    ownerId: text('owner_id').notNull(),
+    contentType: text('content_type').notNull(),
+    bytesLen: integer('bytes_len').notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    createdAt: text('created_at').notNull(),
+    data: blob('data', { mode: 'buffer' }),
+    // Set once the row is claimed for deletion: no owner may point at it after.
+    discardedAt: text('discarded_at'),
+  },
+  (table) => [
+    index('idx_image_owner').on(table.ownerKind, table.ownerId),
+    index('idx_image_created').on(table.createdAt),
+  ],
+)

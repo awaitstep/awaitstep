@@ -117,6 +117,10 @@ import type {
   AcceptInvitationData,
   AccessRequestRow,
   AccessRequestDecision,
+  ImageInsert,
+  ImageOwner,
+  InlineImageRow,
+  ServableImage,
 } from '../types.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
@@ -156,6 +160,7 @@ import { ProjectsAdapter } from './projects.js'
 import { InstalledNodesAdapter } from './installed-nodes.js'
 import { DeploymentConfigsAdapter } from './deployment-configs.js'
 import { AccountAdapter } from './account.js'
+import { ImagesAdapter } from './images.js'
 
 export interface SchemaRef {
   workflows: unknown
@@ -190,6 +195,7 @@ export interface SchemaRef {
   auditEvents?: unknown
   notifications?: unknown
   releaseVisits?: unknown
+  images?: unknown
 }
 
 export interface DrizzleAdapterOptions {
@@ -228,6 +234,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _installedNodes: InstalledNodesAdapter
   private _deploymentConfigs: DeploymentConfigsAdapter
   private _account?: AccountAdapter
+  private _images: ImagesAdapter
   private _scope: ScopeAdapter
   private _access: AccessAdapter
   private _invitations: InvitationsAdapter
@@ -409,6 +416,11 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       this._dialect,
     )
     this._deploymentConfigs = new DeploymentConfigsAdapter(db, schema.deploymentConfigs)
+    this._images = new ImagesAdapter(db, {
+      images: schema.images,
+      user: schema.user,
+      organization: schema.organization,
+    })
     if (roles) {
       this._account = new AccountAdapter(
         db,
@@ -1633,5 +1645,55 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     data: { version: string; bundle: string },
   ): Promise<InstalledNode> {
     return this._installedNodes.updateBundle(organizationId, nodeId, data)
+  }
+
+  // Uploaded images
+  insertImage(row: ImageInsert): Promise<void> {
+    return this._images.insertImage(row)
+  }
+  insertImages(rows: ImageInsert[]): Promise<void> {
+    return this._images.insertImages(rows)
+  }
+  setImageData(id: string, data: Uint8Array): Promise<void> {
+    return this._images.setImageData(id, data)
+  }
+  getImageData(id: string): Promise<Uint8Array | null> {
+    return this._images.getImageData(id)
+  }
+  getImage(id: string): Promise<ServableImage | null> {
+    return this._images.getImage(id)
+  }
+  setOwnerImage(owner: ImageOwner, imageId: string): Promise<{ set: boolean; others: string[] }> {
+    return this._images.setOwnerImage(owner, imageId)
+  }
+  clearOwnerImage(owner: ImageOwner): Promise<string[]> {
+    return this._images.clearOwnerImage(owner)
+  }
+  listOwnerImages(owner: ImageOwner): Promise<string[]> {
+    return this._images.listOwnerImages(owner)
+  }
+  listUnreferencedImages(before: string, limit: number): Promise<string[]> {
+    return this._images.listUnreferencedImages(before, limit)
+  }
+  claimImages(ids: string[], at: string): Promise<string[]> {
+    return this._images.claimImages(ids, at)
+  }
+  deleteImages(ids: string[]): Promise<void> {
+    return this._images.deleteImages(ids)
+  }
+  existingImages(ids: string[]): Promise<string[]> {
+    return this._images.existingImages(ids)
+  }
+  listInlineImages(limit: number): Promise<InlineImageRow[]> {
+    return this._images.listInlineImages(limit)
+  }
+  replaceInlineImages(
+    moved: { owner: ImageOwner; imageId: string }[],
+    cleared: ImageOwner[],
+  ): Promise<void> {
+    return this._images.replaceInlineImages(moved, cleared)
+  }
+  clearRemoteImages(): Promise<void> {
+    return this._images.clearRemoteImages()
   }
 }
