@@ -6,7 +6,7 @@ describe('projectRootOptions', () => {
   it('maps #app/* onto the workflow model root', () => {
     const options = projectRootOptions('wf-1')
     expect(options.baseUrl).toBe('awaitstep://workflow/wf-1/')
-    expect(options.paths).toEqual({ '#app/*': ['*'] })
+    expect(options.paths).toEqual({ '#app/*': ['*'], '#awaitstep/*': ['awaitstep/*'] })
     // The same root every model URI starts with.
     expect(workflowModelPath('wf-1', 'config/env.ts').startsWith(options.baseUrl)).toBe(true)
   })

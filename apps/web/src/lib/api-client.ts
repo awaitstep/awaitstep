@@ -1,5 +1,5 @@
 import type { ConnectionSummary as ApiConnectionSummary, DeployConnections } from '@awaitstep/ir'
-import type { SourceDiagnostic } from '@awaitstep/codegen'
+import type { RuntimeRequirement, SourceDiagnostic } from '@awaitstep/codegen'
 import type {
   GeneratedFile,
   StepManifest,
@@ -234,8 +234,12 @@ export type TestSessionTriggerResponse = TestSessionResponse
 export interface WorkflowSource {
   versionId: string
   entry: string
+  /** The file to open first: a workflow's portable definition, else the entry. */
+  primary?: string
   files: SourceFile[]
   manifest: StepManifest | null
+  /** Provider-scoped primitives and bindings the workflow needs. */
+  requirements?: RuntimeRequirement[]
   /** Empty when the workflow is healthy; never absent. */
   diagnostics: SourceDiagnostic[]
 }

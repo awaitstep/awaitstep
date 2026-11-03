@@ -1,14 +1,16 @@
+import { AWAITSTEP_IMPORT_PREFIX, AWAITSTEP_MODULE_DIR } from '@awaitstep/codegen'
 import { PROJECT_IMPORT_PREFIX } from '@awaitstep/ir'
 import { parseJsonc } from '../jsonc'
 import { workflowModelPath } from './setup'
 
 /**
  * The compiler options that make one workflow's models a single program:
- * `baseUrl` is the workflow's model root, so `#app/<path>` maps onto the
- * model `<root>/<path>` exactly as the deployed package.json `imports` map
- * does, and relative imports between generated modules resolve the same
- * way. TypeScript's path utilities treat `scheme://authority/` as a root,
- * so a workflow's files can never resolve into another workflow's.
+ * `baseUrl` is the workflow's model root, so `#app/<path>` and
+ * `#awaitstep/<path>` map onto the model `<root>/<path>` exactly as the
+ * deployed package.json `imports` map does, and relative imports between
+ * generated modules resolve the same way. TypeScript's path utilities treat
+ * `scheme://authority/` as a root, so a workflow's files can never resolve
+ * into another workflow's.
  */
 export function projectRootOptions(workflowId: string): {
   baseUrl: string
@@ -16,7 +18,10 @@ export function projectRootOptions(workflowId: string): {
 } {
   return {
     baseUrl: workflowModelPath(workflowId, ''),
-    paths: { [`${PROJECT_IMPORT_PREFIX}*`]: ['*'] },
+    paths: {
+      [`${PROJECT_IMPORT_PREFIX}*`]: ['*'],
+      [`${AWAITSTEP_IMPORT_PREFIX}*`]: [`${AWAITSTEP_MODULE_DIR}*`],
+    },
   }
 }
 

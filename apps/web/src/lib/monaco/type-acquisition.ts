@@ -5,6 +5,7 @@
  * so hover, completion and cross-file checks know the real types. Pure
  * functions with an injected fetch; the registry and hook bind them.
  */
+import { importSpecifiers } from '@awaitstep/codegen'
 import { PACKAGE_MANIFEST_PATH, parsePackageManifest, validatePackageManifest } from '@awaitstep/ir'
 import { fileLanguage } from '../ide/file-tree'
 
@@ -39,22 +40,12 @@ export const TYPE_LIB_ROOT = 'awaitstep://workflow/node_modules/'
 export const MAX_TYPE_FILES_PER_PACKAGE = 400
 const FETCH_POOL = 8
 
-const SPECIFIER_PATTERNS = [
-  // import x from 'y' / import 'y' / export * from 'y' / import type … from 'y'
-  /(?:^|[^\w$.])(?:import|export)\s+(?:[^'"`;]*?\s+from\s+)?['"]([^'"\n]+)['"]/g,
-  // import('y') / require('y')
-  /\b(?:import|require)\s*\(\s*['"]([^'"\n]+)['"]\s*\)/g,
-]
-
-/** Module specifiers a source imports, in order of appearance, duplicates removed. */
-export function importSpecifiers(source: string): string[] {
-  const found = new Set<string>()
-  for (const pattern of SPECIFIER_PATTERNS) {
-    pattern.lastIndex = 0
-    for (const match of source.matchAll(pattern)) found.add(match[1]!)
-  }
-  return [...found]
-}
+/**
+ * Module specifiers a source imports — the shared scanner from
+ * `@awaitstep/codegen`, re-exported so the IDE and the deploy's requirement
+ * analysis read code the same way.
+ */
+export { importSpecifiers } from '@awaitstep/codegen'
 
 /**
  * The npm package a bare specifier belongs to (`zod/v4` → `zod`,

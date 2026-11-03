@@ -29,16 +29,17 @@ describe('importSpecifiers', () => {
       } from '@scope/pkg/sub'
       // import 'not-really' is inside a comment and still harmless
     `
+    // In order of appearance; the duplicate `zod` is dropped once.
     expect(importSpecifiers(source)).toEqual([
       'zod',
       'stripe',
       './side-effect',
       '#app/config/env',
       '../shared',
-      '@scope/pkg/sub',
-      'not-really',
       'date-fns/format',
       'lodash',
+      '@scope/pkg/sub',
+      'not-really',
     ])
   })
 })

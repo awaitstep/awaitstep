@@ -1,4 +1,5 @@
 import type { Monaco } from '@monaco-editor/react'
+import { AWAITSTEP_MODULES_DTS } from './awaitstep-modules'
 import { CF_RUNTIME_DTS } from './cf-runtime-dts'
 import type { LanguageHosts } from './project-libs'
 
@@ -19,6 +20,7 @@ export const MUTED_DIAGNOSTIC_CODES = [1108, 1206, 1434, 2307]
 const UNRESOLVED_IMPORT_CODE = 2307
 
 const CF_RUNTIME_LIB_URI = 'file:///awaitstep/cf-runtime.d.ts'
+const AWAITSTEP_MODULES_LIB_URI = 'file:///awaitstep/awaitstep-modules.d.ts'
 
 // Platform modules that only exist at runtime: `cloudflare:workers` has a
 // real declaration above; everything else under those schemes resolves to
@@ -73,6 +75,7 @@ export function configureMonaco(monaco: Monaco): void {
     defaults.setDiagnosticsOptions(diagnosticsOptions(false))
     defaults.setEagerModelSync(true)
     defaults.addExtraLib(CF_RUNTIME_DTS, CF_RUNTIME_LIB_URI)
+    defaults.addExtraLib(AWAITSTEP_MODULES_DTS, AWAITSTEP_MODULES_LIB_URI)
     defaults.addExtraLib(PLATFORM_MODULES_DTS, PLATFORM_MODULES_LIB_URI)
   }
 }

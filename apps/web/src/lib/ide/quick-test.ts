@@ -281,7 +281,7 @@ const __awaitstep_stub = {
     const fn = typeof optionsOrFn === 'function' ? optionsOrFn : maybeFn;
     __awaitstep_log('info', ['step.do(' + __awaitstep_json(label) + ')']);
     if (typeof fn !== 'function') return undefined;
-    return await fn();
+    return await fn({ attempt: 1 });
   },
   sleep: async function (label) {
     __awaitstep_log('info', ['step.sleep(' + __awaitstep_json(label) + ') skipped in a quick test']);
@@ -304,6 +304,7 @@ self.onmessage = async function (e) {
       event: data.event,
       inputs: data.inputs,
       step: __awaitstep_stub,
+      ctx: { attempt: 1 },
     });
     __awaitstep_post({ type: 'done', result: result === undefined ? '' : __awaitstep_json(result) });
   } catch (err) {

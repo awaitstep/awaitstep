@@ -349,12 +349,13 @@ describe('buildWorkerSource', () => {
     expect(buildWorkerSource(GENERATED)).toContain('return { id: lookup.id };')
   })
 
-  it('calls the step with the four arguments the generated shape expects', () => {
+  it('calls the step with the arguments the generated shape expects', () => {
     const source = buildWorkerSource(GENERATED)
     expect(source).toContain('__awaitstep_step({')
-    for (const key of ['env:', 'event:', 'inputs:', 'step:']) {
+    for (const key of ['env:', 'event:', 'inputs:', 'step:', 'ctx:']) {
       expect(source).toContain(key)
     }
+    expect(source).toContain('{ attempt: 1 }')
   })
 
   it('stubs the step object rather than leaving it undefined', () => {
@@ -364,5 +365,7 @@ describe('buildWorkerSource', () => {
     expect(source).toContain('do: async function')
     expect(source).toContain('sleep: async function')
     expect(source).toContain('waitForEvent')
+    // Nested step calls receive an attempt, as the real callback does.
+    expect(source).toContain('return await fn({ attempt: 1 });')
   })
 })

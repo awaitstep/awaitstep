@@ -233,14 +233,15 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
 
   // Keep tabs and drafts consistent with the loaded bundle (a refetch after
   // a save makes the saved draft redundant) and land on the deep-linked file
-  // (or the entry) when nothing is open yet.
+  // (or the primary file) when nothing is open yet.
   useEffect(() => {
     if (!source) return
     pruneFiles(baseline.keys())
     reconcileDrafts(baseline)
     if (useIdeStore.getState().activePath !== null) return
     const requested = fileParam ? normalizeBundlePath(fileParam) : null
-    const initial = requested && baseline.has(requested) ? requested : source.entry
+    const initial =
+      requested && baseline.has(requested) ? requested : (source.primary ?? source.entry)
     if (baseline.has(initial)) openFile(initial)
   }, [source, baseline, fileParam, openFile, pruneFiles, reconcileDrafts])
 
