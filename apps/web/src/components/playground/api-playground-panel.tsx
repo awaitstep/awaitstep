@@ -1,18 +1,16 @@
-import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { KeyRound } from 'lucide-react'
-import { PageHeader } from '../../components/ui/page-header'
 import type { EndpointDef } from '../../lib/playground-endpoints'
-import { EndpointSidebar } from '../../components/playground/endpoint-sidebar'
-import { RequestPanel } from '../../components/playground/request-panel'
-import { ResponsePanel, type ResponseData } from '../../components/playground/response-panel'
+import { EndpointSidebar } from './endpoint-sidebar'
+import { RequestPanel } from './request-panel'
+import { ResponsePanel, type ResponseData } from './response-panel'
 
-export const Route = createFileRoute('/_authed/api-playground')({
-  head: () => ({ meta: [{ title: 'API Playground | AwaitStep' }] }),
-  component: ApiPlaygroundPage,
-})
-
-function ApiPlaygroundPage() {
+/**
+ * The API Playground's two panes — the endpoint list and the request/response
+ * builder — filling the dashboard's main column below the top bar. The key box
+ * rides at the top of the panel (not the top bar, which hides on phones).
+ */
+export function ApiPlaygroundPanel() {
   const [apiKey, setApiKey] = useState('')
   const [selectedEndpoint, setSelectedEndpoint] = useState<EndpointDef | null>(null)
   const [response, setResponse] = useState<ResponseData | null>(null)
@@ -24,35 +22,34 @@ function ApiPlaygroundPage() {
   }
 
   return (
-    // 100svh minus the shell's pb-8 (2rem); below md also minus the h-12 mobile top bar.
-    <div className="flex h-[calc(100svh-2rem)] flex-col gap-4 max-md:h-[calc(100svh-5rem)]">
-      <PageHeader
-        title="API Playground"
-        actions={
-          <div className="relative">
-            <KeyRound
-              size={12}
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-            />
-            <input
-              type="password"
-              placeholder="Paste API key (ask_...)"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              className="h-8 w-64 rounded-md border border-border bg-card pl-8 pr-2 font-mono text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-          </div>
-        }
-      />
+    // Fill the main column exactly: full viewport height minus the chrome, so the
+    // panes scroll, not the page. On md that's the top bar (h-16); below md it's the
+    // mobile header (h-14) plus the fixed bottom tab bar (h-14) — 7rem together.
+    <div className="flex h-[calc(100svh-7rem)] flex-col gap-4 px-6 py-4 md:h-[calc(100svh-4rem)] md:px-8">
+      <div className="flex shrink-0 items-center gap-3">
+        {/* The top bar names the page on md; below md it's hidden, so the panel says it. */}
+        <h1 className="text-lg font-semibold tracking-tight md:hidden">API Playground</h1>
+        <div className="relative ml-auto">
+          <KeyRound
+            size={12}
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+          />
+          <input
+            type="password"
+            placeholder="Paste API key (ask_...)"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            className="h-8 w-64 rounded-md border border-border bg-card pl-8 pr-2 font-mono text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+        </div>
+      </div>
 
-      {/* Main content: sidebar + panel */}
       <div className="flex min-h-0 flex-1 gap-4">
         <EndpointSidebar
           selectedEndpointId={selectedEndpoint?.id}
           onSelectEndpoint={selectEndpoint}
         />
 
-        {/* Right: request builder + response */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
           {selectedEndpoint ? (
             <>

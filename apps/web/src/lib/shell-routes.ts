@@ -10,9 +10,15 @@ export const CHROMELESS_ROUTE_IDS: readonly string[] = [
 
 /**
  * Route subtrees that draw their own shell: the new dashboard (W1) brings its
- * rail and panel, so the old sidebar must not wrap it.
+ * rail and panel, so the old sidebar must not wrap it. `_orgless` is the new
+ * dashboard's rail around top-level, org-less pages (your account, the API
+ * Playground).
  */
-export const OWN_SHELL_ROUTE_PREFIXES: readonly string[] = ['/_authed/$org', '/_authed/dashboard']
+export const OWN_SHELL_ROUTE_PREFIXES: readonly string[] = [
+  '/_authed/$org',
+  '/_authed/_orgless',
+  '/_authed/dashboard',
+]
 
 function hasOwnShell(routeId: string): boolean {
   return OWN_SHELL_ROUTE_PREFIXES.some(

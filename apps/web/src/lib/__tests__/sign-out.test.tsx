@@ -9,7 +9,7 @@ import { actionToast, CARRIED_TOAST_MAX_AGE_MS, showCarriedToast } from '../acti
 import { handleSignOut } from '../auth-client'
 import { useAuthStore } from '../../stores/auth-store'
 
-const startAt = 'http://localhost:3000/acme/account/sessions'
+const startAt = 'http://localhost:3000/account/sessions'
 
 beforeEach(() => {
   toast.success.mockClear()

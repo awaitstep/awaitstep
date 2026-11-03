@@ -28,7 +28,7 @@ const ICONS = {
  * Sign-in methods (`AccountSessions`): GitHub and Google connect or
  * disconnect; the email link is always on when the instance sends them.
  */
-export function SignInMethodsSection({ org, linkError }: { org: string; linkError?: string }) {
+export function SignInMethodsSection({ linkError }: { linkError?: string }) {
   const methods = useSignInMethods()
   return (
     <section className="settings-width flex flex-col gap-3">
@@ -47,7 +47,7 @@ export function SignInMethodsSection({ org, linkError }: { org: string; linkErro
             )}
             <ListCard label="Sign-in methods">
               {data.methods.map((method) => (
-                <MethodRow key={method.provider} method={method} all={data} org={org} />
+                <MethodRow key={method.provider} method={method} all={data} />
               ))}
             </ListCard>
             <p className="text-2xs text-muted-foreground">
@@ -64,10 +64,9 @@ export function SignInMethodsSection({ org, linkError }: { org: string; linkErro
 interface MethodRowProps {
   method: SignInMethod
   all: SignInMethods
-  org: string
 }
 
-function MethodRow({ method, all, org }: MethodRowProps) {
+function MethodRow({ method, all }: MethodRowProps) {
   const label = PROVIDER_LABEL[method.provider]
   return (
     <ListRow
@@ -82,7 +81,6 @@ function MethodRow({ method, all, org }: MethodRowProps) {
             method={{ ...method, provider: method.provider }}
             label={label}
             allowed={canDisconnect(all.methods, method.provider, all.providers)}
-            org={org}
           />
         ) : (
           <ConnectButton provider={method.provider} label={label} />
@@ -124,10 +122,9 @@ interface DisconnectButtonProps {
   label: string
   /** False for the last way in that works when there is no email link. */
   allowed: boolean
-  org: string
 }
 
-function DisconnectButton({ method, label, allowed, org }: DisconnectButtonProps) {
+function DisconnectButton({ method, label, allowed }: DisconnectButtonProps) {
   const disconnect = useDisconnectProvider()
 
   function handleClick() {
@@ -151,10 +148,7 @@ function DisconnectButton({ method, label, allowed, org }: DisconnectButtonProps
       {!allowed && (
         <span className="max-w-[220px] text-right text-2xs text-muted-foreground">
           {ONLY_WAY_IN}{' '}
-          <ShellLink
-            href={accountPath(org, 'profile')}
-            className="text-status-success hover:underline"
-          >
+          <ShellLink href={accountPath('profile')} className="text-status-success hover:underline">
             Your data
           </ShellLink>
         </span>

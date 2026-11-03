@@ -107,7 +107,6 @@ export function DashboardFrame({
                 whatsNewHref={whatsNewHref}
                 trigger={<RailAccountButton user={viewer} />}
                 user={viewer}
-                org={scope.slugs.org}
                 theme={theme}
                 onToggleTheme={onToggleTheme}
               />
@@ -238,7 +237,6 @@ function FrameMobileHeader({
       whatsNewHref={whatsNewHref}
       trigger={<RailAccountButton user={viewer} className="mt-0" />}
       user={viewer}
-      org={scope.slugs.org}
       theme={theme}
       onToggleTheme={onToggleTheme}
     />

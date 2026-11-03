@@ -197,7 +197,7 @@ describe('DashboardPage', () => {
     renderPage()
     expect(screen.getByRole('link', { name: 'Your account' })).toHaveAttribute(
       'href',
-      '/acme/account/profile',
+      '/account/profile',
     )
   })
 
@@ -239,7 +239,7 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('link', { name: 'Acme Inc' })).toHaveTextContent('Last used')
     expect(screen.getByRole('link', { name: 'Your account' })).toHaveAttribute(
       'href',
-      '/acme/account/profile',
+      '/account/profile',
     )
   })
 

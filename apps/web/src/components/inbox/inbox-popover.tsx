@@ -98,7 +98,7 @@ export function InboxPopover({ org, onClose }: InboxPopoverProps) {
               </Button>
             )}
             <ShellLink
-              href={accountPath(org)}
+              href={accountPath()}
               aria-label="Notification settings"
               className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
             >
@@ -130,7 +130,7 @@ export function InboxPopover({ org, onClose }: InboxPopoverProps) {
                     <InboxEmpty
                       kind={inboxEmptyKind(counts, show)}
                       total={counts.all}
-                      settingsHref={accountPath(org)}
+                      settingsHref={accountPath()}
                       onShowAll={handleShowAll}
                     />
                   )

@@ -3,15 +3,11 @@ import { Link, useMatches } from '@tanstack/react-router'
 import * as Popover from '@radix-ui/react-popover'
 import {
   Activity,
-  BookOpen,
-  ExternalLink,
   LayoutDashboard,
   LogOut,
   Moon,
   PanelLeft,
   Settings,
-  Sparkles,
-  SquareTerminal,
   Sun,
   Workflow,
   type LucideIcon,
@@ -252,69 +248,9 @@ export function SidebarContent({ inDrawer = false, onNavigate }: SidebarContentP
               onNavigate={onNavigate}
             />
           ))}
-
-          <p
-            className={cn(
-              'px-2.5 pb-1.5 pt-5 text-2xs font-medium uppercase tracking-wider text-muted-foreground/60',
-              collapseAware && 'sidebar-collapsed:hidden',
-            )}
-          >
-            Developer
-          </p>
-          <div
-            className={cn(
-              'mx-2 mb-1 mt-3 hidden h-px bg-sidebar-border',
-              collapseAware && 'sidebar-collapsed:block',
-            )}
-          />
-          <SidebarNavLink
-            to="/api-playground"
-            label="API Playground"
-            icon={SquareTerminal}
-            collapseAware={collapseAware}
-            onNavigate={onNavigate}
-          />
-          <CollapsedTooltip label="Docs" enabled={collapseAware}>
-            <a
-              href="https://docs.awaitstep.dev"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(
-                rowClass,
-                inactiveRowClass,
-                collapseAware && 'sidebar-collapsed:justify-center sidebar-collapsed:px-0',
-              )}
-            >
-              <BookOpen size={16} className="shrink-0" />
-              <span className={cn('truncate', collapseAware && 'sidebar-collapsed:hidden')}>
-                Docs
-              </span>
-              <ExternalLink
-                size={12}
-                className={cn(
-                  'ml-auto shrink-0 opacity-40',
-                  collapseAware && 'sidebar-collapsed:hidden',
-                )}
-              />
-            </a>
-          </CollapsedTooltip>
         </nav>
 
         <div className="flex flex-col gap-0.5 border-t border-sidebar-border p-2">
-          <SidebarNavLink
-            to="/dashboard"
-            label="Try the new dashboard"
-            icon={Sparkles}
-            collapseAware={collapseAware}
-            onNavigate={onNavigate}
-          />
-          <SidebarNavLink
-            to="/settings"
-            label="Settings"
-            icon={Settings}
-            collapseAware={collapseAware}
-            onNavigate={onNavigate}
-          />
           <ThemeToggleRow collapseAware={collapseAware} />
           {!inDrawer && <CollapseToggleRow />}
           <UserRow collapseAware={collapseAware} onNavigate={onNavigate} />

@@ -155,6 +155,8 @@ function railActiveKey(page: DashboardPage): string {
     case 'account':
       // Your account isn't one of the rail's places.
       return ''
+    case 'playground':
+      return 'playground'
     default:
       // Project and workspace pages are all inside "Projects".
       return 'projects'
@@ -201,6 +203,7 @@ export function panelModel(page: DashboardPage, slugs: ScopeSlugs): PanelModel {
     case 'org':
     case 'org-settings':
     case 'account':
+    case 'playground':
     case 'item':
       // Every org-level page is its own rail item: none opens a second panel.
       return { mode: 'none' }
@@ -235,7 +238,11 @@ export function panelModel(page: DashboardPage, slugs: ScopeSlugs): PanelModel {
  */
 export function breadcrumbs(page: DashboardPage, slugs: ScopeSlugs, names: ScopeNames): Crumb[] {
   if (page.kind === 'account') {
-    return [{ label: 'Your account', href: accountPath(slugs.org) }, { label: pageLabel(page) }]
+    return [{ label: 'Your account', href: accountPath() }, { label: pageLabel(page) }]
+  }
+  // The playground is org-less: a single crumb, no organization before it.
+  if (page.kind === 'playground') {
+    return [{ label: pageLabel(page) }]
   }
   const crumbs: Crumb[] = [{ label: names.org, href: orgPath(slugs.org) }]
   // Settings' sections are tabs on the page: the crumb stops at Settings.

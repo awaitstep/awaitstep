@@ -1,20 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
-import { SessionsPage } from '../../components/account-pages/sessions-page'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
-const page: DashboardPage = { kind: 'account', page: 'sessions' }
-
+// Account is top-level now (`/account/sessions`): keep stale `/{org}/account/sessions` links working.
 export const Route = createFileRoute('/_authed/$org/account/sessions')({
-  // better-auth sends a refused Connect back here with `?error=<code>`.
-  validateSearch: (search: Record<string, unknown>): { error?: string } =>
-    typeof search.error === 'string' ? { error: search.error } : {},
-  staticData: { dashboardPage: page },
-  head: () => pageHead(page),
-  component: AccountSessionsPage,
+  beforeLoad: () => {
+    throw redirect({ to: '/account/sessions', replace: true })
+  },
 })
-
-function AccountSessionsPage() {
-  const { org } = Route.useParams()
-  const { error } = Route.useSearch()
-  return <SessionsPage org={org} linkError={error} />
-}

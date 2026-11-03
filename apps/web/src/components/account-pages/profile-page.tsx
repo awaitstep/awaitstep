@@ -6,19 +6,22 @@ import { AccountHeader } from './account-header'
 import { AccountOrgsSection } from './account-orgs-section'
 import { YourDataSection } from './your-data-section'
 
-/** `/{org}/account/profile` (`AccountProfile`): the same in every org. */
-export function ProfilePage({ org }: { org: string }) {
+/**
+ * `/account/profile` (`AccountProfile`): the same in every org. `currentOrg` is
+ * the org whose rail frames this page — where "leave" and account deletion land.
+ */
+export function ProfilePage({ currentOrg }: { currentOrg: string }) {
   const account = useAccount()
   return (
     <PageBody>
-      <AccountHeader org={org} page="profile" />
+      <AccountHeader page="profile" />
       <LoadedQuery query={account} what="your account">
         {(data) => (
           <>
             {/* Starts the name again from the saved one when `?as=` switches person. */}
             <AboutYouSection key={data.person.id} account={data} />
-            <AccountOrgsSection currentOrg={org} orgs={data.orgs} />
-            <YourDataSection account={data} currentOrg={org} />
+            <AccountOrgsSection currentOrg={currentOrg} orgs={data.orgs} />
+            <YourDataSection account={data} currentOrg={currentOrg} />
           </>
         )}
       </LoadedQuery>

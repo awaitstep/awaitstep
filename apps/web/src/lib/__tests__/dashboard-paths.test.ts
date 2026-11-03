@@ -57,8 +57,8 @@ describe('dashboard paths', () => {
     )
     expect(invitePath('tok/en')).toBe('/invite/tok%2Fen')
     expect(dashboardPath()).toBe('/dashboard')
-    expect(accountPath('acme')).toBe('/acme/account/profile')
-    expect(accountPath('acme', 'sessions')).toBe('/acme/account/sessions')
+    expect(accountPath()).toBe('/account/profile')
+    expect(accountPath('sessions')).toBe('/account/sessions')
   })
 })
 

@@ -206,11 +206,25 @@ describe('account pages', () => {
     expect(panelModel(page, ORG)).toEqual({ mode: 'none' })
   })
 
-  it('start their breadcrumbs at Your account and end on the page', () => {
+  it('start their breadcrumbs at Your account (top-level) and end on the page', () => {
     expect(breadcrumbs(page, ORG, NAMES)).toEqual([
-      { label: 'Your account', href: '/acme/account/profile' },
+      { label: 'Your account', href: '/account/profile' },
       { label: 'Sessions and sign-in' },
     ])
     expect(pageTitle(page)).toBe('Sessions and sign-in · AwaitStep')
+  })
+})
+
+describe('the API Playground', () => {
+  const page = { kind: 'playground' } as const
+
+  it('marks the Playground rail item, with no panel', () => {
+    expect(railModel('acme', page, QUIET).activeKey).toBe('playground')
+    expect(panelModel(page, ORG)).toEqual({ mode: 'none' })
+  })
+
+  it('has a single, org-less breadcrumb', () => {
+    expect(breadcrumbs(page, ORG, NAMES)).toEqual([{ label: 'API Playground' }])
+    expect(pageTitle(page)).toBe('API Playground · AwaitStep')
   })
 })

@@ -8,11 +8,11 @@ export interface NavItem {
 // Connections, the last old page here, moved to Org Settings in B9.
 export const NAV_ITEMS: readonly NavItem[] = []
 
+// `/api-playground` and `/account` moved into the new dashboard's own shell
+// (`/_authed/_orgless/…`), so the old sidebar no longer owns or highlights them.
 const EXACT_ROUTE_IDS: Record<string, string> = {
   '/dashboard': '/_authed/dashboard',
-  '/api-playground': '/_authed/api-playground',
   '/settings': '/_authed/settings',
-  '/account': '/_authed/account',
 }
 
 // Prefix matches so detail pages keep their section active. Workflow-scoped

@@ -1,46 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useOrgStore } from '../../stores/org-store'
-import { OrgNameEditor } from '../../components/org/org-name-editor'
-import { ProjectsList } from '../../components/org/projects-list'
-import { useShallow } from 'zustand/react/shallow'
-import { RequireOrg } from '../../wrappers/require-org'
-import { PageHeader } from '../../components/ui/page-header'
+import { LegacyRedirect } from '../../components/navigation/legacy-redirect'
 
+// The old Settings page (org name + projects list): Org Settings › General now,
+// with projects on their own Projects page. Redirects like the other old pages.
 export const Route = createFileRoute('/_authed/settings')({
-  head: () => ({ meta: [{ title: 'Settings | AwaitStep' }] }),
-  component: SettingsPage,
+  ssr: false,
+  component: SettingsRedirect,
 })
 
-function SettingsPage() {
-  return (
-    <RequireOrg>
-      <SettingsContent />
-    </RequireOrg>
-  )
-}
-
-function SettingsContent() {
-  const { activeOrg, projects, projectsLoading } = useOrgStore(
-    useShallow((s) => ({
-      activeOrg: s.organizations.find((o) => o.id === s.activeOrganizationId),
-      projects: s.projects,
-      projectsLoading: s.projectsFetchState !== 'success',
-    })),
-  )
-
-  return (
-    <div>
-      <PageHeader title="Settings" />
-      {activeOrg ? (
-        <OrgNameEditor org={activeOrg} />
-      ) : (
-        <div className="mt-6 px-2 py-1">
-          <div className="h-7 w-48 animate-pulse rounded bg-muted/60" />
-        </div>
-      )}
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <ProjectsList projects={projects} loading={projectsLoading} />
-      </div>
-    </div>
-  )
+function SettingsRedirect() {
+  return <LegacyRedirect page={{ settings: 'general' }} />
 }

@@ -148,13 +148,14 @@ export function DashboardPage({ dialog, onCloseDialog }: DashboardPageProps) {
     const ordered = orderOrgs(orgs.data)
     const lastUsed = lastUsedOf(ordered)
     const hasOrgs = ordered.length > 0
-    // Your account sits in an org's URL: the one opened last, else the first card (D-DB-5).
+    // Account is top-level now, but its rail borrows an org: offer the link only
+    // with one to borrow (the one opened last, else the first card) — D-DB-5.
     const accountOrg = lastUsed ?? ordered[0]?.slug
     account = {
       name: me.name,
       email: me.email,
       image: me.image,
-      href: accountOrg ? accountPath(accountOrg) : null,
+      href: accountOrg ? accountPath() : null,
     }
     body = (
       <>

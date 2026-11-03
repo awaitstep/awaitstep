@@ -24,7 +24,6 @@ interface DashboardAccountMenuProps {
   /** The rail's or the phone header's avatar. */
   trigger: ReactElement
   user: { name: string; email: string; image: string | null }
-  org: string
   /** The phone menu also carries the rail items the tab bar has no room for. */
   placement: 'rail' | 'phone'
   /** The phone menu's What's new: opens over the page you're on, as the rail's does. */
@@ -35,13 +34,13 @@ interface DashboardAccountMenuProps {
   showReset?: boolean
 }
 
-function accountItems(org: string): AccountMenuItem[] {
+function accountItems(): AccountMenuItem[] {
   return [
-    { key: 'profile', label: 'Profile', href: accountPath(org, 'profile'), icon: UserRound },
+    { key: 'profile', label: 'Profile', href: accountPath('profile'), icon: UserRound },
     {
       key: 'sessions',
       label: 'Sessions and sign-in',
-      href: accountPath(org, 'sessions'),
+      href: accountPath('sessions'),
       icon: Shield,
     },
     {
@@ -76,7 +75,6 @@ function phoneItems(
 export function DashboardAccountMenu({
   trigger,
   user,
-  org,
   placement,
   whatsNewHref,
   theme,
@@ -99,7 +97,7 @@ export function DashboardAccountMenu({
     void handleSignOut()
   }
 
-  const groups: AccountMenuItem[][] = [accountItems(org)]
+  const groups: AccountMenuItem[][] = [accountItems()]
   if (placement === 'phone') groups.push(phoneItems(whatsNewHref, theme, onToggleTheme))
   if (showReset) {
     groups.push([

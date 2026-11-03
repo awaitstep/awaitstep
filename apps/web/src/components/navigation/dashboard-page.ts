@@ -14,6 +14,8 @@ export type DashboardPage =
   | { kind: 'project'; page: ProjectPage }
   | { kind: 'workspace'; page: WorkspacePage }
   | { kind: 'account'; page: AccountPage }
+  /** The API Playground: a top-level developer tool, framed by the current org's rail. */
+  | { kind: 'playground' }
   /** A workflow, function or run of sample data (W1 placeholder until B1). */
   | { kind: 'item' }
 
@@ -75,6 +77,8 @@ export function pageLabel(page: DashboardPage): string {
       return WORKSPACE_PAGE_LABEL[page.page]
     case 'account':
       return ACCOUNT_PAGE_LABEL[page.page]
+    case 'playground':
+      return 'API Playground'
     case 'item':
       return 'Sample item'
   }

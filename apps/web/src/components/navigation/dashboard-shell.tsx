@@ -17,7 +17,7 @@ import type { DashboardSearch } from './dashboard-providers'
 import { DashboardFrame, type FrameScope } from './dashboard-frame'
 import type { RailOverlays } from './nav-model'
 
-function countFresh(feed: ReleaseFeed | undefined): number {
+export function countFresh(feed: ReleaseFeed | undefined): number {
   return feed?.releases.filter((r) => r.fresh).length ?? 0
 }
 
@@ -27,7 +27,7 @@ function useScopeSlugs(): ScopeSlugs {
 }
 
 /** The page the deepest matched route declares, if any. */
-function useDashboardPage(): DashboardPage | null {
+export function useDashboardPage(): DashboardPage | null {
   const matches = useMatches()
   const declared = matches.map((match) => match.staticData.dashboardPage).filter(Boolean)
   return declared[declared.length - 1] ?? null

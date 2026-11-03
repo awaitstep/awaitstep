@@ -13,8 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AuthedOrgRouteImport } from './routes/_authed/$org'
-import { Route as AuthedAccountRouteImport } from './routes/_authed/account'
-import { Route as AuthedApiPlaygroundRouteImport } from './routes/_authed/api-playground'
+import { Route as AuthedOrglessRouteImport } from './routes/_authed/_orgless'
 import { Route as AuthedChooseOrgRouteImport } from './routes/_authed/choose-org'
 import { Route as AuthedConnectionsRouteImport } from './routes/_authed/connections'
 import { Route as AuthedDashboardRouteImport } from './routes/_authed/dashboard'
@@ -29,6 +28,7 @@ import { Route as AuthedOrgInboxRouteImport } from './routes/_authed/$org.inbox'
 import { Route as AuthedOrgProjectsRouteImport } from './routes/_authed/$org.projects'
 import { Route as AuthedOrgResourcesRouteImport } from './routes/_authed/$org.resources'
 import { Route as AuthedOrgWhatsNewRouteImport } from './routes/_authed/$org.whats-new'
+import { Route as AuthedOrglessApiPlaygroundRouteImport } from './routes/_authed/_orgless.api-playground'
 import { Route as AuthedRunsIndexRouteImport } from './routes/_authed/runs.index'
 import { Route as AuthedRunsRunIdRouteImport } from './routes/_authed/runs.$runId'
 import { Route as AuthedWorkflowsIndexRouteImport } from './routes/_authed/workflows.index'
@@ -50,6 +50,9 @@ import { Route as AuthedOrgSettingsApiKeysRouteImport } from './routes/_authed/$
 import { Route as AuthedOrgSettingsConnectionsRouteImport } from './routes/_authed/$org.settings.connections'
 import { Route as AuthedOrgSettingsGeneralRouteImport } from './routes/_authed/$org.settings.general'
 import { Route as AuthedOrgSettingsMembersRouteImport } from './routes/_authed/$org.settings.members'
+import { Route as AuthedOrglessAccountIndexRouteImport } from './routes/_authed/_orgless.account.index'
+import { Route as AuthedOrglessAccountProfileRouteImport } from './routes/_authed/_orgless.account.profile'
+import { Route as AuthedOrglessAccountSessionsRouteImport } from './routes/_authed/_orgless.account.sessions'
 import { Route as AuthedWorkflowsWorkflowIdIndexRouteImport } from './routes/_authed/workflows/$workflowId.index'
 import { Route as AuthedWorkflowsWorkflowIdCanvasRouteImport } from './routes/_authed/workflows/$workflowId.canvas'
 import { Route as AuthedWorkflowsWorkflowIdCodeRouteImport } from './routes/_authed/workflows/$workflowId.code'
@@ -92,14 +95,8 @@ const AuthedOrgRoute = AuthedOrgRouteImport.update({
   path: '/$org',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedAccountRoute = AuthedAccountRouteImport.update({
-  id: '/account',
-  path: '/account',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedApiPlaygroundRoute = AuthedApiPlaygroundRouteImport.update({
-  id: '/api-playground',
-  path: '/api-playground',
+const AuthedOrglessRoute = AuthedOrglessRouteImport.update({
+  id: '/_orgless',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedChooseOrgRoute = AuthedChooseOrgRouteImport.update({
@@ -172,6 +169,12 @@ const AuthedOrgWhatsNewRoute = AuthedOrgWhatsNewRouteImport.update({
   path: '/whats-new',
   getParentRoute: () => AuthedOrgRoute,
 } as any)
+const AuthedOrglessApiPlaygroundRoute =
+  AuthedOrglessApiPlaygroundRouteImport.update({
+    id: '/api-playground',
+    path: '/api-playground',
+    getParentRoute: () => AuthedOrglessRoute,
+  } as any)
 const AuthedRunsIndexRoute = AuthedRunsIndexRouteImport.update({
   id: '/runs/',
   path: '/runs/',
@@ -286,6 +289,24 @@ const AuthedOrgSettingsMembersRoute =
     id: '/settings/members',
     path: '/settings/members',
     getParentRoute: () => AuthedOrgRoute,
+  } as any)
+const AuthedOrglessAccountIndexRoute =
+  AuthedOrglessAccountIndexRouteImport.update({
+    id: '/account/',
+    path: '/account/',
+    getParentRoute: () => AuthedOrglessRoute,
+  } as any)
+const AuthedOrglessAccountProfileRoute =
+  AuthedOrglessAccountProfileRouteImport.update({
+    id: '/account/profile',
+    path: '/account/profile',
+    getParentRoute: () => AuthedOrglessRoute,
+  } as any)
+const AuthedOrglessAccountSessionsRoute =
+  AuthedOrglessAccountSessionsRouteImport.update({
+    id: '/account/sessions',
+    path: '/account/sessions',
+    getParentRoute: () => AuthedOrglessRoute,
   } as any)
 const AuthedWorkflowsWorkflowIdIndexRoute =
   AuthedWorkflowsWorkflowIdIndexRouteImport.update({
@@ -424,8 +445,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
   '/$org': typeof AuthedOrgRouteWithChildren
-  '/account': typeof AuthedAccountRoute
-  '/api-playground': typeof AuthedApiPlaygroundRoute
   '/choose-org': typeof AuthedChooseOrgRoute
   '/connections': typeof AuthedConnectionsRoute
   '/dashboard': typeof AuthedDashboardRoute
@@ -439,6 +458,7 @@ export interface FileRoutesByFullPath {
   '/$org/projects': typeof AuthedOrgProjectsRoute
   '/$org/resources': typeof AuthedOrgResourcesRoute
   '/$org/whats-new': typeof AuthedOrgWhatsNewRoute
+  '/api-playground': typeof AuthedOrglessApiPlaygroundRoute
   '/runs/$runId': typeof AuthedRunsRunIdRoute
   '/workflows/$workflowId': typeof AuthedWorkflowsWorkflowIdRouteWithChildren
   '/$org/': typeof AuthedOrgIndexRoute
@@ -458,6 +478,8 @@ export interface FileRoutesByFullPath {
   '/$org/settings/connections': typeof AuthedOrgSettingsConnectionsRoute
   '/$org/settings/general': typeof AuthedOrgSettingsGeneralRoute
   '/$org/settings/members': typeof AuthedOrgSettingsMembersRoute
+  '/account/profile': typeof AuthedOrglessAccountProfileRoute
+  '/account/sessions': typeof AuthedOrglessAccountSessionsRoute
   '/workflows/$workflowId/canvas': typeof AuthedWorkflowsWorkflowIdCanvasRoute
   '/workflows/$workflowId/code': typeof AuthedWorkflowsWorkflowIdCodeRoute
   '/workflows/$workflowId/deploy': typeof AuthedWorkflowsWorkflowIdDeployRoute
@@ -467,6 +489,7 @@ export interface FileRoutesByFullPath {
   '/$org/$project/': typeof AuthedOrgProjectIndexRoute
   '/$org/account/': typeof AuthedOrgAccountIndexRoute
   '/$org/settings/': typeof AuthedOrgSettingsIndexRoute
+  '/account/': typeof AuthedOrglessAccountIndexRoute
   '/workflows/$workflowId/': typeof AuthedWorkflowsWorkflowIdIndexRoute
   '/$org/$project/$workspace/functions': typeof AuthedOrgProjectWorkspaceFunctionsRoute
   '/$org/$project/$workspace/library': typeof AuthedOrgProjectWorkspaceLibraryRoute
@@ -487,8 +510,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
-  '/account': typeof AuthedAccountRoute
-  '/api-playground': typeof AuthedApiPlaygroundRoute
   '/choose-org': typeof AuthedChooseOrgRoute
   '/connections': typeof AuthedConnectionsRoute
   '/dashboard': typeof AuthedDashboardRoute
@@ -501,6 +522,7 @@ export interface FileRoutesByTo {
   '/$org/projects': typeof AuthedOrgProjectsRoute
   '/$org/resources': typeof AuthedOrgResourcesRoute
   '/$org/whats-new': typeof AuthedOrgWhatsNewRoute
+  '/api-playground': typeof AuthedOrglessApiPlaygroundRoute
   '/runs/$runId': typeof AuthedRunsRunIdRoute
   '/$org': typeof AuthedOrgIndexRoute
   '/runs': typeof AuthedRunsIndexRoute
@@ -518,6 +540,8 @@ export interface FileRoutesByTo {
   '/$org/settings/connections': typeof AuthedOrgSettingsConnectionsRoute
   '/$org/settings/general': typeof AuthedOrgSettingsGeneralRoute
   '/$org/settings/members': typeof AuthedOrgSettingsMembersRoute
+  '/account/profile': typeof AuthedOrglessAccountProfileRoute
+  '/account/sessions': typeof AuthedOrglessAccountSessionsRoute
   '/workflows/$workflowId/canvas': typeof AuthedWorkflowsWorkflowIdCanvasRoute
   '/workflows/$workflowId/code': typeof AuthedWorkflowsWorkflowIdCodeRoute
   '/workflows/$workflowId/deploy': typeof AuthedWorkflowsWorkflowIdDeployRoute
@@ -526,6 +550,7 @@ export interface FileRoutesByTo {
   '/$org/$project': typeof AuthedOrgProjectIndexRoute
   '/$org/account': typeof AuthedOrgAccountIndexRoute
   '/$org/settings': typeof AuthedOrgSettingsIndexRoute
+  '/account': typeof AuthedOrglessAccountIndexRoute
   '/workflows/$workflowId': typeof AuthedWorkflowsWorkflowIdIndexRoute
   '/$org/$project/$workspace/functions': typeof AuthedOrgProjectWorkspaceFunctionsRoute
   '/$org/$project/$workspace/library': typeof AuthedOrgProjectWorkspaceLibraryRoute
@@ -549,8 +574,7 @@ export interface FileRoutesById {
   '/_authed': typeof AuthedRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/_authed/$org': typeof AuthedOrgRouteWithChildren
-  '/_authed/account': typeof AuthedAccountRoute
-  '/_authed/api-playground': typeof AuthedApiPlaygroundRoute
+  '/_authed/_orgless': typeof AuthedOrglessRouteWithChildren
   '/_authed/choose-org': typeof AuthedChooseOrgRoute
   '/_authed/connections': typeof AuthedConnectionsRoute
   '/_authed/dashboard': typeof AuthedDashboardRoute
@@ -564,6 +588,7 @@ export interface FileRoutesById {
   '/_authed/$org/projects': typeof AuthedOrgProjectsRoute
   '/_authed/$org/resources': typeof AuthedOrgResourcesRoute
   '/_authed/$org/whats-new': typeof AuthedOrgWhatsNewRoute
+  '/_authed/_orgless/api-playground': typeof AuthedOrglessApiPlaygroundRoute
   '/_authed/runs/$runId': typeof AuthedRunsRunIdRoute
   '/_authed/workflows/$workflowId': typeof AuthedWorkflowsWorkflowIdRouteWithChildren
   '/_authed/$org/': typeof AuthedOrgIndexRoute
@@ -583,6 +608,8 @@ export interface FileRoutesById {
   '/_authed/$org/settings/connections': typeof AuthedOrgSettingsConnectionsRoute
   '/_authed/$org/settings/general': typeof AuthedOrgSettingsGeneralRoute
   '/_authed/$org/settings/members': typeof AuthedOrgSettingsMembersRoute
+  '/_authed/_orgless/account/profile': typeof AuthedOrglessAccountProfileRoute
+  '/_authed/_orgless/account/sessions': typeof AuthedOrglessAccountSessionsRoute
   '/_authed/workflows/$workflowId/canvas': typeof AuthedWorkflowsWorkflowIdCanvasRoute
   '/_authed/workflows/$workflowId/code': typeof AuthedWorkflowsWorkflowIdCodeRoute
   '/_authed/workflows/$workflowId/deploy': typeof AuthedWorkflowsWorkflowIdDeployRoute
@@ -592,6 +619,7 @@ export interface FileRoutesById {
   '/_authed/$org/$project/': typeof AuthedOrgProjectIndexRoute
   '/_authed/$org/account/': typeof AuthedOrgAccountIndexRoute
   '/_authed/$org/settings/': typeof AuthedOrgSettingsIndexRoute
+  '/_authed/_orgless/account/': typeof AuthedOrglessAccountIndexRoute
   '/_authed/workflows/$workflowId/': typeof AuthedWorkflowsWorkflowIdIndexRoute
   '/_authed/$org/$project/$workspace/functions': typeof AuthedOrgProjectWorkspaceFunctionsRoute
   '/_authed/$org/$project/$workspace/library': typeof AuthedOrgProjectWorkspaceLibraryRoute
@@ -615,8 +643,6 @@ export interface FileRouteTypes {
     | '/'
     | '/sign-in'
     | '/$org'
-    | '/account'
-    | '/api-playground'
     | '/choose-org'
     | '/connections'
     | '/dashboard'
@@ -630,6 +656,7 @@ export interface FileRouteTypes {
     | '/$org/projects'
     | '/$org/resources'
     | '/$org/whats-new'
+    | '/api-playground'
     | '/runs/$runId'
     | '/workflows/$workflowId'
     | '/$org/'
@@ -649,6 +676,8 @@ export interface FileRouteTypes {
     | '/$org/settings/connections'
     | '/$org/settings/general'
     | '/$org/settings/members'
+    | '/account/profile'
+    | '/account/sessions'
     | '/workflows/$workflowId/canvas'
     | '/workflows/$workflowId/code'
     | '/workflows/$workflowId/deploy'
@@ -658,6 +687,7 @@ export interface FileRouteTypes {
     | '/$org/$project/'
     | '/$org/account/'
     | '/$org/settings/'
+    | '/account/'
     | '/workflows/$workflowId/'
     | '/$org/$project/$workspace/functions'
     | '/$org/$project/$workspace/library'
@@ -678,8 +708,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/sign-in'
-    | '/account'
-    | '/api-playground'
     | '/choose-org'
     | '/connections'
     | '/dashboard'
@@ -692,6 +720,7 @@ export interface FileRouteTypes {
     | '/$org/projects'
     | '/$org/resources'
     | '/$org/whats-new'
+    | '/api-playground'
     | '/runs/$runId'
     | '/$org'
     | '/runs'
@@ -709,6 +738,8 @@ export interface FileRouteTypes {
     | '/$org/settings/connections'
     | '/$org/settings/general'
     | '/$org/settings/members'
+    | '/account/profile'
+    | '/account/sessions'
     | '/workflows/$workflowId/canvas'
     | '/workflows/$workflowId/code'
     | '/workflows/$workflowId/deploy'
@@ -717,6 +748,7 @@ export interface FileRouteTypes {
     | '/$org/$project'
     | '/$org/account'
     | '/$org/settings'
+    | '/account'
     | '/workflows/$workflowId'
     | '/$org/$project/$workspace/functions'
     | '/$org/$project/$workspace/library'
@@ -739,8 +771,7 @@ export interface FileRouteTypes {
     | '/_authed'
     | '/sign-in'
     | '/_authed/$org'
-    | '/_authed/account'
-    | '/_authed/api-playground'
+    | '/_authed/_orgless'
     | '/_authed/choose-org'
     | '/_authed/connections'
     | '/_authed/dashboard'
@@ -754,6 +785,7 @@ export interface FileRouteTypes {
     | '/_authed/$org/projects'
     | '/_authed/$org/resources'
     | '/_authed/$org/whats-new'
+    | '/_authed/_orgless/api-playground'
     | '/_authed/runs/$runId'
     | '/_authed/workflows/$workflowId'
     | '/_authed/$org/'
@@ -773,6 +805,8 @@ export interface FileRouteTypes {
     | '/_authed/$org/settings/connections'
     | '/_authed/$org/settings/general'
     | '/_authed/$org/settings/members'
+    | '/_authed/_orgless/account/profile'
+    | '/_authed/_orgless/account/sessions'
     | '/_authed/workflows/$workflowId/canvas'
     | '/_authed/workflows/$workflowId/code'
     | '/_authed/workflows/$workflowId/deploy'
@@ -782,6 +816,7 @@ export interface FileRouteTypes {
     | '/_authed/$org/$project/'
     | '/_authed/$org/account/'
     | '/_authed/$org/settings/'
+    | '/_authed/_orgless/account/'
     | '/_authed/workflows/$workflowId/'
     | '/_authed/$org/$project/$workspace/functions'
     | '/_authed/$org/$project/$workspace/library'
@@ -837,18 +872,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/account': {
-      id: '/_authed/account'
-      path: '/account'
-      fullPath: '/account'
-      preLoaderRoute: typeof AuthedAccountRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/api-playground': {
-      id: '/_authed/api-playground'
-      path: '/api-playground'
-      fullPath: '/api-playground'
-      preLoaderRoute: typeof AuthedApiPlaygroundRouteImport
+    '/_authed/_orgless': {
+      id: '/_authed/_orgless'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthedOrglessRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/choose-org': {
@@ -948,6 +976,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/$org/whats-new'
       preLoaderRoute: typeof AuthedOrgWhatsNewRouteImport
       parentRoute: typeof AuthedOrgRoute
+    }
+    '/_authed/_orgless/api-playground': {
+      id: '/_authed/_orgless/api-playground'
+      path: '/api-playground'
+      fullPath: '/api-playground'
+      preLoaderRoute: typeof AuthedOrglessApiPlaygroundRouteImport
+      parentRoute: typeof AuthedOrglessRoute
     }
     '/_authed/runs/': {
       id: '/_authed/runs/'
@@ -1095,6 +1130,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/$org/settings/members'
       preLoaderRoute: typeof AuthedOrgSettingsMembersRouteImport
       parentRoute: typeof AuthedOrgRoute
+    }
+    '/_authed/_orgless/account/': {
+      id: '/_authed/_orgless/account/'
+      path: '/account'
+      fullPath: '/account/'
+      preLoaderRoute: typeof AuthedOrglessAccountIndexRouteImport
+      parentRoute: typeof AuthedOrglessRoute
+    }
+    '/_authed/_orgless/account/profile': {
+      id: '/_authed/_orgless/account/profile'
+      path: '/account/profile'
+      fullPath: '/account/profile'
+      preLoaderRoute: typeof AuthedOrglessAccountProfileRouteImport
+      parentRoute: typeof AuthedOrglessRoute
+    }
+    '/_authed/_orgless/account/sessions': {
+      id: '/_authed/_orgless/account/sessions'
+      path: '/account/sessions'
+      fullPath: '/account/sessions'
+      preLoaderRoute: typeof AuthedOrglessAccountSessionsRouteImport
+      parentRoute: typeof AuthedOrglessRoute
     }
     '/_authed/workflows/$workflowId/': {
       id: '/_authed/workflows/$workflowId/'
@@ -1371,6 +1427,24 @@ const AuthedOrgRouteWithChildren = AuthedOrgRoute._addFileChildren(
   AuthedOrgRouteChildren,
 )
 
+interface AuthedOrglessRouteChildren {
+  AuthedOrglessApiPlaygroundRoute: typeof AuthedOrglessApiPlaygroundRoute
+  AuthedOrglessAccountProfileRoute: typeof AuthedOrglessAccountProfileRoute
+  AuthedOrglessAccountSessionsRoute: typeof AuthedOrglessAccountSessionsRoute
+  AuthedOrglessAccountIndexRoute: typeof AuthedOrglessAccountIndexRoute
+}
+
+const AuthedOrglessRouteChildren: AuthedOrglessRouteChildren = {
+  AuthedOrglessApiPlaygroundRoute: AuthedOrglessApiPlaygroundRoute,
+  AuthedOrglessAccountProfileRoute: AuthedOrglessAccountProfileRoute,
+  AuthedOrglessAccountSessionsRoute: AuthedOrglessAccountSessionsRoute,
+  AuthedOrglessAccountIndexRoute: AuthedOrglessAccountIndexRoute,
+}
+
+const AuthedOrglessRouteWithChildren = AuthedOrglessRoute._addFileChildren(
+  AuthedOrglessRouteChildren,
+)
+
 interface AuthedWorkflowsWorkflowIdRunsRouteChildren {
   AuthedWorkflowsWorkflowIdRunsIndexRoute: typeof AuthedWorkflowsWorkflowIdRunsIndexRoute
 }
@@ -1416,8 +1490,7 @@ const AuthedWorkflowsWorkflowIdRouteWithChildren =
 
 interface AuthedRouteChildren {
   AuthedOrgRoute: typeof AuthedOrgRouteWithChildren
-  AuthedAccountRoute: typeof AuthedAccountRoute
-  AuthedApiPlaygroundRoute: typeof AuthedApiPlaygroundRoute
+  AuthedOrglessRoute: typeof AuthedOrglessRouteWithChildren
   AuthedChooseOrgRoute: typeof AuthedChooseOrgRoute
   AuthedConnectionsRoute: typeof AuthedConnectionsRoute
   AuthedDashboardRoute: typeof AuthedDashboardRoute
@@ -1430,8 +1503,7 @@ interface AuthedRouteChildren {
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedOrgRoute: AuthedOrgRouteWithChildren,
-  AuthedAccountRoute: AuthedAccountRoute,
-  AuthedApiPlaygroundRoute: AuthedApiPlaygroundRoute,
+  AuthedOrglessRoute: AuthedOrglessRouteWithChildren,
   AuthedChooseOrgRoute: AuthedChooseOrgRoute,
   AuthedConnectionsRoute: AuthedConnectionsRoute,
   AuthedDashboardRoute: AuthedDashboardRoute,

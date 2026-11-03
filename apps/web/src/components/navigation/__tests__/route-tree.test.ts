@@ -36,7 +36,6 @@ describe('dashboard route tree', () => {
     projectWorkspacesPath(SALES),
     ...PROJECT_PAGES.map((page) => projectPagePath(SALES, page)),
     ...WORKSPACE_PAGES.map((page) => workspacePath(SALES, page)),
-    ...ACCOUNT_PAGES.map((page) => accountPath('acme', page)),
   ]
 
   it.each(paths)('has a page route for %s', (path) => {
@@ -53,9 +52,22 @@ describe('dashboard route tree', () => {
     expect(leafRoute(projectPath(SALES))).toBe('/_authed/$org/$project/')
     expect(leafRoute('/acme/project-101/settings')).toBe('/_authed/$org/$project/settings/')
     expect(leafRoute('/acme/project-101/sales')).toBe('/_authed/$org/$project/$workspace/')
-    expect(leafRoute('/acme/account')).toBe('/_authed/$org/account/')
     expect(leafRoute(dashboardPath())).toBe('/_authed/dashboard')
     expect(leafRoute(invitePath('abc'))).toBe('/invite/$token')
+  })
+
+  it('serves the org-less pages at top level, under the _orgless layout', () => {
+    for (const page of ACCOUNT_PAGES) {
+      expect(leafRoute(accountPath(page))).toBe(`/_authed/_orgless/account/${page}`)
+    }
+    expect(leafRoute('/account')).toBe('/_authed/_orgless/account/')
+    expect(leafRoute('/api-playground')).toBe('/_authed/_orgless/api-playground')
+  })
+
+  it('still answers stale /{org}/account links (they redirect to the top-level pages)', () => {
+    expect(leafRoute('/acme/account')).toBe('/_authed/$org/account/')
+    expect(leafRoute('/acme/account/profile')).toBe('/_authed/$org/account/profile')
+    expect(leafRoute('/acme/account/sessions')).toBe('/_authed/$org/account/sessions')
   })
 
   // `api` has no web route: the same origin proxies /api to the API server.

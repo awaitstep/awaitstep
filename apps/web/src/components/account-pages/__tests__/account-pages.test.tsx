@@ -32,7 +32,7 @@ const ama = () => dashboardDb().people.find((p) => p.id === AMA)!
 const topBar = () => within(screen.getByRole('banner', { name: 'Top bar' }))
 
 function renderProfile(userId = AMA, scenario?: 'loading' | 'error') {
-  return renderWithDashboardData(<ProfilePage org="acme" />, { userId, scenario })
+  return renderWithDashboardData(<ProfilePage currentOrg="acme" />, { userId, scenario })
 }
 
 describe('Profile', () => {
@@ -42,7 +42,7 @@ describe('Profile', () => {
     expect(screen.getByRole('link', { name: 'Profile' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('link', { name: 'Sessions and sign-in' })).toHaveAttribute(
       'href',
-      '/acme/account/sessions',
+      '/account/sessions',
     )
     expect(await screen.findByLabelText('Full name')).toHaveValue('Ama Mensah')
     expect(screen.getByLabelText('Email')).toHaveValue('ama@acme.test')
@@ -155,7 +155,7 @@ describe('Organizations', () => {
   })
 
   it('lands on /dashboard after leaving the org in the URL', async () => {
-    renderWithDashboardData(<ProfilePage org="bolt-labs" />)
+    renderWithDashboardData(<ProfilePage currentOrg="bolt-labs" />)
     await userEvent.click(await screen.findByRole('button', { name: 'Leave Bolt Labs' }))
     await userEvent.click(screen.getByRole('button', { name: 'Leave organization' }))
     await waitFor(() => expect(goTo).toHaveBeenCalledWith('/dashboard'))
@@ -218,7 +218,7 @@ describe('Profile states', () => {
 })
 
 function renderSessions(linkError?: string) {
-  renderWithDashboardData(<SessionsPage org="acme" linkError={linkError} />)
+  renderWithDashboardData(<SessionsPage linkError={linkError} />)
 }
 
 describe('Sessions and sign-in', () => {
@@ -262,7 +262,7 @@ describe('Sessions and sign-in', () => {
     expect(screen.getByText(/Your only way to sign in/)).toBeVisible()
     expect(screen.getByRole('link', { name: 'Your data' })).toHaveAttribute(
       'href',
-      '/acme/account/profile',
+      '/account/profile',
     )
     spy.mockRestore()
   })

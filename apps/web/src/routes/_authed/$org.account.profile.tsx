@@ -1,16 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
-import { ProfilePage } from '../../components/account-pages/profile-page'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
-const page: DashboardPage = { kind: 'account', page: 'profile' }
-
+// Account is top-level now (`/account/profile`): keep stale `/{org}/account/profile` links working.
 export const Route = createFileRoute('/_authed/$org/account/profile')({
-  staticData: { dashboardPage: page },
-  head: () => pageHead(page),
-  component: AccountProfilePage,
+  beforeLoad: () => {
+    throw redirect({ to: '/account/profile', replace: true })
+  },
 })
-
-function AccountProfilePage() {
-  const { org } = Route.useParams()
-  return <ProfilePage org={org} />
-}

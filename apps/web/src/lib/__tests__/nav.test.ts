@@ -42,10 +42,14 @@ describe('isNavItemActive', () => {
     expect(isNavItemActive(['/_authed/env-vars'], '/env-vars')).toBe(false)
   })
 
-  it('matches settings, account, and the api playground exactly', () => {
+  it('matches settings exactly', () => {
     expect(isNavItemActive(['/_authed/settings'], '/settings')).toBe(true)
-    expect(isNavItemActive(['/_authed/account'], '/account')).toBe(true)
-    expect(isNavItemActive(['/_authed/api-playground'], '/api-playground')).toBe(true)
+  })
+
+  it('no longer tracks account or the playground (they moved to the new shell)', () => {
+    // Their old flat routes were deleted; the old sidebar doesn't own them anymore.
+    expect(isNavItemActive(['/_authed/_orgless/account/profile'], '/account')).toBe(false)
+    expect(isNavItemActive(['/_authed/_orgless/api-playground'], '/api-playground')).toBe(false)
   })
 
   it('returns false for unknown targets', () => {

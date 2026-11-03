@@ -127,9 +127,13 @@ export function workspaceSettingsPath(
   return query ? `${path}?${query}` : path
 }
 
-/** Your own account, shown in the org you're in so the rail keeps its place. */
-export function accountPath(org: string, page: AccountPage = 'profile'): string {
-  return `/${segment(org)}/account/${page}`
+/**
+ * Your own account — top-level, not under an org: it's the same in every org,
+ * so its URL carries none. The dashboard still frames it with the rail of your
+ * current organization (see `useCurrentOrg`).
+ */
+export function accountPath(page: AccountPage = 'profile'): string {
+  return `/account/${page}`
 }
 
 /**

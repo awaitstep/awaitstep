@@ -134,7 +134,7 @@ describe('Inbox', () => {
     expect(within(inbox()).queryByRole('button', { name: 'Mark all as read' })).toBeNull()
     expect(
       within(inbox()).getByRole('link', { name: /Choose what you’re notified about/ }),
-    ).toHaveAttribute('href', '/acme/account/profile')
+    ).toHaveAttribute('href', '/account/profile')
   })
 
   it('says nothing needs you under Needs action when only read, no-action notes are left', async () => {

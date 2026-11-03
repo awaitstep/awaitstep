@@ -3,12 +3,11 @@ import { LinkTabs } from '../ui/link-tabs'
 import { PageIntro } from '../shell/page-intro'
 
 interface AccountHeaderProps {
-  org: string
   page: AccountPage
 }
 
 /** "Your account" and its Profile · Sessions and sign-in tabs, on both account pages. */
-export function AccountHeader({ org, page }: AccountHeaderProps) {
+export function AccountHeader({ page }: AccountHeaderProps) {
   return (
     <>
       <PageIntro title="Your account" description="Applies to you across all organizations." />
@@ -16,8 +15,8 @@ export function AccountHeader({ org, page }: AccountHeaderProps) {
         label="Account sections"
         activeKey={page}
         tabs={[
-          { key: 'profile', label: 'Profile', href: accountPath(org, 'profile') },
-          { key: 'sessions', label: 'Sessions and sign-in', href: accountPath(org, 'sessions') },
+          { key: 'profile', label: 'Profile', href: accountPath('profile') },
+          { key: 'sessions', label: 'Sessions and sign-in', href: accountPath('sessions') },
         ]}
       />
     </>

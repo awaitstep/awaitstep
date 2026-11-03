@@ -26,7 +26,6 @@ function renderMenu(
       placement={placement}
       trigger={<RailAccountButton user={AMA} />}
       user={AMA}
-      org="acme"
       whatsNewHref="/acme/project-101/sales/runs?open=whats-new"
       theme="dark"
       onToggleTheme={options.onToggleTheme ?? vi.fn()}
@@ -53,7 +52,6 @@ describe('DashboardAccountMenu', () => {
         placement="rail"
         trigger={<RailAccountButton user={withPhoto} />}
         user={withPhoto}
-        org="acme"
         whatsNewHref="/acme/projects?open=whats-new"
         theme="dark"
         onToggleTheme={vi.fn()}
@@ -67,16 +65,16 @@ describe('DashboardAccountMenu', () => {
     expect(within(menu).getByRole('img')).toHaveAttribute('src', withPhoto.image)
   })
 
-  it('links Profile and Sessions to the account pages in this org', async () => {
+  it('links Profile and Sessions to the top-level account pages', async () => {
     renderMenu('rail')
     await openMenu()
     expect(screen.getByRole('menuitem', { name: 'Profile' })).toHaveAttribute(
       'href',
-      '/acme/account/profile',
+      '/account/profile',
     )
     expect(screen.getByRole('menuitem', { name: 'Sessions and sign-in' })).toHaveAttribute(
       'href',
-      '/acme/account/sessions',
+      '/account/sessions',
     )
     expect(screen.getByRole('menuitem', { name: /Keyboard shortcuts/ })).toHaveAttribute(
       'aria-disabled',
