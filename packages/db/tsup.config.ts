@@ -1,9 +1,11 @@
 import { defineConfig } from 'tsup'
 
-export default defineConfig({
+export default defineConfig((options) => ({
   entry: ['src/index.ts', 'src/d1.ts'],
   format: ['esm'],
   dts: !process.env.NO_DTS,
-  clean: true,
+  // Watch rebuilds run beside the app dev servers; cleaning dist here
+  // makes them import a missing module at startup.
+  clean: !options.watch,
   sourcemap: true,
-})
+}))
