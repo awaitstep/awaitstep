@@ -55,9 +55,54 @@ describe('source routes', () => {
     it('generates the deployable view from the current version', async () => {
       const res = await app.request(url('/api/workflows/wf-1/source'))
       expect(res.status).toBe(200)
-      const body = (await res.json()) as { entry: string; files: { path: string }[] }
+      const body = (await res.json()) as {
+        entry: string
+        primary: string
+        requirements: unknown[]
+        files: { path: string }[]
+      }
       expect(body.entry).toBe('worker.ts')
+      // The portable workflow is what a reader opens first; the entry is the
+      // provider bootstrap the deployer needs.
+      expect(body.primary).toBe('awaitstep/workflow.ts')
       expect(body.files.some((f) => f.path === 'worker.ts')).toBe(true)
+      expect(body.files.some((f) => f.path === 'awaitstep/workflow.ts')).toBe(true)
+      expect(body.requirements).toEqual([])
+    })
+
+    it('reports provider-scoped primitives as requirements and diagnostics', async () => {
+      const providerIR = {
+        ...validIR,
+        nodes: [
+          {
+            ...validIR.nodes[0]!,
+            data: { code: "import { inngest } from '#awaitstep/inngest'\nreturn 1;" },
+          },
+        ],
+      }
+      const version = await mockDb.createVersion({
+        id: 'v-inngest',
+        workflowId: 'wf-1',
+        ir: JSON.stringify(providerIR),
+      })
+      await mockDb.updateWorkflow('wf-1', { currentVersionId: version.id })
+
+      const res = await app.request(url('/api/workflows/wf-1/source'))
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as {
+        requirements: { kind: string; id: string; label: string }[]
+        diagnostics: { source: string; message: string }[]
+      }
+      expect(body.requirements).toContainEqual(
+        expect.objectContaining({ kind: 'provider', id: 'inngest' }),
+      )
+      // A read is lenient: the workspace still opens, with the reason.
+      expect(body.diagnostics).toContainEqual(
+        expect.objectContaining({
+          source: 'provider',
+          message: expect.stringContaining('inngest'),
+        }),
+      )
     })
 
     it('reads the version row once, beside the file rows', async () => {
@@ -115,9 +160,9 @@ describe('source routes', () => {
   })
 
   describe('GET /source with an unconfigured node', () => {
-    // A sub_script with no worker selected generates `env..fetch(...)`, which
-    // does not parse. The workspace still has to open — that is where the user
-    // sees what is wrong — so the read reports the issue instead of refusing.
+    // A sub_script with no worker selected no longer emits a syntax error —
+    // the primitive call is valid — but the workflow still has to open, with
+    // the IR finding that names the node.
     const irWithEmptyBinding = {
       ...validIR,
       nodes: [
@@ -150,21 +195,19 @@ describe('source routes', () => {
       const res = await app.request(url('/api/workflows/wf-1/source'))
       expect(res.status).toBe(200)
       const body = (await res.json()) as {
-        files: { path: string }[]
+        files: { path: string; source: string }[]
         diagnostics: { source: string; nodeId?: string; message: string }[]
       }
       expect(body.files.some((f) => f.path === 'worker.ts')).toBe(true)
 
-      // Both halves are reported: the cause (an unconfigured node) and the
-      // effect (the `env..fetch(` it generates). Dropping either leaves the
-      // workspace showing broken code with no explanation, or an explanation
-      // with no marker on the file.
+      // The cause is the IR finding; it marks the node on the canvas. The
+      // generated code is still shown, and names the binding it resolved.
       const ir = body.diagnostics.find((d) => d.source === 'ir')
       expect(ir).toMatchObject({ nodeId: 'call' })
       expect(ir!.message).toContain('no worker selected')
 
-      const compile = body.diagnostics.find((d) => d.source === 'compile')
-      expect(compile).toMatchObject({ path: 'worker.ts' })
+      const workflow = body.files.find((f) => f.path === 'awaitstep/workflow.ts')!
+      expect(workflow.source).toContain('service(env, "")')
     })
 
     it('names the file a compile error came from', async () => {

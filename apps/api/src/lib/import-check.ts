@@ -1,3 +1,4 @@
+import { AWAITSTEP_IMPORT_PREFIX, AWAITSTEP_MODULE_DIR, withoutComments } from '@awaitstep/codegen'
 import { PROJECT_IMPORT_PREFIX, fileExtension } from '@awaitstep/ir'
 
 /**
@@ -45,21 +46,6 @@ function decodeEscapes(text: string): string {
   })
 }
 
-const BLOCK_COMMENT = /\/\*[\s\S]*?\*\//g
-const LINE_COMMENT = /(^|[^:])\/\/[^\n]*/g
-
-/**
- * A whole `import type … from '…'` or `export type … from '…'` statement.
- *
- * These are erased before anything bundles, so the file behind them need
- * not exist as a module — `import type { Row } from '#app/types'` is
- * satisfied by a `types.d.ts`, which resolves for the type checker and for
- * nothing else. Reporting them was a permanent `ok: false` on workflows
- * that deploy perfectly well. An inline `{ type A, b }` is **not** matched:
- * `b` is a value, so that import is real.
- */
-const TYPE_ONLY_STATEMENT = /\b(?:import|export)\s+type\s+[^;'"`]*?\bfrom\s*(['"`])[^'"`]*\1/g
-
 /**
  * How `PROJECT_IMPORTS_FIELD` maps an explicit extension to the file on
  * disk, plus the source file a bundler falls back to. `#app/*.mts` resolves
@@ -90,12 +76,14 @@ export interface UnresolvedImport {
 }
 
 /**
- * `#app/` imports with no file behind them.
+ * `#app/` and `#awaitstep/` imports with no file behind them.
  *
  * Nothing else checks this. The compile step transpiles each file on its
  * own with no module resolution, so `#app/lib/mising` parses perfectly and
  * fails only at the bundler — and a misspelled path is the likeliest
  * mistake when code is written by something that cannot see the file tree.
+ * `#awaitstep/*` works the same way, resolving against the bundle's
+ * `awaitstep/` modules.
  *
  * Resolution mirrors the `imports` map the deploy carries, **case
  * sensitively**: the build runs on Linux, where `Lib/Util` and `lib/util`
@@ -123,9 +111,9 @@ export function unresolvedAppImports(
   for (const file of codeFiles) {
     for (const match of withoutComments(file.source).matchAll(IMPORT_SPECIFIER)) {
       const specifier = specifierOf(match)
-      if (!specifier.startsWith(PROJECT_IMPORT_PREFIX)) continue
+      const target = resolutionTarget(specifier)
+      if (target === null) continue
       if (claimedByManifest(specifier, declared)) continue
-      const target = specifier.slice(PROJECT_IMPORT_PREFIX.length)
       if (target === '' || resolves(target, present)) continue
       // One report per file and specifier: the same bad import written
       // twice in a file is one mistake to fix.
@@ -136,6 +124,20 @@ export function unresolvedAppImports(
     }
   }
   return unresolved
+}
+
+/**
+ * The bundle path a generated import points at, or null when the specifier
+ * is not one of the generated prefixes.
+ */
+function resolutionTarget(specifier: string): string | null {
+  if (specifier.startsWith(PROJECT_IMPORT_PREFIX)) {
+    return specifier.slice(PROJECT_IMPORT_PREFIX.length)
+  }
+  if (specifier.startsWith(AWAITSTEP_IMPORT_PREFIX)) {
+    return `${AWAITSTEP_MODULE_DIR}${specifier.slice(AWAITSTEP_IMPORT_PREFIX.length)}`
+  }
+  return null
 }
 
 /**
@@ -297,21 +299,6 @@ function escapesRoot(dir: readonly string[], specifier: string): boolean {
     }
   }
   return false
-}
-
-/**
- * Comments stripped so a commented-out import is not reported as broken.
- *
- * Known limit: a specifier written inside a *string* that also contains the
- * word `from` or `import` still matches. Erring that way is deliberate — a
- * needless diagnostic names a line to look at, while a missed import fails
- * later at the bundler with no file attached.
- */
-function withoutComments(source: string): string {
-  return source
-    .replace(BLOCK_COMMENT, '')
-    .replace(LINE_COMMENT, '$1')
-    .replace(TYPE_ONLY_STATEMENT, '')
 }
 
 /**

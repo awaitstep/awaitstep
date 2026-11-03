@@ -3,6 +3,7 @@ import type {
   DiagnosticSource,
   GeneratedBundle,
   ProviderConfig,
+  RuntimeRequirement,
   SourceDiagnostic,
 } from '@awaitstep/codegen'
 import {
@@ -10,6 +11,10 @@ import {
   bundleCodeFiles,
   bundleDeployFiles,
   bundlePackageManifest,
+  checkRequirements,
+  collectRuntimeRequirements,
+  formatUnsupportedRequirements,
+  mergeRequirements,
 } from '@awaitstep/codegen'
 import { collectCompileErrors } from '@awaitstep/codegen/transpile'
 import type { ArtifactIR, ProjectFile } from '@awaitstep/ir'
@@ -41,6 +46,12 @@ export interface WorkflowContext {
    */
   diagnostics: PrepareDiagnostic[]
   /**
+   * What the workflow needs beyond pure orchestration: provider-scoped
+   * primitive imports and the resource bindings it declares or implies.
+   * Returned as data so a client can show the constraint before a deploy.
+   */
+  requirements: RuntimeRequirement[]
+  /**
    * Which checks actually ran, in the order they ran. An empty
    * `diagnostics` only means "nothing found" for the checks listed here, so
    * a caller reporting one has to report the other — silence about a check
@@ -71,6 +82,12 @@ export interface WorkflowPrepareError {
   details?: unknown
   /** Issues collected before the failure, when there were any. */
   diagnostics?: PrepareDiagnostic[]
+  /**
+   * What the workflow needs beyond orchestration, when it was computed before
+   * the failure. A read that cannot generate still reports this, so a client
+   * can tell the workflow is provider-specific.
+   */
+  requirements?: RuntimeRequirement[]
   /** Which checks ran before the failure. */
   checked?: DiagnosticSource[]
   /**
@@ -193,11 +210,24 @@ export async function prepareWorkflow(
     templateResolver: nodeRegistry.templateResolver,
   })
 
+  // What the workflow needs beyond pure orchestration. Computed before any
+  // validation so a read that fails early can still tell a client whether the
+  // workflow is provider-specific.
+  const requirements = mergeRequirements(
+    collectRuntimeRequirements(ir),
+    adapter.requirements?.(ir) ?? [],
+  )
+
   // Validate IR
   const validation = adapter.validate(ir)
   if (!validation.ok) {
     if (!lenient) {
-      return { error: 'IR validation failed', status: 400, details: validation.errors }
+      return {
+        error: 'IR validation failed',
+        status: 400,
+        details: validation.errors,
+        requirements,
+      }
     }
     for (const error of validation.errors) {
       diagnostics.push({
@@ -217,13 +247,39 @@ export async function prepareWorkflow(
     // diagnostic per node, each carrying the id, because a client marks the
     // node and names are not unique.
     if (!lenient) {
-      return { error: `Nodes not supported by this provider: ${names.join(', ')}`, status: 400 }
+      return {
+        error: `Nodes not supported by this provider: ${names.join(', ')}`,
+        status: 400,
+        requirements,
+      }
     }
     for (const node of nodeCheck.unsupportedNodes) {
       diagnostics.push({
         source: 'provider',
         message: `Node "${node.name}" is not supported by this provider`,
         nodeId: node.id,
+      })
+    }
+  }
+
+  // Capability check: a workflow that imports a provider's primitives, or
+  // needs a binding kind the target cannot supply, cannot run there. This
+  // runs before generation so a deploy is refused with the reason rather
+  // than building an artifact that was never going to work.
+  const unsupported = checkRequirements(requirements, adapter)
+  if (unsupported.length > 0) {
+    if (!lenient) {
+      return {
+        error: formatUnsupportedRequirements(adapter.name, unsupported),
+        status: 400,
+        details: { requirements, unsupported },
+      }
+    }
+    for (const { requirement, reason } of unsupported) {
+      diagnostics.push({
+        source: 'provider',
+        message: `${requirement.label} cannot run on ${adapter.name}: ${reason}`,
+        ...(requirement.nodeId && { nodeId: requirement.nodeId }),
       })
     }
   }
@@ -293,6 +349,7 @@ export async function prepareWorkflow(
       error: `Bundle validation failed: ${err.message}`,
       status: 422,
       diagnostics,
+      requirements,
       checked,
       finding: true,
     }
@@ -384,6 +441,7 @@ export async function prepareWorkflow(
     envVars: envResult.envVars,
     dependencies,
     diagnostics,
+    requirements,
     checked,
   }
 }

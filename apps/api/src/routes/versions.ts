@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
-import { validateArtifact, migrateArtifact } from '@awaitstep/ir'
+import { projectFilePathError, validateArtifact, migrateArtifact } from '@awaitstep/ir'
 import {
   foldProjectFiles,
   legacyRuntimeSeeds,
@@ -124,6 +124,20 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
       [...storedFiles, ...seeds].map((f) => f.path),
     ),
   )
+  // Stored snapshots are grandfathered by `validateProjectFiles`, but a path
+  // that is new to this save is a write: generated paths (`worker.ts`,
+  // `nodes/**`, `awaitstep/**`, …) are refused here too, or a first save
+  // could smuggle one past the per-file write rules.
+  const storedPaths = new Set(storedFiles.map((file) => file.path))
+  const pathProblems = seeds
+    .filter((file) => !storedPaths.has(file.path))
+    .flatMap((file) => {
+      const error = projectFilePathError(file.path)
+      return error ? [{ path: file.path, message: error }] : []
+    })
+  if (pathProblems.length > 0) {
+    return c.json({ error: 'Invalid project file path', details: pathProblems }, 422)
+  }
   const projectFiles =
     seeds.length > 0
       ? [...storedFiles, ...(await db.upsertWorkflowFiles(toWorkflowFileRows(workflowId, seeds)))]

@@ -36,6 +36,7 @@ interface CheckBody {
   ok: boolean
   versionId: string
   checked: string[]
+  requirements?: { kind: string; id: string; label: string }[]
   diagnostics: { source: string; message: string; path?: string; nodeId?: string }[]
 }
 
@@ -172,7 +173,13 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
     it('returns a verdict, never the source', async () => {
       await saveVersion()
       const { body } = await check()
-      expect(Object.keys(body).sort()).toEqual(['checked', 'diagnostics', 'ok', 'versionId'])
+      expect(Object.keys(body).sort()).toEqual([
+        'checked',
+        'diagnostics',
+        'ok',
+        'requirements',
+        'versionId',
+      ])
     })
 
     it('reports a node the provider cannot deploy, by id, still 200', async () => {
@@ -212,7 +219,13 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
         workflowId: 'wf-1',
         ir: JSON.stringify({
           ...validIR,
-          nodes: [validIR.nodes[0], { ...validIR.nodes[0], id: 'step-2', name: 'Second' }],
+          nodes: [
+            {
+              ...validIR.nodes[0],
+              data: { code: "import { inngest } from '#awaitstep/inngest'\nreturn 1" },
+            },
+            { ...validIR.nodes[0], id: 'step-2', name: 'Second' },
+          ],
           edges: [
             { id: 'e1', source: 'step-1', target: 'step-2' },
             { id: 'e2', source: 'step-2', target: 'step-1' },
@@ -225,6 +238,11 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
       expect(status).toBe(200)
       expect(body.ok).toBe(false)
       expect(body.diagnostics.some((d) => d.source === 'ir')).toBe(true)
+      // A finding still reports the capability constraint, so an agent that
+      // cannot open the source can still tell the workflow needs a provider.
+      expect(body.requirements).toContainEqual(
+        expect.objectContaining({ kind: 'provider', id: 'inngest' }),
+      )
     })
 
     it('reports an env var that will not resolve, naming it and never its value', async () => {

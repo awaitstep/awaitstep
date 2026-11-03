@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import type { WorkflowIR } from '@awaitstep/ir'
+import type { ScriptIR, WorkflowIR } from '@awaitstep/ir'
 import type { ProviderConfig } from '@awaitstep/codegen'
 import { bundleEntry } from '@awaitstep/codegen'
 import { CloudflareWorkflowsAdapter, buildQueueConsumers, buildCronTriggers } from '../adapter.js'
@@ -79,9 +79,11 @@ describe('CloudflareWorkflowsAdapter', () => {
     it('generates a TypeScript artifact', () => {
       const bundle = adapter.generate(simpleIR)
       expect(bundle.entry).toBe('worker.ts')
+      expect(bundle.primary).toBe('awaitstep/workflow.ts')
       expect(bundleEntry(bundle).source).toContain('WorkflowEntrypoint')
       expect(bundleEntry(bundle).source).toContain('class TestWorkflow')
-      expect(bundleEntry(bundle).source).toContain('step.do("step-1"')
+      const workflow = bundle.files.find((f) => f.path === 'awaitstep/workflow.ts')!
+      expect(workflow.source).toContain('flow.step("step-1"')
     })
 
     it('uses default trigger code when no triggerCode provided', () => {
@@ -425,5 +427,109 @@ describe('buildCronTriggers', () => {
 
   it('uses deploymentConfig.cronTriggers when no annotation handlers are declared', () => {
     expect(buildCronTriggers(undefined, { cronTriggers: ['0 0 * * *'] })).toEqual(['0 0 * * *'])
+  })
+})
+
+describe('Cloudflare capability requirements', () => {
+  const adapter = new CloudflareWorkflowsAdapter()
+
+  it('declares the binding kinds a Worker can be given', () => {
+    expect(adapter.supportedBindingKinds).toEqual(
+      expect.arrayContaining(['kv', 'd1', 'r2', 'queue', 'service', 'workflow']),
+    )
+  })
+
+  it('reports a declared binding as a requirement', () => {
+    const ir: WorkflowIR = {
+      ...simpleIR,
+      runtime: { bindings: [{ name: 'USERS', type: 'kv' }] },
+    }
+    expect(adapter.requirements(ir)).toContainEqual({
+      kind: 'binding',
+      id: 'kv',
+      name: 'USERS',
+      label: 'KV namespace "USERS"',
+    })
+  })
+
+  it('reports a sub-workflow binding as a workflow requirement', () => {
+    const ir: WorkflowIR = {
+      ...simpleIR,
+      nodes: [
+        ...simpleIR.nodes,
+        {
+          id: 'sub',
+          type: 'sub_workflow',
+          name: 'Child',
+          position: { x: 0, y: 200 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { workflowId: 'wf-child', workflowName: 'ChildFlow' },
+        },
+      ],
+      edges: [{ id: 'e1', source: 'step-1', target: 'sub' }],
+    }
+    expect(adapter.requirements(ir)).toContainEqual({
+      kind: 'binding',
+      id: 'workflow',
+      name: 'CHILD_FLOW',
+      label: 'workflow binding "CHILD_FLOW"',
+    })
+  })
+})
+
+describe('Cloudflare template requirements', () => {
+  it('classifies a provider import in a custom-node template', () => {
+    const withTemplate = new CloudflareWorkflowsAdapter({
+      templateResolver: {
+        getTemplate: () =>
+          'import { env } from "cloudflare:workers"\nexport default async function() {}',
+      },
+    })
+    const ir: WorkflowIR = {
+      ...simpleIR,
+      nodes: [{ ...simpleIR.nodes[0]!, type: 'custom-thing' }],
+    }
+    expect(withTemplate.requirements(ir)).toContainEqual(
+      expect.objectContaining({ kind: 'provider', id: 'cloudflare' }),
+    )
+  })
+})
+
+describe('Cloudflare script bundle modules', () => {
+  const adapter = new CloudflareWorkflowsAdapter()
+
+  const scriptIr: ScriptIR = {
+    kind: 'script',
+    metadata: { name: 'scriptflow', version: 1, createdAt: '', updatedAt: '' },
+    nodes: [
+      {
+        id: 'call',
+        type: 'sub_script',
+        name: 'Call function',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { workerName: 'my-func', url: 'https://invoke/', method: 'POST' },
+      },
+    ],
+    edges: [],
+    entryNodeId: 'call',
+    trigger: { type: 'http' },
+  }
+
+  it('declares a sub-script service binding on the script Env', () => {
+    const bundle = adapter.generate(scriptIr)
+    expect(bundle.files[0]!.source).toContain('MY_FUNC: Fetcher;')
+  })
+
+  it('emits the provider module a project file imports', () => {
+    const bundle = adapter.generate({
+      ...scriptIr,
+      runtime: {
+        files: [{ path: 'lib/kv.ts', source: "export { kv } from '#awaitstep/cloudflare'" }],
+      },
+    })
+    expect(bundle.files.some((file) => file.path === 'awaitstep/cloudflare.ts')).toBe(true)
   })
 })

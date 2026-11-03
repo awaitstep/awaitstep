@@ -16,7 +16,18 @@ import {
 import type { HandlerConversionResult } from '@awaitstep/codegen'
 import { compileBundle } from './compile-bundle.js'
 import { generateScript, generateWorkflowBundle } from './codegen/generate.js'
-import { bundleEntry, projectBundleFiles, toBundle, validateBundle } from '@awaitstep/codegen'
+import {
+  CORE_RUNTIME_IMPORT,
+  bundleEntry,
+  describeBindingKind,
+  describeProvider,
+  importSpecifiers,
+  providerFromSpecifier,
+  projectBundleFiles,
+  toBundle,
+  validateBundle,
+  withoutComments,
+} from '@awaitstep/codegen'
 import type {
   WorkflowProvider,
   LocalDevProvider,
@@ -24,6 +35,7 @@ import type {
   CredentialsInspection,
   InspectOptions,
   GeneratedBundle,
+  GeneratedFile,
   DeployResult,
   ProviderConfig,
   WorkflowRunStatus,
@@ -31,12 +43,18 @@ import type {
   LocalDevSession,
   LocalDevOptions,
   TemplateResolver,
+  RuntimeRequirement,
 } from '@awaitstep/codegen'
 import { splitEnvVars } from './env.js'
 import type { WranglerDeployer } from './deploy/deployer.js'
 import { startLocalDev } from './local-dev.js'
 import { sanitizedWorkflowName } from './naming.js'
 import { mapCFStatus } from './status-map.js'
+import {
+  CLOUDFLARE_PRIMITIVES_IMPORT,
+  cloudflarePrimitivesModuleFile,
+  runtimeModuleFile,
+} from './codegen/runtime-module.js'
 import { toRunDetail } from './run-detail.js'
 import { CloudflareAPI } from './api.js'
 import { checkCloudflareToken } from './token-check.js'
@@ -93,8 +111,24 @@ export interface DeployProgress {
 
 export type OnDeployProgress = (progress: DeployProgress) => void
 
+/** The resource kinds a Cloudflare Worker can be given. */
+const CLOUDFLARE_BINDING_KINDS = [
+  'kv',
+  'd1',
+  'r2',
+  'queue',
+  'service',
+  'workflow',
+  'ai',
+  'vectorize',
+  'analytics_engine',
+  'hyperdrive',
+  'browser',
+] as const
+
 export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevProvider {
   readonly name = 'cloudflare'
+  readonly supportedBindingKinds = CLOUDFLARE_BINDING_KINDS
   readonly deploymentConfigSchema = cloudflareDeploymentConfigSchema
   readonly deploymentConfigUiSchema = cloudflareDeploymentConfigUiSchema
   private templateResolver?: TemplateResolver
@@ -107,6 +141,60 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
 
   getDefaultDeploymentConfig(): CloudflareDeploymentConfig {
     return { ...cloudflareDefaultDeploymentConfig }
+  }
+
+  /**
+   * Bindings the workflow needs beyond the shared analyzer: declared and
+   * inferred resource bindings, plus the workflow/service bindings a
+   * sub-workflow or sub-script node creates.
+   */
+  requirements(ir: ArtifactIR): RuntimeRequirement[] {
+    const requirements: RuntimeRequirement[] = []
+    for (const binding of detectBindings(ir as unknown as WorkflowIR)) {
+      requirements.push({
+        kind: 'binding',
+        id: binding.type,
+        name: binding.name,
+        label: `${describeBindingKind(binding.type)} "${binding.name}"`,
+      })
+    }
+    for (const binding of getSubWorkflowBindings(ir.nodes)) {
+      requirements.push({
+        kind: 'binding',
+        id: 'workflow',
+        name: binding.binding,
+        label: `workflow binding "${binding.binding}"`,
+      })
+    }
+    for (const binding of getSubScriptBindings(ir.nodes)) {
+      requirements.push({
+        kind: 'binding',
+        id: 'service',
+        name: binding.binding,
+        label: `service binding "${binding.binding}"`,
+      })
+    }
+    // Custom-node templates are registry code, not IR: the shared analyzer
+    // cannot see their imports. A template importing `cloudflare:*` or a
+    // provider primitive is just as Cloudflare-only as node code.
+    const seenProviders = new Set<string>()
+    for (const node of ir.nodes) {
+      const template = this.templateResolver?.getTemplate(node.type, node.provider)
+      if (!template) continue
+      for (const specifier of importSpecifiers(withoutComments(template))) {
+        const provider = providerFromSpecifier(specifier)
+        if (!provider || seenProviders.has(provider)) continue
+        seenProviders.add(provider)
+        requirements.push({
+          kind: 'provider',
+          id: provider,
+          import: specifier,
+          label: `${describeProvider(provider)}-only primitives (${specifier})`,
+          nodeId: node.id,
+        })
+      }
+    }
+    return requirements
   }
 
   buildDeploymentConfigPreview(config: unknown) {
@@ -217,9 +305,29 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
         retention,
       })
       const base = toBundle({ filename: 'worker.ts', source })
+      const projectFiles = projectBundleFiles(ir.runtime?.files)
+      // A Function is single-file by design, but user/project code can still
+      // import the portable runtime or a provider primitive; emit the module
+      // it names so the deploy resolves it.
+      const imported = new Set(
+        [source, ...projectFiles.map((file) => file.source)].flatMap((candidate) =>
+          importSpecifiers(withoutComments(candidate)),
+        ),
+      )
+      const extra: GeneratedFile[] = []
+      if (imported.has(CORE_RUNTIME_IMPORT)) extra.push(runtimeModuleFile())
+      if (
+        [...imported].some(
+          (specifier) =>
+            specifier === CLOUDFLARE_PRIMITIVES_IMPORT ||
+            specifier.startsWith(`${CLOUDFLARE_PRIMITIVES_IMPORT}/`),
+        )
+      ) {
+        extra.push(cloudflarePrimitivesModuleFile())
+      }
       return validateBundle({
         ...base,
-        files: [...base.files, ...projectBundleFiles(ir.runtime?.files)],
+        files: [...base.files, ...extra, ...projectFiles],
       })
     }
     // Workflows deploy as multi-file bundles: step code lives in per-node

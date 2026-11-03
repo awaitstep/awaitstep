@@ -184,4 +184,38 @@ describe('prepareDeploy', () => {
     expect(isDeployError(prepared) && prepared.status).toBe(400)
     expect(generated).toHaveLength(0)
   })
+
+  it('refuses a workflow that needs another provider, before generating', async () => {
+    const providerIR = {
+      ...validIR,
+      nodes: [
+        {
+          ...validIR.nodes[0]!,
+          data: { code: "import { inngest } from '#awaitstep/inngest'\nreturn 1;" },
+        },
+      ],
+    }
+    const version = await mockDb.createVersion({
+      id: 'v-inngest',
+      workflowId: 'wf-1',
+      ir: JSON.stringify(providerIR),
+    })
+    await mockDb.updateWorkflow('wf-1', { currentVersionId: version.id })
+    const workflow = (await mockDb.getWorkflowById('wf-1'))!
+
+    const prepared = await prepareDeploy({
+      db: mockDb,
+      workflow,
+      organizationId: TEST_ORG_ID,
+      projectId: TEST_PROJECT_ID,
+      connectionId: 'conn-1',
+    })
+    expect(isDeployError(prepared)).toBe(true)
+    if (!isDeployError(prepared)) return
+    expect(prepared.status).toBe(400)
+    expect(prepared.error).toContain('Cannot deploy to cloudflare')
+    expect(prepared.error).toContain('#awaitstep/inngest')
+    // The artifact was never built: the constraint is known before generation.
+    expect(generated).toHaveLength(0)
+  })
 })

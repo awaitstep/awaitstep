@@ -257,7 +257,7 @@ export function projectWriteErrors(
 export const PROJECT_ROOT_CONFIG_FILES = ['package.json', 'tsconfig.json', 'jsconfig.json'] as const
 
 /** Human-readable description of what the canvas generates and projects cannot shadow. */
-export const GENERATED_PATH_RULES = ['worker.*', 'nodes/**', 'wrangler.*'] as const
+export const GENERATED_PATH_RULES = ['worker.*', 'nodes/**', 'awaitstep/**', 'wrangler.*'] as const
 
 const SAFE_SEGMENT = /^[A-Za-z0-9_][A-Za-z0-9._-]*$/
 
@@ -307,6 +307,10 @@ export function compiledPathKey(path: string): string {
 export function isGeneratedPath(path: string): boolean {
   const lower = path.toLowerCase()
   if (lower.startsWith('nodes/')) return true
+  // The runtime modules a bundle carries (awaitstep/runtime.ts, env.ts,
+  // workflow.ts, provider primitives). A project file there would collide
+  // with the generated module after compile.
+  if (lower.startsWith('awaitstep/')) return true
   if (basenameOf(lower).startsWith('wrangler.')) return true
   const dot = lower.lastIndexOf('.')
   const stem = dot > 0 ? lower.slice(0, dot) : lower
@@ -337,13 +341,27 @@ export function projectFileBytes(source: string): number {
   return new TextEncoder().encode(source).length
 }
 
+/** Options that separate a write-time rule from a stored-snapshot check. */
+export interface ProjectFilePathOptions {
+  /**
+   * Validate a stored snapshot instead of a new write. The generated-path
+   * rule is write-time only, the same way handler-path rules are: a version
+   * saved before a path was reserved must still load and deploy, or an old
+   * version becomes unreachable with no way to edit it.
+   */
+  stored?: boolean
+}
+
 /**
  * Why a path cannot be a project file, or null when it can: conservative
- * segments (no dotfiles, no traversal), nothing the canvas generates, no
- * lockfiles or node_modules, toolchain config only at the root, and a
- * code/data extension.
+ * segments (no dotfiles, no traversal), nothing the canvas generates (for a
+ * new write), no lockfiles or node_modules, toolchain config only at the
+ * root, and a code/data extension.
  */
-export function projectFilePathError(path: string): string | null {
+export function projectFilePathError(
+  path: string,
+  options?: ProjectFilePathOptions,
+): string | null {
   if (path.length > MAX_PROJECT_FILE_PATH_LENGTH) {
     return `exceeds ${MAX_PROJECT_FILE_PATH_LENGTH} characters`
   }
@@ -351,7 +369,7 @@ export function projectFilePathError(path: string): string | null {
   if (segments.some((segment) => !SAFE_SEGMENT.test(segment) || segment.includes('..'))) {
     return 'contains an unsafe path segment'
   }
-  if (isGeneratedPath(path)) {
+  if (!options?.stored && isGeneratedPath(path)) {
     return 'is generated from the canvas'
   }
   const lower = segments.map((s) => s.toLowerCase())
@@ -564,7 +582,8 @@ export function projectPackageManifest(
  * per-file and total size caps, the file-count cap, uniqueness (including
  * paths that would collide after compile), and the package.json contract.
  * The single authority shared by IR validation (save, import, deploy) and
- * the per-file write endpoints.
+ * the per-file write endpoints. Stored snapshots keep the rules they were
+ * saved under for paths the canvas now generates; a new write is refused.
  */
 export function validateProjectFiles(
   files: readonly ProjectFile[],
@@ -578,7 +597,7 @@ export function validateProjectFiles(
   const seenByKey = new Map<string, string>()
   let total = 0
   files.forEach((file, index) => {
-    const pathError = projectFilePathError(file.path)
+    const pathError = projectFilePathError(file.path, { stored: true })
     if (pathError) {
       errors.push({ path: `${path}[${index}].path`, message: `"${file.path}" ${pathError}` })
     }

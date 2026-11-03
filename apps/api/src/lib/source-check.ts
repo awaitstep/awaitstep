@@ -3,6 +3,7 @@ import {
   MAX_PROJECT_FILES,
   MAX_PROJECT_FILE_BYTES,
   projectFileBytes,
+  projectFilePathError,
   validateProjectFiles,
 } from '@awaitstep/ir'
 import type { ProjectFile, ValidationError } from '@awaitstep/ir'
@@ -96,6 +97,13 @@ export function newProjectFileProblems(
   written: Iterable<string>,
 ): ValidationError[] {
   const owned = new Set(written)
+  // A stored snapshot keeps a path the canvas now generates, but writing one
+  // is still refused — the candidate is judged by the write-time rule.
+  const writeProblems: ValidationError[] = []
+  for (const path of owned) {
+    const error = projectFilePathError(path)
+    if (error) writeProblems.push({ path: 'runtime.files', message: `"${path}" ${error}` })
+  }
   // A set-level cap — the file count, the total size — can already be
   // exceeded. Being pre-existing excuses a change that leaves it no worse,
   // never one that adds to it: otherwise an over-limit project could be
@@ -105,7 +113,7 @@ export function newProjectFileProblems(
   for (const problem of validateProjectFiles(stored)) {
     before.set(problem.message, (before.get(problem.message) ?? 0) + 1)
   }
-  return validateProjectFiles(merged).filter((problem) => {
+  const problems = validateProjectFiles(merged).filter((problem) => {
     const path = problemPath(problem, merged)
     if (path !== undefined && owned.has(path)) return true
     if (path === undefined && grew) return true
@@ -116,6 +124,7 @@ export function newProjectFileProblems(
     before.set(problem.message, seen - 1)
     return false
   })
+  return [...writeProblems, ...problems]
 }
 
 function setBytes(files: readonly ProjectFile[]): number {

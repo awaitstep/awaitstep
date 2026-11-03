@@ -70,7 +70,7 @@ describe('project file routes', () => {
     const body = await res.json()
     expect(body).toMatchObject({
       importPrefix: '#app/',
-      generated: ['worker.*', 'nodes/**', 'wrangler.*'],
+      generated: ['worker.*', 'nodes/**', 'awaitstep/**', 'wrangler.*'],
       rootConfigFiles: ['package.json', 'tsconfig.json', 'jsconfig.json'],
       files: [],
       limits: { maxFiles: 100, maxFileBytes: 512_000, maxTotalBytes: 2_000_000 },
@@ -115,6 +115,7 @@ describe('project file routes', () => {
     expect((await putFile(app, 'worker.ts', '')).status).toBe(422)
     expect((await putFile(app, 'worker.js', '')).status).toBe(422)
     expect((await putFile(app, 'nodes/x.ts', '')).status).toBe(422)
+    expect((await putFile(app, 'awaitstep/util.ts', '')).status).toBe(422)
     expect((await putFile(app, 'config/package.json', '{}')).status).toBe(422)
     expect((await putFile(app, 'package-lock.json', '{}')).status).toBe(422)
     expect((await putFile(app, 'image.png', '')).status).toBe(422)

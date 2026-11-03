@@ -41,6 +41,24 @@ describe('unresolvedAppImports', () => {
     ).toEqual([])
   })
 
+  it('resolves an emitted #awaitstep module beside the workflow', () => {
+    expect(
+      check([
+        code('worker.ts', "import { kv } from '#awaitstep/cloudflare'"),
+        code('awaitstep/cloudflare.ts', 'export const kv = 1'),
+      ]),
+    ).toEqual([])
+  })
+
+  it('reports a misspelled #awaitstep module', () => {
+    expect(
+      check([
+        code('worker.ts', "import { kv } from '#awaitstep/clodflare'"),
+        code('awaitstep/cloudflare.ts', 'export const kv = 1'),
+      ]),
+    ).toEqual([{ path: 'worker.ts', specifier: '#awaitstep/clodflare' }])
+  })
+
   it('resolves a name containing a dot', () => {
     // `app.config` has no known extension, so `#app/*` appends `.js` and the
     // name stands whole. Treating any dot as an extension flagged this.

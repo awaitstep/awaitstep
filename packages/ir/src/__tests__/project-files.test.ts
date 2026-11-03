@@ -251,9 +251,20 @@ describe('validateProjectFiles', () => {
     expect(errors.map((e) => `${e.path}: ${e.message}`)).toEqual([
       'runtime.files[1].path: Duplicate project file "config/env.ts"',
       'runtime.files[2].path: "config/env.js" would overwrite "config/env.ts" after compile',
-      'runtime.files[3].path: "worker.ts" is generated from the canvas',
       'runtime.files[4].source.type: Workers deploy as ES modules — use "module"',
     ])
+  })
+
+  it('still refuses a new write to a generated path', () => {
+    expect(projectFilePathError('awaitstep/util.ts')).toBe('is generated from the canvas')
+    expect(projectFilePathError('worker.ts')).toBe('is generated from the canvas')
+  })
+
+  it('lets a stored snapshot keep a path that is generated today', () => {
+    // Reserving a path must not make an old version unopenable; the
+    // generated-path rule is write-time only.
+    expect(validateProjectFiles([{ path: 'awaitstep/util.ts', source: '' }])).toEqual([])
+    expect(validateProjectFiles([{ path: 'worker.ts', source: '' }])).toEqual([])
   })
 
   it('enforces the per-file, total and count caps in UTF-8 bytes', () => {
@@ -292,7 +303,7 @@ describe('validateProjectFiles', () => {
         },
       ],
       edges: [],
-      runtime: { files: [{ path: 'nodes/n1.ts', source: 'nope' }] },
+      runtime: { files: [{ path: 'image.png', source: 'nope' }] },
     })
     expect(result.ok).toBe(false)
     if (!result.ok) {

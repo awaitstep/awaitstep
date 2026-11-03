@@ -59,10 +59,16 @@ source.get('/:workflowId/source', async (c) => {
   return c.json({
     versionId,
     entry: prepared.bundle.entry,
+    // The file a reader should open first: a workflow's portable definition,
+    // not the provider bootstrap the deployer needs.
+    primary: prepared.bundle.primary ?? prepared.bundle.entry,
     files: prepared.bundle.files.map((f) =>
       projectPaths.has(f.path) ? { ...f, hash: contentHash(f.source) } : f,
     ),
     manifest: prepared.bundle.manifest ?? null,
+    // What the workflow needs beyond pure orchestration, so a client can
+    // warn about a provider-specific workflow before a deploy.
+    requirements: prepared.requirements,
     // Issues a strict prepare would have refused on. The workspace still
     // opens: the generated code is shown as it is, and these say why it may
     // not be what the user expects.
@@ -140,6 +146,7 @@ source.post('/:workflowId/source/check', async (c) => {
       ok: false,
       versionId,
       checked: prepared.checked ?? [],
+      requirements: prepared.requirements ?? [],
       diagnostics: prepared.diagnostics ?? [],
     })
   }
@@ -150,6 +157,7 @@ source.post('/:workflowId/source/check', async (c) => {
     ok: prepared.diagnostics.length === 0,
     versionId: prepared.versionId,
     checked: prepared.checked,
+    requirements: prepared.requirements,
     diagnostics: prepared.diagnostics,
   })
 })
