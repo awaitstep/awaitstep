@@ -45,6 +45,11 @@ export interface GeneratedFile {
 export interface GeneratedBundle {
   /** Path of the entry file within {@link files}. */
   entry: string
+  /**
+   * The file a reader should open first, when it is not the deploy entry
+   * (a workflow bundle's portable definition). Defaults to {@link entry}.
+   */
+  primary?: string
   files: GeneratedFile[]
   /** Node → step identity map, populated by workflow bundle generation. */
   manifest?: StepManifest

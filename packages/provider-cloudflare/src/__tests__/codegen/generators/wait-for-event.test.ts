@@ -22,7 +22,7 @@ function makeNode(overrides: Partial<WorkflowNode> = {}): WorkflowNode {
 describe('generateWaitForEvent', () => {
   it('generates basic wait for event', () => {
     const code = generateWaitForEvent(makeNode())
-    expect(code).toContain('step.waitForEvent("wait-1"')
+    expect(code).toContain('flow.waitForEvent("wait-1"')
     expect(code).toContain('type: "user-approval"')
     expect(code).toContain('const wait_1 =')
   })

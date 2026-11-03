@@ -14,7 +14,7 @@ describe('generateSleep', () => {
       data: { duration: '10 seconds' },
     }
     const code = generateSleep(node)
-    expect(code).toBe('await step.sleep("sleep-1", "10 seconds");')
+    expect(code).toBe('await flow.sleep("sleep-1", "10 seconds");')
   })
 
   it('generates sleep with numeric duration', () => {
@@ -28,7 +28,7 @@ describe('generateSleep', () => {
       data: { duration: 5000 },
     }
     const code = generateSleep(node)
-    expect(code).toBe('await step.sleep("sleep-1", 5000);')
+    expect(code).toBe('await flow.sleep("sleep-1", 5000);')
   })
 
   it('labels are id-derived, so quotes in the node name never reach the source', () => {
@@ -42,7 +42,7 @@ describe('generateSleep', () => {
       data: { duration: '1 minute' },
     }
     const code = generateSleep(node)
-    expect(code).toContain('step.sleep("sleep-1"')
+    expect(code).toContain('flow.sleep("sleep-1"')
     expect(code).not.toContain('event')
   })
 })
@@ -59,7 +59,7 @@ describe('generateSleepUntil', () => {
       data: { timestamp: '2026-01-01T00:00:00Z' },
     }
     const code = generateSleepUntil(node)
-    expect(code).toBe('await step.sleepUntil("sleep-until-1", new Date("2026-01-01T00:00:00Z"));')
+    expect(code).toBe('await flow.sleepUntil("sleep-until-1", new Date("2026-01-01T00:00:00Z"));')
   })
 
   it('labels are id-derived, so quotes in the node name never reach the source', () => {

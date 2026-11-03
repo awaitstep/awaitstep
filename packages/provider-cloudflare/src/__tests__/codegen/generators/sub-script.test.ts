@@ -52,17 +52,17 @@ describe('workerNameToBinding', () => {
 })
 
 describe('generateSubScript', () => {
-  it('emits a service-binding fetch call wrapped in step.do (workflow mode)', () => {
+  it('emits a service-binding primitive call wrapped in flow.step (workflow mode)', () => {
     const code = generateSubScript(makeNode(), 'workflow')
-    expect(code).toContain('step.do("sub1"')
-    expect(code).toContain('await env.EMAIL_SERVICE.fetch("https://invoke/"')
+    expect(code).toContain('flow.step("sub1"')
+    expect(code).toContain('await service(env, "EMAIL_SERVICE").fetch("https://invoke/"')
     expect(code).toContain('method: "POST"')
     expect(code).toContain('return response.json()')
   })
 
   it('emits a bare await fetch (script mode)', () => {
     const code = generateSubScript(makeNode(), 'script')
-    expect(code).not.toContain('step.do')
+    expect(code).not.toContain('flow.step')
     expect(code).toContain(
       'const sub1 = await env.EMAIL_SERVICE.fetch("https://invoke/", { method: "POST" }).then(r => r.json())',
     )

@@ -50,8 +50,8 @@ describe('interface Env collection', () => {
     }
     const code = generateWorkflow(ir)
     expect(code).toContain('MY_KEY: string;')
-    // Inside the workflow class body, env. is rewritten to this.env.
-    expect(code).toContain('(this.env.MY_KEY ?? "none")')
+    // run() aliases the workflow context's env, so user code keeps using env.
+    expect(code).toContain('(env.MY_KEY ?? "none")')
   })
 
   it('declares quoted Env fields for non-identifier names', () => {

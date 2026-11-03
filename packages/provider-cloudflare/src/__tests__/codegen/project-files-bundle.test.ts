@@ -42,7 +42,10 @@ describe('project files in generated bundles', () => {
   it('ships them after the generated files with roles by kind, imports untouched', () => {
     expect(bundle.files.map((f) => `${f.role}:${f.path}`)).toEqual([
       'entry:worker.ts',
+      'module:awaitstep/workflow.ts',
+      'module:awaitstep/env.ts',
       'module:nodes/Fetch.ts',
+      'module:awaitstep/runtime.ts',
       'module:config/retry.ts',
       'asset:data/countries.json',
       'asset:README.md',
@@ -57,12 +60,18 @@ describe('project files in generated bundles', () => {
   it('transpiles only code, deploys code and assets, and exposes the manifest', () => {
     expect(bundleCodeFiles(bundle).map((f) => f.path)).toEqual([
       'worker.ts',
+      'awaitstep/workflow.ts',
+      'awaitstep/env.ts',
       'nodes/Fetch.ts',
+      'awaitstep/runtime.ts',
       'config/retry.ts',
     ])
     expect(bundleDeployFiles(bundle).map((f) => f.path)).toEqual([
       'worker.ts',
+      'awaitstep/workflow.ts',
+      'awaitstep/env.ts',
       'nodes/Fetch.ts',
+      'awaitstep/runtime.ts',
       'config/retry.ts',
       'data/countries.json',
       'README.md',

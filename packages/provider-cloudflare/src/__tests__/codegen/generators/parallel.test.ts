@@ -62,8 +62,8 @@ describe('generateParallel', () => {
     const node = ir.nodes[0]!
     const code = generateParallel(node, ir, generateNodeCode)
     expect(code).toContain('Promise.allSettled')
-    expect(code).toContain('step.do("a"')
-    expect(code).toContain('step.do("b"')
+    expect(code).toContain('flow.step("a"')
+    expect(code).toContain('flow.step("b"')
     expect(code).toContain('async () => {')
   })
 
@@ -82,7 +82,7 @@ describe('generateParallel', () => {
     const node = ir.nodes[0]!
     const code = generateParallel(node, ir, generateNodeCode)
     expect(code).toContain('Promise.allSettled')
-    expect(code).toContain('step.do("a"')
+    expect(code).toContain('flow.step("a"')
   })
 
   it('returns comment for no branches', () => {
@@ -121,12 +121,12 @@ describe('generateParallel', () => {
     ])
     const node = ir.nodes[0]!
     const code = generateParallel(node, ir, generateNodeCode)
-    expect(code).toContain('await step.do("parallel-1"')
+    expect(code).toContain('await flow.step("parallel-1"')
     expect(code).toContain('return await Promise.allSettled')
   })
 
   it('returns each branch step variable so allSettled values are usable', () => {
-    // Regression: branches of `async () => { const X = await step.do(...) }`
+    // Regression: branches of `async () => { const X = await flow.step(...) }`
     // had no return statement, so allSettled resolved every branch to
     // `undefined`. Branches that bind a variable (i.e. step has `return` in
     // body) must surface that var as the branch's promise value.

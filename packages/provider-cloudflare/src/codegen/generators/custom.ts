@@ -174,7 +174,7 @@ export function generateCustomNodeModule(
   const moduleSource = `${importBlock}${parts.classDefinition}
 
 /** Step "${commentName}" — generated from the workflow node. */
-export default async function ${varName}_step({ env, event, inputs, step }) {
+export default async function ${varName}_step({ env, event, inputs, step, ctx }) {
 ${destructure}  return ${parts.className}.execute(env, {
 ${paramsEntries}
   });
@@ -187,7 +187,7 @@ ${paramsEntries}
   const hasReturn = /\breturn\b/.test(extractTemplateBody(templateSource))
   const prefix = hasReturn ? `const ${varName} = ` : ''
   const inputsArg = referenced.length > 0 ? `{ ${referenced.join(', ')} }` : '{}'
-  return `${prefix}await step.do("${stepLabel(node)}"${configArg}, () => $${varName}({ env: this.env, event, inputs: ${inputsArg}, step }));`
+  return `${prefix}await flow.step("${stepLabel(node)}"${configArg}, (ctx) => $${varName}({ env, event, inputs: ${inputsArg}, step, ctx }));`
 }
 
 function customParamsEntries(node: WorkflowNode): string {
@@ -197,7 +197,7 @@ function customParamsEntries(node: WorkflowNode): string {
     configData[paramKey] = value
   }
   return Object.entries(configData)
-    .map(([key, value]) => `    ${key}: ${toJsLiteral(value)},`)
+    .map(([key, value]) => `    ${JSON.stringify(key)}: ${toJsLiteral(value)},`)
     .join('\n')
 }
 
@@ -234,17 +234,16 @@ ${indent(body, 4)}
   const hasReturn = /\breturn\b/.test(body)
   const prefix = hasReturn ? `const ${ctx.varName(node.id)} = ` : ''
 
-  // Scripts run in a fetch handler and have no `this` — call the class on the
-  // env directly instead of `this.env`. Workflows still use `this.env` because
-  // they're emitted inside a WorkflowEntrypoint method.
-  const envRef = mode === 'script' ? 'env' : 'this.env'
+  // Generated bodies always run with `env` in scope: the entry's `run`
+  // aliases `flow.env`, and a script's fetch handler receives it.
+  const envRef = 'env'
 
   const stepCode =
     mode === 'script'
       ? `${prefix}await ${className}.execute(${envRef}, {
 ${paramsEntries}
 });`
-      : `${prefix}await step.do("${stepLabel(node)}"${configArg}, async () => {
+      : `${prefix}await flow.step("${stepLabel(node)}"${configArg}, async () => {
   return ${className}.execute(${envRef}, {
 ${paramsEntries}
   });

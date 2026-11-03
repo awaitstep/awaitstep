@@ -127,7 +127,7 @@ describe('generateScript', () => {
 
   it('inlines step code raw (no step.do, no IIFE) so a top-level `return` exits runGraph', () => {
     const code = generateScript(makeScript([stepNode('transform', 'return event.payload;')]))
-    expect(code).not.toContain('step.do')
+    expect(code).not.toContain('flow.step')
     expect(code).not.toContain('await (async () => {')
     // The user's `return` is inlined inside runGraph — early exit with the value.
     expect(code).toContain(
@@ -201,7 +201,7 @@ describe('generateScript', () => {
       },
     ])
     const code = generateScript(ir)
-    expect(code).toContain('const send_auth_email = await env.SEND_MAIL.create({')
+    expect(code).toContain('const send_auth_email = await env["SEND_MAIL"].create({')
     expect(code).toContain('return { send_auth_email };')
   })
 
@@ -270,9 +270,9 @@ describe('generateScript', () => {
     ])
     ir.edges = [{ id: 'e1', source: 'transform', target: 'forward' }]
     const code = generateScript(ir)
-    expect(code).toContain('env.ONBOARDING_WORKFLOW.create(')
+    expect(code).toContain('env["ONBOARDING_WORKFLOW"].create(')
     expect(code).not.toContain('--await') // no polling
-    expect(code).not.toContain('step.do')
+    expect(code).not.toContain('flow.step')
     expect(code).toMatch(/interface Env \{[\s\S]*ONBOARDING_WORKFLOW: Workflow;[\s\S]*\}/)
   })
 
@@ -428,7 +428,7 @@ describe('generateScript', () => {
     const code = generateScript(ir)
 
     // No `step.do`, no outer IIFE — Promise.allSettled is awaited directly.
-    expect(code).not.toContain('step.do')
+    expect(code).not.toContain('flow.step')
     expect(code).not.toMatch(/await \(async \(\) => \{\s*return await Promise\./)
     // The Promise.allSettled call is the bare expression assigned to the var.
     expect(code).toMatch(/const Fan = await Promise\.allSettled\(\[/)
@@ -459,7 +459,7 @@ describe('generateScript', () => {
     expect(code).toContain('static async execute(env: Env, params: Record<string, unknown>)')
 
     // Call site uses script-mode shape.
-    expect(code).not.toContain('step.do')
+    expect(code).not.toContain('flow.step')
     expect(code).toContain('FetchThingNode.execute(env, {')
     expect(code).not.toContain('FetchThingNode.execute(this.env')
     // Custom nodes are already isolated inside `static execute`, so script

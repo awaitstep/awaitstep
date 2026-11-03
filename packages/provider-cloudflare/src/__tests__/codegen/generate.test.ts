@@ -15,6 +15,7 @@ describe('generateWorkflow', () => {
     const code = generateWorkflow(simpleWorkflow as unknown as WorkflowIR)
     expect(code).toMatchInlineSnapshot(`
       "import { WorkflowEntrypoint } from "cloudflare:workers";
+      import { createWorkflowContext, durableStep, type StepAttempt, type StepConfig, type WaitForEventOptions, type WorkflowHost } from "#awaitstep/runtime";
 
       interface Env {
         WORKFLOW: Workflow;
@@ -22,22 +23,44 @@ describe('generateWorkflow', () => {
 
       const AWAITSTEP_RETENTION = { successRetention: "7 days", errorRetention: "7 days" };
 
+      function createCloudflareHost(step: WorkflowStep): WorkflowHost {
+        return {
+          do<T>(name: string, config: StepConfig | undefined, fn: (ctx: StepAttempt) => T | Promise<T>): Promise<T> {
+            const attempt = (ctx: { attempt: number }) => Promise.resolve(fn({ attempt: ctx.attempt }));
+            return config ? step.do(name, config, attempt) : step.do(name, attempt);
+          },
+          sleep(name: string, duration: string | number): Promise<void> {
+            return step.sleep(name, duration);
+          },
+          sleepUntil(name: string, at: Date | number): Promise<void> {
+            return step.sleepUntil(name, at);
+          },
+          waitForEvent<T>(name: string, options: WaitForEventOptions): Promise<T> {
+            return step.waitForEvent<T>(name, options);
+          },
+        };
+      }
+
       // import packages here
 
       // Add queue handlers below using:
       // @queue function NAME(batch, env, ctx) { ... }
 
       export class SimpleWorkflow extends WorkflowEntrypoint<Env> {
-        async run(event, step) {
-          await step.do("step-1", { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" }, timeout: "30 seconds" }, async () => {
+        async run(workflowEvent, hostStep) {
+          const flow = createWorkflowContext({ env: this.env, event: workflowEvent, host: createCloudflareHost(hostStep) });
+          const env = flow.env;
+          const event = flow.event;
+          const step = durableStep(flow);
+          await flow.step("step-1", { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" }, timeout: "30 seconds" }, async (ctx) => {
             await (async () => {
               const res = await fetch('https://api.example.com/data'); return res.json();
             })();
           });
 
-          await step.sleep("sleep-1", "10 seconds");
+          await flow.sleep("sleep-1", "10 seconds");
 
-          await step.do("step-2", async () => {
+          await flow.step("step-2", async (ctx) => {
             await (async () => {
               return { processed: true };
             })();
@@ -113,7 +136,7 @@ describe('generateWorkflow', () => {
     const code = generateWorkflow(ir)
     expect(code).toContain('if (true) {')
     expect(code).not.toContain('} else {')
-    expect(code).toContain('step.do("s1"')
+    expect(code).toContain('flow.step("s1"')
   })
 
   it('emits a "then" continuation node AFTER the branch block', () => {
@@ -157,16 +180,16 @@ describe('generateWorkflow', () => {
     const code = generateWorkflow(ir)
     // Branch body present
     expect(code).toContain('if (true) {')
-    expect(code).toContain('step.do("s1"')
+    expect(code).toContain('flow.step("s1"')
     // Continuation step also present, AFTER the branch's closing brace
-    expect(code).toContain('step.do("s2"')
+    expect(code).toContain('flow.step("s2"')
     const branchCloseIdx = code.lastIndexOf('}')
-    const afterBranchIdx = code.indexOf('step.do("s2"')
+    const afterBranchIdx = code.indexOf('flow.step("s2"')
     // The continuation must appear in the source after the branch close — i.e.,
     // not inlined inside the if/else.
     expect(afterBranchIdx).toBeGreaterThan(0)
     // Sanity: the inside step appears BEFORE the continuation step
-    const insideIdx = code.indexOf('step.do("s1"')
+    const insideIdx = code.indexOf('flow.step("s1"')
     expect(insideIdx).toBeLessThan(afterBranchIdx)
     expect(branchCloseIdx).toBeGreaterThan(0) // matched some closing brace
   })
@@ -174,8 +197,8 @@ describe('generateWorkflow', () => {
   it('generates a parallel workflow', () => {
     const code = generateWorkflow(parallelWorkflow as unknown as WorkflowIR)
     expect(code).toContain('Promise.allSettled')
-    expect(code).toContain('step.do("task_a"')
-    expect(code).toContain('step.do("task_b"')
+    expect(code).toContain('flow.step("task_a"')
+    expect(code).toContain('flow.step("task_b"')
   })
 
   it('generates a wait-for-event workflow', () => {
@@ -289,8 +312,8 @@ describe('generateWorkflow', () => {
     const code = generateWorkflow(ir)
     // The loop's step.do appears before update's step.do — i.e. update is
     // emitted inside the loop body, not after the loop has closed.
-    const loopIdx = code.indexOf('await step.do("loop"')
-    const updateIdx = code.indexOf('await step.do(`update')
+    const loopIdx = code.indexOf('await flow.step("loop"')
+    const updateIdx = code.indexOf('await flow.step(`update')
     const closeIdx = code.indexOf('return _output;')
     expect(loopIdx).toBeGreaterThan(-1)
     expect(updateIdx).toBeGreaterThan(loopIdx)
@@ -374,12 +397,16 @@ describe('generateWorkflow with custom nodes', () => {
     expect(code).toContain('class WebhookPostNode {')
     expect(code).toContain('static async execute(env: Env, params: Record<string, unknown>)')
     // Step calls use the class
-    expect(code).toContain('const Fetch_Data = await step.do("step-1"')
-    expect(code).toContain('const Send_Webhook = await step.do("webhook-1"')
-    expect(code).toContain('WebhookPostNode.execute(this.env, {')
-    expect(code).toContain('url: "https://hook.example.com/endpoint"')
+    expect(code).toContain('const Fetch_Data = await flow.step("step-1"')
+    expect(code).toContain('const Send_Webhook = await flow.step("webhook-1"')
+    expect(code).toContain('WebhookPostNode.execute(env, {')
+    expect(code).toContain('"url": "https://hook.example.com/endpoint"')
     expect(code).toContain('retries: { limit: 3, delay: "5 seconds" }')
-    expect(code).not.toContain('ctx.')
+    // The template's ctx.* references are resolved. Scope the check to the
+    // generated class so the bootstrap's own ctx.attempt cannot mask a leak.
+    const classStart = code.indexOf('class WebhookPostNode')
+    const classEnd = code.indexOf('export class', classStart)
+    expect(code.slice(classStart, classEnd)).not.toMatch(/\bctx\./)
     // Env vars from template are in the Env interface
     expect(code).toContain('API_KEY: string;')
   })
@@ -429,7 +456,7 @@ export default async function(ctx) {
     expect(importIndex).toBeLessThan(classIndex)
 
     // Import should NOT appear inside the step.do body
-    const stepBody = code.slice(code.indexOf('step.do('))
+    const stepBody = code.slice(code.indexOf('flow.step('))
     expect(stepBody).not.toContain('import ')
   })
 

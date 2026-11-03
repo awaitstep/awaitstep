@@ -24,7 +24,7 @@ function makeNode(overrides: Partial<WorkflowNode> = {}): WorkflowNode {
 describe('generateStep', () => {
   it('generates a basic step with return', () => {
     const code = generateStep(makeNode())
-    expect(code).toContain('step.do("step-1"')
+    expect(code).toContain('flow.step("step-1"')
     expect(code).toContain('return { done: true };')
     expect(code).toContain('const step_1 =')
   })
@@ -32,7 +32,7 @@ describe('generateStep', () => {
   it('omits variable assignment when no return', () => {
     const code = generateStep(makeNode({ data: { code: 'console.log("hello");' } }))
     expect(code).not.toContain('const step_1 =')
-    expect(code).toMatch(/^await step\.do/)
+    expect(code).toMatch(/^await flow\.step/)
   })
 
   it('includes retries config', () => {
@@ -82,7 +82,7 @@ describe('generateStep', () => {
 
   it('omits config when not provided', () => {
     const code = generateStep(makeNode())
-    expect(code).toMatch(/step\.do\("step-1", async/)
+    expect(code).toMatch(/flow\.step\("step-1", async/)
   })
 
   it('sanitizes node id for variable name', () => {
@@ -92,7 +92,7 @@ describe('generateStep', () => {
 
   it('labels are id-derived, so quotes in the node name never reach the source', () => {
     const code = generateStep(makeNode({ name: 'Run "fast" task' }))
-    expect(code).toContain('step.do("step-1"')
+    expect(code).toContain('flow.step("step-1"')
     expect(code).not.toContain('fast')
   })
 
@@ -102,13 +102,23 @@ describe('generateStep', () => {
         data: { code: 'const x = 1;\nreturn x + 1;' },
       }),
     )
-    expect(code).toContain('const x = 1;\nreturn x + 1;')
+    // The nested scope indents the body but preserves it.
+    expect(code).toMatch(/return await \(async \(\) => \{\n\s+const x = 1;\n\s+return x \+ 1;/)
+  })
+
+  it('gives the body its own scope so a declaration named ctx does not collide', () => {
+    const code = generateStep(makeNode({ data: { code: 'const ctx = 1;\nreturn ctx;' } }))
+    // The attempt is the outer callback's parameter; the body is a nested
+    // arrow, so `const ctx` shadows it instead of redeclaring it.
+    expect(code).toContain('async (ctx) => {')
+    expect(code).toContain('return await (async () => {')
+    expect(code).toContain('const ctx = 1;')
   })
 
   describe('script mode', () => {
     it('emits the user code raw (no IIFE, no step.do, no const wrap)', () => {
       const code = generateStep(makeNode(), 'script')
-      expect(code).not.toContain('step.do')
+      expect(code).not.toContain('flow.step')
       expect(code).not.toContain('await (async () => {')
       expect(code).not.toContain('const step_1')
       // The user's code is the entire output.
@@ -144,7 +154,7 @@ describe('generateStep', () => {
     it('does not add a const prefix or step.do wrap for inline', () => {
       const code = generateStep(makeNode({ data: { code: 'return x;', inline: true } }))
       expect(code).not.toContain('const step_1')
-      expect(code).not.toContain('step.do')
+      expect(code).not.toContain('flow.step')
       expect(code).not.toContain('async () =>')
     })
 

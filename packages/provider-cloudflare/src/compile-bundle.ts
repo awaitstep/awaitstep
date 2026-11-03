@@ -18,5 +18,12 @@ export async function compileBundle(bundle: GeneratedBundle): Promise<GeneratedB
     }),
   )
   const entry = bundle.entry.replace(/\.ts$/, '.js')
-  return { entry, files }
+  return {
+    ...bundle,
+    entry,
+    ...(bundle.primary !== undefined && {
+      primary: bundle.primary.replace(/\.ts$/, '.js'),
+    }),
+    files,
+  }
 }

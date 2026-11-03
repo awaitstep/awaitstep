@@ -78,3 +78,30 @@ export { contentHash, resolveStepNode, stepLabelBase } from './manifest.js'
 export type { StepManifest, StepManifestEntry, StepKind } from './manifest.js'
 export { stepLabel, sanitizeStepLabel, derivedStepLabel } from './naming.js'
 export { outputFieldToType, outputSchemaToType, propertyKey, escapeJsdoc } from './output-types.js'
+export {
+  AWAITSTEP_IMPORT_PREFIX,
+  AWAITSTEP_IMPORTS_FIELD,
+  AWAITSTEP_MODULE_DIR,
+  CORE_RUNTIME_IMPORT,
+  PROVIDER_PRIMITIVE_IMPORTS,
+  RUNTIME_MODULE_PATH,
+} from './runtime.js'
+export {
+  checkRequirements,
+  collectProviderImports,
+  collectRuntimeRequirements,
+  describeBindingKind,
+  describeProvider,
+  formatUnsupportedRequirements,
+  importSpecifiers,
+  mergeRequirements,
+  providerFromAwaitstepImport,
+  providerFromSpecifier,
+  withoutComments,
+} from './requirements.js'
+export type {
+  RequirementSupport,
+  RequirementTarget,
+  RuntimeRequirement,
+  UnsupportedRequirement,
+} from './requirements.js'

@@ -10,7 +10,7 @@ import { generateStepGroup, resolveStepConfig } from './generators/step.js'
  * and has not opted out via `data.coalesce === false`.
  *
  * Merging DOES coarsen durability: Cloudflare applies its default retry
- * policy to a config-less step.do, so when a later member throws, the whole
+ * policy to a config-less durable step, so when a later member throws, the whole
  * group's callback retries and earlier members' side effects re-execute —
  * previously each had its own durably-cached step. That is the accepted
  * cost of paying for one step instead of N; nodes whose side effects must

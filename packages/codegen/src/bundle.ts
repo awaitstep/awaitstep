@@ -109,6 +109,9 @@ export function assertSafeBundlePath(path: string): string {
  */
 export function validateBundle(bundle: GeneratedBundle): GeneratedBundle {
   bundleEntry(bundle)
+  if (bundle.primary !== undefined && !bundle.files.some((f) => f.path === bundle.primary)) {
+    throw new GenerateInputError(`Bundle primary file is not in the bundle: "${bundle.primary}"`)
+  }
   const rewritten = new Set<string>()
   for (const file of bundle.files) {
     assertSafeBundlePath(file.path)

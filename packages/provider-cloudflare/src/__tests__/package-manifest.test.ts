@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { AWAITSTEP_IMPORTS_FIELD } from '@awaitstep/codegen'
 import { PROJECT_IMPORTS_FIELD } from '@awaitstep/ir'
 import { buildWorkerPackageJson, hasDependencies } from '../deploy/package-manifest.js'
 
@@ -8,7 +9,7 @@ describe('buildWorkerPackageJson', () => {
       name: 'awaitstep-worker',
       private: true,
       type: 'module',
-      imports: PROJECT_IMPORTS_FIELD,
+      imports: { ...PROJECT_IMPORTS_FIELD, ...AWAITSTEP_IMPORTS_FIELD },
     })
   })
 
@@ -48,9 +49,26 @@ describe('buildWorkerPackageJson', () => {
       private: true,
       type: 'module',
       engines: { node: '>=22' },
-      imports: { '#utils/*': './utils/*.js', ...PROJECT_IMPORTS_FIELD },
+      imports: {
+        '#utils/*': './utils/*.js',
+        ...PROJECT_IMPORTS_FIELD,
+        ...AWAITSTEP_IMPORTS_FIELD,
+      },
       dependencies: { zod: '^4.0.0', 'node-dep': '1.0.0' },
     })
+  })
+
+  it('cannot shadow an emitted runtime module with an exact #awaitstep key', () => {
+    const parsed = JSON.parse(
+      buildWorkerPackageJson({
+        name: 'w',
+        manifestSource: JSON.stringify({
+          imports: { '#awaitstep/runtime': './lib/x.js', '#app/*': './elsewhere/*.js' },
+        }),
+      }),
+    )
+    expect(parsed.imports).not.toHaveProperty('#awaitstep/runtime')
+    expect(parsed.imports['#awaitstep/*']).toBe('./awaitstep/*.js')
   })
 
   it('ignores an unparsable manifest', () => {

@@ -6,15 +6,17 @@ import { emitGroupedChain } from '../coalesce.js'
 import { prepareContainerContext, indentCode } from './container-utils.js'
 
 // Pre-compiled regex for step name suffixing (hot path in large workflows)
-const STEP_NAME_RE = /step\.(do|sleep|sleepUntil|waitForEvent)\("([^"]+)"/g
-
+const STEP_NAME_RE = /flow\.(step|sleep|sleepUntil|waitForEvent)\("([^"]+)"/g
+// Non-global: `.test` on a global regex advances `lastIndex`, so a second loop
+// in the same workflow could see the body as having no step calls at all.
+const STEP_CALL_RE = /flow\.(step|sleep|sleepUntil|waitForEvent)\("/
 const COMMENT_RE = /\/\/.*$/gm
 const OUTPUT_ASSIGN_RE = /\b_output\s*=/
 
 function suffixStepNames(code: string, counterVar: string): string {
   return code.replace(
     STEP_NAME_RE,
-    (_, method, name) => `step.${method}(\`${name} [\${${counterVar}}]\``,
+    (_, method, name) => `flow.${method}(\`${name} [\${${counterVar}}]\``,
   )
 }
 
@@ -52,10 +54,10 @@ export function generateLoop(
   exitLoop()
 
   // Step-name suffixing only matters when the body actually contains
-  // step.do/step.sleep/etc calls — i.e. workflow mode with durable nodes
+  // flow.step/flow.sleep/etc calls — i.e. workflow mode with durable nodes
   // inside the loop. In script mode the body is raw inline code, no step
   // primitives, no suffixing needed.
-  const needsStepCounter = mode === 'workflow' && STEP_NAME_RE.test(rawBody)
+  const needsStepCounter = mode === 'workflow' && STEP_CALL_RE.test(rawBody)
   const bodyCode = needsStepCounter ? suffixStepNames(rawBody, counterVar) : rawBody
   const indentedBody = indentCode(bodyCode, 4)
   const hasBody = indentedBody.trim().length > 0
@@ -121,11 +123,11 @@ ${loopLines.join('\n')}
     return loopLines.map((l) => l.replace(/^ {2}/, '')).join('\n')
   }
 
-  // Workflow mode: keep the step.do wrapper. The IIFE-style closure is
-  // required by step.do's signature. Always include _output declaration
+  // Workflow mode: keep the durable wrapper. The IIFE-style closure is
+  // required by the step signature. Always include _output declaration
   // and return so the captured value (if any) flows out via const prefix.
   const prefix = usesOutput ? `const ${ctx.varName(node.id)} = ` : ''
-  return `${prefix}await step.do("${stepLabel(node)}", async () => {
+  return `${prefix}await flow.step("${stepLabel(node)}", async (ctx) => {
   let _output; // assign a value to return it from the loop
 ${loopLines.join('\n')}
   return _output;

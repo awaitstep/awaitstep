@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { GeneratedBundle } from '@awaitstep/codegen'
 import { toBundle } from '@awaitstep/codegen'
+import { AWAITSTEP_IMPORTS_FIELD } from '@awaitstep/codegen'
 import { PROJECT_IMPORTS_FIELD } from '@awaitstep/ir'
 import { SandboxWranglerDeployer } from '../deploy/sandbox-deployer.js'
 
@@ -52,7 +53,10 @@ describe('deploy package.json', () => {
   it('is written with the #app import map even when there are no dependencies', async () => {
     const sandbox = await deployWith(bundle)
     const manifest = JSON.parse(sandbox.files.get('/workspace/package.json')!)
-    expect(manifest).toMatchObject({ name: 'awaitstep-worker', imports: PROJECT_IMPORTS_FIELD })
+    expect(manifest).toMatchObject({
+      name: 'awaitstep-worker',
+      imports: { ...PROJECT_IMPORTS_FIELD, ...AWAITSTEP_IMPORTS_FIELD },
+    })
     expect(manifest).not.toHaveProperty('dependencies')
     expect(sandbox.commands.some((c) => c.startsWith('npm install'))).toBe(false)
   })
@@ -91,7 +95,7 @@ describe('deploy package.json', () => {
       name: 'custom',
       private: true,
       type: 'module',
-      imports: PROJECT_IMPORTS_FIELD,
+      imports: { ...PROJECT_IMPORTS_FIELD, ...AWAITSTEP_IMPORTS_FIELD },
       dependencies: { zod: '^4.0.0' },
     })
     expect(sandbox.commands.some((c) => c.startsWith('mkdir -p config data'))).toBe(true)

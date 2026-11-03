@@ -14,10 +14,10 @@
     }
   },
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "node scripts/emit-runtime-source.mjs && tsup",
+    "dev": "node scripts/emit-runtime-source.mjs && tsup --watch",
     "test": "vitest run --passWithNoTests",
-    "type-check": "tsc --noEmit",
+    "type-check": "node scripts/emit-runtime-source.mjs && tsc --noEmit",
     "lint": "eslint src/"
   },
   "devDependencies": {
@@ -30,6 +30,7 @@
   "dependencies": {
     "@awaitstep/codegen": "workspace:*",
     "@awaitstep/ir": "workspace:*",
+    "@awaitstep/sdk": "workspace:*",
     "wrangler": "4.152.0",
     "zod": "^4.6.7"
   }

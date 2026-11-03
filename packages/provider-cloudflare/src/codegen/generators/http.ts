@@ -89,7 +89,7 @@ export function generateHttp(
     scriptLines.push(`const ${v} = await fetch(_${v}_url${fetchOpts}).then(r => r.json());`)
     return scriptLines.join('\n')
   }
-  return `const ${ctx.varName(node.id)} = await step.do("${stepLabel(node)}"${configArg}, async () => {
+  return `const ${ctx.varName(node.id)} = await flow.step("${stepLabel(node)}"${configArg}, async () => {
 ${bodyCode}
 });`
 }

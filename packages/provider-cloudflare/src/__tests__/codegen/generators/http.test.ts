@@ -27,7 +27,7 @@ describe('generateHttp', () => {
     const code = generateHttp(makeNode())
     expect(code).toContain('await fetch("https://api.example.com/data")')
     expect(code).not.toContain('method:')
-    expect(code).toContain('step.do("http-1"')
+    expect(code).toContain('flow.step("http-1"')
     expect(code).toContain('return response.json()')
   })
 
@@ -162,7 +162,7 @@ describe('generateHttp', () => {
 
   it('labels are id-derived, so quotes in the node name never reach the source', () => {
     const code = generateHttp(makeNode({ name: 'Fetch "important" data' }))
-    expect(code).toContain('step.do("http-1"')
+    expect(code).toContain('flow.step("http-1"')
     expect(code).not.toContain('important')
   })
 
@@ -319,7 +319,7 @@ describe('generateHttp object and array literal bodies', () => {
     const literal = generateHttp(post('{ a: 1 }'), 'script')
     expect(literal).toContain('body: JSON.stringify({ a: 1 })')
     expect(literal).toContain('"Content-Type": "application/json"')
-    expect(literal).not.toContain('step.do')
+    expect(literal).not.toContain('flow.step')
 
     const expression = generateHttp(post('state.payload'), 'script')
     expect(expression).toContain('body: state.payload')

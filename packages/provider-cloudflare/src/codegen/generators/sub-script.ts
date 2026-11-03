@@ -10,7 +10,7 @@ import { generateStepConfig } from './config.js'
  * handler runs and returns a Response; we parse it as JSON and bind the result
  * to the node's variable name.
  *
- * In workflow mode, the call is wrapped in `step.do(...)` for durability +
+ * In workflow mode, the call is wrapped in `flow.step(...)` for durability +
  * retries. In script mode, it's a bare `await env.X.fetch(...).then(r => r.json())`.
  */
 export function generateSubScript(
@@ -32,11 +32,11 @@ export function generateSubScript(
   const config = generateStepConfig(node.config)
   const configArg = config ? `, ${config}` : ''
 
-  const fetchOptions: string[] = [`method: "${method}"`]
+  const fetchOptions: string[] = [`method: ${JSON.stringify(method)}`]
 
   if (headers && Object.keys(headers).length > 0) {
     const headerEntries = Object.entries(headers)
-      .map(([k, v]) => `"${k}": ${toJsLiteral(v)}`)
+      .map(([k, v]) => `${JSON.stringify(k)}: ${toJsLiteral(v)}`)
       .join(', ')
     fetchOptions.push(`headers: { ${headerEntries} }`)
   }
@@ -55,8 +55,9 @@ export function generateSubScript(
   if (mode === 'script') {
     return `const ${ctx.varName(node.id)} = await env.${binding}.fetch(${urlLiteral}${fetchOpts}).then(r => r.json());`
   }
-  return `const ${ctx.varName(node.id)} = await step.do("${stepLabel(node)}"${configArg}, async () => {
-  const response = await env.${binding}.fetch(${urlLiteral}${fetchOpts});
+  return `import { service } from "#awaitstep/cloudflare";
+const ${ctx.varName(node.id)} = await flow.step("${stepLabel(node)}"${configArg}, async () => {
+  const response = await service(env, "${binding}").fetch(${urlLiteral}${fetchOpts});
   return response.json();
 });`
 }
@@ -135,7 +136,7 @@ function toJsLiteral(value: unknown): string {
   }
   if (typeof value === 'object') {
     const entries = Object.entries(value as Record<string, unknown>)
-      .map(([k, v]) => `"${k}": ${toJsLiteral(v)}`)
+      .map(([k, v]) => `${JSON.stringify(k)}: ${toJsLiteral(v)}`)
       .join(', ')
     return `{ ${entries} }`
   }

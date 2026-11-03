@@ -9,7 +9,7 @@ export function generateWaitForEvent(node: WorkflowNode, ctx: GenerationContext)
     ? `, timeout: ${typeof timeout === 'string' ? `"${timeout}"` : timeout}`
     : ''
 
-  return `const ${ctx.varName(node.id)} = await step.waitForEvent("${stepLabel(node)}", {
-  type: "${eventType}"${timeoutPart}
+  return `const ${ctx.varName(node.id)} = await flow.waitForEvent("${stepLabel(node)}", {
+  type: ${JSON.stringify(eventType)}${timeoutPart}
 });`
 }

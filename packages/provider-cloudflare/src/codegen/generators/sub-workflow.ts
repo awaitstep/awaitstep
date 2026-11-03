@@ -8,6 +8,8 @@ export function generateSubWorkflow(
 ): string {
   const className = String(node.data.workflowName ?? '')
   const bindingName = classNameToUpperSnake(className)
+  // The name is config text: quote it wherever it lands in emitted source.
+  const bindingLiteral = JSON.stringify(bindingName)
   const input = node.data.input as string | undefined
   const waitForCompletion = node.data.waitForCompletion !== false
   const instanceVar = `${ctx.varName(node.id)}_instance`
@@ -17,17 +19,17 @@ export function generateSubWorkflow(
     // Scripts can't poll for completion (no durable runtime). Fire-and-forget:
     // a single `const X = await env.X.create(...)` whose value is the
     // WorkflowInstance handle (callers can read `.id`, `.status()`, etc).
-    return `const ${ctx.varName(node.id)} = await env.${bindingName}.create({ id: crypto.randomUUID()${paramsArg}, retention: AWAITSTEP_RETENTION });`
+    return `const ${ctx.varName(node.id)} = await env[${bindingLiteral}].create({ id: crypto.randomUUID()${paramsArg}, retention: AWAITSTEP_RETENTION });`
   }
 
-  const lines: string[] = []
+  const lines: string[] = ['import { workflow } from "#awaitstep/cloudflare";']
 
   // Step 1: Create child workflow instance
   lines.push(
-    `const ${instanceVar} = await step.do("${derivedStepLabel(node, 'create')}", async () => {`,
+    `const ${instanceVar} = await flow.step("${derivedStepLabel(node, 'create')}", async () => {`,
   )
   lines.push(
-    `  const instance = await env.${bindingName}.create({ id: crypto.randomUUID()${paramsArg}, retention: AWAITSTEP_RETENTION });`,
+    `  const instance = await workflow(env, ${bindingLiteral}).create({ id: crypto.randomUUID()${paramsArg}, retention: AWAITSTEP_RETENTION });`,
   )
   lines.push(`  return { instanceId: instance.id };`)
   lines.push(`});`)
@@ -36,10 +38,12 @@ export function generateSubWorkflow(
     // Step 2: Poll until child completes
     const resultVar = ctx.varName(node.id)
     lines.push('')
-    lines.push(`const ${resultVar} = await step.do("${derivedStepLabel(node, 'await')}", {`)
+    lines.push(`const ${resultVar} = await flow.step("${derivedStepLabel(node, 'await')}", {`)
     lines.push(`  retries: { limit: 60, delay: "5 seconds", backoff: "linear" },`)
     lines.push(`}, async () => {`)
-    lines.push(`  const instance = await env.${bindingName}.get(${instanceVar}.instanceId);`)
+    lines.push(
+      `  const instance = await workflow(env, ${bindingLiteral}).get(${instanceVar}.instanceId);`,
+    )
     lines.push(`  const status = await instance.status();`)
     lines.push(`  if (status.status === "complete") return status.output;`)
     lines.push(

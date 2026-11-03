@@ -56,7 +56,7 @@ describe('generateLoop', () => {
   it('wraps loop in step.do for durable caching', () => {
     const ir = makeLoopIR({ loopType: 'times', count: 3 }, [step('work', 'Do Work')])
     const code = generateLoop(ir.nodes[0]!, ir, generateNodeCode)
-    expect(code).toContain('await step.do("loop-1"')
+    expect(code).toContain('await flow.step("loop-1"')
     expect(code).toContain('for (let _loop_i')
   })
 
@@ -99,7 +99,7 @@ describe('generateLoop', () => {
     const ir = makeLoopIR({ loopType: 'while' }, [step('poll', 'Poll Status')])
     const code = generateLoop(ir.nodes[0]!, ir, generateNodeCode)
     expect(code).toContain('while (true)')
-    expect(code).toContain('step.do(`poll ')
+    expect(code).toContain('flow.step(`poll ')
   })
 
   it('generates while loop with condition', () => {
@@ -114,14 +114,14 @@ describe('generateLoop', () => {
     const ir = makeLoopIR({ loopType: 'times', count: 5 }, [step('work', 'Do Work')])
     const code = generateLoop(ir.nodes[0]!, ir, generateNodeCode)
     expect(code).toContain('for (let _loop_i = 0; _loop_i < 5; _loop_i++)')
-    expect(code).toContain('step.do(`work ')
+    expect(code).toContain('flow.step(`work ')
   })
 
   it('suffixes step names with loop counter for CF idempotency', () => {
     const ir = makeLoopIR({ loopType: 'times', count: 3 }, [step('work', 'Do Work')])
     const code = generateLoop(ir.nodes[0]!, ir, generateNodeCode)
     expect(code).toContain('work [${_loop_i}]')
-    expect(code).not.toContain('step.do("work"')
+    expect(code).not.toContain('flow.step("work"')
   })
 
   it('coalesces adjacent config-less body steps into one billable step per iteration', () => {
@@ -134,7 +134,7 @@ describe('generateLoop', () => {
     expect(code).toContain('s1 [${_loop_i}]')
     expect(code).not.toContain('s2 [${_loop_i}]')
     // Two step.do total: the loop's own durable wrapper + the merged group.
-    expect(code.match(/step\.do\(/g)).toHaveLength(2)
+    expect(code.match(/flow\.step\(/g)).toHaveLength(2)
     // Both member results stay referenceable via the destructured return.
     expect(code).toContain('const { s1, s2 } =')
     expect(code).toContain('return { s1, s2 };')
@@ -167,7 +167,7 @@ describe('generateLoop', () => {
       },
     ])
     const code = generateLoop(ir.nodes[0]!, ir, generateNodeCode)
-    expect(code).toMatch(/^const \w+ = await step\.do/)
+    expect(code).toMatch(/^const \w+ = await flow\.step/)
     expect(code).toContain('let _output;')
     expect(code).toContain('return _output;')
   })
@@ -176,7 +176,7 @@ describe('generateLoop', () => {
     const ir = makeLoopIR({ loopType: 'times', count: 3 }, [step('work', 'Do Work')])
     const code = generateLoop(ir.nodes[0]!, ir, generateNodeCode)
     expect(code).not.toMatch(/^const \w+ =/)
-    expect(code).toMatch(/^await step\.do/)
+    expect(code).toMatch(/^await flow\.step/)
   })
 
   it('handles empty body', () => {

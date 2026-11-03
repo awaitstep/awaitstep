@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { bundleEntry } from '@awaitstep/codegen'
+import { workflowSource } from './bundle-source.js'
 import { groupChain, isCoalescible } from '../../codegen/coalesce.js'
 import { generateWorkflowBundle } from '../../codegen/generate.js'
 
@@ -102,18 +102,18 @@ describe('coalesced bundle emission', () => {
 
   it('emits one step.do for the whole group under the leader label', () => {
     const bundle = generateWorkflowBundle(ir)
-    const entry = bundleEntry(bundle).source
-    expect(entry.match(/step\.do\(/g)).toHaveLength(2) // group + configured d
-    expect(entry).toContain('step.do("a"')
-    expect(entry).toContain('step.do("d"')
+    const entry = workflowSource(bundle)
+    expect(entry.match(/flow\.step\(/g)).toHaveLength(2) // group + configured d
+    expect(entry).toContain('flow.step("a"')
+    expect(entry).toContain('flow.step("d"')
   })
 
   it('stores only outside-consumed members; intra-group refs stay local consts', () => {
     const bundle = generateWorkflowBundle(ir)
-    const entry = bundleEntry(bundle).source
+    const entry = workflowSource(bundle)
     // Node_b is read by d (outside the group) → returned and destructured.
     // Node_a is only read inside the group → local const, not stored.
-    expect(entry).toContain('const { Node_b } = await step.do("a"')
+    expect(entry).toContain('const { Node_b } = await flow.step("a"')
     expect(entry).toContain('return { Node_b };')
     expect(entry).toContain('const Node_a = await')
     expect(entry).not.toContain('return { Node_a')
@@ -126,6 +126,9 @@ describe('coalesced bundle emission', () => {
     const bundle = generateWorkflowBundle(ir)
     const modulePaths = bundle.files.filter((f) => f.role === 'module').map((f) => f.path)
     expect(modulePaths.sort()).toEqual([
+      'awaitstep/env.ts',
+      'awaitstep/runtime.ts',
+      'awaitstep/workflow.ts',
       'nodes/Node_a.ts',
       'nodes/Node_b.ts',
       'nodes/Node_c.ts',

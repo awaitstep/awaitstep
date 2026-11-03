@@ -36,19 +36,34 @@ function subNode(overrides: Partial<WorkflowNode['data']> = {}): WorkflowNode {
 describe('generateSubWorkflow', () => {
   it('generates wait-for-completion two-step pattern', () => {
     const code = generateSubWorkflow(subNode())
-    expect(code).toContain('step.do("sub-1--create"')
+    expect(code).toContain('flow.step("sub-1--create"')
     expect(code).toContain('ORDER_FULFILLMENT')
-    expect(code).toContain('step.do("sub-1--await"')
+    expect(code).toContain('flow.step("sub-1--await"')
     expect(code).toContain('retries:')
     expect(code).toContain('NonRetryableError')
     expect(code).toContain('params: charge_result')
   })
 
+  it('accesses the workflow binding through the Cloudflare primitive', () => {
+    const code = generateSubWorkflow(subNode())
+    expect(code).toContain('import { workflow } from "#awaitstep/cloudflare"')
+    expect(code).toContain('await workflow(env, "ORDER_FULFILLMENT").create(')
+    expect(code).toContain('await workflow(env, "ORDER_FULFILLMENT").get(')
+    expect(code).not.toContain('env.ORDER_FULFILLMENT')
+  })
+
+  it('quotes a hostile workflow name so it cannot break out of the call', () => {
+    const code = generateSubWorkflow(subNode({ workflowName: 'X"; console.log("pwned"); //' }))
+    const match = code.match(/workflow\(env, (.*?)\)\.create/)
+    expect(match).not.toBeNull()
+    expect(() => JSON.parse(match![1]!)).not.toThrow()
+  })
+
   it('generates fire-and-forget pattern', () => {
     const code = generateSubWorkflow(subNode({ waitForCompletion: false }))
-    expect(code).toContain('step.do("sub-1--create"')
+    expect(code).toContain('flow.step("sub-1--create"')
     expect(code).toContain('ORDER_FULFILLMENT')
-    expect(code).not.toContain('step.do("sub-1--await"')
+    expect(code).not.toContain('flow.step("sub-1--await"')
     expect(code).not.toContain('retries:')
   })
 
@@ -94,12 +109,12 @@ describe('getSubWorkflowBindings', () => {
 describe('generateSubWorkflow in script mode', () => {
   it('emits a single fire-and-forget create call (no step.do, no polling)', () => {
     const code = generateSubWorkflow(subNode(), 'script')
-    expect(code).not.toContain('step.do')
-    expect(code).not.toContain('step.do("sub-1--await"')
+    expect(code).not.toContain('flow.step')
+    expect(code).not.toContain('flow.step("sub-1--await"')
     expect(code).not.toContain('NonRetryableError')
     // The node's varName is the WorkflowInstance handle directly — callers
     // can read `.id`, `.status()`, etc. No second `{ instanceId: ... }` line.
-    expect(code).toMatch(/const sub_1 = await env\.ORDER_FULFILLMENT\.create\(\{/)
+    expect(code).toMatch(/const sub_1 = await env\["ORDER_FULFILLMENT"\]\.create\(\{/)
     expect(code).toContain('params: charge_result')
     expect(code).not.toContain('sub_1_instance')
     expect(code).not.toContain('instanceId:')
@@ -107,7 +122,7 @@ describe('generateSubWorkflow in script mode', () => {
 
   it('ignores waitForCompletion in script mode (always fire-and-forget)', () => {
     const code = generateSubWorkflow(subNode({ waitForCompletion: true }), 'script')
-    expect(code).not.toContain('step.do("sub-1--await"')
+    expect(code).not.toContain('flow.step("sub-1--await"')
     expect(code).not.toContain('retries:')
   })
 })

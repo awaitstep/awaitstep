@@ -57,9 +57,9 @@ describe('generateTryCatch', () => {
     ])
     const code = generateTryCatch(ir.nodes[0]!, ir, ctx, generateNodeCode)
     expect(code).toContain('try {')
-    expect(code).toContain('step.do("charge"')
+    expect(code).toContain('flow.step("charge"')
     expect(code).toContain('} catch (err) {')
-    expect(code).toContain('step.do("refund"')
+    expect(code).toContain('flow.step("refund"')
     expect(code).toContain('}')
   })
 
@@ -71,11 +71,11 @@ describe('generateTryCatch', () => {
     ])
     const code = generateTryCatch(ir.nodes[0]!, ir, ctx, generateNodeCode)
     expect(code).toContain('try {')
-    expect(code).toContain('step.do("work"')
+    expect(code).toContain('flow.step("work"')
     expect(code).toContain('} catch (err) {')
-    expect(code).toContain('step.do("handle"')
+    expect(code).toContain('flow.step("handle"')
     expect(code).toContain('} finally {')
-    expect(code).toContain('step.do("cleanup"')
+    expect(code).toContain('flow.step("cleanup"')
   })
 
   it('coalesces an adjacent plain-step chain within the try path', () => {
@@ -92,8 +92,8 @@ describe('generateTryCatch', () => {
     const code = generateTryCatch(ir.nodes[0]!, ir, ctx, generateNodeCode)
     // One merged billable step under the leader's label; both results stay
     // referenceable (container children never lean-prune their returns).
-    expect(code).toContain('const { s1, s2 } = await step.do("s1"')
-    expect(code).not.toContain('step.do("s2"')
+    expect(code).toContain('const { s1, s2 } = await flow.step("s1"')
+    expect(code).not.toContain('flow.step("s2"')
   })
 
   it('handles empty catch path gracefully', () => {

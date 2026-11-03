@@ -1,4 +1,5 @@
 import type { ArtifactIR, ProjectFile, ValidationError, Result } from '@awaitstep/ir'
+import type { RequirementSupport, RuntimeRequirement } from './requirements.js'
 import type {
   GeneratedBundle,
   DeployResult,
@@ -58,6 +59,26 @@ export interface HandlerConversionResult {
 
 export interface WorkflowProvider {
   readonly name: string
+
+  /**
+   * Binding kinds this provider can supply (KV, D1, R2, …). A workflow that
+   * declares one the target does not list is refused before generation.
+   */
+  readonly supportedBindingKinds?: readonly string[]
+
+  /**
+   * Requirements this provider detects beyond the shared analyzer: inferred
+   * bindings, derived service/workflow bindings. Unioned with
+   * `collectRuntimeRequirements`.
+   */
+  requirements?(ir: ArtifactIR): RuntimeRequirement[]
+
+  /**
+   * Whether this provider can satisfy one requirement. Default: a
+   * provider-scoped primitive must name this provider, and a binding kind
+   * must appear in {@link supportedBindingKinds}.
+   */
+  supportsRequirement?(requirement: RuntimeRequirement): RequirementSupport
 
   readonly deploymentConfigSchema: DeploymentConfigValidator
 

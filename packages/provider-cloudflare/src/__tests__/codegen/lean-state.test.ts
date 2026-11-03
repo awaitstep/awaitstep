@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { bundleEntry } from '@awaitstep/codegen'
+import { workflowSource } from './bundle-source.js'
 import { buildOutputConsumption } from '../../codegen/consumption.js'
 import { generateWorkflowBundle } from '../../codegen/generate.js'
 
@@ -79,18 +79,18 @@ describe('lean stored state in generated workflows', () => {
         { id: 'e3', source: 'unused', target: 'reader' },
       ],
     )
-    const entry = bundleEntry(generateWorkflowBundle(demo)).source
+    const entry = workflowSource(generateWorkflowBundle(demo))
     // Referenced through an http url expression → stored.
-    expect(entry).toContain('const Node_used = await step.do("used"')
+    expect(entry).toContain('const Node_used = await flow.step("used"')
     // Unreferenced → no const, return discarded by the braced wrapper.
     expect(entry).not.toContain('const Node_unused')
-    expect(entry).toContain('await step.do("unused", async () => { await $Node_unused(')
+    expect(entry).toContain('await flow.step("unused", async (ctx) => { await $Node_unused(')
   })
 
   it('an EXPORT_-named step keeps its stored return even when unreferenced', () => {
     const demo = ir([node('out', 'step', { code: 'return 42;' }, { name: 'EXPORT_Result' })], [])
-    const entry = bundleEntry(generateWorkflowBundle(demo)).source
-    expect(entry).toContain('const Result = await step.do("out"')
+    const entry = workflowSource(generateWorkflowBundle(demo))
+    expect(entry).toContain('const Result = await flow.step("out"')
   })
 
   it('container children are never leaned — container glue reads their vars', () => {
@@ -105,7 +105,7 @@ describe('lean stored state in generated workflows', () => {
         { id: 'e2', source: 'fan', target: 'pb' },
       ],
     )
-    const entry = bundleEntry(generateWorkflowBundle(demo)).source
+    const entry = workflowSource(generateWorkflowBundle(demo))
     // Nothing references pa/pb, but the parallel wrapper returns them.
     expect(entry).toContain('const Node_pa = await')
     expect(entry).toContain('const Node_pb = await')

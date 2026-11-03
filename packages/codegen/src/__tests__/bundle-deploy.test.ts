@@ -30,6 +30,21 @@ describe('bundleDeployFiles', () => {
   })
 })
 
+describe('validateBundle primary', () => {
+  it('accepts a primary that is in the bundle', () => {
+    const bundle = bundleOf({ path: 'awaitstep/workflow.ts', source: '', role: 'module' })
+    expect(validateBundle({ ...bundle, primary: 'awaitstep/workflow.ts' }).primary).toBe(
+      'awaitstep/workflow.ts',
+    )
+  })
+
+  it('rejects a primary that names no file', () => {
+    expect(() => validateBundle({ ...bundleOf(), primary: 'awaitstep/missing.ts' })).toThrow(
+      'Bundle primary file is not in the bundle',
+    )
+  })
+})
+
 describe('projectBundleFiles', () => {
   it('assigns roles by path', () => {
     expect(

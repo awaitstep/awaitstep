@@ -10,6 +10,7 @@ import {
 } from '@awaitstep/codegen'
 import { collectBranchInlineTargets } from './generators/branch.js'
 import { getSubWorkflowBindings } from './generators/sub-workflow.js'
+import { getSubScriptBindings } from './generators/sub-script.js'
 import { hasTemplateExpressions } from './generators/state-tracking.js'
 import { detectBindings } from './bindings.js'
 import { retentionLiteral, type CloudflareRetention } from './retention.js'
@@ -200,20 +201,29 @@ export function generateScript(
   }
 
   // Scripts have no `WORKFLOW` self-binding (they aren't a Workflow). Only
-  // sub-workflow bindings (calls into other deployed workflows) and resource
-  // bindings (KV/D1/etc).
+  // sub-workflow bindings (calls into other deployed workflows), service
+  // bindings (calls into other Functions) and resource bindings (KV/D1/etc).
   const envFields: string[] = []
   const subWorkflowBindings = getSubWorkflowBindings(ir.nodes)
   for (const b of subWorkflowBindings) {
-    envFields.push(`  ${b.binding}: Workflow;`)
+    envFields.push(`  ${envFieldName(b.binding)}: Workflow;`)
   }
+  const subScriptBindings = getSubScriptBindings(ir.nodes)
+  for (const b of subScriptBindings) {
+    envFields.push(`  ${envFieldName(b.binding)}: Fetcher;`)
+  }
+  const structuralBindings = new Set([
+    ...subWorkflowBindings.map((b) => b.binding),
+    ...subScriptBindings.map((b) => b.binding),
+  ])
 
   const detectedBindings = detectBindings(ir as unknown as WorkflowIR)
-  const bindingNames = new Set<string>()
+  const bindingNames = new Set<string>(structuralBindings)
   for (const b of detectedBindings) {
+    if (structuralBindings.has(b.name)) continue
     const cfType = CF_ENV_TYPE[b.type]
     if (cfType) {
-      envFields.push(`  ${b.name}: ${cfType};`)
+      envFields.push(`  ${envFieldName(b.name)}: ${cfType};`)
       bindingNames.add(b.name)
     }
   }

@@ -56,11 +56,11 @@ describe('generateRace', () => {
     }
     const code = generateRace(raceNode, ir, generateNodeCode)
     expect(code).toContain('Promise.race')
-    expect(code).toContain('step.do("a"')
-    expect(code).toContain('step.do("b"')
+    expect(code).toContain('flow.step("a"')
+    expect(code).toContain('flow.step("b"')
     expect(code).toContain('async () =>')
     expect(code).not.toContain('Promise.all')
-    expect(code).toContain('await step.do("race-1"')
+    expect(code).toContain('await flow.step("race-1"')
     expect(code).toContain('return await Promise.race')
   })
 

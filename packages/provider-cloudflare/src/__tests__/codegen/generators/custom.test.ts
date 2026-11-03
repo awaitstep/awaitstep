@@ -177,10 +177,10 @@ describe('generateCustomNode', () => {
     expect(code).not.toContain('ctx.')
 
     // Step call
-    expect(code).toContain('const My_Node = await step.do("my-node"')
-    expect(code).toContain('WebhookPostNode.execute(this.env, {')
-    expect(code).toContain('webhookUrl: "https://hook.example.com"')
-    expect(code).toContain('previous_step: "step_1"')
+    expect(code).toContain('const My_Node = await flow.step("my-node"')
+    expect(code).toContain('WebhookPostNode.execute(env, {')
+    expect(code).toContain('"webhookUrl": "https://hook.example.com"')
+    expect(code).toContain('"previous_step": "step_1"')
   })
 
   it('handles templates with no return in the step call', () => {
@@ -199,8 +199,8 @@ describe('generateCustomNode', () => {
 
     const code = generateCustomNode(node, noReturnTemplate)
     expect(code).toContain('class LoggerNode {')
-    expect(code).toContain('await step.do("my-node"')
-    expect(code).toContain('LoggerNode.execute(this.env, {')
+    expect(code).toContain('await flow.step("my-node"')
+    expect(code).toContain('LoggerNode.execute(env, {')
   })
 
   it('includes import statements from the template', () => {
@@ -227,7 +227,7 @@ export default async function(ctx) {
     expect(code).toContain(
       "import { uniqueNamesGenerator, adjectives, colors, animals } from 'unique-names-generator'",
     )
-    expect(code).toContain('await step.do("my-node"')
+    expect(code).toContain('await flow.step("my-node"')
     expect(code).toContain('return { name };')
   })
 
@@ -246,7 +246,7 @@ export default async function(ctx) {
     }
 
     const code = generateCustomNode(node, simpleTemplate)
-    expect(code).toContain('await step.do("my-node", async () => {')
+    expect(code).toContain('await flow.step("my-node", async () => {')
     expect(code).toContain('42')
   })
 
@@ -270,7 +270,7 @@ export default async function(ctx) {
 
       // Call site differs: no step.do, no IIFE (the class.execute call already
       // isolates the template body), env (not this.env).
-      expect(code).not.toContain('step.do')
+      expect(code).not.toContain('flow.step')
       expect(code).not.toContain('await (async () => {')
       expect(code).toContain('WebhookPostNode.execute(env, {')
       expect(code).not.toContain('WebhookPostNode.execute(this.env')

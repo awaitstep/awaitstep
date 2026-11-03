@@ -75,7 +75,7 @@ export function getForkTargets(nodeId: string, ir: WorkflowIR): string[] {
 
 /**
  * Shared generator for Promise.all / Promise.race containers.
- * Wraps in step.do for durable caching per CF workflow rules.
+ * Wraps in a durable step for caching per CF workflow rules.
  */
 export function generatePromiseContainer(
   node: WorkflowNode,
@@ -118,7 +118,7 @@ export function generatePromiseContainer(
 ${branches.join(',\n')}
 ].map(fn => fn()));`
   }
-  return `const ${ctx.varName(node.id)} = await step.do("${stepLabel(node)}", async () => {
+  return `const ${ctx.varName(node.id)} = await flow.step("${stepLabel(node)}", async () => {
   return await Promise.${method}([
 ${branches.join(',\n')}
   ].map(fn => fn()));

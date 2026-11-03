@@ -4,8 +4,7 @@ import { bundleCodeFiles } from '@awaitstep/codegen'
 import { generateWorkflowBundle } from '../../codegen/generate.js'
 
 /**
- * F9 no-bookkeeping gate: Cloudflare bills every step.do / step.sleep /
- * step.waitForEvent, so every durable-step label in generated output must
+ * F9 no-bookkeeping gate: Cloudflare bills every flow.step / flow.sleep / flow.waitForEvent, so every durable-step label in generated output must
  * belong to a user-visible canvas node. A label that strips back to nothing
  * in the IR is an infrastructure step the user pays for without seeing —
  * treated as a generator bug.
@@ -73,7 +72,7 @@ const ir: WorkflowIR = {
   ],
 }
 
-const LABEL_RE = /step\.(?:do|sleep|sleepUntil|waitForEvent)\((["'`])(.*?)\1/g
+const LABEL_RE = /flow\.(?:step|sleep|sleepUntil|waitForEvent)\((["'`])(.*?)\1/g
 
 function emittedLabels(code: string): string[] {
   return [...code.matchAll(LABEL_RE)].map((m) => m[2]!)
