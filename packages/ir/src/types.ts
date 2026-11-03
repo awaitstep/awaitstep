@@ -1,18 +1,12 @@
+import type { RetryBackoff, StepConfig } from '@awaitstep/sdk'
+
 export type NodeId = string
 export type EdgeId = string
 
-export type RetryBackoff = 'constant' | 'linear' | 'exponential'
-
-export interface RetryConfig {
-  limit: number
-  delay: number | string
-  backoff?: RetryBackoff
-}
-
-export interface StepConfig {
-  retries?: RetryConfig
-  timeout?: number | string
-}
+// Step configuration is part of the workflow primitive: `@awaitstep/sdk` owns
+// the definition and the IR re-exports it, so codegen, the SDK types and the
+// deploy config share one shape.
+export type { RetryBackoff, RetryConfig, StepConfig } from '@awaitstep/sdk'
 
 export interface Position {
   x: number

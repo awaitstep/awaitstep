@@ -1,0 +1,30 @@
+{
+  "name": "@awaitstep/sdk",
+  "version": "1.4.14",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./runtime-source": {
+      "types": "./dist/runtime-source.d.ts",
+      "import": "./dist/runtime-source.js"
+    }
+  },
+  "scripts": {
+    "build": "node scripts/emit-runtime-source.mjs && tsup",
+    "dev": "node scripts/emit-runtime-source.mjs && tsup --watch",
+    "test": "vitest run --passWithNoTests",
+    "type-check": "node scripts/emit-runtime-source.mjs && tsc --noEmit",
+    "lint": "eslint src/"
+  },
+  "devDependencies": {
+    "@awaitstep/tsconfig": "workspace:*",
+    "@types/node": "^26.6.5",
+    "tsup": "8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.5"
+  }
+}

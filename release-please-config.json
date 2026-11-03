@@ -14,6 +14,7 @@
         "apps/api/package.json",
         "apps/web/package.json",
         "packages/ir/package.json",
+        "packages/sdk/package.json",
         "packages/codegen/package.json",
         "packages/db/package.json",
         "packages/email/package.json",

@@ -618,6 +618,9 @@ importers:
 
   packages/ir:
     dependencies:
+      '@awaitstep/sdk':
+        specifier: workspace:*
+        version: link:../sdk
       zod:
         specifier: ^4.6.7
         version: 4.6.7
@@ -668,6 +671,9 @@ importers:
       '@awaitstep/ir':
         specifier: workspace:*
         version: link:../ir
+      '@awaitstep/sdk':
+        specifier: workspace:*
+        version: link:../sdk
       wrangler:
         specifier: 4.152.0
         version: 4.152.0(@cloudflare/workers-types@5.20261024.1)(@types/node@26.6.5)
@@ -690,6 +696,24 @@ importers:
       vitest:
         specifier: ^5.0.5
         version: 5.0.5(@opentelemetry/api@1.9.1)(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@2.3.0))(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.12))
+
+  packages/sdk:
+    devDependencies:
+      '@awaitstep/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/tsconfig
+      '@types/node':
+        specifier: ^26.6.5
+        version: 26.6.5
+      tsup:
+        specifier: 8.5.1
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.31)(supports-color@10.2.2)(tsx@4.23.15)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^5.0.5
+        version: 5.0.5(@opentelemetry/api@1.9.1)(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@2.3.0))(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
   packages/storage:
     dependencies:
