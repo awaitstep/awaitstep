@@ -66,7 +66,7 @@ export const ProjectLevel: Story = {
   render: () => (
     <div className="flex max-w-[1200px] flex-col gap-6">
       <KeyLevelCards current="project" links={LINKS} />
-      <KeyTable caption="Project keys" keys={KEYS} onRevoke={noop} onCopyPrefix={noop} now={NOW} />
+      <KeyTable caption="Project keys" keys={KEYS} onRevoke={noop} now={NOW} />
     </div>
   ),
 }

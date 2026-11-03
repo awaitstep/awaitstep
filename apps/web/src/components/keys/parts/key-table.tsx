@@ -1,15 +1,9 @@
-import { KeyRound, MoreHorizontal } from 'lucide-react'
+import { KeyRound } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import type { ApiKey } from '../../../types/dashboard/api-keys'
 import { Badge } from '../../ui/badge'
 import { Button } from '../../ui/button'
 import { DataTable, type DataColumn } from '../../ui/data-table'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../../ui/dropdown-menu'
 import { InheritedMark } from '../../ui/scoped-section'
 import { Tile } from '../../ui/tile'
 import { expiryLabel, lastUsedLabel } from './key-format'
@@ -24,7 +18,6 @@ interface KeyTableProps {
   onRevoke?: (key: ApiKey) => void
   /** Keys from a parent scope: the last column reads "Inherited" (workspace settings). */
   inherited?: boolean
-  onCopyPrefix?: (key: ApiKey) => void
   empty?: string
   /** Inside a titled card. */
   framed?: boolean
@@ -51,7 +44,6 @@ export function KeyTable({
   caption,
   keys,
   onRevoke,
-  onCopyPrefix,
   inherited = false,
   empty = 'No keys yet.',
   framed = true,
@@ -113,29 +105,9 @@ export function KeyTable({
       header: 'Actions',
       width: '130px',
       cell: (key) => (
-        <span className="flex items-center gap-1.5">
-          <Button type="button" variant="outline" size="sm" onClick={() => onRevoke(key)}>
-            Revoke
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                aria-label={`Actions for ${key.name}`}
-              >
-                <MoreHorizontal aria-hidden="true" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {onCopyPrefix && (
-                <DropdownMenuItem onSelect={() => onCopyPrefix(key)}>Copy prefix</DropdownMenuItem>
-              )}
-              <DropdownMenuItem onSelect={() => onRevoke(key)}>Revoke…</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </span>
+        <Button type="button" variant="outline" size="sm" onClick={() => onRevoke(key)}>
+          Revoke
+        </Button>
       ),
     })
   }

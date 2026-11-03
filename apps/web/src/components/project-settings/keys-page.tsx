@@ -63,10 +63,6 @@ export function KeysPage({ slugs, createOpen, onCloseCreate }: KeysPageProps) {
     setRevoking(key)
   }
 
-  function handleCopyPrefix(key: ApiKey) {
-    void navigator.clipboard?.writeText(key.prefix)
-  }
-
   function handleConfirmRevoke() {
     if (!revoking) return
     revoke.mutate(revoking.id, { onSuccess: () => setRevoking(null) })
@@ -121,7 +117,6 @@ export function KeysPage({ slugs, createOpen, onCloseCreate }: KeysPageProps) {
             caption={`Project keys for ${project.name}`}
             keys={keys.data.keys}
             onRevoke={onRevoke}
-            onCopyPrefix={handleCopyPrefix}
             empty={`No project keys in ${project.name} yet.`}
             framed={false}
           />

@@ -49,10 +49,6 @@ export function KeysTab({
     setRevoking(key)
   }
 
-  function handleCopyPrefix(key: ApiKey) {
-    void navigator.clipboard?.writeText(key.prefix)
-  }
-
   function handleRevokeOpenChange(open: boolean) {
     if (!open) setRevoking(null)
   }
@@ -92,7 +88,6 @@ export function KeysTab({
           caption={`Keys for ${workspace.name} only`}
           keys={keys.own}
           onRevoke={onRevoke}
-          onCopyPrefix={handleCopyPrefix}
           empty={`No keys for ${workspace.name} alone yet.`}
           framed={false}
         />
