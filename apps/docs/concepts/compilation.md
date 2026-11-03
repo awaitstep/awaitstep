@@ -44,21 +44,32 @@ If validation fails, the pipeline stops and returns the errors to the UI. Deploy
 
 The validated IR is passed to either `generateWorkflow` or `generateScript` (in `@awaitstep/provider-cloudflare`) based on `ir.kind`. Both perform a topological sort of the node DAG, then emit TypeScript for each node in execution order using the same per-node generators in mode-aware form.
 
-In **workflow mode**, each node is wrapped in a `step.do()` call, which gives it:
+In **workflow mode**, each node is wrapped in a `flow.step()` call on the
+workflow primitive, which gives it:
 
 - Durable execution (automatic replay on worker restart)
 - Configurable retry logic
 - Persistent output storage
 
-In **script mode**, the same per-node code is emitted without the `step.do()` wrapper — there is no step runner in a fetch handler. Step bodies are inlined raw into the generated `runGraph(env, event)` function. There are no retries, no durable replay; an unhandled error becomes a 500 response unless caught by user `triggerCode`.
+The generated workflow module imports `#awaitstep/runtime`; the provider
+bootstrap implements a small `WorkflowHost` over the runtime's own primitive
+(`step.do` on Cloudflare). Provider-scoped code — a KV namespace, a
+sub-workflow, a service binding — imports `#awaitstep/cloudflare`, which
+declares the workflow as Cloudflare-only and is checked before a deploy.
+
+In **script mode**, the same per-node code is emitted without the `flow.step()`
+wrapper — there is no step runner in a fetch handler. Step bodies are inlined
+raw into the generated `runGraph(env, event)` function. There are no retries,
+no durable replay; an unhandled error becomes a 500 response unless caught by
+user `triggerCode`.
 
 ### Variable Naming
 
-Node IDs from the IR are sanitized into valid JavaScript identifiers. Each node's output is stored in a variable named `${sanitizedId}_result`.
+Node IDs from the IR are sanitized into valid JavaScript identifiers. Each node's output is stored in a variable named after the node (`Fetch_user`).
 
 ```typescript
-// IR node id: "fetch-user" → variable: "fetch_user_result"
-const fetch_user_result = await step.do('fetch_user', async () => {
+// IR node named "Fetch user" → variable: "Fetch_user"
+const Fetch_user = await flow.step('fetch-user', async (ctx) => {
   // ...
 })
 ```
@@ -82,12 +93,12 @@ IR:
 Generated TypeScript:
 
 ```typescript
-const fetch_user_result = await step.do(
-  'fetch_user',
+const Fetch_user = await flow.step(
+  'fetch-user',
   {
     retries: { limit: 3, delay: '5 seconds', backoff: 'exponential' },
   },
-  async () => {
+  async (ctx) => {
     const response = await fetch('https://api.example.com/users/123', {
       method: 'GET',
     })
@@ -171,27 +182,44 @@ The output of the pipeline is a complete Cloudflare Worker module. The shape dep
 
 ### Workflow shape
 
+The bundle has a portable workflow module, a generated `Env`, the runtime
+module, and a provider bootstrap:
+
 ```typescript
-import { WorkflowEntrypoint, WorkflowEvent, WorkflowStep } from 'cloudflare:workers'
+// awaitstep/workflow.ts — portable, what the canvas preview shows
+import { defineWorkflow, durableStep } from '#awaitstep/runtime'
+import type { Env } from './env.js'
 
-interface Env {
-  WORKFLOW: Workflow
-  // ...other detected bindings
-}
+export default defineWorkflow<Env>({
+  id: 'my-workflow',
+  async run(flow) {
+    const env = flow.env
+    const event = flow.event
+    const step = durableStep(flow)
 
-export class MyWorkflow extends WorkflowEntrypoint<Env> {
-  async run(event: WorkflowEvent<unknown>, step: WorkflowStep) {
-    // Step 1
-    const fetch_user_result = await step.do('fetch_user', async () => {
+    const Fetch_user = await flow.step('fetch-user', async (ctx) => {
       // ...
     })
 
-    // Step 2 — conditional
-    if (fetch_user_result.status === 200) {
-      const send_email_result = await step.do('send_email', async () => {
+    if (Fetch_user.status === 200) {
+      const Send_email = await flow.step('send-email', async (ctx) => {
         // ...
       })
     }
+  },
+})
+```
+
+```typescript
+// worker.ts — the provider bootstrap; the only file importing cloudflare:*
+import { WorkflowEntrypoint } from 'cloudflare:workers'
+import { createWorkflowContext } from '#awaitstep/runtime'
+import workflow from './awaitstep/workflow.js'
+import type { Env } from './awaitstep/env.js'
+
+export class MyWorkflow extends WorkflowEntrypoint<Env> {
+  async run(event, step) {
+    return workflow.run(createWorkflowContext({ env: this.env, event, host: cloudflareHost(step) }))
   }
 }
 
@@ -213,7 +241,7 @@ interface Env {
 }
 
 async function runGraph(env: Env, event: { payload: unknown }) {
-  // Per-node generated code — no step.do() wraps, raw inline.
+  // Per-node generated code — no durable-step wraps, raw inline.
   const fetch_user = await fetch('https://api.example.com/users/123')
 
   // Only EXPORT_-prefixed nodes surface on the returned graph object.

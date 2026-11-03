@@ -77,7 +77,7 @@ Adding a new provider (e.g., Inngest, Temporal) only requires a new `packages/pr
 ## Data Flow
 
 1. The user builds an artifact on the canvas. Every change is serialized to an `ArtifactIR` (`WorkflowIR | ScriptIR`) and saved via the API.
-2. On deploy, the API passes the IR to `@awaitstep/ir` for validation, then to the provider's `generate()` method. The provider dispatches on `ir.kind`: workflows compile to a `WorkflowEntrypoint` class with `step.do()` wrappers; scripts compile to a fetch handler that calls a generated `runGraph(env, event)` function.
+2. On deploy, the API passes the IR to `@awaitstep/ir` for validation, then to the provider's `generate()` method. Workflows compile to a portable workflow module (our `flow.step` primitives) plus a provider bootstrap that implements the runtime host; scripts compile to a fetch handler that calls a generated `runGraph(env, event)` function. A workflow that imports a provider-scoped primitive (`#awaitstep/cloudflare`) or needs a binding the target cannot supply is refused before generation.
 3. The provider transpiles the TypeScript to JavaScript, detects required Cloudflare bindings, writes a `wrangler.json` (with or without a `[[workflows]]` table depending on kind), and runs `wrangler deploy` in a temp directory.
 4. Deploy progress is streamed back to the browser via Server-Sent Events (SSE).
 5. At runtime, Cloudflare executes the generated Worker. Workflows go through the Workflows engine with durable state; scripts respond directly to incoming HTTP requests with no persistent state.
@@ -92,4 +92,4 @@ Adding a new provider (e.g., Inngest, Temporal) only requires a new `packages/pr
 
 **Web-API-only templates.** Custom node templates for Cloudflare must use Web APIs only (`fetch`, `crypto`, `URL`, etc.). No Node.js APIs. This ensures templates run correctly in V8 isolates.
 
-**Throw on errors.** Node templates must throw on failure. For workflows, the platform wraps every node in `step.do()`, which handles retries automatically when an error is thrown. For scripts, errors propagate to the fetch handler and become 500 responses unless caught by user `triggerCode`.
+**Throw on errors.** Node templates must throw on failure. For workflows, the platform wraps every node in `flow.step()`, which the provider host maps to `step.do()` with automatic retries. For scripts, errors propagate to the fetch handler and become 500 responses unless caught by user `triggerCode`.

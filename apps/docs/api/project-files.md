@@ -47,7 +47,7 @@ curl -s "$API/workflows/$WF/project?projectId=$P" -H "Authorization: Bearer $KEY
 ```json
 {
   "importPrefix": "#app/",
-  "generated": ["worker.*", "nodes/**", "wrangler.*"],
+  "generated": ["worker.*", "nodes/**", "awaitstep/**", "wrangler.*"],
   "rootConfigFiles": ["package.json", "tsconfig.json", "jsconfig.json"],
   "extensions": ["ts", "mts", "cts", "js", "mjs", "cjs", "json", "md", "…"],
   "limits": { "maxFiles": 100, "maxFileBytes": 512000, "maxTotalBytes": 2000000 },

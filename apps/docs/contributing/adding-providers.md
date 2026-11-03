@@ -51,6 +51,47 @@ interface WorkflowProvider {
 
 The exact interface is defined in `packages/codegen/src/provider.ts`. Import it from `@awaitstep/codegen`.
 
+## The runtime host and capability list
+
+Generated workflow code is provider-agnostic. It imports
+`#awaitstep/runtime` (`defineWorkflow`, `flow.step`, `flow.sleep`, …) and
+ships as `awaitstep/workflow.ts`; the provider's `generate()` adds a
+bootstrap (`worker.ts`) that implements the small `WorkflowHost` interface
+over the runtime's own primitive:
+
+```typescript
+interface WorkflowHost {
+  do<T>(
+    name: string,
+    config: StepConfig | undefined,
+    fn: (ctx: StepAttempt) => T | Promise<T>,
+  ): Promise<T>
+  sleep(name: string, duration: string | number): Promise<void>
+  sleepUntil(name: string, at: Date | number): Promise<void>
+  waitForEvent<T>(name: string, options: WaitForEventOptions): Promise<T>
+}
+```
+
+Cloudflare maps those to `step.do`/`step.sleep`/`step.sleepUntil`/
+`step.waitForEvent`; Inngest would map them to `step.run`/`step.sleep`/…;
+Temporal to activities and signals.
+
+Provider-only capabilities are imported from `#awaitstep/<provider>`
+(today `#awaitstep/cloudflare`). The import is the declaration: a workflow
+that imports it can only be deployed to that provider. Declare what the
+provider can supply so the deploy check can refuse the rest:
+
+```typescript
+readonly supportedBindingKinds?: readonly string[]   // 'kv', 'd1', 'r2', …
+requirements?(ir: ArtifactIR): RuntimeRequirement[]  // provider-detected extras
+supportsRequirement?(requirement): { supported: boolean; reason?: string }
+```
+
+`prepareWorkflow` unions the shared analyzer's requirements
+(`collectRuntimeRequirements`) with the provider's and calls
+`checkRequirements` **before** `generate()`, so an incompatible target is a
+`400` naming the requirement — not a broken artifact.
+
 ## Step-by-step
 
 ### 1. Create the package

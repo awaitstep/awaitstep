@@ -1027,7 +1027,7 @@ Delete a version. Cannot delete the active version, a deployed version, or a loc
 ## Source
 
 The IR is the only source of truth. A version's deployable code is generated
-from it on demand — the canvas owns `worker.ts`, `nodes/**` and `wrangler.*`,
+from it on demand — the canvas owns `worker.ts`, `nodes/**`, `awaitstep/**` and `wrangler.*`,
 and nothing stores a copy you could edit in their place. What you write lives
 in project files (below), which are folded into every generation, and the
 whole bundle is readable here at any time.
@@ -1063,7 +1063,7 @@ return `200`, with what was found listed in `diagnostics`:
     },
     {
       "source": "compile",
-      "path": "worker.ts",
+      "path": "awaitstep/workflow.ts",
       "message": "Unexpected token, expected \";\" (16:21)"
     }
   ]
@@ -1072,19 +1072,27 @@ return `200`, with what was found listed in `diagnostics`:
 
 `source` is one of:
 
-|            |                                                                              |
-| ---------- | ---------------------------------------------------------------------------- |
-| `ir`       | the workflow itself — fix it on the canvas                                   |
-| `provider` | the node cannot deploy here                                                  |
-| `compile`  | the file does not parse; `path` names it                                     |
-| `import`   | an `#app/` specifier with no file behind it; `path` names the importing file |
-| `env`      | a variable with no value to resolve at deploy; names only, never values      |
+|            |                                                                                               |
+| ---------- | --------------------------------------------------------------------------------------------- |
+| `ir`       | the workflow itself — fix it on the canvas                                                    |
+| `provider` | the node cannot deploy here                                                                   |
+| `compile`  | the file does not parse; `path` names it                                                      |
+| `import`   | an `#app/` or `#awaitstep/` specifier with no file behind it; `path` names the importing file |
+| `env`      | a variable with no value to resolve at deploy; names only, never values                       |
 
 The array is empty for a healthy workflow and always present. Only a
 failure that leaves no source to return — generation itself throwing — is
 still an error response, and it carries the diagnostics collected before it.
 
-Returns `{ versionId, entry, files, manifest, diagnostics }`.
+Returns `{ versionId, entry, primary, files, requirements, manifest, diagnostics }`.
+
+`primary` is the file to open first — a workflow bundle's portable
+definition (`awaitstep/workflow.ts`) rather than the provider bootstrap at
+`entry`. `requirements` lists what the workflow needs beyond pure
+orchestration: a `provider` requirement (`{ "kind": "provider", "id":
+"cloudflare" }`) means a provider-scoped primitive import, and a `binding`
+requirement names a resource the target provider must supply. The deploy
+refuses a target that cannot satisfy them.
 
 ### `POST /workflows/:workflowId/source/check`
 
@@ -1124,7 +1132,9 @@ curl -X POST "$API/workflows/$WF/source/check" -H "Authorization: Bearer $KEY"
 `checked` lists what actually ran, in order. It never contains a type
 check — there isn't one yet, and an agent should not have to guess that.
 `diagnostics` uses the same shape and the same `source` values as
-`GET /source` (table above).
+`GET /source` (table above). `requirements` is the same list `GET /source`
+returns, so an agent can tell a workflow needs Cloudflare before trying a
+deploy.
 
 **A broken workflow is an answer, not an error.** A cycle, a file that will
 not parse, a missing secret: all `200` with `ok: false`. Non-2xx is reserved
@@ -1178,7 +1188,7 @@ ETag rules and a worked end-to-end pass — see the
 section is the per-endpoint reference.
 
 A workflow is a small project: beside the code the canvas generates
-(`worker.ts`, `nodes/**`, `wrangler.*`) it owns any files you create — code in
+(`worker.ts`, `nodes/**`, `awaitstep/**`, `wrangler.*`) it owns any files you create — code in
 any folder (`config/env.ts`, `services/stripe/client.ts`), data and docs
 (`data/countries.json`, `README.md`), and the standard root config files
 (`package.json`, `tsconfig.json`). Folders exist implicitly through file
@@ -1269,7 +1279,7 @@ larger one is rejected with `413` before any of these apply. So the 2 MB
 project total is reached across several requests, never in one, and a single
 file near 512 KB has to be sent on its own. Paths use
 `[A-Za-z0-9._-]` segments (no dotfiles, no `..`), may not be generated paths
-(`worker.*`, `nodes/**`, `wrangler.*`, in any case), lockfiles or
+(`worker.*`, `nodes/**`, `awaitstep/**`, `wrangler.*`, in any case), lockfiles or
 `node_modules`, may hold `package.json`/`tsconfig.json`/`jsconfig.json` only
 at the root, must not collide with another file after compile or on a
 case-insensitive disk (`a.ts` vs `a.js`, `Env.ts` vs `env.ts`), and end in a

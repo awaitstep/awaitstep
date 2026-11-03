@@ -23,7 +23,7 @@ Run arbitrary TypeScript inside a durable step.
 **Generated code:**
 
 ```typescript
-const my_step_result = await step.do(
+const my_step_result = await flow.step(
   'my_step',
   {
     retries: { limit: 5, delay: '10 seconds', backoff: 'exponential' },
@@ -70,12 +70,12 @@ Run multiple branches concurrently. Execution resumes after all branches complet
 ```typescript
 await Promise.all([
   (async () => {
-    const notify_result = await step.do('notify', async () => {
+    const notify_result = await flow.step('notify', async () => {
       /* ... */
     })
   })(),
   (async () => {
-    const log_result = await step.do('log', async () => {
+    const log_result = await flow.step('log', async () => {
       /* ... */
     })
   })(),
@@ -110,7 +110,7 @@ Repeat a set of steps using one of three loop modes.
 ```typescript
 const loop_results = []
 for (const [i, item] of get_users_result.users.entries()) {
-  const iter_result = await step.do(`loop_iter_${i}`, async () => {
+  const iter_result = await flow.step(`loop_iter_${i}`, async () => {
     return processUser(item)
   })
   loop_results.push(iter_result)
@@ -154,12 +154,12 @@ Run multiple branches concurrently. The first branch to complete wins; all other
 ```typescript
 await Promise.race([
   (async () => {
-    const path_a_result = await step.do('path_a', async () => {
+    const path_a_result = await flow.step('path_a', async () => {
       /* ... */
     })
   })(),
   (async () => {
-    const path_b_result = await step.do('path_b', async () => {
+    const path_b_result = await flow.step('path_b', async () => {
       /* ... */
     })
   })(),
@@ -180,15 +180,15 @@ Wrap a group of steps in try/catch/finally error handling.
 
 ```typescript
 try {
-  const risky_result = await step.do('risky_op', async () => {
+  const risky_result = await flow.step('risky_op', async () => {
     /* ... */
   })
 } catch (err) {
-  const handle_result = await step.do('handle_error', async () => {
+  const handle_result = await flow.step('handle_error', async () => {
     return { error: err.message }
   })
 } finally {
-  await step.do('cleanup', async () => {
+  await flow.step('cleanup', async () => {
     /* ... */
   })
 }
@@ -211,7 +211,7 @@ Pause execution for a duration. Does not count against the 100-step limit.
 **Generated code:**
 
 ```typescript
-await step.sleep('pause', '5 minutes')
+await flow.sleep('pause', '5 minutes')
 ```
 
 ---
@@ -231,7 +231,7 @@ Pause execution until a specific timestamp. Does not count against the 100-step 
 **Generated code:**
 
 ```typescript
-await step.sleepUntil('wait_until', '2025-12-31T09:00:00Z')
+await flow.sleepUntil('wait_until', '2025-12-31T09:00:00Z')
 ```
 
 ---
@@ -256,7 +256,7 @@ Pause execution until an external event is received via the `sendEvent` API.
 **Generated code:**
 
 ```typescript
-const approval_result = await step.waitForEvent('wait_for_approval', {
+const approval_result = await flow.waitForEvent('wait_for_approval', {
   type: 'user-approval',
   timeout: '48 hours',
 })
@@ -291,7 +291,7 @@ Make a durable HTTP API call with configurable retries.
 **Generated code:**
 
 ```typescript
-const fetch_data_result = await step.do(
+const fetch_data_result = await flow.step(
   'fetch_data',
   {
     retries: { limit: 5, delay: '5 seconds', backoff: 'exponential' },
@@ -339,7 +339,7 @@ Trigger another AwaitStep workflow, optionally waiting for it to complete.
 **Generated code:**
 
 ```typescript
-const trigger_fulfillment_result = await step.do('trigger_fulfillment', async () => {
+const trigger_fulfillment_result = await flow.step('trigger_fulfillment', async () => {
   const instance = await env.ORDER_FULFILLMENT.create({
     params: charge_result,
   })
