@@ -399,7 +399,7 @@ describe('API keys act with their creator’s standing', () => {
       h.as('u-eve'),
     )
     expect(keysForEve.status).toBe(200)
-    expect((await keysForEve.json()).data).toHaveLength(1)
+    expect((await keysForEve.json()).own).toHaveLength(1)
     expect(
       (await h.app.request('/api/api-keys?org=acme&project=project-101', h.as('u-fay'))).status,
     ).toBe(404)
@@ -553,10 +553,10 @@ describe('API keys act with their creator’s standing', () => {
       // The listed shape, so the reveal can say "Only Sales" and who minted it.
       expect(await wsKey.json()).toMatchObject({
         level: 'workspace',
-        workspaceId: 'ws-sales',
-        projectId: 'p-101',
         createdByName: 'Eve Park',
-        workspace: { id: 'ws-sales', slug: 'sales', name: 'Sales', colour: 'green' },
+        workspaces: [
+          { workspace: { id: 'ws-sales', slug: 'sales', name: 'Sales', colour: 'green' } },
+        ],
       })
       // The grid must be the level's, non-empty, and the body's level the address's.
       const outside = await mint('u-ben', 'org=acme', {
@@ -614,7 +614,7 @@ describe('API keys act with their creator’s standing', () => {
       const project = await (
         await h.app.request('/api/api-keys?org=acme&project=project-101', h.as('u-eve'))
       ).json()
-      expect(project.data.map((k: { id: string }) => k.id)).toEqual(['k-proj'])
+      expect(project.own.map((k: { id: string }) => k.id)).toEqual(['k-proj'])
       expect(project.workspaceCounts).toEqual([
         { workspace: { id: 'ws-sales', slug: 'sales', name: 'Sales', colour: 'green' }, count: 1 },
       ])
@@ -625,7 +625,7 @@ describe('API keys act with their creator’s standing', () => {
         )
       ).json()
       expect(sales.own.map((k: { id: string }) => k.id)).toEqual(['k-sales'])
-      expect(sales.inherited.map((k: { id: string }) => k.id)).toEqual(['k-proj'])
+      expect(sales.reaching.map((k: { id: string }) => k.id)).toEqual(['k-proj'])
       expect(
         (
           await h.app.request(

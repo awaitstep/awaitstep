@@ -33,6 +33,8 @@ export interface NotificationTables extends OverviewTables {
   releaseVisits: AnyTable
   accessRequests: AnyTable
   apiKeys: AnyTable
+  apiKeyProjects: AnyTable
+  apiKeyWorkspaces: AnyTable
   invitation: AnyTable
   connections: AnyTable
 }
@@ -271,11 +273,22 @@ export class NotificationsAdapter {
   async notifyExpiringKeys(check: ExpiringKeysCheck): Promise<number> {
     const n = this.t.notifications
     const k = aliasedTable(this.t.apiKeys, 'nk')
-    const p = aliasedTable(this.t.projects, 'nkp')
     const m = aliasedTable(this.t.member, 'nkm')
-    const orgId = sql`coalesce(${k.organizationId}, ${p.organizationId})`
+    const orgId = sql`${k.organizationId}`
     const last = sql`${k.expiresAt} <= ${check.lastWarnBefore}`
     const threshold = sql`(case when ${last} then '1d' else '7d' end)`
+    // The key's home place, read off its scope set: a single-project key sits
+    // at that project, a single-workspace key at that workspace, and a
+    // multi-scope key one level up (its projectId/workspaceId left null, a
+    // multi-workspace key named by its common project).
+    const akp = aliasedTable(this.t.apiKeyProjects, 'nkpr')
+    const akw = aliasedTable(this.t.apiKeyWorkspaces, 'nkws')
+    const akwp = aliasedTable(this.t.apiKeyWorkspaces, 'nkwp')
+    const nw = aliasedTable(this.t.workspaces, 'nkw2')
+    const projectCount = sql`(select count(*) from ${aliasedFrom(akp)} where ${akp.keyId} = ${k.id})`
+    const workspaceCount = sql`(select count(*) from ${aliasedFrom(akw)} where ${akw.keyId} = ${k.id})`
+    const homeWorkspaceId = sql`(case when ${k.level} = 'workspace' and ${workspaceCount} = 1 then (select ${akw.workspaceId} from ${aliasedFrom(akw)} where ${akw.keyId} = ${k.id} limit 1) else null end)`
+    const homeProjectId = sql`(case when ${k.level} = 'project' and ${projectCount} = 1 then (select ${akp.projectId} from ${aliasedFrom(akp)} where ${akp.keyId} = ${k.id} limit 1) when ${k.level} = 'workspace' then (select ${nw.projectId} from ${aliasedFrom(akwp)} inner join ${aliasedFrom(nw)} on ${nw.id} = ${akwp.workspaceId} where ${akwp.keyId} = ${k.id} limit 1) else null end)`
     const meta =
       this.dialect === 'pg'
         ? sql`json_build_object('name', ${k.name}, 'expiresAt', ${isoText(this.dialect, k.expiresAt)})::text`
@@ -304,12 +317,11 @@ export class NotificationsAdapter {
         organizationId: sql<string>`${orgId}`,
         userId: k.createdBy,
         groupKey: sql<string>`${check.event} || ':' || ${k.id} || ':' || ${threshold}`,
-        projectId: k.projectId,
-        workspaceId: k.workspaceId,
+        projectId: sql`${homeProjectId}`,
+        workspaceId: sql`${homeWorkspaceId}`,
         meta: sql<string>`${meta}`,
       })
       .from(k)
-      .leftJoin(p, eq(p.id, k.projectId))
       .where(
         and(
           isNull(k.revokedAt),
@@ -317,7 +329,7 @@ export class NotificationsAdapter {
           sql`${k.expiresAt} <= ${check.warnBefore}`,
           // Still in the key's organization: an org-level place admits any member.
           sql`exists (select 1 from ${aliasedFrom(m)} where ${m.organizationId} = ${orgId} and ${m.userId} = ${k.createdBy})`,
-          this.placeVisible(k.createdBy, orgId, k.projectId, k.workspaceId),
+          this.placeVisible(k.createdBy, orgId, homeProjectId, homeWorkspaceId),
         ),
       )
     const rows = await this.db

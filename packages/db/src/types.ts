@@ -210,7 +210,7 @@ export interface ConnectionListOptions {
   /** Only connections serving this project of the organization, by id or slug. */
   project?: { id: string } | { slug: string }
   /** Who reads the project names: a person sees the projects they can open, a project-level key its own. */
-  visibleTo?: 'all' | { userId: string } | { projectId: string }
+  visibleTo?: 'all' | { userId: string } | { projectId: string } | { projectIds: string[] }
 }
 
 /** A connection as the dashboard lists it (credentials decrypted; the route redacts them). */
@@ -387,33 +387,61 @@ export interface ActiveRunForSync {
 }
 export type Deployment = InferSelectModel<typeof deployments>
 export type ApiKey = InferSelectModel<typeof apiKeys>
-/**
- * An API key as auth reads it: with its organization resolved from either
- * source (its own, or its project's), whether its creator is still a member
- * of that organization, and whether the key that minted it (if any) is still
- * unrevoked and unexpired.
- */
-export type ApiKeyAuth = ApiKey & {
-  resolvedOrganizationId: string | null
-  createdByIsMember: boolean
-  /** The creator's role in that organization: a key acts with the standing of whoever minted it. */
-  createdByRole: string | null
-  /** For a project key: the creator's `project_members` row there, if any. */
-  createdByProjectGrant: ProjectGrant | null
-  /** For a project key: whether the creator holds a grant in any of its workspaces. */
-  createdByHasWorkspaceGrant: boolean
-  /** For a workspace key: whether the creator can still open that workspace; true for the other levels. */
-  createdByCanOpenWorkspace: boolean
-  parentKeyLive: boolean
-}
-/** A listed key: its project's name (null on organization keys), who minted it, and its workspace (workspace keys). */
-export type ApiKeyListItem = ApiKey & {
+
+/** One project a project-level key reaches, with whether that slice has been revoked. */
+export interface ApiKeyProjectScope {
+  projectId: string
   projectName: string | null
-  createdByName: string | null
-  workspace: WorkspaceChip | null
+  projectSlug: string | null
+  revokedAt: string | null
 }
 
-/** What a key is minted as (B3): its level, where, and the grid it carries. */
+/** One workspace a workspace-level key reaches, with whether that slice has been revoked. */
+export interface ApiKeyWorkspaceScope {
+  workspace: WorkspaceChip
+  revokedAt: string | null
+}
+
+/**
+ * An API key as request-time auth reads it: the row (its organization is
+ * always set now), whether its creator is still a member of that
+ * organization, whether the key that minted it is still live, and the key's
+ * LIVE scope set — the project or workspace ids it still reaches. The
+ * addressed place is matched against that set; the creator's standing on the
+ * place is resolved per-request by the scope middleware, so no per-scope
+ * grant travels on this shape.
+ */
+export type ApiKeyAuth = ApiKey & {
+  createdByIsMember: boolean
+  /** The creator's role in the key's organization: a key acts with the standing of whoever minted it. */
+  createdByRole: string | null
+  parentKeyLive: boolean
+  /** Live (unrevoked) project ids a project-level key reaches; empty for the other levels. */
+  projectScopes: string[]
+  /** Live (unrevoked) workspace ids a workspace-level key reaches; empty for the other levels. */
+  workspaceScopes: string[]
+  /** A workspace-level key's owning project (its workspaces are all of one); null otherwise. */
+  keyProjectId: string | null
+}
+
+/**
+ * A listed key: who minted it and the full scope set it carries — each
+ * project or workspace with its own revoked state, so a page can show which
+ * slices are live and offer to revoke the ones it owns.
+ */
+export type ApiKeyListItem = ApiKey & {
+  createdByName: string | null
+  /** The project scope set (project-level keys); empty for the other levels. */
+  projects: ApiKeyProjectScope[]
+  /** The workspace scope set (workspace-level keys); empty for the other levels. */
+  workspaces: ApiKeyWorkspaceScope[]
+}
+
+/**
+ * What a key is minted as: its level, the scope SET it reaches, and the grid
+ * it carries. A multi-scope key is a set of >1; a single scope is a set of
+ * one — the same code path. Every key carries its organization (the binding).
+ */
 export type CreateApiKeyData = {
   id: string
   createdBy: string
@@ -430,26 +458,31 @@ export type CreateApiKeyData = {
   parentKeyId?: string | null
 } & (
   | { level: 'organization'; organizationId: string }
-  | { level: 'project'; organizationId: string; projectId: string }
-  | { level: 'workspace'; organizationId: string; projectId: string; workspaceId: string }
+  | { level: 'project'; organizationId: string; projectIds: string[] }
+  | { level: 'workspace'; organizationId: string; projectId: string; workspaceIds: string[] }
 )
 
-/** Where a key is revoked from: its own level's place. */
+/** The whole-key kill-switch: the owner revokes every scope at once, from the key's home level. */
 export type ApiKeyTarget =
   | { level: 'organization'; organizationId: string }
   | { level: 'project'; projectId: string }
   | { level: 'workspace'; workspaceId: string }
 
-/** The "Workspace keys" card on a project's keys page: unrevoked keys per workspace. */
+/** One consumer revoking its own slice of a shared key: the key and the single place. */
+export type ApiKeyScopeTarget =
+  | { level: 'project'; keyId: string; projectId: string }
+  | { level: 'workspace'; keyId: string; workspaceId: string }
+
+/** The "Workspace keys" card on a project's keys page: live keys reaching each workspace. */
 export interface WorkspaceKeyCount {
   workspace: WorkspaceChip
   count: number
 }
 
-/** Workspace settings → API keys: the workspace's own keys and the project keys that reach it. */
-export interface WorkspaceKeysRows {
+/** A keys page split into the keys that live here and the ones reaching in from elsewhere. */
+export interface ApiKeyScopedRows {
   own: ApiKeyListItem[]
-  inherited: ApiKeyListItem[]
+  reaching: ApiKeyListItem[]
 }
 export type EnvVar = InferSelectModel<typeof envVars>
 

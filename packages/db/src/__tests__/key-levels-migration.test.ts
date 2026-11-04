@@ -113,9 +113,37 @@ const EXPECTED: Record<string, unknown> = {
   },
 }
 
-function check(rows: { id: string; permissions: string; workspace_id: string | null }[]) {
+const EXPECTED_LEVEL: Record<string, string> = {
+  'k-org-read': 'organization',
+  'k-org-write': 'organization',
+  'k-p-read': 'project',
+  'k-p-write': 'project',
+  'k-p-deploy': 'project',
+  'k-p-full': 'project',
+}
+
+const EXPECTED_PROJECT_SCOPES = [
+  ['k-p-deploy', 'p-1'],
+  ['k-p-full', 'p-1'],
+  ['k-p-read', 'p-1'],
+  ['k-p-write', 'p-1'],
+]
+
+function check(
+  rows: { id: string; permissions: string; level: string; organization_id: string }[],
+  projectScopes: { key_id: string; project_id: string }[],
+  workspaceScopes: unknown[],
+) {
+  // The B3 grid is intact after the multi-scope migrations.
   expect(Object.fromEntries(rows.map((r) => [r.id, JSON.parse(r.permissions)]))).toEqual(EXPECTED)
-  expect(rows.every((r) => r.workspace_id === null)).toBe(true)
+  // The multi-scope migration read each key's level off its old columns and
+  // denormalised its organization onto the row.
+  expect(Object.fromEntries(rows.map((r) => [r.id, r.level]))).toEqual(EXPECTED_LEVEL)
+  expect(rows.every((r) => r.organization_id === 'org-1')).toBe(true)
+  // Each project key gained one project scope row; org keys none; and no key
+  // gained a workspace scope (there were no workspace keys before B3).
+  expect(projectScopes.map((r) => [r.key_id, r.project_id]).sort()).toEqual(EXPECTED_PROJECT_SCOPES)
+  expect(workspaceScopes).toHaveLength(0)
 }
 
 describe('key-levels migration (sqlite)', () => {
@@ -129,11 +157,19 @@ describe('key-levels migration (sqlite)', () => {
     migrateSqlite(db, { migrationsFolder: SQLITE_FOLDER })
 
     check(
-      sqlite.prepare('SELECT id, permissions, workspace_id FROM api_keys ORDER BY id').all() as {
+      sqlite
+        .prepare('SELECT id, permissions, level, organization_id FROM api_keys ORDER BY id')
+        .all() as {
         id: string
         permissions: string
-        workspace_id: string | null
+        level: string
+        organization_id: string
       }[],
+      sqlite.prepare('SELECT key_id, project_id FROM api_key_projects').all() as {
+        key_id: string
+        project_id: string
+      }[],
+      sqlite.prepare('SELECT key_id FROM api_key_workspaces').all(),
     )
   })
 })
@@ -150,8 +186,13 @@ describe('key-levels migration (pg)', () => {
     const result = await client.query<{
       id: string
       permissions: string
-      workspace_id: string | null
-    }>('SELECT id, permissions, workspace_id FROM api_keys ORDER BY id')
-    check(result.rows)
+      level: string
+      organization_id: string
+    }>('SELECT id, permissions, level, organization_id FROM api_keys ORDER BY id')
+    const projectScopes = await client.query<{ key_id: string; project_id: string }>(
+      'SELECT key_id, project_id FROM api_key_projects',
+    )
+    const workspaceScopes = await client.query('SELECT key_id FROM api_key_workspaces')
+    check(result.rows, projectScopes.rows, workspaceScopes.rows)
   })
 })

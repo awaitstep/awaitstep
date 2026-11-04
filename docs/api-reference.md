@@ -10,7 +10,7 @@ An API key is minted at one **level** and carries a **grid** of permissions — 
 | project      | everything in one project, every workspace of it, ones created later included | `workspaces` (read, write, delete) · `workflows` (read, write, delete, deploy, run) · `runs` (read) · `variables` (read, write, delete) · `members` (read)                                    |
 | workspace    | one workspace of a project                                                    | `workflows` (read, write, delete, deploy, run) · `runs` (read) · `variables` (read, write, delete)                                                                                            |
 
-Every endpoint below names the cell it needs as **Permission:** `resource:action`; a key without it answers `403 API key lacks permission: resource:action`. A key of a level the resource is not offered at is refused for its level (`403`): an organization key never reaches a project route, a project or workspace key never manages organization resources. Project and workspace keys may still read the connections and nodes their workflows deploy with through their own `workflows:read` cell, and what their workflows resolve against through `GET /env-vars/resolved` with `variables:read`. A workspace key is pinned to its workspace: every list is cut to it, a workflow elsewhere is not found, and naming another workspace is `404`.
+Every endpoint below names the cell it needs as **Permission:** `resource:action`; a key without it answers `403 API key lacks permission: resource:action`. A key of a level the resource is not offered at is refused for its level (`403`): an organization key never reaches a project route, a project or workspace key never manages organization resources. Project and workspace keys may still read the connections and nodes their workflows deploy with through their own `workflows:read` cell, and what their workflows resolve against through `GET /env-vars/resolved` with `variables:read`. A project- or workspace-level key reaches a **set** of places: a project-level key one or more projects, a workspace-level key one or more workspaces of a single project. Every request is cut to that set — a project or workspace outside it is not found, exactly like one the creator cannot open.
 
 A key acts with the standing of whoever minted it: a key minted by a Viewer cannot edit workflows, and a key minted by someone who does not manage a level cannot set its variables, whatever its grid; a key stops working (`401`) when its creator leaves the organization or can no longer open the key's project or workspace. Keys never manage keys: listing, minting and revoking them take a session (see the end of this document).
 
@@ -20,7 +20,7 @@ Base URL: `https://app.awaitstep.dev/api` (cloud) or `http://localhost:8080/api`
 
 Project-scoped routes take the project as `?projectId=<id>`, or as the slugs the dashboard's URLs carry: `?org=<org slug>&project=<project slug>`. Either way the project and your membership are resolved in one read; a project you are not a member of answers `404`, exactly like one that does not exist. Organization-scoped routes take `?organizationId=<id>` or `?org=<slug>`.
 
-A workspace can be named on any project-scoped route with `?workspaceId=<id>` or `?workspace=<slug>`. It must be the project's; otherwise `404`. API keys carry their project, so they omit the project parameters and may still name a workspace; a workspace key names only its own, or none. A key that does name a project — by id or slug — names its own, or answers `404`: it is never answered from its own project for a request that asked for another. An empty parameter counts as none.
+A workspace can be named on any project-scoped route with `?workspaceId=<id>` or `?workspace=<slug>`. It must be the project's; otherwise `404`. A project-level key names which of its projects a request addresses with `?projectId=<id>` (or the slugs); when it reaches exactly one, naming none defaults to it, and when it reaches several, a request that names none is `400`. A project outside its set is `404`. A workspace-level key names one of its workspaces with `?workspaceId=<id>` (or defaults to it when it reaches one); a workspace outside its set is `404`. An empty parameter counts as none.
 
 ## Rate Limits
 
@@ -2398,7 +2398,7 @@ API key**: keys never manage keys.
 
 ### `GET /api-keys`
 
-The keys of one level, addressed by its slugs: `?org=` the organization's own keys (owners and admins only, `403` otherwise), `?org=&project=` the project's own keys with `workspaceCounts` (unrevoked keys per workspace the caller can open, expired ones included as the workspace's own list is), `?org=&project=&workspace=` the workspace's `own` keys and the `inherited` project keys that reach it (unrevoked and unexpired). A workspace named without its project is `400`. Revoked keys never return. Each key carries `level`, `permissions` (the grid), `keyPrefix` and `keySuffix` (the first eight and last four characters of the secret), `createdBy` and `createdByName`, `expiresAt`, `lastUsedAt`, and for workspace keys its `workspace`.
+The keys of one level, addressed by its slugs. `?org=` lists the organization's own keys **and its multi-project keys** (a project-level key that reaches more than one project lives at the org), paged as `data`/`nextCursor`. `?org=&project=` lists the project's `own` keys (the single-project keys that live there) and the keys `reaching` it (multi-project keys with a live slice there, and the org's keys), with `workspaceCounts` (live keys per workspace the caller can open). `?org=&project=&workspace=` lists the workspace's `own` keys and the keys `reaching` it. Revoked keys never return. Each key carries `level`, `permissions` (the grid), `keyPrefix` and `keySuffix`, `createdBy` and `createdByName`, `expiresAt`, `lastUsedAt`, and its scope set: `projects` (a project-level key) or `workspaces` (a workspace-level key) — each entry the place and its own `revokedAt`, so a page shows which slices are live.
 
 | Param    | In    | Required | Description                         |
 | -------- | ----- | -------- | ----------------------------------- |
@@ -2407,12 +2407,21 @@ The keys of one level, addressed by its slugs: `?org=` the organization's own ke
 
 ### `POST /api-keys`
 
-Mint a key at the addressed level — `?org=` by an org owner or admin, `?org=&project=` by a project admin, `?org=&project=&workspace=` by a workspace admin (`403` with the reason otherwise). The body's `level` must be the addressed one (`400`); `permissions` is the grid, only cells the level offers (`422` naming any other), at least one (`422`); `expiresAt` is optional and must be in the future (`422`). The answer is the key as `GET` lists it — `level`, `permissions`, `keyPrefix` and `keySuffix`, `createdBy` and `createdByName`, and for a workspace key its `workspace` — plus the secret, once, as `key`; a project or workspace the caller cannot open answers `404`.
+Mint one key (one secret) at the addressed home level — `?org=` by an org owner or admin, `?org=&project=` by a project admin, `?org=&project=&workspace=` by a workspace admin (`403` with the reason otherwise). `permissions` is the grid, only cells the key's `level` offers (`422` naming any other), at least one (`422`); `expiresAt` is optional and must be in the future (`422`).
+
+The key reaches a **set** of scopes, sized by where it is minted:
+
+- `level: "organization"` at `?org=` — the whole organization.
+- `level: "project"` — at `?org=&project=` the addressed project alone; at `?org=` a set named by `projectIds` (one, or several), all of that organization.
+- `level: "workspace"` — at `&workspace=` the addressed workspace alone; at `?org=&project=` a set named by `workspaceIds` (one, or several), all of that project.
+
+All-or-nothing: if any scope is outside the organization, or one the caller cannot open, the whole mint answers `403` — no partial key. The answer is the key as `GET` lists it — `level`, `permissions`, `keyPrefix`/`keySuffix`, `createdBy`/`createdByName`, and its `projects` or `workspaces` scope set — plus the secret, once, as `key`.
 
 ```json
 {
   "name": "CI deploys",
   "level": "project",
+  "projectIds": ["proj_a1b2", "proj_c3d4"],
   "permissions": { "workflows": ["read", "deploy", "run"], "runs": ["read"] },
   "expiresAt": "2026-12-31T00:00:00Z"
 }
@@ -2424,8 +2433,11 @@ by an organization key keep their `parentKeyId` and still stop working
 
 ### `DELETE /api-keys/:id`
 
-Revoke a key of the addressed level, by whoever manages it there (as for
-`POST`); a key of another level at that address is `404`.
+The **whole-key kill-switch**: revoke the key for every scope at once, by its owner, from the key's home — `?org=` for an organization key or a multi-project key, `?org=&project=` for a key that lives at that project, `?org=&project=&workspace=` for one that lives at that workspace. A key not homed at the address is `404` (use `DELETE /api-keys/:id/scope` to drop a reaching key's slice there instead).
+
+### `DELETE /api-keys/:id/scope`
+
+**Per-consumer revoke**: the addressed project (`?org=&project=`) or workspace (`?org=&project=&workspace=`) drops its own slice of a shared key, without touching the others. When it is the key's last live slice, the key is stamped dead too. By that place's admins; a key that does not reach it is `404`.
 
 ### Your account
 

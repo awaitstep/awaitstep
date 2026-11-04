@@ -11,6 +11,7 @@ import type {
   TestSessionCutoffs,
   TestSessionExpiry,
   ApiKey,
+  ApiKeyListItem,
   Deployment,
   DeploymentConfig,
   EnvVar,
@@ -46,6 +47,8 @@ const store = {
   testSessions: new Map<string, TestSession>(),
   deploymentConfigs: new Map<string, DeploymentConfig>(),
   apiKeys: new Map<string, ApiKey>(),
+  apiKeyProjects: [] as { keyId: string; projectId: string; revokedAt: string | null }[],
+  apiKeyWorkspaces: [] as { keyId: string; workspaceId: string; revokedAt: string | null }[],
   deployments: new Map<string, Deployment>(),
   projects: new Map<string, Project>(),
   workspaces: new Map<string, Workspace>(),
@@ -58,6 +61,49 @@ const store = {
   notifications: [] as NotificationInsert[],
 }
 
+// Scope-set helpers for the API-key mock, mirroring the adapter's join tables.
+const liveKeyProjects = (keyId: string) =>
+  store.apiKeyProjects.filter((r) => r.keyId === keyId && !r.revokedAt).map((r) => r.projectId)
+const liveKeyWorkspaces = (keyId: string) =>
+  store.apiKeyWorkspaces.filter((r) => r.keyId === keyId && !r.revokedAt).map((r) => r.workspaceId)
+const totalKeyProjects = (keyId: string) => store.apiKeyProjects.filter((r) => r.keyId === keyId)
+const totalKeyWorkspaces = (keyId: string) =>
+  store.apiKeyWorkspaces.filter((r) => r.keyId === keyId)
+// A workspace key's workspaces are all of one project — its home project.
+const keyWorkspaceProject = (keyId: string): string | null => {
+  const first = totalKeyWorkspaces(keyId)[0]
+  return first ? (store.workspaces.get(first.workspaceId)?.projectId ?? null) : null
+}
+const toKeyListItem = (k: ApiKey): ApiKeyListItem => ({
+  ...k,
+  createdByName: null,
+  projects: store.apiKeyProjects
+    .filter((r) => r.keyId === k.id)
+    .map((r) => {
+      const p = store.projects.get(r.projectId)
+      return {
+        projectId: r.projectId,
+        projectName: p?.name ?? null,
+        projectSlug: p?.slug ?? null,
+        revokedAt: r.revokedAt,
+      }
+    }),
+  workspaces: store.apiKeyWorkspaces
+    .filter((r) => r.keyId === k.id)
+    .map((r) => {
+      const w = store.workspaces.get(r.workspaceId)
+      return {
+        workspace: {
+          id: r.workspaceId,
+          slug: w?.slug ?? '',
+          name: w?.name ?? '',
+          colour: w?.colour ?? 'green',
+        },
+        revokedAt: r.revokedAt,
+      }
+    }),
+})
+
 export function resetStore() {
   store.workflows.clear()
   store.versions.clear()
@@ -68,6 +114,8 @@ export function resetStore() {
   store.testSessions.clear()
   store.deploymentConfigs.clear()
   store.apiKeys.clear()
+  store.apiKeyProjects.length = 0
+  store.apiKeyWorkspaces.length = 0
   store.deployments.clear()
   store.projects.clear()
   store.workspaces.clear()
@@ -1405,15 +1453,10 @@ const mockDb: DatabaseAdapter = {
   // the org from either source and checks the creator's membership; each
   // level lists its own keys; revoke holds a key to its level's place.
   async createApiKey(data) {
-    if (data.level !== 'organization') {
-      const project = store.projects.get(data.projectId)
-      if (!project || project.organizationId !== data.organizationId) return null
-    }
     const key: ApiKey = {
       id: data.id,
-      projectId: data.level === 'organization' ? null : data.projectId,
-      organizationId: data.level === 'organization' ? data.organizationId : null,
-      workspaceId: data.level === 'workspace' ? data.workspaceId : null,
+      organizationId: data.organizationId,
+      level: data.level,
       parentKeyId: data.parentKeyId ?? null,
       createdBy: data.createdBy,
       name: data.name,
@@ -1427,7 +1470,33 @@ const mockDb: DatabaseAdapter = {
       revokedAt: null,
       createdAt: now(),
     }
-    store.apiKeys.set(key.id, key)
+    // All-or-nothing: every scope must be in the key's organization (the one
+    // test user is the org owner, so they open every project/workspace).
+    if (data.level === 'project') {
+      if (data.projectIds.length === 0) return null
+      for (const pid of data.projectIds) {
+        const p = store.projects.get(pid)
+        if (!p || p.organizationId !== data.organizationId) return null
+      }
+      store.apiKeys.set(key.id, key)
+      for (const projectId of new Set(data.projectIds)) {
+        store.apiKeyProjects.push({ keyId: key.id, projectId, revokedAt: null })
+      }
+    } else if (data.level === 'workspace') {
+      const proj = store.projects.get(data.projectId)
+      if (!proj || proj.organizationId !== data.organizationId) return null
+      if (data.workspaceIds.length === 0) return null
+      for (const wid of data.workspaceIds) {
+        const w = store.workspaces.get(wid)
+        if (!w || w.projectId !== data.projectId) return null
+      }
+      store.apiKeys.set(key.id, key)
+      for (const workspaceId of new Set(data.workspaceIds)) {
+        store.apiKeyWorkspaces.push({ keyId: key.id, workspaceId, revokedAt: null })
+      }
+    } else {
+      store.apiKeys.set(key.id, key)
+    }
     return key
   },
   async getApiKeyById(id) {
@@ -1437,22 +1506,15 @@ const mockDb: DatabaseAdapter = {
     const key =
       [...store.apiKeys.values()].find((k) => k.keyHash === keyHash && !k.revokedAt) ?? null
     if (!key) return null
-    const projectOrg = key.projectId
-      ? (store.projects.get(key.projectId)?.organizationId ?? null)
-      : null
-    const resolvedOrganizationId = key.organizationId ?? projectOrg
     const parent = key.parentKeyId ? store.apiKeys.get(key.parentKeyId) : undefined
     return {
       ...key,
-      resolvedOrganizationId,
       // The same membership rule as the isOrgMember mock above.
-      createdByIsMember: key.createdBy === TEST_USER_ID && resolvedOrganizationId === TEST_ORG_ID,
-      createdByRole: resolvedOrganizationId === TEST_ORG_ID ? testOrgRole : null,
-      createdByProjectGrant:
-        resolvedOrganizationId === TEST_ORG_ID ? testGrantRows().projectGrant : null,
-      createdByHasWorkspaceGrant: false,
-      // The one person is the org owner (or a member of every project): they open every workspace.
-      createdByCanOpenWorkspace: true,
+      createdByIsMember: key.createdBy === TEST_USER_ID && key.organizationId === TEST_ORG_ID,
+      createdByRole: key.organizationId === TEST_ORG_ID ? testOrgRole : null,
+      projectScopes: liveKeyProjects(key.id),
+      workspaceScopes: liveKeyWorkspaces(key.id),
+      keyProjectId: key.level === 'workspace' ? keyWorkspaceProject(key.id) : null,
       parentKeyLive:
         !key.parentKeyId ||
         (!!parent &&
@@ -1463,31 +1525,83 @@ const mockDb: DatabaseAdapter = {
   async listApiKeysByOrganization(organizationId) {
     return {
       data: [...store.apiKeys.values()]
-        .filter((k) => k.organizationId === organizationId && !k.revokedAt)
-        .map((k) => ({ ...k, projectName: null, createdByName: null, workspace: null })),
+        .filter(
+          (k) =>
+            k.organizationId === organizationId &&
+            !k.revokedAt &&
+            (k.level === 'organization' ||
+              (k.level === 'project' && totalKeyProjects(k.id).length > 1)),
+        )
+        .map(toKeyListItem),
       nextCursor: null,
     }
   },
   async listApiKeysByProject(organizationId, projectId) {
     const project = store.projects.get(projectId)
-    if (!project || project.organizationId !== organizationId) {
-      return { data: [], nextCursor: null }
-    }
-    return {
-      data: [...store.apiKeys.values()]
-        .filter((k) => k.projectId === projectId && k.workspaceId === null && !k.revokedAt)
-        .map((k) => ({ ...k, projectName: project.name, createdByName: null, workspace: null })),
-      nextCursor: null,
-    }
+    if (!project || project.organizationId !== organizationId) return { own: [], reaching: [] }
+    const keys = [...store.apiKeys.values()].filter(
+      (k) => k.organizationId === organizationId && !k.revokedAt,
+    )
+    const own = keys.filter(
+      (k) =>
+        (k.level === 'project' &&
+          totalKeyProjects(k.id).length === 1 &&
+          totalKeyProjects(k.id)[0]?.projectId === projectId) ||
+        (k.level === 'workspace' &&
+          totalKeyWorkspaces(k.id).length > 1 &&
+          keyWorkspaceProject(k.id) === projectId),
+    )
+    // Reaching = multi-project keys with a live slice here; org keys live at the org.
+    const reaching = keys.filter(
+      (k) =>
+        k.level === 'project' &&
+        totalKeyProjects(k.id).length > 1 &&
+        liveKeyProjects(k.id).includes(projectId),
+    )
+    return { own: own.map(toKeyListItem), reaching: reaching.map(toKeyListItem) }
   },
-  async countApiKeysByWorkspace() {
-    return []
+  async countApiKeysByWorkspace(projectId) {
+    const counts = new Map<string, number>()
+    for (const k of store.apiKeys.values()) {
+      if (k.level !== 'workspace' || k.revokedAt) continue
+      for (const wid of liveKeyWorkspaces(k.id)) {
+        if (store.workspaces.get(wid)?.projectId === projectId) {
+          counts.set(wid, (counts.get(wid) ?? 0) + 1)
+        }
+      }
+    }
+    return [...counts.entries()].map(([id, count]) => {
+      const w = store.workspaces.get(id)
+      return {
+        workspace: { id, slug: w?.slug ?? '', name: w?.name ?? '', colour: w?.colour ?? 'green' },
+        count,
+      }
+    })
   },
-  async listApiKeysByWorkspace(workspaceId) {
-    const own = [...store.apiKeys.values()]
-      .filter((k) => k.workspaceId === workspaceId && !k.revokedAt)
-      .map((k) => ({ ...k, projectName: null, createdByName: null, workspace: null }))
-    return { own, inherited: [] }
+  async listApiKeysByWorkspace(workspaceId, nowIso) {
+    const project = store.workspaces.get(workspaceId)?.projectId ?? null
+    const org = project ? (store.projects.get(project)?.organizationId ?? null) : null
+    const unexpired = (k: ApiKey) => !k.expiresAt || k.expiresAt > nowIso
+    const keys = [...store.apiKeys.values()].filter((k) => !k.revokedAt)
+    const own = keys.filter(
+      (k) =>
+        k.level === 'workspace' &&
+        totalKeyWorkspaces(k.id).length === 1 &&
+        totalKeyWorkspaces(k.id)[0]?.workspaceId === workspaceId,
+    )
+    const reaching = keys.filter(
+      (k) =>
+        (k.level === 'workspace' &&
+          totalKeyWorkspaces(k.id).length > 1 &&
+          liveKeyWorkspaces(k.id).includes(workspaceId) &&
+          unexpired(k)) ||
+        (k.level === 'project' &&
+          project !== null &&
+          liveKeyProjects(k.id).includes(project) &&
+          unexpired(k)) ||
+        (k.level === 'organization' && org !== null && k.organizationId === org && unexpired(k)),
+    )
+    return { own: own.map(toKeyListItem), reaching: reaching.map(toKeyListItem) }
   },
   async updateApiKeyLastUsed(id, lastUsedAt) {
     const k = store.apiKeys.get(id)
@@ -1498,14 +1612,40 @@ const mockDb: DatabaseAdapter = {
     if (!k || k.revokedAt) return null
     const at =
       target.level === 'organization'
-        ? k.organizationId === target.organizationId
+        ? k.organizationId === target.organizationId &&
+          (k.level === 'organization' ||
+            (k.level === 'project' && totalKeyProjects(k.id).length > 1))
         : target.level === 'project'
-          ? k.projectId === target.projectId && k.workspaceId === null
-          : k.workspaceId === target.workspaceId
+          ? (k.level === 'project' &&
+              totalKeyProjects(k.id).length === 1 &&
+              totalKeyProjects(k.id)[0]?.projectId === target.projectId) ||
+            (k.level === 'workspace' &&
+              totalKeyWorkspaces(k.id).length > 1 &&
+              keyWorkspaceProject(k.id) === target.projectId)
+          : k.level === 'workspace' &&
+            totalKeyWorkspaces(k.id).length === 1 &&
+            totalKeyWorkspaces(k.id)[0]?.workspaceId === target.workspaceId
     if (!at) return null
     const revoked = { ...k, revokedAt: now() }
     store.apiKeys.set(id, revoked)
     return revoked
+  },
+  async revokeApiKeyScope(target) {
+    const rows = target.level === 'project' ? store.apiKeyProjects : store.apiKeyWorkspaces
+    const row = rows.find(
+      (r) =>
+        r.keyId === target.keyId &&
+        !r.revokedAt &&
+        (target.level === 'project'
+          ? (r as { projectId: string }).projectId === target.projectId
+          : (r as { workspaceId: string }).workspaceId === target.workspaceId),
+    )
+    if (!row) return null
+    row.revokedAt = now()
+    const live = rows.filter((r) => r.keyId === target.keyId && !r.revokedAt).length
+    const k = store.apiKeys.get(target.keyId)
+    if (k && !k.revokedAt && live === 0) store.apiKeys.set(target.keyId, { ...k, revokedAt: now() })
+    return store.apiKeys.get(target.keyId) ?? null
   },
 
   // Env Vars — store-backed, mirroring the real adapter: one row per level

@@ -14,7 +14,7 @@ import {
 import { inheritedWorkspaceRole, workspaceCapabilities } from '@awaitstep/ir'
 import { unresolvableEnvRefs } from '../lib/env-resolve.js'
 import { rolesOf } from '../lib/scope-records.js'
-import { apiKeyProjectPin, apiKeyWorkspacePin } from '../middleware/auth.js'
+import { apiKeyLevel, apiKeyWorkspaceScopes } from '../middleware/auth.js'
 import type { AppEnv } from '../types.js'
 
 const NO_FACTS = {
@@ -185,10 +185,13 @@ workflows.post('/', zValidator('json', createSchema), async (c) => {
   const userId = c.get('userId')
   const body = c.req.valid('json')
 
-  // A workspace key builds in its workspace only; another named in the body
-  // is as hidden to it as one its creator cannot open.
-  const workspacePin = apiKeyWorkspacePin(c)
-  if (workspacePin !== null && body.workspaceId && body.workspaceId !== workspacePin) {
+  // A workspace key builds in the workspaces it reaches only; one named in
+  // the body outside its set is as hidden to it as one its creator cannot open.
+  if (
+    apiKeyLevel(c) === 'workspace' &&
+    body.workspaceId &&
+    !apiKeyWorkspaceScopes(c).includes(body.workspaceId)
+  ) {
     return c.json({ error: 'Workspace not found' }, 404)
   }
   // Building needs an Editor in the target workspace. One named in the query
@@ -291,9 +294,9 @@ workflows.patch(
     const workflow = c.get('workflow')
     if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-    // A move always crosses a project boundary, so a key pinned to one
-    // project has no legitimate move to make.
-    if (apiKeyProjectPin(c) !== null) {
+    // A move always crosses a project boundary, so a project- or workspace-
+    // scoped key has no legitimate move to make.
+    if (apiKeyLevel(c) === 'project' || apiKeyLevel(c) === 'workspace') {
       return c.json(
         { error: 'A project-scoped API key cannot move workflows between projects' },
         403,

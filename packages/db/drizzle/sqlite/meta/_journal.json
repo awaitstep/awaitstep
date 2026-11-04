@@ -204,6 +204,20 @@
       "when": 1793613770055,
       "tag": "0028_image_storage",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1793773387543,
+      "tag": "0029_keys_scope_expand",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1793773409740,
+      "tag": "0030_keys_scope_contract",
+      "breakpoints": true
     }
   ]
 }

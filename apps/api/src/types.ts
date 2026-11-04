@@ -16,9 +16,11 @@ import type {
 } from '@awaitstep/ir'
 
 /**
- * The calling API key, as auth resolved it (B3): its level, the grid it
- * carries and, for a workspace key, the workspace it is pinned to. Null for
- * a session.
+ * The calling API key, as auth resolved it: its level, the grid it carries,
+ * and the LIVE scope set it reaches — the project ids for a project-level key,
+ * the workspace ids for a workspace-level key (both empty for an organization
+ * key). The addressed place is matched against the set by the scope
+ * middleware. Null for a session.
  */
 export interface ApiKeyContext {
   id: string
@@ -27,9 +29,12 @@ export interface ApiKeyContext {
   display: string
   level: KeyLevel
   permissions: KeyPermissions
-  /** The project a project or workspace key is pinned to; null for an organization key. */
-  projectId: string | null
-  workspaceId: string | null
+  /** Live project ids a project-level key reaches; empty for the other levels. */
+  projectScopes: string[]
+  /** Live workspace ids a workspace-level key reaches; empty for the other levels. */
+  workspaceScopes: string[]
+  /** A workspace-level key's owning project; null for the other levels. */
+  keyProjectId: string | null
   expiresAt: string | null
 }
 

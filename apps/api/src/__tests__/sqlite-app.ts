@@ -154,9 +154,8 @@ export function createSqliteApp(
       const raw = `ask_${id}`
       await db.insert(sqliteSchema.apiKeys).values({
         id,
-        organizationId: at.level === 'organization' ? 'org-acme' : null,
-        projectId: at.level === 'organization' ? null : at.projectId,
-        workspaceId: at.level === 'workspace' ? at.workspaceId : null,
+        organizationId: 'org-acme',
+        level: at.level,
         parentKeyId: null,
         createdBy,
         name: id,
@@ -170,6 +169,15 @@ export function createSqliteApp(
         revokedAt: null,
         createdAt: T0,
       })
+      if (at.level === 'project') {
+        await db
+          .insert(sqliteSchema.apiKeyProjects)
+          .values({ keyId: id, projectId: at.projectId, revokedAt: null })
+      } else if (at.level === 'workspace') {
+        await db
+          .insert(sqliteSchema.apiKeyWorkspaces)
+          .values({ keyId: id, workspaceId: at.workspaceId, revokedAt: null })
+      }
       return { headers: { Authorization: `Bearer ${raw}`, 'Content-Type': 'application/json' } }
     },
     async workflow(id: string, projectId: string, workspaceId: string, name: string) {

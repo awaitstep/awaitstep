@@ -283,7 +283,7 @@ describe('test session routes', () => {
         level: 'workspace',
         organizationId: TEST_ORG_ID,
         projectId: TEST_PROJECT_ID,
-        workspaceId,
+        workspaceIds: [workspaceId],
         createdBy: TEST_USER_ID,
         name: id,
         keyHash: await hashApiKey(secret),
