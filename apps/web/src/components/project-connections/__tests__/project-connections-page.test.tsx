@@ -122,7 +122,7 @@ describe('a project with no account (ProjectConnectionsEmpty)', () => {
     dashboardDb().connections.find((c) => c.id === 'conn_marketing')!.projects = 'all'
   })
 
-  it('says Deploy stays disabled, offers both ways in, and what needs an org admin', async () => {
+  it('says Deploy stays disabled and offers both ways in', async () => {
     const onAddChange = vi.fn()
     renderPage(null, {}, onAddChange)
     expect(await screen.findByText('No account connected yet')).toBeInTheDocument()
@@ -130,7 +130,7 @@ describe('a project with no account (ProjectConnectionsEmpty)', () => {
     await waitFor(() =>
       expect(screen.getByText(/Acme Inc already has two you can use/)).toBeInTheDocument(),
     )
-    expect(screen.getByRole('heading', { name: 'What needs an org admin' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Use an account in Acme Inc' })).toBeInTheDocument()
     expect(screen.queryByRole('table', { name: 'Where each workspace deploys' })).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: 'Connect a new account' }))
     expect(onAddChange).toHaveBeenCalledWith(true, 'new')
