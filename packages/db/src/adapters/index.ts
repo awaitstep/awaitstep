@@ -1481,8 +1481,10 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     organizationId: string,
     projectId: string,
     visibleTo?: string,
+    fullReach = false,
+    now?: string,
   ): Promise<ApiKeyScopedRows> {
-    return this._apiKeys.listByProject(organizationId, projectId, visibleTo)
+    return this._apiKeys.listByProject(organizationId, projectId, visibleTo, fullReach, now)
   }
   listApiKeysByOrganization(
     organizationId: string,
@@ -1493,8 +1495,12 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   countApiKeysByWorkspace(projectId: string, viewerId: string): Promise<WorkspaceKeyCount[]> {
     return this._apiKeys.countByWorkspace(projectId, viewerId)
   }
-  listApiKeysByWorkspace(workspaceId: string, now: string): Promise<ApiKeyScopedRows> {
-    return this._apiKeys.listByWorkspace(workspaceId, now)
+  listApiKeysByWorkspace(
+    workspaceId: string,
+    now: string,
+    fullReach = false,
+  ): Promise<ApiKeyScopedRows> {
+    return this._apiKeys.listByWorkspace(workspaceId, now, fullReach)
   }
   updateApiKeyLastUsed(id: string, lastUsedAt: string): Promise<void> {
     return this._apiKeys.updateLastUsed(id, lastUsedAt)

@@ -825,11 +825,18 @@ export interface DatabaseAdapter {
    * one read. The addressed place is matched against the set at request time.
    */
   getApiKeyAuthByHash(keyHash: string): Promise<ApiKeyAuth | null>
-  /** A project's keys page: its own single-project keys and the keys reaching it from elsewhere. */
+  /**
+   * A project's keys page: its own single-project keys and the keys reaching it
+   * from elsewhere (expired bundles excluded). `fullReach` (an organization
+   * admin) discloses a reaching bundle's whole scope set; otherwise it shows
+   * only its slice here.
+   */
   listApiKeysByProject(
     organizationId: string,
     projectId: string,
     visibleTo?: string,
+    fullReach?: boolean,
+    now?: string,
   ): Promise<ApiKeyScopedRows>
   /** The keys that live at the organization: its organization-level keys and its multi-project keys. */
   listApiKeysByOrganization(
@@ -838,8 +845,16 @@ export interface DatabaseAdapter {
   ): Promise<PaginatedResult<ApiKeyListItem>>
   /** Live keys reaching each workspace of the project, for the workspaces the viewer can open. */
   countApiKeysByWorkspace(projectId: string, viewerId: string): Promise<WorkspaceKeyCount[]>
-  /** A workspace's keys page: its own single-workspace keys and the keys reaching it from elsewhere. */
-  listApiKeysByWorkspace(workspaceId: string, now: string): Promise<ApiKeyScopedRows>
+  /**
+   * A workspace's keys page: its own single-workspace keys and the keys reaching
+   * it from elsewhere. `fullReach` (an organization admin) discloses a reaching
+   * bundle's whole scope set; otherwise it shows only its slice here.
+   */
+  listApiKeysByWorkspace(
+    workspaceId: string,
+    now: string,
+    fullReach?: boolean,
+  ): Promise<ApiKeyScopedRows>
   updateApiKeyLastUsed(id: string, lastUsedAt: string): Promise<void>
   /** The whole-key kill-switch, from the key's home; null when no such live key there. */
   revokeApiKey(id: string, target: ApiKeyTarget): Promise<ApiKey | null>

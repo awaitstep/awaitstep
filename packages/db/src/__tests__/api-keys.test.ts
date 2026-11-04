@@ -337,5 +337,56 @@ describe('ApiKeysAdapter', () => {
       expect(foreign.own).toEqual([])
       expect(foreign.reaching).toEqual([])
     })
+
+    it('leaves an expired multi-project bundle out of what reaches the project', async () => {
+      await db.adapter.createApiKey(
+        projectKey('k-mp', ['p-1', 'p-3'], { expiresAt: '2020-01-01T00:00:00.000Z' }),
+      )
+      const page = await db.adapter.listApiKeysByProject('org-1', 'p-1')
+      expect(page.reaching.map((k) => k.id)).toEqual([])
+    })
+  })
+
+  describe('reach disclosure', () => {
+    it('shows a reaching project bundle only its slice here, unless the viewer is an org admin', async () => {
+      await db.adapter.createApiKey(projectKey('k-mp', ['p-1', 'p-3']))
+
+      // A project admin who is not an org admin: only this project's slice, so
+      // the sibling project the bundle also reaches is not disclosed.
+      const limited = await db.adapter.listApiKeysByProject('org-1', 'p-1')
+      expect(limited.reaching.map((k) => k.id)).toEqual(['k-mp'])
+      expect(limited.reaching[0]?.projects.map((p) => p.projectId)).toEqual(['p-1'])
+
+      // An org admin (fullReach): the whole scope set, siblings included.
+      const full = await db.adapter.listApiKeysByProject('org-1', 'p-1', undefined, true)
+      expect(full.reaching[0]?.projects.map((p) => p.projectId).sort()).toEqual(['p-1', 'p-3'])
+    })
+
+    it('never narrows a project’s OWN keys for a non-admin', async () => {
+      await db.adapter.createApiKey(workspaceKey('k-mw', ['ws-1', 'ws-2']))
+      const page = await db.adapter.listApiKeysByProject('org-1', 'p-1')
+      // The multi-workspace key is homed here (its workspaces are all this
+      // project's), so its full set stays visible to the project admin.
+      expect(page.own.map((k) => k.id)).toEqual(['k-mw'])
+      expect(page.own[0]?.workspaces.map((w) => w.workspace.id).sort()).toEqual(['ws-1', 'ws-2'])
+    })
+
+    it('shows a workspace only its slice of reaching bundles, unless the viewer is an org admin', async () => {
+      await db.adapter.createApiKey(workspaceKey('k-mw', ['ws-1', 'ws-2']))
+      await db.adapter.createApiKey(projectKey('k-mp', ['p-1', 'p-3']))
+
+      const limited = await db.adapter.listApiKeysByWorkspace('ws-1', now)
+      const mw = limited.reaching.find((k) => k.id === 'k-mw')
+      const mp = limited.reaching.find((k) => k.id === 'k-mp')
+      // Sibling workspace ws-2 and sibling project p-3 are both withheld.
+      expect(mw?.workspaces.map((w) => w.workspace.id)).toEqual(['ws-1'])
+      expect(mp?.projects.map((p) => p.projectId)).toEqual(['p-1'])
+
+      const full = await db.adapter.listApiKeysByWorkspace('ws-1', now, true)
+      const mwFull = full.reaching.find((k) => k.id === 'k-mw')
+      const mpFull = full.reaching.find((k) => k.id === 'k-mp')
+      expect(mwFull?.workspaces.map((w) => w.workspace.id).sort()).toEqual(['ws-1', 'ws-2'])
+      expect(mpFull?.projects.map((p) => p.projectId).sort()).toEqual(['p-1', 'p-3'])
+    })
   })
 })

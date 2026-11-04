@@ -61,6 +61,20 @@ interface ListedRow {
   createdByName: string | null
   projectScopes: unknown
   workspaceScopes: unknown
+  // The TRUE scope counts (restriction can truncate the sets above, so the
+  // own/reaching split reads these, never the possibly-narrowed scope arrays).
+  projectCount: number
+  workspaceCount: number
+}
+
+/**
+ * Narrows the named scope set a listing discloses to a single slice. A
+ * consumer that is not an organization admin may see only its own slice of a
+ * bundle reaching it, never the sibling projects/workspaces it also reaches.
+ */
+interface ScopeRestriction {
+  projectId?: SQL | unknown
+  workspaceId?: SQL | unknown
 }
 
 /**
@@ -184,10 +198,16 @@ export class ApiKeysAdapter {
     return sql<string>`(select ${jsonArrayOfValues(this.dialect, sql`${a.workspaceId}`)} from ${aliasedFrom(a)} inner join ${aliasedFrom(w)} on ${w.id} = ${a.workspaceId} inner join ${aliasedFrom(p)} on ${p.id} = ${w.projectId} where ${a.keyId} = ${kId} and ${a.revokedAt} is null${access})`
   }
 
-  /** The full project scope set (revoked rows included), named, for a listed key. */
-  private projectScopeSetJson(kId: SQL | unknown): SQL<string> {
+  /**
+   * A listed key's project scope set (revoked rows included), named. Full by
+   * default; `onlyProjectId` narrows it to that single slice — all a consumer
+   * that is not an organization admin may see of a bundle reaching it, so the
+   * sibling projects the bundle also reaches are not disclosed to it.
+   */
+  private projectScopeSetJson(kId: SQL | unknown, onlyProjectId?: SQL | unknown): SQL<string> {
     const a = aliasedTable(this.t.apiKeyProjects, 'psa')
     const p = aliasedTable(this.t.projects, 'psp')
+    const only = onlyProjectId === undefined ? sql`` : sql` and ${a.projectId} = ${onlyProjectId}`
     return sql<string>`(select ${jsonArrayOf(
       this.dialect,
       {
@@ -197,13 +217,20 @@ export class ApiKeysAdapter {
         revokedAt: isoText(this.dialect, a.revokedAt),
       },
       sql`${p.name}`,
-    )} from ${aliasedFrom(a)} left join ${aliasedFrom(p)} on ${p.id} = ${a.projectId} where ${a.keyId} = ${kId})`
+    )} from ${aliasedFrom(a)} left join ${aliasedFrom(p)} on ${p.id} = ${a.projectId} where ${a.keyId} = ${kId}${only})`
   }
 
-  /** The full workspace scope set (revoked rows included), named, for a listed key. */
-  private workspaceScopeSetJson(kId: SQL | unknown): SQL<string> {
+  /**
+   * A listed key's workspace scope set (revoked rows included), named. Full by
+   * default; `onlyWorkspaceId` narrows it to that single slice — all a consumer
+   * that is not an organization admin may see of a bundle reaching it, so the
+   * sibling workspaces the bundle also reaches are not disclosed to it.
+   */
+  private workspaceScopeSetJson(kId: SQL | unknown, onlyWorkspaceId?: SQL | unknown): SQL<string> {
     const a = aliasedTable(this.t.apiKeyWorkspaces, 'wsa')
     const w = aliasedTable(this.t.workspaces, 'wsw')
+    const only =
+      onlyWorkspaceId === undefined ? sql`` : sql` and ${a.workspaceId} = ${onlyWorkspaceId}`
     return sql<string>`(select ${jsonArrayOf(
       this.dialect,
       {
@@ -214,7 +241,7 @@ export class ApiKeysAdapter {
         revokedAt: isoText(this.dialect, a.revokedAt),
       },
       sql`${w.name}`,
-    )} from ${aliasedFrom(a)} left join ${aliasedFrom(w)} on ${w.id} = ${a.workspaceId} where ${a.keyId} = ${kId})`
+    )} from ${aliasedFrom(a)} left join ${aliasedFrom(w)} on ${w.id} = ${a.workspaceId} where ${a.keyId} = ${kId}${only})`
   }
 
   // ---- create -------------------------------------------------------------
@@ -394,21 +421,23 @@ export class ApiKeysAdapter {
 
   // ---- listing ------------------------------------------------------------
 
-  private listedSelect() {
+  private listedSelect(restrict?: ScopeRestriction) {
     const k = this.table
     const u = this.t.user ? aliasedTable(this.t.user, 'creator') : null
     return {
       key: k,
       createdByName: u ? u.name : sql<string | null>`null`,
-      projectScopes: this.projectScopeSetJson(k.id),
-      workspaceScopes: this.workspaceScopeSetJson(k.id),
+      projectScopes: this.projectScopeSetJson(k.id, restrict?.projectId),
+      workspaceScopes: this.workspaceScopeSetJson(k.id, restrict?.workspaceId),
+      projectCount: this.totalProjectCount(k.id),
+      workspaceCount: this.totalWorkspaceCount(k.id),
     }
   }
 
-  private listedFrom() {
+  private listedFrom(restrict?: ScopeRestriction) {
     const k = this.table
     const u = this.t.user ? aliasedTable(this.t.user, 'creator') : null
-    let q = this.db.select(this.listedSelect()).from(k)
+    let q = this.db.select(this.listedSelect(restrict)).from(k)
     if (u) q = q.leftJoin(u, eq(u.id, k.createdBy))
     return q
   }
@@ -478,12 +507,16 @@ export class ApiKeysAdapter {
    * live here) — and the keys REACHING it from elsewhere: multi-project keys
    * with a live slice here, which the project may revoke. Organization keys
    * live at the org and are shown there, not here. With a viewer, a project
-   * they cannot open lists nothing.
+   * they cannot open lists nothing. Unless `fullReach` (the viewer is an
+   * organization admin), a reaching bundle discloses only its slice here — not
+   * the sibling projects it also reaches.
    */
   async listByProject(
     organizationId: string,
     projectId: string,
     visibleTo?: string,
+    fullReach = false,
+    now: string = new Date().toISOString(),
   ): Promise<ApiKeyScopedRows> {
     const k = this.table
     // Fold the viewer's visibility into the one statement: a project they
@@ -493,6 +526,7 @@ export class ApiKeysAdapter {
       const vp = aliasedTable(this.t.projects, 'vpl')
       visible = sql`exists (select 1 from ${aliasedFrom(vp)} where ${vp.id} = ${projectId} and ${vp.organizationId} = ${organizationId} and ${this.roles.projectVisible(visibleTo, { organizationId: vp.organizationId, projectId: vp.id })})`
     }
+    const unexpired = or(isNull(k.expiresAt), gt(k.expiresAt, now))
 
     // Own = single-project keys for this project, plus multi-workspace keys
     // of this project (their home is the project, >1 workspaces).
@@ -507,13 +541,17 @@ export class ApiKeysAdapter {
       this.workspaceKeyInProject(k.id, projectId),
     )
     // Reaching = multi-project keys with a live slice here (the project may
-    // revoke that slice). Organization keys live at the org, shown there.
+    // revoke that slice). Organization keys live at the org, shown there. An
+    // expired bundle no longer reaches anything, as on the workspace page.
     const isReaching = and(
       eq(k.level, 'project'),
       sql`${this.totalProjectCount(k.id)} > 1`,
       this.liveProjectSlice(k.id, projectId),
+      unexpired,
     )
-    const rows: ListedRow[] = await this.listedFrom()
+    // A non-admin consumer sees only this project's slice of a reaching bundle.
+    const restrict = fullReach ? undefined : { projectId }
+    const rows: ListedRow[] = await this.listedFrom(restrict)
       .where(
         and(
           eq(k.organizationId, organizationId),
@@ -524,27 +562,16 @@ export class ApiKeysAdapter {
       )
       .orderBy(desc(k.createdAt), desc(k.id))
     const items = rows.map(this.item)
-    // Reaching keys are the multi-project keys; everything else fetched here
-    // lives at this project (its single-project keys and its workspace keys).
+    // Own = this project's single-project keys and its workspace keys; reaching
+    // = the multi-project bundles. Read the TRUE counts, not the scope arrays,
+    // which restriction may have narrowed to the one slice shown here.
     const ownSet = new Set(
-      rows
-        .filter(
-          (r) =>
-            (r.key.level === 'project' && this.soleOf(r.projectScopes, projectId)) ||
-            r.key.level === 'workspace',
-        )
-        .map((r) => r.key.id),
+      rows.filter((r) => r.key.level === 'workspace' || r.projectCount === 1).map((r) => r.key.id),
     )
     return {
       own: items.filter((i) => ownSet.has(i.id)),
       reaching: items.filter((i) => !ownSet.has(i.id)),
     }
-  }
-
-  /** Whether this listed project-level key's set is exactly `{projectId}` (its home is that project). */
-  private soleOf(raw: unknown, projectId: string): boolean {
-    const scopes = readJsonArray<ProjectScopeRow>(raw)
-    return scopes.length === 1 && scopes[0]?.projectId === projectId
   }
 
   /**
@@ -593,8 +620,15 @@ export class ApiKeysAdapter {
    * with a live slice here (the workspace may revoke it), and the project keys
    * that reach its project (read-only, revoked at the project). Organization
    * keys live at the org, shown there. Expired reaching keys are left out.
+   * Unless `fullReach` (the viewer is an organization admin), a reaching bundle
+   * discloses only its slice here — not the sibling workspaces (or, for a
+   * project key, the sibling projects) it also reaches.
    */
-  async listByWorkspace(workspaceId: string, now: string): Promise<ApiKeyScopedRows> {
+  async listByWorkspace(
+    workspaceId: string,
+    now: string,
+    fullReach = false,
+  ): Promise<ApiKeyScopedRows> {
     const k = this.table
     const own = aliasedTable(this.t.workspaces, 'own_ws')
     const projectOf = sql`(select ${own.projectId} from ${aliasedFrom(own)} where ${own.id} = ${workspaceId})`
@@ -620,15 +654,18 @@ export class ApiKeysAdapter {
       sql`${this.liveProjectSlice(k.id, projectOf)}`,
     )
 
-    const rows: ListedRow[] = await this.listedFrom()
+    // A non-admin consumer sees only this workspace's slice of a reaching
+    // workspace bundle, and only this project's slice of a reaching project key.
+    const restrict = fullReach ? undefined : { projectId: projectOf, workspaceId }
+    const rows: ListedRow[] = await this.listedFrom(restrict)
       .where(and(isNull(k.revokedAt), or(isOwn, reachesAsWorkspace, reachesAsProject)))
       .orderBy(desc(k.createdAt), desc(k.id))
+    // Own = this workspace's sole-workspace keys; reaching = the multi-workspace
+    // bundles and the inherited project keys. Read the TRUE count, not the scope
+    // array, which restriction may have narrowed to the one slice shown here.
     const ownSet = new Set(
       rows
-        .filter(
-          (r) =>
-            r.key.level === 'workspace' && this.soleWorkspaceOf(r.workspaceScopes, workspaceId),
-        )
+        .filter((r) => r.key.level === 'workspace' && r.workspaceCount === 1)
         .map((r) => r.key.id),
     )
     const items = rows.map(this.item)
@@ -636,11 +673,6 @@ export class ApiKeysAdapter {
       own: items.filter((i) => ownSet.has(i.id)),
       reaching: items.filter((i) => !ownSet.has(i.id)),
     }
-  }
-
-  private soleWorkspaceOf(raw: unknown, workspaceId: string): boolean {
-    const scopes = readJsonArray<WorkspaceScopeRow>(raw)
-    return scopes.length === 1 && scopes[0]?.id === workspaceId
   }
 
   async updateLastUsed(id: string, lastUsedAt: string): Promise<void> {

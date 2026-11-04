@@ -8,6 +8,7 @@ import {
   grantsOutsideLevel,
   keyScopesOf,
   normalisePermissions,
+  orgCapabilities,
   parseKeyPermissions,
   type KeyLevel,
 } from '@awaitstep/ir'
@@ -103,10 +104,15 @@ apiKeys.get('/', zValidator('query', paginationQuerySchema), async (c) => {
     const result = await db.listApiKeysByOrganization(c.get('organizationId'), { cursor, limit })
     return c.json({ data: result.data.map(keyRecord), nextCursor: result.nextCursor })
   }
+  // An organization admin sees a reaching bundle's whole scope set; a mere
+  // project/workspace admin sees only the slice reaching the place they manage.
+  const orgRole = c.get('orgRole')
+  const fullReach = !!orgRole && orgCapabilities(orgRole).manageSettings.allowed
+  const now = new Date().toISOString()
   if (level === 'project') {
     const projectId = c.get('projectId')
     const [rows, workspaceCounts] = await Promise.all([
-      db.listApiKeysByProject(c.get('organizationId'), projectId, c.get('userId')),
+      db.listApiKeysByProject(c.get('organizationId'), projectId, c.get('userId'), fullReach, now),
       db.countApiKeysByWorkspace(projectId, c.get('userId')),
     ])
     return c.json({
@@ -115,7 +121,7 @@ apiKeys.get('/', zValidator('query', paginationQuerySchema), async (c) => {
       workspaceCounts,
     })
   }
-  const rows = await db.listApiKeysByWorkspace(c.get('workspaceId')!, new Date().toISOString())
+  const rows = await db.listApiKeysByWorkspace(c.get('workspaceId')!, now, fullReach)
   return c.json({ own: rows.own.map(keyRecord), reaching: rows.reaching.map(keyRecord) })
 })
 

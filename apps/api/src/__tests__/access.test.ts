@@ -674,6 +674,32 @@ describe('API keys act with their creator’s standing', () => {
       ).toBe(404)
     })
 
+    it('discloses a reaching bundle’s whole set only to an org admin', async () => {
+      // A multi-project bundle homed at the org, reaching Project 101 and 202.
+      await h.seed.key('k-mp', 'u-ama', { level: 'project', projectId: 'p-101' }, full('project'))
+      await h.db
+        .insert(h.schema.apiKeyProjects)
+        .values({ keyId: 'k-mp', projectId: 'p-202', revokedAt: null })
+
+      // Eve opens Project 101 but is not an org admin: the bundle reaches her
+      // project, but the sibling Project 202 is not disclosed to her.
+      const limited = await (
+        await h.app.request('/api/api-keys?org=acme&project=project-101', h.as('u-eve'))
+      ).json()
+      const limitedMp = limited.reaching.find((k: { id: string }) => k.id === 'k-mp')
+      expect(limitedMp.projects.map((p: { projectId: string }) => p.projectId)).toEqual(['p-101'])
+
+      // Ben is an org admin: he sees the bundle's whole scope set.
+      const asAdmin = await (
+        await h.app.request('/api/api-keys?org=acme&project=project-101', h.as('u-ben'))
+      ).json()
+      const adminMp = asAdmin.reaching.find((k: { id: string }) => k.id === 'k-mp')
+      expect(adminMp.projects.map((p: { projectId: string }) => p.projectId).sort()).toEqual([
+        'p-101',
+        'p-202',
+      ])
+    })
+
     it('reads people with members:read at the key’s own level only', async () => {
       const grid = { members: ['read'] }
       const asOrg = await h.seed.key('k-org-m', 'u-ama', { level: 'organization' }, grid)

@@ -1723,6 +1723,20 @@ describe.each([
       expect(await h.adapter.deleteWorkspaceUnlessBlocked('ws-sales')).toBe(true)
       expect((await h.adapter.getApiKeyAuthByHash('hash-k-own'))?.workspaceScopes).toEqual([])
     })
+
+    it('discloses a reaching bundle’s whole set only to an org admin', async () => {
+      await key('k-mp', 'u-ama', { level: 'project', projectIds: ['p-101', 'p-202'] })
+
+      // Dan opens Project 101 as a project member but is not an org admin, so
+      // the sibling Project 202 the bundle also reaches is not disclosed to him.
+      const dan = await h.adapter.listApiKeysByProject('org-acme', 'p-101', 'u-dan')
+      expect(dan.reaching.map((k) => k.id)).toEqual(['k-mp'])
+      expect(dan.reaching[0]?.projects.map((p) => p.projectId)).toEqual(['p-101'])
+
+      // With fullReach (an org admin) the whole scope set is disclosed.
+      const admin = await h.adapter.listApiKeysByProject('org-acme', 'p-101', 'u-dan', true)
+      expect(admin.reaching[0]?.projects.map((p) => p.projectId).sort()).toEqual(['p-101', 'p-202'])
+    })
   })
 
   it('lists a project’s keys and variables only to someone who can open it', async () => {
