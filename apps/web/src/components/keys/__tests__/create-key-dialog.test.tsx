@@ -50,6 +50,7 @@ describe('Create an API key', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Done' }))
     expect(onClose).toHaveBeenCalled()
     expect(dashboardDb().keys[0]).toMatchObject({ name: 'Release bot', level: 'project' })
+    expect(dashboardDb().keys[0]!.projectScopes).toEqual([{ id: 'prj_101', revokedAt: null }])
   })
 
   it('asks before closing when the key wasn’t copied', async () => {
@@ -63,9 +64,10 @@ describe('Create an API key', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('starts at the org with Read only and no Deploy & run', async () => {
+  it('starts at the org with Read only, no Deploy & run, and offers specific projects', async () => {
     const { dialog } = renderDialog({ start: 'organization' })
     expect(within(dialog).getByRole('radio', { name: /Organization/ })).toBeChecked()
+    expect(within(dialog).getByRole('radio', { name: /Specific projects/ })).toBeInTheDocument()
     expect(within(dialog).queryByRole('button', { name: 'Deploy & run' })).not.toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: 'Read only' })).toHaveAttribute(
       'aria-pressed',
@@ -73,47 +75,51 @@ describe('Create an API key', () => {
     )
   })
 
-  it('makes a workspace key for the picked workspace', async () => {
+  it('makes a workspace key for the workspace it opened from', async () => {
     const { dialog } = renderDialog({ start: 'workspace' })
-    expect(within(dialog).getByRole('radio', { name: /One workspace/ })).toBeChecked()
+    // A workspace key reaches just that workspace, so there is no "where" choice.
+    expect(within(dialog).queryByRole('radio')).not.toBeInTheDocument()
     await userEvent.type(within(dialog).getByRole('textbox', { name: /Name/ }), 'Sales hook')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create key' }))
     await within(dialog).findByRole('textbox', { name: 'Your API key' })
-    expect(dashboardDb().keys[0]).toMatchObject({
-      name: 'Sales hook',
-      level: 'workspace',
-      workspaceId: 'ws_sales',
-    })
+    expect(dashboardDb().keys[0]).toMatchObject({ name: 'Sales hook', level: 'workspace' })
+    expect(dashboardDb().keys[0]!.workspaceScopes).toEqual([{ id: 'ws_sales', revokedAt: null }])
   })
 
-  it('disables the levels the viewer can’t create keys at, saying why', async () => {
-    const { dialog } = renderDialog({ start: 'workspace', userId: DANIEL })
-    expect(await within(dialog).findByText('Only org owners and admins can do this')).toBeVisible()
-    expect(within(dialog).getByRole('radio', { name: /Organization/ })).toBeDisabled()
+  it('disables the project choices the viewer can’t create keys at, saying why', async () => {
+    const { dialog } = renderDialog({ start: 'project', userId: DANIEL })
+    // The reason arrives once the viewer's project scope loads; both choices carry it.
+    expect(
+      (await within(dialog).findAllByText('Only project admins and org owners can do this')).length,
+    ).toBeGreaterThan(0)
     expect(within(dialog).getByRole('radio', { name: /Project 101/ })).toBeDisabled()
-    expect(dialog).toHaveTextContent('Only project admins and org owners can do this')
+    expect(within(dialog).getByRole('radio', { name: /Specific workspaces/ })).toBeDisabled()
   })
 
-  it('keeps One workspace usable for a workspace admin, with the first workspace picked', async () => {
+  it('lets a workspace admin create a key for their workspace', async () => {
     dashboardDb().workspaceMembers.find(
       (m) => m.workspaceId === 'ws_sales' && m.userId === DANIEL,
     )!.role = 'admin'
     const onClose = vi.fn()
     renderWithDashboardData(
-      <CreateKeyDialog org={ORG} start="project" project={P101} onClose={onClose} />,
+      <CreateKeyDialog
+        org={ORG}
+        start="workspace"
+        project={P101}
+        workspace="sales"
+        onClose={onClose}
+      />,
       { userId: DANIEL },
     )
     const dialog = screen.getByRole('dialog', { name: 'Create an API key' })
-    const one = within(dialog).getByRole('radio', { name: /One workspace/ })
-    await waitFor(() => expect(one).toBeEnabled())
-    await userEvent.click(one)
     await userEvent.type(within(dialog).getByRole('textbox', { name: /Name/ }), 'Sales hook')
     await waitFor(() =>
       expect(within(dialog).getByRole('button', { name: 'Create key' })).toBeEnabled(),
     )
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create key' }))
     await within(dialog).findByRole('textbox', { name: 'Your API key' })
-    expect(dashboardDb().keys[0]).toMatchObject({ level: 'workspace', workspaceId: 'ws_sales' })
+    expect(dashboardDb().keys[0]).toMatchObject({ level: 'workspace' })
+    expect(dashboardDb().keys[0]!.workspaceScopes).toEqual([{ id: 'ws_sales', revokedAt: null }])
   })
 
   it('puts a missing name’s error on the name field', async () => {

@@ -2,6 +2,7 @@ import { useId, useState, type SubmitEvent } from 'react'
 import { KeyRound } from 'lucide-react'
 import { useCreateKey } from '../../data/dashboard/api-keys'
 import { errorFieldOf } from '../../data/dashboard/errors'
+import { useProjects } from '../../data/dashboard/projects'
 import { useScope, useWorkspaces } from '../../data/dashboard/workspaces'
 import { cn } from '../../lib/utils'
 import type {
@@ -18,12 +19,18 @@ import { ConfirmDialog } from '../ui/confirm-dialog'
 import { FormField } from '../ui/form-field'
 import { Input } from '../ui/input'
 import { ModalDialog } from '../ui/modal-dialog'
+import { SearchableMultiSelect } from '../ui/searchable-select'
 import { SecretReveal } from '../ui/secret-reveal'
 import { Select } from '../ui/select'
 import { Tile } from '../ui/tile'
 import { GrantSummary } from './parts/grant-summary'
-import { describeGrantCount, describeReach, presetPermissions } from './parts/key-permissions'
+import { describeGrantCount, presetPermissions } from './parts/key-permissions'
 import { PermissionGrid } from './parts/permission-grid'
+
+// The "Where it works" choice. A key reaches a SET: at the organization,
+// either the whole org or a set of projects; at a project, that project or a
+// set of its workspaces; at a workspace, just that workspace.
+type Mode = 'org' | 'projects' | 'project' | 'workspaces' | 'workspace'
 
 const EXPIRY_OPTIONS: { value: KeyExpiry; label: string }[] = [
   { value: '30', label: 'In 30 days' },
@@ -32,7 +39,14 @@ const EXPIRY_OPTIONS: { value: KeyExpiry; label: string }[] = [
   { value: 'never', label: 'Never' },
 ]
 
-/** The board's starting preset: Read only for org keys, Deploy & run below (D-P6-3). */
+/** The key level each mode mints at — which @awaitstep/ir catalog the grid comes from. */
+function levelOf(mode: Mode): KeyLevel {
+  if (mode === 'org') return 'organization'
+  if (mode === 'projects' || mode === 'project') return 'project'
+  return 'workspace'
+}
+
+/** The board's starting preset: Read only for org keys, Deploy & run below. */
 function startingPermissions(level: KeyLevel): KeyPermissions {
   return presetPermissions(level, level === 'organization' ? 'read' : 'deploy-run')
 }
@@ -54,8 +68,8 @@ interface CreateKeyDialogProps {
 }
 
 /**
- * "Create an API key" (`CreateKey`): name, expiry, what it reaches,
- * permissions, then the one-time reveal of the key (D-P6-1..3).
+ * "Create an API key": name, expiry, the scope set it reaches, permissions,
+ * then the one-time reveal of the secret.
  */
 export function CreateKeyDialog({
   org,
@@ -64,61 +78,80 @@ export function CreateKeyDialog({
   workspace: startWorkspace,
   onClose,
 }: CreateKeyDialogProps) {
-  // Loaded here, so pages don't fetch it until the dialog opens.
-  const workspaceList = useWorkspaces(org.slug, project?.slug ?? '', { enabled: !!project })
-  const workspaces = workspaceList.data ?? []
   const formId = useId()
   const create = useCreateKey(org.slug)
   const [name, setName] = useState('')
   const [expires, setExpires] = useState<KeyExpiry>('30')
-  const [level, setLevel] = useState<KeyLevel>(start)
-  // The explicit pick; until then the page's workspace, else the first (worked out each
-  // render, so a list that arrives after opening is still used).
-  const [pickedWorkspace, setPickedWorkspace] = useState<string | null>(null)
-  const workspace = pickedWorkspace ?? startWorkspace ?? workspaces[0]?.slug ?? ''
-  const [permissions, setPermissions] = useState(() => startingPermissions(start))
+  const [mode, setMode] = useState<Mode>(start === 'organization' ? 'org' : start)
+  const [projectIds, setProjectIds] = useState<string[]>([])
+  const [workspaceIds, setWorkspaceIds] = useState<string[]>([])
+  const [permissions, setPermissions] = useState(() =>
+    startingPermissions(levelOf(start === 'organization' ? 'org' : start)),
+  )
   const [created, setCreated] = useState<CreatedKey | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
   const [confirmClose, setConfirmClose] = useState(false)
+
+  // Loaded lazily, only for the pickers each level offers.
+  const projectList = useProjects(org.slug, { enabled: start === 'organization' })
+  const projects = projectList.data ?? []
+  const workspaceList = useWorkspaces(org.slug, project?.slug ?? '', { enabled: !!project })
+  const workspaces = workspaceList.data ?? []
 
   const orgScope = useScope({ org: org.slug }).data
   const projectScope = useScope({ org: org.slug, project: project?.slug }).data
   const workspaceScope = useScope({
     org: org.slug,
     project: project?.slug,
-    workspace: workspace || undefined,
+    workspace: startWorkspace,
   }).data
-  const workspaceName = workspaces.find((w) => w.slug === workspace)?.name ?? ''
 
-  const levelOptions: RadioCardOption<KeyLevel>[] = [
-    {
-      value: 'organization',
-      title: 'Organization',
-      description: `${org.name} admin only. No workflow access.`,
-      disabledReason: reason(orgScope?.found ? orgScope.org.viewerCan.manageSettings : undefined),
-    },
-  ]
-  if (project) {
-    levelOptions.push(
-      {
-        value: 'project',
-        title: project.name,
-        description: 'Every workspace in the project.',
-        disabledReason: reason(
-          projectScope?.found ? projectScope.project?.viewerCan.manageKeys : undefined,
-        ),
-      },
-      {
-        value: 'workspace',
-        title: 'One workspace',
-        description: `Pick it below. Nothing else in ${project.name}.`,
-        // Only unavailable with nothing to pick; a workspace you can't manage is said
-        // under the picker, so choosing another stays possible.
-        disabledReason:
-          workspaceList.data && workspaces.length === 0 ? 'No workspace to pick' : undefined,
-      },
-    )
-  }
+  const orgCan = orgScope?.found ? orgScope.org.viewerCan.manageSettings : undefined
+  const projectCan = projectScope?.found ? projectScope.project?.viewerCan.manageKeys : undefined
+  const workspaceCan = workspaceScope?.found
+    ? workspaceScope.workspace?.viewerCan.manageKeys
+    : undefined
+
+  const level = levelOf(mode)
+
+  const modeOptions: RadioCardOption<Mode>[] =
+    start === 'organization'
+      ? [
+          {
+            value: 'org',
+            title: 'Organization',
+            description: `${org.name} admin only. No workflow access.`,
+            disabledReason: reason(orgCan),
+          },
+          {
+            value: 'projects',
+            title: 'Specific projects',
+            description: 'One key for a set of projects.',
+            disabledReason:
+              reason(orgCan) ??
+              (projectList.data && projects.length === 0 ? 'No projects to pick' : undefined),
+          },
+        ]
+      : start === 'project' && project
+        ? [
+            {
+              value: 'project',
+              title: project.name,
+              description: 'Every workspace in the project.',
+              disabledReason: reason(projectCan),
+            },
+            {
+              value: 'workspaces',
+              title: 'Specific workspaces',
+              description: `A set of workspaces in ${project.name}.`,
+              disabledReason:
+                reason(projectCan) ??
+                (workspaceList.data && workspaces.length === 0
+                  ? 'No workspaces to pick'
+                  : undefined),
+            },
+          ]
+        : []
 
   function handleOpenChange(open: boolean) {
     if (!open) handleClose()
@@ -142,9 +175,9 @@ export function CreateKeyDialog({
     setExpires(value as KeyExpiry)
   }
 
-  function handleLevel(next: KeyLevel) {
-    setLevel(next)
-    setPermissions(startingPermissions(next))
+  function handleMode(next: Mode) {
+    setMode(next)
+    setPermissions(startingPermissions(levelOf(next)))
     create.reset()
   }
 
@@ -155,49 +188,75 @@ export function CreateKeyDialog({
 
   function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
-    create.mutate(
-      {
-        level,
-        project: project?.slug,
-        workspace: level === 'workspace' ? workspace : undefined,
-        name,
-        expires,
-        permissions,
-      },
-      { onSuccess: setCreated },
-    )
+    const base = { name, expires, permissions }
+    const input =
+      mode === 'org'
+        ? { ...base, level: 'organization' as const }
+        : mode === 'projects'
+          ? { ...base, level: 'project' as const, projectIds }
+          : mode === 'project'
+            ? { ...base, level: 'project' as const, project: project?.slug }
+            : mode === 'workspaces'
+              ? { ...base, level: 'workspace' as const, project: project?.slug, workspaceIds }
+              : {
+                  ...base,
+                  level: 'workspace' as const,
+                  project: project?.slug,
+                  workspace: startWorkspace,
+                }
+    create.mutate(input, { onSuccess: setCreated })
   }
 
-  function renderWorkspacePicker(value: KeyLevel) {
-    if (value !== 'workspace' || !project) return null
-    return (
-      <FormField label="Workspace" hint={`in ${project.name}`} error={workspaceReason}>
-        <Select
-          value={workspace}
-          onValueChange={setPickedWorkspace}
-          options={workspaces.map((w) => ({ value: w.slug, label: w.name }))}
-          className="w-56"
+  function renderPicker(value: Mode) {
+    if (value === 'projects') {
+      return (
+        <SearchableMultiSelect
+          label="Projects"
+          values={projectIds}
+          onChange={setProjectIds}
+          options={projects.map((p) => ({ value: p.id, label: p.name }))}
+          searchPlaceholder="Search projects"
+          summary={(n) => (n === 0 ? 'Choose projects' : n === 1 ? '1 project' : `${n} projects`)}
         />
-      </FormField>
-    )
+      )
+    }
+    if (value === 'workspaces') {
+      return (
+        <SearchableMultiSelect
+          label="Workspaces"
+          values={workspaceIds}
+          onChange={setWorkspaceIds}
+          options={workspaces.map((w) => ({ value: w.id, label: w.name }))}
+          searchPlaceholder="Search workspaces"
+          summary={(n) =>
+            n === 0 ? 'Choose workspaces' : n === 1 ? '1 workspace' : `${n} workspaces`
+          }
+        />
+      )
+    }
+    return null
   }
 
   const field = errorFieldOf(create.error)
   const nameError = field === 'name' ? create.error?.message : undefined
   const otherError = create.error && field !== 'name' ? create.error.message : undefined
   const isCopied = created !== null && copied === created.secret
-  const reach = describeReach(level, {
-    project: project?.name ?? '',
-    workspace: workspaceName,
-  })
-  const workspaceCan = workspaceScope?.found
-    ? workspaceScope.workspace?.viewerCan.manageKeys
-    : undefined
-  const workspaceReason = workspaceCan && !workspaceCan.allowed ? workspaceCan.reason : undefined
-  const levelReason =
-    levelOptions.find((o) => o.value === level)?.disabledReason ??
-    (level === 'workspace' ? (workspaceReason ?? reason(workspaceCan)) : undefined)
-  const canCreate = !create.isPending && levelReason === undefined
+
+  const modeCan =
+    mode === 'org'
+      ? orgCan
+      : mode === 'workspace'
+        ? workspaceCan
+        : mode === 'projects'
+          ? orgCan
+          : projectCan
+  const setChosen =
+    mode === 'projects'
+      ? projectIds.length > 0
+      : mode === 'workspaces'
+        ? workspaceIds.length > 0
+        : true
+  const canCreate = !create.isPending && (modeCan?.allowed ?? false) && setChosen
 
   const footerStart = created ? (
     <span className={cn('text-2xs', isCopied ? 'text-status-success' : 'text-status-warning')}>
@@ -229,7 +288,6 @@ export function CreateKeyDialog({
       <ModalDialog
         open
         onOpenChange={handleOpenChange}
-        // The board's 720px: room for three reach cards side by side.
         size="xl"
         leading={
           <Tile tone="warn" size="lg">
@@ -244,11 +302,8 @@ export function CreateKeyDialog({
         {created ? (
           <div className="flex flex-col gap-4">
             <p className="text-sm text-foreground/90">
-              <strong className="font-semibold">{created.key.name}</strong> is ready.{' '}
-              {describeReach(created.key.level, {
-                project: project?.name ?? '',
-                workspace: created.key.workspace?.name ?? '',
-              })}
+              <strong className="font-semibold">{created.key.name}</strong> is ready. Copy the key
+              below — it won’t be shown again.
             </p>
             <SecretReveal
               label="Your API key"
@@ -275,21 +330,21 @@ export function CreateKeyDialog({
                 <Select value={expires} onValueChange={handleExpires} options={EXPIRY_OPTIONS} />
               </FormField>
             </div>
-            <RadioCardGroup
-              legend="Where it works"
-              layout="grid"
-              value={level}
-              onChange={handleLevel}
-              options={levelOptions}
-              renderExtra={renderWorkspacePicker}
-            />
+            {modeOptions.length > 0 && (
+              <RadioCardGroup
+                legend="Where it works"
+                layout="grid"
+                value={mode}
+                onChange={handleMode}
+                options={modeOptions}
+                renderExtra={renderPicker}
+              />
+            )}
             <PermissionGrid
-              // A new level starts from its own preset and catalog.
               key={level}
               level={level}
               value={permissions}
               onChange={handlePermissions}
-              note={reach}
             />
           </form>
         )}

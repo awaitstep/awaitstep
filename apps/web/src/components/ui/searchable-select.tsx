@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import * as Popover from '@radix-ui/react-popover'
 import { Command } from 'cmdk'
-import { Check, ChevronDown, Search } from 'lucide-react'
+import { Check, ChevronDown, Search, X } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 export interface SearchableOption<T extends string> {
@@ -153,5 +153,129 @@ function SearchableRow<T extends string>({ option, selected, onChoose }: Searcha
         <span className="text-2xs tabular-nums text-muted-foreground">{option.count}</span>
       )}
     </Command.Item>
+  )
+}
+
+interface SearchableMultiSelectProps<T extends string> {
+  /** Names the trigger and list for screen readers, e.g. "Projects". */
+  label: string
+  values: T[]
+  onChange: (values: T[]) => void
+  options: SearchableOption<T>[]
+  searchPlaceholder: string
+  /** The trigger summary, e.g. `(n) => n === 1 ? '1 project' : `${n} projects``. */
+  summary: (count: number) => string
+  emptyText?: string
+  className?: string
+}
+
+/**
+ * A multi-select whose options can be searched: the same 36 px trigger as
+ * `SearchableSelect`, opening a checkable list that stays open as you pick,
+ * with the chosen options shown as removable chips below. For picking the set
+ * of projects (or workspaces) a bundle key reaches.
+ */
+export function SearchableMultiSelect<T extends string>({
+  label,
+  values,
+  onChange,
+  options,
+  searchPlaceholder,
+  summary,
+  emptyText = 'Nothing matches.',
+  className,
+}: SearchableMultiSelectProps<T>) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const selected = new Set(values)
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next)
+    if (!next) setQuery('')
+  }
+
+  function toggle(value: T) {
+    onChange(selected.has(value) ? values.filter((v) => v !== value) : [...values, value])
+  }
+
+  const chosen = options.filter((o) => selected.has(o.value))
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Popover.Root open={open} onOpenChange={handleOpenChange}>
+        <Popover.Trigger
+          aria-label={`${label}: ${summary(values.length)}`}
+          className={cn(
+            'flex h-9 w-56 shrink-0 items-center gap-2 whitespace-nowrap rounded-[9px] border border-border bg-card px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            className,
+          )}
+        >
+          <span className="text-muted-foreground">{label}</span>
+          <span className="max-w-32 truncate font-medium">{summary(values.length)}</span>
+          <ChevronDown
+            className="ml-auto size-3.5 shrink-0 text-muted-foreground"
+            aria-hidden="true"
+          />
+        </Popover.Trigger>
+        <Popover.Portal>
+          <Popover.Content
+            align="start"
+            sideOffset={4}
+            collisionPadding={16}
+            className="z-50 flex max-h-[min(360px,var(--radix-popover-content-available-height))] w-64 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-lg"
+          >
+            <Command
+              label={label}
+              filter={filterByLabel}
+              loop
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-3 text-muted-foreground">
+                <Search className="size-3.5 shrink-0" aria-hidden="true" />
+                <Command.Input
+                  value={query}
+                  onValueChange={setQuery}
+                  placeholder={searchPlaceholder}
+                  className="h-full min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
+                />
+              </div>
+              <Command.List className="min-h-0 flex-1 overflow-y-auto p-1.5">
+                <Command.Empty className="px-2 py-6 text-center text-xs text-muted-foreground">
+                  {emptyText}
+                </Command.Empty>
+                {options.map((option) => (
+                  <SearchableRow
+                    key={option.value}
+                    option={option}
+                    selected={selected.has(option.value)}
+                    onChoose={toggle}
+                  />
+                ))}
+              </Command.List>
+            </Command>
+          </Popover.Content>
+        </Popover.Portal>
+      </Popover.Root>
+      {chosen.length > 0 && (
+        <span className="flex flex-wrap gap-1.5">
+          {chosen.map((option) => (
+            <span
+              key={option.value}
+              className="flex items-center gap-1 rounded-md bg-accent px-2 py-0.5 text-2xs text-foreground"
+            >
+              {option.label}
+              <button
+                type="button"
+                aria-label={`Remove ${option.label}`}
+                onClick={() => toggle(option.value)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-3" aria-hidden="true" />
+              </button>
+            </span>
+          ))}
+        </span>
+      )}
+    </div>
   )
 }

@@ -16,6 +16,8 @@ interface KeyTableProps {
   keys: ApiKey[]
   /** Without it the table is read-only: no Revoke, no menu. */
   onRevoke?: (key: ApiKey) => void
+  /** The revoke button's label — "Revoke" for the whole key, "Revoke access" for one scope's slice. */
+  revokeLabel?: string
   /** Keys from a parent scope: the last column reads "Inherited" (workspace settings). */
   inherited?: boolean
   empty?: string
@@ -39,11 +41,44 @@ function Permissions({ apiKey }: { apiKey: ApiKey }) {
   )
 }
 
+/** The places a key reaches: "Organization", or its live project/workspace chips with a +N overflow. */
+function Reaches({ apiKey }: { apiKey: ApiKey }) {
+  if (apiKey.level === 'organization') {
+    return <span className="text-xs text-muted-foreground">Organization</span>
+  }
+  const places =
+    apiKey.level === 'project'
+      ? apiKey.projects.map((p) => ({
+          id: p.id,
+          label: p.name ?? p.slug ?? p.id,
+          revoked: p.revokedAt !== null,
+        }))
+      : apiKey.workspaces.map((w) => ({
+          id: w.workspace.id,
+          label: w.workspace.name,
+          revoked: w.revokedAt !== null,
+        }))
+  const live = places.filter((p) => !p.revoked)
+  const hidden = live.length - CHIPS_SHOWN
+  if (live.length === 0) return <span className="text-2xs text-muted-foreground">—</span>
+  return (
+    <span className="flex flex-wrap gap-1.5">
+      {live.slice(0, CHIPS_SHOWN).map((place) => (
+        <Badge key={place.id} className="font-normal">
+          {place.label}
+        </Badge>
+      ))}
+      {hidden > 0 && <Badge className="font-normal text-muted-foreground">+{hidden}</Badge>}
+    </span>
+  )
+}
+
 /** A level's API keys (`KeysPage`): name and prefix, permissions, who made it, use and expiry. */
 export function KeyTable({
   caption,
   keys,
   onRevoke,
+  revokeLabel = 'Revoke',
   inherited = false,
   empty = 'No keys yet.',
   framed = true,
@@ -66,6 +101,7 @@ export function KeyTable({
         </span>
       ),
     },
+    { id: 'reaches', header: 'Reaches', cell: (key) => <Reaches apiKey={key} /> },
     { id: 'permissions', header: 'Permissions', cell: (key) => <Permissions apiKey={key} /> },
     {
       id: 'by',
@@ -106,7 +142,7 @@ export function KeyTable({
       width: '130px',
       cell: (key) => (
         <Button type="button" variant="outline" size="sm" onClick={() => onRevoke(key)}>
-          Revoke
+          {revokeLabel}
         </Button>
       ),
     })

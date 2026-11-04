@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
-import { useProjectKeys, useRevokeProjectKey } from '../../data/dashboard/api-keys'
+import {
+  useProjectKeys,
+  useRevokeProjectKey,
+  useRevokeProjectKeyScope,
+} from '../../data/dashboard/api-keys'
 import { useWorkspaces } from '../../data/dashboard/workspaces'
 import {
   orgPath,
@@ -34,21 +38,28 @@ interface KeysPageProps {
   onCloseCreate: () => void
 }
 
-function revokeText(key: ApiKey): string {
-  const used = lastUsedLabel(key.lastUsedAt).toLowerCase()
-  return `Anything using ${key.prefix} stops working immediately (last used: ${used}). Keys it minted stop too. This can’t be undone.`
+type Revoking = { key: ApiKey; kind: 'whole' | 'scope' }
+
+function revokeText(revoking: Revoking): string {
+  const used = lastUsedLabel(revoking.key.lastUsedAt).toLowerCase()
+  if (revoking.kind === 'scope') {
+    return `This project stops using ${revoking.key.prefix}; the key keeps working for its other projects (last used: ${used}). This can’t be undone.`
+  }
+  return `Anything using ${revoking.key.prefix} stops working immediately (last used: ${used}). Keys it minted stop too. This can’t be undone.`
 }
 
 /**
- * `/{org}/{project}/api-keys` (`KeysPage`, project level). New API
- * key opens P6's dialog through `?new=key` (D-P3-4); revoking works here.
+ * `/{org}/{project}/api-keys` (project level): the project's own keys, the
+ * keys reaching it from the organization (each revocable just for this
+ * project), and a count per workspace.
  */
 export function KeysPage({ slugs, createOpen, onCloseCreate }: KeysPageProps) {
   const scope = useProjectScope(slugs)
   const keys = useProjectKeys(slugs.org, slugs.project)
   const workspaces = useWorkspaces(slugs.org, slugs.project)
   const revoke = useRevokeProjectKey(slugs.org, slugs.project)
-  const [revoking, setRevoking] = useState<ApiKey | null>(null)
+  const revokeScope = useRevokeProjectKeyScope(slugs.org, slugs.project)
+  const [revoking, setRevoking] = useState<Revoking | null>(null)
 
   if (!scope) return null
   const project = scope.project.project
@@ -58,14 +69,16 @@ export function KeysPage({ slugs, createOpen, onCloseCreate }: KeysPageProps) {
     recentWorkspaces(slugs.org, slugs.project),
   )
 
-  function handleRevoke(key: ApiKey) {
+  function startRevoke(key: ApiKey, kind: 'whole' | 'scope') {
     revoke.reset()
-    setRevoking(key)
+    revokeScope.reset()
+    setRevoking({ key, kind })
   }
 
   function handleConfirmRevoke() {
     if (!revoking) return
-    revoke.mutate(revoking.id, { onSuccess: () => setRevoking(null) })
+    const mutation = revoking.kind === 'whole' ? revoke : revokeScope
+    mutation.mutate(revoking.key.id, { onSuccess: () => setRevoking(null) })
   }
 
   function handleRevokeOpenChange(open: boolean) {
@@ -76,9 +89,11 @@ export function KeysPage({ slugs, createOpen, onCloseCreate }: KeysPageProps) {
     void keys.refetch()
   }
 
-  const onRevoke = canManage ? handleRevoke : undefined
+  const onRevoke = canManage ? (key: ApiKey) => startRevoke(key, 'whole') : undefined
+  const onRevokeScope = canManage ? (key: ApiKey) => startRevoke(key, 'scope') : undefined
+  const mutError = (revoke.error ?? revokeScope.error)?.message
   // A failed revoke stays in the dialog, in place of the warning.
-  const revokeDescription = revoking && (revoke.error?.message ?? revokeText(revoking))
+  const revokeDescription = revoking && (mutError ?? revokeText(revoking))
   const links = {
     organization: { href: orgPath(slugs.org, 'api-keys'), label: 'Org keys' },
     ...(lastWorkspace && {
@@ -89,8 +104,7 @@ export function KeysPage({ slugs, createOpen, onCloseCreate }: KeysPageProps) {
     }),
   }
 
-  const active = keys.data?.keys.filter((key) => !isExpired(key.expiresAt)).length ?? 0
-  const activeCaption = `${active} active`
+  const active = keys.data?.own.filter((key) => !isExpired(key.expiresAt)).length ?? 0
 
   let body
   if (keys.isError) {
@@ -111,16 +125,31 @@ export function KeysPage({ slugs, createOpen, onCloseCreate }: KeysPageProps) {
   } else {
     body = (
       <>
-        {revoke.error && !revoking && <Banner tone="warn">{revoke.error.message}</Banner>}
-        <OverviewCard title="Project keys" caption={activeCaption}>
+        {mutError && !revoking && <Banner tone="warn">{mutError}</Banner>}
+        <OverviewCard title="Project keys" caption={`${active} active`}>
           <KeyTable
             caption={`Project keys for ${project.name}`}
-            keys={keys.data.keys}
+            keys={keys.data.own}
             onRevoke={onRevoke}
             empty={`No project keys in ${project.name} yet.`}
             framed={false}
           />
         </OverviewCard>
+        {keys.data.reaching.length > 0 && (
+          <OverviewCard
+            title="Keys reaching this project"
+            caption={`${keys.data.reaching.length} shared`}
+          >
+            <KeyTable
+              caption={`Keys that reach ${project.name}`}
+              keys={keys.data.reaching}
+              onRevoke={onRevokeScope}
+              revokeLabel="Revoke access"
+              empty="No keys reach this project from the organization."
+              framed={false}
+            />
+          </OverviewCard>
+        )}
         {keys.data.workspaceKeys.length > 0 && (
           <section className="flex flex-wrap items-center gap-x-4 gap-y-2.5 rounded-2xl border border-dashed border-border px-5 py-4">
             <span className="flex min-w-[220px] flex-1 flex-col gap-0.5">
@@ -182,13 +211,17 @@ export function KeysPage({ slugs, createOpen, onCloseCreate }: KeysPageProps) {
         <ConfirmDialog
           open
           onOpenChange={handleRevokeOpenChange}
-          title={`Revoke ${revoking.name}?`}
+          title={
+            revoking.kind === 'scope'
+              ? `Revoke access to ${revoking.key.name}?`
+              : `Revoke ${revoking.key.name}?`
+          }
           description={revokeDescription}
-          confirmLabel="Revoke key"
+          confirmLabel={revoking.kind === 'scope' ? 'Revoke access' : 'Revoke key'}
           cancelLabel="Keep key"
           variant="destructive"
           onConfirm={handleConfirmRevoke}
-          loading={revoke.isPending}
+          loading={revoke.isPending || revokeScope.isPending}
         />
       )}
     </>

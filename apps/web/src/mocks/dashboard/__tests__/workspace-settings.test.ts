@@ -12,14 +12,29 @@ const sales = { org: 'acme', project: 'project-101', workspace: 'sales' }
 beforeEach(() => resetMockDb(new Date()))
 
 describe('workspace keys', () => {
-  it('lists the workspace’s own keys apart from the project keys that reach it', async () => {
+  it('lists the workspace’s own keys apart from the shared and project keys that reach it', async () => {
     const list = await keys.listWorkspaceKeys(ama, sales)
     expect(list.own.map((k) => k.name)).toEqual(['CRM webhook'])
-    expect(list.inherited.map((k) => k.name)).toEqual([
+    const fromProject = list.reaching.filter((k) => k.level === 'project').map((k) => k.name)
+    expect(fromProject).toEqual([
       'CI deploys',
       'Agent (Claude)',
       'Read-only dashboard',
+      'Platform sync',
     ])
+    const shared = list.reaching.filter((k) => k.level === 'workspace').map((k) => k.name)
+    expect(shared).toEqual(['Ops events'])
+  })
+
+  it('shows a non-admin only this workspace’s and project’s slice of reaching bundles', async () => {
+    // Priya is only a viewer in Sales, no org role: the shared key's sibling
+    // workspace (Support) and the project bundle's sibling project (Marketing
+    // Site) are both withheld.
+    const list = await keys.listWorkspaceKeys(as(PRIYA), sales)
+    const sharedKey = list.reaching.find((k) => k.id === 'key_ops_events')
+    expect(sharedKey!.workspaces.map((w) => w.workspace.name)).toEqual(['Sales'])
+    const bundle = list.reaching.find((k) => k.id === 'key_platform')
+    expect(bundle!.projects.map((p) => p.name)).toEqual(['Project 101'])
   })
 
   it('revokes an own key, never a project key, and only for workspace admins', async () => {
@@ -31,6 +46,14 @@ describe('workspace keys', () => {
     )
     await keys.revokeWorkspaceKey(ama, sales, 'key_sales_crm')
     expect((await keys.listWorkspaceKeys(ama, sales)).own).toEqual([])
+  })
+
+  it('drops this workspace’s slice of a shared key, leaving the other workspaces', async () => {
+    await keys.revokeWorkspaceKeyScope(ama, sales, 'key_ops_events')
+    const here = await keys.listWorkspaceKeys(ama, sales)
+    expect(here.reaching.map((k) => k.id)).not.toContain('key_ops_events')
+    const support = await keys.listWorkspaceKeys(ama, { ...sales, workspace: 'support' })
+    expect(support.reaching.map((k) => k.id)).toContain('key_ops_events')
   })
 })
 
@@ -132,6 +155,14 @@ describe('review round (2026-10-27)', () => {
       Date.now() - 1000,
     ).toISOString()
     const list = await keys.listWorkspaceKeys(ama, sales)
-    expect(list.inherited.map((k) => k.id)).not.toContain('key_ci')
+    expect(list.reaching.map((k) => k.id)).not.toContain('key_ci')
+  })
+
+  it('leaves an expired shared workspace bundle out of what reaches the workspace', async () => {
+    getDb().keys.find((k) => k.id === 'key_ops_events')!.expiresAt = new Date(
+      Date.now() - 1000,
+    ).toISOString()
+    const list = await keys.listWorkspaceKeys(ama, sales)
+    expect(list.reaching.map((k) => k.id)).not.toContain('key_ops_events')
   })
 })

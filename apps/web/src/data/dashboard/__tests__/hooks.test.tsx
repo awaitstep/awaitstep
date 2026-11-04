@@ -3,7 +3,14 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { getDb as dashboardDb, resetMockDb } from '../../../mocks/dashboard/db'
-import { useProjectKeys, useRevokeProjectKey, useWorkspaceKeys } from '../api-keys'
+import {
+  useOrgKeys,
+  useProjectKeys,
+  useRevokeOrgKey,
+  useRevokeProjectKey,
+  useRevokeProjectKeyScope,
+  useWorkspaceKeys,
+} from '../api-keys'
 import { useWorkspaceVariables } from '../variables'
 import { useSetShared, useSharedWithWorkspace, useWorkspaceItems } from '../items'
 import { useSetLock } from '../locks'
@@ -161,12 +168,12 @@ describe('dashboard hooks', () => {
       }),
       { wrapper },
     )
-    await waitFor(() => expect(result.current.setup.data?.projectKeys).toBe(3))
+    await waitFor(() => expect(result.current.setup.data?.projectKeys).toBe(4))
 
     await act(() => result.current.revoke.mutateAsync('key_ci'))
 
-    await waitFor(() => expect(result.current.setup.data?.projectKeys).toBe(2))
-    expect(result.current.keys.data?.keys.map((k) => k.id)).not.toContain('key_ci')
+    await waitFor(() => expect(result.current.setup.data?.projectKeys).toBe(3))
+    expect(result.current.keys.data?.own.map((k) => k.id)).not.toContain('key_ci')
   })
 
   it('shows a moved project’s failures on its new org’s home', async () => {
@@ -194,15 +201,19 @@ describe('dashboard hooks', () => {
       { wrapper },
     )
     await waitFor(() => expect(result.current.variables.data?.[0]?.source.name).toBe('Sales'))
-    await waitFor(() => expect(result.current.keys.data?.own[0]?.workspace?.name).toBe('Sales'))
+    await waitFor(() =>
+      expect(result.current.keys.data?.own[0]?.workspaces[0]?.workspace.name).toBe('Sales'),
+    )
 
     await act(() => result.current.rename.mutateAsync({ name: 'Sales EU' }))
 
     await waitFor(() => expect(result.current.variables.data?.[0]?.source.name).toBe('Sales EU'))
-    await waitFor(() => expect(result.current.keys.data?.own[0]?.workspace?.name).toBe('Sales EU'))
+    await waitFor(() =>
+      expect(result.current.keys.data?.own[0]?.workspaces[0]?.workspace.name).toBe('Sales EU'),
+    )
   })
 
-  it('drops a revoked project key from the workspace’s inherited keys', async () => {
+  it('drops a revoked project key from the workspace’s project keys', async () => {
     const { wrapper } = setup()
     const { result } = renderHook(
       () => ({
@@ -211,9 +222,54 @@ describe('dashboard hooks', () => {
       }),
       { wrapper },
     )
-    await waitFor(() => expect(result.current.keys.data?.inherited).toHaveLength(3))
+    const fromProject = () =>
+      result.current.keys.data?.reaching.filter((k) => k.level === 'project')
+    await waitFor(() => expect(fromProject()).toHaveLength(4))
     await act(() => result.current.revoke.mutateAsync('key_ci'))
-    await waitFor(() => expect(result.current.keys.data?.inherited).toHaveLength(2))
+    await waitFor(() => expect(fromProject()).toHaveLength(3))
+  })
+
+  it('refreshes the org page when a project drops its slice of a shared bundle', async () => {
+    const { wrapper } = setup()
+    const { result } = renderHook(
+      () => ({
+        org: useOrgKeys('acme'),
+        revoke: useRevokeProjectKeyScope('acme', 'project-101'),
+      }),
+      { wrapper },
+    )
+    // "Platform sync" is homed at the org and reaches P101 + Marketing.
+    const p101Slice = () =>
+      result.current.org.data
+        ?.find((k) => k.id === 'key_platform')
+        ?.projects.find((p) => p.slug === 'project-101')?.revokedAt
+    await waitFor(() => expect(p101Slice()).toBeNull())
+    await act(() => result.current.revoke.mutateAsync('key_platform'))
+    // Without invalidating the org list, its cached copy would still show P101 live.
+    await waitFor(() => expect(p101Slice()).not.toBeNull())
+  })
+
+  it('refreshes a project’s keys and count when an org bundle is revoked whole', async () => {
+    const { wrapper } = setup()
+    const { result } = renderHook(
+      () => ({
+        project: useProjectKeys('acme', 'project-101'),
+        setup: useProjectSetup('acme', 'project-101'),
+        revoke: useRevokeOrgKey('acme'),
+      }),
+      { wrapper },
+    )
+    await waitFor(() =>
+      expect(result.current.project.data?.reaching.map((k) => k.id)).toContain('key_platform'),
+    )
+    await waitFor(() => expect(result.current.setup.data?.projectKeys).toBe(4))
+
+    await act(() => result.current.revoke.mutateAsync('key_platform'))
+
+    await waitFor(() =>
+      expect(result.current.project.data?.reaching.map((k) => k.id)).not.toContain('key_platform'),
+    )
+    await waitFor(() => expect(result.current.setup.data?.projectKeys).toBe(3))
   })
 
   it('lists a moved project under its new org', async () => {

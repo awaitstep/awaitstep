@@ -27,7 +27,8 @@ const KEYS: ApiKey[] = [
     createdAt: ago(60 * 24 * 60),
     lastUsedAt: ago(22),
     expiresAt: null,
-    workspace: null,
+    projects: [{ id: 'prj_101', name: 'Project 101', slug: 'project-101', revokedAt: null }],
+    workspaces: [],
   },
   {
     id: 'k2',
@@ -39,7 +40,11 @@ const KEYS: ApiKey[] = [
     createdAt: ago(60 * 48),
     lastUsedAt: ago(180),
     expiresAt: inDays(28),
-    workspace: null,
+    projects: [
+      { id: 'prj_101', name: 'Project 101', slug: 'project-101', revokedAt: null },
+      { id: 'prj_marketing', name: 'Marketing Site', slug: 'marketing-site', revokedAt: null },
+    ],
+    workspaces: [],
   },
   {
     id: 'k3',
@@ -51,7 +56,8 @@ const KEYS: ApiKey[] = [
     createdAt: ago(60 * 24 * 30),
     lastUsedAt: null,
     expiresAt: inDays(3),
-    workspace: null,
+    projects: [{ id: 'prj_101', name: 'Project 101', slug: 'project-101', revokedAt: null }],
+    workspaces: [],
   },
 ]
 

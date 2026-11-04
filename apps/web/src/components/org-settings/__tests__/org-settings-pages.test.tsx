@@ -283,7 +283,8 @@ describe('review round (2026-10-27)', () => {
       Date.now() - 1000,
     ).toISOString()
     renderWithDashboardData(<OrgKeysPage org="acme" createOpen={false} onCloseCreate={noop} />)
-    expect(await screen.findByText('1 active')).toBeVisible()
+    // Onboarding bot and the Platform sync bundle stay; Terraform is now expired.
+    expect(await screen.findByText('2 active')).toBeVisible()
   })
 
   it('clears an email error once that email is removed', async () => {

@@ -95,7 +95,12 @@ export const deleteProject = mutation((ctx, orgSlug: string, projectSlug: string
   )
   db.projects = db.projects.filter((p) => p.id !== project!.id)
   db.projectMembers = db.projectMembers.filter((m) => m.projectId !== project!.id)
-  db.keys = db.keys.filter((k) => k.projectId !== project!.id)
+  // A deleted project drops its scope rows; a project key left with none goes with it, and its
+  // workspace keys go with their workspaces in deleteWorkspaces below.
+  for (const k of db.keys) {
+    k.projectScopes = k.projectScopes.filter((s) => s.id !== project!.id)
+  }
+  db.keys = db.keys.filter((k) => k.level !== 'project' || k.projectScopes.length > 0)
   db.variables = db.variables.filter((v) => v.level !== 'project' || v.scopeId !== project!.id)
   deleteWorkspaces(db, workspaceIds)
 })
@@ -127,12 +132,20 @@ export const moveProject = mutation(
       db.projects.some((p) => p.orgId === to.id && p.slug === s && p.id !== row.id),
     )
     row.updatedAt = new Date().toISOString()
-    for (const key of db.keys.filter((k) => k.projectId === row.id)) key.orgId = to.id
     // Grants for people outside the new org don't travel: joining it later mustn't revive them.
     const inTarget = new Set(db.orgMembers.filter((m) => m.orgId === to.id).map((m) => m.userId))
     const workspaceIds = new Set(
       db.workspaces.filter((w) => w.projectId === row.id).map((w) => w.id),
     )
+    // Keys that reach this project (directly or through its workspaces) follow it to the new org.
+    // A multi-project bundle that also reaches projects left behind is moved whole here (a mock-only
+    // simplification; the fixtures never split a bundle across orgs this way).
+    for (const key of db.keys) {
+      const touches =
+        key.projectScopes.some((s) => s.id === row.id) ||
+        key.workspaceScopes.some((s) => workspaceIds.has(s.id))
+      if (touches) key.orgId = to.id
+    }
     db.projectMembers = db.projectMembers.filter(
       (m) => m.projectId !== row.id || inTarget.has(m.userId),
     )

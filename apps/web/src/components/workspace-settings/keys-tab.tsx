@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
-import { useRevokeWorkspaceKey } from '../../data/dashboard/api-keys'
+import { useRevokeWorkspaceKey, useRevokeWorkspaceKeyScope } from '../../data/dashboard/api-keys'
 import {
   projectPagePath,
   workspaceSettingsPath,
@@ -29,7 +29,13 @@ interface KeysTabProps {
   onCloseCreate: () => void
 }
 
-/** Workspace settings → API keys (`Access`): its own keys, then the project keys that work in it. */
+type Revoking = { key: ApiKey; kind: 'whole' | 'scope' }
+
+/**
+ * Workspace settings → API keys (`Access`): the keys that live only here, the
+ * shared keys that reach several workspaces (each revocable just for this one),
+ * and the project keys that work in every workspace.
+ */
 export function KeysTab({
   slugs,
   scope,
@@ -40,13 +46,21 @@ export function KeysTab({
   onCloseCreate,
 }: KeysTabProps) {
   const revoke = useRevokeWorkspaceKey(slugs)
-  const [revoking, setRevoking] = useState<ApiKey | null>(null)
+  const revokeScope = useRevokeWorkspaceKeyScope(slugs)
+  const [revoking, setRevoking] = useState<Revoking | null>(null)
   const workspace = scope.workspace
   const canManage = scope.viewerCan.manageKeys.allowed
 
-  function handleRevoke(key: ApiKey) {
+  // `reaching` holds two kinds: workspace-level bundle keys that include this
+  // workspace (revocable here, for this workspace only) and project keys that
+  // cover every workspace (managed at the project, read-only here).
+  const shared = keys.reaching.filter((key) => key.level === 'workspace')
+  const fromProject = keys.reaching.filter((key) => key.level === 'project')
+
+  function startRevoke(key: ApiKey, kind: 'whole' | 'scope') {
     revoke.reset()
-    setRevoking(key)
+    revokeScope.reset()
+    setRevoking({ key, kind })
   }
 
   function handleRevokeOpenChange(open: boolean) {
@@ -55,14 +69,19 @@ export function KeysTab({
 
   function handleConfirm() {
     if (!revoking) return
-    revoke.mutate(revoking.id, { onSuccess: () => setRevoking(null) })
+    const mutation = revoking.kind === 'whole' ? revoke : revokeScope
+    mutation.mutate(revoking.key.id, { onSuccess: () => setRevoking(null) })
   }
 
-  const onRevoke = canManage ? handleRevoke : undefined
+  const onRevoke = canManage ? (key: ApiKey) => startRevoke(key, 'whole') : undefined
+  const onRevokeScope = canManage ? (key: ApiKey) => startRevoke(key, 'scope') : undefined
+  const mutError = (revoke.error ?? revokeScope.error)?.message
   const revokeBody =
     revoking &&
-    (revoke.error?.message ??
-      `Anything using ${revoking.prefix} stops working in ${workspace.name} immediately (last used: ${lastUsedLabel(revoking.lastUsedAt).toLowerCase()}). This can’t be undone.`)
+    (mutError ??
+      (revoking.kind === 'scope'
+        ? `${workspace.name} stops using ${revoking.key.prefix}; the key keeps working for its other workspaces (last used: ${lastUsedLabel(revoking.key.lastUsedAt).toLowerCase()}). This can’t be undone.`
+        : `Anything using ${revoking.key.prefix} stops working in ${workspace.name} immediately (last used: ${lastUsedLabel(revoking.key.lastUsedAt).toLowerCase()}). This can’t be undone.`))
 
   return (
     <>
@@ -77,7 +96,7 @@ export function KeysTab({
           </ShellLink>
         </TopBarContent>
       )}
-      {revoke.error && !revoking && <Banner tone="warn">{revoke.error.message}</Banner>}
+      {mutError && !revoking && <Banner tone="warn">{mutError}</Banner>}
       <ScopedSection
         kind="own"
         scopeLabel={`Only in ${workspace.name}`}
@@ -92,6 +111,21 @@ export function KeysTab({
           framed={false}
         />
       </ScopedSection>
+      {shared.length > 0 && (
+        <ScopedSection
+          kind="own"
+          scopeLabel="Shared across workspaces"
+          hint="One key for a set of workspaces"
+        >
+          <KeyTable
+            caption={`Keys shared with ${workspace.name}`}
+            keys={shared}
+            onRevoke={onRevokeScope}
+            revokeLabel="Revoke access"
+            framed={false}
+          />
+        </ScopedSection>
+      )}
       <ScopedSection
         kind="inherited"
         scopeLabel={`From ${projectName}`}
@@ -103,7 +137,7 @@ export function KeysTab({
       >
         <KeyTable
           caption="Inherited from the project"
-          keys={keys.inherited}
+          keys={fromProject}
           inherited
           empty={`${projectName} has no project keys.`}
           framed={false}
@@ -122,12 +156,17 @@ export function KeysTab({
         <ConfirmDialog
           open
           onOpenChange={handleRevokeOpenChange}
-          title={`Revoke ${revoking.name}?`}
+          title={
+            revoking.kind === 'scope'
+              ? `Revoke access to ${revoking.key.name}?`
+              : `Revoke ${revoking.key.name}?`
+          }
           description={revokeBody}
-          confirmLabel="Revoke key"
+          confirmLabel={revoking.kind === 'scope' ? 'Revoke access' : 'Revoke key'}
           cancelLabel="Keep key"
+          variant="destructive"
           onConfirm={handleConfirm}
-          loading={revoke.isPending}
+          loading={revoke.isPending || revokeScope.isPending}
         />
       )}
     </>

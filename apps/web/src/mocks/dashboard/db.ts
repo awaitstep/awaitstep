@@ -156,13 +156,24 @@ export interface ReleaseVisitRow {
   seenIds: string[]
 }
 
-/** An API key at any level; `projectId` / `workspaceId` say what it reaches. */
+/** One scope a key reaches (a project or a workspace), with its own revoked state. */
+export interface KeyScopeRow {
+  /** The project id (project key) or workspace id (workspace key). */
+  id: string
+  /** When this consumer revoked its slice; null while live. */
+  revokedAt: string | null
+}
+
+/**
+ * An API key at any level. A key reaches a SET: `projectScopes` for a
+ * project-level key, `workspaceScopes` for a workspace-level key, both empty
+ * for an org-level key. Each scope carries its own revoked state, so one
+ * consumer can drop the key while the others keep it.
+ */
 export interface KeyRow {
   id: string
   level: KeyLevel
   orgId: string
-  projectId: string | null
-  workspaceId: string | null
   name: string
   prefix: string
   permissions: KeyPermissions
@@ -170,6 +181,8 @@ export interface KeyRow {
   createdAt: string
   lastUsedAt: string | null
   expiresAt: string | null
+  projectScopes: KeyScopeRow[]
+  workspaceScopes: KeyScopeRow[]
 }
 
 /** A variable set at one level; the scope id is the org, project or workspace it belongs to. */
