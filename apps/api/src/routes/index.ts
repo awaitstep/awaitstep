@@ -5,7 +5,7 @@ import type { AppEnv } from '../types.js'
 import type { Auth } from '../auth/config.js'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
-import { apiKeyProjectPin, createAuthMiddleware, requireSessionAuth } from '../middleware/auth.js'
+import { apiKeyLevel, createAuthMiddleware, requireSessionAuth } from '../middleware/auth.js'
 import {
   requireKeyMapped,
   requireKeyPermission,
@@ -75,7 +75,8 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   // level's one scope read; otherwise the organization's.
   router.use('/env-vars/*', async (c, next) =>
     ['project', 'projectId', 'workspace', 'workspaceId'].some((param) => c.req.query(param)) ||
-    apiKeyProjectPin(c) !== null
+    apiKeyLevel(c) === 'project' ||
+    apiKeyLevel(c) === 'workspace'
       ? requireProject(c, next)
       : requireOrganization(c, next),
   )
@@ -97,7 +98,10 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   // holds no `members` cell and is refused.
   router.use('/members/:userId/*', requireSessionAuth)
   router.use('/members', async (c, next) =>
-    c.req.query('project') || c.req.query('projectId') || apiKeyProjectPin(c) !== null
+    c.req.query('project') ||
+    c.req.query('projectId') ||
+    apiKeyLevel(c) === 'project' ||
+    apiKeyLevel(c) === 'workspace'
       ? requireProject(c, next)
       : requireOrganization(c, next),
   )

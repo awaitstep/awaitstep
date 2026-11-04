@@ -509,7 +509,7 @@ describe.each([
             now: NOW,
           }),
         () => h.adapter.getAccessRequestForDecision('nope', 'u-ama'),
-        () => h.adapter.listApiKeysByProject('org-acme', 'p-101', undefined, 'u-eve'),
+        () => h.adapter.listApiKeysByProject('org-acme', 'p-101', 'u-eve'),
         () => h.adapter.listEnvVarsByProject('org-acme', 'p-101', undefined, 'u-eve'),
       ]
       for (const read of reads) {
@@ -1526,13 +1526,14 @@ describe.each([
     })
   })
 
-  it('reads a key with its creator’s project standing', async () => {
+  it('mints a project key for a creator who can open the project, and returns its scope set', async () => {
+    // Eve can open Project 101 through her Sales grant, so she may mint a key for it.
     await h.adapter.createApiKey({
       level: 'project' as const,
       permissions: '{"workflows":["read"]}',
       id: 'k-eve',
       organizationId: 'org-acme',
-      projectId: 'p-101',
+      projectIds: ['p-101'],
       createdBy: 'u-eve',
       name: 'Eve’s',
       keyHash: 'hash-eve',
@@ -1540,16 +1541,24 @@ describe.each([
       scopes: '["read"]',
     })
     const auth = await h.adapter.getApiKeyAuthByHash('hash-eve')
-    expect(auth).toMatchObject({
-      createdByIsMember: true,
-      createdByRole: 'member',
-      createdByProjectGrant: null,
-      createdByHasWorkspaceGrant: true,
-    })
-    await h.adapter.removeWorkspaceGrant('ws-sales', 'u-eve')
-    expect(await h.adapter.getApiKeyAuthByHash('hash-eve')).toMatchObject({
-      createdByHasWorkspaceGrant: false,
-    })
+    expect(auth).toMatchObject({ createdByIsMember: true, createdByRole: 'member' })
+    expect(auth?.organizationId).toBe('org-acme')
+    expect(auth?.projectScopes).toEqual(['p-101'])
+    // A project she cannot open is refused.
+    expect(
+      await h.adapter.createApiKey({
+        level: 'project' as const,
+        permissions: '{"workflows":["read"]}',
+        id: 'k-eve-202',
+        organizationId: 'org-acme',
+        projectIds: ['p-202'],
+        createdBy: 'u-eve',
+        name: 'x',
+        keyHash: 'hash-eve-202',
+        keyPrefix: 'ask_e2',
+        scopes: '["read"]',
+      }),
+    ).toBeNull()
   })
 
   describe('keys at three levels', () => {
@@ -1558,8 +1567,8 @@ describe.each([
       createdBy: string,
       at:
         | { level: 'organization' }
-        | { level: 'project'; projectId: string }
-        | { level: 'workspace'; projectId: string; workspaceId: string },
+        | { level: 'project'; projectIds: string[] }
+        | { level: 'workspace'; projectId: string; workspaceIds: string[] },
       permissions = '{"workflows":["read"]}',
     ) =>
       h.adapter.createApiKey({
@@ -1575,62 +1584,56 @@ describe.each([
         ...at,
       })
 
-    it('mints a workspace key only in a workspace of that project its creator can open', async () => {
+    it('mints a workspace key only when its creator can open every workspace (all-or-nothing)', async () => {
       const sales = await key('k-sales', 'u-eve', {
         level: 'workspace',
         projectId: 'p-101',
-        workspaceId: 'ws-sales',
+        workspaceIds: ['ws-sales'],
       })
       expect(sales).toMatchObject({
-        projectId: 'p-101',
-        workspaceId: 'ws-sales',
-        organizationId: null,
+        level: 'workspace',
+        organizationId: 'org-acme',
         keySuffix: 'a71d',
       })
-      // Ops is hidden from Eve; Default is another project's.
+      expect((await h.adapter.getApiKeyAuthByHash('hash-k-sales'))?.workspaceScopes).toEqual([
+        'ws-sales',
+      ])
+      // Ops is hidden from Eve, so a set that includes it is refused whole — no partial key.
       expect(
         await key('k-ops', 'u-eve', {
           level: 'workspace',
           projectId: 'p-101',
-          workspaceId: 'ws-ops',
+          workspaceIds: ['ws-ops'],
         }),
       ).toBeNull()
       expect(
-        await key('k-202', 'u-ama', {
+        await key('k-mix', 'u-eve', {
           level: 'workspace',
           projectId: 'p-101',
-          workspaceId: 'ws-202',
+          workspaceIds: ['ws-sales', 'ws-ops'],
         }),
       ).toBeNull()
       expect(await h.adapter.getApiKeyById('k-ops')).toBeNull()
-      const auth = await h.adapter.getApiKeyAuthByHash('hash-k-sales')
-      expect(auth).toMatchObject({
-        workspaceId: 'ws-sales',
-        permissions: '{"workflows":["read"]}',
-        resolvedOrganizationId: 'org-acme',
-        createdByCanOpenWorkspace: true,
-      })
-      // Sales taken away: the same read says the creator cannot open the
-      // key's workspace any more, and auth refuses the key on that.
-      await h.adapter.removeWorkspaceGrant('ws-sales', 'u-eve')
-      expect(await h.adapter.getApiKeyAuthByHash('hash-k-sales')).toMatchObject({
-        createdByCanOpenWorkspace: false,
-      })
+      expect(await h.adapter.getApiKeyById('k-mix')).toBeNull()
     })
 
-    it('lists a workspace’s own keys with the live project keys that reach it, and counts keys per workspace the viewer can open', async () => {
+    it('lists a workspace’s own keys and the live keys reaching it, and counts keys per workspace the viewer can open', async () => {
       await key('k-own', 'u-ama', {
         level: 'workspace',
         projectId: 'p-101',
-        workspaceId: 'ws-sales',
+        workspaceIds: ['ws-sales'],
       })
-      await key('k-ops', 'u-ama', { level: 'workspace', projectId: 'p-101', workspaceId: 'ws-ops' })
-      await key('k-proj', 'u-ama', { level: 'project', projectId: 'p-101' })
+      await key('k-ops', 'u-ama', {
+        level: 'workspace',
+        projectId: 'p-101',
+        workspaceIds: ['ws-ops'],
+      })
+      await key('k-proj', 'u-ama', { level: 'project', projectIds: ['p-101'] })
       await h.adapter.createApiKey({
         id: 'k-stale',
         level: 'project',
         organizationId: 'org-acme',
-        projectId: 'p-101',
+        projectIds: ['p-101'],
         createdBy: 'u-ama',
         name: 'stale',
         keyHash: 'hash-stale',
@@ -1640,14 +1643,13 @@ describe.each([
         expiresAt: T0,
       })
       const sales = await h.adapter.listApiKeysByWorkspace('ws-sales', NOW)
-      expect(sales.own.map((k) => [k.id, k.workspace?.slug, k.createdByName])).toEqual([
-        ['k-own', 'sales', 'Ama Mensah'],
-      ])
-      // An expired project key no longer reaches anything, so it is not listed as reaching this one.
-      expect(sales.inherited.map((k) => k.id)).toEqual(['k-proj'])
       expect(
-        (await h.adapter.listApiKeysByProject('org-acme', 'p-101')).data.map((k) => k.id),
-      ).toEqual(['k-stale', 'k-proj'])
+        sales.own.map((k) => [k.id, k.workspaces[0]?.workspace.slug, k.createdByName]),
+      ).toEqual([['k-own', 'sales', 'Ama Mensah']])
+      // An expired project key no longer reaches anything, so only the live one reaches this workspace.
+      expect(sales.reaching.map((k) => k.id)).toEqual(['k-proj'])
+      const p101 = await h.adapter.listApiKeysByProject('org-acme', 'p-101')
+      expect(p101.own.map((k) => k.id)).toEqual(['k-stale', 'k-proj'])
       expect(await h.adapter.countApiKeysByWorkspace('p-101', 'u-ama')).toEqual([
         { workspace: { id: 'ws-sales', slug: 'sales', name: 'Sales', colour: 'blue' }, count: 1 },
         { workspace: { id: 'ws-ops', slug: 'ops', name: 'Ops', colour: 'blue' }, count: 1 },
@@ -1662,9 +1664,9 @@ describe.each([
       await key('k-own', 'u-ama', {
         level: 'workspace',
         projectId: 'p-101',
-        workspaceId: 'ws-sales',
+        workspaceIds: ['ws-sales'],
       })
-      await key('k-proj', 'u-ama', { level: 'project', projectId: 'p-101' })
+      await key('k-proj', 'u-ama', { level: 'project', projectIds: ['p-101'] })
       await key('k-org', 'u-ama', { level: 'organization' }, '{"projects":["read"]}')
       expect(
         await h.adapter.revokeApiKey('k-org', { level: 'project', projectId: 'p-101' }),
@@ -1700,22 +1702,40 @@ describe.each([
       expect((await h.adapter.listApiKeysByWorkspace('ws-sales', NOW)).own).toEqual([])
     })
 
-    it('takes a workspace’s keys with it when the workspace goes, and keeps both for the last workspace', async () => {
+    it('drops a workspace’s slice when the workspace goes, leaving the key reaching nothing there', async () => {
       await key('k-own', 'u-ama', {
         level: 'workspace',
         projectId: 'p-101',
-        workspaceId: 'ws-sales',
+        workspaceIds: ['ws-sales'],
       })
-      await key('k-202', 'u-ama', { level: 'workspace', projectId: 'p-202', workspaceId: 'ws-202' })
+      await key('k-202', 'u-ama', {
+        level: 'workspace',
+        projectId: 'p-202',
+        workspaceIds: ['ws-202'],
+      })
       expect(await h.adapter.deleteWorkspaceUnlessBlocked('ws-202')).toBe(false)
       expect(await h.adapter.getApiKeyById('k-202')).not.toBeNull()
       // One statement, its answer from the rows it removed: a workspace that
       // never existed is not "deleted".
       expect(await h.adapter.deleteWorkspaceUnlessBlocked('ws-nowhere')).toBe(false)
-      // The keys go by the column's cascade on both dialects (the sqlite
-      // migration once added the column without one).
+      // The scope row goes by the join table's cascade on both dialects; the
+      // key row stays but reaches the gone workspace no longer.
       expect(await h.adapter.deleteWorkspaceUnlessBlocked('ws-sales')).toBe(true)
-      expect(await h.adapter.getApiKeyById('k-own')).toBeNull()
+      expect((await h.adapter.getApiKeyAuthByHash('hash-k-own'))?.workspaceScopes).toEqual([])
+    })
+
+    it('discloses a reaching bundle’s whole set only to an org admin', async () => {
+      await key('k-mp', 'u-ama', { level: 'project', projectIds: ['p-101', 'p-202'] })
+
+      // Dan opens Project 101 as a project member but is not an org admin, so
+      // the sibling Project 202 the bundle also reaches is not disclosed to him.
+      const dan = await h.adapter.listApiKeysByProject('org-acme', 'p-101', 'u-dan')
+      expect(dan.reaching.map((k) => k.id)).toEqual(['k-mp'])
+      expect(dan.reaching[0]?.projects.map((p) => p.projectId)).toEqual(['p-101'])
+
+      // With fullReach (an org admin) the whole scope set is disclosed.
+      const admin = await h.adapter.listApiKeysByProject('org-acme', 'p-101', 'u-dan', true)
+      expect(admin.reaching[0]?.projects.map((p) => p.projectId).sort()).toEqual(['p-101', 'p-202'])
     })
   })
 
@@ -1725,7 +1745,7 @@ describe.each([
       permissions: '{"workflows":["read"]}',
       id: 'k-101',
       organizationId: 'org-acme',
-      projectId: 'p-101',
+      projectIds: ['p-101'],
       createdBy: 'u-ama',
       name: 'Project key',
       keyHash: 'hash-101',
@@ -1740,12 +1760,10 @@ describe.each([
       value: 'x',
       isSecret: false,
     })
-    expect(
-      (await h.adapter.listApiKeysByProject('org-acme', 'p-101', undefined, 'u-eve')).data,
-    ).toHaveLength(1)
-    expect(
-      (await h.adapter.listApiKeysByProject('org-acme', 'p-101', undefined, 'u-fay')).data,
-    ).toEqual([])
+    expect((await h.adapter.listApiKeysByProject('org-acme', 'p-101', 'u-eve')).own).toHaveLength(1)
+    const fay = await h.adapter.listApiKeysByProject('org-acme', 'p-101', 'u-fay')
+    expect(fay.own).toEqual([])
+    expect(fay.reaching).toEqual([])
     // Variables are addressed at their level (B4): the scope read that resolves
     // the address is what hides a project; the list itself is the project's own.
     expect((await h.adapter.listEnvVarsByProject('org-acme', 'p-101')).data).toHaveLength(1)
@@ -1771,7 +1789,7 @@ describe.each([
         permissions: '{"workflows":["read"]}',
         id: 'k-hidden',
         organizationId: 'org-acme',
-        projectId: 'p-202',
+        projectIds: ['p-202'],
         createdBy: 'u-eve',
         name: 'x',
         keyHash: 'hash-h',

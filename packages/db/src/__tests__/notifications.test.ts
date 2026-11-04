@@ -60,9 +60,8 @@ async function addMembers(h: Harness) {
 
 function apiKey(over: Record<string, unknown>) {
   return {
-    projectId: null,
-    organizationId: null,
-    workspaceId: null,
+    organizationId: 'org-acme',
+    level: 'organization',
     createdBy: 'u-ama',
     keyPrefix: 'ask_',
     scopes: '[]',
@@ -378,8 +377,7 @@ describe.each([
         }),
         apiKey({
           id: 'k-ws',
-          projectId: 'p-101',
-          workspaceId: 'ws-sales',
+          level: 'workspace',
           createdBy: 'u-dan',
           expiresAt: '2026-10-30T20:00:00.000Z',
         }),
@@ -399,6 +397,9 @@ describe.each([
           expiresAt: '2026-11-01T00:00:00.000Z',
         }),
       ])
+      await h.db
+        .insert(h.schema.apiKeyWorkspaces)
+        .values([{ keyId: 'k-ws', workspaceId: 'ws-sales', revokedAt: null }])
     })
 
     it('warns each live key’s creator once per threshold', async () => {

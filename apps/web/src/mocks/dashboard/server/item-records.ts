@@ -210,6 +210,10 @@ export function deleteWorkspaces(db: MockDb, workspaceIds: Set<string>): void {
     (c) => !itemIds.has(c.itemId) && !workspaceIds.has(c.callerWorkspaceId),
   )
   db.editRequests = db.editRequests.filter((r) => !workspaceIds.has(r.workspaceId))
-  db.keys = db.keys.filter((k) => !k.workspaceId || !workspaceIds.has(k.workspaceId))
+  // A deleted workspace drops its scope rows; a workspace key left with none goes with it.
+  for (const k of db.keys) {
+    k.workspaceScopes = k.workspaceScopes.filter((s) => !workspaceIds.has(s.id))
+  }
+  db.keys = db.keys.filter((k) => k.level !== 'workspace' || k.workspaceScopes.length > 0)
   db.variables = db.variables.filter((v) => v.level !== 'workspace' || !workspaceIds.has(v.scopeId))
 }

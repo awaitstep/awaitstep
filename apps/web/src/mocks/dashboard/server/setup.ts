@@ -33,7 +33,10 @@ export const getProjectSetup = endpoint(
       projectVariables: own.size,
       // Expired keys stay listed (as "Expired") but no longer reach anything.
       projectKeys: db.keys.filter(
-        (k) => k.level === 'project' && k.projectId === project!.id && isLive(k),
+        (k) =>
+          k.level === 'project' &&
+          isLive(k) &&
+          k.projectScopes.some((s) => s.id === project!.id && s.revokedAt === null),
       ).length,
     }
   },

@@ -4,7 +4,7 @@ import { nanoid } from 'nanoid'
 import { ACCESS_REASONS, WORKSPACE_COLOURS, slugify, workspaceCapabilities } from '@awaitstep/ir'
 import { isUniqueViolation } from '@awaitstep/db'
 import { zValidator } from '../lib/validation.js'
-import { apiKeyWorkspacePin, isSession } from '../middleware/auth.js'
+import { apiKeyLevel, isSession } from '../middleware/auth.js'
 import { CHANGED_MEANWHILE, lockBodySchema, lockResponse } from '../lib/locks.js'
 import { sharedItemRecord, sharedListQuerySchema } from '../lib/sharing.js'
 import { FOR_KEY, FOR_SESSION, rolesOf, workspaceRecord } from '../lib/scope-records.js'
@@ -180,8 +180,8 @@ workspaces.get('/:id/shared', zValidator('query', sharedListQuerySchema), async 
     },
     { cursor, limit },
   )
-  // A workspace key opens its own workspace only, which this list leaves out.
-  const opens = apiKeyWorkspacePin(c) === null
+  // A workspace key opens its own workspaces only, which this list leaves out.
+  const opens = apiKeyLevel(c) !== 'workspace'
   return c.json({
     ...page,
     data: page.data.map((row) => sharedItemRecord(row, 'workspace', opens)),

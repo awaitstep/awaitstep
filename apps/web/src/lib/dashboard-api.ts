@@ -373,6 +373,18 @@ export interface ApiConnectionProjects {
 }
 
 /** A key as `/api-keys` lists it (B3): its level, grid and where it reaches; never the secret. */
+export interface ApiKeyProjectScope {
+  projectId: string
+  projectName: string | null
+  projectSlug: string | null
+  revokedAt: string | null
+}
+
+export interface ApiKeyWorkspaceScope {
+  workspace: { id: string; slug: string; name: string; colour: string }
+  revokedAt: string | null
+}
+
 export interface ApiKeyRow {
   id: string
   level: KeyLevel
@@ -385,18 +397,22 @@ export interface ApiKeyRow {
   createdAt: string
   lastUsedAt: string | null
   expiresAt: string | null
-  projectId: string | null
-  workspaceId: string | null
-  workspace: { id: string; slug: string; name: string; colour: string } | null
+  /** The project scope set (project-level keys); empty otherwise. */
+  projects: ApiKeyProjectScope[]
+  /** The workspace scope set (workspace-level keys); empty otherwise. */
+  workspaces: ApiKeyWorkspaceScope[]
 }
 
-/** One page of a level's key list; `nextCursor` until the last. */
+/** The organization's keys list; `nextCursor` until the last page. */
 export interface ApiKeyPage {
   data: ApiKeyRow[]
   nextCursor: string | null
 }
 
-export interface ApiProjectKeys extends ApiKeyPage {
+/** A project's keys page: its own keys, the keys reaching it, and a count per workspace. */
+export interface ApiProjectKeys {
+  own: ApiKeyRow[]
+  reaching: ApiKeyRow[]
   workspaceCounts: {
     workspace: { id: string; slug: string; name: string; colour: string }
     count: number
@@ -405,7 +421,7 @@ export interface ApiProjectKeys extends ApiKeyPage {
 
 export interface ApiWorkspaceKeys {
   own: ApiKeyRow[]
-  inherited: ApiKeyRow[]
+  reaching: ApiKeyRow[]
 }
 
 /** A variable as `/env-vars` lists it (B4): its level read off its columns, a secret's value masked. */
@@ -663,24 +679,37 @@ export const dashboardApi = {
     return request(`/api-keys${query({ org, cursor })}`)
   },
 
-  listProjectKeys(slugs: ProjectSlugs, cursor?: string): Promise<ApiProjectKeys> {
-    return request(`/api-keys${query({ ...slugs, cursor })}`)
+  listProjectKeys(slugs: ProjectSlugs): Promise<ApiProjectKeys> {
+    return request(`/api-keys${query(slugs)}`)
   },
 
   listWorkspaceKeys(slugs: WorkspaceSlugs): Promise<ApiWorkspaceKeys> {
     return request(`/api-keys${query(slugs)}`)
   },
 
-  /** The secret comes back once, as `key`. */
+  /** The secret comes back once, as `key`. A project/workspace key may carry a scope set. */
   createKey(
     slugs: KeySlugs,
-    data: { name: string; level: KeyLevel; permissions: KeyPermissions; expiresAt: string | null },
+    data: {
+      name: string
+      level: KeyLevel
+      permissions: KeyPermissions
+      expiresAt: string | null
+      projectIds?: string[]
+      workspaceIds?: string[]
+    },
   ): Promise<ApiKeyRow & { key: string }> {
     return request(`/api-keys${query(slugs)}`, { method: 'POST', body: JSON.stringify(data) })
   },
 
+  /** The whole-key kill-switch, from the key's home level. */
   revokeKey(slugs: KeySlugs, id: string): Promise<ApiKeyRow> {
     return request(`/api-keys/${id}${query(slugs)}`, { method: 'DELETE' })
+  },
+
+  /** Per-consumer revoke: the addressed project or workspace drops its own slice of a shared key. */
+  revokeKeyScope(slugs: KeySlugs, id: string): Promise<ApiKeyRow> {
+    return request(`/api-keys/${id}/scope${query(slugs)}`, { method: 'DELETE' })
   },
 
   // Variables (B4), addressed at their level like keys: `?org=` the

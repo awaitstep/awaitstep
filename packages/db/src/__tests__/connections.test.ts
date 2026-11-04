@@ -309,8 +309,9 @@ describe.each([
       await h.adapter.createConnection(
         write({ allProjects: false, projectIds: ['p-101', 'p-202'] }),
       )
-      const as = async (visibleTo: { userId: string } | { projectId: string }) =>
-        (await h.adapter.listConnections('org-acme', { visibleTo })).data[0]!
+      const as = async (
+        visibleTo: { userId: string } | { projectId: string } | { projectIds: string[] },
+      ) => (await h.adapter.listConnections('org-acme', { visibleTo })).data[0]!
       expect(await as({ userId: 'u-ama' })).toMatchObject({
         projects: [{ id: 'p-101' }, { id: 'p-202' }],
         hiddenProjects: 0,
@@ -324,6 +325,16 @@ describe.each([
         projects: [{ id: 'p-202' }],
         hiddenProjects: 1,
       })
+      // A scoped key sees only the projects in its set — never widened beyond it.
+      expect(await as({ projectIds: ['p-202'] })).toMatchObject({
+        projects: [{ id: 'p-202' }],
+        hiddenProjects: 1,
+      })
+      expect(await as({ projectIds: ['p-101', 'p-202'] })).toMatchObject({
+        projects: [{ id: 'p-101' }, { id: 'p-202' }],
+        hiddenProjects: 0,
+      })
+      expect(await as({ projectIds: [] })).toMatchObject({ projects: [], hiddenProjects: 2 })
     })
 
     it('lists no deployments and no projects for a fresh all-projects connection', async () => {
@@ -671,25 +682,34 @@ describe.each([
           v('v-4', 'OWN', { projectId: 'p-101' }),
           v('v-5', 'WS', { projectId: 'p-101', workspaceId: 'ws-sales' }),
         ])
-      const key = (id: string, over: Record<string, unknown>) => ({
+      const key = (id: string, over: Record<string, unknown> = {}) => ({
         id,
+        organizationId: 'org-acme',
+        level: 'project',
         createdBy: 'u-ama',
         name: id,
         keyHash: `hash-${id}`,
         keyPrefix: 'ask_',
         scopes: '[]',
         createdAt: T0,
-        projectId: 'p-101',
         ...over,
       })
       await h.db
         .insert(h.schema.apiKeys)
         .values([
-          key('k-live', {}),
+          key('k-live'),
           key('k-revoked', { revokedAt: T0 }),
           key('k-expired', { expiresAt: '2026-10-29T00:00:00.000Z' }),
-          key('k-ws', { workspaceId: 'ws-sales' }),
+          key('k-ws', { level: 'workspace' }),
         ])
+      await h.db.insert(h.schema.apiKeyProjects).values([
+        { keyId: 'k-live', projectId: 'p-101', revokedAt: null },
+        { keyId: 'k-revoked', projectId: 'p-101', revokedAt: null },
+        { keyId: 'k-expired', projectId: 'p-101', revokedAt: null },
+      ])
+      await h.db
+        .insert(h.schema.apiKeyWorkspaces)
+        .values([{ keyId: 'k-ws', workspaceId: 'ws-sales', revokedAt: null }])
       expect(await setup()).toEqual({
         cloudflareConnected: false,
         orgVariables: 1,

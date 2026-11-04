@@ -1,6 +1,6 @@
 import { createMiddleware } from 'hono/factory'
 import type { Context } from 'hono'
-import { canSeeProject, keyLevelOf, parseKeyPermissions } from '@awaitstep/ir'
+import { parseKeyPermissions } from '@awaitstep/ir'
 import type { AppEnv } from '../types.js'
 import type { Auth } from '../auth/config.js'
 import { hashApiKey } from '../lib/api-key-hash.js'
@@ -36,8 +36,8 @@ export function createAuthMiddleware(auth: Auth) {
         return c.json({ error: 'Invalid API key permissions' }, 401)
       }
 
-      if (!apiKey.resolvedOrganizationId) {
-        // A project key whose project is gone, or a malformed row.
+      if (!apiKey.organizationId) {
+        // A malformed row: every key carries its organization.
         return c.json({ error: 'API key organization not found' }, 401)
       }
 
@@ -56,49 +56,41 @@ export function createAuthMiddleware(auth: Auth) {
         )
       }
 
-      // A project key reaches what its creator can open; a creator who lost
-      // every way into the project takes the key's way in with them.
-      const creatorOrgRole = parseOrgRole(apiKey.createdByRole)
-      if (
-        apiKey.projectId &&
-        !canSeeProject(
-          creatorOrgRole,
-          apiKey.createdByProjectGrant,
-          apiKey.createdByHasWorkspaceGrant,
-        )
-      ) {
+      // The key acts with its creator's standing. The scope set `getAuthByHash`
+      // returns is already cut to the places the creator can STILL open; a
+      // scoped key whose creator can open none of them reaches nothing — not
+      // even the org-level reads it held through its cells — so it is refused
+      // whole here. The addressed place is matched against the set, and
+      // re-resolved with the creator's roles, per request by the scope
+      // middleware (requireProject / requireWorkspace).
+      if (apiKey.level === 'project' && apiKey.projectScopes.length === 0) {
         return c.json({ error: 'The API key’s creator can no longer access this project' }, 401)
       }
-      // A workspace key the same: its creator must still open that workspace,
-      // or the organization's reads it holds through its own cells stay open.
-      if (apiKey.workspaceId && !apiKey.createdByCanOpenWorkspace) {
+      if (apiKey.level === 'workspace' && apiKey.workspaceScopes.length === 0) {
         return c.json({ error: 'The API key’s creator can no longer access this workspace' }, 401)
       }
 
+      const creatorOrgRole = parseOrgRole(apiKey.createdByRole)
+
       c.set('userId', apiKey.createdBy)
-      c.set('organizationId', apiKey.resolvedOrganizationId)
+      c.set('organizationId', apiKey.organizationId)
       // What the key may manage is what its creator may: the role is read in
       // the same statement as the membership above; the scope middleware
       // resolves the project and workspace roles from the same creator.
       c.set('orgRole', creatorOrgRole)
       c.set('projectRole', null)
       c.set('workspaceRole', null)
-      // An organization-level key has no project: project-scoped routes
-      // refuse it in requireProject. A workspace key's workspace is applied
-      // there too, as the pin every project-scoped read is cut to.
-      if (apiKey.projectId) {
-        c.set('projectId', apiKey.projectId)
-      }
       c.set('user', null)
       c.set('session', null)
       c.set('apiKey', {
         id: apiKey.id,
         name: apiKey.name,
         display: `${apiKey.keyPrefix}…${apiKey.keySuffix ?? ''}`,
-        level: keyLevelOf(apiKey),
+        level: apiKey.level,
         permissions,
-        projectId: apiKey.projectId,
-        workspaceId: apiKey.workspaceId,
+        projectScopes: apiKey.projectScopes,
+        workspaceScopes: apiKey.workspaceScopes,
+        keyProjectId: apiKey.keyProjectId,
         expiresAt: apiKey.expiresAt,
       })
 
@@ -139,19 +131,39 @@ export function isSession(c: Context<AppEnv>): boolean {
   return c.get('apiKey') === null
 }
 
-/**
- * The project an API key is pinned to — null for a session, and for a key
- * that carries no project. Read off the key itself, not off the context's
- * `projectId`: a project item route sets that for an organization key too
- * (`requireProjectParam`), and a pin must never appear by that route.
- */
-export function apiKeyProjectPin(c: Context<AppEnv>): string | null {
-  return c.get('apiKey')?.projectId ?? null
+/** The calling key's level — `null` for a session. */
+export function apiKeyLevel(c: Context<AppEnv>): 'organization' | 'project' | 'workspace' | null {
+  return c.get('apiKey')?.level ?? null
 }
 
-/** The workspace a workspace key is pinned to — null for a session and for the other levels. */
-export function apiKeyWorkspacePin(c: Context<AppEnv>): string | null {
-  return c.get('apiKey')?.workspaceId ?? null
+/** The live project ids a project-level key reaches; empty for a session or the other levels. */
+export function apiKeyProjectScopes(c: Context<AppEnv>): string[] {
+  const key = c.get('apiKey')
+  return key?.level === 'project' ? key.projectScopes : []
+}
+
+/** The live workspace ids a workspace-level key reaches; empty for a session or the other levels. */
+export function apiKeyWorkspaceScopes(c: Context<AppEnv>): string[] {
+  const key = c.get('apiKey')
+  return key?.level === 'workspace' ? key.workspaceScopes : []
+}
+
+/** The sole project of a single-project key, for the "name none, default to it" convenience; null otherwise. */
+export function apiKeySoleProject(c: Context<AppEnv>): string | null {
+  const scopes = apiKeyProjectScopes(c)
+  return scopes.length === 1 ? scopes[0]! : null
+}
+
+/** The sole workspace of a single-workspace key; null otherwise. */
+export function apiKeySoleWorkspace(c: Context<AppEnv>): string | null {
+  const scopes = apiKeyWorkspaceScopes(c)
+  return scopes.length === 1 ? scopes[0]! : null
+}
+
+/** A workspace-level key's owning project; null for a session or the other levels. */
+export function apiKeyProjectHome(c: Context<AppEnv>): string | null {
+  const key = c.get('apiKey')
+  return key?.level === 'workspace' ? key.keyProjectId : null
 }
 
 export const requireSessionAuth = createMiddleware<AppEnv>(async (c, next) => {

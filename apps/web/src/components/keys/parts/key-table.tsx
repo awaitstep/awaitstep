@@ -1,15 +1,9 @@
-import { KeyRound, MoreHorizontal } from 'lucide-react'
+import { KeyRound } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import type { ApiKey } from '../../../types/dashboard/api-keys'
 import { Badge } from '../../ui/badge'
 import { Button } from '../../ui/button'
 import { DataTable, type DataColumn } from '../../ui/data-table'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../../ui/dropdown-menu'
 import { InheritedMark } from '../../ui/scoped-section'
 import { Tile } from '../../ui/tile'
 import { expiryLabel, lastUsedLabel } from './key-format'
@@ -22,9 +16,10 @@ interface KeyTableProps {
   keys: ApiKey[]
   /** Without it the table is read-only: no Revoke, no menu. */
   onRevoke?: (key: ApiKey) => void
+  /** The revoke button's label — "Revoke" for the whole key, "Revoke access" for one scope's slice. */
+  revokeLabel?: string
   /** Keys from a parent scope: the last column reads "Inherited" (workspace settings). */
   inherited?: boolean
-  onCopyPrefix?: (key: ApiKey) => void
   empty?: string
   /** Inside a titled card. */
   framed?: boolean
@@ -46,12 +41,44 @@ function Permissions({ apiKey }: { apiKey: ApiKey }) {
   )
 }
 
+/** The places a key reaches: "Organization", or its live project/workspace chips with a +N overflow. */
+function Reaches({ apiKey }: { apiKey: ApiKey }) {
+  if (apiKey.level === 'organization') {
+    return <span className="text-xs text-muted-foreground">Organization</span>
+  }
+  const places =
+    apiKey.level === 'project'
+      ? apiKey.projects.map((p) => ({
+          id: p.id,
+          label: p.name ?? p.slug ?? p.id,
+          revoked: p.revokedAt !== null,
+        }))
+      : apiKey.workspaces.map((w) => ({
+          id: w.workspace.id,
+          label: w.workspace.name,
+          revoked: w.revokedAt !== null,
+        }))
+  const live = places.filter((p) => !p.revoked)
+  const hidden = live.length - CHIPS_SHOWN
+  if (live.length === 0) return <span className="text-2xs text-muted-foreground">—</span>
+  return (
+    <span className="flex flex-wrap gap-1.5">
+      {live.slice(0, CHIPS_SHOWN).map((place) => (
+        <Badge key={place.id} className="font-normal">
+          {place.label}
+        </Badge>
+      ))}
+      {hidden > 0 && <Badge className="font-normal text-muted-foreground">+{hidden}</Badge>}
+    </span>
+  )
+}
+
 /** A level's API keys (`KeysPage`): name and prefix, permissions, who made it, use and expiry. */
 export function KeyTable({
   caption,
   keys,
   onRevoke,
-  onCopyPrefix,
+  revokeLabel = 'Revoke',
   inherited = false,
   empty = 'No keys yet.',
   framed = true,
@@ -74,6 +101,7 @@ export function KeyTable({
         </span>
       ),
     },
+    { id: 'reaches', header: 'Reaches', cell: (key) => <Reaches apiKey={key} /> },
     { id: 'permissions', header: 'Permissions', cell: (key) => <Permissions apiKey={key} /> },
     {
       id: 'by',
@@ -113,29 +141,9 @@ export function KeyTable({
       header: 'Actions',
       width: '130px',
       cell: (key) => (
-        <span className="flex items-center gap-1.5">
-          <Button type="button" variant="outline" size="sm" onClick={() => onRevoke(key)}>
-            Revoke
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                aria-label={`Actions for ${key.name}`}
-              >
-                <MoreHorizontal aria-hidden="true" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {onCopyPrefix && (
-                <DropdownMenuItem onSelect={() => onCopyPrefix(key)}>Copy prefix</DropdownMenuItem>
-              )}
-              <DropdownMenuItem onSelect={() => onRevoke(key)}>Revoke…</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </span>
+        <Button type="button" variant="outline" size="sm" onClick={() => onRevoke(key)}>
+          {revokeLabel}
+        </Button>
       ),
     })
   }

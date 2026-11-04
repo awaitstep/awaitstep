@@ -69,10 +69,10 @@ describe('the dummy server on the real API', () => {
 
   it('answers a feature still on dummy data with nothing, even for a fixture’s slug', async () => {
     const keys = await mockServer.keys.listProjectKeys(real, 'real-org', 'real-project')
-    expect(keys).toEqual({ keys: [], workspaceKeys: [] })
+    expect(keys).toEqual({ own: [], reaching: [], workspaceKeys: [] })
     // Acme is a fixture org; a real org with the same slug is not it.
     const acme = await mockServer.keys.listProjectKeys(real, 'acme', 'project-101')
-    expect(acme).toEqual({ keys: [], workspaceKeys: [] })
+    expect(acme).toEqual({ own: [], reaching: [], workspaceKeys: [] })
     // The scope it made up is the viewer's, so a dialog can name where it is.
     const scope = await mockServer.workspaces.getScope(real, {
       org: 'real-org',

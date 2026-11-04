@@ -3,7 +3,14 @@ import type { Context } from 'hono'
 import type { ProjectRef, WorkspaceInProjectRef } from '@awaitstep/db'
 import { parseOrgRole } from '../lib/org-role.js'
 import type { AppEnv } from '../types.js'
-import { apiKeyProjectPin, apiKeyWorkspacePin, isSession } from './auth.js'
+import {
+  apiKeyLevel,
+  apiKeyProjectScopes,
+  apiKeyWorkspaceScopes,
+  apiKeySoleProject,
+  apiKeySoleWorkspace,
+  isSession,
+} from './auth.js'
 import { applyGrantRows } from './access.js'
 
 // Scope is read off the query string, by id (`organizationId`, `projectId`,
@@ -63,31 +70,84 @@ export const resolveOptionalOrganization = organizationContext({ optional: true 
 /** The project a request names in its query, with the caller's roles there. */
 export const requireProject = createMiddleware<AppEnv>(async (c, next) => {
   const db = c.get('db')
-  let workspace = workspaceParam(c)
-  const pin = apiKeyProjectPin(c)
-  const workspacePin = apiKeyWorkspacePin(c)
+  const level = apiKeyLevel(c)
 
-  let ref: ProjectRef
-  // An empty parameter is no parameter, as the routers' choosers read it.
-  const namedSlug = c.req.query('project') || undefined
-  if (!isSession(c)) {
-    // A project key already carries its project. An organization-level key
-    // carries none — and gets none here: org management and project work
-    // never share a key.
-    if (pin === null) return c.json({ error: ORG_KEY_ON_PROJECT }, 403)
-    // A key naming another project by id is not found there — as a workspace
-    // key naming another workspace — never quietly answered from its own.
-    // One named by slug is compared below, once the read says which it is.
-    const namedId = c.req.query('projectId') || undefined
-    if (namedId && namedId !== pin) return c.json({ error: 'Not found' }, 404)
-    ref = { id: pin }
-    // A workspace key names its workspace or none; another by id is not found
-    // here, one by slug below, once the read says which workspace that is.
-    if (workspacePin !== null) {
-      if (workspace && 'id' in workspace && workspace.id !== workspacePin) {
+  // A workspace-level key addresses one of its workspaces; its project comes
+  // off that workspace, so it is resolved by the workspace, not a project ref.
+  if (!isSession(c) && level === 'workspace') {
+    const named = workspaceParam(c)
+    const scopes = apiKeyWorkspaceScopes(c)
+    // Named by slug: resolve it within the key's project (any of its scope
+    // workspaces names that project), then hold the result to the key's set —
+    // a workspace outside it is not found, exactly as one its creator cannot open.
+    if (named && 'slug' in named) {
+      const anchor = scopes[0]
+        ? await db.getWorkspaceIfMember(c.get('userId'), { id: scopes[0] })
+        : null
+      const found = anchor
+        ? await db.getProjectIfMember(c.get('userId'), { id: anchor.projectId }, named)
+        : null
+      const resolvedId = found?.workspace?.id
+      if (!found || !resolvedId || !scopes.includes(resolvedId)) {
         return c.json({ error: 'Not found' }, 404)
       }
-      workspace ??= { id: workspacePin }
+      c.set('workspaceId', resolvedId)
+      c.set('workspace', found.workspace!)
+      c.set('workspaceName', found.workspace!.name)
+      c.set('projectId', found.project.id)
+      c.set('organizationId', found.project.organizationId)
+      c.set('projectName', found.project.name)
+      applyGrantRows(c, found, true)
+      return next()
+    }
+    const workspaceId = named && 'id' in named ? named.id : (apiKeySoleWorkspace(c) ?? undefined)
+    if (!workspaceId) {
+      return c.json(
+        { error: 'This API key reaches several workspaces; name one with ?workspaceId' },
+        400,
+      )
+    }
+    if (!scopes.includes(workspaceId)) {
+      return c.json({ error: 'Not found' }, 404)
+    }
+    const found = await db.getWorkspaceIfMember(c.get('userId'), { id: workspaceId })
+    if (!found) return c.json({ error: 'Not found' }, 404)
+    c.set('workspaceId', found.workspaceId)
+    c.set('projectId', found.projectId)
+    c.set('organizationId', found.organizationId)
+    c.set('projectName', found.projectName)
+    c.set('workspaceName', found.workspaceName)
+    applyGrantRows(c, found, true)
+    return next()
+  }
+
+  const workspace = workspaceParam(c)
+  // An empty parameter is no parameter, as the routers' choosers read it.
+  const namedSlug = c.req.query('project') || undefined
+  let ref: ProjectRef
+  if (!isSession(c)) {
+    // An organization-level key does no project work; org management and
+    // project work never share a key.
+    if (level === 'organization') return c.json({ error: ORG_KEY_ON_PROJECT }, 403)
+    // A project-level key addresses one of the projects it reaches, named by
+    // id or slug, or — when it reaches exactly one — defaulting to it.
+    const namedId = c.req.query('projectId') || undefined
+    if (namedId) ref = { id: namedId }
+    else if (namedSlug) {
+      const org = c.req.query('org')
+      if (!org) {
+        return c.json({ error: 'Missing projectId (or org and project) query parameters' }, 400)
+      }
+      ref = { org, slug: namedSlug }
+    } else {
+      const sole = apiKeySoleProject(c)
+      if (!sole) {
+        return c.json(
+          { error: 'This API key reaches several projects; name one with ?projectId' },
+          400,
+        )
+      }
+      ref = { id: sole }
     }
   } else {
     const projectId = c.req.query('projectId')
@@ -103,8 +163,9 @@ export const requireProject = createMiddleware<AppEnv>(async (c, next) => {
   const found = await db.getProjectIfMember(c.get('userId'), ref, workspace)
   if (
     !found ||
-    (workspacePin !== null && found.workspace?.id !== workspacePin) ||
-    (!isSession(c) && namedSlug !== undefined && found.project.slug !== namedSlug)
+    (!isSession(c) && namedSlug !== undefined && found.project.slug !== namedSlug) ||
+    // A project outside the key's set is not found, as one its creator cannot open.
+    (level === 'project' && !apiKeyProjectScopes(c).includes(found.project.id))
   ) {
     return c.json({ error: 'Not found' }, 404)
   }
@@ -125,9 +186,10 @@ export const requireProject = createMiddleware<AppEnv>(async (c, next) => {
 export const requireProjectParam = createMiddleware<AppEnv>(async (c, next) => {
   const id = c.req.param('id') ?? c.req.param('projectId')
   if (!id) return c.json({ error: 'Not found' }, 404)
-  // Everything under a project item manages the project: not a project key's business,
-  // its own project included, and said so rather than hidden.
-  if (apiKeyProjectPin(c) !== null) {
+  // Everything under a project item manages the project: not a project- or
+  // workspace-scoped key's business, its own projects included, and said so
+  // rather than hidden. Organization keys reach their org's projects here.
+  if (apiKeyLevel(c) === 'project' || apiKeyLevel(c) === 'workspace') {
     return c.json({ error: 'A project-scoped API key cannot manage organization resources' }, 403)
   }
 
@@ -149,17 +211,19 @@ export const requireProjectParam = createMiddleware<AppEnv>(async (c, next) => {
 export const requireWorkspace = createMiddleware<AppEnv>(async (c, next) => {
   const id = c.req.param('id') ?? c.req.param('workspaceId')
   if (!id) return c.json({ error: 'Not found' }, 404)
-  const pin = apiKeyProjectPin(c)
-  const workspacePin = apiKeyWorkspacePin(c)
-  if (!isSession(c) && pin === null) {
+  const level = apiKeyLevel(c)
+  // An organization-level key does no workspace work.
+  if (!isSession(c) && level === 'organization') {
     return c.json({ error: ORG_KEY_ON_PROJECT }, 403)
   }
 
   const found = await c.get('db').getWorkspaceIfMember(c.get('userId'), { id })
   if (
     !found ||
-    (pin !== null && found.projectId !== pin) ||
-    (workspacePin !== null && found.workspaceId !== workspacePin)
+    // A project-level key reaches the workspace only if its project is in the
+    // key's set; a workspace-level key only if the workspace itself is.
+    (level === 'project' && !apiKeyProjectScopes(c).includes(found.projectId)) ||
+    (level === 'workspace' && !apiKeyWorkspaceScopes(c).includes(found.workspaceId))
   ) {
     return c.json({ error: 'Not found' }, 404)
   }

@@ -42,10 +42,11 @@ import type {
   ReserveTestSessionLimits,
   ApiKeyAuth,
   ApiKeyListItem,
+  ApiKeyScopedRows,
+  ApiKeyScopeTarget,
   ApiKeyTarget,
   CreateApiKeyData,
   WorkspaceKeyCount,
-  WorkspaceKeysRows,
   OrgEnvVar,
   ResolvedProjectVariable,
   ResolvedWorkspaceVariable,
@@ -815,34 +816,50 @@ export interface DatabaseAdapter {
 
   // API keys (B3): one level each — organization, project or workspace — with
   // a grid of permissions; every list is one statement at its level.
-  /** Null when the project or workspace is not where the key says, or its creator cannot open it. */
+  /** Null when the creator cannot open every scope in the set (all-or-nothing). */
   createApiKey(data: CreateApiKeyData): Promise<ApiKey | null>
   getApiKeyById(id: string): Promise<ApiKey | null>
   /**
-   * The key, its organization (own or its project's), whether its creator is
-   * still a member there and can still open the key's project and workspace
-   * — one read.
+   * The key, whether its creator is still a member of its organization,
+   * whether the key that minted it is live, and the key's live scope set —
+   * one read. The addressed place is matched against the set at request time.
    */
   getApiKeyAuthByHash(keyHash: string): Promise<ApiKeyAuth | null>
-  /** One project's own keys; a foreign organization's project, or one hidden from `visibleTo`, matches nothing. */
+  /**
+   * A project's keys page: its own single-project keys and the keys reaching it
+   * from elsewhere (expired bundles excluded). `fullReach` (an organization
+   * admin) discloses a reaching bundle's whole scope set; otherwise it shows
+   * only its slice here.
+   */
   listApiKeysByProject(
     organizationId: string,
     projectId: string,
-    pagination?: PaginationParams,
     visibleTo?: string,
-  ): Promise<PaginatedResult<ApiKeyListItem>>
-  /** The organization's own (organization-level) unrevoked keys. */
+    fullReach?: boolean,
+    now?: string,
+  ): Promise<ApiKeyScopedRows>
+  /** The keys that live at the organization: its organization-level keys and its multi-project keys. */
   listApiKeysByOrganization(
     organizationId: string,
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<ApiKeyListItem>>
-  /** Unrevoked keys per workspace of the project (expired included, as its own list is), for the workspaces the viewer can open. */
+  /** Live keys reaching each workspace of the project, for the workspaces the viewer can open. */
   countApiKeysByWorkspace(projectId: string, viewerId: string): Promise<WorkspaceKeyCount[]>
-  /** A workspace's own unrevoked keys and the unrevoked, unexpired project keys that reach it. */
-  listApiKeysByWorkspace(workspaceId: string, now: string): Promise<WorkspaceKeysRows>
+  /**
+   * A workspace's keys page: its own single-workspace keys and the keys reaching
+   * it from elsewhere. `fullReach` (an organization admin) discloses a reaching
+   * bundle's whole scope set; otherwise it shows only its slice here.
+   */
+  listApiKeysByWorkspace(
+    workspaceId: string,
+    now: string,
+    fullReach?: boolean,
+  ): Promise<ApiKeyScopedRows>
   updateApiKeyLastUsed(id: string, lastUsedAt: string): Promise<void>
-  /** Revokes a key at its own level's place; null when no such live key there. */
+  /** The whole-key kill-switch, from the key's home; null when no such live key there. */
   revokeApiKey(id: string, target: ApiKeyTarget): Promise<ApiKey | null>
+  /** Per-consumer revoke: one place drops its own slice; the last to go stamps the key dead. Null when no live slice. */
+  revokeApiKeyScope(target: ApiKeyScopeTarget): Promise<ApiKey | null>
 
   // Environment Variables (B4): one row per level, pinned to its place
   /**

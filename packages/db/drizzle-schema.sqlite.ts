@@ -4,7 +4,6 @@ import {
   integer,
   uniqueIndex,
   index,
-  check,
   primaryKey,
   blob,
   type AnySQLiteColumn,
@@ -434,11 +433,10 @@ export const apiKeys = sqliteTable(
   'api_keys',
   {
     id: text('id').primaryKey(),
-    projectId: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
-    organizationId: text('organization_id').references(() => organization.id, {
-      onDelete: 'cascade',
-    }),
-    workspaceId: text('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    level: text('level').notNull(),
     parentKeyId: text('parent_key_id').references((): AnySQLiteColumn => apiKeys.id, {
       onDelete: 'cascade',
     }),
@@ -455,12 +453,43 @@ export const apiKeys = sqliteTable(
     createdAt: text('created_at').notNull(),
   },
   (table) => [
-    index('idx_api_keys_project_id').on(table.projectId),
     index('idx_api_keys_organization_id').on(table.organizationId),
     index('idx_api_keys_parent_key_id').on(table.parentKeyId),
     index('idx_api_keys_key_hash').on(table.keyHash),
-    index('idx_api_keys_workspace_id').on(table.workspaceId),
-    check('api_keys_one_level', sql`(project_id IS NULL) <> (organization_id IS NULL)`),
+  ],
+)
+
+export const apiKeyProjects = sqliteTable(
+  'api_key_projects',
+  {
+    keyId: text('key_id')
+      .notNull()
+      .references(() => apiKeys.id, { onDelete: 'cascade' }),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    revokedAt: text('revoked_at'),
+  },
+  (table) => [
+    primaryKey({ columns: [table.keyId, table.projectId] }),
+    index('idx_api_key_projects_project').on(table.projectId),
+  ],
+)
+
+export const apiKeyWorkspaces = sqliteTable(
+  'api_key_workspaces',
+  {
+    keyId: text('key_id')
+      .notNull()
+      .references(() => apiKeys.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    revokedAt: text('revoked_at'),
+  },
+  (table) => [
+    primaryKey({ columns: [table.keyId, table.workspaceId] }),
+    index('idx_api_key_workspaces_workspace').on(table.workspaceId),
   ],
 )
 

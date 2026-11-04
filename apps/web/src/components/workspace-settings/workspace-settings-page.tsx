@@ -62,7 +62,7 @@ export function WorkspaceSettingsPage({
     onTabChange(tabFrom(value))
   }
 
-  const keyCount = keys.data && keys.data.own.length + keys.data.inherited.length
+  const keyCount = keys.data && keys.data.own.length + keys.data.reaching.length
 
   return (
     <PageBody>

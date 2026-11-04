@@ -433,7 +433,7 @@ describe('workspace routes', () => {
         id: 'k-p',
         level: 'project',
         organizationId: TEST_ORG_ID,
-        projectId: TEST_PROJECT_ID,
+        projectIds: [TEST_PROJECT_ID],
         createdBy: TEST_USER_ID,
         name: 'project',
         keyHash: await hashApiKey(PROJECT_KEY),

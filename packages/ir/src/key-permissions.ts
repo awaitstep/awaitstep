@@ -177,13 +177,9 @@ export function resourceAtLevel(level: KeyLevel, resource: KeyResource): boolean
   return KEY_CATALOG[level].some((r) => r.id === resource)
 }
 
-/** A key's level from its row: an organization key carries the organization, a workspace key its workspace. */
-export function keyLevelOf(row: {
-  organizationId: string | null
-  workspaceId: string | null
-}): KeyLevel {
-  if (row.organizationId) return 'organization'
-  return row.workspaceId ? 'workspace' : 'project'
+/** A key's level, stored on the row: which catalog it is checked by and which scope set it carries. */
+export function keyLevelOf(row: { level: KeyLevel }): KeyLevel {
+  return row.level
 }
 
 const RESOURCES = new Set<string>([

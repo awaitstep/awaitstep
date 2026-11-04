@@ -23,10 +23,43 @@ describe('create key', () => {
     expect(secret).toMatch(/^ask_[A-Za-z0-9_-]{40}$/)
     expect(key.prefix).toBe(`${secret.slice(0, 8)}…${secret.slice(-4)}`)
     expect(JSON.stringify(getDb().keys)).not.toContain(secret)
-    expect((await keys.listProjectKeys(ama, 'acme', 'project-101')).keys[0]!.name).toBe(
+    expect((await keys.listProjectKeys(ama, 'acme', 'project-101')).own[0]!.name).toBe(
       'Release bot',
     )
-    expect((await setup.getProjectSetup(ama, 'acme', 'project-101')).projectKeys).toBe(4)
+    expect((await setup.getProjectSetup(ama, 'acme', 'project-101')).projectKeys).toBe(5)
+  })
+
+  it('creates a multi-project bundle at the org, scoped to the picked projects', async () => {
+    const { key } = await keys.createKey(ama, 'acme', {
+      level: 'project',
+      name: 'Platform agent',
+      expires: '90',
+      permissions: { workflows: ['read'] },
+      projectIds: ['prj_101', 'prj_marketing'],
+    })
+    expect(key.projects.map((p) => p.id)).toEqual(['prj_101', 'prj_marketing'])
+    // It reaches each project (as "reaching"), and the org lists it (homed at the org).
+    const reaching = (await keys.listProjectKeys(ama, 'acme', 'project-101')).reaching
+    expect(reaching.map((k) => k.name)).toContain('Platform agent')
+    expect((await keys.listOrgKeys(ama, 'acme')).map((k) => k.name)).toContain('Platform agent')
+  })
+
+  it('creates a multi-workspace bundle at the project, scoped to the picked workspaces', async () => {
+    const salesId = getDb().workspaces.find((w) => w.slug === 'sales')!.id
+    const itId = getDb().workspaces.find((w) => w.slug === 'it')!.id
+    const { key } = await keys.createKey(ama, 'acme', {
+      level: 'workspace',
+      project: 'project-101',
+      name: 'Ops bundle',
+      expires: '30',
+      permissions: { workflows: ['run'] },
+      workspaceIds: [salesId, itId],
+    })
+    expect(key.workspaces.map((w) => w.workspace.slug)).toEqual(['sales', 'it'])
+    // Homed at the project, so the project lists it as own.
+    expect(
+      (await keys.listProjectKeys(ama, 'acme', 'project-101')).own.map((k) => k.name),
+    ).toContain('Ops bundle')
   })
 
   it('creates org and workspace keys on their own pages', async () => {

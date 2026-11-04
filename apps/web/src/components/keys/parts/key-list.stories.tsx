@@ -27,7 +27,8 @@ const KEYS: ApiKey[] = [
     createdAt: ago(60 * 24 * 60),
     lastUsedAt: ago(22),
     expiresAt: null,
-    workspace: null,
+    projects: [{ id: 'prj_101', name: 'Project 101', slug: 'project-101', revokedAt: null }],
+    workspaces: [],
   },
   {
     id: 'k2',
@@ -39,7 +40,11 @@ const KEYS: ApiKey[] = [
     createdAt: ago(60 * 48),
     lastUsedAt: ago(180),
     expiresAt: inDays(28),
-    workspace: null,
+    projects: [
+      { id: 'prj_101', name: 'Project 101', slug: 'project-101', revokedAt: null },
+      { id: 'prj_marketing', name: 'Marketing Site', slug: 'marketing-site', revokedAt: null },
+    ],
+    workspaces: [],
   },
   {
     id: 'k3',
@@ -51,7 +56,8 @@ const KEYS: ApiKey[] = [
     createdAt: ago(60 * 24 * 30),
     lastUsedAt: null,
     expiresAt: inDays(3),
-    workspace: null,
+    projects: [{ id: 'prj_101', name: 'Project 101', slug: 'project-101', revokedAt: null }],
+    workspaces: [],
   },
 ]
 
@@ -66,7 +72,7 @@ export const ProjectLevel: Story = {
   render: () => (
     <div className="flex max-w-[1200px] flex-col gap-6">
       <KeyLevelCards current="project" links={LINKS} />
-      <KeyTable caption="Project keys" keys={KEYS} onRevoke={noop} onCopyPrefix={noop} now={NOW} />
+      <KeyTable caption="Project keys" keys={KEYS} onRevoke={noop} now={NOW} />
     </div>
   ),
 }

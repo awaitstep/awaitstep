@@ -64,7 +64,7 @@ describe('project API keys', () => {
     await userEvent.click(within(rowWith('CI deploys')).getByRole('button', { name: 'Revoke' }))
     await userEvent.click(screen.getByRole('button', { name: 'Revoke key' }))
     await waitFor(() => expect(screen.queryByText('CI deploys')).not.toBeInTheDocument())
-    expect(screen.getByText('2 active')).toBeVisible()
+    expect(screen.getByText('3 active')).toBeVisible()
   })
 
   it('lists keys read-only for someone who isn’t a project admin', async () => {

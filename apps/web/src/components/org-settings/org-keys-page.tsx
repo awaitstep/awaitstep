@@ -51,10 +51,6 @@ export function OrgKeysPage({ org, createOpen, onCloseCreate }: OrgKeysPageProps
     setRevoking(key)
   }
 
-  function handleCopyPrefix(key: ApiKey) {
-    void navigator.clipboard?.writeText(key.prefix)
-  }
-
   function handleRevokeOpenChange(open: boolean) {
     if (!open) setRevoking(null)
   }
@@ -122,7 +118,6 @@ export function OrgKeysPage({ org, createOpen, onCloseCreate }: OrgKeysPageProps
           caption={`Org keys for ${scope.org.name}`}
           keys={keys.data}
           onRevoke={onRevoke}
-          onCopyPrefix={handleCopyPrefix}
           empty={`No org keys in ${scope.org.name} yet.`}
           framed={false}
         />

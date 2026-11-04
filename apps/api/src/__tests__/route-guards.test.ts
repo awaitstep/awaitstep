@@ -159,12 +159,12 @@ async function seedGuarded() {
       key.level === 'organization'
         ? { ...common, level: 'organization' }
         : key.level === 'project'
-          ? { ...common, level: 'project', projectId: TEST_PROJECT_ID }
+          ? { ...common, level: 'project', projectIds: [TEST_PROJECT_ID] }
           : {
               ...common,
               level: 'workspace',
               projectId: TEST_PROJECT_ID,
-              workspaceId: TEST_WORKSPACE_ID,
+              workspaceIds: [TEST_WORKSPACE_ID],
             },
     )
   }

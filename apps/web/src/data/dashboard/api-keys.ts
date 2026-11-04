@@ -30,14 +30,12 @@ export function useProjectKeys(org: string, project: string) {
     queryKey: key(dashKeys.projectKeys(org, project)),
     queryFn: (): Promise<ProjectKeys> =>
       source === 'api'
-        ? allPages((cursor) => dashboardApi.listProjectKeys({ org, project }, cursor)).then(
-            toProjectKeys,
-          )
+        ? dashboardApi.listProjectKeys({ org, project }).then(toProjectKeys)
         : mockServer.keys.listProjectKeys(ctx, org, project),
   })
 }
 
-/** Revokes a project key; the key list and the "N project keys" counts follow. */
+/** Revokes a project key whole (the kill-switch, for keys homed here); list + counts follow. */
 export function useRevokeProjectKey(org: string, project: string) {
   const source = useDataSource()
   const ctx = useMockContext()
@@ -56,6 +54,30 @@ export function useRevokeProjectKey(org: string, project: string) {
   })
 }
 
+/** Drops this project's slice of a shared key (per-consumer revoke); the others keep it. */
+export function useRevokeProjectKeyScope(org: string, project: string) {
+  const source = useDataSource()
+  const ctx = useMockContext()
+  const client = useQueryClient()
+  return useMutation({
+    meta: {
+      toast: { success: 'Access revoked for this project', error: 'Couldn’t revoke access' },
+    },
+    mutationFn: async (keyId: string): Promise<void> => {
+      if (source !== 'api') return mockServer.keys.revokeProjectKeyScope(ctx, org, project, keyId)
+      await dashboardApi.revokeKeyScope({ org, project }, keyId)
+    },
+    // The slice dropped here belongs to an org-homed multi-project bundle, so the
+    // Org keys page (its Reaches column, or the row itself on the last revoke) follows too.
+    onSuccess: () =>
+      invalidateAll(client, [
+        dashKeys.inProject('keys', org, project),
+        dashKeys.setup(org, project),
+        dashKeys.orgKeys(org),
+      ]),
+  })
+}
+
 /** Workspace settings → API keys: its own keys and the project keys that reach it. */
 export function useWorkspaceKeys(slugs: Required<ScopeSlugs>) {
   const source = useDataSource()
@@ -70,7 +92,7 @@ export function useWorkspaceKeys(slugs: Required<ScopeSlugs>) {
   })
 }
 
-/** Revokes a workspace key; the project's per-workspace key counts follow. */
+/** Revokes a workspace key whole (the kill-switch, for keys homed here); the counts follow. */
 export function useRevokeWorkspaceKey(slugs: Required<ScopeSlugs>) {
   const source = useDataSource()
   const ctx = useMockContext()
@@ -80,6 +102,23 @@ export function useRevokeWorkspaceKey(slugs: Required<ScopeSlugs>) {
     mutationFn: async (keyId: string): Promise<void> => {
       if (source !== 'api') return mockServer.keys.revokeWorkspaceKey(ctx, slugs, keyId)
       await dashboardApi.revokeKey(slugs, keyId)
+    },
+    onSuccess: () => invalidateAll(client, [dashKeys.inProject('keys', slugs.org, slugs.project)]),
+  })
+}
+
+/** Drops this workspace's slice of a shared key (per-consumer revoke); the others keep it. */
+export function useRevokeWorkspaceKeyScope(slugs: Required<ScopeSlugs>) {
+  const source = useDataSource()
+  const ctx = useMockContext()
+  const client = useQueryClient()
+  return useMutation({
+    meta: {
+      toast: { success: 'Access revoked for this workspace', error: 'Couldn’t revoke access' },
+    },
+    mutationFn: async (keyId: string): Promise<void> => {
+      if (source !== 'api') return mockServer.keys.revokeWorkspaceKeyScope(ctx, slugs, keyId)
+      await dashboardApi.revokeKeyScope(slugs, keyId)
     },
     onSuccess: () => invalidateAll(client, [dashKeys.inProject('keys', slugs.org, slugs.project)]),
   })
@@ -113,7 +152,14 @@ export function useRevokeOrgKey(org: string) {
       if (source !== 'api') return mockServer.keys.revokeOrgKey(ctx, org, keyId)
       await dashboardApi.revokeKey({ org }, keyId)
     },
-    onSuccess: () => invalidateAll(client, [dashKeys.orgKeys(org)]),
+    // A whole-revoked org key can be a multi-project bundle that reaches projects,
+    // so the projects' keys lists and setup counts follow — as they do on create.
+    onSuccess: () =>
+      invalidateAll(client, [
+        dashKeys.orgKeys(org),
+        dashKeys.inOrg('keys', org),
+        dashKeys.inOrg('setup', org),
+      ]),
   })
 }
 

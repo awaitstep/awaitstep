@@ -43,6 +43,7 @@ export interface ConnectionTables {
   envVars: AnyTable
   envVarProjects: AnyTable
   apiKeys: AnyTable
+  apiKeyProjects: AnyTable
 }
 
 const ORG_ADMINS = sql.raw(`('owner', 'admin')`)
@@ -379,6 +380,13 @@ export class ConnectionsAdapter {
   ): SQL {
     if (!visibleTo || visibleTo === 'all') return sql`1 = 1`
     if ('projectId' in visibleTo) return sql`${projectId} = ${visibleTo.projectId}`
+    // A scoped key sees only the projects in its reach, by id — never widened
+    // to its creator's full set. An empty set shows no project attribution.
+    if ('projectIds' in visibleTo) {
+      return visibleTo.projectIds.length === 0
+        ? sql`1 = 0`
+        : sql`${projectId} in ${idList(this.dialect, visibleTo.projectIds)}`
+    }
     if (!this.roles) return sql`1 = 1`
     const p = aliasedTable(this.t.projects, 'clv')
     return sql`exists (select 1 from ${aliasedFrom(p)} where ${p.id} = ${projectId} and ${this.roles.projectVisible(visibleTo.userId, { organizationId: p.organizationId, projectId: p.id })})`
@@ -464,6 +472,7 @@ export class ConnectionsAdapter {
     const ov = aliasedTable(this.t.envVars, 'psov')
     const pv = aliasedTable(this.t.envVars, 'pspv')
     const k = aliasedTable(this.t.apiKeys, 'psk')
+    const akp = aliasedTable(this.t.apiKeyProjects, 'pskp')
     const projectVar = (v: AnyTable) => sql`${v.projectId} = ${p.id} and ${v.workspaceId} is null`
     const rows = (await this.db
       .select({
@@ -481,7 +490,7 @@ export class ConnectionsAdapter {
           ),
         ),
         projectKeys: fieldOf(
-          sql<number>`(select count(*) from ${aliasedFrom(k)} where ${k.projectId} = ${p.id} and ${k.workspaceId} is null and ${k.revokedAt} is null and (${k.expiresAt} is null or ${k.expiresAt} > ${now}))`.mapWith(
+          sql<number>`(select count(*) from ${aliasedFrom(k)} where ${k.level} = 'project' and ${k.revokedAt} is null and (${k.expiresAt} is null or ${k.expiresAt} > ${now}) and exists (select 1 from ${aliasedFrom(akp)} where ${akp.keyId} = ${k.id} and ${akp.projectId} = ${p.id} and ${akp.revokedAt} is null))`.mapWith(
             Number,
           ),
         ),

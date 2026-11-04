@@ -17,17 +17,45 @@ const p101Slugs = { org: 'acme', project: 'project-101' }
 beforeEach(() => resetMockDb(new Date()))
 
 describe('project keys', () => {
-  it('lists the board’s three project keys and a count per workspace', async () => {
-    const { keys: list, workspaceKeys } = await keys.listProjectKeys(ama, ...p101)
-    expect(list.map((k) => k.name)).toEqual(['CI deploys', 'Agent (Claude)', 'Read-only dashboard'])
-    expect(list[0]).toMatchObject({
+  it('lists the project’s own keys (incl. a multi-workspace bundle) and a count per workspace', async () => {
+    const { own, workspaceKeys } = await keys.listProjectKeys(ama, ...p101)
+    expect(own.map((k) => k.name)).toEqual([
+      'CI deploys',
+      'Agent (Claude)',
+      'Read-only dashboard',
+      'Ops events',
+    ])
+    expect(own[0]).toMatchObject({
       prefix: 'ask_Kq3VtR8m…a71d',
       createdBy: { name: 'Tom Becker' },
     })
     expect(workspaceKeys.map((w) => [w.workspace.name, w.count])).toEqual([
-      ['Sales', 1],
+      ['Sales', 2],
       ['IT', 2],
+      ['Support', 1],
     ])
+  })
+
+  it('lists the multi-project bundle reaching the project', async () => {
+    const { reaching } = await keys.listProjectKeys(ama, ...p101)
+    expect(reaching.map((k) => k.name)).toEqual(['Platform sync'])
+    expect(reaching[0]!.projects.map((p) => p.name)).toEqual(['Project 101', 'Marketing Site'])
+  })
+
+  it('shows a non-admin only this project’s slice of the reaching bundle', async () => {
+    // Tom administers Project 101 but is only a member of Acme, so the sibling
+    // project the bundle also reaches (Marketing Site) is not disclosed to him.
+    const { reaching } = await keys.listProjectKeys(as(TOM), ...p101)
+    expect(reaching.map((k) => k.name)).toEqual(['Platform sync'])
+    expect(reaching[0]!.projects.map((p) => p.name)).toEqual(['Project 101'])
+  })
+
+  it('leaves an expired bundle out of what reaches the project', async () => {
+    getDb().keys.find((k) => k.id === 'key_platform')!.expiresAt = new Date(
+      Date.now() - 1000,
+    ).toISOString()
+    const { reaching } = await keys.listProjectKeys(ama, ...p101)
+    expect(reaching.map((k) => k.id)).not.toContain('key_platform')
   })
 
   it('counts only the workspaces the viewer can open', async () => {
@@ -37,9 +65,18 @@ describe('project keys', () => {
 
   it('revokes a key, and the setup count follows the list', async () => {
     await keys.revokeProjectKey(ama, ...p101, 'key_ci')
-    const { keys: list } = await keys.listProjectKeys(ama, ...p101)
-    expect(list.map((k) => k.id)).not.toContain('key_ci')
-    expect((await setup.getProjectSetup(ama, ...p101)).projectKeys).toBe(2)
+    const { own } = await keys.listProjectKeys(ama, ...p101)
+    expect(own.map((k) => k.id)).not.toContain('key_ci')
+    expect((await setup.getProjectSetup(ama, ...p101)).projectKeys).toBe(3)
+  })
+
+  it('drops this project’s slice of a shared key, leaving the others', async () => {
+    await keys.revokeProjectKeyScope(ama, ...p101, 'key_platform')
+    const here = await keys.listProjectKeys(ama, ...p101)
+    expect(here.reaching.map((k) => k.id)).not.toContain('key_platform')
+    // The key lives on for Marketing.
+    const marketing = await keys.listProjectKeys(ama, 'acme', 'marketing-site')
+    expect(marketing.reaching.map((k) => k.id)).toContain('key_platform')
   })
 
   it('refuses revoking for someone who isn’t a project admin', async () => {
@@ -88,7 +125,9 @@ describe('project variables', () => {
     const db = getDb()
     db.projects.find((p) => p.id === 'prj_101')!.lock = null
     db.variables.find((v) => v.scopeId === 'ws_sales')!.scopeId = 'ws_support'
-    db.keys.find((k) => k.id === 'key_sales_crm')!.workspaceId = 'ws_support'
+    db.keys.find((k) => k.id === 'key_sales_crm')!.workspaceScopes = [
+      { id: 'ws_support', revokedAt: null },
+    ]
     await workspaces.deleteWorkspace(ama, {
       org: 'acme',
       project: 'project-101',
@@ -164,7 +203,7 @@ describe('move project', () => {
     expect(moved.project).toBe('project-101-2')
     expect(
       getDb()
-        .keys.filter((k) => k.projectId === 'prj_101')
+        .keys.filter((k) => k.projectScopes.some((s) => s.id === 'prj_101'))
         .every((k) => k.orgId === 'org_bolt'),
     ).toBe(true)
   })
@@ -275,7 +314,7 @@ describe('deleting a project', () => {
   it('takes its keys and variables with it', async () => {
     getDb().projects.find((p) => p.id === 'prj_101')!.lock = null
     await projects.deleteProject(ama, ...p101)
-    expect(getDb().keys.some((k) => k.projectId === 'prj_101')).toBe(false)
+    expect(getDb().keys.some((k) => k.projectScopes.some((s) => s.id === 'prj_101'))).toBe(false)
     expect(getDb().variables.some((v) => v.scopeId === 'prj_101' || v.scopeId === 'ws_sales')).toBe(
       false,
     )

@@ -7,6 +7,7 @@ import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import type { AppEnv } from '../types.js'
 import { createLogger } from '../lib/logger.js'
+import { apiKeyLevel, apiKeyProjectHome, apiKeyProjectScopes } from '../middleware/auth.js'
 import { recordAudit } from '../lib/audit.js'
 import { clearConnectionNotices } from '../lib/notify.js'
 import { checkCredentialsGated, parseCredentials, providerNamed } from '../lib/connection-token.js'
@@ -47,8 +48,15 @@ const INVALID_PROJECTS = { error: 'Pick projects from this organization', field:
  * keys outlive a demotion, and must not keep the sight it took (review L1).
  */
 function listReader(c: Context<AppEnv>): ConnectionListOptions['visibleTo'] {
-  const key = c.get('apiKey')
-  if (key?.projectId) return { projectId: key.projectId }
+  // A scoped key sees project names only for the projects it reaches — a
+  // project key its own set, a workspace key its one project — never its
+  // creator's full set (which would leak out-of-scope project identifiers).
+  const level = apiKeyLevel(c)
+  if (level === 'project') return { projectIds: apiKeyProjectScopes(c) }
+  if (level === 'workspace') {
+    const project = apiKeyProjectHome(c)
+    return { projectIds: project ? [project] : [] }
+  }
   return { userId: c.get('userId') }
 }
 

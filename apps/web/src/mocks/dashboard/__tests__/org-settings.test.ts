@@ -182,14 +182,22 @@ describe('the org itself', () => {
 describe('org keys', () => {
   it('lists the org’s keys and revokes one', async () => {
     expect((await keys.listOrgKeys(ama, 'acme')).map((k) => k.name)).toEqual([
+      'Platform sync',
       'Terraform',
       'Onboarding bot',
     ])
     await keys.revokeOrgKey(ama, 'acme', 'key_terraform')
-    expect((await keys.listOrgKeys(ama, 'acme')).map((k) => k.name)).toEqual(['Onboarding bot'])
+    expect((await keys.listOrgKeys(ama, 'acme')).map((k) => k.name)).toEqual([
+      'Platform sync',
+      'Onboarding bot',
+    ])
     await expect(keys.revokeOrgKey(as(DANIEL), 'acme', 'key_onboarding')).rejects.toMatchObject({
       status: 403,
     })
+  })
+
+  it('refuses the org keys list to someone who isn’t an owner or admin', async () => {
+    await expect(keys.listOrgKeys(as(DANIEL), 'acme')).rejects.toMatchObject({ status: 403 })
   })
 })
 

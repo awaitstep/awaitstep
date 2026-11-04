@@ -90,7 +90,7 @@ describe('project Workspaces page', () => {
     const members = poolCard('Members & keys')
     expect(members).toHaveAttribute('href', '/acme/project-101/members')
     expect(members).toHaveTextContent('2admins can open every workspace')
-    expect(members).toHaveTextContent('3 project keys')
+    expect(members).toHaveTextContent('4 project keys')
     const variables = poolCard('Variables')
     expect(variables).toHaveTextContent('5')
     expect(variables).toHaveTextContent('2 project · 3 from Acme Inc')
@@ -134,7 +134,7 @@ describe('New workspace dialog', () => {
     renderPage({ dialogOpen: true })
     const dialog = await screen.findByRole('dialog', { name: 'Create a workspace' })
     await waitFor(() => expect(dialog).toHaveTextContent('2 admins'))
-    expect(dialog).toHaveTextContent('3 project keys')
+    expect(dialog).toHaveTextContent('4 project keys')
     expect(dialog).toHaveTextContent('5 variables')
 
     await userEvent.type(within(dialog).getByRole('textbox', { name: /Name/ }), 'Billing')

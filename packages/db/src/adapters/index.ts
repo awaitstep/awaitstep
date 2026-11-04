@@ -44,10 +44,11 @@ import type {
   ApiKey,
   ApiKeyAuth,
   ApiKeyListItem,
+  ApiKeyScopedRows,
+  ApiKeyScopeTarget,
   ApiKeyTarget,
   CreateApiKeyData,
   WorkspaceKeyCount,
-  WorkspaceKeysRows,
   EnvVar,
   OrgEnvVar,
   ResolvedProjectVariable,
@@ -176,6 +177,8 @@ export interface SchemaRef {
   deployments: unknown
   deploymentConfigs: unknown
   apiKeys: unknown
+  apiKeyProjects: unknown
+  apiKeyWorkspaces: unknown
   envVars: unknown
   envVarWorkspaces: unknown
   envVarProjects: unknown
@@ -321,6 +324,8 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         releaseVisits: schema.releaseVisits,
         accessRequests: schema.accessRequests,
         apiKeys: schema.apiKeys,
+        apiKeyProjects: schema.apiKeyProjects,
+        apiKeyWorkspaces: schema.apiKeyWorkspaces,
         invitation: schema.invitation,
         connections: schema.connections,
       },
@@ -341,6 +346,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         envVars: schema.envVars,
         envVarProjects: schema.envVarProjects,
         apiKeys: schema.apiKeys,
+        apiKeyProjects: schema.apiKeyProjects,
       },
       this._dialect,
       options?.tokenCrypto,
@@ -381,6 +387,8 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       db,
       {
         apiKeys: schema.apiKeys,
+        apiKeyProjects: schema.apiKeyProjects,
+        apiKeyWorkspaces: schema.apiKeyWorkspaces,
         projects: schema.projects,
         workspaces: schema.workspaces,
         user: schema.user,
@@ -388,6 +396,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         projectMembers: schema.projectMembers,
         workspaceMembers: schema.workspaceMembers,
       },
+      this._dialect,
       roles,
     )
     this._envVars = new EnvVarsAdapter(
@@ -1471,10 +1480,11 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   listApiKeysByProject(
     organizationId: string,
     projectId: string,
-    pagination?: PaginationParams,
     visibleTo?: string,
-  ): Promise<PaginatedResult<ApiKeyListItem>> {
-    return this._apiKeys.listByProject(organizationId, projectId, pagination, visibleTo)
+    fullReach = false,
+    now?: string,
+  ): Promise<ApiKeyScopedRows> {
+    return this._apiKeys.listByProject(organizationId, projectId, visibleTo, fullReach, now)
   }
   listApiKeysByOrganization(
     organizationId: string,
@@ -1485,14 +1495,22 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   countApiKeysByWorkspace(projectId: string, viewerId: string): Promise<WorkspaceKeyCount[]> {
     return this._apiKeys.countByWorkspace(projectId, viewerId)
   }
-  listApiKeysByWorkspace(workspaceId: string, now: string): Promise<WorkspaceKeysRows> {
-    return this._apiKeys.listByWorkspace(workspaceId, now)
+  listApiKeysByWorkspace(
+    workspaceId: string,
+    now: string,
+    fullReach = false,
+  ): Promise<ApiKeyScopedRows> {
+    return this._apiKeys.listByWorkspace(workspaceId, now, fullReach)
   }
   updateApiKeyLastUsed(id: string, lastUsedAt: string): Promise<void> {
     return this._apiKeys.updateLastUsed(id, lastUsedAt)
   }
   revokeApiKey(id: string, target: ApiKeyTarget): Promise<ApiKey | null> {
     return this._apiKeys.revoke(id, target)
+  }
+  /** Per-consumer revoke: one project or workspace drops its own slice of a shared key. */
+  revokeApiKeyScope(target: ApiKeyScopeTarget): Promise<ApiKey | null> {
+    return this._apiKeys.revokeScope(target)
   }
 
   // Env Vars

@@ -399,7 +399,7 @@ describe('API keys act with their creator’s standing', () => {
       h.as('u-eve'),
     )
     expect(keysForEve.status).toBe(200)
-    expect((await keysForEve.json()).data).toHaveLength(1)
+    expect((await keysForEve.json()).own).toHaveLength(1)
     expect(
       (await h.app.request('/api/api-keys?org=acme&project=project-101', h.as('u-fay'))).status,
     ).toBe(404)
@@ -553,10 +553,10 @@ describe('API keys act with their creator’s standing', () => {
       // The listed shape, so the reveal can say "Only Sales" and who minted it.
       expect(await wsKey.json()).toMatchObject({
         level: 'workspace',
-        workspaceId: 'ws-sales',
-        projectId: 'p-101',
         createdByName: 'Eve Park',
-        workspace: { id: 'ws-sales', slug: 'sales', name: 'Sales', colour: 'green' },
+        workspaces: [
+          { workspace: { id: 'ws-sales', slug: 'sales', name: 'Sales', colour: 'green' } },
+        ],
       })
       // The grid must be the level's, non-empty, and the body's level the address's.
       const outside = await mint('u-ben', 'org=acme', {
@@ -614,7 +614,7 @@ describe('API keys act with their creator’s standing', () => {
       const project = await (
         await h.app.request('/api/api-keys?org=acme&project=project-101', h.as('u-eve'))
       ).json()
-      expect(project.data.map((k: { id: string }) => k.id)).toEqual(['k-proj'])
+      expect(project.own.map((k: { id: string }) => k.id)).toEqual(['k-proj'])
       expect(project.workspaceCounts).toEqual([
         { workspace: { id: 'ws-sales', slug: 'sales', name: 'Sales', colour: 'green' }, count: 1 },
       ])
@@ -625,7 +625,7 @@ describe('API keys act with their creator’s standing', () => {
         )
       ).json()
       expect(sales.own.map((k: { id: string }) => k.id)).toEqual(['k-sales'])
-      expect(sales.inherited.map((k: { id: string }) => k.id)).toEqual(['k-proj'])
+      expect(sales.reaching.map((k: { id: string }) => k.id)).toEqual(['k-proj'])
       expect(
         (
           await h.app.request(
@@ -672,6 +672,32 @@ describe('API keys act with their creator’s standing', () => {
         (await h.app.request('/api/api-keys/k-org?org=acme', h.as('u-ama', { method: 'DELETE' })))
           .status,
       ).toBe(404)
+    })
+
+    it('discloses a reaching bundle’s whole set only to an org admin', async () => {
+      // A multi-project bundle homed at the org, reaching Project 101 and 202.
+      await h.seed.key('k-mp', 'u-ama', { level: 'project', projectId: 'p-101' }, full('project'))
+      await h.db
+        .insert(h.schema.apiKeyProjects)
+        .values({ keyId: 'k-mp', projectId: 'p-202', revokedAt: null })
+
+      // Eve opens Project 101 but is not an org admin: the bundle reaches her
+      // project, but the sibling Project 202 is not disclosed to her.
+      const limited = await (
+        await h.app.request('/api/api-keys?org=acme&project=project-101', h.as('u-eve'))
+      ).json()
+      const limitedMp = limited.reaching.find((k: { id: string }) => k.id === 'k-mp')
+      expect(limitedMp.projects.map((p: { projectId: string }) => p.projectId)).toEqual(['p-101'])
+
+      // Ben is an org admin: he sees the bundle's whole scope set.
+      const asAdmin = await (
+        await h.app.request('/api/api-keys?org=acme&project=project-101', h.as('u-ben'))
+      ).json()
+      const adminMp = asAdmin.reaching.find((k: { id: string }) => k.id === 'k-mp')
+      expect(adminMp.projects.map((p: { projectId: string }) => p.projectId).sort()).toEqual([
+        'p-101',
+        'p-202',
+      ])
     })
 
     it('reads people with members:read at the key’s own level only', async () => {
