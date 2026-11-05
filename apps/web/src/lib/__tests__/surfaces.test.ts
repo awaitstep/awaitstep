@@ -99,6 +99,24 @@ describe('parseSurface', () => {
   })
 })
 
+describe('editorSearch with a node', () => {
+  it('carries the node to open on the canvas, and drops it when not given', () => {
+    expect(editorSearch('canvas', { version: 'v-2', node: 'n1' })).toEqual({
+      view: 'canvas',
+      version: 'v-2',
+      node: 'n1',
+    })
+    expect(editorSearch('canvas', { node: undefined })).toEqual({ view: 'canvas' })
+  })
+
+  it('reads ?node= from the URL, ignoring anything that is not a non-empty string', () => {
+    expect(parseEditorSearch({ view: 'canvas', node: 'n1' }).node).toBe('n1')
+    expect(parseEditorSearch({ node: '' }).node).toBeUndefined()
+    expect(parseEditorSearch({ node: 7 }).node).toBeUndefined()
+    expect(parseEditorSearch({}).node).toBeUndefined()
+  })
+})
+
 describe('editorSearch', () => {
   it('carries only the params it is given', () => {
     expect(editorSearch('ide')).toEqual({ view: 'ide' })

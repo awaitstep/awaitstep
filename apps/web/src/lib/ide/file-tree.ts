@@ -113,7 +113,10 @@ export function fileLanguage(path: string): string {
   const name = basename(path)
   const dot = name.lastIndexOf('.')
   if (dot <= 0) return 'plaintext'
-  return LANGUAGE_BY_EXTENSION[name.slice(dot + 1).toLowerCase()] ?? 'plaintext'
+  const extension = name.slice(dot + 1).toLowerCase()
+  return Object.hasOwn(LANGUAGE_BY_EXTENSION, extension)
+    ? LANGUAGE_BY_EXTENSION[extension]!
+    : 'plaintext'
 }
 
 /** Every file path in a tree. */

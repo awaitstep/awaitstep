@@ -3,7 +3,9 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import type { Layout } from 'react-resizable-panels'
 import { browserStorage } from './ssr-safe-storage'
 
-export type SideBarTab = 'explorer' | 'search'
+export type SideBarTab = 'explorer' | 'search' | 'steps'
+
+export const SIDE_BAR_TABS: readonly SideBarTab[] = ['explorer', 'search', 'steps']
 
 export type DockTab = 'problems' | 'session' | 'quickTest'
 
@@ -78,7 +80,7 @@ export const useIdeLayoutStore = create<IdeLayoutState>()(
           ...current,
           ...stored,
           dockTab: normalizeDockTab(stored.dockTab),
-          sideBarTab: stored.sideBarTab === 'search' ? 'search' : 'explorer',
+          sideBarTab: SIDE_BAR_TABS.find((tab) => tab === stored.sideBarTab) ?? 'explorer',
         }
       },
     },

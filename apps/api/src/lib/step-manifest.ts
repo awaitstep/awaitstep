@@ -20,7 +20,8 @@ export function parseStepManifest(configSnapshot: string | null): StepManifest |
 
 /** memberNodeId → leaderNodeId for nodes whose code ran inside a merged step. */
 export function coalescedMembers(manifest: StepManifest | undefined): Record<string, string> {
-  const links: Record<string, string> = {}
+  // No prototype: a node id of `__proto__` would otherwise be dropped.
+  const links: Record<string, string> = Object.create(null)
   for (const entry of manifest?.steps ?? []) {
     if (entry.coalescedInto) links[entry.nodeId] = entry.coalescedInto
   }

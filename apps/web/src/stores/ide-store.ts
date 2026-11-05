@@ -3,9 +3,11 @@ import type { GeneratedFile } from '@awaitstep/codegen'
 import { guardClose, type CloseRequest } from '../lib/ide/close-guard'
 import { liveDrafts, type Draft, type Drafts } from '../lib/ide/drafts'
 import {
+  REVIEW_TAB_ID,
   closeAllTabs,
   closeTab,
   closeTabs,
+  compareTabId,
   cycleTab,
   openTab,
   pruneTabs,
@@ -28,7 +30,7 @@ export interface RestoreNotice {
   paths: string[]
   /** The subset whose server copy changed since the edit began. */
   changedOnServer: string[]
-  /** Edits dropped because the file was deleted on the server. */
+  /** The subset whose file was deleted on the server; the unsaved copy is kept. */
   deleted: string[]
 }
 
@@ -44,6 +46,11 @@ export interface EditorHandle {
    * `ignoreFocus` reads it anyway (the palette holds the keyboard).
    */
   searchSeed: (ignoreFocus?: boolean) => string | null
+}
+
+/** A save the server refused because the file changed: what it holds now. */
+export interface SaveConflict {
+  currentHash: string | null
 }
 
 export interface CursorPosition {
@@ -65,8 +72,33 @@ export interface IdeSessionState extends TabState {
   restoreNotice: RestoreNotice | null
   /** Where the caret is in the active editor; the status bar shows it. */
   cursor: CursorPosition
+  /** The file the Unsaved changes tab shows; null means the first dirty file. */
+  reviewPath: string | null
+  /** The review tab shows changes inline instead of side by side. */
+  reviewInline: boolean
+  /** Files whose last save was refused because they changed on the server. */
+  conflicts: Readonly<Record<string, SaveConflict>>
+  /**
+   * Files whose "changed on the server" banner was dismissed, with the
+   * server hash they were dismissed at: a further change brings it back.
+   */
+  dismissedOutside: Readonly<Record<string, string | null>>
   /** Not reactive state: set when the editor mounts, read when something must drive it. */
   editorHandle: EditorHandle | null
+  /**
+   * The step picked in the Steps view or the preview. Kept apart from the
+   * canvas store's selection: the canvas selection opens the config panel,
+   * and the IDE only reads the graph.
+   */
+  selectedNodeId: string | null
+  /** A request to put the keyboard in the Steps list once it is showing. */
+  stepsFocusRequested: boolean
+  /**
+   * A request to put the keyboard in the file editor once it shows the active
+   * file. Opening a file may mount a new Monaco, so a plain `focus()` right
+   * after would go to the editor that is about to unmount (or to none).
+   */
+  editorFocusRequested: boolean
 
   openFile: (path: string) => void
   revealLocation: (target: RevealTarget) => void
@@ -95,9 +127,23 @@ export interface IdeSessionState extends TabState {
   clearDrafts: () => void
   /** Replaces every draft at once (an Undo, a restore after reload). */
   replaceDrafts: (drafts: Drafts) => void
+  /** Opens the Unsaved changes tab, on `path` when given. */
+  openReview: (path?: string) => void
+  setReviewPath: (path: string | null) => void
+  setReviewInline: (inline: boolean) => void
+  /** Opens (or focuses) the Compare tab for a file. */
+  openCompare: (path: string) => void
+  setConflict: (path: string, conflict: SaveConflict) => void
+  clearConflict: (path: string) => void
+  dismissOutside: (path: string, serverHash: string | null) => void
   setRestoreNotice: (notice: RestoreNotice | null) => void
   setCursor: (cursor: CursorPosition) => void
   setEditorHandle: (handle: EditorHandle | null) => void
+  selectNode: (nodeId: string | null) => void
+  requestStepsFocus: () => void
+  consumeStepsFocus: () => void
+  requestEditorFocus: () => void
+  consumeEditorFocus: () => void
   /** Carries a draft (and its tab) along with a renamed file. */
   moveFile: (from: string, to: string) => void
   /** Drops drafts that no longer differ from the baseline (saved or reverted). */
@@ -118,13 +164,32 @@ const initialSession = {
   closeRequest: null as CloseRequest | null,
   restoreNotice: null as RestoreNotice | null,
   cursor: { line: 1, column: 1 } as CursorPosition,
+  reviewPath: null as string | null,
+  reviewInline: false,
+  conflicts: {} as Readonly<Record<string, SaveConflict>>,
+  dismissedOutside: {} as Readonly<Record<string, string | null>>,
   editorHandle: null as EditorHandle | null,
+  selectedNodeId: null as string | null,
+  stepsFocusRequested: false,
+  editorFocusRequested: false,
 }
 
-function without(drafts: Drafts, path: string): Drafts {
-  if (!(path in drafts)) return drafts
-  const next = { ...drafts }
+function without<T>(record: Readonly<Record<string, T>>, path: string): Record<string, T> {
+  if (!(path in record)) return record
+  const next = { ...record }
   delete next[path]
+  return next
+}
+
+/** Per-file flags only mean something while the file still has an unsaved copy. */
+function onlyDrafted<T>(
+  record: Readonly<Record<string, T>>,
+  drafts: Drafts,
+): Readonly<Record<string, T>> {
+  const stale = Object.keys(record).filter((path) => !(path in drafts))
+  if (stale.length === 0) return record
+  const next = { ...record }
+  for (const path of stale) delete next[path]
   return next
 }
 
@@ -146,7 +211,8 @@ export const useIdeStore = create<IdeSessionState>()((set, get) => ({
   },
   cancelClose: () => set({ closeRequest: null }),
   cycleFile: (direction) => set(cycleTab(get(), direction)),
-  pruneFiles: (existing) => set(pruneTabs(get(), new Set(existing))),
+  pruneFiles: (existing) =>
+    set(pruneTabs(get(), new Set(existing), new Set(Object.keys(get().drafts)))),
   setDraft: (path, source, baseHash) => {
     const existing = get().drafts[path]
     const draft: Draft = { source, baseHash: existing ? existing.baseHash : baseHash }
@@ -155,29 +221,69 @@ export const useIdeStore = create<IdeSessionState>()((set, get) => ({
   rebaseDraft: (path, hash) => {
     const existing = get().drafts[path]
     if (!existing) return
-    set({ drafts: { ...get().drafts, [path]: { ...existing, baseHash: hash } } })
+    const { conflicts, dismissedOutside } = get()
+    set({
+      drafts: { ...get().drafts, [path]: { ...existing, baseHash: hash } },
+      conflicts: without(conflicts, path),
+      dismissedOutside: without(dismissedOutside, path),
+    })
   },
-  clearDraft: (path) => set({ drafts: without(get().drafts, path) }),
-  clearDrafts: () => set({ drafts: {} }),
-  replaceDrafts: (drafts) => set({ drafts }),
+  clearDraft: (path) =>
+    set({
+      drafts: without(get().drafts, path),
+      conflicts: without(get().conflicts, path),
+      dismissedOutside: without(get().dismissedOutside, path),
+    }),
+  clearDrafts: () => set({ drafts: {}, conflicts: {}, dismissedOutside: {} }),
+  replaceDrafts: (drafts) =>
+    set({
+      drafts,
+      conflicts: onlyDrafted(get().conflicts, drafts),
+      dismissedOutside: onlyDrafted(get().dismissedOutside, drafts),
+    }),
+  openReview: (path) => set({ ...openTab(get(), REVIEW_TAB_ID), reviewPath: path ?? null }),
+  setReviewPath: (reviewPath) => set({ reviewPath }),
+  setReviewInline: (reviewInline) => set({ reviewInline }),
+  openCompare: (path) => set(openTab(get(), compareTabId(path))),
+  setConflict: (path, conflict) => set({ conflicts: { ...get().conflicts, [path]: conflict } }),
+  clearConflict: (path) => set({ conflicts: without(get().conflicts, path) }),
+  dismissOutside: (path, serverHash) =>
+    set({ dismissedOutside: { ...get().dismissedOutside, [path]: serverHash } }),
   setRestoreNotice: (restoreNotice) => set({ restoreNotice }),
   setCursor: (cursor) => {
     const current = get().cursor
     if (current.line !== cursor.line || current.column !== cursor.column) set({ cursor })
   },
   setEditorHandle: (editorHandle) => set({ editorHandle }),
+  requestStepsFocus: () => set({ stepsFocusRequested: true }),
+  consumeStepsFocus: () => set({ stepsFocusRequested: false }),
+  requestEditorFocus: () => set({ editorFocusRequested: true }),
+  consumeEditorFocus: () => set({ editorFocusRequested: false }),
+  selectNode: (selectedNodeId) => {
+    if (get().selectedNodeId !== selectedNodeId) set({ selectedNodeId })
+  },
   moveFile: (from, to) => {
     const state = get()
     const draft = state.drafts[from]
     const drafts = draft ? { ...without(state.drafts, from), [to]: draft } : state.drafts
     const wasOpen = state.openPaths.includes(from)
     const tabs = wasOpen ? openTab(closeTab(state, from), to) : state
-    set({ ...tabs, drafts })
+    set({
+      ...tabs,
+      drafts,
+      conflicts: without(state.conflicts, from),
+      dismissedOutside: without(state.dismissedOutside, from),
+    })
   },
   reconcileDrafts: (files) => {
     const current = get().drafts
     const next = liveDrafts(files, current)
-    if (next !== current) set({ drafts: next })
+    if (next === current) return
+    set({
+      drafts: next,
+      conflicts: onlyDrafted(get().conflicts, next),
+      dismissedOutside: onlyDrafted(get().dismissedOutside, next),
+    })
   },
   showDialog: (dialog, target) => set({ dialog, dialogTarget: target ?? null }),
   closeDialog: () => set({ dialog: null, dialogTarget: null }),

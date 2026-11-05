@@ -7,8 +7,13 @@ function names(paths: string[]): string {
   return paths.map(basename).join(', ')
 }
 
+interface RestoredDraftsBannerProps {
+  /** Opens Compare for a restored file the server has changed since. */
+  onCompare: (path: string) => void
+}
+
 /** After a reload brought unsaved edits back: say so, and offer to look or let go. */
-export function RestoredDraftsBanner() {
+export function RestoredDraftsBanner({ onCompare }: RestoredDraftsBannerProps) {
   const notice = useIdeStore((s) => s.restoreNotice)
   const drafts = useIdeStore((s) => s.drafts)
   const openFile = useIdeStore((s) => s.openFile)
@@ -20,7 +25,8 @@ export function RestoredDraftsBanner() {
   // banner only speaks about what is still unsaved.
   const live = notice.paths.filter((path) => path in drafts)
   const changed = notice.changedOnServer.filter((path) => live.includes(path))
-  if (live.length === 0 && notice.deleted.length === 0) return null
+  const deleted = notice.deleted.filter((path) => live.includes(path))
+  if (live.length === 0) return null
 
   function handleShow() {
     if (live[0]) openFile(live[0])
@@ -39,7 +45,7 @@ export function RestoredDraftsBanner() {
 
   return (
     <EditorBanner
-      tone={changed.length > 0 || notice.deleted.length > 0 ? 'warn' : 'info'}
+      tone={changed.length > 0 || deleted.length > 0 ? 'warn' : 'info'}
       onDismiss={handleDismiss}
       actions={
         live.length > 0 && (
@@ -47,6 +53,9 @@ export function RestoredDraftsBanner() {
             <Button size="sm" onClick={handleShow} className="h-6 px-2 text-xs">
               Show
             </Button>
+            {changed.map((path) => (
+              <CompareButton key={path} path={path} onCompare={onCompare} />
+            ))}
             <Button
               size="sm"
               variant="outline"
@@ -59,23 +68,34 @@ export function RestoredDraftsBanner() {
         )
       }
     >
-      {live.length > 0 && <>Restored {files} from your last session.</>}
+      Restored {files} from your last session.
       {changed.length > 0 && (
         <>
           {' '}
           <b className="font-medium text-status-warning">{names(changed)}</b>{' '}
-          {changed.length === 1 ? 'has' : 'have'} changed since you edited{' '}
-          {changed.length === 1 ? 'it' : 'them'}. Saving will ask first.
+          {changed.length === 1 ? 'has' : 'have'} changed on the server since you edited{' '}
+          {changed.length === 1 ? 'it' : 'them'}.
         </>
       )}
-      {notice.deleted.length > 0 && (
+      {deleted.length > 0 && (
         <>
           {' '}
-          <b className="font-medium text-status-warning">{names(notice.deleted)}</b>{' '}
-          {notice.deleted.length === 1 ? 'was' : 'were'} deleted since you edited{' '}
-          {notice.deleted.length === 1 ? 'it' : 'them'}, so the edits weren’t restored.
+          <b className="font-medium text-status-warning">{names(deleted)}</b>{' '}
+          {deleted.length === 1 ? 'was' : 'were'} deleted on the server since you edited{' '}
+          {deleted.length === 1 ? 'it' : 'them'}. Your copy is kept.
         </>
       )}
     </EditorBanner>
+  )
+}
+
+function CompareButton({ path, onCompare }: { path: string; onCompare: (path: string) => void }) {
+  function handleClick() {
+    onCompare(path)
+  }
+  return (
+    <Button size="sm" variant="outline" onClick={handleClick} className="h-6 px-2 text-xs">
+      Compare {basename(path)}
+    </Button>
   )
 }

@@ -86,3 +86,12 @@ describe('fileLanguage', () => {
     expect(fileLanguage('notes.weird')).toBe('plaintext')
   })
 })
+
+describe('fileLanguage with prototype-named extensions', () => {
+  it.each(['constructor', '__proto__', 'toString', 'hasOwnProperty'])(
+    'treats x.%s as plaintext',
+    (name) => {
+      expect(fileLanguage(`x.${name}`)).toBe('plaintext')
+    },
+  )
+})

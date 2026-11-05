@@ -18,7 +18,20 @@ const positionSchema = z.object({
   y: z.number(),
 })
 
-const nodeIdSchema = z.string().min(1)
+// Node ids end up in selectors, file names and generated labels, so control
+// characters and line breaks (C0, DEL, C1, U+2028/2029) are refused. Any other
+// text stays valid. This schema is enforced wherever an IR is loaded or
+// validated: saving a version, deploying, and the API's source read all refuse
+// an IR whose node id has a control character, with a 400. A row stored before
+// the rule therefore cannot be saved, deployed or have its source read.
+// Only the dashboard canvas still opens such a row (it falls back to a
+// lenient read), so the id can be renamed there.
+// eslint-disable-next-line no-control-regex -- the control range is the point
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/
+const nodeIdSchema = z
+  .string()
+  .min(1)
+  .refine((id) => !CONTROL_CHARACTERS.test(id), 'Node ids cannot contain control characters')
 
 // ── Per-builtin data schemas ──
 // Deliberately lenient: every field optional, unknown keys allowed, and

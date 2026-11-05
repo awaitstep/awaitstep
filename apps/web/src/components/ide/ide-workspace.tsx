@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useBlocker, useRouter } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Group, Panel, Separator } from 'react-resizable-panels'
@@ -7,7 +7,9 @@ import { useShallow } from 'zustand/react/shallow'
 import { actionToast, LONG_TOAST_MS, failureLine } from '../../lib/action-toast'
 import type { IdeCommandActions } from '../../lib/ide/commands'
 import { createDraftUndo } from '../../lib/ide/draft-undo'
-import { dirtyPaths, overlayDrafts } from '../../lib/ide/drafts'
+import { dirtyPaths } from '../../lib/ide/drafts'
+import { reviewOrder } from '../../lib/ide/review'
+import { filePathOfTab } from '../../lib/ide/tabs'
 import { countBySeverity, diagnosticProblems, groupProblems } from '../../lib/ide/problems'
 import { fileEditability, workspaceEditability } from '../../lib/ide/editability'
 import { basename, buildFileTree, normalizeBundlePath } from '../../lib/ide/file-tree'
@@ -24,6 +26,11 @@ import { queries } from '../../lib/queries'
 import { surfaceSwitchTarget } from '../../lib/workflows/surfaces'
 import { copyToClipboard } from '../../lib/utils'
 import { useDraftPersistence } from '../../hooks/use-draft-persistence'
+import { useCompareCache } from '../../hooks/use-compare-cache'
+import { useDraftOverlay } from '../../hooks/use-draft-overlay'
+import { useOutsideChanges } from '../../hooks/use-outside-changes'
+import { useReviewActions } from '../../hooks/use-review-actions'
+import { useReviewCommands } from '../../hooks/use-review-commands'
 import { runShortcut } from '../../lib/ide/key-ownership'
 import { useIdeShortcuts } from '../../hooks/use-ide-shortcuts'
 import { useMinWidth } from '../../hooks/use-min-width'
@@ -56,6 +63,9 @@ import { QuickOpenDialog } from './quick-open-dialog'
 import { SideBar } from './side-bar'
 import { SearchRunner } from './search-runner'
 import { SideBarTabs } from './side-bar-tabs'
+import { StepsView } from './steps-view'
+import { StepSyncProvider } from './step-sync-context'
+import { showStepsView } from '../../lib/ide/step-actions'
 import { StatusBar } from './status-bar'
 import {
   describeConversion,
@@ -133,6 +143,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
 
   const {
     activePath,
+    reviewPath,
     drafts,
     dialog,
     dialogTarget,
@@ -149,6 +160,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   } = useIdeStore(
     useShallow((s) => ({
       activePath: s.activePath,
+      reviewPath: s.reviewPath,
       drafts: s.drafts,
       dialog: s.dialog,
       dialogTarget: s.dialogTarget,
@@ -207,7 +219,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     () => (canEdit && fullData ? virtualSeedFiles(fullData.workflow, storedPaths) : []),
     [canEdit, fullData, storedPaths],
   )
-  const projectPaths = useMemo(
+  const savedProjectPaths = useMemo(
     () => new Set([...storedPaths, ...seeds.map((f) => f.path)]),
     [storedPaths, seeds],
   )
@@ -219,20 +231,15 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     for (const seed of seeds) if (!map.has(seed.path)) map.set(seed.path, seed)
     return map
   }, [source, seeds])
-  // Undo runs from a toast ten seconds later, so it reads the baseline of
-  // that moment rather than the render that showed the toast.
-  const baselineRef = useRef(baseline)
-  baselineRef.current = baseline
   const draftUndo = useMemo(
     () =>
       createDraftUndo({
         getStore: useIdeStore.getState,
-        getBaseline: () => baselineRef.current,
         notify: actionToast,
       }),
     [],
   )
-  const files = useMemo(() => overlayDrafts(baseline, drafts), [baseline, drafts])
+  const { files, projectPaths, ghostPaths } = useDraftOverlay(baseline, drafts, savedProjectPaths)
   // Stored files only (a virtual seed is not counted by the server); it
   // changes when files do, not with every keystroke.
   const usage = useMemo(
@@ -248,6 +255,9 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     const split = splitWorkspaceFiles(baseline.values(), projectPaths)
     return { project: buildFileTree(split.project), generated: buildFileTree(split.generated) }
   }, [baseline, projectPaths])
+
+  // Notices files another writer changed (a teammate, an agent) while this is open.
+  useOutsideChanges({ workflowId, enabled: source !== undefined && !isHistorical, baseline })
 
   useDraftPersistence({
     workflowId,
@@ -282,6 +292,8 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     clearWorkflowHistory()
   }, [fullData, workflowId])
 
+  useCompareCache(workflowId)
+
   useEffect(() => {
     return () => {
       draftUndo.dispose()
@@ -298,14 +310,15 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   // (or the primary file) when nothing is open yet.
   useEffect(() => {
     if (!source) return
-    pruneFiles(baseline.keys())
+    // Drafts first: a Compare tab goes once its file has no unsaved copy left.
     reconcileDrafts(baseline)
+    pruneFiles([...baseline.keys(), ...ghostPaths])
     if (useIdeStore.getState().activePath !== null) return
     const requested = fileParam ? normalizeBundlePath(fileParam) : null
     const initial =
       requested && baseline.has(requested) ? requested : (source.primary ?? source.entry)
     if (baseline.has(initial)) openFile(initial)
-  }, [source, baseline, fileParam, openFile, pruneFiles, reconcileDrafts])
+  }, [source, baseline, ghostPaths, fileParam, openFile, pruneFiles, reconcileDrafts])
 
   // A workflow without any version has no source to show; that case renders
   // its own notice, so the source query's 400 is not an error worth toasting.
@@ -374,7 +387,6 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     ...queries.workflows.handlerConversion(workflowId),
     enabled: dialog === 'convertHandlers',
   })
-  const activeDirty = activePath !== null && dirty.has(activePath)
   const readOnlyMessage = workspace?.message ?? null
 
   // Text equal to the baseline is not a draft: keeping it would let a stale
@@ -384,24 +396,41 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     else setDraft(path, text, baseline.get(path)?.hash ?? null)
   }
 
+  const review = useReviewActions({
+    workflowId,
+    files,
+    baseline,
+    canEdit,
+    projectFiles,
+    draftUndo,
+    editabilityOf,
+    onChange: handleEditorChange,
+  })
+
+  const {
+    activeDirty,
+    activeMovedOnServer,
+    commands: reviewCommands,
+  } = useReviewCommands({
+    baseline,
+    activePath,
+    reviewPath,
+    drafts,
+    dirty,
+    canEdit,
+    readOnlyMessage,
+    projectFiles,
+    draftUndo,
+    onCompare: review.onCompare,
+  })
+
   const actions = useMemo<IdeCommandActions>(
     () => ({
-      save: () => {
-        if (!canEdit) {
-          if (readOnlyMessage) actionToast.info(readOnlyMessage)
-          return
-        }
-        const path = useIdeStore.getState().activePath
-        if (path) void projectFiles.saveFile(path)
-      },
+      ...reviewCommands,
       saveAll: () => {
         if (canEdit) void projectFiles.saveAll()
       },
       discardChanges: draftUndo.discardAll,
-      revertFile: () => {
-        const path = useIdeStore.getState().activePath
-        if (path) draftUndo.revertFile(path)
-      },
       newFile: () => {
         if (!canEdit) return
         // The name row lives in the Explorer: show that view first, whether
@@ -441,7 +470,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       },
       closeAllFiles: () => requestClose(useIdeStore.getState().openPaths),
       copyActivePath: () => {
-        const path = useIdeStore.getState().activePath
+        const path = filePathOfTab(useIdeStore.getState().activePath)
         if (!path) return
         copyToClipboard(path)
           .then(() => actionToast.success('Path copied'))
@@ -453,11 +482,12 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       showProblems: () => showDock('problems'),
       showTestSession: () => showDock('session'),
       showQuickTest: () => showDock('quickTest'),
+      showSteps: showStepsView,
       ...sessionActions,
     }),
     [
+      reviewCommands,
       canEdit,
-      readOnlyMessage,
       projectFiles,
       storedPaths,
       searchActions,
@@ -614,6 +644,16 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     void switchView('canvas', { version: versionParam })
   }
 
+  function handleReview(path?: string) {
+    useIdeStore.getState().openReview(path)
+  }
+
+  // Review… in the leave dialog: stay, and look at what would be lost.
+  function handleReviewFromLeave() {
+    blocker.reset?.()
+    useIdeStore.getState().openReview()
+  }
+
   function handleBack() {
     router.history.back()
   }
@@ -692,6 +732,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       onCancel={handleBlockerCancel}
       onSaveAndGo={handleSaveAndSwitch}
       onDiscardAndGo={handleLeave}
+      {...(wideEnough && canEdit && { onReview: handleReviewFromLeave })}
     />
   )
   if (!wideEnough) {
@@ -703,7 +744,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     )
   }
 
-  return (
+  const view = (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-background">
       <SearchRunner files={files} projectPaths={projectPaths} />
       <IdeHeader
@@ -731,12 +772,17 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
                 <SideBar
                   files={files}
                   onEscape={handleFocusEditor}
+                  steps={
+                    <StepsView tabs={<SideBarTabs view="steps" />} onEscape={handleFocusEditor} />
+                  }
                   explorer={
                     <FileExplorer
                       tabs={<SideBarTabs view="explorer" />}
                       project={trees.project}
                       generated={trees.generated}
                       dirty={dirty}
+                      unsavedPaths={reviewOrder(dirty)}
+                      onReview={handleReview}
                       virtual={virtualPaths}
                       canEdit={canEdit}
                       usage={usage}
@@ -778,6 +824,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
                     busy: runAction.intent.kind === 'busy',
                     onRun: sessionActions.run,
                   }}
+                  review={review}
                 />
               </Panel>
               {dockOpen && (
@@ -825,14 +872,12 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         warnings={problemCounts.warning}
         unsaved={unsavedPaths}
         canEdit={canEdit}
-        activePath={activePath}
-        readOnly={activePath !== null && editabilityOf(activePath).readOnly}
+        activePath={filePathOfTab(activePath)}
+        readOnly={filePathOfTab(activePath) !== null && editabilityOf(activePath!).readOnly}
         onOpenLatest={handleOpenLatest}
         onShowSession={handleShowSession}
         onShowProblems={handleShowProblems}
-        onOpenFile={openFile}
-        onSaveAll={actions.saveAll}
-        onDiscard={actions.discardChanges}
+        onReview={handleReview}
       />
       <CommandPalette
         actions={actions}
@@ -840,6 +885,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         activeIsStoredFile={activeIsStoredFile}
         activeIsHandlersFile={activeIsHandlersFile}
         activeDirty={activeDirty}
+        activeMovedOnServer={activeMovedOnServer}
         dirtyCount={dirty.size}
         runLabel={runAction.intent.label}
         runEnabled={runAction.intent.kind !== 'busy'}
@@ -884,8 +930,26 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         saving={projectFiles.busy}
         onSave={handleCloseSave}
         onDiscard={handleCloseDiscard}
+        onReview={handleReview}
       />
       {unsavedDialog}
     </div>
+  )
+
+  return (
+    <StepSyncProvider
+      workflowId={workflowId}
+      linkVersion={linkVersion}
+      kind={fullData.workflow.kind === 'script' ? 'script' : 'workflow'}
+      manifest={source?.manifest ?? null}
+      files={files}
+      projectPaths={projectPaths}
+      workflowFile={source?.primary ?? null}
+      versions={fullData.versions}
+      graphVersionId={fullData.version.id}
+      codeVersionId={source?.versionId ?? null}
+    >
+      {view}
+    </StepSyncProvider>
   )
 }

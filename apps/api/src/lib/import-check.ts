@@ -1,5 +1,5 @@
 import { AWAITSTEP_IMPORT_PREFIX, AWAITSTEP_MODULE_DIR, withoutComments } from '@awaitstep/codegen'
-import { PROJECT_IMPORT_PREFIX, fileExtension } from '@awaitstep/ir'
+import { PROJECT_IMPORT_PREFIX, projectImportCandidates } from '@awaitstep/ir'
 
 /**
  * Whitespace and comments between a keyword and its specifier — legal there,
@@ -45,29 +45,6 @@ function decodeEscapes(text: string): string {
     return escape
   })
 }
-
-/**
- * How `PROJECT_IMPORTS_FIELD` maps an explicit extension to the file on
- * disk, plus the source file a bundler falls back to. `#app/*.mts` resolves
- * to `*.mjs`, which is the compiled name of an `.mts` source.
- */
-const BY_EXTENSION: Readonly<Record<string, readonly string[]>> = {
-  json: ['json'],
-  mjs: ['mjs', 'mts'],
-  cjs: ['cjs', 'cts'],
-  mts: ['mjs', 'mts'],
-  cts: ['cjs', 'cts'],
-  js: ['js', 'ts'],
-  ts: ['js', 'ts'],
-}
-
-/**
- * Everything else falls through `#app/*` → `./*.js`, so only a `.js` file
- * or the `.ts` source it compiles from will satisfy it. Notably **not**
- * `.mjs`/`.cjs`: a bundler asked for `x.js` does not try those, so counting
- * them would pass an import the deploy then fails on.
- */
-const DEFAULT_EXTENSIONS = ['js', 'ts'] as const
 
 export interface UnresolvedImport {
   /** The file doing the importing. */
@@ -321,19 +298,5 @@ function claimedByManifest(specifier: string, declared: readonly string[]): bool
 }
 
 function resolves(target: string, present: ReadonlySet<string>): boolean {
-  const extension = fileExtension(target)
-  const mapped = BY_EXTENSION[extension]
-  if (mapped) {
-    const base = target.slice(0, -(extension.length + 1))
-    return mapped.some((ext) => present.has(`${base}.${ext}`))
-  }
-  // No extension, or a dot that is part of the name (`config/app.config`):
-  // the catch-all pattern appends `.js`, so the name stands whole. A
-  // `.d.ts` counts: a declaration file satisfies the only kind of import
-  // that can be left pointing at one, since type-only statements are
-  // stripped before this runs.
-  return (
-    DEFAULT_EXTENSIONS.some((ext) => present.has(`${target}.${ext}`)) ||
-    present.has(`${target}.d.ts`)
-  )
+  return projectImportCandidates(target).some((candidate) => present.has(candidate))
 }

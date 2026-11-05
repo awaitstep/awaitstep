@@ -102,7 +102,9 @@ export function ValidationPanel() {
                 )}
                 {nodeType && (
                   <span className="shrink-0 rounded bg-muted/60 px-1 py-0.5 text-xs text-muted-foreground/60">
-                    {NODE_TYPE_LABELS[nodeType] ?? nodeType}
+                    {Object.hasOwn(NODE_TYPE_LABELS, nodeType)
+                      ? NODE_TYPE_LABELS[nodeType]
+                      : nodeType}
                   </span>
                 )}
                 <span

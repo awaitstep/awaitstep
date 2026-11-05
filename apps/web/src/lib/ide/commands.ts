@@ -17,6 +17,10 @@ export interface IdeCommandActions {
   discardChanges: () => void
   /** Drops the active file's unsaved edits. */
   revertFile: () => void
+  /** Opens the Unsaved changes tab: every unsaved file against its saved text. */
+  reviewChanges: () => void
+  /** Opens Compare: the active file against the server's copy. */
+  compareFile: () => void
   newFile: () => void
   renameFile: () => void
   deleteFile: () => void
@@ -38,6 +42,8 @@ export interface IdeCommandActions {
   showProblems: () => void
   showTestSession: () => void
   showQuickTest: () => void
+  /** Shows the Steps view and puts the keyboard in its list. */
+  showSteps: () => void
   /** The one Run (⌥⏎): quick-tests a step file, otherwise runs the test session. */
   run: () => void
   startSession: () => void
@@ -55,6 +61,8 @@ export interface IdeCommandContext {
   /** The active file is the annotation file (stored or virtual), convertible to modules. */
   activeIsHandlersFile: boolean
   activeDirty: boolean
+  /** The active file has unsaved text and the server's copy has moved on from where it started. */
+  activeMovedOnServer: boolean
   dirtyCount: number
   openCount: number
   /** The workspace accepts edits at all (current generated version). */
@@ -97,6 +105,20 @@ export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
       shortcut: 'saveAll',
       enabled: ctx.canEdit && ctx.dirtyCount > 0,
       run: actions.saveAll,
+    },
+    {
+      id: 'file.review',
+      label: 'Review Unsaved Changes',
+      group: 'file',
+      enabled: ctx.canEdit && ctx.dirtyCount > 0,
+      run: actions.reviewChanges,
+    },
+    {
+      id: 'file.compare',
+      label: 'Compare File with Server',
+      group: 'file',
+      enabled: ctx.canEdit && ctx.activeMovedOnServer,
+      run: actions.compareFile,
     },
     {
       id: 'file.revert',
@@ -225,6 +247,13 @@ export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
       shortcut: 'togglePreview',
       enabled: true,
       run: actions.togglePreview,
+    },
+    {
+      id: 'view.steps',
+      label: 'Show Steps',
+      group: 'view',
+      enabled: true,
+      run: actions.showSteps,
     },
     {
       id: 'view.problems',

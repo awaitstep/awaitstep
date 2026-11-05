@@ -1,18 +1,22 @@
 import type { ReactNode } from 'react'
-import { Info, TriangleAlert, X } from 'lucide-react'
+import { CircleAlert, Info, TriangleAlert, X } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
-type EditorBannerTone = 'info' | 'warn'
+type EditorBannerTone = 'info' | 'warn' | 'error'
 
 const TONE_CLASS: Record<EditorBannerTone, string> = {
   info: 'border-status-info/30 bg-tone-info text-foreground/80',
   warn: 'border-status-warning/30 bg-tone-warn text-foreground/80',
+  error: 'border-status-error/30 bg-tone-fail text-foreground/80',
 }
 
 const TONE_ICON_CLASS: Record<EditorBannerTone, string> = {
   info: 'text-status-info',
   warn: 'text-status-warning',
+  error: 'text-status-error',
 }
+
+const TONE_ICON = { info: Info, warn: TriangleAlert, error: CircleAlert } as const
 
 interface EditorBannerProps {
   tone: EditorBannerTone
@@ -23,12 +27,16 @@ interface EditorBannerProps {
   onDismiss?: () => void
 }
 
-/** A strip above the editor that explains the state of the workspace, announced when it appears. */
+/**
+ * A strip above the editor that explains the state of the workspace,
+ * announced when it appears. An error is an alert: it interrupts, because
+ * the thing it describes (a save that failed) will not fix itself.
+ */
 export function EditorBanner({ tone, children, actions, onDismiss }: EditorBannerProps) {
-  const Icon = tone === 'warn' ? TriangleAlert : Info
+  const Icon = TONE_ICON[tone]
   return (
     <div
-      role="status"
+      role={tone === 'error' ? 'alert' : 'status'}
       className={cn(
         'flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b px-3 py-2 text-xs leading-relaxed',
         TONE_CLASS[tone],

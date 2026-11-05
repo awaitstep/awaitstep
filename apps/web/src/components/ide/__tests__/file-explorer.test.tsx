@@ -18,6 +18,8 @@ function setup(overrides: Partial<React.ComponentProps<typeof FileExplorer>> = {
     project,
     generated,
     dirty: new Set<string>(),
+    unsavedPaths: [] as string[],
+    onReview: vi.fn(),
     virtual: new Set<string>(),
     canEdit: true,
     usage: { files: 3, bytes: 1200 },

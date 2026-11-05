@@ -11,6 +11,8 @@ import {
 import type { IdeSessionState } from '../../stores/ide-store'
 import { dirtyPaths, overlayDrafts } from './drafts'
 import { basename } from './file-tree'
+import { outsideState } from './outside-changes'
+import { compareTabId } from './tabs'
 import { importSpecifier } from './project'
 import { countImporters, toSearchFiles } from './search'
 
@@ -21,7 +23,7 @@ export interface ProjectFileClient {
     source: string,
     precondition: WritePrecondition,
   ): Promise<ProjectFileSummary>
-  deleteProjectFile(workflowId: string, path: string, ifMatch?: string): Promise<void>
+  deleteProjectFile(workflowId: string, path: string, ifMatch: string): Promise<void>
   convertHandlers(workflowId: string, ifMatch?: string): Promise<HandlerConversionResult>
 }
 
@@ -64,6 +66,14 @@ export interface ProjectFileActions {
   saveFile(path: string): Promise<boolean>
   /** Saves every dirty draft; resolves to how many were written. */
   saveAll(): Promise<number>
+  /**
+   * Compare's "Keep mine and overwrite": writes the draft over the server
+   * copy the person was looking at (`serverHash`, null when it was gone).
+   * Anything that landed since is a fresh conflict, never a silent overwrite.
+   */
+  overwriteFile(path: string, serverHash: string | null): Promise<boolean>
+  /** "Save to recreate": writes a draft whose file was deleted on the server, only if the path is still free. */
+  recreateFile(path: string): Promise<boolean>
   createFile(path: string, source?: string): Promise<boolean>
   renameFile(from: string, to: string): Promise<boolean>
   deleteFile(path: string): Promise<boolean>
@@ -78,6 +88,7 @@ export interface ProjectFileActions {
 }
 
 type WriteOutcome = ProjectFileSummary | 'conflict' | 'failed'
+type SaveOutcome = 'saved' | 'unchanged' | 'conflict' | 'deleted' | 'failed'
 
 /** A failed write's toast: the server's reason, or `line` when it gave none (see `failureLine`). */
 function failed(notify: Notifier, line: string, err: unknown) {
@@ -88,7 +99,8 @@ function failed(notify: Notifier, line: string, err: unknown) {
  * The workspace's writes, with the bookkeeping that keeps them safe for a
  * file an agent may be editing at the same time: every write is conditional
  * on the hash the draft started from (or on the path being free), a refused
- * write surfaces as a conflict with an explicit Overwrite, a successful one
+ * write is recorded as a conflict the editor shows until Compare settles it
+ * (overwriting is only offered there), a successful one
  * rebases the draft onto the hash the server returned so a quick second
  * save cannot conflict with itself, and tabs follow renames and deletes.
  */
@@ -116,24 +128,19 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     path: string,
     source: string,
     precondition: WritePrecondition,
-    offerOverwrite: boolean,
+    reportConflict: boolean,
     verb = 'save',
   ): Promise<WriteOutcome> {
     try {
       return await client.putProjectFile(workflowId, path, source, precondition)
     } catch (err) {
-      if (err instanceof ProjectFileConflictError && offerOverwrite) {
-        const { currentHash } = err
-        const what = 'ifNoneMatch' in precondition ? 'was created' : 'changed'
-        notify.error(`${basename(path)} ${what} on the server since you opened it`, {
-          description: 'Reload to see the latest version, or overwrite it with your copy.',
-          action: {
-            label: 'Overwrite',
-            onClick: () => {
-              void overwrite(path, currentHash)
-            },
-          },
-        })
+      if (err instanceof ProjectFileConflictError && reportConflict) {
+        // Not a toast: it would time out while the file still cannot be
+        // saved. The editor shows a banner until Compare settles it.
+        liveStore()?.setConflict(path, { currentHash: err.currentHash })
+        // Bring in what the server holds now, so Compare and the banner
+        // describe the file as it is rather than as it was last loaded.
+        await refresh()
         return 'conflict'
       }
       failed(notify, `Couldn’t ${verb} ${basename(path)}`, err)
@@ -141,30 +148,30 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     }
   }
 
-  // Overwrites against the hash the conflict reported: anything that lands
-  // in between is a fresh conflict, never a silent clobber.
-  async function overwrite(path: string, currentHash: string | null): Promise<void> {
-    // Reached from a toast long after the click that made it.
-    const store = liveStore()
-    if (!store) return
-    const source = store.drafts[path]?.source ?? getBaseline().get(path)?.source
-    if (source === undefined) return
-    const precondition: WritePrecondition = currentHash
-      ? { ifMatch: currentHash }
+  async function overwriteFile(path: string, serverHash: string | null): Promise<boolean> {
+    const source = getStore().drafts[path]?.source
+    if (source === undefined) return false
+    const precondition: WritePrecondition = serverHash
+      ? { ifMatch: serverHash }
       : { ifNoneMatch: true }
     const saved = await write(path, source, precondition, true)
-    if (typeof saved === 'string') return
+    if (typeof saved === 'string') return false
     liveStore()?.rebaseDraft(path, saved.hash)
     await refresh()
-    notify.success(`Saved ${basename(path)}`)
+    if (isCurrent()) notify.success(`Saved ${basename(path)}`)
+    return true
   }
 
   // 'unchanged' is a draft that matches the file (or a stored file with no
   // draft): nothing to send, and nothing wrong either.
-  async function saveOne(path: string): Promise<'saved' | 'unchanged' | 'failed'> {
+  async function saveOne(path: string): Promise<SaveOutcome> {
     const base = getBaseline().get(path)
     const draft = getStore().drafts[path]
     if (!draft && !base) return 'failed'
+    // Edits of a file someone deleted: writing against its old hash can only
+    // be refused, and recreating it is a choice the banner offers, not a side
+    // effect of Save.
+    if (draft && !base && draft.baseHash !== null) return 'deleted'
     if (draft && base && draft.source === base.source) {
       getStore().clearDraft(path)
       return 'unchanged'
@@ -175,9 +182,35 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     const baseHash = draft ? draft.baseHash : (base?.hash ?? null)
     const precondition: WritePrecondition = baseHash ? { ifMatch: baseHash } : { ifNoneMatch: true }
     const saved = await write(path, source, precondition, true)
-    if (typeof saved === 'string') return 'failed'
+    if (typeof saved === 'string') return saved
     liveStore()?.rebaseDraft(path, saved.hash)
     return 'saved'
+  }
+
+  // A save of a deleted file does nothing by itself, so it says why and shows
+  // the file, where the banner offers Save to recreate and Discard.
+  function announceDeleted(path: string) {
+    if (!isCurrent()) return
+    notify.error(`${basename(path)} was deleted on the server`, {
+      description: 'Save to recreate it from your copy, or discard your copy.',
+    })
+    liveStore()?.openFile(path)
+  }
+
+  // A refused save is shown on the file's own tab, where its banner is. From
+  // Compare it stays in Compare, which already holds the choice (overwrite or
+  // take the server's), and says why nothing was written.
+  function showConflict(path: string) {
+    const store = liveStore()
+    if (!store) return
+    if (store.activePath === compareTabId(path)) {
+      notify.error(`Couldn’t save ${basename(path)}`, {
+        description:
+          'It changed on the server. Keep yours and overwrite, or use the server version.',
+      })
+      return
+    }
+    store.openFile(path)
   }
 
   function importersOf(
@@ -209,7 +242,11 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
 
   return {
     async saveFile(path) {
-      const ok = (await saveOne(path)) === 'saved'
+      const outcome = await saveOne(path)
+      // The banners live on the file's own tab.
+      if (outcome === 'conflict') showConflict(path)
+      if (outcome === 'deleted') announceDeleted(path)
+      const ok = outcome === 'saved'
       if (ok) {
         await refresh()
         notify.success(`Saved ${basename(path)}`)
@@ -217,9 +254,26 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       return ok
     },
 
+    overwriteFile,
+
+    async recreateFile(path) {
+      const source = getStore().drafts[path]?.source
+      if (source === undefined) return false
+      const saved = await write(path, source, { ifNoneMatch: true }, true)
+      if (typeof saved === 'string') return false
+      liveStore()?.rebaseDraft(path, saved.hash)
+      await refresh()
+      if (isCurrent()) notify.success(`Recreated ${basename(path)}`)
+      return true
+    },
+
     async saveAll() {
       const paths = dirtyPaths(getBaseline(), getStore().drafts)
       const results = await Promise.all(paths.map(saveOne))
+      const firstConflict = paths.find((_, index) => results[index] === 'conflict')
+      if (firstConflict !== undefined) showConflict(firstConflict)
+      const firstDeleted = paths.find((_, index) => results[index] === 'deleted')
+      if (firstDeleted !== undefined) announceDeleted(firstDeleted)
       const saved = results.filter((r) => r === 'saved').length
       if (saved > 0) {
         await refresh()
@@ -259,13 +313,28 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       const draft = drafts[from]
       const source = draft?.source ?? base?.source
       if (source === undefined) return false
+      // The copy at the new path is the person's text, built on the version
+      // they read. If the file has moved on since (or a save was refused), the
+      // rename would carry their text over and drop a version they never saw,
+      // so nothing is written until Compare or Discard settles the file.
+      if (outsideState(getBaseline(), from, draft) !== null || getStore().conflicts[from]) {
+        notify.error(`Couldn’t rename ${basename(from)}`, {
+          description: 'It changed on the server since you edited it. Compare it first.',
+        })
+        liveStore()?.openFile(from)
+        return false
+      }
       const created = await write(to, source, { ifNoneMatch: true }, false, 'create')
       if (created === 'conflict') await refresh()
       if (typeof created === 'string') return false
       let removed = true
-      if (base?.hash !== undefined) {
+      // The version the person read (the guard above has already refused a
+      // draft that is not built on the stored file), never the latest seen.
+      const readHash = draft ? draft.baseHash : base?.hash
+      if (readHash) {
         try {
-          await client.deleteProjectFile(workflowId, from, base.hash)
+          // A newer version that lands now is kept and reported.
+          await client.deleteProjectFile(workflowId, from, readHash)
         } catch (err) {
           removed = false
           // Half done: the line says which half, the server's reason (if any) why.
@@ -289,12 +358,31 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
 
     async deleteFile(path) {
       const base = getBaseline().get(path)
-      try {
-        await client.deleteProjectFile(workflowId, path, base?.hash)
-      } catch (err) {
-        failed(notify, `Couldn’t delete ${basename(path)}`, err)
-        if (err instanceof ProjectFileConflictError) await refresh()
+      const draft = getStore().drafts[path]
+      // A draft built on no stored version (a virtual seed, or one restored
+      // from a previous session) next to a stored file means the file appeared
+      // after the edit began. Deleting it would remove text the person never
+      // read, so it is settled in Compare first, like rename.
+      if (draft && draft.baseHash === null && base?.hash) {
+        notify.error(`Couldn’t delete ${basename(path)}`, {
+          description: 'It changed on the server since you edited it. Compare it first.',
+        })
+        liveStore()?.openFile(path)
         return false
+      }
+      // The version the person read: a file that moved on under their edits is
+      // refused with the server's reason instead of deleted unseen. Decided by
+      // whether a draft exists, never by falling back to the newest hash.
+      const ifMatch = draft ? draft.baseHash : base?.hash
+      // No stored hash: nothing on the server to delete, only the local copy.
+      if (ifMatch) {
+        try {
+          await client.deleteProjectFile(workflowId, path, ifMatch)
+        } catch (err) {
+          failed(notify, `Couldn’t delete ${basename(path)}`, err)
+          if (err instanceof ProjectFileConflictError) await refresh()
+          return false
+        }
       }
       const store = liveStore()
       store?.clearDraft(path)
@@ -308,15 +396,17 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       // The server converts what it has stored; an unsaved draft of the
       // annotation file would be lost, so it is saved first.
       if (getStore().drafts[PROJECT_HANDLERS_PATH]) {
-        if ((await saveOne(PROJECT_HANDLERS_PATH)) === 'failed') return null
+        const outcome = await saveOne(PROJECT_HANDLERS_PATH)
+        if (outcome === 'failed' || outcome === 'conflict' || outcome === 'deleted') return null
       }
       // The hash the conversion is conditional on is read after that save:
       // a saved draft now builds on the hash the server returned.
       const current = liveStore()
       if (!current) return null
-      const hash =
-        current.drafts[PROJECT_HANDLERS_PATH]?.baseHash ??
-        getBaseline().get(PROJECT_HANDLERS_PATH)?.hash
+      const handlersDraft = current.drafts[PROJECT_HANDLERS_PATH]
+      const hash = handlersDraft
+        ? (handlersDraft.baseHash ?? undefined)
+        : getBaseline().get(PROJECT_HANDLERS_PATH)?.hash
       let result: HandlerConversionResult
       try {
         result = await client.convertHandlers(workflowId, hash)

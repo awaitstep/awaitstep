@@ -56,7 +56,8 @@ export function NodeBase({ label, icon, accent, selected, warning, children }: N
     useCallback((s) => s.edges.some((e) => e.source === nodeId), [nodeId]),
   )
   const { active: overlayActive, nodeStatuses } = useRunOverlayStore()
-  const stepStatus = nodeId ? nodeStatuses[nodeId] : undefined
+  const stepStatus =
+    nodeId && Object.hasOwn(nodeStatuses, nodeId) ? nodeStatuses[nodeId] : undefined
   const issue = useNodeIssue(nodeId)
 
   return (

@@ -5,6 +5,8 @@ import {
   Controls,
   MiniMap,
   BackgroundVariant,
+  useNodesInitialized,
+  useReactFlow,
   type ReactFlowInstance,
   type NodeTypes,
 } from '@xyflow/react'
@@ -24,7 +26,12 @@ import { useWorkflowTypeContext } from '../../lib/monaco/use-workflow-type-conte
 
 const edgeTypes = { smoothstep: LabeledEdge }
 
-export function WorkflowCanvas() {
+interface WorkflowCanvasProps {
+  /** Opens centred on this node instead of fitting the whole graph. Unknown ids are ignored. */
+  focusNodeId?: string
+}
+
+export function WorkflowCanvas({ focusNodeId }: WorkflowCanvasProps) {
   // Keep Monaco's per-workflow ambient types (Env, node outputs) in sync
   // with the canvas for every editor pane on this page.
   useWorkflowTypeContext()
@@ -49,6 +56,7 @@ export function WorkflowCanvas() {
     readOnly,
   } = useWorkflowStore()
   const { registry } = useNodeRegistry()
+  const focusedNodeExists = focusNodeId !== undefined && nodes.some((n) => n.id === focusNodeId)
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<
     | { type: 'node'; x: number; y: number; nodeId: string }
@@ -320,7 +328,7 @@ export function WorkflowCanvas() {
         onPaneContextMenu={onPaneContextMenu}
         nodeTypes={nodeTypes as NodeTypes}
         edgeTypes={edgeTypes}
-        fitView
+        fitView={!focusedNodeExists}
         snapToGrid
         snapGrid={[20, 20]}
         defaultEdgeOptions={{
@@ -330,6 +338,7 @@ export function WorkflowCanvas() {
         proOptions={{ hideAttribution: true }}
         className="!bg-background"
       >
+        {focusNodeId !== undefined && focusedNodeExists && <CenterOnNode nodeId={focusNodeId} />}
         <Background
           variant={BackgroundVariant.Dots}
           gap={20}
@@ -360,4 +369,19 @@ export function WorkflowCanvas() {
       )}
     </div>
   )
+}
+
+/** Centres the view on one node once, as soon as the graph has been measured. */
+function CenterOnNode({ nodeId }: { nodeId: string }) {
+  const initialized = useNodesInitialized()
+  const { fitView } = useReactFlow()
+  const centred = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!initialized || centred.current === nodeId) return
+    centred.current = nodeId
+    void fitView({ nodes: [{ id: nodeId }], maxZoom: 1, padding: 0.6, duration: 0 })
+  }, [initialized, nodeId, fitView])
+
+  return null
 }

@@ -46,33 +46,24 @@ describe('dirtyPaths / liveDrafts', () => {
 })
 
 describe('restoreSnapshot', () => {
-  const baseline = new Map([
-    ['a.ts', { hash: 'ha' }],
-    ['b.ts', { hash: 'hb2' }],
-    ['seed.ts', {}],
-  ])
   const snapshot = {
     'a.ts': { source: 'edit a', baseHash: 'ha' },
     'b.ts': { source: 'edit b', baseHash: 'hb' },
-    'seed.ts': { source: 'edit seed', baseHash: null },
     'gone.ts': { source: 'edit gone', baseHash: 'hg' },
   }
 
-  it('brings back drafts whose file still has the hash they were edited from', () => {
-    const result = restoreSnapshot(snapshot, {}, baseline)
-    expect(result.restored).toEqual(['a.ts', 'seed.ts'])
-    expect(result.drafts).toEqual({ 'a.ts': snapshot['a.ts'], 'seed.ts': snapshot['seed.ts'] })
-  })
-
-  it('skips a file that changed on the server or no longer exists', () => {
-    const result = restoreSnapshot(snapshot, {}, baseline)
-    expect(result.skipped).toEqual(['b.ts', 'gone.ts'])
+  it('brings every draft back as it was, including files that moved on or were deleted', () => {
+    const result = restoreSnapshot(snapshot, {})
+    expect(result.restored).toEqual(['a.ts', 'b.ts', 'gone.ts'])
+    expect(result.drafts).toEqual(snapshot)
+    expect(result.skipped).toEqual([])
   })
 
   it('never overwrites text typed after the discard', () => {
     const newer = { 'a.ts': { source: 'typed later', baseHash: 'ha' } }
-    const result = restoreSnapshot(snapshot, newer, baseline)
+    const result = restoreSnapshot(snapshot, newer)
     expect(result.drafts['a.ts']?.source).toBe('typed later')
-    expect(result.skipped).toContain('a.ts')
+    expect(result.skipped).toEqual(['a.ts'])
+    expect(result.restored).toEqual(['b.ts', 'gone.ts'])
   })
 })

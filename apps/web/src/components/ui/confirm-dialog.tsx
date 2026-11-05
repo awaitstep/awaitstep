@@ -26,6 +26,12 @@ interface ConfirmDialogProps {
    */
   secondaryLabel?: string
   onSecondary?: () => void
+  /**
+   * An action that steps out of the question to look first ("Review…"), set
+   * apart on the left. Like the others it does not close the dialog itself.
+   */
+  leadingLabel?: string
+  onLeading?: () => void
   /** Where focus goes once the dialog has closed; call `preventDefault` to take over from the default return to the opener. */
   onCloseAutoFocus?: (event: Event) => void
   loading?: boolean
@@ -62,6 +68,8 @@ function ConfirmActions({
   onConfirm,
   secondaryLabel,
   onSecondary,
+  leadingLabel,
+  onLeading,
   loading,
   disabled,
   size = 'sm',
@@ -76,8 +84,17 @@ function ConfirmActions({
     onSecondary?.()
   }
 
+  function handleLeading() {
+    onLeading?.()
+  }
+
   return (
     <>
+      {leadingLabel && onLeading && (
+        <Button variant="ghost" size={size} className="mr-auto" onClick={handleLeading}>
+          {leadingLabel}
+        </Button>
+      )}
       <AlertDialog.Cancel asChild>
         <Button variant={cancelVariant} size={size}>
           {cancelLabel}

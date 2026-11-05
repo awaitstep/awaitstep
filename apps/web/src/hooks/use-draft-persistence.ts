@@ -69,7 +69,7 @@ export function useDraftPersistence({ workflowId, enabled, baseline }: DraftPers
     if (stored.data) {
       const result = mergeRestoredDrafts(stored.data, baseline)
       const paths = Object.keys(result.drafts)
-      if (paths.length > 0 || result.deleted.length > 0) {
+      if (paths.length > 0) {
         store.replaceDrafts({ ...result.drafts, ...store.drafts })
         store.setRestoreNotice({
           paths,

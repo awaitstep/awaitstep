@@ -27,6 +27,41 @@ export const PROJECT_IMPORTS_FIELD: Readonly<Record<string, string>> = {
   '#app/*': './*.js',
 }
 
+/**
+ * Which files satisfy an `#app/` target under `PROJECT_IMPORTS_FIELD`: an
+ * explicit extension maps to the file it names or the source it compiles
+ * from (`x.mts` → `x.mjs` or `x.mts`), and anything else falls through to
+ * `./*.js`, so only `x.js` or the `x.ts` it compiles from will do. Notably
+ * not `.mjs`/`.cjs`: a bundler asked for `x.js` does not try those. A
+ * declaration file counts too, as the only kind a type-only import can point at.
+ *
+ * A bare directory (`#app/lib`) is `lib.js` or `lib.ts`, never `lib/index.ts`:
+ * subpath imports do not resolve directory indexes.
+ */
+export function projectImportCandidates(target: string): string[] {
+  const extension = fileExtension(target)
+  const mapped = EXTENSION_TARGETS.get(extension)
+  if (mapped) {
+    const base = target.slice(0, -(extension.length + 1))
+    return mapped.map((ext) => `${base}.${ext}`)
+  }
+  return [...DEFAULT_EXTENSION_TARGETS.map((ext) => `${target}.${ext}`), `${target}.d.ts`]
+}
+
+// A Map, not an object: the key is file text, and `constructor` or
+// `__proto__` must not find anything on `Object.prototype`.
+const EXTENSION_TARGETS: ReadonlyMap<string, readonly string[]> = new Map([
+  ['json', ['json']],
+  ['mjs', ['mjs', 'mts']],
+  ['cjs', ['cjs', 'cts']],
+  ['mts', ['mjs', 'mts']],
+  ['cts', ['cjs', 'cts']],
+  ['js', ['js', 'ts']],
+  ['ts', ['js', 'ts']],
+])
+
+const DEFAULT_EXTENSION_TARGETS = ['js', 'ts'] as const
+
 export const MAX_PROJECT_FILES = 100
 export const MAX_PROJECT_FILE_BYTES = 512_000
 export const MAX_PROJECT_TOTAL_BYTES = 2_000_000

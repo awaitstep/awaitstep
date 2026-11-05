@@ -314,7 +314,7 @@ describe('SideBar', () => {
   const explorer = <div data-testid="explorer">tree</div>
 
   function renderBar() {
-    return render(<SideBar explorer={explorer} files={base} onEscape={vi.fn()} />)
+    return render(<SideBar explorer={explorer} steps={null} files={base} onEscape={vi.fn()} />)
   }
 
   it('shows the remembered view and keeps the other one mounted', () => {
@@ -338,7 +338,7 @@ describe('SideBar', () => {
   it('hands the keyboard to the Search box when Search is chosen, instead of dropping it', async () => {
     const user = userEvent.setup()
     useIdeLayoutStore.setState({ sideBarTab: 'explorer' })
-    render(<SideBar explorer={<SideBarTabsOnly />} files={base} onEscape={vi.fn()} />)
+    render(<SideBar explorer={<SideBarTabsOnly />} steps={null} files={base} onEscape={vi.fn()} />)
     await user.click(screen.getByRole('tab', { name: 'Search' }))
     await waitFor(() => expect(box()).toHaveFocus())
   })
@@ -346,7 +346,7 @@ describe('SideBar', () => {
   it('keeps the keyboard on the Explorer tab when Explorer is chosen from Search', async () => {
     const user = userEvent.setup()
     useIdeLayoutStore.setState({ sideBarTab: 'search' })
-    render(<SideBar explorer={<SideBarTabsOnly />} files={base} onEscape={vi.fn()} />)
+    render(<SideBar explorer={<SideBarTabsOnly />} steps={null} files={base} onEscape={vi.fn()} />)
     await user.click(screen.getByRole('tab', { name: 'Explorer' }))
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Explorer' })).toHaveFocus())
     expect(screen.getByRole('tab', { name: 'Explorer' }).closest('[hidden]')).toBeNull()
@@ -354,7 +354,7 @@ describe('SideBar', () => {
 
   it('wires every tab to a tabpanel', () => {
     useIdeLayoutStore.setState({ sideBarTab: 'search' })
-    render(<SideBar explorer={<SideBarTabsOnly />} files={base} onEscape={vi.fn()} />)
+    render(<SideBar explorer={<SideBarTabsOnly />} steps={null} files={base} onEscape={vi.fn()} />)
     for (const tab of screen.getAllByRole('tab', { hidden: true })) {
       const panel = document.getElementById(tab.getAttribute('aria-controls')!)
       expect(panel?.getAttribute('role')).toBe('tabpanel')

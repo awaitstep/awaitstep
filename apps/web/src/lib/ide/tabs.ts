@@ -3,6 +3,44 @@ export interface TabState {
   activePath: string | null
 }
 
+/**
+ * Tab ids that are not files. Project paths never contain a colon (their
+ * segments are letters, digits and a few separators), so these cannot
+ * collide with a file's tab.
+ */
+export const REVIEW_TAB_ID = 'ide:review'
+const COMPARE_PREFIX = 'ide:compare:'
+
+export function compareTabId(path: string): string {
+  return `${COMPARE_PREFIX}${path}`
+}
+
+/** The file a Compare tab is about, or null for any other tab id. */
+export function compareTabPath(tabId: string): string | null {
+  return tabId.startsWith(COMPARE_PREFIX) ? tabId.slice(COMPARE_PREFIX.length) : null
+}
+
+export type TabKind = 'file' | 'review' | 'compare'
+
+export function tabKind(tabId: string): TabKind {
+  if (tabId === REVIEW_TAB_ID) return 'review'
+  return compareTabPath(tabId) !== null ? 'compare' : 'file'
+}
+
+/** The tab's id when it is a file, else null (the review and Compare tabs are not files). */
+export function filePathOfTab(tabId: string | null): string | null {
+  return tabId !== null && tabKind(tabId) === 'file' ? tabId : null
+}
+
+/**
+ * The file a tab is about, for marking its step: a file's own path, or the file
+ * a Compare tab compares. The Review tab covers many files, so it marks none.
+ */
+export function markedFileOf(tabId: string | null): string | null {
+  if (tabId === null) return null
+  return filePathOfTab(tabId) ?? compareTabPath(tabId)
+}
+
 export const EMPTY_TABS: TabState = { openPaths: [], activePath: null }
 
 /** Activates `path`, appending a tab for it when none is open yet. */
@@ -63,11 +101,28 @@ export function cycleTab(state: TabState, direction: 1 | -1): TabState {
 
 /**
  * Drops tabs whose files no longer exist (a new source version, a deleted
- * file), applying the same neighbour rule as closing them one by one.
+ * file), applying the same neighbour rule as closing them one by one. The
+ * review tab stays until it is closed; a Compare tab goes with its file or
+ * once the file has no unsaved copy left to compare (`drafted`, when given).
  */
-export function pruneTabs(state: TabState, existing: ReadonlySet<string>): TabState {
+export function pruneTabs(
+  state: TabState,
+  existing: ReadonlySet<string>,
+  drafted?: ReadonlySet<string>,
+): TabState {
   return closeTabs(
     state,
-    state.openPaths.filter((path) => !existing.has(path)),
+    state.openPaths.filter((id) => {
+      switch (tabKind(id)) {
+        case 'review':
+          return false
+        case 'compare': {
+          const path = compareTabPath(id)!
+          return !existing.has(path) || (drafted !== undefined && !drafted.has(path))
+        }
+        default:
+          return !existing.has(id)
+      }
+    }),
   )
 }

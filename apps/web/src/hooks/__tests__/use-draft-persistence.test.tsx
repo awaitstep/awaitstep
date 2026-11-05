@@ -61,6 +61,19 @@ describe('useDraftPersistence', () => {
     })
   })
 
+  it('keeps the stored copy of a file deleted since, restoring it and not overwriting storage', async () => {
+    seed({ 'gone.ts': { source: 'my edit', baseHash: 'hg' } })
+    renderHook(() => useDraftPersistence({ workflowId: 'wf', enabled: true, baseline }), {
+      wrapper,
+    })
+    await waitFor(() => expect(Object.keys(useIdeStore.getState().drafts)).toEqual(['gone.ts']))
+    expect(useIdeStore.getState().restoreNotice).toMatchObject({ deleted: ['gone.ts'] })
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(memory.data.get(draftKey('u1', 'wf'))).toMatchObject({
+      files: { 'gone.ts': { source: 'my edit' } },
+    })
+  })
+
   it('mirrors later changes into storage and clears the entry once nothing is unsaved', async () => {
     renderHook(() => useDraftPersistence({ workflowId: 'wf', enabled: true, baseline }), {
       wrapper,

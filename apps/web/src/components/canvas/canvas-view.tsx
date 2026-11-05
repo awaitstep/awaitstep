@@ -1,5 +1,5 @@
 import { useBlocker } from '@tanstack/react-router'
-import { lazy, Suspense, useState, useEffect } from 'react'
+import { lazy, Suspense, useRef, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { actionToast } from '../../lib/action-toast'
 import { NodePalette } from './node-palette'
@@ -20,6 +20,7 @@ import { CanvasSidePanels } from './canvas-side-panels'
 import { useShallow } from 'zustand/react/shallow'
 import {
   buildWorkflowStoreState,
+  nodeToSelectOnce,
   deriveReadOnlyState,
   deriveDeploymentState,
 } from '../../lib/hydrate-workflow'
@@ -44,6 +45,8 @@ interface CanvasViewProps {
   versionParam?: string
   template?: boolean
   kindParam?: 'workflow' | 'script'
+  /** The editor URL's `?node=`: opens with this node selected and centred, if the version has it. */
+  nodeParam?: string
   localDevEnabled: boolean
 }
 
@@ -52,6 +55,7 @@ export function CanvasView({
   versionParam,
   template,
   kindParam,
+  nodeParam,
   localDevEnabled,
 }: CanvasViewProps) {
   const [showLocalTest, setShowLocalTest] = useState(false)
@@ -118,6 +122,10 @@ export function CanvasView({
     deriveDeploymentState(fullData)
   const canPickTemplate = offersTemplates({ isNew, kindParam, fullData })
 
+  // The URL's node is applied by the first hydration that has the graph, not
+  // by every refetch after it, so saving never re-selects what was deselected.
+  const appliedNodeParam = useRef<string | undefined>(undefined)
+
   // Hydrate store from server data
   useEffect(() => {
     if (isNew) {
@@ -139,14 +147,18 @@ export function CanvasView({
     }
     setWorkflowId(workflowId)
     if (fullData?.workflow) {
+      const selectNodeId = nodeToSelectOnce(nodeParam, appliedNodeParam.current)
+      appliedNodeParam.current = nodeParam
       useWorkflowStore.setState(
         buildWorkflowStoreState(fullData.workflow, fullData.version, currentVersion, isReadOnly, {
           handlerModules: fullData.handlers.modules,
+          selectNodeId,
+          keepSelectedNodeId: useWorkflowStore.getState().selectedNodeId,
         }),
       )
       clearWorkflowHistory()
     }
-  }, [workflowId, isNew, kindParam, fullData, setWorkflowId, isReadOnly, currentVersion])
+  }, [workflowId, isNew, kindParam, nodeParam, fullData, setWorkflowId, isReadOnly, currentVersion])
 
   // Persistence (save + deploy)
   const { handleSave, saveNow, handleDeploy, saveSilent, isSaving, lastSavedAt, saveError } =
@@ -251,7 +263,7 @@ export function CanvasView({
                 versionParam={versionParam}
               />
               <div className="relative flex-1 overflow-hidden">
-                <LazyCanvas />
+                <LazyCanvas focusNodeId={nodeParam} />
                 {!isReadOnly && (
                   <div className="absolute left-4 top-4 z-10">
                     <NodePalette onAddNode={handleAddNode} />
