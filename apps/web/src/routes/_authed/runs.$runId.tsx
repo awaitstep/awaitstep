@@ -1,22 +1,19 @@
-import { createFileRoute, useParams, useSearch } from '@tanstack/react-router'
-import { RunDetail } from '../../components/monitoring/run-detail'
-import { RequireProject } from '../../wrappers/require-project'
+import { createFileRoute } from '@tanstack/react-router'
+import { LegacyItemRedirect } from '../../components/navigation/legacy-item-redirect'
+import { LegacyRedirect } from '../../components/navigation/legacy-redirect'
 
+// Legacy URL: a run now lives under its workflow's workspace URL. Without the
+// workflow there is no way to place it, so it lands on the Runs list.
 export const Route = createFileRoute('/_authed/runs/$runId')({
-  head: () => ({ meta: [{ title: 'Run Details | AwaitStep' }] }),
   validateSearch: (search: Record<string, unknown>) => ({
     workflowId: typeof search.workflowId === 'string' ? search.workflowId : '',
   }),
-  component: RunDetailPage,
+  component: LegacyRun,
 })
 
-function RunDetailPage() {
-  const { runId } = useParams({ from: '/_authed/runs/$runId' })
-  const { workflowId } = useSearch({ from: '/_authed/runs/$runId' })
-
-  return (
-    <RequireProject>
-      <RunDetail runId={runId} workflowIdHint={workflowId} />
-    </RequireProject>
-  )
+function LegacyRun() {
+  const { runId } = Route.useParams()
+  const { workflowId } = Route.useSearch()
+  if (!workflowId) return <LegacyRedirect page="runs" />
+  return <LegacyItemRedirect workflowId={workflowId} page={{ kind: 'run', runId }} />
 }

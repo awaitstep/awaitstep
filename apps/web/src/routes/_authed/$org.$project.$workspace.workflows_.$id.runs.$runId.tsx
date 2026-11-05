@@ -22,7 +22,7 @@ function RunRoute() {
         workflow.kind === 'script' ? (
           <FunctionHasNoRuns workflowId={id} />
         ) : (
-          <RunDetail runId={runId} workflowIdHint={id} />
+          <RunDetail runId={runId} workflowId={id} />
         )
       }
     </ItemPage>

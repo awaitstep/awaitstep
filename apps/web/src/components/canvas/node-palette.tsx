@@ -6,8 +6,7 @@ import { cn } from '../../lib/utils'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { getNodeVisuals } from '../../lib/node-icon-map'
 import { orgPath } from '../../lib/dashboard-paths'
-import { useOrgStore } from '../../stores/org-store'
-import { useEditorScope } from '../../contexts/editor-scope-context'
+import { useItemSlugs } from '../../contexts/editor-scope-context'
 import { groupByCategory, filterNodes, getSuperCategoryMeta } from '../../lib/node-categories'
 import { useWorkflowStore } from '../../stores/workflow-store'
 
@@ -43,11 +42,7 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
   const definitions = registry.getAll()
   const kind = useWorkflowStore((s) => s.kind)
   // Nodes are installed on Resources › Nodes (B9); the palette picks them up when this tab regains focus.
-  const editorScope = useEditorScope()
-  const switcherOrgSlug = useOrgStore(
-    (s) => s.organizations.find((o) => o.id === s.activeOrganizationId)?.slug,
-  )
-  const orgSlug = editorScope?.org ?? switcherOrgSlug
+  const orgSlug = useItemSlugs().org
 
   const filteredGrouped = useMemo(() => {
     const compatibleDefs =

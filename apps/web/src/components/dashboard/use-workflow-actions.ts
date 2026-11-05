@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
-import { useEditorScope } from '../../contexts/editor-scope-context'
+import { useItemSlugs } from '../../contexts/editor-scope-context'
 import { type WorkflowSummary } from '../../lib/api-client'
 import { workspacePath } from '../../lib/dashboard-paths'
 import { downloadJsonFile } from '../../lib/download-file'
@@ -22,13 +21,12 @@ function capitalised(word: string): string {
 
 /**
  * Duplicate, Export IR, Take down and Delete for one workflow, shared by its
- * page's ⋯ menu and the old list's. Navigation stays in the shell it runs in.
+ * page's ⋯ menu. Navigation stays in its workspace.
  */
 export function useWorkflowActions(workflow: WorkflowSummary) {
   const api = useApi()
-  const navigate = useNavigate()
   const goTo = useGoTo()
-  const scope = useEditorScope()
+  const scope = useItemSlugs()
   const queryClient = useQueryClient()
   const word = kindWord(workflow)
   const Word = capitalised(word)
@@ -43,16 +41,12 @@ export function useWorkflowActions(workflow: WorkflowSummary) {
   const remove = useMutation({
     meta: { toast: { success: `${Word} deleted`, error: `Couldn’t delete the ${word}` } },
     mutationFn: () => api.deleteWorkflow(workflow.id),
-    onSuccess: async () => {
+    onSuccess: () => {
       invalidateLists()
       // Back to the list it was in, replacing the gone page so Back can't reopen it.
-      if (scope) {
-        goTo(workspacePath(scope, workflow.kind === 'script' ? 'functions' : 'workflows'), {
-          replace: true,
-        })
-      } else {
-        await navigate({ to: '/workflows', replace: true })
-      }
+      goTo(workspacePath(scope, workflow.kind === 'script' ? 'functions' : 'workflows'), {
+        replace: true,
+      })
     },
   })
 

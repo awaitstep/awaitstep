@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
-import { useEditorScope } from '../../contexts/editor-scope-context'
+import { useItemSlugs } from '../../contexts/editor-scope-context'
 import { workflowLinks } from '../../lib/workflows/detail-links'
 import { useGoTo } from '../navigation/router-shell-link'
 import { Play, Copy, Check } from 'lucide-react'
@@ -40,9 +39,8 @@ export function TriggerDialog({
   const api = useApi()
   const queries = useQueries()
   const queryClient = useQueryClient()
-  const navigate = useNavigate()
   const goTo = useGoTo()
-  const scope = useEditorScope()
+  const scope = useItemSlugs()
   const [selectedWorkflowId, setSelectedWorkflowId] = useState(initialWorkflowId)
   const [picked, setPicked] = useState<string | null>(null)
   const [paramsJson, setParamsJson] = useState('{}')
@@ -101,25 +99,14 @@ export function TriggerDialog({
       // The workflow page's run counts (its tab and the day's card).
       queryClient.invalidateQueries({ queryKey: ['dash', 'workflow-run-counts'] })
       onClose()
-      // In a workspace, the run just started opens; the old pages list all runs.
-      if (scope) goTo(workflowLinks(scope, selectedWorkflowId).run(run.id))
-      else navigate({ to: '/runs' })
+      // The run just started opens.
+      goTo(workflowLinks(scope, selectedWorkflowId).run(run.id))
     } catch (err) {
       setError(failureLine(err, 'Failed to trigger workflow'))
     } finally {
       setTriggering(false)
     }
-  }, [
-    api,
-    connectionId,
-    paramsJson,
-    selectedWorkflowId,
-    queryClient,
-    onClose,
-    navigate,
-    goTo,
-    scope,
-  ])
+  }, [api, connectionId, paramsJson, selectedWorkflowId, queryClient, onClose, goTo, scope])
 
   const handleCopyCurl = useCallback(() => {
     if (!deploymentId) return

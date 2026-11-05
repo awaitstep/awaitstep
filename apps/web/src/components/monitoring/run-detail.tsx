@@ -1,13 +1,8 @@
 import { useEffect, useRef } from 'react'
-import { Link } from '@tanstack/react-router'
-import { useEditorScope } from '../../contexts/editor-scope-context'
-import { useWorkflowLinks } from '../../lib/workflows/detail-links'
-import { RouterShellLink } from '../navigation/router-shell-link'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import { flatPages } from '../../lib/queries'
 import { durationCompact, formatDateTime } from '../../lib/time'
-import { PageBand } from '../ui/page-band'
 import { RunActions } from './run-actions'
 import { runConnection } from './run-connection'
 import { RunErrorBlock } from './run-error-block'
@@ -19,35 +14,19 @@ const TERMINAL_STATUSES = new Set(['complete', 'errored', 'terminated'])
 
 interface RunDetailProps {
   runId: string
-  /** Workflow id from the URL search param; resolved from the runs list when absent. */
-  workflowIdHint?: string
+  workflowId: string
 }
 
-export function RunDetail({ runId, workflowIdHint }: RunDetailProps) {
+/** One run, on its workflow's Runs page in a workspace; the frame's breadcrumb names the workflow. */
+export function RunDetail({ runId, workflowId }: RunDetailProps) {
   const api = useApi()
   const queries = useQueries()
   const queryClient = useQueryClient()
-  // In a workspace the frame's breadcrumb names the workflow and links back.
-  const inWorkspace = useEditorScope() !== null
-
-  // Keyed by the project and org this client calls, so another scope's lists never stand in.
-  const { organizationId, projectId } = api.scope()
-  const { data: allRuns } = useInfiniteQuery({
-    ...queries.runs.all(projectId ?? ''),
-    enabled: !workflowIdHint,
-    retry: false,
-    select: (data) => flatPages(data),
-  })
-
-  const workflowId = workflowIdHint || allRuns?.find((r) => r.id === runId)?.workflowId || ''
-  const links = useWorkflowLinks(workflowId)
-
   const prevStatus = useRef<string | null>(null)
 
   const { data: run, isLoading } = useQuery({
     queryKey: ['workflow-run', workflowId, runId],
     queryFn: () => api.getWorkflowRun(workflowId, runId),
-    enabled: !!workflowId,
     refetchInterval: (query) => {
       const data = query.state.data
       return data && !TERMINAL_STATUSES.has(data.status) ? 5_000 : false
@@ -65,12 +44,8 @@ export function RunDetail({ runId, workflowIdHint }: RunDetailProps) {
     prevStatus.current = run.status
   }, [run, queryClient, workflowId])
 
-  const { data: workflow } = useQuery({
-    queryKey: ['workflow', workflowId],
-    queryFn: () => api.getWorkflow(workflowId),
-    enabled: !!workflowId,
-  })
-
+  // Keyed by the org this client calls, so another org's list never stands in.
+  const { organizationId } = api.scope()
   const { data: connections } = useInfiniteQuery({
     ...queries.connections.list(organizationId ?? ''),
     retry: false,
@@ -79,11 +54,10 @@ export function RunDetail({ runId, workflowIdHint }: RunDetailProps) {
   // A project's own accounts aren't in the org's list.
   const { data: deployConnections } = useQuery({
     ...queries.connections.forDeploy(workflowId),
-    enabled: !!workflowId,
     retry: false,
   })
 
-  if (isLoading || !workflowId) {
+  if (isLoading) {
     return (
       <div className="mt-12 flex justify-center">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/60" />
@@ -99,7 +73,7 @@ export function RunDetail({ runId, workflowIdHint }: RunDetailProps) {
   const isRunning = run.status === 'running' || run.status === 'queued'
   const connection = runConnection(run.connectionId, connections, deployConnections)
 
-  const header = inWorkspace ? (
+  const header = (
     <div className="flex flex-wrap items-center justify-between gap-4">
       <div className="flex min-w-0 items-center gap-2">
         {/* The workflow's name is the page's heading; the run is a section of it. */}
@@ -110,29 +84,6 @@ export function RunDetail({ runId, workflowIdHint }: RunDetailProps) {
       </div>
       {!isTerminal && <RunActions workflowId={workflowId} runId={runId} status={run.status} />}
     </div>
-  ) : (
-    <PageBand className="h-16 shrink-0">
-      <div className="flex h-full items-center justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground/60">
-            <Link to="/runs" className="transition-colors hover:text-muted-foreground">
-              Runs
-            </Link>
-            <span className="text-muted-foreground/40">/</span>
-          </span>
-          {workflow && (
-            <RouterShellLink
-              href={links.overview}
-              className="truncate text-base font-semibold tracking-tight hover:text-foreground/80"
-            >
-              {workflow.name}
-            </RouterShellLink>
-          )}
-          <RunStatusBadge status={run.status} />
-        </div>
-        {!isTerminal && <RunActions workflowId={workflowId} runId={runId} status={run.status} />}
-      </div>
-    </PageBand>
   )
 
   return (
@@ -174,17 +125,8 @@ export function RunDetail({ runId, workflowIdHint }: RunDetailProps) {
 
           {connection && (
             <Field label="Connection">
-              {inWorkspace ? (
-                // The run's account may be the org's or the project's: named, not linked.
-                <span className="text-sm text-foreground/70">{connection.name}</span>
-              ) : (
-                <Link
-                  to="/connections"
-                  className="text-sm text-foreground/70 hover:text-foreground"
-                >
-                  {connection.name}
-                </Link>
-              )}
+              {/* The run's account may be the org's or the project's: named, not linked. */}
+              <span className="text-sm text-foreground/70">{connection.name}</span>
               {connection.account && (
                 <span className="ml-2 font-mono text-xs text-muted-foreground/60">
                   {connection.account}

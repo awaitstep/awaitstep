@@ -2,8 +2,6 @@ import { useEffect, useCallback } from 'react'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { useOrgStore } from '../stores/org-store'
 import { useShallow } from 'zustand/react/shallow'
-import RunsWrapper from './runs'
-import WorkflowsWrapper from './workflows'
 import { queries, flatPages } from '../lib/queries'
 
 export default function ProjectsWrapper() {
@@ -62,10 +60,5 @@ export default function ProjectsWrapper() {
     }
   }, [isError])
 
-  return (
-    <>
-      <RunsWrapper />
-      <WorkflowsWrapper />
-    </>
-  )
+  return null
 }

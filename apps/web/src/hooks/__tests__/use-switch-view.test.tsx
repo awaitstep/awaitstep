@@ -9,12 +9,13 @@ vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }))
 
 afterEach(() => navigate.mockReset())
 
+const slugs = { org: 'acme', project: 'core', workspace: 'sales' }
+function wrapper({ children }: { children: ReactNode }) {
+  return <EditorScopeProvider value={slugs}>{children}</EditorScopeProvider>
+}
+
 describe('useSwitchView', () => {
-  it('stays on the workspace URL when the editor was opened there', () => {
-    const slugs = { org: 'acme', project: 'core', workspace: 'sales' }
-    function wrapper({ children }: { children: ReactNode }) {
-      return <EditorScopeProvider value={slugs}>{children}</EditorScopeProvider>
-    }
+  it('stays on the workflow’s workspace URL', () => {
     const { result } = renderHook(() => useSwitchView('wf_1'), { wrapper })
     void result.current('ide', { version: 'v-2' })
     expect(navigate).toHaveBeenCalledWith({
@@ -25,19 +26,12 @@ describe('useSwitchView', () => {
     })
   })
 
-  it('stays on the old editor route otherwise', () => {
-    const { result } = renderHook(() => useSwitchView('wf_1'))
-    void result.current('canvas')
-    expect(navigate).toHaveBeenCalledWith({
-      to: '/workflows/$workflowId/editor',
-      params: { workflowId: 'wf_1' },
-      search: { view: 'canvas' },
-      replace: true,
-    })
+  it('is only used under a workspace URL', () => {
+    expect(() => renderHook(() => useSwitchView('wf_1'))).toThrow(/outside its workspace URL/)
   })
 
   it('passes the node to open on the canvas', () => {
-    const { result } = renderHook(() => useSwitchView('wf_1'))
+    const { result } = renderHook(() => useSwitchView('wf_1'), { wrapper })
     void result.current('canvas', { version: 'v-3', node: 'n9' })
     expect(navigate).toHaveBeenCalledWith(
       expect.objectContaining({ search: { view: 'canvas', version: 'v-3', node: 'n9' } }),

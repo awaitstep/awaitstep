@@ -29,14 +29,10 @@ const FORBIDDEN_SRC_PREFIXES = [
   'lib/auth-client',
 ]
 
-// These predate the kit and serve the old pages; they are deleted in the
-// backend phase together with those pages. They are exempt as kit files, but
-// a kit file that imports one is still caught, because the check follows
-// imports through every file it reaches. Never add to this list.
+// Exempt as kit files, but a kit file that imports one is still caught,
+// because the check follows imports through every file it reaches. Never
+// add to this list.
 const LEGACY_ALLOWED = new Set([
-  'components/ui/breadcrumb.tsx',
-  'components/ui/page-header.tsx',
-  'components/ui/guarded-link.tsx',
   // Reads the theme store through useMonacoTheme; an app widget rather than a
   // kit component. Leaves this list when the theme is passed in as a prop.
   'components/ui/code-editor.tsx',

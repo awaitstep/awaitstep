@@ -7,7 +7,7 @@ import { buildIRFromState } from '../lib/build-ir'
 import { splitSecretName } from '../lib/env-var-parser'
 import { type WorkflowSummary } from '../lib/api-client'
 import type { NodeRegistry } from '@awaitstep/ir'
-import { useEditorScope } from '../contexts/editor-scope-context'
+import { useItemSlugs } from '../contexts/editor-scope-context'
 import { workflowLinks } from '../lib/workflows/detail-links'
 import { useGoTo } from '../components/navigation/router-shell-link'
 import { useApi } from '../contexts/api-client-context'
@@ -26,7 +26,7 @@ export function useWorkflowPersistence(opts: {
   const { workflowId, isNew, isDirty, nodeRegistry, kind } = opts
   const queryClient = useQueryClient()
   const goTo = useGoTo()
-  const scope = useEditorScope()
+  const scope = useItemSlugs()
   const { markClean, setWorkflowId, runValidation } = useWorkflowStore()
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -80,14 +80,14 @@ export function useWorkflowPersistence(opts: {
       queryClient.invalidateQueries({ queryKey: ['workflow-full', workflowId] })
       queryClient.invalidateQueries({ queryKey: ['workflow-source', workflowId] })
       if (created) {
-        window.history.replaceState(null, '', `/workflows/${created.id}/editor?view=canvas`)
+        window.history.replaceState(null, '', workflowLinks(scope, created.id).editor('canvas'))
         setWorkflowId(created.id)
         if (isNew) {
           queryClient.invalidateQueries({ queryKey: ['workflows'] })
         }
       }
     },
-    [markClean, queryClient, workflowId, setWorkflowId, isNew],
+    [markClean, queryClient, workflowId, setWorkflowId, isNew, scope],
   )
 
   const saveMutation = useMutation({
@@ -190,7 +190,6 @@ export function useWorkflowPersistence(opts: {
       }
     }
     const targetId = isNew ? (useWorkflowStore.getState().workflowId ?? workflowId) : workflowId
-    // Deploy opens in the shell the editor is in: its workspace, or the old pages.
     goTo(workflowLinks(scope, targetId).deploy)
   }, [runValidation, isDirty, isNew, saveMutation, nodeRegistry, goTo, scope, workflowId])
 

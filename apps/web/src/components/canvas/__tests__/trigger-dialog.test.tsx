@@ -14,6 +14,9 @@ vi.mock('../../../lib/api-client', async (original) => ({
 }))
 
 import { TriggerDialog } from '../trigger-dialog'
+import { EditorScopeProvider } from '../../../contexts/editor-scope-context'
+
+const SALES = { org: 'acme', project: 'core', workspace: 'sales' }
 
 // A trigger may only name an account the workflow went out with: the dialog
 // offers those, its latest first, even when the project has since moved its
@@ -39,7 +42,9 @@ describe('TriggerDialog accounts', () => {
     triggerWorkflow.mockResolvedValue({ id: 'run-1' })
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <TriggerDialog workflowId="wf-1" onClose={vi.fn()} />
+        <EditorScopeProvider value={SALES}>
+          <TriggerDialog workflowId="wf-1" onClose={vi.fn()} />
+        </EditorScopeProvider>
       </QueryClientProvider>,
     )
     expect(await screen.findByRole('combobox')).toHaveTextContent('Old production')
@@ -56,7 +61,9 @@ describe('TriggerDialog accounts', () => {
     getDeployConnections.mockResolvedValue({ connections: [], defaultId: null, deployedWith: [] })
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <TriggerDialog workflowId="wf-1" onClose={vi.fn()} />
+        <EditorScopeProvider value={SALES}>
+          <TriggerDialog workflowId="wf-1" onClose={vi.fn()} />
+        </EditorScopeProvider>
       </QueryClientProvider>,
     )
     expect(await screen.findByText(/isn’t deployed yet/)).toBeInTheDocument()

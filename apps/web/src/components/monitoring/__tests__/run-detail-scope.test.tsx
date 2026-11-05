@@ -16,14 +16,28 @@ afterEach(() => {
 })
 
 describe('RunDetail under a workflow URL', () => {
-  it('caches the runs and accounts lists under the org and project it calls', async () => {
+  it('reads the run in the URL’s project and caches accounts under the org it calls', async () => {
     useOrgStore.setState({
       appReady: true,
       activeOrganizationId: 'org_x',
       activeProjectId: 'prj_x',
     })
-    vi.spyOn(globalThis, 'fetch').mockImplementation(
-      async () => new Response(JSON.stringify({ data: [], nextCursor: null })),
+    const RUN = {
+      id: 'run_1',
+      workflowId: 'wf_1',
+      versionId: 'v_1',
+      connectionId: null,
+      instanceId: 'inst_1',
+      status: 'complete',
+      output: null,
+      error: null,
+      createdAt: '2026-11-05T10:00:00.000Z',
+      updatedAt: '2026-11-05T10:00:05.000Z',
+    }
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) =>
+      String(input).includes('/runs/run_1?')
+        ? new Response(JSON.stringify(RUN))
+        : new Response(JSON.stringify({ data: [], nextCursor: null })),
     )
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(
@@ -31,7 +45,7 @@ describe('RunDetail under a workflow URL', () => {
         <ApiClientProvider
           scope={{ organizationId: 'org_acme', projectId: 'prj_url', workspaceId: 'ws_1' }}
         >
-          <RunDetail runId="run_1" />
+          <RunDetail runId="run_1" workflowId="wf_1" />
         </ApiClientProvider>
       </QueryClientProvider>,
     )
@@ -40,8 +54,8 @@ describe('RunDetail under a workflow URL', () => {
       .getQueryCache()
       .getAll()
       .map((q) => q.queryKey)
-    expect(keys).toContainEqual(['all-runs', 'prj_url'])
-    expect(keys).not.toContainEqual(['all-runs', ''])
     expect(keys).not.toContainEqual(['connections', ''])
+    const urls = vi.mocked(globalThis.fetch).mock.calls.map((call) => String(call[0]))
+    expect(urls.find((url) => url.includes('/runs/run_1'))).toContain('projectId=prj_url')
   })
 })

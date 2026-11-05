@@ -1,16 +1,15 @@
 import { useState } from 'react'
-import { useLocation, useRouter } from '@tanstack/react-router'
+import { useRouter } from '@tanstack/react-router'
 import { useDataSource } from '../../data/dashboard/source'
 import { useInOtherWorkspace, useItemScopeReady } from '../../lib/workflows/route-scope'
 import type { EditorRouteSearch } from '../../lib/workflows/surfaces'
 import { CanvasSkeleton } from '../canvas/canvas-skeleton'
 import { IdeSkeleton } from '../ide/ide-skeleton'
-import { ItemPlaceholder } from '../navigation/item-placeholder'
 import { PageBody } from '../shell/page-intro'
 import { LoadError } from '../ui/load-error'
-import { NotFoundView } from '../ui/not-found-view'
+import { ItemNotFound } from '../workflow-detail/item-not-found'
 import { useScopedWorkflow } from '../workflow-detail/use-scoped-workflow'
-import { workspacePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
+import type { WorkspaceSlugs } from '../../lib/dashboard-paths'
 import { WorkflowEditor } from './workflow-editor'
 
 interface ScopedWorkflowEditorProps {
@@ -35,9 +34,15 @@ export function ScopedWorkflowEditor({
   const ready = useItemScopeReady()
   const workflow = useScopedWorkflow(workflowId, source === 'api')
   const inOtherWorkspace = useInOtherWorkspace(workflow.data)
-  const { pathname } = useLocation()
 
-  if (source !== 'api') return <ItemPlaceholder slugs={slugs} itemId={workflowId} />
+  // Sample items have no backend to open.
+  if (source !== 'api') {
+    return (
+      <PageBody>
+        <ItemNotFound slugs={slugs} workflowId={workflowId} />
+      </PageBody>
+    )
+  }
   // A cached read naming another workspace may be from before a move: wait for the fresh one.
   if (!ready || (inOtherWorkspace && workflow.isFetching)) {
     return search.view === 'ide' ? <IdeSkeleton /> : <CanvasSkeleton />
@@ -45,12 +50,7 @@ export function ScopedWorkflowEditor({
   if (inOtherWorkspace) {
     return (
       <PageBody>
-        <NotFoundView
-          kind="page"
-          name={workflowId}
-          path={pathname}
-          primary={{ label: 'Back to the workspace', href: workspacePath(slugs) }}
-        />
+        <ItemNotFound slugs={slugs} workflowId={workflowId} />
       </PageBody>
     )
   }

@@ -15,6 +15,7 @@ vi.mock('../../../lib/api-client', async (original) => ({
 
 import { useOrgStore } from '../../../stores/org-store'
 import { DeployPage } from '../deploy-page'
+import { EditorScopeProvider } from '../../../contexts/editor-scope-context'
 
 // Deploy offers the project's accounts only, with the workspace's (else the
 // project's) default already chosen; a project with none shows 23c's line.
@@ -36,7 +37,9 @@ function renderPage() {
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      <DeployPage workflowId="wf-1" />
+      <EditorScopeProvider value={{ org: 'acme', project: 'project-101', workspace: 'sales' }}>
+        <DeployPage workflowId="wf-1" />
+      </EditorScopeProvider>
     </QueryClientProvider>,
   )
 }

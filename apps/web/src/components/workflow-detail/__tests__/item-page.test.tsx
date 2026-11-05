@@ -48,7 +48,11 @@ vi.mock('../../navigation/router-shell-link', () => ({
 }))
 vi.mock('../../workspaces/use-workspace-scope', () => ({
   useWorkspaceScope: () => ({
-    workspace: { viewerCan: { edit: { allowed: overview.canEdit } } },
+    workspace: {
+      viewerCan: {
+        edit: { allowed: overview.canEdit },
+      },
+    },
   }),
 }))
 vi.mock('../use-deployment-accounts', () => ({ useDeploymentAccounts: () => new Map() }))
@@ -307,9 +311,9 @@ describe('ItemPage', () => {
     expect(screen.getByRole('button', { name: /Try again/ })).toBeVisible()
   })
 
-  it('says sample items don’t open, on sample data', () => {
+  it('shows sample items as not found: they have no backend to open', () => {
     settled({})
     renderPage('overview', 'mock')
-    expect(screen.getByRole('heading', { name: 'This is sample data' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'We can’t find that page' })).toBeVisible()
   })
 })

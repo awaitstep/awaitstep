@@ -1,21 +1,19 @@
 import type { ReactNode } from 'react'
-import { useLocation } from '@tanstack/react-router'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { useWorkflowRunCounts } from '../../data/dashboard/runs'
 import { useDataSource } from '../../data/dashboard/source'
 import { ApiError, type WorkflowSummary } from '../../lib/api-client'
 import type { RunHour } from '../../types/dashboard/workspaces'
-import { workspacePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
+import type { WorkspaceSlugs } from '../../lib/dashboard-paths'
 import { flatPages } from '../../lib/queries'
 import { useInOtherWorkspace, useItemScopeReady } from '../../lib/workflows/route-scope'
 import type { ItemDetailPage } from '../navigation/dashboard-page'
-import { ItemPlaceholder } from '../navigation/item-placeholder'
 import { PageBody } from '../shell/page-intro'
-import { NotFoundView } from '../ui/not-found-view'
 import { DetailSkeleton, LoadingRegion } from '../ui/skeletons'
 import { useWorkspaceScope } from '../workspaces/use-workspace-scope'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
 import { ItemHeader } from './item-header'
+import { ItemNotFound } from './item-not-found'
 import { useDeploymentAccounts } from './use-deployment-accounts'
 import { useWorkflowOverview, type WorkflowOverview } from './use-workflow-overview'
 import { useQueries } from '../../contexts/api-client-context'
@@ -81,11 +79,16 @@ export function ItemPage({ slugs, workflowId, page, children }: ItemPageProps) {
     ...queries.deployments.byWorkflow(workflowId),
     enabled: ready && !!workflow,
   })
-  const { pathname } = useLocation()
   // Edit in place only where the API would take it (a Viewer would get a 403).
   const canEdit = useWorkspaceScope(slugs)?.workspace.viewerCan.edit.allowed ?? false
 
-  if (source !== 'api') return <ItemPlaceholder slugs={slugs} itemId={workflowId} />
+  if (source !== 'api') {
+    return (
+      <PageBody>
+        <ItemNotFound slugs={slugs} workflowId={workflowId} />
+      </PageBody>
+    )
+  }
 
   let body: ReactNode
   // A cached read naming another workspace may be from before a move: wait for the fresh one.
@@ -105,14 +108,7 @@ export function ItemPage({ slugs, workflowId, page, children }: ItemPageProps) {
       />
     )
   } else if (!workflow || inOtherWorkspace) {
-    body = (
-      <NotFoundView
-        kind="page"
-        name={workflowId}
-        path={pathname}
-        primary={{ label: 'Back to the workspace', href: workspacePath(slugs) }}
-      />
-    )
+    body = <ItemNotFound slugs={slugs} workflowId={workflowId} />
   } else {
     const ranEver = runsAll.data ? runsAll.data.counts.all > 0 : undefined
     const runs24h = runsDay.data
