@@ -5,6 +5,7 @@ import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { getNodeVisuals } from '../../lib/node-icon-map'
 import { cn } from '../../lib/utils'
 import { highlightFor } from '../../lib/ide/step-map'
+import { markedFileOf } from '../../lib/ide/tabs'
 import { visibleRows, type StepRow } from '../../lib/ide/step-order'
 import { selectStep } from '../../lib/ide/step-actions'
 import { stepMeta, type SummaryNode } from '../../lib/ide/step-summary'
@@ -41,7 +42,10 @@ export function StepsView({ tabs, onEscape }: StepsViewProps) {
   const [focusedId, setFocusedId] = useState<string | null>(null)
 
   const shown = useMemo(() => visibleRows(rows, collapsed), [rows, collapsed])
-  const activeIds = useMemo(() => new Set(highlightFor(map, activePath).primary), [map, activePath])
+  const activeIds = useMemo(
+    () => new Set(highlightFor(map, markedFileOf(activePath)).primary),
+    [map, activePath],
+  )
   // One row stays in the tab order: the one with focus, else the picked step, else the first.
   const shownIds = new Set(shown.map((r) => r.nodeId))
   const tabbableId =

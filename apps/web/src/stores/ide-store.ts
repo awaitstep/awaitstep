@@ -93,6 +93,12 @@ export interface IdeSessionState extends TabState {
   selectedNodeId: string | null
   /** A request to put the keyboard in the Steps list once it is showing. */
   stepsFocusRequested: boolean
+  /**
+   * A request to put the keyboard in the file editor once it shows the active
+   * file. Opening a file may mount a new Monaco, so a plain `focus()` right
+   * after would go to the editor that is about to unmount (or to none).
+   */
+  editorFocusRequested: boolean
 
   openFile: (path: string) => void
   revealLocation: (target: RevealTarget) => void
@@ -136,6 +142,8 @@ export interface IdeSessionState extends TabState {
   selectNode: (nodeId: string | null) => void
   requestStepsFocus: () => void
   consumeStepsFocus: () => void
+  requestEditorFocus: () => void
+  consumeEditorFocus: () => void
   /** Carries a draft (and its tab) along with a renamed file. */
   moveFile: (from: string, to: string) => void
   /** Drops drafts that no longer differ from the baseline (saved or reverted). */
@@ -163,6 +171,7 @@ const initialSession = {
   editorHandle: null as EditorHandle | null,
   selectedNodeId: null as string | null,
   stepsFocusRequested: false,
+  editorFocusRequested: false,
 }
 
 function without<T>(record: Readonly<Record<string, T>>, path: string): Record<string, T> {
@@ -248,6 +257,8 @@ export const useIdeStore = create<IdeSessionState>()((set, get) => ({
   setEditorHandle: (editorHandle) => set({ editorHandle }),
   requestStepsFocus: () => set({ stepsFocusRequested: true }),
   consumeStepsFocus: () => set({ stepsFocusRequested: false }),
+  requestEditorFocus: () => set({ editorFocusRequested: true }),
+  consumeEditorFocus: () => set({ editorFocusRequested: false }),
   selectNode: (selectedNodeId) => {
     if (get().selectedNodeId !== selectedNodeId) set({ selectedNodeId })
   },

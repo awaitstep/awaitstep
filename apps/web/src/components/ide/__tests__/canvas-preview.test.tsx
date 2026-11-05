@@ -159,6 +159,14 @@ describe('CanvasPreview', () => {
     expect(screen.queryByText(/Used by/)).toBeNull()
   })
 
+  it('keeps outlining the step while its Compare tab is active, and none for Review', () => {
+    useIdeStore.getState().openCompare('nodes/charge_card.ts')
+    renderPreview()
+    expect(outlineOf('charge')).toContain('2px solid')
+    act(() => useIdeStore.getState().openReview())
+    expect(outlineOf('charge')).toBe('')
+  })
+
   it('outlines every step that imports an open helper, more lightly, and counts them', () => {
     useIdeStore.getState().openFile('lib/payments/charge.ts')
     renderPreview()
@@ -196,14 +204,16 @@ describe('CanvasPreview', () => {
     expect(outlineOf('ship')).toContain('2px solid')
   })
 
-  it('selects a clicked step, opens its file and puts the keyboard in the editor', async () => {
+  it('selects a clicked step, opens its file and asks for the keyboard in the editor', async () => {
     const focus = vi.fn()
     useIdeStore.getState().setEditorHandle({ focus, trigger: vi.fn(), searchSeed: () => null })
     renderPreview()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Validate order' }))
     expect(useIdeStore.getState().activePath).toBe('nodes/validate_order.ts')
     expect(useIdeStore.getState().selectedNodeId).toBe('validate')
-    expect(focus).toHaveBeenCalled()
+    // The editor may be a different one by the time the file shows: the request waits for it.
+    expect(useIdeStore.getState().editorFocusRequested).toBe(true)
+    expect(focus).not.toHaveBeenCalled()
     expect(node('validate').dataset.selected).toBe('true')
     expect(
       await screen.findByRole('region', { name: 'Validate order details' }),

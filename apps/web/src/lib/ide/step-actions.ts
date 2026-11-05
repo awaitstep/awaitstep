@@ -1,5 +1,6 @@
 import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
+import { focusEditor } from './editor-focus'
 import type { StepMap } from './step-map'
 
 /** Where the keyboard goes after a step is picked. */
@@ -17,7 +18,7 @@ export function selectStep(map: StepMap, nodeId: string, focus: StepFocus): void
   ide.selectNode(nodeId)
   const filePath = map.byNode.get(nodeId)?.filePath ?? null
   if (filePath !== null) ide.openFile(filePath)
-  if (focus === 'editor') ide.editorHandle?.focus()
+  if (focus === 'editor') focusEditor()
 }
 
 /** Opens a step's file in Quick test. Does nothing for a step without a file. */

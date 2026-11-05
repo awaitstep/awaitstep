@@ -54,6 +54,40 @@ describe('useOutsideChanges', () => {
     )
   })
 
+  it('refreshes the full query too when the refetched source is a newer version than the graph', async () => {
+    api.getProjectFiles.mockResolvedValue([{ path: 'lib/a.ts', hash: 'ha2' }])
+    const { invalidate, client } = setup()
+    client.setQueryData(['workflow-full', 'wf', undefined], { version: { id: 'v3' } })
+    client.setQueryData(['workflow-source', 'wf', undefined], { versionId: 'v3' })
+    invalidate.mockImplementation(async (filters) => {
+      const key = (filters as { queryKey: string[] }).queryKey
+      if (key[0] === 'workflow-source') {
+        client.setQueryData(['workflow-source', 'wf', undefined], { versionId: 'v4' })
+      }
+    })
+    await waitFor(() =>
+      expect(invalidate).toHaveBeenCalledWith(
+        { queryKey: ['workflow-full', 'wf'] },
+        { throwOnError: true },
+      ),
+    )
+  })
+
+  it('leaves the full query alone when the refetched source is still the graph’s version', async () => {
+    api.getProjectFiles.mockResolvedValue([{ path: 'lib/a.ts', hash: 'ha2' }])
+    const { invalidate, client } = setup()
+    client.setQueryData(['workflow-full', 'wf', undefined], { version: { id: 'v3' } })
+    client.setQueryData(['workflow-source', 'wf', undefined], { versionId: 'v3' })
+    invalidate.mockResolvedValue(undefined)
+    await waitFor(() => expect(sourceRefetches(invalidate)).toBe(1))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(
+      invalidate.mock.calls.filter(
+        ([f]) => (f as { queryKey: string[] }).queryKey[0] === 'workflow-full',
+      ),
+    ).toHaveLength(0)
+  })
+
   it('refetches when a file appeared or vanished', async () => {
     api.getProjectFiles.mockResolvedValue([
       { path: 'lib/a.ts', hash: 'ha' },

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api-client'
 import { planRefresh } from '../lib/ide/outside-changes'
 
@@ -12,6 +12,23 @@ interface OutsideChangesInput {
   enabled: boolean
   /** The loaded files (virtual seeds included). */
   baseline: ReadonlyMap<string, { hash?: string | undefined }>
+}
+
+interface SourceVersion {
+  versionId?: string | null
+}
+interface FullVersion {
+  version?: { id: string } | null
+}
+
+function sourceMovedPastGraph(queryClient: QueryClient, workflowId: string): boolean {
+  const sources = queryClient.getQueriesData<SourceVersion>({
+    queryKey: ['workflow-source', workflowId],
+  })
+  const fulls = queryClient.getQueriesData<FullVersion>({ queryKey: ['workflow-full', workflowId] })
+  return sources.some(([, source]) =>
+    fulls.some(([, full]) => !!source?.versionId && source.versionId !== full?.version?.id),
+  )
 }
 
 /**
@@ -67,6 +84,16 @@ export function useOutsideChanges({ workflowId, enabled, baseline }: OutsideChan
           { queryKey: ['workflow-source', workflowId] },
           { throwOnError: true },
         )
+        // Without a pinned version the source follows the current one, which
+        // may be newer than the graph loaded: the steps, the version list
+        // and the editor's types come from the full query, so it moves with
+        // the source or the two would describe different versions.
+        if (sourceMovedPastGraph(queryClient, workflowId)) {
+          await queryClient.refetchQueries(
+            { queryKey: ['workflow-full', workflowId] },
+            { throwOnError: true },
+          )
+        }
       }
       handled.current = plan.signature
       return listing

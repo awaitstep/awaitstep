@@ -86,6 +86,14 @@ describe('StepsView', () => {
     expect(item(/Validate order/)).not.toHaveAttribute('aria-current')
   })
 
+  it('keeps marking the step while its Compare tab is active, and none for Review', () => {
+    setup()
+    act(() => useIdeStore.getState().openCompare('nodes/charge_card.ts'))
+    expect(item(/Charge card/)).toHaveAttribute('aria-current', 'true')
+    act(() => useIdeStore.getState().openReview())
+    expect(document.querySelector('[aria-current="true"]')).toBeNull()
+  })
+
   it('follows the active tab as it changes', () => {
     setup()
     expect(document.querySelector('[aria-current="true"]')).toBeNull()

@@ -173,7 +173,8 @@ export function versionLabel(
 /**
  * What the preview header says about the graph it draws. The graph and the
  * code normally come from the same saved version; when they do not, say which
- * is which instead of implying they match.
+ * is which instead of implying they match. It never says "Synced" unless
+ * both are the same known version.
  */
 export function previewSyncLabel(args: {
   graphVersionId: string | null | undefined
@@ -182,7 +183,10 @@ export function previewSyncLabel(args: {
 }): string | null {
   const graph = versionLabel(args.graphVersionId, args.versions)
   if (graph === null) return null
+  if (!args.codeVersionId) return null
+  if (args.codeVersionId === args.graphVersionId) return `Synced with ${graph}`
   const code = versionLabel(args.codeVersionId, args.versions)
-  if (code === null || args.codeVersionId === args.graphVersionId) return `Synced with ${graph}`
+  // A code version the list does not know is newer than what was loaded.
+  if (code === null) return `Showing ${graph} · the code is newer`
   return `Showing ${graph} · you’re editing ${code}`
 }

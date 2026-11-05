@@ -253,10 +253,14 @@ describe('versionLabel and previewSyncLabel', () => {
     expect(previewSyncLabel({ graphVersionId: 'zzz', codeVersionId: 'b', versions })).toBeNull()
   })
 
-  it('does not say two versions differ when the code’s version is unknown', () => {
-    expect(previewSyncLabel({ graphVersionId: 'b', codeVersionId: 'zzz', versions })).toBe(
-      'Synced with v12',
-    )
+  it('never says synced for code from a version it does not know (a newer save)', () => {
+    const label = previewSyncLabel({ graphVersionId: 'b', codeVersionId: 'zzz', versions })
+    expect(label).toBe('Showing v12 · the code is newer')
+    expect(label).not.toMatch(/Synced/)
+  })
+
+  it('claims nothing before the code has loaded', () => {
+    expect(previewSyncLabel({ graphVersionId: 'b', codeVersionId: null, versions })).toBeNull()
   })
 })
 

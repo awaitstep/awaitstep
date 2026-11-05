@@ -20,6 +20,7 @@ import { useWorkflowStore } from '../../stores/workflow-store'
 import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
 import { highlightFor } from '../../lib/ide/step-map'
+import { markedFileOf } from '../../lib/ide/tabs'
 import { selectStep } from '../../lib/ide/step-actions'
 import { previewSyncLabel } from '../../lib/ide/step-summary'
 import { outlineCss } from '../../lib/ide/preview-outline'
@@ -79,7 +80,7 @@ export function CanvasPreview({ workflowId, versionParam }: CanvasPreviewProps) 
   const switchView = useSwitchView(workflowId)
   const hideHint = formatShortcut(IDE_SHORTCUTS.togglePreview, isMacPlatform())
 
-  const highlight = useMemo(() => highlightFor(map, activePath), [map, activePath])
+  const highlight = useMemo(() => highlightFor(map, markedFileOf(activePath)), [map, activePath])
   // Selection is drawn from the IDE's own state; the graph in the store is
   // never touched. Outlines are CSS (below), so typing in a file does not
   // rebuild any node.

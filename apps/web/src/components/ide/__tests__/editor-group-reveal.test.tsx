@@ -121,4 +121,36 @@ describe('EditorGroup reveal', () => {
     expect(fake.revealed).toEqual(hit)
     expect(fake.focused).toBeGreaterThan(0)
   })
+
+  it('gives the keyboard to the editor that mounts for a file opened from the Review tab', async () => {
+    useIdeStore.getState().openReview()
+    renderGroup()
+    expect(screen.queryByTestId('monaco')).toBeNull()
+    act(() => {
+      useIdeStore.getState().openFile('a.ts')
+      useIdeStore.getState().requestEditorFocus()
+    })
+    await screen.findByTestId('monaco')
+    await waitFor(() => expect(useIdeStore.getState().editorFocusRequested).toBe(false))
+    expect(fake.focused).toBeGreaterThan(0)
+  })
+
+  it('gives the keyboard to an editor already showing the requested file', async () => {
+    useIdeStore.getState().openFile('a.ts')
+    renderGroup()
+    await screen.findByTestId('monaco')
+    await waitFor(() => expect(fake.modelListeners).toHaveLength(1))
+    const before = fake.focused
+    act(() => useIdeStore.getState().requestEditorFocus())
+    await waitFor(() => expect(fake.focused).toBeGreaterThan(before))
+    expect(useIdeStore.getState().editorFocusRequested).toBe(false)
+  })
+
+  it('drops a focus request when the active tab is not a file, so it cannot fire later', async () => {
+    useIdeStore.getState().openReview()
+    renderGroup()
+    act(() => useIdeStore.getState().requestEditorFocus())
+    await waitFor(() => expect(useIdeStore.getState().editorFocusRequested).toBe(false))
+    expect(fake.focused).toBe(0)
+  })
 })

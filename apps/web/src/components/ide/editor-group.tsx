@@ -80,10 +80,20 @@ export function EditorGroup({
   useWorkflowTypeContext()
   const monacoTheme = useMonacoTheme()
   const monaco = useMonaco()
-  const { activePath, reveal, clearReveal, setCursor, setEditorHandle } = useIdeStore(
+  const {
+    activePath,
+    reveal,
+    clearReveal,
+    focusRequested,
+    consumeEditorFocus,
+    setCursor,
+    setEditorHandle,
+  } = useIdeStore(
     useShallow((s) => ({
       activePath: s.activePath,
       reveal: s.reveal,
+      focusRequested: s.editorFocusRequested,
+      consumeEditorFocus: s.consumeEditorFocus,
       clearReveal: s.clearReveal,
       setCursor: s.setCursor,
       setEditorHandle: s.setEditorHandle,
@@ -189,6 +199,27 @@ export function EditorGroup({
     if (reveal) applyReveal()
   }, [reveal, activePath, applyReveal])
 
+  // A request to focus lands once the editor holds the active file's model,
+  // like a reveal: the editor mounted for it a moment ago, or is swapping to it.
+  const applyFocus = useCallback(() => {
+    const instance = editorRef.current
+    const { editorFocusRequested, activePath: active } = useIdeStore.getState()
+    const wanted = filePathOfTab(active)
+    if (!instance || !editorFocusRequested || wanted === null) return
+    const model = instance.getModel()
+    if (!model || parseWorkflowModelPath(model.uri.toString())?.file !== wanted) return
+    instance.focus()
+    consumeEditorFocus()
+  }, [consumeEditorFocus])
+
+  useEffect(() => {
+    if (!focusRequested) return
+    // Moved to a tab with no file editor before it could land: drop it, or it
+    // would take the keyboard at some later, unrelated moment.
+    if (filePathOfTab(activePath) === null) consumeEditorFocus()
+    else applyFocus()
+  }, [focusRequested, activePath, applyFocus, consumeEditorFocus])
+
   function handleMount(instance: editor.IStandaloneCodeEditor) {
     editorRef.current = instance
     instance.onDidChangeCursorPosition((event) => {
@@ -211,11 +242,13 @@ export function EditorGroup({
       queueMicrotask(() => {
         syncCursor()
         applyReveal()
+        applyFocus()
       })
     })
     instance.onDidDispose(() => setEditorHandle(null))
     syncCursor()
     applyReveal()
+    applyFocus()
   }
 
   // The file is the one whose model the editor holds right now — not the

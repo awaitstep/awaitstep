@@ -41,9 +41,25 @@ describe('selectStep', () => {
     expect(focus).not.toHaveBeenCalled()
   })
 
-  it('hands the keyboard to the editor when asked', () => {
+  it('asks for the keyboard once the editor shows the step’s file, instead of using the editor on screen now', () => {
+    // The handle may belong to a diff that unmounts when the file opens.
     selectStep(map, 'a', 'editor')
+    expect(focus).not.toHaveBeenCalled()
+    expect(useIdeStore.getState().editorFocusRequested).toBe(true)
+  })
+
+  it('asks the same while a Review or Compare tab is active', () => {
+    useIdeStore.getState().openReview()
+    selectStep(map, 'a', 'editor')
+    expect(useIdeStore.getState().editorFocusRequested).toBe(true)
+    expect(focus).not.toHaveBeenCalled()
+  })
+
+  it('focuses the diff’s editor at once for a step with no file while Review is active', () => {
+    useIdeStore.getState().openReview()
+    selectStep(map, 'sleep', 'editor')
     expect(focus).toHaveBeenCalledOnce()
+    expect(useIdeStore.getState().editorFocusRequested).toBe(false)
   })
 
   it('only selects a step with no file, leaving the open tabs alone', () => {

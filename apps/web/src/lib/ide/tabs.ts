@@ -32,6 +32,15 @@ export function filePathOfTab(tabId: string | null): string | null {
   return tabId !== null && tabKind(tabId) === 'file' ? tabId : null
 }
 
+/**
+ * The file a tab is about, for marking its step: a file's own path, or the file
+ * a Compare tab compares. The Review tab covers many files, so it marks none.
+ */
+export function markedFileOf(tabId: string | null): string | null {
+  if (tabId === null) return null
+  return filePathOfTab(tabId) ?? compareTabPath(tabId)
+}
+
 export const EMPTY_TABS: TabState = { openPaths: [], activePath: null }
 
 /** Activates `path`, appending a tab for it when none is open yet. */
