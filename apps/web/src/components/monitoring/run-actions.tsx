@@ -2,7 +2,7 @@ import { Pause, Play, Square } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '../ui/button'
 import { defineToast } from '../../lib/action-toast'
-import { api } from '../../lib/api-client'
+import { useApi } from '../../contexts/api-client-context'
 
 type RunAction = 'pause' | 'resume' | 'terminate'
 
@@ -25,6 +25,7 @@ interface RunActionsProps {
 }
 
 export function RunActions({ workflowId, runId, status }: RunActionsProps) {
+  const api = useApi()
   const queryClient = useQueryClient()
 
   const actionMutation = useMutation({

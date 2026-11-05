@@ -5,11 +5,12 @@ import { useWorkflowStore } from '../stores/workflow-store'
 import { validateWorkflowForPublish } from '../lib/validate-workflow'
 import { buildIRFromState } from '../lib/build-ir'
 import { splitSecretName } from '../lib/env-var-parser'
-import { api, type WorkflowSummary } from '../lib/api-client'
+import { type WorkflowSummary } from '../lib/api-client'
 import type { NodeRegistry } from '@awaitstep/ir'
 import { useEditorScope } from '../contexts/editor-scope-context'
 import { workflowLinks } from '../lib/workflows/detail-links'
 import { useGoTo } from '../components/navigation/router-shell-link'
+import { useApi } from '../contexts/api-client-context'
 
 export type AutoSaveOutcome = 'saved' | 'skipped' | 'failed'
 
@@ -21,6 +22,7 @@ export function useWorkflowPersistence(opts: {
   /** Only honored on first save (when `isNew`). Defaults to 'workflow'. */
   kind?: 'workflow' | 'script'
 }) {
+  const api = useApi()
   const { workflowId, isNew, isDirty, nodeRegistry, kind } = opts
   const queryClient = useQueryClient()
   const goTo = useGoTo()
@@ -68,7 +70,7 @@ export function useWorkflowPersistence(opts: {
     })
     await api.createVersion(workflowId, { ir })
     return null
-  }, [isNew, kind, workflowId])
+  }, [api, isNew, kind, workflowId])
 
   const onSaveSuccess = useCallback(
     (created: WorkflowSummary | null) => {

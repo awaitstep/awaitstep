@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { queries } from '../../lib/queries'
 import { useConnectionsStore } from '../../stores/connections-store'
+import { useQueries } from '../../contexts/api-client-context'
 
 /**
  * The names of the accounts a workflow's deployments went out on: the
@@ -8,6 +8,7 @@ import { useConnectionsStore } from '../../stores/connections-store'
  * has since dropped.
  */
 export function useDeploymentAccounts(workflowId: string, ready: boolean): Map<string, string> {
+  const queries = useQueries()
   const orgConnections = useConnectionsStore((s) => s.connections)
   const { data } = useQuery({ ...queries.connections.forDeploy(workflowId), enabled: ready })
   return new Map([

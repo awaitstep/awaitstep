@@ -37,7 +37,7 @@ const RUN = {
 
 describe('ItemScopeLayout', () => {
   it('tells everything under a workflow’s URL which workspace it is in', () => {
-    render(<ItemScopeLayout org="acme" project="core" workspace="sales" />)
+    render(<ItemScopeLayout org="acme" project="core" workspace="sales" scope={null} />)
     expect(screen.getByText('inside acme/core/sales')).toBeVisible()
   })
 })

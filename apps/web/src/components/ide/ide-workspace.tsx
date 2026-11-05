@@ -22,7 +22,6 @@ import {
 import { buildWorkflowStoreState, deriveReadOnlyState } from '../../lib/hydrate-workflow'
 import { PROJECT_HANDLERS_PATH } from '@awaitstep/ir'
 import { describeHandlerDeclarations, type SourceFile } from '../../lib/api-client'
-import { queries } from '../../lib/queries'
 import { surfaceSwitchTarget } from '../../lib/workflows/surfaces'
 import { copyToClipboard } from '../../lib/utils'
 import { useDraftPersistence } from '../../hooks/use-draft-persistence'
@@ -38,7 +37,6 @@ import { useProjectFiles } from '../../hooks/use-project-files'
 import { useWorkspaceProblems } from '../../hooks/use-workspace-problems'
 import { useSearchActions } from '../../hooks/use-search-actions'
 import { useSwitchView } from '../../hooks/use-switch-view'
-import { useOrgReady } from '../../stores/org-store'
 import { useIdeSearchStore } from '../../stores/ide-search-store'
 import { useIdeLayoutStore, type IdeLayoutKey } from '../../stores/ide-layout-store'
 import { useIdeExplorerStore } from '../../stores/ide-explorer-store'
@@ -73,6 +71,7 @@ import {
   NoVersionNotice,
   UnsavedWorkflowNotice,
 } from './workspace-notices'
+import { useQueries, useApiReady } from '../../contexts/api-client-context'
 
 interface IdeWorkspaceProps {
   workflowId: string
@@ -115,7 +114,8 @@ export function IdeWorkspace({ workflowId, versionParam, fileParam }: IdeWorkspa
 }
 
 function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
-  const ready = useOrgReady()
+  const queries = useQueries()
+  const ready = useApiReady()
   const switchView = useSwitchView(workflowId)
 
   const fullQuery = useQuery({

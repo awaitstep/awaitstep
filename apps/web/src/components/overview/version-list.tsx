@@ -11,13 +11,13 @@ import {
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { RouterShellLink, useGoTo } from '../navigation/router-shell-link'
 import {
-  api,
   type VersionSummary,
   type DeploymentSummary,
   type WorkflowSummary,
 } from '../../lib/api-client'
 import { timeAgo } from '../../lib/time'
 import { LoadMoreButton } from '../ui/load-more-button'
+import { useApi } from '../../contexts/api-client-context'
 
 /**
  * Why the latest of these actions failed, while it is the latest; the toast
@@ -56,6 +56,7 @@ export function VersionList({
   loadingMore,
   onLoadMore,
 }: VersionListProps) {
+  const api = useApi()
   const queryClient = useQueryClient()
   const goTo = useGoTo()
   const links = useWorkflowLinks(workflowId)

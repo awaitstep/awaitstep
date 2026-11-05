@@ -2,13 +2,13 @@ import { EyeOff, Trash2 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import type { WorkflowSummary } from '../../lib/api-client'
 import { plural } from '../../lib/plural'
-import { queries } from '../../lib/queries'
 import type { useWorkflowActions } from '../dashboard/use-workflow-actions'
 import { Button } from '../ui/button'
 import { ModalDialog } from '../ui/modal-dialog'
 import { Tile } from '../ui/tile'
 import { FailureLine } from './failure-line'
 import type { WorkflowOverview } from './use-workflow-overview'
+import { useQueries } from '../../contexts/api-client-context'
 
 type Actions = ReturnType<typeof useWorkflowActions>
 
@@ -21,6 +21,7 @@ interface TakeDownDialogProps {
 
 /** Take down (board `WorkflowActions`): the worker stops; the item stays. */
 export function TakeDownDialog({ workflow, version, takedown, onClose }: TakeDownDialogProps) {
+  const queries = useQueries()
   const targets = useQuery(queries.connections.forDeploy(workflow.id))
   const account = targets.data?.deployedWith[0]?.name
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { api } from '../lib/api-client'
+import { useApi } from '../contexts/api-client-context'
 
 const TERMINAL_STATUSES = new Set(['complete', 'errored', 'terminated'])
 const POLL_INTERVAL = 5_000
@@ -17,6 +17,7 @@ interface Run {
  * table refreshes with accurate data from the DB.
  */
 export function useActiveRunSync(runs: Run[] | undefined, listQueryKey: string[]) {
+  const api = useApi()
   const queryClient = useQueryClient()
   const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined)
   const prevStatuses = useRef<Map<string, string>>(new Map())
@@ -64,6 +65,7 @@ export function useActiveRunSync(runs: Run[] | undefined, listQueryKey: string[]
       clearInterval(intervalRef.current)
     }
   }, [
+    api,
     // Re-run when active run IDs change
     runs
       ?.filter((r) => !TERMINAL_STATUSES.has(r.status))

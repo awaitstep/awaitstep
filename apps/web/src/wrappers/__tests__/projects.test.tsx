@@ -33,38 +33,24 @@ function renderWrapper() {
 afterEach(() => useOrgStore.getState().clear())
 
 describe('ProjectsWrapper', () => {
-  it('leaves an open editor’s project alone, even past the list’s first page', async () => {
+  it('keeps the switcher’s project while the list holds it', async () => {
     useOrgStore.setState({
       appReady: true,
       activeOrganizationId: 'org_1',
-      activeProjectId: 'prj_page_3',
-      routeScope: {
-        key: 'acme/core/sales',
-        organizationId: 'org_1',
-        projectId: 'prj_page_3',
-        workspaceId: 'ws_1',
-      },
+      activeProjectId: 'prj_first',
     })
     renderWrapper()
     await waitFor(() => expect(useOrgStore.getState().projectsFetchState).toBe('success'))
-    expect(useOrgStore.getState().activeProjectId).toBe('prj_page_3')
+    expect(useOrgStore.getState().activeProjectId).toBe('prj_first')
   })
 
-  it('falls back to its first project once that editor closes', async () => {
+  it('falls back to its first project when the active one isn’t listed', async () => {
     useOrgStore.setState({
       appReady: true,
       activeOrganizationId: 'org_1',
-      activeProjectId: 'prj_page_3',
-      routeScope: {
-        key: 'acme/core/sales',
-        organizationId: 'org_1',
-        projectId: 'prj_page_3',
-        workspaceId: 'ws_1',
-      },
+      activeProjectId: 'prj_gone',
     })
     renderWrapper()
-    await waitFor(() => expect(useOrgStore.getState().projectsFetchState).toBe('success'))
-    useOrgStore.getState().setRouteScope(null)
     await waitFor(() => expect(useOrgStore.getState().activeProjectId).toBe('prj_first'))
   })
 })

@@ -1,11 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { useEditorScope } from '../../contexts/editor-scope-context'
-import { api, type WorkflowSummary } from '../../lib/api-client'
+import { type WorkflowSummary } from '../../lib/api-client'
 import { workspacePath } from '../../lib/dashboard-paths'
 import { downloadJsonFile } from '../../lib/download-file'
 import { workflowLinks } from '../../lib/workflows/detail-links'
 import { useGoTo } from '../navigation/router-shell-link'
+import { useApi } from '../../contexts/api-client-context'
 
 function irFileName(name: string) {
   return `${name.replace(/\s+/g, '-').toLowerCase()}.ir.json`
@@ -24,6 +25,7 @@ function capitalised(word: string): string {
  * page's ⋯ menu and the old list's. Navigation stays in the shell it runs in.
  */
 export function useWorkflowActions(workflow: WorkflowSummary) {
+  const api = useApi()
   const navigate = useNavigate()
   const goTo = useGoTo()
   const scope = useEditorScope()

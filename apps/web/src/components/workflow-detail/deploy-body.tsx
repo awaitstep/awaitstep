@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
-import { ApiError, api, type WorkflowSummary, type WorkflowVersion } from '../../lib/api-client'
+import { ApiError, type WorkflowSummary, type WorkflowVersion } from '../../lib/api-client'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { DEPLOY_INTRO } from '../deploy/deploy-copy'
 import { DeployPage } from '../deploy/deploy-page'
 import { RouterShellLink } from '../navigation/router-shell-link'
 import { Bone } from '../ui/skeletons'
+import { useApi } from '../../contexts/api-client-context'
 
 function versionLine(version: WorkflowVersion, currentVersionId: string | null | undefined) {
   const latest = version.id === currentVersionId
@@ -23,6 +24,7 @@ interface DeployBodyProps {
  * ship an old version while the page reads as the latest.
  */
 export function DeployBody({ workflow, versionId }: DeployBodyProps) {
+  const api = useApi()
   const links = useWorkflowLinks(workflow.id)
   const picked = useQuery({
     queryKey: ['workflow-version', workflow.id, versionId],

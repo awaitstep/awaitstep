@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { HandlerTarget } from '@awaitstep/provider-cloudflare/codegen'
 import { actionToast } from '../lib/action-toast'
-import { api, type SourceFile } from '../lib/api-client'
+import { type SourceFile } from '../lib/api-client'
 import { createProjectFileActions, type ProjectFileActions } from '../lib/ide/project-actions'
 import { useIdeStore } from '../stores/ide-store'
+import { useApi } from '../contexts/api-client-context'
 
 interface ProjectFilesInput {
   workflowId: string
@@ -37,6 +38,7 @@ export function useProjectFiles({
   projectPaths,
   onShowImporters,
 }: ProjectFilesInput): ProjectFilesController {
+  const api = useApi()
   const queryClient = useQueryClient()
   const [inFlight, setInFlight] = useState(0)
 
@@ -72,7 +74,7 @@ export function useProjectFiles({
         refresh,
         ...(onShowImporters && { onShowImporters }),
       }),
-    [workflowId, target, baseline, projectPaths, refresh, onShowImporters],
+    [api, workflowId, target, baseline, projectPaths, refresh, onShowImporters],
   )
 
   const busy = inFlight > 0

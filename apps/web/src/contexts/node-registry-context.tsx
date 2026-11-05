@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { NodeRegistry, bundledNodeDefinitions } from '@awaitstep/ir'
 import type { NodeDefinition } from '@awaitstep/ir'
-import { useOrgStore } from '../stores/org-store'
+import { useApiOrganizationId } from './api-client-context'
 
 function createDefaultRegistry(): NodeRegistry {
   const registry = new NodeRegistry()
@@ -23,10 +23,11 @@ const NodeRegistryContext = createContext<NodeRegistryContextValue>({
 
 export function NodeRegistryProvider({ children }: { children: ReactNode }) {
   const [registry, setRegistry] = useState(createDefaultRegistry)
-  const organizationId = useOrgStore((s) => s.activeOrganizationId)
+  // A workflow URL's org, so its custom nodes show whichever org the switcher is on.
+  const organizationId = useApiOrganizationId()
 
   const fetchNodes = useCallback(() => {
-    const params = organizationId ? `?organizationId=${organizationId}` : ''
+    const params = organizationId ? `?organizationId=${encodeURIComponent(organizationId)}` : ''
     fetch(`/api/nodes${params}`, { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((definitions: NodeDefinition[] | null) => {

@@ -1,19 +1,16 @@
 import { useMemo } from 'react'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { api } from '../../lib/api-client'
-import { flatPages, queries } from '../../lib/queries'
+import { flatPages } from '../../lib/queries'
+import { useQueries } from '../../contexts/api-client-context'
 
 /**
  * What a workflow's Overview shows and its actions need: the workflow, its
  * versions, deployments and runs, and what they add up to. `ready` holds every
- * read until API calls follow the right project.
+ * read until the page knows the URL's project.
  */
 export function useWorkflowOverview(workflowId: string, ready: boolean) {
-  const workflowQuery = useQuery({
-    queryKey: ['workflow', workflowId],
-    queryFn: () => api.getWorkflow(workflowId),
-    enabled: ready,
-  })
+  const queries = useQueries()
+  const workflowQuery = useQuery({ ...queries.workflows.detail(workflowId), enabled: ready })
   const workflow = workflowQuery.data
 
   const versionsQuery = useInfiniteQuery({

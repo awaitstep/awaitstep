@@ -2,11 +2,11 @@ import { Rocket } from 'lucide-react'
 import type { WorkflowNode, Edge as IREdge } from '@awaitstep/ir'
 import { Button } from '../ui/button'
 import { actionToast, failureLine } from '../../lib/action-toast'
-import { api } from '../../lib/api-client'
 import { fallbackPosition } from '../../lib/hydrate-workflow'
 import { validateWorkflowForPublish } from '../../lib/validate-workflow'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { useGoTo } from '../navigation/router-shell-link'
+import { useApi } from '../../contexts/api-client-context'
 
 const MAX_LISTED = 3
 
@@ -27,6 +27,7 @@ export function DeployButton({
   deployBlocked,
   label = 'Deploy',
 }: DeployButtonProps) {
+  const api = useApi()
   const goTo = useGoTo()
   const links = useWorkflowLinks(workflowId)
 

@@ -26,10 +26,9 @@ import { useWorkflowStore } from '../../stores/workflow-store'
 import {
   ApiError,
   ProjectFileConflictError,
-  api,
   describeHandlerDeclarations,
+  type ApiClient,
 } from '../../lib/api-client'
-import { queries } from '../../lib/queries'
 import {
   detectBindingsFromNodes,
   type ClientBinding,
@@ -37,6 +36,7 @@ import {
 } from '../../lib/detect-bindings-client'
 import { cn } from '../../lib/utils'
 import { useSwitchView } from '../../hooks/use-switch-view'
+import { useApi, useQueries } from '../../contexts/api-client-context'
 
 const BINDING_META: Record<ClientBindingType, { label: string; icon: typeof Database }> = {
   kv: { label: 'KV', icon: HardDrive },
@@ -84,7 +84,7 @@ function buildConsumeSnippet(queue: string): string {
 }
 
 /** The stored annotation file, or null when the project has none. */
-async function fetchStoredHandlers(workflowId: string) {
+async function fetchStoredHandlers(api: ApiClient, workflowId: string) {
   try {
     return await api.getProjectFile(workflowId, PROJECT_HANDLERS_PATH)
   } catch (err) {
@@ -94,7 +94,7 @@ async function fetchStoredHandlers(workflowId: string) {
 }
 
 /** Converts the workflow's legacy trigger code, or null when it has none. */
-async function convertIfLegacy(workflowId: string) {
+async function convertIfLegacy(api: ApiClient, workflowId: string) {
   try {
     return await api.convertHandlers(workflowId)
   } catch (err) {
@@ -104,6 +104,8 @@ async function convertIfLegacy(workflowId: string) {
 }
 
 export function BindingsPanel() {
+  const api = useApi()
+  const queries = useQueries()
   const [expanded, setExpanded] = useState(false)
   const nodes = useWorkflowStore((s) => s.nodes)
   const triggerCode = useWorkflowStore((s) => s.triggerCode)
@@ -136,7 +138,7 @@ export function BindingsPanel() {
     const queue = queueOf(binding)
     const notices: string[] = []
     try {
-      const stored = await fetchStoredHandlers(workflowId)
+      const stored = await fetchStoredHandlers(api, workflowId)
       let created: string
       if (stored) {
         const next = hasQueueHandler(stored.source, queue)
@@ -152,7 +154,7 @@ export function BindingsPanel() {
         // Trigger code can live in the setting or inside the current
         // version's IR; the server knows which, and says 404 when there is
         // nothing to convert.
-        const conversion = full?.handlers.modules ? null : await convertIfLegacy(workflowId)
+        const conversion = full?.handlers.modules ? null : await convertIfLegacy(api, workflowId)
         if (conversion) {
           notices.push('Trigger code converted to handler modules.')
           if (!conversion.deploymentConfigUpdated) {

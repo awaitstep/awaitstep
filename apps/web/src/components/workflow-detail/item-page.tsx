@@ -6,8 +6,8 @@ import { useDataSource } from '../../data/dashboard/source'
 import { ApiError, type WorkflowSummary } from '../../lib/api-client'
 import type { RunHour } from '../../types/dashboard/workspaces'
 import { workspacePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
-import { flatPages, queries } from '../../lib/queries'
-import { useInOtherWorkspace, useRouteScopeReady } from '../../lib/workflows/route-scope'
+import { flatPages } from '../../lib/queries'
+import { useInOtherWorkspace, useItemScopeReady } from '../../lib/workflows/route-scope'
 import type { ItemDetailPage } from '../navigation/dashboard-page'
 import { ItemPlaceholder } from '../navigation/item-placeholder'
 import { PageBody } from '../shell/page-intro'
@@ -18,6 +18,7 @@ import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
 import { ItemHeader } from './item-header'
 import { useDeploymentAccounts } from './use-deployment-accounts'
 import { useWorkflowOverview, type WorkflowOverview } from './use-workflow-overview'
+import { useQueries } from '../../contexts/api-client-context'
 
 /** Gone, or never this project's: the API says 404 for both. */
 function isMissing(error: Error): boolean {
@@ -61,12 +62,13 @@ interface ItemPageProps {
 
 /**
  * A workflow or function's own page in its workspace (`WorkflowDetail`,
- * `FunctionDetail`): its head over the page's body. Nothing loads until API
- * calls follow the URL's project; sample data has no real item to show.
+ * `FunctionDetail`): its head over the page's body. Its calls go to the URL's
+ * project; sample data has no real item to show.
  */
 export function ItemPage({ slugs, workflowId, page, children }: ItemPageProps) {
+  const queries = useQueries()
   const source = useDataSource()
-  const ready = useRouteScopeReady(slugs) && source === 'api'
+  const ready = useItemScopeReady() && source === 'api'
   const overview = useWorkflowOverview(workflowId, ready)
   const { workflow } = overview
   const inOtherWorkspace = useInOtherWorkspace(workflow)

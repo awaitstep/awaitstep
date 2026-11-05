@@ -16,12 +16,12 @@ import {
   X,
 } from 'lucide-react'
 import { Button } from '../ui/button'
-import { api } from '../../lib/api-client'
 import { useSheetStore } from '../../stores/sheet-store'
 import { RUN_ACTION_TOAST } from './run-actions'
 import { RunStatusBadge } from './run-status-badge'
 import { formatDate } from '../../lib/time'
 import { copyToClipboard } from '../../lib/utils'
+import { useApi } from '../../contexts/api-client-context'
 
 const TERMINAL_STATUSES = new Set(['complete', 'errored', 'terminated'])
 
@@ -63,6 +63,7 @@ function RunDetailContent({
   workflowId: string
   workflowName?: string
 }) {
+  const api = useApi()
   const queryClient = useQueryClient()
   const prevStatus = useRef<string | null>(null)
 

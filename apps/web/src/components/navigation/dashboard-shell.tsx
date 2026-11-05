@@ -64,8 +64,8 @@ function frameScope(slugs: ScopeSlugs, lookup: ScopeLookup | undefined): FrameSc
 export function DashboardShell({ children }: { children: ReactNode }) {
   const slugs = useScopeSlugs()
   const declaredPage = useDashboardPage()
-  const page = useFramedPage(declaredPage, slugs)
   const scope = useScope(slugs)
+  const page = useFramedPage(declaredPage, scope.data)
   const viewer = useViewer()
   const { theme, setTheme } = useThemeStore()
   const { pathname, href } = useLocation()

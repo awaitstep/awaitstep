@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
 import type { WorkflowSummary } from '../../lib/api-client'
-import { flatPages, queries } from '../../lib/queries'
+import { flatPages } from '../../lib/queries'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { workerUrl } from '../../lib/workflows/worker-url'
 import type { RunHour } from '../../types/dashboard/workspaces'
@@ -8,6 +8,7 @@ import { RecentRunsCard } from './parts/recent-runs-card'
 import { StatusBand } from './parts/status-band'
 import { VersionsCard } from './parts/versions-card'
 import type { WorkflowOverview } from './use-workflow-overview'
+import { useQueries } from '../../contexts/api-client-context'
 
 interface OverviewBodyProps {
   workflow: WorkflowSummary
@@ -28,6 +29,7 @@ export function OverviewBody({
   runs24h,
   neverDeployed,
 }: OverviewBodyProps) {
+  const queries = useQueries()
   const links = useWorkflowLinks(workflow.id)
   const { data: runs } = useInfiniteQuery({
     ...queries.runs.byWorkflow(workflow.id),

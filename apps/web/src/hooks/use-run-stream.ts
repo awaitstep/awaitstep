@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { projectUrl } from '../lib/api-client'
 import { readSseStream } from '../lib/sse-stream'
+import { useApi } from '../contexts/api-client-context'
 
 interface UseRunStreamOptions {
   workflowId: string
@@ -20,6 +20,7 @@ const REFRESH_COALESCE_MS = 250
  * reconnect logic to get wrong.
  */
 export function useRunStream({ workflowId, runId, enabled }: UseRunStreamOptions): void {
+  const api = useApi()
   const queryClient = useQueryClient()
 
   useEffect(() => {
@@ -38,7 +39,7 @@ export function useRunStream({ workflowId, runId, enabled }: UseRunStreamOptions
 
     const consume = async () => {
       const response = await fetch(
-        projectUrl(
+        api.projectUrl(
           `/workflows/${encodeURIComponent(workflowId)}/runs/${encodeURIComponent(runId)}/stream`,
         ),
         {
@@ -66,5 +67,5 @@ export function useRunStream({ workflowId, runId, enabled }: UseRunStreamOptions
       controller.abort()
       if (refreshTimer) clearTimeout(refreshTimer)
     }
-  }, [enabled, workflowId, runId, queryClient])
+  }, [api, enabled, workflowId, runId, queryClient])
 }

@@ -1,59 +1,34 @@
+import { useApiReady, useItemApiScope } from '../../contexts/api-client-context'
 import type { WorkspaceSlugs } from '../dashboard-paths'
-import { useOrgStore } from '../../stores/org-store'
 import type { ScopeLookup } from '../../types/dashboard/scope'
 
-export function routeScopeKey(slugs: WorkspaceSlugs): string {
-  return [slugs.org, slugs.project, slugs.workspace].map(encodeURIComponent).join('/')
+/** The ids a workflow's URL names: every call under it goes to this project. */
+export interface ItemApiScope {
+  organizationId: string
+  projectId: string
+  /** The URL's workspace: a workflow opened under another workspace's URL isn't shown there. */
+  workspaceId: string
 }
 
-// Bumped by every enter and leave, so a lookup that resolves after a newer
-// one started (or after the editor was left) is dropped instead of applied.
-let latest = 0
-
-interface EnterOptions {
-  lookup: (slugs: WorkspaceSlugs) => Promise<ScopeLookup>
-  /** The navigation's own signal: a cancelled navigation applies nothing. */
-  signal?: AbortSignal
+/** The ids behind a scope lookup, or null when it names no workspace the viewer can open. */
+export function itemScopeFrom(scope: ScopeLookup | undefined): ItemApiScope | null {
+  if (!scope?.found || !scope.project || !scope.workspace) return null
+  return {
+    organizationId: scope.org.org.id,
+    projectId: scope.project.project.id,
+    workspaceId: scope.workspace.workspace.id,
+  }
 }
 
 /**
- * Points the API client at the org and project an editor URL names, and
- * makes them the switcher's active ones too, so the old pages the editor
- * still links to agree with it. Until the lookup answers, no other
- * workspace's scope stands in; a scope the viewer can't open sets nothing,
- * and the dashboard shell shows its not-found page.
+ * The ids behind a workspace URL's slugs, or null when the viewer can't open
+ * that workspace (the dashboard shell then shows its not-found page).
  */
-export async function enterRouteScope(
+export async function resolveItemScope(
   slugs: WorkspaceSlugs,
-  { lookup, signal }: EnterOptions,
-): Promise<void> {
-  const key = routeScopeKey(slugs)
-  const store = useOrgStore.getState()
-  if (store.routeScope?.key === key) return
-  store.setRouteScope(null)
-  const ticket = ++latest
-
-  const scope = await lookup(slugs)
-  if (ticket !== latest || signal?.aborted) return
-  if (!scope.found || !scope.project || !scope.workspace) return
-
-  const organizationId = scope.org.org.id
-  const projectId = scope.project.project.id
-  const workspaceId = scope.workspace.workspace.id
-  const next = useOrgStore.getState()
-  next.setRouteScope({ key, organizationId, projectId, workspaceId })
-  // Switching org forgets the active project, so it goes first.
-  if (next.activeOrganizationId !== organizationId) next.setActiveOrganization(organizationId)
-  next.setActiveProject(projectId)
-}
-
-/**
- * Whether API calls follow this workspace's project yet. A workflow's pages
- * read nothing before then, so none loads through the switcher's project.
- */
-export function useRouteScopeReady(slugs: WorkspaceSlugs): boolean {
-  const key = routeScopeKey(slugs)
-  return useOrgStore((s) => s.appReady && s.routeScope?.key === key)
+  lookup: (slugs: WorkspaceSlugs) => Promise<ScopeLookup>,
+): Promise<ItemApiScope | null> {
+  return itemScopeFrom(await lookup(slugs))
 }
 
 /**
@@ -62,13 +37,24 @@ export function useRouteScopeReady(slugs: WorkspaceSlugs): boolean {
  * naming the wrong workspace would otherwise frame it, and act on it, there.
  * Shared items link through their own workspace, so no real link does this.
  */
-export function useInOtherWorkspace(workflow: { workspaceId?: string } | undefined): boolean {
-  const workspaceId = useOrgStore((s) => s.routeScope?.workspaceId)
+export function isInOtherWorkspace(
+  workflow: { workspaceId?: string } | undefined,
+  workspaceId: string | undefined,
+): boolean {
   return !!workflow?.workspaceId && !!workspaceId && workflow.workspaceId !== workspaceId
 }
 
-/** Back to the switcher's project: the editor is no longer open. */
-export function leaveRouteScope(): void {
-  latest++
-  useOrgStore.getState().setRouteScope(null)
+/** `isInOtherWorkspace` for the workflow URL this component is under. */
+export function useInOtherWorkspace(workflow: { workspaceId?: string } | undefined): boolean {
+  return isInOtherWorkspace(workflow, useItemApiScope()?.workspaceId)
+}
+
+/**
+ * Whether calls here can go to a workflow URL's project: the app has loaded
+ * and the URL names one (sample data and unknown scopes never do). The same
+ * gate as the editor's `useApiReady`, so Overview and the canvas agree.
+ */
+export function useItemScopeReady(): boolean {
+  const scoped = useItemApiScope() !== null
+  return useApiReady() && scoped
 }
