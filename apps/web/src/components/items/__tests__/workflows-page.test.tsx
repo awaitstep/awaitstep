@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import {
   AMA,
   PRIYA,
+  dashboardDb,
   renderWithDashboardData,
   resetDashboardData,
 } from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
@@ -277,6 +278,14 @@ describe('Functions page', () => {
       within(rows[0]!).getByRole('img', { name: /Requests over the last 24 hours/ }),
     ).toBeInTheDocument()
     expect(screen.getByText(/Functions answer requests straight away/)).toBeInTheDocument()
+  })
+
+  it('says requests aren’t recorded for a function with no traffic', async () => {
+    dashboardDb().items.find((i) => i.name === 'CRM sync')!.traffic = null
+    renderWithDashboardData(<FunctionsPage slugs={sales} />, { userId: AMA })
+    const table = await screen.findByRole('table', { name: 'Functions in Sales' })
+    const row = within(table).getByRole('link', { name: 'CRM sync' }).closest('tr')!
+    expect(within(row).getByText('Not recorded')).toBeVisible()
   })
 
   it('New function adds the function named in its dialog', async () => {

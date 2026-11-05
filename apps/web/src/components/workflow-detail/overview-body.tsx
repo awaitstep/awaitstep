@@ -74,6 +74,7 @@ export function OverviewBody({
             loadingMore={overview.versionsLoadingMore}
             onLoadMore={overview.loadMoreVersions}
             draft={neverDeployed}
+            isFunction={isFunction}
           />
         </div>
         <div className="flex min-w-0 basis-[320px] grow flex-col [&>*]:flex-1">

@@ -207,6 +207,42 @@ describe('OverviewBody for a function (FunctionDetail)', () => {
     expect(screen.queryByText('Recent runs')).toBeNull()
   })
 
+  it('says publish, not deploy, on a function’s versions', () => {
+    renderWithPages(
+      <OverviewBody
+        workflow={{ ...WORKFLOW, kind: 'script' }}
+        overview={overview(true)}
+        accounts={ACCOUNTS}
+        neverDeployed={false}
+      />,
+      {},
+    )
+    expect(screen.getByText('published')).toBeVisible()
+    expect(screen.queryByText('deployed')).toBeNull()
+    expect(screen.getAllByRole('link', { name: 'Publish' }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('link', { name: 'Deploy' })).toBeNull()
+  })
+
+  it('doesn’t call a live function unpublished when its deployment has no URL', () => {
+    const live = overview(true)
+    const noUrl = {
+      ...live,
+      activeDeployment: { ...live.activeDeployment!, serviceUrl: null },
+    } as WorkflowOverview
+    renderWithPages(
+      <OverviewBody
+        workflow={{ ...WORKFLOW, kind: 'script' }}
+        overview={noUrl}
+        accounts={ACCOUNTS}
+        neverDeployed={false}
+      />,
+      {},
+    )
+    const band = screen.getByRole('region', { name: 'Status' })
+    expect(within(band).getByText('No URL to show for this deployment.')).toBeVisible()
+    expect(within(band).queryByText(/once the function is published/)).toBeNull()
+  })
+
   it('asks for no runs: a function has none', () => {
     // A project to call, so a runs request would reach fetch rather than throw first.
     useOrgStore.setState({ activeOrganizationId: 'org_1', activeProjectId: 'prj_1' })

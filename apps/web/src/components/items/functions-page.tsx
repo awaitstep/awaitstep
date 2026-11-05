@@ -57,7 +57,7 @@ function functionColumns(slugs: WorkspaceSlugs): DataColumn<WorkspaceItem>[] {
         item.traffic ? (
           <TrafficBars buckets={item.traffic.buckets} />
         ) : (
-          <span className="text-muted-foreground">No requests yet</span>
+          <span className="text-muted-foreground">Not recorded</span>
         ),
     },
     {
