@@ -7,22 +7,7 @@ import {
   showSearch,
   stepSearchHit,
 } from '../lib/ide/search-actions'
-
-/** Monaco's reference peek owns F4 and ⇧F4 while it is open. */
-const REFERENCE_PEEK = '.peekview-widget'
-
-/**
- * A text field of its own (the Search box, Monaco's find or rename input, a
- * quick-test field) keeps F4: stepping would select a match in the editor
- * and the next keystroke would replace it. The editor's own text area (and
- * its edit context) and the results list are fine.
- */
-const FOREIGN_FIELD =
-  'input, textarea:not(.inputarea), select, [contenteditable=""], [contenteditable="true"]:not(.native-edit-context)'
-
-function inForeignField(target: EventTarget | null): boolean {
-  return target instanceof Element && target.closest(FOREIGN_FIELD) !== null
-}
+import { inForeignField, REFERENCE_PEEK } from '../lib/ide/key-ownership'
 
 export interface SearchActions {
   findInFiles: () => void

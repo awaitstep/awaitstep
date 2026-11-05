@@ -84,6 +84,7 @@ export function QuickTestArgs({
       </div>
       <textarea
         id={PANEL_ID}
+        data-ide-run-field=""
         role="tabpanel"
         aria-labelledby={tabId(active)}
         value={texts[active]}

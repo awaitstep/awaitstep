@@ -7,17 +7,18 @@ export type IdeShortcutHandlers = Partial<
   Record<IdeShortcutId, (event: KeyboardEvent) => void | false>
 >
 
+/** The only shortcuts whose handlers may decline; every other one owns its key outright. */
+const DECLINABLE: ReadonlySet<IdeShortcutId> = new Set(['run', 'nextSearchHit', 'prevSearchHit'])
+
 /**
  * Binds the workspace shortcuts on the window in the capture phase so they
  * win over Monaco's own keymap and the browser defaults (⌘S, ⌘P). Keys
  * pressed inside an open dialog belong to that dialog. Handlers are read
  * through a ref, so callers can pass fresh closures every render. A handler
  * may decline by returning `false` (F4 with nothing to step to leaves the
- * key to Monaco's reference peek).
+ * key to Monaco's reference peek; Run leaves ⌥⏎ to Monaco's find widget and
+ * to fields of their own).
  */
-/** The only shortcuts whose handlers may decline; every other one owns its key outright. */
-const DECLINABLE: ReadonlySet<IdeShortcutId> = new Set(['nextSearchHit', 'prevSearchHit'])
-
 export function useIdeShortcuts(handlers: IdeShortcutHandlers): void {
   const handlersRef = useRef(handlers)
   handlersRef.current = handlers

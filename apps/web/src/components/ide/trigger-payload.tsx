@@ -47,6 +47,7 @@ export function TriggerPayload({
       </div>
       <textarea
         id="trigger-payload"
+        data-ide-run-field=""
         value={payload}
         onChange={handleChange}
         spellCheck={false}

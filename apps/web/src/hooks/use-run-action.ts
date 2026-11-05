@@ -32,6 +32,8 @@ export interface RunConfirm {
   /** Goes ahead with the session as it is. */
   secondaryLabel: string
   onOpenChange: (open: boolean) => void
+  /** Focus goes back to the editor, not to the palette or button that is gone. */
+  onCloseAutoFocus: (event: Event) => void
   onConfirm: () => void
   onSecondary: () => void
 }
@@ -58,6 +60,7 @@ const CLOSED: RunConfirm = {
   confirmLabel: '',
   secondaryLabel: '',
   onOpenChange: () => {},
+  onCloseAutoFocus: () => {},
   onConfirm: () => {},
   onSecondary: () => {},
 }
@@ -93,6 +96,13 @@ export function useRunAction({
 
   function focusEditor() {
     useIdeStore.getState().editorHandle?.focus()
+  }
+
+  // The dialog would return focus to whatever opened it, and when that was
+  // the palette it has already gone, which leaves focus on the page body.
+  function handleCloseAutoFocus(event: Event) {
+    event.preventDefault()
+    focusEditor()
   }
 
   function showTab(tab: 'session' | 'quickTest') {
@@ -205,11 +215,13 @@ export function useRunAction({
   return { intent, run, triggerSession, confirm: describe() }
 
   function describe(): RunConfirm {
-    if (!question) return CLOSED
+    // The closed dialog is still mounted while it leaves, and that is when focus is returned.
+    if (!question) return { ...CLOSED, onCloseAutoFocus: handleCloseAutoFocus }
     const files = unsaved === 1 ? '1 unsaved file' : `${unsaved} unsaved files`
     const common = {
       open: true,
       onOpenChange: handleOpenChange,
+      onCloseAutoFocus: handleCloseAutoFocus,
       onConfirm: handleConfirm,
       onSecondary: handleSecondary,
     }
