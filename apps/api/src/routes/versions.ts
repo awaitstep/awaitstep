@@ -161,7 +161,12 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
       if (irUnchanged(latest.ir, irString)) {
         return c.json(latest, 200)
       }
-      await db.updateVersion(latest.id, { ir: irString })
+      // Saved over: it reads as saved by this person, now.
+      await db.updateVersion(latest.id, {
+        ir: irString,
+        createdBy: c.get('userId'),
+        createdAt: new Date().toISOString(),
+      })
       const updated = await db.getWorkflowVersionById(latest.id)
       return c.json(updated, 200)
     }
@@ -178,6 +183,7 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
     id: nanoid(),
     workflowId,
     ir: irString,
+    createdBy: c.get('userId'),
   })
 
   await db.updateWorkflow(workflowId, { currentVersionId: version.id })
@@ -223,6 +229,7 @@ versions.post('/:workflowId/versions/:versionId/revert', async (c) => {
       id: nanoid(),
       workflowId,
       ir: targetVersion.ir,
+      createdBy: c.get('userId'),
     }),
     db.replaceWorkflowFiles(
       workflowId,

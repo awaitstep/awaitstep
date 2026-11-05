@@ -595,6 +595,7 @@ const mockDb: DatabaseAdapter = {
     const matching: WorkspaceRunRow[] = [...store.runs.values()]
       .filter((r) => store.workflows.get(r.workflowId)?.workspaceId === workspaceId)
       .filter((r) => !filter.since || r.createdAt >= filter.since)
+      .filter((r) => !filter.workflowId || r.workflowId === filter.workflowId)
       .map((r) => {
         const wf = store.workflows.get(r.workflowId)!
         return { ...r, workflowName: wf.name, kind: wf.kind }
@@ -901,6 +902,7 @@ const mockDb: DatabaseAdapter = {
       manifest: null,
       baseGeneratedHash: null,
       ...data,
+      createdBy: data.createdBy ?? null,
       version: assigned,
       locked: 0,
       createdAt: now(),
@@ -919,7 +921,9 @@ const mockDb: DatabaseAdapter = {
     return {
       data: [...store.versions.values()]
         .filter((v) => v.workflowId === workflowId)
-        .sort((a, b) => b.version - a.version),
+        .sort((a, b) => b.version - a.version)
+        // Names come from a join on users, which the sqlite harness covers.
+        .map((v) => ({ ...v, createdByName: null })),
       nextCursor: null,
     }
   },
@@ -1399,6 +1403,7 @@ const mockDb: DatabaseAdapter = {
       serviceUrl: data.serviceUrl ?? null,
       error: data.error ?? null,
       configSnapshot: data.configSnapshot ?? null,
+      createdBy: data.createdBy ?? null,
       createdAt: now(),
     }
     store.deployments.set(d.id, d)
@@ -1428,7 +1433,16 @@ const mockDb: DatabaseAdapter = {
     return {
       data: [...store.deployments.values()]
         .filter((d) => d.workflowId === workflowId)
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .map((d) => {
+          const v = d.versionId ? store.versions.get(d.versionId) : undefined
+          return {
+            ...d,
+            createdByName: null,
+            version: v?.version ?? null,
+            versionLocked: v?.locked ?? null,
+          }
+        }),
       nextCursor: null,
     }
   },
