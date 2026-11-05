@@ -38,6 +38,8 @@ export interface IdeCommandActions {
   showProblems: () => void
   showTestSession: () => void
   showQuickTest: () => void
+  /** Shows the Steps view and puts the keyboard in its list. */
+  showSteps: () => void
   /** The one Run (⌥⏎): quick-tests a step file, otherwise runs the test session. */
   run: () => void
   startSession: () => void
@@ -225,6 +227,13 @@ export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
       shortcut: 'togglePreview',
       enabled: true,
       run: actions.togglePreview,
+    },
+    {
+      id: 'view.steps',
+      label: 'Show Steps',
+      group: 'view',
+      enabled: true,
+      run: actions.showSteps,
     },
     {
       id: 'view.problems',

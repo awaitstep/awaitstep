@@ -10,6 +10,15 @@ import type {
 } from './api-client'
 import { toFlowType } from '../stores/workflow-store'
 
+/**
+ * The URL's node to select on this hydration, or undefined when that node was
+ * already applied by an earlier one. The graph is hydrated again after every
+ * save; re-selecting then would undo the person deselecting it.
+ */
+export function nodeToSelectOnce(param: string | undefined, applied: string | undefined) {
+  return param !== applied ? param : undefined
+}
+
 export function buildWorkflowStoreState(
   serverWorkflow: WorkflowSummary,
   versionData: WorkflowVersion | null | undefined,
@@ -21,6 +30,18 @@ export function buildWorkflowStoreState(
      * version's IR still carries is history, not something to mirror.
      */
     handlerModules?: boolean
+    /**
+     * A node to open selected (the editor URL's `?node=`). An id the version
+     * does not have is ignored, so a link to a deleted step opens the canvas
+     * with nothing selected rather than failing.
+     */
+    selectNodeId?: string
+    /**
+     * The node selected right now. A rebuilt graph (after a save, a refetch)
+     * has fresh flow nodes with no ring on them, so the selection is applied
+     * to them again; one the new graph no longer has is dropped.
+     */
+    keepSelectedNodeId?: string | null
   } = {},
 ) {
   const state: Record<string, unknown> = {
@@ -125,6 +146,19 @@ export function buildWorkflowStoreState(
         data: { irNode },
       }))
       state.edges = irEdges
+      const wanted = [options.selectNodeId, options.keepSelectedNodeId].find(
+        (id) => id && irNodes.some((n) => n.id === id),
+      )
+      if (wanted) {
+        state.selectedNodeId = wanted
+        if (wanted === options.selectNodeId) state.selectedEdgeId = null
+        // The flow node's own flag draws the ring; the id alone only opens the panel.
+        state.nodes = (state.nodes as { id: string }[]).map((n) =>
+          n.id === wanted ? { ...n, selected: true } : n,
+        )
+      } else if (options.keepSelectedNodeId) {
+        state.selectedNodeId = null
+      }
     }
     // Runtime block: columns win while dual-write is active (they are updated
     // on every save); runtime fills in for pure-IR imports with empty columns.

@@ -35,4 +35,12 @@ describe('useSwitchView', () => {
       replace: true,
     })
   })
+
+  it('passes the node to open on the canvas', () => {
+    const { result } = renderHook(() => useSwitchView('wf_1'))
+    void result.current('canvas', { version: 'v-3', node: 'n9' })
+    expect(navigate).toHaveBeenCalledWith(
+      expect.objectContaining({ search: { view: 'canvas', version: 'v-3', node: 'n9' } }),
+    )
+  })
 })

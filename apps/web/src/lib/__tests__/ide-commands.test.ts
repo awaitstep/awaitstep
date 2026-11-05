@@ -25,6 +25,7 @@ function actions(): IdeCommandActions {
     showProblems: vi.fn(),
     showTestSession: vi.fn(),
     showQuickTest: vi.fn(),
+    showSteps: vi.fn(),
     run: vi.fn(),
     startSession: vi.fn(),
     stopSession: vi.fn(),
@@ -123,6 +124,16 @@ describe('buildIdeCommands', () => {
     expect(ctx.actions.showProblems).toHaveBeenCalledTimes(1)
     expect(ctx.actions.newFile).toHaveBeenCalledTimes(1)
     expect(ctx.actions.save).not.toHaveBeenCalled()
+  })
+})
+
+describe('Show Steps command', () => {
+  it('is always offered and runs the Steps action', () => {
+    const ctx = context()
+    const command = buildIdeCommands(ctx).find((c) => c.id === 'view.steps')
+    expect(command).toMatchObject({ label: 'Show Steps', group: 'view', enabled: true })
+    command?.run()
+    expect(ctx.actions.showSteps).toHaveBeenCalledTimes(1)
   })
 })
 
