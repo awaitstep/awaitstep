@@ -87,6 +87,12 @@ describe('RunHistoryBars', () => {
 })
 
 describe('ShareToggle', () => {
+  it('raises only the switch above a row’s link, so the rest of the row still opens it', () => {
+    render(<ShareToggle shared={false} onChange={vi.fn()} label="Share it" />)
+    expect(screen.getByRole('switch', { name: 'Share it' }).parentElement).toHaveClass('z-10')
+    expect(screen.getByText('Shared').parentElement).not.toHaveClass('z-10')
+  })
+
   it('keeps one label, Shared, and lets the switch say whether it is', () => {
     const { rerender } = render(<ShareToggle shared={false} onChange={vi.fn()} label="Share it" />)
     expect(screen.getByText('Shared')).toBeInTheDocument()

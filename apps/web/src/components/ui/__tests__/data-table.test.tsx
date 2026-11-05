@@ -12,6 +12,25 @@ const COLUMNS: DataColumn<SampleRun>[] = [
 ]
 
 describe('DataTable', () => {
+  it('makes each row a hover and click target when its rows are links', () => {
+    const { rerender } = render(
+      <DataTable caption="Runs" columns={COLUMNS} rows={SALES_RUNS} getRowKey={(r) => r.id} />,
+    )
+    expect(screen.getAllByRole('row')[1]).not.toHaveClass('relative')
+    rerender(
+      <DataTable
+        caption="Runs"
+        columns={COLUMNS}
+        rows={SALES_RUNS}
+        getRowKey={(r) => r.id}
+        linkedRows
+      />,
+    )
+    expect(screen.getAllByRole('row')[1]).toHaveClass('relative', 'cursor-pointer')
+    // A fallback box for the link layer: never wider than the table.
+    expect(screen.getByRole('table').parentElement).toHaveClass('relative')
+  })
+
   it('is a table named by its caption, with column headers and one row per item', () => {
     render(
       <DataTable

@@ -6,4 +6,4 @@ link: projects
 linkLabel: See your projects
 ---
 
-Clicking a workflow or function now opens its overview, with Open editor one click away. The sharing switch keeps one label, Shared, so it no longer looks like it asks you to make something private.
+Clicking anywhere on a workflow or function's row now opens its overview, with Open editor one click away. The sharing switch keeps one label, Shared, so it no longer looks like it asks you to make something private.
