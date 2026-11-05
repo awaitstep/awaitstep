@@ -65,26 +65,6 @@ export function UnsavedWorkflowNotice() {
   )
 }
 
-export function NoVersionNotice({ workflowId, name }: { workflowId: string; name: string }) {
-  const switchView = useSwitchView(workflowId)
-
-  function handleOpenCanvas() {
-    void switchView('canvas')
-  }
-
-  return (
-    <Notice
-      title={`${name} has no saved version yet`}
-      description={NO_SAVED_VERSION_MESSAGE}
-      action={
-        <Button size="sm" variant="outline" onClick={handleOpenCanvas}>
-          Open canvas
-        </Button>
-      }
-    />
-  )
-}
-
 export function LoadFailure({ workflowId, message }: { workflowId: string; message?: string }) {
   const links = useWorkflowLinks(workflowId)
   return (

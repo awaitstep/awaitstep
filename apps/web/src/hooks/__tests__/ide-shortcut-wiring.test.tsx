@@ -45,6 +45,7 @@ function session(unsaved: number): TestSessionState {
 function Harness({ testSession }: { testSession: TestSessionState }) {
   const runAction = useRunAction({
     workflowId: 'wf',
+    hasVersion: true,
     testSession,
     activeFile: { path: 'lib/a.ts', source: 'export const a = 1' },
     onSaveAll: vi.fn().mockResolvedValue(1),

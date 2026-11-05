@@ -253,10 +253,12 @@ export interface StartTestSessionResponse {
 export type TestSessionTriggerResponse = TestSessionResponse
 
 export interface WorkflowSource {
-  versionId: string
-  entry: string
-  /** The file to open first: a workflow's portable definition, else the entry. */
-  primary?: string
+  /** Null for a workflow with no saved version: only project files, nothing generated. */
+  versionId: string | null
+  /** Null when there is no version to generate an entry from. */
+  entry: string | null
+  /** The file to open first: a workflow's portable definition, else the entry. Null without a version. */
+  primary?: string | null
   files: SourceFile[]
   manifest: StepManifest | null
   /** Provider-scoped primitives and bindings the workflow needs. */

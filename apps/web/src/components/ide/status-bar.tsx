@@ -13,8 +13,8 @@ const DOT: Record<StatusTone, string> = {
 }
 
 interface StatusBarProps {
-  /** The version on screen, and whether it is an older one. */
-  version: number
+  /** The version on screen, and whether it is an older one. Null: never saved on the canvas. */
+  version: number | null
   historical: boolean
   session: SessionStatus
   errors: number
@@ -64,7 +64,14 @@ export function StatusBar({
       aria-label="Workspace status"
       className="flex h-6 shrink-0 items-center gap-0.5 border-t border-border bg-card px-1.5 text-[11px] text-muted-foreground"
     >
-      {historical ? (
+      {version === null ? (
+        <span
+          className="px-2"
+          title="Generated files appear after the first version is saved on the canvas"
+        >
+          No version yet
+        </span>
+      ) : historical ? (
         <Item onClick={onOpenLatest} title="You’re viewing an older version. Open the latest." warn>
           Viewing v{version}
         </Item>

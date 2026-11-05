@@ -7,6 +7,8 @@ import { useWorkflowStore } from '../../../stores/workflow-store'
 import { StepsView } from '../steps-view'
 import { loadGraph, SyncHarness } from './fixtures/step-sync'
 
+const switchView = vi.fn()
+vi.mock('../../../hooks/use-switch-view', () => ({ useSwitchView: () => switchView }))
 vi.mock('../../../contexts/node-registry-context', () => ({
   useNodeRegistry: () => ({ registry: { get: () => undefined } }),
 }))
@@ -154,5 +156,14 @@ describe('StepsView', () => {
     useWorkflowStore.getState().reset()
     setup()
     expect(screen.getByText(/No steps in this version/)).toBeInTheDocument()
+  })
+
+  it('says a version is needed, with the way to the canvas, when the workflow was never saved', async () => {
+    useWorkflowStore.getState().reset()
+    setup({ graphVersionId: null, manifest: null, codeVersionId: null })
+    expect(screen.getByText('Save a version on the canvas first')).toBeInTheDocument()
+    expect(screen.queryByText(/No steps in this version/)).toBeNull()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Open canvas' }))
+    expect(switchView).toHaveBeenCalledWith('canvas')
   })
 })

@@ -48,6 +48,7 @@ function context(overrides: Partial<IdeCommandContext> = {}): IdeCommandContext 
     explorerOpen: true,
     dockOpen: false,
     previewOpen: true,
+    runBlockedReason: null,
     runLabel: 'Start and trigger',
     runEnabled: true,
     canStartSession: true,
@@ -206,5 +207,36 @@ describe('run and test session commands', () => {
     expect(labels).toContain('Show Test Session')
     expect(labels).not.toContain('Show Output')
     expect(labels).not.toContain('Show Run')
+  })
+
+  it('disables Run and the session commands with the reason, once, and keeps the views open when there is no saved version', () => {
+    const blocked = buildIdeCommands(
+      context({
+        runBlockedReason: 'Save a version on the canvas first',
+        canStopSession: true,
+        canTriggerSession: true,
+      }),
+    )
+    const byId = Object.fromEntries(blocked.map((c) => [c.id, c]))
+    for (const id of ['run.run', 'run.start', 'run.trigger']) {
+      expect(byId[id]).toMatchObject({
+        enabled: false,
+        disabledReason: 'Save a version on the canvas first',
+      })
+    }
+    // The reason is shown beside the command, so the label does not repeat it.
+    expect(byId['run.run']?.label).toBe('Run')
+    // A session left over can still be stopped, and showing a tab is just a
+    // view: both tabs say what to do, so neither is disabled.
+    expect(byId['run.stop']?.enabled).toBe(true)
+    expect(byId['view.testSession']?.enabled).toBe(true)
+    expect(byId['view.quickTest']?.enabled).toBe(true)
+    expect(byId['view.quickTest']?.disabledReason).toBeUndefined()
+  })
+
+  it('gives no reason, and keeps every command as before, when a version exists', () => {
+    const commands = buildIdeCommands(context())
+    expect(commands.some((c) => c.disabledReason !== undefined)).toBe(false)
+    expect(commands.find((c) => c.id === 'run.start')?.enabled).toBe(true)
   })
 })

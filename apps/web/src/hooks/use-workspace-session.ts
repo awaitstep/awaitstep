@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react'
 import type { IdeCommandActions } from '../lib/ide/commands'
-import { sessionCommands } from '../lib/ide/run-intent'
+import { SAVE_VERSION_FIRST, sessionCommands } from '../lib/ide/run-intent'
 import { sessionStatus } from '../lib/ide/status-bar'
 import { useIdeLayoutStore } from '../stores/ide-layout-store'
 import { useIdeStore } from '../stores/ide-store'
@@ -48,7 +48,8 @@ export function useWorkspaceSession({
     currentHashes: historical ? null : storedHashes,
     unsavedCount,
   })
-  const runAction = useRunAction({ workflowId, testSession, activeFile, onSaveAll })
+  const hasVersion = currentVersionId !== null
+  const runAction = useRunAction({ workflowId, hasVersion, testSession, activeFile, onSaveAll })
 
   const pending = {
     starting: testSession.starting,
@@ -56,17 +57,21 @@ export function useWorkspaceSession({
     triggering: testSession.triggering,
   }
   const status = sessionStatus(testSession.session, testSession.stale, pending)
-  const commands = sessionCommands(testSession.session, pending)
+  const commands = sessionCommands(testSession.session, pending, hasVersion)
+  // Why Run and the session commands are off, or null when they can work.
+  const blockedReason = hasVersion ? null : SAVE_VERSION_FIRST
 
   // Handlers behind a ref so the actions keep one identity: the command list
   // and the palette are memoised on them and would otherwise rebuild on every render.
-  const latest = useRef({ testSession, runAction })
-  latest.current = { testSession, runAction }
+  const latest = useRef({ testSession, runAction, hasVersion })
+  latest.current = { testSession, runAction, hasVersion }
   const actions = useMemo<SessionActions>(
     () => ({
       run: () => latest.current.runAction.run(),
       startSession: () => {
         useIdeLayoutStore.getState().showDock('session')
+        // Without a version the dock shows why; there is nothing to start.
+        if (!latest.current.hasVersion) return
         void latest.current.testSession.start()
       },
       stopSession: () => void latest.current.testSession.stop(),
@@ -75,5 +80,5 @@ export function useWorkspaceSession({
     [],
   )
 
-  return { testSession, runAction, status, commands, actions }
+  return { testSession, runAction, status, commands, blockedReason, hasVersion, actions }
 }

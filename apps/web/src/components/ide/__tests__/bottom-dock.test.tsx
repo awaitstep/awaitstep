@@ -8,6 +8,9 @@ import { useIdeLayoutStore } from '../../../stores/ide-layout-store'
 import { useIdeStore } from '../../../stores/ide-store'
 import { BottomDock } from '../bottom-dock'
 
+const switchView = vi.fn()
+vi.mock('../../../hooks/use-switch-view', () => ({ useSwitchView: () => switchView }))
+
 const noSession = {
   session: null,
   logs: [],
@@ -48,6 +51,7 @@ function renderDock(
   return render(
     <BottomDock
       workflowId="wf"
+      hasVersion
       groups={groups}
       savedAt="14:01"
       testSession={noSession}
@@ -96,6 +100,7 @@ describe('BottomDock tabs', () => {
     render(
       <BottomDock
         workflowId="wf"
+        hasVersion
         groups={{ live: [], saved: [] }}
         savedAt={null}
         testSession={{ ...noSession, session: { id: 's', status: 'running' } } as never}
@@ -199,5 +204,44 @@ describe('Problems tab', () => {
   it('says so when there is nothing to show', () => {
     renderDock({ live: [], saved: [] })
     expect(screen.getByText('No problems detected')).toBeInTheDocument()
+  })
+})
+
+describe('BottomDock for a workflow with no saved version', () => {
+  function renderBlank() {
+    render(
+      <BottomDock
+        workflowId="wf"
+        hasVersion={false}
+        groups={{ live: [], saved: [] }}
+        savedAt={null}
+        testSession={noSession}
+        activeFile={null}
+        onSaveAll={vi.fn()}
+        onTrigger={vi.fn()}
+      />,
+    )
+  }
+
+  it('replaces the test session with a note and a way to the canvas, starting nothing', async () => {
+    useIdeLayoutStore.setState({ dockTab: 'session', dockOpen: true })
+    renderBlank()
+    expect(screen.getByText('Save a version on the canvas first')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Start/ })).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Open canvas' }))
+    expect(switchView).toHaveBeenCalledWith('canvas')
+    expect(noSession.start).not.toHaveBeenCalled()
+  })
+
+  it('does the same for Quick test', () => {
+    useIdeLayoutStore.setState({ dockTab: 'quickTest', dockOpen: true })
+    renderBlank()
+    expect(screen.getByText('Save a version on the canvas first')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Run step' })).toBeNull()
+  })
+
+  it('still lists problems', () => {
+    renderBlank()
+    expect(screen.getByRole('tab', { name: /Problems/, selected: true })).toBeInTheDocument()
   })
 })

@@ -24,6 +24,8 @@ export interface StepSyncValue {
   graphVersionId: string | null
   /** The version the open files came from. */
   codeVersionId: string | null
+  /** False for a workflow nobody has saved on the canvas: there is no graph to show yet. */
+  hasVersion: boolean
 }
 
 const StepSyncContext = createContext<StepSyncValue | null>(null)
@@ -106,6 +108,7 @@ export function StepSyncProvider({
       versions,
       graphVersionId,
       codeVersionId,
+      hasVersion: graphVersionId !== null,
     }),
     [
       workflowId,

@@ -23,6 +23,7 @@ interface CommandPaletteProps {
   activeDirty: boolean
   activeMovedOnServer: boolean
   dirtyCount: number
+  runBlockedReason: string | null
   runLabel: string
   runEnabled: boolean
   canStartSession: boolean
@@ -40,6 +41,7 @@ export function CommandPalette({
   activeDirty,
   activeMovedOnServer,
   dirtyCount,
+  runBlockedReason,
   runLabel,
   runEnabled,
   canStartSession,
@@ -76,6 +78,7 @@ export function CommandPalette({
       explorerOpen,
       dockOpen,
       previewOpen,
+      runBlockedReason,
       runLabel,
       runEnabled,
       canStartSession,
@@ -99,6 +102,7 @@ export function CommandPalette({
     explorerOpen,
     dockOpen,
     previewOpen,
+    runBlockedReason,
     runLabel,
     runEnabled,
     canStartSession,
@@ -189,14 +193,19 @@ function PaletteItem({
       disabled={!command.enabled}
       onSelect={handleSelect}
       className={cn(
-        'flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-xs text-foreground/80 outline-none',
+        'group flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-xs text-foreground/80 outline-none',
         'data-[selected=true]:bg-muted/70 data-[selected=true]:text-foreground',
-        'data-[disabled=true]:cursor-default data-[disabled=true]:opacity-40',
+        'data-[disabled=true]:cursor-default',
       )}
     >
-      <span>{command.label}</span>
+      <span className="group-data-[disabled=true]:opacity-40">{command.label}</span>
+      {!command.enabled && command.disabledReason && (
+        <span className="ml-auto mr-3 truncate text-[11px] text-muted-foreground">
+          {command.disabledReason}
+        </span>
+      )}
       {shortcut && (
-        <kbd className="rounded border border-border bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+        <kbd className="group-data-[disabled=true]:opacity-40 rounded border border-border bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
           {shortcut}
         </kbd>
       )}

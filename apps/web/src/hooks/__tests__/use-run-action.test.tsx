@@ -54,7 +54,13 @@ function setup(
   save = vi.fn(),
 ) {
   return renderHook(() =>
-    useRunAction({ workflowId: 'wf', testSession: session, activeFile: file, onSaveAll: save }),
+    useRunAction({
+      workflowId: 'wf',
+      hasVersion: true,
+      testSession: session,
+      activeFile: file,
+      onSaveAll: save,
+    }),
   )
 }
 
@@ -258,5 +264,45 @@ describe('useRunAction', () => {
     expect(result.current.intent).toMatchObject({ kind: 'busy', label: 'Running…' })
     act(() => result.current.run())
     expect(s.trigger).not.toHaveBeenCalled()
+  })
+
+  describe('with no saved version', () => {
+    function blank(s: TestSessionState, file = LIB) {
+      return renderHook(() =>
+        useRunAction({
+          workflowId: 'wf',
+          hasVersion: false,
+          testSession: s,
+          activeFile: file,
+          onSaveAll: vi.fn(),
+        }),
+      )
+    }
+
+    it('Run shows the session tab and sends nothing', () => {
+      const s = state()
+      const { result } = blank(s)
+      expect(result.current.intent.kind).toBe('noVersion')
+      act(() => result.current.run())
+      expect(useIdeLayoutStore.getState().dockTab).toBe('session')
+      expect(s.restartAndTrigger).not.toHaveBeenCalled()
+      expect(s.trigger).not.toHaveBeenCalled()
+      expect(focus).toHaveBeenCalled()
+    })
+
+    it('does not quick-test a step file either', () => {
+      const s = state()
+      const { result } = blank(s, STEP)
+      act(() => result.current.run())
+      expect(useIdeLayoutStore.getState().dockTab).toBe('session')
+      expect(useQuickTestStore.getState().views).toEqual({})
+    })
+
+    it('triggering a leftover running session does nothing', () => {
+      const s = state({ session: running })
+      const { result } = blank(s)
+      act(() => result.current.triggerSession())
+      expect(s.trigger).not.toHaveBeenCalled()
+    })
   })
 })

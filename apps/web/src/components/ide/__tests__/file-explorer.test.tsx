@@ -155,3 +155,23 @@ describe('New menu', () => {
     expect(items.length).toBeGreaterThan(0)
   })
 })
+
+describe('explorer without generated files', () => {
+  it('says when they appear instead of an empty section, while the project tree works', () => {
+    setup({ generated: [] })
+    expect(screen.getByText('Appears after the first save on the canvas.')).toBeInTheDocument()
+    expect(item('a.ts')).toBeInTheDocument()
+  })
+
+  it('says nothing of the kind once there are generated files', () => {
+    setup()
+    expect(screen.queryByText('Appears after the first save on the canvas.')).toBeNull()
+  })
+
+  it('still offers to create the first project file in an empty project', async () => {
+    const user = userEvent.setup()
+    setup({ generated: [], project: [] })
+    await user.click(screen.getByRole('button', { name: 'Create one' }))
+    expect(useIdeExplorerStore.getState().create).not.toBeNull()
+  })
+})

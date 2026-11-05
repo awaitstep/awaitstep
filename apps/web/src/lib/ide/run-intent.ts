@@ -1,7 +1,10 @@
 import type { TestSession } from '../api-client'
 
 export type RunIntentKind =
-  'quickTest' | 'trigger' | 'startAndTrigger' | 'restartAndTrigger' | 'busy'
+  'quickTest' | 'trigger' | 'startAndTrigger' | 'restartAndTrigger' | 'busy' | 'noVersion'
+
+/** Said wherever a saved version is needed and the workflow has none. */
+export const SAVE_VERSION_FIRST = 'Save a version on the canvas first'
 
 export interface RunIntent {
   kind: RunIntentKind
@@ -12,6 +15,8 @@ export interface RunIntent {
 }
 
 export interface RunIntentInput {
+  /** The workflow has a saved version; every way of running reads one. */
+  hasVersion: boolean
   /** The open file is a step module with a default export. */
   isStep: boolean
   session: TestSession | null
@@ -38,6 +43,8 @@ export interface RunIntentInput {
  * triggers a running one that cannot contain them.
  */
 export function runIntent(input: RunIntentInput): RunIntent {
+  if (!input.hasVersion)
+    return { kind: 'noVersion', label: 'Save a version first', needsSave: false }
   if (input.isStep) return { kind: 'quickTest', label: 'Quick test step', needsSave: false }
   if (input.stopping) return { kind: 'busy', label: 'Stopping…', needsSave: false }
   if (input.triggering) return { kind: 'busy', label: 'Running…', needsSave: false }
@@ -66,12 +73,15 @@ export function runIntent(input: RunIntentInput): RunIntent {
 export function sessionCommands(
   session: TestSession | null,
   pending: { starting: boolean; stopping: boolean; triggering: boolean },
+  hasVersion = true,
 ): { canStart: boolean; canStop: boolean; canTrigger: boolean } {
+  // Nothing to start without a version; a session left over from before the
+  // workflow lost it can still be stopped.
   const status = session?.status
   const busy = pending.starting || pending.stopping
   return {
     // A start or stop in flight is the same request pressed twice.
-    canStart: !busy && status !== 'running' && status !== 'starting',
+    canStart: hasVersion && !busy && status !== 'running' && status !== 'starting',
     canStop: !pending.stopping && (status === 'running' || status === 'starting'),
     canTrigger: !busy && !pending.triggering && status === 'running',
   }

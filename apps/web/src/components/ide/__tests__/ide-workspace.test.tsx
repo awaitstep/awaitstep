@@ -107,7 +107,6 @@ vi.mock('../ide-skeleton', () => ({ IdeSkeleton: () => <div data-testid="skeleto
 vi.mock('../workspace-notices', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   LoadFailure: () => <div data-testid="load-failure" />,
-  NoVersionNotice: () => <div data-testid="no-version" />,
   UnsavedWorkflowNotice: () => <div data-testid="unsaved-workflow" />,
 }))
 vi.mock('../editor-group', () => ({ EditorGroup: () => <div data-testid="editor-group" /> }))
@@ -180,17 +179,27 @@ describe('IdeWorkspace', () => {
     expect(screen.queryByText(/wider window/)).toBeNull()
   })
 
-  it('shows the no-version notice for a workflow without a version', () => {
+  it('opens the workspace, not a notice, for a workflow without a version', () => {
     const client = createWorkspaceClient()
-    seedWorkspaceQueries(client)
+    seedWorkspaceQueries(client, { files: [] })
     client.setQueryData(['workflow-full', WORKFLOW_ID, undefined], {
       workflow: { id: WORKFLOW_ID, name: 'Orders', kind: 'workflow', currentVersionId: null },
       version: null,
       versions: [],
       handlers: { modules: [] },
     })
+    client.setQueryData(['workflow-source', WORKFLOW_ID, undefined], {
+      versionId: null,
+      entry: null,
+      primary: null,
+      files: [],
+      manifest: null,
+      requirements: [],
+      diagnostics: [],
+    })
     mount(client)
-    expect(screen.getByTestId('no-version')).toBeTruthy()
+    expect(screen.getByTestId('editor-group')).toBeTruthy()
+    expect(screen.queryByText(/no saved version yet/)).toBeNull()
   })
 
   it('keeps the skeleton while the source is still loading', () => {

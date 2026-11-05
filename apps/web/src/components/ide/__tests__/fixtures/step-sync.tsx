@@ -81,15 +81,18 @@ export function SyncHarness({
   manifest = MANIFEST,
   kind = 'workflow',
   files = FILES,
-  codeVersionId = 'v-12',
+  codeVersionId = 'v-12' as string | null,
   workflowFile = 'awaitstep/workflow.ts',
+  graphVersionId = 'v-12',
 }: {
   children: ReactNode
   manifest?: StepManifest | null
   kind?: 'workflow' | 'script'
   files?: ReadonlyMap<string, { source: string }>
-  codeVersionId?: string
+  codeVersionId?: string | null
   workflowFile?: string | null
+  /** Null: the workflow has never been saved on the canvas. */
+  graphVersionId?: string | null
 }) {
   return (
     <StepSyncProvider
@@ -101,7 +104,7 @@ export function SyncHarness({
       projectPaths={PROJECT_PATHS}
       workflowFile={workflowFile}
       versions={VERSIONS}
-      graphVersionId="v-12"
+      graphVersionId={graphVersionId}
       codeVersionId={codeVersionId}
     >
       {children}

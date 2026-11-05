@@ -9,6 +9,7 @@ import type { TestSessionState } from '../../hooks/use-test-session'
 import { DockTabs, dockPanelId, dockTabId } from './dock-tabs'
 import { ProblemsList } from './problems-list'
 import { QuickTestPanel } from './quick-test-panel'
+import { SaveVersionFirst } from './save-version-first'
 import { TestSessionPanel } from './test-session-panel'
 
 interface BottomDockProps {
@@ -23,6 +24,8 @@ interface BottomDockProps {
    * stream and threw away the logs.
    */
   testSession: TestSessionState
+  /** False for a workflow nobody has saved on the canvas: a session and a quick test have nothing to run. */
+  hasVersion: boolean
   /** Saves every unsaved file; resolves to how many were written. */
   onSaveAll: () => Promise<number>
   /** The Trigger button: the workspace's one trigger, which asks when it should. */
@@ -36,6 +39,7 @@ export function BottomDock({
   groups,
   savedAt,
   testSession,
+  hasVersion,
   activeFile,
   onSaveAll,
   onTrigger,
@@ -90,10 +94,22 @@ export function BottomDock({
         {dockTab === 'problems' && (
           <ProblemsList groups={groups} savedAt={savedAt} onSelect={handleProblemSelect} />
         )}
-        {dockTab === 'session' && (
+        {dockTab === 'session' && !hasVersion && (
+          <SaveVersionFirst
+            workflowId={workflowId}
+            reason="A test session runs the generated files."
+          />
+        )}
+        {dockTab === 'quickTest' && !hasVersion && (
+          <SaveVersionFirst
+            workflowId={workflowId}
+            reason="Step files are generated when a version is saved."
+          />
+        )}
+        {dockTab === 'session' && hasVersion && (
           <TestSessionPanel session={testSession} onSaveAll={onSaveAll} onTrigger={onTrigger} />
         )}
-        {dockTab === 'quickTest' && (
+        {dockTab === 'quickTest' && hasVersion && (
           <QuickTestPanel workflowId={workflowId} activeFile={activeFile} />
         )}
       </div>

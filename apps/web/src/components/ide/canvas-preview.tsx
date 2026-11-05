@@ -25,6 +25,7 @@ import { selectStep } from '../../lib/ide/step-actions'
 import { previewSyncLabel } from '../../lib/ide/step-summary'
 import { outlineCss } from '../../lib/ide/preview-outline'
 import { PanToNode } from './preview-pan'
+import { SaveVersionFirst } from './save-version-first'
 import { StepInspector } from './step-inspector'
 import { useStepSync } from './step-sync-context'
 import { useMeasuredNodes } from '../../hooks/use-measured-nodes'
@@ -72,7 +73,7 @@ export function CanvasPreview({ workflowId, versionParam }: CanvasPreviewProps) 
   const { nodes: graphNodes, edges } = useWorkflowStore(
     useShallow((s) => ({ nodes: s.nodes, edges: s.edges })),
   )
-  const { map, graphVersionId, codeVersionId, versions } = useStepSync()
+  const { map, graphVersionId, codeVersionId, versions, hasVersion } = useStepSync()
   const activePath = useIdeStore((s) => s.activePath)
   const selectedNodeId = useIdeStore((s) => s.selectedNodeId)
   const togglePreview = useIdeLayoutStore((s) => s.togglePreview)
@@ -168,7 +169,11 @@ export function CanvasPreview({ workflowId, versionParam }: CanvasPreviewProps) 
       <div className={`${OUTLINE_SCOPE} min-h-0 flex-1`}>
         {outlines && <style>{outlines}</style>}
         {nodes.length === 0 ? (
-          <PreviewEmptyState />
+          hasVersion ? (
+            <PreviewEmptyState />
+          ) : (
+            <SaveVersionFirst workflowId={workflowId} reason="The preview shows a saved version." />
+          )
         ) : (
           <ReactFlow
             nodes={nodes}

@@ -15,6 +15,8 @@ import type { TestSessionState } from './use-test-session'
 
 interface UseRunActionOptions {
   workflowId: string
+  /** The workflow has a saved version; without one Run only says so. */
+  hasVersion: boolean
   testSession: TestSessionState
   /** The open file with unsaved edits applied. */
   activeFile: { path: string; source: string } | null
@@ -75,6 +77,7 @@ const CLOSED: RunConfirm = {
  */
 export function useRunAction({
   workflowId,
+  hasVersion,
   testSession,
   activeFile,
   onSaveAll,
@@ -85,6 +88,7 @@ export function useRunAction({
   const behind = isBehind(stale) && stale.signature !== acceptedSignature
 
   const intent = runIntent({
+    hasVersion,
     isStep: activeFile !== null && isRunnableStep(activeFile.path, activeFile.source),
     session,
     starting: testSession.starting,
@@ -145,6 +149,11 @@ export function useRunAction({
         explainBusy()
         return
       }
+      if (intent.kind === 'noVersion') {
+        // The session tab says why; no request is made.
+        showTab('session')
+        return
+      }
       if (intent.kind === 'quickTest') {
         showTab('quickTest')
         if (activeFile) runStepQuickTest(workflowId, activeFile)
@@ -164,6 +173,7 @@ export function useRunAction({
   }
 
   function triggerSession() {
+    if (!hasVersion) return
     if (session?.status !== 'running' || testSession.triggering) return
     const payload = readPayload()
     if (payload) {

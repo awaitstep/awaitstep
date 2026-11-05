@@ -17,7 +17,7 @@ import { IdeSkeleton } from './ide-skeleton'
 import { NarrowWindowNotice } from './narrow-window-notice'
 import { WorkspaceDialogs, WorkspaceUnsavedDialog } from './workspace-dialogs'
 import { WorkspaceLayout } from './workspace-layout'
-import { LoadFailure, NoVersionNotice, UnsavedWorkflowNotice } from './workspace-notices'
+import { LoadFailure, UnsavedWorkflowNotice } from './workspace-notices'
 
 interface IdeWorkspaceProps {
   workflowId: string
@@ -152,9 +152,6 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   if (fullQuery.isPending) return <IdeSkeleton />
   if (!fullData) {
     return <LoadFailure workflowId={workflowId} message={fullQuery.error?.message} />
-  }
-  if (!fullData.version) {
-    return <NoVersionNotice workflowId={workflowId} name={fullData.workflow.name} />
   }
   if (sourceQuery.isPending) return <IdeSkeleton />
   if (!source || !data.workspace) {

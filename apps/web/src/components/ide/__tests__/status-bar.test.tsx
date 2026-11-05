@@ -90,4 +90,10 @@ describe('StatusBar announcements', () => {
     renderBar()
     expect(screen.queryByRole('status')).toBeNull()
   })
+
+  it('reads "No version yet" instead of a version for a workflow never saved on the canvas', () => {
+    renderBar({ version: null })
+    expect(screen.getByText('No version yet')).toBeInTheDocument()
+    expect(screen.queryByText(/^v\d/)).toBeNull()
+  })
 })

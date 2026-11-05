@@ -18,6 +18,7 @@ function session(status: TestSession['status'] = 'running'): TestSession {
 
 function input(overrides: Partial<RunIntentInput> = {}): RunIntentInput {
   return {
+    hasVersion: true,
     isStep: false,
     session: null,
     starting: false,
@@ -126,5 +127,24 @@ describe('sessionCommands', () => {
     expect(sessionCommands(session(), { ...idle, triggering: true }).canTrigger).toBe(false)
     expect(sessionCommands(session(), { ...idle, stopping: true }).canTrigger).toBe(false)
     expect(sessionCommands(session('starting'), idle).canTrigger).toBe(false)
+  })
+})
+
+describe('with no saved version', () => {
+  it('Run only says a version is needed, whatever the file or session', () => {
+    expect(runIntent(input({ hasVersion: false }))).toEqual({
+      kind: 'noVersion',
+      label: 'Save a version first',
+      needsSave: false,
+    })
+    expect(runIntent(input({ hasVersion: false, isStep: true, unsavedCount: 3 })).kind).toBe(
+      'noVersion',
+    )
+  })
+
+  it('offers no session start or trigger, but a running session can still be stopped', () => {
+    const idle = { starting: false, stopping: false, triggering: false }
+    expect(sessionCommands(null, idle, false)).toMatchObject({ canStart: false, canTrigger: false })
+    expect(sessionCommands(session(), idle, false).canStop).toBe(true)
   })
 })

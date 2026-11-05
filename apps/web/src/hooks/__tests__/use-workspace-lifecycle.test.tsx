@@ -154,6 +154,58 @@ describe('useWorkspaceLifecycle tabs', () => {
   })
 })
 
+describe('useWorkspaceLifecycle for a workflow with no saved version', () => {
+  const PROJECT_FILES: SourceFile[] = [
+    { path: 'lib/a.ts', source: 'a\n', role: 'module', hash: 'h2' },
+  ]
+  function blank(overrides: Partial<Input> = {}): Input {
+    const source = sourceOf({ versionId: null, entry: null, primary: null, files: PROJECT_FILES })
+    return inputOf({
+      fullData: fullOf('Orders', false),
+      source,
+      baseline: new Map(PROJECT_FILES.map((f) => [f.path, f])),
+      ...overrides,
+    })
+  }
+
+  it('opens nothing by itself, without throwing, when there is no entry to land on', () => {
+    setup(blank())
+    expect(useIdeStore.getState().activePath).toBeNull()
+    expect(useIdeStore.getState().openPaths).toEqual([])
+  })
+
+  it('still opens a deep-linked project file', () => {
+    setup(blank({ fileParam: 'lib/a.ts' }))
+    expect(useIdeStore.getState().activePath).toBe('lib/a.ts')
+  })
+
+  it('empties a graph the canvas left in the store: a discarded, never-saved drawing must not show in the IDE', () => {
+    // What "Discard and switch" leaves behind: the canvas does not reset the
+    // store on its way out, and a workflow with no version has no graph to
+    // overwrite it with.
+    useWorkflowStore.setState({
+      nodes: [{ id: 'n1', type: 'step', position: { x: 0, y: 0 }, data: {} }],
+      edges: [{ id: 'e1', source: 'n1', target: 'n2' }],
+      selectedNodeId: 'n1',
+    } as never)
+    setup(blank())
+    const state = useWorkflowStore.getState()
+    expect(state.workflowId).toBe(WORKFLOW_ID)
+    expect(state.nodes).toEqual([])
+    expect(state.edges).toEqual([])
+    expect(state.selectedNodeId).toBeNull()
+    expect(state.readOnly).toBe(true)
+    expect(state.isDirty).toBe(false)
+  })
+
+  it('empties the store again when the workspace closes, so the canvas starts from the server', () => {
+    const view = setup(blank())
+    view.unmount()
+    expect(useWorkflowStore.getState().nodes).toEqual([])
+    expect(useWorkflowStore.getState().workflowId).toBeNull()
+  })
+})
+
 describe('useWorkspaceLifecycle load errors', () => {
   it('toasts a failed workflow load', () => {
     setup(inputOf({ fullData: undefined, fullError: new Error('boom') }))
@@ -166,15 +218,15 @@ describe('useWorkspaceLifecycle load errors', () => {
     expect(actionToast.error).toHaveBeenCalledTimes(1)
   })
 
-  it('stays quiet about the source error of a workflow without a version', () => {
+  it('toasts a failed source load for a workflow without a version too: a blank one reads fine now', () => {
     setup(
       inputOf({
         fullData: fullOf('Orders', false),
         source: undefined,
-        sourceError: new Error('400'),
+        sourceError: new Error('500'),
       }),
     )
-    expect(actionToast.error).not.toHaveBeenCalled()
+    expect(actionToast.error).toHaveBeenCalledTimes(1)
   })
 
   it('does not toast when nothing failed', () => {

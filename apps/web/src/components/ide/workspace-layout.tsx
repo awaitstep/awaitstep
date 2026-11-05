@@ -41,8 +41,8 @@ function workspaceLayoutKeyFor(explorerOpen: boolean, previewOpen: boolean): str
 interface WorkspaceLayoutProps {
   workflowId: string
   fullData: WorkflowFull
-  /** The version being shown; the workspace has none to show without one. */
-  version: NonNullable<WorkflowFull['version']>
+  /** The version being shown; null for a workflow nobody has saved on the canvas yet. */
+  version: WorkflowFull['version']
   source: WorkflowSource
   data: WorkspaceData
   session: ReturnType<typeof useWorkspaceSession>
@@ -146,8 +146,8 @@ export function WorkspaceLayout({
         workflowId={workflowId}
         workflowName={fullData.workflow.name}
         kind={fullData.workflow.kind}
-        version={version.version}
-        historicalVersion={isHistorical ? (readOnlyVersion ?? version.version) : undefined}
+        {...(version && { version: version.version })}
+        {...(version && isHistorical && { historicalVersion: readOnlyVersion ?? version.version })}
         {...(linkVersion !== undefined && { versionParam: linkVersion })}
         dirtyCount={dirty.size}
         canEdit={canEdit}
@@ -231,6 +231,7 @@ export function WorkspaceLayout({
                       groups={problemGroups}
                       savedAt={savedAt}
                       testSession={testSession}
+                      hasVersion={session.hasVersion}
                       activeFile={activeFile}
                       onSaveAll={projectFiles.saveAll}
                       onTrigger={sessionActions.triggerSession}
@@ -258,7 +259,9 @@ export function WorkspaceLayout({
         </Group>
       </div>
       <StatusBar
-        version={isHistorical ? (readOnlyVersion ?? version.version) : version.version}
+        version={
+          version ? (isHistorical ? (readOnlyVersion ?? version.version) : version.version) : null
+        }
         historical={isHistorical}
         session={status}
         errors={problemCounts.error}
@@ -280,6 +283,7 @@ export function WorkspaceLayout({
         activeDirty={activeDirty}
         activeMovedOnServer={activeMovedOnServer}
         dirtyCount={dirty.size}
+        runBlockedReason={session.blockedReason}
         runLabel={runAction.intent.label}
         runEnabled={runAction.intent.kind !== 'busy'}
         canStartSession={commands.canStart}
@@ -302,7 +306,7 @@ export function WorkspaceLayout({
       projectPaths={projectPaths}
       workflowFile={source.primary ?? null}
       versions={fullData.versions}
-      graphVersionId={version.id}
+      graphVersionId={version?.id ?? null}
       codeVersionId={source.versionId ?? null}
     >
       {view}

@@ -13,6 +13,7 @@ import { stepsKeyIntent } from '../../lib/ide/steps-keys'
 import { escapeCss } from '../../lib/ide/css-escape'
 import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
+import { SaveVersionFirst } from './save-version-first'
 import { useStepSync } from './step-sync-context'
 
 interface StepsViewProps {
@@ -28,7 +29,7 @@ interface StepsViewProps {
  * the preview; the step whose file is in the editor is marked.
  */
 export function StepsView({ tabs, onEscape }: StepsViewProps) {
-  const { map, rows, nodes, kind, workflowFile } = useStepSync()
+  const { workflowId, map, rows, nodes, kind, workflowFile, hasVersion } = useStepSync()
   const { registry } = useNodeRegistry()
   const { activePath, selectedNodeId, focusRequested } = useIdeStore(
     useShallow((s) => ({
@@ -116,7 +117,9 @@ export function StepsView({ tabs, onEscape }: StepsViewProps) {
             : 'No step files for this version, so steps here don’t open code.'}
         </p>
       )}
-      {rows.length === 0 ? (
+      {!hasVersion ? (
+        <SaveVersionFirst workflowId={workflowId} reason="Steps come from a saved version." />
+      ) : rows.length === 0 ? (
         <p className="px-3 py-3 text-[11px] leading-relaxed text-muted-foreground">
           No steps in this version. Add them on the canvas.
         </p>

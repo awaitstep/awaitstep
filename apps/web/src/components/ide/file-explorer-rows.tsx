@@ -254,3 +254,12 @@ export function ProjectEmptyState({
     </div>
   )
 }
+
+/** Shown in place of the generated files while there is no saved version to generate them from. */
+export function GeneratedEmptyState() {
+  return (
+    <div className="px-5 py-2 text-[11px] leading-relaxed text-muted-foreground">
+      Appears after the first save on the canvas.
+    </div>
+  )
+}

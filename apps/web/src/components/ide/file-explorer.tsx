@@ -25,7 +25,13 @@ import { CreateRow } from './file-explorer-create'
 import { LimitsFooter } from './file-explorer-footer'
 import { UnsavedSection } from './file-explorer-unsaved'
 import { ExplorerHeader } from './file-explorer-header'
-import { ExplorerRow, ProjectEmptyState, ancestorKeys, type RowActions } from './file-explorer-rows'
+import {
+  ExplorerRow,
+  GeneratedEmptyState,
+  ProjectEmptyState,
+  ancestorKeys,
+  type RowActions,
+} from './file-explorer-rows'
 
 interface FileExplorerProps {
   /** The side bar's view switch, shown in the header. */
@@ -330,6 +336,9 @@ export function FileExplorer({
             {row.key === sectionKey('project') && project.length === 0 && !create && (
               <ProjectEmptyState canEdit={canEdit} onCreate={handleNewFile} />
             )}
+            {row.key === sectionKey('generated') &&
+              generated.length === 0 &&
+              !collapsed.has(row.key) && <GeneratedEmptyState />}
           </Fragment>
         ))}
       </div>

@@ -269,4 +269,19 @@ describe('CanvasPreview', () => {
     renderPreview('v-11')
     expect(screen.getByText('Showing v12 · you’re editing v11')).toBeInTheDocument()
   })
+
+  it('says a version is needed, not "no graph", when the workflow was never saved', async () => {
+    useWorkflowStore.getState().reset()
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SyncHarness graphVersionId={null} codeVersionId={null} manifest={null}>
+          <CanvasPreview workflowId="wf_1" />
+        </SyncHarness>
+      </QueryClientProvider>,
+    )
+    expect(screen.getByText('Save a version on the canvas first')).toBeInTheDocument()
+    expect(screen.queryByText('No graph in this version')).toBeNull()
+    await userEvent.click(screen.getAllByRole('button', { name: 'Open canvas' })[0]!)
+    expect(switchView).toHaveBeenCalledWith('canvas')
+  })
 })

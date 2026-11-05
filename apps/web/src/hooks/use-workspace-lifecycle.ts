@@ -98,6 +98,12 @@ export function useWorkspaceLifecycle({
         { handlerModules: fullData.handlers.modules },
       ),
     )
+    // The builder leaves the graph alone when there is no version, so a graph
+    // the canvas left in the store (drawn, then discarded to switch here)
+    // would show through. The IDE never edits it: no version means no graph.
+    if (!fullData.version) {
+      useWorkflowStore.setState({ nodes: [], edges: [], selectedNodeId: null })
+    }
     clearWorkflowHistory()
   }, [fullData, workflowId])
 
@@ -124,14 +130,13 @@ export function useWorkspaceLifecycle({
     pruneFiles([...baseline.keys(), ...ghostPaths])
     if (useIdeStore.getState().activePath !== null) return
     const requested = fileParam ? normalizeBundlePath(fileParam) : null
+    // A workflow with no saved version has no generated entry to land on.
     const initial =
       requested && baseline.has(requested) ? requested : (source.primary ?? source.entry)
-    if (baseline.has(initial)) openFile(initial)
+    if (initial && baseline.has(initial)) openFile(initial)
   }, [source, baseline, ghostPaths, fileParam, openFile, pruneFiles, reconcileDrafts])
 
-  // A workflow without any version has no source to show; that case renders
-  // its own notice, so the source query's 400 is not an error worth toasting.
-  const loadError = fullError ?? (fullData?.version ? sourceError : null)
+  const loadError = fullError ?? sourceError
   useEffect(() => {
     if (loadError) {
       actionToast.error(failureLine(loadError, 'Couldn’t load the workflow source'))

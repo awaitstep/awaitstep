@@ -8,6 +8,8 @@ export interface IdeCommand {
   group: IdeCommandGroup
   shortcut?: IdeShortcutId
   enabled: boolean
+  /** Why it is off, when something the person can do would turn it on. */
+  disabledReason?: string
   run: () => void
 }
 
@@ -70,6 +72,11 @@ export interface IdeCommandContext {
   explorerOpen: boolean
   dockOpen: boolean
   previewOpen: boolean
+  /**
+   * Why running anything is off (the workflow has no saved version), or null.
+   * Run and the session commands are disabled with this reason.
+   */
+  runBlockedReason: string | null
   /** What Run does for the open file, and whether it can right now. */
   runLabel: string
   runEnabled: boolean
@@ -89,6 +96,8 @@ export interface IdeCommandContext {
  */
 export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
   const { actions } = ctx
+  const blocked = ctx.runBlockedReason
+  const reason = blocked === null ? {} : { disabledReason: blocked }
   return [
     {
       id: 'file.save',
@@ -274,23 +283,29 @@ export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
       label: 'Quick Test This Step',
       group: 'view',
       // Listed even for a file it cannot run: the panel explains what it
-      // needs, which is how someone learns the feature exists at all.
+      // needs, which is how someone learns the feature exists at all. With no
+      // saved version it is just a view, like Show Test Session — both open a
+      // tab that says what to do.
       enabled: true,
       run: actions.showQuickTest,
     },
     {
       id: 'run.run',
-      label: `Run: ${ctx.runLabel}`,
+      // The reason is shown beside a disabled command, so the label does not
+      // repeat it.
+      label: blocked === null ? `Run: ${ctx.runLabel}` : 'Run',
       group: 'run',
       shortcut: 'run',
-      enabled: ctx.runEnabled,
+      enabled: blocked === null && ctx.runEnabled,
+      ...reason,
       run: actions.run,
     },
     {
       id: 'run.start',
       label: 'Test Session: Start',
       group: 'run',
-      enabled: ctx.canStartSession,
+      enabled: blocked === null && ctx.canStartSession,
+      ...reason,
       run: actions.startSession,
     },
     {
@@ -304,7 +319,8 @@ export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
       id: 'run.trigger',
       label: 'Test Session: Trigger',
       group: 'run',
-      enabled: ctx.canTriggerSession,
+      enabled: blocked === null && ctx.canTriggerSession,
+      ...reason,
       run: actions.triggerSession,
     },
   ]

@@ -195,12 +195,11 @@ export function EditorToolbar({
       title={title}
       actions={
         <>
-          {/* Nothing to show source for until the workflow has been saved
-              once. Switching away from a dirty canvas is blocked, so this
-              raises the switch dialog rather than losing the graph. */}
-          {!isNew && currentVersion > 0 && (
-            <ViewSwitch current="canvas" onSelect={handleSelectView} />
-          )}
+          {/* A workflow that exists has files to write, saved version or not;
+              only an unsaved new one has no row for them. Switching away
+              from a dirty canvas is blocked, so this raises the switch
+              dialog rather than losing the graph. */}
+          {!isNew && <ViewSwitch current="canvas" onSelect={handleSelectView} />}
           {readOnly ? (
             <>
               <span className="hidden rounded bg-muted/70 px-2 py-1 text-xs font-medium text-muted-foreground sm:inline-block">
