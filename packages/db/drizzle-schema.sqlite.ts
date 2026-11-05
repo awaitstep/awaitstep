@@ -600,6 +600,7 @@ export const testSessions = sqliteTable(
     createdAt: text('created_at').notNull(),
     lastUsedAt: text('last_used_at').notNull(),
     stoppedAt: text('stopped_at'),
+    files: text('files'),
   },
   (table) => [
     index('idx_test_sessions_workflow_id').on(table.workflowId),

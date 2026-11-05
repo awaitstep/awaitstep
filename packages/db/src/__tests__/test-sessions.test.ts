@@ -29,10 +29,16 @@ const MIGRATIONS = join(import.meta.dirname, '../../drizzle/sqlite')
 // constraints exercised here (the partial unique index, the `set null` on
 // workflow deletion) are exactly what a hand-written copy leaves out.
 function applyTestSessionsMigration(sqlite: Database.Database): void {
-  const file = readdirSync(MIGRATIONS).find((name) => /test_sessions/.test(readMigration(name)))
-  if (!file) throw new Error('No migration creates test_sessions')
-  for (const statement of readMigration(file).split('--> statement-breakpoint')) {
-    if (statement.trim()) sqlite.exec(statement)
+  // Every migration that mentions the table, in order: the one that creates
+  // it and the ones that alter it later.
+  const files = readdirSync(MIGRATIONS)
+    .filter((name) => /test_sessions/.test(readMigration(name)))
+    .sort()
+  if (files.length === 0) throw new Error('No migration creates test_sessions')
+  for (const file of files) {
+    for (const statement of readMigration(file).split('--> statement-breakpoint')) {
+      if (statement.trim()) sqlite.exec(statement)
+    }
   }
 }
 
@@ -142,6 +148,19 @@ describe('test sessions adapter', () => {
       expect(reserved!.processId).toBeNull()
       expect(reserved!.port).toBeNull()
       expect(reserved!.lastUsedAt).toBe(reserved!.createdAt)
+    })
+
+    it('stores the file manifest it is given and returns it', async () => {
+      const files = { 'lib/a.ts': 'h1', 'handlers/fetch.ts': 'h2' }
+      const reserved = await db.adapter.reserveTestSession(reservation({ files }), limits())
+      expect(JSON.parse(reserved!.files!)).toEqual(files)
+      const stored = db.sqlite.prepare('SELECT files FROM test_sessions WHERE id = ?').get('s-1')
+      expect(JSON.parse((stored as { files: string }).files)).toEqual(files)
+    })
+
+    it('leaves the manifest null when none is given', async () => {
+      const reserved = await db.adapter.reserveTestSession(reservation(), limits())
+      expect(reserved!.files).toBeNull()
     })
 
     it('refuses a second live session for the same user', async () => {
