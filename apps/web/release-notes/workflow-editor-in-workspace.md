@@ -6,4 +6,4 @@ link: projects
 linkLabel: See your projects
 ---
 
-Click a workflow or function in a workspace and its editor opens right there, with a link you can share. It works in any project, not only the one picked in the old switcher.
+A workflow or function and its editor open right in their workspace, at a link you can share. It works in any project, not only the one picked in the old switcher.
