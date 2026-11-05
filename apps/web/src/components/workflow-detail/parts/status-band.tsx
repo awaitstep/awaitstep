@@ -44,7 +44,7 @@ export function StatusBand({ live, latest, runs24h, isFunction = false }: Status
       </div>
       <div className={cn(COLUMN, 'basis-[240px] grow')}>
         <span className={LABEL}>Trigger</span>
-        <TriggerColumn url={live?.url ?? null} isFunction={isFunction} />
+        <TriggerColumn url={live?.url ?? null} live={!!live} isFunction={isFunction} />
       </div>
       <div className={cn(COLUMN, 'basis-[240px] grow')}>
         {isFunction ? <RequestsColumn /> : <RunsColumn runs24h={runs24h} />}
@@ -101,7 +101,21 @@ function LiveColumn({
   )
 }
 
-function TriggerColumn({ url, isFunction }: { url: string | null; isFunction: boolean }) {
+function TriggerColumn({
+  url,
+  live,
+  isFunction,
+}: {
+  url: string | null
+  live: boolean
+  isFunction: boolean
+}) {
+  // Live, but the deployment gave no https URL to offer.
+  if (!url && live) {
+    return (
+      <span className="text-xs text-muted-foreground">No URL to show for this deployment.</span>
+    )
+  }
   if (!url) {
     return (
       <span className="text-xs text-muted-foreground">

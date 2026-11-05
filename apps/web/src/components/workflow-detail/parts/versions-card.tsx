@@ -23,9 +23,11 @@ interface VersionsCardProps {
   onLoadMore: () => void
   /** Never deployed: "1 so far" rather than "1 version in all" (24f). */
   draft?: boolean
+  /** A function's: it is published, not deployed. */
+  isFunction?: boolean
 }
 
-/** Versions (`WorkflowDetail`): newest first, who saved each, Deploy on the ones not live. */
+/** Versions (`WorkflowDetail`): newest first, who saved each, Deploy (Publish) on the ones not live. */
 export function VersionsCard({
   versionHref,
   deployHref,
@@ -36,6 +38,7 @@ export function VersionsCard({
   loadingMore,
   onLoadMore,
   draft,
+  isFunction = false,
 }: VersionsCardProps) {
   let caption = `${plural(versions.length, 'version')} in all`
   if (hasMore) caption = 'Newest first'
@@ -60,7 +63,7 @@ export function VersionsCard({
                 >
                   v{v.version}
                 </ShellLink>
-                {live && <Badge variant="success">deployed</Badge>}
+                {live && <Badge variant="success">{isFunction ? 'published' : 'deployed'}</Badge>}
                 {v.locked === 1 && (
                   <Badge variant="warning">
                     <Lock aria-hidden="true" className="size-3" />
@@ -74,8 +77,8 @@ export function VersionsCard({
                 {!live && deployHref && (
                   <DeployLink
                     href={deployHref(v.id)}
-                    label="Deploy"
-                    blockedReason={deployBlockedReason(v.locked === 1, deployBlocked)}
+                    label={isFunction ? 'Publish' : 'Deploy'}
+                    blockedReason={deployBlockedReason(v.locked === 1, deployBlocked, isFunction)}
                   />
                 )}
               </li>
