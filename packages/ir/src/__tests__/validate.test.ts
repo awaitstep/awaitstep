@@ -149,3 +149,37 @@ describe('validateIR', () => {
     expect(result.ok).toBe(true)
   })
 })
+
+describe('validateIR node id control characters', () => {
+  const base = () => ({ ...structuredClone(simpleWorkflow) })
+
+  function withNodeId(id: string) {
+    const ir = base()
+    const oldId = ir.nodes[0]!.id
+    ir.entryNodeId = id
+    ir.nodes = [{ ...ir.nodes[0]!, id }, ...ir.nodes.slice(1)]
+    ir.edges = ir.edges.map((edge) => ({
+      ...edge,
+      source: edge.source === oldId ? id : edge.source,
+      target: edge.target === oldId ? id : edge.target,
+    }))
+    return ir
+  }
+
+  it.each([
+    ['CR', 'x\r] {} * { display:none }'],
+    ['LF', 'a\nb'],
+    ['form feed', 'a\fb'],
+    ['NUL', 'a\u0000b'],
+    ['DEL', 'a\u007fb'],
+    ['C1 control', 'a\u0085b'],
+    ['line separator', 'a\u2028b'],
+  ])('rejects a node id containing %s', (_name, id) => {
+    expect(validateIR(withNodeId(id)).ok).toBe(false)
+  })
+
+  it('still accepts ids with quotes, brackets, spaces and non-ASCII text', () => {
+    const result = validateIR(withNodeId('a"] [b] \'é 日本'))
+    expect(result.ok).toBe(true)
+  })
+})

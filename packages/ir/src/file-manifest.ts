@@ -18,7 +18,7 @@ export function buildFileManifest(
   files: readonly { path: string; hash: string }[],
   limit: number = MAX_FILE_MANIFEST_ENTRIES,
 ): FileManifest {
-  const manifest: FileManifest = {}
+  const manifest: FileManifest = Object.create(null)
   for (const file of files.slice(0, limit)) manifest[file.path] = file.hash
   return manifest
 }
