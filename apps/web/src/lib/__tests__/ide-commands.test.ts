@@ -6,6 +6,7 @@ function actions(): IdeCommandActions {
     save: vi.fn(),
     saveAll: vi.fn(),
     discardChanges: vi.fn(),
+    revertFile: vi.fn(),
     newFile: vi.fn(),
     renameFile: vi.fn(),
     deleteFile: vi.fn(),
@@ -111,5 +112,18 @@ describe('buildIdeCommands', () => {
     expect(ctx.actions.showProblems).toHaveBeenCalledTimes(1)
     expect(ctx.actions.newFile).toHaveBeenCalledTimes(1)
     expect(ctx.actions.save).not.toHaveBeenCalled()
+  })
+})
+
+describe('revert and save commands', () => {
+  it('offers Revert File only for a dirty active file', () => {
+    expect(enabledById(context())['file.revert']).toBe(true)
+    expect(enabledById(context({ activeDirty: false }))['file.revert']).toBe(false)
+  })
+
+  it('names the shortcut of each save command', () => {
+    const byId = Object.fromEntries(buildIdeCommands(context()).map((c) => [c.id, c]))
+    expect(byId['file.save']).toMatchObject({ label: 'Save File', shortcut: 'save' })
+    expect(byId['file.saveAll']).toMatchObject({ shortcut: 'saveAll' })
   })
 })

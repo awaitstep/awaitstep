@@ -97,7 +97,7 @@ describe('matchShortcut', () => {
   it('ignores plain keys and extra modifiers', () => {
     expect(matchShortcut(key({ key: 's', code: 'KeyS' }), true)).toBeNull()
     expect(
-      matchShortcut(key({ key: 's', code: 'KeyS', metaKey: true, altKey: true }), true),
+      matchShortcut(key({ key: 'q', code: 'KeyQ', metaKey: true, altKey: true }), true),
     ).toBeNull()
   })
 })
@@ -119,5 +119,62 @@ describe('isMacPlatform', () => {
     expect(isMacPlatform('iPhone')).toBe(true)
     expect(isMacPlatform('Win32')).toBe(false)
     expect(isMacPlatform('')).toBe(false)
+  })
+})
+
+describe('save all', () => {
+  it('binds ⌥⌘S on the physical key, since Option rewrites the glyph', () => {
+    expect(matchShortcut(key({ key: 'ß', code: 'KeyS', metaKey: true, altKey: true }), true)).toBe(
+      'saveAll',
+    )
+    expect(matchShortcut(key({ key: 's', code: 'KeyS', ctrlKey: true, altKey: true }), false)).toBe(
+      'saveAll',
+    )
+  })
+
+  it('keeps plain ⌘S as save one file', () => {
+    expect(matchShortcut(key({ key: 's', code: 'KeyS', metaKey: true }), true)).toBe('save')
+  })
+
+  it('shows both bindings in each platform’s labels', () => {
+    expect(formatShortcut(IDE_SHORTCUTS.saveAll, true)).toBe('⌥⌘S')
+    expect(formatShortcut(IDE_SHORTCUTS.saveAll, false)).toBe('Ctrl+Alt+S')
+    expect(formatShortcut(IDE_SHORTCUTS.save, false)).toBe('Ctrl+S')
+  })
+
+  it('collides with no other binding', () => {
+    const ids = Object.keys(IDE_SHORTCUTS) as (keyof typeof IDE_SHORTCUTS)[]
+    for (const id of ids) {
+      const keys = IDE_SHORTCUTS[id]
+      const event = key({
+        key: keys.key ?? '',
+        code: keys.code ?? '',
+        metaKey: Boolean(keys.mod),
+        shiftKey: Boolean(keys.shift),
+        altKey: Boolean(keys.alt),
+      })
+      expect(matchShortcut(event, true)).toBe(id)
+    }
+  })
+})
+
+describe('AltGr', () => {
+  it('does not treat AltGr+S (Ctrl+Alt on Windows) as Save All, so "ś" can be typed', () => {
+    const altGr = key({
+      key: 'ś',
+      code: 'KeyS',
+      ctrlKey: true,
+      altKey: true,
+      getModifierState: (name) => name === 'AltGraph',
+    })
+    expect(matchShortcut(altGr, false)).toBeNull()
+    const chord = key({
+      key: 's',
+      code: 'KeyS',
+      ctrlKey: true,
+      altKey: true,
+      getModifierState: () => false,
+    })
+    expect(matchShortcut(chord, false)).toBe('saveAll')
   })
 })

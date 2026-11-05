@@ -3,6 +3,7 @@ import {
   EMPTY_TABS,
   closeAllTabs,
   closeTab,
+  closeTabs,
   cycleTab,
   openTab,
   pruneTabs,
@@ -75,5 +76,15 @@ describe('pruneTabs', () => {
 
   it('returns the same state when every tab still exists', () => {
     expect(pruneTabs(three, new Set(three.openPaths))).toBe(three)
+  })
+})
+
+describe('closeTabs', () => {
+  it('closes several tabs and lands on the neighbour rule for the active one', () => {
+    expect(closeTabs(three, ['b.ts', 'c.ts'])).toEqual({ openPaths: ['a.ts'], activePath: 'a.ts' })
+  })
+
+  it('leaves the state alone for paths that are not open', () => {
+    expect(closeTabs(three, ['zzz.ts'])).toEqual(three)
   })
 })

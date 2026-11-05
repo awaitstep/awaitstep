@@ -14,6 +14,7 @@ function session(overrides: Partial<TestSession> = {}): TestSession {
     error: null,
     createdAt: '2026-10-20T00:00:00.000Z',
     lastUsedAt: '2026-10-20T00:00:00.000Z',
+    files: null,
     ...overrides,
   }
 }

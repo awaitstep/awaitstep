@@ -1,25 +1,23 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
-import { Link, useBlocker } from '@tanstack/react-router'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { useBlocker } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import type { Layout, LayoutChangedMeta } from 'react-resizable-panels'
 import { useShallow } from 'zustand/react/shallow'
 import { actionToast, LONG_TOAST_MS, failureLine } from '../../lib/action-toast'
 import type { IdeCommandActions } from '../../lib/ide/commands'
+import { createDraftUndo } from '../../lib/ide/draft-undo'
 import { dirtyPaths, overlayDrafts } from '../../lib/ide/drafts'
 import { fileEditability, workspaceEditability } from '../../lib/ide/editability'
 import { basename, buildFileTree, normalizeBundlePath } from '../../lib/ide/file-tree'
 import { fileOwner, splitWorkspaceFiles, virtualSeedFiles } from '../../lib/ide/project'
 import { buildWorkflowStoreState, deriveReadOnlyState } from '../../lib/hydrate-workflow'
 import { PROJECT_HANDLERS_PATH } from '@awaitstep/ir'
-import {
-  describeHandlerDeclarations,
-  type HandlerConversionPreview,
-  type SourceFile,
-} from '../../lib/api-client'
+import { describeHandlerDeclarations, type SourceFile } from '../../lib/api-client'
 import { queries } from '../../lib/queries'
 import { surfaceSwitchTarget } from '../../lib/workflows/surfaces'
 import { copyToClipboard } from '../../lib/utils'
+import { useDraftPersistence } from '../../hooks/use-draft-persistence'
 import { useIdeShortcuts } from '../../hooks/use-ide-shortcuts'
 import { useProjectFiles } from '../../hooks/use-project-files'
 import { useSwitchView } from '../../hooks/use-switch-view'
@@ -28,10 +26,10 @@ import { useIdeLayoutStore, type IdeLayoutKey } from '../../stores/ide-layout-st
 import { useIdeStore } from '../../stores/ide-store'
 import { useQuickTestStore } from '../../stores/quick-test-store'
 import { clearWorkflowHistory, useWorkflowStore } from '../../stores/workflow-store'
-import { Button } from '../ui/button'
 import { ConfirmDialog } from '../ui/confirm-dialog'
 import { UnsavedChangesDialog } from '../workflows/unsaved-changes-dialog'
 import { BottomDock } from './bottom-dock'
+import { CloseDirtyDialog } from './close-dirty-dialog'
 import { useTestSession } from '../../hooks/use-test-session'
 import { CommandPalette } from './command-palette'
 import { EditorGroup } from './editor-group'
@@ -40,6 +38,12 @@ import { FilePathDialog } from './file-path-dialog'
 import { IdeHeader } from './ide-header'
 import { IdeSkeleton } from './ide-skeleton'
 import { QuickOpenDialog } from './quick-open-dialog'
+import {
+  describeConversion,
+  LoadFailure,
+  NoVersionNotice,
+  UnsavedWorkflowNotice,
+} from './workspace-notices'
 
 interface IdeWorkspaceProps {
   workflowId: string
@@ -56,8 +60,6 @@ const LazyCanvasPreview = lazy(() =>
 /** The drawer's frame is layout, so the workspace owns it, not the panel. */
 const PREVIEW_FRAME =
   'absolute inset-y-0 right-0 z-20 flex w-[30%] min-w-[20rem] max-w-full flex-col overflow-hidden border-l border-border bg-card shadow-2xl'
-
-const NO_SAVED_VERSION_MESSAGE = 'Save a version on the canvas to see its code here.'
 
 const EMPTY_FILES: ReadonlyMap<string, SourceFile> = new Map()
 
@@ -90,11 +92,27 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   })
   const fullData = fullQuery.data
   const source = sourceQuery.data
+  const { isReadOnly: isHistorical, readOnlyVersion } = deriveReadOnlyState(
+    versionParam,
+    fullData?.workflow.currentVersionId,
+    fullData?.versions,
+  )
   // Owned here so it outlives the dock being hidden, and so the version on
   // screen is what a stale session is compared against.
+  const storedHashes = useMemo(
+    () =>
+      Object.fromEntries(
+        (source?.files ?? []).flatMap((f) => (f.hash !== undefined ? [[f.path, f.hash]] : [])),
+      ),
+    [source],
+  )
+  const unsavedCount = useIdeStore((s) => Object.keys(s.drafts).length)
   const testSession = useTestSession({
     workflowId,
     versionId: source?.versionId ?? null,
+    // An older version's hashes are a snapshot's, not the live project's.
+    currentHashes: isHistorical ? null : storedHashes,
+    unsavedCount,
   })
 
   const {
@@ -103,13 +121,12 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     dialog,
     dialogTarget,
     openFile,
-    closeFile,
-    closeAllFiles,
+    closeFiles,
+    requestClose,
     cycleFile,
     pruneFiles,
     setDraft,
     clearDraft,
-    clearDrafts,
     reconcileDrafts,
     showDialog,
     closeDialog,
@@ -120,13 +137,12 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       dialog: s.dialog,
       dialogTarget: s.dialogTarget,
       openFile: s.openFile,
-      closeFile: s.closeFile,
-      closeAllFiles: s.closeAllFiles,
+      closeFiles: s.closeFiles,
+      requestClose: s.requestClose,
       cycleFile: s.cycleFile,
       pruneFiles: s.pruneFiles,
       setDraft: s.setDraft,
       clearDraft: s.clearDraft,
-      clearDrafts: s.clearDrafts,
       reconcileDrafts: s.reconcileDrafts,
       showDialog: s.showDialog,
       closeDialog: s.closeDialog,
@@ -157,11 +173,6 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   // back through setLayout, so subscribing would only cause re-renders.
   const [initialLayouts] = useState(() => useIdeLayoutStore.getState().layouts)
 
-  const { isReadOnly: isHistorical, readOnlyVersion } = deriveReadOnlyState(
-    versionParam,
-    fullData?.workflow.currentVersionId,
-    fullData?.versions,
-  )
   const workspace = useMemo(
     () => (source ? workspaceEditability({ historical: isHistorical }) : null),
     [source, isHistorical],
@@ -191,6 +202,19 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     for (const seed of seeds) if (!map.has(seed.path)) map.set(seed.path, seed)
     return map
   }, [source, seeds])
+  // Undo runs from a toast ten seconds later, so it reads the baseline of
+  // that moment rather than the render that showed the toast.
+  const baselineRef = useRef(baseline)
+  baselineRef.current = baseline
+  const draftUndo = useMemo(
+    () =>
+      createDraftUndo({
+        getStore: useIdeStore.getState,
+        getBaseline: () => baselineRef.current,
+        notify: actionToast,
+      }),
+    [],
+  )
   const files = useMemo(() => overlayDrafts(baseline, drafts), [baseline, drafts])
   const dirty = useMemo(() => new Set(dirtyPaths(baseline, drafts)), [baseline, drafts])
   // Trees only depend on which files exist, so a keystroke never rebuilds them.
@@ -198,6 +222,12 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     const split = splitWorkspaceFiles(baseline.values(), projectPaths)
     return { project: buildFileTree(split.project), generated: buildFileTree(split.generated) }
   }, [baseline, projectPaths])
+
+  useDraftPersistence({
+    workflowId,
+    enabled: canEdit,
+    baseline: source ? baseline : null,
+  })
 
   const projectFiles = useProjectFiles({
     workflowId,
@@ -225,11 +255,12 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
 
   useEffect(() => {
     return () => {
+      draftUndo.dispose()
       useWorkflowStore.getState().reset()
       useIdeStore.getState().resetSession()
       useQuickTestStore.getState().reset()
     }
-  }, [])
+  }, [draftUndo])
 
   // Keep tabs and drafts consistent with the loaded bundle (a refetch after
   // a save makes the saved draft redundant) and land on the deep-linked file
@@ -304,9 +335,10 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       saveAll: () => {
         if (canEdit) void projectFiles.saveAll()
       },
-      discardChanges: () => {
-        clearDrafts()
-        actionToast.info('Unsaved changes discarded')
+      discardChanges: draftUndo.discardAll,
+      revertFile: () => {
+        const path = useIdeStore.getState().activePath
+        if (path) draftUndo.revertFile(path)
       },
       newFile: () => showDialog('newFile'),
       renameFile: () => {
@@ -334,9 +366,9 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       switchToCanvas: () => void switchView('canvas', { version: versionParam }),
       closeActiveFile: () => {
         const path = useIdeStore.getState().activePath
-        if (path) closeFile(path)
+        if (path) requestClose([path])
       },
-      closeAllFiles,
+      closeAllFiles: () => requestClose(useIdeStore.getState().openPaths),
       copyActivePath: () => {
         const path = useIdeStore.getState().activePath
         if (!path) return
@@ -359,9 +391,8 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       storedPaths,
       switchView,
       versionParam,
-      closeFile,
-      closeAllFiles,
-      clearDrafts,
+      requestClose,
+      draftUndo,
       toggleExplorer,
       toggleDock,
       togglePreview,
@@ -372,6 +403,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
 
   useIdeShortcuts({
     save: actions.save,
+    saveAll: actions.saveAll,
     quickOpen: actions.quickOpen,
     commandPalette: () => showDialog('palette'),
     toggleExplorer,
@@ -443,11 +475,45 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     if (path) void projectFiles.deleteFile(path)
   }
 
+  // Save, then close: a tab whose save failed stays open, dirty dot and all,
+  // because closing it would drop the only copy of the edit.
+  function handleCloseSave(dirtyPaths: string[], paths: string[]) {
+    void Promise.all(dirtyPaths.map((path) => projectFiles.saveFile(path))).then((results) => {
+      // Cancel pressed while the save ran: the saves stand, the tabs stay.
+      if (useIdeStore.getState().closeRequest === null) return
+      const failed = dirtyPaths.filter((_, index) => !results[index])
+      if (failed.length === 0) {
+        closeFiles(paths)
+        return
+      }
+      useIdeStore.getState().cancelClose()
+      const names = failed.map(basename).join(', ')
+      actionToast.error(
+        `Couldn’t save ${names}, so ${failed.length === 1 ? 'its tab' : 'their tabs'} stayed open.`,
+        {
+          description: 'Your changes are still here.',
+        },
+      )
+    })
+  }
+
+  function handleCloseDiscard(dirtyPaths: string[], paths: string[]) {
+    for (const path of dirtyPaths) clearDraft(path)
+    closeFiles(paths)
+  }
+
+  function handleRevertFile(path: string) {
+    draftUndo.revertFile(path)
+  }
+
   function handleBlockerCancel() {
     blocker.reset?.()
   }
 
+  // Leaving without saving is a decision to drop the edits: forget the stored
+  // copy too, or the next visit would "restore" what the dialog said was lost.
   function handleLeave() {
+    useIdeStore.getState().clearDrafts()
     blocker.proceed?.()
   }
 
@@ -545,6 +611,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
                   dirty={dirty}
                   editabilityOf={editabilityOf}
                   onChange={handleEditorChange}
+                  onRevertFile={handleRevertFile}
                 />
               </Panel>
               {dockOpen && (
@@ -556,6 +623,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
                       diagnostics={source?.diagnostics}
                       testSession={testSession}
                       activeFile={activeFile}
+                      onSaveAll={projectFiles.saveAll}
                     />
                   </Panel>
                 </>
@@ -625,6 +693,11 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         loading={projectFiles.busy || conversionPreview.isPending}
         onConfirm={handleConvert}
       />
+      <CloseDirtyDialog
+        saving={projectFiles.busy}
+        onSave={handleCloseSave}
+        onDiscard={handleCloseDiscard}
+      />
       <UnsavedChangesDialog
         open={blocker.status === 'blocked'}
         unsaved={unsavedSentence}
@@ -636,100 +709,5 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         onDiscardAndGo={handleLeave}
       />
     </div>
-  )
-}
-
-/** The conversion, in the user's terms, from the server's dry run. */
-function describeConversion(
-  preview: HandlerConversionPreview | undefined,
-  error: Error | null,
-): string {
-  if (error) return `The conversion cannot run: ${error.message}`
-  if (!preview) return 'Working out what the handlers become…'
-  const origin = {
-    file: 'handlers.ts is replaced by',
-    setting: 'The trigger-code setting becomes',
-    version: 'The trigger code saved with this version becomes',
-  }[preview.source]
-  const parts = [`${origin} ${preview.paths.join(', ')}.`]
-  const facts = describeHandlerDeclarations(preview.declarations)
-  if (facts.length > 0) parts.push(`Moving to the deployment config: ${facts.join('; ')}.`)
-  parts.push('Modules are plain TypeScript: typed, importable, no annotations.')
-  return parts.join(' ')
-}
-
-function Notice({
-  title,
-  description,
-  action,
-}: {
-  title: string
-  description: string
-  action: React.ReactNode
-}) {
-  return (
-    <div className="fixed inset-0 flex items-center justify-center bg-background">
-      <div className="max-w-md text-center">
-        <p className="text-sm font-medium text-foreground">{title}</p>
-        <p className="mt-1 break-words text-xs text-muted-foreground">{description}</p>
-        <div className="mt-4">{action}</div>
-      </div>
-    </div>
-  )
-}
-
-function UnsavedWorkflowNotice() {
-  const switchView = useSwitchView('new')
-
-  function handleOpenCanvas() {
-    void switchView('canvas')
-  }
-
-  return (
-    <Notice
-      title="Save the workflow first"
-      description={NO_SAVED_VERSION_MESSAGE}
-      action={
-        <Button size="sm" variant="outline" onClick={handleOpenCanvas}>
-          Open canvas
-        </Button>
-      }
-    />
-  )
-}
-
-function NoVersionNotice({ workflowId, name }: { workflowId: string; name: string }) {
-  const switchView = useSwitchView(workflowId)
-
-  function handleOpenCanvas() {
-    void switchView('canvas')
-  }
-
-  return (
-    <Notice
-      title={`${name} has no saved version yet`}
-      description={NO_SAVED_VERSION_MESSAGE}
-      action={
-        <Button size="sm" variant="outline" onClick={handleOpenCanvas}>
-          Open canvas
-        </Button>
-      }
-    />
-  )
-}
-
-function LoadFailure({ workflowId, message }: { workflowId: string; message?: string }) {
-  return (
-    <Notice
-      title="Couldn’t load the source"
-      description={message || 'Unknown error'}
-      action={
-        <Link to="/workflows/$workflowId" params={{ workflowId }}>
-          <Button size="sm" variant="outline">
-            Back to overview
-          </Button>
-        </Link>
-      }
-    />
   )
 }

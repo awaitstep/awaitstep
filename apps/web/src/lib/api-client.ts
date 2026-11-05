@@ -220,6 +220,11 @@ export interface TestSession {
   error: string | null
   createdAt: string
   lastUsedAt: string
+  /**
+   * The project files the session was built from, `{ path: hash }`. Null for a
+   * session started before manifests were stored: it cannot say what changed.
+   */
+  files: Record<string, string> | null
 }
 
 export interface StartTestSessionResponse {

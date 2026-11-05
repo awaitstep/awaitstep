@@ -120,7 +120,7 @@ export function IdeHeader({
               size="sm"
               onClick={onSave}
               disabled={saving || dirtyCount === 0}
-              title={`Save (${hint('save')})`}
+              title={`Save all files (${hint('saveAll')}). ${hint('save')} saves the open file.`}
               className={cn(
                 'h-8 gap-1.5 px-2 md:px-2.5',
                 dirtyCount > 0
@@ -133,7 +133,7 @@ export function IdeHeader({
               ) : (
                 <Save className="h-3.5 w-3.5" />
               )}
-              <span className="hidden text-xs md:inline">Save</span>
+              <span className="hidden text-xs md:inline">Save all</span>
               {dirtyCount > 0 && (
                 <span className="rounded-full bg-status-warning/15 px-1.5 py-px text-[10px] tabular-nums text-status-warning">
                   {dirtyCount}

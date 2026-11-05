@@ -15,6 +15,8 @@ export interface IdeCommandActions {
   save: () => void
   saveAll: () => void
   discardChanges: () => void
+  /** Drops the active file's unsaved edits. */
+  revertFile: () => void
   newFile: () => void
   renameFile: () => void
   deleteFile: () => void
@@ -64,7 +66,7 @@ export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
   return [
     {
       id: 'file.save',
-      label: 'Save',
+      label: 'Save File',
       group: 'file',
       shortcut: 'save',
       enabled: ctx.canEdit && ctx.activeDirty,
@@ -74,8 +76,16 @@ export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
       id: 'file.saveAll',
       label: ctx.dirtyCount > 1 ? `Save All (${ctx.dirtyCount})` : 'Save All',
       group: 'file',
+      shortcut: 'saveAll',
       enabled: ctx.canEdit && ctx.dirtyCount > 0,
       run: actions.saveAll,
+    },
+    {
+      id: 'file.revert',
+      label: 'Revert File',
+      group: 'file',
+      enabled: ctx.activeDirty,
+      run: actions.revertFile,
     },
     {
       id: 'file.discard',
