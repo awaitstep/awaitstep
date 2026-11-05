@@ -1,11 +1,13 @@
 import { useMemo } from 'react'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { useActiveRunSync } from '../../hooks/use-active-run-sync'
-import type { RunSummary, VersionSummary } from '../../lib/api-client'
+import { Play } from 'lucide-react'
+import type { RunSummary, VersionSummary, WorkflowSummary } from '../../lib/api-client'
+import { CardEmpty } from './parts/card-empty'
+import { DeployFor } from './deploy-for'
 import { flatPages, queries } from '../../lib/queries'
 import { timeAgo } from '../../lib/time'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
-import { NO_RUNS_MESSAGE } from '../monitoring/no-runs-copy'
 import { RouterShellLink } from '../navigation/router-shell-link'
 import { tookLabel } from '../runs/run-format'
 import { DataTable, type DataColumn } from '../ui/data-table'
@@ -15,14 +17,17 @@ import { StatusPill } from '../ui/status-pill'
 import { runDurationMs, runResult } from './run-result'
 
 interface RunsTabProps {
-  workflowId: string
+  workflow: WorkflowSummary
   versions: VersionSummary[]
+  /** Never deployed: the empty state offers Deploy (24f). */
+  neverDeployed: boolean
   /** Runs in the last 24 hours, by result, when known. */
   runs24h?: { all: number; failed: number }
 }
 
 /** A workflow's Runs tab (`WorkflowDetail`): Result · Run · Version · Took · Started, newest first. */
-export function RunsTab({ workflowId, versions, runs24h }: RunsTabProps) {
+export function RunsTab({ workflow, versions, neverDeployed, runs24h }: RunsTabProps) {
+  const workflowId = workflow.id
   const links = useWorkflowLinks(workflowId)
   const query = useInfiniteQuery(queries.runs.byWorkflow(workflowId))
   const runs = flatPages(query.data)
@@ -43,6 +48,25 @@ export function RunsTab({ workflowId, versions, runs24h }: RunsTabProps) {
     )
   }
 
+  if (runs.length === 0) {
+    return (
+      <section className="flex flex-col gap-3">
+        <div className="flex items-baseline gap-2.5">
+          <h2 className="text-sm font-semibold text-foreground">Runs</h2>
+          <span className="text-xs text-muted-foreground">None yet</span>
+        </div>
+        <div className="rounded-2xl border border-border bg-card">
+          <CardEmpty
+            icon={<Play />}
+            title="No runs yet"
+            body="A run shows up here when it’s started from AwaitStep: ▶ or the API."
+            action={neverDeployed ? <DeployFor workflow={workflow} /> : undefined}
+          />
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-baseline gap-2.5">
@@ -58,7 +82,6 @@ export function RunsTab({ workflowId, versions, runs24h }: RunsTabProps) {
         columns={columns}
         rows={runs}
         getRowKey={(run) => run.id}
-        empty={NO_RUNS_MESSAGE}
         minWidth="640px"
         footer={
           query.hasNextPage ? (

@@ -1,12 +1,13 @@
 import { useMemo } from 'react'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { ExternalLink, Rocket } from 'lucide-react'
-import type { DeploymentSummary } from '../../lib/api-client'
+import type { DeploymentSummary, WorkflowSummary } from '../../lib/api-client'
+import { CardEmpty } from './parts/card-empty'
+import { DeployFor } from './deploy-for'
 import { flatPages, queries } from '../../lib/queries'
 import { timeAgo } from '../../lib/time'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { workerUrl } from '../../lib/workflows/worker-url'
-import { RouterShellLink } from '../navigation/router-shell-link'
 import { Badge } from '../ui/badge'
 import { buttonVariants } from '../ui/button'
 import { plural } from '../../lib/plural'
@@ -17,15 +18,23 @@ import { ListCardSkeleton, LoadingRegion } from '../ui/skeletons'
 import { Tile } from '../ui/tile'
 
 interface DeploymentsTabProps {
-  workflowId: string
+  workflow: WorkflowSummary
   /** Names of the accounts deployments went out on. */
   accounts: Map<string, string>
   /** The deployed version is locked: nothing else can go out. */
   deployBlocked: boolean
+  /** Never deployed (24f); else it was, and was taken down (its rows went with it). */
+  neverDeployed: boolean
 }
 
 /** A workflow's Deployments (`WorkflowDeployments`): what is live, the history, Roll back. */
-export function DeploymentsTab({ workflowId, accounts, deployBlocked }: DeploymentsTabProps) {
+export function DeploymentsTab({
+  workflow,
+  accounts,
+  deployBlocked,
+  neverDeployed,
+}: DeploymentsTabProps) {
+  const workflowId = workflow.id
   const links = useWorkflowLinks(workflowId)
   const query = useInfiniteQuery(queries.deployments.byWorkflow(workflowId))
   const deployments = flatPages(query.data)
@@ -51,12 +60,17 @@ export function DeploymentsTab({ workflowId, accounts, deployBlocked }: Deployme
 
   if (deployments.length === 0) {
     return (
-      <div className="rounded-2xl border border-border bg-card px-5 py-8 text-center text-sm text-muted-foreground">
-        Not deployed yet.{' '}
-        <RouterShellLink href={links.deploy} className="text-status-success hover:underline">
-          Deploy it
-        </RouterShellLink>{' '}
-        to see its history here.
+      <div className="rounded-2xl border border-border bg-card">
+        <CardEmpty
+          icon={<Rocket />}
+          title={neverDeployed ? 'Never deployed' : 'Not deployed'}
+          body={
+            neverDeployed
+              ? 'The live URL, who deployed what, and rollback all appear here after the first deploy.'
+              : 'It was taken down. Deploy it again to see the live URL, who deployed what, and rollback here.'
+          }
+          action={<DeployFor workflow={workflow} />}
+        />
       </div>
     )
   }

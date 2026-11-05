@@ -4,6 +4,9 @@ import { screen, within } from '@testing-library/react'
 import { DeploymentsTab } from '../deployments-tab'
 import { BASE, VERSIONS, renderWithPages } from './fixtures/workspace-pages'
 
+vi.mock('../../overview/deploy-action', () => ({
+  DeployButton: () => <button type="button">Deploy</button>,
+}))
 vi.mock('../../navigation/router-shell-link', () => ({
   RouterShellLink: ({ href, children, ...rest }: { href: string; children: ReactNode }) => (
     <a href={href} {...rest}>
@@ -35,14 +38,20 @@ const deploy = (
   version: NUMBERS[versionId] ?? null,
   versionLocked,
 })
+const WORKFLOW = { id: 'wf_1', name: 'Lead enrichment', createdAt: '', updatedAt: '' }
 const ACCOUNTS = new Map([
   ['c-prod', 'Acme production'],
   ['c-stage', 'Checkout staging'],
 ])
 
-function renderTab(deployments: unknown[], deployBlocked = false) {
+function renderTab(deployments: unknown[], deployBlocked = false, neverDeployed = true) {
   return renderWithPages(
-    <DeploymentsTab workflowId="wf_1" accounts={ACCOUNTS} deployBlocked={deployBlocked} />,
+    <DeploymentsTab
+      workflow={WORKFLOW}
+      accounts={ACCOUNTS}
+      deployBlocked={deployBlocked}
+      neverDeployed={neverDeployed}
+    />,
     { '["deployments","wf_1"]': deployments, '["versions","wf_1"]': VERSIONS },
   )
 }
@@ -120,11 +129,21 @@ describe('DeploymentsTab (WorkflowDeployments)', () => {
     expect(button).toHaveAttribute('title', 'This version is locked')
   })
 
-  it('points to Deploy when it has never gone out', () => {
+  it('says a taken-down workflow isn’t deployed, not that it never was', () => {
+    renderTab([], false, false)
+    expect(screen.getByText('Not deployed')).toBeVisible()
+    expect(screen.queryByText('Never deployed')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Deploy' })).toBeVisible()
+  })
+
+  it('says it has never gone out, and offers Deploy (WorkflowDraft)', () => {
     renderTab([])
-    expect(screen.getByRole('link', { name: 'Deploy it' })).toHaveAttribute(
-      'href',
-      `${BASE}/deploy`,
-    )
+    expect(screen.getByText('Never deployed')).toBeVisible()
+    expect(
+      screen.getByText(
+        'The live URL, who deployed what, and rollback all appear here after the first deploy.',
+      ),
+    ).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Deploy' })).toBeVisible()
   })
 })

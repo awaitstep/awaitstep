@@ -785,6 +785,39 @@ describe.each([
       expect(beyond.counts).toEqual({ all: 6, succeeded: 3, failed: 2, running: 1 })
     })
 
+    it('gives one workflow’s last 24 hours hour by hour, and nothing hourly for the whole list', async () => {
+      const page = await h.adapter.listWorkspaceRuns('ws-sales', { workflowId: 'wf-enrich' }, NOW)
+      expect(page.byHour).toHaveLength(24)
+      // r-2 (errored, 11h before NOW) and r-3 (complete, 10h before); r-1 is older than a day.
+      expect(page.byHour![12]).toEqual({ runs: 1, complete: 0, failed: 1 })
+      expect(page.byHour![13]).toEqual({ runs: 1, complete: 1, failed: 0 })
+      expect(page.byHour!.reduce((n, hour) => n + hour.runs, 0)).toBe(2)
+      // Another workflow's runs in the same hours aren't in it.
+      expect(page.byHour!.every((hour, i) => i === 12 || i === 13 || hour.runs === 0)).toBe(true)
+      const all = await h.adapter.listWorkspaceRuns('ws-sales', {}, NOW)
+      expect(all.byHour).toBeUndefined()
+      // With the same instant for the period, the bars add up to the day's count.
+      const day = await h.adapter.listWorkspaceRuns(
+        'ws-sales',
+        { workflowId: 'wf-enrich', since: new Date(NOW.getTime() - 24 * 3600_000).toISOString() },
+        NOW,
+      )
+      expect(day.byHour!.reduce((n, hour) => n + hour.runs, 0)).toBe(day.counts.all)
+      // A later page carries no bars.
+      const one = await h.adapter.listWorkspaceRuns(
+        'ws-sales',
+        { workflowId: 'wf-enrich', limit: 1 },
+        NOW,
+      )
+      expect(one.byHour).toHaveLength(24)
+      const later = await h.adapter.listWorkspaceRuns(
+        'ws-sales',
+        { workflowId: 'wf-enrich', limit: 1, cursor: one.nextCursor! },
+        NOW,
+      )
+      expect(later.byHour).toBeUndefined()
+    })
+
     it('narrows to one workflow’s runs, counting only them', async () => {
       const page = await h.adapter.listWorkspaceRuns('ws-sales', { workflowId: 'wf-enrich' })
       expect(page.data.map((r) => r.id)).toEqual(['r-3', 'r-2', 'r-1'])

@@ -15,6 +15,8 @@ interface DeployButtonProps {
   currentVersionId?: string | null
   kind?: 'workflow' | 'script'
   deployBlocked?: boolean
+  /** The button's words; "Deploy" unless said, e.g. a function's "Publish v4". */
+  label?: string
 }
 
 /** Validates the current version and navigates to the deploy wizard when it passes. */
@@ -23,6 +25,7 @@ export function DeployButton({
   currentVersionId,
   kind,
   deployBlocked,
+  label = 'Deploy',
 }: DeployButtonProps) {
   const goTo = useGoTo()
   const links = useWorkflowLinks(workflowId)
@@ -93,7 +96,7 @@ export function DeployButton({
       onClick={handleDeploy}
     >
       <Rocket className="h-3.5 w-3.5" />
-      Deploy
+      {label}
     </Button>
   )
 }

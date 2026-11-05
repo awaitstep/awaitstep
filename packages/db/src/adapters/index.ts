@@ -303,7 +303,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       this._dialect,
     )
     this._workspaces = new WorkspacesAdapter(db, tables, this._dialect)
-    this._workspaceRuns = new WorkspaceRunsAdapter(db, tables)
+    this._workspaceRuns = new WorkspaceRunsAdapter(db, tables, this._dialect)
     this._workflows = new WorkflowsAdapter(db, schema.workflows, schema.workspaces)
     this._shared = new SharedWorkflowsAdapter(db, tables, this._dialect)
     this._audit = new AuditAdapter(
@@ -590,8 +590,12 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   ): Promise<{ id: string; name: string }[]> {
     return this._workspaces.moveWorkflows(fromWorkspaceId, toWorkspaceId, workflowIds)
   }
-  listWorkspaceRuns(workspaceId: string, filter: WorkspaceRunFilter): Promise<WorkspaceRunPage> {
-    return this._workspaceRuns.listByWorkspace(workspaceId, filter)
+  listWorkspaceRuns(
+    workspaceId: string,
+    filter: WorkspaceRunFilter,
+    now?: Date,
+  ): Promise<WorkspaceRunPage> {
+    return this._workspaceRuns.listByWorkspace(workspaceId, filter, now)
   }
   listFailingWorkflows(organizationId: string, viewerId: string): Promise<FailingWorkflow[]> {
     return this._workspaceRuns.listFailing(organizationId, viewerId)

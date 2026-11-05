@@ -44,7 +44,8 @@ export function useWorkspaceRuns(slugs: Required<ScopeSlugs>, filter: RunFilter 
 
 /**
  * How many runs one workflow has, by result: over the last 24 hours, or
- * all time. Only its workspace's API answers it; reads wait for `enabled`.
+ * all time; and its last 24 hours hour by hour. Only its workspace's API
+ * answers it; reads wait for `enabled`.
  */
 export function useWorkflowRunCounts(
   slugs: Required<ScopeSlugs>,
@@ -54,7 +55,9 @@ export function useWorkflowRunCounts(
   return useQuery({
     queryKey: dashKeys.workflowRunCounts(slugs, workflowId, period ?? 'all'),
     queryFn: () =>
-      dashboardApi.listRuns(slugs, { workflowId, period, limit: 1 }).then((page) => page.counts),
+      dashboardApi
+        .listRuns(slugs, { workflowId, period, limit: 1 })
+        .then((page) => ({ counts: page.counts, byHour: page.byHour ?? [] })),
     enabled,
   })
 }

@@ -278,7 +278,12 @@ export interface DatabaseAdapter {
     toWorkspaceId: string,
     workflowIds: string[],
   ): Promise<{ id: string; name: string }[]>
-  listWorkspaceRuns(workspaceId: string, filter: WorkspaceRunFilter): Promise<WorkspaceRunPage>
+  /** `now` places `byHour`'s 24-hour window (tests pin it). */
+  listWorkspaceRuns(
+    workspaceId: string,
+    filter: WorkspaceRunFilter,
+    now?: Date,
+  ): Promise<WorkspaceRunPage>
   /** Across the organization's workspaces the viewer can open. */
   listFailingWorkflows(organizationId: string, viewerId: string): Promise<FailingWorkflow[]>
 

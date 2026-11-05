@@ -313,6 +313,8 @@ export interface ApiRunPage {
   data: ApiWorkspaceRun[]
   nextCursor: string | null
   counts: { all: number; succeeded: number; failed: number; running: number }
+  /** With `workflowId`: its last 24 hours, oldest first. */
+  byHour?: RunHour[]
 }
 
 export interface ApiFailing {
