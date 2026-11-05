@@ -6,6 +6,8 @@ import type { WorkflowSummary } from '../../../lib/api-client'
 import type { WorkflowOverview } from '../use-workflow-overview'
 import { ItemActionsMenu } from '../item-actions-menu'
 import { deleteLine } from '../remove-item-dialogs'
+import { EDITOR, VIEWER } from './fixtures/workspace-pages'
+import { EditorAccessProvider, type EditorAccess } from '../../../contexts/editor-scope-context'
 
 const calls = vi.hoisted(() => ({
   lock: vi.fn(),
@@ -51,10 +53,12 @@ function overview(deployed: boolean, locked = false): WorkflowOverview {
   } as unknown as WorkflowOverview
 }
 
-function renderMenu(workflow: WorkflowSummary, o: WorkflowOverview) {
+function renderMenu(workflow: WorkflowSummary, o: WorkflowOverview, access: EditorAccess = EDITOR) {
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <ItemActionsMenu slugs={SLUGS} workflow={workflow} overview={o} runCount={128} />
+      <EditorAccessProvider value={access}>
+        <ItemActionsMenu slugs={SLUGS} workflow={workflow} overview={o} runCount={128} />
+      </EditorAccessProvider>
     </QueryClientProvider>,
   )
   return userEvent.click(screen.getByRole('button', { name: 'More actions' }))
@@ -65,10 +69,9 @@ const items = () => screen.getAllByRole('menuitem').map((i) => i.textContent?.tr
 beforeEach(() => vi.clearAllMocks())
 
 describe('ItemActionsMenu (WorkflowActions)', () => {
-  it('lists Rename · Duplicate · Move · Lock · Export IR, then Take down and Delete', async () => {
+  it('lists Duplicate · Move · Lock · Export IR, then Take down and Delete (rename is in place)', async () => {
     await renderMenu(WORKFLOW, overview(true))
     expect(items()).toEqual([
-      'Rename',
       'Duplicate',
       'Move to workspace',
       'Lock',
@@ -76,6 +79,39 @@ describe('ItemActionsMenu (WorkflowActions)', () => {
       'Take down',
       'Delete',
     ])
+  })
+
+  it('gives an Editor no reason line', async () => {
+    await renderMenu(WORKFLOW, overview(true))
+    expect(screen.queryByText(VIEWER.reason!)).toBeNull()
+  })
+
+  it('lets only workspace admins move it, saying so to other Editors', async () => {
+    await renderMenu(WORKFLOW, overview(true), { ...EDITOR, canMove: false })
+    const move = screen.getByRole('menuitem', { name: /Move to workspace/ })
+    expect(move).toHaveAttribute('aria-disabled', 'true')
+    expect(move).toHaveTextContent('Admins only')
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).not.toHaveAttribute('aria-disabled')
+  })
+
+  it('leaves a Viewer only Export IR, and says why the rest are off', async () => {
+    await renderMenu(WORKFLOW, overview(true), VIEWER)
+    expect(screen.getByText('Building, deploying and sharing need an Editor')).toBeVisible()
+    for (const name of ['Duplicate', 'Move to workspace', 'Lock', 'Take down', 'Delete']) {
+      expect(screen.getByRole('menuitem', { name })).toHaveAttribute('aria-disabled', 'true')
+    }
+    expect(screen.getByRole('menuitem', { name: 'Export IR' })).not.toHaveAttribute('aria-disabled')
+  })
+
+  it('needs the share right to stop sharing a function, editing isn’t enough', async () => {
+    await renderMenu({ ...WORKFLOW, kind: 'script', sharedBy: 'u-ama' }, overview(false), {
+      ...EDITOR,
+      canShare: false,
+    })
+    expect(screen.getByRole('menuitem', { name: 'Stop sharing' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
   })
 
   it('locks the deployed version, and reads Unlock while it is locked', async () => {
