@@ -15,6 +15,7 @@ export interface ShortcutKeys {
 export type IdeShortcutId =
   | 'save'
   | 'saveAll'
+  | 'newFile'
   | 'quickOpen'
   | 'commandPalette'
   | 'toggleExplorer'
@@ -36,6 +37,8 @@ export const IDE_SHORTCUTS: Readonly<Record<IdeShortcutId, ShortcutKeys>> = {
   save: { key: 's', mod: true },
   // Option rewrites the glyph on macOS (⌥S types ß), so match the physical key.
   saveAll: { code: 'KeyS', mod: true, alt: true },
+  // Option rewrites the glyph on macOS (⌥N is a dead key), so match the physical key.
+  newFile: { code: 'KeyN', mod: true, alt: true },
   quickOpen: { key: 'p', mod: true },
   commandPalette: { key: 'p', mod: true, shift: true },
   toggleExplorer: { key: 'b', mod: true },

@@ -11,6 +11,7 @@ import {
 import type { IdeSessionState } from '../../stores/ide-store'
 import { dirtyPaths } from './drafts'
 import { basename } from './file-tree'
+import { importSpecifier } from './project'
 
 export interface ProjectFileClient {
   putProjectFile(
@@ -169,7 +170,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     async createFile(path, source) {
       // A new handler entry starts from its scaffold: an empty
       // handlers/fetch.ts would take over the HTTP entry and answer
-      // nothing, and the New file dialog is how the docs say to add one.
+      // nothing, and a new file row is how the docs say to add one.
       const entry = handlerEntry(path)
       const initial =
         source ??
@@ -182,7 +183,10 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       if (typeof created === 'string') return false
       await refresh()
       getStore().openFile(path)
-      notify.success(`Created ${basename(path)}`)
+      const specifier = importSpecifier(path)
+      notify.success(
+        specifier ? `Created. Import it as \`${specifier}\`` : `Created ${basename(path)}`,
+      )
       return true
     },
 

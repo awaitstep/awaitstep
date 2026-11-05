@@ -98,6 +98,7 @@ export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
       id: 'file.new',
       label: 'New File…',
       group: 'file',
+      shortcut: 'newFile',
       enabled: ctx.canEdit,
       run: actions.newFile,
     },
