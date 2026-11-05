@@ -22,7 +22,11 @@ interface OverviewBodyProps {
   neverDeployed: boolean
 }
 
-/** A workflow's Overview (`WorkflowDetail` 24a, `WorkflowDraft` 24f): the band, then Versions and Recent runs. */
+/**
+ * A workflow's or function's Overview (`WorkflowDetail` 24a, `WorkflowDraft`
+ * 24f): the band, then Versions and Recent runs. A function looks the same; it
+ * is published and called, and its requests aren't recorded.
+ */
 export function OverviewBody({
   workflow,
   overview,
@@ -33,9 +37,12 @@ export function OverviewBody({
   const queries = useQueries()
   const links = useWorkflowLinks(workflow.id)
   const { canDeploy } = useEditorAccess()
+  const isFunction = workflow.kind === 'script'
   const { data: runs } = useInfiniteQuery({
     ...queries.runs.byWorkflow(workflow.id),
     select: (data) => flatPages(data),
+    // A function has no runs.
+    enabled: !isFunction,
   })
   const latest = overview.versions[0]
   const live = overview.activeDeployment
@@ -53,6 +60,7 @@ export function OverviewBody({
         }
         latest={latest && { version: latest.version, at: latest.createdAt }}
         runs24h={runs24h}
+        isFunction={isFunction}
       />
       <div className="flex flex-wrap items-stretch gap-4">
         <div className="flex min-w-0 basis-[420px] grow-[1.3] flex-col [&>*]:flex-1">
@@ -74,6 +82,7 @@ export function OverviewBody({
             neverDeployed={neverDeployed}
             runsHref={links.runs}
             runHref={links.run}
+            isFunction={isFunction}
           />
         </div>
       </div>
