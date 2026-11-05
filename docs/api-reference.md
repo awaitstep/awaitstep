@@ -977,6 +977,8 @@ Create a new version by submitting a workflow IR. The IR is validated and compil
 
 Node ids (and edge `source`/`target`) must be non-empty and free of control characters (U+0000-U+001F, U+007F-U+009F, U+2028, U+2029); any other text is accepted. A violation fails validation with a 400.
 
+The same rule applies to an IR that is already stored: reading its source (`GET /workflows/:workflowId/source`), saving a version of it and deploying it all fail with a 400 until the id is renamed. The dashboard canvas still opens such a version, so the id can be fixed there.
+
 **Permission:** `workflows:write`
 
 | Param        | In   | Required | Description |
