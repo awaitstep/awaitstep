@@ -1023,7 +1023,7 @@ export const dashboardApi = {
   /** Answers with the row as stored: none of the status fields a listing carries. */
   createWorkflow(
     slugs: WorkspaceSlugs,
-    data: { name: string; kind?: 'workflow' | 'script' },
+    data: { name: string; description?: string; kind?: 'workflow' | 'script' },
   ): Promise<WorkflowSummary & { workspaceId: string }> {
     return request(`/workflows${query(slugs)}`, { method: 'POST', body: JSON.stringify(data) })
   },

@@ -113,20 +113,27 @@ describe('Workflows page', () => {
     expect(toggle).toHaveAccessibleDescription(/Called by IT/)
   })
 
-  it('New workflow creates an untitled draft and opens its editor on the template picker', async () => {
+  it('New workflow names a draft in its dialog, then opens it on the template picker', async () => {
     renderWorkflows()
     await waitFor(desktopList)
-    const button = within(topBar()).getByRole('button', { name: 'New workflow' })
-    await userEvent.click(button)
+    await userEvent.click(within(topBar()).getByRole('button', { name: 'New workflow' }))
+    const dialog = await screen.findByRole('dialog', { name: 'New workflow' })
+    await userEvent.type(within(dialog).getByRole('textbox', { name: /Name/ }), 'Lead scoring')
+    const create = within(dialog).getByRole('button', { name: 'Create workflow' })
+    await userEvent.click(create)
+    // The dialog stays up until the editor opens, so the list behind it is hidden from roles.
+    const list = () => screen.getAllByRole('list', { name: 'Workflows in Sales', hidden: true })[0]!
     await waitFor(() =>
-      expect(within(desktopList()).getAllByRole('link')[0]).toHaveTextContent('Untitled workflow'),
+      expect(within(list()).getAllByRole('link', { hidden: true })[0]).toHaveTextContent(
+        'Lead scoring',
+      ),
     )
-    expect(screen.getByRole('button', { name: 'Drafts 2' })).toBeInTheDocument()
-    const created = within(desktopList()).getAllByRole('link')[0]!.getAttribute('href')
+    expect(screen.getByRole('button', { name: 'Drafts 2', hidden: true })).toBeInTheDocument()
+    const created = within(list()).getAllByRole('link', { hidden: true })[0]!.getAttribute('href')
     expect(goTo).toHaveBeenCalledWith(`${created}?template=1`)
     expect(goTo).toHaveBeenCalledTimes(1)
     // Busy until the editor opens: a second click would make a second draft.
-    expect(button).toBeDisabled()
+    expect(create).toBeDisabled()
   })
 
   it('offers Import as a link to ?new=import', async () => {
@@ -255,11 +262,14 @@ describe('Functions page', () => {
     expect(screen.getByText(/Functions answer requests straight away/)).toBeInTheDocument()
   })
 
-  it('New function adds "Untitled function"', async () => {
+  it('New function adds the function named in its dialog', async () => {
     renderWithDashboardData(<FunctionsPage slugs={sales} />)
     await screen.findByRole('table', { name: 'Functions in Sales' })
     await userEvent.click(within(topBar()).getByRole('button', { name: 'New function' }))
-    expect(await screen.findByText('Untitled function')).toBeInTheDocument()
+    const dialog = await screen.findByRole('dialog', { name: 'New function' })
+    await userEvent.type(within(dialog).getByRole('textbox', { name: /Name/ }), 'Pricing hook')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Create function' }))
+    expect(await screen.findByText('Pricing hook')).toBeInTheDocument()
     // Templates are workflow-shaped: a function opens straight on its canvas.
     expect(goTo).toHaveBeenCalledWith(
       expect.stringMatching(/^\/acme\/project-101\/sales\/workflows\/[^/?]+$/),

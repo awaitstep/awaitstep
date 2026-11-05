@@ -207,6 +207,7 @@ export function useCreateItem(slugs: WorkspaceSlugs, { onCreated }: CreateItemOp
         ? dashboardApi
             .createWorkflow(slugs, {
               name: input.name?.trim() || UNTITLED[input.kind],
+              description: input.description?.trim() || undefined,
               kind: input.kind,
             })
             .then((row) =>

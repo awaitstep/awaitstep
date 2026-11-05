@@ -17,6 +17,7 @@ import { SectionHeader } from '../ui/section-header'
 import { ShellLink } from '../ui/shell-link'
 import { ScopeChip } from '../ui/workspace-dot'
 import { NewItemButton } from '../items/item-actions'
+import { NewItemDialog } from '../items/new-item-dialog'
 import { useNewItem } from '../items/use-new-item'
 import { AvailableCard } from './parts/available-card'
 import { FannedTiles } from './parts/fanned-tiles'
@@ -38,9 +39,8 @@ export function EmptyWorkspace({
   const people = useWorkspacePeople(slugs)
   const setup = useProjectSetup(slugs.org, slugs.project)
   const shared = useSharedWithWorkspace(slugs)
-  // One create for both buttons: New function while New workflow is on its
-  // way would make two items and race two navigations.
-  const newItem = useNewItem(slugs)
+  // One dialog for both buttons.
+  const newItem = useNewItem()
 
   const projectAdmins = (people.data ?? [])
     .filter((p) => p.inherited && p.role === 'admin')
@@ -74,6 +74,7 @@ export function EmptyWorkspace({
         description={`What you build here is visible only to people with access to ${workspaceName}. Share it later for other workspaces to use.`}
         actions={heroActions}
       />
+      {newItem.dialog && <NewItemDialog slugs={slugs} {...newItem.dialog} />}
       <SectionHeader
         title={`Already available in ${workspaceName}`}
         caption="Project defaults and what other workspaces share"

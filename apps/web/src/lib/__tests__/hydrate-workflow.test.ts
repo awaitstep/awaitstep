@@ -62,6 +62,14 @@ describe('buildWorkflowStoreState', () => {
     })
   })
 
+  it('reads a workflow with no description (null from the API) as none, so a save can send it back', () => {
+    const state = buildWorkflowStoreState({ ...baseWorkflow, description: null }, null, 0, false)
+    const metadata = state.metadata as { description?: string | null }
+    expect(metadata.description).toBeUndefined()
+    // JSON drops undefined: the save's PATCH leaves the description alone instead of sending null.
+    expect(JSON.stringify({ description: metadata.description })).toBe('{}')
+  })
+
   it('always sets isDirty to false', () => {
     const result = buildWorkflowStoreState(baseWorkflow, null, 1, false)
     expect(result.isDirty).toBe(false)

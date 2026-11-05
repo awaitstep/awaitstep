@@ -213,7 +213,7 @@ export const createItem = mutation(
     addDraft(getDb(), ctx, slugs, {
       kind: input.kind,
       name: input.name?.trim() || null,
-      description: null,
+      description: input.description?.trim() || null,
     }),
 )
 
