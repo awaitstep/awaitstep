@@ -45,7 +45,7 @@ export function QuickOpenDialog({ files }: QuickOpenDialogProps) {
             value={query}
             onValueChange={setQuery}
             placeholder="Go to file…"
-            className="h-11 w-full border-b border-border bg-transparent px-4 text-sm outline-none placeholder:text-muted-foreground/50"
+            className="h-11 w-full border-b border-border bg-transparent px-4 text-sm outline-none placeholder:text-muted-foreground"
           />
           <CommandList className="max-h-[360px] overflow-y-auto p-1.5">
             <CommandEmpty className="px-3 py-6 text-center text-xs text-muted-foreground">
@@ -96,7 +96,7 @@ function QuickOpenItem({
           <Highlighted segments={nameSegments} />
         </span>
         {dir && (
-          <span className="ml-2 text-muted-foreground/60">
+          <span className="ml-2 text-muted-foreground">
             <Highlighted segments={dirSegments} />
           </span>
         )}

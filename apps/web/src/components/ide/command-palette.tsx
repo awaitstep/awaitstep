@@ -94,15 +94,26 @@ export function CommandPalette({
     command.run()
   }
 
+  // Radix returns focus to where it was before the palette opened, which
+  // would undo a command that moved it on purpose (Search in Files…). When
+  // something already has the keyboard, leave it there.
+  function handleCloseAutoFocus(event: Event) {
+    const focused = document.activeElement
+    if (focused && focused !== document.body) event.preventDefault()
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="top-[20%] w-[560px] -translate-y-0 overflow-hidden p-0">
+      <DialogContent
+        className="top-[20%] w-[560px] -translate-y-0 overflow-hidden p-0"
+        onCloseAutoFocus={handleCloseAutoFocus}
+      >
         <DialogTitle className="sr-only">Command palette</DialogTitle>
         <Command loop className="flex flex-col">
           <CommandInput
             autoFocus
             placeholder="Type a command…"
-            className="h-11 w-full border-b border-border bg-transparent px-4 text-sm outline-none placeholder:text-muted-foreground/50"
+            className="h-11 w-full border-b border-border bg-transparent px-4 text-sm outline-none placeholder:text-muted-foreground"
           />
           <CommandList className="max-h-[360px] overflow-y-auto p-1.5">
             <CommandEmpty className="px-3 py-6 text-center text-xs text-muted-foreground">
@@ -112,7 +123,7 @@ export function CommandPalette({
               <CommandGroup
                 key={group}
                 heading={COMMAND_GROUP_LABELS[group]}
-                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground/50"
+                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground"
               >
                 {commands.map((command) => (
                   <PaletteItem

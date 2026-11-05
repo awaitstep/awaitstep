@@ -74,7 +74,7 @@ describe('StatusBar', () => {
 
   it('opens Go to line from the position', async () => {
     const trigger = vi.fn()
-    useIdeStore.getState().setEditorHandle({ focus: vi.fn(), trigger })
+    useIdeStore.getState().setEditorHandle({ focus: vi.fn(), trigger, searchSeed: () => null })
     renderBar()
     await userEvent.click(screen.getByRole('button', { name: /Ln 1, Col 1/ }))
     expect(trigger).toHaveBeenCalledWith('editor.action.gotoLine')

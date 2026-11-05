@@ -162,7 +162,7 @@ export function RunPanel({
       )}
 
       <div className="flex min-h-0 flex-1 flex-col gap-2">
-        <label htmlFor="trigger-payload" className="text-[11px] text-muted-foreground/70">
+        <label htmlFor="trigger-payload" className="text-[11px] text-muted-foreground">
           Trigger payload
         </label>
         <textarea
@@ -186,7 +186,7 @@ export function RunPanel({
 
       {lastResult && (
         <div className="min-h-0 shrink-0 overflow-auto rounded-md border border-border bg-card p-2">
-          <div className="mb-1 text-[11px] text-muted-foreground/70">
+          <div className="mb-1 text-[11px] text-muted-foreground">
             Response: {lastResult.status}
           </div>
           <pre className="whitespace-pre-wrap break-words font-mono text-xs">

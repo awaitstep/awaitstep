@@ -116,7 +116,7 @@ export function QuickTestPanel({ workflowId, activeFile }: QuickTestPanelProps) 
             {view.running ? 'Running…' : 'Run step'}
           </Button>
           {refusal === null && (
-            <span className="text-[11px] text-muted-foreground/70">
+            <span className="text-[11px] text-muted-foreground">
               Runs in your browser. Nothing is deployed.
             </span>
           )}
@@ -193,7 +193,7 @@ function ArgField({
         <label htmlFor={`quick-test-${field}`} className="font-mono text-[11px] text-foreground/80">
           {label}
         </label>
-        <span className="text-[10px] text-muted-foreground/60">
+        <span className="text-[10px] text-muted-foreground">
           {invalid ? 'Not valid JSON' : hint}
         </span>
       </div>
@@ -242,7 +242,7 @@ function ResultView({ result, running }: { result: QuickTestResult | null; runni
   }
   if (!result) {
     return (
-      <p className="p-3 text-xs text-muted-foreground/70">
+      <p className="p-3 text-xs text-muted-foreground">
         The result, logs and any error appear here.
       </p>
     )
@@ -257,7 +257,7 @@ function ResultView({ result, running }: { result: QuickTestResult | null; runni
         {/* No duration for something that never ran — "0 ms" reads as a
             measurement rather than an absence. */}
         {result.status !== 'refused' && (
-          <span className="text-[10px] tabular-nums text-muted-foreground/60">
+          <span className="text-[10px] tabular-nums text-muted-foreground">
             {result.durationMs} ms
           </span>
         )}
@@ -278,7 +278,7 @@ function ResultView({ result, running }: { result: QuickTestResult | null; runni
         )}
         {result.logs.length > 0 && (
           <div className="mt-2 border-t border-border pt-2">
-            <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground/50">
+            <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
               Console
             </div>
             {result.logs.map((log, index) => (
@@ -306,7 +306,7 @@ function PanelNotice({ title, description }: { title: string; description: strin
     <div className="flex h-full flex-col items-center justify-center gap-1.5 px-6 py-6 text-center">
       <FlaskConical className="mb-1 h-5 w-5 text-muted-foreground/30" />
       <p className="text-xs font-medium text-muted-foreground">{title}</p>
-      <p className="max-w-md break-words text-[11px] text-muted-foreground/60">{description}</p>
+      <p className="max-w-md break-words text-[11px] text-muted-foreground">{description}</p>
     </div>
   )
 }

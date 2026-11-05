@@ -75,7 +75,7 @@ export function BottomDock({
           onClick={toggleDock}
           title={`Hide panel (${hideHint})`}
           aria-label="Hide panel"
-          className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground"
+          className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -122,7 +122,7 @@ function DockTabButton({
       onClick={handleClick}
       className={cn(
         'flex h-7 items-center gap-1.5 rounded px-2 text-[11px] font-medium uppercase tracking-wider transition-colors',
-        active ? 'text-foreground' : 'text-muted-foreground/60 hover:text-muted-foreground',
+        active ? 'text-foreground' : 'text-muted-foreground hover:text-muted-foreground',
       )}
     >
       {label}
@@ -173,7 +173,7 @@ function ProblemsList({
 
   return (
     <div className="py-1">
-      <div className="px-3 pb-1 text-[11px] text-muted-foreground/60">
+      <div className="px-3 pb-1 text-[11px] text-muted-foreground">
         {counts.error} error{counts.error === 1 ? '' : 's'}, {counts.warning} warning
         {counts.warning === 1 ? '' : 's'}
         {counts.info > 0 && `, ${counts.info} info`}
@@ -205,8 +205,8 @@ function ProblemRow({ problem, onSelect }: { problem: Problem; onSelect: (p: Pro
       <Icon className={cn('mt-px h-3.5 w-3.5 shrink-0', className)} />
       <span className="min-w-0 flex-1">
         <span className="text-foreground/90">{problem.message}</span>
-        {problem.code && <span className="ml-1.5 text-muted-foreground/50">{problem.code}</span>}
-        <span className="ml-2 font-mono text-muted-foreground/60">
+        {problem.code && <span className="ml-1.5 text-muted-foreground">{problem.code}</span>}
+        <span className="ml-2 font-mono text-muted-foreground">
           {problem.file}:{problem.line}:{problem.column}
         </span>
       </span>
@@ -227,7 +227,7 @@ function DockEmptyState({
     <div className="flex h-full flex-col items-center justify-center gap-1.5 px-6 py-6 text-center">
       <Icon className="mb-1 h-5 w-5 text-muted-foreground/30" />
       <p className="text-xs font-medium text-muted-foreground">{title}</p>
-      <p className="text-[11px] text-muted-foreground/60">{description}</p>
+      <p className="text-[11px] text-muted-foreground">{description}</p>
     </div>
   )
 }

@@ -32,7 +32,7 @@ export const OutputPanel = memo(function OutputPanel({ entries }: { entries: Ses
 
   if (entries.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center p-6 text-xs text-muted-foreground/60">
+      <div className="flex h-full items-center justify-center p-6 text-xs text-muted-foreground">
         Output appears here while a test session runs.
       </div>
     )

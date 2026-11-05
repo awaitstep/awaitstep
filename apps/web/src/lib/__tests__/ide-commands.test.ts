@@ -12,6 +12,9 @@ function actions(): IdeCommandActions {
     deleteFile: vi.fn(),
     convertHandlers: vi.fn(),
     quickOpen: vi.fn(),
+    findInFiles: vi.fn(),
+    nextSearchHit: vi.fn(),
+    prevSearchHit: vi.fn(),
     switchToCanvas: vi.fn(),
     closeActiveFile: vi.fn(),
     closeAllFiles: vi.fn(),
@@ -95,11 +98,11 @@ describe('buildIdeCommands', () => {
 
   it('labels toggles and Save All with the state they will produce', () => {
     const open = buildIdeCommands(context({ explorerOpen: true, dockOpen: true, dirtyCount: 3 }))
-    expect(open.find((c) => c.id === 'view.explorer')?.label).toBe('Hide Explorer')
+    expect(open.find((c) => c.id === 'view.explorer')?.label).toBe('Hide Side Bar')
     expect(open.find((c) => c.id === 'view.dock')?.label).toBe('Hide Panel')
     expect(open.find((c) => c.id === 'file.saveAll')?.label).toBe('Save All (3)')
     const closed = buildIdeCommands(context({ explorerOpen: false, dockOpen: false }))
-    expect(closed.find((c) => c.id === 'view.explorer')?.label).toBe('Show Explorer')
+    expect(closed.find((c) => c.id === 'view.explorer')?.label).toBe('Show Side Bar')
     expect(closed.find((c) => c.id === 'view.dock')?.label).toBe('Show Panel')
     expect(closed.find((c) => c.id === 'file.saveAll')?.label).toBe('Save All')
   })

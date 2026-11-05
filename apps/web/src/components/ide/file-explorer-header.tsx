@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { ChevronDown, Plus } from 'lucide-react'
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import { handlerMenuItems, rootConfigMenuItems, type NewMenuItem } from '../../lib/ide/project'
@@ -12,6 +13,8 @@ import {
 } from '../ui/dropdown-menu'
 
 interface ExplorerHeaderProps {
+  /** The side bar's view switch, in place of the plain title. */
+  tabs?: ReactNode
   canEdit: boolean
   /** Why nothing can be added right now (the file limit), or null. */
   limitReason: string | null
@@ -25,6 +28,7 @@ const buttonClass =
   'flex h-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent'
 
 export function ExplorerHeader({
+  tabs,
   canEdit,
   limitReason,
   existing,
@@ -43,9 +47,11 @@ export function ExplorerHeader({
 
   return (
     <div className="flex h-9 shrink-0 items-center justify-between border-b border-border px-3">
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Explorer
-      </span>
+      {tabs ?? (
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Explorer
+        </span>
+      )}
       {canEdit && (
         <div className="flex items-center">
           <button

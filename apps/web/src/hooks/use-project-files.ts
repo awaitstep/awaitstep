@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { HandlerTarget } from '@awaitstep/provider-cloudflare/codegen'
 import { actionToast } from '../lib/action-toast'
@@ -12,6 +12,10 @@ interface ProjectFilesInput {
   target: HandlerTarget
   /** The loaded files with virtual seeds — not the draft overlay. */
   baseline: ReadonlyMap<string, SourceFile>
+  /** Stored files and virtual seeds: the project's own. Everything else is generated. */
+  projectPaths: ReadonlySet<string>
+  /** Opens Search on the old import path after a rename that left importers behind. */
+  onShowImporters?: (specifier: string) => void
 }
 
 export interface ProjectFilesController extends ProjectFileActions {
@@ -28,9 +32,22 @@ export function useProjectFiles({
   workflowId,
   target,
   baseline,
+  projectPaths,
+  onShowImporters,
 }: ProjectFilesInput): ProjectFilesController {
   const queryClient = useQueryClient()
   const [inFlight, setInFlight] = useState(0)
+
+  // Writes outlive renders: a rename can finish after the user opened
+  // another workflow, whose session the shared store now holds.
+  const liveWorkflow = useRef<string | null>(workflowId)
+  liveWorkflow.current = workflowId
+  useEffect(() => {
+    liveWorkflow.current = workflowId
+    return () => {
+      liveWorkflow.current = null
+    }
+  }, [workflowId])
 
   const refresh = useCallback(async () => {
     await Promise.all([
@@ -48,9 +65,12 @@ export function useProjectFiles({
         notify: actionToast,
         getBaseline: () => baseline,
         getStore: useIdeStore.getState,
+        isCurrent: () => liveWorkflow.current === workflowId,
+        getProjectPaths: () => projectPaths,
         refresh,
+        ...(onShowImporters && { onShowImporters }),
       }),
-    [workflowId, target, baseline, refresh],
+    [workflowId, target, baseline, projectPaths, refresh, onShowImporters],
   )
 
   const busy = inFlight > 0

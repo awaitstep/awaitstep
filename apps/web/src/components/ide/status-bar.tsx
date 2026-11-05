@@ -15,7 +15,7 @@ import {
 } from '../ui/dropdown-menu'
 
 const DOT: Record<StatusTone, string> = {
-  idle: 'bg-muted-foreground/50',
+  idle: 'bg-muted-foreground',
   ok: 'bg-status-success',
   warn: 'bg-status-warning',
   info: 'bg-status-info',

@@ -7,7 +7,7 @@ export function EditorPlaceholder() {
   const hints = [
     { label: 'Go to file', keys: formatShortcut(IDE_SHORTCUTS.quickOpen, isMac) },
     { label: 'Command palette', keys: formatShortcut(IDE_SHORTCUTS.commandPalette, isMac) },
-    { label: 'Toggle explorer', keys: formatShortcut(IDE_SHORTCUTS.toggleExplorer, isMac) },
+    { label: 'Toggle side bar', keys: formatShortcut(IDE_SHORTCUTS.toggleExplorer, isMac) },
     { label: 'Toggle panel', keys: formatShortcut(IDE_SHORTCUTS.toggleDock, isMac) },
   ]
 
@@ -17,7 +17,7 @@ export function EditorPlaceholder() {
       <dl className="grid grid-cols-[auto_auto] gap-x-6 gap-y-2 text-xs">
         {hints.map((hint) => (
           <div key={hint.label} className="contents">
-            <dt className="text-right text-muted-foreground/70">{hint.label}</dt>
+            <dt className="text-right text-muted-foreground">{hint.label}</dt>
             <dd>
               <kbd className="rounded border border-border bg-muted/40 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
                 {hint.keys}

@@ -24,6 +24,9 @@ export type IdeShortcutId =
   | 'nextTab'
   | 'prevTab'
   | 'closeTab'
+  | 'findInFiles'
+  | 'nextSearchHit'
+  | 'prevSearchHit'
 
 /**
  * Workspace key bindings. Combos the browser or the platform owns outright
@@ -47,6 +50,16 @@ export const IDE_SHORTCUTS: Readonly<Record<IdeShortcutId, ShortcutKeys>> = {
   nextTab: { code: 'BracketRight', mod: true, shift: true },
   prevTab: { code: 'BracketLeft', mod: true, shift: true },
   closeTab: { code: 'KeyW', mod: true, alt: true },
+  // VS Code's chord for Search. Unverified in browsers: Chrome, Firefox and
+  // Safari on macOS and Chrome on Windows have yet to be checked for ones
+  // that keep it from the page; the palette and the Search tab cover that.
+  findInFiles: { key: 'f', mod: true, shift: true },
+  // Step through search hits from the editor, as in VS Code. F4 is unchecked
+  // in browsers for the same reason as above. The handler declines the key
+  // when there is nothing to step to or Monaco's reference peek is open, so
+  // Monaco's own F4 still works there.
+  nextSearchHit: { key: 'f4' },
+  prevSearchHit: { key: 'f4', shift: true },
 }
 
 export interface KeyEventLike {

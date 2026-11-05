@@ -2,14 +2,22 @@ import { useEffect, useRef } from 'react'
 import { matchShortcut, type IdeShortcutId } from '../lib/ide/shortcuts'
 import { isMacPlatform } from '../lib/platform'
 
-export type IdeShortcutHandlers = Partial<Record<IdeShortcutId, () => void>>
+/** A handler that returns `false` declines the key: it goes on to whoever else wants it. */
+export type IdeShortcutHandlers = Partial<
+  Record<IdeShortcutId, (event: KeyboardEvent) => void | false>
+>
 
 /**
  * Binds the workspace shortcuts on the window in the capture phase so they
  * win over Monaco's own keymap and the browser defaults (⌘S, ⌘P). Keys
  * pressed inside an open dialog belong to that dialog. Handlers are read
- * through a ref, so callers can pass fresh closures every render.
+ * through a ref, so callers can pass fresh closures every render. A handler
+ * may decline by returning `false` (F4 with nothing to step to leaves the
+ * key to Monaco's reference peek).
  */
+/** The only shortcuts whose handlers may decline; every other one owns its key outright. */
+const DECLINABLE: ReadonlySet<IdeShortcutId> = new Set(['nextSearchHit', 'prevSearchHit'])
+
 export function useIdeShortcuts(handlers: IdeShortcutHandlers): void {
   const handlersRef = useRef(handlers)
   handlersRef.current = handlers
@@ -31,9 +39,23 @@ export function useIdeShortcuts(handlers: IdeShortcutHandlers): void {
       if (!id) return
       const handler = handlersRef.current[id]
       if (!handler) return
-      event.preventDefault()
-      event.stopPropagation()
-      handler()
+      if (!DECLINABLE.has(id)) {
+        // Taken before the handler runs: a handler that throws must not
+        // leave the browser to open Save Page or Print.
+        event.preventDefault()
+        event.stopPropagation()
+        handler(event)
+        return
+      }
+      let declined = false
+      try {
+        declined = handler(event) === false
+      } finally {
+        if (!declined) {
+          event.preventDefault()
+          event.stopPropagation()
+        }
+      }
     }
     window.addEventListener('keydown', handleKeyDown, true)
     return () => window.removeEventListener('keydown', handleKeyDown, true)

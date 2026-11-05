@@ -178,3 +178,31 @@ describe('AltGr', () => {
     expect(matchShortcut(chord, false)).toBe('saveAll')
   })
 })
+
+describe('search shortcuts', () => {
+  it('binds Search to ⇧⌘F / Ctrl+Shift+F and tells it from plain find', () => {
+    expect(
+      matchShortcut(key({ key: 'F', code: 'KeyF', metaKey: true, shiftKey: true }), true),
+    ).toBe('findInFiles')
+    expect(
+      matchShortcut(key({ key: 'F', code: 'KeyF', ctrlKey: true, shiftKey: true }), false),
+    ).toBe('findInFiles')
+    expect(matchShortcut(key({ key: 'f', code: 'KeyF', metaKey: true }), true)).toBeNull()
+  })
+
+  it('steps through hits with F4 and ⇧F4 and nothing else', () => {
+    expect(matchShortcut(key({ key: 'F4', code: 'F4' }), true)).toBe('nextSearchHit')
+    expect(matchShortcut(key({ key: 'F4', code: 'F4', shiftKey: true }), true)).toBe(
+      'prevSearchHit',
+    )
+    expect(matchShortcut(key({ key: 'F4', code: 'F4', altKey: true }), false)).toBeNull()
+    expect(matchShortcut(key({ key: 'F4', code: 'F4', ctrlKey: true }), false)).toBeNull()
+  })
+
+  it('does not reuse a chord another command owns', () => {
+    const labels = Object.values(IDE_SHORTCUTS).map((k) => formatShortcut(k, true))
+    expect(new Set(labels).size).toBe(labels.length)
+    expect(formatShortcut(IDE_SHORTCUTS.findInFiles, true)).toBe('⇧⌘F')
+    expect(formatShortcut(IDE_SHORTCUTS.nextSearchHit, true)).toBe('F4')
+  })
+})

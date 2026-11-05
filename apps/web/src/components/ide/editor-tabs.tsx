@@ -190,7 +190,7 @@ function EditorTab({
         aria-label={`Close ${basename(path)}`}
         onClick={handleClose}
         className={cn(
-          'ml-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground/60 transition-opacity hover:bg-muted/70 hover:text-foreground',
+          'ml-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-opacity hover:bg-muted/70 hover:text-foreground',
           active || dirty ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
         )}
       >

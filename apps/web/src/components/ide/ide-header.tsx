@@ -119,7 +119,7 @@ export function IdeHeader({
                 'h-8 gap-1.5 px-2 md:px-2.5',
                 dirtyCount > 0
                   ? 'text-foreground/70 hover:text-foreground'
-                  : 'text-muted-foreground/60',
+                  : 'text-muted-foreground',
               )}
             >
               {saving ? (
@@ -138,7 +138,7 @@ export function IdeHeader({
           <div className="hidden h-5 w-px shrink-0 bg-muted/70 sm:block" />
           <HeaderToggle
             active={explorerOpen}
-            title={`${explorerOpen ? 'Hide' : 'Show'} explorer (${hint('toggleExplorer')})`}
+            title={`${explorerOpen ? 'Hide' : 'Show'} side bar (${hint('toggleExplorer')})`}
             onClick={toggleExplorer}
           >
             <PanelLeft className="h-3.5 w-3.5" />

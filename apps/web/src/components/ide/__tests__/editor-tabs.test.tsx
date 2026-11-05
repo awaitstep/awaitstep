@@ -62,7 +62,7 @@ describe('closing a dirty tab', () => {
 describe('keyboard', () => {
   it('moves between tabs with the arrow keys and returns to the editor on Escape', async () => {
     const focus = vi.fn()
-    useIdeStore.getState().setEditorHandle({ focus, trigger: vi.fn() })
+    useIdeStore.getState().setEditorHandle({ focus, trigger: vi.fn(), searchSeed: () => null })
     renderTabs()
     const [first, second] = screen.getAllByRole('tab')
     second!.focus()
