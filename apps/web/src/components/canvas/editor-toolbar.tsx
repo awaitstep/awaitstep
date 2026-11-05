@@ -13,7 +13,6 @@ import {
   Circle,
   Undo2,
   Redo2,
-  FileCode2,
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { WorkflowTitle } from '../workflows/workflow-title'
@@ -22,6 +21,7 @@ import { cn } from '../../lib/utils'
 import { useTemporalStore } from '../../stores/workflow-store'
 import { redoWithFeedback, undoWithFeedback } from './time-travel'
 import { useSwitchView } from '../../hooks/use-switch-view'
+import { ViewSwitch, type EditorView } from '../workflows/view-switch'
 
 export interface EditorToolbarProps {
   workflowId: string
@@ -143,6 +143,10 @@ export function EditorToolbar({
     void switchView('ide', { version: readOnly ? versionParam : undefined })
   }
 
+  function handleSelectView(view: EditorView) {
+    if (view === 'code') handleOpenCode()
+  }
+
   function handleOpenLatest() {
     void switchView('canvas')
   }
@@ -188,15 +192,7 @@ export function EditorToolbar({
               once. Switching away from a dirty canvas is blocked, so this
               raises the switch dialog rather than losing the graph. */}
           {!isNew && currentVersion > 0 && (
-            <button
-              type="button"
-              onClick={handleOpenCode}
-              title="Open the code workspace"
-              className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground/70 md:px-2.5"
-            >
-              <FileCode2 className="h-3.5 w-3.5" />
-              <span className="hidden text-xs md:inline">Code</span>
-            </button>
+            <ViewSwitch current="canvas" onSelect={handleSelectView} />
           )}
           {readOnly ? (
             <>

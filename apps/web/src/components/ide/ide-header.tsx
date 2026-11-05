@@ -7,7 +7,6 @@ import {
   PanelRight,
   Save,
   Search,
-  Workflow,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { IDE_SHORTCUTS, formatShortcut, type IdeShortcutId } from '../../lib/ide/shortcuts'
@@ -16,6 +15,7 @@ import { useSwitchView } from '../../hooks/use-switch-view'
 import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
 import { Button } from '../ui/button'
+import { ViewSwitch, type EditorView } from '../workflows/view-switch'
 import { WorkflowTitle } from '../workflows/workflow-title'
 import { WorkspaceChrome } from '../workflows/workspace-chrome'
 import { cn } from '../../lib/utils'
@@ -73,6 +73,10 @@ export function IdeHeader({
     void switchView('canvas', { version: versionParam })
   }
 
+  function handleSelectView(view: EditorView) {
+    if (view === 'canvas') handleOpenCanvas()
+  }
+
   function handleQuickOpen() {
     showDialog('quickOpen')
   }
@@ -102,18 +106,8 @@ export function IdeHeader({
       title={title}
       actions={
         <>
-          {/* Mirrors the canvas header's Code button, in the same slot. The
-              preview carries its own way over, but it can be closed — and
-              then the command palette was the only route left. */}
-          <button
-            type="button"
-            onClick={handleOpenCanvas}
-            title="Open the canvas, where the graph can be edited"
-            className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground/70 md:px-2.5"
-          >
-            <Workflow className="h-3.5 w-3.5" />
-            <span className="hidden text-xs md:inline">Canvas</span>
-          </button>
+          {/* The same control sits in the same slot on the canvas header. */}
+          <ViewSwitch current="code" onSelect={handleSelectView} />
           {canEdit && (
             <Button
               variant="ghost"
