@@ -1,41 +1,48 @@
 import type { ReactNode } from 'react'
 import { useLocation } from '@tanstack/react-router'
-import { ApiError, type WorkflowSummary } from '../../lib/api-client'
+import { useInfiniteQuery } from '@tanstack/react-query'
+import { useWorkflowRunCounts } from '../../data/dashboard/runs'
 import { useDataSource } from '../../data/dashboard/source'
+import { ApiError, type WorkflowSummary } from '../../lib/api-client'
 import { workspacePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
-import { useWorkflowLinks } from '../../lib/workflows/detail-links'
+import { flatPages, queries } from '../../lib/queries'
 import { useInOtherWorkspace, useRouteScopeReady } from '../../lib/workflows/route-scope'
 import type { ItemDetailPage } from '../navigation/dashboard-page'
 import { ItemPlaceholder } from '../navigation/item-placeholder'
-import { EditableDescription, EditableName } from '../overview/editable-field'
 import { PageBody } from '../shell/page-intro'
-import { Badge } from '../ui/badge'
-import { LinkTabs, type LinkTab } from '../ui/link-tabs'
 import { NotFoundView } from '../ui/not-found-view'
 import { DetailSkeleton, LoadingRegion } from '../ui/skeletons'
-import { FUNCTION_BADGE_TITLE } from '../workflows/function-copy'
-import { useWorkflowOverview, type WorkflowOverview } from './use-workflow-overview'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
-import { WorkflowActions } from './workflow-actions'
-
-const PAGES_WITHOUT_ACTIONS: ReadonlySet<ItemDetailPage> = new Set(['deploy', 'run'])
+import { ItemHeader } from './item-header'
+import { useDeploymentAccounts } from './use-deployment-accounts'
+import { useWorkflowOverview, type WorkflowOverview } from './use-workflow-overview'
 
 /** Gone, or never this project's: the API says 404 for both. */
 function isMissing(error: Error): boolean {
   return error instanceof ApiError && error.status === 404
 }
 
+/** What every one of an item's pages has to hand. */
+export interface ItemPageData {
+  workflow: WorkflowSummary
+  overview: WorkflowOverview
+  /** Names of the accounts its deployments went out on. */
+  accounts: Map<string, string>
+  /** Runs in the last 24 hours, by result, when known. */
+  runs24h?: { all: number; failed: number }
+}
+
 interface ItemPageProps {
   slugs: WorkspaceSlugs
   workflowId: string
   page: ItemDetailPage
-  children: (props: { workflow: WorkflowSummary; overview: WorkflowOverview }) => ReactNode
+  children: (data: ItemPageData) => ReactNode
 }
 
 /**
- * A workflow or function's own page in its workspace: its name, actions and
- * tabs over the page's body. Nothing loads until API calls follow the URL's
- * project; sample data has no real item to show.
+ * A workflow or function's own page in its workspace (`WorkflowDetail`,
+ * `FunctionDetail`): its head over the page's body. Nothing loads until API
+ * calls follow the URL's project; sample data has no real item to show.
  */
 export function ItemPage({ slugs, workflowId, page, children }: ItemPageProps) {
   const source = useDataSource()
@@ -43,12 +50,22 @@ export function ItemPage({ slugs, workflowId, page, children }: ItemPageProps) {
   const overview = useWorkflowOverview(workflowId, ready)
   const { workflow } = overview
   const inOtherWorkspace = useInOtherWorkspace(workflow)
+  const isWorkflow = ready && !!workflow && workflow.kind !== 'script' && !inOtherWorkspace
+  const accounts = useDeploymentAccounts(workflowId, ready)
+  // Counted by the workspace's runs list, which keeps them to this workspace.
+  const runsDay = useWorkflowRunCounts(slugs, workflowId, { period: '24h', enabled: isWorkflow })
+  const runsAll = useWorkflowRunCounts(slugs, workflowId, { enabled: isWorkflow })
+  const deployments = useInfiniteQuery({
+    ...queries.deployments.byWorkflow(workflowId),
+    enabled: ready && !!workflow,
+  })
   const { pathname } = useLocation()
 
   if (source !== 'api') return <ItemPlaceholder slugs={slugs} itemId={workflowId} />
 
   let body: ReactNode
-  if (overview.isLoading) {
+  // A cached read naming another workspace may be from before a move: wait for the fresh one.
+  if (overview.isLoading || (inOtherWorkspace && overview.isFetching)) {
     body = (
       <LoadingRegion label="Loading">
         <DetailSkeleton />
@@ -73,64 +90,27 @@ export function ItemPage({ slugs, workflowId, page, children }: ItemPageProps) {
       />
     )
   } else {
+    const runs24h = runsDay.data
+      ? { all: runsDay.data.all, failed: runsDay.data.failed }
+      : undefined
+    const loadedDeploys = deployments.data ? flatPages(deployments.data).length : undefined
     body = (
       <>
-        <ItemHeader workflow={workflow} overview={overview} page={page} />
-        {children({ workflow, overview })}
+        <ItemHeader
+          slugs={slugs}
+          workflow={workflow}
+          overview={overview}
+          page={page}
+          counts={{
+            runs: runsAll.data?.all,
+            // Only once every page is in: a partial count would read as the total.
+            deployments: deployments.hasNextPage ? undefined : loadedDeploys,
+          }}
+        />
+        {children({ workflow, overview, accounts, runs24h })}
       </>
     )
   }
 
   return <PageBody>{body}</PageBody>
-}
-
-interface ItemHeaderProps {
-  workflow: WorkflowSummary
-  overview: WorkflowOverview
-  page: ItemDetailPage
-}
-
-function ItemHeader({ workflow, overview, page }: ItemHeaderProps) {
-  const links = useWorkflowLinks(workflow.id)
-  const isFunction = workflow.kind === 'script'
-  const tabs: LinkTab[] = [
-    { key: 'overview', label: 'Overview', href: links.overview },
-    // A function answers straight away: it has no runs to list.
-    ...(isFunction ? [] : [{ key: 'runs', label: 'Runs', href: links.runs }]),
-    { key: 'deployments', label: 'Deployments', href: links.deployments },
-  ]
-  // A run is one of the Runs tab's; Deploy is none of them.
-  const activeKey = page === 'run' ? 'runs' : page
-
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <EditableName workflowId={workflow.id} initialValue={workflow.name} />
-            {isFunction && (
-              <Badge
-                variant="outline"
-                className="shrink-0 uppercase tracking-wide"
-                title={FUNCTION_BADGE_TITLE}
-              >
-                Function
-              </Badge>
-            )}
-          </div>
-          {page === 'overview' && (
-            <EditableDescription
-              workflowId={workflow.id}
-              initialValue={workflow.description ?? ''}
-            />
-          )}
-        </div>
-        {/* Deploy is the action itself; a run has its own (pause, resume, stop). */}
-        {!PAGES_WITHOUT_ACTIONS.has(page) && (
-          <WorkflowActions workflow={workflow} overview={overview} />
-        )}
-      </div>
-      <LinkTabs label="Workflow pages" tabs={tabs} activeKey={activeKey} />
-    </div>
-  )
 }

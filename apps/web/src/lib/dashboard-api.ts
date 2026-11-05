@@ -326,6 +326,8 @@ export interface ApiRunFilter {
   result?: 'succeeded' | 'failed' | 'running'
   period?: '24h' | '7d' | '30d'
   search?: string
+  /** One workflow's runs in the workspace. */
+  workflowId?: string
   cursor?: string
   limit?: number
 }

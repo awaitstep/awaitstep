@@ -42,10 +42,19 @@ export function useWorkflowOverview(workflowId: string, ready: boolean) {
     () => deployments?.find((d) => d.status === 'success'),
     [deployments],
   )
-  const deployedVersion = useMemo(
-    () => versions.find((v) => v.id === activeDeployment?.versionId),
-    [versions, activeDeployment],
-  )
+  // The deployment row carries its version's number and lock, so the live version is
+  // known even when it is older than the versions loaded so far.
+  const deployedVersion = useMemo(() => {
+    if (!activeDeployment?.versionId) return undefined
+    if (activeDeployment.version != null) {
+      return {
+        id: activeDeployment.versionId,
+        version: activeDeployment.version,
+        locked: activeDeployment.versionLocked ?? 0,
+      }
+    }
+    return versions.find((v) => v.id === activeDeployment.versionId)
+  }, [versions, activeDeployment])
   const hasActiveDeployment = !!activeDeployment
 
   return {

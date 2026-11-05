@@ -1,7 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
 import { ItemPage } from '../../components/workflow-detail/item-page'
-import { OverviewSummary } from '../../components/workflow-detail/overview-summary'
+import { FunctionBody } from '../../components/workflow-detail/function-body'
+import { OverviewBody } from '../../components/workflow-detail/overview-body'
 
 const page: DashboardPage = { kind: 'item', page: 'overview' }
 
@@ -15,7 +16,9 @@ function OverviewRoute() {
   const { id, ...slugs } = Route.useParams()
   return (
     <ItemPage slugs={slugs} workflowId={id} page="overview">
-      {(props) => <OverviewSummary {...props} />}
+      {(data) =>
+        data.workflow.kind === 'script' ? <FunctionBody {...data} /> : <OverviewBody {...data} />
+      }
     </ItemPage>
   )
 }

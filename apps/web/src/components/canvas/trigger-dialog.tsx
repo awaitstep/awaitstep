@@ -4,10 +4,13 @@ import { useNavigate } from '@tanstack/react-router'
 import { useEditorScope } from '../../contexts/editor-scope-context'
 import { workflowLinks } from '../../lib/workflows/detail-links'
 import { useGoTo } from '../navigation/router-shell-link'
-import { Play, Loader2, AlertCircle, Copy, Check } from 'lucide-react'
-import * as Dialog from '@radix-ui/react-dialog'
+import { Play, Copy, Check } from 'lucide-react'
 import { Button } from '../ui/button'
+import { FormField } from '../ui/form-field'
+import { ModalDialog } from '../ui/modal-dialog'
 import { Select } from '../ui/select'
+import { Textarea } from '../ui/textarea'
+import { Tile } from '../ui/tile'
 import { runAction, failureLine } from '../../lib/action-toast'
 import { api } from '../../lib/api-client'
 import { queries } from '../../lib/queries'
@@ -24,6 +27,8 @@ interface TriggerDialogProps {
   deploymentId?: string
   /** When provided, shows a workflow selector (e.g. from the /runs page). */
   workflows?: WorkflowOption[]
+  /** The deployed version's number, for "Runs v12, the deployed version." */
+  deployedVersion?: number
 }
 
 export function TriggerDialog({
@@ -31,6 +36,7 @@ export function TriggerDialog({
   workflowId: initialWorkflowId,
   deploymentId,
   workflows,
+  deployedVersion,
 }: TriggerDialogProps) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -91,6 +97,8 @@ export function TriggerDialog({
       )
       queryClient.invalidateQueries({ queryKey: ['workflow-runs', selectedWorkflowId] })
       queryClient.invalidateQueries({ queryKey: ['all-runs'] })
+      // The workflow page's run counts (its tab and the day's card).
+      queryClient.invalidateQueries({ queryKey: ['dash', 'workflow-run-counts'] })
       onClose()
       // In a workspace, the run just started opens; the old pages list all runs.
       if (scope) goTo(workflowLinks(scope, selectedWorkflowId).run(run.id))
@@ -115,106 +123,116 @@ export function TriggerDialog({
   }, [deploymentId, paramsJson])
 
   function handleOpenChange(v: boolean) {
-    if (!v) onClose()
+    if (!v && !triggering) onClose()
   }
 
+  const description =
+    deployedVersion !== undefined
+      ? `Runs v${deployedVersion}, the deployed version.`
+      : 'Runs the deployed version.'
+
   return (
-    <Dialog.Root defaultOpen onOpenChange={handleOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[480px] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg">
-          <Dialog.Title className="flex items-center gap-2 text-base font-semibold text-foreground">
-            <Play className="h-5 w-5" />
-            Trigger Workflow
-          </Dialog.Title>
+    <ModalDialog
+      open
+      onOpenChange={handleOpenChange}
+      size="md"
+      leading={
+        <Tile tone="ok" size="lg">
+          <Play />
+        </Tile>
+      }
+      title="Trigger a run"
+      description={description}
+      footerStart={
+        <span className="text-xs text-muted-foreground">It appears in Runs straight away.</span>
+      }
+      actions={
+        <>
+          <Button type="button" variant="outline" onClick={onClose} disabled={triggering}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleTrigger}
+            disabled={!connectionId || !!jsonError}
+            loading={triggering}
+          >
+            Trigger
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4.5">
+        {workflows && workflows.length > 0 && (
+          <FormField label="Workflow">
+            <Select
+              aria-label="Workflow"
+              value={selectedWorkflowId}
+              onValueChange={handleWorkflowChange}
+              options={workflows.map((w) => ({ value: w.id, label: w.name }))}
+            />
+          </FormField>
+        )}
 
-          <div className="mt-4 space-y-4">
-            {workflows && workflows.length > 0 && (
-              <div>
-                <label className="mb-1 block text-xs text-muted-foreground">Workflow</label>
-                <Select
-                  value={selectedWorkflowId}
-                  onValueChange={handleWorkflowChange}
-                  options={workflows.map((w) => ({ value: w.id, label: w.name }))}
-                  className="w-full"
-                />
-              </div>
-            )}
+        {connections && connections.length > 0 ? (
+          <FormField label="Connection" hint="Where this run executes.">
+            <Select
+              aria-label="Connection"
+              value={connectionId}
+              onValueChange={setPicked}
+              options={connections.map((c) => ({ value: c.id, label: c.name }))}
+            />
+          </FormField>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            This workflow isn’t deployed yet. Deploy it first.
+          </p>
+        )}
 
-            {connections && connections.length > 0 ? (
-              <div>
-                <label className="mb-1 block text-xs text-muted-foreground">Connection</label>
-                <Select
-                  value={connectionId}
-                  onValueChange={setPicked}
-                  options={connections.map((c) => ({ value: c.id, label: c.name }))}
-                  className="w-full"
-                />
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                This workflow isn’t deployed yet. Deploy it first.
-              </p>
-            )}
+        <FormField
+          label="Payload (JSON)"
+          hint="The workflow reads it as the trigger input."
+          error={jsonError ?? undefined}
+        >
+          <Textarea
+            value={paramsJson}
+            onChange={(e) => handleParamsChange(e.target.value)}
+            spellCheck={false}
+            rows={6}
+            className="resize-none font-mono text-xs"
+            placeholder='{ "key": "value" }'
+          />
+        </FormField>
 
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <label className="text-xs text-muted-foreground">Trigger Payload (JSON)</label>
-                {jsonError && (
-                  <span className="flex items-center gap-1 text-xs text-status-error">
-                    <AlertCircle className="h-3 w-3" />
-                    {jsonError}
-                  </span>
-                )}
-              </div>
-              <textarea
-                value={paramsJson}
-                onChange={(e) => handleParamsChange(e.target.value)}
-                spellCheck={false}
-                className="h-40 w-full rounded-md border border-border bg-muted/40 p-3 font-mono text-xs text-foreground placeholder:text-muted-foreground/40 focus:border-primary/40 focus:outline-none"
-                placeholder='{ "key": "value" }'
-              />
-            </div>
-
-            {deploymentId && (
-              <div>
-                <div className="mb-1 flex items-center justify-between">
-                  <label className="text-xs text-muted-foreground">Curl Command</label>
-                  <button
-                    onClick={handleCopyCurl}
-                    className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground"
-                  >
-                    {curlCopied ? (
-                      <Check className="h-3 w-3 text-status-success" />
-                    ) : (
-                      <Copy className="h-3 w-3" />
-                    )}
-                    {curlCopied ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
-                <pre className="overflow-x-auto rounded-lg border border-border bg-muted/30 p-2.5 text-xs text-muted-foreground">
-                  {`curl -X POST https://${deploymentId}.workers.dev`}
-                </pre>
-              </div>
-            )}
-
-            {error && <p className="rounded bg-red-500/10 p-2 text-xs text-red-300">{error}</p>}
-
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                disabled={!connectionId || !!jsonError || triggering}
-                onClick={handleTrigger}
+        {deploymentId && (
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-foreground">Curl command</span>
+              <button
+                type="button"
+                onClick={handleCopyCurl}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
               >
-                {triggering ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Trigger'}
-              </Button>
+                {curlCopied ? (
+                  <Check className="size-3 text-status-success" />
+                ) : (
+                  <Copy className="size-3" />
+                )}
+                {curlCopied ? 'Copied' : 'Copy'}
+              </button>
             </div>
+            <pre className="overflow-x-auto rounded-lg border border-border bg-muted/30 p-2.5 text-xs text-muted-foreground">
+              {`curl -X POST https://${deploymentId}.workers.dev`}
+            </pre>
           </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+        )}
+
+        {error && (
+          <p role="alert" className="text-xs text-status-error">
+            {error}
+          </p>
+        )}
+      </div>
+    </ModalDialog>
   )
 }

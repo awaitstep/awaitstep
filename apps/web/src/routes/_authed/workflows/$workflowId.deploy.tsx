@@ -4,13 +4,15 @@ import { PageHeader } from '../../../components/ui/page-header'
 import { LoadingView } from '../../../components/ui/loading-view'
 import { DetailSkeleton } from '../../../components/ui/skeletons'
 import { RequireProject } from '../../../wrappers/require-project'
-import { DeployPage } from '../../../components/deploy/deploy-page'
-import { DEPLOY_INTRO } from '../../../components/deploy/deploy-copy'
+import { DeployBody } from '../../../components/workflow-detail/deploy-body'
+import { parseDeploySearch } from '../../../lib/workflows/deploy-search'
 import { api } from '../../../lib/api-client'
 import { useOrgReady } from '../../../stores/org-store'
 
 export const Route = createFileRoute('/_authed/workflows/$workflowId/deploy')({
   head: () => ({ meta: [{ title: 'Deploy | AwaitStep' }] }),
+  // `?version=`: deploy that version (Deploy this version), not the current one.
+  validateSearch: parseDeploySearch,
   component: DeployRoute,
 })
 
@@ -24,6 +26,7 @@ function DeployRoute() {
 
 function DeployRouteContent() {
   const { workflowId } = useParams({ from: '/_authed/workflows/$workflowId/deploy' })
+  const { version } = Route.useSearch()
   const ready = useOrgReady()
   const { data: workflow, isLoading } = useQuery({
     queryKey: ['workflow', workflowId],
@@ -41,12 +44,10 @@ function DeployRouteContent() {
           { label: 'Deploy' },
         ]}
       />
-      <p className="mt-4 text-sm text-muted-foreground">
-        {DEPLOY_INTRO[workflow?.kind ?? 'workflow']}
-      </p>
-      <div className="pt-5">
+      <div className="pt-4">
         <LoadingView isLoading={isLoading || !ready} LoadingPlaceholder={DetailSkeleton}>
-          <DeployPage workflowId={workflowId} kind={workflow?.kind} />
+          {/* Says which version goes out, as the workspace's Deploy does. */}
+          {workflow && <DeployBody workflow={workflow} versionId={version} />}
         </LoadingView>
       </div>
     </div>

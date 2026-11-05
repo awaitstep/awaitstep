@@ -12,6 +12,7 @@ describe('workflowLinks', () => {
     expect(links.run('run_9')).toBe(`${base}/runs/run_9`)
     expect(links.deployments).toBe(`${base}/deployments`)
     expect(links.deploy).toBe(`${base}/deploy`)
+    expect(links.deployVersion('v 9')).toBe(`${base}/deploy?version=v+9`)
     expect(links.editor('ide')).toBe(`${base}?view=ide`)
     expect(links.editor('canvas', { version: 'v 1' })).toBe(`${base}?view=canvas&version=v+1`)
   })
@@ -23,6 +24,7 @@ describe('workflowLinks', () => {
     expect(links.run('run_9')).toBe('/runs/run_9?workflowId=wf_1')
     expect(links.deployments).toBe('/workflows/wf_1/deployments')
     expect(links.deploy).toBe('/workflows/wf_1/deploy')
+    expect(links.deployVersion('v9')).toBe('/workflows/wf_1/deploy?version=v9')
     expect(links.editor('canvas')).toBe('/workflows/wf_1/editor?view=canvas')
   })
 

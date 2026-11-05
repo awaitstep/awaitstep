@@ -39,7 +39,10 @@ export function ScopedWorkflowEditor({
   const { pathname } = useLocation()
 
   if (source !== 'api') return <ItemPlaceholder slugs={slugs} itemId={workflowId} />
-  if (!ready) return search.view === 'ide' ? <IdeSkeleton /> : <CanvasSkeleton />
+  // A cached read naming another workspace may be from before a move: wait for the fresh one.
+  if (!ready || (inOtherWorkspace && workflow.isFetching)) {
+    return search.view === 'ide' ? <IdeSkeleton /> : <CanvasSkeleton />
+  }
   if (inOtherWorkspace) {
     return (
       <PageBody>

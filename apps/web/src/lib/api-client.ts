@@ -157,6 +157,8 @@ export interface WorkflowSummary {
   lastRunAt?: string | null
   /** The workspace it lives in; every workflow has one since workspaces (B1). */
   workspaceId?: string
+  /** Set while it's shared to the project (who shared it). */
+  sharedBy?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -168,6 +170,8 @@ export interface WorkflowVersion {
   ir: string
   locked: number
   createdAt: string
+  /** In a list: who saved it last; null before authors were kept (or once they're removed). */
+  createdByName?: string | null
 }
 
 export interface VersionSummary {
@@ -175,6 +179,8 @@ export interface VersionSummary {
   version: number
   locked: number
   createdAt: string
+  /** Who saved it last; null before authors were kept (or once they're removed). */
+  createdByName?: string | null
 }
 
 export interface DeploymentSummary {
@@ -187,6 +193,11 @@ export interface DeploymentSummary {
   status: string
   error: string | null
   createdAt: string
+  /** Who deployed it; null before authors were kept (or once they're removed). */
+  createdByName?: string | null
+  /** In a list: its version's number and lock (1 locked), null once that version is gone. */
+  version?: number | null
+  versionLocked?: number | null
 }
 
 export interface WorkflowFull {

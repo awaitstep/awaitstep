@@ -42,6 +42,23 @@ export function useWorkspaceRuns(slugs: Required<ScopeSlugs>, filter: RunFilter 
   })
 }
 
+/**
+ * How many runs one workflow has, by result: over the last 24 hours, or
+ * all time. Only its workspace's API answers it; reads wait for `enabled`.
+ */
+export function useWorkflowRunCounts(
+  slugs: Required<ScopeSlugs>,
+  workflowId: string,
+  { period, enabled = true }: { period?: '24h'; enabled?: boolean } = {},
+) {
+  return useQuery({
+    queryKey: dashKeys.workflowRunCounts(slugs, workflowId, period ?? 'all'),
+    queryFn: () =>
+      dashboardApi.listRuns(slugs, { workflowId, period, limit: 1 }).then((page) => page.counts),
+    enabled,
+  })
+}
+
 /** Org home "Failing now", across every project and workspace the viewer can open. */
 export function useFailingNow(org: string) {
   const source = useDataSource()

@@ -71,6 +71,8 @@ export function VersionList({
       api.lockVersion(workflowId, versionId, locked),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['versions', workflowId] })
+      // The deployed version's lock also rides on its deployment row.
+      queryClient.invalidateQueries({ queryKey: ['deployments', workflowId] })
     },
   })
 
@@ -132,7 +134,7 @@ export function VersionList({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       {!isActive && !isLocked && !deployBlocked && (
-                        <DropdownMenuItem onSelect={() => goTo(links.deploy)}>
+                        <DropdownMenuItem onSelect={() => goTo(links.deployVersion(v.id))}>
                           <Rocket className="h-3.5 w-3.5" />
                           Deploy this version
                         </DropdownMenuItem>

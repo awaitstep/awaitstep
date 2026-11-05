@@ -10,6 +10,8 @@ export interface WorkflowLinks {
   run: (runId: string) => string
   deployments: string
   deploy: string
+  /** Deploy, set to one version rather than the current one. */
+  deployVersion: (versionId: string) => string
   /** The editor on a view, at an older version when one is named. */
   editor: (view: WorkspaceSurface, extra?: { version?: string }) => string
 }
@@ -35,6 +37,8 @@ export function workflowLinks(scope: WorkspaceSlugs | null, workflowId: string):
       run: (runId) => runPath(scope, item, runId),
       deployments: itemPagePath(scope, item, 'deployments'),
       deploy: itemPagePath(scope, item, 'deploy'),
+      deployVersion: (versionId) =>
+        `${itemPagePath(scope, item, 'deploy')}?${new URLSearchParams({ version: versionId })}`,
       editor: (view, extra) => `${itemPath(scope, item)}?${editorQuery(view, extra)}`,
     }
   }
@@ -45,6 +49,7 @@ export function workflowLinks(scope: WorkspaceSlugs | null, workflowId: string):
     run: (runId) => `/runs/${enc(runId)}?workflowId=${enc(workflowId)}`,
     deployments: `${base}/deployments`,
     deploy: `${base}/deploy`,
+    deployVersion: (versionId) => `${base}/deploy?${new URLSearchParams({ version: versionId })}`,
     editor: (view, extra) => `${base}/editor?${editorQuery(view, extra)}`,
   }
 }

@@ -12,6 +12,8 @@ const calls = vi.hoisted(() => ({
   createWorkflow: vi.fn(),
   deleteWorkflow: vi.fn(),
   getVersion: vi.fn(),
+  getDeployConnections: vi.fn(),
+  takedownDeployment: vi.fn(),
 }))
 
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => calls.navigate }))
@@ -21,6 +23,8 @@ vi.mock('../../../lib/api-client', () => ({
     createWorkflow: calls.createWorkflow,
     deleteWorkflow: calls.deleteWorkflow,
     getVersion: calls.getVersion,
+    getDeployConnections: calls.getDeployConnections,
+    takedownDeployment: calls.takedownDeployment,
     createVersion: vi.fn(),
   },
 }))
@@ -96,6 +100,23 @@ describe('WorkflowActionsMenu', () => {
       expect(calls.goTo).toHaveBeenCalledWith('/acme/core/sales/functions', { replace: true }),
     )
     expect(calls.navigate).not.toHaveBeenCalled()
+  })
+
+  it('takes it down from the account it went out with, not the org’s first', async () => {
+    calls.getDeployConnections.mockResolvedValue({
+      connections: [{ id: 'c-other' }],
+      defaultId: 'c-other',
+      deployedWith: [{ id: 'c-live', name: 'Acme production' }],
+    })
+    calls.takedownDeployment.mockResolvedValue({ success: true })
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <WorkflowActionsMenu workflow={WORKFLOW} isDeployed />
+      </QueryClientProvider>,
+    )
+    await choose('Take down')
+    await userEvent.click(await screen.findByRole('button', { name: 'Take down' }))
+    await waitFor(() => expect(calls.takedownDeployment).toHaveBeenCalledWith('wf_1', 'c-live'))
   })
 
   it('goes back to the old list on the old pages', async () => {

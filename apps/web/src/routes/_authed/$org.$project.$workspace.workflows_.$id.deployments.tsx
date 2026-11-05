@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
-import { DeploymentsPanel } from '../../components/workflow-detail/deployments-panel'
+import { DeploymentsTab } from '../../components/workflow-detail/deployments-tab'
 import { ItemPage } from '../../components/workflow-detail/item-page'
 
 const page: DashboardPage = { kind: 'item', page: 'deployments' }
@@ -17,7 +17,13 @@ function DeploymentsRoute() {
   const { id, ...slugs } = Route.useParams()
   return (
     <ItemPage slugs={slugs} workflowId={id} page="deployments">
-      {() => <DeploymentsPanel workflowId={id} ready />}
+      {({ overview, accounts }) => (
+        <DeploymentsTab
+          workflowId={id}
+          accounts={accounts}
+          deployBlocked={overview.deployBlocked}
+        />
+      )}
     </ItemPage>
   )
 }
