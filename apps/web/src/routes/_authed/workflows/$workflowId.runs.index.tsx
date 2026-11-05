@@ -1,14 +1,12 @@
-import { createFileRoute, useParams } from '@tanstack/react-router'
-import { RunsPanel } from '../../../components/workflow-detail/runs-panel'
-import { useOrgReady } from '../../../stores/org-store'
+import { createFileRoute } from '@tanstack/react-router'
+import { LegacyItemRedirect } from '../../../components/navigation/legacy-item-redirect'
 
+// Legacy URL: a workflow's Runs now lives at its workspace URL.
 export const Route = createFileRoute('/_authed/workflows/$workflowId/runs/')({
-  head: () => ({ meta: [{ title: 'Runs | AwaitStep' }] }),
-  component: RunsListPage,
+  component: LegacyRuns,
 })
 
-function RunsListPage() {
-  const { workflowId } = useParams({ from: '/_authed/workflows/$workflowId/runs/' })
-  const ready = useOrgReady()
-  return <RunsPanel workflowId={workflowId} ready={ready} />
+function LegacyRuns() {
+  const { workflowId } = Route.useParams()
+  return <LegacyItemRedirect workflowId={workflowId} page={{ kind: 'runs' }} />
 }

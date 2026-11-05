@@ -98,8 +98,8 @@ describe('ScopedWorkflowEditor', () => {
     expect(screen.getByText('editor wf_1')).toBeVisible()
   })
 
-  it('says sample items don’t open, on sample data', () => {
+  it('shows sample items as not found: they have no backend to open', () => {
     renderAt('mock')
-    expect(screen.getByRole('heading', { name: 'This is sample data' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'We can’t find that page' })).toBeVisible()
   })
 })

@@ -11,8 +11,8 @@ import { DeployLink, deployBlockedReason } from './deploy-link'
 interface VersionsCardProps {
   /** Where a version opens: the editor at that version. */
   versionHref: (versionId: string) => string
-  /** Deploy, set to that version. */
-  deployHref: (versionId: string) => string
+  /** Deploy, set to that version; left out for someone who can't deploy. */
+  deployHref?: (versionId: string) => string
   versions: VersionSummary[]
   /** The live one: tagged "deployed", with nothing to deploy. */
   deployedVersionId: string | undefined
@@ -71,7 +71,7 @@ export function VersionsCard({
                   {v.createdByName ?? ''}
                 </span>
                 <span className="text-xs text-muted-foreground">{timeAgo(v.createdAt)}</span>
-                {!live && (
+                {!live && deployHref && (
                   <DeployLink
                     href={deployHref(v.id)}
                     label="Deploy"

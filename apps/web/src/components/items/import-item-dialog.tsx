@@ -1,8 +1,11 @@
 import { useId, useState, type ChangeEvent, type SubmitEvent } from 'react'
 import { Upload } from 'lucide-react'
 import { useImportItem } from '../../data/dashboard/items'
-import { workspacePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
+import { useDataSource } from '../../data/dashboard/source'
+import { itemPath, workspacePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
+import { MAX_IMPORT_BYTES, TOO_LARGE } from '../../lib/workflows/import-file'
 import type { WorkspaceItem } from '../../types/dashboard/items'
+import { useGoTo } from '../navigation/router-shell-link'
 import { Button } from '../ui/button'
 import { FormField } from '../ui/form-field'
 import { Input } from '../ui/input'
@@ -16,25 +19,44 @@ interface ImportItemDialogProps {
   slugs: WorkspaceSlugs
 }
 
-/** Import: an exported workflow file becomes a draft in this workspace (D-P2-2). */
+/**
+ * Import: an exported workflow file becomes a draft in this workspace (D-P2-2).
+ * On the real backend it opens in the editor; sample items have no editor, so
+ * the dialog closes (or says where a function went) instead.
+ */
 export function ImportItemDialog({ open, onOpenChange, slugs }: ImportItemDialogProps) {
   const formId = useId()
-  const importItem = useImportItem(slugs)
+  const goTo = useGoTo()
+  const opensEditor = useDataSource() === 'api'
+  const importItem = useImportItem(slugs, { onImported: opensEditor ? openImported : undefined })
   const [file, setFile] = useState<File | null>(null)
   // A function export lands on Functions, not on the Workflows list behind
   // the dialog, so the dialog stays to say where it went.
   const [importedFunction, setImportedFunction] = useState<WorkspaceItem | null>(null)
+  const [tooLarge, setTooLarge] = useState(false)
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     setFile(event.target.files?.[0] ?? null)
+    setTooLarge(false)
     importItem.reset()
   }
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
     if (!file) return
+    if (file.size > MAX_IMPORT_BYTES) {
+      setTooLarge(true)
+      return
+    }
     const content = await file.text()
-    importItem.mutate({ fileName: file.name, content }, { onSuccess: handleImported })
+    importItem.mutate(
+      { fileName: file.name, content },
+      { onSuccess: opensEditor ? undefined : handleImported },
+    )
+  }
+
+  function openImported(item: WorkspaceItem) {
+    goTo(itemPath(slugs, item))
   }
 
   function handleImported(item: WorkspaceItem) {
@@ -89,7 +111,7 @@ export function ImportItemDialog({ open, onOpenChange, slugs }: ImportItemDialog
           <FormField
             label="Workflow file"
             hint="A .json file exported from AwaitStep."
-            error={importItem.error?.message}
+            error={tooLarge ? TOO_LARGE : importItem.error?.message}
             required
           >
             <Input type="file" accept=".json,application/json" onChange={handleFileChange} />

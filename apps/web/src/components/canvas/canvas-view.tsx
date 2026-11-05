@@ -30,6 +30,7 @@ import { buildIRFromState } from '../../lib/build-ir'
 import { serializeArtifact } from '@awaitstep/ir'
 import { downloadJsonFile } from '../../lib/download-file'
 import { useApi, useApiReady } from '../../contexts/api-client-context'
+import { useEditorAccess } from '../../contexts/editor-scope-context'
 
 const LazyReactFlowProvider = lazy(() =>
   import('@xyflow/react').then((m) => ({ default: m.ReactFlowProvider })),
@@ -113,11 +114,14 @@ export function CanvasView({
   }, [workflowError])
 
   // Derive state from query data
-  const { isReadOnly, readOnlyVersion } = deriveReadOnlyState(
+  const { isReadOnly: isOlderVersion, readOnlyVersion } = deriveReadOnlyState(
     versionParam,
     fullData?.workflow?.currentVersionId,
     fullData?.versions,
   )
+  // A Viewer sees the latest version as it is, with nothing to change or save.
+  const access = useEditorAccess()
+  const isReadOnly = isOlderVersion || !access.canEdit
   const { hasActiveDeployment, currentVersion, deployedVersion, hasUndeployedChanges } =
     deriveDeploymentState(fullData)
   const canPickTemplate = offersTemplates({ isNew, kindParam, fullData })
@@ -158,7 +162,18 @@ export function CanvasView({
       )
       clearWorkflowHistory()
     }
-  }, [workflowId, isNew, kindParam, nodeParam, fullData, setWorkflowId, isReadOnly, currentVersion])
+    // Keyed on the version, not on `isReadOnly`: a role change mid-session must
+    // not rebuild the store and drop unsaved edits (the API refuses the save).
+  }, [
+    workflowId,
+    isNew,
+    kindParam,
+    nodeParam,
+    fullData,
+    setWorkflowId,
+    isOlderVersion,
+    currentVersion,
+  ])
 
   // Persistence (save + deploy)
   const { handleSave, saveNow, handleDeploy, saveSilent, isSaving, lastSavedAt, saveError } =
@@ -261,6 +276,7 @@ export function CanvasView({
                 onOpenTemplatePicker={canPickTemplate ? handleOpenTemplatePicker : undefined}
                 readOnly={isReadOnly}
                 readOnlyVersion={readOnlyVersion}
+                viewOnlyReason={isOlderVersion ? undefined : (access.reason ?? undefined)}
                 versionParam={versionParam}
               />
               <div className="relative flex-1 overflow-hidden">
@@ -270,7 +286,7 @@ export function CanvasView({
                     <NodePalette onAddNode={handleAddNode} />
                   </div>
                 )}
-                {canPickTemplate && showTemplatePicker && (
+                {canPickTemplate && !isReadOnly && showTemplatePicker && (
                   <TemplatePicker onDismiss={() => setShowTemplatePicker(false)} />
                 )}
                 <BindingsPanel />

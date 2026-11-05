@@ -18,7 +18,9 @@ vi.mock('../../lib/action-toast', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   actionToast: { success: vi.fn(), error: mocks.toastError, info: vi.fn() },
 }))
-vi.mock('../../contexts/editor-scope-context', () => ({ useEditorScope: () => null }))
+vi.mock('../../contexts/editor-scope-context', () => ({
+  useItemSlugs: () => ({ org: 'acme', project: 'core', workspace: 'sales' }),
+}))
 vi.mock('../../components/navigation/router-shell-link', () => ({ useGoTo: () => vi.fn() }))
 
 const { useWorkflowPersistence } = await import('../use-workflow-persistence')

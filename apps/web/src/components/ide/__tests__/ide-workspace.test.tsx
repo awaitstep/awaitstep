@@ -14,6 +14,7 @@ import {
   WORKFLOW_ID,
 } from '../../../__tests__/fixtures/workspace-queries'
 import { IdeWorkspace } from '../ide-workspace'
+import { ItemTestScope } from '../../../__tests__/fixtures/item-scope'
 
 const blocker = vi.hoisted(() => ({
   status: 'idle' as 'idle' | 'blocked',
@@ -129,7 +130,9 @@ vi.mock('../canvas-preview', () => ({ CanvasPreview: () => null }))
 function mount(client = createWorkspaceClient(), id = WORKFLOW_ID) {
   const ui = (workflowId: string) => (
     <QueryClientProvider client={client}>
-      <IdeWorkspace workflowId={workflowId} />
+      <ItemTestScope>
+        <IdeWorkspace workflowId={workflowId} />
+      </ItemTestScope>
     </QueryClientProvider>
   )
   const view = render(ui(id))

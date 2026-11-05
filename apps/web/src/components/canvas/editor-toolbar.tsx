@@ -50,6 +50,8 @@ export interface EditorToolbarProps {
   onExport?: () => void
   readOnly?: boolean
   readOnlyVersion?: number
+  /** Read-only because the viewer's role can't edit (a Viewer), not because the version is old. */
+  viewOnlyReason?: string
   /** The `?version=` being viewed, carried over to the code workspace link. */
   versionParam?: string
 }
@@ -133,6 +135,7 @@ export function EditorToolbar({
   onExport,
   readOnly,
   readOnlyVersion,
+  viewOnlyReason,
   versionParam,
 }: EditorToolbarProps) {
   const switchView = useSwitchView(workflowId)
@@ -200,7 +203,29 @@ export function EditorToolbar({
               from a dirty canvas is blocked, so this raises the switch
               dialog rather than losing the graph. */}
           {!isNew && <ViewSwitch current="canvas" onSelect={handleSelectView} />}
-          {readOnly ? (
+          {readOnly && viewOnlyReason ? (
+            <>
+              <span
+                title={viewOnlyReason}
+                className="rounded bg-muted/70 px-2 py-1 text-xs font-medium text-muted-foreground"
+              >
+                View only
+              </span>
+              {/* Exporting only reads, so a Viewer keeps it. */}
+              {onExport && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  title="Export"
+                  className="hidden h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground/70 sm:inline-flex md:px-2.5"
+                  onClick={onExport}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span className="hidden text-xs md:inline">Export</span>
+                </Button>
+              )}
+            </>
+          ) : readOnly ? (
             <>
               <span className="hidden rounded bg-muted/70 px-2 py-1 text-xs font-medium text-muted-foreground sm:inline-block">
                 Read-only{readOnlyVersion ? ` · v${readOnlyVersion}` : ''}

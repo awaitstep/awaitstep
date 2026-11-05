@@ -1,13 +1,29 @@
 import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render } from '@testing-library/react'
-import { EditorScopeProvider } from '../../../../contexts/editor-scope-context'
+import {
+  EditorAccessProvider,
+  EditorScopeProvider,
+  type EditorAccess,
+} from '../../../../contexts/editor-scope-context'
 
 export const SLUGS = { org: 'acme', project: 'core', workspace: 'sales' }
 export const BASE = '/acme/core/sales/workflows/wf_1'
 
 /** Renders in the workspace with `pages` already loaded under each query key. */
-export function renderWithPages(ui: ReactNode, pages: Record<string, unknown[]>) {
+export const EDITOR: EditorAccess = { canEdit: true, canDeploy: true, reason: null }
+export const VIEWER: EditorAccess = {
+  canEdit: false,
+  canDeploy: false,
+  reason: 'Building, deploying and sharing need an Editor',
+}
+
+/** Renders a workflow page part in a workspace, as an Editor unless `access` says otherwise. */
+export function renderWithPages(
+  ui: ReactNode,
+  pages: Record<string, unknown[]>,
+  access: EditorAccess = EDITOR,
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
@@ -19,7 +35,9 @@ export function renderWithPages(ui: ReactNode, pages: Record<string, unknown[]>)
   }
   return render(
     <QueryClientProvider client={client}>
-      <EditorScopeProvider value={SLUGS}>{ui}</EditorScopeProvider>
+      <EditorScopeProvider value={SLUGS}>
+        <EditorAccessProvider value={access}>{ui}</EditorAccessProvider>
+      </EditorScopeProvider>
     </QueryClientProvider>,
   )
 }

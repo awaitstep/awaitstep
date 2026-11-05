@@ -6,6 +6,7 @@ import { DeployPage } from '../deploy/deploy-page'
 import { RouterShellLink } from '../navigation/router-shell-link'
 import { Bone } from '../ui/skeletons'
 import { useApi } from '../../contexts/api-client-context'
+import { useEditorAccess } from '../../contexts/editor-scope-context'
 
 function versionLine(version: WorkflowVersion, currentVersionId: string | null | undefined) {
   const latest = version.id === currentVersionId
@@ -26,12 +27,26 @@ interface DeployBodyProps {
 export function DeployBody({ workflow, versionId }: DeployBodyProps) {
   const api = useApi()
   const links = useWorkflowLinks(workflow.id)
+  const { canDeploy, reason } = useEditorAccess()
   const picked = useQuery({
     queryKey: ['workflow-version', workflow.id, versionId],
     queryFn: () => api.getVersion(workflow.id, versionId!),
-    enabled: !!versionId,
+    enabled: canDeploy && !!versionId,
     retry: false,
   })
+
+  // A Viewer reaching Deploy by its URL: the API would refuse at the end.
+  if (!canDeploy) {
+    return (
+      <p role="alert" className="text-sm text-muted-foreground">
+        {reason ?? 'You can’t deploy in this workspace.'}{' '}
+        <RouterShellLink href={links.overview} className="text-status-success hover:underline">
+          Back to the overview
+        </RouterShellLink>
+        .
+      </p>
+    )
+  }
 
   if (versionId && picked.isPending) return <Bone className="h-4 w-72" />
 

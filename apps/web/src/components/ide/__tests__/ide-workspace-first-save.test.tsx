@@ -8,6 +8,7 @@ import { useIdeStore } from '../../../stores/ide-store'
 import { useWorkflowStore } from '../../../stores/workflow-store'
 import { createWorkspaceClient, WORKFLOW_ID } from '../../../__tests__/fixtures/workspace-queries'
 import { IdeWorkspace } from '../ide-workspace'
+import { ItemTestScope } from '../../../__tests__/fixtures/item-scope'
 
 // The first save happens on the canvas, with this workspace closed: it is
 // mounted again on the stale blank cache and the refetch then lands. Mounted with
@@ -118,7 +119,9 @@ const GENERATED = [
 function renderWorkspace(client: ReturnType<typeof createWorkspaceClient>) {
   return render(
     <QueryClientProvider client={client}>
-      <IdeWorkspace workflowId={WORKFLOW_ID} />
+      <ItemTestScope>
+        <IdeWorkspace workflowId={WORKFLOW_ID} />
+      </ItemTestScope>
     </QueryClientProvider>,
   )
 }

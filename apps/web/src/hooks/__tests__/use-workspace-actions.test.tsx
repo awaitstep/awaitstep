@@ -7,6 +7,7 @@ import { useIdeExplorerStore } from '../../stores/ide-explorer-store'
 import { useIdeStore } from '../../stores/ide-store'
 import { useWorkspaceActions } from '../use-workspace-actions'
 import type { ProjectFilesController } from '../use-project-files'
+import { ItemTestScope } from '../../__tests__/fixtures/item-scope'
 
 const navigate = vi.hoisted(() => vi.fn())
 const back = vi.hoisted(() => vi.fn())
@@ -59,7 +60,9 @@ function setup(overrides: { canEdit?: boolean; wideEnough?: boolean } = {}) {
   }
   const client = new QueryClient()
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    <QueryClientProvider client={client}>
+      <ItemTestScope>{children}</ItemTestScope>
+    </QueryClientProvider>
   )
   const hook = renderHook(
     () =>

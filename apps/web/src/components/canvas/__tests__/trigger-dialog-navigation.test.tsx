@@ -7,11 +7,9 @@ import { TriggerDialog } from '../trigger-dialog'
 
 const calls = vi.hoisted(() => ({
   goTo: vi.fn(),
-  navigate: vi.fn(),
   trigger: vi.fn(),
 }))
 
-vi.mock('@tanstack/react-router', () => ({ useNavigate: () => calls.navigate }))
 vi.mock('../../navigation/router-shell-link', () => ({ useGoTo: () => calls.goTo }))
 vi.mock('../../../lib/api-client', () => ({
   api: { triggerWorkflow: calls.trigger, getDeployConnections: vi.fn() },
@@ -19,7 +17,7 @@ vi.mock('../../../lib/api-client', () => ({
 
 const SLUGS = { org: 'acme', project: 'core', workspace: 'sales' }
 
-function renderDialog(inWorkspace: boolean, deployedVersion?: number) {
+function renderDialog(deployedVersion?: number) {
   const client = new QueryClient()
   client.setQueryData(['deploy-connections', 'wf_1'], {
     connections: [],
@@ -31,14 +29,14 @@ function renderDialog(inWorkspace: boolean, deployedVersion?: number) {
       <TriggerDialog workflowId="wf_1" deployedVersion={deployedVersion} onClose={vi.fn()} />
     </QueryClientProvider>
   )
-  render(inWorkspace ? <EditorScopeProvider value={SLUGS}>{dialog}</EditorScopeProvider> : dialog)
+  render(<EditorScopeProvider value={SLUGS}>{dialog}</EditorScopeProvider>)
 }
 
 afterEach(() => vi.clearAllMocks())
 
 describe('TriggerDialog (WorkflowTrigger)', () => {
   it('names the version it runs, where, and what the payload is for', () => {
-    renderDialog(true, 12)
+    renderDialog(12)
     expect(screen.getByRole('dialog', { name: 'Trigger a run' })).toBeVisible()
     expect(screen.getByText('Runs v12, the deployed version.')).toBeVisible()
     expect(screen.getByText('Where this run executes.')).toBeVisible()
@@ -50,30 +48,21 @@ describe('TriggerDialog (WorkflowTrigger)', () => {
 describe('TriggerDialog after a trigger', () => {
   it('opens the run it just started, in the workspace', async () => {
     calls.trigger.mockResolvedValue({ id: 'run_7', instanceId: 'i', status: 'queued' })
-    renderDialog(true)
+    renderDialog()
     await userEvent.click(screen.getByRole('button', { name: 'Trigger' }))
     await waitFor(() =>
       expect(calls.goTo).toHaveBeenCalledWith('/acme/core/sales/workflows/wf_1/runs/run_7'),
     )
-    expect(calls.navigate).not.toHaveBeenCalled()
   })
 
   it('refreshes the workflow page’s run counts', async () => {
     calls.trigger.mockResolvedValue({ id: 'run_7', instanceId: 'i', status: 'queued' })
     const invalidate = vi.spyOn(QueryClient.prototype, 'invalidateQueries')
-    renderDialog(true)
+    renderDialog()
     await userEvent.click(screen.getByRole('button', { name: 'Trigger' }))
     await waitFor(() =>
       expect(invalidate).toHaveBeenCalledWith({ queryKey: ['dash', 'workflow-run-counts'] }),
     )
     invalidate.mockRestore()
-  })
-
-  it('goes to the old Runs list on the old pages', async () => {
-    calls.trigger.mockResolvedValue({ id: 'run_7', instanceId: 'i', status: 'queued' })
-    renderDialog(false)
-    await userEvent.click(screen.getByRole('button', { name: 'Trigger' }))
-    await waitFor(() => expect(calls.navigate).toHaveBeenCalledWith({ to: '/runs' }))
-    expect(calls.goTo).not.toHaveBeenCalled()
   })
 })

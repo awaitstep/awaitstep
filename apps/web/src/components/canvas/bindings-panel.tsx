@@ -112,10 +112,13 @@ export function BindingsPanel() {
   const workflowId = useWorkflowStore((s) => s.workflowId)
   const queryClient = useQueryClient()
   const switchView = useSwitchView(workflowId ?? 'new')
-  const canConsume = workflowId !== null && workflowId !== 'new'
+  const saved = workflowId !== null && workflowId !== 'new'
+  // Consuming writes project files: never on an older version or for a Viewer.
+  const readOnly = useWorkflowStore((s) => s.readOnly)
+  const canConsume = saved && !readOnly
   const { data: full } = useQuery({
-    ...queries.workflows.full(canConsume ? workflowId : ''),
-    enabled: canConsume,
+    ...queries.workflows.full(saved ? workflowId : ''),
+    enabled: saved,
   })
   const consumedQueues = full?.handlers.consumedQueues ?? []
 
@@ -263,7 +266,9 @@ export function BindingsPanel() {
                         title={
                           canConsume
                             ? `Create ${HANDLER_QUEUE_DIR}${queue}.ts`
-                            : 'Save the workflow first'
+                            : readOnly
+                              ? 'Read-only'
+                              : 'Save the workflow first'
                         }
                       >
                         <Plus className="h-3 w-3" />

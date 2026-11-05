@@ -5,7 +5,7 @@ import { parseDeploySearch } from '../../../lib/workflows/deploy-search'
 import type * as ApiClient from '../../../lib/api-client'
 import { ApiError } from '../../../lib/api-client'
 import { DeployBody } from '../deploy-body'
-import { BASE, renderWithPages } from './fixtures/workspace-pages'
+import { BASE, VIEWER, renderWithPages } from './fixtures/workspace-pages'
 
 const calls = vi.hoisted(() => ({ getVersion: vi.fn() }))
 
@@ -48,6 +48,15 @@ describe('DeployBody', () => {
       'That version isn’t one of this workflow’s.',
     )
     expect(screen.queryByText(/deploy form/)).not.toBeInTheDocument()
+  })
+
+  it('tells a Viewer they can’t deploy, instead of showing the form', () => {
+    renderWithPages(<DeployBody workflow={WORKFLOW} versionId="v-old" />, {}, VIEWER)
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Building, deploying and sharing need an Editor',
+    )
+    expect(screen.queryByText(/deploy form/)).not.toBeInTheDocument()
+    expect(calls.getVersion).not.toHaveBeenCalled()
   })
 
   it('deploys the current version without asking which, when the link names none', () => {

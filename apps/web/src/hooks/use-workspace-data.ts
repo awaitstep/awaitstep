@@ -2,7 +2,8 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { dirtyPaths } from '../lib/ide/drafts'
 import { countBySeverity, diagnosticProblems, groupProblems } from '../lib/ide/problems'
-import { fileEditability, workspaceEditability } from '../lib/ide/editability'
+import { VIEW_ONLY_MESSAGE, fileEditability, workspaceEditability } from '../lib/ide/editability'
+import { useEditorAccess } from '../contexts/editor-scope-context'
 import { buildFileTree } from '../lib/ide/file-tree'
 import { fileOwner, projectUsage, splitWorkspaceFiles, virtualSeedFiles } from '../lib/ide/project'
 import { formatClock } from '../lib/ide/session-log'
@@ -47,9 +48,16 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
     [source],
   )
 
+  const access = useEditorAccess()
   const workspace = useMemo(
-    () => (source ? workspaceEditability({ historical: isHistorical }) : null),
-    [source, isHistorical],
+    () =>
+      source
+        ? workspaceEditability({
+            historical: isHistorical,
+            roleRefusal: access.canEdit ? null : (access.reason ?? VIEW_ONLY_MESSAGE),
+          })
+        : null,
+    [source, isHistorical, access.canEdit, access.reason],
   )
   const canEdit = workspace !== null && !workspace.readOnly
 

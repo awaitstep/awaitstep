@@ -14,10 +14,9 @@ import {
 import { Button, buttonVariants } from '../ui/button'
 import { EmptyState } from '../ui/empty-state'
 import { projectPagePath } from '../../lib/dashboard-paths'
-import { useEditorScope } from '../../contexts/editor-scope-context'
+import { useItemSlugs } from '../../contexts/editor-scope-context'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { RouterShellLink } from '../navigation/router-shell-link'
-import { useOrgStore } from '../../stores/org-store'
 import { useDeployStream, type DeployProgress } from '../../hooks/use-deploy-stream'
 import { DeploymentConfigForm } from './deployment-config-form'
 import { cn } from '../../lib/utils'
@@ -41,22 +40,6 @@ interface DeployPageProps {
   kind?: 'workflow' | 'script'
 }
 
-/**
- * Where the project's Connections page is: the workspace URL's project when
- * deploying from one, else the switcher's (the old route sits under RequireProject).
- */
-function useProjectConnectionsHref(): string | null {
-  const scope = useEditorScope()
-  const fromStore = useOrgStore((s) => {
-    const org = s.organizations.find((o) => o.id === s.activeOrganizationId)
-    const project = s.projects.find((p) => p.id === s.activeProjectId)
-    return org && project
-      ? projectPagePath({ org: org.slug, project: project.slug }, 'connections')
-      : null
-  })
-  return scope ? projectPagePath(scope, 'connections') : fromStore
-}
-
 export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
   const api = useApi()
   const queries = useQueries()
@@ -64,7 +47,8 @@ export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
   // Only the project's accounts, with its workspace's (else the project's) default
   // chosen: the API refuses a deploy with any other (23a).
   const targets = useQuery({ ...queries.connections.forDeploy(workflowId), enabled: ready })
-  const connectionsHref = useProjectConnectionsHref()
+  const slugs = useItemSlugs()
+  const connectionsHref = projectPagePath(slugs, 'connections')
   const links = useWorkflowLinks(workflowId)
   const connections = targets.data?.connections
   const [step, setStep] = useState<StepKey>('connection')

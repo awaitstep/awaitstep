@@ -1,14 +1,4 @@
 /**
- * Routes that render without the app shell (no sidebar, no content container).
- * Both the authed layout and the workflow layout consult this single list so
- * the two escape hatches can never drift apart.
- */
-export const CHROMELESS_ROUTE_IDS: readonly string[] = [
-  '/_authed/workflows/$workflowId/editor',
-  '/_authed/workflows/$workflowId/deploy',
-]
-
-/**
  * Route subtrees that draw their own shell: the new dashboard (W1) brings its
  * rail and panel, so the old sidebar must not wrap it. `_orgless` is the new
  * dashboard's rail around top-level, org-less pages (your account, the API
@@ -44,6 +34,7 @@ export function sendsToDashboard(
   return loaderOrgs === 0 && storeOrgs === 0 && !drawsOwnShell(matches)
 }
 
+/** Whether the page renders without the old sidebar: the new dashboard draws its own shell. */
 export function isChromelessRoute(matches: ReadonlyArray<{ routeId: string }>): boolean {
-  return matches.some((m) => CHROMELESS_ROUTE_IDS.includes(m.routeId) || hasOwnShell(m.routeId))
+  return drawsOwnShell(matches)
 }

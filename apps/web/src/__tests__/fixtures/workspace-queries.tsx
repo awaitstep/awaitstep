@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { SourceFile } from '../../lib/api-client'
+import { ItemTestScope } from './item-scope'
 
 export const WORKFLOW_ID = 'wf_1'
 
@@ -53,6 +54,10 @@ export function seedWorkspaceQueries(client: QueryClient, options: SeedOptions =
 
 export function workspaceWrapper(client: QueryClient) {
   return function Wrapper({ children }: { children: ReactNode }) {
-    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    return (
+      <QueryClientProvider client={client}>
+        <ItemTestScope>{children}</ItemTestScope>
+      </QueryClientProvider>
+    )
   }
 }

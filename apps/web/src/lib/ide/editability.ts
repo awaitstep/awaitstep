@@ -9,18 +9,24 @@ export interface Editability {
 export interface WorkspaceContext {
   /** `?version=` points at an older version than the current one. */
   historical: boolean
+  /** Why the viewer's role refuses edits (a Viewer); absent when it allows them. */
+  roleRefusal?: string | null
 }
+
+/** Why a role that can't edit is refused, when the API gave no reason. */
+export const VIEW_ONLY_MESSAGE = 'You can view this workflow but not edit it.'
 
 const EDITABLE: Editability = { readOnly: false, message: null }
 
-/**
- * Whether the workspace as a whole accepts edits: only the current version
- * does. Older versions are frozen — they deploy the snapshot they were
- * saved with, so an edit there would have nowhere to land.
- */
 /** Why an older version cannot be edited; shown whichever file is open. */
 export const OLDER_VERSION_MESSAGE = 'Older versions are read-only. Open the latest to edit.'
 
+/**
+ * Whether the workspace as a whole accepts edits: only the current version
+ * does, and only for a role that may edit. Older versions are frozen — they
+ * deploy the snapshot they were saved with, so an edit there would have
+ * nowhere to land.
+ */
 export function workspaceEditability(ctx: WorkspaceContext): Editability {
   if (ctx.historical) {
     return {
@@ -28,6 +34,7 @@ export function workspaceEditability(ctx: WorkspaceContext): Editability {
       message: OLDER_VERSION_MESSAGE,
     }
   }
+  if (ctx.roleRefusal) return { readOnly: true, message: ctx.roleRefusal }
   return EDITABLE
 }
 

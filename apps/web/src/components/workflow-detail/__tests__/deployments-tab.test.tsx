@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import { DeploymentsTab } from '../deployments-tab'
-import { BASE, VERSIONS, renderWithPages } from './fixtures/workspace-pages'
+import { BASE, VERSIONS, VIEWER, renderWithPages } from './fixtures/workspace-pages'
 
 vi.mock('../../overview/deploy-action', () => ({
   DeployButton: () => <button type="button">Deploy</button>,
@@ -44,7 +44,12 @@ const ACCOUNTS = new Map([
   ['c-stage', 'Checkout staging'],
 ])
 
-function renderTab(deployments: unknown[], deployBlocked = false, neverDeployed = true) {
+function renderTab(
+  deployments: unknown[],
+  deployBlocked = false,
+  neverDeployed = true,
+  access = undefined as Parameters<typeof renderWithPages>[2],
+) {
   return renderWithPages(
     <DeploymentsTab
       workflow={WORKFLOW}
@@ -53,6 +58,7 @@ function renderTab(deployments: unknown[], deployBlocked = false, neverDeployed 
       neverDeployed={neverDeployed}
     />,
     { '["deployments","wf_1"]': deployments, '["versions","wf_1"]': VERSIONS },
+    access,
   )
 }
 
@@ -92,6 +98,19 @@ describe('DeploymentsTab (WorkflowDeployments)', () => {
     expect(
       screen.getByText('Rolling back redeploys that version. Nothing is deleted from Cloudflare.'),
     ).toBeVisible()
+  })
+
+  it('offers a Viewer no Roll back', () => {
+    renderTab(
+      [
+        deploy('d3', 'v3', 'success', 'c-prod', 'Ama Mensah'),
+        deploy('d2', 'v2', 'success', 'c-stage', null),
+      ],
+      false,
+      false,
+      VIEWER,
+    )
+    expect(screen.queryByRole('link', { name: 'Roll back' })).toBeNull()
   })
 
   it('holds Roll back while the deployed version is locked: a disabled button, not a link', () => {

@@ -9,6 +9,7 @@ import { StatusBand } from './parts/status-band'
 import { VersionsCard } from './parts/versions-card'
 import type { WorkflowOverview } from './use-workflow-overview'
 import { useQueries } from '../../contexts/api-client-context'
+import { useEditorAccess } from '../../contexts/editor-scope-context'
 
 interface OverviewBodyProps {
   workflow: WorkflowSummary
@@ -31,6 +32,7 @@ export function OverviewBody({
 }: OverviewBodyProps) {
   const queries = useQueries()
   const links = useWorkflowLinks(workflow.id)
+  const { canDeploy } = useEditorAccess()
   const { data: runs } = useInfiniteQuery({
     ...queries.runs.byWorkflow(workflow.id),
     select: (data) => flatPages(data),
@@ -56,7 +58,7 @@ export function OverviewBody({
         <div className="flex min-w-0 basis-[420px] grow-[1.3] flex-col [&>*]:flex-1">
           <VersionsCard
             versionHref={(versionId) => links.editor('canvas', { version: versionId })}
-            deployHref={links.deployVersion}
+            deployHref={canDeploy ? links.deployVersion : undefined}
             versions={overview.versions}
             deployedVersionId={live?.versionId}
             deployBlocked={overview.deployBlocked}

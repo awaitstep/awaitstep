@@ -1,23 +1,19 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { WorkflowEditor } from '../../../components/workflows/workflow-editor'
-import { getCanvasContext } from '../../../lib/workflows/canvas-context'
+import { LegacyItemRedirect } from '../../../components/navigation/legacy-item-redirect'
+import { LegacyRedirect } from '../../../components/navigation/legacy-redirect'
 import { parseEditorSearch } from '../../../lib/workflows/surfaces'
 
-// Canvas and Code are one editor: switching views changes `view` in place
-// (a replace navigation), so this route stays mounted and history gains no
-// entry. See useSwitchView.
+// Legacy URL: the editor now opens at the workflow's workspace URL, with the
+// same `?view=` / `?version=` / `?file=`.
 export const Route = createFileRoute('/_authed/workflows/$workflowId/editor')({
-  head: () => ({ meta: [{ title: 'Editor | AwaitStep' }] }),
-  component: EditorPage,
-  loader: () => getCanvasContext(),
-  // The flag is fixed for the server's lifetime; a view switch must not refetch it.
-  staleTime: Infinity,
   validateSearch: parseEditorSearch,
+  component: LegacyEditor,
 })
 
-function EditorPage() {
+function LegacyEditor() {
   const { workflowId } = Route.useParams()
   const search = Route.useSearch()
-  const { localDev } = Route.useLoaderData()
-  return <WorkflowEditor workflowId={workflowId} search={search} localDev={localDev} />
+  // The old unsaved `/workflows/new`: workflows are created from a workspace now.
+  if (workflowId === 'new') return <LegacyRedirect page="workflows" />
+  return <LegacyItemRedirect workflowId={workflowId} page={{ kind: 'editor', search }} />
 }

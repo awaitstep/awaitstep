@@ -17,21 +17,9 @@ describe('workflowLinks', () => {
     expect(links.editor('canvas', { version: 'v 1' })).toBe(`${base}?view=canvas&version=v+1`)
   })
 
-  it('stays on the old pages when there is no workspace', () => {
-    const links = workflowLinks(null, 'wf_1')
-    expect(links.overview).toBe('/workflows/wf_1')
-    expect(links.runs).toBe('/workflows/wf_1/runs')
-    expect(links.run('run_9')).toBe('/runs/run_9?workflowId=wf_1')
-    expect(links.deployments).toBe('/workflows/wf_1/deployments')
-    expect(links.deploy).toBe('/workflows/wf_1/deploy')
-    expect(links.deployVersion('v9')).toBe('/workflows/wf_1/deploy?version=v9')
-    expect(links.editor('canvas')).toBe('/workflows/wf_1/editor?view=canvas')
-  })
-
-  it('encodes ids on both', () => {
+  it('encodes ids', () => {
     expect(workflowLinks(SALES, 'wf/1').run('a b')).toBe(
       '/acme/project-101/sales/workflows/wf%2F1/runs/a%20b',
     )
-    expect(workflowLinks(null, 'wf/1').run('a&b')).toBe('/runs/a%26b?workflowId=wf%2F1')
   })
 })
