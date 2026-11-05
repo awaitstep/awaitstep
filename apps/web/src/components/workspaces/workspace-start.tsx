@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import { Cloud, Plus, Share2, Users, type LucideIcon } from 'lucide-react'
-import { useCreateItem } from '../../data/dashboard/items'
 import { useProjectConnections } from '../../data/dashboard/project-connections'
 import { useViewer } from '../../data/dashboard/session'
 import {
@@ -12,6 +11,7 @@ import {
 } from '../../lib/dashboard-paths'
 import type { SharedItem } from '../../types/dashboard/items'
 import type { Workspace } from '../../types/dashboard/workspaces'
+import { useNewItem } from '../items/use-new-item'
 import { ShellLink } from '../ui/shell-link'
 import { Bone } from '../ui/skeletons'
 import { Tile } from '../ui/tile'
@@ -48,19 +48,18 @@ function StartCardBody({ icon: Icon, title, body, cta }: StartCardBodyProps) {
 }
 
 function BlankCard({ slugs }: { slugs: WorkspaceSlugs }) {
-  const create = useCreateItem(slugs)
+  const newItem = useNewItem(slugs, { blank: true })
 
   function handleClick() {
-    create.mutate({ kind: 'workflow' })
+    newItem.start('workflow')
   }
 
   return (
-    // A second click while the first is in flight would make a second draft.
-    <button type="button" className={CARD} onClick={handleClick} disabled={create.isPending}>
+    <button type="button" className={CARD} onClick={handleClick} disabled={newItem.busy}>
       <StartCardBody
         icon={Plus}
         title="Start from blank"
-        body="An empty canvas with a webhook trigger already connected."
+        body="An empty canvas, no template."
         cta="New workflow →"
       />
     </button>

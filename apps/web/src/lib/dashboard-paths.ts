@@ -204,6 +204,20 @@ export function itemPath(slugs: WorkspaceSlugs, item: { id: string }): string {
   return `${projectPath(slugs)}/${segment(slugs.workspace)}/workflows/${segment(item.id)}`
 }
 
+/**
+ * Where a just-created item opens: its editor, on the template picker for a
+ * workflow, unless it starts `blank`. Templates are workflow-shaped, so a
+ * function opens straight on its canvas.
+ */
+export function newItemPath(
+  slugs: WorkspaceSlugs,
+  item: { id: string; kind: 'workflow' | 'script' },
+  options: { blank?: boolean } = {},
+): string {
+  const path = itemPath(slugs, item)
+  return item.kind === 'workflow' && !options.blank ? `${path}?template=1` : path
+}
+
 /** `/dashboard`: every organization you're in, invites waiting for you, Create an organization. */
 export function dashboardPath(): string {
   return '/dashboard'

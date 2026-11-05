@@ -181,8 +181,16 @@ export function useMoveWorkflows(slugs: WorkspaceSlugs) {
   })
 }
 
+interface CreateItemOptions {
+  /**
+   * Runs once it exists, before the lists refetch. It runs even if the
+   * button that asked has gone: the refetch can end the empty state it sat in.
+   */
+  onCreated?: (item: WorkspaceItem) => void
+}
+
 /** New workflow / New function: adds a draft at the top of its list. */
-export function useCreateItem(slugs: WorkspaceSlugs) {
+export function useCreateItem(slugs: WorkspaceSlugs, { onCreated }: CreateItemOptions = {}) {
   const source = useDataSource()
   const ctx = useMockContext()
   const client = useQueryClient()
@@ -217,7 +225,10 @@ export function useCreateItem(slugs: WorkspaceSlugs) {
               ),
             )
         : mockServer.items.createItem(ctx, slugs, input),
-    onSuccess: () => invalidateAll(client, itemKeys(slugs)),
+    onSuccess: (item) => {
+      onCreated?.(item)
+      return invalidateAll(client, itemKeys(slugs))
+    },
   })
 }
 

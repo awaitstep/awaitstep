@@ -3,6 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   PRIYA,
+  dashboardServer,
   renderWithDashboardData,
   dashboardDb,
   resetDashboardData,
@@ -12,10 +13,16 @@ import { WorkflowsPage } from '../../items/workflows-page'
 import { WorkspaceOverviewPage } from '../workspace-overview-page'
 import { WorkspacesPage } from '../../project-settings/workspaces-page'
 
+const goTo = vi.fn()
+vi.mock('../../navigation/router-shell-link', () => ({ useGoTo: () => goTo }))
+
 const sales = { org: 'acme', project: 'project-101', workspace: 'sales' }
 const support = { ...sales, workspace: 'support' }
 
-beforeEach(() => resetDashboardData(new Date()))
+beforeEach(() => {
+  resetDashboardData(new Date())
+  goTo.mockReset()
+})
 
 const card = (title: string) =>
   screen.getByRole('heading', { name: title }).closest('section') as HTMLElement
@@ -126,7 +133,7 @@ describe('an empty workspace', () => {
     expect(sharedIn).toHaveTextContent('Provision account · IT')
   })
 
-  it('creates its first workflow from the hero, which ends the welcome', async () => {
+  it('creates its first workflow from the hero and opens it on the template picker', async () => {
     renderWithDashboardData(
       <WorkflowsPage slugs={support} dialog={undefined} onCloseDialog={vi.fn()} />,
     )
@@ -134,6 +141,20 @@ describe('an empty workspace', () => {
     await userEvent.click(screen.getByRole('button', { name: 'New workflow' }))
     expect(await screen.findByRole('heading', { level: 1, name: 'Workflows' })).toBeVisible()
     expect(screen.getAllByText('Untitled workflow').length).toBeGreaterThan(0)
+    expect(goTo).toHaveBeenCalledWith(
+      expect.stringMatching(/^\/acme\/project-101\/support\/workflows\/[^/?]+\?template=1$/),
+    )
+  })
+
+  it('disables New function while New workflow is on its way, so one click makes one item', async () => {
+    vi.spyOn(dashboardServer.items, 'createItem').mockReturnValue(new Promise(() => {}))
+    renderWithDashboardData(
+      <WorkflowsPage slugs={support} dialog={undefined} onCloseDialog={vi.fn()} />,
+    )
+    await screen.findByRole('heading', { name: 'Nothing in Support yet' })
+    await userEvent.click(screen.getByRole('button', { name: 'New workflow' }))
+    expect(screen.getByRole('button', { name: 'New function' })).toBeDisabled()
+    vi.restoreAllMocks()
   })
 
   it('shows on any workspace under ?mock=empty', async () => {
@@ -178,6 +199,10 @@ describe('an empty workspace', () => {
     renderWithDashboardData(<WorkspaceOverviewPage slugs={support} />)
     await userEvent.click(await screen.findByRole('button', { name: /Start from blank/ }))
     expect(await screen.findByRole('link', { name: '1 Workflows' })).toBeVisible()
+    // Blank means blank: its editor opens without the template picker.
+    expect(goTo).toHaveBeenCalledWith(
+      expect.stringMatching(/^\/acme\/project-101\/support\/workflows\/[^/?]+$/),
+    )
     expect(screen.queryByRole('heading', { name: 'Start building in Support' })).toBeNull()
     expect(
       screen.getByText(
@@ -295,6 +320,29 @@ describe('a new project’s Workspaces page, /{org}/{project}/workspaces', () =>
     expect(screen.getByRole('link', { name: 'Add a workspace' })).toHaveAttribute(
       'href',
       '/acme/billing/workspaces?new=workspace',
+    )
+  })
+
+  it('opens the editor of the function New function creates, in the project’s only workspace', async () => {
+    const created = vi.fn()
+    const first = renderWithDashboardData(<CreateBilling onCreated={created} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Create Billing' }))
+    await waitFor(() => expect(created).toHaveBeenCalledWith('billing'))
+    first.unmount()
+
+    renderWithDashboardData(
+      <WorkspacesPage
+        slugs={{ org: 'acme', project: 'billing' }}
+        dialogOpen={false}
+        onDialogChange={vi.fn()}
+      />,
+    )
+    const newFunction = await screen.findByRole('button', { name: 'New function' })
+    await userEvent.click(newFunction)
+    await waitFor(() =>
+      expect(goTo).toHaveBeenCalledWith(
+        expect.stringMatching(/^\/acme\/billing\/default\/workflows\/[^/?]+$/),
+      ),
     )
   })
 

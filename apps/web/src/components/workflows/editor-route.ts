@@ -28,7 +28,8 @@ export async function openEditorScope(
   client: QueryClient = getQueryClient(),
   allowMock: boolean = ALLOW_MOCK_SOURCE,
 ): Promise<void> {
-  // Creating a workflow here comes with the dashboard's New workflow (Phase 2).
+  // The dashboard creates a workflow before opening it here, so there is no
+  // unsaved `/new` at a workspace URL.
   if (params.id === 'new') throw notFound()
   if (preload || dataSourceFor(search, allowMock) !== 'api') return
   const slugs = { org: params.org, project: params.project, workspace: params.workspace }
