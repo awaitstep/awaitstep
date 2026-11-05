@@ -30,7 +30,7 @@ describe('Runs page', () => {
     expect(first).toHaveTextContent('run_8f2c')
     expect(within(first).getByRole('link', { name: 'Lead enrichment' })).toHaveAttribute(
       'href',
-      expect.stringMatching(/^\/acme\/project-101\/sales\/workflows\/itm_/),
+      expect.stringMatching(/^\/acme\/project-101\/sales\/workflows\/itm_[^/]+\/overview$/),
     )
     // A workflow's run opens its own page, under the workflow.
     expect(within(first).getByRole('link', { name: 'run_8f2c' })).toHaveAttribute(

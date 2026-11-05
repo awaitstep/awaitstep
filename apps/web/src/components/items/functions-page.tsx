@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Info, Lock } from 'lucide-react'
 import { useWorkspaceItems } from '../../data/dashboard/items'
-import { itemPath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
+import { itemPagePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
 import type { WorkspaceItem } from '../../types/dashboard/items'
 import { Badge } from '../ui/badge'
 import { Banner } from '../ui/banner'
@@ -31,7 +31,7 @@ function functionColumns(slugs: WorkspaceSlugs): DataColumn<WorkspaceItem>[] {
           </Tile>
           <span className="flex min-w-0 flex-col gap-0.5">
             <ShellLink
-              href={itemPath(slugs, item)}
+              href={itemPagePath(slugs, item, 'overview')}
               className="w-fit truncate text-sm font-semibold text-foreground hover:underline"
             >
               {item.name}

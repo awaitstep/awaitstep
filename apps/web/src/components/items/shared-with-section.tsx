@@ -1,4 +1,4 @@
-import { itemPath, type ProjectSlugs } from '../../lib/dashboard-paths'
+import { itemPagePath, type ProjectSlugs } from '../../lib/dashboard-paths'
 import type { SharedItem } from '../../types/dashboard/items'
 import { SectionHeader } from '../ui/section-header'
 import { SharedItemCard } from './parts/shared-item-card'
@@ -12,7 +12,9 @@ interface SharedWithSectionProps {
 
 /** A shared item opens in the workspace that shared it, when the viewer can open that one. */
 function sharedItemHref(slugs: ProjectSlugs, item: SharedItem): string | null {
-  return item.canOpen ? itemPath({ ...slugs, workspace: item.from.slug }, item) : null
+  return item.canOpen
+    ? itemPagePath({ ...slugs, workspace: item.from.slug }, item, 'overview')
+    : null
 }
 
 /** "Shared with Sales": what the project's other workspaces share, read-only here. */

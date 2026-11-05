@@ -197,8 +197,9 @@ export function withNewDialog(
 }
 
 /**
- * A workflow or function in its workspace: `/{org}/{project}/{workspace}/workflows/{id}`,
- * which opens its editor. Functions live at the same URL; the item says which it is.
+ * A workflow or function's editor in its workspace: `/{org}/{project}/{workspace}/workflows/{id}`.
+ * Functions live at the same URL; the item says which it is. Lists and cards open
+ * its Overview instead (`itemPagePath(…, 'overview')`), as v1's list did.
  */
 export function itemPath(slugs: WorkspaceSlugs, item: { id: string }): string {
   return `${projectPath(slugs)}/${segment(slugs.workspace)}/workflows/${segment(item.id)}`

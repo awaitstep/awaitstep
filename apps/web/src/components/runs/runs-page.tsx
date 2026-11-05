@@ -3,7 +3,7 @@ import { Download } from 'lucide-react'
 import { useRunsExport, useWorkspaceRuns } from '../../data/dashboard/runs'
 import { EXPORT_FAILED_COPY } from '../../lib/csv'
 import { downloadTextFile } from '../../lib/download-file'
-import { itemPath, runPath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
+import { itemPagePath, runPath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
 import { timeAgoOrDay } from '../../lib/time'
 import { cn } from '../../lib/utils'
 import type { RunPeriod, RunResult, WorkspaceRun } from '../../types/dashboard/runs'
@@ -52,7 +52,7 @@ function runColumns(slugs: WorkspaceSlugs): DataColumn<WorkspaceRun>[] {
       cell: (run) => (
         <span className="flex min-w-0 flex-col gap-0.5">
           <ShellLink
-            href={itemPath(slugs, { id: run.workflowId })}
+            href={itemPagePath(slugs, { id: run.workflowId }, 'overview')}
             className="w-fit truncate text-sm font-semibold text-foreground hover:underline"
           >
             {run.workflowName}
