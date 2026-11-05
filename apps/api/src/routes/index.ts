@@ -582,7 +582,9 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
     const query = c.req.valid('query')
     const workspaceId = c.get('workspaceId')
     if (workspaceId) {
-      return c.json(await db.listWorkspaceRuns(workspaceId, workspaceRunFilter(query)))
+      // One instant for the period and the hourly bars, so the bars add up to the count.
+      const now = new Date()
+      return c.json(await db.listWorkspaceRuns(workspaceId, workspaceRunFilter(query, now), now))
     }
     if (query.result || query.period || query.search || query.workflowId) {
       return c.json({ error: 'Filtering runs needs a workspace' }, 400)

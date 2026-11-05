@@ -610,7 +610,11 @@ const mockDb: DatabaseAdapter = {
     const data = filter.result
       ? matching.filter((r) => result(r.status) === filter.result)
       : matching
-    return { data, nextCursor: null, counts }
+    // Hour buckets come from SQL, which the db package's harness covers.
+    const byHour = filter.workflowId
+      ? Array.from({ length: 24 }, () => ({ runs: 0, complete: 0, failed: 0 }))
+      : undefined
+    return { data, nextCursor: null, counts, ...(byHour && { byHour }) }
   },
   async listFailingWorkflows() {
     return []

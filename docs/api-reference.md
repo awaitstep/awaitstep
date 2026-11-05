@@ -1535,6 +1535,10 @@ before `result` is applied, so the filter pills keep their numbers.
 
 These four need a workspace: without one they answer `400`.
 
+With `workflowId`, the answer also has `byHour`: that workflow's runs in each of
+the last 24 hours, oldest first, as `{ runs, complete, failed }` — whatever the
+`period`.
+
 ### `GET /workflows/:workflowId/runs`
 
 List runs for a specific workflow.

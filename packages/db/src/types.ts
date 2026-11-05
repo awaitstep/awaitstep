@@ -914,6 +914,12 @@ export interface WorkspaceRunPage {
   nextCursor: string | null
   /** Over the period and search, before the result filter: the filter pills. */
   counts: { all: number; succeeded: number; failed: number; running: number }
+  /**
+   * With `workflowId`, on a first page (no cursor): that workflow's runs in each
+   * of the last 24 hours, oldest first (its page's sparkline), whatever the
+   * period. Absent otherwise.
+   */
+  byHour?: RunHour[]
 }
 
 /** A workflow whose latest run failed, with where it lives and that run. */

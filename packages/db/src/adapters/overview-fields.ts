@@ -273,7 +273,7 @@ export class OverviewFields {
    * exactly at `since` goes in the oldest bar, one stamped after `now` (clock
    * skew) in the newest. One grouped pass over the day's runs.
    */
-  runsByHour(workspaceId: SQL | unknown, now: Date): SQL {
+  runsByHour(workspaceId: SQL | unknown, now: Date, workflowId?: string): SQL {
     const wf = aliasedTable(this.t.workflows, 'hw')
     const r = aliasedTable(this.t.workflowRuns, 'hr')
     const until = now.toISOString()
@@ -284,7 +284,9 @@ export class OverviewFields {
       : // julianday is a float day: rounded to the millisecond first, so a run
         // exactly on the hour isn't 9.999… hours back.
         sql`max(0, min(23, cast(round((julianday(${until}) - julianday(day.created_at)) * 86400000) as integer) / 3600000))`
-    const day = sql`(select ${r.status} as status, ${r.createdAt} as created_at from ${aliasedFrom(r)} inner join ${aliasedFrom(wf)} on ${wf.id} = ${r.workflowId} where ${wf.workspaceId} = ${workspaceId} and ${r.createdAt} >= ${since}) day`
+    // One workflow's, on its own page; else the whole workspace's.
+    const oneWorkflow = workflowId ? sql` and ${wf.id} = ${workflowId}` : sql``
+    const day = sql`(select ${r.status} as status, ${r.createdAt} as created_at from ${aliasedFrom(r)} inner join ${aliasedFrom(wf)} on ${wf.id} = ${r.workflowId} where ${wf.workspaceId} = ${workspaceId}${oneWorkflow} and ${r.createdAt} >= ${since}) day`
     const count = (status: SQL) =>
       sql`coalesce(sum(case when day.status ${status} then 1 else 0 end), 0)`
     const hours = sql.raw(

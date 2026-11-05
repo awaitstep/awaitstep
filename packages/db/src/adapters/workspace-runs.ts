@@ -1,13 +1,14 @@
 import { and, desc, eq, gte, inArray, lt, or, sql, aliasedTable, type SQL } from 'drizzle-orm'
 import type {
   FailingWorkflow,
+  RunHour,
   WorkspaceRunFilter,
   WorkspaceRunPage,
   WorkspaceRunRow,
 } from '../types.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
-import { aliasedFrom } from './json-array.js'
-import { FAILED_RUN_STATUSES, type OverviewTables } from './overview-fields.js'
+import { aliasedFrom, readJsonArray, type Dialect } from './json-array.js'
+import { FAILED_RUN_STATUSES, OverviewFields, type OverviewTables } from './overview-fields.js'
 import { RoleFields } from './role-fields.js'
 
 const FAILED_LIST = sql.raw(FAILED_RUN_STATUSES.map((s) => `'${s}'`).join(', '))
@@ -18,6 +19,7 @@ type MatchingRow = WorkspaceRunRow & {
   all: number
   succeeded: number
   failed: number
+  byHour: unknown
 }
 
 /** `%` and `_` in a search term are letters, not wildcards. */
@@ -31,6 +33,7 @@ export class WorkspaceRunsAdapter {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private db: any,
     private t: OverviewTables,
+    private dialect: Dialect,
   ) {}
 
   /**
@@ -44,6 +47,7 @@ export class WorkspaceRunsAdapter {
   async listByWorkspace(
     workspaceId: string,
     filter: WorkspaceRunFilter,
+    now: Date = new Date(),
   ): Promise<WorkspaceRunPage> {
     const r = aliasedTable(this.t.workflowRuns, 'r')
     const wf = aliasedTable(this.t.workflows, 'wf')
@@ -100,6 +104,16 @@ export class WorkspaceRunsAdapter {
             sql<number>`coalesce(sum(case when ${matching.result} = 'failed' then 1 else 0 end), 0)`
               .mapWith(Number)
               .as('failed_count'),
+          // One workflow's last 24 hours, in the same statement (its page's sparkline).
+          // Only for a first page: a later page or a re-read shows no bars.
+          byHour: (filter.workflowId && !filter.cursor
+            ? new OverviewFields(this.t, this.dialect).runsByHour(
+                workspaceId,
+                now,
+                filter.workflowId,
+              )
+            : sql`null`
+          ).as('by_hour'),
         })
         .from(matching),
     )
@@ -142,6 +156,7 @@ export class WorkspaceRunsAdapter {
         all: counts.all,
         succeeded: counts.succeeded,
         failed: counts.failed,
+        byHour: counts.byHour,
       })
       .from(counts)
       // The counts row anchors the result: with an empty page it comes back alone.
@@ -155,9 +170,10 @@ export class WorkspaceRunsAdapter {
     const present = rows.filter((row) => row.id !== null)
     const { data, nextCursor } = paginateResults(present, limit, (row) => row.createdAt)
     return {
-      data: data.map(({ all: _all, succeeded: _s, failed: _f, ...run }) => run),
+      data: data.map(({ all: _all, succeeded: _s, failed: _f, byHour: _h, ...run }) => run),
       nextCursor,
       counts: { ...totals, running: totals.all - totals.succeeded - totals.failed },
+      ...(filter.workflowId && !filter.cursor && { byHour: readJsonArray<RunHour>(first?.byHour) }),
     }
   }
 
