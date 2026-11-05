@@ -166,6 +166,7 @@ export function CanvasView({
       workflowId,
       isNew,
       isDirty,
+      hasVersion: !!fullData?.workflow?.currentVersionId,
       nodeRegistry,
       kind: kindParam,
     })

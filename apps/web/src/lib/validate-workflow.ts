@@ -23,6 +23,18 @@ export interface PublishValidationResult {
   canPublish: boolean
 }
 
+export const EMPTY_WORKFLOW_MESSAGE = 'The workflow is empty. Add a node to start.'
+
+/**
+ * True when the empty graph is the only thing standing in the way: every
+ * error is the "workflow is empty" one. Settings (name, variables) of a
+ * workflow with nothing drawn can still be stored, just not as a version.
+ */
+export function onlyBlockedByEmptyGraph(result: PublishValidationResult): boolean {
+  const errors = result.issues.filter((issue) => issue.severity === 'error')
+  return errors.length > 0 && errors.every((issue) => issue.message === EMPTY_WORKFLOW_MESSAGE)
+}
+
 export interface WorkflowSettings {
   workflowEnvVars: WorkflowEnvVar[]
 }
@@ -199,7 +211,7 @@ export function validateWorkflowForPublish(
   }
 
   if (nodes.length === 0) {
-    add('error', null, null, 'The workflow is empty. Add a node to start.')
+    add('error', null, null, EMPTY_WORKFLOW_MESSAGE)
     return { issues, canPublish: false }
   }
 

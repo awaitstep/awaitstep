@@ -172,4 +172,33 @@ describe('useOutsideChanges', () => {
     await client.refetchQueries({ queryKey: ['ide-project-listing', 'wf'] }).catch(() => undefined)
     await waitFor(() => expect(sourceRefetches(invalidate)).toBe(2))
   })
+
+  describe('a blank workflow', () => {
+    it('reads the workflow, then the source, when a first version was saved elsewhere', async () => {
+      api.getProjectFiles.mockResolvedValue([{ path: 'lib/a.ts', hash: 'ha' }])
+      const { invalidate, client } = setup()
+      client.setQueryData(['workflow-full', 'wf', undefined], { version: null })
+      invalidate.mockImplementation(async (filters) => {
+        const key = (filters as { queryKey: string[] }).queryKey
+        if (key[0] === 'workflow-full') {
+          client.setQueryData(['workflow-full', 'wf', undefined], { version: { id: 'v1' } })
+        }
+      })
+      await waitFor(() => expect(sourceRefetches(invalidate)).toBe(1))
+      expect(invalidate).toHaveBeenCalledWith(
+        { queryKey: ['workflow-full', 'wf'] },
+        { throwOnError: true },
+      )
+    })
+
+    it('leaves the source alone while the workflow still has no version', async () => {
+      api.getProjectFiles.mockResolvedValue([{ path: 'lib/a.ts', hash: 'ha' }])
+      const { invalidate, client } = setup()
+      client.setQueryData(['workflow-full', 'wf', undefined], { version: null })
+      invalidate.mockImplementation(async () => undefined)
+      await waitFor(() => expect(invalidate).toHaveBeenCalled())
+      await new Promise((r) => setTimeout(r, 20))
+      expect(sourceRefetches(invalidate)).toBe(0)
+    })
+  })
 })

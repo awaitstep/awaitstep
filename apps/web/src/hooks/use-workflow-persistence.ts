@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { actionToast, failureLine } from '../lib/action-toast'
 import { useWorkflowStore } from '../stores/workflow-store'
-import { validateWorkflowForPublish } from '../lib/validate-workflow'
+import { onlyBlockedByEmptyGraph, validateWorkflowForPublish } from '../lib/validate-workflow'
 import { buildIRFromState } from '../lib/build-ir'
 import { splitSecretName } from '../lib/env-var-parser'
 import { api, type WorkflowSummary } from '../lib/api-client'
@@ -17,11 +17,13 @@ export function useWorkflowPersistence(opts: {
   workflowId: string
   isNew: boolean
   isDirty: boolean
+  /** The workflow has a saved version. Without one, a save of an empty graph stores the settings only. */
+  hasVersion?: boolean
   nodeRegistry: NodeRegistry | null | undefined
   /** Only honored on first save (when `isNew`). Defaults to 'workflow'. */
   kind?: 'workflow' | 'script'
 }) {
-  const { workflowId, isNew, isDirty, nodeRegistry, kind } = opts
+  const { workflowId, isNew, isDirty, hasVersion = true, nodeRegistry, kind } = opts
   const queryClient = useQueryClient()
   const goTo = useGoTo()
   const scope = useEditorScope()
@@ -66,9 +68,12 @@ export function useWorkflowPersistence(opts: {
       envVars,
       deployConfig,
     })
+    // Nothing drawn and nothing saved before: the settings are stored, and
+    // there is no graph to make a version of.
+    if (!hasVersion && state.nodes.length === 0) return null
     await api.createVersion(workflowId, { ir })
     return null
-  }, [isNew, kind, workflowId])
+  }, [isNew, hasVersion, kind, workflowId])
 
   const onSaveSuccess = useCallback(
     (created: WorkflowSummary | null) => {
@@ -118,7 +123,10 @@ export function useWorkflowPersistence(opts: {
       settings,
       state.kind,
     )
-    if (!result.canPublish) {
+    // A rename on a workflow nobody has drawn yet is still worth keeping: it
+    // saves as settings, without a version.
+    const settingsOnly = !isNew && !hasVersion && onlyBlockedByEmptyGraph(result)
+    if (!result.canPublish && !settingsOnly) {
       // The panel lists every issue (click-to-focus) and node badges mark
       // them on the canvas — one toast points there instead of N toasts.
       useWorkflowStore.setState({ validationResult: result, simulationResult: null })
@@ -135,7 +143,7 @@ export function useWorkflowPersistence(opts: {
     } catch {
       return false
     }
-  }, [saveMutation])
+  }, [saveMutation, isNew, hasVersion])
 
   const handleSave = useCallback(() => {
     void saveNow()

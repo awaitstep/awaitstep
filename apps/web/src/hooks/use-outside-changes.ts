@@ -31,6 +31,12 @@ function sourceMovedPastGraph(queryClient: QueryClient, workflowId: string): boo
   )
 }
 
+/** True while the loaded graph has no saved version (a blank workflow). */
+function awaitingFirstVersion(queryClient: QueryClient, workflowId: string): boolean {
+  const fulls = queryClient.getQueriesData<FullVersion>({ queryKey: ['workflow-full', workflowId] })
+  return fulls.length > 0 && fulls.every(([, full]) => !!full && !full.version)
+}
+
 /**
  * Notices files that changed on the server while the workspace is open (a
  * teammate, or an agent using the files API). Every 20 seconds, and at once
@@ -77,7 +83,19 @@ export function useOutsideChanges({ workflowId, enabled, baseline }: OutsideChan
     queryFn: async () => {
       const listing = await api.getProjectFiles(workflowId)
       const plan = planRefresh(baselineRef.current, listing, handled.current)
-      if (plan.refetch) {
+      // A blank workflow gets its first version from the canvas, and that
+      // changes no stored file, so the listing cannot show it: while there is
+      // no version the workflow itself is read too, and the generated files
+      // follow once one exists.
+      let firstVersionSaved = false
+      if (awaitingFirstVersion(queryClient, workflowId)) {
+        await queryClient.refetchQueries(
+          { queryKey: ['workflow-full', workflowId] },
+          { throwOnError: true },
+        )
+        firstVersionSaved = !awaitingFirstVersion(queryClient, workflowId)
+      }
+      if (plan.refetch || firstVersionSaved) {
         // `invalidateQueries` would swallow a failed refetch; this throws, so
         // the signature below is not recorded and the next check tries again.
         await queryClient.refetchQueries(
