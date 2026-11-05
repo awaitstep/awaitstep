@@ -161,9 +161,9 @@ describe('checking a key', () => {
   })
 
   it('reads the level off the row', () => {
-    expect(keyLevelOf({ organizationId: 'org', workspaceId: null })).toBe('organization')
-    expect(keyLevelOf({ organizationId: null, workspaceId: null })).toBe('project')
-    expect(keyLevelOf({ organizationId: null, workspaceId: 'ws' })).toBe('workspace')
+    expect(keyLevelOf({ level: 'organization' })).toBe('organization')
+    expect(keyLevelOf({ level: 'project' })).toBe('project')
+    expect(keyLevelOf({ level: 'workspace' })).toBe('workspace')
   })
 
   it('parses a stored grid and refuses anything else', () => {
