@@ -30,7 +30,7 @@ const PERIODS: { value: RunPeriod; label: string; phrase: string }[] = [
   { value: '30d', label: 'Last 30 days', phrase: 'in the last 30 days' },
 ]
 
-function runColumns(org: string): DataColumn<WorkspaceRun>[] {
+function runColumns(slugs: WorkspaceSlugs): DataColumn<WorkspaceRun>[] {
   return [
     {
       id: 'result',
@@ -51,7 +51,12 @@ function runColumns(org: string): DataColumn<WorkspaceRun>[] {
       header: 'Workflow',
       cell: (run) => (
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-sm font-semibold text-foreground">{run.workflowName}</span>
+          <ShellLink
+            href={itemPath(slugs, { id: run.workflowId })}
+            className="w-fit truncate text-sm font-semibold text-foreground hover:underline"
+          >
+            {run.workflowName}
+          </ShellLink>
           <span className="truncate text-2xs text-muted-foreground">{runKindLabel(run)}</span>
         </span>
       ),
@@ -61,12 +66,8 @@ function runColumns(org: string): DataColumn<WorkspaceRun>[] {
       header: 'Run',
       width: '120px',
       cell: (run) => (
-        <ShellLink
-          href={itemPath(org, { id: run.workflowId, kind: run.kind }, run.id)}
-          className="font-mono text-2xs text-foreground hover:underline"
-        >
-          {run.id}
-        </ShellLink>
+        // Plain text until runs have their own page under the workspace.
+        <span className="font-mono text-2xs text-foreground">{run.id}</span>
       ),
     },
     {
@@ -97,8 +98,12 @@ interface RunsPageProps {
 /** `/{org}/{project}/{workspace}/runs`: the `WsRuns` board. */
 export function RunsPage({ slugs }: RunsPageProps) {
   const scope = useWorkspaceScope(slugs)
-  // Built once per org, so the table keeps the same columns between renders.
-  const columns = useMemo(() => runColumns(slugs.org), [slugs.org])
+  const { org: orgSlug, project: projectSlug, workspace: workspaceSlug } = slugs
+  // Built once per workspace, so the table keeps the same columns between renders.
+  const columns = useMemo(
+    () => runColumns({ org: orgSlug, project: projectSlug, workspace: workspaceSlug }),
+    [orgSlug, projectSlug, workspaceSlug],
+  )
   const [result, setResult] = useState<ResultFilter>('all')
   const [search, setSearch] = useState('')
   const [period, setPeriod] = useState<RunPeriod>('24h')

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ScopeLookup, ScopeSlugs } from '../../../types/dashboard/scope'
+import { DataSourceProvider, type DataSource } from '../../../data/dashboard/source'
 import type { DashboardPage } from '../dashboard-page'
 import { DashboardShell } from '../dashboard-shell'
 
@@ -141,11 +142,13 @@ function rail() {
   return screen.getAllByRole('navigation', { name: 'Organization' })[0]!
 }
 
-function renderShell() {
+function renderShell(source: DataSource = 'mock') {
   return render(
-    <DashboardShell>
-      <p>Page content</p>
-    </DashboardShell>,
+    <DataSourceProvider source={source}>
+      <DashboardShell>
+        <p>Page content</p>
+      </DashboardShell>
+    </DataSourceProvider>,
   )
 }
 
@@ -160,6 +163,36 @@ afterEach(() => {
 })
 
 describe('DashboardShell', () => {
+  describe('around the editor', () => {
+    const workspaceSlugs = { org: 'acme', project: 'project-101', workspace: 'sales' }
+
+    it('draws no frame once the workspace is found: the editor fills the screen', () => {
+      state.params = workspaceSlugs
+      state.page = { kind: 'editor' }
+      settle(found('workspace'))
+      renderShell('api')
+      expect(screen.getByText('Page content')).toBeVisible()
+      expect(screen.queryByRole('navigation', { name: 'Organization' })).not.toBeInTheDocument()
+    })
+
+    it('keeps the frame while the workspace loads, so a missing one gets its not-found page', () => {
+      state.params = workspaceSlugs
+      state.page = { kind: 'editor' }
+      renderShell('api')
+      expect(screen.getByRole('status')).toHaveTextContent('Loading')
+      expect(rail()).toBeInTheDocument()
+    })
+
+    it('frames the sample-data notice', () => {
+      state.params = workspaceSlugs
+      state.page = { kind: 'editor' }
+      settle(found('workspace'))
+      renderShell('mock')
+      expect(screen.getByText('Page content')).toBeVisible()
+      expect(rail()).toBeInTheDocument()
+    })
+  })
+
   it('keeps the frame while the scope loads, and holds the page back', () => {
     state.params = { org: 'acme', project: 'project-101', workspace: 'sales' }
     renderShell()

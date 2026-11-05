@@ -153,13 +153,11 @@ describe('workspaceSettingsPath', () => {
 })
 
 describe('itemPath', () => {
-  it('leads a row to the item placeholder, with the run when there is one', () => {
-    expect(itemPath('acme', { id: 'itm_1', kind: 'workflow' })).toBe('/acme/items/itm_1')
-    expect(itemPath('acme', { id: 'itm_1', kind: 'workflow' }, 'run_9')).toBe(
-      '/acme/items/itm_1?run=run_9',
-    )
-    expect(itemPath('acme', { id: 'itm_2', kind: 'script' })).toBe(
-      '/acme/items/itm_2?kind=function',
+  it('leads a workflow or function row to its editor, under its workspace', () => {
+    const slugs = { org: 'acme', project: 'project-101', workspace: 'sales' }
+    expect(itemPath(slugs, { id: 'wf_1' })).toBe('/acme/project-101/sales/workflows/wf_1')
+    expect(itemPath({ ...slugs, workspace: 'a b' }, { id: 'wf/2' })).toBe(
+      '/acme/project-101/a%20b/workflows/wf%2F2',
     )
   })
 

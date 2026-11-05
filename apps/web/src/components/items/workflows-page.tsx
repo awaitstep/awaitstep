@@ -114,7 +114,7 @@ export function WorkflowsPage({ slugs, dialog, onCloseDialog }: WorkflowsPagePro
               <WorkflowRow
                 key={item.id}
                 item={item}
-                href={itemPath(slugs.org, item)}
+                href={itemPath(slugs, item)}
                 projectName={projectName}
                 onShareChange={shareHandler(item.id)}
               />
@@ -124,7 +124,7 @@ export function WorkflowsPage({ slugs, dialog, onCloseDialog }: WorkflowsPagePro
         <div className="md:hidden">
           <ListCard label={`Workflows in ${workspace.name}`} empty={empty}>
             {visible.map((item) => (
-              <ItemLinkRow key={item.id} item={item} href={itemPath(slugs.org, item)} />
+              <ItemLinkRow key={item.id} item={item} href={itemPath(slugs, item)} />
             ))}
           </ListCard>
         </div>
@@ -137,11 +137,7 @@ export function WorkflowsPage({ slugs, dialog, onCloseDialog }: WorkflowsPagePro
           Editing a workflow’s graph needs a bigger screen. On a phone you can read runs, retry, and
           deploy or roll back.
         </p>
-        <SharedWithSection
-          org={slugs.org}
-          workspaceName={workspace.name}
-          items={shared.data ?? []}
-        />
+        <SharedWithSection slugs={slugs} workspaceName={workspace.name} items={shared.data ?? []} />
       </>
     )
   }

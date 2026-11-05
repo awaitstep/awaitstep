@@ -22,17 +22,29 @@ import { useDashKey, useDataSource } from './source'
  * level. A missing slug and one the viewer can't open give the same
  * `{ found: false }` result, which pages render as NotFoundView.
  */
+/**
+ * The API's scope lookup, as one query: the dashboard shell reads it, and the
+ * editor route waits on the same cache entry before it opens.
+ */
+export function apiScopeQuery(slugs: ScopeSlugs) {
+  return {
+    queryKey: [...dashKeys.scopeOf(slugs), 'api'] as const,
+    queryFn: () => dashboardApi.getScope(slugs).then(toScopeLookup),
+  }
+}
+
 export function useScope(slugs: ScopeSlugs) {
   const source = useDataSource()
   const ctx = useMockContext()
   const key = useDashKey()
-  return useQuery({
-    queryKey: key(dashKeys.scopeOf(slugs)),
-    queryFn: () =>
-      source === 'api'
-        ? dashboardApi.getScope(slugs).then(toScopeLookup)
-        : mockServer.workspaces.getScope(ctx, slugs),
-  })
+  return useQuery(
+    source === 'api'
+      ? apiScopeQuery(slugs)
+      : {
+          queryKey: key(dashKeys.scopeOf(slugs)),
+          queryFn: () => mockServer.workspaces.getScope(ctx, slugs),
+        },
+  )
 }
 
 /** Everyone who can open the workspace, with their effective role there. */

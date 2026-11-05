@@ -39,7 +39,7 @@ function unshareReason(item: SharedItem): string | undefined {
   return item.unshare.allowed ? undefined : item.unshare.reason
 }
 
-function ItemCell({ item, org }: { item: SharedItem; org: string }) {
+function ItemCell({ item, slugs }: { item: SharedItem; slugs: ProjectSlugs }) {
   const version = item.version === null ? 'Draft' : `v${item.version}`
   return (
     <span className="flex min-w-0 items-center gap-3">
@@ -55,7 +55,7 @@ function ItemCell({ item, org }: { item: SharedItem; org: string }) {
       <span className="flex min-w-0 flex-col gap-0.5">
         {item.canOpen ? (
           <ShellLink
-            href={itemPath(org, item)}
+            href={itemPath({ ...slugs, workspace: item.from.slug }, item)}
             className="truncate text-sm font-semibold text-foreground hover:underline"
           >
             {item.name}
@@ -99,7 +99,7 @@ export function SharedLibraryPage({ slugs }: SharedLibraryPageProps) {
   }
 
   const columns: DataColumn<SharedItem>[] = [
-    { id: 'item', header: 'Item', cell: (item) => <ItemCell item={item} org={slugs.org} /> },
+    { id: 'item', header: 'Item', cell: (item) => <ItemCell item={item} slugs={slugs} /> },
     {
       id: 'from',
       header: 'From',

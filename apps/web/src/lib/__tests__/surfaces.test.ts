@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   DEFAULT_SURFACE,
   editorSearch,
+  parseEditorSearch,
   parseSurface,
   surfaceSwitchTarget,
   unsavedDialogCopy,
@@ -162,5 +163,17 @@ describe('unsavedDialogCopy', () => {
     expect(copy.confirmLabel).toBe('Leave')
     expect(copy.secondaryLabel).toBeUndefined()
     expect(copy.variant).toBe('warning')
+  })
+})
+
+describe('parseEditorSearch', () => {
+  it('reads every editor param from either route, and drops what it doesn’t know', () => {
+    expect(
+      parseEditorSearch({ view: 'ide', version: 'v-1', file: 'a.ts', kind: 'script', x: 1 }),
+    ).toEqual({ view: 'ide', version: 'v-1', file: 'a.ts', kind: 'script' })
+    expect(parseEditorSearch({ template: '1' })).toEqual({ view: DEFAULT_SURFACE, template: true })
+    expect(parseEditorSearch({ view: 'nope', kind: 'other', version: 3 })).toEqual({
+      view: DEFAULT_SURFACE,
+    })
   })
 })

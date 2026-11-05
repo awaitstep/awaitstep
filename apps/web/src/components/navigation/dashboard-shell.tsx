@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { useLocation, useMatches, useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { useNotifications, useReleases } from '../../data/dashboard/inbox'
 import { useViewer } from '../../data/dashboard/session'
+import { useDataSource } from '../../data/dashboard/source'
 import { useScope } from '../../data/dashboard/workspaces'
 import { dashboardPath, orgPath, projectPath, withOverlay } from '../../lib/dashboard-paths'
 import { useThemeStore } from '../../stores/theme-store'
@@ -70,6 +71,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const notifications = useNotifications(slugs.org)
   const releases = useReleases(slugs.org)
+  const source = useDataSource()
 
   // A new history entry, as opening one is: Back reopens it rather than standing still.
   function handleCloseOverlay() {
@@ -91,6 +93,10 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   }
   const found = scope.data?.found === true
   const notFound = scope.data && !scope.data.found ? scope.data.notFound : null
+
+  // The editor fills the screen itself once its scope is found; sample items
+  // get the framed placeholder instead.
+  if (found && declaredPage?.kind === 'editor' && source === 'api') return children
 
   let content: ReactNode
   if (scope.isPending) content = <ScopeLoading />

@@ -197,21 +197,11 @@ export function withNewDialog(
 }
 
 /**
- * Where a workflow, function or run row leads. In W1 every item is sample
- * data, so it's the dashboard's placeholder page; B1 points this at the
- * editor and run pages for real ids.
+ * A workflow or function in its workspace: `/{org}/{project}/{workspace}/workflows/{id}`,
+ * which opens its editor. Functions live at the same URL; the item says which it is.
  */
-export function itemPath(
-  org: string,
-  item: { id: string; kind: 'workflow' | 'script' },
-  runId?: string,
-): string {
-  const query = new URLSearchParams({
-    ...(item.kind === 'script' && { kind: 'function' }),
-    ...(runId && { run: runId }),
-  }).toString()
-  const path = `/${segment(org)}/items/${segment(item.id)}`
-  return query ? `${path}?${query}` : path
+export function itemPath(slugs: WorkspaceSlugs, item: { id: string }): string {
+  return `${projectPath(slugs)}/${segment(slugs.workspace)}/workflows/${segment(item.id)}`
 }
 
 /** `/dashboard`: every organization you're in, invites waiting for you, Create an organization. */

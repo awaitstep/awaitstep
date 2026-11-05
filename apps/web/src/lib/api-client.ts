@@ -110,14 +110,16 @@ export async function request<T>(path: string, options?: RequestInit): Promise<T
 }
 
 function withOrg(path: string): string {
-  const organizationId = useOrgStore.getState().activeOrganizationId
+  const { routeScope, activeOrganizationId } = useOrgStore.getState()
+  const organizationId = routeScope?.organizationId ?? activeOrganizationId
   if (!organizationId) throw new Error('No active organization selected')
   const sep = path.includes('?') ? '&' : '?'
   return `${path}${sep}organizationId=${organizationId}`
 }
 
 function withProject(path: string, overrideProjectId?: string): string {
-  const projectId = overrideProjectId ?? useOrgStore.getState().activeProjectId
+  const { routeScope, activeProjectId } = useOrgStore.getState()
+  const projectId = overrideProjectId ?? routeScope?.projectId ?? activeProjectId
   if (!projectId) throw new Error('No active project selected')
   const sep = path.includes('?') ? '&' : '?'
   return `${path}${sep}projectId=${projectId}`

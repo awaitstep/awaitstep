@@ -77,7 +77,7 @@ export function mockSourceAllowed(mode: string): boolean {
   return mode !== 'production'
 }
 
-const ALLOW_MOCK_SOURCE = mockSourceAllowed(import.meta.env.MODE)
+export const ALLOW_MOCK_SOURCE = mockSourceAllowed(import.meta.env.MODE)
 
 /**
  * The real API, unless the URL asks for a dummy scenario or a sample person and

@@ -7,11 +7,12 @@ import WorkflowsWrapper from './workflows'
 import { queries, flatPages } from '../lib/queries'
 
 export default function ProjectsWrapper() {
-  const { activeOrganizationId, canFetch, activeProjectId } = useOrgStore(
+  const { activeOrganizationId, canFetch, activeProjectId, routeScoped } = useOrgStore(
     useShallow((s) => ({
       activeOrganizationId: s.activeOrganizationId,
       canFetch: s.appReady && !!s.activeOrganizationId,
       activeProjectId: s.activeProjectId,
+      routeScoped: !!s.routeScope,
     })),
   )
 
@@ -40,13 +41,15 @@ export default function ProjectsWrapper() {
     if (isSuccess) {
       setProjects(allProjects)
       setProjectsFetchState('success')
-      if (allProjects.length) {
+      // An editor URL sets the project itself, even one past this list's first page;
+      // it's checked again once that editor closes.
+      if (allProjects.length && !routeScoped) {
         if (!activeProjectId || !allProjects.find((p) => p.id === activeProjectId)) {
           setActiveProject(allProjects[0].id)
         }
       }
     }
-  }, [isSuccess, data])
+  }, [isSuccess, data, routeScoped])
 
   useEffect(() => {
     setProjectsPagination(!!hasNextPage, hasNextPage ? handleLoadMore : null)

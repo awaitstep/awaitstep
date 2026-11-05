@@ -51,11 +51,21 @@ describe('Workflows page', () => {
     expect(within(filters).getByRole('button', { name: 'Drafts 1' })).toBeInTheDocument()
   })
 
-  it('leads each row to the sample-data placeholder, not the editor', async () => {
+  it('leads each row to its editor, under this workspace', async () => {
     renderWorkflows()
     const list = await waitFor(desktopList)
     const link = within(list).getByRole('link', { name: 'Lead enrichment' })
-    expect(link.getAttribute('href')).toMatch(/^\/acme\/items\/itm_/)
+    expect(link.getAttribute('href')).toMatch(/^\/acme\/project-101\/sales\/workflows\/itm_/)
+  })
+
+  it('leads a shared item to its own workspace, not this one', async () => {
+    renderWorkflows()
+    const heading = await screen.findByRole('heading', { name: 'Shared with Sales' })
+    const links = within(heading.closest('section')!).getAllByRole('link')
+    expect(links.length).toBeGreaterThan(0)
+    for (const link of links) {
+      expect(link.getAttribute('href')).toMatch(/^\/acme\/project-101\/it\/workflows\//)
+    }
   })
 
   it('narrows to the failing workflow', async () => {

@@ -19,7 +19,7 @@ import { ItemActions, NewItemButton } from './item-actions'
 import { functionSummary, statusLabel, statusVariant, trafficLabel } from './item-format'
 import { TrafficBars } from './parts/traffic-bars'
 
-function functionColumns(org: string): DataColumn<WorkspaceItem>[] {
+function functionColumns(slugs: WorkspaceSlugs): DataColumn<WorkspaceItem>[] {
   return [
     {
       id: 'function',
@@ -31,7 +31,7 @@ function functionColumns(org: string): DataColumn<WorkspaceItem>[] {
           </Tile>
           <span className="flex min-w-0 flex-col gap-0.5">
             <ShellLink
-              href={itemPath(org, item)}
+              href={itemPath(slugs, item)}
               className="w-fit truncate text-sm font-semibold text-foreground hover:underline"
             >
               {item.name}
@@ -91,8 +91,12 @@ interface FunctionsPageProps {
 export function FunctionsPage({ slugs }: FunctionsPageProps) {
   const scope = useWorkspaceScope(slugs)
   const items = useWorkspaceItems(slugs, 'script')
-  // Built once per org, so the table keeps the same columns between renders.
-  const columns = useMemo(() => functionColumns(slugs.org), [slugs.org])
+  const { org: orgSlug, project: projectSlug, workspace: workspaceSlug } = slugs
+  // Built once per workspace, so the table keeps the same columns between renders.
+  const columns = useMemo(
+    () => functionColumns({ org: orgSlug, project: projectSlug, workspace: workspaceSlug }),
+    [orgSlug, projectSlug, workspaceSlug],
+  )
   const emptyView = useEmptyView(slugs)
 
   if (!scope) return null
