@@ -5,6 +5,8 @@ import { generateScript } from './generate-script.js'
 
 export { extractImports, generateNodeCode } from './generate-helpers.js'
 export { deriveQueueName, toCFQueueName } from './bindings.js'
+export { appliedStepSettings } from './generators/step-settings.js'
+export type { AppliedStepSettings } from './generators/step-settings.js'
 export {
   entryImportFor,
   handlerModuleScaffold,

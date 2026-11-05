@@ -1,5 +1,5 @@
 import type { StepConfig } from '@awaitstep/ir'
-import { appliedStepSettings } from '@awaitstep/provider-cloudflare'
+import { appliedStepSettings } from '@awaitstep/provider-cloudflare/codegen'
 import type { RunStep, VersionSummary } from '../api-client'
 import { formatDurationMs } from '../time'
 
