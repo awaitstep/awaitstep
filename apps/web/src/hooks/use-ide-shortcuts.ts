@@ -34,7 +34,9 @@ export function useIdeShortcuts(handlers: IdeShortcutHandlers): void {
       ) {
         // Not ours to run, but the browser's own meaning (Save Page, Print)
         // would be just as wrong while typing in a field or answering a dialog.
-        if (id) event.preventDefault()
+        // Only for a chord this surface binds: ⇧⌘] on a canvas that has no
+        // tabs is the browser's tab switch, and a dialog is no reason to take it.
+        if (id && handlersRef.current[id]) event.preventDefault()
         return
       }
       if (!id) return

@@ -34,6 +34,21 @@ describe('useIdeShortcuts guard', () => {
     expect(event.defaultPrevented).toBe(true)
   })
 
+  it('leaves the browser a chord this surface does not bind, even inside a dialog', () => {
+    // ⇧⌘] is the browser's tab switch. The canvas binds no tabs, so a dialog is no reason to take it.
+    renderHook(() => useIdeShortcuts({ save: vi.fn() }))
+    document.body.innerHTML = '<div role="dialog"><input id="t"></div>'
+    const unbound = press(document.getElementById('t')!, {
+      code: 'BracketRight',
+      key: ']',
+      ctrlKey: true,
+      shiftKey: true,
+    })
+    expect(unbound.defaultPrevented).toBe(false)
+    const bound = press(document.getElementById('t')!, { key: 's', code: 'KeyS', ctrlKey: true })
+    expect(bound.defaultPrevented).toBe(true)
+  })
+
   it('does not swallow ordinary typing in those places', () => {
     renderHook(() => useIdeShortcuts({ save: vi.fn() }))
     document.body.innerHTML = '<input id="t" data-ide-text-input>'
