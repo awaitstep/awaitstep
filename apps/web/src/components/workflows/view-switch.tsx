@@ -17,7 +17,8 @@ const SEGMENTS: { view: EditorView; label: string; hint: string; Icon: typeof Wo
 /**
  * Canvas | Code, the same control on both sides so you always see which one
  * you are on. Picking the current segment does nothing; picking the other one
- * goes through the usual unsaved-changes check.
+ * goes through the usual unsaved-changes check. Its names show when the bar
+ * (its container) has room for them, icons alone otherwise.
  */
 export function ViewSwitch({ current, onSelect }: ViewSwitchProps) {
   return (
@@ -36,17 +37,18 @@ export function ViewSwitch({ current, onSelect }: ViewSwitchProps) {
             key={view}
             type="button"
             aria-pressed={active}
+            aria-label={label}
             title={active ? `${label} (you are here)` : hint}
             onClick={handleClick}
             className={cn(
-              'inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors md:px-2.5',
+              'inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors @[640px]:px-2.5',
               active
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
             <Icon className="h-3.5 w-3.5" />
-            <span className="hidden md:inline">{label}</span>
+            <span className="hidden @[640px]:inline">{label}</span>
           </button>
         )
       })}

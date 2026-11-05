@@ -1,6 +1,7 @@
 import { AlertCircle, AlertTriangle, CheckCircle2, X } from 'lucide-react'
 import { useReactFlow } from '@xyflow/react'
 import { useWorkflowStore } from '../../stores/workflow-store'
+import { useCanvasLayoutStore } from '../../stores/canvas-layout-store'
 import { useShallow } from 'zustand/react/shallow'
 import type { PublishIssue } from '../../lib/validate-workflow'
 import { cn } from '../../lib/utils'
@@ -31,6 +32,8 @@ export function ValidationPanel() {
   function handleClickIssue(issue: PublishIssue) {
     if (!issue.nodeId) return
     selectNode(issue.nodeId)
+    // The issue is about this step; its settings are where to fix it.
+    useCanvasLayoutStore.getState().setInspectorOpen(true)
     fitView({ nodes: [{ id: issue.nodeId }], duration: 300, padding: 0.5 })
   }
 

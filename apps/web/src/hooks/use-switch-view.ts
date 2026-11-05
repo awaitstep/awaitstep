@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useItemSlugs } from '../contexts/editor-scope-context'
-import { editorSearch, type WorkspaceSurface } from '../lib/workflows/surfaces'
+import { editorSearch, type EditorPanel, type WorkspaceSurface } from '../lib/workflows/surfaces'
 
 /**
  * Moves within the editor — Canvas ↔ Code, or to another version of the
@@ -15,7 +15,10 @@ export function useSwitchView(workflowId: string) {
   const navigate = useNavigate()
   const scope = useItemSlugs()
   return useCallback(
-    (view: WorkspaceSurface, extra?: { version?: string; file?: string; node?: string }) =>
+    (
+      view: WorkspaceSurface,
+      extra?: { version?: string; file?: string; node?: string; panel?: EditorPanel },
+    ) =>
       navigate({
         to: '/$org/$project/$workspace/workflows/$id',
         params: { ...scope, id: workflowId },

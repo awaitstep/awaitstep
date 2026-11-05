@@ -20,6 +20,7 @@ import {
   type WorkflowTemplate,
 } from '../../lib/workflow-templates'
 import { useWorkflowStore, type FlowNode } from '../../stores/workflow-store'
+import { focusMoreActions } from '../workflows/top-bar-focus'
 
 const ICON_MAP: Record<string, ReactNode> = {
   ShoppingCart: <ShoppingCart className="h-5 w-5" />,
@@ -69,8 +70,21 @@ export function TemplatePicker({ onDismiss }: { onDismiss: () => void }) {
     onDismiss()
   }
 
+  function handleKeyDown(event: React.KeyboardEvent) {
+    if (event.key !== 'Escape' || event.defaultPrevented) return
+    onDismiss()
+    focusMoreActions()
+  }
+
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-background/90">
+    <div
+      role="region"
+      data-panel="templates"
+      aria-label="Templates"
+      tabIndex={-1}
+      onKeyDown={handleKeyDown}
+      className="absolute inset-0 z-30 flex items-center justify-center bg-background/90 outline-none"
+    >
       <div className="relative max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-md border border-border bg-card shadow-lg">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card px-6 py-4">
           <div>

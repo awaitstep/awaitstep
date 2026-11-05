@@ -16,19 +16,19 @@ import { EditorToolbar } from './editor-toolbar'
 import { EditorDialogs } from './editor-dialogs'
 import { CanvasSidePanels } from './canvas-side-panels'
 import { useShallow } from 'zustand/react/shallow'
+import { useCanvasLayoutStore } from '../../stores/canvas-layout-store'
 import {
   buildWorkflowStoreState,
   nodeToSelectOnce,
+  panelToOpenOnce,
   deriveReadOnlyState,
   deriveDeploymentState,
 } from '../../lib/hydrate-workflow'
-import { surfaceSwitchTarget } from '../../lib/workflows/surfaces'
+import { surfaceSwitchTarget, type EditorPanel } from '../../lib/workflows/surfaces'
 import { offersTemplates } from '../../lib/workflows/template-offer'
 import { useWorkflowPersistence } from '../../hooks/use-workflow-persistence'
 import { useAutoSave } from '../../hooks/use-auto-save'
-import { buildIRFromState } from '../../lib/build-ir'
-import { serializeArtifact } from '@awaitstep/ir'
-import { downloadJsonFile } from '../../lib/download-file'
+import { exportWorkflowFile } from '../../lib/export-workflow'
 import { useApi, useApiReady } from '../../contexts/api-client-context'
 import { useEditorAccess } from '../../contexts/editor-scope-context'
 
@@ -47,6 +47,8 @@ interface CanvasViewProps {
   kindParam?: 'workflow' | 'script'
   /** The editor URL's `?node=`: opens with this node selected and centred, if the version has it. */
   nodeParam?: string
+  /** The editor URL's `?panel=`: opens that panel on arrival, once. */
+  panelParam?: EditorPanel
   localDevEnabled: boolean
 }
 
@@ -56,6 +58,7 @@ export function CanvasView({
   template,
   kindParam,
   nodeParam,
+  panelParam,
   localDevEnabled,
 }: CanvasViewProps) {
   const api = useApi()
@@ -68,11 +71,10 @@ export function CanvasView({
   const { registry: nodeRegistry } = useNodeRegistry()
   const isNew = workflowId === 'new'
 
-  const { metadata, nodeCount, showSettings, isDirty } = useWorkflowStore(
+  const { metadata, nodeCount, isDirty } = useWorkflowStore(
     useShallow((s) => ({
       metadata: s.metadata,
       nodeCount: s.nodes.length,
-      showSettings: s.showSettings,
       isDirty: s.isDirty,
     })),
   )
@@ -86,7 +88,10 @@ export function CanvasView({
 
   // Cleanup on unmount
   useEffect(() => {
-    return () => resetWorkflowStore()
+    return () => {
+      resetWorkflowStore()
+      useCanvasLayoutStore.getState().closePalette()
+    }
   }, [resetWorkflowStore])
 
   // Navigation blocker
@@ -129,6 +134,7 @@ export function CanvasView({
   // The URL's node is applied by the first hydration that has the graph, not
   // by every refetch after it, so saving never re-selects what was deselected.
   const appliedNodeParam = useRef<string | undefined>(undefined)
+  const appliedPanelParam = useRef<EditorPanel | undefined>(undefined)
 
   // Hydrate store from server data
   useEffect(() => {
@@ -161,6 +167,17 @@ export function CanvasView({
         }),
       )
       clearWorkflowHistory()
+      // A step the URL names is there to be looked at: its inspector opens
+      // even if it was hidden.
+      if (selectNodeId && useWorkflowStore.getState().selectedNodeId === selectNodeId) {
+        useCanvasLayoutStore.getState().setInspectorOpen(true)
+      }
+      // The Code surface's ⋯ › Settings lands here with the panel open. It
+      // travels in the URL, so it dies with a cancelled switch and cannot
+      // reach another workflow.
+      const panel = panelToOpenOnce(panelParam, appliedPanelParam.current)
+      appliedPanelParam.current = panelParam
+      if (panel === 'settings' && !isReadOnly) useWorkflowStore.getState().setShowSettings(true)
     }
     // Keyed on the version, not on `isReadOnly`: a role change mid-session must
     // not rebuild the store and drop unsaved edits (the API refuses the save).
@@ -169,6 +186,7 @@ export function CanvasView({
     isNew,
     kindParam,
     nodeParam,
+    panelParam,
     fullData,
     setWorkflowId,
     isOlderVersion,
@@ -230,17 +248,22 @@ export function CanvasView({
     addNode(type, { x: 250 + Math.random() * 200, y: 150 + Math.random() * 200 }, nodeRegistry)
   }
 
+  function handleOpenSettings() {
+    setShowSettings(true)
+  }
+
+  function handleOpenLocalTest() {
+    setShowLocalTest(true)
+  }
+
+  // The result opens in the bottom panel, which the canvas already hosts.
+  function handleCheck() {
+    runSimulation()
+  }
+
   function handleOpenTemplatePicker() {
     if (nodeCount > 0) setConfirmAction('switch-template')
     else setShowTemplatePicker(true)
-  }
-
-  function handleExport() {
-    const state = useWorkflowStore.getState()
-    const ir = buildIRFromState(state)
-    const json = serializeArtifact(ir)
-    const filename = `${metadata.name.replace(/\s+/g, '-').toLowerCase()}.ir.json`
-    downloadJsonFile(filename, json)
   }
 
   // Show skeleton while waiting for workflow data (skip for new workflows)
@@ -263,20 +286,20 @@ export function CanvasView({
                 hasActiveDeployment={hasActiveDeployment}
                 hasUndeployedChanges={hasUndeployedChanges}
                 deployedVersion={deployedVersion?.version}
-                showSettings={showSettings}
-                onToggleSettings={() => setShowSettings(!showSettings)}
+                onOpenSettings={handleOpenSettings}
                 onSave={handleSave}
                 isSaving={isSaving}
                 lastSavedAt={lastSavedAt}
                 saveError={saveError}
                 onDeploy={handleDeploy}
-                onTest={() => runSimulation()}
-                onTestLocally={localDevEnabled ? () => setShowLocalTest((v) => !v) : undefined}
-                onExport={nodeCount > 0 ? handleExport : undefined}
+                onCheck={handleCheck}
+                onTestLocally={localDevEnabled ? handleOpenLocalTest : undefined}
+                onExport={nodeCount > 0 ? exportWorkflowFile : undefined}
                 onOpenTemplatePicker={canPickTemplate ? handleOpenTemplatePicker : undefined}
                 readOnly={isReadOnly}
+                olderVersion={isOlderVersion}
                 readOnlyVersion={readOnlyVersion}
-                viewOnlyReason={isOlderVersion ? undefined : (access.reason ?? undefined)}
+                viewOnlyReason={access.reason ?? undefined}
                 versionParam={versionParam}
               />
               <div className="relative flex-1 overflow-hidden">

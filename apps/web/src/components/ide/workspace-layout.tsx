@@ -5,11 +5,13 @@ import { useShallow } from 'zustand/react/shallow'
 import { PROJECT_HANDLERS_PATH } from '@awaitstep/ir'
 import type { WorkflowFull, WorkflowSource } from '../../lib/api-client'
 import { reviewOrder } from '../../lib/ide/review'
+import { deriveDeploymentState } from '../../lib/hydrate-workflow'
 import { filePathOfTab } from '../../lib/ide/tabs'
 import type { useWorkspaceActions } from '../../hooks/use-workspace-actions'
 import type { WorkspaceData } from '../../hooks/use-workspace-data'
 import type { ProjectFilesController } from '../../hooks/use-project-files'
 import type { useWorkspaceSession } from '../../hooks/use-workspace-session'
+import { useEditorAccess } from '../../contexts/editor-scope-context'
 import { useIdeLayoutStore, type IdeLayoutKey } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
 import { BottomDock } from './bottom-dock'
@@ -77,6 +79,7 @@ export function WorkspaceLayout({
   initialLayouts,
   dialogs,
 }: WorkspaceLayoutProps) {
+  const access = useEditorAccess()
   const {
     isHistorical,
     readOnlyVersion,
@@ -127,6 +130,14 @@ export function WorkspaceLayout({
   const activeIsStoredFile = activePath !== null && storedPaths.has(activePath)
   const activeIsHandlersFile = activePath === PROJECT_HANDLERS_PATH
   const unsavedPaths = [...dirty]
+  const { hasActiveDeployment, hasUndeployedChanges, deployedVersion, currentVersion } =
+    deriveDeploymentState(fullData)
+  const deployState = {
+    hasActiveDeployment,
+    hasUndeployedChanges,
+    deployedVersion: deployedVersion?.version,
+    currentVersion,
+  }
 
   // The requested layout is the one before size constraints clipped it,
   // which is what should come back on the next mount.
@@ -149,8 +160,10 @@ export function WorkspaceLayout({
         {...(version && { version: version.version })}
         {...(version && isHistorical && { historicalVersion: readOnlyVersion ?? version.version })}
         {...(linkVersion !== undefined && { versionParam: linkVersion })}
+        deployState={deployState}
         dirtyCount={dirty.size}
         canEdit={canEdit}
+        {...(access.reason && { viewOnlyReason: access.reason })}
         saving={projectFiles.busy}
         onSave={actions.saveAll}
       />

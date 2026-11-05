@@ -1,28 +1,20 @@
-import {
-  Settings2,
-  Play,
-  Rocket,
-  Loader2,
-  Save,
-  LayoutTemplate,
-  Terminal,
-  Download,
-  Check,
-  AlertCircle,
-  Circle,
-  Undo2,
-  Redo2,
-} from 'lucide-react'
+import { Undo2, Redo2, PanelLeft, PanelRight } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 import { Button } from '../ui/button'
-import { WorkflowTitle } from '../workflows/workflow-title'
-import { WorkspaceChrome } from '../workflows/workspace-chrome'
-import { cn } from '../../lib/utils'
-import { useTemporalStore } from '../../stores/workflow-store'
+import { useTemporalStore, useWorkflowStore } from '../../stores/workflow-store'
+import { useCanvasLayoutStore } from '../../stores/canvas-layout-store'
+import { useIdeShortcuts } from '../../hooks/use-ide-shortcuts'
 import { redoWithFeedback, undoWithFeedback } from './time-travel'
 import { useSwitchView } from '../../hooks/use-switch-view'
-import { ViewSwitch, type EditorView } from '../workflows/view-switch'
+import type { EditorView } from '../workflows/view-switch'
+import { UnifiedTopBar, type TopBarToggle } from '../workflows/unified-top-bar'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
-import { RouterShellLink } from '../navigation/router-shell-link'
+import { deployBadge } from '../../lib/workflows/deploy-badge'
+import { IDE_SHORTCUTS, formatShortcut } from '../../lib/ide/shortcuts'
+import { isMacPlatform } from '../../lib/platform'
+import { SaveStatusIndicator } from './save-status-indicator'
+import { readOnlyReason } from '../../lib/workflows/read-only-reason'
+import { BLANK_DEPLOY_REASON, canvasMenuGroups, canvasTopBarVersion } from './canvas-toolbar-menu'
 
 export interface EditorToolbarProps {
   workflowId: string
@@ -36,79 +28,28 @@ export interface EditorToolbarProps {
   hasActiveDeployment: boolean
   hasUndeployedChanges: boolean | string | undefined
   deployedVersion: number | undefined
-  showSettings: boolean
-  onToggleSettings: () => void
+  /** Opens the workflow settings (it never closes them: the menu item is "go there"). */
+  onOpenSettings: () => void
   onSave: () => void
   isSaving: boolean
   lastSavedAt?: Date | null
   saveError?: string | null
   onDeploy: () => void
-  onTest: () => void
+  /** Runs the client-side check; its result opens in the canvas's bottom panel. */
+  onCheck: () => void
   onTestLocally?: () => void
   /** Offered only while the workflow has nothing saved (`offersTemplates`). */
   onOpenTemplatePicker?: () => void
   onExport?: () => void
   readOnly?: boolean
+  /** Read-only because `?version=` names an older version than the latest. */
+  olderVersion?: boolean
+  /** That older version's number; missing when it is beyond the versions the page loaded. */
   readOnlyVersion?: number
-  /** Read-only because the viewer's role can't edit (a Viewer), not because the version is old. */
+  /** The viewer's role can't edit (a Viewer); the reason is theirs to read. */
   viewOnlyReason?: string
   /** The `?version=` being viewed, carried over to the code workspace link. */
   versionParam?: string
-}
-
-function SaveStatusIndicator({
-  isDirty,
-  isSaving,
-  lastSavedAt,
-  saveError,
-}: {
-  isDirty: boolean
-  isSaving: boolean
-  lastSavedAt: Date | null
-  saveError: string | null
-}) {
-  if (isSaving) {
-    return (
-      <span
-        className="inline-flex items-center gap-1 text-xs text-muted-foreground"
-        title="Saving…"
-      >
-        <Loader2 className="h-3 w-3 animate-spin" />
-        <span className="hidden sm:inline">Saving…</span>
-      </span>
-    )
-  }
-  if (saveError && isDirty) {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs text-destructive" title={saveError}>
-        <AlertCircle className="h-3 w-3" />
-        <span className="hidden sm:inline">Couldn&apos;t save</span>
-      </span>
-    )
-  }
-  if (isDirty) {
-    return (
-      <span
-        className="inline-flex items-center gap-1 text-xs text-status-warning"
-        title="Unsaved changes"
-      >
-        <Circle className="h-2 w-2 fill-status-warning text-status-warning" />
-        <span className="hidden sm:inline">Unsaved</span>
-      </span>
-    )
-  }
-  if (lastSavedAt) {
-    return (
-      <span
-        className="inline-flex items-center gap-1 text-xs text-muted-foreground"
-        title={`Saved at ${lastSavedAt.toLocaleTimeString()}`}
-      >
-        <Check className="h-3 w-3 text-status-success" />
-        <span className="hidden sm:inline">Saved</span>
-      </span>
-    )
-  }
-  return null
 }
 
 export function EditorToolbar({
@@ -122,24 +63,56 @@ export function EditorToolbar({
   hasActiveDeployment,
   hasUndeployedChanges,
   deployedVersion,
-  showSettings,
-  onToggleSettings,
+  onOpenSettings,
   onSave,
   isSaving,
   lastSavedAt,
   saveError,
   onDeploy,
-  onTest,
+  onCheck,
   onTestLocally,
   onOpenTemplatePicker,
   onExport,
   readOnly,
+  olderVersion,
   readOnlyVersion,
   viewOnlyReason,
   versionParam,
 }: EditorToolbarProps) {
   const switchView = useSwitchView(workflowId)
   const links = useWorkflowLinks(workflowId)
+  const paletteOpen = useCanvasLayoutStore((s) => s.paletteOpen)
+  const inspectorOpen = useCanvasLayoutStore((s) => s.inspectorOpen)
+  const togglePalette = useCanvasLayoutStore((s) => s.togglePalette)
+  const { selectedNodeId, showSettings } = useWorkflowStore(
+    useShallow((s) => ({ selectedNodeId: s.selectedNodeId, showSettings: s.showSettings })),
+  )
+  const canUndo = useTemporalStore((t) => t.pastStates.length > 0)
+  const canRedo = useTemporalStore((t) => t.futureStates.length > 0)
+  const isMac = isMacPlatform()
+  const hint = (id: keyof typeof IDE_SHORTCUTS) => formatShortcut(IDE_SHORTCUTS[id], isMac)
+  const saveHint = isMac ? '⌘↵' : 'Ctrl+↵'
+  const viewOnly = !!readOnly && !!viewOnlyReason
+  // Pressed means the inspector is on screen, not merely allowed: with no
+  // step selected, or the settings panel in its place, nothing is showing.
+  const inspectorVisible = inspectorOpen && !!selectedNodeId && !showSettings
+
+  // Asking for the inspector brings it back; asking again hides it. With
+  // nothing selected there is nothing to hide, so it only arms the panel.
+  function handleToggleInspector() {
+    if (inspectorVisible) {
+      useCanvasLayoutStore.getState().setInspectorOpen(false)
+      return
+    }
+    useCanvasLayoutStore.getState().setInspectorOpen(true)
+    if (selectedNodeId && showSettings) useWorkflowStore.getState().setShowSettings(false)
+  }
+
+  // The same chords the Code surface uses for its side bar and panel.
+  useIdeShortcuts({
+    toggleExplorer: readOnly ? undefined : togglePalette,
+    toggleDock: handleToggleInspector,
+  })
 
   // ?version= is carried only while actually viewing an older version. On
   // an editable canvas it names the version that is current *right now*,
@@ -157,207 +130,126 @@ export function EditorToolbar({
     void switchView('canvas')
   }
 
-  const title = (
-    <WorkflowTitle
-      name={workflowName}
-      kind={kind}
-      version={isNew ? undefined : currentVersion}
-      href={isNew ? undefined : links.overview}
-    >
-      {nodeCount > 0 && (
-        <span className="hidden shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary md:inline-flex">
-          {nodeCount} node{nodeCount !== 1 ? 's' : ''}
-        </span>
-      )}
-      {hasActiveDeployment && (
-        <RouterShellLink
-          href={links.deployments}
-          className={cn(
-            'hidden shrink-0 rounded px-1.5 py-0.5 text-xs font-medium transition-colors md:inline-block',
-            hasUndeployedChanges
-              ? 'bg-status-warning/10 text-status-warning hover:bg-status-warning/20'
-              : 'bg-status-success/10 text-status-success hover:bg-status-success/20',
-          )}
-        >
-          {hasUndeployedChanges
-            ? `deployed v${deployedVersion ?? '?'} · v${currentVersion} unsaved`
-            : `deployed v${currentVersion}`}
-        </RouterShellLink>
-      )}
-      <SaveStatusIndicator
-        isDirty={isDirty}
-        isSaving={isSaving}
-        lastSavedAt={lastSavedAt ?? null}
-        saveError={saveError ?? null}
-      />
-    </WorkflowTitle>
-  )
+  const toggles: TopBarToggle[] = [
+    {
+      id: 'steps',
+      icon: PanelLeft,
+      pressed: paletteOpen && !readOnly,
+      disabled: !!readOnly,
+      title: readOnly
+        ? 'Steps (nothing to add while read-only)'
+        : `Steps (${hint('toggleExplorer')})`,
+      onClick: togglePalette,
+    },
+    {
+      id: 'inspector',
+      icon: PanelRight,
+      pressed: inspectorVisible,
+      title: `Inspector (${hint('toggleDock')})`,
+      onClick: handleToggleInspector,
+    },
+  ]
+
+  const blank = nodeCount === 0 && (isNew || currentVersion === 0)
+  const reason = readOnlyReason({ viewOnlyReason, olderVersion })
+
+  function saveTitle() {
+    if (readOnly) return reason
+    if (isSaving) return 'Saving…'
+    if (!isDirty) return 'No changes to save'
+    return `Save a new version (${saveHint})`
+  }
 
   return (
-    <WorkspaceChrome
-      title={title}
-      actions={
-        <>
-          {/* A workflow that exists has files to write, saved version or not;
-              only an unsaved new one has no row for them. Switching away
-              from a dirty canvas is blocked, so this raises the switch
-              dialog rather than losing the graph. */}
-          {!isNew && <ViewSwitch current="canvas" onSelect={handleSelectView} />}
-          {readOnly && viewOnlyReason ? (
-            <>
-              <span
-                title={viewOnlyReason}
-                className="rounded bg-muted/70 px-2 py-1 text-xs font-medium text-muted-foreground"
-              >
-                View only
-              </span>
-              {/* Exporting only reads, so a Viewer keeps it. */}
-              {onExport && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  title="Export"
-                  className="hidden h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground/70 sm:inline-flex md:px-2.5"
-                  onClick={onExport}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  <span className="hidden text-xs md:inline">Export</span>
-                </Button>
-              )}
-            </>
-          ) : readOnly ? (
-            <>
-              <span className="hidden rounded bg-muted/70 px-2 py-1 text-xs font-medium text-muted-foreground sm:inline-block">
-                Read-only{readOnlyVersion ? ` · v${readOnlyVersion}` : ''}
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 px-3 text-xs"
-                onClick={handleOpenLatest}
-              >
-                <span className="hidden sm:inline">Back to latest</span>
-                <span className="sm:hidden">Latest</span>
-              </Button>
-            </>
-          ) : (
-            <>
-              <UndoRedoButtons />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onSave}
-                disabled={isSaving || !isDirty}
-                title="Save (⌘↵)"
-                className={cn(
-                  'h-8 gap-1.5 px-2 md:px-2.5',
-                  isDirty ? 'text-foreground/70 hover:text-foreground' : 'text-muted-foreground/60',
-                )}
-              >
-                {isSaving ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Save className="h-3.5 w-3.5" />
-                )}
-                <span className="hidden text-xs md:inline">Save</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onToggleSettings}
-                title="Settings"
-                className={cn(
-                  'hidden h-8 gap-1.5 px-2 sm:inline-flex md:px-2.5',
-                  showSettings
-                    ? 'bg-muted/70 text-foreground'
-                    : 'text-muted-foreground hover:text-foreground/70',
-                )}
-              >
-                <Settings2 className="h-3.5 w-3.5" />
-                <span className="hidden text-xs md:inline">Settings</span>
-              </Button>
-              {onOpenTemplatePicker && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  title="Templates"
-                  className="hidden h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground/70 sm:inline-flex md:px-2.5"
-                  onClick={onOpenTemplatePicker}
-                >
-                  <LayoutTemplate className="h-3.5 w-3.5" />
-                  <span className="hidden text-xs md:inline">Templates</span>
-                </Button>
-              )}
-              {onExport && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  title="Export"
-                  className="hidden h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground/70 sm:inline-flex md:px-2.5"
-                  onClick={onExport}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  <span className="hidden text-xs md:inline">Export</span>
-                </Button>
-              )}
-              <div className="hidden h-5 w-px shrink-0 bg-muted/70 sm:block" />
-              <Button
-                variant="ghost"
-                size="sm"
-                title="Test"
-                className="h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground/80 md:px-2.5"
-                onClick={onTest}
-              >
-                <Play className="h-3.5 w-3.5" />
-                <span className="hidden text-xs md:inline">Test</span>
-              </Button>
-              {onTestLocally && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  title="Local test"
-                  className="hidden h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground/80 sm:inline-flex md:px-2.5"
-                  onClick={onTestLocally}
-                >
-                  <Terminal className="h-3.5 w-3.5" />
-                  <span className="hidden text-xs md:inline">Local</span>
-                </Button>
-              )}
-              <Button
-                size="sm"
-                className="h-8 gap-1.5 px-2.5 md:px-3"
-                onClick={onDeploy}
-                title="Deploy"
-              >
-                <Rocket className="h-3.5 w-3.5" />
-                <span className="hidden text-xs sm:inline">Deploy</span>
-              </Button>
-            </>
-          )}
-        </>
+    <UnifiedTopBar
+      surface="canvas"
+      name={workflowName}
+      kind={kind}
+      overviewHref={isNew ? undefined : links.overview}
+      version={canvasTopBarVersion({
+        isNew,
+        currentVersion,
+        olderVersion,
+        readOnlyVersion,
+        onBackToLatest: handleOpenLatest,
+      })}
+      nodeCount={nodeCount}
+      deployBadge={
+        hasActiveDeployment
+          ? {
+              ...deployBadge({
+                hasActiveDeployment,
+                hasUndeployedChanges,
+                deployedVersion,
+                currentVersion,
+              })!,
+              href: links.deployments,
+            }
+          : null
       }
+      // A workflow that exists has files to write, saved version or not; only
+      // an unsaved new one has no row for them. Switching away from a dirty
+      // canvas is blocked, so this raises the switch dialog rather than
+      // losing the graph.
+      showViewSwitch={!isNew}
+      onSelectView={handleSelectView}
+      toggles={toggles}
+      accessBadge={viewOnly ? { label: 'View only', title: viewOnlyReason } : undefined}
+      history={readOnly ? undefined : <UndoRedoButtons canUndo={canUndo} canRedo={canRedo} />}
+      saveStatus={
+        readOnly ? undefined : (
+          <SaveStatusIndicator
+            isDirty={isDirty}
+            isSaving={isSaving}
+            lastSavedAt={lastSavedAt ?? null}
+            saveError={saveError ?? null}
+          />
+        )
+      }
+      save={{
+        label: 'Save',
+        saving: isSaving,
+        disabled: !!readOnly || isSaving || !isDirty,
+        title: saveTitle(),
+        onClick: onSave,
+      }}
+      deploy={{
+        onClick: onDeploy,
+        disabled: !!readOnly || blank,
+        title: readOnly ? reason : blank ? BLANK_DEPLOY_REASON : 'Deploy',
+      }}
+      menu={canvasMenuGroups({
+        readOnly: !!readOnly,
+        isMac,
+        canUndo,
+        canRedo,
+        nodeCount,
+        onOpenSettings,
+        onOpenTemplatePicker,
+        onExport,
+        onTestLocally,
+        onCheck,
+      })}
     />
   )
 }
 
 /**
- * Undo/redo buttons bound to the store's temporal history. Subscribed to
- * the history depths so they enable and disable as edits land, and labeled
- * with their shortcuts for discoverability.
+ * Undo/redo bound to the store's temporal history, enabled as edits land and
+ * labeled with their shortcuts. When the bar has no room the same two live in the ⋯ menu.
  */
-function UndoRedoButtons() {
-  const canUndo = useTemporalStore((t) => t.pastStates.length > 0)
-  const canRedo = useTemporalStore((t) => t.futureStates.length > 0)
-
+function UndoRedoButtons({ canUndo, canRedo }: { canUndo: boolean; canRedo: boolean }) {
+  const isMac = isMacPlatform()
   return (
-    <>
+    <div className="hidden shrink-0 items-center gap-0.5 @[680px]:flex">
       <Button
         variant="ghost"
         size="sm"
         onClick={undoWithFeedback}
         disabled={!canUndo}
-        title="Undo (⌘Z)"
-        className="h-8 px-2 text-muted-foreground/70 hover:text-foreground"
+        title={`Undo (${isMac ? '⌘Z' : 'Ctrl+Z'})`}
+        aria-label="Undo"
+        className="h-8 w-8 px-0 text-muted-foreground hover:text-foreground"
       >
         <Undo2 className="h-3.5 w-3.5" />
       </Button>
@@ -366,11 +258,12 @@ function UndoRedoButtons() {
         size="sm"
         onClick={redoWithFeedback}
         disabled={!canRedo}
-        title="Redo (⇧⌘Z)"
-        className="h-8 px-2 text-muted-foreground/70 hover:text-foreground"
+        title={`Redo (${isMac ? '⇧⌘Z' : 'Ctrl+Shift+Z'})`}
+        aria-label="Redo"
+        className="h-8 w-8 px-0 text-muted-foreground hover:text-foreground"
       >
         <Redo2 className="h-3.5 w-3.5" />
       </Button>
-    </>
+    </div>
   )
 }

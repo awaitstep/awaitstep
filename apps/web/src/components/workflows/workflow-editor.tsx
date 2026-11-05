@@ -17,7 +17,7 @@ interface WorkflowEditorProps {
 
 /** The workflow editor, on its Canvas or Code view, whichever route opened it. */
 export function WorkflowEditor({ workflowId, search, localDev }: WorkflowEditorProps) {
-  const { view, version, file, node, template, kind } = search
+  const { view, version, file, node, panel, template, kind } = search
   return (
     <NodeRegistryProvider>
       {view === 'ide' ? (
@@ -33,6 +33,7 @@ export function WorkflowEditor({ workflowId, search, localDev }: WorkflowEditorP
           template={template}
           kindParam={kind}
           nodeParam={node}
+          panelParam={panel}
           localDevEnabled={localDev}
         />
       )}

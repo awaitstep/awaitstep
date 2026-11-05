@@ -15,13 +15,14 @@ interface WorkflowTitleProps {
   href?: string
 }
 
-const NAME_CLASS =
-  'max-w-[120px] truncate text-sm font-semibold text-foreground sm:max-w-[200px] md:max-w-[260px] lg:max-w-none'
+// The name gives way first: it takes whatever room the badges leave and
+// truncates, never pushing them or the bar's other zones aside.
+const NAME_CLASS = 'min-w-12 truncate text-sm font-semibold text-foreground'
 
 /** The name · kind · version cluster every workflow editing header starts with. */
 export function WorkflowTitle({ name, kind, version, children, href }: WorkflowTitleProps) {
   return (
-    <div className="flex min-w-0 items-center gap-1.5 px-1 sm:gap-2">
+    <div className="flex min-w-0 items-center gap-1.5 px-1 @[640px]:gap-2">
       {href ? (
         <RouterShellLink
           href={href}
@@ -35,14 +36,14 @@ export function WorkflowTitle({ name, kind, version, children, href }: WorkflowT
       )}
       {kind === 'script' && (
         <span
-          className="hidden shrink-0 items-center rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:inline-flex"
+          className="hidden shrink-0 items-center rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground @[640px]:inline-flex"
           title={FUNCTION_BADGE_TITLE}
         >
           Function
         </span>
       )}
       {version !== undefined && version > 0 && (
-        <span className="shrink-0 rounded bg-muted/60 px-1.5 py-0.5 text-xs font-medium text-muted-foreground/60">
+        <span className="shrink-0 rounded bg-muted/60 px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
           v{version}
         </span>
       )}

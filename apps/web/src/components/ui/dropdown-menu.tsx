@@ -3,6 +3,7 @@ import { forwardRef } from 'react'
 
 export const DropdownMenu = DropdownMenuPrimitive.Root
 export const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger
+export const DropdownMenuGroup = DropdownMenuPrimitive.Group
 
 export const DropdownMenuContent = forwardRef<
   HTMLDivElement,
@@ -44,3 +45,15 @@ export const DropdownMenuSeparator = forwardRef<
   />
 ))
 DropdownMenuSeparator.displayName = 'DropdownMenuSeparator'
+
+export const DropdownMenuLabel = forwardRef<
+  HTMLDivElement,
+  DropdownMenuPrimitive.DropdownMenuLabelProps
+>(({ className = '', ...props }, ref) => (
+  <DropdownMenuPrimitive.Label
+    ref={ref}
+    className={`px-2.5 py-1.5 text-xs text-muted-foreground ${className}`}
+    {...props}
+  />
+))
+DropdownMenuLabel.displayName = 'DropdownMenuLabel'

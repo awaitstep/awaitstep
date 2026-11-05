@@ -2,10 +2,11 @@ import { describe, it, expect } from 'vitest'
 import {
   buildWorkflowStoreState,
   nodeToSelectOnce,
+  panelToOpenOnce,
   deriveReadOnlyState,
   deriveDeploymentState,
 } from '../hydrate-workflow'
-import type { WorkflowSummary, WorkflowVersion, WorkflowFull } from '../api-client'
+import type { WorkflowSummary, WorkflowVersion, WorkflowFull, VersionSummary } from '../api-client'
 
 const baseWorkflow: WorkflowSummary = {
   id: 'wf1',
@@ -66,6 +67,21 @@ describe('nodeToSelectOnce', () => {
 
   it('selects nothing without a node in the URL', () => {
     expect(nodeToSelectOnce(undefined, undefined)).toBeUndefined()
+  })
+})
+
+describe('panelToOpenOnce', () => {
+  it('opens the URL’s panel on the first hydration that sees it', () => {
+    expect(panelToOpenOnce('settings', undefined)).toBe('settings')
+  })
+
+  it('does not open it again on the hydrations a save causes', () => {
+    expect(panelToOpenOnce('settings', 'settings')).toBeUndefined()
+  })
+
+  it('opens nothing when the URL names no panel', () => {
+    expect(panelToOpenOnce(undefined, undefined)).toBeUndefined()
+    expect(panelToOpenOnce(undefined, 'settings')).toBeUndefined()
   })
 })
 
@@ -361,6 +377,17 @@ describe('buildWorkflowStoreState', () => {
   it('handles null version data', () => {
     const result = buildWorkflowStoreState(baseWorkflow, null, 1, false)
     expect(result.nodes).toBeUndefined()
+  })
+})
+
+describe('deriveReadOnlyState with a version the list does not hold', () => {
+  it('is still read-only, with no number to show, for a version beyond the loaded ones', () => {
+    // GET /workflows/:id/full lists only the newest 100 versions.
+    const loaded = [{ id: 'v105', version: 105 }] as unknown as VersionSummary[]
+    expect(deriveReadOnlyState('v5', 'v105', loaded)).toEqual({
+      isReadOnly: true,
+      readOnlyVersion: undefined,
+    })
   })
 })
 
