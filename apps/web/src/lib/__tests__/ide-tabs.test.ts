@@ -4,6 +4,11 @@ import {
   closeAllTabs,
   closeTab,
   closeTabs,
+  REVIEW_TAB_ID,
+  compareTabId,
+  compareTabPath,
+  filePathOfTab,
+  tabKind,
   nextTabIndex,
   cycleTab,
   openTab,
@@ -106,5 +111,49 @@ describe('nextTabIndex', () => {
     expect(nextTabIndex('a', 0, 3)).toBeNull()
     expect(nextTabIndex('ArrowRight', 0, 1)).toBeNull()
     expect(nextTabIndex('ArrowRight', -1, 3)).toBeNull()
+  })
+})
+
+describe('review and Compare tabs', () => {
+  it('have ids no project path can have (paths never contain a colon)', () => {
+    expect(REVIEW_TAB_ID).toContain(':')
+    expect(compareTabId('lib/a.ts')).toContain(':')
+    expect(compareTabId('lib/a.ts')).not.toBe(compareTabId('lib/b.ts'))
+  })
+
+  it('tells files, the review and Compare tabs apart', () => {
+    expect(tabKind('lib/a.ts')).toBe('file')
+    expect(tabKind(REVIEW_TAB_ID)).toBe('review')
+    expect(tabKind(compareTabId('lib/a.ts'))).toBe('compare')
+    expect(compareTabPath(compareTabId('lib/a.ts'))).toBe('lib/a.ts')
+    expect(compareTabPath('lib/a.ts')).toBeNull()
+    expect(filePathOfTab('lib/a.ts')).toBe('lib/a.ts')
+    expect(filePathOfTab(REVIEW_TAB_ID)).toBeNull()
+    expect(filePathOfTab(compareTabId('lib/a.ts'))).toBeNull()
+    expect(filePathOfTab(null)).toBeNull()
+  })
+
+  it('prune keeps the review tab and a Compare tab whose file still has an unsaved copy', () => {
+    const state: TabState = {
+      openPaths: ['a.ts', REVIEW_TAB_ID, compareTabId('a.ts')],
+      activePath: REVIEW_TAB_ID,
+    }
+    const next = pruneTabs(state, new Set(['a.ts']), new Set(['a.ts']))
+    expect(next.openPaths).toEqual(state.openPaths)
+  })
+
+  it('prune closes a Compare tab once its file has no unsaved copy, or no longer exists', () => {
+    const state: TabState = {
+      openPaths: ['a.ts', 'b.ts', compareTabId('a.ts'), compareTabId('b.ts')],
+      activePath: compareTabId('a.ts'),
+    }
+    const next = pruneTabs(state, new Set(['a.ts']), new Set(['b.ts']))
+    expect(next.openPaths).toEqual(['a.ts'])
+    expect(next.activePath).toBe('a.ts')
+  })
+
+  it('prune without drafts leaves Compare tabs for existing files alone', () => {
+    const state: TabState = { openPaths: [compareTabId('a.ts')], activePath: compareTabId('a.ts') }
+    expect(pruneTabs(state, new Set(['a.ts'])).openPaths).toEqual([compareTabId('a.ts')])
   })
 })

@@ -18,9 +18,7 @@ function renderBar(overrides: Partial<React.ComponentProps<typeof StatusBar>> = 
     onOpenLatest: vi.fn(),
     onShowSession: vi.fn(),
     onShowProblems: vi.fn(),
-    onOpenFile: vi.fn(),
-    onSaveAll: vi.fn(),
-    onDiscard: vi.fn(),
+    onReview: vi.fn(),
     ...overrides,
   }
   render(<StatusBar {...props} />)
@@ -55,11 +53,17 @@ describe('StatusBar', () => {
     expect(props.onOpenLatest).toHaveBeenCalled()
   })
 
-  it('lists unsaved files from the count and opens the one you pick', async () => {
+  it('shows the unsaved count, which opens the review', async () => {
     const props = renderBar()
     await userEvent.click(screen.getByRole('button', { name: '2 unsaved ›' }))
-    await userEvent.click(await screen.findByRole('menuitem', { name: /errors\.ts/ }))
-    expect(props.onOpenFile).toHaveBeenCalledWith('lib/errors.ts')
+    expect(props.onReview).toHaveBeenCalledTimes(1)
+    // The click event must not leak in as the file to review.
+    expect(props.onReview).toHaveBeenCalledWith()
+  })
+
+  it('does not offer the review to a workspace that cannot edit', () => {
+    renderBar({ canEdit: false })
+    expect(screen.queryByRole('button', { name: /unsaved/ })).toBeNull()
   })
 
   it('shows no unsaved item when nothing is unsaved', () => {

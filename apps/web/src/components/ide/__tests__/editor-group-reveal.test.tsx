@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GeneratedFile } from '@awaitstep/codegen'
 import { useIdeStore } from '../../../stores/ide-store'
 import { EditorGroup } from '../editor-group'
+import { makeReviewBindings } from './fixtures/review-bindings'
 
 /**
  * Just enough of Monaco's editor, and of `@monaco-editor/react`'s habit of
@@ -86,6 +87,7 @@ function renderGroup() {
       onConvertHandlers={vi.fn()}
       onOpenCanvas={vi.fn()}
       run={{ label: 'Run', busy: false, onRun: vi.fn() }}
+      review={makeReviewBindings()}
     />,
   )
 }

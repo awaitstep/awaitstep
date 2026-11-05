@@ -5,6 +5,7 @@ import type { GeneratedFile } from '@awaitstep/codegen'
 import { useShallow } from 'zustand/react/shallow'
 import type { Editability } from '../../lib/ide/editability'
 import { fileLanguage } from '../../lib/ide/file-tree'
+import { compareTabPath, filePathOfTab, tabKind } from '../../lib/ide/tabs'
 import { disposeWorkflowModels, syncWorkflowModels } from '../../lib/monaco/models'
 import { projectRootOptions, tsconfigEditorOptions } from '../../lib/monaco/project-config'
 import { disposeProjectLibs, syncProjectLibs } from '../../lib/monaco/project-libs'
@@ -21,9 +22,14 @@ import { useMonacoTheme } from '../../lib/monaco/theme'
 import { useDebouncedValue } from '../../hooks/use-debounced-value'
 import { IDE_EDITOR_OPTIONS, IDE_READONLY_EDITOR_OPTIONS } from '../../lib/monaco/options'
 import { useWorkflowTypeContext } from '../../lib/monaco/use-workflow-type-context'
+import { searchSeedOf } from '../../lib/ide/editor-seed'
 import { useIdeStore } from '../../stores/ide-store'
 import { EditorPlaceholder } from './editor-placeholder'
+import { CompareView } from './compare-view'
 import { EditorFileBanner } from './editor-file-banner'
+import { FileStateBanner } from './file-state-banner'
+import type { ReviewBindings } from './review-bindings'
+import { ReviewView } from './review-view'
 import { EditorTabs } from './editor-tabs'
 import { RestoredDraftsBanner } from './restored-drafts-banner'
 import { RunButton, type RunButtonProps } from './run-button'
@@ -51,6 +57,8 @@ interface EditorGroupProps {
   onConvertHandlers: () => void
   onOpenCanvas: () => void
   run: RunButtonProps
+  /** The Unsaved changes and Compare tabs, and the banners about outside changes. */
+  review: ReviewBindings
 }
 
 export function EditorGroup({
@@ -67,6 +75,7 @@ export function EditorGroup({
   onConvertHandlers,
   onOpenCanvas,
   run,
+  review,
 }: EditorGroupProps) {
   useWorkflowTypeContext()
   const monacoTheme = useMonacoTheme()
@@ -82,8 +91,11 @@ export function EditorGroup({
   )
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
 
-  const activeFile = activePath ? files.get(activePath) : undefined
-  const editability = activePath ? editabilityOf(activePath) : null
+  // The review and Compare tabs are not files: they have no model here.
+  const activeFilePath = filePathOfTab(activePath)
+  const activeFile = activeFilePath ? files.get(activeFilePath) : undefined
+  const editability = activeFilePath ? editabilityOf(activeFilePath) : null
+  const activeKind = activePath ? tabKind(activePath) : null
 
   // Every file is a model (created up front, not when its tab opens) so
   // TypeScript sees the whole project: imports resolve across files and
@@ -219,7 +231,7 @@ export function EditorGroup({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <RestoredDraftsBanner />
+      <RestoredDraftsBanner onCompare={review.onCompare} />
       <div className="flex shrink-0 items-stretch border-b border-border bg-card">
         <div className="min-w-0 flex-1">
           <EditorTabs files={files} dirty={dirty} onRevertFile={onRevertFile} />
@@ -238,8 +250,13 @@ export function EditorGroup({
           onOpenCanvas={onOpenCanvas}
         />
       )}
+      {activeFile && <FileStateBanner path={activeFile.path} bindings={review} />}
       <div className="min-h-0 flex-1">
-        {activeFile && editability ? (
+        {activeKind === 'review' ? (
+          <ReviewView bindings={review} />
+        ) : activeKind === 'compare' && activePath ? (
+          <CompareView key={activePath} path={compareTabPath(activePath)!} bindings={review} />
+        ) : activeFile && editability ? (
           <Suspense fallback={<div className="h-full bg-editor" />}>
             <MonacoEditor
               height="100%"
@@ -265,22 +282,4 @@ export function EditorGroup({
       </div>
     </div>
   )
-}
-
-/**
- * The single-line selection, else the word at the caret. Null while the
- * editor lacks focus, unless `ignoreFocus`: the palette has the keyboard
- * when its command runs, but the editor still holds its selection.
- */
-function searchSeedOf(instance: editor.IStandaloneCodeEditor, ignoreFocus = false): string | null {
-  if (!ignoreFocus && !instance.hasTextFocus()) return null
-  const model = instance.getModel()
-  const selection = instance.getSelection()
-  if (!model || !selection) return ''
-  if (!selection.isEmpty()) {
-    return selection.startLineNumber === selection.endLineNumber
-      ? model.getValueInRange(selection)
-      : ''
-  }
-  return model.getWordAtPosition(selection.getPosition())?.word ?? ''
 }

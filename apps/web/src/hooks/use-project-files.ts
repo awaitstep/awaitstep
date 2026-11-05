@@ -21,6 +21,8 @@ interface ProjectFilesInput {
 export interface ProjectFilesController extends ProjectFileActions {
   /** A write is in flight. */
   busy: boolean
+  /** Refetches the workspace's files and settings. */
+  refresh: () => Promise<void>
 }
 
 /**
@@ -86,6 +88,9 @@ export function useProjectFiles({
     return {
       saveFile: (path: string) => track(() => actions.saveFile(path)),
       saveAll: () => track(() => actions.saveAll()),
+      overwriteFile: (path: string, serverHash: string | null) =>
+        track(() => actions.overwriteFile(path, serverHash)),
+      recreateFile: (path: string) => track(() => actions.recreateFile(path)),
       createFile: (path: string, source?: string) => track(() => actions.createFile(path, source)),
       renameFile: (from: string, to: string) => track(() => actions.renameFile(from, to)),
       deleteFile: (path: string) => track(() => actions.deleteFile(path)),
@@ -100,6 +105,7 @@ export function useProjectFiles({
           return result
         }),
       busy,
+      refresh,
     }
-  }, [actions, busy, queryClient, workflowId])
+  }, [actions, busy, queryClient, workflowId, refresh])
 }

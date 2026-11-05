@@ -21,6 +21,7 @@ interface CommandPaletteProps {
   activeIsStoredFile: boolean
   activeIsHandlersFile: boolean
   activeDirty: boolean
+  activeMovedOnServer: boolean
   dirtyCount: number
   runLabel: string
   runEnabled: boolean
@@ -37,6 +38,7 @@ export function CommandPalette({
   activeIsStoredFile,
   activeIsHandlersFile,
   activeDirty,
+  activeMovedOnServer,
   dirtyCount,
   runLabel,
   runEnabled,
@@ -67,6 +69,7 @@ export function CommandPalette({
       activeIsStoredFile,
       activeIsHandlersFile,
       activeDirty,
+      activeMovedOnServer,
       dirtyCount,
       openCount,
       canEdit,
@@ -89,6 +92,7 @@ export function CommandPalette({
     activeIsStoredFile,
     activeIsHandlersFile,
     activeDirty,
+    activeMovedOnServer,
     dirtyCount,
     openCount,
     canEdit,

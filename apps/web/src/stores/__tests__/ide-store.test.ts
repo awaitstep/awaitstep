@@ -126,4 +126,80 @@ describe('useIdeLayoutStore (preferences)', () => {
       editor: { editor: 70, dock: 30 },
     })
   })
+
+  it('openReview opens the Unsaved changes tab on the requested file', () => {
+    useIdeStore.getState().openFile('a.ts')
+    useIdeStore.getState().openReview('lib/b.ts')
+    expect(useIdeStore.getState()).toMatchObject({
+      openPaths: ['a.ts', 'ide:review'],
+      activePath: 'ide:review',
+      reviewPath: 'lib/b.ts',
+    })
+    useIdeStore.getState().openReview()
+    expect(useIdeStore.getState().reviewPath).toBeNull()
+    expect(useIdeStore.getState().openPaths).toHaveLength(2)
+  })
+
+  it('a refused save and a dismissed banner last only as long as the unsaved copy', () => {
+    const s = useIdeStore.getState()
+    s.setDraft('a.ts', 'mine', 'h1')
+    s.setConflict('a.ts', { currentHash: 'h2' })
+    s.dismissOutside('a.ts', 'h2')
+    useIdeStore.getState().clearDraft('a.ts')
+    expect(useIdeStore.getState().conflicts).toEqual({})
+    expect(useIdeStore.getState().dismissedOutside).toEqual({})
+  })
+
+  it('a successful save clears the conflict and the dismissal, since the draft now builds on the server copy', () => {
+    const s = useIdeStore.getState()
+    s.setDraft('a.ts', 'mine', 'h1')
+    s.setConflict('a.ts', { currentHash: 'h2' })
+    s.dismissOutside('a.ts', 'h2')
+    useIdeStore.getState().rebaseDraft('a.ts', 'h3')
+    expect(useIdeStore.getState().conflicts).toEqual({})
+    expect(useIdeStore.getState().dismissedOutside).toEqual({})
+  })
+
+  it('replaceDrafts and reconcileDrafts forget the flags of files that lost their draft', () => {
+    const s = useIdeStore.getState()
+    s.setDraft('a.ts', 'mine', 'h1')
+    s.setDraft('b.ts', 'mine', 'h1')
+    s.setConflict('a.ts', { currentHash: 'x' })
+    s.setConflict('b.ts', { currentHash: 'y' })
+    useIdeStore.getState().replaceDrafts({ 'b.ts': { source: 'mine', baseHash: 'h1' } })
+    expect(Object.keys(useIdeStore.getState().conflicts)).toEqual(['b.ts'])
+    // b.ts now matches the baseline: its draft, and with it the flag, go.
+    useIdeStore
+      .getState()
+      .reconcileDrafts(new Map([['b.ts', { path: 'b.ts', source: 'mine', role: 'module' }]]))
+    expect(useIdeStore.getState().conflicts).toEqual({})
+  })
+
+  it('pruning keeps the review tab and closes a Compare tab whose draft is gone', () => {
+    const s = useIdeStore.getState()
+    s.openFile('a.ts')
+    s.setDraft('a.ts', 'mine', 'h1')
+    s.openReview()
+    s.openCompare('a.ts')
+    useIdeStore.getState().pruneFiles(['a.ts'])
+    expect(useIdeStore.getState().openPaths).toEqual(['a.ts', 'ide:review', 'ide:compare:a.ts'])
+    useIdeStore.getState().clearDraft('a.ts')
+    useIdeStore.getState().pruneFiles(['a.ts'])
+    expect(useIdeStore.getState().openPaths).toEqual(['a.ts', 'ide:review'])
+  })
+
+  it('resetSession clears the review state too', () => {
+    const s = useIdeStore.getState()
+    s.openReview('a.ts')
+    s.setReviewInline(true)
+    s.setDraft('a.ts', 'x', 'h')
+    s.setConflict('a.ts', { currentHash: 'h2' })
+    useIdeStore.getState().resetSession()
+    expect(useIdeStore.getState()).toMatchObject({
+      reviewPath: null,
+      reviewInline: false,
+      conflicts: {},
+      dismissedOutside: {},
+    })
+  })
 })
