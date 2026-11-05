@@ -68,6 +68,11 @@ describe('workspace Overview', () => {
       'CRM sync',
       'Inbound webhook triage',
     ])
+    for (const row of rows) {
+      expect(row.querySelector('a')?.getAttribute('href')).toMatch(
+        /^\/acme\/project-101\/sales\/workflows\/[^/]+\/overview$/,
+      )
+    }
     expect(rows[2]).toHaveTextContent('200 OK')
     expect(rows[2]).toHaveTextContent('86ms')
     expect(within(card('Recent runs')).getByRole('link', { name: 'All runs' })).toBeVisible()

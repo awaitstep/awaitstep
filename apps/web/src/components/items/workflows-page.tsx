@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Lock } from 'lucide-react'
 import { useSetShared, useSharedWithWorkspace, useWorkspaceItems } from '../../data/dashboard/items'
-import { itemPath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
+import { itemPagePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
 import { Banner } from '../ui/banner'
 import { ListCard } from '../ui/list-card'
 import { SegmentedFilter, type FilterOption } from '../ui/segmented-filter'
@@ -114,7 +114,7 @@ export function WorkflowsPage({ slugs, dialog, onCloseDialog }: WorkflowsPagePro
               <WorkflowRow
                 key={item.id}
                 item={item}
-                href={itemPath(slugs, item)}
+                href={itemPagePath(slugs, item, 'overview')}
                 projectName={projectName}
                 onShareChange={shareHandler(item.id)}
               />
@@ -124,7 +124,7 @@ export function WorkflowsPage({ slugs, dialog, onCloseDialog }: WorkflowsPagePro
         <div className="md:hidden">
           <ListCard label={`Workflows in ${workspace.name}`} empty={empty}>
             {visible.map((item) => (
-              <ItemLinkRow key={item.id} item={item} href={itemPath(slugs, item)} />
+              <ItemLinkRow key={item.id} item={item} href={itemPagePath(slugs, item, 'overview')} />
             ))}
           </ListCard>
         </div>

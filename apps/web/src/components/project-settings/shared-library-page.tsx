@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useProjectShared, useUnshareItem } from '../../data/dashboard/items'
-import { itemPath, type ProjectSlugs } from '../../lib/dashboard-paths'
+import { itemPagePath, type ProjectSlugs } from '../../lib/dashboard-paths'
 import { cn } from '../../lib/utils'
 import { timeAgoOrDay } from '../../lib/time'
 import type { SharedItem } from '../../types/dashboard/items'
@@ -55,7 +55,7 @@ function ItemCell({ item, slugs }: { item: SharedItem; slugs: ProjectSlugs }) {
       <span className="flex min-w-0 flex-col gap-0.5">
         {item.canOpen ? (
           <ShellLink
-            href={itemPath({ ...slugs, workspace: item.from.slug }, item)}
+            href={itemPagePath({ ...slugs, workspace: item.from.slug }, item, 'overview')}
             className="truncate text-sm font-semibold text-foreground hover:underline"
           >
             {item.name}

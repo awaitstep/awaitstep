@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { CircleAlert, Play, Share2 } from 'lucide-react'
 import {
-  itemPath,
+  itemPagePath,
   workspacePath,
   workspaceSettingsPath,
   type WorkspaceSlugs,
@@ -47,7 +47,7 @@ function recentColumns(slugs: WorkspaceSlugs): DataColumn<WorkspaceRun>[] {
       cell: (run) => (
         <span className="flex min-w-0 flex-col gap-0.5">
           <ShellLink
-            href={itemPath(slugs, { id: run.workflowId })}
+            href={itemPagePath(slugs, { id: run.workflowId }, 'overview')}
             className="w-fit truncate text-sm font-semibold text-foreground hover:underline"
           >
             {run.workflowName}

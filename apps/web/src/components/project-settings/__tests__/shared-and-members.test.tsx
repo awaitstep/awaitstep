@@ -32,9 +32,12 @@ describe('project Shared library', () => {
   it('opens each item in the workspace that shared it', async () => {
     renderWithDashboardData(<SharedLibraryPage slugs={p101} />)
     const provision = await screen.findByRole('link', { name: 'Provision account' })
-    expect(provision.getAttribute('href')).toMatch(/^\/acme\/project-101\/it\/workflows\//)
+    // On its Overview, as every item link opens.
+    expect(provision.getAttribute('href')).toMatch(
+      /^\/acme\/project-101\/it\/workflows\/[^/]+\/overview$/,
+    )
     expect(screen.getByRole('link', { name: 'Lead enrichment' }).getAttribute('href')).toMatch(
-      /^\/acme\/project-101\/sales\/workflows\//,
+      /^\/acme\/project-101\/sales\/workflows\/[^/]+\/overview$/,
     )
   })
 

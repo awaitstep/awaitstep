@@ -23,7 +23,7 @@ export function ItemPlaceholder({ slugs, itemId }: ItemPlaceholderProps) {
         </Tile>
         <h1 className="text-xl font-semibold text-foreground">This is sample data</h1>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Sample items don’t open in the editor. Real ones do.
+          Sample items don’t open. Real ones do.
         </p>
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
           <dt className="text-muted-foreground">Item</dt>

@@ -11,7 +11,7 @@ import { isFailing, lastRunLabel, runOutcomes, statusLabel } from '../item-forma
 interface WorkflowRowProps {
   item: WorkspaceItem
   href: string
-  /** Names the share switch: "Share Lead enrichment with Project 101". */
+  /** Names the share switch: "Shared with Project 101: Lead enrichment". */
   projectName: string
   onShareChange: (shared: boolean) => void
 }
@@ -52,7 +52,7 @@ export function WorkflowRow({ item, href, projectName, onShareChange }: Workflow
             <ShareToggle
               shared={item.sharing !== null}
               onChange={onShareChange}
-              label={`Share ${item.name} with ${projectName}`}
+              label={`Shared with ${projectName}: ${item.name}`}
               disabledReason={shareBlockedReason}
             />
           </span>
