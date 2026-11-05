@@ -26,6 +26,8 @@ interface ConfirmDialogProps {
    */
   secondaryLabel?: string
   onSecondary?: () => void
+  /** Where focus goes once the dialog has closed; call `preventDefault` to take over from the default return to the opener. */
+  onCloseAutoFocus?: (event: Event) => void
   loading?: boolean
   /** Toned tile above the title; switches to the dashboard's sectioned layout. */
   icon?: LucideIcon
@@ -107,7 +109,10 @@ function ClassicContent(props: ConfirmDialogProps) {
   return (
     <>
       <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
-      <AlertDialog.Content className="fixed left-1/2 top-1/2 z-50 w-[400px] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg">
+      <AlertDialog.Content
+        onCloseAutoFocus={props.onCloseAutoFocus}
+        className="fixed left-1/2 top-1/2 z-50 w-[400px] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-card p-6 shadow-lg"
+      >
         <AlertDialog.Title className="text-base font-semibold text-foreground">
           {props.title}
         </AlertDialog.Title>
@@ -157,6 +162,7 @@ function SectionedContent(props: ConfirmDialogProps) {
       <AlertDialog.Overlay className={overlayBackdropVariants({ layout: 'sectioned' })} />
       <AlertDialog.Content
         onOpenAutoFocus={handleOpenAutoFocus}
+        onCloseAutoFocus={props.onCloseAutoFocus}
         className={cn(
           'fixed left-1/2 top-1/2 z-50 flex w-[480px] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border bg-card shadow-lg',
           variant === 'destructive' ? 'border-destructive/40' : 'border-border',
