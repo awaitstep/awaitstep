@@ -56,30 +56,6 @@ describe('WorkspaceDialogs', () => {
     expect(screen.queryByRole('alertdialog')).toBeNull()
   })
 
-  it('renames the targeted file, closes the dialog and focuses the renamed row', async () => {
-    const projectFiles = renderDialogs()
-    act(() => useIdeStore.getState().showDialog('renameFile', 'a.ts'))
-    const input = await screen.findByRole('textbox')
-    await userEvent.clear(input)
-    await userEvent.type(input, 'c.ts')
-    await userEvent.click(screen.getByRole('button', { name: 'Rename' }))
-    expect(projectFiles.renameFile).toHaveBeenCalledWith('a.ts', 'c.ts')
-    expect(useIdeStore.getState().dialog).toBeNull()
-    await waitFor(() => expect(useIdeExplorerStore.getState().focusPath).toBe('c.ts'))
-  })
-
-  it('refuses a rename onto a file that exists', async () => {
-    const projectFiles = renderDialogs()
-    act(() => useIdeStore.getState().showDialog('renameFile', 'a.ts'))
-    const input = await screen.findByRole('textbox')
-    await userEvent.clear(input)
-    await userEvent.type(input, 'b.ts')
-    expect((screen.getByRole('button', { name: 'Rename' }) as HTMLButtonElement).disabled).toBe(
-      true,
-    )
-    expect(projectFiles.renameFile).not.toHaveBeenCalled()
-  })
-
   it('names the file in the delete question and deletes it on confirm', async () => {
     const projectFiles = renderDialogs()
     act(() => useIdeStore.getState().showDialog('deleteFile', 'a.ts'))

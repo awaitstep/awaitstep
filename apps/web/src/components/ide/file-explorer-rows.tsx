@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import {
   ChevronDown,
   ChevronRight,
+  FilePlus,
   Folder,
   FolderInput,
   FolderOpen,
@@ -19,12 +21,23 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { FileIcon, roleTitle } from './file-icon'
+import { NewMenuItems, type NewMenuItemsProps } from './new-menu-items'
+
+interface Point {
+  x: number
+  y: number
+}
 
 export interface RowActions {
   onRename: (path: string) => void
   onDelete: (path: string) => void
   onConvert: (path: string) => void
+  onNewFileIn: (dir: string) => void
+  onDeleteFolder: (dir: string) => void
 }
+
+/** What the Project row's right-click menu adds: the same choices as the header's New… menu. */
+export type ProjectNewMenu = NewMenuItemsProps
 
 interface ExplorerRowProps {
   row: TreeRow
@@ -35,6 +48,8 @@ interface ExplorerRowProps {
   dirty: boolean
   virtual: boolean
   actions?: RowActions
+  /** Set when the project can be added to; the Project row opens it on right-click. */
+  newMenu?: ProjectNewMenu
   menuOpen: boolean
   onMenuOpenChange: (key: string, open: boolean) => void
   onActivate: (row: TreeRow) => void
@@ -43,9 +58,26 @@ interface ExplorerRowProps {
 
 export function ExplorerRow(props: ExplorerRowProps) {
   const { row, tabbable, active, selected, dirty, virtual, actions, onActivate, onFocusRow } = props
+  // Where a right-click landed: the menu opens there instead of under the ⋯ button.
+  const [point, setPoint] = useState<Point | null>(null)
 
   function handleClick() {
     onActivate(row)
+  }
+
+  // Right-click opens the row's own menu, the one its ⋯ button and ⇧F10 open.
+  // Rows with no menu (sections, generated files, virtual seeds) keep the browser's.
+  function handleContextMenu(event: React.MouseEvent) {
+    if (!hasMenu) return
+    event.preventDefault()
+    event.stopPropagation()
+    setPoint({ x: event.clientX, y: event.clientY })
+    props.onMenuOpenChange(row.key, true)
+  }
+
+  function handleMenuOpenChange(key: string, open: boolean) {
+    if (!open) setPoint(null)
+    props.onMenuOpenChange(key, open)
   }
 
   function handleFocus(event: React.FocusEvent<HTMLDivElement>) {
@@ -54,6 +86,13 @@ export function ExplorerRow(props: ExplorerRowProps) {
   }
 
   const isFile = row.kind === 'file'
+  const hasProjectMenu = row.kind === 'section' && row.section === 'project' && !!props.newMenu
+  const hasMenu =
+    hasProjectMenu ||
+    (!!actions &&
+      row.section === 'project' &&
+      ((isFile && (!virtual || row.path === PROJECT_HANDLERS_PATH)) ||
+        (row.kind === 'dir' && row.editable)))
   const isSection = row.kind === 'section'
   const Chevron = row.expanded ? ChevronDown : ChevronRight
   const FolderIcon = row.expanded ? FolderOpen : Folder
@@ -78,6 +117,7 @@ export function ExplorerRow(props: ExplorerRowProps) {
       aria-selected={isFile ? active || selected : undefined}
       title={title}
       onClick={handleClick}
+      onContextMenu={handleContextMenu}
       onFocus={handleFocus}
       className={cn(
         'group flex w-full cursor-pointer items-center gap-1 pr-1 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary',
@@ -97,6 +137,15 @@ export function ExplorerRow(props: ExplorerRowProps) {
         <>
           <Chevron className="h-3 w-3 shrink-0" />
           <span>{row.name}</span>
+          {hasProjectMenu && props.newMenu && (
+            <ProjectMenu
+              menu={props.newMenu}
+              open={props.menuOpen}
+              point={point}
+              rowKey={row.key}
+              onOpenChange={handleMenuOpenChange}
+            />
+          )}
           {row.section === 'generated' && (
             <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-normal normal-case tracking-normal text-muted-foreground">
               <Lock className="h-2.5 w-2.5" />
@@ -114,13 +163,14 @@ export function ExplorerRow(props: ExplorerRowProps) {
               className="h-1.5 w-1.5 shrink-0 rounded-full bg-status-warning"
             />
           )}
-          {actions && (!virtual || row.path === PROJECT_HANDLERS_PATH) && (
+          {hasMenu && actions && (
             <RowMenu
               path={row.path}
               actions={actions}
               virtual={virtual}
               open={props.menuOpen}
-              onOpenChange={props.onMenuOpenChange}
+              point={point}
+              onOpenChange={handleMenuOpenChange}
               rowKey={row.key}
             />
           )}
@@ -129,10 +179,95 @@ export function ExplorerRow(props: ExplorerRowProps) {
         <>
           <Chevron className="h-3 w-3 shrink-0 text-muted-foreground" />
           <FolderIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80" />
-          <span className="truncate">{row.name}</span>
+          <span className="min-w-0 flex-1 truncate">{row.name}</span>
+          {hasMenu && actions && (
+            <FolderMenu
+              path={row.path}
+              actions={actions}
+              open={props.menuOpen}
+              point={point}
+              onOpenChange={handleMenuOpenChange}
+              rowKey={row.key}
+            />
+          )}
         </>
       )}
     </div>
+  )
+}
+
+/**
+ * What the menu hangs from: the row's ⋯ button, or, after a right-click, an
+ * invisible point at the cursor. Clicking ⋯ never opens the row.
+ */
+function MenuAnchor({ path, point }: { path: string; point: Point | null }) {
+  function handleClick(event: React.MouseEvent) {
+    event.stopPropagation()
+  }
+
+  return (
+    <DropdownMenuTrigger asChild>
+      {point ? (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none fixed h-0 w-0"
+          style={{ left: point.x, top: point.y }}
+        />
+      ) : (
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label={`Actions for ${path}`}
+          onClick={handleClick}
+          className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-muted/70 hover:text-foreground focus:opacity-100 group-focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100"
+        >
+          <MoreHorizontal className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </DropdownMenuTrigger>
+  )
+}
+
+/** The Project row's menu: at the cursor, since the row has no ⋯ button. */
+function ProjectMenu({
+  menu,
+  rowKey,
+  open,
+  point,
+  onOpenChange,
+}: {
+  menu: ProjectNewMenu
+  rowKey: string
+  open: boolean
+  point: Point | null
+  onOpenChange: (key: string, open: boolean) => void
+}) {
+  function handleOpenChange(next: boolean) {
+    onOpenChange(rowKey, next)
+  }
+
+  // The choices open a name field; Radix must not take focus back from it.
+  function handleMenuCloseAutoFocus(event: Event) {
+    event.preventDefault()
+  }
+
+  return (
+    <DropdownMenu open={open && point !== null} onOpenChange={handleOpenChange}>
+      <DropdownMenuTrigger asChild>
+        <span
+          aria-hidden="true"
+          className="pointer-events-none fixed h-0 w-0"
+          style={{ left: point?.x ?? 0, top: point?.y ?? 0 }}
+        />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        className="min-w-[200px]"
+        onCloseAutoFocus={handleMenuCloseAutoFocus}
+      >
+        <NewMenuItems {...menu} />
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -142,6 +277,7 @@ function RowMenu({
   actions,
   virtual,
   open,
+  point,
   onOpenChange,
 }: {
   path: string
@@ -149,6 +285,7 @@ function RowMenu({
   actions: RowActions
   virtual: boolean
   open: boolean
+  point: Point | null
   onOpenChange: (key: string, open: boolean) => void
 }) {
   function handleOpenChange(next: boolean) {
@@ -167,10 +304,6 @@ function RowMenu({
     actions.onConvert(path)
   }
 
-  function handleTriggerClick(event: React.MouseEvent) {
-    event.stopPropagation()
-  }
-
   // The annotation file (stored or still a virtual seed) can be split into
   // handler modules; a virtual seed has nothing to rename or delete.
   const convertible = path === PROJECT_HANDLERS_PATH
@@ -182,19 +315,9 @@ function RowMenu({
 
   return (
     <DropdownMenu open={open} onOpenChange={handleOpenChange}>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          tabIndex={-1}
-          aria-label={`Actions for ${path}`}
-          onClick={handleTriggerClick}
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-muted/70 hover:text-foreground focus:opacity-100 group-focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100"
-        >
-          <MoreHorizontal className="h-3.5 w-3.5" />
-        </button>
-      </DropdownMenuTrigger>
+      <MenuAnchor path={path} point={point} />
       <DropdownMenuContent
-        align="end"
+        align={point ? 'start' : 'end'}
         className="min-w-[140px]"
         onCloseAutoFocus={handleMenuCloseAutoFocus}
       >
@@ -216,6 +339,59 @@ function RowMenu({
             </DropdownMenuItem>
           </>
         )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function FolderMenu({
+  path,
+  rowKey,
+  actions,
+  open,
+  point,
+  onOpenChange,
+}: {
+  path: string
+  rowKey: string
+  actions: RowActions
+  open: boolean
+  point: Point | null
+  onOpenChange: (key: string, open: boolean) => void
+}) {
+  function handleOpenChange(next: boolean) {
+    onOpenChange(rowKey, next)
+  }
+
+  function handleNewFile() {
+    actions.onNewFileIn(path)
+  }
+
+  function handleDelete() {
+    actions.onDeleteFolder(path)
+  }
+
+  // New file hands focus to the name field, so Radix must not take it back.
+  function handleMenuCloseAutoFocus(event: Event) {
+    event.preventDefault()
+  }
+
+  return (
+    <DropdownMenu open={open} onOpenChange={handleOpenChange}>
+      <MenuAnchor path={path} point={point} />
+      <DropdownMenuContent
+        align={point ? 'start' : 'end'}
+        className="min-w-[140px]"
+        onCloseAutoFocus={handleMenuCloseAutoFocus}
+      >
+        <DropdownMenuItem onSelect={handleNewFile} className="text-xs">
+          <FilePlus className="h-3.5 w-3.5" />
+          New file…
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={handleDelete} className="text-xs text-status-error">
+          <Trash2 className="h-3.5 w-3.5" />
+          Delete folder
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

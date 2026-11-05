@@ -66,11 +66,12 @@ describe('flattenTreeRows', () => {
     expect(rows.some((r) => r.key === 'project:lib/payments')).toBe(true)
   })
 
-  it('marks only project files as editable', () => {
+  it('marks only project files and folders as editable', () => {
     const rows = rowsWith()
     expect(rows.find((r) => r.path === 'package.json')?.editable).toBe(true)
     expect(rows.find((r) => r.path === 'worker.ts')?.editable).toBe(false)
-    expect(rows.find((r) => r.path === 'lib')?.editable).toBe(false)
+    expect(rows.find((r) => r.path === 'lib')?.editable).toBe(true)
+    expect(rows.find((r) => r.key === 'generated:lib')?.editable ?? false).toBe(false)
   })
 })
 
@@ -133,8 +134,11 @@ describe('treeKeyIntent', () => {
     expect(press(rows, file, 'F10')).toBeNull()
     for (const key of ['F2', 'Delete', 'ContextMenu']) {
       expect(press(rows, 'generated:worker.ts', key)).toBeNull()
-      expect(press(rows, 'project:lib', key)).toBeNull()
     }
+    // A project folder takes the menu and Delete, but is never renamed.
+    expect(press(rows, 'project:lib', 'F2')).toBeNull()
+    expect(press(rows, 'project:lib', 'Delete')).toEqual({ type: 'delete', key: 'project:lib' })
+    expect(press(rows, 'project:lib', 'ContextMenu')).toEqual({ type: 'menu', key: 'project:lib' })
   })
 
   it('Escape returns to the editor', () => {

@@ -21,6 +21,7 @@ import {
 import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeExplorerStore } from '../../stores/ide-explorer-store'
 import { useIdeStore } from '../../stores/ide-store'
+import { RenameRow } from './file-explorer-rename'
 import { CreateRow } from './file-explorer-create'
 import { LimitsFooter } from './file-explorer-footer'
 import { UnsavedSection } from './file-explorer-unsaved'
@@ -30,6 +31,7 @@ import {
   GeneratedEmptyState,
   ProjectEmptyState,
   ancestorKeys,
+  type ProjectNewMenu,
   type RowActions,
 } from './file-explorer-rows'
 
@@ -53,8 +55,10 @@ interface FileExplorerProps {
    * at line 1 and moves focus into the editor.
    */
   onCreateFile: (path: string, source?: string) => Promise<boolean>
-  onRename: (path: string) => void
+  /** Renames to the typed path; resolves to whether it was renamed. */
+  onRenameFile: (from: string, to: string) => Promise<boolean>
   onDelete: (path: string) => void
+  onDeleteFolder: (dir: string) => void
   /** Splits the annotation file into handler modules. */
   onConvert: (path: string) => void
   /** Esc in the tree: focus goes back to the editor. */
@@ -72,16 +76,22 @@ export function FileExplorer({
   canEdit,
   usage,
   onCreateFile,
-  onRename,
+  onRenameFile,
   onDelete,
+  onDeleteFolder,
   onConvert,
   onEscape,
 }: FileExplorerProps) {
   const { activePath, openFile } = useIdeStore(
     useShallow((s) => ({ activePath: s.activePath, openFile: s.openFile })),
   )
-  const { selected, create, focusPath } = useIdeExplorerStore(
-    useShallow((s) => ({ selected: s.selected, create: s.create, focusPath: s.focusPath })),
+  const { selected, create, renaming, focusPath } = useIdeExplorerStore(
+    useShallow((s) => ({
+      selected: s.selected,
+      create: s.create,
+      renaming: s.renaming,
+      focusPath: s.focusPath,
+    })),
   )
   // Directories and sections start expanded; only what the user folds is
   // tracked, so a refreshed tree never hides freshly added folders.
@@ -188,10 +198,40 @@ export function FileExplorer({
     }
   }
 
-  function handleDeleteRequest(path: string) {
+  function handleRenameRequest(path: string) {
+    useIdeExplorerStore.getState().beginRename(path)
+  }
+
+  async function submitRename(from: string, to: string): Promise<boolean> {
+    const renamed = await onRenameFile(from, to)
+    if (renamed) useIdeExplorerStore.getState().endRename()
+    return renamed
+  }
+
+  // The row comes back and takes focus, as after any cancelled edit.
+  function handleCancelRename() {
+    const path = useIdeExplorerStore.getState().renaming
+    useIdeExplorerStore.getState().endRename()
+    if (path) useIdeExplorerStore.getState().requestFocus(path)
+  }
+
+  function handleDeleteRequest(path: string, kind: 'file' | 'dir' = 'file') {
     const key = rowKey('project', path)
     setRemoval({ key, next: focusAfterRemoval(rows, key) })
-    onDelete(path)
+    if (kind === 'dir') onDeleteFolder(path)
+    else onDelete(path)
+  }
+
+  function handleDeleteFolderRequest(dir: string) {
+    handleDeleteRequest(dir, 'dir')
+  }
+
+  // A new file inside this folder: the folder becomes the target and opens.
+  function handleNewFileIn(dir: string) {
+    const explorer = useIdeExplorerStore.getState()
+    explorer.select({ path: dir, kind: 'dir', section: 'project' })
+    toggle(rowKey('project', dir), true)
+    explorer.beginCreate({ mode: 'file' })
   }
 
   function applyIntent(intent: TreeIntent) {
@@ -214,9 +254,9 @@ export function FileExplorer({
       case 'select':
         return select(row)
       case 'rename':
-        return onRename(row.path)
+        return handleRenameRequest(row.path)
       case 'delete':
-        return handleDeleteRequest(row.path)
+        return handleDeleteRequest(row.path, row.kind === 'dir' ? 'dir' : 'file')
       case 'menu':
         return setMenuKey(row.key)
     }
@@ -232,10 +272,22 @@ export function FileExplorer({
     applyIntent(intent)
   }
 
+  // A modal menu holds focus while it is open, so a name field that mounted
+  // meanwhile lost its autofocus: it is given focus once the menu is gone.
+  function focusNameField() {
+    requestAnimationFrame(() =>
+      treeRef.current?.querySelector<HTMLInputElement>('input[data-ide-text-input]')?.focus(),
+    )
+  }
+
   function handleMenuOpenChange(key: string, open: boolean) {
     setMenuKey(open ? key : null)
-    // Closing the menu hands focus back to its row.
-    if (!open) focusRow(key)
+    // Closing the menu hands focus back to its row, unless the choice opened a
+    // name field: taking focus from it would dismiss the field at once.
+    if (open) return
+    const explorer = useIdeExplorerStore.getState()
+    if (explorer.create || explorer.renaming) focusNameField()
+    else focusRow(key)
   }
 
   function handleFocusRow(key: string) {
@@ -267,6 +319,26 @@ export function FileExplorer({
     useIdeExplorerStore.getState().beginCreate({ mode: 'folder' })
   }
 
+  // The Project row's menu adds at the project root, whatever is selected.
+  function selectRoot() {
+    useIdeExplorerStore.getState().select({ path: '', kind: 'dir', section: 'project' })
+  }
+
+  function handleRootNewFile() {
+    selectRoot()
+    handleNewFile()
+  }
+
+  function handleRootNewFolder() {
+    selectRoot()
+    handleNewFolder()
+  }
+
+  function handleRootNewItem(item: NewMenuItem) {
+    selectRoot()
+    handleNewItem(item)
+  }
+
   function handleNewItem(item: NewMenuItem) {
     if (item.path) void submitCreate(item.path, item.source)
     else useIdeExplorerStore.getState().beginCreate({ mode: 'file', initial: item.prompt })
@@ -277,7 +349,23 @@ export function FileExplorer({
   }
 
   const rowActions: RowActions | undefined = canEdit
-    ? { onRename, onDelete: handleDeleteRequest, onConvert }
+    ? {
+        onRename: handleRenameRequest,
+        onDelete: handleDeleteRequest,
+        onConvert,
+        onNewFileIn: handleNewFileIn,
+        onDeleteFolder: handleDeleteFolderRequest,
+      }
+    : undefined
+
+  const newMenu: ProjectNewMenu | undefined = canEdit
+    ? {
+        limitReason: limits.limitReason,
+        existing,
+        onNewFile: handleRootNewFile,
+        onNewFolder: handleRootNewFolder,
+        onNewItem: handleRootNewItem,
+      }
     : undefined
 
   const createRow = create && canEdit && createAnchor && (
@@ -315,23 +403,35 @@ export function FileExplorer({
       >
         {rows.map((row) => (
           <Fragment key={row.key}>
-            <ExplorerRow
-              row={row}
-              tabbable={row.key === tabKey}
-              active={row.section === 'project' && row.path === activePath && row.kind === 'file'}
-              selected={
-                row.kind !== 'section' &&
-                selected?.path === row.path &&
-                selected.section === row.section
-              }
-              dirty={row.kind === 'file' && dirty.has(row.path)}
-              virtual={row.kind === 'file' && virtual.has(row.path)}
-              actions={rowActions}
-              menuOpen={menuKey === row.key}
-              onMenuOpenChange={handleMenuOpenChange}
-              onActivate={handleActivate}
-              onFocusRow={handleFocusRow}
-            />
+            {canEdit && row.kind === 'file' && row.path === renaming ? (
+              <RenameRow
+                path={row.path}
+                role={row.node!.role}
+                existing={existing}
+                depth={row.depth}
+                onSubmit={(to) => submitRename(row.path, to)}
+                onCancel={handleCancelRename}
+              />
+            ) : (
+              <ExplorerRow
+                row={row}
+                tabbable={row.key === tabKey}
+                active={row.section === 'project' && row.path === activePath && row.kind === 'file'}
+                selected={
+                  row.kind !== 'section' &&
+                  selected?.path === row.path &&
+                  selected.section === row.section
+                }
+                dirty={row.kind === 'file' && dirty.has(row.path)}
+                virtual={row.kind === 'file' && virtual.has(row.path)}
+                actions={rowActions}
+                newMenu={newMenu}
+                menuOpen={menuKey === row.key}
+                onMenuOpenChange={handleMenuOpenChange}
+                onActivate={handleActivate}
+                onFocusRow={handleFocusRow}
+              />
+            )}
             {createAnchor?.key === row.key && createRow}
             {row.key === sectionKey('project') && project.length === 0 && !create && (
               <ProjectEmptyState canEdit={canEdit} onCreate={handleNewFile} />

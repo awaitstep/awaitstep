@@ -104,8 +104,9 @@ export function WorkspaceLayout({
     activeDirty,
     activeMovedOnServer,
     handleEditorChange,
-    handleRenameRequest,
+    handleRenameFile,
     handleDeleteRequest,
+    handleDeleteFolderRequest,
     handleConvertRequest,
     handleCreateFile,
     handleRevertFile,
@@ -196,8 +197,9 @@ export function WorkspaceLayout({
                       usage={usage}
                       onCreateFile={handleCreateFile}
                       onEscape={handleFocusEditor}
-                      onRename={handleRenameRequest}
+                      onRenameFile={handleRenameFile}
                       onDelete={handleDeleteRequest}
+                      onDeleteFolder={handleDeleteFolderRequest}
                       onConvert={handleConvertRequest}
                     />
                   }

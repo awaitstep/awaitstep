@@ -96,6 +96,7 @@ export function useProjectFiles({
       createFile: (path: string, source?: string) => track(() => actions.createFile(path, source)),
       renameFile: (from: string, to: string) => track(() => actions.renameFile(from, to)),
       deleteFile: (path: string) => track(() => actions.deleteFile(path)),
+      deleteFolder: (dir: string) => track(() => actions.deleteFolder(dir)),
       convertHandlers: () =>
         track(async () => {
           const result = await actions.convertHandlers()

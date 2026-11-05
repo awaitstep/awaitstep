@@ -167,7 +167,7 @@ export interface TreeSectionInput {
 export function flattenTreeRows(
   sections: readonly TreeSectionInput[],
   collapsed: ReadonlySet<string>,
-  options: { forceOpen?: ReadonlySet<string>; isEditable?: (node: TreeFile) => boolean } = {},
+  options: { forceOpen?: ReadonlySet<string>; isEditable?: (node: TreeNode) => boolean } = {},
 ): TreeRow[] {
   const rows: TreeRow[] = []
   const isOpen = (key: string) => options.forceOpen?.has(key) || !collapsed.has(key)
@@ -186,7 +186,8 @@ export function flattenTreeRows(
           depth,
           parentKey: parent,
           expanded,
-          editable: false,
+          // A project folder takes the folder menu and Delete; never Rename.
+          editable: section === 'project' && (options.isEditable?.(node) ?? true),
         })
         if (expanded) walk(section, node.children, depth + 1, key)
       } else {
@@ -287,7 +288,7 @@ export function treeKeyIntent(
     case ' ':
       return row && row.kind !== 'section' ? { type: 'select', key: row.key } : null
     case 'F2':
-      return row?.editable ? { type: 'rename', key: row.key } : null
+      return row?.editable && row.kind === 'file' ? { type: 'rename', key: row.key } : null
     case 'Delete':
     case 'Backspace':
       return row?.editable ? { type: 'delete', key: row.key } : null

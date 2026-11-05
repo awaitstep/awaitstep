@@ -1,16 +1,10 @@
 import type { ReactNode } from 'react'
 import { ChevronDown, Plus } from 'lucide-react'
-import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
-import { handlerMenuItems, rootConfigMenuItems, type NewMenuItem } from '../../lib/ide/project'
+import type { NewMenuItem } from '../../lib/ide/project'
 import { IDE_SHORTCUTS, formatShortcut } from '../../lib/ide/shortcuts'
 import { isMacPlatform } from '../../lib/platform'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu'
+import { NewMenuItems } from './new-menu-items'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../ui/dropdown-menu'
 
 interface ExplorerHeaderProps {
   /** The side bar's view switch, in place of the plain title. */
@@ -38,8 +32,6 @@ export function ExplorerHeader({
 }: ExplorerHeaderProps) {
   const hint = formatShortcut(IDE_SHORTCUTS.newFile, isMacPlatform())
   const disabled = limitReason !== null
-  const handlers = handlerMenuItems(existing)
-  const configs = rootConfigMenuItems(existing)
 
   function handleMenuCloseAutoFocus(event: Event) {
     event.preventDefault()
@@ -77,55 +69,17 @@ export function ExplorerHeader({
               // unmounts, blurring the name row it just opened.
               onCloseAutoFocus={handleMenuCloseAutoFocus}
             >
-              <DropdownMenuItem disabled={disabled} onSelect={onNewFile} className="text-xs">
-                File…
-                <Why reason={disabled ? 'File limit reached' : null} />
-              </DropdownMenuItem>
-              <DropdownMenuItem disabled={disabled} onSelect={onNewFolder} className="text-xs">
-                Folder…
-                <Why reason={disabled ? 'File limit reached' : null} />
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuPrimitive.Label className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Handlers
-              </DropdownMenuPrimitive.Label>
-              {handlers.map((item) => (
-                <ItemRow key={item.id} item={item} limitReason={limitReason} onSelect={onNewItem} />
-              ))}
-              <DropdownMenuSeparator />
-              {configs.map((item) => (
-                <ItemRow key={item.id} item={item} limitReason={limitReason} onSelect={onNewItem} />
-              ))}
+              <NewMenuItems
+                limitReason={limitReason}
+                existing={existing}
+                onNewFile={onNewFile}
+                onNewFolder={onNewFolder}
+                onNewItem={onNewItem}
+              />
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       )}
     </div>
-  )
-}
-
-function Why({ reason }: { reason: string | null }) {
-  if (!reason) return null
-  return <span className="ml-auto pl-3 text-[11px] text-muted-foreground">{reason}</span>
-}
-
-function ItemRow({
-  item,
-  limitReason,
-  onSelect,
-}: {
-  item: NewMenuItem
-  limitReason: string | null
-  onSelect: (item: NewMenuItem) => void
-}) {
-  const reason = item.disabledReason ?? limitReason
-  function handleSelect() {
-    onSelect(item)
-  }
-  return (
-    <DropdownMenuItem disabled={reason !== null} onSelect={handleSelect} className="text-xs">
-      {item.label}
-      {reason && <Why reason={reason} />}
-    </DropdownMenuItem>
   )
 }

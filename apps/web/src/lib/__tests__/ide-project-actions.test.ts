@@ -74,7 +74,7 @@ describe('project file actions', () => {
       ifMatch: 'h-env',
     })
     expect(refresh).toHaveBeenCalledTimes(1)
-    expect(notify.success).toHaveBeenCalledWith('Saved 1 file')
+    expect(notify.success).not.toHaveBeenCalled()
     // The draft now builds on the hash the server returned.
     expect(useIdeStore.getState().drafts['config/env.ts']?.baseHash).toBe('saved:edited env')
   })
@@ -151,7 +151,7 @@ describe('project file actions', () => {
     expect(useIdeStore.getState().drafts['config/env.ts']?.baseHash).toBe('saved:mine')
     expect(useIdeStore.getState().conflicts['config/env.ts']).toBeUndefined()
     expect(refresh).toHaveBeenCalledTimes(1)
-    expect(notify.success).toHaveBeenCalledWith('Saved env.ts')
+    expect(notify.success).not.toHaveBeenCalled()
   })
 
   it('overwriteFile is a fresh conflict when another write landed after Compare opened', async () => {
@@ -185,7 +185,7 @@ describe('project file actions', () => {
     })
     expect(useIdeStore.getState().drafts['lib/gone.ts']?.baseHash).toBe('saved:my copy')
     expect(refresh).toHaveBeenCalledTimes(1)
-    expect(notify.success).toHaveBeenCalledWith('Recreated gone.ts')
+    expect(notify.success).not.toHaveBeenCalled()
   })
 
   it('recreateFile never replaces a file someone recreated first: it becomes a conflict', async () => {
@@ -292,6 +292,43 @@ describe('project file actions', () => {
     expect(useIdeStore.getState().activePath).toBe('config/env.ts')
   })
 
+  it('deleteFolder deletes each stored file under it against its own hash, refreshing and saying it once', async () => {
+    useIdeStore.getState().setDraft('config/env.ts', 'edited', 'h-old')
+    useIdeStore.getState().setDraft('config/unsaved.ts', 'new', null)
+    const { client, notify, refresh, actions } = setup()
+    expect(await actions.deleteFolder('config')).toBe(true)
+    expect(client.deleteProjectFile).toHaveBeenCalledTimes(2)
+    expect(client.deleteProjectFile).toHaveBeenCalledWith('wf-1', 'config/env.ts', 'h-old')
+    expect(client.deleteProjectFile).toHaveBeenCalledWith('wf-1', 'config/other.ts', 'h-other')
+    expect(useIdeStore.getState().drafts).toEqual({})
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(notify.success.mock.calls).toEqual([['Deleted config']])
+  })
+
+  it('deleteFolder leaves a sibling whose name only starts the same, and generated files', async () => {
+    const { client, actions } = setup(
+      new Map([...baseline, ['config-old/x.ts', file('config-old/x.ts', 'x', 'h-x')]]),
+    )
+    await actions.deleteFolder('config')
+    expect(client.deleteProjectFile).not.toHaveBeenCalledWith('wf-1', 'config-old/x.ts', 'h-x')
+    expect(client.deleteProjectFile).not.toHaveBeenCalledWith(
+      'wf-1',
+      'worker.ts',
+      expect.anything(),
+    )
+  })
+
+  it('deleteFolder says how many went when one is refused, and reports false', async () => {
+    const { client, notify, actions } = setup()
+    client.deleteProjectFile.mockRejectedValueOnce(new ApiError('This workspace is locked', 423))
+    expect(await actions.deleteFolder('config')).toBe(false)
+    expect(notify.error).toHaveBeenLastCalledWith(
+      'Deleted 1 of 2 files in config',
+      expect.anything(),
+    )
+    expect(notify.success).not.toHaveBeenCalled()
+  })
+
   it('deleteFile never sends an unconditional delete for a path with no stored hash', async () => {
     useIdeStore.getState().setDraft('handlers.ts', 'seed edit', null)
     const { client, actions } = setup()
@@ -383,7 +420,7 @@ describe('project file actions', () => {
     expect(useIdeStore.getState()).toMatchObject({ openPaths: [], drafts: {} })
   })
 
-  it('says each finished write in a general toast', async () => {
+  it('toasts structural changes (create, rename, delete) but saving a file is silent', async () => {
     useIdeStore.getState().setDraft('config/env.ts', 'edited env', 'h-env')
     const { notify, actions } = setup()
     await actions.saveFile('config/env.ts')
@@ -391,7 +428,6 @@ describe('project file actions', () => {
     await actions.renameFile('config/other.ts', 'config/renamed.ts')
     await actions.deleteFile('config/env.ts')
     expect(notify.success.mock.calls.map((c) => c[0])).toEqual([
-      'Saved env.ts',
       'Created. Import it as `#app/services/new`',
       'Renamed to renamed.ts',
       'Deleted env.ts',

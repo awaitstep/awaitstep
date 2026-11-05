@@ -92,8 +92,10 @@ export function CreateRow({
     }
   }
 
+  // Leaving the field drops a row with nothing worth keeping: empty, untouched,
+  // or a name that is refused anyway. A valid name stays so it is not lost.
   function handleBlur() {
-    if (!busy && (empty || value === initial)) {
+    if (!busy && (empty || value === initial || error !== null)) {
       clearTimeout(timer.current)
       onCancel()
     }

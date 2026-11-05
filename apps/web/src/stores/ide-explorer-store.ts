@@ -12,11 +12,15 @@ interface IdeExplorerState {
   selected: ExplorerSelection | null
   /** The open inline name row, if any. */
   create: CreateRequest | null
+  /** The file whose name is being edited in place, if any. */
+  renaming: string | null
   /** Project path the tree should move focus to as soon as its row exists. */
   focusPath: string | null
   select: (selection: ExplorerSelection | null) => void
   beginCreate: (request?: CreateRequest) => void
   endCreate: () => void
+  beginRename: (path: string) => void
+  endRename: () => void
   requestFocus: (path: string | null) => void
   reset: () => void
 }
@@ -30,10 +34,14 @@ interface IdeExplorerState {
 export const useIdeExplorerStore = create<IdeExplorerState>((set) => ({
   selected: null,
   create: null,
+  renaming: null,
   focusPath: null,
   select: (selected) => set({ selected }),
-  beginCreate: (request = { mode: 'file' }) => set({ create: request }),
+  beginCreate: (request = { mode: 'file' }) => set({ create: request, renaming: null }),
   endCreate: () => set({ create: null }),
+  // One name row at a time: starting either drops the other.
+  beginRename: (renaming) => set({ renaming, create: null }),
+  endRename: () => set({ renaming: null }),
   requestFocus: (focusPath) => set({ focusPath }),
-  reset: () => set({ selected: null, create: null, focusPath: null }),
+  reset: () => set({ selected: null, create: null, renaming: null, focusPath: null }),
 }))

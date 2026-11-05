@@ -36,8 +36,8 @@ describe('useIdeStore (session)', () => {
   })
 
   it('allows only one dialog at a time and remembers its target', () => {
-    useIdeStore.getState().showDialog('renameFile', 'a.ts')
-    expect(useIdeStore.getState()).toMatchObject({ dialog: 'renameFile', dialogTarget: 'a.ts' })
+    useIdeStore.getState().showDialog('deleteFile', 'a.ts')
+    expect(useIdeStore.getState()).toMatchObject({ dialog: 'deleteFile', dialogTarget: 'a.ts' })
     useIdeStore.getState().showDialog('quickOpen')
     expect(useIdeStore.getState()).toMatchObject({ dialog: 'quickOpen', dialogTarget: null })
     useIdeStore.getState().closeDialog()

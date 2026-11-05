@@ -126,13 +126,11 @@ describe('useWorkspaceActions commands', () => {
     act(() => result.current.actions.renameFile())
     act(() => result.current.actions.deleteFile())
     expect(useIdeStore.getState().dialog).toBeNull()
+    expect(useIdeExplorerStore.getState().renaming).toBeNull()
 
     act(() => useIdeStore.getState().openFile('workflow.ts'))
     act(() => result.current.actions.renameFile())
-    expect(useIdeStore.getState()).toMatchObject({
-      dialog: 'renameFile',
-      dialogTarget: 'workflow.ts',
-    })
+    expect(useIdeExplorerStore.getState().renaming).toBe('workflow.ts')
     act(() => result.current.actions.deleteFile())
     expect(useIdeStore.getState()).toMatchObject({
       dialog: 'deleteFile',

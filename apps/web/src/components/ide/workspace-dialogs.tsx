@@ -7,14 +7,11 @@ import {
 import { basename } from '../../lib/ide/file-tree'
 import { surfaceSwitchTarget } from '../../lib/workflows/surfaces'
 import type { ProjectFilesController } from '../../hooks/use-project-files'
-import { useIdeExplorerStore } from '../../stores/ide-explorer-store'
-import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
 import { ConfirmDialog } from '../ui/confirm-dialog'
 import { UnsavedChangesDialog } from '../workflows/unsaved-changes-dialog'
 import { CloseDirtyDialog } from './close-dirty-dialog'
-import { FilePathDialog } from './file-path-dialog'
-import { describeConversion } from './workspace-notices'
+import { describeConversion, describeFolderDelete } from './workspace-notices'
 
 interface WorkspaceDialogsProps {
   baseline: ReadonlyMap<string, SourceFile>
@@ -46,7 +43,6 @@ export function WorkspaceDialogs({
   const closeDialog = useIdeStore((s) => s.closeDialog)
   const closeFiles = useIdeStore((s) => s.closeFiles)
   const clearDraft = useIdeStore((s) => s.clearDraft)
-  const renameExisting = [...baseline.keys()].filter((p) => p !== dialogTarget)
 
   function handleDialogOpenChange(open: boolean) {
     if (!open) closeDialog()
@@ -67,22 +63,16 @@ export function WorkspaceDialogs({
     })
   }
 
-  function handleRename(to: string) {
-    const from = dialogTarget
-    closeDialog()
-    if (!from) return
-    void projectFiles.renameFile(from, to).then((renamed) => {
-      if (!renamed) return
-      // The tree can only focus the renamed row while it is showing.
-      useIdeLayoutStore.getState().showSideBar('explorer')
-      useIdeExplorerStore.getState().requestFocus(to)
-    })
-  }
-
   function handleDelete() {
     const path = dialogTarget
     closeDialog()
     if (path) void projectFiles.deleteFile(path)
+  }
+
+  function handleDeleteFolder() {
+    const dir = dialogTarget
+    closeDialog()
+    if (dir) void projectFiles.deleteFolder(dir)
   }
 
   // Save, then close: a tab whose save failed stays open, dirty dot and all,
@@ -118,26 +108,23 @@ export function WorkspaceDialogs({
 
   return (
     <>
-      <FilePathDialog
-        key={`rename:${dialogTarget ?? ''}:${dialog === 'renameFile'}`}
-        open={dialog === 'renameFile'}
-        title="Rename file"
-        description="Imports of the old path aren’t updated."
-        submitLabel="Rename"
-        initialPath={dialogTarget ?? ''}
-        existingPaths={renameExisting}
-        busy={projectFiles.busy}
-        onOpenChange={handleDialogOpenChange}
-        onSubmit={handleRename}
-      />
       <ConfirmDialog
         open={dialog === 'deleteFile'}
         onOpenChange={handleDialogOpenChange}
         title={`Delete ${dialogTarget ? basename(dialogTarget) : 'file'}?`}
-        description={`Deletes ${dialogTarget ?? 'the file'}. Anything that imports it won’t build until you update it.`}
+        description="Imports from this file will need to be updated."
         confirmLabel="Delete"
         loading={projectFiles.busy}
         onConfirm={handleDelete}
+      />
+      <ConfirmDialog
+        open={dialog === 'deleteFolder'}
+        onOpenChange={handleDialogOpenChange}
+        title={`Delete ${dialogTarget ? basename(dialogTarget) : 'folder'}?`}
+        description={describeFolderDelete(dialogTarget, baseline)}
+        confirmLabel="Delete"
+        loading={projectFiles.busy}
+        onConfirm={handleDeleteFolder}
       />
       <ConfirmDialog
         open={dialog === 'convertHandlers'}

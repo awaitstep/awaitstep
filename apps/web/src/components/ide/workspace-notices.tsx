@@ -6,6 +6,18 @@ import { Button } from '../ui/button'
 
 const NO_SAVED_VERSION_MESSAGE = 'Save a version on the canvas to see its code here.'
 
+/** What deleting a folder removes, counted over the files the editor knows (saved or not). */
+export function describeFolderDelete(
+  dir: string | null,
+  files: ReadonlyMap<string, { hash?: string }>,
+): string {
+  const count = dir ? [...files].filter(([p, f]) => p.startsWith(`${dir}/`) && f.hash).length : 0
+  if (count === 0) return 'Deletes this folder.'
+  return count === 1
+    ? 'Deletes this folder and its 1 file. Imports of it will break.'
+    : `Deletes this folder and its ${count} files. Imports of them will break.`
+}
+
 /** The conversion, in the user's terms, from the server's dry run. */
 export function describeConversion(
   preview: HandlerConversionPreview | undefined,

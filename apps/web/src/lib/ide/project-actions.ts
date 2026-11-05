@@ -77,6 +77,8 @@ export interface ProjectFileActions {
   createFile(path: string, source?: string): Promise<boolean>
   renameFile(from: string, to: string): Promise<boolean>
   deleteFile(path: string): Promise<boolean>
+  /** Deletes every project file under a folder, each against the hash the person read. */
+  deleteFolder(dir: string): Promise<boolean>
   /**
    * Splits the annotation file (or the legacy trigger-code setting) into
    * handler modules. The server does the whole conversion in one request —
@@ -158,7 +160,6 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     if (typeof saved === 'string') return false
     liveStore()?.rebaseDraft(path, saved.hash)
     await refresh()
-    if (isCurrent()) notify.success(`Saved ${basename(path)}`)
     return true
   }
 
@@ -240,6 +241,41 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     })
   }
 
+  /** One file's delete: no refresh, no toast, so a folder can do many and say it once. */
+  async function removeFile(path: string): Promise<boolean> {
+    const base = getBaseline().get(path)
+    const draft = getStore().drafts[path]
+    // A draft built on no stored version (a virtual seed, or one restored
+    // from a previous session) next to a stored file means the file appeared
+    // after the edit began. Deleting it would remove text the person never
+    // read, so it is settled in Compare first, like rename.
+    if (draft && draft.baseHash === null && base?.hash) {
+      notify.error(`Couldn’t delete ${basename(path)}`, {
+        description: 'It changed on the server since you edited it. Compare it first.',
+      })
+      liveStore()?.openFile(path)
+      return false
+    }
+    // The version the person read: a file that moved on under their edits is
+    // refused with the server's reason instead of deleted unseen. Decided by
+    // whether a draft exists, never by falling back to the newest hash.
+    const ifMatch = draft ? draft.baseHash : base?.hash
+    // No stored hash: nothing on the server to delete, only the local copy.
+    if (ifMatch) {
+      try {
+        await client.deleteProjectFile(workflowId, path, ifMatch)
+      } catch (err) {
+        failed(notify, `Couldn’t delete ${basename(path)}`, err)
+        if (err instanceof ProjectFileConflictError) await refresh()
+        return false
+      }
+    }
+    const store = liveStore()
+    store?.clearDraft(path)
+    store?.closeFile(path)
+    return true
+  }
+
   return {
     async saveFile(path) {
       const outcome = await saveOne(path)
@@ -247,10 +283,8 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       if (outcome === 'conflict') showConflict(path)
       if (outcome === 'deleted') announceDeleted(path)
       const ok = outcome === 'saved'
-      if (ok) {
-        await refresh()
-        notify.success(`Saved ${basename(path)}`)
-      }
+      // No toast: the dirty dot clearing is the confirmation, as in any editor.
+      if (ok) await refresh()
       return ok
     },
 
@@ -263,7 +297,6 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       if (typeof saved === 'string') return false
       liveStore()?.rebaseDraft(path, saved.hash)
       await refresh()
-      if (isCurrent()) notify.success(`Recreated ${basename(path)}`)
       return true
     },
 
@@ -275,10 +308,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       const firstDeleted = paths.find((_, index) => results[index] === 'deleted')
       if (firstDeleted !== undefined) announceDeleted(firstDeleted)
       const saved = results.filter((r) => r === 'saved').length
-      if (saved > 0) {
-        await refresh()
-        notify.success(saved === 1 ? 'Saved 1 file' : `Saved ${saved} files`)
-      }
+      if (saved > 0) await refresh()
       return saved
     },
 
@@ -357,39 +387,33 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     },
 
     async deleteFile(path) {
-      const base = getBaseline().get(path)
-      const draft = getStore().drafts[path]
-      // A draft built on no stored version (a virtual seed, or one restored
-      // from a previous session) next to a stored file means the file appeared
-      // after the edit began. Deleting it would remove text the person never
-      // read, so it is settled in Compare first, like rename.
-      if (draft && draft.baseHash === null && base?.hash) {
-        notify.error(`Couldn’t delete ${basename(path)}`, {
-          description: 'It changed on the server since you edited it. Compare it first.',
-        })
-        liveStore()?.openFile(path)
-        return false
-      }
-      // The version the person read: a file that moved on under their edits is
-      // refused with the server's reason instead of deleted unseen. Decided by
-      // whether a draft exists, never by falling back to the newest hash.
-      const ifMatch = draft ? draft.baseHash : base?.hash
-      // No stored hash: nothing on the server to delete, only the local copy.
-      if (ifMatch) {
-        try {
-          await client.deleteProjectFile(workflowId, path, ifMatch)
-        } catch (err) {
-          failed(notify, `Couldn’t delete ${basename(path)}`, err)
-          if (err instanceof ProjectFileConflictError) await refresh()
-          return false
-        }
-      }
-      const store = liveStore()
-      store?.clearDraft(path)
-      store?.closeFile(path)
+      if (!(await removeFile(path))) return false
       await refresh()
       notify.success(`Deleted ${basename(path)}`)
       return true
+    },
+
+    async deleteFolder(dir) {
+      const prefix = `${dir}/`
+      const stored = [...getBaseline()].filter(
+        ([p, f]) => p.startsWith(prefix) && f.hash !== undefined,
+      )
+      const paths = new Set([
+        ...stored.map(([p]) => p),
+        ...Object.keys(getStore().drafts).filter((p) => p.startsWith(prefix)),
+      ])
+      const results = await Promise.all([...paths].map(removeFile))
+      const removed = results.filter(Boolean).length
+      await refresh()
+      const name = basename(dir)
+      if (removed === paths.size) {
+        notify.success(`Deleted ${name}`)
+        return true
+      }
+      notify.error(`Deleted ${removed} of ${paths.size} files in ${name}`, {
+        description: 'The rest are still here. Check the message on each, then try again.',
+      })
+      return false
     },
 
     async convertHandlers() {

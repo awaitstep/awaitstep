@@ -134,7 +134,10 @@ export function useWorkspaceActions({
       },
       renameFile: () => {
         const path = useIdeStore.getState().activePath
-        if (path && storedPaths.has(path)) showDialog('renameFile', path)
+        if (!path || !storedPaths.has(path)) return
+        // The name edit lives in the Explorer row, like a new file's.
+        useIdeLayoutStore.getState().showSideBar('explorer')
+        useIdeExplorerStore.getState().beginRename(path)
       },
       deleteFile: () => {
         const path = useIdeStore.getState().activePath
@@ -221,12 +224,22 @@ export function useWorkspaceActions({
         },
   )
 
-  function handleRenameRequest(path: string) {
-    showDialog('renameFile', path)
+  async function handleRenameFile(from: string, to: string): Promise<boolean> {
+    const renamed = await projectFiles.renameFile(from, to)
+    if (renamed) {
+      // The tree can only focus the renamed row while it is showing.
+      useIdeLayoutStore.getState().showSideBar('explorer')
+      useIdeExplorerStore.getState().requestFocus(to)
+    }
+    return renamed
   }
 
   function handleDeleteRequest(path: string) {
     showDialog('deleteFile', path)
+  }
+
+  function handleDeleteFolderRequest(path: string) {
+    showDialog('deleteFolder', path)
   }
 
   function handleConvertRequest() {
@@ -282,8 +295,9 @@ export function useWorkspaceActions({
     activeDirty,
     activeMovedOnServer,
     handleEditorChange,
-    handleRenameRequest,
+    handleRenameFile,
     handleDeleteRequest,
+    handleDeleteFolderRequest,
     handleConvertRequest,
     handleCreateFile,
     handleRevertFile,
