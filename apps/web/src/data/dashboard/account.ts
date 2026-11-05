@@ -9,6 +9,8 @@ import { authClient } from '../../lib/auth-client'
 import { dashboardApi } from '../../lib/dashboard-api'
 import { mockServer } from '../../mocks/dashboard/server'
 import { useAuthStore } from '../../stores/auth-store'
+import { announceSignOut } from '../../lib/auth-signal'
+import { forgetRememberedInputs } from '../../stores/remembered-inputs'
 import type {
   AccountExport,
   ProfileUpdate,
@@ -125,6 +127,8 @@ export function useDeleteAccount(currentOrg: string) {
       }
       suspendDraftWrites()
       await clearAllDrafts(browserDraftStorage).catch(() => undefined)
+      forgetRememberedInputs()
+      announceSignOut()
       useAuthStore.getState().clear()
     },
     onSuccess: () => invalidateAll(client, [EVERYTHING], { org: currentOrg }),

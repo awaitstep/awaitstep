@@ -20,9 +20,12 @@ function actions(): IdeCommandActions {
     toggleDock: vi.fn(),
     togglePreview: vi.fn(),
     showProblems: vi.fn(),
-    showOutput: vi.fn(),
-    showRun: vi.fn(),
+    showTestSession: vi.fn(),
     showQuickTest: vi.fn(),
+    run: vi.fn(),
+    startSession: vi.fn(),
+    stopSession: vi.fn(),
+    triggerSession: vi.fn(),
   }
 }
 
@@ -38,6 +41,11 @@ function context(overrides: Partial<IdeCommandContext> = {}): IdeCommandContext 
     explorerOpen: true,
     dockOpen: false,
     previewOpen: true,
+    runLabel: 'Start and trigger',
+    runEnabled: true,
+    canStartSession: true,
+    canStopSession: false,
+    canTriggerSession: false,
     actions: actions(),
     ...overrides,
   }
@@ -125,5 +133,45 @@ describe('revert and save commands', () => {
     const byId = Object.fromEntries(buildIdeCommands(context()).map((c) => [c.id, c]))
     expect(byId['file.save']).toMatchObject({ label: 'Save File', shortcut: 'save' })
     expect(byId['file.saveAll']).toMatchObject({ shortcut: 'saveAll' })
+  })
+})
+
+describe('run and test session commands', () => {
+  const byId = (ctx: IdeCommandContext, id: string) =>
+    buildIdeCommands(ctx).find((c) => c.id === id)!
+
+  it('names what Run will do and binds it to the run shortcut', () => {
+    const run = byId(context({ runLabel: 'Quick test step' }), 'run.run')
+    expect(run).toMatchObject({ label: 'Run: Quick test step', shortcut: 'run', enabled: true })
+  })
+
+  it('disables Run while a session is starting', () => {
+    expect(byId(context({ runEnabled: false }), 'run.run').enabled).toBe(false)
+  })
+
+  it('offers Start with no session, and Stop and Trigger only when they can work', () => {
+    const idle = context()
+    expect(byId(idle, 'run.start').enabled).toBe(true)
+    expect(byId(idle, 'run.stop').enabled).toBe(false)
+    expect(byId(idle, 'run.trigger').enabled).toBe(false)
+
+    const starting = context({ canStartSession: false, canStopSession: true })
+    expect(byId(starting, 'run.start').enabled).toBe(false)
+    expect(byId(starting, 'run.stop').enabled).toBe(true)
+    expect(byId(starting, 'run.trigger').enabled).toBe(false)
+
+    const running = context({
+      canStartSession: false,
+      canStopSession: true,
+      canTriggerSession: true,
+    })
+    expect(byId(running, 'run.trigger').enabled).toBe(true)
+  })
+
+  it('replaced Show Output and Show Run with one Show Test Session', () => {
+    const labels = buildIdeCommands(context()).map((c) => c.label)
+    expect(labels).toContain('Show Test Session')
+    expect(labels).not.toContain('Show Output')
+    expect(labels).not.toContain('Show Run')
   })
 })

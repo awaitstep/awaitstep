@@ -3,7 +3,18 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import type { Layout } from 'react-resizable-panels'
 import { browserStorage } from './ssr-safe-storage'
 
-export type DockTab = 'problems' | 'output' | 'run' | 'quickTest'
+export type DockTab = 'problems' | 'session' | 'quickTest'
+
+const DOCK_TABS: readonly DockTab[] = ['problems', 'session', 'quickTest']
+
+/**
+ * A stored dock tab as a tab that exists. Run and Output became one Test
+ * session tab, so those two open it; anything else unknown opens Problems.
+ */
+export function normalizeDockTab(stored: unknown): DockTab {
+  if (stored === 'run' || stored === 'output') return 'session'
+  return DOCK_TABS.find((tab) => tab === stored) ?? 'problems'
+}
 
 /** The two resizable groups: explorer | main, and editor / dock inside main. */
 /**
@@ -51,6 +62,10 @@ export const useIdeLayoutStore = create<IdeLayoutState>()(
     {
       name: 'awaitstep-ide',
       storage: createJSONStorage(() => browserStorage()),
+      merge: (persisted, current) => {
+        const stored = (persisted ?? {}) as Partial<IdeLayoutState>
+        return { ...current, ...stored, dockTab: normalizeDockTab(stored.dockTab) }
+      },
     },
   ),
 )

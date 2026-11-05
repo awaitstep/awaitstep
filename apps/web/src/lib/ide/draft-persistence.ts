@@ -1,4 +1,5 @@
 import { del, get, keys, set, createStore, type UseStore } from 'idb-keyval'
+import { onSignedOutElsewhere } from '../auth-signal'
 import type { Draft, Drafts } from './drafts'
 
 /** Stored drafts older than this are dropped on read, so a shared browser does not hoard them. */
@@ -78,6 +79,10 @@ let writesSuspended = false
 export function suspendDraftWrites(): void {
   writesSuspended = true
 }
+
+// Another tab signed out: this one's debounced writes and `pagehide` flush
+// must not put drafts back (IndexedDB has no cross-tab event of its own).
+onSignedOutElsewhere(suspendDraftWrites)
 
 /** Writes the current drafts, or removes the entry once none remain. */
 export async function saveDrafts(

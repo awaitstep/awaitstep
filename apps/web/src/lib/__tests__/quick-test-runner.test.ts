@@ -209,7 +209,7 @@ describe('runQuickTest', () => {
     const result = await runQuickTest({ path: 'nodes/a.ts', source: SOURCE, args: ARGS })
 
     expect(result.error?.message).toBe(
-      'Quick test couldn’t start its sandbox in this browser (the sandbox didn’t boot; a content security policy may block it). Use Run to execute the whole workflow.',
+      'Quick test couldn’t start its sandbox in this browser (the sandbox didn’t boot; a content security policy may block it). Use a test session to run the whole workflow.',
     )
   })
 

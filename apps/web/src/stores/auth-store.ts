@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { authClient } from '../lib/auth-client'
+import { reconcileRememberedOwner } from './remembered-inputs'
 
 type SessionResponse = Awaited<ReturnType<typeof authClient.getSession>>
 type SessionResult = Extract<SessionResponse, { data: NonNullable<SessionResponse['data']> }>
@@ -18,7 +19,11 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   session: null,
-  setSession: (data) =>
-    set(data ? { user: data.user, session: data.session } : { user: null, session: null }),
+  setSession: (data) => {
+    // Before anything renders with the new user: remembered payloads that are
+    // not theirs must be gone first.
+    if (data) reconcileRememberedOwner(data.user.id)
+    set(data ? { user: data.user, session: data.session } : { user: null, session: null })
+  },
   clear: () => set({ user: null, session: null }),
 }))

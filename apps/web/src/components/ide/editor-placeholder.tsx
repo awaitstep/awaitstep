@@ -17,7 +17,7 @@ export function EditorPlaceholder() {
       <dl className="grid grid-cols-[auto_auto] gap-x-6 gap-y-2 text-xs">
         {hints.map((hint) => (
           <div key={hint.label} className="contents">
-            <dt className="text-right text-muted-foreground/70">{hint.label}</dt>
+            <dt className="text-right text-muted-foreground">{hint.label}</dt>
             <dd>
               <kbd className="rounded border border-border bg-muted/40 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
                 {hint.keys}

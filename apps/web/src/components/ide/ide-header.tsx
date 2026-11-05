@@ -119,7 +119,7 @@ export function IdeHeader({
                 'h-8 gap-1.5 px-2 md:px-2.5',
                 dirtyCount > 0
                   ? 'text-foreground/70 hover:text-foreground'
-                  : 'text-muted-foreground/60',
+                  : 'text-muted-foreground',
               )}
             >
               {saving ? (

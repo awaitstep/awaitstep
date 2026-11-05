@@ -40,7 +40,9 @@ export function sessionStaleness(input: {
   unsavedCount: number
 }): SessionStaleness {
   const { session, versionId, currentHashes, unsavedCount } = input
-  if (!session) return UP_TO_DATE
+  // Only a running session can be behind; the unsaved count still matters
+  // with none, because starting one is when unsaved files are left out.
+  if (!session || session.status !== 'running') return { ...UP_TO_DATE, unsaved: unsavedCount }
   const hashes = currentHashes ?? {}
   const changes = currentHashes
     ? compareFileManifest(session.files, { ...currentHashes })
@@ -101,4 +103,17 @@ export function describeUnsaved(staleness: SessionStaleness): string | null {
   return staleness.unsaved === 1
     ? '1 unsaved file isn’t in this session.'
     : `${staleness.unsaved} unsaved files aren’t in this session.`
+}
+
+/** Why triggering a session that is behind would test old code. */
+export function askDescription(
+  savedLine: string | null,
+  savedCount: number,
+  version: boolean,
+  unsaved: number,
+): string {
+  const why = savedCount > 0 && savedLine ? savedLine : version ? 'A newer version was saved.' : ''
+  const files = unsaved === 1 ? '1 unsaved file' : `${unsaved} unsaved files`
+  const save = unsaved > 0 ? ` Restarting saves ${files} first.` : ''
+  return `${why} Triggering now tests the old code.${save}`.trim()
 }

@@ -32,7 +32,18 @@ const at = (s: TestSession | null, current: Record<string, string>, unsaved = 0,
 
 describe('sessionStaleness', () => {
   it('is up to date with no session', () => {
-    expect(at(null, { 'a.ts': 'h' })).toBe(UP_TO_DATE)
+    expect(at(null, { 'a.ts': 'h' })).toEqual(UP_TO_DATE)
+  })
+
+  it('still counts unsaved files with no session, so Run knows to ask before starting one', () => {
+    expect(at(null, { 'a.ts': 'h' }, 2).unsaved).toBe(2)
+  })
+
+  it('is not behind once the session has stopped (nothing is running old code)', () => {
+    const stopped = { ...session({ 'a.ts': 'h1' }), status: 'stopped' as const }
+    const result = at(stopped, { 'a.ts': 'h2' }, 1, 'v2')
+    expect(isBehind(result)).toBe(false)
+    expect(result.unsaved).toBe(1)
   })
 
   it('is up to date when the manifest matches the project', () => {

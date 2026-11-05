@@ -132,7 +132,7 @@ describe('unrunnableReason', () => {
       `import { z } from 'zod';\nexport default async function f() {}\n`,
     )
     expect(reason).toContain('zod')
-    expect(reason).toMatch(/Run/)
+    expect(reason).toMatch(/test session/)
   })
 
   it('refuses an export besides the default', () => {
@@ -153,6 +153,19 @@ describe('unrunnableReason', () => {
     // which is exactly why this reads the output and not the source.
     const transpiled = 'export default async function f() {}\n'
     expect(unrunnableReason(transpiled)).toBeNull()
+  })
+})
+
+describe('unrunnableReason wording', () => {
+  it('points at a test session, not at Run (which is Quick test on a step file)', () => {
+    const reasons = [
+      unrunnableReason("import x from 'x'\nexport default function f() {}"),
+      unrunnableReason('export default function f() {}\nexport const more = 1'),
+    ]
+    for (const reason of reasons) {
+      expect(reason).toMatch(/test session/)
+      expect(reason).not.toMatch(/Use Run/)
+    }
   })
 })
 

@@ -40,4 +40,24 @@ describe('useIdeShortcuts guard', () => {
     const event = press(document.getElementById('t')!, { key: 'a', code: 'KeyA' })
     expect(event.defaultPrevented).toBe(false)
   })
+
+  it('runs an action once, not once per auto-repeat, while the key is held', () => {
+    const run = vi.fn()
+    renderHook(() => useIdeShortcuts({ run }))
+    const first = press(document.body, { code: 'Enter', key: 'Enter', altKey: true })
+    const repeat = press(document.body, { code: 'Enter', key: 'Enter', altKey: true, repeat: true })
+    press(document.body, { code: 'Enter', key: 'Enter', altKey: true, repeat: true })
+    expect(run).toHaveBeenCalledTimes(1)
+    // Still ours: the browser must not get the repeat either.
+    expect(first.defaultPrevented && repeat.defaultPrevented).toBe(true)
+  })
+
+  it('lets tab cycling repeat, which is what holding the keys is for', () => {
+    const nextTab = vi.fn()
+    renderHook(() => useIdeShortcuts({ nextTab }))
+    const keys = { code: 'BracketRight', key: ']', ctrlKey: true, shiftKey: true }
+    press(document.body, keys)
+    press(document.body, { ...keys, repeat: true })
+    expect(nextTab).toHaveBeenCalledTimes(2)
+  })
 })

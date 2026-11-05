@@ -8,8 +8,7 @@ import { actionToast, LONG_TOAST_MS, failureLine } from '../../lib/action-toast'
 import type { IdeCommandActions } from '../../lib/ide/commands'
 import { createDraftUndo } from '../../lib/ide/draft-undo'
 import { dirtyPaths, overlayDrafts } from '../../lib/ide/drafts'
-import { countBySeverity, diagnosticProblems } from '../../lib/ide/problems'
-import { sessionStatus } from '../../lib/ide/status-bar'
+import { countBySeverity, diagnosticProblems, groupProblems } from '../../lib/ide/problems'
 import { fileEditability, workspaceEditability } from '../../lib/ide/editability'
 import { basename, buildFileTree, normalizeBundlePath } from '../../lib/ide/file-tree'
 import {
@@ -40,7 +39,9 @@ import { ConfirmDialog } from '../ui/confirm-dialog'
 import { UnsavedChangesDialog } from '../workflows/unsaved-changes-dialog'
 import { BottomDock } from './bottom-dock'
 import { CloseDirtyDialog } from './close-dirty-dialog'
-import { useTestSession } from '../../hooks/use-test-session'
+import { useWorkspaceSession } from '../../hooks/use-workspace-session'
+import { formatClock } from '../../lib/ide/session-log'
+import { RunConfirmDialog } from './run-confirm-dialog'
 import { CommandPalette } from './command-palette'
 import { EditorGroup } from './editor-group'
 import { FileExplorer } from './file-explorer'
@@ -116,8 +117,6 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     fullData?.workflow.currentVersionId,
     fullData?.versions,
   )
-  // Owned here so it outlives the dock being hidden, and so the version on
-  // screen is what a stale session is compared against.
   const storedHashes = useMemo(
     () =>
       Object.fromEntries(
@@ -125,14 +124,6 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       ),
     [source],
   )
-  const unsavedCount = useIdeStore((s) => Object.keys(s.drafts).length)
-  const testSession = useTestSession({
-    workflowId,
-    versionId: source?.versionId ?? null,
-    // An older version's hashes are a snapshot's, not the live project's.
-    currentHashes: isHistorical ? null : storedHashes,
-    unsavedCount,
-  })
 
   const {
     activePath,
@@ -320,11 +311,16 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   // One problem list for the dock and the status bar: server findings first,
   // since they explain the editor markers after them.
   const markers = useWorkspaceProblems(workflowId)
-  const problems = useMemo(
-    () => [...diagnosticProblems(source?.diagnostics ?? []), ...markers],
-    [source, markers],
+  const savedProblems = useMemo(() => diagnosticProblems(source?.diagnostics ?? []), [source])
+  const problemGroups = useMemo(
+    () => groupProblems(markers, savedProblems, dirty),
+    [markers, savedProblems, dirty],
   )
-  const problemCounts = countBySeverity(problems)
+  // The status bar counts both groups, as the dock does.
+  const problemCounts = countBySeverity([...savedProblems, ...markers])
+  const savedAt = sourceQuery.dataUpdatedAt
+    ? formatClock(new Date(sourceQuery.dataUpdatedAt).toISOString())
+    : null
   const wideEnough = useMinWidth(MIN_WORKSPACE_WIDTH)
   const router = useRouter()
   const blocker = useBlocker({
@@ -345,6 +341,21 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         : null,
     [activePath, activeSource],
   )
+
+  const {
+    testSession,
+    runAction,
+    status,
+    commands,
+    actions: sessionActions,
+  } = useWorkspaceSession({
+    workflowId,
+    currentVersionId: fullData?.workflow.currentVersionId ?? null,
+    historical: isHistorical,
+    storedHashes,
+    activeFile,
+    onSaveAll: projectFiles.saveAll,
+  })
 
   const activeIsStoredFile = activePath !== null && storedPaths.has(activePath)
   const activeIsHandlersFile = activePath === PROJECT_HANDLERS_PATH
@@ -426,9 +437,9 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       toggleDock,
       togglePreview,
       showProblems: () => showDock('problems'),
-      showOutput: () => showDock('output'),
-      showRun: () => showDock('run'),
+      showTestSession: () => showDock('session'),
       showQuickTest: () => showDock('quickTest'),
+      ...sessionActions,
     }),
     [
       canEdit,
@@ -444,6 +455,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       togglePreview,
       showDock,
       showDialog,
+      sessionActions,
     ],
   )
 
@@ -462,6 +474,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
           nextTab: () => cycleFile(1),
           prevTab: () => cycleFile(-1),
           closeTab: actions.closeActiveFile,
+          run: actions.run,
         },
   )
 
@@ -588,7 +601,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   }
 
   function handleShowSession() {
-    showDock('run')
+    showDock('session')
   }
 
   function handleShowProblems() {
@@ -629,10 +642,6 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     return <LoadFailure workflowId={workflowId} message={sourceQuery.error?.message} />
   }
 
-  const sessionState = sessionStatus(testSession.session, testSession.stale, {
-    starting: testSession.starting,
-    stopping: testSession.stopping,
-  })
   const unsavedPaths = [...dirty]
   const existingPaths = [...baseline.keys()]
   const renameExisting = existingPaths.filter((p) => p !== dialogTarget)
@@ -733,6 +742,12 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
                   onOpenLatest={handleOpenLatest}
                   onSaveAsFile={handleSaveAsFile}
                   onConvertHandlers={handleConvertRequest}
+                  onOpenCanvas={handleOpenCanvas}
+                  run={{
+                    label: runAction.intent.label,
+                    busy: runAction.intent.kind === 'busy',
+                    onRun: sessionActions.run,
+                  }}
                 />
               </Panel>
               {dockOpen && (
@@ -741,10 +756,12 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
                   <Panel id="dock" defaultSize="28" minSize={120} maxSize="70">
                     <BottomDock
                       workflowId={workflowId}
-                      problems={problems}
+                      groups={problemGroups}
+                      savedAt={savedAt}
                       testSession={testSession}
                       activeFile={activeFile}
                       onSaveAll={projectFiles.saveAll}
+                      onTrigger={sessionActions.triggerSession}
                     />
                   </Panel>
                 </>
@@ -773,7 +790,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
           isHistorical ? (readOnlyVersion ?? fullData.version.version) : fullData.version.version
         }
         historical={isHistorical}
-        session={sessionState}
+        session={status}
         errors={problemCounts.error}
         warnings={problemCounts.warning}
         unsaved={unsavedPaths}
@@ -794,7 +811,13 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         activeIsHandlersFile={activeIsHandlersFile}
         activeDirty={activeDirty}
         dirtyCount={dirty.size}
+        runLabel={runAction.intent.label}
+        runEnabled={runAction.intent.kind !== 'busy'}
+        canStartSession={commands.canStart}
+        canStopSession={commands.canStop}
+        canTriggerSession={commands.canTrigger}
       />
+      <RunConfirmDialog confirm={runAction.confirm} />
       <QuickOpenDialog files={baseline} />
       <FilePathDialog
         key={`rename:${dialogTarget ?? ''}:${dialog === 'renameFile'}`}

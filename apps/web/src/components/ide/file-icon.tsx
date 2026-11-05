@@ -28,6 +28,6 @@ export function FileIcon({ role, className }: { role: GeneratedFileRole; classNa
       return <FileJson className={cn(classes, 'text-status-warning/80')} />
     case 'meta':
     case 'asset':
-      return <FileText className={cn(classes, 'text-muted-foreground/70')} />
+      return <FileText className={cn(classes, 'text-muted-foreground')} />
   }
 }

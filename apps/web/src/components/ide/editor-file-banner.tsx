@@ -13,6 +13,8 @@ interface EditorFileBannerProps {
   onOpenLatest: () => void
   onSaveAsFile: (path: string) => void
   onConvertHandlers: () => void
+  /** Optional: offered on generated files, which can only be changed from the canvas. */
+  onOpenCanvas?: () => void
 }
 
 /**
@@ -27,6 +29,7 @@ export function EditorFileBanner({
   onOpenLatest,
   onSaveAsFile,
   onConvertHandlers,
+  onOpenCanvas,
 }: EditorFileBannerProps) {
   function handleSaveAsFile() {
     onSaveAsFile(path)
@@ -79,7 +82,20 @@ export function EditorFileBanner({
   }
 
   if (editability.readOnly && editability.message) {
-    return <EditorBanner tone="info">{editability.message}</EditorBanner>
+    return (
+      <EditorBanner
+        tone="info"
+        actions={
+          onOpenCanvas && (
+            <Button size="sm" variant="outline" onClick={onOpenCanvas} className="h-6 px-2 text-xs">
+              Edit on canvas
+            </Button>
+          )
+        }
+      >
+        {editability.message}
+      </EditorBanner>
+    )
   }
 
   return null

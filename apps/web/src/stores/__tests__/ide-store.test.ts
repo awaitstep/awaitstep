@@ -114,8 +114,8 @@ describe('useIdeLayoutStore (preferences)', () => {
     s.toggleExplorer()
     expect(useIdeLayoutStore.getState().explorerOpen).toBe(!before)
     useIdeLayoutStore.setState({ dockOpen: false })
-    useIdeLayoutStore.getState().showDock('run')
-    expect(useIdeLayoutStore.getState()).toMatchObject({ dockOpen: true, dockTab: 'run' })
+    useIdeLayoutStore.getState().showDock('session')
+    expect(useIdeLayoutStore.getState()).toMatchObject({ dockOpen: true, dockTab: 'session' })
   })
 
   it('stores layouts per group without clobbering the other group', () => {
