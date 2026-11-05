@@ -144,6 +144,12 @@ export type {
   ProjectWriteError,
 } from './project-files.js'
 export {
+  MAX_FILE_MANIFEST_ENTRIES,
+  buildFileManifest,
+  compareFileManifest,
+} from './file-manifest.js'
+export type { FileManifest, FileManifestChanges } from './file-manifest.js'
+export {
   ENV_VAR_NAME,
   globalEnvRefName,
   isEnvVarName,
