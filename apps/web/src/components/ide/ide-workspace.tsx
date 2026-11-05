@@ -63,6 +63,9 @@ import { QuickOpenDialog } from './quick-open-dialog'
 import { SideBar } from './side-bar'
 import { SearchRunner } from './search-runner'
 import { SideBarTabs } from './side-bar-tabs'
+import { StepsView } from './steps-view'
+import { StepSyncProvider } from './step-sync-context'
+import { showStepsView } from '../../lib/ide/step-actions'
 import { StatusBar } from './status-bar'
 import {
   describeConversion,
@@ -479,6 +482,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       showProblems: () => showDock('problems'),
       showTestSession: () => showDock('session'),
       showQuickTest: () => showDock('quickTest'),
+      showSteps: showStepsView,
       ...sessionActions,
     }),
     [
@@ -740,7 +744,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     )
   }
 
-  return (
+  const view = (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-background">
       <SearchRunner files={files} projectPaths={projectPaths} />
       <IdeHeader
@@ -768,6 +772,9 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
                 <SideBar
                   files={files}
                   onEscape={handleFocusEditor}
+                  steps={
+                    <StepsView tabs={<SideBarTabs view="steps" />} onEscape={handleFocusEditor} />
+                  }
                   explorer={
                     <FileExplorer
                       tabs={<SideBarTabs view="explorer" />}
@@ -927,5 +934,22 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       />
       {unsavedDialog}
     </div>
+  )
+
+  return (
+    <StepSyncProvider
+      workflowId={workflowId}
+      linkVersion={linkVersion}
+      kind={fullData.workflow.kind === 'script' ? 'script' : 'workflow'}
+      manifest={source?.manifest ?? null}
+      files={files}
+      projectPaths={projectPaths}
+      workflowFile={source?.primary ?? null}
+      versions={fullData.versions}
+      graphVersionId={fullData.version.id}
+      codeVersionId={source?.versionId ?? null}
+    >
+      {view}
+    </StepSyncProvider>
   )
 }

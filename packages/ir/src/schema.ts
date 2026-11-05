@@ -18,7 +18,15 @@ const positionSchema = z.object({
   y: z.number(),
 })
 
-const nodeIdSchema = z.string().min(1)
+// Node ids end up in selectors, file names and generated labels, so control
+// characters and line breaks (C0, DEL, C1, U+2028/2029) are refused. Any other
+// text stays valid: workflows already saved with unusual ids keep loading.
+// eslint-disable-next-line no-control-regex -- the control range is the point
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/
+const nodeIdSchema = z
+  .string()
+  .min(1)
+  .refine((id) => !CONTROL_CHARACTERS.test(id), 'Node ids cannot contain control characters')
 
 // ── Per-builtin data schemas ──
 // Deliberately lenient: every field optional, unknown keys allowed, and

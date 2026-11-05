@@ -85,6 +85,14 @@ export interface IdeSessionState extends TabState {
   dismissedOutside: Readonly<Record<string, string | null>>
   /** Not reactive state: set when the editor mounts, read when something must drive it. */
   editorHandle: EditorHandle | null
+  /**
+   * The step picked in the Steps view or the preview. Kept apart from the
+   * canvas store's selection: the canvas selection opens the config panel,
+   * and the IDE only reads the graph.
+   */
+  selectedNodeId: string | null
+  /** A request to put the keyboard in the Steps list once it is showing. */
+  stepsFocusRequested: boolean
 
   openFile: (path: string) => void
   revealLocation: (target: RevealTarget) => void
@@ -125,6 +133,9 @@ export interface IdeSessionState extends TabState {
   setRestoreNotice: (notice: RestoreNotice | null) => void
   setCursor: (cursor: CursorPosition) => void
   setEditorHandle: (handle: EditorHandle | null) => void
+  selectNode: (nodeId: string | null) => void
+  requestStepsFocus: () => void
+  consumeStepsFocus: () => void
   /** Carries a draft (and its tab) along with a renamed file. */
   moveFile: (from: string, to: string) => void
   /** Drops drafts that no longer differ from the baseline (saved or reverted). */
@@ -150,6 +161,8 @@ const initialSession = {
   conflicts: {} as Readonly<Record<string, SaveConflict>>,
   dismissedOutside: {} as Readonly<Record<string, string | null>>,
   editorHandle: null as EditorHandle | null,
+  selectedNodeId: null as string | null,
+  stepsFocusRequested: false,
 }
 
 function without<T>(record: Readonly<Record<string, T>>, path: string): Record<string, T> {
@@ -233,6 +246,11 @@ export const useIdeStore = create<IdeSessionState>()((set, get) => ({
     if (current.line !== cursor.line || current.column !== cursor.column) set({ cursor })
   },
   setEditorHandle: (editorHandle) => set({ editorHandle }),
+  requestStepsFocus: () => set({ stepsFocusRequested: true }),
+  consumeStepsFocus: () => set({ stepsFocusRequested: false }),
+  selectNode: (selectedNodeId) => {
+    if (get().selectedNodeId !== selectedNodeId) set({ selectedNodeId })
+  },
   moveFile: (from, to) => {
     const state = get()
     const draft = state.drafts[from]

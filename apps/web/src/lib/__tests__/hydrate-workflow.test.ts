@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   buildWorkflowStoreState,
+  nodeToSelectOnce,
   deriveReadOnlyState,
   deriveDeploymentState,
 } from '../hydrate-workflow'
@@ -49,6 +50,24 @@ const baseVersion: WorkflowVersion = {
   locked: 0,
   createdAt: '2025-01-01',
 }
+
+describe('nodeToSelectOnce', () => {
+  it('selects the URL’s node the first time', () => {
+    expect(nodeToSelectOnce('n1', undefined)).toBe('n1')
+  })
+
+  it('does not select it again after a refetch re-hydrates the graph', () => {
+    expect(nodeToSelectOnce('n1', 'n1')).toBeUndefined()
+  })
+
+  it('selects a different node when the URL names another', () => {
+    expect(nodeToSelectOnce('n2', 'n1')).toBe('n2')
+  })
+
+  it('selects nothing without a node in the URL', () => {
+    expect(nodeToSelectOnce(undefined, undefined)).toBeUndefined()
+  })
+})
 
 describe('buildWorkflowStoreState', () => {
   it('maps server workflow fields to metadata', () => {
@@ -149,6 +168,64 @@ describe('buildWorkflowStoreState', () => {
     const wf = { ...baseWorkflow, dependencies: JSON.stringify(['not', 'object']) }
     const result = buildWorkflowStoreState(wf, null, 1, false)
     expect(result.dependencies).toEqual({})
+  })
+
+  it('opens with the named node selected, flagged on the flow node too', () => {
+    const result = buildWorkflowStoreState(baseWorkflow, baseVersion, 1, false, {
+      selectNodeId: 'n2',
+    })
+    expect(result.selectedNodeId).toBe('n2')
+    expect(result.selectedEdgeId).toBeNull()
+    const nodes = result.nodes as { id: string; selected?: boolean }[]
+    expect(nodes.find((n) => n.id === 'n2')?.selected).toBe(true)
+    expect(nodes.find((n) => n.id === 'n1')?.selected).toBeUndefined()
+  })
+
+  it('ignores a node id the version does not have, such as a step deleted since', () => {
+    const result = buildWorkflowStoreState(baseWorkflow, baseVersion, 1, false, {
+      selectNodeId: 'deleted-node',
+    })
+    expect('selectedNodeId' in result).toBe(false)
+    expect((result.nodes as { selected?: boolean }[]).some((n) => n.selected)).toBe(false)
+  })
+
+  it('puts the ring back on the selected node when the graph is rebuilt, e.g. after a save', () => {
+    const result = buildWorkflowStoreState(baseWorkflow, baseVersion, 1, false, {
+      keepSelectedNodeId: 'n2',
+    })
+    expect(result.selectedNodeId).toBe('n2')
+    const nodes = result.nodes as { id: string; selected?: boolean }[]
+    expect(nodes.find((n) => n.id === 'n2')?.selected).toBe(true)
+    expect(nodes.find((n) => n.id === 'n1')?.selected).toBeUndefined()
+  })
+
+  it('drops a selection the rebuilt graph no longer has', () => {
+    const result = buildWorkflowStoreState(baseWorkflow, baseVersion, 1, false, {
+      keepSelectedNodeId: 'gone',
+    })
+    expect(result.selectedNodeId).toBeNull()
+    expect((result.nodes as { selected?: boolean }[]).some((n) => n.selected)).toBe(false)
+  })
+
+  it('prefers the URL’s node, and keeps the selection when that node is missing', () => {
+    expect(
+      buildWorkflowStoreState(baseWorkflow, baseVersion, 1, false, {
+        selectNodeId: 'n1',
+        keepSelectedNodeId: 'n2',
+      }).selectedNodeId,
+    ).toBe('n1')
+    expect(
+      buildWorkflowStoreState(baseWorkflow, baseVersion, 1, false, {
+        selectNodeId: 'deleted',
+        keepSelectedNodeId: 'n2',
+      }).selectedNodeId,
+    ).toBe('n2')
+  })
+
+  it('selects nothing when no node was asked for', () => {
+    expect('selectedNodeId' in buildWorkflowStoreState(baseWorkflow, baseVersion, 1, false)).toBe(
+      false,
+    )
   })
 
   it('parses IR nodes and edges from version data', () => {

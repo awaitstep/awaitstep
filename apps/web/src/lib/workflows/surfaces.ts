@@ -18,6 +18,8 @@ export interface EditorSearch {
   view: WorkspaceSurface
   version?: string
   file?: string
+  /** A node to open selected and centred on the canvas; unknown ids are ignored. */
+  node?: string
 }
 
 /**
@@ -27,12 +29,13 @@ export interface EditorSearch {
  */
 export function editorSearch(
   view: WorkspaceSurface,
-  extra: { version?: string; file?: string } = {},
+  extra: { version?: string; file?: string; node?: string } = {},
 ): EditorSearch {
   return {
     view,
     ...(extra.version !== undefined && { version: extra.version }),
     ...(extra.file !== undefined && { file: extra.file }),
+    ...(extra.node !== undefined && { node: extra.node }),
   }
 }
 
@@ -146,6 +149,7 @@ export function parseEditorSearch(search: Record<string, unknown>): EditorRouteS
     view: parseSurface(search.view),
     version: typeof search.version === 'string' ? search.version : undefined,
     file: typeof search.file === 'string' ? search.file : undefined,
+    node: typeof search.node === 'string' && search.node !== '' ? search.node : undefined,
     template:
       search.template === true || search.template === '1' || search.template === 'true'
         ? true

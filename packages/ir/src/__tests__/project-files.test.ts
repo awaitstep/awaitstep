@@ -23,6 +23,7 @@ import {
   projectHandlerModules,
   projectHandlersConflict,
   projectWriteErrors,
+  projectImportCandidates,
 } from '../project-files.js'
 import { validateArtifact } from '../validate.js'
 
@@ -498,4 +499,33 @@ describe('import conventions', () => {
     expect(PROJECT_IMPORTS_FIELD['#app/*.json']).toBe('./*.json')
     expect(PROJECT_IMPORTS_FIELD['#app/*.mts']).toBe('./*.mjs')
   })
+})
+
+describe('projectImportCandidates', () => {
+  it('maps an extensionless target to .js, its .ts source and a declaration file', () => {
+    expect(projectImportCandidates('lib/x')).toEqual(['lib/x.js', 'lib/x.ts', 'lib/x.d.ts'])
+  })
+
+  it('never offers a folder index for a bare folder', () => {
+    expect(projectImportCandidates('lib')).not.toContain('lib/index.ts')
+  })
+
+  it('maps explicit extensions to the file they name or compile from', () => {
+    expect(projectImportCandidates('lib/x.mts')).toEqual(['lib/x.mjs', 'lib/x.mts'])
+    expect(projectImportCandidates('lib/x.mjs')).toEqual(['lib/x.mjs', 'lib/x.mts'])
+    expect(projectImportCandidates('lib/x.json')).toEqual(['lib/x.json'])
+  })
+})
+
+describe('projectImportCandidates with prototype-named extensions', () => {
+  it.each(['constructor', '__proto__', 'toString', 'hasOwnProperty', 'valueOf'])(
+    'treats x.%s as an unknown extension and returns the defaults',
+    (name) => {
+      expect(projectImportCandidates(`x.${name}`)).toEqual([
+        `x.${name}.js`,
+        `x.${name}.ts`,
+        `x.${name}.d.ts`,
+      ])
+    },
+  )
 })

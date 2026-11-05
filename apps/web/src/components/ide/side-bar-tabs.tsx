@@ -6,6 +6,7 @@ import { cn } from '../../lib/utils'
 const TABS: { id: SideBarTab; label: string }[] = [
   { id: 'explorer', label: 'Explorer' },
   { id: 'search', label: 'Search' },
+  { id: 'steps', label: 'Steps' },
 ]
 
 /** Each view draws its own copy of the tabs, so a tab's id says which copy it is. */
@@ -44,11 +45,14 @@ export function SideBarTabs({ view }: { view: SideBarTab }) {
   function handleKeyDown(event: React.KeyboardEvent) {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
     event.preventDefault()
-    showView(TABS.find((t) => t.id !== tab)!.id, false)
+    // The tabs wrap: right from the last is the first.
+    const step = event.key === 'ArrowRight' ? 1 : -1
+    const index = TABS.findIndex((t) => t.id === tab)
+    showView(TABS[(index + step + TABS.length) % TABS.length]!.id, false)
   }
 
   return (
-    <div role="tablist" aria-label="Side bar" onKeyDown={handleKeyDown} className="flex gap-3">
+    <div role="tablist" aria-label="Side bar" onKeyDown={handleKeyDown} className="flex gap-2.5">
       {TABS.map((t) => (
         <SideBarTabButton
           key={t.id}

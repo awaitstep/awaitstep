@@ -16,7 +16,7 @@ export function useSwitchView(workflowId: string) {
   const navigate = useNavigate()
   const scope = useEditorScope()
   return useCallback(
-    (view: WorkspaceSurface, extra?: { version?: string; file?: string }) =>
+    (view: WorkspaceSurface, extra?: { version?: string; file?: string; node?: string }) =>
       scope
         ? navigate({
             to: '/$org/$project/$workspace/workflows/$id',

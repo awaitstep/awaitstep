@@ -94,7 +94,9 @@ function PathSection({
               <span className="w-4 shrink-0 text-right text-muted-foreground/40">{step.index}</span>
               <span className="shrink-0 text-foreground/60">{step.nodeName}</span>
               <span className="shrink-0 rounded bg-muted/60 px-1 py-0.5 text-xs text-muted-foreground/60">
-                {NODE_TYPE_LABELS[step.nodeType] ?? step.nodeType}
+                {Object.hasOwn(NODE_TYPE_LABELS, step.nodeType)
+                  ? NODE_TYPE_LABELS[step.nodeType]
+                  : step.nodeType}
               </span>
               <span
                 className={cn(

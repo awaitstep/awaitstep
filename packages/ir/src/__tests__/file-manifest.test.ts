@@ -64,3 +64,11 @@ describe('buildFileManifest', () => {
     expect(Object.keys(buildFileManifest(rows))).toHaveLength(100)
   })
 })
+
+describe('buildFileManifest with prototype-named paths', () => {
+  it('records a path called __proto__ as an entry, not as a prototype change', () => {
+    const manifest = buildFileManifest([{ path: '__proto__', hash: 'h1' }])
+    expect(Object.keys(manifest)).toEqual(['__proto__'])
+    expect(Object.getPrototypeOf(manifest)).toBeNull()
+  })
+})
