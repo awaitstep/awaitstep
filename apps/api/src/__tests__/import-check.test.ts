@@ -408,3 +408,23 @@ describe('escapingImports — what the bundler does beyond plain specifiers', ()
     ).toEqual([])
   })
 })
+
+describe('unresolvedAppImports with prototype-named extensions', () => {
+  it.each(['constructor', '__proto__', 'toString', 'hasOwnProperty'])(
+    'reports #app/x.%s as unresolved instead of throwing',
+    (name) => {
+      expect(
+        check([code('worker.ts', `import x from '#app/x.${name}'`)]).map((u) => u.specifier),
+      ).toEqual([`#app/x.${name}`])
+    },
+  )
+
+  it('resolves #app/x.constructor when x.constructor.ts exists', () => {
+    expect(
+      check([
+        code('worker.ts', "import x from '#app/x.constructor'"),
+        code('x.constructor.ts', 'export default 1'),
+      ]),
+    ).toEqual([])
+  })
+})
