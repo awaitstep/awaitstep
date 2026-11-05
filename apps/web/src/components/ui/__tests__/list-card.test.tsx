@@ -32,20 +32,43 @@ describe('ListRow', () => {
     expect(screen.getByRole('listitem')).toHaveTextContent('Chrome on macOSThis device')
   })
 
-  it('makes only the title a link when given an href', () => {
+  it('opens from anywhere on the row, through its one link, with its controls still their own', () => {
     render(
       <ListCard>
         <ListRow
           title="Lead enrichment"
           href="/workflows/lead"
           description="Enrich new CRM leads"
-          trailing={<button type="button">Share</button>}
+          trailing={
+            <>
+              <span>Deployed</span>
+              <button type="button" className="relative z-10">
+                Share
+              </button>
+            </>
+          }
         />
       </ListCard>,
     )
     expect(screen.getByRole('link')).toHaveAccessibleName('Lead enrichment')
     expect(screen.getByRole('link')).toHaveAttribute('href', '/workflows/lead')
     expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument()
+    // One link, stretched over the row (jsdom can't hit-test, so the classes stand in);
+    // the controls sit above that layer, so a click on them stays theirs.
+    expect(screen.getAllByRole('link')).toHaveLength(1)
+    expect(screen.getByRole('listitem')).toHaveClass('relative', 'cursor-pointer')
+    expect(screen.getByRole('link')).toHaveClass('after:absolute', 'after:inset-0')
+    // Only the control is raised: the rest of the row's right side still opens it.
+    expect(screen.getByText('Deployed').parentElement).not.toHaveClass('z-10')
+  })
+
+  it('is no link and no hover target without an href', () => {
+    render(
+      <ListCard>
+        <ListRow title="Chrome on macOS" />
+      </ListCard>,
+    )
+    expect(screen.getByRole('listitem')).not.toHaveClass('cursor-pointer')
   })
 
   it('renders the title as text without an href', () => {

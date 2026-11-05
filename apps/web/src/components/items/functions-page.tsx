@@ -1,10 +1,12 @@
 import { useMemo } from 'react'
 import { Info, Lock } from 'lucide-react'
 import { useWorkspaceItems } from '../../data/dashboard/items'
+import { cn } from '../../lib/utils'
 import { itemPagePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
 import type { WorkspaceItem } from '../../types/dashboard/items'
 import { Badge } from '../ui/badge'
 import { Banner } from '../ui/banner'
+import { STRETCHED_LINK } from '../ui/linked-row'
 import { DataTable, type DataColumn } from '../ui/data-table'
 import { ShellLink } from '../ui/shell-link'
 import { ListCardSkeleton, LoadingRegion } from '../ui/skeletons'
@@ -32,7 +34,7 @@ function functionColumns(slugs: WorkspaceSlugs): DataColumn<WorkspaceItem>[] {
           <span className="flex min-w-0 flex-col gap-0.5">
             <ShellLink
               href={itemPagePath(slugs, item, 'overview')}
-              className="w-fit truncate text-sm font-semibold text-foreground hover:underline"
+              className={cn('w-fit truncate text-sm font-semibold text-foreground', STRETCHED_LINK)}
             >
               {item.name}
             </ShellLink>
@@ -148,6 +150,7 @@ export function FunctionsPage({ slugs }: FunctionsPageProps) {
           getRowKey={(item) => item.id}
           empty={`No functions in ${workspace.name} yet.`}
           minWidth="860px"
+          linkedRows
         />
         <p className="flex items-center gap-2 text-xs text-muted-foreground">
           <Info className="size-3.5 shrink-0" aria-hidden="true" />

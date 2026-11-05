@@ -1,3 +1,5 @@
+import { cn } from '../../lib/utils'
+import { ABOVE_LINK } from './linked-row'
 import { Switch } from './switch'
 
 interface ShareToggleProps {
@@ -25,12 +27,15 @@ export function ShareToggle({ shared, onChange, label, disabledReason }: ShareTo
     <span className="flex items-center justify-end gap-2 text-2xs text-muted-foreground">
       {/* Only the visible caption: the switch is named by `label`, which starts with it. */}
       <span aria-hidden="true">Shared</span>
-      <Switch
-        checked={shared}
-        onCheckedChange={onChange}
-        label={label}
-        disabledReason={disabledReason}
-      />
+      {/* Above a row's link, when the row is one: a click on the switch stays the switch's. */}
+      <span className={cn('inline-flex', ABOVE_LINK)}>
+        <Switch
+          checked={shared}
+          onCheckedChange={onChange}
+          label={label}
+          disabledReason={disabledReason}
+        />
+      </span>
     </span>
   )
 }

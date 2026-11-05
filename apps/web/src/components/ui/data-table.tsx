@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { cn } from '../../lib/utils'
+import { LINKED_ROW } from './linked-row'
 import { hasContent } from './has-content'
 
 export interface DataColumn<Row> {
@@ -25,6 +26,11 @@ interface DataTableProps<Row> {
   footer?: ReactNode
   /** `false` drops the card's border and fill, for use inside a `ScopedSection`. */
   framed?: boolean
+  /**
+   * Each row opens something: its one link carries `STRETCHED_LINK` and the
+   * whole row answers clicks (see `ListRow`); controls in a row go `ABOVE_LINK`.
+   */
+  linkedRows?: boolean
 }
 
 /** A bordered table of runs, events, members or keys. */
@@ -37,10 +43,13 @@ export function DataTable<Row>({
   minWidth = '760px',
   footer,
   framed = true,
+  linkedRows = false,
 }: DataTableProps<Row>) {
   return (
     <div className={cn(framed && 'overflow-hidden rounded-2xl border border-border bg-card')}>
-      <div className="overflow-x-auto">
+      {/* With linked rows, a browser that won't size a row's link layer to its row
+          keeps it inside the table rather than over the page. */}
+      <div className={cn('overflow-x-auto', linkedRows && 'relative')}>
         <table className="w-full table-fixed border-collapse text-left" style={{ minWidth }}>
           <caption className="sr-only">{caption}</caption>
           <colgroup>
@@ -76,7 +85,7 @@ export function DataTable<Row>({
               </tr>
             ) : (
               rows.map((row) => (
-                <tr key={getRowKey(row)}>
+                <tr key={getRowKey(row)} className={cn(linkedRows && LINKED_ROW)}>
                   {columns.map((column) => (
                     <td
                       key={column.id}

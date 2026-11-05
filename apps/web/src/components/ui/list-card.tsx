@@ -1,6 +1,7 @@
 import { Children, type ReactNode } from 'react'
 import { cn } from '../../lib/utils'
 import { hasContent } from './has-content'
+import { LINKED_ROW, STRETCHED_LINK } from './linked-row'
 import { ShellLink } from './shell-link'
 
 interface ListCardProps {
@@ -39,24 +40,37 @@ interface ListRowProps {
   title: string
   /** Makes the title a link to the item. */
   href?: string
-  /** Beside the title, e.g. "This device". */
+  /** Beside the title, e.g. "This device". Plain content only with `href`: it sits under the row's link. */
   badge?: ReactNode
+  /** Plain content only with `href`: it sits under the row's link. */
   description?: ReactNode
-  /** Status, history, toggles — laid out left to right, wrapping on phones. */
+  /**
+   * Status, history, toggles — laid out left to right, wrapping on phones.
+   * With `href`, a control here must sit `ABOVE_LINK` (as `ShareToggle`'s switch does).
+   */
   trailing?: ReactNode
 }
 
-/** One row of a `ListCard`. Only the title is a link, so trailing controls stay usable. */
+/**
+ * One row of a `ListCard`. With `href` the whole row opens it: the title is the
+ * row's one link, stretched over the row (see `linked-row`), and the controls in
+ * it sit above that, so a switch in the row still works on its own.
+ */
 export function ListRow({ leading, title, href, badge, description, trailing }: ListRowProps) {
   const heading = href ? (
-    <ShellLink href={href} className="w-fit text-sm font-semibold text-foreground hover:underline">
+    <ShellLink
+      href={href}
+      className={cn('w-fit text-sm font-semibold text-foreground', STRETCHED_LINK)}
+    >
       {title}
     </ShellLink>
   ) : (
     <span className="text-sm font-semibold text-foreground">{title}</span>
   )
   return (
-    <li className="flex flex-wrap items-center gap-x-4.5 gap-y-3 px-5 py-4">
+    <li
+      className={cn('flex flex-wrap items-center gap-x-4.5 gap-y-3 px-5 py-4', href && LINKED_ROW)}
+    >
       {hasContent(leading) && leading}
       <div className="flex min-w-[200px] flex-1 flex-col gap-0.5">
         {hasContent(badge) ? (
