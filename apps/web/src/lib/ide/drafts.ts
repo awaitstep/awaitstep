@@ -48,31 +48,26 @@ export function liveDrafts(files: ReadonlyMap<string, GeneratedFile>, drafts: Dr
 }
 
 export interface SnapshotRestore {
-  /** The drafts to lay back: the current ones plus every snapshot draft that is still safe. */
+  /** The drafts to lay back: the current ones plus every snapshot draft that is not superseded. */
   drafts: Drafts
   restored: string[]
-  /** Not brought back: the file changed on the server, vanished, or was edited again since. */
+  /** Not brought back: the file was edited again since the discard. */
   skipped: string[]
 }
 
 /**
- * Puts a discarded set of drafts back (Undo). A draft only returns if the
- * file still has the hash it was edited from: reviving an edit against a
- * file that moved on would be a silent overwrite waiting for the next
- * Save all. A file edited again since the discard keeps its newer text.
+ * Puts a discarded set of drafts back (Undo). A draft returns exactly as it
+ * was, built on the hash it started from, even when the file has moved on or
+ * is gone: it then shows as changed (or deleted) on the server, and saving it
+ * stays conditional on that hash, so reviving it can never overwrite
+ * silently. Only a file edited again since the discard keeps its newer text.
  */
-export function restoreSnapshot(
-  snapshot: Drafts,
-  current: Drafts,
-  baseline: ReadonlyMap<string, { hash?: string | undefined }>,
-): SnapshotRestore {
+export function restoreSnapshot(snapshot: Drafts, current: Drafts): SnapshotRestore {
   const restored: string[] = []
   const skipped: string[] = []
   let drafts: Record<string, Draft> = { ...current }
   for (const [path, draft] of Object.entries(snapshot)) {
-    const file = baseline.get(path)
-    const unchanged = file !== undefined && (file.hash ?? null) === draft.baseHash
-    if (!unchanged || path in current) {
+    if (path in current) {
       skipped.push(path)
       continue
     }

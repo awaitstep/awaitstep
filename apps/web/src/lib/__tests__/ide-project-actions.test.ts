@@ -106,31 +106,97 @@ describe('project file actions', () => {
     )
     useIdeStore.getState().setDraft('handlers.ts', '@fetch function mine() {}', null)
     expect(await actions.saveFile('handlers.ts')).toBe(false)
-    expect(notify.error).toHaveBeenCalledWith(
-      'handlers.ts was created on the server since you opened it',
-      expect.objectContaining({ action: expect.objectContaining({ label: 'Overwrite' }) }),
-    )
+    // No toast to time out: the editor's banner carries it.
+    expect(notify.error).not.toHaveBeenCalled()
+    expect(useIdeStore.getState().conflicts['handlers.ts']).toEqual({ currentHash: 'h-agent' })
   })
 
-  it('a conflict offers Overwrite, which writes against the reported hash', async () => {
+  it('a conflict is recorded for the banner instead of toasted, and the server copy is loaded', async () => {
     useIdeStore.getState().setDraft('config/env.ts', 'mine', 'h-env')
     const { client, notify, refresh, actions } = setup()
     client.putProjectFile.mockRejectedValueOnce(
       new ProjectFileConflictError('File changed since it was read', 'h-agent'),
     )
     expect(await actions.saveFile('config/env.ts')).toBe(false)
-    expect(refresh).not.toHaveBeenCalled()
+    expect(notify.error).not.toHaveBeenCalled()
+    expect(useIdeStore.getState().conflicts['config/env.ts']).toEqual({ currentHash: 'h-agent' })
+    // The file's own tab is where the banner shows.
+    expect(useIdeStore.getState().activePath).toBe('config/env.ts')
+    expect(refresh).toHaveBeenCalledTimes(1)
     expect(useIdeStore.getState().drafts['config/env.ts']?.baseHash).toBe('h-env')
+  })
 
-    const [, options] = notify.error.mock.calls[0]!
-    options!.action!.onClick()
-    await vi.waitFor(() => expect(refresh).toHaveBeenCalledTimes(1))
+  it('a refused save from a Compare tab stays in Compare and says why', async () => {
+    const store = useIdeStore.getState()
+    store.setDraft('config/env.ts', 'edited', 'h-env')
+    store.openCompare('config/env.ts')
+    const { client, notify, actions } = setup()
+    client.putProjectFile.mockRejectedValueOnce(new ProjectFileConflictError('moved', 'h-newer'))
+    expect(await actions.saveFile('config/env.ts')).toBe(false)
+    expect(useIdeStore.getState().activePath).toBe('ide:compare:config/env.ts')
+    expect(notify.error).toHaveBeenCalledWith(
+      'Couldn’t save env.ts',
+      expect.objectContaining({ description: expect.stringContaining('overwrite') }),
+    )
+  })
+
+  it('overwriteFile writes against the hash of the copy that was compared', async () => {
+    useIdeStore.getState().setDraft('config/env.ts', 'mine', 'h-env')
+    useIdeStore.getState().setConflict('config/env.ts', { currentHash: 'h-agent' })
+    const { client, notify, refresh, actions } = setup()
+    expect(await actions.overwriteFile('config/env.ts', 'h-agent')).toBe(true)
     expect(client.putProjectFile).toHaveBeenLastCalledWith('wf-1', 'config/env.ts', 'mine', {
       ifMatch: 'h-agent',
     })
     expect(useIdeStore.getState().drafts['config/env.ts']?.baseHash).toBe('saved:mine')
-    // Overwriting is a save like any other: it says so.
-    await vi.waitFor(() => expect(notify.success).toHaveBeenCalledWith('Saved env.ts'))
+    expect(useIdeStore.getState().conflicts['config/env.ts']).toBeUndefined()
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(notify.success).toHaveBeenCalledWith('Saved env.ts')
+  })
+
+  it('overwriteFile is a fresh conflict when another write landed after Compare opened', async () => {
+    useIdeStore.getState().setDraft('config/env.ts', 'mine', 'h-env')
+    const { client, notify, actions } = setup()
+    client.putProjectFile.mockRejectedValueOnce(
+      new ProjectFileConflictError('File changed since it was read', 'h-newer'),
+    )
+    expect(await actions.overwriteFile('config/env.ts', 'h-agent')).toBe(false)
+    expect(useIdeStore.getState().conflicts['config/env.ts']).toEqual({ currentHash: 'h-newer' })
+    expect(useIdeStore.getState().drafts['config/env.ts']?.baseHash).toBe('h-env')
+    expect(notify.success).not.toHaveBeenCalled()
+    expect(notify.error).not.toHaveBeenCalled()
+  })
+
+  it('overwriteFile of a file deleted meanwhile creates only if the path is still free', async () => {
+    useIdeStore.getState().setDraft('config/env.ts', 'mine', 'h-env')
+    const { client, actions } = setup()
+    expect(await actions.overwriteFile('config/env.ts', null)).toBe(true)
+    expect(client.putProjectFile).toHaveBeenLastCalledWith('wf-1', 'config/env.ts', 'mine', {
+      ifNoneMatch: true,
+    })
+  })
+
+  it('recreateFile creates a deleted file with If-None-Match and rebases the draft', async () => {
+    useIdeStore.getState().setDraft('lib/gone.ts', 'my copy', 'h-gone')
+    const { client, notify, refresh, actions } = setup()
+    expect(await actions.recreateFile('lib/gone.ts')).toBe(true)
+    expect(client.putProjectFile).toHaveBeenCalledWith('wf-1', 'lib/gone.ts', 'my copy', {
+      ifNoneMatch: true,
+    })
+    expect(useIdeStore.getState().drafts['lib/gone.ts']?.baseHash).toBe('saved:my copy')
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(notify.success).toHaveBeenCalledWith('Recreated gone.ts')
+  })
+
+  it('recreateFile never replaces a file someone recreated first: it becomes a conflict', async () => {
+    useIdeStore.getState().setDraft('lib/gone.ts', 'my copy', 'h-gone')
+    const { client, notify, actions } = setup()
+    client.putProjectFile.mockRejectedValueOnce(
+      new ProjectFileConflictError('File already exists', 'h-theirs'),
+    )
+    expect(await actions.recreateFile('lib/gone.ts')).toBe(false)
+    expect(useIdeStore.getState().conflicts['lib/gone.ts']).toEqual({ currentHash: 'h-theirs' })
+    expect(notify.error).not.toHaveBeenCalled()
   })
 
   it('starts a new handler entry from its scaffold rather than an empty file', async () => {
@@ -175,6 +241,69 @@ describe('project file actions', () => {
     })
     expect(client.deleteProjectFile).toHaveBeenCalledWith('wf-1', 'config/env.ts', 'h-env')
     expect(useIdeStore.getState()).toMatchObject({ openPaths: ['lib/env.ts'], drafts: {} })
+  })
+
+  it('renameFile refuses, writing and deleting nothing, when the file moved on after the edit began', async () => {
+    useIdeStore.getState().setDraft('config/env.ts', 'edited env', 'h-env-old')
+    const { client, notify, actions } = setup()
+    expect(await actions.renameFile('config/env.ts', 'lib/env.ts')).toBe(false)
+    expect(client.putProjectFile).not.toHaveBeenCalled()
+    expect(client.deleteProjectFile).not.toHaveBeenCalled()
+    expect(notify.error).toHaveBeenCalledWith(
+      'Couldn’t rename env.ts',
+      expect.objectContaining({ description: expect.stringContaining('changed on the server') }),
+    )
+    expect(useIdeStore.getState().drafts['config/env.ts']?.source).toBe('edited env')
+  })
+
+  it('renameFile refuses while a save of that file is in conflict', async () => {
+    const store = useIdeStore.getState()
+    store.setDraft('config/env.ts', 'edited env', 'h-env')
+    store.setConflict('config/env.ts', { currentHash: 'h-newer' })
+    const { client, actions } = setup()
+    expect(await actions.renameFile('config/env.ts', 'lib/env.ts')).toBe(false)
+    expect(client.putProjectFile).not.toHaveBeenCalled()
+  })
+
+  it('renameFile deletes the old path against the hash the edit began from', async () => {
+    useIdeStore.getState().setDraft('config/env.ts', 'edited env', 'h-env')
+    const { client, actions } = setup()
+    await actions.renameFile('config/env.ts', 'lib/env.ts')
+    expect(client.deleteProjectFile).toHaveBeenCalledWith('wf-1', 'config/env.ts', 'h-env')
+  })
+
+  it('deleteFile is conditional on the hash the edit began from, not the latest seen', async () => {
+    useIdeStore.getState().setDraft('config/env.ts', 'edited', 'h-env-old')
+    const { client, actions } = setup()
+    await actions.deleteFile('config/env.ts')
+    expect(client.deleteProjectFile).toHaveBeenCalledWith('wf-1', 'config/env.ts', 'h-env-old')
+  })
+
+  it('deleteFile refuses, deleting nothing, when the draft is built on no stored version but the file is stored', async () => {
+    useIdeStore.getState().setDraft('config/env.ts', 'my text', null)
+    const { client, notify, actions } = setup()
+    expect(await actions.deleteFile('config/env.ts')).toBe(false)
+    expect(client.deleteProjectFile).not.toHaveBeenCalled()
+    expect(notify.error).toHaveBeenCalledWith(
+      'Couldn’t delete env.ts',
+      expect.objectContaining({ description: expect.stringContaining('changed on the server') }),
+    )
+    expect(useIdeStore.getState().drafts['config/env.ts']?.source).toBe('my text')
+    expect(useIdeStore.getState().activePath).toBe('config/env.ts')
+  })
+
+  it('deleteFile never sends an unconditional delete for a path with no stored hash', async () => {
+    useIdeStore.getState().setDraft('handlers.ts', 'seed edit', null)
+    const { client, actions } = setup()
+    expect(await actions.deleteFile('handlers.ts')).toBe(true)
+    expect(client.deleteProjectFile).not.toHaveBeenCalled()
+    expect(useIdeStore.getState().drafts['handlers.ts']).toBeUndefined()
+  })
+
+  it('renameFile of a draft-less file removes the old path by the baseline hash', async () => {
+    const { client, actions } = setup()
+    await actions.renameFile('config/other.ts', 'config/renamed.ts')
+    expect(client.deleteProjectFile).toHaveBeenCalledWith('wf-1', 'config/other.ts', 'h-other')
   })
 
   it('renameFile stops before deleting when the new path is taken', async () => {
@@ -401,5 +530,76 @@ describe('writes that outlive the workspace', () => {
     })
     await actions.convertHandlers()
     expect(useIdeStore.getState().openPaths).toEqual(['config/env.ts'])
+  })
+
+  it('a conflict that arrives after the workspace moved on does not touch the next workflow’s session', async () => {
+    useIdeStore.getState().setDraft('config/env.ts', 'mine', 'h-env')
+    let current = true
+    const { client, actions } = setup(baseline, () => current)
+    client.putProjectFile.mockImplementationOnce(async () => {
+      current = false
+      throw new ProjectFileConflictError('File changed since it was read', 'h-agent')
+    })
+    await actions.saveFile('config/env.ts')
+    expect(useIdeStore.getState().conflicts).toEqual({})
+    expect(useIdeStore.getState().activePath).toBeNull()
+  })
+
+  it('an overwrite that finishes after the workspace moved on does not rebase or toast', async () => {
+    useIdeStore.getState().setDraft('config/env.ts', 'mine', 'h-env')
+    let current = true
+    const { client, notify, actions } = setup(baseline, () => current)
+    client.putProjectFile.mockImplementationOnce(async (_i, path, source) => {
+      current = false
+      return { path, hash: 'saved', size: source.length, updatedAt: 'now' }
+    })
+    await actions.overwriteFile('config/env.ts', 'h-agent')
+    expect(useIdeStore.getState().drafts['config/env.ts']?.baseHash).toBe('h-env')
+    expect(notify.success).not.toHaveBeenCalled()
+  })
+
+  it('saveAll puts the first file whose save was refused in front of the person', async () => {
+    const store = useIdeStore.getState()
+    store.setDraft('config/env.ts', 'a', 'h-env')
+    store.setDraft('config/other.ts', 'b', 'h-other')
+    const { client, actions } = setup()
+    client.putProjectFile.mockImplementation(async (_id, path, source) => {
+      if (path === 'config/other.ts') throw new ProjectFileConflictError('changed', 'h-new')
+      return { path, hash: `saved:${source}`, size: 1, updatedAt: 'now' }
+    })
+    expect(await actions.saveAll()).toBe(1)
+    expect(useIdeStore.getState().activePath).toBe('config/other.ts')
+    expect(useIdeStore.getState().conflicts['config/other.ts']).toEqual({ currentHash: 'h-new' })
+  })
+
+  it('converting handlers stops when the unsaved handlers.ts save is refused', async () => {
+    useIdeStore.getState().setDraft('handlers.ts', 'mine', null)
+    const { client, actions } = setup()
+    client.putProjectFile.mockRejectedValueOnce(new ProjectFileConflictError('exists', 'h-x'))
+    expect(await actions.convertHandlers()).toBeNull()
+    expect(client.convertHandlers).not.toHaveBeenCalled()
+  })
+
+  it('saving a file that was deleted on the server writes nothing and says why, instead of failing silently', async () => {
+    useIdeStore.getState().setDraft('lib/gone.ts', 'my copy', 'h-gone')
+    const { client, notify, actions } = setup()
+    expect(await actions.saveFile('lib/gone.ts')).toBe(false)
+    expect(client.putProjectFile).not.toHaveBeenCalled()
+    expect(notify.error).toHaveBeenCalledWith(
+      'gone.ts was deleted on the server',
+      expect.objectContaining({ description: expect.stringContaining('Save to recreate') }),
+    )
+    expect(useIdeStore.getState().activePath).toBe('lib/gone.ts')
+    expect(useIdeStore.getState().drafts['lib/gone.ts']?.source).toBe('my copy')
+  })
+
+  it('saveAll leaves a deleted file’s copy alone and counts only what it wrote', async () => {
+    const store = useIdeStore.getState()
+    store.setDraft('lib/gone.ts', 'my copy', 'h-gone')
+    store.setDraft('config/env.ts', 'edited env', 'h-env')
+    const { client, notify, actions } = setup()
+    expect(await actions.saveAll()).toBe(1)
+    expect(client.putProjectFile).toHaveBeenCalledTimes(1)
+    expect(notify.error).toHaveBeenCalledTimes(1)
   })
 })

@@ -484,6 +484,14 @@ export const api = {
     return request(withProject(`/workflows/${encodeURIComponent(id)}/source${params}`))
   },
 
+  /** The stored files with their hashes (no text): what the IDE polls to notice outside changes. */
+  async getProjectFiles(id: string): Promise<ProjectFileSummary[]> {
+    const body = await request<{ files: ProjectFileSummary[] }>(
+      withProject(`/workflows/${encodeURIComponent(id)}/project`),
+    )
+    return body.files
+  },
+
   getProjectFile(id: string, path: string): Promise<ProjectFileContent> {
     return request(
       withProject(`/workflows/${encodeURIComponent(id)}/files/${encodeProjectPath(path)}`),
@@ -524,12 +532,13 @@ export const api = {
     })
   },
 
-  deleteProjectFile(id: string, path: string, ifMatch?: string): Promise<void> {
+  /** Always conditional: a delete must name the version it read. */
+  deleteProjectFile(id: string, path: string, ifMatch: string): Promise<void> {
     return projectFileRequest(
       `/workflows/${encodeURIComponent(id)}/files/${encodeProjectPath(path)}`,
       {
         method: 'DELETE',
-        headers: { ...(ifMatch && { 'If-Match': `"${ifMatch}"` }) },
+        headers: { 'If-Match': `"${ifMatch}"` },
       },
     )
   },

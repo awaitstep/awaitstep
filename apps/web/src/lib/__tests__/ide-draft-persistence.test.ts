@@ -87,10 +87,18 @@ describe('mergeRestoredDrafts', () => {
     expect(result.changedOnServer).toEqual(['lib/b.ts'])
   })
 
-  it('does not restore a draft whose file was deleted meanwhile, and reports it', () => {
-    const result = mergeRestoredDrafts({ 'gone.ts': { source: 'x', baseHash: 'hg' } }, baseline)
-    expect(result.drafts).toEqual({})
+  it('keeps a draft whose file was deleted meanwhile as a copy, and reports it', () => {
+    const gone = { source: 'x', baseHash: 'hg' }
+    const result = mergeRestoredDrafts({ 'gone.ts': gone }, baseline)
+    expect(result.drafts).toEqual({ 'gone.ts': gone })
     expect(result.deleted).toEqual(['gone.ts'])
+    expect(result.changedOnServer).toEqual([])
+  })
+
+  it('drops a draft of a never-stored file that is not in the project', () => {
+    const result = mergeRestoredDrafts({ 'ghost.ts': { source: 'x', baseHash: null } }, baseline)
+    expect(result.drafts).toEqual({})
+    expect(result.deleted).toEqual([])
   })
 
   it('drops a draft that now equals the saved file', () => {
