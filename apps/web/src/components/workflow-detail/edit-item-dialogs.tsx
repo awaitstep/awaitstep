@@ -12,6 +12,7 @@ import { ModalDialog } from '../ui/modal-dialog'
 import { Select } from '../ui/select'
 import { Tile } from '../ui/tile'
 import { FailureLine } from './failure-line'
+import { moveTargets } from '../../lib/workflows/move-targets'
 
 interface MoveItemDialogProps {
   workflow: WorkflowSummary
@@ -20,13 +21,13 @@ interface MoveItemDialogProps {
   onClose: () => void
 }
 
-/** Move to workspace: another workspace in the project; its runs go with it. */
+/** Move to workspace: another workspace in the project you can edit; its runs go with it. */
 export function MoveItemDialog({ workflow, slugs, word, onClose }: MoveItemDialogProps) {
   const goTo = useGoTo()
   const queryClient = useQueryClient()
   const workspaces = useWorkspaces(slugs.org, slugs.project)
   const move = useMoveWorkflows(slugs)
-  const targets = (workspaces.data ?? []).filter((w) => w.slug !== slugs.workspace)
+  const targets = moveTargets(workspaces.data ?? [], slugs.workspace)
   const [picked, setPicked] = useState<string | null>(null)
   const to = picked ?? targets[0]?.slug ?? null
 
@@ -91,7 +92,7 @@ export function MoveItemDialog({ workflow, slugs, word, onClose }: MoveItemDialo
       <div className="flex flex-col gap-4">
         {workspaces.data && targets.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            There’s no other workspace in this project to move it to.
+            There’s no other workspace in this project you can edit.
           </p>
         ) : (
           <FormField label="Workspace">

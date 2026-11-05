@@ -13,6 +13,7 @@ import { Select } from '../ui/select'
 import { Tile } from '../ui/tile'
 import { ITEM_KIND_LABEL } from '../items/item-kind'
 import { moveCount } from './move-count'
+import { moveTargets } from '../../lib/workflows/move-targets'
 
 interface MoveWorkflowsDialogProps {
   slugs: WorkspaceSlugs
@@ -42,7 +43,7 @@ export function MoveWorkflowsDialog({
   const workflows = useWorkspaceItems(slugs, 'workflow')
   const functions = useWorkspaceItems(slugs, 'script')
   const move = useMoveWorkflows(slugs)
-  const targets = (workspaces.data ?? []).filter((w) => w.slug !== slugs.workspace)
+  const targets = moveTargets(workspaces.data ?? [], slugs.workspace)
   const items = [...(workflows.data ?? []), ...(functions.data ?? [])]
   const [picked, setPicked] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -75,6 +76,7 @@ export function MoveWorkflowsDialog({
   const count = selected.size
   const moveLabel = `Move ${moveCount(items.filter((i) => selected.has(i.id)))}`
   const nowhere = workspaces.data !== undefined && targets.length === 0
+  const onlyWorkspace = nowhere && workspaces.data.length <= 1
   const canMove = count > 0 && to !== null && !move.isPending
   const target = to ?? ''
 
@@ -104,8 +106,9 @@ export function MoveWorkflowsDialog({
       <div className="flex flex-col gap-5">
         {nowhere ? (
           <p className="text-sm text-foreground/90">
-            {workspaceName} is the only workspace in {projectName}. Create another one to move
-            workflows into.
+            {onlyWorkspace
+              ? `${workspaceName} is the only workspace in ${projectName}. Create another one to move workflows into.`
+              : `There’s no other workspace in ${projectName} you can edit.`}
           </p>
         ) : (
           <FormField

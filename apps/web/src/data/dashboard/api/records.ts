@@ -95,6 +95,7 @@ export function toWorkspace(workspace: ApiWorkspace): Workspace {
     createdBy: workspace.createdBy,
     lock: lockState(workspace.lock, workspace.inheritedLock),
     counts: workspace.counts,
+    viewerCanEdit: workspace.viewerCan.edit.allowed,
     ...(workspace.runsByHour && { runsByHour: workspace.runsByHour }),
   }
 }
@@ -156,6 +157,8 @@ export function workspaceFromRow(row: ApiWorkspaceRow, people: Person[] = []): W
       failing: 0,
       lastRunAt: null,
     },
+    // Whoever just created or renamed it runs it; the lists refetch the real answer.
+    viewerCanEdit: true,
   }
 }
 

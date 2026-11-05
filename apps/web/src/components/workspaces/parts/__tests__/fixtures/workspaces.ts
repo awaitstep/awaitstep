@@ -39,6 +39,7 @@ function workspace(
     createdBy: { id: AMA.id, name: AMA.name },
     lock: { own: null, inherited: null },
     counts,
+    viewerCanEdit: true,
   }
 }
 
