@@ -2,8 +2,8 @@ import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import type { WorkflowOverview } from '../use-workflow-overview'
-import { FunctionBody } from '../function-body'
 import { OverviewBody } from '../overview-body'
+import { useOrgStore } from '../../../stores/org-store'
 import { BASE, VERSIONS, VIEWER, renderWithPages } from './fixtures/workspace-pages'
 
 vi.mock('../../navigation/router-shell-link', () => ({
@@ -183,10 +183,10 @@ describe('OverviewBody (WorkflowDetail)', () => {
   })
 })
 
-describe('FunctionBody (FunctionDetail)', () => {
-  it('draws only what is recorded: its version, where it is live and its versions', () => {
+describe('OverviewBody for a function (FunctionDetail)', () => {
+  it('looks like a workflow’s: the band, its URL to call, versions, and where requests would be', () => {
     renderWithPages(
-      <FunctionBody
+      <OverviewBody
         workflow={{ ...WORKFLOW, kind: 'script' }}
         overview={overview(true)}
         accounts={ACCOUNTS}
@@ -194,16 +194,42 @@ describe('FunctionBody (FunctionDetail)', () => {
       />,
       {},
     )
-    expect(screen.queryByText(/Used by/i)).not.toBeInTheDocument()
-    expect(screen.queryByText(/Calls/i)).not.toBeInTheDocument()
-    expect(screen.queryByText('Recent runs')).not.toBeInTheDocument()
+    const band = screen.getByRole('region', { name: 'Status' })
+    expect(within(band).getByText('Live · v12')).toBeVisible()
+    expect(within(band).getByText('awaitstep-abc.workers.dev')).toBeVisible()
+    expect(within(band).getByText('POST to call it.')).toBeVisible()
+    expect(within(band).getByText('Requests, 24h')).toBeVisible()
+    expect(within(band).getByText('Not recorded.')).toBeVisible()
+    expect(within(band).queryByText(/Runs, 24h/)).toBeNull()
     expect(screen.getByText('Versions')).toBeVisible()
-    expect(screen.getByText('awaitstep-abc.workers.dev')).toBeVisible()
+    expect(screen.getByText('Recent requests')).toBeVisible()
+    expect(screen.getByText('No requests to show')).toBeVisible()
+    expect(screen.queryByText('Recent runs')).toBeNull()
+  })
+
+  it('asks for no runs: a function has none', () => {
+    // A project to call, so a runs request would reach fetch rather than throw first.
+    useOrgStore.setState({ activeOrganizationId: 'org_1', activeProjectId: 'prj_1' })
+    const fetch = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(JSON.stringify({ data: [], nextCursor: null })))
+    renderWithPages(
+      <OverviewBody
+        workflow={{ ...WORKFLOW, kind: 'script' }}
+        overview={overview(true)}
+        accounts={ACCOUNTS}
+        neverDeployed={false}
+      />,
+      {},
+    )
+    expect(fetch.mock.calls.filter((call) => String(call[0]).includes('/runs'))).toEqual([])
+    fetch.mockRestore()
+    useOrgStore.getState().clear()
   })
 
   it('says it isn’t published yet, before its first deploy (FunctionDraft)', () => {
     renderWithPages(
-      <FunctionBody
+      <OverviewBody
         workflow={{ ...WORKFLOW, kind: 'script' }}
         overview={{ ...overview(false), versions: [VERSIONS[0]!] } as WorkflowOverview}
         accounts={ACCOUNTS}
@@ -211,8 +237,9 @@ describe('FunctionBody (FunctionDetail)', () => {
       />,
       {},
     )
-    expect(screen.getAllByText('Not published')).toHaveLength(2)
+    expect(screen.getByText('Not published')).toBeVisible()
+    expect(screen.getByText('Publish it to get a URL.')).toBeVisible()
+    expect(screen.getByText('The URL appears once the function is published.')).toBeVisible()
     expect(screen.getByText('1 so far')).toBeVisible()
-    expect(screen.getByText('Publish it to call it')).toBeVisible()
   })
 })

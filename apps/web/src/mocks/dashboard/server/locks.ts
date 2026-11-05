@@ -19,5 +19,5 @@ export const setLock = mutation((ctx, target: LockTarget, on: boolean): LockStat
   else row.lock ??= { setBy: ctx.userId, setAt: new Date().toISOString() }
   return target.level === 'project'
     ? projectRecord(db, ctx, project!).lock
-    : workspaceRecord(db, project!, workspace!).lock
+    : workspaceRecord(db, ctx, project!, workspace!).lock
 })

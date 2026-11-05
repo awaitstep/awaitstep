@@ -61,7 +61,7 @@ export const listWorkspaces = frameEndpoint(
   (ctx, orgSlug: string, projectSlug: string): Workspace[] => {
     const db = getDb()
     const { project } = requireScope(db, ctx, { org: orgSlug, project: projectSlug })
-    return visibleWorkspaces(db, ctx, project!).map((w) => workspaceRecord(db, project!, w))
+    return visibleWorkspaces(db, ctx, project!).map((w) => workspaceRecord(db, ctx, project!, w))
   },
 )
 
@@ -96,7 +96,7 @@ export const createWorkspace = mutation(
     for (const person of people) {
       db.workspaceMembers.push({ workspaceId: row.id, userId: person.userId, role: person.role })
     }
-    return workspaceRecord(db, project!, row)
+    return workspaceRecord(db, ctx, project!, row)
   },
 )
 
@@ -127,7 +127,7 @@ export const updateWorkspace = mutation(
     }
     if (update.description !== undefined) row.description = update.description?.trim() || null
     if (update.colour) row.colour = update.colour
-    return workspaceRecord(db, project!, row)
+    return workspaceRecord(db, ctx, project!, row)
   },
 )
 

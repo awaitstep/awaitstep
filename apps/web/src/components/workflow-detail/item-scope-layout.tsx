@@ -39,16 +39,24 @@ export function ItemScopeLayout({ org, project, workspace, scope: ids }: ItemSco
   )
 }
 
-const NO_ACCESS_YET: EditorAccess = { canEdit: false, canDeploy: false, reason: null }
+const NO_ACCESS_YET: EditorAccess = {
+  canEdit: false,
+  canDeploy: false,
+  canShare: false,
+  canMove: false,
+  reason: null,
+}
 
-/** The viewer's edit and deploy rights in this workspace; none until its scope is known. */
+/** What the viewer may do to items in this workspace; nothing until its scope is known. */
 function useEditorAccessFor(slugs: { org: string; project: string; workspace: string }) {
   const can = useWorkspaceScope(slugs)?.workspace.viewerCan
   const canEdit = can?.edit.allowed ?? false
   const canDeploy = can?.deploy.allowed ?? false
+  const canShare = can?.share.allowed ?? false
+  const canMove = can?.manageSettings.allowed ?? false
   const reason = can && !can.edit.allowed ? (can.edit.reason ?? VIEW_ONLY_MESSAGE) : null
   return useMemo<EditorAccess>(
-    () => (can ? { canEdit, canDeploy, reason } : NO_ACCESS_YET),
-    [can, canEdit, canDeploy, reason],
+    () => (can ? { canEdit, canDeploy, canShare, canMove, reason } : NO_ACCESS_YET),
+    [can, canEdit, canDeploy, canShare, canMove, reason],
   )
 }

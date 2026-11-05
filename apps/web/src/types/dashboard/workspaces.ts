@@ -38,6 +38,8 @@ export interface Workspace {
   createdBy: { id: string; name: string } | null
   lock: LockState
   counts: WorkspaceCounts
+  /** Whether you can build here (Editor or above): where an item may be moved to. */
+  viewerCanEdit: boolean
   /** The last 24 hours' runs, oldest first: only on the workspace a page's URL names. */
   runsByHour?: RunHour[]
 }

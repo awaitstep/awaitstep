@@ -3,7 +3,13 @@ import { EditorAccessProvider, EditorScopeProvider } from '../../contexts/editor
 
 export const ITEM_SLUGS = { org: 'acme', project: 'core', workspace: 'sales' }
 
-const EDITOR_ACCESS = { canEdit: true, canDeploy: true, reason: null }
+const EDITOR_ACCESS = {
+  canEdit: true,
+  canDeploy: true,
+  canShare: true,
+  canMove: true,
+  reason: null,
+}
 
 /** What `ItemScopeLayout` gives a workflow's editor: its workspace, as an Editor. */
 export function ItemTestScope({ children }: { children: ReactNode }) {

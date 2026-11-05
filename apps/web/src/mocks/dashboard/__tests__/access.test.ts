@@ -11,6 +11,7 @@ import { AMA, DANIEL, JONAS, LENA, PRIYA, TOM } from '../fixtures/people'
 import { INTERNAL, MARKETING, P101 } from '../fixtures/projects'
 import { IT, SALES, SUPPORT } from '../fixtures/workspaces'
 import type { MockContext } from '../scenario'
+import { workspaceRecord } from '../server/records'
 
 const as = (userId: string, scenario: MockContext['scenario'] = 'none'): MockContext => ({
   userId,
@@ -50,6 +51,14 @@ describe('effective workspace roles for the canvas people', () => {
     expect(roleIn(as(LENA), P101, IT)).toBe('admin')
     expect(roleIn(as(DANIEL), P101, IT)).toBeNull()
     expect(roleIn(as(LENA), P101, SALES)).toBeNull()
+  })
+
+  it('says on each workspace whether the person can build there (where Move may go)', () => {
+    const db = getDb()
+    const sales = db.workspaces.find((w) => w.id === SALES)!
+    expect(workspaceRecord(db, as(DANIEL), project(P101), sales).viewerCanEdit).toBe(true)
+    expect(workspaceRecord(db, as(PRIYA), project(P101), sales).viewerCanEdit).toBe(false)
+    expect(workspaceRecord(db, as(LENA), project(P101), sales).viewerCanEdit).toBe(false)
   })
 
   it('hides projects in which the person can open nothing', () => {

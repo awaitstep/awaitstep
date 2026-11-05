@@ -101,7 +101,7 @@ export function ItemHeader({
               </Badge>
             )}
           </div>
-          {/* Edited in place, as v1's overview did; Rename in ⋯ does both too. */}
+          {/* Edited in place, as v1's overview did: the only place to rename it. */}
           <EditableDescription
             workflowId={workflow.id}
             initialValue={workflow.description ?? ''}

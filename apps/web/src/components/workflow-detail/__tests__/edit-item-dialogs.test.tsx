@@ -1,26 +1,22 @@
 import type { ReactNode } from 'react'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { WorkflowSummary } from '../../../lib/api-client'
-import { MoveItemDialog, RenameItemDialog } from '../edit-item-dialogs'
+import { MoveItemDialog } from '../edit-item-dialogs'
 
+const listed = vi.hoisted(() => ({
+  workspaces: [] as { slug: string; name: string; viewerCanEdit: boolean }[],
+}))
 const calls = vi.hoisted(() => ({
-  update: vi.fn(),
   move: vi.fn(),
   goTo: vi.fn(),
 }))
 
-vi.mock('../../../lib/api-client', () => ({ api: { updateWorkflow: calls.update } }))
 vi.mock('../../navigation/router-shell-link', () => ({ useGoTo: () => calls.goTo }))
 vi.mock('../../../data/dashboard/workspaces', () => ({
-  useWorkspaces: () => ({
-    data: [
-      { slug: 'sales', name: 'Sales' },
-      { slug: 'ops', name: 'Ops' },
-    ],
-  }),
+  useWorkspaces: () => ({ data: listed.workspaces }),
 }))
 vi.mock('../../../data/dashboard/items', () => ({
   useMoveWorkflows: () => ({
@@ -45,26 +41,12 @@ function wrap(ui: ReactNode) {
   return render(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>)
 }
 
-beforeEach(() => vi.clearAllMocks())
-
-describe('RenameItemDialog', () => {
-  it('saves the new name and description, then closes', async () => {
-    calls.update.mockResolvedValue(undefined)
-    const onClose = vi.fn()
-    wrap(<RenameItemDialog workflow={WORKFLOW} word="workflow" onClose={onClose} />)
-    const save = screen.getByRole('button', { name: 'Save' })
-    expect(save).toBeDisabled()
-    const name = screen.getByRole('textbox', { name: /Name/ })
-    await userEvent.clear(name)
-    await userEvent.type(name, 'Lead scoring ')
-    await userEvent.type(screen.getByRole('textbox', { name: /Description/ }), 'Scores leads')
-    await userEvent.click(save)
-    await waitFor(() => expect(onClose).toHaveBeenCalled())
-    expect(calls.update).toHaveBeenCalledWith('wf_1', {
-      name: 'Lead scoring',
-      description: 'Scores leads',
-    })
-  })
+beforeEach(() => {
+  vi.clearAllMocks()
+  listed.workspaces = [
+    { slug: 'sales', name: 'Sales', viewerCanEdit: true },
+    { slug: 'ops', name: 'Ops', viewerCanEdit: true },
+  ]
 })
 
 describe('MoveItemDialog', () => {
@@ -85,5 +67,30 @@ describe('MoveItemDialog', () => {
     expect(calls.goTo).toHaveBeenCalledWith('/acme/core/ops/workflows/wf_1/overview', {
       replace: true,
     })
+  })
+
+  it('offers only workspaces you can edit', async () => {
+    listed.workspaces = [
+      { slug: 'sales', name: 'Sales', viewerCanEdit: true },
+      { slug: 'finance', name: 'Finance', viewerCanEdit: false },
+      { slug: 'ops', name: 'Ops', viewerCanEdit: true },
+    ]
+    calls.move.mockImplementation((_input, { onSuccess }) => onSuccess({ moved: 1 }))
+    wrap(<MoveItemDialog workflow={WORKFLOW} slugs={SLUGS} word="workflow" onClose={vi.fn()} />)
+    await userEvent.click(screen.getByRole('combobox', { name: 'Workspace' }))
+    expect(screen.queryByRole('option', { name: 'Finance' })).toBeNull()
+    expect(screen.getByRole('option', { name: 'Ops' })).toBeInTheDocument()
+  })
+
+  it('says so when no other workspace is one you can edit', () => {
+    listed.workspaces = [
+      { slug: 'sales', name: 'Sales', viewerCanEdit: true },
+      { slug: 'finance', name: 'Finance', viewerCanEdit: false },
+    ]
+    wrap(<MoveItemDialog workflow={WORKFLOW} slugs={SLUGS} word="workflow" onClose={vi.fn()} />)
+    expect(
+      screen.getByText('There’s no other workspace in this project you can edit.'),
+    ).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Move workflow' })).toBeDisabled()
   })
 })

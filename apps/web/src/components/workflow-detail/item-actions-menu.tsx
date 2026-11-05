@@ -6,7 +6,6 @@ import {
   EyeOff,
   Lock,
   MoreHorizontal,
-  Pencil,
   Share2,
   Trash2,
   Unlock,
@@ -24,12 +23,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
-import { MoveItemDialog, RenameItemDialog } from './edit-item-dialogs'
+import { MoveItemDialog } from './edit-item-dialogs'
 import { DeleteItemDialog, TakeDownDialog } from './remove-item-dialogs'
 import { useLockDeployed } from './use-lock-deployed'
 import type { WorkflowOverview } from './use-workflow-overview'
+import { useEditorAccess } from '../../contexts/editor-scope-context'
 
-type OpenDialog = 'rename' | 'move' | 'takedown' | 'delete' | null
+type OpenDialog = 'move' | 'takedown' | 'delete' | null
 
 interface ItemActionsMenuProps {
   slugs: WorkspaceSlugs
@@ -41,8 +41,10 @@ interface ItemActionsMenuProps {
 
 /**
  * ⋯ on a workflow or function's page (boards `WorkflowActions`, `FunctionDetail`):
- * Rename · Duplicate · Move (Stop sharing on a shared function) · Lock ·
- * Export IR, then Take down and Delete.
+ * Duplicate · Move (Stop sharing on a shared function) · Lock · Export IR,
+ * then Take down and Delete. The name and description are edited in place in
+ * the header. Each write needs the right the API checks for it; a Viewer keeps
+ * Export, and the menu says why the rest are off.
  */
 export function ItemActionsMenu({ slugs, workflow, overview, runCount }: ItemActionsMenuProps) {
   const queryClient = useQueryClient()
@@ -55,13 +57,10 @@ export function ItemActionsMenu({ slugs, workflow, overview, runCount }: ItemAct
   const deployed = overview.hasActiveDeployment
   const locked = overview.deployBlocked
   const word = isFunction ? 'function' : 'workflow'
+  const { canEdit, canDeploy, canShare, canMove, reason } = useEditorAccess()
 
   function close() {
     setDialog(null)
-  }
-
-  function handleRename() {
-    setDialog('rename')
   }
 
   function handleMove() {
@@ -115,26 +114,36 @@ export function ItemActionsMenu({ slugs, workflow, overview, runCount }: ItemAct
           align="end"
           aria-label={`${isFunction ? 'Function' : 'Workflow'} actions`}
         >
-          <DropdownMenuItem onSelect={handleRename}>
-            <Pencil size={14} /> Rename
-          </DropdownMenuItem>
+          {reason && (
+            <>
+              <p className="max-w-[240px] px-2.5 py-1.5 text-xs text-muted-foreground">{reason}</p>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuItem
             onSelect={handleDuplicate}
-            disabled={actions.duplicate.isPending || !hasVersion}
+            disabled={!canEdit || actions.duplicate.isPending || !hasVersion}
           >
             <Copy size={14} /> Duplicate
           </DropdownMenuItem>
           {isFunction && workflow.sharedBy ? (
-            <DropdownMenuItem onSelect={handleStopSharing} disabled={share.isPending}>
+            <DropdownMenuItem onSelect={handleStopSharing} disabled={!canShare || share.isPending}>
               <Share2 size={14} /> Stop sharing
             </DropdownMenuItem>
           ) : (
-            <DropdownMenuItem onSelect={handleMove}>
+            <DropdownMenuItem onSelect={handleMove} disabled={!canMove}>
               <ArrowRightLeft size={14} /> Move to workspace
+              {/* An Editor gets no reason line: say why this one is off. */}
+              {canEdit && !canMove && (
+                <span className="ml-auto text-xs text-muted-foreground">Admins only</span>
+              )}
             </DropdownMenuItem>
           )}
           {/* The deployed version's lock: nothing else can be deployed over it. */}
-          <DropdownMenuItem onSelect={handleToggleLock} disabled={!deployed || lock.isPending}>
+          <DropdownMenuItem
+            onSelect={handleToggleLock}
+            disabled={!canEdit || !deployed || lock.isPending}
+          >
             {locked ? <Unlock size={14} /> : <Lock size={14} />}
             {locked ? 'Unlock' : 'Lock'}
           </DropdownMenuItem>
@@ -149,6 +158,7 @@ export function ItemActionsMenu({ slugs, workflow, overview, runCount }: ItemAct
             <DropdownMenuItem
               className="text-status-warning focus:text-status-warning"
               onSelect={handleTakeDown}
+              disabled={!canDeploy}
             >
               <EyeOff size={14} /> Take down
             </DropdownMenuItem>
@@ -156,13 +166,13 @@ export function ItemActionsMenu({ slugs, workflow, overview, runCount }: ItemAct
           <DropdownMenuItem
             className="text-destructive focus:text-destructive"
             onSelect={handleDelete}
+            disabled={!canEdit}
           >
             <Trash2 size={14} /> Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {dialog === 'rename' && <RenameItemDialog workflow={workflow} word={word} onClose={close} />}
       {dialog === 'move' && (
         <MoveItemDialog workflow={workflow} slugs={slugs} word={word} onClose={close} />
       )}

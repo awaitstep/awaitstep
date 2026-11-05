@@ -27,12 +27,22 @@ export function useItemSlugs(): WorkspaceSlugs {
 export interface EditorAccess {
   canEdit: boolean
   canDeploy: boolean
+  /** Stop sharing a function shared from here. */
+  canShare: boolean
+  /** Move it to another workspace: this workspace's admins only. */
+  canMove: boolean
   /** Why editing is refused, worded for the user; null when it isn't. */
   reason: string | null
 }
 
 // Fail closed: outside `ItemScopeLayout` nothing says what the viewer may do.
-const NO_ACCESS: EditorAccess = { canEdit: false, canDeploy: false, reason: null }
+const NO_ACCESS: EditorAccess = {
+  canEdit: false,
+  canDeploy: false,
+  canShare: false,
+  canMove: false,
+  reason: null,
+}
 
 const EditorAccessContext = createContext<EditorAccess>(NO_ACCESS)
 
