@@ -58,6 +58,13 @@ export interface WorkflowContext {
    * that never happened is how a passing check becomes a failing deploy.
    */
   checked: DiagnosticSource[]
+  /**
+   * The project-file rows (path and hash) this prepare loaded, so a caller
+   * that needs to record what a build was made from does not query again.
+   * Empty for an older version (it folds its snapshot) and when the caller
+   * supplied `projectFiles` to overlay.
+   */
+  projectFileRows: readonly { path: string; hash: string }[]
 }
 
 /**
@@ -150,10 +157,11 @@ export async function prepareWorkflow(
   // Only the current version reads the live project-file table; older
   // versions deploy their snapshot, so their rows are never fetched.
   const isCurrentVersion = versionId === workflow.currentVersionId
-  const [version, projectFiles] = await Promise.all([
+  const [version, loadedFiles] = await Promise.all([
     input.version ?? db.getWorkflowVersionById(versionId),
-    input.projectFiles ?? (isCurrentVersion ? db.listWorkflowFiles(workflow.id) : []),
+    input.projectFiles ? [] : isCurrentVersion ? db.listWorkflowFiles(workflow.id) : [],
   ])
+  const projectFiles = input.projectFiles ?? loadedFiles
   if (!version || version.workflowId !== workflow.id) {
     return { error: 'Version not found', status: 404 }
   }
@@ -443,6 +451,7 @@ export async function prepareWorkflow(
     diagnostics,
     requirements,
     checked,
+    projectFileRows: loadedFiles.map(({ path, hash }) => ({ path, hash })),
   }
 }
 

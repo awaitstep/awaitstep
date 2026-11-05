@@ -1,25 +1,46 @@
+import { useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import type { GeneratedFile } from '@awaitstep/codegen'
 import { useShallow } from 'zustand/react/shallow'
+import { actionToast } from '../../lib/action-toast'
 import { basename } from '../../lib/ide/file-tree'
+import { IDE_SHORTCUTS, formatShortcut } from '../../lib/ide/shortcuts'
+import { isMacPlatform } from '../../lib/platform'
 import { useIdeStore } from '../../stores/ide-store'
-import { cn } from '../../lib/utils'
+import { cn, copyToClipboard } from '../../lib/utils'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu'
 import { FileIcon } from './file-icon'
 
 interface EditorTabsProps {
   files: ReadonlyMap<string, GeneratedFile>
   dirty: ReadonlySet<string>
+  /** Drops one file's unsaved edits, with an Undo toast. */
+  onRevertFile: (path: string) => void
 }
 
-export function EditorTabs({ files, dirty }: EditorTabsProps) {
-  const { openPaths, activePath, openFile, closeFile } = useIdeStore(
+export function EditorTabs({ files, dirty, onRevertFile }: EditorTabsProps) {
+  const { openPaths, activePath, openFile, requestClose } = useIdeStore(
     useShallow((s) => ({
       openPaths: s.openPaths,
       activePath: s.activePath,
       openFile: s.openFile,
-      closeFile: s.closeFile,
+      requestClose: s.requestClose,
     })),
   )
+
+  function handleClose(path: string) {
+    requestClose([path])
+  }
+
+  function handleCloseAll() {
+    requestClose(openPaths)
+  }
 
   return (
     <div
@@ -34,7 +55,9 @@ export function EditorTabs({ files, dirty }: EditorTabsProps) {
           active={path === activePath}
           dirty={dirty.has(path)}
           onSelect={openFile}
-          onClose={closeFile}
+          onClose={handleClose}
+          onCloseAll={handleCloseAll}
+          onRevert={onRevertFile}
         />
       ))}
     </div>
@@ -48,6 +71,8 @@ function EditorTab({
   dirty,
   onSelect,
   onClose,
+  onCloseAll,
+  onRevert,
 }: {
   path: string
   role: GeneratedFile['role']
@@ -55,9 +80,58 @@ function EditorTab({
   dirty: boolean
   onSelect: (path: string) => void
   onClose: (path: string) => void
+  onCloseAll: () => void
+  onRevert: (path: string) => void
 }) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const tabRef = useRef<HTMLDivElement>(null)
+  const closeHint = formatShortcut(IDE_SHORTCUTS.closeTab, isMacPlatform())
+
   function handleSelect() {
     onSelect(path)
+  }
+
+  function handleContextMenu(event: React.MouseEvent) {
+    event.preventDefault()
+    setMenuOpen(true)
+  }
+
+  // Tabs are not in the page's tab order yet (roving focus lands with the
+  // shell); the active one is, so the keyboard menu chords have a target.
+  function handleKeyDown(event: React.KeyboardEvent) {
+    if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+      event.preventDefault()
+      setMenuOpen(true)
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      handleSelect()
+    }
+  }
+
+  // The menu is portaled, but React events still bubble through the portal to
+  // the tab: without this, choosing Close re-opened the tab it just closed.
+  function stopBubbling(event: React.SyntheticEvent) {
+    event.stopPropagation()
+  }
+
+  // Radix would focus the (inert) anchor; the tab itself is the right place.
+  function handleMenuCloseAutoFocus(event: Event) {
+    event.preventDefault()
+    tabRef.current?.focus()
+  }
+
+  function handleMenuClose() {
+    onClose(path)
+  }
+
+  function handleMenuRevert() {
+    onRevert(path)
+  }
+
+  function handleMenuCopyPath() {
+    copyToClipboard(path)
+      .then(() => actionToast.success('Path copied'))
+      .catch(() => actionToast.error('Couldn’t copy the path'))
   }
 
   function handleClose(event: React.MouseEvent) {
@@ -72,11 +146,15 @@ function EditorTab({
 
   return (
     <div
+      ref={tabRef}
       role="tab"
       aria-selected={active}
+      tabIndex={active ? 0 : -1}
       title={dirty ? `${path} · unsaved changes` : path}
       onClick={handleSelect}
       onAuxClick={handleAuxClick}
+      onContextMenu={handleContextMenu}
+      onKeyDown={handleKeyDown}
       className={cn(
         'group relative flex min-w-0 max-w-[220px] shrink-0 cursor-pointer items-center gap-1.5 border-r border-border pl-3 pr-1.5 text-xs transition-colors',
         active
@@ -105,6 +183,34 @@ function EditorTab({
         )}
       </button>
       {active && <span className="absolute inset-x-0 top-0 h-px bg-primary" />}
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+        {/* The tab is the anchor; it opens on right-click or ⇧F10, never on a plain click. */}
+        <DropdownMenuTrigger asChild>
+          <span className="pointer-events-none absolute inset-0" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          className="min-w-[190px]"
+          onClick={stopBubbling}
+          onKeyDown={stopBubbling}
+          onCloseAutoFocus={handleMenuCloseAutoFocus}
+        >
+          <DropdownMenuItem onSelect={handleMenuClose} className="text-xs">
+            Close
+            <span className="ml-auto pl-4 text-[11px] text-muted-foreground">{closeHint}</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onCloseAll} className="text-xs">
+            Close all
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={handleMenuRevert} disabled={!dirty} className="text-xs">
+            Revert file
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={handleMenuCopyPath} className="text-xs">
+            Copy path
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   )
 }

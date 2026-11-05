@@ -46,3 +46,38 @@ export function liveDrafts(files: ReadonlyMap<string, GeneratedFile>, drafts: Dr
   if (dirty.length === Object.keys(drafts).length) return drafts
   return Object.fromEntries(dirty.map((path) => [path, drafts[path]!]))
 }
+
+export interface SnapshotRestore {
+  /** The drafts to lay back: the current ones plus every snapshot draft that is still safe. */
+  drafts: Drafts
+  restored: string[]
+  /** Not brought back: the file changed on the server, vanished, or was edited again since. */
+  skipped: string[]
+}
+
+/**
+ * Puts a discarded set of drafts back (Undo). A draft only returns if the
+ * file still has the hash it was edited from: reviving an edit against a
+ * file that moved on would be a silent overwrite waiting for the next
+ * Save all. A file edited again since the discard keeps its newer text.
+ */
+export function restoreSnapshot(
+  snapshot: Drafts,
+  current: Drafts,
+  baseline: ReadonlyMap<string, { hash?: string | undefined }>,
+): SnapshotRestore {
+  const restored: string[] = []
+  const skipped: string[] = []
+  let drafts: Record<string, Draft> = { ...current }
+  for (const [path, draft] of Object.entries(snapshot)) {
+    const file = baseline.get(path)
+    const unchanged = file !== undefined && (file.hash ?? null) === draft.baseHash
+    if (!unchanged || path in current) {
+      skipped.push(path)
+      continue
+    }
+    drafts = { ...drafts, [path]: draft }
+    restored.push(path)
+  }
+  return { drafts, restored, skipped }
+}

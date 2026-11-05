@@ -57,6 +57,8 @@ export interface ReserveTestSessionData {
   userId: string
   runtime: TestSession['runtime']
   containerId: string
+  /** Manifest of the project files the session is built from: `{ path: hash }`, at most 100. */
+  files?: Record<string, string> | null
 }
 
 /**

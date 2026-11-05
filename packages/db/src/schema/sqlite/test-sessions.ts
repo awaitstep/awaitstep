@@ -43,6 +43,9 @@ export const testSessions = sqliteTable(
     createdAt: text('created_at').notNull(),
     lastUsedAt: text('last_used_at').notNull(),
     stoppedAt: text('stopped_at'),
+    // JSON `{ [path]: hash }` of the project files the session was built
+    // from (at most 100); null for sessions that predate the manifest.
+    files: text('files'),
   },
   (table) => [
     index('idx_test_sessions_workflow_id').on(table.workflowId),

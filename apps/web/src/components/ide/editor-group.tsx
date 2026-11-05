@@ -25,6 +25,7 @@ import { useWorkflowTypeContext } from '../../lib/monaco/use-workflow-type-conte
 import { useIdeStore } from '../../stores/ide-store'
 import { EditorPlaceholder } from './editor-placeholder'
 import { EditorTabs } from './editor-tabs'
+import { RestoredDraftsBanner } from './restored-drafts-banner'
 import { roleTitle } from './file-icon'
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
@@ -39,6 +40,8 @@ interface EditorGroupProps {
   dirty: ReadonlySet<string>
   editabilityOf: (path: string) => Editability
   onChange: (path: string, source: string) => void
+  /** Drops one file's unsaved edits (the tab menu's Revert file). */
+  onRevertFile: (path: string) => void
 }
 
 interface CursorPosition {
@@ -52,6 +55,7 @@ export function EditorGroup({
   dirty,
   editabilityOf,
   onChange,
+  onRevertFile,
 }: EditorGroupProps) {
   useWorkflowTypeContext()
   const monacoTheme = useMonacoTheme()
@@ -157,7 +161,8 @@ export function EditorGroup({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <EditorTabs files={files} dirty={dirty} />
+      <RestoredDraftsBanner />
+      <EditorTabs files={files} dirty={dirty} onRevertFile={onRevertFile} />
       <div className="min-h-0 flex-1">
         {activeFile && editability ? (
           <Suspense fallback={<div className="h-full bg-editor" />}>

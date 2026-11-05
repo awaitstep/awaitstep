@@ -1,9 +1,11 @@
 import { create } from 'zustand'
 import type { GeneratedFile } from '@awaitstep/codegen'
+import { guardClose, type CloseRequest } from '../lib/ide/close-guard'
 import { liveDrafts, type Draft, type Drafts } from '../lib/ide/drafts'
 import {
   closeAllTabs,
   closeTab,
+  closeTabs,
   cycleTab,
   openTab,
   pruneTabs,
@@ -19,6 +21,16 @@ export interface RevealTarget {
   column: number
 }
 
+/** What a reload brought back, shown in the banner until it is used or dismissed. */
+export interface RestoreNotice {
+  /** The restored files, in the order they should open. */
+  paths: string[]
+  /** The subset whose server copy changed since the edit began. */
+  changedOnServer: string[]
+  /** Edits dropped because the file was deleted on the server. */
+  deleted: string[]
+}
+
 export interface IdeSessionState extends TabState {
   /** A location the editor should scroll to once its model is active. */
   reveal: RevealTarget | null
@@ -28,12 +40,23 @@ export interface IdeSessionState extends TabState {
   dialogTarget: string | null
   /** Unsaved editor text per path; compared against the loaded baseline. */
   drafts: Drafts
+  /** A close waiting on Save / Don't save / Cancel; null when none is. */
+  closeRequest: CloseRequest | null
+  restoreNotice: RestoreNotice | null
 
   openFile: (path: string) => void
   revealLocation: (target: RevealTarget) => void
   clearReveal: () => void
   closeFile: (path: string) => void
   closeAllFiles: () => void
+  /** Closes tabs without asking; callers have settled what happens to their drafts. */
+  closeFiles: (paths: readonly string[]) => void
+  /**
+   * Closes tabs, or — when any has unsaved text — files a request for the
+   * dialog to ask about. The tab strip, shortcuts and palette all come here.
+   */
+  requestClose: (paths: readonly string[]) => void
+  cancelClose: () => void
   cycleFile: (direction: 1 | -1) => void
   pruneFiles: (existing: Iterable<string>) => void
   /**
@@ -46,6 +69,9 @@ export interface IdeSessionState extends TabState {
   rebaseDraft: (path: string, hash: string) => void
   clearDraft: (path: string) => void
   clearDrafts: () => void
+  /** Replaces every draft at once (an Undo, a restore after reload). */
+  replaceDrafts: (drafts: Drafts) => void
+  setRestoreNotice: (notice: RestoreNotice | null) => void
   /** Carries a draft (and its tab) along with a renamed file. */
   moveFile: (from: string, to: string) => void
   /** Drops drafts that no longer differ from the baseline (saved or reverted). */
@@ -63,6 +89,8 @@ const initialSession = {
   dialog: null as IdeDialog | null,
   dialogTarget: null as string | null,
   drafts: {} as Drafts,
+  closeRequest: null as CloseRequest | null,
+  restoreNotice: null as RestoreNotice | null,
 }
 
 function without(drafts: Drafts, path: string): Drafts {
@@ -81,6 +109,14 @@ export const useIdeStore = create<IdeSessionState>()((set, get) => ({
   clearReveal: () => set({ reveal: null }),
   closeFile: (path) => set(closeTab(get(), path)),
   closeAllFiles: () => set(closeAllTabs()),
+  closeFiles: (paths) => set({ ...closeTabs(get(), paths), closeRequest: null }),
+  requestClose: (paths) => {
+    const dirty = new Set(Object.keys(get().drafts))
+    const request = guardClose(paths, dirty)
+    if (request) set({ closeRequest: request })
+    else set(closeTabs(get(), paths))
+  },
+  cancelClose: () => set({ closeRequest: null }),
   cycleFile: (direction) => set(cycleTab(get(), direction)),
   pruneFiles: (existing) => set(pruneTabs(get(), new Set(existing))),
   setDraft: (path, source, baseHash) => {
@@ -95,6 +131,8 @@ export const useIdeStore = create<IdeSessionState>()((set, get) => ({
   },
   clearDraft: (path) => set({ drafts: without(get().drafts, path) }),
   clearDrafts: () => set({ drafts: {} }),
+  replaceDrafts: (drafts) => set({ drafts }),
+  setRestoreNotice: (restoreNotice) => set({ restoreNotice }),
   moveFile: (from, to) => {
     const state = get()
     const draft = state.drafts[from]

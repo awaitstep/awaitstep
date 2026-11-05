@@ -2,7 +2,14 @@ import { useState } from 'react'
 import { Play, Square, Send } from 'lucide-react'
 import type { TestSessionState } from '../../hooks/use-test-session'
 import { canTrigger, runAction, sessionSummary } from '../../lib/ide/session-log'
+import {
+  describeSavedChanges,
+  describeUnsaved,
+  isBehind,
+  savedChangeCount,
+} from '../../lib/ide/session-staleness'
 import { Button } from '../ui/button'
+import { ConfirmDialog } from '../ui/confirm-dialog'
 import { cn } from '../../lib/utils'
 
 /**
@@ -10,7 +17,13 @@ import { cn } from '../../lib/utils'
  * rather than a form: a trigger is an HTTP body, and the shapes workflows
  * accept are their own.
  */
-export function RunPanel({ session: state }: { session: TestSessionState }) {
+export function RunPanel({
+  session: state,
+  onSaveAll,
+}: {
+  session: TestSessionState
+  onSaveAll: () => Promise<number>
+}) {
   const {
     session,
     starting,
@@ -25,8 +38,20 @@ export function RunPanel({ session: state }: { session: TestSessionState }) {
     start,
     stop,
     trigger,
+    restart,
+    restartAndTrigger,
+    acceptedSignature,
+    acceptStale,
   } = state
   const [payloadError, setPayloadError] = useState<string | null>(null)
+  const [pendingPayload, setPendingPayload] = useState<{ value: unknown } | null>(null)
+  const savedLine = session ? describeSavedChanges(stale, session.createdAt) : null
+  const versionLine =
+    session?.status === 'running' && stale.version && !savedLine
+      ? 'A newer version was saved after this session started.'
+      : null
+  const unsavedLine = session?.status === 'running' ? describeUnsaved(stale) : null
+  const behind = isBehind(stale) && stale.signature !== acceptedSignature
 
   const action = runAction(session, { starting, stopping })
   // Deliberately not gated on `starting`/`stopping`: a trigger in flight must
@@ -48,7 +73,50 @@ export function RunPanel({ session: state }: { session: TestSessionState }) {
       return
     }
     setPayloadError(null)
+    if (behind && canTrigger(session)) {
+      setPendingPayload({ value: parsed })
+      return
+    }
     void trigger(parsed)
+  }
+
+  function handleRestart() {
+    void restart()
+  }
+
+  // Saving first is the point: if any file failed to save (a conflict, a
+  // limit) it has said why, and restarting without it would test other code
+  // than the person asked for.
+  function saveEverything(): Promise<boolean> {
+    const pending = stale.unsaved
+    return onSaveAll().then((saved) => saved >= pending)
+  }
+
+  function handleSaveAndRestart() {
+    void saveEverything().then((ok) => {
+      if (ok) void restart()
+    })
+  }
+
+  function handleAskOpenChange(open: boolean) {
+    if (!open) setPendingPayload(null)
+  }
+
+  function handleTriggerAnyway() {
+    if (!pendingPayload) return
+    acceptStale(stale.signature)
+    const { value } = pendingPayload
+    setPendingPayload(null)
+    void trigger(value)
+  }
+
+  function handleRestartAndTrigger() {
+    if (!pendingPayload) return
+    const { value } = pendingPayload
+    setPendingPayload(null)
+    void saveEverything().then((ok) => {
+      if (ok) void restartAndTrigger(value)
+    })
   }
 
   return (
@@ -70,12 +138,23 @@ export function RunPanel({ session: state }: { session: TestSessionState }) {
         <span
           className={cn(
             'text-xs',
-            streamError || stale ? 'text-status-warning' : 'text-muted-foreground',
+            streamError || stale.version ? 'text-status-warning' : 'text-muted-foreground',
           )}
         >
-          {sessionSummary(session, { stale, streamError })}
+          {sessionSummary(session, { stale: stale.version, streamError })}
         </span>
       </div>
+      {savedLine && <StalenessLine text={savedLine} action="Restart" onAction={handleRestart} />}
+      {versionLine && (
+        <StalenessLine text={versionLine} action="Restart" onAction={handleRestart} />
+      )}
+      {unsavedLine && (
+        <StalenessLine
+          text={unsavedLine}
+          action="Save and restart"
+          onAction={handleSaveAndRestart}
+        />
+      )}
       {actionError && (
         <p role="alert" className="text-[11px] text-destructive">
           {actionError}
@@ -115,8 +194,59 @@ export function RunPanel({ session: state }: { session: TestSessionState }) {
           </pre>
         </div>
       )}
+      <ConfirmDialog
+        open={pendingPayload !== null}
+        onOpenChange={handleAskOpenChange}
+        title="This session is running older code"
+        description={askDescription(
+          savedLine,
+          savedChangeCount(stale),
+          stale.version,
+          stale.unsaved,
+        )}
+        confirmLabel={stale.unsaved > 0 ? 'Save, restart and trigger' : 'Restart and trigger'}
+        variant="default"
+        secondaryLabel="Trigger anyway"
+        onSecondary={handleTriggerAnyway}
+        onConfirm={handleRestartAndTrigger}
+      />
     </div>
   )
+}
+
+function StalenessLine({
+  text,
+  action,
+  onAction,
+}: {
+  text: string
+  action: string
+  onAction: () => void
+}) {
+  return (
+    <div
+      role="status"
+      className="flex items-center gap-2 rounded-md border border-status-warning/30 bg-tone-warn px-2.5 py-1.5 text-xs text-foreground/80"
+    >
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-status-warning" />
+      <span className="flex-1">{text}</span>
+      <Button size="sm" variant="outline" onClick={onAction} className="h-6 px-2 text-xs">
+        {action}
+      </Button>
+    </div>
+  )
+}
+
+function askDescription(
+  savedLine: string | null,
+  savedCount: number,
+  version: boolean,
+  unsaved: number,
+): string {
+  const why = savedCount > 0 && savedLine ? savedLine : version ? 'A newer version was saved.' : ''
+  const files = unsaved === 1 ? '1 unsaved file' : `${unsaved} unsaved files`
+  const save = unsaved > 0 ? ` Restarting saves ${files} first.` : ''
+  return `${why} Triggering now tests the old code.${save}`.trim()
 }
 
 /**

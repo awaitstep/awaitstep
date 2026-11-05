@@ -1,3 +1,8 @@
+import {
+  browserDraftStorage,
+  clearAllDrafts,
+  suspendDraftWrites,
+} from '../../lib/ide/draft-persistence'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError } from '../../lib/api-client'
 import { authClient } from '../../lib/auth-client'
@@ -118,6 +123,8 @@ export function useDeleteAccount(currentOrg: string) {
         if (needsFreshSignIn(res.error)) throw signInAgain('delete your account')
         throw authError(res.error, 'Could not delete your account')
       }
+      suspendDraftWrites()
+      await clearAllDrafts(browserDraftStorage).catch(() => undefined)
       useAuthStore.getState().clear()
     },
     onSuccess: () => invalidateAll(client, [EVERYTHING], { org: currentOrg }),

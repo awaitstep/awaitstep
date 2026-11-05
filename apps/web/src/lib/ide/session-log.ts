@@ -52,6 +52,6 @@ export function sessionSummary(
   if (options.streamError) return options.streamError
   // Stale beats healthy: the user is looking at code this session is not
   // running, and Run is what fixes it.
-  if (options.stale) return 'Running an older version. Press Run to restart.'
+  if (options.stale) return 'Running an older version of this workflow.'
   return `Running on ${session.runtime === 'sandbox' ? 'a container' : 'this machine'}`
 }

@@ -20,8 +20,8 @@
   "dependencies": {
     "@awaitstep/codegen": "workspace:*",
     "@awaitstep/ir": "workspace:*",
-    "@awaitstep/storage": "workspace:*",
     "@awaitstep/provider-cloudflare": "workspace:*",
+    "@awaitstep/storage": "workspace:*",
     "@fontsource-variable/outfit": "5.3.0",
     "@hookform/resolvers": "5.9.2",
     "@monaco-editor/react": "^4.7.0",
@@ -47,6 +47,7 @@
     "clsx": "^2.1.1",
     "cmdk": "1.1.1",
     "date-fns": "4.4.0",
+    "idb-keyval": "6.3.0",
     "lucide-react": "^1.59.0",
     "monaco-editor": "^0.57.0",
     "nanoid": "^6.0.2",

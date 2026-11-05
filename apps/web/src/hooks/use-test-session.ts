@@ -5,6 +5,7 @@ import { actionToast, failureLine } from '../lib/action-toast'
 import type { ProcessLogEntry } from '@awaitstep/codegen'
 import { api, projectUrl, ApiError } from '../lib/api-client'
 import type { TestSession } from '../lib/api-client'
+import { sessionStaleness, type SessionStaleness } from '../lib/ide/session-staleness'
 import { readSseStream, reconnectDelay } from '../lib/sse-stream'
 import {
   sessionView,
@@ -22,6 +23,10 @@ interface UseTestSessionOptions {
   workflowId: string
   /** The version the workspace is showing, so a stale session is visible. */
   versionId?: string | null
+  /** `{ path: hash }` of the stored project files now; what the session is compared with. */
+  currentHashes?: Readonly<Record<string, string>> | null
+  /** Files with unsaved edits; they are never part of a session. */
+  unsavedCount?: number
 }
 
 export interface TestSessionState {
@@ -33,14 +38,22 @@ export interface TestSessionState {
   starting: boolean
   stopping: boolean
   triggering: boolean
-  /** The session is running code from an older version than the editor shows. */
-  stale: boolean
+  /** How far the session is behind the version and files the editor shows. */
+  stale: SessionStaleness
   streamError: string | null
   /** Why the last start, stop or trigger failed; the toast only says that it did. */
   actionError: string | null
-  start: () => Promise<void>
+  /** Resolves true when a session was started (or reused). */
+  start: () => Promise<boolean>
   stop: () => Promise<void>
   trigger: (payload: unknown) => Promise<void>
+  /** Stops the session and starts a fresh one from the saved files. */
+  /** The saved changes "Trigger anyway" accepted for this session; asked again after the next save. */
+  acceptedSignature: string | null
+  acceptStale: (signature: string) => void
+  restart: () => Promise<boolean>
+  /** Restarts, waits for the new session to run, then triggers it. */
+  restartAndTrigger: (payload: unknown) => Promise<void>
   setPayload: (payload: string) => void
 }
 
@@ -55,12 +68,24 @@ export const testSessionKey = (workflowId: string) => ['workflow-test-session', 
  * last response, the payload being edited) lives in a store outside the dock,
  * so closing the dock cannot discard it or drop the stream.
  */
-export function useTestSession({ workflowId, versionId }: UseTestSessionOptions): TestSessionState {
+const NO_HASHES: Readonly<Record<string, string>> = {}
+/** How long a restart-and-trigger waits for the new container. */
+const RESTART_WAIT_MS = 90_000
+
+export function useTestSession({
+  workflowId,
+  versionId,
+  currentHashes = NO_HASHES,
+  unsavedCount = 0,
+}: UseTestSessionOptions): TestSessionState {
   const queryClient = useQueryClient()
   const [starting, setStarting] = useState(false)
   const [stopping, setStopping] = useState(false)
   const [triggering, setTriggering] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  // Which saved changes the person already chose to test past. It lives here,
+  // not in the Run panel, which unmounts whenever another dock tab is shown.
+  const [accepted, setAccepted] = useState<{ sessionId: string; signature: string } | null>(null)
 
   const { data: session = null } = useQuery({
     queryKey: testSessionKey(workflowId),
@@ -179,9 +204,11 @@ export function useTestSession({ workflowId, versionId }: UseTestSessionOptions)
       if (!reused) reset(started.id)
       setSession(started)
       actionToast.success('Test session started')
+      return true
     } catch (err) {
       setActionError(failureLine(err, 'Could not start a test session'))
       actionToast.error(failureLine(err, 'Couldn’t start the test session'))
+      return false
     } finally {
       setStarting(false)
     }
@@ -235,6 +262,86 @@ export function useTestSession({ workflowId, versionId }: UseTestSessionOptions)
     [sessionId, setResult, refetchSession],
   )
 
+  const restart = useCallback(async (): Promise<boolean> => {
+    if (sessionId) {
+      try {
+        await api.stopTestSession(sessionId)
+      } catch (err) {
+        if (!(err instanceof ApiError && (err.status === 404 || err.status === 410))) {
+          actionToast.error(failureLine(err, 'Couldn’t restart the test session'))
+          return false
+        }
+      }
+      setSession(null)
+    }
+    return start()
+  }, [sessionId, setSession, start])
+
+  // A restart-and-trigger outlives neither the workspace nor a newer click.
+  const aliveRef = useRef(true)
+  useEffect(() => {
+    aliveRef.current = true
+    return () => {
+      aliveRef.current = false
+    }
+  }, [])
+
+  const restartAndTrigger = useCallback(
+    async (payload: unknown) => {
+      const previousId = sessionId
+      // A failed stop or start has already said why; triggering the old
+      // session here would run exactly the code the person chose to replace.
+      if (!(await restart())) return
+      const polls = RESTART_WAIT_MS / STARTING_POLL_MS
+      let failedReads = 0
+      for (let i = 0; i < polls && aliveRef.current; i += 1) {
+        const current = await api
+          .getTestSession(workflowId)
+          .then((r) => r.session)
+          .catch(() => undefined)
+        if (!aliveRef.current) return
+        if (current && current.id !== previousId && current.status === 'running') {
+          setSession(current)
+          setTriggering(true)
+          try {
+            const result = await api.triggerTestSession(current.id, payload, {
+              timeoutMs: TRIGGER_TIMEOUT_MS,
+            })
+            setResult(current.id, result)
+            actionToast.success('Workflow triggered')
+          } catch (err) {
+            actionToast.error(failureLine(err, 'Couldn’t trigger the workflow'))
+          } finally {
+            setTriggering(false)
+          }
+          return
+        }
+        // A read that failed is a blip, not an answer; a session that ended is.
+        if (current === undefined) {
+          failedReads += 1
+          if (failedReads >= 3) break
+        } else if (
+          current === null ||
+          (current.status !== 'starting' && current.id !== previousId)
+        ) {
+          break
+        }
+        await new Promise((resolve) => setTimeout(resolve, STARTING_POLL_MS))
+      }
+      if (aliveRef.current) {
+        actionToast.error('The new test session didn’t start, so nothing was triggered')
+      }
+    },
+    [sessionId, restart, workflowId, setSession, setResult],
+  )
+
+  const acceptStale = useCallback(
+    (signature: string) => {
+      if (sessionId) setAccepted({ sessionId, signature })
+    },
+    [sessionId],
+  )
+
   const setPayload = useCallback(
     (next: string) => {
       if (sessionId) storePayload(sessionId, next)
@@ -250,12 +357,21 @@ export function useTestSession({ workflowId, versionId }: UseTestSessionOptions)
     starting,
     stopping,
     triggering,
-    stale: Boolean(session && versionId && session.versionId !== versionId),
+    stale: sessionStaleness({
+      session,
+      versionId: versionId ?? null,
+      currentHashes,
+      unsavedCount,
+    }),
     streamError: view.streamError,
     actionError,
     start,
     stop,
     trigger,
+    acceptedSignature: accepted && accepted.sessionId === sessionId ? accepted.signature : null,
+    acceptStale,
+    restart,
+    restartAndTrigger,
     setPayload,
   }
 }

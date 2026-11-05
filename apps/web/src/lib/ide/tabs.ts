@@ -23,6 +23,11 @@ export function closeTab(state: TabState, path: string): TabState {
   return { openPaths, activePath: openPaths[index] ?? openPaths[index - 1] ?? null }
 }
 
+/** Closes several tabs, applying the single-tab neighbour rule to each in turn. */
+export function closeTabs(state: TabState, paths: readonly string[]): TabState {
+  return paths.reduce((next, path) => closeTab(next, path), state)
+}
+
 export function closeAllTabs(): TabState {
   return EMPTY_TABS
 }
@@ -41,7 +46,8 @@ export function cycleTab(state: TabState, direction: 1 | -1): TabState {
  * file), applying the same neighbour rule as closing them one by one.
  */
 export function pruneTabs(state: TabState, existing: ReadonlySet<string>): TabState {
-  return state.openPaths
-    .filter((path) => !existing.has(path))
-    .reduce((next, path) => closeTab(next, path), state)
+  return closeTabs(
+    state,
+    state.openPaths.filter((path) => !existing.has(path)),
+  )
 }

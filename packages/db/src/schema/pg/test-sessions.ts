@@ -48,6 +48,9 @@ export const testSessions = pgTable(
       .notNull()
       .default(sql`now()`),
     stoppedAt: isoTimestamp('stopped_at'),
+    // JSON `{ [path]: hash }` of the project files the session was built
+    // from (at most 100); null for sessions that predate the manifest.
+    files: text('files'),
   },
   (table) => [
     index('idx_test_sessions_workflow_id').on(table.workflowId),

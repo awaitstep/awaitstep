@@ -51,6 +51,8 @@ export const ERROR_TOAST_MS = 6_000
 export const ACTION_TOAST_MS = 8_000
 /** For a notice with instructions to act on, though it has no button. */
 export const LONG_TOAST_MS = ACTION_TOAST_MS
+/** How long Undo stays on offer after a discard or revert. */
+export const UNDO_TOAST_MS = 10_000
 
 let nextToast = 0
 

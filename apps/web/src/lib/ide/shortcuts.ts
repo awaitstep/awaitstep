@@ -14,6 +14,7 @@ export interface ShortcutKeys {
 
 export type IdeShortcutId =
   | 'save'
+  | 'saveAll'
   | 'quickOpen'
   | 'commandPalette'
   | 'toggleExplorer'
@@ -33,6 +34,8 @@ export type IdeShortcutId =
  */
 export const IDE_SHORTCUTS: Readonly<Record<IdeShortcutId, ShortcutKeys>> = {
   save: { key: 's', mod: true },
+  // Option rewrites the glyph on macOS (⌥S types ß), so match the physical key.
+  saveAll: { code: 'KeyS', mod: true, alt: true },
   quickOpen: { key: 'p', mod: true },
   commandPalette: { key: 'p', mod: true, shift: true },
   toggleExplorer: { key: 'b', mod: true },
@@ -50,6 +53,8 @@ export interface KeyEventLike {
   ctrlKey: boolean
   shiftKey: boolean
   altKey: boolean
+  /** Present on real keyboard events; lets AltGr (reported as Ctrl+Alt on Windows) be told apart. */
+  getModifierState?: (key: string) => boolean
 }
 
 export function matchesShortcut(event: KeyEventLike, keys: ShortcutKeys, isMac: boolean): boolean {
@@ -58,6 +63,8 @@ export function matchesShortcut(event: KeyEventLike, keys: ShortcutKeys, isMac: 
   if (foreignMod || Boolean(keys.mod) !== mod) return false
   if (Boolean(keys.shift) !== event.shiftKey) return false
   if (Boolean(keys.alt) !== event.altKey) return false
+  // AltGr types characters on many layouts (AltGr+S is "ś" in Polish); it is not a chord.
+  if (keys.alt && !isMac && event.getModifierState?.('AltGraph')) return false
   if (keys.code) return event.code === keys.code
   return keys.key !== undefined && event.key.toLowerCase() === keys.key
 }

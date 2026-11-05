@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { GeneratedFile } from '@awaitstep/codegen'
-import { dirtyPaths, liveDrafts, overlayDrafts } from '../ide/drafts'
+import { dirtyPaths, liveDrafts, overlayDrafts, restoreSnapshot } from '../ide/drafts'
 
 const files = new Map<string, GeneratedFile>([
   ['a.ts', { path: 'a.ts', source: 'base a', role: 'module' }],
@@ -42,5 +42,37 @@ describe('dirtyPaths / liveDrafts', () => {
   it('keeps the same drafts object when nothing was saved', () => {
     const drafts = { 'a.ts': { source: 'edited a', baseHash: 'h' } }
     expect(liveDrafts(files, drafts)).toBe(drafts)
+  })
+})
+
+describe('restoreSnapshot', () => {
+  const baseline = new Map([
+    ['a.ts', { hash: 'ha' }],
+    ['b.ts', { hash: 'hb2' }],
+    ['seed.ts', {}],
+  ])
+  const snapshot = {
+    'a.ts': { source: 'edit a', baseHash: 'ha' },
+    'b.ts': { source: 'edit b', baseHash: 'hb' },
+    'seed.ts': { source: 'edit seed', baseHash: null },
+    'gone.ts': { source: 'edit gone', baseHash: 'hg' },
+  }
+
+  it('brings back drafts whose file still has the hash they were edited from', () => {
+    const result = restoreSnapshot(snapshot, {}, baseline)
+    expect(result.restored).toEqual(['a.ts', 'seed.ts'])
+    expect(result.drafts).toEqual({ 'a.ts': snapshot['a.ts'], 'seed.ts': snapshot['seed.ts'] })
+  })
+
+  it('skips a file that changed on the server or no longer exists', () => {
+    const result = restoreSnapshot(snapshot, {}, baseline)
+    expect(result.skipped).toEqual(['b.ts', 'gone.ts'])
+  })
+
+  it('never overwrites text typed after the discard', () => {
+    const newer = { 'a.ts': { source: 'typed later', baseHash: 'ha' } }
+    const result = restoreSnapshot(snapshot, newer, baseline)
+    expect(result.drafts['a.ts']?.source).toBe('typed later')
+    expect(result.skipped).toContain('a.ts')
   })
 })

@@ -261,7 +261,7 @@ importers:
         version: 4.13.13
       hono-rate-limiter:
         specifier: ^0.5.4
-        version: 0.5.4(hono@4.13.13)(unstorage@1.17.5(aws4fetch@1.0.20))
+        version: 0.5.4(hono@4.13.13)(unstorage@1.17.5(aws4fetch@1.0.20)(idb-keyval@6.3.0))
       nanoid:
         specifier: ^6.0.2
         version: 6.0.2
@@ -310,10 +310,10 @@ importers:
         version: 11.17.0
       vitepress:
         specifier: 1.6.4
-        version: 1.6.4(@algolia/client-search@5.50.1)(@types/node@26.6.5)(lightningcss@1.33.0)(postcss@8.5.31)(typescript@5.9.3)
+        version: 1.6.4(@algolia/client-search@5.50.1)(@types/node@26.6.5)(idb-keyval@6.3.0)(lightningcss@1.33.0)(postcss@8.5.31)(typescript@5.9.3)
       vitepress-plugin-mermaid:
         specifier: 2.0.17
-        version: 2.0.17(mermaid@11.17.0)(vitepress@1.6.4(@algolia/client-search@5.50.1)(@types/node@26.6.5)(lightningcss@1.33.0)(postcss@8.5.31)(typescript@5.9.3))
+        version: 2.0.17(mermaid@11.17.0)(vitepress@1.6.4(@algolia/client-search@5.50.1)(@types/node@26.6.5)(idb-keyval@6.3.0)(lightningcss@1.33.0)(postcss@8.5.31)(typescript@5.9.3))
 
   apps/web:
     dependencies:
@@ -404,6 +404,9 @@ importers:
       date-fns:
         specifier: 4.4.0
         version: 4.4.0
+      idb-keyval:
+        specifier: 6.3.0
+        version: 6.3.0
       lucide-react:
         specifier: ^1.59.0
         version: 1.59.0(@types/react@19.3.0)(react@19.3.1)
@@ -515,7 +518,7 @@ importers:
     dependencies:
       astro:
         specifier: ^6.4.8
-        version: 6.4.8(@types/node@26.6.5)(aws4fetch@1.0.20)(jiti@2.7.0)(lightningcss@1.33.0)(rollup@4.60.3)(supports-color@10.2.2)(tsx@4.23.12)
+        version: 6.4.8(@types/node@26.6.5)(aws4fetch@1.0.20)(idb-keyval@6.3.0)(jiti@2.7.0)(lightningcss@1.33.0)(rollup@4.60.3)(supports-color@10.2.2)(tsx@4.23.12)
     devDependencies:
       '@tailwindcss/vite':
         specifier: ^4.3.3
@@ -6015,6 +6018,9 @@ packages:
   iconv-lite@0.6.3:
     resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
     engines: {node: '>=0.10.0'}
+
+  idb-keyval@6.3.0:
+    resolution: {integrity: sha512-um+2dgAWmYsu615EXpWVwSmapJhON0G43t3Ka/EVaohzPQXSMqKEqeDK/oIW3Ow+BXaF2PvSc+oBTFp793A5Ow==}
 
   ieee754@1.2.1:
     resolution: {integrity: sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA==}
@@ -11604,13 +11610,14 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
-  '@vueuse/integrations@12.8.2(focus-trap@7.8.0)(typescript@5.9.3)':
+  '@vueuse/integrations@12.8.2(focus-trap@7.8.0)(idb-keyval@6.3.0)(typescript@5.9.3)':
     dependencies:
       '@vueuse/core': 12.8.2(typescript@5.9.3)
       '@vueuse/shared': 12.8.2(typescript@5.9.3)
       vue: 3.5.44(typescript@5.9.3)
     optionalDependencies:
       focus-trap: 7.8.0
+      idb-keyval: 6.3.0
     transitivePeerDependencies:
       - typescript
 
@@ -11730,7 +11737,7 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  astro@6.4.8(@types/node@26.6.5)(aws4fetch@1.0.20)(jiti@2.7.0)(lightningcss@1.33.0)(rollup@4.60.3)(supports-color@10.2.2)(tsx@4.23.12):
+  astro@6.4.8(@types/node@26.6.5)(aws4fetch@1.0.20)(idb-keyval@6.3.0)(jiti@2.7.0)(lightningcss@1.33.0)(rollup@4.60.3)(supports-color@10.2.2)(tsx@4.23.12):
     dependencies:
       '@astrojs/compiler': 4.0.0
       '@astrojs/internal-helpers': 0.10.0
@@ -11780,7 +11787,7 @@ snapshots:
       ultrahtml: 1.6.0
       unifont: 0.7.4
       unist-util-visit: 5.1.0
-      unstorage: 1.17.5(aws4fetch@1.0.20)
+      unstorage: 1.17.5(aws4fetch@1.0.20)(idb-keyval@6.3.0)
       vfile: 6.0.3
       vite: 7.3.7(@types/node@26.6.5)(jiti@2.7.0)(lightningcss@1.33.0)(tsx@4.23.12)
       vitefu: 1.1.3(vite@7.3.7(@types/node@26.6.5)(jiti@2.7.0)(lightningcss@1.33.0)(tsx@4.23.12))
@@ -13007,11 +13014,11 @@ snapshots:
       property-information: 7.1.0
       space-separated-tokens: 2.0.2
 
-  hono-rate-limiter@0.5.4(hono@4.13.13)(unstorage@1.17.5(aws4fetch@1.0.20)):
+  hono-rate-limiter@0.5.4(hono@4.13.13)(unstorage@1.17.5(aws4fetch@1.0.20)(idb-keyval@6.3.0)):
     dependencies:
       hono: 4.13.13
     optionalDependencies:
-      unstorage: 1.17.5(aws4fetch@1.0.20)
+      unstorage: 1.17.5(aws4fetch@1.0.20)(idb-keyval@6.3.0)
 
   hono@4.13.13: {}
 
@@ -13055,6 +13062,8 @@ snapshots:
   iconv-lite@0.6.3:
     dependencies:
       safer-buffer: 2.1.2
+
+  idb-keyval@6.3.0: {}
 
   ieee754@1.2.1: {}
 
@@ -15095,7 +15104,7 @@ snapshots:
       vite: 8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)
     optional: true
 
-  unstorage@1.17.5(aws4fetch@1.0.20):
+  unstorage@1.17.5(aws4fetch@1.0.20)(idb-keyval@6.3.0):
     dependencies:
       anymatch: 3.1.3
       chokidar: 5.0.0
@@ -15107,6 +15116,7 @@ snapshots:
       ufo: 1.6.4
     optionalDependencies:
       aws4fetch: 1.0.20
+      idb-keyval: 6.3.0
     transitivePeerDependencies:
       - crossws
 
@@ -15236,14 +15246,14 @@ snapshots:
       vite: 8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)
     optional: true
 
-  vitepress-plugin-mermaid@2.0.17(mermaid@11.17.0)(vitepress@1.6.4(@algolia/client-search@5.50.1)(@types/node@26.6.5)(lightningcss@1.33.0)(postcss@8.5.31)(typescript@5.9.3)):
+  vitepress-plugin-mermaid@2.0.17(mermaid@11.17.0)(vitepress@1.6.4(@algolia/client-search@5.50.1)(@types/node@26.6.5)(idb-keyval@6.3.0)(lightningcss@1.33.0)(postcss@8.5.31)(typescript@5.9.3)):
     dependencies:
       mermaid: 11.17.0
-      vitepress: 1.6.4(@algolia/client-search@5.50.1)(@types/node@26.6.5)(lightningcss@1.33.0)(postcss@8.5.31)(typescript@5.9.3)
+      vitepress: 1.6.4(@algolia/client-search@5.50.1)(@types/node@26.6.5)(idb-keyval@6.3.0)(lightningcss@1.33.0)(postcss@8.5.31)(typescript@5.9.3)
     optionalDependencies:
       '@mermaid-js/mermaid-mindmap': 9.3.0
 
-  vitepress@1.6.4(@algolia/client-search@5.50.1)(@types/node@26.6.5)(lightningcss@1.33.0)(postcss@8.5.31)(typescript@5.9.3):
+  vitepress@1.6.4(@algolia/client-search@5.50.1)(@types/node@26.6.5)(idb-keyval@6.3.0)(lightningcss@1.33.0)(postcss@8.5.31)(typescript@5.9.3):
     dependencies:
       '@docsearch/css': 3.8.2
       '@docsearch/js': 3.8.2(@algolia/client-search@5.50.1)
@@ -15256,7 +15266,7 @@ snapshots:
       '@vue/devtools-api': 7.7.9
       '@vue/shared': 3.5.32
       '@vueuse/core': 12.8.2(typescript@5.9.3)
-      '@vueuse/integrations': 12.8.2(focus-trap@7.8.0)(typescript@5.9.3)
+      '@vueuse/integrations': 12.8.2(focus-trap@7.8.0)(idb-keyval@6.3.0)(typescript@5.9.3)
       focus-trap: 7.8.0
       mark.js: 8.11.1
       minisearch: 7.2.0

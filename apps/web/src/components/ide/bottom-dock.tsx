@@ -29,6 +29,8 @@ interface BottomDockProps {
    * stream and threw away the logs.
    */
   testSession: TestSessionState
+  /** Saves every unsaved file; resolves to how many were written. */
+  onSaveAll: () => Promise<number>
   /** The file in the editor, with unsaved edits applied — what Quick test runs. */
   activeFile: { path: string; source: string } | null
 }
@@ -40,7 +42,13 @@ const TABS: { id: DockTab; label: string }[] = [
   { id: 'quickTest', label: 'Quick test' },
 ]
 
-export function BottomDock({ workflowId, diagnostics, testSession, activeFile }: BottomDockProps) {
+export function BottomDock({
+  workflowId,
+  diagnostics,
+  testSession,
+  activeFile,
+  onSaveAll,
+}: BottomDockProps) {
   const { dockTab, showDock, toggleDock } = useIdeLayoutStore(
     useShallow((s) => ({ dockTab: s.dockTab, showDock: s.showDock, toggleDock: s.toggleDock })),
   )
@@ -91,7 +99,7 @@ export function BottomDock({ workflowId, diagnostics, testSession, activeFile }:
           <ProblemsList problems={problems} counts={counts} onSelect={handleProblemSelect} />
         )}
         {dockTab === 'output' && <OutputPanel entries={testSession.logs} />}
-        {dockTab === 'run' && <RunPanel session={testSession} />}
+        {dockTab === 'run' && <RunPanel session={testSession} onSaveAll={onSaveAll} />}
         {dockTab === 'quickTest' && (
           <QuickTestPanel workflowId={workflowId} activeFile={activeFile} />
         )}

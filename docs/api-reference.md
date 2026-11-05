@@ -2190,13 +2190,20 @@ Returns `201` with `{ session, reused: false }`. A session reports its `id`,
 `workflowId`, `versionId`, `runtime`, `status`, `error` and clocks; the
 container and process behind it are not part of the response.
 
+A session also reports `files`: the project files it was built from, as
+`{ "<path>": "<content hash>" }` (at most 100 entries), or `null` for a session
+started before manifests were stored. Compare it with the hashes from
+`GET /workflows/:workflowId/source` to tell whether files were saved, deleted
+or added since the session started.
+
 Refusals: `400` no version to run, `429` the user's concurrency cap or the
 project's quota, `502` the worker could not start (the message carries the
 worker's own output), `504` the start took longer than the start timeout.
 
 ### `GET /workflows/:workflowId/test-sessions`
 
-The live session for this user and workflow, or `{ session: null }`.
+The live session for this user and workflow, or `{ session: null }`. The session
+includes `files` as described above.
 
 **Permission:** `workflows:read`
 
