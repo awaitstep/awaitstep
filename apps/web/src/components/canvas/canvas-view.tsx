@@ -12,8 +12,6 @@ import { SimulationPanel } from './simulation-panel'
 import { ValidationPanel } from './validation-panel'
 import { BindingsPanel } from './bindings-panel'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
-import { api } from '../../lib/api-client'
-import { useOrgReady } from '../../stores/org-store'
 import { EditorToolbar } from './editor-toolbar'
 import { EditorDialogs } from './editor-dialogs'
 import { CanvasSidePanels } from './canvas-side-panels'
@@ -31,6 +29,7 @@ import { useAutoSave } from '../../hooks/use-auto-save'
 import { buildIRFromState } from '../../lib/build-ir'
 import { serializeArtifact } from '@awaitstep/ir'
 import { downloadJsonFile } from '../../lib/download-file'
+import { useApi, useApiReady } from '../../contexts/api-client-context'
 
 const LazyReactFlowProvider = lazy(() =>
   import('@xyflow/react').then((m) => ({ default: m.ReactFlowProvider })),
@@ -58,12 +57,13 @@ export function CanvasView({
   nodeParam,
   localDevEnabled,
 }: CanvasViewProps) {
+  const api = useApi()
   const [showLocalTest, setShowLocalTest] = useState(false)
   // Functions never show the template picker — templates are workflow-shaped.
   const [showTemplatePicker, setShowTemplatePicker] = useState(!!template && kindParam !== 'script')
   const [confirmAction, setConfirmAction] = useState<'switch-template' | null>(null)
 
-  const ready = useOrgReady()
+  const ready = useApiReady()
   const { registry: nodeRegistry } = useNodeRegistry()
   const isNew = workflowId === 'new'
 

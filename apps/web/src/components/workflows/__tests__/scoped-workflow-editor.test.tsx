@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { DataSourceProvider, type DataSource } from '../../../data/dashboard/source'
-import { routeScopeKey } from '../../../lib/workflows/route-scope'
+import { ApiClientProvider } from '../../../contexts/api-client-context'
+import type { ItemApiScope } from '../../../lib/workflows/route-scope'
 import { useOrgStore } from '../../../stores/org-store'
 import { ScopedWorkflowEditor } from '../scoped-workflow-editor'
 
@@ -31,13 +32,29 @@ vi.mock('../../ui/shell-link', () => ({
 
 const SLUGS = { org: 'acme', project: 'core', workspace: 'sales' }
 
-function renderAt(source: DataSource, view: 'canvas' | 'ide' = 'canvas') {
+const SALES_IDS: ItemApiScope = {
+  organizationId: 'org_1',
+  projectId: 'prj_2',
+  workspaceId: 'ws_sales',
+}
+
+function renderAt(
+  source: DataSource,
+  view: 'canvas' | 'ide' = 'canvas',
+  scope: ItemApiScope | null = SALES_IDS,
+) {
   return render(
     <DataSourceProvider source={source}>
-      <ScopedWorkflowEditor slugs={SLUGS} workflowId="wf_1" search={{ view }} localDev={false} />
+      <ApiClientProvider scope={scope}>
+        <ScopedWorkflowEditor slugs={SLUGS} workflowId="wf_1" search={{ view }} localDev={false} />
+      </ApiClientProvider>
     </DataSourceProvider>,
   )
 }
+
+beforeEach(() => {
+  useOrgStore.setState({ appReady: true })
+})
 
 afterEach(() => {
   useOrgStore.getState().clear()
@@ -46,51 +63,18 @@ afterEach(() => {
 })
 
 describe('ScopedWorkflowEditor', () => {
-  it('waits on the view’s skeleton until API calls follow the URL', () => {
-    useOrgStore.setState({ appReady: true, routeScope: null })
-    renderAt('api', 'ide')
+  it('waits on the view’s skeleton while the URL names no project to call', () => {
+    renderAt('api', 'ide', null)
     expect(screen.getByText('code loading')).toBeVisible()
     expect(screen.queryByText(/^editor/)).toBeNull()
   })
 
   it('opens the editor in this workspace once they do', () => {
-    useOrgStore.setState({
-      appReady: true,
-      routeScope: {
-        key: routeScopeKey(SLUGS),
-        organizationId: 'org_1',
-        projectId: 'prj_2',
-        workspaceId: 'ws_sales',
-      },
-    })
     renderAt('api')
     expect(screen.getByText('editor wf_1')).toBeVisible()
   })
 
-  it('doesn’t open while API calls still follow another workspace', () => {
-    useOrgStore.setState({
-      appReady: true,
-      routeScope: {
-        key: 'acme/core/ops',
-        organizationId: 'org_1',
-        projectId: 'prj_2',
-        workspaceId: 'ws_sales',
-      },
-    })
-    renderAt('api')
-    expect(screen.getByText('canvas loading')).toBeVisible()
-  })
-
   it('won’t open a workflow from another workspace under this one’s URL', () => {
-    useOrgStore.setState({
-      appReady: true,
-      routeScope: {
-        key: routeScopeKey(SLUGS),
-        organizationId: 'org_1',
-        projectId: 'prj_2',
-        workspaceId: 'ws_sales',
-      },
-    })
     loaded.workflow = { workspaceId: 'ws_ops' }
     renderAt('api')
     expect(screen.queryByText('editor wf_1')).not.toBeInTheDocument()
@@ -101,15 +85,6 @@ describe('ScopedWorkflowEditor', () => {
   })
 
   it('waits on a cached read from another workspace while a fresh one comes (after a move)', () => {
-    useOrgStore.setState({
-      appReady: true,
-      routeScope: {
-        key: routeScopeKey(SLUGS),
-        organizationId: 'org_1',
-        projectId: 'prj_2',
-        workspaceId: 'ws_sales',
-      },
-    })
     loaded.workflow = { workspaceId: 'ws_ops' }
     loaded.fetching = true
     renderAt('api')
@@ -118,15 +93,6 @@ describe('ScopedWorkflowEditor', () => {
   })
 
   it('opens it while the workflow is still loading, or when it is this workspace’s', () => {
-    useOrgStore.setState({
-      appReady: true,
-      routeScope: {
-        key: routeScopeKey(SLUGS),
-        organizationId: 'org_1',
-        projectId: 'prj_2',
-        workspaceId: 'ws_sales',
-      },
-    })
     loaded.workflow = { workspaceId: 'ws_sales' }
     renderAt('api')
     expect(screen.getByText('editor wf_1')).toBeVisible()

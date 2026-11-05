@@ -109,24 +109,21 @@ export async function request<T>(path: string, options?: RequestInit): Promise<T
   return res.json()
 }
 
-function withOrg(path: string): string {
-  const { routeScope, activeOrganizationId } = useOrgStore.getState()
-  const organizationId = routeScope?.organizationId ?? activeOrganizationId
-  if (!organizationId) throw new Error('No active organization selected')
-  const sep = path.includes('?') ? '&' : '?'
-  return `${path}${sep}organizationId=${encodeURIComponent(organizationId)}`
+/** Which organization and project a client's calls name. */
+export interface ApiScope {
+  organizationId: string | null
+  projectId: string | null
 }
 
-function withProject(path: string, overrideProjectId?: string): string {
-  const { routeScope, activeProjectId } = useOrgStore.getState()
-  const projectId = overrideProjectId ?? routeScope?.projectId ?? activeProjectId
-  if (!projectId) throw new Error('No active project selected')
+function withParam(path: string, name: string, value: string): string {
   const sep = path.includes('?') ? '&' : '?'
-  return `${path}${sep}projectId=${encodeURIComponent(projectId)}`
+  return `${path}${sep}${name}=${encodeURIComponent(value)}`
 }
 
-export function projectUrl(path: string): string {
-  return `${API_BASE}${withProject(path)}`
+/** The old shell's scope: the org/project switcher's choice. */
+function storeScope(): ApiScope {
+  const { activeOrganizationId, activeProjectId } = useOrgStore.getState()
+  return { organizationId: activeOrganizationId, projectId: activeProjectId }
 }
 
 export interface DeployConfig {
@@ -353,7 +350,7 @@ function encodeProjectPath(path: string): string {
 }
 
 async function projectFileRequest<T>(path: string, options: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${withProject(path)}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'include',
     ...options,
   })
@@ -439,454 +436,492 @@ export interface ApiKeyCreated extends ApiKeySummary {
   key: string
 }
 
-export const api = {
-  // Project-scoped endpoints (require active project)
+/**
+ * The API calls, addressed to whatever `scope` names when each call is made.
+ * A workflow's pages get one bound to the URL's project (`useApi`), so a call
+ * made after you leave still goes to that project; everything else uses `api`.
+ */
+export function createApiClient(scope: () => ApiScope) {
+  function withOrg(path: string): string {
+    const { organizationId } = scope()
+    if (!organizationId) throw new Error('No active organization selected')
+    return withParam(path, 'organizationId', organizationId)
+  }
 
-  listWorkflows(opts?: PaginationOptions): Promise<PaginatedResponse<WorkflowSummary>> {
-    return request(withPagination(withProject('/workflows'), opts))
-  },
+  function withProject(path: string): string {
+    const { projectId } = scope()
+    if (!projectId) throw new Error('No active project selected')
+    return withParam(path, 'projectId', projectId)
+  }
 
-  getWorkflow(id: string): Promise<WorkflowSummary> {
-    return request(withProject(`/workflows/${encodeURIComponent(id)}`))
-  },
+  return {
+    /** The org and project this client's calls name right now: what its cache keys should carry. */
+    scope,
 
-  getWorkflowFull(id: string, versionId?: string): Promise<WorkflowFull> {
-    const params = versionId ? `?version=${encodeURIComponent(versionId)}` : ''
-    return request(withProject(`/workflows/${encodeURIComponent(id)}/full${params}`))
-  },
-
-  // ── Test sessions ──
-  //
-  // A session is personal: another member's is indistinguishable from one
-  // that does not exist, so a 404 here needs no special handling.
-
-  getTestSession(workflowId: string): Promise<{ session: TestSession | null }> {
-    return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/test-sessions`))
-  },
-
-  /** Starts one, or returns the session this user already has. */
-  startTestSession(workflowId: string): Promise<StartTestSessionResponse> {
-    return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/test-sessions`), {
-      method: 'POST',
-    })
-  },
-
-  /**
-   * Invokes the session's worker. Takes a timeout because the thing being
-   * called is the user's own half-written code: a handler that never returns
-   * would otherwise leave the UI waiting with no way to stop it.
-   */
-  triggerTestSession(
-    sessionId: string,
-    payload: unknown,
-    options?: { timeoutMs?: number },
-  ): Promise<TestSessionTriggerResponse> {
-    return request(withProject(`/test-sessions/${encodeURIComponent(sessionId)}/trigger`), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ payload }),
-      ...(options?.timeoutMs !== undefined && { signal: AbortSignal.timeout(options.timeoutMs) }),
-    })
-  },
-
-  stopTestSession(sessionId: string): Promise<{ status: string }> {
-    return request(withProject(`/test-sessions/${encodeURIComponent(sessionId)}`), {
-      method: 'DELETE',
-    })
-  },
-
-  getWorkflowSource(id: string, versionId?: string): Promise<WorkflowSource> {
-    const params = versionId ? `?versionId=${encodeURIComponent(versionId)}` : ''
-    return request(withProject(`/workflows/${encodeURIComponent(id)}/source${params}`))
-  },
-
-  /** The stored files with their hashes (no text): what the IDE polls to notice outside changes. */
-  async getProjectFiles(id: string): Promise<ProjectFileSummary[]> {
-    const body = await request<{ files: ProjectFileSummary[] }>(
-      withProject(`/workflows/${encodeURIComponent(id)}/project`),
-    )
-    return body.files
-  },
-
-  getProjectFile(id: string, path: string): Promise<ProjectFileContent> {
-    return request(
-      withProject(`/workflows/${encodeURIComponent(id)}/files/${encodeProjectPath(path)}`),
-    )
-  },
-
-  /** Creates or replaces a file under the given precondition. */
-  putProjectFile(
-    id: string,
-    path: string,
-    source: string,
-    precondition: WritePrecondition,
-  ): Promise<ProjectFileSummary> {
-    const header: Record<string, string> =
-      'ifMatch' in precondition
-        ? { 'If-Match': `"${precondition.ifMatch}"` }
-        : { 'If-None-Match': '*' }
-    return projectFileRequest(
-      `/workflows/${encodeURIComponent(id)}/files/${encodeProjectPath(path)}`,
-      {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...header },
-        body: JSON.stringify({ source }),
-      },
-    )
-  },
-
-  /** What converting the annotation file would produce, without writing anything. */
-  previewHandlerConversion(id: string): Promise<HandlerConversionPreview> {
-    return request(withProject(`/workflows/${encodeURIComponent(id)}/project/convert-handlers`))
-  },
-
-  /** Splits handlers.ts (or the legacy trigger-code setting) into handler modules, atomically on the server. */
-  convertHandlers(id: string, ifMatch?: string): Promise<HandlerConversionResult> {
-    return projectFileRequest(`/workflows/${encodeURIComponent(id)}/project/convert-handlers`, {
-      method: 'POST',
-      headers: ifMatch ? { 'If-Match': `"${ifMatch}"` } : {},
-    })
-  },
-
-  /** Always conditional: a delete must name the version it read. */
-  deleteProjectFile(id: string, path: string, ifMatch: string): Promise<void> {
-    return projectFileRequest(
-      `/workflows/${encodeURIComponent(id)}/files/${encodeProjectPath(path)}`,
-      {
-        method: 'DELETE',
-        headers: { 'If-Match': `"${ifMatch}"` },
-      },
-    )
-  },
-
-  createWorkflow(data: {
-    name: string
-    description?: string
-    kind?: 'workflow' | 'script'
-    /** Else the project's first workspace. */
-    workspaceId?: string
-  }): Promise<WorkflowSummary> {
-    return request(withProject('/workflows'), { method: 'POST', body: JSON.stringify(data) })
-  },
-
-  updateWorkflow(
-    id: string,
-    data: {
-      name?: string
-      description?: string
-      envVars?: { name: string; value: string; isSecret?: boolean }[]
-      triggerCode?: string
-      dependencies?: Record<string, string>
-      deployConfig?: DeployConfig
+    /** An absolute URL for a stream (`fetch`/`EventSource`) under this client's project. */
+    projectUrl(path: string): string {
+      return `${API_BASE}${withProject(path)}`
     },
-  ): Promise<WorkflowSummary> {
-    return request(withProject(`/workflows/${encodeURIComponent(id)}`), {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    })
-  },
 
-  deleteWorkflow(id: string): Promise<void> {
-    return request(withProject(`/workflows/${encodeURIComponent(id)}`), { method: 'DELETE' })
-  },
+    // Project-scoped endpoints (require active project)
 
-  listVersions(
-    workflowId: string,
-    opts?: PaginationOptions,
-  ): Promise<PaginatedResponse<WorkflowVersion>> {
-    return request(
-      withPagination(withProject(`/workflows/${encodeURIComponent(workflowId)}/versions`), opts),
-    )
-  },
+    listWorkflows(opts?: PaginationOptions): Promise<PaginatedResponse<WorkflowSummary>> {
+      return request(withPagination(withProject('/workflows'), opts))
+    },
 
-  getVersion(workflowId: string, versionId: string): Promise<WorkflowVersion> {
-    return request(
-      withProject(
-        `/workflows/${encodeURIComponent(workflowId)}/versions/${encodeURIComponent(versionId)}`,
-      ),
-    )
-  },
+    getWorkflow(id: string): Promise<WorkflowSummary> {
+      return request(withProject(`/workflows/${encodeURIComponent(id)}`))
+    },
 
-  createVersion(workflowId: string, data: { ir: unknown }): Promise<WorkflowVersion> {
-    return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/versions`), {
-      method: 'POST',
-      body: JSON.stringify(data),
-    })
-  },
+    getWorkflowFull(id: string, versionId?: string): Promise<WorkflowFull> {
+      const params = versionId ? `?version=${encodeURIComponent(versionId)}` : ''
+      return request(withProject(`/workflows/${encodeURIComponent(id)}/full${params}`))
+    },
 
-  lockVersion(workflowId: string, versionId: string, locked: boolean): Promise<WorkflowVersion> {
-    return request(
-      withProject(
-        `/workflows/${encodeURIComponent(workflowId)}/versions/${encodeURIComponent(versionId)}`,
-      ),
-      {
-        method: 'PATCH',
-        body: JSON.stringify({ locked }),
-      },
-    )
-  },
+    // ── Test sessions ──
+    //
+    // A session is personal: another member's is indistinguishable from one
+    // that does not exist, so a 404 here needs no special handling.
 
-  revertToVersion(workflowId: string, versionId: string): Promise<WorkflowVersion> {
-    return request(
-      withProject(
-        `/workflows/${encodeURIComponent(workflowId)}/versions/${encodeURIComponent(versionId)}/revert`,
-      ),
-      {
+    getTestSession(workflowId: string): Promise<{ session: TestSession | null }> {
+      return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/test-sessions`))
+    },
+
+    /** Starts one, or returns the session this user already has. */
+    startTestSession(workflowId: string): Promise<StartTestSessionResponse> {
+      return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/test-sessions`), {
         method: 'POST',
-      },
-    )
-  },
+      })
+    },
 
-  deleteVersion(workflowId: string, versionId: string): Promise<void> {
-    return request(
-      withProject(
-        `/workflows/${encodeURIComponent(workflowId)}/versions/${encodeURIComponent(versionId)}`,
-      ),
-      {
+    /**
+     * Invokes the session's worker. Takes a timeout because the thing being
+     * called is the user's own half-written code: a handler that never returns
+     * would otherwise leave the UI waiting with no way to stop it.
+     */
+    triggerTestSession(
+      sessionId: string,
+      payload: unknown,
+      options?: { timeoutMs?: number },
+    ): Promise<TestSessionTriggerResponse> {
+      return request(withProject(`/test-sessions/${encodeURIComponent(sessionId)}/trigger`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload }),
+        ...(options?.timeoutMs !== undefined && { signal: AbortSignal.timeout(options.timeoutMs) }),
+      })
+    },
+
+    stopTestSession(sessionId: string): Promise<{ status: string }> {
+      return request(withProject(`/test-sessions/${encodeURIComponent(sessionId)}`), {
         method: 'DELETE',
-      },
-    )
-  },
+      })
+    },
 
-  // Org-scoped endpoints (require active organization)
+    getWorkflowSource(id: string, versionId?: string): Promise<WorkflowSource> {
+      const params = versionId ? `?versionId=${encodeURIComponent(versionId)}` : ''
+      return request(withProject(`/workflows/${encodeURIComponent(id)}/source${params}`))
+    },
 
-  listConnections(opts?: PaginationOptions): Promise<PaginatedResponse<ConnectionSummary>> {
-    return request(withPagination(withOrg('/connections'), opts))
-  },
+    /** The stored files with their hashes (no text): what the IDE polls to notice outside changes. */
+    async getProjectFiles(id: string): Promise<ProjectFileSummary[]> {
+      const body = await request<{ files: ProjectFileSummary[] }>(
+        withProject(`/workflows/${encodeURIComponent(id)}/project`),
+      )
+      return body.files
+    },
 
-  createConnection(data: {
-    name: string
-    provider: string
-    credentials: Record<string, string>
-  }): Promise<ConnectionSummary> {
-    return request(withOrg('/connections'), { method: 'POST', body: JSON.stringify(data) })
-  },
+    getProjectFile(id: string, path: string): Promise<ProjectFileContent> {
+      return request(
+        withProject(`/workflows/${encodeURIComponent(id)}/files/${encodeProjectPath(path)}`),
+      )
+    },
 
-  /** The accounts Deploy offers this workflow (its project's), the one already chosen. */
-  getDeployConnections(workflowId: string): Promise<DeployConnections> {
-    return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/deploy-connections`))
-  },
+    /** Creates or replaces a file under the given precondition. */
+    putProjectFile(
+      id: string,
+      path: string,
+      source: string,
+      precondition: WritePrecondition,
+    ): Promise<ProjectFileSummary> {
+      const header: Record<string, string> =
+        'ifMatch' in precondition
+          ? { 'If-Match': `"${precondition.ifMatch}"` }
+          : { 'If-None-Match': '*' }
+      return projectFileRequest(
+        withProject(`/workflows/${encodeURIComponent(id)}/files/${encodeProjectPath(path)}`),
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', ...header },
+          body: JSON.stringify({ source }),
+        },
+      )
+    },
 
-  getDeployConfig(
-    workflowId: string,
-    connectionId: string,
-  ): Promise<{
-    config: Record<string, unknown>
-    provider: string
-    preview: { filename: string; content: Record<string, unknown> }
-    uiSchema?: {
-      groups: Array<{
-        title: string
+    /** What converting the annotation file would produce, without writing anything. */
+    previewHandlerConversion(id: string): Promise<HandlerConversionPreview> {
+      return request(withProject(`/workflows/${encodeURIComponent(id)}/project/convert-handlers`))
+    },
+
+    /** Splits handlers.ts (or the legacy trigger-code setting) into handler modules, atomically on the server. */
+    convertHandlers(id: string, ifMatch?: string): Promise<HandlerConversionResult> {
+      return projectFileRequest(
+        withProject(`/workflows/${encodeURIComponent(id)}/project/convert-handlers`),
+        {
+          method: 'POST',
+          headers: ifMatch ? { 'If-Match': `"${ifMatch}"` } : {},
+        },
+      )
+    },
+
+    /** Always conditional: a delete must name the version it read. */
+    deleteProjectFile(id: string, path: string, ifMatch: string): Promise<void> {
+      return projectFileRequest(
+        withProject(`/workflows/${encodeURIComponent(id)}/files/${encodeProjectPath(path)}`),
+        {
+          method: 'DELETE',
+          headers: { 'If-Match': `"${ifMatch}"` },
+        },
+      )
+    },
+
+    createWorkflow(data: {
+      name: string
+      description?: string
+      kind?: 'workflow' | 'script'
+      /** Else the project's first workspace. */
+      workspaceId?: string
+    }): Promise<WorkflowSummary> {
+      return request(withProject('/workflows'), { method: 'POST', body: JSON.stringify(data) })
+    },
+
+    updateWorkflow(
+      id: string,
+      data: {
+        name?: string
         description?: string
-        fields: Array<{
-          path: string
-          label?: string
-          help?: string
-          placeholder?: string
-          widget?: string
-          visibleWhen?: { path: string; truthy: true }
-          defaultObject?: Record<string, unknown>
-          advanced?: boolean
+        envVars?: { name: string; value: string; isSecret?: boolean }[]
+        triggerCode?: string
+        dependencies?: Record<string, string>
+        deployConfig?: DeployConfig
+      },
+    ): Promise<WorkflowSummary> {
+      return request(withProject(`/workflows/${encodeURIComponent(id)}`), {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      })
+    },
+
+    deleteWorkflow(id: string): Promise<void> {
+      return request(withProject(`/workflows/${encodeURIComponent(id)}`), { method: 'DELETE' })
+    },
+
+    listVersions(
+      workflowId: string,
+      opts?: PaginationOptions,
+    ): Promise<PaginatedResponse<WorkflowVersion>> {
+      return request(
+        withPagination(withProject(`/workflows/${encodeURIComponent(workflowId)}/versions`), opts),
+      )
+    },
+
+    getVersion(workflowId: string, versionId: string): Promise<WorkflowVersion> {
+      return request(
+        withProject(
+          `/workflows/${encodeURIComponent(workflowId)}/versions/${encodeURIComponent(versionId)}`,
+        ),
+      )
+    },
+
+    createVersion(workflowId: string, data: { ir: unknown }): Promise<WorkflowVersion> {
+      return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/versions`), {
+        method: 'POST',
+        body: JSON.stringify(data),
+      })
+    },
+
+    lockVersion(workflowId: string, versionId: string, locked: boolean): Promise<WorkflowVersion> {
+      return request(
+        withProject(
+          `/workflows/${encodeURIComponent(workflowId)}/versions/${encodeURIComponent(versionId)}`,
+        ),
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ locked }),
+        },
+      )
+    },
+
+    revertToVersion(workflowId: string, versionId: string): Promise<WorkflowVersion> {
+      return request(
+        withProject(
+          `/workflows/${encodeURIComponent(workflowId)}/versions/${encodeURIComponent(versionId)}/revert`,
+        ),
+        {
+          method: 'POST',
+        },
+      )
+    },
+
+    deleteVersion(workflowId: string, versionId: string): Promise<void> {
+      return request(
+        withProject(
+          `/workflows/${encodeURIComponent(workflowId)}/versions/${encodeURIComponent(versionId)}`,
+        ),
+        {
+          method: 'DELETE',
+        },
+      )
+    },
+
+    // Org-scoped endpoints (require active organization)
+
+    listConnections(opts?: PaginationOptions): Promise<PaginatedResponse<ConnectionSummary>> {
+      return request(withPagination(withOrg('/connections'), opts))
+    },
+
+    createConnection(data: {
+      name: string
+      provider: string
+      credentials: Record<string, string>
+    }): Promise<ConnectionSummary> {
+      return request(withOrg('/connections'), { method: 'POST', body: JSON.stringify(data) })
+    },
+
+    /** The accounts Deploy offers this workflow (its project's), the one already chosen. */
+    getDeployConnections(workflowId: string): Promise<DeployConnections> {
+      return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/deploy-connections`))
+    },
+
+    getDeployConfig(
+      workflowId: string,
+      connectionId: string,
+    ): Promise<{
+      config: Record<string, unknown>
+      provider: string
+      preview: { filename: string; content: Record<string, unknown> }
+      uiSchema?: {
+        groups: Array<{
+          title: string
+          description?: string
+          fields: Array<{
+            path: string
+            label?: string
+            help?: string
+            placeholder?: string
+            widget?: string
+            visibleWhen?: { path: string; truthy: true }
+            defaultObject?: Record<string, unknown>
+            advanced?: boolean
+          }>
         }>
-      }>
-    }
-  }> {
-    return request(
-      withProject(
-        `/workflows/${encodeURIComponent(workflowId)}/deploy-config/${encodeURIComponent(connectionId)}`,
-      ),
-    )
-  },
+      }
+    }> {
+      return request(
+        withProject(
+          `/workflows/${encodeURIComponent(workflowId)}/deploy-config/${encodeURIComponent(connectionId)}`,
+        ),
+      )
+    },
 
-  getDeployConfigPreview(
-    workflowId: string,
-    connectionId: string,
-    config: Record<string, unknown>,
-  ): Promise<{ filename: string; content: Record<string, unknown> }> {
-    return request(
-      withProject(`/workflows/${encodeURIComponent(workflowId)}/deploy-config-preview`),
-      {
+    getDeployConfigPreview(
+      workflowId: string,
+      connectionId: string,
+      config: Record<string, unknown>,
+    ): Promise<{ filename: string; content: Record<string, unknown> }> {
+      return request(
+        withProject(`/workflows/${encodeURIComponent(workflowId)}/deploy-config-preview`),
+        {
+          method: 'POST',
+          body: JSON.stringify({ connectionId, config }),
+        },
+      )
+    },
+
+    listDeployments(
+      workflowId: string,
+      opts?: PaginationOptions,
+    ): Promise<PaginatedResponse<DeploymentSummary>> {
+      return request(
+        withPagination(
+          withProject(`/workflows/${encodeURIComponent(workflowId)}/deployments`),
+          opts,
+        ),
+      )
+    },
+
+    listAllDeployments(opts?: PaginationOptions): Promise<PaginatedResponse<DeploymentSummary>> {
+      return request(withPagination(withProject('/deployments'), opts))
+    },
+
+    listAllRuns(opts?: PaginationOptions): Promise<PaginatedResponse<RunSummary>> {
+      return request(withPagination(withProject('/runs'), opts))
+    },
+
+    listWorkflowRuns(
+      workflowId: string,
+      opts?: PaginationOptions,
+    ): Promise<PaginatedResponse<RunSummary>> {
+      return request(
+        withPagination(withProject(`/workflows/${encodeURIComponent(workflowId)}/runs`), opts),
+      )
+    },
+
+    getWorkflowRun(workflowId: string, runId: string): Promise<RunSummary> {
+      return request(
+        withProject(
+          `/workflows/${encodeURIComponent(workflowId)}/runs/${encodeURIComponent(runId)}`,
+        ),
+      )
+    },
+
+    getWorkflowRunSteps(workflowId: string, runId: string): Promise<RunStepsResponse> {
+      return request(
+        withProject(
+          `/workflows/${encodeURIComponent(workflowId)}/runs/${encodeURIComponent(runId)}/steps`,
+        ),
+      )
+    },
+
+    controlWorkflowRun(
+      workflowId: string,
+      runId: string,
+      action: 'pause' | 'resume' | 'terminate',
+    ): Promise<RunSummary> {
+      return request(
+        withProject(
+          `/workflows/${encodeURIComponent(workflowId)}/runs/${encodeURIComponent(runId)}/${encodeURIComponent(action)}`,
+        ),
+        {
+          method: 'POST',
+        },
+      )
+    },
+
+    takedownDeployment(
+      workflowId: string,
+      connectionId: string,
+    ): Promise<{ success: boolean; error?: string }> {
+      return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/takedown`), {
         method: 'POST',
-        body: JSON.stringify({ connectionId, config }),
-      },
-    )
-  },
+        body: JSON.stringify({ connectionId }),
+      })
+    },
 
-  listDeployments(
-    workflowId: string,
-    opts?: PaginationOptions,
-  ): Promise<PaginatedResponse<DeploymentSummary>> {
-    return request(
-      withPagination(withProject(`/workflows/${encodeURIComponent(workflowId)}/deployments`), opts),
-    )
-  },
-
-  listAllDeployments(opts?: PaginationOptions): Promise<PaginatedResponse<DeploymentSummary>> {
-    return request(withPagination(withProject('/deployments'), opts))
-  },
-
-  listAllRuns(opts?: PaginationOptions): Promise<PaginatedResponse<RunSummary>> {
-    return request(withPagination(withProject('/runs'), opts))
-  },
-
-  listWorkflowRuns(
-    workflowId: string,
-    opts?: PaginationOptions,
-  ): Promise<PaginatedResponse<RunSummary>> {
-    return request(
-      withPagination(withProject(`/workflows/${encodeURIComponent(workflowId)}/runs`), opts),
-    )
-  },
-
-  getWorkflowRun(workflowId: string, runId: string): Promise<RunSummary> {
-    return request(
-      withProject(`/workflows/${encodeURIComponent(workflowId)}/runs/${encodeURIComponent(runId)}`),
-    )
-  },
-
-  getWorkflowRunSteps(workflowId: string, runId: string): Promise<RunStepsResponse> {
-    return request(
-      withProject(
-        `/workflows/${encodeURIComponent(workflowId)}/runs/${encodeURIComponent(runId)}/steps`,
-      ),
-    )
-  },
-
-  controlWorkflowRun(
-    workflowId: string,
-    runId: string,
-    action: 'pause' | 'resume' | 'terminate',
-  ): Promise<RunSummary> {
-    return request(
-      withProject(
-        `/workflows/${encodeURIComponent(workflowId)}/runs/${encodeURIComponent(runId)}/${encodeURIComponent(action)}`,
-      ),
-      {
+    verifyCredentials(
+      provider: string,
+      credentials: Record<string, string>,
+    ): Promise<{ valid: boolean; accounts: { id: string; name: string }[] }> {
+      return request(withOrg('/connections/verify-token'), {
         method: 'POST',
-      },
-    )
-  },
+        body: JSON.stringify({ provider, credentials }),
+      })
+    },
 
-  takedownDeployment(
-    workflowId: string,
-    connectionId: string,
-  ): Promise<{ success: boolean; error?: string }> {
-    return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/takedown`), {
-      method: 'POST',
-      body: JSON.stringify({ connectionId }),
-    })
-  },
+    triggerWorkflow(
+      workflowId: string,
+      data: { connectionId: string; params?: unknown },
+    ): Promise<{ id: string; instanceId: string; status: string }> {
+      return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/trigger`), {
+        method: 'POST',
+        body: JSON.stringify(data),
+      })
+    },
 
-  verifyCredentials(
-    provider: string,
-    credentials: Record<string, string>,
-  ): Promise<{ valid: boolean; accounts: { id: string; name: string }[] }> {
-    return request(withOrg('/connections/verify-token'), {
-      method: 'POST',
-      body: JSON.stringify({ provider, credentials }),
-    })
-  },
+    // Local dev
+    startLocalDev(
+      workflowId: string,
+    ): Promise<{ status: string; port: number; url: string; pid: number }> {
+      return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/local-dev/start`), {
+        method: 'POST',
+        body: '{}',
+      })
+    },
 
-  triggerWorkflow(
-    workflowId: string,
-    data: { connectionId: string; params?: unknown },
-  ): Promise<{ id: string; instanceId: string; status: string }> {
-    return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/trigger`), {
-      method: 'POST',
-      body: JSON.stringify(data),
-    })
-  },
+    stopLocalDev(workflowId: string): Promise<{ status: string }> {
+      return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/local-dev/stop`), {
+        method: 'POST',
+      })
+    },
 
-  // Local dev
-  startLocalDev(
-    workflowId: string,
-  ): Promise<{ status: string; port: number; url: string; pid: number }> {
-    return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/local-dev/start`), {
-      method: 'POST',
-      body: '{}',
-    })
-  },
+    triggerLocalDev(workflowId: string, params?: unknown): Promise<unknown> {
+      return request(
+        withProject(`/workflows/${encodeURIComponent(workflowId)}/local-dev/trigger`),
+        {
+          method: 'POST',
+          body: JSON.stringify(params ?? {}),
+        },
+      )
+    },
 
-  stopLocalDev(workflowId: string): Promise<{ status: string }> {
-    return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/local-dev/stop`), {
-      method: 'POST',
-    })
-  },
+    getLocalDevInstance(workflowId: string, instanceId: string): Promise<unknown> {
+      return request(
+        withProject(
+          `/workflows/${encodeURIComponent(workflowId)}/local-dev/instance/${encodeURIComponent(instanceId)}`,
+        ),
+      )
+    },
 
-  triggerLocalDev(workflowId: string, params?: unknown): Promise<unknown> {
-    return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/local-dev/trigger`), {
-      method: 'POST',
-      body: JSON.stringify(params ?? {}),
-    })
-  },
+    getLocalDevLogs(
+      workflowId: string,
+      since?: number,
+    ): Promise<{ timestamp: number; stream: 'stdout' | 'stderr'; text: string }[]> {
+      const params = since ? `?since=${encodeURIComponent(since)}` : ''
+      return request(
+        withProject(`/workflows/${encodeURIComponent(workflowId)}/local-dev/logs${params}`),
+      )
+    },
 
-  getLocalDevInstance(workflowId: string, instanceId: string): Promise<unknown> {
-    return request(
-      withProject(
-        `/workflows/${encodeURIComponent(workflowId)}/local-dev/instance/${encodeURIComponent(instanceId)}`,
-      ),
-    )
-  },
+    listApiKeys(
+      opts?: PaginationOptions & { projectId?: string },
+    ): Promise<PaginatedResponse<ApiKeySummary>> {
+      const base = withOrg('/api-keys')
+      const url = opts?.projectId ? `${base}&projectId=${encodeURIComponent(opts.projectId)}` : base
+      return request(withPagination(url, opts))
+    },
 
-  getLocalDevLogs(
-    workflowId: string,
-    since?: number,
-  ): Promise<{ timestamp: number; stream: 'stdout' | 'stderr'; text: string }[]> {
-    const params = since ? `?since=${encodeURIComponent(since)}` : ''
-    return request(
-      withProject(`/workflows/${encodeURIComponent(workflowId)}/local-dev/logs${params}`),
-    )
-  },
+    createApiKey(data: {
+      name: string
+      /** With a projectId the key is project-level; without, organization-level. */
+      projectId?: string
+      scopes: string[]
+      expiresAt?: string | null
+    }): Promise<ApiKeyCreated> {
+      return request(withOrg('/api-keys'), { method: 'POST', body: JSON.stringify(data) })
+    },
 
-  listApiKeys(
-    opts?: PaginationOptions & { projectId?: string },
-  ): Promise<PaginatedResponse<ApiKeySummary>> {
-    const base = withOrg('/api-keys')
-    const url = opts?.projectId ? `${base}&projectId=${encodeURIComponent(opts.projectId)}` : base
-    return request(withPagination(url, opts))
-  },
+    revokeApiKey(id: string): Promise<ApiKeySummary> {
+      return request(withOrg(`/api-keys/${encodeURIComponent(id)}`), { method: 'DELETE' })
+    },
 
-  createApiKey(data: {
-    name: string
-    /** With a projectId the key is project-level; without, organization-level. */
-    projectId?: string
-    scopes: string[]
-    expiresAt?: string | null
-  }): Promise<ApiKeyCreated> {
-    return request(withOrg('/api-keys'), { method: 'POST', body: JSON.stringify(data) })
-  },
+    // Projects (org-scoped)
 
-  revokeApiKey(id: string): Promise<ApiKeySummary> {
-    return request(withOrg(`/api-keys/${encodeURIComponent(id)}`), { method: 'DELETE' })
-  },
+    listProjects(opts?: PaginationOptions): Promise<PaginatedResponse<ProjectSummary>> {
+      return request(withPagination(withOrg('/projects'), opts))
+    },
 
-  // Projects (org-scoped)
+    createProject(data: {
+      name: string
+      slug: string
+      description?: string
+    }): Promise<ProjectSummary> {
+      return request(withOrg('/projects'), { method: 'POST', body: JSON.stringify(data) })
+    },
 
-  listProjects(opts?: PaginationOptions): Promise<PaginatedResponse<ProjectSummary>> {
-    return request(withPagination(withOrg('/projects'), opts))
-  },
+    updateProject(
+      id: string,
+      data: { name?: string; description?: string },
+    ): Promise<ProjectSummary> {
+      return request(withOrg(`/projects/${encodeURIComponent(id)}`), {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      })
+    },
 
-  createProject(data: {
-    name: string
-    slug: string
-    description?: string
-  }): Promise<ProjectSummary> {
-    return request(withOrg('/projects'), { method: 'POST', body: JSON.stringify(data) })
-  },
-
-  updateProject(
-    id: string,
-    data: { name?: string; description?: string },
-  ): Promise<ProjectSummary> {
-    return request(withOrg(`/projects/${encodeURIComponent(id)}`), {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    })
-  },
-
-  deleteProject(id: string): Promise<void> {
-    return request(withOrg(`/projects/${encodeURIComponent(id)}`), { method: 'DELETE' })
-  },
+    deleteProject(id: string): Promise<void> {
+      return request(withOrg(`/projects/${encodeURIComponent(id)}`), { method: 'DELETE' })
+    },
+  }
 }
 
 export interface ProjectSummary {
@@ -897,4 +932,12 @@ export interface ProjectSummary {
   description?: string | null
   createdAt: string
   updatedAt: string
+}
+
+export type ApiClient = ReturnType<typeof createApiClient>
+
+export const api = createApiClient(storeScope)
+
+export function projectUrl(path: string): string {
+  return api.projectUrl(path)
 }

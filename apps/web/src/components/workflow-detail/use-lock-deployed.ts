@@ -1,12 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { defineToast } from '../../lib/action-toast'
-import { api } from '../../lib/api-client'
+import { useApi } from '../../contexts/api-client-context'
 
 /**
  * Locks or unlocks the deployed version: while it's locked, no other version
  * can be deployed over it. The same lock the Versions list always had.
  */
 export function useLockDeployed(workflowId: string, versionId: string | undefined) {
+  const api = useApi()
   const queryClient = useQueryClient()
   return useMutation({
     meta: {

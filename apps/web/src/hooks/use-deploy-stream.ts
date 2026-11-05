@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { actionToast, failureLine } from '../lib/action-toast'
-import { ApiError, projectUrl } from '../lib/api-client'
+import { ApiError } from '../lib/api-client'
 import { readSseStream } from '../lib/sse-stream'
 import { usePollingStore } from '../stores/polling-store'
+import { useApi } from '../contexts/api-client-context'
 
 export interface DeployProgress {
   stage: string
@@ -30,6 +31,7 @@ interface UseDeployStreamOptions {
 const DEPLOY_FAILED = 'Couldn’t deploy the workflow'
 
 export function useDeployStream({ workflowId, versionId }: UseDeployStreamOptions) {
+  const api = useApi()
   const queryClient = useQueryClient()
   const [state, setState] = useState<DeployState>('idle')
   const [progress, setProgress] = useState<DeployProgress | null>(null)
@@ -52,7 +54,7 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
 
       try {
         const response = await fetch(
-          projectUrl(`/workflows/${encodeURIComponent(workflowId)}/deploy-stream`),
+          api.projectUrl(`/workflows/${encodeURIComponent(workflowId)}/deploy-stream`),
           {
             method: 'POST',
             credentials: 'include',
@@ -123,7 +125,7 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
         actionToast.error(msg)
       }
     },
-    [workflowId, versionId, queryClient],
+    [api, workflowId, versionId, queryClient],
   )
 
   function retry() {

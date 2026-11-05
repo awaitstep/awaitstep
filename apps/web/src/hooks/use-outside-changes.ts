@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
-import { api } from '../lib/api-client'
 import { planRefresh } from '../lib/ide/outside-changes'
+import { useApi } from '../contexts/api-client-context'
 
 /** How often the open workspace asks whether anyone else changed a file. */
 export const OUTSIDE_CHECK_MS = 20_000
@@ -54,6 +54,7 @@ function awaitingFirstVersion(queryClient: QueryClient, workflowId: string): boo
  * another app to a window that stayed visible.
  */
 export function useOutsideChanges({ workflowId, enabled, baseline }: OutsideChangesInput) {
+  const api = useApi()
   const queryClient = useQueryClient()
   // The check runs long after the render that started it.
   const baselineRef = useRef(baseline)

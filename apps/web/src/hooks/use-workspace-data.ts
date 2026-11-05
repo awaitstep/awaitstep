@@ -8,8 +8,7 @@ import { fileOwner, projectUsage, splitWorkspaceFiles, virtualSeedFiles } from '
 import { formatClock } from '../lib/ide/session-log'
 import { deriveReadOnlyState } from '../lib/hydrate-workflow'
 import type { SourceFile } from '../lib/api-client'
-import { queries } from '../lib/queries'
-import { useOrgReady } from '../stores/org-store'
+import { useApiReady, useQueries } from '../contexts/api-client-context'
 import { useIdeStore } from '../stores/ide-store'
 import { useDraftOverlay } from './use-draft-overlay'
 import { useWorkspaceProblems } from './use-workspace-problems'
@@ -22,7 +21,8 @@ const EMPTY_FILES: ReadonlyMap<string, SourceFile> = new Map()
  * deleted outside, how they are laid out, and the problem lists.
  */
 export function useWorkspaceData(workflowId: string, versionParam: string | undefined) {
-  const ready = useOrgReady()
+  const queries = useQueries()
+  const ready = useApiReady()
   const fullQuery = useQuery({
     ...queries.workflows.full(workflowId, versionParam),
     enabled: ready,

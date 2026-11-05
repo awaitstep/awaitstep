@@ -1,7 +1,7 @@
 import { useRef, useState, type KeyboardEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { api } from '../../lib/api-client'
 import { cn } from '../../lib/utils'
+import { useApi } from '../../contexts/api-client-context'
 
 interface EditableProps {
   workflowId: string
@@ -14,6 +14,7 @@ interface EditableProps {
 
 /** Saves one field and refreshes everywhere the workflow is shown: its page, the old list, the dashboard's lists. */
 function useSaveField(workflowId: string, field: 'name' | 'description') {
+  const api = useApi()
   const queryClient = useQueryClient()
   return useMutation({
     meta: {

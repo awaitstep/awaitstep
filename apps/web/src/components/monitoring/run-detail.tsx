@@ -5,8 +5,7 @@ import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { RouterShellLink } from '../navigation/router-shell-link'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
-import { api } from '../../lib/api-client'
-import { queries, flatPages } from '../../lib/queries'
+import { flatPages } from '../../lib/queries'
 import { durationCompact, formatDateTime } from '../../lib/time'
 import { PageBand } from '../ui/page-band'
 import { RunActions } from './run-actions'
@@ -14,6 +13,7 @@ import { runConnection } from './run-connection'
 import { RunErrorBlock } from './run-error-block'
 import { RunStatusBadge } from './run-status-badge'
 import { RunTelemetry } from './run-telemetry'
+import { useApi, useQueries } from '../../contexts/api-client-context'
 
 const TERMINAL_STATUSES = new Set(['complete', 'errored', 'terminated'])
 
@@ -24,12 +24,16 @@ interface RunDetailProps {
 }
 
 export function RunDetail({ runId, workflowIdHint }: RunDetailProps) {
+  const api = useApi()
+  const queries = useQueries()
   const queryClient = useQueryClient()
   // In a workspace the frame's breadcrumb names the workflow and links back.
   const inWorkspace = useEditorScope() !== null
 
+  // Keyed by the project and org this client calls, so another scope's lists never stand in.
+  const { organizationId, projectId } = api.scope()
   const { data: allRuns } = useInfiniteQuery({
-    ...queries.runs.all(''),
+    ...queries.runs.all(projectId ?? ''),
     enabled: !workflowIdHint,
     retry: false,
     select: (data) => flatPages(data),
@@ -68,7 +72,7 @@ export function RunDetail({ runId, workflowIdHint }: RunDetailProps) {
   })
 
   const { data: connections } = useInfiniteQuery({
-    ...queries.connections.list(''),
+    ...queries.connections.list(organizationId ?? ''),
     retry: false,
     select: (data) => flatPages(data),
   })

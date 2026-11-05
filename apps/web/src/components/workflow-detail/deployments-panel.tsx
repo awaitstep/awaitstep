@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Rocket } from 'lucide-react'
-import { flatPages, queries } from '../../lib/queries'
+import { flatPages } from '../../lib/queries'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { useConnectionsStore } from '../../stores/connections-store'
 import { DeploymentSheet } from '../deployments/deployment-sheet'
@@ -11,6 +11,7 @@ import { Button } from '../ui/button'
 import { LoadMoreButton } from '../ui/load-more-button'
 import { LoadingView } from '../ui/loading-view'
 import { ListSkeleton } from '../ui/skeletons'
+import { useQueries } from '../../contexts/api-client-context'
 
 interface DeploymentsPanelProps {
   workflowId: string
@@ -32,6 +33,7 @@ type Deployment = {
 
 /** A workflow's deployments, newest first; one opens in a sheet. */
 export function DeploymentsPanel({ workflowId, ready }: DeploymentsPanelProps) {
+  const queries = useQueries()
   const links = useWorkflowLinks(workflowId)
   const [selectedDeployment, setSelectedDeployment] = useState<Deployment | null>(null)
 

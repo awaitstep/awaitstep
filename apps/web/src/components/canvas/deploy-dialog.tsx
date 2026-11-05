@@ -2,14 +2,14 @@ import { useState } from 'react'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { Rocket } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { queries, flatPages } from '../../lib/queries'
-import { useOrgReady } from '../../stores/org-store'
+import { flatPages } from '../../lib/queries'
 import { useConnectionsStore } from '../../stores/connections-store'
 import { useDeployStream } from '../../hooks/use-deploy-stream'
 import { IdleView } from './deploy/idle-view'
 import { DeployingView } from './deploy/deploying-view'
 import { SuccessView } from './deploy/success-view'
 import { ErrorView } from './deploy/error-view'
+import { useQueries, useApiReady } from '../../contexts/api-client-context'
 
 interface DeployDialogProps {
   onClose: () => void
@@ -18,7 +18,8 @@ interface DeployDialogProps {
 }
 
 export function DeployDialog({ onClose, workflowId, versionId }: DeployDialogProps) {
-  const ready = useOrgReady()
+  const queries = useQueries()
+  const ready = useApiReady()
   const [connectionId, setConnectionId] = useState('')
   const [previewUrls, setPreviewUrls] = useState(false)
   const [workersDev, setWorkersDev] = useState(false)

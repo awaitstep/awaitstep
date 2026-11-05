@@ -9,6 +9,7 @@ const api = vi.hoisted(() => ({
   startTestSession: vi.fn(),
   stopTestSession: vi.fn(),
   triggerTestSession: vi.fn(),
+  projectUrl: (path: string) => `/api${path}`,
 }))
 
 vi.mock('../../lib/api-client', async (importOriginal) => {

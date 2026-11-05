@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient } from '@tanstack/react-query'
 import { isNotFound } from '@tanstack/react-router'
 import { apiScopeQuery } from '../../../data/dashboard/workspaces'
-import { leaveRouteScope } from '../../../lib/workflows/route-scope'
 import { useOrgStore } from '../../../stores/org-store'
 import type { ScopeLookup } from '../../../types/dashboard/scope'
 import { openEditorScope } from '../editor-route'
@@ -23,7 +22,6 @@ function seededClient() {
 }
 
 afterEach(() => {
-  leaveRouteScope()
   useOrgStore.getState().clear()
 })
 
@@ -32,21 +30,34 @@ describe('openEditorScope', () => {
     useOrgStore.setState({ appReady: true })
     const client = seededClient()
     const ensure = vi.spyOn(client, 'ensureQueryData')
-    await openEditorScope({ params, search: {}, preload: false }, client, true)
+    const context = await openEditorScope({ params, search: {} }, client, true)
     expect(ensure.mock.calls[0]![0].queryKey).toEqual(apiScopeQuery(slugs).queryKey)
-    expect(useOrgStore.getState().routeScope?.projectId).toBe('prj_2')
+    expect(context.itemScope).toEqual({
+      organizationId: 'org_1',
+      projectId: 'prj_2',
+      workspaceId: 'ws_3',
+    })
   })
 
-  it('changes nothing on a hover preload, or on sample data', async () => {
-    const client = seededClient()
-    await openEditorScope({ params, search: {}, preload: true }, client, true)
-    await openEditorScope({ params, search: { as: 'ama' }, preload: false }, client, true)
-    expect(useOrgStore.getState().routeScope).toBeNull()
+  it('hands the ids down without touching the switcher', async () => {
+    useOrgStore.setState({
+      appReady: true,
+      activeOrganizationId: 'org_9',
+      activeProjectId: 'prj_9',
+    })
+    await openEditorScope({ params, search: {} }, seededClient(), true)
+    expect(useOrgStore.getState().activeOrganizationId).toBe('org_9')
+    expect(useOrgStore.getState().activeProjectId).toBe('prj_9')
+  })
+
+  it('has no project to call on sample data', async () => {
+    const context = await openEditorScope({ params, search: { as: 'ama' } }, seededClient(), true)
+    expect(context.itemScope).toBeNull()
   })
 
   it('has no new-workflow page yet', async () => {
     const thrown = await openEditorScope(
-      { params: { ...params, id: 'new' }, search: {}, preload: false },
+      { params: { ...params, id: 'new' }, search: {} },
       seededClient(),
       true,
     ).catch((error: unknown) => error)
@@ -56,8 +67,6 @@ describe('openEditorScope', () => {
   it('fails the route when the lookup fails, so it can offer a retry', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     vi.spyOn(client, 'ensureQueryData').mockRejectedValue(new Error('offline'))
-    await expect(
-      openEditorScope({ params, search: {}, preload: false }, client, true),
-    ).rejects.toThrow('offline')
+    await expect(openEditorScope({ params, search: {} }, client, true)).rejects.toThrow('offline')
   })
 })

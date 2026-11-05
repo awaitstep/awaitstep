@@ -3,7 +3,7 @@ import { ArrowRightLeft, Pencil } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMoveWorkflows } from '../../data/dashboard/items'
 import { useWorkspaces } from '../../data/dashboard/workspaces'
-import { api, type WorkflowSummary } from '../../lib/api-client'
+import { type WorkflowSummary } from '../../lib/api-client'
 import { itemPagePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
 import { useGoTo } from '../navigation/router-shell-link'
 import { Button } from '../ui/button'
@@ -14,6 +14,7 @@ import { Select } from '../ui/select'
 import { Textarea } from '../ui/textarea'
 import { Tile } from '../ui/tile'
 import { FailureLine } from './failure-line'
+import { useApi } from '../../contexts/api-client-context'
 
 interface RenameItemDialogProps {
   workflow: WorkflowSummary
@@ -23,6 +24,7 @@ interface RenameItemDialogProps {
 
 /** Rename: its name and description. */
 export function RenameItemDialog({ workflow, word, onClose }: RenameItemDialogProps) {
+  const api = useApi()
   const formId = useId()
   const queryClient = useQueryClient()
   const [name, setName] = useState(workflow.name)

@@ -4,7 +4,7 @@ import { ExternalLink, Rocket } from 'lucide-react'
 import type { DeploymentSummary, WorkflowSummary } from '../../lib/api-client'
 import { CardEmpty } from './parts/card-empty'
 import { DeployFor } from './deploy-for'
-import { flatPages, queries } from '../../lib/queries'
+import { flatPages } from '../../lib/queries'
 import { timeAgo } from '../../lib/time'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { workerUrl } from '../../lib/workflows/worker-url'
@@ -16,6 +16,7 @@ import { DataTable, type DataColumn } from '../ui/data-table'
 import { LoadMoreButton } from '../ui/load-more-button'
 import { ListCardSkeleton, LoadingRegion } from '../ui/skeletons'
 import { Tile } from '../ui/tile'
+import { useQueries } from '../../contexts/api-client-context'
 
 interface DeploymentsTabProps {
   workflow: WorkflowSummary
@@ -34,6 +35,7 @@ export function DeploymentsTab({
   deployBlocked,
   neverDeployed,
 }: DeploymentsTabProps) {
+  const queries = useQueries()
   const workflowId = workflow.id
   const links = useWorkflowLinks(workflowId)
   const query = useInfiniteQuery(queries.deployments.byWorkflow(workflowId))

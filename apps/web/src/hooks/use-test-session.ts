@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useShallow } from 'zustand/react/shallow'
 import { actionToast, failureLine } from '../lib/action-toast'
 import type { ProcessLogEntry } from '@awaitstep/codegen'
-import { api, projectUrl, ApiError } from '../lib/api-client'
+import { ApiError } from '../lib/api-client'
 import type { TestSession } from '../lib/api-client'
 import { sessionStaleness, type SessionStaleness } from '../lib/ide/session-staleness'
 import { readSseStream, reconnectDelay } from '../lib/sse-stream'
@@ -14,6 +14,7 @@ import {
   type SessionLogLine,
   type SessionTriggerResult,
 } from '../stores/test-session-store'
+import { useApi } from '../contexts/api-client-context'
 
 /** A session still starting is worth re-reading; a settled one is not. */
 const STARTING_POLL_MS = 1_500
@@ -94,6 +95,7 @@ export function useTestSession({
   currentHashes = NO_HASHES,
   unsavedCount = 0,
 }: UseTestSessionOptions): TestSessionState {
+  const api = useApi()
   const queryClient = useQueryClient()
   const [starting, setStarting] = useState(false)
   const [stopping, setStopping] = useState(false)
@@ -150,6 +152,7 @@ export function useTestSession({
 
   useEffect(() => {
     if (!sessionId || !streaming) return
+    const streamPath = `/test-sessions/${encodeURIComponent(sessionId)}/stream`
     const controller = new AbortController()
     let attempt = 0
 
@@ -157,7 +160,7 @@ export function useTestSession({
       while (!controller.signal.aborted) {
         try {
           const query = cursorRef.current ? `?after=${encodeURIComponent(cursorRef.current)}` : ''
-          const response = await fetch(projectUrl(`/test-sessions/${sessionId}/stream${query}`), {
+          const response = await fetch(api.projectUrl(`${streamPath}${query}`), {
             credentials: 'include',
             signal: controller.signal,
           })
@@ -216,7 +219,7 @@ export function useTestSession({
 
     void connect()
     return () => controller.abort()
-  }, [sessionId, streaming, appendLogs, setStreamError, refetchSession])
+  }, [api, sessionId, streaming, appendLogs, setStreamError, refetchSession])
 
   // Requests are guarded by refs as well as state: two key presses in one
   // frame both see the same render, and only a ref sees the first.
@@ -265,7 +268,7 @@ export function useTestSession({
       // from elsewhere, counts from its own creation.
       setStartRequestedAt(null)
     }
-  }, [workflowId, queryClient, reset, setSession, refetchSession])
+  }, [api, workflowId, queryClient, reset, setSession, refetchSession])
 
   const stop = useCallback(async () => {
     if (!sessionId || stoppingRef.current) return
@@ -294,7 +297,7 @@ export function useTestSession({
       stoppingRef.current = false
       setStopping(false)
     }
-  }, [sessionId, session, setSession, refetchSession])
+  }, [api, sessionId, session, setSession, refetchSession])
 
   const trigger = useCallback(
     async (payload: unknown) => {
@@ -319,7 +322,7 @@ export function useTestSession({
         setTriggering(false)
       }
     },
-    [sessionId, setResult, refetchSession],
+    [api, sessionId, setResult, refetchSession],
   )
 
   const restart = useCallback(async (): Promise<boolean> => {
@@ -343,7 +346,7 @@ export function useTestSession({
     } finally {
       restartingRef.current = false
     }
-  }, [sessionId, setSession, start])
+  }, [api, sessionId, setSession, start])
 
   // A restart-and-trigger outlives neither the workspace nor a newer click.
   const aliveRef = useRef(true)
@@ -408,7 +411,7 @@ export function useTestSession({
         restartTriggerRef.current = false
       }
     },
-    [sessionId, restart, workflowId, setSession, setResult],
+    [api, sessionId, restart, workflowId, setSession, setResult],
   )
 
   const acceptStale = useCallback(

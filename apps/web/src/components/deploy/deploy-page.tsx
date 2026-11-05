@@ -13,16 +13,15 @@ import {
 } from 'lucide-react'
 import { Button, buttonVariants } from '../ui/button'
 import { EmptyState } from '../ui/empty-state'
-import { api } from '../../lib/api-client'
-import { queries } from '../../lib/queries'
 import { projectPagePath } from '../../lib/dashboard-paths'
 import { useEditorScope } from '../../contexts/editor-scope-context'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { RouterShellLink } from '../navigation/router-shell-link'
-import { useOrgReady, useOrgStore } from '../../stores/org-store'
+import { useOrgStore } from '../../stores/org-store'
 import { useDeployStream, type DeployProgress } from '../../hooks/use-deploy-stream'
 import { DeploymentConfigForm } from './deployment-config-form'
 import { cn } from '../../lib/utils'
+import { useApi, useQueries, useApiReady } from '../../contexts/api-client-context'
 
 const FALLBACK_UI_SCHEMA = {
   groups: [{ title: 'Configuration', fields: [] }],
@@ -59,7 +58,9 @@ function useProjectConnectionsHref(): string | null {
 }
 
 export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
-  const ready = useOrgReady()
+  const api = useApi()
+  const queries = useQueries()
+  const ready = useApiReady()
   // Only the project's accounts, with its workspace's (else the project's) default
   // chosen: the API refuses a deploy with any other (23a).
   const targets = useQuery({ ...queries.connections.forDeploy(workflowId), enabled: ready })

@@ -3,7 +3,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import { apiScopeQuery } from '../../data/dashboard/workspaces'
 import type { WorkspaceSlugs } from '../../lib/dashboard-paths'
 import { getQueryClient } from '../../lib/query-client'
-import { enterRouteScope } from '../../lib/workflows/route-scope'
+import { resolveItemScope, type ItemApiScope } from '../../lib/workflows/route-scope'
 import {
   ALLOW_MOCK_SOURCE,
   dataSourceFor,
@@ -13,28 +13,24 @@ import {
 interface EditorRouteLoad {
   params: WorkspaceSlugs & { id: string }
   search: Pick<DashboardSearch, 'mock' | 'as'>
-  preload: boolean
-  signal?: AbortSignal
 }
 
 /**
- * The editor route's `beforeLoad`: wait until API calls follow the URL's
- * project. The lookup is the dashboard shell's own scope query, so it is
- * made once. A hover preload changes nothing, and sample data has no project
- * to follow.
+ * The item route's `beforeLoad`: the ids its URL names, handed to every call
+ * made under it as route context (the org store is never touched). The lookup
+ * is the dashboard shell's own scope query, so it is made once. Sample data
+ * has no project to call.
  */
 export async function openEditorScope(
-  { params, search, preload, signal }: EditorRouteLoad,
+  { params, search }: EditorRouteLoad,
   client: QueryClient = getQueryClient(),
   allowMock: boolean = ALLOW_MOCK_SOURCE,
-): Promise<void> {
+): Promise<{ itemScope: ItemApiScope | null }> {
   // The dashboard creates a workflow before opening it here, so there is no
   // unsaved `/new` at a workspace URL.
   if (params.id === 'new') throw notFound()
-  if (preload || dataSourceFor(search, allowMock) !== 'api') return
+  if (dataSourceFor(search, allowMock) !== 'api') return { itemScope: null }
   const slugs = { org: params.org, project: params.project, workspace: params.workspace }
-  await enterRouteScope(slugs, {
-    signal,
-    lookup: (s) => client.ensureQueryData(apiScopeQuery(s)),
-  })
+  const itemScope = await resolveItemScope(slugs, (s) => client.ensureQueryData(apiScopeQuery(s)))
+  return { itemScope }
 }

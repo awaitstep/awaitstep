@@ -3,7 +3,7 @@ import { useInfiniteQuery } from '@tanstack/react-query'
 import { Play } from 'lucide-react'
 import { useEditorScope } from '../../contexts/editor-scope-context'
 import { useActiveRunSync } from '../../hooks/use-active-run-sync'
-import { flatPages, queries } from '../../lib/queries'
+import { flatPages } from '../../lib/queries'
 import { duration, timeAgo } from '../../lib/time'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { useSheetStore } from '../../stores/sheet-store'
@@ -16,6 +16,7 @@ import { Button } from '../ui/button'
 import { LoadMoreButton } from '../ui/load-more-button'
 import { LoadingView } from '../ui/loading-view'
 import { ListSkeleton } from '../ui/skeletons'
+import { useQueries } from '../../contexts/api-client-context'
 
 interface RunsPanelProps {
   workflowId: string
@@ -36,6 +37,7 @@ const ROW_CLASS =
 
 /** A workflow's runs, newest first, with Trigger run once it's deployed. */
 export function RunsPanel({ workflowId, ready }: RunsPanelProps) {
+  const queries = useQueries()
   const [triggerOpen, setTriggerOpen] = useState(false)
   // In a workspace a run opens as its own page; the old pages open the sheet.
   const inWorkspace = useEditorScope() !== null

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useLocation, useRouter } from '@tanstack/react-router'
 import { useDataSource } from '../../data/dashboard/source'
-import { useInOtherWorkspace, useRouteScopeReady } from '../../lib/workflows/route-scope'
+import { useInOtherWorkspace, useItemScopeReady } from '../../lib/workflows/route-scope'
 import type { EditorRouteSearch } from '../../lib/workflows/surfaces'
 import { CanvasSkeleton } from '../canvas/canvas-skeleton'
 import { IdeSkeleton } from '../ide/ide-skeleton'
@@ -21,9 +21,8 @@ interface ScopedWorkflowEditorProps {
 }
 
 /**
- * The editor at a workspace's URL. It opens only once API calls follow this
- * workspace's project (the route waits for that), so it never loads a
- * workflow through whichever project the old switcher had picked. Its
+ * The editor at a workspace's URL. Its calls go to the project the URL names
+ * (the route resolves it before rendering), never the old switcher's. Its
  * workspace comes from the item's layout (`ItemScopeLayout`).
  */
 export function ScopedWorkflowEditor({
@@ -33,8 +32,8 @@ export function ScopedWorkflowEditor({
   localDev,
 }: ScopedWorkflowEditorProps) {
   const source = useDataSource()
-  const ready = useRouteScopeReady(slugs)
-  const workflow = useScopedWorkflow(slugs, workflowId, source === 'api')
+  const ready = useItemScopeReady()
+  const workflow = useScopedWorkflow(workflowId, source === 'api')
   const inOtherWorkspace = useInOtherWorkspace(workflow.data)
   const { pathname } = useLocation()
 

@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, type RunStep, type RunSummary } from '../lib/api-client'
+import type { RunStep, RunSummary } from '../lib/api-client'
 import { isTerminalRunStatus } from '../lib/run-steps'
+import { useApi } from '../contexts/api-client-context'
 
 const NO_STEPS: RunStep[] = []
 const NO_MERGES: Record<string, string> = {}
@@ -47,6 +48,7 @@ export function useLastRunSteps(
   enabled: boolean,
   pollMs = ACTIVE_POLL_MS,
 ): LastRunSteps {
+  const api = useApi()
   const queryClient = useQueryClient()
   const runs = useQuery({
     queryKey: lastRunKey(workflowId),

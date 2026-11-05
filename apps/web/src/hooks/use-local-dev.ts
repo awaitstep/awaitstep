@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { runAction, failureLine } from '../lib/action-toast'
-import { api } from '../lib/api-client'
+import { useApi } from '../contexts/api-client-context'
 
 export type LocalDevState = 'idle' | 'starting' | 'running' | 'stopping' | 'error'
 
@@ -12,6 +12,7 @@ export interface LogEntry {
 }
 
 export function useLocalDev(workflowId: string) {
+  const api = useApi()
   const [state, setState] = useState<LocalDevState>('idle')
   const [info, setInfo] = useState<{ port: number; url: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -63,7 +64,7 @@ export function useLocalDev(workflowId: string) {
       setError(failureLine(err, 'Failed to start'))
       setState('error')
     }
-  }, [workflowId])
+  }, [api, workflowId])
 
   // ── Stop ───────────────────────────────────────────
   const stop = useCallback(async () => {
@@ -82,7 +83,7 @@ export function useLocalDev(workflowId: string) {
       setError(msg)
       setState('error')
     }
-  }, [workflowId])
+  }, [api, workflowId])
 
   // ── Trigger ────────────────────────────────────────
   const triggerMutation = useMutation({

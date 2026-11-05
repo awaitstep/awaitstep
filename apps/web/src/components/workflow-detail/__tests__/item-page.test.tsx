@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type * as ReactQuery from '@tanstack/react-query'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { EditorScopeProvider } from '../../../contexts/editor-scope-context'
 import { DataSourceProvider, type DataSource } from '../../../data/dashboard/source'
 import { ApiError } from '../../../lib/api-client'
-import { routeScopeKey } from '../../../lib/workflows/route-scope'
+import { ApiClientProvider } from '../../../contexts/api-client-context'
+import type { ItemApiScope } from '../../../lib/workflows/route-scope'
 import { useOrgStore } from '../../../stores/org-store'
 import type { ItemDetailPage } from '../../navigation/dashboard-page'
 import { ItemPage } from '../item-page'
@@ -87,44 +88,45 @@ function settled(extra: Record<string, unknown>) {
   }
 }
 
+/** The ids the item route hands down; null until a test enters the scope. */
+let urlScope: ItemApiScope | null = null
+
 function enterScope() {
-  useOrgStore.setState({
-    appReady: true,
-    routeScope: {
-      key: routeScopeKey(SLUGS),
-      organizationId: 'org_1',
-      projectId: 'prj_2',
-      workspaceId: 'ws_sales',
-    },
-  })
+  urlScope = { organizationId: 'org_1', projectId: 'prj_2', workspaceId: 'ws_sales' }
 }
 
 function renderPage(page: ItemDetailPage = 'overview', source: DataSource = 'api') {
   return render(
     <QueryClientProvider client={new QueryClient()}>
       <DataSourceProvider source={source}>
-        <EditorScopeProvider value={SLUGS}>
-          <ItemPage slugs={SLUGS} workflowId="wf_1" page={page}>
-            {({ workflow }) => <p>body of {workflow.name}</p>}
-          </ItemPage>
-        </EditorScopeProvider>
+        <ApiClientProvider scope={urlScope}>
+          <EditorScopeProvider value={SLUGS}>
+            <ItemPage slugs={SLUGS} workflowId="wf_1" page={page}>
+              {({ workflow }) => <p>body of {workflow.name}</p>}
+            </ItemPage>
+          </EditorScopeProvider>
+        </ApiClientProvider>
       </DataSourceProvider>
     </QueryClientProvider>,
   )
 }
 
+beforeEach(() => {
+  useOrgStore.setState({ appReady: true })
+})
+
 afterEach(() => {
+  useOrgStore.getState().clear()
   overview.canEdit = true
   overview.deploys = 2
   overview.runsEver = 128
-  useOrgStore.getState().clear()
+  urlScope = null
   overview.readyAsked.length = 0
 })
 
 describe('ItemPage', () => {
-  it('reads nothing until API calls follow the URL’s project', () => {
+  it('reads nothing while the URL names no project to call', () => {
     settled({ isLoading: true })
-    useOrgStore.setState({ appReady: true, routeScope: null })
     renderPage()
     expect(screen.getByRole('status')).toHaveTextContent('Loading')
     expect(overview.readyAsked.every((ready) => !ready)).toBe(true)
@@ -134,6 +136,7 @@ describe('ItemPage', () => {
     enterScope()
     settled({ workflow: { id: 'wf_1', name: 'Lead enrichment', kind: 'workflow' } })
     renderPage('runs')
+    expect(overview.readyAsked.at(-1)).toBe(true)
     expect(screen.getByRole('heading', { name: 'Lead enrichment' })).toBeVisible()
     expect(screen.getByText('actions')).toBeVisible()
     expect(screen.getByText('body of Lead enrichment')).toBeVisible()

@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { WorkflowNode, Edge as IREdge } from '@awaitstep/ir'
-import { api, type RunSummary } from '../../lib/api-client'
+import { type RunSummary } from '../../lib/api-client'
 import { computeStepStatuses } from '../../lib/compute-step-statuses'
 import { isTerminalRunStatus, mapRunStepsToNodeStatuses } from '../../lib/run-steps'
 import { RunCanvasPreview } from './run-canvas-preview'
 import { RunTimeline } from './run-timeline'
 import { useRunStream } from '../../hooks/use-run-stream'
+import { useApi } from '../../contexts/api-client-context'
 
 const EMPTY_STEPS = { data: [], coalescedInto: {} }
 
@@ -22,6 +23,7 @@ interface RunTelemetryProps {
  * the overlay meaningful.
  */
 export function RunTelemetry({ workflowId, run }: RunTelemetryProps) {
+  const api = useApi()
   const queryClient = useQueryClient()
   const isActive = !isTerminalRunStatus(run.status)
   useRunStream({ workflowId, runId: run.id, enabled: isActive })

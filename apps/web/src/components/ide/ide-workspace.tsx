@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useBlocker } from '@tanstack/react-router'
 import { actionToast } from '../../lib/action-toast'
 import { createDraftUndo } from '../../lib/ide/draft-undo'
-import { queries } from '../../lib/queries'
+import { useQueries } from '../../contexts/api-client-context'
 import { useMinWidth } from '../../hooks/use-min-width'
 import { useProjectFiles } from '../../hooks/use-project-files'
 import { useSearchActions } from '../../hooks/use-search-actions'
@@ -50,6 +50,7 @@ export function IdeWorkspace({ workflowId, versionParam, fileParam }: IdeWorkspa
  * `useWorkspaceLifecycle`.
  */
 function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
+  const queries = useQueries()
   const data = useWorkspaceData(workflowId, versionParam)
   const { fullQuery, sourceQuery, fullData, source, baseline, files, dirty } = data
   const activePath = useIdeStore((s) => s.activePath)

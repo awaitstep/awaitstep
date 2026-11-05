@@ -8,8 +8,12 @@ import {
 } from '../../__tests__/fixtures/workspace-queries'
 import { useIdeStore } from '../../stores/ide-store'
 import { useWorkspaceData } from '../use-workspace-data'
+import type * as ApiClientContext from '../../contexts/api-client-context'
 
-vi.mock('../../stores/org-store', () => ({ useOrgReady: () => true }))
+vi.mock('../../contexts/api-client-context', async (original) => ({
+  ...(await original<typeof ApiClientContext>()),
+  useApiReady: () => true,
+}))
 vi.mock('../use-workspace-problems', () => ({ useWorkspaceProblems: () => [] }))
 
 function setup(versionParam?: string, options: Parameters<typeof seedWorkspaceQueries>[1] = {}) {

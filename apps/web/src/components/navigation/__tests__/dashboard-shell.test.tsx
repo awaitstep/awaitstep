@@ -5,7 +5,7 @@ import type { ScopeLookup, ScopeSlugs } from '../../../types/dashboard/scope'
 import { DataSourceProvider, type DataSource } from '../../../data/dashboard/source'
 import type { DashboardPage } from '../dashboard-page'
 import { DashboardShell } from '../dashboard-shell'
-import { useOrgStore } from '../../../stores/org-store'
+import type * as ReactQuery from '@tanstack/react-query'
 
 interface ScopeQuery {
   data?: ScopeLookup
@@ -38,9 +38,11 @@ vi.mock('@tanstack/react-router', () => ({
   useSearch: () => state.search,
 }))
 
-vi.mock('../../workflow-detail/use-scoped-workflow', () => ({
-  useScopedWorkflow: (_slugs: unknown, _id: string, enabled: boolean) => {
-    state.workflowAsked.push(enabled)
+// The frame's one query: the item it names.
+vi.mock('@tanstack/react-query', async (actual) => ({
+  ...(await actual<typeof ReactQuery>()),
+  useQuery: ({ enabled }: { enabled?: boolean }) => {
+    state.workflowAsked.push(!!enabled)
     return { data: enabled ? state.workflow : undefined }
   },
 }))
@@ -121,12 +123,12 @@ function found(level: 'org' | 'project' | 'workspace'): ScopeLookup {
     viewerCan: {},
   }
   const project = {
-    project: { slug: 'project-101', name: 'Project 101', initial: 'P' },
+    project: { id: 'p', slug: 'project-101', name: 'Project 101', initial: 'P' },
     viewerRole: 'admin',
     viewerCan: {},
   }
   const workspace = {
-    workspace: { slug: 'sales', name: 'Sales', initial: 'S', colour: 'green' },
+    workspace: { id: 'ws_sales', slug: 'sales', name: 'Sales', initial: 'S', colour: 'green' },
     viewerRole: 'admin',
     viewerCan: { edit: ALLOWED },
   }
@@ -251,14 +253,6 @@ describe('DashboardShell', () => {
     })
 
     it('doesn’t name a workflow from another workspace in this one’s frame', () => {
-      useOrgStore.setState({
-        routeScope: {
-          key: 'acme/project-101/sales',
-          organizationId: 'o',
-          projectId: 'p',
-          workspaceId: 'ws_sales',
-        },
-      })
       state.params = itemParams
       state.page = { kind: 'item', page: 'overview' }
       state.workflow = { name: 'Ops job', kind: 'workflow', workspaceId: 'ws_ops' }
@@ -267,7 +261,6 @@ describe('DashboardShell', () => {
       const crumbs = screen.getByRole('navigation', { name: 'Breadcrumb' })
       expect(within(crumbs).queryByText('Ops job')).not.toBeInTheDocument()
       expect(within(crumbs).getByRole('link', { name: 'wf_1' })).toBeVisible()
-      useOrgStore.getState().clear()
     })
 
     it('reads no workflow on sample data or on other pages', () => {

@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useShallow } from 'zustand/react/shallow'
 import { useElementWidth } from '../../hooks/use-element-width'
-import { api, ApiError } from '../../lib/api-client'
+import { ApiError } from '../../lib/api-client'
 import { focusEditorSoon } from '../../lib/ide/editor-focus'
 import { effectiveSideBySide } from '../../lib/ide/review'
 import { formatClock } from '../../lib/ide/session-log'
@@ -13,6 +13,7 @@ import { Button } from '../ui/button'
 import { DiffPane } from './diff-pane'
 import { DiffToolbar, HeaderButton, SideCaptions, ViewToggle } from './diff-parts'
 import type { ReviewBindings } from './review-bindings'
+import { useApi } from '../../contexts/api-client-context'
 
 /**
  * Compare: the server's copy of a file (left, read-only) beside yours
@@ -20,6 +21,7 @@ import type { ReviewBindings } from './review-bindings'
  * hash Overwrite is conditional on come from the same response.
  */
 export function CompareView({ path, bindings }: { path: string; bindings: ReviewBindings }) {
+  const api = useApi()
   const { workflowId, baseline } = bindings
   const { draft, conflict, inline, closeFile, setReviewInline } = useIdeStore(
     useShallow((s) => ({

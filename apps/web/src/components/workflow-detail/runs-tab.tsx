@@ -5,7 +5,7 @@ import { Play } from 'lucide-react'
 import type { RunSummary, VersionSummary, WorkflowSummary } from '../../lib/api-client'
 import { CardEmpty } from './parts/card-empty'
 import { DeployFor } from './deploy-for'
-import { flatPages, queries } from '../../lib/queries'
+import { flatPages } from '../../lib/queries'
 import { timeAgo } from '../../lib/time'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { RouterShellLink } from '../navigation/router-shell-link'
@@ -15,6 +15,7 @@ import { LoadMoreButton } from '../ui/load-more-button'
 import { ListCardSkeleton, LoadingRegion } from '../ui/skeletons'
 import { StatusPill } from '../ui/status-pill'
 import { runDurationMs, runResult } from './run-result'
+import { useQueries } from '../../contexts/api-client-context'
 
 interface RunsTabProps {
   workflow: WorkflowSummary
@@ -27,6 +28,7 @@ interface RunsTabProps {
 
 /** A workflow's Runs tab (`WorkflowDetail`): Result · Run · Version · Took · Started, newest first. */
 export function RunsTab({ workflow, versions, neverDeployed, runs24h }: RunsTabProps) {
+  const queries = useQueries()
   const workflowId = workflow.id
   const links = useWorkflowLinks(workflowId)
   const query = useInfiniteQuery(queries.runs.byWorkflow(workflowId))

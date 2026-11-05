@@ -12,9 +12,8 @@ import { Select } from '../ui/select'
 import { Textarea } from '../ui/textarea'
 import { Tile } from '../ui/tile'
 import { runAction, failureLine } from '../../lib/action-toast'
-import { api } from '../../lib/api-client'
-import { queries } from '../../lib/queries'
 import { copyToClipboard } from '../../lib/utils'
+import { useApi, useQueries } from '../../contexts/api-client-context'
 
 interface WorkflowOption {
   id: string
@@ -38,6 +37,8 @@ export function TriggerDialog({
   workflows,
   deployedVersion,
 }: TriggerDialogProps) {
+  const api = useApi()
+  const queries = useQueries()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const goTo = useGoTo()
@@ -108,7 +109,17 @@ export function TriggerDialog({
     } finally {
       setTriggering(false)
     }
-  }, [connectionId, paramsJson, selectedWorkflowId, queryClient, onClose, navigate, goTo, scope])
+  }, [
+    api,
+    connectionId,
+    paramsJson,
+    selectedWorkflowId,
+    queryClient,
+    onClose,
+    navigate,
+    goTo,
+    scope,
+  ])
 
   const handleCopyCurl = useCallback(() => {
     if (!deploymentId) return
