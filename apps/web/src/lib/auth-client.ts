@@ -5,6 +5,8 @@ import { actionToast, failureLine } from './action-toast'
 import { signInPath } from './auth-redirect'
 import { browserDraftStorage, clearAllDrafts, suspendDraftWrites } from './ide/draft-persistence'
 import { useAuthStore } from '../stores/auth-store'
+import { announceSignOut } from './auth-signal'
+import { forgetRememberedInputs } from '../stores/remembered-inputs'
 
 export const authClient = createAuthClient({
   baseURL: '',
@@ -28,6 +30,9 @@ export async function handleSignOut(returnTo?: string) {
   // Edits this browser kept for the code workspace must not outlive the session.
   suspendDraftWrites()
   await clearAllDrafts(browserDraftStorage).catch(() => undefined)
+  // Trigger payloads and Quick test arguments can hold tokens.
+  forgetRememberedInputs()
+  announceSignOut()
   actionToast.successAfterReload('Signed out')
   useAuthStore.getState().clear()
   const { useOrgStore } = await import('../stores/org-store')

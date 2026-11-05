@@ -1,5 +1,11 @@
+// @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest'
-import { quickTestKey, quickTestView, useQuickTestStore } from '../quick-test-store'
+import {
+  MAX_REMEMBERED_STEPS,
+  quickTestKey,
+  quickTestView,
+  useQuickTestStore,
+} from '../quick-test-store'
 import type { QuickTestResult } from '../../lib/ide/quick-test-runner'
 
 const RESULT: QuickTestResult = {
@@ -12,6 +18,8 @@ const RESULT: QuickTestResult = {
 
 beforeEach(() => {
   useQuickTestStore.getState().reset()
+  useQuickTestStore.setState({ remembered: {}, argTab: 'inputs' })
+  localStorage.clear()
 })
 
 describe('quickTestKey', () => {
@@ -127,7 +135,14 @@ describe('useQuickTestStore', () => {
       useQuickTestStore.getState().views,
       quickTestKey('wf-1', 'nodes/a.ts'),
     )
-    expect(view).toEqual({ inputs: null, env: null, event: null, result: null, running: false })
+    expect(view).toEqual({
+      inputs: null,
+      env: null,
+      event: null,
+      result: null,
+      running: false,
+      invalid: null,
+    })
   })
 
   it('treats a missing key as empty', () => {
@@ -146,5 +161,85 @@ describe('useQuickTestStore', () => {
 
     expect(useQuickTestStore.getState().views).toEqual({})
     expect(quickTestView(useQuickTestStore.getState().views, key).running).toBe(false)
+  })
+})
+
+describe('remembered arguments', () => {
+  const key = quickTestKey('wf-1', 'nodes/step_1.ts')
+  const stored = () =>
+    JSON.parse(localStorage.getItem('awaitstep-quick-test') ?? '{}') as {
+      state: { remembered: Record<string, Record<string, string>> }
+    }
+
+  it('remembers inputs and event per workflow and step', () => {
+    const store = useQuickTestStore.getState()
+    store.setField(key, 'inputs', '{"a":1}')
+    store.setField(key, 'event', '{"payload":{"x":1}}')
+    expect(useQuickTestStore.getState().remembered[key]).toEqual({
+      inputs: '{"a":1}',
+      event: '{"payload":{"x":1}}',
+    })
+    expect(
+      useQuickTestStore.getState().remembered[quickTestKey('wf-2', 'nodes/step_1.ts')],
+    ).toBeUndefined()
+  })
+
+  it('never remembers env: secrets are typed there', () => {
+    useQuickTestStore.getState().setField(key, 'env', '{"API_KEY":"sk-live-123"}')
+    expect(useQuickTestStore.getState().remembered[key]).toBeUndefined()
+    expect(localStorage.getItem('awaitstep-quick-test') ?? '').not.toContain('sk-live-123')
+    // Still held in memory for the run.
+    expect(quickTestView(useQuickTestStore.getState().views, key).env).toBe(
+      '{"API_KEY":"sk-live-123"}',
+    )
+  })
+
+  it('writes only the remembered arguments to storage, not results or env', () => {
+    const store = useQuickTestStore.getState()
+    store.setField(key, 'inputs', '{"a":1}')
+    store.setField(key, 'env', '{"TOKEN":"abc"}')
+    const run = store.beginRun(key)
+    store.settleRun(key, run, RESULT)
+    const saved = stored()
+    // owner and savedAt are the retention envelope, not remembered text.
+    expect(Object.keys(saved.state).sort()).toEqual(['owner', 'remembered', 'savedAt'])
+    expect(JSON.stringify(saved)).not.toContain('abc')
+    expect(JSON.stringify(saved)).not.toContain('"42"')
+  })
+
+  it('survives reset(): leaving a workspace is not forgetting', () => {
+    useQuickTestStore.getState().setField(key, 'inputs', '{"a":1}')
+    useQuickTestStore.getState().reset()
+    expect(useQuickTestStore.getState().remembered[key]?.inputs).toBe('{"a":1}')
+    expect(quickTestView(useQuickTestStore.getState().views, key).inputs).toBeNull()
+  })
+
+  it('resetField drops the field back to its seed and forgets it', () => {
+    const store = useQuickTestStore.getState()
+    store.setField(key, 'inputs', '{"a":1}')
+    store.setField(key, 'event', '{}')
+    store.resetField(key, 'inputs')
+    expect(quickTestView(useQuickTestStore.getState().views, key).inputs).toBeNull()
+    expect(useQuickTestStore.getState().remembered[key]).toEqual({ event: '{}' })
+    store.resetField(key, 'event')
+    expect(useQuickTestStore.getState().remembered[key]).toBeUndefined()
+  })
+
+  it('editing a field clears its "not valid JSON" mark', () => {
+    const store = useQuickTestStore.getState()
+    store.setInvalid(key, 'event')
+    expect(quickTestView(useQuickTestStore.getState().views, key).invalid).toBe('event')
+    store.setField(key, 'event', '{}')
+    expect(quickTestView(useQuickTestStore.getState().views, key).invalid).toBeNull()
+  })
+
+  it('caps how many steps are remembered, dropping the least recently edited', () => {
+    const store = useQuickTestStore.getState()
+    for (let i = 0; i < MAX_REMEMBERED_STEPS + 5; i++) {
+      store.setField(quickTestKey('wf', `nodes/s${i}.ts`), 'inputs', '{}')
+    }
+    const keys = Object.keys(useQuickTestStore.getState().remembered)
+    expect(keys).toHaveLength(MAX_REMEMBERED_STEPS)
+    expect(keys).not.toContain(quickTestKey('wf', 'nodes/s0.ts'))
   })
 })
