@@ -3,6 +3,7 @@ import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
 import type { StartedTestSessionHandle, TestSessionRunner } from '@awaitstep/codegen'
 import type { TestSession } from '@awaitstep/db'
+import type { FileManifest } from '@awaitstep/ir'
 import type { AppEnv } from '../types.js'
 import { zValidator } from '../lib/validation.js'
 import { testSessionCutoffs, type TestSessionLimits } from '../lib/test-session-policy.js'
@@ -47,6 +48,16 @@ export const workflowTestSessions = new Hono<AppEnv>()
 /** Routes addressed by session id. Mounted once, at the router root. */
 export const testSessions = new Hono<AppEnv>()
 
+/** The stored manifest, or null for a session that predates it (or holds bad JSON). */
+function parseManifest(stored: string | null): FileManifest | null {
+  if (!stored) return null
+  try {
+    return JSON.parse(stored) as FileManifest
+  } catch {
+    return null
+  }
+}
+
 /**
  * What a session looks like to a client: never the container id or the
  * process, which are ours to act on and meaningless to anyone else.
@@ -61,6 +72,7 @@ function serialize(session: TestSession) {
     error: session.error,
     createdAt: session.createdAt,
     lastUsedAt: session.lastUsedAt,
+    files: parseManifest(session.files),
   }
 }
 

@@ -5,6 +5,7 @@ import {
   type TestSessionHandle,
   type TestSessionRunner,
 } from '@awaitstep/codegen'
+import { buildFileManifest } from '@awaitstep/ir'
 import { splitEnvVars } from '@awaitstep/provider-cloudflare'
 import type { AppNodeRegistry } from './node-registry.js'
 import { prepareWorkflow, isPrepareError } from './workflow-prepare.js'
@@ -167,6 +168,7 @@ export async function startTestSession(
       userId,
       runtime: runner.runtime,
       containerId: runner.containerId(id),
+      files: buildFileManifest(prepared.projectFileRows),
     },
     {
       cutoffs: testSessionCutoffs(limits),

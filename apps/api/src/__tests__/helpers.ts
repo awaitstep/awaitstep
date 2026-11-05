@@ -1270,6 +1270,7 @@ const mockDb: DatabaseAdapter = {
       createdAt: now(),
       lastUsedAt: now(),
       stoppedAt: null,
+      files: data.files ? JSON.stringify(data.files) : null,
     }
     store.testSessions.set(session.id, session)
     return session
