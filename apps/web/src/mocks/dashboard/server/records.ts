@@ -91,7 +91,21 @@ export function visibleWorkspaces(
   )
 }
 
-export function workspaceRecord(db: MockDb, project: ProjectRow, row: WorkspaceRow): Workspace {
+// The edit right depends on the role alone; these facts only gate delete and lock.
+const NO_FACTS = {
+  ownLock: false,
+  lockedByProject: null,
+  isLastWorkspace: false,
+  sharedInUse: false,
+}
+
+export function workspaceRecord(
+  db: MockDb,
+  ctx: MockContext,
+  project: ProjectRow,
+  row: WorkspaceRow,
+): Workspace {
+  const role = workspaceRoleOf(db, ctx, project, row)
   return {
     id: row.id,
     projectId: row.projectId,
@@ -105,6 +119,7 @@ export function workspaceRecord(db: MockDb, project: ProjectRow, row: WorkspaceR
     createdBy: { id: row.createdBy, name: personById(db, row.createdBy).name },
     lock: workspaceLock(db, project, row),
     counts: workspaceCounts(db, row),
+    viewerCanEdit: role !== null && workspaceCapabilities(role, NO_FACTS).edit.allowed,
   }
 }
 
@@ -214,7 +229,10 @@ export function workspaceScope(
   const viewerRole = workspaceRoleOf(db, ctx, project, row)
   if (!viewerRole) throw notFoundError()
   return {
-    workspace: { ...workspaceRecord(db, project, row), runsByHour: workspaceRunsByHour(db, row) },
+    workspace: {
+      ...workspaceRecord(db, ctx, project, row),
+      runsByHour: workspaceRunsByHour(db, row),
+    },
     viewerRole,
     viewerCan: workspaceCapabilities(viewerRole, {
       ownLock: row.lock !== null,

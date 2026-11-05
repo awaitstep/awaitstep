@@ -57,7 +57,7 @@ export const createProject = mutation(
     db.projectMembers.push({ projectId: project.id, userId: ctx.userId, role: 'admin' })
     return {
       project: projectRecord(db, ctx, project),
-      workspace: workspaceRecord(db, project, workspace),
+      workspace: workspaceRecord(db, ctx, project, workspace),
     }
   },
 )

@@ -168,6 +168,10 @@ describe('toProject / toWorkspace', () => {
     expect(w.lock).toEqual({ own: null, inherited: workspace.inheritedLock })
     expect(w.counts).toEqual(workspace.counts)
     expect(w.createdBy).toEqual({ id: 'u-1', name: 'Ama Mensah' })
+    expect(w.viewerCanEdit).toBe(true)
+    expect(
+      toWorkspace({ ...workspace, viewerCan: { ...workspace.viewerCan, edit: no } }).viewerCanEdit,
+    ).toBe(false)
   })
 })
 

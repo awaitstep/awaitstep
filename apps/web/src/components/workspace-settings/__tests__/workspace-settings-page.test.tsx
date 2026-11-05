@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
+  LENA,
   PRIYA,
   dashboardDb,
   renderWithDashboardData,
@@ -154,6 +155,20 @@ describe('workspace settings › General', () => {
       ['Inbound webhook triage', 'Weekly pipeline report'].includes(i.name),
     )
     expect(moved.every((i) => i.workspaceId === 'ws_support')).toBe(true)
+  })
+
+  it('offers no workspace the admin can only view to move into', async () => {
+    // Lena runs IT, and is only a Viewer in Sales: nowhere she can build.
+    const db = dashboardDb()
+    const salesId = db.workspaces.find((w) => w.slug === 'sales')!.id
+    db.workspaceMembers.push({ workspaceId: salesId, userId: LENA, role: 'viewer' })
+    await renderPage({ slugs: { ...sales, workspace: 'it' }, userId: LENA })
+    await userEvent.click(screen.getByRole('button', { name: 'Move workflows' }))
+    const dialog = screen.getByRole('dialog', { name: 'Move workflows out of IT' })
+    expect(
+      await within(dialog).findByText(/There’s no other workspace in .+ you can edit\./),
+    ).toBeVisible()
+    expect(within(dialog).queryByRole('combobox')).toBeNull()
   })
 
   it('is read-only for a Viewer', async () => {
