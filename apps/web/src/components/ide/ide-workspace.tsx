@@ -24,6 +24,7 @@ import { queries } from '../../lib/queries'
 import { surfaceSwitchTarget } from '../../lib/workflows/surfaces'
 import { copyToClipboard } from '../../lib/utils'
 import { useDraftPersistence } from '../../hooks/use-draft-persistence'
+import { runShortcut } from '../../lib/ide/key-ownership'
 import { useIdeShortcuts } from '../../hooks/use-ide-shortcuts'
 import { useMinWidth } from '../../hooks/use-min-width'
 import { useProjectFiles } from '../../hooks/use-project-files'
@@ -488,7 +489,8 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
           nextTab: () => cycleFile(1),
           prevTab: () => cycleFile(-1),
           closeTab: actions.closeActiveFile,
-          run: actions.run,
+          // ⌥⏎ is Run, unless typed into a field of its own or Monaco's find widget.
+          run: runShortcut(actions.run),
           findInFiles: actions.findInFiles,
           nextSearchHit: searchActions.nextSearchHitKey,
           prevSearchHit: searchActions.prevSearchHitKey,

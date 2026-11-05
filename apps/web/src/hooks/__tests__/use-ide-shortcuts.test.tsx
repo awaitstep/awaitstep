@@ -132,3 +132,13 @@ describe('useIdeShortcuts throwing handlers', () => {
     expect(event.defaultPrevented).toBe(true)
   })
 })
+
+describe('useIdeShortcuts declining Run', () => {
+  it('leaves Alt+Enter to the page when the Run handler declines', () => {
+    const run = vi.fn<() => void | false>(() => false)
+    renderHook(() => useIdeShortcuts({ run }))
+    const event = press(document.body, { key: 'Enter', code: 'Enter', altKey: true })
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(event.defaultPrevented).toBe(false)
+  })
+})

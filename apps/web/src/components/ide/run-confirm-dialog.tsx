@@ -14,6 +14,7 @@ export function RunConfirmDialog({ confirm }: { confirm: RunConfirm }) {
       secondaryLabel={confirm.secondaryLabel}
       onSecondary={confirm.onSecondary}
       onConfirm={confirm.onConfirm}
+      onCloseAutoFocus={confirm.onCloseAutoFocus}
     />
   )
 }

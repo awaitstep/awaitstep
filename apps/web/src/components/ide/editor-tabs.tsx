@@ -66,7 +66,7 @@ export function EditorTabs({ files, dirty, onRevertFile }: EditorTabsProps) {
     <div
       role="tablist"
       onKeyDown={handleTabListKeyDown}
-      className="flex h-9 shrink-0 items-stretch overflow-x-auto border-b border-border bg-card [scrollbar-width:thin]"
+      className="flex h-9 shrink-0 items-stretch overflow-x-auto bg-card [scrollbar-width:thin]"
     >
       {openPaths.map((path) => (
         <EditorTab
