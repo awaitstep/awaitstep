@@ -3,6 +3,7 @@ import { ApiError } from './api-client'
 import { magicLinkClient, organizationClient } from 'better-auth/client/plugins'
 import { actionToast, failureLine } from './action-toast'
 import { signInPath } from './auth-redirect'
+import { browserDraftStorage, clearAllDrafts, suspendDraftWrites } from './ide/draft-persistence'
 import { useAuthStore } from '../stores/auth-store'
 
 export const authClient = createAuthClient({
@@ -24,6 +25,9 @@ export async function handleSignOut(returnTo?: string) {
     actionToast.error(failureLine(refusal, 'Couldn’t sign you out'))
     return
   }
+  // Edits this browser kept for the code workspace must not outlive the session.
+  suspendDraftWrites()
+  await clearAllDrafts(browserDraftStorage).catch(() => undefined)
   actionToast.successAfterReload('Signed out')
   useAuthStore.getState().clear()
   const { useOrgStore } = await import('../stores/org-store')
