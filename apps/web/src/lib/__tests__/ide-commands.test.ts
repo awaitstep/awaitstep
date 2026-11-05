@@ -7,6 +7,8 @@ function actions(): IdeCommandActions {
     saveAll: vi.fn(),
     discardChanges: vi.fn(),
     revertFile: vi.fn(),
+    reviewChanges: vi.fn(),
+    compareFile: vi.fn(),
     newFile: vi.fn(),
     renameFile: vi.fn(),
     deleteFile: vi.fn(),
@@ -38,6 +40,7 @@ function context(overrides: Partial<IdeCommandContext> = {}): IdeCommandContext 
     activeIsStoredFile: true,
     activeIsHandlersFile: false,
     activeDirty: true,
+    activeMovedOnServer: false,
     dirtyCount: 1,
     openCount: 2,
     canEdit: true,
@@ -63,6 +66,22 @@ describe('buildIdeCommands', () => {
     const ids = buildIdeCommands(context()).map((c) => c.id)
     expect(new Set(ids).size).toBe(ids.length)
     expect(ids).toContain('navigate.quickOpen')
+  })
+
+  it('offers Review Unsaved Changes only while something is unsaved and editable', () => {
+    expect(enabledById(context())['file.review']).toBe(true)
+    expect(enabledById(context({ dirtyCount: 0 }))['file.review']).toBe(false)
+    expect(enabledById(context({ canEdit: false }))['file.review']).toBe(false)
+    const review = buildIdeCommands(context()).find((c) => c.id === 'file.review')
+    expect(review?.label).toBe('Review Unsaved Changes')
+  })
+
+  it('offers Compare with the server only for a file the server has moved on from', () => {
+    expect(enabledById(context())['file.compare']).toBe(false)
+    expect(enabledById(context({ activeMovedOnServer: true }))['file.compare']).toBe(true)
+    expect(
+      enabledById(context({ activeMovedOnServer: true, canEdit: false }))['file.compare'],
+    ).toBe(false)
   })
 
   it('gates saving on an editable workspace and unsaved changes', () => {

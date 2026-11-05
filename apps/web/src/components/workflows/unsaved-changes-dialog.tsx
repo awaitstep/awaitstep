@@ -1,3 +1,5 @@
+import { useRef } from 'react'
+import { focusEditorSoon } from '../../lib/ide/editor-focus'
 import { ConfirmDialog } from '../ui/confirm-dialog'
 import { unsavedDialogCopy, type WorkspaceSurface } from '../../lib/workflows/surfaces'
 
@@ -16,6 +18,11 @@ interface UnsavedChangesDialogProps {
   onSaveAndGo: () => void
   /** Go without saving, which discards the unsaved work. */
   onDiscardAndGo: () => void
+  /**
+   * Look at the unsaved changes first. Offered only where there is a place to
+   * look; it is expected to cancel the navigation and open the review.
+   */
+  onReview?: () => void
 }
 
 /**
@@ -36,7 +43,9 @@ export function UnsavedChangesDialog({
   onCancel,
   onSaveAndGo,
   onDiscardAndGo,
+  onReview,
 }: UnsavedChangesDialogProps) {
+  const reviewing = useRef(false)
   const copy = unsavedDialogCopy({ to: switchTarget, unsaved, canSave })
   // Saving is the primary action wherever it is on offer, so Confirm means
   // "save and go" there and "go anyway" everywhere else.
@@ -45,6 +54,20 @@ export function UnsavedChangesDialog({
 
   function handleOpenChange(next: boolean) {
     if (!next) onCancel()
+  }
+
+  function handleReview() {
+    reviewing.current = true
+    onReview?.()
+  }
+
+  // Radix would return focus to whatever opened the dialog; the person asked
+  // to look at the changes, so the keyboard goes to the review instead.
+  function handleCloseAutoFocus(event: Event) {
+    if (!reviewing.current) return
+    reviewing.current = false
+    event.preventDefault()
+    focusEditorSoon()
   }
 
   return (
@@ -60,6 +83,11 @@ export function UnsavedChangesDialog({
       {...(offersSave && {
         secondaryLabel: copy.secondaryLabel,
         onSecondary: onDiscardAndGo,
+      })}
+      {...(onReview && {
+        leadingLabel: 'Review…',
+        onLeading: handleReview,
+        onCloseAutoFocus: handleCloseAutoFocus,
       })}
     />
   )

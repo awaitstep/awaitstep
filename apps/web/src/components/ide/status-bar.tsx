@@ -1,18 +1,8 @@
 import { Lock } from 'lucide-react'
-import { IDE_SHORTCUTS, formatShortcut } from '../../lib/ide/shortcuts'
 import { fileLanguage } from '../../lib/ide/file-tree'
 import { unsavedLabel, type SessionStatus, type StatusTone } from '../../lib/ide/status-bar'
-import { isMacPlatform } from '../../lib/platform'
 import { cn } from '../../lib/utils'
 import { useIdeStore } from '../../stores/ide-store'
-import { basename } from '../../lib/ide/file-tree'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu'
 
 const DOT: Record<StatusTone, string> = {
   idle: 'bg-muted-foreground',
@@ -37,9 +27,8 @@ interface StatusBarProps {
   onOpenLatest: () => void
   onShowSession: () => void
   onShowProblems: () => void
-  onOpenFile: (path: string) => void
-  onSaveAll: () => void
-  onDiscard: () => void
+  /** Opens the Unsaved changes tab. */
+  onReview: () => void
 }
 
 /** The line under the workspace: where you are, what is unsaved, what the session runs. */
@@ -56,13 +45,15 @@ export function StatusBar({
   onOpenLatest,
   onShowSession,
   onShowProblems,
-  onOpenFile,
-  onSaveAll,
-  onDiscard,
+  onReview,
 }: StatusBarProps) {
   const cursor = useIdeStore((s) => s.cursor)
-  const isMac = isMacPlatform()
   const unsavedText = unsavedLabel(unsaved.length)
+
+  // Not `onClick={onReview}`: the click event would arrive as the path to review.
+  function handleReview() {
+    onReview()
+  }
 
   function handleGoToLine() {
     useIdeStore.getState().editorHandle?.trigger('editor.action.gotoLine')
@@ -103,34 +94,14 @@ export function StatusBar({
         </span>
       )}
       {unsavedText && canEdit && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              title="Show the unsaved files"
-              className="inline-flex h-5 items-center rounded bg-status-warning/10 px-2 text-status-warning transition-colors hover:bg-status-warning/20"
-            >
-              {unsavedText}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" side="top" className="min-w-[260px]">
-            <div className="px-2.5 py-1 text-[11px] text-muted-foreground">Unsaved files</div>
-            <DropdownMenuSeparator />
-            {unsaved.map((path) => (
-              <UnsavedRow key={path} path={path} onOpenFile={onOpenFile} />
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={onSaveAll} className="text-xs">
-              Save all
-              <span className="ml-auto pl-4 font-mono text-[11px] text-muted-foreground">
-                {formatShortcut(IDE_SHORTCUTS.saveAll, isMac)}
-              </span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={onDiscard} className="text-xs">
-              Discard all changes
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <button
+          type="button"
+          onClick={handleReview}
+          title="Review the unsaved changes"
+          className="inline-flex h-5 items-center rounded bg-status-warning/10 px-2 text-status-warning transition-colors hover:bg-status-warning/20"
+        >
+          {unsavedText}
+        </button>
       )}
       {activePath && (
         <>
@@ -148,20 +119,6 @@ export function StatusBar({
         </>
       )}
     </div>
-  )
-}
-
-function UnsavedRow({ path, onOpenFile }: { path: string; onOpenFile: (path: string) => void }) {
-  function handleSelect() {
-    onOpenFile(path)
-  }
-  const folder = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : ''
-  return (
-    <DropdownMenuItem onSelect={handleSelect} className="text-xs">
-      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-status-warning" />
-      {basename(path)}
-      {folder && <span className="truncate text-[11px] text-muted-foreground">{folder}</span>}
-    </DropdownMenuItem>
   )
 }
 

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { X } from 'lucide-react'
+import { GitCompareArrows, X } from 'lucide-react'
 import type { GeneratedFile } from '@awaitstep/codegen'
 import { useShallow } from 'zustand/react/shallow'
 import { actionToast } from '../../lib/action-toast'
@@ -15,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
-import { nextTabIndex } from '../../lib/ide/tabs'
+import { compareTabPath, nextTabIndex, tabKind, type TabKind } from '../../lib/ide/tabs'
 import { FileIcon } from './file-icon'
 
 interface EditorTabsProps {
@@ -73,6 +73,7 @@ export function EditorTabs({ files, dirty, onRevertFile }: EditorTabsProps) {
           key={path}
           path={path}
           role={files.get(path)?.role ?? 'module'}
+          kind={tabKind(path)}
           active={path === activePath}
           dirty={dirty.has(path)}
           onSelect={openFile}
@@ -85,9 +86,17 @@ export function EditorTabs({ files, dirty, onRevertFile }: EditorTabsProps) {
   )
 }
 
+/** What a tab shows as its name: a file's own, or the review and Compare tabs' titles. */
+function tabLabel(path: string, kind: TabKind): string {
+  if (kind === 'review') return 'Unsaved changes'
+  if (kind === 'compare') return `Compare · ${basename(compareTabPath(path) ?? path)}`
+  return basename(path)
+}
+
 function EditorTab({
   path,
   role,
+  kind,
   active,
   dirty,
   onSelect,
@@ -97,6 +106,7 @@ function EditorTab({
 }: {
   path: string
   role: GeneratedFile['role']
+  kind: TabKind
   active: boolean
   dirty: boolean
   onSelect: (path: string) => void
@@ -106,6 +116,8 @@ function EditorTab({
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const tabRef = useRef<HTMLDivElement>(null)
+  const label = tabLabel(path, kind)
+  const isFile = kind === 'file'
   const closeHint = formatShortcut(IDE_SHORTCUTS.closeTab, isMacPlatform())
 
   function handleSelect() {
@@ -170,7 +182,7 @@ function EditorTab({
       role="tab"
       aria-selected={active}
       tabIndex={active ? 0 : -1}
-      title={dirty ? `${path} · unsaved changes` : path}
+      title={dirty ? `${path} · unsaved changes` : isFile ? path : label}
       onClick={handleSelect}
       onAuxClick={handleAuxClick}
       onContextMenu={handleContextMenu}
@@ -182,12 +194,16 @@ function EditorTab({
           : 'bg-card text-muted-foreground hover:bg-muted/40 hover:text-foreground',
       )}
     >
-      <FileIcon role={role} className="h-3 w-3" />
-      <span className={cn('truncate', dirty && 'italic')}>{basename(path)}</span>
+      {isFile ? (
+        <FileIcon role={role} className="h-3 w-3" />
+      ) : (
+        <GitCompareArrows className="h-3 w-3 shrink-0" aria-hidden="true" />
+      )}
+      <span className={cn('truncate', dirty && 'italic')}>{label}</span>
       <button
         type="button"
         tabIndex={-1}
-        aria-label={`Close ${basename(path)}`}
+        aria-label={`Close ${label}`}
         onClick={handleClose}
         className={cn(
           'ml-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-opacity hover:bg-muted/70 hover:text-foreground',
@@ -223,13 +239,17 @@ function EditorTab({
           <DropdownMenuItem onSelect={onCloseAll} className="text-xs">
             Close all
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={handleMenuRevert} disabled={!dirty} className="text-xs">
-            Revert file
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={handleMenuCopyPath} className="text-xs">
-            Copy path
-          </DropdownMenuItem>
+          {isFile && <DropdownMenuSeparator />}
+          {isFile && (
+            <>
+              <DropdownMenuItem onSelect={handleMenuRevert} disabled={!dirty} className="text-xs">
+                Revert file
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={handleMenuCopyPath} className="text-xs">
+                Copy path
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

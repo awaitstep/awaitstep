@@ -23,6 +23,7 @@ import { useIdeExplorerStore } from '../../stores/ide-explorer-store'
 import { useIdeStore } from '../../stores/ide-store'
 import { CreateRow } from './file-explorer-create'
 import { LimitsFooter } from './file-explorer-footer'
+import { UnsavedSection } from './file-explorer-unsaved'
 import { ExplorerHeader } from './file-explorer-header'
 import { ExplorerRow, ProjectEmptyState, ancestorKeys, type RowActions } from './file-explorer-rows'
 
@@ -32,6 +33,10 @@ interface FileExplorerProps {
   project: TreeNode[]
   generated: TreeNode[]
   dirty: ReadonlySet<string>
+  /** The unsaved files in review order, listed above the tree while there are any. */
+  unsavedPaths: string[]
+  /** Opens the Unsaved changes tab, on one file when given. */
+  onReview: (path?: string) => void
   /** Project files surfaced from legacy settings that are not stored yet. */
   virtual: ReadonlySet<string>
   canEdit: boolean
@@ -55,6 +60,8 @@ export function FileExplorer({
   project,
   generated,
   dirty,
+  unsavedPaths,
+  onReview,
   virtual,
   canEdit,
   usage,
@@ -292,6 +299,7 @@ export function FileExplorer({
         onNewFolder={handleNewFolder}
         onNewItem={handleNewItem}
       />
+      {canEdit && <UnsavedSection paths={unsavedPaths} onReview={onReview} />}
       <div
         ref={treeRef}
         role="tree"

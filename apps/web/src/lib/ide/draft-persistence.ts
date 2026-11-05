@@ -108,14 +108,15 @@ export async function clearAllDrafts(storage: DraftStorage): Promise<void> {
 }
 
 export interface RestoredDrafts {
-  /** Stored drafts that still differ from the file as loaded now. */
+  /** Stored drafts that still differ from the file as loaded now (kept copies of deleted files included). */
   drafts: Drafts
-  /** Restored files whose server copy changed (or vanished) since the edit began. */
+  /** Restored files whose server copy changed since the edit began. */
   changedOnServer: string[]
   /**
-   * Stored drafts for files that no longer exist. They are not restored: with
-   * no file there is no tab or text to show, so they would count as unsaved
-   * changes nobody can see, and saving one would quietly re-create the file.
+   * The subset of `drafts` whose file no longer exists on the server. They
+   * come back as kept copies, like a file deleted while the editor was open:
+   * the banner offers Save to recreate and Discard, and a plain save is
+   * refused, so nothing is re-created by accident and nothing is lost.
    */
   deleted: string[]
 }
@@ -124,7 +125,9 @@ export interface RestoredDrafts {
  * Decides what a reload brings back. A draft equal to the loaded file is
  * dropped (it was saved some other way). A draft whose `baseHash` no longer
  * matches is kept and reported: saving it goes through the 409 conflict
- * path, so it is never a silent overwrite.
+ * path, so it is never a silent overwrite. A draft of a file that has since
+ * been deleted is kept too; only one with no base hash (a file that was
+ * never stored and is not in the project now) has nothing to attach to.
  */
 export function mergeRestoredDrafts(
   stored: Drafts,
@@ -136,6 +139,8 @@ export function mergeRestoredDrafts(
   for (const [path, draft] of Object.entries(stored)) {
     const file = baseline.get(path)
     if (!file) {
+      if (draft.baseHash === null) continue
+      drafts[path] = draft
       deleted.push(path)
       continue
     }
