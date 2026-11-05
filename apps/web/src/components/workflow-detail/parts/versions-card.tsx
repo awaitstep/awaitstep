@@ -21,6 +21,8 @@ interface VersionsCardProps {
   hasMore: boolean
   loadingMore: boolean
   onLoadMore: () => void
+  /** Never deployed: "1 so far" rather than "1 version in all" (24f). */
+  draft?: boolean
 }
 
 /** Versions (`WorkflowDetail`): newest first, who saved each, Deploy on the ones not live. */
@@ -33,8 +35,11 @@ export function VersionsCard({
   hasMore,
   loadingMore,
   onLoadMore,
+  draft,
 }: VersionsCardProps) {
-  const caption = hasMore ? 'Newest first' : plural(versions.length, 'version') + ' in all'
+  let caption = `${plural(versions.length, 'version')} in all`
+  if (hasMore) caption = 'Newest first'
+  else if (draft) caption = `${versions.length} so far`
 
   return (
     <OverviewCard title="Versions" caption={caption}>

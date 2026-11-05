@@ -7,6 +7,7 @@ import { TriggerDialog } from '../canvas/trigger-dialog'
 import type { ItemDetailPage } from '../navigation/dashboard-page'
 import { RouterShellLink } from '../navigation/router-shell-link'
 import { DeployButton } from '../overview/deploy-action'
+import { EditableDescription, EditableName } from '../overview/editable-field'
 import { Badge } from '../ui/badge'
 import { Button, buttonVariants } from '../ui/button'
 import { LinkTabs, type LinkTab } from '../ui/link-tabs'
@@ -21,8 +22,12 @@ interface ItemHeaderProps {
   workflow: WorkflowSummary
   overview: WorkflowOverview
   page: ItemDetailPage
-  /** Run counts for the tabs, when known. */
+  /** Run counts for the tabs, when known; none on a draft's tabs. */
   counts?: { runs?: number; deployments?: number }
+  /** Never deployed: the Draft pill (24f, 24g). */
+  neverDeployed: boolean
+  /** The viewer may edit here; else the name and description are plain text. */
+  canEdit: boolean
 }
 
 /**
@@ -30,7 +35,15 @@ interface ItemHeaderProps {
  * its name and state, Open editor · Deploy · Trigger · ⋯, the lock banner,
  * and for a workflow its tabs.
  */
-export function ItemHeader({ slugs, workflow, overview, page, counts }: ItemHeaderProps) {
+export function ItemHeader({
+  slugs,
+  workflow,
+  overview,
+  page,
+  counts,
+  neverDeployed,
+  canEdit,
+}: ItemHeaderProps) {
   const links = useWorkflowLinks(workflow.id)
   const [triggerOpen, setTriggerOpen] = useState(false)
   const isFunction = workflow.kind === 'script'
@@ -64,17 +77,20 @@ export function ItemHeader({ slugs, workflow, overview, page, counts }: ItemHead
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-            <h1 className="truncate text-2xl font-semibold tracking-tight">{workflow.name}</h1>
+            <EditableName
+              workflowId={workflow.id}
+              initialValue={workflow.name}
+              readOnly={!canEdit}
+              className="-ml-2 text-2xl tracking-tight"
+            />
             {isFunction && (
               <Badge variant="info" title={FUNCTION_BADGE_TITLE}>
                 Function
               </Badge>
             )}
-            {live !== undefined ? (
-              <StatusPill status="deployed">Deployed v{live}</StatusPill>
-            ) : (
-              <StatusPill status="draft" />
-            )}
+            {/* Live reads in the band below; only a draft says so up here (24a, 24f). */}
+            {/* A function's board draws no state pill, live or not (24d, 24g). */}
+            {neverDeployed && !isFunction && <StatusPill status="draft" />}
             {isFunction && workflow.sharedBy && (
               <Badge variant="neutral">Shared with the project</Badge>
             )}
@@ -85,9 +101,13 @@ export function ItemHeader({ slugs, workflow, overview, page, counts }: ItemHead
               </Badge>
             )}
           </div>
-          {workflow.description && (
-            <p className="text-sm text-muted-foreground">{workflow.description}</p>
-          )}
+          {/* Edited in place, as v1's overview did; Rename in ⋯ does both too. */}
+          <EditableDescription
+            workflowId={workflow.id}
+            initialValue={workflow.description ?? ''}
+            readOnly={!canEdit}
+            className="-ml-2 text-sm"
+          />
         </div>
         {showActions && (
           <div className="flex shrink-0 items-center gap-2">
@@ -103,6 +123,12 @@ export function ItemHeader({ slugs, workflow, overview, page, counts }: ItemHead
               currentVersionId={workflow.currentVersionId}
               kind={workflow.kind}
               deployBlocked={locked}
+              // A function's deploy publishes its latest version (24d, 24g).
+              label={
+                isFunction && overview.currentVersion > 0
+                  ? `Publish v${overview.currentVersion}`
+                  : 'Deploy'
+              }
             />
             {!isFunction && (
               <Button

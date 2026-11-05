@@ -1,6 +1,7 @@
 import type { RunHour } from '../../../types/dashboard/workspaces'
 import { ShellLink } from '../../ui/shell-link'
-import { passedLabel, runBars } from '../runs-by-hour'
+import { passedLabel } from '../runs-by-hour'
+import { HourBars } from './hour-bars'
 
 interface RunsTileProps {
   runs: number
@@ -12,7 +13,6 @@ interface RunsTileProps {
 /** `WsOverview`'s Runs tile: the day's count, "% passed", and a bar per hour with failures on top. */
 export function RunsTile({ runs, hours, href }: RunsTileProps) {
   const passed = hours ? passedLabel(hours) : null
-  const bars = hours ? runBars(hours) : []
 
   return (
     <ShellLink
@@ -24,35 +24,12 @@ export function RunsTile({ runs, hours, href }: RunsTileProps) {
         {passed && <span className="text-2xs text-status-success">{passed}</span>}
       </span>{' '}
       <span className="text-2xs text-muted-foreground">Runs in the last 24 hours</span>
-      {bars.length > 0 && (
-        <span
-          role="img"
-          aria-label="Runs per hour over the last 24 hours, with failures marked"
-          className="mt-3 flex h-[42px] items-end gap-[3px]"
-        >
-          {bars.map((bar, i) => (
-            <span key={i} className="flex h-full flex-1 flex-col justify-end">
-              {bar.failedHeight > 0 && (
-                <span
-                  data-part="failed"
-                  className="min-h-[3px] rounded-t-[2px] bg-status-error"
-                  style={{ height: `${bar.failedHeight * 100}%` }}
-                />
-              )}
-              {bar.height > bar.failedHeight && (
-                <span
-                  data-part="ok"
-                  className={
-                    bar.failedHeight > 0
-                      ? 'rounded-b-[2px] bg-primary/45'
-                      : 'min-h-[3px] rounded-[2px] bg-primary/45'
-                  }
-                  style={{ height: `${(bar.height - bar.failedHeight) * 100}%` }}
-                />
-              )}
-            </span>
-          ))}
-        </span>
+      {hours && hours.length > 0 && (
+        <HourBars
+          hours={hours}
+          label="Runs per hour over the last 24 hours, with failures marked"
+          className="mt-3 h-[42px]"
+        />
       )}
     </ShellLink>
   )

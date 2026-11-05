@@ -11,7 +11,12 @@ vi.mock('../../navigation/router-shell-link', () => ({
     </a>
   ),
 }))
+vi.mock('../../overview/deploy-action', () => ({
+  DeployButton: () => <button type="button">Deploy</button>,
+}))
 vi.mock('../../../hooks/use-active-run-sync', () => ({ useActiveRunSync: () => undefined }))
+
+const WORKFLOW = { id: 'wf_1', name: 'Lead enrichment', createdAt: '', updatedAt: '' }
 
 const run = (id: string, status: string, versionId: string, ms: number) => ({
   id,
@@ -29,7 +34,12 @@ const run = (id: string, status: string, versionId: string, ms: number) => ({
 describe('RunsTab', () => {
   it('reads Result · Run · Version · Took · Started, each run opening its page', () => {
     renderWithPages(
-      <RunsTab workflowId="wf_1" versions={VERSIONS} runs24h={{ all: 128, failed: 3 }} />,
+      <RunsTab
+        workflow={WORKFLOW}
+        versions={VERSIONS}
+        neverDeployed={false}
+        runs24h={{ all: 128, failed: 3 }}
+      />,
       {
         '["workflow-runs","wf_1"]': [
           run('run_a', 'errored', 'v3', 1200),
@@ -52,5 +62,15 @@ describe('RunsTab', () => {
     // Still going: no duration; a version not loaded reads as a dash.
     expect(going).toHaveTextContent('Running')
     expect(going).toHaveTextContent('—')
+  })
+
+  it('says no run has happened yet, and offers Deploy while it never has been (WorkflowDraft)', () => {
+    renderWithPages(<RunsTab workflow={WORKFLOW} versions={VERSIONS} neverDeployed />, {
+      '["workflow-runs","wf_1"]': [],
+    })
+    expect(screen.getByText('None yet')).toBeVisible()
+    expect(screen.getByText('No runs yet')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Deploy' })).toBeVisible()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 })

@@ -4,20 +4,23 @@ import { cn } from '../../../lib/utils'
 import { RESULT_DOT_CLASS, RESULT_LABEL, tookLabel } from '../../runs/run-format'
 import { ShellLink } from '../../ui/shell-link'
 import { OverviewCard } from '../../workspaces/parts/overview-card'
-import { NO_RUNS_MESSAGE } from '../../monitoring/no-runs-copy'
+import { Play } from 'lucide-react'
+import { CardEmpty } from './card-empty'
 import { runDurationMs, runResult } from '../run-result'
 
-const SHOWN = 5
+const SHOWN = 6
 
 interface RecentRunsCardProps {
   runs: RunSummary[]
+  /** Never deployed: the empty state says what comes first (24f). */
+  neverDeployed?: boolean
   /** The Runs tab. */
   runsHref: string
   runHref: (runId: string) => string
 }
 
 /** Recent runs (`WorkflowDetail`): the latest five, each opening its run; All runs → the Runs tab. */
-export function RecentRunsCard({ runs, runsHref, runHref }: RecentRunsCardProps) {
+export function RecentRunsCard({ runs, neverDeployed, runsHref, runHref }: RecentRunsCardProps) {
   const action = (
     <ShellLink href={runsHref} className="text-xs font-medium text-status-success">
       All runs →
@@ -25,9 +28,17 @@ export function RecentRunsCard({ runs, runsHref, runHref }: RecentRunsCardProps)
   )
 
   return (
-    <OverviewCard title="Recent runs" action={runs.length > 0 ? action : undefined}>
+    <OverviewCard
+      title="Recent runs"
+      caption={runs.length === 0 ? 'None yet' : undefined}
+      action={runs.length > 0 ? action : undefined}
+    >
       {runs.length === 0 ? (
-        <p className="px-5 py-6 text-sm text-muted-foreground">{NO_RUNS_MESSAGE}</p>
+        <CardEmpty
+          icon={<Play />}
+          title="No runs yet"
+          body={neverDeployed ? 'Deploy it, then trigger a run.' : 'Trigger it to see runs here.'}
+        />
       ) : (
         <ul className="divide-y divide-border">
           {runs.slice(0, SHOWN).map((run) => {

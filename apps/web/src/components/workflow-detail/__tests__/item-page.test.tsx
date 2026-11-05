@@ -14,6 +14,12 @@ import { ItemPage } from '../item-page'
 const overview = vi.hoisted(() => ({
   current: {} as Record<string, unknown>,
   readyAsked: [] as boolean[],
+  /** How many deployments the workflow has: none makes it a draft (24f). */
+  deploys: 2,
+  /** All its runs ever: a workflow that ran was deployed, even with its rows taken down. */
+  runsEver: 128,
+  /** The viewer's edit right in the workspace (a Viewer has none). */
+  canEdit: true,
 }))
 
 vi.mock('../use-workflow-overview', () => ({
@@ -24,9 +30,13 @@ vi.mock('../use-workflow-overview', () => ({
 }))
 vi.mock('../item-actions-menu', () => ({ ItemActionsMenu: () => <p>actions</p> }))
 vi.mock('../../overview/deploy-action', () => ({
-  DeployButton: ({ deployBlocked }: { deployBlocked?: boolean }) => (
-    <button disabled={deployBlocked}>Deploy</button>
-  ),
+  DeployButton: ({
+    deployBlocked,
+    label = 'Deploy',
+  }: {
+    deployBlocked?: boolean
+    label?: string
+  }) => <button disabled={deployBlocked}>{label}</button>,
 }))
 vi.mock('../../navigation/router-shell-link', () => ({
   RouterShellLink: ({ href, children, ...rest }: { href: string; children: ReactNode }) => (
@@ -35,10 +45,18 @@ vi.mock('../../navigation/router-shell-link', () => ({
     </a>
   ),
 }))
+vi.mock('../../workspaces/use-workspace-scope', () => ({
+  useWorkspaceScope: () => ({
+    workspace: { viewerCan: { edit: { allowed: overview.canEdit } } },
+  }),
+}))
 vi.mock('../use-deployment-accounts', () => ({ useDeploymentAccounts: () => new Map() }))
 vi.mock('../../../data/dashboard/runs', () => ({
   useWorkflowRunCounts: (_s: unknown, _id: string, { period }: { period?: string } = {}) => ({
-    data: period ? { all: 12, failed: 2 } : { all: 128, failed: 3 },
+    data: {
+      counts: period ? { all: 12, failed: 2 } : { all: overview.runsEver, failed: 3 },
+      byHour: [],
+    },
   }),
 }))
 vi.mock('@tanstack/react-router', () => ({
@@ -47,7 +65,9 @@ vi.mock('@tanstack/react-router', () => ({
 vi.mock('@tanstack/react-query', async (actual) => ({
   ...(await actual<typeof ReactQuery>()),
   useInfiniteQuery: () => ({
-    data: { pages: [{ data: [{}, {}], nextCursor: null }] },
+    data: {
+      pages: [{ data: Array.from({ length: overview.deploys }, () => ({})), nextCursor: null }],
+    },
     hasNextPage: false,
   }),
 }))
@@ -94,6 +114,9 @@ function renderPage(page: ItemDetailPage = 'overview', source: DataSource = 'api
 }
 
 afterEach(() => {
+  overview.canEdit = true
+  overview.deploys = 2
+  overview.runsEver = 128
   useOrgStore.getState().clear()
   overview.readyAsked.length = 0
 })
@@ -132,9 +155,50 @@ describe('ItemPage', () => {
       'href',
       `${BASE}?view=canvas`,
     )
-    // Nothing deployed: there is nothing to trigger.
+    // Nothing live: there is nothing to trigger.
     expect(screen.getByRole('button', { name: 'Trigger a run' })).toBeDisabled()
+    // It has been deployed before, so it isn't a draft.
+    expect(screen.queryByText('Draft')).not.toBeInTheDocument()
+  })
+
+  it('lets an Editor rename in place, and shows a Viewer plain text', () => {
+    enterScope()
+    settled({ workflow: { id: 'wf_1', name: 'Lead enrichment', kind: 'workflow' } })
+    const { unmount } = renderPage()
+    const heading = screen.getByRole('heading', { name: 'Lead enrichment' })
+    expect(within(heading).getByRole('button', { name: 'Lead enrichment' })).toBeVisible()
+    unmount()
+    overview.canEdit = false
+    renderPage()
+    expect(
+      within(screen.getByRole('heading', { name: 'Lead enrichment' })).queryByRole('button'),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add a description...' })).not.toBeInTheDocument()
+  })
+
+  it('isn’t a draft once it has run, though take down removed its deployments', () => {
+    enterScope()
+    overview.deploys = 0
+    settled({ workflow: { id: 'wf_1', name: 'Lead enrichment', kind: 'workflow' } })
+    renderPage()
+    expect(screen.queryByText('Draft')).not.toBeInTheDocument()
+    const tabs = screen.getByRole('navigation', { name: 'Workflow pages' })
+    expect(within(tabs).getByRole('link', { name: 'Runs 128' })).toBeVisible()
+  })
+
+  it('reads as a draft when it has never been deployed: Draft pill, no tab counts (WorkflowDraft)', () => {
+    enterScope()
+    overview.deploys = 0
+    overview.runsEver = 0
+    settled({ workflow: { id: 'wf_1', name: 'Lead enrichment', kind: 'workflow' } })
+    renderPage()
     expect(screen.getByText('Draft')).toBeVisible()
+    const tabs = screen.getByRole('navigation', { name: 'Workflow pages' })
+    expect(
+      within(tabs)
+        .getAllByRole('link')
+        .map((a) => a.textContent),
+    ).toEqual(['Overview', 'Runs', 'Deployments'])
   })
 
   it('says what is live, and when that version is locked, that deploying another is off', () => {
@@ -147,7 +211,8 @@ describe('ItemPage', () => {
       activeDeployment: { id: 'd1', versionId: 'v2', status: 'success' },
     })
     renderPage()
-    expect(screen.getByText('Deployed v12')).toBeVisible()
+    // What is live reads in the band now, not as a header pill (24a).
+    expect(screen.queryByText('Deployed v12')).not.toBeInTheDocument()
     expect(screen.getByText('Locked')).toBeVisible()
     expect(screen.getByText('v12 is locked · deploying another version is off')).toBeVisible()
     expect(screen.getByRole('button', { name: 'Unlock' })).toBeVisible()
@@ -172,12 +237,26 @@ describe('ItemPage', () => {
 
   it('gives a function no tabs and nothing to trigger (FunctionDetail)', () => {
     enterScope()
-    settled({ workflow: { id: 'wf_1', name: 'CRM sync', kind: 'script', sharedBy: 'u-ama' } })
+    settled({
+      workflow: { id: 'wf_1', name: 'CRM sync', kind: 'script', sharedBy: 'u-ama' },
+      currentVersion: 4,
+    })
     renderPage()
     expect(screen.queryByRole('navigation', { name: 'Workflow pages' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Trigger a run' })).not.toBeInTheDocument()
     expect(screen.getByText('Function')).toBeVisible()
     expect(screen.getByText('Shared with the project')).toBeVisible()
+    // A function's deploy publishes its latest version (24d).
+    expect(screen.getByRole('button', { name: 'Publish v4' })).toBeVisible()
+  })
+
+  it('draws no Draft pill on a function, published or not (FunctionDraft)', () => {
+    enterScope()
+    overview.deploys = 0
+    settled({ workflow: { id: 'wf_1', name: 'CRM sync', kind: 'script' }, currentVersion: 1 })
+    renderPage()
+    expect(screen.queryByText('Draft')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Publish v1' })).toBeVisible()
   })
 
   it.each(['deploy', 'run'] as const)('leaves the workflow’s actions off the %s page', (page) => {

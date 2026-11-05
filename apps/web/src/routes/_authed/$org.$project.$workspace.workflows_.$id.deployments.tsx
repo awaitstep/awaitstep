@@ -17,11 +17,12 @@ function DeploymentsRoute() {
   const { id, ...slugs } = Route.useParams()
   return (
     <ItemPage slugs={slugs} workflowId={id} page="deployments">
-      {({ overview, accounts }) => (
+      {({ workflow, overview, accounts, neverDeployed }) => (
         <DeploymentsTab
-          workflowId={id}
+          workflow={workflow}
           accounts={accounts}
           deployBlocked={overview.deployBlocked}
+          neverDeployed={neverDeployed}
         />
       )}
     </ItemPage>

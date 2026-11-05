@@ -16,11 +16,16 @@ function RunsRoute() {
   const { id, ...slugs } = Route.useParams()
   return (
     <ItemPage slugs={slugs} workflowId={id} page="runs">
-      {({ workflow, overview, runs24h }) =>
+      {({ workflow, overview, runs24h, neverDeployed }) =>
         workflow.kind === 'script' ? (
           <FunctionHasNoRuns workflowId={id} />
         ) : (
-          <RunsTab workflowId={id} versions={overview.versions} runs24h={runs24h} />
+          <RunsTab
+            workflow={workflow}
+            versions={overview.versions}
+            neverDeployed={neverDeployed}
+            runs24h={runs24h}
+          />
         )
       }
     </ItemPage>

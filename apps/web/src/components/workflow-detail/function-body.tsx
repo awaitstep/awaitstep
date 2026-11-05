@@ -3,7 +3,7 @@ import { timeAgo } from '../../lib/time'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { workerUrl } from '../../lib/workflows/worker-url'
 import { StatCard } from './parts/stat-card'
-import { TriggerCard } from './parts/trigger-card'
+import { UrlCard } from './parts/url-card'
 import { VersionsCard } from './parts/versions-card'
 import type { WorkflowOverview } from './use-workflow-overview'
 
@@ -12,6 +12,8 @@ interface FunctionBodyProps {
   overview: WorkflowOverview
   /** Names of the accounts deployments went out on. */
   accounts: Map<string, string>
+  /** Never published: "1 so far" (`FunctionDraft`, 24g). */
+  neverDeployed: boolean
 }
 
 /**
@@ -19,7 +21,7 @@ interface FunctionBodyProps {
  * its versions. Who calls it and how often aren't recorded, so those cards
  * aren't drawn; its URL is, since a function is called by POSTing to it.
  */
-export function FunctionBody({ workflow, overview, accounts }: FunctionBodyProps) {
+export function FunctionBody({ workflow, overview, accounts, neverDeployed }: FunctionBodyProps) {
   const links = useWorkflowLinks(workflow.id)
   const latest = overview.versions[0]
   const live = overview.activeDeployment
@@ -31,19 +33,15 @@ export function FunctionBody({ workflow, overview, accounts }: FunctionBodyProps
         <StatCard
           label="Version"
           value={latest ? `v${latest.version}` : '—'}
-          detail={
-            latest
-              ? `Updated ${timeAgo(latest.createdAt)}${latest.createdByName ? ` by ${latest.createdByName}` : ''}`
-              : 'Nothing saved yet'
-          }
+          detail={versionDetail(latest, !!live)}
         />
         <StatCard
           label="Deployment"
-          value={live ? 'Live' : 'Not deployed'}
+          value={live ? 'Live' : 'Not published'}
           detail={
             live
               ? [account, timeAgo(live.createdAt)].filter(Boolean).join(' · ')
-              : 'Deploy it to call it'
+              : 'Publish it to call it'
           }
         />
       </div>
@@ -58,10 +56,22 @@ export function FunctionBody({ workflow, overview, accounts }: FunctionBodyProps
             hasMore={overview.versionsHasMore}
             loadingMore={overview.versionsLoadingMore}
             onLoadMore={overview.loadMoreVersions}
+            draft={neverDeployed}
           />
         </div>
-        <TriggerCard url={workerUrl(live?.serviceUrl)} />
+        <UrlCard url={workerUrl(live?.serviceUrl)} />
       </div>
     </>
   )
+}
+
+/** "Updated 2h ago by Ama" once it's out; "Not published" before (`FunctionDraft`, 24g). */
+function versionDetail(
+  latest: { createdAt: string; createdByName?: string | null } | undefined,
+  published: boolean,
+): string {
+  if (!latest) return 'Nothing saved yet'
+  if (!published) return 'Not published'
+  const by = latest.createdByName ? ` by ${latest.createdByName}` : ''
+  return `Updated ${timeAgo(latest.createdAt)}${by}`
 }
