@@ -4,9 +4,11 @@ import {
   accountPath,
   dashboardPath,
   invitePath,
+  itemPagePath,
   itemPath,
   isReservedSlug,
   newItemPath,
+  runPath,
   ORG_PAGES,
   orgPath,
   orgDestinationPath,
@@ -172,6 +174,19 @@ describe('itemPath', () => {
     )
     expect(newItemPath(slugs, { id: 'fn_1', kind: 'script' })).toBe(
       '/acme/project-101/sales/workflows/fn_1',
+    )
+  })
+
+  it('puts an item’s own pages and runs beside its editor, encoded', () => {
+    const slugs = { org: 'acme', project: 'project-101', workspace: 'sales' }
+    expect(itemPagePath(slugs, { id: 'wf_1' }, 'overview')).toBe(
+      '/acme/project-101/sales/workflows/wf_1/overview',
+    )
+    expect(itemPagePath(slugs, { id: 'wf_1' }, 'deploy')).toBe(
+      '/acme/project-101/sales/workflows/wf_1/deploy',
+    )
+    expect(runPath(slugs, { id: 'wf/1' }, 'run 2')).toBe(
+      '/acme/project-101/sales/workflows/wf%2F1/runs/run%202',
     )
   })
 

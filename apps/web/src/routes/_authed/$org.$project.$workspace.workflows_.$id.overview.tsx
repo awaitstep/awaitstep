@@ -1,0 +1,21 @@
+import { createFileRoute } from '@tanstack/react-router'
+import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
+import { ItemPage } from '../../components/workflow-detail/item-page'
+import { OverviewSummary } from '../../components/workflow-detail/overview-summary'
+
+const page: DashboardPage = { kind: 'item', page: 'overview' }
+
+export const Route = createFileRoute('/_authed/$org/$project/$workspace/workflows_/$id/overview')({
+  staticData: { dashboardPage: page },
+  head: () => pageHead(page),
+  component: OverviewRoute,
+})
+
+function OverviewRoute() {
+  const { id, ...slugs } = Route.useParams()
+  return (
+    <ItemPage slugs={slugs} workflowId={id} page="overview">
+      {(props) => <OverviewSummary {...props} />}
+    </ItemPage>
+  )
+}

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import {
   accountPath,
+  itemPagePath,
   orgPath,
   withOverlay,
   orgSettingsPath,
@@ -36,7 +37,7 @@ import { plural } from '../../lib/plural'
 import type { ScopeSlugs } from '../../types/dashboard/scope'
 import type { RailEntry } from '../shell/org-rail'
 import type { Crumb } from '../shell/top-bar'
-import { pageLabel, type DashboardPage } from './dashboard-page'
+import { pageLabel, type DashboardPage, type FramedItem } from './dashboard-page'
 
 // What the frame shows for a page: which rail item is active, which panel is
 // open and what's in it, and the breadcrumbs. Pure, so every page's frame can
@@ -214,23 +215,38 @@ export function panelModel(page: DashboardPage, slugs: ScopeSlugs): PanelModel {
         items: projectItems({ org: slugs.org, project: slugs.project! }),
         activeKey: page.page,
       }
-    case 'workspace': {
-      // A workspace page's route always has all three slugs.
-      const workspace: WorkspaceSlugs = {
-        org: slugs.org,
-        project: slugs.project!,
-        workspace: slugs.workspace!,
-      }
-      return {
-        mode: 'workspace',
-        slugs: workspace,
-        page: page.page,
-        items: workspaceItems(workspace),
-        activeKey: page.page,
-        projectHref: projectWorkspacesPath(workspace),
-      }
+    case 'workspace':
+      return workspacePanel(slugs, page.page, page.page)
+    case 'item': {
+      // An item's pages sit under the list it's in; until its kind loads,
+      // nothing is marked rather than guessing Workflows for a function.
+      const list = itemListPage(page.item)
+      return workspacePanel(slugs, list ?? 'workflows', list ?? '')
     }
   }
+}
+
+function workspacePanel(slugs: ScopeSlugs, page: WorkspacePage, activeKey: string): PanelModel {
+  // A workspace page's route always has all three slugs.
+  const workspace: WorkspaceSlugs = {
+    org: slugs.org,
+    project: slugs.project!,
+    workspace: slugs.workspace!,
+  }
+  return {
+    mode: 'workspace',
+    slugs: workspace,
+    page,
+    items: workspaceItems(workspace),
+    activeKey,
+    projectHref: projectWorkspacesPath(workspace),
+  }
+}
+
+/** The workspace list an item belongs on: Functions for a function, else Workflows. */
+function itemListPage(item: FramedItem | undefined): WorkspacePage | null {
+  if (!item?.kind) return null
+  return item.kind === 'script' ? 'functions' : 'workflows'
 }
 
 /**
@@ -251,18 +267,38 @@ export function breadcrumbs(page: DashboardPage, slugs: ScopeSlugs, names: Scope
     crumbs.push({ label: 'Settings' })
     return crumbs
   }
-  if (page.kind === 'project' || page.kind === 'workspace') {
+  const inWorkspace = page.kind === 'workspace' || page.kind === 'item'
+  if (page.kind === 'project' || inWorkspace) {
     crumbs.push({
       label: names.project ?? slugs.project!,
       href: projectWorkspacesPath({ org: slugs.org, project: slugs.project! }),
     })
   }
-  if (page.kind === 'workspace') {
+  if (inWorkspace) {
     crumbs.push({
       label: names.workspace ?? slugs.workspace!,
       href: workspacePath(slugs as Required<ScopeSlugs>),
     })
   }
+  if (page.kind === 'item' && page.item) crumbs.push(...itemCrumbs(page.item, slugs))
   crumbs.push({ label: pageLabel(page) })
+  return crumbs
+}
+
+/** "Workflows / Lead enrichment" before an item's page; the name links to its Overview. */
+function itemCrumbs(item: FramedItem, slugs: ScopeSlugs): Crumb[] {
+  const workspace = slugs as WorkspaceSlugs
+  const list = itemListPage(item)
+  const crumbs: Crumb[] = []
+  if (list) {
+    crumbs.push({
+      label: pageLabel({ kind: 'workspace', page: list }),
+      href: workspacePath(workspace, list),
+    })
+  }
+  crumbs.push({
+    label: item.name ?? item.id,
+    href: itemPagePath(workspace, item, 'overview'),
+  })
   return crumbs
 }

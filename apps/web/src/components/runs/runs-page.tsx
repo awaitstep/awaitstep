@@ -3,7 +3,7 @@ import { Download } from 'lucide-react'
 import { useRunsExport, useWorkspaceRuns } from '../../data/dashboard/runs'
 import { EXPORT_FAILED_COPY } from '../../lib/csv'
 import { downloadTextFile } from '../../lib/download-file'
-import { itemPath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
+import { itemPath, runPath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
 import { timeAgoOrDay } from '../../lib/time'
 import { cn } from '../../lib/utils'
 import type { RunPeriod, RunResult, WorkspaceRun } from '../../types/dashboard/runs'
@@ -65,10 +65,18 @@ function runColumns(slugs: WorkspaceSlugs): DataColumn<WorkspaceRun>[] {
       id: 'run',
       header: 'Run',
       width: '120px',
-      cell: (run) => (
-        // Plain text until runs have their own page under the workspace.
-        <span className="font-mono text-2xs text-foreground">{run.id}</span>
-      ),
+      cell: (run) =>
+        // A function's requests have no page of their own.
+        run.kind === 'workflow' ? (
+          <ShellLink
+            href={runPath(slugs, { id: run.workflowId }, run.id)}
+            className="font-mono text-2xs text-foreground hover:underline"
+          >
+            {run.id}
+          </ShellLink>
+        ) : (
+          <span className="font-mono text-2xs text-foreground">{run.id}</span>
+        ),
     },
     {
       id: 'trigger',

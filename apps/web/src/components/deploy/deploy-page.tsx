@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
   Rocket,
@@ -17,6 +16,9 @@ import { EmptyState } from '../ui/empty-state'
 import { api } from '../../lib/api-client'
 import { queries } from '../../lib/queries'
 import { projectPagePath } from '../../lib/dashboard-paths'
+import { useEditorScope } from '../../contexts/editor-scope-context'
+import { useWorkflowLinks } from '../../lib/workflows/detail-links'
+import { RouterShellLink } from '../navigation/router-shell-link'
 import { useOrgReady, useOrgStore } from '../../stores/org-store'
 import { useDeployStream, type DeployProgress } from '../../hooks/use-deploy-stream'
 import { DeploymentConfigForm } from './deployment-config-form'
@@ -40,15 +42,20 @@ interface DeployPageProps {
   kind?: 'workflow' | 'script'
 }
 
-/** Where the project's Connections page is, from the active org and project (the route sits under RequireProject). */
+/**
+ * Where the project's Connections page is: the workspace URL's project when
+ * deploying from one, else the switcher's (the old route sits under RequireProject).
+ */
 function useProjectConnectionsHref(): string | null {
-  return useOrgStore((s) => {
+  const scope = useEditorScope()
+  const fromStore = useOrgStore((s) => {
     const org = s.organizations.find((o) => o.id === s.activeOrganizationId)
     const project = s.projects.find((p) => p.id === s.activeProjectId)
     return org && project
       ? projectPagePath({ org: org.slug, project: project.slug }, 'connections')
       : null
   })
+  return scope ? projectPagePath(scope, 'connections') : fromStore
 }
 
 export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
@@ -57,6 +64,7 @@ export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
   // chosen: the API refuses a deploy with any other (23a).
   const targets = useQuery({ ...queries.connections.forDeploy(workflowId), enabled: ready })
   const connectionsHref = useProjectConnectionsHref()
+  const links = useWorkflowLinks(workflowId)
   const connections = targets.data?.connections
   const [step, setStep] = useState<StepKey>('connection')
   const [picked, setPicked] = useState<string | null>(null)
@@ -125,7 +133,7 @@ export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
         type="success"
         result={result}
         onRetry={retry}
-        workflowId={workflowId}
+        overviewHref={links.overview}
         kind={kind}
       />
     )
@@ -504,7 +512,8 @@ type StatusViewProps =
       type: 'success'
       result: { url?: string; dashboardUrl?: string; deploymentId?: string } | null
       onRetry: () => void
-      workflowId: string
+      /** Back to the workflow, in whichever shell the deploy was opened from. */
+      overviewHref: string
       kind?: 'workflow' | 'script'
     }
   | { type: 'error'; error: string | null; onRetry: () => void; workflowId: string }
@@ -553,11 +562,11 @@ function StatusView(props: StatusViewProps) {
             </a>
           )}
           <div className="mt-6 flex items-center gap-3">
-            <Link to="/workflows/$workflowId" params={{ workflowId: props.workflowId }}>
+            <RouterShellLink href={props.overviewHref}>
               <Button variant="outline" size="sm">
                 Back to workflow
               </Button>
-            </Link>
+            </RouterShellLink>
             <Button size="sm" onClick={props.onRetry}>
               Deploy again
             </Button>

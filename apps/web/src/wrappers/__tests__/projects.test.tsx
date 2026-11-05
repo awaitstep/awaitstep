@@ -38,7 +38,12 @@ describe('ProjectsWrapper', () => {
       appReady: true,
       activeOrganizationId: 'org_1',
       activeProjectId: 'prj_page_3',
-      routeScope: { key: 'acme/core/sales', organizationId: 'org_1', projectId: 'prj_page_3' },
+      routeScope: {
+        key: 'acme/core/sales',
+        organizationId: 'org_1',
+        projectId: 'prj_page_3',
+        workspaceId: 'ws_1',
+      },
     })
     renderWrapper()
     await waitFor(() => expect(useOrgStore.getState().projectsFetchState).toBe('success'))
@@ -50,7 +55,12 @@ describe('ProjectsWrapper', () => {
       appReady: true,
       activeOrganizationId: 'org_1',
       activeProjectId: 'prj_page_3',
-      routeScope: { key: 'acme/core/sales', organizationId: 'org_1', projectId: 'prj_page_3' },
+      routeScope: {
+        key: 'acme/core/sales',
+        organizationId: 'org_1',
+        projectId: 'prj_page_3',
+        workspaceId: 'ws_1',
+      },
     })
     renderWrapper()
     await waitFor(() => expect(useOrgStore.getState().projectsFetchState).toBe('success'))

@@ -1,6 +1,9 @@
 import { useState, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
+import { useEditorScope } from '../../contexts/editor-scope-context'
+import { workflowLinks } from '../../lib/workflows/detail-links'
+import { useGoTo } from '../navigation/router-shell-link'
 import { Play, Loader2, AlertCircle, Copy, Check } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Button } from '../ui/button'
@@ -31,6 +34,8 @@ export function TriggerDialog({
 }: TriggerDialogProps) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const goTo = useGoTo()
+  const scope = useEditorScope()
   const [selectedWorkflowId, setSelectedWorkflowId] = useState(initialWorkflowId)
   const [picked, setPicked] = useState<string | null>(null)
   const [paramsJson, setParamsJson] = useState('{}')
@@ -77,22 +82,25 @@ export function TriggerDialog({
     }
 
     try {
-      await runAction(api.triggerWorkflow(selectedWorkflowId, { connectionId, params }), {
-        success: 'Workflow triggered',
-        error: 'Couldn’t trigger the workflow',
-      })
+      const run = await runAction(
+        api.triggerWorkflow(selectedWorkflowId, { connectionId, params }),
+        {
+          success: 'Workflow triggered',
+          error: 'Couldn’t trigger the workflow',
+        },
+      )
       queryClient.invalidateQueries({ queryKey: ['workflow-runs', selectedWorkflowId] })
       queryClient.invalidateQueries({ queryKey: ['all-runs'] })
       onClose()
-      navigate({
-        to: '/runs',
-      })
+      // In a workspace, the run just started opens; the old pages list all runs.
+      if (scope) goTo(workflowLinks(scope, selectedWorkflowId).run(run.id))
+      else navigate({ to: '/runs' })
     } catch (err) {
       setError(failureLine(err, 'Failed to trigger workflow'))
     } finally {
       setTriggering(false)
     }
-  }, [connectionId, paramsJson, selectedWorkflowId, queryClient, onClose, navigate])
+  }, [connectionId, paramsJson, selectedWorkflowId, queryClient, onClose, navigate, goTo, scope])
 
   const handleCopyCurl = useCallback(() => {
     if (!deploymentId) return

@@ -139,7 +139,8 @@ export interface DeployConfig {
 export interface WorkflowSummary {
   id: string
   name: string
-  description?: string
+  /** Null when it has none: the API stores an empty description as null. */
+  description?: string | null
   /**
    * `'workflow'` (default) or `'script'`. Scripts are fetch-only Workers —
    * no durable runtime, no instance lifecycle, no Runs tab.
@@ -154,6 +155,8 @@ export interface WorkflowSummary {
   deployVersionId?: string | null
   lastRunStatus?: string | null
   lastRunAt?: string | null
+  /** The workspace it lives in; every workflow has one since workspaces (B1). */
+  workspaceId?: string
   createdAt: string
   updatedAt: string
 }
@@ -538,6 +541,8 @@ export const api = {
     name: string
     description?: string
     kind?: 'workflow' | 'script'
+    /** Else the project's first workspace. */
+    workspaceId?: string
   }): Promise<WorkflowSummary> {
     return request(withProject('/workflows'), { method: 'POST', body: JSON.stringify(data) })
   },

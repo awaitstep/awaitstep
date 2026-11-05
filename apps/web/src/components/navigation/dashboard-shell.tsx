@@ -13,6 +13,7 @@ import { NotFoundView } from '../ui/not-found-view'
 import { Bone, LoadingRegion } from '../ui/skeletons'
 import { PageBody } from '../shell/page-intro'
 import { DashboardOverlays } from '../inbox/dashboard-overlays'
+import { useFramedPage } from '../workflow-detail/use-framed-page'
 import type { DashboardPage } from './dashboard-page'
 import type { DashboardSearch } from './dashboard-providers'
 import { DashboardFrame, type FrameScope } from './dashboard-frame'
@@ -63,6 +64,7 @@ function frameScope(slugs: ScopeSlugs, lookup: ScopeLookup | undefined): FrameSc
 export function DashboardShell({ children }: { children: ReactNode }) {
   const slugs = useScopeSlugs()
   const declaredPage = useDashboardPage()
+  const page = useFramedPage(declaredPage, slugs)
   const scope = useScope(slugs)
   const viewer = useViewer()
   const { theme, setTheme } = useThemeStore()
@@ -117,7 +119,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   return (
     <DashboardFrame
       scope={frameScope(slugs, scope.data)}
-      page={found ? declaredPage : null}
+      page={found ? page : null}
       viewer={viewer.data ?? null}
       overlays={overlays}
       theme={theme}

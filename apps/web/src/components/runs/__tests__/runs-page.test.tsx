@@ -32,8 +32,11 @@ describe('Runs page', () => {
       'href',
       expect.stringMatching(/^\/acme\/project-101\/sales\/workflows\/itm_/),
     )
-    // Runs get their own page later; until then the id is not a link.
-    expect(within(first).queryByRole('link', { name: 'run_8f2c' })).not.toBeInTheDocument()
+    // A workflow's run opens its own page, under the workflow.
+    expect(within(first).getByRole('link', { name: 'run_8f2c' })).toHaveAttribute(
+      'href',
+      '/acme/project-101/sales/workflows/itm_lead/runs/run_8f2c',
+    )
     expect(first).toHaveTextContent('Webhook')
     expect(first).toHaveTextContent('4.2s')
     const running = bodyRows()[1]!
@@ -45,6 +48,13 @@ describe('Runs page', () => {
       'true',
     )
     expect(screen.getByText('Showing 25 of 128 runs in the last 24 hours')).toBeInTheDocument()
+  })
+
+  it('leaves a function’s request id unlinked: it has no run page', async () => {
+    renderWithDashboardData(<RunsPage slugs={sales} />)
+    await screen.findByRole('table', { name: 'Runs in Sales' })
+    const request = bodyRows().find((row) => row.textContent?.includes('req_31c9'))!
+    expect(within(request).queryByRole('link', { name: 'req_31c9' })).not.toBeInTheDocument()
   })
 
   it('narrows by result and by search', async () => {

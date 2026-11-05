@@ -5,6 +5,7 @@ import { LoadingView } from '../../../components/ui/loading-view'
 import { DetailSkeleton } from '../../../components/ui/skeletons'
 import { RequireProject } from '../../../wrappers/require-project'
 import { DeployPage } from '../../../components/deploy/deploy-page'
+import { DEPLOY_INTRO } from '../../../components/deploy/deploy-copy'
 import { api } from '../../../lib/api-client'
 import { useOrgReady } from '../../../stores/org-store'
 
@@ -41,9 +42,7 @@ function DeployRouteContent() {
         ]}
       />
       <p className="mt-4 text-sm text-muted-foreground">
-        {workflow?.kind === 'script'
-          ? 'Deploys as a Worker you call with an HTTP POST. The response is the function’s return value.'
-          : 'Configure and deploy to a provider connection.'}
+        {DEPLOY_INTRO[workflow?.kind ?? 'workflow']}
       </p>
       <div className="pt-5">
         <LoadingView isLoading={isLoading || !ready} LoadingPlaceholder={DetailSkeleton}>

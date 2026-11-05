@@ -1,4 +1,3 @@
-import { Link } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { defineToast } from '../../lib/action-toast'
 import { Hash, MoreVertical, Lock, Unlock, Rocket, RotateCcw, Eye, Trash2 } from 'lucide-react'
@@ -9,7 +8,8 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '../ui/dropdown-menu'
-import { useNavigate } from '@tanstack/react-router'
+import { useWorkflowLinks } from '../../lib/workflows/detail-links'
+import { RouterShellLink, useGoTo } from '../navigation/router-shell-link'
 import {
   api,
   type VersionSummary,
@@ -57,7 +57,8 @@ export function VersionList({
   onLoadMore,
 }: VersionListProps) {
   const queryClient = useQueryClient()
-  const navigate = useNavigate()
+  const goTo = useGoTo()
+  const links = useWorkflowLinks(workflowId)
 
   const lockVersionMutation = useMutation({
     meta: {
@@ -131,14 +132,7 @@ export function VersionList({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       {!isActive && !isLocked && !deployBlocked && (
-                        <DropdownMenuItem
-                          onSelect={() => {
-                            navigate({
-                              to: '/workflows/$workflowId/deploy',
-                              params: { workflowId },
-                            })
-                          }}
-                        >
+                        <DropdownMenuItem onSelect={() => goTo(links.deploy)}>
                           <Rocket className="h-3.5 w-3.5" />
                           Deploy this version
                         </DropdownMenuItem>
@@ -163,14 +157,10 @@ export function VersionList({
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem asChild>
-                        <Link
-                          to="/workflows/$workflowId/editor"
-                          params={{ workflowId }}
-                          search={{ view: 'canvas', version: v.id }}
-                        >
+                        <RouterShellLink href={links.editor('canvas', { version: v.id })}>
                           <Eye className="h-3.5 w-3.5" />
                           View in canvas
-                        </Link>
+                        </RouterShellLink>
                       </DropdownMenuItem>
                       {!isLocked && !isActive && v.id !== workflow.currentVersionId && (
                         <>

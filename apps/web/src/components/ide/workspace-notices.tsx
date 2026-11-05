@@ -1,6 +1,7 @@
-import { Link } from '@tanstack/react-router'
 import { describeHandlerDeclarations, type HandlerConversionPreview } from '../../lib/api-client'
 import { useSwitchView } from '../../hooks/use-switch-view'
+import { useWorkflowLinks } from '../../lib/workflows/detail-links'
+import { RouterShellLink } from '../navigation/router-shell-link'
 import { Button } from '../ui/button'
 
 const NO_SAVED_VERSION_MESSAGE = 'Save a version on the canvas to see its code here.'
@@ -85,16 +86,17 @@ export function NoVersionNotice({ workflowId, name }: { workflowId: string; name
 }
 
 export function LoadFailure({ workflowId, message }: { workflowId: string; message?: string }) {
+  const links = useWorkflowLinks(workflowId)
   return (
     <Notice
       title="Couldn’t load the source"
       description={message || 'Unknown error'}
       action={
-        <Link to="/workflows/$workflowId" params={{ workflowId }}>
+        <RouterShellLink href={links.overview}>
           <Button size="sm" variant="outline">
             Back to overview
           </Button>
-        </Link>
+        </RouterShellLink>
       }
     />
   )

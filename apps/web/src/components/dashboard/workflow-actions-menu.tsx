@@ -13,6 +13,10 @@ import {
 import { ConfirmDialog } from '../ui/confirm-dialog'
 import { api, type WorkflowSummary } from '../../lib/api-client'
 import { downloadJsonFile } from '../../lib/download-file'
+import { useEditorScope } from '../../contexts/editor-scope-context'
+import { workspacePath } from '../../lib/dashboard-paths'
+import { useWorkflowLinks, workflowLinks } from '../../lib/workflows/detail-links'
+import { useGoTo } from '../navigation/router-shell-link'
 
 interface WorkflowActionsMenuProps {
   workflow: WorkflowSummary
@@ -25,6 +29,9 @@ function irFileName(name: string) {
 
 export function WorkflowActionsMenu({ workflow, isDeployed }: WorkflowActionsMenuProps) {
   const navigate = useNavigate()
+  const goTo = useGoTo()
+  const scope = useEditorScope()
+  const links = useWorkflowLinks(workflow.id)
   const queryClient = useQueryClient()
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [takedownOpen, setTakedownOpen] = useState(false)
@@ -36,7 +43,16 @@ export function WorkflowActionsMenu({ workflow, isDeployed }: WorkflowActionsMen
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
       queryClient.invalidateQueries({ queryKey: ['all-deployments'] })
 
-      navigate({ to: '/workflows', replace: true }).finally(() => setDeleteOpen(false))
+      // Back to the list it was in: the workspace's, or the old shell's.
+      const done = () => setDeleteOpen(false)
+      if (scope) {
+        goTo(workspacePath(scope, workflow.kind === 'script' ? 'functions' : 'workflows'), {
+          replace: true,
+        })
+        done()
+      } else {
+        navigate({ to: '/workflows', replace: true }).finally(done)
+      }
     },
   })
 
@@ -66,8 +82,11 @@ export function WorkflowActionsMenu({ workflow, isDeployed }: WorkflowActionsMen
     mutationFn: async () => {
       const newWf = await api.createWorkflow({
         name: `${workflow.name} (copy)`,
-        description: workflow.description,
+        // None is null from the API, which the create refuses.
+        description: workflow.description ?? undefined,
         kind: workflow.kind,
+        // The copy stays beside the original, not in the project's first workspace.
+        workspaceId: workflow.workspaceId,
       })
       if (workflow.currentVersionId) {
         const ver = await api.getVersion(workflow.id, workflow.currentVersionId)
@@ -77,7 +96,7 @@ export function WorkflowActionsMenu({ workflow, isDeployed }: WorkflowActionsMen
     },
     onSuccess: (newWf) => {
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
-      navigate({ to: '/workflows/$workflowId', params: { workflowId: newWf.id } })
+      goTo(workflowLinks(scope, newWf.id).overview)
     },
   })
 
@@ -123,21 +142,10 @@ export function WorkflowActionsMenu({ workflow, isDeployed }: WorkflowActionsMen
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-          <DropdownMenuItem
-            onSelect={() =>
-              navigate({
-                to: '/workflows/$workflowId/deployments',
-                params: { workflowId: workflow.id },
-              })
-            }
-          >
+          <DropdownMenuItem onSelect={() => goTo(links.deployments)}>
             <Rocket size={14} /> Deployments
           </DropdownMenuItem>
-          <DropdownMenuItem
-            onSelect={() =>
-              navigate({ to: '/workflows/$workflowId/runs', params: { workflowId: workflow.id } })
-            }
-          >
+          <DropdownMenuItem onSelect={() => goTo(links.runs)}>
             <Activity size={14} /> Runs
           </DropdownMenuItem>
           <DropdownMenuSeparator />

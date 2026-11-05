@@ -17,6 +17,7 @@ import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
 import { Button } from '../ui/button'
 import { WorkflowTitle } from '../workflows/workflow-title'
+import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { WorkspaceChrome } from '../workflows/workspace-chrome'
 import { cn } from '../../lib/utils'
 
@@ -64,6 +65,7 @@ export function IdeHeader({
   const isMac = isMacPlatform()
   const hint = (id: IdeShortcutId) => formatShortcut(IDE_SHORTCUTS[id], isMac)
   const switchView = useSwitchView(workflowId)
+  const links = useWorkflowLinks(workflowId)
 
   function handleOpenLatest() {
     void switchView('ide')
@@ -82,7 +84,7 @@ export function IdeHeader({
   }
 
   const title = (
-    <WorkflowTitle name={workflowName} kind={kind} version={version}>
+    <WorkflowTitle name={workflowName} kind={kind} version={version} href={links.overview}>
       {historicalVersion !== undefined && (
         <button
           type="button"

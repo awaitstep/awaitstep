@@ -228,3 +228,55 @@ describe('the API Playground', () => {
     expect(pageTitle(page)).toBe('API Playground · AwaitStep')
   })
 })
+
+describe('a workflow’s own pages', () => {
+  const item = { id: 'wf_1', name: 'Lead enrichment', kind: 'workflow' as const }
+
+  it('sit inside Projects, under the workspace panel with their list marked', () => {
+    const page = { kind: 'item', page: 'runs', item } as const
+    expect(railModel('acme', page, QUIET).activeKey).toBe('projects')
+    const panel = panelModel(page, SALES)
+    if (panel.mode !== 'workspace') throw new Error(panel.mode)
+    expect(panel.activeKey).toBe('workflows')
+    // Switching workspace from here lands on that workspace's list.
+    expect(panel.page).toBe('workflows')
+    const fn = panelModel(
+      { kind: 'item', page: 'overview', item: { ...item, kind: 'script' } },
+      SALES,
+    )
+    if (fn.mode !== 'workspace') throw new Error(fn.mode)
+    expect(fn.activeKey).toBe('functions')
+  })
+
+  it('mark no list until the item’s kind is known', () => {
+    const panel = panelModel({ kind: 'item', page: 'overview', item: { id: 'wf_1' } }, SALES)
+    if (panel.mode !== 'workspace') throw new Error(panel.mode)
+    expect(panel.activeKey).toBe('')
+  })
+
+  it('go through the workspace, its list and the item to the page', () => {
+    expect(breadcrumbs({ kind: 'item', page: 'run', item }, SALES, NAMES)).toEqual([
+      { label: 'Acme Inc', href: '/acme/projects' },
+      { label: 'Project 101', href: '/acme/project-101/workspaces' },
+      { label: 'Sales', href: '/acme/project-101/sales/overview' },
+      { label: 'Workflows', href: '/acme/project-101/sales/workflows' },
+      { label: 'Lead enrichment', href: '/acme/project-101/sales/workflows/wf_1/overview' },
+      { label: 'Run' },
+    ])
+  })
+
+  it('name the item by id while it loads, with no list yet', () => {
+    expect(
+      breadcrumbs({ kind: 'item', page: 'deployments', item: { id: 'wf_1' } }, SALES, NAMES).slice(
+        3,
+      ),
+    ).toEqual([
+      { label: 'wf_1', href: '/acme/project-101/sales/workflows/wf_1/overview' },
+      { label: 'Deployments' },
+    ])
+  })
+
+  it('title the tab', () => {
+    expect(pageTitle({ kind: 'item', page: 'deploy' })).toBe('Deploy · AwaitStep')
+  })
+})

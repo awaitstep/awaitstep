@@ -55,6 +55,7 @@ describe('enterRouteScope', () => {
       key: routeScopeKey(SALES),
       organizationId: 'org_acme',
       projectId: 'prj_second',
+      workspaceId: 'ws_1',
     })
     expect(state.activeOrganizationId).toBe('org_acme')
     expect(state.activeProjectId).toBe('prj_second')

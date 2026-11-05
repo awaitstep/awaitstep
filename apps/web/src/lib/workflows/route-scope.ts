@@ -39,11 +39,32 @@ export async function enterRouteScope(
 
   const organizationId = scope.org.org.id
   const projectId = scope.project.project.id
+  const workspaceId = scope.workspace.workspace.id
   const next = useOrgStore.getState()
-  next.setRouteScope({ key, organizationId, projectId })
+  next.setRouteScope({ key, organizationId, projectId, workspaceId })
   // Switching org forgets the active project, so it goes first.
   if (next.activeOrganizationId !== organizationId) next.setActiveOrganization(organizationId)
   next.setActiveProject(projectId)
+}
+
+/**
+ * Whether API calls follow this workspace's project yet. A workflow's pages
+ * read nothing before then, so none loads through the switcher's project.
+ */
+export function useRouteScopeReady(slugs: WorkspaceSlugs): boolean {
+  const key = routeScopeKey(slugs)
+  return useOrgStore((s) => s.appReady && s.routeScope?.key === key)
+}
+
+/**
+ * Whether a workflow lives in a different workspace than the URL names. The
+ * API answers for any workflow in the project the caller can open, so a link
+ * naming the wrong workspace would otherwise frame it, and act on it, there.
+ * Shared items link through their own workspace, so no real link does this.
+ */
+export function useInOtherWorkspace(workflow: { workspaceId?: string } | undefined): boolean {
+  const workspaceId = useOrgStore((s) => s.routeScope?.workspaceId)
+  return !!workflow?.workspaceId && !!workspaceId && workflow.workspaceId !== workspaceId
 }
 
 /** Back to the switcher's project: the editor is no longer open. */
