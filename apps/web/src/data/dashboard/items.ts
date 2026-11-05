@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { defineToast } from '../../lib/action-toast'
 import { dashboardApi } from '../../lib/dashboard-api'
+import { parseImportFile } from '../../lib/workflows/import-file'
 import { mockServer } from '../../mocks/dashboard/server'
 import type {
   ImportItemInput,
@@ -210,21 +211,7 @@ export function useCreateItem(slugs: WorkspaceSlugs, { onCreated }: CreateItemOp
               description: input.description?.trim() || undefined,
               kind: input.kind,
             })
-            .then((row) =>
-              toWorkspaceItem(
-                {
-                  ...row,
-                  deployStatus: null,
-                  deployVersionId: null,
-                  deployedVersion: null,
-                  sharing: null,
-                  lastRunStatus: null,
-                  lastRunAt: null,
-                  recentRunStatuses: [],
-                },
-                share,
-              ),
-            )
+            .then((row) => toWorkspaceItem(newDraftRow(row), share))
         : mockServer.items.createItem(ctx, slugs, input),
     onSuccess: (item) => {
       onCreated?.(item)
@@ -233,13 +220,56 @@ export function useCreateItem(slugs: WorkspaceSlugs, { onCreated }: CreateItemOp
   })
 }
 
-/** Import: an exported workflow file becomes a draft. Rejects files that aren't exports. */
-export function useImportItem(slugs: WorkspaceSlugs) {
+/** The row a create answers, as the lists show a never-deployed draft. */
+function newDraftRow(row: Awaited<ReturnType<typeof dashboardApi.createWorkflow>>) {
+  return {
+    ...row,
+    deployStatus: null,
+    deployVersionId: null,
+    deployedVersion: null,
+    sharing: null,
+    lastRunStatus: null,
+    lastRunAt: null,
+    recentRunStatuses: [],
+  }
+}
+
+/**
+ * Import: an exported workflow file becomes an item in this workspace, its
+ * graph saved as the first version. A file that isn't a valid export is
+ * refused before anything is created; if the version can't be saved, the
+ * empty item is removed again (best effort). `onImported` runs from the
+ * hook, so it still fires when the dialog has gone.
+ */
+export function useImportItem(
+  slugs: WorkspaceSlugs,
+  { onImported }: { onImported?: (item: WorkspaceItem) => void } = {},
+) {
+  const source = useDataSource()
   const ctx = useMockContext()
   const client = useQueryClient()
+  const share = useShareCapability(slugs)
   return useMutation({
     meta: { toast: { success: 'Workflow imported', error: 'Couldn’t import the workflow' } },
-    mutationFn: (input: ImportItemInput) => mockServer.items.importItem(ctx, slugs, input),
-    onSuccess: () => invalidateAll(client, itemKeys(slugs)),
+    mutationFn: async (input: ImportItemInput): Promise<WorkspaceItem> => {
+      if (source !== 'api') return mockServer.items.importItem(ctx, slugs, input)
+      const file = parseImportFile(input.content, input.fileName)
+      const row = await dashboardApi.createWorkflow(slugs, {
+        name: file.name,
+        description: file.description,
+        kind: file.kind,
+      })
+      try {
+        await dashboardApi.createVersion(slugs, row.id, file.ir)
+      } catch (error) {
+        await dashboardApi.deleteWorkflow(slugs, row.id).catch(() => undefined)
+        throw error
+      }
+      return toWorkspaceItem(newDraftRow(row), share)
+    },
+    onSuccess: (item) => {
+      onImported?.(item)
+      return invalidateAll(client, itemKeys(slugs))
+    },
   })
 }

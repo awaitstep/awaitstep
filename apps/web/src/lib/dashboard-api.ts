@@ -1032,6 +1032,25 @@ export const dashboardApi = {
     return request(`/workflows${query(slugs)}`, { method: 'POST', body: JSON.stringify(data) })
   },
 
+  /** Saves `ir` as the workflow's next version, in the project the slugs name (import). */
+  createVersion(slugs: ProjectSlugs, workflowId: string, ir: unknown): Promise<{ id: string }> {
+    const { org, project } = slugs
+    return request(
+      `/workflows/${encodeURIComponent(workflowId)}/versions${query({ org, project })}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ ir }),
+      },
+    )
+  },
+
+  deleteWorkflow(slugs: ProjectSlugs, workflowId: string): Promise<{ ok: true }> {
+    const { org, project } = slugs
+    return request(`/workflows/${encodeURIComponent(workflowId)}${query({ org, project })}`, {
+      method: 'DELETE',
+    })
+  },
+
   listRuns(slugs: WorkspaceSlugs, filter: ApiRunFilter): Promise<ApiRunPage> {
     return request(`/runs${query({ ...slugs, ...filter })}`)
   },
