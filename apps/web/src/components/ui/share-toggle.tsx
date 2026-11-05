@@ -3,7 +3,10 @@ import { Switch } from './switch'
 interface ShareToggleProps {
   shared: boolean
   onChange: (shared: boolean) => void
-  /** Names the switch, e.g. "Share Lead enrichment with Project 101". */
+  /**
+   * Names the switch, starting with its visible word so speech control finds it,
+   * e.g. "Shared with Project 101: Lead enrichment".
+   */
   label: string
   /**
    * Why the viewer can't change it, e.g. "Viewers can't change sharing".
@@ -12,12 +15,16 @@ interface ShareToggleProps {
   disabledReason?: string
 }
 
-/** The Shared / Private switch on a workflow, function or library row. */
+/**
+ * The Shared switch on a workflow, function or library row. Its label stays
+ * "Shared" and the switch says whether it is: a label that flipped to
+ * "Private" read as the thing to switch to.
+ */
 export function ShareToggle({ shared, onChange, label, disabledReason }: ShareToggleProps) {
   return (
     <span className="flex items-center justify-end gap-2 text-2xs text-muted-foreground">
-      {/* The switch's checked state already says this to screen readers. */}
-      <span aria-hidden="true">{shared ? 'Shared' : 'Private'}</span>
+      {/* Only the visible caption: the switch is named by `label`, which starts with it. */}
+      <span aria-hidden="true">Shared</span>
       <Switch
         checked={shared}
         onCheckedChange={onChange}

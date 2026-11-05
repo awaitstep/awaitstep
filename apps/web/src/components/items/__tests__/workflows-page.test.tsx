@@ -57,11 +57,21 @@ describe('Workflows page', () => {
     expect(within(filters).getByRole('button', { name: 'Drafts 1' })).toBeInTheDocument()
   })
 
-  it('leads each row to its editor, under this workspace', async () => {
+  it('leads each row to its Overview, under this workspace, on desktop and phone', async () => {
     renderWorkflows()
     const list = await waitFor(desktopList)
     const link = within(list).getByRole('link', { name: 'Lead enrichment' })
-    expect(link.getAttribute('href')).toMatch(/^\/acme\/project-101\/sales\/workflows\/itm_/)
+    // A row opens the workflow's Overview, as v1's list did.
+    expect(link.getAttribute('href')).toMatch(
+      /^\/acme\/project-101\/sales\/workflows\/itm_[^/]+\/overview$/,
+    )
+    // The phone's list, too.
+    const phone = screen.getAllByRole('list', { name: 'Workflows in Sales' })[1]!
+    expect(
+      within(phone)
+        .getByRole('link', { name: /Lead enrichment/ })
+        .getAttribute('href'),
+    ).toBe(link.getAttribute('href'))
   })
 
   it('leads a shared item to its own workspace, not this one', async () => {
@@ -70,7 +80,9 @@ describe('Workflows page', () => {
     const links = within(heading.closest('section')!).getAllByRole('link')
     expect(links.length).toBeGreaterThan(0)
     for (const link of links) {
-      expect(link.getAttribute('href')).toMatch(/^\/acme\/project-101\/it\/workflows\//)
+      expect(link.getAttribute('href')).toMatch(
+        /^\/acme\/project-101\/it\/workflows\/[^/]+\/overview$/,
+      )
     }
   })
 
@@ -97,7 +109,7 @@ describe('Workflows page', () => {
   it('shares a workflow, which then shows as shared with IT', async () => {
     renderWorkflows()
     await waitFor(desktopList)
-    const toggle = screen.getByRole('switch', { name: 'Share Quote follow-up with Project 101' })
+    const toggle = screen.getByRole('switch', { name: 'Shared with Project 101: Quote follow-up' })
     await userEvent.click(toggle)
     await waitFor(() => expect(toggle).toBeChecked())
 
@@ -109,7 +121,7 @@ describe('Workflows page', () => {
   it('won’t unshare Lead enrichment while IT calls it', async () => {
     renderWorkflows()
     await waitFor(desktopList)
-    const toggle = screen.getByRole('switch', { name: 'Share Lead enrichment with Project 101' })
+    const toggle = screen.getByRole('switch', { name: 'Shared with Project 101: Lead enrichment' })
     expect(toggle).toHaveAccessibleDescription(/Called by IT/)
   })
 
@@ -130,7 +142,9 @@ describe('Workflows page', () => {
     )
     expect(screen.getByRole('button', { name: 'Drafts 2', hidden: true })).toBeInTheDocument()
     const created = within(list()).getAllByRole('link', { hidden: true })[0]!.getAttribute('href')
-    expect(goTo).toHaveBeenCalledWith(`${created}?template=1`)
+    // The row opens its Overview; a new one opens straight in its editor.
+    expect(created).toMatch(/\/overview$/)
+    expect(goTo).toHaveBeenCalledWith(`${created!.replace(/\/overview$/, '')}?template=1`)
     expect(goTo).toHaveBeenCalledTimes(1)
     // Busy until the editor opens: a second click would make a second draft.
     expect(create).toBeDisabled()
@@ -224,7 +238,7 @@ describe('Workflows page for a Viewer', () => {
     expect(within(topBar()).queryByRole('link', { name: 'Import' })).not.toBeInTheDocument()
     expect(screen.getByText(/Read-only in Sales/)).toBeInTheDocument()
     expect(
-      screen.getByRole('switch', { name: 'Share Quote follow-up with Project 101' }),
+      screen.getByRole('switch', { name: 'Shared with Project 101: Quote follow-up' }),
     ).toHaveAccessibleDescription('Only Editors can share')
   })
 
@@ -250,6 +264,9 @@ describe('Functions page', () => {
     const rows = within(table).getAllByRole('row').slice(1)
     expect(rows).toHaveLength(2)
     expect(within(rows[0]!).getByText('CRM sync')).toBeInTheDocument()
+    expect(within(rows[0]!).getByRole('link', { name: 'CRM sync' }).getAttribute('href')).toMatch(
+      /^\/acme\/project-101\/sales\/workflows\/[^/]+\/overview$/,
+    )
     expect(within(rows[0]!).getByText('POST /crm/sync · updates leads from the CRM')).toBeVisible()
     expect(within(rows[0]!).getByText('2,140 req · 0.2% errors')).toBeInTheDocument()
     expect(within(rows[0]!).getByText('Private')).toBeInTheDocument()

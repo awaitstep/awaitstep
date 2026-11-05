@@ -40,7 +40,7 @@ function ShareDemo({ initial, disabledReason }: { initial: boolean; disabledReas
     <ShareToggle
       shared={shared}
       onChange={setShared}
-      label="Share Lead enrichment with Project 101"
+      label="Shared with Project 101: Lead enrichment"
       disabledReason={disabledReason}
     />
   )

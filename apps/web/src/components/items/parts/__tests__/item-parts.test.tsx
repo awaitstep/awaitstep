@@ -44,14 +44,14 @@ describe('WorkflowRow', () => {
   it('flips the share switch', async () => {
     const { onShareChange } = renderRow()
     await userEvent.click(
-      screen.getByRole('switch', { name: 'Share Quote follow-up with Project 101' }),
+      screen.getByRole('switch', { name: 'Shared with Project 101: Quote follow-up' }),
     )
     expect(onShareChange).toHaveBeenCalledWith(true)
   })
 
   it('keeps a blocked switch still and says why', async () => {
     const { onShareChange } = renderRow(LEAD_ENRICHMENT)
-    const toggle = screen.getByRole('switch', { name: 'Share Lead enrichment with Project 101' })
+    const toggle = screen.getByRole('switch', { name: 'Shared with Project 101: Lead enrichment' })
     expect(toggle).toHaveAccessibleDescription(/Called by IT/)
     await userEvent.click(toggle)
     expect(onShareChange).not.toHaveBeenCalled()

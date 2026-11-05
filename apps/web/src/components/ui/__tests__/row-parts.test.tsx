@@ -87,6 +87,15 @@ describe('RunHistoryBars', () => {
 })
 
 describe('ShareToggle', () => {
+  it('keeps one label, Shared, and lets the switch say whether it is', () => {
+    const { rerender } = render(<ShareToggle shared={false} onChange={vi.fn()} label="Share it" />)
+    expect(screen.getByText('Shared')).toBeInTheDocument()
+    expect(screen.queryByText('Private')).not.toBeInTheDocument()
+    rerender(<ShareToggle shared onChange={vi.fn()} label="Share it" />)
+    expect(screen.getByText('Shared')).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'Share it' })).toHaveAttribute('aria-checked', 'true')
+  })
+
   it('is a named switch that reports the new state', async () => {
     const onChange = vi.fn()
     render(<ShareToggle shared={false} onChange={onChange} label="Share Lead enrichment" />)
