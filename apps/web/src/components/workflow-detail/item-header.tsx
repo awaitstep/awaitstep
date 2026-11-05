@@ -50,11 +50,12 @@ export function ItemHeader({ slugs, workflow, overview, page, counts }: ItemHead
 
   const tabs: LinkTab[] = [
     { key: 'overview', label: 'Overview', href: links.overview },
-    { key: 'runs', label: withCount('Runs', counts?.runs), href: links.runs },
+    { key: 'runs', label: 'Runs', href: links.runs, count: counts?.runs },
     {
       key: 'deployments',
-      label: withCount('Deployments', counts?.deployments),
+      label: 'Deployments',
       href: links.deployments,
+      count: counts?.deployments,
     },
   ]
 
@@ -143,10 +144,6 @@ export function ItemHeader({ slugs, workflow, overview, page, counts }: ItemHead
       )}
     </div>
   )
-}
-
-function withCount(label: string, count: number | undefined): string {
-  return count === undefined ? label : `${label} ${count}`
 }
 
 /** A run belongs to the Runs tab; Deploy is none of them. */
