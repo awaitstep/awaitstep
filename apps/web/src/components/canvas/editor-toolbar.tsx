@@ -44,7 +44,8 @@ export interface EditorToolbarProps {
   onDeploy: () => void
   onTest: () => void
   onTestLocally?: () => void
-  onOpenTemplatePicker: () => void
+  /** Offered only while the workflow has nothing saved (`offersTemplates`). */
+  onOpenTemplatePicker?: () => void
   onExport?: () => void
   readOnly?: boolean
   readOnlyVersion?: number
@@ -249,7 +250,7 @@ export function EditorToolbar({
                 <Settings2 className="h-3.5 w-3.5" />
                 <span className="hidden text-xs md:inline">Settings</span>
               </Button>
-              {isNew && kind !== 'script' && (
+              {onOpenTemplatePicker && (
                 <Button
                   variant="ghost"
                   size="sm"
