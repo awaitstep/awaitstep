@@ -1,6 +1,8 @@
 import type {
   Workflow,
   WorkflowVersion,
+  WorkflowVersionListItem,
+  DeploymentListItem,
   Connection,
   ConnectionCoverage,
   ConnectionListOptions,
@@ -550,7 +552,7 @@ export interface DatabaseAdapter {
   listVersionsByWorkflow(
     workflowId: string,
     pagination?: PaginationParams,
-  ): Promise<PaginatedResult<WorkflowVersion>>
+  ): Promise<PaginatedResult<WorkflowVersionListItem>>
   updateVersion(id: string, data: UpdateVersionData): Promise<void>
   deleteVersion(id: string): Promise<void>
 
@@ -785,13 +787,14 @@ export interface DatabaseAdapter {
     status: string
     error?: string
     configSnapshot?: string
+    createdBy?: string
   }): Promise<Deployment>
   getActiveDeployment(workflowId: string): Promise<Deployment | null>
   isActiveDeploymentLocked(workflowId: string): Promise<boolean>
   listDeploymentsByWorkflow(
     workflowId: string,
     pagination?: PaginationParams,
-  ): Promise<PaginatedResult<Deployment>>
+  ): Promise<PaginatedResult<DeploymentListItem>>
   /** Across the project's workflows `visibleTo` can open, or one workspace's with `workspaceId`. */
   listRecentDeploymentsByProject(
     projectId: string,

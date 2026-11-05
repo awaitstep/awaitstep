@@ -290,6 +290,7 @@ export const workflowVersions = sqliteTable(
     manifest: text('manifest'),
     baseGeneratedHash: text('base_generated_hash'),
     locked: integer('locked').notNull().default(0),
+    createdBy: text('created_by'),
     createdAt: text('created_at').notNull(),
   },
   (table) => [
@@ -527,6 +528,7 @@ export const deployments = sqliteTable(
     status: text('status').notNull().default('success'),
     error: text('error'),
     configSnapshot: text('config_snapshot'),
+    createdBy: text('created_by'),
     createdAt: text('created_at').notNull(),
   },
   (table) => [
