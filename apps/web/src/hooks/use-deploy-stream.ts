@@ -51,16 +51,19 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
       setResult(null)
 
       try {
-        const response = await fetch(projectUrl(`/workflows/${workflowId}/deploy-stream`), {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            connectionId,
-            ...(versionId && { versionId }),
-            ...(config && { config }),
-          }),
-        })
+        const response = await fetch(
+          projectUrl(`/workflows/${encodeURIComponent(workflowId)}/deploy-stream`),
+          {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              connectionId,
+              ...(versionId && { versionId }),
+              ...(config && { config }),
+            }),
+          },
+        )
 
         if (!response.ok) {
           const body = await response.json().catch(() => null)
