@@ -23,6 +23,11 @@ export interface IdeCommandActions {
   /** Splits the annotation file (handlers.ts) into handler modules. */
   convertHandlers: () => void
   quickOpen: () => void
+  /** Shows Search with the editor's selection (or word at the caret) as the query. */
+  findInFiles: () => void
+  /** Opens the next / previous search hit; with none to open, shows Search. */
+  nextSearchHit: () => void
+  prevSearchHit: () => void
   switchToCanvas: () => void
   closeActiveFile: () => void
   closeAllFiles: () => void
@@ -72,7 +77,7 @@ export interface IdeCommandContext {
 /**
  * The command palette's catalogue. Disabled entries stay listed (so the
  * palette teaches what exists) but cannot run; labels reflect toggles' next
- * state so "Hide Explorer" never reads as a no-op.
+ * state so "Hide Side Bar" never reads as a no-op.
  */
 export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
   const { actions } = ctx
@@ -167,6 +172,30 @@ export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
       run: actions.quickOpen,
     },
     {
+      id: 'navigate.findInFiles',
+      label: 'Search in Files…',
+      group: 'navigate',
+      shortcut: 'findInFiles',
+      enabled: true,
+      run: actions.findInFiles,
+    },
+    {
+      id: 'navigate.nextSearchHit',
+      label: 'Go to Next Search Result',
+      group: 'navigate',
+      shortcut: 'nextSearchHit',
+      enabled: true,
+      run: actions.nextSearchHit,
+    },
+    {
+      id: 'navigate.prevSearchHit',
+      label: 'Go to Previous Search Result',
+      group: 'navigate',
+      shortcut: 'prevSearchHit',
+      enabled: true,
+      run: actions.prevSearchHit,
+    },
+    {
       id: 'navigate.canvas',
       label: 'Switch to Canvas',
       group: 'navigate',
@@ -175,7 +204,7 @@ export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
     },
     {
       id: 'view.explorer',
-      label: ctx.explorerOpen ? 'Hide Explorer' : 'Show Explorer',
+      label: ctx.explorerOpen ? 'Hide Side Bar' : 'Show Side Bar',
       group: 'view',
       shortcut: 'toggleExplorer',
       enabled: true,

@@ -3,6 +3,8 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import type { Layout } from 'react-resizable-panels'
 import { browserStorage } from './ssr-safe-storage'
 
+export type SideBarTab = 'explorer' | 'search'
+
 export type DockTab = 'problems' | 'session' | 'quickTest'
 
 const DOCK_TABS: readonly DockTab[] = ['problems', 'session', 'quickTest']
@@ -30,11 +32,16 @@ interface IdeLayoutState {
   /** The read-only graph floating over the editor. */
   previewOpen: boolean
   dockTab: DockTab
+  /** Which view the side bar shows; remembered across reloads. */
+  sideBarTab: SideBarTab
   layouts: Partial<Record<string, Layout>>
   toggleExplorer: () => void
   toggleDock: () => void
   togglePreview: () => void
   showDock: (tab: DockTab) => void
+  /** Opens the side bar on a view, showing it first if it was hidden. */
+  showSideBar: (tab: SideBarTab) => void
+  setSideBarTab: (tab: SideBarTab) => void
   setLayout: (key: IdeLayoutKey, layout: Layout) => void
 }
 
@@ -52,11 +59,14 @@ export const useIdeLayoutStore = create<IdeLayoutState>()(
       // and a panel nobody knows to open is a panel nobody uses.
       previewOpen: true,
       dockTab: 'problems',
+      sideBarTab: 'explorer',
       layouts: {},
       toggleExplorer: () => set({ explorerOpen: !get().explorerOpen }),
       toggleDock: () => set({ dockOpen: !get().dockOpen }),
       togglePreview: () => set({ previewOpen: !get().previewOpen }),
       showDock: (dockTab) => set({ dockOpen: true, dockTab }),
+      showSideBar: (sideBarTab) => set({ explorerOpen: true, sideBarTab }),
+      setSideBarTab: (sideBarTab) => set({ sideBarTab }),
       setLayout: (key, layout) => set({ layouts: { ...get().layouts, [key]: layout } }),
     }),
     {
@@ -64,7 +74,12 @@ export const useIdeLayoutStore = create<IdeLayoutState>()(
       storage: createJSONStorage(() => browserStorage()),
       merge: (persisted, current) => {
         const stored = (persisted ?? {}) as Partial<IdeLayoutState>
-        return { ...current, ...stored, dockTab: normalizeDockTab(stored.dockTab) }
+        return {
+          ...current,
+          ...stored,
+          dockTab: normalizeDockTab(stored.dockTab),
+          sideBarTab: stored.sideBarTab === 'search' ? 'search' : 'explorer',
+        }
       },
     },
   ),

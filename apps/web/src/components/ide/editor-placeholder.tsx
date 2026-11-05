@@ -7,7 +7,7 @@ export function EditorPlaceholder() {
   const hints = [
     { label: 'Go to file', keys: formatShortcut(IDE_SHORTCUTS.quickOpen, isMac) },
     { label: 'Command palette', keys: formatShortcut(IDE_SHORTCUTS.commandPalette, isMac) },
-    { label: 'Toggle explorer', keys: formatShortcut(IDE_SHORTCUTS.toggleExplorer, isMac) },
+    { label: 'Toggle side bar', keys: formatShortcut(IDE_SHORTCUTS.toggleExplorer, isMac) },
     { label: 'Toggle panel', keys: formatShortcut(IDE_SHORTCUTS.toggleDock, isMac) },
   ]
 

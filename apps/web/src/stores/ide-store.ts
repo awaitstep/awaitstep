@@ -18,6 +18,8 @@ export interface RevealTarget {
   path: string
   line: number
   column: number
+  /** Selects from `column` to here on the same line, for a search hit. */
+  endColumn?: number
 }
 
 /** What a reload brought back, shown in the banner until it is used or dismissed. */
@@ -35,6 +37,13 @@ export interface EditorHandle {
   focus: () => void
   /** Runs a Monaco action by id, e.g. `editor.action.gotoLine`. */
   trigger: (actionId: string) => void
+  /**
+   * What Search should start from: the selected text, else the word at the
+   * caret. Null when the editor does not have the keyboard, so a shortcut
+   * pressed from the Search box never overwrites what was typed there;
+   * `ignoreFocus` reads it anyway (the palette holds the keyboard).
+   */
+  searchSeed: (ignoreFocus?: boolean) => string | null
 }
 
 export interface CursorPosition {

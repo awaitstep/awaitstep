@@ -137,23 +137,45 @@ export function EditorGroup({
     }
   }, [monaco, workflowId])
 
-  // A reveal lands once the editor shows the requested file: right away if it
-  // already does, otherwise from the model-change event after the swap.
+  // A reveal lands once the editor shows the requested file and the wrapper
+  // is done with it: right away if it already does, otherwise after the swap.
+  // The wrapper swaps models and then restores the file's saved view state
+  // (its last cursor and scroll), which would overwrite the reveal if it
+  // landed first; see `handleMount` for how the swap is waited out.
   const applyReveal = useCallback(() => {
     const instance = editorRef.current
     const target = useIdeStore.getState().reveal
     if (!instance || !target) return
     const model = instance.getModel()
     if (!model || parseWorkflowModelPath(model.uri.toString())?.file !== target.path) return
-    instance.revealLineInCenter(target.line)
-    instance.setPosition({ lineNumber: target.line, column: target.column })
+    // The range, not just the line: a match far along a long line scrolls
+    // sideways into view.
+    instance.revealRangeInCenter({
+      startLineNumber: target.line,
+      startColumn: target.column,
+      endLineNumber: target.line,
+      endColumn: target.endColumn ?? target.column,
+    })
+    if (target.endColumn !== undefined) {
+      // A search hit: select the match so the next keystroke replaces it.
+      instance.setSelection({
+        startLineNumber: target.line,
+        startColumn: target.column,
+        endLineNumber: target.line,
+        endColumn: target.endColumn,
+      })
+    } else {
+      instance.setPosition({ lineNumber: target.line, column: target.column })
+    }
     instance.focus()
     clearReveal()
   }, [clearReveal])
 
+  // Child effects run first, so by the time this runs for a new file the
+  // wrapper has swapped models and restored that file's view state.
   useEffect(() => {
     if (reveal) applyReveal()
-  }, [reveal, applyReveal])
+  }, [reveal, activePath, applyReveal])
 
   function handleMount(instance: editor.IStandaloneCodeEditor) {
     editorRef.current = instance
@@ -163,6 +185,7 @@ export function EditorGroup({
     setEditorHandle({
       focus: () => instance.focus(),
       trigger: (actionId) => void instance.getAction(actionId)?.run(),
+      searchSeed: (ignoreFocus) => searchSeedOf(instance, ignoreFocus),
     })
     // Switching models fires no cursor event, so read the caret afresh.
     function syncCursor() {
@@ -171,7 +194,12 @@ export function EditorGroup({
     }
     instance.onDidChangeModel(() => {
       syncCursor()
-      applyReveal()
+      // This fires inside the wrapper's `setModel`, before it restores the
+      // file's old view state. A microtask lands after both.
+      queueMicrotask(() => {
+        syncCursor()
+        applyReveal()
+      })
     })
     instance.onDidDispose(() => setEditorHandle(null))
     syncCursor()
@@ -237,4 +265,22 @@ export function EditorGroup({
       </div>
     </div>
   )
+}
+
+/**
+ * The single-line selection, else the word at the caret. Null while the
+ * editor lacks focus, unless `ignoreFocus`: the palette has the keyboard
+ * when its command runs, but the editor still holds its selection.
+ */
+function searchSeedOf(instance: editor.IStandaloneCodeEditor, ignoreFocus = false): string | null {
+  if (!ignoreFocus && !instance.hasTextFocus()) return null
+  const model = instance.getModel()
+  const selection = instance.getSelection()
+  if (!model || !selection) return ''
+  if (!selection.isEmpty()) {
+    return selection.startLineNumber === selection.endLineNumber
+      ? model.getValueInRange(selection)
+      : ''
+  }
+  return model.getWordAtPosition(selection.getPosition())?.word ?? ''
 }

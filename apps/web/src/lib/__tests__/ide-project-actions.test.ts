@@ -23,7 +23,7 @@ const baseline = new Map<string, SourceFile>([
   ['handlers.ts', file('handlers.ts', '@fetch function handler() {}')],
 ])
 
-function setup(baselineOverride = baseline) {
+function setup(baselineOverride = baseline, isCurrent: () => boolean = () => true) {
   const client = {
     putProjectFile: vi.fn(
       async (_id: string, path: string, source: string, _p: WritePrecondition) => ({
@@ -50,6 +50,8 @@ function setup(baselineOverride = baseline) {
     notify,
     getBaseline: () => baselineOverride,
     getStore: useIdeStore.getState,
+    isCurrent,
+    getProjectPaths: () => new Set(baselineOverride.keys()),
     refresh,
   })
   return { client, notify, refresh, actions }
@@ -292,5 +294,112 @@ describe('project file actions', () => {
       'Created again.ts but couldn’t remove env.ts',
       undefined,
     )
+  })
+})
+
+describe('writes that outlive the workspace', () => {
+  beforeEach(() => {
+    useIdeStore.getState().resetSession()
+  })
+
+  // The user opens another workflow while the call is in flight: the shared
+  // session now belongs to it and must come out untouched.
+  function moveOn() {
+    let current = true
+    return {
+      isCurrent: () => current,
+      leave: () => {
+        current = false
+        const other = useIdeStore.getState()
+        other.openFile('config/env.ts')
+        other.setDraft('config/env.ts', 'other workflow draft', 'h-x')
+        other.setDraft('lib/env.ts', 'other new draft', 'h-y')
+      },
+    }
+  }
+
+  it('renameFile leaves the other workflow’s tabs and drafts alone and does not offer its importers', async () => {
+    const nav = moveOn()
+    const { client, actions, notify } = setup(baseline, nav.isCurrent)
+    client.putProjectFile.mockImplementationOnce(async (_id, path, source) => {
+      nav.leave()
+      return { path, hash: 'h', size: source.length, updatedAt: 'now' }
+    })
+    expect(await actions.renameFile('config/env.ts', 'lib/env.ts')).toBe(true)
+    expect(useIdeStore.getState().openPaths).toEqual(['config/env.ts'])
+    expect(Object.keys(useIdeStore.getState().drafts).sort()).toEqual([
+      'config/env.ts',
+      'lib/env.ts',
+    ])
+    expect(notify.success).toHaveBeenCalledTimes(1)
+    expect(notify.success).toHaveBeenCalledWith('Renamed to env.ts')
+  })
+
+  it('renameFile counts importers over the drafts it started with, not the next workflow’s', async () => {
+    const importer = file('worker2.ts', 'x', 'h-w2')
+    const files = new Map(baseline).set('worker2.ts', importer)
+    useIdeStore.getState().setDraft('worker2.ts', 'import a from "#app/config/env"', 'h-w2')
+    const { client, actions, notify } = setup(files)
+    client.deleteProjectFile.mockImplementationOnce(async () => {
+      // Another workflow's session replaces the drafts mid-flight.
+      useIdeStore.getState().replaceDrafts({})
+    })
+    await actions.renameFile('config/env.ts', 'lib/env.ts')
+    expect(notify.success).toHaveBeenCalledWith(
+      'Renamed to env.ts',
+      expect.objectContaining({ description: '1 file still imports the old path.' }),
+    )
+  })
+
+  it('createFile does not open the new file in the other workflow', async () => {
+    const nav = moveOn()
+    const { client, actions } = setup(baseline, nav.isCurrent)
+    client.putProjectFile.mockImplementationOnce(async (_id, path) => {
+      nav.leave()
+      return { path, hash: 'h', size: 0, updatedAt: 'now' }
+    })
+    await actions.createFile('lib/new.ts', '')
+    expect(useIdeStore.getState().openPaths).toEqual(['config/env.ts'])
+  })
+
+  it('deleteFile does not close tabs or drop drafts of the other workflow', async () => {
+    const nav = moveOn()
+    const { client, actions } = setup(baseline, nav.isCurrent)
+    client.deleteProjectFile.mockImplementationOnce(async () => {
+      nav.leave()
+    })
+    await actions.deleteFile('config/env.ts')
+    expect(useIdeStore.getState().openPaths).toEqual(['config/env.ts'])
+    expect(useIdeStore.getState().drafts['config/env.ts']).toBeDefined()
+  })
+
+  it('saveFile does not rebase a draft of the other workflow', async () => {
+    const nav = moveOn()
+    useIdeStore.getState().setDraft('config/env.ts', 'mine', 'h-env')
+    const { client, actions } = setup(baseline, nav.isCurrent)
+    client.putProjectFile.mockImplementationOnce(async (_id, path) => {
+      nav.leave()
+      return { path, hash: 'saved', size: 1, updatedAt: 'now' }
+    })
+    await actions.saveFile('config/env.ts')
+    const draft = useIdeStore.getState().drafts['config/env.ts']
+    expect(draft?.source).toBe('other workflow draft')
+    expect(draft?.baseHash).not.toBe('saved')
+  })
+
+  it('convertHandlers does not close or open tabs of the other workflow', async () => {
+    const nav = moveOn()
+    const { client, actions } = setup(baseline, nav.isCurrent)
+    client.convertHandlers.mockImplementationOnce(async () => {
+      nav.leave()
+      return {
+        source: 'file' as const,
+        files: [{ path: 'handlers/fetch.ts', hash: 'h', size: 1, updatedAt: 'now' }],
+        declarations: {},
+        deploymentConfigUpdated: false,
+      }
+    })
+    await actions.convertHandlers()
+    expect(useIdeStore.getState().openPaths).toEqual(['config/env.ts'])
   })
 })

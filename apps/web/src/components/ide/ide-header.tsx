@@ -138,7 +138,7 @@ export function IdeHeader({
           <div className="hidden h-5 w-px shrink-0 bg-muted/70 sm:block" />
           <HeaderToggle
             active={explorerOpen}
-            title={`${explorerOpen ? 'Hide' : 'Show'} explorer (${hint('toggleExplorer')})`}
+            title={`${explorerOpen ? 'Hide' : 'Show'} side bar (${hint('toggleExplorer')})`}
             onClick={toggleExplorer}
           >
             <PanelLeft className="h-3.5 w-3.5" />

@@ -9,9 +9,10 @@ import {
   type WritePrecondition,
 } from '../api-client'
 import type { IdeSessionState } from '../../stores/ide-store'
-import { dirtyPaths } from './drafts'
+import { dirtyPaths, overlayDrafts } from './drafts'
 import { basename } from './file-tree'
 import { importSpecifier } from './project'
+import { countImporters, toSearchFiles } from './search'
 
 export interface ProjectFileClient {
   putProjectFile(
@@ -24,12 +25,14 @@ export interface ProjectFileClient {
   convertHandlers(workflowId: string, ifMatch?: string): Promise<HandlerConversionResult>
 }
 
+interface ToastAction {
+  label: string
+  onClick: () => void
+}
+
 export interface Notifier {
-  success(message: string): void
-  error(
-    message: string,
-    options?: { description?: string; action?: { label: string; onClick: () => void } },
-  ): void
+  success(message: string, options?: { description?: string; action?: ToastAction }): void
+  error(message: string, options?: { description?: string; action?: ToastAction }): void
 }
 
 export interface ProjectActionDeps {
@@ -41,8 +44,19 @@ export interface ProjectActionDeps {
   /** The loaded files, virtual seeds included — never the draft overlay. */
   getBaseline: () => ReadonlyMap<string, SourceFile>
   getStore: () => IdeSessionState
+  /**
+   * Still the workspace these actions were built for. A write can outlive the
+   * page: once the user has moved on (another workflow, or closed the
+   * editor) the global session belongs to something else, so a finished
+   * write must not touch it. Defaults to always true.
+   */
+  isCurrent?: () => boolean
+  /** The project's own paths (stored files and virtual seeds); every other file is generated. */
+  getProjectPaths: () => ReadonlySet<string>
   /** Refetches the workspace once a write has landed. */
   refresh: () => Promise<void>
+  /** Opens Search on the old import path after a rename that left importers behind. */
+  onShowImporters?: (specifier: string) => void
 }
 
 export interface ProjectFileActions {
@@ -79,7 +93,24 @@ function failed(notify: Notifier, line: string, err: unknown) {
  * save cannot conflict with itself, and tabs follow renames and deletes.
  */
 export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileActions {
-  const { workflowId, target, client, notify, getBaseline, getStore, refresh } = deps
+  const {
+    workflowId,
+    target,
+    client,
+    notify,
+    getBaseline,
+    getStore,
+    getProjectPaths,
+    refresh,
+    onShowImporters,
+  } = deps
+  const isCurrent = deps.isCurrent ?? (() => true)
+
+  // The session store, or null when the workspace has moved on since the
+  // action started. Called after every await, never cached across one.
+  function liveStore(): IdeSessionState | null {
+    return isCurrent() ? getStore() : null
+  }
 
   async function write(
     path: string,
@@ -113,14 +144,17 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
   // Overwrites against the hash the conflict reported: anything that lands
   // in between is a fresh conflict, never a silent clobber.
   async function overwrite(path: string, currentHash: string | null): Promise<void> {
-    const source = getStore().drafts[path]?.source ?? getBaseline().get(path)?.source
+    // Reached from a toast long after the click that made it.
+    const store = liveStore()
+    if (!store) return
+    const source = store.drafts[path]?.source ?? getBaseline().get(path)?.source
     if (source === undefined) return
     const precondition: WritePrecondition = currentHash
       ? { ifMatch: currentHash }
       : { ifNoneMatch: true }
     const saved = await write(path, source, precondition, true)
     if (typeof saved === 'string') return
-    getStore().rebaseDraft(path, saved.hash)
+    liveStore()?.rebaseDraft(path, saved.hash)
     await refresh()
     notify.success(`Saved ${basename(path)}`)
   }
@@ -142,8 +176,35 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     const precondition: WritePrecondition = baseHash ? { ifMatch: baseHash } : { ifNoneMatch: true }
     const saved = await write(path, source, precondition, true)
     if (typeof saved === 'string') return 'failed'
-    getStore().rebaseDraft(path, saved.hash)
+    liveStore()?.rebaseDraft(path, saved.hash)
     return 'saved'
+  }
+
+  function importersOf(
+    path: string,
+    drafts: IdeSessionState['drafts'],
+  ): { specifier: string; count: number } | null {
+    const specifier = importSpecifier(path)
+    if (!specifier) return null
+    // The same ownership rule as the Search view, so the count is its list.
+    const files = toSearchFiles(overlayDrafts(getBaseline(), drafts).values(), getProjectPaths())
+    return { specifier, count: countImporters(files, specifier) }
+  }
+
+  // Imports are not rewritten, so a rename that leaves some behind says so
+  // and offers the list.
+  function announceRename(to: string, importers: { specifier: string; count: number } | null) {
+    if (!importers || importers.count === 0) {
+      notify.success(`Renamed to ${basename(to)}`)
+      return
+    }
+    const { specifier, count } = importers
+    notify.success(`Renamed to ${basename(to)}`, {
+      description: `${count === 1 ? '1 file still imports' : `${count} files still import`} the old path.`,
+      ...(onShowImporters && {
+        action: { label: 'Show', onClick: () => onShowImporters(specifier) },
+      }),
+    })
   }
 
   return {
@@ -182,7 +243,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       if (created === 'conflict') await refresh()
       if (typeof created === 'string') return false
       await refresh()
-      getStore().openFile(path)
+      liveStore()?.openFile(path)
       const specifier = importSpecifier(path)
       notify.success(
         specifier ? `Created. Import it as \`${specifier}\`` : `Created ${basename(path)}`,
@@ -192,7 +253,10 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
 
     async renameFile(from, to) {
       const base = getBaseline().get(from)
-      const draft = getStore().drafts[from]
+      // The editor as it stood when the rename began: the count below must
+      // not mix this workflow's baseline with another one's drafts.
+      const drafts = getStore().drafts
+      const draft = drafts[from]
       const source = draft?.source ?? base?.source
       if (source === undefined) return false
       const created = await write(to, source, { ifNoneMatch: true }, false, 'create')
@@ -212,11 +276,14 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
           )
         }
       }
-      const store = getStore()
-      store.moveFile(from, to)
-      store.clearDraft(to)
+      // Counted before the move, over what the editor shows, so the answer is
+      // the files that import the old path whether or not they are saved yet.
+      const importers = removed ? importersOf(from, drafts) : null
+      const store = liveStore()
+      store?.moveFile(from, to)
+      store?.clearDraft(to)
       await refresh()
-      if (removed) notify.success(`Renamed to ${basename(to)}`)
+      if (removed) announceRename(to, isCurrent() ? importers : null)
       return true
     },
 
@@ -229,9 +296,9 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
         if (err instanceof ProjectFileConflictError) await refresh()
         return false
       }
-      const store = getStore()
-      store.clearDraft(path)
-      store.closeFile(path)
+      const store = liveStore()
+      store?.clearDraft(path)
+      store?.closeFile(path)
       await refresh()
       notify.success(`Deleted ${basename(path)}`)
       return true
@@ -245,8 +312,10 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       }
       // The hash the conversion is conditional on is read after that save:
       // a saved draft now builds on the hash the server returned.
+      const current = liveStore()
+      if (!current) return null
       const hash =
-        getStore().drafts[PROJECT_HANDLERS_PATH]?.baseHash ??
+        current.drafts[PROJECT_HANDLERS_PATH]?.baseHash ??
         getBaseline().get(PROJECT_HANDLERS_PATH)?.hash
       let result: HandlerConversionResult
       try {
@@ -256,11 +325,11 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
         if (err instanceof ProjectFileConflictError) await refresh()
         return null
       }
-      const store = getStore()
-      store.clearDraft(PROJECT_HANDLERS_PATH)
-      store.closeFile(PROJECT_HANDLERS_PATH)
+      const store = liveStore()
+      store?.clearDraft(PROJECT_HANDLERS_PATH)
+      store?.closeFile(PROJECT_HANDLERS_PATH)
       await refresh()
-      if (result.files[0]) store.openFile(result.files[0].path)
+      if (result.files[0]) liveStore()?.openFile(result.files[0].path)
       notify.success(
         result.files.length === 1
           ? `Created ${result.files[0]!.path}`

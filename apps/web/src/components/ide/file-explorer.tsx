@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import {
   dirname,
@@ -18,6 +18,7 @@ import {
   type NewMenuItem,
   type ProjectUsage,
 } from '../../lib/ide/project'
+import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeExplorerStore } from '../../stores/ide-explorer-store'
 import { useIdeStore } from '../../stores/ide-store'
 import { CreateRow } from './file-explorer-create'
@@ -26,6 +27,8 @@ import { ExplorerHeader } from './file-explorer-header'
 import { ExplorerRow, ProjectEmptyState, ancestorKeys, type RowActions } from './file-explorer-rows'
 
 interface FileExplorerProps {
+  /** The side bar's view switch, shown in the header. */
+  tabs?: ReactNode
   project: TreeNode[]
   generated: TreeNode[]
   dirty: ReadonlySet<string>
@@ -48,6 +51,7 @@ interface FileExplorerProps {
 }
 
 export function FileExplorer({
+  tabs,
   project,
   generated,
   dirty,
@@ -113,25 +117,35 @@ export function FileExplorer({
     }
   }
 
+  // The tree is kept mounted but hidden while Search shows, and a hidden row
+  // cannot take focus: a focus move first brings the Explorer back.
+  const shown = useIdeLayoutStore((s) => s.sideBarTab === 'explorer')
+  function showExplorer(): boolean {
+    if (!shown) useIdeLayoutStore.getState().showSideBar('explorer')
+    return shown
+  }
+
   // Focus is a DOM side effect, so it waits for the row to exist: a renamed
   // file's row appears only after the workspace refetches.
   useEffect(() => {
     if (!focusPath) return
     const key = rowKey('project', focusPath)
     if (!rows.some((r) => r.key === key)) return
+    if (!showExplorer()) return
     setFocusedKey(key)
     focusRow(key)
     useIdeExplorerStore.getState().requestFocus(null)
-  }, [focusPath, rows])
+  }, [focusPath, rows, shown])
 
   useEffect(() => {
     if (!removal || rows.some((r) => r.key === removal.key)) return
+    if (removal.next && !showExplorer()) return
     setRemoval(null)
     if (removal.next) {
       setFocusedKey(removal.next)
       focusRow(removal.next)
     }
-  }, [removal, rows])
+  }, [removal, rows, shown])
 
   function toggle(key: string, open?: boolean) {
     setCollapsed((prev) => {
@@ -270,6 +284,7 @@ export function FileExplorer({
   return (
     <div className="flex h-full flex-col bg-card">
       <ExplorerHeader
+        tabs={tabs}
         canEdit={canEdit}
         limitReason={limits.limitReason}
         existing={existing}

@@ -43,7 +43,7 @@ let focus: () => void
 beforeEach(() => {
   focus = vi.fn<() => void>()
   useIdeStore.getState().resetSession()
-  useIdeStore.getState().setEditorHandle({ focus, trigger: vi.fn() })
+  useIdeStore.getState().setEditorHandle({ focus, trigger: vi.fn(), searchSeed: () => null })
   useIdeLayoutStore.setState({ dockTab: 'problems', dockOpen: false })
   useQuickTestStore.getState().reset()
 })

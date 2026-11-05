@@ -61,3 +61,74 @@ describe('useIdeShortcuts guard', () => {
     expect(nextTab).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('useIdeShortcuts declining', () => {
+  it('leaves the key alone when the handler returns false, and takes it otherwise', () => {
+    const nextSearchHit = vi.fn<() => void | false>(() => false)
+    renderHook(() => useIdeShortcuts({ nextSearchHit }))
+    const declined = press(document.body, { key: 'F4', code: 'F4' })
+    expect(nextSearchHit).toHaveBeenCalledTimes(1)
+    expect(declined.defaultPrevented).toBe(false)
+    nextSearchHit.mockReturnValue(undefined)
+    expect(press(document.body, { key: 'F4', code: 'F4' }).defaultPrevented).toBe(true)
+  })
+})
+
+describe('useIdeShortcuts, Run and Search together', () => {
+  it('lets F4 repeat while held, and still declines each repeat when there is nothing to step to', () => {
+    const nextSearchHit = vi.fn<() => void | false>(() => undefined)
+    renderHook(() => useIdeShortcuts({ nextSearchHit }))
+    press(document.body, { key: 'F4', code: 'F4' })
+    const repeat = press(document.body, { key: 'F4', code: 'F4', repeat: true })
+    expect(nextSearchHit).toHaveBeenCalledTimes(2)
+    expect(repeat.defaultPrevented).toBe(true)
+    nextSearchHit.mockReturnValue(false)
+    const declined = press(document.body, { key: 'F4', code: 'F4', repeat: true })
+    expect(nextSearchHit).toHaveBeenCalledTimes(3)
+    expect(declined.defaultPrevented).toBe(false)
+  })
+
+  it('does not start Search, or Run, while a Run confirm dialog is open', () => {
+    const findInFiles = vi.fn()
+    const run = vi.fn()
+    renderHook(() => useIdeShortcuts({ findInFiles, run }))
+    document.body.innerHTML = '<div role="alertdialog"><button id="t"></button></div>'
+    const target = document.getElementById('t')!
+    const search = press(target, { key: 'F', code: 'KeyF', ctrlKey: true, shiftKey: true })
+    const go = press(target, { key: 'Enter', code: 'Enter', altKey: true })
+    expect(findInFiles).not.toHaveBeenCalled()
+    expect(run).not.toHaveBeenCalled()
+    expect(search.defaultPrevented && go.defaultPrevented).toBe(true)
+  })
+
+  it('does not run a held Run through the declining path either', () => {
+    const run = vi.fn()
+    renderHook(() => useIdeShortcuts({ run }))
+    press(document.body, { key: 'Enter', code: 'Enter', altKey: true })
+    press(document.body, { key: 'Enter', code: 'Enter', altKey: true, repeat: true })
+    expect(run).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('useIdeShortcuts throwing handlers', () => {
+  it('keeps the browser from opening Save Page even when the save handler throws', () => {
+    const save = vi.fn(() => {
+      throw new Error('boom')
+    })
+    renderHook(() => useIdeShortcuts({ save }))
+    const event = new KeyboardEvent('keydown', {
+      key: 's',
+      code: 'KeyS',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    })
+    // jsdom reports listener errors on window rather than throwing here.
+    const onError = vi.fn((e: ErrorEvent) => e.preventDefault())
+    window.addEventListener('error', onError)
+    document.body.dispatchEvent(event)
+    window.removeEventListener('error', onError)
+    expect(save).toHaveBeenCalledTimes(1)
+    expect(event.defaultPrevented).toBe(true)
+  })
+})

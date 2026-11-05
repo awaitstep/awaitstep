@@ -114,9 +114,20 @@ export function CommandPalette({
     command.run()
   }
 
+  // Radix returns focus to where it was before the palette opened, which
+  // would undo a command that moved it on purpose (Search in Files…). When
+  // something already has the keyboard, leave it there.
+  function handleCloseAutoFocus(event: Event) {
+    const focused = document.activeElement
+    if (focused && focused !== document.body) event.preventDefault()
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="top-[20%] w-[560px] -translate-y-0 overflow-hidden p-0">
+      <DialogContent
+        className="top-[20%] w-[560px] -translate-y-0 overflow-hidden p-0"
+        onCloseAutoFocus={handleCloseAutoFocus}
+      >
         <DialogTitle className="sr-only">Command palette</DialogTitle>
         <Command loop className="flex flex-col">
           <CommandInput

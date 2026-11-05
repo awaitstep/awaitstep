@@ -28,8 +28,10 @@ import { useIdeShortcuts } from '../../hooks/use-ide-shortcuts'
 import { useMinWidth } from '../../hooks/use-min-width'
 import { useProjectFiles } from '../../hooks/use-project-files'
 import { useWorkspaceProblems } from '../../hooks/use-workspace-problems'
+import { useSearchActions } from '../../hooks/use-search-actions'
 import { useSwitchView } from '../../hooks/use-switch-view'
 import { useOrgReady } from '../../stores/org-store'
+import { useIdeSearchStore } from '../../stores/ide-search-store'
 import { useIdeLayoutStore, type IdeLayoutKey } from '../../stores/ide-layout-store'
 import { useIdeExplorerStore } from '../../stores/ide-explorer-store'
 import { useIdeStore } from '../../stores/ide-store'
@@ -50,6 +52,9 @@ import { IdeHeader } from './ide-header'
 import { IdeSkeleton } from './ide-skeleton'
 import { NarrowWindowNotice } from './narrow-window-notice'
 import { QuickOpenDialog } from './quick-open-dialog'
+import { SideBar } from './side-bar'
+import { SearchRunner } from './search-runner'
+import { SideBarTabs } from './side-bar-tabs'
 import { StatusBar } from './status-bar'
 import {
   describeConversion,
@@ -249,10 +254,13 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     baseline: source ? baseline : null,
   })
 
+  const searchActions = useSearchActions(files)
   const projectFiles = useProjectFiles({
     workflowId,
     target: fullData?.workflow.kind === 'script' ? 'script' : 'workflow',
     baseline,
+    projectPaths,
+    onShowImporters: searchActions.showImporters,
   })
 
   // Hydrate the canvas store (always read-only here) so Monaco's per-workflow
@@ -279,6 +287,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       useWorkflowStore.getState().reset()
       useIdeStore.getState().resetSession()
       useIdeExplorerStore.getState().reset()
+      useIdeSearchStore.getState().reset()
       useQuickTestStore.getState().reset()
     }
   }, [draftUndo])
@@ -394,8 +403,9 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       },
       newFile: () => {
         if (!canEdit) return
-        // The name row lives in the explorer: show it first if it is hidden.
-        if (!useIdeLayoutStore.getState().explorerOpen) toggleExplorer()
+        // The name row lives in the Explorer: show that view first, whether
+        // the side bar is hidden or showing Search.
+        useIdeLayoutStore.getState().showSideBar('explorer')
         useIdeExplorerStore.getState().beginCreate()
       },
       renameFile: () => {
@@ -420,6 +430,9 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         })
       },
       quickOpen: () => showDialog('quickOpen'),
+      findInFiles: searchActions.findInFiles,
+      nextSearchHit: searchActions.nextSearchHit,
+      prevSearchHit: searchActions.prevSearchHit,
       switchToCanvas: () => void switchView('canvas', { version: versionParam }),
       closeActiveFile: () => {
         const path = useIdeStore.getState().activePath
@@ -446,6 +459,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       readOnlyMessage,
       projectFiles,
       storedPaths,
+      searchActions,
       switchView,
       versionParam,
       requestClose,
@@ -475,6 +489,9 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
           prevTab: () => cycleFile(-1),
           closeTab: actions.closeActiveFile,
           run: actions.run,
+          findInFiles: actions.findInFiles,
+          nextSearchHit: searchActions.nextSearchHitKey,
+          prevSearchHit: searchActions.prevSearchHitKey,
         },
   )
 
@@ -534,7 +551,10 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     closeDialog()
     if (!from) return
     void projectFiles.renameFile(from, to).then((renamed) => {
-      if (renamed) useIdeExplorerStore.getState().requestFocus(to)
+      if (!renamed) return
+      // The tree can only focus the renamed row while it is showing.
+      useIdeLayoutStore.getState().showSideBar('explorer')
+      useIdeExplorerStore.getState().requestFocus(to)
     })
   }
 
@@ -683,6 +703,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
 
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-background">
+      <SearchRunner files={files} projectPaths={projectPaths} />
       <IdeHeader
         workflowId={workflowId}
         workflowName={fullData.workflow.name}
@@ -705,18 +726,25 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
           {explorerOpen && (
             <>
               <Panel id="explorer" defaultSize="18" minSize={180} maxSize="40">
-                <FileExplorer
-                  project={trees.project}
-                  generated={trees.generated}
-                  dirty={dirty}
-                  virtual={virtualPaths}
-                  canEdit={canEdit}
-                  usage={usage}
-                  onCreateFile={handleCreateFile}
+                <SideBar
+                  files={files}
                   onEscape={handleFocusEditor}
-                  onRename={handleRenameRequest}
-                  onDelete={handleDeleteRequest}
-                  onConvert={handleConvertRequest}
+                  explorer={
+                    <FileExplorer
+                      tabs={<SideBarTabs view="explorer" />}
+                      project={trees.project}
+                      generated={trees.generated}
+                      dirty={dirty}
+                      virtual={virtualPaths}
+                      canEdit={canEdit}
+                      usage={usage}
+                      onCreateFile={handleCreateFile}
+                      onEscape={handleFocusEditor}
+                      onRename={handleRenameRequest}
+                      onDelete={handleDeleteRequest}
+                      onConvert={handleConvertRequest}
+                    />
+                  }
                 />
               </Panel>
               <Separator className="w-px bg-border transition-colors hover:bg-primary/50" />

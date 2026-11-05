@@ -15,6 +15,13 @@ describe('IDE text colours', () => {
 
   it('scans the IDE components', () => {
     expect(files.length).toBeGreaterThan(20)
+    // The explorer, side bar and search files are the ones this rule was written for.
+    for (const prefix of ['file-explorer', 'side-bar', 'search']) {
+      expect(
+        files.some((f) => f.startsWith(prefix)),
+        prefix,
+      ).toBe(true)
+    }
   })
 
   it('never dims muted text with an opacity step', () => {

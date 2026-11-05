@@ -25,6 +25,9 @@ export type IdeShortcutId =
   | 'prevTab'
   | 'closeTab'
   | 'run'
+  | 'findInFiles'
+  | 'nextSearchHit'
+  | 'prevSearchHit'
 
 /**
  * Workspace key bindings. Combos the browser or the platform owns outright
@@ -50,14 +53,29 @@ export const IDE_SHORTCUTS: Readonly<Record<IdeShortcutId, ShortcutKeys>> = {
   closeTab: { code: 'KeyW', mod: true, alt: true },
   // Option+Enter types nothing useful, but the physical key keeps it layout-proof.
   run: { code: 'Enter', alt: true },
+  // VS Code's chord for Search. Unverified in browsers: Chrome, Firefox and
+  // Safari on macOS and Chrome on Windows have yet to be checked for ones
+  // that keep it from the page; the palette and the Search tab cover that.
+  findInFiles: { key: 'f', mod: true, shift: true },
+  // Step through search hits from the editor, as in VS Code. F4 is unchecked
+  // in browsers for the same reason as above. The handler declines the key
+  // when there is nothing to step to or Monaco's reference peek is open, so
+  // Monaco's own F4 still works there.
+  nextSearchHit: { key: 'f4' },
+  prevSearchHit: { key: 'f4', shift: true },
 }
 
 /**
  * The only shortcuts that mean something when the key is held down (cycling
- * tabs). Every other one is an action: Run held would trigger the workflow
+ * tabs, stepping search hits). Every other one is an action: Run held would trigger the workflow
  * once per auto-repeat, and a held toggle would flicker open and shut.
  */
-export const REPEATING_SHORTCUTS: ReadonlySet<IdeShortcutId> = new Set(['nextTab', 'prevTab'])
+export const REPEATING_SHORTCUTS: ReadonlySet<IdeShortcutId> = new Set([
+  'nextTab',
+  'prevTab',
+  'nextSearchHit',
+  'prevSearchHit',
+])
 
 export interface KeyEventLike {
   key: string

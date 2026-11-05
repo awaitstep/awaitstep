@@ -115,7 +115,7 @@ describe('BottomDock tabs', () => {
 
   it('hands focus to the editor on Esc', async () => {
     const focus = vi.fn()
-    useIdeStore.getState().setEditorHandle({ focus, trigger: vi.fn() })
+    useIdeStore.getState().setEditorHandle({ focus, trigger: vi.fn(), searchSeed: () => null })
     renderDock()
     screen.getAllByRole('tab')[0]!.focus()
     await userEvent.keyboard('{Escape}')
@@ -124,7 +124,7 @@ describe('BottomDock tabs', () => {
 
   it('ignores an Esc that something else already used', async () => {
     const focus = vi.fn()
-    useIdeStore.getState().setEditorHandle({ focus, trigger: vi.fn() })
+    useIdeStore.getState().setEditorHandle({ focus, trigger: vi.fn(), searchSeed: () => null })
     renderDock()
     // A child that handled Esc (a menu closing) calls preventDefault first.
     screen.getAllByRole('tab')[0]!.addEventListener('keydown', (e) => e.preventDefault())
@@ -135,7 +135,7 @@ describe('BottomDock tabs', () => {
 
   it('does not treat an Esc from a portaled dialog as its own', async () => {
     const focus = vi.fn()
-    useIdeStore.getState().setEditorHandle({ focus, trigger: vi.fn() })
+    useIdeStore.getState().setEditorHandle({ focus, trigger: vi.fn(), searchSeed: () => null })
     renderDock()
     // A node outside the dock's DOM (a dialog portal) reaching the handler via React bubbling.
     const outside = document.createElement('div')

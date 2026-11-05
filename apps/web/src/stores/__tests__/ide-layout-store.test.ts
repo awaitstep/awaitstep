@@ -47,4 +47,35 @@ describe('layout store rehydration', () => {
     await useIdeLayoutStore.persist.rehydrate()
     expect(useIdeLayoutStore.getState().dockTab).toBe('problems')
   })
+
+  it('keeps the remembered Search view and still normalises an old dock tab', async () => {
+    localStorage.setItem(
+      'awaitstep-ide',
+      JSON.stringify({ state: { dockTab: 'run', sideBarTab: 'search' }, version: 0 }),
+    )
+    await useIdeLayoutStore.persist.rehydrate()
+    expect(useIdeLayoutStore.getState()).toMatchObject({
+      dockTab: 'session',
+      sideBarTab: 'search',
+    })
+  })
+
+  it('falls back to Files for an unknown stored side bar view', async () => {
+    localStorage.setItem(
+      'awaitstep-ide',
+      JSON.stringify({ state: { sideBarTab: 'git' }, version: 0 }),
+    )
+    await useIdeLayoutStore.persist.rehydrate()
+    expect(useIdeLayoutStore.getState().sideBarTab).toBe('explorer')
+  })
+
+  it('showSideBar opens a hidden side bar without touching the dock tab', () => {
+    useIdeLayoutStore.setState({ explorerOpen: false, dockTab: 'session' })
+    useIdeLayoutStore.getState().showSideBar('search')
+    expect(useIdeLayoutStore.getState()).toMatchObject({
+      explorerOpen: true,
+      sideBarTab: 'search',
+      dockTab: 'session',
+    })
+  })
 })
