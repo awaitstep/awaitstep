@@ -9,6 +9,7 @@ import { orgPath } from '../../lib/dashboard-paths'
 import { useItemSlugs } from '../../contexts/editor-scope-context'
 import { groupByCategory, filterNodes, getSuperCategoryMeta } from '../../lib/node-categories'
 import { useWorkflowStore } from '../../stores/workflow-store'
+import { useCanvasLayoutStore } from '../../stores/canvas-layout-store'
 
 // Nodes that require a durable runtime (sleeps, waiting on external events).
 // Functions run in a fetch handler with no step runner, so these are filtered
@@ -36,7 +37,8 @@ interface NodePaletteProps {
 }
 
 export function NodePalette({ onAddNode }: NodePaletteProps) {
-  const [open, setOpen] = useState(false)
+  const open = useCanvasLayoutStore((s) => s.paletteOpen)
+  const setOpen = useCanvasLayoutStore((s) => s.setPaletteOpen)
   const [searchTerm, setSearchTerm] = useState('')
   const { registry } = useNodeRegistry()
   const definitions = registry.getAll()
@@ -108,7 +110,7 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
                 className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground shadow-lg"
               >
                 Add Node
-                <span className="ml-1.5 text-muted-foreground/60">A</span>
+                <span className="ml-1.5 text-muted-foreground">A</span>
                 <Tooltip.Arrow className="fill-card" />
               </Tooltip.Content>
             </Tooltip.Portal>
@@ -138,10 +140,10 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
               return (
                 <div key={superCat}>
                   <div className="sticky -top-px z-10 flex items-center justify-between bg-card px-2 pb-1 pt-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/40">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       {meta.label}
                     </span>
-                    <span className="text-xs tabular-nums text-muted-foreground/30">
+                    <span className="text-xs tabular-nums text-muted-foreground">
                       {nodes.length}
                     </span>
                   </div>
@@ -172,7 +174,7 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
                               </span>
                             )}
                           </div>
-                          <div className="text-xs leading-tight text-muted-foreground/60">
+                          <div className="text-xs leading-tight text-muted-foreground">
                             {def.description}
                           </div>
                         </div>
@@ -190,7 +192,7 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
           </div>
 
           {/* Educational hint */}
-          <div className="border-t border-border px-3 py-2 text-xs leading-relaxed text-muted-foreground/50">
+          <div className="border-t border-border px-3 py-2 text-xs leading-relaxed text-muted-foreground">
             Drag a node onto the canvas or click to add it.
           </div>
 
