@@ -155,6 +155,31 @@ describe('version routes', () => {
     })
   })
 
+  describe('who saved a version', () => {
+    it('stamps the saver on a new version, and the new saver on one saved over', async () => {
+      const first = await app.request(url('/api/workflows/wf-1/versions'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ir: validIR }),
+      })
+      const created = await first.json()
+      expect(created.createdBy).toBe(TEST_USER_ID)
+      // Undeployed, so the next save overwrites it in place: still stamped, and dated now.
+      await mockDb.updateVersion(created.id, {
+        createdBy: 'someone-else',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      })
+      const second = await app.request(url('/api/workflows/wf-1/versions'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ir: modifiedIR }),
+      })
+      const saved = await second.json()
+      expect(saved.createdBy).toBe(TEST_USER_ID)
+      expect(saved.createdAt > '2026-01-01T00:00:00.000Z').toBe(true)
+    })
+  })
+
   describe('GET /api/workflows/:workflowId/versions', () => {
     it('lists versions for a workflow', async () => {
       await mockDb.createVersion({ id: 'v-1', workflowId: 'wf-1', version: 1, ir: '{}' })
@@ -209,6 +234,8 @@ describe('version routes', () => {
         method: 'POST',
       })
       expect(reverted.status).toBe(201)
+      // The new version a revert makes is the reverter's.
+      expect((await reverted.json()).createdBy).toBe(TEST_USER_ID)
       const deleted = await app.request(url(`/api/workflows/wf-1/versions/${v2.id}`), {
         method: 'DELETE',
       })

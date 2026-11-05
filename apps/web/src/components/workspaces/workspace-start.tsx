@@ -11,6 +11,7 @@ import {
 } from '../../lib/dashboard-paths'
 import type { SharedItem } from '../../types/dashboard/items'
 import type { Workspace } from '../../types/dashboard/workspaces'
+import { NewItemDialog } from '../items/new-item-dialog'
 import { useNewItem } from '../items/use-new-item'
 import { ShellLink } from '../ui/shell-link'
 import { Bone } from '../ui/skeletons'
@@ -48,21 +49,24 @@ function StartCardBody({ icon: Icon, title, body, cta }: StartCardBodyProps) {
 }
 
 function BlankCard({ slugs }: { slugs: WorkspaceSlugs }) {
-  const newItem = useNewItem(slugs, { blank: true })
+  const newItem = useNewItem()
 
   function handleClick() {
-    newItem.start('workflow')
+    newItem.start('workflow', 'blank')
   }
 
   return (
-    <button type="button" className={CARD} onClick={handleClick} disabled={newItem.busy}>
-      <StartCardBody
-        icon={Plus}
-        title="Start from blank"
-        body="An empty canvas, no template."
-        cta="New workflow →"
-      />
-    </button>
+    <>
+      {newItem.dialog && <NewItemDialog slugs={slugs} {...newItem.dialog} />}
+      <button type="button" className={CARD} onClick={handleClick}>
+        <StartCardBody
+          icon={Plus}
+          title="Start from blank"
+          body="An empty canvas, no template."
+          cta="New workflow →"
+        />
+      </button>
+    </>
   )
 }
 

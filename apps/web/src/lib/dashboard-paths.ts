@@ -204,6 +204,19 @@ export function itemPath(slugs: WorkspaceSlugs, item: { id: string }): string {
   return `${projectPath(slugs)}/${segment(slugs.workspace)}/workflows/${segment(item.id)}`
 }
 
+/** A workflow or function's own pages, beside its editor: `…/workflows/{id}/{page}`. */
+export const ITEM_PAGES = ['overview', 'runs', 'deployments', 'deploy'] as const
+export type ItemPage = (typeof ITEM_PAGES)[number]
+
+export function itemPagePath(slugs: WorkspaceSlugs, item: { id: string }, page: ItemPage): string {
+  return `${itemPath(slugs, item)}/${page}`
+}
+
+/** One run of a workflow: `…/workflows/{id}/runs/{runId}`. */
+export function runPath(slugs: WorkspaceSlugs, item: { id: string }, runId: string): string {
+  return `${itemPagePath(slugs, item, 'runs')}/${segment(runId)}`
+}
+
 /**
  * Where a just-created item opens: its editor, on the template picker for a
  * workflow, unless it starts `blank`. Templates are workflow-shaped, so a

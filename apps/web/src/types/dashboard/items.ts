@@ -75,6 +75,7 @@ export interface MoveItemsInput {
 export interface NewItemInput {
   kind: ItemKind
   name?: string
+  description?: string
 }
 
 /** Import: an exported workflow file, read in the browser. */

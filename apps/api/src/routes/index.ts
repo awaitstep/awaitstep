@@ -584,7 +584,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
     if (workspaceId) {
       return c.json(await db.listWorkspaceRuns(workspaceId, workspaceRunFilter(query)))
     }
-    if (query.result || query.period || query.search) {
+    if (query.result || query.period || query.search || query.workflowId) {
       return c.json({ error: 'Filtering runs needs a workspace' }, 400)
     }
     const result = await db.listRecentRunsByProject(

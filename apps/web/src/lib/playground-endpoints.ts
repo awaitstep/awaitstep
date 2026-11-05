@@ -508,6 +508,7 @@ export const endpoints: EndpointDef[] = [
       { name: 'result', in: 'query', required: false },
       { name: 'period', in: 'query', required: false },
       { name: 'search', in: 'query', required: false },
+      { name: 'workflowId', in: 'query', required: false },
     ],
     hasBody: false,
   },

@@ -51,6 +51,8 @@ export class WorkspaceRunsAdapter {
 
     const scope: SQL[] = [eq(wf.workspaceId, workspaceId)]
     if (filter.since) scope.push(gte(r.createdAt, filter.since))
+    // One workflow's runs: its page's Runs card and counts.
+    if (filter.workflowId) scope.push(eq(wf.id, filter.workflowId))
     const term = filter.search?.trim().toLowerCase()
     if (term) {
       const pattern = likePattern(term)

@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
+import type { WorkflowVersion } from '@awaitstep/db'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import {
@@ -148,7 +149,7 @@ workflows.get('/:id/full', async (c) => {
     ])
   const versions = versionsResult.data
 
-  let version: (typeof versions)[number] | null = versions[0] ?? null
+  let version: WorkflowVersion | null = versions[0] ?? null
   if (versionId) {
     version = requested?.workflowId === workflow.id ? requested : null
   }

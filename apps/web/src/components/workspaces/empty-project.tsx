@@ -12,6 +12,7 @@ import { isNew } from '../../lib/time'
 import { cn } from '../../lib/utils'
 import type { Project } from '../../types/dashboard/projects'
 import type { Workspace } from '../../types/dashboard/workspaces'
+import { NewItemDialog } from '../items/new-item-dialog'
 import { useNewItem } from '../items/use-new-item'
 import { ActionCard } from '../ui/action-card'
 import { Badge } from '../ui/badge'
@@ -81,7 +82,7 @@ export function EmptyProject({
   canAddWorkspace,
 }: EmptyProjectProps) {
   const setup = useProjectSetup(slugs.org, slugs.project)
-  const newItem = useNewItem(slugs)
+  const newItem = useNewItem()
   const newProject = isNew(project.createdAt)
 
   function handleNewWorkflow() {
@@ -147,7 +148,6 @@ export function EmptyProject({
           <div className="grid grid-cols-1 gap-3.5 md:grid-cols-3">
             <ActionCard
               onSelect={handleNewWorkflow}
-              disabled={newItem.busy}
               icon={Workflow}
               tone="ok"
               title="New workflow"
@@ -157,7 +157,6 @@ export function EmptyProject({
             />
             <ActionCard
               onSelect={handleNewFunction}
-              disabled={newItem.busy}
               icon={Code}
               tone="info"
               title="New function"
@@ -174,11 +173,7 @@ export function EmptyProject({
             />
           </div>
         )}
-        {newItem.error && (
-          <p role="alert" className="text-xs text-status-error">
-            {newItem.error.message}
-          </p>
-        )}
+        {newItem.dialog && <NewItemDialog slugs={slugs} {...newItem.dialog} />}
       </section>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5.5">

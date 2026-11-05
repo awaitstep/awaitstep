@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { routeTree } from '../../../routeTree.gen'
 import {
   ACCOUNT_PAGES,
+  ITEM_PAGES,
   ORG_PAGES,
   ORG_SETTINGS_PAGES,
   PROJECT_PAGES,
@@ -94,11 +95,24 @@ describe('dashboard route tree', () => {
 
   it('opens a workflow’s editor under its workspace, beside the Workflows page', () => {
     expect(leafRoute('/acme/project-101/sales/workflows/wf_1')).toBe(
-      '/_authed/$org/$project/$workspace/workflows_/$id',
+      '/_authed/$org/$project/$workspace/workflows_/$id/',
     )
     expect(leafRoute('/acme/project-101/sales/workflows')).toBe(
       '/_authed/$org/$project/$workspace/workflows',
     )
+  })
+
+  it('puts a workflow’s own pages and its runs beside its editor, under one layout', () => {
+    const base = '/acme/project-101/sales/workflows/wf_1'
+    const layout = '/_authed/$org/$project/$workspace/workflows_/$id'
+    for (const page of ITEM_PAGES) {
+      expect(leafRoute(`${base}/${page}`)).toBe(`${layout}/${page}${page === 'runs' ? '/' : ''}`)
+    }
+    expect(leafRoute(`${base}/runs/run_9`)).toBe(`${layout}/runs/$runId`)
+    // Every one of them is under the layout that keeps API calls on the URL's project.
+    for (const path of [base, `${base}/overview`, `${base}/runs/run_9`]) {
+      expect(router.matchRoutes(path).map((m) => m.routeId)).toContain(layout)
+    }
   })
 
   it('lets no workspace take a project page’s name', () => {

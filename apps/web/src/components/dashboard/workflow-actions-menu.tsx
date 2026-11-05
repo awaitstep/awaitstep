@@ -1,7 +1,5 @@
 import { useState, type ReactNode } from 'react'
 import { failureLine } from '../../lib/action-toast'
-import { useNavigate } from '@tanstack/react-router'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { MoreHorizontal, Rocket, Activity, Copy, Download, Trash2, CloudOff } from 'lucide-react'
 import {
   DropdownMenu,
@@ -11,92 +9,27 @@ import {
   DropdownMenuSeparator,
 } from '../ui/dropdown-menu'
 import { ConfirmDialog } from '../ui/confirm-dialog'
-import { api, type WorkflowSummary } from '../../lib/api-client'
-import { downloadJsonFile } from '../../lib/download-file'
+import type { WorkflowSummary } from '../../lib/api-client'
+import { useWorkflowLinks } from '../../lib/workflows/detail-links'
+import { useGoTo } from '../navigation/router-shell-link'
+import { useWorkflowActions } from './use-workflow-actions'
 
 interface WorkflowActionsMenuProps {
   workflow: WorkflowSummary
   isDeployed?: boolean
 }
 
-function irFileName(name: string) {
-  return `${name.replace(/\s+/g, '-').toLowerCase()}.ir.json`
-}
-
 export function WorkflowActionsMenu({ workflow, isDeployed }: WorkflowActionsMenuProps) {
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
+  const goTo = useGoTo()
+  const links = useWorkflowLinks(workflow.id)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [takedownOpen, setTakedownOpen] = useState(false)
-
-  const deleteMutation = useMutation({
-    meta: { toast: { success: 'Workflow deleted', error: 'Couldn’t delete the workflow' } },
-    mutationFn: () => api.deleteWorkflow(workflow.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['workflows'] })
-      queryClient.invalidateQueries({ queryKey: ['all-deployments'] })
-
-      navigate({ to: '/workflows', replace: true }).finally(() => setDeleteOpen(false))
-    },
-  })
-
-  const takedownMutation = useMutation({
-    meta: { toast: { success: 'Workflow taken down', error: 'Couldn’t take down the workflow' } },
-    mutationFn: async () => {
-      const connsResult = await api.listConnections()
-      if (connsResult.data.length === 0) throw new Error('No connection available')
-      const result = await api.takedownDeployment(workflow.id, connsResult.data[0].id)
-      if (!result.success) throw new Error(result.error ?? 'Failed to take down workflow')
-      return result
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['workflows'] })
-      queryClient.invalidateQueries({ queryKey: ['all-deployments'] })
-      setTakedownOpen(false)
-    },
-  })
-
-  const duplicateMutation = useMutation({
-    meta: {
-      toast: {
-        success: 'Workflow duplicated',
-        error: 'Couldn’t duplicate the workflow',
-      },
-    },
-    mutationFn: async () => {
-      const newWf = await api.createWorkflow({
-        name: `${workflow.name} (copy)`,
-        description: workflow.description,
-        kind: workflow.kind,
-      })
-      if (workflow.currentVersionId) {
-        const ver = await api.getVersion(workflow.id, workflow.currentVersionId)
-        await api.createVersion(newWf.id, { ir: JSON.parse(ver.ir) })
-      }
-      return newWf
-    },
-    onSuccess: (newWf) => {
-      queryClient.invalidateQueries({ queryKey: ['workflows'] })
-      navigate({ to: '/workflows/$workflowId', params: { workflowId: newWf.id } })
-    },
-  })
-
-  const exportMutation = useMutation({
-    meta: {
-      toast: {
-        success: 'Workflow exported',
-        error: 'Couldn’t export the workflow',
-      },
-    },
-    mutationFn: async () => {
-      if (!workflow.currentVersionId) throw new Error('No version to export')
-      const ver = await api.getVersion(workflow.id, workflow.currentVersionId)
-      return ver.ir
-    },
-    onSuccess: (irJson) => {
-      downloadJsonFile(irFileName(workflow.name), irJson)
-    },
-  })
+  const {
+    remove: deleteMutation,
+    takedown: takedownMutation,
+    duplicate: duplicateMutation,
+    exportIr: exportMutation,
+  } = useWorkflowActions(workflow)
 
   const hasVersion = !!workflow.currentVersionId
 
@@ -104,6 +37,14 @@ export function WorkflowActionsMenu({ workflow, isDeployed }: WorkflowActionsMen
   function handleAskDelete() {
     deleteMutation.reset()
     setDeleteOpen(true)
+  }
+
+  function handleConfirmDelete() {
+    deleteMutation.mutate(undefined, { onSuccess: () => setDeleteOpen(false) })
+  }
+
+  function handleConfirmTakedown() {
+    takedownMutation.mutate(undefined, { onSuccess: () => setTakedownOpen(false) })
   }
 
   function handleAskTakedown() {
@@ -123,21 +64,10 @@ export function WorkflowActionsMenu({ workflow, isDeployed }: WorkflowActionsMen
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-          <DropdownMenuItem
-            onSelect={() =>
-              navigate({
-                to: '/workflows/$workflowId/deployments',
-                params: { workflowId: workflow.id },
-              })
-            }
-          >
+          <DropdownMenuItem onSelect={() => goTo(links.deployments)}>
             <Rocket size={14} /> Deployments
           </DropdownMenuItem>
-          <DropdownMenuItem
-            onSelect={() =>
-              navigate({ to: '/workflows/$workflowId/runs', params: { workflowId: workflow.id } })
-            }
-          >
+          <DropdownMenuItem onSelect={() => goTo(links.runs)}>
             <Activity size={14} /> Runs
           </DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -186,7 +116,7 @@ export function WorkflowActionsMenu({ workflow, isDeployed }: WorkflowActionsMen
           }
           confirmLabel="Delete"
           variant="destructive"
-          onConfirm={() => deleteMutation.mutate()}
+          onConfirm={handleConfirmDelete}
           loading={deleteMutation.isPending}
         />
       )}
@@ -203,7 +133,7 @@ export function WorkflowActionsMenu({ workflow, isDeployed }: WorkflowActionsMen
           }
           confirmLabel="Take down"
           variant="warning"
-          onConfirm={() => takedownMutation.mutate()}
+          onConfirm={handleConfirmTakedown}
           loading={takedownMutation.isPending}
         />
       )}

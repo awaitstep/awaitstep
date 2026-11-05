@@ -24,6 +24,10 @@ export const workflowVersions = pgTable(
     manifest: text('manifest'),
     baseGeneratedHash: text('base_generated_hash'),
     locked: integer('locked').notNull().default(0),
+    // Who saved it last (an undeployed version is saved over in place, which also moves
+    // created_at to that save): a user id, as workflows.created_by. Null on rows from
+    // before it was recorded.
+    createdBy: text('created_by'),
     createdAt: isoTimestamp('created_at')
       .notNull()
       .default(sql`now()`),

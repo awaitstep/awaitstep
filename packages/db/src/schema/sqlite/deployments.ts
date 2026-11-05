@@ -19,6 +19,8 @@ export const deployments = sqliteTable(
     status: text('status').notNull().default('success'),
     error: text('error'),
     configSnapshot: text('config_snapshot'),
+    // Who deployed it: a user id, as workflows.created_by. Null on rows from before it was recorded.
+    createdBy: text('created_by'),
     createdAt: text('created_at').notNull(),
   },
   (table) => [

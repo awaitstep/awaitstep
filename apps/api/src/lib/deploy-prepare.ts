@@ -69,6 +69,10 @@ export async function prepareDeploy(
   // Version lock check. The row is handed to the prepare below rather than
   // read twice — the lock and the IR are two questions about one row.
   const version = input.versionId ? await db.getWorkflowVersionById(input.versionId) : undefined
+  // Another workflow's version is not found, before anything is said about its lock.
+  if (input.versionId && (!version || version.workflowId !== input.workflow.id)) {
+    return { error: 'Version not found', status: 404 }
+  }
   if (version?.locked === 1) {
     return { error: 'Version is locked', status: 400 }
   }

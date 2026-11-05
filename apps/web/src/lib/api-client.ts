@@ -139,7 +139,8 @@ export interface DeployConfig {
 export interface WorkflowSummary {
   id: string
   name: string
-  description?: string
+  /** Null when it has none: the API stores an empty description as null. */
+  description?: string | null
   /**
    * `'workflow'` (default) or `'script'`. Scripts are fetch-only Workers —
    * no durable runtime, no instance lifecycle, no Runs tab.
@@ -154,6 +155,10 @@ export interface WorkflowSummary {
   deployVersionId?: string | null
   lastRunStatus?: string | null
   lastRunAt?: string | null
+  /** The workspace it lives in; every workflow has one since workspaces (B1). */
+  workspaceId?: string
+  /** Set while it's shared to the project (who shared it). */
+  sharedBy?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -165,6 +170,8 @@ export interface WorkflowVersion {
   ir: string
   locked: number
   createdAt: string
+  /** In a list: who saved it last; null before authors were kept (or once they're removed). */
+  createdByName?: string | null
 }
 
 export interface VersionSummary {
@@ -172,6 +179,8 @@ export interface VersionSummary {
   version: number
   locked: number
   createdAt: string
+  /** Who saved it last; null before authors were kept (or once they're removed). */
+  createdByName?: string | null
 }
 
 export interface DeploymentSummary {
@@ -184,6 +193,11 @@ export interface DeploymentSummary {
   status: string
   error: string | null
   createdAt: string
+  /** Who deployed it; null before authors were kept (or once they're removed). */
+  createdByName?: string | null
+  /** In a list: its version's number and lock (1 locked), null once that version is gone. */
+  version?: number | null
+  versionLocked?: number | null
 }
 
 export interface WorkflowFull {
@@ -538,6 +552,8 @@ export const api = {
     name: string
     description?: string
     kind?: 'workflow' | 'script'
+    /** Else the project's first workspace. */
+    workspaceId?: string
   }): Promise<WorkflowSummary> {
     return request(withProject('/workflows'), { method: 'POST', body: JSON.stringify(data) })
   },

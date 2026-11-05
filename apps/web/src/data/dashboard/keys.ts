@@ -26,6 +26,8 @@ export const dashKeys = {
   orgs: () => ['dash', 'orgs'] as const,
   projects: (org: string) => ['dash', 'projects', org] as const,
   failing: (org: string) => ['dash', 'failing', org] as const,
+  workflowRunCounts: (s: WorkspaceSlugs, workflowId: string, period: string) =>
+    ['dash', 'workflow-run-counts', s.org, s.project, s.workspace, workflowId, period] as const,
   activity: (org: string) => ['dash', 'activity', org] as const,
   scope: () => ['dash', 'scope'] as const,
   scopeOf: (slugs: ScopeSlugs) =>

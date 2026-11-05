@@ -1,5 +1,10 @@
-import { eq, desc, max, and, or, lt, sql } from 'drizzle-orm'
-import type { CreateVersionData, UpdateVersionData, WorkflowVersion } from '../types.js'
+import { eq, desc, max, and, or, lt, sql, getTableColumns } from 'drizzle-orm'
+import type {
+  CreateVersionData,
+  UpdateVersionData,
+  WorkflowVersion,
+  WorkflowVersionListItem,
+} from '../types.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 
@@ -10,6 +15,7 @@ export class VersionsAdapter {
   constructor(
     private db: AnyTable,
     private table: AnyTable,
+    private user: AnyTable,
   ) {}
 
   async create(data: CreateVersionData): Promise<WorkflowVersion> {
@@ -31,6 +37,7 @@ export class VersionsAdapter {
       manifest: null,
       baseGeneratedHash: null,
       locked: 0,
+      createdBy: data.createdBy ?? null,
       createdAt: now,
     }
     if (data.version !== undefined) {
@@ -73,7 +80,7 @@ export class VersionsAdapter {
   async listByWorkflow(
     workflowId: string,
     pagination?: PaginationParams,
-  ): Promise<PaginatedResult<WorkflowVersion>> {
+  ): Promise<PaginatedResult<WorkflowVersionListItem>> {
     const limit = clampLimit(pagination?.limit)
     const conditions = [eq(this.table.workflowId, workflowId)]
     if (pagination?.cursor) {
@@ -85,9 +92,11 @@ export class VersionsAdapter {
         )!,
       )
     }
-    const rows = await this.db
-      .select()
+    // The author's name in the same statement.
+    const rows: WorkflowVersionListItem[] = await this.db
+      .select({ ...getTableColumns(this.table), createdByName: this.user.name })
       .from(this.table)
+      .leftJoin(this.user, eq(this.user.id, this.table.createdBy))
       .where(and(...conditions))
       .orderBy(desc(this.table.createdAt), desc(this.table.id))
       .limit(limit + 1)

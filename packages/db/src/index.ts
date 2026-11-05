@@ -1,6 +1,9 @@
 export type {
   Workflow,
   WorkflowVersion,
+  WorkflowVersionListItem,
+  DeploymentListItem,
+  Authored,
   Connection,
   ConnectionCoverage,
   ConnectionListOptions,

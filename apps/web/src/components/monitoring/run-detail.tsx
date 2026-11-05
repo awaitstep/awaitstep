@@ -1,5 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { Link } from '@tanstack/react-router'
+import { useEditorScope } from '../../contexts/editor-scope-context'
+import { useWorkflowLinks } from '../../lib/workflows/detail-links'
+import { RouterShellLink } from '../navigation/router-shell-link'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import { api } from '../../lib/api-client'
@@ -7,6 +10,7 @@ import { queries, flatPages } from '../../lib/queries'
 import { durationCompact, formatDateTime } from '../../lib/time'
 import { PageBand } from '../ui/page-band'
 import { RunActions } from './run-actions'
+import { runConnection } from './run-connection'
 import { RunErrorBlock } from './run-error-block'
 import { RunStatusBadge } from './run-status-badge'
 import { RunTelemetry } from './run-telemetry'
@@ -21,6 +25,8 @@ interface RunDetailProps {
 
 export function RunDetail({ runId, workflowIdHint }: RunDetailProps) {
   const queryClient = useQueryClient()
+  // In a workspace the frame's breadcrumb names the workflow and links back.
+  const inWorkspace = useEditorScope() !== null
 
   const { data: allRuns } = useInfiniteQuery({
     ...queries.runs.all(''),
@@ -30,6 +36,7 @@ export function RunDetail({ runId, workflowIdHint }: RunDetailProps) {
   })
 
   const workflowId = workflowIdHint || allRuns?.find((r) => r.id === runId)?.workflowId || ''
+  const links = useWorkflowLinks(workflowId)
 
   const prevStatus = useRef<string | null>(null)
 
@@ -65,6 +72,12 @@ export function RunDetail({ runId, workflowIdHint }: RunDetailProps) {
     retry: false,
     select: (data) => flatPages(data),
   })
+  // A project's own accounts aren't in the org's list.
+  const { data: deployConnections } = useQuery({
+    ...queries.connections.forDeploy(workflowId),
+    enabled: !!workflowId,
+    retry: false,
+  })
 
   if (isLoading || !workflowId) {
     return (
@@ -80,33 +93,47 @@ export function RunDetail({ runId, workflowIdHint }: RunDetailProps) {
 
   const isTerminal = TERMINAL_STATUSES.has(run.status)
   const isRunning = run.status === 'running' || run.status === 'queued'
-  const connection = connections?.find((c) => c.id === run.connectionId)
+  const connection = runConnection(run.connectionId, connections, deployConnections)
+
+  const header = inWorkspace ? (
+    <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex min-w-0 items-center gap-2">
+        {/* The workflow's name is the page's heading; the run is a section of it. */}
+        <h2 className="truncate font-mono text-xl font-semibold tracking-tight">
+          {run.instanceId}
+        </h2>
+        <RunStatusBadge status={run.status} />
+      </div>
+      {!isTerminal && <RunActions workflowId={workflowId} runId={runId} status={run.status} />}
+    </div>
+  ) : (
+    <PageBand className="h-16 shrink-0">
+      <div className="flex h-full items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground/60">
+            <Link to="/runs" className="transition-colors hover:text-muted-foreground">
+              Runs
+            </Link>
+            <span className="text-muted-foreground/40">/</span>
+          </span>
+          {workflow && (
+            <RouterShellLink
+              href={links.overview}
+              className="truncate text-base font-semibold tracking-tight hover:text-foreground/80"
+            >
+              {workflow.name}
+            </RouterShellLink>
+          )}
+          <RunStatusBadge status={run.status} />
+        </div>
+        {!isTerminal && <RunActions workflowId={workflowId} runId={runId} status={run.status} />}
+      </div>
+    </PageBand>
+  )
 
   return (
     <div>
-      <PageBand className="h-16 shrink-0">
-        <div className="flex h-full items-center justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <span className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground/60">
-              <Link to="/runs" className="transition-colors hover:text-muted-foreground">
-                Runs
-              </Link>
-              <span className="text-muted-foreground/40">/</span>
-            </span>
-            {workflow && (
-              <Link
-                to="/workflows/$workflowId"
-                params={{ workflowId }}
-                className="truncate text-base font-semibold tracking-tight hover:text-foreground/80"
-              >
-                {workflow.name}
-              </Link>
-            )}
-            <RunStatusBadge status={run.status} />
-          </div>
-          {!isTerminal && <RunActions workflowId={workflowId} runId={runId} status={run.status} />}
-        </div>
-      </PageBand>
+      {header}
 
       <div className="max-w-screen-xl">
         <div className="mt-6 grid gap-x-12 gap-y-5 sm:grid-cols-2">
@@ -143,12 +170,22 @@ export function RunDetail({ runId, workflowIdHint }: RunDetailProps) {
 
           {connection && (
             <Field label="Connection">
-              <Link to="/connections" className="text-sm text-foreground/70 hover:text-foreground">
-                {connection.name}
-              </Link>
-              <span className="ml-2 font-mono text-xs text-muted-foreground/60">
-                {connection.credentials.accountId}
-              </span>
+              {inWorkspace ? (
+                // The run's account may be the org's or the project's: named, not linked.
+                <span className="text-sm text-foreground/70">{connection.name}</span>
+              ) : (
+                <Link
+                  to="/connections"
+                  className="text-sm text-foreground/70 hover:text-foreground"
+                >
+                  {connection.name}
+                </Link>
+              )}
+              {connection.account && (
+                <span className="ml-2 font-mono text-xs text-muted-foreground/60">
+                  {connection.account}
+                </span>
+              )}
             </Field>
           )}
 

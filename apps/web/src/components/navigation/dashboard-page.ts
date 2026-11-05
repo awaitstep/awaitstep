@@ -1,10 +1,25 @@
 import type {
   AccountPage,
+  ItemPage,
   OrgPage,
   OrgSettingsPage,
   ProjectPage,
   WorkspacePage,
 } from '../../lib/dashboard-paths'
+import type { ItemKind } from '../../types/dashboard/items'
+
+/** A workflow or function page's own pages, and one run of it. */
+export type ItemDetailPage = ItemPage | 'run'
+
+/**
+ * The item a detail page is about. Its route declares only the page; the
+ * shell adds the id from the URL, and the name and kind once they load.
+ */
+export interface FramedItem {
+  id: string
+  name?: string
+  kind?: ItemKind
+}
 
 /** Which dashboard page a route is. Each page route declares it in `staticData`. */
 export type DashboardPage =
@@ -18,6 +33,8 @@ export type DashboardPage =
   | { kind: 'playground' }
   /** A workflow or function's editor, full screen: no rail, no panel. */
   | { kind: 'editor' }
+  /** A workflow or function's Overview, Runs, one run, Deployments or Deploy, in its workspace. */
+  | { kind: 'item'; page: ItemDetailPage; item?: FramedItem }
 
 declare module '@tanstack/react-router' {
   interface StaticDataRouteOption {
@@ -60,6 +77,14 @@ const WORKSPACE_PAGE_LABEL: Record<WorkspacePage, string> = {
   settings: 'Workspace settings',
 }
 
+const ITEM_PAGE_LABEL: Record<ItemDetailPage, string> = {
+  overview: 'Overview',
+  runs: 'Runs',
+  run: 'Run',
+  deployments: 'Deployments',
+  deploy: 'Deploy',
+}
+
 const ACCOUNT_PAGE_LABEL: Record<AccountPage, string> = {
   profile: 'Profile',
   sessions: 'Sessions and sign-in',
@@ -81,6 +106,8 @@ export function pageLabel(page: DashboardPage): string {
       return 'API Playground'
     case 'editor':
       return 'Editor'
+    case 'item':
+      return ITEM_PAGE_LABEL[page.page]
   }
 }
 

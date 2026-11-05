@@ -1,5 +1,5 @@
-import { eq, desc, and, or, lt } from 'drizzle-orm'
-import type { Deployment } from '../types.js'
+import { eq, desc, and, or, lt, getTableColumns } from 'drizzle-orm'
+import type { Deployment, DeploymentListItem } from '../types.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 
@@ -10,6 +10,8 @@ export class DeploymentsAdapter {
   constructor(
     private db: AnyTable,
     private table: AnyTable,
+    private user: AnyTable,
+    private versions: AnyTable,
   ) {}
 
   async create(data: {
@@ -22,6 +24,8 @@ export class DeploymentsAdapter {
     status: string
     error?: string
     configSnapshot?: string
+    /** The user who deployed it. */
+    createdBy?: string
   }): Promise<Deployment> {
     const now = new Date().toISOString()
     const row = {
@@ -34,6 +38,7 @@ export class DeploymentsAdapter {
       status: data.status,
       error: data.error ?? null,
       configSnapshot: data.configSnapshot ?? null,
+      createdBy: data.createdBy ?? null,
       createdAt: now,
     }
     await this.db.insert(this.table).values(row)
@@ -53,7 +58,7 @@ export class DeploymentsAdapter {
   async listByWorkflow(
     workflowId: string,
     pagination?: PaginationParams,
-  ): Promise<PaginatedResult<Deployment>> {
+  ): Promise<PaginatedResult<DeploymentListItem>> {
     const limit = clampLimit(pagination?.limit)
     const conditions = [eq(this.table.workflowId, workflowId)]
     if (pagination?.cursor) {
@@ -65,9 +70,17 @@ export class DeploymentsAdapter {
         )!,
       )
     }
-    const rows = await this.db
-      .select()
+    // Who deployed it and which version (its number and lock), in the same statement.
+    const rows: DeploymentListItem[] = await this.db
+      .select({
+        ...getTableColumns(this.table),
+        createdByName: this.user.name,
+        version: this.versions.version,
+        versionLocked: this.versions.locked,
+      })
       .from(this.table)
+      .leftJoin(this.user, eq(this.user.id, this.table.createdBy))
+      .leftJoin(this.versions, eq(this.versions.id, this.table.versionId))
       .where(and(...conditions))
       .orderBy(desc(this.table.createdAt), desc(this.table.id))
       .limit(limit + 1)

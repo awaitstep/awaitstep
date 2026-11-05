@@ -12,6 +12,8 @@ export const runsQuerySchema = paginationQuerySchema.extend({
   result: z.enum(['succeeded', 'failed', 'running']).optional(),
   period: z.enum(['24h', '7d', '30d']).optional(),
   search: z.string().max(200).optional(),
+  /** One workflow's runs in the workspace. */
+  workflowId: z.string().min(1).max(64).optional(),
 })
 
 export type RunsQuery = z.infer<typeof runsQuerySchema>
@@ -24,6 +26,7 @@ export function workspaceRunFilter(query: RunsQuery, now = new Date()): Workspac
       ? new Date(now.getTime() - PERIOD_MS[query.period]).toISOString()
       : undefined,
     search: query.search,
+    workflowId: query.workflowId,
     cursor: query.cursor,
     limit: query.limit,
   }

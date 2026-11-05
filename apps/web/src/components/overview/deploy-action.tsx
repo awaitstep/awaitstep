@@ -1,4 +1,3 @@
-import { useNavigate } from '@tanstack/react-router'
 import { Rocket } from 'lucide-react'
 import type { WorkflowNode, Edge as IREdge } from '@awaitstep/ir'
 import { Button } from '../ui/button'
@@ -6,6 +5,8 @@ import { actionToast, failureLine } from '../../lib/action-toast'
 import { api } from '../../lib/api-client'
 import { fallbackPosition } from '../../lib/hydrate-workflow'
 import { validateWorkflowForPublish } from '../../lib/validate-workflow'
+import { useWorkflowLinks } from '../../lib/workflows/detail-links'
+import { useGoTo } from '../navigation/router-shell-link'
 
 const MAX_LISTED = 3
 
@@ -23,7 +24,8 @@ export function DeployButton({
   kind,
   deployBlocked,
 }: DeployButtonProps) {
-  const navigate = useNavigate()
+  const goTo = useGoTo()
+  const links = useWorkflowLinks(workflowId)
 
   async function handleDeploy() {
     if (!currentVersionId) {
@@ -79,7 +81,7 @@ export function DeployButton({
       actionToast.error(failureLine(err, 'Couldn’t check the workflow'))
       return
     }
-    navigate({ to: '/workflows/$workflowId/deploy', params: { workflowId } })
+    goTo(links.deploy)
   }
 
   return (

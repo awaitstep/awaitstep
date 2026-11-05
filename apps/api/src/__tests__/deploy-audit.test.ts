@@ -118,6 +118,13 @@ describe('deploys in the audit log', () => {
     expect(JSON.stringify(recordedAuditEvents())).not.toContain('token')
   })
 
+  it('records who deployed, both ways of deploying', async () => {
+    await post(app, '/deploy', { connectionId: 'conn-1' })
+    await (await post(app, '/deploy-stream', { connectionId: 'conn-1' })).text()
+    const { data } = await mockDb.listDeploymentsByWorkflow('wf-1')
+    expect(data.map((d) => d.createdBy)).toEqual([TEST_USER_ID, TEST_USER_ID])
+  })
+
   it('answers a provider crash with a generic reason, never its text', async () => {
     outcome.throws = true
     const stream = await post(app, '/deploy-stream', { connectionId: 'conn-1' })

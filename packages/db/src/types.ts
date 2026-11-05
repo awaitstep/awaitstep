@@ -139,11 +139,24 @@ export interface CreateVersionData {
    */
   version?: number
   ir: string
+  /** The user who saved it; left out where there is none to name. */
+  createdBy?: string
 }
+
+/** A list row with its author's name: null for rows from before authors were kept, or a removed person. */
+export interface Authored {
+  createdByName: string | null
+}
+
+export type WorkflowVersionListItem = WorkflowVersion & Authored
 
 export interface UpdateVersionData {
   ir?: string
   locked?: number
+  /** An undeployed version saved over in place takes its new saver… */
+  createdBy?: string
+  /** …and the time: for a draft, `created_at` reads as when it was last saved. */
+  createdAt?: string
 }
 export type Connection = InferSelectModel<typeof connections>
 
@@ -388,6 +401,12 @@ export interface ActiveRunForSync {
   }
 }
 export type Deployment = InferSelectModel<typeof deployments>
+export type DeploymentListItem = Deployment &
+  Authored & {
+    /** The deployed version's number and lock, null once that version is deleted. */
+    version: number | null
+    versionLocked: number | null
+  }
 export type ApiKey = InferSelectModel<typeof apiKeys>
 
 /** One project a project-level key reaches, with whether that slice has been revoked. */
@@ -879,6 +898,8 @@ export interface WorkspaceRunFilter {
   since?: string
   /** Matches the workflow name or the run id, case-insensitively. */
   search?: string
+  /** Only this workflow's runs (still only in the workspace). */
+  workflowId?: string
   cursor?: string
   limit?: number
 }

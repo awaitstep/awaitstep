@@ -1,4 +1,3 @@
-import { Link } from '@tanstack/react-router'
 import {
   Settings2,
   Play,
@@ -22,6 +21,8 @@ import { useTemporalStore } from '../../stores/workflow-store'
 import { redoWithFeedback, undoWithFeedback } from './time-travel'
 import { useSwitchView } from '../../hooks/use-switch-view'
 import { ViewSwitch, type EditorView } from '../workflows/view-switch'
+import { useWorkflowLinks } from '../../lib/workflows/detail-links'
+import { RouterShellLink } from '../navigation/router-shell-link'
 
 export interface EditorToolbarProps {
   workflowId: string
@@ -135,6 +136,7 @@ export function EditorToolbar({
   versionParam,
 }: EditorToolbarProps) {
   const switchView = useSwitchView(workflowId)
+  const links = useWorkflowLinks(workflowId)
 
   // ?version= is carried only while actually viewing an older version. On
   // an editable canvas it names the version that is current *right now*,
@@ -153,16 +155,20 @@ export function EditorToolbar({
   }
 
   const title = (
-    <WorkflowTitle name={workflowName} kind={kind} version={isNew ? undefined : currentVersion}>
+    <WorkflowTitle
+      name={workflowName}
+      kind={kind}
+      version={isNew ? undefined : currentVersion}
+      href={isNew ? undefined : links.overview}
+    >
       {nodeCount > 0 && (
         <span className="hidden shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary md:inline-flex">
           {nodeCount} node{nodeCount !== 1 ? 's' : ''}
         </span>
       )}
       {hasActiveDeployment && (
-        <Link
-          to="/workflows/$workflowId/deployments"
-          params={{ workflowId }}
+        <RouterShellLink
+          href={links.deployments}
           className={cn(
             'hidden shrink-0 rounded px-1.5 py-0.5 text-xs font-medium transition-colors md:inline-block',
             hasUndeployedChanges
@@ -173,7 +179,7 @@ export function EditorToolbar({
           {hasUndeployedChanges
             ? `deployed v${deployedVersion ?? '?'} · v${currentVersion} unsaved`
             : `deployed v${currentVersion}`}
-        </Link>
+        </RouterShellLink>
       )}
       <SaveStatusIndicator
         isDirty={isDirty}

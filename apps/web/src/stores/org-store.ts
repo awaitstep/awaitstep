@@ -30,6 +30,8 @@ export interface RouteScope {
   key: string
   organizationId: string
   projectId: string
+  /** The URL's workspace: a workflow opened under another workspace's URL isn't shown there. */
+  workspaceId: string
 }
 
 interface OrgState {

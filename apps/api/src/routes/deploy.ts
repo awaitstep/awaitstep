@@ -116,6 +116,7 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
     status: result.success ? 'success' : 'failed',
     error: result.error,
     configSnapshot: deploymentSnapshot,
+    createdBy: c.get('userId'),
   })
 
   // Post-deploy: persist config only on success
@@ -227,6 +228,7 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
       status: result.success ? 'success' : 'failed',
       error: result.error,
       configSnapshot: deploymentSnapshot,
+      createdBy: c.get('userId'),
     })
 
     // Post-deploy: persist config only on success

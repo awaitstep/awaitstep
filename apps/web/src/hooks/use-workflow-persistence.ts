@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
 import { actionToast, failureLine } from '../lib/action-toast'
 import { useWorkflowStore } from '../stores/workflow-store'
 import { validateWorkflowForPublish } from '../lib/validate-workflow'
@@ -8,6 +7,9 @@ import { buildIRFromState } from '../lib/build-ir'
 import { splitSecretName } from '../lib/env-var-parser'
 import { api, type WorkflowSummary } from '../lib/api-client'
 import type { NodeRegistry } from '@awaitstep/ir'
+import { useEditorScope } from '../contexts/editor-scope-context'
+import { workflowLinks } from '../lib/workflows/detail-links'
+import { useGoTo } from '../components/navigation/router-shell-link'
 
 export type AutoSaveOutcome = 'saved' | 'skipped' | 'failed'
 
@@ -21,7 +23,8 @@ export function useWorkflowPersistence(opts: {
 }) {
   const { workflowId, isNew, isDirty, nodeRegistry, kind } = opts
   const queryClient = useQueryClient()
-  const navigate = useNavigate()
+  const goTo = useGoTo()
+  const scope = useEditorScope()
   const { markClean, setWorkflowId, runValidation } = useWorkflowStore()
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -185,8 +188,9 @@ export function useWorkflowPersistence(opts: {
       }
     }
     const targetId = isNew ? (useWorkflowStore.getState().workflowId ?? workflowId) : workflowId
-    navigate({ to: '/workflows/$workflowId/deploy', params: { workflowId: targetId } })
-  }, [runValidation, isDirty, isNew, saveMutation, nodeRegistry, navigate, workflowId])
+    // Deploy opens in the shell the editor is in: its workspace, or the old pages.
+    goTo(workflowLinks(scope, targetId).deploy)
+  }, [runValidation, isDirty, isNew, saveMutation, nodeRegistry, goTo, scope, workflowId])
 
   return {
     handleSave,

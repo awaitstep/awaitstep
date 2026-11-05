@@ -21,6 +21,8 @@ export const deployments = pgTable(
     status: text('status').notNull().default('success'),
     error: text('error'),
     configSnapshot: text('config_snapshot'),
+    // Who deployed it: a user id, as workflows.created_by. Null on rows from before it was recorded.
+    createdBy: text('created_by'),
     createdAt: isoTimestamp('created_at')
       .notNull()
       .default(sql`now()`),

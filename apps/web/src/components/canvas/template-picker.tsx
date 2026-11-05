@@ -52,9 +52,14 @@ export function TemplatePicker({ onDismiss }: { onDismiss: () => void }) {
       label: edge.label,
     }))
 
+    // A workflow that already exists was named when it was created: the
+    // template brings its steps, not its name. An unsaved `/new` one takes both.
+    const { workflowId, metadata } = useWorkflowStore.getState()
+    const named = !!workflowId && workflowId !== 'new'
     loadWorkflow(
       {
         ...template.ir.metadata,
+        ...(named && { name: metadata.name, description: metadata.description }),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },

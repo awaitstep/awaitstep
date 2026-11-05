@@ -948,7 +948,11 @@ has `token`, `org` (`name`, `slug`, `logo`), `invitedBy` (a name), `orgRole`,
 
 ### `GET /workflows/:workflowId/versions`
 
-List all versions for a workflow.
+List all versions for a workflow, newest first. Each has `createdBy` (the user
+who saved it last — an undeployed version saved over in place takes its new
+saver, and its `createdAt` moves to that save) and `createdByName`; both are
+`null` on versions saved before authors were kept, and the name is `null` once
+that person is removed. Saved with an API key, the user is the key's creator.
 
 **Permission:** `workflows:read`
 
@@ -1386,7 +1390,10 @@ List all deployments across all workflows for the authenticated user.
 
 ### `GET /workflows/:workflowId/deployments`
 
-List deployments for a specific workflow.
+List deployments for a specific workflow, newest first. Each has `createdBy`
+(the user who deployed it) and `createdByName`, `null` on deployments made
+before authors were kept, plus `version` and `versionLocked` (`1` when locked):
+the deployed version's number and lock, `null` once that version is deleted. Deployed with an API key, the user is the key's creator.
 
 **Permission:** `runs:read`
 
@@ -1519,13 +1526,14 @@ runs, newest first, each with `workflowName` and `kind`, plus `counts`
 (`all`, `succeeded`, `failed`, `running`) over the period and search —
 before `result` is applied, so the filter pills keep their numbers.
 
-| Param    | In    | Required | Description                             |
-| -------- | ----- | -------- | --------------------------------------- |
-| `result` | query | no       | `succeeded`, `failed` or `running`      |
-| `period` | query | no       | `24h`, `7d` or `30d`                    |
-| `search` | query | no       | Matches the workflow name or the run id |
+| Param        | In    | Required | Description                                                  |
+| ------------ | ----- | -------- | ------------------------------------------------------------ |
+| `result`     | query | no       | `succeeded`, `failed` or `running`                           |
+| `period`     | query | no       | `24h`, `7d` or `30d`                                         |
+| `search`     | query | no       | Matches the workflow name or the run id                      |
+| `workflowId` | query | no       | Only that workflow's runs (and counts), within the workspace |
 
-These three need a workspace: without one they answer `400`.
+These four need a workspace: without one they answer `400`.
 
 ### `GET /workflows/:workflowId/runs`
 

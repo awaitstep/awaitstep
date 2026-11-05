@@ -7,6 +7,7 @@ import { RequestAction } from '../ui/request-action'
 import { RolePill } from '../ui/role-pill'
 import { ShellLink } from '../ui/shell-link'
 import { ITEM_KIND_LABEL } from './item-kind'
+import { NewItemDialog } from './new-item-dialog'
 import { useNewItem, type NewItem } from './use-new-item'
 
 const newLabel = (kind: ItemKind) => `New ${ITEM_KIND_LABEL[kind].toLowerCase()}`
@@ -20,11 +21,11 @@ interface NewItemButtonProps {
   compact?: boolean
   variant?: 'default' | 'outline'
   size?: 'sm' | 'default'
-  /** Shared by buttons side by side, so one click disables both. */
+  /** Shared by buttons side by side; its owner renders the one dialog. */
   newItem?: NewItem
 }
 
-/** New workflow / New function: creates it and opens its editor. */
+/** New workflow / New function: opens the dialog that names it, then its editor. */
 export function NewItemButton({
   slugs,
   kind,
@@ -34,7 +35,7 @@ export function NewItemButton({
   size = 'sm',
   newItem: shared,
 }: NewItemButtonProps) {
-  const own = useNewItem(slugs)
+  const own = useNewItem()
   const newItem = shared ?? own
 
   function handleClick() {
@@ -42,7 +43,6 @@ export function NewItemButton({
   }
 
   const label = newLabel(kind)
-  const busy = disabled || newItem.busy
   const accessibleName = compact ? label : undefined
   const text = compact ? 'New' : label
   const icon = variant === 'default' ? <Plus aria-hidden="true" /> : null
@@ -54,17 +54,13 @@ export function NewItemButton({
         variant={variant}
         size={size}
         onClick={handleClick}
-        disabled={busy}
+        disabled={disabled}
         aria-label={accessibleName}
       >
         {icon}
         {text}
       </Button>
-      {newItem.error && (
-        <span role="alert" className="text-2xs text-status-error">
-          {newItem.error.message}
-        </span>
-      )}
+      {!shared && own.dialog && <NewItemDialog slugs={slugs} {...own.dialog} />}
     </>
   )
 }

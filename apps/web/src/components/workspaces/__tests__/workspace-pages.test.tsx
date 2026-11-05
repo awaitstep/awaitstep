@@ -27,6 +27,13 @@ beforeEach(() => {
 const card = (title: string) =>
   screen.getByRole('heading', { name: title }).closest('section') as HTMLElement
 
+/** Fills in the New workflow / New function dialog and creates it. */
+async function nameAndCreate(kind: 'workflow' | 'function', name: string) {
+  const dialog = await screen.findByRole('dialog', { name: `New ${kind}` })
+  await userEvent.type(within(dialog).getByRole('textbox', { name: /Name/ }), name)
+  await userEvent.click(within(dialog).getByRole('button', { name: `Create ${kind}` }))
+}
+
 describe('workspace Overview', () => {
   it('reads as WsOverview: intro, tiles, needs attention, recent runs, people, shared', async () => {
     renderWithDashboardData(<WorkspaceOverviewPage slugs={sales} />)
@@ -139,21 +146,24 @@ describe('an empty workspace', () => {
     )
     await screen.findByRole('heading', { name: 'Nothing in Support yet' })
     await userEvent.click(screen.getByRole('button', { name: 'New workflow' }))
+    await nameAndCreate('workflow', 'Ticket triage')
     expect(await screen.findByRole('heading', { level: 1, name: 'Workflows' })).toBeVisible()
-    expect(screen.getAllByText('Untitled workflow').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Ticket triage').length).toBeGreaterThan(0)
     expect(goTo).toHaveBeenCalledWith(
       expect.stringMatching(/^\/acme\/project-101\/support\/workflows\/[^/?]+\?template=1$/),
     )
   })
 
-  it('disables New function while New workflow is on its way, so one click makes one item', async () => {
-    vi.spyOn(dashboardServer.items, 'createItem').mockReturnValue(new Promise(() => {}))
+  it('asks for a name before creating anything, in one dialog for both buttons', async () => {
+    const create = vi.spyOn(dashboardServer.items, 'createItem')
     renderWithDashboardData(
       <WorkflowsPage slugs={support} dialog={undefined} onCloseDialog={vi.fn()} />,
     )
     await screen.findByRole('heading', { name: 'Nothing in Support yet' })
-    await userEvent.click(screen.getByRole('button', { name: 'New workflow' }))
-    expect(screen.getByRole('button', { name: 'New function' })).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: 'New function' }))
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+    expect(screen.getByRole('dialog', { name: 'New function' })).toBeVisible()
+    expect(create).not.toHaveBeenCalled()
     vi.restoreAllMocks()
   })
 
@@ -198,6 +208,9 @@ describe('an empty workspace', () => {
   it('creates the first workflow from Start from blank: Built, nothing run yet', async () => {
     renderWithDashboardData(<WorkspaceOverviewPage slugs={support} />)
     await userEvent.click(await screen.findByRole('button', { name: /Start from blank/ }))
+    // Opened from Start from blank, the dialog starts on Blank.
+    expect(screen.getByRole('radio', { name: /Blank/ })).toBeChecked()
+    await nameAndCreate('workflow', 'Ticket triage')
     expect(await screen.findByRole('link', { name: '1 Workflows' })).toBeVisible()
     // Blank means blank: its editor opens without the template picker.
     expect(goTo).toHaveBeenCalledWith(
@@ -339,6 +352,7 @@ describe('a new project’s Workspaces page, /{org}/{project}/workspaces', () =>
     )
     const newFunction = await screen.findByRole('button', { name: 'New function' })
     await userEvent.click(newFunction)
+    await nameAndCreate('function', 'Invoice webhook')
     await waitFor(() =>
       expect(goTo).toHaveBeenCalledWith(
         expect.stringMatching(/^\/acme\/billing\/default\/workflows\/[^/?]+$/),

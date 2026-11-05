@@ -5,6 +5,7 @@ import type { ScopeLookup, ScopeSlugs } from '../../../types/dashboard/scope'
 import { DataSourceProvider, type DataSource } from '../../../data/dashboard/source'
 import type { DashboardPage } from '../dashboard-page'
 import { DashboardShell } from '../dashboard-shell'
+import { useOrgStore } from '../../../stores/org-store'
 
 interface ScopeQuery {
   data?: ScopeLookup
@@ -21,6 +22,9 @@ const state = vi.hoisted(() => ({
   search: {} as Record<string, string>,
   navigate: vi.fn(),
   scope: { isPending: true, isError: false, isFetching: false } as ScopeQuery,
+  workflow: undefined as
+    { name: string; kind?: 'workflow' | 'script'; workspaceId?: string } | undefined,
+  workflowAsked: [] as boolean[],
 }))
 
 vi.mock('@tanstack/react-router', () => ({
@@ -32,6 +36,13 @@ vi.mock('@tanstack/react-router', () => ({
   useLocation: () => ({ pathname: state.pathname, href: state.pathname }),
   useNavigate: () => state.navigate,
   useSearch: () => state.search,
+}))
+
+vi.mock('../../workflow-detail/use-scoped-workflow', () => ({
+  useScopedWorkflow: (_slugs: unknown, _id: string, enabled: boolean) => {
+    state.workflowAsked.push(enabled)
+    return { data: enabled ? state.workflow : undefined }
+  },
 }))
 
 vi.mock('../../inbox/dashboard-overlays', () => ({
@@ -160,6 +171,8 @@ afterEach(() => {
   state.search = {}
   state.navigate.mockReset()
   state.scope = { isPending: true, isError: false, isFetching: false, refetch: vi.fn() }
+  state.workflow = undefined
+  state.workflowAsked.length = 0
 })
 
 describe('DashboardShell', () => {
@@ -190,6 +203,81 @@ describe('DashboardShell', () => {
       renderShell('mock')
       expect(screen.getByText('Page content')).toBeVisible()
       expect(rail()).toBeInTheDocument()
+    })
+  })
+
+  describe('around a workflow’s own pages', () => {
+    const itemParams = { org: 'acme', project: 'project-101', workspace: 'sales', id: 'wf_1' }
+
+    it('frames them in the workspace, under Workflows, with the item in the breadcrumb', () => {
+      state.params = itemParams
+      state.page = { kind: 'item', page: 'runs' }
+      state.workflow = { name: 'Lead enrichment', kind: 'workflow' }
+      settle(found('workspace'))
+      renderShell('api')
+      expect(screen.getByText('Page content')).toBeVisible()
+      const crumbs = screen.getByRole('navigation', { name: 'Breadcrumb' })
+      expect(within(crumbs).getByRole('link', { name: 'Workflows' })).toHaveAttribute(
+        'href',
+        '/acme/project-101/sales/workflows',
+      )
+      expect(within(crumbs).getByRole('link', { name: 'Lead enrichment' })).toHaveAttribute(
+        'href',
+        '/acme/project-101/sales/workflows/wf_1/overview',
+      )
+      expect(within(crumbs).getByText('Runs')).toHaveAttribute('aria-current', 'page')
+      expect(screen.getByRole('link', { name: 'Workflows', current: 'page' })).toBeVisible()
+    })
+
+    it('marks Functions for a function', () => {
+      state.params = itemParams
+      state.page = { kind: 'item', page: 'overview' }
+      state.workflow = { name: 'CRM sync', kind: 'script' }
+      settle(found('workspace'))
+      renderShell('api')
+      expect(screen.getByRole('link', { name: 'Functions', current: 'page' })).toBeVisible()
+    })
+
+    it('marks no list and names the item by id until it loads', () => {
+      state.params = itemParams
+      state.page = { kind: 'item', page: 'overview' }
+      settle(found('workspace'))
+      renderShell('api')
+      const crumbs = screen.getByRole('navigation', { name: 'Breadcrumb' })
+      expect(within(crumbs).getByRole('link', { name: 'wf_1' })).toBeVisible()
+      for (const list of ['Workflows', 'Functions']) {
+        expect(screen.queryByRole('link', { name: list, current: 'page' })).not.toBeInTheDocument()
+      }
+    })
+
+    it('doesn’t name a workflow from another workspace in this one’s frame', () => {
+      useOrgStore.setState({
+        routeScope: {
+          key: 'acme/project-101/sales',
+          organizationId: 'o',
+          projectId: 'p',
+          workspaceId: 'ws_sales',
+        },
+      })
+      state.params = itemParams
+      state.page = { kind: 'item', page: 'overview' }
+      state.workflow = { name: 'Ops job', kind: 'workflow', workspaceId: 'ws_ops' }
+      settle(found('workspace'))
+      renderShell('api')
+      const crumbs = screen.getByRole('navigation', { name: 'Breadcrumb' })
+      expect(within(crumbs).queryByText('Ops job')).not.toBeInTheDocument()
+      expect(within(crumbs).getByRole('link', { name: 'wf_1' })).toBeVisible()
+      useOrgStore.getState().clear()
+    })
+
+    it('reads no workflow on sample data or on other pages', () => {
+      state.params = itemParams
+      state.page = { kind: 'item', page: 'overview' }
+      settle(found('workspace'))
+      renderShell('mock')
+      state.page = { kind: 'workspace', page: 'workflows' }
+      renderShell('api')
+      expect(state.workflowAsked.every((asked) => !asked)).toBe(true)
     })
   })
 

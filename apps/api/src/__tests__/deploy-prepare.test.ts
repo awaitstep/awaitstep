@@ -185,6 +185,31 @@ describe('prepareDeploy', () => {
     expect(generated).toHaveLength(0)
   })
 
+  it('says another workflow’s version is not found, before anything about its lock', async () => {
+    await mockDb.createWorkflow({
+      id: 'wf-2',
+      projectId: TEST_PROJECT_ID,
+      createdBy: TEST_USER_ID,
+      name: 'Other',
+    })
+    await mockDb.createVersion({ id: 'v-other', workflowId: 'wf-2', ir: JSON.stringify(validIR) })
+    await mockDb.updateVersion('v-other', { locked: 1 })
+    const workflow = (await mockDb.getWorkflowById('wf-1'))!
+    const prepared = await prepareDeploy({
+      db: mockDb,
+      workflow,
+      organizationId: TEST_ORG_ID,
+      projectId: TEST_PROJECT_ID,
+      connectionId: 'conn-1',
+      versionId: 'v-other',
+    })
+    expect(isDeployError(prepared) && [prepared.status, prepared.error]).toEqual([
+      404,
+      'Version not found',
+    ])
+    expect(generated).toHaveLength(0)
+  })
+
   it('refuses a workflow that needs another provider, before generating', async () => {
     const providerIR = {
       ...validIR,

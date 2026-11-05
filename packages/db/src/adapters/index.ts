@@ -8,6 +8,8 @@ import type {
 import type {
   Workflow,
   WorkflowVersion,
+  WorkflowVersionListItem,
+  DeploymentListItem,
   Connection,
   ConnectionCoverage,
   ConnectionListOptions,
@@ -331,7 +333,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       },
       this._dialect,
     )
-    this._versions = new VersionsAdapter(db, schema.workflowVersions)
+    this._versions = new VersionsAdapter(db, schema.workflowVersions, schema.user)
     this._connections = new ConnectionsAdapter(
       db,
       {
@@ -382,7 +384,12 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     )
     this._workflowFiles = new WorkflowFilesAdapter(db, schema.workflowFiles)
     this._testSessions = new TestSessionsAdapter(db, schema.testSessions, schema.workflows)
-    this._deployments = new DeploymentsAdapter(db, schema.deployments)
+    this._deployments = new DeploymentsAdapter(
+      db,
+      schema.deployments,
+      schema.user,
+      schema.workflowVersions,
+    )
     this._apiKeys = new ApiKeysAdapter(
       db,
       {
@@ -1024,7 +1031,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   listVersionsByWorkflow(
     workflowId: string,
     pagination?: PaginationParams,
-  ): Promise<PaginatedResult<WorkflowVersion>> {
+  ): Promise<PaginatedResult<WorkflowVersionListItem>> {
     return this._versions.listByWorkflow(workflowId, pagination)
   }
   updateVersion(id: string, data: UpdateVersionData): Promise<void> {
@@ -1367,6 +1374,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     status: string
     error?: string
     configSnapshot?: string
+    createdBy?: string
   }): Promise<Deployment> {
     return this._deployments.create(data)
   }
@@ -1390,7 +1398,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   listDeploymentsByWorkflow(
     workflowId: string,
     pagination?: PaginationParams,
-  ): Promise<PaginatedResult<Deployment>> {
+  ): Promise<PaginatedResult<DeploymentListItem>> {
     return this._deployments.listByWorkflow(workflowId, pagination)
   }
 

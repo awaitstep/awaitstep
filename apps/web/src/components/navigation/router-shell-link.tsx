@@ -38,15 +38,25 @@ export function RouterShellLink({ href, ...props }: ShellLinkProps) {
   return <Link to={target.to} search={target.search} hash={target.hash} {...props} />
 }
 
-/** Follows an href from code (a switcher's choice), the same way `RouterShellLink` would. */
-export function useGoTo(): (href: string) => void {
+/**
+ * Follows an href from code (a switcher's choice), the same way `RouterShellLink`
+ * would. `replace` swaps the current history entry, for leaving a page that no
+ * longer exists (something just deleted), so Back can't return to it.
+ */
+export function useGoTo(): (href: string, options?: { replace?: boolean }) => void {
   const navigate = useNavigate()
-  return (href) => {
+  return (href, options = {}) => {
     const target = routerTarget(href)
     if (target.kind === 'anchor') {
-      window.location.assign(href)
+      if (options.replace) window.location.replace(href)
+      else window.location.assign(href)
       return
     }
-    void navigate({ to: target.to, search: target.search, hash: target.hash })
+    void navigate({
+      to: target.to,
+      search: target.search,
+      hash: target.hash,
+      replace: options.replace,
+    })
   }
 }

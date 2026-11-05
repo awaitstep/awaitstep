@@ -38,7 +38,8 @@ export function buildWorkflowStoreState(
     readOnly: isReadOnly,
     metadata: {
       name: serverWorkflow.name,
-      description: serverWorkflow.description,
+      // The API answers null for none, but refuses null when it's sent back on save.
+      description: serverWorkflow.description ?? undefined,
       version: currentVersion,
       createdAt: serverWorkflow.createdAt,
       updatedAt: serverWorkflow.updatedAt,

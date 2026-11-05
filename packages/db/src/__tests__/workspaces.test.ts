@@ -785,6 +785,50 @@ describe.each([
       expect(beyond.counts).toEqual({ all: 6, succeeded: 3, failed: 2, running: 1 })
     })
 
+    it('narrows to one workflow’s runs, counting only them', async () => {
+      const page = await h.adapter.listWorkspaceRuns('ws-sales', { workflowId: 'wf-enrich' })
+      expect(page.data.map((r) => r.id)).toEqual(['r-3', 'r-2', 'r-1'])
+      expect(page.counts).toEqual({ all: 3, succeeded: 2, failed: 1, running: 0 })
+      // Still only in the workspace: another workspace's workflow answers nothing here.
+      const elsewhere = await h.adapter.listWorkspaceRuns('ws-sales', { workflowId: 'wf-202' })
+      expect(elsewhere.data).toEqual([])
+      expect(elsewhere.counts.all).toBe(0)
+    })
+
+    it('records who saved a version and who deployed it, and names them in the lists', async () => {
+      const saved = await h.adapter.createVersion({
+        id: 'v-authored',
+        workflowId: 'wf-enrich',
+        ir: '{}',
+        createdBy: 'u-ben',
+      })
+      expect(saved.createdBy).toBe('u-ben')
+      await h.adapter.createDeployment({
+        id: 'd-authored',
+        workflowId: 'wf-enrich',
+        versionId: 'v-authored',
+        // The fixture has no connections; the column is nullable (a removed account).
+        connectionId: null as unknown as string,
+        serviceName: 'svc',
+        status: 'success',
+        createdBy: 'u-ama',
+      })
+      const versions = await h.adapter.listVersionsByWorkflow('wf-enrich')
+      expect(versions.data.find((v) => v.id === 'v-authored')).toMatchObject({
+        createdBy: 'u-ben',
+        createdByName: 'Ben Okoro',
+      })
+      // Rows from before authors were kept name nobody.
+      expect(versions.data.find((v) => v.id !== 'v-authored')?.createdByName ?? null).toBeNull()
+      const deployments = await h.adapter.listDeploymentsByWorkflow('wf-enrich')
+      expect(deployments.data.find((d) => d.id === 'd-authored')).toMatchObject({
+        createdByName: 'Ama Mensah',
+        // Its version's number and lock come with it, however far back it is.
+        version: 3,
+        versionLocked: 0,
+      })
+    })
+
     it('searches the workflow name and the run id, case-insensitively, literally', async () => {
       const byName = await h.adapter.listWorkspaceRuns('ws-sales', { search: 'crm' })
       expect(byName.data.map((r) => r.id)).toEqual(['r-5', 'r-4'])
