@@ -6,6 +6,7 @@ import type {
   RuntimeRequirement,
   SourceDiagnostic,
 } from '@awaitstep/codegen'
+import { NO_VERSION_MESSAGE } from './blank-source.js'
 import {
   GenerateInputError,
   bundleCodeFiles,
@@ -152,7 +153,7 @@ export async function prepareWorkflow(
   const checked: DiagnosticSource[] = []
 
   const versionId = input.version?.id ?? input.versionId ?? workflow.currentVersionId
-  if (!versionId) return { error: 'No version to use', status: 400 }
+  if (!versionId) return { error: NO_VERSION_MESSAGE, status: 400 }
 
   // Only the current version reads the live project-file table; older
   // versions deploy their snapshot, so their rows are never fetched.

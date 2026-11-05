@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { NO_VERSION_MESSAGE } from '../lib/blank-source.js'
 import { GenerateInputError, supportsLocalDev, type LocalDevProvider } from '@awaitstep/codegen'
 import {
   killPort,
@@ -19,7 +20,7 @@ export const localDev = new Hono<AppEnv>()
 localDev.post('/:workflowId/local-dev/start', async (c) => {
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
-  if (!workflow.currentVersionId) return c.json({ error: 'No version to test' }, 400)
+  if (!workflow.currentVersionId) return c.json({ error: NO_VERSION_MESSAGE }, 400)
 
   const prepared = await prepareWorkflow({
     db: c.get('db'),

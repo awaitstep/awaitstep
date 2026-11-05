@@ -9,6 +9,12 @@ import {
   type JudgedState,
 } from '../lib/source-check.js'
 import { contentHash } from '@awaitstep/codegen'
+import {
+  BLANK_CHECKED,
+  NO_VERSION_DIAGNOSTIC,
+  hasNoVersion,
+  readBlankSource,
+} from '../lib/blank-source.js'
 import type { AppEnv } from '../types.js'
 
 export const source = new Hono<AppEnv>()
@@ -23,8 +29,14 @@ source.get('/:workflowId/source', async (c) => {
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const versionId = c.req.query('versionId') ?? workflow.currentVersionId
-  if (!versionId) return c.json({ error: 'No version to read' }, 400)
+  // A workflow nobody has saved yet still has its own files: the read answers
+  // with those and no generated code, rather than refusing.
+  // An empty `?versionId=` is no version asked for.
+  const requested = c.req.query('versionId') || undefined
+  if (hasNoVersion(workflow, requested)) {
+    return c.json(await readBlankSource(db, workflow))
+  }
+  const versionId = requested ?? workflow.currentVersionId!
 
   // The id goes in rather than the row: the prepare reads the version row and
   // the project files in one round trip, and it owns the same 404 for a
@@ -98,8 +110,26 @@ source.post('/:workflowId/source/check', async (c) => {
   if ('errors' in body) return c.json({ error: 'Validation failed', details: body.errors }, 422)
   const candidates = body.data.files ?? []
 
-  const versionId = c.req.query('versionId') ?? workflow.currentVersionId
-  if (!versionId) return c.json({ error: 'No version to check' }, 400)
+  // Nothing is generated for a workflow without a version, but its own files
+  // can still be wrong, and a deploy would refuse it: the answer is `ok:
+  // false` with the "no saved version" finding first and the file findings
+  // after. Candidate files are judged against a version's generated code, so
+  // those still need one.
+  const requested = c.req.query('versionId') || undefined
+  if (hasNoVersion(workflow, requested)) {
+    if (candidates.length > 0) {
+      return c.json({ error: 'Save a version before checking candidate files' }, 400)
+    }
+    const blank = await readBlankSource(db, workflow)
+    return c.json({
+      ok: false,
+      versionId: null,
+      checked: BLANK_CHECKED,
+      requirements: [],
+      diagnostics: [NO_VERSION_DIAGNOSTIC, ...blank.diagnostics],
+    })
+  }
+  const versionId = requested ?? workflow.currentVersionId!
   // Nothing about the file rows depends on the version row, and only the
   // current version reads them at all — so both go out at once rather than
   // the prepare waiting on this one to issue its own.

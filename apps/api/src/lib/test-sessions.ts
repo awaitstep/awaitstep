@@ -1,4 +1,5 @@
 import { nanoid } from 'nanoid'
+import { NO_VERSION_MESSAGE } from './blank-source.js'
 import type { DatabaseAdapter, TestSession, Workflow } from '@awaitstep/db'
 import {
   GenerateInputError,
@@ -136,7 +137,11 @@ export async function startTestSession(
   const { db, runner, limits, workflow, projectId, userId } = input
 
   if (!workflow.currentVersionId) {
-    return { ok: false, status: 400, error: 'No version to run' }
+    return {
+      ok: false,
+      status: 400,
+      error: NO_VERSION_MESSAGE,
+    }
   }
 
   // This caller's expired sessions, not everyone's: a sweep of all of them

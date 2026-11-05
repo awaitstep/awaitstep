@@ -137,6 +137,12 @@ describe('source routes', () => {
       expect((await res.json()) as { error: string }).toMatchObject({ error: 'Version not found' })
     })
 
+    it('treats an empty versionId as none asked for: the current version is read', async () => {
+      const res = await app.request(url('/api/workflows/wf-1/source?versionId='))
+      expect(res.status).toBe(200)
+      expect(((await res.json()) as { versionId: string | null }).versionId).not.toBeNull()
+    })
+
     it('compiles a project handlers.ts into the generated entry', async () => {
       const put = await app.request(url('/api/workflows/wf-1/files/handlers.ts'), {
         method: 'PUT',

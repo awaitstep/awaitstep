@@ -1102,6 +1102,19 @@ orchestration: a `provider` requirement (`{ "kind": "provider", "id":
 requirement names a resource the target provider must supply. The deploy
 refuses a target that cannot satisfy them.
 
+**A workflow with no saved version** (no `versionId` query and nothing saved yet) still
+answers `200`: there is no graph to generate from, so
+`{ "versionId": null, "entry": null, "primary": null, "files": [...], "manifest": null, "requirements": [], "diagnostics": [] }`
+where `files` are the project files only, each with its `hash`, and no generated
+file appears. `diagnostics` still judges those files (a file that does not parse, a
+`package.json` the write rules would refuse, an import that leaves the project), and is empty
+when they are fine. Nothing is persisted. Once a first version is saved the same call returns
+the generated files too. Deploy, test sessions and local dev refuse a workflow with no version
+(`400`, "No saved version. Save a version first."); there is no version to run until the first
+save because the step files (`nodes/**`) are generated from it.
+
+An empty `versionId` query (`?versionId=`) counts as none asked for.
+
 ### `POST /workflows/:workflowId/source/check`
 
 Everything `GET /source` finds, without the source. Built for the question
@@ -1115,6 +1128,14 @@ bundle to read a verdict is the wrong trade.
 | `workflowId` | path  | yes      | Workflow ID                                       |
 | `versionId`  | query | no       | Version to check (defaults to current)            |
 | `files`      | body  | no       | Candidate files, `[{ path, source }]` (see below) |
+
+A workflow with no saved version has nothing generated to judge, and a deploy would refuse it, so
+with no `files` it answers `200` with `ok: false`: `versionId` is `null`, `checked` is
+`["compile", "import"]` (the checks that need no version), and `diagnostics` starts with
+`{ "source": "ir", "message": "No saved version. Save a version first." }` followed by any
+findings about the project's own files, the same ones `GET /source` returns. With candidate
+`files` it answers `400` ("Save a version before checking candidate files"). An empty
+`versionId` query counts as none asked for.
 
 The body is optional — no body at all checks what is stored:
 
@@ -2212,7 +2233,7 @@ started before manifests were stored. Compare it with the hashes from
 `GET /workflows/:workflowId/source` to tell whether files were saved, deleted
 or added since the session started.
 
-Refusals: `400` no version to run, `429` the user's concurrency cap or the
+Refusals: `400` no saved version to run, `429` the user's concurrency cap or the
 project's quota, `502` the worker could not start (the message carries the
 worker's own output), `504` the start took longer than the start timeout.
 

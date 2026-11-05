@@ -304,6 +304,13 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
       expect(current.body.versionId).toBe('v-2')
     })
 
+    it('treats an empty versionId as none asked for: the current version is checked', async () => {
+      await saveVersion()
+      const { status, body } = await check('?versionId=')
+      expect(status).toBe(200)
+      expect(body.versionId).not.toBeNull()
+    })
+
     it('refuses a version that belongs to another workflow', async () => {
       await saveVersion()
       await mockDb.createWorkflow({
@@ -325,8 +332,20 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
       expect(body.ok).toBe(true)
     })
 
-    it('refuses when there is nothing to check', async () => {
-      const { status } = await check()
+    it('answers ok:false with the no-saved-version finding, not a refusal, when there is no version yet', async () => {
+      const { status, body } = await check()
+      expect(status).toBe(200)
+      expect(body).toEqual({
+        ok: false,
+        versionId: null,
+        checked: ['compile', 'import'],
+        requirements: [],
+        diagnostics: [{ source: 'ir', message: 'No saved version. Save a version first.' }],
+      })
+    })
+
+    it('still refuses candidate files without a version: they are judged against generated code', async () => {
+      const { status } = await check('', [{ path: 'lib/a.ts', source: 'export const a = 1' }])
       expect(status).toBe(400)
     })
   })
