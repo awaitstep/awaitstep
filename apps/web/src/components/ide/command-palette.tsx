@@ -22,9 +22,14 @@ interface CommandPaletteProps {
   activeIsHandlersFile: boolean
   activeDirty: boolean
   dirtyCount: number
+  runLabel: string
+  runEnabled: boolean
+  canStartSession: boolean
+  canStopSession: boolean
+  canTriggerSession: boolean
 }
 
-const GROUP_ORDER: IdeCommandGroup[] = ['file', 'navigate', 'view']
+const GROUP_ORDER: IdeCommandGroup[] = ['file', 'navigate', 'view', 'run']
 
 export function CommandPalette({
   actions,
@@ -33,6 +38,11 @@ export function CommandPalette({
   activeIsHandlersFile,
   activeDirty,
   dirtyCount,
+  runLabel,
+  runEnabled,
+  canStartSession,
+  canStopSession,
+  canTriggerSession,
 }: CommandPaletteProps) {
   const { open, closeDialog, hasActiveFile, openCount } = useIdeStore(
     useShallow((s) => ({
@@ -63,6 +73,11 @@ export function CommandPalette({
       explorerOpen,
       dockOpen,
       previewOpen,
+      runLabel,
+      runEnabled,
+      canStartSession,
+      canStopSession,
+      canTriggerSession,
       actions,
     })
     return GROUP_ORDER.map((group) => ({
@@ -80,6 +95,11 @@ export function CommandPalette({
     explorerOpen,
     dockOpen,
     previewOpen,
+    runLabel,
+    runEnabled,
+    canStartSession,
+    canStopSession,
+    canTriggerSession,
     actions,
   ])
 
@@ -102,7 +122,7 @@ export function CommandPalette({
           <CommandInput
             autoFocus
             placeholder="Type a command…"
-            className="h-11 w-full border-b border-border bg-transparent px-4 text-sm outline-none placeholder:text-muted-foreground/50"
+            className="h-11 w-full border-b border-border bg-transparent px-4 text-sm outline-none placeholder:text-muted-foreground"
           />
           <CommandList className="max-h-[360px] overflow-y-auto p-1.5">
             <CommandEmpty className="px-3 py-6 text-center text-xs text-muted-foreground">
@@ -112,7 +132,7 @@ export function CommandPalette({
               <CommandGroup
                 key={group}
                 heading={COMMAND_GROUP_LABELS[group]}
-                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground/50"
+                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground"
               >
                 {commands.map((command) => (
                   <PaletteItem

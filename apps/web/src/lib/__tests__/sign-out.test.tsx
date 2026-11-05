@@ -8,6 +8,8 @@ vi.mock('better-auth/react', () => ({ createAuthClient: () => ({ signOut, signIn
 import { actionToast, CARRIED_TOAST_MAX_AGE_MS, showCarriedToast } from '../action-toast'
 import { handleSignOut } from '../auth-client'
 import { useAuthStore } from '../../stores/auth-store'
+import { useTestSessionStore } from '../../stores/test-session-store'
+import { useQuickTestStore } from '../../stores/quick-test-store'
 
 const startAt = 'http://localhost:3000/account/sessions'
 
@@ -33,6 +35,17 @@ describe('handleSignOut', () => {
     expect(window.location.href).toBe(startAt)
     showCarriedToast()
     expect(toast.success).not.toHaveBeenCalled()
+  })
+
+  it('forgets remembered trigger payloads and Quick test arguments', async () => {
+    useTestSessionStore.getState().setPayload('wf', '{"token":"secret"}')
+    useQuickTestStore.getState().setField('k', 'inputs', '{"token":"secret"}')
+    expect(localStorage.getItem('awaitstep-test-session')).toContain('secret')
+    signOut.mockResolvedValueOnce({ data: { success: true }, error: null })
+    vi.stubGlobal('location', { href: startAt })
+    await handleSignOut()
+    expect(localStorage.getItem('awaitstep-test-session')).toBeNull()
+    expect(localStorage.getItem('awaitstep-quick-test')).toBeNull()
   })
 
   it('treats a network failure the same way, without an unhandled rejection', async () => {

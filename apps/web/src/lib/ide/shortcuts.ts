@@ -24,6 +24,7 @@ export type IdeShortcutId =
   | 'nextTab'
   | 'prevTab'
   | 'closeTab'
+  | 'run'
 
 /**
  * Workspace key bindings. Combos the browser or the platform owns outright
@@ -47,7 +48,16 @@ export const IDE_SHORTCUTS: Readonly<Record<IdeShortcutId, ShortcutKeys>> = {
   nextTab: { code: 'BracketRight', mod: true, shift: true },
   prevTab: { code: 'BracketLeft', mod: true, shift: true },
   closeTab: { code: 'KeyW', mod: true, alt: true },
+  // Option+Enter types nothing useful, but the physical key keeps it layout-proof.
+  run: { code: 'Enter', alt: true },
 }
+
+/**
+ * The only shortcuts that mean something when the key is held down (cycling
+ * tabs). Every other one is an action: Run held would trigger the workflow
+ * once per auto-repeat, and a held toggle would flicker open and shut.
+ */
+export const REPEATING_SHORTCUTS: ReadonlySet<IdeShortcutId> = new Set(['nextTab', 'prevTab'])
 
 export interface KeyEventLike {
   key: string
@@ -85,7 +95,8 @@ const CODE_LABELS: Record<string, string> = {
   BracketLeft: '[',
 }
 
-function keyLabel(keys: ShortcutKeys): string {
+function keyLabel(keys: ShortcutKeys, isMac: boolean): string {
+  if (keys.code === 'Enter') return isMac ? '⏎' : 'Enter'
   if (keys.code) return CODE_LABELS[keys.code] ?? keys.code.replace(/^Key/, '')
   return (keys.key ?? '').toUpperCase()
 }
@@ -93,11 +104,11 @@ function keyLabel(keys: ShortcutKeys): string {
 /** Human-readable binding, in each platform's conventional modifier order. */
 export function formatShortcut(keys: ShortcutKeys, isMac: boolean): string {
   if (isMac) {
-    return [keys.alt && '⌥', keys.shift && '⇧', keys.mod && '⌘', keyLabel(keys)]
+    return [keys.alt && '⌥', keys.shift && '⇧', keys.mod && '⌘', keyLabel(keys, isMac)]
       .filter(Boolean)
       .join('')
   }
-  return [keys.mod && 'Ctrl', keys.alt && 'Alt', keys.shift && 'Shift', keyLabel(keys)]
+  return [keys.mod && 'Ctrl', keys.alt && 'Alt', keys.shift && 'Shift', keyLabel(keys, isMac)]
     .filter(Boolean)
     .join('+')
 }

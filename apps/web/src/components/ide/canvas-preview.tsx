@@ -70,7 +70,7 @@ export function CanvasPreview({ workflowId, versionParam }: CanvasPreviewProps) 
           fills whatever it is given. */}
       <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border px-2">
         <div className="flex min-w-0 items-center gap-1.5">
-          <Workflow className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+          <Workflow className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <span className="text-[11px] font-medium uppercase tracking-wider text-foreground">
             Canvas preview
           </span>
@@ -95,7 +95,7 @@ export function CanvasPreview({ workflowId, versionParam }: CanvasPreviewProps) 
             onClick={togglePreview}
             title={`Hide canvas preview (${hideHint})`}
             aria-label="Hide canvas preview"
-            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground"
+            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -175,7 +175,7 @@ function PreviewEmptyState() {
     <div className="flex h-full flex-col items-center justify-center gap-1.5 px-6 text-center">
       <Workflow className="mb-1 h-5 w-5 text-muted-foreground/30" />
       <p className="text-xs font-medium text-muted-foreground">No graph in this version</p>
-      <p className="text-[11px] text-muted-foreground/60">Nodes added on the canvas appear here.</p>
+      <p className="text-[11px] text-muted-foreground">Nodes added on the canvas appear here.</p>
     </div>
   )
 }

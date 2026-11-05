@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { collectProblems, countBySeverity, markerSeverity, type MarkerLike } from '../ide/problems'
+import {
+  collectProblems,
+  countBySeverity,
+  groupProblems,
+  markerSeverity,
+  type MarkerLike,
+} from '../ide/problems'
 import { workflowModelPath } from '../monaco/setup'
 
 function marker(
@@ -86,5 +92,37 @@ describe('countBySeverity', () => {
       'wf-1',
     )
     expect(countBySeverity(problems)).toEqual({ error: 2, warning: 1, info: 1 })
+  })
+})
+
+describe('groupProblems', () => {
+  const p = (file: string, message = 'm') => ({
+    file,
+    line: 1,
+    column: 1,
+    endLine: 1,
+    endColumn: 1,
+    message,
+    severity: 'error' as const,
+  })
+
+  it('keeps live and saved problems in separate groups', () => {
+    const groups = groupProblems([p('a.ts', 'live')], [p('b.ts', 'saved')], new Set())
+    expect(groups.live.map((x) => x.message)).toEqual(['live'])
+    expect(groups.saved.map((x) => x.problem.message)).toEqual(['saved'])
+  })
+
+  it('flags saved problems of a file with unsaved edits as pending', () => {
+    const groups = groupProblems([], [p('a.ts'), p('b.ts')], new Set(['a.ts']))
+    expect(groups.saved.map((x) => x.pending)).toEqual([true, false])
+  })
+
+  it('never flags a problem with no file: an edit cannot have fixed it', () => {
+    const groups = groupProblems([], [p('')], new Set(['a.ts', '']))
+    expect(groups.saved[0]!.pending).toBe(false)
+  })
+
+  it('stops flagging once the file is saved', () => {
+    expect(groupProblems([], [p('a.ts')], new Set()).saved[0]!.pending).toBe(false)
   })
 })

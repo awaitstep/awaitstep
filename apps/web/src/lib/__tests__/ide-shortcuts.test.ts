@@ -178,3 +178,31 @@ describe('AltGr', () => {
     expect(matchShortcut(chord, false)).toBe('saveAll')
   })
 })
+
+describe('run shortcut', () => {
+  const event = (over: Partial<KeyEventLike>): KeyEventLike => ({
+    key: 'Enter',
+    code: 'Enter',
+    metaKey: false,
+    ctrlKey: false,
+    shiftKey: false,
+    altKey: true,
+    ...over,
+  })
+
+  it('is Option/Alt+Enter on both platforms', () => {
+    expect(matchShortcut(event({}), true)).toBe('run')
+    expect(matchShortcut(event({}), false)).toBe('run')
+  })
+
+  it('does not fire for plain Enter or with another modifier', () => {
+    expect(matchShortcut(event({ altKey: false }), true)).toBeNull()
+    expect(matchShortcut(event({ metaKey: true }), true)).toBeNull()
+    expect(matchShortcut(event({ shiftKey: true }), true)).toBeNull()
+  })
+
+  it('is written ⌥⏎ on macOS and Alt+Enter elsewhere', () => {
+    expect(formatShortcut(IDE_SHORTCUTS.run, true)).toBe('⌥⏎')
+    expect(formatShortcut(IDE_SHORTCUTS.run, false)).toBe('Alt+Enter')
+  })
+})

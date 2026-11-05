@@ -107,3 +107,38 @@ export function countBySeverity(problems: readonly Problem[]): Record<ProblemSev
   for (const problem of problems) counts[problem.severity]++
   return counts
 }
+
+/** A finding from the last saved files, and whether the file has been edited since. */
+export interface SavedProblem {
+  problem: Problem
+  /** The file has unsaved edits, so this is likely out of date until it is saved. */
+  pending: boolean
+}
+
+export interface ProblemGroups {
+  /** Editor markers, updated as you type. */
+  live: Problem[]
+  /** The server's findings about the saved files. */
+  saved: SavedProblem[]
+}
+
+/**
+ * Problems by when they were checked. Editor markers move with every
+ * keystroke; the server only re-checks on save, so a finding about a file
+ * with unsaved edits is flagged rather than left to look current. Findings
+ * without a file (a missing node) are never pending — no edit can have fixed
+ * what has no place in the editor.
+ */
+export function groupProblems(
+  live: readonly Problem[],
+  saved: readonly Problem[],
+  dirty: ReadonlySet<string>,
+): ProblemGroups {
+  return {
+    live: [...live],
+    saved: saved.map((problem) => ({
+      problem,
+      pending: problem.file !== '' && dirty.has(problem.file),
+    })),
+  }
+}

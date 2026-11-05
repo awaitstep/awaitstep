@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { matchShortcut, type IdeShortcutId } from '../lib/ide/shortcuts'
+import { matchShortcut, REPEATING_SHORTCUTS, type IdeShortcutId } from '../lib/ide/shortcuts'
 import { isMacPlatform } from '../lib/platform'
 
 export type IdeShortcutHandlers = Partial<Record<IdeShortcutId, () => void>>
@@ -33,6 +33,9 @@ export function useIdeShortcuts(handlers: IdeShortcutHandlers): void {
       if (!handler) return
       event.preventDefault()
       event.stopPropagation()
+      // Held down: the browser's meaning is still ours to swallow, but an
+      // action must not run again for every auto-repeat.
+      if (event.repeat && !REPEATING_SHORTCUTS.has(id)) return
       handler()
     }
     window.addEventListener('keydown', handleKeyDown, true)

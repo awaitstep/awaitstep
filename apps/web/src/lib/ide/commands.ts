@@ -1,6 +1,6 @@
 import type { IdeShortcutId } from './shortcuts'
 
-export type IdeCommandGroup = 'file' | 'navigate' | 'view'
+export type IdeCommandGroup = 'file' | 'navigate' | 'view' | 'run'
 
 export interface IdeCommand {
   id: string
@@ -31,9 +31,13 @@ export interface IdeCommandActions {
   toggleDock: () => void
   togglePreview: () => void
   showProblems: () => void
-  showOutput: () => void
-  showRun: () => void
+  showTestSession: () => void
   showQuickTest: () => void
+  /** The one Run (⌥⏎): quick-tests a step file, otherwise runs the test session. */
+  run: () => void
+  startSession: () => void
+  stopSession: () => void
+  triggerSession: () => void
 }
 
 export interface IdeCommandContext {
@@ -53,6 +57,15 @@ export interface IdeCommandContext {
   explorerOpen: boolean
   dockOpen: boolean
   previewOpen: boolean
+  /** What Run does for the open file, and whether it can right now. */
+  runLabel: string
+  runEnabled: boolean
+  /** No session, and no start or stop in flight. */
+  canStartSession: boolean
+  /** Running or coming up, and not already stopping. */
+  canStopSession: boolean
+  /** Running, with nothing in flight. */
+  canTriggerSession: boolean
   actions: IdeCommandActions
 }
 
@@ -192,13 +205,12 @@ export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
       run: actions.showProblems,
     },
     {
-      id: 'view.output',
-      label: 'Show Output',
+      id: 'view.testSession',
+      label: 'Show Test Session',
       group: 'view',
       enabled: true,
-      run: actions.showOutput,
+      run: actions.showTestSession,
     },
-    { id: 'view.run', label: 'Show Run', group: 'view', enabled: true, run: actions.showRun },
     {
       id: 'view.quickTest',
       label: 'Quick Test This Step',
@@ -208,6 +220,35 @@ export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
       enabled: true,
       run: actions.showQuickTest,
     },
+    {
+      id: 'run.run',
+      label: `Run: ${ctx.runLabel}`,
+      group: 'run',
+      shortcut: 'run',
+      enabled: ctx.runEnabled,
+      run: actions.run,
+    },
+    {
+      id: 'run.start',
+      label: 'Test Session: Start',
+      group: 'run',
+      enabled: ctx.canStartSession,
+      run: actions.startSession,
+    },
+    {
+      id: 'run.stop',
+      label: 'Test Session: Stop',
+      group: 'run',
+      enabled: ctx.canStopSession,
+      run: actions.stopSession,
+    },
+    {
+      id: 'run.trigger',
+      label: 'Test Session: Trigger',
+      group: 'run',
+      enabled: ctx.canTriggerSession,
+      run: actions.triggerSession,
+    },
   ]
 }
 
@@ -215,4 +256,5 @@ export const COMMAND_GROUP_LABELS: Readonly<Record<IdeCommandGroup, string>> = {
   file: 'File',
   navigate: 'Navigate',
   view: 'View',
+  run: 'Run',
 }

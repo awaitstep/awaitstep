@@ -2,14 +2,30 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-describe('explorer text colours', () => {
-  it('never dims muted text with an opacity step (they measured 2.2–3.5:1, under 4.5:1)', () => {
-    const dir = join(__dirname, '..')
-    const files = readdirSync(dir).filter((f) => /^file-explorer.*\.tsx$/.test(f))
-    expect(files.length).toBeGreaterThan(0)
+// Muted text dimmed by an opacity step measured 2.2–3.5:1, under 4.5:1. The
+// rule holds for every IDE component, not just the explorer it was found in.
+const MUTED_STEP = /text-muted-foreground\/(50|60|70)\b/
+// A whole element dimmed (`opacity-60`) drags its text under the same ratio;
+// `disabled:` states are the one place a dimmed control is the point.
+const DIMMED = /(?<!disabled:)(?<![\w-]:)\bopacity-(50|60|70)\b/
+
+describe('IDE text colours', () => {
+  const dir = join(__dirname, '..')
+  const files = readdirSync(dir).filter((f) => f.endsWith('.tsx'))
+
+  it('scans the IDE components', () => {
+    expect(files.length).toBeGreaterThan(20)
+  })
+
+  it('never dims muted text with an opacity step', () => {
     for (const file of files) {
-      const source = readFileSync(join(dir, file), 'utf8')
-      expect(source, file).not.toMatch(/text-muted-foreground\/(50|60|70)\b/)
+      expect(readFileSync(join(dir, file), 'utf8'), file).not.toMatch(MUTED_STEP)
+    }
+  })
+
+  it('never dims a whole element with an opacity step (disabled states aside)', () => {
+    for (const file of files) {
+      expect(readFileSync(join(dir, file), 'utf8'), file).not.toMatch(DIMMED)
     }
   })
 })

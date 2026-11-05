@@ -26,6 +26,7 @@ import { EditorPlaceholder } from './editor-placeholder'
 import { EditorFileBanner } from './editor-file-banner'
 import { EditorTabs } from './editor-tabs'
 import { RestoredDraftsBanner } from './restored-drafts-banner'
+import { RunButton, type RunButtonProps } from './run-button'
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
@@ -48,6 +49,8 @@ interface EditorGroupProps {
   onOpenLatest: () => void
   onSaveAsFile: (path: string) => void
   onConvertHandlers: () => void
+  onOpenCanvas: () => void
+  run: RunButtonProps
 }
 
 export function EditorGroup({
@@ -62,6 +65,8 @@ export function EditorGroup({
   onOpenLatest,
   onSaveAsFile,
   onConvertHandlers,
+  onOpenCanvas,
+  run,
 }: EditorGroupProps) {
   useWorkflowTypeContext()
   const monacoTheme = useMonacoTheme()
@@ -187,7 +192,12 @@ export function EditorGroup({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <RestoredDraftsBanner />
-      <EditorTabs files={files} dirty={dirty} onRevertFile={onRevertFile} />
+      <div className="flex shrink-0 items-stretch border-b border-border bg-card">
+        <div className="min-w-0 flex-1">
+          <EditorTabs files={files} dirty={dirty} onRevertFile={onRevertFile} />
+        </div>
+        <RunButton {...run} />
+      </div>
       {activeFile && editability && (
         <EditorFileBanner
           path={activeFile.path}
@@ -197,6 +207,7 @@ export function EditorGroup({
           onOpenLatest={onOpenLatest}
           onSaveAsFile={onSaveAsFile}
           onConvertHandlers={onConvertHandlers}
+          onOpenCanvas={onOpenCanvas}
         />
       )}
       <div className="min-h-0 flex-1">

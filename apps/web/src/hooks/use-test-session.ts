@@ -8,6 +8,7 @@ import type { TestSession } from '../lib/api-client'
 import { sessionStaleness, type SessionStaleness } from '../lib/ide/session-staleness'
 import { readSseStream, reconnectDelay } from '../lib/sse-stream'
 import {
+  DEFAULT_PAYLOAD,
   sessionView,
   useTestSessionStore,
   type SessionLogLine,
@@ -21,8 +22,14 @@ const TRIGGER_TIMEOUT_MS = 60_000
 
 interface UseTestSessionOptions {
   workflowId: string
-  /** The version the workspace is showing, so a stale session is visible. */
+  /**
+   * The version a session would run: the workflow's current one. The server
+   * always starts that, whichever version the editor is showing, so comparing
+   * with the viewed version would never clear.
+   */
   versionId?: string | null
+  /** The editor shows an older version than the one sessions run. */
+  viewingOlder?: boolean
   /** `{ path: hash }` of the stored project files now; what the session is compared with. */
   currentHashes?: Readonly<Record<string, string>> | null
   /** Files with unsaved edits; they are never part of a session. */
@@ -33,7 +40,13 @@ export interface TestSessionState {
   session: TestSession | null
   logs: SessionLogLine[]
   lastResult: SessionTriggerResult | null
+  /** The trigger payload text for this workflow; remembered across reloads. */
   payload: string
+  /** Why the last trigger attempt was refused (invalid JSON, too large); cleared by an edit. */
+  payloadError: string | null
+  setPayloadError: (error: string | null) => void
+  /** When this tab last asked for a session, for the elapsed seconds of a start. Null before any. */
+  startRequestedAt: number | null
   /** Set while that particular action is in flight — they are independent. */
   starting: boolean
   stopping: boolean
@@ -43,14 +56,16 @@ export interface TestSessionState {
   streamError: string | null
   /** Why the last start, stop or trigger failed; the toast only says that it did. */
   actionError: string | null
+  /** The editor shows an older version, but sessions run the current one. */
+  viewingOlder: boolean
   /** Resolves true when a session was started (or reused). */
   start: () => Promise<boolean>
   stop: () => Promise<void>
   trigger: (payload: unknown) => Promise<void>
-  /** Stops the session and starts a fresh one from the saved files. */
   /** The saved changes "Trigger anyway" accepted for this session; asked again after the next save. */
   acceptedSignature: string | null
   acceptStale: (signature: string) => void
+  /** Stops the session and starts a fresh one from the saved files. */
   restart: () => Promise<boolean>
   /** Restarts, waits for the new session to run, then triggers it. */
   restartAndTrigger: (payload: unknown) => Promise<void>
@@ -75,6 +90,7 @@ const RESTART_WAIT_MS = 90_000
 export function useTestSession({
   workflowId,
   versionId,
+  viewingOlder = false,
   currentHashes = NO_HASHES,
   unsavedCount = 0,
 }: UseTestSessionOptions): TestSessionState {
@@ -83,6 +99,7 @@ export function useTestSession({
   const [stopping, setStopping] = useState(false)
   const [triggering, setTriggering] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [startRequestedAt, setStartRequestedAt] = useState<number | null>(null)
   // Which saved changes the person already chose to test past. It lives here,
   // not in the Run panel, which unmounts whenever another dock tab is shown.
   const [accepted, setAccepted] = useState<{ sessionId: string; signature: string } | null>(null)
@@ -91,29 +108,30 @@ export function useTestSession({
     queryKey: testSessionKey(workflowId),
     queryFn: () => api.getTestSession(workflowId).then((r) => r.session),
     // Only while it is coming up: a running session reports through its
-    // stream, and a finished one does not change again.
+    // stream, and a finished one does not change again. Pressing Start counts
+    // too: the start request answers only once the session runs, but the
+    // server reserves the session (and so its id, which Cancel needs) as soon
+    // as the files are built, and only a read shows it.
     refetchInterval: (query) =>
-      query.state.data?.status === 'starting' ? STARTING_POLL_MS : false,
+      starting || query.state.data?.status === 'starting' ? STARTING_POLL_MS : false,
     retry: false,
   })
 
   const sessionId = session?.id ?? null
   const view = useTestSessionStore(useShallow((s) => sessionView(s.views, sessionId)))
-  const {
-    appendLogs,
-    setResult,
-    setStreamError,
-    setPayload: storePayload,
-    reset,
-  } = useTestSessionStore(
-    useShallow((s) => ({
-      appendLogs: s.appendLogs,
-      setResult: s.setResult,
-      setStreamError: s.setStreamError,
-      setPayload: s.setPayload,
-      reset: s.reset,
-    })),
-  )
+  const { appendLogs, setResult, setStreamError, storePayload, storePayloadError, reset } =
+    useTestSessionStore(
+      useShallow((s) => ({
+        appendLogs: s.appendLogs,
+        setResult: s.setResult,
+        setStreamError: s.setStreamError,
+        storePayload: s.setPayload,
+        storePayloadError: s.setPayloadError,
+        reset: s.reset,
+      })),
+    )
+  const payload = useTestSessionStore((s) => s.payloads[workflowId] ?? DEFAULT_PAYLOAD)
+  const payloadError = useTestSessionStore((s) => s.payloadErrors[workflowId] ?? null)
 
   const setSession = useCallback(
     (next: TestSession | null) => queryClient.setQueryData(testSessionKey(workflowId), next),
@@ -146,6 +164,12 @@ export function useTestSession({
           if (response.status === 410 || response.status === 404) {
             // Gone for good: re-read it so the summary can say why.
             await refetchSession()
+            return
+          }
+          if (response.status === 401) {
+            // Signed out (here or in another tab): retrying only repeats the
+            // refusal, and every retry would rewrite persisted state.
+            setStreamError(sessionId!, 'Your sign-in ended — sign in again')
             return
           }
           if (!response.ok) throw new Error(`Log stream failed (${response.status})`)
@@ -194,39 +218,72 @@ export function useTestSession({
     return () => controller.abort()
   }, [sessionId, streaming, appendLogs, setStreamError, refetchSession])
 
+  // Requests are guarded by refs as well as state: two key presses in one
+  // frame both see the same render, and only a ref sees the first.
+  const startingRef = useRef(false)
+  const stoppingRef = useRef(false)
+  const triggeringRef = useRef(false)
+  const restartingRef = useRef(false)
+  const restartTriggerRef = useRef(false)
+  // Stop pressed while a start was still in flight: the start then ends in a
+  // 409, which is the answer to that press, not an error.
+  const cancelledStartRef = useRef(false)
+
   const start = useCallback(async () => {
+    if (startingRef.current) return false
+    startingRef.current = true
+    cancelledStartRef.current = false
     setStarting(true)
+    setStartRequestedAt(Date.now())
     setActionError(null)
     try {
       const { session: started, reused } = await api.startTestSession(workflowId)
       // A new session starts from nothing; a reused one keeps its cursor, or
-      // the server replays every line it has already shown.
-      if (!reused) reset(started.id)
+      // the server replays every line it has already shown. One already read
+      // while it was starting has nothing to forget.
+      const known = queryClient.getQueryData<TestSession | null>(testSessionKey(workflowId))
+      if (!reused && known?.id !== started.id) reset(started.id)
       setSession(started)
       actionToast.success('Test session started')
       return true
     } catch (err) {
+      if (err instanceof ApiError && err.status === 409 && cancelledStartRef.current) {
+        // Cancelled on purpose; stop() has already said so and kept the
+        // session as stopped, which a re-read would replace with nothing.
+        return false
+      }
+      // The reserved row the polling showed is settled now (failed or stopped).
+      void refetchSession()
       setActionError(failureLine(err, 'Could not start a test session'))
       actionToast.error(failureLine(err, 'Couldn’t start the test session'))
       return false
     } finally {
+      startingRef.current = false
+      cancelledStartRef.current = false
       setStarting(false)
+      // The seconds belong to this request; a session seen starting later,
+      // from elsewhere, counts from its own creation.
+      setStartRequestedAt(null)
     }
-  }, [workflowId, reset, setSession])
+  }, [workflowId, queryClient, reset, setSession, refetchSession])
 
   const stop = useCallback(async () => {
-    if (!sessionId) return
+    if (!sessionId || stoppingRef.current) return
+    stoppingRef.current = true
+    if (startingRef.current) cancelledStartRef.current = true
     setStopping(true)
     setActionError(null)
     try {
       await api.stopTestSession(sessionId)
-      setSession(null)
+      // Kept as a stopped session rather than none, so the header and status
+      // bar say "stopped" instead of looking as if nothing was ever started.
+      setSession(session ? { ...session, status: 'stopped', error: null } : null)
       actionToast.success('Test session stopped')
     } catch (err) {
       // Not swallowed: a failed stop can leave a container running and
       // billing while the UI claims it is gone.
       if (err instanceof ApiError && (err.status === 404 || err.status === 410)) {
-        setSession(null)
+        setSession(session ? { ...session, status: 'stopped', error: null } : null)
         actionToast.success('Test session stopped')
       } else {
         setActionError(failureLine(err, 'Could not stop the test session'))
@@ -234,13 +291,15 @@ export function useTestSession({
         await refetchSession()
       }
     } finally {
+      stoppingRef.current = false
       setStopping(false)
     }
-  }, [sessionId, setSession, refetchSession])
+  }, [sessionId, session, setSession, refetchSession])
 
   const trigger = useCallback(
     async (payload: unknown) => {
-      if (!sessionId) return
+      if (!sessionId || triggeringRef.current) return
+      triggeringRef.current = true
       setTriggering(true)
       setActionError(null)
       try {
@@ -256,6 +315,7 @@ export function useTestSession({
         setActionError(failureLine(err, 'Could not reach the test session'))
         actionToast.error(failureLine(err, 'Couldn’t trigger the workflow'))
       } finally {
+        triggeringRef.current = false
         setTriggering(false)
       }
     },
@@ -263,18 +323,26 @@ export function useTestSession({
   )
 
   const restart = useCallback(async (): Promise<boolean> => {
-    if (sessionId) {
-      try {
-        await api.stopTestSession(sessionId)
-      } catch (err) {
-        if (!(err instanceof ApiError && (err.status === 404 || err.status === 410))) {
-          actionToast.error(failureLine(err, 'Couldn’t restart the test session'))
-          return false
+    // A second press while the first is stopping or starting must not stop
+    // the session the first one is bringing up.
+    if (restartingRef.current) return false
+    restartingRef.current = true
+    try {
+      if (sessionId) {
+        try {
+          await api.stopTestSession(sessionId)
+        } catch (err) {
+          if (!(err instanceof ApiError && (err.status === 404 || err.status === 410))) {
+            actionToast.error(failureLine(err, 'Couldn’t restart the test session'))
+            return false
+          }
         }
+        setSession(null)
       }
-      setSession(null)
+      return await start()
+    } finally {
+      restartingRef.current = false
     }
-    return start()
   }, [sessionId, setSession, start])
 
   // A restart-and-trigger outlives neither the workspace nor a newer click.
@@ -288,48 +356,56 @@ export function useTestSession({
 
   const restartAndTrigger = useCallback(
     async (payload: unknown) => {
-      const previousId = sessionId
-      // A failed stop or start has already said why; triggering the old
-      // session here would run exactly the code the person chose to replace.
-      if (!(await restart())) return
-      const polls = RESTART_WAIT_MS / STARTING_POLL_MS
-      let failedReads = 0
-      for (let i = 0; i < polls && aliveRef.current; i += 1) {
-        const current = await api
-          .getTestSession(workflowId)
-          .then((r) => r.session)
-          .catch(() => undefined)
-        if (!aliveRef.current) return
-        if (current && current.id !== previousId && current.status === 'running') {
-          setSession(current)
-          setTriggering(true)
-          try {
-            const result = await api.triggerTestSession(current.id, payload, {
-              timeoutMs: TRIGGER_TIMEOUT_MS,
-            })
-            setResult(current.id, result)
-            actionToast.success('Workflow triggered')
-          } catch (err) {
-            actionToast.error(failureLine(err, 'Couldn’t trigger the workflow'))
-          } finally {
-            setTriggering(false)
+      if (restartTriggerRef.current) return
+      restartTriggerRef.current = true
+      try {
+        const previousId = sessionId
+        // A failed stop or start has already said why; triggering the old
+        // session here would run exactly the code the person chose to replace.
+        if (!(await restart())) return
+        const polls = RESTART_WAIT_MS / STARTING_POLL_MS
+        let failedReads = 0
+        for (let i = 0; i < polls && aliveRef.current; i += 1) {
+          const current = await api
+            .getTestSession(workflowId)
+            .then((r) => r.session)
+            .catch(() => undefined)
+          if (!aliveRef.current) return
+          if (current && current.id !== previousId && current.status === 'running') {
+            setSession(current)
+            triggeringRef.current = true
+            setTriggering(true)
+            try {
+              const result = await api.triggerTestSession(current.id, payload, {
+                timeoutMs: TRIGGER_TIMEOUT_MS,
+              })
+              setResult(current.id, result)
+              actionToast.success('Workflow triggered')
+            } catch (err) {
+              actionToast.error(failureLine(err, 'Couldn’t trigger the workflow'))
+            } finally {
+              triggeringRef.current = false
+              setTriggering(false)
+            }
+            return
           }
-          return
+          // A read that failed is a blip, not an answer; a session that ended is.
+          if (current === undefined) {
+            failedReads += 1
+            if (failedReads >= 3) break
+          } else if (
+            current === null ||
+            (current.status !== 'starting' && current.id !== previousId)
+          ) {
+            break
+          }
+          await new Promise((resolve) => setTimeout(resolve, STARTING_POLL_MS))
         }
-        // A read that failed is a blip, not an answer; a session that ended is.
-        if (current === undefined) {
-          failedReads += 1
-          if (failedReads >= 3) break
-        } else if (
-          current === null ||
-          (current.status !== 'starting' && current.id !== previousId)
-        ) {
-          break
+        if (aliveRef.current) {
+          actionToast.error('The new test session didn’t start, so nothing was triggered')
         }
-        await new Promise((resolve) => setTimeout(resolve, STARTING_POLL_MS))
-      }
-      if (aliveRef.current) {
-        actionToast.error('The new test session didn’t start, so nothing was triggered')
+      } finally {
+        restartTriggerRef.current = false
       }
     },
     [sessionId, restart, workflowId, setSession, setResult],
@@ -343,17 +419,23 @@ export function useTestSession({
   )
 
   const setPayload = useCallback(
-    (next: string) => {
-      if (sessionId) storePayload(sessionId, next)
-    },
-    [sessionId, storePayload],
+    (next: string) => storePayload(workflowId, next),
+    [workflowId, storePayload],
+  )
+  const setPayloadError = useCallback(
+    (error: string | null) => storePayloadError(workflowId, error),
+    [workflowId, storePayloadError],
   )
 
   return {
     session,
     logs: view.logs,
     lastResult: view.lastResult,
-    payload: view.payload,
+    payload,
+    payloadError,
+    setPayloadError,
+    startRequestedAt,
+    viewingOlder,
     starting,
     stopping,
     triggering,

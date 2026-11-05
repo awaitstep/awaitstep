@@ -133,7 +133,7 @@ export async function runQuickTest(opts: {
       function handleUnavailable(message: string) {
         settle(
           refusedResult(
-            `Quick test couldn’t start its sandbox in this browser${message ? ` (${message})` : ''}. Use Run to execute the whole workflow.`,
+            `Quick test couldn’t start its sandbox in this browser${message ? ` (${message})` : ''}. Use a test session to run the whole workflow.`,
           ),
         )
       }
