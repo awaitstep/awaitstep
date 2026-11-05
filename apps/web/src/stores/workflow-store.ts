@@ -797,7 +797,10 @@ export const useWorkflowStore = create<WorkflowState>()(
 
       loadWorkflow: (metadata, nodes, edges) => {
         const fixedNodes = nodes.map((n) => ({ ...n, type: toFlowType(n.data.irNode.type) }))
-        set({ metadata, nodes: fixedNodes, edges, isDirty: false })
+        // A loaded template is an edit nobody has saved: a workflow the
+        // dashboard already created has to auto-save it and warn before
+        // it is lost.
+        set({ metadata, nodes: fixedNodes, edges, isDirty: true })
       },
 
       setWorkflowId: (id) => {

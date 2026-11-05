@@ -1,5 +1,4 @@
 import { Plus } from 'lucide-react'
-import { useCreateItem } from '../../data/dashboard/items'
 import { useEditRequest, useRequestEditAccess } from '../../data/dashboard/requests'
 import { workspacePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
 import type { ItemKind } from '../../types/dashboard/items'
@@ -8,6 +7,7 @@ import { RequestAction } from '../ui/request-action'
 import { RolePill } from '../ui/role-pill'
 import { ShellLink } from '../ui/shell-link'
 import { ITEM_KIND_LABEL } from './item-kind'
+import { useNewItem, type NewItem } from './use-new-item'
 
 const newLabel = (kind: ItemKind) => `New ${ITEM_KIND_LABEL[kind].toLowerCase()}`
 
@@ -20,9 +20,11 @@ interface NewItemButtonProps {
   compact?: boolean
   variant?: 'default' | 'outline'
   size?: 'sm' | 'default'
+  /** Shared by buttons side by side, so one click disables both. */
+  newItem?: NewItem
 }
 
-/** New workflow / New function: adds a draft at the top of the list (D-P2-1). */
+/** New workflow / New function: creates it and opens its editor. */
 export function NewItemButton({
   slugs,
   kind,
@@ -30,16 +32,17 @@ export function NewItemButton({
   compact,
   variant = 'default',
   size = 'sm',
+  newItem: shared,
 }: NewItemButtonProps) {
-  const create = useCreateItem(slugs)
+  const own = useNewItem(slugs)
+  const newItem = shared ?? own
 
   function handleClick() {
-    create.mutate({ kind })
+    newItem.start(kind)
   }
 
   const label = newLabel(kind)
-  // A second click while the first is in flight would make a second draft.
-  const busy = disabled || create.isPending
+  const busy = disabled || newItem.busy
   const accessibleName = compact ? label : undefined
   const text = compact ? 'New' : label
   const icon = variant === 'default' ? <Plus aria-hidden="true" /> : null
@@ -57,9 +60,9 @@ export function NewItemButton({
         {icon}
         {text}
       </Button>
-      {create.error && (
+      {newItem.error && (
         <span role="alert" className="text-2xs text-status-error">
-          {create.error.message}
+          {newItem.error.message}
         </span>
       )}
     </>

@@ -110,17 +110,19 @@ export async function request<T>(path: string, options?: RequestInit): Promise<T
 }
 
 function withOrg(path: string): string {
-  const organizationId = useOrgStore.getState().activeOrganizationId
+  const { routeScope, activeOrganizationId } = useOrgStore.getState()
+  const organizationId = routeScope?.organizationId ?? activeOrganizationId
   if (!organizationId) throw new Error('No active organization selected')
   const sep = path.includes('?') ? '&' : '?'
-  return `${path}${sep}organizationId=${organizationId}`
+  return `${path}${sep}organizationId=${encodeURIComponent(organizationId)}`
 }
 
 function withProject(path: string, overrideProjectId?: string): string {
-  const projectId = overrideProjectId ?? useOrgStore.getState().activeProjectId
+  const { routeScope, activeProjectId } = useOrgStore.getState()
+  const projectId = overrideProjectId ?? routeScope?.projectId ?? activeProjectId
   if (!projectId) throw new Error('No active project selected')
   const sep = path.includes('?') ? '&' : '?'
-  return `${path}${sep}projectId=${projectId}`
+  return `${path}${sep}projectId=${encodeURIComponent(projectId)}`
 }
 
 export function projectUrl(path: string): string {
@@ -429,12 +431,12 @@ export const api = {
   },
 
   getWorkflow(id: string): Promise<WorkflowSummary> {
-    return request(withProject(`/workflows/${id}`))
+    return request(withProject(`/workflows/${encodeURIComponent(id)}`))
   },
 
   getWorkflowFull(id: string, versionId?: string): Promise<WorkflowFull> {
-    const params = versionId ? `?version=${versionId}` : ''
-    return request(withProject(`/workflows/${id}/full${params}`))
+    const params = versionId ? `?version=${encodeURIComponent(versionId)}` : ''
+    return request(withProject(`/workflows/${encodeURIComponent(id)}/full${params}`))
   },
 
   // ── Test sessions ──
@@ -443,12 +445,14 @@ export const api = {
   // that does not exist, so a 404 here needs no special handling.
 
   getTestSession(workflowId: string): Promise<{ session: TestSession | null }> {
-    return request(withProject(`/workflows/${workflowId}/test-sessions`))
+    return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/test-sessions`))
   },
 
   /** Starts one, or returns the session this user already has. */
   startTestSession(workflowId: string): Promise<StartTestSessionResponse> {
-    return request(withProject(`/workflows/${workflowId}/test-sessions`), { method: 'POST' })
+    return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/test-sessions`), {
+      method: 'POST',
+    })
   },
 
   /**
@@ -461,7 +465,7 @@ export const api = {
     payload: unknown,
     options?: { timeoutMs?: number },
   ): Promise<TestSessionTriggerResponse> {
-    return request(withProject(`/test-sessions/${sessionId}/trigger`), {
+    return request(withProject(`/test-sessions/${encodeURIComponent(sessionId)}/trigger`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ payload }),
@@ -470,16 +474,20 @@ export const api = {
   },
 
   stopTestSession(sessionId: string): Promise<{ status: string }> {
-    return request(withProject(`/test-sessions/${sessionId}`), { method: 'DELETE' })
+    return request(withProject(`/test-sessions/${encodeURIComponent(sessionId)}`), {
+      method: 'DELETE',
+    })
   },
 
   getWorkflowSource(id: string, versionId?: string): Promise<WorkflowSource> {
     const params = versionId ? `?versionId=${encodeURIComponent(versionId)}` : ''
-    return request(withProject(`/workflows/${id}/source${params}`))
+    return request(withProject(`/workflows/${encodeURIComponent(id)}/source${params}`))
   },
 
   getProjectFile(id: string, path: string): Promise<ProjectFileContent> {
-    return request(withProject(`/workflows/${id}/files/${encodeProjectPath(path)}`))
+    return request(
+      withProject(`/workflows/${encodeURIComponent(id)}/files/${encodeProjectPath(path)}`),
+    )
   },
 
   /** Creates or replaces a file under the given precondition. */
@@ -493,31 +501,37 @@ export const api = {
       'ifMatch' in precondition
         ? { 'If-Match': `"${precondition.ifMatch}"` }
         : { 'If-None-Match': '*' }
-    return projectFileRequest(`/workflows/${id}/files/${encodeProjectPath(path)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', ...header },
-      body: JSON.stringify({ source }),
-    })
+    return projectFileRequest(
+      `/workflows/${encodeURIComponent(id)}/files/${encodeProjectPath(path)}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...header },
+        body: JSON.stringify({ source }),
+      },
+    )
   },
 
   /** What converting the annotation file would produce, without writing anything. */
   previewHandlerConversion(id: string): Promise<HandlerConversionPreview> {
-    return request(withProject(`/workflows/${id}/project/convert-handlers`))
+    return request(withProject(`/workflows/${encodeURIComponent(id)}/project/convert-handlers`))
   },
 
   /** Splits handlers.ts (or the legacy trigger-code setting) into handler modules, atomically on the server. */
   convertHandlers(id: string, ifMatch?: string): Promise<HandlerConversionResult> {
-    return projectFileRequest(`/workflows/${id}/project/convert-handlers`, {
+    return projectFileRequest(`/workflows/${encodeURIComponent(id)}/project/convert-handlers`, {
       method: 'POST',
       headers: ifMatch ? { 'If-Match': `"${ifMatch}"` } : {},
     })
   },
 
   deleteProjectFile(id: string, path: string, ifMatch?: string): Promise<void> {
-    return projectFileRequest(`/workflows/${id}/files/${encodeProjectPath(path)}`, {
-      method: 'DELETE',
-      headers: { ...(ifMatch && { 'If-Match': `"${ifMatch}"` }) },
-    })
+    return projectFileRequest(
+      `/workflows/${encodeURIComponent(id)}/files/${encodeProjectPath(path)}`,
+      {
+        method: 'DELETE',
+        headers: { ...(ifMatch && { 'If-Match': `"${ifMatch}"` }) },
+      },
+    )
   },
 
   createWorkflow(data: {
@@ -539,48 +553,72 @@ export const api = {
       deployConfig?: DeployConfig
     },
   ): Promise<WorkflowSummary> {
-    return request(withProject(`/workflows/${id}`), { method: 'PATCH', body: JSON.stringify(data) })
+    return request(withProject(`/workflows/${encodeURIComponent(id)}`), {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
   },
 
   deleteWorkflow(id: string): Promise<void> {
-    return request(withProject(`/workflows/${id}`), { method: 'DELETE' })
+    return request(withProject(`/workflows/${encodeURIComponent(id)}`), { method: 'DELETE' })
   },
 
   listVersions(
     workflowId: string,
     opts?: PaginationOptions,
   ): Promise<PaginatedResponse<WorkflowVersion>> {
-    return request(withPagination(withProject(`/workflows/${workflowId}/versions`), opts))
+    return request(
+      withPagination(withProject(`/workflows/${encodeURIComponent(workflowId)}/versions`), opts),
+    )
   },
 
   getVersion(workflowId: string, versionId: string): Promise<WorkflowVersion> {
-    return request(withProject(`/workflows/${workflowId}/versions/${versionId}`))
+    return request(
+      withProject(
+        `/workflows/${encodeURIComponent(workflowId)}/versions/${encodeURIComponent(versionId)}`,
+      ),
+    )
   },
 
   createVersion(workflowId: string, data: { ir: unknown }): Promise<WorkflowVersion> {
-    return request(withProject(`/workflows/${workflowId}/versions`), {
+    return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/versions`), {
       method: 'POST',
       body: JSON.stringify(data),
     })
   },
 
   lockVersion(workflowId: string, versionId: string, locked: boolean): Promise<WorkflowVersion> {
-    return request(withProject(`/workflows/${workflowId}/versions/${versionId}`), {
-      method: 'PATCH',
-      body: JSON.stringify({ locked }),
-    })
+    return request(
+      withProject(
+        `/workflows/${encodeURIComponent(workflowId)}/versions/${encodeURIComponent(versionId)}`,
+      ),
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ locked }),
+      },
+    )
   },
 
   revertToVersion(workflowId: string, versionId: string): Promise<WorkflowVersion> {
-    return request(withProject(`/workflows/${workflowId}/versions/${versionId}/revert`), {
-      method: 'POST',
-    })
+    return request(
+      withProject(
+        `/workflows/${encodeURIComponent(workflowId)}/versions/${encodeURIComponent(versionId)}/revert`,
+      ),
+      {
+        method: 'POST',
+      },
+    )
   },
 
   deleteVersion(workflowId: string, versionId: string): Promise<void> {
-    return request(withProject(`/workflows/${workflowId}/versions/${versionId}`), {
-      method: 'DELETE',
-    })
+    return request(
+      withProject(
+        `/workflows/${encodeURIComponent(workflowId)}/versions/${encodeURIComponent(versionId)}`,
+      ),
+      {
+        method: 'DELETE',
+      },
+    )
   },
 
   // Org-scoped endpoints (require active organization)
@@ -599,7 +637,7 @@ export const api = {
 
   /** The accounts Deploy offers this workflow (its project's), the one already chosen. */
   getDeployConnections(workflowId: string): Promise<DeployConnections> {
-    return request(withProject(`/workflows/${workflowId}/deploy-connections`))
+    return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/deploy-connections`))
   },
 
   getDeployConfig(
@@ -626,7 +664,11 @@ export const api = {
       }>
     }
   }> {
-    return request(withProject(`/workflows/${workflowId}/deploy-config/${connectionId}`))
+    return request(
+      withProject(
+        `/workflows/${encodeURIComponent(workflowId)}/deploy-config/${encodeURIComponent(connectionId)}`,
+      ),
+    )
   },
 
   getDeployConfigPreview(
@@ -634,17 +676,22 @@ export const api = {
     connectionId: string,
     config: Record<string, unknown>,
   ): Promise<{ filename: string; content: Record<string, unknown> }> {
-    return request(withProject(`/workflows/${workflowId}/deploy-config-preview`), {
-      method: 'POST',
-      body: JSON.stringify({ connectionId, config }),
-    })
+    return request(
+      withProject(`/workflows/${encodeURIComponent(workflowId)}/deploy-config-preview`),
+      {
+        method: 'POST',
+        body: JSON.stringify({ connectionId, config }),
+      },
+    )
   },
 
   listDeployments(
     workflowId: string,
     opts?: PaginationOptions,
   ): Promise<PaginatedResponse<DeploymentSummary>> {
-    return request(withPagination(withProject(`/workflows/${workflowId}/deployments`), opts))
+    return request(
+      withPagination(withProject(`/workflows/${encodeURIComponent(workflowId)}/deployments`), opts),
+    )
   },
 
   listAllDeployments(opts?: PaginationOptions): Promise<PaginatedResponse<DeploymentSummary>> {
@@ -659,15 +706,23 @@ export const api = {
     workflowId: string,
     opts?: PaginationOptions,
   ): Promise<PaginatedResponse<RunSummary>> {
-    return request(withPagination(withProject(`/workflows/${workflowId}/runs`), opts))
+    return request(
+      withPagination(withProject(`/workflows/${encodeURIComponent(workflowId)}/runs`), opts),
+    )
   },
 
   getWorkflowRun(workflowId: string, runId: string): Promise<RunSummary> {
-    return request(withProject(`/workflows/${workflowId}/runs/${runId}`))
+    return request(
+      withProject(`/workflows/${encodeURIComponent(workflowId)}/runs/${encodeURIComponent(runId)}`),
+    )
   },
 
   getWorkflowRunSteps(workflowId: string, runId: string): Promise<RunStepsResponse> {
-    return request(withProject(`/workflows/${workflowId}/runs/${runId}/steps`))
+    return request(
+      withProject(
+        `/workflows/${encodeURIComponent(workflowId)}/runs/${encodeURIComponent(runId)}/steps`,
+      ),
+    )
   },
 
   controlWorkflowRun(
@@ -675,16 +730,21 @@ export const api = {
     runId: string,
     action: 'pause' | 'resume' | 'terminate',
   ): Promise<RunSummary> {
-    return request(withProject(`/workflows/${workflowId}/runs/${runId}/${action}`), {
-      method: 'POST',
-    })
+    return request(
+      withProject(
+        `/workflows/${encodeURIComponent(workflowId)}/runs/${encodeURIComponent(runId)}/${encodeURIComponent(action)}`,
+      ),
+      {
+        method: 'POST',
+      },
+    )
   },
 
   takedownDeployment(
     workflowId: string,
     connectionId: string,
   ): Promise<{ success: boolean; error?: string }> {
-    return request(withProject(`/workflows/${workflowId}/takedown`), {
+    return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/takedown`), {
       method: 'POST',
       body: JSON.stringify({ connectionId }),
     })
@@ -704,7 +764,7 @@ export const api = {
     workflowId: string,
     data: { connectionId: string; params?: unknown },
   ): Promise<{ id: string; instanceId: string; status: string }> {
-    return request(withProject(`/workflows/${workflowId}/trigger`), {
+    return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/trigger`), {
       method: 'POST',
       body: JSON.stringify(data),
     })
@@ -714,18 +774,20 @@ export const api = {
   startLocalDev(
     workflowId: string,
   ): Promise<{ status: string; port: number; url: string; pid: number }> {
-    return request(withProject(`/workflows/${workflowId}/local-dev/start`), {
+    return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/local-dev/start`), {
       method: 'POST',
       body: '{}',
     })
   },
 
   stopLocalDev(workflowId: string): Promise<{ status: string }> {
-    return request(withProject(`/workflows/${workflowId}/local-dev/stop`), { method: 'POST' })
+    return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/local-dev/stop`), {
+      method: 'POST',
+    })
   },
 
   triggerLocalDev(workflowId: string, params?: unknown): Promise<unknown> {
-    return request(withProject(`/workflows/${workflowId}/local-dev/trigger`), {
+    return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/local-dev/trigger`), {
       method: 'POST',
       body: JSON.stringify(params ?? {}),
     })
@@ -733,7 +795,9 @@ export const api = {
 
   getLocalDevInstance(workflowId: string, instanceId: string): Promise<unknown> {
     return request(
-      withProject(`/workflows/${workflowId}/local-dev/instance/${encodeURIComponent(instanceId)}`),
+      withProject(
+        `/workflows/${encodeURIComponent(workflowId)}/local-dev/instance/${encodeURIComponent(instanceId)}`,
+      ),
     )
   },
 
@@ -741,15 +805,17 @@ export const api = {
     workflowId: string,
     since?: number,
   ): Promise<{ timestamp: number; stream: 'stdout' | 'stderr'; text: string }[]> {
-    const params = since ? `?since=${since}` : ''
-    return request(withProject(`/workflows/${workflowId}/local-dev/logs${params}`))
+    const params = since ? `?since=${encodeURIComponent(since)}` : ''
+    return request(
+      withProject(`/workflows/${encodeURIComponent(workflowId)}/local-dev/logs${params}`),
+    )
   },
 
   listApiKeys(
     opts?: PaginationOptions & { projectId?: string },
   ): Promise<PaginatedResponse<ApiKeySummary>> {
     const base = withOrg('/api-keys')
-    const url = opts?.projectId ? `${base}&projectId=${opts.projectId}` : base
+    const url = opts?.projectId ? `${base}&projectId=${encodeURIComponent(opts.projectId)}` : base
     return request(withPagination(url, opts))
   },
 
@@ -764,7 +830,7 @@ export const api = {
   },
 
   revokeApiKey(id: string): Promise<ApiKeySummary> {
-    return request(withOrg(`/api-keys/${id}`), { method: 'DELETE' })
+    return request(withOrg(`/api-keys/${encodeURIComponent(id)}`), { method: 'DELETE' })
   },
 
   // Projects (org-scoped)
@@ -785,11 +851,14 @@ export const api = {
     id: string,
     data: { name?: string; description?: string },
   ): Promise<ProjectSummary> {
-    return request(withOrg(`/projects/${id}`), { method: 'PATCH', body: JSON.stringify(data) })
+    return request(withOrg(`/projects/${encodeURIComponent(id)}`), {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
   },
 
   deleteProject(id: string): Promise<void> {
-    return request(withOrg(`/projects/${id}`), { method: 'DELETE' })
+    return request(withOrg(`/projects/${encodeURIComponent(id)}`), { method: 'DELETE' })
   },
 }
 

@@ -204,8 +204,9 @@ export function panelModel(page: DashboardPage, slugs: ScopeSlugs): PanelModel {
     case 'org-settings':
     case 'account':
     case 'playground':
-    case 'item':
+    case 'editor':
       // Every org-level page is its own rail item: none opens a second panel.
+      // (The editor draws no frame at all.)
       return { mode: 'none' }
     case 'project':
       return {

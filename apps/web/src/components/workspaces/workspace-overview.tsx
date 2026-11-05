@@ -39,7 +39,7 @@ function personRole({ role, inherited }: WorkspacePerson): string {
   return inherited && role === 'admin' ? 'Project admin' : ROLE_LABEL[role]
 }
 
-function recentColumns(org: string): DataColumn<WorkspaceRun>[] {
+function recentColumns(slugs: WorkspaceSlugs): DataColumn<WorkspaceRun>[] {
   return [
     {
       id: 'workflow',
@@ -47,7 +47,7 @@ function recentColumns(org: string): DataColumn<WorkspaceRun>[] {
       cell: (run) => (
         <span className="flex min-w-0 flex-col gap-0.5">
           <ShellLink
-            href={itemPath(org, { id: run.workflowId, kind: run.kind }, run.id)}
+            href={itemPath(slugs, { id: run.workflowId })}
             className="w-fit truncate text-sm font-semibold text-foreground hover:underline"
           >
             {run.workflowName}
@@ -118,8 +118,12 @@ export function WorkspaceOverview({
   quiet = false,
 }: WorkspaceOverviewProps) {
   const runsHref = workspacePath(slugs, 'runs')
-  // Built once per org, so the table keeps the same columns between renders.
-  const columns = useMemo(() => recentColumns(slugs.org), [slugs.org])
+  const { org: orgSlug, project: projectSlug, workspace: workspaceSlug } = slugs
+  // Built once per workspace, so the table keeps the same columns between renders.
+  const columns = useMemo(
+    () => recentColumns({ org: orgSlug, project: projectSlug, workspace: workspaceSlug }),
+    [orgSlug, projectSlug, workspaceSlug],
+  )
   const attention = needsAttention(items, failedRuns)
   const shared = sharedSummary(items, sharedIn)
   const workflows = items.filter((item) => item.kind === 'workflow').length

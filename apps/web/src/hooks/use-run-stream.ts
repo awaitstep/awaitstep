@@ -37,10 +37,15 @@ export function useRunStream({ workflowId, runId, enabled }: UseRunStreamOptions
     }
 
     const consume = async () => {
-      const response = await fetch(projectUrl(`/workflows/${workflowId}/runs/${runId}/stream`), {
-        credentials: 'include',
-        signal: controller.signal,
-      })
+      const response = await fetch(
+        projectUrl(
+          `/workflows/${encodeURIComponent(workflowId)}/runs/${encodeURIComponent(runId)}/stream`,
+        ),
+        {
+          credentials: 'include',
+          signal: controller.signal,
+        },
+      )
       if (!response.ok) return
       await readSseStream(
         response,

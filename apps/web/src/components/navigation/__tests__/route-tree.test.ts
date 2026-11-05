@@ -84,7 +84,7 @@ describe('dashboard route tree', () => {
     expect(leafRoute('/invite/projects')).toBe('/invite/$token')
   })
 
-  // `items` has no page of its own; its ids sit one level down.
+  // `items` stays reserved from the retired `/{org}/items/{id}` placeholder: it names no page.
   it.each(RESERVED_SLUGS.project.filter((slug) => slug !== 'items'))(
     'lets no project be called "%s"',
     (slug) => {
@@ -92,8 +92,13 @@ describe('dashboard route tree', () => {
     },
   )
 
-  it('keeps /{org}/items/{id} for the item placeholder, never a project’s workspace', () => {
-    expect(leafRoute('/acme/items/itm_123')).toBe('/_authed/$org/items/$itemId')
+  it('opens a workflow’s editor under its workspace, beside the Workflows page', () => {
+    expect(leafRoute('/acme/project-101/sales/workflows/wf_1')).toBe(
+      '/_authed/$org/$project/$workspace/workflows_/$id',
+    )
+    expect(leafRoute('/acme/project-101/sales/workflows')).toBe(
+      '/_authed/$org/$project/$workspace/workflows',
+    )
   })
 
   it('lets no workspace take a project page’s name', () => {

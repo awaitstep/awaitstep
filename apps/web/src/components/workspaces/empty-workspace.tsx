@@ -17,6 +17,7 @@ import { SectionHeader } from '../ui/section-header'
 import { ShellLink } from '../ui/shell-link'
 import { ScopeChip } from '../ui/workspace-dot'
 import { NewItemButton } from '../items/item-actions'
+import { useNewItem } from '../items/use-new-item'
 import { AvailableCard } from './parts/available-card'
 import { FannedTiles } from './parts/fanned-tiles'
 
@@ -37,6 +38,9 @@ export function EmptyWorkspace({
   const people = useWorkspacePeople(slugs)
   const setup = useProjectSetup(slugs.org, slugs.project)
   const shared = useSharedWithWorkspace(slugs)
+  // One create for both buttons: New function while New workflow is on its
+  // way would make two items and race two navigations.
+  const newItem = useNewItem(slugs)
 
   const projectAdmins = (people.data ?? [])
     .filter((p) => p.inherited && p.role === 'admin')
@@ -45,8 +49,14 @@ export function EmptyWorkspace({
   const importHref = `${workspacePath(slugs, 'workflows')}?new=import`
   const heroActions = readOnly ? null : (
     <>
-      <NewItemButton slugs={slugs} kind="workflow" size="default" />
-      <NewItemButton slugs={slugs} kind="script" size="default" variant="outline" />
+      <NewItemButton slugs={slugs} kind="workflow" size="default" newItem={newItem} />
+      <NewItemButton
+        slugs={slugs}
+        kind="script"
+        size="default"
+        variant="outline"
+        newItem={newItem}
+      />
       <ShellLink href={importHref} className={buttonVariants({ variant: 'outline' })}>
         Import
       </ShellLink>

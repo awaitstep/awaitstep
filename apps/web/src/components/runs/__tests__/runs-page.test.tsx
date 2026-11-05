@@ -28,6 +28,12 @@ describe('Runs page', () => {
     expect(first).toHaveTextContent('Failed')
     expect(first).toHaveTextContent('Lead enrichment')
     expect(first).toHaveTextContent('run_8f2c')
+    expect(within(first).getByRole('link', { name: 'Lead enrichment' })).toHaveAttribute(
+      'href',
+      expect.stringMatching(/^\/acme\/project-101\/sales\/workflows\/itm_/),
+    )
+    // Runs get their own page later; until then the id is not a link.
+    expect(within(first).queryByRole('link', { name: 'run_8f2c' })).not.toBeInTheDocument()
     expect(first).toHaveTextContent('Webhook')
     expect(first).toHaveTextContent('4.2s')
     const running = bodyRows()[1]!

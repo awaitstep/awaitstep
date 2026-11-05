@@ -16,8 +16,8 @@ export type DashboardPage =
   | { kind: 'account'; page: AccountPage }
   /** The API Playground: a top-level developer tool, framed by the current org's rail. */
   | { kind: 'playground' }
-  /** A workflow, function or run of sample data (W1 placeholder until B1). */
-  | { kind: 'item' }
+  /** A workflow or function's editor, full screen: no rail, no panel. */
+  | { kind: 'editor' }
 
 declare module '@tanstack/react-router' {
   interface StaticDataRouteOption {
@@ -79,8 +79,8 @@ export function pageLabel(page: DashboardPage): string {
       return ACCOUNT_PAGE_LABEL[page.page]
     case 'playground':
       return 'API Playground'
-    case 'item':
-      return 'Sample item'
+    case 'editor':
+      return 'Editor'
   }
 }
 

@@ -10,10 +10,16 @@ import {
 import { FunctionsPage } from '../functions-page'
 import { WorkflowsPage } from '../workflows-page'
 
+const goTo = vi.fn()
+vi.mock('../../navigation/router-shell-link', () => ({ useGoTo: () => goTo }))
+
 const sales = { org: 'acme', project: 'project-101', workspace: 'sales' }
 const it_ = { ...sales, workspace: 'it' }
 
-beforeEach(() => resetDashboardData(new Date()))
+beforeEach(() => {
+  resetDashboardData(new Date())
+  goTo.mockReset()
+})
 
 function renderWorkflows(
   options: { userId?: string; scenario?: 'loading' | 'error'; dialog?: string } = {},
@@ -51,11 +57,21 @@ describe('Workflows page', () => {
     expect(within(filters).getByRole('button', { name: 'Drafts 1' })).toBeInTheDocument()
   })
 
-  it('leads each row to the sample-data placeholder, not the editor', async () => {
+  it('leads each row to its editor, under this workspace', async () => {
     renderWorkflows()
     const list = await waitFor(desktopList)
     const link = within(list).getByRole('link', { name: 'Lead enrichment' })
-    expect(link.getAttribute('href')).toMatch(/^\/acme\/items\/itm_/)
+    expect(link.getAttribute('href')).toMatch(/^\/acme\/project-101\/sales\/workflows\/itm_/)
+  })
+
+  it('leads a shared item to its own workspace, not this one', async () => {
+    renderWorkflows()
+    const heading = await screen.findByRole('heading', { name: 'Shared with Sales' })
+    const links = within(heading.closest('section')!).getAllByRole('link')
+    expect(links.length).toBeGreaterThan(0)
+    for (const link of links) {
+      expect(link.getAttribute('href')).toMatch(/^\/acme\/project-101\/it\/workflows\//)
+    }
   })
 
   it('narrows to the failing workflow', async () => {
@@ -97,14 +113,20 @@ describe('Workflows page', () => {
     expect(toggle).toHaveAccessibleDescription(/Called by IT/)
   })
 
-  it('New workflow adds an untitled draft at the top and counts it', async () => {
+  it('New workflow creates an untitled draft and opens its editor on the template picker', async () => {
     renderWorkflows()
     await waitFor(desktopList)
-    await userEvent.click(within(topBar()).getByRole('button', { name: 'New workflow' }))
+    const button = within(topBar()).getByRole('button', { name: 'New workflow' })
+    await userEvent.click(button)
     await waitFor(() =>
       expect(within(desktopList()).getAllByRole('link')[0]).toHaveTextContent('Untitled workflow'),
     )
     expect(screen.getByRole('button', { name: 'Drafts 2' })).toBeInTheDocument()
+    const created = within(desktopList()).getAllByRole('link')[0]!.getAttribute('href')
+    expect(goTo).toHaveBeenCalledWith(`${created}?template=1`)
+    expect(goTo).toHaveBeenCalledTimes(1)
+    // Busy until the editor opens: a second click would make a second draft.
+    expect(button).toBeDisabled()
   })
 
   it('offers Import as a link to ?new=import', async () => {
@@ -238,6 +260,10 @@ describe('Functions page', () => {
     await screen.findByRole('table', { name: 'Functions in Sales' })
     await userEvent.click(within(topBar()).getByRole('button', { name: 'New function' }))
     expect(await screen.findByText('Untitled function')).toBeInTheDocument()
+    // Templates are workflow-shaped: a function opens straight on its canvas.
+    expect(goTo).toHaveBeenCalledWith(
+      expect.stringMatching(/^\/acme\/project-101\/sales\/workflows\/[^/?]+$/),
+    )
   })
 
   it('gives a Viewer the request instead of New function', async () => {

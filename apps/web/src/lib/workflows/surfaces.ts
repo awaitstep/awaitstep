@@ -134,3 +134,22 @@ export function unsavedDialogCopy(args: {
     variant: 'default',
   }
 }
+
+/** Everything an editor URL's search may carry, on either the old or the workspace route. */
+export interface EditorRouteSearch extends EditorSearch {
+  template?: boolean
+  kind?: 'workflow' | 'script'
+}
+
+export function parseEditorSearch(search: Record<string, unknown>): EditorRouteSearch {
+  return {
+    view: parseSurface(search.view),
+    version: typeof search.version === 'string' ? search.version : undefined,
+    file: typeof search.file === 'string' ? search.file : undefined,
+    template:
+      search.template === true || search.template === '1' || search.template === 'true'
+        ? true
+        : undefined,
+    kind: search.kind === 'script' || search.kind === 'workflow' ? search.kind : undefined,
+  }
+}

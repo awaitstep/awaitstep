@@ -20,6 +20,18 @@ export interface Project {
   updatedAt: string
 }
 
+/**
+ * The org and project an open editor's URL names (`/{org}/{project}/{workspace}/workflows/{id}`),
+ * keyed by its slugs. The editor route sets it and clears it on leave; while it is set, API
+ * calls go to this project instead of the switcher's, and the switcher's list doesn't reset
+ * the active project. A bridge until the editor takes its scope from the route itself.
+ */
+export interface RouteScope {
+  key: string
+  organizationId: string
+  projectId: string
+}
+
 interface OrgState {
   appReady: boolean
   organizations: Organization[]
@@ -30,6 +42,7 @@ interface OrgState {
   projectsIsFetchingMore: boolean
   activeOrganizationId: string | null
   activeProjectId: string | null
+  routeScope: RouteScope | null
   setAppReady: (ready: boolean) => void
   setOrganizations: (orgs: Organization[]) => void
   addOrganization: (org: Organization) => void
@@ -39,6 +52,7 @@ interface OrgState {
   setProjectsIsFetchingMore: (isFetchingMore: boolean) => void
   setActiveOrganization: (id: string) => void
   setActiveProject: (id: string) => void
+  setRouteScope: (scope: RouteScope | null) => void
   clear: () => void
 }
 
@@ -46,9 +60,10 @@ export function useOrgReady() {
   return useOrgStore(
     (s) =>
       s.appReady &&
-      !!s.activeOrganizationId &&
-      !!s.activeProjectId &&
-      s.projects.some((p) => p.id === s.activeProjectId),
+      (!!s.routeScope ||
+        (!!s.activeOrganizationId &&
+          !!s.activeProjectId &&
+          s.projects.some((p) => p.id === s.activeProjectId))),
   )
 }
 
@@ -64,6 +79,7 @@ export const useOrgStore = create<OrgState>()(
       projects: [],
       activeOrganizationId: null,
       activeProjectId: null,
+      routeScope: null,
       setAppReady: (appReady) => set({ appReady }),
       setOrganizations: (organizations) => set({ organizations }),
       addOrganization: (org: Organization) =>
@@ -76,6 +92,7 @@ export const useOrgStore = create<OrgState>()(
       setProjectsIsFetchingMore: (projectsIsFetchingMore) => set({ projectsIsFetchingMore }),
       setActiveOrganization: (id) => set({ activeOrganizationId: id, activeProjectId: null }),
       setActiveProject: (id) => set({ activeProjectId: id }),
+      setRouteScope: (routeScope) => set({ routeScope }),
       clear: () =>
         set({
           appReady: false,
@@ -83,6 +100,7 @@ export const useOrgStore = create<OrgState>()(
           projects: [],
           activeOrganizationId: null,
           activeProjectId: null,
+          routeScope: null,
         }),
     }),
     {

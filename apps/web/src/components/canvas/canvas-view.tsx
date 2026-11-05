@@ -24,6 +24,7 @@ import {
   deriveDeploymentState,
 } from '../../lib/hydrate-workflow'
 import { surfaceSwitchTarget } from '../../lib/workflows/surfaces'
+import { offersTemplates } from '../../lib/workflows/template-offer'
 import { useWorkflowPersistence } from '../../hooks/use-workflow-persistence'
 import { useAutoSave } from '../../hooks/use-auto-save'
 import { buildIRFromState } from '../../lib/build-ir'
@@ -115,6 +116,7 @@ export function CanvasView({
   )
   const { hasActiveDeployment, currentVersion, deployedVersion, hasUndeployedChanges } =
     deriveDeploymentState(fullData)
+  const canPickTemplate = offersTemplates({ isNew, kindParam, fullData })
 
   // Hydrate store from server data
   useEffect(() => {
@@ -200,6 +202,11 @@ export function CanvasView({
     addNode(type, { x: 250 + Math.random() * 200, y: 150 + Math.random() * 200 }, nodeRegistry)
   }
 
+  function handleOpenTemplatePicker() {
+    if (nodeCount > 0) setConfirmAction('switch-template')
+    else setShowTemplatePicker(true)
+  }
+
   function handleExport() {
     const state = useWorkflowStore.getState()
     const ir = buildIRFromState(state)
@@ -238,13 +245,7 @@ export function CanvasView({
                 onTest={() => runSimulation()}
                 onTestLocally={localDevEnabled ? () => setShowLocalTest((v) => !v) : undefined}
                 onExport={nodeCount > 0 ? handleExport : undefined}
-                onOpenTemplatePicker={() => {
-                  if (nodeCount > 0) {
-                    setConfirmAction('switch-template')
-                  } else {
-                    setShowTemplatePicker(true)
-                  }
-                }}
+                onOpenTemplatePicker={canPickTemplate ? handleOpenTemplatePicker : undefined}
                 readOnly={isReadOnly}
                 readOnlyVersion={readOnlyVersion}
                 versionParam={versionParam}
@@ -256,7 +257,7 @@ export function CanvasView({
                     <NodePalette onAddNode={handleAddNode} />
                   </div>
                 )}
-                {isNew && showTemplatePicker && (
+                {canPickTemplate && showTemplatePicker && (
                   <TemplatePicker onDismiss={() => setShowTemplatePicker(false)} />
                 )}
                 <BindingsPanel />
