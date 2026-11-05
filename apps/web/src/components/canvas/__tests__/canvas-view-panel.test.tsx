@@ -90,7 +90,9 @@ function response() {
 function view(client: QueryClient, props: Partial<React.ComponentProps<typeof CanvasView>> = {}) {
   return (
     <QueryClientProvider client={client}>
-      <EditorAccessProvider value={{ canEdit: true, canDeploy: true, reason: null }}>
+      <EditorAccessProvider
+        value={{ canEdit: true, canDeploy: true, canShare: true, canMove: true, reason: null }}
+      >
         <CanvasView workflowId="wf_1" localDevEnabled={false} {...props} />
       </EditorAccessProvider>
     </QueryClientProvider>
@@ -153,7 +155,15 @@ describe('CanvasView ?panel=settings', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(
       <QueryClientProvider client={client}>
-        <EditorAccessProvider value={{ canEdit: false, canDeploy: false, reason: 'View only' }}>
+        <EditorAccessProvider
+          value={{
+            canEdit: false,
+            canDeploy: false,
+            canShare: false,
+            canMove: false,
+            reason: 'View only',
+          }}
+        >
           <CanvasView workflowId="wf_1" panelParam="settings" localDevEnabled={false} />
         </EditorAccessProvider>
       </QueryClientProvider>,
