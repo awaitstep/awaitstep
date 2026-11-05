@@ -7,6 +7,7 @@ import { validateWorkflowForPublish } from '../../lib/validate-workflow'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { useGoTo } from '../navigation/router-shell-link'
 import { useApi } from '../../contexts/api-client-context'
+import { useEditorAccess } from '../../contexts/editor-scope-context'
 
 const MAX_LISTED = 3
 
@@ -19,7 +20,10 @@ interface DeployButtonProps {
   label?: string
 }
 
-/** Validates the current version and navigates to the deploy wizard when it passes. */
+/**
+ * Validates the current version and navigates to the deploy wizard when it
+ * passes. Nothing for someone who can't deploy (a Viewer).
+ */
 export function DeployButton({
   workflowId,
   currentVersionId,
@@ -30,6 +34,7 @@ export function DeployButton({
   const api = useApi()
   const goTo = useGoTo()
   const links = useWorkflowLinks(workflowId)
+  const { canDeploy } = useEditorAccess()
 
   async function handleDeploy() {
     if (!currentVersionId) {
@@ -87,6 +92,8 @@ export function DeployButton({
     }
     goTo(links.deploy)
   }
+
+  if (!canDeploy) return null
 
   return (
     <Button

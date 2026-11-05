@@ -6,6 +6,7 @@ import { StatCard } from './parts/stat-card'
 import { UrlCard } from './parts/url-card'
 import { VersionsCard } from './parts/versions-card'
 import type { WorkflowOverview } from './use-workflow-overview'
+import { useEditorAccess } from '../../contexts/editor-scope-context'
 
 interface FunctionBodyProps {
   workflow: WorkflowSummary
@@ -23,6 +24,7 @@ interface FunctionBodyProps {
  */
 export function FunctionBody({ workflow, overview, accounts, neverDeployed }: FunctionBodyProps) {
   const links = useWorkflowLinks(workflow.id)
+  const { canDeploy } = useEditorAccess()
   const latest = overview.versions[0]
   const live = overview.activeDeployment
   const account = live?.connectionId ? accounts.get(live.connectionId) : undefined
@@ -49,7 +51,7 @@ export function FunctionBody({ workflow, overview, accounts, neverDeployed }: Fu
         <div className="lg:col-span-2">
           <VersionsCard
             versionHref={(versionId) => links.editor('canvas', { version: versionId })}
-            deployHref={links.deployVersion}
+            deployHref={canDeploy ? links.deployVersion : undefined}
             versions={overview.versions}
             deployedVersionId={live?.versionId}
             deployBlocked={overview.deployBlocked}

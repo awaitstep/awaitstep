@@ -4,7 +4,7 @@ import { screen, within } from '@testing-library/react'
 import type { WorkflowOverview } from '../use-workflow-overview'
 import { FunctionBody } from '../function-body'
 import { OverviewBody } from '../overview-body'
-import { BASE, VERSIONS, renderWithPages } from './fixtures/workspace-pages'
+import { BASE, VERSIONS, VIEWER, renderWithPages } from './fixtures/workspace-pages'
 
 vi.mock('../../navigation/router-shell-link', () => ({
   RouterShellLink: ({ href, children, ...rest }: { href: string; children: ReactNode }) => (
@@ -78,6 +78,22 @@ describe('OverviewBody (WorkflowDetail)', () => {
       screen.getAllByRole('link', { name: 'Deploy' }).map((a) => a.getAttribute('href')),
     ).toEqual([`${BASE}/deploy?version=v2`, `${BASE}/deploy?version=v1`])
     expect(screen.getByText('deployed')).toBeVisible()
+  })
+
+  it('lists versions for a Viewer with nothing to deploy', () => {
+    renderWithPages(
+      <OverviewBody
+        workflow={WORKFLOW}
+        overview={overview(true)}
+        accounts={ACCOUNTS}
+        runs24h={{ all: 128, failed: 3, byHour: HOURS }}
+        neverDeployed={false}
+      />,
+      { '["workflow-runs","wf_1"]': [] },
+      VIEWER,
+    )
+    expect(screen.getByText('3 versions in all')).toBeVisible()
+    expect(screen.queryByRole('link', { name: 'Deploy' })).not.toBeInTheDocument()
   })
 
   it('says none ran today for a workflow that has run before, and nothing while the day loads', () => {

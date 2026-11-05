@@ -11,7 +11,8 @@ import { dirtyPaths } from '../../lib/ide/drafts'
 import { reviewOrder } from '../../lib/ide/review'
 import { filePathOfTab } from '../../lib/ide/tabs'
 import { countBySeverity, diagnosticProblems, groupProblems } from '../../lib/ide/problems'
-import { fileEditability, workspaceEditability } from '../../lib/ide/editability'
+import { VIEW_ONLY_MESSAGE, fileEditability, workspaceEditability } from '../../lib/ide/editability'
+import { useEditorAccess } from '../../contexts/editor-scope-context'
 import { basename, buildFileTree, normalizeBundlePath } from '../../lib/ide/file-tree'
 import {
   fileOwner,
@@ -202,9 +203,16 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   const [initialLayouts] = useState(() => useIdeLayoutStore.getState().layouts)
   const workspaceLayoutKey = workspaceLayoutKeyFor(explorerOpen, previewOpen)
 
+  const access = useEditorAccess()
   const workspace = useMemo(
-    () => (source ? workspaceEditability({ historical: isHistorical }) : null),
-    [source, isHistorical],
+    () =>
+      source
+        ? workspaceEditability({
+            historical: isHistorical,
+            roleRefusal: access.canEdit ? null : (access.reason ?? VIEW_ONLY_MESSAGE),
+          })
+        : null,
+    [source, isHistorical, access.canEdit, access.reason],
   )
   const canEdit = workspace !== null && !workspace.readOnly
 

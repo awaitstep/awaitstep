@@ -3,6 +3,7 @@ import { useInfiniteQuery } from '@tanstack/react-query'
 import { ExternalLink, Rocket } from 'lucide-react'
 import type { DeploymentSummary, WorkflowSummary } from '../../lib/api-client'
 import { CardEmpty } from './parts/card-empty'
+import { useEditorAccess } from '../../contexts/editor-scope-context'
 import { DeployFor } from './deploy-for'
 import { flatPages } from '../../lib/queries'
 import { timeAgo } from '../../lib/time'
@@ -38,6 +39,7 @@ export function DeploymentsTab({
   const queries = useQueries()
   const workflowId = workflow.id
   const links = useWorkflowLinks(workflowId)
+  const { canDeploy } = useEditorAccess()
   const query = useInfiniteQuery(queries.deployments.byWorkflow(workflowId))
   const deployments = flatPages(query.data)
   const live = deployments.find((d) => d.status === 'success')
@@ -46,10 +48,10 @@ export function DeploymentsTab({
       historyColumns({
         liveId: live?.id,
         accounts,
-        rollBackHref: links.deployVersion,
+        rollBackHref: canDeploy ? links.deployVersion : undefined,
         deployBlocked,
       }),
-    [live?.id, accounts, links, deployBlocked],
+    [live?.id, accounts, links, deployBlocked, canDeploy],
   )
 
   if (query.isPending) {
@@ -163,7 +165,8 @@ function LiveCard({ deployment, version, account }: LiveCardProps) {
 interface HistoryColumnsOptions {
   liveId: string | undefined
   accounts: Map<string, string>
-  rollBackHref: (versionId: string) => string
+  /** Left out for someone who can't deploy: no Roll back. */
+  rollBackHref?: (versionId: string) => string
   deployBlocked: boolean
 }
 
@@ -219,7 +222,13 @@ function historyColumns({
       width: '110px',
       cell: (d) => {
         // Only a version that went out and still exists can go out again.
-        if (d.id === liveId || d.status === 'failed' || !d.versionId || d.version == null) {
+        if (
+          !rollBackHref ||
+          d.id === liveId ||
+          d.status === 'failed' ||
+          !d.versionId ||
+          d.version == null
+        ) {
           return null
         }
         return (
