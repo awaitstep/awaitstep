@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { useBlocker } from '@tanstack/react-router'
+import { useBlocker, useRouter } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import type { Layout, LayoutChangedMeta } from 'react-resizable-panels'
@@ -8,9 +8,16 @@ import { actionToast, LONG_TOAST_MS, failureLine } from '../../lib/action-toast'
 import type { IdeCommandActions } from '../../lib/ide/commands'
 import { createDraftUndo } from '../../lib/ide/draft-undo'
 import { dirtyPaths, overlayDrafts } from '../../lib/ide/drafts'
+import { countBySeverity, diagnosticProblems } from '../../lib/ide/problems'
+import { sessionStatus } from '../../lib/ide/status-bar'
 import { fileEditability, workspaceEditability } from '../../lib/ide/editability'
 import { basename, buildFileTree, normalizeBundlePath } from '../../lib/ide/file-tree'
-import { fileOwner, splitWorkspaceFiles, virtualSeedFiles } from '../../lib/ide/project'
+import {
+  fileOwner,
+  projectUsage,
+  splitWorkspaceFiles,
+  virtualSeedFiles,
+} from '../../lib/ide/project'
 import { buildWorkflowStoreState, deriveReadOnlyState } from '../../lib/hydrate-workflow'
 import { PROJECT_HANDLERS_PATH } from '@awaitstep/ir'
 import { describeHandlerDeclarations, type SourceFile } from '../../lib/api-client'
@@ -19,10 +26,13 @@ import { surfaceSwitchTarget } from '../../lib/workflows/surfaces'
 import { copyToClipboard } from '../../lib/utils'
 import { useDraftPersistence } from '../../hooks/use-draft-persistence'
 import { useIdeShortcuts } from '../../hooks/use-ide-shortcuts'
+import { useMinWidth } from '../../hooks/use-min-width'
 import { useProjectFiles } from '../../hooks/use-project-files'
+import { useWorkspaceProblems } from '../../hooks/use-workspace-problems'
 import { useSwitchView } from '../../hooks/use-switch-view'
 import { useOrgReady } from '../../stores/org-store'
 import { useIdeLayoutStore, type IdeLayoutKey } from '../../stores/ide-layout-store'
+import { useIdeExplorerStore } from '../../stores/ide-explorer-store'
 import { useIdeStore } from '../../stores/ide-store'
 import { useQuickTestStore } from '../../stores/quick-test-store'
 import { clearWorkflowHistory, useWorkflowStore } from '../../stores/workflow-store'
@@ -37,7 +47,9 @@ import { FileExplorer } from './file-explorer'
 import { FilePathDialog } from './file-path-dialog'
 import { IdeHeader } from './ide-header'
 import { IdeSkeleton } from './ide-skeleton'
+import { NarrowWindowNotice } from './narrow-window-notice'
 import { QuickOpenDialog } from './quick-open-dialog'
+import { StatusBar } from './status-bar'
 import {
   describeConversion,
   LoadFailure,
@@ -57,11 +69,18 @@ const LazyCanvasPreview = lazy(() =>
   import('./canvas-preview').then((m) => ({ default: m.CanvasPreview })),
 )
 
-/** The drawer's frame is layout, so the workspace owns it, not the panel. */
-const PREVIEW_FRAME =
-  'absolute inset-y-0 right-0 z-20 flex w-[30%] min-w-[20rem] max-w-full flex-col overflow-hidden border-l border-border bg-card shadow-2xl'
-
 const EMPTY_FILES: ReadonlyMap<string, SourceFile> = new Map()
+
+/** Both side panels open keeps the original key, so saved sizes from before still apply. */
+function workspaceLayoutKeyFor(explorerOpen: boolean, previewOpen: boolean): string {
+  if (explorerOpen && previewOpen) return 'workspace'
+  return `workspace:${explorerOpen ? 'explorer' : 'main'}${previewOpen ? '+preview' : ''}`
+}
+
+const NO_SHORTCUTS = {}
+
+/** Below this the editor, explorer and dock cannot all be usable at once. */
+const MIN_WORKSPACE_WIDTH = 960
 
 export function IdeWorkspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   if (workflowId === 'new') return <UnsavedWorkflowNotice />
@@ -172,6 +191,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   // Panel groups read their default layout once at mount; later drags flow
   // back through setLayout, so subscribing would only cause re-renders.
   const [initialLayouts] = useState(() => useIdeLayoutStore.getState().layouts)
+  const workspaceLayoutKey = workspaceLayoutKeyFor(explorerOpen, previewOpen)
 
   const workspace = useMemo(
     () => (source ? workspaceEditability({ historical: isHistorical }) : null),
@@ -216,6 +236,15 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     [],
   )
   const files = useMemo(() => overlayDrafts(baseline, drafts), [baseline, drafts])
+  // Stored files only (a virtual seed is not counted by the server); it
+  // changes when files do, not with every keystroke.
+  const usage = useMemo(
+    () =>
+      projectUsage(
+        [...baseline.values()].filter((f) => f.hash !== undefined && !virtualPaths.has(f.path)),
+      ),
+    [baseline, virtualPaths],
+  )
   const dirty = useMemo(() => new Set(dirtyPaths(baseline, drafts)), [baseline, drafts])
   // Trees only depend on which files exist, so a keystroke never rebuilds them.
   const trees = useMemo(() => {
@@ -258,6 +287,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       draftUndo.dispose()
       useWorkflowStore.getState().reset()
       useIdeStore.getState().resetSession()
+      useIdeExplorerStore.getState().reset()
       useQuickTestStore.getState().reset()
     }
   }, [draftUndo])
@@ -286,6 +316,17 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   }, [loadError])
 
   const hasUnsaved = dirty.size > 0
+
+  // One problem list for the dock and the status bar: server findings first,
+  // since they explain the editor markers after them.
+  const markers = useWorkspaceProblems(workflowId)
+  const problems = useMemo(
+    () => [...diagnosticProblems(source?.diagnostics ?? []), ...markers],
+    [source, markers],
+  )
+  const problemCounts = countBySeverity(problems)
+  const wideEnough = useMinWidth(MIN_WORKSPACE_WIDTH)
+  const router = useRouter()
   const blocker = useBlocker({
     shouldBlockFn: () => hasUnsaved,
     enableBeforeUnload: () => hasUnsaved,
@@ -340,7 +381,12 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         const path = useIdeStore.getState().activePath
         if (path) draftUndo.revertFile(path)
       },
-      newFile: () => showDialog('newFile'),
+      newFile: () => {
+        if (!canEdit) return
+        // The name row lives in the explorer: show it first if it is hidden.
+        if (!useIdeLayoutStore.getState().explorerOpen) toggleExplorer()
+        useIdeExplorerStore.getState().beginCreate()
+      },
       renameFile: () => {
         const path = useIdeStore.getState().activePath
         if (path && storedPaths.has(path)) showDialog('renameFile', path)
@@ -401,18 +447,23 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     ],
   )
 
-  useIdeShortcuts({
-    save: actions.save,
-    saveAll: actions.saveAll,
-    quickOpen: actions.quickOpen,
-    commandPalette: () => showDialog('palette'),
-    toggleExplorer,
-    toggleDock,
-    togglePreview,
-    nextTab: () => cycleFile(1),
-    prevTab: () => cycleFile(-1),
-    closeTab: actions.closeActiveFile,
-  })
+  useIdeShortcuts(
+    !wideEnough
+      ? NO_SHORTCUTS
+      : {
+          save: actions.save,
+          saveAll: actions.saveAll,
+          newFile: actions.newFile,
+          quickOpen: actions.quickOpen,
+          commandPalette: () => showDialog('palette'),
+          toggleExplorer,
+          toggleDock,
+          togglePreview,
+          nextTab: () => cycleFile(1),
+          prevTab: () => cycleFile(-1),
+          closeTab: actions.closeActiveFile,
+        },
+  )
 
   // The requested layout is the one before size constraints clipped it,
   // which is what should come back on the next mount.
@@ -458,15 +509,20 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     })
   }
 
-  function handleCreate(path: string) {
-    closeDialog()
-    void projectFiles.createFile(path)
+  // A new file opens at line 1 with the caret in it; the toast comes from the action.
+  async function handleCreateFile(path: string, fileSource?: string): Promise<boolean> {
+    const created = await projectFiles.createFile(path, fileSource)
+    if (created) useIdeStore.getState().revealLocation({ path, line: 1, column: 1 })
+    return created
   }
 
   function handleRename(to: string) {
     const from = dialogTarget
     closeDialog()
-    if (from) void projectFiles.renameFile(from, to)
+    if (!from) return
+    void projectFiles.renameFile(from, to).then((renamed) => {
+      if (renamed) useIdeExplorerStore.getState().requestFocus(to)
+    })
   }
 
   function handleDelete() {
@@ -506,6 +562,39 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     draftUndo.revertFile(path)
   }
 
+  function handleFocusEditor() {
+    useIdeStore.getState().editorHandle?.focus()
+  }
+
+  // Esc from the preview hands the keyboard back to the editor.
+  function handleReturnToEditor(event: React.KeyboardEvent) {
+    if (event.key === 'Escape') useIdeStore.getState().editorHandle?.focus()
+  }
+
+  function handleOpenLatest() {
+    void switchView('ide')
+  }
+
+  function handleOpenCanvas() {
+    void switchView('canvas', { version: versionParam })
+  }
+
+  function handleBack() {
+    router.history.back()
+  }
+
+  function handleSaveAsFile(path: string) {
+    void projectFiles.saveFile(path)
+  }
+
+  function handleShowSession() {
+    showDock('run')
+  }
+
+  function handleShowProblems() {
+    showDock('problems')
+  }
+
   function handleBlockerCancel() {
     blocker.reset?.()
   }
@@ -540,6 +629,11 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     return <LoadFailure workflowId={workflowId} message={sourceQuery.error?.message} />
   }
 
+  const sessionState = sessionStatus(testSession.session, testSession.stale, {
+    starting: testSession.starting,
+    stopping: testSession.stopping,
+  })
+  const unsavedPaths = [...dirty]
   const existingPaths = [...baseline.keys()]
   const renameExisting = existingPaths.filter((p) => p !== dialogTarget)
 
@@ -555,6 +649,28 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   // whichever version is current right now, and the canvas would open that
   // one read-only the moment anything creates a newer one.
   const linkVersion = isHistorical ? versionParam : undefined
+  // Shown in the narrow-window notice too: the blocker still guards unsaved
+  // drafts there, and a blocked navigation with no dialog is a dead end.
+  const unsavedDialog = (
+    <UnsavedChangesDialog
+      open={blocker.status === 'blocked'}
+      unsaved={unsavedSentence}
+      switchTarget={switchTarget}
+      canSave={canEdit}
+      saving={projectFiles.busy}
+      onCancel={handleBlockerCancel}
+      onSaveAndGo={handleSaveAndSwitch}
+      onDiscardAndGo={handleLeave}
+    />
+  )
+  if (!wideEnough) {
+    return (
+      <>
+        <NarrowWindowNotice onOpenCanvas={handleOpenCanvas} onBack={handleBack} />
+        {unsavedDialog}
+      </>
+    )
+  }
 
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-background">
@@ -570,14 +686,12 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         saving={projectFiles.busy}
         onSave={actions.saveAll}
       />
-      {/* The preview floats over this area rather than taking a column from
-          it: the editor's width is what a dev is least willing to give up. */}
-      <div className="relative min-h-0 flex-1">
+      <div className="min-h-0 flex-1">
         <Group
           orientation="horizontal"
           className="h-full"
-          defaultLayout={initialLayouts.workspace}
-          onLayoutChanged={handleLayoutChanged('workspace')}
+          defaultLayout={initialLayouts[workspaceLayoutKey]}
+          onLayoutChanged={handleLayoutChanged(workspaceLayoutKey)}
         >
           {explorerOpen && (
             <>
@@ -588,7 +702,9 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
                   dirty={dirty}
                   virtual={virtualPaths}
                   canEdit={canEdit}
-                  onNewFile={actions.newFile}
+                  usage={usage}
+                  onCreateFile={handleCreateFile}
+                  onEscape={handleFocusEditor}
                   onRename={handleRenameRequest}
                   onDelete={handleDeleteRequest}
                   onConvert={handleConvertRequest}
@@ -612,6 +728,11 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
                   editabilityOf={editabilityOf}
                   onChange={handleEditorChange}
                   onRevertFile={handleRevertFile}
+                  virtualPaths={virtualPaths}
+                  historical={isHistorical}
+                  onOpenLatest={handleOpenLatest}
+                  onSaveAsFile={handleSaveAsFile}
+                  onConvertHandlers={handleConvertRequest}
                 />
               </Panel>
               {dockOpen && (
@@ -620,7 +741,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
                   <Panel id="dock" defaultSize="28" minSize={120} maxSize="70">
                     <BottomDock
                       workflowId={workflowId}
-                      diagnostics={source?.diagnostics}
+                      problems={problems}
                       testSession={testSession}
                       activeFile={activeFile}
                       onSaveAll={projectFiles.saveAll}
@@ -630,18 +751,42 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
               )}
             </Group>
           </Panel>
+          {previewOpen && (
+            <>
+              <Separator className="w-px bg-border transition-colors hover:bg-primary/50" />
+              <Panel id="preview" defaultSize="28" minSize={240} maxSize="50">
+                <div className="flex h-full flex-col bg-card" onKeyDown={handleReturnToEditor}>
+                  <Suspense fallback={null}>
+                    <LazyCanvasPreview
+                      workflowId={workflowId}
+                      {...(linkVersion !== undefined && { versionParam: linkVersion })}
+                    />
+                  </Suspense>
+                </div>
+              </Panel>
+            </>
+          )}
         </Group>
-        {previewOpen && (
-          <div className={PREVIEW_FRAME}>
-            <Suspense fallback={null}>
-              <LazyCanvasPreview
-                workflowId={workflowId}
-                {...(linkVersion !== undefined && { versionParam: linkVersion })}
-              />
-            </Suspense>
-          </div>
-        )}
       </div>
+      <StatusBar
+        version={
+          isHistorical ? (readOnlyVersion ?? fullData.version.version) : fullData.version.version
+        }
+        historical={isHistorical}
+        session={sessionState}
+        errors={problemCounts.error}
+        warnings={problemCounts.warning}
+        unsaved={unsavedPaths}
+        canEdit={canEdit}
+        activePath={activePath}
+        readOnly={activePath !== null && editabilityOf(activePath).readOnly}
+        onOpenLatest={handleOpenLatest}
+        onShowSession={handleShowSession}
+        onShowProblems={handleShowProblems}
+        onOpenFile={openFile}
+        onSaveAll={actions.saveAll}
+        onDiscard={actions.discardChanges}
+      />
       <CommandPalette
         actions={actions}
         canEdit={canEdit}
@@ -651,17 +796,6 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         dirtyCount={dirty.size}
       />
       <QuickOpenDialog files={baseline} />
-      <FilePathDialog
-        key={`new:${dialog === 'newFile'}`}
-        open={dialog === 'newFile'}
-        title="New file"
-        description="Import it as #app/<path>, without the .ts or .js extension."
-        submitLabel="Create"
-        existingPaths={existingPaths}
-        busy={projectFiles.busy}
-        onOpenChange={handleDialogOpenChange}
-        onSubmit={handleCreate}
-      />
       <FilePathDialog
         key={`rename:${dialogTarget ?? ''}:${dialog === 'renameFile'}`}
         open={dialog === 'renameFile'}
@@ -698,16 +832,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
         onSave={handleCloseSave}
         onDiscard={handleCloseDiscard}
       />
-      <UnsavedChangesDialog
-        open={blocker.status === 'blocked'}
-        unsaved={unsavedSentence}
-        switchTarget={switchTarget}
-        canSave={canEdit}
-        saving={projectFiles.busy}
-        onCancel={handleBlockerCancel}
-        onSaveAndGo={handleSaveAndSwitch}
-        onDiscardAndGo={handleLeave}
-      />
+      {unsavedDialog}
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import type { editor } from 'monaco-editor'
+import { CODE_FONT_FAMILY } from './code-font'
 
 /**
  * The one editor look shared by every Monaco pane (node code, trigger code,
@@ -10,6 +11,7 @@ export const BASE_EDITOR_OPTIONS: editor.IStandaloneEditorConstructionOptions = 
   readOnly: false,
   domReadOnly: false,
   minimap: { enabled: false },
+  fontFamily: CODE_FONT_FAMILY,
   fontSize: 11,
   lineNumbers: 'on',
   scrollBeyondLastLine: false,

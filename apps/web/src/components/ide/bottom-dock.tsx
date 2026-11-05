@@ -1,14 +1,6 @@
-import { useMemo } from 'react'
 import { CircleAlert, Info, TriangleAlert, X } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
-import { useWorkspaceProblems } from '../../hooks/use-workspace-problems'
-import {
-  countBySeverity,
-  diagnosticProblems,
-  type Problem,
-  type ProblemSeverity,
-} from '../../lib/ide/problems'
-import type { SourceDiagnostic } from '../../lib/api-client'
+import { countBySeverity, type Problem, type ProblemSeverity } from '../../lib/ide/problems'
 import { IDE_SHORTCUTS, formatShortcut } from '../../lib/ide/shortcuts'
 import { isMacPlatform } from '../../lib/platform'
 import { useIdeLayoutStore, type DockTab } from '../../stores/ide-layout-store'
@@ -21,8 +13,8 @@ import { RunPanel } from './run-panel'
 
 interface BottomDockProps {
   workflowId: string
-  /** What the server found while producing this source, if anything. */
-  diagnostics?: SourceDiagnostic[]
+  /** Server findings first, then live editor markers; owned by the workspace, which the status bar shares. */
+  problems: Problem[]
   /**
    * Owned by the workspace, not by this component: the dock unmounts when it
    * is hidden, and holding the session here meant hiding it dropped the
@@ -44,7 +36,7 @@ const TABS: { id: DockTab; label: string }[] = [
 
 export function BottomDock({
   workflowId,
-  diagnostics,
+  problems,
   testSession,
   activeFile,
   onSaveAll,
@@ -53,12 +45,6 @@ export function BottomDock({
     useShallow((s) => ({ dockTab: s.dockTab, showDock: s.showDock, toggleDock: s.toggleDock })),
   )
   const revealLocation = useIdeStore((s) => s.revealLocation)
-  const markers = useWorkspaceProblems(workflowId)
-  // Server findings first: they explain the markers below them.
-  const problems = useMemo(
-    () => [...diagnosticProblems(diagnostics ?? []), ...markers],
-    [diagnostics, markers],
-  )
   const counts = countBySeverity(problems)
   const hideHint = formatShortcut(IDE_SHORTCUTS.toggleDock, isMacPlatform())
 

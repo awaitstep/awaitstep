@@ -18,6 +18,8 @@ import { withContainerEdgeColors } from '../../lib/container-edge-colors'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useSwitchView } from '../../hooks/use-switch-view'
+import { IDE_SHORTCUTS, formatShortcut } from '../../lib/ide/shortcuts'
+import { isMacPlatform } from '../../lib/platform'
 
 const edgeTypes = { smoothstep: LabeledEdge }
 
@@ -35,18 +37,16 @@ interface CanvasPreviewProps {
 }
 
 /**
- * The workflow's graph, read-only, in a drawer over the right of the editor.
+ * The workflow's graph, read-only, in a resizable panel on the right of the editor.
  *
  * Code mode is a dev workspace, not a consolation prize for people who can
  * use the canvas: someone editing a step still needs to see where that step
  * sits. What it shows is the saved version's graph — the same thing the open
  * files were generated from — so it stays in step with the code on screen.
  *
- * It overlays rather than claiming a column because the editor's width is
- * the thing a dev is least willing to give up, and glancing at the graph is
- * a moment's work, not a mode. 30% leaves the editor the bulk of the window
- * while staying wide enough to read a real graph; the floor keeps it usable
- * on a narrow window, where 30% would be a thumbnail.
+ * It is docked beside the editor, not over it: a drawer hid the code it was
+ * meant to sit next to. It starts at 28% of the window, wide enough to read a
+ * real graph, and can be dragged or hidden; the editor narrows to make room.
  *
  * Nothing here edits the graph. Editing it is what the canvas is for, which
  * is why the way over is labelled for that rather than for the navigation:
@@ -58,6 +58,7 @@ export function CanvasPreview({ workflowId, versionParam }: CanvasPreviewProps) 
   const togglePreview = useIdeLayoutStore((s) => s.togglePreview)
   const styledEdges = useMemo(() => withContainerEdgeColors(nodes, edges), [nodes, edges])
   const switchView = useSwitchView(workflowId)
+  const hideHint = formatShortcut(IDE_SHORTCUTS.togglePreview, isMacPlatform())
 
   function handleEditOnCanvas() {
     void switchView('canvas', { version: versionParam })
@@ -65,8 +66,8 @@ export function CanvasPreview({ workflowId, versionParam }: CanvasPreviewProps) 
 
   return (
     <>
-      {/* The drawer's frame — position, width, border — belongs to the
-          workspace layout, so this fills whatever it is given. */}
+      {/* The panel's size and place belong to the workspace layout, so this
+          fills whatever it is given. */}
       <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border px-2">
         <div className="flex min-w-0 items-center gap-1.5">
           <Workflow className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
@@ -92,7 +93,7 @@ export function CanvasPreview({ workflowId, versionParam }: CanvasPreviewProps) 
           <button
             type="button"
             onClick={togglePreview}
-            title="Hide canvas preview"
+            title={`Hide canvas preview (${hideHint})`}
             aria-label="Hide canvas preview"
             className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground"
           >

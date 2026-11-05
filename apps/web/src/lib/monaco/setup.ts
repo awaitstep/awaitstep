@@ -1,7 +1,9 @@
 import type { Monaco } from '@monaco-editor/react'
 import { AWAITSTEP_MODULES_DTS } from './awaitstep-modules'
+import { remeasureWhenCodeFontLoads } from './code-font'
 import { CF_RUNTIME_DTS } from './cf-runtime-dts'
 import type { LanguageHosts } from './project-libs'
+import { defineAwaitstepThemes } from './theme'
 
 /**
  * Diagnostics stay ON (v1 disabled them wholesale); these codes are muted
@@ -68,6 +70,8 @@ function baseCompilerOptions(ts: Monaco['languages']['typescript']) {
 export function configureMonaco(monaco: Monaco): void {
   if (configured) return
   configured = true
+  defineAwaitstepThemes(monaco)
+  void remeasureWhenCodeFontLoads(monaco)
 
   const ts = monaco.languages.typescript
   for (const defaults of [ts.typescriptDefaults, ts.javascriptDefaults]) {

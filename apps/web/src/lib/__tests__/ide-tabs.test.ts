@@ -4,6 +4,7 @@ import {
   closeAllTabs,
   closeTab,
   closeTabs,
+  nextTabIndex,
   cycleTab,
   openTab,
   pruneTabs,
@@ -86,5 +87,24 @@ describe('closeTabs', () => {
 
   it('leaves the state alone for paths that are not open', () => {
     expect(closeTabs(three, ['zzz.ts'])).toEqual(three)
+  })
+})
+
+describe('nextTabIndex', () => {
+  it('steps with the arrows and wraps', () => {
+    expect(nextTabIndex('ArrowRight', 0, 3)).toBe(1)
+    expect(nextTabIndex('ArrowRight', 2, 3)).toBe(0)
+    expect(nextTabIndex('ArrowLeft', 0, 3)).toBe(2)
+  })
+
+  it('jumps to the ends', () => {
+    expect(nextTabIndex('Home', 2, 3)).toBe(0)
+    expect(nextTabIndex('End', 0, 3)).toBe(2)
+  })
+
+  it('ignores other keys and a lone tab', () => {
+    expect(nextTabIndex('a', 0, 3)).toBeNull()
+    expect(nextTabIndex('ArrowRight', 0, 1)).toBeNull()
+    expect(nextTabIndex('ArrowRight', -1, 3)).toBeNull()
   })
 })

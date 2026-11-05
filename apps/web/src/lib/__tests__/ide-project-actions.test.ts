@@ -261,7 +261,7 @@ describe('project file actions', () => {
     await actions.deleteFile('config/env.ts')
     expect(notify.success.mock.calls.map((c) => c[0])).toEqual([
       'Saved env.ts',
-      'Created new.ts',
+      'Created. Import it as `#app/services/new`',
       'Renamed to renamed.ts',
       'Deleted env.ts',
     ])

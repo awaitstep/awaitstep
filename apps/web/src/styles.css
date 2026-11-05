@@ -1,4 +1,5 @@
 @import '@fontsource-variable/outfit';
+@import '@fontsource-variable/jetbrains-mono';
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
@@ -15,6 +16,10 @@
   --app-font-mono:
     'Outfit Variable', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
     'Courier New', monospace;
+  /* The code font (Monaco). Outfit is a UI face and misaligns columns. */
+  --app-font-code:
+    'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    'Liberation Mono', 'Courier New', monospace;
 }
 
 @theme inline {
@@ -127,7 +132,7 @@ html.dark {
   --secondary: oklch(0.22 0.004 260);
   --secondary-foreground: oklch(0.93 0 0);
   --muted: oklch(0.22 0.004 260);
-  --muted-foreground: oklch(0.6 0.01 260);
+  --muted-foreground: oklch(0.62 0.01 260);
   --accent: oklch(0.22 0.004 260);
   --accent-foreground: oklch(0.93 0 0);
   --destructive: oklch(0.65 0.2 25);
