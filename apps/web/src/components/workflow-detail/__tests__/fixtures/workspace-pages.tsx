@@ -11,10 +11,18 @@ export const SLUGS = { org: 'acme', project: 'core', workspace: 'sales' }
 export const BASE = '/acme/core/sales/workflows/wf_1'
 
 /** Renders in the workspace with `pages` already loaded under each query key. */
-export const EDITOR: EditorAccess = { canEdit: true, canDeploy: true, reason: null }
+export const EDITOR: EditorAccess = {
+  canEdit: true,
+  canDeploy: true,
+  canShare: true,
+  canMove: true,
+  reason: null,
+}
 export const VIEWER: EditorAccess = {
   canEdit: false,
   canDeploy: false,
+  canShare: false,
+  canMove: false,
   reason: 'Building, deploying and sharing need an Editor',
 }
 
