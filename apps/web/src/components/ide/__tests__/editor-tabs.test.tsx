@@ -58,3 +58,18 @@ describe('closing a dirty tab', () => {
     expect(useIdeStore.getState().closeRequest?.dirty).toEqual(['a.ts'])
   })
 })
+
+describe('keyboard', () => {
+  it('moves between tabs with the arrow keys and returns to the editor on Escape', async () => {
+    const focus = vi.fn()
+    useIdeStore.getState().setEditorHandle({ focus, trigger: vi.fn() })
+    renderTabs()
+    const [first, second] = screen.getAllByRole('tab')
+    second!.focus()
+    await userEvent.keyboard('{ArrowLeft}')
+    expect(useIdeStore.getState().activePath).toBe('a.ts')
+    expect(first).toHaveFocus()
+    await userEvent.keyboard('{Escape}')
+    expect(focus).toHaveBeenCalled()
+  })
+})

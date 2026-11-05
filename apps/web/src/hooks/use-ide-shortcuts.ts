@@ -17,8 +17,17 @@ export function useIdeShortcuts(handlers: IdeShortcutHandlers): void {
   useEffect(() => {
     const isMac = isMacPlatform()
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.target instanceof Element && event.target.closest('[role="dialog"]')) return
+      // Dialogs and the explorer's name row own their keys while open.
       const id = matchShortcut(event, isMac)
+      if (
+        event.target instanceof Element &&
+        event.target.closest('[role="dialog"], [role="alertdialog"], [data-ide-text-input]')
+      ) {
+        // Not ours to run, but the browser's own meaning (Save Page, Print)
+        // would be just as wrong while typing in a field or answering a dialog.
+        if (id) event.preventDefault()
+        return
+      }
       if (!id) return
       const handler = handlersRef.current[id]
       if (!handler) return

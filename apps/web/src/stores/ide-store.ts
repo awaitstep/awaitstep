@@ -12,8 +12,7 @@ import {
   type TabState,
 } from '../lib/ide/tabs'
 
-export type IdeDialog =
-  'palette' | 'quickOpen' | 'newFile' | 'renameFile' | 'deleteFile' | 'convertHandlers'
+export type IdeDialog = 'palette' | 'quickOpen' | 'renameFile' | 'deleteFile' | 'convertHandlers'
 
 export interface RevealTarget {
   path: string
@@ -31,6 +30,18 @@ export interface RestoreNotice {
   deleted: string[]
 }
 
+/** The mounted editor, for things outside it that need to drive it. */
+export interface EditorHandle {
+  focus: () => void
+  /** Runs a Monaco action by id, e.g. `editor.action.gotoLine`. */
+  trigger: (actionId: string) => void
+}
+
+export interface CursorPosition {
+  line: number
+  column: number
+}
+
 export interface IdeSessionState extends TabState {
   /** A location the editor should scroll to once its model is active. */
   reveal: RevealTarget | null
@@ -43,6 +54,10 @@ export interface IdeSessionState extends TabState {
   /** A close waiting on Save / Don't save / Cancel; null when none is. */
   closeRequest: CloseRequest | null
   restoreNotice: RestoreNotice | null
+  /** Where the caret is in the active editor; the status bar shows it. */
+  cursor: CursorPosition
+  /** Not reactive state: set when the editor mounts, read when something must drive it. */
+  editorHandle: EditorHandle | null
 
   openFile: (path: string) => void
   revealLocation: (target: RevealTarget) => void
@@ -72,6 +87,8 @@ export interface IdeSessionState extends TabState {
   /** Replaces every draft at once (an Undo, a restore after reload). */
   replaceDrafts: (drafts: Drafts) => void
   setRestoreNotice: (notice: RestoreNotice | null) => void
+  setCursor: (cursor: CursorPosition) => void
+  setEditorHandle: (handle: EditorHandle | null) => void
   /** Carries a draft (and its tab) along with a renamed file. */
   moveFile: (from: string, to: string) => void
   /** Drops drafts that no longer differ from the baseline (saved or reverted). */
@@ -91,6 +108,8 @@ const initialSession = {
   drafts: {} as Drafts,
   closeRequest: null as CloseRequest | null,
   restoreNotice: null as RestoreNotice | null,
+  cursor: { line: 1, column: 1 } as CursorPosition,
+  editorHandle: null as EditorHandle | null,
 }
 
 function without(drafts: Drafts, path: string): Drafts {
@@ -133,6 +152,11 @@ export const useIdeStore = create<IdeSessionState>()((set, get) => ({
   clearDrafts: () => set({ drafts: {} }),
   replaceDrafts: (drafts) => set({ drafts }),
   setRestoreNotice: (restoreNotice) => set({ restoreNotice }),
+  setCursor: (cursor) => {
+    const current = get().cursor
+    if (current.line !== cursor.line || current.column !== cursor.column) set({ cursor })
+  },
+  setEditorHandle: (editorHandle) => set({ editorHandle }),
   moveFile: (from, to) => {
     const state = get()
     const draft = state.drafts[from]

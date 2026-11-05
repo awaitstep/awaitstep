@@ -18,11 +18,14 @@ const EDITABLE: Editability = { readOnly: false, message: null }
  * does. Older versions are frozen — they deploy the snapshot they were
  * saved with, so an edit there would have nowhere to land.
  */
+/** Why an older version cannot be edited; shown whichever file is open. */
+export const OLDER_VERSION_MESSAGE = 'Older versions are read-only. Open the latest to edit.'
+
 export function workspaceEditability(ctx: WorkspaceContext): Editability {
   if (ctx.historical) {
     return {
       readOnly: true,
-      message: 'Older versions are read-only. Open the latest to edit.',
+      message: OLDER_VERSION_MESSAGE,
     }
   }
   return EDITABLE

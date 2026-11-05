@@ -6,7 +6,12 @@ import { browserStorage } from './ssr-safe-storage'
 export type DockTab = 'problems' | 'output' | 'run' | 'quickTest'
 
 /** The two resizable groups: explorer | main, and editor / dock inside main. */
-export type IdeLayoutKey = 'workspace' | 'editor'
+/**
+ * Layouts are remembered per set of panels showing: the library only applies a
+ * saved layout when it names exactly the panels mounted, so the workspace
+ * group is keyed by which of explorer / preview are open.
+ */
+export type IdeLayoutKey = string
 
 interface IdeLayoutState {
   explorerOpen: boolean
@@ -14,7 +19,7 @@ interface IdeLayoutState {
   /** The read-only graph floating over the editor. */
   previewOpen: boolean
   dockTab: DockTab
-  layouts: Partial<Record<IdeLayoutKey, Layout>>
+  layouts: Partial<Record<string, Layout>>
   toggleExplorer: () => void
   toggleDock: () => void
   togglePreview: () => void

@@ -28,6 +28,26 @@ export function closeTabs(state: TabState, paths: readonly string[]): TabState {
   return paths.reduce((next, path) => closeTab(next, path), state)
 }
 
+/**
+ * The tab a navigation key lands on: arrows step (wrapping), Home and End
+ * jump to the ends. Null for any other key, or when there is nothing to move to.
+ */
+export function nextTabIndex(key: string, current: number, count: number): number | null {
+  if (count < 2 || current < 0) return null
+  switch (key) {
+    case 'ArrowRight':
+      return (current + 1) % count
+    case 'ArrowLeft':
+      return (current - 1 + count) % count
+    case 'Home':
+      return 0
+    case 'End':
+      return count - 1
+    default:
+      return null
+  }
+}
+
 export function closeAllTabs(): TabState {
   return EMPTY_TABS
 }

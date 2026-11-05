@@ -1,7 +1,6 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef } from 'react'
 import { useMonaco } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
-import { Lock } from 'lucide-react'
 import type { GeneratedFile } from '@awaitstep/codegen'
 import { useShallow } from 'zustand/react/shallow'
 import type { Editability } from '../../lib/ide/editability'
@@ -24,9 +23,9 @@ import { IDE_EDITOR_OPTIONS, IDE_READONLY_EDITOR_OPTIONS } from '../../lib/monac
 import { useWorkflowTypeContext } from '../../lib/monaco/use-workflow-type-context'
 import { useIdeStore } from '../../stores/ide-store'
 import { EditorPlaceholder } from './editor-placeholder'
+import { EditorFileBanner } from './editor-file-banner'
 import { EditorTabs } from './editor-tabs'
 import { RestoredDraftsBanner } from './restored-drafts-banner'
-import { roleTitle } from './file-icon'
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
@@ -42,11 +41,13 @@ interface EditorGroupProps {
   onChange: (path: string, source: string) => void
   /** Drops one file's unsaved edits (the tab menu's Revert file). */
   onRevertFile: (path: string) => void
-}
-
-interface CursorPosition {
-  line: number
-  column: number
+  /** Files that come from legacy settings and are not stored yet. */
+  virtualPaths: ReadonlySet<string>
+  /** The workspace is showing an older version. */
+  historical: boolean
+  onOpenLatest: () => void
+  onSaveAsFile: (path: string) => void
+  onConvertHandlers: () => void
 }
 
 export function EditorGroup({
@@ -56,15 +57,25 @@ export function EditorGroup({
   editabilityOf,
   onChange,
   onRevertFile,
+  virtualPaths,
+  historical,
+  onOpenLatest,
+  onSaveAsFile,
+  onConvertHandlers,
 }: EditorGroupProps) {
   useWorkflowTypeContext()
   const monacoTheme = useMonacoTheme()
   const monaco = useMonaco()
-  const { activePath, reveal, clearReveal } = useIdeStore(
-    useShallow((s) => ({ activePath: s.activePath, reveal: s.reveal, clearReveal: s.clearReveal })),
+  const { activePath, reveal, clearReveal, setCursor, setEditorHandle } = useIdeStore(
+    useShallow((s) => ({
+      activePath: s.activePath,
+      reveal: s.reveal,
+      clearReveal: s.clearReveal,
+      setCursor: s.setCursor,
+      setEditorHandle: s.setEditorHandle,
+    })),
   )
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
-  const [cursor, setCursor] = useState<CursorPosition>({ line: 1, column: 1 })
 
   const activeFile = activePath ? files.get(activePath) : undefined
   const editability = activePath ? editabilityOf(activePath) : null
@@ -144,7 +155,21 @@ export function EditorGroup({
     instance.onDidChangeCursorPosition((event) => {
       setCursor({ line: event.position.lineNumber, column: event.position.column })
     })
-    instance.onDidChangeModel(applyReveal)
+    setEditorHandle({
+      focus: () => instance.focus(),
+      trigger: (actionId) => void instance.getAction(actionId)?.run(),
+    })
+    // Switching models fires no cursor event, so read the caret afresh.
+    function syncCursor() {
+      const position = instance.getPosition()
+      if (position) setCursor({ line: position.lineNumber, column: position.column })
+    }
+    instance.onDidChangeModel(() => {
+      syncCursor()
+      applyReveal()
+    })
+    instance.onDidDispose(() => setEditorHandle(null))
+    syncCursor()
     applyReveal()
   }
 
@@ -163,6 +188,17 @@ export function EditorGroup({
     <div className="flex h-full min-h-0 flex-col">
       <RestoredDraftsBanner />
       <EditorTabs files={files} dirty={dirty} onRevertFile={onRevertFile} />
+      {activeFile && editability && (
+        <EditorFileBanner
+          path={activeFile.path}
+          editability={editability}
+          isVirtual={virtualPaths.has(activeFile.path)}
+          historical={historical}
+          onOpenLatest={onOpenLatest}
+          onSaveAsFile={onSaveAsFile}
+          onConvertHandlers={onConvertHandlers}
+        />
+      )}
       <div className="min-h-0 flex-1">
         {activeFile && editability ? (
           <Suspense fallback={<div className="h-full bg-editor" />}>
@@ -186,60 +222,6 @@ export function EditorGroup({
           </Suspense>
         ) : (
           <EditorPlaceholder />
-        )}
-      </div>
-      <EditorStatusBar
-        file={activeFile}
-        cursor={cursor}
-        editability={editability}
-        dirty={activeFile ? dirty.has(activeFile.path) : false}
-      />
-    </div>
-  )
-}
-
-function EditorStatusBar({
-  file,
-  cursor,
-  editability,
-  dirty,
-}: {
-  file: GeneratedFile | undefined
-  cursor: CursorPosition
-  editability: Editability | null
-  dirty: boolean
-}) {
-  return (
-    <div className="flex h-6 shrink-0 items-center justify-between border-t border-border bg-card px-3 text-[11px] text-muted-foreground/70">
-      <div className="flex min-w-0 items-center gap-3">
-        {file ? (
-          <>
-            <span className="truncate font-mono" title={file.path}>
-              {file.path}
-            </span>
-            <span className="hidden shrink-0 sm:inline" title={roleTitle(file.role)}>
-              {file.role}
-            </span>
-            {dirty && <span className="shrink-0 text-status-warning">Modified</span>}
-          </>
-        ) : (
-          <span>No file open</span>
-        )}
-      </div>
-      <div className="flex shrink-0 items-center gap-3">
-        {editability?.readOnly && (
-          <span className="inline-flex items-center gap-1" title={editability.message ?? undefined}>
-            <Lock className="h-3 w-3" />
-            Read-only
-          </span>
-        )}
-        {file && (
-          <>
-            <span className="tabular-nums">
-              Ln {cursor.line}, Col {cursor.column}
-            </span>
-            <span>{fileLanguage(file.path)}</span>
-          </>
         )}
       </div>
     </div>

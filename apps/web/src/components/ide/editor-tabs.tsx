@@ -15,6 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
+import { nextTabIndex } from '../../lib/ide/tabs'
 import { FileIcon } from './file-icon'
 
 interface EditorTabsProps {
@@ -42,9 +43,29 @@ export function EditorTabs({ files, dirty, onRevertFile }: EditorTabsProps) {
     requestClose(openPaths)
   }
 
+  // Arrow keys move between tabs (the active one is the tab stop), Home and
+  // End jump to the ends, and Esc hands the keyboard back to the editor.
+  function handleTabListKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key === 'Escape') {
+      useIdeStore.getState().editorHandle?.focus()
+      return
+    }
+    const next = nextTabIndex(
+      event.key,
+      activePath ? openPaths.indexOf(activePath) : -1,
+      openPaths.length,
+    )
+    if (next === null) return
+    event.preventDefault()
+    openFile(openPaths[next]!)
+    const tabs = event.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]')
+    tabs[next]?.focus()
+  }
+
   return (
     <div
       role="tablist"
+      onKeyDown={handleTabListKeyDown}
       className="flex h-9 shrink-0 items-stretch overflow-x-auto border-b border-border bg-card [scrollbar-width:thin]"
     >
       {openPaths.map((path) => (
@@ -96,8 +117,7 @@ function EditorTab({
     setMenuOpen(true)
   }
 
-  // Tabs are not in the page's tab order yet (roving focus lands with the
-  // shell); the active one is, so the keyboard menu chords have a target.
+  // The active tab is the one tab stop; arrows move between tabs.
   function handleKeyDown(event: React.KeyboardEvent) {
     if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
       event.preventDefault()
@@ -166,6 +186,7 @@ function EditorTab({
       <span className={cn('truncate', dirty && 'italic')}>{basename(path)}</span>
       <button
         type="button"
+        tabIndex={-1}
         aria-label={`Close ${basename(path)}`}
         onClick={handleClose}
         className={cn(
