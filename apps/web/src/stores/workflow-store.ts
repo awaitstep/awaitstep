@@ -194,6 +194,8 @@ interface WorkflowState {
     registry?: NodeRegistry,
   ) => void
   updateNodeData: (nodeId: string, data: Partial<WorkflowNode>) => void
+  /** Sets one `data` field, merging into the node as it is in the store at write time. */
+  updateNodeField: (nodeId: string, fieldId: string, value: unknown) => void
   removeNode: (nodeId: string) => void
   selectNode: (nodeId: string | null) => void
   selectEdge: (edgeId: string | null) => void
@@ -599,9 +601,10 @@ export const useWorkflowStore = create<WorkflowState>()(
       updateNodeData: (nodeId, data) => {
         if (get().readOnly) return
         const currentNode = get().nodes.find((n) => n.id === nodeId)
-        const updatedIrNode = currentNode
-          ? ({ ...currentNode.data.irNode, ...data } as WorkflowNode)
-          : null
+        // A write for a node that is gone (deleted, or replaced by a reload)
+        // changes nothing, so it must not mark the draft dirty either.
+        if (!currentNode) return
+        const updatedIrNode = { ...currentNode.data.irNode, ...data } as WorkflowNode
 
         // Sync edge labels when branch labels change
         let edges = get().edges
@@ -630,12 +633,20 @@ export const useWorkflowStore = create<WorkflowState>()(
               ...node,
               data: {
                 ...node.data,
-                irNode: updatedIrNode!,
+                irNode: updatedIrNode,
               },
             }
           }),
           edges,
           isDirty: true,
+        })
+      },
+
+      updateNodeField: (nodeId, fieldId, value) => {
+        const currentNode = get().nodes.find((n) => n.id === nodeId)
+        if (!currentNode) return
+        get().updateNodeData(nodeId, {
+          data: { ...currentNode.data.irNode.data, [fieldId]: value },
         })
       },
 

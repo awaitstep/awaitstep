@@ -19,6 +19,8 @@ interface CodeEditorProps {
   debounceMs?: number
   /** Stable model URI (see workflowModelPath) so panes share one model. */
   path?: string
+  /** Shows the code without accepting edits (a read-only version). */
+  readOnly?: boolean
 }
 
 const editorOptions = { ...BASE_EDITOR_OPTIONS, padding: { top: 6, bottom: 6 } }
@@ -33,6 +35,7 @@ export function CodeEditor({
   title,
   debounceMs,
   path,
+  readOnly = false,
 }: CodeEditorProps) {
   const monacoTheme = useMonacoTheme()
   const [mounted, setMounted] = useState(false)
@@ -138,7 +141,7 @@ export function CodeEditor({
               onMount={handleMount}
               theme={monacoTheme}
               beforeMount={configureMonaco}
-              options={FULLSCREEN_EDITOR_OPTIONS}
+              options={{ ...FULLSCREEN_EDITOR_OPTIONS, readOnly }}
             />
           </Suspense>
         </div>
@@ -148,6 +151,8 @@ export function CodeEditor({
 
   return (
     <div
+      // A definite height lets a percentage (`height="100%"` to fill a pane) resolve.
+      style={{ height }}
       className={cn('group relative overflow-hidden', bordered && 'rounded-lg border border-input')}
       onKeyDown={(e) => e.stopPropagation()}
     >
@@ -178,7 +183,7 @@ export function CodeEditor({
           onMount={handleMount}
           theme={monacoTheme}
           beforeMount={configureMonaco}
-          options={editorOptions}
+          options={{ ...editorOptions, readOnly }}
         />
       </Suspense>
     </div>

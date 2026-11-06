@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useId, useMemo, useState } from 'react'
 import { actionToast } from '../../lib/action-toast'
 import { X, Trash2, Info, Plus } from 'lucide-react'
 import { Button } from '../ui/button'
@@ -8,6 +8,7 @@ import { Separator } from '../ui/separator'
 import { CodeEditor } from '../ui/code-editor'
 import { Select } from '../ui/select'
 import { DynamicFields } from './dynamic-fields'
+import { StepEnlargedEditor, StepFields } from './step-fields'
 import { ExpressionEditor } from './expression-editor'
 import { getNodeVisuals } from '../../lib/node-icon-map'
 import { cn } from '../../lib/utils'
@@ -17,24 +18,7 @@ import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { customAlphabet } from 'nanoid'
 
 const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789_', 12)
-import type { WorkflowNode, BranchCondition, ConfigField } from '@awaitstep/ir'
-
-const STEP_DURABLE_FIELDS = new Set(['retryLimit', 'retryDelay', 'backoff', 'timeout'])
-
-function filterStepConfigSchema(
-  schema: Record<string, ConfigField>,
-  isScript: boolean,
-  isInline: boolean,
-): Record<string, ConfigField> {
-  if (!isScript && !isInline) return schema
-  const filtered: Record<string, ConfigField> = {}
-  for (const [key, field] of Object.entries(schema)) {
-    if (isScript && key === 'inline') continue
-    if ((isScript || isInline) && STEP_DURABLE_FIELDS.has(key)) continue
-    filtered[key] = field
-  }
-  return filtered
-}
+import type { WorkflowNode, BranchCondition } from '@awaitstep/ir'
 
 const NESTED_STEP_PATTERN = /step\.(do|sleep|sleepUntil|waitForEvent)\s*\(/
 
@@ -99,39 +83,87 @@ export function validateNode(node: WorkflowNode): string[] {
 }
 
 export function NodeConfigPanel() {
-  const { selectedNodeId, nodes, kind } = useWorkflowStore(
-    useShallow((s) => ({ selectedNodeId: s.selectedNodeId, nodes: s.nodes, kind: s.kind })),
+  const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId)
+  // Keyed by the node, so the enlarged editor and the folded section start
+  // afresh when another node is picked.
+  if (!selectedNodeId) return null
+  return <NodeConfigBody key={selectedNodeId} />
+}
+
+function NodeConfigBody() {
+  const { selectedNodeId, nodes, kind, readOnly } = useWorkflowStore(
+    useShallow((s) => ({
+      selectedNodeId: s.selectedNodeId,
+      nodes: s.nodes,
+      kind: s.kind,
+      readOnly: s.readOnly,
+    })),
   )
-  const { updateNodeData, removeNode, selectNode } = useWorkflowStore()
+  const { updateNodeData, updateNodeField, removeNode, selectNode } = useWorkflowStore()
   const { registry } = useNodeRegistry()
+  // 'collapsed' is 'fields' after a visit to the enlarged editor, so focus returns to Enlarge.
+  const [editorView, setEditorView] = useState<'fields' | 'enlarged' | 'collapsed'>('fields')
+  const nameId = useId()
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId)
   const irNode = selectedNode?.data.irNode ?? null
 
   const tryClose = useCallback(() => {
-    if (!irNode) return
-    const errors = validateNode(irNode)
+    if (!selectedNodeId) return
+    // The editors write a pending edit on blur, so what was just typed is
+    // checked — not the node as it was when this panel last rendered.
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+    const current = useWorkflowStore.getState().nodes.find((n) => n.id === selectedNodeId)
+      ?.data.irNode
+    if (!current) return
+    const errors = validateNode(current)
     if (errors.length > 0) {
       // The form marks no field, so the reason rides as the description (D-AT-4).
       actionToast.error('Fix this step before leaving it', { description: errors[0] })
       return
     }
     selectNode(null)
-  }, [irNode, selectNode])
+  }, [selectedNodeId, selectNode])
 
   if (!selectedNode || !irNode) return null
 
   const definition = registry.get(irNode.type)
   const visuals = getNodeVisuals(irNode.type, definition?.icon)
 
+  // Merged at write time by the store: a debounced edit landing after a
+  // reload must not put this render's snapshot of the node back.
   const updateData = (fieldId: string, value: unknown) => {
-    updateNodeData(selectedNode.id, {
-      data: { ...irNode.data, [fieldId]: value },
-    })
+    updateNodeField(selectedNode.id, fieldId, value)
   }
 
   const update = (data: Partial<WorkflowNode>) => {
     updateNodeData(selectedNode.id, data)
+  }
+
+  function handleEnlarge() {
+    setEditorView('enlarged')
+  }
+
+  function handleCollapse() {
+    setEditorView('collapsed')
+  }
+
+  const handleDelete = () => {
+    removeNode(selectedNode.id)
+  }
+
+  if (editorView === 'enlarged' && irNode.type === 'step') {
+    return (
+      <StepEnlargedEditor
+        node={irNode}
+        kind={kind}
+        visuals={visuals}
+        readOnly={readOnly}
+        onChange={updateData}
+        onCollapse={handleCollapse}
+        onClose={tryClose}
+      />
+    )
   }
 
   return (
@@ -147,7 +179,7 @@ export function NodeConfigPanel() {
             {visuals.paletteIcon}
           </div>
           <div>
-            <span className="text-sm font-semibold text-foreground">Edit Node</span>
+            <span className="text-sm font-semibold text-foreground">Edit node</span>
             <span className="ml-2 rounded bg-muted/60 px-1.5 py-0.5 font-mono text-xs text-muted-foreground/60">
               {definition?.name ?? irNode.type}
             </span>
@@ -158,7 +190,9 @@ export function NodeConfigPanel() {
             variant="ghost"
             size="icon"
             className="h-7 w-7 text-destructive hover:text-destructive"
-            onClick={() => removeNode(selectedNode.id)}
+            aria-label="Delete node"
+            disabled={readOnly}
+            onClick={handleDelete}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
@@ -166,6 +200,7 @@ export function NodeConfigPanel() {
             variant="ghost"
             size="icon"
             className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            aria-label="Close panel"
             onClick={tryClose}
           >
             <X className="h-3.5 w-3.5" />
@@ -174,9 +209,11 @@ export function NodeConfigPanel() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 scrollbar-none">
-        <div className="space-y-4">
-          <Field label="Node name" hint="Max 256 characters">
+        {/* A disabled fieldset disables every control in it, so a read-only version is read-only here too. */}
+        <fieldset disabled={readOnly} className="min-w-0 space-y-4">
+          <Field label="Name" htmlFor={nameId}>
             <Input
+              id={nameId}
               value={irNode.name}
               onChange={(e) => update({ name: e.target.value.slice(0, 256) })}
               debounceMs={300}
@@ -188,7 +225,7 @@ export function NodeConfigPanel() {
           <Separator className="!bg-muted/60" />
 
           {irNode.type === 'branch' ? (
-            <BranchFields node={irNode} onUpdate={update} />
+            <BranchFields node={irNode} onUpdateField={updateData} />
           ) : irNode.type === 'parallel' ? (
             <ForkFields hint="Connect several nodes to this output to run them at the same time. Branches aren’t durable on their own. Use separate Workflow instances for durable parallelism." />
           ) : irNode.type === 'race' ? (
@@ -196,7 +233,7 @@ export function NodeConfigPanel() {
           ) : irNode.type === 'try_catch' ? (
             <TryCatchFields />
           ) : irNode.type === 'loop' ? (
-            <LoopFields node={irNode} onUpdate={update} />
+            <LoopFields node={irNode} onUpdateField={updateData} />
           ) : irNode.type === 'break' ? (
             <>
               <Field label="Condition" hint="Leave blank to always break.">
@@ -213,21 +250,31 @@ export function NodeConfigPanel() {
                 (return). Leave the condition empty for unconditional exit.
               </Hint>
             </>
-          ) : definition ? (
-            <DynamicFields
-              configSchema={
-                irNode.type === 'step'
-                  ? filterStepConfigSchema(
-                      definition.configSchema,
-                      kind === 'script',
-                      Boolean(irNode.data.inline),
-                    )
-                  : definition.configSchema
-              }
-              data={irNode.data}
+          ) : irNode.type === 'step' && definition ? (
+            <StepFields
+              node={irNode}
+              kind={kind}
+              schema={definition.configSchema}
+              readOnly={readOnly}
               onChange={updateData}
-              nodeId={irNode.id}
+              onEnlarge={handleEnlarge}
+              focusEnlarge={editorView === 'collapsed'}
             />
+          ) : definition ? (
+            <>
+              <DynamicFields
+                configSchema={definition.configSchema}
+                data={irNode.data}
+                onChange={updateData}
+                nodeId={irNode.id}
+                readOnly={readOnly}
+              />
+              {irNode.type === 'sleep' && (
+                <Hint>
+                  The run pauses durably and resumes after the delay. No code, no retries.
+                </Hint>
+              )}
+            </>
           ) : (
             <div className="flex items-start gap-1.5 rounded-lg bg-destructive/10 px-2.5 py-2 text-xs leading-relaxed text-destructive">
               <Info className="mt-0.5 h-3 w-3 shrink-0" />
@@ -237,11 +284,11 @@ export function NodeConfigPanel() {
               </span>
             </div>
           )}
-        </div>
+        </fieldset>
       </div>
 
       <div className="border-t border-border px-4 py-2.5">
-        <span className="text-xs text-muted-foreground/40">ID: {selectedNode.id}</span>
+        <span className="font-mono text-xs text-muted-foreground/40">ID {selectedNode.id}</span>
       </div>
     </div>
   )
@@ -250,16 +297,20 @@ export function NodeConfigPanel() {
 function Field({
   label,
   hint,
+  htmlFor,
   children,
 }: {
   label: string
   hint?: string
+  htmlFor?: string
   children: React.ReactNode
 }) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <Label className="text-xs text-muted-foreground">{label}</Label>
+        <Label htmlFor={htmlFor} className="text-xs text-muted-foreground">
+          {label}
+        </Label>
         {hint && <span className="text-xs text-muted-foreground/40">{hint}</span>}
       </div>
       {children}
@@ -345,10 +396,10 @@ function useEdgeManagement() {
 
 function BranchFields({
   node,
-  onUpdate,
+  onUpdateField,
 }: {
   node: WorkflowNode
-  onUpdate: (d: Partial<WorkflowNode>) => void
+  onUpdateField: (fieldId: string, value: unknown) => void
 }) {
   const {
     nodes: allNodes,
@@ -403,7 +454,7 @@ function BranchFields({
       })
     }
     const updated = branches.map((b, i) => (i === index ? { ...b, [field]: value } : b))
-    onUpdate({ data: { ...node.data, branches: updated } })
+    onUpdateField('branches', updated)
   }
 
   const addBranch = () => {
@@ -420,7 +471,7 @@ function BranchFields({
     } else {
       updated.push({ label, condition: 'true' })
     }
-    onUpdate({ data: { ...node.data, branches: updated } })
+    onUpdateField('branches', updated)
   }
 
   const removeBranch = (index: number) => {
@@ -431,7 +482,10 @@ function BranchFields({
       const store = useWorkflowStore.getState()
       useWorkflowStore.setState({ edges: store.edges.filter((e) => e.id !== edge.id) })
     }
-    onUpdate({ data: { ...node.data, branches: branches.filter((_, i) => i !== index) } })
+    onUpdateField(
+      'branches',
+      branches.filter((_, i) => i !== index),
+    )
   }
 
   return (
@@ -559,17 +613,17 @@ function TryCatchFields() {
 
 function LoopFields({
   node,
-  onUpdate,
+  onUpdateField,
 }: {
   node: WorkflowNode
-  onUpdate: (d: Partial<WorkflowNode>) => void
+  onUpdateField: (fieldId: string, value: unknown) => void
 }) {
   const { targetOptions, getTargetForLabel, setTargetForLabel } = useEdgeManagement()
 
   const loopType = String(node.data.loopType ?? 'forEach')
 
   const updateField = (field: string, value: unknown) => {
-    onUpdate({ data: { ...node.data, [field]: value } })
+    onUpdateField(field, value)
   }
 
   return (

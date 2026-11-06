@@ -77,4 +77,17 @@ describe('CodeEditor with debounceMs', () => {
     expect(first).not.toHaveBeenCalled()
     expect(second).toHaveBeenCalledWith('abc')
   })
+
+  it('gives the frame the editor’s height so a percentage can fill a pane', async () => {
+    const { container } = render(
+      <CodeEditor value="a" onChange={vi.fn()} height="100%" bordered={false} />,
+    )
+    await screen.findByLabelText('code')
+    expect((container.firstChild as HTMLElement).style.height).toBe('100%')
+  })
+
+  it('passes readOnly on to the editor', async () => {
+    render(<CodeEditor value="a" onChange={vi.fn()} readOnly />)
+    expect(await screen.findByLabelText('code')).toHaveAttribute('data-readonly', 'true')
+  })
 })
