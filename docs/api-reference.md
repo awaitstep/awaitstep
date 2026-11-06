@@ -72,8 +72,10 @@ List all workflows in the active project.
 | `workspace` / `workspaceId` | query | no       | Only this workspace's  |
 | `kind`                      | query | no       | `workflow` or `script` |
 
-Each row carries `workspaceId`, `deployedVersion` (the version number the
-latest deployment put live, or null), `recentRunStatuses` (the last ten
+Each row carries `workspaceId`, `deployedVersion` (the version number of the
+newest deployment still live on an account, or null once it is live nowhere),
+`deployStatus` (`success` while live on any account, else the newest deployment's
+status, or null), `recentRunStatuses` (the last ten
 finished runs, newest first) and `sharing` (`{ sharedAt, sharedBy: { id, name } }`
 while it is shared to the project, else null). Workflow rows, here and on
 `GET /workflows/:id`, also carry the raw `sharedBy` (a user id) and `sharedAt`
@@ -101,7 +103,7 @@ Get a single workflow by ID.
 
 ### `GET /workflows/:id/full`
 
-Get a workflow with its current version, all version summaries, and active deployment. `handlers` reports the project's handler modules (`modules`, `consumedQueues`); while a project still has the legacy `handlers.ts` file, `workflow.triggerCode` carries its contents, and once it uses modules `triggerCode` is `null` (see [Project files](#project-files)).
+Get a workflow with its current version, all version summaries, and `liveDeployments`: what is live on each account, newest first (the same entries as `deployedWith` below). `handlers` reports the project's handler modules (`modules`, `consumedQueues`); while a project still has the legacy `handlers.ts` file, `workflow.triggerCode` carries its contents, and once it uses modules `triggerCode` is `null` (see [Project files](#project-files)).
 
 **Permission:** `workflows:read`
 
@@ -978,6 +980,9 @@ Get a specific version including its IR and generated code.
 ### `POST /workflows/:workflowId/versions`
 
 Create a new version by submitting a workflow IR. The IR is validated and compiled to code.
+While the latest version has never been deployed on any account, a save replaces it in place
+(`200`); once it has gone out anywhere — live there now or since taken down — the save is a
+new version (`201`).
 
 Node ids (and edge `source`/`target`) must be non-empty and free of control characters (U+0000-U+001F, U+007F-U+009F, U+2028, U+2029); any other text is accepted. A violation fails validation with a 400.
 
@@ -997,7 +1002,8 @@ The same rule applies to an IR that is already stored: reading its source (`GET 
 
 ### `PATCH /workflows/:workflowId/versions/:versionId`
 
-Lock or unlock a version. Locked versions cannot be deployed or deleted.
+Lock or unlock a version. Locked versions cannot be deployed or deleted, and a locked version
+live on an account can't be replaced there.
 
 **Permission:** `workflows:write`
 
@@ -1025,7 +1031,7 @@ Revert to a previous version. Creates a new version with the target version's IR
 
 ### `DELETE /workflows/:workflowId/versions/:versionId`
 
-Delete a version. Cannot delete the active version, the version the workflow's newest deploy carries, a locked version, or any of the 3 newest versions (kept so a bad deploy can be rolled back). Deployments and runs keep the deleted version's number (`version` / `versionNumber`); their `versionId` becomes `null`.
+Delete a version. Cannot delete the active version, a version live on any account (that account's newest successful deploy), a locked version, or any of the 3 newest versions (kept so a bad deploy can be rolled back). Deployments and runs keep the deleted version's number (`version` / `versionNumber`); their `versionId` becomes `null`.
 
 **Permission:** `workflows:delete`
 
@@ -1423,6 +1429,9 @@ List deployments for a specific workflow, newest first. Each has `createdBy`
 (the user who deployed it) and `createdByName`, `null` on deployments made
 before authors were kept, plus `version` and `versionLocked` (`1` when locked):
 the deployed version's number (kept after that version is deleted) and its lock (`null` then). Deployed with an API key, the user is the key's creator.
+`status` is `success`, `failed` or `taken_down` (with `takenDownAt` and `takenDownBy`, the
+user who took it down); what is live on an account is its newest `success` row.
+`connectionName` names its account (`null` once the account is deleted).
 
 **Permission:** `runs:read`
 
@@ -1450,9 +1459,28 @@ chosen: its workspace's own account, else the project default.
       "tokenExpiresAt": null
     }
   ],
-  "defaultId": "con_1"
+  "defaultId": "con_1",
+  "deployedWith": [
+    {
+      "id": "con_1",
+      "name": "Acme production",
+      "deploymentId": "dep_9",
+      "serviceUrl": "https://awaitstep-wf-1.acme.workers.dev",
+      "versionId": "ver_5",
+      "version": 5,
+      "versionLocked": false,
+      "deployedAt": "2026-11-06T10:00:00.000Z",
+      "deployedByName": "Ama Mensah"
+    }
+  ]
 }
 ```
+
+`deployedWith` is what is live on each account the workflow was deployed with,
+newest first: that account's newest successful deployment, its worker URL, its version
+(`version` outlives a deleted version, when `versionId` is `null`) and who sent
+it. A trigger may only name one of these accounts, whether or not the project
+still has it; a taken-down account drops out.
 
 ### `POST /workflows/:workflowId/deploy`
 
@@ -1522,8 +1550,10 @@ Created instances use the **instance retention** settings from the workflow's st
 
 ### `POST /workflows/:workflowId/takedown`
 
-Take the workflow down from one connection's account: its deployments there are removed. Its
-deployments on other connections, and its saved versions, stay.
+Take the workflow down from one connection's account. Its successful deployments there stay
+listed as history with `status: "taken_down"`, `takenDownAt` and `takenDownBy`; the account
+leaves `deployedWith`, so triggers on it answer `404`. Its deployments on other connections,
+and its saved versions, stay as they are.
 
 **Permission:** `workflows:deploy`
 

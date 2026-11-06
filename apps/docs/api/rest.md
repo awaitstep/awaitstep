@@ -110,7 +110,7 @@ Get a single workflow by ID.
 
 ### <span class="api-method get">GET</span> <span class="api-endpoint">/workflows/:id/full</span> <span class="api-scope">workflows:read</span>
 
-Get a workflow with its current version, all version summaries, and active deployment.
+Get a workflow with its current version, all version summaries, and `liveDeployments`: what is live on each account, newest first.
 
 | Param     | In    | Required | Description                 |
 | --------- | ----- | -------- | --------------------------- |
@@ -312,7 +312,7 @@ Get a specific version including its IR and generated code.
 
 ### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/versions</span> <span class="api-scope">workflows:write</span>
 
-Create a new version by submitting a workflow IR. The IR is validated and compiled to code.
+Create a new version by submitting a workflow IR. The IR is validated and compiled to code. While the latest version has never been deployed on any account, a save replaces it in place; once it has gone out anywhere, even if since taken down, the save is a new version.
 
 **Request body:**
 
@@ -324,7 +324,7 @@ Create a new version by submitting a workflow IR. The IR is validated and compil
 
 ### <span class="api-method patch">PATCH</span> <span class="api-endpoint">/workflows/:workflowId/versions/:versionId</span> <span class="api-scope">workflows:write</span>
 
-Lock or unlock a version. Locked versions cannot be deployed.
+Lock or unlock a version. Locked versions cannot be deployed, and a locked version live on an account can't be replaced there.
 
 **Request body:**
 
@@ -342,7 +342,7 @@ Revert to a previous version. Creates a new version with the target version's IR
 
 ### <span class="api-method delete">DELETE</span> <span class="api-endpoint">/workflows/:workflowId/versions/:versionId</span> <span class="api-scope">workflows:delete</span>
 
-Delete a version. Cannot delete the active version, the one the newest deploy carries, a locked version, or any of the 3 newest versions (kept so a bad deploy can be rolled back). Deployments and runs keep the deleted version's number.
+Delete a version. Cannot delete the active version, one live on any account, a locked version, or any of the 3 newest versions (kept so a bad deploy can be rolled back). Deployments and runs keep the deleted version's number.
 
 ---
 
@@ -420,8 +420,9 @@ This endpoint is for `kind: "workflow"` only. Calling it on a function (`kind: "
 
 ### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/takedown</span> <span class="api-scope">workflows:deploy</span>
 
-Take the workflow down from one connection's account: its deployments there are removed. Its
-deployments on other connections, and its saved versions, stay.
+Take the workflow down from one connection's account. Its deployments there stay listed as
+history with `status: "taken_down"`, and triggers on that account answer `404`. Its
+deployments on other connections, and its saved versions, stay as they are.
 
 **Request body:**
 
