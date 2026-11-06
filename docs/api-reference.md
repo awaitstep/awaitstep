@@ -1518,7 +1518,8 @@ Created instances use the **instance retention** settings from the workflow's st
 
 ### `POST /workflows/:workflowId/takedown`
 
-Remove a deployment and clear the workflow's active version.
+Take the workflow down from one connection's account: its deployments there are removed. Its
+deployments on other connections, and its saved versions, stay.
 
 **Permission:** `workflows:deploy`
 

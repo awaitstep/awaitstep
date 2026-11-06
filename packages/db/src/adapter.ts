@@ -807,7 +807,15 @@ export interface DatabaseAdapter {
     visibleTo?: string,
     workspaceId?: string,
   ): Promise<PaginatedResult<Deployment>>
-  deleteDeploymentsByWorkflow(workflowId: string): Promise<void>
+  /**
+   * A takedown on one account: that account's rows made up to `before` go (a deploy
+   * finishing during the takedown keeps its row); the other accounts' rows stay.
+   */
+  deleteDeploymentsOnConnection(
+    workflowId: string,
+    connectionId: string,
+    before: string,
+  ): Promise<void>
 
   // Deployment Configs
   getDeploymentConfig(workflowId: string, connectionId: string): Promise<DeploymentConfig | null>

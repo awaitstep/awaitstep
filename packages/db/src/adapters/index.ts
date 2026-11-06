@@ -1454,8 +1454,12 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     return paginateResults(rows, limit, (row) => row.createdAt)
   }
 
-  deleteDeploymentsByWorkflow(workflowId: string): Promise<void> {
-    return this._deployments.deleteByWorkflow(workflowId)
+  deleteDeploymentsOnConnection(
+    workflowId: string,
+    connectionId: string,
+    before: string,
+  ): Promise<void> {
+    return this._deployments.deleteOnConnection(workflowId, connectionId, before)
   }
 
   // Deployment Configs

@@ -239,6 +239,13 @@
       "when": 1793927859397,
       "tag": "0033_runs_workflow_created_index",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1793927861815,
+      "tag": "0034_restore_current_version",
+      "breakpoints": true
     }
   ]
 }

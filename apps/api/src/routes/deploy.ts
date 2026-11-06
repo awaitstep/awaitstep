@@ -423,6 +423,8 @@ deploy.post(
       return c.json({ error: 'This workflow isn’t deployed with that connection' }, 404)
     }
 
+    // Rows written after this (a deploy finishing meanwhile) describe a live worker.
+    const startedAt = new Date().toISOString()
     const name = workerName(workflow.id)
     const creds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
     const adapter = resolveProvider(undefined, {
@@ -434,11 +436,12 @@ deploy.post(
     })
 
     if (result.success) {
-      await db.deleteDeploymentsByWorkflow(workflow.id)
-      await db.updateWorkflow(workflow.id, { currentVersionId: null })
+      // Only this account's rows: the workflow may still be live on another. The
+      // latest saved version (`currentVersionId`) is the editor's, not the deploy's.
+      await db.deleteDeploymentsOnConnection(workflow.id, connectionId, startedAt)
       await recordAudit(c, {
         event: 'workflow.takedown',
-        facts: { name: workflow.name },
+        facts: { name: workflow.name, provider: connection.name },
         projectId: workflow.projectId,
         workspaceId: workflow.workspaceId,
       })

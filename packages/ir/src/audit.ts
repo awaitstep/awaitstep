@@ -177,7 +177,12 @@ export const AUDIT_EVENTS = {
     detail: reason,
   },
   'workflow.delete': { kind: 'danger', action: fixed('deleted the workflow') },
-  'workflow.takedown': { kind: 'danger', action: fixed('took down'), target: versioned },
+  'workflow.takedown': {
+    kind: 'danger',
+    action: fixed('took down'),
+    target: versioned,
+    detail: (f) => f.provider,
+  },
   'version.delete': { kind: 'danger', action: fixed('deleted a version of'), target: versioned },
 
   'api_key.create': {

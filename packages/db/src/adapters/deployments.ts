@@ -1,4 +1,4 @@
-import { eq, desc, and, or, lt, getTableColumns } from 'drizzle-orm'
+import { eq, desc, and, or, lt, lte, getTableColumns } from 'drizzle-orm'
 import type { Deployment, DeploymentListItem } from '../types.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
@@ -87,7 +87,19 @@ export class DeploymentsAdapter {
     return paginateResults(rows, limit, (r) => r.createdAt)
   }
 
-  async deleteByWorkflow(workflowId: string): Promise<void> {
-    await this.db.delete(this.table).where(eq(this.table.workflowId, workflowId))
+  async deleteOnConnection(
+    workflowId: string,
+    connectionId: string,
+    before: string,
+  ): Promise<void> {
+    await this.db
+      .delete(this.table)
+      .where(
+        and(
+          eq(this.table.workflowId, workflowId),
+          eq(this.table.connectionId, connectionId),
+          lte(this.table.createdAt, before),
+        ),
+      )
   }
 }

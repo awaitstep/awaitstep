@@ -506,6 +506,46 @@ describe.each([
     })
   })
 
+  describe('taking a workflow down on one account', () => {
+    it('deletes that account’s deployments and keeps the other account’s', async () => {
+      await h.db
+        .update(h.schema.deployments)
+        .set({ connectionId: 'c-prod' })
+        .where(eq(h.schema.deployments.id, 'd-1'))
+      await h.db
+        .update(h.schema.deployments)
+        .set({ connectionId: 'c-sandbox' })
+        .where(inArray(h.schema.deployments.id, ['d-2', 'd-3']))
+      await h.adapter.deleteDeploymentsOnConnection(
+        'wf-enrich',
+        'c-sandbox',
+        '2026-11-01T00:00:00.000Z',
+      )
+      expect(await h.count('deployments', "workflow_id = 'wf-enrich'")).toBe(1)
+      expect(await h.count('deployments', "id = 'd-1'")).toBe(1)
+      // Another workflow's row on the same account stays.
+      expect(await h.count('deployments', "id = 'd-3'")).toBe(1)
+      expect(await h.adapter.listConnectionsDeployedWith('wf-enrich')).toEqual([
+        { id: 'c-prod', name: 'Acme production' },
+      ])
+    })
+
+    it('keeps a deployment made after the takedown started', async () => {
+      await h.db
+        .update(h.schema.deployments)
+        .set({ connectionId: 'c-sandbox' })
+        .where(inArray(h.schema.deployments.id, ['d-1', 'd-2']))
+      // d-1 is from 21 Oct, d-2 from 22 Oct: the takedown started in between.
+      await h.adapter.deleteDeploymentsOnConnection(
+        'wf-enrich',
+        'c-sandbox',
+        '2026-10-21T12:00:00.000Z',
+      )
+      expect(await h.count('deployments', "id = 'd-1'")).toBe(0)
+      expect(await h.count('deployments', "id = 'd-2'")).toBe(1)
+    })
+  })
+
   describe('a project that moves or goes', () => {
     it('takes its own accounts to the new organization and leaves the old one’s behind', async () => {
       await add(['c-prod', 'c-sandbox'])

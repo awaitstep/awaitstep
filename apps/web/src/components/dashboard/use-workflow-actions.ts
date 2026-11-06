@@ -64,6 +64,7 @@ export function useWorkflowActions(workflow: WorkflowSummary) {
     onSuccess: () => {
       invalidateLists()
       void queryClient.invalidateQueries({ queryKey: ['deployments', workflow.id] })
+      void queryClient.invalidateQueries({ queryKey: ['deploy-connections', workflow.id] })
       void queryClient.invalidateQueries({ queryKey: ['workflow', workflow.id] })
     },
   })
