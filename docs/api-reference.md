@@ -161,6 +161,10 @@ Update a workflow's name, description, environment variables, trigger code, depe
 }
 ```
 
+`envVars` replaces the whole list. A name is capital letters, digits and underscores and can appear once; a name starting with `SECRET_` must have `isSecret: true`. Secrets are read back as `••••••••`: send that mask unchanged, as a secret of the same name, to keep the stored value. A mask for any other name, or sent as a plain value, answers `400` and saves nothing.
+
+To avoid overwriting someone else's change, also send `envVarsBase`: the `envVars` string exactly as you last read it. If the stored variables are different now, the call answers `409` and saves nothing.
+
 ### `PATCH /workflows/:id/move`
 
 The workflow lands in the target project's oldest workspace. A share to

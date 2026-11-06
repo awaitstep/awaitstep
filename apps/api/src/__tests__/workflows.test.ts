@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createTestApp, resetStore, TEST_USER_ID, TEST_PROJECT_ID, mockDb } from './helpers.js'
 
 function url(path: string) {
@@ -286,6 +286,107 @@ describe('workflows in projects and workspaces', () => {
       name: 'API_TOKEN',
       value: '••••••••',
       isSecret: true,
+    })
+  })
+
+  describe('PATCH /api/workflows/:id env vars', () => {
+    afterEach(() => vi.restoreAllMocks())
+
+    async function create() {
+      return (
+        await (
+          await app.request(url('/api/workflows'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: 'Env' }),
+          })
+        ).json()
+      ).id as string
+    }
+    function patch(id: string, body: Record<string, unknown>) {
+      return app.request(url(`/api/workflows/${id}`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    }
+    const MASK = '••••••••'
+    const stored = [
+      { name: 'API_TOKEN', value: 'hunter2', isSecret: true },
+      { name: 'REGION', value: 'eu', isSecret: false },
+    ]
+
+    it('keeps the stored value when the mask comes back under the same secret name', async () => {
+      const id = await create()
+      vi.spyOn(mockDb, 'decodeWorkflowEnvVars').mockResolvedValue(stored)
+      const set = vi.spyOn(mockDb, 'setWorkflowEnvVars')
+      const res = await patch(id, { envVars: [{ name: 'API_TOKEN', value: MASK, isSecret: true }] })
+      expect(res.status).toBe(200)
+      expect(set).toHaveBeenCalledWith(id, [
+        { name: 'API_TOKEN', value: 'hunter2', isSecret: true },
+      ])
+    })
+
+    it('refuses the mask for a secret that is renamed, was never stored, or is sent as plain', async () => {
+      const id = await create()
+      vi.spyOn(mockDb, 'decodeWorkflowEnvVars').mockResolvedValue(stored)
+      const set = vi.spyOn(mockDb, 'setWorkflowEnvVars')
+      set.mockClear()
+      for (const v of [
+        { name: 'OTHER_TOKEN', value: MASK, isSecret: true },
+        { name: 'REGION', value: MASK, isSecret: true },
+        // A client that drops isSecret would replace the stored secret with the mask text.
+        { name: 'API_TOKEN', value: MASK },
+        { name: 'API_TOKEN', value: MASK, isSecret: false },
+      ]) {
+        const res = await patch(id, { envVars: [v] })
+        expect(res.status).toBe(400)
+        expect((await res.json()).error).toContain(v.name)
+      }
+      expect(set).not.toHaveBeenCalled()
+    })
+
+    it('refuses one name twice, and a plain variable whose name starts with SECRET_', async () => {
+      const id = await create()
+      const set = vi.spyOn(mockDb, 'setWorkflowEnvVars')
+      set.mockClear()
+      const twice = await patch(id, {
+        envVars: [
+          { name: 'A', value: '1', isSecret: true },
+          { name: 'A', value: '2', isSecret: false },
+        ],
+      })
+      expect(twice.status).toBe(422)
+      const plain = await patch(id, { envVars: [{ name: 'SECRET_X', value: '1' }] })
+      expect(plain.status).toBe(422)
+      const secret = await patch(id, {
+        envVars: [{ name: 'SECRET_X', value: '1', isSecret: true }],
+      })
+      expect(secret.status).toBe(200)
+      expect(set).toHaveBeenCalledTimes(1)
+    })
+
+    it('answers 409 when the variables changed since the caller read them, and saves nothing', async () => {
+      const id = await create()
+      await mockDb.updateWorkflow(id, { envVars: JSON.stringify(stored) })
+      const read = await (await app.request(url(`/api/workflows/${id}`))).json()
+      expect(read.envVars).not.toContain('hunter2')
+      const set = vi.spyOn(mockDb, 'setWorkflowEnvVars')
+      set.mockClear()
+
+      const stale = await patch(id, {
+        envVars: [{ name: 'REGION', value: 'us' }],
+        envVarsBase: JSON.stringify([{ name: 'REGION', value: 'old' }]),
+      })
+      expect(stale.status).toBe(409)
+      expect(set).not.toHaveBeenCalled()
+
+      const fresh = await patch(id, {
+        envVars: [{ name: 'REGION', value: 'us' }],
+        envVarsBase: read.envVars,
+      })
+      expect(fresh.status).toBe(200)
+      expect(set).toHaveBeenCalledTimes(1)
     })
   })
 })

@@ -43,15 +43,33 @@ const listQuerySchema = paginationQuerySchema.extend({
 
 const envVarNamePattern = /^[A-Z][A-Z0-9_]*$/
 
-const envVarSchema = z.object({
-  name: z
-    .string()
-    .min(1)
-    .max(255)
-    .regex(envVarNamePattern, 'Env var name must be uppercase with underscores (e.g. MY_API_KEY)'),
-  value: z.string().max(10_000),
-  isSecret: z.boolean().optional(),
-})
+const envVarSchema = z
+  .object({
+    name: z
+      .string()
+      .min(1)
+      .max(255)
+      .regex(
+        envVarNamePattern,
+        'Env var name must be uppercase with underscores (e.g. MY_API_KEY)',
+      ),
+    value: z.string().max(10_000),
+    isSecret: z.boolean().optional(),
+  })
+  // The editors carry "secret" as a SECRET_ prefix on the name, so a plain
+  // variable with that prefix could not be told from a secret and would be
+  // renamed by the next save.
+  .refine((v) => v.isSecret === true || !v.name.startsWith('SECRET_'), {
+    message: 'A name starting with SECRET_ must be a secret',
+    path: ['name'],
+  })
+
+/** Two variables of one name: the worker could only keep one of them. */
+const envVarListSchema = z
+  .array(envVarSchema)
+  .refine((vars) => new Set(vars.map((v) => v.name)).size === vars.length, {
+    message: 'Each variable name can be used once',
+  })
 
 // Shared with IR validation and the deployers — see packages/ir/src/dependencies.ts.
 const dependenciesSchema = z
@@ -82,7 +100,13 @@ const deployConfigSchema = z
 const updateSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   description: z.string().max(1000).optional(),
-  envVars: z.array(envVarSchema).optional(),
+  envVars: envVarListSchema.optional(),
+  /**
+   * The variables as the caller read them (secrets masked, exactly as the API
+   * returned them). When given, the write only goes through if they are still
+   * what is stored, so one editor cannot silently drop another's changes.
+   */
+  envVarsBase: z.string().max(1_000_000).optional(),
   triggerCode: z.string().max(50_000).optional(),
   dependencies: dependenciesSchema.optional(),
   deployConfig: deployConfigSchema,
@@ -229,7 +253,8 @@ workflows.post('/', zValidator('json', createSchema), async (c) => {
 workflows.patch('/:id', zValidator('json', updateSchema), async (c) => {
   const db = c.get('db')
   const workflowId = c.req.param('id')
-  const { envVars, triggerCode, dependencies, deployConfig, ...rest } = c.req.valid('json')
+  const { envVars, envVarsBase, triggerCode, dependencies, deployConfig, ...rest } =
+    c.req.valid('json')
   const dbData: {
     name?: string
     description?: string
@@ -238,9 +263,30 @@ workflows.patch('/:id', zValidator('json', updateSchema), async (c) => {
     deployConfig?: string
   } = { ...rest }
   if (envVars !== undefined) {
+    const current = c.get('workflow')
+    if (!current) return c.json({ error: 'Not found' }, 404)
+    if (envVarsBase !== undefined && envVarsBase !== (maskWorkflowSecrets(current).envVars ?? '')) {
+      return c.json({ error: CHANGED_MEANWHILE }, 409)
+    }
     // Merge masked secrets with existing decrypted values
-    const existing = await db.getWorkflowEnvVars(workflowId)
+    const existing = await db.decodeWorkflowEnvVars(current)
     const existingByName = new Map(existing.map((v) => [v.name, v]))
+    // The mask only ever stands for a stored secret of that name, sent as a
+    // secret. Anything else (a renamed secret, one never stored, or the mask
+    // sent as a plain value) would save the mask itself as the value, so it is
+    // refused instead.
+    const orphan = envVars.find(
+      (v) =>
+        v.value === SECRET_MASK && !(v.isSecret === true && existingByName.get(v.name)?.isSecret),
+    )
+    if (orphan) {
+      return c.json(
+        {
+          error: `Enter a value for ${orphan.name}. There is no saved secret of that name to keep.`,
+        },
+        400,
+      )
+    }
     const merged = envVars.map((v) => {
       if (v.isSecret && v.value === SECRET_MASK) {
         const prev = existingByName.get(v.name)
