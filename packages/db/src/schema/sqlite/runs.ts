@@ -21,5 +21,6 @@ export const workflowRuns = sqliteTable(
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },
-  (table) => [index('idx_workflow_runs_workflow_id').on(table.workflowId)],
+  // One workflow's runs, newest first or since a time; also serves workflow-only lookups.
+  (table) => [index('idx_workflow_runs_workflow_created').on(table.workflowId, table.createdAt)],
 )
