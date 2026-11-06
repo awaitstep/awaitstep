@@ -14,6 +14,33 @@ describe('computeVarNames', () => {
     expect(names.get('n2')).not.toBe(names.get('n1'))
     expect(names.get('n3')).toMatch(/^[A-Za-z_]\w*$/)
   })
+
+  it('keeps a node called like a name the generated body binds clear of it', () => {
+    const names = computeVarNames([
+      { id: 'a', name: 'step' },
+      { id: 'b', name: 'env' },
+      { id: 'c', name: 'EXPORT_flow' },
+      { id: 'd', name: 'Steps' },
+    ])
+    expect(names.get('a')).toBe('step_node')
+    expect(names.get('b')).toBe('env_node')
+    expect(names.get('c')).toBe('flow_node')
+    expect(names.get('d')).toBe('Steps')
+  })
+
+  it('never hands two nodes the same name, whatever their names spell', () => {
+    const names = computeVarNames([
+      { id: 'a', name: 'q' },
+      { id: 'b', name: 'q' },
+      { id: 'c', name: 'q_2' },
+      { id: 'd', name: 'step' },
+      { id: 'e', name: 'step_node' },
+    ])
+    expect(new Set(names.values()).size).toBe(5)
+    expect(names.get('a')).toBe('q')
+    expect(names.get('b')).toBe('q_2')
+    expect(names.get('c')).toBe('q_2_2')
+  })
 })
 
 describe('createGenerationContext', () => {
