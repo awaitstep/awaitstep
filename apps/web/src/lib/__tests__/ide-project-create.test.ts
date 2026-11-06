@@ -42,6 +42,25 @@ describe('resolveTargetFolder', () => {
     const selected = { path: 'nodes', kind: 'dir', section: 'generated' } as const
     expect(resolveTargetFolder({ selected, activePath: 'lib/retry.ts', projectPaths })).toBe('')
   })
+
+  it('uses the root for the steps folder and its files: nothing new can be created there', () => {
+    const withSteps = new Set([...projectPaths, 'steps/k3j9x_a1b2c3.ts'])
+    const folder = { path: 'steps', kind: 'dir', section: 'project' } as const
+    expect(
+      resolveTargetFolder({ selected: folder, activePath: null, projectPaths: withSteps }),
+    ).toBe('')
+    const file = { path: 'steps/k3j9x_a1b2c3.ts', kind: 'file', section: 'project' } as const
+    expect(resolveTargetFolder({ selected: file, activePath: null, projectPaths: withSteps })).toBe(
+      '',
+    )
+    expect(
+      resolveTargetFolder({
+        selected: null,
+        activePath: 'steps/k3j9x_a1b2c3.ts',
+        projectPaths: withSteps,
+      }),
+    ).toBe('')
+  })
 })
 
 describe('resolveNewPath', () => {
@@ -73,9 +92,10 @@ describe('importSpecifier', () => {
     expect(importSpecifier('lib/a.mts')).toBe('#app/lib/a.mts')
   })
 
-  it('offers nothing for data files and handler modules', () => {
+  it('offers nothing for data files, handler modules and step sources', () => {
     expect(importSpecifier('config.json')).toBeNull()
     expect(importSpecifier('handlers/fetch.ts')).toBeNull()
+    expect(importSpecifier('steps/k3j9x_a1b2c3.ts')).toBeNull()
   })
 })
 

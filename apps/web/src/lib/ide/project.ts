@@ -1,5 +1,6 @@
 import type { GeneratedFile } from '@awaitstep/codegen'
 import {
+  STEP_SOURCE_DIR,
   HANDLER_FETCH_PATH,
   HANDLER_QUEUE_DIR,
   HANDLER_SCHEDULED_PATH,
@@ -138,10 +139,16 @@ export interface ExplorerSelection {
   section: ExplorerSection
 }
 
+/** The `steps/` folder itself or anything in it: nothing new can be created there. */
+function inStepFolder(path: string): boolean {
+  return path === STEP_SOURCE_DIR || isStepSourcePath(path)
+}
+
 /**
  * The folder a new file lands in: the selected folder, else the folder of the
- * selected file, else the folder of the active file. Generated files and an
- * empty selection mean the project root.
+ * selected file, else the folder of the active file. Generated files, the
+ * `steps/` folder (reserved for step code) and an empty selection mean the
+ * project root.
  */
 export function resolveTargetFolder(input: {
   selected: ExplorerSelection | null
@@ -150,10 +157,12 @@ export function resolveTargetFolder(input: {
 }): string {
   const { selected, activePath, projectPaths } = input
   if (selected) {
-    if (selected.section === 'generated') return ''
+    if (selected.section === 'generated' || inStepFolder(selected.path)) return ''
     return selected.kind === 'dir' ? selected.path : dirname(selected.path)
   }
-  return activePath && projectPaths.has(activePath) ? dirname(activePath) : ''
+  return activePath && projectPaths.has(activePath) && !inStepFolder(activePath)
+    ? dirname(activePath)
+    : ''
 }
 
 /**
@@ -168,9 +177,14 @@ export function resolveNewPath(target: string, typed: string, relative = false):
   return normalizeBundlePath(target ? `${target}/${clean}` : clean)
 }
 
-/** The `#app/…` specifier that imports a project file, or null when nothing imports it by hand. */
+/**
+ * The `#app/…` specifier that imports a project file, or null when nothing
+ * imports it by hand: handlers are wired by the runtime, and a step's source
+ * is a canvas node's body, not a module.
+ */
 export function importSpecifier(path: string): string | null {
   if (!isProjectCodePath(path) || path.startsWith(PROJECT_HANDLERS_DIR)) return null
+  if (isStepSourcePath(path)) return null
   return `${PROJECT_IMPORT_PREFIX}${path.replace(/\.(ts|js)$/, '')}`
 }
 
