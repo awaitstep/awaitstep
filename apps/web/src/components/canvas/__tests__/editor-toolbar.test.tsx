@@ -506,3 +506,26 @@ describe('EditorToolbar focus after a ⋯ item', () => {
     },
   )
 })
+
+describe('EditorToolbar when Code changed the workflow', () => {
+  it('withdraws Save with the reason, says Changed in Code and offers Reload', async () => {
+    const p = props({ isDirty: true, saveConflict: true, onReload: vi.fn() })
+    render(<EditorToolbar {...p} />)
+    const save = screen.getByRole('button', { name: 'Save' })
+    expect(save).toHaveAttribute('aria-disabled', 'true')
+    expect(save).toHaveAccessibleDescription('Reload to continue')
+    await userEvent.click(save)
+    expect(p.onSave).not.toHaveBeenCalled()
+    expect(screen.getByText('Changed in Code')).toBeInTheDocument()
+    expect(screen.queryByText('Unsaved')).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Reload' }))
+    expect(p.onReload).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the reload running and takes the button out of reach meanwhile', () => {
+    render(<EditorToolbar {...props({ isDirty: true, saveConflict: true, reloading: true })} />)
+    const reload = screen.getByRole('button', { name: 'Reloading…' })
+    expect(reload).toBeDisabled()
+    expect(reload).toHaveAttribute('aria-busy', 'true')
+  })
+})

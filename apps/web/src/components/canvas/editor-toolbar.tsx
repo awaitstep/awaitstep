@@ -33,6 +33,10 @@ export interface EditorToolbarProps {
   isSaving: boolean
   lastSavedAt?: Date | null
   saveError?: string | null
+  /** Code saved this workflow since the canvas loaded it: Save is withdrawn until Reload. */
+  saveConflict?: boolean
+  onReload?: () => void
+  reloading?: boolean
   onDeploy: () => void
   /** Runs the client-side check; its result opens in the canvas's bottom panel. */
   onCheck: () => void
@@ -66,6 +70,9 @@ export function EditorToolbar({
   isSaving,
   lastSavedAt,
   saveError,
+  saveConflict,
+  onReload,
+  reloading,
   onDeploy,
   onCheck,
   onTestLocally,
@@ -157,6 +164,7 @@ export function EditorToolbar({
 
   function saveTitle() {
     if (readOnly) return reason
+    if (saveConflict) return 'Reload to continue'
     if (isSaving) return 'Saving…'
     if (!isDirty) return 'No changes to save'
     return `Save a new version (${saveHint})`
@@ -206,13 +214,16 @@ export function EditorToolbar({
               isSaving={isSaving}
               lastSavedAt={lastSavedAt ?? null}
               saveError={saveError ?? null}
+              conflict={saveConflict}
+              onReload={onReload}
+              reloading={reloading}
             />
           )
         }
         save={{
           label: 'Save',
           saving: isSaving,
-          disabled: !!readOnly || isSaving || !isDirty,
+          disabled: !!readOnly || isSaving || !isDirty || !!saveConflict,
           title: saveTitle(),
           onClick: onSave,
         }}

@@ -13,7 +13,7 @@ import { ValidationPanel } from './validation-panel'
 import { BindingsPanel } from './bindings-panel'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { EditorToolbar } from './editor-toolbar'
-import { EditorDialogs } from './editor-dialogs'
+import { EditorDialogs, type CanvasConfirmAction } from './editor-dialogs'
 import { CanvasSidePanels } from './canvas-side-panels'
 import { useShallow } from 'zustand/react/shallow'
 import { useCanvasLayoutStore } from '../../stores/canvas-layout-store'
@@ -61,7 +61,7 @@ export function CanvasView({
   const [showLocalTest, setShowLocalTest] = useState(false)
   // Functions never show the template picker — templates are workflow-shaped.
   const [showTemplatePicker, setShowTemplatePicker] = useState(!!template && kindParam !== 'script')
-  const [confirmAction, setConfirmAction] = useState<'switch-template' | null>(null)
+  const [confirmAction, setConfirmAction] = useState<CanvasConfirmAction | null>(null)
 
   const ready = useApiReady()
   const { registry: nodeRegistry } = useNodeRegistry()
@@ -137,6 +137,7 @@ export function CanvasView({
         simulationResult: null,
         isDirty: false,
         readOnly: false,
+        graphHash: null,
       })
       setWorkflowId('new')
       // Loading a document is not an undoable edit — start from a clean slate
@@ -153,6 +154,7 @@ export function CanvasView({
           handlerModules: fullData.handlers.modules,
           selectNodeId,
           keepSelectedNodeId: useWorkflowStore.getState().selectedNodeId,
+          graphHash: fullData.graphHash,
         }),
       )
       clearWorkflowHistory()
@@ -176,15 +178,36 @@ export function CanvasView({
   ])
 
   // Persistence (save + deploy)
-  const { handleSave, saveNow, handleDeploy, saveSilent, isSaving, lastSavedAt, saveError } =
-    useWorkflowPersistence({
-      workflowId,
-      isNew,
-      isDirty,
-      hasVersion: !!fullData?.workflow?.currentVersionId,
-      nodeRegistry,
-      kind: kindParam,
-    })
+  const {
+    handleSave,
+    saveNow,
+    handleDeploy,
+    saveSilent,
+    isSaving,
+    lastSavedAt,
+    saveError,
+    saveConflict,
+    reload,
+    reloading,
+  } = useWorkflowPersistence({
+    workflowId,
+    isNew,
+    isDirty,
+    hasVersion: !!fullData?.workflow?.currentVersionId,
+    nodeRegistry,
+    kind: kindParam,
+  })
+
+  // Code saved this workflow under the canvas: the way on is to load what is
+  // saved now. Unsaved canvas edits go with it, so they are asked about first.
+  function handleReload() {
+    if (isDirty) setConfirmAction('reload')
+    else void reload()
+  }
+
+  function handleConfirmReload() {
+    void reload()
+  }
 
   // Switching to the Code view is a switch, not a departure, and it is the
   // one blocked navigation worth offering to save for.
@@ -213,18 +236,19 @@ export function CanvasView({
       // A dialog above the canvas keeps its own keys: ⌘↵ in it is not "save the canvas".
       if ((e.target as HTMLElement | null)?.closest?.('[role="dialog"]')) return
       e.preventDefault()
-      if (isReadOnly || isSaving) return
+      if (isReadOnly || isSaving || saveConflict) return
       handleSave()
     }
     window.addEventListener('keydown', handleSaveShortcut)
     return () => window.removeEventListener('keydown', handleSaveShortcut)
-  }, [handleSave, isReadOnly, isSaving])
+  }, [handleSave, isReadOnly, isSaving, saveConflict])
 
   // Auto-save 30s after the last meaningful change. Skipped on read-only
-  // workflows and on never-saved workflows (so a stray drag on /new doesn't
-  // create a phantom workflow).
+  // workflows, on never-saved workflows (so a stray drag on /new doesn't
+  // create a phantom workflow) and once Code has moved the workflow (every
+  // save would be refused until Reload).
   useAutoSave({
-    enabled: !isReadOnly && !isNew,
+    enabled: !isReadOnly && !isNew && !saveConflict,
     save: saveSilent,
   })
 
@@ -270,6 +294,9 @@ export function CanvasView({
                 isSaving={isSaving}
                 lastSavedAt={lastSavedAt}
                 saveError={saveError}
+                saveConflict={saveConflict}
+                onReload={handleReload}
+                reloading={reloading}
                 onDeploy={handleDeploy}
                 onCheck={handleCheck}
                 onTestLocally={localDevEnabled ? handleOpenLocalTest : undefined}
@@ -309,11 +336,13 @@ export function CanvasView({
               confirmAction={confirmAction}
               setConfirmAction={setConfirmAction}
               onConfirmSwitchTemplate={() => setShowTemplatePicker(true)}
+              onConfirmReload={handleConfirmReload}
               blockerStatus={status}
               onBlockerProceed={proceed}
               onBlockerReset={reset}
               switchTarget={switchTarget}
               canSave={!isReadOnly}
+              saveConflict={saveConflict}
               onSaveAndSwitch={handleSaveAndSwitch}
               isSaving={isSaving}
             />

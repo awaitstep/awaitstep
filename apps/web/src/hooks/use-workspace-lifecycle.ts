@@ -107,7 +107,7 @@ export function useWorkspaceLifecycle({
         fullData.version,
         fullData.version?.version ?? 0,
         true,
-        { handlerModules: fullData.handlers.modules },
+        { handlerModules: fullData.handlers.modules, graphHash: fullData.graphHash },
       ),
     )
     // The builder leaves the graph alone when there is no version, so a graph
