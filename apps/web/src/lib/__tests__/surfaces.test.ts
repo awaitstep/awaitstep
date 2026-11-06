@@ -117,25 +117,6 @@ describe('editorSearch with a node', () => {
   })
 })
 
-describe('editorSearch with a panel', () => {
-  it('carries the panel to open on the canvas, and drops it when not given', () => {
-    expect(editorSearch('canvas', { version: 'v-2', panel: 'settings' })).toEqual({
-      view: 'canvas',
-      version: 'v-2',
-      panel: 'settings',
-    })
-    expect(editorSearch('canvas', { panel: undefined })).toEqual({ view: 'canvas' })
-    expect(editorSearch('ide', { file: 'a.ts' })).not.toHaveProperty('panel')
-  })
-
-  it('reads ?panel= from the URL, ignoring anything that names no panel', () => {
-    expect(parseEditorSearch({ panel: 'settings' }).panel).toBe('settings')
-    expect(parseEditorSearch({ panel: 'secrets' }).panel).toBeUndefined()
-    expect(parseEditorSearch({ panel: 1 }).panel).toBeUndefined()
-    expect(parseEditorSearch({}).panel).toBeUndefined()
-  })
-})
-
 describe('editorSearch', () => {
   it('carries only the params it is given', () => {
     expect(editorSearch('ide')).toEqual({ view: 'ide' })

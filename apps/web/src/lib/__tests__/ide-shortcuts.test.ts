@@ -44,6 +44,16 @@ describe('matchShortcut', () => {
     )
   })
 
+  it('binds the environment variables dialog on the physical V with ⌥, leaving paste alone', () => {
+    expect(matchShortcut(key({ key: '√', code: 'KeyV', metaKey: true, altKey: true }), true)).toBe(
+      'envVars',
+    )
+    expect(matchShortcut(key({ key: 'v', code: 'KeyV', ctrlKey: true, altKey: true }), false)).toBe(
+      'envVars',
+    )
+    expect(matchShortcut(key({ key: 'v', code: 'KeyV', metaKey: true }), true)).toBeNull()
+  })
+
   it('leaves both kinds of paste alone', () => {
     // Ctrl+Shift+V is paste-as-plain-text on Windows and Linux. The listener
     // captures and preventDefaults, so binding it would have stopped paste

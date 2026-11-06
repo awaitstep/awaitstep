@@ -601,6 +601,8 @@ export function createApiClient(scope: () => ApiScope) {
         name?: string
         description?: string
         envVars?: { name: string; value: string; isSecret?: boolean }[]
+        /** The `envVars` text as it was read: the write is refused (409) if they have changed since. */
+        envVarsBase?: string
         triggerCode?: string
         dependencies?: Record<string, string>
         deployConfig?: DeployConfig

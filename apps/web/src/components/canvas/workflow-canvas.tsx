@@ -217,6 +217,8 @@ export function WorkflowCanvas({ focusNodeId }: WorkflowCanvasProps) {
     function handleKeyDown(e: KeyboardEvent) {
       if (!(e.metaKey || e.ctrlKey) || e.altKey) return
       if (isTypingTarget(e.target)) return
+      // Keys in a dialog above the canvas (⌘Z, ⌘V on one of its buttons) are not the canvas's.
+      if ((e.target as HTMLElement | null)?.closest?.('[role="dialog"]')) return
       const key = e.key.toLowerCase()
       if (key === 'z') {
         e.preventDefault()

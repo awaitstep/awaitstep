@@ -1,10 +1,14 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useIdeLayoutStore } from '../../../stores/ide-layout-store'
 import { useIdeStore } from '../../../stores/ide-store'
 import { IdeHeader } from '../ide-header'
 
+vi.mock('../../workflows/env-vars-dialog', () => ({
+  EnvVarsDialog: ({ open }: { open: boolean }) =>
+    open ? <div role="dialog" aria-label="Environment variables" /> : null,
+}))
 const switchView = vi.fn()
 vi.mock('../../../hooks/use-switch-view', () => ({ useSwitchView: () => switchView }))
 vi.mock('@tanstack/react-router', () => ({ useRouter: () => ({ history: { back: vi.fn() } }) }))
@@ -102,14 +106,21 @@ describe('IdeHeader', () => {
     expect(useIdeStore.getState().dialog).toBe('palette')
   })
 
-  it('asks the canvas for the settings in the address it opens, not in a timer', async () => {
+  it('opens the environment variables dialog from ⋯ without leaving the code workspace', async () => {
     renderHeader({ versionParam: 'ver_1' })
     await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Settings' }))
-    expect(switchView).toHaveBeenCalledWith('canvas', { version: 'ver_1', panel: 'settings' })
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Environment variables…' }))
+    expect(await screen.findByRole('dialog', { name: 'Environment variables' })).toBeInTheDocument()
+    expect(switchView).not.toHaveBeenCalled()
   })
 
-  it('does not ask for the settings when it only switches to the canvas', async () => {
+  it('opens the environment variables dialog on ⌥⌘V, and shows the chord on the item', async () => {
+    renderHeader()
+    fireEvent.keyDown(window, { key: 'v', code: 'KeyV', ctrlKey: true, altKey: true })
+    expect(await screen.findByRole('dialog', { name: 'Environment variables' })).toBeInTheDocument()
+  })
+
+  it('carries only the version when it switches to the canvas', async () => {
     renderHeader()
     await userEvent.click(screen.getByRole('button', { name: /Canvas/ }))
     expect(switchView).toHaveBeenCalledWith('canvas', { version: undefined })
@@ -179,10 +190,10 @@ describe('IdeHeader', () => {
     )
   })
 
-  it('hides Settings when the files cannot be edited', async () => {
+  it('still offers the environment variables when the files cannot be edited', async () => {
     renderHeader({ canEdit: false })
     await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
-    expect(screen.queryByRole('menuitem', { name: 'Settings' })).toBeNull()
+    expect(screen.getByRole('menuitem', { name: 'Environment variables…' })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: 'Export' })).toBeInTheDocument()
   })
 

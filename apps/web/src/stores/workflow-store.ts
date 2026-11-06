@@ -149,7 +149,6 @@ const getInitialWorkflowState = () => ({
   triggerCode: '',
   runtimeBindings: [],
   deployConfig: {},
-  showSettings: false,
   validationResult: null,
   simulationResult: null,
   isDirty: false,
@@ -171,7 +170,6 @@ interface WorkflowState {
   /** Resource binding declarations round-tripped through ir.runtime.bindings. */
   runtimeBindings: BindingDeclaration[]
   deployConfig: DeployConfig
-  showSettings: boolean
   validationResult: PublishValidationResult | null
   simulationResult: SimulationResult | null
   isDirty: boolean
@@ -200,7 +198,6 @@ interface WorkflowState {
   setMetadata: (metadata: Partial<WorkflowMetadata>) => void
   setWorkflowEnvVars: (vars: WorkflowEnvVar[]) => void
   setDeployConfig: (config: DeployConfig) => void
-  setShowSettings: (show: boolean) => void
   runValidation: (nodeRegistry?: NodeRegistry) => PublishValidationResult
   clearValidation: () => void
   runSimulation: () => SimulationResult
@@ -312,14 +309,7 @@ function createDefaultNode(
  */
 type UndoableState = Pick<
   WorkflowState,
-  | 'kind'
-  | 'metadata'
-  | 'nodes'
-  | 'edges'
-  | 'workflowEnvVars'
-  | 'dependencies'
-  | 'triggerCode'
-  | 'runtimeBindings'
+  'kind' | 'metadata' | 'nodes' | 'edges' | 'dependencies' | 'triggerCode' | 'runtimeBindings'
 >
 
 const UNDO_LIMIT = 100
@@ -367,7 +357,6 @@ function undoableSlice(state: WorkflowState): UndoableState {
     metadata: state.metadata,
     nodes: state.nodes.map(undoableNode),
     edges: state.edges.map(undoableEdge),
-    workflowEnvVars: state.workflowEnvVars,
     dependencies: state.dependencies,
     triggerCode: state.triggerCode,
     runtimeBindings: state.runtimeBindings,
@@ -418,7 +407,6 @@ function undoableEquality(past: UndoableState, current: UndoableState): boolean 
     past.metadata === current.metadata &&
     sameNodes(past.nodes, current.nodes) &&
     sameEdges(past.edges, current.edges) &&
-    past.workflowEnvVars === current.workflowEnvVars &&
     past.dependencies === current.dependencies &&
     past.triggerCode === current.triggerCode &&
     past.runtimeBindings === current.runtimeBindings
@@ -759,10 +747,6 @@ export const useWorkflowStore = create<WorkflowState>()(
 
       setDeployConfig: (config) => {
         set({ deployConfig: config, isDirty: true })
-      },
-
-      setShowSettings: (show) => {
-        set({ showSettings: show, selectedNodeId: show ? null : get().selectedNodeId })
       },
 
       runValidation: (nodeRegistry?: NodeRegistry) => {

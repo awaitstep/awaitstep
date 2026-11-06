@@ -19,15 +19,6 @@ export function nodeToSelectOnce(param: string | undefined, applied: string | un
   return param !== applied ? param : undefined
 }
 
-/**
- * The panel the URL asks to open, only if no earlier hydration already did.
- * Same rule as the node: the graph is hydrated again after every save, and
- * re-opening a panel the person closed would undo them.
- */
-export function panelToOpenOnce<T extends string>(param: T | undefined, applied: T | undefined) {
-  return param !== applied ? param : undefined
-}
-
 export function buildWorkflowStoreState(
   serverWorkflow: WorkflowSummary,
   versionData: WorkflowVersion | null | undefined,

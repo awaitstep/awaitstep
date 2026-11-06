@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import {
   buildWorkflowStoreState,
   nodeToSelectOnce,
-  panelToOpenOnce,
   deriveReadOnlyState,
   deriveDeploymentState,
 } from '../hydrate-workflow'
@@ -67,21 +66,6 @@ describe('nodeToSelectOnce', () => {
 
   it('selects nothing without a node in the URL', () => {
     expect(nodeToSelectOnce(undefined, undefined)).toBeUndefined()
-  })
-})
-
-describe('panelToOpenOnce', () => {
-  it('opens the URL’s panel on the first hydration that sees it', () => {
-    expect(panelToOpenOnce('settings', undefined)).toBe('settings')
-  })
-
-  it('does not open it again on the hydrations a save causes', () => {
-    expect(panelToOpenOnce('settings', 'settings')).toBeUndefined()
-  })
-
-  it('opens nothing when the URL names no panel', () => {
-    expect(panelToOpenOnce(undefined, undefined)).toBeUndefined()
-    expect(panelToOpenOnce(undefined, 'settings')).toBeUndefined()
   })
 })
 

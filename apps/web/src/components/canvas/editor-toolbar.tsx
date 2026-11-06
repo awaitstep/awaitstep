@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Undo2, Redo2, PanelLeft, PanelRight } from 'lucide-react'
-import { useShallow } from 'zustand/react/shallow'
+import { EnvVarsDialog } from '../workflows/env-vars-dialog'
 import { Button } from '../ui/button'
 import { useTemporalStore, useWorkflowStore } from '../../stores/workflow-store'
 import { useCanvasLayoutStore } from '../../stores/canvas-layout-store'
@@ -28,8 +29,6 @@ export interface EditorToolbarProps {
   hasActiveDeployment: boolean
   hasUndeployedChanges: boolean | string | undefined
   deployedVersion: number | undefined
-  /** Opens the workflow settings (it never closes them: the menu item is "go there"). */
-  onOpenSettings: () => void
   onSave: () => void
   isSaving: boolean
   lastSavedAt?: Date | null
@@ -63,7 +62,6 @@ export function EditorToolbar({
   hasActiveDeployment,
   hasUndeployedChanges,
   deployedVersion,
-  onOpenSettings,
   onSave,
   isSaving,
   lastSavedAt,
@@ -84,9 +82,8 @@ export function EditorToolbar({
   const paletteOpen = useCanvasLayoutStore((s) => s.paletteOpen)
   const inspectorOpen = useCanvasLayoutStore((s) => s.inspectorOpen)
   const togglePalette = useCanvasLayoutStore((s) => s.togglePalette)
-  const { selectedNodeId, showSettings } = useWorkflowStore(
-    useShallow((s) => ({ selectedNodeId: s.selectedNodeId, showSettings: s.showSettings })),
-  )
+  const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId)
+  const [envOpen, setEnvOpen] = useState(false)
   const canUndo = useTemporalStore((t) => t.pastStates.length > 0)
   const canRedo = useTemporalStore((t) => t.futureStates.length > 0)
   const isMac = isMacPlatform()
@@ -94,8 +91,8 @@ export function EditorToolbar({
   const saveHint = isMac ? '⌘↵' : 'Ctrl+↵'
   const viewOnly = !!readOnly && !!viewOnlyReason
   // Pressed means the inspector is on screen, not merely allowed: with no
-  // step selected, or the settings panel in its place, nothing is showing.
-  const inspectorVisible = inspectorOpen && !!selectedNodeId && !showSettings
+  // step selected nothing is showing.
+  const inspectorVisible = inspectorOpen && !!selectedNodeId
 
   // Asking for the inspector brings it back; asking again hides it. With
   // nothing selected there is nothing to hide, so it only arms the panel.
@@ -105,13 +102,14 @@ export function EditorToolbar({
       return
     }
     useCanvasLayoutStore.getState().setInspectorOpen(true)
-    if (selectedNodeId && showSettings) useWorkflowStore.getState().setShowSettings(false)
   }
 
   // The same chords the Code surface uses for its side bar and panel.
   useIdeShortcuts({
     toggleExplorer: readOnly ? undefined : togglePalette,
     toggleDock: handleToggleInspector,
+    // Nothing is stored for an unsaved canvas, so there are no variables to open.
+    envVars: isNew ? undefined : handleOpenEnvVars,
   })
 
   // ?version= is carried only while actually viewing an older version. On
@@ -120,6 +118,10 @@ export function EditorToolbar({
   // Save-and-switch on a read-only version without the save in it.
   function handleOpenCode() {
     void switchView('ide', { version: readOnly ? versionParam : undefined })
+  }
+
+  function handleOpenEnvVars() {
+    setEnvOpen(true)
   }
 
   function handleSelectView(view: EditorView) {
@@ -161,76 +163,80 @@ export function EditorToolbar({
   }
 
   return (
-    <UnifiedTopBar
-      surface="canvas"
-      name={workflowName}
-      kind={kind}
-      overviewHref={isNew ? undefined : links.overview}
-      version={canvasTopBarVersion({
-        isNew,
-        currentVersion,
-        olderVersion,
-        readOnlyVersion,
-        onBackToLatest: handleOpenLatest,
-      })}
-      nodeCount={nodeCount}
-      deployBadge={
-        hasActiveDeployment
-          ? {
-              ...deployBadge({
-                hasActiveDeployment,
-                hasUndeployedChanges,
-                deployedVersion,
-                currentVersion,
-              })!,
-              href: links.deployments,
-            }
-          : null
-      }
-      // A workflow that exists has files to write, saved version or not; only
-      // an unsaved new one has no row for them. Switching away from a dirty
-      // canvas is blocked, so this raises the switch dialog rather than
-      // losing the graph.
-      showViewSwitch={!isNew}
-      onSelectView={handleSelectView}
-      toggles={toggles}
-      accessBadge={viewOnly ? { label: 'View only', title: viewOnlyReason } : undefined}
-      history={readOnly ? undefined : <UndoRedoButtons canUndo={canUndo} canRedo={canRedo} />}
-      saveStatus={
-        readOnly ? undefined : (
-          <SaveStatusIndicator
-            isDirty={isDirty}
-            isSaving={isSaving}
-            lastSavedAt={lastSavedAt ?? null}
-            saveError={saveError ?? null}
-          />
-        )
-      }
-      save={{
-        label: 'Save',
-        saving: isSaving,
-        disabled: !!readOnly || isSaving || !isDirty,
-        title: saveTitle(),
-        onClick: onSave,
-      }}
-      deploy={{
-        onClick: onDeploy,
-        disabled: !!readOnly || blank,
-        title: readOnly ? reason : blank ? BLANK_DEPLOY_REASON : 'Deploy',
-      }}
-      menu={canvasMenuGroups({
-        readOnly: !!readOnly,
-        isMac,
-        canUndo,
-        canRedo,
-        nodeCount,
-        onOpenSettings,
-        onOpenTemplatePicker,
-        onExport,
-        onTestLocally,
-        onCheck,
-      })}
-    />
+    <>
+      <UnifiedTopBar
+        surface="canvas"
+        name={workflowName}
+        kind={kind}
+        overviewHref={isNew ? undefined : links.overview}
+        version={canvasTopBarVersion({
+          isNew,
+          currentVersion,
+          olderVersion,
+          readOnlyVersion,
+          onBackToLatest: handleOpenLatest,
+        })}
+        nodeCount={nodeCount}
+        deployBadge={
+          hasActiveDeployment
+            ? {
+                ...deployBadge({
+                  hasActiveDeployment,
+                  hasUndeployedChanges,
+                  deployedVersion,
+                  currentVersion,
+                })!,
+                href: links.deployments,
+              }
+            : null
+        }
+        // A workflow that exists has files to write, saved version or not; only
+        // an unsaved new one has no row for them. Switching away from a dirty
+        // canvas is blocked, so this raises the switch dialog rather than
+        // losing the graph.
+        showViewSwitch={!isNew}
+        onSelectView={handleSelectView}
+        toggles={toggles}
+        accessBadge={viewOnly ? { label: 'View only', title: viewOnlyReason } : undefined}
+        history={readOnly ? undefined : <UndoRedoButtons canUndo={canUndo} canRedo={canRedo} />}
+        saveStatus={
+          readOnly ? undefined : (
+            <SaveStatusIndicator
+              isDirty={isDirty}
+              isSaving={isSaving}
+              lastSavedAt={lastSavedAt ?? null}
+              saveError={saveError ?? null}
+            />
+          )
+        }
+        save={{
+          label: 'Save',
+          saving: isSaving,
+          disabled: !!readOnly || isSaving || !isDirty,
+          title: saveTitle(),
+          onClick: onSave,
+        }}
+        deploy={{
+          onClick: onDeploy,
+          disabled: !!readOnly || blank,
+          title: readOnly ? reason : blank ? BLANK_DEPLOY_REASON : 'Deploy',
+        }}
+        menu={canvasMenuGroups({
+          readOnly: !!readOnly,
+          isMac,
+          canUndo,
+          canRedo,
+          nodeCount,
+          onOpenEnvVars: handleOpenEnvVars,
+          isNew,
+          onOpenTemplatePicker,
+          onExport,
+          onTestLocally,
+          onCheck,
+        })}
+      />
+      <EnvVarsDialog workflowId={workflowId} open={envOpen} onOpenChange={setEnvOpen} />
+    </>
   )
 }
 

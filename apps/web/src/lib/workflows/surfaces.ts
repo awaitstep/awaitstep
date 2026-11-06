@@ -20,13 +20,7 @@ export interface EditorSearch {
   file?: string
   /** A node to open selected and centred on the canvas; unknown ids are ignored. */
   node?: string
-  /** A panel to open on arrival at the canvas; applied once, like `node`. */
-  panel?: EditorPanel
 }
-
-/** The canvas panels a link can open. */
-export const EDITOR_PANELS = ['settings'] as const
-export type EditorPanel = (typeof EDITOR_PANELS)[number]
 
 /**
  * The editor's search params for a view, carrying only what was given.
@@ -35,14 +29,13 @@ export type EditorPanel = (typeof EDITOR_PANELS)[number]
  */
 export function editorSearch(
   view: WorkspaceSurface,
-  extra: { version?: string; file?: string; node?: string; panel?: EditorPanel } = {},
+  extra: { version?: string; file?: string; node?: string } = {},
 ): EditorSearch {
   return {
     view,
     ...(extra.version !== undefined && { version: extra.version }),
     ...(extra.file !== undefined && { file: extra.file }),
     ...(extra.node !== undefined && { node: extra.node }),
-    ...(extra.panel !== undefined && { panel: extra.panel }),
   }
 }
 
@@ -157,7 +150,6 @@ export function parseEditorSearch(search: Record<string, unknown>): EditorRouteS
     version: typeof search.version === 'string' ? search.version : undefined,
     file: typeof search.file === 'string' ? search.file : undefined,
     node: typeof search.node === 'string' && search.node !== '' ? search.node : undefined,
-    panel: EDITOR_PANELS.find((panel) => panel === search.panel),
     template:
       search.template === true || search.template === '1' || search.template === 'true'
         ? true

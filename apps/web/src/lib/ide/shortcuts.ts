@@ -21,6 +21,7 @@ export type IdeShortcutId =
   | 'toggleExplorer'
   | 'toggleDock'
   | 'togglePreview'
+  | 'envVars'
   | 'nextTab'
   | 'prevTab'
   | 'closeTab'
@@ -48,6 +49,9 @@ export const IDE_SHORTCUTS: Readonly<Record<IdeShortcutId, ShortcutKeys>> = {
   toggleExplorer: { key: 'b', mod: true },
   toggleDock: { key: 'j', mod: true },
   togglePreview: { code: 'KeyB', mod: true, alt: true },
+  // V for variables. Not E: AltGr+E types € on many European layouts, and AltGr reads as Ctrl+Alt on Windows.
+  // Option rewrites the glyph on macOS, so match the physical key. ⌘V (paste) has no Alt.
+  envVars: { code: 'KeyV', mod: true, alt: true },
   nextTab: { code: 'BracketRight', mod: true, shift: true },
   prevTab: { code: 'BracketLeft', mod: true, shift: true },
   closeTab: { code: 'KeyW', mod: true, alt: true },

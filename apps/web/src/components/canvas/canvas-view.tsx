@@ -20,11 +20,10 @@ import { useCanvasLayoutStore } from '../../stores/canvas-layout-store'
 import {
   buildWorkflowStoreState,
   nodeToSelectOnce,
-  panelToOpenOnce,
   deriveReadOnlyState,
   deriveDeploymentState,
 } from '../../lib/hydrate-workflow'
-import { surfaceSwitchTarget, type EditorPanel } from '../../lib/workflows/surfaces'
+import { surfaceSwitchTarget } from '../../lib/workflows/surfaces'
 import { offersTemplates } from '../../lib/workflows/template-offer'
 import { useWorkflowPersistence } from '../../hooks/use-workflow-persistence'
 import { useAutoSave } from '../../hooks/use-auto-save'
@@ -47,8 +46,6 @@ interface CanvasViewProps {
   kindParam?: 'workflow' | 'script'
   /** The editor URL's `?node=`: opens with this node selected and centred, if the version has it. */
   nodeParam?: string
-  /** The editor URL's `?panel=`: opens that panel on arrival, once. */
-  panelParam?: EditorPanel
   localDevEnabled: boolean
 }
 
@@ -58,7 +55,6 @@ export function CanvasView({
   template,
   kindParam,
   nodeParam,
-  panelParam,
   localDevEnabled,
 }: CanvasViewProps) {
   const api = useApi()
@@ -78,13 +74,7 @@ export function CanvasView({
       isDirty: s.isDirty,
     })),
   )
-  const {
-    setShowSettings,
-    addNode,
-    reset: resetWorkflowStore,
-    runSimulation,
-    setWorkflowId,
-  } = useWorkflowStore()
+  const { addNode, reset: resetWorkflowStore, runSimulation, setWorkflowId } = useWorkflowStore()
 
   // Cleanup on unmount
   useEffect(() => {
@@ -134,7 +124,6 @@ export function CanvasView({
   // The URL's node is applied by the first hydration that has the graph, not
   // by every refetch after it, so saving never re-selects what was deselected.
   const appliedNodeParam = useRef<string | undefined>(undefined)
-  const appliedPanelParam = useRef<EditorPanel | undefined>(undefined)
 
   // Hydrate store from server data
   useEffect(() => {
@@ -172,12 +161,6 @@ export function CanvasView({
       if (selectNodeId && useWorkflowStore.getState().selectedNodeId === selectNodeId) {
         useCanvasLayoutStore.getState().setInspectorOpen(true)
       }
-      // The Code surface's ⋯ › Settings lands here with the panel open. It
-      // travels in the URL, so it dies with a cancelled switch and cannot
-      // reach another workflow.
-      const panel = panelToOpenOnce(panelParam, appliedPanelParam.current)
-      appliedPanelParam.current = panelParam
-      if (panel === 'settings' && !isReadOnly) useWorkflowStore.getState().setShowSettings(true)
     }
     // Keyed on the version, not on `isReadOnly`: a role change mid-session must
     // not rebuild the store and drop unsaved edits (the API refuses the save).
@@ -186,7 +169,6 @@ export function CanvasView({
     isNew,
     kindParam,
     nodeParam,
-    panelParam,
     fullData,
     setWorkflowId,
     isOlderVersion,
@@ -228,6 +210,8 @@ export function CanvasView({
   useEffect(() => {
     function handleSaveShortcut(e: KeyboardEvent) {
       if (e.key !== 'Enter' || !(e.metaKey || e.ctrlKey)) return
+      // A dialog above the canvas keeps its own keys: ⌘↵ in it is not "save the canvas".
+      if ((e.target as HTMLElement | null)?.closest?.('[role="dialog"]')) return
       e.preventDefault()
       if (isReadOnly || isSaving) return
       handleSave()
@@ -246,10 +230,6 @@ export function CanvasView({
 
   const handleAddNode = (type: Parameters<typeof addNode>[0]) => {
     addNode(type, { x: 250 + Math.random() * 200, y: 150 + Math.random() * 200 }, nodeRegistry)
-  }
-
-  function handleOpenSettings() {
-    setShowSettings(true)
   }
 
   function handleOpenLocalTest() {
@@ -286,7 +266,6 @@ export function CanvasView({
                 hasActiveDeployment={hasActiveDeployment}
                 hasUndeployedChanges={hasUndeployedChanges}
                 deployedVersion={deployedVersion?.version}
-                onOpenSettings={handleOpenSettings}
                 onSave={handleSave}
                 isSaving={isSaving}
                 lastSavedAt={lastSavedAt}

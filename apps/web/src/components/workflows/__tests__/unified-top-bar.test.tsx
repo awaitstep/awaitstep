@@ -46,7 +46,6 @@ function canvasBar() {
       hasActiveDeployment
       hasUndeployedChanges={false}
       deployedVersion={3}
-      onOpenSettings={vi.fn()}
       onSave={vi.fn()}
       isSaving={false}
       onDeploy={vi.fn()}

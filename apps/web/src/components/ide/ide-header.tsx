@@ -5,13 +5,16 @@ import {
   PanelLeft,
   PanelRight,
   Search,
-  Settings2,
+  Variable,
 } from 'lucide-react'
+import { useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
+import { EnvVarsDialog } from '../workflows/env-vars-dialog'
 import { IDE_SHORTCUTS, formatShortcut, type IdeShortcutId } from '../../lib/ide/shortcuts'
 import { isMacPlatform } from '../../lib/platform'
 import { exportWorkflowFile } from '../../lib/export-workflow'
 import { deployBadge as buildDeployBadge, type DeployBadge } from '../../lib/workflows/deploy-badge'
+import { useIdeShortcuts } from '../../hooks/use-ide-shortcuts'
 import { useSwitchView } from '../../hooks/use-switch-view'
 import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
@@ -74,6 +77,7 @@ export function IdeHeader({
   const hint = (id: IdeShortcutId) => formatShortcut(IDE_SHORTCUTS[id], isMac)
   const switchView = useSwitchView(workflowId)
   const links = useWorkflowLinks(workflowId)
+  const [envOpen, setEnvOpen] = useState(false)
 
   function handleOpenLatest() {
     void switchView('ide')
@@ -83,12 +87,11 @@ export function IdeHeader({
     if (view === 'canvas') void switchView('canvas', { version: versionParam })
   }
 
-  // The settings live on the canvas; the address asks it to open them on
-  // arrival, so a switch the unsaved-files dialog holds back carries the
-  // request with it, and cancelling it drops the request.
-  function handleSettings() {
-    void switchView('canvas', { version: versionParam, panel: 'settings' })
+  function handleEnvVars() {
+    setEnvOpen(true)
   }
+
+  useIdeShortcuts({ envVars: handleEnvVars })
 
   function handleQuickOpen() {
     showDialog('quickOpen')
@@ -142,17 +145,15 @@ export function IdeHeader({
   ]
 
   const workflowActions: TopBarMenuItem[] = [
-    ...(canEdit
-      ? [
-          {
-            id: 'settings',
-            label: 'Settings',
-            icon: Settings2,
-            onSelect: handleSettings,
-            takesFocus: true,
-          },
-        ]
-      : []),
+    // Variables belong to the workflow: a Viewer can look, and an older version has them too.
+    {
+      id: 'env-vars',
+      label: 'Environment variables…',
+      icon: Variable,
+      onSelect: handleEnvVars,
+      shortcut: hint('envVars'),
+      takesFocus: true,
+    },
     {
       id: 'export',
       label: 'Export',
@@ -188,27 +189,30 @@ export function IdeHeader({
   ]
 
   return (
-    <UnifiedTopBar
-      surface="code"
-      name={workflowName}
-      kind={kind}
-      overviewHref={links.overview}
-      version={topBarVersion}
-      nodeCount={nodeCount}
-      deployBadge={badge ? withHref(badge, links.deployments) : null}
-      onSelectView={handleSelectView}
-      toggles={toggles}
-      accessBadge={viewOnlyReason ? { label: 'View only', title: viewOnlyReason } : undefined}
-      save={{
-        label: 'Save all',
-        count: dirtyCount,
-        saving,
-        disabled: !canEdit || saving || dirtyCount === 0,
-        title: saveTitle(),
-        onClick: onSave,
-      }}
-      menu={[workflowActions, navigation]}
-    />
+    <>
+      <UnifiedTopBar
+        surface="code"
+        name={workflowName}
+        kind={kind}
+        overviewHref={links.overview}
+        version={topBarVersion}
+        nodeCount={nodeCount}
+        deployBadge={badge ? withHref(badge, links.deployments) : null}
+        onSelectView={handleSelectView}
+        toggles={toggles}
+        accessBadge={viewOnlyReason ? { label: 'View only', title: viewOnlyReason } : undefined}
+        save={{
+          label: 'Save all',
+          count: dirtyCount,
+          saving,
+          disabled: !canEdit || saving || dirtyCount === 0,
+          title: saveTitle(),
+          onClick: onSave,
+        }}
+        menu={[workflowActions, navigation]}
+      />
+      <EnvVarsDialog workflowId={workflowId} open={envOpen} onOpenChange={setEnvOpen} />
+    </>
   )
 }
 

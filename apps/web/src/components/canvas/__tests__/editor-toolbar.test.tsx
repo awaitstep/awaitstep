@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useCanvasLayoutStore } from '../../../stores/canvas-layout-store'
@@ -22,7 +22,10 @@ vi.mock('../../navigation/router-shell-link', () => ({
   useGoTo: () => follow,
 }))
 vi.mock('../time-travel', () => ({ undoWithFeedback: vi.fn(), redoWithFeedback: vi.fn() }))
-vi.mock('../workflow-settings', () => ({ WorkflowSettings: () => <div>settings panel</div> }))
+vi.mock('../../workflows/env-vars-dialog', () => ({
+  EnvVarsDialog: ({ open }: { open: boolean }) =>
+    open ? <div role="dialog" aria-label="Environment variables" /> : null,
+}))
 vi.mock('../node-config-panel', () => ({ NodeConfigPanel: () => <div>inspector panel</div> }))
 vi.mock('../local-test-panel', () => ({ LocalTestPanel: () => <div>local test panel</div> }))
 
@@ -37,7 +40,6 @@ function props(overrides: Partial<EditorToolbarProps> = {}): EditorToolbarProps 
     hasActiveDeployment: false,
     hasUndeployedChanges: false,
     deployedVersion: undefined,
-    onOpenSettings: vi.fn(),
     onSave: vi.fn(),
     isSaving: false,
     onDeploy: vi.fn(),
@@ -55,7 +57,7 @@ beforeEach(() => {
   follow.mockReset()
   mac = false
   useCanvasLayoutStore.setState({ paletteOpen: false, inspectorOpen: true })
-  useWorkflowStore.setState({ selectedNodeId: null, showSettings: false })
+  useWorkflowStore.setState({ selectedNodeId: null })
 })
 
 describe('EditorToolbar code control', () => {
@@ -94,7 +96,13 @@ describe('EditorToolbar actions', () => {
     expect(p.onDeploy).toHaveBeenCalledTimes(1)
 
     await openMenu()
-    for (const name of ['Settings', 'Templates', 'Export', 'Local test', 'Check workflow']) {
+    for (const name of [
+      'Environment variables…',
+      'Templates',
+      'Export',
+      'Local test',
+      'Check workflow',
+    ]) {
       expect(screen.getByRole('menuitem', { name })).toBeInTheDocument()
     }
     await userEvent.click(screen.getByRole('menuitem', { name: 'Check workflow' }))
@@ -191,19 +199,6 @@ describe('EditorToolbar view toggles', () => {
     expect(screen.getByRole('button', { name: /^Inspector/ })).toHaveAttribute(
       'aria-pressed',
       'false',
-    )
-  })
-
-  it('is not pressed while the settings panel takes the inspector’s place, and asking for it swaps back', async () => {
-    useWorkflowStore.setState({ selectedNodeId: 'n1', showSettings: true })
-    render(<EditorToolbar {...props()} />)
-    const inspector = screen.getByRole('button', { name: /^Inspector/ })
-    expect(inspector).toHaveAttribute('aria-pressed', 'false')
-    await userEvent.click(inspector)
-    expect(useWorkflowStore.getState().showSettings).toBe(false)
-    expect(screen.getByRole('button', { name: /^Inspector/ })).toHaveAttribute(
-      'aria-pressed',
-      'true',
     )
   })
 
@@ -351,7 +346,8 @@ describe('EditorToolbar states', () => {
     )
     await openMenu()
     expect(screen.getByRole('menuitem', { name: 'Export' })).toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: 'Settings' })).toBeNull()
+    // Variables belong to the workflow, so a Viewer can still look.
+    expect(screen.getByRole('menuitem', { name: 'Environment variables…' })).toBeInTheDocument()
   })
 
   it('says No version yet on a blank workflow and disables Deploy with the reason', () => {
@@ -406,14 +402,21 @@ describe('EditorToolbar ⋯ menu', () => {
     expect(screen.getByRole('menu')).toBeInTheDocument()
   })
 
-  it('opens Settings without ever closing them', async () => {
-    const p = props()
-    render(<EditorToolbar {...p} />)
+  it('opens the environment variables dialog on ⌥⌘V, but not on an unsaved canvas', async () => {
+    const first = render(<EditorToolbar {...props()} />)
+    fireEvent.keyDown(window, { key: 'v', code: 'KeyV', ctrlKey: true, altKey: true })
+    expect(await screen.findByRole('dialog', { name: 'Environment variables' })).toBeInTheDocument()
+    first.unmount()
+    render(<EditorToolbar {...props({ isNew: true })} />)
+    fireEvent.keyDown(window, { key: 'v', code: 'KeyV', ctrlKey: true, altKey: true })
+    expect(screen.queryByRole('dialog', { name: 'Environment variables' })).toBeNull()
+  })
+
+  it('opens the environment variables dialog, and Esc hands focus back to ⋯', async () => {
+    render(<EditorToolbar {...props()} />)
     await openMenu()
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Settings' }))
-    await openMenu()
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Settings' }))
-    expect(p.onOpenSettings).toHaveBeenCalledTimes(2)
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Environment variables…' }))
+    expect(await screen.findByRole('dialog', { name: 'Environment variables' })).toBeInTheDocument()
   })
 })
 
@@ -430,7 +433,6 @@ function FocusHarness({ nodeCount, dialog }: { nodeCount: number; dialog?: boole
       <EditorToolbar
         {...props({
           nodeCount,
-          onOpenSettings: () => useWorkflowStore.getState().setShowSettings(true),
           onTestLocally: () => setLocalTest(true),
           onOpenTemplatePicker: handleTemplates,
         })}
@@ -466,16 +468,6 @@ describe('EditorToolbar focus after a ⋯ item', () => {
     await userEvent.click(await screen.findByRole('menuitem', { name }))
   }
   const moreActions = () => screen.getByRole('button', { name: 'More actions' })
-
-  it('moves focus into the Settings panel, and Esc closes it back to ⋯', async () => {
-    render(<FocusHarness nodeCount={2} />)
-    await choose('Settings')
-    const panel = await screen.findByRole('complementary', { name: 'Workflow settings' })
-    await waitFor(() => expect(panel).toHaveFocus())
-    await userEvent.keyboard('{Escape}')
-    expect(screen.queryByRole('complementary', { name: 'Workflow settings' })).toBeNull()
-    expect(moreActions()).toHaveFocus()
-  })
 
   it('moves focus into the Local test panel, and Esc closes it back to ⋯', async () => {
     render(<FocusHarness nodeCount={2} />)
@@ -513,11 +505,4 @@ describe('EditorToolbar focus after a ⋯ item', () => {
       await waitFor(() => expect(moreActions()).toHaveFocus())
     },
   )
-
-  it('never drops focus to the page when the panel it was sent to is not there', async () => {
-    // A Settings panel that fails to open must not strand the keyboard on <body>.
-    render(<EditorToolbar {...props()} />)
-    await choose('Settings')
-    await waitFor(() => expect(moreActions()).toHaveFocus())
-  })
 })

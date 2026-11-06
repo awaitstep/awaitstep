@@ -4,7 +4,6 @@ import { actionToast, failureLine } from '../lib/action-toast'
 import { useWorkflowStore } from '../stores/workflow-store'
 import { onlyBlockedByEmptyGraph, validateWorkflowForPublish } from '../lib/validate-workflow'
 import { buildIRFromState } from '../lib/build-ir'
-import { splitSecretName } from '../lib/env-var-parser'
 import { type WorkflowSummary } from '../lib/api-client'
 import type { NodeRegistry } from '@awaitstep/ir'
 import { useItemSlugs } from '../contexts/editor-scope-context'
@@ -38,14 +37,6 @@ export function useWorkflowPersistence(opts: {
     const state = useWorkflowStore.getState()
     const ir = buildIRFromState(state)
 
-    // A blank row, or a bare "SECRET_", is a half-typed line in the editor
-    // and not a variable. Sending it fails the API's name check and takes
-    // the whole save down with it — the IR builder drops these too.
-    const envVars = state.workflowEnvVars.flatMap((v) => {
-      const { name, isSecret } = splitSecretName(v.name)
-      const trimmed = name.trim()
-      return trimmed ? [{ name: trimmed, isSecret, value: v.value }] : []
-    })
     // Trigger code and dependencies are project files (handlers.ts,
     // package.json) edited in the code workspace; the canvas only mirrors
     // them, so it never writes them back.
@@ -57,21 +48,16 @@ export function useWorkflowPersistence(opts: {
         description: state.metadata.description,
         kind,
       })
-      if (envVars || deployConfig) {
-        await api.updateWorkflow(created.id, { envVars, deployConfig })
-      }
+      if (deployConfig) await api.updateWorkflow(created.id, { deployConfig })
       await api.createVersion(created.id, { ir })
       return created
     }
 
-    await api.updateWorkflow(workflowId, {
-      name: state.metadata.name,
-      description: state.metadata.description,
-      envVars,
-      deployConfig,
-    })
-    // Nothing drawn and nothing saved before: the settings are stored, and
-    // there is no graph to make a version of.
+    // The name and description are edited on the Overview page and the
+    // variables in their own dialog; the canvas only mirrors them, so it never
+    // writes them back over a newer edit from another tab.
+    if (deployConfig) await api.updateWorkflow(workflowId, { deployConfig })
+    // Nothing drawn and nothing saved before: there is no graph to make a version of.
     if (!hasVersion && state.nodes.length === 0) return null
     await api.createVersion(workflowId, { ir })
     return null
@@ -125,8 +111,8 @@ export function useWorkflowPersistence(opts: {
       settings,
       state.kind,
     )
-    // A rename on a workflow nobody has drawn yet is still worth keeping: it
-    // saves as settings, without a version.
+    // A workflow nobody has drawn on has nothing to save, and that must not
+    // stop a switch of surface that asked for a save first: it succeeds, with no version.
     const settingsOnly = !isNew && !hasVersion && onlyBlockedByEmptyGraph(result)
     if (!result.canPublish && !settingsOnly) {
       // The panel lists every issue (click-to-focus) and node badges mark

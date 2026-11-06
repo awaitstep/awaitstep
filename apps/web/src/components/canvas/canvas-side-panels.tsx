@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import { useCanvasLayoutStore } from '../../stores/canvas-layout-store'
-import { useShallow } from 'zustand/react/shallow'
-import { WorkflowSettings } from './workflow-settings'
 import { NodeConfigPanel } from './node-config-panel'
 import { LocalTestPanel } from './local-test-panel'
 import { cn } from '../../lib/utils'
@@ -72,31 +70,16 @@ export function CanvasSidePanels({
   onCloseLocalTest,
   workflowId,
 }: CanvasSidePanelsProps) {
-  const { showSettings, selectedNodeId } = useWorkflowStore(
-    useShallow((s) => ({ showSettings: s.showSettings, selectedNodeId: s.selectedNodeId })),
-  )
-
-  function handleCloseSettings() {
-    useWorkflowStore.getState().setShowSettings(false)
-  }
+  const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId)
 
   const inspectorOpen = useCanvasLayoutStore((s) => s.inspectorOpen)
-  const showInspector = !showSettings && !!selectedNodeId && inspectorOpen
+  const showInspector = !!selectedNodeId && inspectorOpen
 
-  const hasPanel = showSettings || showInspector || showLocalTest
+  const hasPanel = showInspector || showLocalTest
   if (!hasPanel) return null
 
   return (
     <div className="absolute right-0 top-0 z-10 flex h-full" onKeyDown={(e) => e.stopPropagation()}>
-      <SlideIn
-        show={showSettings}
-        width="w-[380px]"
-        panel="settings"
-        label="Workflow settings"
-        onEscape={handleCloseSettings}
-      >
-        <WorkflowSettings />
-      </SlideIn>
       <SlideIn show={showInspector} width="w-[380px]">
         <NodeConfigPanel />
       </SlideIn>

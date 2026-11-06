@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { render, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { EditorAccessProvider } from '../../../contexts/editor-scope-context'
@@ -107,70 +107,8 @@ function mount(props: Partial<React.ComponentProps<typeof CanvasView>> = {}) {
 beforeEach(() => {
   full.get.mockReset()
   full.get.mockImplementation(() => Promise.resolve(response()))
-  useWorkflowStore.setState({ showSettings: false, selectedNodeId: null })
+  useWorkflowStore.setState({ selectedNodeId: null })
   useCanvasLayoutStore.setState({ paletteOpen: false, inspectorOpen: true })
-})
-
-describe('CanvasView ?panel=settings', () => {
-  it('opens the workflow settings when it arrives with the panel in its address', async () => {
-    mount({ panelParam: 'settings' })
-    await waitFor(() => expect(useWorkflowStore.getState().showSettings).toBe(true))
-  })
-
-  it('opens nothing without the param, so a plain visit never inherits a request', async () => {
-    mount()
-    await screen.findByText('toolbar')
-    await waitFor(() => expect(useWorkflowStore.getState().workflowId).toBe('wf_1'))
-    expect(useWorkflowStore.getState().showSettings).toBe(false)
-  })
-
-  it('opens it once: the hydration a save or a refetch causes leaves a closed panel closed', async () => {
-    const { client } = mount({ panelParam: 'settings' })
-    await waitFor(() => expect(useWorkflowStore.getState().showSettings).toBe(true))
-    act(() => useWorkflowStore.getState().setShowSettings(false))
-    // The graph is hydrated again with changed server data, as after a save.
-    full.get.mockImplementation(() => {
-      const next = response()
-      next.workflow.name = 'Orders, saved'
-      return Promise.resolve(next)
-    })
-    await act(async () => {
-      await client.invalidateQueries({ queryKey: ['workflow-full'] })
-    })
-    await waitFor(() => expect(useWorkflowStore.getState().metadata.name).toBe('Orders, saved'))
-    expect(useWorkflowStore.getState().showSettings).toBe(false)
-  })
-
-  it('does not carry the request to another workflow: it lives in that address, not in a store', async () => {
-    const first = mount({ panelParam: 'settings' })
-    await waitFor(() => expect(useWorkflowStore.getState().showSettings).toBe(true))
-    first.unmount()
-    useWorkflowStore.setState({ showSettings: false })
-    mount({ workflowId: 'wf_2' })
-    await waitFor(() => expect(useWorkflowStore.getState().workflowId).toBe('wf_2'))
-    expect(useWorkflowStore.getState().showSettings).toBe(false)
-  })
-
-  it('does not open the settings for someone who cannot edit', async () => {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    render(
-      <QueryClientProvider client={client}>
-        <EditorAccessProvider
-          value={{
-            canEdit: false,
-            canDeploy: false,
-            canShare: false,
-            canMove: false,
-            reason: 'View only',
-          }}
-        >
-          <CanvasView workflowId="wf_1" panelParam="settings" localDevEnabled={false} />
-        </EditorAccessProvider>
-      </QueryClientProvider>,
-    )
-    await waitFor(() => expect(useWorkflowStore.getState().workflowId).toBe('wf_1'))
-    expect(useWorkflowStore.getState().showSettings).toBe(false)
-  })
 })
 
 describe('CanvasView ?node=', () => {

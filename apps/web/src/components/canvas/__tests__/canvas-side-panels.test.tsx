@@ -4,7 +4,6 @@ import { useCanvasLayoutStore } from '../../../stores/canvas-layout-store'
 import { useWorkflowStore } from '../../../stores/workflow-store'
 import { CanvasSidePanels } from '../canvas-side-panels'
 
-vi.mock('../workflow-settings', () => ({ WorkflowSettings: () => <div>settings panel</div> }))
 vi.mock('../node-config-panel', () => ({ NodeConfigPanel: () => <div>inspector panel</div> }))
 vi.mock('../local-test-panel', () => ({ LocalTestPanel: () => <div>local test panel</div> }))
 
@@ -16,7 +15,7 @@ function renderPanels() {
 
 beforeEach(() => {
   useCanvasLayoutStore.setState({ inspectorOpen: true })
-  useWorkflowStore.setState({ showSettings: false, selectedNodeId: 'n1' })
+  useWorkflowStore.setState({ selectedNodeId: 'n1' })
 })
 
 describe('CanvasSidePanels inspector toggle', () => {
@@ -31,12 +30,5 @@ describe('CanvasSidePanels inspector toggle', () => {
     expect(screen.queryByText('inspector panel')).toBeNull()
     act(() => useCanvasLayoutStore.setState({ inspectorOpen: true }))
     expect(screen.getByText('inspector panel')).toBeInTheDocument()
-  })
-
-  it('still shows the workflow settings with the inspector toggled off', () => {
-    useCanvasLayoutStore.setState({ inspectorOpen: false })
-    useWorkflowStore.setState({ showSettings: true, selectedNodeId: null })
-    renderPanels()
-    expect(screen.getByText('settings panel')).toBeInTheDocument()
   })
 })

@@ -51,17 +51,14 @@ beforeEach(() => {
 })
 
 describe('saving a workflow with nothing drawn and no saved version', () => {
-  it('stores the settings without a version, and reports success so the switch goes on', async () => {
+  it('has nothing to store, makes no version, and reports success so the switch goes on', async () => {
     const { result } = mount(false)
     let saved = false
     await act(async () => {
       saved = await result.current.saveNow()
     })
     expect(saved).toBe(true)
-    expect(mocks.updateWorkflow).toHaveBeenCalledWith(
-      'wf-1',
-      expect.objectContaining({ name: 'Renamed' }),
-    )
+    expect(mocks.updateWorkflow).not.toHaveBeenCalled()
     expect(mocks.createVersion).not.toHaveBeenCalled()
     expect(useWorkflowStore.getState().isDirty).toBe(false)
   })
@@ -86,5 +83,22 @@ describe('saving a workflow with nothing drawn and no saved version', () => {
     })
     expect(saved).toBe(false)
     expect(mocks.updateWorkflow).not.toHaveBeenCalled()
+  })
+})
+
+describe('saving only writes what the canvas owns', () => {
+  it('sends the deploy config but never the variables, name or description: another editor or tab may have changed them', async () => {
+    useWorkflowStore.getState().setWorkflowEnvVars([{ name: 'SECRET_TOKEN', value: 'old' }])
+    useWorkflowStore.setState({
+      deployConfig: { route: { pattern: 'a.example.com/*', zoneName: 'example.com' } },
+    })
+    const { result } = mount(false)
+    await act(async () => {
+      await result.current.saveNow()
+    })
+    expect(mocks.updateWorkflow).toHaveBeenCalledTimes(1)
+    expect(Object.keys((mocks.updateWorkflow.mock.calls[0] as unknown[])[1] as object)).toEqual([
+      'deployConfig',
+    ])
   })
 })

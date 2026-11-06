@@ -2,11 +2,12 @@ import {
   Download,
   LayoutTemplate,
   ListChecks,
+  Variable,
   Redo2,
-  Settings2,
   Terminal,
   Undo2,
 } from 'lucide-react'
+import { IDE_SHORTCUTS, formatShortcut } from '../../lib/ide/shortcuts'
 import type { TopBarMenuItem } from '../workflows/top-bar-menu'
 import type { TopBarVersion } from '../workflows/unified-top-bar'
 import { redoWithFeedback, undoWithFeedback } from './time-travel'
@@ -33,7 +34,7 @@ export function canvasTopBarVersion(args: {
 }
 
 /** The panel a menu item opens, found once the menu has closed. */
-export function panelElement(id: 'settings' | 'local-test' | 'templates') {
+export function panelElement(id: 'local-test' | 'templates') {
   return () => document.querySelector<HTMLElement>(`[data-panel="${id}"]`)
 }
 
@@ -43,7 +44,9 @@ interface CanvasMenuArgs {
   canUndo: boolean
   canRedo: boolean
   nodeCount: number
-  onOpenSettings: () => void
+  onOpenEnvVars: () => void
+  /** Nothing is stored yet, so there is no workflow for the variables to belong to. */
+  isNew: boolean
   onOpenTemplatePicker?: () => void
   onExport?: () => void
   onTestLocally?: () => void
@@ -54,16 +57,23 @@ interface CanvasMenuArgs {
 export function canvasMenuGroups(args: CanvasMenuArgs): TopBarMenuItem[][] {
   const { readOnly, isMac } = args
 
+  // Variables belong to the workflow, so a Viewer can look and an older version still has them.
+  const envVars: TopBarMenuItem = {
+    id: 'env-vars',
+    label: 'Environment variables…',
+    icon: Variable,
+    onSelect: args.onOpenEnvVars,
+    shortcut: formatShortcut(IDE_SHORTCUTS.envVars, isMac),
+    disabled: args.isNew,
+    ...(args.isNew && { hint: 'Save the workflow first' }),
+    // A dialog that takes focus and hands it back to ⋯ itself.
+    takesFocus: true,
+  }
+
   const setup: TopBarMenuItem[] = readOnly
-    ? []
+    ? [envVars]
     : [
-        {
-          id: 'settings',
-          label: 'Settings',
-          icon: Settings2,
-          onSelect: args.onOpenSettings,
-          focusTarget: panelElement('settings'),
-        },
+        envVars,
         ...(args.onOpenTemplatePicker
           ? [
               {
