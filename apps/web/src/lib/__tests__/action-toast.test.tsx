@@ -140,6 +140,34 @@ describe('mutation toasts', () => {
   })
 })
 
+describe('an error message that judges the failure itself', () => {
+  it('sees the error, and null keeps the toast quiet for a failure the page shows another way', async () => {
+    const { wrapper } = setup()
+    class Refused extends Error {}
+    const meta = {
+      success: 'Saved',
+      error: (_variables: unknown, error: unknown) =>
+        error instanceof Refused ? null : 'Couldn’t save',
+    }
+    const { result } = renderHook(
+      () =>
+        useMutation({
+          mutationFn: async (fail: 'refused' | 'offline') => {
+            throw fail === 'refused' ? new Refused('moved') : new TypeError('Failed to fetch')
+          },
+          meta: { toast: meta },
+        }),
+      { wrapper },
+    )
+    act(() => result.current.mutate('refused'))
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(toast.error).not.toHaveBeenCalled()
+    act(() => result.current.mutate('offline'))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
+    expect(toast.error.mock.calls[0]![0]).toBe('Couldn’t save')
+  })
+})
+
 describe('a message that cannot break its action', () => {
   it('keeps a mutation successful when its success message throws', async () => {
     const { wrapper } = setup()
