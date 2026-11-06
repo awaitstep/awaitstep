@@ -17,7 +17,7 @@ export type RetryBackoff = 'constant' | 'linear' | 'exponential'
 
 /** Retry policy for one durable step. */
 export interface RetryConfig {
-  /** Total attempts, including the first. */
+  /** Retries after the first attempt — `limit + 1` attempts in all, as Cloudflare reads it. */
   limit: number
   /** Delay between attempts. */
   delay: Duration
@@ -183,6 +183,129 @@ export function durableStep<Env, Payload>(flow: WorkflowContext<Env, Payload>): 
     sleepUntil: (name, at) => flow.sleepUntil(name, at),
     waitForEvent: (name, options) => flow.waitForEvent(name, options),
   }
+}
+
+/**
+ * The in-request half of the contract, for a function: a `fetch` handler has
+ * no durable runtime, so a step's body runs right here. The host still gives
+ * the body what a step has — `ctx.attempt`, the node's retries (delay and
+ * backoff between attempts) and its per-attempt timeout — but nothing is
+ * persisted, and nothing retries unless the node asks: a request cannot
+ * wait minutes the way a durable step can. Attempts are capped at
+ * {@link INLINE_MAX_ATTEMPTS} and every wait — a backoff pause, a timeout —
+ * at {@link INLINE_MAX_WAIT_MS}, so no node setting can hold a request for
+ * long or burn its CPU in a retry loop. A timed-out attempt is abandoned,
+ * not aborted: with retries, the next attempt may run while it still does.
+ * The durable waits (`sleep`, `sleepUntil`, `waitForEvent`) reject;
+ * validation keeps those nodes out of a function, this covers a hand-written
+ * call.
+ */
+export function createInlineHost(): WorkflowHost {
+  return {
+    async do<T>(name: string, config: StepConfig | undefined, fn: StepCallback<T>): Promise<T> {
+      // `limit` counts retries, as on Cloudflare: `limit + 1` attempts in all,
+      // capped — a request is not the place for a long campaign.
+      const retries = config?.retries
+      const attempts = Math.min(
+        INLINE_MAX_ATTEMPTS,
+        1 + Math.max(0, Math.floor(retries?.limit ?? 0)),
+      )
+      // Both durations are read before the first attempt, so a setting the
+      // host cannot read is the error — not the body's first failure.
+      const timeout =
+        config?.timeout === undefined
+          ? undefined
+          : Math.min(INLINE_MAX_WAIT_MS, durationMs(name, config.timeout))
+      const delay = retries === undefined ? 0 : durationMs(name, retries.delay)
+      for (let attempt = 1; ; attempt++) {
+        try {
+          return await withTimeout(name, timeout, () => fn({ attempt }))
+        } catch (err) {
+          if (attempt >= attempts || retries === undefined) throw err
+          await pause(Math.min(INLINE_MAX_WAIT_MS, backoffMs(delay, retries.backoff, attempt)))
+        }
+      }
+    },
+    sleep(name: string): Promise<void> {
+      return Promise.reject(notInFunction('sleep', name))
+    },
+    sleepUntil(name: string): Promise<void> {
+      return Promise.reject(notInFunction('sleepUntil', name))
+    },
+    waitForEvent<T>(name: string): Promise<T> {
+      return Promise.reject(notInFunction('waitForEvent', name))
+    },
+  }
+}
+
+/** The most attempts an in-request step makes, whatever its `retries.limit`. */
+export const INLINE_MAX_ATTEMPTS = 10
+/** The longest an in-request step waits for one backoff pause or one attempt. */
+export const INLINE_MAX_WAIT_MS = 30_000
+
+function notInFunction(primitive: string, name: string): Error {
+  return new Error(
+    `Step "${name}": ${primitive} is not available in a function — it needs a workflow's durable runtime`,
+  )
+}
+
+function pause(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function withTimeout<T>(
+  name: string,
+  ms: number | undefined,
+  run: () => T | Promise<T>,
+): Promise<T> {
+  if (ms === undefined) return await run()
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const expired = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Step "${name}" timed out after ${ms} ms`)), ms)
+  })
+  try {
+    return await Promise.race([Promise.resolve().then(run), expired])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
+}
+
+/** The wait before the next attempt, once attempt `attempt` has failed. */
+function backoffMs(base: number, backoff: RetryBackoff | undefined, attempt: number): number {
+  switch (backoff) {
+    case 'linear':
+      return base * attempt
+    case 'exponential':
+      return base * 2 ** (attempt - 1)
+    default:
+      return base
+  }
+}
+
+const DURATION =
+  /^\s*(\d+(?:\.\d+)?)\s*(ms|milliseconds?|s|secs?|seconds?|m|mins?|minutes?|h|hours?|d|days?|w|weeks?)\s*$/i
+const UNIT_MS: Record<string, number> = {
+  ms: 1,
+  s: 1000,
+  m: 60_000,
+  h: 3_600_000,
+  d: 86_400_000,
+  w: 604_800_000,
+}
+
+/** A duration as the step config spells it (`"10 seconds"`, `500`), in milliseconds. */
+function durationMs(name: string, value: Duration): number {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value < 0) {
+      throw new TypeError(`Step "${name}": invalid duration ${value}`)
+    }
+    return value
+  }
+  const match = DURATION.exec(value)
+  if (!match) throw new TypeError(`Step "${name}": unrecognised duration "${value}"`)
+  const unit = match[2]!.toLowerCase()
+  const key = unit.startsWith('m') && (unit === 'ms' || unit.startsWith('milli')) ? 'ms' : unit[0]!
+  return Number(match[1]) * UNIT_MS[key]!
 }
 
 /**
