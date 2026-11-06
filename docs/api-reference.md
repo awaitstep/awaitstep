@@ -257,6 +257,36 @@ Scripts run inside an `async fetch(request, env)` handler with no durable runtim
 | No `WORKFLOW` self-binding | The generated Worker has no Workflow binding to itself (it isn't a Workflow). Sub-workflow bindings (calls into other deployed workflows) and resource bindings (KV/D1/R2/etc.) are still detected and emitted. |
 | No instance lifecycle      | No Runs, no pause/resume/terminate. `POST /workflows/:id/trigger` returns 400 for scripts. Each HTTP request is a fresh invocation.                                                                             |
 
+### Steps in a function
+
+A function's steps are steps: each top-level `step` node becomes its own module, `nodes/<var>.ts`, with the body as a function body — exactly the file a workflow's step gets (a step inside a container runs the same way, inlined in its container's block) — and `runGraph` runs it through the AwaitStep step primitive:
+
+```ts
+import { createInlineHost, createWorkflowContext, durableStep } from "#awaitstep/runtime";
+import $Fetch_user from "./nodes/Fetch_user.js";
+
+export async function runGraph(env: Env, event: { payload: unknown }) {
+  const flow = createWorkflowContext({
+    env,
+    event: {
+      payload: event.payload,
+      timestamp: new Date(),
+      instanceId: globalThis.crypto.randomUUID(),
+    },
+    host: createInlineHost(),
+  });
+  const step = durableStep(flow);
+  const Fetch_user = await flow.step("k3j9x_a1b2c3", (ctx) =>
+    $Fetch_user({ env, event, inputs: {}, step, ctx }),
+  );
+  …
+}
+```
+
+The host is the in-request one: a step's body runs right there, in the request, with `ctx.attempt`, the node's retries (`retryLimit` counts retries after the first attempt, as on Cloudflare; delay and backoff between them) and its per-attempt timeout — but nothing is persisted, and **nothing retries or times out unless the node sets it** (a durable workflow step retries by default; a request cannot wait minutes). The host caps what a node can ask for: at most 10 attempts, and at most 30 seconds for any one backoff pause or attempt timeout. A timed-out attempt is abandoned, not aborted: with retries, the next attempt may run while it still does, so a body that is not idempotent should not combine the two. The body's `return` is the step's value; a later step that names it receives it as an input, and `EXPORT_` surfaces it on `graph.*` (below). The `step` object is in scope for parity with a workflow's modules; the canvas refuses a step written inside a step in both kinds, and the host does not police one. `step.sleep`, `step.sleepUntil` and `step.waitForEvent` throw, since a function has no durable runtime to park in. The names the generated body binds or uses — `flow`, `step`, `env`, `event`, `ctx`, `inputs`, `runGraph`, `workflow`, `crypto`, `Date`, `globalThis` and the runtime's own exports — are reserved: a node called one of them gets a `_node` suffix in generated code. A step marked `inline` is the exception: its code is pasted raw into `runGraph`, owns the surrounding scope, and has no retries or timeout.
+
+`GET /source` therefore lists a function's `nodes/*.ts` modules and `awaitstep/runtime.ts` beside `worker.ts`, and its `manifest.steps` names each top-level node, with `filePath` for the ones that got a module. Other node kinds (`http_request`, `sub_script`, custom nodes, containers) run in a function without a step boundary, as before.
+
 ### Fetch handler shell
 
 The compiled Worker has two parts: an auto-generated `runGraph(env, event)` function that runs the node graph, and a user-editable fetch handler body that decides what to do with its outputs. The default body is:
@@ -286,7 +316,7 @@ Override it by setting `triggerCode` on the workflow (`PATCH /workflows/:id`). Y
 
 ### `EXPORT_` prefix — opt-in graph outputs
 
-By default, **no** node outputs surface on `graph.*` — `runGraph` returns an empty object. To expose a value, prefix the node's display name with `EXPORT_`:
+By default, **no** node outputs surface on `graph.*` — `runGraph` returns an empty object. To expose a step's return value, prefix the node's display name with `EXPORT_`:
 
 | Node display name   | Surfaces on graph as | Notes                                                                                                                |
 | ------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -294,7 +324,7 @@ By default, **no** node outputs surface on `graph.*` — `runGraph` returns an e
 | `EXPORT_FetchUser`  | `graph.FetchUser`    | Prefix is stripped — the variable name is the clean identifier.                                                      |
 | `EXPORT_DirectMail` | `graph.DirectMail`   | Works for nodes nested inside containers (`branch`, `parallel`, `try_catch`); the value is hoisted out of the block. |
 
-A node with no `EXPORT_` prefix that isn't referenced anywhere else is dropped entirely (`await ...;` instead of `const X = await ...;`) — keeps the generated code lean.
+A node with no `EXPORT_` prefix that isn't referenced anywhere else is dropped entirely (`await ...;` instead of `const X = await ...;`) — keeps the generated code lean. An `inline` step has no return value to export; it surfaces a value by declaring `const <var> = …` itself, where `<var>` is the node's variable name.
 
 ### Invocation
 
