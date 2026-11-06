@@ -554,6 +554,32 @@ export interface DatabaseAdapter {
   createVersion(data: CreateVersionData): Promise<WorkflowVersion>
   getWorkflowVersionById(id: string): Promise<WorkflowVersion | null>
   getNextVersionNumber(workflowId: string): Promise<number>
+  /** The version with the highest number — the one a save builds on — or null before the first save. */
+  getLatestVersion(workflowId: string): Promise<WorkflowVersion | null>
+  /**
+   * Saves over `latest` in place, the precondition inside the UPDATE itself:
+   * the row's `ir` must still read `expectedIr` and the workflow must have no
+   * higher version number, so two saves racing on one draft cannot both
+   * succeed and a draft is not saved over once a newer version is there.
+   * (As with every statement-level guard here, Postgres judges the subquery
+   * on the statement's snapshot: a version inserted in the same instant can
+   * still be missed.) Null when nothing matched.
+   */
+  updateLatestVersionIfIrMatches(
+    latest: Pick<WorkflowVersion, 'id' | 'workflowId' | 'version'>,
+    expectedIr: string,
+    patch: UpdateVersionData,
+  ): Promise<WorkflowVersion | null>
+  /**
+   * Points the workflow at `version` unless it already points at one with a
+   * higher or equal number — the check inside the UPDATE, so two creators
+   * whose pointer writes land in reverse order cannot leave the workflow on
+   * the older of the two. True when the pointer moved.
+   */
+  advanceCurrentVersion(
+    workflowId: string,
+    version: Pick<WorkflowVersion, 'id' | 'version'>,
+  ): Promise<boolean>
   listVersionsByWorkflow(
     workflowId: string,
     pagination?: PaginationParams,
@@ -714,6 +740,8 @@ export interface DatabaseAdapter {
   upsertWorkflowFiles(rows: UpsertWorkflowFileData[]): Promise<WorkflowFile[]>
   /** Insert only; null when the path already exists (the check is in the statement). */
   createWorkflowFile(data: UpsertWorkflowFileData): Promise<WorkflowFile | null>
+  /** Insert-only for a set: stored paths are left alone; returns the rows written. */
+  createWorkflowFilesIfAbsent(rows: UpsertWorkflowFileData[]): Promise<WorkflowFile[]>
   /** Conditional replace; `'*'` only requires existence. Null when nothing matched. */
   updateWorkflowFileIfMatches(
     data: UpsertWorkflowFileData,

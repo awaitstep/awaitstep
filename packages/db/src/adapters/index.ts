@@ -333,7 +333,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       },
       this._dialect,
     )
-    this._versions = new VersionsAdapter(db, schema.workflowVersions, schema.user)
+    this._versions = new VersionsAdapter(db, schema.workflowVersions, schema.user, schema.workflows)
     this._connections = new ConnectionsAdapter(
       db,
       {
@@ -1028,6 +1028,22 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   getWorkflowVersionById(id: string): Promise<WorkflowVersion | null> {
     return this._versions.getById(id)
   }
+  getLatestVersion(workflowId: string): Promise<WorkflowVersion | null> {
+    return this._versions.getLatest(workflowId)
+  }
+  updateLatestVersionIfIrMatches(
+    latest: Pick<WorkflowVersion, 'id' | 'workflowId' | 'version'>,
+    expectedIr: string,
+    patch: UpdateVersionData,
+  ): Promise<WorkflowVersion | null> {
+    return this._versions.updateIfIrMatches(latest, expectedIr, patch)
+  }
+  advanceCurrentVersion(
+    workflowId: string,
+    version: Pick<WorkflowVersion, 'id' | 'version'>,
+  ): Promise<boolean> {
+    return this._versions.advanceCurrent(workflowId, version)
+  }
   async getNextVersionNumber(workflowId: string): Promise<number> {
     const max = await this._versions.getMaxVersionNumber(workflowId)
     return max + 1
@@ -1233,6 +1249,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
   createWorkflowFile(data: UpsertWorkflowFileData): Promise<WorkflowFile | null> {
     return this._workflowFiles.createIfAbsent(data)
+  }
+  createWorkflowFilesIfAbsent(rows: UpsertWorkflowFileData[]): Promise<WorkflowFile[]> {
+    return this._workflowFiles.createManyIfAbsent(rows)
   }
   updateWorkflowFileIfMatches(
     data: UpsertWorkflowFileData,

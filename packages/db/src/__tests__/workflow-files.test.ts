@@ -143,6 +143,31 @@ describe('workflow files adapter', () => {
     expect(await db.adapter.listWorkflowFiles('wf-1')).toEqual([])
   })
 
+  describe('createWorkflowFilesIfAbsent', () => {
+    it('creates the missing paths, leaves stored ones alone and returns only what it wrote', async () => {
+      await db.adapter.upsertWorkflowFile(row({ id: 'theirs', path: 'lib/a.ts', source: 'theirs' }))
+      const written = await db.adapter.createWorkflowFilesIfAbsent([
+        row({ id: 'seed-a', path: 'lib/a.ts', source: 'seed' }),
+        row({ id: 'seed-b', path: 'lib/b.ts', source: 'seed' }),
+      ])
+      expect(written.map((f) => f.path)).toEqual(['lib/b.ts'])
+      expect((await db.adapter.getWorkflowFile('wf-1', 'lib/a.ts'))!.source).toBe('theirs')
+      expect((await db.adapter.getWorkflowFile('wf-1', 'lib/b.ts'))!.source).toBe('seed')
+      expect(await db.adapter.createWorkflowFilesIfAbsent([])).toEqual([])
+    })
+
+    it('writes 40 files in statements of at most 100 parameters', async () => {
+      db.params.length = 0
+      const written = await db.adapter.createWorkflowFilesIfAbsent(
+        Array.from({ length: 40 }, (_, i) =>
+          row({ id: `s-${i}`, path: `seed/s-${i}.ts`, hash: `h${i}` }),
+        ),
+      )
+      expect(written).toHaveLength(40)
+      expect(Math.max(...db.params)).toBeLessThanOrEqual(100)
+    })
+  })
+
   describe('many files (D1 binds at most 100 parameters per statement)', () => {
     const many = (n: number, prefix = 'f') =>
       Array.from({ length: n }, (_, i) =>
