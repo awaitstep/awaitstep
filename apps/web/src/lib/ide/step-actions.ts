@@ -8,20 +8,25 @@ export type StepFocus = 'editor' | 'stay'
 
 /**
  * Picks a step: selects it for the inspector and the preview, and opens its
- * file when it has one. A step without a file (a sleep, a branch) is only
- * selected. A click in the preview hands the keyboard to the editor, because
- * the person came to read code; Enter in the Steps list keeps it in the list
- * so the next arrow key moves on.
+ * code when it has some — the editable source when the workspace has one,
+ * else the generated module (a custom node's, say). A step without either
+ * (a sleep, a branch) is only selected. A click in the preview hands the
+ * keyboard to the editor, because the person came to read code; Enter in
+ * the Steps list keeps it in the list so the next arrow key moves on.
  */
 export function selectStep(map: StepMap, nodeId: string, focus: StepFocus): void {
   const ide = useIdeStore.getState()
   ide.selectNode(nodeId)
-  const filePath = map.byNode.get(nodeId)?.filePath ?? null
-  if (filePath !== null) ide.openFile(filePath)
+  const info = map.byNode.get(nodeId)
+  const path = info?.sourcePath ?? info?.filePath ?? null
+  if (path !== null) ide.openFile(path)
   if (focus === 'editor') focusEditor()
 }
 
-/** Opens a step's file in Quick test. Does nothing for a step without a file. */
+/**
+ * Opens a step's generated module in Quick test — the module is what runs,
+ * whichever file its code is edited in. Does nothing for a step without one.
+ */
 export function runStepQuickTest(map: StepMap, nodeId: string): boolean {
   const filePath = map.byNode.get(nodeId)?.filePath ?? null
   if (filePath === null) return false

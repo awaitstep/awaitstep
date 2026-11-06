@@ -117,7 +117,7 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
 
   function editabilityOf(path: string) {
     return fileEditability(
-      fileOwner(path, projectPaths),
+      fileOwner(path, { projectPaths, storedPaths }),
       workspace ?? { readOnly: true, message: null },
     )
   }

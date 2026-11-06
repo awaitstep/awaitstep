@@ -11,6 +11,7 @@ import {
   PROJECT_HANDLERS_PATH,
   PROJECT_IMPORT_PREFIX,
   isProjectCodePath,
+  isStepSourcePath,
   projectFileBytes,
   projectHandlerModules,
   findProjectPathCollision,
@@ -21,7 +22,7 @@ import {
 } from '@awaitstep/ir'
 import { basename, dirname, normalizeBundlePath } from './file-tree'
 
-export type FileOwner = 'project' | 'generated'
+export type FileOwner = 'project' | 'generated' | 'step'
 
 export interface WorkspaceFiles {
   project: GeneratedFile[]
@@ -40,8 +41,24 @@ export function splitWorkspaceFiles(
   return split
 }
 
-export function fileOwner(path: string, projectPaths: ReadonlySet<string>): FileOwner {
-  return projectPaths.has(path) ? 'project' : 'generated'
+export interface OwnerSets {
+  /** Every path the person edits as the editor sees it: stored files, virtual seeds, unsaved new files, step sources. */
+  projectPaths: ReadonlySet<string>
+  /** The paths with a row in the project-file table. */
+  storedPaths: ReadonlySet<string>
+}
+
+/**
+ * Who a path belongs to: `step` for a step node's source under `steps/` — a
+ * view of the IR, saved through the version, never a file — `project` for
+ * what the person owns as files, `generated` for the rest of the bundle. A
+ * file stored under `steps/` before the folder was reserved stays a project
+ * file; the path of a step whose node has since been deleted stays a step,
+ * so its draft is never offered as a file to create.
+ */
+export function fileOwner(path: string, sets: OwnerSets): FileOwner {
+  if (isStepSourcePath(path) && !sets.storedPaths.has(path)) return 'step'
+  return sets.projectPaths.has(path) ? 'project' : 'generated'
 }
 
 interface LegacySettings {

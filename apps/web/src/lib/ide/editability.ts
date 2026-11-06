@@ -39,9 +39,10 @@ export function workspaceEditability(ctx: WorkspaceContext): Editability {
 }
 
 /**
- * Per-file editability: project files follow the workspace, generated
- * files never accept edits (the canvas would overwrite them on the next
- * save) — put the code in a project file instead.
+ * Per-file editability: project files and step sources follow the
+ * workspace (a step's code is saved as a version, like a canvas edit);
+ * generated files never accept edits (the canvas would overwrite them on
+ * the next save) — put the code in a project file instead.
  */
 export function fileEditability(owner: FileOwner, workspace: Editability): Editability {
   if (owner === 'generated') {

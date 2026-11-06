@@ -30,4 +30,10 @@ describe('fileEditability', () => {
     const frozen = workspaceEditability({ historical: true })
     expect(fileEditability('project', frozen)).toBe(frozen)
   })
+
+  it('lets a step source follow the workspace too: editable now, frozen on an older version', () => {
+    expect(fileEditability('step', editable)).toBe(editable)
+    const frozen = workspaceEditability({ historical: true })
+    expect(fileEditability('step', frozen)).toBe(frozen)
+  })
 })

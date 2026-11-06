@@ -3,6 +3,7 @@ import type { StepManifest } from '@awaitstep/codegen'
 import type { WorkflowNode } from '@awaitstep/ir'
 import { useShallow } from 'zustand/react/shallow'
 import type { VersionSummary } from '../../lib/api-client'
+import { stepSourcePaths } from '../../lib/ide/node-source'
 import { buildStepMap, type StepMap } from '../../lib/ide/step-map'
 import { orderSteps, type StepRow } from '../../lib/ide/step-order'
 import { useWorkflowStore } from '../../stores/workflow-store'
@@ -85,6 +86,7 @@ export function StepSyncProvider({
       ),
     [flowNodes, edges],
   )
+  const sourcePaths = useMemo(() => stepSourcePaths(nodes.values()), [nodes])
   const map = useMemo(
     () =>
       buildStepMap({
@@ -92,8 +94,9 @@ export function StepSyncProvider({
         nodeIds: rows.map((r) => r.nodeId),
         files: deferredFiles,
         projectPaths,
+        sourcePaths,
       }),
-    [manifest, rows, deferredFiles, projectPaths],
+    [manifest, rows, deferredFiles, projectPaths, sourcePaths],
   )
 
   const value = useMemo<StepSyncValue>(

@@ -9,6 +9,7 @@ const ROLE_TITLES: Record<GeneratedFileRole, string> = {
   config: 'Config: toolchain configuration',
   meta: 'Metadata: package manifest',
   asset: 'Asset: written to the deploy as-is',
+  source: 'Step code: the body of a canvas step, saved with the workflow version',
 }
 
 export function roleTitle(role: GeneratedFileRole): string {
@@ -24,6 +25,8 @@ export function FileIcon({ role, className }: { role: GeneratedFileRole; classNa
       return <FileCode2 className={cn(classes, 'text-muted-foreground')} />
     case 'handlers':
       return <FileCode2 className={cn(classes, 'text-status-success/80')} />
+    case 'source':
+      return <FileCode2 className={cn(classes, 'text-status-info/80')} />
     case 'config':
       return <FileJson className={cn(classes, 'text-status-warning/80')} />
     case 'meta':

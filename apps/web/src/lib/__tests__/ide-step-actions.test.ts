@@ -4,17 +4,33 @@ import { runStepQuickTest, selectStep, showStepsView } from '../ide/step-actions
 import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
 
+const manifest = {
+  irHash: 'h',
+  steps: [
+    { nodeId: 'a', varName: 'a', filePath: 'nodes/a.ts' },
+    { nodeId: 'sleep', varName: 'sleep' },
+  ],
+}
+const sourcePaths = new Map([['a', 'steps/a.ts']])
+
 const map = buildStepMap({
-  manifest: {
-    irHash: 'h',
-    steps: [
-      { nodeId: 'a', varName: 'a', filePath: 'nodes/a.ts' },
-      { nodeId: 'sleep', varName: 'sleep' },
-    ],
-  },
+  manifest,
   nodeIds: ['a', 'sleep'],
   files: new Map([['nodes/a.ts', { source: '' }]]),
   projectPaths: new Set(),
+  sourcePaths,
+})
+
+/** The same workspace once it shows the step's editable source. */
+const withSource = buildStepMap({
+  manifest,
+  nodeIds: ['a', 'sleep'],
+  files: new Map([
+    ['nodes/a.ts', { source: '' }],
+    ['steps/a.ts', { source: 'return 1' }],
+  ]),
+  projectPaths: new Set(),
+  sourcePaths,
 })
 
 const focus = vi.fn()
@@ -33,6 +49,15 @@ describe('selectStep', () => {
       selectedNodeId: 'a',
       activePath: 'nodes/a.ts',
       openPaths: ['nodes/a.ts'],
+    })
+  })
+
+  it('opens the editable source rather than the generated module when the workspace has one', () => {
+    selectStep(withSource, 'a', 'stay')
+    expect(useIdeStore.getState()).toMatchObject({
+      selectedNodeId: 'a',
+      activePath: 'steps/a.ts',
+      openPaths: ['steps/a.ts'],
     })
   })
 
@@ -80,6 +105,11 @@ describe('runStepQuickTest', () => {
     expect(runStepQuickTest(map, 'a')).toBe(true)
     expect(useIdeStore.getState().activePath).toBe('nodes/a.ts')
     expect(useIdeLayoutStore.getState()).toMatchObject({ dockOpen: true, dockTab: 'quickTest' })
+  })
+
+  it('runs the generated module even when the step’s source is what the workspace shows', () => {
+    expect(runStepQuickTest(withSource, 'a')).toBe(true)
+    expect(useIdeStore.getState().activePath).toBe('nodes/a.ts')
   })
 
   it('refuses a step with no file and changes nothing', () => {
