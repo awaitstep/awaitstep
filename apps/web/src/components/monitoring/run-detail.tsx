@@ -38,7 +38,6 @@ export function RunDetail({ runId, workflowId }: RunDetailProps) {
     if (!run) return
     const wasActive = prevStatus.current && !TERMINAL_STATUSES.has(prevStatus.current)
     if (wasActive && TERMINAL_STATUSES.has(run.status)) {
-      queryClient.invalidateQueries({ queryKey: ['all-runs'] })
       queryClient.invalidateQueries({ queryKey: ['workflow-runs', workflowId] })
     }
     prevStatus.current = run.status

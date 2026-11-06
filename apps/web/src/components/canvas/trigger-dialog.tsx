@@ -95,7 +95,6 @@ export function TriggerDialog({
         },
       )
       queryClient.invalidateQueries({ queryKey: ['workflow-runs', selectedWorkflowId] })
-      queryClient.invalidateQueries({ queryKey: ['all-runs'] })
       // The workflow page's run counts (its tab and the day's card).
       queryClient.invalidateQueries({ queryKey: ['dash', 'workflow-run-counts'] })
       onClose()

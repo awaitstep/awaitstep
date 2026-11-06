@@ -754,10 +754,6 @@ export function createApiClient(scope: () => ApiScope) {
       return request(withPagination(withProject('/deployments'), opts))
     },
 
-    listAllRuns(opts?: PaginationOptions): Promise<PaginatedResponse<RunSummary>> {
-      return request(withPagination(withProject('/runs'), opts))
-    },
-
     listWorkflowRuns(
       workflowId: string,
       opts?: PaginationOptions,

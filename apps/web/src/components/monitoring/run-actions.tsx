@@ -34,7 +34,6 @@ export function RunActions({ workflowId, runId, status }: RunActionsProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflow-run', workflowId, runId] })
       queryClient.invalidateQueries({ queryKey: ['workflow-runs', workflowId] })
-      queryClient.invalidateQueries({ queryKey: ['all-runs'] })
     },
   })
 
