@@ -5,6 +5,12 @@ import { countBySeverity, diagnosticProblems, groupProblems } from '../lib/ide/p
 import { VIEW_ONLY_MESSAGE, fileEditability, workspaceEditability } from '../lib/ide/editability'
 import { useEditorAccess } from '../contexts/editor-scope-context'
 import { buildFileTree } from '../lib/ide/file-tree'
+import {
+  loadVersionDocument,
+  stepCollisionProblems,
+  stepSources,
+  type StepSources,
+} from '../lib/ide/node-source'
 import { fileOwner, projectUsage, splitWorkspaceFiles, virtualSeedFiles } from '../lib/ide/project'
 import { formatClock } from '../lib/ide/session-log'
 import { deriveReadOnlyState } from '../lib/hydrate-workflow'
@@ -15,6 +21,7 @@ import { useDraftOverlay } from './use-draft-overlay'
 import { useWorkspaceProblems } from './use-workspace-problems'
 
 const EMPTY_FILES: ReadonlyMap<string, SourceFile> = new Map()
+const NO_STEPS: StepSources = { files: [], byNode: new Map(), byPath: new Map(), collisions: [] }
 
 /**
  * What the code workspace shows, derived from the two queries and the open
@@ -34,18 +41,27 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
   })
   const fullData = fullQuery.data
   const source = sourceQuery.data
+  // The files come from the source, the step sources from the version: the
+  // baseline waits for both, so nothing downstream (draft restore, tab
+  // pruning) ever judges a step file against a baseline that lacks it.
+  const loaded = source !== undefined && fullData !== undefined
   const drafts = useIdeStore((s) => s.drafts)
   const { isReadOnly: isHistorical, readOnlyVersion } = deriveReadOnlyState(
     versionParam,
     fullData?.workflow.currentVersionId,
     fullData?.versions,
   )
-  const storedHashes = useMemo(
+  // The stored project files only: what the file routes know, hashed.
+  const storedFiles = useMemo(
     () =>
-      Object.fromEntries(
-        (source?.files ?? []).flatMap((f) => (f.hash !== undefined ? [[f.path, f.hash]] : [])),
+      new Map<string, SourceFile>(
+        (source?.files ?? []).flatMap((f) => (f.hash !== undefined ? [[f.path, f]] : [])),
       ),
     [source],
+  )
+  const storedHashes = useMemo(
+    () => Object.fromEntries([...storedFiles.values()].map((f) => [f.path, f.hash!])),
+    [storedFiles],
   )
 
   const access = useEditorAccess()
@@ -61,39 +77,38 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
   )
   const canEdit = workspace !== null && !workspace.readOnly
 
-  // Everything about ownership comes from the one source response: a file
-  // with a hash is project-owned (the hash is its write precondition), the
-  // rest is generated. Legacy settings surface as virtual files to adopt.
-  const storedPaths = useMemo(
-    () => new Set((source?.files ?? []).filter((f) => f.hash !== undefined).map((f) => f.path)),
-    [source],
+  // Ownership comes from the two responses: a file with a hash is
+  // project-owned (the hash is its write precondition), a step node's code
+  // is a step source (saved through the version), the rest is generated.
+  // Legacy settings surface as virtual files to adopt.
+  const storedPaths = useMemo(() => new Set(storedFiles.keys()), [storedFiles])
+  const version = useMemo(() => loadVersionDocument(fullData), [fullData])
+  const steps = useMemo(
+    () => (version ? stepSources(version.doc, storedPaths) : NO_STEPS),
+    [version, storedPaths],
   )
+  const stepPaths = useMemo(() => new Set(steps.files.map((f) => f.path)), [steps])
   const seeds = useMemo(
     () => (canEdit && fullData ? virtualSeedFiles(fullData.workflow, storedPaths) : []),
     [canEdit, fullData, storedPaths],
   )
   const savedProjectPaths = useMemo(
-    () => new Set([...storedPaths, ...seeds.map((f) => f.path)]),
-    [storedPaths, seeds],
+    () => new Set([...storedPaths, ...seeds.map((f) => f.path), ...stepPaths]),
+    [storedPaths, seeds, stepPaths],
   )
   const virtualPaths = useMemo(() => new Set(seeds.map((f) => f.path)), [seeds])
 
   const baseline = useMemo(() => {
-    if (!source) return EMPTY_FILES
+    if (!source || !loaded) return EMPTY_FILES
     const map = new Map<string, SourceFile>(source.files.map((file) => [file.path, file]))
     for (const seed of seeds) if (!map.has(seed.path)) map.set(seed.path, seed)
+    for (const step of steps.files) if (!map.has(step.path)) map.set(step.path, step)
     return map
-  }, [source, seeds])
+  }, [source, loaded, seeds, steps])
   const { files, projectPaths, ghostPaths } = useDraftOverlay(baseline, drafts, savedProjectPaths)
-  // Stored files only (a virtual seed is not counted by the server); it
-  // changes when files do, not with every keystroke.
-  const usage = useMemo(
-    () =>
-      projectUsage(
-        [...baseline.values()].filter((f) => f.hash !== undefined && !virtualPaths.has(f.path)),
-      ),
-    [baseline, virtualPaths],
-  )
+  // Stored files only (neither a virtual seed nor a step source is counted by
+  // the server); it changes when files do, not with every keystroke.
+  const usage = useMemo(() => projectUsage(storedFiles.values()), [storedFiles])
   const dirty = useMemo(() => new Set(dirtyPaths(baseline, drafts)), [baseline, drafts])
   // Trees only depend on which files exist, so a keystroke never rebuilds them.
   const trees = useMemo(() => {
@@ -102,9 +117,16 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
   }, [baseline, projectPaths])
 
   // One problem list for the dock and the status bar: server findings first,
-  // since they explain the editor markers after them.
+  // since they explain the editor markers after them. A step whose path is
+  // taken (by another step or a stored file) is reported there too.
   const markers = useWorkspaceProblems(workflowId)
-  const savedProblems = useMemo(() => diagnosticProblems(source?.diagnostics ?? []), [source])
+  const savedProblems = useMemo(
+    () => [
+      ...diagnosticProblems(source?.diagnostics ?? []),
+      ...stepCollisionProblems(steps.collisions),
+    ],
+    [source, steps],
+  )
   const problemGroups = useMemo(
     () => groupProblems(markers, savedProblems, dirty),
     [markers, savedProblems, dirty],
@@ -115,11 +137,13 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
     ? formatClock(new Date(sourceQuery.dataUpdatedAt).toISOString())
     : null
 
+  const ownerOf = useMemo(
+    () => (path: string) => fileOwner(path, { projectPaths, storedPaths }),
+    [projectPaths, storedPaths],
+  )
+
   function editabilityOf(path: string) {
-    return fileEditability(
-      fileOwner(path, { projectPaths, storedPaths }),
-      workspace ?? { readOnly: true, message: null },
-    )
+    return fileEditability(ownerOf(path), workspace ?? { readOnly: true, message: null })
   }
 
   return {
@@ -127,13 +151,17 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
     sourceQuery,
     fullData,
     source,
+    loaded,
+    hasVersion: !!fullData?.version,
     isHistorical,
     readOnlyVersion,
+    storedFiles,
     storedHashes,
     workspace,
     canEdit,
     storedPaths,
     virtualPaths,
+    stepPaths,
     baseline,
     files,
     projectPaths,
@@ -144,6 +172,7 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
     problemGroups,
     problemCounts,
     savedAt,
+    ownerOf,
     editabilityOf,
   }
 }

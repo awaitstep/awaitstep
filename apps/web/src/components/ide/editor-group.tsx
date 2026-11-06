@@ -31,6 +31,7 @@ import { EmptyFileHint, ScheduleBanner } from './new-file-notices'
 import { HANDLER_SCHEDULED_PATH } from '@awaitstep/ir'
 import { importSpecifier } from '../../lib/ide/project'
 import { FileStateBanner } from './file-state-banner'
+import { GraphConflictBanner } from './graph-conflict-banner'
 import type { ReviewBindings } from './review-bindings'
 import { ReviewView } from './review-view'
 import { EditorTabs } from './editor-tabs'
@@ -271,6 +272,7 @@ export function EditorGroup({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <RestoredDraftsBanner onCompare={review.onCompare} />
+      <GraphConflictBanner bindings={review} />
       <div className="flex shrink-0 items-stretch border-b border-border bg-card">
         <div className="min-w-0 flex-1">
           <EditorTabs files={files} dirty={dirty} onRevertFile={onRevertFile} />

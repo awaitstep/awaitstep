@@ -5,6 +5,7 @@ import type { GeneratedFile } from '@awaitstep/codegen'
 import type { DraftUndo } from '../lib/ide/draft-undo'
 import { dirtyPaths } from '../lib/ide/drafts'
 import type { Editability } from '../lib/ide/editability'
+import type { FileOwner } from '../lib/ide/project'
 import { basename } from '../lib/ide/file-tree'
 import { currentReviewPath, reviewOrder } from '../lib/ide/review'
 import { compareTabId, compareTabPath, filePathOfTab, REVIEW_TAB_ID } from '../lib/ide/tabs'
@@ -20,6 +21,7 @@ interface ReviewActionsInput {
   projectFiles: ProjectFilesController
   draftUndo: DraftUndo
   editabilityOf: (path: string) => Editability
+  ownerOf: (path: string) => FileOwner
   onChange: (path: string, source: string) => void
 }
 
@@ -51,8 +53,8 @@ export function activeTargetPath(
 /** Wires the Unsaved changes view, Compare and the outside-change banners to the workspace's writes. */
 export function useReviewActions(input: ReviewActionsInput) {
   const queryClient = useQueryClient()
-  const { workflowId, files, baseline, canEdit, projectFiles, draftUndo, editabilityOf, onChange } =
-    input
+  const { workflowId, files, baseline, canEdit, projectFiles, draftUndo } = input
+  const { editabilityOf, ownerOf, onChange } = input
 
   const bindings = useMemo<ReviewBindings>(
     () => ({
@@ -62,6 +64,7 @@ export function useReviewActions(input: ReviewActionsInput) {
       canEdit,
       busy: projectFiles.busy,
       editabilityOf,
+      ownerOf,
       onChange,
       onRevert: draftUndo.revertFile,
       onSave: projectFiles.saveFile,
@@ -77,7 +80,8 @@ export function useReviewActions(input: ReviewActionsInput) {
       },
       onOverwrite: projectFiles.overwriteFile,
       onUseServerVersion: (path, loadedHash) => {
-        draftUndo.takeServerVersion(path, `Switched ${basename(path)} to the server version.`)
+        const theirs = ownerOf(path) === 'step' ? 'canvas' : 'server'
+        draftUndo.takeServerVersion(path, `Switched ${basename(path)} to the ${theirs} version.`)
         // Compare read the copy itself; make the editor show that same copy.
         if (loadedHash !== (baseline.get(path)?.hash ?? null)) void projectFiles.refresh()
       },
@@ -92,6 +96,7 @@ export function useReviewActions(input: ReviewActionsInput) {
       projectFiles,
       draftUndo,
       editabilityOf,
+      ownerOf,
       onChange,
       queryClient,
     ],

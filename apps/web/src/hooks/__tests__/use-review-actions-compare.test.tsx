@@ -23,6 +23,7 @@ function setup() {
         projectFiles: { busy: false } as never,
         draftUndo: {} as never,
         editabilityOf: () => ({ readOnly: false, message: null }),
+        ownerOf: () => 'project',
         onChange: vi.fn(),
       }),
     { wrapper },

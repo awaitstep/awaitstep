@@ -88,6 +88,7 @@ export function WorkspaceLayout({
     canEdit,
     storedPaths,
     virtualPaths,
+    stepPaths,
     baseline,
     files,
     projectPaths,
@@ -201,6 +202,7 @@ export function WorkspaceLayout({
                       unsavedPaths={reviewOrder(dirty)}
                       onReview={handleReview}
                       virtual={virtualPaths}
+                      stepPaths={stepPaths}
                       canEdit={canEdit}
                       usage={usage}
                       onCreateFile={handleCreateFile}

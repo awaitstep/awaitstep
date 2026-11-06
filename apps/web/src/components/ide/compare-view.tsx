@@ -15,14 +15,26 @@ import { DiffToolbar, HeaderButton, SideCaptions, ViewToggle } from './diff-part
 import type { ReviewBindings } from './review-bindings'
 import { useApi } from '../../contexts/api-client-context'
 
+/** The copy on the left: the server's file, or for a step the node's code as the workspace has it. */
+interface TheirCopy {
+  source: string
+  hash: string
+  /** Server hashes the editor knew of when this copy was read; a later one means the copy is out of date. */
+  known: string[]
+}
+
 /**
  * Compare: the server's copy of a file (left, read-only) beside yours
  * (right, editable). It reads the server copy itself, so the text and the
- * hash Overwrite is conditional on come from the same response.
+ * hash Overwrite is conditional on come from the same response. A step's
+ * source has no server file: its other side is the node's code in the
+ * loaded version, which the workspace keeps current, so nothing is fetched
+ * and Overwrite saves over exactly the code shown.
  */
 export function CompareView({ path, bindings }: { path: string; bindings: ReviewBindings }) {
   const api = useApi()
   const { workflowId, baseline } = bindings
+  const isStep = bindings.ownerOf(path) === 'step'
   const { draft, conflict, inline, closeFile, setReviewInline } = useIdeStore(
     useShallow((s) => ({
       draft: s.drafts[path],
@@ -51,23 +63,31 @@ export function CompareView({ path, bindings }: { path: string; bindings: Review
     gcTime: Infinity,
     retry: false,
     refetchOnWindowFocus: false,
+    enabled: !isStep,
   })
   const [widthRef, width] = useElementWidth()
   const [changes, setChanges] = useState<number | null>(null)
   const [overwriting, setOverwriting] = useState(false)
   const sideBySide = effectiveSideBySide(inline, width)
 
-  const deleted = server.error instanceof ApiError && server.error.status === 404
-  const loaded = server.data
+  const stepCopy = isStep ? baseline.get(path) : undefined
+  const deleted = isStep
+    ? stepCopy === undefined
+    : server.error instanceof ApiError && server.error.status === 404
+  const loaded: TheirCopy | undefined = isStep
+    ? stepCopy && { source: stepCopy.source, hash: stepCopy.hash ?? '', known: [] }
+    : server.data
   const readOnly = !bindings.canEdit || bindings.editabilityOf(path).readOnly
   // A server hash the editor learned of after this copy was fetched (its own
   // check, or a save the server refused): the copy on the left is out of date.
-  // Reload fetches again and so clears it.
+  // Reload fetches again and so clears it. A step's copy is the live baseline.
   const outdated =
+    !isStep &&
     loaded !== undefined &&
     [baseline.get(path)?.hash, conflict?.currentHash].some(
       (hash) => isHash(hash) && !loaded.known.includes(hash),
     )
+  const theirs = isStep ? 'canvas' : 'server'
 
   function handleClose() {
     closeFile(compareTabId(path))
@@ -89,8 +109,9 @@ export function CompareView({ path, bindings }: { path: string; bindings: Review
     try {
       // The write moved the server on to the person's own text: read it back,
       // so the next overwrite is conditional on that hash and the left side
-      // is what is stored, instead of claiming the file changed.
-      if (await bindings.onOverwrite(path, loaded.hash)) await server.refetch()
+      // is what is stored, instead of claiming the file changed. (A step's
+      // left side is the baseline, which the save's refetch brings along.)
+      if ((await bindings.onOverwrite(path, loaded.hash)) && !isStep) await server.refetch()
     } finally {
       setOverwriting(false)
     }
@@ -120,26 +141,30 @@ export function CompareView({ path, bindings }: { path: string; bindings: Review
     bindings.onChange(path, text)
   }
 
-  if (server.isPending) {
+  if (!isStep && server.isPending) {
     return <CompareMessage>Loading the server copy of {basename(path)}…</CompareMessage>
   }
   if (deleted) {
     return (
       <CompareMessage>
         <p>
-          {basename(path)} was deleted on the server.
+          {isStep
+            ? `The step behind ${basename(path)} was removed from the canvas.`
+            : `${basename(path)} was deleted on the server.`}
           {draft ? ' Your unsaved copy is kept.' : ''}
         </p>
         <div className="flex gap-2">
           {draft && (
             <>
-              <Button
-                size="sm"
-                onClick={handleRecreateClick}
-                disabled={!bindings.canEdit || bindings.busy}
-              >
-                Save to recreate
-              </Button>
+              {!isStep && (
+                <Button
+                  size="sm"
+                  onClick={handleRecreateClick}
+                  disabled={!bindings.canEdit || bindings.busy}
+                >
+                  Save to recreate
+                </Button>
+              )}
               <Button size="sm" variant="outline" onClick={handleDiscard}>
                 Discard
               </Button>
@@ -168,7 +193,9 @@ export function CompareView({ path, bindings }: { path: string; bindings: Review
     )
   }
 
-  const loadedAt = formatClock(new Date(server.dataUpdatedAt).toISOString())
+  const leftCaption = isStep
+    ? 'On the canvas · read-only'
+    : `On the server · loaded ${formatClock(new Date(server.dataUpdatedAt).toISOString())} · read-only`
   const busy = bindings.busy || overwriting
 
   return (
@@ -188,7 +215,7 @@ export function CompareView({ path, bindings }: { path: string; bindings: Review
         />
         <HeaderButton onClick={handleClose}>Close</HeaderButton>
         <HeaderButton onClick={handleUseServer} disabled={!draft || !bindings.canEdit || busy}>
-          Use server version
+          Use {theirs} version
         </HeaderButton>
         <Button
           size="sm"
@@ -207,7 +234,7 @@ export function CompareView({ path, bindings }: { path: string; bindings: Review
       )}
       <SideCaptions
         sideBySide={sideBySide}
-        left={`On the server · loaded ${loadedAt} · read-only`}
+        left={leftCaption}
         right={readOnly ? 'Your copy · read-only' : 'Your copy · editable'}
       />
       <div className="min-h-0 flex-1">

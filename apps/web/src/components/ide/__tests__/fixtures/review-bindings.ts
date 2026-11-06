@@ -15,6 +15,7 @@ export function makeReviewBindings(overrides: Partial<ReviewBindings> = {}): Rev
     canEdit: true,
     busy: false,
     editabilityOf: () => ({ readOnly: false, message: null }),
+    ownerOf: () => 'project',
     onChange: vi.fn(),
     onRevert: vi.fn(),
     onSave: vi.fn().mockResolvedValue(true),

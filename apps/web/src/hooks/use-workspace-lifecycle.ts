@@ -15,10 +15,14 @@ import { useOutsideChanges } from './use-outside-changes'
 
 interface DraftSyncInput {
   workflowId: string
-  source: WorkflowSource | undefined
+  versionParam: string | undefined
+  /** Both queries have answered, so `baseline` is complete (files and step sources). */
+  loaded: boolean
   isHistorical: boolean
   canEdit: boolean
   baseline: ReadonlyMap<string, SourceFile>
+  /** The stored project files only: what the listing the poll reads can speak about. */
+  storedFiles: ReadonlyMap<string, SourceFile>
 }
 
 /**
@@ -30,18 +34,26 @@ interface DraftSyncInput {
  */
 export function useWorkspaceDraftSync({
   workflowId,
-  source,
+  versionParam,
+  loaded,
   isHistorical,
   canEdit,
   baseline,
+  storedFiles,
 }: DraftSyncInput): void {
-  // Notices files another writer changed (a teammate, an agent) while this is open.
-  useOutsideChanges({ workflowId, enabled: source !== undefined && !isHistorical, baseline })
+  // Notices files another writer changed (a teammate, an agent) and versions
+  // the canvas saved while this is open.
+  useOutsideChanges({
+    workflowId,
+    versionParam,
+    enabled: loaded && !isHistorical,
+    stored: storedFiles,
+  })
 
   useDraftPersistence({
     workflowId,
     enabled: canEdit,
-    baseline: source ? baseline : null,
+    baseline: loaded ? baseline : null,
   })
 }
 
@@ -122,9 +134,11 @@ export function useWorkspaceLifecycle({
 
   // Keep tabs and drafts consistent with the loaded bundle (a refetch after
   // a save makes the saved draft redundant) and land on the deep-linked file
-  // (or the primary file) when nothing is open yet.
+  // (or the primary file) when nothing is open yet. Both queries must have
+  // answered: the baseline holds the step sources only once the version is in.
+  const loaded = source !== undefined && fullData !== undefined
   useEffect(() => {
-    if (!source) return
+    if (!source || !loaded) return
     // Drafts first: a Compare tab goes once its file has no unsaved copy left.
     reconcileDrafts(baseline)
     pruneFiles([...baseline.keys(), ...ghostPaths])
@@ -134,7 +148,7 @@ export function useWorkspaceLifecycle({
     const initial =
       requested && baseline.has(requested) ? requested : (source.primary ?? source.entry)
     if (initial && baseline.has(initial)) openFile(initial)
-  }, [source, baseline, ghostPaths, fileParam, openFile, pruneFiles, reconcileDrafts])
+  }, [source, loaded, baseline, ghostPaths, fileParam, openFile, pruneFiles, reconcileDrafts])
 
   const loadError = fullError ?? sourceError
   useEffect(() => {

@@ -1,5 +1,6 @@
 import type { GeneratedFile } from '@awaitstep/codegen'
 import type { Editability } from '../../lib/ide/editability'
+import type { FileOwner } from '../../lib/ide/project'
 import type { SourceFile } from '../../lib/api-client'
 
 /**
@@ -17,6 +18,8 @@ export interface ReviewBindings {
   /** A write is in flight. */
   busy: boolean
   editabilityOf: (path: string) => Editability
+  /** Who a path belongs to: a step's source is a canvas node's code, not a stored file. */
+  ownerOf: (path: string) => FileOwner
   /** Typing in a diff's right side. */
   onChange: (path: string, source: string) => void
   /** Drops one file's unsaved edits, with an Undo toast. */

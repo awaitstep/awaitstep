@@ -1,7 +1,9 @@
 import { useShallow } from 'zustand/react/shallow'
+import { actionToast } from '../../lib/action-toast'
 import { focusEditorSoon } from '../../lib/ide/editor-focus'
 import { basename } from '../../lib/ide/file-tree'
 import { outsideState } from '../../lib/ide/outside-changes'
+import { copyToClipboard } from '../../lib/utils'
 import { useIdeStore } from '../../stores/ide-store'
 import { Button } from '../ui/button'
 import { EditorBanner } from './editor-banner'
@@ -9,14 +11,21 @@ import type { ReviewBindings } from './review-bindings'
 
 type FileStateBindings = Pick<
   ReviewBindings,
-  'baseline' | 'busy' | 'onCompare' | 'onUseServerVersion' | 'onRecreate' | 'onDiscardDeleted'
+  | 'baseline'
+  | 'busy'
+  | 'ownerOf'
+  | 'onCompare'
+  | 'onUseServerVersion'
+  | 'onRecreate'
+  | 'onDiscardDeleted'
 >
 
 /**
  * What happened to the open file on the server while it was being edited:
  * deleted, refused on save, or changed. One banner at a time, most serious
  * first. It shows only for a file with unsaved text; a clean file just
- * updates in place.
+ * updates in place. For a step's source the other side is the canvas: its
+ * node was removed, or its code changed there.
  */
 export function FileStateBanner({ path, bindings }: { path: string; bindings: FileStateBindings }) {
   const { baseline, busy } = bindings
@@ -31,6 +40,9 @@ export function FileStateBanner({ path, bindings }: { path: string; bindings: Fi
   const state = outsideState(baseline, path, draft)
   const name = basename(path)
   const serverHash = baseline.get(path)?.hash ?? null
+  const isStep = bindings.ownerOf(path) === 'step'
+  const where = isStep ? 'on the canvas' : 'on the server'
+  const theirs = isStep ? 'Use canvas version' : 'Use server version'
 
   function handleCompare() {
     bindings.onCompare(path)
@@ -58,7 +70,41 @@ export function FileStateBanner({ path, bindings }: { path: string; bindings: Fi
     focusEditorSoon()
   }
 
+  // The banner stays, so focus does too.
+  function handleCopyCode() {
+    if (!draft) return
+    copyToClipboard(draft.source)
+      .then(() => actionToast.success('Code copied'))
+      .catch(() => actionToast.error('Couldn’t copy the code'))
+  }
+
   if (!draft) return null
+
+  if (state === 'deleted' && isStep) {
+    return (
+      <EditorBanner
+        tone="warn"
+        actions={
+          <>
+            <Button size="sm" className="h-6 px-2 text-xs" onClick={handleCopyCode}>
+              Copy code
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 px-2 text-xs"
+              onClick={handleDiscard}
+            >
+              Discard
+            </Button>
+          </>
+        }
+      >
+        The step behind <b className="font-medium">{name}</b> was removed from the canvas. Your
+        unsaved code is kept here.
+      </EditorBanner>
+    )
+  }
 
   if (state === 'deleted') {
     return (
@@ -95,7 +141,7 @@ export function FileStateBanner({ path, bindings }: { path: string; bindings: Fi
           </Button>
         }
       >
-        Couldn’t save <b className="font-medium">{name}</b>. It changed on the server.
+        Couldn’t save <b className="font-medium">{name}</b>. It changed {where}.
       </EditorBanner>
     )
   }
@@ -119,12 +165,12 @@ export function FileStateBanner({ path, bindings }: { path: string; bindings: Fi
               onClick={handleUseServer}
               disabled={busy}
             >
-              Use server version
+              {theirs}
             </Button>
           </>
         }
       >
-        <b className="font-medium">{name}</b> changed on the server while you were editing it.
+        <b className="font-medium">{name}</b> changed {where} while you were editing it.
       </EditorBanner>
     )
   }

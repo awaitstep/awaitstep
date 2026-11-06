@@ -76,18 +76,24 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
 
   useWorkspaceDraftSync({
     workflowId,
-    source,
+    versionParam,
+    loaded: data.loaded,
     isHistorical: data.isHistorical,
     canEdit: data.canEdit,
     baseline,
+    storedFiles: data.storedFiles,
   })
 
   const searchActions = useSearchActions(files)
   const projectFiles = useProjectFiles({
     workflowId,
+    versionParam,
     target: fullData?.workflow.kind === 'script' ? 'script' : 'workflow',
     baseline,
     projectPaths: data.projectPaths,
+    ownerOf: data.ownerOf,
+    hasVersion: data.hasVersion,
+    canEdit: data.canEdit,
     onShowImporters: searchActions.showImporters,
   })
 
@@ -144,6 +150,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     dirty,
     storedPaths: data.storedPaths,
     editabilityOf: data.editabilityOf,
+    ownerOf: data.ownerOf,
     projectFiles,
     searchActions,
     draftUndo,
@@ -199,7 +206,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
       dialogs={
         <>
           <WorkspaceDialogs
-            baseline={baseline}
+            storedPaths={data.storedPaths}
             projectFiles={projectFiles}
             conversionPreview={conversionPreview}
           />

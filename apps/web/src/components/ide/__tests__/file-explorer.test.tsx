@@ -21,6 +21,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof FileExplorer>> = {
     unsavedPaths: [] as string[],
     onReview: vi.fn(),
     virtual: new Set<string>(),
+    stepPaths: new Set<string>(),
     canEdit: true,
     usage: { files: 3, bytes: 1200 },
     onCreateFile: vi.fn().mockResolvedValue(true),
@@ -383,5 +384,55 @@ describe('Project row menu', () => {
       target: screen.getByRole('treeitem', { name: /^Generated/ }),
     })
     expect(screen.queryByRole('menu')).toBeNull()
+  })
+})
+
+describe('step sources', () => {
+  const withSteps = buildFileTree([
+    { path: 'lib/a.ts', role: 'module' },
+    { path: 'steps/k3j9x_a1b2c3.ts', role: 'source' },
+  ])
+  const stepPaths = new Set(['steps/k3j9x_a1b2c3.ts'])
+
+  it('lists a step’s source under Project, opens it, and shows it as unsaved like any file', async () => {
+    const user = userEvent.setup()
+    setup({ project: withSteps, stepPaths, dirty: new Set(['steps/k3j9x_a1b2c3.ts']) })
+    const row = item('k3j9x_a1b2c3\\.ts')
+    expect(row).toHaveAttribute('aria-level', '3')
+    expect(row.title).toContain('Step code')
+    expect(row.querySelector('[aria-label="Unsaved changes"]')).not.toBeNull()
+    await user.click(row)
+    expect(useIdeStore.getState().activePath).toBe('steps/k3j9x_a1b2c3.ts')
+  })
+
+  it('gives neither the steps folder nor its files a menu, a Delete key or an F2', async () => {
+    const user = userEvent.setup()
+    const { onDelete, onDeleteFolder } = setup({ project: withSteps, stepPaths })
+    const folder = screen.getByRole('treeitem', { name: /^steps$/ })
+    expect(folder.title).toBe(
+      'Step code belongs to its node. Add, rename or remove steps on the canvas.',
+    )
+    await user.pointer({ keys: '[MouseRight]', target: folder })
+    expect(screen.queryByRole('menu')).toBeNull()
+    await user.pointer({ keys: '[MouseRight]', target: item('k3j9x_a1b2c3\\.ts') })
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Actions for steps/, hidden: true })).toBeNull()
+
+    item('k3j9x_a1b2c3\\.ts').focus()
+    await user.keyboard('{F2}')
+    await user.keyboard('{Delete}')
+    folder.focus()
+    await user.keyboard('{Delete}')
+    expect(useIdeExplorerStore.getState().renaming).toBeNull()
+    expect(onDelete).not.toHaveBeenCalled()
+    expect(onDeleteFolder).not.toHaveBeenCalled()
+  })
+
+  it('a new file from a selected step lands at the project root, not under steps/', async () => {
+    const user = userEvent.setup()
+    setup({ project: withSteps, stepPaths })
+    await user.click(item('k3j9x_a1b2c3\\.ts'))
+    act(() => useIdeExplorerStore.getState().beginCreate({ mode: 'file' }))
+    expect(await screen.findByText('In the project root')).toBeInTheDocument()
   })
 })

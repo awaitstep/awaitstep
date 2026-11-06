@@ -17,6 +17,10 @@ export interface SeedOptions {
   versionParam?: string
   versions?: { id: string; version: number }[]
   currentVersionId?: string
+  /** The current version's document; without it the version row carries no `ir` and projects no step files. */
+  ir?: unknown
+  /** The save precondition for `ir`; defaults to a fixed token when `ir` is given. */
+  graphHash?: string | null
 }
 
 /** Puts a workflow's full and source responses in the cache so no request is made. */
@@ -34,7 +38,12 @@ export function seedWorkspaceQueries(client: QueryClient, options: SeedOptions =
       currentVersionId,
       ...options.workflow,
     },
-    version: { id: currentVersionId, version: 2 },
+    version: {
+      id: currentVersionId,
+      version: 2,
+      ...(options.ir !== undefined && { ir: JSON.stringify(options.ir) }),
+    },
+    graphHash: options.graphHash ?? (options.ir !== undefined ? 'g-1' : null),
     versions,
     handlers: { modules: [] },
     activeDeployment: null,
