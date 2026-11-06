@@ -401,6 +401,7 @@ describe('workspace routes', () => {
           id,
           workflowId: wf.id,
           versionId: 'v',
+          versionNumber: 1,
           connectionId: 'c',
           instanceId: id,
           status,

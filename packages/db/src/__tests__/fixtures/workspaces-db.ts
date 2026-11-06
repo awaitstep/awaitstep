@@ -189,6 +189,8 @@ export async function seed(h: Harness) {
     id,
     workflowId,
     versionId,
+    // As a deploy writes it: the version's number rides on the row.
+    versionNumber: Number(versionId.split('-').pop()),
     serviceName: id,
     status,
     createdAt,

@@ -342,7 +342,7 @@ Revert to a previous version. Creates a new version with the target version's IR
 
 ### <span class="api-method delete">DELETE</span> <span class="api-endpoint">/workflows/:workflowId/versions/:versionId</span> <span class="api-scope">workflows:delete</span>
 
-Delete a version. Cannot delete the active, deployed, or locked version.
+Delete a version. Cannot delete the active, deployed, or locked version. Deployments and runs keep the deleted version's number.
 
 ---
 
@@ -391,7 +391,7 @@ UPDATING_WORKFLOW → COMPLETED
 
 ### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/trigger</span> <span class="api-scope">workflows:run</span>
 
-Trigger an execution of a deployed workflow. Params payload is capped at 100 KB. `connectionId` must be a connection the workflow has a successful deployment with (`404` otherwise).
+Trigger an execution of a deployed workflow. Params payload is capped at 100 KB. `connectionId` must be a connection the workflow has a successful deployment with (`404` otherwise). The run records the version of the newest successful deployment on that connection, which is the one Cloudflare runs, not the latest saved version.
 
 ::: warning Functions only
 This endpoint is for `kind: "workflow"` only. Calling it on a function (`kind: "script"`) returns 400 — functions have no instance lifecycle. Invoke the deployed Worker URL directly via HTTP POST instead. See [Functions → Invocation](#invocation).

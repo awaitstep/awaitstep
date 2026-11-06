@@ -110,6 +110,7 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
     id: nanoid(),
     workflowId: workflow.id,
     versionId,
+    versionNumber: prepared.versionNumber,
     connectionId,
     serviceName: result.deploymentId || '',
     serviceUrl: result.url,
@@ -222,6 +223,7 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
       id: nanoid(),
       workflowId: workflow.id,
       versionId,
+      versionNumber: prepared.versionNumber,
       connectionId,
       serviceName: result.deploymentId || '',
       serviceUrl: result.url,
@@ -354,8 +356,6 @@ deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c)
     )
   }
 
-  if (!workflow.currentVersionId) return c.json({ error: 'No version deployed' }, 400)
-
   // Only a connection this workflow was deployed with: the Cloudflare workflow is
   // found by name, so any other account could hold another project's of that name.
   const [connection, storedDeployConfig] = await Promise.all([
@@ -396,7 +396,9 @@ deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c)
   const run = await db.createRun({
     id: nanoid(),
     workflowId: workflow.id,
-    versionId: workflow.currentVersionId,
+    // What that account runs, not the latest save.
+    versionId: connection.deployedVersionId,
+    versionNumber: connection.deployedVersionNumber,
     connectionId: body.connectionId,
     instanceId,
     status: 'queued',

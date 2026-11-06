@@ -160,6 +160,15 @@ export interface UpdateVersionData {
 }
 export type Connection = InferSelectModel<typeof connections>
 
+/**
+ * A connection a workflow is deployed with, and the version its newest
+ * successful deploy there carries: its id (null once deleted) and number.
+ */
+export type DeployedConnection = Connection & {
+  deployedVersionId: string | null
+  deployedVersionNumber: number | null
+}
+
 /** How many of an organization's workflows use an installed node in their current version. */
 export interface NodeUsage {
   nodeId: string
@@ -403,7 +412,7 @@ export interface ActiveRunForSync {
 export type Deployment = InferSelectModel<typeof deployments>
 export type DeploymentListItem = Deployment &
   Authored & {
-    /** The deployed version's number and lock, null once that version is deleted. */
+    /** The deployed version's number (kept after the version is deleted) and its lock (null then). */
     version: number | null
     versionLocked: number | null
   }

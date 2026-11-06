@@ -135,7 +135,9 @@ export function RunDetail({ runId, workflowId }: RunDetailProps) {
           )}
 
           <Field label="Version">
-            <span className="font-mono text-sm text-muted-foreground">{run.versionId}</span>
+            <span className="font-mono text-sm text-muted-foreground">
+              {run.versionNumber != null ? `v${run.versionNumber}` : '—'}
+            </span>
           </Field>
         </div>
 

@@ -34,6 +34,7 @@ const run: RunSummary = {
   id: 'run_1',
   workflowId: 'wf_1',
   versionId: 'v-11',
+  versionNumber: 11,
   connectionId: null,
   instanceId: 'i',
   status: 'errored',

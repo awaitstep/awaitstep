@@ -18,10 +18,17 @@ vi.mock('../../../hooks/use-active-run-sync', () => ({ useActiveRunSync: () => u
 
 const WORKFLOW = { id: 'wf_1', name: 'Lead enrichment', createdAt: '', updatedAt: '' }
 
-const run = (id: string, status: string, versionId: string, ms: number) => ({
+const run = (
+  id: string,
+  status: string,
+  versionId: string | null,
+  ms: number,
+  versionNumber: number | null = null,
+) => ({
   id,
   workflowId: 'wf_1',
   versionId,
+  versionNumber,
   connectionId: null,
   instanceId: id,
   status,
@@ -62,6 +69,14 @@ describe('RunsTab', () => {
     // Still going: no duration; a version not loaded reads as a dash.
     expect(going).toHaveTextContent('Running')
     expect(going).toHaveTextContent('—')
+  })
+
+  it('names the version a run kept after that version was deleted', () => {
+    renderWithPages(<RunsTab workflow={WORKFLOW} versions={VERSIONS} neverDeployed={false} />, {
+      '["workflow-runs","wf_1"]': [run('run_old', 'complete', null, 900, 4)],
+    })
+    const [old] = within(screen.getByRole('table')).getAllByRole('row').slice(1)
+    expect(old).toHaveTextContent('v4')
   })
 
   it('says no run has happened yet, and offers Deploy while it never has been (WorkflowDraft)', () => {

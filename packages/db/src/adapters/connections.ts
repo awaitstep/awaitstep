@@ -1,4 +1,16 @@
-import { aliasedTable, and, asc, desc, eq, lt, ne, or, sql, type SQL } from 'drizzle-orm'
+import {
+  aliasedTable,
+  and,
+  asc,
+  desc,
+  eq,
+  getTableColumns,
+  lt,
+  ne,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm'
 import type {
   Connection,
   ConnectionCoverage,
@@ -7,6 +19,7 @@ import type {
   ConnectionTokenCheck,
   ConnectionUpdate,
   ConnectionWrite,
+  DeployedConnection,
   ExpiringConnectionsCheck,
   ProjectSetupCounts,
 } from '../types.js'
@@ -241,10 +254,20 @@ export class ConnectionsAdapter {
     id: string,
     organizationId: string,
     workflowId: string,
-  ): Promise<Connection | null> {
+  ): Promise<DeployedConnection | null> {
     const d = aliasedTable(this.t.deployments, 'cdw')
+    const live = aliasedTable(this.t.deployments, 'cdv')
+    const newestDeploy = (column: SQL | AnyTable) =>
+      sql`select ${column} from ${aliasedFrom(live)} where ${live.connectionId} = ${id} and ${live.workflowId} = ${workflowId} and ${live.status} = 'success' order by ${live.createdAt} desc, ${live.id} desc limit 1`
     const rows = await this.db
-      .select()
+      .select({
+        ...getTableColumns(this.table),
+        // The newest successful deploy on this account is what Cloudflare runs. Columns in a
+        // select list go unqualified, so the connection is matched by `id`, not its column.
+        deployedVersionId: sql<string | null>`(${newestDeploy(live.versionId)})`,
+        // Its number outlives the version row.
+        deployedVersionNumber: sql<number | null>`(${newestDeploy(live.versionNumber)})`,
+      })
       .from(this.table)
       .where(
         and(
@@ -254,7 +277,7 @@ export class ConnectionsAdapter {
         ),
       )
       .limit(1)
-    const row = (rows[0] as Connection | undefined) ?? null
+    const row = (rows[0] as DeployedConnection | undefined) ?? null
     if (row) row.credentials = await this.tryDecrypt(row.credentials)
     return row
   }

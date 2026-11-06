@@ -41,7 +41,7 @@ export function RunTelemetry({ workflowId, run }: RunTelemetryProps) {
 
   const { data: version } = useQuery({
     queryKey: ['workflow-version', workflowId, run.versionId],
-    queryFn: () => api.getVersion(workflowId, run.versionId),
+    queryFn: () => api.getVersion(workflowId, run.versionId ?? ''),
     // Versions are immutable once a run references them; a run whose version
     // was deleted (FK set-null) has nothing to draw.
     enabled: Boolean(run.versionId),

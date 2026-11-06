@@ -50,7 +50,7 @@ export function ItemActionsMenu({ slugs, workflow, overview, runCount }: ItemAct
   const queryClient = useQueryClient()
   const [dialog, setDialog] = useState<OpenDialog>(null)
   const actions = useWorkflowActions(workflow)
-  const lock = useLockDeployed(workflow.id, overview.activeDeployment?.versionId)
+  const lock = useLockDeployed(workflow.id, overview.activeDeployment?.versionId ?? undefined)
   const share = useSetShared(slugs)
   const isFunction = workflow.kind === 'script'
   const hasVersion = !!workflow.currentVersionId

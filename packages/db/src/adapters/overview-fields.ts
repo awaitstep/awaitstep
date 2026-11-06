@@ -303,13 +303,12 @@ export class OverviewFields {
     return sql`(select ${d.status} from ${aliasedFrom(d)} where ${d.workflowId} = ${wf.id} order by ${d.createdAt} desc limit 1)`
   }
 
-  /** The version number a workflow's latest deployment put live, or null. */
+  /** The version number a workflow's latest deployment put live, or null; it outlives the version. */
   latestDeployedVersion(wf: AnyTable): SQL<number | null> {
     const d = aliasedTable(this.t.deployments, 'vd')
-    const v = aliasedTable(this.t.workflowVersions, 'vv')
     return sql<
       number | null
-    >`(select ${v.version} from ${aliasedFrom(v)} where ${v.id} = (select ${d.versionId} from ${aliasedFrom(d)} where ${d.workflowId} = ${wf.id} order by ${d.createdAt} desc limit 1))`
+    >`(select ${d.versionNumber} from ${aliasedFrom(d)} where ${d.workflowId} = ${wf.id} order by ${d.createdAt} desc limit 1)`
   }
 
   /** The status of a workflow's latest run, or null. */

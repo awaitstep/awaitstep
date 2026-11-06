@@ -68,7 +68,7 @@ export function OverviewBody({
             versionHref={(versionId) => links.editor('canvas', { version: versionId })}
             deployHref={canDeploy ? links.deployVersion : undefined}
             versions={overview.versions}
-            deployedVersionId={live?.versionId}
+            deployedVersionId={live?.versionId ?? undefined}
             deployBlocked={overview.deployBlocked}
             hasMore={overview.versionsHasMore}
             loadingMore={overview.versionsLoadingMore}

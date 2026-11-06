@@ -4,6 +4,7 @@ import type {
   WorkflowVersionListItem,
   DeploymentListItem,
   Connection,
+  DeployedConnection,
   ConnectionCoverage,
   ConnectionListOptions,
   ConnectionListRow,
@@ -581,7 +582,7 @@ export interface DatabaseAdapter {
     id: string,
     organizationId: string,
     workflowId: string,
-  ): Promise<Connection | null>
+  ): Promise<DeployedConnection | null>
   listConnectionsByOrganization(
     organizationId: string,
     pagination?: PaginationParams,
@@ -672,7 +673,8 @@ export interface DatabaseAdapter {
   createRun(data: {
     id: string
     workflowId: string
-    versionId: string
+    versionId: string | null
+    versionNumber: number | null
     connectionId: string
     instanceId: string
     status: string
@@ -786,6 +788,7 @@ export interface DatabaseAdapter {
     id: string
     workflowId: string
     versionId: string
+    versionNumber: number
     connectionId: string
     serviceName: string
     serviceUrl?: string

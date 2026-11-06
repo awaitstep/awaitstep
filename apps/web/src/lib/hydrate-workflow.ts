@@ -234,7 +234,7 @@ export function deriveDeploymentState(fullData: WorkflowFull | undefined) {
     deployedVersion,
     hasUndeployedChanges:
       hasActiveDeployment &&
-      deployedVersionId &&
+      !!deployedVersionId &&
       deployedVersionId !== serverWorkflow?.currentVersionId,
   }
 }

@@ -11,6 +11,7 @@ import type {
   WorkflowVersionListItem,
   DeploymentListItem,
   Connection,
+  DeployedConnection,
   ConnectionCoverage,
   ConnectionListOptions,
   ConnectionListRow,
@@ -785,8 +786,6 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     const d = this._schema.deployments as any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = this._schema.workflowRuns as any
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const v = this._schema.workflowVersions as any
     const u = aliasedTable(this._tables.user, 'sharer')
     const m = aliasedTable(this._tables.member, 'sharer_member')
     const p = aliasedTable(this._tables.projects, 'sharer_project')
@@ -795,7 +794,6 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     // so correlated subqueries must use sql.raw() for the outer table's columns
     // to avoid ambiguous "id" resolving to the inner table instead of "workflows".
     const wId = sql.raw('"workflows"."id"')
-    const latestDeployVersionId = sql`(SELECT ${d.versionId} FROM ${d} WHERE ${d.workflowId} = ${wId} ORDER BY ${d.createdAt} DESC LIMIT 1)`
     const terminal = sql.raw(TERMINAL_RUN_STATUSES.map((s) => `'${s}'`).join(', '))
 
     const conditions = [eq(w.projectId, projectId)]
@@ -837,9 +835,10 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         ).as('shared_by_name'),
         createdAt: w.createdAt,
         updatedAt: w.updatedAt,
+        // The latest deploy's own number: it outlives a deleted version.
         deployedVersion: sql<
           number | null
-        >`(SELECT ${v.version} FROM ${v} WHERE ${v.id} = ${latestDeployVersionId})`.as(
+        >`(SELECT ${d.versionNumber} FROM ${d} WHERE ${d.workflowId} = ${wId} ORDER BY ${d.createdAt} DESC LIMIT 1)`.as(
           'deployed_version',
         ),
         recentRunStatuses:
@@ -1065,7 +1064,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     id: string,
     organizationId: string,
     workflowId: string,
-  ): Promise<Connection | null> {
+  ): Promise<DeployedConnection | null> {
     return this._connections.getDeployedWith(id, organizationId, workflowId)
   }
   listConnectionsByOrganization(
@@ -1174,7 +1173,8 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   createRun(data: {
     id: string
     workflowId: string
-    versionId: string
+    versionId: string | null
+    versionNumber: number | null
     connectionId: string
     instanceId: string
     status: string
@@ -1350,6 +1350,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         id: r.id,
         workflowId: r.workflowId,
         versionId: r.versionId,
+        versionNumber: r.versionNumber,
         connectionId: r.connectionId,
         instanceId: r.instanceId,
         status: r.status,
@@ -1372,6 +1373,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     id: string
     workflowId: string
     versionId: string
+    versionNumber: number
     connectionId: string
     serviceName: string
     serviceUrl?: string

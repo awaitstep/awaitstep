@@ -272,6 +272,40 @@ describe.each([
       expect(await h.adapter.getConnectionDeployedWith('c-2', 'org-acme', 'wf-sync')).toBeNull()
       expect(await h.adapter.getConnectionDeployedWith('c-1', 'org-globex', 'wf-enrich')).toBeNull()
     })
+
+    it('names the version of the newest successful deploy on that account', async () => {
+      await h.adapter.createConnection(write())
+      await h.adapter.createConnection(write({ id: 'c-2' }))
+      // d-1 (v1) and d-2 (v2) on c-1; then v1 again on c-2, and a newer failed v1 on c-1.
+      await h.db
+        .update(h.schema.deployments)
+        .set({ connectionId: 'c-1' })
+        .where(eq(h.schema.deployments.workflowId, 'wf-enrich'))
+      await h.db.insert(h.schema.deployments).values([
+        {
+          id: 'd-4',
+          workflowId: 'wf-enrich',
+          versionId: 'v-enrich-1',
+          connectionId: 'c-2',
+          serviceName: 'svc',
+          status: 'success',
+          createdAt: '2026-10-23T00:00:00.000Z',
+        },
+        {
+          id: 'd-5',
+          workflowId: 'wf-enrich',
+          versionId: 'v-enrich-1',
+          connectionId: 'c-1',
+          serviceName: 'svc',
+          status: 'failed',
+          createdAt: '2026-10-24T00:00:00.000Z',
+        },
+      ])
+      const on = async (id: string) =>
+        (await h.adapter.getConnectionDeployedWith(id, 'org-acme', 'wf-enrich'))?.deployedVersionId
+      expect(await on('c-1')).toBe('v-enrich-2')
+      expect(await on('c-2')).toBe('v-enrich-1')
+    })
   })
 
   describe('the list', () => {

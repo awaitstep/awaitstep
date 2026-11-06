@@ -393,6 +393,8 @@ export const workflowRuns = pgTable(
     versionId: text('version_id').references(() => workflowVersions.id, {
       onDelete: 'set null',
     }),
+    // The version's number, kept when the version itself is deleted.
+    versionNumber: integer('version_number'),
     connectionId: text('connection_id').references(() => connections.id, { onDelete: 'set null' }),
     instanceId: text('instance_id').notNull(),
     status: text('status').notNull().default('queued'),
@@ -462,6 +464,8 @@ export const deployments = pgTable(
     versionId: text('version_id').references(() => workflowVersions.id, {
       onDelete: 'set null',
     }),
+    // The version's number, kept when the version itself is deleted.
+    versionNumber: integer('version_number'),
     connectionId: text('connection_id').references(() => connections.id, { onDelete: 'set null' }),
     serviceName: text('service_name').notNull(),
     serviceUrl: text('service_url'),

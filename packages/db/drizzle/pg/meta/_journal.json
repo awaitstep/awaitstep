@@ -239,6 +239,13 @@
       "when": 1793927863170,
       "tag": "0033_restore_current_version",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1793959885867,
+      "tag": "0034_record_version_numbers",
+      "breakpoints": true
     }
   ]
 }

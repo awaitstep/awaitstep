@@ -127,7 +127,8 @@ function runColumns(
       header: 'Version',
       width: '100px',
       cell: (run) => {
-        const version = versionNumbers.get(run.versionId)
+        // The run keeps its number once the version is deleted.
+        const version = run.versionNumber ?? (run.versionId && versionNumbers.get(run.versionId))
         return <span className="text-muted-foreground">{version ? `v${version}` : '—'}</span>
       },
     },

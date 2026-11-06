@@ -938,6 +938,9 @@ const mockDb: DatabaseAdapter = {
   },
   async deleteVersion(id) {
     store.versions.delete(id)
+    // The real foreign keys set null: the rows keep their number.
+    for (const d of store.deployments.values()) if (d.versionId === id) d.versionId = null
+    for (const r of store.runs.values()) if (r.versionId === id) r.versionId = null
   },
 
   // Connections — coverage, the dashboard list and token checks run through
@@ -963,10 +966,18 @@ const mockDb: DatabaseAdapter = {
   async getConnectionDeployedWith(id, organizationId, workflowId) {
     const connection = store.connections.get(id)
     if (!connection || connection.organizationId !== organizationId) return null
-    const deployed = [...store.deployments.values()].some(
+    const deployed = [...store.deployments.values()].filter(
       (d) => d.workflowId === workflowId && d.connectionId === id && d.status === 'success',
     )
-    return deployed ? connection : null
+    // Newest last; equal timestamps keep insertion order.
+    const newest = deployed.sort((a, b) => a.createdAt.localeCompare(b.createdAt)).at(-1)
+    return newest
+      ? {
+          ...connection,
+          deployedVersionId: newest.versionId,
+          deployedVersionNumber: newest.versionNumber,
+        }
+      : null
   },
   async getConnectionForProject(id, organizationId) {
     const connection = store.connections.get(id)
@@ -1403,6 +1414,7 @@ const mockDb: DatabaseAdapter = {
     const d: Deployment = {
       ...data,
       versionId: data.versionId ?? null,
+      versionNumber: data.versionNumber ?? null,
       connectionId: data.connectionId ?? null,
       serviceUrl: data.serviceUrl ?? null,
       error: data.error ?? null,
@@ -1443,7 +1455,7 @@ const mockDb: DatabaseAdapter = {
           return {
             ...d,
             createdByName: null,
-            version: v?.version ?? null,
+            version: v?.version ?? d.versionNumber,
             versionLocked: v?.locked ?? null,
           }
         }),

@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 // PGlite migrates a fresh database per test; under a parallel `pnpm test` that
 // runs past vitest's 5s default.
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 })
-import { sql } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { type Harness, T0, pgHarness, seed, sqliteHarness } from './fixtures/workspaces-db.js'
 
 // Sharing a workflow to its project (B6), on both dialects. The seed's Project
@@ -153,6 +153,14 @@ describe.each([
       })
       const shared = page.data.map((r) => r.sharedAt)
       expect([...shared].sort().reverse()).toEqual(shared)
+    })
+
+    it('still names the deployed number once that version is deleted', async () => {
+      await h.db
+        .delete(h.schema.workflowVersions)
+        .where(eq(h.schema.workflowVersions.id, 'v-enrich-2'))
+      const page = await h.adapter.listSharedWorkflows({ ...ACME, viewer: 'u-ama' })
+      expect(page.data.find((r) => r.id === 'wf-enrich')?.deployedVersion).toBe(2)
     })
 
     it('names a workspace hidden from the viewer, with no role there', async () => {

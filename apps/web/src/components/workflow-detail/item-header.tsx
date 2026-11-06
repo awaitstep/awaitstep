@@ -156,7 +156,7 @@ export function ItemHeader({
       {locked && live !== undefined && (
         <LockBanner
           workflowId={workflow.id}
-          versionId={overview.activeDeployment?.versionId}
+          versionId={overview.activeDeployment?.versionId ?? undefined}
           version={live}
         />
       )}

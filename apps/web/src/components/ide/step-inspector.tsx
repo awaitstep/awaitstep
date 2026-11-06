@@ -226,7 +226,8 @@ function LastRun({
   if (loading) return <span className="text-muted-foreground">Loading…</span>
   if (run === null) return <span className="text-muted-foreground">No runs yet</span>
 
-  const version = versionLabel(run.versionId, versions)
+  const version =
+    run.versionNumber != null ? `v${run.versionNumber}` : versionLabel(run.versionId, versions)
   const when = [timeAgoOrDay(run.createdAt), version].filter(Boolean).join(' · ')
   const summary = summarizeNodeRun(stepsForNode(steps, coalescedInto, nodeId))
   if (summary === null) {

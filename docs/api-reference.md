@@ -1025,7 +1025,7 @@ Revert to a previous version. Creates a new version with the target version's IR
 
 ### `DELETE /workflows/:workflowId/versions/:versionId`
 
-Delete a version. Cannot delete the active version, a deployed version, or a locked version.
+Delete a version. Cannot delete the active version, a deployed version, or a locked version. Deployments and runs keep the deleted version's number (`version` / `versionNumber`); their `versionId` becomes `null`.
 
 **Permission:** `workflows:delete`
 
@@ -1422,7 +1422,7 @@ List all deployments across all workflows for the authenticated user.
 List deployments for a specific workflow, newest first. Each has `createdBy`
 (the user who deployed it) and `createdByName`, `null` on deployments made
 before authors were kept, plus `version` and `versionLocked` (`1` when locked):
-the deployed version's number and lock, `null` once that version is deleted. Deployed with an API key, the user is the key's creator.
+the deployed version's number (kept after that version is deleted) and its lock (`null` then). Deployed with an API key, the user is the key's creator.
 
 **Permission:** `runs:read`
 

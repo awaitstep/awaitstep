@@ -54,7 +54,9 @@ export class RunsAdapter {
   async create(data: {
     id: string
     workflowId: string
-    versionId: string
+    versionId: string | null
+    /** The version's number, kept on the run once the version is deleted. */
+    versionNumber: number | null
     connectionId: string
     instanceId: string
     status: string
@@ -64,6 +66,7 @@ export class RunsAdapter {
       id: data.id,
       workflowId: data.workflowId,
       versionId: data.versionId,
+      versionNumber: data.versionNumber,
       connectionId: data.connectionId,
       instanceId: data.instanceId,
       status: data.status,

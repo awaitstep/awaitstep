@@ -546,6 +546,7 @@ describe('project file routes', () => {
       id: 'd-1',
       workflowId: 'wf-1',
       versionId: v1.id,
+      versionNumber: 1,
       connectionId: 'c-1',
       serviceName: 's',
       status: 'success',

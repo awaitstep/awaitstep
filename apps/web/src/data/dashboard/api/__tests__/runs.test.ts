@@ -6,6 +6,7 @@ const run = (over: Partial<ApiWorkspaceRun> = {}): ApiWorkspaceRun => ({
   id: 'r-1',
   workflowId: 'wf-1',
   versionId: 'v-1',
+  versionNumber: 1,
   connectionId: null,
   instanceId: 'i-1',
   status: 'complete',

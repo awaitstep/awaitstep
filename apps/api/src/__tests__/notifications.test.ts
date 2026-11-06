@@ -296,6 +296,7 @@ describe('the Inbox', () => {
         id,
         workflowId: 'wf-sales',
         versionId: 'v-1',
+        versionNumber: 1,
         connectionId: 'conn-1',
         instanceId: `inst-${id}`,
         status: 'running',

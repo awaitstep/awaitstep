@@ -1,4 +1,4 @@
-import { eq, desc, and, or, lt, lte, getTableColumns } from 'drizzle-orm'
+import { eq, desc, and, or, lt, lte, getTableColumns, sql } from 'drizzle-orm'
 import type { Deployment, DeploymentListItem } from '../types.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
@@ -18,6 +18,8 @@ export class DeploymentsAdapter {
     id: string
     workflowId: string
     versionId: string
+    /** The version's number, kept on the row once the version is deleted. */
+    versionNumber: number
     connectionId: string
     serviceName: string
     serviceUrl?: string
@@ -32,6 +34,7 @@ export class DeploymentsAdapter {
       id: data.id,
       workflowId: data.workflowId,
       versionId: data.versionId,
+      versionNumber: data.versionNumber,
       connectionId: data.connectionId,
       serviceName: data.serviceName,
       serviceUrl: data.serviceUrl ?? null,
@@ -71,11 +74,14 @@ export class DeploymentsAdapter {
       )
     }
     // Who deployed it and which version (its number and lock), in the same statement.
+    // A deleted version's number comes from the row itself.
     const rows: DeploymentListItem[] = await this.db
       .select({
         ...getTableColumns(this.table),
         createdByName: this.user.name,
-        version: this.versions.version,
+        version: sql<
+          number | null
+        >`coalesce(${this.versions.version}, ${this.table.versionNumber})`,
         versionLocked: this.versions.locked,
       })
       .from(this.table)

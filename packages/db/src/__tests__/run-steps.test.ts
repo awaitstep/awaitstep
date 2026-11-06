@@ -18,8 +18,8 @@ function createTestDb() {
     INSERT INTO projects VALUES ('p-1', 'org-1', 'Project 101', 'project-101');
     INSERT INTO workspaces VALUES ('ws-1', 'p-1', 'Sales', 'sales');
     CREATE TABLE workflows (id text PRIMARY KEY, project_id text NOT NULL, workspace_id text, name text NOT NULL, kind text NOT NULL DEFAULT 'workflow', description text, trigger_code text, current_version_id text, created_by text, created_at text NOT NULL, updated_at text NOT NULL, position integer, archived_at text, deleted_at text);
-    CREATE TABLE workflow_runs (id text PRIMARY KEY, workflow_id text NOT NULL REFERENCES workflows(id) ON DELETE CASCADE, version_id text, connection_id text, instance_id text NOT NULL, status text NOT NULL DEFAULT 'queued', output text, error text, created_at text NOT NULL, updated_at text NOT NULL);
-    CREATE TABLE deployments (id text PRIMARY KEY, workflow_id text NOT NULL, version_id text NOT NULL, connection_id text, service_name text NOT NULL, service_url text, status text NOT NULL, error text, created_at text NOT NULL, config_snapshot text);
+    CREATE TABLE workflow_runs (id text PRIMARY KEY, workflow_id text NOT NULL REFERENCES workflows(id) ON DELETE CASCADE, version_id text, version_number integer, connection_id text, instance_id text NOT NULL, status text NOT NULL DEFAULT 'queued', output text, error text, created_at text NOT NULL, updated_at text NOT NULL);
+    CREATE TABLE deployments (id text PRIMARY KEY, workflow_id text NOT NULL, version_id text NOT NULL, version_number integer, connection_id text, service_name text NOT NULL, service_url text, status text NOT NULL, error text, created_at text NOT NULL, config_snapshot text);
     CREATE TABLE workflow_run_steps (
       id text PRIMARY KEY, run_id text NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
       node_id text, step_name text NOT NULL, kind text NOT NULL, step_index integer NOT NULL DEFAULT 1,

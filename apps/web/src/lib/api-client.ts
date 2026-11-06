@@ -184,7 +184,8 @@ export interface VersionSummary {
 export interface DeploymentSummary {
   id: string
   workflowId: string
-  versionId: string
+  /** Null once that version is deleted; `version` still says which it was. */
+  versionId: string | null
   connectionId: string | null
   serviceName: string
   serviceUrl: string | null
@@ -193,7 +194,7 @@ export interface DeploymentSummary {
   createdAt: string
   /** Who deployed it; null before authors were kept (or once they're removed). */
   createdByName?: string | null
-  /** In a list: its version's number and lock (1 locked), null once that version is gone. */
+  /** In a list: its version's number (kept after the version is deleted) and lock (1 locked). */
   version?: number | null
   versionLocked?: number | null
 }
@@ -373,7 +374,9 @@ async function projectFileRequest<T>(path: string, options: RequestInit): Promis
 export interface RunSummary {
   id: string
   workflowId: string
-  versionId: string
+  /** Null once that version is deleted; `versionNumber` still says which it was. */
+  versionId: string | null
+  versionNumber: number | null
   connectionId: string | null
   instanceId: string
   status: string

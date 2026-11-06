@@ -5,6 +5,7 @@ export type {
   DeploymentListItem,
   Authored,
   Connection,
+  DeployedConnection,
   ConnectionCoverage,
   ConnectionListOptions,
   ConnectionListRow,
