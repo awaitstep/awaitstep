@@ -19,7 +19,7 @@ function createTestDb() {
     INSERT INTO workspaces VALUES ('ws-1', 'p-1', 'Sales', 'sales');
     CREATE TABLE workflows (id text PRIMARY KEY, project_id text NOT NULL, workspace_id text, name text NOT NULL, kind text NOT NULL DEFAULT 'workflow', description text, trigger_code text, current_version_id text, created_by text, created_at text NOT NULL, updated_at text NOT NULL, position integer, archived_at text, deleted_at text);
     CREATE TABLE workflow_runs (id text PRIMARY KEY, workflow_id text NOT NULL REFERENCES workflows(id) ON DELETE CASCADE, version_id text, version_number integer, connection_id text, instance_id text NOT NULL, status text NOT NULL DEFAULT 'queued', output text, error text, created_at text NOT NULL, updated_at text NOT NULL);
-    CREATE TABLE deployments (id text PRIMARY KEY, workflow_id text NOT NULL, version_id text NOT NULL, version_number integer, connection_id text, service_name text NOT NULL, service_url text, status text NOT NULL, error text, created_at text NOT NULL, config_snapshot text);
+    CREATE TABLE deployments (id text PRIMARY KEY, workflow_id text NOT NULL, version_id text, version_number integer, connection_id text, service_name text NOT NULL, service_url text, status text NOT NULL, error text, created_at text NOT NULL, config_snapshot text);
     CREATE TABLE workflow_run_steps (
       id text PRIMARY KEY, run_id text NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
       node_id text, step_name text NOT NULL, kind text NOT NULL, step_index integer NOT NULL DEFAULT 1,
@@ -116,6 +116,34 @@ describe('RunStepsAdapter', () => {
     await adapter.upsertRunSteps('run-1', [step()])
     const result = await adapter.listRunSteps('run-1', 'wf-1')
     expect(result.configSnapshot).toBe('{"stepManifest":{"steps":[]}}')
+  })
+
+  it('takes the snapshot from the run’s own account, another one only once its deploy is gone', async () => {
+    // The same version on two accounts, conn-2's deploy newer.
+    sqlite.exec(
+      `INSERT INTO deployments (id, workflow_id, version_id, connection_id, service_name, status, created_at, config_snapshot)
+       VALUES ('d-own', 'wf-1', 'v-1', 'conn-1', 'svc', 'success', '2026-02-01T00:00:00Z', '{"own":true}'),
+              ('d-other', 'wf-1', 'v-1', 'conn-2', 'svc', 'success', '2026-03-01T00:00:00Z', '{"other":true}')`,
+    )
+    await adapter.upsertRunSteps('run-1', [step()])
+    expect((await adapter.listRunSteps('run-1', 'wf-1')).configSnapshot).toBe('{"own":true}')
+    expect((await adapter.listActiveRunsForSync())[0]!.configSnapshot).toBe('{"own":true}')
+    // Taken down on conn-1.
+    sqlite.exec(`DELETE FROM deployments WHERE id = 'd-own'`)
+    expect((await adapter.listRunSteps('run-1', 'wf-1')).configSnapshot).toBe('{"other":true}')
+  })
+
+  it('finds the snapshot by the kept number once the run’s version is deleted', async () => {
+    // As the foreign keys leave them: both rows lost the id, both kept the number.
+    sqlite.exec(
+      `INSERT INTO deployments (id, workflow_id, version_id, version_number, connection_id, service_name, status, created_at, config_snapshot)
+       VALUES ('d-gone', 'wf-1', NULL, 3, 'conn-1', 'svc', 'success', '2026-02-01T00:00:00Z', '{"v3":true}'),
+              ('d-other', 'wf-1', NULL, 4, 'conn-1', 'svc', 'success', '2026-03-01T00:00:00Z', '{"v4":true}')`,
+    )
+    sqlite.exec(`UPDATE workflow_runs SET version_id = NULL, version_number = 3 WHERE id = 'run-1'`)
+    await adapter.upsertRunSteps('run-1', [step()])
+    expect((await adapter.listRunSteps('run-1', 'wf-1')).configSnapshot).toBe('{"v3":true}')
+    expect((await adapter.listActiveRunsForSync())[0]!.configSnapshot).toBe('{"v3":true}')
   })
 
   it('yields a null snapshot and no rows for a run with no steps yet', async () => {
