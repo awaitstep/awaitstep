@@ -25,7 +25,9 @@ export function foldProjectHandlers(ir: ArtifactIR): ArtifactIR {
  * inline trigger code or dependencies (an import, or an older client) seeds
  * `handlers.ts` / `package.json` when the project does not have them yet,
  * so the setting lives in one place the IDE and agents can edit. Returns
- * only the files still missing from `existing`.
+ * only the files still missing from `existing`. The save hands it a runtime
+ * already passed through `withoutStaleProjectRuntime`, so a setting the
+ * latest stored version does not carry never seeds.
  */
 export function legacyRuntimeSeeds(
   runtime: WorkflowRuntime | undefined,
@@ -49,6 +51,39 @@ export function legacyRuntimeSeeds(
     })
   }
   return seeds
+}
+
+/**
+ * The project-owned runtime a posted document carries — `files`,
+ * `triggerCode`, `dependencies` — is honoured on a workflow's first version
+ * (an import: the client's document is all there is) and, after that, only
+ * where the latest stored version carries the same field. Once a version
+ * exists the file table is the truth, so a snapshot or legacy setting the
+ * latest version does not carry is a stale copy — a document loaded before
+ * Code deleted the files, which a files-only commit never invalidates, or a
+ * setting the workflow never had — and is dropped here, before it can seed a
+ * file or ride into the version. (A legacy setting is stripped from the
+ * stored text only while its file exists, so without this `triggerCode`
+ * would re-enter the IR and reach the deploy with no file to see it in.)
+ * `latest` is null without a stored version; the caller passes a document
+ * carrying nothing for a stored row it cannot read.
+ */
+export function withoutStaleProjectRuntime(
+  ir: ArtifactIR,
+  latest: Pick<ArtifactIR, 'runtime'> | null,
+): ArtifactIR {
+  if (!ir.runtime || latest === null) return ir
+  const kept = latest.runtime
+  const runtime: WorkflowRuntime = { ...ir.runtime }
+  if ((kept?.files?.length ?? 0) === 0) delete runtime.files
+  if (!kept?.triggerCode) delete runtime.triggerCode
+  if (Object.keys(kept?.dependencies ?? {}).length === 0) delete runtime.dependencies
+  if (Object.keys(runtime).length === 0) {
+    const stripped = { ...ir }
+    delete stripped.runtime
+    return stripped
+  }
+  return { ...ir, runtime }
 }
 
 /**

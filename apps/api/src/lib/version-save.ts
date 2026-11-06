@@ -1,5 +1,11 @@
 import { nanoid } from 'nanoid'
-import { migrateArtifact, type ArtifactIR } from '@awaitstep/ir'
+import {
+  PROJECT_HANDLERS_PATH,
+  hasHandlerModules,
+  migrateArtifact,
+  projectHandlerModules,
+  type ArtifactIR,
+} from '@awaitstep/ir'
 import {
   isUniqueViolation,
   type DatabaseAdapter,
@@ -108,7 +114,14 @@ async function trySave(
 ): Promise<VersionSaveResult | null> {
   const { latest, activeDeployment } = reads
   const storedPaths = new Set(reads.files.map((file) => file.path))
-  const seeds = (input.seeds ?? []).filter((seed) => !storedPaths.has(seed.path))
+  // The seeds were decided against the caller's read; this attempt's rows
+  // may be newer (a lost race re-reads). A path stored meanwhile keeps its
+  // content, and a handlers.ts seed is dropped once handler modules exist —
+  // the two models never coexist, and a conversion may have landed between.
+  const modular = hasHandlerModules(projectHandlerModules(reads.files))
+  const seeds = (input.seeds ?? []).filter(
+    (seed) => !storedPaths.has(seed.path) && !(modular && seed.path === PROJECT_HANDLERS_PATH),
+  )
   const files = [...reads.files, ...seeds]
   const irString = storedIrText(input.ir, files)
 
@@ -190,7 +203,7 @@ export async function persistVersion(
 }
 
 /** The stored document, migrated, as the folds read it; null for a row that is not a JSON object. */
-function storedDocument(irText: string): ArtifactIR | null {
+export function storedDocument(irText: string): ArtifactIR | null {
   try {
     const doc = migrateArtifact(JSON.parse(irText))
     if (doc === null || typeof doc !== 'object' || Array.isArray(doc)) return null

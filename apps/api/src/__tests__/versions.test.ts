@@ -354,23 +354,38 @@ describe('version routes', () => {
       expect(await res.json()).toMatchObject({ id: created.id, graphHash: created.graphHash })
     })
 
+    /**
+     * A version saved before project files existed: its document still
+     * carries the dependencies setting, so a save echoing it is not stale
+     * and would seed package.json. What the tests below hold back is that
+     * seed.
+     */
+    async function legacyFirstVersion() {
+      const version = await mockDb.createVersion({
+        id: 'v-legacy',
+        workflowId: 'wf-1',
+        ir: JSON.stringify({ ...validIR, runtime: { dependencies: { zod: '^4.0.0' } } }),
+      })
+      await mockDb.updateWorkflow('wf-1', { currentVersionId: version.id })
+      const full = await (await app.request(url('/api/workflows/wf-1/full'))).json()
+      return { id: version.id as string, graphHash: full.graphHash as string }
+    }
+
     it('writes nothing on a 409, not even the files the IR would seed', async () => {
-      const created = await (await post({ ir: validIR })).json()
-      // A canvas tab still holding the legacy dependencies setting after Code
-      // removed package.json: a stale save used to bring the file back.
+      const legacy = await legacyFirstVersion()
       const withDeps = { ...modifiedIR, runtime: { dependencies: { zod: '^4.0.0' } } }
       const stale = await post({ ir: withDeps, baseGraphHash: 'deadbeefdeadbeef' })
       expect(stale.status).toBe(409)
       expect(await mockDb.listWorkflowFiles('wf-1')).toEqual([])
 
-      const current = await post({ ir: withDeps, baseGraphHash: created.graphHash })
+      const current = await post({ ir: withDeps, baseGraphHash: legacy.graphHash })
       expect(current.status).toBe(200)
       expect((await mockDb.listWorkflowFiles('wf-1')).map((f) => f.path)).toEqual(['package.json'])
-      expect(JSON.parse(await stored(created.id)).runtime?.dependencies).toBeUndefined()
+      expect(JSON.parse(await stored(legacy.id)).runtime?.dependencies).toBeUndefined()
     })
 
     it('writes no seeds either when the write loses a race and the retry answers 409', async () => {
-      const created = await (await post({ ir: validIR })).json()
+      const legacy = await legacyFirstVersion()
       const moved = { ...validIR, nodes: [{ ...validIR.nodes[0]!, name: 'Moved' }] }
       const spy = vi
         .spyOn(mockDb, 'updateLatestVersionIfIrMatches')
@@ -380,7 +395,7 @@ describe('version routes', () => {
         })
       try {
         const withDeps = { ...modifiedIR, runtime: { dependencies: { zod: '^4.0.0' } } }
-        const res = await post({ ir: withDeps, baseGraphHash: created.graphHash })
+        const res = await post({ ir: withDeps, baseGraphHash: legacy.graphHash })
         expect(res.status).toBe(409)
         expect(await mockDb.listWorkflowFiles('wf-1')).toEqual([])
       } finally {
@@ -389,7 +404,7 @@ describe('version routes', () => {
     })
 
     it('never seeds over a file another writer created between the read and the write', async () => {
-      const created = await (await post({ ir: validIR })).json()
+      const legacy = await legacyFirstVersion()
       const real = mockDb.updateLatestVersionIfIrMatches
       const spy = vi
         .spyOn(mockDb, 'updateLatestVersionIfIrMatches')
@@ -406,10 +421,189 @@ describe('version routes', () => {
         })
       try {
         const withDeps = { ...modifiedIR, runtime: { dependencies: { zod: '^4.0.0' } } }
-        const res = await post({ ir: withDeps, baseGraphHash: created.graphHash })
+        const res = await post({ ir: withDeps, baseGraphHash: legacy.graphHash })
         expect(res.status).toBe(200)
         const file = await mockDb.getWorkflowFile('wf-1', 'package.json')
         expect(file?.source).toBe('{"dependencies":{"theirs":"1.0.0"}}')
+      } finally {
+        spy.mockRestore()
+      }
+    })
+
+    it('never re-seeds a file from a stale document once a stored version has dropped the setting', async () => {
+      // v1 arrives with inline dependencies: package.json is seeded and the
+      // stored document drops the setting, since the file owns it now.
+      const withDeps = { ...validIR, runtime: { dependencies: { zod: '^4.0.0' } } }
+      const created = await (await post({ ir: withDeps })).json()
+      expect((await mockDb.listWorkflowFiles('wf-1')).map((f) => f.path)).toEqual(['package.json'])
+      expect(JSON.parse(await stored(created.id)).runtime?.dependencies).toBeUndefined()
+
+      // Code deletes the file (a files-only commit: neither the version id
+      // nor the graph hash moves, so a tab still holding v1's document sees
+      // nothing to refetch).
+      const removed = await app.request(url('/api/workflows/wf-1/files/package.json'), {
+        method: 'DELETE',
+      })
+      expect(removed.status).toBe(204)
+      await app.request(url('/api/workflows/wf-1/versions/commit'), { method: 'POST' })
+      const base = (await (await app.request(url('/api/workflows/wf-1/full'))).json()).graphHash
+
+      // That tab saves a step: the document it posts still carries the
+      // dependencies v1 had. The file used to come back from it.
+      const stale = { ...modifiedIR, runtime: { dependencies: { zod: '^4.0.0' } } }
+      const res = await post({ ir: stale, baseGraphHash: base })
+      expect(res.status).toBe(200)
+      expect(await mockDb.listWorkflowFiles('wf-1')).toEqual([])
+      const saved = JSON.parse(await stored(created.id))
+      expect(saved.runtime?.dependencies).toBeUndefined()
+      expect(saved.nodes[0].name).toBe('Modified')
+    })
+
+    it('treats a stale legacy block alone as no change: no new version, nothing seeded', async () => {
+      const created = await (await post({ ir: validIR })).json()
+      const res = await post({
+        ir: { ...validIR, runtime: { triggerCode: '@fetch function ghost() {}' } },
+        baseGraphHash: created.graphHash,
+      })
+      expect(res.status).toBe(200)
+      expect((await res.json()).id).toBe(created.id)
+      expect(await mockDb.listWorkflowFiles('wf-1')).toEqual([])
+      expect(await stored(created.id)).not.toContain('ghost')
+    })
+
+    it('still seeds handlers.ts for a legacy version that carries trigger code, and only that', async () => {
+      // A workflow saved before project files existed: the stored document
+      // still carries the setting, so a client echoing it is not stale.
+      const legacy = {
+        ...validIR,
+        runtime: { triggerCode: '@fetch function handler() {}', dependencies: { zod: '^4.0.0' } },
+      }
+      const version = await mockDb.createVersion({
+        id: 'v-legacy',
+        workflowId: 'wf-1',
+        ir: JSON.stringify(legacy),
+      })
+      await mockDb.updateWorkflow('wf-1', { currentVersionId: version.id })
+      const base = (await (await app.request(url('/api/workflows/wf-1/full'))).json()).graphHash
+
+      const res = await post({
+        ir: { ...modifiedIR, runtime: legacy.runtime },
+        baseGraphHash: base,
+      })
+      expect(res.status).toBe(200)
+      expect((await mockDb.listWorkflowFiles('wf-1')).map((f) => f.path)).toEqual([
+        'handlers.ts',
+        'package.json',
+      ])
+      const saved = JSON.parse(await stored('v-legacy')).runtime
+      expect(saved.triggerCode).toBeUndefined()
+      expect(saved.dependencies).toBeUndefined()
+    })
+
+    it('trusts nothing from a stored row it cannot read: the client’s legacy block seeds no file', async () => {
+      const version = await mockDb.createVersion({ id: 'v-raw', workflowId: 'wf-1', ir: '{' })
+      await mockDb.updateWorkflow('wf-1', { currentVersionId: version.id })
+      const res = await post({ ir: { ...validIR, runtime: { dependencies: { zod: '^4.0.0' } } } })
+      expect(res.status).toBe(200)
+      expect(await mockDb.listWorkflowFiles('wf-1')).toEqual([])
+      expect(JSON.parse(await stored('v-raw')).runtime).toBeUndefined()
+    })
+
+    it('never re-seeds the project from a stale file snapshot once Code deleted the files', async () => {
+      // An import: the first version carries the files and seeds the table.
+      const imported = {
+        ...validIR,
+        runtime: { files: [{ path: 'lib/a.ts', source: 'export const a = 1' }] },
+      }
+      const created = await (await post({ ir: imported })).json()
+      expect((await mockDb.listWorkflowFiles('wf-1')).map((f) => f.path)).toEqual(['lib/a.ts'])
+
+      // Code deletes every file and commits: the table is empty, the latest
+      // version's snapshot is gone, and neither the id nor the graph moved.
+      const removed = await app.request(url('/api/workflows/wf-1/files/lib/a.ts'), {
+        method: 'DELETE',
+      })
+      expect(removed.status).toBe(204)
+      await app.request(url('/api/workflows/wf-1/versions/commit'), { method: 'POST' })
+      expect(JSON.parse(await stored(created.id)).runtime?.files).toBeUndefined()
+
+      // A client still holding the imported document saves a change: the
+      // snapshot it carries used to be taken for an import again.
+      const res = await post({
+        ir: { ...modifiedIR, runtime: imported.runtime },
+        baseGraphHash: created.graphHash,
+      })
+      expect(res.status).toBe(200)
+      expect(await mockDb.listWorkflowFiles('wf-1')).toEqual([])
+      expect(JSON.parse(await stored(created.id)).runtime?.files).toBeUndefined()
+    })
+
+    it('holds an import to the handler rules a PUT would apply: a look-alike handler name is refused', async () => {
+      // The schema already refuses handlers.ts beside modules, duplicate
+      // roles and a bad manifest (400); a module that would silently never
+      // run is a write-time rule, which the seed path now shares with PUT.
+      const res = await post({
+        ir: {
+          ...validIR,
+          runtime: {
+            files: [
+              { path: 'lib/a.ts', source: 'export const a = 1' },
+              { path: 'handlers/Fetch.ts', source: 'export default async () => new Response()' },
+            ],
+          },
+        },
+      })
+      expect(res.status).toBe(422)
+      expect(await res.json()).toEqual({
+        error: 'Invalid project file path',
+        details: [
+          {
+            path: 'handlers/Fetch.ts',
+            message: expect.stringContaining('did you mean handlers/fetch.ts'),
+          },
+        ],
+      })
+      expect((await mockDb.listVersionsByWorkflow('wf-1')).data).toEqual([])
+      expect(await mockDb.listWorkflowFiles('wf-1')).toEqual([])
+    })
+
+    it('drops a handlers.ts seed when handler modules landed between the read and the write', async () => {
+      const legacy = {
+        ...validIR,
+        runtime: { triggerCode: '@fetch function handler() {}' },
+      }
+      const version = await mockDb.createVersion({
+        id: 'v-legacy',
+        workflowId: 'wf-1',
+        ir: JSON.stringify(legacy),
+      })
+      await mockDb.updateWorkflow('wf-1', { currentVersionId: version.id })
+      const base = (await (await app.request(url('/api/workflows/wf-1/full'))).json()).graphHash
+      const spy = vi
+        .spyOn(mockDb, 'updateLatestVersionIfIrMatches')
+        .mockImplementationOnce(async () => {
+          // A conversion to handler modules lands between this save's read
+          // and its write; the save loses its race and re-reads.
+          await mockDb.upsertWorkflowFile({
+            id: 'f-mod',
+            workflowId: 'wf-1',
+            path: 'handlers/fetch.ts',
+            source: 'export default async () => new Response()',
+            hash: 'h-mod',
+            size: 40,
+          })
+          return null
+        })
+      try {
+        const res = await post({
+          ir: { ...modifiedIR, runtime: legacy.runtime },
+          baseGraphHash: base,
+        })
+        expect(res.status).toBe(200)
+        expect((await mockDb.listWorkflowFiles('wf-1')).map((f) => f.path)).toEqual([
+          'handlers/fetch.ts',
+        ])
+        expect(JSON.parse(await stored('v-legacy')).runtime?.triggerCode).toBeUndefined()
       } finally {
         spy.mockRestore()
       }

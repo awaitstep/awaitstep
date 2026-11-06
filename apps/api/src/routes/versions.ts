@@ -3,8 +3,14 @@ import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
-import { projectFilePathError, validateArtifact, migrateArtifact } from '@awaitstep/ir'
-import { legacyRuntimeSeeds } from '../lib/runtime-fold.js'
+import {
+  projectFilePathError,
+  validateArtifact,
+  migrateArtifact,
+  type ArtifactIR,
+} from '@awaitstep/ir'
+import { legacyRuntimeSeeds, withoutStaleProjectRuntime } from '../lib/runtime-fold.js'
+import { projectWriteRuleErrors } from '../lib/project-write-rules.js'
 import { snapshotFilesOf, toWorkflowFileRows } from '../lib/project-files.js'
 import { graphHash } from '../lib/graph-hash.js'
 import {
@@ -12,6 +18,7 @@ import {
   commitProjectFiles,
   persistVersion,
   readForSave,
+  storedDocument,
   type VersionSaveResult,
 } from '../lib/version-save.js'
 import { recordAudit, type AuditRecord } from '../lib/audit.js'
@@ -29,6 +36,9 @@ const createVersionSchema = z.object({
 const lockVersionSchema = z.object({
   locked: z.boolean(),
 })
+
+/** What a stored row that cannot be read vouches for: nothing. */
+const NOTHING_STORED: Pick<ArtifactIR, 'runtime'> = {}
 
 /** A save's answer: the version row with its graph hash, or the 409 with the current one. */
 function saveResponse(c: Context<AppEnv>, result: VersionSaveResult) {
@@ -85,37 +95,59 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
     return c.json({ error: 'Invalid IR', details: validation.errors }, 400)
   }
 
-  if (!c.get('workflow')) return c.json({ error: 'Workflow not found' }, 404)
+  const workflow = c.get('workflow')
+  if (!workflow) return c.json({ error: 'Workflow not found' }, 404)
   // Everything the save is judged against, in one round: the files decide
   // the seeds below, the version and deployment decide how it is written.
   const reads = await readForSave(db, workflowId)
   const storedFiles = reads.files
+
+  // A file snapshot or legacy trigger-code / dependencies block is honoured
+  // on a first version and, after that, only where the latest stored version
+  // carries the same field: a stale copy (a document loaded before Code
+  // deleted the files) must not bring them back, and the files are the way
+  // to add either. A stored row that cannot be read vouches for nothing.
+  const ir = withoutStaleProjectRuntime(
+    validation.value,
+    reads.latest ? (storedDocument(reads.latest.ir) ?? NOTHING_STORED) : null,
+  )
 
   // The project-file table is the truth. An IR that arrives carrying files
   // before the table has any (an import) seeds it once, and inline trigger
   // code / dependencies become handlers.ts / package.json when the project
   // has none yet, so later saves, deploys and the code workspace all see
   // the same set.
-  const importedFiles = validation.value.runtime?.files ?? []
+  const importedFiles = ir.runtime?.files ?? []
   const seeds = storedFiles.length === 0 ? [...importedFiles] : []
   seeds.push(
     ...legacyRuntimeSeeds(
-      validation.value.runtime,
+      ir.runtime,
       [...storedFiles, ...seeds].map((f) => f.path),
     ),
   )
   // Stored snapshots are grandfathered by `validateProjectFiles`, but a path
-  // that is new to this save is a write: generated paths (`worker.ts`,
-  // `nodes/**`, `awaitstep/**`, …) and the step-source folder (`steps/**`)
-  // are refused here too, or a first save could smuggle one past the
-  // per-file write rules.
+  // that is new to this save is a write and meets the same rules as a
+  // `PUT /files`: generated paths (`worker.ts`, `nodes/**`, `awaitstep/**`, …)
+  // and the step-source folder (`steps/**`) are refused, and so are the
+  // handler rules (annotation file beside modules, look-alike names, a
+  // second file for one entry) and the manifest contract — or a first save
+  // could smuggle past the per-file write rules a project no deploy accepts.
   const storedPaths = new Set(storedFiles.map((file) => file.path))
-  const pathProblems = seeds
-    .filter((file) => !storedPaths.has(file.path))
-    .flatMap((file) => {
-      const error = projectFilePathError(file.path)
-      return error ? [{ path: file.path, message: error }] : []
+  const newSeeds = seeds.filter((file) => !storedPaths.has(file.path))
+  const pathProblems = newSeeds.flatMap((file) => {
+    const error = projectFilePathError(file.path)
+    return error ? [{ path: file.path, message: error }] : []
+  })
+  if (pathProblems.length === 0 && newSeeds.length > 0) {
+    const writeErrors = await projectWriteRuleErrors({
+      db,
+      workflow,
+      version: reads.latest,
+      existing: storedFiles,
+      changes: newSeeds.map(({ path, source }) => ({ path, source })),
     })
+    pathProblems.push(...writeErrors.map(({ path, message }) => ({ path, message })))
+  }
   if (pathProblems.length > 0) {
     return c.json({ error: 'Invalid project file path', details: pathProblems }, 422)
   }
@@ -127,7 +159,7 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
     db,
     {
       workflowId,
-      ir: validation.value,
+      ir,
       userId: c.get('userId'),
       baseGraphHash: body.baseGraphHash,
       seeds: toWorkflowFileRows(workflowId, seeds),
