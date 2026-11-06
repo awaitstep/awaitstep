@@ -1,6 +1,7 @@
 import type { ArtifactIR, WorkflowNode } from '@awaitstep/ir'
-import { contentHash, stepSourcePath } from '@awaitstep/ir'
-import type { SourceFile } from '../api-client'
+import { contentHash, loadArtifact, stepSourcePath } from '@awaitstep/ir'
+import type { SourceFile, WorkflowFull } from '../api-client'
+import type { Problem } from './problems'
 
 /**
  * The nodes whose body Code shows as a file of its own: builtin steps,
@@ -112,6 +113,49 @@ export function applyStepSources(ir: ArtifactIR, edits: ReadonlyMap<string, stri
     return { ...node, data: { ...node.data, code } }
   })
   return changed ? { ...ir, nodes } : ir
+}
+
+/** The loaded version as a document Code can patch, with the base its save names. */
+export interface LoadedVersion {
+  /** The stored document, parsed and migrated — every byte the canvas saved. */
+  doc: ArtifactIR
+  /** `WorkflowFull.graphHash` for `doc`: the `baseGraphHash` a save built on it sends. */
+  graphHash: string
+}
+
+/**
+ * The version document behind a `/full` response, or null while there is no
+ * version or the stored text cannot be read as one (a legacy or
+ * schema-invalid row). Null means Code shows no step files and refuses to
+ * save any: it would have nothing sound to patch.
+ */
+export function loadVersionDocument(
+  full: Pick<WorkflowFull, 'version' | 'graphHash'> | undefined,
+): LoadedVersion | null {
+  if (!full?.version || full.graphHash === null || typeof full.version.ir !== 'string') return null
+  const result = loadArtifact(full.version.ir)
+  return result.ok ? { doc: result.value, graphHash: full.graphHash } : null
+}
+
+/**
+ * A collision as a Problems entry, so the person learns why a step has no
+ * file in Code. A stored file's entry navigates to that file (renaming it
+ * frees the path); two steps sharing a path have no file to open, so the
+ * entry names the path instead.
+ */
+export function stepCollisionProblems(collisions: readonly StepSourceCollision[]): Problem[] {
+  return collisions.map(({ path, nodeIds, stored }) => ({
+    file: stored ? path : '',
+    line: 1,
+    column: 1,
+    endLine: 1,
+    endColumn: 1,
+    severity: 'warning',
+    source: 'workflow',
+    message: stored
+      ? `A project file holds ${path}, so step ${nodeIds.join(', ')} has no file here. Rename the file to edit the step in Code.`
+      : `Steps ${nodeIds.join(', ')} would all be ${path}; none of them is shown here. Edit them on the canvas.`,
+  }))
 }
 
 /**

@@ -8,6 +8,8 @@ import {
 } from '@awaitstep/ir'
 import {
   applyStepSources,
+  loadVersionDocument,
+  stepCollisionProblems,
   stepSourcePaths,
   stepSources,
   withoutFileSnapshot,
@@ -235,5 +237,61 @@ describe('withoutFileSnapshot', () => {
     expect(withoutFileSnapshot(bare as ArtifactIR)).toBe(bare)
     const noFiles: ArtifactIR = { ...workflow, runtime: { env: [] } }
     expect(withoutFileSnapshot(noFiles)).toBe(noFiles)
+  })
+})
+
+describe('loadVersionDocument', () => {
+  const full = {
+    version: {
+      id: 'v1',
+      workflowId: 'wf',
+      version: 1,
+      ir: JSON.stringify(workflow),
+      locked: 0,
+      createdAt: 't',
+    },
+    graphHash: 'g1',
+  }
+
+  it('parses the stored version with its graph hash', () => {
+    const loaded = loadVersionDocument(full)
+    expect(loaded?.graphHash).toBe('g1')
+    expect(loaded?.doc.nodes.map((n) => n.id)).toEqual(workflow.nodes.map((n) => n.id))
+  })
+
+  it('is null without a version, without a hash, or for a row that is not a document', () => {
+    expect(loadVersionDocument(undefined)).toBeNull()
+    expect(loadVersionDocument({ version: null, graphHash: null })).toBeNull()
+    expect(loadVersionDocument({ ...full, graphHash: null })).toBeNull()
+    expect(
+      loadVersionDocument({ ...full, version: { ...full.version, ir: '{not json' } }),
+    ).toBeNull()
+    expect(
+      loadVersionDocument({ ...full, version: { ...full.version, ir: '{"nodes":"no"}' } }),
+    ).toBeNull()
+  })
+})
+
+describe('stepCollisionProblems', () => {
+  it('points at the stored file that holds a step’s path, and names a shared path without a file', () => {
+    const problems = stepCollisionProblems([
+      { path: 'steps/charge.ts', nodeIds: ['charge'], stored: true },
+      { path: 'steps/a-b-1a2b3c.ts', nodeIds: ['a b', 'a-b-1a2b3c'], stored: false },
+    ])
+    expect(problems).toEqual([
+      expect.objectContaining({
+        file: 'steps/charge.ts',
+        severity: 'warning',
+        source: 'workflow',
+        message: expect.stringMatching(
+          /project file holds steps\/charge\.ts.*step charge has no file here/,
+        ),
+      }),
+      expect.objectContaining({
+        file: '',
+        severity: 'warning',
+        message: expect.stringMatching(/Steps a b, a-b-1a2b3c would all be steps\/a-b-1a2b3c\.ts/),
+      }),
+    ])
   })
 })
