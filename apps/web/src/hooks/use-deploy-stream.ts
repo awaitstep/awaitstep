@@ -5,6 +5,7 @@ import { ApiError } from '../lib/api-client'
 import { readSseStream } from '../lib/sse-stream'
 import { usePollingStore } from '../stores/polling-store'
 import { useApi } from '../contexts/api-client-context'
+import { pathSegment } from '../lib/api-path'
 
 export interface DeployProgress {
   stage: string
@@ -54,7 +55,7 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
 
       try {
         const response = await fetch(
-          api.projectUrl(`/workflows/${encodeURIComponent(workflowId)}/deploy-stream`),
+          api.projectUrl(`/workflows/${pathSegment(workflowId)}/deploy-stream`),
           {
             method: 'POST',
             credentials: 'include',

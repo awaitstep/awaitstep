@@ -15,6 +15,7 @@ import {
   type SessionTriggerResult,
 } from '../stores/test-session-store'
 import { useApi } from '../contexts/api-client-context'
+import { pathSegment } from '../lib/api-path'
 
 /** A session still starting is worth re-reading; a settled one is not. */
 const STARTING_POLL_MS = 1_500
@@ -152,7 +153,7 @@ export function useTestSession({
 
   useEffect(() => {
     if (!sessionId || !streaming) return
-    const streamPath = `/test-sessions/${encodeURIComponent(sessionId)}/stream`
+    const streamPath = `/test-sessions/${pathSegment(sessionId)}/stream`
     const controller = new AbortController()
     let attempt = 0
 
