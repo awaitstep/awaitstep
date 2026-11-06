@@ -20,8 +20,14 @@ function formatDelay(delay: string | number): string {
   return `${match[1]}${unit[match[2]!.toLowerCase()]}`
 }
 
-function attempts(limit: number): string {
-  return limit === 1 ? '1 attempt' : `${limit} attempts`
+/** `limit` counts retries after the first attempt, as Cloudflare and the in-request host read it. */
+function retriesLabel(limit: number): string {
+  return limit === 1 ? '1 retry' : `${limit} retries`
+}
+
+/** A run's attempt count, as telemetry reports it. */
+function attempts(count: number): string {
+  return count === 1 ? '1 attempt' : `${count} attempts`
 }
 
 function describeRetries(config: StepConfig | undefined): string {
@@ -30,8 +36,8 @@ function describeRetries(config: StepConfig | undefined): string {
   const delay = formatDelay(retries.delay)
   const backoff = retries.backoff
   return backoff && backoff !== 'constant'
-    ? `${attempts(retries.limit)} · ${backoff} from ${delay}`
-    : `${attempts(retries.limit)} · ${delay} apart`
+    ? `${retriesLabel(retries.limit)} · ${backoff} from ${delay}`
+    : `${retriesLabel(retries.limit)} · ${delay} apart`
 }
 
 function describeTimeout(config: StepConfig | undefined): string {
@@ -49,34 +55,66 @@ export interface StepSettings {
   timeout: string | null
 }
 
+export interface StepSettingsOptions {
+  /** `'script'` for a function, whose steps run on the in-request host. */
+  kind?: 'workflow' | 'script'
+}
+
 /**
  * A node's retries and timeout as the generated code will carry them (the
  * provider decides which fields each kind reads, so this never shows a value
  * the deployed step does not use). "Default" means nothing is set and the
  * runtime's own value applies; null means the kind of node has no such
  * setting, so the inspector leaves the row out.
+ *
+ * In a function a step runs on the in-request host, which retries and times
+ * out only when asked — so an unset policy reads as none, not as a default —
+ * and the other node kinds run without a step boundary at all.
  */
-export function stepSettings(node: SummaryNode): StepSettings {
+export function stepSettings(node: SummaryNode, options?: StepSettingsOptions): StepSettings {
   if (node.type === 'step' && node.data.inline === true) {
     return { retries: 'Not used — runs inline', timeout: 'Not used — runs inline' }
   }
   const applied = appliedStepSettings(node)
+  if (options?.kind === 'script') {
+    if (node.type !== 'step') {
+      const unused = 'Not used in a function'
+      return {
+        retries: applied.retries ? unused : null,
+        timeout: applied.timeout ? unused : null,
+      }
+    }
+    return {
+      retries: applied.config?.retries ? describeRetries(applied.config) : 'None — runs once',
+      timeout: hasTimeout(applied.config) ? describeTimeout(applied.config) : 'None',
+    }
+  }
   return {
     retries: applied.retries ? describeRetries(applied.config) : null,
     timeout: applied.timeout ? describeTimeout(applied.config) : null,
   }
 }
 
-/** A short line for the Steps list: "3 attempts", or "timeout 30s", or nothing. */
-export function stepMeta(node: SummaryNode): string | null {
-  const settings = stepSettings(node)
+function hasTimeout(config: StepConfig | undefined): boolean {
+  const value = config?.timeout
+  return (typeof value === 'string' && value.trim() !== '') || typeof value === 'number'
+}
+
+/** A short line for the Steps list: "retries 3", or "timeout 30s", or nothing. */
+export function stepMeta(node: SummaryNode, options?: StepSettingsOptions): string | null {
+  const settings = stepSettings(node, options)
+  const applied = appliedStepSettings(node)
   const parts: string[] = []
-  const limit = appliedStepSettings(node).config?.retries?.limit
-  if (limit !== undefined) parts.push(`retries ${limit}`)
+  const limit = applied.config?.retries?.limit
+  if (limit !== undefined && settings.retries !== null && !settings.retries.startsWith('Not')) {
+    parts.push(`retries ${limit}`)
+  }
+  // Only a timeout that is set makes the line; "Default" and "None" are the
+  // inspector's words for an unset one.
   if (
     settings.timeout !== null &&
-    settings.timeout !== 'Default' &&
-    !settings.timeout.startsWith('Not')
+    !settings.timeout.startsWith('Not') &&
+    hasTimeout(applied.config)
   ) {
     parts.push(`timeout ${settings.timeout}`)
   }

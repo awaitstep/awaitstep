@@ -41,7 +41,7 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
 
   if (!node || !info) return null
 
-  const settings = stepSettings(node)
+  const settings = stepSettings(node, { kind })
   const visuals = getNodeVisuals(node.type, registry.get(node.type)?.icon)
   const leader = info.coalescedInto ? nodes.get(info.coalescedInto) : undefined
   const leaderFile = info.coalescedInto
@@ -68,9 +68,7 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
         <span className="text-muted-foreground"> · generated</span>
       </>
     ) : !map.hasManifest ? (
-      <span className="text-muted-foreground">
-        {kind === 'script' ? 'A function has no step files' : 'No step files in this version'}
-      </span>
+      <span className="text-muted-foreground">No step files in this version</span>
     ) : leader && leaderFile ? (
       <span className="text-muted-foreground">
         Runs inside {leader.name}, in <FileLink path={leaderFile} />

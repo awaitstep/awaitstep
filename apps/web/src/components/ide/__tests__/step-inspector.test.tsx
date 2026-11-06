@@ -90,7 +90,7 @@ beforeEach(() => {
 describe('StepInspector', () => {
   it('shows retries and timeout as configured, and the file the step lives in', async () => {
     renderInspector('charge')
-    expect(screen.getByText('3 attempts · exponential from 10s')).toBeInTheDocument()
+    expect(screen.getByText('3 retries · exponential from 10s')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'nodes/charge_card.ts' })).toBeInTheDocument()
     expect(screen.getByText(/generated/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'lib/payments/charge.ts' })).toBeInTheDocument()
@@ -119,7 +119,7 @@ describe('StepInspector', () => {
     renderInspector('charge', { files, manifest: null, kind: 'script' })
     expect(screen.getByRole('button', { name: 'steps/charge.ts' })).toBeInTheDocument()
     expect(screen.getByText('Module')).toBeInTheDocument()
-    expect(screen.getByText('A function has no step files')).toBeInTheDocument()
+    expect(screen.getByText('No step files in this version')).toBeInTheDocument()
     const run = screen.getByRole('button', { name: 'Run step' })
     expect(run).toBeDisabled()
     expect(run).toHaveAttribute('title', 'This step has no module of its own to run')

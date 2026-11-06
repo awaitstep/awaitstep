@@ -49,21 +49,21 @@ describe('stepSettings', () => {
         },
       }),
     )
-    expect(settings).toEqual({ retries: '3 attempts · exponential from 10s', timeout: '30s' })
+    expect(settings).toEqual({ retries: '3 retries · exponential from 10s', timeout: '30s' })
   })
 
   it('shows a constant delay as the gap between attempts', () => {
     expect(stepSettings(node({ data: { retryLimit: 2, retryDelay: '5 minutes' } })).retries).toBe(
-      '2 attempts · 5m apart',
+      '2 retries · 5m apart',
     )
     expect(stepSettings(node({ data: { retryLimit: 1, backoff: 'constant' } })).retries).toBe(
-      '1 attempt · 10s apart',
+      '1 retry · 10s apart',
     )
   })
 
   it('fills the half that is missing with what the step emits', () => {
     expect(stepSettings(node({ data: { retryDelay: '2 seconds' } })).retries).toBe(
-      '5 attempts · 2s apart',
+      '5 retries · 2s apart',
     )
   })
 
@@ -74,7 +74,7 @@ describe('stepSettings', () => {
         config: { retries: { limit: 4, delay: 1500, backoff: 'linear' }, timeout: 2000 },
       }),
     )
-    expect(settings).toEqual({ retries: '4 attempts · linear from 1s', timeout: '2s' })
+    expect(settings).toEqual({ retries: '4 retries · linear from 1s', timeout: '2s' })
   })
 
   it('shows an http request only the policy in its config, not the loose fields a new node stores', () => {
@@ -91,7 +91,7 @@ describe('stepSettings', () => {
           config: { retries: { limit: 2, delay: '3 seconds' } },
         }),
       ).retries,
-    ).toBe('2 attempts · 3s apart')
+    ).toBe('2 retries · 3s apart')
   })
 
   it('shows a sub_script and a registry node only their config', () => {
@@ -131,6 +131,60 @@ describe('stepSettings', () => {
     const settings = stepSettings(node({ data: { inline: true, retryLimit: 3 } }))
     expect(settings.retries).toMatch(/^Not used/)
     expect(settings.timeout).toMatch(/^Not used/)
+  })
+})
+
+describe('stepSettings in a function', () => {
+  it('reads an unset policy as none: the in-request host retries and times out only when asked', () => {
+    expect(stepSettings(node(), { kind: 'script' })).toEqual({
+      retries: 'None — runs once',
+      timeout: 'None',
+    })
+  })
+
+  it('words a set policy as it does for a workflow step', () => {
+    const settings = stepSettings(
+      node({
+        data: { retryLimit: 3, retryDelay: '10 seconds', backoff: 'linear', timeout: '30 seconds' },
+      }),
+      { kind: 'script' },
+    )
+    expect(settings).toEqual({ retries: '3 retries · linear from 10s', timeout: '30s' })
+  })
+
+  it('gives the Steps list no line for an unset policy, rather than "timeout None"', () => {
+    expect(stepMeta(node(), { kind: 'script' })).toBeNull()
+    // A duration field left empty writes '' — still unset.
+    expect(stepMeta(node({ data: { retryDelay: '' } }), { kind: 'script' })).toBeNull()
+    expect(stepSettings(node({ data: { retryDelay: '' } }), { kind: 'script' }).retries).toBe(
+      'None — runs once',
+    )
+    expect(stepMeta(node({ data: { retryLimit: 2 } }), { kind: 'script' })).toBe('retries 2')
+    expect(stepMeta(node({ data: { timeout: '30 seconds' } }), { kind: 'script' })).toBe(
+      'timeout 30s',
+    )
+  })
+
+  it('still calls an inline step not durable', () => {
+    expect(stepSettings(node({ data: { inline: true } }), { kind: 'script' })).toEqual({
+      retries: 'Not used — runs inline',
+      timeout: 'Not used — runs inline',
+    })
+  })
+
+  it('says the policy of an http request is not used in a function, which runs it without a step', () => {
+    const http = node({
+      type: 'http_request',
+      config: { retries: { limit: 2, delay: '1 second' }, timeout: '5 seconds' },
+    })
+    expect(stepSettings(http, { kind: 'script' })).toEqual({
+      retries: 'Not used in a function',
+      timeout: 'Not used in a function',
+    })
+    expect(stepSettings(node({ type: 'sleep' }), { kind: 'script' })).toEqual({
+      retries: null,
+      timeout: null,
+    })
   })
 })
 

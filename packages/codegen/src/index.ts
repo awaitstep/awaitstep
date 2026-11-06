@@ -56,6 +56,7 @@ export {
   deduplicateStepNames,
   isExportedName,
   stripExportPrefix,
+  RESERVED_VAR_NAMES,
 } from './sanitize.js'
 export {
   toBundle,

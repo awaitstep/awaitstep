@@ -7,6 +7,8 @@ const TRACK_ON = { primary: 'bg-primary', warn: 'bg-status-warning' } as const
 const THUMB_ON = { primary: 'bg-primary-foreground', warn: 'bg-background' } as const
 
 interface SwitchProps {
+  /** Lets a visible `<label htmlFor>` name and toggle it. */
+  id?: string
   checked: boolean
   onCheckedChange: (checked: boolean) => void
   /** Names the switch, e.g. "Deletion lock". */
@@ -22,6 +24,7 @@ interface SwitchProps {
 
 /** An on/off switch; when locked, it explains why on hover and to screen readers. */
 export function Switch({
+  id,
   checked,
   onCheckedChange,
   label,
@@ -37,6 +40,7 @@ export function Switch({
 
   const control = (
     <SwitchPrimitive.Root
+      id={id}
       checked={checked}
       onCheckedChange={handleCheckedChange}
       aria-label={label}

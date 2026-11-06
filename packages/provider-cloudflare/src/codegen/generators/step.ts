@@ -1,5 +1,5 @@
 import type { WorkflowNode, StepConfig, RetryBackoff } from '@awaitstep/ir'
-import { stepLabel, indent, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
+import { stepLabel, indent, withoutComments, type GenerationContext } from '@awaitstep/codegen'
 import { generateStepConfig } from './config.js'
 import { extractImports } from '../imports.js'
 
@@ -8,12 +8,19 @@ import { extractImports } from '../imports.js'
  * The config panel saves these to node.data via configSchema, but codegen
  * needs them as a StepConfig object.
  */
+function isDurationSet(value: unknown): boolean {
+  return typeof value === 'number' || (typeof value === 'string' && value.trim() !== '')
+}
+
 export function resolveStepConfig(node: WorkflowNode): StepConfig | undefined {
   if (node.config) return node.config
 
   const { retryLimit, retryDelay, backoff, timeout } = node.data
-  const hasRetry = retryLimit !== undefined || retryDelay !== undefined
-  const hasTimeout = timeout !== undefined && timeout !== ''
+  // A blank duration is an unset one: the canvas writes '' when a field is
+  // cleared, and a whitespace string would reach the deployed step as-is.
+  const delaySet = isDurationSet(retryDelay)
+  const hasRetry = retryLimit !== undefined || delaySet
+  const hasTimeout = isDurationSet(timeout)
 
   if (!hasRetry && !hasTimeout) return undefined
 
@@ -22,7 +29,7 @@ export function resolveStepConfig(node: WorkflowNode): StepConfig | undefined {
   if (hasRetry) {
     config.retries = {
       limit: typeof retryLimit === 'number' ? retryLimit : 5,
-      delay: typeof retryDelay === 'string' && retryDelay ? retryDelay : '10 seconds',
+      delay: delaySet && typeof retryDelay === 'string' ? retryDelay : '10 seconds',
     }
     if (backoff && typeof backoff === 'string') {
       config.retries.backoff = backoff as RetryBackoff
@@ -36,18 +43,14 @@ export function resolveStepConfig(node: WorkflowNode): StepConfig | undefined {
   return config
 }
 
-export function generateStep(
-  node: WorkflowNode,
-  ctx: GenerationContext,
-  mode: GenerateMode = 'workflow',
-): string {
+export function generateStep(node: WorkflowNode, ctx: GenerationContext): string {
   const code = String(node.data.code ?? '')
-  // Inline steps (and script mode) emit raw user code with no wrapping.
-  // The user owns the surrounding scope: they can mutate enclosing `let`s,
-  // declare local vars, and add their own IIFE if they want one. To share a
-  // value with downstream nodes, declare `const X = ...` matching the
-  // sanitized node id.
-  if (mode === 'script' || node.data.inline === true) {
+  // An inline step emits raw user code with no wrapping — the explicit opt-in
+  // to owning the surrounding scope (mutating enclosing `let`s, declaring
+  // locals for later nodes, adding one's own IIFE). Every other step is a
+  // step: its body is a function body and its return is the step's value, in
+  // a workflow (durable host) and in a function (in-request host) alike.
+  if (node.data.inline === true) {
     return code
   }
   const hasReturn = /\breturn\b/.test(code)
@@ -106,6 +109,8 @@ function emitStepModule(
     // Braced body discards the module's return value: nothing is stored.
     return `await flow.step("${stepLabel(node)}"${configArg}, async (ctx) => { await $${varName}(${call}); });`
   }
+  // One line here; the emitter wraps what outgrows the line once the body is
+  // final (`wrapModuleCalls`), after any `const` prefix may have been dropped.
   return `${prefix}await flow.step("${stepLabel(node)}"${configArg}, (ctx) => $${varName}(${call}));`
 }
 
@@ -115,9 +120,17 @@ function emitModuleFile(
   code: string,
 ): { varName: string; call: string } {
   const varName = ctx.varName(node.id)
+  // An upstream var the body names as a whole word arrives as an input —
+  // unless the body declares that name itself, which would redeclare it.
+  // Comments are not code for either test.
+  const plain = withoutComments(code)
   const referenced = ctx
     .upstreamVars(node.id)
-    .filter((upstreamVar) => new RegExp(`\\b${upstreamVar}\\b`).test(code))
+    .filter(
+      (upstreamVar) =>
+        new RegExp(`\\b${upstreamVar}\\b`).test(plain) &&
+        !new RegExp(`\\b(?:const|let|var|function|class)\\s+${upstreamVar}\\b`).test(plain),
+    )
 
   const { imports, body } = extractImports(code)
   const importBlock = imports.length > 0 ? imports.join('\n') + '\n\n' : ''

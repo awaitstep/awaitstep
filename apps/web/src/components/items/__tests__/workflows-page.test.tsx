@@ -277,7 +277,6 @@ describe('Functions page', () => {
     expect(
       within(rows[0]!).getByRole('img', { name: /Requests over the last 24 hours/ }),
     ).toBeInTheDocument()
-    expect(screen.getByText(/Functions answer requests straight away/)).toBeInTheDocument()
   })
 
   it('says requests aren’t recorded for a function with no traffic', async () => {

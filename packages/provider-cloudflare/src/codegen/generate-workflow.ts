@@ -4,7 +4,6 @@ import type {
   GeneratedBundle,
   GeneratedFile,
   GeneratorLookup,
-  StepKind,
   StepManifest,
   TemplateResolver,
 } from '@awaitstep/codegen'
@@ -38,6 +37,9 @@ import {
   envFieldName,
   generateNodeCode,
   resolveNodeExpressions,
+  detectKind,
+  pruneUndeclaredInputs,
+  wrapModuleCalls,
 } from './generate-helpers.js'
 import { handlerDelegates, handlerWiring } from './handler-modules.js'
 import { parseAnnotations } from './parse-annotations.js'
@@ -147,15 +149,6 @@ export function generateWorkflowBundle(
   }
 }
 
-function detectKind(part: string, label: string): StepKind | undefined {
-  if (part.includes(`flow.step("${label}"`)) return 'do'
-  if (part.includes(`flow.sleep("${label}"`) || part.includes(`flow.sleepUntil("${label}"`)) {
-    return 'sleep'
-  }
-  if (part.includes(`flow.waitForEvent("${label}"`)) return 'waitForEvent'
-  return undefined
-}
-
 function generateWorkflowInternal(
   ir: WorkflowIR,
   templateResolverOrOptions: TemplateResolver | GenerateOptions | undefined,
@@ -261,7 +254,7 @@ function generateWorkflowInternal(
 
   // `env` is an alias of `flow.env` inside `run`, so user code written against
   // `env.*` keeps working without a regex rewrite of its text.
-  const bodyLines = strippedParts.join('\n\n')
+  const bodyLines = wrapModuleCalls(pruneUndeclaredInputs(strippedParts.join('\n\n')), 4)
 
   const allEnvNames = new Set(envVarNames ?? [])
   for (const name of collectEnvRefNames(ir.nodes)) {

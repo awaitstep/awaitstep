@@ -6,7 +6,7 @@ type InputProps = React.ComponentProps<'input'> & {
   debounceMs?: number
 }
 
-function Input({ className, type, debounceMs, value, onChange, ...props }: InputProps) {
+function Input({ className, type, debounceMs, value, onChange, onBlur, ...props }: InputProps) {
   const [localValue, setLocalValue] = useState(value)
   const pendingRef = useRef(false)
   const onChangeRef = useRef(onChange)
@@ -27,7 +27,16 @@ function Input({ className, type, debounceMs, value, onChange, ...props }: Input
     if (!pendingRef.current) setLocalValue(value)
   }, [value])
 
-  useEffect(() => () => debouncedOnChange?.cancel(), [debouncedOnChange])
+  // A pending edit is written, not dropped, when the input goes away or loses focus.
+  useEffect(() => () => debouncedOnChange?.flush(), [debouncedOnChange])
+
+  const handleBlur = useCallback(
+    (e: React.FocusEvent<HTMLInputElement>) => {
+      debouncedOnChange?.flush()
+      onBlur?.(e)
+    },
+    [debouncedOnChange, onBlur],
+  )
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,6 +60,7 @@ function Input({ className, type, debounceMs, value, onChange, ...props }: Input
       )}
       value={debouncedOnChange ? localValue : value}
       onChange={handleChange}
+      onBlur={handleBlur}
       {...props}
     />
   )

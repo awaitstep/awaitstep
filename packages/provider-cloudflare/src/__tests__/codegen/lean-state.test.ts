@@ -84,7 +84,7 @@ describe('lean stored state in generated workflows', () => {
     expect(entry).toContain('const Node_used = await flow.step("used"')
     // Unreferenced → no const, return discarded by the braced wrapper.
     expect(entry).not.toContain('const Node_unused')
-    expect(entry).toContain('await flow.step("unused", async (ctx) => { await $Node_unused(')
+    expect(entry).toMatch(/await flow\.step\("unused", async \(ctx\) => \{\s+await \$Node_unused\(/)
   })
 
   it('an EXPORT_-named step keeps its stored return even when unreferenced', () => {

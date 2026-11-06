@@ -103,7 +103,8 @@ export function ExpressionEditor({ value, onChange, nodeId, placeholder }: Expre
       }, 300),
     [],
   )
-  useEffect(() => () => debouncedOnChange.cancel(), [debouncedOnChange])
+  // A pending edit is written, not dropped, when the field goes away.
+  useEffect(() => () => debouncedOnChange.flush(), [debouncedOnChange])
   useEffect(() => {
     if (!pendingRef.current) setLocalValue(value)
   }, [value])

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { ScriptIR } from '@awaitstep/ir'
-import { generateScript } from '../../codegen/generate.js'
+import { generateScript, generateScriptBundle } from '../../codegen/generate.js'
 
 function makeScript(nodes: ScriptIR['nodes'], entryNodeId?: string): ScriptIR {
   return {
@@ -59,24 +59,27 @@ describe('generateScript', () => {
     ])
     ir.edges = [{ id: 'e1', source: 'transform', target: 'side-effect' }]
     const code = generateScript(ir)
-    // `transform` is not exported and not referenced → bare statement (no const).
+    // `transform` is not exported and not referenced → its step runs as a
+    // bare statement (no const): the value is dropped.
     expect(code).not.toContain('const transform =')
     expect(code).not.toMatch(/let transform[,;]/)
+    expect(code).toMatch(/^\s*await flow\.step\("transform", \(ctx\) => \$transform\(/m)
     expect(code).not.toMatch(/return \{[^}]*transform[^}]*\}/)
-    // side-effect has no return value at all → no var emitted.
+    // side-effect returns nothing → no var either.
     expect(code).not.toContain('const side_effect')
+    expect(code).toMatch(/^\s*await flow\.step\("side-effect", \(ctx\) => \$side_effect\(/m)
     // Empty graph object since nothing is exported.
     expect(code).toContain('return {};')
   })
 
   it('exports a node when its name starts with EXPORT_, stripping the prefix in the var/key', () => {
-    const ir = makeScript([stepNode('node-id', 'const Result = { ok: true };', 'EXPORT_Result')])
+    const ir = makeScript([stepNode('node-id', 'return { ok: true };', 'EXPORT_Result')])
     const code = generateScript(ir)
-    // The prefix is stripped — var/key is `Result`. The user's code is
-    // inlined raw; the codegen detects the const decl and includes it in
-    // the return.
-    expect(code).toContain('const Result = { ok: true };')
-    expect(code).not.toContain('EXPORT_Result')
+    // The prefix is stripped — var/key is `Result`. The step's return is its
+    // value, captured at the call and included in the return.
+    // The step label is the node id, as in a workflow; the var is the name.
+    expect(code).toMatch(/const Result = await flow\.step\("node-id", \(ctx\) =>\s+\$Result\(/)
+    expect(code).not.toContain('const EXPORT_Result')
     expect(code).toMatch(/return \{\s*Result\s*\}/)
   })
 
@@ -91,27 +94,33 @@ describe('generateScript', () => {
         provider: 'cloudflare',
         data: { branches: [{ label: 'yes', condition: 'true' }] },
       },
-      stepNode('inner-id', 'const Inner = { ok: true };', 'EXPORT_Inner'),
+      stepNode('inner-id', 'return { ok: true };', 'EXPORT_Inner'),
     ])
     ir.edges = [{ id: 'e1', source: 'gate', target: 'inner-id', label: 'yes' }]
     const code = generateScript(ir)
     // Exported + nested → `let Inner;` at top, assignment inside the block.
+    // A container child is a step too, inlined in the non-module form.
     expect(code).toMatch(/let Inner[;,]/)
-    expect(code).toContain('Inner = { ok: true };')
-    expect(code).not.toContain('const Inner = { ok: true };')
+    expect(code).toMatch(/^\s+Inner = await flow\.step\("inner-id"/m)
+    expect(code).not.toContain('const Inner = ')
     expect(code).toMatch(/return \{\s*Inner\s*\}/)
   })
 
   it('keeps the const for a non-exported node when downstream nodes reference its var', () => {
     const ir = makeScript([
-      stepNode('producer', 'const producer = event.payload;', 'producer'),
+      stepNode('producer', 'return event.payload;', 'producer'),
       stepNode('consumer', 'console.log(producer);', 'consumer'),
     ])
     ir.edges = [{ id: 'e1', source: 'producer', target: 'consumer' }]
-    const code = generateScript(ir)
-    // `producer` is referenced by `consumer` → const survives in the body.
-    expect(code).toContain('const producer = event.payload;')
-    expect(code).toContain('console.log(producer);')
+    const bundle = generateScriptBundle(ir)
+    const code = bundle.files.find((f) => f.path === 'worker.ts')!.source
+    // `consumer` names `producer`, so the consumer module receives it as an
+    // input and the producer's const survives in the body.
+    expect(code).toMatch(/const producer = await flow\.step\("producer"/)
+    expect(code).toMatch(/\$consumer\(\{ env, event, inputs: \{ producer \}, step, ctx \}\)/)
+    expect(bundle.files.find((f) => f.path === 'nodes/consumer.ts')!.source).toContain(
+      'const { producer } = inputs;',
+    )
     // Not exported → not in the return.
     expect(code).not.toMatch(/return \{[^}]*producer[^}]*\}/)
     expect(code).toContain('return {};')
@@ -125,14 +134,284 @@ describe('generateScript', () => {
     expect(code).toContain('const event = { payload: params }')
   })
 
-  it('inlines step code raw (no step.do, no IIFE) so a top-level `return` exits runGraph', () => {
-    const code = generateScript(makeScript([stepNode('transform', 'return event.payload;')]))
-    expect(code).not.toContain('flow.step')
-    expect(code).not.toContain('await (async () => {')
-    // The user's `return` is inlined inside runGraph — early exit with the value.
-    expect(code).toContain(
-      'async function runGraph(env: Env, event: { payload: unknown }) {\n  return event.payload;\n',
+  it('runs a step through the in-request host: its return is the step’s value, and runGraph goes on', () => {
+    // The canvas's default graph: a step whose body returns, then a
+    // try/catch whose arms exit. The step's return used to end runGraph
+    // (pasted raw); now it is the step's value and the try/catch runs.
+    const exit = (id: string) => ({
+      id,
+      type: 'break',
+      name: id,
+      position: { x: 0, y: 0 },
+      version: '1.0.0',
+      provider: 'cloudflare',
+      data: {},
+    })
+    const ir = makeScript([
+      stepNode(
+        'new-step',
+        '// Write your business logic here\n\nreturn { result: "ok" };',
+        'New step',
+      ),
+      {
+        id: 'guard',
+        type: 'try_catch',
+        name: 'New try_catch',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {},
+      },
+      exit('old-exit'),
+      exit('new-exit'),
+    ])
+    ir.edges = [
+      { id: 'e1', source: 'new-step', target: 'guard' },
+      { id: 'e2', source: 'guard', target: 'new-exit', label: 'try' },
+      { id: 'e3', source: 'guard', target: 'old-exit', label: 'catch' },
+    ]
+    const bundle = generateScriptBundle(ir)
+    const worker = bundle.files.find((f) => f.path === 'worker.ts')!.source
+    expect(worker).toContain(
+      'import { createInlineHost, createWorkflowContext, durableStep } from "#awaitstep/runtime";',
     )
+    expect(worker).toContain('import $New_step from "./nodes/New_step.js";')
+    // The context's event is a run's: the request payload plus a timestamp
+    // and an instance id, which `WorkflowEvent` requires (review round 1:
+    // `{ payload }` alone did not type-check in the Code view).
+    expect(worker).toContain(
+      [
+        '  const flow = createWorkflowContext({',
+        '    env,',
+        '    event: {',
+        '      payload: event.payload,',
+        '      timestamp: new Date(),',
+        '      instanceId: globalThis.crypto.randomUUID(),',
+        '    },',
+        '    host: createInlineHost(),',
+        '  });',
+      ].join('\n'),
+    )
+    expect(worker).toContain('const step = durableStep(flow);')
+    // Not exported and not referenced, so the value is dropped at the call;
+    // the step still runs, and runGraph carries on into the try/catch.
+    expect(worker).toMatch(
+      /await flow\.step\("new-step", \(ctx\) => \$New_step\(\{ env, event, inputs: \{\}, step, ctx \}\)\);\n\s+try \{\n\s+return;\n\s+\} catch \(err\) \{\n\s+return;\n\s+\}\n\s+return \{\};/,
+    )
+    // The body lives in its module, where its return is the step's value.
+    const module = bundle.files.find((f) => f.path === 'nodes/New_step.ts')!
+    expect(module.role).toBe('module')
+    expect(module.source).toContain('return { result: "ok" };')
+    expect(bundle.files.map((f) => f.path)).toContain('awaitstep/runtime.ts')
+    expect(bundle.manifest?.steps).toEqual([
+      {
+        nodeId: 'new-step',
+        stepName: 'new-step',
+        kind: 'do',
+        varName: 'New_step',
+        filePath: 'nodes/New_step.ts',
+      },
+      { nodeId: 'guard', varName: 'New_try_catch' },
+    ])
+  })
+
+  it('passes a step only the upstream vars that are bound at the call: a word match on an unbound name is pruned', () => {
+    // `result` is a side-effect step (no return, so no const), and the next
+    // body mentions the word in an object literal — the canvas's default.
+    const ir = makeScript([
+      stepNode('result', 'console.log("side effect");', 'result'),
+      stepNode('next', 'return { result: "ok" };', 'next'),
+    ])
+    ir.edges = [{ id: 'e1', source: 'result', target: 'next' }]
+    const code = generateScript(ir)
+    expect(code).toMatch(/\$next\(\{ env, event, inputs: \{\}, step, ctx \}\)/)
+    expect(code).not.toContain('inputs: { result }')
+  })
+
+  it('does not hand a body an input it declares itself', () => {
+    const ir = makeScript([
+      stepNode('data', 'return 1;', 'data'),
+      stepNode('again', 'const data = 2; return data;', 'again'),
+    ])
+    ir.edges = [{ id: 'e1', source: 'data', target: 'again' }]
+    const bundle = generateScriptBundle(ir)
+    const module = bundle.files.find((f) => f.path === 'nodes/again.ts')!.source
+    expect(module).not.toContain('const { data } = inputs;')
+    expect(module).toContain('const data = 2;')
+  })
+
+  it('keeps a node called step or env clear of the names the body binds', () => {
+    const ir = makeScript([stepNode('s1', 'return 1;', 'step'), stepNode('s2', 'return 2;', 'env')])
+    ir.edges = [{ id: 'e1', source: 's1', target: 's2' }]
+    const code = generateScript(ir)
+    expect(code).toContain('const step = durableStep(flow);')
+    expect(code).not.toMatch(/const step = await flow\.step/)
+    expect(code).not.toMatch(/const env = await flow\.step/)
+    expect(code).toContain('import $step_node from "./nodes/step_node.js";')
+    expect(code).toContain('import $env_node from "./nodes/env_node.js";')
+  })
+
+  it('does not take a comment or an inline body’s own identifier for a use of the host', () => {
+    const inline = stepNode(
+      'raw',
+      '// next step.\nconst steps = [1]; for (const step of steps) step.toFixed();',
+    )
+    inline.data.inline = true
+    const code = generateScript(makeScript([inline]))
+    expect(code).not.toContain('createInlineHost')
+    expect(code).not.toContain('#awaitstep/runtime')
+  })
+
+  it('runs a step inside a try/catch as an inlined step, with the host in scope', () => {
+    const guard = {
+      id: 'guard',
+      type: 'try_catch',
+      name: 'Guard',
+      position: { x: 0, y: 0 },
+      version: '1.0.0',
+      provider: 'cloudflare',
+      data: {},
+    }
+    const ir = makeScript([
+      guard,
+      stepNode('risky', 'return await fetch("https://x").then((r) => r.json());', 'EXPORT_Risky'),
+      stepNode('fallback', 'return { ok: false };', 'fallback'),
+    ])
+    ir.edges = [
+      { id: 'e1', source: 'guard', target: 'risky', label: 'try' },
+      { id: 'e2', source: 'guard', target: 'fallback', label: 'catch' },
+    ]
+    const bundle = generateScriptBundle(ir)
+    const worker = bundle.files.find((f) => f.path === 'worker.ts')!.source
+    expect(worker).toContain('createInlineHost()')
+    expect(worker).toMatch(/try \{\n\s+Risky = await flow\.step\("risky", async \(ctx\) => \{/)
+    expect(worker).toMatch(
+      /\} catch \(err\) \{\n\s+await flow\.step\("fallback", async \(ctx\) => \{/,
+    )
+    expect(worker).toMatch(/let Risky;/)
+    expect(worker).toMatch(/return \{\s*Risky\s*\}/)
+    // Children stay inline: no module, no manifest file path.
+    expect(bundle.files.map((f) => f.path)).not.toContain('nodes/Risky.ts')
+    expect(bundle.manifest?.steps).toEqual([{ nodeId: 'guard', varName: 'Guard' }])
+  })
+
+  it('leaves an `inputs: { … }` in a person’s own code alone: only the generated call is pruned', () => {
+    // Security review round 1: the first pruning pass rewrote any object
+    // literal keyed `inputs`, emptying a request body in an inline step.
+    const inline = stepNode(
+      'post',
+      'const { userId } = event.payload;\nawait fetch("https://x", { body: JSON.stringify({ inputs: { userId } }) });',
+    )
+    inline.data.inline = true
+    const code = generateScript(makeScript([inline]))
+    expect(code).toContain('JSON.stringify({ inputs: { userId } })')
+  })
+
+  it('passes an exported value hoisted out of a container to a later step', () => {
+    // The hoisted `let` is the binding; pruning must count it.
+    const gate = {
+      id: 'gate',
+      type: 'branch',
+      name: 'Gate',
+      position: { x: 0, y: 0 },
+      version: '1.0.0',
+      provider: 'cloudflare',
+      data: { branches: [{ label: 'yes', condition: 'true' }] },
+    }
+    // `after` joins both arms, so it is a top-level step downstream of the
+    // child whose value it reads.
+    const twoArms = {
+      ...gate,
+      data: {
+        branches: [
+          { label: 'yes', condition: 'true' },
+          { label: 'no', condition: '' },
+        ],
+      },
+    }
+    const ir = makeScript([
+      stepNode('first', 'return 1;', 'first'),
+      twoArms,
+      stepNode('blocked-id', 'return true;', 'EXPORT_blocked'),
+      stepNode('other', 'return false;', 'other'),
+      stepNode('after', 'if (blocked) throw new Error("no"); return "ok";', 'after'),
+    ])
+    ir.edges = [
+      { id: 'e0', source: 'first', target: 'gate' },
+      { id: 'e1', source: 'gate', target: 'blocked-id', label: 'yes' },
+      { id: 'e2', source: 'gate', target: 'other', label: 'no' },
+      { id: 'e3', source: 'blocked-id', target: 'after' },
+      { id: 'e4', source: 'other', target: 'after' },
+    ]
+    const code = generateScript(ir)
+    expect(code).toMatch(/let blocked;/)
+    expect(code).toContain('$after({ env, event, inputs: { blocked }, step, ctx })')
+  })
+
+  it('keeps a node called crypto clear of the header’s own globals', () => {
+    const code = generateScript(makeScript([stepNode('c', 'return 1;', 'crypto')]))
+    expect(code).toContain('globalThis.crypto.randomUUID()')
+    expect(code).not.toMatch(/const crypto = /)
+    expect(code).toContain('./nodes/crypto_node.js')
+  })
+
+  it('keeps a top-level export after another step as a const, not a hoisted let', () => {
+    // Pre-existing: the nesting test read the blank line between two
+    // top-level parts as indentation and hoisted the second export.
+    const ir = makeScript([
+      stepNode('producer', 'return { result: 1 };', 'producer'),
+      stepNode('consumer', 'return producer.result + 1;', 'EXPORT_Result'),
+    ])
+    ir.edges = [{ id: 'e1', source: 'producer', target: 'consumer' }]
+    const code = generateScript(ir)
+    expect(code).toContain('const Result = await flow.step("consumer"')
+    expect(code).not.toMatch(/let Result;/)
+    expect(code).toMatch(/return \{\s*Result\s*\}/)
+  })
+
+  it('wraps a module call that outgrows the line, keeping the call itself whole', () => {
+    const ir = makeScript([
+      stepNode('a-long-producer-id', 'return 1;', 'EXPORT_SomeFairlyLongProducerName'),
+      stepNode('consumer', 'return SomeFairlyLongProducerName + 1;', 'EXPORT_Result'),
+    ])
+    ir.edges = [{ id: 'e1', source: 'a-long-producer-id', target: 'consumer' }]
+    const code = generateScript(ir)
+    expect(code).toContain(
+      'const Result = await flow.step("consumer", (ctx) =>\n    $Result({ env, event, inputs: { SomeFairlyLongProducerName }, step, ctx }),\n  );',
+    )
+    // A short call stays on one line.
+    expect(generateScript(makeScript([stepNode('t', 'return 1;')]))).toContain(
+      'await flow.step("t", (ctx) => $t({ env, event, inputs: {}, step, ctx }));',
+    )
+  })
+
+  it('keeps an `inline` step raw in a function, as in a workflow', () => {
+    const inline = stepNode('raw', 'let n = 1; n++;')
+    inline.data.inline = true
+    const code = generateScript(makeScript([inline]))
+    expect(code).toContain('let n = 1; n++;')
+    expect(code).not.toContain('flow.step("raw"')
+    expect(code).not.toContain('./nodes/raw.js')
+  })
+
+  it('emits no runtime import or host for a function whose nodes need no step', () => {
+    const ir = makeScript([
+      {
+        id: 'ping',
+        type: 'http_request',
+        name: 'EXPORT_Ping',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { method: 'GET', url: 'https://example.com/ping' },
+      },
+    ])
+    const bundle = generateScriptBundle(ir)
+    const worker = bundle.files.find((f) => f.path === 'worker.ts')!.source
+    expect(worker).not.toContain('#awaitstep/runtime')
+    expect(worker).not.toContain('createInlineHost')
+    expect(bundle.files.map((f) => f.path)).toEqual(['worker.ts'])
+    expect(bundle.manifest?.steps).toEqual([{ nodeId: 'ping', varName: 'Ping' }])
   })
 
   it('default fetch handler returns the whole graph object', () => {
@@ -160,12 +439,15 @@ describe('generateScript', () => {
     ).toBe(true)
   })
 
-  it('keeps env references plain (not this.env)', () => {
-    const code = generateScript(
+  it('keeps env references plain (not this.env), in the entry and in the step modules', () => {
+    const bundle = generateScriptBundle(
       makeScript([stepNode('use-env', 'return env.SECRET_KEY ?? "missing";')]),
     )
-    expect(code).toContain('env.SECRET_KEY')
-    expect(code).not.toContain('this.env.')
+    const sources = bundle.files.map((f) => f.source).join('\n')
+    expect(bundle.files.find((f) => f.path === 'nodes/use_env.ts')!.source).toContain(
+      'env.SECRET_KEY',
+    )
+    expect(sources).not.toContain('this.env.')
   })
 
   it('emits an Env interface with declared env var names', () => {
@@ -272,7 +554,8 @@ describe('generateScript', () => {
     const code = generateScript(ir)
     expect(code).toContain('env["ONBOARDING_WORKFLOW"].create(')
     expect(code).not.toContain('--await') // no polling
-    expect(code).not.toContain('flow.step')
+    // The forward itself is not a step: the binding call is awaited directly.
+    expect(code).not.toMatch(/flow\.step\("Run Onboarding"/)
     expect(code).toMatch(/interface Env \{[\s\S]*ONBOARDING_WORKFLOW: Workflow;[\s\S]*\}/)
   })
 
@@ -308,9 +591,14 @@ describe('generateScript', () => {
     ir.edges = [{ id: 'e1', source: 'send', target: 'inner', label: 'body' }]
     const code = generateScript(ir)
 
-    // No IIFE wrap — the body doesn't capture _output, so no need.
-    expect(code).not.toContain('await (async () => {')
-    // No dead step-name counter in script mode — script bodies have no step.do.
+    // The loop itself is not wrapped — the body doesn't capture _output.
+    expect(code).not.toMatch(/const send = await \(async/)
+    expect(code).not.toMatch(/await \(async \(\) => \{\s*for \(const email/)
+    // The child is a step, inlined in the non-module form, inside the loop.
+    expect(code).toMatch(
+      /for \(const email of event\.payload\.recipients\) \{\n\s+await flow\.step\("inner"/,
+    )
+    // No dead step-name counter: the loop's own iterator is the user's.
     expect(code).not.toContain('let _loop_i = 0')
     expect(code).not.toContain('_loop_i++')
     // Bare for-of with the user's iteration variable.
@@ -357,8 +645,12 @@ describe('generateScript', () => {
     const code = generateScript(ir)
 
     expect(code).toContain('for (let _loop_i = 0; _loop_i < 3; _loop_i++)')
-    // No outer IIFE since body doesn't capture _output.
-    expect(code).not.toContain('await (async () => {')
+    // No outer IIFE since body doesn't capture _output; the child step inside
+    // still sees the counter, since it is inlined in the loop's scope.
+    expect(code).not.toMatch(/await \(async \(\) => \{\s*for \(let _loop_i/)
+    expect(code).toMatch(
+      /_loop_i\+\+\) \{\n\s+await flow\.step\("work"[\s\S]*console\.log\(_loop_i\)/,
+    )
   })
 
   it('flattens http_request in script mode (no IIFE) — simple GET case', () => {
@@ -427,9 +719,11 @@ describe('generateScript', () => {
     ]
     const code = generateScript(ir)
 
-    // No `step.do`, no outer IIFE — Promise.allSettled is awaited directly.
-    expect(code).not.toContain('flow.step')
+    // The parallel itself is not a step and has no outer IIFE — Promise.allSettled
+    // is awaited directly; its arms are steps, inlined.
+    expect(code).not.toMatch(/flow\.step\("(EXPORT_)?Fan"/)
     expect(code).not.toMatch(/await \(async \(\) => \{\s*return await Promise\./)
+    expect(code).toMatch(/flow\.step\("a"/)
     // The Promise.allSettled call is the bare expression assigned to the var.
     expect(code).toMatch(/const Fan = await Promise\.allSettled\(\[/)
   })

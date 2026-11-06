@@ -31,19 +31,47 @@ export function stripExportPrefix(name: string): string {
  * Build a map from node ID to a unique, human-readable variable name
  * derived from the node's name (not its ID).
  */
+/**
+ * Names the generated body binds itself — the run's aliases and the step
+ * primitives — so a node called "step" or "env" never shadows them.
+ */
+export const RESERVED_VAR_NAMES: ReadonlySet<string> = new Set([
+  'env',
+  'event',
+  'flow',
+  'step',
+  'ctx',
+  'inputs',
+  'runGraph',
+  'workflow',
+  'globalThis',
+  'crypto',
+  'Date',
+  'createWorkflowContext',
+  'createInlineHost',
+  'createCloudflareHost',
+  'durableStep',
+  'defineWorkflow',
+  'defineFunction',
+  'AWAITSTEP_RETENTION',
+])
+
 export function buildVarNameMap(nodes: { id: string; name: string }[]): Map<string, string> {
   const map = new Map<string, string>()
-  const usedNames = new Map<string, number>()
+  const used = new Set<string>()
 
   for (const node of nodes) {
     // Drop the `EXPORT_` marker (if any) before sanitizing — the prefix is a
     // marker, not part of the identifier.
     let base = sanitizeIdentifier(stripExportPrefix(node.name))
     if (!base) base = sanitizeIdentifier(node.id)
+    if (RESERVED_VAR_NAMES.has(base)) base = `${base}_node`
 
-    const count = usedNames.get(base) ?? 0
-    usedNames.set(base, count + 1)
-    const varName = count === 0 ? base : `${base}_${count + 1}`
+    // Unique against every name handed out so far — not a per-base count,
+    // which let `q`, `q`, `q_2` collide on `q_2`.
+    let varName = base
+    for (let n = 2; used.has(varName); n++) varName = `${base}_${n}`
+    used.add(varName)
     map.set(node.id, varName)
   }
 

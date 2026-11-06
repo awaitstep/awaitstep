@@ -15,17 +15,13 @@ import {
 } from './codegen/handler-modules.js'
 import type { HandlerConversionResult } from '@awaitstep/codegen'
 import { compileBundle } from './compile-bundle.js'
-import { generateScript, generateWorkflowBundle } from './codegen/generate.js'
+import { generateScriptBundle, generateWorkflowBundle } from './codegen/generate.js'
 import {
-  CORE_RUNTIME_IMPORT,
   bundleEntry,
   describeBindingKind,
   describeProvider,
   importSpecifiers,
   providerFromSpecifier,
-  projectBundleFiles,
-  toBundle,
-  validateBundle,
   withoutComments,
 } from '@awaitstep/codegen'
 import type {
@@ -35,7 +31,6 @@ import type {
   CredentialsInspection,
   InspectOptions,
   GeneratedBundle,
-  GeneratedFile,
   DeployResult,
   ProviderConfig,
   WorkflowRunStatus,
@@ -50,11 +45,6 @@ import type { WranglerDeployer } from './deploy/deployer.js'
 import { startLocalDev } from './local-dev.js'
 import { sanitizedWorkflowName } from './naming.js'
 import { mapCFStatus } from './status-map.js'
-import {
-  CLOUDFLARE_PRIMITIVES_IMPORT,
-  cloudflarePrimitivesModuleFile,
-  runtimeModuleFile,
-} from './codegen/runtime-module.js'
 import { toRunDetail } from './run-detail.js'
 import { CloudflareAPI } from './api.js'
 import { checkCloudflareToken } from './token-check.js'
@@ -298,36 +288,13 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
       config?.options?.['deploymentConfig'] as CloudflareDeploymentConfig | undefined
     )?.retention
     if (ir.kind === 'script') {
-      const source = generateScript(ir as ScriptIR, {
+      // A function deploys as a bundle too: the fetch entry, one module per
+      // step (run by the in-request host), the runtime, the project files.
+      return generateScriptBundle(ir as ScriptIR, {
         templateResolver: this.templateResolver,
         envVarNames,
         triggerCode,
         retention,
-      })
-      const base = toBundle({ filename: 'worker.ts', source })
-      const projectFiles = projectBundleFiles(ir.runtime?.files)
-      // A Function is single-file by design, but user/project code can still
-      // import the portable runtime or a provider primitive; emit the module
-      // it names so the deploy resolves it.
-      const imported = new Set(
-        [source, ...projectFiles.map((file) => file.source)].flatMap((candidate) =>
-          importSpecifiers(withoutComments(candidate)),
-        ),
-      )
-      const extra: GeneratedFile[] = []
-      if (imported.has(CORE_RUNTIME_IMPORT)) extra.push(runtimeModuleFile())
-      if (
-        [...imported].some(
-          (specifier) =>
-            specifier === CLOUDFLARE_PRIMITIVES_IMPORT ||
-            specifier.startsWith(`${CLOUDFLARE_PRIMITIVES_IMPORT}/`),
-        )
-      ) {
-        extra.push(cloudflarePrimitivesModuleFile())
-      }
-      return validateBundle({
-        ...base,
-        files: [...base.files, ...extra, ...projectFiles],
       })
     }
     // Workflows deploy as multi-file bundles: step code lives in per-node

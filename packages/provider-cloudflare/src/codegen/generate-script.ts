@@ -1,13 +1,33 @@
 import type { ScriptIR, WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { hasHandlerModules, projectHandlerModules } from '@awaitstep/ir'
-import type { GeneratorLookup, TemplateResolver } from '@awaitstep/codegen'
+import type {
+  GeneratedBundle,
+  GeneratedFile,
+  GeneratorLookup,
+  StepManifest,
+  TemplateResolver,
+} from '@awaitstep/codegen'
 import { handlerDelegates, handlerWiring } from './handler-modules.js'
 import {
-  topologicalSort,
+  CORE_RUNTIME_IMPORT,
+  computeVarNames,
+  contentHash,
   createGenerationContext,
+  importSpecifiers,
   indent,
   isExportedName,
+  projectBundleFiles,
+  stepLabel,
+  topologicalSort,
+  validateBundle,
+  withoutComments,
 } from '@awaitstep/codegen'
+import {
+  CLOUDFLARE_PRIMITIVES_IMPORT,
+  FUNCTION_RUNTIME_IMPORT,
+  cloudflarePrimitivesModuleFile,
+  runtimeModuleFile,
+} from './runtime-module.js'
 import { collectBranchInlineTargets } from './generators/branch.js'
 import { getSubWorkflowBindings } from './generators/sub-workflow.js'
 import { getSubScriptBindings } from './generators/sub-script.js'
@@ -20,16 +40,20 @@ import {
   endsWithReturn,
   extractImports,
   collectEnvRefNames,
+  detectKind,
   envFieldName,
   generateNodeCode,
+  pruneUndeclaredInputs,
   resolveNodeExpressions,
+  wrapModuleCalls,
 } from './generate-helpers.js'
 import { parseAnnotations } from './parse-annotations.js'
 
 /**
- * Default trigger-code scaffold for new scripts. Uses the annotated multi-handler
- * form: `@fetch function handler(...)` for the HTTP entry point, with a comment
- * showing how to add `@queue function NAME(...)` handlers.
+ * Default trigger-code scaffold for new scripts, in the annotated form:
+ * `@fetch function handler(...)` for the HTTP entry point. Queue and cron
+ * handlers are project files under `handlers/` now, so the scaffold no longer
+ * advertises `@queue` annotations.
  *
  * Top-level code outside annotated functions becomes module scope (imports,
  * shared helpers). The graph nodes run inside `runGraph(env, event)` (auto-
@@ -57,9 +81,6 @@ export const DEFAULT_SCRIPT_TRIGGER_CODE = `// import packages here
     return Response.json({ message: error.message }, { status: 500 });
   }
 }
-
-// Add queue handlers below using:
-// @queue function NAME(batch, env, ctx) { ... }
 `
 
 export interface GenerateScriptOptions {
@@ -83,10 +104,60 @@ export interface GenerateScriptOptions {
   generators?: GeneratorLookup
 }
 
+/** The worker's source alone, for previews and tests; {@link generateScriptBundle} is the deployable form. */
 export function generateScript(
   ir: ScriptIR,
   templateResolverOrOptions?: TemplateResolver | GenerateScriptOptions,
 ): string {
+  return generateScriptInternal(ir, templateResolverOrOptions).source
+}
+
+/**
+ * Bundle generation for a function: the fetch-only `worker.ts` entry, one
+ * `nodes/<var>.ts` module per step (the same shape a workflow's steps have),
+ * the runtime module `runGraph` imports, and the project files. Steps run
+ * through the in-request host, so the step manifest names each one.
+ */
+export function generateScriptBundle(
+  ir: ScriptIR,
+  templateResolverOrOptions?: TemplateResolver | GenerateScriptOptions,
+): GeneratedBundle {
+  const { source, files, manifest } = generateScriptInternal(ir, templateResolverOrOptions)
+  const projectFiles = projectBundleFiles(ir.runtime?.files)
+  // Emit a runtime module only when something shipped imports it — generated
+  // code, a step module, or a project file — so a function with no steps
+  // stays the single file it always was.
+  const imported = new Set(
+    [
+      source,
+      ...files.map((file) => file.source),
+      ...projectFiles.map((file) => file.source),
+    ].flatMap((candidate) => importSpecifiers(withoutComments(candidate))),
+  )
+  const extra: GeneratedFile[] = []
+  if (imported.has(CORE_RUNTIME_IMPORT)) extra.push(runtimeModuleFile())
+  if (
+    [...imported].some(
+      (specifier) =>
+        specifier === CLOUDFLARE_PRIMITIVES_IMPORT ||
+        specifier.startsWith(`${CLOUDFLARE_PRIMITIVES_IMPORT}/`),
+    )
+  ) {
+    extra.push(cloudflarePrimitivesModuleFile())
+  }
+  return {
+    ...validateBundle({
+      entry: 'worker.ts',
+      files: [{ path: 'worker.ts', source, role: 'entry' }, ...files, ...extra, ...projectFiles],
+    }),
+    manifest,
+  }
+}
+
+function generateScriptInternal(
+  ir: ScriptIR,
+  templateResolverOrOptions?: TemplateResolver | GenerateScriptOptions,
+): { source: string; files: GeneratedFile[]; manifest: StepManifest } {
   const opts: GenerateScriptOptions = templateResolverOrOptions
     ? 'getTemplate' in templateResolverOrOptions
       ? { templateResolver: templateResolverOrOptions }
@@ -99,7 +170,17 @@ export function generateScript(
   // only structural difference is the literal `kind`.
   const irAsWorkflow = ir as unknown as WorkflowIR
   const sorted = topologicalSort(irAsWorkflow)
-  const ctx = createGenerationContext(ir.nodes)
+  // Steps become modules, as in a workflow: each receives the upstream vars
+  // its body names as `inputs`, which the entry destructures at the call.
+  const names = computeVarNames(ir.nodes)
+  const upstream = new Map<string, string[]>()
+  const seenVars: string[] = []
+  for (const node of sorted) {
+    upstream.set(node.id, [...seenVars])
+    const name = names.get(node.id)
+    if (name) seenVars.push(name)
+  }
+  const ctx = createGenerationContext(ir.nodes, { emitModules: true, upstream })
   const useStateTracking = hasTemplateExpressions(ir.nodes)
 
   const inlineTargets = collectBranchInlineTargets(irAsWorkflow)
@@ -109,6 +190,8 @@ export function generateScript(
     : ir
 
   const bodyParts: string[] = []
+  /** The top-level node each part of the body was emitted for, in order. */
+  const emittedNodes: WorkflowNode[] = []
   const classDefinitions = new Map<string, string>()
 
   const resolvedNodeMap = new Map(resolvedIR.nodes.map((n: WorkflowNode) => [n.id, n]))
@@ -131,6 +214,7 @@ export function generateScript(
       generators,
     )
     bodyParts.push(code)
+    emittedNodes.push(node)
   }
 
   const collectedImports: string[] = []
@@ -164,13 +248,18 @@ export function generateScript(
   const hoistedVarNames: string[] = []
   for (const node of resolvedIR.nodes) {
     const v = ctx.varName(node.id)
-    const declRe = new RegExp(`^(\\s*)const ${v}\\s*=`, 'm')
+    // Indentation means "inside a container". Horizontal whitespace only:
+    // `\s*` would swallow the blank line between two top-level parts and
+    // hoist every top-level export after the first.
+    const declRe = new RegExp(`^([ \\t]*)const ${v}\\s*=`, 'm')
     const m = declRe.exec(graphBody)
     if (!m) continue
 
     const exported = isExportedName(node.name) || AUTO_EXPORT_TYPES.has(node.type)
     const isNested = m[1].length > 0
-    const refMatches = [...graphBody.matchAll(new RegExp(`\\b${v}\\b`, 'g'))]
+    // A reference is the bare identifier: not the step's own label in
+    // `flow.step("name"`, not the `$name` module import at its call.
+    const refMatches = [...graphBody.matchAll(new RegExp(`(?<![$"'])\\b${v}\\b(?!["'])`, 'g'))]
     const isReferencedElsewhere = refMatches.length > 1
 
     if (exported) {
@@ -295,6 +384,40 @@ export function generateScript(
   // are declared via `let` at the top so the assignment can escape the block.
   // With handler modules it is exported so handlers/fetch.ts can import it.
   const declStatement = hoistedVarNames.length > 0 ? `  let ${hoistedVarNames.join(', ')};\n` : ''
+  // The graph runs on the in-request host: `flow.step` runs each step body
+  // here and now, with the node's retries and timeout, and `step` is the
+  // adapter the step modules receive — the same two names a workflow's
+  // `run` establishes, so a step module is the same file in both kinds.
+  // Only a bound var can travel into a module; a word match on an upstream
+  // name that nothing declares is pruned from the call. A hoisted export is
+  // bound by the `let` added below, so it counts.
+  graphBody = pruneUndeclaredInputs(graphBody, hoistedVarNames)
+  graphBody = wrapModuleCalls(graphBody, 2)
+  // The context is needed when a step runs here — a module, a container
+  // child's inline `flow.step`, or a hand-written `step.do` — never for a
+  // comment or an inline body's own `step` identifier.
+  const usesFlow =
+    ctx.files.some((file) => file.role === 'module') ||
+    /\b(?:flow\.(?:step|sleep|sleepUntil|waitForEvent)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
+      withoutComments(graphBody),
+    )
+  // A function's invocation is a run of its own: the context's event carries
+  // a timestamp and an instance id beside the request's payload.
+  const contextLines = usesFlow
+    ? [
+        '  const flow = createWorkflowContext({',
+        '    env,',
+        '    event: {',
+        '      payload: event.payload,',
+        '      timestamp: new Date(),',
+        '      instanceId: globalThis.crypto.randomUUID(),',
+        '    },',
+        '    host: createInlineHost(),',
+        '  });',
+        '  const step = durableStep(flow);',
+        '',
+      ].join('\n')
+    : ''
   const bodyAlreadyReturns = endsWithReturn(graphBody)
   const returnStatement = bodyAlreadyReturns
     ? ''
@@ -304,10 +427,25 @@ export function generateScript(
   const runGraphBody =
     graphBody.trim().length > 0 ? indent(graphBody, 2) + (bodyAlreadyReturns ? '' : '\n') : ''
   const runGraphBlock = `${wiring ? 'export ' : ''}async function runGraph(env: Env, event: { payload: unknown }) {
-${declStatement}${runGraphBody}${returnStatement}
+${contextLines}${declStatement}${runGraphBody}${returnStatement}
 }`
 
-  const uniqueImports = [...new Set(collectedImports)]
+  // The entry imports the runtime and every step module it calls; `.js`
+  // specifiers, since the deploy pipeline compiles the modules to .js paths.
+  const moduleImports: string[] = []
+  for (const moduleFile of ctx.files) {
+    if (moduleFile.role !== 'module') continue
+    const match = /^nodes\/([A-Za-z0-9_]+)\.ts$/.exec(moduleFile.path)
+    if (!match) throw new Error(`Generated module has unexpected path: ${moduleFile.path}`)
+    moduleImports.push(`import $${match[1]} from "./nodes/${match[1]}.js";`)
+  }
+  const uniqueImports = [
+    ...new Set([
+      ...(usesFlow ? [FUNCTION_RUNTIME_IMPORT] : []),
+      ...moduleImports,
+      ...collectedImports,
+    ]),
+  ]
   const importBlock = uniqueImports.length > 0 ? '\n' + uniqueImports.join('\n') : ''
   const classBlock =
     !preview && classDefinitions.size > 0
@@ -351,10 +489,32 @@ ${handlerBlocks.join('\n')}
     ? `\n${wiring ? 'export ' : ''}const AWAITSTEP_RETENTION = ${retentionLiteral(retention)};\n`
     : ''
 
-  return `${importBlock ? importBlock.trimStart() + '\n\n' : ''}interface Env {${envBlock}}
+  const source = `${importBlock ? importBlock.trimStart() + '\n\n' : ''}interface Env {${envBlock}}
 ${retentionBlock}${classBlock}${moduleCodeBlock}
 ${runGraphBlock}
 
 ${exportDefault}
 `
+
+  // One manifest entry per top-level node, as a workflow's: the step name and
+  // kind when the emitted text carries the label on a primitive, the module
+  // path when the step got its own file.
+  const manifest: StepManifest = {
+    irHash: contentHash(JSON.stringify(ir)),
+    steps: emittedNodes.map((node, i) => {
+      const varName = ctx.varName(node.id)
+      const modulePath = `nodes/${varName}.ts`
+      const hasModule = ctx.files.some((f) => f.role === 'module' && f.path === modulePath)
+      const label = stepLabel(node)
+      const kind = detectKind(bodyParts[i]!, label)
+      return {
+        nodeId: node.id,
+        ...(kind && { stepName: label, kind }),
+        varName,
+        ...(hasModule && { filePath: modulePath }),
+      }
+    }),
+  }
+
+  return { source, files: ctx.files, manifest }
 }

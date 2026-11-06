@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId } from 'react'
 import type { ConfigField } from '@awaitstep/ir'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
@@ -15,9 +15,17 @@ interface DynamicFieldsProps {
   onChange: (fieldId: string, value: unknown) => void
   /** The configured node's id — scopes expression completions to upstream refs. */
   nodeId?: string
+  /** The code editors show without accepting edits; a disabled fieldset covers the native controls. */
+  readOnly?: boolean
 }
 
-export function DynamicFields({ configSchema, data, onChange, nodeId }: DynamicFieldsProps) {
+export function DynamicFields({
+  configSchema,
+  data,
+  onChange,
+  nodeId,
+  readOnly = false,
+}: DynamicFieldsProps) {
   return (
     <div className="space-y-4">
       {Object.entries(configSchema).map(([fieldId, field]) => (
@@ -27,6 +35,7 @@ export function DynamicFields({ configSchema, data, onChange, nodeId }: DynamicF
           value={data[fieldId]}
           onChange={(value) => onChange(fieldId, value)}
           nodeId={nodeId}
+          readOnly={readOnly}
         />
       ))}
     </div>
@@ -38,36 +47,79 @@ interface DynamicFieldProps {
   value: unknown
   onChange: (value: unknown) => void
   nodeId?: string
+  /** Given to the control, so a `<Label htmlFor>` can name it (see `fieldTakesId`). */
+  id?: string
+  readOnly?: boolean
 }
 
-function DynamicField({ field, value, onChange, nodeId }: DynamicFieldProps) {
+/** Whether `FieldRenderer` puts `id` on a single control a label can point at. */
+export function fieldTakesId(field: ConfigField): boolean {
+  switch (field.type) {
+    case 'string':
+      return field.validation?.format !== 'date-time'
+    case 'number':
+    case 'select':
+    case 'textarea':
+      return true
+    case 'expression':
+      return false
+    case 'boolean':
+    case 'multiselect':
+    case 'secret':
+    case 'code':
+    case 'json':
+      return false
+    default:
+      return true
+  }
+}
+
+function DynamicField({ field, value, onChange, nodeId, readOnly }: DynamicFieldProps) {
+  const id = useId()
+  const controlId = fieldTakesId(field) ? id : undefined
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <Label className="text-xs text-muted-foreground">
+        <Label htmlFor={controlId} className="text-xs text-muted-foreground">
           {field.label}
           {field.required && <span className="ml-0.5 text-destructive">*</span>}
         </Label>
       </div>
-      <FieldRenderer field={field} value={value} onChange={onChange} nodeId={nodeId} />
+      <FieldRenderer
+        field={field}
+        value={value}
+        onChange={onChange}
+        nodeId={nodeId}
+        id={controlId}
+        readOnly={readOnly}
+      />
       {field.description && <p className="text-xs text-muted-foreground/60">{field.description}</p>}
     </div>
   )
 }
 
-function FieldRenderer({ field, value, onChange, nodeId }: DynamicFieldProps) {
+/** One field's control, by its schema type — shared with layouts that place fields themselves. */
+export function FieldRenderer({
+  field,
+  value,
+  onChange,
+  nodeId,
+  id,
+  readOnly = false,
+}: DynamicFieldProps) {
   const stringValue = String(value ?? '')
 
   switch (field.type) {
     case 'string': {
       if (field.validation?.format === 'duration') {
-        return <DurationInput value={stringValue} onChange={onChange} />
+        return <DurationInput id={id} value={stringValue} onChange={onChange} />
       }
       if (field.validation?.format === 'date-time') {
         return <DateTimeField value={stringValue} onChange={onChange} />
       }
       return (
         <Input
+          id={id}
           value={stringValue}
           onChange={(e) => onChange(e.target.value)}
           debounceMs={300}
@@ -80,6 +132,7 @@ function FieldRenderer({ field, value, onChange, nodeId }: DynamicFieldProps) {
     case 'number':
       return (
         <Input
+          id={id}
           type="number"
           value={value !== undefined && value !== null ? String(value) : ''}
           onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)}
@@ -114,6 +167,7 @@ function FieldRenderer({ field, value, onChange, nodeId }: DynamicFieldProps) {
     case 'select':
       return (
         <Select
+          id={id}
           value={String(value ?? field.default ?? '')}
           onValueChange={onChange}
           options={(field.options ?? []).map((opt) => ({ value: opt, label: opt }))}
@@ -177,6 +231,7 @@ function FieldRenderer({ field, value, onChange, nodeId }: DynamicFieldProps) {
           debounceMs={300}
           language="typescript"
           height="160px"
+          readOnly={readOnly}
         />
       )
 
@@ -203,6 +258,7 @@ function FieldRenderer({ field, value, onChange, nodeId }: DynamicFieldProps) {
           debounceMs={300}
           language="json"
           height="120px"
+          readOnly={readOnly}
         />
       )
     }
@@ -231,6 +287,7 @@ function FieldRenderer({ field, value, onChange, nodeId }: DynamicFieldProps) {
     case 'textarea':
       return (
         <textarea
+          id={id}
           value={stringValue}
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder}
@@ -242,6 +299,7 @@ function FieldRenderer({ field, value, onChange, nodeId }: DynamicFieldProps) {
     default:
       return (
         <Input
+          id={id}
           value={stringValue}
           onChange={(e) => onChange(e.target.value)}
           debounceMs={300}
@@ -274,7 +332,15 @@ function clampDuration(amount: number, unit: string): number {
   return Math.min(Math.max(1, amount), maxForUnit)
 }
 
-function DurationInput({ value, onChange }: { value: string; onChange: (value: unknown) => void }) {
+function DurationInput({
+  id,
+  value,
+  onChange,
+}: {
+  id?: string
+  value: string
+  onChange: (value: unknown) => void
+}) {
   const { amount, unit } = parseDurationValue(value)
   const maxForUnit = Math.floor(MAX_SECONDS / (UNIT_TO_SECONDS[unit] ?? 1))
   const [localAmount, setLocalAmount] = useState(String(amount || ''))
@@ -283,24 +349,26 @@ function DurationInput({ value, onChange }: { value: string; onChange: (value: u
     setLocalAmount(String(amount || ''))
   }, [amount])
 
+  // Leaving the field writes only a change: an unset duration passed over
+  // stays unset (an empty string would read as "set" to the step config).
+  function handleBlur() {
+    const num = Number(localAmount)
+    const unset = !localAmount.trim() || isNaN(num) || num <= 0
+    const next = unset ? '' : `${clampDuration(num, unit)} ${unit}`
+    if (!unset) setLocalAmount(String(clampDuration(num, unit)))
+    if (next !== value) onChange(next)
+  }
+
   return (
     <div className="flex gap-2">
       <Input
+        id={id}
         type="number"
         min={1}
         max={maxForUnit}
         value={localAmount}
         onChange={(e) => setLocalAmount(e.target.value)}
-        onBlur={() => {
-          const num = Number(localAmount)
-          if (!localAmount.trim() || isNaN(num) || num <= 0) {
-            onChange('')
-            return
-          }
-          const clamped = clampDuration(num, unit)
-          setLocalAmount(String(clamped))
-          onChange(`${clamped} ${unit}`)
-        }}
+        onBlur={handleBlur}
         placeholder="10"
         className="flex-1"
       />

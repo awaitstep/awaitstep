@@ -82,10 +82,10 @@ describe('generateWorkflowBundle', () => {
     expect(entry).toContain('import $Fetch_data from "../nodes/Fetch_data.js";')
     expect(entry).toContain('import $Report from "../nodes/Report.js";')
     expect(entry).toContain(
-      'const Fetch_data = await flow.step("fetch", { retries: { limit: 3, delay: "5 seconds" } }, (ctx) => $Fetch_data({ env, event, inputs: {}, step, ctx }));',
+      'const Fetch_data = await flow.step("fetch", { retries: { limit: 3, delay: "5 seconds" } }, (ctx) =>\n      $Fetch_data({ env, event, inputs: {}, step, ctx }),\n    );',
     )
     expect(entry).toContain(
-      'await flow.step("report", async (ctx) => { await $Report({ env, event, inputs: { Fetch_data }, step, ctx }); });',
+      'await flow.step("report", async (ctx) => {\n      await $Report({ env, event, inputs: { Fetch_data }, step, ctx });\n    });',
     )
     // No user code left in the entry to need env rewriting.
     expect(entry).not.toContain('z.object')
@@ -194,8 +194,9 @@ export default async function(ctx) {
   it('entry calls the custom module and hoists no class definition', () => {
     const entry = workflowSource(bundle)
     expect(entry).toContain('import $Post_webhook from "../nodes/Post_webhook.js";')
+    // Wrapped: the call outgrows the line once indented into `run`.
     expect(entry).toContain(
-      'await flow.step("hook", (ctx) => $Post_webhook({ env, event, inputs: { Fetch_data }, step, ctx }));',
+      'await flow.step("hook", (ctx) =>\n      $Post_webhook({ env, event, inputs: { Fetch_data }, step, ctx }),\n    );',
     )
     expect(entry).not.toContain('class WebhookPostNode')
   })
