@@ -3,10 +3,7 @@ import { testCtx as ctx } from '../test-context.js'
 import type { WorkflowNode } from '@awaitstep/ir'
 import { generateStep as generateStepImpl } from '../../../codegen/generators/step.js'
 
-const generateStep = (
-  node: Parameters<typeof generateStepImpl>[0],
-  mode?: Parameters<typeof generateStepImpl>[2],
-) => generateStepImpl(node, ctx, mode)
+const generateStep = (node: Parameters<typeof generateStepImpl>[0]) => generateStepImpl(node, ctx)
 
 function makeNode(overrides: Partial<WorkflowNode> = {}): WorkflowNode {
   return {
@@ -115,24 +112,37 @@ describe('generateStep', () => {
     expect(code).toContain('const ctx = 1;')
   })
 
-  describe('script mode', () => {
-    it('emits the user code raw (no IIFE, no step.do, no const wrap)', () => {
-      const code = generateStep(makeNode(), 'script')
-      expect(code).not.toContain('flow.step')
-      expect(code).not.toContain('await (async () => {')
-      expect(code).not.toContain('const step_1')
-      // The user's code is the entire output.
-      expect(code).toBe('return { done: true };')
+  describe('module inputs', () => {
+    it('does not destructure an upstream name the body declares itself', () => {
+      // A body that declares `const data` would otherwise redeclare the
+      // input (review round 1: a SyntaxError sucrase does not catch).
+      const moduleCtx = {
+        ...ctx,
+        emitModules: true,
+        files: [],
+        upstreamVars: () => ['data', 'other'],
+      }
+      moduleCtx.addFile = (file) => moduleCtx.files.push(file)
+      generateStepImpl(
+        makeNode({ data: { code: 'const data = 2; return data + other;' } }),
+        moduleCtx,
+      )
+      const module = moduleCtx.files[0]!.source
+      expect(module).toContain('const { other } = inputs;')
+      expect(module).not.toContain('const { data, other } = inputs;')
     })
+  })
 
-    it('inlines side-effect-only code unchanged', () => {
-      const code = generateStep(makeNode({ data: { code: 'console.log("hello");' } }), 'script')
-      expect(code).toBe('console.log("hello");')
-    })
-
-    it('drops the workflow step name (no step runner in a fetch handler)', () => {
-      const code = generateStep(makeNode({ name: 'Run "fast" task' }), 'script')
-      expect(code).not.toContain('Run')
+  describe('in a function', () => {
+    it('is a step like any other: there is no script mode, only the inline opt-out', () => {
+      // A function's steps run through the in-request host, so the emitter
+      // has one shape for both kinds; raw emission is the `inline` flag's.
+      const code = generateStep(makeNode())
+      expect(code).toContain('flow.step("step-1"')
+      expect(code).toContain('return await (async () => {')
+      expect(generateStep(makeNode({ data: { code: 'return 1;', inline: true } }))).toBe(
+        'return 1;',
+      )
     })
   })
 

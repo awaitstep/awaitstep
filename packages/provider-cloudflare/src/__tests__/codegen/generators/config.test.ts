@@ -63,4 +63,21 @@ describe('generateStepConfig', () => {
     expect(result.startsWith('{ ')).toBe(true)
     expect(result.endsWith(' }')).toBe(true)
   })
+
+  it('emits a delay or timeout as a JSON literal, so a quote in the setting cannot leave the string', () => {
+    const code = generateStepConfig({
+      retries: { limit: 1, delay: '1 second", x: globalThis.pwn = 1, y: "' },
+      timeout: '5 s" + "',
+    })
+    expect(code).toBe(
+      '{ retries: { limit: 1, delay: "1 second\\", x: globalThis.pwn = 1, y: \\"" }, timeout: "5 s\\" + \\"" }',
+    )
+  })
+
+  it('leaves out a backoff the runtime does not know', () => {
+    const code = generateStepConfig({
+      retries: { limit: 1, delay: 1, backoff: 'quadratic", x: 1' as never },
+    })
+    expect(code).toBe('{ retries: { limit: 1, delay: 1 } }')
+  })
 })

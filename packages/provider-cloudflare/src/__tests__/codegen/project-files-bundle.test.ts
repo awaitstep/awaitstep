@@ -90,8 +90,11 @@ describe('project files in generated bundles', () => {
       runtime: { files: files.slice(0, 2) },
     }
     const scriptBundle = new CloudflareWorkflowsAdapter().generate(scriptIr)
+    // A function's steps are modules now, and the entry imports the runtime.
     expect(scriptBundle.files.map((f) => `${f.role}:${f.path}`)).toEqual([
       'entry:worker.ts',
+      'module:nodes/Fetch.ts',
+      'module:awaitstep/runtime.ts',
       'module:config/retry.ts',
       'asset:data/countries.json',
     ])

@@ -28,7 +28,11 @@ export {
   generateWorkflowBundle,
 } from './generate-workflow.js'
 export type { GenerateOptions } from './generate-workflow.js'
-export { DEFAULT_SCRIPT_TRIGGER_CODE, generateScript } from './generate-script.js'
+export {
+  DEFAULT_SCRIPT_TRIGGER_CODE,
+  generateScript,
+  generateScriptBundle,
+} from './generate-script.js'
 export type { GenerateScriptOptions } from './generate-script.js'
 export { CLOUDFLARE_PRIMITIVES_SOURCE, RUNTIME_MODULE_SOURCE } from './runtime-module.js'
 export { DEFAULT_RETENTION, resolveRetention, retentionLiteral } from './retention.js'

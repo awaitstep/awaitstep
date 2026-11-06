@@ -22,7 +22,7 @@ import { generateRace } from './generators/race.js'
  * impossible.
  */
 const builtinGeneratorFns: Record<BuiltinNodeType, (args: NodeGeneratorArgs) => string> = {
-  step: ({ node, ctx, mode }) => generateStep(node, ctx, mode),
+  step: ({ node, ctx }) => generateStep(node, ctx),
   sleep: ({ node }) => generateSleep(node),
   sleep_until: ({ node }) => generateSleepUntil(node),
   branch: ({ node, ir, ctx, recurse, mode }) => generateBranch(node, ir, ctx, recurse, mode),

@@ -47,6 +47,12 @@ export function cloudflarePrimitivesModuleFile(): GeneratedFile {
 export const WORKFLOW_RUNTIME_IMPORT = `import { defineWorkflow, durableStep } from "${CORE_RUNTIME_IMPORT}";`
 
 /**
+ * The import a function's entry needs: the context factory, the `step` adapter
+ * its step modules receive, and the in-request host that runs them.
+ */
+export const FUNCTION_RUNTIME_IMPORT = `import { createInlineHost, createWorkflowContext, durableStep } from "${CORE_RUNTIME_IMPORT}";`
+
+/**
  * The import the provider bootstrap needs: the context factory and the types
  * its host adapter is declared against.
  */
