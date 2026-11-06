@@ -16,6 +16,9 @@ import type { AppEnv } from '../types.js'
 // `ir` is validated by migrateArtifact + validateArtifact in the handler —
 // a second zod parse here would strip keys before migration runs and double
 // the schema work on every autosave.
+/** The newest versions can't be deleted: a bad deploy always has something to roll back to. */
+const KEPT_VERSIONS = 3
+
 const createVersionSchema = z.object({
   ir: z.unknown(),
 })
@@ -253,25 +256,21 @@ versions.delete('/:workflowId/versions/:versionId', async (c) => {
   const workflowId = c.req.param('workflowId')
   const versionId = c.req.param('versionId')
 
-  const version = await db.getWorkflowVersionById(versionId)
-  if (!version || version.workflowId !== workflowId) {
-    return c.json({ error: 'Not found' }, 404)
-  }
-
-  if (version.locked === 1) {
+  const version = await db.getVersionDeleteCheck(versionId, workflowId)
+  if (!version) return c.json({ error: 'Not found' }, 404)
+  if (version.locked) {
     return c.json({ error: 'Version is locked — unlock it before deleting' }, 400)
   }
-
-  const workflow = await db.getWorkflowById(workflowId)
-  if (workflow?.currentVersionId === versionId) {
-    return c.json({ error: 'Cannot delete the active version' }, 400)
+  if (version.isCurrent) return c.json({ error: 'Cannot delete the active version' }, 400)
+  if (version.newerVersions < KEPT_VERSIONS) {
+    return c.json(
+      {
+        error: `Keep the ${KEPT_VERSIONS} newest versions: they are what a bad deploy rolls back to`,
+      },
+      400,
+    )
   }
-
-  // Also block if this version is the currently deployed one
-  const activeDeployment = await db.getActiveDeployment(workflowId)
-  if (activeDeployment?.versionId === versionId) {
-    return c.json({ error: 'Cannot delete a deployed version' }, 400)
-  }
+  if (version.isLive) return c.json({ error: 'Cannot delete a deployed version' }, 400)
 
   await db.deleteVersion(versionId)
   const audited = workflowAudit(c, workflowId)

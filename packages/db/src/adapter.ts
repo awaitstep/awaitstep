@@ -5,6 +5,7 @@ import type {
   DeploymentListItem,
   Connection,
   DeployedConnection,
+  VersionDeleteCheck,
   ConnectionCoverage,
   ConnectionListOptions,
   ConnectionListRow,
@@ -560,6 +561,8 @@ export interface DatabaseAdapter {
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<WorkflowVersionListItem>>
   updateVersion(id: string, data: UpdateVersionData): Promise<void>
+  /** Why a version may not be deleted, in one statement; null when it isn't the workflow's. */
+  getVersionDeleteCheck(versionId: string, workflowId: string): Promise<VersionDeleteCheck | null>
   deleteVersion(id: string): Promise<void>
 
   // Connections

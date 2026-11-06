@@ -342,7 +342,7 @@ Revert to a previous version. Creates a new version with the target version's IR
 
 ### <span class="api-method delete">DELETE</span> <span class="api-endpoint">/workflows/:workflowId/versions/:versionId</span> <span class="api-scope">workflows:delete</span>
 
-Delete a version. Cannot delete the active, deployed, or locked version. Deployments and runs keep the deleted version's number.
+Delete a version. Cannot delete the active version, the one the newest deploy carries, a locked version, or any of the 3 newest versions (kept so a bad deploy can be rolled back). Deployments and runs keep the deleted version's number.
 
 ---
 

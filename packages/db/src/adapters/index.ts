@@ -12,6 +12,7 @@ import type {
   DeploymentListItem,
   Connection,
   DeployedConnection,
+  VersionDeleteCheck,
   ConnectionCoverage,
   ConnectionListOptions,
   ConnectionListRow,
@@ -334,7 +335,13 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       },
       this._dialect,
     )
-    this._versions = new VersionsAdapter(db, schema.workflowVersions, schema.user)
+    this._versions = new VersionsAdapter(
+      db,
+      schema.workflowVersions,
+      schema.user,
+      schema.workflows,
+      schema.deployments,
+    )
     this._connections = new ConnectionsAdapter(
       db,
       {
@@ -1039,6 +1046,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
   updateVersion(id: string, data: UpdateVersionData): Promise<void> {
     return this._versions.update(id, data)
+  }
+  getVersionDeleteCheck(versionId: string, workflowId: string): Promise<VersionDeleteCheck | null> {
+    return this._versions.deleteCheck(versionId, workflowId)
   }
   deleteVersion(id: string): Promise<void> {
     return this._versions.delete(id)

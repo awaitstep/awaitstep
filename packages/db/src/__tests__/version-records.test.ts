@@ -6,6 +6,7 @@ vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 })
 import { eq } from 'drizzle-orm'
 import {
   type Harness,
+  T0,
   d1Harness,
   pgHarness,
   seed,
@@ -13,7 +14,8 @@ import {
 } from './fixtures/workspaces-db.js'
 
 // The workflow's version is ours (its latest save); which version went to which
-// account is a record that outlives deleting the version.
+// account is a record that outlives deleting the version. And the newest three
+// versions stay, so a bad deploy can always be rolled back.
 
 describe.each([
   ['sqlite', sqliteHarness],
@@ -67,6 +69,48 @@ describe.each([
       await deleteVersion('v-enrich-2')
       const deployed = await h.adapter.getConnectionDeployedWith('c-1', 'org-acme', 'wf-enrich')
       expect([deployed?.deployedVersionId, deployed?.deployedVersionNumber]).toEqual([null, 2])
+    })
+  })
+
+  describe('what decides whether a version may be deleted', () => {
+    beforeEach(async () => {
+      await h.db.insert(h.schema.workflowVersions).values(
+        [3, 4, 5].map((n) => ({
+          id: `v-enrich-${n}`,
+          workflowId: 'wf-enrich',
+          version: n,
+          ir: '{}',
+          createdAt: T0,
+        })),
+      )
+      await h.db
+        .update(h.schema.workflows)
+        .set({ currentVersionId: 'v-enrich-5' })
+        .where(eq(h.schema.workflows.id, 'wf-enrich'))
+    })
+
+    it('counts the newer versions and knows the current and the live one', async () => {
+      // d-2 (v2) is wf-enrich's newest successful deploy.
+      const check = (id: string) => h.adapter.getVersionDeleteCheck(id, 'wf-enrich')
+      expect(await check('v-enrich-1')).toEqual({
+        version: 1,
+        locked: false,
+        newerVersions: 4,
+        isCurrent: false,
+        isLive: false,
+      })
+      expect(await check('v-enrich-2')).toMatchObject({ newerVersions: 3, isLive: true })
+      expect(await check('v-enrich-3')).toMatchObject({ newerVersions: 2, isLive: false })
+      expect(await check('v-enrich-5')).toMatchObject({ newerVersions: 0, isCurrent: true })
+    })
+
+    it('sees a lock, and answers null for another workflow’s version', async () => {
+      await h.db
+        .update(h.schema.workflowVersions)
+        .set({ locked: 1 })
+        .where(eq(h.schema.workflowVersions.id, 'v-enrich-1'))
+      expect((await h.adapter.getVersionDeleteCheck('v-enrich-1', 'wf-enrich'))?.locked).toBe(true)
+      expect(await h.adapter.getVersionDeleteCheck('v-sync-1', 'wf-enrich')).toBeNull()
     })
   })
 })

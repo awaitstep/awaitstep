@@ -1025,7 +1025,7 @@ Revert to a previous version. Creates a new version with the target version's IR
 
 ### `DELETE /workflows/:workflowId/versions/:versionId`
 
-Delete a version. Cannot delete the active version, a deployed version, or a locked version. Deployments and runs keep the deleted version's number (`version` / `versionNumber`); their `versionId` becomes `null`.
+Delete a version. Cannot delete the active version, the version the workflow's newest deploy carries, a locked version, or any of the 3 newest versions (kept so a bad deploy can be rolled back). Deployments and runs keep the deleted version's number (`version` / `versionNumber`); their `versionId` becomes `null`.
 
 **Permission:** `workflows:delete`
 

@@ -936,6 +936,20 @@ const mockDb: DatabaseAdapter = {
     if (!v) throw new Error('Not found')
     store.versions.set(id, { ...v, ...data })
   },
+  async getVersionDeleteCheck(versionId, workflowId) {
+    const version = store.versions.get(versionId)
+    if (!version || version.workflowId !== workflowId) return null
+    const live = await mockDb.getActiveDeployment(workflowId)
+    return {
+      version: version.version,
+      locked: version.locked === 1,
+      newerVersions: [...store.versions.values()].filter(
+        (v) => v.workflowId === workflowId && v.version > version.version,
+      ).length,
+      isCurrent: store.workflows.get(workflowId)?.currentVersionId === versionId,
+      isLive: live?.versionId === versionId,
+    }
+  },
   async deleteVersion(id) {
     store.versions.delete(id)
     // The real foreign keys set null: the rows keep their number.
@@ -1426,9 +1440,11 @@ const mockDb: DatabaseAdapter = {
     return d
   },
   async getActiveDeployment(workflowId) {
+    // Newest first; the later-inserted row wins a tie in createdAt.
     return (
       [...store.deployments.values()]
         .filter((d) => d.workflowId === workflowId && d.status === 'success')
+        .reverse()
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
     )
   },

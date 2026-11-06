@@ -410,6 +410,17 @@ export interface ActiveRunForSync {
   }
 }
 export type Deployment = InferSelectModel<typeof deployments>
+/** What decides whether a version may be deleted (`getVersionDeleteCheck`). */
+export interface VersionDeleteCheck {
+  version: number
+  locked: boolean
+  /** How many of the workflow's versions are newer than this one. */
+  newerVersions: number
+  isCurrent: boolean
+  /** The workflow's newest successful deploy carries it. */
+  isLive: boolean
+}
+
 export type DeploymentListItem = Deployment &
   Authored & {
     /** The deployed version's number (kept after the version is deleted) and its lock (null then). */

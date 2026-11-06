@@ -216,6 +216,66 @@ describe('version routes', () => {
     })
   })
 
+  describe('DELETE /api/workflows/:id/versions/:versionId keeps the newest three', () => {
+    beforeEach(async () => {
+      for (const n of [1, 2, 3, 4, 5]) {
+        await mockDb.createVersion({ id: `v-${n}`, workflowId: 'wf-1', ir: '{}' })
+      }
+      await mockDb.updateWorkflow('wf-1', { currentVersionId: 'v-5' })
+    })
+
+    const remove = (id: string) =>
+      app.request(url(`/api/workflows/wf-1/versions/${id}`), { method: 'DELETE' })
+
+    it('refuses the three newest, with why', async () => {
+      for (const id of ['v-3', 'v-4']) {
+        const res = await remove(id)
+        expect(res.status).toBe(400)
+        expect((await res.json()).error).toBe(
+          'Keep the 3 newest versions: they are what a bad deploy rolls back to',
+        )
+      }
+      expect((await (await remove('v-5')).json()).error).toBe('Cannot delete the active version')
+      expect(await mockDb.getWorkflowVersionById('v-3')).not.toBeNull()
+    })
+
+    it('deletes an older one, even one still deployed on an account', async () => {
+      await mockDb.createDeployment({
+        id: 'dep-old',
+        workflowId: 'wf-1',
+        versionId: 'v-2',
+        versionNumber: 2,
+        connectionId: 'conn-1',
+        serviceName: 'svc',
+        status: 'success',
+      })
+      await mockDb.createDeployment({
+        id: 'dep-new',
+        workflowId: 'wf-1',
+        versionId: 'v-5',
+        versionNumber: 5,
+        connectionId: 'conn-2',
+        serviceName: 'svc',
+        status: 'success',
+      })
+      expect((await remove('v-2')).status).toBe(200)
+      expect(await mockDb.getWorkflowVersionById('v-2')).toBeNull()
+    })
+
+    it('still refuses the version the newest deploy carries', async () => {
+      await mockDb.createDeployment({
+        id: 'dep-1',
+        workflowId: 'wf-1',
+        versionId: 'v-1',
+        versionNumber: 1,
+        connectionId: 'conn-1',
+        serviceName: 'svc',
+        status: 'success',
+      })
+      expect((await (await remove('v-1')).json()).error).toBe('Cannot delete a deployed version')
+    })
+  })
+
   describe('the audit log (B7)', () => {
     it('records a revert and a version deletion with the version number', async () => {
       const v1 = await mockDb.createVersion({
@@ -228,7 +288,14 @@ describe('version routes', () => {
         workflowId: 'wf-1',
         ir: JSON.stringify(modifiedIR),
       })
-      await mockDb.updateWorkflow('wf-1', { currentVersionId: v2.id })
+      // Two more, so v2 is past the newest three once the revert adds one.
+      await mockDb.createVersion({ id: 'v-3', workflowId: 'wf-1', ir: JSON.stringify(validIR) })
+      const v4 = await mockDb.createVersion({
+        id: 'v-4',
+        workflowId: 'wf-1',
+        ir: JSON.stringify(validIR),
+      })
+      await mockDb.updateWorkflow('wf-1', { currentVersionId: v4.id })
 
       const reverted = await app.request(url(`/api/workflows/wf-1/versions/${v1.id}/revert`), {
         method: 'POST',

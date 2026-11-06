@@ -6,6 +6,7 @@ export type {
   Authored,
   Connection,
   DeployedConnection,
+  VersionDeleteCheck,
   ConnectionCoverage,
   ConnectionListOptions,
   ConnectionListRow,

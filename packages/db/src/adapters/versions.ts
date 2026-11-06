@@ -2,6 +2,7 @@ import { eq, desc, max, and, or, lt, sql, getTableColumns } from 'drizzle-orm'
 import type {
   CreateVersionData,
   UpdateVersionData,
+  VersionDeleteCheck,
   WorkflowVersion,
   WorkflowVersionListItem,
 } from '../types.js'
@@ -11,11 +12,18 @@ import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
 
+/** A driver's boolean: pg's own, sqlite's 0/1. */
+function truthy(value: unknown): boolean {
+  return value === true || value === 1 || value === '1' || value === 't'
+}
+
 export class VersionsAdapter {
   constructor(
     private db: AnyTable,
     private table: AnyTable,
     private user: AnyTable,
+    private workflows: AnyTable,
+    private deployments: AnyTable,
   ) {}
 
   async create(data: CreateVersionData): Promise<WorkflowVersion> {
@@ -105,6 +113,42 @@ export class VersionsAdapter {
 
   async update(id: string, data: UpdateVersionData): Promise<void> {
     await this.db.update(this.table).set(data).where(eq(this.table.id, id))
+  }
+
+  /**
+   * What decides whether a version may be deleted, in one statement: its
+   * number and lock, how many newer versions the workflow has, whether it is
+   * the workflow's current version, and whether the workflow's newest
+   * successful deploy carries it. Null when it isn't that workflow's version.
+   */
+  async deleteCheck(versionId: string, workflowId: string): Promise<VersionDeleteCheck | null> {
+    const t = this.table
+    const w = this.workflows
+    const d = this.deployments
+    // Select-list columns go unqualified: the outer version is named outright.
+    const outerVersion = sql.raw('"workflow_versions"."version"')
+    const rows = await this.db
+      .select({
+        version: t.version,
+        locked: t.locked,
+        newerVersions: sql<
+          number | string
+        >`(select count(*) from ${t} newer where newer.workflow_id = ${workflowId} and newer.version > ${outerVersion})`,
+        isCurrent: sql<unknown>`exists (select 1 from ${w} where ${w.id} = ${workflowId} and ${w.currentVersionId} = ${versionId})`,
+        isLive: sql<unknown>`coalesce((select ${d.versionId} from ${d} where ${d.workflowId} = ${workflowId} and ${d.status} = 'success' order by ${d.createdAt} desc, ${d.id} desc limit 1) = ${versionId}, false)`,
+      })
+      .from(t)
+      .where(and(eq(t.id, versionId), eq(t.workflowId, workflowId)))
+      .limit(1)
+    const row = rows[0]
+    if (!row) return null
+    return {
+      version: row.version,
+      locked: row.locked === 1,
+      newerVersions: Number(row.newerVersions),
+      isCurrent: truthy(row.isCurrent),
+      isLive: truthy(row.isLive),
+    }
   }
 
   async delete(id: string): Promise<void> {
