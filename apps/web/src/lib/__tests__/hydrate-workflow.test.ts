@@ -89,6 +89,11 @@ describe('buildWorkflowStoreState', () => {
     expect(JSON.stringify({ description: metadata.description })).toBe('{}')
   })
 
+  it('starts the IR at version 1 when nothing is saved yet, as the API requires on the first save', () => {
+    const state = buildWorkflowStoreState(baseWorkflow, null, 0, false)
+    expect((state.metadata as { version: number }).version).toBe(1)
+  })
+
   it('always sets isDirty to false', () => {
     const result = buildWorkflowStoreState(baseWorkflow, null, 1, false)
     expect(result.isDirty).toBe(false)

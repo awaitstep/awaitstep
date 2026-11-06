@@ -61,7 +61,8 @@ export function buildWorkflowStoreState(
       name: serverWorkflow.name,
       // The API answers null for none, but refuses null when it's sent back on save.
       description: serverWorkflow.description ?? undefined,
-      version: currentVersion,
+      // The IR counts from 1; 0 means nothing is saved yet, so its first save is version 1.
+      version: Math.max(currentVersion, 1),
       createdAt: serverWorkflow.createdAt,
       updatedAt: serverWorkflow.updatedAt,
     },
