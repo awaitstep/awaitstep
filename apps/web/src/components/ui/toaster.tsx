@@ -27,14 +27,19 @@ const TOAST_OPTIONS = {
   closeButtonAriaLabel: 'Dismiss',
 }
 
-const SWIPE: 'right'[] = ['right']
+const SWIPE: Record<NonNullable<ToasterProps['position']>, ('right' | 'top')[]> = {
+  'bottom-right': ['right'],
+  'top-center': ['top'],
+}
 
 interface ToasterProps {
   theme: 'light' | 'dark'
+  /** Top centre on the canvas, where the bottom right holds its controls. */
+  position?: 'bottom-right' | 'top-center'
 }
 
 /** The app's one Toaster. */
-export function Toaster({ theme }: ToasterProps) {
+export function Toaster({ theme, position = 'bottom-right' }: ToasterProps) {
   // Keyboard focus in the stack acts as hover does: it expands and pauses it
   // (Sonner only listens to the mouse). Esc dismisses the toast in focus.
   // Document listeners are a genuine subscription.
@@ -75,14 +80,14 @@ export function Toaster({ theme }: ToasterProps) {
   return (
     <Sonner
       theme={theme}
-      position="bottom-right"
+      position={position}
       offset={32}
       mobileOffset={16}
       gap={14}
       visibleToasts={3}
       duration={TOAST_MS}
       closeButton
-      swipeDirections={SWIPE}
+      swipeDirections={SWIPE[position]}
       icons={ICONS}
       toastOptions={TOAST_OPTIONS}
     />

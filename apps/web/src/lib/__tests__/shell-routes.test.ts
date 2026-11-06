@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { drawsOwnShell, isChromelessRoute, sendsToDashboard } from '../shell-routes'
+import { drawsOwnShell, isCanvasRoute, isChromelessRoute, sendsToDashboard } from '../shell-routes'
 
 function matchesFor(...routeIds: string[]) {
   return routeIds.map((routeId) => ({ routeId }))
@@ -66,5 +66,21 @@ describe('sendsToDashboard', () => {
   it('lets you through with an org, including one just created that the cached list lacks', () => {
     expect(sendsToDashboard(2, 0, settings)).toBe(false)
     expect(sendsToDashboard(0, 1, settings)).toBe(false)
+  })
+})
+
+describe('isCanvasRoute', () => {
+  const EDITOR = '/_authed/$org/$project/$workspace/workflows_/$id/'
+
+  it('is the editor with no view or the canvas view', () => {
+    expect(isCanvasRoute([{ routeId: EDITOR, search: {} }])).toBe(true)
+    expect(isCanvasRoute([{ routeId: EDITOR, search: { view: 'canvas' } }])).toBe(true)
+  })
+
+  it('is not the code view or a workflow’s other pages', () => {
+    expect(isCanvasRoute([{ routeId: EDITOR, search: { view: 'ide' } }])).toBe(false)
+    expect(
+      isCanvasRoute([{ routeId: '/_authed/$org/$project/$workspace/workflows_/$id/overview' }]),
+    ).toBe(false)
   })
 })

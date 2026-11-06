@@ -16,6 +16,14 @@ function toaster() {
 }
 
 describe('Toaster', () => {
+  it('sits top centre where it is asked to (the canvas)', async () => {
+    render(<Toaster theme="dark" position="top-center" />)
+    act(() => actionToast.success('Saved'))
+    await screen.findByText('Saved')
+    expect(toaster()).toHaveAttribute('data-y-position', 'top')
+    expect(toaster()).toHaveAttribute('data-x-position', 'center')
+  })
+
   it('sits bottom right, unstyled, so the board’s styles apply', async () => {
     render(<Toaster theme="dark" />)
     act(() => actionToast.success('Profile saved'))

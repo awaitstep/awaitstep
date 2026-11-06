@@ -1,10 +1,18 @@
-import { createRootRoute, Outlet, HeadContent, Scripts, Link } from '@tanstack/react-router'
+import {
+  createRootRoute,
+  Outlet,
+  HeadContent,
+  Scripts,
+  Link,
+  useMatches,
+} from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useThemeStore } from '../stores/theme-store'
 import { ThemeScript } from '../components/theme-script'
 import { QueryProvider } from '../lib/query-provider'
 import { showCarriedToast } from '../lib/action-toast'
 import { Toaster } from '../components/ui/toaster'
+import { isCanvasRoute } from '../lib/shell-routes'
 import '../styles.css'
 
 export const Route = createRootRoute({
@@ -28,13 +36,19 @@ export const Route = createRootRoute({
 function ClientToaster() {
   const [mounted, setMounted] = useState(false)
   const theme = useThemeStore((s) => s.theme)
+  const onCanvas = isCanvasRoute(useMatches())
   useEffect(() => setMounted(true), [])
   // After the Toaster has mounted: a toast an action left for this page (signing out reloads).
   useEffect(() => {
     if (mounted) showCarriedToast()
   }, [mounted])
   if (!mounted) return null
-  return <Toaster theme={theme === 'light' ? 'light' : 'dark'} />
+  return (
+    <Toaster
+      theme={theme === 'light' ? 'light' : 'dark'}
+      position={onCanvas ? 'top-center' : 'bottom-right'}
+    />
+  )
 }
 
 function NotFound() {

@@ -1,3 +1,5 @@
+import { parseSurface } from './workflows/surfaces'
+
 /**
  * Route subtrees that draw their own shell: the new dashboard (W1) brings its
  * rail and panel, so the old sidebar must not wrap it. `_orgless` is the new
@@ -37,4 +39,17 @@ export function sendsToDashboard(
 /** Whether the page renders without the old sidebar: the new dashboard draws its own shell. */
 export function isChromelessRoute(matches: ReadonlyArray<{ routeId: string }>): boolean {
   return drawsOwnShell(matches)
+}
+
+const EDITOR_ROUTE_ID = '/_authed/$org/$project/$workspace/workflows_/$id/'
+
+/** Whether the page is a workflow's canvas (the editor with no `?view=`, or `?view=canvas`). */
+export function isCanvasRoute(
+  matches: ReadonlyArray<{ routeId: string; search?: unknown }>,
+): boolean {
+  return matches.some((m) => {
+    if (m.routeId !== EDITOR_ROUTE_ID) return false
+    const search = m.search as { view?: unknown } | undefined
+    return parseSurface(search?.view) === 'canvas'
+  })
 }
