@@ -1,5 +1,6 @@
 import { PROJECT_HANDLERS_PATH, handlerEntry } from '@awaitstep/ir'
 import { failureLine } from '../action-toast'
+import { copyToClipboard } from '../utils'
 import { handlerModuleScaffold, type HandlerTarget } from '@awaitstep/provider-cloudflare/codegen'
 import {
   ProjectFileConflictError,
@@ -91,6 +92,16 @@ export interface ProjectFileActions {
 
 type WriteOutcome = ProjectFileSummary | 'conflict' | 'failed'
 type SaveOutcome = 'saved' | 'unchanged' | 'conflict' | 'deleted' | 'failed'
+
+/** The create toast's button: puts the import path on the clipboard. */
+function copyImportAction(specifier: string, notify: Notifier): ToastAction {
+  return {
+    label: 'Copy import',
+    onClick: () => {
+      copyToClipboard(specifier).catch(() => notify.error('Couldn’t copy the import'))
+    },
+  }
+}
 
 /** A failed write's toast: the server's reason, or `line` when it gave none (see `failureLine`). */
 function failed(notify: Notifier, line: string, err: unknown) {
@@ -331,6 +342,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       const specifier = importSpecifier(path)
       notify.success(
         specifier ? `Created. Import it as \`${specifier}\`` : `Created ${basename(path)}`,
+        specifier ? { action: copyImportAction(specifier, notify) } : undefined,
       )
       return true
     },

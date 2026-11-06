@@ -434,6 +434,25 @@ describe('project file actions', () => {
     ])
   })
 
+  it('the create toast offers Copy import, which puts the import path on the clipboard', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+    const { notify, actions } = setup()
+    await actions.createFile('services/new.ts')
+    const options = notify.success.mock.calls[0]![1] as {
+      action: { label: string; onClick: () => void }
+    }
+    expect(options.action.label).toBe('Copy import')
+    options.action.onClick()
+    expect(writeText).toHaveBeenCalledWith('#app/services/new')
+  })
+
+  it('a file with no import path (package.json) gets no Copy import', async () => {
+    const { notify, actions } = setup()
+    await actions.createFile('package.json', '{}')
+    expect(notify.success.mock.calls[0]![1]).toBeUndefined()
+  })
+
   it('says a refusal’s reason, and its own line for a server failure', async () => {
     const { client, notify, actions } = setup()
     client.deleteProjectFile.mockRejectedValueOnce(new ApiError('This workspace is locked', 423))

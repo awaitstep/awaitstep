@@ -27,6 +27,9 @@ import { useIdeStore } from '../../stores/ide-store'
 import { EditorPlaceholder } from './editor-placeholder'
 import { CompareView } from './compare-view'
 import { EditorFileBanner } from './editor-file-banner'
+import { EmptyFileHint, ScheduleBanner } from './new-file-notices'
+import { HANDLER_SCHEDULED_PATH } from '@awaitstep/ir'
+import { importSpecifier } from '../../lib/ide/project'
 import { FileStateBanner } from './file-state-banner'
 import type { ReviewBindings } from './review-bindings'
 import { ReviewView } from './review-view'
@@ -56,6 +59,8 @@ interface EditorGroupProps {
   onSaveAsFile: (path: string) => void
   onConvertHandlers: () => void
   onOpenCanvas: () => void
+  /** `handlers/scheduled.ts` is open with no schedule behind it. */
+  scheduleMissing: boolean
   run: RunButtonProps
   /** The Unsaved changes and Compare tabs, and the banners about outside changes. */
   review: ReviewBindings
@@ -74,6 +79,7 @@ export function EditorGroup({
   onSaveAsFile,
   onConvertHandlers,
   onOpenCanvas,
+  scheduleMissing,
   run,
   review,
 }: EditorGroupProps) {
@@ -283,8 +289,21 @@ export function EditorGroup({
           onOpenCanvas={onOpenCanvas}
         />
       )}
+      {activeFile &&
+        editability &&
+        !editability.readOnly &&
+        scheduleMissing &&
+        activeFile.path === HANDLER_SCHEDULED_PATH && (
+          <ScheduleBanner onOpenCanvas={onOpenCanvas} />
+        )}
       {activeFile && <FileStateBanner path={activeFile.path} bindings={review} />}
-      <div className="min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1">
+        {activeKind === 'file' &&
+          activeFile &&
+          editability &&
+          !editability.readOnly &&
+          activeFile.source === '' &&
+          importSpecifier(activeFile.path) && <EmptyFileHint path={activeFile.path} />}
         {activeKind === 'review' ? (
           <ReviewView bindings={review} />
         ) : activeKind === 'compare' && activePath ? (

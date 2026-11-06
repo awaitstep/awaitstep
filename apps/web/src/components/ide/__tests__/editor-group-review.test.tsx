@@ -31,11 +31,12 @@ const files = new Map([
 
 function renderGroup(
   review = makeReviewBindings({ baseline: new Map([['a.ts', sourceFile('a.ts', 'x', 'h1')]]) }),
+  options: { files?: Map<string, GeneratedFile>; scheduleMissing?: boolean } = {},
 ) {
   return render(
     <EditorGroup
       workflowId="wf"
-      files={files}
+      files={options.files ?? files}
       dirty={new Set()}
       editabilityOf={() => ({ readOnly: false, message: null })}
       onChange={vi.fn()}
@@ -46,6 +47,7 @@ function renderGroup(
       onSaveAsFile={vi.fn()}
       onConvertHandlers={vi.fn()}
       onOpenCanvas={vi.fn()}
+      scheduleMissing={options.scheduleMissing ?? false}
       run={{ label: 'Run', busy: false, onRun: vi.fn() }}
       review={review}
     />,
@@ -127,5 +129,32 @@ describe('EditorTabs for the review and Compare tabs', () => {
     useIdeStore.getState().requestClose(['ide:review'])
     expect(useIdeStore.getState().closeRequest).toBeNull()
     expect(useIdeStore.getState().openPaths).toEqual([])
+  })
+})
+
+describe('EditorGroup notices for a new file', () => {
+  it('hints how to import an empty module, and drops the hint once there is text', async () => {
+    useIdeStore.getState().openFile('lib/new.ts')
+    const empty = new Map([
+      ['lib/new.ts', { path: 'lib/new.ts', source: '', role: 'module' as const }],
+    ])
+    const { unmount } = renderGroup(undefined, { files: empty })
+    expect(await screen.findByText(/import it as #app\/lib\/new/)).toBeInTheDocument()
+    unmount()
+    const filled = new Map([['lib/new.ts', file('lib/new.ts')]])
+    renderGroup(undefined, { files: filled })
+    await screen.findByTestId('monaco')
+    expect(screen.queryByText(/import it as #app/)).toBeNull()
+  })
+
+  it('warns on handlers/scheduled.ts with no schedule, and only there', async () => {
+    useIdeStore.getState().openFile('handlers/scheduled.ts')
+    const scheduled = new Map([['handlers/scheduled.ts', file('handlers/scheduled.ts')]])
+    const { unmount } = renderGroup(undefined, { files: scheduled, scheduleMissing: true })
+    expect(await screen.findByText(/no schedule yet/)).toBeInTheDocument()
+    unmount()
+    renderGroup(undefined, { files: scheduled, scheduleMissing: false })
+    await screen.findByTestId('monaco')
+    expect(screen.queryByText(/no schedule yet/)).toBeNull()
   })
 })

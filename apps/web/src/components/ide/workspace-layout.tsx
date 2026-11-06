@@ -9,6 +9,8 @@ import { deriveDeploymentState } from '../../lib/hydrate-workflow'
 import { filePathOfTab } from '../../lib/ide/tabs'
 import type { useWorkspaceActions } from '../../hooks/use-workspace-actions'
 import type { WorkspaceData } from '../../hooks/use-workspace-data'
+import { HANDLER_SCHEDULED_PATH } from '@awaitstep/ir'
+import { scheduleMissing } from '../../lib/ide/schedule-gap'
 import type { ProjectFilesController } from '../../hooks/use-project-files'
 import type { useWorkspaceSession } from '../../hooks/use-workspace-session'
 import { useEditorAccess } from '../../contexts/editor-scope-context'
@@ -151,6 +153,12 @@ export function WorkspaceLayout({
     if (event.key === 'Escape') useIdeStore.getState().editorHandle?.focus()
   }
 
+  const scheduleGap = scheduleMissing({
+    hasScheduledModule: files.has(HANDLER_SCHEDULED_PATH),
+    deployConfig: fullData.workflow.deployConfig,
+    ir: fullData.version?.ir,
+  })
+
   const view = (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-background">
       <SearchRunner files={files} projectPaths={projectPaths} />
@@ -229,6 +237,7 @@ export function WorkspaceLayout({
                   onSaveAsFile={handleSaveAsFile}
                   onConvertHandlers={handleConvertRequest}
                   onOpenCanvas={handleOpenCanvas}
+                  scheduleMissing={scheduleGap}
                   run={{
                     label: runAction.intent.label,
                     busy: runAction.intent.kind === 'busy',

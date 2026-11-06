@@ -86,6 +86,7 @@ function renderGroup() {
       onSaveAsFile={vi.fn()}
       onConvertHandlers={vi.fn()}
       onOpenCanvas={vi.fn()}
+      scheduleMissing={false}
       run={{ label: 'Run', busy: false, onRun: vi.fn() }}
       review={makeReviewBindings()}
     />,
