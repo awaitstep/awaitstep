@@ -497,17 +497,19 @@ describe.each([
         .update(h.schema.deployments)
         .set({ connectionId: 'c-sandbox' })
         .where(eq(h.schema.deployments.id, 'd-2'))
-      expect(await h.adapter.listConnectionsDeployedWith('wf-enrich')).toEqual([
+      const named = async (workflowId: string) =>
+        (await h.adapter.listLiveDeployments(workflowId)).map(({ id, name }) => ({ id, name }))
+      expect(await named('wf-enrich')).toEqual([
         { id: 'c-sandbox', name: 'Marketing sandbox' },
         { id: 'c-prod', name: 'Acme production' },
       ])
       // d-3 failed: a failed deploy names no account a trigger could use.
-      expect(await h.adapter.listConnectionsDeployedWith('wf-sync')).toEqual([])
+      expect(await named('wf-sync')).toEqual([])
     })
   })
 
   describe('taking a workflow down on one account', () => {
-    it('deletes that account’s deployments and keeps the other account’s', async () => {
+    it('marks that account’s deployments taken down and leaves the other account’s', async () => {
       await h.db
         .update(h.schema.deployments)
         .set({ connectionId: 'c-prod' })
@@ -516,17 +518,19 @@ describe.each([
         .update(h.schema.deployments)
         .set({ connectionId: 'c-sandbox' })
         .where(inArray(h.schema.deployments.id, ['d-2', 'd-3']))
-      await h.adapter.deleteDeploymentsOnConnection(
+      await h.adapter.takeDownDeploymentsOnConnection(
         'wf-enrich',
         'c-sandbox',
         '2026-11-01T00:00:00.000Z',
+        'u-ama',
       )
-      expect(await h.count('deployments', "workflow_id = 'wf-enrich'")).toBe(1)
-      expect(await h.count('deployments', "id = 'd-1'")).toBe(1)
-      // Another workflow's row on the same account stays.
-      expect(await h.count('deployments', "id = 'd-3'")).toBe(1)
-      expect(await h.adapter.listConnectionsDeployedWith('wf-enrich')).toEqual([
-        { id: 'c-prod', name: 'Acme production' },
+      expect(await h.count('deployments', "workflow_id = 'wf-enrich'")).toBe(2)
+      expect(await h.count('deployments', "id = 'd-2' and status = 'taken_down'")).toBe(1)
+      expect(await h.count('deployments', "id = 'd-1' and status = 'success'")).toBe(1)
+      // Another workflow's row on the same account is untouched.
+      expect(await h.count('deployments', "id = 'd-3' and status = 'failed'")).toBe(1)
+      expect((await h.adapter.listLiveDeployments('wf-enrich')).map((l) => l.id)).toEqual([
+        'c-prod',
       ])
     })
 
@@ -536,13 +540,14 @@ describe.each([
         .set({ connectionId: 'c-sandbox' })
         .where(inArray(h.schema.deployments.id, ['d-1', 'd-2']))
       // d-1 is from 21 Oct, d-2 from 22 Oct: the takedown started in between.
-      await h.adapter.deleteDeploymentsOnConnection(
+      await h.adapter.takeDownDeploymentsOnConnection(
         'wf-enrich',
         'c-sandbox',
         '2026-10-21T12:00:00.000Z',
+        'u-ama',
       )
-      expect(await h.count('deployments', "id = 'd-1'")).toBe(0)
-      expect(await h.count('deployments', "id = 'd-2'")).toBe(1)
+      expect(await h.count('deployments', "id = 'd-1' and status = 'taken_down'")).toBe(1)
+      expect(await h.count('deployments', "id = 'd-2' and status = 'success'")).toBe(1)
     })
   })
 

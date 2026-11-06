@@ -1,6 +1,7 @@
-import { eq, desc, max, and, or, lt, sql, getTableColumns } from 'drizzle-orm'
+import { eq, desc, max, and, or, lt, sql, aliasedTable, getTableColumns } from 'drizzle-orm'
 import type {
   CreateVersionData,
+  LatestVersionForSave,
   UpdateVersionData,
   VersionDeleteCheck,
   WorkflowVersion,
@@ -8,6 +9,8 @@ import type {
 } from '../types.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
+import { aliasedFrom } from './json-array.js'
+import { liveOnItsAccount } from './live-deployment.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -77,6 +80,30 @@ export class VersionsAdapter {
     return rows[0] ?? null
   }
 
+  /**
+   * The workflow's latest version (highest number), with whether it has ever
+   * gone out on any account — live there now or since taken down. A save
+   * starts a new version after that one, else it saves over it. One statement.
+   */
+  async latestForSave(workflowId: string): Promise<LatestVersionForSave | null> {
+    const d = aliasedTable(this.deployments, 'lsd')
+    // Select-list columns go unqualified: the outer version is named outright.
+    const outerId = sql.raw('"workflow_versions"."id"')
+    const rows = await this.db
+      .select({
+        ...getTableColumns(this.table),
+        everDeployed: sql<unknown>`exists (select 1 from ${aliasedFrom(d)} where ${d.workflowId} = ${workflowId} and ${d.versionId} = ${outerId} and ${d.status} in ('success', 'taken_down'))`,
+      })
+      .from(this.table)
+      .where(eq(this.table.workflowId, workflowId))
+      .orderBy(desc(this.table.version))
+      .limit(1)
+    const row = rows[0] as (WorkflowVersion & { everDeployed: unknown }) | undefined
+    if (!row) return null
+    const { everDeployed, ...version } = row
+    return { version, everDeployed: truthy(everDeployed) }
+  }
+
   async getMaxVersionNumber(workflowId: string): Promise<number> {
     const rows = await this.db
       .select({ max: max(this.table.version) })
@@ -118,13 +145,14 @@ export class VersionsAdapter {
   /**
    * What decides whether a version may be deleted, in one statement: its
    * number and lock, how many newer versions the workflow has, whether it is
-   * the workflow's current version, and whether the workflow's newest
-   * successful deploy carries it. Null when it isn't that workflow's version.
+   * the workflow's current version, and whether it is live on any of the
+   * workflow's accounts. Null when it isn't that workflow's version.
    */
   async deleteCheck(versionId: string, workflowId: string): Promise<VersionDeleteCheck | null> {
     const t = this.table
     const w = this.workflows
-    const d = this.deployments
+    const d = aliasedTable(this.deployments, 'dcd')
+    const newer = aliasedTable(this.deployments, 'dcn')
     // Select-list columns go unqualified: the outer version is named outright.
     const outerVersion = sql.raw('"workflow_versions"."version"')
     const rows = await this.db
@@ -135,7 +163,7 @@ export class VersionsAdapter {
           number | string
         >`(select count(*) from ${t} newer where newer.workflow_id = ${workflowId} and newer.version > ${outerVersion})`,
         isCurrent: sql<unknown>`exists (select 1 from ${w} where ${w.id} = ${workflowId} and ${w.currentVersionId} = ${versionId})`,
-        isLive: sql<unknown>`coalesce((select ${d.versionId} from ${d} where ${d.workflowId} = ${workflowId} and ${d.status} = 'success' order by ${d.createdAt} desc, ${d.id} desc limit 1) = ${versionId}, false)`,
+        isLive: sql<unknown>`exists (select 1 from ${aliasedFrom(d)} where ${d.workflowId} = ${workflowId} and ${d.versionId} = ${versionId} and ${liveOnItsAccount(d, newer)})`,
       })
       .from(t)
       .where(and(eq(t.id, versionId), eq(t.workflowId, workflowId)))

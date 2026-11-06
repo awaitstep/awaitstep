@@ -48,6 +48,18 @@ describe.each([
     })
 
     it('the workflow list still names the deployed number', async () => {
+      await h.adapter.createConnection({
+        id: 'c-1',
+        organizationId: 'org-acme',
+        createdBy: 'u-ama',
+        provider: 'cloudflare',
+        name: 'Prod',
+        credentials: '{}',
+      })
+      await h.db
+        .update(h.schema.deployments)
+        .set({ connectionId: 'c-1' })
+        .where(eq(h.schema.deployments.workflowId, 'wf-enrich'))
       await deleteVersion('v-enrich-2')
       const { data } = await h.adapter.listWorkflowsWithStatus('p-101')
       expect(data.find((w) => w.id === 'wf-enrich')?.deployedVersion).toBe(2)
@@ -87,10 +99,22 @@ describe.each([
         .update(h.schema.workflows)
         .set({ currentVersionId: 'v-enrich-5' })
         .where(eq(h.schema.workflows.id, 'wf-enrich'))
+      await h.adapter.createConnection({
+        id: 'c-1',
+        organizationId: 'org-acme',
+        createdBy: 'u-ama',
+        provider: 'cloudflare',
+        name: 'Prod',
+        credentials: '{}',
+      })
+      await h.db
+        .update(h.schema.deployments)
+        .set({ connectionId: 'c-1' })
+        .where(eq(h.schema.deployments.workflowId, 'wf-enrich'))
     })
 
     it('counts the newer versions and knows the current and the live one', async () => {
-      // d-2 (v2) is wf-enrich's newest successful deploy.
+      // d-2 (v2) replaced d-1 (v1) on the account.
       const check = (id: string) => h.adapter.getVersionDeleteCheck(id, 'wf-enrich')
       expect(await check('v-enrich-1')).toEqual({
         version: 1,

@@ -2,6 +2,7 @@ import { aliasedTable, and, eq, sql, type SQL } from 'drizzle-orm'
 import type {
   AvailableConnectionRow,
   DeployTargetRow,
+  LiveDeploymentRow,
   ProjectConnectionCreate,
   ProjectConnectionRemoval,
   ProjectConnectionRow,
@@ -23,6 +24,7 @@ import {
   readJsonArray,
   type Dialect,
 } from './json-array.js'
+import { liveOnItsAccount } from './live-deployment.js'
 import { isProjectsAccount, servesProject, sqlTrue, type ReachTables } from './connection-reach.js'
 import type { RoleFields } from './role-fields.js'
 
@@ -35,6 +37,7 @@ export interface ProjectConnectionTables extends ReachTables {
   workspaces: AnyTable
   workflows: AnyTable
   deployments: AnyTable
+  workflowVersions: AnyTable
   user: AnyTable
 }
 
@@ -666,24 +669,51 @@ export class ProjectConnectionsAdapter {
   }
 
   /**
-   * The accounts the workflow has a successful deployment with — what a
-   * trigger may name — its latest first, in its project's organization. One
-   * statement.
+   * What is live on each account the workflow has a successful deployment
+   * with — that account's newest one, with its version and who sent it —
+   * latest first, in its project's organization: what a trigger may name.
+   * One statement.
    */
-  async deployedWith(workflowId: string): Promise<{ id: string; name: string }[]> {
+  async liveDeployments(workflowId: string): Promise<LiveDeploymentRow[]> {
     const d = aliasedTable(this.t.deployments, 'pdw')
+    const newer = aliasedTable(this.t.deployments, 'pdwn')
     const wf = aliasedTable(this.t.workflows, 'pdwf')
     const p = aliasedTable(this.t.projects, 'pdwp')
     const c = aliasedTable(this.t.connections, 'pdwc')
-    return (await this.db
-      .select({ id: c.id, name: c.name })
+    const v = aliasedTable(this.t.workflowVersions, 'pdwv')
+    const u = aliasedTable(this.t.user, 'pdwu')
+    const rows = (await this.db
+      .select({
+        id: c.id,
+        name: c.name,
+        deploymentId: d.id,
+        serviceUrl: d.serviceUrl,
+        versionId: d.versionId,
+        // Its number outlives the version row.
+        version: sql<number | null>`coalesce(${v.version}, ${d.versionNumber})`,
+        versionLocked: v.locked,
+        deployedAt: d.createdAt,
+        deployedByName: u.name,
+      })
       .from(d)
       .innerJoin(wf, eq(wf.id, d.workflowId))
       .innerJoin(p, eq(p.id, wf.projectId))
       .innerJoin(c, and(eq(c.id, d.connectionId), eq(c.organizationId, p.organizationId)))
-      .where(and(eq(d.workflowId, workflowId), eq(d.status, 'success')))
-      .groupBy(c.id, c.name)
-      .orderBy(sql`max(${d.createdAt}) desc`, c.id)) as { id: string; name: string }[]
+      .leftJoin(v, eq(v.id, d.versionId))
+      .leftJoin(u, eq(u.id, d.createdBy))
+      .where(and(eq(d.workflowId, workflowId), liveOnItsAccount(d, newer)))
+      .orderBy(sql`${d.createdAt} desc`, c.id)) as (Omit<
+      LiveDeploymentRow,
+      'version' | 'versionLocked'
+    > & {
+      version: number | string | null
+      versionLocked: number | null
+    })[]
+    return rows.map((row) => ({
+      ...row,
+      version: row.version === null ? null : Number(row.version),
+      versionLocked: row.versionLocked === 1,
+    }))
   }
 
   /**

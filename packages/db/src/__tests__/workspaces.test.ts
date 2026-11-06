@@ -8,7 +8,15 @@ import { lockReturning, lockState, lockValues } from '../adapters/projects.js'
 import { OverviewFields } from '../adapters/overview-fields.js'
 import { decodeCursor, encodeCursor } from '../pagination.js'
 import { isUniqueViolation } from '../db-errors.js'
-import { type Harness, NOW, T0, pgHarness, seed, sqliteHarness } from './fixtures/workspaces-db.js'
+import {
+  type Harness,
+  NOW,
+  T0,
+  pgHarness,
+  seed,
+  seedDeployAccount,
+  sqliteHarness,
+} from './fixtures/workspaces-db.js'
 
 // The scope, workspace and run queries, run through the real migrations on
 // both dialects: they lean on each dialect's JSON aggregates and window
@@ -23,6 +31,7 @@ describe.each([
   beforeEach(async () => {
     h = await create()
     await seed(h)
+    await seedDeployAccount(h)
   })
 
   describe('getScopeBySlugs', () => {

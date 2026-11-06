@@ -6,6 +6,7 @@ import type {
   Connection,
   DeployedConnection,
   VersionDeleteCheck,
+  LatestVersionForSave,
   ConnectionCoverage,
   ConnectionListOptions,
   ConnectionListRow,
@@ -15,6 +16,7 @@ import type {
   ExpiringConnectionsCheck,
   AvailableConnectionRow,
   DeployTargetRow,
+  LiveDeploymentRow,
   ProjectConnectionCreate,
   ProjectConnectionRemoval,
   ProjectConnectionsRows,
@@ -123,9 +125,10 @@ import type {
 import type { PaginationParams, PaginatedResult } from './pagination.js'
 
 export interface WorkflowWithStatus extends Workflow {
+  /** 'success' while live on any account; else the newest deploy's status, null for drafts. */
   deployStatus: string | null
+  /** The newest deploy still live: its version, and its number (null when live nowhere). */
   deployVersionId: string | null
-  /** The version number the latest deployment put live, null for drafts. */
   deployedVersion: number | null
   /** Who shared it to the project, while they are in its organization. */
   sharedByName: string | null
@@ -561,6 +564,8 @@ export interface DatabaseAdapter {
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<WorkflowVersionListItem>>
   updateVersion(id: string, data: UpdateVersionData): Promise<void>
+  /** The latest version and whether it ever went out on any account, in one statement. */
+  getLatestVersionForSave(workflowId: string): Promise<LatestVersionForSave | null>
   /** Why a version may not be deleted, in one statement; null when it isn't the workflow's. */
   getVersionDeleteCheck(versionId: string, workflowId: string): Promise<VersionDeleteCheck | null>
   deleteVersion(id: string): Promise<void>
@@ -667,8 +672,11 @@ export interface DatabaseAdapter {
     projectId: string,
     connectionId: string,
   ): Promise<ProjectConnectionRemoval | null>
-  /** The accounts a workflow has a successful deployment with, latest first: what a trigger may name. */
-  listConnectionsDeployedWith(workflowId: string): Promise<{ id: string; name: string }[]>
+  /**
+   * What is live on each account a workflow has a successful deployment with (that
+   * account's newest), latest first: what a trigger may name.
+   */
+  listLiveDeployments(workflowId: string): Promise<LiveDeploymentRow[]>
   /** The accounts Deploy offers a workflow, the chosen one flagged. */
   listDeployTargets(projectId: string, workspaceId: string | null): Promise<DeployTargetRow[]>
 
@@ -800,8 +808,8 @@ export interface DatabaseAdapter {
     configSnapshot?: string
     createdBy?: string
   }): Promise<Deployment>
-  getActiveDeployment(workflowId: string): Promise<Deployment | null>
-  isActiveDeploymentLocked(workflowId: string): Promise<boolean>
+  /** The version live on that account (its newest successful deploy) is locked. */
+  isLiveVersionLocked(workflowId: string, connectionId: string): Promise<boolean>
   listDeploymentsByWorkflow(
     workflowId: string,
     pagination?: PaginationParams,
@@ -814,13 +822,15 @@ export interface DatabaseAdapter {
     workspaceId?: string,
   ): Promise<PaginatedResult<Deployment>>
   /**
-   * A takedown on one account: that account's rows made up to `before` go (a deploy
-   * finishing during the takedown keeps its row); the other accounts' rows stay.
+   * A takedown on one account: that account's successful rows made up to `before`
+   * read `taken_down` (a deploy finishing during the takedown stays live); the rows
+   * stay as history, and the other accounts' are untouched.
    */
-  deleteDeploymentsOnConnection(
+  takeDownDeploymentsOnConnection(
     workflowId: string,
     connectionId: string,
     before: string,
+    takenDownBy: string | null,
   ): Promise<void>
 
   // Deployment Configs

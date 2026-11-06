@@ -225,3 +225,22 @@ export async function seed(h: Harness) {
       run('r-7', 'wf-202', 'terminated', '2026-10-28T08:00:00.000Z'),
     ])
 }
+
+/**
+ * Puts the seed's deployments on an account, as a real deploy always is: a
+ * successful row whose account is gone is live nowhere. Opt-in, so the
+ * connection lists other suites check stay as seeded.
+ */
+export async function seedDeployAccount(h: Harness) {
+  await h.db.insert(h.schema.connections).values({
+    id: 'c-seed',
+    organizationId: 'org-acme',
+    provider: 'cloudflare',
+    name: 'Seed account',
+    credentials: '{}',
+    createdBy: 'u-ama',
+    createdAt: T0,
+    updatedAt: T0,
+  })
+  await h.db.update(h.schema.deployments).set({ connectionId: 'c-seed' })
+}

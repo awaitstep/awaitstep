@@ -176,7 +176,7 @@ export class OverviewFields {
       workflows: this.countWorkflows(wf, sql`${inProject} and ${wf.kind} = 'workflow'`),
       deployed: this.countWorkflows(
         wf,
-        sql`${inProject} and ${wf.kind} = 'workflow' and ${this.latestDeployStatus(wf)} = 'success'`,
+        sql`${inProject} and ${wf.kind} = 'workflow' and ${this.liveSomewhere(wf)}`,
       ),
       failing: this.countWorkflows(
         wf,
@@ -249,7 +249,7 @@ export class OverviewFields {
       workflows: this.countWorkflows(wf, sql`${inWorkspace} and ${wf.kind} = 'workflow'`),
       deployed: this.countWorkflows(
         wf,
-        sql`${inWorkspace} and ${wf.kind} = 'workflow' and ${this.latestDeployStatus(wf)} = 'success'`,
+        sql`${inWorkspace} and ${wf.kind} = 'workflow' and ${this.liveSomewhere(wf)}`,
       ),
       functions: this.countWorkflows(wf, sql`${inWorkspace} and ${wf.kind} = 'script'`),
       sharedOut: this.countWorkflows(wf, sql`${inWorkspace} and ${wf.sharedAt} is not null`),
@@ -297,18 +297,25 @@ export class OverviewFields {
     return sql`(select ${jsonArrayOfValues(this.dialect, row, sql`b.i`)} from ${buckets})`
   }
 
-  /** The status of a workflow's latest deployment, or null. */
-  latestDeployStatus(wf: AnyTable): SQL {
+  /**
+   * The workflow is live on some account: a successful deploy not taken down,
+   * on an account that still exists (`liveOnItsAccount`'s rule).
+   */
+  liveSomewhere(wf: AnyTable): SQL {
     const d = aliasedTable(this.t.deployments, 'ld')
-    return sql`(select ${d.status} from ${aliasedFrom(d)} where ${d.workflowId} = ${wf.id} order by ${d.createdAt} desc limit 1)`
+    return sql`exists (select 1 from ${aliasedFrom(d)} where ${d.workflowId} = ${wf.id} and ${d.status} = 'success' and ${d.connectionId} is not null)`
   }
 
-  /** The version number a workflow's latest deployment put live, or null; it outlives the version. */
+  /**
+   * The version number of the workflow's newest live deploy, or null; it
+   * outlives the version. The newest successful row on an existing account is
+   * always live on it.
+   */
   latestDeployedVersion(wf: AnyTable): SQL<number | null> {
     const d = aliasedTable(this.t.deployments, 'vd')
     return sql<
       number | null
-    >`(select ${d.versionNumber} from ${aliasedFrom(d)} where ${d.workflowId} = ${wf.id} order by ${d.createdAt} desc limit 1)`
+    >`(select ${d.versionNumber} from ${aliasedFrom(d)} where ${d.workflowId} = ${wf.id} and ${d.status} = 'success' and ${d.connectionId} is not null order by ${d.createdAt} desc, ${d.id} desc limit 1)`
   }
 
   /** The status of a workflow's latest run, or null. */

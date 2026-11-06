@@ -474,10 +474,14 @@ export const deployments = pgTable(
     configSnapshot: text('config_snapshot'),
     createdBy: text('created_by'),
     createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
+    // When it was taken down from its account, and by whom (a user id): the row stays as history.
+    takenDownAt: timestamp('taken_down_at', { mode: 'string' }),
+    takenDownBy: text('taken_down_by'),
   },
   (table) => [
     index('idx_deployments_workflow_id').on(table.workflowId),
     index('idx_deployments_workflow_version').on(table.workflowId, table.versionId),
+    index('idx_deployments_workflow_connection').on(table.workflowId, table.connectionId),
   ],
 )
 

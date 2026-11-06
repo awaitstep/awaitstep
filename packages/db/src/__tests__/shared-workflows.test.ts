@@ -4,7 +4,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 // runs past vitest's 5s default.
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 })
 import { eq, sql } from 'drizzle-orm'
-import { type Harness, T0, pgHarness, seed, sqliteHarness } from './fixtures/workspaces-db.js'
+import {
+  type Harness,
+  T0,
+  pgHarness,
+  seed,
+  seedDeployAccount,
+  sqliteHarness,
+} from './fixtures/workspaces-db.js'
 
 // Sharing a workflow to its project (B6), on both dialects. The seed's Project
 // 101 has Sales (Lead enrichment v2 deployed, CRM sync, Webhook relay, Draft)
@@ -44,6 +51,7 @@ describe.each([
   beforeEach(async () => {
     h = await create()
     await seed(h)
+    await seedDeployAccount(h)
   })
 
   describe('setWorkflowShared', () => {

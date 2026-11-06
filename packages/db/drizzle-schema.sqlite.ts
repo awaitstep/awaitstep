@@ -534,10 +534,14 @@ export const deployments = sqliteTable(
     configSnapshot: text('config_snapshot'),
     createdBy: text('created_by'),
     createdAt: text('created_at').notNull(),
+    // When it was taken down from its account, and by whom (a user id): the row stays as history.
+    takenDownAt: text('taken_down_at'),
+    takenDownBy: text('taken_down_by'),
   },
   (table) => [
     index('idx_deployments_workflow_id').on(table.workflowId),
     index('idx_deployments_workflow_version').on(table.workflowId, table.versionId),
+    index('idx_deployments_workflow_connection').on(table.workflowId, table.connectionId),
   ],
 )
 

@@ -13,6 +13,8 @@ import type {
   Connection,
   DeployedConnection,
   VersionDeleteCheck,
+  LatestVersionForSave,
+  LiveDeploymentRow,
   ConnectionCoverage,
   ConnectionListOptions,
   ConnectionListRow,
@@ -373,6 +375,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         workspaces: schema.workspaces,
         workflows: schema.workflows,
         deployments: schema.deployments,
+        workflowVersions: schema.workflowVersions,
         user: schema.user,
       },
       this._dialect,
@@ -397,6 +400,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       schema.deployments,
       schema.user,
       schema.workflowVersions,
+      schema.connections,
+      schema.workflows,
+      schema.projects,
     )
     this._apiKeys = new ApiKeysAdapter(
       db,
@@ -842,24 +848,27 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         ).as('shared_by_name'),
         createdAt: w.createdAt,
         updatedAt: w.updatedAt,
-        // The latest deploy's own number: it outlives a deleted version.
+        // The newest live deploy's own number: it outlives a deleted version.
         deployedVersion: sql<
           number | null
-        >`(SELECT ${d.versionNumber} FROM ${d} WHERE ${d.workflowId} = ${wId} ORDER BY ${d.createdAt} DESC LIMIT 1)`.as(
+        >`(SELECT ${d.versionNumber} FROM ${d} WHERE ${d.workflowId} = ${wId} AND ${d.status} = 'success' AND ${d.connectionId} IS NOT NULL ORDER BY ${d.createdAt} DESC, ${d.id} DESC LIMIT 1)`.as(
           'deployed_version',
         ),
         recentRunStatuses:
           sql`(SELECT ${jsonArrayOfValues(this._dialect, sql.raw('recent.status'))} FROM (SELECT ${r.status} AS status FROM ${r} WHERE ${r.workflowId} = ${wId} AND ${r.status} IN (${terminal}) ORDER BY ${r.createdAt} DESC LIMIT 10) AS recent)`.as(
             'recent_run_statuses',
           ),
+        // 'success' while it is live on any account (a successful row on an account
+        // that still exists); else its newest deploy's status, or null when it never went out
+        // (a success on a deleted account is live nowhere, so it is skipped).
         deployStatus: sql<
           string | null
-        >`(SELECT ${d.status} FROM ${d} WHERE ${d.workflowId} = ${wId} ORDER BY ${d.createdAt} DESC LIMIT 1)`.as(
+        >`(CASE WHEN EXISTS (SELECT 1 FROM ${d} WHERE ${d.workflowId} = ${wId} AND ${d.status} = 'success' AND ${d.connectionId} IS NOT NULL) THEN 'success' ELSE (SELECT ${d.status} FROM ${d} WHERE ${d.workflowId} = ${wId} AND NOT (${d.status} = 'success' AND ${d.connectionId} IS NULL) ORDER BY ${d.createdAt} DESC, ${d.id} DESC LIMIT 1) END)`.as(
           'deploy_status',
         ),
         deployVersionId: sql<
           string | null
-        >`(SELECT ${d.versionId} FROM ${d} WHERE ${d.workflowId} = ${wId} ORDER BY ${d.createdAt} DESC LIMIT 1)`.as(
+        >`(SELECT ${d.versionId} FROM ${d} WHERE ${d.workflowId} = ${wId} AND ${d.status} = 'success' AND ${d.connectionId} IS NOT NULL ORDER BY ${d.createdAt} DESC, ${d.id} DESC LIMIT 1)`.as(
           'deploy_version_id',
         ),
         lastRunStatus: sql<
@@ -1047,6 +1056,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   updateVersion(id: string, data: UpdateVersionData): Promise<void> {
     return this._versions.update(id, data)
   }
+  getLatestVersionForSave(workflowId: string): Promise<LatestVersionForSave | null> {
+    return this._versions.latestForSave(workflowId)
+  }
   getVersionDeleteCheck(versionId: string, workflowId: string): Promise<VersionDeleteCheck | null> {
     return this._versions.deleteCheck(versionId, workflowId)
   }
@@ -1172,8 +1184,8 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   ): Promise<ProjectConnectionRemoval | null> {
     return this._projectConnections.remove(projectId, connectionId)
   }
-  listConnectionsDeployedWith(workflowId: string): Promise<{ id: string; name: string }[]> {
-    return this._projectConnections.deployedWith(workflowId)
+  listLiveDeployments(workflowId: string): Promise<LiveDeploymentRow[]> {
+    return this._projectConnections.liveDeployments(workflowId)
   }
   listDeployTargets(projectId: string, workspaceId: string | null): Promise<DeployTargetRow[]> {
     return this._projectConnections.deployTargets(projectId, workspaceId)
@@ -1394,20 +1406,24 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }): Promise<Deployment> {
     return this._deployments.create(data)
   }
-  getActiveDeployment(workflowId: string): Promise<Deployment | null> {
-    return this._deployments.getActiveByWorkflow(workflowId)
-  }
-  async isActiveDeploymentLocked(workflowId: string): Promise<boolean> {
+  async isLiveVersionLocked(workflowId: string, connectionId: string): Promise<boolean> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const d = this._schema.deployments as any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const v = this._schema.workflowVersions as any
+    // The account's live row first, then its version: a deleted version is unlocked.
     const rows = await this._db
       .select({ locked: v.locked })
       .from(d)
-      .innerJoin(v, eq(d.versionId, v.id))
-      .where(and(eq(d.workflowId, workflowId), eq(d.status, 'success')))
-      .orderBy(desc(d.createdAt))
+      .leftJoin(v, eq(d.versionId, v.id))
+      .where(
+        and(
+          eq(d.workflowId, workflowId),
+          eq(d.connectionId, connectionId),
+          eq(d.status, 'success'),
+        ),
+      )
+      .orderBy(desc(d.createdAt), desc(d.id))
       .limit(1)
     return rows[0]?.locked === 1
   }
@@ -1466,12 +1482,13 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     return paginateResults(rows, limit, (row) => row.createdAt)
   }
 
-  deleteDeploymentsOnConnection(
+  takeDownDeploymentsOnConnection(
     workflowId: string,
     connectionId: string,
     before: string,
+    takenDownBy: string | null,
   ): Promise<void> {
-    return this._deployments.deleteOnConnection(workflowId, connectionId, before)
+    return this._deployments.takeDownOnConnection(workflowId, connectionId, before, takenDownBy)
   }
 
   // Deployment Configs

@@ -410,6 +410,13 @@ export interface ActiveRunForSync {
   }
 }
 export type Deployment = InferSelectModel<typeof deployments>
+/** The workflow's latest version and whether it ever went out (`getLatestVersionForSave`). */
+export interface LatestVersionForSave {
+  version: WorkflowVersion
+  /** Deployed on some account, live there or since taken down: a save never overwrites it. */
+  everDeployed: boolean
+}
+
 /** What decides whether a version may be deleted (`getVersionDeleteCheck`). */
 export interface VersionDeleteCheck {
   version: number
@@ -417,8 +424,27 @@ export interface VersionDeleteCheck {
   /** How many of the workflow's versions are newer than this one. */
   newerVersions: number
   isCurrent: boolean
-  /** The workflow's newest successful deploy carries it. */
+  /** It is live on one of the workflow's accounts (that account's newest successful deploy). */
   isLive: boolean
+}
+
+/**
+ * What is live on one account a workflow was deployed with: that account's
+ * newest successful deployment (`listLiveDeployments`).
+ */
+export interface LiveDeploymentRow {
+  /** The account (connection). */
+  id: string
+  name: string
+  deploymentId: string
+  /** The worker's URL on that account, when the deploy gave one. */
+  serviceUrl: string | null
+  /** Null once the version is deleted; `version` still says which it was. */
+  versionId: string | null
+  version: number | null
+  versionLocked: boolean
+  deployedAt: string
+  deployedByName: string | null
 }
 
 export type DeploymentListItem = Deployment &
@@ -426,6 +452,8 @@ export type DeploymentListItem = Deployment &
     /** The deployed version's number (kept after the version is deleted) and its lock (null then). */
     version: number | null
     versionLocked: number | null
+    /** Its account's name; null once the account is deleted. */
+    connectionName: string | null
   }
 export type ApiKey = InferSelectModel<typeof apiKeys>
 

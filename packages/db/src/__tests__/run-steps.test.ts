@@ -128,9 +128,21 @@ describe('RunStepsAdapter', () => {
     await adapter.upsertRunSteps('run-1', [step()])
     expect((await adapter.listRunSteps('run-1', 'wf-1')).configSnapshot).toBe('{"own":true}')
     expect((await adapter.listActiveRunsForSync())[0]!.configSnapshot).toBe('{"own":true}')
-    // Taken down on conn-1.
+    // Taken down on conn-1: the row stays, and still says what the run ran.
+    sqlite.exec(`UPDATE deployments SET status = 'taken_down' WHERE id = 'd-own'`)
+    expect((await adapter.listRunSteps('run-1', 'wf-1')).configSnapshot).toBe('{"own":true}')
+    // A takedown from before rows were kept left nothing on conn-1.
     sqlite.exec(`DELETE FROM deployments WHERE id = 'd-own'`)
     expect((await adapter.listRunSteps('run-1', 'wf-1')).configSnapshot).toBe('{"other":true}')
+  })
+
+  it('ignores a failed deploy of the run’s version for the snapshot', async () => {
+    sqlite.exec(
+      `INSERT INTO deployments (id, workflow_id, version_id, connection_id, service_name, status, created_at, config_snapshot)
+       VALUES ('d-failed', 'wf-1', 'v-1', 'conn-1', 'svc', 'failed', '2026-02-01T00:00:00Z', '{"failed":true}')`,
+    )
+    await adapter.upsertRunSteps('run-1', [step()])
+    expect((await adapter.listRunSteps('run-1', 'wf-1')).configSnapshot).toBeNull()
   })
 
   it('finds the snapshot by the kept number once the run’s version is deleted', async () => {
