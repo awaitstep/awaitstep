@@ -138,8 +138,8 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
     [source, steps],
   )
   const problemGroups = useMemo(
-    () => groupProblems(markers, savedProblems, dirty),
-    [markers, savedProblems, dirty],
+    () => groupProblems(markers, savedProblems, dirty, (nodeId) => stepSourceByNode.get(nodeId)),
+    [markers, savedProblems, dirty, stepSourceByNode],
   )
   // The status bar counts both groups, as the dock does.
   const problemCounts = countBySeverity([...savedProblems, ...markers])

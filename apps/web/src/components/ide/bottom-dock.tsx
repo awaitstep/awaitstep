@@ -2,6 +2,7 @@ import { X } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import type { Problem, ProblemGroups } from '../../lib/ide/problems'
 import { IDE_SHORTCUTS, formatShortcut } from '../../lib/ide/shortcuts'
+import { openProblem } from '../../lib/ide/step-actions'
 import { isMacPlatform } from '../../lib/platform'
 import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
@@ -10,6 +11,7 @@ import { DockTabs, dockPanelId, dockTabId } from './dock-tabs'
 import { ProblemsList } from './problems-list'
 import { QuickTestPanel } from './quick-test-panel'
 import { SaveVersionFirst } from './save-version-first'
+import { useStepSync } from './step-sync-context'
 import { TestSessionPanel } from './test-session-panel'
 
 interface BottomDockProps {
@@ -47,13 +49,11 @@ export function BottomDock({
   const { dockTab, showDock, toggleDock } = useIdeLayoutStore(
     useShallow((s) => ({ dockTab: s.dockTab, showDock: s.showDock, toggleDock: s.toggleDock })),
   )
-  const revealLocation = useIdeStore((s) => s.revealLocation)
+  const { map } = useStepSync()
   const hideHint = formatShortcut(IDE_SHORTCUTS.toggleDock, isMacPlatform())
 
   function handleProblemSelect(problem: Problem) {
-    // A workflow-level finding has no file to reveal.
-    if (!problem.file) return
-    revealLocation({ path: problem.file, line: problem.line, column: problem.column })
+    openProblem(map, problem)
   }
 
   // Esc hands the keyboard back to the editor. A dialog opened from here is

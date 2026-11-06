@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildStepMap } from '../ide/step-map'
-import { runStepQuickTest, selectStep, showStepsView } from '../ide/step-actions'
+import { openProblem, runStepQuickTest, selectStep, showStepsView } from '../ide/step-actions'
 import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
 
@@ -133,5 +133,59 @@ describe('the step selection belongs to the workflow it was made in', () => {
     useIdeStore.getState().resetSession()
     expect(useIdeStore.getState().selectedNodeId).toBeNull()
     expect(useIdeStore.getState().stepsFocusRequested).toBe(false)
+  })
+})
+
+describe('openProblem', () => {
+  const problem = (overrides: { file: string; nodeId?: string }) => ({
+    line: 16,
+    column: 22,
+    endLine: 16,
+    endColumn: 22,
+    message: 'Unexpected token (16:21)',
+    severity: 'error' as const,
+    ...overrides,
+  })
+
+  it('opens the step’s editable source for a finding on its generated module, selects the step and hands over the keyboard', () => {
+    openProblem(withSource, problem({ file: 'nodes/a.ts', nodeId: 'a' }))
+    expect(useIdeStore.getState()).toMatchObject({
+      selectedNodeId: 'a',
+      activePath: 'steps/a.ts',
+      reveal: null,
+    })
+    expect(useIdeStore.getState().editorFocusRequested).toBe(true)
+  })
+
+  it('reveals the position in the module when the step has no source here (a custom node, say)', () => {
+    openProblem(map, problem({ file: 'nodes/a.ts', nodeId: 'a' }))
+    expect(useIdeStore.getState()).toMatchObject({
+      activePath: 'nodes/a.ts',
+      reveal: { path: 'nodes/a.ts', line: 16, column: 22 },
+    })
+    expect(useIdeStore.getState().selectedNodeId).toBeNull()
+  })
+
+  it('reveals the position for a finding on a project file', () => {
+    openProblem(withSource, problem({ file: 'lib/x.ts' }))
+    expect(useIdeStore.getState().reveal).toEqual({ path: 'lib/x.ts', line: 16, column: 22 })
+  })
+
+  it('selects the node for a finding about a node with no file, opening nothing', () => {
+    openProblem(withSource, problem({ file: '', nodeId: 'sleep' }))
+    expect(useIdeStore.getState()).toMatchObject({
+      selectedNodeId: 'sleep',
+      activePath: null,
+      reveal: null,
+    })
+  })
+
+  it('does nothing for a finding with neither a file nor a node', () => {
+    openProblem(withSource, problem({ file: '' }))
+    expect(useIdeStore.getState()).toMatchObject({
+      selectedNodeId: null,
+      activePath: null,
+      reveal: null,
+    })
   })
 })

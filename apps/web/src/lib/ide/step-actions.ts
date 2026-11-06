@@ -1,6 +1,7 @@
 import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
 import { focusEditor } from './editor-focus'
+import type { Problem } from './problems'
 import type { StepMap } from './step-map'
 
 /** Where the keyboard goes after a step is picked. */
@@ -45,4 +46,27 @@ export function showStepsView(): void {
 /** Opens a file the step uses, without moving the step selection. */
 export function openUsedFile(path: string): void {
   useIdeStore.getState().openFile(path)
+}
+
+/**
+ * Takes the person to what a problem is about. A finding on a step whose
+ * code is editable here opens that source — the message's position names
+ * the generated module, but the fix is typed in `steps/<id>.ts` — and
+ * selects the step. A finding on any other file reveals the position; one
+ * about a node with no file selects the node, so the inspector and the
+ * preview show it. A finding with neither is left where it is.
+ */
+export function openProblem(map: StepMap, problem: Problem): void {
+  const step = problem.nodeId === undefined ? undefined : map.byNode.get(problem.nodeId)
+  if (step && step.sourcePath !== null) {
+    selectStep(map, step.nodeId, 'editor')
+    return
+  }
+  if (problem.file !== '') {
+    useIdeStore
+      .getState()
+      .revealLocation({ path: problem.file, line: problem.line, column: problem.column })
+    return
+  }
+  if (problem.nodeId !== undefined) useIdeStore.getState().selectNode(problem.nodeId)
 }
