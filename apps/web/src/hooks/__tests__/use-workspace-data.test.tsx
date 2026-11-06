@@ -144,6 +144,7 @@ describe('useWorkspaceData step sources', () => {
     expect(step?.hash).toBeDefined()
     expect(result.current.baseline.has('steps/nap.ts')).toBe(false)
     expect([...result.current.stepPaths]).toEqual(['steps/validate.ts'])
+    expect([...result.current.stepSourceByNode]).toEqual([['validate', 'steps/validate.ts']])
     expect(result.current.projectPaths.has('steps/validate.ts')).toBe(true)
     expect(result.current.storedPaths.has('steps/validate.ts')).toBe(false)
     expect(result.current.ownerOf('steps/validate.ts')).toBe('step')
@@ -189,6 +190,9 @@ describe('useWorkspaceData step sources', () => {
     expect(result.current.baseline.get('steps/validate.ts')?.source).toBe('old file')
     expect(result.current.ownerOf('steps/validate.ts')).toBe('project')
     expect(result.current.stepPaths.size).toBe(0)
+    // The step map must not point the node at the person's file either, or
+    // picking the step (or its compile finding) would open that file.
+    expect(result.current.stepSourceByNode.has('validate')).toBe(false)
     expect(result.current.problemGroups.saved.map((s) => s.problem)).toEqual([
       expect.objectContaining({
         file: 'steps/validate.ts',

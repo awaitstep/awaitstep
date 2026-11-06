@@ -18,17 +18,6 @@ export function stepCode(node: Pick<WorkflowNode, 'data'>): string {
   return typeof code === 'string' ? code : ''
 }
 
-/** Node id → `steps/<id>.ts` for every step node, in the order given. */
-export function stepSourcePaths(
-  nodes: Iterable<Pick<WorkflowNode, 'id' | 'type'>>,
-): Map<string, string> {
-  const paths = new Map<string, string>()
-  for (const node of nodes) {
-    if (isStepNode(node)) paths.set(node.id, stepSourcePath(node.id))
-  }
-  return paths
-}
-
 export interface StepSourceCollision {
   path: string
   /** The step nodes that map to the path, in document order. */

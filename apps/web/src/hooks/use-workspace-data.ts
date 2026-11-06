@@ -91,6 +91,13 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
     [version, storedPaths],
   )
   const stepPaths = useMemo(() => new Set(steps.files.map((f) => f.path)), [steps])
+  // Node → its editable source, for the nodes that have one here: a step
+  // whose path another step or a stored file holds is left out, so nothing
+  // downstream can open the wrong file for it.
+  const stepSourceByNode = useMemo(
+    () => new Map([...steps.byNode].map(([nodeId, file]) => [nodeId, file.path])),
+    [steps],
+  )
   const seeds = useMemo(
     () => (canEdit && fullData ? virtualSeedFiles(fullData.workflow, storedPaths) : []),
     [canEdit, fullData, storedPaths],
@@ -165,6 +172,7 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
     storedPaths,
     virtualPaths,
     stepPaths,
+    stepSourceByNode,
     baseline,
     files,
     projectPaths,

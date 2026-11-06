@@ -89,6 +89,7 @@ export function WorkspaceLayout({
     storedPaths,
     virtualPaths,
     stepPaths,
+    stepSourceByNode,
     baseline,
     files,
     projectPaths,
@@ -330,6 +331,7 @@ export function WorkspaceLayout({
       manifest={source.manifest ?? null}
       files={files}
       projectPaths={projectPaths}
+      sourcePaths={stepSourceByNode}
       workflowFile={source.primary ?? null}
       versions={fullData.versions}
       graphVersionId={version?.id ?? null}

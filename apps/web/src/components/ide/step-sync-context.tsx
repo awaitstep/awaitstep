@@ -3,7 +3,6 @@ import type { StepManifest } from '@awaitstep/codegen'
 import type { WorkflowNode } from '@awaitstep/ir'
 import { useShallow } from 'zustand/react/shallow'
 import type { VersionSummary } from '../../lib/api-client'
-import { stepSourcePaths } from '../../lib/ide/node-source'
 import { buildStepMap, type StepMap } from '../../lib/ide/step-map'
 import { orderSteps, type StepRow } from '../../lib/ide/step-order'
 import { useWorkflowStore } from '../../stores/workflow-store'
@@ -39,6 +38,12 @@ interface ProviderProps {
   /** Every file as the editor has it, drafts included. */
   files: ReadonlyMap<string, { source: string }>
   projectPaths: ReadonlySet<string>
+  /**
+   * Node → its editable `steps/<id>.ts`, for the nodes the workspace shows
+   * one for (`useWorkspaceData.stepSourceByNode`). A step whose path a stored
+   * file or another step holds is absent, so its module is what opens.
+   */
+  sourcePaths: ReadonlyMap<string, string>
   workflowFile: string | null
   versions: readonly VersionSummary[]
   graphVersionId: string | null
@@ -59,6 +64,7 @@ export function StepSyncProvider({
   manifest,
   files,
   projectPaths,
+  sourcePaths,
   workflowFile,
   versions,
   graphVersionId,
@@ -86,7 +92,6 @@ export function StepSyncProvider({
       ),
     [flowNodes, edges],
   )
-  const sourcePaths = useMemo(() => stepSourcePaths(nodes.values()), [nodes])
   const map = useMemo(
     () =>
       buildStepMap({

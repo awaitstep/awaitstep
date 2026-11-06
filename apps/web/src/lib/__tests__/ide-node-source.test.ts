@@ -10,7 +10,6 @@ import {
   applyStepSources,
   loadVersionDocument,
   stepCollisionProblems,
-  stepSourcePaths,
   stepSources,
   withoutFileSnapshot,
 } from '../ide/node-source'
@@ -134,16 +133,6 @@ describe('stepSources', () => {
     ])
     expect(sources.files.map((f) => f.path)).toEqual(['steps/validate.ts', 'steps/done.ts'])
     expect(sources.byPath.has('steps/charge.ts')).toBe(false)
-  })
-})
-
-describe('stepSourcePaths', () => {
-  it('maps step nodes only, in the order given', () => {
-    expect([...stepSourcePaths(workflow.nodes)]).toEqual([
-      ['validate', 'steps/validate.ts'],
-      ['charge', 'steps/charge.ts'],
-      ['done', 'steps/done.ts'],
-    ])
   })
 })
 
