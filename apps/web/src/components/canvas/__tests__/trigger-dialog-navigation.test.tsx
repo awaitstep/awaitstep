@@ -17,16 +17,28 @@ vi.mock('../../../lib/api-client', () => ({
 
 const SLUGS = { org: 'acme', project: 'core', workspace: 'sales' }
 
-function renderDialog(deployedVersion?: number) {
+const live = (id: string, name: string, version: number) => ({
+  id,
+  name,
+  deploymentId: `d_${id}`,
+  serviceUrl: null,
+  versionId: `v${version}`,
+  version,
+  versionLocked: false,
+  deployedAt: '',
+  deployedByName: null,
+})
+
+function renderDialog(deployedWith = [live('c_1', 'Acme CF', 12)]) {
   const client = new QueryClient()
   client.setQueryData(['deploy-connections', 'wf_1'], {
     connections: [],
     defaultId: null,
-    deployedWith: [{ id: 'c_1', name: 'Acme CF' }],
+    deployedWith,
   })
   const dialog = (
     <QueryClientProvider client={client}>
-      <TriggerDialog workflowId="wf_1" deployedVersion={deployedVersion} onClose={vi.fn()} />
+      <TriggerDialog workflowId="wf_1" onClose={vi.fn()} />
     </QueryClientProvider>
   )
   render(<EditorScopeProvider value={SLUGS}>{dialog}</EditorScopeProvider>)
@@ -36,12 +48,20 @@ afterEach(() => vi.clearAllMocks())
 
 describe('TriggerDialog (WorkflowTrigger)', () => {
   it('names the version it runs, where, and what the payload is for', () => {
-    renderDialog(12)
+    renderDialog()
     expect(screen.getByRole('dialog', { name: 'Trigger a run' })).toBeVisible()
-    expect(screen.getByText('Runs v12, the deployed version.')).toBeVisible()
+    expect(screen.getByText('Runs v12, the version deployed there.')).toBeVisible()
     expect(screen.getByText('Where this run executes.')).toBeVisible()
     expect(screen.getByText('The workflow reads it as the trigger input.')).toBeVisible()
     expect(screen.getByText('It appears in Runs straight away.')).toBeVisible()
+  })
+
+  it('names the version the picked account runs, not the newest one anywhere', async () => {
+    renderDialog([live('c_1', 'Acme CF', 12), live('c_2', 'Staging', 9)])
+    expect(screen.getByText('Runs v12, the version deployed there.')).toBeVisible()
+    await userEvent.click(screen.getByRole('combobox', { name: 'Connection' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Staging' }))
+    expect(screen.getByText('Runs v9, the version deployed there.')).toBeVisible()
   })
 })
 

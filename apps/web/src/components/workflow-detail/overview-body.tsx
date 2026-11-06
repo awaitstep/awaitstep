@@ -14,8 +14,6 @@ import { useEditorAccess } from '../../contexts/editor-scope-context'
 interface OverviewBodyProps {
   workflow: WorkflowSummary
   overview: WorkflowOverview
-  /** Names of the accounts deployments went out on. */
-  accounts: Map<string, string>
   /** Runs in the last 24 hours, by result and hour by hour, when known. */
   runs24h?: { all: number; failed: number; byHour: RunHour[]; ranEver?: boolean }
   /** Never deployed: the draft state (24f). */
@@ -27,13 +25,7 @@ interface OverviewBodyProps {
  * 24f): the band, then Versions and Recent runs. A function looks the same; it
  * is published and called, and its requests aren't recorded.
  */
-export function OverviewBody({
-  workflow,
-  overview,
-  accounts,
-  runs24h,
-  neverDeployed,
-}: OverviewBodyProps) {
+export function OverviewBody({ workflow, overview, runs24h, neverDeployed }: OverviewBodyProps) {
   const queries = useQueries()
   const links = useWorkflowLinks(workflow.id)
   const { canDeploy } = useEditorAccess()
@@ -45,19 +37,19 @@ export function OverviewBody({
     enabled: !isFunction,
   })
   const latest = overview.versions[0]
-  const live = overview.activeDeployment
+  const live = overview.live.map((l) => ({
+    accountId: l.id,
+    version: l.version ?? undefined,
+    account: l.name,
+    at: l.deployedAt,
+    url: workerUrl(l.serviceUrl),
+  }))
+  const liveVersionIds = new Set(overview.live.flatMap((l) => (l.versionId ? [l.versionId] : [])))
 
   return (
     <>
       <StatusBand
-        live={
-          live && {
-            version: overview.deployedVersion?.version,
-            account: live.connectionId ? accounts.get(live.connectionId) : undefined,
-            at: live.createdAt,
-            url: workerUrl(live.serviceUrl),
-          }
-        }
+        live={live}
         latest={latest && { version: latest.version, at: latest.createdAt }}
         runs24h={runs24h}
         isFunction={isFunction}
@@ -68,7 +60,7 @@ export function OverviewBody({
             versionHref={(versionId) => links.editor('canvas', { version: versionId })}
             deployHref={canDeploy ? links.deployVersion : undefined}
             versions={overview.versions}
-            deployedVersionId={live?.versionId ?? undefined}
+            liveVersionIds={liveVersionIds}
             deployBlocked={overview.deployBlocked}
             hasMore={overview.versionsHasMore}
             loadingMore={overview.versionsLoadingMore}

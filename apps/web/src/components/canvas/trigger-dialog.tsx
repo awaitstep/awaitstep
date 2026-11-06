@@ -25,8 +25,6 @@ interface TriggerDialogProps {
   deploymentId?: string
   /** When provided, shows a workflow selector (e.g. from the /runs page). */
   workflows?: WorkflowOption[]
-  /** The deployed version's number, for "Runs v12, the deployed version." */
-  deployedVersion?: number
 }
 
 export function TriggerDialog({
@@ -34,7 +32,6 @@ export function TriggerDialog({
   workflowId: initialWorkflowId,
   deploymentId,
   workflows,
-  deployedVersion,
 }: TriggerDialogProps) {
   const api = useApi()
   const queries = useQueries()
@@ -123,10 +120,12 @@ export function TriggerDialog({
     if (!v && !triggering) onClose()
   }
 
+  // What the picked account runs: each account may run another version.
+  const deployedVersion = connections?.find((c) => c.id === connectionId)?.version
   const description =
-    deployedVersion !== undefined
-      ? `Runs v${deployedVersion}, the deployed version.`
-      : 'Runs the deployed version.'
+    deployedVersion != null
+      ? `Runs v${deployedVersion}, the version deployed there.`
+      : 'Runs the version deployed there.'
 
   return (
     <ModalDialog

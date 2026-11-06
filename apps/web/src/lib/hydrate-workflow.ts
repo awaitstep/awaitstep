@@ -1,13 +1,7 @@
 import { loadArtifact } from '@awaitstep/ir'
 import type { WorkflowNode, WorkflowRuntime } from '@awaitstep/ir'
 import { secretDisplayName } from './env-var-parser'
-import type {
-  WorkflowSummary,
-  WorkflowVersion,
-  WorkflowFull,
-  VersionSummary,
-  DeploymentSummary,
-} from './api-client'
+import type { WorkflowSummary, WorkflowVersion, WorkflowFull, VersionSummary } from './api-client'
 import { toFlowType } from '../stores/workflow-store'
 
 /**
@@ -216,25 +210,29 @@ export function deriveReadOnlyState(
   return { isReadOnly, readOnlyVersion }
 }
 
+/**
+ * What is deployed, per account: `deployedVersion` is the newest live one, and
+ * there are undeployed changes while the latest version is live on no account.
+ */
 export function deriveDeploymentState(fullData: WorkflowFull | undefined) {
   const serverWorkflow = fullData?.workflow
-  const activeDeployment: DeploymentSummary | null = fullData?.activeDeployment ?? null
+  const live = fullData?.liveDeployments ?? []
   const versions = fullData?.versions
-  const hasActiveDeployment = !!activeDeployment
+  const hasActiveDeployment = live.length > 0
   const currentVersion = versions?.[0]?.version ?? 0
-  const deployedVersionId = activeDeployment?.versionId
-  const deployedVersion = versions?.find((v) => v.id === deployedVersionId)
+  const newest = live[0]
+  const deployedVersion =
+    newest && newest.version !== null
+      ? { id: newest.versionId, version: newest.version }
+      : undefined
 
   return {
     serverWorkflow,
-    activeDeployment,
     versions,
     hasActiveDeployment,
     currentVersion,
     deployedVersion,
     hasUndeployedChanges:
-      hasActiveDeployment &&
-      !!deployedVersionId &&
-      deployedVersionId !== serverWorkflow?.currentVersionId,
+      hasActiveDeployment && !live.some((l) => l.versionId === serverWorkflow?.currentVersionId),
   }
 }

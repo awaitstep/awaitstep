@@ -37,7 +37,7 @@ export function seedWorkspaceQueries(client: QueryClient, options: SeedOptions =
     version: { id: currentVersionId, version: 2 },
     versions,
     handlers: { modules: [] },
-    activeDeployment: null,
+    liveDeployments: [],
   })
   client.setQueryData(['workflow-source', WORKFLOW_ID, options.versionParam], {
     files: options.files ?? [

@@ -82,7 +82,7 @@ function response() {
       createdAt: '2025-01-01',
     },
     versions: [{ id: 'v2', version: 2 }],
-    activeDeployment: null,
+    liveDeployments: [],
     handlers: { modules: [] },
   }
 }

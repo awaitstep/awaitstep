@@ -37,10 +37,17 @@ type StepKey = (typeof STEPS)[number]['key']
 interface DeployPageProps {
   workflowId: string
   versionId?: string
+  /** The account to start on (Roll back on one account's row), when it is one offered. */
+  connectionId?: string
   kind?: 'workflow' | 'script'
 }
 
-export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
+export function DeployPage({
+  workflowId,
+  versionId,
+  connectionId: linkedConnectionId,
+  kind,
+}: DeployPageProps) {
   const api = useApi()
   const queries = useQueries()
   const ready = useApiReady()
@@ -53,7 +60,10 @@ export function DeployPage({ workflowId, versionId, kind }: DeployPageProps) {
   const connections = targets.data?.connections
   const [step, setStep] = useState<StepKey>('connection')
   const [picked, setPicked] = useState<string | null>(null)
-  const connectionId = picked ?? targets.data?.defaultId ?? ''
+  const linked = connections?.some((c) => c.id === linkedConnectionId)
+    ? linkedConnectionId
+    : undefined
+  const connectionId = picked ?? linked ?? targets.data?.defaultId ?? ''
   const [localConfig, setLocalConfig] = useState<Record<string, unknown> | null>(null)
 
   const { state, progress, error, result, startDeploy, retry } = useDeployStream({

@@ -10,13 +10,6 @@ const calls = vi.hoisted(() => ({ takedown: vi.fn() }))
 
 vi.mock('../../../lib/api-client', () => ({
   api: {
-    getDeployConnections: () =>
-      Promise.resolve({
-        deployedWith: [
-          { id: 'conn-b', name: 'Staging' },
-          { id: 'conn-a', name: 'Production' },
-        ],
-      }),
     takedownDeployment: (workflowId: string, connectionId: string) => {
       calls.takedown(workflowId, connectionId)
       return Promise.resolve({ success: true })
@@ -35,7 +28,7 @@ const WORKFLOW: WorkflowSummary = {
 }
 
 describe('useWorkflowActions › takedown', () => {
-  it('takes down from the latest account, then refreshes which accounts it is still on', async () => {
+  it('takes down from the account it is given, then refreshes what is live where', async () => {
     const queryClient = new QueryClient()
     const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
     function wrapper({ children }: { children: ReactNode }) {
@@ -46,10 +39,11 @@ describe('useWorkflowActions › takedown', () => {
       )
     }
     const { result } = renderHook(() => useWorkflowActions(WORKFLOW), { wrapper })
-    await act(() => result.current.takedown.mutateAsync())
-    expect(calls.takedown).toHaveBeenCalledWith('wf_1', 'conn-b')
+    await act(() => result.current.takedown.mutateAsync('conn-a'))
+    expect(calls.takedown).toHaveBeenCalledWith('wf_1', 'conn-a')
     // It may still be live on another account: the Take down dialog names it from here.
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['deploy-connections', 'wf_1'] })
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['deployments', 'wf_1'] })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['workflow-full', 'wf_1'] })
   })
 })

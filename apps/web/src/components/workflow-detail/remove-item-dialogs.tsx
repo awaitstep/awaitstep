@@ -1,37 +1,52 @@
+import { useState } from 'react'
 import { EyeOff, Trash2 } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import type { LiveDeployment } from '@awaitstep/ir'
 import type { WorkflowSummary } from '../../lib/api-client'
 import { plural } from '../../lib/plural'
+import { timeAgo } from '../../lib/time'
 import type { useWorkflowActions } from '../dashboard/use-workflow-actions'
 import { Button } from '../ui/button'
+import { RadioCardGroup } from '../ui/choice-card'
 import { ModalDialog } from '../ui/modal-dialog'
 import { Tile } from '../ui/tile'
 import { FailureLine } from './failure-line'
 import type { WorkflowOverview } from './use-workflow-overview'
-import { useQueries } from '../../contexts/api-client-context'
 
 type Actions = ReturnType<typeof useWorkflowActions>
 
 interface TakeDownDialogProps {
   workflow: WorkflowSummary
-  version: number | undefined
+  /** What is live on each account, newest first. */
+  live: LiveDeployment[]
   takedown: Actions['takedown']
   onClose: () => void
 }
 
-/** Take down (board `WorkflowActions`): the worker stops; the item stays. */
-export function TakeDownDialog({ workflow, version, takedown, onClose }: TakeDownDialogProps) {
-  const queries = useQueries()
-  const targets = useQuery(queries.connections.forDeploy(workflow.id))
-  const account = targets.data?.deployedWith[0]?.name
+/**
+ * Take down (board `WorkflowActions`): the worker stops on one account; the
+ * item stays. Live on more than one, it asks which.
+ */
+export function TakeDownDialog({ workflow, live, takedown, onClose }: TakeDownDialogProps) {
+  const [picked, setPicked] = useState(live[0]?.id ?? '')
+  const target = live.find((l) => l.id === picked)
+  const choosing = live.length > 1
+  const options = live.map((l) => ({
+    value: l.id,
+    title: l.name,
+    description:
+      l.version !== null ? `v${l.version} · ${timeAgo(l.deployedAt)}` : timeAgo(l.deployedAt),
+  }))
 
   function handleConfirm() {
-    takedown.mutate(undefined, { onSuccess: onClose })
+    if (target) takedown.mutate(target.id, { onSuccess: onClose })
   }
 
   function handleOpenChange(open: boolean) {
     if (!open && !takedown.isPending) onClose()
   }
+
+  let title = `Take down ${workflow.name}?`
+  if (!choosing && target?.version != null) title = `Take down v${target.version}?`
 
   return (
     <ModalDialog
@@ -43,7 +58,7 @@ export function TakeDownDialog({ workflow, version, takedown, onClose }: TakeDow
           <EyeOff />
         </Tile>
       }
-      title={version === undefined ? `Take down ${workflow.name}?` : `Take down v${version}?`}
+      title={title}
       actions={
         <>
           <Button type="button" variant="outline" onClick={onClose} disabled={takedown.isPending}>
@@ -54,6 +69,7 @@ export function TakeDownDialog({ workflow, version, takedown, onClose }: TakeDow
             className="bg-status-warning text-background hover:bg-status-warning/90"
             onClick={handleConfirm}
             loading={takedown.isPending}
+            disabled={!target}
           >
             Take down
           </Button>
@@ -61,8 +77,16 @@ export function TakeDownDialog({ workflow, version, takedown, onClose }: TakeDow
       }
     >
       <div className="flex flex-col gap-3">
+        {choosing && (
+          <RadioCardGroup
+            legend="Take it down from"
+            value={picked}
+            onChange={setPicked}
+            options={options}
+          />
+        )}
         <p className="text-sm text-muted-foreground">
-          The worker stops answering{account ? ` on ${account}` : ''}. Runs already going finish.
+          The worker stops answering{target ? ` on ${target.name}` : ''}. Runs already going finish.
           You can deploy it again any time.
         </p>
         <FailureLine error={takedown.error} general="Couldn’t take it down" />

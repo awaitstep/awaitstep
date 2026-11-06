@@ -40,7 +40,7 @@ function fullOf(name = 'Orders', withVersion = true): WorkflowFull {
     version: withVersion ? { id: 'v-2', version: 2 } : null,
     versions: [],
     handlers: { modules: [] },
-    activeDeployment: null,
+    liveDeployments: [],
   } as unknown as WorkflowFull
 }
 

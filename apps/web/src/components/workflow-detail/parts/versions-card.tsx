@@ -14,8 +14,8 @@ interface VersionsCardProps {
   /** Deploy, set to that version; left out for someone who can't deploy. */
   deployHref?: (versionId: string) => string
   versions: VersionSummary[]
-  /** The live one: tagged "deployed", with nothing to deploy. */
-  deployedVersionId: string | undefined
+  /** The ones live on some account: tagged "deployed", with nothing to deploy. */
+  liveVersionIds: ReadonlySet<string>
   /** The deployed version is locked: no other can go out. */
   deployBlocked: boolean
   hasMore: boolean
@@ -32,7 +32,7 @@ export function VersionsCard({
   versionHref,
   deployHref,
   versions,
-  deployedVersionId,
+  liveVersionIds,
   deployBlocked,
   hasMore,
   loadingMore,
@@ -53,7 +53,7 @@ export function VersionsCard({
       ) : (
         <ul className="divide-y divide-border">
           {versions.map((v) => {
-            const live = v.id === deployedVersionId
+            const live = liveVersionIds.has(v.id)
             return (
               <li key={v.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
                 <ShellLink

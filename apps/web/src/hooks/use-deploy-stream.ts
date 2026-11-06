@@ -44,6 +44,9 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
     queryClient.invalidateQueries({ queryKey: ['workflows'] })
     queryClient.invalidateQueries({ queryKey: ['deployments', workflowId] })
     queryClient.invalidateQueries({ queryKey: ['all-deployments'] })
+    // What is live on each account: the overview's and the editor's.
+    queryClient.invalidateQueries({ queryKey: ['deploy-connections', workflowId] })
+    queryClient.invalidateQueries({ queryKey: ['workflow-full', workflowId] })
   }
 
   const startDeploy = useCallback(

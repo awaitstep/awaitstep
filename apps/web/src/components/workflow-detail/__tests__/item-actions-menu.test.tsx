@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { LiveDeployment } from '@awaitstep/ir'
 import type { WorkflowSummary } from '../../../lib/api-client'
 import type { WorkflowOverview } from '../use-workflow-overview'
 import { ItemActionsMenu } from '../item-actions-menu'
@@ -13,13 +14,14 @@ const calls = vi.hoisted(() => ({
   lock: vi.fn(),
   share: vi.fn(),
   duplicate: vi.fn(),
+  takedown: vi.fn(),
 }))
 const idle = () => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null })
 
 vi.mock('../../dashboard/use-workflow-actions', () => ({
   useWorkflowActions: () => ({
     remove: idle(),
-    takedown: idle(),
+    takedown: { ...idle(), mutate: calls.takedown },
     duplicate: { ...idle(), mutate: calls.duplicate },
     exportIr: idle(),
   }),
@@ -42,12 +44,28 @@ const WORKFLOW: WorkflowSummary = {
   updatedAt: '',
 }
 
-function overview(deployed: boolean, locked = false): WorkflowOverview {
+const live = (id: string, name: string, version: number): LiveDeployment => ({
+  id,
+  name,
+  deploymentId: `d-${id}`,
+  serviceUrl: null,
+  versionId: `v${version}`,
+  version,
+  versionLocked: false,
+  deployedAt: '2026-11-05T09:00:00.000Z',
+  deployedByName: null,
+})
+
+function overview(
+  deployed: boolean,
+  locked = false,
+  accounts = [live('c-prod', 'Production', 12)],
+): WorkflowOverview {
   return {
     hasActiveDeployment: deployed,
     deployBlocked: locked,
-    activeDeployment: deployed ? { versionId: 'v3' } : undefined,
-    deployedVersion: deployed ? { version: 12 } : undefined,
+    live: deployed ? accounts : [],
+    deployedVersion: deployed ? { id: 'v3', version: 12, locked: locked ? 1 : 0 } : undefined,
     versions: [],
     versionsHasMore: false,
   } as unknown as WorkflowOverview
@@ -131,6 +149,30 @@ describe('ItemActionsMenu (WorkflowActions)', () => {
     expect(screen.queryByRole('menuitem', { name: 'Move to workspace' })).toBeNull()
     await userEvent.click(screen.getByRole('menuitem', { name: 'Stop sharing' }))
     expect(calls.share).toHaveBeenCalledWith({ itemId: 'wf_1', shared: false }, expect.anything())
+  })
+
+  it('takes it down from the one account it is live on, as before', async () => {
+    await renderMenu(WORKFLOW, overview(true))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Take down' }))
+    expect(screen.getByRole('dialog', { name: 'Take down v12?' })).toBeVisible()
+    expect(screen.queryByRole('radio')).toBeNull()
+    expect(screen.getByText(/stops answering on Production/)).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'Take down' }))
+    expect(calls.takedown).toHaveBeenCalledWith('c-prod', expect.anything())
+  })
+
+  it('asks which account to take it down from when it is live on more than one', async () => {
+    await renderMenu(
+      WORKFLOW,
+      overview(true, false, [live('c-stage', 'Staging', 11), live('c-prod', 'Production', 12)]),
+    )
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Take down' }))
+    expect(screen.getByRole('dialog', { name: 'Take down Lead enrichment?' })).toBeVisible()
+    expect(screen.getByRole('radio', { name: /Staging/ })).toBeChecked()
+    await userEvent.click(screen.getByRole('radio', { name: /Production/ }))
+    expect(screen.getByText(/stops answering on Production/)).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'Take down' }))
+    expect(calls.takedown).toHaveBeenCalledWith('c-prod', expect.anything())
   })
 
   it('asks before deleting, saying what goes with it', async () => {

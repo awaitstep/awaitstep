@@ -32,13 +32,13 @@ function account(id: string, name: string, scope: 'shared' | 'project' = 'shared
   }
 }
 
-function renderPage() {
+function renderPage(connectionId?: string) {
   return render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
       <EditorScopeProvider value={{ org: 'acme', project: 'project-101', workspace: 'sales' }}>
-        <DeployPage workflowId="wf-1" />
+        <DeployPage workflowId="wf-1" connectionId={connectionId} />
       </EditorScopeProvider>
     </QueryClientProvider>,
   )
@@ -82,6 +82,28 @@ describe('DeployPage accounts', () => {
     expect(own).toHaveTextContent('Default')
     expect(own).toHaveTextContent('••••b84d · This project only')
     expect(screen.getByRole('button', { name: /Acme production/ })).not.toHaveTextContent('Default')
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }))
+    expect(getDeployConfig).toHaveBeenCalledWith('wf-1', 'c-ownb84d')
+  })
+
+  it('starts on the account a Roll back names, and on the default when it isn’t offered', async () => {
+    const answer: DeployConnections = {
+      connections: [
+        account('c-prod7f2a', 'Acme production'),
+        account('c-ownb84d', 'Checkout staging', 'project'),
+      ],
+      defaultId: 'c-ownb84d',
+      deployedWith: [],
+    }
+    getDeployConnections.mockResolvedValue(answer)
+    const { unmount } = renderPage('c-prod7f2a')
+    await screen.findByRole('button', { name: /Acme production/ })
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }))
+    expect(getDeployConfig).toHaveBeenCalledWith('wf-1', 'c-prod7f2a')
+    unmount()
+    getDeployConfig.mockClear()
+    renderPage('c-gone')
+    await screen.findByRole('button', { name: /Acme production/ })
     await userEvent.click(screen.getByRole('button', { name: 'Next' }))
     expect(getDeployConfig).toHaveBeenCalledWith('wf-1', 'c-ownb84d')
   })

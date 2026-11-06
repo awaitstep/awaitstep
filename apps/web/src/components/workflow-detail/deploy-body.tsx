@@ -17,6 +17,8 @@ interface DeployBodyProps {
   workflow: WorkflowSummary
   /** `?version=`: the version to deploy, when it isn't the current one. */
   versionId: string | undefined
+  /** The account to start on, when the link names one. */
+  connectionId?: string
 }
 
 /**
@@ -24,7 +26,7 @@ interface DeployBodyProps {
  * is looked up first, so the page always says which one it is — a link can't
  * ship an old version while the page reads as the latest.
  */
-export function DeployBody({ workflow, versionId }: DeployBodyProps) {
+export function DeployBody({ workflow, versionId, connectionId }: DeployBodyProps) {
   const api = useApi()
   const links = useWorkflowLinks(workflow.id)
   const { canDeploy, reason } = useEditorAccess()
@@ -72,7 +74,12 @@ export function DeployBody({ workflow, versionId }: DeployBodyProps) {
   return (
     <div className="flex flex-col gap-5">
       <p className="text-sm text-muted-foreground">{line}</p>
-      <DeployPage workflowId={workflow.id} versionId={versionId} kind={workflow.kind} />
+      <DeployPage
+        workflowId={workflow.id}
+        versionId={versionId}
+        connectionId={connectionId}
+        kind={workflow.kind}
+      />
     </div>
   )
 }

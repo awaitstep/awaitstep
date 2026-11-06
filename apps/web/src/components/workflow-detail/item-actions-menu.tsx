@@ -50,12 +50,13 @@ export function ItemActionsMenu({ slugs, workflow, overview, runCount }: ItemAct
   const queryClient = useQueryClient()
   const [dialog, setDialog] = useState<OpenDialog>(null)
   const actions = useWorkflowActions(workflow)
-  const lock = useLockDeployed(workflow.id, overview.activeDeployment?.versionId ?? undefined)
+  // The newest live version's lock.
+  const lock = useLockDeployed(workflow.id, overview.deployedVersion?.id)
   const share = useSetShared(slugs)
   const isFunction = workflow.kind === 'script'
   const hasVersion = !!workflow.currentVersionId
   const deployed = overview.hasActiveDeployment
-  const locked = overview.deployBlocked
+  const locked = overview.deployedVersion?.locked === 1
   const word = isFunction ? 'function' : 'workflow'
   const { canEdit, canDeploy, canShare, canMove, reason } = useEditorAccess()
 
@@ -139,7 +140,7 @@ export function ItemActionsMenu({ slugs, workflow, overview, runCount }: ItemAct
               )}
             </DropdownMenuItem>
           )}
-          {/* The deployed version's lock: nothing else can be deployed over it. */}
+          {/* The newest live version's lock: nothing replaces it where it runs. */}
           <DropdownMenuItem
             onSelect={handleToggleLock}
             disabled={!canEdit || !deployed || lock.isPending}
@@ -179,7 +180,7 @@ export function ItemActionsMenu({ slugs, workflow, overview, runCount }: ItemAct
       {dialog === 'takedown' && (
         <TakeDownDialog
           workflow={workflow}
-          version={overview.deployedVersion?.version}
+          live={overview.live}
           takedown={actions.takedown}
           onClose={close}
         />

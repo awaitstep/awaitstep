@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { ExternalLink, Rocket } from 'lucide-react'
+import type { LiveDeployment } from '@awaitstep/ir'
 import type { DeploymentSummary, WorkflowSummary } from '../../lib/api-client'
 import { CardEmpty } from './parts/card-empty'
 import { useEditorAccess } from '../../contexts/editor-scope-context'
@@ -18,22 +19,26 @@ import { LoadMoreButton } from '../ui/load-more-button'
 import { ListCardSkeleton, LoadingRegion } from '../ui/skeletons'
 import { Tile } from '../ui/tile'
 import { useQueries } from '../../contexts/api-client-context'
+import type { WorkflowOverview } from './use-workflow-overview'
 
 interface DeploymentsTabProps {
   workflow: WorkflowSummary
   /** Names of the accounts deployments went out on. */
   accounts: Map<string, string>
-  /** The deployed version is locked: nothing else can go out. */
-  deployBlocked: boolean
-  /** Never deployed (24f); else it was, and was taken down (its rows went with it). */
+  /** What is live on each account, which accounts Deploy offers, and their locks. */
+  overview: Pick<WorkflowOverview, 'live' | 'offeredIds' | 'lockedOn'>
+  /** Never deployed (24f); else its earlier rows went with a takedown from before they were kept. */
   neverDeployed: boolean
 }
 
-/** A workflow's Deployments (`WorkflowDeployments`): what is live, the history, Roll back. */
+/**
+ * A workflow's Deployments (`WorkflowDeployments`): what is live on each
+ * account, the history (taken-down rows included), Roll back to a row's account.
+ */
 export function DeploymentsTab({
   workflow,
   accounts,
-  deployBlocked,
+  overview,
   neverDeployed,
 }: DeploymentsTabProps) {
   const queries = useQueries()
@@ -42,16 +47,17 @@ export function DeploymentsTab({
   const { canDeploy } = useEditorAccess()
   const query = useInfiniteQuery(queries.deployments.byWorkflow(workflowId))
   const deployments = flatPages(query.data)
-  const live = deployments.find((d) => d.status === 'success')
+  const { live, offeredIds, lockedOn } = overview
   const columns = useMemo(
     () =>
       historyColumns({
-        liveId: live?.id,
+        liveIds: new Set(live.map((l) => l.deploymentId)),
         accounts,
         rollBackHref: canDeploy ? links.deployVersion : undefined,
-        deployBlocked,
+        lockedOn,
+        offeredIds,
       }),
-    [live?.id, accounts, links, deployBlocked, canDeploy],
+    [live, accounts, links, lockedOn, offeredIds, canDeploy],
   )
 
   if (query.isPending) {
@@ -81,13 +87,14 @@ export function DeploymentsTab({
 
   return (
     <div className="flex flex-col gap-4">
-      {live && (
+      {live.map((l) => (
         <LiveCard
-          deployment={live}
-          version={live.version ?? undefined}
-          account={live.connectionId ? accounts.get(live.connectionId) : undefined}
+          key={l.id}
+          live={l}
+          // A dropped account still runs it; it just can't be deployed to again.
+          dropped={!offeredIds.has(l.id)}
         />
-      )}
+      ))}
       <section className="flex flex-col gap-3">
         <div className="flex items-baseline gap-2.5">
           <h2 className="text-sm font-semibold text-foreground">History</h2>
@@ -112,7 +119,7 @@ export function DeploymentsTab({
           }
         />
         <p className="text-xs text-muted-foreground">
-          Rolling back redeploys that version. Nothing is deleted from Cloudflare.
+          Rolling back redeploys that version to the same account.
         </p>
       </section>
     </div>
@@ -120,29 +127,31 @@ export function DeploymentsTab({
 }
 
 interface LiveCardProps {
-  deployment: DeploymentSummary
-  version: number | undefined
-  account: string | undefined
+  live: LiveDeployment
+  /** The project no longer deploys to this account. */
+  dropped: boolean
 }
 
-function LiveCard({ deployment, version, account }: LiveCardProps) {
-  const title = [version !== undefined ? `v${version}` : 'Live version', account && `on ${account}`]
-    .filter(Boolean)
-    .join(' ')
-  const by = deployment.createdByName ? `deployed by ${deployment.createdByName}, ` : 'deployed '
-  const url = workerUrl(deployment.serviceUrl)
+function LiveCard({ live, dropped }: LiveCardProps) {
+  const title = [
+    live.version !== null ? `v${live.version}` : 'Live version',
+    `on ${live.name}`,
+  ].join(' ')
+  const by = live.deployedByName ? `deployed by ${live.deployedByName}, ` : 'deployed '
+  const url = workerUrl(live.serviceUrl)
   return (
     <section className="flex flex-wrap items-center gap-4 rounded-2xl border border-status-success/30 bg-card px-5 py-4">
       <Tile tone="ok">
         <Rocket />
       </Tile>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+        <span className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
           {title}
           <Badge variant="success">Live</Badge>
+          {dropped && <Badge variant="neutral">Not this project’s any more</Badge>}
         </span>
         <span className="truncate text-xs text-muted-foreground">
-          {[url?.replace(/^https:\/\//, ''), `${by}${timeAgo(deployment.createdAt)}`]
+          {[url?.replace(/^https:\/\//, ''), `${by}${timeAgo(live.deployedAt)}`]
             .filter(Boolean)
             .join(' · ')}
         </span>
@@ -163,18 +172,23 @@ function LiveCard({ deployment, version, account }: LiveCardProps) {
 }
 
 interface HistoryColumnsOptions {
-  liveId: string | undefined
+  /** Each account's live row. */
+  liveIds: ReadonlySet<string>
   accounts: Map<string, string>
   /** Left out for someone who can't deploy: no Roll back. */
-  rollBackHref?: (versionId: string) => string
-  deployBlocked: boolean
+  rollBackHref?: (versionId: string, connectionId?: string) => string
+  /** The version live on that account is locked: nothing replaces it there. */
+  lockedOn: (connectionId: string | null) => boolean
+  /** The accounts Deploy offers: a row on another can't go back to its account. */
+  offeredIds: ReadonlySet<string>
 }
 
 function historyColumns({
-  liveId,
+  liveIds,
   accounts,
   rollBackHref,
-  deployBlocked,
+  lockedOn,
+  offeredIds,
 }: HistoryColumnsOptions): DataColumn<DeploymentSummary>[] {
   return [
     {
@@ -189,7 +203,8 @@ function historyColumns({
             <span className="font-mono text-sm text-foreground">
               {version !== undefined ? `v${version}` : '—'}
             </span>
-            {d.id === liveId && <Badge variant="success">live</Badge>}
+            {liveIds.has(d.id) && <Badge variant="success">live</Badge>}
+            {d.status === 'taken_down' && <Badge variant="neutral">taken down</Badge>}
             {d.status === 'failed' && <Badge variant="error">failed</Badge>}
           </span>
         )
@@ -200,7 +215,7 @@ function historyColumns({
       header: 'Account',
       cell: (d) => (
         <span className="truncate text-muted-foreground">
-          {(d.connectionId && accounts.get(d.connectionId)) ?? '—'}
+          {d.connectionName ?? (d.connectionId && accounts.get(d.connectionId)) ?? '—'}
         </span>
       ),
     },
@@ -221,21 +236,24 @@ function historyColumns({
       header: '',
       width: '110px',
       cell: (d) => {
-        // Only a version that went out and still exists can go out again.
+        // Only a version that went out and still exists can go out again, to the same account.
         if (
           !rollBackHref ||
-          d.id === liveId ||
+          liveIds.has(d.id) ||
           d.status === 'failed' ||
           !d.versionId ||
+          !d.connectionId ||
+          // The project dropped that account: Deploy would go elsewhere.
+          !offeredIds.has(d.connectionId) ||
           d.version == null
         ) {
           return null
         }
         return (
           <DeployLink
-            href={rollBackHref(d.versionId)}
-            label="Roll back"
-            blockedReason={deployBlockedReason(d.versionLocked === 1, deployBlocked)}
+            href={rollBackHref(d.versionId, d.connectionId)}
+            label={d.status === 'taken_down' ? 'Redeploy' : 'Roll back'}
+            blockedReason={deployBlockedReason(d.versionLocked === 1, lockedOn(d.connectionId))}
           />
         )
       },

@@ -6,6 +6,8 @@ import { HourBars } from '../../workspaces/parts/hour-bars'
 import { CopyUrl } from './copy-url'
 
 export interface BandLive {
+  /** The account's id. */
+  accountId: string
   version: number | undefined
   account: string | undefined
   /** When it went out. */
@@ -15,8 +17,8 @@ export interface BandLive {
 }
 
 interface StatusBandProps {
-  /** What is live; none while nothing is. */
-  live: BandLive | undefined
+  /** What is live on each account, newest first; empty while nothing is. */
+  live: BandLive[]
   /** The newest saved version, for the not-deployed line. */
   latest: { version: number; at: string } | undefined
   /** Runs in the last 24 hours, by result and hour by hour, and whether it ever ran; when known. */
@@ -44,7 +46,7 @@ export function StatusBand({ live, latest, runs24h, isFunction = false }: Status
       </div>
       <div className={cn(COLUMN, 'basis-[240px] grow')}>
         <span className={LABEL}>Trigger</span>
-        <TriggerColumn url={live?.url ?? null} live={!!live} isFunction={isFunction} />
+        <TriggerColumn url={live[0]?.url ?? null} live={live.length > 0} isFunction={isFunction} />
       </div>
       <div className={cn(COLUMN, 'basis-[240px] grow')}>
         {isFunction ? <RequestsColumn /> : <RunsColumn runs24h={runs24h} />}
@@ -58,7 +60,9 @@ function LiveColumn({
   latest,
   isFunction,
 }: Pick<StatusBandProps, 'live' | 'latest'> & { isFunction: boolean }) {
-  if (!live) {
+  if (live.length > 1) return <LiveAccounts live={live} />
+  const only = live[0]
+  if (!only) {
     return (
       <>
         <span className="flex items-center gap-2">
@@ -76,19 +80,19 @@ function LiveColumn({
       </>
     )
   }
-  const where = live.account ? `on ${live.account}, ${timeAgo(live.at)}` : timeAgo(live.at)
+  const where = only.account ? `on ${only.account}, ${timeAgo(only.at)}` : timeAgo(only.at)
   return (
     <>
       <span className="flex items-center gap-2">
         <span aria-hidden="true" className="size-2 rounded-full bg-status-success" />
         <span className="text-[15px] font-semibold text-foreground">
-          {live.version !== undefined ? `Live · v${live.version}` : 'Live'}
+          {only.version !== undefined ? `Live · v${only.version}` : 'Live'}
         </span>
       </span>
       <span className="text-xs text-muted-foreground">{where}</span>
-      {live.url && (
+      {only.url && (
         <a
-          href={live.url}
+          href={only.url}
           target="_blank"
           rel="noopener noreferrer"
           className="flex w-fit items-center gap-1 text-xs font-medium text-status-success hover:underline"
@@ -97,6 +101,31 @@ function LiveColumn({
           <ExternalLink aria-hidden="true" className="size-3" />
         </a>
       )}
+    </>
+  )
+}
+
+/** Live on several accounts: each one's version, newest first. */
+function LiveAccounts({ live }: { live: BandLive[] }) {
+  return (
+    <>
+      <span className="flex items-center gap-2">
+        <span aria-hidden="true" className="size-2 rounded-full bg-status-success" />
+        <span className="text-[15px] font-semibold text-foreground">
+          Live on {live.length} accounts
+        </span>
+      </span>
+      <ul className="flex flex-col gap-1">
+        {live.map((l) => (
+          <li key={l.accountId} className="flex min-w-0 items-baseline gap-1.5 text-xs">
+            <span className="truncate text-foreground">{l.account ?? 'An account'}</span>
+            <span className="font-mono text-muted-foreground">
+              {l.version !== undefined ? `v${l.version}` : ''}
+            </span>
+            <span className="text-muted-foreground">{timeAgo(l.at)}</span>
+          </li>
+        ))}
+      </ul>
     </>
   )
 }

@@ -208,20 +208,22 @@ describe('ItemPage', () => {
     ).toEqual(['Overview', 'Runs', 'Deployments'])
   })
 
-  it('says what is live, and when that version is locked, that deploying another is off', () => {
+  it('says what is live, and when that version is locked, that it can’t be replaced there', () => {
     enterScope()
     settled({
       workflow: { id: 'wf_1', name: 'Lead enrichment', kind: 'workflow', currentVersionId: 'v2' },
       hasActiveDeployment: true,
       deployBlocked: true,
       deployedVersion: { id: 'v2', version: 12, locked: 1 },
-      activeDeployment: { id: 'd1', versionId: 'v2', status: 'success' },
+      live: [
+        { id: 'c-prod', name: 'Production', versionId: 'v2', version: 12, versionLocked: true },
+      ],
     })
     renderPage()
     // What is live reads in the band now, not as a header pill (24a).
     expect(screen.queryByText('Deployed v12')).not.toBeInTheDocument()
     expect(screen.getByText('Locked')).toBeVisible()
-    expect(screen.getByText('v12 is locked · deploying another version is off')).toBeVisible()
+    expect(screen.getByText('v12 is locked · it can’t be replaced where it’s live')).toBeVisible()
     expect(screen.getByRole('button', { name: 'Unlock' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Deploy' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Trigger a run' })).toBeEnabled()

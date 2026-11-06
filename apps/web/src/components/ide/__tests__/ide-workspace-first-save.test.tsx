@@ -83,7 +83,7 @@ const blankFull = {
   version: null,
   versions: [],
   handlers: { modules: false, consumedQueues: [] },
-  activeDeployment: null,
+  liveDeployments: [],
 }
 const blankSource = (files: object[] = []) => ({
   versionId: null,

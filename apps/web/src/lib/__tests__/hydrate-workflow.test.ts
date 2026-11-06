@@ -410,60 +410,49 @@ describe('deriveReadOnlyState', () => {
 })
 
 describe('deriveDeploymentState', () => {
-  it('computes hasActiveDeployment correctly', () => {
-    const fullData: WorkflowFull = {
-      workflow: baseWorkflow,
-      version: null,
-      versions: [],
-      handlers: { modules: false, consumedQueues: [] },
-      activeDeployment: {
-        id: 'd1',
-        workflowId: 'wf1',
-        versionId: 'v1',
-        connectionId: null,
-        serviceName: 'svc',
-        serviceUrl: null,
-        status: 'success',
-        error: null,
-        createdAt: '',
-      },
-    }
-    const result = deriveDeploymentState(fullData)
+  const live = (account: string, versionId: string, version: number) => ({
+    id: account,
+    name: account,
+    deploymentId: `d-${account}`,
+    serviceUrl: null,
+    versionId,
+    version,
+    versionLocked: false,
+    deployedAt: '',
+    deployedByName: null,
+  })
+  const full = (
+    currentVersionId: string,
+    liveDeployments: ReturnType<typeof live>[],
+  ): WorkflowFull => ({
+    workflow: { ...baseWorkflow, currentVersionId },
+    version: null,
+    versions: [{ id: 'v2', version: 2, locked: 0, createdAt: '' }],
+    handlers: { modules: false, consumedQueues: [] },
+    liveDeployments,
+  })
+
+  it('is deployed while live on any account, naming the newest live version', () => {
+    const result = deriveDeploymentState(full('v2', [live('c-b', 'v1', 1), live('c-a', 'v2', 2)]))
     expect(result.hasActiveDeployment).toBe(true)
+    expect(result.deployedVersion).toEqual({ id: 'v1', version: 1 })
   })
 
   it('returns hasActiveDeployment false when no deployment', () => {
-    const fullData: WorkflowFull = {
-      workflow: baseWorkflow,
-      version: null,
-      versions: [],
-      handlers: { modules: false, consumedQueues: [] },
-      activeDeployment: null,
-    }
-    const result = deriveDeploymentState(fullData)
+    const result = deriveDeploymentState(full('v2', []))
     expect(result.hasActiveDeployment).toBe(false)
+    expect(result.hasUndeployedChanges).toBe(false)
   })
 
-  it('computes hasUndeployedChanges when versions differ', () => {
-    const fullData: WorkflowFull = {
-      workflow: { ...baseWorkflow, currentVersionId: 'v2' },
-      version: null,
-      versions: [{ id: 'v2', version: 2, locked: 0, createdAt: '' }],
-      handlers: { modules: false, consumedQueues: [] },
-      activeDeployment: {
-        id: 'd1',
-        workflowId: 'wf1',
-        versionId: 'v1',
-        connectionId: null,
-        serviceName: 'svc',
-        serviceUrl: null,
-        status: 'success',
-        error: null,
-        createdAt: '',
-      },
-    }
-    const result = deriveDeploymentState(fullData)
-    expect(result.hasUndeployedChanges).toBeTruthy()
+  it('has undeployed changes only while the latest version is live on no account', () => {
+    // Another account's newer deploy of older work doesn't hide that v2 is live on c-a.
+    expect(
+      deriveDeploymentState(full('v2', [live('c-b', 'v1', 1), live('c-a', 'v2', 2)]))
+        .hasUndeployedChanges,
+    ).toBe(false)
+    expect(deriveDeploymentState(full('v2', [live('c-b', 'v1', 1)])).hasUndeployedChanges).toBe(
+      true,
+    )
   })
 
   it('handles undefined fullData', () => {

@@ -456,7 +456,7 @@ export const endpoints: EndpointDef[] = [
     group: 'Deployments',
     method: 'GET',
     path: '/api/workflows/:workflowId/deploy-connections',
-    label: 'List accounts a workflow can deploy to',
+    label: 'List accounts a workflow can deploy to, and what is live on each',
     permission: 'workflows:read',
     params: [{ name: 'workflowId', in: 'path', required: true }],
     hasBody: false,

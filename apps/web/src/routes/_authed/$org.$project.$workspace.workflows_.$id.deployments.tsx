@@ -21,7 +21,7 @@ function DeploymentsRoute() {
         <DeploymentsTab
           workflow={workflow}
           accounts={accounts}
-          deployBlocked={overview.deployBlocked}
+          overview={overview}
           neverDeployed={neverDeployed}
         />
       )}

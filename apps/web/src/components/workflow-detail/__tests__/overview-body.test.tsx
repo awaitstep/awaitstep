@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { screen, within } from '@testing-library/react'
+import type { LiveDeployment } from '@awaitstep/ir'
 import type { WorkflowOverview } from '../use-workflow-overview'
 import { OverviewBody } from '../overview-body'
 import { useOrgStore } from '../../../stores/org-store'
@@ -15,16 +16,16 @@ vi.mock('../../navigation/router-shell-link', () => ({
 }))
 
 const WORKFLOW = { id: 'wf_1', name: 'Lead enrichment', createdAt: '', updatedAt: '' }
-const LIVE = {
-  id: 'd1',
-  workflowId: 'wf_1',
-  versionId: 'v3',
-  connectionId: 'c-prod',
-  serviceName: 'svc',
+const LIVE: LiveDeployment = {
+  id: 'c-prod',
+  name: 'Acme production',
+  deploymentId: 'd1',
   serviceUrl: 'https://awaitstep-abc.workers.dev',
-  status: 'success',
-  error: null,
-  createdAt: '2026-11-05T09:00:00.000Z',
+  versionId: 'v3',
+  version: 12,
+  versionLocked: false,
+  deployedAt: '2026-11-05T09:00:00.000Z',
+  deployedByName: 'Ama',
 }
 
 function overview(live: boolean): WorkflowOverview {
@@ -33,13 +34,11 @@ function overview(live: boolean): WorkflowOverview {
     versionsHasMore: false,
     versionsLoadingMore: false,
     loadMoreVersions: vi.fn(),
-    activeDeployment: live ? LIVE : undefined,
+    live: live ? [LIVE] : [],
     deployedVersion: live ? { id: 'v3', version: 12, locked: 0 } : undefined,
     deployBlocked: false,
   } as unknown as WorkflowOverview
 }
-
-const ACCOUNTS = new Map([['c-prod', 'Acme production']])
 
 const HOURS = Array.from({ length: 24 }, (_, i) =>
   i === 23 ? { runs: 5, complete: 3, failed: 2 } : { runs: 0, complete: 0, failed: 0 },
@@ -51,7 +50,6 @@ describe('OverviewBody (WorkflowDetail)', () => {
       <OverviewBody
         workflow={WORKFLOW}
         overview={overview(true)}
-        accounts={ACCOUNTS}
         runs24h={{ all: 128, failed: 3, byHour: HOURS }}
         neverDeployed={false}
       />,
@@ -80,12 +78,43 @@ describe('OverviewBody (WorkflowDetail)', () => {
     expect(screen.getByText('deployed')).toBeVisible()
   })
 
+  it('lists what is live on each account when it runs on more than one', () => {
+    const twoAccounts = {
+      ...overview(true),
+      live: [
+        {
+          ...LIVE,
+          id: 'c-stage',
+          name: 'Staging',
+          deploymentId: 'd2',
+          versionId: 'v2',
+          version: 11,
+        },
+        LIVE,
+      ],
+    } as WorkflowOverview
+    renderWithPages(
+      <OverviewBody workflow={WORKFLOW} overview={twoAccounts} neverDeployed={false} />,
+      { '["workflow-runs","wf_1"]': [] },
+    )
+    const band = screen.getByRole('region', { name: 'Status' })
+    expect(within(band).getByText('Live on 2 accounts')).toBeVisible()
+    expect(within(band).getByText('Staging')).toBeVisible()
+    expect(within(band).getByText('v11')).toBeVisible()
+    expect(within(band).getByText('Acme production')).toBeVisible()
+    expect(within(band).getByText('v12')).toBeVisible()
+    // Both live versions are tagged; only the one live nowhere can go out.
+    expect(screen.getAllByText('deployed')).toHaveLength(2)
+    expect(
+      screen.getAllByRole('link', { name: 'Deploy' }).map((a) => a.getAttribute('href')),
+    ).toEqual([`${BASE}/deploy?version=v1`])
+  })
+
   it('lists versions for a Viewer with nothing to deploy', () => {
     renderWithPages(
       <OverviewBody
         workflow={WORKFLOW}
         overview={overview(true)}
-        accounts={ACCOUNTS}
         runs24h={{ all: 128, failed: 3, byHour: HOURS }}
         neverDeployed={false}
       />,
@@ -101,7 +130,6 @@ describe('OverviewBody (WorkflowDetail)', () => {
       <OverviewBody
         workflow={WORKFLOW}
         overview={overview(true)}
-        accounts={ACCOUNTS}
         runs24h={{ all: 0, failed: 0, byHour: [], ranEver: true }}
         neverDeployed={false}
       />,
@@ -114,12 +142,7 @@ describe('OverviewBody (WorkflowDetail)', () => {
     expect(screen.getByText('Trigger it to see runs here.')).toBeVisible()
     unmount()
     renderWithPages(
-      <OverviewBody
-        workflow={WORKFLOW}
-        overview={overview(true)}
-        accounts={ACCOUNTS}
-        neverDeployed={false}
-      />,
+      <OverviewBody workflow={WORKFLOW} overview={overview(true)} neverDeployed={false} />,
       { '["workflow-runs","wf_1"]': [] },
     )
     const band = screen.getByRole('region', { name: 'Status' })
@@ -132,12 +155,7 @@ describe('OverviewBody (WorkflowDetail)', () => {
       versions: VERSIONS.map((v) => (v.id === 'v1' ? { ...v, locked: 1 } : v)),
     } as WorkflowOverview
     const { unmount } = renderWithPages(
-      <OverviewBody
-        workflow={WORKFLOW}
-        overview={locked}
-        accounts={ACCOUNTS}
-        neverDeployed={false}
-      />,
+      <OverviewBody workflow={WORKFLOW} overview={locked} neverDeployed={false} />,
       { '["workflow-runs","wf_1"]': [] },
     )
     expect(
@@ -152,7 +170,6 @@ describe('OverviewBody (WorkflowDetail)', () => {
       <OverviewBody
         workflow={WORKFLOW}
         overview={{ ...overview(true), deployBlocked: true } as WorkflowOverview}
-        accounts={ACCOUNTS}
         neverDeployed={false}
       />,
       { '["workflow-runs","wf_1"]': [] },
@@ -165,7 +182,6 @@ describe('OverviewBody (WorkflowDetail)', () => {
       <OverviewBody
         workflow={WORKFLOW}
         overview={{ ...overview(false), versions: [VERSIONS[0]!] } as WorkflowOverview}
-        accounts={ACCOUNTS}
         runs24h={{ all: 0, failed: 0, byHour: [] }}
         neverDeployed
       />,
@@ -189,7 +205,6 @@ describe('OverviewBody for a function (FunctionDetail)', () => {
       <OverviewBody
         workflow={{ ...WORKFLOW, kind: 'script' }}
         overview={overview(true)}
-        accounts={ACCOUNTS}
         neverDeployed={false}
       />,
       {},
@@ -212,7 +227,6 @@ describe('OverviewBody for a function (FunctionDetail)', () => {
       <OverviewBody
         workflow={{ ...WORKFLOW, kind: 'script' }}
         overview={overview(true)}
-        accounts={ACCOUNTS}
         neverDeployed={false}
       />,
       {},
@@ -227,13 +241,12 @@ describe('OverviewBody for a function (FunctionDetail)', () => {
     const live = overview(true)
     const noUrl = {
       ...live,
-      activeDeployment: { ...live.activeDeployment!, serviceUrl: null },
+      live: [{ ...LIVE, serviceUrl: null }],
     } as WorkflowOverview
     renderWithPages(
       <OverviewBody
         workflow={{ ...WORKFLOW, kind: 'script' }}
         overview={noUrl}
-        accounts={ACCOUNTS}
         neverDeployed={false}
       />,
       {},
@@ -253,7 +266,6 @@ describe('OverviewBody for a function (FunctionDetail)', () => {
       <OverviewBody
         workflow={{ ...WORKFLOW, kind: 'script' }}
         overview={overview(true)}
-        accounts={ACCOUNTS}
         neverDeployed={false}
       />,
       {},
@@ -268,7 +280,6 @@ describe('OverviewBody for a function (FunctionDetail)', () => {
       <OverviewBody
         workflow={{ ...WORKFLOW, kind: 'script' }}
         overview={{ ...overview(false), versions: [VERSIONS[0]!] } as WorkflowOverview}
-        accounts={ACCOUNTS}
         neverDeployed
       />,
       {},

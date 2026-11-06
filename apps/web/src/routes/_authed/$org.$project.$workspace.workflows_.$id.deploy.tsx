@@ -10,16 +10,19 @@ export const Route = createFileRoute('/_authed/$org/$project/$workspace/workflow
   staticData: { dashboardPage: page },
   head: () => pageHead(page),
   // `?version=`: deploy that version (Deploy on the Versions card, Roll back), not the current one.
+  // `?connection=`: to that account (Roll back on one account's row).
   validateSearch: parseDeploySearch,
   component: DeployRoute,
 })
 
 function DeployRoute() {
   const { id, ...slugs } = Route.useParams()
-  const { version } = Route.useSearch()
+  const { version, connection } = Route.useSearch()
   return (
     <ItemPage slugs={slugs} workflowId={id} page="deploy">
-      {({ workflow }) => <DeployBody workflow={workflow} versionId={version} />}
+      {({ workflow }) => (
+        <DeployBody workflow={workflow} versionId={version} connectionId={connection} />
+      )}
     </ItemPage>
   )
 }

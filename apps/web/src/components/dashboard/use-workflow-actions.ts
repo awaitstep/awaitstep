@@ -52,11 +52,8 @@ export function useWorkflowActions(workflow: WorkflowSummary) {
 
   const takedown = useMutation({
     meta: { toast: { success: `${Word} taken down`, error: `Couldn’t take the ${word} down` } },
-    mutationFn: async () => {
-      // The account it went out with, latest first: the API takes down only from one of those.
-      const targets = await api.getDeployConnections(workflow.id)
-      const connectionId = targets.deployedWith[0]?.id
-      if (!connectionId) throw new Error('It isn’t deployed anywhere')
+    /** The account to take it down from: one it is live on. */
+    mutationFn: async (connectionId: string) => {
       const result = await api.takedownDeployment(workflow.id, connectionId)
       if (!result.success) throw new Error(result.error ?? `Couldn’t take the ${word} down`)
       return result
@@ -66,6 +63,7 @@ export function useWorkflowActions(workflow: WorkflowSummary) {
       void queryClient.invalidateQueries({ queryKey: ['deployments', workflow.id] })
       void queryClient.invalidateQueries({ queryKey: ['deploy-connections', workflow.id] })
       void queryClient.invalidateQueries({ queryKey: ['workflow', workflow.id] })
+      void queryClient.invalidateQueries({ queryKey: ['workflow-full', workflow.id] })
     },
   })
 

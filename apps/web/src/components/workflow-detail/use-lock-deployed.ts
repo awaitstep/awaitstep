@@ -3,8 +3,8 @@ import { defineToast } from '../../lib/action-toast'
 import { useApi } from '../../contexts/api-client-context'
 
 /**
- * Locks or unlocks the deployed version: while it's locked, no other version
- * can be deployed over it. The same lock the Versions list always had.
+ * Locks or unlocks the newest live version: while it's locked, no other version
+ * replaces it on the accounts it runs on. The same lock the Versions list always had.
  */
 export function useLockDeployed(workflowId: string, versionId: string | undefined) {
   const api = useApi()
@@ -20,11 +20,13 @@ export function useLockDeployed(workflowId: string, versionId: string | undefine
       if (!versionId) throw new Error('Nothing is deployed yet')
       return api.lockVersion(workflowId, versionId, locked)
     },
-    // The lock shows on the versions list and on the deployment row (its version's lock).
+    // The lock shows on the versions list, the deployment rows and what is live on each
+    // account (the banner, the menu and every Deploy/Roll back read it from there).
     onSuccess: () =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: ['versions', workflowId] }),
         queryClient.invalidateQueries({ queryKey: ['deployments', workflowId] }),
+        queryClient.invalidateQueries({ queryKey: ['deploy-connections', workflowId] }),
       ]),
   })
 }

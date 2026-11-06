@@ -25,7 +25,8 @@ function isMissing(error: Error): boolean {
 
 /**
  * Never deployed, as far as can be told: no deployment rows, and for a
- * workflow no runs either — take down deletes the rows, but its runs stay.
+ * workflow no runs either — takedowns before rows were kept deleted them,
+ * but their runs stay.
  * Undefined until both have loaded.
  */
 function draftState(

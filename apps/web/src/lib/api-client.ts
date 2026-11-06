@@ -1,4 +1,8 @@
-import type { ConnectionSummary as ApiConnectionSummary, DeployConnections } from '@awaitstep/ir'
+import type {
+  ConnectionSummary as ApiConnectionSummary,
+  DeployConnections,
+  LiveDeployment,
+} from '@awaitstep/ir'
 import type { RuntimeRequirement, SourceDiagnostic } from '@awaitstep/codegen'
 import type {
   GeneratedFile,
@@ -189,21 +193,26 @@ export interface DeploymentSummary {
   connectionId: string | null
   serviceName: string
   serviceUrl: string | null
+  /** 'success', 'failed' or 'taken_down' (kept as history once its account was taken down). */
   status: string
   error: string | null
   createdAt: string
+  takenDownAt?: string | null
   /** Who deployed it; null before authors were kept (or once they're removed). */
   createdByName?: string | null
   /** In a list: its version's number (kept after the version is deleted) and lock (1 locked). */
   version?: number | null
   versionLocked?: number | null
+  /** In a list: its account's name; null once the account is deleted. */
+  connectionName?: string | null
 }
 
 export interface WorkflowFull {
   workflow: WorkflowSummary
   version: WorkflowVersion | null
   versions: VersionSummary[]
-  activeDeployment: DeploymentSummary | null
+  /** What is live on each account, newest first. */
+  liveDeployments: LiveDeployment[]
   /** The project's handler modules, as far as the canvas needs to know. */
   handlers: {
     /** The project uses handler modules; `workflow.triggerCode` is then null. */

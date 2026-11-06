@@ -47,7 +47,7 @@ export function ItemHeader({
   const links = useWorkflowLinks(workflow.id)
   const [triggerOpen, setTriggerOpen] = useState(false)
   const isFunction = workflow.kind === 'script'
-  const locked = overview.deployBlocked
+  const locked = overview.deployedVersion?.locked === 1
   const live = overview.deployedVersion?.version
   // Deploy is the page's own action there; a run has its own.
   const showActions = page !== 'deploy' && page !== 'run'
@@ -122,7 +122,7 @@ export function ItemHeader({
               workflowId={workflow.id}
               currentVersionId={workflow.currentVersionId}
               kind={workflow.kind}
-              deployBlocked={locked}
+              deployBlocked={overview.deployBlocked}
               // A function's deploy publishes its latest version (24d, 24g).
               label={
                 isFunction && overview.currentVersion > 0
@@ -156,18 +156,12 @@ export function ItemHeader({
       {locked && live !== undefined && (
         <LockBanner
           workflowId={workflow.id}
-          versionId={overview.activeDeployment?.versionId ?? undefined}
+          versionId={overview.deployedVersion?.id}
           version={live}
         />
       )}
       {!isFunction && <LinkTabs label="Workflow pages" tabs={tabs} activeKey={tabKey(page)} />}
-      {triggerOpen && (
-        <TriggerDialog
-          workflowId={workflow.id}
-          deployedVersion={live}
-          onClose={handleCloseTrigger}
-        />
-      )}
+      {triggerOpen && <TriggerDialog workflowId={workflow.id} onClose={handleCloseTrigger} />}
     </div>
   )
 }
@@ -178,8 +172,9 @@ function tabKey(page: ItemDetailPage): string {
 }
 
 /**
- * The deployed version is locked: what that stops, and the way out. It is the
- * version lock the Versions list always had, so only deploying is off.
+ * The newest live version is locked: what that stops, and the way out. It is
+ * the version lock the Versions list always had; only replacing it on the
+ * accounts it runs on is off.
  */
 interface LockBannerProps {
   workflowId: string
@@ -198,7 +193,7 @@ function LockBanner({ workflowId, versionId, version }: LockBannerProps) {
     <div className="flex flex-wrap items-center gap-3 rounded-xl border border-status-warning/30 bg-status-warning/5 px-4 py-3">
       <Lock aria-hidden="true" className="size-4 shrink-0 text-status-warning" />
       <p className="flex-1 text-sm text-foreground">
-        v{version} is locked · deploying another version is off
+        v{version} is locked · it can’t be replaced where it’s live
       </p>
       <Button
         type="button"
