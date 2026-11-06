@@ -11,7 +11,13 @@ import {
   stepSources,
   type StepSources,
 } from '../lib/ide/node-source'
-import { fileOwner, projectUsage, splitWorkspaceFiles, virtualSeedFiles } from '../lib/ide/project'
+import {
+  fileOwner,
+  projectUsage,
+  splitWorkspaceFiles,
+  storedFiles as storedOf,
+  virtualSeedFiles,
+} from '../lib/ide/project'
 import { formatClock } from '../lib/ide/session-log'
 import { deriveReadOnlyState } from '../lib/hydrate-workflow'
 import type { SourceFile } from '../lib/api-client'
@@ -53,10 +59,7 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
   )
   // The stored project files only: what the file routes know, hashed.
   const storedFiles = useMemo(
-    () =>
-      new Map<string, SourceFile>(
-        (source?.files ?? []).flatMap((f) => (f.hash !== undefined ? [[f.path, f]] : [])),
-      ),
+    () => (source ? storedOf(source.files) : new Map<string, SourceFile>()),
     [source],
   )
   const storedHashes = useMemo(

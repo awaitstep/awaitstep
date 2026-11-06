@@ -42,6 +42,21 @@ export function splitWorkspaceFiles(
   return split
 }
 
+/**
+ * The stored project files among a bundle's files: those with a hash, the
+ * file routes' write precondition. Generated files and step sources have
+ * none, so they are left out — only these count toward usage, folder
+ * counts and the outside-changes poll, and only these back the canvas's
+ * import resolution.
+ */
+export function storedFiles<T extends { path: string; hash?: string }>(
+  files: Iterable<T>,
+): Map<string, T> {
+  const stored = new Map<string, T>()
+  for (const file of files) if (file.hash !== undefined) stored.set(file.path, file)
+  return stored
+}
+
 export interface OwnerSets {
   /** Every path the person edits as the editor sees it: stored files, virtual seeds, unsaved new files, step sources. */
   projectPaths: ReadonlySet<string>

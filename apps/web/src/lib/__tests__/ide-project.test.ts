@@ -110,3 +110,17 @@ describe('newFileError', () => {
     expect(newFileError('handlers/fetch.ts', [...existing, 'handlers.ts'])).toMatch(/convert/)
   })
 })
+
+describe('storedFiles', () => {
+  it('keeps the files with a hash — the ones the file routes store — and nothing generated or projected', async () => {
+    const { storedFiles } = await import('../ide/project')
+    const stored = storedFiles([
+      { path: 'worker.ts', source: '', hash: undefined },
+      { path: 'lib/a.ts', source: 'a', hash: 'ha' },
+      { path: 'steps/n1.ts', source: 'return 1' },
+      { path: 'package.json', source: '{}', hash: 'hp' },
+    ])
+    expect([...stored.keys()]).toEqual(['lib/a.ts', 'package.json'])
+    expect(stored.get('lib/a.ts')).toEqual({ path: 'lib/a.ts', source: 'a', hash: 'ha' })
+  })
+})

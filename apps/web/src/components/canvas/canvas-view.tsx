@@ -282,7 +282,11 @@ export function CanvasView({
                 versionParam={versionParam}
               />
               <div className="relative flex-1 overflow-hidden">
-                <LazyCanvas focusNodeId={nodeParam} />
+                <LazyCanvas
+                  focusNodeId={nodeParam}
+                  workflowId={isNew ? null : workflowId}
+                  versionParam={versionParam}
+                />
                 {!isReadOnly && (
                   <div className="absolute left-4 top-4 z-10">
                     <NodePalette onAddNode={handleAddNode} />
