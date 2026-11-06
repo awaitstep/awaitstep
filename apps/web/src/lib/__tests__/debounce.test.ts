@@ -21,6 +21,32 @@ describe('debounce', () => {
     expect(fn).toHaveBeenCalledOnce()
   })
 
+  it('flush runs the pending call at once with its latest arguments', () => {
+    const fn = vi.fn()
+    const debounced = debounce(fn, 300)
+
+    debounced('first')
+    debounced('second')
+    debounced.flush()
+
+    expect(fn).toHaveBeenCalledOnce()
+    expect(fn).toHaveBeenCalledWith('second')
+    vi.advanceTimersByTime(300)
+    expect(fn).toHaveBeenCalledOnce()
+  })
+
+  it('flush does nothing when nothing is pending, including after cancel', () => {
+    const fn = vi.fn()
+    const debounced = debounce(fn, 300)
+
+    debounced.flush()
+    debounced('a')
+    debounced.cancel()
+    debounced.flush()
+
+    expect(fn).not.toHaveBeenCalled()
+  })
+
   it('passes arguments through', () => {
     const fn = vi.fn()
     const debounced = debounce(fn, 300)

@@ -57,7 +57,15 @@ export function CodeEditor({
     if (!pendingRef.current) setLocalValue(value)
   }, [value])
 
-  useEffect(() => () => debouncedOnChange?.cancel(), [debouncedOnChange])
+  // A pending edit is written, not dropped, when the editor goes away or loses focus.
+  useEffect(() => () => debouncedOnChange?.flush(), [debouncedOnChange])
+
+  const handleMount = useCallback(
+    (editor: { onDidBlurEditorText: (listener: () => void) => unknown }) => {
+      editor.onDidBlurEditorText(() => debouncedOnChange?.flush())
+    },
+    [debouncedOnChange],
+  )
 
   const handleChange = useCallback(
     (v: string) => {
@@ -127,6 +135,7 @@ export function CodeEditor({
               value={displayValue}
               path={path}
               onChange={(v) => handleChange(v ?? '')}
+              onMount={handleMount}
               theme={monacoTheme}
               beforeMount={configureMonaco}
               options={FULLSCREEN_EDITOR_OPTIONS}
@@ -166,6 +175,7 @@ export function CodeEditor({
           value={displayValue}
           path={path}
           onChange={(v) => handleChange(v ?? '')}
+          onMount={handleMount}
           theme={monacoTheme}
           beforeMount={configureMonaco}
           options={editorOptions}
