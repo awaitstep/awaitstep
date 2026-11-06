@@ -268,6 +268,25 @@ describe('validateProjectFiles', () => {
     expect(validateProjectFiles([{ path: 'worker.ts', source: '' }])).toEqual([])
   })
 
+  it('refuses a new write under the step-source folder, saying where the code is edited', () => {
+    const message = 'is step code; edit the step under steps/ or on the canvas'
+    expect(projectFilePathError('steps/k3j9x_a1b2c3.ts')).toBe(message)
+    expect(projectFilePathError('steps/deep/helper.ts')).toBe(message)
+    expect(projectFilePathError('Steps/k3j9x_a1b2c3.ts')).toBe(message)
+    expect(projectFilePathError('steps/notes.md')).toBe(message)
+  })
+
+  it('leaves files merely named like the step-source folder alone', () => {
+    expect(projectFilePathError('steps.ts')).toBeNull()
+    expect(projectFilePathError('lib/steps/a.ts')).toBeNull()
+    expect(projectFilePathError('stepsx/a.ts')).toBeNull()
+  })
+
+  it('lets a stored snapshot keep a file under steps/ from before the folder was reserved', () => {
+    expect(projectFilePathError('steps/old.ts', { stored: true })).toBeNull()
+    expect(validateProjectFiles([{ path: 'steps/old.ts', source: '' }])).toEqual([])
+  })
+
   it('enforces the per-file, total and count caps in UTF-8 bytes', () => {
     const big = 'é'.repeat(MAX_PROJECT_FILE_BYTES / 2 + 1)
     expect(projectFileBytes(big)).toBeGreaterThan(MAX_PROJECT_FILE_BYTES)

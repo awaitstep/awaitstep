@@ -106,8 +106,9 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
   )
   // Stored snapshots are grandfathered by `validateProjectFiles`, but a path
   // that is new to this save is a write: generated paths (`worker.ts`,
-  // `nodes/**`, `awaitstep/**`, …) are refused here too, or a first save
-  // could smuggle one past the per-file write rules.
+  // `nodes/**`, `awaitstep/**`, …) and the step-source folder (`steps/**`)
+  // are refused here too, or a first save could smuggle one past the
+  // per-file write rules.
   const storedPaths = new Set(storedFiles.map((file) => file.path))
   const pathProblems = seeds
     .filter((file) => !storedPaths.has(file.path))
