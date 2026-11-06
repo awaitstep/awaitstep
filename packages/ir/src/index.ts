@@ -157,6 +157,7 @@ export {
   isGlobalEnvRef,
   variableLevelOf,
 } from './env-vars.js'
+export { contentHash } from './content-hash.js'
 export { migrateArtifact } from './migrate.js'
 export { loadArtifact } from './load.js'
 export {
